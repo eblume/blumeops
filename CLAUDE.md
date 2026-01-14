@@ -12,21 +12,13 @@ Project documentation lives in the zettelkasten at `~/code/personal/zk`. Start w
 
 You are encouraged to explore the zk, follow links, and propose updates to it as the project evolves.
 
-## Tool Preferences
+## Rules for all sessions
 
-1. **mise** - preferred for tool/runtime management (check first)
-2. **homebrew** - for system packages
-
-### Dependency Tracking
-
-Track project dependencies in version control:
-- **Brewfile** (repo root) - homebrew packages (`brew bundle`)
-- **mise.toml** (per-directory) - runtimes and tools (`mise install`)
-
-### Service Management
-
-- **Homebrew services**: `brew services start|stop|restart <service>`
-- **Non-homebrew services**: use `mcquack` (LaunchAgent manager for macOS)
+1. Always start by consulting the project card.
+2. Expand and correct the cards of the zettelkasten.
+3. Use `Brewfile` and `mise.toml` to install tools.
+4. Use `brew services` or Launch Agents to control services on macos hosts.
+5. Test all changes before applying them - ie with ansible, use a --check --diff run.
 
 ## Ansible
 
@@ -42,5 +34,3 @@ ansible-playbook playbooks/indri.yml --check --diff
 # Apply changes
 ansible-playbook playbooks/indri.yml
 ```
-
-**Always dry-run (`--check --diff`) ansible changes before committing.**
