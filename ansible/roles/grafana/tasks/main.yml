@@ -1,0 +1,11 @@
+---
+- name: Install grafana via homebrew
+  community.general.homebrew:
+    name: grafana
+    state: present
+
+- name: Ensure grafana service is started
+  ansible.builtin.command: brew services start grafana
+  register: brew_start
+  changed_when: "'Successfully started' in brew_start.stdout"
+  failed_when: false

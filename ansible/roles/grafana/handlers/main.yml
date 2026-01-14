@@ -1,0 +1,3 @@
+---
+- name: restart grafana
+  ansible.builtin.command: brew services restart grafana

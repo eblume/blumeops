@@ -21,3 +21,20 @@ You are encouraged to explore the zk, follow links, and propose updates to it as
 
 - **Homebrew services**: `brew services start|stop|restart <service>`
 - **Non-homebrew services**: use `mcquack` (LaunchAgent manager for macOS)
+
+## Ansible
+
+Run playbooks from the `ansible/` directory.
+
+```bash
+# Install collection dependencies
+ansible-galaxy collection install -r requirements.yml
+
+# Dry-run before committing changes
+ansible-playbook playbooks/indri.yml --check --diff
+
+# Apply changes
+ansible-playbook playbooks/indri.yml
+```
+
+**Always dry-run (`--check --diff`) ansible changes before committing.**

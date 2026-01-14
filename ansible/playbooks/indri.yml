@@ -1,0 +1,6 @@
+---
+- name: Configure indri
+  hosts: indri
+  roles:
+    - prometheus
+    - grafana
