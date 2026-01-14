@@ -17,6 +17,12 @@ You are encouraged to explore the zk, follow links, and propose updates to it as
 1. **mise** - preferred for tool/runtime management (check first)
 2. **homebrew** - for system packages
 
+### Dependency Tracking
+
+Track project dependencies in version control:
+- **Brewfile** (repo root) - homebrew packages (`brew bundle`)
+- **mise.toml** (per-directory) - runtimes and tools (`mise install`)
+
 ### Service Management
 
 - **Homebrew services**: `brew services start|stop|restart <service>`
