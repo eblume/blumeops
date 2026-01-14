@@ -178,8 +178,13 @@
     mode: '0644'
   notify: restart kiwix-serve
 
-- name: Ensure kiwix-serve is loaded
+- name: Check if kiwix-serve LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.kiwix-serve
+  register: launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load kiwix-serve LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.kiwix-serve.plist
-  register: launchctl_load
-  changed_when: launchctl_load.rc == 0
+  when: launchctl_check.rc != 0
   failed_when: false

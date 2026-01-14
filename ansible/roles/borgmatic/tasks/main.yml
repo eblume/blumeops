@@ -9,8 +9,13 @@
     mode: '0644'
   notify: reload borgmatic
 
-- name: Ensure borgmatic LaunchAgent is loaded
+- name: Check if borgmatic LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.borgmatic
+  register: launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load borgmatic LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic.plist
-  register: launchctl_load
-  changed_when: launchctl_load.rc == 0
+  when: launchctl_check.rc != 0
   failed_when: false
