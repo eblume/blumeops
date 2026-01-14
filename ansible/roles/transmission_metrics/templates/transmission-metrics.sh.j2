@@ -18,6 +18,7 @@ get_session_id() {
 # Make RPC request
 rpc_request() {
     local method="$1"
+    local args="${2:-}"
     local session_id
     session_id=$(get_session_id)
 
@@ -26,10 +27,17 @@ rpc_request() {
         return 1
     fi
 
+    local payload
+    if [ -n "$args" ]; then
+        payload="{\"method\": \"$method\", \"arguments\": $args}"
+    else
+        payload="{\"method\": \"$method\"}"
+    fi
+
     curl -s "$RPC_URL" \
         -H "X-Transmission-Session-Id: $session_id" \
         -H "Content-Type: application/json" \
-        -d "{\"method\": \"$method\"}"
+        -d "$payload"
 }
 
 # Get session stats
@@ -57,6 +65,14 @@ downloaded_bytes=$(echo "$session_stats" | grep -o '"cumulative-stats":{[^}]*}' 
 uploaded_bytes=$(echo "$session_stats" | grep -o '"cumulative-stats":{[^}]*}' | grep -o '"uploadedBytes":[0-9]*' | sed 's/"uploadedBytes"://')
 seconds_active=$(echo "$session_stats" | grep -o '"cumulative-stats":{[^}]*}' | grep -o '"secondsActive":[0-9]*' | sed 's/"secondsActive"://')
 
+# Get total size of all torrents
+torrent_info=$(rpc_request "torrent-get" '{"fields": ["totalSize"]}')
+total_size_bytes=0
+if echo "$torrent_info" | grep -q '"result":"success"'; then
+    # Sum all totalSize values
+    total_size_bytes=$(echo "$torrent_info" | grep -o '"totalSize":[0-9]*' | sed 's/"totalSize"://' | awk '{sum += $1} END {print sum}')
+fi
+
 # Write metrics
 cat > "$TEMP_FILE" << EOF
 # HELP transmission_download_speed_bytes Current download speed in bytes per second
@@ -78,6 +94,10 @@ transmission_torrents_paused ${torrents_paused:-0}
 # HELP transmission_torrents_total Total number of torrents
 # TYPE transmission_torrents_total gauge
 transmission_torrents_total ${torrents_total:-0}
+
+# HELP transmission_torrents_size_bytes Total size of all torrents in bytes
+# TYPE transmission_torrents_size_bytes gauge
+transmission_torrents_size_bytes ${total_size_bytes:-0}
 
 # HELP transmission_downloaded_bytes_total Total bytes downloaded (cumulative)
 # TYPE transmission_downloaded_bytes_total counter
