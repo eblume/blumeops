@@ -1,0 +1,21 @@
+{
+    "_comment": "{{ ansible_managed }}",
+    "download-dir": "{{ transmission_download_dir }}",
+    "incomplete-dir": "{{ transmission_incomplete_dir }}",
+    "incomplete-dir-enabled": true,
+    "dht-enabled": {{ transmission_dht_enabled | lower }},
+    "pex-enabled": {{ transmission_pex_enabled | lower }},
+    "encryption": {{ transmission_encryption }},
+    "rpc-enabled": {{ transmission_rpc_enabled | lower }},
+    "rpc-port": {{ transmission_rpc_port }},
+    "rpc-bind-address": "{{ transmission_rpc_bind_address }}",
+    "rpc-authentication-required": {{ transmission_rpc_authentication_required | lower }},
+    "rpc-whitelist-enabled": {{ transmission_rpc_whitelist_enabled | lower }},
+    "rpc-whitelist": "{{ transmission_rpc_whitelist }}",
+    "speed-limit-down": {{ transmission_speed_limit_down }},
+    "speed-limit-down-enabled": {{ (transmission_speed_limit_down > 0) | lower }},
+    "speed-limit-up": {{ transmission_speed_limit_up }},
+    "speed-limit-up-enabled": {{ (transmission_speed_limit_up > 0) | lower }},
+    "start-added-torrents": true,
+    "trash-original-torrent-files": false
+}

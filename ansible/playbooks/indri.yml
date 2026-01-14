@@ -6,6 +6,8 @@
       tags: prometheus
     - role: grafana
       tags: grafana
+    - role: transmission
+      tags: transmission
     - role: kiwix
       tags: kiwix
     - role: borgmatic

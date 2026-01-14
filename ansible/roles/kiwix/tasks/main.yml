@@ -5,7 +5,135 @@
     state: directory
     mode: '0755'
 
-- name: Check which ZIM archives exist
+# --- Transmission-based download logic ---
+- name: Check transmission daemon is responding
+  ansible.builtin.command: transmission-remote -l
+  register: transmission_check
+  changed_when: false
+  failed_when: false
+  when: kiwix_use_transmission
+
+- name: Fail if transmission is not running
+  ansible.builtin.fail:
+    msg: "Transmission daemon is not responding. Ensure transmission role ran successfully."
+  when: kiwix_use_transmission and transmission_check.rc != 0
+
+# Check if each torrent is already loaded in transmission
+- name: Check torrent status for each ZIM archive
+  ansible.builtin.shell: |
+    # Look for the torrent by filename (name column in transmission-remote -l)
+    # Output: "not_found", "downloading XX%", or "complete"
+    torrent_line=$(transmission-remote -l | grep -F "{{ item.filename | regex_replace('\\.zim$', '') }}" || true)
+    if [ -z "$torrent_line" ]; then
+      echo "not_found"
+    else
+      # Extract percentage from the Done column (2nd column)
+      pct=$(echo "$torrent_line" | awk '{print $2}')
+      if [ "$pct" = "100%" ]; then
+        echo "complete"
+      else
+        echo "downloading $pct"
+      fi
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ kiwix_zim_archives }}"
+  loop_control:
+    label: "{{ item.filename }}"
+  register: torrent_status
+  changed_when: false
+  when: kiwix_use_transmission
+
+# Add torrents that are not yet loaded
+- name: Add missing torrents to transmission
+  ansible.builtin.command: >
+    transmission-remote -a "{{ kiwix_torrent_base_url }}/{{ item.item.category }}/{{ item.item.filename }}.torrent"
+  loop: "{{ torrent_status.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.filename }}"
+  when:
+    - kiwix_use_transmission
+    - item.stdout is defined
+    - item.stdout == "not_found"
+  register: torrent_add
+  changed_when: torrent_add.rc == 0
+
+# Wait briefly and recheck status for newly added torrents
+- name: Wait for transmission to register new torrents
+  ansible.builtin.pause:
+    seconds: 5
+  when:
+    - kiwix_use_transmission
+    - torrent_add.changed is defined
+    - torrent_add.changed
+
+# Recheck all torrent statuses
+- name: Recheck torrent status after adding
+  ansible.builtin.shell: |
+    torrent_line=$(transmission-remote -l | grep -F "{{ item.filename | regex_replace('\\.zim$', '') }}" || true)
+    if [ -z "$torrent_line" ]; then
+      echo "not_found"
+    else
+      pct=$(echo "$torrent_line" | awk '{print $2}')
+      if [ "$pct" = "100%" ]; then
+        echo "complete"
+      else
+        echo "downloading $pct"
+      fi
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ kiwix_zim_archives }}"
+  loop_control:
+    label: "{{ item.filename }}"
+  register: torrent_status_final
+  changed_when: false
+  when: kiwix_use_transmission
+
+# Check if symlink already exists for completed downloads
+- name: Check if ZIM symlink exists
+  ansible.builtin.stat:
+    path: "{{ kiwix_zim_dir }}/{{ item.item.filename }}"
+    get_checksum: false
+  loop: "{{ torrent_status_final.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.filename }}"
+  register: zim_symlink_stat
+  when:
+    - kiwix_use_transmission
+    - item.stdout is defined
+    - item.stdout == "complete"
+
+# Create symlinks for completed downloads
+- name: Symlink completed ZIM downloads to kiwix directory
+  ansible.builtin.file:
+    src: "{{ transmission_download_dir }}/{{ item.item.item.filename }}"
+    dest: "{{ kiwix_zim_dir }}/{{ item.item.item.filename }}"
+    state: link
+  loop: "{{ zim_symlink_stat.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.item.filename | default('unknown') }}"
+  when:
+    - kiwix_use_transmission
+    - item.stat is defined
+    - not item.stat.exists
+  notify: restart kiwix-serve
+
+# Report on incomplete downloads (informational, no failure)
+- name: Report incomplete torrent downloads
+  ansible.builtin.debug:
+    msg: "Torrent still downloading: {{ item.item.filename }} ({{ item.stdout }})"
+  loop: "{{ torrent_status_final.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.filename }}"
+  when:
+    - kiwix_use_transmission
+    - item.stdout is defined
+    - item.stdout != "complete"
+    - item.stdout != "not_found"
+
+# --- Fallback: Direct HTTP download (original behavior) ---
+- name: Check which ZIM archives exist (direct download mode)
   ansible.builtin.stat:
     path: "{{ kiwix_zim_dir }}/{{ item.filename }}"
     get_checksum: false
@@ -13,19 +141,24 @@
   loop_control:
     label: "{{ item.filename }}"
   register: zim_stat
+  when: not kiwix_use_transmission
 
-- name: Download missing ZIM archives
+- name: Download missing ZIM archives (direct download mode)
   ansible.builtin.get_url:
     url: "https://download.kiwix.org/zim/{{ item.item.category }}/{{ item.item.filename }}"
     dest: "{{ kiwix_zim_dir }}/{{ item.item.filename }}"
     mode: '0644'
     timeout: 3600
-  loop: "{{ zim_stat.results }}"
+  loop: "{{ zim_stat.results | default([]) }}"
   loop_control:
-    label: "{{ item.item.filename }}"
-  when: not item.stat.exists
+    label: "{{ item.item.filename | default('unknown') }}"
+  when:
+    - not kiwix_use_transmission
+    - item.stat is defined
+    - not item.stat.exists
   notify: restart kiwix-serve
 
+# --- LaunchAgent deployment ---
 - name: Deploy kiwix-serve LaunchAgent plist
   ansible.builtin.template:
     src: kiwix-serve.plist.j2

@@ -1,0 +1,42 @@
+---
+- name: Install transmission-cli via homebrew
+  community.general.homebrew:
+    name: transmission-cli
+    state: present
+
+- name: Ensure transmission download directory exists
+  ansible.builtin.file:
+    path: "{{ transmission_download_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure transmission incomplete directory exists
+  ansible.builtin.file:
+    path: "{{ transmission_incomplete_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure transmission config directory exists
+  ansible.builtin.file:
+    path: "{{ transmission_config_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Stop transmission before config changes
+  ansible.builtin.command: brew services stop transmission-cli
+  register: brew_stop
+  changed_when: false
+  failed_when: false
+
+- name: Deploy transmission settings.json
+  ansible.builtin.template:
+    src: settings.json.j2
+    dest: "{{ transmission_config_dir }}/settings.json"
+    mode: '0644'
+  notify: restart transmission
+
+- name: Ensure transmission service is started
+  ansible.builtin.command: brew services start transmission-cli
+  register: brew_start
+  changed_when: "'Successfully started' in brew_start.stdout"
+  failed_when: false

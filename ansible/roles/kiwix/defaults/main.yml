@@ -4,8 +4,14 @@ kiwix_zim_dir: /Users/erichblume/code/3rd/kiwix-tools
 kiwix_port: 5501
 kiwix_log_dir: /Users/erichblume/Library/Logs
 
+# Transmission integration
+# When enabled, ZIM archives are downloaded via BitTorrent instead of direct HTTP
+kiwix_use_transmission: true
+kiwix_torrent_base_url: "https://download.kiwix.org/zim"
+
 # ZIM archives to download and serve
-# Base URL: https://download.kiwix.org/zim/
+# Each item needs: category, filename
+# Torrent URL: {{ kiwix_torrent_base_url }}/{{ category }}/{{ filename }}.torrent
 kiwix_zim_archives:
   # Wikipedia - Top 1M articles with images (43G)
   - category: wikipedia

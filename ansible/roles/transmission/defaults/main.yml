@@ -1,0 +1,22 @@
+---
+# Transmission download directories
+transmission_download_dir: /Users/erichblume/transmission
+transmission_incomplete_dir: /Users/erichblume/transmission/.incomplete
+transmission_config_dir: /Users/erichblume/.config/transmission-daemon
+
+# RPC settings (local only - no authentication needed)
+transmission_rpc_enabled: true
+transmission_rpc_port: 9091
+transmission_rpc_bind_address: "127.0.0.1"
+transmission_rpc_authentication_required: false
+transmission_rpc_whitelist_enabled: true
+transmission_rpc_whitelist: "127.0.0.1"
+
+# Speed limits (KB/s, 0 = unlimited)
+transmission_speed_limit_down: 0
+transmission_speed_limit_up: 100
+
+# P2P settings
+transmission_dht_enabled: true
+transmission_pex_enabled: true
+transmission_encryption: 1  # 0=prefer unencrypted, 1=prefer encrypted, 2=require encrypted
