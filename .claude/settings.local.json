@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mcquack --help:*)"
+      "Bash(mcquack --help:*)",
+      "Bash(tea help:*)"
     ]
   }
 }
