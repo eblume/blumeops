@@ -40,7 +40,14 @@
 
 ## What is this?
 
-Infrastructure-as-code for my tailnet (`tail8d86e.ts.net`). This repo contains ansible playbooks, configuration, and automation for managing my personal infrastructure.
+Infrastructure-as-code for my tailnet (`tail8d86e.ts.net`). This repo contains
+ansible playbooks, configuration, and automation for managing my personal
+infrastructure.
+
+This codebase was heavily co-authored by Claude Code, as an experiment in
+LLM-assisted development. I want to include a personal note here that I don't
+know entirely how I feel about LLMs in our current era, but it felt important
+to learn.
 
 ## Documentation
 
