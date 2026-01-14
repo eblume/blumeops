@@ -23,40 +23,42 @@ kiwix_zim_archives:
   # - category: wikipedia
   #   filename: wikipedia_en_top_maxi_2025-12.zim        # 7.6G - Top 100K articles
 
-  ## Project Gutenberg - Public domain books
-  # - category: gutenberg
-  #   filename: gutenberg_en_all_2023-08.zim             # 72G - Full collection (2023)
+  # Project Gutenberg - Public domain books (72G)
+  - category: gutenberg
+    filename: gutenberg_en_all_2023-08.zim
+
+  ## Newer Gutenberg (much larger, unclear why):
   # - category: gutenberg
   #   filename: gutenberg_en_all_2025-11.zim             # 206G - Full collection (2025)
 
-  ## iFixit - Repair guides
-  # - category: ifixit
-  #   filename: ifixit_en_all_2025-12.zim                # 3.3G
+  # iFixit - Repair guides (3.3G)
+  - category: ifixit
+    filename: ifixit_en_all_2025-12.zim
 
-  ## Stack Exchange
-  # - category: stack_exchange
-  #   filename: superuser.com_en_all_2025-12.zim         # 3.7G
+  # Stack Exchange
+  - category: stack_exchange
+    filename: superuser.com_en_all_2025-12.zim           # 3.7G
   # - category: stack_exchange
   #   filename: serverfault.com_en_all_2025-12.zim       # 1.5G
   # - category: stack_exchange
   #   filename: askubuntu.com_en_all_2025-12.zim         # 2.6G
   # - category: stack_exchange
   #   filename: unix.stackexchange.com_en_all_2025-12.zim  # 1.2G
-  # - category: stack_exchange
-  #   filename: math.stackexchange.com_en_all_2025-12.zim  # 6.9G
+  - category: stack_exchange
+    filename: math.stackexchange.com_en_all_2025-12.zim  # 6.9G
   # - category: stack_exchange
   #   filename: stackoverflow.com_en_all_2023-11.zim     # 75G - Full StackOverflow
 
-  ## LibreTexts - Open educational resources
-  # - category: libretexts
-  #   filename: libretexts_en_biology_2025-01.zim        # 2.1G
-  # - category: libretexts
-  #   filename: libretexts_en_chemistry_2025-01.zim      # 2.0G
-  # - category: libretexts
-  #   filename: libretexts_en_engineering_2025-01.zim    # 647M
-  # - category: libretexts
-  #   filename: libretexts_en_mathematics_2025-01.zim    # 744M
-  # - category: libretexts
-  #   filename: libretexts_en_physics_2025-01.zim        # 464M
-  # - category: libretexts
-  #   filename: libretexts_en_humanities_2025-01.zim     # 3.5G
+  # LibreTexts - Open educational resources
+  - category: libretexts
+    filename: libretexts.org_en_bio_2025-01.zim          # 2.1G
+  - category: libretexts
+    filename: libretexts.org_en_chem_2025-01.zim         # 2.0G
+  - category: libretexts
+    filename: libretexts.org_en_eng_2025-01.zim          # 647M
+  - category: libretexts
+    filename: libretexts.org_en_math_2025-01.zim         # 744M
+  - category: libretexts
+    filename: libretexts.org_en_phys_2025-01.zim         # 464M
+  - category: libretexts
+    filename: libretexts.org_en_human_2025-01.zim        # 3.5G

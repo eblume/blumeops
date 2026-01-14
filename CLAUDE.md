@@ -81,15 +81,13 @@ After creating a PR, run `open <pr-url>` to open it in the browser (Claude Code'
 
 ## Ansible
 
-Run playbooks from the `ansible/` directory.
-
 ```bash
 # Install collection dependencies
-ansible-galaxy collection install -r requirements.yml
+ansible-galaxy collection install -r ansible/requirements.yml
 
 # Dry-run before committing changes
-ansible-playbook playbooks/indri.yml --check --diff
+ansible-playbook ansible/playbooks/indri.yml --check --diff
 
 # Apply changes
-ansible-playbook playbooks/indri.yml
+ansible-playbook ansible/playbooks/indri.yml
 ```

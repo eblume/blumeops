@@ -21,8 +21,19 @@
     path: ~/.config/transmission-daemon
     state: absent
 
+# Note: transmission must be stopped before modifying settings.json
+# otherwise it may overwrite our changes on shutdown
+- name: Check if settings.json needs updating
+  ansible.builtin.template:
+    src: settings.json.j2
+    dest: "{{ transmission_config_dir }}/settings.json"
+    mode: '0644'
+  check_mode: true
+  register: settings_check
+
 - name: Stop transmission before config changes
   ansible.builtin.command: brew services stop transmission-cli
+  when: settings_check.changed
   register: brew_stop
   changed_when: false
   failed_when: false
