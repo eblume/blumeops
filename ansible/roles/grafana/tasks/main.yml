@@ -4,6 +4,30 @@
     name: grafana
     state: present
 
+- name: Create grafana provisioning directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/homebrew/etc/grafana/provisioning
+    - /opt/homebrew/etc/grafana/provisioning/datasources
+    - /opt/homebrew/etc/grafana/provisioning/dashboards
+
+- name: Configure grafana.ini
+  ansible.builtin.template:
+    src: grafana.ini.j2
+    dest: /opt/homebrew/etc/grafana/grafana.ini
+    mode: '0644'
+  notify: restart grafana
+
+- name: Deploy grafana datasources config
+  ansible.builtin.template:
+    src: datasources.yaml.j2
+    dest: /opt/homebrew/etc/grafana/provisioning/datasources/datasources.yaml
+    mode: '0644'
+  notify: restart grafana
+
 - name: Ensure grafana service is started
   ansible.builtin.command: brew services start grafana
   register: brew_start
