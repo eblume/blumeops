@@ -1,0 +1,13 @@
+---
+- name: Deploy kiwix-serve LaunchAgent plist
+  ansible.builtin.template:
+    src: kiwix-serve.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.kiwix-serve.plist
+    mode: '0644'
+  notify: restart kiwix-serve
+
+- name: Ensure kiwix-serve is loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.kiwix-serve.plist
+  register: launchctl_load
+  changed_when: launchctl_load.rc == 0
+  failed_when: false

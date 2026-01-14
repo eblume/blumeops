@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>mcquack.eblume.kiwix-serve</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ kiwix_serve_bin }}</string>
+		<string>--port={{ kiwix_port }}</string>
+		<string>{{ kiwix_zim_file }}</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>{{ kiwix_log_dir }}/mcquack.kiwix-serve.err.log</string>
+	<key>StandardOutPath</key>
+	<string>{{ kiwix_log_dir }}/mcquack.kiwix-serve.out.log</string>
+</dict>
+</plist>

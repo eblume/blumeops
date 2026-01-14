@@ -1,0 +1,5 @@
+---
+kiwix_serve_bin: /Users/erichblume/code/3rd/kiwix-tools/kiwix-serve
+kiwix_zim_file: /Users/erichblume/code/3rd/kiwix-tools/wikipedia_en_top1m_maxi_2025-09.zim
+kiwix_port: 5501
+kiwix_log_dir: /Users/erichblume/Library/Logs
