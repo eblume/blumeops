@@ -1,8 +1,10 @@
 ---
-# Transmission download directories
+# Homebrew's transmission-cli service uses this config directory
+transmission_config_dir: /opt/homebrew/var/transmission
+
+# Download directories
 transmission_download_dir: /Users/erichblume/transmission
 transmission_incomplete_dir: /Users/erichblume/transmission/.incomplete
-transmission_config_dir: /Users/erichblume/.config/transmission-daemon
 
 # RPC settings (local only - no authentication needed)
 transmission_rpc_enabled: true

@@ -16,11 +16,10 @@
     state: directory
     mode: '0755'
 
-- name: Ensure transmission config directory exists
+- name: Remove old config directory (was deployed to wrong location)
   ansible.builtin.file:
-    path: "{{ transmission_config_dir }}"
-    state: directory
-    mode: '0755'
+    path: ~/.config/transmission-daemon
+    state: absent
 
 - name: Stop transmission before config changes
   ansible.builtin.command: brew services stop transmission-cli
