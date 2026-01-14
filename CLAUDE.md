@@ -38,7 +38,7 @@ Key hosts:
 
 ## Git Workflow
 
-Use feature branches for all changes. Do not commit directly to main.
+Use feature branches for all changes. Do not commit directly to main. Commit often while working to preserve progress.
 
 ```bash
 # Create a feature branch
