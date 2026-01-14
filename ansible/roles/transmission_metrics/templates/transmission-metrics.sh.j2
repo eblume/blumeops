@@ -9,8 +9,10 @@ OUTPUT_FILE="{{ transmission_metrics_dir }}/transmission.prom"
 TEMP_FILE="${OUTPUT_FILE}.tmp"
 
 # Get session ID (required for transmission RPC)
+# Note: transmission doesn't support HEAD requests, so we make a request and parse
+# the 409 response headers. We use sed to stop at the blank line (which has \r) before body.
 get_session_id() {
-    curl -s -I "$RPC_URL" 2>/dev/null | grep -i 'X-Transmission-Session-Id' | awk '{print $2}' | tr -d '\r'
+    curl -s -i "$RPC_URL" 2>/dev/null | sed '/^\r$/q' | grep -i '^X-Transmission-Session-Id:' | awk '{print $2}' | tr -d '\r'
 }
 
 # Make RPC request
