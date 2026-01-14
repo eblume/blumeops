@@ -1,0 +1,2 @@
+[tools]
+"pipx:ansible-core" = { version = "latest", uvx = "true", uvx_args = "--with botocore --with boto3" }
