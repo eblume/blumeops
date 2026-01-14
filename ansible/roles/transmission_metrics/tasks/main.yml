@@ -1,0 +1,20 @@
+---
+- name: Deploy transmission metrics collection script
+  ansible.builtin.template:
+    src: transmission-metrics.sh.j2
+    dest: "{{ transmission_metrics_script }}"
+    mode: '0755'
+  notify: reload transmission-metrics
+
+- name: Deploy transmission-metrics LaunchAgent plist
+  ansible.builtin.template:
+    src: transmission-metrics.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.transmission-metrics.plist
+    mode: '0644'
+  notify: reload transmission-metrics
+
+- name: Ensure transmission-metrics LaunchAgent is loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.transmission-metrics.plist
+  register: launchctl_load
+  changed_when: launchctl_load.rc == 0
+  failed_when: false

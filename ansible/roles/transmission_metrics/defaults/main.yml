@@ -1,0 +1,7 @@
+---
+transmission_rpc_host: 127.0.0.1
+transmission_rpc_port: 9091
+transmission_metrics_dir: /opt/homebrew/var/node_exporter/textfile
+transmission_metrics_script: /opt/homebrew/bin/transmission-metrics
+transmission_metrics_interval: 60  # seconds between metric collection
+transmission_log_dir: /opt/homebrew/var/log

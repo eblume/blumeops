@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(mcquack --help:*)",
-      "Bash(tea help:*)"
+      "Bash(tea help:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

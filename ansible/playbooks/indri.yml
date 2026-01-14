@@ -2,12 +2,16 @@
 - name: Configure indri
   hosts: indri
   roles:
+    - role: node_exporter
+      tags: node_exporter
     - role: prometheus
       tags: prometheus
     - role: grafana
       tags: grafana
     - role: transmission
       tags: transmission
+    - role: transmission_metrics
+      tags: transmission_metrics
     - role: kiwix
       tags: kiwix
     - role: borgmatic

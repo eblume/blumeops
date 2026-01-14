@@ -28,6 +28,20 @@
     mode: '0644'
   notify: restart grafana
 
+- name: Deploy grafana dashboards provider config
+  ansible.builtin.template:
+    src: dashboards.yaml.j2
+    dest: /opt/homebrew/etc/grafana/provisioning/dashboards/default.yaml
+    mode: '0644'
+  notify: restart grafana
+
+- name: Deploy grafana dashboard JSON files
+  ansible.builtin.copy:
+    src: "dashboards/"
+    dest: /opt/homebrew/etc/grafana/provisioning/dashboards/
+    mode: '0644'
+  notify: restart grafana
+
 - name: Ensure grafana service is started
   ansible.builtin.command: brew services start grafana
   register: brew_start

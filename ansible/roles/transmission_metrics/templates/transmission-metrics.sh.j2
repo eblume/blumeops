@@ -1,0 +1,98 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Collects transmission-daemon metrics for node_exporter textfile collector
+
+set -euo pipefail
+
+RPC_URL="http://{{ transmission_rpc_host }}:{{ transmission_rpc_port }}/transmission/rpc"
+OUTPUT_FILE="{{ transmission_metrics_dir }}/transmission.prom"
+TEMP_FILE="${OUTPUT_FILE}.tmp"
+
+# Get session ID (required for transmission RPC)
+get_session_id() {
+    curl -s -I "$RPC_URL" 2>/dev/null | grep -i 'X-Transmission-Session-Id' | awk '{print $2}' | tr -d '\r'
+}
+
+# Make RPC request
+rpc_request() {
+    local method="$1"
+    local session_id
+    session_id=$(get_session_id)
+
+    if [ -z "$session_id" ]; then
+        echo "Failed to get session ID" >&2
+        return 1
+    fi
+
+    curl -s "$RPC_URL" \
+        -H "X-Transmission-Session-Id: $session_id" \
+        -H "Content-Type: application/json" \
+        -d "{\"method\": \"$method\"}"
+}
+
+# Get session stats
+session_stats=$(rpc_request "session-stats")
+
+if [ -z "$session_stats" ] || ! echo "$session_stats" | grep -q '"result":"success"'; then
+    echo "Failed to get session stats" >&2
+    exit 1
+fi
+
+# Extract values using grep/sed (avoiding jq dependency)
+extract_json_int() {
+    echo "$1" | grep -o "\"$2\":[0-9]*" | head -1 | sed "s/\"$2\"://"
+}
+
+# Session stats
+download_speed=$(extract_json_int "$session_stats" "downloadSpeed")
+upload_speed=$(extract_json_int "$session_stats" "uploadSpeed")
+torrents_active=$(extract_json_int "$session_stats" "activeTorrentCount")
+torrents_paused=$(extract_json_int "$session_stats" "pausedTorrentCount")
+torrents_total=$(extract_json_int "$session_stats" "torrentCount")
+
+# Cumulative stats
+downloaded_bytes=$(echo "$session_stats" | grep -o '"cumulative-stats":{[^}]*}' | grep -o '"downloadedBytes":[0-9]*' | sed 's/"downloadedBytes"://')
+uploaded_bytes=$(echo "$session_stats" | grep -o '"cumulative-stats":{[^}]*}' | grep -o '"uploadedBytes":[0-9]*' | sed 's/"uploadedBytes"://')
+seconds_active=$(echo "$session_stats" | grep -o '"cumulative-stats":{[^}]*}' | grep -o '"secondsActive":[0-9]*' | sed 's/"secondsActive"://')
+
+# Write metrics
+cat > "$TEMP_FILE" << EOF
+# HELP transmission_download_speed_bytes Current download speed in bytes per second
+# TYPE transmission_download_speed_bytes gauge
+transmission_download_speed_bytes ${download_speed:-0}
+
+# HELP transmission_upload_speed_bytes Current upload speed in bytes per second
+# TYPE transmission_upload_speed_bytes gauge
+transmission_upload_speed_bytes ${upload_speed:-0}
+
+# HELP transmission_torrents_active Number of active torrents
+# TYPE transmission_torrents_active gauge
+transmission_torrents_active ${torrents_active:-0}
+
+# HELP transmission_torrents_paused Number of paused torrents
+# TYPE transmission_torrents_paused gauge
+transmission_torrents_paused ${torrents_paused:-0}
+
+# HELP transmission_torrents_total Total number of torrents
+# TYPE transmission_torrents_total gauge
+transmission_torrents_total ${torrents_total:-0}
+
+# HELP transmission_downloaded_bytes_total Total bytes downloaded (cumulative)
+# TYPE transmission_downloaded_bytes_total counter
+transmission_downloaded_bytes_total ${downloaded_bytes:-0}
+
+# HELP transmission_uploaded_bytes_total Total bytes uploaded (cumulative)
+# TYPE transmission_uploaded_bytes_total counter
+transmission_uploaded_bytes_total ${uploaded_bytes:-0}
+
+# HELP transmission_seconds_active_total Total seconds transmission has been active
+# TYPE transmission_seconds_active_total counter
+transmission_seconds_active_total ${seconds_active:-0}
+
+# HELP transmission_up Transmission daemon is up and responding
+# TYPE transmission_up gauge
+transmission_up 1
+EOF
+
+# Atomic move
+mv "$TEMP_FILE" "$OUTPUT_FILE"
