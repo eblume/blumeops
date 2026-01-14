@@ -45,7 +45,9 @@ echo ""
 echo "Local services (via launchctl/brew services):"
 check_service "prometheus" "ssh indri 'brew services list | grep prometheus | grep started'"
 check_service "grafana" "ssh indri 'brew services list | grep grafana | grep started'"
+check_service "node_exporter" "ssh indri 'brew services list | grep node_exporter | grep started'"
 check_service "transmission" "ssh indri 'brew services list | grep transmission | grep started'"
+check_service "transmission-metrics" "ssh indri 'launchctl list | grep transmission-metrics | grep -v \"^-\"'"
 check_service "kiwix-serve" "ssh indri 'launchctl list | grep kiwix | grep -v \"^-\"'"
 check_service "forgejo" "ssh indri 'brew services list | grep forgejo | grep started'"
 
@@ -57,6 +59,8 @@ check_http "Kiwix" "http://indri:5501/"
 check_http "Forgejo" "http://indri:3001/"
 # Transmission RPC is localhost-only by design, check via SSH
 check_service "Transmission RPC" "ssh indri 'curl -sf http://127.0.0.1:9091/transmission/rpc'"
+# Check that transmission metrics are being collected
+check_service "Transmission metrics" "ssh indri 'test -f /opt/homebrew/var/node_exporter/textfile/transmission.prom'"
 
 echo ""
 if [ $FAILED -eq 0 ]; then
