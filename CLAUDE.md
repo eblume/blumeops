@@ -40,7 +40,13 @@ Key hosts:
 
 Use feature branches for all changes. Do not commit directly to main. Commit often while working to preserve progress.
 
+**IMPORTANT:** Always create feature branches from main to avoid including unrelated commits:
+
 ```bash
+# Always start from main
+git checkout main
+git pull
+
 # Create a feature branch
 git checkout -b feature/description-of-change
 
