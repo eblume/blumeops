@@ -11,7 +11,9 @@
 	<array>
 		<string>{{ kiwix_serve_bin }}</string>
 		<string>--port={{ kiwix_port }}</string>
-		<string>{{ kiwix_zim_file }}</string>
+{% for archive in kiwix_zim_archives %}
+		<string>{{ kiwix_zim_dir }}/{{ archive.filename }}</string>
+{% endfor %}
 	</array>
 	<key>RunAtLoad</key>
 	<true/>

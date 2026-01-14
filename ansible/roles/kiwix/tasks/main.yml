@@ -1,4 +1,31 @@
 ---
+- name: Ensure kiwix ZIM directory exists
+  ansible.builtin.file:
+    path: "{{ kiwix_zim_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Check which ZIM archives exist
+  ansible.builtin.stat:
+    path: "{{ kiwix_zim_dir }}/{{ item.filename }}"
+    get_checksum: false
+  loop: "{{ kiwix_zim_archives }}"
+  loop_control:
+    label: "{{ item.filename }}"
+  register: zim_stat
+
+- name: Download missing ZIM archives
+  ansible.builtin.get_url:
+    url: "https://download.kiwix.org/zim/{{ item.item.category }}/{{ item.item.filename }}"
+    dest: "{{ kiwix_zim_dir }}/{{ item.item.filename }}"
+    mode: '0644'
+    timeout: 3600
+  loop: "{{ zim_stat.results }}"
+  loop_control:
+    label: "{{ item.item.filename }}"
+  when: not item.stat.exists
+  notify: restart kiwix-serve
+
 - name: Deploy kiwix-serve LaunchAgent plist
   ansible.builtin.template:
     src: kiwix-serve.plist.j2

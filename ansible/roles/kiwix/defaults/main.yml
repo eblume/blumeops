@@ -1,5 +1,56 @@
 ---
 kiwix_serve_bin: /Users/erichblume/code/3rd/kiwix-tools/kiwix-serve
-kiwix_zim_file: /Users/erichblume/code/3rd/kiwix-tools/wikipedia_en_top1m_maxi_2025-09.zim
+kiwix_zim_dir: /Users/erichblume/code/3rd/kiwix-tools
 kiwix_port: 5501
 kiwix_log_dir: /Users/erichblume/Library/Logs
+
+# ZIM archives to download and serve
+# Base URL: https://download.kiwix.org/zim/
+kiwix_zim_archives:
+  # Wikipedia - Top 1M articles with images (43G)
+  - category: wikipedia
+    filename: wikipedia_en_top1m_maxi_2025-09.zim
+
+  ## Other Wikipedia options:
+  # - category: wikipedia
+  #   filename: wikipedia_en_all_maxi_2025-08.zim        # 111G - Full English Wikipedia
+  # - category: wikipedia
+  #   filename: wikipedia_en_top_maxi_2025-12.zim        # 7.6G - Top 100K articles
+
+  ## Project Gutenberg - Public domain books
+  # - category: gutenberg
+  #   filename: gutenberg_en_all_2023-08.zim             # 72G - Full collection (2023)
+  # - category: gutenberg
+  #   filename: gutenberg_en_all_2025-11.zim             # 206G - Full collection (2025)
+
+  ## iFixit - Repair guides
+  # - category: ifixit
+  #   filename: ifixit_en_all_2025-12.zim                # 3.3G
+
+  ## Stack Exchange
+  # - category: stack_exchange
+  #   filename: superuser.com_en_all_2025-12.zim         # 3.7G
+  # - category: stack_exchange
+  #   filename: serverfault.com_en_all_2025-12.zim       # 1.5G
+  # - category: stack_exchange
+  #   filename: askubuntu.com_en_all_2025-12.zim         # 2.6G
+  # - category: stack_exchange
+  #   filename: unix.stackexchange.com_en_all_2025-12.zim  # 1.2G
+  # - category: stack_exchange
+  #   filename: math.stackexchange.com_en_all_2025-12.zim  # 6.9G
+  # - category: stack_exchange
+  #   filename: stackoverflow.com_en_all_2023-11.zim     # 75G - Full StackOverflow
+
+  ## LibreTexts - Open educational resources
+  # - category: libretexts
+  #   filename: libretexts_en_biology_2025-01.zim        # 2.1G
+  # - category: libretexts
+  #   filename: libretexts_en_chemistry_2025-01.zim      # 2.0G
+  # - category: libretexts
+  #   filename: libretexts_en_engineering_2025-01.zim    # 647M
+  # - category: libretexts
+  #   filename: libretexts_en_mathematics_2025-01.zim    # 744M
+  # - category: libretexts
+  #   filename: libretexts_en_physics_2025-01.zim        # 464M
+  # - category: libretexts
+  #   filename: libretexts_en_humanities_2025-01.zim     # 3.5G
