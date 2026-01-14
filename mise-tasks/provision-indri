@@ -3,5 +3,7 @@
 
 set -euo pipefail
 
+export MISE_TASK_OUTPUT=interleave
+
 cd ansible
 ansible-playbook playbooks/indri.yml "$@"
