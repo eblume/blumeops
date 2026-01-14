@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+#MISE description="Check that all indri services are online and responding"
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+
+FAILED=0
+
+check_service() {
+    local name="$1"
+    local check_cmd="$2"
+
+    printf "%-20s " "$name..."
+    if eval "$check_cmd" > /dev/null 2>&1; then
+        echo -e "${GREEN}OK${NC}"
+    else
+        echo -e "${RED}FAILED${NC}"
+        FAILED=1
+    fi
+}
+
+check_http() {
+    local name="$1"
+    local url="$2"
+
+    printf "%-20s " "$name..."
+    if curl -sf --max-time 5 "$url" > /dev/null 2>&1; then
+        echo -e "${GREEN}OK${NC}"
+    else
+        echo -e "${RED}FAILED${NC}"
+        FAILED=1
+    fi
+}
+
+echo "Checking indri services..."
+echo "=========================="
+echo ""
+
+# Check via SSH that services are running on indri
+echo "Local services (via launchctl/brew services):"
+check_service "prometheus" "ssh indri 'brew services list | grep prometheus | grep started'"
+check_service "grafana" "ssh indri 'brew services list | grep grafana | grep started'"
+check_service "transmission" "ssh indri 'brew services list | grep transmission | grep started'"
+check_service "kiwix-serve" "ssh indri 'launchctl list | grep kiwix | grep -v \"^-\"'"
+check_service "forgejo" "ssh indri 'brew services list | grep forgejo | grep started'"
+
+echo ""
+echo "HTTP endpoints (via Tailscale):"
+check_http "Prometheus" "http://indri:9090/-/healthy"
+check_http "Grafana" "http://indri:3000/api/health"
+check_http "Kiwix" "http://indri:5501/"
+check_http "Forgejo" "http://indri:3001/"
+# Transmission RPC is localhost-only by design, check via SSH
+check_service "Transmission RPC" "ssh indri 'curl -sf http://127.0.0.1:9091/transmission/rpc'"
+
+echo ""
+if [ $FAILED -eq 0 ]; then
+    echo -e "${GREEN}All services healthy!${NC}"
+    exit 0
+else
+    echo -e "${RED}Some services failed health check${NC}"
+    exit 1
+fi

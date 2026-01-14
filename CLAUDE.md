@@ -91,3 +91,13 @@ ansible-playbook ansible/playbooks/indri.yml --check --diff
 # Apply changes
 ansible-playbook ansible/playbooks/indri.yml
 ```
+
+## Service Health Checks
+
+After making changes to services, run the service health check to verify everything is working:
+
+```bash
+mise run indri-services-check
+```
+
+This checks that all indri services (prometheus, grafana, kiwix, transmission, forgejo) are running and responding to health checks.
