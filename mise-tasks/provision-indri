@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Run ansible playbook to provision indri"
+
+set -euo pipefail
+
+cd ansible
+ansible-playbook playbooks/indri.yml "$@"

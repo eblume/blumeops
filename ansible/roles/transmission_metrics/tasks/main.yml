@@ -13,8 +13,13 @@
     mode: '0644'
   notify: reload transmission-metrics
 
-- name: Ensure transmission-metrics LaunchAgent is loaded
+- name: Check if transmission-metrics LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.transmission-metrics
+  register: launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load transmission-metrics LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.transmission-metrics.plist
-  register: launchctl_load
-  changed_when: launchctl_load.rc == 0
+  when: launchctl_check.rc != 0
   failed_when: false

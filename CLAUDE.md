@@ -86,10 +86,10 @@ After creating a PR, run `open <pr-url>` to open it in the browser (Claude Code'
 ansible-galaxy collection install -r ansible/requirements.yml
 
 # Dry-run before committing changes
-ansible-playbook ansible/playbooks/indri.yml --check --diff
+mise run provision-indri -- --check --diff
 
 # Apply changes
-ansible-playbook ansible/playbooks/indri.yml
+mise run provision-indri
 ```
 
 ## Service Health Checks
