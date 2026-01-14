@@ -1,0 +1,7 @@
+---
+borgmatic_config: /Users/erichblume/.config/borgmatic/config.yaml
+borgmatic_log_dir: /Users/erichblume/Library/Logs
+
+# Schedule: runs daily at 2:00 AM
+borgmatic_schedule_hour: 2
+borgmatic_schedule_minute: 0

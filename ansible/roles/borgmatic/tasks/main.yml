@@ -1,0 +1,16 @@
+---
+# Note: borgmatic is installed via mise (pipx), not managed here.
+# This role manages only the scheduled LaunchAgent.
+
+- name: Deploy borgmatic LaunchAgent plist
+  ansible.builtin.template:
+    src: borgmatic.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.borgmatic.plist
+    mode: '0644'
+  notify: reload borgmatic
+
+- name: Ensure borgmatic LaunchAgent is loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic.plist
+  register: launchctl_load
+  changed_when: launchctl_load.rc == 0
+  failed_when: false

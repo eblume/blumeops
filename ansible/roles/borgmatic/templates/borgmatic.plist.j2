@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<false/>
+	<key>Label</key>
+	<string>mcquack.eblume.borgmatic</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>borgmatic</string>
+		<string>--config</string>
+		<string>{{ borgmatic_config }}</string>
+		<string>create</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>{{ borgmatic_log_dir }}/mcquack.borgmatic.err.log</string>
+	<key>StandardOutPath</key>
+	<string>{{ borgmatic_log_dir }}/mcquack.borgmatic.out.log</string>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>{{ borgmatic_schedule_hour }}</integer>
+		<key>Minute</key>
+		<integer>{{ borgmatic_schedule_minute }}</integer>
+	</dict>
+</dict>
+</plist>

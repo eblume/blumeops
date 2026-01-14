@@ -5,3 +5,4 @@
     - prometheus
     - grafana
     - kiwix
+    - borgmatic
