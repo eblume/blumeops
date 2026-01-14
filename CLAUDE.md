@@ -50,8 +50,24 @@ git commit -m "Description of change"
 
 # Push and create PR using tea CLI
 git push -u origin feature/description-of-change
-tea pr create --title "Description of change" --description "Details..."
+tea pr create --title "Description of change" --description "$(cat <<'EOF'
+## Summary
+- First change
+- Second change
+
+## Test plan
+- [x] Tested thing one
+- [ ] Need to test thing two
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"
 ```
+
+Note: `tea` uses `--description` (not `--body` like `gh`). Other useful flags:
+- `--base <branch>` - target branch (default: repo's default branch)
+- `--assignees <user>` - assign reviewers
+- `--labels <label>` - add labels
 
 PRs are reviewed and merged via the Forgejo web UI at https://forge.tail8d86e.ts.net.
 

@@ -2,8 +2,13 @@
 - name: Configure indri
   hosts: indri
   roles:
-    - prometheus
-    - grafana
-    - kiwix
-    - borgmatic
-    - forgejo
+    - role: prometheus
+      tags: prometheus
+    - role: grafana
+      tags: grafana
+    - role: kiwix
+      tags: kiwix
+    - role: borgmatic
+      tags: borgmatic
+    - role: forgejo
+      tags: forgejo

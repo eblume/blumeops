@@ -7,8 +7,16 @@
 	<false/>
 	<key>Label</key>
 	<string>mcquack.eblume.borgmatic</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/bin:/bin</string>
+	</dict>
 	<key>ProgramArguments</key>
 	<array>
+		<string>/opt/homebrew/opt/mise/bin/mise</string>
+		<string>x</string>
+		<string>--</string>
 		<string>borgmatic</string>
 		<string>--config</string>
 		<string>{{ borgmatic_config }}</string>
