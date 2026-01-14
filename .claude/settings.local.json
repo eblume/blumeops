@@ -1,8 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mcquack --help:*)",
-      "Bash(uvx --from git+https://forge.tail8d86e.ts.net/erichblume/mcquack.git mcquack --help)"
+      "Bash(mcquack --help:*)"
     ]
   }
 }

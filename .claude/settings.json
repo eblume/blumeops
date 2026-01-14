@@ -1,8 +1,1 @@
-{
-  "permissions": {
-    "deny": [
-      "Edit(**/*.md)",
-      "Write(**/*.md)"
-    ]
-  }
-}
+{ }
