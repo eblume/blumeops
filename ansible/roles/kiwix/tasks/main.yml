@@ -158,6 +158,18 @@
     - not item.stat.exists
   notify: restart kiwix-serve
 
+# --- Determine which archives are available ---
+- name: Find available ZIM archives in kiwix directory
+  ansible.builtin.find:
+    paths: "{{ kiwix_zim_dir }}"
+    patterns: "*.zim"
+    file_type: any  # includes symlinks
+  register: available_zim_files
+
+- name: Build list of available archive filenames
+  ansible.builtin.set_fact:
+    kiwix_available_archives: "{{ available_zim_files.files | map(attribute='path') | map('basename') | list }}"
+
 # --- LaunchAgent deployment ---
 - name: Deploy kiwix-serve LaunchAgent plist
   ansible.builtin.template:
