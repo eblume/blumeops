@@ -27,7 +27,7 @@
   ansible.builtin.template:
     src: settings.json.j2
     dest: "{{ transmission_config_dir }}/settings.json"
-    mode: '0644'
+    mode: '0600'
   check_mode: true
   register: settings_check
 
@@ -42,7 +42,7 @@
   ansible.builtin.template:
     src: settings.json.j2
     dest: "{{ transmission_config_dir }}/settings.json"
-    mode: '0644'
+    mode: '0600'
   notify: restart transmission
 
 - name: Ensure transmission service is started
