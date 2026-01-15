@@ -1,0 +1,45 @@
+---
+# Grafana Alloy installation and configuration
+# Replaces node_exporter for metrics, adds log collection
+
+- name: Install grafana-alloy via homebrew
+  community.general.homebrew:
+    name: grafana-alloy
+    state: present
+
+- name: Ensure alloy config directory exists
+  ansible.builtin.file:
+    path: "{{ alloy_config_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure alloy data directory exists
+  ansible.builtin.file:
+    path: "{{ alloy_data_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure textfile collector directory exists
+  ansible.builtin.file:
+    path: "{{ alloy_textfile_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy alloy configuration
+  ansible.builtin.template:
+    src: config.alloy.j2
+    dest: "{{ alloy_config_dir }}/config.alloy"
+    mode: '0644'
+  notify: restart alloy
+
+- name: Stop node_exporter service (replaced by alloy)
+  ansible.builtin.command: brew services stop node_exporter
+  register: node_exporter_stop
+  changed_when: "'Stopping' in node_exporter_stop.stdout or 'Successfully stopped' in node_exporter_stop.stdout"
+  failed_when: false
+
+- name: Ensure alloy service is started
+  ansible.builtin.command: brew services start grafana-alloy
+  register: brew_start
+  changed_when: "'Successfully started' in brew_start.stdout"
+  failed_when: false

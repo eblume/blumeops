@@ -1,0 +1,12 @@
+---
+# Loki configuration
+
+# Server settings
+loki_http_port: 3100
+
+# Storage paths
+loki_data_dir: /opt/homebrew/var/loki
+loki_config_file: /opt/homebrew/etc/loki-local-config.yaml
+
+# Retention settings
+loki_retention_period: 744h  # 31 days

@@ -1,0 +1,3 @@
+---
+- name: restart loki
+  ansible.builtin.command: brew services restart loki

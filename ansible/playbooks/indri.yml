@@ -2,8 +2,10 @@
 - name: Configure indri
   hosts: indri
   roles:
-    - role: node_exporter
-      tags: node_exporter
+    - role: loki
+      tags: loki
+    - role: alloy
+      tags: alloy
     - role: prometheus
       tags: prometheus
     - role: grafana

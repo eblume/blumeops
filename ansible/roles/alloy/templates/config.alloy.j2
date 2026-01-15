@@ -1,0 +1,87 @@
+// {{ ansible_managed }}
+// Grafana Alloy configuration for {{ alloy_instance_label }}
+// Collects system metrics (replacing node_exporter) and logs
+
+// ============== METRICS COLLECTION ==============
+
+// System metrics exporter (replaces node_exporter)
+prometheus.exporter.unix "system" {
+  textfile {
+    directory = "{{ alloy_textfile_dir }}"
+  }
+}
+
+// Scrape system metrics
+prometheus.scrape "system" {
+  targets         = prometheus.exporter.unix.system.targets
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "{{ alloy_scrape_interval }}"
+}
+
+// Add instance label to match existing setup
+prometheus.relabel "instance" {
+  forward_to = [prometheus.remote_write.prometheus.receiver]
+
+  rule {
+    target_label = "instance"
+    replacement  = "{{ alloy_instance_label }}"
+  }
+}
+
+// Push metrics to Prometheus via remote_write
+prometheus.remote_write "prometheus" {
+  endpoint {
+    url = "{{ alloy_prometheus_url }}"
+  }
+}
+
+{% if alloy_collect_logs %}
+// ============== LOG COLLECTION ==============
+
+// Discover log files - brew services
+local.file_match "brew_logs" {
+  path_targets = [
+{% for log in alloy_brew_logs %}
+    {__path__ = "{{ log.path }}", service = "{{ log.service }}", stream = "{{ log.stream }}"},
+{% endfor %}
+  ]
+}
+
+// Discover log files - mcquack LaunchAgents
+local.file_match "mcquack_logs" {
+  path_targets = [
+{% for log in alloy_mcquack_logs %}
+    {__path__ = "{{ log.path }}", service = "{{ log.service }}", stream = "{{ log.stream }}"},
+{% endfor %}
+  ]
+}
+
+// Read and forward brew service logs
+loki.source.file "brew_logs" {
+  targets    = local.file_match.brew_logs.targets
+  forward_to = [loki.relabel.add_host.receiver]
+}
+
+// Read and forward mcquack service logs
+loki.source.file "mcquack_logs" {
+  targets    = local.file_match.mcquack_logs.targets
+  forward_to = [loki.relabel.add_host.receiver]
+}
+
+// Add host label to all logs
+loki.relabel "add_host" {
+  forward_to = [loki.write.loki.receiver]
+
+  rule {
+    target_label = "host"
+    replacement  = "{{ alloy_instance_label }}"
+  }
+}
+
+// Write logs to Loki
+loki.write "loki" {
+  endpoint {
+    url = "{{ alloy_loki_url }}"
+  }
+}
+{% endif %}

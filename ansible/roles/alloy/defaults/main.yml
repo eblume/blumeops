@@ -1,0 +1,65 @@
+---
+# Grafana Alloy configuration
+
+# Textfile collector directory (same as node_exporter for compatibility)
+alloy_textfile_dir: /opt/homebrew/var/node_exporter/textfile
+
+# Prometheus remote write endpoint
+alloy_prometheus_url: "http://localhost:9090/api/v1/write"
+
+# Loki endpoint (used in Phase 2)
+alloy_loki_url: "http://localhost:3100/loki/api/v1/push"
+
+# Instance label for metrics
+alloy_instance_label: indri
+
+# Scrape interval
+alloy_scrape_interval: "15s"
+
+# Config paths
+alloy_config_dir: /opt/homebrew/etc/grafana-alloy
+alloy_data_dir: /opt/homebrew/var/lib/grafana-alloy/data
+
+# Log paths to collect
+alloy_brew_logs:
+  - path: /opt/homebrew/var/log/grafana-stdout.log
+    service: grafana
+    stream: stdout
+  - path: /opt/homebrew/var/log/grafana-stderr.log
+    service: grafana
+    stream: stderr
+  - path: /opt/homebrew/var/log/forgejo.log
+    service: forgejo
+    stream: stdout
+  - path: /opt/homebrew/var/log/prometheus.err.log
+    service: prometheus
+    stream: stderr
+  - path: /opt/homebrew/var/log/tailscaled.log
+    service: tailscale
+    stream: stdout
+  - path: /opt/homebrew/var/transmission/transmission-daemon.log
+    service: transmission
+    stream: stdout
+
+alloy_mcquack_logs:
+  - path: /Users/erichblume/Library/Logs/mcquack.devpi.out.log
+    service: devpi
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.devpi.err.log
+    service: devpi
+    stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.kiwix-serve.out.log
+    service: kiwix
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.kiwix-serve.err.log
+    service: kiwix
+    stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.borgmatic.out.log
+    service: borgmatic
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.borgmatic.err.log
+    service: borgmatic
+    stream: stderr
+
+# Enable log collection (requires Loki to be running)
+alloy_collect_logs: true
