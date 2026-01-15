@@ -24,3 +24,5 @@
       tags: devpi
     - role: devpi_metrics
       tags: devpi_metrics
+    - role: plex_metrics
+      tags: plex_metrics

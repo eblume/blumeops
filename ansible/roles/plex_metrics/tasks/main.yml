@@ -1,0 +1,31 @@
+---
+- name: Ensure bin directory exists
+  ansible.builtin.file:
+    path: "{{ plex_metrics_script | dirname }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy plex metrics collection script
+  ansible.builtin.template:
+    src: plex-metrics.sh.j2
+    dest: "{{ plex_metrics_script }}"
+    mode: '0755'
+  notify: reload plex-metrics
+
+- name: Deploy plex-metrics LaunchAgent plist
+  ansible.builtin.template:
+    src: plex-metrics.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.plex-metrics.plist
+    mode: '0644'
+  notify: reload plex-metrics
+
+- name: Check if plex-metrics LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.plex-metrics
+  register: launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load plex-metrics LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.plex-metrics.plist
+  when: launchctl_check.rc != 0
+  failed_when: false

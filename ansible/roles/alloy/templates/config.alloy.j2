@@ -56,6 +56,15 @@ local.file_match "mcquack_logs" {
   ]
 }
 
+// Discover log files - Plex Media Server
+local.file_match "plex_logs" {
+  path_targets = [
+{% for log in alloy_plex_logs %}
+    {__path__ = "{{ log.path }}", service = "{{ log.service }}", stream = "{{ log.stream }}"},
+{% endfor %}
+  ]
+}
+
 // Read and forward brew service logs
 loki.source.file "brew_logs" {
   targets    = local.file_match.brew_logs.targets
@@ -65,6 +74,12 @@ loki.source.file "brew_logs" {
 // Read and forward mcquack service logs
 loki.source.file "mcquack_logs" {
   targets    = local.file_match.mcquack_logs.targets
+  forward_to = [loki.relabel.add_host.receiver]
+}
+
+// Read and forward Plex logs
+loki.source.file "plex_logs" {
+  targets    = local.file_match.plex_logs.targets
   forward_to = [loki.relabel.add_host.receiver]
 }
 

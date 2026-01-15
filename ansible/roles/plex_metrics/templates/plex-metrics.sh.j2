@@ -1,0 +1,133 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Collects Plex Media Server metrics for node_exporter textfile collector
+
+set -euo pipefail
+
+PLEX_URL="{{ plex_url }}"
+TOKEN_FILE="{{ plex_token_file }}"
+OUTPUT_FILE="{{ plex_metrics_dir }}/plex.prom"
+TEMP_FILE="${OUTPUT_FILE}.tmp"
+
+# Read token from file
+get_token() {
+    if [ -f "$TOKEN_FILE" ]; then
+        cat "$TOKEN_FILE" | tr -d '\n'
+    else
+        echo ""
+    fi
+}
+
+# Make API request with optional token
+api_request() {
+    local endpoint="$1"
+    local use_token="${2:-true}"
+    local token
+    local url="${PLEX_URL}${endpoint}"
+
+    if [ "$use_token" = "true" ]; then
+        token=$(get_token)
+        if [ -n "$token" ]; then
+            curl -s -H "Accept: application/json" -H "X-Plex-Token: $token" "$url" 2>/dev/null
+        else
+            curl -s -H "Accept: application/json" "$url" 2>/dev/null
+        fi
+    else
+        curl -s -H "Accept: application/json" "$url" 2>/dev/null
+    fi
+}
+
+# Initialize metrics
+plex_up=0
+plex_version=""
+plex_sessions_total=0
+plex_sessions_playing=0
+plex_sessions_paused=0
+plex_transcode_sessions_total=0
+plex_transcode_video=0
+plex_transcode_audio=0
+
+# Library metrics will be built dynamically
+library_metrics=""
+
+# Check server identity (no auth required)
+identity=$(api_request "/identity" false)
+if echo "$identity" | jq -e '.MediaContainer.machineIdentifier' > /dev/null 2>&1; then
+    plex_up=1
+    plex_version=$(echo "$identity" | jq -r '.MediaContainer.version // ""')
+fi
+
+# If server is up, get additional metrics (require auth)
+if [ "$plex_up" -eq 1 ] && [ -f "$TOKEN_FILE" ]; then
+    # Get library sections
+    sections=$(api_request "/library/sections")
+
+    # Process each library using jq
+    while IFS=$'\t' read -r lib_key lib_type lib_title; do
+        if [ -n "$lib_key" ] && [ -n "$lib_type" ]; then
+            # Get library details for item count
+            lib_detail=$(api_request "/library/sections/${lib_key}/all?X-Plex-Container-Start=0&X-Plex-Container-Size=0")
+            lib_size=$(echo "$lib_detail" | jq -r '.MediaContainer.totalSize // .MediaContainer.size // 0')
+
+            library_metrics="${library_metrics}plex_library_items{library=\"${lib_title}\",type=\"${lib_type}\"} ${lib_size}
+"
+        fi
+    done < <(echo "$sections" | jq -r '.MediaContainer.Directory[] | [.key, .type, .title] | @tsv' 2>/dev/null || true)
+
+    # Get active sessions
+    sessions=$(api_request "/status/sessions")
+    if echo "$sessions" | jq -e '.MediaContainer' > /dev/null 2>&1; then
+        plex_sessions_total=$(echo "$sessions" | jq -r '.MediaContainer.size // 0')
+
+        # Count playing vs paused
+        plex_sessions_playing=$(echo "$sessions" | jq -r '[.MediaContainer.Metadata[]? | select(.Player.state == "playing")] | length')
+        plex_sessions_paused=$(echo "$sessions" | jq -r '[.MediaContainer.Metadata[]? | select(.Player.state == "paused")] | length')
+
+        # Count transcode sessions
+        plex_transcode_video=$(echo "$sessions" | jq -r '[.MediaContainer.Metadata[]? | select(.TranscodeSession.videoDecision == "transcode")] | length')
+        plex_transcode_audio=$(echo "$sessions" | jq -r '[.MediaContainer.Metadata[]? | select(.TranscodeSession.audioDecision == "transcode")] | length')
+        plex_transcode_sessions_total=$(echo "$sessions" | jq -r '[.MediaContainer.Metadata[]? | select(.TranscodeSession)] | length')
+    fi
+fi
+
+# Write metrics
+cat > "$TEMP_FILE" << EOF
+# HELP plex_up Plex Media Server is up and responding
+# TYPE plex_up gauge
+plex_up ${plex_up}
+
+# HELP plex_version_info Plex Media Server version information
+# TYPE plex_version_info gauge
+plex_version_info{version="${plex_version}"} 1
+
+# HELP plex_sessions_total Total number of active Plex sessions
+# TYPE plex_sessions_total gauge
+plex_sessions_total ${plex_sessions_total}
+
+# HELP plex_sessions_playing Number of sessions currently playing
+# TYPE plex_sessions_playing gauge
+plex_sessions_playing ${plex_sessions_playing}
+
+# HELP plex_sessions_paused Number of sessions currently paused
+# TYPE plex_sessions_paused gauge
+plex_sessions_paused ${plex_sessions_paused}
+
+# HELP plex_transcode_sessions_total Number of sessions being transcoded
+# TYPE plex_transcode_sessions_total gauge
+plex_transcode_sessions_total ${plex_transcode_sessions_total}
+
+# HELP plex_transcode_video_sessions Number of sessions transcoding video
+# TYPE plex_transcode_video_sessions gauge
+plex_transcode_video_sessions ${plex_transcode_video}
+
+# HELP plex_transcode_audio_sessions Number of sessions transcoding audio
+# TYPE plex_transcode_audio_sessions gauge
+plex_transcode_audio_sessions ${plex_transcode_audio}
+
+# HELP plex_library_items Number of items in each Plex library
+# TYPE plex_library_items gauge
+${library_metrics}
+EOF
+
+# Atomic move
+mv "$TEMP_FILE" "$OUTPUT_FILE"
