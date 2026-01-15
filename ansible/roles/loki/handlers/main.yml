@@ -1,3 +1,5 @@
 ---
 - name: restart loki
   ansible.builtin.command: brew services restart loki
+  async: 120
+  poll: 0
