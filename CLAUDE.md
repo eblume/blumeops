@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 blumeops is Erich Blume's GitOps repository for personal infrastructure management, orchestrated via tailnet `tail8d86e.ts.net`.
 
+**Critical: This repository is published publicly at https://github.com/eblume/blumeops, so never include any secrets!**
+
 ## Documentation
 
 Project documentation lives in the zettelkasten at `~/code/personal/zk`. Start with the project card: [1767747119-YCPO.md](~/code/personal/zk/1767747119-YCPO.md).
