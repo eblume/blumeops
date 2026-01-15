@@ -10,13 +10,19 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure manageme
 
 ## Documentation
 
-Project documentation lives in the zettelkasten at `~/code/personal/zk`. Start with the project card: [1767747119-YCPO.md](~/code/personal/zk/1767747119-YCPO.md).
+Project documentation lives in the zettelkasten at `~/code/personal/zk`. Read all blumeops documentation with:
 
-You are encouraged to explore the zk, follow links, and propose updates to it as the project evolves.
+```bash
+mise run zk-docs -- --style=header --color=never --decorations=always
+```
+
+This displays all cards tagged `blumeops`, with the main project card first and filenames shown for each card.
+
+You are encouraged to explore the zk, follow links, and propose updates to it as the project evolves. **Always keep the zettelkasten documentation up to date with any changes you make.**
 
 ## Rules for all sessions
 
-1. Always start by consulting the project card.
+1. Always start by reading the zk docs with the command above.
 2. Expand and correct the cards of the zettelkasten.
 3. Use `Brewfile` and `mise.toml` to install tools.
 4. Use `brew services` or Launch Agents to control services on macos hosts.

@@ -51,5 +51,10 @@ to learn.
 
 ## Documentation
 
-Detailed documentation lives in my zettelkasten:
-- [blumeops project card](~/code/personal/zk/1767747119-YCPO.md)
+Detailed documentation lives in my personal zettelkasten, which is not included in this repository. You can view the docs with:
+
+```bash
+mise run zk-docs
+```
+
+The zettelkasten is private at time of writing. If you're interested in the documentation or have questions about this project, please reach out to blume.erich@gmail.com.

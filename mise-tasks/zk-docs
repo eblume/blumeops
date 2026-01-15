@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="Concatenate all blumeops zettelkasten cards"
+
+set -euo pipefail
+
+ZK_DIR="$HOME/code/personal/zk"
+MAIN_CARD="$ZK_DIR/1767747119-YCPO.md"
+
+# Find all files tagged with blumeops (excluding main card)
+other_cards=$(grep -l '^  - blumeops$' "$ZK_DIR"/*.md 2>/dev/null | grep -v "$(basename "$MAIN_CARD")" | sort)
+
+# Concatenate: main card first, then others
+# Pass through any args to bat (e.g., --style=header --color=never --decorations=always)
+bat "$@" "$MAIN_CARD" $other_cards
