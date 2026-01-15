@@ -32,12 +32,6 @@
     mode: '0644'
   notify: restart alloy
 
-- name: Stop node_exporter service (replaced by alloy)
-  ansible.builtin.command: brew services stop node_exporter
-  register: node_exporter_stop
-  changed_when: "'Stopping' in node_exporter_stop.stdout or 'Successfully stopped' in node_exporter_stop.stdout"
-  failed_when: false
-
 - name: Ensure alloy service is started
   ansible.builtin.command: brew services start grafana-alloy
   register: brew_start

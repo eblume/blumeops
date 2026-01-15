@@ -1,4 +1,4 @@
 ---
 dependencies:
-  - role: node_exporter
+  - role: alloy
   - role: devpi

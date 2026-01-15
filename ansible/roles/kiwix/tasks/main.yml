@@ -18,16 +18,21 @@
     msg: "Transmission daemon is not responding. Ensure transmission role ran successfully."
   when: kiwix_use_transmission and transmission_check.rc != 0
 
-# Check if each torrent is already loaded in transmission
+# Get all torrent statuses in a single call (much faster than looping)
+- name: Get transmission torrent list
+  ansible.builtin.command: transmission-remote -l
+  register: transmission_list
+  changed_when: false
+  when: kiwix_use_transmission
+
+# Parse torrent status for each ZIM archive from the cached list
 - name: Check torrent status for each ZIM archive
   ansible.builtin.shell: |
-    # Look for the torrent by filename (name column in transmission-remote -l)
-    # Output: "not_found", "downloading XX%", or "complete"
-    torrent_line=$(transmission-remote -l | grep -F "{{ item.filename | regex_replace('\\.zim$', '') }}" || true)
+    # Look for the torrent by filename in the cached list
+    torrent_line=$(echo "{{ transmission_list.stdout }}" | grep -F "{{ item.filename | regex_replace('\\.zim$', '') }}" || true)
     if [ -z "$torrent_line" ]; then
       echo "not_found"
     else
-      # Extract percentage from the Done column (2nd column)
       pct=$(echo "$torrent_line" | awk '{print $2}')
       if [ "$pct" = "100%" ]; then
         echo "complete"
@@ -67,10 +72,19 @@
     - torrent_add.changed is defined
     - torrent_add.changed
 
-# Recheck all torrent statuses
+# Only recheck if we actually added new torrents
+- name: Get updated transmission torrent list
+  ansible.builtin.command: transmission-remote -l
+  register: transmission_list_updated
+  changed_when: false
+  when:
+    - kiwix_use_transmission
+    - torrent_add.changed | default(false)
+
+# Recheck torrent statuses only if new torrents were added
 - name: Recheck torrent status after adding
   ansible.builtin.shell: |
-    torrent_line=$(transmission-remote -l | grep -F "{{ item.filename | regex_replace('\\.zim$', '') }}" || true)
+    torrent_line=$(echo "{{ transmission_list_updated.stdout }}" | grep -F "{{ item.filename | regex_replace('\\.zim$', '') }}" || true)
     if [ -z "$torrent_line" ]; then
       echo "not_found"
     else
@@ -86,8 +100,16 @@
   loop: "{{ kiwix_zim_archives }}"
   loop_control:
     label: "{{ item.filename }}"
-  register: torrent_status_final
+  register: torrent_status_recheck
   changed_when: false
+  when:
+    - kiwix_use_transmission
+    - torrent_add.changed | default(false)
+
+# Use rechecked status if available, otherwise use initial status
+- name: Set final torrent status
+  ansible.builtin.set_fact:
+    torrent_status_final: "{{ torrent_status_recheck if (torrent_add.changed | default(false)) else torrent_status }}"
   when: kiwix_use_transmission
 
 # Check if symlink already exists for completed downloads

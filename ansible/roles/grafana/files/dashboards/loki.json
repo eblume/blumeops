@@ -49,11 +49,11 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(loki_ingester_memory_chunks_bytes)",
+          "expr": "sum(loki_ingester_chunk_stored_bytes_total)",
           "refId": "A"
         }
       ],
-      "title": "Chunks in Memory",
+      "title": "Total Stored",
       "type": "stat"
     },
     {
@@ -368,8 +368,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(loki_ingester_memory_chunks_bytes)",
-          "legendFormat": "Chunks in Memory",
+          "expr": "sum(loki_ingester_chunk_stored_bytes_total)",
+          "legendFormat": "Total Stored",
           "refId": "A"
         },
         {
@@ -379,7 +379,7 @@
           "refId": "B"
         }
       ],
-      "title": "Memory Usage Over Time",
+      "title": "Storage Over Time",
       "type": "timeseries"
     },
     {
