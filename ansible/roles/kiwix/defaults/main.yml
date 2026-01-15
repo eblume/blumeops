@@ -62,3 +62,69 @@ kiwix_zim_archives:
     filename: libretexts.org_en_phys_2025-01.zim         # 464M
   - category: libretexts
     filename: libretexts.org_en_human_2025-01.zim        # 3.5G
+
+  # DevDocs - Programming documentation
+  - category: devdocs
+    filename: devdocs_en_bash_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_c_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_click_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_cmake_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_cpp_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_css_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_django-rest-framework_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_django_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_docker_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_duckdb_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_fish_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_gcc_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_git_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_go_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_godot_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_hammerspoon_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_homebrew_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_javascript_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_kubectl_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_kubernetes_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_latex_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_lua_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_markdown_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_nginx_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_nix_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_postgresql_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_python_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_redis_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_sqlite_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_typescript_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_werkzeug_2026-01.zim
+  - category: devdocs
+    filename: devdocs_en_zig_2026-01.zim
