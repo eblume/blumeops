@@ -18,3 +18,7 @@
       tags: borgmatic
     - role: forgejo
       tags: forgejo
+    - role: devpi
+      tags: devpi
+    - role: devpi_metrics
+      tags: devpi_metrics

@@ -4,7 +4,9 @@
       "Bash(mcquack --help:*)",
       "Bash(tea help:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "WebFetch(domain:devpi.net)",
+      "WebFetch(domain:docs.devpi.net)"
     ]
   }
 }

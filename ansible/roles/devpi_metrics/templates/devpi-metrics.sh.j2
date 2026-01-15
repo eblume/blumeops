@@ -1,0 +1,54 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Collects devpi-server metrics for node_exporter textfile collector
+
+set -euo pipefail
+
+STATUS_URL="{{ devpi_metrics_url }}"
+OUTPUT_FILE="{{ devpi_metrics_dir }}/devpi.prom"
+TEMP_FILE="${OUTPUT_FILE}.tmp"
+
+# Fetch status JSON
+status_json=$(curl -s -H "Accept: application/json" "$STATUS_URL" 2>/dev/null)
+
+if [ -z "$status_json" ] || ! echo "$status_json" | jq -e '.result' >/dev/null 2>&1; then
+    echo "Failed to fetch devpi status" >&2
+    exit 1
+fi
+
+# Start output file
+cat > "$TEMP_FILE" << 'HEADER'
+# HELP devpi_up devpi-server is up and responding
+# TYPE devpi_up gauge
+devpi_up 1
+
+HEADER
+
+# Extract serial number using jq
+serial=$(echo "$status_json" | jq -r '.result.serial // empty')
+if [ -n "$serial" ]; then
+    cat >> "$TEMP_FILE" << EOF
+# HELP devpi_serial Current changelog serial number
+# TYPE devpi_serial gauge
+devpi_serial $serial
+
+EOF
+fi
+
+# Parse metrics array using jq - format is ["name", "type", value]
+echo "$status_json" | jq -r '.result.metrics[]? | @json' | while read -r metric_json; do
+    name=$(echo "$metric_json" | jq -r '.[0]')
+    type=$(echo "$metric_json" | jq -r '.[1]')
+    value=$(echo "$metric_json" | jq -r '.[2]')
+
+    # Write metric in Prometheus format
+    cat >> "$TEMP_FILE" << EOF
+# HELP $name devpi metric
+# TYPE $name $type
+$name $value
+
+EOF
+done
+
+# Atomic move
+mv "$TEMP_FILE" "$OUTPUT_FILE"

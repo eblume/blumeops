@@ -50,6 +50,7 @@ check_service "transmission" "ssh indri 'brew services list | grep transmission 
 check_service "transmission-metrics" "ssh indri 'launchctl list | grep transmission-metrics | grep -v \"^-\"'"
 check_service "kiwix-serve" "ssh indri 'launchctl list | grep kiwix | grep -v \"^-\"'"
 check_service "forgejo" "ssh indri 'brew services list | grep forgejo | grep started'"
+check_service "devpi" "ssh indri 'launchctl list | grep devpi | grep -v \"^-\"'"
 
 echo ""
 echo "HTTP endpoints (via Tailscale):"
@@ -57,6 +58,7 @@ check_http "Prometheus" "http://indri:9090/-/healthy"
 check_http "Grafana" "http://indri:3000/api/health"
 check_http "Kiwix" "http://indri:5501/"
 check_http "Forgejo" "http://indri:3001/"
+check_http "Devpi" "http://indri:3141/+api"
 # Transmission RPC is localhost-only by design, check via SSH
 check_service "Transmission RPC" "ssh indri 'curl -sf http://127.0.0.1:9091/transmission/rpc'"
 # Check that transmission metrics are being collected

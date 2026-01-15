@@ -1,0 +1,6 @@
+---
+devpi_metrics_url: http://localhost:3141/+status
+devpi_metrics_dir: /opt/homebrew/var/node_exporter/textfile
+devpi_metrics_script: /Users/erichblume/bin/devpi-metrics
+devpi_metrics_interval: 60  # seconds between metric collection
+devpi_metrics_log_dir: /opt/homebrew/var/log
