@@ -1,0 +1,41 @@
+---
+# PostgreSQL configuration
+
+# Formula and version
+postgresql_formula: postgresql@18
+
+# Paths (keg-only formula on macOS)
+postgresql_bin_dir: /opt/homebrew/opt/postgresql@18/bin
+postgresql_data_dir: /opt/homebrew/var/postgresql@18
+postgresql_config_dir: /opt/homebrew/var/postgresql@18
+
+# Network settings
+postgresql_port: 5432
+postgresql_listen_addresses: "localhost"
+
+# 1Password vault and item IDs for credentials
+postgresql_op_vault: vg6xf6vvfmoh5hqjjhlhbeoaie
+postgresql_op_superuser_item: guxu3j7ajhjyey6xxl2ovsl2ui
+postgresql_op_miniflux_item: ns6wylqiuqgczpo7gq2akaxbti
+postgresql_op_borgmatic_item: mw2bv5we7woicjza7hc6s44yvy
+
+# Databases to create
+postgresql_databases:
+  - name: miniflux
+    owner: miniflux
+
+# Users to create (passwords fetched from 1Password)
+postgresql_users:
+  - name: miniflux
+    op_item: "{{ postgresql_op_miniflux_item }}"
+    op_field: password
+  - name: borgmatic
+    op_item: "{{ postgresql_op_borgmatic_item }}"
+    op_field: db-password
+    roles:
+      - pg_read_all_data
+  - name: alloy
+    op_item: "{{ postgresql_op_superuser_item }}"
+    op_field: alloy-user-pw
+    roles:
+      - pg_monitor

@@ -25,12 +25,46 @@
     state: directory
     mode: '0755'
 
+# === Fetch PostgreSQL password from 1Password ===
+# Skipped when running full playbook (pre_tasks sets it)
+# but runs when using --tags alloy
+
+- name: Fetch PostgreSQL metrics password from 1Password
+  ansible.builtin.command:
+    cmd: op --vault {{ alloy_op_vault }} item get {{ alloy_op_postgres_item }} --fields {{ alloy_op_postgres_field }} --reveal
+  delegate_to: localhost
+  register: alloy_postgres_password_result
+  changed_when: false
+  no_log: true
+  when:
+    - alloy_collect_postgres | default(false)
+    - alloy_postgres_password is not defined
+
+- name: Set PostgreSQL password fact
+  ansible.builtin.set_fact:
+    alloy_postgres_password: "{{ alloy_postgres_password_result.stdout }}"
+  no_log: true
+  when:
+    - alloy_collect_postgres | default(false)
+    - alloy_postgres_password is not defined
+
+# === Deploy configuration ===
+
+- name: Deploy PostgreSQL custom queries config
+  ansible.builtin.template:
+    src: postgres_queries.yaml.j2
+    dest: "{{ alloy_config_dir }}/postgres_queries.yaml"
+    mode: '0600'
+  notify: restart alloy
+  when: alloy_collect_postgres | default(false)
+
 - name: Deploy alloy configuration
   ansible.builtin.template:
     src: config.alloy.j2
     dest: "{{ alloy_config_dir }}/config.alloy"
-    mode: '0644'
+    mode: '0600'
   notify: restart alloy
+  no_log: true
 
 - name: Ensure alloy service is started
   ansible.builtin.command: brew services start grafana-alloy

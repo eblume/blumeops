@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+# Custom PostgreSQL queries for XID exhaustion monitoring
+
+pg_database_xid_age:
+  query: |
+    SELECT datname,
+           age(datfrozenxid) as xid_age,
+           current_setting('autovacuum_freeze_max_age')::bigint as freeze_max_age
+    FROM pg_database
+    WHERE datallowconn
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "Database name"
+    - xid_age:
+        usage: "GAUGE"
+        description: "Age of oldest unfrozen transaction ID"
+    - freeze_max_age:
+        usage: "GAUGE"
+        description: "autovacuum_freeze_max_age setting"

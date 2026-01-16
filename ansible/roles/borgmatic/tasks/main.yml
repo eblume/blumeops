@@ -1,6 +1,18 @@
 ---
 # Note: borgmatic is installed via mise (pipx), not managed here.
-# This role manages only the scheduled LaunchAgent.
+# This role manages the config file and scheduled LaunchAgent.
+
+- name: Ensure borgmatic config directory exists
+  ansible.builtin.file:
+    path: "{{ borgmatic_config_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: Deploy borgmatic configuration
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ borgmatic_config }}"
+    mode: '0600'
 
 - name: Deploy borgmatic LaunchAgent plist
   ansible.builtin.template:

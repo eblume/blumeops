@@ -4,3 +4,4 @@ dependencies:
   - role: forgejo
   - role: kiwix
   - role: devpi
+  - role: miniflux

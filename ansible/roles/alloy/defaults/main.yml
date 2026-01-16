@@ -40,6 +40,12 @@ alloy_brew_logs:
   - path: /opt/homebrew/var/transmission/transmission-daemon.log
     service: transmission
     stream: stdout
+  - path: /opt/homebrew/var/log/postgresql@18.log
+    service: postgresql
+    stream: stdout
+  - path: /opt/homebrew/var/log/miniflux.log
+    service: miniflux
+    stream: stdout
 
 alloy_mcquack_logs:
   - path: /Users/erichblume/Library/Logs/mcquack.devpi.out.log
@@ -68,3 +74,15 @@ alloy_plex_logs:
 
 # Enable log collection (requires Loki to be running)
 alloy_collect_logs: true
+
+# PostgreSQL metrics collection
+alloy_collect_postgres: true
+alloy_postgres_host: localhost
+alloy_postgres_port: 5432
+alloy_postgres_user: alloy
+alloy_postgres_database: postgres
+
+# 1Password settings for PostgreSQL metrics
+alloy_op_vault: vg6xf6vvfmoh5hqjjhlhbeoaie
+alloy_op_postgres_item: guxu3j7ajhjyey6xxl2ovsl2ui
+alloy_op_postgres_field: alloy-user-pw

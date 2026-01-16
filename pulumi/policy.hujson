@@ -72,25 +72,32 @@
 
 	"tagOwners": {
 		// Grafana service host tag
-		"tag:grafana": ["autogroup:admin"],
+		"tag:grafana": ["autogroup:admin", "tag:blumeops"],
 
 		// This tag applies to instances which are meant to be accessible in my homelab. These instances can be SSH'ed in to by any member of the admin autogroup.
-		"tag:homelab": ["autogroup:admin"],
+		"tag:homelab": ["autogroup:admin", "tag:blumeops"],
 
 		// Kiwix, a local wiki server. I use it to create mirrors of wikipedia.
-		"tag:kiwix": ["autogroup:admin"],
+		"tag:kiwix": ["autogroup:admin", "tag:blumeops"],
 
 		// Service tag for forgejo, scm host and code forge
-		"tag:forge": ["autogroup:admin"],
+		"tag:forge": ["autogroup:admin", "tag:blumeops"],
 
 		// devpi pypi index
-		"tag:devpi": ["autogroup:admin"],
+		"tag:devpi": ["autogroup:admin", "tag:blumeops"],
 
 		// Loki log collection
-		"tag:loki": ["autogroup:admin"],
+		"tag:loki": ["autogroup:admin", "tag:blumeops"],
+
+		// PostgreSQL database server
+		"tag:pg": ["autogroup:admin", "tag:blumeops"],
+
+		// Miniflux RSS/Atom feed reader
+		"tag:feed": ["autogroup:admin", "tag:blumeops"],
 
 		// This tag is applied to resources modified by blumeops-pulumi IaC
-		"tag:blumeops": ["autogroup:admin"],
+		// Includes itself so the OAuth client can apply it to devices
+		"tag:blumeops": ["autogroup:admin", "tag:blumeops"],
 	},
 
 	// Test access rules every time they're saved.

@@ -1,0 +1,32 @@
+# {{ ansible_managed }}
+# Miniflux configuration - KEY=VALUE format
+# Passwords fetched from 1Password at deploy time.
+
+# Server settings
+LISTEN_ADDR={{ miniflux_listen_addr }}
+BASE_URL={{ miniflux_base_url }}
+
+# Database connection
+DATABASE_URL=postgres://{{ miniflux_db_user }}:{{ miniflux_db_password }}@{{ miniflux_db_host }}:{{ miniflux_db_port }}/{{ miniflux_db_name }}?sslmode=disable
+
+# Migrations (always run to keep schema updated)
+RUN_MIGRATIONS={{ miniflux_run_migrations }}
+
+{% if miniflux_create_admin | int == 1 and miniflux_admin_password is defined %}
+# First run admin creation (remove these after initial setup)
+CREATE_ADMIN=1
+ADMIN_USERNAME={{ miniflux_admin_username }}
+ADMIN_PASSWORD={{ miniflux_admin_password }}
+{% endif %}
+
+# Polling settings
+POLLING_FREQUENCY={{ miniflux_polling_frequency }}
+BATCH_SIZE={{ miniflux_batch_size }}
+POLLING_SCHEDULER={{ miniflux_polling_scheduler }}
+
+# Cleanup settings
+CLEANUP_ARCHIVE_UNREAD_DAYS={{ miniflux_cleanup_archive_unread_days }}
+CLEANUP_ARCHIVE_READ_DAYS={{ miniflux_cleanup_archive_read_days }}
+
+# Logging
+LOG_LEVEL=info

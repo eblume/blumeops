@@ -20,6 +20,8 @@ This displays all cards tagged `blumeops`, with the main project card first and 
 
 You are encouraged to explore the zk, follow links, and propose updates to it as the project evolves. **Always keep the zettelkasten documentation up to date with any changes you make.**
 
+Note: The zettelkasten is synced via Obsidian Sync, not git. You don't need to commit or push zk changes.
+
 ## Rules for all sessions
 
 1. Always start by reading the zk docs with the command above.

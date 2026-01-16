@@ -4,22 +4,33 @@
   register: serve_status
   changed_when: false
 
+- name: Parse serve status
+  ansible.builtin.set_fact:
+    serve_config: "{{ (serve_status.stdout | from_json).Services | default({}) }}"
+
+# Configure HTTPS if service doesn't have Web config yet
 - name: Configure HTTPS services
   ansible.builtin.command: >
     tailscale serve --service="{{ item.name }}"
     --https={{ item.https.port }} {{ item.https.upstream }}
   loop: "{{ tailscale_services }}"
-  when: item.https is defined
+  when:
+    - item.https is defined
+    - serve_config[item.name] is not defined or serve_config[item.name].Web is not defined
   register: https_result
-  changed_when: "'already serving' not in https_result.stderr | default('')"
   failed_when: false
 
+# Configure TCP if service doesn't have the specific port configured yet
 - name: Configure TCP services
   ansible.builtin.command: >
     tailscale serve --service="{{ item.name }}"
     --tcp={{ item.tcp.port }} {{ item.tcp.upstream }}
   loop: "{{ tailscale_services }}"
-  when: item.tcp is defined
+  when:
+    - item.tcp is defined
+    - serve_config[item.name] is not defined or
+      serve_config[item.name].TCP is not defined or
+      serve_config[item.name].TCP[item.tcp.port | string] is not defined or
+      serve_config[item.name].TCP[item.tcp.port | string].TCPForward is not defined
   register: tcp_result
-  changed_when: "'already serving' not in tcp_result.stderr | default('')"
   failed_when: false

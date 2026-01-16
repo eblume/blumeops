@@ -1,0 +1,64 @@
+---
+# Miniflux installation and configuration
+#
+# Prerequisites:
+#   - PostgreSQL role has run (creates database, user, and ~/.miniflux-db-password)
+#   - 1Password CLI authenticated on control machine
+#
+# First run:
+#   mise run provision-indri -- --tags miniflux -e miniflux_create_admin=1
+
+- name: Install miniflux via homebrew
+  community.general.homebrew:
+    name: miniflux
+    state: present
+
+# === Fetch passwords from 1Password ===
+# These are skipped when running full playbook (pre_tasks sets them)
+# but run when using --tags miniflux
+
+- name: Fetch miniflux database password from 1Password
+  ansible.builtin.command:
+    cmd: op --vault {{ miniflux_op_vault }} item get {{ miniflux_op_item }} --fields password --reveal
+  delegate_to: localhost
+  register: miniflux_db_password_result
+  changed_when: false
+  no_log: true
+  when: miniflux_db_password is not defined
+
+- name: Set database password fact
+  ansible.builtin.set_fact:
+    miniflux_db_password: "{{ miniflux_db_password_result.stdout }}"
+  no_log: true
+  when: miniflux_db_password is not defined
+
+- name: Fetch miniflux admin password from 1Password (for first run)
+  ansible.builtin.command:
+    cmd: op --vault {{ miniflux_op_vault }} item get {{ miniflux_op_item }} --fields admin-password --reveal
+  delegate_to: localhost
+  register: miniflux_admin_password_result
+  changed_when: false
+  no_log: true
+  when: miniflux_create_admin | int == 1
+
+- name: Set admin password fact
+  ansible.builtin.set_fact:
+    miniflux_admin_password: "{{ miniflux_admin_password_result.stdout }}"
+  no_log: true
+  when: miniflux_create_admin | int == 1
+
+# === Deploy configuration ===
+
+- name: Deploy miniflux configuration
+  ansible.builtin.template:
+    src: miniflux.conf.j2
+    dest: "{{ miniflux_config_file }}"
+    mode: '0600'
+  notify: restart miniflux
+  no_log: true
+
+- name: Ensure miniflux service is started
+  ansible.builtin.command: brew services start miniflux
+  register: brew_start
+  changed_when: "'Successfully started' in brew_start.stdout"
+  failed_when: false

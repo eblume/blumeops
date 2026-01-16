@@ -35,6 +35,25 @@ prometheus.remote_write "prometheus" {
   }
 }
 
+{% if alloy_collect_postgres | default(false) %}
+// ============== POSTGRESQL METRICS ==============
+
+// PostgreSQL exporter (read-only metrics via pg_monitor role)
+prometheus.exporter.postgres "postgresql" {
+  data_source_names = ["postgresql://{{ alloy_postgres_user }}:{{ alloy_postgres_password | urlencode }}@{{ alloy_postgres_host }}:{{ alloy_postgres_port }}/{{ alloy_postgres_database }}?sslmode=disable"]
+
+  // Custom queries for vacuum and XID monitoring
+  custom_queries_config_path = "/opt/homebrew/etc/grafana-alloy/postgres_queries.yaml"
+}
+
+// Scrape PostgreSQL metrics
+prometheus.scrape "postgresql" {
+  targets         = prometheus.exporter.postgres.postgresql.targets
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "{{ alloy_scrape_interval }}"
+}
+{% endif %}
+
 {% if alloy_collect_logs %}
 // ============== LOG COLLECTION ==============
 

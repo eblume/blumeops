@@ -1,0 +1,36 @@
+---
+# Miniflux configuration
+
+# Network settings
+miniflux_listen_addr: "127.0.0.1:8080"
+miniflux_base_url: "https://feed.tail8d86e.ts.net/"
+
+# Database connection (password fetched from 1Password)
+miniflux_db_host: localhost
+miniflux_db_port: 5432
+miniflux_db_name: miniflux
+miniflux_db_user: miniflux
+
+# Config paths
+miniflux_config_file: /opt/homebrew/etc/miniflux.conf
+
+# 1Password settings for admin password
+miniflux_op_vault: vg6xf6vvfmoh5hqjjhlhbeoaie
+miniflux_op_item: ns6wylqiuqgczpo7gq2akaxbti
+
+# First run settings
+# Set miniflux_create_admin to 1 for initial setup, then 0 after
+miniflux_create_admin: 0
+miniflux_admin_username: admin
+
+# Always run migrations to keep schema updated
+miniflux_run_migrations: 1
+
+# Polling settings
+miniflux_polling_frequency: 60
+miniflux_batch_size: 100
+miniflux_polling_scheduler: "entry_frequency"
+
+# Cleanup settings (archive old entries)
+miniflux_cleanup_archive_unread_days: 180
+miniflux_cleanup_archive_read_days: 60

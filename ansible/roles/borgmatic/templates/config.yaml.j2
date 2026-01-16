@@ -1,0 +1,45 @@
+# {{ ansible_managed }}
+
+source_directories:
+{% for dir in borgmatic_source_directories %}
+    - {{ dir }}
+{% endfor %}
+
+source_directories_must_exist: true
+
+repositories:
+{% for repo in borgmatic_repositories %}
+    - path: {{ repo.path }}
+      label: {{ repo.label }}
+{% if repo.encryption is defined %}
+      encryption: {{ repo.encryption }}
+{% endif %}
+{% if repo.append_only is defined %}
+      append_only: {{ repo.append_only | lower }}
+{% endif %}
+{% endfor %}
+
+{% if borgmatic_exclude_patterns %}
+exclude_patterns:
+{% for pattern in borgmatic_exclude_patterns %}
+    - {{ pattern }}
+{% endfor %}
+{% endif %}
+
+encryption_passcommand: {{ borgmatic_encryption_passcommand }}
+
+# Retention policy
+keep_daily: {{ borgmatic_keep_daily }}
+keep_monthly: {{ borgmatic_keep_monthly }}
+keep_yearly: {{ borgmatic_keep_yearly }}
+
+{% if borgmatic_postgresql_databases %}
+# PostgreSQL database backups (streamed via pg_dump)
+postgresql_databases:
+{% for db in borgmatic_postgresql_databases %}
+    - name: {{ db.name }}
+      hostname: {{ db.hostname | default('localhost') }}
+      port: {{ db.port | default(5432) }}
+      username: {{ db.username }}
+{% endfor %}
+{% endif %}
