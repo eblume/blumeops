@@ -20,6 +20,7 @@
   register: pg_superuser_password_result
   changed_when: false
   no_log: true
+  check_mode: false
   when: pg_superuser_password is not defined
 
 - name: Set superuser password fact
@@ -36,6 +37,7 @@
   register: pg_user_passwords_result
   changed_when: false
   no_log: true
+  check_mode: false
   when: pg_user_passwords is not defined
 
 - name: Build user password lookup
@@ -63,6 +65,7 @@
 - name: Initialize postgresql database cluster with superuser password
   ansible.builtin.command: >
     {{ postgresql_bin_dir }}/initdb
+    -U {{ postgresql_superuser }}
     --locale=en_US.UTF-8 -E UTF-8
     --pwfile=/tmp/.pg_init_pwfile
     {{ postgresql_data_dir }}
@@ -102,7 +105,7 @@
 
 - name: Check if postgresql users exist
   ansible.builtin.command: >
-    {{ postgresql_bin_dir }}/psql -h localhost -d postgres -tAc
+    {{ postgresql_bin_dir }}/psql -h localhost -U {{ postgresql_superuser }} -d postgres -tAc
     "SELECT 1 FROM pg_roles WHERE rolname = '{{ item.name }}';"
   environment:
     PGPASSWORD: "{{ pg_superuser_password }}"
@@ -114,7 +117,7 @@
 
 - name: Create postgresql users with passwords
   ansible.builtin.command: >
-    {{ postgresql_bin_dir }}/psql -h localhost -d postgres -c
+    {{ postgresql_bin_dir }}/psql -h localhost -U {{ postgresql_superuser }} -d postgres -c
     "CREATE USER {{ item.item.name }} WITH PASSWORD '{{ pg_user_passwords[item.item.name] }}';"
   environment:
     PGPASSWORD: "{{ pg_superuser_password }}"
@@ -125,7 +128,7 @@
 
 - name: Update postgresql user passwords (idempotent)
   ansible.builtin.command: >
-    {{ postgresql_bin_dir }}/psql -h localhost -d postgres -c
+    {{ postgresql_bin_dir }}/psql -h localhost -U {{ postgresql_superuser }} -d postgres -c
     "ALTER USER {{ item.name }} WITH PASSWORD '{{ pg_user_passwords[item.name] }}';"
   environment:
     PGPASSWORD: "{{ pg_superuser_password }}"
@@ -137,7 +140,7 @@
 
 - name: Grant roles to users
   ansible.builtin.command: >
-    {{ postgresql_bin_dir }}/psql -h localhost -d postgres -c "GRANT {{ item.1 }} TO {{ item.0.name }};"
+    {{ postgresql_bin_dir }}/psql -h localhost -U {{ postgresql_superuser }} -d postgres -c "GRANT {{ item.1 }} TO {{ item.0.name }};"
   environment:
     PGPASSWORD: "{{ pg_superuser_password }}"
   loop: "{{ postgresql_users | subelements('roles', skip_missing=True) }}"
@@ -148,7 +151,7 @@
 
 - name: Check if postgresql databases exist
   ansible.builtin.command: >
-    {{ postgresql_bin_dir }}/psql -h localhost -d postgres -tAc
+    {{ postgresql_bin_dir }}/psql -h localhost -U {{ postgresql_superuser }} -d postgres -tAc
     "SELECT 1 FROM pg_database WHERE datname = '{{ item.name }}';"
   environment:
     PGPASSWORD: "{{ pg_superuser_password }}"
@@ -160,7 +163,7 @@
 
 - name: Create postgresql databases
   ansible.builtin.command: >
-    {{ postgresql_bin_dir }}/createdb -h localhost
+    {{ postgresql_bin_dir }}/createdb -h localhost -U {{ postgresql_superuser }}
     --owner={{ item.item.owner }}
     {{ item.item.name }}
   environment:

@@ -1,6 +1,9 @@
 ---
 # PostgreSQL configuration
 
+# Superuser name (explicit, not inherited from OS user)
+postgresql_superuser: eblume
+
 # Formula and version
 postgresql_formula: postgresql@18
 
