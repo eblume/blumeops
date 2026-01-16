@@ -6,7 +6,7 @@
 
 - name: Parse serve status
   ansible.builtin.set_fact:
-    serve_config: "{{ (serve_status.stdout | from_json).Services | default({}) }}"
+    serve_config: "{{ ((serve_status.stdout | default('{}', true)) | from_json).Services | default({}) }}"
 
 # Configure HTTPS if service doesn't have Web config yet
 - name: Configure HTTPS services
