@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Apply tailnet changes with Pulumi"
+
+set -euo pipefail
+
+export TAILSCALE_OAUTH_CLIENT_ID=$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get wi6bkf7bcccwfy4eu776ab4p4u --fields client_id)
+export TAILSCALE_OAUTH_CLIENT_SECRET=$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get wi6bkf7bcccwfy4eu776ab4p4u --fields client_secret --reveal)
+export TAILSCALE_TAILNET="tail8d86e.ts.net"
+
+cd "$(dirname "$0")/../pulumi"
+pulumi up "$@"

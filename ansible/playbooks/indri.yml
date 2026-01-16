@@ -26,3 +26,5 @@
       tags: devpi_metrics
     - role: plex_metrics
       tags: plex_metrics
+    - role: tailscale_serve
+      tags: tailscale-serve

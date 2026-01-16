@@ -1,0 +1,6 @@
+---
+dependencies:
+  - role: grafana
+  - role: forgejo
+  - role: kiwix
+  - role: devpi

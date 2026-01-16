@@ -1,0 +1,6 @@
+name: blumeops-tailnet
+runtime:
+  name: python
+  options:
+    toolchain: uv
+description: Tailnet configuration for tail8d86e.ts.net

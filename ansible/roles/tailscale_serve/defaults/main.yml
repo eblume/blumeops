@@ -1,0 +1,27 @@
+---
+# Tailscale serve configuration for this host
+# Each service maps a Tailscale service name to local endpoints
+
+tailscale_services:
+  - name: svc:grafana
+    https:
+      port: 443
+      upstream: http://localhost:3000
+
+  - name: svc:forge
+    https:
+      port: 443
+      upstream: http://localhost:3001
+    tcp:
+      port: 22
+      upstream: tcp://localhost:2200
+
+  - name: svc:kiwix
+    https:
+      port: 443
+      upstream: http://localhost:5501
+
+  - name: svc:pypi
+    https:
+      port: 443
+      upstream: http://127.0.0.1:3141
