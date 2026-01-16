@@ -28,6 +28,16 @@ You are encouraged to explore the zk, follow links, and propose updates to it as
 4. Use `brew services` or Launch Agents to control services on macos hosts.
 5. Test all changes before applying them - ie with ansible, use a --check --diff run.
 
+## Task Discovery
+
+To discover pending blumeops tasks, run:
+
+```bash
+mise run blumeops-tasks
+```
+
+This fetches tasks from the "Blumeops" project in Todoist (via 1Password for API credentials) and displays them sorted by priority: p1 (urgent), p2 (high), p4 (normal/default), p3 (backlog). The typical workflow is to pick a task from this list at the start of a session, then dive in with planning.
+
 ## Remote Hosts
 
 This repo is typically edited from a workstation (e.g., gilbert), but services run on remote hosts in the tailnet. Use SSH to explore or check state on remote machines:
