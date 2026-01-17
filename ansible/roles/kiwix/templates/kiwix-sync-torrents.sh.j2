@@ -1,0 +1,47 @@
+#!/bin/bash
+# Sync ZIM archive torrents to transmission
+# Reads torrent URLs from stdin or file, adds any missing to transmission
+set -euo pipefail
+
+TORRENT_LIST="${1:-}"
+
+if [[ -z "$TORRENT_LIST" ]]; then
+    echo "Usage: $0 <torrent-list-file>" >&2
+    exit 1
+fi
+
+if [[ ! -f "$TORRENT_LIST" ]]; then
+    echo "Error: Torrent list file not found: $TORRENT_LIST" >&2
+    exit 1
+fi
+
+# Get current torrents from transmission (extract names, skip header/footer)
+# Note: Use sed '$d' instead of head -n -1 for macOS compatibility
+current_torrents=$(transmission-remote -l 2>/dev/null | tail -n +2 | sed '$d' | awk '{print $NF}' || true)
+
+added=0
+skipped=0
+
+while IFS= read -r torrent_url || [[ -n "$torrent_url" ]]; do
+    # Skip empty lines and comments
+    [[ -z "$torrent_url" || "$torrent_url" =~ ^# ]] && continue
+
+    # Extract base name from URL (remove .torrent extension and path)
+    base_name=$(basename "$torrent_url" .torrent)
+    # Also try without .zim in case transmission reports it differently
+    base_without_zim="${base_name%.zim}"
+
+    # Check if already in transmission
+    if echo "$current_torrents" | grep -qF "$base_without_zim"; then
+        ((skipped++)) || true
+    else
+        if transmission-remote -a "$torrent_url" 2>/dev/null; then
+            echo "Added: $base_name"
+            ((added++)) || true
+        else
+            echo "Warning: Failed to add $torrent_url" >&2
+        fi
+    fi
+done < "$TORRENT_LIST"
+
+echo "Sync complete: $added added, $skipped already present"

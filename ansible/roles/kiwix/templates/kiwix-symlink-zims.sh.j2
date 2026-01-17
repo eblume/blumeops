@@ -1,0 +1,50 @@
+#!/bin/bash
+# Symlink completed ZIM files from download directory to kiwix directory
+set -euo pipefail
+
+SOURCE_DIR="${1:-}"
+TARGET_DIR="${2:-}"
+
+if [[ -z "$SOURCE_DIR" || -z "$TARGET_DIR" ]]; then
+    echo "Usage: $0 <source-dir> <target-dir>" >&2
+    exit 1
+fi
+
+if [[ ! -d "$SOURCE_DIR" ]]; then
+    echo "Error: Source directory not found: $SOURCE_DIR" >&2
+    exit 1
+fi
+
+if [[ ! -d "$TARGET_DIR" ]]; then
+    echo "Error: Target directory not found: $TARGET_DIR" >&2
+    exit 1
+fi
+
+created=0
+skipped=0
+
+# Find all .zim files in source directory
+for zim_file in "$SOURCE_DIR"/*.zim; do
+    # Handle case where no .zim files exist
+    [[ -e "$zim_file" ]] || continue
+
+    filename=$(basename "$zim_file")
+    target_path="$TARGET_DIR/$filename"
+
+    if [[ -e "$target_path" || -L "$target_path" ]]; then
+        ((skipped++)) || true
+    else
+        ln -s "$zim_file" "$target_path"
+        echo "Linked: $filename"
+        ((created++)) || true
+    fi
+done
+
+echo "Symlink complete: $created created, $skipped already present"
+
+# Exit with special code if new symlinks were created (for ansible changed detection)
+if [[ $created -gt 0 ]]; then
+    exit 0
+else
+    exit 0
+fi

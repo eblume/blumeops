@@ -1,6 +1,7 @@
 ---
 kiwix_serve_bin: /Users/erichblume/code/3rd/kiwix-tools/kiwix-serve
 kiwix_zim_dir: /Users/erichblume/code/3rd/kiwix-tools
+kiwix_bin_dir: /Users/erichblume/.local/bin
 kiwix_port: 5501
 kiwix_log_dir: /Users/erichblume/Library/Logs
 

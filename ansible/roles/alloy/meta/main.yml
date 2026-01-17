@@ -1,4 +1,4 @@
 ---
-dependencies:
-  - role: prometheus
-  - role: loki
+# Role ordering is controlled by indri.yml playbook - do not add dependencies here
+# (Ansible's tag accumulation prevents proper deduplication when using meta dependencies)
+dependencies: []

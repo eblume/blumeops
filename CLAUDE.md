@@ -44,7 +44,7 @@ Some important places you can look:
 ```
 ./mise-tasks/  # management and utility scripts run via `mise run`
 ./ansible/playbooks/indri.yml  # primary blumeops provisioning script
-./ansible/playbooks/roles/  # role dirs here give good overview of services; dependencies tracked via meta/main.yml
+./ansible/roles/  # role dirs here give good overview of services
 ./pulumi/  # python (via uv) pulumi script for provisioning the tailnet and other cloud resources
 ~/code/personal/  # projects managed by the user
 ~/code/3rd/  # external projects, mirrored or downloaded
