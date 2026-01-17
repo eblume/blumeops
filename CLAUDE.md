@@ -35,9 +35,11 @@ The user will review your work as you go, and will merge the pr as the last step
 
 5. Services are typically hosted on hostname "indri" and are launched from LaunchAgents of the user `erichblume`. If a service is available from `brew services` that is typically used, otherwise there is a utility called `mcquack` (`mcquack --help`) hosted at `https://forge.tail8d86e.ts.net/eblume/mcquack` - but you can just edit the mcquack launchagents directly via ansible.
 
-6. Try to always test changes before applying them. Use syntax checkers, do dry runs, run commands manually via `ssh indri 'some command'`, etc.
+6. Try to always test changes before applying them. Use syntax checkers, do dry runs (`--check --diff`), run commands manually via `ssh indri 'some command'`, etc.
 
-7. After making changes, try to verify the result. Use `mise run indri-services-check` to do a general service health check.
+7. **Wait for user review before deploying.** After creating a PR, do not run `mise run provision-indri` or other deployment commands until the user has had a chance to review the changes. The user will indicate when they're ready to deploy.
+
+8. After deploying changes, try to verify the result. Use `mise run indri-services-check` to do a general service health check.
 
 ## Project structure
 Some important places you can look:

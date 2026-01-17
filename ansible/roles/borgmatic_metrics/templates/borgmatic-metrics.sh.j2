@@ -1,0 +1,163 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Collects borg backup metrics for node_exporter textfile collector
+
+set -euo pipefail
+
+export BORG_PASSCOMMAND="{{ borgmatic_metrics_passcommand }}"
+BORG_REPO="{{ borgmatic_metrics_repo }}"
+OUTPUT_FILE="{{ borgmatic_metrics_dir }}/borgmatic.prom"
+TEMP_FILE="${OUTPUT_FILE}.tmp"
+
+# Check if borg is available via mise
+BORG_CMD="mise x -- borg"
+
+# Get repository info
+repo_json=$($BORG_CMD info --json "$BORG_REPO" 2>/dev/null) || {
+    echo "Failed to get borg repo info" >&2
+    # Write down metric
+    cat > "$TEMP_FILE" << 'EOF'
+# HELP borgmatic_up Borg backup repository is accessible
+# TYPE borgmatic_up gauge
+borgmatic_up 0
+EOF
+    mv "$TEMP_FILE" "$OUTPUT_FILE"
+    exit 0
+}
+
+# Get archive list
+archives_json=$($BORG_CMD list --json "$BORG_REPO" 2>/dev/null) || {
+    echo "Failed to list borg archives" >&2
+    exit 1
+}
+
+# Extract repository stats
+total_size=$(echo "$repo_json" | jq -r '.cache.stats.total_size')
+total_csize=$(echo "$repo_json" | jq -r '.cache.stats.total_csize')
+unique_size=$(echo "$repo_json" | jq -r '.cache.stats.unique_size')
+unique_csize=$(echo "$repo_json" | jq -r '.cache.stats.unique_csize')
+total_chunks=$(echo "$repo_json" | jq -r '.cache.stats.total_chunks')
+unique_chunks=$(echo "$repo_json" | jq -r '.cache.stats.total_unique_chunks')
+
+# Count archives
+archive_count=$(echo "$archives_json" | jq -r '.archives | length')
+
+# Get last archive info
+last_archive_name=$(echo "$archives_json" | jq -r '.archives[-1].name // empty')
+
+if [ -n "$last_archive_name" ]; then
+    # Get detailed info for the last archive
+    last_archive_json=$($BORG_CMD info --json "${BORG_REPO}::${last_archive_name}" 2>/dev/null) || {
+        echo "Failed to get last archive info" >&2
+        last_archive_json=""
+    }
+
+    if [ -n "$last_archive_json" ]; then
+        last_original_size=$(echo "$last_archive_json" | jq -r '.archives[0].stats.original_size')
+        last_compressed_size=$(echo "$last_archive_json" | jq -r '.archives[0].stats.compressed_size')
+        last_deduplicated_size=$(echo "$last_archive_json" | jq -r '.archives[0].stats.deduplicated_size')
+        last_nfiles=$(echo "$last_archive_json" | jq -r '.archives[0].stats.nfiles')
+        last_start=$(echo "$last_archive_json" | jq -r '.archives[0].start')
+        last_end=$(echo "$last_archive_json" | jq -r '.archives[0].end')
+        last_duration=$(echo "$last_archive_json" | jq -r '.archives[0].duration')
+
+        # Convert timestamp to unix epoch
+        last_timestamp=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${last_start%.*}" "+%s" 2>/dev/null || echo "0")
+    fi
+fi
+
+# Write metrics
+cat > "$TEMP_FILE" << EOF
+# HELP borgmatic_up Borg backup repository is accessible
+# TYPE borgmatic_up gauge
+borgmatic_up 1
+
+# HELP borgmatic_repo_original_size_bytes Total original size of all archives (sum of what each backup contains)
+# TYPE borgmatic_repo_original_size_bytes gauge
+borgmatic_repo_original_size_bytes $total_size
+
+# HELP borgmatic_repo_compressed_size_bytes Total compressed size of all archives
+# TYPE borgmatic_repo_compressed_size_bytes gauge
+borgmatic_repo_compressed_size_bytes $total_csize
+
+# HELP borgmatic_repo_deduplicated_size_bytes Actual disk usage after deduplication (unique data)
+# TYPE borgmatic_repo_deduplicated_size_bytes gauge
+borgmatic_repo_deduplicated_size_bytes $unique_csize
+
+# HELP borgmatic_repo_total_chunks Total number of chunks across all archives
+# TYPE borgmatic_repo_total_chunks gauge
+borgmatic_repo_total_chunks $total_chunks
+
+# HELP borgmatic_repo_unique_chunks Number of unique chunks (after deduplication)
+# TYPE borgmatic_repo_unique_chunks gauge
+borgmatic_repo_unique_chunks $unique_chunks
+
+# HELP borgmatic_archive_count Number of archives in the repository
+# TYPE borgmatic_archive_count gauge
+borgmatic_archive_count $archive_count
+EOF
+
+# Add last archive metrics if available
+if [ -n "${last_original_size:-}" ]; then
+    cat >> "$TEMP_FILE" << EOF
+
+# HELP borgmatic_last_archive_original_size_bytes Original size of the last archive (data being backed up)
+# TYPE borgmatic_last_archive_original_size_bytes gauge
+borgmatic_last_archive_original_size_bytes $last_original_size
+
+# HELP borgmatic_last_archive_compressed_size_bytes Compressed size of the last archive
+# TYPE borgmatic_last_archive_compressed_size_bytes gauge
+borgmatic_last_archive_compressed_size_bytes $last_compressed_size
+
+# HELP borgmatic_last_archive_deduplicated_size_bytes Deduplicated size of last archive (new data added)
+# TYPE borgmatic_last_archive_deduplicated_size_bytes gauge
+borgmatic_last_archive_deduplicated_size_bytes $last_deduplicated_size
+
+# HELP borgmatic_last_archive_files Number of files in the last archive
+# TYPE borgmatic_last_archive_files gauge
+borgmatic_last_archive_files $last_nfiles
+
+# HELP borgmatic_last_archive_timestamp Unix timestamp of the last backup
+# TYPE borgmatic_last_archive_timestamp gauge
+borgmatic_last_archive_timestamp $last_timestamp
+
+# HELP borgmatic_last_archive_duration_seconds Duration of the last backup in seconds
+# TYPE borgmatic_last_archive_duration_seconds gauge
+borgmatic_last_archive_duration_seconds ${last_duration:-0}
+EOF
+
+    # Collect per-source-directory sizes
+    cat >> "$TEMP_FILE" << 'EOF'
+
+# HELP borgmatic_source_size_bytes Size of each backup source directory in bytes
+# TYPE borgmatic_source_size_bytes gauge
+EOF
+
+    # List archive contents and group by source directory
+    $BORG_CMD list "${BORG_REPO}::${last_archive_name}" --format "{size} {path}{NL}" 2>/dev/null | awk '
+    {
+        size = $1
+        path = $2
+        # Map paths to friendly source names
+        if (path ~ /^Users\/[^\/]+\/Pictures/) { source = "Pictures" }
+        else if (path ~ /^Users\/[^\/]+\/Documents/) { source = "Documents" }
+        else if (path ~ /^Users\/[^\/]+\/devpi/) { source = "devpi" }
+        else if (path ~ /^Users\/[^\/]+\/code\/personal\/zk/) { source = "Zettelkasten" }
+        else if (path ~ /^Users\/[^\/]+\/.config\/borgmatic/) { source = "borgmatic_config" }
+        else if (path ~ /^opt\/homebrew\/var\/forgejo/) { source = "Forgejo" }
+        else if (path ~ /^opt\/homebrew\/var\/loki/) { source = "Loki" }
+        else if (path ~ /^borgmatic\/postgresql_databases/) { source = "PostgreSQL" }
+        else if (path ~ /^borgmatic\//) { source = "borgmatic_metadata" }
+        else { source = "other" }
+
+        totals[source] += size
+    }
+    END {
+        for (src in totals) {
+            printf "borgmatic_source_size_bytes{source=\"%s\"} %.0f\n", src, totals[src]
+        }
+    }' >> "$TEMP_FILE"
+fi
+
+# Atomic move
+mv "$TEMP_FILE" "$OUTPUT_FILE"

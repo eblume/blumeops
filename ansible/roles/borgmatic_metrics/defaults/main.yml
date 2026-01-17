@@ -1,0 +1,7 @@
+---
+borgmatic_metrics_repo: /Volumes/backups/borg/
+borgmatic_metrics_passcommand: cat /Users/erichblume/.borg/config.yaml
+borgmatic_metrics_dir: /opt/homebrew/var/node_exporter/textfile
+borgmatic_metrics_script: /Users/erichblume/bin/borgmatic-metrics
+borgmatic_metrics_interval: 3600  # seconds between metric collection (hourly)
+borgmatic_metrics_log_dir: /opt/homebrew/var/log

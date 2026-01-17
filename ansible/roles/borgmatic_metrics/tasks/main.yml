@@ -1,0 +1,43 @@
+---
+- name: Ensure metrics directory exists
+  ansible.builtin.file:
+    path: "{{ borgmatic_metrics_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure log directory exists
+  ansible.builtin.file:
+    path: "{{ borgmatic_metrics_log_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure bin directory exists
+  ansible.builtin.file:
+    path: "{{ borgmatic_metrics_script | dirname }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy borgmatic-metrics script
+  ansible.builtin.template:
+    src: borgmatic-metrics.sh.j2
+    dest: "{{ borgmatic_metrics_script }}"
+    mode: '0755'
+
+- name: Deploy borgmatic-metrics LaunchAgent plist
+  ansible.builtin.template:
+    src: borgmatic-metrics.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.borgmatic-metrics.plist
+    mode: '0644'
+  notify: Reload borgmatic-metrics
+
+- name: Check if borgmatic-metrics LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.borgmatic-metrics
+  register: borgmatic_metrics_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load borgmatic-metrics LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic-metrics.plist
+  when: borgmatic_metrics_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false

@@ -11,7 +11,6 @@ borgmatic_schedule_minute: 0
 borgmatic_source_directories:
   - /Users/erichblume/code/personal/zk
   - /opt/homebrew/var/forgejo
-  - /Users/erichblume/code/3rd/kiwix-tools
   - /Users/erichblume/.config/borgmatic
   - /Users/erichblume/Documents
   - /Users/erichblume/Pictures
@@ -29,7 +28,6 @@ borgmatic_repositories:
 borgmatic_exclude_patterns:
   # Exclude mirrored PyPI cache (only backup private packages)
   - /Users/erichblume/devpi/+files/root/pypi
-  - /opt/homebrew/var/loki
 
 # Encryption passcommand (reads borg passphrase)
 borgmatic_encryption_passcommand: cat /Users/erichblume/.borg/config.yaml
@@ -41,6 +39,8 @@ borgmatic_keep_yearly: 1000
 
 # PostgreSQL databases to backup (streamed via pg_dump)
 # Password is read from ~/.pgpass (managed by postgresql role)
+# pg_dump_command must be full path since LaunchAgent doesn't have homebrew in PATH
+borgmatic_pg_dump_command: /opt/homebrew/opt/postgresql@18/bin/pg_dump
 borgmatic_postgresql_databases:
   - name: miniflux
     hostname: localhost

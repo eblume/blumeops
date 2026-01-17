@@ -91,6 +91,8 @@
       tags: kiwix
     - role: borgmatic
       tags: borgmatic
+    - role: borgmatic_metrics
+      tags: borgmatic_metrics
     - role: forgejo
       tags: forgejo
     - role: devpi

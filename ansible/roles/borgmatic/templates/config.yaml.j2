@@ -41,5 +41,8 @@ postgresql_databases:
       hostname: {{ db.hostname | default('localhost') }}
       port: {{ db.port | default(5432) }}
       username: {{ db.username }}
+{% if borgmatic_pg_dump_command is defined %}
+      pg_dump_command: {{ borgmatic_pg_dump_command }}
+{% endif %}
 {% endfor %}
 {% endif %}
