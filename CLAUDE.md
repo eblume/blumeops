@@ -8,116 +8,59 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure manageme
 
 **Critical: This repository is published publicly at https://github.com/eblume/blumeops, so never include any secrets!**
 
-## Documentation
+## Rules
 
-Project documentation lives in the zettelkasten at `~/code/personal/zk`. Read all blumeops documentation with:
+1. At the start of every session, even if the user asked to do something else, run `mise run zk-docs -- --style=header --color=never --decorations=always` in order to review the `blumeops` documentation in the zettelkasten (zk). zk lives at `~/code/personal/zk`, and is managed via obsidian-sync (not git).
 
-```bash
-mise run zk-docs -- --style=header --color=never --decorations=always
-```
-
-This displays all cards tagged `blumeops`, with the main project card first and filenames shown for each card.
-
-You are encouraged to explore the zk, follow links, and propose updates to it as the project evolves. **Always keep the zettelkasten documentation up to date with any changes you make.**
-
-Note: The zettelkasten is synced via Obsidian Sync, not git. You don't need to commit or push zk changes.
-
-## Rules for all sessions
-
-1. Always start by reading the zk docs with the command above.
-2. Expand and correct the cards of the zettelkasten.
-3. Use `Brewfile` and `mise.toml` to install tools.
-4. Use `brew services` or Launch Agents to control services on macos hosts.
-5. Test all changes before applying them - ie with ansible, use a --check --diff run.
-
-## Task Discovery
-
-To discover pending blumeops tasks, run:
-
-```bash
-mise run blumeops-tasks
-```
-
-This fetches tasks from the "Blumeops" project in Todoist (via 1Password for API credentials) and displays them sorted by priority: p1 (urgent), p2 (high), p4 (normal/default), p3 (backlog). The typical workflow is to pick a task from this list at the start of a session, then dive in with planning.
-
-## Remote Hosts
-
-This repo is typically edited from a workstation (e.g., gilbert), but services run on remote hosts in the tailnet. Use SSH to explore or check state on remote machines:
-
-```bash
-# Explore config paths on indri
-ssh indri 'ls -la /opt/homebrew/etc/grafana/'
-
-# Check service status
-ssh indri 'brew services list'
-```
-
-Key hosts:
-- **indri** - Mac Mini M1 running services (prometheus, grafana, kiwix, forgejo, borgmatic)
-- **sifaka** - Synology NAS (backup target)
-
-## Git Workflow
-
-Use feature branches for all changes. Do not commit directly to main. Commit often while working to preserve progress.
-
-**IMPORTANT:** Always create feature branches from main to avoid including unrelated commits:
-
-```bash
-# Always start from main
-git checkout main
-git pull
-
-# Create a feature branch
-git checkout -b feature/description-of-change
-
-# Make changes, then commit
-git add -A
-git commit -m "Description of change"
-
-# Push and create PR using tea CLI
-git push -u origin feature/description-of-change
+2. When making any changes, start by making sure you're on the `main` git branch and up-to-date, and then create a feature branch. Commit often while working, and create a PR using:
+```fish
 tea pr create --title "Description of change" --description "$(cat <<'EOF'
 ## Summary
 - First change
 - Second change
 
-## Test plan
-- [x] Tested thing one
-- [ ] Need to test thing two
+## Deployment and Testing
+- [x] Done thing one
+- [ ] Needed thing two
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
+The user will review your work as you go, and will merge the pr as the last step in the process, even after deploying.
 
-Note: `tea` uses `--description` (not `--body` like `gh`). Other useful flags:
-- `--base <branch>` - target branch (default: repo's default branch)
-- `--assignees <user>` - assign reviewers
-- `--labels <label>` - add labels
+3. Always keep the zk cards up to date with any changes, and suggest new links to new cards whenever appropriate. Refer back to the zk docs often during the process of planning and making corrections to ensure accuracy, and if you make a mistake, figure out a way to guard against it using the zk.
 
-PRs are reviewed and merged via the Forgejo web UI at https://forge.tail8d86e.ts.net.
+4. Use `Brewfile` and `mise.toml` to install tools needed on the development workstation (typically hostnamed "gilbert", username "eblume").
 
-After creating a PR, run `open <pr-url>` to open it in the browser (Claude Code's UI will prompt for permission).
+5. Services are typically hosted on hostname "indri" and are launched from LaunchAgents of the user `erichblume`. If a service is available from `brew services` that is typically used, otherwise there is a utility called `mcquack` (`mcquack --help`) hosted at `https://forge.tail8d86e.ts.net/eblume/mcquack` - but you can just edit the mcquack launchagents directly via ansible.
 
-## Ansible
+6. Try to always test changes before applying them. Use syntax checkers, do dry runs, run commands manually via `ssh indri 'some command'`, etc.
 
-```bash
-# Install collection dependencies
-ansible-galaxy collection install -r ansible/requirements.yml
+7. After making changes, try to verify the result. Use `mise run indri-services-check` to do a general service health check.
 
-# Dry-run before committing changes
-mise run provision-indri -- --check --diff
-
-# Apply changes
-mise run provision-indri
+## Project structure
+Some important places you can look:
+```
+./mise-tasks/  # management and utility scripts run via `mise run`
+./ansible/playbooks/indri.yml  # primary blumeops provisioning script
+./ansible/playbooks/roles/  # role dirs here give good overview of services; dependencies tracked via meta/main.yml
+./pulumi/  # python (via uv) pulumi script for provisioning the tailnet and other cloud resources
+~/code/personal/  # projects managed by the user
+~/code/3rd/  # external projects, mirrored or downloaded
+~/code/work  # FORBIDDEN, never go here, avoid searching it
 ```
 
-## Service Health Checks
+## Task Discovery
 
-After making changes to services, run the service health check to verify everything is working:
+To discover pending blumeops tasks, run:
 
-```bash
-mise run indri-services-check
+```fish
+mise run blumeops-tasks
 ```
 
-This checks that all indri services (prometheus, grafana, kiwix, transmission, forgejo) are running and responding to health checks.
+This fetches tasks from the "Blumeops" project in Todoist (via 1Password for API credentials) and displays them sorted by priority: p1 (urgent), p2 (high), p4 (normal/default), p3 (backlog). The typical workflow is to pick a task from this list at the start of a session, then dive in with planning.
+
+## Credentials
+
+The root store for credentials is 1password, which can be accessed via `op --vault <vaultid> item get <itemid> --field fieldname --reveal`, which will prompt the user for their assent and biometrics or password. Typically, use scripts to defer this action - try not to ever grab credentials directly. For instance, the indri.yml playbook starts with `pre_tasks` to gather the relevant secrets needed to provision its services. Some services have their credentials exported to files `chmod 0600` on indri, but they still start out in 1password. In some cases you can test services with a command that grabs the credential, but try to use environment variables or other arrangements to avoid learning the credential yourself, and warn the user first.
