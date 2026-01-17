@@ -1248,7 +1248,7 @@
   ],
   "refresh": "30s",
   "schemaVersion": 38,
-  "tags": ["node-exporter", "macos", "darwin"],
+  "tags": ["macos", "darwin"],
   "templating": {
     "list": [
       {
@@ -1319,8 +1319,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Node Exporter - macOS",
-  "uid": "node-exporter-macos",
+  "title": "macOS",
+  "uid": "macos",
   "version": 1,
   "weekStart": ""
 }
