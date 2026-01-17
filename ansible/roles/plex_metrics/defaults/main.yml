@@ -2,10 +2,10 @@
 # Plex metrics collection configuration
 
 # Plex server URL
-plex_url: "http://localhost:32400"
+plex_metrics_url: "http://localhost:32400"
 
 # Path to file containing Plex token (should have 600 permissions)
-plex_token_file: "/Users/erichblume/.plex-token"
+plex_metrics_token_file: "/Users/erichblume/.plex-token"
 
 # Metrics collection interval in seconds
 plex_metrics_interval: 60

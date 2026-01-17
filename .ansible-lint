@@ -1,0 +1,19 @@
+---
+# Ansible-lint configuration
+
+# Set profile to production for stricter checking
+profile: production
+
+# Exclude paths
+exclude_paths:
+  - .venv/
+  - pulumi/.venv/
+
+# Make ansible-lint aware of project structure
+project_dir: ansible
+
+# Skip some rules that are too noisy for this project
+skip_list:
+  - galaxy  # Don't require galaxy metadata in roles
+  - yaml[line-length]  # Don't enforce line length limits
+  - no-handler  # Some tasks intentionally run conditionally, not as handlers

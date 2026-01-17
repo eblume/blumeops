@@ -31,7 +31,9 @@
 
 - name: Fetch PostgreSQL metrics password from 1Password
   ansible.builtin.command:
-    cmd: op --vault {{ alloy_op_vault }} item get {{ alloy_op_postgres_item }} --fields {{ alloy_op_postgres_field }} --reveal
+    cmd: >-
+      op --vault {{ alloy_op_vault }} item get {{ alloy_op_postgres_item }}
+      --fields {{ alloy_op_postgres_field }} --reveal
   delegate_to: localhost
   register: alloy_postgres_password_result
   changed_when: false
@@ -55,7 +57,7 @@
     src: postgres_queries.yaml.j2
     dest: "{{ alloy_config_dir }}/postgres_queries.yaml"
     mode: '0600'
-  notify: restart alloy
+  notify: Restart alloy
   when: alloy_collect_postgres | default(false)
 
 - name: Deploy alloy configuration
@@ -63,11 +65,11 @@
     src: config.alloy.j2
     dest: "{{ alloy_config_dir }}/config.alloy"
     mode: '0600'
-  notify: restart alloy
+  notify: Restart alloy
   no_log: true
 
 - name: Ensure alloy service is started
   ansible.builtin.command: brew services start grafana-alloy
-  register: brew_start
-  changed_when: "'Successfully started' in brew_start.stdout"
+  register: alloy_brew_start
+  changed_when: "'Successfully started' in alloy_brew_start.stdout"
   failed_when: false

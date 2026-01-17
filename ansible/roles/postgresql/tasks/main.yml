@@ -4,7 +4,7 @@
 # Passwords are fetched from 1Password at runtime using the `op` CLI.
 # Requires: `op` authenticated on the control machine (run `op signin` first).
 
-- name: Install {{ postgresql_formula }} via homebrew
+- name: Install postgresql via homebrew
   community.general.homebrew:
     name: "{{ postgresql_formula }}"
     state: present
@@ -17,49 +17,49 @@
   ansible.builtin.command:
     cmd: op --vault {{ postgresql_op_vault }} item get {{ postgresql_op_superuser_item }} --fields password --reveal
   delegate_to: localhost
-  register: pg_superuser_password_result
+  register: postgresql_superuser_password_result
   changed_when: false
   no_log: true
   check_mode: false
-  when: pg_superuser_password is not defined
+  when: postgresql_superuser_password is not defined
 
 - name: Set superuser password fact
   ansible.builtin.set_fact:
-    pg_superuser_password: "{{ pg_superuser_password_result.stdout }}"
+    postgresql_superuser_password: "{{ postgresql_superuser_password_result.stdout }}"
   no_log: true
-  when: pg_superuser_password is not defined
+  when: postgresql_superuser_password is not defined
 
 - name: Fetch user passwords from 1Password
   ansible.builtin.command:
     cmd: op --vault {{ postgresql_op_vault }} item get {{ item.op_item }} --fields {{ item.op_field }} --reveal
   delegate_to: localhost
   loop: "{{ postgresql_users }}"
-  register: pg_user_passwords_result
+  register: postgresql_user_passwords_result
   changed_when: false
   no_log: true
   check_mode: false
-  when: pg_user_passwords is not defined
+  when: postgresql_user_passwords is not defined
 
 - name: Build user password lookup
   ansible.builtin.set_fact:
-    pg_user_passwords: "{{ pg_user_passwords | default({}) | combine({item.item.name: item.stdout}) }}"
-  loop: "{{ pg_user_passwords_result.results }}"
+    postgresql_user_passwords: "{{ postgresql_user_passwords | default({}) | combine({item.item.name: item.stdout}) }}"
+  loop: "{{ postgresql_user_passwords_result.results }}"
   no_log: true
-  when: pg_user_passwords is not defined
+  when: postgresql_user_passwords is not defined
 
 # === Initialize PostgreSQL cluster ===
 
 - name: Check if postgresql data directory is initialized
   ansible.builtin.stat:
     path: "{{ postgresql_data_dir }}/PG_VERSION"
-  register: pg_data
+  register: postgresql_data_check
 
 - name: Create temporary password file for initdb
   ansible.builtin.copy:
-    content: "{{ pg_superuser_password }}"
+    content: "{{ postgresql_superuser_password }}"
     dest: /tmp/.pg_init_pwfile
     mode: '0600'
-  when: not pg_data.stat.exists
+  when: not postgresql_data_check.stat.exists
   no_log: true
 
 - name: Initialize postgresql database cluster with superuser password
@@ -69,13 +69,14 @@
     --locale=en_US.UTF-8 -E UTF-8
     --pwfile=/tmp/.pg_init_pwfile
     {{ postgresql_data_dir }}
-  when: not pg_data.stat.exists
+  when: not postgresql_data_check.stat.exists
+  changed_when: true
 
 - name: Remove temporary password file
   ansible.builtin.file:
     path: /tmp/.pg_init_pwfile
     state: absent
-  when: not pg_data.stat.exists
+  when: not postgresql_data_check.stat.exists
 
 # === Configure and start PostgreSQL ===
 
@@ -84,19 +85,19 @@
     src: pg_hba.conf.j2
     dest: "{{ postgresql_config_dir }}/pg_hba.conf"
     mode: '0600'
-  notify: restart postgresql
+  notify: Restart postgresql
 
 - name: Ensure postgresql service is started
   ansible.builtin.command: brew services start {{ postgresql_formula }}
-  register: brew_start
-  changed_when: "'Successfully started' in brew_start.stdout"
+  register: postgresql_brew_start
+  changed_when: "'Successfully started' in postgresql_brew_start.stdout"
   failed_when: false
 
 - name: Wait for postgresql to accept connections
   ansible.builtin.command: >
     {{ postgresql_bin_dir }}/pg_isready -h localhost -p {{ postgresql_port }}
-  register: pg_ready
-  until: pg_ready.rc == 0
+  register: postgresql_ready
+  until: postgresql_ready.rc == 0
   retries: 10
   delay: 2
   changed_when: false
@@ -108,9 +109,9 @@
     {{ postgresql_bin_dir }}/psql -h localhost -U {{ postgresql_superuser }} -d postgres -tAc
     "SELECT 1 FROM pg_roles WHERE rolname = '{{ item.name }}';"
   environment:
-    PGPASSWORD: "{{ pg_superuser_password }}"
+    PGPASSWORD: "{{ postgresql_superuser_password }}"
   loop: "{{ postgresql_users }}"
-  register: user_check
+  register: postgresql_user_check
   changed_when: false
   failed_when: false
   no_log: true
@@ -118,10 +119,10 @@
 - name: Create postgresql users with passwords
   ansible.builtin.command: >
     {{ postgresql_bin_dir }}/psql -h localhost -U {{ postgresql_superuser }} -d postgres -c
-    "CREATE USER {{ item.item.name }} WITH PASSWORD '{{ pg_user_passwords[item.item.name] }}';"
+    "CREATE USER {{ item.item.name }} WITH PASSWORD '{{ postgresql_user_passwords[item.item.name] }}';"
   environment:
-    PGPASSWORD: "{{ pg_superuser_password }}"
-  loop: "{{ user_check.results }}"
+    PGPASSWORD: "{{ postgresql_superuser_password }}"
+  loop: "{{ postgresql_user_check.results }}"
   when: item.stdout != "1"
   changed_when: true
   no_log: true
@@ -129,9 +130,9 @@
 - name: Update postgresql user passwords (idempotent)
   ansible.builtin.command: >
     {{ postgresql_bin_dir }}/psql -h localhost -U {{ postgresql_superuser }} -d postgres -c
-    "ALTER USER {{ item.name }} WITH PASSWORD '{{ pg_user_passwords[item.name] }}';"
+    "ALTER USER {{ item.name }} WITH PASSWORD '{{ postgresql_user_passwords[item.name] }}';"
   environment:
-    PGPASSWORD: "{{ pg_superuser_password }}"
+    PGPASSWORD: "{{ postgresql_superuser_password }}"
   loop: "{{ postgresql_users }}"
   changed_when: false
   no_log: true
@@ -140,9 +141,10 @@
 
 - name: Grant roles to users
   ansible.builtin.command: >
-    {{ postgresql_bin_dir }}/psql -h localhost -U {{ postgresql_superuser }} -d postgres -c "GRANT {{ item.1 }} TO {{ item.0.name }};"
+    {{ postgresql_bin_dir }}/psql -h localhost -U {{ postgresql_superuser }}
+    -d postgres -c "GRANT {{ item.1 }} TO {{ item.0.name }};"
   environment:
-    PGPASSWORD: "{{ pg_superuser_password }}"
+    PGPASSWORD: "{{ postgresql_superuser_password }}"
   loop: "{{ postgresql_users | subelements('roles', skip_missing=True) }}"
   changed_when: false
   no_log: true
@@ -154,9 +156,9 @@
     {{ postgresql_bin_dir }}/psql -h localhost -U {{ postgresql_superuser }} -d postgres -tAc
     "SELECT 1 FROM pg_database WHERE datname = '{{ item.name }}';"
   environment:
-    PGPASSWORD: "{{ pg_superuser_password }}"
+    PGPASSWORD: "{{ postgresql_superuser_password }}"
   loop: "{{ postgresql_databases }}"
-  register: db_check
+  register: postgresql_db_check
   changed_when: false
   failed_when: false
   no_log: true
@@ -167,8 +169,8 @@
     --owner={{ item.item.owner }}
     {{ item.item.name }}
   environment:
-    PGPASSWORD: "{{ pg_superuser_password }}"
-  loop: "{{ db_check.results }}"
+    PGPASSWORD: "{{ postgresql_superuser_password }}"
+  loop: "{{ postgresql_db_check.results }}"
   when: item.stdout != "1"
   changed_when: true
   no_log: true
@@ -181,7 +183,7 @@
   ansible.builtin.copy:
     content: |
       # Managed by ansible - only read-only roles
-      localhost:{{ postgresql_port }}:*:borgmatic:{{ pg_user_passwords['borgmatic'] }}
+      localhost:{{ postgresql_port }}:*:borgmatic:{{ postgresql_user_passwords['borgmatic'] }}
     dest: ~/.pgpass
     mode: '0600'
   no_log: true

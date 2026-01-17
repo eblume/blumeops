@@ -49,6 +49,31 @@ LLM-assisted development. I want to include a personal note here that I don't
 know entirely how I feel about LLMs in our current era, but it felt important
 to learn.
 
+## Development
+
+### Pre-commit Hooks
+
+This repo uses [pre-commit](https://pre-commit.com) for code quality and consistency. Install hooks with:
+
+```bash
+uvx pre-commit install
+```
+
+Run all hooks manually:
+
+```bash
+uvx pre-commit run --all-files
+```
+
+Hooks include:
+- **General**: trailing whitespace, end-of-file fixer, large files, merge conflicts
+- **Secrets**: [TruffleHog](https://github.com/trufflesecurity/trufflehog) for secret detection
+- **YAML**: yamllint, ansible-lint
+- **Python**: ruff (linting + formatting)
+- **Shell**: shellcheck, shfmt
+- **TOML**: taplo
+- **JSON**: prettier
+
 ## Documentation
 
 Detailed documentation lives in my personal zettelkasten, which is not included in this repository. You can view the docs with:

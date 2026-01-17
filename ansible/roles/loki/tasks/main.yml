@@ -29,10 +29,10 @@
     src: loki-config.yaml.j2
     dest: "{{ loki_config_file }}"
     mode: '0644'
-  notify: restart loki
+  notify: Restart loki
 
 - name: Ensure loki service is started
   ansible.builtin.command: brew services start loki
-  register: brew_start
-  changed_when: "'Successfully started' in brew_start.stdout"
+  register: loki_brew_start
+  changed_when: "'Successfully started' in loki_brew_start.stdout"
   failed_when: false

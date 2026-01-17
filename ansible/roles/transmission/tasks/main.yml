@@ -29,12 +29,12 @@
     dest: "{{ transmission_config_dir }}/settings.json"
     mode: '0600'
   check_mode: true
-  register: settings_check
+  register: transmission_settings_check
 
 - name: Stop transmission before config changes
   ansible.builtin.command: brew services stop transmission-cli
-  when: settings_check.changed
-  register: brew_stop
+  when: transmission_settings_check.changed
+  register: transmission_brew_stop
   changed_when: false
   failed_when: false
 
@@ -43,10 +43,10 @@
     src: settings.json.j2
     dest: "{{ transmission_config_dir }}/settings.json"
     mode: '0600'
-  notify: restart transmission
+  notify: Restart transmission
 
 - name: Ensure transmission service is started
   ansible.builtin.command: brew services start transmission-cli
-  register: brew_start
-  changed_when: "'Successfully started' in brew_start.stdout"
+  register: transmission_brew_start
+  changed_when: "'Successfully started' in transmission_brew_start.stdout"
   failed_when: false

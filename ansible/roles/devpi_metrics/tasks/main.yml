@@ -22,15 +22,16 @@
     src: devpi-metrics.plist.j2
     dest: ~/Library/LaunchAgents/mcquack.eblume.devpi-metrics.plist
     mode: '0644'
-  notify: reload devpi-metrics
+  notify: Reload devpi-metrics
 
 - name: Check if devpi-metrics LaunchAgent is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.devpi-metrics
-  register: launchctl_check
+  register: devpi_metrics_launchctl_check
   changed_when: false
   failed_when: false
 
 - name: Load devpi-metrics LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.devpi-metrics.plist
-  when: launchctl_check.rc != 0
+  when: devpi_metrics_launchctl_check.rc != 0
+  changed_when: true
   failed_when: false

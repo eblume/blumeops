@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-RPC_URL="http://{{ transmission_rpc_host }}:{{ transmission_rpc_port }}/transmission/rpc"
+RPC_URL="http://{{ transmission_metrics_rpc_host }}:{{ transmission_metrics_rpc_port }}/transmission/rpc"
 OUTPUT_FILE="{{ transmission_metrics_dir }}/transmission.prom"
 TEMP_FILE="${OUTPUT_FILE}.tmp"
 

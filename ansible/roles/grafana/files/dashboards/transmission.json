@@ -22,15 +22,15 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "green", "value": 1}
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
             ]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
       "id": 1,
       "options": {
         "colorMode": "value",
@@ -47,7 +47,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "transmission_up",
           "refId": "A"
         }
@@ -68,15 +68,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null}
-            ]
+            "steps": [{ "color": "green", "value": null }]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
       "id": 2,
       "options": {
         "colorMode": "value",
@@ -93,7 +91,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "transmission_torrents_total",
           "refId": "A"
         }
@@ -114,15 +112,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "blue", "value": null}
-            ]
+            "steps": [{ "color": "blue", "value": null }]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
       "id": 3,
       "options": {
         "colorMode": "value",
@@ -139,7 +135,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "transmission_torrents_active",
           "refId": "A"
         }
@@ -160,15 +156,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "orange", "value": null}
-            ]
+            "steps": [{ "color": "orange", "value": null }]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
       "id": 4,
       "options": {
         "colorMode": "value",
@@ -185,7 +179,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "transmission_torrents_paused",
           "refId": "A"
         }
@@ -206,15 +200,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null}
-            ]
+            "steps": [{ "color": "green", "value": null }]
           },
           "unit": "decbytes"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
       "id": 5,
       "options": {
         "colorMode": "value",
@@ -231,7 +223,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "transmission_downloaded_bytes_total",
           "refId": "A"
         }
@@ -252,15 +244,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "purple", "value": null}
-            ]
+            "steps": [{ "color": "purple", "value": null }]
           },
           "unit": "decbytes"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
       "id": 6,
       "options": {
         "colorMode": "value",
@@ -277,7 +267,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "transmission_uploaded_bytes_total",
           "refId": "A"
         }
@@ -300,16 +290,16 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "yellow", "value": 0.5},
-              {"color": "green", "value": 1}
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "green", "value": 1 }
             ]
           },
           "unit": "none"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 4},
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 4 },
       "id": 11,
       "options": {
         "colorMode": "value",
@@ -326,7 +316,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "increase(transmission_uploaded_bytes_total[$__range]) / increase(transmission_downloaded_bytes_total[$__range])",
           "refId": "A"
         }
@@ -348,15 +338,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null}
-            ]
+            "steps": [{ "color": "green", "value": null }]
           },
           "unit": "decbytes"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 4},
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 4 },
       "id": 12,
       "options": {
         "colorMode": "value",
@@ -373,7 +361,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "increase(transmission_downloaded_bytes_total[$__range])",
           "refId": "A"
         }
@@ -395,15 +383,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "blue", "value": null}
-            ]
+            "steps": [{ "color": "blue", "value": null }]
           },
           "unit": "decbytes"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 4},
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 4 },
       "id": 13,
       "options": {
         "colorMode": "value",
@@ -420,7 +406,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "increase(transmission_uploaded_bytes_total[$__range])",
           "refId": "A"
         }
@@ -473,28 +459,32 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null}
-            ]
+            "steps": [{ "color": "green", "value": null }]
           },
           "unit": "Bps"
         },
         "overrides": [
           {
-            "matcher": {"id": "byName", "options": "Download"},
+            "matcher": { "id": "byName", "options": "Download" },
             "properties": [
-              {"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}
+              {
+                "id": "color",
+                "value": { "fixedColor": "green", "mode": "fixed" }
+              }
             ]
           },
           {
-            "matcher": {"id": "byName", "options": "Upload"},
+            "matcher": { "id": "byName", "options": "Upload" },
             "properties": [
-              {"id": "color", "value": {"fixedColor": "blue", "mode": "fixed"}}
+              {
+                "id": "color",
+                "value": { "fixedColor": "blue", "mode": "fixed" }
+              }
             ]
           }
         ]
       },
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "id": 7,
       "options": {
         "legend": {
@@ -511,13 +501,13 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "transmission_download_speed_bytes",
           "legendFormat": "Download",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "transmission_upload_speed_bytes",
           "legendFormat": "Upload",
           "refId": "B"
@@ -571,15 +561,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null}
-            ]
+            "steps": [{ "color": "green", "value": null }]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "id": 8,
       "options": {
         "legend": {
@@ -596,19 +584,19 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "transmission_torrents_total",
           "legendFormat": "Total",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "transmission_torrents_active",
           "legendFormat": "Active",
           "refId": "B"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "transmission_torrents_paused",
           "legendFormat": "Paused",
           "refId": "C"
@@ -662,28 +650,32 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null}
-            ]
+            "steps": [{ "color": "green", "value": null }]
           },
           "unit": "Bps"
         },
         "overrides": [
           {
-            "matcher": {"id": "byName", "options": "Download Rate"},
+            "matcher": { "id": "byName", "options": "Download Rate" },
             "properties": [
-              {"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}
+              {
+                "id": "color",
+                "value": { "fixedColor": "green", "mode": "fixed" }
+              }
             ]
           },
           {
-            "matcher": {"id": "byName", "options": "Upload Rate"},
+            "matcher": { "id": "byName", "options": "Upload Rate" },
             "properties": [
-              {"id": "color", "value": {"fixedColor": "blue", "mode": "fixed"}}
+              {
+                "id": "color",
+                "value": { "fixedColor": "blue", "mode": "fixed" }
+              }
             ]
           }
         ]
       },
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
       "id": 9,
       "options": {
         "legend": {
@@ -700,13 +692,13 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "rate(transmission_downloaded_bytes_total[5m])",
           "legendFormat": "Download Rate",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "rate(transmission_uploaded_bytes_total[5m])",
           "legendFormat": "Upload Rate",
           "refId": "B"
@@ -761,15 +753,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null}
-            ]
+            "steps": [{ "color": "green", "value": null }]
           },
           "unit": "decbytes"
         },
         "overrides": []
       },
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24},
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
       "id": 10,
       "options": {
         "legend": {
@@ -786,7 +776,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "transmission_torrents_size_bytes",
           "legendFormat": "Total Torrent Size",
           "refId": "A"

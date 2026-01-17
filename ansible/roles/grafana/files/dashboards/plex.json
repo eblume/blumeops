@@ -19,21 +19,31 @@
             "mode": "thresholds"
           },
           "mappings": [
-            {"options": {"0": {"color": "red", "index": 0, "text": "DOWN"}}, "type": "value"},
-            {"options": {"1": {"color": "green", "index": 1, "text": "UP"}}, "type": "value"}
+            {
+              "options": {
+                "0": { "color": "red", "index": 0, "text": "DOWN" }
+              },
+              "type": "value"
+            },
+            {
+              "options": {
+                "1": { "color": "green", "index": 1, "text": "UP" }
+              },
+              "type": "value"
+            }
           ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "green", "value": 1}
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
             ]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
       "id": 1,
       "options": {
         "colorMode": "value",
@@ -50,7 +60,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "plex_up",
           "refId": "A"
         }
@@ -71,15 +81,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "blue", "value": null}
-            ]
+            "steps": [{ "color": "blue", "value": null }]
           },
           "unit": "string"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 4, "y": 0},
+      "gridPos": { "h": 4, "w": 6, "x": 4, "y": 0 },
       "id": 2,
       "options": {
         "colorMode": "value",
@@ -96,7 +104,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "plex_version_info",
           "format": "table",
           "instant": true,
@@ -120,16 +128,16 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 3},
-              {"color": "orange", "value": 5}
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 3 },
+              { "color": "orange", "value": 5 }
             ]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 10, "y": 0},
+      "gridPos": { "h": 4, "w": 4, "x": 10, "y": 0 },
       "id": 3,
       "options": {
         "colorMode": "value",
@@ -146,7 +154,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "plex_sessions_total",
           "refId": "A"
         }
@@ -168,16 +176,16 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 1},
-              {"color": "orange", "value": 2}
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "orange", "value": 2 }
             ]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 14, "y": 0},
+      "gridPos": { "h": 4, "w": 4, "x": 14, "y": 0 },
       "id": 4,
       "options": {
         "colorMode": "value",
@@ -194,7 +202,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "plex_transcode_sessions_total",
           "refId": "A"
         }
@@ -215,15 +223,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "purple", "value": null}
-            ]
+            "steps": [{ "color": "purple", "value": null }]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
       "id": 5,
       "options": {
         "colorMode": "value",
@@ -240,7 +246,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "count(plex_library_items)",
           "refId": "A"
         }
@@ -262,15 +268,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "blue", "value": null}
-            ]
+            "steps": [{ "color": "blue", "value": null }]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 4},
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 4 },
       "id": 6,
       "options": {
         "colorMode": "value",
@@ -287,7 +291,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "sum(plex_library_items{type=\"movie\"})",
           "refId": "A"
         }
@@ -309,15 +313,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null}
-            ]
+            "steps": [{ "color": "green", "value": null }]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 4},
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 4 },
       "id": 7,
       "options": {
         "colorMode": "value",
@@ -334,7 +336,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "sum(plex_library_items{type=\"show\"})",
           "refId": "A"
         }
@@ -356,15 +358,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "orange", "value": null}
-            ]
+            "steps": [{ "color": "orange", "value": null }]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 4},
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 4 },
       "id": 8,
       "options": {
         "colorMode": "value",
@@ -381,7 +381,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "sum(plex_library_items{type=\"artist\"})",
           "refId": "A"
         }
@@ -403,15 +403,13 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "purple", "value": null}
-            ]
+            "steps": [{ "color": "purple", "value": null }]
           },
           "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 4},
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
       "id": 9,
       "options": {
         "colorMode": "value",
@@ -428,7 +426,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "sum(plex_library_items{type=\"photo\"})",
           "refId": "A"
         }
@@ -481,28 +479,32 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null}
-            ]
+            "steps": [{ "color": "green", "value": null }]
           },
           "unit": "short"
         },
         "overrides": [
           {
-            "matcher": {"id": "byName", "options": "Playing"},
+            "matcher": { "id": "byName", "options": "Playing" },
             "properties": [
-              {"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}
+              {
+                "id": "color",
+                "value": { "fixedColor": "green", "mode": "fixed" }
+              }
             ]
           },
           {
-            "matcher": {"id": "byName", "options": "Paused"},
+            "matcher": { "id": "byName", "options": "Paused" },
             "properties": [
-              {"id": "color", "value": {"fixedColor": "yellow", "mode": "fixed"}}
+              {
+                "id": "color",
+                "value": { "fixedColor": "yellow", "mode": "fixed" }
+              }
             ]
           }
         ]
       },
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "id": 10,
       "options": {
         "legend": {
@@ -519,13 +521,13 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "plex_sessions_playing",
           "legendFormat": "Playing",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "plex_sessions_paused",
           "legendFormat": "Paused",
           "refId": "B"
@@ -579,28 +581,32 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "green", "value": null}
-            ]
+            "steps": [{ "color": "green", "value": null }]
           },
           "unit": "short"
         },
         "overrides": [
           {
-            "matcher": {"id": "byName", "options": "Video Transcode"},
+            "matcher": { "id": "byName", "options": "Video Transcode" },
             "properties": [
-              {"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}
+              {
+                "id": "color",
+                "value": { "fixedColor": "red", "mode": "fixed" }
+              }
             ]
           },
           {
-            "matcher": {"id": "byName", "options": "Audio Transcode"},
+            "matcher": { "id": "byName", "options": "Audio Transcode" },
             "properties": [
-              {"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}
+              {
+                "id": "color",
+                "value": { "fixedColor": "orange", "mode": "fixed" }
+              }
             ]
           }
         ]
       },
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "id": 11,
       "options": {
         "legend": {
@@ -617,13 +623,13 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "plex_transcode_video_sessions",
           "legendFormat": "Video Transcode",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "plex_transcode_audio_sessions",
           "legendFormat": "Audio Transcode",
           "refId": "B"
@@ -637,7 +643,7 @@
         "type": "loki",
         "uid": "loki"
       },
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
       "id": 12,
       "options": {
         "dedupStrategy": "none",
@@ -651,7 +657,7 @@
       },
       "targets": [
         {
-          "datasource": {"type": "loki", "uid": "loki"},
+          "datasource": { "type": "loki", "uid": "loki" },
           "expr": "{service=\"plex\"}",
           "refId": "A"
         }

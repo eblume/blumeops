@@ -19,7 +19,7 @@
 
     - name: Set PostgreSQL superuser password fact
       ansible.builtin.set_fact:
-        pg_superuser_password: "{{ _pg_superuser_pw.stdout }}"
+        postgresql_superuser_password: "{{ _pg_superuser_pw.stdout }}"
       no_log: true
       tags: [postgresql]
 
@@ -67,7 +67,7 @@
 
     - name: Build PostgreSQL user password lookup
       ansible.builtin.set_fact:
-        pg_user_passwords:
+        postgresql_user_passwords:
           miniflux: "{{ _miniflux_db_pw.stdout }}"
           borgmatic: "{{ _borgmatic_db_pw.stdout }}"
           alloy: "{{ _pg_alloy_pw.stdout }}"

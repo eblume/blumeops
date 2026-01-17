@@ -13,10 +13,10 @@
     src: node_exporter.args.j2
     dest: /opt/homebrew/etc/node_exporter.args
     mode: '0644'
-  notify: restart node_exporter
+  notify: Restart node_exporter
 
 - name: Ensure node_exporter service is started
   ansible.builtin.command: brew services start node_exporter
-  register: brew_start
-  changed_when: "'Successfully started' in brew_start.stdout"
+  register: node_exporter_brew_start
+  changed_when: "'Successfully started' in node_exporter_brew_start.stdout"
   failed_when: false

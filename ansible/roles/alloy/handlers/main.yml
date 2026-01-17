@@ -1,5 +1,6 @@
 ---
-- name: restart alloy
+- name: Restart alloy
   ansible.builtin.command: brew services restart grafana-alloy
   async: 120
   poll: 0
+  changed_when: true

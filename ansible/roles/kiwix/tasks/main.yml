@@ -11,7 +11,7 @@
 
 - name: Check transmission daemon is responding
   ansible.builtin.command: transmission-remote -l
-  register: transmission_check
+  register: kiwix_transmission_check
   changed_when: false
   failed_when: false
   when: kiwix_use_transmission
@@ -19,7 +19,7 @@
 - name: Fail if transmission is not running
   ansible.builtin.fail:
     msg: "Transmission daemon is not responding. Ensure transmission role ran successfully."
-  when: kiwix_use_transmission and transmission_check.rc != 0
+  when: kiwix_use_transmission and kiwix_transmission_check.rc != 0
 
 # Find which declared archives don't have torrents yet (single shell command)
 - name: Find declared archives missing from transmission
@@ -37,7 +37,7 @@
     {% endfor %}
   args:
     executable: /bin/bash
-  register: missing_torrents
+  register: kiwix_missing_torrents
   changed_when: false
   when: kiwix_use_transmission
 
@@ -45,14 +45,14 @@
 - name: Add missing torrents to transmission
   ansible.builtin.command: >
     transmission-remote -a "{{ kiwix_torrent_base_url }}/{{ item }}.torrent"
-  loop: "{{ missing_torrents.stdout_lines | default([]) }}"
+  loop: "{{ kiwix_missing_torrents.stdout_lines | default([]) }}"
   loop_control:
     label: "{{ item | basename }}"
   when:
     - kiwix_use_transmission
-    - missing_torrents.stdout_lines | default([]) | length > 0
-  register: torrent_add
-  changed_when: torrent_add.rc == 0
+    - kiwix_missing_torrents.stdout_lines | default([]) | length > 0
+  register: kiwix_torrent_add
+  changed_when: kiwix_torrent_add.rc == 0
 
 # --- Kiwix startup: serve whatever completed ZIM files exist ---
 # This is decoupled from the declared inventory - it just serves what's available.
@@ -63,7 +63,7 @@
     paths: "{{ transmission_download_dir }}"
     patterns: "*.zim"
     file_type: file
-  register: completed_zim_files
+  register: kiwix_completed_zim_files
   when: kiwix_use_transmission
 
 # Check which ZIM files already have symlinks in kiwix directory
@@ -71,10 +71,10 @@
   ansible.builtin.stat:
     path: "{{ kiwix_zim_dir }}/{{ item.path | basename }}"
     get_checksum: false
-  loop: "{{ completed_zim_files.files | default([]) }}"
+  loop: "{{ kiwix_completed_zim_files.files | default([]) }}"
   loop_control:
     label: "{{ item.path | basename }}"
-  register: existing_symlinks
+  register: kiwix_existing_symlinks
   when: kiwix_use_transmission
 
 # Create symlinks for any completed ZIM files not yet linked
@@ -83,14 +83,14 @@
     src: "{{ item.item.path }}"
     dest: "{{ kiwix_zim_dir }}/{{ item.item.path | basename }}"
     state: link
-  loop: "{{ existing_symlinks.results | default([]) }}"
+  loop: "{{ kiwix_existing_symlinks.results | default([]) }}"
   loop_control:
     label: "{{ item.item.path | basename }}"
   when:
     - kiwix_use_transmission
     - item.stat is defined
     - not item.stat.exists
-  notify: restart kiwix-serve
+  notify: Restart kiwix-serve
 
 # --- Fallback: Direct HTTP download (original behavior) ---
 - name: Check which ZIM archives exist (direct download mode)
@@ -100,7 +100,7 @@
   loop: "{{ kiwix_zim_archives }}"
   loop_control:
     label: "{{ item.filename }}"
-  register: zim_stat
+  register: kiwix_zim_stat
   when: not kiwix_use_transmission
 
 - name: Download missing ZIM archives (direct download mode)
@@ -109,14 +109,14 @@
     dest: "{{ kiwix_zim_dir }}/{{ item.item.filename }}"
     mode: '0644'
     timeout: 3600
-  loop: "{{ zim_stat.results | default([]) }}"
+  loop: "{{ kiwix_zim_stat.results | default([]) }}"
   loop_control:
     label: "{{ item.item.filename | default('unknown') }}"
   when:
     - not kiwix_use_transmission
     - item.stat is defined
     - not item.stat.exists
-  notify: restart kiwix-serve
+  notify: Restart kiwix-serve
 
 # --- Determine which archives are available ---
 - name: Find available ZIM archives in kiwix directory
@@ -124,11 +124,11 @@
     paths: "{{ kiwix_zim_dir }}"
     patterns: "*.zim"
     file_type: any  # includes symlinks
-  register: available_zim_files
+  register: kiwix_available_zim_files
 
 - name: Build list of available archive filenames
   ansible.builtin.set_fact:
-    kiwix_available_archives: "{{ available_zim_files.files | map(attribute='path') | map('basename') | list }}"
+    kiwix_available_archives: "{{ kiwix_available_zim_files.files | map(attribute='path') | map('basename') | list }}"
 
 # --- LaunchAgent deployment ---
 - name: Deploy kiwix-serve LaunchAgent plist
@@ -136,15 +136,16 @@
     src: kiwix-serve.plist.j2
     dest: ~/Library/LaunchAgents/mcquack.eblume.kiwix-serve.plist
     mode: '0644'
-  notify: restart kiwix-serve
+  notify: Restart kiwix-serve
 
 - name: Check if kiwix-serve LaunchAgent is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.kiwix-serve
-  register: launchctl_check
+  register: kiwix_launchctl_check
   changed_when: false
   failed_when: false
 
 - name: Load kiwix-serve LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.kiwix-serve.plist
-  when: launchctl_check.rc != 0
+  when: kiwix_launchctl_check.rc != 0
+  changed_when: true
   failed_when: false

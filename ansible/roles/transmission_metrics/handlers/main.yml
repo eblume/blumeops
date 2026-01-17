@@ -1,5 +1,6 @@
 ---
-- name: reload transmission-metrics
+- name: Reload transmission-metrics
   ansible.builtin.shell: |
     launchctl unload ~/Library/LaunchAgents/mcquack.eblume.transmission-metrics.plist 2>/dev/null || true
     launchctl load ~/Library/LaunchAgents/mcquack.eblume.transmission-metrics.plist
+  changed_when: true

@@ -1,0 +1,82 @@
+---
+# See https://pre-commit.com for more information
+# Run: uvx pre-commit run --all-files
+# Install: uvx pre-commit install
+
+repos:
+  # General file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-json
+      - id: check-yaml
+        args: ['--unsafe']  # Allow custom tags (ansible uses them)
+      - id: check-toml
+
+  # Secret detection
+  - repo: https://github.com/trufflesecurity/trufflehog
+    rev: v3.92.5
+    hooks:
+      - id: trufflehog
+        entry: trufflehog git file://. --since-commit HEAD --no-verification --fail
+        stages: [pre-commit, pre-push]
+
+  # YAML linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args: ['-c', '.yamllint.yaml']
+
+  # Ansible linting
+  - repo: local
+    hooks:
+      - id: ansible-lint
+        name: ansible-lint
+        entry: env ANSIBLE_ROLES_PATH=ansible/roles ansible-lint
+        language: python
+        files: ^ansible/
+        additional_dependencies:
+          - ansible-lint>=26.1.1
+          - ansible-core>=2.15
+
+  # Python - ruff for linting and formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.13
+    hooks:
+      - id: ruff
+        args: ['--fix']
+      - id: ruff-format
+
+  # Shell scripts - shellcheck and shfmt
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args: ['--severity=warning']
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.12.0-2
+    hooks:
+      - id: shfmt
+        args: ['-i', '2', '-ci', '-bn']  # 2-space indent, case indent, binary newline
+
+  # TOML - taplo
+  - repo: https://github.com/ComPWA/taplo-pre-commit
+    rev: v0.9.3
+    hooks:
+      - id: taplo-format
+      - id: taplo-lint
+
+  # JSON formatting (prettier for consistent style)
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.8.0
+    hooks:
+      - id: prettier
+        types_or: [json]
+        args: ['--tab-width', '2']

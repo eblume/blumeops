@@ -1,4 +1,5 @@
 ---
-- name: restart node_exporter
+- name: Restart node_exporter
   ansible.builtin.command: brew services restart node_exporter
-  listen: restart node_exporter
+  listen: Restart node_exporter
+  changed_when: true

@@ -1,3 +1,4 @@
 ---
-- name: restart forgejo
+- name: Restart forgejo
   ansible.builtin.command: brew services restart forgejo
+  changed_when: true

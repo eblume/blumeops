@@ -2,7 +2,7 @@
 # Tailscale serve configuration for this host
 # Each service maps a Tailscale service name to local endpoints
 
-tailscale_services:
+tailscale_serve_services:
   - name: svc:grafana
     https:
       port: 443

@@ -9,17 +9,17 @@
     src: prometheus.yml.j2
     dest: /opt/homebrew/etc/prometheus.yml
     mode: '0644'
-  notify: restart prometheus
+  notify: Restart prometheus
 
 - name: Configure prometheus.args
   ansible.builtin.template:
     src: prometheus.args.j2
     dest: /opt/homebrew/etc/prometheus.args
     mode: '0644'
-  notify: restart prometheus
+  notify: Restart prometheus
 
 - name: Ensure prometheus service is started
   ansible.builtin.command: brew services start prometheus
-  register: brew_start
-  changed_when: "'Successfully started' in brew_start.stdout"
+  register: prometheus_brew_start
+  changed_when: "'Successfully started' in prometheus_brew_start.stdout"
   failed_when: false
