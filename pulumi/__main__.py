@@ -52,6 +52,7 @@ indri_tags = tailscale.DeviceTags(
         "tag:loki",
         "tag:pg",
         "tag:feed",
+        "tag:registry",  # Zot container registry
     ],
 )
 

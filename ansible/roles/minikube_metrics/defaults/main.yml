@@ -1,0 +1,5 @@
+---
+minikube_metrics_dir: /opt/homebrew/var/node_exporter/textfile
+minikube_metrics_script: /Users/erichblume/bin/minikube-metrics
+minikube_metrics_interval: 60  # seconds between metric collection
+minikube_metrics_log_dir: /opt/homebrew/var/log

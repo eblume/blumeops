@@ -1,0 +1,9 @@
+---
+# Minikube handlers
+# Note: Restarting minikube is a heavy operation and may require manual intervention
+
+- name: Restart minikube
+  ansible.builtin.shell: |
+    minikube stop 2>/dev/null || true
+    minikube start
+  changed_when: true

@@ -54,6 +54,18 @@ prometheus.scrape "postgresql" {
 }
 {% endif %}
 
+{% if alloy_collect_zot | default(false) %}
+// ============== ZOT REGISTRY METRICS ==============
+
+// Scrape Zot's native metrics endpoint
+prometheus.scrape "zot" {
+  targets         = [{"__address__" = "localhost:5050"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "{{ alloy_scrape_interval }}"
+}
+{% endif %}
+
 {% if alloy_collect_logs %}
 // ============== LOG COLLECTION ==============
 

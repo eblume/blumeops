@@ -66,6 +66,12 @@ alloy_mcquack_logs:
   - path: /Users/erichblume/Library/Logs/mcquack.borgmatic.err.log
     service: borgmatic
     stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.zot.out.log
+    service: zot
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.zot.err.log
+    service: zot
+    stream: stderr
 
 alloy_plex_logs:
   - path: /Users/erichblume/Library/Logs/Plex Media Server/Plex Media Server.log
@@ -74,6 +80,10 @@ alloy_plex_logs:
 
 # Enable log collection (requires Loki to be running)
 alloy_collect_logs: true
+
+# Zot registry metrics collection
+alloy_collect_zot: true
+alloy_zot_metrics_url: "http://localhost:5050/metrics"
 
 # PostgreSQL metrics collection
 alloy_collect_postgres: true

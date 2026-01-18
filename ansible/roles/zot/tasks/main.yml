@@ -1,0 +1,66 @@
+---
+# Note: Zot is built from source, not installed via homebrew.
+#
+# ONE-TIME SETUP (before running ansible):
+#
+# 1. Clone zot from forge mirror (use localhost:3001 - hairpinning doesn't work):
+#    ssh indri 'git clone http://localhost:3001/eblume/zot.git ~/code/3rd/zot'
+#
+# 2. Set up Go via mise:
+#    ssh indri 'cd ~/code/3rd/zot && mise use go@1.25'
+#
+# 3. Build (creates bin/zot-darwin-arm64):
+#    ssh indri 'cd ~/code/3rd/zot && mise x -- make binary'
+#
+# 4. Run ansible to deploy config and LaunchAgent
+
+- name: Verify zot binary exists
+  ansible.builtin.stat:
+    path: "{{ zot_binary }}"
+  register: zot_binary_stat
+
+- name: Fail if zot binary not found
+  ansible.builtin.fail:
+    msg: |
+      Zot binary not found at {{ zot_binary }}.
+      Please build from source first:
+        ssh indri 'cd ~/code/3rd/zot && mise x -- make binary'
+  when: not zot_binary_stat.stat.exists
+
+- name: Ensure zot data directory exists
+  ansible.builtin.file:
+    path: "{{ zot_data_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure zot config directory exists
+  ansible.builtin.file:
+    path: "{{ zot_config_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy zot config
+  ansible.builtin.template:
+    src: config.json.j2
+    dest: "{{ zot_config_dir }}/config.json"
+    mode: '0644'
+  notify: Restart zot
+
+- name: Deploy zot LaunchAgent plist
+  ansible.builtin.template:
+    src: zot.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.zot.plist
+    mode: '0644'
+  notify: Restart zot
+
+- name: Check if zot LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.zot
+  register: zot_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load zot LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.zot.plist
+  when: zot_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false

@@ -1,0 +1,16 @@
+---
+zot_repo_dir: /Users/erichblume/code/3rd/zot
+zot_binary: "{{ zot_repo_dir }}/bin/zot-darwin-arm64"
+zot_data_dir: /Users/erichblume/zot
+zot_config_dir: /Users/erichblume/.config/zot
+zot_port: 5050
+zot_log_dir: /Users/erichblume/Library/Logs
+
+# Pull-through cache registries (on-demand sync)
+zot_sync_registries:
+  - name: docker.io
+    url: https://registry-1.docker.io
+  - name: ghcr.io
+    url: https://ghcr.io
+  - name: quay.io
+    url: https://quay.io

@@ -53,15 +53,18 @@ check_service "forgejo" "ssh indri 'brew services list | grep forgejo | grep sta
 check_service "devpi" "ssh indri 'launchctl list | grep devpi | grep -v \"^-\"'"
 check_service "postgresql" "ssh indri 'brew services list | grep postgresql | grep started'"
 check_service "miniflux" "ssh indri 'brew services list | grep miniflux | grep started'"
+check_service "zot" "ssh indri 'launchctl list | grep mcquack.eblume.zot | grep -v \"^-\"'"
+check_service "zot-metrics" "ssh indri 'launchctl list | grep zot-metrics | grep -v \"^-\"'"
+check_service "minikube-metrics" "ssh indri 'launchctl list | grep minikube-metrics | grep -v \"^-\"'"
 
 echo ""
 echo "HTTP endpoints (via Tailscale):"
 check_http "Loki" "http://indri:3100/ready"
 check_http "Prometheus" "http://indri:9090/-/healthy"
-check_http "Grafana" "http://indri:3000/api/health"
-check_http "Kiwix" "http://indri:5501/"
-check_http "Forgejo" "http://indri:3001/"
-check_http "Devpi" "http://indri:3141/+api"
+check_http "Grafana" "https://grafana.tail8d86e.ts.net/api/health"
+check_http "Kiwix" "https://kiwix.tail8d86e.ts.net/"
+check_http "Forgejo" "https://forge.tail8d86e.ts.net/"
+check_http "Devpi" "https://pypi.tail8d86e.ts.net/+api"
 check_http "Miniflux" "https://feed.tail8d86e.ts.net/healthcheck"
 # Transmission RPC is localhost-only by design, check via SSH
 check_service "Transmission RPC" "ssh indri 'curl -sf http://127.0.0.1:9091/transmission/rpc'"
@@ -69,6 +72,16 @@ check_service "Transmission RPC" "ssh indri 'curl -sf http://127.0.0.1:9091/tran
 check_service "Transmission metrics" "ssh indri 'test -f /opt/homebrew/var/node_exporter/textfile/transmission.prom'"
 # PostgreSQL uses TCP not HTTP, check via pg_isready
 check_service "PostgreSQL" "ssh indri '/opt/homebrew/opt/postgresql@18/bin/pg_isready -h localhost'"
+# Zot registry (via Tailscale service)
+check_http "Zot Registry" "https://registry.tail8d86e.ts.net/v2/_catalog"
+check_service "Zot metrics file" "ssh indri 'test -f /opt/homebrew/var/node_exporter/textfile/zot.prom'"
+check_service "Minikube metrics file" "ssh indri 'test -f /opt/homebrew/var/node_exporter/textfile/minikube.prom'"
+
+echo ""
+echo "Kubernetes cluster:"
+check_service "minikube" "ssh indri 'minikube status --format={{.Host}} | grep -q Running'"
+check_service "k8s-apiserver (indri)" "ssh indri 'kubectl get --raw /healthz'"
+check_service "k8s-apiserver (remote)" "kubectl --kubeconfig=$HOME/.kube/minikube-indri/config.yml --context=minikube-indri get --raw /healthz"
 
 echo ""
 if [ $FAILED -eq 0 ]; then

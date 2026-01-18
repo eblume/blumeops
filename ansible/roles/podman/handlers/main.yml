@@ -1,0 +1,3 @@
+---
+# No handlers currently - podman machine start is unreliable via Ansible
+# See known issue in tasks/main.yml

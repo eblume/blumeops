@@ -101,6 +101,7 @@
 		"tag:loki": ["autogroup:admin", "tag:blumeops"],
 		"tag:pg": ["autogroup:admin", "tag:blumeops"],
 		"tag:feed": ["autogroup:admin", "tag:blumeops"],
+		"tag:registry": ["autogroup:admin", "tag:blumeops"],
 	},
 
 	// ============== ACL Tests ==============
@@ -108,13 +109,13 @@
 		// Erich can access everything
 		{
 			"src":    "blume.erich@gmail.com",
-			"accept": ["tag:grafana:443", "tag:kiwix:443", "tag:feed:443", "tag:loki:3100", "tag:pg:5432", "tag:homelab:22"],
+			"accept": ["tag:grafana:443", "tag:kiwix:443", "tag:feed:443", "tag:loki:3100", "tag:pg:5432", "tag:homelab:22", "tag:registry:443"],
 		},
 		// Allison can access user services but NOT grafana, loki, or NAS
 		{
 			"src":    "acmdavis@gmail.com",
 			"accept": ["tag:kiwix:443", "tag:forge:443", "tag:feed:443", "tag:pg:5432"],
-			"deny":   ["tag:grafana:443", "tag:loki:3100", "tag:nas:445"],
+			"deny":   ["tag:grafana:443", "tag:loki:3100", "tag:nas:445", "tag:registry:443"],
 		},
 		// Homelab can reach homelab and NAS
 		{

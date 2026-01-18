@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>mcquack.eblume.minikube-metrics</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ minikube_metrics_script }}</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>{{ minikube_metrics_interval }}</integer>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>{{ minikube_metrics_log_dir }}/mcquack.minikube-metrics.err.log</string>
+	<key>StandardOutPath</key>
+	<string>{{ minikube_metrics_log_dir }}/mcquack.minikube-metrics.out.log</string>
+</dict>
+</plist>

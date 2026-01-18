@@ -1,0 +1,43 @@
+---
+- name: Ensure metrics directory exists
+  ansible.builtin.file:
+    path: "{{ minikube_metrics_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure log directory exists
+  ansible.builtin.file:
+    path: "{{ minikube_metrics_log_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure bin directory exists
+  ansible.builtin.file:
+    path: "{{ minikube_metrics_script | dirname }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy minikube-metrics script
+  ansible.builtin.template:
+    src: minikube-metrics.sh.j2
+    dest: "{{ minikube_metrics_script }}"
+    mode: '0755'
+
+- name: Deploy minikube-metrics LaunchAgent plist
+  ansible.builtin.template:
+    src: minikube-metrics.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.minikube-metrics.plist
+    mode: '0644'
+  notify: Reload minikube-metrics
+
+- name: Check if minikube-metrics LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.minikube-metrics
+  register: minikube_metrics_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load minikube-metrics LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.minikube-metrics.plist
+  when: minikube_metrics_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false

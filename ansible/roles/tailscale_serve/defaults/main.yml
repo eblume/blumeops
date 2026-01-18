@@ -35,3 +35,8 @@ tailscale_serve_services:
     https:
       port: 443
       upstream: http://localhost:8080
+
+  - name: svc:registry
+    https:
+      port: 443
+      upstream: http://localhost:5050

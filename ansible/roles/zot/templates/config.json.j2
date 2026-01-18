@@ -1,0 +1,47 @@
+{
+  "distSpecVersion": "1.1.0",
+  "storage": {
+    "rootDirectory": "{{ zot_data_dir }}",
+    "gc": true,
+    "gcDelay": "1h",
+    "gcInterval": "24h"
+  },
+  "http": {
+    "address": "0.0.0.0",
+    "port": "{{ zot_port }}"
+  },
+  "log": {
+    "level": "info"
+  },
+  "extensions": {
+    "metrics": {
+      "enable": true,
+      "prometheus": {
+        "path": "/metrics"
+      }
+    },
+    "sync": {
+      "enable": true,
+      "registries": [
+{% for registry in zot_sync_registries %}
+        {
+          "urls": ["{{ registry.url }}"],
+          "content": [{"prefix": "**", "destination": "/{{ registry.name }}"}],
+          "onDemand": true,
+          "tlsVerify": true
+        }{% if not loop.last %},{% endif %}
+
+{% endfor %}
+      ]
+    },
+    "search": {
+      "enable": true,
+      "cve": {
+        "updateInterval": "24h"
+      }
+    },
+    "ui": {
+      "enable": true
+    }
+  }
+}

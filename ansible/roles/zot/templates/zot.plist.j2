@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>mcquack.eblume.zot</string>
+	<key>ProgramArguments</key>
+	<array>
+		<!-- ABSOLUTE PATH to built binary in ~/code/3rd/zot -->
+		<string>{{ zot_binary }}</string>
+		<string>serve</string>
+		<string>{{ zot_config_dir }}/config.json</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>{{ zot_log_dir }}/mcquack.zot.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>{{ zot_log_dir }}/mcquack.zot.err.log</string>
+</dict>
+</plist>

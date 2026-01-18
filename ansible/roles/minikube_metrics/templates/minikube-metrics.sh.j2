@@ -1,0 +1,57 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Collects minikube/kubernetes metrics for node_exporter textfile collector
+
+set -euo pipefail
+
+OUTPUT_FILE="{{ minikube_metrics_dir }}/minikube.prom"
+TEMP_FILE="${OUTPUT_FILE}.tmp"
+
+# Start output file
+cat > "$TEMP_FILE" << 'HEADER'
+# HELP minikube_up Minikube cluster is running
+# TYPE minikube_up gauge
+# HELP minikube_apiserver_up Kubernetes API server is responding
+# TYPE minikube_apiserver_up gauge
+# HELP minikube_node_count Number of nodes in the cluster
+# TYPE minikube_node_count gauge
+# HELP minikube_pod_count Number of pods in the cluster
+# TYPE minikube_pod_count gauge
+# HELP minikube_namespace_count Number of namespaces in the cluster
+# TYPE minikube_namespace_count gauge
+HEADER
+
+# Check if minikube is running
+if minikube status --format='{% raw %}{{.Host}}{% endraw %}' 2>/dev/null | grep -q "Running"; then
+    echo "minikube_up 1" >> "$TEMP_FILE"
+else
+    echo "minikube_up 0" >> "$TEMP_FILE"
+    echo "minikube_apiserver_up 0" >> "$TEMP_FILE"
+    echo "minikube_node_count 0" >> "$TEMP_FILE"
+    echo "minikube_pod_count 0" >> "$TEMP_FILE"
+    echo "minikube_namespace_count 0" >> "$TEMP_FILE"
+    mv "$TEMP_FILE" "$OUTPUT_FILE"
+    exit 0
+fi
+
+# Check API server health
+if kubectl get --raw /healthz >/dev/null 2>&1; then
+    echo "minikube_apiserver_up 1" >> "$TEMP_FILE"
+else
+    echo "minikube_apiserver_up 0" >> "$TEMP_FILE"
+fi
+
+# Get node count
+NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
+echo "minikube_node_count ${NODE_COUNT:-0}" >> "$TEMP_FILE"
+
+# Get pod count (all namespaces)
+POD_COUNT=$(kubectl get pods -A --no-headers 2>/dev/null | wc -l | tr -d ' ')
+echo "minikube_pod_count ${POD_COUNT:-0}" >> "$TEMP_FILE"
+
+# Get namespace count
+NS_COUNT=$(kubectl get namespaces --no-headers 2>/dev/null | wc -l | tr -d ' ')
+echo "minikube_namespace_count ${NS_COUNT:-0}" >> "$TEMP_FILE"
+
+# Atomic move
+mv "$TEMP_FILE" "$OUTPUT_FILE"

@@ -130,6 +130,9 @@ mise run tailnet-preview   # Review changes - should show new tag
 mise run tailnet-up        # Apply changes
 ```
 
+**Implementation Details:**
+- Also need to add `"tag:registry"` to indri's tags in `pulumi/__main__.py` (the `DeviceTags` resource), not just define it in `policy.hujson`. The policy file defines the tag ownership rules, but the device tags are managed separately in the Python code.
+
 ---
 
 ### Step 0.2: Create Tailscale Services in Admin Console (MANUAL)
@@ -140,7 +143,9 @@ mise run tailnet-up        # Apply changes
 2. Create service `registry` with:
    - Port: 443 (HTTPS)
    - Host: indri
-3. Apply tag `tag:registry` to indri if not already tagged
+
+**Implementation Details:**
+- Tag is applied to indri via Pulumi in Step 0.1, not manually in admin console.
 
 **Verification:**
 ```bash
@@ -319,6 +324,10 @@ ssh indri 'curl -s http://localhost:5000/v2/_catalog'
 # Expected: {"repositories":["docker.io/library/alpine"]}
 ```
 
+**Implementation Details:**
+- Changed port from 5000 to 5050 because macOS ControlCenter (AirPlay Receiver) uses port 5000 by default.
+- Fixed sync config: use `"content": [{"prefix": "**", "destination": "/{{ registry.name }}"}]` instead of `"prefix": "{{ registry.name }}/**"`. The destination rewrites the local path, while prefix `**` matches all upstream repos.
+
 ---
 
 ### Step 0.4: Add Zot to Tailscale Serve
@@ -351,6 +360,11 @@ podman push registry.tail8d86e.ts.net/blumeops/test:v1
 curl -s https://registry.tail8d86e.ts.net/v2/_catalog
 # Expected: {"repositories":["blumeops/test","docker.io/library/alpine"]}
 ```
+
+**Implementation Details:**
+- Changed upstream port from 5000 to 5050 (see Step 0.3 implementation details).
+- After running `tailscale serve`, the service must be approved in Tailscale admin console at https://login.tailscale.com/admin/services before it becomes accessible.
+- Podman needed on gilbert for testing - added to Brewfile. Requires `podman machine init && podman machine start` after install.
 
 ---
 
@@ -461,6 +475,9 @@ mise run indri-services-check
 # Zot metrics...       OK
 ```
 
+**Implementation Details:**
+- Used Tailscale service URL (`https://registry.tail8d86e.ts.net/v2/_catalog`) instead of internal endpoint to verify full path works.
+
 ---
 
 ### Step 0.8: Install and Configure Podman on Indri
@@ -503,6 +520,17 @@ mise run provision-indri -- --tags podman
 ssh indri 'podman info'
 ssh indri 'podman run --rm hello-world'
 ```
+
+**Implementation Details:**
+- **KNOWN ISSUE**: `podman machine init` and `podman machine start` have reliability issues when run via Ansible/SSH. The machine sometimes gets stuck in "Starting" state due to a race condition (see https://github.com/containers/podman/issues/16945). Apple Hypervisor may also require GUI session context.
+- **WORKAROUND**: If the machine fails to start via Ansible, manually run on indri:
+  ```bash
+  podman machine rm -f podman-machine-default
+  podman machine init --cpus 4 --memory 8192 --disk-size 220
+  podman machine start
+  ```
+- LaunchAgent approach was attempted but didn't resolve the issue reliably.
+- TODO: Investigate proper automation solution for reliable podman machine management.
 
 ---
 
@@ -570,6 +598,10 @@ ssh indri 'kubectl get nodes'
 # Expected: minikube   Ready    control-plane   ...
 ```
 
+**Implementation Details:**
+- Changed `minikube_memory` from 8192 to 7800 because podman machine reports slightly less available memory (7908MB) due to VM overhead. Minikube rejects memory requests exceeding what podman reports.
+- Deployed with Kubernetes v1.34.0 and CRI-O 1.24.6.
+
 ---
 
 ### Step 0.10: Configure Kubeconfig on Gilbert
@@ -597,6 +629,93 @@ k9s  # Should show the minikube cluster
 
 The exact approach will be determined during implementation based on what works best with the podman driver.
 
+**Implementation Details:**
+
+Chose **Option 3: Recreate cluster with `--apiserver-names`** after researching alternatives:
+
+1. **SSH tunneling** - Requires keeping a tunnel running or complex on-demand setup
+2. **SOCKS5 proxy with kubeconfig `proxy-url`** - Kubeconfig supports `proxy-url: socks5://localhost:1080` per-context, but still requires managing the proxy
+3. **`--apiserver-names` + `--listen-address`** - Native minikube support, cleanest solution
+
+**Cluster Setup:** Recreated the minikube cluster with additional flags:
+```bash
+minikube delete
+minikube start \
+  --driver=podman \
+  --container-runtime=cri-o \
+  --cpus=4 --memory=7800 --disk-size=200g \
+  --apiserver-names=indri \
+  --listen-address=0.0.0.0
+```
+
+- `--apiserver-names=indri` adds "indri" to the API server certificate SAN
+- `--listen-address=0.0.0.0` tells podman to expose the API port on all interfaces
+- API server port is dynamic (check with `kubectl config view --minify -o jsonpath="{.clusters[0].cluster.server}"` on indri)
+
+**Credential Management with 1Password:**
+
+Rather than copying private keys between machines, credentials are stored in 1Password and fetched on-demand using kubectl's exec credential plugin. This mirrors the 1Password SSH agent pattern for biometric-protected key access.
+
+1. **Store credentials in 1Password** (vault: `vg6xf6vvfmoh5hqjjhlhbeoaie`, item: `3jo4f2hnzvwfmamudfsbbbec7e`):
+   - `client-cert` - Contents of `~/.minikube/profiles/minikube/client.crt` (text field)
+   - `client-key` - Contents of `~/.minikube/profiles/minikube/client.key` (text field)
+   - `ca-cert` - Contents of `~/.minikube/ca.crt` (text field, not secret but stored for convenience)
+
+2. **Created credential helper script** at `bin/kubectl-credential-1password`:
+   ```bash
+   #!/bin/bash
+   # Fetches client cert/key from 1Password, outputs ExecCredential JSON
+   # Usage: kubectl-credential-1password <vault-id> <item-id> <cert-field> <key-field>
+   ```
+   Symlinked to `~/.local/bin/kubectl-credential-1password`
+
+3. **Kubeconfig setup on gilbert:**
+   ```bash
+   # Store CA cert locally (not secret - public key for server verification)
+   mkdir -p ~/.kube/minikube-indri
+   op --vault <vault> item get <item> --fields ca-cert | sed 's/^"//; s/"$//' > ~/.kube/minikube-indri/ca.crt
+
+   # Configure cluster
+   kubectl config set-cluster minikube-indri \
+     --server=https://indri:<port> \
+     --certificate-authority=/Users/eblume/.kube/minikube-indri/ca.crt
+
+   # Configure credentials with exec plugin
+   kubectl config set-credentials minikube-indri \
+     --exec-api-version=client.authentication.k8s.io/v1beta1 \
+     --exec-command=kubectl-credential-1password \
+     --exec-arg=<vault-id> \
+     --exec-arg=<item-id> \
+     --exec-arg=client-cert \
+     --exec-arg=client-key
+
+   # Create context
+   kubectl config set-context minikube-indri \
+     --cluster=minikube-indri \
+     --user=minikube-indri
+   ```
+
+4. **Usage:**
+   ```bash
+   kubectl --context=minikube-indri get nodes
+   # or
+   kubectl config use-context minikube-indri
+   kubectl get nodes
+   ```
+
+**Security Notes:**
+- Client private key never stored on disk - fetched from 1Password on each kubectl command
+- CA cert stored on disk (not secret - it's a public key for server verification)
+- 1Password biometric/password prompt required for credential access
+- `op` command strips quotes from text fields with `sed 's/^"//; s/"$//'`
+
+**References:**
+- [minikube start options](https://minikube.sigs.k8s.io/docs/commands/start/)
+- [Using kubectl via SSH Tunnel](https://blog.scottlowe.org/2020/06/16/using-kubectl-via-an-ssh-tunnel/)
+- [SOCKS5 Proxy Access to K8s API](https://kubernetes.ltd/docs/tasks/extend-kubernetes/socks5-proxy-access-api/)
+- [kubectl-tokensshtunnel](https://github.com/jordiprats/kubectl-tokensshtunnel)
+- [Securing kubectl config with 1Password](https://blog.mikael.green/post/1password-kubeconfig/)
+
 ---
 
 ### Step 0.11: Add Minikube to indri-services-check
@@ -623,6 +742,10 @@ mise run indri-services-check
 # k8s-apiserver...     OK
 ```
 
+**Implementation Notes:**
+- Added a third check `k8s-apiserver (remote)` that verifies kubectl access from gilbert, not just via SSH to indri. This ensures the 1Password credential flow and remote API server access are working.
+- The remote check uses both `--kubeconfig` and `--context` flags explicitly since the script runs in bash (not fish) and doesn't inherit the KUBECONFIG environment variable from fish config.
+
 ---
 
 ### Step 0.12: Create Zettelkasten Documentation
@@ -630,6 +753,45 @@ mise run indri-services-check
 **New files:**
 - `~/code/personal/zk/zot.md`
 - `~/code/personal/zk/minikube.md`
+
+**Files to update:**
+- `~/code/personal/zk/1767747119-YCPO.md` (main blumeops card)
+
+**Updates to main blumeops card:**
+
+1. Add to **Device Tags** table:
+   | `tag:registry` | indri | Container registry access |
+
+2. Add to **Services** table:
+   | **Registry** | https://registry.tail8d86e.ts.net | OCI container registry (Zot) | [[zot]] |
+   | **Kubernetes** | https://indri:<port> | Minikube cluster | [[minikube]] |
+
+3. Add to **Port Map (Indri)** table:
+   | 5050 | Zot | HTTP | localhost | Container registry |
+   | <dynamic> | K8s API | HTTPS | 0.0.0.0 | Minikube API server |
+
+4. Add new section **Remote Kubernetes Access**:
+   ```markdown
+   ## Remote Kubernetes Access (from Gilbert)
+
+   The minikube cluster on indri is accessible from gilbert via direct connection.
+   Cluster was created with `--apiserver-names=indri --listen-address=0.0.0.0`.
+
+   **Fish abbreviations** (in `~/.config/fish/config.fish`):
+   - `ki` → `kubectl --context=minikube-indri`
+   - `k9i` → `k9s --context=minikube-indri`
+   - `k9` → `k9s`
+
+   ```bash
+   # Quick access via abbreviations
+   ki get nodes
+   k9i
+
+   # Or explicitly set context
+   kubectl config use-context minikube-indri
+   kubectl get nodes
+   ```
+   ```
 
 **Template for zot.md:**
 ```markdown
@@ -651,7 +813,7 @@ Zot is an OCI-native container registry running on Indri, providing:
 ## Service Details
 
 - URL: https://registry.tail8d86e.ts.net
-- Local port: 5000
+- Local port: 5050
 - Data directory: ~/zot
 - Config: ~/.config/zot/config.json
 - Managed via: mcquack LaunchAgent
@@ -669,10 +831,10 @@ Zot is an OCI-native container registry running on Indri, providing:
 
 \`\`\`bash
 # List all images
-curl -s http://localhost:5000/v2/_catalog | jq
+curl -s http://localhost:5050/v2/_catalog | jq
 
 # Pull via cache (from indri or k8s)
-podman pull localhost:5000/docker.io/library/nginx:latest
+podman pull localhost:5050/docker.io/library/nginx:latest
 
 # Build and push private image (from gilbert)
 podman build -t registry.tail8d86e.ts.net/blumeops/myapp:v1 .
@@ -690,6 +852,91 @@ tail -f ~/Library/Logs/mcquack.zot.err.log
 ### [DATE]
 - Initial setup for k8s migration Phase 0
 ```
+
+**Template for minikube.md:**
+```markdown
+---
+id: minikube
+aliases:
+  - minikube
+  - kubernetes
+  - k8s
+tags:
+  - blumeops
+---
+
+# Minikube Management Log
+
+Minikube provides a single-node Kubernetes cluster on Indri for running containerized services.
+
+## Cluster Details
+
+- Driver: podman (rootless)
+- Container runtime: CRI-O
+- Kubernetes version: v1.34.0
+- Resources: 4 CPUs, 7800MB RAM, 200GB disk
+- API server: https://indri:<port> (accessible from gilbert via Tailscale)
+
+## Remote Access from Gilbert
+
+Cluster was created with `--apiserver-names=indri --listen-address=0.0.0.0` to allow remote kubectl access.
+
+\`\`\`bash
+# Switch context
+kubectl config use-context minikube-indri
+
+# Verify
+kubectl get nodes
+kubectl get namespaces
+
+# Use k9s
+k9s --context minikube-indri
+\`\`\`
+
+## Useful Commands (on indri)
+
+\`\`\`bash
+# Cluster status
+minikube status
+
+# Start/stop cluster
+minikube start
+minikube stop
+
+# Access dashboard
+minikube dashboard
+
+# SSH into node
+minikube ssh
+
+# View logs
+minikube logs
+\`\`\`
+
+## Podman Machine (prerequisite)
+
+Minikube uses podman as the container runtime. The podman machine must be running:
+
+\`\`\`bash
+# Check podman machine
+podman machine list
+
+# Start if needed
+podman machine start
+\`\`\`
+
+## Log
+
+### [DATE]
+- Initial cluster setup for k8s migration Phase 0
+- Configured for remote access with --apiserver-names=indri
+```
+
+**Implementation Notes:**
+- Created zot.md and minikube.md in ~/code/personal/zk/
+- Updated 1767747119-YCPO.md (main blumeops card) with all specified changes
+- Added 1Password credential plugin reference to minikube docs
+- K8s API port is 39535 (dynamically assigned by minikube, may change on cluster recreation)
 
 ---
 
@@ -710,6 +957,10 @@ tail -f ~/Library/Logs/mcquack.zot.err.log
 - role: minikube
   tags: minikube
 ```
+
+**Implementation Notes:**
+- Roles were added incrementally during Steps 0.3, 0.5, 0.8, and 0.9
+- All four roles (zot, zot_metrics, podman, minikube) confirmed present in indri.yml
 
 ---
 

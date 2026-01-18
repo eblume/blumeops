@@ -99,6 +99,16 @@
       tags: devpi
     - role: devpi_metrics
       tags: devpi_metrics
+    - role: zot
+      tags: zot
+    - role: zot_metrics
+      tags: zot_metrics
+    - role: podman
+      tags: podman
+    - role: minikube
+      tags: minikube
+    - role: minikube_metrics
+      tags: minikube_metrics
     - role: plex_metrics
       tags: plex_metrics
     - role: postgresql

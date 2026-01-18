@@ -1,0 +1,6 @@
+---
+- name: Reload zot-metrics
+  ansible.builtin.shell: |
+    launchctl unload ~/Library/LaunchAgents/mcquack.eblume.zot-metrics.plist 2>/dev/null || true
+    launchctl load ~/Library/LaunchAgents/mcquack.eblume.zot-metrics.plist
+  changed_when: true

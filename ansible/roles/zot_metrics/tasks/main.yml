@@ -1,0 +1,43 @@
+---
+- name: Ensure metrics directory exists
+  ansible.builtin.file:
+    path: "{{ zot_metrics_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure log directory exists
+  ansible.builtin.file:
+    path: "{{ zot_metrics_log_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure bin directory exists
+  ansible.builtin.file:
+    path: "{{ zot_metrics_script | dirname }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy zot-metrics script
+  ansible.builtin.template:
+    src: zot-metrics.sh.j2
+    dest: "{{ zot_metrics_script }}"
+    mode: '0755'
+
+- name: Deploy zot-metrics LaunchAgent plist
+  ansible.builtin.template:
+    src: zot-metrics.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.zot-metrics.plist
+    mode: '0644'
+  notify: Reload zot-metrics
+
+- name: Check if zot-metrics LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.zot-metrics
+  register: zot_metrics_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load zot-metrics LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.zot-metrics.plist
+  when: zot_metrics_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false

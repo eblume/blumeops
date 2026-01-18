@@ -1,0 +1,14 @@
+---
+# Minikube cluster configuration
+minikube_cpus: 4
+# Note: Must be less than podman machine memory (8192MB) to account for overhead
+minikube_memory: 7800
+minikube_disk_size: "200g"
+minikube_driver: podman
+minikube_container_runtime: cri-o
+
+# Remote access configuration
+# These allow kubectl from other machines (e.g., gilbert) to connect
+minikube_apiserver_names:
+  - indri
+minikube_listen_address: "0.0.0.0"

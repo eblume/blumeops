@@ -1,0 +1,56 @@
+---
+# Minikube installation and cluster setup for indri
+# Requires podman machine to be running (see podman role)
+#
+# NOTE: Similar to podman, minikube start may have issues when run via SSH.
+# If cluster fails to start, manually run on indri:
+#   minikube start --driver=podman --container-runtime=cri-o \
+#     --cpus=4 --memory=7800 --disk-size=200g \
+#     --apiserver-names=indri --listen-address=0.0.0.0
+
+- name: Install minikube via homebrew
+  community.general.homebrew:
+    name: minikube
+    state: present
+
+- name: Install kubectl via homebrew
+  community.general.homebrew:
+    name: kubectl
+    state: present
+
+- name: Check if minikube cluster exists
+  ansible.builtin.command:
+    cmd: minikube status --format={% raw %}'{{.Host}}'{% endraw %}
+  register: minikube_status
+  changed_when: false
+  failed_when: false
+
+- name: Start minikube cluster
+  ansible.builtin.command:
+    cmd: >
+      minikube start
+      --driver={{ minikube_driver }}
+      --container-runtime={{ minikube_container_runtime }}
+      --cpus={{ minikube_cpus }}
+      --memory={{ minikube_memory }}
+      --disk-size={{ minikube_disk_size }}
+      {% for name in minikube_apiserver_names %}
+      --apiserver-names={{ name }}
+      {% endfor %}
+      --listen-address={{ minikube_listen_address }}
+  register: minikube_start
+  changed_when: minikube_start.rc == 0
+  failed_when: false  # Don't fail - may need manual intervention like podman
+  when: minikube_status.rc != 0 or 'Running' not in minikube_status.stdout
+
+- name: Check minikube status after start attempt
+  ansible.builtin.command:
+    cmd: minikube status --format={% raw %}'{{.Host}}'{% endraw %}
+  register: minikube_final_status
+  changed_when: false
+  failed_when: false
+
+- name: Warn if minikube failed to start
+  ansible.builtin.debug:
+    msg: "WARNING: minikube may not have started properly. Run 'minikube start' manually on indri if needed. Status: {{ minikube_final_status.stdout | default('unknown') }}"
+  when: minikube_final_status.rc != 0 or 'Running' not in minikube_final_status.stdout
