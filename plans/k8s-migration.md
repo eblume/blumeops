@@ -1040,6 +1040,231 @@ rm ~/code/personal/zk/{zot,minikube}.md
 
 ---
 
+### Step 0.14: Expose K8s API as Tailscale Service (Added Post-Completion)
+
+> **Note**: This step was added after Phase 0 was otherwise complete, to provide a stable, named endpoint for the Kubernetes API server.
+
+**Goal**: Expose the minikube API server as `k8s.tail8d86e.ts.net` instead of using `indri:<dynamic-port>`.
+
+**Current state:**
+- Minikube API server on port 39535 (dynamic, could change on cluster recreation)
+- Accessed via `https://indri:39535`
+- Certificate SANs include "indri"
+
+**Target state:**
+- Stable Tailscale service at `k8s.tail8d86e.ts.net:443`
+- Fixed API server port (6443, the k8s standard)
+- Certificate SANs include both hostnames for compatibility
+
+---
+
+#### Step 0.14.1: Update Pulumi ACLs
+
+**Files to modify:**
+- `pulumi/policy.hujson`
+- `pulumi/__main__.py`
+
+**Changes to policy.hujson:**
+
+1. Add tag to `tagOwners`:
+```hujson
+"tag:k8s-api": ["autogroup:admin", "tag:blumeops"],
+```
+
+2. Update Erich's test case accept list to include k8s-api:
+```hujson
+"accept": ["tag:grafana:443", "tag:kiwix:443", "tag:feed:443", "tag:loki:3100", "tag:pg:5432", "tag:homelab:22", "tag:registry:443", "tag:k8s-api:443"],
+```
+
+3. Update Allison's deny list:
+```hujson
+"deny": ["tag:grafana:443", "tag:loki:3100", "tag:nas:445", "tag:registry:443", "tag:k8s-api:443"],
+```
+
+**Changes to __main__.py:**
+- Add `"tag:k8s-api"` to indri's DeviceTags
+
+**Testing:**
+```bash
+mise run tailnet-preview   # Review changes
+mise run tailnet-up        # Apply changes
+```
+
+---
+
+#### Step 0.14.2: Create Tailscale Service in Admin Console (MANUAL)
+
+> **CRITICAL**: Do this BEFORE running ansible that calls `tailscale serve`
+
+1. Go to https://login.tailscale.com/admin/services
+2. Create service `k8s` with:
+   - Port: 443 (TCP)
+   - Host: indri
+
+---
+
+#### Step 0.14.3: Recreate Minikube Cluster
+
+The cluster needs to be recreated to:
+1. Add `k8s.tail8d86e.ts.net` to the API server certificate SANs
+2. Fix the API server port to 6443 (standard k8s port)
+
+**On indri:**
+```bash
+# Stop and delete existing cluster
+minikube stop
+minikube delete
+
+# Recreate with new settings
+minikube start \
+  --driver=podman \
+  --container-runtime=cri-o \
+  --cpus=4 --memory=7800 --disk-size=200g \
+  --apiserver-names=k8s.tail8d86e.ts.net,indri \
+  --apiserver-port=6443 \
+  --listen-address=0.0.0.0
+
+# Verify certificate SANs include both names
+kubectl config view --minify -o jsonpath="{.clusters[0].cluster.server}"
+# Expected: https://127.0.0.1:6443 or similar
+
+# Verify cluster is running
+minikube status
+kubectl get nodes
+```
+
+**Update ansible role defaults** (`ansible/roles/minikube/defaults/main.yml`):
+```yaml
+minikube_apiserver_names:
+  - k8s.tail8d86e.ts.net
+  - indri
+minikube_apiserver_port: 6443
+```
+
+---
+
+#### Step 0.14.4: Add K8s Service to Tailscale Serve
+
+**Files to modify:**
+- `ansible/roles/tailscale_serve/defaults/main.yml`
+
+**Add to services list:**
+```yaml
+- name: svc:k8s
+  tcp:
+    port: 443
+    upstream: tcp://localhost:6443
+```
+
+**Note:** Using TCP passthrough (not HTTPS termination) because k8s uses mTLS authentication.
+
+**Deploy:**
+```bash
+mise run provision-indri -- --tags tailscale-serve
+```
+
+---
+
+#### Step 0.14.5: Update 1Password Credentials
+
+After cluster recreation, the client certificates have changed.
+
+**On indri, get the new credentials:**
+```bash
+# Display new certificates (copy to 1Password)
+cat ~/.minikube/profiles/minikube/client.crt
+cat ~/.minikube/profiles/minikube/client.key
+cat ~/.minikube/ca.crt
+```
+
+**In 1Password** (vault: `vg6xf6vvfmoh5hqjjhlhbeoaie`, item: `3jo4f2hnzvwfmamudfsbbbec7e`):
+- Update `client-cert` field with new certificate
+- Update `client-key` field with new key
+- Update `ca-cert` field with new CA certificate
+
+---
+
+#### Step 0.14.6: Update Kubeconfig on Gilbert
+
+**Update CA certificate:**
+```bash
+# Fetch new CA cert from 1Password
+op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get 3jo4f2hnzvwfmamudfsbbbec7e --fields ca-cert | sed 's/^"//; s/"$//' > ~/.kube/minikube-indri/ca.crt
+```
+
+**Update kubeconfig** (`~/.kube/minikube-indri/config.yml`):
+```yaml
+clusters:
+- cluster:
+    certificate-authority: /Users/eblume/.kube/minikube-indri/ca.crt
+    server: https://k8s.tail8d86e.ts.net  # Changed from https://indri:39535
+  name: minikube-indri
+```
+
+**Verification:**
+```bash
+# Test connection via new hostname
+kubectl --context=minikube-indri get nodes
+
+# Test via abbreviation
+ki get nodes
+```
+
+---
+
+#### Step 0.14.7: Update Documentation
+
+**Files to update:**
+- `~/code/personal/zk/minikube.md` - Update API server URL and port info
+- `~/code/personal/zk/1767747119-YCPO.md` - Update Services table and Port Map
+
+**Changes to blumeops card:**
+
+1. Update Services table:
+   | **Kubernetes** | https://k8s.tail8d86e.ts.net | Minikube cluster | [[minikube]] |
+
+2. Update Port Map:
+   | 6443 | K8s API | HTTPS/TCP | 0.0.0.0 | Minikube API server (via Tailscale) |
+
+3. Add `tag:k8s-api` to Device Tags table
+
+---
+
+#### Step 0.14.8: Update indri-services-check
+
+**Files to modify:**
+- `mise-tasks/indri-services-check`
+
+**Changes:**
+```bash
+# Update remote k8s check to use new URL
+check_service "k8s-apiserver (remote)" "kubectl --kubeconfig=$HOME/.kube/minikube-indri/config.yml --context=minikube-indri get --raw /healthz"
+# (No change needed - uses kubeconfig which now points to k8s.tail8d86e.ts.net)
+```
+
+---
+
+#### Step 0.14 Verification
+
+```bash
+# 1. Service health check
+mise run indri-services-check
+# All services should be OK
+
+# 2. Test k8s access via Tailscale hostname
+curl -k https://k8s.tail8d86e.ts.net/healthz
+# Expected: ok (or certificate error if mTLS required - that's fine)
+
+# 3. kubectl via Tailscale
+ki get nodes
+ki get namespaces
+
+# 4. k9s via Tailscale
+k9i
+```
+
+---
+
 ### Phase 0 Follow-up: Grafana Dashboards
 
 After Phase 0 is running and stable, create monitoring dashboards:

@@ -6,7 +6,8 @@
 # If cluster fails to start, manually run on indri:
 #   minikube start --driver=podman --container-runtime=cri-o \
 #     --cpus=4 --memory=7800 --disk-size=200g \
-#     --apiserver-names=indri --listen-address=0.0.0.0
+#     --apiserver-names=k8s.tail8d86e.ts.net --apiserver-names=indri \
+#     --apiserver-port=6443 --listen-address=0.0.0.0
 
 - name: Install minikube via homebrew
   community.general.homebrew:
@@ -37,6 +38,7 @@
       {% for name in minikube_apiserver_names %}
       --apiserver-names={{ name }}
       {% endfor %}
+      --apiserver-port={{ minikube_apiserver_port }}
       --listen-address={{ minikube_listen_address }}
   register: minikube_start
   changed_when: minikube_start.rc == 0

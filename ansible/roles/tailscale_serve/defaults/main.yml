@@ -40,3 +40,11 @@ tailscale_serve_services:
     https:
       port: 443
       upstream: http://localhost:5050
+
+  # Kubernetes API server (TCP passthrough for mTLS)
+  # NOTE: Port is dynamic with podman driver - check with:
+  #   ssh indri "kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'"
+  - name: svc:k8s
+    tcp:
+      port: 443
+      upstream: tcp://localhost:44491
