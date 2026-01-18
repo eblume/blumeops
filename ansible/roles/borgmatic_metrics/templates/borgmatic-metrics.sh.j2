@@ -9,8 +9,9 @@ BORG_REPO="{{ borgmatic_metrics_repo }}"
 OUTPUT_FILE="{{ borgmatic_metrics_dir }}/borgmatic.prom"
 TEMP_FILE="${OUTPUT_FILE}.tmp"
 
-# Check if borg is available via mise
-BORG_CMD="mise x -- borg"
+# Use absolute paths for LaunchAgent compatibility
+BORG_CMD="/opt/homebrew/bin/borg"
+JQ_CMD="/opt/homebrew/bin/jq"
 
 # Get repository info
 repo_json=$($BORG_CMD info --json "$BORG_REPO" 2>/dev/null) || {
@@ -32,18 +33,18 @@ archives_json=$($BORG_CMD list --json "$BORG_REPO" 2>/dev/null) || {
 }
 
 # Extract repository stats
-total_size=$(echo "$repo_json" | jq -r '.cache.stats.total_size')
-total_csize=$(echo "$repo_json" | jq -r '.cache.stats.total_csize')
-unique_size=$(echo "$repo_json" | jq -r '.cache.stats.unique_size')
-unique_csize=$(echo "$repo_json" | jq -r '.cache.stats.unique_csize')
-total_chunks=$(echo "$repo_json" | jq -r '.cache.stats.total_chunks')
-unique_chunks=$(echo "$repo_json" | jq -r '.cache.stats.total_unique_chunks')
+total_size=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_size')
+total_csize=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_csize')
+unique_size=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.unique_size')
+unique_csize=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.unique_csize')
+total_chunks=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_chunks')
+unique_chunks=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_unique_chunks')
 
 # Count archives
-archive_count=$(echo "$archives_json" | jq -r '.archives | length')
+archive_count=$(echo "$archives_json" | $JQ_CMD -r '.archives | length')
 
 # Get last archive info
-last_archive_name=$(echo "$archives_json" | jq -r '.archives[-1].name // empty')
+last_archive_name=$(echo "$archives_json" | $JQ_CMD -r '.archives[-1].name // empty')
 
 if [ -n "$last_archive_name" ]; then
     # Get detailed info for the last archive
@@ -53,13 +54,13 @@ if [ -n "$last_archive_name" ]; then
     }
 
     if [ -n "$last_archive_json" ]; then
-        last_original_size=$(echo "$last_archive_json" | jq -r '.archives[0].stats.original_size')
-        last_compressed_size=$(echo "$last_archive_json" | jq -r '.archives[0].stats.compressed_size')
-        last_deduplicated_size=$(echo "$last_archive_json" | jq -r '.archives[0].stats.deduplicated_size')
-        last_nfiles=$(echo "$last_archive_json" | jq -r '.archives[0].stats.nfiles')
-        last_start=$(echo "$last_archive_json" | jq -r '.archives[0].start')
-        last_end=$(echo "$last_archive_json" | jq -r '.archives[0].end')
-        last_duration=$(echo "$last_archive_json" | jq -r '.archives[0].duration')
+        last_original_size=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].stats.original_size')
+        last_compressed_size=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].stats.compressed_size')
+        last_deduplicated_size=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].stats.deduplicated_size')
+        last_nfiles=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].stats.nfiles')
+        last_start=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].start')
+        last_end=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].end')
+        last_duration=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].duration')
 
         # Convert timestamp to unix epoch
         last_timestamp=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${last_start%.*}" "+%s" 2>/dev/null || echo "0")
