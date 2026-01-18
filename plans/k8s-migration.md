@@ -40,7 +40,7 @@ This plan details a phased migration of blumeops services from direct hosting on
 - Rootless containers for better security
 - Lighter than full VM (QEMU)
 - Uses existing container ecosystem
-- `minikube start --driver=podman --container-runtime=containerd`
+- `minikube start --driver=podman --container-runtime=cri-o`
 
 ### PostgreSQL: CloudNativePG Operator
 - Production-grade operator
@@ -285,9 +285,10 @@ zot_sync_registries:
 **Handlers (handlers/main.yml):**
 ```yaml
 - name: Restart zot
-  ansible.builtin.command:
-    cmd: launchctl kickstart -k gui/$(id -u)/mcquack.eblume.zot
-  listen: restart zot
+  ansible.builtin.shell: |
+    launchctl unload ~/Library/LaunchAgents/mcquack.eblume.zot.plist 2>/dev/null || true
+    launchctl load ~/Library/LaunchAgents/mcquack.eblume.zot.plist
+  changed_when: true
 ```
 
 **Tasks should notify handler on config change:**
@@ -296,7 +297,7 @@ zot_sync_registries:
   ansible.builtin.template:
     src: config.json.j2
     dest: "{{ zot_config_dir }}/config.json"
-  notify: restart zot
+  notify: Restart zot
 ```
 
 **Testing (after deploying role):**
@@ -406,23 +407,17 @@ curl -s "http://indri:9090/api/v1/query?query=zot_up" | jq '.data.result[0].valu
 ### Step 0.6: Add Zot Log Collection to Alloy
 
 **Files to modify:**
-- `ansible/roles/alloy/templates/config.alloy.j2`
+- `ansible/roles/alloy/defaults/main.yml`
 
 **Changes:**
-Add to the mcquack services log collection section:
-```alloy
-// Zot registry logs
-local.file_match "zot_logs" {
-  path_targets = [
-    {__path__ = "/Users/erichblume/Library/Logs/mcquack.zot.out.log", service = "zot", stream = "stdout"},
-    {__path__ = "/Users/erichblume/Library/Logs/mcquack.zot.err.log", service = "zot", stream = "stderr"},
-  ]
-}
-
-loki.source.file "zot_logs" {
-  targets    = local.file_match.zot_logs.targets
-  forward_to = [loki.write.local.receiver]
-}
+Add to the `alloy_mcquack_logs` list:
+```yaml
+  - path: /Users/erichblume/Library/Logs/mcquack.zot.out.log
+    service: zot
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.zot.err.log
+    service: zot
+    stream: stderr
 ```
 
 **Testing:**
@@ -527,7 +522,7 @@ minikube_cpus: 4
 minikube_memory: 8192
 minikube_disk_size: "200g"
 minikube_driver: podman
-minikube_container_runtime: containerd
+minikube_container_runtime: cri-o
 ```
 
 **Note on storage:** The disk-size is for node-local storage only (container images, emptyDir, local PVs). Pods can also mount external storage:
@@ -579,43 +574,28 @@ ssh indri 'kubectl get nodes'
 
 ### Step 0.10: Configure Kubeconfig on Gilbert
 
-**No special Tailscale service needed** - admin users already have full access to indri via the `autogroup:admin → * → *` grant. Gilbert can reach the K8s API server on indri directly.
+**Goal**: Enable `kubectl` and `k9s` on gilbert to connect to the minikube cluster running on indri.
 
-**Manual steps** (kubeconfig management is complex with work configs):
+**Considerations:**
+- Minikube runs inside a podman VM on indri, so the API server isn't directly exposed on indri's network interface
+- Admin users have full Tailscale access to indri via `autogroup:admin → * → *`
+- Be careful not to overwrite existing work kubeconfigs
 
+**Possible approaches:**
+1. SSH tunneling to forward the API server port
+2. `minikube tunnel` running on indri (exposes LoadBalancer services)
+3. Configure minikube with `--apiserver-names=indri` at cluster creation time
+4. Use `kubectl` via SSH wrapper: `ssh indri kubectl ...`
+
+**Verification:**
 ```bash
-# Copy minikube kubeconfig from indri
-ssh indri 'cat ~/.kube/config' > /tmp/minikube-config.yaml
-
-# IMPORTANT: Replace localhost/127.0.0.1 with indri's hostname
-# Minikube's kubeconfig points to localhost since it runs locally on indri
-sed -i '' 's|https://127.0.0.1:|https://indri:|g' /tmp/minikube-config.yaml
-sed -i '' 's|https://localhost:|https://indri:|g' /tmp/minikube-config.yaml
-
-# Merge into local kubeconfig (careful not to overwrite work configs!)
-# Option A: Use KUBECONFIG env var to include multiple files
-export KUBECONFIG=~/.kube/config:~/.kube/minikube.yaml
-
-# Option B: Manually merge contexts
-kubectl config --kubeconfig=/tmp/minikube-config.yaml view --flatten > ~/.kube/minikube.yaml
-
-# Set minikube context
-kubectl config use-context minikube
-
-# Verify connection from gilbert
+# From gilbert, these should work:
 kubectl get nodes
-```
-
-**Testing:**
-```bash
-# From gilbert, verify k8s access
-kubectl cluster-info
 kubectl get namespaces
-
-# Verify k9s can connect
-k9s
-# Should show the minikube cluster
+k9s  # Should show the minikube cluster
 ```
+
+The exact approach will be determined during implementation based on what works best with the podman driver.
 
 ---
 
