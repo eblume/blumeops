@@ -1,0 +1,71 @@
+# Grafana Helm values for blumeops
+# Chart: https://github.com/grafana/helm-charts/tree/main/charts/grafana
+
+# Admin credentials from pre-created secret
+# Secret must exist before deploying - see grafana-config/README.md
+admin:
+  existingSecret: grafana-admin
+  userKey: admin-user
+  passwordKey: admin-password
+
+# Persistence with PVC for SQLite database
+persistence:
+  enabled: true
+  type: pvc
+  size: 1Gi
+  accessModes:
+    - ReadWriteOnce
+
+# Grafana configuration via grafana.ini
+grafana.ini:
+  server:
+    root_url: https://grafana.tail8d86e.ts.net
+  analytics:
+    check_for_updates: false
+    reporting_enabled: false
+
+# Datasources - point to indri services via podman host gateway
+# host.containers.internal resolves to the podman host (indri) from inside minikube
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        orgId: 1
+        uid: prometheus
+        url: http://host.containers.internal:9090
+        isDefault: true
+        editable: false
+      - name: Loki
+        type: loki
+        access: proxy
+        orgId: 1
+        uid: loki
+        url: http://host.containers.internal:3100
+        editable: false
+
+# Dashboard provisioning - sidecar watches for ConfigMaps with label
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    folderAnnotation: grafana_folder
+    provider:
+      foldersFromFilesStructure: false
+
+# Service configuration (Ingress will handle external access)
+service:
+  type: ClusterIP
+  port: 80
+
+# Resource limits for minikube
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"

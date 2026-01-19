@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
-    targetRevision: feature/k8s-phase1-kickoff
+    targetRevision: main
     path: argocd/manifests/argocd
   destination:
     server: https://kubernetes.default.svc

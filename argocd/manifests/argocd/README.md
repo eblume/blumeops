@@ -5,7 +5,7 @@ GitOps continuous delivery for Kubernetes, with self-management via ArgoCD.
 ## Prerequisites
 
 - Tailscale operator deployed (see `argocd/manifests/tailscale-operator/README.md`)
-- Deploy key added to forge for SSH access to blumeops repo
+- SSH key added to Forgejo user for access to all forge repos (not a deploy key)
 
 ## Manual Bootstrap
 
@@ -28,14 +28,14 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 argocd login argocd.tail8d86e.ts.net --username admin --grpc-web
 argocd account update-password
 
-# 6. Apply repo-forge secret for SSH access to forge
+# 6. Apply repo-creds-forge credential template for SSH access to all forge repos
 PRIV_KEY=$(op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/csjncynh6htjvnh2l2da65y32q/private key?ssh-format=openssh")$'\n' && \
-kubectl create secret generic repo-forge -n argocd \
+kubectl create secret generic repo-creds-forge -n argocd \
   --from-literal=type=git \
-  --from-literal=url='ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git' \
+  --from-literal=url='ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/' \
   --from-literal=insecure=true \
   --from-literal=sshPrivateKey="$PRIV_KEY" && \
-kubectl label secret repo-forge -n argocd argocd.argoproj.io/secret-type=repository
+kubectl label secret repo-creds-forge -n argocd argocd.argoproj.io/secret-type=repo-creds
 
 # 7. Apply ArgoCD Applications (self-management + app-of-apps)
 kubectl apply -f argocd/apps/argocd.yaml
@@ -103,12 +103,13 @@ spec:
 | `kustomization.yaml` | References upstream install.yaml + local customizations |
 | `service-tailscale.yaml` | Tailscale Ingress for external access with Let's Encrypt TLS |
 | `argocd-cmd-params-cm.yaml` | Patch to disable HTTPS redirect (TLS terminates at Ingress) |
-| `repo-forge-secret.yaml.tpl` | Template documenting the forge SSH secret (manual) |
+| `repo-forge-secret.yaml.tpl` | Template for forge SSH credential template (manual) |
 | `README.md` | This file |
 
 ## Notes
 
-- **TODO:** Secrets (`repo-forge`) are not managed by ArgoCD and must be applied manually.
+- **TODO:** Secrets (`repo-creds-forge`) are not managed by ArgoCD and must be applied manually.
   Future improvement: integrate with a secrets operator (e.g., External Secrets).
+- The credential template (`repo-creds`) uses a URL prefix to match all repos under `eblume/`.
 - ArgoCD uses Tailscale Ingress with Let's Encrypt for TLS termination.
 - The `--grpc-web` flag is required for CLI access through the Tailscale ingress.

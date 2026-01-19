@@ -81,8 +81,7 @@
       tags: alloy
     - role: prometheus
       tags: prometheus
-    - role: grafana
-      tags: grafana
+    # NOTE: grafana role removed - now hosted in k8s (see argocd/apps/grafana.yaml)
     - role: transmission
       tags: transmission
     - role: transmission_metrics

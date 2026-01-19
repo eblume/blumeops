@@ -3,10 +3,7 @@
 # Each service maps a Tailscale service name to local endpoints
 
 tailscale_serve_services:
-  - name: svc:grafana
-    https:
-      port: 443
-      upstream: http://localhost:3000
+  # NOTE: svc:grafana removed - now hosted in k8s (see argocd/apps/grafana.yaml)
 
   - name: svc:forge
     https:

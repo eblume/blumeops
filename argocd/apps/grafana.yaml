@@ -1,0 +1,34 @@
+# Grafana - Dashboards & Observability
+#
+# Chart mirrored from https://github.com/grafana/helm-charts to forge
+#
+# Before syncing, create the admin password secret:
+#   kubectl create namespace monitoring
+#   op inject -i argocd/manifests/grafana-config/secret-admin.yaml.tpl | kubectl apply -f -
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Helm chart from forge mirror (SSH via egress)
+    - repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/grafana-helm-charts.git
+      targetRevision: grafana-8.8.2
+      path: charts/grafana
+      helm:
+        releaseName: grafana
+        valueFiles:
+          - $values/argocd/manifests/grafana/values.yaml
+    # Values from our git repo
+    - repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+  # Manual sync only - no automated sync on git push

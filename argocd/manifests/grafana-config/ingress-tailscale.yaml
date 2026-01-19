@@ -1,0 +1,21 @@
+# Tailscale Ingress for Grafana
+# Exposes Grafana at https://grafana.tail8d86e.ts.net with Let's Encrypt TLS
+#
+# The hostname "grafana" becomes grafana.tail8d86e.ts.net via Tailscale MagicDNS
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-tailscale
+  namespace: monitoring
+  annotations:
+    tailscale.com/proxy-class: "crio-compat"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: grafana
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - grafana

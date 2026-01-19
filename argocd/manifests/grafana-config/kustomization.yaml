@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: monitoring
+
+resources:
+  - ingress-tailscale.yaml
+  # Dashboard ConfigMaps - discovered by Grafana sidecar via label grafana_dashboard=1
+  - dashboards/configmap-borgmatic.yaml
+  - dashboards/configmap-devpi.yaml
+  - dashboards/configmap-loki.yaml
+  - dashboards/configmap-macos.yaml
+  - dashboards/configmap-minikube.yaml
+  - dashboards/configmap-plex.yaml
+  - dashboards/configmap-postgresql.yaml
+  - dashboards/configmap-transmission.yaml
+  - dashboards/configmap-zot.yaml

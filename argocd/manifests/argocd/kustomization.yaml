@@ -9,3 +9,4 @@ resources:
 
 patchesStrategicMerge:
   - argocd-cmd-params-cm.yaml
+  - argocd-ssh-known-hosts-cm.yaml

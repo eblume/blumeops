@@ -1,0 +1,25 @@
+# Grafana configuration - Tailscale Ingress and Dashboard ConfigMaps
+#
+# Depends on: grafana app (for the Service to exist)
+#
+# Before syncing, create the admin password secret:
+#   kubectl create namespace monitoring
+#   op inject -i argocd/manifests/grafana-config/secret-admin.yaml.tpl | kubectl apply -f -
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana-config
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/grafana-config
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+  # Manual sync only - no automated sync on git push
