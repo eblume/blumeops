@@ -67,7 +67,7 @@
 
 - name: Check if zot mirror config exists in minikube
   ansible.builtin.command:
-    cmd: minikube ssh "cat /etc/containers/registries.conf.d/zot-mirror.conf 2>/dev/null || echo ''"
+    cmd: minikube ssh --native-ssh=false "cat /etc/containers/registries.conf.d/zot-mirror.conf 2>/dev/null || echo ''"
   register: minikube_existing_zot_config
   changed_when: false
   when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
@@ -82,7 +82,7 @@
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
-      cat /tmp/zot-mirror.conf | minikube ssh "sudo tee /etc/containers/registries.conf.d/zot-mirror.conf > /dev/null"
+      cat /tmp/zot-mirror.conf | minikube ssh --native-ssh=false "sudo tee /etc/containers/registries.conf.d/zot-mirror.conf > /dev/null"
     executable: /bin/bash
   changed_when: true
   when:

@@ -10,5 +10,5 @@
 
 - name: Restart CRI-O in minikube
   ansible.builtin.command:
-    cmd: minikube ssh "sudo systemctl restart crio"
+    cmd: minikube ssh --native-ssh=false "sudo systemctl restart crio"
   changed_when: true
