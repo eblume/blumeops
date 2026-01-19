@@ -6,7 +6,7 @@ namespace: argocd
 resources:
   - https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
   - service-tailscale.yaml
+  - argocd-ssh-known-hosts-cm.yaml
 
 patchesStrategicMerge:
   - argocd-cmd-params-cm.yaml
-  - argocd-ssh-known-hosts-cm.yaml
