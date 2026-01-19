@@ -1,0 +1,26 @@
+# ArgoCD Application for Tailscale Kubernetes Operator
+# Note: OAuth secret is managed separately (not in git)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tailscale-operator
+  namespace: argocd
+spec:
+  project: default
+  # Tailscale operator mutates externalName from "placeholder" to actual proxy service
+  ignoreDifferences:
+    - group: ""
+      kind: Service
+      jsonPointers:
+        - /spec/externalName
+  source:
+    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    targetRevision: feature/k8s-phase1-kickoff
+    path: argocd/manifests/tailscale-operator
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tailscale
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+  # Manual sync only - no automated sync on git push

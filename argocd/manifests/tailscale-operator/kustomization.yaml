@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: tailscale
+
+resources:
+  - operator.yaml
+  - proxyclass.yaml
+  - dnsconfig.yaml
+  - egress-forge.yaml
+
+# Note: OAuth secret (operator-oauth) is NOT included here.
+# It must be manually applied before deploying - see README.md

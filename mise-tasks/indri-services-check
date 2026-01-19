@@ -84,6 +84,14 @@ check_service "k8s-apiserver (indri)" "ssh indri 'kubectl get --raw /healthz'"
 check_service "k8s-apiserver (remote)" "kubectl --kubeconfig=$HOME/.kube/minikube-indri/config.yml --context=minikube-indri get --raw /healthz"
 
 echo ""
+echo "Kubernetes workloads (via Tailscale):"
+check_http "ArgoCD" "https://argocd.tail8d86e.ts.net/healthz"
+# k8s PostgreSQL - check TCP connection (no auth needed for pg_isready)
+check_service "k8s-pg" "pg_isready -h k8s-pg.tail8d86e.ts.net -p 5432"
+# ArgoCD apps sync status
+check_service "ArgoCD apps synced" "kubectl --context=minikube-indri get applications -n argocd -o jsonpath='{.items[*].status.sync.status}' | grep -v OutOfSync"
+
+echo ""
 if [ $FAILED -eq 0 ]; then
     echo -e "${GREEN}All services healthy!${NC}"
     exit 0

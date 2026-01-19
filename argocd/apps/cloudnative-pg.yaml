@@ -1,0 +1,30 @@
+# CloudNativePG Operator - PostgreSQL for Kubernetes
+# Deploys the operator only; PostgreSQL clusters are created separately
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudnative-pg
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Helm chart from upstream
+    - repoURL: https://cloudnative-pg.github.io/charts
+      chart: cloudnative-pg
+      targetRevision: "0.23.0"
+      helm:
+        releaseName: cloudnative-pg
+        valueFiles:
+          - $values/argocd/manifests/cloudnative-pg/values.yaml
+    # Values from our git repo
+    - repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+      targetRevision: feature/k8s-phase1-kickoff
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cnpg-system
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true  # Required for large CRDs that exceed annotation size limit
+  # Manual sync only - no automated sync on git push

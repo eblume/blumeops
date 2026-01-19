@@ -1,0 +1,24 @@
+# App-of-apps root Application
+# Watches argocd/apps/ and creates/manages all Application resources
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apps
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    targetRevision: feature/k8s-phase1-kickoff
+    path: argocd/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  # Auto-sync enabled: new/changed Application manifests appear automatically
+  # but child apps still require manual sync (they have manual sync policy)

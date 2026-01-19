@@ -1,0 +1,4 @@
+# CloudNativePG Helm values
+# See: https://github.com/cloudnative-pg/charts/tree/main/charts/cloudnative-pg
+
+# Using defaults for now - customize as needed

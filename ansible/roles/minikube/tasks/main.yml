@@ -56,3 +56,42 @@
   ansible.builtin.debug:
     msg: "WARNING: minikube may not have started properly. Run 'minikube start' manually on indri if needed. Status: {{ minikube_final_status.stdout | default('unknown') }}"
   when: minikube_final_status.rc != 0 or 'Running' not in minikube_final_status.stdout
+
+# Configure CRI-O to use zot as pull-through cache
+- name: Copy zot mirror config to temp location
+  ansible.builtin.copy:
+    src: zot-mirror.conf
+    dest: /tmp/zot-mirror.conf
+    mode: "0644"
+  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+
+- name: Check if zot mirror config exists in minikube
+  ansible.builtin.command:
+    cmd: minikube ssh "cat /etc/containers/registries.conf.d/zot-mirror.conf 2>/dev/null || echo ''"
+  register: minikube_existing_zot_config
+  changed_when: false
+  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+
+- name: Read local zot mirror config
+  ansible.builtin.slurp:
+    src: /tmp/zot-mirror.conf
+  register: minikube_local_zot_config
+  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+
+- name: Apply zot mirror config to minikube
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      cat /tmp/zot-mirror.conf | minikube ssh "sudo tee /etc/containers/registries.conf.d/zot-mirror.conf > /dev/null"
+    executable: /bin/bash
+  changed_when: true
+  when:
+    - minikube_final_status.rc == 0
+    - "'Running' in minikube_final_status.stdout"
+    - minikube_existing_zot_config.stdout != (minikube_local_zot_config.content | b64decode)
+  notify: Restart CRI-O in minikube
+
+- name: Clean up temp config file
+  ansible.builtin.file:
+    path: /tmp/zot-mirror.conf
+    state: absent

@@ -1,91 +1,12 @@
-# Blumeops Minikube Migration Plan
-
-This plan details a phased migration of blumeops services from direct hosting on indri (Mac Mini M1) to a minikube cluster, while maintaining critical infrastructure services outside of Kubernetes.
-
-## Architecture Overview
-
-### Services Staying on Indri (Outside K8s)
-| Service | Reason |
-|---------|--------|
-| **Zot Registry** (NEW) | Avoid circular dependency - k8s needs images to start |
-| **Prometheus** | Observability backbone must survive k8s failures |
-| **Loki** | Log aggregation backbone |
-| **Borgmatic** | Backup system |
-| **Grafana-alloy** | Metrics/logs collector on host |
-| **Plex** | Until Jellyfin replacement |
-| **Transmission** | Downloads for kiwix ZIM files |
-
-### Services Moving to K8s
-| Service | Complexity | Dependencies |
-|---------|------------|--------------|
-| Grafana | LOW | Phase 1 |
-| Kiwix | LOW | Phase 1 |
-| Miniflux | MEDIUM | PostgreSQL |
-| devpi | MEDIUM | Registry |
-| PostgreSQL | HIGH | Phase 1 |
-| Forgejo | HIGH | PostgreSQL |
-| Woodpecker CI | MEDIUM | Forgejo |
-
-## Technical Decisions
-
-### Container Registry: Zot
-- OCI-native, lightweight
-- Native support for proxying multiple registries (Docker Hub, GHCR, Quay)
-- Built from source at `~/code/3rd/zot` (not in homebrew)
-- Binary: `~/code/3rd/zot/bin/zot-darwin-arm64`
-- Config: `~/.config/zot/config.json`
-- Data: `~/zot/`
-
-### Minikube Driver: Podman
-- Rootless containers for better security
-- Lighter than full VM (QEMU)
-- Uses existing container ecosystem
-- `minikube start --driver=podman --container-runtime=cri-o`
-
-### PostgreSQL: CloudNativePG Operator
-- Production-grade operator
-- Built-in backup/restore
-- Prometheus metrics
-- PITR support
-
-### K8s Service Exposure: Tailscale Operator
-- `loadBalancerClass: tailscale` on Services
-- Automatic TLS and MagicDNS names
-- ACL-controlled access
-
-### LaunchAgent Requirements (Critical)
-LaunchAgents do NOT get homebrew on PATH. All commands must use **absolute paths**:
-- `/Users/erichblume/code/3rd/zot/bin/zot-darwin-arm64` for zot (built from source)
-- `/opt/homebrew/opt/mise/bin/mise x --` for mise-managed tools
-- `/opt/homebrew/opt/postgresql@18/bin/pg_dump` for postgres tools
-
-This applies to all mcquack LaunchAgents (zot, devpi, kiwix, borgmatic, metrics collectors).
-`brew services` handles this automatically but those aren't tracked in ansible.
-
-### Backup Strategy
-
-Borgmatic remains on indri (outside k8s), writing to sifaka NAS via SMB at `/Volumes/backups`. This ensures backups continue even if k8s is down.
-
-| Service | Backup Approach |
-|---------|-----------------|
-| **Zot Registry** | No backup needed - pull-through cache is re-fetchable, private images rebuilt from source control |
-| **Minikube** | No backup of cluster state - declarative manifests in git, can recreate |
-| **PostgreSQL (k8s)** | CloudNativePG scheduled backups to sifaka (Phase 1) |
-| **Grafana (k8s)** | Dashboards in ansible source control, no runtime backup needed |
-| **Miniflux (k8s)** | Database backed up via CloudNativePG |
-| **Forgejo (k8s)** | Git repos are distributed, config in ansible; data dir backed up via borgmatic before migration |
-| **devpi (k8s)** | Private packages backed up, PyPI cache re-fetchable |
-| **Kiwix (k8s)** | ZIM files re-downloadable via torrent, no backup needed |
-
-**Borgmatic config changes:** None required for Phase 0. Future phases may add k8s PV paths if needed.
-
----
-
-## Phase 0: Foundation
+# Phase 0: Foundation (Complete)
 
 **Goal**: Container registry + minikube cluster without disrupting existing services
 
-### Important: Tailscale Service Creation Order
+**Status**: Complete
+
+---
+
+## Important: Tailscale Service Creation Order
 
 > **WARNING**: You MUST create services in the Tailscale admin console BEFORE running `tailscale serve` commands via ansible. If you run `tailscale serve --service svc:foo` before the service exists in the admin console, the local config will be in a bad state.
 >
@@ -97,7 +18,7 @@ Borgmatic remains on indri (outside k8s), writing to sifaka NAS via SMB at `/Vol
 
 ---
 
-### Step 0.1: Update Pulumi ACLs (BEFORE Tailscale serve)
+## Step 0.1: Update Pulumi ACLs (BEFORE Tailscale serve)
 
 **Files to modify:**
 - `pulumi/policy.hujson`
@@ -135,7 +56,7 @@ mise run tailnet-up        # Apply changes
 
 ---
 
-### Step 0.2: Create Tailscale Services in Admin Console (MANUAL)
+## Step 0.2: Create Tailscale Services in Admin Console (MANUAL)
 
 > **CRITICAL**: Do this BEFORE running any ansible that calls `tailscale serve`
 
@@ -155,7 +76,7 @@ tailscale status | grep registry
 
 ---
 
-### Step 0.3: Create Zot Registry Ansible Role
+## Step 0.3: Create Zot Registry Ansible Role
 
 **Note:** Zot is NOT in homebrew (no formula or tap). Clone to `~/code/3rd/` on indri and build from source (requires Go).
 
@@ -330,7 +251,7 @@ ssh indri 'curl -s http://localhost:5000/v2/_catalog'
 
 ---
 
-### Step 0.4: Add Zot to Tailscale Serve
+## Step 0.4: Add Zot to Tailscale Serve
 
 **Files to modify:**
 - `ansible/roles/tailscale_serve/defaults/main.yml`
@@ -368,7 +289,7 @@ curl -s https://registry.tail8d86e.ts.net/v2/_catalog
 
 ---
 
-### Step 0.5: Create Zot Metrics Role
+## Step 0.5: Create Zot Metrics Role
 
 **New files:**
 ```
@@ -418,7 +339,7 @@ curl -s "http://indri:9090/api/v1/query?query=zot_up" | jq '.data.result[0].valu
 
 ---
 
-### Step 0.6: Add Zot Log Collection to Alloy
+## Step 0.6: Add Zot Log Collection to Alloy
 
 **Files to modify:**
 - `ansible/roles/alloy/defaults/main.yml`
@@ -445,7 +366,7 @@ mise run provision-indri -- --tags alloy
 
 ---
 
-### Step 0.7: Update indri-services-check Script
+## Step 0.7: Update indri-services-check Script
 
 **Files to modify:**
 - `mise-tasks/indri-services-check`
@@ -480,7 +401,7 @@ mise run indri-services-check
 
 ---
 
-### Step 0.8: Install and Configure Podman on Indri
+## Step 0.8: Install and Configure Podman on Indri
 
 **New files:**
 ```
@@ -534,7 +455,7 @@ ssh indri 'podman run --rm hello-world'
 
 ---
 
-### Step 0.9: Install and Configure Minikube
+## Step 0.9: Install and Configure Minikube
 
 **New files:**
 ```
@@ -604,7 +525,7 @@ ssh indri 'kubectl get nodes'
 
 ---
 
-### Step 0.10: Configure Kubeconfig on Gilbert
+## Step 0.10: Configure Kubeconfig on Gilbert
 
 **Goal**: Enable `kubectl` and `k9s` on gilbert to connect to the minikube cluster running on indri.
 
@@ -718,7 +639,7 @@ Rather than copying private keys between machines, credentials are stored in 1Pa
 
 ---
 
-### Step 0.11: Add Minikube to indri-services-check
+## Step 0.11: Add Minikube to indri-services-check
 
 **Files to modify:**
 - `mise-tasks/indri-services-check`
@@ -748,7 +669,7 @@ mise run indri-services-check
 
 ---
 
-### Step 0.12: Create Zettelkasten Documentation
+## Step 0.12: Create Zettelkasten Documentation
 
 **New files:**
 - `~/code/personal/zk/zot.md`
@@ -940,7 +861,7 @@ podman machine start
 
 ---
 
-### Step 0.13: Update Main Playbook
+## Step 0.13: Update Main Playbook
 
 **Files to modify:**
 - `ansible/playbooks/indri.yml`
@@ -964,7 +885,232 @@ podman machine start
 
 ---
 
-### Phase 0 Verification Checklist
+## Step 0.14: Expose K8s API as Tailscale Service (Added Post-Completion)
+
+> **Note**: This step was added after Phase 0 was otherwise complete, to provide a stable, named endpoint for the Kubernetes API server.
+
+**Goal**: Expose the minikube API server as `k8s.tail8d86e.ts.net` instead of using `indri:<dynamic-port>`.
+
+**Current state:**
+- Minikube API server on port 39535 (dynamic, could change on cluster recreation)
+- Accessed via `https://indri:39535`
+- Certificate SANs include "indri"
+
+**Target state:**
+- Stable Tailscale service at `k8s.tail8d86e.ts.net:443`
+- Fixed API server port (6443, the k8s standard)
+- Certificate SANs include both hostnames for compatibility
+
+---
+
+### Step 0.14.1: Update Pulumi ACLs
+
+**Files to modify:**
+- `pulumi/policy.hujson`
+- `pulumi/__main__.py`
+
+**Changes to policy.hujson:**
+
+1. Add tag to `tagOwners`:
+```hujson
+"tag:k8s-api": ["autogroup:admin", "tag:blumeops"],
+```
+
+2. Update Erich's test case accept list to include k8s-api:
+```hujson
+"accept": ["tag:grafana:443", "tag:kiwix:443", "tag:feed:443", "tag:loki:3100", "tag:pg:5432", "tag:homelab:22", "tag:registry:443", "tag:k8s-api:443"],
+```
+
+3. Update Allison's deny list:
+```hujson
+"deny": ["tag:grafana:443", "tag:loki:3100", "tag:nas:445", "tag:registry:443", "tag:k8s-api:443"],
+```
+
+**Changes to __main__.py:**
+- Add `"tag:k8s-api"` to indri's DeviceTags
+
+**Testing:**
+```bash
+mise run tailnet-preview   # Review changes
+mise run tailnet-up        # Apply changes
+```
+
+---
+
+### Step 0.14.2: Create Tailscale Service in Admin Console (MANUAL)
+
+> **CRITICAL**: Do this BEFORE running ansible that calls `tailscale serve`
+
+1. Go to https://login.tailscale.com/admin/services
+2. Create service `k8s` with:
+   - Port: 443 (TCP)
+   - Host: indri
+
+---
+
+### Step 0.14.3: Recreate Minikube Cluster
+
+The cluster needs to be recreated to:
+1. Add `k8s.tail8d86e.ts.net` to the API server certificate SANs
+2. Fix the API server port to 6443 (standard k8s port)
+
+**On indri:**
+```bash
+# Stop and delete existing cluster
+minikube stop
+minikube delete
+
+# Recreate with new settings
+minikube start \
+  --driver=podman \
+  --container-runtime=cri-o \
+  --cpus=4 --memory=7800 --disk-size=200g \
+  --apiserver-names=k8s.tail8d86e.ts.net,indri \
+  --apiserver-port=6443 \
+  --listen-address=0.0.0.0
+
+# Verify certificate SANs include both names
+kubectl config view --minify -o jsonpath="{.clusters[0].cluster.server}"
+# Expected: https://127.0.0.1:6443 or similar
+
+# Verify cluster is running
+minikube status
+kubectl get nodes
+```
+
+**Update ansible role defaults** (`ansible/roles/minikube/defaults/main.yml`):
+```yaml
+minikube_apiserver_names:
+  - k8s.tail8d86e.ts.net
+  - indri
+minikube_apiserver_port: 6443
+```
+
+---
+
+### Step 0.14.4: Add K8s Service to Tailscale Serve
+
+**Files to modify:**
+- `ansible/roles/tailscale_serve/defaults/main.yml`
+
+**Add to services list:**
+```yaml
+- name: svc:k8s
+  tcp:
+    port: 443
+    upstream: tcp://localhost:6443
+```
+
+**Note:** Using TCP passthrough (not HTTPS termination) because k8s uses mTLS authentication.
+
+**Deploy:**
+```bash
+mise run provision-indri -- --tags tailscale-serve
+```
+
+---
+
+### Step 0.14.5: Update 1Password Credentials
+
+After cluster recreation, the client certificates have changed.
+
+**On indri, get the new credentials:**
+```bash
+# Display new certificates (copy to 1Password)
+cat ~/.minikube/profiles/minikube/client.crt
+cat ~/.minikube/profiles/minikube/client.key
+cat ~/.minikube/ca.crt
+```
+
+**In 1Password** (vault: `vg6xf6vvfmoh5hqjjhlhbeoaie`, item: `3jo4f2hnzvwfmamudfsbbbec7e`):
+- Update `client-cert` field with new certificate
+- Update `client-key` field with new key
+- Update `ca-cert` field with new CA certificate
+
+---
+
+### Step 0.14.6: Update Kubeconfig on Gilbert
+
+**Update CA certificate:**
+```bash
+# Fetch new CA cert from 1Password
+op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get 3jo4f2hnzvwfmamudfsbbbec7e --fields ca-cert | sed 's/^"//; s/"$//' > ~/.kube/minikube-indri/ca.crt
+```
+
+**Update kubeconfig** (`~/.kube/minikube-indri/config.yml`):
+```yaml
+clusters:
+- cluster:
+    certificate-authority: /Users/eblume/.kube/minikube-indri/ca.crt
+    server: https://k8s.tail8d86e.ts.net  # Changed from https://indri:39535
+  name: minikube-indri
+```
+
+**Verification:**
+```bash
+# Test connection via new hostname
+kubectl --context=minikube-indri get nodes
+
+# Test via abbreviation
+ki get nodes
+```
+
+---
+
+### Step 0.14.7: Update Documentation
+
+**Files to update:**
+- `~/code/personal/zk/minikube.md` - Update API server URL and port info
+- `~/code/personal/zk/1767747119-YCPO.md` - Update Services table and Port Map
+
+**Changes to blumeops card:**
+
+1. Update Services table:
+   | **Kubernetes** | https://k8s.tail8d86e.ts.net | Minikube cluster | [[minikube]] |
+
+2. Update Port Map:
+   | 6443 | K8s API | HTTPS/TCP | 0.0.0.0 | Minikube API server (via Tailscale) |
+
+3. Add `tag:k8s-api` to Device Tags table
+
+---
+
+### Step 0.14.8: Update indri-services-check
+
+**Files to modify:**
+- `mise-tasks/indri-services-check`
+
+**Changes:**
+```bash
+# Update remote k8s check to use new URL
+check_service "k8s-apiserver (remote)" "kubectl --kubeconfig=$HOME/.kube/minikube-indri/config.yml --context=minikube-indri get --raw /healthz"
+# (No change needed - uses kubeconfig which now points to k8s.tail8d86e.ts.net)
+```
+
+---
+
+### Step 0.14 Verification
+
+```bash
+# 1. Service health check
+mise run indri-services-check
+# All services should be OK
+
+# 2. Test k8s access via Tailscale hostname
+curl -k https://k8s.tail8d86e.ts.net/healthz
+# Expected: ok (or certificate error if mTLS required - that's fine)
+
+# 3. kubectl via Tailscale
+ki get nodes
+ki get namespaces
+
+# 4. k9s via Tailscale
+k9i
+```
+
+---
+
+## Phase 0 Verification Checklist
 
 Run after completing all steps:
 
@@ -1005,7 +1151,7 @@ k9s
 
 ---
 
-### Phase 0 Rollback
+## Phase 0 Rollback
 
 If something goes wrong:
 
@@ -1040,232 +1186,7 @@ rm ~/code/personal/zk/{zot,minikube}.md
 
 ---
 
-### Step 0.14: Expose K8s API as Tailscale Service (Added Post-Completion)
-
-> **Note**: This step was added after Phase 0 was otherwise complete, to provide a stable, named endpoint for the Kubernetes API server.
-
-**Goal**: Expose the minikube API server as `k8s.tail8d86e.ts.net` instead of using `indri:<dynamic-port>`.
-
-**Current state:**
-- Minikube API server on port 39535 (dynamic, could change on cluster recreation)
-- Accessed via `https://indri:39535`
-- Certificate SANs include "indri"
-
-**Target state:**
-- Stable Tailscale service at `k8s.tail8d86e.ts.net:443`
-- Fixed API server port (6443, the k8s standard)
-- Certificate SANs include both hostnames for compatibility
-
----
-
-#### Step 0.14.1: Update Pulumi ACLs
-
-**Files to modify:**
-- `pulumi/policy.hujson`
-- `pulumi/__main__.py`
-
-**Changes to policy.hujson:**
-
-1. Add tag to `tagOwners`:
-```hujson
-"tag:k8s-api": ["autogroup:admin", "tag:blumeops"],
-```
-
-2. Update Erich's test case accept list to include k8s-api:
-```hujson
-"accept": ["tag:grafana:443", "tag:kiwix:443", "tag:feed:443", "tag:loki:3100", "tag:pg:5432", "tag:homelab:22", "tag:registry:443", "tag:k8s-api:443"],
-```
-
-3. Update Allison's deny list:
-```hujson
-"deny": ["tag:grafana:443", "tag:loki:3100", "tag:nas:445", "tag:registry:443", "tag:k8s-api:443"],
-```
-
-**Changes to __main__.py:**
-- Add `"tag:k8s-api"` to indri's DeviceTags
-
-**Testing:**
-```bash
-mise run tailnet-preview   # Review changes
-mise run tailnet-up        # Apply changes
-```
-
----
-
-#### Step 0.14.2: Create Tailscale Service in Admin Console (MANUAL)
-
-> **CRITICAL**: Do this BEFORE running ansible that calls `tailscale serve`
-
-1. Go to https://login.tailscale.com/admin/services
-2. Create service `k8s` with:
-   - Port: 443 (TCP)
-   - Host: indri
-
----
-
-#### Step 0.14.3: Recreate Minikube Cluster
-
-The cluster needs to be recreated to:
-1. Add `k8s.tail8d86e.ts.net` to the API server certificate SANs
-2. Fix the API server port to 6443 (standard k8s port)
-
-**On indri:**
-```bash
-# Stop and delete existing cluster
-minikube stop
-minikube delete
-
-# Recreate with new settings
-minikube start \
-  --driver=podman \
-  --container-runtime=cri-o \
-  --cpus=4 --memory=7800 --disk-size=200g \
-  --apiserver-names=k8s.tail8d86e.ts.net,indri \
-  --apiserver-port=6443 \
-  --listen-address=0.0.0.0
-
-# Verify certificate SANs include both names
-kubectl config view --minify -o jsonpath="{.clusters[0].cluster.server}"
-# Expected: https://127.0.0.1:6443 or similar
-
-# Verify cluster is running
-minikube status
-kubectl get nodes
-```
-
-**Update ansible role defaults** (`ansible/roles/minikube/defaults/main.yml`):
-```yaml
-minikube_apiserver_names:
-  - k8s.tail8d86e.ts.net
-  - indri
-minikube_apiserver_port: 6443
-```
-
----
-
-#### Step 0.14.4: Add K8s Service to Tailscale Serve
-
-**Files to modify:**
-- `ansible/roles/tailscale_serve/defaults/main.yml`
-
-**Add to services list:**
-```yaml
-- name: svc:k8s
-  tcp:
-    port: 443
-    upstream: tcp://localhost:6443
-```
-
-**Note:** Using TCP passthrough (not HTTPS termination) because k8s uses mTLS authentication.
-
-**Deploy:**
-```bash
-mise run provision-indri -- --tags tailscale-serve
-```
-
----
-
-#### Step 0.14.5: Update 1Password Credentials
-
-After cluster recreation, the client certificates have changed.
-
-**On indri, get the new credentials:**
-```bash
-# Display new certificates (copy to 1Password)
-cat ~/.minikube/profiles/minikube/client.crt
-cat ~/.minikube/profiles/minikube/client.key
-cat ~/.minikube/ca.crt
-```
-
-**In 1Password** (vault: `vg6xf6vvfmoh5hqjjhlhbeoaie`, item: `3jo4f2hnzvwfmamudfsbbbec7e`):
-- Update `client-cert` field with new certificate
-- Update `client-key` field with new key
-- Update `ca-cert` field with new CA certificate
-
----
-
-#### Step 0.14.6: Update Kubeconfig on Gilbert
-
-**Update CA certificate:**
-```bash
-# Fetch new CA cert from 1Password
-op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get 3jo4f2hnzvwfmamudfsbbbec7e --fields ca-cert | sed 's/^"//; s/"$//' > ~/.kube/minikube-indri/ca.crt
-```
-
-**Update kubeconfig** (`~/.kube/minikube-indri/config.yml`):
-```yaml
-clusters:
-- cluster:
-    certificate-authority: /Users/eblume/.kube/minikube-indri/ca.crt
-    server: https://k8s.tail8d86e.ts.net  # Changed from https://indri:39535
-  name: minikube-indri
-```
-
-**Verification:**
-```bash
-# Test connection via new hostname
-kubectl --context=minikube-indri get nodes
-
-# Test via abbreviation
-ki get nodes
-```
-
----
-
-#### Step 0.14.7: Update Documentation
-
-**Files to update:**
-- `~/code/personal/zk/minikube.md` - Update API server URL and port info
-- `~/code/personal/zk/1767747119-YCPO.md` - Update Services table and Port Map
-
-**Changes to blumeops card:**
-
-1. Update Services table:
-   | **Kubernetes** | https://k8s.tail8d86e.ts.net | Minikube cluster | [[minikube]] |
-
-2. Update Port Map:
-   | 6443 | K8s API | HTTPS/TCP | 0.0.0.0 | Minikube API server (via Tailscale) |
-
-3. Add `tag:k8s-api` to Device Tags table
-
----
-
-#### Step 0.14.8: Update indri-services-check
-
-**Files to modify:**
-- `mise-tasks/indri-services-check`
-
-**Changes:**
-```bash
-# Update remote k8s check to use new URL
-check_service "k8s-apiserver (remote)" "kubectl --kubeconfig=$HOME/.kube/minikube-indri/config.yml --context=minikube-indri get --raw /healthz"
-# (No change needed - uses kubeconfig which now points to k8s.tail8d86e.ts.net)
-```
-
----
-
-#### Step 0.14 Verification
-
-```bash
-# 1. Service health check
-mise run indri-services-check
-# All services should be OK
-
-# 2. Test k8s access via Tailscale hostname
-curl -k https://k8s.tail8d86e.ts.net/healthz
-# Expected: ok (or certificate error if mTLS required - that's fine)
-
-# 3. kubectl via Tailscale
-ki get nodes
-ki get namespaces
-
-# 4. k9s via Tailscale
-k9i
-```
-
----
-
-### Phase 0 Follow-up: Grafana Dashboards
+## Phase 0 Follow-up: Grafana Dashboards
 
 After Phase 0 is running and stable, create monitoring dashboards:
 
@@ -1282,7 +1203,7 @@ After Phase 0 is running and stable, create monitoring dashboards:
 
 ---
 
-### New Files Summary
+## New Files Summary
 
 | File | Purpose |
 |------|---------|
@@ -1293,7 +1214,7 @@ After Phase 0 is running and stable, create monitoring dashboards:
 | `~/code/personal/zk/zot.md` | Zot management documentation |
 | `~/code/personal/zk/minikube.md` | Minikube management documentation |
 
-### Modified Files Summary
+## Modified Files Summary
 
 | File | Changes |
 |------|---------|
@@ -1302,365 +1223,3 @@ After Phase 0 is running and stable, create monitoring dashboards:
 | `ansible/roles/tailscale_serve/defaults/main.yml` | Add svc:registry |
 | `ansible/roles/alloy/templates/config.alloy.j2` | Add zot log collection |
 | `mise-tasks/indri-services-check` | Add zot and k8s checks |
-
----
-
-## Phase 1: Kubernetes Infrastructure
-
-**Goal**: Tailscale operator + CloudNativePG operator
-
-### Steps
-
-1. **Update Pulumi ACLs for k8s workloads**
-
-   Add `tag:k8s` to `pulumi/policy.hujson` - this tag is for k8s workloads that need to access other services (e.g., Woodpecker CI pushing to registry).
-
-   **Changes to tagOwners:**
-   ```hujson
-   "tag:k8s": ["autogroup:admin", "tag:blumeops"],
-   ```
-
-   **Add grant for k8s→registry access:**
-   ```hujson
-   // k8s workloads (e.g., Woodpecker CI) can push/pull from registry
-   {
-   	"src": ["tag:k8s"],
-   	"dst": ["tag:registry"],
-   	"ip":  ["tcp:443"],
-   },
-   ```
-
-   **Add test case:**
-   ```hujson
-   {
-   	"src":    "tag:k8s",
-   	"accept": ["tag:registry:443"],
-   },
-   ```
-
-   ```bash
-   mise run tailnet-preview && mise run tailnet-up
-   ```
-
-2. **Create Tailscale OAuth client**
-   - Scopes: Devices Core, Auth Keys, Services write
-   - Tag: `tag:k8s-operator`
-   - Store in 1Password
-
-3. **Deploy Tailscale Kubernetes Operator**
-   ```bash
-   helm repo add tailscale https://pkgs.tailscale.com/helmcharts
-   helm install tailscale-operator tailscale/tailscale-operator \
-     --namespace tailscale-system --create-namespace \
-     --set oauth.clientId=$CLIENT_ID \
-     --set oauth.clientSecret=$CLIENT_SECRET
-   ```
-
-4. **Deploy CloudNativePG operator**
-   ```bash
-   kubectl apply -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.24/releases/cnpg-1.24.0.yaml
-   ```
-
-5. **Create PostgreSQL cluster**
-   ```yaml
-   apiVersion: postgresql.cnpg.io/v1
-   kind: Cluster
-   metadata:
-     name: blumeops-pg
-     namespace: databases
-   spec:
-     instances: 1
-     storage:
-       size: 10Gi
-       storageClass: standard
-     monitoring:
-       enablePodMonitor: true
-   ```
-
-6. **Update Alloy config**
-   - Add kubernetes_sd_configs for k8s metrics
-   - Scrape operator metrics
-
-### New Files
-- `ansible/k8s/operators/` - Operator manifests
-- `ansible/k8s/databases/` - PostgreSQL cluster
-
-### Verification
-```bash
-kubectl get pods -n tailscale-system
-kubectl get pods -n cnpg-system
-kubectl get cluster -n databases
-```
-
----
-
-## Phase 2: Grafana Migration (Pilot)
-
-**Goal**: Migrate Grafana as lowest-risk pilot service
-
-### Steps
-
-1. **Deploy Grafana via Helm**
-   - Copy datasource config from existing role
-   - Copy dashboards from `ansible/roles/grafana/files/dashboards/`
-   - Point to indri Prometheus/Loki (http://indri:9090, http://indri:3100)
-
-2. **Configure Tailscale LoadBalancer**
-   ```yaml
-   service:
-     type: LoadBalancer
-     loadBalancerClass: tailscale
-   ```
-
-3. **Verify all dashboards work**
-
-4. **Update tailscale_serve** - remove grafana entry
-
-5. **Stop brew grafana**: `brew services stop grafana`
-
-### Verification
-- https://grafana.tail8d86e.ts.net loads
-- All dashboards functional
-
----
-
-## Phase 3: PostgreSQL Migration
-
-**Goal**: Migrate miniflux database to CloudNativePG
-
-### Steps
-
-1. **Create databases and users in k8s PostgreSQL**
-   - miniflux database/user
-   - borgmatic read-only user
-
-2. **Export from brew PostgreSQL**
-   ```bash
-   pg_dump -h localhost -U miniflux miniflux > miniflux_backup.sql
-   ```
-
-3. **Expose k8s PostgreSQL via Tailscale**
-   - Service with `loadBalancerClass: tailscale`
-   - Tag: `svc:pg-k8s`
-
-4. **Import data**
-   ```bash
-   psql -h pg-k8s.tail8d86e.ts.net -U miniflux miniflux < miniflux_backup.sql
-   ```
-
-5. **Update borgmatic config**
-   - Change hostname to k8s PostgreSQL
-
-6. **Verify data integrity**
-
-### Rollback
-Keep brew PostgreSQL running until Phase 4 verified
-
----
-
-## Phase 4: Miniflux Migration
-
-**Goal**: Migrate Miniflux to k8s
-
-### Steps
-
-1. **Deploy Miniflux**
-   ```yaml
-   image: ghcr.io/miniflux/miniflux:latest
-   env:
-     DATABASE_URL: from secret
-     RUN_MIGRATIONS: "1"
-   ```
-
-2. **Configure Tailscale LoadBalancer** - tag: `svc:feed`
-
-3. **Update Alloy log collection** - add k8s namespace
-
-4. **Verify**: login, feeds refresh, API works
-
-5. **Stop brew miniflux**: `brew services stop miniflux`
-
----
-
-## Phase 5: devpi Migration
-
-**Goal**: Migrate devpi to k8s
-
-### Steps
-
-1. **Build devpi container**
-   - Dockerfile with devpi-server + devpi-web
-   - Push to local Zot registry
-
-2. **Deploy as StatefulSet**
-   - PVC for data (50Gi)
-   - Migrate existing data (excluding PyPI cache)
-
-3. **Configure Tailscale LoadBalancer** - tag: `svc:pypi`
-
-4. **Update pip.conf on gilbert**
-
-5. **Stop mcquack devpi**
-
----
-
-## Phase 6: Kiwix Migration
-
-**Goal**: Migrate kiwix-serve to k8s
-
-### Steps
-
-1. **Create NFS/hostPath PV for ZIM files**
-   - Point to transmission download directory
-   - ReadOnlyMany access
-
-2. **Deploy Kiwix**
-   ```yaml
-   image: ghcr.io/kiwix/kiwix-serve:3.8.1
-   args: ["/data/*.zim"]
-   ```
-
-3. **Configure Tailscale LoadBalancer** - tag: `svc:kiwix`
-
-4. **Stop mcquack kiwix-serve**
-
----
-
-## Phase 7: Forgejo Migration (Highest Risk)
-
-**Goal**: Migrate Forgejo to k8s
-
-### Pre-Migration Checklist
-- [ ] Full borgmatic backup verified
-- [ ] Manual backup of `/opt/homebrew/var/forgejo`
-- [ ] Document SSH keys and webhooks
-
-### Steps
-
-1. **Deploy Forgejo via Helm**
-   ```bash
-   helm install forgejo forgejo/forgejo \
-     --namespace forgejo --create-namespace
-   ```
-
-2. **Migrate data**
-   - Stop brew forgejo
-   - Copy data to PVC
-   - Start k8s forgejo
-
-3. **Configure Tailscale services**
-   - HTTPS 443 via LoadBalancer
-   - SSH port 22 (TCP proxy)
-
-4. **Verify all repositories accessible**
-
-### Rollback
-Restore brew forgejo and tailscale serve config
-
----
-
-## Phase 8: CI/CD (Woodpecker)
-
-**Goal**: Deploy Woodpecker CI integrated with Forgejo
-
-### Steps
-
-1. **Create Forgejo OAuth application**
-   - Callback: https://ci.tail8d86e.ts.net/authorize
-   - Store in 1Password
-
-2. **Deploy Woodpecker Server + Agent**
-
-3. **Configure Tailscale LoadBalancer** - tag: `svc:ci`
-
-4. **Test pipeline** - create `.woodpecker.yaml` in test repo
-
----
-
-## Phase 9: Cleanup
-
-**Goal**: Remove deprecated services, harden system
-
-### Steps
-
-1. **Stop/remove unused brew services**
-   - postgresql@18, grafana, miniflux, forgejo
-
-2. **Update ansible playbook**
-   - Remove migrated service roles
-   - Add k8s deployment references
-
-3. **Configure Velero backups** (optional)
-   - Install with MinIO on sifaka
-   - Schedule daily cluster backups
-
-4. **Update zk documentation**
-   - New architecture
-   - Runbooks
-   - DR procedures
-
----
-
-## Critical Files
-
-| File | Purpose |
-|------|---------|
-| `ansible/playbooks/indri.yml` | Main playbook - add k8s roles, remove migrated services |
-| `ansible/roles/tailscale_serve/defaults/main.yml` | Transition services to Tailscale operator |
-| `pulumi/policy.hujson` | Add tags: k8s, registry, ci |
-| `ansible/roles/borgmatic/defaults/main.yml` | Update PostgreSQL endpoint |
-| `mise-tasks/indri-services-check` | Add k8s health checks |
-
-## New Directory Structure
-
-```
-ansible/
-  k8s/
-    operators/
-      tailscale-operator.yaml
-      cloudnative-pg.yaml
-    databases/
-      blumeops-pg.yaml
-    apps/
-      grafana/
-      miniflux/
-      forgejo/
-      devpi/
-      kiwix/
-      woodpecker/
-  roles/
-    zot/           # NEW
-    podman/        # NEW
-    minikube/      # NEW
-```
-
-## Risk Mitigation
-
-- **Circular dependency prevention**: Zot registry runs outside k8s
-- **Observability**: Prometheus/Loki stay on indri
-- **Data loss prevention**: borgmatic + manual backups before each phase
-- **Recovery**: Can manually push images, restore from backups
-
-## Container Images (All ARM64)
-
-| Service | Image |
-|---------|-------|
-| Miniflux | `ghcr.io/miniflux/miniflux:latest` |
-| Forgejo | `codeberg.org/forgejo/forgejo:10` |
-| Grafana | `grafana/grafana:latest` |
-| Kiwix | `ghcr.io/kiwix/kiwix-serve:3.8.1` |
-| Woodpecker | `woodpeckerci/woodpecker-server` |
-
-Note: Zot runs as a native binary on indri (built from source at `~/code/3rd/zot`), not as a container.
-
----
-
-## Plan Completion
-
-When all phases are complete and verified:
-
-```bash
-# Move plan to completed directory with completion date
-git mv plans/k8s-migration.md plans/completed/k8s-migration.$(date +%Y-%m-%d).md
-git commit -m "Complete k8s migration plan"
-```

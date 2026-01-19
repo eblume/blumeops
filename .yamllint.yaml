@@ -27,3 +27,5 @@ rules:
 ignore:
   - .venv/
   - pulumi/.venv/
+  # Third-party k8s manifest with non-standard formatting
+  - argocd/manifests/tailscale-operator/operator.yaml

@@ -1,0 +1,8 @@
+# ArgoCD server parameters
+# Disables HTTPS redirect since TLS is terminated at Tailscale Ingress
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+data:
+  server.insecure: "true"

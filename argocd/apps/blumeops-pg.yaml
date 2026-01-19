@@ -1,0 +1,24 @@
+# PostgreSQL Cluster for blumeops services
+# Requires: CloudNativePG operator (cloudnative-pg app) and manual secret setup
+#
+# Before syncing, create the eblume password secret:
+#   kubectl create namespace databases
+#   op inject -i argocd/manifests/databases/secret-eblume.yaml.tpl | kubectl apply -f -
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: blumeops-pg
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    targetRevision: feature/k8s-phase1-kickoff
+    path: argocd/manifests/databases
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: databases
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+  # Manual sync only - no automated sync on git push

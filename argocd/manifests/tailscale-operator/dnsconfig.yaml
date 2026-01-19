@@ -1,0 +1,16 @@
+# DNSConfig for resolving MagicDNS names from within the cluster
+# Deploys a nameserver that resolves ts.net names to egress proxy IPs
+#
+# Requires CoreDNS/kube-dns configuration to forward ts.net queries.
+# See: https://tailscale.com/kb/1438/kubernetes-operator-cluster-egress
+---
+apiVersion: tailscale.com/v1alpha1
+kind: DNSConfig
+metadata:
+  name: ts-dns
+  namespace: tailscale
+spec:
+  nameserver:
+    image:
+      repo: docker.io/tailscale/k8s-nameserver
+      tag: stable

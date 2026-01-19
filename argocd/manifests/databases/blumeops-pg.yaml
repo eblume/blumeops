@@ -1,0 +1,52 @@
+# PostgreSQL Cluster for blumeops services
+# Managed by CloudNativePG operator
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: blumeops-pg
+  namespace: databases
+spec:
+  instances: 1
+
+  storage:
+    size: 10Gi
+    storageClass: standard
+
+  # Bootstrap creates initial database and owner
+  bootstrap:
+    initdb:
+      database: miniflux
+      owner: miniflux
+
+  # Managed roles - additional users beyond the bootstrap owner
+  managed:
+    roles:
+      # eblume superuser for admin access (matches current brew pg setup)
+      - name: eblume
+        login: true
+        superuser: true
+        createdb: true
+        createrole: true
+        passwordSecret:
+          name: blumeops-pg-eblume
+
+  # Resource limits for minikube environment
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+  # PostgreSQL configuration
+  postgresql:
+    parameters:
+      max_connections: "50"
+      shared_buffers: "128MB"
+      password_encryption: "scram-sha-256"
+    pg_hba:
+      # Allow all users to connect from any IP with password auth
+      # Network security is handled by Tailscale
+      - host all all 0.0.0.0/0 scram-sha-256
+      - host all all ::/0 scram-sha-256

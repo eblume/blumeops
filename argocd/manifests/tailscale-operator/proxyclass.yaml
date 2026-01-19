@@ -1,0 +1,29 @@
+# ProxyClass: crio-compat
+#
+# Why this exists:
+# CRI-O (the container runtime used by minikube) cannot resolve short image
+# names like "tailscale/tailscale:stable". It requires fully-qualified names
+# with an explicit registry prefix (e.g., "docker.io/tailscale/tailscale:stable").
+#
+# The Tailscale operator creates proxy pods (StatefulSets) for each LoadBalancer
+# Service or Ingress. By default, these pods use short image names which fail
+# on CRI-O with "ImageInspectError".
+#
+# Usage:
+# Add this annotation to any Tailscale Service or Ingress:
+#   tailscale.com/proxy-class: "crio-compat"
+#
+# This tells the operator to use the fully-qualified image names defined below
+# when creating the proxy pod for that resource.
+---
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyClass
+metadata:
+  name: crio-compat
+spec:
+  statefulSet:
+    pod:
+      tailscaleContainer:
+        image: docker.io/tailscale/tailscale:stable
+      tailscaleInitContainer:
+        image: docker.io/tailscale/tailscale:stable

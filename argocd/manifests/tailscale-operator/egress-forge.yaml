@@ -1,0 +1,20 @@
+# Egress proxy to expose Forgejo (forge) to the cluster
+# Forge runs on indri:3001, exposed via Tailscale Serve as forge.tail8d86e.ts.net
+# We target indri directly since egress can't reach Tailscale Serve hostnames
+#
+# See: https://tailscale.com/kb/1438/kubernetes-operator-cluster-egress
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forge
+  namespace: tailscale
+  annotations:
+    tailscale.com/tailnet-fqdn: indri.tail8d86e.ts.net
+    tailscale.com/proxy-class: "crio-compat"
+spec:
+  type: ExternalName
+  externalName: placeholder
+  ports:
+    - port: 3001
+      targetPort: 3001
