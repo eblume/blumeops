@@ -2,7 +2,7 @@
 
 **Goal**: Migrate Grafana as lowest-risk pilot service
 
-**Status**: Pending
+**Status**: Complete (2026-01-19)
 
 **Prerequisites**: [Phase 1](P1_k8s_infrastructure.complete.md) complete
 
@@ -326,14 +326,14 @@ Once k8s Grafana is verified working:
 
 ## Verification
 
-- [ ] Loki accessible from k8s pods
-- [ ] Prometheus accessible from k8s pods
-- [ ] Grafana pod running in `monitoring` namespace
-- [ ] Grafana Ingress active
-- [ ] https://grafana.tail8d86e.ts.net loads
-- [ ] All 9 dashboards visible
-- [ ] Prometheus datasource queries work
-- [ ] Loki datasource queries work
+- [x] Loki accessible from k8s pods
+- [x] Prometheus accessible from k8s pods
+- [x] Grafana pod running in `monitoring` namespace
+- [x] Grafana Ingress active
+- [x] https://grafana.tail8d86e.ts.net loads
+- [x] All 9 dashboards visible
+- [x] Prometheus datasource queries work
+- [x] Loki datasource queries work
 
 ---
 
@@ -349,4 +349,48 @@ Once k8s Grafana is verified working:
 
 *Added during implementation for retrospective review*
 
-(To be filled in during execution)
+### SSH Credential Management
+
+**Issue**: Initial plan used HTTPS URLs for forge-mirrored Helm chart repos, but ArgoCD in cluster couldn't resolve `forge.tail8d86e.ts.net` (MagicDNS not available inside cluster).
+
+**Solution**: Use SSH URLs for all forge repos. Created a **credential template** (`repo-creds-forge`) that matches all repos under `ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/` using URL prefix matching. This allows a single SSH key (added to Forgejo user, not as deploy key) to work for all repos.
+
+### SSH Host Key for ArgoCD
+
+**Issue**: ArgoCD's known_hosts didn't include indri's SSH host key, causing `knownhosts: key is unknown` errors.
+
+**Solution**: Added `argocd-ssh-known-hosts-cm.yaml` as a kustomize patch to include indri's host key alongside the upstream defaults.
+
+**Gotcha**: Kustomize patches must **not specify namespace** - the namespace transformation happens *after* patch matching. Our patch had `namespace: argocd` which caused "no matches for Id" errors until removed.
+
+### Tailscale Hostname Cutover
+
+**Issue**: After removing `svc:grafana` from ansible's tailscale_serve config, the k8s Ingress still got a numbered hostname (`grafana-1.tail8d86e.ts.net`).
+
+**Solution**: The old `svc:grafana` service remained registered in Tailscale admin console even after clearing its serve config. **Manual deletion in Tailscale admin console** was required to free the `grafana` hostname for the k8s Ingress to claim. After deletion, recreating the Ingress picked up the correct hostname.
+
+### ArgoCD Workflow Decision
+
+During implementation, we established the pattern for GitOps workflow:
+
+- **All apps target `main` branch** (not feature branches)
+- Manual sync policy on workload apps = merge doesn't auto-deploy
+- Workflow: feature branch → PR → merge to main → `argocd app sync <name>`
+- For testing: temporarily set one app to feature branch via `argocd app set --revision`
+
+This avoids the friction of switching `targetRevision` in manifests during development.
+
+### Bootstrap Dependencies
+
+Some resources must be applied manually before ArgoCD can manage itself:
+
+1. **SSH known_hosts** - chicken-and-egg: ArgoCD can't sync the config that adds the host key
+2. **Credential secrets** - `repo-creds-forge` must exist before ArgoCD can pull from forge
+
+These are documented in `argocd/manifests/argocd/README.md` as bootstrap steps.
+
+### Actual Versions Used
+
+- Grafana Helm chart: `grafana-8.8.2` (tag in grafana-helm-charts repo)
+- CloudNativePG Helm chart: `cloudnative-pg-v0.23.0` (tag in cloudnative-pg-charts repo)
+- Grafana version: 11.4.0
