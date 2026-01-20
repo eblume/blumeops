@@ -58,25 +58,34 @@
   when: minikube_final_status.rc != 0 or 'Running' not in minikube_final_status.stdout
 
 # Configure CRI-O to use zot as pull-through cache
-- name: Copy zot mirror config to temp location
-  ansible.builtin.copy:
-    src: zot-mirror.conf
-    dest: /tmp/zot-mirror.conf
-    mode: "0644"
+- name: Read desired zot mirror config
+  ansible.builtin.slurp:
+    src: "{{ role_path }}/files/zot-mirror.conf"
+  register: minikube_desired_zot_config
+  delegate_to: localhost
   when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
 
-- name: Check if zot mirror config exists in minikube
+- name: Check current zot mirror config in minikube
   ansible.builtin.command:
     cmd: minikube ssh --native-ssh=false "cat /etc/containers/registries.conf.d/zot-mirror.conf 2>/dev/null || echo ''"
   register: minikube_existing_zot_config
   changed_when: false
   when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
 
-- name: Read local zot mirror config
-  ansible.builtin.slurp:
-    src: /tmp/zot-mirror.conf
-  register: minikube_local_zot_config
+- name: Determine if zot mirror config needs update
+  ansible.builtin.set_fact:
+    minikube_zot_config_changed: "{{ (minikube_existing_zot_config.stdout | trim) != (minikube_desired_zot_config.content | b64decode | trim) }}"
   when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+
+- name: Copy zot mirror config to temp location
+  ansible.builtin.copy:
+    src: zot-mirror.conf
+    dest: /tmp/zot-mirror.conf
+    mode: "0644"
+  when:
+    - minikube_final_status.rc == 0
+    - "'Running' in minikube_final_status.stdout"
+    - minikube_zot_config_changed | default(false)
 
 - name: Apply zot mirror config to minikube
   ansible.builtin.shell:
@@ -84,14 +93,18 @@
       set -o pipefail
       cat /tmp/zot-mirror.conf | minikube ssh --native-ssh=false "sudo tee /etc/containers/registries.conf.d/zot-mirror.conf > /dev/null"
     executable: /bin/bash
-  changed_when: true
+  changed_when: true  # Task only runs when config needs updating
   when:
     - minikube_final_status.rc == 0
     - "'Running' in minikube_final_status.stdout"
-    - minikube_existing_zot_config.stdout != (minikube_local_zot_config.content | b64decode)
+    - minikube_zot_config_changed | default(false)
   notify: Restart CRI-O in minikube
 
 - name: Clean up temp config file
   ansible.builtin.file:
     path: /tmp/zot-mirror.conf
     state: absent
+  when:
+    - minikube_final_status.rc == 0
+    - "'Running' in minikube_final_status.stdout"
+    - minikube_zot_config_changed | default(false)
