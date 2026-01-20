@@ -55,7 +55,7 @@ Successfully migrated devpi from mcquack LaunchAgent on indri to Kubernetes:
 - [x] mcquack v1.0.0 uploaded to eblume/dev
 - [x] `pip install --index-url https://pypi.tail8d86e.ts.net/eblume/dev/+simple/ mcquack` works
 - [x] Old devpi service removed from indri
-- [ ] zk documentation updated (deferred - no existing devpi card)
+- [x] zk documentation updated
 
 ---
 
