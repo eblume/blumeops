@@ -1,0 +1,30 @@
+# devpi PyPI Caching Proxy
+# Provides PyPI cache and private package hosting
+#
+# After first deployment, initialize devpi:
+#   kubectl -n devpi exec -it devpi-0 -- devpi-init --serverdir /devpi --root-passwd <password>
+#   kubectl -n devpi rollout restart statefulset devpi
+#
+# Then create user/index:
+#   uvx devpi use https://pypi.tail8d86e.ts.net
+#   uvx devpi login root
+#   uvx devpi user -c eblume email=blume.erich@gmail.com
+#   uvx devpi index -c eblume/dev bases=root/pypi
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: devpi
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/devpi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: devpi
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+  # Manual sync only - no automated sync on git push

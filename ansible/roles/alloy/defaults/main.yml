@@ -43,12 +43,7 @@ alloy_brew_logs:
   # NOTE: postgresql and miniflux removed - now hosted in k8s
 
 alloy_mcquack_logs:
-  - path: /Users/erichblume/Library/Logs/mcquack.devpi.out.log
-    service: devpi
-    stream: stdout
-  - path: /Users/erichblume/Library/Logs/mcquack.devpi.err.log
-    service: devpi
-    stream: stderr
+  # NOTE: devpi logs removed - now hosted in k8s
   - path: /Users/erichblume/Library/Logs/mcquack.kiwix-serve.out.log
     service: kiwix
     stream: stdout

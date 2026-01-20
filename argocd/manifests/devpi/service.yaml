@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: devpi
+  namespace: devpi
+spec:
+  selector:
+    app: devpi
+  ports:
+    - name: http
+      port: 3141
+      targetPort: 3141
+      protocol: TCP

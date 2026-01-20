@@ -33,25 +33,97 @@ The user will review your work as you go, and will merge the pr as the last step
 
 4. Use `Brewfile` and `mise.toml` to install tools needed on the development workstation (typically hostnamed "gilbert", username "eblume").
 
-5. Services are typically hosted on hostname "indri" and are launched from LaunchAgents of the user `erichblume`. If a service is available from `brew services` that is typically used, otherwise there is a utility called `mcquack` (`mcquack --help`) hosted at `https://forge.tail8d86e.ts.net/eblume/mcquack` - but you can just edit the mcquack launchagents directly via ansible.
+5. Services are hosted either on indri directly (via ansible) or in Kubernetes (via ArgoCD). See the "Service Deployment" section below for details.
 
 6. Try to always test changes before applying them. Use syntax checkers, do dry runs (`--check --diff`), run commands manually via `ssh indri 'some command'`, etc.
 
-7. **Wait for user review before deploying.** After creating a PR, do not run `mise run provision-indri` or other deployment commands until the user has had a chance to review the changes. The user will indicate when they're ready to deploy.
+7. **Wait for user review before deploying.** After creating a PR, do not run deployment commands until the user has had a chance to review the changes. The user will indicate when they're ready to deploy.
 
 8. After deploying changes, try to verify the result. Use `mise run indri-services-check` to do a general service health check.
 
-## Project structure
-Some important places you can look:
+## Project Structure
+
 ```
-./mise-tasks/  # management and utility scripts run via `mise run`
-./ansible/playbooks/indri.yml  # primary blumeops provisioning script
-./ansible/roles/  # role dirs here give good overview of services
-./pulumi/  # python (via uv) pulumi script for provisioning the tailnet and other cloud resources
-~/code/personal/  # projects managed by the user
-~/code/3rd/  # external projects, mirrored or downloaded
-~/code/work  # FORBIDDEN, never go here, avoid searching it
+./mise-tasks/           # management and utility scripts run via `mise run`
+./ansible/playbooks/    # ansible playbooks (indri.yml is primary)
+./ansible/roles/        # ansible roles for indri-hosted services
+./argocd/apps/          # ArgoCD Application definitions (app-of-apps pattern)
+./argocd/manifests/     # Kubernetes manifests for each service
+./pulumi/               # Pulumi IaC for tailnet ACLs and cloud resources
+./plans/                # Migration and project planning documents
+~/code/personal/        # projects managed by the user
+~/code/3rd/             # external projects, mirrored or downloaded
+~/code/work             # FORBIDDEN, never go here, avoid searching it
 ```
+
+## Service Deployment
+
+### Kubernetes Services (via ArgoCD)
+
+Most services are migrating to Kubernetes. These are managed via ArgoCD using the app-of-apps pattern:
+
+- **Application definitions**: `argocd/apps/<service>.yaml`
+- **Manifests**: `argocd/manifests/<service>/`
+- **Sync policy**: Manual sync (no auto-sync on git push)
+
+**PR workflow for k8s services:**
+
+1. Create feature branch and add/modify manifests
+2. Push branch to forge
+3. Sync the `apps` application to pick up new Application definitions:
+   ```fish
+   argocd app sync apps
+   ```
+4. Point the service app at the feature branch for testing:
+   ```fish
+   argocd app set <service> --revision feature/branch-name
+   argocd app sync <service>
+   ```
+5. Test the deployment
+6. After PR merge, reset to main and resync:
+   ```fish
+   argocd app set <service> --revision main
+   argocd app sync <service>
+   ```
+
+**Useful commands:**
+```fish
+argocd app list                                        # List all apps
+argocd app get <app>                                   # Get app details
+argocd app diff <app>                                  # Preview changes before sync
+argocd app sync <app>                                  # Sync an app
+kubectl --context=minikube-indri get pods -n <namespace>  # Check pods
+kubectl --context=minikube-indri logs -n <namespace> <pod>  # View logs
+```
+
+Note: The user has fish abbreviations `ki` for `kubectl --context=minikube-indri` and `k9i` for `k9s --context=minikube-indri`, but these only work in interactive shells.
+
+### Indri Services (via Ansible)
+
+Some services remain on indri outside of Kubernetes:
+- **Zot Registry** - Container registry (k8s depends on it)
+- **Prometheus/Loki** - Observability (must survive k8s failures)
+- **Borgmatic** - Backup system
+- **Grafana Alloy** - Metrics/logs collector
+- **Transmission** - BitTorrent for kiwix downloads
+
+**Deployment:**
+```fish
+mise run provision-indri                    # Full playbook
+mise run provision-indri -- --tags <role>   # Specific role
+mise run provision-indri -- --check --diff  # Dry run
+```
+
+### Tailscale Service Hostnames
+
+When migrating a service from indri to k8s, the Tailscale hostname must be freed:
+
+1. Stop the service on indri
+2. Clear the tailscale serve entry: `ssh indri 'tailscale serve clear svc:<name>'`
+3. Delete the device from Tailscale admin console (user action required)
+4. Deploy the k8s Ingress - it will claim the hostname
+
+Use `ssh indri 'tailscale serve status --json'` to check current serve entries (the non-JSON output may be empty even when entries exist).
 
 ## Third-Party Projects
 
@@ -59,9 +131,7 @@ When a task requires cloning or using a third-party git repository (e.g., for bu
 - Mirror location: `https://forge.tail8d86e.ts.net/eblume/<project>.git`
 - Clone to: `~/code/3rd/<project>/`
 
-This avoids external dependencies and ensures the project is available even if the upstream is unreachable. Example mirrors:
-- `https://forge.tail8d86e.ts.net/eblume/zot.git` (container registry)
-- `https://forge.tail8d86e.ts.net/eblume/devpi.git` (PyPI proxy)
+This avoids external dependencies and ensures the project is available even if the upstream is unreachable.
 
 ## Task Discovery
 

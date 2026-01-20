@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: devpi-tailscale
+  namespace: devpi
+  annotations:
+    tailscale.com/proxy-class: "crio-compat"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: devpi
+      port:
+        number: 3141
+  tls:
+    - hosts:
+        - pypi

@@ -42,10 +42,7 @@
       tags: borgmatic_metrics
     - role: forgejo
       tags: forgejo
-    - role: devpi
-      tags: devpi
-    - role: devpi_metrics
-      tags: devpi_metrics
+    # NOTE: devpi and devpi_metrics roles removed - now hosted in k8s (see argocd/apps/devpi.yaml)
     - role: zot
       tags: zot
     - role: zot_metrics

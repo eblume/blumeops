@@ -3,7 +3,7 @@
 # Each service maps a Tailscale service name to local endpoints
 
 tailscale_serve_services:
-  # NOTE: svc:grafana, svc:pg, svc:feed removed - now hosted in k8s
+  # NOTE: svc:grafana, svc:pg, svc:feed, svc:pypi removed - now hosted in k8s
 
   - name: svc:forge
     https:
@@ -17,11 +17,6 @@ tailscale_serve_services:
     https:
       port: 443
       upstream: http://localhost:5501
-
-  - name: svc:pypi
-    https:
-      port: 443
-      upstream: http://127.0.0.1:3141
 
   - name: svc:registry
     https:

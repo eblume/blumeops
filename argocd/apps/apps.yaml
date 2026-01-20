@@ -15,9 +15,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: argocd
   syncPolicy:
-    automated:
-      prune: true
-      # selfHeal disabled: allows manual revision changes on child apps during development
-      # Sync apps app manually when adding/removing Application manifests
     syncOptions:
       - CreateNamespace=true
+  # Manual sync only - no automated sync on git push
+  # To pick up new apps: argocd app sync apps

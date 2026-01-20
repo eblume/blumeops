@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: devpi
+  namespace: devpi
+spec:
+  serviceName: devpi
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devpi
+  template:
+    metadata:
+      labels:
+        app: devpi
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: devpi
+          image: registry.tail8d86e.ts.net/blumeops/devpi:latest
+          env:
+            - name: DEVPI_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: devpi-root
+                  key: password
+            - name: DEVPI_OUTSIDE_URL
+              value: "https://pypi.tail8d86e.ts.net"
+          ports:
+            - containerPort: 3141
+              name: http
+          volumeMounts:
+            - name: data
+              mountPath: /devpi
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "2Gi"  # High limit for initial PyPI index build, reclaimed after
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /+api
+              port: 3141
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /+api
+              port: 3141
+            initialDelaySeconds: 10
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
