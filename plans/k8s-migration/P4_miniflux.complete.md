@@ -123,3 +123,40 @@ argocd app sync blumeops-pg
 **Issue**: The postgresql role managed `~/.pgpass` for borgmatic. With postgresql role deleted, borgmatic couldn't authenticate.
 
 **Solution**: Moved .pgpass management to the borgmatic role. Password is still fetched in playbook pre_tasks as `borgmatic_db_password`.
+
+### Ansible Check Mode and Registered Variables
+
+**Problem**: Running `provision-indri --check --diff` failed in the podman role with "Conditional result (True) was derived from value of type 'str'" errors.
+
+**Root cause**: Command tasks are skipped in check mode, leaving registered variables undefined or with unexpected types when used in conditionals.
+
+**Solution**: Added `check_mode: false` to read-only command tasks that gather information:
+```yaml
+- name: Check if podman machine exists
+  ansible.builtin.command:
+    cmd: podman machine list --format json
+  register: podman_machine_list
+  changed_when: false
+  check_mode: false  # Safe to run in check mode - read-only
+```
+
+**Lesson**: Any task that registers a variable used in conditionals should have `check_mode: false` if the command is read-only/safe.
+
+### 1Password CLI on Headless Hosts
+
+**Issue**: Attempted to run `op` commands on indri, but 1Password CLI requires interactive authentication (biometrics/password).
+
+**Solution**: All `op` commands must be in `pre_tasks` of the playbook with `delegate_to: localhost` so they run on gilbert (the workstation with GUI auth).
+
+### Git Workflow for Phase 4
+
+1. Created feature branch: `feature/p4-miniflux`
+2. Made incremental commits throughout implementation
+3. Pointed `miniflux` and `blumeops-pg` apps to feature branch for testing
+4. Created PR #33 for review
+5. After merge, reset apps to main:
+   ```bash
+   argocd app set miniflux --revision main
+   argocd app set blumeops-pg --revision main
+   argocd app sync apps
+   ```
