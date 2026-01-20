@@ -29,6 +29,14 @@ spec:
         createrole: true
         passwordSecret:
           name: blumeops-pg-eblume
+      # borgmatic read-only user for backups
+      - name: borgmatic
+        login: true
+        superuser: false
+        inRoles:
+          - pg_read_all_data
+        passwordSecret:
+          name: blumeops-pg-borgmatic
 
   # Resource limits for minikube environment
   resources:

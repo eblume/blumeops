@@ -184,6 +184,7 @@
     content: |
       # Managed by ansible - only read-only roles
       localhost:{{ postgresql_port }}:*:borgmatic:{{ postgresql_user_passwords['borgmatic'] }}
+      k8s-pg.tail8d86e.ts.net:5432:*:borgmatic:{{ postgresql_user_passwords['borgmatic'] }}
     dest: ~/.pgpass
     mode: '0600'
   no_log: true

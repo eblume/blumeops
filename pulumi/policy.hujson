@@ -74,6 +74,12 @@
 			"dst": ["tag:homelab"],
 			"ip":  ["tcp:3001", "tcp:2200"],
 		},
+		// Homelab can reach k8s PostgreSQL for borgmatic backups
+		{
+			"src": ["tag:homelab"],
+			"dst": ["tag:k8s"],
+			"ip":  ["tcp:5432"],
+		},
 	],
 
 	// ============== SSH Access ==============

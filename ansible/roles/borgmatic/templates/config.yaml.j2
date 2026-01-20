@@ -1,5 +1,8 @@
 # {{ ansible_managed }}
 
+# Path to borg binary (LaunchAgent doesn't have homebrew in PATH)
+local_path: {{ borgmatic_local_path }}
+
 source_directories:
 {% for dir in borgmatic_source_directories %}
     - {{ dir }}

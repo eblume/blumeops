@@ -3,6 +3,9 @@ borgmatic_config: /Users/erichblume/.config/borgmatic/config.yaml
 borgmatic_config_dir: /Users/erichblume/.config/borgmatic
 borgmatic_log_dir: /Users/erichblume/Library/Logs
 
+# Full path to borg binary since LaunchAgent doesn't have homebrew in PATH
+borgmatic_local_path: /opt/homebrew/bin/borg
+
 # Schedule: runs daily at 2:00 AM
 borgmatic_schedule_hour: 2
 borgmatic_schedule_minute: 0
@@ -42,7 +45,13 @@ borgmatic_keep_yearly: 1000
 # pg_dump_command must be full path since LaunchAgent doesn't have homebrew in PATH
 borgmatic_pg_dump_command: /opt/homebrew/opt/postgresql@18/bin/pg_dump
 borgmatic_postgresql_databases:
+  # Brew PostgreSQL on indri (current production)
   - name: miniflux
     hostname: localhost
+    port: 5432
+    username: borgmatic
+  # k8s PostgreSQL (CloudNativePG) - backup both during migration
+  - name: miniflux
+    hostname: k8s-pg.tail8d86e.ts.net
     port: 5432
     username: borgmatic
