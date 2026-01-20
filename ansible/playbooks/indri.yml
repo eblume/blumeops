@@ -2,59 +2,10 @@
 - name: Configure indri
   hosts: indri
 
-  # Fetch all 1Password credentials upfront to minimize prompts
+  # Fetch 1Password credentials upfront to minimize prompts
   # Each role also fetches its own credentials (with 'when: <var> is not defined')
   # so they still work when running with --tags
-  # Tags ensure pre_tasks only run when relevant roles are included
   pre_tasks:
-    - name: Fetch PostgreSQL superuser password
-      ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get guxu3j7ajhjyey6xxl2ovsl2ui --fields password --reveal
-      delegate_to: localhost
-      register: _pg_superuser_pw
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [postgresql]
-
-    - name: Set PostgreSQL superuser password fact
-      ansible.builtin.set_fact:
-        postgresql_superuser_password: "{{ _pg_superuser_pw.stdout }}"
-      no_log: true
-      tags: [postgresql]
-
-    - name: Fetch PostgreSQL alloy user password
-      ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get guxu3j7ajhjyey6xxl2ovsl2ui --fields alloy-user-pw --reveal
-      delegate_to: localhost
-      register: _pg_alloy_pw
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [alloy, postgresql]
-
-    - name: Set PostgreSQL alloy password fact
-      ansible.builtin.set_fact:
-        alloy_postgres_password: "{{ _pg_alloy_pw.stdout }}"
-      no_log: true
-      tags: [alloy, postgresql]
-
-    - name: Fetch miniflux database password
-      ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get ns6wylqiuqgczpo7gq2akaxbti --fields password --reveal
-      delegate_to: localhost
-      register: _miniflux_db_pw
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [miniflux, postgresql]
-
-    - name: Set miniflux passwords fact
-      ansible.builtin.set_fact:
-        miniflux_db_password: "{{ _miniflux_db_pw.stdout }}"
-      no_log: true
-      tags: [miniflux, postgresql]
-
     - name: Fetch borgmatic database password
       ansible.builtin.command:
         cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get mw2bv5we7woicjza7hc6s44yvy --fields db-password --reveal
@@ -63,16 +14,13 @@
       changed_when: false
       no_log: true
       check_mode: false
-      tags: [postgresql]
+      tags: [borgmatic]
 
-    - name: Build PostgreSQL user password lookup
+    - name: Set borgmatic database password fact
       ansible.builtin.set_fact:
-        postgresql_user_passwords:
-          miniflux: "{{ _miniflux_db_pw.stdout }}"
-          borgmatic: "{{ _borgmatic_db_pw.stdout }}"
-          alloy: "{{ _pg_alloy_pw.stdout }}"
+        borgmatic_db_password: "{{ _borgmatic_db_pw.stdout }}"
       no_log: true
-      tags: [postgresql]
+      tags: [borgmatic]
 
   roles:
     - role: loki
@@ -110,9 +58,6 @@
       tags: minikube_metrics
     - role: plex_metrics
       tags: plex_metrics
-    - role: postgresql
-      tags: postgresql
-    - role: miniflux
-      tags: miniflux
+    # NOTE: postgresql and miniflux roles removed - now hosted in k8s
     - role: tailscale_serve
       tags: tailscale-serve

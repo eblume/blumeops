@@ -1,13 +1,12 @@
 # Tailscale LoadBalancer for PostgreSQL access
-# Temporary service for testing during migration (k8s-pg.tail8d86e.ts.net)
-# Will be replaced by pg.tail8d86e.ts.net in Phase 4
+# Canonical hostname: pg.tail8d86e.ts.net
 apiVersion: v1
 kind: Service
 metadata:
   name: blumeops-pg-tailscale
   namespace: databases
   annotations:
-    tailscale.com/hostname: "k8s-pg"
+    tailscale.com/hostname: "pg"
     tailscale.com/proxy-class: "crio-compat"
 spec:
   type: LoadBalancer

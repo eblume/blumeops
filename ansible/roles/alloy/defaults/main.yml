@@ -40,12 +40,7 @@ alloy_brew_logs:
   - path: /opt/homebrew/var/transmission/transmission-daemon.log
     service: transmission
     stream: stdout
-  - path: /opt/homebrew/var/log/postgresql@18.log
-    service: postgresql
-    stream: stdout
-  - path: /opt/homebrew/var/log/miniflux.log
-    service: miniflux
-    stream: stdout
+  # NOTE: postgresql and miniflux removed - now hosted in k8s
 
 alloy_mcquack_logs:
   - path: /Users/erichblume/Library/Logs/mcquack.devpi.out.log
@@ -86,13 +81,14 @@ alloy_collect_zot: true
 alloy_zot_metrics_url: "http://localhost:5050/metrics"
 
 # PostgreSQL metrics collection
-alloy_collect_postgres: true
+# NOTE: Disabled - brew postgresql removed, k8s CNPG metrics TBD
+alloy_collect_postgres: false
 alloy_postgres_host: localhost
 alloy_postgres_port: 5432
 alloy_postgres_user: alloy
 alloy_postgres_database: postgres
 
-# 1Password settings for PostgreSQL metrics
+# 1Password settings for PostgreSQL metrics (unused when alloy_collect_postgres is false)
 alloy_op_vault: vg6xf6vvfmoh5hqjjhlhbeoaie
 alloy_op_postgres_item: guxu3j7ajhjyey6xxl2ovsl2ui
 alloy_op_postgres_field: alloy-user-pw

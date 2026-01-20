@@ -51,8 +51,7 @@ check_service "transmission-metrics" "ssh indri 'launchctl list | grep transmiss
 check_service "kiwix-serve" "ssh indri 'launchctl list | grep kiwix | grep -v \"^-\"'"
 check_service "forgejo" "ssh indri 'brew services list | grep forgejo | grep started'"
 check_service "devpi" "ssh indri 'launchctl list | grep devpi | grep -v \"^-\"'"
-check_service "postgresql" "ssh indri 'brew services list | grep postgresql | grep started'"
-check_service "miniflux" "ssh indri 'brew services list | grep miniflux | grep started'"
+# NOTE: postgresql and miniflux moved to k8s - checked below
 check_service "zot" "ssh indri 'launchctl list | grep mcquack.eblume.zot | grep -v \"^-\"'"
 check_service "zot-metrics" "ssh indri 'launchctl list | grep zot-metrics | grep -v \"^-\"'"
 check_service "minikube-metrics" "ssh indri 'launchctl list | grep minikube-metrics | grep -v \"^-\"'"
@@ -70,8 +69,6 @@ check_http "Miniflux" "https://feed.tail8d86e.ts.net/healthcheck"
 check_service "Transmission RPC" "ssh indri 'curl -sf http://127.0.0.1:9091/transmission/rpc'"
 # Check that transmission metrics are being collected
 check_service "Transmission metrics" "ssh indri 'test -f /opt/homebrew/var/node_exporter/textfile/transmission.prom'"
-# PostgreSQL uses TCP not HTTP, check via pg_isready
-check_service "PostgreSQL" "ssh indri '/opt/homebrew/opt/postgresql@18/bin/pg_isready -h localhost'"
 # Zot registry (via Tailscale service)
 check_http "Zot Registry" "https://registry.tail8d86e.ts.net/v2/_catalog"
 check_service "Zot metrics file" "ssh indri 'test -f /opt/homebrew/var/node_exporter/textfile/zot.prom'"
@@ -87,7 +84,9 @@ echo ""
 echo "Kubernetes workloads (via Tailscale):"
 check_http "ArgoCD" "https://argocd.tail8d86e.ts.net/healthz"
 # k8s PostgreSQL - check TCP connection (no auth needed for pg_isready)
-check_service "k8s-pg" "pg_isready -h k8s-pg.tail8d86e.ts.net -p 5432"
+check_service "PostgreSQL (k8s)" "pg_isready -h pg.tail8d86e.ts.net -p 5432"
+# k8s miniflux pod
+check_service "Miniflux pod" "kubectl --context=minikube-indri -n miniflux get pods -l app=miniflux -o jsonpath='{.items[0].status.phase}' | grep -q Running"
 # ArgoCD apps sync status
 check_service "ArgoCD apps synced" "kubectl --context=minikube-indri get applications -n argocd -o jsonpath='{.items[*].status.sync.status}' | grep -v OutOfSync"
 

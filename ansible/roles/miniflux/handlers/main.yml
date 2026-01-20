@@ -1,6 +1,0 @@
----
-- name: Restart miniflux
-  ansible.builtin.command: brew services restart miniflux
-  async: 120
-  poll: 0
-  changed_when: true

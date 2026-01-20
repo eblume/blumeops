@@ -24,6 +24,7 @@
     cmd: podman machine list --format json
   register: podman_machine_list
   changed_when: false
+  check_mode: false  # Safe to run in check mode - read-only
 
 - name: Initialize podman machine (if not exists)
   ansible.builtin.command:
@@ -38,6 +39,7 @@
     cmd: podman machine list --format "{{ '{{' }}.Running{{ '}}' }}"
   register: podman_running
   changed_when: false
+  check_mode: false  # Safe to run in check mode - read-only
 
 - name: Start podman machine (if stopped)
   ansible.builtin.command:
@@ -52,4 +54,5 @@
     msg: "WARNING: podman machine may not have started. Run 'podman machine start' manually on indri if needed."
   when:
     - "'true' not in podman_running.stdout"
+    - podman_start is defined
     - podman_start.rc != 0 or "'started successfully' not in podman_start.stdout"

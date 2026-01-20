@@ -1,0 +1,28 @@
+# Miniflux RSS Reader
+# Requires: CloudNativePG PostgreSQL cluster and manual secret setup
+#
+# Before syncing, create the database secret:
+#   kubectl create namespace miniflux
+#   op inject -i argocd/manifests/miniflux/secret-db.yaml.tpl | kubectl apply -f -
+#
+# Note: The Tailscale Ingress may initially get hostname "feed-1" if "feed" is
+# already claimed. After clearing the old service, delete the device from
+# Tailscale admin to allow the Ingress to claim "feed".
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: miniflux
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/miniflux
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: miniflux
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+  # Manual sync only - no automated sync on git push

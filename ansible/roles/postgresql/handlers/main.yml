@@ -1,6 +1,0 @@
----
-- name: Restart postgresql
-  ansible.builtin.command: brew services restart {{ postgresql_formula }}
-  async: 120
-  poll: 0
-  changed_when: true

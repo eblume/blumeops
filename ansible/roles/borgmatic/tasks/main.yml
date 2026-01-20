@@ -8,6 +8,17 @@
     state: directory
     mode: '0700'
 
+# .pgpass is used by pg_dump for database backups
+# Password is fetched in playbook pre_tasks as borgmatic_db_password
+- name: Write .pgpass file for borgmatic PostgreSQL backups
+  ansible.builtin.copy:
+    content: |
+      # Managed by ansible (borgmatic role) - k8s PostgreSQL backup credentials
+      pg.tail8d86e.ts.net:5432:*:borgmatic:{{ borgmatic_db_password }}
+    dest: ~/.pgpass
+    mode: '0600'
+  no_log: true
+
 - name: Deploy borgmatic configuration
   ansible.builtin.template:
     src: config.yaml.j2
