@@ -19,6 +19,7 @@ spec:
       owner: miniflux
 
   # Managed roles - additional users beyond the bootstrap owner
+  # Note: connectionLimit, ensure, inherit are CNPG defaults added to prevent ArgoCD drift
   managed:
     roles:
       # eblume superuser for admin access (matches current brew pg setup)
@@ -27,12 +28,17 @@ spec:
         superuser: true
         createdb: true
         createrole: true
+        connectionLimit: -1
+        ensure: present
+        inherit: true
         passwordSecret:
           name: blumeops-pg-eblume
       # borgmatic read-only user for backups
       - name: borgmatic
         login: true
-        superuser: false
+        connectionLimit: -1
+        ensure: present
+        inherit: true
         inRoles:
           - pg_read_all_data
         passwordSecret:
