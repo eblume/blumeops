@@ -7,12 +7,13 @@ This plan details a phased migration of blumeops services from direct hosting on
 | Phase | Name | Status | Description |
 |-------|------|--------|-------------|
 | 0 | [Foundation](P0_foundation.complete.md) | Complete | Container registry + minikube cluster |
-| 1 | [K8s Infrastructure](P1_k8s_infrastructure.md) | In Progress | Tailscale operator, ArgoCD, CloudNativePG, PostgreSQL cluster |
-| 2 | [Grafana](P2_grafana.md) | Pending | Migrate Grafana (pilot) via ArgoCD |
-| 3 | [PostgreSQL](P3_postgresql.md) | Pending | Data migration to k8s PostgreSQL |
-| 4 | [Miniflux](P4_miniflux.md) | Pending | Migrate Miniflux via ArgoCD |
-| 5 | [devpi](P5_devpi.md) | Pending | Migrate devpi via ArgoCD |
-| 6 | [Kiwix](P6_kiwix.md) | Pending | Migrate Kiwix via ArgoCD |
+| 1 | [K8s Infrastructure](P1_k8s_infrastructure.md) | Complete | Tailscale operator, ArgoCD, CloudNativePG, PostgreSQL cluster |
+| 2 | [Grafana](P2_grafana.complete.md) | Complete | Migrate Grafana (pilot) via ArgoCD |
+| 3 | [PostgreSQL](P3_postgresql.complete.md) | Complete | Data migration to k8s PostgreSQL |
+| 4 | [Miniflux](P4_miniflux.complete.md) | Complete | Migrate Miniflux via ArgoCD |
+| 5 | [devpi](P5_devpi.complete.md) | Complete | Migrate devpi via ArgoCD |
+| 5.1 | [QEMU2 Migration](P5.1_qemu2_migration.md) | Pending | Switch minikube from podman to qemu2 driver |
+| 6 | [Kiwix](P6_kiwix.md) | Blocked | Migrate Kiwix + Transmission via ArgoCD (blocked on P5.1) |
 | 7 | [Forgejo](P7_forgejo.md) | Pending | Migrate Forgejo (highest risk) via ArgoCD |
 | 8 | [Woodpecker](P8_woodpecker.md) | Pending | Deploy CI/CD via ArgoCD |
 | 9 | [Cleanup](P9_cleanup.md) | Pending | Remove deprecated services |
@@ -28,13 +29,13 @@ This plan details a phased migration of blumeops services from direct hosting on
 | **Borgmatic** | Backup system |
 | **Grafana-alloy** | Metrics/logs collector on host |
 | **Plex** | Until Jellyfin replacement |
-| **Transmission** | Downloads for kiwix ZIM files |
 
 ### Services Moving to K8s
 | Service | Complexity | Dependencies |
 |---------|------------|--------------|
 | Grafana | LOW | Phase 1 |
-| Kiwix | LOW | Phase 1 |
+| Kiwix | MEDIUM | Phase 5.1 (QEMU2), shared storage |
+| Transmission | MEDIUM | Phase 5.1 (QEMU2), shared storage |
 | Miniflux | MEDIUM | PostgreSQL |
 | devpi | MEDIUM | Registry |
 | PostgreSQL | HIGH | Phase 1 |
@@ -51,11 +52,12 @@ This plan details a phased migration of blumeops services from direct hosting on
 - Config: `~/.config/zot/config.json`
 - Data: `~/zot/`
 
-### Minikube Driver: Podman
-- Rootless containers for better security
-- Lighter than full VM (QEMU)
-- Uses existing container ecosystem
-- `minikube start --driver=podman --container-runtime=cri-o`
+### Minikube Driver: QEMU2 (migrating from Podman)
+- **Original choice (Podman)** proved unable to mount external volumes (NFS, SMB, hostPath)
+- Podman's rootless containers lack CAP_SYS_ADMIN for filesystem mounts
+- **QEMU2** creates an actual VM with full kernel capabilities
+- Phase 5.1 handles the migration from podman to qemu2
+- `minikube start --driver=qemu2 --container-runtime=containerd`
 
 ### PostgreSQL: CloudNativePG Operator
 - Production-grade operator

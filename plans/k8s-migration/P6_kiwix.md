@@ -1,10 +1,34 @@
 # Phase 6: Kiwix and Transmission Migration
 
-**Goal**: Migrate kiwix-serve and transmission torrent daemon to k8s with SMB storage on sifaka
+**Goal**: Migrate kiwix-serve and transmission torrent daemon to k8s with shared storage
 
-**Status**: Planning
+**Status**: BLOCKED - waiting for [Phase 5.1](P5.1_qemu2_migration.md) (QEMU2 migration)
 
-**Prerequisites**: [Phase 5](P5_devpi.complete.md) complete
+**Prerequisites**: [Phase 5.1](P5.1_qemu2_migration.md) complete (minikube on QEMU2 driver)
+
+---
+
+## Blocker: Podman Driver Volume Mount Limitations
+
+**First attempt branch:** `feature/p6-kiwix-transmission`
+
+The initial implementation was completed and tested, but **all volume mount approaches failed** due to the podman driver's rootless container limitations:
+
+| Approach | Result |
+|----------|--------|
+| NFS volume | Failed - CAP_SYS_ADMIN required for NFS mounts |
+| SMB CSI driver | Failed - `mount.cifs` returns EPERM inside rootless container |
+| `minikube mount` (9p) | Failed - permission denied mounting into podman VM |
+| hostPath | Failed - path doesn't exist inside minikube container |
+
+**Root cause:** The podman driver runs minikube in a rootless container that lacks kernel capabilities for filesystem mounts. This is a [documented limitation](https://minikube.sigs.k8s.io/docs/drivers/podman/) of the experimental podman driver.
+
+**Solution:** Phase 5.1 migrates minikube from podman to QEMU2 driver, which creates an actual VM with full kernel capabilities.
+
+**What's preserved:**
+- All k8s manifests in `feature/p6-kiwix-transmission` are complete and tested
+- Prerequisites (SMB share, k8s-smb user, data rsync) are done
+- Can retry P6 immediately after P5.1 completes
 
 ---
 
@@ -38,14 +62,14 @@ New architecture in k8s:
 
 ## Architecture Decisions
 
-### Storage: SMB on Sifaka
+### Storage: SMB on Sifaka (or NFS after QEMU2 migration)
 
-**Why SMB instead of NFS:**
-- Minikube with podman driver lacks CAP_SYS_ADMIN required for NFS mounts
-- SMB already works reliably with Synology (used for other shares)
-- SMB CSI driver ([csi-driver-smb](https://github.com/kubernetes-csi/csi-driver-smb)) is well-maintained
-- Supports ReadWriteMany access mode for concurrent pod access
+**Note:** The original plan chose SMB over NFS, but both failed with podman driver. After QEMU2 migration, either should work. SMB is still preferred for:
 - Native Synology SMB support with good macOS compatibility
+- ReadWriteMany access mode for concurrent pod access
+- SMB CSI driver already mirrored to forge
+
+**Alternative after QEMU2:** NFS may be simpler with `minikube mount` or direct NFS volume type.
 
 **Storage path:** `/volume1/torrents/` on sifaka (SMB share name: `torrents`)
 - General-purpose torrent download directory
