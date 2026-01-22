@@ -36,3 +36,8 @@ data:
       - job_name: "loki"
         static_configs:
           - targets: ["loki.monitoring.svc.cluster.local:3100"]
+
+      # Kubernetes state metrics (pods, deployments, resource usage, etc.)
+      - job_name: "kube-state-metrics"
+        static_configs:
+          - targets: ["kube-state-metrics.monitoring.svc.cluster.local:8080"]

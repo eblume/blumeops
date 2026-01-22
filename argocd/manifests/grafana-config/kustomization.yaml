@@ -13,5 +13,5 @@ resources:
   - dashboards/configmap-minikube.yaml
   - dashboards/configmap-plex.yaml
   - dashboards/configmap-postgresql.yaml
-  - dashboards/configmap-transmission.yaml
+  - dashboards/configmap-services.yaml
   - dashboards/configmap-zot.yaml

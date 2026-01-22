@@ -1,0 +1,158 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: alloy
+data:
+  config.alloy: |
+    // Alloy k8s configuration - collects pod logs from all namespaces
+
+    // ============== K8S POD LOG DISCOVERY ==============
+
+    // Discover all pods in the cluster
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+
+    // Relabel to extract useful metadata
+    discovery.relabel "pods" {
+      targets = discovery.kubernetes.pods.targets
+
+      // Keep only running pods
+      rule {
+        source_labels = ["__meta_kubernetes_pod_phase"]
+        regex         = "Pending|Succeeded|Failed|Unknown"
+        action        = "drop"
+      }
+
+      // Set namespace label
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+
+      // Set pod name label
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+
+      // Set container name label
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+
+      // Set app label from pod labels
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app"]
+        target_label  = "app"
+      }
+
+      // Fallback: use app.kubernetes.io/name if no app label
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+        target_label  = "app"
+        regex         = "(.+)"
+        action        = "replace"
+      }
+
+      // Set node name
+      rule {
+        source_labels = ["__meta_kubernetes_pod_node_name"]
+        target_label  = "node"
+      }
+
+      // Build the log path for the pod container
+      rule {
+        source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+        target_label  = "__path__"
+        separator     = "/"
+        replacement   = "/var/log/pods/*$1/$2/*.log"
+      }
+    }
+
+    // Tail pod logs
+    loki.source.kubernetes "pods" {
+      targets    = discovery.relabel.pods.output
+      forward_to = [loki.process.pods.receiver]
+    }
+
+    // Process logs - parse JSON if present, add labels
+    loki.process "pods" {
+      forward_to = [loki.write.loki.receiver]
+
+      // Try to parse JSON logs
+      stage.json {
+        expressions = {
+          level   = "level",
+          message = "msg",
+          time    = "time",
+        }
+      }
+
+      // Extract level from parsed JSON if available
+      stage.labels {
+        values = {
+          level = "",
+        }
+      }
+    }
+
+    // Write logs to Loki
+    loki.write "loki" {
+      endpoint {
+        url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+      }
+    }
+
+    // ============== SERVICE HEALTH PROBES ==============
+
+    // Blackbox-style HTTP probes for k8s services
+    prometheus.exporter.blackbox "services" {
+      config = "{ modules: { http_2xx: { prober: http, timeout: 5s } } }"
+
+      target {
+        name    = "miniflux"
+        address = "http://miniflux.miniflux.svc.cluster.local:8080/healthcheck"
+        module  = "http_2xx"
+      }
+
+      target {
+        name    = "kiwix"
+        address = "http://kiwix.kiwix.svc.cluster.local:80/"
+        module  = "http_2xx"
+      }
+
+      target {
+        name    = "transmission"
+        address = "http://transmission.torrent.svc.cluster.local:9091/transmission/web/"
+        module  = "http_2xx"
+      }
+
+      target {
+        name    = "devpi"
+        address = "http://devpi.devpi.svc.cluster.local:3141/+api"
+        module  = "http_2xx"
+      }
+
+      target {
+        name    = "argocd"
+        address = "http://argocd-server.argocd.svc.cluster.local:80/healthz"
+        module  = "http_2xx"
+      }
+    }
+
+    // Scrape blackbox probe results
+    prometheus.scrape "blackbox" {
+      targets         = prometheus.exporter.blackbox.services.targets
+      scrape_interval = "30s"
+      forward_to      = [prometheus.remote_write.prometheus.receiver]
+    }
+
+    // Push metrics to Prometheus
+    prometheus.remote_write "prometheus" {
+      endpoint {
+        url = "http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+      }
+    }

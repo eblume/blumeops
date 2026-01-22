@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-state-metrics
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/kube-state-metrics
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

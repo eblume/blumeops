@@ -1263,7 +1263,7 @@ data:
           {
             "current": {},
             "datasource": { "type": "prometheus", "uid": "prometheus" },
-            "definition": "label_values(node_uname_info, instance)",
+            "definition": "label_values(node_memory_wired_bytes, instance)",
             "hide": 0,
             "includeAll": false,
             "label": "Instance",
@@ -1271,7 +1271,7 @@ data:
             "name": "instance",
             "options": [],
             "query": {
-              "query": "label_values(node_uname_info, instance)",
+              "query": "label_values(node_memory_wired_bytes, instance)",
               "refId": "StandardVariableQuery"
             },
             "refresh": 1,

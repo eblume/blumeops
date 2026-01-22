@@ -11,14 +11,12 @@ borgmatic_schedule_hour: 2
 borgmatic_schedule_minute: 0
 
 # Source directories to back up
-# NOTE: devpi removed - now hosted in k8s (PVC handles persistence)
 borgmatic_source_directories:
   - /Users/erichblume/code/personal/zk
   - /opt/homebrew/var/forgejo
   - /Users/erichblume/.config/borgmatic
   - /Users/erichblume/Documents
   - /Users/erichblume/Pictures
-  - /opt/homebrew/var/loki
 
 # Backup repository
 borgmatic_repositories:
