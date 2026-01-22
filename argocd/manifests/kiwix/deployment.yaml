@@ -1,0 +1,98 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kiwix
+  namespace: kiwix
+  annotations:
+    # Track ZIM file changes for restart detection
+    kiwix.blumeops/zim-hash: ""
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kiwix
+  template:
+    metadata:
+      labels:
+        app: kiwix
+    spec:
+      containers:
+        # Main kiwix-serve container
+        - name: kiwix-serve
+          image: ghcr.io/kiwix/kiwix-serve:3.8.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - "kiwix-serve --port=80 /data/complete/*.zim"
+          ports:
+            - containerPort: 80
+              name: http
+          volumeMounts:
+            - name: torrents
+              mountPath: /data
+              readOnly: true
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+        # Sidecar: Syncs declarative ZIM torrents to transmission
+        - name: torrent-sync
+          image: lscr.io/linuxserver/transmission:latest  # Has transmission-remote CLI
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              echo "Starting ZIM torrent sync sidecar"
+              # Initial sync
+              /scripts/sync-zim-torrents.sh || echo "Initial sync failed, will retry"
+              # Periodic sync every 30 minutes
+              while true; do
+                sleep 1800
+                /scripts/sync-zim-torrents.sh || echo "Sync failed, will retry"
+              done
+          env:
+            - name: TRANSMISSION_HOST
+              value: "transmission.torrent.svc.cluster.local"
+            - name: TRANSMISSION_PORT
+              value: "9091"
+            - name: TORRENT_LIST
+              value: "/config/torrents.txt"
+          volumeMounts:
+            - name: zim-torrents-config
+              mountPath: /config/torrents.txt
+              subPath: torrents.txt
+            - name: sync-script
+              mountPath: /scripts
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "64Mi"
+
+      volumes:
+        - name: torrents
+          nfs:
+            server: sifaka
+            path: /volume1/torrents
+        - name: zim-torrents-config
+          configMap:
+            name: kiwix-zim-torrents
+        - name: sync-script
+          configMap:
+            name: zim-torrent-sync-script
+            defaultMode: 493  # 0755 in decimal

@@ -3,9 +3,6 @@
 # Each service maps a Tailscale service name to local endpoints
 
 tailscale_serve_services:
-  # NOTE: svc:grafana, svc:pg, svc:feed, svc:pypi removed - now hosted in k8s
-  # NOTE: svc:k8s is configured by the minikube role (port is dynamic with docker driver)
-
   - name: svc:forge
     https:
       port: 443
@@ -13,11 +10,6 @@ tailscale_serve_services:
     tcp:
       port: 22
       upstream: tcp://localhost:2200
-
-  - name: svc:kiwix
-    https:
-      port: 443
-      upstream: http://localhost:5501
 
   - name: svc:registry
     https:

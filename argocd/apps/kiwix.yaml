@@ -1,0 +1,18 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kiwix
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/kiwix
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kiwix
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

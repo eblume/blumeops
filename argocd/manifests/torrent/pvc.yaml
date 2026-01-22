@@ -1,0 +1,14 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: torrents-storage
+  namespace: torrent
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: torrents-nfs-pv
+  resources:
+    requests:
+      storage: 1Ti

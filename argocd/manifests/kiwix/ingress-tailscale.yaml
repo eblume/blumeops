@@ -1,0 +1,18 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kiwix-tailscale
+  namespace: kiwix
+  annotations:
+    tailscale.com/proxy-class: "default"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: kiwix
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - kiwix

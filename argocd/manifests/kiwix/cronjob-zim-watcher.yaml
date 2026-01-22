@@ -1,0 +1,85 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: zim-watcher
+  namespace: kiwix
+spec:
+  schedule: "0 * * * *"  # Every hour
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: zim-watcher
+          containers:
+            - name: watcher
+              image: bitnami/kubectl:latest
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+
+                  # Get current ZIM files (among all downloads)
+                  # This picks up ZIMs from both declarative list AND manually added torrents
+                  current_zims=$(ls -1 /data/complete/*.zim 2>/dev/null | sort | md5sum | cut -d' ' -f1 || echo "empty")
+
+                  # Get stored hash from deployment annotation
+                  JSONPATH='{.metadata.annotations.kiwix\.blumeops/zim-hash}'
+                  stored_hash=$(kubectl get deployment kiwix -n kiwix -o jsonpath="$JSONPATH" 2>/dev/null || echo "")
+
+                  echo "Current ZIMs hash: $current_zims"
+                  echo "Stored hash: $stored_hash"
+
+                  # Also list what ZIMs we found
+                  echo "ZIM files found:"
+                  ls -la /data/complete/*.zim 2>/dev/null || echo "  (none)"
+
+                  if [[ "$current_zims" != "$stored_hash" && "$current_zims" != "empty" ]]; then
+                    echo "ZIM files changed, restarting kiwix deployment..."
+                    kubectl annotate deployment kiwix -n kiwix "kiwix.blumeops/zim-hash=$current_zims" --overwrite
+                    kubectl rollout restart deployment/kiwix -n kiwix
+                    echo "Restart triggered"
+                  else
+                    echo "No changes detected"
+                  fi
+              volumeMounts:
+                - name: torrents
+                  mountPath: /data
+                  readOnly: true
+          restartPolicy: OnFailure
+          volumes:
+            - name: torrents
+              nfs:
+                server: sifaka
+                path: /volume1/torrents
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zim-watcher
+  namespace: kiwix
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: zim-watcher
+  namespace: kiwix
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: zim-watcher
+  namespace: kiwix
+subjects:
+  - kind: ServiceAccount
+    name: zim-watcher
+    namespace: kiwix
+roleRef:
+  kind: Role
+  name: zim-watcher
+  apiGroup: rbac.authorization.k8s.io

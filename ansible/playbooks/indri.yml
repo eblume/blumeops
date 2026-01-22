@@ -29,20 +29,12 @@
       tags: alloy
     - role: prometheus
       tags: prometheus
-    # NOTE: grafana role removed - now hosted in k8s (see argocd/apps/grafana.yaml)
-    - role: transmission
-      tags: transmission
-    - role: transmission_metrics
-      tags: transmission_metrics
-    - role: kiwix
-      tags: kiwix
     - role: borgmatic
       tags: borgmatic
     - role: borgmatic_metrics
       tags: borgmatic_metrics
     - role: forgejo
       tags: forgejo
-    # NOTE: devpi and devpi_metrics roles removed - now hosted in k8s (see argocd/apps/devpi.yaml)
     - role: zot
       tags: zot
     - role: zot_metrics
@@ -53,6 +45,5 @@
       tags: minikube_metrics
     - role: plex_metrics
       tags: plex_metrics
-    # NOTE: postgresql and miniflux roles removed - now hosted in k8s
     - role: tailscale_serve
       tags: tailscale-serve

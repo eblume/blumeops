@@ -1,0 +1,69 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kiwix-zim-torrents
+  namespace: kiwix
+data:
+  torrents.txt: |
+    # Declarative ZIM archive torrent URLs
+    # These are synced to transmission automatically by the kiwix sidecar
+    # Format: one URL per line, comments start with #
+    #
+    # Users can also add ZIM torrents manually via torrent.tail8d86e.ts.net
+    # and kiwix will pick them up automatically.
+
+    # Wikipedia - Top 1M English articles (43G)
+    https://download.kiwix.org/zim/wikipedia/wikipedia_en_top1m_maxi_2025-09.zim.torrent
+
+    # Project Gutenberg - Public domain books (72G)
+    https://download.kiwix.org/zim/gutenberg/gutenberg_en_all_2023-08.zim.torrent
+
+    # iFixit - Repair guides (3.3G)
+    https://download.kiwix.org/zim/ifixit/ifixit_en_all_2025-12.zim.torrent
+
+    # Stack Exchange
+    https://download.kiwix.org/zim/stack_exchange/superuser.com_en_all_2025-12.zim.torrent
+    https://download.kiwix.org/zim/stack_exchange/math.stackexchange.com_en_all_2025-12.zim.torrent
+
+    # LibreTexts - Open educational resources
+    https://download.kiwix.org/zim/libretexts/libretexts.org_en_bio_2025-01.zim.torrent
+    https://download.kiwix.org/zim/libretexts/libretexts.org_en_chem_2025-01.zim.torrent
+    https://download.kiwix.org/zim/libretexts/libretexts.org_en_eng_2025-01.zim.torrent
+    https://download.kiwix.org/zim/libretexts/libretexts.org_en_math_2025-01.zim.torrent
+    https://download.kiwix.org/zim/libretexts/libretexts.org_en_phys_2025-01.zim.torrent
+    https://download.kiwix.org/zim/libretexts/libretexts.org_en_human_2025-01.zim.torrent
+
+    # DevDocs - Programming documentation
+    https://download.kiwix.org/zim/devdocs/devdocs_en_bash_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_c_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_click_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_cmake_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_cpp_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_css_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_django-rest-framework_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_django_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_docker_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_duckdb_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_fish_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_gcc_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_git_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_go_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_godot_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_hammerspoon_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_homebrew_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_javascript_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_kubectl_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_kubernetes_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_latex_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_lua_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_markdown_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_nginx_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_nix_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_postgresql_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_python_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_redis_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_sqlite_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_typescript_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_werkzeug_2026-01.zim.torrent
+    https://download.kiwix.org/zim/devdocs/devdocs_en_zig_2026-01.zim.torrent
