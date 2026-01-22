@@ -2,9 +2,9 @@
 
 **Goal**: Migrate kiwix-serve and transmission torrent daemon to k8s with shared storage
 
-**Status**: BLOCKED - waiting for [Phase 5.1](P5.1_qemu2_migration.md) (QEMU2 migration)
+**Status**: Ready to implement
 
-**Prerequisites**: [Phase 5.1](P5.1_qemu2_migration.md) complete (minikube on QEMU2 driver)
+**Prerequisites**: [Phase 5.1](P5.1_docker_migration.md) complete (minikube on docker driver)
 
 ---
 
@@ -62,19 +62,18 @@ New architecture in k8s:
 
 ## Architecture Decisions
 
-### Storage: SMB on Sifaka (or NFS after QEMU2 migration)
+### Storage: Direct NFS to Sifaka ✅ TESTED
 
-**Note:** The original plan chose SMB over NFS, but both failed with podman driver. After QEMU2 migration, either should work. SMB is still preferred for:
-- Native Synology SMB support with good macOS compatibility
-- ReadWriteMany access mode for concurrent pod access
-- SMB CSI driver already mirrored to forge
+**Solution:** Direct NFS volume mounts from pods to sifaka. No SMB CSI driver or `minikube mount` needed.
 
-**Alternative after QEMU2:** NFS may be simpler with `minikube mount` or direct NFS volume type.
+With the docker driver, minikube containers NAT outbound traffic through indri's LAN IP (192.168.1.50). Sifaka's NFS exports are configured to allow:
+- `192.168.1.0/24` - Docker containers via indri NAT
+- `100.64.0.0/10` - Tailscale clients
 
-**Storage path:** `/volume1/torrents/` on sifaka (SMB share name: `torrents`)
+**Storage path:** `/volume1/torrents/` on sifaka (NFS export)
 - General-purpose torrent download directory
 - Contains ZIM files, Linux ISOs, and whatever else users download
-- Accessed via SMB credentials stored in k8s Secret
+- Accessed via native k8s NFS volume (no credentials needed - IP-based access)
 
 **No backup needed:**
 - Sifaka is RAID 5/6, already the backup target
@@ -142,49 +141,19 @@ This allows adding new ZIM archives by:
 
 ## Prerequisites (Manual Steps)
 
-### 1. Configure SMB Share on Sifaka
+### 1. Configure NFS Export on Sifaka
 
-**Status: DONE** - The `torrents` shared folder has been created at `/volume1/torrents`.
+**Status: DONE** - The `torrents` shared folder exists at `/volume1/torrents` with NFS exports allowing:
+- `192.168.1.0/24` - Docker containers via indri NAT
+- `100.64.0.0/10` - Tailscale clients
 
-### 2. Create Dedicated Synology User for Kubernetes (USER ACTION REQUIRED)
-
-Create a dedicated Synology user for k8s SMB access (do not use personal account):
-
-On Synology DSM (Control Panel → User & Group):
-1. Create new user: `k8s-smb` (or similar)
-   - Set a strong password
-   - No admin privileges needed
-   - Deny access to all applications (only needs file services)
-2. Set permissions on the `torrents` share:
-   - Give `k8s-smb` user Read/Write access
-   - Remove or limit other user access as appropriate
-3. Store credentials in 1Password:
-   - Vault: `vg6xf6vvfmoh5hqjjhlhbeoaie` (blumeops vault)
-   - Item name: `synology-smb-k8s`
-   - Fields: `username` (k8s-smb), `password`
-
-### 3. Mirror SMB CSI Driver Helm Chart to Forge (USER ACTION REQUIRED)
-
-Mirror the SMB CSI driver chart to forge for GitOps deployment:
-
-```bash
-# Clone the upstream chart repo
-cd ~/code/3rd
-git clone https://github.com/kubernetes-csi/csi-driver-smb.git
-cd csi-driver-smb
-
-# Push to forge mirror
-git remote add forge ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/csi-driver-smb.git
-git push forge --all --tags
-```
-
-### 4. Copy Existing Downloads to Sifaka
+### 2. Copy Existing Downloads to Sifaka
 
 Before migration, copy existing downloads to avoid re-downloading ~138GB:
 
 ```bash
-# From indri - mount the SMB share via Finder or command line
-open smb://sifaka/torrents
+# From indri - mount the NFS share
+sudo mount -t nfs sifaka:/volume1/torrents /Volumes/torrents
 
 # Then rsync (adjust mount path as needed)
 rsync -avP ~/transmission/ /Volumes/torrents/
@@ -193,69 +162,21 @@ rsync -avP ~/transmission/ /Volumes/torrents/
 ls -la /Volumes/torrents/*.zim
 ```
 
-### 5. Store SMB Credentials in 1Password
-
-**Note:** This is covered in step 2 above. The 1Password item should be:
-- Vault: `vg6xf6vvfmoh5hqjjhlhbeoaie` (blumeops vault)
-- Item name: `synology-smb-k8s`
-- Fields: `username` (k8s-smb), `password`
-
 ---
 
 ## Steps
 
-### 1. Deploy SMB CSI Driver via ArgoCD
+### 1. Create Shared NFS PersistentVolume
 
-**File:** `argocd/manifests/smb-csi/values.yaml`
+This PV is shared between transmission and kiwix namespaces. Uses direct NFS - no CSI driver needed.
 
-```yaml
-# Minimal values - defaults are generally fine
-controller:
-  replicas: 1
-```
-
-**File:** `argocd/apps/smb-csi.yaml`
-
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: smb-csi
-  namespace: argocd
-spec:
-  project: default
-  sources:
-    # Helm chart from forge mirror
-    - repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/csi-driver-smb.git
-      targetRevision: v1.17.0
-      path: charts/csi-driver-smb
-      helm:
-        releaseName: csi-driver-smb
-        valueFiles:
-          - $values/argocd/manifests/smb-csi/values.yaml
-    # Values from our git repo
-    - repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
-      targetRevision: main
-      ref: values
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: kube-system
-  syncPolicy:
-    syncOptions:
-      - CreateNamespace=true
-```
-
-### 2. Create Shared SMB PersistentVolume
-
-This PV is shared between transmission and kiwix namespaces.
-
-**File:** `argocd/manifests/torrent/pv-smb.yaml`
+**File:** `argocd/manifests/torrent/pv-nfs.yaml`
 
 ```yaml
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: torrents-smb-pv
+  name: torrents-nfs-pv
 spec:
   capacity:
     storage: 1Ti
@@ -263,43 +184,12 @@ spec:
     - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
   storageClassName: ""
-  mountOptions:
-    - dir_mode=0777
-    - file_mode=0777
-    - uid=1000
-    - gid=1000
-    - noperm
-    - mfsymlinks
-    - cache=strict
-    - noserverino  # Required to prevent data corruption
-  csi:
-    driver: smb.csi.k8s.io
-    volumeHandle: torrents-smb-pv
-    volumeAttributes:
-      source: //sifaka/torrents
-    nodeStageSecretRef:
-      name: smbcreds
-      namespace: torrent
+  nfs:
+    server: sifaka
+    path: /volume1/torrents
 ```
 
-**File:** `argocd/manifests/torrent/secret-smb.yaml.tpl`
-
-```yaml
-# Template - apply manually with credentials from 1Password
-# kubectl --context=minikube create secret generic smbcreds \
-#   --namespace torrent \
-#   --from-literal=username=$(op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/synology-smb-k8s/username") \
-#   --from-literal=password=$(op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/synology-smb-k8s/password")
-apiVersion: v1
-kind: Secret
-metadata:
-  name: smbcreds
-  namespace: torrent
-type: Opaque
-stringData:
-  username: "{{ op://vg6xf6vvfmoh5hqjjhlhbeoaie/synology-smb-k8s/username }}"
-  password: "{{ op://vg6xf6vvfmoh5hqjjhlhbeoaie/synology-smb-k8s/password }}"
-```
+No secrets needed - NFS uses IP-based access control configured on sifaka.
 
 ---
 
@@ -319,7 +209,7 @@ spec:
   accessModes:
     - ReadWriteMany
   storageClassName: ""
-  volumeName: torrents-smb-pv
+  volumeName: torrents-nfs-pv
   resources:
     requests:
       storage: 1Ti
@@ -439,8 +329,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: torrent
 resources:
-  - pv-smb.yaml
-  - secret-smb.yaml.tpl
+  - pv-nfs.yaml
   - pvc.yaml
   - deployment.yaml
   - service.yaml
@@ -473,7 +362,7 @@ spec:
 
 ## Kiwix Service
 
-### 3. Create Kiwix PVC (References Same PV)
+### 2. Create Kiwix PVC (References Same PV)
 
 **File:** `argocd/manifests/kiwix/pvc.yaml`
 
@@ -487,7 +376,7 @@ spec:
   accessModes:
     - ReadWriteMany  # Need write for the sync sidecar to work
   storageClassName: ""
-  volumeName: torrents-smb-pv
+  volumeName: torrents-nfs-pv
   resources:
     requests:
       storage: 1Ti
@@ -1096,10 +985,7 @@ If migration fails:
 |------|---------|
 | **Transmission (torrent namespace)** | |
 | `argocd/apps/torrent.yaml` | ArgoCD Application for transmission |
-| `argocd/apps/smb-csi.yaml` | ArgoCD Application for SMB CSI driver |
-| `argocd/manifests/smb-csi/values.yaml` | SMB CSI driver Helm values |
-| `argocd/manifests/torrent/pv-smb.yaml` | Shared SMB PersistentVolume |
-| `argocd/manifests/torrent/secret-smb.yaml.tpl` | SMB credentials secret template |
+| `argocd/manifests/torrent/pv-nfs.yaml` | Shared NFS PersistentVolume |
 | `argocd/manifests/torrent/pvc.yaml` | Transmission PVC |
 | `argocd/manifests/torrent/deployment.yaml` | Transmission deployment |
 | `argocd/manifests/torrent/service.yaml` | Transmission service |
@@ -1134,11 +1020,10 @@ If migration fails:
 
 ## Verification Checklist
 
-- [x] SMB share configured on sifaka (`/volume1/torrents`)
-- [ ] Dedicated Synology user (`k8s-smb`) created for k8s access
-- [ ] SMB CSI driver deployed to k8s
+- [x] NFS export configured on sifaka (`/volume1/torrents`)
+- [x] NFS exports allow 192.168.1.0/24 and 100.64.0.0/10
+- [x] Direct NFS mount from pod tested and working
 - [ ] Existing downloads copied to sifaka
-- [ ] SMB credentials secret created in k8s (using `k8s-smb` user)
 - [ ] Transmission pod running in k8s (`torrent` namespace)
 - [ ] https://torrent.tail8d86e.ts.net accessible (web UI)
 - [ ] Can add torrents manually via web UI

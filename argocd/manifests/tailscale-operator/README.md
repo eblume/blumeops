@@ -6,7 +6,7 @@ Manifests for the Tailscale Kubernetes Operator, managed via ArgoCD.
 
 - `operator.yaml` - Static manifest from https://github.com/tailscale/tailscale/tree/main/cmd/k8s-operator/deploy/manifests
 - Secret block removed from `operator.yaml` - managed separately via `secret.yaml.tpl`
-- Image reference changed to fully-qualified `docker.io/tailscale/k8s-operator:stable` for CRI-O compatibility
+- Image reference changed to fully-qualified `docker.io/tailscale/k8s-operator:stable`
 
 ## Prerequisites
 
@@ -71,7 +71,7 @@ kubectl logs -n tailscale -l app.kubernetes.io/name=operator
 |------|-------------|
 | `kustomization.yaml` | Kustomize configuration for all manifests |
 | `operator.yaml` | Operator deployment, CRDs, RBAC (secret removed) |
-| `proxyclass.yaml` | ProxyClass with fully-qualified images for CRI-O |
+| `proxyclass.yaml` | ProxyClass with fully-qualified images |
 | `dnsconfig.yaml` | DNSConfig for cluster-to-tailnet name resolution |
 | `egress-forge.yaml` | Egress proxy for accessing forge on indri |
 | `secret.yaml.tpl` | 1Password template for OAuth credentials (manual) |
@@ -81,10 +81,10 @@ kubectl logs -n tailscale -l app.kubernetes.io/name=operator
 
 - **TODO:** The OAuth secret (`operator-oauth`) is not managed by ArgoCD and must be applied
   manually. Future improvement: integrate with a secrets operator (e.g., External Secrets).
-- Services using the Tailscale LoadBalancer must reference the ProxyClass:
+- Services using the Tailscale LoadBalancer should reference the ProxyClass:
   ```yaml
   annotations:
-    tailscale.com/proxy-class: "crio-compat"
+    tailscale.com/proxy-class: "default"
   ```
 - The egress proxy for forge targets `indri.tail8d86e.ts.net` directly (not `forge.tail8d86e.ts.net`)
   because Tailscale Serve hostnames are virtual and only work via the Tailscale client.

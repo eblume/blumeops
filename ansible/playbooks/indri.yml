@@ -47,8 +47,6 @@
       tags: zot
     - role: zot_metrics
       tags: zot_metrics
-    - role: podman
-      tags: podman
     - role: minikube
       tags: minikube
     - role: minikube_metrics

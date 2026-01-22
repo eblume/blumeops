@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+#MISE description="Ensure kubectl config for minikube-indri is set up on this workstation"
+
+set -euo pipefail
+
+CONFIG_DIR="$HOME/.kube/minikube-indri"
+CONFIG_FILE="$CONFIG_DIR/config.yml"
+
+echo "Ensuring minikube-indri kubectl config..."
+
+# Create directory if needed
+mkdir -p "$CONFIG_DIR"
+
+# Fetch certificates from indri
+echo "Fetching certificates from indri..."
+CA_CERT=$(ssh indri 'cat ~/.minikube/ca.crt')
+CLIENT_CERT=$(ssh indri 'cat ~/.minikube/profiles/minikube/client.crt')
+CLIENT_KEY=$(ssh indri 'cat ~/.minikube/profiles/minikube/client.key')
+
+# Write certificate files
+echo "$CA_CERT" > "$CONFIG_DIR/ca.crt"
+echo "$CLIENT_CERT" > "$CONFIG_DIR/client.crt"
+echo "$CLIENT_KEY" > "$CONFIG_DIR/client.key"
+chmod 600 "$CONFIG_DIR/client.key"
+
+# Write kubeconfig
+cat > "$CONFIG_FILE" << EOF
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    certificate-authority: $CONFIG_DIR/ca.crt
+    server: https://k8s.tail8d86e.ts.net
+  name: minikube-indri
+contexts:
+- context:
+    cluster: minikube-indri
+    user: minikube-indri
+  name: minikube-indri
+current-context: minikube-indri
+users:
+- name: minikube-indri
+  user:
+    client-certificate: $CONFIG_DIR/client.crt
+    client-key: $CONFIG_DIR/client.key
+EOF
+
+echo "Config written to $CONFIG_FILE"
+
+# Warn if KUBECONFIG doesn't include this file
+if [[ -z "${KUBECONFIG:-}" ]] || [[ ":$KUBECONFIG:" != *":$CONFIG_FILE:"* ]]; then
+    echo ""
+    echo "WARNING: KUBECONFIG does not include $CONFIG_FILE"
+    echo "Add this to your shell config:"
+    echo "  export KUBECONFIG=\"\$KUBECONFIG:$CONFIG_FILE\""
+fi
+
+echo ""
+echo "Test with: kubectl --context=minikube-indri get nodes"

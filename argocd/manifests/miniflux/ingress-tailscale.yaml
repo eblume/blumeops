@@ -4,7 +4,7 @@ metadata:
   name: miniflux-tailscale
   namespace: miniflux
   annotations:
-    tailscale.com/proxy-class: "crio-compat"
+    tailscale.com/proxy-class: "default"
 spec:
   ingressClassName: tailscale
   defaultBackend:

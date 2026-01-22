@@ -8,7 +8,7 @@ metadata:
   name: grafana-tailscale
   namespace: monitoring
   annotations:
-    tailscale.com/proxy-class: "crio-compat"
+    tailscale.com/proxy-class: "default"
 spec:
   ingressClassName: tailscale
   defaultBackend:

@@ -60,3 +60,13 @@ Connects to PostgreSQL via internal k8s DNS:
 
 The database is also accessible externally via Tailscale at:
 `pg.tail8d86e.ts.net:5432`
+
+## Restore from Backup
+
+If the database needs to be restored from a borgmatic backup:
+
+1. List archives: `borgmatic list`
+2. Extract dump from archive using `borg extract` to `/tmp/restore`
+3. Restore with `pg_restore --clean --if-exists --no-owner --no-acl`
+4. Fix ownership - ensure user `miniflux` owns all tables, sequences, and types in the `public` schema (restore runs as `eblume`)
+5. Restart miniflux deployment

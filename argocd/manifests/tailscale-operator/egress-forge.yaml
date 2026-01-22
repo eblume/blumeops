@@ -11,7 +11,7 @@ metadata:
   namespace: tailscale
   annotations:
     tailscale.com/tailnet-fqdn: indri.tail8d86e.ts.net
-    tailscale.com/proxy-class: "crio-compat"
+    tailscale.com/proxy-class: "default"
 spec:
   type: ExternalName
   externalName: placeholder

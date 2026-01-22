@@ -1,11 +1,17 @@
 ---
 # Minikube installation and cluster setup for indri
-# Requires podman machine to be running (see podman role)
+# Uses docker driver - requires Docker Desktop to be installed manually first
+# (Docker Desktop requires GUI setup, so it's not automated in this role)
 #
-# NOTE: Similar to podman, minikube start may have issues when run via SSH.
+# Prerequisites:
+#   1. Install Docker Desktop: brew install --cask docker
+#   2. Launch Docker Desktop and complete setup wizard
+#   3. Configure Docker Desktop with at least 12GB memory
+#
+# NOTE: minikube start may have issues when run via SSH.
 # If cluster fails to start, manually run on indri:
-#   minikube start --driver=podman --container-runtime=cri-o \
-#     --cpus=4 --memory=7800 --disk-size=200g \
+#   minikube start --driver=docker --container-runtime=docker \
+#     --cpus=6 --memory=11264 --disk-size=200g \
 #     --apiserver-names=k8s.tail8d86e.ts.net --apiserver-names=indri \
 #     --apiserver-port=6443 --listen-address=0.0.0.0
 
@@ -18,6 +24,18 @@
   community.general.homebrew:
     name: kubectl
     state: present
+
+- name: Check if Docker is running
+  ansible.builtin.command:
+    cmd: docker info
+  register: minikube_docker_status
+  changed_when: false
+  failed_when: false
+
+- name: Warn if Docker is not running
+  ansible.builtin.debug:
+    msg: "WARNING: Docker does not appear to be running. Please start Docker Desktop manually."
+  when: minikube_docker_status.rc != 0
 
 - name: Check if minikube cluster exists
   ansible.builtin.command:
@@ -42,8 +60,10 @@
       --listen-address={{ minikube_listen_address }}
   register: minikube_start
   changed_when: minikube_start.rc == 0
-  failed_when: false  # Don't fail - may need manual intervention like podman
-  when: minikube_status.rc != 0 or 'Running' not in minikube_status.stdout
+  failed_when: false  # Don't fail - may need manual intervention
+  when:
+    - minikube_docker_status.rc == 0
+    - minikube_status.rc != 0 or 'Running' not in minikube_status.stdout
 
 - name: Check minikube status after start attempt
   ansible.builtin.command:
@@ -57,54 +77,146 @@
     msg: "WARNING: minikube may not have started properly. Run 'minikube start' manually on indri if needed. Status: {{ minikube_final_status.stdout | default('unknown') }}"
   when: minikube_final_status.rc != 0 or 'Running' not in minikube_final_status.stdout
 
-# Configure CRI-O to use zot as pull-through cache
-- name: Read desired zot mirror config
-  ansible.builtin.slurp:
-    src: "{{ role_path }}/files/zot-mirror.conf"
-  register: minikube_desired_zot_config
-  delegate_to: localhost
-  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+# Configure containerd to use zot registry as pull-through cache
+# With docker driver, use host.minikube.internal to reach the host
+# Zot runs on indri:5050 and caches images from docker.io, ghcr.io, quay.io
 
-- name: Check current zot mirror config in minikube
+- name: Create containerd registry mirror directories
   ansible.builtin.command:
-    cmd: minikube ssh --native-ssh=false "cat /etc/containers/registries.conf.d/zot-mirror.conf 2>/dev/null || echo ''"
-  register: minikube_existing_zot_config
+    cmd: minikube ssh --native-ssh=false "sudo mkdir -p /etc/containerd/certs.d/{{ item }}"
+  loop:
+    - registry.tail8d86e.ts.net
+    - docker.io
+    - ghcr.io
+    - quay.io
   changed_when: false
   when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
 
-- name: Determine if zot mirror config needs update
-  ansible.builtin.set_fact:
-    minikube_zot_config_changed: "{{ (minikube_existing_zot_config.stdout | trim) != (minikube_desired_zot_config.content | b64decode | trim) }}"
+# Private registry (registry.tail8d86e.ts.net) - direct to zot
+- name: Check registry.tail8d86e.ts.net config
+  ansible.builtin.command:
+    cmd: minikube ssh --native-ssh=false "cat /etc/containerd/certs.d/registry.tail8d86e.ts.net/hosts.toml 2>/dev/null || echo ''"
+  register: minikube_registry_config
+  changed_when: false
   when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
 
-- name: Copy zot mirror config to temp location
-  ansible.builtin.copy:
-    src: zot-mirror.conf
-    dest: /tmp/zot-mirror.conf
-    mode: "0644"
-  when:
-    - minikube_final_status.rc == 0
-    - "'Running' in minikube_final_status.stdout"
-    - minikube_zot_config_changed | default(false)
-
-- name: Apply zot mirror config to minikube
-  ansible.builtin.shell:
+- name: Configure registry.tail8d86e.ts.net mirror
+  ansible.builtin.command:
     cmd: |
-      set -o pipefail
-      cat /tmp/zot-mirror.conf | minikube ssh --native-ssh=false "sudo tee /etc/containers/registries.conf.d/zot-mirror.conf > /dev/null"
-    executable: /bin/bash
-  changed_when: true  # Task only runs when config needs updating
-  when:
-    - minikube_final_status.rc == 0
-    - "'Running' in minikube_final_status.stdout"
-    - minikube_zot_config_changed | default(false)
-  notify: Restart CRI-O in minikube
+      minikube ssh --native-ssh=false 'echo "server = \"http://host.minikube.internal:5050\"
 
-- name: Clean up temp config file
-  ansible.builtin.file:
-    path: /tmp/zot-mirror.conf
-    state: absent
+      [host.\"http://host.minikube.internal:5050\"]
+        capabilities = [\"pull\", \"resolve\", \"push\"]
+        skip_verify = true" | sudo tee /etc/containerd/certs.d/registry.tail8d86e.ts.net/hosts.toml'
+  changed_when: true
   when:
-    - minikube_final_status.rc == 0
-    - "'Running' in minikube_final_status.stdout"
-    - minikube_zot_config_changed | default(false)
+    - minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+    - "'host.minikube.internal:5050' not in minikube_registry_config.stdout"
+  notify: Restart containerd in minikube
+
+# Docker Hub (docker.io) - zot pull-through cache
+- name: Check docker.io config
+  ansible.builtin.command:
+    cmd: minikube ssh --native-ssh=false "cat /etc/containerd/certs.d/docker.io/hosts.toml 2>/dev/null || echo ''"
+  register: minikube_dockerio_config
+  changed_when: false
+  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+
+- name: Configure docker.io mirror through zot
+  ansible.builtin.command:
+    cmd: |
+      minikube ssh --native-ssh=false 'echo "server = \"https://registry-1.docker.io\"
+
+      [host.\"http://host.minikube.internal:5050\"]
+        capabilities = [\"pull\", \"resolve\"]
+        skip_verify = true" | sudo tee /etc/containerd/certs.d/docker.io/hosts.toml'
+  changed_when: true
+  when:
+    - minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+    - "'host.minikube.internal:5050' not in minikube_dockerio_config.stdout"
+  notify: Restart containerd in minikube
+
+# GitHub Container Registry (ghcr.io) - zot pull-through cache
+- name: Check ghcr.io config
+  ansible.builtin.command:
+    cmd: minikube ssh --native-ssh=false "cat /etc/containerd/certs.d/ghcr.io/hosts.toml 2>/dev/null || echo ''"
+  register: minikube_ghcr_config
+  changed_when: false
+  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+
+- name: Configure ghcr.io mirror through zot
+  ansible.builtin.command:
+    cmd: |
+      minikube ssh --native-ssh=false 'echo "server = \"https://ghcr.io\"
+
+      [host.\"http://host.minikube.internal:5050\"]
+        capabilities = [\"pull\", \"resolve\"]
+        skip_verify = true" | sudo tee /etc/containerd/certs.d/ghcr.io/hosts.toml'
+  changed_when: true
+  when:
+    - minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+    - "'host.minikube.internal:5050' not in minikube_ghcr_config.stdout"
+  notify: Restart containerd in minikube
+
+# Quay.io - zot pull-through cache
+- name: Check quay.io config
+  ansible.builtin.command:
+    cmd: minikube ssh --native-ssh=false "cat /etc/containerd/certs.d/quay.io/hosts.toml 2>/dev/null || echo ''"
+  register: minikube_quay_config
+  changed_when: false
+  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+
+- name: Configure quay.io mirror through zot
+  ansible.builtin.command:
+    cmd: |
+      minikube ssh --native-ssh=false 'echo "server = \"https://quay.io\"
+
+      [host.\"http://host.minikube.internal:5050\"]
+        capabilities = [\"pull\", \"resolve\"]
+        skip_verify = true" | sudo tee /etc/containerd/certs.d/quay.io/hosts.toml'
+  changed_when: true
+  when:
+    - minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+    - "'host.minikube.internal:5050' not in minikube_quay_config.stdout"
+  notify: Restart containerd in minikube
+
+# Configure Tailscale serve for k8s API access
+# With docker driver, the API server port is dynamic (not fixed at 6443)
+# We query the current port and configure tailscale serve accordingly
+- name: Get minikube API server URL
+  ansible.builtin.command:
+    cmd: kubectl config view --minify -o jsonpath="{.clusters[0].cluster.server}"
+  register: minikube_api_url
+  changed_when: false
+  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+
+- name: Extract API server port from URL
+  ansible.builtin.set_fact:
+    minikube_api_port: "{{ minikube_api_url.stdout | regex_search(':([0-9]+)$', '\\1') | first }}"
+  when:
+    - minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+    - minikube_api_url.stdout is defined
+
+- name: Check current tailscale serve config for k8s
+  ansible.builtin.command:
+    cmd: tailscale serve status --json
+  register: minikube_tailscale_serve_status
+  changed_when: false
+  when: minikube_api_port is defined
+
+- name: Parse tailscale serve k8s config
+  ansible.builtin.set_fact:
+    minikube_tailscale_k8s_tcp: "{{ ((minikube_tailscale_serve_status.stdout | from_json).Services['svc:k8s'].TCP['443'].TCPForward | default('')) }}"
+  when:
+    - minikube_api_port is defined
+    - minikube_tailscale_serve_status.stdout is defined
+    - "'svc:k8s' in (minikube_tailscale_serve_status.stdout | from_json).Services | default({})"
+  failed_when: false
+
+- name: Configure tailscale serve for k8s API
+  ansible.builtin.command:
+    cmd: tailscale serve --service="svc:k8s" --tcp=443 tcp://localhost:{{ minikube_api_port }}
+  when:
+    - minikube_api_port is defined
+    - minikube_tailscale_k8s_tcp is not defined or minikube_tailscale_k8s_tcp != 'localhost:' + minikube_api_port
+  changed_when: true

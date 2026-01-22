@@ -1,20 +1,18 @@
 ---
 # Minikube cluster configuration
-minikube_cpus: 4
-# Note: Must be less than podman machine memory (8192MB) to account for overhead
-minikube_memory: 7800
+# Uses docker driver - requires Docker Desktop to be installed and running
+# with at least 12GB memory allocated in Docker Desktop settings
+minikube_cpus: 6
+minikube_memory: 11264  # Leave ~1GB headroom for Docker Desktop overhead
 minikube_disk_size: "200g"
-minikube_driver: podman
-minikube_container_runtime: cri-o
+minikube_driver: docker
+minikube_container_runtime: docker
 
 # Remote access configuration
 # These allow kubectl from other machines (e.g., gilbert) to connect
-# k8s.tail8d86e.ts.net is exposed via Tailscale service (TCP passthrough)
+# k8s.tail8d86e.ts.net is exposed via Tailscale service (TCP passthrough to localhost)
 minikube_apiserver_names:
   - k8s.tail8d86e.ts.net
   - indri
-# Note: apiserver_port is the INTERNAL container port; with podman driver,
-# the host port is dynamically assigned. Check actual port with:
-#   kubectl config view --minify -o jsonpath="{.clusters[0].cluster.server}"
 minikube_apiserver_port: 6443
 minikube_listen_address: "0.0.0.0"

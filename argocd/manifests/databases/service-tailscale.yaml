@@ -7,7 +7,7 @@ metadata:
   namespace: databases
   annotations:
     tailscale.com/hostname: "pg"
-    tailscale.com/proxy-class: "crio-compat"
+    tailscale.com/proxy-class: "default"
 spec:
   type: LoadBalancer
   loadBalancerClass: tailscale
