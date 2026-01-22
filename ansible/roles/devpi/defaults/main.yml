@@ -1,7 +1,0 @@
----
-devpi_port: 3141
-devpi_serverdir: /Users/erichblume/devpi
-devpi_log_dir: /Users/erichblume/Library/Logs
-devpi_host: 0.0.0.0  # Listen on all interfaces for Tailscale
-devpi_outside_url: https://pypi.tail8d86e.ts.net  # URL for Tailscale proxy
-devpi_secretfile: /Users/erichblume/devpi/.secret  # Persistent auth secret

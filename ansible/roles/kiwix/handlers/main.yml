@@ -1,6 +1,0 @@
----
-- name: Restart kiwix-serve
-  ansible.builtin.shell: |
-    launchctl unload ~/Library/LaunchAgents/mcquack.eblume.kiwix-serve.plist 2>/dev/null || true
-    launchctl load ~/Library/LaunchAgents/mcquack.eblume.kiwix-serve.plist
-  changed_when: true

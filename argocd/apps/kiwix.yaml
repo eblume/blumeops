@@ -16,3 +16,9 @@ spec:
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
+  # Ignore zim-hash annotation - updated dynamically by zim-watcher CronJob
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /metadata/annotations/kiwix.blumeops~1zim-hash

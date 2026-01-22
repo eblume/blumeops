@@ -1,4 +1,0 @@
----
-- name: Restart transmission
-  ansible.builtin.command: brew services restart transmission-cli
-  changed_when: true

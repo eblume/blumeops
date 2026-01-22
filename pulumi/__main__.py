@@ -36,7 +36,8 @@ acl = tailscale.Acl(
 # Tags control access via the ACL policy in policy.hujson.
 
 # indri - Mac Mini M1, primary homelab server
-# Hosts all user-facing services (grafana, forge, kiwix, etc.)
+# Hosts forge, loki, zot registry, and the k8s control plane.
+# Other services (grafana, kiwix, devpi, etc.) run in k8s with their own Tailscale devices.
 indri = tailscale.get_device(name="indri.tail8d86e.ts.net")
 indri_tags = tailscale.DeviceTags(
     "indri-tags",
@@ -44,16 +45,11 @@ indri_tags = tailscale.DeviceTags(
     tags=[
         "tag:homelab",  # Server role - allows SSH from workstations
         "tag:blumeops",  # Managed by this IaC
-        # Service tags - enable fine-grained access control per service
-        "tag:grafana",
+        # Service tags for services still hosted directly on indri
         "tag:forge",
-        "tag:kiwix",
-        "tag:devpi",
         "tag:loki",
-        "tag:pg",
-        "tag:feed",
         "tag:registry",  # Zot container registry
-        "tag:k8s-api",  # Kubernetes API server
+        "tag:k8s-api",  # Kubernetes API server (minikube)
     ],
 )
 
