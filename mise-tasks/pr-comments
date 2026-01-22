@@ -1,0 +1,118 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx>=0.27.0", "rich>=13.0.0"]
+# ///
+#MISE description="List unresolved comments on a PR"
+#USAGE arg "<pr_number>" help="Pull request number"
+"""Fetch and display unresolved review comments on a pull request.
+
+This script queries the Forge (Gitea) API to find all review comments that
+have not been resolved on a given PR. A comment is considered unresolved
+if its 'resolver' field is null.
+
+Usage: mise run pr-comments <pr_number>
+"""
+
+import sys
+
+import httpx
+from rich.console import Console
+from rich.text import Text
+
+FORGE_API_BASE = "https://forge.tail8d86e.ts.net/api/v1"
+REPO_OWNER = "eblume"
+REPO_NAME = "blumeops"
+
+
+def get_reviews(client: httpx.Client, pr_number: int) -> list[dict]:
+    """Get all reviews for a pull request."""
+    response = client.get(
+        f"{FORGE_API_BASE}/repos/{REPO_OWNER}/{REPO_NAME}/pulls/{pr_number}/reviews"
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def get_review_comments(client: httpx.Client, pr_number: int, review_id: int) -> list[dict]:
+    """Get all comments for a specific review."""
+    response = client.get(
+        f"{FORGE_API_BASE}/repos/{REPO_OWNER}/{REPO_NAME}/pulls/{pr_number}/reviews/{review_id}/comments"
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def main() -> int:
+    console = Console()
+
+    if len(sys.argv) < 2:
+        console.print("[red]Error:[/red] Please provide a PR number")
+        console.print("Usage: mise run pr-comments <pr_number>")
+        return 1
+
+    try:
+        pr_number = int(sys.argv[1])
+    except ValueError:
+        console.print(f"[red]Error:[/red] '{sys.argv[1]}' is not a valid PR number")
+        return 1
+
+    unresolved_comments: list[tuple[dict, dict]] = []  # (review, comment) pairs
+
+    with httpx.Client() as client:
+        # Get all reviews
+        try:
+            reviews = get_reviews(client, pr_number)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                console.print(f"[red]Error:[/red] PR #{pr_number} not found")
+            else:
+                console.print(f"[red]Error:[/red] API request failed: {e}")
+            return 1
+
+        # For each review, get comments and filter to unresolved
+        for review in reviews:
+            try:
+                comments = get_review_comments(client, pr_number, review["id"])
+            except httpx.HTTPStatusError:
+                continue  # Skip reviews we can't fetch comments for
+
+            for comment in comments:
+                if comment.get("resolver") is None:
+                    unresolved_comments.append((review, comment))
+
+    if not unresolved_comments:
+        console.print(f"[green]No unresolved comments on PR #{pr_number}[/green]")
+        return 0
+
+    # Display unresolved comments
+    console.print(f"[bold]Unresolved Comments on PR #{pr_number}[/bold] ({len(unresolved_comments)} comments)")
+    console.print("=" * 60)
+    console.print()
+
+    for review, comment in unresolved_comments:
+        # Header with file path and reviewer
+        header = Text()
+        path = comment.get("path", "unknown file")
+        reviewer = review.get("user", {}).get("login", "unknown")
+        header.append(f"{path}", style="bold cyan")
+        header.append(f" (by {reviewer})")
+        console.print(header)
+
+        # Comment body
+        body = comment.get("body", "").strip()
+        for line in body.split("\n"):
+            console.print(f"  {line}")
+
+        # Link to comment
+        html_url = comment.get("html_url", "")
+        if html_url:
+            console.print(f"  [dim]{html_url}[/dim]")
+
+        console.print()
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -27,7 +27,11 @@ tea pr create --title "Description of change" --description "$(cat <<'EOF'
 EOF
 )"
 ```
-The user will review your work as you go, and will merge the pr as the last step in the process, even after deploying.
+The user will review your work as you go, and will merge the PR as the last step in the process, even after deploying. After the user reviews the PR and leaves comments, check for unresolved comments with:
+```fish
+mise run pr-comments <pr_number>
+```
+Address each unresolved comment before proceeding. The user will resolve comments on the Forge UI as they are addressed.
 
 3. Always keep the zk cards up to date with any changes, and suggest new links to new cards whenever appropriate. Refer back to the zk docs often during the process of planning and making corrections to ensure accuracy, and if you make a mistake, figure out a way to guard against it using the zk.
 
@@ -60,7 +64,7 @@ The user will review your work as you go, and will merge the pr as the last step
 
 ### Kubernetes Services (via ArgoCD)
 
-Most services are migrating to Kubernetes. These are managed via ArgoCD using the app-of-apps pattern:
+Most services run on `k8s.tail8d86e.ts.net`, via minikube on indri. They are managed via ArgoCD using the app-of-apps pattern:
 
 - **Application definitions**: `argocd/apps/<service>.yaml`
 - **Manifests**: `argocd/manifests/<service>/`
