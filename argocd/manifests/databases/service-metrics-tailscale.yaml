@@ -1,0 +1,22 @@
+# Tailscale LoadBalancer for CNPG metrics access
+# Exposes native postgres_exporter metrics on port 9187
+# Canonical hostname: cnpg-metrics.tail8d86e.ts.net
+apiVersion: v1
+kind: Service
+metadata:
+  name: blumeops-pg-metrics-tailscale
+  namespace: databases
+  annotations:
+    tailscale.com/hostname: "cnpg-metrics"
+    tailscale.com/proxy-class: "default"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  selector:
+    cnpg.io/cluster: blumeops-pg
+    role: primary
+  ports:
+    - name: metrics
+      port: 9187
+      targetPort: 9187
+      protocol: TCP

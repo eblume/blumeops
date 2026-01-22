@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    # Indri system metrics are pushed via Alloy remote_write
+    # K8s services are scraped directly
+
+    scrape_configs:
+      # Sifaka NAS node-exporter (via LAN - Docker NATs through indri)
+      # Using LAN IP since k8s pods can reach LAN via Docker NAT (same as NFS mounts)
+      # If IP changes, fallback: create Tailscale egress in tailscale-operator/egress-sifaka.yaml
+      - job_name: "node-exporter-sifaka"
+        static_configs:
+          - targets: ["192.168.1.203:9100"]
+
+      # CNPG PostgreSQL metrics (k8s internal)
+      - job_name: "cnpg-postgres"
+        static_configs:
+          - targets: ["blumeops-pg-metrics-tailscale.databases.svc.cluster.local:9187"]
+            labels:
+              instance: "blumeops-pg"
+
+      # Prometheus self-monitoring
+      - job_name: "prometheus"
+        static_configs:
+          - targets: ["localhost:9090"]
+
+      # Loki metrics
+      - job_name: "loki"
+        static_configs:
+          - targets: ["loki.monitoring.svc.cluster.local:3100"]

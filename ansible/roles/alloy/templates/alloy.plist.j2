@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>mcquack.eblume.alloy</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ alloy_binary }}</string>
+		<string>run</string>
+		<string>{{ alloy_config_dir }}/config.alloy</string>
+		<string>--storage.path={{ alloy_data_dir }}</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>{{ alloy_log_dir }}/mcquack.alloy.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>{{ alloy_log_dir }}/mcquack.alloy.err.log</string>
+</dict>
+</plist>

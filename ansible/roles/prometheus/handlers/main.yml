@@ -1,4 +1,0 @@
----
-- name: Restart prometheus
-  ansible.builtin.command: brew services restart prometheus
-  changed_when: true

@@ -74,11 +74,11 @@
 			"dst": ["tag:homelab"],
 			"ip":  ["tcp:3001", "tcp:2200"],
 		},
-		// Homelab can reach k8s PostgreSQL for borgmatic backups
+		// Homelab can reach k8s services: PostgreSQL, CNPG metrics, Prometheus/Loki
 		{
 			"src": ["tag:homelab"],
 			"dst": ["tag:k8s"],
-			"ip":  ["tcp:5432"],
+			"ip":  ["tcp:443", "tcp:5432", "tcp:9187"],
 		},
 	],
 
@@ -141,10 +141,10 @@
 			"accept": ["tag:kiwix:443", "tag:forge:443", "tag:feed:443", "tag:pg:5432"],
 			"deny":   ["tag:grafana:443", "tag:loki:3100", "tag:nas:445", "tag:registry:443", "tag:k8s-api:443"],
 		},
-		// Homelab can reach homelab and NAS
+		// Homelab can reach homelab, NAS, and k8s services (postgres, metrics, prometheus/loki)
 		{
 			"src":    "tag:homelab",
-			"accept": ["tag:homelab:22", "tag:nas:445"],
+			"accept": ["tag:homelab:22", "tag:nas:445", "tag:k8s:443", "tag:k8s:5432", "tag:k8s:9187"],
 		},
 		// K8s workloads can reach registry and forge (on indri:3001 HTTP, :2200 SSH)
 		{

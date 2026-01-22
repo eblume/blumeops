@@ -43,7 +43,7 @@ prometheus.exporter.postgres "postgresql" {
   data_source_names = ["postgresql://{{ alloy_postgres_user }}:{{ alloy_postgres_password | urlencode }}@{{ alloy_postgres_host }}:{{ alloy_postgres_port }}/{{ alloy_postgres_database }}?sslmode=disable"]
 
   // Custom queries for vacuum and XID monitoring
-  custom_queries_config_path = "/opt/homebrew/etc/grafana-alloy/postgres_queries.yaml"
+  custom_queries_config_path = "{{ alloy_config_dir }}/postgres_queries.yaml"
 }
 
 // Scrape PostgreSQL metrics

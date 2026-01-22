@@ -5,6 +5,13 @@
 <dict>
 	<key>Label</key>
 	<string>mcquack.eblume.minikube-metrics</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>{{ minikube_metrics_user_home }}</string>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+	</dict>
 	<key>ProgramArguments</key>
 	<array>
 		<string>{{ minikube_metrics_script }}</string>

@@ -23,12 +23,8 @@
       tags: [borgmatic]
 
   roles:
-    - role: loki
-      tags: loki
     - role: alloy
       tags: alloy
-    - role: prometheus
-      tags: prometheus
     - role: borgmatic
       tags: borgmatic
     - role: borgmatic_metrics

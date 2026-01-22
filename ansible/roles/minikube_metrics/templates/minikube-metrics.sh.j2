@@ -4,6 +4,10 @@
 
 set -euo pipefail
 
+# Use absolute paths for LaunchAgent compatibility
+MINIKUBE="/opt/homebrew/bin/minikube"
+KUBECTL="/opt/homebrew/bin/kubectl"
+
 OUTPUT_FILE="{{ minikube_metrics_dir }}/minikube.prom"
 TEMP_FILE="${OUTPUT_FILE}.tmp"
 
@@ -22,7 +26,7 @@ cat > "$TEMP_FILE" << 'HEADER'
 HEADER
 
 # Check if minikube is running
-if minikube status --format='{% raw %}{{.Host}}{% endraw %}' 2>/dev/null | grep -q "Running"; then
+if $MINIKUBE status --format='{% raw %}{{.Host}}{% endraw %}' 2>/dev/null | grep -q "Running"; then
     echo "minikube_up 1" >> "$TEMP_FILE"
 else
     echo "minikube_up 0" >> "$TEMP_FILE"
@@ -35,22 +39,22 @@ else
 fi
 
 # Check API server health
-if kubectl get --raw /healthz >/dev/null 2>&1; then
+if $KUBECTL get --raw /healthz >/dev/null 2>&1; then
     echo "minikube_apiserver_up 1" >> "$TEMP_FILE"
 else
     echo "minikube_apiserver_up 0" >> "$TEMP_FILE"
 fi
 
 # Get node count
-NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
+NODE_COUNT=$($KUBECTL get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
 echo "minikube_node_count ${NODE_COUNT:-0}" >> "$TEMP_FILE"
 
 # Get pod count (all namespaces)
-POD_COUNT=$(kubectl get pods -A --no-headers 2>/dev/null | wc -l | tr -d ' ')
+POD_COUNT=$($KUBECTL get pods -A --no-headers 2>/dev/null | wc -l | tr -d ' ')
 echo "minikube_pod_count ${POD_COUNT:-0}" >> "$TEMP_FILE"
 
 # Get namespace count
-NS_COUNT=$(kubectl get namespaces --no-headers 2>/dev/null | wc -l | tr -d ' ')
+NS_COUNT=$($KUBECTL get namespaces --no-headers 2>/dev/null | wc -l | tr -d ' ')
 echo "minikube_namespace_count ${NS_COUNT:-0}" >> "$TEMP_FILE"
 
 # Atomic move

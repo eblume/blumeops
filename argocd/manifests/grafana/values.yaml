@@ -24,8 +24,7 @@ grafana.ini:
     check_for_updates: false
     reporting_enabled: false
 
-# Datasources - point to indri services via podman host gateway
-# host.containers.internal resolves to the podman host (indri) from inside minikube
+# Datasources - point to k8s-internal services
 datasources:
   datasources.yaml:
     apiVersion: 1
@@ -35,7 +34,7 @@ datasources:
         access: proxy
         orgId: 1
         uid: prometheus
-        url: http://host.containers.internal:9090
+        url: http://prometheus.monitoring.svc.cluster.local:9090
         isDefault: true
         editable: false
       - name: Loki
@@ -43,7 +42,7 @@ datasources:
         access: proxy
         orgId: 1
         uid: loki
-        url: http://host.containers.internal:3100
+        url: http://loki.monitoring.svc.cluster.local:3100
         editable: false
 
 # Dashboard provisioning - sidecar watches for ConfigMaps with label

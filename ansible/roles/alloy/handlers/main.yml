@@ -1,6 +1,6 @@
 ---
 - name: Restart alloy
-  ansible.builtin.command: brew services restart grafana-alloy
-  async: 120
-  poll: 0
+  ansible.builtin.shell: |
+    launchctl unload ~/Library/LaunchAgents/mcquack.eblume.alloy.plist 2>/dev/null || true
+    launchctl load ~/Library/LaunchAgents/mcquack.eblume.alloy.plist
   changed_when: true

@@ -1,11 +1,18 @@
 ---
 # Grafana Alloy installation and configuration
-# Replaces node_exporter for metrics, adds log collection
+# See defaults/main.yml for build instructions
 
-- name: Install grafana-alloy via homebrew
-  community.general.homebrew:
-    name: grafana-alloy
-    state: present
+- name: Verify alloy binary exists
+  ansible.builtin.stat:
+    path: "{{ alloy_binary }}"
+  register: alloy_binary_stat
+
+- name: Fail if alloy binary not found
+  ansible.builtin.fail:
+    msg: |
+      Alloy binary not found at {{ alloy_binary }}.
+      Please build from source first (see ansible/roles/alloy/defaults/main.yml)
+  when: not alloy_binary_stat.stat.exists
 
 - name: Ensure alloy config directory exists
   ansible.builtin.file:
@@ -68,8 +75,21 @@
   notify: Restart alloy
   no_log: true
 
-- name: Ensure alloy service is started
-  ansible.builtin.command: brew services start grafana-alloy
-  register: alloy_brew_start
-  changed_when: "'Successfully started' in alloy_brew_start.stdout"
+- name: Deploy alloy LaunchAgent plist
+  ansible.builtin.template:
+    src: alloy.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.alloy.plist
+    mode: '0644'
+  notify: Restart alloy
+
+- name: Check if alloy LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.alloy
+  register: alloy_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load alloy LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.alloy.plist
+  when: alloy_launchctl_check.rc != 0
+  changed_when: true
   failed_when: false
