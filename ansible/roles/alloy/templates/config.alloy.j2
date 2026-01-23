@@ -6,6 +6,9 @@
 
 // System metrics exporter (replaces node_exporter)
 prometheus.exporter.unix "system" {
+  // Disable collectors that don't work on macOS
+  disable_collectors = ["thermal"]
+
   textfile {
     directory = "{{ alloy_textfile_dir }}"
   }

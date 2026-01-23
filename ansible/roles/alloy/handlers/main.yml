@@ -4,3 +4,10 @@
     launchctl unload ~/Library/LaunchAgents/mcquack.eblume.alloy.plist 2>/dev/null || true
     launchctl load ~/Library/LaunchAgents/mcquack.eblume.alloy.plist
   changed_when: true
+
+- name: Reload macos-power-metrics
+  ansible.builtin.shell: |
+    launchctl unload /Library/LaunchDaemons/mcquack.eblume.macos-power-metrics.plist 2>/dev/null || true
+    launchctl load /Library/LaunchDaemons/mcquack.eblume.macos-power-metrics.plist
+  become: true
+  changed_when: true

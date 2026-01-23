@@ -82,19 +82,49 @@ data:
     loki.process "pods" {
       forward_to = [loki.write.loki.receiver]
 
-      // Try to parse JSON logs
+      // Drop noisy deprecation warning from minikube storage-provisioner
+      // See: https://github.com/kubernetes/minikube/issues/21009
+      stage.drop {
+        source     = ""
+        expression = "v1 Endpoints is deprecated"
+      }
+
+      // Try to parse JSON logs (e.g., structured app logs)
+      // Handle both "msg" (common) and "message" (zot) field names
       stage.json {
         expressions = {
-          level   = "level",
-          message = "msg",
-          time    = "time",
+          level      = "level",
+          msg        = "msg",
+          message    = "message",
+          time       = "time",
+          caller     = "caller",
+          repository = "repository",
         }
       }
 
-      // Extract level from parsed JSON if available
+      // Try to parse logfmt logs (e.g., Loki, Prometheus, Go services)
+      // Silently skip lines that aren't valid logfmt
+      stage.logfmt {
+        mapping = {
+          level     = "level",
+          ts        = "ts",
+          caller    = "caller",
+          component = "component",
+        }
+      }
+
+      // Drop the logfmt error label if parsing failed (prevents noisy errors)
+      stage.label_drop {
+        values = ["__error__", "__error_details__"]
+      }
+
+      // Extract labels from parsed data (works for both JSON and logfmt)
       stage.labels {
         values = {
-          level = "",
+          level      = "",
+          caller     = "",
+          component  = "",
+          repository = "",
         }
       }
     }

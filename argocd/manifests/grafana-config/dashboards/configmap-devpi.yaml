@@ -40,7 +40,7 @@ data:
           },
           "pluginVersion": "11.0.0",
           "targets": [
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_success{job=\\"integrations/blackbox/devpi\\"}", "refId": "A" }
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_success{job=\"integrations/blackbox/devpi\"}", "refId": "A" }
           ],
           "title": "Devpi Status",
           "type": "stat"
@@ -67,7 +67,7 @@ data:
           },
           "pluginVersion": "11.0.0",
           "targets": [
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_duration_seconds{job=\\"integrations/blackbox/devpi\\"}", "refId": "A" }
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_duration_seconds{job=\"integrations/blackbox/devpi\"}", "refId": "A" }
           ],
           "title": "Response Time",
           "type": "stat"
@@ -94,7 +94,7 @@ data:
           },
           "pluginVersion": "11.0.0",
           "targets": [
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg_over_time(probe_success{job=\\"integrations/blackbox/devpi\\"}[$__range])", "refId": "A" }
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg_over_time(probe_success{job=\"integrations/blackbox/devpi\"}[$__range])", "refId": "A" }
           ],
           "title": "Uptime (selected period)",
           "type": "stat"
@@ -139,7 +139,7 @@ data:
           },
           "pluginVersion": "11.0.0",
           "targets": [
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_duration_seconds{job=\\"integrations/blackbox/devpi\\"}", "legendFormat": "Response Time", "refId": "A" }
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "probe_duration_seconds{job=\"integrations/blackbox/devpi\"}", "legendFormat": "Response Time", "refId": "A" }
           ],
           "title": "Response Time Over Time",
           "type": "timeseries"

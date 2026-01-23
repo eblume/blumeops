@@ -271,6 +271,194 @@ data:
         {
           "collapsed": false,
           "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "id": 106,
+          "panels": [],
+          "title": "Power & Thermal",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "orange", "value": 10 },
+                  { "color": "red", "value": 15 }
+                ]
+              },
+              "unit": "watt",
+              "decimals": 1
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 6 },
+          "id": 60,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "macos_combined_power_watts{instance=~\"$instance\"}",
+              "refId": "A"
+            }
+          ],
+          "title": "Total Power",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [
+                { "options": { "0": { "color": "green", "index": 0, "text": "Nominal" } }, "type": "value" },
+                { "options": { "1": { "color": "yellow", "index": 1, "text": "Moderate" } }, "type": "value" },
+                { "options": { "2": { "color": "orange", "index": 2, "text": "Heavy" } }, "type": "value" },
+                { "options": { "3": { "color": "red", "index": 3, "text": "Critical" } }, "type": "value" }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "orange", "value": 2 },
+                  { "color": "red", "value": 3 }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 6 },
+          "id": 61,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "macos_thermal_pressure{instance=~\"$instance\"}",
+              "refId": "A"
+            }
+          ],
+          "title": "Thermal Pressure",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 30,
+                "gradientMode": "opacity",
+                "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                "insertNulls": false,
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": { "type": "linear" },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": { "group": "A", "mode": "normal" },
+                "thresholdsStyle": { "mode": "off" }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "watt"
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "CPU" },
+                "properties": [
+                  { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "GPU" },
+                "properties": [
+                  { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "ANE" },
+                "properties": [
+                  { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }
+                ]
+              }
+            ]
+          },
+          "gridPos": { "h": 8, "w": 16, "x": 8, "y": 6 },
+          "id": 62,
+          "options": {
+            "legend": {
+              "calcs": ["mean", "max", "lastNotNull"],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "macos_cpu_power_watts{instance=~\"$instance\"}",
+              "legendFormat": "CPU",
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "macos_gpu_power_watts{instance=~\"$instance\"}",
+              "legendFormat": "GPU",
+              "refId": "B"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "macos_ane_power_watts{instance=~\"$instance\"}",
+              "legendFormat": "ANE",
+              "refId": "C"
+            }
+          ],
+          "title": "Power Consumption",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
           "id": 101,
           "panels": [],
           "title": "CPU",
@@ -350,7 +538,7 @@ data:
               }
             ]
           },
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
           "id": 10,
           "options": {
             "legend": {
@@ -435,7 +623,7 @@ data:
               }
             ]
           },
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
           "id": 11,
           "options": {
             "legend": {
@@ -471,7 +659,7 @@ data:
         },
         {
           "collapsed": false,
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
           "id": 102,
           "panels": [],
           "title": "Memory (macOS)",
@@ -559,7 +747,7 @@ data:
               }
             ]
           },
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
           "id": 20,
           "options": {
             "legend": {
@@ -626,7 +814,7 @@ data:
             },
             "overrides": []
           },
-          "gridPos": { "h": 8, "w": 4, "x": 12, "y": 15 },
+          "gridPos": { "h": 8, "w": 4, "x": 12, "y": 24 },
           "id": 21,
           "options": {
             "orientation": "auto",
@@ -702,7 +890,7 @@ data:
               }
             ]
           },
-          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
           "id": 22,
           "options": {
             "legend": {
@@ -732,7 +920,7 @@ data:
         },
         {
           "collapsed": false,
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
           "id": 103,
           "panels": [],
           "title": "Disk",
@@ -792,7 +980,7 @@ data:
               }
             ]
           },
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
           "id": 30,
           "options": {
             "legend": {
@@ -874,7 +1062,7 @@ data:
               }
             ]
           },
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 33 },
           "id": 31,
           "options": {
             "legend": {
@@ -904,7 +1092,7 @@ data:
         },
         {
           "collapsed": false,
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 },
           "id": 104,
           "panels": [],
           "title": "Filesystem",
@@ -930,7 +1118,7 @@ data:
             },
             "overrides": []
           },
-          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 33 },
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 42 },
           "id": 40,
           "options": {
             "displayMode": "gradient",
@@ -991,7 +1179,7 @@ data:
             },
             "overrides": []
           },
-          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 33 },
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 42 },
           "id": 41,
           "options": {
             "legend": {
@@ -1015,7 +1203,7 @@ data:
         },
         {
           "collapsed": false,
-          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 },
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 48 },
           "id": 105,
           "panels": [],
           "title": "Network",
@@ -1075,7 +1263,7 @@ data:
               }
             ]
           },
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 49 },
           "id": 50,
           "options": {
             "legend": {
@@ -1157,7 +1345,7 @@ data:
               }
             ]
           },
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 49 },
           "id": 51,
           "options": {
             "legend": {
@@ -1220,7 +1408,7 @@ data:
             },
             "overrides": []
           },
-          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 48 },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 57 },
           "id": 52,
           "options": {
             "legend": {

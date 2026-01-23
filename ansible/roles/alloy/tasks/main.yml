@@ -93,3 +93,39 @@
   when: alloy_launchctl_check.rc != 0
   changed_when: true
   failed_when: false
+
+# === macOS Power Metrics (requires root) ===
+
+- name: Deploy macos-power-metrics script
+  ansible.builtin.template:
+    src: macos-power-metrics.sh.j2
+    dest: "{{ alloy_power_metrics_script }}"
+    mode: '0755'
+  become: true
+  notify: Reload macos-power-metrics
+  when: alloy_collect_power_metrics | default(false)
+
+- name: Deploy macos-power-metrics LaunchDaemon plist
+  ansible.builtin.template:
+    src: macos-power-metrics.plist.j2
+    dest: /Library/LaunchDaemons/mcquack.eblume.macos-power-metrics.plist
+    mode: '0644'
+  become: true
+  notify: Reload macos-power-metrics
+  when: alloy_collect_power_metrics | default(false)
+
+- name: Check if macos-power-metrics LaunchDaemon is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.macos-power-metrics
+  register: alloy_power_metrics_launchctl_check
+  changed_when: false
+  failed_when: false
+  when: alloy_collect_power_metrics | default(false)
+
+- name: Load macos-power-metrics LaunchDaemon if not loaded
+  ansible.builtin.command: launchctl load /Library/LaunchDaemons/mcquack.eblume.macos-power-metrics.plist
+  become: true
+  when:
+    - alloy_collect_power_metrics | default(false)
+    - alloy_power_metrics_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false

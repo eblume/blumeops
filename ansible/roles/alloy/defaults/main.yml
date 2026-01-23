@@ -96,3 +96,8 @@ alloy_postgres_database: postgres
 alloy_op_vault: vg6xf6vvfmoh5hqjjhlhbeoaie
 alloy_op_postgres_item: guxu3j7ajhjyey6xxl2ovsl2ui
 alloy_op_postgres_field: alloy-user-pw
+
+# macOS power metrics collection (via powermetrics, requires root)
+alloy_collect_power_metrics: true
+alloy_power_metrics_script: /usr/local/bin/macos-power-metrics
+alloy_power_metrics_interval: 30  # seconds between collection

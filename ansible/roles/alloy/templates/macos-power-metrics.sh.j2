@@ -1,0 +1,79 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Collects macOS power and thermal metrics for node_exporter textfile collector
+# Requires root to run powermetrics
+
+set -euo pipefail
+
+OUTPUT_FILE="{{ alloy_textfile_dir }}/macos_power.prom"
+TEMP_FILE="${OUTPUT_FILE}.tmp"
+
+# Run powermetrics for one sample
+POWER_OUTPUT=$(/usr/bin/powermetrics --samplers cpu_power,thermal -n 1 -i 1 2>/dev/null || echo "")
+
+if [ -z "$POWER_OUTPUT" ]; then
+    # powermetrics failed, write zeros
+    cat > "$TEMP_FILE" << 'EOF'
+# HELP macos_cpu_power_watts CPU power consumption in watts
+# TYPE macos_cpu_power_watts gauge
+macos_cpu_power_watts 0
+# HELP macos_gpu_power_watts GPU power consumption in watts
+# TYPE macos_gpu_power_watts gauge
+macos_gpu_power_watts 0
+# HELP macos_ane_power_watts Apple Neural Engine power consumption in watts
+# TYPE macos_ane_power_watts gauge
+macos_ane_power_watts 0
+# HELP macos_combined_power_watts Combined CPU+GPU+ANE power consumption in watts
+# TYPE macos_combined_power_watts gauge
+macos_combined_power_watts 0
+# HELP macos_thermal_pressure Current thermal pressure level (0=Nominal, 1=Moderate, 2=Heavy, 3=Critical)
+# TYPE macos_thermal_pressure gauge
+macos_thermal_pressure 0
+EOF
+    mv "$TEMP_FILE" "$OUTPUT_FILE"
+    exit 0
+fi
+
+# Parse power values (in mW, convert to W)
+CPU_POWER_MW=$(echo "$POWER_OUTPUT" | grep "^CPU Power:" | awk '{print $3}' || echo "0")
+GPU_POWER_MW=$(echo "$POWER_OUTPUT" | grep "^GPU Power:" | awk '{print $3}' || echo "0")
+ANE_POWER_MW=$(echo "$POWER_OUTPUT" | grep "^ANE Power:" | awk '{print $3}' || echo "0")
+COMBINED_POWER_MW=$(echo "$POWER_OUTPUT" | grep "^Combined Power" | awk '{print $5}' || echo "0")
+
+# Convert mW to W (divide by 1000)
+CPU_POWER=$(echo "scale=3; ${CPU_POWER_MW:-0} / 1000" | bc)
+GPU_POWER=$(echo "scale=3; ${GPU_POWER_MW:-0} / 1000" | bc)
+ANE_POWER=$(echo "scale=3; ${ANE_POWER_MW:-0} / 1000" | bc)
+COMBINED_POWER=$(echo "scale=3; ${COMBINED_POWER_MW:-0} / 1000" | bc)
+
+# Parse thermal pressure level
+THERMAL_LEVEL=$(echo "$POWER_OUTPUT" | grep "Current pressure level:" | awk '{print $4}' || echo "Nominal")
+case "$THERMAL_LEVEL" in
+    Nominal)  THERMAL_VALUE=0 ;;
+    Moderate) THERMAL_VALUE=1 ;;
+    Heavy)    THERMAL_VALUE=2 ;;
+    Critical) THERMAL_VALUE=3 ;;
+    *)        THERMAL_VALUE=0 ;;
+esac
+
+# Write metrics
+cat > "$TEMP_FILE" << EOF
+# HELP macos_cpu_power_watts CPU power consumption in watts
+# TYPE macos_cpu_power_watts gauge
+macos_cpu_power_watts $CPU_POWER
+# HELP macos_gpu_power_watts GPU power consumption in watts
+# TYPE macos_gpu_power_watts gauge
+macos_gpu_power_watts $GPU_POWER
+# HELP macos_ane_power_watts Apple Neural Engine power consumption in watts
+# TYPE macos_ane_power_watts gauge
+macos_ane_power_watts $ANE_POWER
+# HELP macos_combined_power_watts Combined CPU+GPU+ANE power consumption in watts
+# TYPE macos_combined_power_watts gauge
+macos_combined_power_watts $COMBINED_POWER
+# HELP macos_thermal_pressure Current thermal pressure level (0=Nominal, 1=Moderate, 2=Heavy, 3=Critical)
+# TYPE macos_thermal_pressure gauge
+macos_thermal_pressure $THERMAL_VALUE
+EOF
+
+# Atomic move
+mv "$TEMP_FILE" "$OUTPUT_FILE"

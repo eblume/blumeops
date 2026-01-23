@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>mcquack.eblume.macos-power-metrics</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ alloy_power_metrics_script }}</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>{{ alloy_power_metrics_interval }}</integer>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/var/log/mcquack.macos-power-metrics.err.log</string>
+	<key>StandardOutPath</key>
+	<string>/var/log/mcquack.macos-power-metrics.out.log</string>
+</dict>
+</plist>
