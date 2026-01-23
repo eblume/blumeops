@@ -102,32 +102,16 @@ data:
         }
       }
 
-      // Try to parse logfmt logs, but only for non-JSON lines
-      // This prevents noisy decode errors when JSON logs hit the logfmt parser
-      stage.match {
-        selector = "{namespace=~\".+\"} |~ \"^[^{]\"" // Lines not starting with '{'
-
-        stage.logfmt {
-          mapping = {
-            level     = "level",
-            ts        = "ts",
-            caller    = "caller",
-            component = "component",
-          }
-        }
-      }
-
-      // Drop any error labels from parsing attempts (both JSON and logfmt)
+      // Drop JSON parsing error labels (non-JSON logs are fine, just won't have extracted fields)
       stage.label_drop {
         values = ["__error__", "__error_details__"]
       }
 
-      // Extract labels from parsed data (works for both JSON and logfmt)
+      // Extract labels from parsed JSON data
       stage.labels {
         values = {
           level      = "",
           caller     = "",
-          component  = "",
           repository = "",
         }
       }
