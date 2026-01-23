@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teslamate
+  namespace: teslamate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: teslamate
+  template:
+    metadata:
+      labels:
+        app: teslamate
+    spec:
+      containers:
+        - name: teslamate
+          image: teslamate/teslamate:2.2.0
+          ports:
+            - containerPort: 4000
+          env:
+            - name: DATABASE_USER
+              value: "teslamate"
+            - name: DATABASE_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: teslamate-db
+                  key: password
+            - name: DATABASE_NAME
+              value: "teslamate"
+            - name: DATABASE_HOST
+              value: "blumeops-pg-rw.databases.svc.cluster.local"
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: teslamate-encryption
+                  key: key
+            - name: DISABLE_MQTT
+              value: "true"
+            - name: CHECK_ORIGIN
+              value: "false"
+            - name: TZ
+              value: "America/Los_Angeles"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 4000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 10

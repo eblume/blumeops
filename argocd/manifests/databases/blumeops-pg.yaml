@@ -7,6 +7,7 @@ metadata:
   namespace: databases
 spec:
   instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:18
 
   storage:
     size: 10Gi
@@ -43,6 +44,17 @@ spec:
           - pg_read_all_data
         passwordSecret:
           name: blumeops-pg-borgmatic
+      # teslamate user for TeslaMate Tesla data logger
+      # Note: superuser required for extension management during migrations
+      - name: teslamate
+        login: true
+        superuser: true
+        connectionLimit: -1
+        ensure: present
+        inherit: true
+        createdb: true
+        passwordSecret:
+          name: blumeops-pg-teslamate
 
   # Resource limits for minikube environment
   resources:

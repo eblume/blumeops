@@ -27,4 +27,3 @@ spec:
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
-  # Manual sync only - no automated sync on git push

@@ -15,3 +15,22 @@ resources:
   - dashboards/configmap-postgresql.yaml
   - dashboards/configmap-services.yaml
   - dashboards/configmap-zot.yaml
+  # TeslaMate dashboards
+  - dashboards/configmap-teslamate-overview.yaml
+  - dashboards/configmap-teslamate-charges.yaml
+  - dashboards/configmap-teslamate-drives.yaml
+  - dashboards/configmap-teslamate-efficiency.yaml
+  - dashboards/configmap-teslamate-states.yaml
+  - dashboards/configmap-teslamate-vampire-drain.yaml
+  - dashboards/configmap-teslamate-battery-health.yaml
+  - dashboards/configmap-teslamate-statistics.yaml
+  - dashboards/configmap-teslamate-charge-level.yaml
+  - dashboards/configmap-teslamate-updates.yaml
+  - dashboards/configmap-teslamate-trip.yaml
+  - dashboards/configmap-teslamate-locations.yaml
+  - dashboards/configmap-teslamate-mileage.yaml
+  - dashboards/configmap-teslamate-drive-stats.yaml
+  - dashboards/configmap-teslamate-charging-stats.yaml
+  - dashboards/configmap-teslamate-projected-range.yaml
+  - dashboards/configmap-teslamate-timeline.yaml
+  - dashboards/configmap-teslamate-visited.yaml

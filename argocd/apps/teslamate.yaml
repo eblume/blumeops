@@ -1,0 +1,32 @@
+# TeslaMate Tesla Data Logger
+# Requires: CloudNativePG PostgreSQL cluster and manual secret setup
+#
+# Before syncing, create the namespace and secrets:
+#   kubectl create namespace teslamate
+#   op inject -i argocd/manifests/databases/secret-teslamate.yaml.tpl | kubectl apply -f -
+#   op inject -i argocd/manifests/teslamate/secret-encryption-key.yaml.tpl | kubectl apply -f -
+#   op inject -i argocd/manifests/teslamate/secret-db.yaml.tpl | kubectl apply -f -
+#
+# Then create the database:
+#   PGPASSWORD=$(op --vault blumeops item get <eblume-item-id> --fields password --reveal) \
+#     psql -h pg.tail8d86e.ts.net -U eblume -c "CREATE DATABASE teslamate OWNER teslamate;"
+#
+# After syncing, access the TeslaMate UI at https://tesla.tail8d86e.ts.net to complete
+# Tesla API authentication via OAuth flow.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: teslamate
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/teslamate
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: teslamate
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

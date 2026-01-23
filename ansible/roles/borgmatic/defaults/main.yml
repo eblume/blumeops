@@ -46,3 +46,7 @@ borgmatic_postgresql_databases:
     hostname: pg.tail8d86e.ts.net
     port: 5432
     username: borgmatic
+  - name: teslamate
+    hostname: pg.tail8d86e.ts.net
+    port: 5432
+    username: borgmatic

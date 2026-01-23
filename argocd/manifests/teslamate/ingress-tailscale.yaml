@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: teslamate-tailscale
+  namespace: teslamate
+  annotations:
+    tailscale.com/proxy-class: "default"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: teslamate
+      port:
+        number: 4000
+  tls:
+    - hosts:
+        - tesla

@@ -8,6 +8,11 @@ admin:
   userKey: admin-user
   passwordKey: admin-password
 
+# Environment variables from secrets (for datasource credentials)
+envFromSecrets:
+  - name: grafana-teslamate-datasource
+    optional: true
+
 # Persistence with PVC for SQLite database
 persistence:
   enabled: true
@@ -44,6 +49,22 @@ datasources:
         uid: loki
         url: http://loki.monitoring.svc.cluster.local:3100
         editable: false
+      - name: TeslaMate
+        type: postgres
+        access: proxy
+        orgId: 1
+        uid: TeslaMate
+        url: blumeops-pg-rw.databases.svc.cluster.local:5432
+        database: teslamate
+        user: teslamate
+        editable: false
+        jsonData:
+          sslmode: disable
+          maxOpenConns: 5
+          maxIdleConns: 2
+          connMaxLifetime: 14400
+        secureJsonData:
+          password: $TESLAMATE_DB_PASSWORD
 
 # Dashboard provisioning - sidecar watches for ConfigMaps with label
 sidecar:

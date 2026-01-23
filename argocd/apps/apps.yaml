@@ -17,5 +17,4 @@ spec:
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
-  # Manual sync only - no automated sync on git push
   # To pick up new apps: argocd app sync apps
