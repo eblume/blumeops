@@ -52,7 +52,7 @@ spec:
 
         # Sidecar: Syncs declarative ZIM torrents to transmission
         - name: torrent-sync
-          image: lscr.io/linuxserver/transmission:latest  # Has transmission-remote CLI
+          image: lscr.io/linuxserver/transmission:4.0.6  # Has transmission-remote CLI
           command: ["/bin/bash", "-c"]
           args:
             - |

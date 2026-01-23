@@ -18,6 +18,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: devpi
+          # TODO: Tag builds with semantic versions (e.g., v1.0.0) for reproducibility
           image: registry.tail8d86e.ts.net/blumeops/devpi:latest
           env:
             - name: DEVPI_ROOT_PASSWORD

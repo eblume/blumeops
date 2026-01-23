@@ -4,7 +4,8 @@ kind: Kustomization
 namespace: argocd
 
 resources:
-  - https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+  # Pin to specific version for intentional upgrades
+  - https://raw.githubusercontent.com/argoproj/argo-cd/v3.2.6/manifests/install.yaml
   - service-tailscale.yaml
 
 patches:
