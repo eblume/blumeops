@@ -116,6 +116,7 @@
 
 - name: Check if macos-power-metrics LaunchDaemon is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.macos-power-metrics
+  become: true
   register: alloy_power_metrics_launchctl_check
   changed_when: false
   failed_when: false
