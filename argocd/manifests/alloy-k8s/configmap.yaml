@@ -102,18 +102,22 @@ data:
         }
       }
 
-      // Try to parse logfmt logs (e.g., Loki, Prometheus, Go services)
-      // Silently skip lines that aren't valid logfmt
-      stage.logfmt {
-        mapping = {
-          level     = "level",
-          ts        = "ts",
-          caller    = "caller",
-          component = "component",
+      // Try to parse logfmt logs, but only for non-JSON lines
+      // This prevents noisy decode errors when JSON logs hit the logfmt parser
+      stage.match {
+        selector = "{namespace=~\".+\"} |~ \"^[^{]\"" // Lines not starting with '{'
+
+        stage.logfmt {
+          mapping = {
+            level     = "level",
+            ts        = "ts",
+            caller    = "caller",
+            component = "component",
+          }
         }
       }
 
-      // Drop the logfmt error label if parsing failed (prevents noisy errors)
+      // Drop any error labels from parsing attempts (both JSON and logfmt)
       stage.label_drop {
         values = ["__error__", "__error_details__"]
       }
