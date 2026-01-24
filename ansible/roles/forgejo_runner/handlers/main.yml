@@ -1,11 +1,7 @@
 ---
 - name: Restart forgejo-runner
-  block:
-    - name: Unload forgejo-runner LaunchAgent
-      ansible.builtin.command: launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist
-      failed_when: false
-      changed_when: true
-
-    - name: Load forgejo-runner LaunchAgent
-      ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist
-      changed_when: true
+  listen: Restart forgejo-runner
+  ansible.builtin.shell: |
+    launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist 2>/dev/null || true
+    launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist
+  changed_when: true
