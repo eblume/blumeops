@@ -10,24 +10,35 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (git clone)
-        run: |
-          # For PRs use head_ref (branch name), for pushes use ref_name
-          BRANCH="${HEAD_REF:-$REF_NAME}"
-          git clone --depth 1 --branch "$BRANCH" \
-            "${SERVER_URL}/${REPOSITORY}.git" .
-        env:
-          GIT_SSL_NO_VERIFY: "true"
-          HEAD_REF: ${{ github.head_ref }}
-          REF_NAME: ${{ github.ref_name }}
-          SERVER_URL: ${{ github.server_url }}
-          REPOSITORY: ${{ github.repository }}
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Hello World
+      - name: Verify tools
         run: |
-          echo "Hello from Forgejo Actions!"
-          echo "Runner: $(hostname)"
+          echo "=== Node.js ==="
+          node --version
+          npm --version
+          echo ""
+          echo "=== Git ==="
+          git --version
+          echo ""
+          echo "=== Build tools ==="
+          make --version | head -1
+          gcc --version | head -1
+          echo ""
+          echo "=== Docker ==="
+          docker --version
+          echo ""
+          echo "=== Other tools ==="
+          curl --version | head -1
+          jq --version
+
+      - name: Show repo info
+        run: |
           echo "Repository: ${{ github.repository }}"
           echo "Event: ${{ github.event_name }}"
           echo "Ref: ${{ github.ref }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo ""
+          echo "=== Files ==="
           ls -la

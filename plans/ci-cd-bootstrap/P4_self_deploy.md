@@ -1,10 +1,10 @@
-# Phase 3: Self-Deploy & Transition to mcquack
+# Phase 4: Self-Deploy & Transition to mcquack
 
 **Goal**: Complete the bootstrap - Forgejo deploys itself, transition from brew to mcquack LaunchAgent
 
 **Status**: Planning
 
-**Prerequisites**: [Phase 2](P2_mirror_and_build.md) complete (build workflow produces valid binaries)
+**Prerequisites**: [Phase 3](P3_mirror_forgejo.md) complete (Forgejo builds and deploys to indri)
 
 ---
 
@@ -406,4 +406,4 @@ After recovery, switch back to Forgejo.
 
 ## Next Phase
 
-After bootstrap is complete, proceed to [Phase 4: Container Builds](P4_container_builds.md) to set up container image building for ArgoCD.
+After bootstrap is complete, proceed to [Phase 5: Container Builds](P5_container_builds.md) to set up container image building for ArgoCD.

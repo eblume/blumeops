@@ -1,91 +1,21 @@
-# Phase 4: Container Image Builds
+# Phase 5: Container Image Builds
 
 **Goal**: Set up CI workflows to build custom container images and push to zot registry
 
 **Status**: Planning
 
-**Prerequisites**: [Phase 3](P3_self_deploy.md) complete (Forgejo self-deploying, Actions working)
+**Prerequisites**: [Phase 4](P4_self_deploy.md) complete (Forgejo self-deploying, Actions working)
 
 ---
 
 ## Overview
 
-With Forgejo Actions operational, we can now build container images for:
+With Forgejo Actions operational (including custom runner from P2), we can now build container images for:
 - Custom devpi with pre-installed plugins
 - Any other custom images needed for k8s services
 - Release artifacts for Python packages
 
----
-
-## Use Case 0: Custom Runner Image
-
-### Problem
-
-The stock `forgejo/runner` image lacks tools needed for standard GitHub Actions:
-- **Node.js** - Required by most actions (checkout, setup-*, etc.)
-- **Docker CLI** - For building container images
-- **Git** - For repository operations
-- **Common build tools** - make, gcc, etc.
-
-In host mode, jobs run directly in the runner container, so these tools must be pre-installed.
-
-### Solution
-
-Build a custom runner image with all necessary tools:
-
-```dockerfile
-# argocd/manifests/forgejo-runner/Dockerfile
-FROM code.forgejo.org/forgejo/runner:3.5.1
-
-# Install Node.js (required for most GitHub Actions)
-RUN apt-get update && apt-get install -y \
-    nodejs \
-    npm \
-    git \
-    curl \
-    docker.io \
-    make \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-```
-
-### Workflow
-
-Create `.forgejo/workflows/build-runner.yml`:
-
-```yaml
-name: Build Runner Image
-
-on:
-  push:
-    paths:
-      - 'argocd/manifests/forgejo-runner/Dockerfile'
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        run: |
-          git clone --depth 1 "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
-
-      - name: Build and push
-        run: |
-          cd argocd/manifests/forgejo-runner
-          docker build -t registry.tail8d86e.ts.net/blumeops/forgejo-runner:latest .
-          docker push registry.tail8d86e.ts.net/blumeops/forgejo-runner:latest
-```
-
-### Update Deployment
-
-Once the custom image is built, update `argocd/manifests/forgejo-runner/deployment.yaml`:
-
-```yaml
-image: registry.tail8d86e.ts.net/blumeops/forgejo-runner:latest
-```
-
-This enables standard GitHub Actions like `actions/checkout@v4` to work in host mode.
+**Note**: The custom runner image build is covered in [Phase 2](P2_mirror_and_build.md). This phase focuses on application container builds.
 
 ---
 

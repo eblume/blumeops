@@ -1,138 +1,188 @@
-# Phase 2: Mirror Forgejo & Create Build Workflow
+# Phase 2: Custom Runner Image
 
-**Goal**: Mirror upstream Forgejo to forge and create a workflow that builds it from source
+**Goal**: Build a custom forgejo-runner image with necessary tools, enabling standard GitHub Actions
 
-**Status**: Planning
+**Status**: Complete (2026-01-23)
 
-**Prerequisites**: [Phase 1](P1_enable_actions.md) complete (Actions enabled, runner deployed)
-
----
-
-## Current State
-
-- Forgejo Actions enabled with runner in k8s
-- Upstream Forgejo at https://codeberg.org/forgejo/forgejo
-- No local mirror yet
+**Prerequisites**: [Phase 1](P1_enable_actions.md) complete (Actions enabled, runner deployed in host mode)
 
 ---
 
-## Step 1: Mirror Upstream Forgejo
+## Problem Statement
 
-### 1.1 User Action: Create Mirror on Forge
+The stock `code.forgejo.org/forgejo/runner:3.5.1` image lacks tools needed for standard GitHub Actions:
+- **Node.js** - Required by most actions (checkout, setup-*, etc.)
+- **Git** - For repository operations (present but minimal)
+- **Common build tools** - make, gcc, curl, jq, etc.
 
-**Manual step** (hairpinning doesn't work from indri):
+In host mode, jobs run directly in the runner container, so these tools must be pre-installed.
 
-1. Go to https://forge.tail8d86e.ts.net
-2. Click "+" → "New Migration"
-3. Select "Gitea" as clone source
-4. URL: `https://codeberg.org/forgejo/forgejo.git`
-5. Repository name: `forgejo`
-6. Check "This repository will be a mirror"
-7. Click "Migrate Repository"
+### Chicken-and-Egg Problem
 
-### 1.2 Clone Mirror Locally
+We can't use `actions/checkout@v4` to build the custom runner because that action requires Node.js, which we don't have yet. Solution: Bootstrap manually, then automate.
 
-```bash
-git clone ssh://forgejo@forge.tail8d86e.ts.net/eblume/forgejo.git ~/code/3rd/forgejo
-cd ~/code/3rd/forgejo
+---
+
+## Step 1: Create Dockerfile for Custom Runner
+
+Create `argocd/manifests/forgejo-runner/Dockerfile`:
+
+```dockerfile
+FROM code.forgejo.org/forgejo/runner:3.5.1
+
+# The base image is Debian-based
+# Install tools needed for GitHub Actions and builds
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Required for actions/checkout and other Node-based actions
+    nodejs \
+    npm \
+    # Build essentials
+    git \
+    curl \
+    wget \
+    jq \
+    make \
+    gcc \
+    g++ \
+    # For container builds (if we add Docker-in-Docker later)
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Verify Node.js is available
+RUN node --version && npm --version
 ```
 
 ---
 
-## Step 2: Understand Forgejo Build Process
+## Step 2: Bootstrap - Build Image Manually
 
-### 2.1 Build Requirements
+Since we can't use CI yet, build the image manually on gilbert and push to zot.
 
-From Forgejo's `Makefile` and docs:
-
-- **Go**: 1.23+ (check `go.mod` for exact version)
-- **Node.js**: 20+ (for frontend)
-- **Make**: GNU Make
-- **Git**: For version embedding
-
-### 2.2 Build Commands
+### 2.1 Build with Podman
 
 ```bash
-# Install frontend dependencies and build
-make deps-frontend
-make frontend
+cd ~/code/personal/blumeops/argocd/manifests/forgejo-runner
 
-# Build backend
-TAGS="bindata sqlite sqlite_unlock_notify" make backend
+# Build for linux/arm64 (minikube on M1 Mac)
+podman build --platform linux/arm64 -t registry.tail8d86e.ts.net/blumeops/forgejo-runner:latest .
 
-# Or all-in-one
-TAGS="bindata sqlite sqlite_unlock_notify" make build
+# Push to zot (no auth required)
+podman push registry.tail8d86e.ts.net/blumeops/forgejo-runner:latest
 ```
 
-### 2.3 Output
+### 2.2 Verify Image in Registry
 
-Binary at `gitea` (yes, the binary is still named `gitea` for compatibility).
+```bash
+curl -s https://registry.tail8d86e.ts.net/v2/blumeops/forgejo-runner/tags/list | jq .
+```
 
 ---
 
-## Step 3: Create Build Workflow
+## Step 3: Update Runner Deployment
 
-### 3.1 SSH Deploy Key for Runner
+### 3.1 Update deployment.yaml
 
-The runner needs SSH access to indri to deploy the binary.
-
-**Generate key on gilbert**:
-```bash
-ssh-keygen -t ed25519 -C "forgejo-runner-deploy" -f ~/.ssh/forgejo-runner-deploy
-```
-
-**Add public key to indri's authorized_keys**:
-```bash
-cat ~/.ssh/forgejo-runner-deploy.pub | ssh indri 'cat >> ~/.ssh/authorized_keys'
-```
-
-**Store private key in 1Password** (blumeops vault) as "Forgejo Runner Deploy Key"
-
-**Add to k8s as secret**:
-
-Create `argocd/manifests/forgejo-runner/secret-ssh.yaml.tpl`:
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: forgejo-runner-ssh
-  namespace: forgejo-runner
-type: Opaque
-stringData:
-  id_ed25519: |
-    op://blumeops/<deploy-key-item>/private-key
-  known_hosts: |
-    indri.tail8d86e.ts.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIxxxxxx
-```
-
-Get indri's host key:
-```bash
-ssh-keyscan indri.tail8d86e.ts.net 2>/dev/null | grep ed25519
-```
-
-### 3.2 Create Workflow File
-
-Create `.forgejo/workflows/build.yml` in the forgejo mirror repo:
+Change the image from stock to custom:
 
 ```yaml
-name: Build Forgejo
+# Before
+image: code.forgejo.org/forgejo/runner:3.5.1
+
+# After
+image: registry.tail8d86e.ts.net/blumeops/forgejo-runner:latest
+```
+
+### 3.2 Update kustomization.yaml
+
+Add Dockerfile to resources (for reference, not deployed):
+
+```yaml
+# Note: Dockerfile is for building, not k8s deployment
+# It lives here for co-location with the runner manifests
+```
+
+### 3.3 Sync Deployment
+
+```bash
+argocd app sync forgejo-runner
+
+# Verify new image is running
+kubectl --context=minikube-indri -n forgejo-runner get pods -o jsonpath='{.items[*].spec.containers[*].image}'
+```
+
+---
+
+## Step 4: Test with Real GitHub Action
+
+Now that we have Node.js, test with `actions/checkout@v4`.
+
+### 4.1 Update Test Workflow
+
+Update `.forgejo/workflows/test.yml`:
+
+```yaml
+name: Test CI
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+  pull_request:
   workflow_dispatch:
-    inputs:
-      deploy:
-        description: 'Deploy to indri after build'
-        required: false
-        default: 'true'
-        type: boolean
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify tools
+        run: |
+          echo "Node.js: $(node --version)"
+          echo "npm: $(npm --version)"
+          echo "Git: $(git --version)"
+          echo "Make: $(make --version | head -1)"
+
+      - name: Show repo info
+        run: |
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch: ${{ github.ref_name }}"
+          ls -la
+```
+
+### 4.2 Push and Verify
+
+```bash
+git add .forgejo/workflows/test.yml
+git commit -m "Test checkout action with custom runner"
+git push
+```
+
+Check https://forge.tail8d86e.ts.net/eblume/blumeops/actions - should see successful run with `actions/checkout@v4`.
+
+---
+
+## Step 5: Create Auto-Build Workflow for Runner
+
+Now that Actions work properly, create a workflow to rebuild the runner image automatically.
+
+### 5.1 Create Build Workflow
+
+Create `.forgejo/workflows/build-runner.yml`:
+
+```yaml
+name: Build Runner Image
+
+on:
+  push:
+    paths:
+      - 'argocd/manifests/forgejo-runner/Dockerfile'
+      - '.forgejo/workflows/build-runner.yml'
+  workflow_dispatch:
 
 env:
-  GOPROXY: "https://proxy.golang.org,direct"
-  CGO_ENABLED: "1"
-  TAGS: "bindata sqlite sqlite_unlock_notify"
+  REGISTRY: registry.tail8d86e.ts.net
+  IMAGE_NAME: blumeops/forgejo-runner
 
 jobs:
   build:
@@ -140,237 +190,158 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Need full history for version
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Get version
-        id: version
+      - name: Build image
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            VERSION="${{ github.ref_name }}"
-          else
-            VERSION="$(git describe --tags --always)-dev"
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Building version: $VERSION"
+          cd argocd/manifests/forgejo-runner
+          # Use docker build (available in runner container)
+          # Note: This builds for the runner's native arch
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+                     ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
-      - name: Build frontend
+      - name: Push to registry
         run: |
-          make deps-frontend
-          make frontend
+          # Zot has no auth, just push
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
-      - name: Build backend
+      - name: Verify push
         run: |
-          TAGS="${{ env.TAGS }}" make backend
-          ./gitea --version
-
-      - name: Rename binary
-        run: |
-          mv gitea forgejo-${{ steps.version.outputs.version }}-darwin-arm64
-          ls -la forgejo-*
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: forgejo-${{ steps.version.outputs.version }}-darwin-arm64
-          path: forgejo-${{ steps.version.outputs.version }}-darwin-arm64
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true')
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: forgejo-${{ needs.build.outputs.version }}-darwin-arm64
-
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-
-      - name: Deploy to indri
-        run: |
-          BINARY="forgejo-*-darwin-arm64"
-          chmod +x $BINARY
-
-          # Copy binary to indri
-          scp $BINARY erichblume@indri.tail8d86e.ts.net:~/.local/bin/forgejo-new
-
-          # Atomic swap and restart
-          ssh erichblume@indri.tail8d86e.ts.net << 'EOF'
-            set -e
-            cd ~/.local/bin
-
-            # Verify the new binary runs
-            ./forgejo-new --version
-
-            # Stop current service
-            launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo.plist 2>/dev/null || true
-
-            # Atomic swap
-            mv forgejo forgejo-old 2>/dev/null || true
-            mv forgejo-new forgejo
-
-            # Start new service
-            launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo.plist
-
-            # Verify it's running
-            sleep 5
-            curl -sf http://localhost:3001/api/v1/version || exit 1
-
-            echo "Deploy successful!"
-            ./forgejo --version
-          EOF
+          curl -sf "https://${{ env.REGISTRY }}/v2/${{ env.IMAGE_NAME }}/tags/list" | jq .
+          echo "Image pushed: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
 ```
 
-### 3.3 Add Repository Secrets
+### 5.2 Note on Docker-in-Docker
 
-In Forgejo, go to the forgejo repo → Settings → Actions → Secrets:
+The runner runs in host mode, so we need Docker CLI available. Options:
 
-1. **DEPLOY_SSH_KEY**: Private key from 1Password
-2. **DEPLOY_KNOWN_HOSTS**: Output of `ssh-keyscan indri.tail8d86e.ts.net`
+1. **Add Docker CLI to the custom image** (see Dockerfile update below)
+2. **Mount Docker socket from minikube** (requires deployment change)
+3. **Use Podman instead** (rootless, no socket needed)
+
+For now, we'll add Docker CLI to the image and mount the socket.
+
+### 5.3 Update Dockerfile for Docker Builds
+
+```dockerfile
+FROM code.forgejo.org/forgejo/runner:3.5.1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nodejs \
+    npm \
+    git \
+    curl \
+    wget \
+    jq \
+    make \
+    gcc \
+    g++ \
+    ca-certificates \
+    # Docker CLI for building container images
+    docker.io \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN node --version && npm --version && docker --version
+```
+
+### 5.4 Update Deployment for Docker Socket
+
+Add Docker socket mount to `deployment.yaml`:
+
+```yaml
+volumeMounts:
+  - name: runner-data
+    mountPath: /data
+  - name: runner-config
+    mountPath: /config
+  - name: docker-sock
+    mountPath: /var/run/docker.sock
+volumes:
+  - name: runner-data
+    emptyDir: {}
+  - name: runner-config
+    configMap:
+      name: forgejo-runner-config
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+      type: Socket
+```
 
 ---
 
-## Step 4: Build Cross-Platform Consideration
+## Step 6: Verification
 
-**Important**: The runner runs Linux containers, but indri is macOS ARM64.
-
-**Options**:
-
-### Option A: Cross-compile (Simpler, may have issues)
-
-Add to build job:
-```yaml
-env:
-  GOOS: darwin
-  GOARCH: arm64
-```
-
-CGO cross-compilation is tricky. May need to disable CGO or use a cross-compiler.
-
-### Option B: Build on macOS (More reliable)
-
-Run a macOS runner on indri itself (not in k8s).
+### 6.1 Manual Image Build Works
 
 ```bash
-# Install forgejo-runner on indri via mise
-ssh indri 'mise use forgejo-runner'
-
-# Register as a macOS runner
-ssh indri 'forgejo-runner register --labels "macos-arm64:host" ...'
+# On gilbert
+podman build --platform linux/arm64 -t registry.tail8d86e.ts.net/blumeops/forgejo-runner:test .
+podman push registry.tail8d86e.ts.net/blumeops/forgejo-runner:test
 ```
 
-Then workflow uses:
-```yaml
-runs-on: macos-arm64
-```
+### 6.2 Runner Uses Custom Image
 
-**Recommendation**: Option B is more reliable for native macOS builds. Consider deploying a runner directly on indri for macOS-specific builds.
-
----
-
-## Step 5: Test the Build
-
-### 5.1 Manual Workflow Dispatch
-
-1. Go to https://forge.tail8d86e.ts.net/eblume/forgejo/actions
-2. Select "Build Forgejo" workflow
-3. Click "Run workflow"
-4. Set deploy=false for first test
-5. Monitor the run
-
-### 5.2 Verify Artifact
-
-Download the artifact from the workflow run and verify it's a valid binary:
 ```bash
-# If downloaded to gilbert
-file forgejo-*-darwin-arm64
-# Should show: Mach-O 64-bit executable arm64
+kubectl --context=minikube-indri -n forgejo-runner get pods -o jsonpath='{.items[*].spec.containers[*].image}'
+# Should show: registry.tail8d86e.ts.net/blumeops/forgejo-runner:latest
 ```
 
----
+### 6.3 GitHub Actions Work
 
-## Alternative: Build on Gilbert, Deploy via CI
+- `actions/checkout@v4` succeeds
+- Test workflow shows Node.js, npm, git versions
 
-If cross-compilation proves difficult, consider a hybrid approach:
+### 6.4 Auto-Build Workflow Works
 
-1. **Build on gilbert** (has Go, Node, is macOS ARM64)
-2. **CI just deploys** the built binary
-
-Workflow in blumeops repo:
-```yaml
-name: Deploy Forgejo
-
-on:
-  workflow_dispatch:
-    inputs:
-      binary_path:
-        description: 'Path to binary on gilbert'
-        required: true
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      # Fetch binary from gilbert and deploy to indri
-      # (requires SSH access to both)
-```
-
-This is less elegant but more pragmatic for macOS targets.
+Push a change to the Dockerfile and verify:
+1. Workflow triggers
+2. Image builds successfully
+3. Image pushed to zot
 
 ---
 
 ## Verification Checklist
 
-- [ ] Forgejo mirrored to forge
-- [ ] SSH deploy key created and stored in 1Password
-- [ ] Deploy key added to indri authorized_keys
-- [ ] SSH secret added to k8s
-- [ ] Workflow file created in forgejo mirror
-- [ ] Repository secrets configured
-- [ ] Test build completes successfully
-- [ ] Binary is valid macOS ARM64 executable
+- [x] Dockerfile created for custom runner (Alpine-based with apk)
+- [x] Image built manually on gilbert (podman build)
+- [x] Image pushed to zot registry
+- [x] Runner deployment updated to use custom image
+- [x] Runner pod running with new image
+- [x] `actions/checkout@v4` works in test workflow
+- [ ] Auto-build workflow created (deferred - needs Docker socket)
+- [ ] Docker socket mounted (for container builds)
+- [ ] Auto-build workflow successfully rebuilds runner
 
 ---
 
 ## Troubleshooting
 
-### CGO Cross-Compilation Fails
+### Image Pull Fails in Minikube
 
-If building Linux→macOS fails:
+Minikube needs to be able to pull from zot. Check registry mirror config:
+```bash
+ssh indri 'minikube ssh -- cat /etc/containerd/certs.d/registry.tail8d86e.ts.net/hosts.toml'
 ```
-# runtime/cgo
-gcc: error: unrecognized command line option '-arch'
+
+### Docker Build Fails in Workflow
+
+If Docker socket mount doesn't work:
+1. Check socket exists in minikube: `minikube ssh -- ls -la /var/run/docker.sock`
+2. Check permissions: runner may need to be in docker group
+3. Alternative: Use `podman` (rootless) instead of Docker
+
+### Node.js Actions Still Fail
+
+Ensure the runner pod restarted after image update:
+```bash
+kubectl --context=minikube-indri -n forgejo-runner rollout restart deployment/forgejo-runner
+kubectl --context=minikube-indri -n forgejo-runner logs -f deployment/forgejo-runner
 ```
-
-Either:
-1. Use Option B (macOS runner on indri)
-2. Build with `CGO_ENABLED=0` (loses some features)
-3. Use a Docker image with macOS cross-compiler (complex)
-
-### Artifact Too Large
-
-Forgejo binary is ~100MB. If upload fails:
-- Check Forgejo's artifact size limit in app.ini
-- Consider compressing: `gzip -9 forgejo-*`
 
 ---
 
 ## Next Phase
 
-Once build is working and produces valid binaries, proceed to [Phase 3: Self-Deploy](P3_self_deploy.md).
+Once the custom runner is working with auto-build, proceed to [Phase 3: Mirror Forgejo & Build](P3_mirror_and_build.md) to set up Forgejo source builds.
