@@ -26,8 +26,9 @@ jobs:
           make --version | head -1
           gcc --version | head -1
           echo ""
-          echo "=== Docker ==="
-          docker --version
+          echo "=== Container tools (Buildah) ==="
+          buildah --version
+          podman --version
           echo ""
           echo "=== Other tools ==="
           curl --version | head -1
