@@ -17,6 +17,7 @@ spec:
       containers:
         - name: runner
           image: registry.tail8d86e.ts.net/blumeops/forgejo-runner:latest
+          imagePullPolicy: Always
           env:
             # Use internal k8s service via Tailscale operator egress
             - name: FORGEJO_INSTANCE_URL
