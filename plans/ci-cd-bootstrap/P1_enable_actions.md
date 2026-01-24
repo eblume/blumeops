@@ -2,7 +2,7 @@
 
 **Goal**: Configure Forgejo to support Actions workflows and deploy a runner in k8s
 
-**Status**: Planning
+**Status**: Completed (2026-01-23)
 
 **Prerequisites**: None (uses existing brew-based Forgejo)
 
@@ -281,13 +281,13 @@ Check https://forge.tail8d86e.ts.net/eblume/blumeops/actions for the workflow ru
 
 ## Verification Checklist
 
-- [ ] Actions enabled in app.ini
-- [ ] Forgejo restarted successfully
-- [ ] Runner token stored in 1Password
-- [ ] Runner deployment created in ArgoCD
-- [ ] Runner pod running in k8s
-- [ ] Runner shows as online in Forgejo admin
-- [ ] Test workflow runs successfully
+- [x] Actions enabled in app.ini
+- [x] Forgejo restarted successfully
+- [x] Runner token stored in 1Password
+- [x] Runner deployment created in ArgoCD
+- [x] Runner pod running in k8s
+- [x] Runner shows as online in Forgejo admin
+- [x] Test workflow runs successfully
 
 ---
 

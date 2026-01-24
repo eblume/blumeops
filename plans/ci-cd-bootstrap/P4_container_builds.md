@@ -455,6 +455,96 @@ Add Trivy or similar:
 
 ---
 
+## Step 6: Runner Observability (Logging & Metrics)
+
+### 6.1 Problem
+
+The forgejo-runner pod generates logs and metrics that should be collected for:
+- Debugging failed workflow runs
+- Monitoring runner health and capacity
+- Alerting on runner failures
+
+### 6.2 Log Collection via Alloy
+
+The forgejo-runner namespace needs to be included in Alloy's k8s log collection. Alloy is already configured to scrape logs from k8s pods - verify the runner namespace is included.
+
+Check current Alloy config:
+```bash
+ssh indri 'cat ~/.config/alloy/config.alloy | grep -A20 discovery.kubernetes'
+```
+
+If using namespace filtering, ensure `forgejo-runner` is included.
+
+### 6.3 Metrics Collection
+
+The forgejo-runner exposes Prometheus metrics. Add a ServiceMonitor or configure Alloy to scrape:
+
+**Option A: ServiceMonitor (if using Prometheus Operator)**
+
+Create `argocd/manifests/forgejo-runner/servicemonitor.yaml`:
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: forgejo-runner
+  namespace: forgejo-runner
+spec:
+  selector:
+    matchLabels:
+      app: forgejo-runner
+  endpoints:
+    - port: metrics
+      interval: 30s
+```
+
+**Option B: Alloy scrape config**
+
+Add to Alloy's k8s scrape config to discover the runner pod's metrics endpoint.
+
+### 6.4 Create Runner Service for Metrics
+
+Add `argocd/manifests/forgejo-runner/service.yaml`:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo-runner-metrics
+  namespace: forgejo-runner
+  labels:
+    app: forgejo-runner
+spec:
+  selector:
+    app: forgejo-runner
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+```
+
+Update kustomization.yaml to include the service.
+
+### 6.5 Grafana Dashboard
+
+Consider creating a dashboard for:
+- Runner status (online/offline)
+- Job queue depth
+- Job execution time
+- Success/failure rates
+
+### 6.6 Verification
+
+```bash
+# Check runner logs are appearing in Loki
+# Go to Grafana → Explore → Loki
+# Query: {namespace="forgejo-runner"}
+
+# Check metrics are being scraped
+# Go to Grafana → Explore → Prometheus
+# Query: forgejo_runner_*
+```
+
+---
+
 ## Verification Checklist
 
 - [ ] devpi build workflow created
@@ -464,6 +554,8 @@ Add Trivy or similar:
 - [ ] Reusable container workflow created
 - [ ] (Optional) Python build workflow created
 - [ ] (Optional) Scheduled builds configured
+- [ ] Runner logs visible in Loki
+- [ ] Runner metrics scraped by Prometheus/Alloy
 
 ---
 
@@ -474,8 +566,10 @@ With this phase complete, we have:
 2. **Forgejo self-deploys** from CI on tagged releases
 3. **Container images** built automatically on push
 4. Infrastructure for Python package builds
+5. **Runner observability** with logs in Loki and metrics in Prometheus
 
 The CI/CD bootstrap is complete. Future work:
 - Add more container builds as needed
 - Add Python package publishing for internal tools
 - Consider adding a macOS runner on indri for native builds
+- Create Grafana dashboards for CI/CD monitoring

@@ -49,12 +49,12 @@ This plan details the setup of Forgejo Actions as the CI/CD system for blumeops,
 
 ## Phases
 
-| Phase | Name | Description |
-|-------|------|-------------|
-| 1 | [Enable Actions](P1_enable_actions.md) | Configure Forgejo for Actions, deploy runner |
-| 2 | [Mirror & Build](P2_mirror_and_build.md) | Mirror upstream Forgejo, create build workflow |
-| 3 | [Self-Deploy](P3_self_deploy.md) | Forgejo deploys itself, transition to mcquack |
-| 4 | [Container Builds](P4_container_builds.md) | Build custom container images (devpi, etc.) |
+| Phase | Name | Description | Status |
+|-------|------|-------------|--------|
+| 1 | [Enable Actions](P1_enable_actions.md) | Configure Forgejo for Actions, deploy runner | ✅ Complete |
+| 2 | [Mirror & Build](P2_mirror_and_build.md) | Mirror upstream Forgejo, create build workflow | Planning |
+| 3 | [Self-Deploy](P3_self_deploy.md) | Forgejo deploys itself, transition to mcquack | Planning |
+| 4 | [Container Builds](P4_container_builds.md) | Build custom container images, runner observability | Planning |
 
 ## The Bootstrap Problem
 
