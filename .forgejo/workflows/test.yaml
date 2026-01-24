@@ -13,17 +13,21 @@ jobs:
       - name: Checkout (git clone)
         run: |
           # For PRs use head_ref (branch name), for pushes use ref_name
-          BRANCH="${{ gitea.head_ref || gitea.ref_name }}"
+          BRANCH="${HEAD_REF:-$REF_NAME}"
           git clone --depth 1 --branch "$BRANCH" \
-            "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
+            "${SERVER_URL}/${REPOSITORY}.git" .
         env:
           GIT_SSL_NO_VERIFY: "true"
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
 
       - name: Hello World
         run: |
           echo "Hello from Forgejo Actions!"
           echo "Runner: $(hostname)"
-          echo "Repository: ${{ gitea.repository }}"
-          echo "Event: ${{ gitea.event_name }}"
-          echo "Ref: ${{ gitea.ref }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
           ls -la

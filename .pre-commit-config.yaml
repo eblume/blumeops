@@ -80,3 +80,10 @@ repos:
       - id: prettier
         types_or: [json]
         args: ['--tab-width', '2']
+
+  # GitHub/Forgejo Actions workflow linting
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.10
+    hooks:
+      - id: actionlint-system
+        files: ^\.forgejo/workflows/
