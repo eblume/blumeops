@@ -46,4 +46,3 @@ RUN node --version && npm --version && buildah --version
 
 # Switch back to non-root user
 USER 1000
-# Built with Buildah
