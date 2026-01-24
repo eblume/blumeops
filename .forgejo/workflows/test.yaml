@@ -23,15 +23,15 @@ jobs:
           git --version
           echo ""
           echo "=== Build tools ==="
-          make --version | head -1
-          gcc --version | head -1
+          make --version 2>&1 | head -1 || true
+          gcc --version 2>&1 | head -1 || true
           echo ""
           echo "=== Container tools (Buildah) ==="
           buildah --version
           podman --version
           echo ""
           echo "=== Other tools ==="
-          curl --version | head -1
+          curl --version 2>&1 | head -1 || true
           jq --version
 
       - name: Show repo info
