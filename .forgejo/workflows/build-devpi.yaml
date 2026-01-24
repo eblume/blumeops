@@ -1,13 +1,14 @@
-name: Build devpi Image
+name: Build devpi
 
 on:
   push:
-    paths:
-      - 'argocd/manifests/devpi/Dockerfile'
-      - 'argocd/manifests/devpi/start.sh'
-      - '.forgejo/workflows/build-devpi.yaml'
-    branches: [main]
+    tags:
+      - 'devpi-v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. v1.0.0)'
+        required: true
 
 jobs:
   build:
@@ -16,8 +17,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            # Extract version from tag: devpi-v1.0.0 -> v1.0.0
+            VERSION="${GITHUB_REF_NAME#devpi-}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building version: $VERSION"
+
       - name: Build and push
         uses: ./.forgejo/actions/build-push-image
         with:
           context: argocd/manifests/devpi
           image_name: blumeops/devpi
+          version: ${{ steps.version.outputs.version }}

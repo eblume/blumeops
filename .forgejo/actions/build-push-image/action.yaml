@@ -1,5 +1,8 @@
 name: 'Build and Push Image'
-description: 'Build a container image with Buildah and push to registry'
+description: 'Build a container image with Buildah and push to zot registry'
+
+# TODO: Investigate zot tag immutability to prevent overwriting released versions
+# See: https://zotregistry.dev/v2.1.1/articles/immutable-tags/
 
 inputs:
   context:
@@ -12,10 +15,9 @@ inputs:
   image_name:
     description: 'Image name (without registry, e.g. blumeops/devpi)'
     required: true
-  tag:
-    description: 'Image tag'
-    required: false
-    default: 'latest'
+  version:
+    description: 'Version tag (e.g. v1.0.0)'
+    required: true
   registry:
     description: 'Registry URL'
     required: false
@@ -27,8 +29,9 @@ runs:
     - name: Build image with Buildah
       shell: bash
       run: |
+        echo "Building ${{ inputs.image_name }}:${{ inputs.version }}"
         buildah bud \
-          --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.tag }} \
+          --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }} \
           --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }} \
           --file ${{ inputs.context }}/${{ inputs.dockerfile }} \
           ${{ inputs.context }}
@@ -36,12 +39,16 @@ runs:
     - name: Push to registry
       shell: bash
       run: |
-        buildah push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.tag }}
+        echo "Pushing ${{ inputs.image_name }}:${{ inputs.version }}"
+        buildah push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}
         buildah push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
 
-    - name: Verify push
+    - name: Summary
       shell: bash
       run: |
-        echo "✅ Pushed: ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.tag }}"
-        echo "✅ Pushed: ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}"
-        curl -sf "https://${{ inputs.registry }}/v2/${{ inputs.image_name }}/tags/list" | jq .
+        echo "✅ Built and pushed:"
+        echo "   ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}"
+        echo "   ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}"
+        echo ""
+        echo "Registry tags:"
+        curl -sf "https://${{ inputs.registry }}/v2/${{ inputs.image_name }}/tags/list" | jq -r '.tags[]' | sort -V | tail -10
