@@ -1,5 +1,5 @@
 name: 'Build and Push Image'
-description: 'Build a container image with Buildah and push to zot registry'
+description: 'Build a container image with Docker and push to zot registry'
 
 # TODO: Investigate zot tag immutability to prevent overwriting released versions
 # See: https://zotregistry.dev/v2.1.1/articles/immutable-tags/
@@ -26,11 +26,11 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Build image with Buildah
+    - name: Build image with Docker
       shell: bash
       run: |
         echo "Building ${{ inputs.image_name }}:${{ inputs.version }}"
-        buildah bud \
+        docker build \
           --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }} \
           --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }} \
           --file ${{ inputs.context }}/${{ inputs.dockerfile }} \
@@ -40,15 +40,15 @@ runs:
       shell: bash
       run: |
         echo "Pushing ${{ inputs.image_name }}:${{ inputs.version }}"
-        buildah push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}
-        buildah push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
+        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}
+        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
 
     - name: Summary
       shell: bash
       run: |
-        echo "✅ Built and pushed:"
+        echo "Built and pushed:"
         echo "   ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}"
         echo "   ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}"
         echo ""
         echo "Registry tags:"
-        curl -sf "https://${{ inputs.registry }}/v2/${{ inputs.image_name }}/tags/list" | jq -r '.tags[]' | sort -V | tail -10
+        curl -sf "https://${{ inputs.registry }}/v2/${{ inputs.image_name }}/tags/list" | jq -r '.tags[]' | sort -V | tail -10 || true
