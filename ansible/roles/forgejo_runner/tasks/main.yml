@@ -1,0 +1,83 @@
+---
+# Forgejo Runner on indri
+#
+# Uses Docker container mode for job isolation.
+# Can build containers using Docker (via socket).
+#
+# ONE-TIME SETUP (before running ansible):
+#
+# 1. Clone forgejo-runner from forge mirror:
+#    ssh indri 'git clone https://forge.tail8d86e.ts.net/eblume/forgejo-runner.git ~/code/3rd/forgejo-runner'
+#
+# 2. Set up Go via mise:
+#    ssh indri 'cd ~/code/3rd/forgejo-runner && mise use go@1.24'
+#
+# 3. Build:
+#    ssh indri 'cd ~/code/3rd/forgejo-runner && mise x -- make build'
+#
+# 4. Run ansible to deploy config and LaunchAgent
+
+- name: Verify forgejo-runner binary exists
+  ansible.builtin.stat:
+    path: "{{ forgejo_runner_binary }}"
+  register: forgejo_runner_binary_stat
+
+- name: Fail if forgejo-runner binary not found
+  ansible.builtin.fail:
+    msg: |
+      Forgejo-runner binary not found at {{ forgejo_runner_binary }}.
+      Please build from source first:
+        ssh indri 'cd ~/code/3rd/forgejo-runner && mise x -- make build'
+  when: not forgejo_runner_binary_stat.stat.exists
+
+- name: Ensure forgejo-runner directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ forgejo_runner_data_dir }}"
+    - "{{ forgejo_runner_config_dir }}"
+
+- name: Deploy forgejo-runner config
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ forgejo_runner_config_dir }}/config.yaml"
+    mode: '0644'
+  notify: Restart forgejo-runner
+
+- name: Check if runner is registered
+  ansible.builtin.stat:
+    path: "{{ forgejo_runner_data_dir }}/.runner"
+  register: forgejo_runner_registered
+
+- name: Register runner with Forgejo
+  ansible.builtin.command:
+    cmd: >
+      {{ forgejo_runner_binary }} register
+      --instance "{{ forgejo_runner_instance_url }}"
+      --token "{{ forgejo_runner_token }}"
+      --name "{{ forgejo_runner_name }}"
+      --labels "{{ forgejo_runner_labels }}"
+      --no-interactive
+    chdir: "{{ forgejo_runner_data_dir }}"
+  when: not forgejo_runner_registered.stat.exists
+  changed_when: true
+
+- name: Deploy forgejo-runner LaunchAgent plist
+  ansible.builtin.template:
+    src: forgejo-runner.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist
+    mode: '0644'
+  notify: Restart forgejo-runner
+
+- name: Check if forgejo-runner LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.forgejo-runner
+  register: forgejo_runner_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load forgejo-runner LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist
+  when: forgejo_runner_launchctl_check.rc != 0
+  changed_when: true

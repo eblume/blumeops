@@ -1,0 +1,19 @@
+---
+forgejo_runner_repo_dir: /Users/erichblume/code/3rd/forgejo-runner
+forgejo_runner_binary: "{{ forgejo_runner_repo_dir }}/forgejo-runner"
+forgejo_runner_data_dir: /Users/erichblume/.forgejo-runner
+forgejo_runner_config_dir: /Users/erichblume/.config/forgejo-runner
+forgejo_runner_log_dir: /Users/erichblume/Library/Logs
+
+# Runner registration
+forgejo_runner_instance_url: "http://localhost:3001"
+forgejo_runner_name: "indri-docker-runner"
+forgejo_runner_labels: "docker-builder:docker"
+
+# Runner config
+forgejo_runner_capacity: 2
+forgejo_runner_timeout: 3h
+
+# Docker container settings for jobs
+forgejo_runner_docker_network: bridge
+forgejo_runner_privileged: true  # Needed for container builds
