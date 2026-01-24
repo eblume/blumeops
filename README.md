@@ -74,6 +74,10 @@ Hooks include:
 - **TOML**: taplo
 - **JSON**: prettier
 
+## CI/CD
+
+This repo uses [Forgejo Actions](https://forgejo.org/docs/latest/user/actions/) for CI/CD. Workflows live in `.forgejo/workflows/` (not `.github/workflows/`). The runner executes jobs in host mode within the Kubernetes cluster.
+
 ## Documentation
 
 Detailed documentation lives in my personal zettelkasten, which is not included in this repository. You can view the docs with:

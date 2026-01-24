@@ -1,0 +1,51 @@
+---
+# Forgejo configuration
+# Secrets are fetched from 1Password in the playbook pre_tasks
+
+forgejo_app_name: Forgejo
+forgejo_app_slogan: "Beyond coding. We Forge."
+forgejo_run_user: forgejo
+forgejo_run_mode: prod
+
+# Paths (brew-managed for now, will change to mcquack in Phase 3)
+forgejo_work_path: /opt/homebrew/var/forgejo
+forgejo_config_path: "{{ forgejo_work_path }}/custom/conf/app.ini"
+forgejo_data_path: "{{ forgejo_work_path }}/data"
+forgejo_repo_root: "{{ forgejo_data_path }}/forgejo-repositories"
+forgejo_lfs_path: "{{ forgejo_data_path }}/lfs"
+forgejo_log_path: "{{ forgejo_work_path }}/log"
+
+# Server settings
+forgejo_http_addr: 0.0.0.0
+forgejo_http_port: 3001
+forgejo_domain: forge.tail8d86e.ts.net
+forgejo_ssh_domain: "{{ forgejo_domain }}"
+forgejo_root_url: "https://{{ forgejo_domain }}/"
+forgejo_offline_mode: true
+
+# SSH settings (built-in SSH server)
+forgejo_disable_ssh: false
+forgejo_start_ssh_server: true
+forgejo_builtin_ssh_user: forgejo
+forgejo_ssh_port: 22
+forgejo_ssh_listen_port: 2200
+forgejo_lfs_start_server: true
+
+# Database (SQLite)
+forgejo_db_type: sqlite3
+forgejo_db_path: "{{ forgejo_data_path }}/forgejo.db"
+
+# Service settings
+forgejo_disable_registration: true
+forgejo_require_signin_view: false
+
+# Session
+forgejo_session_provider: file
+
+# Logging
+forgejo_log_mode: console
+forgejo_log_level: info
+
+# Actions (Forgejo CI)
+forgejo_actions_enabled: true
+forgejo_actions_default_url: https://code.forgejo.org

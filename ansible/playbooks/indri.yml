@@ -22,6 +22,45 @@
       no_log: true
       tags: [borgmatic]
 
+    # Forgejo secrets
+    - name: Fetch forgejo LFS JWT secret
+      ansible.builtin.command:
+        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields lfs-jwt-secret --reveal
+      delegate_to: localhost
+      register: _forgejo_lfs_jwt
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo]
+
+    - name: Fetch forgejo internal token
+      ansible.builtin.command:
+        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields internal-token --reveal
+      delegate_to: localhost
+      register: _forgejo_internal_token
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo]
+
+    - name: Fetch forgejo OAuth2 JWT secret
+      ansible.builtin.command:
+        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields oauth2-jwt-secret --reveal
+      delegate_to: localhost
+      register: _forgejo_oauth2_jwt
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo]
+
+    - name: Set forgejo secrets facts
+      ansible.builtin.set_fact:
+        forgejo_lfs_jwt_secret: "{{ _forgejo_lfs_jwt.stdout }}"
+        forgejo_internal_token: "{{ _forgejo_internal_token.stdout }}"
+        forgejo_oauth2_jwt_secret: "{{ _forgejo_oauth2_jwt.stdout }}"
+      no_log: true
+      tags: [forgejo]
+
   roles:
     - role: alloy
       tags: alloy

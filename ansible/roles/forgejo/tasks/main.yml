@@ -1,26 +1,29 @@
 ---
-# Note: forgejo config at /opt/homebrew/var/forgejo/custom/conf/app.ini
-# is not managed here (contains secrets). It is backed up by borgmatic.
+# Forgejo role
+#
+# Currently uses brew-managed forgejo. Phase 3 of ci-cd-bootstrap will
+# transition to mcquack LaunchAgent with CI-built binary.
+#
+# Secrets (lfs_jwt_secret, internal_token, oauth2_jwt_secret) are fetched
+# from 1Password in the playbook pre_tasks.
 
 - name: Install forgejo via homebrew
   community.general.homebrew:
     name: forgejo
     state: present
 
-- name: Check forgejo config exists
-  ansible.builtin.stat:
-    path: /opt/homebrew/var/forgejo/custom/conf/app.ini
-  register: forgejo_config
+- name: Ensure forgejo config directory exists
+  ansible.builtin.file:
+    path: "{{ forgejo_work_path }}/custom/conf"
+    state: directory
+    mode: '0755'
 
-- name: Fail if forgejo config is missing
-  ansible.builtin.fail:
-    msg: |
-      Forgejo config not found at /opt/homebrew/var/forgejo/custom/conf/app.ini
-      This file contains secrets and is not managed by ansible.
-      To restore from backup, run:
-        borgmatic --config ~/.config/borgmatic/config.yaml extract --archive latest \
-        --path /opt/homebrew/var/forgejo/custom/conf/app.ini
-  when: not forgejo_config.stat.exists
+- name: Deploy forgejo config
+  ansible.builtin.template:
+    src: app.ini.j2
+    dest: "{{ forgejo_config_path }}"
+    mode: '0600'
+  notify: Restart forgejo
 
 - name: Ensure forgejo service is started
   ansible.builtin.command: brew services start forgejo

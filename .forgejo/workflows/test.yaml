@@ -1,0 +1,29 @@
+name: Test CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (git clone)
+        run: |
+          # For PRs use head_ref (branch name), for pushes use ref_name
+          BRANCH="${{ gitea.head_ref || gitea.ref_name }}"
+          git clone --depth 1 --branch "$BRANCH" \
+            "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
+        env:
+          GIT_SSL_NO_VERIFY: "true"
+
+      - name: Hello World
+        run: |
+          echo "Hello from Forgejo Actions!"
+          echo "Runner: $(hostname)"
+          echo "Repository: ${{ gitea.repository }}"
+          echo "Event: ${{ gitea.event_name }}"
+          echo "Ref: ${{ gitea.ref }}"
+          ls -la

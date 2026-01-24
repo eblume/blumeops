@@ -102,6 +102,11 @@ kubectl --context=minikube-indri logs -n <namespace> <pod>  # View logs
 
 Note: The user has fish abbreviations `ki` for `kubectl --context=minikube-indri` and `k9i` for `k9s --context=minikube-indri`, but these only work in interactive shells.
 
+**ArgoCD login (when token expires):**
+```fish
+argocd login argocd.tail8d86e.ts.net --username admin --password "$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get srogeebssulhtb6tnqd7ls6qey --fields password --reveal)"
+```
+
 ### Indri Services (via Ansible)
 
 Some services remain on indri outside of Kubernetes:
