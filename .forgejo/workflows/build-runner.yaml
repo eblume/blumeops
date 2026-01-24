@@ -1,0 +1,23 @@
+name: Build Runner Image
+
+on:
+  push:
+    paths:
+      - 'argocd/manifests/forgejo-runner/Dockerfile'
+      - '.forgejo/actions/build-push-image/**'
+      - '.forgejo/workflows/build-runner.yaml'
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and push
+        uses: ./.forgejo/actions/build-push-image
+        with:
+          context: argocd/manifests/forgejo-runner
+          image_name: blumeops/forgejo-runner

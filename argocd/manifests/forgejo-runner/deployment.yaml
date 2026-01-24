@@ -48,6 +48,8 @@ spec:
               mountPath: /data
             - name: runner-config
               mountPath: /config
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
           resources:
             requests:
               memory: "256Mi"
@@ -55,9 +57,16 @@ spec:
             limits:
               memory: "1Gi"
               cpu: "1000m"
+          securityContext:
+            # Run as root to access Docker socket
+            runAsUser: 0
       volumes:
         - name: runner-data
           emptyDir: {}
         - name: runner-config
           configMap:
             name: forgejo-runner-config
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket

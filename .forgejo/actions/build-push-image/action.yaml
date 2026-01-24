@@ -1,0 +1,47 @@
+name: 'Build and Push Image'
+description: 'Build a container image and push to zot registry'
+
+inputs:
+  context:
+    description: 'Build context path'
+    required: true
+  dockerfile:
+    description: 'Dockerfile path (relative to context)'
+    required: false
+    default: 'Dockerfile'
+  image_name:
+    description: 'Image name (without registry, e.g. blumeops/devpi)'
+    required: true
+  tag:
+    description: 'Image tag'
+    required: false
+    default: 'latest'
+  registry:
+    description: 'Registry URL'
+    required: false
+    default: 'registry.tail8d86e.ts.net'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build image
+      shell: bash
+      run: |
+        docker build \
+          -t ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.tag }} \
+          -t ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }} \
+          -f ${{ inputs.context }}/${{ inputs.dockerfile }} \
+          ${{ inputs.context }}
+
+    - name: Push to registry
+      shell: bash
+      run: |
+        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.tag }}
+        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
+
+    - name: Verify push
+      shell: bash
+      run: |
+        echo "✅ Pushed: ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.tag }}"
+        echo "✅ Pushed: ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}"
+        curl -sf "https://${{ inputs.registry }}/v2/${{ inputs.image_name }}/tags/list" | jq .
