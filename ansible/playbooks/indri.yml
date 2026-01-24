@@ -64,7 +64,7 @@
     # Forgejo runner token (for indri-based runner)
     - name: Fetch forgejo runner token
       ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields runner-token --reveal
+        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields runner_reg --reveal
       delegate_to: localhost
       register: _forgejo_runner_token
       changed_when: false
