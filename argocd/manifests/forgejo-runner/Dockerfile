@@ -1,19 +1,37 @@
-FROM code.forgejo.org/forgejo/runner:3.5.1
+# Build forgejo-runner from source
+# Source: https://forge.tail8d86e.ts.net/eblume/forgejo-runner (mirror of code.forgejo.org/forgejo/runner)
 
-# Switch to root to install packages
-USER root
+FROM golang:1.24-alpine AS builder
 
-# The base image is Alpine Linux
-# Install tools needed for GitHub Actions and builds
+ARG FORGEJO_RUNNER_VERSION=v3.5.1
+
+RUN apk add --no-cache git make build-base
+
+WORKDIR /src
+RUN git clone --depth 1 --branch ${FORGEJO_RUNNER_VERSION} \
+    https://forge.tail8d86e.ts.net/eblume/forgejo-runner.git .
+
+RUN make clean && make build
+
+# Runtime image
+FROM alpine:3.21
+
+# Create runner user with proper passwd entry (required by buildah)
+RUN addgroup -g 1000 runner && \
+    adduser -D -u 1000 -G runner -h /data runner
+
+# Install runtime dependencies
 RUN apk add --no-cache \
     # Required for actions/checkout and other Node-based actions
     nodejs \
     npm \
-    # Build essentials
+    # Core tools
     git \
+    bash \
     curl \
     wget \
     jq \
+    # Build essentials
     make \
     gcc \
     g++ \
@@ -22,27 +40,25 @@ RUN apk add --no-cache \
     buildah \
     podman \
     fuse-overlayfs \
-    shadow \
     ca-certificates
+
+# Copy runner binary from builder
+COPY --from=builder /src/forgejo-runner /bin/forgejo-runner
 
 # Configure buildah for rootless operation
 RUN mkdir -p /etc/containers && \
-    echo '[storage]' > /etc/containers/storage.conf && \
-    echo 'driver = "overlay"' >> /etc/containers/storage.conf && \
-    echo 'runroot = "/tmp/containers-run"' >> /etc/containers/storage.conf && \
-    echo 'graphroot = "/tmp/containers-storage"' >> /etc/containers/storage.conf && \
-    echo '[storage.options.overlay]' >> /etc/containers/storage.conf && \
-    echo 'mount_program = "/usr/bin/fuse-overlayfs"' >> /etc/containers/storage.conf
+    printf '[storage]\ndriver = "overlay"\nrunroot = "/tmp/containers-run"\ngraphroot = "/tmp/containers-storage"\n[storage.options.overlay]\nmount_program = "/usr/bin/fuse-overlayfs"\n' \
+    > /etc/containers/storage.conf
 
 # Configure registries (allow insecure for local registry)
-RUN mkdir -p /etc/containers && \
-    echo 'unqualified-search-registries = ["docker.io"]' > /etc/containers/registries.conf && \
-    echo '[[registry]]' >> /etc/containers/registries.conf && \
-    echo 'location = "registry.tail8d86e.ts.net"' >> /etc/containers/registries.conf && \
-    echo 'insecure = true' >> /etc/containers/registries.conf
+RUN printf 'unqualified-search-registries = ["docker.io"]\n[[registry]]\nlocation = "registry.tail8d86e.ts.net"\ninsecure = true\n' \
+    > /etc/containers/registries.conf
 
 # Verify tools are available
-RUN node --version && npm --version && buildah --version
+RUN node --version && npm --version && buildah --version && /bin/forgejo-runner --version
 
-# Switch back to non-root user
-USER 1000
+ENV HOME=/data
+WORKDIR /data
+USER runner
+
+CMD ["/bin/forgejo-runner"]
