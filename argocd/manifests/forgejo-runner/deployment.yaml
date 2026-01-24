@@ -58,8 +58,14 @@ spec:
               memory: "1Gi"
               cpu: "1000m"
           securityContext:
-            # Run as root to access Docker socket
+            # Run as root with docker group to access Docker socket
             runAsUser: 0
+            runAsGroup: 0
+      securityContext:
+        # Add docker group (GID 999 in minikube) for socket access
+        fsGroup: 999
+        supplementalGroups:
+          - 999
       volumes:
         - name: runner-data
           emptyDir: {}
