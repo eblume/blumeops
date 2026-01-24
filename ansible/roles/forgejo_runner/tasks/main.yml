@@ -1,0 +1,57 @@
+---
+# Forgejo Runner - host execution mode
+#
+# The runner daemon runs directly on indri using a locally compiled binary.
+# Jobs execute on the host, reaching Forgejo at localhost:3001.
+
+- name: Ensure forgejo-runner directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ forgejo_runner_data_dir }}"
+    - "{{ forgejo_runner_config_dir }}"
+
+- name: Deploy forgejo-runner config
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ forgejo_runner_config_dir }}/config.yaml"
+    mode: '0644'
+  notify: Restart forgejo-runner
+
+- name: Check if runner is registered
+  ansible.builtin.stat:
+    path: "{{ forgejo_runner_data_dir }}/.runner"
+  register: forgejo_runner_registered
+
+- name: Register runner with Forgejo
+  ansible.builtin.command:
+    cmd: >
+      {{ forgejo_runner_binary }} register
+      --instance "{{ forgejo_runner_instance_url }}"
+      --token "{{ forgejo_runner_token }}"
+      --name "{{ forgejo_runner_name }}"
+      --labels "{{ forgejo_runner_labels }}"
+      --no-interactive
+    chdir: "{{ forgejo_runner_data_dir }}"
+  when: not forgejo_runner_registered.stat.exists
+  changed_when: true
+
+- name: Deploy forgejo-runner launchd plist
+  ansible.builtin.template:
+    src: forgejo-runner.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.forgejo-runner.plist
+    mode: '0644'
+  notify: Restart forgejo-runner
+
+- name: Check if forgejo-runner is loaded
+  ansible.builtin.command: launchctl list mcquack.forgejo-runner
+  register: forgejo_runner_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load forgejo-runner if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.forgejo-runner.plist
+  when: forgejo_runner_launchctl_check.rc != 0
+  changed_when: true

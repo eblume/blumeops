@@ -1,3 +1,4 @@
+# Workflow to verify CI environment and available tools
 name: Test CI
 
 on:
@@ -16,22 +17,22 @@ jobs:
       - name: Verify tools
         run: |
           echo "=== Node.js ==="
-          node --version
-          npm --version
+          node --version || echo "Node.js not available"
+          npm --version || echo "npm not available"
           echo ""
           echo "=== Git ==="
           git --version
           echo ""
           echo "=== Build tools ==="
-          make --version | head -1
-          gcc --version | head -1
+          make --version 2>&1 | head -1 || echo "make not available"
+          gcc --version 2>&1 | head -1 || echo "gcc not available"
           echo ""
-          echo "=== Docker ==="
-          docker --version
+          echo "=== Container tools (Docker) ==="
+          docker --version || echo "Docker CLI not available"
           echo ""
           echo "=== Other tools ==="
-          curl --version | head -1
-          jq --version
+          curl --version 2>&1 | head -1 || echo "curl not available"
+          jq --version || echo "jq not available"
 
       - name: Show repo info
         run: |

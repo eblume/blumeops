@@ -1,0 +1,54 @@
+name: 'Build and Push Image'
+description: 'Build a container image with Docker and push to zot registry'
+
+# TODO: Investigate zot tag immutability to prevent overwriting released versions
+# See: https://zotregistry.dev/v2.1.1/articles/immutable-tags/
+
+inputs:
+  context:
+    description: 'Build context path'
+    required: true
+  dockerfile:
+    description: 'Dockerfile path (relative to context)'
+    required: false
+    default: 'Dockerfile'
+  image_name:
+    description: 'Image name (without registry, e.g. blumeops/devpi)'
+    required: true
+  version:
+    description: 'Version tag (e.g. v1.0.0)'
+    required: true
+  registry:
+    description: 'Registry URL'
+    required: false
+    default: 'registry.tail8d86e.ts.net'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build image with Docker
+      shell: bash
+      run: |
+        echo "Building ${{ inputs.image_name }}:${{ inputs.version }}"
+        docker build \
+          --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }} \
+          --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }} \
+          --file ${{ inputs.context }}/${{ inputs.dockerfile }} \
+          ${{ inputs.context }}
+
+    - name: Push to registry
+      shell: bash
+      run: |
+        echo "Pushing ${{ inputs.image_name }}:${{ inputs.version }}"
+        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}
+        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
+
+    - name: Summary
+      shell: bash
+      run: |
+        echo "Built and pushed:"
+        echo "   ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}"
+        echo "   ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}"
+        echo ""
+        echo "Registry tags:"
+        curl -sf "https://${{ inputs.registry }}/v2/${{ inputs.image_name }}/tags/list" | jq -r '.tags[]' | sort -V | tail -10 || true

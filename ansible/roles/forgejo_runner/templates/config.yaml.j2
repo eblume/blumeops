@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+log:
+  level: info
+
+runner:
+  file: {{ forgejo_runner_data_dir }}/.runner
+  capacity: {{ forgejo_runner_capacity }}
+  timeout: {{ forgejo_runner_timeout }}
+
+# Even in host execution mode, some actions run in containers.
+# Use host networking so containers can access localhost services.
+container:
+  network: "host"

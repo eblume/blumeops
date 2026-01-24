@@ -74,6 +74,7 @@
 			"dst": ["tag:homelab"],
 			"ip":  ["tcp:3001", "tcp:2200"],
 		},
+
 		// Homelab can reach k8s services: PostgreSQL, CNPG metrics, Prometheus/Loki
 		{
 			"src": ["tag:homelab"],

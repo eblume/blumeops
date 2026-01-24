@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+#MISE description="Release a container image by creating a git tag"
+
+set -euo pipefail
+
+CONTAINER="${1:-}"
+VERSION="${2:-}"
+
+if [[ -z "$CONTAINER" || -z "$VERSION" ]]; then
+    echo "Usage: mise run container-release <container> <version>"
+    echo ""
+    echo "Run 'mise run container-list' to see available containers and recent tags."
+    exit 1
+fi
+
+# Validate version format
+if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Error: Version must be in format vX.Y.Z (e.g. v1.0.0)"
+    exit 1
+fi
+
+TAG="${CONTAINER}-${VERSION}"
+
+echo "Creating release tag: $TAG"
+echo ""
+
+# Check if tag already exists
+if git rev-parse "$TAG" >/dev/null 2>&1; then
+    echo "Error: Tag '$TAG' already exists"
+    echo "Existing tags for $CONTAINER:"
+    git tag -l "${CONTAINER}-v*" | sort -V | tail -5
+    exit 1
+fi
+
+# Find the workflow file to determine image name
+WORKFLOW_FILE=".forgejo/workflows/build-${CONTAINER}.yaml"
+if [[ ! -f "$WORKFLOW_FILE" ]]; then
+    echo "Error: No workflow found for container '$CONTAINER'"
+    echo ""
+    echo "Run 'mise run container-list' to see available containers."
+    exit 1
+fi
+
+# Extract image name from workflow
+IMAGE=$(grep -E "^\s+image_name:" "$WORKFLOW_FILE" | head -1 | awk '{print $2}')
+if [[ -z "$IMAGE" ]]; then
+    echo "Error: Could not determine image name from $WORKFLOW_FILE"
+    exit 1
+fi
+
+echo "Container: $CONTAINER"
+echo "Workflow: $WORKFLOW_FILE"
+echo "Image: registry.tail8d86e.ts.net/$IMAGE:$VERSION"
+echo ""
+
+# Confirm
+read -p "Create tag and push? [y/N] " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Aborted."
+    exit 0
+fi
+
+# Create and push tag
+git tag "$TAG"
+git push origin "$TAG"
+
+echo ""
+echo "✅ Tag '$TAG' created and pushed"
+echo ""
+echo "The workflow will now build and push:"
+echo "  registry.tail8d86e.ts.net/$IMAGE:$VERSION"
+echo ""
+echo "Monitor the build at:"
+echo "  https://forge.tail8d86e.ts.net/eblume/blumeops/actions"

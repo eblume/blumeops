@@ -1,0 +1,23 @@
+---
+# Forgejo Runner - host execution mode
+#
+# The runner daemon runs directly on indri and executes jobs on the host.
+# This avoids container networking complexity since it can reach Forgejo
+# at localhost:3001 directly.
+
+forgejo_runner_binary: /Users/erichblume/code/3rd/forgejo-runner/forgejo-runner
+forgejo_runner_data_dir: /Users/erichblume/.forgejo-runner
+forgejo_runner_config_dir: /Users/erichblume/.config/forgejo-runner
+forgejo_runner_log_dir: /Users/erichblume/Library/Logs
+
+# Runner registration - use localhost since we're running on indri
+forgejo_runner_instance_url: "http://localhost:3001"
+forgejo_runner_name: "indri-host-runner"
+
+# Labels format for host execution: label:host
+# Jobs run directly on the host, not in containers
+forgejo_runner_labels: "ubuntu-latest:host,ubuntu-22.04:host"
+
+# Runner config
+forgejo_runner_capacity: 2
+forgejo_runner_timeout: 3h

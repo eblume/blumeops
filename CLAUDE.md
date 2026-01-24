@@ -134,6 +134,13 @@ When migrating a service from indri to k8s, the Tailscale hostname must be freed
 
 Use `ssh indri 'tailscale serve status --json'` to check current serve entries (the non-JSON output may be empty even when entries exist).
 
+## Container Image Releases
+
+```fish
+mise run container-list                       # Show containers and recent tags
+mise run container-release runner v1.0.0      # Tag and trigger build workflow
+```
+
 ## Third-Party Projects
 
 When a task requires cloning or using a third-party git repository (e.g., for building from source), **ask the user to mirror it on forge first**, then clone from the mirror:
