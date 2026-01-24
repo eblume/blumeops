@@ -1,5 +1,5 @@
 name: 'Build and Push Image'
-description: 'Build a container image and push to zot registry'
+description: 'Build a container image with Buildah and push to registry'
 
 inputs:
   context:
@@ -24,20 +24,20 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Build image
+    - name: Build image with Buildah
       shell: bash
       run: |
-        docker build \
-          -t ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.tag }} \
-          -t ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }} \
-          -f ${{ inputs.context }}/${{ inputs.dockerfile }} \
+        buildah bud \
+          --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.tag }} \
+          --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }} \
+          --file ${{ inputs.context }}/${{ inputs.dockerfile }} \
           ${{ inputs.context }}
 
     - name: Push to registry
       shell: bash
       run: |
-        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.tag }}
-        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
+        buildah push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.tag }}
+        buildah push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
 
     - name: Verify push
       shell: bash
