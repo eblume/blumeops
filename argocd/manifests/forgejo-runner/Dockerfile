@@ -17,8 +17,11 @@ RUN make clean && make build
 FROM alpine:3.21
 
 # Create runner user with proper passwd entry (required by buildah)
+# Also configure subuid/subgid for rootless container builds
 RUN addgroup -g 1000 runner && \
-    adduser -D -u 1000 -G runner -h /data runner
+    adduser -D -u 1000 -G runner -h /data runner && \
+    echo "runner:100000:65536" >> /etc/subuid && \
+    echo "runner:100000:65536" >> /etc/subgid
 
 # Install runtime dependencies
 RUN apk add --no-cache \

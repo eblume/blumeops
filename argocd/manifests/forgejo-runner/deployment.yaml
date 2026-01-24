@@ -16,7 +16,7 @@ spec:
       serviceAccountName: forgejo-runner
       containers:
         - name: runner
-          image: registry.tail8d86e.ts.net/blumeops/forgejo-runner:v1.0.1
+          image: registry.tail8d86e.ts.net/blumeops/forgejo-runner:v1.0.3
           env:
             # Use internal k8s service via Tailscale operator egress
             - name: FORGEJO_INSTANCE_URL
