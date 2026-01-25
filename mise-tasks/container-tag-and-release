@@ -49,7 +49,7 @@ IMAGE="blumeops/${CONTAINER}"
 
 echo "Container: $CONTAINER"
 echo "Directory: $CONTAINER_DIR"
-echo "Image: registry.tail8d86e.ts.net/$IMAGE:$VERSION"
+echo "Image: registry.ops.eblu.me/$IMAGE:$VERSION"
 echo ""
 
 # Confirm
@@ -68,7 +68,7 @@ echo ""
 echo "Tag '$TAG' created and pushed"
 echo ""
 echo "The workflow will now build and push:"
-echo "  registry.tail8d86e.ts.net/$IMAGE:$VERSION"
+echo "  registry.ops.eblu.me/$IMAGE:$VERSION"
 echo ""
 echo "Monitor the build at:"
 echo "  https://forge.ops.eblu.me/eblume/blumeops/actions"

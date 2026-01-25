@@ -114,8 +114,6 @@
       tags: minikube_metrics
     - role: plex_metrics
       tags: plex_metrics
-    - role: tailscale_serve
-      tags: tailscale-serve
     - role: forgejo_runner
       tags: forgejo_runner
     - role: caddy

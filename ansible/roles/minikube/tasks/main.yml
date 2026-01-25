@@ -85,29 +85,29 @@
   ansible.builtin.command:
     cmd: minikube ssh --native-ssh=false "sudo mkdir -p /etc/containerd/certs.d/{{ item }}"
   loop:
-    - registry.tail8d86e.ts.net
+    - registry.ops.eblu.me
     - docker.io
     - ghcr.io
     - quay.io
   changed_when: false
   when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
 
-# Private registry (registry.tail8d86e.ts.net) - direct to zot
-- name: Check registry.tail8d86e.ts.net config
+# Private registry (registry.ops.eblu.me) - direct to zot
+- name: Check registry.ops.eblu.me config
   ansible.builtin.command:
-    cmd: minikube ssh --native-ssh=false "cat /etc/containerd/certs.d/registry.tail8d86e.ts.net/hosts.toml 2>/dev/null || echo ''"
+    cmd: minikube ssh --native-ssh=false "cat /etc/containerd/certs.d/registry.ops.eblu.me/hosts.toml 2>/dev/null || echo ''"
   register: minikube_registry_config
   changed_when: false
   when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
 
-- name: Configure registry.tail8d86e.ts.net mirror
+- name: Configure registry.ops.eblu.me mirror
   ansible.builtin.command:
     cmd: |
       minikube ssh --native-ssh=false 'echo "server = \"http://host.minikube.internal:5050\"
 
       [host.\"http://host.minikube.internal:5050\"]
         capabilities = [\"pull\", \"resolve\", \"push\"]
-        skip_verify = true" | sudo tee /etc/containerd/certs.d/registry.tail8d86e.ts.net/hosts.toml'
+        skip_verify = true" | sudo tee /etc/containerd/certs.d/registry.ops.eblu.me/hosts.toml'
   changed_when: true
   when:
     - minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout

@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-REGISTRY="registry.tail8d86e.ts.net"
+REGISTRY="registry.ops.eblu.me"
 CONTAINER_DIR="containers"
 
 echo "Container Images"

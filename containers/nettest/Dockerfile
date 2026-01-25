@@ -5,10 +5,10 @@
 # - Minikube pods (manual testing)
 #
 # Build:
-#   docker build -t registry.tail8d86e.ts.net/blumeops/nettest:latest .
+#   docker build -t registry.ops.eblu.me/blumeops/nettest:latest .
 #
 # Run:
-#   docker run --rm registry.tail8d86e.ts.net/blumeops/nettest:latest
+#   docker run --rm registry.ops.eblu.me/blumeops/nettest:latest
 
 FROM alpine:3.21
 

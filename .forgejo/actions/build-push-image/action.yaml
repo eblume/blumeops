@@ -28,7 +28,7 @@ inputs:
   registry:
     description: 'Registry URL'
     required: false
-    default: 'registry.tail8d86e.ts.net'
+    default: 'registry.ops.eblu.me'
   tailscale_authkey:
     description: 'Tailscale OAuth client secret for ci-gateway'
     required: true
