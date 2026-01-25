@@ -57,6 +57,14 @@ runs:
         # Wait for Tailscale to connect
         echo "Waiting for Tailscale to connect..."
         for i in {1..30}; do
+          # Check if container is still running
+          if ! docker ps -q -f name=ts-ci-gateway | grep -q .; then
+            echo "ERROR: Tailscale container exited unexpectedly!"
+            echo "Container logs:"
+            docker logs ts-ci-gateway 2>&1 || true
+            exit 1
+          fi
+
           if docker exec ts-ci-gateway tailscale status >/dev/null 2>&1; then
             echo "Tailscale connected!"
             docker exec ts-ci-gateway tailscale status
