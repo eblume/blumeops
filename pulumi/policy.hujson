@@ -60,6 +60,14 @@
 			"ip":  ["*"],
 		},
 
+		// --- CI Gateway ---
+		// Ephemeral CI containers can push images to registry
+		{
+			"src": ["tag:ci-gateway"],
+			"dst": ["tag:registry"],
+			"ip":  ["tcp:443"],
+		},
+
 		// --- Kubernetes workloads ---
 		// k8s workloads (e.g., Woodpecker CI) can push/pull from registry
 		{
@@ -127,6 +135,7 @@
 		"tag:k8s-api": ["autogroup:admin", "tag:blumeops"],
 		"tag:k8s-operator": ["autogroup:admin", "tag:blumeops"],
 		"tag:k8s": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
+		"tag:ci-gateway": ["autogroup:admin", "tag:blumeops"],
 	},
 
 	// ============== ACL Tests ==============
@@ -151,6 +160,11 @@
 		{
 			"src":    "tag:k8s",
 			"accept": ["tag:registry:443", "tag:homelab:3001", "tag:homelab:2200"],
+		},
+		// CI gateway can push to registry
+		{
+			"src":    "tag:ci-gateway",
+			"accept": ["tag:registry:443"],
 		},
 	],
 }
