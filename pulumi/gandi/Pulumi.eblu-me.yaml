@@ -1,0 +1,6 @@
+---
+config:
+  blumeops-dns:domain: eblu.me
+  blumeops-dns:subdomain: ops
+  # The target IP is resolved dynamically from indri.tail8d86e.ts.net
+  # indri hosts Caddy, which reverse-proxies all blumeops services

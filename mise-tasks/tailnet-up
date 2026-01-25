@@ -9,5 +9,5 @@ TAILSCALE_OAUTH_CLIENT_SECRET=$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w
 export TAILSCALE_OAUTH_CLIENT_SECRET
 export TAILSCALE_TAILNET="tail8d86e.ts.net"
 
-cd "$(dirname "$0")/../pulumi"
-pulumi up "$@"
+cd "$(dirname "$0")/../pulumi/tailscale"
+pulumi up --yes "$@"

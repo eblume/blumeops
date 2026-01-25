@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#MISE description="Preview DNS changes to eblu.me with Pulumi"
+
+set -euo pipefail
+
+GANDI_PERSONAL_ACCESS_TOKEN=$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get mco6ka3dc3rmw7zkg2dhia5d2m --fields pat --reveal)
+export GANDI_PERSONAL_ACCESS_TOKEN
+
+cd "$(dirname "$0")/../pulumi/gandi"
+pulumi preview "$@"

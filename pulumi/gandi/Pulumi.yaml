@@ -1,0 +1,7 @@
+---
+name: blumeops-dns
+runtime:
+  name: python
+  options:
+    toolchain: uv
+description: DNS configuration for eblu.me via Gandi LiveDNS
