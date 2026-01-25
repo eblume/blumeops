@@ -74,3 +74,4 @@ jobs:
           context: ${{ steps.check.outputs.context }}
           image_name: blumeops/${{ steps.parse.outputs.container }}
           version: ${{ steps.parse.outputs.version }}
+          tailscale_authkey: ${{ secrets.TS_CI_GATEWAY_AUTHKEY }}

@@ -1,8 +1,15 @@
 name: 'Build and Push Image'
-description: 'Build a container image with Docker and push to zot registry'
+description: 'Build a container image with Docker and push to zot registry via Tailscale sidecar'
 
-# TODO: Investigate zot tag immutability to prevent overwriting released versions
-# See: https://zotregistry.dev/v2.1.1/articles/immutable-tags/
+# Uses a Tailscale sidecar container to push images to the registry.
+# This works around Docker Desktop's VM not having access to the tailnet.
+#
+# Flow:
+# 1. Start Tailscale sidecar container (joins tailnet)
+# 2. Build image with docker build
+# 3. Save image to OCI tarball
+# 4. Push tarball to registry using skopeo (via Tailscale network)
+# 5. Cleanup sidecar
 
 inputs:
   context:
@@ -22,26 +29,97 @@ inputs:
     description: 'Registry URL'
     required: false
     default: 'registry.tail8d86e.ts.net'
+  tailscale_authkey:
+    description: 'Tailscale OAuth client secret for ci-gateway'
+    required: true
 
 runs:
   using: 'composite'
   steps:
+    - name: Start Tailscale sidecar
+      shell: bash
+      run: |
+        echo "Starting Tailscale sidecar..."
+
+        # Clean up any existing sidecar
+        docker rm -f ts-ci-gateway 2>/dev/null || true
+
+        # Start Tailscale container
+        docker run -d \
+          --name ts-ci-gateway \
+          --hostname ci-gateway \
+          -e TS_AUTHKEY="${{ inputs.tailscale_authkey }}" \
+          -e TS_EXTRA_ARGS="--advertise-tags=tag:ci-gateway" \
+          -e TS_ACCEPT_DNS=true \
+          -e TS_USERSPACE=true \
+          tailscale/tailscale:latest
+
+        # Wait for Tailscale to connect
+        echo "Waiting for Tailscale to connect..."
+        for i in {1..30}; do
+          if docker exec ts-ci-gateway tailscale status >/dev/null 2>&1; then
+            echo "Tailscale connected!"
+            docker exec ts-ci-gateway tailscale status
+            break
+          fi
+          echo "  Attempt $i/30..."
+          sleep 2
+        done
+
+        # Verify DNS resolution
+        echo "Testing DNS resolution..."
+        docker exec ts-ci-gateway nslookup ${{ inputs.registry }} || echo "DNS test failed, continuing anyway..."
+
     - name: Build image with Docker
       shell: bash
       run: |
         echo "Building ${{ inputs.image_name }}:${{ inputs.version }}"
         docker build \
-          --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }} \
-          --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }} \
+          --tag ${{ inputs.image_name }}:${{ inputs.version }} \
+          --tag ${{ inputs.image_name }}:${{ github.sha }} \
           --file ${{ inputs.context }}/${{ inputs.dockerfile }} \
           ${{ inputs.context }}
 
-    - name: Push to registry
+    - name: Save image to tarball
       shell: bash
       run: |
-        echo "Pushing ${{ inputs.image_name }}:${{ inputs.version }}"
-        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}
-        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
+        echo "Saving image to tarball..."
+        mkdir -p /tmp/ci-images
+        docker save ${{ inputs.image_name }}:${{ inputs.version }} -o /tmp/ci-images/image.tar
+        ls -lh /tmp/ci-images/image.tar
+
+    - name: Push to registry via Tailscale
+      shell: bash
+      run: |
+        echo "Pushing ${{ inputs.image_name }}:${{ inputs.version }} via Tailscale sidecar..."
+
+        # Copy tarball into the Tailscale container
+        docker cp /tmp/ci-images/image.tar ts-ci-gateway:/tmp/image.tar
+
+        # Install skopeo in the Tailscale container and push
+        docker exec ts-ci-gateway sh -c '
+          apk add --no-cache skopeo >/dev/null 2>&1
+
+          echo "Pushing version tag..."
+          skopeo copy \
+            --dest-tls-verify=false \
+            docker-archive:/tmp/image.tar \
+            docker://${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}
+
+          echo "Pushing SHA tag..."
+          skopeo copy \
+            --dest-tls-verify=false \
+            docker-archive:/tmp/image.tar \
+            docker://${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
+        '
+
+    - name: Cleanup
+      shell: bash
+      if: always()
+      run: |
+        echo "Cleaning up..."
+        docker rm -f ts-ci-gateway 2>/dev/null || true
+        rm -rf /tmp/ci-images
 
     - name: Summary
       shell: bash
