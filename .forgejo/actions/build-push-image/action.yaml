@@ -104,26 +104,28 @@ runs:
         # Copy tarball into the Tailscale container
         docker cp /tmp/ci-images/image.tar ts-ci-gateway:/tmp/image.tar
 
-        # Get the registry IP via Tailscale DNS (inside the container)
-        echo "Resolving registry IP via Tailscale..."
-        REGISTRY_IP=$(docker exec ts-ci-gateway tailscale ip -4 ${{ inputs.registry }} 2>/dev/null || true)
-        if [ -z "$REGISTRY_IP" ]; then
-          echo "Could not resolve ${{ inputs.registry }} via Tailscale, trying direct lookup..."
-          REGISTRY_IP=$(docker exec ts-ci-gateway sh -c "getent hosts ${{ inputs.registry }} | awk '{print \$1}'" 2>/dev/null || true)
+        # Get indri's Tailscale IP from tailscale status (registry runs on indri)
+        echo "Getting indri's Tailscale IP..."
+        INDRI_IP=$(docker exec ts-ci-gateway tailscale status --json | grep -o '"indri"[^}]*' | grep -o '"TailscaleIPs":\[[^]]*' | grep -o '100\.[0-9.]*' | head -1)
+        if [ -z "$INDRI_IP" ]; then
+          echo "Trying alternative method..."
+          INDRI_IP=$(docker exec ts-ci-gateway tailscale status | grep indri | awk '{print $1}')
         fi
 
-        if [ -z "$REGISTRY_IP" ]; then
-          echo "ERROR: Could not resolve registry IP"
+        if [ -z "$INDRI_IP" ]; then
+          echo "ERROR: Could not get indri's Tailscale IP"
+          docker exec ts-ci-gateway tailscale status
           exit 1
         fi
-        echo "Registry IP: $REGISTRY_IP"
+        echo "Indri Tailscale IP: $INDRI_IP"
 
-        # Install skopeo and push using IP with Host header workaround
+        # Install skopeo and push
         docker exec ts-ci-gateway sh -c "
           apk add --no-cache skopeo >/dev/null 2>&1
 
-          # Add registry to /etc/hosts so skopeo can resolve it
-          echo '$REGISTRY_IP ${{ inputs.registry }}' >> /etc/hosts
+          # Add registry hostname pointing to indri's Tailscale IP
+          echo '$INDRI_IP ${{ inputs.registry }}' >> /etc/hosts
+          echo 'Added /etc/hosts entry: $INDRI_IP ${{ inputs.registry }}'
 
           echo 'Pushing version tag...'
           skopeo copy \
