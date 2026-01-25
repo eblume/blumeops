@@ -1,0 +1,6 @@
+#!/bin/bash
+# Wrapper script for Caddy that loads the Gandi token from file
+# Managed by ansible - do not edit manually
+
+export GANDI_BEARER_TOKEN=$(cat {{ caddy_gandi_token_file }})
+exec {{ caddy_binary }} run --config {{ caddy_config_dir }}/Caddyfile

@@ -1,0 +1,38 @@
+# Caddy reverse proxy for blumeops services
+# Managed by ansible - do not edit manually
+#
+# All *.{{ caddy_domain }} requests are proxied to backend services.
+# TLS certificates are obtained via ACME DNS-01 challenge using Gandi.
+
+{
+	# Global options
+	admin off
+}
+
+# Wildcard certificate for all services
+*.{{ caddy_domain }}:{{ caddy_https_port }} {
+	tls {
+		dns gandi {env.GANDI_BEARER_TOKEN}
+	}
+
+{% for service in caddy_services %}
+	@{{ service.name }} host {{ service.host }}
+	handle @{{ service.name }} {
+		reverse_proxy {{ service.backend }}
+	}
+
+{% endfor %}
+	# Fallback for unknown hosts
+	handle {
+		respond "Unknown service" 404
+	}
+}
+
+# Base domain (ops.eblu.me)
+{{ caddy_domain }}:{{ caddy_https_port }} {
+	tls {
+		dns gandi {env.GANDI_BEARER_TOKEN}
+	}
+
+	respond "blumeops services - use a subdomain (e.g., forge.{{ caddy_domain }})"
+}

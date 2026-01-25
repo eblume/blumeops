@@ -1,0 +1,80 @@
+---
+# Caddy reverse proxy deployment
+# Binary is built manually - see ~/code/3rd/caddy/mise.toml
+
+- name: Verify caddy binary exists
+  ansible.builtin.stat:
+    path: "{{ caddy_binary }}"
+  register: caddy_bin
+  failed_when: not caddy_bin.stat.exists
+  changed_when: false
+
+- name: Create caddy config directory
+  ansible.builtin.file:
+    path: "{{ caddy_config_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Create caddy data directory
+  ansible.builtin.file:
+    path: "{{ caddy_data_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Fetch Gandi PAT (when running with --tags caddy)
+  ansible.builtin.command:
+    cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get mco6ka3dc3rmw7zkg2dhia5d2m --fields pat --reveal
+  delegate_to: localhost
+  register: _caddy_gandi_token_fallback
+  changed_when: false
+  no_log: true
+  check_mode: false
+  when: caddy_gandi_token is not defined
+
+- name: Set Gandi token fact (fallback)
+  ansible.builtin.set_fact:
+    caddy_gandi_token: "{{ _caddy_gandi_token_fallback.stdout }}"
+  no_log: true
+  when: caddy_gandi_token is not defined
+
+- name: Write Gandi token file
+  ansible.builtin.copy:
+    content: "{{ caddy_gandi_token }}"
+    dest: "{{ caddy_gandi_token_file }}"
+    mode: "0600"
+  no_log: true
+  notify: Restart caddy
+
+- name: Deploy Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ caddy_config_dir }}/Caddyfile"
+    mode: "0644"
+  notify: Restart caddy
+
+- name: Deploy caddy wrapper script
+  ansible.builtin.template:
+    src: caddy-wrapper.sh.j2
+    dest: "{{ caddy_config_dir }}/caddy-wrapper.sh"
+    mode: "0755"
+  notify: Restart caddy
+
+- name: Deploy caddy LaunchAgent plist
+  ansible.builtin.template:
+    src: caddy.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.caddy.plist
+    mode: "0644"
+  notify: Restart caddy
+
+- name: Check if caddy LaunchAgent is loaded
+  ansible.builtin.command:
+    cmd: launchctl list mcquack.eblume.caddy
+  register: caddy_launchctl
+  changed_when: false
+  failed_when: false
+
+- name: Load caddy LaunchAgent
+  ansible.builtin.command:
+    cmd: launchctl load ~/Library/LaunchAgents/mcquack.eblume.caddy.plist
+  when: caddy_launchctl.rc != 0
+  changed_when: true

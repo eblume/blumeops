@@ -1,0 +1,37 @@
+---
+# Caddy reverse proxy configuration
+# Caddy is built manually from ~/code/3rd/caddy with the Gandi DNS plugin
+
+caddy_repo_dir: /Users/erichblume/code/3rd/caddy
+caddy_binary: "{{ caddy_repo_dir }}/bin/caddy"
+caddy_config_dir: /Users/erichblume/.config/caddy
+caddy_data_dir: /Users/erichblume/.local/share/caddy
+caddy_log_dir: /Users/erichblume/Library/Logs
+
+# Gandi API token file (written by ansible, chmod 0600)
+# Caddy reads this file for ACME DNS-01 challenges
+caddy_gandi_token_file: /Users/erichblume/.config/caddy/gandi-token
+
+# Domain configuration
+caddy_domain: ops.eblu.me
+
+# Listen on Tailscale interface only (port 443)
+# Use 8443 during testing to avoid conflicts with Tailscale serve
+caddy_https_port: 8443
+
+# Services to proxy
+# Format: { name: "service", host: "hostname", backend: "url" }
+caddy_services:
+  # Indri-local services
+  - name: forge
+    host: "forge.{{ caddy_domain }}"
+    backend: "http://localhost:3001"
+  - name: registry
+    host: "registry.{{ caddy_domain }}"
+    backend: "http://localhost:5050"
+
+  # K8s services (via minikube NodePort or ClusterIP)
+  # These will be configured once we determine the correct backend URLs
+  # - name: grafana
+  #   host: "grafana.{{ caddy_domain }}"
+  #   backend: "http://minikube-ip:nodeport"

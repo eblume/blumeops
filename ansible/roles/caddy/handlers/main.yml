@@ -1,0 +1,6 @@
+---
+- name: Restart caddy
+  ansible.builtin.shell: |
+    launchctl unload ~/Library/LaunchAgents/mcquack.eblume.caddy.plist 2>/dev/null || true
+    launchctl load ~/Library/LaunchAgents/mcquack.eblume.caddy.plist
+  changed_when: true
