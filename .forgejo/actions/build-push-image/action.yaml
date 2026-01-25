@@ -106,15 +106,13 @@ runs:
 
         # Get indri's Tailscale IP from tailscale status (registry runs on indri)
         echo "Getting indri's Tailscale IP..."
-        INDRI_IP=$(docker exec ts-ci-gateway tailscale status --json | grep -o '"indri"[^}]*' | grep -o '"TailscaleIPs":\[[^]]*' | grep -o '100\.[0-9.]*' | head -1)
-        if [ -z "$INDRI_IP" ]; then
-          echo "Trying alternative method..."
-          INDRI_IP=$(docker exec ts-ci-gateway tailscale status | grep indri | awk '{print $1}')
-        fi
+        echo "Tailscale status:"
+        docker exec ts-ci-gateway tailscale status || true
+
+        INDRI_IP=$(docker exec ts-ci-gateway tailscale status 2>/dev/null | grep -E '\bindri\b' | awk '{print $1}')
 
         if [ -z "$INDRI_IP" ]; then
-          echo "ERROR: Could not get indri's Tailscale IP"
-          docker exec ts-ci-gateway tailscale status
+          echo "ERROR: Could not get indri's Tailscale IP from tailscale status"
           exit 1
         fi
         echo "Indri Tailscale IP: $INDRI_IP"
