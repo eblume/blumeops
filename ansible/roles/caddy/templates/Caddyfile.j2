@@ -8,13 +8,13 @@
 	# Global options
 	admin off
 
-{% if caddy_ssh_services %}
-	# Layer 4 (TCP) routing for SSH services
+{% if caddy_tcp_services %}
+	# Layer 4 (TCP) routing
 	layer4 {
-{% for ssh_svc in caddy_ssh_services %}
-		:{{ ssh_svc.port }} {
+{% for tcp_svc in caddy_tcp_services %}
+		:{{ tcp_svc.port }} {
 			route {
-				proxy {{ ssh_svc.backend }}
+				proxy {{ tcp_svc.backend }}
 			}
 		}
 {% endfor %}

@@ -103,7 +103,7 @@ Note: The user has fish abbreviations `ki` for `kubectl --context=minikube-indri
 
 **ArgoCD login (when token expires):**
 ```fish
-argocd login argocd.tail8d86e.ts.net --username admin --password "$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get srogeebssulhtb6tnqd7ls6qey --fields password --reveal)"
+argocd login argocd.ops.eblu.me --username admin --password "$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get srogeebssulhtb6tnqd7ls6qey --fields password --reveal)"
 ```
 
 ### Indri Services (via Ansible)

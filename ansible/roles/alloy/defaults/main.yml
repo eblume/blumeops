@@ -32,11 +32,11 @@ alloy_log_dir: /Users/erichblume/Library/Logs
 # Textfile collector directory (same as node_exporter for compatibility)
 alloy_textfile_dir: /opt/homebrew/var/node_exporter/textfile
 
-# Prometheus remote write endpoint (k8s via Tailscale)
-alloy_prometheus_url: "https://prometheus.tail8d86e.ts.net/api/v1/write"
+# Prometheus remote write endpoint (k8s via Caddy)
+alloy_prometheus_url: "https://prometheus.ops.eblu.me/api/v1/write"
 
-# Loki endpoint (k8s via Tailscale)
-alloy_loki_url: "https://loki.tail8d86e.ts.net/loki/api/v1/push"
+# Loki endpoint (k8s via Caddy)
+alloy_loki_url: "https://loki.ops.eblu.me/loki/api/v1/push"
 
 # Instance label for metrics
 alloy_instance_label: indri

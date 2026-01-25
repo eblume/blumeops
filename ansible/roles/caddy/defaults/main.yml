@@ -29,14 +29,40 @@ caddy_services:
     host: "registry.{{ caddy_domain }}"
     backend: "http://localhost:5050"
 
-  # K8s services (via minikube NodePort or ClusterIP)
-  # These will be configured once we determine the correct backend URLs
-  # - name: grafana
-  #   host: "grafana.{{ caddy_domain }}"
-  #   backend: "http://minikube-ip:nodeport"
+  # K8s services (via Tailscale Ingress)
+  # Caddy proxies to existing Tailscale endpoints - traffic stays local
+  - name: grafana
+    host: "grafana.{{ caddy_domain }}"
+    backend: "https://grafana.tail8d86e.ts.net"
+  - name: argocd
+    host: "argocd.{{ caddy_domain }}"
+    backend: "https://argocd.tail8d86e.ts.net"
+  - name: prometheus
+    host: "prometheus.{{ caddy_domain }}"
+    backend: "https://prometheus.tail8d86e.ts.net"
+  - name: loki
+    host: "loki.{{ caddy_domain }}"
+    backend: "https://loki.tail8d86e.ts.net"
+  - name: miniflux
+    host: "feed.{{ caddy_domain }}"
+    backend: "https://feed.tail8d86e.ts.net"
+  - name: devpi
+    host: "pypi.{{ caddy_domain }}"
+    backend: "https://pypi.tail8d86e.ts.net"
+  - name: kiwix
+    host: "kiwix.{{ caddy_domain }}"
+    backend: "https://kiwix.tail8d86e.ts.net"
+  - name: torrent
+    host: "torrent.{{ caddy_domain }}"
+    backend: "https://torrent.tail8d86e.ts.net"
+  - name: teslamate
+    host: "tesla.{{ caddy_domain }}"
+    backend: "https://tesla.tail8d86e.ts.net"
 
-# SSH services (Layer 4 TCP proxy)
+# Layer 4 (TCP) services
 # Format: { port: external_port, backend: "host:port" }
-caddy_ssh_services:
+caddy_tcp_services:
   - port: 2222
     backend: "localhost:2200"  # Forgejo SSH
+  - port: 5432
+    backend: "pg.tail8d86e.ts.net:5432"  # PostgreSQL

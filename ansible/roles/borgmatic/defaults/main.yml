@@ -41,12 +41,12 @@ borgmatic_keep_yearly: 1000
 # pg_dump_command must be full path since LaunchAgent doesn't have homebrew in PATH
 borgmatic_pg_dump_command: /opt/homebrew/opt/postgresql@18/bin/pg_dump
 borgmatic_postgresql_databases:
-  # k8s PostgreSQL (CloudNativePG)
+  # k8s PostgreSQL (CloudNativePG) via Caddy L4 proxy
   - name: miniflux
-    hostname: pg.tail8d86e.ts.net
+    hostname: pg.ops.eblu.me
     port: 5432
     username: borgmatic
   - name: teslamate
-    hostname: pg.tail8d86e.ts.net
+    hostname: pg.ops.eblu.me
     port: 5432
     username: borgmatic

@@ -27,7 +27,7 @@ spec:
                   name: devpi-root
                   key: password
             - name: DEVPI_OUTSIDE_URL
-              value: "https://pypi.tail8d86e.ts.net"
+              value: "https://pypi.ops.eblu.me"
           ports:
             - containerPort: 3141
               name: http
