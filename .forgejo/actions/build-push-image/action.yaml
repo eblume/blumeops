@@ -104,22 +104,39 @@ runs:
         # Copy tarball into the Tailscale container
         docker cp /tmp/ci-images/image.tar ts-ci-gateway:/tmp/image.tar
 
-        # Install skopeo in the Tailscale container and push
-        docker exec ts-ci-gateway sh -c '
+        # Get the registry IP via Tailscale DNS (inside the container)
+        echo "Resolving registry IP via Tailscale..."
+        REGISTRY_IP=$(docker exec ts-ci-gateway tailscale ip -4 ${{ inputs.registry }} 2>/dev/null || true)
+        if [ -z "$REGISTRY_IP" ]; then
+          echo "Could not resolve ${{ inputs.registry }} via Tailscale, trying direct lookup..."
+          REGISTRY_IP=$(docker exec ts-ci-gateway sh -c "getent hosts ${{ inputs.registry }} | awk '{print \$1}'" 2>/dev/null || true)
+        fi
+
+        if [ -z "$REGISTRY_IP" ]; then
+          echo "ERROR: Could not resolve registry IP"
+          exit 1
+        fi
+        echo "Registry IP: $REGISTRY_IP"
+
+        # Install skopeo and push using IP with Host header workaround
+        docker exec ts-ci-gateway sh -c "
           apk add --no-cache skopeo >/dev/null 2>&1
 
-          echo "Pushing version tag..."
+          # Add registry to /etc/hosts so skopeo can resolve it
+          echo '$REGISTRY_IP ${{ inputs.registry }}' >> /etc/hosts
+
+          echo 'Pushing version tag...'
           skopeo copy \
             --dest-tls-verify=false \
             docker-archive:/tmp/image.tar \
             docker://${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}
 
-          echo "Pushing SHA tag..."
+          echo 'Pushing SHA tag...'
           skopeo copy \
             --dest-tls-verify=false \
             docker-archive:/tmp/image.tar \
             docker://${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
-        '
+        "
 
     - name: Cleanup
       shell: bash
