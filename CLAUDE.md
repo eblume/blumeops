@@ -143,7 +143,7 @@ mise run container-release runner v1.0.0      # Tag and trigger build workflow
 ## Third-Party Projects
 
 When a task requires cloning or using a third-party git repository (e.g., for building from source), **ask the user to mirror it on forge first**, then clone from the mirror:
-- Mirror location: `https://forge.tail8d86e.ts.net/eblume/<project>.git`
+- Mirror location: `https://forge.ops.eblu.me/eblume/<project>.git`
 - Clone to: `~/code/3rd/<project>/`
 
 This avoids external dependencies and ensures the project is available even if the upstream is unreachable.

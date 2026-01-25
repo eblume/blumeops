@@ -7,6 +7,19 @@
 {
 	# Global options
 	admin off
+
+{% if caddy_ssh_services %}
+	# Layer 4 (TCP) routing for SSH services
+	layer4 {
+{% for ssh_svc in caddy_ssh_services %}
+		:{{ ssh_svc.port }} {
+			route {
+				proxy {{ ssh_svc.backend }}
+			}
+		}
+{% endfor %}
+	}
+{% endif %}
 }
 
 # Wildcard certificate for all services

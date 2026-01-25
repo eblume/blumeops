@@ -12,7 +12,7 @@ if [[ -z "$RUN_ID" ]]; then
     echo "Only works for runs executed by the indri-host-runner."
     echo ""
     echo "Recent runs:"
-    curl -sf "https://forge.tail8d86e.ts.net/api/v1/repos/eblume/blumeops/actions/tasks" | \
+    curl -sf "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/actions/tasks" | \
         jq -r '.workflow_runs[:10] | .[] | "  \(.id)\t\(.status)\t\(.workflow_id)\t\(.display_title | .[0:50])"'
     exit 1
 fi

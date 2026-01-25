@@ -15,9 +15,8 @@ caddy_gandi_token_file: /Users/erichblume/.config/caddy/gandi-token
 # Domain configuration
 caddy_domain: ops.eblu.me
 
-# Listen on Tailscale interface only (port 443)
-# Use 8443 during testing to avoid conflicts with Tailscale serve
-caddy_https_port: 8443
+# HTTPS port (443 is standard)
+caddy_https_port: 443
 
 # Services to proxy
 # Format: { name: "service", host: "hostname", backend: "url" }
@@ -35,3 +34,9 @@ caddy_services:
   # - name: grafana
   #   host: "grafana.{{ caddy_domain }}"
   #   backend: "http://minikube-ip:nodeport"
+
+# SSH services (Layer 4 TCP proxy)
+# Format: { port: external_port, backend: "host:port" }
+caddy_ssh_services:
+  - port: 2222
+    backend: "localhost:2200"  # Forgejo SSH

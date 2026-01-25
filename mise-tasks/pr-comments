@@ -20,7 +20,7 @@ import httpx
 from rich.console import Console
 from rich.text import Text
 
-FORGE_API_BASE = "https://forge.tail8d86e.ts.net/api/v1"
+FORGE_API_BASE = "https://forge.ops.eblu.me/api/v1"
 REPO_OWNER = "eblume"
 REPO_NAME = "blumeops"
 

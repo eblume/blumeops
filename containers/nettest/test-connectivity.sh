@@ -14,8 +14,8 @@ echo "Hostname: $(hostname)"
 echo ""
 
 # Test targets
-FORGE_HOST="forge.tail8d86e.ts.net"
-REGISTRY_HOST="registry.tail8d86e.ts.net"
+FORGE_HOST="forge.ops.eblu.me"
+REGISTRY_HOST="registry.ops.eblu.me"
 
 test_dns() {
     local host="$1"

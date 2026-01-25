@@ -86,5 +86,5 @@ kubectl logs -n tailscale -l app.kubernetes.io/name=operator
   annotations:
     tailscale.com/proxy-class: "default"
   ```
-- The egress proxy for forge targets `indri.tail8d86e.ts.net` directly (not `forge.tail8d86e.ts.net`)
-  because Tailscale Serve hostnames are virtual and only work via the Tailscale client.
+- The egress proxy for forge is **deprecated**. Forge is now accessible via Caddy at
+  `forge.ops.eblu.me` (HTTPS) and `forge.ops.eblu.me:2222` (SSH), which pods can reach directly.

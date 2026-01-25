@@ -1,16 +1,11 @@
 ---
 # Tailscale serve configuration for this host
 # Each service maps a Tailscale service name to local endpoints
+#
+# NOTE: forge has been migrated to Caddy (forge.ops.eblu.me)
+# Registry will be migrated next, then this role can be retired.
 
 tailscale_serve_services:
-  - name: svc:forge
-    https:
-      port: 443
-      upstream: http://localhost:3001
-    tcp:
-      port: 22
-      upstream: tcp://localhost:2200
-
   - name: svc:registry
     https:
       port: 443

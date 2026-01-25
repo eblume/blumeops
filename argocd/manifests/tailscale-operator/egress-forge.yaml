@@ -1,7 +1,10 @@
-# Egress proxy to expose Forgejo (forge) to the cluster
-# Forge runs on indri:3001, exposed via Tailscale Serve as forge.tail8d86e.ts.net
-# We target indri directly since egress can't reach Tailscale Serve hostnames
+# DEPRECATED: This egress proxy is no longer needed.
+# Forge is now accessible via Caddy at forge.ops.eblu.me (HTTPS) and
+# forge.ops.eblu.me:2222 (SSH), which pods can reach directly.
 #
+# Keeping this file for reference during migration. Remove once verified.
+#
+# Original purpose: Egress proxy to expose Forgejo (forge) to the cluster
 # See: https://tailscale.com/kb/1438/kubernetes-operator-cluster-egress
 ---
 apiVersion: v1

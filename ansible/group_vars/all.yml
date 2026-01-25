@@ -1,2 +1,2 @@
 ---
-ansible_managed: "Managed by ansible - do not edit. Source: ssh://forgejo@forge.tail8d86e.ts.net/eblume/blumeops.git"
+ansible_managed: "Managed by ansible - do not edit. Source: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git"
