@@ -7,7 +7,7 @@ CONTAINER="${1:-}"
 VERSION="${2:-}"
 
 if [[ -z "$CONTAINER" || -z "$VERSION" ]]; then
-    echo "Usage: mise run container-release <container> <version>"
+    echo "Usage: mise run container-tag-and-release <container> <version>"
     echo ""
     echo "Run 'mise run container-list' to see available containers and recent tags."
     exit 1
@@ -32,24 +32,23 @@ if git rev-parse "$TAG" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Find the workflow file to determine image name
-WORKFLOW_FILE=".forgejo/workflows/build-${CONTAINER}.yaml"
-if [[ ! -f "$WORKFLOW_FILE" ]]; then
-    echo "Error: No workflow found for container '$CONTAINER'"
+# Check if container directory exists
+CONTAINER_DIR="containers/${CONTAINER}"
+if [[ ! -f "$CONTAINER_DIR/Dockerfile" ]]; then
+    echo "Error: No Dockerfile found at '$CONTAINER_DIR/Dockerfile'"
     echo ""
-    echo "Run 'mise run container-list' to see available containers."
+    echo "Available containers:"
+    for dir in containers/*/; do
+        [[ -d "$dir" ]] && echo "  - $(basename "$dir")"
+    done
     exit 1
 fi
 
-# Extract image name from workflow
-IMAGE=$(grep -E "^\s+image_name:" "$WORKFLOW_FILE" | head -1 | awk '{print $2}')
-if [[ -z "$IMAGE" ]]; then
-    echo "Error: Could not determine image name from $WORKFLOW_FILE"
-    exit 1
-fi
+# Image name follows convention: blumeops/<container>
+IMAGE="blumeops/${CONTAINER}"
 
 echo "Container: $CONTAINER"
-echo "Workflow: $WORKFLOW_FILE"
+echo "Directory: $CONTAINER_DIR"
 echo "Image: registry.tail8d86e.ts.net/$IMAGE:$VERSION"
 echo ""
 
@@ -66,7 +65,7 @@ git tag "$TAG"
 git push origin "$TAG"
 
 echo ""
-echo "✅ Tag '$TAG' created and pushed"
+echo "Tag '$TAG' created and pushed"
 echo ""
 echo "The workflow will now build and push:"
 echo "  registry.tail8d86e.ts.net/$IMAGE:$VERSION"

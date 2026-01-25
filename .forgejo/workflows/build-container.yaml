@@ -1,0 +1,76 @@
+# Generic container build workflow
+# Triggers on tags matching: <container>-v<version>
+# Builds from containers/<container>/Dockerfile if it exists
+#
+# Examples:
+#   nettest-v1.0.0  -> builds containers/nettest/
+#   devpi-v2.1.0    -> builds containers/devpi/
+#   foo-v1.0.0      -> skips if containers/foo/ doesn't exist
+name: Build Container
+
+on:
+  push:
+    tags:
+      - '*-v[0-9]*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse tag
+        id: parse
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          echo "Tag: $TAG"
+
+          # Extract container name (everything before -v)
+          # e.g., "nettest-v1.0.0" -> "nettest", "my-app-v2.0.0" -> "my-app"
+          CONTAINER="${TAG%-v[0-9]*}"
+          VERSION="${TAG#"${CONTAINER}"-}"
+
+          echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Container: $CONTAINER"
+          echo "Version: $VERSION"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check if container exists
+        id: check
+        run: |
+          CONTAINER="${{ steps.parse.outputs.container }}"
+          CONTEXT="containers/$CONTAINER"
+
+          if [ -f "$CONTEXT/Dockerfile" ]; then
+            echo "Found $CONTEXT/Dockerfile"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "context=$CONTEXT" >> "$GITHUB_OUTPUT"
+          else
+            echo "No Dockerfile found at $CONTEXT/Dockerfile"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip if container not found
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          echo "========================================"
+          echo "Container not found: ${{ steps.parse.outputs.container }}"
+          echo "========================================"
+          echo ""
+          echo "Tag '${{ github.ref_name }}' does not match any container in containers/"
+          echo ""
+          echo "Available containers:"
+          find containers -maxdepth 1 -mindepth 1 -type d -exec basename {} \; 2>/dev/null | sort | while read -r name; do
+            echo "  - $name"
+          done || echo "  (none)"
+          echo ""
+          echo "Skipping build."
+
+      - name: Build and push image
+        if: steps.check.outputs.exists == 'true'
+        uses: ./.forgejo/actions/build-push-image
+        with:
+          context: ${{ steps.check.outputs.context }}
+          image_name: blumeops/${{ steps.parse.outputs.container }}
+          version: ${{ steps.parse.outputs.version }}

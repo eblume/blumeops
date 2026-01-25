@@ -4,32 +4,24 @@
 set -euo pipefail
 
 REGISTRY="registry.tail8d86e.ts.net"
-WORKFLOW_DIR=".forgejo/workflows"
+CONTAINER_DIR="containers"
 
 echo "Container Images"
 echo "================"
 echo ""
 
-# Find all build-*.yaml workflows
-for workflow in "$WORKFLOW_DIR"/build-*.yaml; do
-    [[ -f "$workflow" ]] || continue
+# Find all container directories with Dockerfiles
+for dir in "$CONTAINER_DIR"/*/; do
+    [[ -d "$dir" ]] || continue
+    [[ -f "$dir/Dockerfile" ]] || continue
 
-    # Extract container name from filename: build-runner.yaml -> runner
-    filename=$(basename "$workflow")
-    container="${filename#build-}"
-    container="${container%.yaml}"
-
-    # Skip if not a container build workflow (check for image_name)
-    if ! grep -q "image_name:" "$workflow" 2>/dev/null; then
-        continue
-    fi
-
-    # Extract image name from workflow
-    image=$(grep -E "^\s+image_name:" "$workflow" | head -1 | awk '{print $2}')
+    # Extract container name from directory
+    container=$(basename "$dir")
+    image="blumeops/$container"
 
     echo "📦 $container"
     echo "   Image: $REGISTRY/$image"
-    echo "   Workflow: $workflow"
+    echo "   Path: $dir"
 
     # Query zot for recent tags
     tags=$(curl -sf "https://$REGISTRY/v2/$image/tags/list" 2>/dev/null | jq -r '.tags // [] | .[]' | grep -E '^v[0-9]' | sort -V | tail -4 || true)
@@ -47,7 +39,7 @@ done
 
 echo "---"
 echo "To release a new version:"
-echo "  mise run container-release <container> <version>"
+echo "  mise run container-tag-and-release <container> <version>"
 echo ""
 echo "Example:"
-echo "  mise run container-release runner v1.0.0"
+echo "  mise run container-tag-and-release nettest v1.0.0"
