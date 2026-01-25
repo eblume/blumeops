@@ -108,12 +108,12 @@ argocd login argocd.tail8d86e.ts.net --username admin --password "$(op --vault v
 
 ### Indri Services (via Ansible)
 
-Some services remain on indri outside of Kubernetes:
-- **Zot Registry** - Container registry (k8s depends on it)
-- **Prometheus/Loki** - Observability (must survive k8s failures)
+Some services run directly on indri outside of Kubernetes:
+- **Forgejo** - Git forge at `forge.ops.eblu.me` (HTTPS: 443, SSH: 2222)
+- **Zot Registry** - Container registry at `registry.ops.eblu.me` (k8s depends on it)
+- **Caddy** - Reverse proxy for `*.ops.eblu.me` with TLS via ACME DNS-01
 - **Borgmatic** - Backup system
 - **Grafana Alloy** - Metrics/logs collector
-- **Transmission** - BitTorrent for kiwix downloads
 
 **Deployment:**
 ```fish
@@ -122,16 +122,20 @@ mise run provision-indri -- --tags <role>   # Specific role
 mise run provision-indri -- --check --diff  # Dry run
 ```
 
-### Tailscale Service Hostnames
+### Service Routing
 
-When migrating a service from indri to k8s, the Tailscale hostname must be freed:
+**External DNS (`*.ops.eblu.me`)** - Services accessible from anywhere on the tailnet, including k8s pods and docker containers:
+- Managed via Caddy reverse proxy on indri
+- DNS points to indri's Tailscale IP (100.98.163.89)
+- TLS certificates via Let's Encrypt (ACME DNS-01 with Gandi)
+- Config: `ansible/roles/caddy/`
 
-1. Stop the service on indri
-2. Clear the tailscale serve entry: `ssh indri 'tailscale serve clear svc:<name>'`
-3. Delete the device from Tailscale admin console (user action required)
-4. Deploy the k8s Ingress - it will claim the hostname
+**Tailscale MagicDNS (`*.tail8d86e.ts.net`)** - Services only accessible from Tailscale clients:
+- K8s services use Tailscale Ingress (via tailscale-operator)
+- Some legacy services still use `tailscale serve`
+- Cannot be reached from k8s pods or docker containers (they're not Tailscale clients)
 
-Use `ssh indri 'tailscale serve status --json'` to check current serve entries (the non-JSON output may be empty even when entries exist).
+Use `ssh indri 'tailscale serve status --json'` to check current tailscale serve entries.
 
 ## Container Image Releases
 
