@@ -54,7 +54,6 @@ Address each unresolved comment before proceeding. The user will resolve comment
 ./argocd/apps/          # ArgoCD Application definitions (app-of-apps pattern)
 ./argocd/manifests/     # Kubernetes manifests for each service
 ./pulumi/               # Pulumi IaC for tailnet ACLs and cloud resources
-./plans/                # Migration and project planning documents
 ~/code/personal/        # projects managed by the user
 ~/code/3rd/             # external projects, mirrored or downloaded
 ~/code/work             # FORBIDDEN, never go here, avoid searching it
