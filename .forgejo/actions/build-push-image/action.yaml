@@ -125,17 +125,24 @@ runs:
           echo '$INDRI_IP ${{ inputs.registry }}' >> /etc/hosts
           echo 'Added /etc/hosts entry: $INDRI_IP ${{ inputs.registry }}'
 
+          # Configure skopeo to use HTTPS for our registry (skip cert verification)
+          mkdir -p /etc/containers
+          echo '[[registry]]' > /etc/containers/registries.conf
+          echo 'location = \"${{ inputs.registry }}\"' >> /etc/containers/registries.conf
+          echo 'insecure = true' >> /etc/containers/registries.conf
+          cat /etc/containers/registries.conf
+
           echo 'Pushing version tag...'
           skopeo copy \
             --dest-tls-verify=false \
             docker-archive:/tmp/image.tar \
-            docker://${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}
+            docker://${{ inputs.registry }}:443/${{ inputs.image_name }}:${{ inputs.version }}
 
           echo 'Pushing SHA tag...'
           skopeo copy \
             --dest-tls-verify=false \
             docker-archive:/tmp/image.tar \
-            docker://${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
+            docker://${{ inputs.registry }}:443/${{ inputs.image_name }}:${{ github.sha }}
         "
 
     - name: Cleanup
