@@ -16,7 +16,8 @@ RUN apk add --no-cache \
 # Create directories (user is created dynamically by start.sh based on PUID/PGID)
 RUN mkdir -p /config /downloads/complete /downloads/incomplete
 
-COPY --chmod=755 start.sh /start.sh
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
 
 EXPOSE 9091 51413/tcp 51413/udp
 
