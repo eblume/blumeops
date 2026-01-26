@@ -11,7 +11,7 @@ spec:
   project: default
   sources:
     # Helm chart from forge mirror (SSH via egress)
-    - repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/cloudnative-pg-charts.git
+    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/cloudnative-pg-charts.git
       targetRevision: cloudnative-pg-v0.27.0
       path: charts/cloudnative-pg
       helm:
@@ -19,7 +19,7 @@ spec:
         valueFiles:
           - $values/argocd/manifests/cloudnative-pg/values.yaml
     # Values from our git repo
-    - repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
       targetRevision: main
       ref: values
   destination:

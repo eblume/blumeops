@@ -32,7 +32,7 @@ argocd account update-password
 PRIV_KEY=$(op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/csjncynh6htjvnh2l2da65y32q/private key?ssh-format=openssh")$'\n' && \
 kubectl create secret generic repo-creds-forge -n argocd \
   --from-literal=type=git \
-  --from-literal=url='ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/' \
+  --from-literal=url='ssh://forgejo@forge.ops.eblu.me:2222/eblume/' \
   --from-literal=insecure=true \
   --from-literal=sshPrivateKey="$PRIV_KEY" && \
 kubectl label secret repo-creds-forge -n argocd argocd.argoproj.io/secret-type=repo-creds
@@ -82,7 +82,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
     targetRevision: main
     path: argocd/manifests/my-app
   destination:

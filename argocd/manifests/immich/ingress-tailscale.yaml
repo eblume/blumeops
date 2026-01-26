@@ -1,0 +1,26 @@
+# Tailscale Ingress for Immich
+# Exposes Immich at photos.tail8d86e.ts.net
+# Caddy will proxy photos.ops.eblu.me to this endpoint
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: immich-tailscale
+  namespace: immich
+  annotations:
+    tailscale.com/funnel: "false"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - host: photos
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: immich-server
+                port:
+                  number: 2283
+  tls:
+    - hosts:
+        - photos

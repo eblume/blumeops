@@ -1,0 +1,22 @@
+# NFS PersistentVolume for Immich photo library
+# Requires: NFS share on sifaka at /volume1/photos with NFS permissions for indri
+#
+# To create on Synology:
+# 1. Control Panel > Shared Folder > Create
+# 2. Name: photos, Location: Volume 1
+# 3. Control Panel > File Services > NFS > NFS Rules
+# 4. Add rule for "photos" share: Hostname=indri, Privilege=Read/Write, Squash=No mapping
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: immich-library-nfs-pv
+spec:
+  capacity:
+    storage: 2Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: sifaka
+    path: /volume1/photos

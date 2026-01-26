@@ -1,0 +1,15 @@
+# PersistentVolumeClaim for Immich photo library
+# Binds to the NFS PV for sifaka:/volume1/photos
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-library
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: immich-library-nfs-pv
+  resources:
+    requests:
+      storage: 2Ti

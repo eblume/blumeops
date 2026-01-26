@@ -1,0 +1,71 @@
+# Immich Helm values for blumeops
+# Chart: https://github.com/immich-app/immich-charts (v0.10.3)
+#
+# Immich requires:
+# - PostgreSQL with VectorChord extension (separate immich-pg cluster)
+# - Redis/Valkey (included in chart)
+# - Library storage PVC (photos directory from sifaka NFS)
+
+# Shared environment variables
+env:
+  TZ: "America/Los_Angeles"
+
+# Shared controller settings - image tag and DB connection
+controllers:
+  main:
+    containers:
+      main:
+        image:
+          tag: v2.4.1
+        env:
+          DB_HOSTNAME: "immich-pg-rw.databases.svc.cluster.local"
+          DB_PORT: "5432"
+          DB_DATABASE_NAME: "immich"
+          DB_USERNAME: "immich"
+          DB_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: immich-db
+                key: password
+
+# Immich server configuration
+immich:
+  persistence:
+    library:
+      existingClaim: immich-library
+
+# Machine Learning service
+machine-learning:
+  enabled: true
+  persistence:
+    cache:
+      enabled: true
+      type: persistentVolumeClaim
+      accessMode: ReadWriteOnce
+      size: 10Gi
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "100m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
+
+# Valkey (Redis fork) - included in chart
+valkey:
+  enabled: true
+  persistence:
+    data:
+      enabled: true
+      type: emptyDir
+      size: 1Gi
+
+# Server resources for minikube
+server:
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"

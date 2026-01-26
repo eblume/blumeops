@@ -58,6 +58,9 @@ caddy_services:
   - name: teslamate
     host: "tesla.{{ caddy_domain }}"
     backend: "https://tesla.tail8d86e.ts.net"
+  - name: immich
+    host: "photos.{{ caddy_domain }}"
+    backend: "https://photos.tail8d86e.ts.net"
 
 # Layer 4 (TCP) services
 # Format: { port: external_port, backend: "host:port" }

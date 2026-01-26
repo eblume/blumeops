@@ -1,0 +1,25 @@
+# Immich Storage - PersistentVolume and PVC for photo library
+# Must be synced BEFORE the main immich app
+#
+# Prerequisites:
+# 1. NFS share on sifaka at /volume1/photos with permissions for indri
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: immich-storage
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/immich
+    # Only deploy storage resources (PV/PVC/Ingress), not Helm values.yaml
+    directory:
+      include: "{pv-nfs.yaml,pvc.yaml,ingress-tailscale.yaml}"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: immich
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

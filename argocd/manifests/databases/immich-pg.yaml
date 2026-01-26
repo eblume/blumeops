@@ -1,0 +1,54 @@
+# PostgreSQL Cluster for Immich
+# Uses VectorChord (successor to pgvecto.rs) for AI-powered vector search
+# See: https://github.com/immich-app/immich/discussions/9060
+# Managed by CloudNativePG operator
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: immich-pg
+  namespace: databases
+spec:
+  instances: 1
+  # VectorChord image for PostgreSQL 17 with VectorChord 0.5.0
+  # Immich v2.4.1 requires VectorChord >=0.3 <0.6
+  # See: https://github.com/tensorchord/VectorChord
+  imageName: ghcr.io/tensorchord/cloudnative-vectorchord:17-0.5.0
+
+  storage:
+    size: 10Gi
+    storageClass: standard
+
+  # Bootstrap creates initial database and owner
+  bootstrap:
+    initdb:
+      database: immich
+      owner: immich
+      postInitSQL:
+        # Extensions required by Immich
+        - CREATE EXTENSION IF NOT EXISTS vector;
+        - CREATE EXTENSION IF NOT EXISTS vchord CASCADE;
+        - CREATE EXTENSION IF NOT EXISTS cube CASCADE;
+        - CREATE EXTENSION IF NOT EXISTS earthdistance CASCADE;
+
+  # Resource limits for minikube environment
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+  # PostgreSQL configuration
+  postgresql:
+    # VectorChord requires vchord.so in shared_preload_libraries
+    shared_preload_libraries:
+      - "vchord.so"
+    parameters:
+      max_connections: "50"
+      shared_buffers: "128MB"
+      password_encryption: "scram-sha-256"
+    pg_hba:
+      # Allow connections from k8s pods
+      - host all all 0.0.0.0/0 scram-sha-256
+      - host all all ::/0 scram-sha-256

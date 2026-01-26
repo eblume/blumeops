@@ -10,9 +10,11 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure manageme
 
 ## Rules
 
-1. At the start of every session, even if the user asked to do something else, run `mise run zk-docs -- --style=header --color=never --decorations=always` in order to review the `blumeops` documentation in the zettelkasten (zk). zk lives at `~/code/personal/zk`, and is managed via obsidian-sync (not git).
+1. **CRITICAL: Always use `--context=minikube-indri` with kubectl commands.** The user has work contexts configured that must never be touched. Every kubectl command must explicitly specify the context to prevent accidental operations against the wrong cluster.
 
-2. When making any changes, start by making sure you're on the `main` git branch and up-to-date, and then create a feature branch. Commit often while working, and create a PR using:
+2. At the start of every session, even if the user asked to do something else, run `mise run zk-docs -- --style=header --color=never --decorations=always` in order to review the `blumeops` documentation in the zettelkasten (zk). zk lives at `~/code/personal/zk`, and is managed via obsidian-sync (not git).
+
+3. When making any changes, start by making sure you're on the `main` git branch and up-to-date, and then create a feature branch. Commit often while working, and create a PR using:
 ```fish
 tea pr create --title "Description of change" --description "$(cat <<'EOF'
 ## Summary
@@ -33,17 +35,17 @@ mise run pr-comments <pr_number>
 ```
 Address each unresolved comment before proceeding. The user will resolve comments on the Forge UI as they are addressed.
 
-3. Always keep the zk cards up to date with any changes, and suggest new links to new cards whenever appropriate. Refer back to the zk docs often during the process of planning and making corrections to ensure accuracy, and if you make a mistake, figure out a way to guard against it using the zk.
+4. Always keep the zk cards up to date with any changes, and suggest new links to new cards whenever appropriate. Refer back to the zk docs often during the process of planning and making corrections to ensure accuracy, and if you make a mistake, figure out a way to guard against it using the zk.
 
-4. Use `Brewfile` and `mise.toml` to install tools needed on the development workstation (typically hostnamed "gilbert", username "eblume").
+5. Use `Brewfile` and `mise.toml` to install tools needed on the development workstation (typically hostnamed "gilbert", username "eblume").
 
-5. Services are hosted either on indri directly (via ansible) or in Kubernetes (via ArgoCD). See the "Service Deployment" section below for details.
+6. Services are hosted either on indri directly (via ansible) or in Kubernetes (via ArgoCD). See the "Service Deployment" section below for details.
 
-6. Try to always test changes before applying them. Use syntax checkers, do dry runs (`--check --diff`), run commands manually via `ssh indri 'some command'`, etc.
+7. Try to always test changes before applying them. Use syntax checkers, do dry runs (`--check --diff`), run commands manually via `ssh indri 'some command'`, etc.
 
-7. **Wait for user review before deploying.** After creating a PR, do not run deployment commands until the user has had a chance to review the changes. The user will indicate when they're ready to deploy.
+8. **Wait for user review before deploying.** After creating a PR, do not run deployment commands until the user has had a chance to review the changes. The user will indicate when they're ready to deploy.
 
-8. After deploying changes, try to verify the result. Use `mise run indri-services-check` to do a general service health check.
+9. After deploying changes, try to verify the result. Use `mise run indri-services-check` to do a general service health check.
 
 ## Project Structure
 

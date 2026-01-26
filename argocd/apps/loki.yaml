@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
     targetRevision: main
     path: argocd/manifests/loki
   destination:

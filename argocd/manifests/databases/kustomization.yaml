@@ -5,5 +5,6 @@ namespace: databases
 
 resources:
   - blumeops-pg.yaml
+  - immich-pg.yaml
   - service-tailscale.yaml
   - service-metrics-tailscale.yaml

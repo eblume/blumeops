@@ -1,0 +1,98 @@
+# Immich
+
+Self-hosted photo and video management solution with AI-powered search and face recognition.
+
+## Prerequisites
+
+1. **NFS Share**: Create `/volume1/photos` on sifaka with NFS permissions for indri
+2. **PostgreSQL**: The `immich-pg` cluster (with pgvecto.rs) must be healthy
+3. **Secrets**: Create the database password secret
+
+## Deployment Order
+
+1. Sync `blumeops-pg` (to get CloudNativePG operator if not already running)
+2. Sync `immich-storage` (creates PV, PVC, and Tailscale Ingress)
+3. Wait for `immich-pg` cluster to be healthy
+4. Create secrets (see below)
+5. Sync `immich` (deploys the Helm chart)
+6. Run `mise run provision-indri -- --tags caddy` to update Caddy config
+
+## Secret Setup
+
+```bash
+# Create namespace
+kubectl create namespace immich
+
+# Get the auto-generated immich password from CloudNativePG
+kubectl -n databases get secret immich-pg-app -o jsonpath='{.data.password}' | base64 -d
+
+# Store that password in 1Password under blumeops/immich-pg, then:
+op inject -i argocd/manifests/immich/secret-db.yaml.tpl | kubectl apply -f -
+```
+
+## Access
+
+- **URL**: https://photos.ops.eblu.me (after Caddy is updated)
+- **Tailscale**: https://photos.tail8d86e.ts.net (direct)
+
+## First-Time Setup
+
+1. Navigate to https://photos.ops.eblu.me
+2. Create an admin account
+3. Configure external library (optional - for importing existing photos)
+
+## External Library (iCloud Photos)
+
+To import existing photos from iCloud sync on indri:
+
+1. In Immich Admin > External Libraries, create a new library
+2. Set the import path to the location where iCloud photos sync
+3. Configure scan schedule or trigger manual scan
+
+## Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐
+│  immich-server  │────▶│  immich-pg      │
+│  (web/api)      │     │  (PostgreSQL    │
+└────────┬────────┘     │   + pgvecto.rs) │
+         │              └─────────────────┘
+         │
+┌────────▼────────┐     ┌─────────────────┐
+│  immich-ml      │     │  valkey         │
+│  (ML inference) │     │  (Redis cache)  │
+└─────────────────┘     └─────────────────┘
+         │
+┌────────▼────────┐
+│  sifaka NFS     │
+│  /volume1/photos│
+└─────────────────┘
+```
+
+## Helm Values
+
+The Helm chart is configured via `values.yaml`. Key settings:
+
+- `image.tag`: Immich version (update manually)
+- `immich.persistence.library.existingClaim`: Points to `immich-library` PVC
+- `machine-learning.enabled`: AI features for face/object recognition
+- `valkey.enabled`: Redis cache included in chart
+
+## Troubleshooting
+
+```bash
+# Check pods
+kubectl -n immich get pods
+
+# Check immich-pg cluster
+kubectl -n databases get cluster immich-pg
+
+# View server logs
+kubectl -n immich logs -l app.kubernetes.io/name=immich-server
+
+# View ML logs
+kubectl -n immich logs -l app.kubernetes.io/name=immich-machine-learning
+
+# Check PVC binding
+kubectl -n immich get pvc
+```

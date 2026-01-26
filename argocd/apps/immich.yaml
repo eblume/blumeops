@@ -1,0 +1,38 @@
+# Immich - Self-hosted photo and video management
+# High-performance Google Photos/iCloud alternative with AI features
+#
+# Chart mirrored from https://github.com/immich-app/immich-charts to forge
+#
+# Prerequisites:
+# 1. Mirror immich-charts to forge: https://github.com/immich-app/immich-charts
+# 2. Create immich namespace and secrets:
+#    kubectl create namespace immich
+#    op inject -i argocd/manifests/immich/secret-db.yaml.tpl | kubectl apply -f -
+# 3. Create immich-pg database and user (see immich-pg app)
+# 4. Mount photos directory from indri to minikube
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: immich
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Helm chart from forge mirror (SSH via egress)
+    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/immich-charts.git
+      targetRevision: immich-0.10.3
+      path: charts/immich
+      helm:
+        releaseName: immich
+        valueFiles:
+          - $values/argocd/manifests/immich/values.yaml
+    # Values from our git repo (use feature branch for testing, reset to main after merge)
+    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+      targetRevision: feature/immich
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: immich
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

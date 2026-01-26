@@ -1,0 +1,11 @@
+# Immich non-Helm resources (storage)
+# These must be deployed before the Helm chart
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: immich
+
+resources:
+  - pv-nfs.yaml
+  - pvc.yaml
+  - ingress-tailscale.yaml
