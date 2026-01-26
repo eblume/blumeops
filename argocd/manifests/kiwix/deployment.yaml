@@ -20,9 +20,10 @@ spec:
       containers:
         # Main kiwix-serve container
         - name: kiwix-serve
-          image: ghcr.io/kiwix/kiwix-serve:3.8.1
-          command: ["/bin/sh", "-c"]
+          image: registry.ops.eblu.me/blumeops/kiwix-serve:v1.0.0
           args:
+            - "/bin/sh"
+            - "-c"
             - "kiwix-serve --port=80 /data/complete/*.zim"
           ports:
             - containerPort: 80
