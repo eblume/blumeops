@@ -15,6 +15,6 @@ data:
 
     container:
       # Use our custom job execution image with Node.js + Docker CLI
-      # Jobs requesting "docker" label will use this image
       network: "host"
-      # DinD doesn't need socket mount - it uses DOCKER_HOST env var
+      # Connect to DinD sidecar via TCP (not socket)
+      docker_host: tcp://127.0.0.1:2375
