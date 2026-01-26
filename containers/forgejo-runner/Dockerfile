@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jq \
     gnupg \
     lsb-release \
+    xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI (not daemon - we mount the socket)
