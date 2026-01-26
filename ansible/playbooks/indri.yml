@@ -61,23 +61,6 @@
       no_log: true
       tags: [forgejo]
 
-    # Forgejo runner token (for indri-based runner)
-    - name: Fetch forgejo runner token
-      ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields runner_reg --reveal
-      delegate_to: localhost
-      register: _forgejo_runner_token
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo_runner]
-
-    - name: Set forgejo runner token fact
-      ansible.builtin.set_fact:
-        forgejo_runner_token: "{{ _forgejo_runner_token.stdout }}"
-      no_log: true
-      tags: [forgejo_runner]
-
     # Caddy Gandi token for ACME DNS-01 challenges
     - name: Fetch Gandi PAT for Caddy
       ansible.builtin.command:
@@ -114,7 +97,5 @@
       tags: minikube_metrics
     - role: plex_metrics
       tags: plex_metrics
-    - role: forgejo_runner
-      tags: forgejo_runner
     - role: caddy
       tags: caddy
