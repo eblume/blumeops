@@ -1,9 +1,11 @@
 ---
-# Forgejo Runner - host execution mode
+# Forgejo Runner - hybrid host/docker execution
 #
-# The runner daemon runs directly on indri and executes jobs on the host.
-# This avoids container networking complexity since it can reach Forgejo
-# at localhost:3001 directly.
+# The runner daemon runs directly on indri. Jobs can run either:
+# - On host (ubuntu-latest:host) - for builds needing host tools
+# - In Docker (docker:docker://...) - for containerized builds
+#
+# The docker mode uses our custom job execution image with Node.js and Docker CLI.
 
 forgejo_runner_binary: /Users/erichblume/code/3rd/forgejo-runner/forgejo-runner
 forgejo_runner_data_dir: /Users/erichblume/.forgejo-runner
@@ -14,9 +16,10 @@ forgejo_runner_log_dir: /Users/erichblume/Library/Logs
 forgejo_runner_instance_url: "http://localhost:3001"
 forgejo_runner_name: "indri-host-runner"
 
-# Labels format for host execution: label:host
-# Jobs run directly on the host, not in containers
-forgejo_runner_labels: "ubuntu-latest:host,ubuntu-22.04:host"
+# Labels: both host and docker modes
+# - ubuntu-latest:host - jobs run directly on host
+# - docker:docker://... - jobs run in container with Node.js + Docker CLI
+forgejo_runner_labels: "ubuntu-latest:host,docker:docker://registry.ops.eblu.me/blumeops/forgejo-runner:v2.1.0"
 
 # Runner config
 forgejo_runner_capacity: 2
