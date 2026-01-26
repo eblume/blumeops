@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forgejo-runner-config
+  namespace: forgejo-runner
+data:
+  config.yaml: |
+    log:
+      level: info
+
+    runner:
+      file: /data/.runner
+      capacity: 2
+      timeout: 3h
+
+    container:
+      # Use our custom job execution image with Node.js + Docker CLI
+      # Jobs requesting "docker" label will use this image
+      network: "host"
+      # DinD doesn't need socket mount - it uses DOCKER_HOST env var
