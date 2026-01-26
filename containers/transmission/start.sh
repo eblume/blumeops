@@ -5,14 +5,17 @@ set -e
 PUID=${PUID:-1000}
 PGID=${PGID:-1000}
 
-# Update transmission user UID/GID if different from default
-if [ "$PUID" != "1000" ] || [ "$PGID" != "1000" ]; then
-    echo "Updating transmission user to UID=$PUID GID=$PGID"
-    deluser transmission 2>/dev/null || true
-    delgroup transmission 2>/dev/null || true
-    addgroup -g "$PGID" transmission
-    adduser -D -u "$PUID" -G transmission transmission
-fi
+# Create or update transmission group/user with requested UID/GID
+# The transmission package may have created a user with different IDs
+echo "Setting up transmission user with UID=$PUID GID=$PGID"
+
+# Remove existing user/group if they exist (ignore errors)
+deluser transmission 2>/dev/null || true
+delgroup transmission 2>/dev/null || true
+
+# Create fresh user/group with requested IDs
+addgroup -g "$PGID" transmission
+adduser -D -u "$PUID" -G transmission transmission
 
 # Ensure directories exist with correct ownership
 mkdir -p /config /downloads/complete /downloads/incomplete

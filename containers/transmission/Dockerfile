@@ -13,11 +13,8 @@ RUN apk add --no-cache \
     tzdata \
     su-exec
 
-# Create transmission user
-RUN addgroup -g 1000 transmission && \
-    adduser -D -u 1000 -G transmission transmission && \
-    mkdir -p /config /downloads/complete /downloads/incomplete && \
-    chown -R transmission:transmission /config /downloads
+# Create directories (user is created dynamically by start.sh based on PUID/PGID)
+RUN mkdir -p /config /downloads/complete /downloads/incomplete
 
 COPY --chmod=755 start.sh /start.sh
 
