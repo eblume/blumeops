@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: teslamate
-          image: teslamate/teslamate:2.2.0
+          image: registry.ops.eblu.me/blumeops/teslamate:v1.0.0
           ports:
             - containerPort: 4000
           env:
