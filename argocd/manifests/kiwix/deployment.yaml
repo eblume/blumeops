@@ -53,7 +53,7 @@ spec:
 
         # Sidecar: Syncs declarative ZIM torrents to transmission
         - name: torrent-sync
-          image: registry.ops.eblu.me/blumeops/transmission:v1.0.0
+          image: registry.ops.eblu.me/blumeops/transmission:v1.0.1
           command: ["/bin/bash", "-c"]
           args:
             - |

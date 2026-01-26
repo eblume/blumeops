@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: transmission
-          image: registry.ops.eblu.me/blumeops/transmission:v1.0.0
+          image: registry.ops.eblu.me/blumeops/transmission:v1.0.1
           env:
             - name: PUID
               value: "1000"
