@@ -64,10 +64,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --uid 10000 --system --gid nonroot --home-dir /home/nonroot --shell /sbin/nologin nonroot \
     && chown -R nonroot:nonroot .
 
+COPY entrypoint.sh /
+COPY --from=builder /opt/built .
+RUN chmod 555 /entrypoint.sh && \
+    chown -R nonroot:nonroot . && \
+    mkdir $SRTM_CACHE
+
 USER nonroot:nonroot
-COPY --chmod=555 entrypoint.sh /
-COPY --from=builder --chown=nonroot:nonroot --chmod=555 /opt/built .
-RUN mkdir $SRTM_CACHE
 
 EXPOSE 4000
 
