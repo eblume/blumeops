@@ -7,7 +7,19 @@ ARG TARGETARCH
 ARG KUBECTL_VERSION=v1.34.1
 
 RUN apk add --no-cache curl && \
-    curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
+    # Detect architecture - use TARGETARCH if set, otherwise detect from uname
+    if [ -n "$TARGETARCH" ]; then \
+        ARCH="$TARGETARCH"; \
+    else \
+        UNAME_ARCH=$(uname -m); \
+        case "$UNAME_ARCH" in \
+            aarch64|arm64) ARCH="arm64" ;; \
+            x86_64) ARCH="amd64" ;; \
+            *) echo "Unsupported architecture: $UNAME_ARCH"; exit 1 ;; \
+        esac; \
+    fi && \
+    echo "Downloading kubectl for $ARCH..." && \
+    curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl" && \
     chmod +x kubectl
 
 FROM alpine:3.21

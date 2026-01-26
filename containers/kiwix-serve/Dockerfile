@@ -8,13 +8,27 @@ ARG KIWIX_VERSION=3.8.1
 
 RUN set -e && \
     apk --no-cache add dumb-init curl && \
-    echo "TARGETPLATFORM: $TARGETPLATFORM" && \
-    if [ "$TARGETPLATFORM" = "linux/arm64/v8" -o "$TARGETPLATFORM" = "linux/arm64" ]; then \
-        ARCH="aarch64"; \
-    elif [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-        ARCH="x86_64"; \
+    # Detect architecture - use TARGETPLATFORM if set, otherwise detect from uname
+    if [ -n "$TARGETPLATFORM" ]; then \
+        echo "TARGETPLATFORM: $TARGETPLATFORM"; \
+        case "$TARGETPLATFORM" in \
+            linux/arm64*) ARCH="aarch64" ;; \
+            linux/amd64*) ARCH="x86_64" ;; \
+            *) ARCH="" ;; \
+        esac; \
     else \
-        ARCH="unknown"; \
+        echo "TARGETPLATFORM not set, detecting from uname..."; \
+        UNAME_ARCH=$(uname -m); \
+        echo "uname -m: $UNAME_ARCH"; \
+        case "$UNAME_ARCH" in \
+            aarch64|arm64) ARCH="aarch64" ;; \
+            x86_64) ARCH="x86_64" ;; \
+            *) ARCH="" ;; \
+        esac; \
+    fi && \
+    if [ -z "$ARCH" ]; then \
+        echo "ERROR: Unsupported architecture"; \
+        exit 1; \
     fi && \
     url="http://mirror.download.kiwix.org/release/kiwix-tools/kiwix-tools_linux-$ARCH-$KIWIX_VERSION.tar.gz" && \
     echo "URL: $url" && \
