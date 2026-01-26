@@ -7,7 +7,11 @@ runner:
   capacity: {{ forgejo_runner_capacity }}
   timeout: {{ forgejo_runner_timeout }}
 
-# Even in host execution mode, some actions run in containers.
-# Use host networking so containers can access localhost services.
+# Container settings for docker execution mode
 container:
+  # Host networking so containers can reach services (forge.ops.eblu.me, etc.)
   network: "host"
+  # Mount Docker socket for container builds (DinD)
+  options: "-v /var/run/docker.sock:/var/run/docker.sock"
+  valid_volumes:
+    - /var/run/docker.sock
