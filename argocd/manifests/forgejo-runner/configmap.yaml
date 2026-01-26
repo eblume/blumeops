@@ -18,3 +18,6 @@ data:
       network: "host"
       # Connect to DinD sidecar via TCP (not socket)
       docker_host: tcp://127.0.0.1:2375
+      # Set DOCKER_HOST in job containers so they can run docker commands
+      env:
+        DOCKER_HOST: tcp://127.0.0.1:2375
