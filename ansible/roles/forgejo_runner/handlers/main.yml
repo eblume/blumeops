@@ -1,7 +1,0 @@
----
-- name: Restart forgejo-runner
-  listen: Restart forgejo-runner
-  ansible.builtin.shell: |
-    launchctl unload ~/Library/LaunchAgents/mcquack.forgejo-runner.plist 2>/dev/null || true
-    launchctl load ~/Library/LaunchAgents/mcquack.forgejo-runner.plist
-  changed_when: true

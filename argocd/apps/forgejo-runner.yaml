@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: forgejo-runner
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://forge.ops.eblu.me/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/forgejo-runner
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: forgejo-runner
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
