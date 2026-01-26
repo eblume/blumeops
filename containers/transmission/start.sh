@@ -19,7 +19,9 @@ adduser -D -u "$PUID" -G transmission transmission
 
 # Ensure directories exist with correct ownership
 mkdir -p /config /downloads/complete /downloads/incomplete
-chown -R transmission:transmission /config /downloads
+# Only chown /config (emptyDir) - /downloads is NFS and may not allow chown
+chown -R transmission:transmission /config 2>/dev/null || true
+chown transmission:transmission /downloads /downloads/complete /downloads/incomplete 2>/dev/null || true
 
 # Create default config if it doesn't exist
 CONFIG_FILE="/config/settings.json"
