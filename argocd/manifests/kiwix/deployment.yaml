@@ -20,9 +20,10 @@ spec:
       containers:
         # Main kiwix-serve container
         - name: kiwix-serve
-          image: ghcr.io/kiwix/kiwix-serve:3.8.1
-          command: ["/bin/sh", "-c"]
+          image: registry.ops.eblu.me/blumeops/kiwix-serve:v1.0.0
           args:
+            - "/bin/sh"
+            - "-c"
             - "kiwix-serve --port=80 /data/complete/*.zim"
           ports:
             - containerPort: 80
@@ -52,7 +53,7 @@ spec:
 
         # Sidecar: Syncs declarative ZIM torrents to transmission
         - name: torrent-sync
-          image: lscr.io/linuxserver/transmission:4.0.6  # Has transmission-remote CLI
+          image: registry.ops.eblu.me/blumeops/transmission:v1.0.1
           command: ["/bin/bash", "-c"]
           args:
             - |
