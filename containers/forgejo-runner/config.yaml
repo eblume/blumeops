@@ -1,0 +1,25 @@
+# Forgejo Runner configuration
+# See: https://forgejo.org/docs/latest/admin/actions/#configuration
+
+log:
+  level: info
+
+runner:
+  file: /data/.runner
+  capacity: 2
+  timeout: 3h
+  # Fetch task interval
+  fetch_timeout: 5s
+  fetch_interval: 2s
+
+container:
+  # Use host network so containers can reach services on the host
+  # (e.g., registry.ops.eblu.me resolves to host's Tailscale IP)
+  network: host
+  # Don't use privileged mode by default
+  privileged: false
+  # Mount docker socket for container builds
+  options: -v /var/run/docker.sock:/var/run/docker.sock
+  # Valid volumes that can be mounted
+  valid_volumes:
+    - /var/run/docker.sock
