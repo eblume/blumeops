@@ -13,5 +13,5 @@ type: Opaque
 stringData:
   FORGEJO_URL: "https://forge.ops.eblu.me"
   RUNNER_NAME: "k8s-runner"
-  RUNNER_LABELS: "k8s:docker://registry.ops.eblu.me/blumeops/forgejo-runner:v2.1.3"
+  RUNNER_LABELS: "k8s:docker://registry.ops.eblu.me/blumeops/forgejo-runner:v2.1.7"
   RUNNER_TOKEN: "{{ op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/runner_reg }}"
