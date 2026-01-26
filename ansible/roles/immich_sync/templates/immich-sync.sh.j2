@@ -1,0 +1,150 @@
+#!/bin/bash
+# {{ ansible_managed }}
+#
+# Immich photo sync script
+# Exports photos from macOS Photos Library and uploads to Immich
+#
+# Prerequisites:
+# - osxphotos (installed via mise/pipx)
+# - Docker (for immich-cli)
+# - API key at ~/.immich-api-key
+
+set -euo pipefail
+
+# Explicit paths for LaunchAgent context (no PATH inheritance)
+MISE=/opt/homebrew/opt/mise/bin/mise
+DOCKER=/usr/local/bin/docker
+
+EXPORT_DIR="{{ immich_sync_export_dir }}"
+IMMICH_URL="{{ immich_sync_url }}"
+API_KEY_FILE="$HOME/.immich-api-key"
+LOCKFILE="$HOME/.immich-sync.lock"
+LOG_PREFIX="[immich-sync]"
+
+log() {
+    echo "$LOG_PREFIX $(date '+%Y-%m-%d %H:%M:%S') $*"
+}
+
+error() {
+    echo "$LOG_PREFIX $(date '+%Y-%m-%d %H:%M:%S') ERROR: $*" >&2
+}
+
+# Lockfile management to prevent concurrent runs
+acquire_lock() {
+    if [[ -f "$LOCKFILE" ]]; then
+        local lock_pid lock_time
+        lock_pid=$(cat "$LOCKFILE" 2>/dev/null | head -1)
+        lock_time=$(stat -f %Sm -t '%Y-%m-%d %H:%M:%S' "$LOCKFILE" 2>/dev/null || echo "unknown")
+
+        # Check if the process is still running
+        if [[ -n "$lock_pid" ]] && kill -0 "$lock_pid" 2>/dev/null; then
+            error "Another sync is already running (PID: $lock_pid, started: $lock_time)"
+            error "Lockfile: $LOCKFILE"
+            error "If this is stale, remove the lockfile manually: rm $LOCKFILE"
+            exit 0  # Exit cleanly so LaunchAgent doesn't report failure
+        else
+            log "WARNING: Found stale lockfile from PID $lock_pid (process not running), removing it"
+            rm -f "$LOCKFILE"
+        fi
+    fi
+
+    # Create lockfile with our PID
+    echo $$ > "$LOCKFILE"
+    log "Acquired lock (PID: $$)"
+}
+
+release_lock() {
+    if [[ -f "$LOCKFILE" ]]; then
+        rm -f "$LOCKFILE"
+        log "Released lock"
+    fi
+}
+
+# Ensure lock is released on exit (success or failure)
+trap release_lock EXIT
+
+# Acquire lock before doing anything else
+acquire_lock
+
+# Check prerequisites
+if [[ ! -x "$MISE" ]]; then
+    error "mise not found at $MISE"
+    exit 1
+fi
+
+if [[ ! -x "$DOCKER" ]]; then
+    error "Docker not found at $DOCKER"
+    exit 1
+fi
+
+if [[ ! -f "$API_KEY_FILE" ]]; then
+    error "Immich API key not found at $API_KEY_FILE"
+    exit 1
+fi
+
+IMMICH_API_KEY=$(cat "$API_KEY_FILE")
+
+# Ensure export directory exists
+mkdir -p "$EXPORT_DIR"
+
+log "Starting photo export from Photos Library to $EXPORT_DIR"
+
+# Export photos using osxphotos
+# --directory: export directory structure by date
+# --update: only export new/changed photos (incremental)
+# --exiftool: write metadata to EXIF tags
+# --edited-suffix: suffix for edited versions (default exports both original and edited)
+# --download-missing: download from iCloud if needed
+OSXPHOTOS_ARGS=(
+    export "$EXPORT_DIR"
+    --directory "{created.year}/{created.mm}-{created.mon}"
+{% if immich_sync_update_mode %}
+    --update
+{% endif %}
+    --exiftool
+    --download-missing
+    --edited-suffix "_edited"
+{% if not immich_sync_export_edited %}
+    --skip-edited
+{% endif %}
+{% if not immich_sync_export_originals %}
+    --skip-original-if-edited
+{% endif %}
+)
+
+log "Running: mise x -- osxphotos ${OSXPHOTOS_ARGS[*]}"
+if ! "$MISE" x -- osxphotos "${OSXPHOTOS_ARGS[@]}"; then
+    error "osxphotos export failed"
+    exit 1
+fi
+
+log "Photo export complete"
+log "Starting upload to Immich at $IMMICH_URL"
+
+# Upload to Immich using immich-cli in Docker
+# -r: recursive upload
+# -a: create albums from folder names
+# --concurrency: parallel uploads
+IMMICH_CLI_ARGS=(
+    upload
+    --recursive
+{% if immich_sync_create_albums %}
+    --album
+{% endif %}
+    --concurrency {{ immich_sync_concurrency }}
+    /import
+)
+
+log "Running: docker run immich-cli ${IMMICH_CLI_ARGS[*]}"
+if ! "$DOCKER" run --rm \
+    -v "$EXPORT_DIR:/import:ro" \
+    -e IMMICH_INSTANCE_URL="$IMMICH_URL" \
+    -e IMMICH_API_KEY="$IMMICH_API_KEY" \
+    ghcr.io/immich-app/immich-cli:latest \
+    "${IMMICH_CLI_ARGS[@]}"; then
+    error "immich-cli upload failed"
+    exit 1
+fi
+
+log "Upload to Immich complete"
+log "Sync finished successfully"

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<false/>
+	<key>Label</key>
+	<string>mcquack.eblume.immich-sync</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+		<key>HOME</key>
+		<string>/Users/erichblume</string>
+	</dict>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ immich_sync_bin_dir }}/immich-sync.sh</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>{{ immich_sync_log_dir }}/mcquack.immich-sync.err.log</string>
+	<key>StandardOutPath</key>
+	<string>{{ immich_sync_log_dir }}/mcquack.immich-sync.out.log</string>
+	<key>StartInterval</key>
+	<integer>{{ immich_sync_interval_seconds }}</integer>
+</dict>
+</plist>

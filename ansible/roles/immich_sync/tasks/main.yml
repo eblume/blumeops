@@ -1,0 +1,55 @@
+---
+# Note: osxphotos is installed via mise (pipx), not managed here.
+# This role manages the sync wrapper script and scheduled LaunchAgent.
+#
+# Prerequisites:
+# - osxphotos: Add to ~/.config/mise/config.toml on indri:
+#     [tools]
+#     "pipx:osxphotos" = "latest"
+#   Then run: mise install
+# - Docker: Already installed on indri
+
+- name: Ensure export directory exists
+  ansible.builtin.file:
+    path: "{{ immich_sync_export_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure bin directory exists
+  ansible.builtin.file:
+    path: "{{ immich_sync_bin_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Write Immich API key to secure file
+  ansible.builtin.copy:
+    content: "{{ immich_sync_api_key }}"
+    dest: ~/.immich-api-key
+    mode: '0600'
+  no_log: true
+
+- name: Deploy immich-sync wrapper script
+  ansible.builtin.template:
+    src: immich-sync.sh.j2
+    dest: "{{ immich_sync_bin_dir }}/immich-sync.sh"
+    mode: '0755'
+  notify: Reload immich-sync
+
+- name: Deploy immich-sync LaunchAgent plist
+  ansible.builtin.template:
+    src: immich-sync.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.immich-sync.plist
+    mode: '0644'
+  notify: Reload immich-sync
+
+- name: Check if immich-sync LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.immich-sync
+  register: immich_sync_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load immich-sync LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.immich-sync.plist
+  when: immich_sync_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false
