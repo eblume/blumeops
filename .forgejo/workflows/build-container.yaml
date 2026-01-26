@@ -16,6 +16,9 @@ on:
 jobs:
   build:
     runs-on: k8s
+    env:
+      # For k8s runner with DinD sidecar, Docker is available via TCP
+      DOCKER_HOST: tcp://127.0.0.1:2375
     steps:
       - name: Parse tag
         id: parse
