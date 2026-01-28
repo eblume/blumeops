@@ -78,23 +78,6 @@
       no_log: true
       tags: [caddy]
 
-    # Immich API key for photo sync
-    - name: Fetch Immich API key
-      ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get ifcuzuceejqcjx7k7zd2gdsjem --fields api_key --reveal
-      delegate_to: localhost
-      register: _immich_api_key
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [immich_sync]
-
-    - name: Set Immich API key fact
-      ansible.builtin.set_fact:
-        immich_sync_api_key: "{{ _immich_api_key.stdout }}"
-      no_log: true
-      tags: [immich_sync]
-
   roles:
     - role: alloy
       tags: alloy
@@ -116,5 +99,3 @@
       tags: plex_metrics
     - role: caddy
       tags: caddy
-    - role: immich_sync
-      tags: immich_sync

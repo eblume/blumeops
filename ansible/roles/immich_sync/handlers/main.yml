@@ -1,6 +1,0 @@
----
-- name: Reload immich-sync
-  ansible.builtin.shell: |
-    launchctl unload ~/Library/LaunchAgents/mcquack.eblume.immich-sync.plist 2>/dev/null || true
-    launchctl load ~/Library/LaunchAgents/mcquack.eblume.immich-sync.plist
-  changed_when: true
