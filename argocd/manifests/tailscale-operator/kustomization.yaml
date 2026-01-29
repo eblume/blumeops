@@ -8,6 +8,4 @@ resources:
   - proxyclass.yaml
   - dnsconfig.yaml
   - egress-forge.yaml
-
-# Note: OAuth secret (operator-oauth) is NOT included here.
-# It must be manually applied before deploying - see README.md
+  - external-secret.yaml
