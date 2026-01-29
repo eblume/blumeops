@@ -534,13 +534,19 @@ data:
                   "mode": "none"
                 },
                 "thresholdsStyle": {
-                  "mode": "off"
+                  "mode": "dashed"
                 }
               },
               "mappings": [],
+              "max": 220000000,
+              "min": 0,
               "thresholds": {
                 "mode": "absolute",
-                "steps": [{ "color": "green", "value": null }]
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 150000000 },
+                  { "color": "red", "value": 200000000 }
+                ]
               },
               "unit": "short"
             }
@@ -566,7 +572,7 @@ data:
               "refId": "A"
             }
           ],
-          "title": "XID Age Over Time",
+          "title": "Tesla XID Age (autovacuum threshold: 200M)",
           "type": "timeseries"
         }
       ],
