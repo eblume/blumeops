@@ -26,9 +26,8 @@ spec:
         releaseName: immich
         valueFiles:
           - $values/argocd/manifests/immich/values.yaml
-    # Values from our git repo (use feature branch for testing, reset to main after merge)
     - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
-      targetRevision: feature/immich
+      targetRevision: main
       ref: values
   destination:
     server: https://kubernetes.default.svc
