@@ -1,0 +1,33 @@
+# 1Password Connect Helm values for blumeops
+# Chart: https://github.com/1Password/connect-helm-charts
+#
+# The credentials are bootstrapped manually via secret-credentials.yaml.tpl
+# before deploying this chart.
+
+connect:
+  # Use pre-created credentials secret (from bootstrap)
+  credentialsKey: 1password-credentials.json
+  credentialsName: op-credentials
+
+  # Resource limits for minikube
+  api:
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+
+  sync:
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+
+# We don't use the 1Password Operator (using External Secrets instead)
+operator:
+  create: false
