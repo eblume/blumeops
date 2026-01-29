@@ -1755,7 +1755,7 @@ data:
         "hidden": true
       },
       "timezone": "browser",
-      "title": "Battery Health",
+      "title": "Tesla Battery Health",
       "uid": "jchmRiqUfXgTM",
       "version": 1
     }

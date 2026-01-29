@@ -413,7 +413,7 @@ data:
       },
       "timepicker": {},
       "timezone": "",
-      "title": "Charge Level",
+      "title": "Tesla Charge Level",
       "uid": "WopVO_mgz",
       "version": 1
     }
