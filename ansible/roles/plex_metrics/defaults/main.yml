@@ -14,7 +14,7 @@ plex_metrics_interval: 60
 plex_metrics_dir: /opt/homebrew/var/node_exporter/textfile
 
 # Script installation path
-plex_metrics_script: /Users/erichblume/bin/plex-metrics
+plex_metrics_script: /Users/erichblume/.local/bin/plex-metrics
 
 # Log directory for metrics script output
 plex_metrics_log_dir: /opt/homebrew/var/log

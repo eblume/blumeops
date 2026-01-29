@@ -1,6 +1,6 @@
 ---
 zot_metrics_url: http://localhost:5050/v2/_catalog
 zot_metrics_dir: /opt/homebrew/var/node_exporter/textfile
-zot_metrics_script: /Users/erichblume/bin/zot-metrics
+zot_metrics_script: /Users/erichblume/.local/bin/zot-metrics
 zot_metrics_interval: 60  # seconds between metric collection
 zot_metrics_log_dir: /opt/homebrew/var/log
