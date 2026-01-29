@@ -11,6 +11,12 @@ metadata:
   namespace: argocd
   annotations:
     tailscale.com/proxy-class: "default"
+    hajimari.io/enable: "true"
+    hajimari.io/url: "https://argocd.ops.eblu.me"
+    hajimari.io/icon: "simple-icons:argo"
+    hajimari.io/appName: "ArgoCD"
+    hajimari.io/group: "Infrastructure"
+    hajimari.io/info: "GitOps continuous delivery"
 spec:
   ingressClassName: tailscale
   defaultBackend:

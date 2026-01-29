@@ -1,0 +1,32 @@
+# Hajimari - Service Dashboard / Start Page
+#
+# Using upstream Helm chart from https://hajimari.io
+#
+# Auto-discovers k8s services via ingress annotations and displays
+# custom apps for non-k8s services (Forge, Registry, NAS).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hajimari
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Helm chart from upstream repo
+    - repoURL: https://hajimari.io
+      chart: hajimari
+      targetRevision: 2.0.2
+      helm:
+        releaseName: hajimari
+        valueFiles:
+          - $values/argocd/manifests/hajimari/values.yaml
+    # Values from our git repo
+    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hajimari
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

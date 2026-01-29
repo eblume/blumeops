@@ -6,6 +6,12 @@ metadata:
   namespace: kiwix
   annotations:
     tailscale.com/proxy-class: "default"
+    hajimari.io/enable: "true"
+    hajimari.io/url: "https://kiwix.ops.eblu.me"
+    hajimari.io/icon: "mdi:wikipedia"
+    hajimari.io/appName: "Kiwix"
+    hajimari.io/group: "Apps"
+    hajimari.io/info: "Offline Wikipedia & ZIM archives"
 spec:
   ingressClassName: tailscale
   defaultBackend:

@@ -5,6 +5,12 @@ metadata:
   namespace: teslamate
   annotations:
     tailscale.com/proxy-class: "default"
+    hajimari.io/enable: "true"
+    hajimari.io/url: "https://tesla.ops.eblu.me"
+    hajimari.io/icon: "simple-icons:tesla"
+    hajimari.io/appName: "TeslaMate"
+    hajimari.io/group: "Apps"
+    hajimari.io/info: "Tesla data logger"
 spec:
   ingressClassName: tailscale
   defaultBackend:

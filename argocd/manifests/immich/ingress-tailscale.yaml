@@ -8,6 +8,12 @@ metadata:
   namespace: immich
   annotations:
     tailscale.com/funnel: "false"
+    hajimari.io/enable: "true"
+    hajimari.io/url: "https://photos.ops.eblu.me"
+    hajimari.io/icon: "mdi:image-multiple"
+    hajimari.io/appName: "Immich"
+    hajimari.io/group: "Apps"
+    hajimari.io/info: "Photo management"
 spec:
   ingressClassName: tailscale
   rules:

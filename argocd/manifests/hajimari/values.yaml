@@ -1,0 +1,66 @@
+# Hajimari values for blumeops
+# Service dashboard at go.ops.eblu.me
+
+# Page settings
+hajimari:
+  title: BlumeOps
+  name: Erich
+  defaultEnable: true
+
+  # Discover ingresses from all namespaces
+  namespaceSelector:
+    any: true
+
+  # Non-k8s services (hosted on indri or LAN)
+  customApps:
+    - group: Infrastructure
+      apps:
+        - name: Forgejo
+          url: https://forge.ops.eblu.me
+          icon: simple-icons:forgejo
+          info: Git forge & CI/CD
+        - name: Registry
+          url: https://registry.ops.eblu.me
+          icon: mdi:docker
+          info: Container registry (Zot)
+        - name: Sifaka NAS
+          url: https://nas.ops.eblu.me
+          icon: simple-icons:synology
+          info: Synology NAS dashboard
+
+  # Useful external bookmarks
+  globalBookmarks:
+    - group: Docs
+      bookmarks:
+        - name: Tailscale Admin
+          url: https://login.tailscale.com/admin
+        - name: 1Password
+          url: https://my.1password.com
+        - name: Pulumi
+          url: https://app.pulumi.com/eblume/blumeops-tailnet
+
+# Service account for reading ingresses across namespaces
+serviceAccount:
+  create: true
+
+# Tailscale Ingress - exposes at go.tail8d86e.ts.net
+# Caddy will proxy go.ops.eblu.me to this
+ingress:
+  main:
+    enabled: true
+    ingressClassName: tailscale
+    annotations:
+      hajimari.io/enable: "false"
+    hosts:
+      - host: go
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - hosts:
+          - go
+
+# No persistence needed - config is in values.yaml
+persistence:
+  data:
+    enabled: false

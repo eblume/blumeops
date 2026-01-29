@@ -5,6 +5,12 @@ metadata:
   namespace: devpi
   annotations:
     tailscale.com/proxy-class: "default"
+    hajimari.io/enable: "true"
+    hajimari.io/url: "https://pypi.ops.eblu.me"
+    hajimari.io/icon: "simple-icons:pypi"
+    hajimari.io/appName: "PyPI"
+    hajimari.io/group: "Infrastructure"
+    hajimari.io/info: "Python package cache (devpi)"
 spec:
   ingressClassName: tailscale
   defaultBackend:

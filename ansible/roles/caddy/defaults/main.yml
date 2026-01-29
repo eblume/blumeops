@@ -61,6 +61,12 @@ caddy_services:
   - name: immich
     host: "photos.{{ caddy_domain }}"
     backend: "https://photos.tail8d86e.ts.net"
+  - name: hajimari
+    host: "go.{{ caddy_domain }}"
+    backend: "https://go.tail8d86e.ts.net"
+  - name: sifaka
+    host: "nas.{{ caddy_domain }}"
+    backend: "http://sifaka:5000"
 
 # Layer 4 (TCP) services
 # Format: { port: external_port, backend: "host:port" }
