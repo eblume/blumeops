@@ -7,3 +7,5 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress-tailscale.yaml
+  - external-secret-db.yaml
+  - external-secret-encryption-key.yaml
