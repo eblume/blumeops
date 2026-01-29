@@ -47,6 +47,8 @@ Address each unresolved comment before proceeding. The user will resolve comment
 
 9. After deploying changes, try to verify the result. Use `mise run indri-services-check` to do a general service health check.
 
+10. **Never merge PRs without explicit user request.** The user will merge PRs themselves after review. Only merge if the user explicitly asks you to.
+
 ## Project Structure
 
 ```
