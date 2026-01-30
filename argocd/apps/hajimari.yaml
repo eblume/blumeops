@@ -1,6 +1,7 @@
 # Hajimari - Service Dashboard / Start Page
 #
-# Using upstream Helm chart from https://hajimari.io
+# Using custom fork from forge.ops.eblu.me/eblume/hajimari
+# Fork enables custom builds with search auto-focus, weather widget, etc.
 #
 # Auto-discovers k8s services via ingress annotations and displays
 # custom apps for non-k8s services (Forge, Registry, NAS).
@@ -12,15 +13,15 @@ metadata:
 spec:
   project: default
   sources:
-    # Helm chart from upstream repo
-    - repoURL: https://hajimari.io
-      chart: hajimari
-      targetRevision: 2.0.2
+    # Helm chart from our fork
+    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/hajimari.git
+      targetRevision: v0.3.1-blumeops.1
+      path: charts/hajimari
       helm:
         releaseName: hajimari
         valueFiles:
           - $values/argocd/manifests/hajimari/values.yaml
-    # Values from our git repo
+    # Values from blumeops repo
     - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
       targetRevision: main
       ref: values

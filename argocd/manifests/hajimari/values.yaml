@@ -1,6 +1,11 @@
 # Hajimari values for blumeops
 # Service dashboard at go.ops.eblu.me
 
+# Use custom image from our fork
+image:
+  repository: registry.ops.eblu.me/blumeops/hajimari
+  tag: v0.3.1-blumeops.1
+
 # Page settings
 hajimari:
   title: BlumeOps
