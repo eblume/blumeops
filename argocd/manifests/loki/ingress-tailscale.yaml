@@ -7,7 +7,7 @@ metadata:
   namespace: monitoring
   annotations:
     tailscale.com/funnel: "false"
-    hajimari.io/enable: "true"
+    hajimari.io/enable: "false"
     hajimari.io/url: "https://loki.ops.eblu.me"
     hajimari.io/icon: "mdi:text-box-search"
     hajimari.io/appName: "Loki"
