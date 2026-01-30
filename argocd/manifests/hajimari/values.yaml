@@ -54,7 +54,7 @@ hajimari:
 
   # Useful external bookmarks
   globalBookmarks:
-    - group: Docs
+    - group: Admin
       bookmarks:
         - name: Tailscale Admin
           url: https://login.tailscale.com/admin
