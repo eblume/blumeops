@@ -5,12 +5,13 @@ metadata:
   namespace: miniflux
   annotations:
     tailscale.com/proxy-class: "default"
-    hajimari.io/enable: "true"
-    hajimari.io/url: "https://feed.ops.eblu.me"
-    hajimari.io/icon: "mdi:rss"
-    hajimari.io/appName: "Miniflux"
-    hajimari.io/group: "Apps"
-    hajimari.io/info: "RSS reader"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Miniflux"
+    gethomepage.dev/group: "Apps"
+    gethomepage.dev/icon: "miniflux.png"
+    gethomepage.dev/description: "RSS reader"
+    gethomepage.dev/href: "https://feed.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=miniflux"
 spec:
   ingressClassName: tailscale
   defaultBackend:

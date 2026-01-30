@@ -5,12 +5,13 @@ metadata:
   namespace: teslamate
   annotations:
     tailscale.com/proxy-class: "default"
-    hajimari.io/enable: "true"
-    hajimari.io/url: "https://tesla.ops.eblu.me"
-    hajimari.io/icon: "simple-icons:tesla"
-    hajimari.io/appName: "TeslaMate"
-    hajimari.io/group: "Apps"
-    hajimari.io/info: "Tesla data logger"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "TeslaMate"
+    gethomepage.dev/group: "Apps"
+    gethomepage.dev/icon: "teslamate.png"
+    gethomepage.dev/description: "Tesla data logger"
+    gethomepage.dev/href: "https://tesla.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=teslamate"
 spec:
   ingressClassName: tailscale
   defaultBackend:

@@ -7,12 +7,13 @@ metadata:
   namespace: monitoring
   annotations:
     tailscale.com/funnel: "false"
-    hajimari.io/enable: "true"
-    hajimari.io/url: "https://prometheus.ops.eblu.me"
-    hajimari.io/icon: "simple-icons:prometheus"
-    hajimari.io/appName: "Prometheus"
-    hajimari.io/group: "Observability"
-    hajimari.io/info: "Metrics storage"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Prometheus"
+    gethomepage.dev/group: "Observability"
+    gethomepage.dev/icon: "prometheus.png"
+    gethomepage.dev/description: "Metrics storage"
+    gethomepage.dev/href: "https://prometheus.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=prometheus"
 spec:
   ingressClassName: tailscale
   rules:

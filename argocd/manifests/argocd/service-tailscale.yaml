@@ -11,12 +11,13 @@ metadata:
   namespace: argocd
   annotations:
     tailscale.com/proxy-class: "default"
-    hajimari.io/enable: "true"
-    hajimari.io/url: "https://argocd.ops.eblu.me"
-    hajimari.io/icon: "simple-icons:argo"
-    hajimari.io/appName: "ArgoCD"
-    hajimari.io/group: "Infrastructure"
-    hajimari.io/info: "GitOps CD"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "ArgoCD"
+    gethomepage.dev/group: "Infrastructure"
+    gethomepage.dev/icon: "argocd.png"
+    gethomepage.dev/description: "GitOps CD"
+    gethomepage.dev/href: "https://argocd.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app.kubernetes.io/name=argocd-server"
 spec:
   ingressClassName: tailscale
   defaultBackend:

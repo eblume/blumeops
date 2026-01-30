@@ -8,12 +8,13 @@ metadata:
   namespace: immich
   annotations:
     tailscale.com/funnel: "false"
-    hajimari.io/enable: "true"
-    hajimari.io/url: "https://photos.ops.eblu.me"
-    hajimari.io/icon: "simple-icons:immich"
-    hajimari.io/appName: "Immich"
-    hajimari.io/group: "Apps"
-    hajimari.io/info: "Photo management"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Immich"
+    gethomepage.dev/group: "Apps"
+    gethomepage.dev/icon: "immich.png"
+    gethomepage.dev/description: "Photo management"
+    gethomepage.dev/href: "https://photos.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app.kubernetes.io/name=server"
 spec:
   ingressClassName: tailscale
   rules:

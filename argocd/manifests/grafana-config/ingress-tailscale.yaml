@@ -9,12 +9,13 @@ metadata:
   namespace: monitoring
   annotations:
     tailscale.com/proxy-class: "default"
-    hajimari.io/enable: "true"
-    hajimari.io/url: "https://grafana.ops.eblu.me"
-    hajimari.io/icon: "simple-icons:grafana"
-    hajimari.io/appName: "Grafana"
-    hajimari.io/group: "Observability"
-    hajimari.io/info: "Metrics dashboards"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Grafana"
+    gethomepage.dev/group: "Observability"
+    gethomepage.dev/icon: "grafana.png"
+    gethomepage.dev/description: "Metrics dashboards"
+    gethomepage.dev/href: "https://grafana.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app.kubernetes.io/name=grafana"
 spec:
   ingressClassName: tailscale
   defaultBackend:

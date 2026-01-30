@@ -6,12 +6,13 @@ metadata:
   namespace: torrent
   annotations:
     tailscale.com/proxy-class: "default"
-    hajimari.io/enable: "true"
-    hajimari.io/url: "https://torrent.ops.eblu.me"
-    hajimari.io/icon: "mdi:download"
-    hajimari.io/appName: "Transmission"
-    hajimari.io/group: "Apps"
-    hajimari.io/info: "Torrent client"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Transmission"
+    gethomepage.dev/group: "Apps"
+    gethomepage.dev/icon: "transmission.png"
+    gethomepage.dev/description: "Torrent client"
+    gethomepage.dev/href: "https://torrent.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=transmission"
 spec:
   ingressClassName: tailscale
   defaultBackend:

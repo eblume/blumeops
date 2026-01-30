@@ -1,0 +1,86 @@
+# Homepage values for blumeops
+# Service dashboard at go.ops.eblu.me
+
+# Enable RBAC for Kubernetes service autodiscovery
+enableRbac: true
+
+serviceAccount:
+  create: true
+
+# Tailscale Ingress - exposes at go.tail8d86e.ts.net
+# Caddy proxies go.ops.eblu.me to this
+ingress:
+  main:
+    enabled: true
+    ingressClassName: tailscale
+    annotations:
+      gethomepage.dev/enabled: "false"
+    hosts:
+      - host: go
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - hosts:
+          - go
+
+env:
+  - name: HOMEPAGE_ALLOWED_HOSTS
+    value: "go.tail8d86e.ts.net,go.ops.eblu.me"
+
+config:
+  # Host services (non-k8s, on indri or LAN)
+  services:
+    - Host Services:
+        - Forgejo:
+            href: https://forge.ops.eblu.me
+            icon: forgejo
+            description: Git forge
+        - Registry:
+            href: https://registry.ops.eblu.me
+            icon: docker
+            description: Container registry
+        - Sifaka NAS:
+            href: https://nas.ops.eblu.me
+            icon: synology
+            description: NAS dashboard
+
+  # External bookmarks
+  bookmarks:
+    - Admin:
+        - Tailscale Admin:
+            - href: https://login.tailscale.com/admin
+              icon: tailscale
+        - 1Password:
+            - href: https://my.1password.com
+              icon: 1password
+        - Pulumi:
+            - href: https://app.pulumi.com/eblume/blumeops-tailnet
+              icon: pulumi
+
+  # Widgets on the page
+  # Note: Kubernetes widget disabled - requires metrics-server
+  widgets:
+    - search:
+        provider: custom
+        url: https://kagi.com/search?q=
+        target: _blank
+        suggestionUrl: https://kagisuggest.com/api/autosuggest?q=
+
+  # Kubernetes autodiscovery
+  kubernetes:
+    mode: cluster
+
+  # Layout and styling
+  settingsString: |
+    title: BlumeOps
+    headerStyle: boxed
+    layout:
+      Host Services:
+        style: column
+      Apps:
+        style: column
+      Observability:
+        style: column
+      Infrastructure:
+        style: column
