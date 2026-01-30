@@ -7,6 +7,30 @@ hajimari:
   name: Erich
   defaultEnable: true
 
+  # Display settings
+  showAppGroups: true
+  showAppUrls: true
+  showAppInfo: true
+
+  # Search - default to Kagi
+  defaultSearchProvider: Kagi
+  searchProviders:
+    - name: Kagi
+      token: k
+      icon: simple-icons:kagi
+      searchUrl: https://kagi.com/search?q={query}
+      url: https://kagi.com
+    - name: Google
+      token: g
+      icon: simple-icons:google
+      searchUrl: https://www.google.com/search?q={query}
+      url: https://www.google.com
+    - name: DuckDuckGo
+      token: d
+      icon: simple-icons:duckduckgo
+      searchUrl: https://duckduckgo.com/?q={query}
+      url: https://duckduckgo.com
+
   # Discover ingresses from all namespaces
   namespaceSelector:
     any: true
