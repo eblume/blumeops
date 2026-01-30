@@ -99,6 +99,7 @@ config:
         latitude: 48.18235
         longitude: -122.52590
         units: imperial
+        provider: openweathermap
         apiKey: "{{HOMEPAGE_VAR_OPENWEATHERMAP_API_KEY}}"
         cache: 15
     - search:
