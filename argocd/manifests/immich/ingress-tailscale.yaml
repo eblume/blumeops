@@ -10,7 +10,7 @@ metadata:
     tailscale.com/funnel: "false"
     hajimari.io/enable: "true"
     hajimari.io/url: "https://photos.ops.eblu.me"
-    hajimari.io/icon: "mdi:image-multiple"
+    hajimari.io/icon: "simple-icons:immich"
     hajimari.io/appName: "Immich"
     hajimari.io/group: "Apps"
     hajimari.io/info: "Photo management"
