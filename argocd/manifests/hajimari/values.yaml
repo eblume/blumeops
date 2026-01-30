@@ -37,7 +37,7 @@ hajimari:
 
   # Non-k8s services (hosted on indri or LAN)
   customApps:
-    - group: Infrastructure
+    - group: Host Services
       apps:
         - name: Forgejo
           url: https://forge.ops.eblu.me
