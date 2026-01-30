@@ -1,5 +1,8 @@
 name: 'Build and Push Image'
-description: 'Build a container image with Docker and push to registry.ops.eblu.me'
+description: 'Build a container image with Docker and push to registry.ops.eblu.me using skopeo'
+
+# Note: Uses skopeo for push because Docker 27's manifest format has compatibility
+# issues with zot registry. Skopeo handles manifest conversion correctly.
 
 inputs:
   context:
@@ -26,19 +29,32 @@ runs:
     - name: Build image
       shell: bash
       run: |
-        echo "Building ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}"
+        echo "Building ${{ inputs.image_name }}:${{ inputs.version }}"
         docker build \
-          --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }} \
-          --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }} \
+          --tag ${{ inputs.image_name }}:${{ inputs.version }} \
           --file ${{ inputs.context }}/${{ inputs.dockerfile }} \
           ${{ inputs.context }}
 
     - name: Push to registry
       shell: bash
       run: |
+        echo "Saving image to tarball..."
+        docker save ${{ inputs.image_name }}:${{ inputs.version }} -o /tmp/image.tar
+
+        echo "Installing skopeo..."
+        apk add --no-cache skopeo >/dev/null 2>&1 || apt-get update && apt-get install -y skopeo >/dev/null 2>&1 || true
+
         echo "Pushing ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}"
-        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}
-        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
+        skopeo copy \
+          docker-archive:/tmp/image.tar \
+          docker://${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}
+
+        echo "Pushing ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}"
+        skopeo copy \
+          docker-archive:/tmp/image.tar \
+          docker://${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
+
+        rm -f /tmp/image.tar
 
     - name: Summary
       shell: bash
