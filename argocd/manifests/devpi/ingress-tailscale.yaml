@@ -10,7 +10,7 @@ metadata:
     hajimari.io/icon: "simple-icons:pypi"
     hajimari.io/appName: "PyPI"
     hajimari.io/group: "Infrastructure"
-    hajimari.io/info: "Python package cache (devpi)"
+    hajimari.io/info: "PyPI cache"
 spec:
   ingressClassName: tailscale
   defaultBackend:

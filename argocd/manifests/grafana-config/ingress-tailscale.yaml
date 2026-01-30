@@ -14,7 +14,7 @@ metadata:
     hajimari.io/icon: "simple-icons:grafana"
     hajimari.io/appName: "Grafana"
     hajimari.io/group: "Observability"
-    hajimari.io/info: "Dashboards & metrics visualization"
+    hajimari.io/info: "Metrics dashboards"
 spec:
   ingressClassName: tailscale
   defaultBackend:

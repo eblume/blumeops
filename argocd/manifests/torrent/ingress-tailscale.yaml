@@ -11,7 +11,7 @@ metadata:
     hajimari.io/icon: "mdi:download"
     hajimari.io/appName: "Transmission"
     hajimari.io/group: "Apps"
-    hajimari.io/info: "BitTorrent daemon"
+    hajimari.io/info: "Torrent client"
 spec:
   ingressClassName: tailscale
   defaultBackend:

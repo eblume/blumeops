@@ -9,7 +9,7 @@ hajimari:
 
   # Display settings
   showAppGroups: true
-  showAppUrls: true
+  showAppUrls: false
   showAppInfo: true
 
   # Search - default to Kagi
@@ -42,15 +42,15 @@ hajimari:
         - name: Forgejo
           url: https://forge.ops.eblu.me
           icon: simple-icons:forgejo
-          info: Git forge & CI/CD
+          info: Git forge
         - name: Registry
           url: https://registry.ops.eblu.me
           icon: mdi:docker
-          info: Container registry (Zot)
+          info: Container registry
         - name: Sifaka NAS
           url: https://nas.ops.eblu.me
           icon: simple-icons:synology
-          info: Synology NAS dashboard
+          info: NAS dashboard
 
   # Useful external bookmarks
   globalBookmarks:

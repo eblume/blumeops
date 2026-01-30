@@ -10,7 +10,7 @@ metadata:
     hajimari.io/icon: "mdi:rss"
     hajimari.io/appName: "Miniflux"
     hajimari.io/group: "Apps"
-    hajimari.io/info: "RSS feed reader"
+    hajimari.io/info: "RSS reader"
 spec:
   ingressClassName: tailscale
   defaultBackend:

@@ -16,7 +16,7 @@ metadata:
     hajimari.io/icon: "simple-icons:argo"
     hajimari.io/appName: "ArgoCD"
     hajimari.io/group: "Infrastructure"
-    hajimari.io/info: "GitOps continuous delivery"
+    hajimari.io/info: "GitOps CD"
 spec:
   ingressClassName: tailscale
   defaultBackend:

@@ -11,7 +11,7 @@ metadata:
     hajimari.io/icon: "mdi:wikipedia"
     hajimari.io/appName: "Kiwix"
     hajimari.io/group: "Apps"
-    hajimari.io/info: "Offline Wikipedia & ZIM archives"
+    hajimari.io/info: "Offline Wikipedia"
 spec:
   ingressClassName: tailscale
   defaultBackend:

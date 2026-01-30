@@ -12,7 +12,7 @@ metadata:
     hajimari.io/icon: "simple-icons:prometheus"
     hajimari.io/appName: "Prometheus"
     hajimari.io/group: "Observability"
-    hajimari.io/info: "Metrics collection & storage"
+    hajimari.io/info: "Metrics storage"
 spec:
   ingressClassName: tailscale
   rules:
