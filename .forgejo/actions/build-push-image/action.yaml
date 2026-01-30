@@ -1,15 +1,5 @@
 name: 'Build and Push Image'
-description: 'Build a container image with Docker and push to zot registry via Tailscale sidecar'
-
-# Uses a Tailscale sidecar container to push images to the registry.
-# This works around Docker Desktop's VM not having access to the tailnet.
-#
-# Flow:
-# 1. Start Tailscale sidecar container (joins tailnet)
-# 2. Build image with docker build
-# 3. Save image to OCI tarball
-# 4. Push tarball to registry using skopeo (via Tailscale network)
-# 5. Cleanup sidecar
+description: 'Build a container image with Docker and push to registry.ops.eblu.me'
 
 inputs:
   context:
@@ -29,122 +19,26 @@ inputs:
     description: 'Registry URL'
     required: false
     default: 'registry.ops.eblu.me'
-  tailscale_authkey:
-    description: 'Tailscale OAuth client secret for ci-gateway'
-    required: true
 
 runs:
   using: 'composite'
   steps:
-    - name: Start Tailscale sidecar
+    - name: Build image
       shell: bash
       run: |
-        echo "Starting Tailscale sidecar..."
-
-        # Clean up any existing sidecar
-        docker rm -f ts-ci-gateway 2>/dev/null || true
-
-        # Start Tailscale container
-        docker run -d \
-          --name ts-ci-gateway \
-          --hostname ci-gateway \
-          -e TS_AUTHKEY="${{ inputs.tailscale_authkey }}" \
-          -e TS_EXTRA_ARGS="--advertise-tags=tag:ci-gateway" \
-          -e TS_ACCEPT_DNS=true \
-          -e TS_USERSPACE=true \
-          tailscale/tailscale:latest
-
-        # Wait for Tailscale to connect
-        echo "Waiting for Tailscale to connect..."
-        for i in {1..30}; do
-          # Check if container is still running
-          if ! docker ps -q -f name=ts-ci-gateway | grep -q .; then
-            echo "ERROR: Tailscale container exited unexpectedly!"
-            echo "Container logs:"
-            docker logs ts-ci-gateway 2>&1 || true
-            exit 1
-          fi
-
-          if docker exec ts-ci-gateway tailscale status >/dev/null 2>&1; then
-            echo "Tailscale connected!"
-            docker exec ts-ci-gateway tailscale status
-            break
-          fi
-          echo "  Attempt $i/30..."
-          sleep 2
-        done
-
-        # Verify DNS resolution
-        echo "Testing DNS resolution..."
-        docker exec ts-ci-gateway nslookup ${{ inputs.registry }} || echo "DNS test failed, continuing anyway..."
-
-    - name: Build image with Docker
-      shell: bash
-      run: |
-        echo "Building ${{ inputs.image_name }}:${{ inputs.version }}"
+        echo "Building ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}"
         docker build \
-          --tag ${{ inputs.image_name }}:${{ inputs.version }} \
-          --tag ${{ inputs.image_name }}:${{ github.sha }} \
+          --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }} \
+          --tag ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }} \
           --file ${{ inputs.context }}/${{ inputs.dockerfile }} \
           ${{ inputs.context }}
 
-    - name: Save image to tarball
+    - name: Push to registry
       shell: bash
       run: |
-        echo "Saving image to tarball..."
-        mkdir -p /tmp/ci-images
-        docker save ${{ inputs.image_name }}:${{ inputs.version }} -o /tmp/ci-images/image.tar
-        ls -lh /tmp/ci-images/image.tar
-
-    - name: Push to registry via Tailscale
-      shell: bash
-      run: |
-        echo "Pushing ${{ inputs.image_name }}:${{ inputs.version }} via Tailscale sidecar..."
-
-        # Copy tarball into the Tailscale container
-        docker cp /tmp/ci-images/image.tar ts-ci-gateway:/tmp/image.tar
-
-        # Get indri's Tailscale IP from tailscale status (registry runs on indri)
-        echo "Getting indri's Tailscale IP..."
-        echo "Tailscale status:"
-        docker exec ts-ci-gateway tailscale status || true
-
-        INDRI_IP=$(docker exec ts-ci-gateway tailscale status 2>/dev/null | grep -E '\bindri\b' | awk '{print $1}')
-
-        if [ -z "$INDRI_IP" ]; then
-          echo "ERROR: Could not get indri's Tailscale IP from tailscale status"
-          exit 1
-        fi
-        echo "Indri Tailscale IP: $INDRI_IP"
-
-        # Install skopeo and push
-        docker exec ts-ci-gateway sh -c "
-          apk add --no-cache skopeo >/dev/null 2>&1
-
-          # Add registry hostname pointing to indri's Tailscale IP
-          echo '$INDRI_IP ${{ inputs.registry }}' >> /etc/hosts
-          echo 'Added /etc/hosts entry: $INDRI_IP ${{ inputs.registry }}'
-
-          echo 'Pushing version tag...'
-          skopeo copy \
-            --dest-tls-verify=false \
-            docker-archive:/tmp/image.tar \
-            docker://${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}
-
-          echo 'Pushing SHA tag...'
-          skopeo copy \
-            --dest-tls-verify=false \
-            docker-archive:/tmp/image.tar \
-            docker://${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
-        "
-
-    - name: Cleanup
-      shell: bash
-      if: always()
-      run: |
-        echo "Cleaning up..."
-        docker rm -f ts-ci-gateway 2>/dev/null || true
-        rm -rf /tmp/ci-images
+        echo "Pushing ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}"
+        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}
+        docker push ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}
 
     - name: Summary
       shell: bash
@@ -154,4 +48,4 @@ runs:
         echo "   ${{ inputs.registry }}/${{ inputs.image_name }}:${{ github.sha }}"
         echo ""
         echo "Registry tags:"
-        curl -sf "https://${{ inputs.registry }}/v2/${{ inputs.image_name }}/tags/list" | jq -r '.tags[]' | sort -V | tail -10 || true
+        curl -sf "https://${{ inputs.registry }}/v2/${{ inputs.image_name }}/tags/list" | jq -r '.tags[]' 2>/dev/null | sort -V | tail -10 || true
