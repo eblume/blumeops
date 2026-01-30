@@ -25,6 +25,9 @@ persistence:
 grafana.ini:
   server:
     root_url: https://grafana.tail8d86e.ts.net
+  security:
+    # Embedding disabled - iframe approach didn't work well for Homepage
+    allow_embedding: false
   analytics:
     check_for_updates: false
     reporting_enabled: false

@@ -12,6 +12,7 @@ metadata:
 spec:
   project: default
   sources:
+    # Helm chart
     - repoURL: https://jameswynn.github.io/helm-charts
       chart: homepage
       targetRevision: 2.1.0
@@ -19,9 +20,16 @@ spec:
         releaseName: homepage
         valueFiles:
           - $values/argocd/manifests/homepage/values.yaml
+    # Values file reference
     - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
       targetRevision: main
       ref: values
+    # Extra manifests (ExternalSecrets, etc)
+    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+      targetRevision: main
+      path: argocd/manifests/homepage
+      directory:
+        exclude: "values.yaml"
   destination:
     server: https://kubernetes.default.svc
     namespace: homepage
