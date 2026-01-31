@@ -79,11 +79,6 @@ alloy_mcquack_logs:
     service: jellyfin
     stream: stderr
 
-alloy_plex_logs:
-  - path: /Users/erichblume/Library/Logs/Plex Media Server/Plex Media Server.log
-    service: plex
-    stream: stdout
-
 # Enable log collection (requires Loki to be running)
 alloy_collect_logs: true
 

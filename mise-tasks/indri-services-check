@@ -49,14 +49,14 @@ check_service "borgmatic-metrics" "ssh indri 'launchctl list mcquack.borgmatic-m
 check_service "zot" "ssh indri 'launchctl list mcquack.eblume.zot | grep -v \"^-\"'"
 check_service "zot-metrics" "ssh indri 'launchctl list mcquack.zot-metrics | grep -v \"^-\"'"
 check_service "minikube-metrics" "ssh indri 'launchctl list mcquack.minikube-metrics | grep -v \"^-\"'"
-check_service "plex-metrics" "ssh indri 'launchctl list mcquack.plex-metrics | grep -v \"^-\"'"
+check_service "jellyfin-metrics" "ssh indri 'launchctl list mcquack.eblume.jellyfin-metrics | grep -v \"^-\"'"
 
 echo ""
 echo "Metrics textfiles:"
 check_service "borgmatic.prom" "ssh indri 'test -f /opt/homebrew/var/node_exporter/textfile/borgmatic.prom'"
 check_service "zot.prom" "ssh indri 'test -f /opt/homebrew/var/node_exporter/textfile/zot.prom'"
 check_service "minikube.prom" "ssh indri 'test -f /opt/homebrew/var/node_exporter/textfile/minikube.prom'"
-check_service "plex.prom" "ssh indri 'test -f /opt/homebrew/var/node_exporter/textfile/plex.prom'"
+check_service "jellyfin.prom" "ssh indri 'test -f /opt/homebrew/var/node_exporter/textfile/jellyfin.prom'"
 
 echo ""
 echo "Kubernetes cluster:"

@@ -112,8 +112,6 @@
       tags: minikube
     - role: minikube_metrics
       tags: minikube_metrics
-    - role: plex_metrics
-      tags: plex_metrics
     - role: jellyfin
       tags: jellyfin
     - role: jellyfin_metrics
