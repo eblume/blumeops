@@ -1,0 +1,55 @@
+---
+- name: Fetch Jellyfin API key (when running with --tags jellyfin_metrics)
+  ansible.builtin.command:
+    cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get ceywxkcd3z7najsy2nmmbs2vke --fields credential --reveal
+  delegate_to: localhost
+  register: jellyfin_metrics_api_key_fallback
+  changed_when: false
+  no_log: true
+  check_mode: false
+  when: jellyfin_metrics_api_key is not defined
+
+- name: Set Jellyfin API key fact (fallback)
+  ansible.builtin.set_fact:
+    jellyfin_metrics_api_key: "{{ jellyfin_metrics_api_key_fallback.stdout }}"
+  no_log: true
+  when: jellyfin_metrics_api_key is not defined
+
+- name: Write Jellyfin API key file
+  ansible.builtin.copy:
+    content: "{{ jellyfin_metrics_api_key }}"
+    dest: "{{ jellyfin_metrics_api_key_file }}"
+    mode: '0600'
+  no_log: true
+
+- name: Ensure bin directory exists
+  ansible.builtin.file:
+    path: "{{ jellyfin_metrics_script | dirname }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy jellyfin metrics collection script
+  ansible.builtin.template:
+    src: jellyfin-metrics.sh.j2
+    dest: "{{ jellyfin_metrics_script }}"
+    mode: '0755'
+  notify: Reload jellyfin-metrics
+
+- name: Deploy jellyfin-metrics LaunchAgent plist
+  ansible.builtin.template:
+    src: jellyfin-metrics.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.jellyfin-metrics.plist
+    mode: '0644'
+  notify: Reload jellyfin-metrics
+
+- name: Check if jellyfin-metrics LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.jellyfin-metrics
+  register: jellyfin_metrics_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load jellyfin-metrics LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.jellyfin-metrics.plist
+  when: jellyfin_metrics_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false

@@ -32,6 +32,11 @@ env:
       secretKeyRef:
         name: homepage-openweathermap
         key: apikey
+  - name: HOMEPAGE_VAR_JELLYFIN_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: homepage-jellyfin
+        key: apikey
 
 config:
   # Host services (non-k8s, on indri or LAN)
@@ -77,6 +82,16 @@ config:
                   query: borgmatic_repo_deduplicated_size_bytes
                   format:
                     type: bytes
+        - Jellyfin:
+            href: https://jellyfin.ops.eblu.me
+            icon: jellyfin
+            description: Media server
+            widget:
+              type: jellyfin
+              url: https://jellyfin.ops.eblu.me
+              key: "{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}"
+              enableBlocks: true
+              enableNowPlaying: true
 
   # External bookmarks
   bookmarks:

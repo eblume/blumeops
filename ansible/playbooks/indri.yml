@@ -78,6 +78,23 @@
       no_log: true
       tags: [caddy]
 
+    # Jellyfin API key for metrics collection
+    - name: Fetch Jellyfin API key
+      ansible.builtin.command:
+        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get ceywxkcd3z7najsy2nmmbs2vke --fields credential --reveal
+      delegate_to: localhost
+      register: _jellyfin_metrics_api_key
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [jellyfin_metrics]
+
+    - name: Set Jellyfin API key fact
+      ansible.builtin.set_fact:
+        jellyfin_metrics_api_key: "{{ _jellyfin_metrics_api_key.stdout }}"
+      no_log: true
+      tags: [jellyfin_metrics]
+
   roles:
     - role: alloy
       tags: alloy
@@ -97,5 +114,9 @@
       tags: minikube_metrics
     - role: plex_metrics
       tags: plex_metrics
+    - role: jellyfin
+      tags: jellyfin
+    - role: jellyfin_metrics
+      tags: jellyfin_metrics
     - role: caddy
       tags: caddy

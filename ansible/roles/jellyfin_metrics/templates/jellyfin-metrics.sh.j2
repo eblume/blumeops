@@ -1,0 +1,137 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Collects Jellyfin Media Server metrics for node_exporter textfile collector
+
+set -euo pipefail
+
+JELLYFIN_URL="{{ jellyfin_metrics_url }}"
+API_KEY_FILE="{{ jellyfin_metrics_api_key_file }}"
+OUTPUT_FILE="{{ jellyfin_metrics_dir }}/jellyfin.prom"
+TEMP_FILE="${OUTPUT_FILE}.tmp"
+
+# Read API key from file
+get_api_key() {
+    if [ -f "$API_KEY_FILE" ]; then
+        cat "$API_KEY_FILE" | tr -d '\n'
+    else
+        echo ""
+    fi
+}
+
+# Make API request with optional API key
+api_request() {
+    local endpoint="$1"
+    local use_auth="${2:-true}"
+    local api_key
+    local url="${JELLYFIN_URL}${endpoint}"
+
+    if [ "$use_auth" = "true" ]; then
+        api_key=$(get_api_key)
+        if [ -n "$api_key" ]; then
+            curl -s -H "Accept: application/json" -H "X-Emby-Token: $api_key" "$url" 2>/dev/null
+        else
+            curl -s -H "Accept: application/json" "$url" 2>/dev/null
+        fi
+    else
+        curl -s -H "Accept: application/json" "$url" 2>/dev/null
+    fi
+}
+
+# Initialize metrics
+jellyfin_up=0
+jellyfin_version=""
+jellyfin_sessions_total=0
+jellyfin_sessions_playing=0
+jellyfin_sessions_paused=0
+jellyfin_transcode_sessions_total=0
+
+# Library metrics will be built dynamically
+library_metrics=""
+
+# Check server health (no auth required)
+health=$(api_request "/health" false)
+if [ "$health" = "Healthy" ]; then
+    jellyfin_up=1
+fi
+
+# Get system info for version (requires auth)
+if [ "$jellyfin_up" -eq 1 ] && [ -f "$API_KEY_FILE" ]; then
+    system_info=$(api_request "/System/Info")
+    if [ -n "$system_info" ]; then
+        jellyfin_version=$(echo "$system_info" | jq -r '.Version // ""')
+    fi
+
+    # Get library counts (virtual folders)
+    libraries=$(api_request "/Library/VirtualFolders")
+    if [ -n "$libraries" ] && echo "$libraries" | jq -e '.' > /dev/null 2>&1; then
+        # Process each library
+        while IFS=$'\t' read -r lib_name lib_type lib_id; do
+            if [ -n "$lib_name" ] && [ -n "$lib_type" ]; then
+                # Get item count for this library
+                # Map collection type to item type for counting
+                case "$lib_type" in
+                    movies) item_type="Movie" ;;
+                    tvshows) item_type="Series" ;;
+                    music) item_type="MusicAlbum" ;;
+                    *) item_type="" ;;
+                esac
+
+                if [ -n "$item_type" ] && [ -n "$lib_id" ]; then
+                    items=$(api_request "/Items?parentId=${lib_id}&recursive=true&includeItemTypes=${item_type}&limit=0")
+                    item_count=$(echo "$items" | jq -r '.TotalRecordCount // 0' 2>/dev/null || echo "0")
+                    library_metrics="${library_metrics}jellyfin_library_items{library=\"${lib_name}\",type=\"${lib_type}\"} ${item_count}
+"
+                fi
+            fi
+        done < <(echo "$libraries" | jq -r '.[] | [.Name, .CollectionType, .ItemId] | @tsv' 2>/dev/null || true)
+    fi
+
+    # Get active sessions
+    sessions=$(api_request "/Sessions")
+    if [ -n "$sessions" ] && echo "$sessions" | jq -e '.' > /dev/null 2>&1; then
+        jellyfin_sessions_total=$(echo "$sessions" | jq -r 'length')
+
+        # Count playing sessions (NowPlayingItem is present and IsPaused is false)
+        jellyfin_sessions_playing=$(echo "$sessions" | jq -r '[.[] | select(.NowPlayingItem != null and .PlayState.IsPaused == false)] | length')
+
+        # Count paused sessions
+        jellyfin_sessions_paused=$(echo "$sessions" | jq -r '[.[] | select(.NowPlayingItem != null and .PlayState.IsPaused == true)] | length')
+
+        # Count transcode sessions (TranscodingInfo is present)
+        jellyfin_transcode_sessions_total=$(echo "$sessions" | jq -r '[.[] | select(.TranscodingInfo != null)] | length')
+    fi
+fi
+
+# Write metrics
+cat > "$TEMP_FILE" << EOF
+# HELP jellyfin_up Jellyfin Media Server is up and responding
+# TYPE jellyfin_up gauge
+jellyfin_up ${jellyfin_up}
+
+# HELP jellyfin_version_info Jellyfin Media Server version information
+# TYPE jellyfin_version_info gauge
+jellyfin_version_info{version="${jellyfin_version}"} 1
+
+# HELP jellyfin_sessions_total Total number of active Jellyfin sessions
+# TYPE jellyfin_sessions_total gauge
+jellyfin_sessions_total ${jellyfin_sessions_total}
+
+# HELP jellyfin_sessions_playing Number of sessions currently playing
+# TYPE jellyfin_sessions_playing gauge
+jellyfin_sessions_playing ${jellyfin_sessions_playing}
+
+# HELP jellyfin_sessions_paused Number of sessions currently paused
+# TYPE jellyfin_sessions_paused gauge
+jellyfin_sessions_paused ${jellyfin_sessions_paused}
+
+# HELP jellyfin_transcode_sessions_total Number of sessions being transcoded
+# TYPE jellyfin_transcode_sessions_total gauge
+jellyfin_transcode_sessions_total ${jellyfin_transcode_sessions_total}
+
+# HELP jellyfin_library_items Number of items in each Jellyfin library
+# TYPE jellyfin_library_items gauge
+${library_metrics}
+EOF
+
+# Atomic move
+mv "$TEMP_FILE" "$OUTPUT_FILE"

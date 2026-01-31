@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>mcquack.jellyfin</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/bin:/bin</string>
+	</dict>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ jellyfin_binary }}</string>
+		<string>--service</string>
+		<string>--datadir</string>
+		<string>{{ jellyfin_data_dir }}</string>
+		<string>--webdir</string>
+		<string>{{ jellyfin_webdir }}</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>{{ jellyfin_data_dir }}</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>{{ jellyfin_log_dir }}/mcquack.jellyfin.err.log</string>
+	<key>StandardOutPath</key>
+	<string>{{ jellyfin_log_dir }}/mcquack.jellyfin.out.log</string>
+</dict>
+</plist>

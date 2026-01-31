@@ -1,0 +1,30 @@
+---
+- name: Install Jellyfin via Homebrew cask
+  community.general.homebrew_cask:
+    name: jellyfin
+    state: present
+
+- name: Ensure Jellyfin data directory exists
+  ansible.builtin.file:
+    path: "{{ jellyfin_data_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy Jellyfin LaunchAgent plist
+  ansible.builtin.template:
+    src: mcquack.jellyfin.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.jellyfin.plist
+    mode: '0644'
+  notify: Reload jellyfin
+
+- name: Check if Jellyfin LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.jellyfin
+  register: jellyfin_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load Jellyfin LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.jellyfin.plist
+  when: jellyfin_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false

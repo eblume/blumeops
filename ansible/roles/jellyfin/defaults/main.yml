@@ -1,0 +1,23 @@
+---
+# Jellyfin media server configuration
+
+# Port Jellyfin listens on
+jellyfin_port: 8096
+
+# Data directory (standard macOS location)
+jellyfin_data_dir: "{{ ansible_env.HOME }}/Library/Application Support/jellyfin"
+
+# Media path (NFS mount from sifaka)
+jellyfin_media_path: /Volumes/allisonflix
+
+# Homebrew cask application path
+jellyfin_cask_app_path: /Applications/Jellyfin.app
+
+# Binary path inside the cask app
+jellyfin_binary: "{{ jellyfin_cask_app_path }}/Contents/MacOS/jellyfin"
+
+# Web client path (different from binary location in Homebrew cask)
+jellyfin_webdir: "{{ jellyfin_cask_app_path }}/Contents/Resources/jellyfin-web"
+
+# Log directory
+jellyfin_log_dir: "{{ ansible_env.HOME }}/Library/Logs"

@@ -72,6 +72,12 @@ alloy_mcquack_logs:
   - path: /Users/erichblume/Library/Logs/mcquack.zot.err.log
     service: zot
     stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.jellyfin.out.log
+    service: jellyfin
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.jellyfin.err.log
+    service: jellyfin
+    stream: stderr
 
 alloy_plex_logs:
   - path: /Users/erichblume/Library/Logs/Plex Media Server/Plex Media Server.log

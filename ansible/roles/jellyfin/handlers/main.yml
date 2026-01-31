@@ -1,0 +1,6 @@
+---
+- name: Reload jellyfin
+  ansible.builtin.shell: |
+    launchctl unload ~/Library/LaunchAgents/mcquack.jellyfin.plist 2>/dev/null || true
+    launchctl load ~/Library/LaunchAgents/mcquack.jellyfin.plist
+  changed_when: true

@@ -1,0 +1,20 @@
+---
+# Jellyfin metrics collection configuration
+
+# Jellyfin server URL
+jellyfin_metrics_url: "http://localhost:8096"
+
+# Path to file containing Jellyfin API key (should have 600 permissions)
+jellyfin_metrics_api_key_file: "/Users/erichblume/.jellyfin-api-key"
+
+# Metrics collection interval in seconds
+jellyfin_metrics_interval: 60
+
+# Output directory for prometheus textfile collector
+jellyfin_metrics_dir: /opt/homebrew/var/node_exporter/textfile
+
+# Script installation path
+jellyfin_metrics_script: /Users/erichblume/.local/bin/jellyfin-metrics
+
+# Log directory for metrics script output
+jellyfin_metrics_log_dir: /opt/homebrew/var/log

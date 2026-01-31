@@ -28,6 +28,9 @@ caddy_services:
   - name: registry
     host: "registry.{{ caddy_domain }}"
     backend: "http://localhost:5050"
+  - name: jellyfin
+    host: "jellyfin.{{ caddy_domain }}"
+    backend: "http://localhost:8096"
 
   # K8s services (via Tailscale Ingress)
   # Caddy proxies to existing Tailscale endpoints - traffic stays local
