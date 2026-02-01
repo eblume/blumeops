@@ -64,6 +64,9 @@ caddy_services:
   - name: immich
     host: "photos.{{ caddy_domain }}"
     backend: "https://photos.tail8d86e.ts.net"
+  - name: navidrome
+    host: "dj.{{ caddy_domain }}"
+    backend: "https://dj.tail8d86e.ts.net"
   - name: hajimari
     host: "go.{{ caddy_domain }}"
     backend: "https://go.tail8d86e.ts.net"

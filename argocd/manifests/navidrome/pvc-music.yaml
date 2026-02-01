@@ -1,0 +1,15 @@
+# PersistentVolumeClaim for Navidrome music library
+# Binds to the NFS PV for sifaka:/volume1/music
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: navidrome-music
+  namespace: navidrome
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: ""
+  volumeName: navidrome-music-nfs-pv
+  resources:
+    requests:
+      storage: 1Ti

@@ -1,0 +1,25 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: navidrome-tailscale
+  namespace: navidrome
+  annotations:
+    tailscale.com/proxy-class: "default"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "DJ"
+    gethomepage.dev/group: "Media"
+    gethomepage.dev/icon: "navidrome.png"
+    gethomepage.dev/description: "Music streaming server"
+    gethomepage.dev/href: "https://dj.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=navidrome"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: navidrome
+      port:
+        number: 4533
+  tls:
+    - hosts:
+        - dj

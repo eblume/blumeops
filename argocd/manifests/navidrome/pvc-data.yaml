@@ -1,0 +1,13 @@
+# PersistentVolumeClaim for Navidrome data (SQLite database, config, cache)
+# Uses minikube's default storage class for local provisioning
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: navidrome-data
+  namespace: navidrome
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
