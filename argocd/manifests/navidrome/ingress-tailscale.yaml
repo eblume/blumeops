@@ -8,7 +8,7 @@ metadata:
     tailscale.com/proxy-class: "default"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "DJ"
-    gethomepage.dev/group: "Media"
+    gethomepage.dev/group: "Apps"
     gethomepage.dev/icon: "navidrome.png"
     gethomepage.dev/description: "Music streaming server"
     gethomepage.dev/href: "https://dj.ops.eblu.me"
