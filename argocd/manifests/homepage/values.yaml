@@ -117,11 +117,6 @@ config:
         provider: openweathermap
         apiKey: "{{HOMEPAGE_VAR_OPENWEATHERMAP_API_KEY}}"
         cache: 15
-    - search:
-        provider: custom
-        url: https://kagi.com/search?q=
-        target: _blank
-        suggestionUrl: https://kagisuggest.com/api/autosuggest?q=
 
   # Kubernetes autodiscovery
   kubernetes:
@@ -131,6 +126,12 @@ config:
   settingsString: |
     title: BlumeOps
     headerStyle: boxed
+    quicklaunch:
+      searchDescriptions: true
+      showSearchSuggestions: true
+      provider: custom
+      url: https://kagi.com/search?q=
+      suggestionUrl: https://kagisuggest.com/api/autosuggest?q=
     layout:
       Host Services:
         style: column
