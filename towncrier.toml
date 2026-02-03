@@ -1,0 +1,35 @@
+# Towncrier configuration for BlumeOps changelog
+# https://towncrier.readthedocs.io/
+
+[tool.towncrier]
+directory = "docs/changelog.d"
+filename = "docs/CHANGELOG.md"
+package = ""
+title_format = "## [{version}] - {project_date}"
+issue_format = ""
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bug Fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "infra"
+name = "Infrastructure"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Miscellaneous"
+showcontent = false

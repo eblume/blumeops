@@ -3,8 +3,7 @@
 # Creates a versioned release of BlumeOps with all build artifacts.
 # Currently includes:
 #   - Documentation site (Quartz static build)
-#
-# Future additions may include other release artifacts.
+#   - Changelog (built from towncrier fragments)
 #
 # Usage:
 #   1. Go to Actions > Build BlumeOps > Run workflow
@@ -69,6 +68,57 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Need full history for git operations
+          fetch-depth: 0
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Check if there are any changelog fragments
+          FRAGMENTS=$(find docs/changelog.d -name "*.md" -not -name ".gitkeep" 2>/dev/null | wc -l)
+
+          if [ "$FRAGMENTS" -gt 0 ]; then
+            echo "Found $FRAGMENTS changelog fragments, building changelog..."
+            ~/.local/bin/uvx towncrier build --version "$VERSION" --yes
+            echo "changelog_updated=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No changelog fragments found, skipping towncrier"
+            echo "changelog_updated=false" >> "$GITHUB_OUTPUT"
+          fi
+        id: changelog
+
+      - name: Commit changelog updates
+        if: steps.changelog.outputs.changelog_updated == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Configure git
+          git config user.name "Forgejo Actions"
+          git config user.email "actions@forge.ops.eblu.me"
+
+          # Stage changes (CHANGELOG.md updated, fragments removed)
+          git add docs/CHANGELOG.md docs/changelog.d/
+
+          # Commit
+          git commit -m "Release $VERSION: Update changelog
+
+          Built changelog from towncrier fragments.
+
+          [skip ci]"
+
+          # Push to main
+          git push origin HEAD:main
+
+          echo "Changelog committed and pushed"
 
       - name: Build docs
         run: |

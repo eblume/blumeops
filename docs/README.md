@@ -53,17 +53,16 @@ The documentation is being restructured to follow the [Diataxis](https://diataxi
 
 **First release:** [v1.0.0](https://forge.ops.eblu.me/eblume/blumeops/releases/tag/v1.0.0)
 
-### Phase 1b: CD & Hosting (Current)
-- [ ] Build and tag `quartz` container (`mise run container-tag-and-release quartz v1.0.0`)
-- [ ] Create ArgoCD manifests for `quartz` deployment
-- [ ] Add `docs.ops.eblu.me` to Caddy reverse proxy
-- [ ] Configure deployment with `DOCS_RELEASE_URL`:
-  ```
-  https://forge.ops.eblu.me/eblume/blumeops/releases/download/v1.0.0/docs-v1.0.0.tar.gz
-  ```
-- [ ] Test end-to-end: commit -> build -> release -> deploy
-- [ ] Set up `CHANGELOG.md` with [towncrier](https://towncrier.readthedocs.io/) using news fragments from zk cards
-- [ ] Add `docs.ops.eblu.me` link to homepage dashboard
+### Phase 1b: CD & Hosting (Complete)
+- [x] Build and tag `quartz` container (`mise run container-tag-and-release quartz v1.0.0`)
+- [x] Create ArgoCD manifests for `docs` deployment
+- [x] Add `docs.ops.eblu.me` to Caddy reverse proxy
+- [x] Configure deployment with `DOCS_RELEASE_URL`
+- [x] Test end-to-end: commit -> build -> release -> deploy
+- [x] Set up `CHANGELOG.md` with [towncrier](https://towncrier.readthedocs.io/)
+- [x] Add `docs.ops.eblu.me` link to homepage dashboard (via gethomepage.dev annotations)
+
+**Docs URL:** https://docs.ops.eblu.me
 
 ### Phase 2: Tutorials
 Learning-oriented content for getting started.
@@ -112,7 +111,8 @@ Understanding-oriented discussion of concepts and decisions.
 ```
 docs/
 ├── README.md          # This file
-├── CHANGELOG.md       # Documentation changelog (planned)
+├── CHANGELOG.md       # Release changelog (built by towncrier)
+├── changelog.d/       # Towncrier news fragments
 ├── tutorials/         # Learning-oriented (planned)
 ├── how-to/            # Task-oriented (planned)
 ├── reference/         # Information-oriented (planned)
@@ -121,6 +121,18 @@ docs/
     ├── 1767747119-YCPO.md  # Main blumeops overview card
     └── ...                  # Service-specific cards and notes
 ```
+
+## Adding Changelog Entries
+
+When making changes, add a news fragment to `docs/changelog.d/`:
+
+```bash
+# Format: <identifier>.<type>.md
+# Types: feature, bugfix, infra, doc, misc
+echo "Add new feature X" > docs/changelog.d/20260203-feature-x.feature.md
+```
+
+Fragments are automatically collected into CHANGELOG.md when a release is built.
 
 ## Viewing the ZK Cards
 

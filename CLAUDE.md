@@ -12,7 +12,7 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure manageme
 
 1. **CRITICAL: Always use `--context=minikube-indri` with kubectl commands.** The user has work contexts configured that must never be touched. Every kubectl command must explicitly specify the context to prevent accidental operations against the wrong cluster.
 
-2. At the start of every session, even if the user asked to do something else, run `mise run zk-docs -- --style=header --color=never --decorations=always` in order to review the `blumeops` documentation. The docs live in `docs/` and are git-managed in this repo. (The user's main zk at `~/code/personal/zk` is separate and synced via obsidian-sync.)
+2. At the start of every session, even if the user asked to do something else, run `mise run zk-docs -- --style=header --color=never --decorations=always` to review the blumeops documentation. The docs are hosted at https://docs.ops.eblu.me and source lives in `docs/`. The `docs/zk/` cards are legacy but still useful as reference.
 
 3. When making any changes, start by making sure you're on the `main` git branch and up-to-date, and then create a feature branch. Commit often while working, and create a PR using:
 ```fish
@@ -35,7 +35,15 @@ mise run pr-comments <pr_number>
 ```
 Address each unresolved comment before proceeding. The user will resolve comments on the Forge UI as they are addressed.
 
-4. Always keep the docs (`docs/`) up to date with any changes, and suggest new links to new cards whenever appropriate. Refer back to the docs often during the process of planning and making corrections to ensure accuracy, and if you make a mistake, figure out a way to guard against it using the docs. The docs use Obsidian wiki-link syntax (`[[link]]`).
+4. When making changes, add a towncrier changelog fragment. Use the branch name as the identifier when possible, or use orphan (`+`) otherwise:
+   ```bash
+   # Using branch name (preferred)
+   echo "Add new feature X" > docs/changelog.d/feature/new-feature.feature.md
+
+   # Orphan fragment (when no branch name fits)
+   echo "Fix bug Y" > docs/changelog.d/+fix-bug-y.bugfix.md
+   ```
+   Fragment types: `feature`, `bugfix`, `infra`, `doc`, `misc`. Fragments are collected into CHANGELOG.md during releases.
 
 5. Use `Brewfile` and `mise.toml` to install tools needed on the development workstation (typically hostnamed "gilbert", username "eblume").
 
@@ -52,7 +60,9 @@ Address each unresolved comment before proceeding. The user will resolve comment
 ## Project Structure
 
 ```
-./docs/                 # blumeops documentation (Obsidian wiki-link format)
+./docs/                 # blumeops documentation (Diataxis structure, built with Quartz)
+./docs/changelog.d/     # towncrier changelog fragments
+./docs/zk/              # legacy zettelkasten cards (read-only reference)
 ./mise-tasks/           # management and utility scripts run via `mise run`
 ./ansible/playbooks/    # ansible playbooks (indri.yml is primary)
 ./ansible/roles/        # ansible roles for indri-hosted services
