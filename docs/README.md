@@ -41,7 +41,7 @@ The documentation is being restructured to follow the [Diataxis](https://diataxi
 
 ## Restructuring Phases
 
-### Phase 1a: Foundation & CI (Current)
+### Phase 1a: Foundation & CI (Complete)
 - [x] Move existing zk cards to `docs/zk/`
 - [x] Update `zk-docs` mise task for new path
 - [x] Create this README with restructuring plan
@@ -49,14 +49,20 @@ The documentation is being restructured to follow the [Diataxis](https://diataxi
 - [x] Create Quartz configuration (`quartz.config.ts`, `quartz.layout.ts`)
 - [x] Create `quartz` container for serving static sites
 - [x] Create `build-blumeops` workflow for building releases
-- [ ] Test the build workflow and verify release creation
-- [ ] Create `CHANGELOG.md`
+- [x] Test the build workflow and verify release creation (v1.0.0)
 
-### Phase 1b: CD & Hosting
+**First release:** [v1.0.0](https://forge.ops.eblu.me/eblume/blumeops/releases/tag/v1.0.0)
+
+### Phase 1b: CD & Hosting (Current)
+- [ ] Build and tag `quartz` container (`mise run container-tag-and-release quartz v1.0.0`)
 - [ ] Create ArgoCD manifests for `quartz` deployment
 - [ ] Add `docs.ops.eblu.me` to Caddy reverse proxy
-- [ ] Configure deployment to pull from release URL
+- [ ] Configure deployment with `DOCS_RELEASE_URL`:
+  ```
+  https://forge.ops.eblu.me/eblume/blumeops/releases/download/v1.0.0/docs-v1.0.0.tar.gz
+  ```
 - [ ] Test end-to-end: commit -> build -> release -> deploy
+- [ ] Set up `CHANGELOG.md` with [towncrier](https://towncrier.readthedocs.io/) using news fragments from zk cards
 
 ### Phase 2: Tutorials
 Learning-oriented content for getting started.
