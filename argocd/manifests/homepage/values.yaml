@@ -27,16 +27,57 @@ ingress:
 env:
   - name: HOMEPAGE_ALLOWED_HOSTS
     value: "go.tail8d86e.ts.net,go.ops.eblu.me"
+  # Weather widget
   - name: HOMEPAGE_VAR_OPENWEATHERMAP_API_KEY
     valueFrom:
       secretKeyRef:
         name: homepage-openweathermap
         key: apikey
+  # Jellyfin widget
   - name: HOMEPAGE_VAR_JELLYFIN_API_KEY
     valueFrom:
       secretKeyRef:
         name: homepage-jellyfin
         key: apikey
+  # Miniflux widget
+  - name: HOMEPAGE_VAR_MINIFLUX_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: homepage-miniflux
+        key: apikey
+  # Grafana widget
+  - name: HOMEPAGE_VAR_GRAFANA_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: homepage-grafana
+        key: username
+  - name: HOMEPAGE_VAR_GRAFANA_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: homepage-grafana
+        key: password
+  # Forgejo widget
+  - name: HOMEPAGE_VAR_FORGEJO_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: homepage-forgejo
+        key: apikey
+  # Navidrome widget
+  - name: HOMEPAGE_VAR_NAVIDROME_USER
+    valueFrom:
+      secretKeyRef:
+        name: homepage-navidrome
+        key: user
+  - name: HOMEPAGE_VAR_NAVIDROME_SALT
+    valueFrom:
+      secretKeyRef:
+        name: homepage-navidrome
+        key: salt
+  - name: HOMEPAGE_VAR_NAVIDROME_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: homepage-navidrome
+        key: token
 
 config:
   # Host services (non-k8s, on indri or LAN)
@@ -46,6 +87,10 @@ config:
             href: https://forge.ops.eblu.me
             icon: forgejo
             description: Git forge
+            widget:
+              type: gitea
+              url: https://forge.ops.eblu.me
+              key: "{{HOMEPAGE_VAR_FORGEJO_API_KEY}}"
         - Registry:
             href: https://registry.ops.eblu.me
             icon: docker
@@ -92,6 +137,14 @@ config:
               key: "{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}"
               enableBlocks: true
               enableNowPlaying: true
+        # TODO: Add Caddy widget when admin API is enabled (currently admin off)
+        # - Caddy:
+        #     href: https://indri.tail8d86e.ts.net
+        #     icon: caddy
+        #     description: Reverse proxy
+        #     widget:
+        #       type: caddy
+        #       url: http://indri.tail8d86e.ts.net:2019
 
   # External bookmarks
   bookmarks:
@@ -105,10 +158,21 @@ config:
         - Pulumi:
             - href: https://app.pulumi.com/eblume/blumeops-tailnet
               icon: pulumi
+        - ArgoCD:
+            - href: https://argocd.ops.eblu.me
+              icon: argocd
 
-  # Widgets on the page
-  # Note: Kubernetes widget disabled - requires metrics-server
+  # Widgets on the page (info bar at top)
   widgets:
+    - greeting:
+        text_size: xl
+        text: Welcome to Blue Mops
+    - datetime:
+        text_size: lg
+        format:
+          dateStyle: long
+          timeStyle: short
+          hour12: true
     - openweathermap:
         label: Camano
         latitude: 48.18235
@@ -117,6 +181,15 @@ config:
         provider: openweathermap
         apiKey: "{{HOMEPAGE_VAR_OPENWEATHERMAP_API_KEY}}"
         cache: 15
+    # TODO: Add UniFi widget when controller is set up
+    # - unifi_console:
+    #     url: https://192.168.1.1
+    #     username: homepage
+    #     password: "{{HOMEPAGE_VAR_UNIFI_PASSWORD}}"
+    # TODO: Add Glances widget when Glances is deployed
+    # - glances:
+    #     url: http://indri.tail8d86e.ts.net:61208
+    #     metric: cpu
 
   # Kubernetes autodiscovery
   kubernetes:

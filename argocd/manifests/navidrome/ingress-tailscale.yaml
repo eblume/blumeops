@@ -13,6 +13,11 @@ metadata:
     gethomepage.dev/description: "Music streaming server"
     gethomepage.dev/href: "https://dj.ops.eblu.me"
     gethomepage.dev/pod-selector: "app=navidrome"
+    gethomepage.dev/widget.type: "navidrome"
+    gethomepage.dev/widget.url: "https://dj.ops.eblu.me"
+    gethomepage.dev/widget.user: "{{HOMEPAGE_VAR_NAVIDROME_USER}}"
+    gethomepage.dev/widget.token: "{{HOMEPAGE_VAR_NAVIDROME_TOKEN}}"
+    gethomepage.dev/widget.salt: "{{HOMEPAGE_VAR_NAVIDROME_SALT}}"
 spec:
   ingressClassName: tailscale
   defaultBackend:

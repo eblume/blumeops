@@ -12,6 +12,9 @@ metadata:
     gethomepage.dev/description: "RSS reader"
     gethomepage.dev/href: "https://feed.ops.eblu.me"
     gethomepage.dev/pod-selector: "app=miniflux"
+    gethomepage.dev/widget.type: "miniflux"
+    gethomepage.dev/widget.url: "https://feed.ops.eblu.me"
+    gethomepage.dev/widget.key: "{{HOMEPAGE_VAR_MINIFLUX_API_KEY}}"
 spec:
   ingressClassName: tailscale
   defaultBackend:

@@ -13,6 +13,12 @@ metadata:
     gethomepage.dev/description: "Torrent client"
     gethomepage.dev/href: "https://torrent.ops.eblu.me"
     gethomepage.dev/pod-selector: "app=transmission"
+    # TODO: Add Transmission widget - requires username/password setup in Transmission
+    # See: https://gethomepage.dev/widgets/services/transmission/
+    # gethomepage.dev/widget.type: "transmission"
+    # gethomepage.dev/widget.url: "https://torrent.ops.eblu.me"
+    # gethomepage.dev/widget.username: "{{HOMEPAGE_VAR_TRANSMISSION_USER}}"
+    # gethomepage.dev/widget.password: "{{HOMEPAGE_VAR_TRANSMISSION_PASSWORD}}"
 spec:
   ingressClassName: tailscale
   defaultBackend:
