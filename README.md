@@ -80,10 +80,10 @@ This repo uses [Forgejo Actions](https://forgejo.org/docs/latest/user/actions/) 
 
 ## Documentation
 
-Detailed documentation lives in my personal zettelkasten, which is not included in this repository. You can view the docs with:
+Documentation lives in `docs/` and covers infrastructure, services, and operational runbooks. View all docs with:
 
 ```bash
 mise run zk-docs
 ```
 
-The zettelkasten is private at time of writing. If you're interested in the documentation or have questions about this project, please reach out to blume.erich@gmail.com.
+The docs use [Obsidian](https://obsidian.md) wiki-link syntax (`[[link]]`) for cross-references. Edit with any markdown editor, or use [obsidian.nvim](https://github.com/obsidian-nvim/obsidian.nvim) for enhanced navigation and completion.

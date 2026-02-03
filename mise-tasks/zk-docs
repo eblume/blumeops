@@ -3,11 +3,12 @@
 
 set -euo pipefail
 
-ZK_DIR="$HOME/code/personal/zk"
-MAIN_CARD="$ZK_DIR/1767747119-YCPO.md"
+# Blumeops docs now live in the repo itself (symlinked into zk)
+DOCS_DIR="$(cd "$(dirname "$0")/.." && pwd)/docs"
+MAIN_CARD="$DOCS_DIR/1767747119-YCPO.md"
 
 # Find all files tagged with blumeops (excluding main card)
-other_cards=$(grep -l '^  - blumeops$' "$ZK_DIR"/*.md 2>/dev/null | grep -v "$(basename "$MAIN_CARD")" | sort)
+other_cards=$(grep -l '^  - blumeops$' "$DOCS_DIR"/*.md 2>/dev/null | grep -v "$(basename "$MAIN_CARD")" | sort)
 
 # Concatenate: main card first, then others
 # Pass through any args to bat (e.g., --style=header --color=never --decorations=always)
