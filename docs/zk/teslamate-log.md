@@ -1,5 +1,5 @@
 ---
-id: teslamate
+id: teslamate-log
 aliases:
   - tesla
 tags:

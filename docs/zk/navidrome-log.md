@@ -1,5 +1,5 @@
 ---
-id: navidrome
+id: navidrome-log
 aliases:
   - DJ
 tags:

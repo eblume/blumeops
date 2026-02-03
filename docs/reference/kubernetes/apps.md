@@ -7,33 +7,33 @@ tags:
 
 # ArgoCD Applications
 
-Registry of all applications deployed via [[ArgoCD]].
+Registry of all applications deployed via [[argocd|ArgoCD]].
 
 ## Application Registry
 
 | App | Namespace | Path/Source | Service |
 |-----|-----------|-------------|---------|
 | `apps` | argocd | `argocd/apps/` | App-of-apps root |
-| `argocd` | argocd | `argocd/manifests/argocd/` | [[ArgoCD]] |
+| `argocd` | argocd | `argocd/manifests/argocd/` | [[argocd|ArgoCD]] |
 | `tailscale-operator` | tailscale | `argocd/manifests/tailscale-operator/` | Tailscale k8s operator |
-| `1password-connect` | 1password | `argocd/manifests/1password-connect/` | [[1Password]] |
-| `external-secrets` | external-secrets | Helm chart | [[1Password]] |
-| `external-secrets-config` | external-secrets | `argocd/manifests/external-secrets-config/` | [[1Password]] |
+| `1password-connect` | 1password | `argocd/manifests/1password-connect/` | [[1password|1Password]] |
+| `external-secrets` | external-secrets | Helm chart | [[1password|1Password]] |
+| `external-secrets-config` | external-secrets | `argocd/manifests/external-secrets-config/` | [[1password|1Password]] |
 | `cloudnative-pg` | cnpg-system | Helm chart (forge mirror) | PostgreSQL operator |
-| `blumeops-pg` | databases | `argocd/manifests/databases/` | [[PostgreSQL]] |
-| `prometheus` | monitoring | `argocd/manifests/prometheus/` | [[Prometheus]] |
-| `loki` | monitoring | `argocd/manifests/loki/` | [[Loki]] |
-| `grafana` | monitoring | Helm chart (forge mirror) | [[Grafana]] |
-| `grafana-config` | monitoring | `argocd/manifests/grafana-config/` | [[Grafana]] |
-| `immich` | immich | Helm chart | [[Immich]] |
-| `alloy-k8s` | alloy | `argocd/manifests/alloy-k8s/` | [[Grafana Alloy|Alloy]] |
+| `blumeops-pg` | databases | `argocd/manifests/databases/` | [[postgresql|PostgreSQL]] |
+| `prometheus` | monitoring | `argocd/manifests/prometheus/` | [[prometheus|Prometheus]] |
+| `loki` | monitoring | `argocd/manifests/loki/` | [[loki|Loki]] |
+| `grafana` | monitoring | Helm chart (forge mirror) | [[grafana|Grafana]] |
+| `grafana-config` | monitoring | `argocd/manifests/grafana-config/` | [[grafana|Grafana]] |
+| `immich` | immich | Helm chart | [[immich|Immich]] |
+| `alloy-k8s` | alloy | `argocd/manifests/alloy-k8s/` | [[alloy|Alloy]] |
 | `kube-state-metrics` | monitoring | `argocd/manifests/kube-state-metrics/` | K8s metrics |
-| `miniflux` | miniflux | `argocd/manifests/miniflux/` | [[Miniflux]] |
-| `kiwix` | kiwix | `argocd/manifests/kiwix/` | [[Kiwix]] |
-| `torrent` | torrent | `argocd/manifests/torrent/` | [[Transmission]] |
-| `navidrome` | navidrome | `argocd/manifests/navidrome/` | [[Navidrome]] |
-| `teslamate` | teslamate | `argocd/manifests/teslamate/` | [[TeslaMate]] |
-| `forgejo-runner` | forgejo-runner | `argocd/manifests/forgejo-runner/` | [[Forgejo]] CI |
+| `miniflux` | miniflux | `argocd/manifests/miniflux/` | [[miniflux|Miniflux]] |
+| `kiwix` | kiwix | `argocd/manifests/kiwix/` | [[kiwix|Kiwix]] |
+| `torrent` | torrent | `argocd/manifests/torrent/` | [[transmission|Transmission]] |
+| `navidrome` | navidrome | `argocd/manifests/navidrome/` | [[navidrome|Navidrome]] |
+| `teslamate` | teslamate | `argocd/manifests/teslamate/` | [[teslamate|TeslaMate]] |
+| `forgejo-runner` | forgejo-runner | `argocd/manifests/forgejo-runner/` | [[forgejo|Forgejo]] CI |
 
 ## Sync Policies
 
@@ -44,5 +44,5 @@ Registry of all applications deployed via [[ArgoCD]].
 
 ## Related
 
-- [[ArgoCD]] - GitOps platform details
-- [[Kubernetes Cluster|Cluster]] - Kubernetes infrastructure
+- [[argocd|ArgoCD]] - GitOps platform details
+- [[cluster|Cluster]] - Kubernetes infrastructure

@@ -1,5 +1,5 @@
 ---
-id: indri
+id: indri-log
 aliases:
   - mac-mini
 tags:

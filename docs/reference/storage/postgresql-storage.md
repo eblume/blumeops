@@ -7,4 +7,4 @@ tags:
 
 # PostgreSQL Storage
 
-See [[PostgreSQL]] in Services.
+See [[postgresql|PostgreSQL]] in Services.

@@ -1,5 +1,5 @@
 ---
-id: miniflux
+id: miniflux-log
 aliases:
   - feed
   - rss

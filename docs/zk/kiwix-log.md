@@ -1,5 +1,5 @@
 ---
-id: kiwix
+id: kiwix-log
 tags:
   - blumeops
 ---

@@ -1,5 +1,5 @@
 ---
-id: transmission
+id: transmission-log
 tags:
   - blumeops
 ---

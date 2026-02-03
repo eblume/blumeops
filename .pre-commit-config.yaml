@@ -89,12 +89,12 @@ repos:
         args: ['-config-file', '.github/actionlint.yaml']
         files: ^\.forgejo/workflows/
 
-  # Documentation - check for duplicate card titles
+  # Documentation - check for duplicate filenames (required for Quartz shortest path resolution)
   - repo: local
     hooks:
-      - id: doc-card-titles
-        name: doc-card-titles
-        entry: mise run doc-card-titles
+      - id: doc-filenames
+        name: doc-filenames
+        entry: mise run doc-filenames
         language: system
         files: ^docs/.*\.md$
         pass_filenames: false

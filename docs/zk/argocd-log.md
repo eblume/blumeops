@@ -1,5 +1,5 @@
 ---
-id: argocd
+id: argocd-log
 aliases:
   - argo-cd
 tags:

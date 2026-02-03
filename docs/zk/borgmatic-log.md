@@ -1,5 +1,5 @@
 ---
-id: borgmatic
+id: borgmatic-log
 aliases:
   - borg-backup
 tags:

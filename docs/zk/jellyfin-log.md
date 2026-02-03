@@ -1,5 +1,5 @@
 ---
-id: jellyfin
+id: jellyfin-log
 tags:
   - blumeops
 ---

@@ -1,5 +1,5 @@
 ---
-id: grafana
+id: grafana-log
 tags:
   - blumeops
 ---

@@ -1,5 +1,5 @@
 ---
-id: zot
+id: zot-log
 aliases:
   - container-registry
 tags:

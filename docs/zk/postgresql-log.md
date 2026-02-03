@@ -1,5 +1,5 @@
 ---
-id: postgresql
+id: postgresql-log
 aliases:
   - postgres
   - pg

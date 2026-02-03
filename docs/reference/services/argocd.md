@@ -7,7 +7,7 @@ tags:
 
 # ArgoCD
 
-GitOps continuous delivery platform for the [[Kubernetes Cluster|Kubernetes cluster]].
+GitOps continuous delivery platform for the [[cluster|Kubernetes cluster]].
 
 ## Quick Reference
 
@@ -33,5 +33,5 @@ GitOps continuous delivery platform for the [[Kubernetes Cluster|Kubernetes clus
 
 ## Related
 
-- [[ArgoCD Applications|Apps]] - Full application registry
-- [[Forgejo]] - Git source
+- [[apps|Apps]] - Full application registry
+- [[forgejo|Forgejo]] - Git source

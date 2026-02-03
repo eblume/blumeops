@@ -1,0 +1,162 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml>=6.0", "rich>=13.0.0"]
+# ///
+#MISE description="List all doc card filenames and detect duplicates"
+"""List all documentation card filenames and detect duplicates.
+
+This script scans all markdown files in the docs/ directory (excluding
+changelog.d/), and reports any duplicate filenames that could cause
+wiki-link resolution issues with Quartz's "shortest" path mode.
+
+With shortest mode, [[filename]] resolves to the file with that name,
+so filenames must be unique across the entire docs directory.
+
+Usage: mise run doc-card-titles
+"""
+
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+import yaml
+from rich.console import Console
+from rich.table import Table
+
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+
+def extract_frontmatter(file_path: Path) -> dict | None:
+    """Extract YAML frontmatter from a markdown file."""
+    content = file_path.read_text()
+    if not content.startswith("---"):
+        return None
+
+    # Find the closing ---
+    end_idx = content.find("---", 3)
+    if end_idx == -1:
+        return None
+
+    frontmatter_text = content[3:end_idx].strip()
+    try:
+        return yaml.safe_load(frontmatter_text) or {}
+    except yaml.YAMLError:
+        return None
+
+
+def main() -> int:
+    console = Console()
+
+    # Collect all filenames (without extension) and their full paths
+    # Key: filename (stem), Value: list of full relative paths
+    filenames: dict[str, list[str]] = defaultdict(list)
+
+    # Also collect id/aliases from zk cards for reference
+    zk_identifiers: dict[str, list[tuple[str, str]]] = defaultdict(list)
+
+    # Scan all markdown files
+    for md_file in sorted(DOCS_DIR.rglob("*.md")):
+        # Skip changelog fragments
+        if "changelog.d" in md_file.parts:
+            continue
+
+        rel_path = str(md_file.relative_to(DOCS_DIR))
+        filename = md_file.stem  # filename without .md extension
+
+        filenames[filename].append(rel_path)
+
+        # For zk cards, also track id and aliases
+        if "zk" in md_file.parts:
+            frontmatter = extract_frontmatter(md_file)
+            if frontmatter:
+                card_id = frontmatter.get("id")
+                if card_id:
+                    zk_identifiers[card_id].append((rel_path, "id"))
+                aliases = frontmatter.get("aliases", [])
+                for alias in aliases:
+                    zk_identifiers[alias].append((rel_path, "alias"))
+
+    # Find duplicate filenames (excluding "index" which is expected in multiple dirs)
+    duplicates = {
+        name: paths
+        for name, paths in filenames.items()
+        if len(paths) > 1 and name != "index"
+    }
+
+    # Print results
+    console.print("[bold]Doc Card Filename Inventory[/bold]")
+    console.print()
+    console.print("With Quartz 'shortest' path mode, wiki-links like [[filename]]")
+    console.print("resolve by filename, so filenames must be unique.")
+    console.print()
+
+    # Duplicates table (if any)
+    if duplicates:
+        console.print("[bold red]Duplicate Filenames Found[/bold red]")
+        dup_table = Table(show_header=True, header_style="bold")
+        dup_table.add_column("Filename")
+        dup_table.add_column("Paths")
+
+        for filename in sorted(duplicates.keys()):
+            paths = duplicates[filename]
+            dup_table.add_row(filename, "\n".join(paths))
+
+        console.print(dup_table)
+        console.print()
+
+    # All filenames table
+    console.print("[bold]All Filenames[/bold]")
+    all_table = Table(show_header=True, header_style="bold")
+    all_table.add_column("Filename")
+    all_table.add_column("Path")
+    all_table.add_column("Status")
+
+    for filename in sorted(filenames.keys()):
+        paths = filenames[filename]
+        is_dup = filename in duplicates
+        status = "[red]DUPLICATE[/red]" if is_dup else "[green]OK[/green]"
+        all_table.add_row(filename, paths[0], status)
+        for extra_path in paths[1:]:
+            all_table.add_row("", extra_path, "")
+
+    console.print(all_table)
+
+    # ZK identifiers (for reference)
+    if zk_identifiers:
+        console.print()
+        console.print("[bold]ZK Card Identifiers (id/aliases)[/bold]")
+        zk_table = Table(show_header=True, header_style="bold")
+        zk_table.add_column("Identifier")
+        zk_table.add_column("Type")
+        zk_table.add_column("File")
+
+        for identifier in sorted(zk_identifiers.keys()):
+            sources = zk_identifiers[identifier]
+            first = True
+            for file_path, id_type in sources:
+                zk_table.add_row(
+                    identifier if first else "",
+                    id_type,
+                    file_path,
+                )
+                first = False
+
+        console.print(zk_table)
+
+    # Summary
+    console.print()
+    console.print(f"Total files: {sum(len(p) for p in filenames.values())}")
+    console.print(f"Unique filenames: {len(filenames)}")
+    console.print(f"Duplicate filenames: {len(duplicates)}")
+
+    if duplicates:
+        console.print()
+        console.print("[bold red]Action required:[/bold red] Rename files to ensure unique filenames for wiki-link resolution.")
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

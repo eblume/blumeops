@@ -10,6 +10,6 @@ Daily automated backups of BlumeOps data.
 
 ## Components
 
-- [[Borgmatic]] - Backup orchestration
-- [[Sifaka NAS|Sifaka]] - Backup target (NAS)
-- [[Backup Policy]] - What gets backed up and retention
+- [[borgmatic|Borgmatic]] - Backup orchestration
+- [[sifaka|Sifaka]] - Backup target (NAS)
+- [[backups|Backup Policy]] - What gets backed up and retention

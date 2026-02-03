@@ -1,5 +1,5 @@
 ---
-id: external-secrets
+id: external-secrets-log
 aliases:
   - eso
   - external-secrets-operator
