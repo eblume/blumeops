@@ -64,7 +64,16 @@ The documentation is being restructured to follow the [Diataxis](https://diataxi
 
 **Docs URL:** https://docs.ops.eblu.me
 
-### Phase 2: Tutorials
+### Phase 2: Reference
+Information-oriented technical descriptions. Built first so other docs can link to reference material.
+
+- [ ] Create `reference/` directory
+- [ ] Service reference pages (migrate from zk cards)
+- [ ] Infrastructure inventory
+- [ ] Configuration reference
+- [ ] API/CLI reference for mise tasks
+
+### Phase 3: Tutorials
 Learning-oriented content for getting started.
 
 - [ ] Create `tutorials/` directory
@@ -72,7 +81,7 @@ Learning-oriented content for getting started.
 - [ ] "Setting Up a Similar Environment" - For replicators
 - [ ] "Your First Contribution" - For potential contributors
 
-### Phase 3: How-to Guides
+### Phase 4: How-to Guides
 Task-oriented instructions for specific operations.
 
 - [ ] Create `how-to/` directory
@@ -81,15 +90,6 @@ Task-oriented instructions for specific operations.
 - [ ] "How to add a new Ansible role"
 - [ ] "How to update Tailscale ACLs"
 - [ ] "How to troubleshoot common issues"
-
-### Phase 4: Reference
-Information-oriented technical descriptions.
-
-- [ ] Create `reference/` directory
-- [ ] Service reference pages (migrate from zk cards)
-- [ ] Infrastructure inventory
-- [ ] Configuration reference
-- [ ] API/CLI reference for mise tasks
 
 ### Phase 5: Explanation
 Understanding-oriented discussion of concepts and decisions.
@@ -113,14 +113,16 @@ docs/
 ├── README.md          # This file
 ├── CHANGELOG.md       # Release changelog (built by towncrier)
 ├── changelog.d/       # Towncrier news fragments
-├── tutorials/         # Learning-oriented (planned)
-├── how-to/            # Task-oriented (planned)
-├── reference/         # Information-oriented (planned)
-├── explanation/       # Understanding-oriented (planned)
+├── reference/         # Information-oriented (Phase 2)
+├── tutorials/         # Learning-oriented (Phase 3)
+├── how-to/            # Task-oriented (Phase 4)
+├── explanation/       # Understanding-oriented (Phase 5)
 └── zk/                # Zettelkasten cards (temporary)
     ├── 1767747119-YCPO.md  # Main blumeops overview card
     └── ...                  # Service-specific cards and notes
 ```
+
+> **Why Reference first?** Reference docs are built before tutorials and how-to guides so that learning and task-oriented content can link to authoritative technical descriptions using wiki-links (`[[reference/service-name]]`).
 
 ## Adding Changelog Entries
 
