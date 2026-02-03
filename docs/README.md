@@ -1,0 +1,126 @@
+# BlumeOps Documentation
+
+> **Note on naming**: The project is properly stylized as **BlumeOps**, though "blumeops" and "Blue Mops" are also commonly used interchangeably.
+
+This directory contains documentation for BlumeOps, Erich Blume's personal infrastructure GitOps repository.
+
+## Documentation Restructuring (In Progress)
+
+The documentation is being restructured to follow the [Diataxis](https://diataxis.fr/) documentation framework while serving multiple audiences.
+
+### Target Audiences
+
+1. **Erich (owner)** - A knowledge graph/zettelkasten for quickly recalling important facts about BlumeOps infrastructure and operations.
+
+2. **Claude/AI agents** - Memory and context enrichment for AI-assisted operations and development.
+
+3. **New external readers** - People who want to understand "what is BlumeOps?" at a high level.
+
+4. **Potential operators/contributors** - External readers who want to help operate, modify, or answer questions about BlumeOps, or onboard as a member.
+
+5. **Replicators** - People who want to duplicate this approach for their own personal infrastructure operations.
+
+### Requirements
+
+- **Source format**: Markdown with optional YAML frontmatter
+- **Editing**: Compatible with [Obsidian](https://obsidian.md) and [obsidian.nvim](https://github.com/obsidian-nvim/obsidian.nvim)
+- **Cross-references**: Wiki-link syntax (`[[link]]`) for internal links
+- **Output formats**: HTML (for web hosting) and PDF (for offline reference)
+- **Changelog**: Track significant documentation changes
+
+### Tooling
+
+**Selected**: [Quartz](https://quartz.jzhao.xyz/) - A TypeScript-based static site generator designed for Obsidian vaults. Features wiki-link support, backlinks, graph view, and excellent Obsidian compatibility.
+
+**Architecture**:
+- **Source**: Markdown files in `docs/` with optional YAML frontmatter
+- **Build**: Quartz builds static HTML/CSS/JS via Forgejo workflow
+- **Release**: Built assets published as Forgejo release attachments
+- **Hosting**: `quartz` container downloads release bundle on startup and serves via nginx
+- **URL**: `docs.ops.eblu.me` (planned)
+
+## Restructuring Phases
+
+### Phase 1a: Foundation & CI (Current)
+- [x] Move existing zk cards to `docs/zk/`
+- [x] Update `zk-docs` mise task for new path
+- [x] Create this README with restructuring plan
+- [x] Select documentation tooling (Quartz)
+- [x] Create Quartz configuration (`quartz.config.ts`, `quartz.layout.ts`)
+- [x] Create `quartz` container for serving static sites
+- [x] Create `build-blumeops` workflow for building releases
+- [ ] Test the build workflow and verify release creation
+- [ ] Create `CHANGELOG.md`
+
+### Phase 1b: CD & Hosting
+- [ ] Create ArgoCD manifests for `quartz` deployment
+- [ ] Add `docs.ops.eblu.me` to Caddy reverse proxy
+- [ ] Configure deployment to pull from release URL
+- [ ] Test end-to-end: commit -> build -> release -> deploy
+
+### Phase 2: Tutorials
+Learning-oriented content for getting started.
+
+- [ ] Create `tutorials/` directory
+- [ ] "Getting Started with BlumeOps" - What this is and how to explore it
+- [ ] "Setting Up a Similar Environment" - For replicators
+- [ ] "Your First Contribution" - For potential contributors
+
+### Phase 3: How-to Guides
+Task-oriented instructions for specific operations.
+
+- [ ] Create `how-to/` directory
+- [ ] Migrate operational content from zk cards
+- [ ] "How to deploy a new Kubernetes service"
+- [ ] "How to add a new Ansible role"
+- [ ] "How to update Tailscale ACLs"
+- [ ] "How to troubleshoot common issues"
+
+### Phase 4: Reference
+Information-oriented technical descriptions.
+
+- [ ] Create `reference/` directory
+- [ ] Service reference pages (migrate from zk cards)
+- [ ] Infrastructure inventory
+- [ ] Configuration reference
+- [ ] API/CLI reference for mise tasks
+
+### Phase 5: Explanation
+Understanding-oriented discussion of concepts and decisions.
+
+- [ ] Create `explanation/` directory
+- [ ] "Why GitOps?" - Philosophy and approach
+- [ ] "Architecture Overview" - How everything fits together
+- [ ] "Security Model" - Tailscale, secrets management, etc.
+- [ ] "Decision Log" - ADRs (Architecture Decision Records)
+
+### Phase 6: Integration & Cleanup
+- [ ] Migrate remaining useful content from `docs/zk/`
+- [ ] Decide fate of zk cards (archive, delete, or keep as separate knowledge base)
+- [ ] Update CLAUDE.md to reference new doc structure
+- [ ] Mirror docs to GitHub Pages for public access (optional)
+
+## Current Directory Layout
+
+```
+docs/
+├── README.md          # This file
+├── CHANGELOG.md       # Documentation changelog (planned)
+├── tutorials/         # Learning-oriented (planned)
+├── how-to/            # Task-oriented (planned)
+├── reference/         # Information-oriented (planned)
+├── explanation/       # Understanding-oriented (planned)
+└── zk/                # Zettelkasten cards (temporary)
+    ├── 1767747119-YCPO.md  # Main blumeops overview card
+    └── ...                  # Service-specific cards and notes
+```
+
+## Viewing the ZK Cards
+
+To view all BlumeOps zettelkasten cards:
+
+```fish
+mise run zk-docs
+```
+
+This displays all cards tagged with `blumeops`, starting with the main overview card.

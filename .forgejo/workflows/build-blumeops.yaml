@@ -1,0 +1,164 @@
+# BlumeOps Release Workflow
+#
+# Creates a versioned release of BlumeOps with all build artifacts.
+# Currently includes:
+#   - Documentation site (Quartz static build)
+#
+# Future additions may include other release artifacts.
+#
+# Usage:
+#   1. Go to Actions > Build BlumeOps > Run workflow
+#   2. Enter a version tag (e.g., v1.2.0) or leave empty to auto-increment patch
+#   3. The workflow creates a release with attached artifacts
+#
+# Documentation asset URL:
+#   https://forge.ops.eblu.me/eblume/blumeops/releases/download/<tag>/docs-<version>.tar.gz
+
+name: Build BlumeOps
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g., v1.2.0) or empty to auto-increment patch (v_._.+1)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  build:
+    runs-on: k8s
+    steps:
+      - name: Resolve version
+        id: version
+        run: |
+          INPUT_VERSION="${{ inputs.version }}"
+
+          if [ -n "$INPUT_VERSION" ]; then
+            # User provided a version - validate it
+            if [[ ! "$INPUT_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Error: Version must be in format vX.Y.Z (e.g., v1.0.0)"
+              exit 1
+            fi
+            VERSION="$INPUT_VERSION"
+            echo "Using provided version: $VERSION"
+          else
+            # Auto-increment patch version from latest release
+            echo "Fetching latest release..."
+            LATEST=$(curl -sf "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/latest" | jq -r '.tag_name // empty')
+
+            if [ -z "$LATEST" ]; then
+              VERSION="v1.0.0"
+              echo "No previous releases found, starting at: $VERSION"
+            else
+              # Parse vX.Y.Z and increment patch
+              VERSION=$(echo "$LATEST" | awk -F. '{print $1"."$2"."$3+1}')
+              echo "Auto-incremented from $LATEST to: $VERSION"
+            fi
+          fi
+
+          # Check if this version already exists
+          if curl -sf "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/tags/$VERSION" > /dev/null 2>&1; then
+            echo "Error: Release $VERSION already exists"
+            echo "See: https://forge.ops.eblu.me/eblume/blumeops/releases/tag/$VERSION"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building BlumeOps release: $VERSION"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build docs
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+
+          # Clone Quartz from local mirror
+          git clone --depth 1 https://forge.ops.eblu.me/eblume/quartz.git /tmp/quartz
+          cd /tmp/quartz
+
+          # Install dependencies
+          npm ci
+
+          # Copy our configuration (lives in docs/ to keep repo root clean)
+          cp "$GITHUB_WORKSPACE/docs/quartz.config.ts" .
+          cp "$GITHUB_WORKSPACE/docs/quartz.layout.ts" .
+
+          # Copy docs as content (includes index.md)
+          rm -rf content
+          cp -r "$GITHUB_WORKSPACE/docs" content
+
+          # Build
+          echo "Building static site..."
+          npx quartz build
+
+          # Create tarball
+          TARBALL="docs-${VERSION}.tar.gz"
+          echo "Creating tarball: $TARBALL"
+          tar -czf "$GITHUB_WORKSPACE/$TARBALL" -C public .
+
+          echo "Build complete!"
+          ls -lh "$GITHUB_WORKSPACE/$TARBALL"
+
+      - name: Create release
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TARBALL="docs-${VERSION}.tar.gz"
+
+          echo "Creating release $VERSION..."
+
+          # Use Forgejo API to create release
+          RELEASE_DATA=$(cat <<EOF
+          {
+            "tag_name": "$VERSION",
+            "name": "BlumeOps $VERSION",
+            "body": "BlumeOps release $VERSION\n\n## Documentation\n\nDownload \`$TARBALL\` and configure the quartz container with:\n\n\`\`\`\nDOCS_RELEASE_URL=https://forge.ops.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL\n\`\`\`",
+            "draft": false,
+            "prerelease": false
+          }
+          EOF
+          )
+
+          RELEASE_RESPONSE=$(curl -sf \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d "$RELEASE_DATA" \
+            "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases")
+
+          RELEASE_ID=$(echo "$RELEASE_RESPONSE" | jq -r '.id')
+
+          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+            echo "Error: Failed to create release"
+            echo "Response: $RELEASE_RESPONSE"
+            exit 1
+          fi
+
+          echo "Created release ID: $RELEASE_ID"
+
+          # Upload the asset
+          echo "Uploading $TARBALL..."
+          curl -sf \
+            -X POST \
+            -H "Content-Type: application/gzip" \
+            --data-binary "@$TARBALL" \
+            "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/$RELEASE_ID/assets?name=$TARBALL"
+
+          echo ""
+          echo "Release created successfully!"
+
+      - name: Summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TARBALL="docs-${VERSION}.tar.gz"
+          echo "================================================"
+          echo "BlumeOps Release: $VERSION"
+          echo "================================================"
+          echo ""
+          echo "Release URL:"
+          echo "  https://forge.ops.eblu.me/eblume/blumeops/releases/tag/$VERSION"
+          echo ""
+          echo "Asset URL (for DOCS_RELEASE_URL ConfigMap):"
+          echo "  https://forge.ops.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL"
