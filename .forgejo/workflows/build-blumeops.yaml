@@ -45,7 +45,7 @@ jobs:
           else
             # Auto-increment patch version from latest release
             echo "Fetching latest release..."
-            LATEST=$(curl -sf "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/latest" | jq -r '.tag_name // empty')
+            LATEST=$(curl -s "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/latest" | jq -r '.tag_name // empty' || true)
 
             if [ -z "$LATEST" ]; then
               VERSION="v1.0.0"
