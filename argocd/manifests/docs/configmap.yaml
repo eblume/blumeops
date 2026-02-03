@@ -2,8 +2,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: quartz-config
-  namespace: quartz
+  name: docs-config
+  namespace: docs
 data:
   # BlumeOps docs release URL
   # Update this to deploy a new docs version
