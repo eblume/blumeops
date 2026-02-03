@@ -1,7 +1,6 @@
 ---
 id: borgmatic
 aliases:
-  - borgmatic
   - borg-backup
 tags:
   - blumeops

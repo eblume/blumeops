@@ -1,7 +1,6 @@
 ---
 id: miniflux
 aliases:
-  - miniflux
   - feed
   - rss
 tags:

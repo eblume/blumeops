@@ -1,7 +1,5 @@
 ---
 id: jellyfin
-aliases:
-  - jellyfin
 tags:
   - blumeops
 ---

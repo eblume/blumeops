@@ -1,7 +1,6 @@
 ---
 id: zot
 aliases:
-  - zot
   - container-registry
 tags:
   - blumeops

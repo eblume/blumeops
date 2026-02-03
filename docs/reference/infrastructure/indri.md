@@ -22,17 +22,17 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 ## Services Hosted
 
 **Native (via Ansible):**
-- [[reference/services/forgejo|Forgejo]] - Git forge
-- [[reference/services/zot|Zot]] - Container registry
-- [[reference/services/jellyfin|Jellyfin]] - Media server
-- [[reference/services/borgmatic|Borgmatic]] - Backup system
-- [[reference/services/alloy|Alloy]] - Metrics/logs collector
+- [[Forgejo]] - Git forge
+- [[Zot]] - Container registry
+- [[Jellyfin]] - Media server
+- [[Borgmatic]] - Backup system
+- [[Grafana Alloy|Alloy]] - Metrics/logs collector
 - Caddy - Reverse proxy for `*.ops.eblu.me`
 
 **Kubernetes (via minikube):**
-- [[reference/kubernetes/apps|All k8s applications]]
+- [[ArgoCD Applications|All k8s applications]]
 
 ## Related
 
-- [[reference/infrastructure/routing|Routing]] - Port mappings
-- [[reference/kubernetes/cluster|Cluster]] - Minikube details
+- [[Service Routing|Routing]] - Port mappings
+- [[Kubernetes Cluster|Cluster]] - Minikube details

@@ -1,7 +1,6 @@
 ---
 id: argocd
 aliases:
-  - argocd
   - argo-cd
 tags:
   - blumeops

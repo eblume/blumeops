@@ -88,3 +88,13 @@ repos:
       - id: actionlint-system
         args: ['-config-file', '.github/actionlint.yaml']
         files: ^\.forgejo/workflows/
+
+  # Documentation - check for duplicate card titles
+  - repo: local
+    hooks:
+      - id: doc-card-titles
+        name: doc-card-titles
+        entry: mise run doc-card-titles
+        language: system
+        files: ^docs/.*\.md$
+        pass_filenames: false

@@ -1,7 +1,6 @@
 ---
 id: external-secrets
 aliases:
-  - external-secrets
   - eso
   - external-secrets-operator
 tags:

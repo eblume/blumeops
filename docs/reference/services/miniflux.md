@@ -17,7 +17,7 @@ Minimalist RSS/Atom feed reader.
 | **Tailscale URL** | https://feed.tail8d86e.ts.net |
 | **Namespace** | `miniflux` |
 | **Image** | `ghcr.io/miniflux/miniflux:latest` |
-| **Database** | [[reference/services/postgresql|PostgreSQL]] |
+| **Database** | [[PostgreSQL]] |
 
 ## Features
 
@@ -33,9 +33,9 @@ Uses CloudNativePG cluster at `pg.ops.eblu.me`. Database user password stored in
 
 ## Backup
 
-Feed subscriptions and read state backed up via [[reference/services/borgmatic|Borgmatic]] PostgreSQL hook.
+Feed subscriptions and read state backed up via [[Borgmatic]] PostgreSQL hook.
 
 ## Related
 
-- [[reference/services/postgresql|PostgreSQL]] - Database backend
-- [[reference/services/borgmatic|Borgmatic]] - Data backup
+- [[PostgreSQL]] - Database backend
+- [[Borgmatic]] - Data backup

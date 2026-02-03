@@ -1,7 +1,6 @@
 ---
 id: teslamate
 aliases:
-  - teslamate
   - tesla
 tags:
   - blumeops

@@ -16,11 +16,11 @@ Self-hosted photo and video management.
 | **URL** | https://photos.ops.eblu.me |
 | **Namespace** | `immich` |
 | **Deployment** | Helm chart (k8s) |
-| **Database** | [[reference/services/postgresql|PostgreSQL]] (CNPG) |
-| **Storage** | [[reference/storage/sifaka|Sifaka]] photos volume |
+| **Database** | [[PostgreSQL]] (CNPG) |
+| **Storage** | [[Sifaka NAS|Sifaka]] photos volume |
 
 ## Related
 
-- [[reference/services/postgresql|PostgreSQL]] - Database backend
-- [[reference/storage/sifaka|Sifaka]] - Photo storage
-- [[reference/services/jellyfin|Jellyfin]] - Video streaming (separate service)
+- [[PostgreSQL]] - Database backend
+- [[Sifaka NAS|Sifaka]] - Photo storage
+- [[Jellyfin]] - Video streaming (separate service)

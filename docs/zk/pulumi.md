@@ -1,7 +1,6 @@
 ---
 id: pulumi
 aliases:
-  - pulumi
   - tailnet-iac
 tags:
   - blumeops

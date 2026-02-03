@@ -36,5 +36,5 @@ Services reference 1Password items via `ExternalSecret` manifests.
 
 ## Related
 
-- [[reference/services/argocd|ArgoCD]] - Uses secrets for git access
-- [[reference/services/postgresql|PostgreSQL]] - Database credentials
+- [[ArgoCD]] - Uses secrets for git access
+- [[PostgreSQL]] - Database credentials

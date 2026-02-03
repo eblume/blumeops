@@ -1,7 +1,5 @@
 ---
 id: grafana
-aliases:
-  - grafana
 tags:
   - blumeops
 ---

@@ -1,7 +1,5 @@
 ---
 id: kiwix
-aliases:
-  - kiwix
 tags:
   - blumeops
 ---

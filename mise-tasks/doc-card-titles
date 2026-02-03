@@ -1,0 +1,154 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml>=6.0", "rich>=13.0.0"]
+# ///
+#MISE description="List all doc card titles and detect duplicates"
+"""List all documentation card titles/IDs and detect duplicates.
+
+This script scans all markdown files in the docs/ directory (excluding
+changelog.d/), extracts frontmatter titles, IDs, and aliases, and reports
+any duplicates or conflicts that could cause wiki-link resolution issues.
+
+Usage: mise run doc-card-titles
+"""
+
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+import yaml
+from rich.console import Console
+from rich.table import Table
+
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+
+def extract_frontmatter(file_path: Path) -> dict | None:
+    """Extract YAML frontmatter from a markdown file."""
+    content = file_path.read_text()
+    if not content.startswith("---"):
+        return None
+
+    # Find the closing ---
+    end_idx = content.find("---", 3)
+    if end_idx == -1:
+        return None
+
+    frontmatter_text = content[3:end_idx].strip()
+    try:
+        return yaml.safe_load(frontmatter_text) or {}
+    except yaml.YAMLError:
+        return None
+
+
+def main() -> int:
+    console = Console()
+
+    # Collect all titles/IDs and their source files
+    # Key: identifier (title, id, or alias), Value: list of (file_path, identifier_type)
+    identifiers: dict[str, list[tuple[str, str]]] = defaultdict(list)
+
+    # Scan all markdown files
+    for md_file in sorted(DOCS_DIR.rglob("*.md")):
+        # Skip changelog fragments
+        if "changelog.d" in md_file.parts:
+            continue
+
+        rel_path = md_file.relative_to(DOCS_DIR)
+        frontmatter = extract_frontmatter(md_file)
+
+        if not frontmatter:
+            continue
+
+        # Extract title (used by reference docs)
+        title = frontmatter.get("title")
+        if title:
+            identifiers[title].append((str(rel_path), "title"))
+
+        # Extract id (used by zk cards)
+        card_id = frontmatter.get("id")
+        if card_id:
+            identifiers[card_id].append((str(rel_path), "id"))
+
+        # Extract aliases
+        aliases = frontmatter.get("aliases", [])
+        if aliases:
+            for alias in aliases:
+                identifiers[alias].append((str(rel_path), "alias"))
+
+    # Separate into duplicates and unique
+    duplicates: dict[str, list[tuple[str, str]]] = {}
+    unique: dict[str, tuple[str, str]] = {}
+
+    for identifier, sources in identifiers.items():
+        if len(sources) > 1:
+            duplicates[identifier] = sources
+        else:
+            unique[identifier] = sources[0]
+
+    # Print results
+    console.print("[bold]Doc Card Title Inventory[/bold]")
+    console.print()
+
+    # Duplicates table (if any)
+    if duplicates:
+        console.print("[bold red]Duplicates Found[/bold red]")
+        dup_table = Table(show_header=True, header_style="bold")
+        dup_table.add_column("Identifier")
+        dup_table.add_column("Type")
+        dup_table.add_column("File")
+
+        for identifier in sorted(duplicates.keys()):
+            sources = duplicates[identifier]
+            first = True
+            for file_path, id_type in sources:
+                dup_table.add_row(
+                    identifier if first else "",
+                    id_type,
+                    file_path,
+                )
+                first = False
+
+        console.print(dup_table)
+        console.print()
+
+    # All identifiers table
+    console.print("[bold]All Identifiers[/bold]")
+    all_table = Table(show_header=True, header_style="bold")
+    all_table.add_column("Identifier")
+    all_table.add_column("Type")
+    all_table.add_column("File")
+    all_table.add_column("Status")
+
+    for identifier in sorted(identifiers.keys()):
+        sources = identifiers[identifier]
+        is_dup = identifier in duplicates
+        first = True
+        for file_path, id_type in sources:
+            status = "[red]DUPLICATE[/red]" if is_dup else "[green]OK[/green]"
+            all_table.add_row(
+                identifier if first else "",
+                id_type,
+                file_path,
+                status if first else "",
+            )
+            first = False
+
+    console.print(all_table)
+
+    # Summary
+    console.print()
+    console.print(f"Total identifiers: {len(identifiers)}")
+    console.print(f"Duplicates: {len(duplicates)}")
+
+    if duplicates:
+        console.print()
+        console.print("[bold red]Action required:[/bold red] Resolve duplicates to ensure wiki-links work correctly.")
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

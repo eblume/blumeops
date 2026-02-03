@@ -1,7 +1,6 @@
 ---
 id: postgresql
 aliases:
-  - postgresql
   - postgres
   - pg
 tags:

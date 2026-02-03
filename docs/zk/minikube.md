@@ -1,7 +1,6 @@
 ---
 id: minikube
 aliases:
-  - minikube
   - kubernetes
   - k8s
 tags:

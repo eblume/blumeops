@@ -17,7 +17,7 @@ BitTorrent daemon, primarily for downloading ZIM archives for [[kiwix|Kiwix]].
 | **Tailscale URL** | https://torrent.tail8d86e.ts.net |
 | **Namespace** | `torrent` |
 | **Image** | `lscr.io/linuxserver/transmission:latest` |
-| **Storage** | NFS PVC from [[reference/storage/sifaka|Sifaka]] |
+| **Storage** | NFS PVC from [[Sifaka NAS|Sifaka]] |
 
 ## Storage Layout
 
@@ -50,4 +50,4 @@ Web UI shows: active/seeding/paused counts, speeds, disk usage.
 ## Related
 
 - [[kiwix|Kiwix]] - ZIM archive consumer
-- [[reference/storage/sifaka|Sifaka]] - Download storage
+- [[Sifaka NAS|Sifaka]] - Download storage

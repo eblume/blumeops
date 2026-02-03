@@ -1,10 +1,10 @@
 ---
-title: PostgreSQL
+title: PostgreSQL Storage
 tags:
   - storage
   - database
 ---
 
-# PostgreSQL
+# PostgreSQL Storage
 
-See [[reference/services/postgresql|PostgreSQL]] in Services.
+See [[PostgreSQL]] in Services.

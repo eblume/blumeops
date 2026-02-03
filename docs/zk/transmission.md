@@ -1,7 +1,5 @@
 ---
 id: transmission
-aliases:
-  - transmission
 tags:
   - blumeops
 ---

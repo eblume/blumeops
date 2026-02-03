@@ -1,7 +1,6 @@
 ---
 id: indri
 aliases:
-  - indri
   - mac-mini
 tags:
   - blumeops

@@ -21,11 +21,11 @@ Synology NAS providing network storage and backup target.
 
 | Share | Path | Purpose | Consumers |
 |-------|------|---------|-----------|
-| backups | `/volume1/backups` | Borg backup repository | [[reference/services/borgmatic|Borgmatic]] |
-| torrents | `/volume1/torrents` | ZIM downloads | [[reference/services/kiwix|Kiwix]], [[reference/services/transmission|Transmission]] |
-| music | `/volume1/music` | Music library | [[reference/services/navidrome|Navidrome]] |
-| allisonflix | `/volume1/allisonflix` | Video library | [[reference/services/jellyfin|Jellyfin]] |
-| photos | `/volume1/photos` | Photo library | [[reference/services/immich|Immich]] |
+| backups | `/volume1/backups` | Borg backup repository | [[Borgmatic]] |
+| torrents | `/volume1/torrents` | ZIM downloads | [[Kiwix]], [[Transmission]] |
+| music | `/volume1/music` | Music library | [[Navidrome]] |
+| allisonflix | `/volume1/allisonflix` | Video library | [[Jellyfin]] |
+| photos | `/volume1/photos` | Photo library | [[Immich]] |
 
 ## NFS Exports
 
@@ -37,7 +37,7 @@ Synology NAS providing network storage and backup target.
 
 ## Monitoring
 
-Node exporter running in Docker container, scraped by [[reference/services/prometheus|Prometheus]] at `sifaka:9100`.
+Node exporter running in Docker container, scraped by [[Prometheus]] at `sifaka:9100`.
 
 ## Tailscale
 
@@ -46,14 +46,14 @@ Node exporter running in Docker container, scraped by [[reference/services/prome
 
 ## Backup
 
-Sifaka is the **target** for [[reference/operations/backup|backups]], not a backup source. [[reference/services/borgmatic|Borgmatic]] sends backups TO sifaka, not OF sifaka.
+Sifaka is the **target** for [[Backup|backups]], not a backup source. [[Borgmatic]] sends backups TO sifaka, not OF sifaka.
 
 Data protection for sifaka itself currently relies on the Synology RAID 5 configuration, which provides single-disk fault tolerance. Future plans include offsite duplication for additional resiliency.
 
 ## Related
 
-- [[reference/storage/backups|Backups]] - Backup policy
-- [[reference/services/borgmatic|Borgmatic]] - Backup system
-- [[reference/services/immich|Immich]] - Photo consumer
-- [[reference/services/jellyfin|Jellyfin]] - Media consumer
-- [[reference/services/navidrome|Navidrome]] - Music consumer
+- [[Backup Policy|Backups]] - Backup policy
+- [[Borgmatic]] - Backup system
+- [[Immich]] - Photo consumer
+- [[Jellyfin]] - Media consumer
+- [[Navidrome]] - Music consumer
