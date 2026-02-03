@@ -1,0 +1,25 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: docs-tailscale
+  namespace: docs
+  annotations:
+    tailscale.com/proxy-class: "default"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Docs"
+    gethomepage.dev/group: "Apps"
+    gethomepage.dev/icon: "mdi-book-open-page-variant"
+    gethomepage.dev/description: "BlumeOps Documentation"
+    gethomepage.dev/href: "https://docs.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=docs"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: docs
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - docs

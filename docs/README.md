@@ -63,6 +63,7 @@ The documentation is being restructured to follow the [Diataxis](https://diataxi
   ```
 - [ ] Test end-to-end: commit -> build -> release -> deploy
 - [ ] Set up `CHANGELOG.md` with [towncrier](https://towncrier.readthedocs.io/) using news fragments from zk cards
+- [ ] Add `docs.ops.eblu.me` link to homepage dashboard
 
 ### Phase 2: Tutorials
 Learning-oriented content for getting started.

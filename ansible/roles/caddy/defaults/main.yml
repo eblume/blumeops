@@ -70,6 +70,9 @@ caddy_services:
   - name: hajimari
     host: "go.{{ caddy_domain }}"
     backend: "https://go.tail8d86e.ts.net"
+  - name: docs
+    host: "docs.{{ caddy_domain }}"
+    backend: "https://docs.tail8d86e.ts.net"
   - name: sifaka
     host: "nas.{{ caddy_domain }}"
     backend: "http://sifaka:5000"
