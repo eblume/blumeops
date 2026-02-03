@@ -104,13 +104,15 @@ jobs:
           ls -lh "$GITHUB_WORKSPACE/$TARBALL"
 
       - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TARBALL="docs-${VERSION}.tar.gz"
 
           echo "Creating release $VERSION..."
 
-          # Use Forgejo API to create release
+          # Use Forgejo API to create release (requires authentication)
           RELEASE_DATA=$(cat <<EOF
           {
             "tag_name": "$VERSION",
@@ -122,17 +124,19 @@ jobs:
           EOF
           )
 
-          RELEASE_RESPONSE=$(curl -sf \
+          RELEASE_RESPONSE=$(curl -s \
             -X POST \
             -H "Content-Type: application/json" \
+            -H "Authorization: token $GITHUB_TOKEN" \
             -d "$RELEASE_DATA" \
             "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases")
+
+          echo "API Response: $RELEASE_RESPONSE"
 
           RELEASE_ID=$(echo "$RELEASE_RESPONSE" | jq -r '.id')
 
           if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
             echo "Error: Failed to create release"
-            echo "Response: $RELEASE_RESPONSE"
             exit 1
           fi
 
@@ -140,12 +144,14 @@ jobs:
 
           # Upload the asset
           echo "Uploading $TARBALL..."
-          curl -sf \
+          UPLOAD_RESPONSE=$(curl -s \
             -X POST \
             -H "Content-Type: application/gzip" \
+            -H "Authorization: token $GITHUB_TOKEN" \
             --data-binary "@$TARBALL" \
-            "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/$RELEASE_ID/assets?name=$TARBALL"
+            "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/$RELEASE_ID/assets?name=$TARBALL")
 
+          echo "Upload Response: $UPLOAD_RESPONSE"
           echo ""
           echo "Release created successfully!"
 
