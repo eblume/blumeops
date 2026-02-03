@@ -76,8 +76,8 @@ jobs:
           echo "Node version: $(node --version)"
           echo "NPM version: $(npm --version)"
 
-          # Clone Quartz from local mirror
-          git clone --depth 1 https://forge.ops.eblu.me/eblume/quartz.git /tmp/quartz
+          # Clone Quartz
+          git clone --depth 1 https://github.com/jackyzha0/quartz.git /tmp/quartz
           cd /tmp/quartz
 
           # Install dependencies
