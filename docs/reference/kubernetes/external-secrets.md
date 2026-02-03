@@ -7,4 +7,4 @@ tags:
 
 # External Secrets
 
-See [[1password|1Password]] in Services.
+See [[1Password]] in Services.

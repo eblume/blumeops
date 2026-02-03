@@ -1,10 +1,7 @@
 ---
 id: minikube
-aliases:
-  - kubernetes
-  - k8s
 tags:
-  - blumeops
+- blumeops
 ---
 
 # Minikube Management Log

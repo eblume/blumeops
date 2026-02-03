@@ -17,7 +17,7 @@ Self-hosted Tesla data logger collecting vehicle telemetry from the Tesla Owner 
 | **Tailscale URL** | https://tesla.tail8d86e.ts.net |
 | **Namespace** | `teslamate` |
 | **Image** | `teslamate/teslamate:2.2.0` |
-| **Database** | [[postgresql|PostgreSQL]] |
+| **Database** | [[PostgreSQL]] |
 
 ## Data Collected
 
@@ -53,6 +53,6 @@ Uses Tesla Owner API via OAuth:
 
 ## Related
 
-- [[postgresql|PostgreSQL]] - Data storage
-- [[grafana|Grafana]] - Dashboards
-- [[borgmatic|Borgmatic]] - Database backup
+- [[PostgreSQL]] - Data storage
+- [[Grafana]] - Dashboards
+- [[Borgmatic]] - Database backup

@@ -25,20 +25,20 @@ DNS points to indri's Tailscale IP (100.98.163.89). TLS via Let's Encrypt (ACME 
 | Service | URL | Description |
 |---------|-----|-------------|
 | Homepage | https://go.ops.eblu.me | Service dashboard |
-| [[forgejo|Forgejo]] | https://forge.ops.eblu.me | Git hosting (SSH: 2222) |
-| [[zot|Zot]] | https://registry.ops.eblu.me | Container registry |
-| [[grafana|Grafana]] | https://grafana.ops.eblu.me | Dashboards |
-| [[argocd|ArgoCD]] | https://argocd.ops.eblu.me | GitOps CD |
-| [[prometheus|Prometheus]] | https://prometheus.ops.eblu.me | Metrics |
-| [[loki|Loki]] | https://loki.ops.eblu.me | Logs |
-| [[miniflux|Miniflux]] | https://feed.ops.eblu.me | RSS reader |
-| [[kiwix|Kiwix]] | https://kiwix.ops.eblu.me | Offline Wikipedia |
-| [[transmission|Transmission]] | https://torrent.ops.eblu.me | BitTorrent |
-| [[teslamate|TeslaMate]] | https://tesla.ops.eblu.me | Tesla logger |
-| [[navidrome|Navidrome]] | https://dj.ops.eblu.me | Music streaming |
-| [[jellyfin|Jellyfin]] | https://jellyfin.ops.eblu.me | Media server |
-| [[postgresql|PostgreSQL]] | pg.ops.eblu.me:5432 | Database |
-| [[sifaka|Sifaka]] | https://nas.ops.eblu.me | NAS dashboard |
+| [[Forgejo]] | https://forge.ops.eblu.me | Git hosting (SSH: 2222) |
+| [[Zot]] | https://registry.ops.eblu.me | Container registry |
+| [[Grafana]] | https://grafana.ops.eblu.me | Dashboards |
+| [[ArgoCD]] | https://argocd.ops.eblu.me | GitOps CD |
+| [[Prometheus]] | https://prometheus.ops.eblu.me | Metrics |
+| [[Loki]] | https://loki.ops.eblu.me | Logs |
+| [[Miniflux]] | https://feed.ops.eblu.me | RSS reader |
+| [[Kiwix]] | https://kiwix.ops.eblu.me | Offline Wikipedia |
+| [[Transmission]] | https://torrent.ops.eblu.me | BitTorrent |
+| [[TeslaMate]] | https://tesla.ops.eblu.me | Tesla logger |
+| [[Navidrome]] | https://dj.ops.eblu.me | Music streaming |
+| [[Jellyfin]] | https://jellyfin.ops.eblu.me | Media server |
+| [[PostgreSQL]] | pg.ops.eblu.me:5432 | Database |
+| [[Sifaka NAS|Sifaka]] | https://nas.ops.eblu.me | NAS dashboard |
 
 ## Tailscale-Only Services
 
@@ -61,5 +61,5 @@ DNS points to indri's Tailscale IP (100.98.163.89). TLS via Let's Encrypt (ACME 
 
 ## Related
 
-- [[tailscale|Tailscale]] - ACL configuration
-- [[indri|Indri]] - Where services run
+- [[Tailscale]] - ACL configuration
+- [[Indri]] - Where services run

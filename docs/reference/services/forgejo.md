@@ -44,5 +44,5 @@ Managed via 1Password: `lfs-jwt-secret`, `internal-token`, `oauth2-jwt-secret`, 
 
 ## Related
 
-- [[argocd|ArgoCD]] - Uses Forgejo as git source
-- [[zot|Zot]] - Container registry for built images
+- [[ArgoCD]] - Uses Forgejo as git source
+- [[Zot]] - Container registry for built images

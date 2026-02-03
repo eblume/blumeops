@@ -1,9 +1,7 @@
 ---
 id: teslamate-log
-aliases:
-  - tesla
 tags:
-  - blumeops
+- blumeops
 ---
 
 # TeslaMate

@@ -1,10 +1,7 @@
 ---
 id: postgresql-log
-aliases:
-  - postgres
-  - pg
 tags:
-  - blumeops
+- blumeops
 ---
 
 # PostgreSQL Management Log

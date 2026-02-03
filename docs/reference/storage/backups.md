@@ -7,13 +7,13 @@ tags:
 
 # Backup Policy
 
-Daily automated backups from [[indri|Indri]] to [[sifaka|Sifaka]] NAS.
+Daily automated backups from [[Indri]] to [[Sifaka NAS|Sifaka]] NAS.
 
 ## Schedule
 
 | Time | Frequency | System |
 |------|-----------|--------|
-| 2:00 AM | Daily | [[borgmatic|Borgmatic]] |
+| 2:00 AM | Daily | [[Borgmatic]] |
 
 ## What Gets Backed Up
 
@@ -31,8 +31,8 @@ Daily automated backups from [[indri|Indri]] to [[sifaka|Sifaka]] NAS.
 
 | Database | Host | Method |
 |----------|------|--------|
-| miniflux | [[postgresql|pg.ops.eblu.me]] | pg_dump stream |
-| teslamate | [[postgresql|pg.ops.eblu.me]] | pg_dump stream |
+| miniflux | [[PostgreSQL|pg.ops.eblu.me]] | pg_dump stream |
+| teslamate | [[PostgreSQL|pg.ops.eblu.me]] | pg_dump stream |
 
 ## What Is NOT Backed Up
 
@@ -53,19 +53,19 @@ Daily automated backups from [[indri|Indri]] to [[sifaka|Sifaka]] NAS.
 
 ## Backup Target
 
-Repository: `/Volumes/backups/borg/` on [[sifaka|Sifaka]]
+Repository: `/Volumes/backups/borg/` on [[Sifaka NAS|Sifaka]]
 
 ## Monitoring
 
-Metrics exposed to [[prometheus|Prometheus]]:
+Metrics exposed to [[Prometheus]]:
 - `borgmatic_up` - Repository accessible
 - `borgmatic_last_archive_timestamp` - Last backup time
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
 
-Dashboard: "Borgmatic Backups" in [[grafana|Grafana]]
+Dashboard: "Borgmatic Backups" in [[Grafana]]
 
 ## Related
 
-- [[borgmatic|Borgmatic]] - Backup system details
-- [[sifaka|Sifaka]] - Backup storage
-- [[postgresql|PostgreSQL]] - Database backups
+- [[Borgmatic]] - Backup system details
+- [[Sifaka NAS|Sifaka]] - Backup storage
+- [[PostgreSQL]] - Database backups

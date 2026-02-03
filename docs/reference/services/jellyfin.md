@@ -42,10 +42,10 @@ Dashboard > Playback:
 ## Observability
 
 - Metrics: `jellyfin_metrics` ansible role
-- Logs: Forwarded via [[alloy|Alloy]]
-- Dashboard: "Jellyfin Media Server" in [[grafana|Grafana]]
+- Logs: Forwarded via [[Grafana Alloy|Alloy]]
+- Dashboard: "Jellyfin Media Server" in [[Grafana]]
 
 ## Related
 
-- [[navidrome|Navidrome]] - Music streaming
-- [[sifaka|Sifaka]] - Media storage
+- [[Navidrome]] - Music streaming
+- [[Sifaka NAS|Sifaka]] - Media storage

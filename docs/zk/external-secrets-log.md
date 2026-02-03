@@ -1,10 +1,7 @@
 ---
 id: external-secrets-log
-aliases:
-  - eso
-  - external-secrets-operator
 tags:
-  - blumeops
+- blumeops
 ---
 
 # External Secrets Operator

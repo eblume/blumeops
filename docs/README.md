@@ -1,3 +1,7 @@
+---
+title: README
+---
+
 # BlumeOps Documentation
 
 > **Note on naming**: The project is properly stylized as **BlumeOps**, though "blumeops" and "Blue Mops" are also commonly used interchangeably.

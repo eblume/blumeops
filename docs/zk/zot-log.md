@@ -1,9 +1,7 @@
 ---
 id: zot-log
-aliases:
-  - container-registry
 tags:
-  - blumeops
+- blumeops
 ---
 
 # Zot Registry Management Log

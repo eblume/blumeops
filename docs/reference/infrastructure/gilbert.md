@@ -23,5 +23,5 @@ Managed via `Brewfile` and `mise.toml` in the blumeops repo.
 
 ## Related
 
-- [[indri|Indri]] - Server accessed from gilbert
-- [[cluster|Cluster]] - Remote k8s access
+- [[Indri]] - Server accessed from gilbert
+- [[Kubernetes Cluster|Cluster]] - Remote k8s access

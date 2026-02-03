@@ -1,0 +1,133 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml>=6.0", "rich>=13.0.0"]
+# ///
+#MISE description="Validate all wiki-links point to existing doc titles"
+"""Validate that all wiki-links in documentation point to existing titles.
+
+This script scans all markdown files in the docs/ directory (excluding
+changelog.d/ and zk/), extracts wiki-links, and verifies each link target
+exists as a frontmatter title in the documentation.
+
+Wiki-link formats supported:
+- [[Title]] - links to a doc with frontmatter title "Title"
+- [[Title|Display Text]] - links to "Title", displays "Display Text"
+
+Usage: mise run doc-links
+"""
+
+import re
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+import yaml
+from rich.console import Console
+from rich.markup import escape
+from rich.table import Table
+
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+# Regex to match wiki-links: [[Target]] or [[Target|Display]]
+WIKILINK_PATTERN = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
+
+# Regex to match inline code (backticks)
+INLINE_CODE_PATTERN = re.compile(r"`[^`]+`")
+
+
+def extract_frontmatter(file_path: Path) -> dict | None:
+    """Extract YAML frontmatter from a markdown file."""
+    content = file_path.read_text()
+    if not content.startswith("---"):
+        return None
+
+    end_idx = content.find("---", 3)
+    if end_idx == -1:
+        return None
+
+    frontmatter_text = content[3:end_idx].strip()
+    try:
+        return yaml.safe_load(frontmatter_text) or {}
+    except yaml.YAMLError:
+        return None
+
+
+def extract_wikilinks(file_path: Path) -> list[tuple[str, int]]:
+    """Extract all wiki-link targets from a markdown file with line numbers.
+
+    Ignores wiki-links inside inline code (backticks) as these are examples.
+    """
+    content = file_path.read_text()
+    links = []
+
+    for line_num, line in enumerate(content.splitlines(), start=1):
+        # Remove inline code before searching for wiki-links
+        line_without_code = INLINE_CODE_PATTERN.sub("", line)
+        for match in WIKILINK_PATTERN.finditer(line_without_code):
+            target = match.group(1).strip()
+            links.append((target, line_num))
+
+    return links
+
+
+def main() -> int:
+    console = Console()
+
+    # Collect all valid titles from frontmatter
+    valid_titles: set[str] = set()
+
+    # Scan all markdown files for titles (excluding zk/ and changelog.d/)
+    for md_file in DOCS_DIR.rglob("*.md"):
+        if "changelog.d" in md_file.parts or "zk" in md_file.parts:
+            continue
+
+        frontmatter = extract_frontmatter(md_file)
+        if frontmatter and frontmatter.get("title"):
+            valid_titles.add(frontmatter["title"])
+
+    # Collect all broken links
+    # Key: (file_path, line_num), Value: target
+    broken_links: list[tuple[str, int, str]] = []
+
+    # Scan all markdown files for wiki-links (excluding zk/ and changelog.d/)
+    for md_file in sorted(DOCS_DIR.rglob("*.md")):
+        if "changelog.d" in md_file.parts or "zk" in md_file.parts:
+            continue
+
+        rel_path = str(md_file.relative_to(DOCS_DIR))
+        links = extract_wikilinks(md_file)
+
+        for target, line_num in links:
+            if target not in valid_titles:
+                broken_links.append((rel_path, line_num, target))
+
+    # Print results
+    console.print("[bold]Wiki-Link Validation[/bold]")
+    console.print()
+    console.print(f"Found {len(valid_titles)} valid titles in documentation.")
+    console.print()
+
+    if broken_links:
+        console.print("[bold red]Broken Wiki-Links Found[/bold red]")
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("File")
+        table.add_column("Line", justify="right")
+        table.add_column("Target")
+
+        for file_path, line_num, target in broken_links:
+            table.add_row(file_path, str(line_num), escape(f"[[{target}]]"))
+
+        console.print(table)
+        console.print()
+        console.print(f"[bold red]{len(broken_links)} broken link(s) found.[/bold red]")
+        console.print()
+        console.print("Each wiki-link target must match a frontmatter title in docs/.")
+        return 1
+
+    console.print("[bold green]All wiki-links are valid![/bold green]")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

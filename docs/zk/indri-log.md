@@ -1,9 +1,7 @@
 ---
 id: indri-log
-aliases:
-  - mac-mini
 tags:
-  - blumeops
+- blumeops
 ---
 
 # Indri Maintenance Log

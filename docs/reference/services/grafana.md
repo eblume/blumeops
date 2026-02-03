@@ -45,6 +45,6 @@ Optional annotation: `grafana_folder: "FolderName"`
 
 ## Related
 
-- [[prometheus|Prometheus]] - Metrics datasource
-- [[loki|Loki]] - Logs datasource
-- [[alloy|Alloy]] - Data collector
+- [[Prometheus]] - Metrics datasource
+- [[Loki]] - Logs datasource
+- [[Grafana Alloy|Alloy]] - Data collector

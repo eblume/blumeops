@@ -1,9 +1,7 @@
 ---
 id: argocd-log
-aliases:
-  - argo-cd
 tags:
-  - blumeops
+- blumeops
 ---
 
 # ArgoCD Management Log

@@ -1,9 +1,7 @@
 ---
 id: pulumi
-aliases:
-  - tailnet-iac
 tags:
-  - blumeops
+- blumeops
 ---
 
 # Pulumi Tailnet IaC Management Log

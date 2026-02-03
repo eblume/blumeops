@@ -8,12 +8,12 @@ tags:
 
 TBD. Current state:
 
-- [[borgmatic|Borgmatic]] provides daily backups to [[sifaka|Sifaka]]
+- [[Borgmatic]] provides daily backups to [[Sifaka NAS|Sifaka]]
 - Infrastructure can be rebootstrapped using the blumeops repo
 - Detailed DR procedures not yet documented
 
 ## Components
 
-- [[borgmatic|Borgmatic]] - Backup restoration
-- [[1password|1Password]] - Credential recovery
-- [[forgejo|Forgejo]] - Source of truth for infrastructure code
+- [[Borgmatic]] - Backup restoration
+- [[1Password]] - Credential recovery
+- [[Forgejo]] - Source of truth for infrastructure code

@@ -1,9 +1,7 @@
 ---
 id: borgmatic-log
-aliases:
-  - borg-backup
 tags:
-  - blumeops
+- blumeops
 ---
 
 # Borgmatic Management Log

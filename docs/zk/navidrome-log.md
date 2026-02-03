@@ -1,10 +1,8 @@
 ---
 id: navidrome-log
-aliases:
-  - DJ
 tags:
-  - blumeops
-  - service
+- blumeops
+- service
 ---
 
 Navidrome is a self-hosted music streaming server deployed on [[blumeops|BlumeOps]].

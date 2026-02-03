@@ -1,10 +1,7 @@
 ---
 id: miniflux-log
-aliases:
-  - feed
-  - rss
 tags:
-  - blumeops
+- blumeops
 ---
 
 # Miniflux Management Log
