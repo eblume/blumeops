@@ -9,6 +9,7 @@ spec:
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
+      ttlSecondsAfterFinished: 345600  # Auto-delete after 4 days
       template:
         spec:
           serviceAccountName: zim-watcher
