@@ -6,7 +6,7 @@ tags:
 
 # Kubernetes Cluster
 
-Single-node Minikube cluster running on [[infrastructure/indri|Indri]].
+Single-node Minikube cluster running on [[reference/infrastructure/indri|Indri]].
 
 ## Cluster Specifications
 
@@ -24,16 +24,16 @@ Single-node Minikube cluster running on [[infrastructure/indri|Indri]].
 
 ## Volume Mounting
 
-Pods mount NFS directly from [[storage/sifaka|Sifaka]]. Docker NATs outbound traffic through indri's LAN IP (192.168.1.50), allowing access to Sifaka's NFS exports.
+Pods mount NFS directly from [[reference/storage/sifaka|Sifaka]]. Docker NATs outbound traffic through indri's LAN IP (192.168.1.50), allowing access to Sifaka's NFS exports.
 
 ## Registry Mirror
 
-Containerd uses [[services/zot|Zot]] as a pull-through cache at `host.minikube.internal:5050`.
+Containerd uses [[reference/services/zot|Zot]] as a pull-through cache at `host.minikube.internal:5050`.
 
 Mirrors configured: `registry.ops.eblu.me`, `docker.io`, `ghcr.io`, `quay.io`
 
 ## Related
 
-- [[kubernetes/apps|Apps]] - ArgoCD applications
-- [[services/argocd|ArgoCD]] - GitOps deployment
-- [[services/zot|Zot]] - Registry mirror
+- [[reference/kubernetes/apps|Apps]] - ArgoCD applications
+- [[reference/services/argocd|ArgoCD]] - GitOps deployment
+- [[reference/services/zot|Zot]] - Registry mirror

@@ -17,7 +17,7 @@ ACLs managed via Pulumi in `pulumi/policy.hujson`.
 
 | Group | Members | Purpose |
 |-------|---------|---------|
-| `group:allisonflix` | admin, member | [[services/jellyfin|Jellyfin]] media access |
+| `group:allisonflix` | admin, member | [[reference/services/jellyfin|Jellyfin]] media access |
 
 ## Device Tags
 
@@ -58,5 +58,5 @@ Pulumi uses OAuth client from 1Password (blumeops vault):
 
 ## Related
 
-- [[infrastructure/routing|Routing]] - Service URLs
-- [[infrastructure/hosts|Hosts]] - Device inventory
+- [[reference/infrastructure/routing|Routing]] - Service URLs
+- [[reference/infrastructure/hosts|Hosts]] - Device inventory

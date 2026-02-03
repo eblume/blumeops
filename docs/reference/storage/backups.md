@@ -7,13 +7,13 @@ tags:
 
 # Backup Policy
 
-Daily automated backups from [[infrastructure/indri|Indri]] to [[storage/sifaka|Sifaka]] NAS.
+Daily automated backups from [[reference/infrastructure/indri|Indri]] to [[reference/storage/sifaka|Sifaka]] NAS.
 
 ## Schedule
 
 | Time | Frequency | System |
 |------|-----------|--------|
-| 2:00 AM | Daily | [[services/borgmatic|Borgmatic]] |
+| 2:00 AM | Daily | [[reference/services/borgmatic|Borgmatic]] |
 
 ## What Gets Backed Up
 
@@ -31,8 +31,8 @@ Daily automated backups from [[infrastructure/indri|Indri]] to [[storage/sifaka|
 
 | Database | Host | Method |
 |----------|------|--------|
-| miniflux | [[services/postgresql|pg.ops.eblu.me]] | pg_dump stream |
-| teslamate | [[services/postgresql|pg.ops.eblu.me]] | pg_dump stream |
+| miniflux | [[reference/services/postgresql|pg.ops.eblu.me]] | pg_dump stream |
+| teslamate | [[reference/services/postgresql|pg.ops.eblu.me]] | pg_dump stream |
 
 ## What Is NOT Backed Up
 
@@ -53,19 +53,19 @@ Daily automated backups from [[infrastructure/indri|Indri]] to [[storage/sifaka|
 
 ## Backup Target
 
-Repository: `/Volumes/backups/borg/` on [[storage/sifaka|Sifaka]]
+Repository: `/Volumes/backups/borg/` on [[reference/storage/sifaka|Sifaka]]
 
 ## Monitoring
 
-Metrics exposed to [[services/prometheus|Prometheus]]:
+Metrics exposed to [[reference/services/prometheus|Prometheus]]:
 - `borgmatic_up` - Repository accessible
 - `borgmatic_last_archive_timestamp` - Last backup time
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
 
-Dashboard: "Borgmatic Backups" in [[services/grafana|Grafana]]
+Dashboard: "Borgmatic Backups" in [[reference/services/grafana|Grafana]]
 
 ## Related
 
-- [[services/borgmatic|Borgmatic]] - Backup system details
-- [[storage/sifaka|Sifaka]] - Backup storage
-- [[services/postgresql|PostgreSQL]] - Database backups
+- [[reference/services/borgmatic|Borgmatic]] - Backup system details
+- [[reference/storage/sifaka|Sifaka]] - Backup storage
+- [[reference/services/postgresql|PostgreSQL]] - Database backups

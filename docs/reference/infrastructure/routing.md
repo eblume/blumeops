@@ -25,20 +25,20 @@ DNS points to indri's Tailscale IP (100.98.163.89). TLS via Let's Encrypt (ACME 
 | Service | URL | Description |
 |---------|-----|-------------|
 | Homepage | https://go.ops.eblu.me | Service dashboard |
-| [[services/forgejo|Forgejo]] | https://forge.ops.eblu.me | Git hosting (SSH: 2222) |
-| [[services/zot|Zot]] | https://registry.ops.eblu.me | Container registry |
-| [[services/grafana|Grafana]] | https://grafana.ops.eblu.me | Dashboards |
-| [[services/argocd|ArgoCD]] | https://argocd.ops.eblu.me | GitOps CD |
-| [[services/prometheus|Prometheus]] | https://prometheus.ops.eblu.me | Metrics |
-| [[services/loki|Loki]] | https://loki.ops.eblu.me | Logs |
-| [[services/miniflux|Miniflux]] | https://feed.ops.eblu.me | RSS reader |
-| [[services/kiwix|Kiwix]] | https://kiwix.ops.eblu.me | Offline Wikipedia |
-| [[services/transmission|Transmission]] | https://torrent.ops.eblu.me | BitTorrent |
-| [[services/teslamate|TeslaMate]] | https://tesla.ops.eblu.me | Tesla logger |
-| [[services/navidrome|Navidrome]] | https://dj.ops.eblu.me | Music streaming |
-| [[services/jellyfin|Jellyfin]] | https://jellyfin.ops.eblu.me | Media server |
-| [[services/postgresql|PostgreSQL]] | pg.ops.eblu.me:5432 | Database |
-| [[storage/sifaka|Sifaka]] | https://nas.ops.eblu.me | NAS dashboard |
+| [[reference/services/forgejo|Forgejo]] | https://forge.ops.eblu.me | Git hosting (SSH: 2222) |
+| [[reference/services/zot|Zot]] | https://registry.ops.eblu.me | Container registry |
+| [[reference/services/grafana|Grafana]] | https://grafana.ops.eblu.me | Dashboards |
+| [[reference/services/argocd|ArgoCD]] | https://argocd.ops.eblu.me | GitOps CD |
+| [[reference/services/prometheus|Prometheus]] | https://prometheus.ops.eblu.me | Metrics |
+| [[reference/services/loki|Loki]] | https://loki.ops.eblu.me | Logs |
+| [[reference/services/miniflux|Miniflux]] | https://feed.ops.eblu.me | RSS reader |
+| [[reference/services/kiwix|Kiwix]] | https://kiwix.ops.eblu.me | Offline Wikipedia |
+| [[reference/services/transmission|Transmission]] | https://torrent.ops.eblu.me | BitTorrent |
+| [[reference/services/teslamate|TeslaMate]] | https://tesla.ops.eblu.me | Tesla logger |
+| [[reference/services/navidrome|Navidrome]] | https://dj.ops.eblu.me | Music streaming |
+| [[reference/services/jellyfin|Jellyfin]] | https://jellyfin.ops.eblu.me | Media server |
+| [[reference/services/postgresql|PostgreSQL]] | pg.ops.eblu.me:5432 | Database |
+| [[reference/storage/sifaka|Sifaka]] | https://nas.ops.eblu.me | NAS dashboard |
 
 ## Tailscale-Only Services
 
@@ -61,5 +61,5 @@ DNS points to indri's Tailscale IP (100.98.163.89). TLS via Let's Encrypt (ACME 
 
 ## Related
 
-- [[infrastructure/tailscale|Tailscale]] - ACL configuration
-- [[infrastructure/indri|Indri]] - Where services run
+- [[reference/infrastructure/tailscale|Tailscale]] - ACL configuration
+- [[reference/infrastructure/indri|Indri]] - Where services run

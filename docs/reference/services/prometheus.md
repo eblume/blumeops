@@ -23,19 +23,19 @@ Metrics storage and querying for BlumeOps infrastructure.
 ## Data Sources
 
 ### Remote Write (from Alloy)
-- Indri system metrics via [[services/alloy|Alloy]] remote_write
+- Indri system metrics via [[reference/services/alloy|Alloy]] remote_write
 - Textfile metrics: minikube, borgmatic, zot, jellyfin
 
 ### Scrape Targets
 
 | Target | Metrics |
 |--------|---------|
-| `sifaka:9100` | [[storage/sifaka|Sifaka]] NAS (node_exporter) |
-| `cnpg-metrics.tail8d86e.ts.net:9187` | [[services/postgresql|CloudNativePG]] metrics |
+| `sifaka:9100` | [[reference/storage/sifaka|Sifaka]] NAS (node_exporter) |
+| `cnpg-metrics.tail8d86e.ts.net:9187` | [[reference/services/postgresql|CloudNativePG]] metrics |
 | `kube-state-metrics.monitoring.svc:8080` | Kubernetes resource metrics |
 
 ## Related
 
-- [[services/alloy|Alloy]] - Metrics collector
-- [[services/grafana|Grafana]] - Visualization
-- [[services/loki|Loki]] - Logs counterpart
+- [[reference/services/alloy|Alloy]] - Metrics collector
+- [[reference/services/grafana|Grafana]] - Visualization
+- [[reference/services/loki|Loki]] - Logs counterpart

@@ -38,5 +38,5 @@ The `/data` directory contains SQLite database, configuration, and cache.
 
 ## Related
 
-- [[services/jellyfin|Jellyfin]] - Video streaming
-- [[storage/sifaka|Sifaka]] - Music storage
+- [[reference/services/jellyfin|Jellyfin]] - Video streaming
+- [[reference/storage/sifaka|Sifaka]] - Music storage

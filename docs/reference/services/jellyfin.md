@@ -48,4 +48,4 @@ Dashboard > Playback:
 ## Related
 
 - [[navidrome|Navidrome]] - Music streaming
-- [[storage/sifaka|Sifaka]] - Media storage
+- [[reference/storage/sifaka|Sifaka]] - Media storage

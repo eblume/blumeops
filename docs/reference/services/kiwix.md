@@ -17,7 +17,7 @@ Offline Wikipedia and ZIM archive server.
 | **Tailscale URL** | https://kiwix.tail8d86e.ts.net |
 | **Namespace** | `kiwix` |
 | **Image** | `ghcr.io/kiwix/kiwix-serve:3.8.1` |
-| **Storage** | NFS from [[storage/sifaka|Sifaka]] (`/volume1/torrents`) |
+| **Storage** | NFS from [[reference/storage/sifaka|Sifaka]] (`/volume1/torrents`) |
 
 ## Architecture
 
@@ -49,4 +49,4 @@ Full list: `argocd/manifests/kiwix/configmap-zim-torrents.yaml`
 ## Related
 
 - [[transmission|Transmission]] - Downloads ZIM files
-- [[storage/sifaka|Sifaka]] - ZIM storage
+- [[reference/storage/sifaka|Sifaka]] - ZIM storage

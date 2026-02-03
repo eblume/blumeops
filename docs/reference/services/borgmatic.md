@@ -16,7 +16,7 @@ Daily backup system using Borg backup, running on indri.
 | **Install** | mise (pipx) |
 | **Config** | `~/.config/borgmatic/config.yaml` |
 | **Schedule** | Daily at 2:00 AM |
-| **Repository** | `/Volumes/backups/borg/` on [[storage/sifaka|Sifaka]] |
+| **Repository** | `/Volumes/backups/borg/` on [[reference/storage/sifaka|Sifaka]] |
 
 ## What Gets Backed Up
 
@@ -55,6 +55,6 @@ Dashboard: "Borgmatic Backups" in [[grafana|Grafana]]
 
 ## Related
 
-- [[storage/backups|Backups]] - Full backup policy
-- [[storage/sifaka|Sifaka]] - Backup target
+- [[reference/storage/backups|Backups]] - Full backup policy
+- [[reference/storage/sifaka|Sifaka]] - Backup target
 - [[postgresql|PostgreSQL]] - Database backups

@@ -7,4 +7,4 @@ tags:
 
 # PostgreSQL
 
-See [[services/postgresql|PostgreSQL]] in Services.
+See [[reference/services/postgresql|PostgreSQL]] in Services.

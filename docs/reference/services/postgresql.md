@@ -23,8 +23,8 @@ Database cluster via CloudNativePG operator.
 
 | Database | Owner | Purpose |
 |----------|-------|---------|
-| miniflux | miniflux | [[services/miniflux|Miniflux]] feed data |
-| teslamate | teslamate | [[services/teslamate|TeslaMate]] vehicle data |
+| miniflux | miniflux | [[reference/services/miniflux|Miniflux]] feed data |
+| teslamate | teslamate | [[reference/services/teslamate|TeslaMate]] vehicle data |
 
 ## Users
 
@@ -34,11 +34,11 @@ Database cluster via CloudNativePG operator.
 | miniflux | app owner | Owns miniflux database |
 | teslamate | superuser | TeslaMate (needs extensions) |
 | eblume | superuser | Admin access |
-| borgmatic | pg_read_all_data | [[services/borgmatic|Backup]] access |
+| borgmatic | pg_read_all_data | [[reference/services/borgmatic|Backup]] access |
 
 ## Backup
 
-Backed up via [[services/borgmatic|Borgmatic]] `postgresql_databases` hook. Streams `pg_dump` directly to Borg (no intermediate files, no downtime). See [[operations/backup|Backup]] for overall backup policy.
+Backed up via [[reference/services/borgmatic|Borgmatic]] `postgresql_databases` hook. Streams `pg_dump` directly to Borg (no intermediate files, no downtime). See [[reference/operations/backup|Backup]] for overall backup policy.
 
 ## Credentials
 
@@ -54,6 +54,6 @@ Backed up via [[services/borgmatic|Borgmatic]] `postgresql_databases` hook. Stre
 
 ## Related
 
-- [[services/miniflux|Miniflux]] - Feed reader database
-- [[services/teslamate|TeslaMate]] - Vehicle data database
-- [[services/borgmatic|Borgmatic]] - Database backup
+- [[reference/services/miniflux|Miniflux]] - Feed reader database
+- [[reference/services/teslamate|TeslaMate]] - Vehicle data database
+- [[reference/services/borgmatic|Borgmatic]] - Database backup
