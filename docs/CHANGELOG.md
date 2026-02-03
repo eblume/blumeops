@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.0.2] - 2026-02-03
+
+### Features
+
+- Add Reference section with 24 technical reference cards covering services, infrastructure, kubernetes, and storage
+
+### Documentation
+
+- Reorder documentation phases: Reference (Phase 2) now comes before Tutorials (Phase 3) so other docs can link to reference material
+
+
 ## [v1.0.1] - 2026-02-03
 
 ### Infrastructure
