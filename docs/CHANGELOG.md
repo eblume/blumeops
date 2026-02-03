@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.0.1] - 2026-02-03
+
+### Infrastructure
+
+- Add towncrier for automated changelog generation from news fragments
+
+
 ## [0.1.0] - 2026-02-03
 
 This is a historical release which doesn't actually exist and which aggregates
