@@ -64,14 +64,16 @@ The documentation is being restructured to follow the [Diataxis](https://diataxi
 
 **Docs URL:** https://docs.ops.eblu.me
 
-### Phase 2: Reference
+### Phase 2: Reference (Complete)
 Information-oriented technical descriptions. Built first so other docs can link to reference material.
 
-- [ ] Create `reference/` directory
-- [ ] Service reference pages (migrate from zk cards)
-- [ ] Infrastructure inventory
-- [ ] Configuration reference
-- [ ] API/CLI reference for mise tasks
+- [x] Create `reference/` directory with index
+- [x] Service reference pages (16 services: alloy, argocd, borgmatic, 1password, forgejo, grafana, jellyfin, kiwix, loki, miniflux, navidrome, postgresql, prometheus, teslamate, transmission, zot)
+- [x] Infrastructure inventory (hosts, tailscale, routing)
+- [x] Kubernetes reference (cluster, apps)
+- [x] Storage reference (sifaka, backups)
+
+**Reference URL:** https://docs.ops.eblu.me/reference/
 
 ### Phase 3: Tutorials
 Learning-oriented content for getting started.
