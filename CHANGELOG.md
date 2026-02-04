@@ -12,6 +12,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.3.0] - 2026-02-04
+
+### Features
+
+- Build workflow now supports version bump selection (major/minor/patch) and includes changelog in release body
+- Add 'ai' changelog fragment type for AI assistance changes
+
+### Bug Fixes
+
+- Fix Navidrome automatic library scan by correcting env var name from `ND_SCANSCHEDULE` to `ND_SCANNER_SCHEDULE`
+
+### Infrastructure
+
+- Move CHANGELOG.md to repository root (still included in docs build)
+- Remove iCloud Photos from borgmatic backup (photos now managed via Immich)
+
+### Documentation
+
+- Document Forgejo Actions secrets in forgejo reference card
+- Add troubleshooting how-to to zk-docs output
+
+### AI Assistance
+
+- Add wiki-link formatting convention to AI assistance guide
+
+### Miscellaneous
+
+- , 
+
+
 ## [v1.2.1] - 2026-02-04
 
 ### Features
