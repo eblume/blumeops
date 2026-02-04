@@ -10,6 +10,7 @@ FILES=(
     "$DOCS_DIR/tutorials/ai-assistance-guide.md"
     "$DOCS_DIR/reference/index.md"
     "$DOCS_DIR/how-to/index.md"
+    "$DOCS_DIR/how-to/troubleshooting.md"
     "$DOCS_DIR/explanation/architecture.md"
     "$DOCS_DIR/tutorials/index.md"
 )
