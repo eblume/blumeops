@@ -61,6 +61,34 @@
       no_log: true
       tags: [forgejo]
 
+    # Forgejo Actions secrets (synced to Forgejo via API)
+    - name: Fetch Forgejo API token
+      ansible.builtin.command:
+        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields api-token --reveal
+      delegate_to: localhost
+      register: _forgejo_api_token
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo_actions_secrets]
+
+    - name: Fetch ArgoCD auth token for Forgejo Actions
+      ansible.builtin.command:
+        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields argocd_token --reveal
+      delegate_to: localhost
+      register: _forgejo_argocd_token
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo_actions_secrets]
+
+    - name: Set Forgejo Actions secrets facts
+      ansible.builtin.set_fact:
+        forgejo_api_token: "{{ _forgejo_api_token.stdout }}"
+        forgejo_secret_argocd_token: "{{ _forgejo_argocd_token.stdout }}"
+      no_log: true
+      tags: [forgejo_actions_secrets]
+
     # Caddy Gandi token for ACME DNS-01 challenges
     - name: Fetch Gandi PAT for Caddy
       ansible.builtin.command:
@@ -104,6 +132,8 @@
       tags: borgmatic_metrics
     - role: forgejo
       tags: forgejo
+    - role: forgejo_actions_secrets
+      tags: forgejo_actions_secrets
     - role: zot
       tags: zot
     - role: zot_metrics

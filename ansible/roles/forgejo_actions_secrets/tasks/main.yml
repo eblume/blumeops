@@ -1,0 +1,32 @@
+---
+# Forgejo Actions Secrets role
+#
+# Syncs repository-level Actions secrets from 1Password to Forgejo via API.
+#
+# NOTE: This role runs on indri, which is also where Forgejo runs. The API
+# calls go from indri back to itself (via the public URL through Caddy).
+# This is intentional - it keeps the role simple and uses the same URL
+# that workflows use.
+#
+# Secrets (forgejo_api_token, forgejo_secret_*) are fetched from 1Password
+# in the playbook pre_tasks to minimize password prompts during provisioning.
+
+- name: Sync Actions secrets to Forgejo
+  ansible.builtin.uri:
+    url: "{{ forgejo_actions_secrets_api_url }}/repos/{{ forgejo_actions_secrets_owner }}/{{ forgejo_actions_secrets_repo }}/actions/secrets/{{ item.name }}"
+    method: PUT
+    headers:
+      Authorization: "token {{ forgejo_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      data: "{{ lookup('vars', item.value_var) }}"
+    status_code: [201, 204]
+  register: forgejo_actions_secrets_result
+  # API returns 201 for create, 204 for update. We can't check if value changed
+  # (secrets are write-only), so only report changed when creating new secrets.
+  changed_when: forgejo_actions_secrets_result.status == 201
+  loop: "{{ forgejo_actions_secrets_list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true

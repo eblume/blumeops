@@ -47,16 +47,29 @@ Server configuration secrets managed via 1Password → Ansible:
 
 ## Forgejo Actions Secrets
 
-Repository-level secrets for CI/CD workflows. **Not IaC** - managed in Forgejo UI at:
-`Settings → Actions → Secrets`
+Repository-level secrets for CI/CD workflows, synced from 1Password via Ansible.
 
-| Secret | Used By | Purpose |
-|--------|---------|---------|
-| `ARGOCD_AUTH_TOKEN` | `build-blumeops.yaml` | Sync docs app after release |
+| Secret | 1Password Field | Used By | Purpose |
+|--------|-----------------|---------|---------|
+| `ARGOCD_AUTH_TOKEN` | `argocd_token` | `build-blumeops.yaml` | Sync docs app after release |
 
 These secrets are injected as `${{ secrets.SECRET_NAME }}` in workflow files.
 
-> **Note:** These secrets are also stored in 1Password ("Forgejo Secrets" item) as the source of truth, but were manually copied to Forgejo. They will not auto-update if the 1Password value changes.
+**IaC:** The `forgejo_actions_secrets` Ansible role syncs these secrets from 1Password to Forgejo via the Forgejo API. Run with:
+
+```bash
+mise run provision-indri -- --tags forgejo_actions_secrets
+```
+
+### API Token Setup (Manual, One-Time)
+
+The Ansible role authenticates to the Forgejo API using a Personal Access Token (PAT). This PAT must be created manually:
+
+1. Go to https://forge.ops.eblu.me/user/settings/applications
+2. Create a new token with `write:repository` scope
+3. Store it in 1Password → "Forgejo Secrets" item → `api-token` field
+
+This is a bootstrapping requirement - the PAT enables IaC for all other secrets.
 
 ## Related
 
