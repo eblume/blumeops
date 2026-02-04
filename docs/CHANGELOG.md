@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.1.4] - 2026-02-04
+
+### Documentation
+
+- Add Phase 4 how-to guides: deploy k8s services, add ansible roles, update tailscale ACLs, and troubleshooting
+
+
 ## [v1.1.3] - 2026-02-04
 
 ### Features
