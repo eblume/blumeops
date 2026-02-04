@@ -16,7 +16,6 @@ borgmatic_source_directories:
   - /opt/homebrew/var/forgejo
   - /Users/erichblume/.config/borgmatic
   - /Users/erichblume/Documents
-  - /Users/erichblume/Pictures
 
 # Backup repository
 borgmatic_repositories:

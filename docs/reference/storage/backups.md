@@ -25,7 +25,6 @@ Daily automated backups from [[indri]] to [[sifaka | Sifaka]] NAS.
 | `/opt/homebrew/var/forgejo` | Git repositories | Critical |
 | `~/.config/borgmatic` | Backup config | High |
 | `~/Documents` | Personal documents | High |
-| `~/Pictures` | Photos | Medium |
 
 ### Databases
 
@@ -33,6 +32,10 @@ Daily automated backups from [[indri]] to [[sifaka | Sifaka]] NAS.
 |----------|------|--------|
 | miniflux | [[postgresql | pg.ops.eblu.me]] | pg_dump stream |
 | teslamate | [[postgresql | pg.ops.eblu.me]] | pg_dump stream |
+
+## Sifaka-Native Data
+
+Some data lives directly on [[sifaka]] rather than being backed up to it (photos via [[immich]], music via [[navidrome]], video via [[jellyfin]]). See [[sifaka]] for data protection details.
 
 ## What Is NOT Backed Up
 

@@ -57,7 +57,16 @@ Add a fragment for user-visible changes:
 echo "Description" > docs/changelog.d/branch-name.feature.md
 ```
 
-Types (file suffix): `.feature`, `.bugfix`, `.infra`, `.doc`, `.misc`
+Types (file suffix): `.feature`, `.bugfix`, `.infra`, `.doc`, `.ai`, `.misc`
+
+### Wiki-Link Formatting
+
+Use simple wiki-links without alternate text or extra spaces:
+- Prefer `[[borgmatic]]` over `[[borgmatic | Borgmatic]]`
+- Only use alternate text when grammatically warranted (e.g., `[[cluster|Kubernetes]]` reads better than `[[cluster]]`)
+- No spaces around the pipe: `[[path|Text]]` not `[[ path | Text ]]`
+
+When editing documentation, rewrite links to follow this convention as you encounter them.
 
 ## Service Locations
 
@@ -66,7 +75,7 @@ Understanding where services run helps target changes correctly:
 | Location | Services | Management |
 |----------|----------|------------|
 | [[indri]] (native) | Forgejo, Zot, Jellyfin, Caddy | Ansible |
-| [[cluster | Kubernetes]] | Everything else | ArgoCD |
+| [[cluster|Kubernetes]] | Everything else | ArgoCD |
 
 ## Mise Tasks
 
@@ -108,7 +117,7 @@ For AI agents building context:
 
 Credentials live in 1Password. Never retrieve them directly - use existing patterns:
 - Ansible `pre_tasks` gather secrets at playbook start
-- [[external-secrets|External Secrets]] syncs to Kubernetes
+- [[external-secrets]] syncs to Kubernetes
 - Scripts use `op` CLI with user biometric prompts
 
 ## Common Pitfalls

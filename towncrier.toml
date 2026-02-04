@@ -30,6 +30,11 @@ name = "Documentation"
 showcontent = true
 
 [[tool.towncrier.type]]
+directory = "ai"
+name = "AI Assistance"
+showcontent = true
+
+[[tool.towncrier.type]]
 directory = "misc"
 name = "Miscellaneous"
 showcontent = false
