@@ -31,6 +31,7 @@ Individual service reference cards with URLs and configuration details.
 | [[teslamate]] | Tesla data logger | k8s |
 | [[transmission]] | BitTorrent daemon | k8s |
 | [[zot]] | Container registry | indri |
+| [[docs]] | Documentation site (Quartz) | k8s |
 
 ## Infrastructure
 
@@ -48,7 +49,14 @@ Cluster configuration and application registry.
 
 - [[cluster | Cluster]] - Minikube specs, storage, networking
 - [[apps | Apps]] - ArgoCD application registry
+- [[tailscale-operator]] - Tailscale ingress for k8s services
 - [[external-secrets]] - Secrets management
+
+## Ansible
+
+Configuration management for [[indri]]-hosted services.
+
+- [[reference/ansible/roles | Roles]] - Available ansible roles
 
 ## Storage
 

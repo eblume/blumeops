@@ -79,13 +79,24 @@ Information-oriented technical descriptions. Built first so other docs can link 
 
 **Reference URL:** https://docs.ops.eblu.me/reference/
 
-### Phase 3: Tutorials
-Learning-oriented content for getting started.
+### Phase 3: Tutorials (Complete)
+Learning-oriented content for getting started. Each tutorial explicitly identifies its target audiences.
 
-- [ ] Create `tutorials/` directory
-- [ ] "Getting Started with BlumeOps" - What this is and how to explore it
-- [ ] "Setting Up a Similar Environment" - For replicators
-- [ ] "Your First Contribution" - For potential contributors
+- [x] Create `tutorials/` directory with index
+- [x] "Exploring the Docs" - How to navigate documentation (All)
+- [x] "AI Assistance Guide" - Context for AI-assisted operations (AI, Owner)
+- [x] "Contributing" - Your first contribution (Contributor)
+- [x] "Adding a Service" - Deploy a new ArgoCD service (Contributor, Replicator)
+- [x] "Replicating BlumeOps" - Overview for building similar setup (Replicator)
+- [x] Replication sub-tutorials:
+  - [x] Tailscale Setup
+  - [x] Core Services (Forgejo, Zot)
+  - [x] Kubernetes Bootstrap
+  - [x] ArgoCD Config
+  - [x] Observability Stack
+- [x] New reference cards: docs service, tailscale-operator, ansible/roles
+
+**Tutorials URL:** https://docs.ops.eblu.me/tutorials/
 
 ### Phase 4: How-to Guides
 Task-oriented instructions for specific operations.
@@ -96,6 +107,7 @@ Task-oriented instructions for specific operations.
 - [ ] "How to add a new Ansible role"
 - [ ] "How to update Tailscale ACLs"
 - [ ] "How to troubleshoot common issues"
+- [ ] Update `exploring-the-docs` with How-to section
 
 ### Phase 5: Explanation
 Understanding-oriented discussion of concepts and decisions.
@@ -105,11 +117,13 @@ Understanding-oriented discussion of concepts and decisions.
 - [ ] "Architecture Overview" - How everything fits together
 - [ ] "Security Model" - Tailscale, secrets management, etc.
 - [ ] "Decision Log" - ADRs (Architecture Decision Records)
+- [ ] Update `exploring-the-docs` with Explanation section
 
 ### Phase 6: Integration & Cleanup
 - [ ] Migrate remaining useful content from `docs/zk/`
 - [ ] Decide fate of zk cards (archive, delete, or keep as separate knowledge base)
 - [ ] Update CLAUDE.md to reference new doc structure
+- [ ] Final review of `exploring-the-docs` for completeness
 - [ ] Mirror docs to GitHub Pages for public access (optional)
 
 ## Current Directory Layout

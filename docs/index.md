@@ -4,8 +4,13 @@ title: blumeops-documentation
 
 Welcome to the BlumeOps documentation.
 
-[[README | Documentation Home]] - Temporary home while docs are being restructured (see [Diataxis](https://diataxis.fr/) restructuring plan)
+**New here?** Start with [[exploring-the-docs]] to find your way around.
 
 ## Sections
 
-- [[reference/index | reference]] - Technical reference cards for services, infrastructure, and operations
+- [[tutorials/index | Tutorials]] - Learning-oriented guides for getting started
+- [[reference/index | Reference]] - Technical reference cards for services, infrastructure, and operations
+
+## About
+
+[[README | Documentation Home]] - Restructuring plan and changelog info

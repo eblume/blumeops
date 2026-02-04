@@ -15,7 +15,7 @@ Registry of all applications deployed via [[argocd]].
 |-----|-----------|-------------|---------|
 | `apps` | argocd | `argocd/apps/` | App-of-apps root |
 | `argocd` | argocd | `argocd/manifests/argocd/` | [[argocd]] |
-| `tailscale-operator` | tailscale | `argocd/manifests/tailscale-operator/` | Tailscale k8s operator |
+| `tailscale-operator` | tailscale | `argocd/manifests/tailscale-operator/` | [[tailscale-operator]] |
 | `1password-connect` | 1password | `argocd/manifests/1password-connect/` | [[1password]] |
 | `external-secrets` | external-secrets | Helm chart | [[1password]] |
 | `external-secrets-config` | external-secrets | `argocd/manifests/external-secrets-config/` | [[1password]] |
