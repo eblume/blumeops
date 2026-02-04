@@ -166,15 +166,12 @@ jobs:
           cp docs/quartz.config.ts .
           cp docs/quartz.layout.ts .
 
-          # Symlink docs as content (preserves git history for accurate dates)
-          ln -s docs content
+          # Copy CHANGELOG.md into docs so it's part of the content
+          cp CHANGELOG.md docs/
 
-          # Symlink CHANGELOG.md into docs so it's part of the content
-          ln -s ../CHANGELOG.md docs/CHANGELOG.md
-
-          # Build (from within repo so git commands work)
+          # Build using -d docs so git can find file history at correct paths
           echo "Building static site..."
-          npx quartz build
+          npx quartz build -d docs
 
           # Create tarball
           TARBALL="docs-${VERSION}.tar.gz"
@@ -185,9 +182,9 @@ jobs:
           ls -lh "$TARBALL"
 
           # Clean up Quartz build artifacts (keep tarball)
-          rm -rf quartz content public node_modules
+          rm -rf quartz public node_modules
           rm -f package.json package-lock.json tsconfig.json quartz.config.ts quartz.layout.ts
-          rm -f docs/CHANGELOG.md  # Remove symlink
+          rm -f docs/CHANGELOG.md  # Remove copied file
 
       - name: Create release
         env:
