@@ -3,19 +3,22 @@
 # requires-python = ">=3.12"
 # dependencies = ["pyyaml>=6.0", "rich>=13.0.0"]
 # ///
-#MISE description="List all doc card titles and detect duplicates"
-"""List all documentation card titles and detect duplicates.
+#MISE description="List all doc card titles and detect duplicates or invalid formats"
+"""List all documentation card titles and detect duplicates or invalid formats.
 
 This script scans all markdown files in the docs/ directory (excluding
 changelog.d/ and zk/), extracts frontmatter titles, and reports any
-duplicates that could cause wiki-link resolution issues.
+duplicates or invalid formats that could cause wiki-link resolution issues.
 
-With Quartz, wiki-links like [[Title]] resolve by frontmatter title,
-so titles must be unique across the documentation.
+With Quartz, wiki-links like [[title]] resolve by frontmatter title,
+so titles must be:
+- Unique across the documentation
+- Lowercase with hyphens (no spaces or uppercase)
 
 Usage: mise run doc-titles
 """
 
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -25,6 +28,9 @@ from rich.console import Console
 from rich.table import Table
 
 DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+# Valid title pattern: lowercase letters, numbers, hyphens only
+VALID_TITLE_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
 def extract_frontmatter(file_path: Path) -> dict | None:
@@ -44,12 +50,18 @@ def extract_frontmatter(file_path: Path) -> dict | None:
         return None
 
 
+def is_valid_slug(title: str) -> bool:
+    """Check if title is a valid slug (lowercase, hyphens, no spaces)."""
+    return bool(VALID_TITLE_PATTERN.match(title))
+
+
 def main() -> int:
     console = Console()
 
     # Collect all titles and their source files
     # Key: title, Value: list of file paths
     titles: dict[str, list[str]] = defaultdict(list)
+    invalid_titles: list[tuple[str, str]] = []  # (title, file_path)
 
     # Scan all markdown files (excluding zk/ and changelog.d/)
     for md_file in sorted(DOCS_DIR.rglob("*.md")):
@@ -66,6 +78,8 @@ def main() -> int:
         title = frontmatter.get("title")
         if title:
             titles[title].append(rel_path)
+            if not is_valid_slug(title):
+                invalid_titles.append((title, rel_path))
 
     # Find duplicates
     duplicates = {title: paths for title, paths in titles.items() if len(paths) > 1}
@@ -73,12 +87,30 @@ def main() -> int:
     # Print results
     console.print("[bold]Doc Card Title Inventory[/bold]")
     console.print()
-    console.print("With Quartz, wiki-links like [[Title]] resolve by frontmatter title,")
-    console.print("so titles must be unique across the documentation.")
+    console.print("Titles must be lowercase slugs (e.g., 'grafana-alloy', not 'Grafana Alloy')")
+    console.print("and unique across the documentation for wiki-link resolution.")
     console.print()
+
+    has_errors = False
+
+    # Invalid format table (if any)
+    if invalid_titles:
+        has_errors = True
+        console.print("[bold red]Invalid Title Format[/bold red]")
+        console.print("Titles must be lowercase with hyphens only (no spaces or uppercase).")
+        inv_table = Table(show_header=True, header_style="bold")
+        inv_table.add_column("Title")
+        inv_table.add_column("File")
+
+        for title, file_path in invalid_titles:
+            inv_table.add_row(title, file_path)
+
+        console.print(inv_table)
+        console.print()
 
     # Duplicates table (if any)
     if duplicates:
+        has_errors = True
         console.print("[bold red]Duplicate Titles Found[/bold red]")
         dup_table = Table(show_header=True, header_style="bold")
         dup_table.add_column("Title")
@@ -101,7 +133,15 @@ def main() -> int:
     for title in sorted(titles.keys()):
         paths = titles[title]
         is_dup = title in duplicates
-        status = "[red]DUPLICATE[/red]" if is_dup else "[green]OK[/green]"
+        is_invalid = not is_valid_slug(title)
+
+        if is_dup:
+            status = "[red]DUPLICATE[/red]"
+        elif is_invalid:
+            status = "[red]INVALID[/red]"
+        else:
+            status = "[green]OK[/green]"
+
         all_table.add_row(title, paths[0], status)
         for extra_path in paths[1:]:
             all_table.add_row("", extra_path, "")
@@ -113,10 +153,11 @@ def main() -> int:
     console.print(f"Total files: {sum(len(p) for p in titles.values())}")
     console.print(f"Unique titles: {len(titles)}")
     console.print(f"Duplicate titles: {len(duplicates)}")
+    console.print(f"Invalid format: {len(invalid_titles)}")
 
-    if duplicates:
+    if has_errors:
         console.print()
-        console.print("[bold red]Action required:[/bold red] Rename titles to ensure unique wiki-link resolution.")
+        console.print("[bold red]Action required:[/bold red] Fix title issues above.")
         return 1
 
     return 0

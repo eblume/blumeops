@@ -1,5 +1,5 @@
 ---
-title: Navidrome
+title: navidrome
 tags:
   - service
   - media
@@ -38,5 +38,5 @@ The `/data` directory contains SQLite database, configuration, and cache.
 
 ## Related
 
-- [[Jellyfin]] - Video streaming
-- [[Sifaka NAS|Sifaka]] - Music storage
+- [[jellyfin]] - Video streaming
+- [[sifaka-nas|Sifaka]] - Music storage

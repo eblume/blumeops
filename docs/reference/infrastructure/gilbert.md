@@ -1,5 +1,5 @@
 ---
-title: Gilbert
+title: gilbert
 tags:
   - infrastructure
   - host
@@ -23,5 +23,5 @@ Managed via `Brewfile` and `mise.toml` in the blumeops repo.
 
 ## Related
 
-- [[Indri]] - Server accessed from gilbert
-- [[Kubernetes Cluster|Cluster]] - Remote k8s access
+- [[indri]] - Server accessed from gilbert
+- [[kubernetes-cluster|Cluster]] - Remote k8s access

@@ -1,5 +1,5 @@
 ---
-title: Jellyfin
+title: jellyfin
 tags:
   - service
   - media
@@ -42,10 +42,10 @@ Dashboard > Playback:
 ## Observability
 
 - Metrics: `jellyfin_metrics` ansible role
-- Logs: Forwarded via [[Grafana Alloy|Alloy]]
-- Dashboard: "Jellyfin Media Server" in [[Grafana]]
+- Logs: Forwarded via [[grafana-alloy|Alloy]]
+- Dashboard: "Jellyfin Media Server" in [[grafana]]
 
 ## Related
 
-- [[Navidrome]] - Music streaming
-- [[Sifaka NAS|Sifaka]] - Media storage
+- [[navidrome]] - Music streaming
+- [[sifaka-nas|Sifaka]] - Media storage

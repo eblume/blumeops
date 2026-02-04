@@ -1,5 +1,5 @@
 ---
-title: External Secrets
+title: external-secrets
 tags:
   - kubernetes
   - secrets
@@ -7,4 +7,4 @@ tags:
 
 # External Secrets
 
-See [[1Password]] in Services.
+See [[1password]] in Services.

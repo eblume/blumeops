@@ -1,5 +1,5 @@
 ---
-title: Immich
+title: immich
 tags:
   - service
   - media
@@ -16,11 +16,11 @@ Self-hosted photo and video management.
 | **URL** | https://photos.ops.eblu.me |
 | **Namespace** | `immich` |
 | **Deployment** | Helm chart (k8s) |
-| **Database** | [[PostgreSQL]] (CNPG) |
-| **Storage** | [[Sifaka NAS|Sifaka]] photos volume |
+| **Database** | [[postgresql]] (CNPG) |
+| **Storage** | [[sifaka-nas|Sifaka]] photos volume |
 
 ## Related
 
-- [[PostgreSQL]] - Database backend
-- [[Sifaka NAS|Sifaka]] - Photo storage
-- [[Jellyfin]] - Video streaming (separate service)
+- [[postgresql]] - Database backend
+- [[sifaka-nas|Sifaka]] - Photo storage
+- [[jellyfin]] - Video streaming (separate service)

@@ -1,5 +1,5 @@
 ---
-title: PostgreSQL Storage
+title: postgresql-storage
 tags:
   - storage
   - database
@@ -7,4 +7,4 @@ tags:
 
 # PostgreSQL Storage
 
-See [[PostgreSQL]] in Services.
+See [[postgresql]] in Services.

@@ -1,5 +1,5 @@
 ---
-title: Borgmatic
+title: borgmatic
 tags:
   - service
   - backup
@@ -16,7 +16,7 @@ Daily backup system using Borg backup, running on indri.
 | **Install** | mise (pipx) |
 | **Config** | `~/.config/borgmatic/config.yaml` |
 | **Schedule** | Daily at 2:00 AM |
-| **Repository** | `/Volumes/backups/borg/` on [[Sifaka NAS|Sifaka]] |
+| **Repository** | `/Volumes/backups/borg/` on [[sifaka-nas|Sifaka]] |
 
 ## What Gets Backed Up
 
@@ -28,8 +28,8 @@ Daily backup system using Borg backup, running on indri.
 - `~/Pictures` - Photos
 
 **Databases:**
-- `miniflux` on [[PostgreSQL]]
-- `teslamate` on [[PostgreSQL]]
+- `miniflux` on [[postgresql]]
+- `teslamate` on [[postgresql]]
 
 **Not backed up (by design):**
 - ZIM archives (re-downloadable)
@@ -46,15 +46,15 @@ Daily backup system using Borg backup, running on indri.
 
 ## Monitoring
 
-Metrics exposed via textfile collector to [[Prometheus]]:
+Metrics exposed via textfile collector to [[prometheus]]:
 - `borgmatic_up` - Repository accessibility
 - `borgmatic_last_archive_timestamp` - Last backup time
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
 
-Dashboard: "Borgmatic Backups" in [[Grafana]]
+Dashboard: "Borgmatic Backups" in [[grafana]]
 
 ## Related
 
-- [[Backup Policy|Backups]] - Full backup policy
-- [[Sifaka NAS|Sifaka]] - Backup target
-- [[PostgreSQL]] - Database backups
+- [[backup-policy|Backups]] - Full backup policy
+- [[sifaka-nas|Sifaka]] - Backup target
+- [[postgresql]] - Database backups

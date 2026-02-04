@@ -1,5 +1,5 @@
 ---
-title: Grafana
+title: grafana
 tags:
   - service
   - observability
@@ -45,6 +45,6 @@ Optional annotation: `grafana_folder: "FolderName"`
 
 ## Related
 
-- [[Prometheus]] - Metrics datasource
-- [[Loki]] - Logs datasource
-- [[Grafana Alloy|Alloy]] - Data collector
+- [[prometheus]] - Metrics datasource
+- [[loki]] - Logs datasource
+- [[grafana-alloy|Alloy]] - Data collector

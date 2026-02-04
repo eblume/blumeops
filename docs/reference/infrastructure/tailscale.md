@@ -1,5 +1,5 @@
 ---
-title: Tailscale
+title: tailscale
 tags:
   - infrastructure
   - network
@@ -17,7 +17,7 @@ ACLs managed via Pulumi in `pulumi/policy.hujson`.
 
 | Group | Members | Purpose |
 |-------|---------|---------|
-| `group:allisonflix` | admin, member | [[Jellyfin]] media access |
+| `group:allisonflix` | admin, member | [[jellyfin]] media access |
 
 ## Device Tags
 
@@ -58,5 +58,5 @@ Pulumi uses OAuth client from 1Password (blumeops vault):
 
 ## Related
 
-- [[Service Routing|Routing]] - Service URLs
-- [[Host Inventory|Hosts]] - Device inventory
+- [[service-routing|Routing]] - Service URLs
+- [[host-inventory|Hosts]] - Device inventory

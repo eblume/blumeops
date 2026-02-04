@@ -1,5 +1,5 @@
 ---
-title: Transmission
+title: transmission
 tags:
   - service
   - torrent
@@ -7,7 +7,7 @@ tags:
 
 # Transmission
 
-BitTorrent daemon, primarily for downloading ZIM archives for [[Kiwix]].
+BitTorrent daemon, primarily for downloading ZIM archives for [[kiwix]].
 
 ## Quick Reference
 
@@ -17,7 +17,7 @@ BitTorrent daemon, primarily for downloading ZIM archives for [[Kiwix]].
 | **Tailscale URL** | https://torrent.tail8d86e.ts.net |
 | **Namespace** | `torrent` |
 | **Image** | `lscr.io/linuxserver/transmission:latest` |
-| **Storage** | NFS PVC from [[Sifaka NAS|Sifaka]] |
+| **Storage** | NFS PVC from [[sifaka-nas|Sifaka]] |
 
 ## Storage Layout
 
@@ -30,7 +30,7 @@ NFS share on sifaka (`/volume1/torrents`):
 | `/config/` | Transmission configuration |
 | `/watch/` | Watch directory for .torrent files |
 
-[[Kiwix]] reads from `/downloads/complete/` to serve ZIM archives.
+[[kiwix]] reads from `/downloads/complete/` to serve ZIM archives.
 
 ## Integration with Kiwix
 
@@ -43,11 +43,11 @@ When downloads complete, the zim-watcher CronJob detects new ZIMs and restarts K
 
 ## Monitoring
 
-Basic uptime via blackbox probe in [[Grafana Alloy|Alloy]] k8s (Services Health dashboard).
+Basic uptime via blackbox probe in [[grafana-alloy|Alloy]] k8s (Services Health dashboard).
 
 Web UI shows: active/seeding/paused counts, speeds, disk usage.
 
 ## Related
 
-- [[Kiwix]] - ZIM archive consumer
-- [[Sifaka NAS|Sifaka]] - Download storage
+- [[kiwix]] - ZIM archive consumer
+- [[sifaka-nas|Sifaka]] - Download storage

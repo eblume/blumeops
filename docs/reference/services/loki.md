@@ -1,5 +1,5 @@
 ---
-title: Loki
+title: loki
 tags:
   - service
   - observability
@@ -24,8 +24,8 @@ Log aggregation system for BlumeOps infrastructure.
 
 - Single-node deployment with filesystem storage
 - TSDB index with 24h period
-- Logs collected by [[Grafana Alloy|Alloy]] and pushed via Loki API
-- Queried via [[Grafana]]
+- Logs collected by [[grafana-alloy|Alloy]] and pushed via Loki API
+- Queried via [[grafana]]
 
 ## Log Sources
 
@@ -46,6 +46,6 @@ Log aggregation system for BlumeOps infrastructure.
 
 ## Related
 
-- [[Grafana Alloy|Alloy]] - Log collector
-- [[Grafana]] - Log visualization
-- [[Prometheus]] - Metrics counterpart
+- [[grafana-alloy|Alloy]] - Log collector
+- [[grafana]] - Log visualization
+- [[prometheus]] - Metrics counterpart

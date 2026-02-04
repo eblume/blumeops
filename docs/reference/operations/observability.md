@@ -1,5 +1,5 @@
 ---
-title: Observability
+title: observability
 tags:
   - operations
 ---
@@ -10,7 +10,7 @@ Metrics, logs, and dashboards for BlumeOps infrastructure.
 
 ## Components
 
-- [[Prometheus]] - Metrics storage and querying
-- [[Loki]] - Log aggregation
-- [[Grafana Alloy|Alloy]] - Metrics and log collection
-- [[Grafana]] - Dashboards and visualization
+- [[prometheus]] - Metrics storage and querying
+- [[loki]] - Log aggregation
+- [[grafana-alloy|Alloy]] - Metrics and log collection
+- [[grafana]] - Dashboards and visualization

@@ -1,5 +1,5 @@
 ---
-title: Grafana Alloy
+title: grafana-alloy
 tags:
   - service
   - observability
@@ -27,7 +27,7 @@ Unified observability collector for metrics and logs with two deployments:
 - System metrics via `prometheus.exporter.unix`
 - Textfile collector: `minikube.prom`, `borgmatic.prom`, `zot.prom`, `jellyfin.prom`
 - Zot registry metrics from `http://localhost:5050/metrics`
-- Pushed to [[Prometheus]] via remote_write
+- Pushed to [[prometheus]] via remote_write
 
 ### From Kubernetes
 - All pod logs via `loki.source.kubernetes`
@@ -39,7 +39,7 @@ Unified observability collector for metrics and logs with two deployments:
 
 **mcquack LaunchAgents:** alloy, borgmatic, zot, jellyfin
 
-Logs pushed to [[Loki]] at `https://loki.tail8d86e.ts.net/loki/api/v1/push`.
+Logs pushed to [[loki]] at `https://loki.tail8d86e.ts.net/loki/api/v1/push`.
 
 ## Why Built from Source
 
@@ -49,6 +49,6 @@ The Homebrew bottle uses `CGO_ENABLED=0`, which breaks Tailscale MagicDNS. Build
 
 ## Related
 
-- [[Prometheus]] - Metrics storage
-- [[Loki]] - Log storage
-- [[Grafana]] - Visualization
+- [[prometheus]] - Metrics storage
+- [[loki]] - Log storage
+- [[grafana]] - Visualization

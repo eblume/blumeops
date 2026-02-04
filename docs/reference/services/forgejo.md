@@ -1,5 +1,5 @@
 ---
-title: Forgejo
+title: forgejo
 tags:
   - service
   - git
@@ -44,5 +44,5 @@ Managed via 1Password: `lfs-jwt-secret`, `internal-token`, `oauth2-jwt-secret`, 
 
 ## Related
 
-- [[ArgoCD]] - Uses Forgejo as git source
-- [[Zot]] - Container registry for built images
+- [[argocd]] - Uses Forgejo as git source
+- [[zot]] - Container registry for built images
