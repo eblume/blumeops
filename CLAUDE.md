@@ -10,13 +10,14 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 
 ## Rules
 
-1. **Always use `--context=minikube-indri` with kubectl** - work contexts must never be touched
-2. **Run `mise run zk-docs -- --style=header --color=never --decorations=always` at session start**
+1. **Always run `mise run zk-docs -- --style=header --color=never --decorations=always` at session start**
+    This will refresh your context with important information you will be assumed to know and follow.
+2. **Always use `--context=minikube-indri` with kubectl** - work contexts must never be touched
 3. **Feature branches only** - checkout main, pull, create branch, commit often
 4. **Create PRs via `tea pr create`** - user reviews before deploy, merges after
 5. **Check PR comments with `mise run pr-comments <pr_number>`** before proceeding
 6. **Add changelog fragments** - `docs/changelog.d/<branch>.<type>.md`
-   Types: `feature`, `bugfix`, `infra`, `doc`, `ai`, `misc`
+    Types: `feature`, `bugfix`, `infra`, `doc`, `ai`, `misc`
 7. **Test before applying** - dry runs (`--check --diff`), syntax checks, `ssh indri '...'`
 8. **Wait for user review before deploying**
 9. **Never merge PRs or push to main without explicit request**
