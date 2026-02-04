@@ -12,6 +12,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.3.3] - 2026-02-04
+
+### Infrastructure
+
+- Add IaC for Forgejo Actions secrets via new `forgejo_actions_secrets` Ansible role, syncing repository secrets from 1Password to Forgejo API
+
+### Documentation
+
+- Add how-to guide for safely restarting indri, plus AutoMounter reference card.
+
+
 ## [v1.3.2] - 2026-02-04
 
 ### Infrastructure
