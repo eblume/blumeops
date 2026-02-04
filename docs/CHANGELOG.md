@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.0.8] - 2026-02-04
+
+### Documentation
+
+- Convert wiki-link titles to lowercase slugs for reliable Quartz resolution
+
+
 ## [v1.0.7] - 2026-02-03
 
 ### Documentation
