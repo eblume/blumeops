@@ -19,7 +19,7 @@ The docs follow the [Diataxis](https://diataxis.fr/) framework:
 |---------|---------|-------------|
 | **[[tutorials/index | Tutorials]]** | Learning-oriented | "I'm new and want to understand" |
 | **[[reference/index | Reference]]** | Information-oriented | "I need specific technical details" |
-| **How-to** (planned) | Task-oriented | "I need to do X" |
+| **[[how-to/index | How-to]]** | Task-oriented | "I need to do X" |
 | **Explanation** (planned) | Understanding-oriented | "I want to understand why" |
 
 ## Quick Paths by Audience
@@ -27,6 +27,7 @@ The docs follow the [Diataxis](https://diataxis.fr/) framework:
 ### For Erich (Owner)
 
 You probably want quick access to operational details:
+- [[how-to/index|How-to guides]] for common operations (deploy, troubleshoot, update ACLs)
 - [[reference/index|Reference]] has service URLs, commands, and config locations
 - The `zk-docs` mise task still works for legacy zettelkasten access
 - [[ai-assistance-guide]] explains how to work effectively with Claude
@@ -49,6 +50,7 @@ Understanding what this is:
 
 Getting started with changes:
 - [[contributing]] walks through the workflow
+- [[how-to/index|How-to guides]] for specific tasks (deploy services, add roles)
 - [[reference/index|Reference]] tells you where things live
 
 ### For Replicators

@@ -98,16 +98,18 @@ Learning-oriented content for getting started. Each tutorial explicitly identifi
 
 **Tutorials URL:** https://docs.ops.eblu.me/tutorials/
 
-### Phase 4: How-to Guides
+### Phase 4: How-to Guides (Complete)
 Task-oriented instructions for specific operations.
 
-- [ ] Create `how-to/` directory
-- [ ] Migrate operational content from zk cards
-- [ ] "How to deploy a new Kubernetes service"
-- [ ] "How to add a new Ansible role"
-- [ ] "How to update Tailscale ACLs"
-- [ ] "How to troubleshoot common issues"
-- [ ] Update `exploring-the-docs` with How-to section
+- [x] Create `how-to/` directory
+- [x] Migrate operational content from zk cards
+- [x] "How to deploy a new Kubernetes service"
+- [x] "How to add a new Ansible role"
+- [x] "How to update Tailscale ACLs"
+- [x] "How to troubleshoot common issues"
+- [x] Update `exploring-the-docs` with How-to section
+
+**How-to URL:** https://docs.ops.eblu.me/how-to/
 
 ### Phase 5: Explanation
 Understanding-oriented discussion of concepts and decisions.
