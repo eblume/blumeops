@@ -14,7 +14,7 @@ Individual service reference cards with URLs and configuration details.
 
 | Service | Description | Location |
 |---------|-------------|----------|
-| [[grafana-alloy|Alloy]] | Observability collector (metrics & logs) | indri + k8s |
+| [[grafana-alloy | Alloy]] | Observability collector (metrics & logs) | indri + k8s |
 | [[argocd]] | GitOps continuous delivery | k8s |
 | [[borgmatic]] | Backup system | indri |
 | [[1password]] | Secrets management | cloud + k8s |
@@ -36,27 +36,27 @@ Individual service reference cards with URLs and configuration details.
 
 Host inventory and network configuration.
 
-- [[host-inventory|Hosts]] - Device inventory
+- [[host-inventory | Hosts]] - Device inventory
 - [[indri]] - Primary server
 - [[gilbert]] - Development workstation
 - [[tailscale]] - ACLs, groups, tags
-- [[service-routing|Routing]] - DNS domains, port mappings
+- [[service-routing | Routing]] - DNS domains, port mappings
 
 ## Kubernetes
 
 Cluster configuration and application registry.
 
-- [[kubernetes-cluster|Cluster]] - Minikube specs, storage, networking
-- [[argocd-applications|Apps]] - ArgoCD application registry
+- [[kubernetes-cluster | Cluster]] - Minikube specs, storage, networking
+- [[argocd-applications | Apps]] - ArgoCD application registry
 - [[external-secrets]] - Secrets management
 
 ## Storage
 
 Network storage and backup configuration.
 
-- [[sifaka-nas|Sifaka]] - Synology NAS configuration
+- [[sifaka-nas | Sifaka]] - Synology NAS configuration
 - [[postgresql-storage]] - Database cluster
-- [[backup-policy|Backups]] - Backup policy and schedule
+- [[backup-policy | Backups]] - Backup policy and schedule
 
 ## Operations
 

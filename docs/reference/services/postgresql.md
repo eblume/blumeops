@@ -34,7 +34,7 @@ Database cluster via CloudNativePG operator.
 | miniflux | app owner | Owns miniflux database |
 | teslamate | superuser | TeslaMate (needs extensions) |
 | eblume | superuser | Admin access |
-| borgmatic | pg_read_all_data | [[borgmatic|Backup]] access |
+| borgmatic | pg_read_all_data | [[borgmatic | Backup]] access |
 
 ## Backup
 

@@ -46,13 +46,13 @@ Node exporter running in Docker container, scraped by [[prometheus]] at `sifaka:
 
 ## Backup
 
-Sifaka is the **target** for [[backup|backups]], not a backup source. [[borgmatic]] sends backups TO sifaka, not OF sifaka.
+Sifaka is the **target** for [[backup | backups]], not a backup source. [[borgmatic]] sends backups TO sifaka, not OF sifaka.
 
 Data protection for sifaka itself currently relies on the Synology RAID 5 configuration, which provides single-disk fault tolerance. Future plans include offsite duplication for additional resiliency.
 
 ## Related
 
-- [[backup-policy|Backups]] - Backup policy
+- [[backup-policy | Backups]] - Backup policy
 - [[borgmatic]] - Backup system
 - [[immich]] - Photo consumer
 - [[jellyfin]] - Media consumer

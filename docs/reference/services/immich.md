@@ -17,10 +17,10 @@ Self-hosted photo and video management.
 | **Namespace** | `immich` |
 | **Deployment** | Helm chart (k8s) |
 | **Database** | [[postgresql]] (CNPG) |
-| **Storage** | [[sifaka-nas|Sifaka]] photos volume |
+| **Storage** | [[sifaka-nas | Sifaka]] photos volume |
 
 ## Related
 
 - [[postgresql]] - Database backend
-- [[sifaka-nas|Sifaka]] - Photo storage
+- [[sifaka-nas | Sifaka]] - Photo storage
 - [[jellyfin]] - Video streaming (separate service)

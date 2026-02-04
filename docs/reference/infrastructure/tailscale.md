@@ -58,5 +58,5 @@ Pulumi uses OAuth client from 1Password (blumeops vault):
 
 ## Related
 
-- [[service-routing|Routing]] - Service URLs
-- [[host-inventory|Hosts]] - Device inventory
+- [[service-routing | Routing]] - Service URLs
+- [[host-inventory | Hosts]] - Device inventory
