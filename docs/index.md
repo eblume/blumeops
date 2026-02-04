@@ -8,4 +8,4 @@ Welcome to the BlumeOps documentation.
 
 ## Sections
 
-- [[index | reference]] - Technical reference cards for services, infrastructure, and operations
+- [[reference/index | reference]] - Technical reference cards for services, infrastructure, and operations
