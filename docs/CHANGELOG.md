@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.2.0] - 2026-02-04
+
+### Documentation
+
+- Complete Phase 6: migrate zk content, delete legacy cards, rewrite zk-docs for AI context priming
+
+
 ## [v1.1.5] - 2026-02-04
 
 ### Documentation
