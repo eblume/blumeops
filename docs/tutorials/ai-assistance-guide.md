@@ -54,10 +54,10 @@ EOF
 
 Add a fragment for user-visible changes:
 ```bash
-echo "Description" > docs/changelog.d/branch-name.feature.md
+echo "Description" > docs/changelog.d/feature/branch-name.md
 ```
 
-Types: `feature`, `bugfix`, `infra`, `doc`, `misc`
+Types (directory names): `feature`, `bugfix`, `infra`, `doc`, `misc`
 
 ## Service Locations
 
