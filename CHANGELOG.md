@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.3.2] - 2026-02-04
+
+### Infrastructure
+
+- Fix Quartz build to use -d docs flag for accurate git-based file dates
+
+
 ## [v1.3.1] - 2026-02-04
 
 ### Infrastructure
