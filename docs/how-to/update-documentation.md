@@ -56,7 +56,7 @@ Fragments are automatically collected into `CHANGELOG.md` (at repo root) during 
 | `bugfix` | `bugfix/` | Bug fixes |
 | `infra` | `infra/` | Infrastructure changes |
 | `doc` | `doc/` | Documentation updates |
-| `misc` | `misc/` | Other (content hidden in changelog) |
+| `misc` | `misc/` | Other changes |
 
 ## Runner Environment
 

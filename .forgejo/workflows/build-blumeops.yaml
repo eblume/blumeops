@@ -147,35 +147,47 @@ jobs:
           echo "Node version: $(node --version)"
           echo "NPM version: $(npm --version)"
 
-          # Clone Quartz
+          # Clone Quartz to temp location
           git clone --depth 1 https://github.com/jackyzha0/quartz.git /tmp/quartz
-          cd /tmp/quartz
+
+          # Copy Quartz build system into blumeops workspace
+          # This allows building from within the repo so git can find file history
+          cp -r /tmp/quartz/quartz "$GITHUB_WORKSPACE/"
+          cp /tmp/quartz/package.json "$GITHUB_WORKSPACE/"
+          cp /tmp/quartz/package-lock.json "$GITHUB_WORKSPACE/"
+          cp /tmp/quartz/tsconfig.json "$GITHUB_WORKSPACE/"
+
+          cd "$GITHUB_WORKSPACE"
 
           # Install dependencies
           npm ci
 
-          # Copy our configuration (lives in docs/ to keep repo root clean)
-          cp "$GITHUB_WORKSPACE/docs/quartz.config.ts" .
-          cp "$GITHUB_WORKSPACE/docs/quartz.layout.ts" .
+          # Copy our configuration to workspace root
+          cp docs/quartz.config.ts .
+          cp docs/quartz.layout.ts .
 
-          # Copy docs as content (includes index.md)
-          rm -rf content
-          cp -r "$GITHUB_WORKSPACE/docs" content
+          # Symlink docs as content (preserves git history for accurate dates)
+          ln -s docs content
 
-          # Copy CHANGELOG.md from repo root into content so it's accessible in docs
-          cp "$GITHUB_WORKSPACE/CHANGELOG.md" content/
+          # Symlink CHANGELOG.md into docs so it's part of the content
+          ln -s ../CHANGELOG.md docs/CHANGELOG.md
 
-          # Build
+          # Build (from within repo so git commands work)
           echo "Building static site..."
           npx quartz build
 
           # Create tarball
           TARBALL="docs-${VERSION}.tar.gz"
           echo "Creating tarball: $TARBALL"
-          tar -czf "$GITHUB_WORKSPACE/$TARBALL" -C public .
+          tar -czf "$TARBALL" -C public .
 
           echo "Build complete!"
-          ls -lh "$GITHUB_WORKSPACE/$TARBALL"
+          ls -lh "$TARBALL"
+
+          # Clean up Quartz build artifacts (keep tarball)
+          rm -rf quartz content public node_modules
+          rm -f package.json package-lock.json tsconfig.json quartz.config.ts quartz.layout.ts
+          rm -f docs/CHANGELOG.md  # Remove symlink
 
       - name: Create release
         env:

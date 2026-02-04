@@ -37,4 +37,4 @@ showcontent = true
 [[tool.towncrier.type]]
 directory = "misc"
 name = "Miscellaneous"
-showcontent = false
+showcontent = true
