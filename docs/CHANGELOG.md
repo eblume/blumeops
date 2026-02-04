@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.1.5] - 2026-02-04
+
+### Documentation
+
+- Add Phase 5 explanation docs: why GitOps, architecture overview, and security model
+
+
 ## [v1.1.4] - 2026-02-04
 
 ### Documentation
