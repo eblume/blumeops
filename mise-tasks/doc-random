@@ -1,0 +1,88 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["rich>=13.0.0"]
+# ///
+#MISE description="Select a random documentation card for review"
+"""Select a random documentation card for review.
+
+This script scans all markdown files in the docs/ directory (excluding
+changelog.d/), selects one at random, and displays it for review.
+
+Useful for periodic knowledge base maintenance and verification.
+
+Usage: mise run doc-random
+"""
+
+import random
+import sys
+from pathlib import Path
+
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
+
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+
+def get_all_docs() -> list[Path]:
+    """Get all documentation markdown files, excluding changelog.d."""
+    docs = []
+    for md_file in DOCS_DIR.rglob("*.md"):
+        # Skip changelog fragments
+        if "changelog.d" in md_file.parts:
+            continue
+        docs.append(md_file)
+    return docs
+
+
+def main() -> int:
+    console = Console()
+
+    docs = get_all_docs()
+    if not docs:
+        console.print("[bold red]No documentation files found![/bold red]")
+        return 1
+
+    # Select a random document
+    selected = random.choice(docs)
+    rel_path = selected.relative_to(DOCS_DIR)
+
+    # Display header
+    console.print()
+    console.print(Panel(
+        f"[bold cyan]{rel_path}[/bold cyan]\n"
+        f"[dim]{len(docs)} total docs in knowledge base[/dim]",
+        title="[bold]Random Documentation Card[/bold]",
+        border_style="cyan",
+    ))
+    console.print()
+
+    # Display the file content
+    content = selected.read_text()
+    console.print(Markdown(content))
+
+    # Review checklist
+    console.print()
+    console.print(Panel(
+        "[bold]Review Checklist:[/bold]\n\n"
+        "• Is the information accurate and up-to-date?\n"
+        "• Are there broken or missing wiki-links?\n"
+        "• Should this card link to other related cards?\n"
+        "• Is the card too large and should be split?\n"
+        "• Is the card too small and should be merged?\n"
+        "• Does the frontmatter (tags, title) make sense?\n"
+        "• Is the card in the correct category (reference/how-to/etc)?\n\n"
+        "[bold]Verify Deployed State:[/bold]\n\n"
+        "• If ArgoCD app: is it synced? (argocd app get <app>)\n"
+        "• If Ansible role: does it apply idempotently? (--check --diff)\n"
+        "• If Pulumi: is there drift? (pulumi preview)",
+        title="[bold yellow]Review Guidance[/bold yellow]",
+        border_style="yellow",
+    ))
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

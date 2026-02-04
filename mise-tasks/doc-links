@@ -7,7 +7,7 @@
 """Validate that all wiki-links in documentation point to existing files.
 
 This script scans all markdown files in the docs/ directory (excluding
-changelog.d/ and zk/), extracts wiki-links, and verifies each link target
+changelog.d/), extracts wiki-links, and verifies each link target
 exists as a filename or path in the documentation.
 
 Wiki-link formats supported:
@@ -61,9 +61,9 @@ def main() -> int:
     # Track which filenames are ambiguous (appear multiple times)
     filename_counts: dict[str, list[str]] = {}
 
-    # Scan all markdown files (excluding zk/ and changelog.d/)
+    # Scan all markdown files (excluding changelog.d/)
     for md_file in DOCS_DIR.rglob("*.md"):
-        if "changelog.d" in md_file.parts or "zk" in md_file.parts:
+        if "changelog.d" in md_file.parts:
             continue
         # Track filename occurrences
         filename = md_file.stem
@@ -86,9 +86,9 @@ def main() -> int:
     broken_links: list[tuple[str, int, str]] = []
     ambiguous_links: list[tuple[str, int, str, list[str]]] = []
 
-    # Scan all markdown files for wiki-links (excluding zk/ and changelog.d/)
+    # Scan all markdown files for wiki-links (excluding changelog.d/)
     for md_file in sorted(DOCS_DIR.rglob("*.md")):
-        if "changelog.d" in md_file.parts or "zk" in md_file.parts:
+        if "changelog.d" in md_file.parts:
             continue
 
         rel_path = str(md_file.relative_to(DOCS_DIR))

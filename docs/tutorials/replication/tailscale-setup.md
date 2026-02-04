@@ -112,12 +112,12 @@ Tags must be defined in ACLs before use.
 ## Next Steps
 
 With networking established:
+- [[tutorials/replication/core-services | Set Up Core Services]] - Install Forgejo and optionally a container registry
 - [[tutorials/replication/kubernetes-bootstrap | Bootstrap Kubernetes]] - Your cluster will join the tailnet
-- Set up your server and storage devices
 
 ## BlumeOps Specifics
 
-BluemeOps' Tailscale configuration includes:
+BlumeOps' Tailscale configuration includes:
 - Multiple device tags (`homelab`, `nas`, `registry`, `k8s-api`)
 - Group-based access for family members
 - SSH access rules with authentication requirements

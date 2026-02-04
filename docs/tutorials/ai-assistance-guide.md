@@ -88,6 +88,7 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 | `doc-links` | Validate wiki-links in documentation |
 | `doc-titles` | Check for duplicate doc titles |
 | `doc-filenames` | Check for duplicate doc filenames |
+| `doc-random` | Select a random doc card for review |
 | `indri-runner-logs` | View Forgejo workflow logs from local runner |
 
 For ArgoCD operations, use the `argocd` CLI directly:

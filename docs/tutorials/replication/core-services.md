@@ -9,6 +9,8 @@ tags:
 # Core Services Setup
 
 > **Audiences:** Replicator
+>
+> **Prerequisites:** [[tutorials/replication/tailscale-setup | Tailscale Setup]]
 
 This tutorial walks through setting up the foundational services that your GitOps infrastructure depends on: a git forge and optionally a container registry.
 

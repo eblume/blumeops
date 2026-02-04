@@ -28,6 +28,12 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 |-------|-------------|
 | [[update-documentation]] | Publish docs via build-blumeops workflow |
 
+## Knowledge Base
+
+| Guide | Description |
+|-------|-------------|
+| [[review-documentation]] | Periodically review and maintain documentation |
+
 ## Operations
 
 | Guide | Description |

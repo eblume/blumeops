@@ -17,6 +17,7 @@ Individual service reference cards with URLs and configuration details.
 | [[alloy | Alloy]] | Observability collector (metrics & logs) | indri + k8s |
 | [[argocd]] | GitOps continuous delivery | k8s |
 | [[borgmatic]] | Backup system | indri |
+| [[caddy]] | Reverse proxy & TLS termination | indri |
 | [[1password]] | Secrets management | cloud + k8s |
 | [[forgejo]] | Git forge & CI/CD | indri |
 | [[grafana]] | Dashboards & visualization | k8s |
