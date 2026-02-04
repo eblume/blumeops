@@ -37,13 +37,13 @@ Address each unresolved comment before proceeding. The user will resolve comment
 
 4. When making changes, add a towncrier changelog fragment. Use the branch name as the identifier when possible, or use orphan (`+`) otherwise:
    ```bash
-   # Using subdirectory (preferred) - type is the directory name
-   echo "Add new feature X" > docs/changelog.d/feature/new-feature.md
+   # Using branch name (preferred)
+   echo "Add new feature X" > docs/changelog.d/new-feature.feature.md
 
    # Orphan fragment (when no branch name fits)
-   echo "Fix bug Y" > docs/changelog.d/bugfix/+fix-bug-y.md
+   echo "Fix bug Y" > docs/changelog.d/+fix-bug-y.bugfix.md
    ```
-   Fragment types (use as directory name): `feature`, `bugfix`, `infra`, `doc`, `misc`. Fragments are collected into CHANGELOG.md during releases.
+   Fragment types: `feature`, `bugfix`, `infra`, `doc`, `misc`. Fragments are collected into CHANGELOG.md during releases.
 
 5. Use `Brewfile` and `mise.toml` to install tools needed on the development workstation (typically hostnamed "gilbert", username "eblume").
 

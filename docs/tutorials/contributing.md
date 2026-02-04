@@ -95,15 +95,15 @@ Depending on what you're changing:
 
 For user-visible changes:
 ```bash
-echo "Description of your change" > docs/changelog.d/feature/your-branch.md
+echo "Description of your change" > docs/changelog.d/your-branch.feature.md
 ```
 
-Fragment types (use as directory name):
-- `feature/` - New functionality
-- `bugfix/` - Bug fixes
-- `infra/` - Infrastructure changes
-- `doc/` - Documentation
-- `misc/` - Other
+Fragment types (file suffix):
+- `.feature.md` - New functionality
+- `.bugfix.md` - Bug fixes
+- `.infra.md` - Infrastructure changes
+- `.doc.md` - Documentation
+- `.misc.md` - Other
 
 ### 4. Test Your Changes
 
