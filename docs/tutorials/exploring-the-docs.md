@@ -20,7 +20,7 @@ The docs follow the [Diataxis](https://diataxis.fr/) framework:
 | **[[tutorials/index | Tutorials]]** | Learning-oriented | "I'm new and want to understand" |
 | **[[reference/index | Reference]]** | Information-oriented | "I need specific technical details" |
 | **[[how-to/index | How-to]]** | Task-oriented | "I need to do X" |
-| **Explanation** (planned) | Understanding-oriented | "I want to understand why" |
+| **[[explanation/index | Explanation]]** | Understanding-oriented | "I want to understand why" |
 
 ## Quick Paths by Audience
 
@@ -42,9 +42,9 @@ Context for effective assistance:
 ### For External Readers
 
 Understanding what this is:
+- [[explanation/index|Explanation]] covers the "why" behind design decisions
 - [[reference/index|Reference]] shows what's actually running
 - Browse service pages to see specific implementations
-- The repo's README has project context
 
 ### For Contributors
 
@@ -58,6 +58,7 @@ Getting started with changes:
 Replicators are people who want to build their own similar homelab GitOps setup, using BlumeOps as inspiration.
 
 - [[replicating-blumeops]] provides the overview
+- [[explanation/index|Explanation]] covers architecture and design rationale
 - The `replication/` tutorials go deep on components
 - Reference pages show specific configuration choices
 

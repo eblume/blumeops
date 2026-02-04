@@ -111,15 +111,17 @@ Task-oriented instructions for specific operations.
 
 **How-to URL:** https://docs.ops.eblu.me/how-to/
 
-### Phase 5: Explanation
+### Phase 5: Explanation (Complete)
 Understanding-oriented discussion of concepts and decisions.
 
-- [ ] Create `explanation/` directory
-- [ ] "Why GitOps?" - Philosophy and approach
-- [ ] "Architecture Overview" - How everything fits together
-- [ ] "Security Model" - Tailscale, secrets management, etc.
-- [ ] "Decision Log" - ADRs (Architecture Decision Records)
-- [ ] Update `exploring-the-docs` with Explanation section
+- [x] Create `explanation/` directory
+- [x] "Why GitOps?" - Philosophy and approach
+- [x] "Architecture Overview" - How everything fits together
+- [x] "Security Model" - Tailscale, secrets management, etc.
+- [ ] "Decision Log" - ADRs (Architecture Decision Records) - deferred
+- [x] Update `exploring-the-docs` with Explanation section
+
+**Explanation URL:** https://docs.ops.eblu.me/explanation/
 
 ### Phase 6: Integration & Cleanup
 - [ ] Migrate remaining useful content from `docs/zk/`

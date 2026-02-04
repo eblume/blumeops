@@ -9,7 +9,9 @@ Welcome to the BlumeOps documentation.
 ## Sections
 
 - [[tutorials/index | Tutorials]] - Learning-oriented guides for getting started
-- [[reference/index | Reference]] - Technical reference cards for services, infrastructure, and operations
+- [[reference/index | Reference]] - Technical specifications and service details
+- [[how-to/index | How-to]] - Task-oriented instructions for common operations
+- [[explanation/index | Explanation]] - Understanding the "why" behind BlumeOps
 
 ## About
 
