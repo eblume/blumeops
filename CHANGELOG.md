@@ -12,6 +12,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.3.1] - 2026-02-04
+
+### Infrastructure
+
+- Fix Quartz build to preserve git history for accurate file dates
+
+### Documentation
+
+- Fix misc changelog fragment type to show content (was showing empty entries)
+
+
 ## [v1.3.0] - 2026-02-04
 
 ### Features
