@@ -52,14 +52,6 @@ echo "Directory: $CONTAINER_DIR"
 echo "Image: registry.ops.eblu.me/$IMAGE:$VERSION"
 echo ""
 
-# Confirm
-read -p "Create tag and push? [y/N] " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Aborted."
-    exit 0
-fi
-
 # Create and push tag
 git tag "$TAG"
 git push origin "$TAG"
