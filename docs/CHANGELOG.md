@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.2.1] - 2026-02-04
+
+### Features
+
+- Add doc-random mise task for random documentation review
+
+### Documentation
+
+- Add Caddy reference card and fix replication tutorial sequence
+
+
 ## [v1.2.0] - 2026-02-04
 
 ### Documentation
