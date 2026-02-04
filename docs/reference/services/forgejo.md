@@ -37,10 +37,26 @@ Git forge and CI/CD platform. **Primary source of truth for blumeops** (mirrored
 
 **Workflows:** `.forgejo/workflows/`
 - `build-container.yaml` - Container image builds on tag
+- `build-blumeops.yaml` - Documentation builds and releases
 
-## Secrets
+## Secrets (Forgejo Config)
 
-Managed via 1Password: `lfs-jwt-secret`, `internal-token`, `oauth2-jwt-secret`, `runner_reg`
+Server configuration secrets managed via 1Password → Ansible:
+- `lfs-jwt-secret`, `internal-token`, `oauth2-jwt-secret` - Forgejo server tokens
+- `runner_reg` - Runner registration token (also in k8s via [[external-secrets]])
+
+## Forgejo Actions Secrets
+
+Repository-level secrets for CI/CD workflows. **Not IaC** - managed in Forgejo UI at:
+`Settings → Actions → Secrets`
+
+| Secret | Used By | Purpose |
+|--------|---------|---------|
+| `ARGOCD_AUTH_TOKEN` | `build-blumeops.yaml` | Sync docs app after release |
+
+These secrets are injected as `${{ secrets.SECRET_NAME }}` in workflow files.
+
+> **Note:** These secrets are also stored in 1Password ("Forgejo Secrets" item) as the source of truth, but were manually copied to Forgejo. They will not auto-update if the 1Password value changes.
 
 ## Related
 
