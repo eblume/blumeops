@@ -7,7 +7,7 @@
 #
 # Usage:
 #   1. Go to Actions > Build BlumeOps > Run workflow
-#   2. Enter a version tag (e.g., v1.2.0) or leave empty to auto-increment patch
+#   2. Select version bump type (patch/minor/major) or choose specific version
 #   3. The workflow creates a release with attached artifacts
 #
 # Documentation asset URL:
@@ -18,8 +18,18 @@ name: Build BlumeOps
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version (e.g., v1.2.0) or empty to auto-increment patch (v_._.+1)'
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'BUMP_PATCH'
+        type: choice
+        options:
+          - BUMP_PATCH
+          - BUMP_MINOR
+          - BUMP_MAJOR
+          - SPECIFIC_VERSION
+      specific_version:
+        description: 'Specific version (only used when version_type is SPECIFIC_VERSION, e.g., v1.2.0)'
         required: false
         default: ''
         type: string
@@ -31,30 +41,57 @@ jobs:
       - name: Resolve version
         id: version
         run: |
-          INPUT_VERSION="${{ inputs.version }}"
+          VERSION_TYPE="${{ inputs.version_type }}"
+          SPECIFIC_VERSION="${{ inputs.specific_version }}"
 
-          if [ -n "$INPUT_VERSION" ]; then
-            # User provided a version - validate it
-            if [[ ! "$INPUT_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "Error: Version must be in format vX.Y.Z (e.g., v1.0.0)"
-              exit 1
-            fi
-            VERSION="$INPUT_VERSION"
-            echo "Using provided version: $VERSION"
+          # Fetch latest release
+          echo "Fetching latest release..."
+          LATEST=$(curl -s "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/latest" | jq -r '.tag_name // empty' || true)
+
+          if [ -z "$LATEST" ]; then
+            LATEST="v0.0.0"
+            echo "No previous releases found, using base version: $LATEST"
           else
-            # Auto-increment patch version from latest release
-            echo "Fetching latest release..."
-            LATEST=$(curl -s "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/latest" | jq -r '.tag_name // empty' || true)
-
-            if [ -z "$LATEST" ]; then
-              VERSION="v1.0.0"
-              echo "No previous releases found, starting at: $VERSION"
-            else
-              # Parse vX.Y.Z and increment patch
-              VERSION=$(echo "$LATEST" | awk -F. '{print $1"."$2"."$3+1}')
-              echo "Auto-incremented from $LATEST to: $VERSION"
-            fi
+            echo "Latest release: $LATEST"
           fi
+
+          # Parse current version components (strip 'v' prefix)
+          CURRENT="${LATEST#v}"
+          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT" | cut -d. -f3)
+
+          case "$VERSION_TYPE" in
+            BUMP_MAJOR)
+              VERSION="v$((MAJOR + 1)).0.0"
+              echo "Bumping major: $LATEST -> $VERSION"
+              ;;
+            BUMP_MINOR)
+              VERSION="v${MAJOR}.$((MINOR + 1)).0"
+              echo "Bumping minor: $LATEST -> $VERSION"
+              ;;
+            BUMP_PATCH)
+              VERSION="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+              echo "Bumping patch: $LATEST -> $VERSION"
+              ;;
+            SPECIFIC_VERSION)
+              if [ -z "$SPECIFIC_VERSION" ]; then
+                echo "Error: specific_version is required when version_type is SPECIFIC_VERSION"
+                exit 1
+              fi
+              # Validate format
+              if [[ ! "$SPECIFIC_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "Error: Version must be in format vX.Y.Z (e.g., v1.0.0)"
+                exit 1
+              fi
+              VERSION="$SPECIFIC_VERSION"
+              echo "Using specific version: $VERSION"
+              ;;
+            *)
+              echo "Error: Unknown version_type: $VERSION_TYPE"
+              exit 1
+              ;;
+          esac
 
           # Check if this version already exists
           if curl -sf "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/tags/$VERSION" > /dev/null 2>&1; then
@@ -73,6 +110,7 @@ jobs:
           fetch-depth: 0
 
       - name: Build changelog
+        id: changelog
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
@@ -83,11 +121,25 @@ jobs:
             echo "Found $FRAGMENTS changelog fragments, building changelog..."
             uvx towncrier build --version "$VERSION" --yes
             echo "changelog_updated=true" >> "$GITHUB_OUTPUT"
+
+            # Extract the changelog section for this release to include in release body
+            # The section starts with "## [$VERSION]" and ends before the next "## [" or EOF
+            RELEASE_NOTES=$(awk -v ver="$VERSION" '
+              /^## \[/ {
+                if (found) exit
+                if (index($0, "[" ver "]")) found=1
+              }
+              found {print}
+            ' CHANGELOG.md | tail -n +2)
+
+            # Save release notes to a file for later use (handles multiline content)
+            echo "$RELEASE_NOTES" > /tmp/release_notes.md
+            echo "Release notes extracted for $VERSION"
           else
             echo "No changelog fragments found, skipping towncrier"
             echo "changelog_updated=false" >> "$GITHUB_OUTPUT"
+            echo "" > /tmp/release_notes.md
           fi
-        id: changelog
 
       - name: Build docs
         run: |
@@ -110,6 +162,9 @@ jobs:
           rm -rf content
           cp -r "$GITHUB_WORKSPACE/docs" content
 
+          # Copy CHANGELOG.md from repo root into content so it's accessible in docs
+          cp "$GITHUB_WORKSPACE/CHANGELOG.md" content/
+
           # Build
           echo "Building static site..."
           npx quartz build
@@ -128,20 +183,37 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TARBALL="docs-${VERSION}.tar.gz"
+          CHANGELOG_UPDATED="${{ steps.changelog.outputs.changelog_updated }}"
 
           echo "Creating release $VERSION..."
 
-          # Use Forgejo API to create release (requires authentication)
-          RELEASE_DATA=$(cat <<EOF
+          # Build release body with changelog if available
           {
-            "tag_name": "$VERSION",
-            "name": "BlumeOps $VERSION",
-            "body": "BlumeOps release $VERSION\n\n## Documentation\n\nDownload \`$TARBALL\` and configure the quartz container with:\n\n\`\`\`\nDOCS_RELEASE_URL=https://forge.ops.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL\n\`\`\`",
-            "draft": false,
-            "prerelease": false
-          }
-          EOF
-          )
+            echo "BlumeOps release $VERSION"
+            echo ""
+
+            if [ "$CHANGELOG_UPDATED" = "true" ] && [ -s /tmp/release_notes.md ]; then
+              echo "## What's Changed"
+              echo ""
+              cat /tmp/release_notes.md
+              echo ""
+            fi
+
+            echo "## Documentation"
+            echo ""
+            echo "Download \`$TARBALL\` and configure the quartz container with:"
+            echo ""
+            echo "\`\`\`"
+            echo "DOCS_RELEASE_URL=https://forge.ops.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL"
+            echo "\`\`\`"
+          } > /tmp/release_body.txt
+
+          # Use jq to properly escape the body for JSON
+          RELEASE_DATA=$(jq -n \
+            --arg tag "$VERSION" \
+            --arg name "BlumeOps $VERSION" \
+            --rawfile body /tmp/release_body.txt \
+            '{tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false}')
 
           RELEASE_RESPONSE=$(curl -s \
             -X POST \
@@ -203,7 +275,7 @@ jobs:
 
           # Stage changelog changes if updated
           if [ "$CHANGELOG_UPDATED" = "true" ]; then
-            git add docs/CHANGELOG.md docs/changelog.d/
+            git add CHANGELOG.md docs/changelog.d/
           fi
 
           # Check if there are changes to commit

@@ -82,6 +82,14 @@ def main() -> int:
         else:
             ambiguous_filenames.add(filename)
 
+    # Special case: files at repo root that are copied into docs during build
+    # These are valid link targets even though they don't exist in docs/
+    REPO_ROOT = DOCS_DIR.parent
+    BUILD_TIME_DOCS = ["CHANGELOG.md"]
+    for filename in BUILD_TIME_DOCS:
+        if (REPO_ROOT / filename).exists():
+            valid_targets.add(Path(filename).stem)
+
     # Collect all broken and ambiguous links
     broken_links: list[tuple[str, int, str]] = []
     ambiguous_links: list[tuple[str, int, str, list[str]]] = []

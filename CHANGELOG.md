@@ -1,3 +1,9 @@
+---
+title: changelog
+tags:
+  - meta
+---
+
 # Changelog
 
 All notable changes to BlumeOps are documented in this file.

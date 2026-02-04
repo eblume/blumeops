@@ -3,7 +3,7 @@
 
 [tool.towncrier]
 directory = "docs/changelog.d"
-filename = "docs/CHANGELOG.md"
+filename = "CHANGELOG.md"
 package = ""
 title_format = "## [{version}] - {project_date}"
 issue_format = ""

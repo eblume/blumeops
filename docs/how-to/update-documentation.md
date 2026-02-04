@@ -15,7 +15,7 @@ How to publish documentation changes to https://docs.ops.eblu.me.
 After merging documentation changes to main:
 
 1. Go to **Actions** > **Build BlumeOps** > **Run workflow**
-2. Enter a version (e.g., `v1.2.0`) or leave empty to auto-increment
+2. Select version bump type (patch/minor/major) or enter a specific version
 3. The workflow builds, releases, and deploys automatically
 
 Direct link: https://forge.ops.eblu.me/eblume/blumeops/actions?workflow=build-blumeops.yaml
@@ -47,7 +47,7 @@ echo "Add new feature X" > docs/changelog.d/my-feature.feature.md
 echo "Fix bug Y" > docs/changelog.d/+fix-bug.bugfix.md
 ```
 
-Fragments are automatically collected into `docs/CHANGELOG.md` during release.
+Fragments are automatically collected into `CHANGELOG.md` (at repo root) during release.
 
 **Fragment types:**
 | Type | Directory | Description |
