@@ -38,5 +38,15 @@ RUN install -m 0755 -d /etc/apt/keyrings \
     && apt-get install -y --no-install-recommends docker-ce-cli skopeo \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv (Python package runner for towncrier)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && mv /root/.local/bin/uv /usr/local/bin/uv \
+    && mv /root/.local/bin/uvx /usr/local/bin/uvx
+
+# Install argocd CLI (for syncing apps from workflows)
+RUN curl -sSL -o /usr/local/bin/argocd \
+    "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-${TARGETARCH}" \
+    && chmod +x /usr/local/bin/argocd
+
 # Default to bash
 CMD ["/bin/bash"]

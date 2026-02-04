@@ -72,11 +72,6 @@ jobs:
           # Need full history for git operations
           fetch-depth: 0
 
-      - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
       - name: Build changelog
         run: |
           VERSION="${{ steps.version.outputs.version }}"
@@ -86,39 +81,13 @@ jobs:
 
           if [ "$FRAGMENTS" -gt 0 ]; then
             echo "Found $FRAGMENTS changelog fragments, building changelog..."
-            ~/.local/bin/uvx towncrier build --version "$VERSION" --yes
+            uvx towncrier build --version "$VERSION" --yes
             echo "changelog_updated=true" >> "$GITHUB_OUTPUT"
           else
             echo "No changelog fragments found, skipping towncrier"
             echo "changelog_updated=false" >> "$GITHUB_OUTPUT"
           fi
         id: changelog
-
-      - name: Commit changelog updates
-        if: steps.changelog.outputs.changelog_updated == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-
-          # Configure git
-          git config user.name "Forgejo Actions"
-          git config user.email "actions@forge.ops.eblu.me"
-
-          # Stage changes (CHANGELOG.md updated, fragments removed)
-          git add docs/CHANGELOG.md docs/changelog.d/
-
-          # Commit
-          git commit -m "Release $VERSION: Update changelog
-
-          Built changelog from towncrier fragments.
-
-          [skip ci]"
-
-          # Push to main
-          git push origin HEAD:main
-
-          echo "Changelog committed and pushed"
 
       - name: Build docs
         run: |
@@ -204,6 +173,76 @@ jobs:
           echo "Upload Response: $UPLOAD_RESPONSE"
           echo ""
           echo "Release created successfully!"
+
+      - name: Update docs configmap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TARBALL="docs-${VERSION}.tar.gz"
+          CONFIGMAP_FILE="argocd/manifests/docs/configmap.yaml"
+          RELEASE_URL="https://forge.ops.eblu.me/eblume/blumeops/releases/download/${VERSION}/${TARBALL}"
+
+          echo "Updating $CONFIGMAP_FILE with new release URL..."
+          sed -i "s|DOCS_RELEASE_URL:.*|DOCS_RELEASE_URL: \"${RELEASE_URL}\"|" "$CONFIGMAP_FILE"
+
+          echo "Updated configmap:"
+          cat "$CONFIGMAP_FILE"
+
+      - name: Commit release changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          CHANGELOG_UPDATED="${{ steps.changelog.outputs.changelog_updated }}"
+
+          # Configure git
+          git config user.name "Forgejo Actions"
+          git config user.email "actions@forge.ops.eblu.me"
+
+          # Stage configmap changes
+          git add argocd/manifests/docs/configmap.yaml
+
+          # Stage changelog changes if updated
+          if [ "$CHANGELOG_UPDATED" = "true" ]; then
+            git add docs/CHANGELOG.md docs/changelog.d/
+          fi
+
+          # Check if there are changes to commit
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update docs release to $VERSION
+
+          - Updated configmap with new DOCS_RELEASE_URL
+          $([ "$CHANGELOG_UPDATED" = "true" ] && echo "- Built changelog from towncrier fragments")
+
+          [skip ci]"
+
+            # Push to main
+            git push origin HEAD:main
+            echo "Changes committed and pushed"
+          fi
+
+      - name: Deploy docs
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+        run: |
+          echo "Syncing docs app via ArgoCD..."
+
+          # Sync docs app (uses ARGOCD_AUTH_TOKEN env var for auth)
+          argocd app sync docs \
+            --server argocd.ops.eblu.me \
+            --grpc-web \
+            --prune
+
+          # Wait for sync to complete
+          argocd app wait docs \
+            --server argocd.ops.eblu.me \
+            --grpc-web \
+            --timeout 120
+
+          echo "Docs app synced successfully!"
 
       - name: Summary
         run: |

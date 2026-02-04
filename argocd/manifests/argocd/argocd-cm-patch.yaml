@@ -1,0 +1,13 @@
+# ArgoCD ConfigMap patch for workflow-bot account
+#
+# Creates a service account that can generate API tokens for CI/CD workflows.
+# Account is used by forgejo-runner to sync apps after builds.
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  # workflow-bot: service account for CI/CD automation
+  # - apiKey: allows generating API tokens via `argocd account generate-token`
+  accounts.workflow-bot: apiKey

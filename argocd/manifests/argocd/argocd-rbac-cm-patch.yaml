@@ -1,0 +1,14 @@
+# ArgoCD RBAC ConfigMap patch for workflow-bot permissions
+#
+# Grants minimal permissions for CI/CD workflows:
+# - applications: sync, get (for syncing apps after builds)
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+data:
+  policy.csv: |
+    p, role:workflow-bot, applications, sync, *, allow
+    p, role:workflow-bot, applications, get, *, allow
+    g, workflow-bot, role:workflow-bot
