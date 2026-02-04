@@ -24,7 +24,7 @@ Single-node Minikube cluster running on [[indri]].
 
 ## Volume Mounting
 
-Pods mount NFS directly from [[sifaka-nas | Sifaka]]. Docker NATs outbound traffic through indri's LAN IP (192.168.1.50), allowing access to Sifaka's NFS exports.
+Pods mount NFS directly from [[sifaka | Sifaka]]. Docker NATs outbound traffic through indri's LAN IP (192.168.1.50), allowing access to Sifaka's NFS exports.
 
 ## Registry Mirror
 
@@ -34,6 +34,6 @@ Mirrors configured: `registry.ops.eblu.me`, `docker.io`, `ghcr.io`, `quay.io`
 
 ## Related
 
-- [[argocd-applications | Apps]] - ArgoCD applications
+- [[apps | Apps]] - ArgoCD applications
 - [[argocd]] - GitOps deployment
 - [[zot]] - Registry mirror

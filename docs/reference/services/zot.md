@@ -30,7 +30,7 @@ OCI-native container registry providing pull-through cache and private image sto
 
 ## Pull-Through Cache
 
-When [[kubernetes-cluster | minikube]] pulls an image, containerd checks zot first. If cached, returns immediately. If not, zot fetches from upstream, caches it, then returns.
+When [[cluster | minikube]] pulls an image, containerd checks zot first. If cached, returns immediately. If not, zot fetches from upstream, caches it, then returns.
 
 ## Security Model
 
@@ -39,4 +39,4 @@ Network access only (no authentication). Defense is the Tailscale ACL boundary.
 ## Related
 
 - [[forgejo]] - Container build CI
-- [[kubernetes-cluster | Cluster]] - Registry consumer
+- [[cluster | Cluster]] - Registry consumer

@@ -52,7 +52,7 @@ Data protection for sifaka itself currently relies on the Synology RAID 5 config
 
 ## Related
 
-- [[backup-policy | Backups]] - Backup policy
+- [[backups | Backups]] - Backup policy
 - [[borgmatic]] - Backup system
 - [[immich]] - Photo consumer
 - [[jellyfin]] - Media consumer

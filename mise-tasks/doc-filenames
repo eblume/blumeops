@@ -1,0 +1,88 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["rich>=13.0.0"]
+# ///
+#MISE description="Detect duplicate filenames in documentation"
+"""Detect duplicate filenames in documentation.
+
+This script scans all markdown files in the docs/ directory (excluding
+changelog.d/ and zk/) and reports any duplicate filenames that could
+cause wiki-link resolution issues.
+
+With Quartz, wiki-links like [[filename]] resolve by filename,
+so filenames must be unique across the documentation.
+
+Usage: mise run doc-filenames
+"""
+
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+from rich.console import Console
+from rich.table import Table
+
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+
+def main() -> int:
+    console = Console()
+
+    # Collect all filenames and their paths
+    # Key: filename (without .md), Value: list of file paths
+    filenames: dict[str, list[str]] = defaultdict(list)
+
+    # Scan all markdown files (excluding zk/, changelog.d/, and index.md files)
+    for md_file in sorted(DOCS_DIR.rglob("*.md")):
+        if "changelog.d" in md_file.parts or "zk" in md_file.parts:
+            continue
+        # Skip index.md files - they're expected to exist in multiple directories
+        if md_file.name == "index.md":
+            continue
+
+        rel_path = str(md_file.relative_to(DOCS_DIR))
+        filename = md_file.stem  # filename without .md
+        filenames[filename].append(rel_path)
+
+    # Find duplicates
+    duplicates = {name: paths for name, paths in filenames.items() if len(paths) > 1}
+
+    # Print results
+    console.print("[bold]Doc Filename Inventory[/bold]")
+    console.print()
+    console.print("With Quartz, wiki-links like [[filename]] resolve by filename,")
+    console.print("so filenames must be unique across the documentation.")
+    console.print()
+
+    # Duplicates table (if any)
+    if duplicates:
+        console.print("[bold red]Duplicate Filenames Found[/bold red]")
+        dup_table = Table(show_header=True, header_style="bold")
+        dup_table.add_column("Filename")
+        dup_table.add_column("Paths")
+
+        for name in sorted(duplicates.keys()):
+            paths = duplicates[name]
+            dup_table.add_row(name, "\n".join(paths))
+
+        console.print(dup_table)
+        console.print()
+
+    # Summary
+    console.print(f"Total files: {sum(len(p) for p in filenames.values())}")
+    console.print(f"Unique filenames: {len(filenames)}")
+    console.print(f"Duplicate filenames: {len(duplicates)}")
+
+    if duplicates:
+        console.print()
+        console.print("[bold red]Action required:[/bold red] Rename files to ensure unique wiki-link resolution.")
+        return 1
+
+    console.print()
+    console.print("[bold green]All filenames are unique![/bold green]")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -7,7 +7,7 @@ tags:
 
 # Backup Policy
 
-Daily automated backups from [[indri]] to [[sifaka-nas | Sifaka]] NAS.
+Daily automated backups from [[indri]] to [[sifaka | Sifaka]] NAS.
 
 ## Schedule
 
@@ -53,7 +53,7 @@ Daily automated backups from [[indri]] to [[sifaka-nas | Sifaka]] NAS.
 
 ## Backup Target
 
-Repository: `/Volumes/backups/borg/` on [[sifaka-nas | Sifaka]]
+Repository: `/Volumes/backups/borg/` on [[sifaka | Sifaka]]
 
 ## Monitoring
 
@@ -67,5 +67,5 @@ Dashboard: "Borgmatic Backups" in [[grafana]]
 ## Related
 
 - [[borgmatic]] - Backup system details
-- [[sifaka-nas | Sifaka]] - Backup storage
+- [[sifaka | Sifaka]] - Backup storage
 - [[postgresql]] - Database backups

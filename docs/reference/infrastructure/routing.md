@@ -38,7 +38,7 @@ DNS points to indri's Tailscale IP (100.98.163.89). TLS via Let's Encrypt (ACME 
 | [[navidrome]] | https://dj.ops.eblu.me | Music streaming |
 | [[jellyfin]] | https://jellyfin.ops.eblu.me | Media server |
 | [[postgresql]] | pg.ops.eblu.me:5432 | Database |
-| [[sifaka-nas | Sifaka]] | https://nas.ops.eblu.me | NAS dashboard |
+| [[sifaka | Sifaka]] | https://nas.ops.eblu.me | NAS dashboard |
 
 ## Tailscale-Only Services
 

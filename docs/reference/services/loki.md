@@ -24,7 +24,7 @@ Log aggregation system for BlumeOps infrastructure.
 
 - Single-node deployment with filesystem storage
 - TSDB index with 24h period
-- Logs collected by [[grafana-alloy | Alloy]] and pushed via Loki API
+- Logs collected by [[alloy | Alloy]] and pushed via Loki API
 - Queried via [[grafana]]
 
 ## Log Sources
@@ -46,6 +46,6 @@ Log aggregation system for BlumeOps infrastructure.
 
 ## Related
 
-- [[grafana-alloy | Alloy]] - Log collector
+- [[alloy | Alloy]] - Log collector
 - [[grafana]] - Log visualization
 - [[prometheus]] - Metrics counterpart

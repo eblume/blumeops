@@ -89,7 +89,7 @@ repos:
         args: ['-config-file', '.github/actionlint.yaml']
         files: ^\.forgejo/workflows/
 
-  # Documentation - check for duplicate titles (required for Quartz wiki-link resolution)
+  # Documentation validation
   - repo: local
     hooks:
       - id: doc-titles
@@ -98,10 +98,12 @@ repos:
         language: system
         files: ^docs/.*\.md$
         pass_filenames: false
-
-  # Documentation - validate wiki-links point to existing titles
-  - repo: local
-    hooks:
+      - id: doc-filenames
+        name: doc-filenames
+        entry: mise run doc-filenames
+        language: system
+        files: ^docs/.*\.md$
+        pass_filenames: false
       - id: doc-links
         name: doc-links
         entry: mise run doc-links

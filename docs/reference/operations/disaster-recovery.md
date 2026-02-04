@@ -8,7 +8,7 @@ tags:
 
 TBD. Current state:
 
-- [[borgmatic]] provides daily backups to [[sifaka-nas | Sifaka]]
+- [[borgmatic]] provides daily backups to [[sifaka | Sifaka]]
 - Infrastructure can be rebootstrapped using the blumeops repo
 - Detailed DR procedures not yet documented
 
