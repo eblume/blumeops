@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.1.3] - 2026-02-04
+
+### Features
+
+- Build workflow now automatically deploys docs after creating a release - updates the deployment manifest with the new release URL and syncs via ArgoCD, triggering a pod rollout
+
+### Miscellaneous
+
+- Remove confirmation prompt from container-tag-and-release task for non-interactive use
+
+
 ## [v1.1.2] - 2026-02-04
 
 No significant changes.
