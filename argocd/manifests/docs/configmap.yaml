@@ -7,4 +7,4 @@ metadata:
 data:
   # BlumeOps docs release URL
   # Update this to deploy a new docs version
-  DOCS_RELEASE_URL: "https://forge.ops.eblu.me/eblume/blumeops/releases/download/v1.0.12/docs-v1.0.12.tar.gz"
+  DOCS_RELEASE_URL: "https://forge.ops.eblu.me/eblume/blumeops/releases/download/v1.0.13/docs-v1.0.13.tar.gz"
