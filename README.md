@@ -80,11 +80,6 @@ This repo uses [Forgejo Actions](https://forgejo.org/docs/latest/user/actions/) 
 
 ## Documentation
 
-Documentation lives in `docs/` and is being restructured to follow the [Diataxis](https://diataxis.fr/) framework. See [`docs/README.md`](docs/README.md) for the restructuring plan and current status.
+Documentation lives in `docs/` and follows the [Diataxis](https://diataxis.fr/) framework. Published at https://docs.ops.eblu.me.
 
-**Quick reference (zettelkasten cards):**
-```bash
-mise run zk-docs
-```
-
-The zk cards in `docs/zk/` use [Obsidian](https://obsidian.md) wiki-link syntax (`[[link]]`) for cross-references. Edit with any markdown editor, or use [obsidian.nvim](https://github.com/obsidian-nvim/obsidian.nvim) for enhanced navigation and completion.
+Docs use [Obsidian](https://obsidian.md) wiki-link syntax (`[[link]]`) for cross-references. Edit with any markdown editor, or use [obsidian.nvim](https://github.com/obsidian-nvim/obsidian.nvim) for enhanced navigation.

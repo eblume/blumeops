@@ -29,8 +29,8 @@ The docs follow the [Diataxis](https://diataxis.fr/) framework:
 You probably want quick access to operational details:
 - [[how-to/index|How-to guides]] for common operations (deploy, troubleshoot, update ACLs)
 - [[reference/index|Reference]] has service URLs, commands, and config locations
-- The `zk-docs` mise task still works for legacy zettelkasten access
 - [[ai-assistance-guide]] explains how to work effectively with Claude
+- Run `mise run zk-docs` to prime AI context with key documentation
 
 ### For Claude/AI Agents
 
@@ -73,11 +73,12 @@ When reading on the web (docs.ops.eblu.me), these render as clickable links. The
 
 Pre-commit hooks automatically validate that all wiki-links point to existing files and that link targets are unambiguous.
 
-## Legacy Content
+## AI Context Priming
 
-The `docs/zk/` directory contains zettelkasten cards from before the restructuring. These are read-only reference - new content goes in the structured sections. The cards will eventually be migrated or archived.
+The `zk-docs` mise task concatenates key documentation files for AI context:
 
-To view legacy cards:
 ```bash
 mise run zk-docs
 ```
+
+This outputs the AI assistance guide, reference index, how-to index, architecture overview, and tutorials index - providing Claude with essential context for BlumeOps operations.

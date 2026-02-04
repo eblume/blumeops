@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
-#MISE description="Concatenate all blumeops zettelkasten cards"
+#MISE description="Prime AI context with key BlumeOps documentation"
 
 set -euo pipefail
 
-# Blumeops docs now live in the repo itself (symlinked into zk)
-DOCS_DIR="$(cd "$(dirname "$0")/.." && pwd)/docs/zk"
-MAIN_CARD="$DOCS_DIR/1767747119-YCPO.md"
+DOCS_DIR="$(cd "$(dirname "$0")/.." && pwd)/docs"
 
-# Find all files tagged with blumeops (excluding main card)
-other_cards=$(grep -l '^  - blumeops$' "$DOCS_DIR"/*.md 2>/dev/null | grep -v "$(basename "$MAIN_CARD")" | sort)
+# Key files for AI context priming, in order of importance
+FILES=(
+    "$DOCS_DIR/tutorials/ai-assistance-guide.md"
+    "$DOCS_DIR/reference/index.md"
+    "$DOCS_DIR/how-to/index.md"
+    "$DOCS_DIR/explanation/architecture.md"
+    "$DOCS_DIR/tutorials/index.md"
+)
 
-# Concatenate: main card first, then others
+# Concatenate files with headers showing paths
 # Pass through any args to bat (e.g., --style=header --color=never --decorations=always)
-bat "$@" "$MAIN_CARD" $other_cards
+bat "$@" "${FILES[@]}"

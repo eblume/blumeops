@@ -12,7 +12,7 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure manageme
 
 1. **CRITICAL: Always use `--context=minikube-indri` with kubectl commands.** The user has work contexts configured that must never be touched. Every kubectl command must explicitly specify the context to prevent accidental operations against the wrong cluster.
 
-2. At the start of every session, even if the user asked to do something else, run `mise run zk-docs -- --style=header --color=never --decorations=always` to review the blumeops documentation. The docs are hosted at https://docs.ops.eblu.me and source lives in `docs/`. The `docs/zk/` cards are legacy but still useful as reference.
+2. At the start of every session, even if the user asked to do something else, run `mise run zk-docs -- --style=header --color=never --decorations=always` to prime your context with key BlumeOps documentation. The docs are hosted at https://docs.ops.eblu.me and source lives in `docs/`.
 
 3. When making any changes, start by making sure you're on the `main` git branch and up-to-date, and then create a feature branch. Commit often while working, and create a PR using:
 ```fish
@@ -62,7 +62,6 @@ Address each unresolved comment before proceeding. The user will resolve comment
 ```
 ./docs/                 # blumeops documentation (Diataxis structure, built with Quartz)
 ./docs/changelog.d/     # towncrier changelog fragments
-./docs/zk/              # legacy zettelkasten cards (read-only reference)
 ./mise-tasks/           # management and utility scripts run via `mise run`
 ./ansible/playbooks/    # ansible playbooks (indri.yml is primary)
 ./ansible/roles/        # ansible roles for indri-hosted services

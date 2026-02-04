@@ -12,7 +12,3 @@ Welcome to the BlumeOps documentation.
 - [[reference/index | Reference]] - Technical specifications and service details
 - [[how-to/index | How-to]] - Task-oriented instructions for common operations
 - [[explanation/index | Explanation]] - Understanding the "why" behind BlumeOps
-
-## About
-
-[[README | Documentation Home]] - Restructuring plan and changelog info

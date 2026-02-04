@@ -31,6 +31,7 @@ Individual service reference cards with URLs and configuration details.
 | [[teslamate]] | Tesla data logger | k8s |
 | [[transmission]] | BitTorrent daemon | k8s |
 | [[zot]] | Container registry | indri |
+| [[devpi]] | PyPI caching proxy | k8s |
 | [[docs]] | Documentation site (Quartz) | k8s |
 
 ## Infrastructure

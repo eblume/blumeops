@@ -25,7 +25,9 @@ Daily backup system using Borg backup, running on indri.
 - `/opt/homebrew/var/forgejo` - Git forge data
 - `~/.config/borgmatic` - Borgmatic config
 - `~/Documents` - Personal documents
-- `~/Pictures` - Photos
+- `~/Pictures` - Photos (see note below)
+
+**iCloud Photos note:** macOS Photos.app defaults to "Optimize Mac Storage" which keeps only thumbnails locally. Borgmatic only backs up what's on disk, so iCloud-only photos are NOT backed up via this method.
 
 **Databases:**
 - `miniflux` on [[postgresql]]

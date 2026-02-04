@@ -32,6 +32,12 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 **Kubernetes (via minikube):**
 - [[apps | All k8s applications]]
 
+## Maintenance Notes
+
+**Sleep prevention:** Uses Amphetamine (App Store) to prevent sleep. If Amphetamine crashes after extended uptime, consider switching to `pmset` or `caffeinate` via ansible.
+
+**Passwordless sudo:** Configured for `erichblume` user (`/etc/sudoers.d/erichblume`) to allow ansible `become: true` without prompts. Acceptable given Tailscale is the trust boundary.
+
 ## Related
 
 - [[routing | Routing]] - Port mappings
