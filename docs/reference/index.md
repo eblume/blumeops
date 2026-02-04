@@ -34,6 +34,7 @@ Individual service reference cards with URLs and configuration details.
 | [[zot]] | Container registry | indri |
 | [[devpi]] | PyPI caching proxy | k8s |
 | [[docs]] | Documentation site (Quartz) | k8s |
+| [[automounter]] | SMB share automounter | indri |
 
 ## Infrastructure
 

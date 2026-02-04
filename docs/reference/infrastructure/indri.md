@@ -27,10 +27,15 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 - [[jellyfin]] - Media server
 - [[borgmatic]] - Backup system
 - [[alloy | Alloy]] - Metrics/logs collector
-- Caddy - Reverse proxy for `*.ops.eblu.me`
+- [[caddy]] - Reverse proxy for `*.ops.eblu.me`
 
 **Kubernetes (via minikube):**
 - [[apps | All k8s applications]]
+
+**GUI Applications (manual start required):**
+- Docker Desktop - Container runtime for minikube
+- Amphetamine - Prevents sleep
+- [[automounter]] - Mounts [[sifaka]] SMB shares
 
 ## Maintenance Notes
 
@@ -40,5 +45,7 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 
 ## Related
 
-- [[routing | Routing]] - Port mappings
-- [[cluster | Cluster]] - Minikube details
+- [[routing]] - Port mappings
+- [[cluster]] - Minikube details
+- [[automounter]] - SMB share mounting
+- [[restart-indri]] - Shutdown and startup procedure

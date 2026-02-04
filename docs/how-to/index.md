@@ -38,4 +38,5 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 
 | Guide | Description |
 |-------|-------------|
+| [[restart-indri]] | Safely shut down and restart indri |
 | [[troubleshooting]] | Diagnose and fix common issues |
