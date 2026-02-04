@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.0.14] - 2026-02-04
+
+No significant changes.
+
+
 ## [v1.0.13] - 2026-02-04
 
 No significant changes.
