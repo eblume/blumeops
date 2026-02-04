@@ -85,7 +85,7 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 |------|-------------|
 | `zk-docs` | At session start - review infrastructure documentation |
 | `provision-indri` | Deploy changes to [[indri]]-hosted services via Ansible |
-| `indri-services-check` | After deployments - verify all services are healthy |
+| `services-check` | After deployments - verify all services are healthy |
 | `pr-comments` | Check unresolved PR comments during review |
 | `blumeops-tasks` | Find pending tasks from Todoist |
 | `container-list` | View available container images and tags |

@@ -21,7 +21,7 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 7. **Test before applying** - dry runs (`--check --diff`), syntax checks, `ssh indri '...'`
 8. **Wait for user review before deploying**
 9. **Never merge PRs or push to main without explicit request**
-10. **Verify deployments** - `mise run indri-services-check`
+10. **Verify deployments** - `mise run services-check`
 
 ## Project Structure
 

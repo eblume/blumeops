@@ -14,7 +14,7 @@ Quick reference for diagnosing and fixing common BlumeOps issues.
 Run the comprehensive service health check:
 
 ```bash
-mise run indri-services-check
+mise run services-check
 ```
 
 This checks all services on indri and in Kubernetes.

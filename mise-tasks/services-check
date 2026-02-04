@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Check that all indri services are online and responding"
+#MISE description="Check that all services are online and responding"
 
 set -euo pipefail
 
@@ -36,8 +36,8 @@ check_http() {
     fi
 }
 
-echo "Checking indri services..."
-echo "=========================="
+echo "Checking services..."
+echo "===================="
 echo ""
 
 # Local services on indri
