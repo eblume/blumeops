@@ -11,8 +11,9 @@ changelog.d/ and zk/), extracts wiki-links, and verifies each link target
 exists as a frontmatter title in the documentation.
 
 Wiki-link formats supported:
-- [[Title]] - links to a doc with frontmatter title "Title"
-- [[Title|Display Text]] - links to "Title", displays "Display Text"
+- [[target]] - links to a doc with frontmatter title "target"
+- [[target | Display Text]] - links to "target", displays "Display Text"
+  (spaces around the pipe are REQUIRED)
 
 Usage: mise run doc-links
 """
@@ -29,8 +30,11 @@ from rich.table import Table
 
 DOCS_DIR = Path(__file__).parent.parent / "docs"
 
-# Regex to match wiki-links: [[Target]] or [[Target|Display]]
-WIKILINK_PATTERN = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
+# Regex to match wiki-links: [[Target]] or [[Target | Display]]
+WIKILINK_PATTERN = re.compile(r"\[\[([^\]|]+)(?:\s+\|\s+[^\]]+)?\]\]")
+
+# Regex to detect any wiki-link with a pipe (for format checking)
+WIKILINK_WITH_PIPE_PATTERN = re.compile(r"\[\[([^\]]+)\]\]")
 
 # Regex to match inline code (backticks)
 INLINE_CODE_PATTERN = re.compile(r"`[^`]+`")
@@ -71,6 +75,23 @@ def extract_wikilinks(file_path: Path) -> list[tuple[str, int]]:
     return links
 
 
+def find_unspaced_pipes(file_path: Path) -> list[tuple[str, int]]:
+    """Find wiki-links with unspaced pipes (e.g., [[target|display]] instead of [[target | display]])."""
+    content = file_path.read_text()
+    issues = []
+
+    for line_num, line in enumerate(content.splitlines(), start=1):
+        # Remove inline code before searching
+        line_without_code = INLINE_CODE_PATTERN.sub("", line)
+        for match in WIKILINK_WITH_PIPE_PATTERN.finditer(line_without_code):
+            inner = match.group(1)
+            # Check if there's a pipe without proper spacing (space on both sides)
+            if "|" in inner and " | " not in inner:
+                issues.append((match.group(0), line_num))
+
+    return issues
+
+
 def main() -> int:
     console = Console()
 
@@ -86,9 +107,9 @@ def main() -> int:
         if frontmatter and frontmatter.get("title"):
             valid_titles.add(frontmatter["title"])
 
-    # Collect all broken links
-    # Key: (file_path, line_num), Value: target
+    # Collect all broken links and format issues
     broken_links: list[tuple[str, int, str]] = []
+    unspaced_pipes: list[tuple[str, int, str]] = []
 
     # Scan all markdown files for wiki-links (excluding zk/ and changelog.d/)
     for md_file in sorted(DOCS_DIR.rglob("*.md")):
@@ -96,8 +117,13 @@ def main() -> int:
             continue
 
         rel_path = str(md_file.relative_to(DOCS_DIR))
-        links = extract_wikilinks(md_file)
 
+        # Check for unspaced pipes
+        for link_text, line_num in find_unspaced_pipes(md_file):
+            unspaced_pipes.append((rel_path, line_num, link_text))
+
+        # Check for broken links
+        links = extract_wikilinks(md_file)
         for target, line_num in links:
             if target not in valid_titles:
                 broken_links.append((rel_path, line_num, target))
@@ -108,7 +134,28 @@ def main() -> int:
     console.print(f"Found {len(valid_titles)} valid titles in documentation.")
     console.print()
 
+    has_errors = False
+
+    # Report unspaced pipes
+    if unspaced_pipes:
+        has_errors = True
+        console.print("[bold red]Unspaced Pipe in Wiki-Links[/bold red]")
+        console.print("Wiki-links with display text must use spaces: [[target | display]]")
+        console.print()
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("File")
+        table.add_column("Line", justify="right")
+        table.add_column("Link")
+
+        for file_path, line_num, link_text in unspaced_pipes:
+            table.add_row(file_path, str(line_num), escape(link_text))
+
+        console.print(table)
+        console.print()
+
+    # Report broken links
     if broken_links:
+        has_errors = True
         console.print("[bold red]Broken Wiki-Links Found[/bold red]")
         table = Table(show_header=True, header_style="bold")
         table.add_column("File")
@@ -120,9 +167,12 @@ def main() -> int:
 
         console.print(table)
         console.print()
-        console.print(f"[bold red]{len(broken_links)} broken link(s) found.[/bold red]")
-        console.print()
         console.print("Each wiki-link target must match a frontmatter title in docs/.")
+        console.print()
+
+    if has_errors:
+        error_count = len(broken_links) + len(unspaced_pipes)
+        console.print(f"[bold red]{error_count} issue(s) found.[/bold red]")
         return 1
 
     console.print("[bold green]All wiki-links are valid![/bold green]")
