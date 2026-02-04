@@ -174,20 +174,18 @@ jobs:
           echo ""
           echo "Release created successfully!"
 
-      - name: Update docs configmap
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Update docs deployment
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TARBALL="docs-${VERSION}.tar.gz"
-          CONFIGMAP_FILE="argocd/manifests/docs/configmap.yaml"
+          DEPLOYMENT_FILE="argocd/manifests/docs/deployment.yaml"
           RELEASE_URL="https://forge.ops.eblu.me/eblume/blumeops/releases/download/${VERSION}/${TARBALL}"
 
-          echo "Updating $CONFIGMAP_FILE with new release URL..."
-          sed -i "s|DOCS_RELEASE_URL:.*|DOCS_RELEASE_URL: \"${RELEASE_URL}\"|" "$CONFIGMAP_FILE"
+          echo "Updating $DEPLOYMENT_FILE with new release URL..."
+          sed -i "s|value: \"https://forge.ops.eblu.me/eblume/blumeops/releases/download/[^\"]*\"|value: \"${RELEASE_URL}\"|" "$DEPLOYMENT_FILE"
 
-          echo "Updated configmap:"
-          cat "$CONFIGMAP_FILE"
+          echo "Updated deployment:"
+          grep -A1 "DOCS_RELEASE_URL" "$DEPLOYMENT_FILE"
 
       - name: Commit release changes
         env:
@@ -200,8 +198,8 @@ jobs:
           git config user.name "Forgejo Actions"
           git config user.email "actions@forge.ops.eblu.me"
 
-          # Stage configmap changes
-          git add argocd/manifests/docs/configmap.yaml
+          # Stage deployment changes
+          git add argocd/manifests/docs/deployment.yaml
 
           # Stage changelog changes if updated
           if [ "$CHANGELOG_UPDATED" = "true" ]; then
@@ -214,7 +212,6 @@ jobs:
           else
             git commit -m "Update docs release to $VERSION
 
-          - Updated configmap with new DOCS_RELEASE_URL
           $([ "$CHANGELOG_UPDATED" = "true" ] && echo "- Built changelog from towncrier fragments")
 
           [skip ci]"
