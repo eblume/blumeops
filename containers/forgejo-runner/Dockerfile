@@ -44,9 +44,12 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
     && mv /root/.local/bin/uvx /usr/local/bin/uvx
 
 # Install argocd CLI (for syncing apps from workflows)
-RUN curl -sSL -o /usr/local/bin/argocd \
-    "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-${TARGETARCH}" \
-    && chmod +x /usr/local/bin/argocd
+# Use dpkg --print-architecture as fallback since TARGETARCH may be empty in single-platform builds
+RUN ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" \
+    && curl -fsSL -o /usr/local/bin/argocd \
+    "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-${ARCH}" \
+    && chmod +x /usr/local/bin/argocd \
+    && argocd version --client
 
 # Default to bash
 CMD ["/bin/bash"]
