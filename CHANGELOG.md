@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.3.4] - 2026-02-05
+
+### Documentation
+
+- Enforce unique filenames, simple wiki-links (no paths), and no spaces in wiki-link targets for obsidian.nvim compatibility
+
+
 ## [v1.3.3] - 2026-02-04
 
 ### Infrastructure
