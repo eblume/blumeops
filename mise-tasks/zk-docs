@@ -8,11 +8,11 @@ DOCS_DIR="$(cd "$(dirname "$0")/.." && pwd)/docs"
 # Key files for AI context priming, in order of importance
 FILES=(
     "$DOCS_DIR/tutorials/ai-assistance-guide.md"
-    "$DOCS_DIR/reference/index.md"
-    "$DOCS_DIR/how-to/index.md"
+    "$DOCS_DIR/reference/reference.md"
+    "$DOCS_DIR/how-to/how-to.md"
     "$DOCS_DIR/how-to/troubleshooting.md"
     "$DOCS_DIR/explanation/architecture.md"
-    "$DOCS_DIR/tutorials/index.md"
+    "$DOCS_DIR/tutorials/tutorials.md"
 )
 
 # Concatenate files with headers showing paths
