@@ -148,7 +148,7 @@ spec:
 
 ## Next Steps
 
-- [[tutorials/replication/argocd-config | Configure ArgoCD]] - GitOps deployments
+- [[argocd-config|Configure ArgoCD]] - GitOps deployments
 - Install essential addons (ingress controller, cert-manager)
 
 ## BluemeOps Specifics

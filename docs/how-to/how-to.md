@@ -6,7 +6,7 @@ tags:
 
 # How-To Guides
 
-Task-oriented instructions for common BlumeOps operations. These guides assume you already understand the basic concepts - see [[tutorials/index|Tutorials]] if you're learning.
+Task-oriented instructions for common BlumeOps operations. These guides assume you already understand the basic concepts - see [[tutorials|Tutorials]] if you're learning.
 
 ## Deployment
 

@@ -177,7 +177,7 @@ spec:
     namespace: monitoring
 ```
 
-BluemeOps uses Alloy on both [[indri]] (for host metrics, via [[reference/ansible/roles | Ansible role]]) and in the [[cluster]] (for pod logs and service probes).
+BluemeOps uses Alloy on both [[indri]] (for host metrics, via [[roles|Ansible role]]) and in the [[cluster]] (for pod logs and service probes).
 
 ## What You Now Have
 

@@ -8,12 +8,14 @@
 
 This script scans all markdown files in the docs/ directory (excluding
 changelog.d/), extracts wiki-links, and verifies each link target
-exists as a filename or path in the documentation.
+exists as a unique filename in the documentation.
 
 Wiki-link formats supported:
-- [[filename]] - links to filename.md (must be unique)
-- [[path/to/file]] - links to path/to/file.md (for ambiguous filenames like index)
-- [[target | Display Text]] - either format with display text
+- [[filename]] - links to filename.md (must be unique across all docs)
+- [[target|Display Text]] - filename with display text
+
+Path-based links (containing '/') are NOT supported to ensure all
+filenames are unique and links work correctly in obsidian.nvim.
 
 Usage: mise run doc-links
 """
@@ -28,15 +30,19 @@ from rich.table import Table
 
 DOCS_DIR = Path(__file__).parent.parent / "docs"
 
-# Regex to match wiki-links: [[Target]] or [[Target | Display]]
-WIKILINK_PATTERN = re.compile(r"\[\[([^\]|]+)(?:\s*\|\s*[^\]]+)?\]\]")
+# Regex to match wiki-links: [[Target]] or [[Target|Display]]
+# Captures: group(1) = target (may have spaces), group(2) = full "|Display" part if present
+WIKILINK_PATTERN = re.compile(r"\[\[([^\]|]+)(\|[^\]]+)?\]\]")
 
 # Regex to match inline code (backticks)
 INLINE_CODE_PATTERN = re.compile(r"`[^`]+`")
 
 
-def extract_wikilinks(file_path: Path) -> list[tuple[str, int]]:
+def extract_wikilinks(file_path: Path) -> list[tuple[str, int, bool]]:
     """Extract all wiki-link targets from a markdown file with line numbers.
+
+    Returns list of (target, line_num, has_spaces) tuples.
+    has_spaces is True if the target or pipe separator had surrounding spaces.
 
     Ignores wiki-links inside inline code (backticks) as these are examples.
     """
@@ -47,8 +53,14 @@ def extract_wikilinks(file_path: Path) -> list[tuple[str, int]]:
         # Remove inline code before searching for wiki-links
         line_without_code = INLINE_CODE_PATTERN.sub("", line)
         for match in WIKILINK_PATTERN.finditer(line_without_code):
-            target = match.group(1).strip()
-            links.append((target, line_num))
+            raw_target = match.group(1)
+            target = raw_target.strip()
+            pipe_part = match.group(2)  # "|Display" or None
+            # Check for spaces: in target, or around the pipe
+            has_spaces = raw_target != target
+            if pipe_part and (raw_target.endswith(" ") or pipe_part.startswith("| ")):
+                has_spaces = True
+            links.append((target, line_num, has_spaces))
 
     return links
 
@@ -90,9 +102,11 @@ def main() -> int:
         if (REPO_ROOT / filename).exists():
             valid_targets.add(Path(filename).stem)
 
-    # Collect all broken and ambiguous links
+    # Collect all broken, ambiguous, path-based, and spaced links
     broken_links: list[tuple[str, int, str]] = []
     ambiguous_links: list[tuple[str, int, str, list[str]]] = []
+    path_links: list[tuple[str, int, str]] = []
+    spaced_links: list[tuple[str, int, str]] = []
 
     # Scan all markdown files for wiki-links (excluding changelog.d/)
     for md_file in sorted(DOCS_DIR.rglob("*.md")):
@@ -102,9 +116,15 @@ def main() -> int:
         rel_path = str(md_file.relative_to(DOCS_DIR))
         links = extract_wikilinks(md_file)
 
-        for target, line_num in links:
-            if target in ambiguous_filenames:
-                # Link uses an ambiguous filename - needs to use full path
+        for target, line_num, has_spaces in links:
+            if has_spaces:
+                # Links with spaces in target or around pipe are not allowed
+                spaced_links.append((rel_path, line_num, target))
+            elif "/" in target:
+                # Path-based links are not allowed - use simple filenames only
+                path_links.append((rel_path, line_num, target))
+            elif target in ambiguous_filenames:
+                # Link uses an ambiguous filename - needs to be renamed
                 ambiguous_links.append((rel_path, line_num, target, filename_counts[target]))
             elif target not in valid_targets:
                 broken_links.append((rel_path, line_num, target))
@@ -117,11 +137,45 @@ def main() -> int:
 
     has_errors = False
 
+    if spaced_links:
+        has_errors = True
+        console.print("[bold red]Wiki-Links With Spaces Found[/bold red]")
+        console.print("Wiki-links must not have spaces in the target or around the pipe.")
+        console.print("Use [[target|Display Text]] not [[target | Display Text]].")
+        console.print()
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("File")
+        table.add_column("Line", justify="right")
+        table.add_column("Target")
+
+        for file_path, line_num, target in spaced_links:
+            table.add_row(file_path, str(line_num), escape(f"[[{target}]]"))
+
+        console.print(table)
+        console.print()
+
+    if path_links:
+        has_errors = True
+        console.print("[bold red]Path-Based Wiki-Links Found[/bold red]")
+        console.print("Wiki-links must use simple filenames only (no '/' paths).")
+        console.print("Rename files to be unique, then use [[filename]] format.")
+        console.print()
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("File")
+        table.add_column("Line", justify="right")
+        table.add_column("Target")
+
+        for file_path, line_num, target in path_links:
+            table.add_row(file_path, str(line_num), escape(f"[[{target}]]"))
+
+        console.print(table)
+        console.print()
+
     if ambiguous_links:
         has_errors = True
         console.print("[bold red]Ambiguous Wiki-Links Found[/bold red]")
         console.print("These links use filenames that exist in multiple locations.")
-        console.print("Use the full path instead (e.g., [[reference/index]] not [[index]]).")
+        console.print("Rename files to be unique across all documentation.")
         console.print()
         table = Table(show_header=True, header_style="bold")
         table.add_column("File")

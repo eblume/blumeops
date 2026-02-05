@@ -12,5 +12,5 @@ Metrics, logs, and dashboards for BlumeOps infrastructure.
 
 - [[prometheus]] - Metrics storage and querying
 - [[loki]] - Log aggregation
-- [[alloy | Alloy]] - Metrics and log collection
+- [[alloy|Alloy]] - Metrics and log collection
 - [[grafana]] - Dashboards and visualization

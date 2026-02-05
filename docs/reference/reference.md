@@ -14,7 +14,7 @@ Individual service reference cards with URLs and configuration details.
 
 | Service | Description | Location |
 |---------|-------------|----------|
-| [[alloy | Alloy]] | Observability collector (metrics & logs) | indri + k8s |
+| [[alloy|Alloy]] | Observability collector (metrics & logs) | indri + k8s |
 | [[argocd]] | GitOps continuous delivery | k8s |
 | [[borgmatic]] | Backup system | indri |
 | [[caddy]] | Reverse proxy & TLS termination | indri |
@@ -40,18 +40,18 @@ Individual service reference cards with URLs and configuration details.
 
 Host inventory and network configuration.
 
-- [[hosts | Hosts]] - Device inventory
+- [[hosts|Hosts]] - Device inventory
 - [[indri]] - Primary server
 - [[gilbert]] - Development workstation
 - [[tailscale]] - ACLs, groups, tags
-- [[routing | Routing]] - DNS domains, port mappings
+- [[routing|Routing]] - DNS domains, port mappings
 
 ## Kubernetes
 
 Cluster configuration and application registry.
 
-- [[cluster | Cluster]] - Minikube specs, storage, networking
-- [[apps | Apps]] - ArgoCD application registry
+- [[cluster|Cluster]] - Minikube specs, storage, networking
+- [[apps|Apps]] - ArgoCD application registry
 - [[tailscale-operator]] - Tailscale ingress for k8s services
 - [[external-secrets]] - Secrets management
 
@@ -59,15 +59,15 @@ Cluster configuration and application registry.
 
 Configuration management for [[indri]]-hosted services.
 
-- [[reference/ansible/roles | Roles]] - Available ansible roles
+- [[roles]] - Available ansible roles
 
 ## Storage
 
 Network storage and backup configuration.
 
-- [[sifaka | Sifaka]] - Synology NAS configuration
+- [[sifaka|Sifaka]] - Synology NAS configuration
 - [[postgresql-storage]] - Database cluster
-- [[backups | Backups]] - Backup policy and schedule
+- [[backups|Backups]] - Backup policy and schedule
 
 ## Operations
 

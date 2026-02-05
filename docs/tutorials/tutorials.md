@@ -41,8 +41,8 @@ For those building their own homelab GitOps setup.
 | Tutorial | Audiences | Description |
 |----------|-----------|-------------|
 | [[replicating-blumeops]] | Replicator | Overview: building a similar environment |
-| [[tutorials/replication/tailscale-setup | Tailscale Setup]] | Replicator | Setting up Tailscale networking |
-| [[tutorials/replication/core-services | Core Services]] | Replicator | Forgejo and container registry |
-| [[tutorials/replication/kubernetes-bootstrap | Kubernetes Bootstrap]] | Replicator | Bootstrapping a Kubernetes cluster |
-| [[tutorials/replication/argocd-config | ArgoCD Config]] | Replicator | Configuring GitOps with ArgoCD |
-| [[tutorials/replication/observability-stack | Observability Stack]] | Replicator | Metrics, logs, and dashboards |
+| [[tailscale-setup|Tailscale Setup]] | Replicator | Setting up Tailscale networking |
+| [[core-services|Core Services]] | Replicator | Forgejo and container registry |
+| [[kubernetes-bootstrap|Kubernetes Bootstrap]] | Replicator | Bootstrapping a Kubernetes cluster |
+| [[argocd-config|ArgoCD Config]] | Replicator | Configuring GitOps with ArgoCD |
+| [[observability-stack|Observability Stack]] | Replicator | Metrics, logs, and dashboards |

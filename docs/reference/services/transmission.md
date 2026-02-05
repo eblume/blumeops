@@ -17,7 +17,7 @@ BitTorrent daemon, primarily for downloading ZIM archives for [[kiwix]].
 | **Tailscale URL** | https://torrent.tail8d86e.ts.net |
 | **Namespace** | `torrent` |
 | **Image** | `lscr.io/linuxserver/transmission:latest` |
-| **Storage** | NFS PVC from [[sifaka | Sifaka]] |
+| **Storage** | NFS PVC from [[sifaka|Sifaka]] |
 
 ## Storage Layout
 
@@ -43,11 +43,11 @@ When downloads complete, the zim-watcher CronJob detects new ZIMs and restarts K
 
 ## Monitoring
 
-Basic uptime via blackbox probe in [[alloy | Alloy]] k8s (Services Health dashboard).
+Basic uptime via blackbox probe in [[alloy|Alloy]] k8s (Services Health dashboard).
 
 Web UI shows: active/seeding/paused counts, speeds, disk usage.
 
 ## Related
 
 - [[kiwix]] - ZIM archive consumer
-- [[sifaka | Sifaka]] - Download storage
+- [[sifaka|Sifaka]] - Download storage

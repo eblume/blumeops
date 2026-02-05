@@ -38,7 +38,7 @@ You can start with a single machine and add storage later.
 
 Before deploying services, establish secure connectivity.
 
-**[[tutorials/replication/tailscale-setup|Setting Up Tailscale]]**
+**[[tailscale-setup|Setting Up Tailscale]]**
 - Create a tailnet and connect your devices
 - Configure ACLs for service access
 - Set up MagicDNS for convenient naming
@@ -49,7 +49,7 @@ This replaces: traditional VPNs, port forwarding, dynamic DNS
 
 Bootstrap the essential services that everything else depends on.
 
-**[[tutorials/replication/core-services | Core Services Setup]]**
+**[[core-services|Core Services Setup]]**
 - Set up [[forgejo]] for git hosting and CI/CD
 - Optionally set up [[zot]] container registry
 - Configure SSH access and deploy keys
@@ -60,7 +60,7 @@ Forgejo is central to GitOps - it's where your infrastructure definitions live a
 
 A cluster for running containerized workloads.
 
-**[[tutorials/replication/kubernetes-bootstrap|Bootstrapping Kubernetes]]**
+**[[kubernetes-bootstrap|Bootstrapping Kubernetes]]**
 - Install minikube (or k3s, kind, etc.)
 - Configure persistent storage
 - Expose the API securely via Tailscale
@@ -71,7 +71,7 @@ BlumeOps uses minikube for simplicity, but the patterns apply to any distributio
 
 Declarative, git-driven deployments.
 
-**[[tutorials/replication/argocd-config|Configuring ArgoCD]]**
+**[[argocd-config|Configuring ArgoCD]]**
 - Install ArgoCD in your cluster
 - Connect to your git repository
 - Deploy your first application
@@ -83,7 +83,7 @@ This is the heart of GitOps - changes in git automatically sync to your cluster.
 
 Know what's happening in your infrastructure.
 
-**[[tutorials/replication/observability-stack|Building the Observability Stack]]**
+**[[observability-stack|Building the Observability Stack]]**
 - Deploy Prometheus for metrics
 - Deploy Loki for logs
 - Deploy Grafana for dashboards
@@ -131,9 +131,9 @@ The principles (GitOps, IaC, observability) matter more than specific tools.
 
 ## Getting Started
 
-Begin with [[tutorials/replication/tailscale-setup]] - networking is the foundation everything else builds on.
+Begin with [[tailscale-setup]] - networking is the foundation everything else builds on.
 
 ## Related
 
-- [[reference/index]] - See BlumeOps' specific configurations
+- [[reference]] - See BlumeOps' specific configurations
 - [[contributing]] - Help improve BlumeOps instead

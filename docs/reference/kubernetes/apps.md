@@ -26,7 +26,7 @@ Registry of all applications deployed via [[argocd]].
 | `grafana` | monitoring | Helm chart (forge mirror) | [[grafana]] |
 | `grafana-config` | monitoring | `argocd/manifests/grafana-config/` | [[grafana]] |
 | `immich` | immich | Helm chart | [[immich]] |
-| `alloy-k8s` | alloy | `argocd/manifests/alloy-k8s/` | [[alloy | Alloy]] |
+| `alloy-k8s` | alloy | `argocd/manifests/alloy-k8s/` | [[alloy|Alloy]] |
 | `kube-state-metrics` | monitoring | `argocd/manifests/kube-state-metrics/` | K8s metrics |
 | `miniflux` | miniflux | `argocd/manifests/miniflux/` | [[miniflux]] |
 | `kiwix` | kiwix | `argocd/manifests/kiwix/` | [[kiwix]] |
@@ -45,4 +45,4 @@ Registry of all applications deployed via [[argocd]].
 ## Related
 
 - [[argocd]] - GitOps platform details
-- [[cluster | Cluster]] - Kubernetes infrastructure
+- [[cluster|Cluster]] - Kubernetes infrastructure

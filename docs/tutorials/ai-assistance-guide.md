@@ -62,9 +62,9 @@ Types (file suffix): `.feature`, `.bugfix`, `.infra`, `.doc`, `.ai`, `.misc`
 ### Wiki-Link Formatting
 
 Use simple wiki-links without alternate text or extra spaces:
-- Prefer `[[borgmatic]]` over `[[borgmatic | Borgmatic]]`
+- Prefer `[[borgmatic]]` over `[[borgmatic|Borgmatic]]`
 - Only use alternate text when grammatically warranted (e.g., `[[cluster|Kubernetes]]` reads better than `[[cluster]]`)
-- No spaces around the pipe: `[[path|Text]]` not `[[ path | Text ]]`
+- No spaces around the pipe: `[[path|Text]]` not `[[ path|Text ]]`
 
 When editing documentation, rewrite links to follow this convention as you encounter them.
 
@@ -108,7 +108,7 @@ For ArgoCD operations, use the `argocd` CLI directly:
 
 For AI agents building context:
 
-- [[reference/index|Reference Index]] - Entry point for technical details
+- [[reference|Reference]] - Entry point for technical details
 - [[hosts|Host Inventory]] - What hardware exists
 - [[apps|ArgoCD Apps]] - What's deployed in Kubernetes
 - [[routing|Routing]] - How services are exposed

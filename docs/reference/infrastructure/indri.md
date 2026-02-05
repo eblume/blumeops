@@ -26,11 +26,11 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 - [[zot]] - Container registry
 - [[jellyfin]] - Media server
 - [[borgmatic]] - Backup system
-- [[alloy | Alloy]] - Metrics/logs collector
+- [[alloy|Alloy]] - Metrics/logs collector
 - [[caddy]] - Reverse proxy for `*.ops.eblu.me`
 
 **Kubernetes (via minikube):**
-- [[apps | All k8s applications]]
+- [[apps|All k8s applications]]
 
 **GUI Applications (manual start required):**
 - Docker Desktop - Container runtime for minikube

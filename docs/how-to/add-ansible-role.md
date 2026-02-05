@@ -136,6 +136,6 @@ See [[alloy]] for how metrics are collected from textfiles.
 
 ## Related
 
-- [[reference/ansible/roles|Roles]] - Available roles reference
+- [[roles|Roles]] - Available roles reference
 - [[indri]] - Target host
 - [[observability]] - Metrics collection

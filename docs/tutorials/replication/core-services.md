@@ -10,7 +10,7 @@ tags:
 
 > **Audiences:** Replicator
 >
-> **Prerequisites:** [[tutorials/replication/tailscale-setup | Tailscale Setup]]
+> **Prerequisites:** [[tailscale-setup|Tailscale Setup]]
 
 This tutorial walks through setting up the foundational services that your GitOps infrastructure depends on: a git forge and optionally a container registry.
 
@@ -29,7 +29,7 @@ Forgejo runs directly on your server (not in Kubernetes) because Kubernetes depe
 
 ### Using Ansible (BlumeOps Approach)
 
-BlumeOps manages Forgejo via an Ansible role. See [[reference/ansible/roles | Ansible Roles]].
+BlumeOps manages Forgejo via an Ansible role. See [[roles|Ansible Roles]].
 
 ### Manual Installation
 
@@ -101,7 +101,7 @@ For getting started, you can skip this and use public registries.
 
 ## Next Steps
 
-- [[tutorials/replication/kubernetes-bootstrap | Bootstrap Kubernetes]] - Now that you have a git repo, set up your cluster
+- [[kubernetes-bootstrap|Bootstrap Kubernetes]] - Now that you have a git repo, set up your cluster
 - Configure Forgejo webhooks for ArgoCD (after ArgoCD is running)
 
 ## BlumeOps Specifics

@@ -7,7 +7,7 @@ tags:
 
 # Backup Policy
 
-Daily automated backups from [[indri]] to [[sifaka | Sifaka]] NAS.
+Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 
 ## Schedule
 
@@ -30,8 +30,8 @@ Daily automated backups from [[indri]] to [[sifaka | Sifaka]] NAS.
 
 | Database | Host | Method |
 |----------|------|--------|
-| miniflux | [[postgresql | pg.ops.eblu.me]] | pg_dump stream |
-| teslamate | [[postgresql | pg.ops.eblu.me]] | pg_dump stream |
+| miniflux | [[postgresql|pg.ops.eblu.me]] | pg_dump stream |
+| teslamate | [[postgresql|pg.ops.eblu.me]] | pg_dump stream |
 
 ## Sifaka-Native Data
 
@@ -56,7 +56,7 @@ Some data lives directly on [[sifaka]] rather than being backed up to it (photos
 
 ## Backup Target
 
-Repository: `/Volumes/backups/borg/` on [[sifaka | Sifaka]]
+Repository: `/Volumes/backups/borg/` on [[sifaka|Sifaka]]
 
 ## Monitoring
 
@@ -70,5 +70,5 @@ Dashboard: "Borgmatic Backups" in [[grafana]]
 ## Related
 
 - [[borgmatic]] - Backup system details
-- [[sifaka | Sifaka]] - Backup storage
+- [[sifaka|Sifaka]] - Backup storage
 - [[postgresql]] - Database backups

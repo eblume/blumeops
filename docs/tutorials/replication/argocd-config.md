@@ -198,7 +198,7 @@ BlumeOps uses manual sync for workloads, auto sync only for the `apps` Applicati
 
 ## Next Steps
 
-- [[tutorials/replication/observability-stack | Build observability]] - Monitor your deployments
+- [[observability-stack|Build observability]] - Monitor your deployments
 - Add more applications to your repo
 - Set up notifications for sync failures
 

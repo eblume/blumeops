@@ -14,7 +14,7 @@ This tutorial walks through deploying a new service to BlumeOps via ArgoCD, incl
 
 ## Prerequisites
 
-- Access to the [[tailscale | Tailscale]] network
+- Access to the [[tailscale|Tailscale]] network
 - `kubectl` configured with `minikube-indri` context
 - `argocd` CLI installed (via Brewfile: `brew bundle`)
 

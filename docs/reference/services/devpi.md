@@ -32,6 +32,6 @@ Root password stored in 1Password (blumeops vault), injected via ExternalSecret.
 
 ## Related
 
-- [[how-to/use-pypi-proxy]] - Client configuration and package uploads
+- [[use-pypi-proxy]] - Client configuration and package uploads
 - [[argocd]] - Deployment
 - [[1password]] - Secrets management

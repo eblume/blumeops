@@ -31,7 +31,7 @@ Services exposed via Tailscale Ingress are **not accessible** from:
 - Other Kubernetes pods (they're not Tailscale clients)
 - Docker containers on indri
 
-For pod-to-service communication, use [[routing | Caddy]] (`*.ops.eblu.me`) instead.
+For pod-to-service communication, use [[routing|Caddy]] (`*.ops.eblu.me`) instead.
 
 ## Related
 

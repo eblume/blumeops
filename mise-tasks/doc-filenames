@@ -33,12 +33,9 @@ def main() -> int:
     # Key: filename (without .md), Value: list of file paths
     filenames: dict[str, list[str]] = defaultdict(list)
 
-    # Scan all markdown files (excluding zk/, changelog.d/, and index.md files)
+    # Scan all markdown files (excluding zk/ and changelog.d/)
     for md_file in sorted(DOCS_DIR.rglob("*.md")):
         if "changelog.d" in md_file.parts or "zk" in md_file.parts:
-            continue
-        # Skip index.md files - they're expected to exist in multiple directories
-        if md_file.name == "index.md":
             continue
 
         rel_path = str(md_file.relative_to(DOCS_DIR))

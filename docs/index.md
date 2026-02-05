@@ -8,8 +8,8 @@ Welcome to the BlumeOps documentation.
 
 ## Sections
 
-- [[tutorials/index | Tutorials]] - Learning-oriented guides for getting started
-- [[reference/index | Reference]] - Technical specifications and service details
-- [[how-to/index | How-to]] - Task-oriented instructions for common operations
-- [[explanation/index | Explanation]] - Understanding the "why" behind BlumeOps
+- [[tutorials|Tutorials]] - Learning-oriented guides for getting started
+- [[reference|Reference]] - Technical specifications and service details
+- [[how-to|How-to]] - Task-oriented instructions for common operations
+- [[explanation|Explanation]] - Understanding the "why" behind BlumeOps
 - [[CHANGELOG]] - Release history and changes

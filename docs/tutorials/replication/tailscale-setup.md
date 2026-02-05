@@ -112,8 +112,8 @@ Tags must be defined in ACLs before use.
 ## Next Steps
 
 With networking established:
-- [[tutorials/replication/core-services | Set Up Core Services]] - Install Forgejo and optionally a container registry
-- [[tutorials/replication/kubernetes-bootstrap | Bootstrap Kubernetes]] - Your cluster will join the tailnet
+- [[core-services|Set Up Core Services]] - Install Forgejo and optionally a container registry
+- [[kubernetes-bootstrap|Bootstrap Kubernetes]] - Your cluster will join the tailnet
 
 ## BlumeOps Specifics
 

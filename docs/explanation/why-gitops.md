@@ -44,8 +44,8 @@ BlumeOps uses layered GitOps:
 
 | Layer | Tool | What it manages |
 |-------|------|-----------------|
-| **Tailnet** | [[reference/infrastructure/tailscale|Pulumi]] | ACLs, tags, DNS |
-| **Host config** | [[reference/ansible/roles|Ansible]] | Services on [[indri]] |
+| **Tailnet** | [[tailscale|Pulumi]] | ACLs, tags, DNS |
+| **Host config** | [[roles|Ansible]] | Services on [[indri]] |
 | **Kubernetes** | [[argocd|ArgoCD]] | Containerized workloads |
 
 Each layer has its own reconciliation loop:
@@ -67,4 +67,4 @@ But for BlumeOps, the trade-off is worth it. The infrastructure is complex enoug
 
 - [[architecture]] - How the pieces fit together
 - [[argocd]] - Kubernetes GitOps
-- [[reference/ansible/roles|Ansible roles]] - Host configuration
+- [[roles|Ansible roles]] - Host configuration
