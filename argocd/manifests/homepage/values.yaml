@@ -157,10 +157,10 @@ config:
               icon: 1password
         - Pulumi:
             - href: https://app.pulumi.com/eblume/blumeops-tailnet
-              icon: pulumi
+              icon: si-pulumi
         - ArgoCD:
             - href: https://argocd.ops.eblu.me
-              icon: argocd
+              icon: argo-cd
 
   # Widgets on the page (info bar at top)
   widgets:
