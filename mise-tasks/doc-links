@@ -108,12 +108,17 @@ def main() -> int:
     path_links: list[tuple[str, int, str]] = []
     spaced_links: list[tuple[str, int, str]] = []
 
+    # Track which doc stems are linked-to from other docs (for orphan detection)
+    all_doc_stems: set[str] = set(filename_counts.keys())
+    linked_stems: set[str] = set()
+
     # Scan all markdown files for wiki-links (excluding changelog.d/)
     for md_file in sorted(DOCS_DIR.rglob("*.md")):
         if "changelog.d" in md_file.parts:
             continue
 
         rel_path = str(md_file.relative_to(DOCS_DIR))
+        source_stem = md_file.stem
         links = extract_wikilinks(md_file)
 
         for target, line_num, has_spaces in links:
@@ -128,6 +133,9 @@ def main() -> int:
                 ambiguous_links.append((rel_path, line_num, target, filename_counts[target]))
             elif target not in valid_targets:
                 broken_links.append((rel_path, line_num, target))
+            elif target != source_stem:
+                # Valid link to a different doc — record it for orphan detection
+                linked_stems.add(target)
 
     # Print results
     console.print("[bold]Wiki-Link Validation[/bold]")
@@ -203,6 +211,26 @@ def main() -> int:
         console.print(table)
         console.print()
         console.print("Each wiki-link target must match a filename or path in docs/.")
+        console.print()
+
+    # Orphan detection: docs not linked from any other doc
+    ORPHAN_EXCEPTIONS = {"index"}
+    orphan_stems = sorted(all_doc_stems - linked_stems - ORPHAN_EXCEPTIONS)
+    if orphan_stems:
+        has_errors = True
+        console.print("[bold red]Orphan Documents Found[/bold red]")
+        console.print("These docs are not linked from any other document.")
+        console.print()
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("File")
+        table.add_column("Stem")
+
+        for stem in orphan_stems:
+            paths = filename_counts[stem]
+            for path in paths:
+                table.add_row(f"{path}.md", stem)
+
+        console.print(table)
         console.print()
 
     if has_errors:

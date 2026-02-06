@@ -1,0 +1,101 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["rich>=13.0.0", "typer>=0.9.0"]
+# ///
+#MISE description="Report docs by git-last-modified date, highlighting stale ones"
+"""Report documentation files sorted by git-last-modified date.
+
+Scans all markdown files in docs/ (excluding changelog.d/) and shows
+their last modification date according to git. Docs older than the
+threshold (default 180 days) are highlighted as stale.
+
+This is informational only — it always exits 0.
+
+Usage: mise run doc-stale [-- --threshold 90]
+"""
+
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Annotated
+
+import typer
+from rich.console import Console
+from rich.table import Table
+
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+
+def git_last_modified(file_path: Path) -> datetime | None:
+    """Get the last git commit date for a file."""
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%aI", "--", str(file_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        date_str = result.stdout.strip()
+        if not date_str:
+            return None
+        return datetime.fromisoformat(date_str)
+    except subprocess.CalledProcessError:
+        return None
+
+
+def main(
+    threshold: Annotated[int, typer.Option(help="Days before a doc is considered stale")] = 180,
+) -> None:
+    console = Console()
+    threshold_days = threshold
+    console.print("[bold]Documentation Staleness Report[/bold]")
+    console.print(f"Threshold: {threshold_days} days")
+    console.print()
+
+    now = datetime.now(timezone.utc)
+    entries: list[tuple[str, datetime, int, bool]] = []
+
+    for md_file in sorted(DOCS_DIR.rglob("*.md")):
+        if "changelog.d" in md_file.parts:
+            continue
+
+        last_modified = git_last_modified(md_file)
+        if last_modified is None:
+            continue
+
+        rel_path = str(md_file.relative_to(DOCS_DIR))
+        age_days = (now - last_modified).days
+        is_stale = age_days > threshold_days
+        entries.append((rel_path, last_modified, age_days, is_stale))
+
+    # Sort oldest-first
+    entries.sort(key=lambda e: e[1])
+
+    stale_count = sum(1 for e in entries if e[3])
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("File")
+    table.add_column("Last Modified", justify="right")
+    table.add_column("Age (days)", justify="right")
+    table.add_column("Status")
+
+    for rel_path, last_modified, age_days, is_stale in entries:
+        date_str = last_modified.strftime("%Y-%m-%d")
+        if is_stale:
+            table.add_row(
+                f"[red]{rel_path}[/red]",
+                f"[red]{date_str}[/red]",
+                f"[red]{age_days}[/red]",
+                "[red]STALE[/red]",
+            )
+        else:
+            table.add_row(rel_path, date_str, str(age_days), "[green]OK[/green]")
+
+    console.print(table)
+    console.print()
+    console.print(f"Total: {len(entries)} docs, {stale_count} stale")
+
+if __name__ == "__main__":
+    typer.run(main)

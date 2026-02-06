@@ -1,3 +1,4 @@
 [tools]
 "pipx:ansible-core" = { version = "latest", uvx = "true", uvx_args = "--with botocore --with boto3" }
+"pipx:pre-commit" = { version = "latest", uvx = "true" }
 pulumi = "latest"

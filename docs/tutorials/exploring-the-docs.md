@@ -27,8 +27,8 @@ The docs follow the [Diataxis](https://diataxis.fr/) framework:
 ### For Erich (Owner)
 
 You probably want quick access to operational details:
-- [[how-to|How-to guides]] for common operations (deploy, troubleshoot, update ACLs)
-- [[reference|Reference]] has service URLs, commands, and config locations
+- [[how-to]] guides for common operations (deploy, troubleshoot, update ACLs)
+- [[reference]] has service URLs, commands, and config locations
 - [[ai-assistance-guide]] explains how to work effectively with Claude
 - Run `mise run zk-docs` to prime AI context with key documentation
 
@@ -36,30 +36,29 @@ You probably want quick access to operational details:
 
 Context for effective assistance:
 - Read [[ai-assistance-guide]] for operational conventions
-- [[reference|Reference]] has the technical specifics you'll need
+- [[reference]] has the technical specifics you'll need
 - The repo's `CLAUDE.md` has critical rules (especially the kubectl context requirement)
 
 ### For External Readers
 
 Understanding what this is:
-- [[explanation|Explanation]] covers the "why" behind design decisions
-- [[reference|Reference]] shows what's actually running
+- [[explanation]] covers the "why" behind design decisions
+- [[reference]] shows what's actually running
 - Browse service pages to see specific implementations
 
 ### For Contributors
 
 Getting started with changes:
 - [[contributing]] walks through the workflow
-- [[how-to|How-to guides]] for specific tasks (deploy services, add roles)
-- [[reference|Reference]] tells you where things live
+- [[how-to]] guides for specific tasks (deploy services, add roles)
+- [[reference]] tells you where things live
 
 ### For Replicators
 
 Replicators are people who want to build their own similar homelab GitOps setup, using BlumeOps as inspiration.
 
-- [[replicating-blumeops]] provides the overview
-- [[explanation|Explanation]] covers architecture and design rationale
-- The `replication/` tutorials go deep on components
+- [[replicating-blumeops]] provides the overview, with linked tutorials that go deep on individual components
+- [[explanation]] covers architecture and design rationale
 - Reference pages show specific configuration choices
 
 ## Using Wiki Links
@@ -77,7 +76,13 @@ Pre-commit hooks automatically validate that all wiki-links point to existing fi
 The `zk-docs` mise task concatenates key documentation files for AI context:
 
 ```bash
-mise run zk-docs
+mise run zk-docs -- --style=header --color=never --decorations=always
 ```
 
 This outputs the AI assistance guide, reference index, how-to index, architecture overview, and tutorials index - providing Claude with essential context for BlumeOps operations.
+
+## Related
+
+- [[tutorials]] - Parent index of all tutorials
+- [[update-documentation]] - How to publish doc changes
+- [[review-documentation]] - Periodic doc review process

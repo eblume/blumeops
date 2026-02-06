@@ -1,0 +1,89 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml>=6.0", "rich>=13.0.0"]
+# ///
+#MISE description="Print frontmatter tag inventory across all docs"
+"""Print every frontmatter tag with usage count and file list.
+
+Scans all markdown files in docs/ (excluding changelog.d/) for YAML
+frontmatter tags, then displays a table sorted by count showing which
+docs use each tag.
+
+This is informational only — it always exits 0.
+
+Usage: mise run doc-tags
+"""
+
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+import yaml
+from rich.console import Console
+from rich.table import Table
+
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+
+def extract_frontmatter(file_path: Path) -> dict | None:
+    """Extract YAML frontmatter from a markdown file."""
+    content = file_path.read_text()
+    if not content.startswith("---"):
+        return None
+
+    end_idx = content.find("---", 3)
+    if end_idx == -1:
+        return None
+
+    frontmatter_text = content[3:end_idx].strip()
+    try:
+        return yaml.safe_load(frontmatter_text) or {}
+    except yaml.YAMLError:
+        return None
+
+
+def main() -> int:
+    console = Console()
+    console.print("[bold]Documentation Tag Inventory[/bold]")
+    console.print()
+
+    # tag -> list of file paths
+    tag_files: dict[str, list[str]] = defaultdict(list)
+
+    for md_file in sorted(DOCS_DIR.rglob("*.md")):
+        if "changelog.d" in md_file.parts:
+            continue
+
+        frontmatter = extract_frontmatter(md_file)
+        if not frontmatter:
+            continue
+
+        tags = frontmatter.get("tags", [])
+        if not isinstance(tags, list):
+            continue
+
+        rel_path = str(md_file.relative_to(DOCS_DIR))
+        for tag in tags:
+            tag_files[str(tag)].append(rel_path)
+
+    # Sort by count descending, then alphabetically
+    sorted_tags = sorted(tag_files.items(), key=lambda t: (-len(t[1]), t[0]))
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Tag")
+    table.add_column("Count", justify="right")
+    table.add_column("Files")
+
+    for tag, files in sorted_tags:
+        table.add_row(tag, str(len(files)), "\n".join(files))
+
+    console.print(table)
+    console.print()
+    console.print(f"Total: {len(sorted_tags)} unique tags across {sum(len(f) for f in tag_files.values())} usages")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

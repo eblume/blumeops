@@ -9,20 +9,19 @@ tags:
 
 How to configure clients and publish packages to [[devpi]].
 
-## Configure pip
+## Configure pip/uv
 
-Create `~/.config/pip/pip.conf`:
+Point pip and uv at the proxy via environment variables:
 
-```ini
-[global]
-index-url = https://pypi.ops.eblu.me/root/pypi/+simple/
-trusted-host = pypi.ops.eblu.me
-```
-
-Track with chezmoi:
 ```bash
-chezmoi add ~/.config/pip/pip.conf
+export PIP_INDEX_URL="https://pypi.ops.eblu.me/root/pypi/+simple/"
+export UV_INDEX_URL="https://pypi.ops.eblu.me/root/pypi/+simple/"
 ```
+
+Unset both to fall back to public PyPI (e.g. when [[indri]] is offline).
+
+The [dotfiles repo](https://github.com/eblume/dotfiles) has shell config
+that manages this toggle.
 
 ## Upload Packages
 

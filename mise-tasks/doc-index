@@ -1,0 +1,117 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["rich>=13.0.0"]
+# ///
+#MISE description="Check that every doc is referenced in its category index"
+"""Check that every doc in a Diataxis category is referenced in its index.
+
+Each Diataxis category (tutorials, reference, how-to, explanation) has an
+index file that should wiki-link to every doc in that category directory.
+
+A doc is considered referenced if its filename stem appears as a wiki-link
+target (e.g., alloy.md is matched by [[alloy]]) in the category index.
+
+Index files are excluded from the self-check.
+
+Usage: mise run doc-index
+"""
+
+import re
+import sys
+from pathlib import Path
+
+from rich.console import Console
+from rich.markup import escape
+from rich.table import Table
+
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+# Category directories and their index files
+CATEGORIES = {
+    "tutorials": "tutorials/tutorials.md",
+    "reference": "reference/reference.md",
+    "how-to": "how-to/how-to.md",
+    "explanation": "explanation/explanation.md",
+}
+
+# Regex to match wiki-links: [[Target]] or [[Target|Display]]
+WIKILINK_PATTERN = re.compile(r"\[\[([^\]|]+)(\|[^\]]+)?\]\]")
+
+# Regex to match inline code (backticks)
+INLINE_CODE_PATTERN = re.compile(r"`[^`]+`")
+
+
+def extract_link_targets(file_path: Path) -> set[str]:
+    """Extract all wiki-link targets from a file (ignoring inline code)."""
+    content = file_path.read_text()
+    targets: set[str] = set()
+
+    for line in content.splitlines():
+        line_without_code = INLINE_CODE_PATTERN.sub("", line)
+        for match in WIKILINK_PATTERN.finditer(line_without_code):
+            targets.add(match.group(1).strip())
+
+    return targets
+
+
+def main() -> int:
+    console = Console()
+    console.print("[bold]Category Index Validation[/bold]")
+    console.print()
+
+    has_errors = False
+    missing: list[tuple[str, str, str]] = []  # (category, stem, file)
+
+    for category, index_rel in CATEGORIES.items():
+        index_path = DOCS_DIR / index_rel
+        if not index_path.exists():
+            console.print(f"[yellow]Warning: index file not found: {index_rel}[/yellow]")
+            continue
+
+        category_dir = DOCS_DIR / category
+        if not category_dir.is_dir():
+            continue
+
+        # Get all wiki-link targets from the index
+        index_targets = extract_link_targets(index_path)
+        index_stem = index_path.stem
+
+        # Check each doc in the category directory
+        for md_file in sorted(category_dir.rglob("*.md")):
+            if "changelog.d" in md_file.parts:
+                continue
+            stem = md_file.stem
+            # Skip the index file itself
+            if stem == index_stem:
+                continue
+            if stem not in index_targets:
+                rel_path = str(md_file.relative_to(DOCS_DIR))
+                missing.append((category, stem, rel_path))
+
+    if missing:
+        has_errors = True
+        console.print("[bold red]Docs Missing From Category Index[/bold red]")
+        console.print("These docs are not wiki-linked from their category index file.")
+        console.print()
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Category")
+        table.add_column("File")
+        table.add_column("Add To")
+
+        for category, stem, rel_path in missing:
+            table.add_row(category, rel_path, CATEGORIES[category])
+
+        console.print(table)
+        console.print()
+
+    if has_errors:
+        return 1
+
+    console.print(f"Checked {len(CATEGORIES)} category indexes.")
+    console.print("[bold green]All docs are referenced in their category index![/bold green]")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
