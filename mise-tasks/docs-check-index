@@ -14,7 +14,7 @@ target (e.g., alloy.md is matched by [[alloy]]) in the category index.
 
 Index files are excluded from the self-check.
 
-Usage: mise run doc-index
+Usage: mise run docs-check-index
 """
 
 import re

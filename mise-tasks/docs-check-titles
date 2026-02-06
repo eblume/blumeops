@@ -15,7 +15,7 @@ so titles must be:
 - Unique across the documentation
 - Lowercase with hyphens (no spaces or uppercase)
 
-Usage: mise run doc-titles
+Usage: mise run docs-check-titles
 """
 
 import re

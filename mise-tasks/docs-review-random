@@ -11,7 +11,7 @@ changelog.d/), selects one at random, and displays it for review.
 
 Useful for periodic knowledge base maintenance and verification.
 
-Usage: mise run doc-random
+Usage: mise run docs-review-random
 """
 
 import random

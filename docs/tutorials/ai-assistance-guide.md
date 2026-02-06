@@ -94,13 +94,13 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 | `dns-up` | Apply DNS changes via Pulumi |
 | `tailnet-preview` | Preview Tailscale ACL changes |
 | `tailnet-up` | Apply Tailscale ACL changes via Pulumi |
-| `doc-links` | Validate wiki-links in documentation (includes orphan detection) |
-| `doc-index` | Check every doc is referenced in its category index |
-| `doc-titles` | Check for duplicate doc titles |
-| `doc-filenames` | Check for duplicate doc filenames |
-| `doc-stale` | Report docs by last-modified date, highlight stale ones |
-| `doc-tags` | Print frontmatter tag inventory across all docs |
-| `doc-random` | Select a random doc card for review |
+| `docs-check-links` | Validate wiki-links in documentation (includes orphan detection) |
+| `docs-check-index` | Check every doc is referenced in its category index |
+| `docs-check-titles` | Check for duplicate doc titles |
+| `docs-check-filenames` | Check for duplicate doc filenames |
+| `docs-review-stale` | Report docs by last-modified date, highlight stale ones |
+| `docs-review-tags` | Print frontmatter tag inventory across all docs |
+| `docs-review-random` | Select a random doc card for review |
 | `indri-runner-logs` | View Forgejo workflow logs from local runner |
 
 For ArgoCD operations, use the `argocd` CLI directly:

@@ -13,7 +13,7 @@ cause wiki-link resolution issues.
 With Quartz, wiki-links like [[filename]] resolve by filename,
 so filenames must be unique across the documentation.
 
-Usage: mise run doc-filenames
+Usage: mise run docs-check-filenames
 """
 
 import sys

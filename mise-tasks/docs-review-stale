@@ -12,7 +12,7 @@ threshold (default 180 days) are highlighted as stale.
 
 This is informational only — it always exits 0.
 
-Usage: mise run doc-stale [-- --threshold 90]
+Usage: mise run docs-review-stale [-- --threshold 90]
 """
 
 import subprocess

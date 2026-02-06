@@ -15,7 +15,7 @@ How to periodically review and maintain the BlumeOps knowledge base.
 Select a random documentation card for review:
 
 ```bash
-mise run doc-random
+mise run docs-review-random
 ```
 
 This displays a random card with a review checklist to guide your assessment.
@@ -74,7 +74,7 @@ If changes are pending, investigate whether docs or infrastructure is stale.
 
 ## When to Review
 
-Consider running `mise run doc-random` during:
+Consider running `mise run docs-review-random` during:
 
 - Start of work sessions (quick maintenance)
 - After major infrastructure changes (verify docs reflect reality)
@@ -86,7 +86,7 @@ If a card needs updates:
 
 1. Create a feature branch
 2. Make the edits
-3. Run `mise run doc-links` to verify links
+3. Run `mise run docs-check-links` to verify links
 4. Create a PR for review
 
 See [[update-documentation]] for publishing changes.

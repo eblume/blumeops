@@ -12,7 +12,7 @@ docs use each tag.
 
 This is informational only — it always exits 0.
 
-Usage: mise run doc-tags
+Usage: mise run docs-review-tags
 """
 
 import sys

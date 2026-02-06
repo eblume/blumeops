@@ -92,27 +92,27 @@ repos:
   # Documentation validation
   - repo: local
     hooks:
-      - id: doc-titles
-        name: doc-titles
-        entry: mise run doc-titles
+      - id: docs-check-titles
+        name: docs-check-titles
+        entry: mise run docs-check-titles
         language: system
         files: ^docs/.*\.md$
         pass_filenames: false
-      - id: doc-filenames
-        name: doc-filenames
-        entry: mise run doc-filenames
+      - id: docs-check-filenames
+        name: docs-check-filenames
+        entry: mise run docs-check-filenames
         language: system
         files: ^docs/.*\.md$
         pass_filenames: false
-      - id: doc-links
-        name: doc-links
-        entry: mise run doc-links
+      - id: docs-check-links
+        name: docs-check-links
+        entry: mise run docs-check-links
         language: system
         files: ^docs/.*\.md$
         pass_filenames: false
-      - id: doc-index
-        name: doc-index
-        entry: mise run doc-index
+      - id: docs-check-index
+        name: docs-check-index
+        entry: mise run docs-check-index
         language: system
         files: ^docs/.*\.md$
         pass_filenames: false

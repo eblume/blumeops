@@ -17,7 +17,7 @@ Wiki-link formats supported:
 Path-based links (containing '/') are NOT supported to ensure all
 filenames are unique and links work correctly in obsidian.nvim.
 
-Usage: mise run doc-links
+Usage: mise run docs-check-links
 """
 
 import re
