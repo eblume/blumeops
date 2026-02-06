@@ -62,19 +62,22 @@ Or if you're at the console, use the Apple menu.
 
 ## Startup Procedure
 
-After indri boots, several things need manual attention.
+After indri boots, most services recover automatically. Only a few things need manual attention.
 
-### 1. Start GUI Applications
+**What autostarts:** Docker Desktop, brew services (Forgejo, Caddy), and all mcquack LaunchAgent services (Zot, Alloy, Borgmatic, metrics collectors).
 
-These must be started manually after reboot. Log in to indri (via Screen Sharing or physically) and launch:
+**What needs manual action:** Amphetamine, AutoMounter, and minikube (including its Tailscale serve port).
+
+### 1. Log In and Start GUI Apps
+
+Log in to indri (via Screen Sharing or physically) and launch:
 
 | App | Purpose | Launch Method |
 |-----|---------|---------------|
-| **Docker Desktop** | Container runtime for minikube | Spotlight or `/Applications/Docker.app` |
 | **Amphetamine** | Prevents sleep | Spotlight or App Store apps |
 | **AutoMounter** | Mounts sifaka SMB shares to `/Volumes/` | Spotlight or App Store apps |
 
-Wait for Docker Desktop to fully start (whale icon in menubar stops animating).
+Docker Desktop autostarts on login. Wait for it to finish starting (whale icon in menubar stops animating) before proceeding.
 
 ### 2. Verify Sifaka Mounts
 
@@ -88,36 +91,28 @@ You should see: `allisonflix`, `backups`, `music`, `photos`, `torrents` (or simi
 
 If mounts are missing, open AutoMounter and trigger a reconnect.
 
-### 3. Start Minikube
+### 3. Fix Minikube Remote Access
+
+Minikube uses the Docker driver, which assigns a **random API server port** on each start. After a reboot, the Tailscale serve proxy (`k8s.tail8d86e.ts.net`) will still point to the old port, breaking remote `kubectl` access.
+
+Run the minikube ansible role to detect the new port and update Tailscale serve:
 
 ```bash
-ssh indri 'minikube start'
+mise run provision-indri -- --tags minikube
 ```
 
-This starts the Kubernetes cluster inside Docker. It may take a few minutes as all pods come up.
+This will:
+- Start minikube if it hasn't started yet
+- Detect the current API server port
+- Update `tailscale serve` to forward to the correct port
 
-Monitor pod startup:
+You can verify remote access works:
 
 ```bash
-kubectl --context=minikube-indri get pods -A -w
+kubectl --context=minikube-indri get nodes
 ```
 
-### 4. Verify Native Services
-
-LaunchAgent services should start automatically. Check them:
-
-```bash
-ssh indri 'launchctl list | grep mcquack'
-ssh indri 'brew services list | grep forgejo'
-```
-
-If any are missing, Ansible can restore them:
-
-```bash
-mise run provision-indri
-```
-
-### 5. Run Health Check
+### 4. Run Health Check
 
 Once everything is up, verify all services:
 
