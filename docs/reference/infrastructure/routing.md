@@ -2,7 +2,7 @@
 title: service-routing
 tags:
   - infrastructure
-  - network
+  - networking
 ---
 
 # Service Routing

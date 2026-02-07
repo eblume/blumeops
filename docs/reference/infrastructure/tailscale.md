@@ -2,7 +2,7 @@
 title: tailscale
 tags:
   - infrastructure
-  - network
+  - networking
 ---
 
 # Tailscale

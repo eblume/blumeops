@@ -38,7 +38,7 @@ When making changes, add a changelog fragment to `docs/changelog.d/`:
 
 ```bash
 # Format: <identifier>.<type>.md
-# Types: feature, bugfix, infra, doc, misc
+# Types: feature, bugfix, infra, doc, ai, misc
 
 # Using branch name (preferred)
 echo "Add new feature X" > docs/changelog.d/my-feature.feature.md
@@ -56,6 +56,7 @@ Fragments are automatically collected into `CHANGELOG.md` (at repo root) during 
 | `bugfix` | `bugfix/` | Bug fixes |
 | `infra` | `infra/` | Infrastructure changes |
 | `doc` | `doc/` | Documentation updates |
+| `ai` | `ai/` | AI assistance changes |
 | `misc` | `misc/` | Other changes |
 
 ## Runner Environment

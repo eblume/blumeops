@@ -3,7 +3,7 @@ title: forgejo
 tags:
   - service
   - git
-  - cicd
+  - ci-cd
 ---
 
 # Forgejo
