@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.4.1] - 2026-02-08
+
+### Documentation
+
+- Remove docs-check-titles pre-commit hook, add repo links to homepage, and test duplicate frontmatter titles.
+
+
 ## [v1.4.0] - 2026-02-08
 
 ### Features
