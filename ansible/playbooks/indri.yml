@@ -96,7 +96,7 @@
       ansible.builtin.set_fact:
         forgejo_api_token: "{{ _forgejo_api_token.stdout }}"
         forgejo_secret_argocd_token: "{{ _forgejo_argocd_token.stdout }}"
-        forgejo_secret_fly_deploy_token: "{{ _fly_deploy_token.stdout }}"
+        forgejo_secret_fly_deploy_token: "{{ _fly_deploy_token.stdout | regex_replace('^\"|\"$', '') }}"
       no_log: true
       tags: [forgejo_actions_secrets]
 
