@@ -125,17 +125,28 @@ def main() -> int:
             if has_spaces:
                 # Links with spaces in target or around pipe are not allowed
                 spaced_links.append((rel_path, line_num, target))
-            elif "/" in target:
+                continue
+
+            # Handle anchor links: [[#Heading]] or [[file#Heading]]
+            # Strip the #fragment for validation; pure anchors (#Heading) skip file check
+            file_target = target
+            if "#" in target:
+                file_target = target.split("#", 1)[0]
+                if not file_target:
+                    # Pure in-page anchor like [[#Break-glass shutoff]] — always valid
+                    continue
+
+            if "/" in file_target:
                 # Path-based links are not allowed - use simple filenames only
                 path_links.append((rel_path, line_num, target))
-            elif target in ambiguous_filenames:
+            elif file_target in ambiguous_filenames:
                 # Link uses an ambiguous filename - needs to be renamed
-                ambiguous_links.append((rel_path, line_num, target, filename_counts[target]))
-            elif target not in valid_targets:
+                ambiguous_links.append((rel_path, line_num, target, filename_counts[file_target]))
+            elif file_target not in valid_targets:
                 broken_links.append((rel_path, line_num, target))
-            elif target != source_stem:
+            elif file_target != source_stem:
                 # Valid link to a different doc — record it for orphan detection
-                linked_stems.add(target)
+                linked_stems.add(file_target)
 
     # Print results
     console.print("[bold]Wiki-Link Validation[/bold]")

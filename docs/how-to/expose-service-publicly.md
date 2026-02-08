@@ -2,197 +2,698 @@
 title: Expose a Service Publicly
 tags:
   - how-to
-  - cloudflare
+  - fly-io
+  - tailscale
   - networking
+aliases: []
+id: expose-service-publicly
 ---
 
-# Expose a Service Publicly via Cloudflare Tunnel
+# Expose a Service Publicly via Fly.io + Tailscale
 
-> **Status:** Plan — not yet implemented. Execute phases in order when ready.
+> **Status:** Plan — not yet implemented. First target: `docs.eblu.me`.
 
-This guide describes how to expose a BlumeOps service to the public internet securely using Cloudflare as a CDN and DDoS shield, with a Cloudflare Tunnel creating an outbound-only connection that never exposes the home IP.
-
-The first service to expose is `docs.eblu.me`. The pattern is reusable for future services.
+This guide describes how to expose a BlumeOps service to the public internet
+using a reverse proxy container on [Fly.io](https://fly.io) that tunnels back
+to [[indri]] over [[tailscale]]. The approach keeps the home IP hidden,
+requires no changes to existing infrastructure (`*.ops.eblu.me`, [[caddy]],
+DNS), and is reusable for multiple services.
 
 ## Architecture
 
 ```
-Internet → docs.eblu.me (Cloudflare proxied CNAME)
+Internet → <service>.eblu.me
                │
-         Cloudflare Edge (CDN, WAF, DDoS protection)
+         Fly.io edge (Anycast, TLS via Let's Encrypt)
                │
-         Cloudflare Tunnel (outbound from k8s)
+         Fly.io VM (nginx reverse proxy + Tailscale)
+               │  (WireGuard tunnel)
+         tailnet (tail8d86e.ts.net)
                │
-         cloudflared pod in minikube
+         <service>.tail8d86e.ts.net (Tailscale ingress)
                │
-         docs k8s Service (ClusterIP, port 80)
-               │
-         docs pod (nginx + Quartz static site)
-
-Tailnet → *.ops.eblu.me (unchanged, DNS-only to Tailscale IP)
+         k8s Service → pod
 ```
+(The approach works similarly for non-k8s services via `tailscale serve`
+service definitions, eg. [[forgejo]] and [[zot]])
 
-All existing `*.ops.eblu.me` services remain private behind Tailscale. Only explicitly configured subdomains (like `docs.eblu.me`) are exposed publicly through Cloudflare.
+A single Fly.io container serves as the public-facing proxy for all exposed
+services. Each service gets a `server` block in the nginx config and a DNS
+CNAME. The container joins the tailnet via an ephemeral auth key and reaches
+backend services through Tailscale ingress endpoints.
 
-## Key Decisions
+Existing `*.ops.eblu.me` services remain private behind Tailscale — this
+approach does not touch [[caddy]], [[gandi]] DNS-01, or any other existing
+infrastructure. They can continue to operate in parallel for private access.
+
+## Key decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| DNS hosting | Move from [[gandi]] to Cloudflare (free) | CNAME/partial setup needs Business plan @ $200/mo |
-| Gandi role | Registrar only | Domain renewal, WHOIS. No more DNS hosting. |
-| Tunnel host | Kubernetes | ArgoCD managed, direct ClusterIP access, no Tailscale hop |
-| [[caddy]] TLS | Migrate to Cloudflare DNS-01 plugin | Gandi DNS-01 won't work after nameserver change |
-| Cloudflare account | Recover existing, instrument with IaC | |
+| Proxy host | Fly.io (free tier) | Managed container, no server to maintain via Ansible |
+| Tunnel | Tailscale (existing) | Already in use, WireGuard encryption, ACL control |
+| DNS | CNAME at [[gandi]] | No DNS migration needed, no Cloudflare dependency |
+| TLS (public) | Fly.io auto-provisions Let's Encrypt | No cert management, `$0.10/mo` per hostname |
+| TLS (origin) | Tailscale handles encryption | WireGuard tunnel encrypts all traffic |
+| CDN/cache | nginx `proxy_cache` in container | Per-service: aggressive for static sites, selective or disabled for dynamic services |
+| DDoS | Fly.io Anycast + nginx rate limiting | Not enterprise-grade; see [[#Break-glass shutoff]] |
+| IaC | `fly/` directory in repo, Pulumi for DNS + TS key | No well-maintained Fly.io Pulumi provider; `fly.toml` is the app's IaC |
 
-## Prerequisites
+## TLS in this architecture
 
-- Cloudflare account with `eblu.me` zone added (free plan)
-- Cloudflare API token stored in 1Password with scopes: Zone:DNS:Edit, Zone:Zone:Read, Account:Cloudflare Tunnel:Edit, Account:Account Settings:Read
-- Cloudflare account ID and zone ID noted
+There are three independent TLS segments — none involve Caddy:
 
-## Phase 0: Preparation (manual)
+1. **Browser → Fly.io edge**: Fly.io auto-provisions a Let's Encrypt
+   certificate for each custom domain (e.g., `docs.eblu.me`). Validated via
+   TLS-ALPN challenge — no DNS API needed.
+2. **nginx → Tailscale ingress**: nginx proxies to
+   `https://<service>.tail8d86e.ts.net`. The Tailscale ingress serves a
+   Tailscale-issued cert. nginx uses `proxy_ssl_verify off` since the
+   underlying tunnel is already encrypted.
+3. **WireGuard tunnel**: All Tailscale traffic is encrypted at the network
+   layer regardless of application-level TLS.
 
-1. Recover Cloudflare account access
-2. Add `eblu.me` zone (free plan) — Cloudflare scans existing records from Gandi
-3. **Do not change nameservers yet** — wait until Phase 3
-4. Create API token with the scopes listed above
-5. Store API token and account ID in 1Password (blumeops vault)
+Caddy continues to serve `*.ops.eblu.me` with its existing Gandi DNS-01
+certificates. The two TLS domains are completely independent.
 
-## Phase 1: Caddy TLS migration
+## External references
 
-**Why first**: Blocking dependency for the nameserver change. Once nameservers move to Cloudflare, Gandi LiveDNS can't serve DNS-01 ACME challenges.
+- [Tailscale on Fly.io](https://tailscale.com/kb/1132/flydotio) — official guide for running Tailscale in a Fly.io container
+- [Fly.io Custom Domains](https://fly.io/docs/networking/custom-domain/) — how Fly handles TLS for custom domains
+- [Home Assistant + Fly.io + Tailscale](https://community.home-assistant.io/t/expose-ha-to-the-internet-via-a-cloud-reverse-proxy-fly-io-and-a-vpn-tailscale-for-free-for-now-without-opening-ports/352118) — community guide describing this exact pattern
 
-### Caddy binary rebuild
+---
 
-Rebuild Caddy with `github.com/caddy-dns/cloudflare` instead of `github.com/caddy-dns/gandi` using `xcaddy` in `~/code/3rd/caddy/`.
+## One-time setup (first service)
 
-### Files to modify
+These steps establish the Fly.io proxy infrastructure. They only need to be done once.
 
-- `ansible/roles/caddy/templates/Caddyfile.j2` — change `dns gandi {env.GANDI_BEARER_TOKEN}` to `dns cloudflare {env.CF_API_TOKEN}`
-- `ansible/roles/caddy/templates/caddy-wrapper.sh.j2` — source Cloudflare API token instead of Gandi PAT
-- `ansible/roles/caddy/defaults/main.yml` — update token variable name
-- `ansible/playbooks/indri.yml` — add pre_task to fetch Cloudflare API token from 1Password, replace Gandi PAT fetch
+### Step 1: Fly.io account and app
 
-### Deployment sequence
+1. Create or recover a Fly.io account at https://fly.io (requires credit card for free tier)
+2. Install `flyctl`: `brew install flyctl`
+3. Authenticate: `fly auth login`
+4. Create the app: `fly apps create blumeops-proxy`
+5. Store the Fly.io deploy token in 1Password (blumeops vault):
+   - Generate: `fly tokens create deploy -a blumeops-proxy`
+   - Store as `fly-deploy-token` field
 
-1. Set up Cloudflare zone with all records (Phase 2)
-2. Prepare Caddy migration on a branch (this phase)
-3. Change nameservers at Gandi (Phase 3)
-4. Immediately deploy Caddy update: `mise run provision-indri -- --tags caddy`
-5. Caddy's next TLS renewal uses Cloudflare DNS-01
+### Step 2: Repository structure
 
-Existing certificates are valid for ~90 days, providing a grace window.
+Create the `fly/` directory at the repository root. This is separate from `containers/` because the image is built and deployed directly to Fly.io by `fly deploy` — it never goes through `registry.ops.eblu.me`.
 
-## Phase 2: Pulumi — Cloudflare IaC
+```
+fly/
+├── README.md           # Setup notes and context
+├── fly.toml            # Fly.io app configuration
+├── Dockerfile          # nginx + tailscale
+├── nginx.conf          # Reverse proxy + cache config
+└── start.sh            # Entrypoint: start tailscale, then nginx
+```
 
-Create a new Pulumi project at `pulumi/cloudflare/`.
+**`fly/fly.toml`** — app configuration:
 
-### Files to create
+```toml
+app = "blumeops-proxy"
+primary_region = "sjc"
 
-- `pulumi/cloudflare/Pulumi.yaml` — project definition (`blumeops-cloudflare`, python/uv)
-- `pulumi/cloudflare/Pulumi.eblu-me.yaml` — stack config (domain, account-id)
-- `pulumi/cloudflare/pyproject.toml` — deps: `pulumi>=3.0.0`, `pulumi-cloudflare>=5.0.0`
-- `pulumi/cloudflare/__main__.py`
+[build]
 
-### Pulumi program manages
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
 
-- Zone lookup for `eblu.me`
-- DNS records:
-  - `*.ops.eblu.me` A record → Tailscale IP, **proxied=False** (grey cloud, private)
-  - `ops.eblu.me` A record → Tailscale IP, **proxied=False**
-  - `docs.eblu.me` CNAME → `<tunnel-id>.cfargotunnel.com`, **proxied=True** (orange cloud, CDN)
-- Cloudflare Tunnel resource
-- Tunnel config (ingress: `docs.eblu.me` → `http://docs.docs.svc.cluster.local:80`)
-- Cache rules for static docs site (edge TTL: 1 day, browser TTL: 1 hour)
-- Zone security settings (SSL: full, min TLS 1.2, always HTTPS)
+[checks]
+  [checks.health]
+    port = 8080
+    type = "http"
+    interval = "30s"
+    timeout = "5s"
+    path = "/healthz"
+```
 
-### New mise tasks
+**`fly/Dockerfile`** — nginx + tailscale:
 
-Following the `dns-preview`/`dns-up` pattern:
+```dockerfile
+FROM nginx:alpine
 
-- `mise-tasks/cloudflare-preview` — `pulumi preview` with 1Password token injection
-- `mise-tasks/cloudflare-up` — `pulumi up` with 1Password token injection
+# Copy tailscale binaries from official image
+COPY --from=docker.io/tailscale/tailscale:stable \
+    /usr/local/bin/tailscaled /usr/local/bin/tailscaled
+COPY --from=docker.io/tailscale/tailscale:stable \
+    /usr/local/bin/tailscale /usr/local/bin/tailscale
 
-Keep `pulumi/gandi/` until migration is confirmed working. Then `pulumi destroy` the Gandi stack and archive the code.
+RUN mkdir -p /var/run/tailscale /var/lib/tailscale
 
-## Phase 3: DNS migration
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
 
-### Pre-migration checklist
+EXPOSE 8080
 
-- [ ] Cloudflare zone active with all records (Phase 2)
-- [ ] Caddy migration branch ready (Phase 1)
-- [ ] Cloudflare Tunnel created and configured (Phase 2)
-- [ ] cloudflared running in k8s (Phase 4)
+CMD ["/start.sh"]
+```
 
-### Steps
+**`fly/start.sh`** — entrypoint:
 
-1. At Gandi registrar dashboard: change nameservers to Cloudflare's assigned NS
-2. Deploy Caddy update immediately: `mise run provision-indri -- --tags caddy`
-3. Monitor propagation: `dig +trace docs.eblu.me`, `dig +trace forge.ops.eblu.me`
-4. Verify tailnet services still work from tailnet clients
-5. Verify `docs.eblu.me` resolves publicly
+```bash
+#!/bin/sh
+set -e
 
-### Rollback
+# Start tailscale in userspace networking mode (no TUN device needed)
+tailscaled --tun=userspace-networking --statedir=/var/lib/tailscale &
+sleep 2
 
-Change nameservers back to Gandi's at registrar. Everything reverts.
+# Authenticate and join tailnet
+tailscale up --authkey="${TS_AUTHKEY}" --hostname=flyio-proxy
 
-## Phase 4: cloudflared in Kubernetes
+# Wait for tailscale to be ready
+until tailscale status > /dev/null 2>&1; do sleep 1; done
+echo "Tailscale connected"
 
-### Files to create
+# Start nginx
+nginx -g "daemon off;"
+```
 
-- `argocd/apps/cloudflare-tunnel.yaml` — ArgoCD Application
-- `argocd/manifests/cloudflare-tunnel/deployment.yaml` — cloudflared Deployment
-  - Image: `cloudflare/cloudflared:latest` (or pinned version)
-  - Args: `tunnel --no-autoupdate run --token <tunnel-token>`
-  - Single replica, tunnel token injected from a Secret
-- `argocd/manifests/cloudflare-tunnel/external-secret.yaml` — ExternalSecret to pull tunnel token from 1Password
-- `argocd/manifests/cloudflare-tunnel/kustomization.yaml`
+**`fly/nginx.conf`** — reverse proxy with caching and rate limiting:
 
-### Tunnel routing (managed by Pulumi)
+> The example below shows a **static site** configuration (docs.eblu.me).
+> For dynamic services, see [[#Considerations for dynamic services]].
 
-- `docs.eblu.me` → `http://docs.docs.svc.cluster.local:80` (direct k8s service access)
-- Catch-all → `http_status:404`
+```nginx
+worker_processes auto;
 
-Namespace: `cloudflare-tunnel` (dedicated, reusable for future public services)
+events {
+    worker_connections 1024;
+}
 
-## Phase 5: Documentation and cleanup
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
 
-### Files to create
+    # Rate limiting zones — define per-service zones as needed
+    limit_req_zone $binary_remote_addr zone=general:10m rate=10r/s;
 
-- `docs/reference/infrastructure/cloudflare.md` — reference card
-- `docs/changelog.d/<branch>.feature.md` — changelog fragment
+    # Proxy cache: 200MB, evict after 24h of no access
+    proxy_cache_path /tmp/cache levels=1:2 keys_zone=services:10m
+                     max_size=200m inactive=24h;
 
-### Files to modify
+    # --- docs.eblu.me (static site) ---
+    server {
+        listen 8080;
+        server_name docs.eblu.me;
 
-- `docs/reference/infrastructure/routing.md` — add public services section
-- `docs/reference/infrastructure/gandi.md` — update to registrar-only role
-- `docs/reference/services/docs.md` — add public URL `https://docs.eblu.me`
-- `docs/reference/reference.md` — add Cloudflare to infrastructure section
-- `CLAUDE.md` — update routing table, add cloudflare tasks
+        limit_req zone=general burst=20 nodelay;
+
+        location / {
+            proxy_pass https://docs.tail8d86e.ts.net;
+            proxy_ssl_verify off;
+
+            # Cache aggressively — static site only.
+            # Do NOT use these settings for dynamic services.
+            proxy_cache services;
+            proxy_cache_valid 200 1d;
+            proxy_cache_valid 404 1m;
+            proxy_cache_use_stale error timeout updating;
+            proxy_cache_lock on;
+
+            # Prevent cache-busting: ignore query strings and
+            # client cache-control headers.
+            # Safe for static sites; breaks dynamic services.
+            proxy_cache_key $host$uri;
+            proxy_ignore_headers Cache-Control Set-Cookie;
+
+            add_header X-Cache-Status $upstream_cache_status;
+        }
+
+        location /healthz {
+            return 200 "ok\n";
+        }
+    }
+
+    # Catch-all: reject unknown hosts
+    server {
+        listen 8080 default_server;
+        return 444;
+    }
+}
+```
+
+### Step 3: Tailscale auth key and ACLs (Pulumi)
+
+Extend the existing `pulumi/tailscale/` project.
+
+**Add to `pulumi/tailscale/__main__.py`:**
+
+```python
+# Auth key for Fly.io proxy container
+flyio_key = tailscale.TailscaleKey(
+    "flyio-proxy-key",
+    reusable=True,
+    ephemeral=True,
+    tags=["tag:flyio-proxy"],
+    expiry=7776000,  # 90 days
+)
+pulumi.export("flyio_authkey", flyio_key.key)
+```
+
+**Add to `pulumi/tailscale/policy.hujson`:**
+
+Tag owner:
+```
+"tag:flyio-proxy": ["autogroup:admin", "tag:blumeops"],
+```
+
+Access grant (Fly.io proxy → k8s services on HTTPS only):
+```
+{
+    "src": ["tag:flyio-proxy"],
+    "dst": ["tag:k8s"],
+    "ip":  ["tcp:443"],
+},
+```
+
+ACL test:
+```
+{
+    "src":  "tag:flyio-proxy",
+    "accept": ["tag:k8s:443"],
+    "deny":   ["tag:homelab:22", "tag:nas:445", "tag:registry:443"],
+},
+```
+
+Deploy: `mise run tailnet-preview` then `mise run tailnet-up`.
+
+After deploying, extract the auth key and set it as a Fly.io secret:
+
+```bash
+# Get the key from Pulumi state
+cd pulumi/tailscale && pulumi stack output flyio_authkey --show-secrets
+
+# Set it in Fly.io
+fly secrets set TS_AUTHKEY="tskey-auth-..." -a blumeops-proxy
+```
+
+Store the auth key in 1Password as well for the `fly-setup` mise task.
+
+### Step 4: Mise tasks
+
+**`mise-tasks/fly-deploy`:**
+
+```bash
+#!/usr/bin/env bash
+#MISE description="Deploy the Fly.io public proxy"
+
+set -euo pipefail
+
+cd "$(dirname "$0")/../fly"
+fly deploy "$@"
+```
+
+**`mise-tasks/fly-setup`:**
+
+```bash
+#!/usr/bin/env bash
+#MISE description="One-time setup: configure Fly.io secrets and certs (idempotent)"
+
+set -euo pipefail
+
+APP="blumeops-proxy"
+
+# Fetch Tailscale auth key from 1Password
+TS_AUTHKEY=$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get <FLY_ITEM_ID> --fields ts-authkey --reveal)
+fly secrets set TS_AUTHKEY="$TS_AUTHKEY" -a "$APP"
+echo "Tailscale auth key set"
+
+# Add certs for all public domains (idempotent — fly ignores duplicates)
+fly certs add docs.eblu.me -a "$APP" 2>/dev/null || true
+# fly certs add wiki.eblu.me -a "$APP" 2>/dev/null || true  # future services
+echo "Certificates configured"
+
+echo "Done. Run 'mise run fly-deploy' to deploy."
+```
+
+**`mise-tasks/fly-shutoff`:**
+
+```bash
+#!/usr/bin/env bash
+#MISE description="Emergency shutoff: stop all Fly.io proxy machines"
+
+set -euo pipefail
+
+APP="blumeops-proxy"
+
+echo "EMERGENCY SHUTOFF: Stopping all machines for $APP"
+fly scale count 0 -a "$APP" --yes
+echo "All machines stopped. Public services are offline."
+echo "To restore: fly scale count 1 -a $APP"
+```
+
+### Step 5: Forgejo CI workflow
+
+**`.forgejo/workflows/deploy-fly.yaml`:**
+
+```yaml
+name: Deploy Fly.io Proxy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'fly/**'
+
+jobs:
+  deploy:
+    runs-on: k8s
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install flyctl
+        run: |
+          curl -L https://fly.io/install.sh | sh
+          echo "/root/.fly/bin" >> "$GITHUB_PATH"
+
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_DEPLOY_TOKEN }}
+        run: |
+          cd fly
+          fly deploy
+
+      - name: Verify health
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_DEPLOY_TOKEN }}
+        run: |
+          fly status -a blumeops-proxy
+          echo ""
+          echo "Health check:"
+          sleep 10
+          curl -sf https://blumeops-proxy.fly.dev/healthz || echo "Warning: health check failed (may need DNS propagation)"
+```
+
+The `FLY_DEPLOY_TOKEN` Forgejo Actions secret must be set via the [[forgejo]] API or UI, following the pattern in the `forgejo_actions_secrets` Ansible role.
+
+---
+
+## Per-service setup
+
+To expose an additional service (example: `wiki.eblu.me`):
+
+### 1. Add nginx server block
+
+Edit `fly/nginx.conf` — add a new `server` block. The configuration
+differs significantly between static and dynamic services.
+
+**Static site example** (same pattern as docs):
+
+```nginx
+# --- wiki.eblu.me (static) ---
+server {
+    listen 8080;
+    server_name wiki.eblu.me;
+
+    limit_req zone=general burst=20 nodelay;
+
+    location / {
+        proxy_pass https://wiki.tail8d86e.ts.net;
+        proxy_ssl_verify off;
+
+        proxy_cache services;
+        proxy_cache_valid 200 1d;
+        proxy_cache_valid 404 1m;
+        proxy_cache_use_stale error timeout updating;
+        proxy_cache_lock on;
+        proxy_cache_key $host$uri;
+        proxy_ignore_headers Cache-Control Set-Cookie;
+
+        add_header X-Cache-Status $upstream_cache_status;
+    }
+}
+```
+
+**Dynamic service example** (e.g., Forgejo):
+
+```nginx
+# --- forge.eblu.me (dynamic, authenticated) ---
+server {
+    listen 8080;
+    server_name forge.eblu.me;
+
+    # Higher rate limit — git operations, CI webhooks, and API calls
+    # can legitimately burst. Forgejo also has its own rate limiting,
+    # so this is a safety net, not the primary control.
+    limit_req zone=general burst=50 nodelay;
+
+    # Git LFS and repo uploads can be large
+    client_max_body_size 512m;
+
+    location / {
+        proxy_pass https://forge.tail8d86e.ts.net;
+        proxy_ssl_verify off;
+
+        # NO proxy_cache — dynamic content with sessions.
+        # Caching would serve stale pages and break authentication.
+
+        # Pass through headers needed for proper proxying
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support (Forgejo uses it for live updates)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Selectively cache static assets only
+    location ~* \.(css|js|png|jpg|svg|woff2?)$ {
+        proxy_pass https://forge.tail8d86e.ts.net;
+        proxy_ssl_verify off;
+
+        proxy_cache services;
+        proxy_cache_valid 200 7d;
+        proxy_cache_key $host$uri;
+
+        add_header X-Cache-Status $upstream_cache_status;
+    }
+}
+```
+
+Key differences for dynamic services:
+- **No blanket caching** — only static assets (CSS, JS, images) are cached
+- **Respect `Set-Cookie`** — do not ignore session headers
+- **Include query strings** in non-cached requests (default behavior when
+  `proxy_cache_key` is not overridden)
+- **Higher rate limits** — legitimate usage patterns are burstier
+- **Proxy headers** — pass `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`
+  so the backend sees the real client IP (important for Forgejo's audit logs
+  and its own rate limiting)
+- **WebSocket support** — many modern web apps use WebSockets
+- **Larger body size** — git pushes and file uploads need more than the default 1MB
+
+### 2. Add DNS CNAME (Pulumi)
+
+Add to `pulumi/gandi/__main__.py`:
+
+```python
+wiki_public = gandi.livedns.Record(
+    "wiki-public",
+    zone=domain,
+    name="wiki",
+    type="CNAME",
+    ttl=300,
+    values=["blumeops-proxy.fly.dev."],
+)
+```
+
+Deploy: `mise run dns-preview` then `mise run dns-up`.
+
+### 3. Add Fly.io certificate
+
+```bash
+fly certs add wiki.eblu.me -a blumeops-proxy
+```
+
+Or add it to `mise-tasks/fly-setup` so it's captured for future runs.
+
+### 4. Deploy
+
+```bash
+mise run fly-deploy
+```
+
+Or push the `fly/nginx.conf` change to main — the Forgejo workflow deploys automatically.
+
+### 5. Verify
+
+```bash
+curl -I https://wiki.eblu.me
+# Should return 200 with X-Cache-Status header
+```
+
+### 6. Update Tailscale ACLs if needed
+
+The one-time setup grants `tag:flyio-proxy` access to `tag:k8s` on port
+443. If the new service needs a different grant, add it to
+`policy.hujson`. Examples:
+
+- **Another k8s service** (e.g., Kiwix): No ACL change needed — already
+  covered by `tag:k8s:443`.
+- **Forgejo on indri**: Needs a new grant for `tag:homelab` on the
+  relevant ports (e.g., `tcp:3001` for HTTP, `tcp:2200` for SSH). Add
+  this as a separate, narrow grant — do not widen the existing one.
+- **Non-Tailscale-ingress service**: If the backend uses `tailscale
+  serve` instead of the k8s Tailscale operator, the Tailscale node will
+  have its own tag. Grant `tag:flyio-proxy` access to that specific tag.
+
+---
+
+## Security
+
+### DDoS and rate limiting
+
+This approach provides basic protection, not enterprise-grade:
+
+- **Fly.io Anycast** absorbs volumetric L3/L4 attacks
+- **nginx `limit_req`** caps per-IP request rates at the container level
+- **nginx `proxy_cache`** serves most requests from cache — only cache
+  misses traverse the Tailscale tunnel to indri
+
+For **static sites**, the cache is the primary defense. Most requests
+never reach the origin. Cache-busting is mitigated by ignoring query
+strings (`proxy_cache_key $host$uri`) and client cache-control headers.
+
+For **dynamic services**, the cache covers only static assets. Most
+requests flow through the Tailscale tunnel to indri on every hit. This
+makes dynamic services significantly more vulnerable to L7 DDoS — an
+attacker sending high volumes of legitimate-looking requests (login
+pages, API endpoints, search queries) bypasses the cache entirely.
+Mitigations for dynamic services:
+
+- nginx `limit_req` is the primary defense at the proxy layer — tune
+  the rate and burst per service
+- The backend service's own rate limiting (e.g., Forgejo's built-in
+  rate limiter) provides a second layer
+- fail2ban on indri (see below) can block IPs showing abuse patterns
+- The break-glass shutoff remains the last resort
+
+If a publicly exposed dynamic service attracts targeted attacks or the
+home network bandwidth is impacted, consider migrating to Cloudflare
+Tunnel for enterprise-grade DDoS protection (requires DNS migration;
+see plan history in git).
+
+### fail2ban
+
+fail2ban monitors log files for repeated failed authentication attempts
+(SSH brute force, bad login passwords, API abuse) and bans IPs via
+firewall rules.
+
+**Static sites**: fail2ban does not apply. There is no login surface,
+no sessions, no credentials to brute force.
+
+**Dynamic services with authentication** (e.g., Forgejo): fail2ban is
+relevant and should be configured on **indri**, not on Fly.io. The
+nginx proxy is transparent — it forwards requests but does not see
+authentication outcomes. fail2ban watches the service's own logs on
+indri for patterns like repeated failed logins.
+
+Setup considerations for Forgejo specifically:
+
+- Forgejo logs failed auth attempts to its log file
+- fail2ban needs a filter matching Forgejo's log format
+- Banned IPs are blocked at indri's firewall (the Fly.io proxy IP is
+  the Tailscale address of the `flyio-proxy` node, not the end user's
+  IP)
+- **Important**: for fail2ban to see real client IPs, the nginx proxy
+  must pass `X-Real-IP` / `X-Forwarded-For` headers (included in the
+  dynamic service nginx config above), and Forgejo must be configured
+  to trust the proxy and log the forwarded IP rather than the proxy's
+  Tailscale IP
+- Disable open user registration before exposing Forgejo publicly —
+  require explicit invites
+
+### Break-glass shutoff
+
+If the proxy is causing issues (DDoS, unexpected traffic, bandwidth consumption on the home network):
+
+**Level 1 — Stop the container (seconds, reversible):**
+```bash
+mise run fly-shutoff
+# or: fly scale count 0 -a blumeops-proxy --yes
+```
+All public services go offline immediately. Tailscale tunnel drops. Zero traffic reaches indri. Restore with `fly scale count 1 -a blumeops-proxy`.
+
+**Level 2 — Revoke Tailscale access (seconds):**
+Remove the `flyio-proxy` node in the Tailscale admin console. Even if the container is running, it cannot reach the tailnet. Use this if the container itself may be compromised.
+
+**Level 3 — Remove DNS (minutes to hours):**
+Delete the CNAME records at Gandi. Takes time for DNS propagation but is the permanent shutoff.
+
+**Level 1 is the primary response.** It is a single command, takes effect in seconds, and is trivially reversible. Document the `mise run fly-shutoff` command somewhere easily accessible (e.g., pinned in a notes app) so it can be run quickly under stress.
+
+---
+
+## Considerations for dynamic services
+
+The architecture described in this guide works for both static and dynamic
+services, but the nginx configuration and security posture differ
+significantly. This section summarizes what changes when exposing a
+dynamic, authenticated service like [[forgejo]].
+
+| Concern | Static site | Dynamic service |
+|---------|-------------|-----------------|
+| Caching | Aggressive (cache everything, 1d TTL) | Static assets only, or disabled |
+| Session cookies | Ignored (`proxy_ignore_headers Set-Cookie`) | Must be passed through |
+| Query strings | Ignored in cache key | Included (default behavior) |
+| Rate limiting | 10r/s is plenty | Higher burst needed; coordinate with backend rate limiter |
+| Request body size | Default 1MB is fine | Increase for uploads (`client_max_body_size`) |
+| WebSocket | Not needed | Often needed (`proxy_http_version 1.1`, `Upgrade` headers) |
+| Proxy headers | Optional | Required (`X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`) |
+| fail2ban | Not applicable | Configure on indri, watching service logs |
+| DDoS exposure | Low — cache absorbs most traffic | Higher — most requests hit origin |
+| Pre-exposure checklist | Deploy and go | Disable open registration, audit access controls, configure fail2ban |
+
+### Checklist before exposing a dynamic service
+
+- [ ] Disable open user registration (require invites or admin approval)
+- [ ] Audit access controls and permissions
+- [ ] Configure the service to log the forwarded client IP (not the proxy IP)
+- [ ] Set up fail2ban on indri with a filter for the service's log format
+- [ ] Add narrow Tailscale ACL grant for `tag:flyio-proxy` to the service
+- [ ] Test the nginx config locally or in staging before deploying
+- [ ] Rehearse the break-glass shutoff (`mise run fly-shutoff`)
+
+---
+
+## IaC summary
+
+| Component | Managed by | Declarative? |
+|-----------|------------|:---:|
+| Tailscale auth key | Pulumi (`pulumi/tailscale/`) | yes |
+| Tailscale ACLs | Pulumi (`pulumi/tailscale/policy.hujson`) | yes |
+| DNS CNAMEs | Pulumi (`pulumi/gandi/`) | yes |
+| Container + app config | `fly/Dockerfile` + `fly/fly.toml` in repo | yes |
+| Deployment | Forgejo CI on push to `fly/`, or `mise run fly-deploy` | yes |
+| Fly.io secrets + certs | `mise run fly-setup` (one-time, idempotent) | semi |
+
+The "semi" for Fly.io secrets is a one-time operation backed by a repeatable mise task. Fly.io does not have a mature Pulumi or Terraform provider, so `fly.toml` + `flyctl` is the standard IaC model for Fly.io apps.
+
+---
 
 ## Verification
 
-1. `curl -I https://docs.eblu.me` from public internet — returns 200 with `cf-ray` header
-2. `dig docs.eblu.me` — shows Cloudflare IPs (not Tailscale IP)
-3. `dig forge.ops.eblu.me` — still shows `100.98.163.89` (Tailscale IP)
-4. All `*.ops.eblu.me` services accessible from tailnet
+After initial deployment of a service (using `docs.eblu.me` as example):
+
+1. `curl -I https://docs.eblu.me` — returns 200 with `X-Cache-Status` header
+2. `dig docs.eblu.me` — resolves to Fly.io IPs (not Tailscale IP)
+3. `dig forge.ops.eblu.me` — still resolves to `100.98.163.89` (unchanged)
+4. All `*.ops.eblu.me` services work from tailnet
 5. `mise run services-check` passes
-6. Caddy TLS renewal works (force test with `caddy reload` if needed)
-7. Cloudflare dashboard shows tunnel healthy and cache hits
-
-## Risks
-
-| Risk | Mitigation |
-|------|------------|
-| Caddy TLS renewal fails after NS change | Deploy Caddy update immediately; existing certs valid ~90 days |
-| DNS propagation delay (24-48h) | Set low TTLs before migration; monitor with `dig +trace` |
-| cloudflared crashes | K8s restarts it; Cloudflare serves cached content |
-| Tunnel credentials leak | 1Password + ExternalSecret; tunnel only routes to docs |
-
-## Adding more public services
-
-To expose another service publicly (e.g., `wiki.eblu.me`):
-
-1. Add DNS record + tunnel ingress rule in `pulumi/cloudflare/__main__.py`
-2. Run `mise run cloudflare-up`
-3. No changes to cloudflared deployment (remotely-managed tunnel config)
+6. `fly status -a blumeops-proxy` shows healthy machine
+7. Second request to same URL shows `X-Cache-Status: HIT`
