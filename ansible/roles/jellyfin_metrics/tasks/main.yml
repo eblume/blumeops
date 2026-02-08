@@ -1,7 +1,7 @@
 ---
 - name: Fetch Jellyfin API key (when running with --tags jellyfin_metrics)
   ansible.builtin.command:
-    cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get ceywxkcd3z7najsy2nmmbs2vke --fields credential --reveal
+    cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/ceywxkcd3z7najsy2nmmbs2vke/credential"
   delegate_to: localhost
   register: jellyfin_metrics_api_key_fallback
   changed_when: false

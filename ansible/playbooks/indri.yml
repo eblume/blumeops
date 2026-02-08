@@ -8,7 +8,7 @@
   pre_tasks:
     - name: Fetch borgmatic database password
       ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get mw2bv5we7woicjza7hc6s44yvy --fields db-password --reveal
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/mw2bv5we7woicjza7hc6s44yvy/db-password"
       delegate_to: localhost
       register: _borgmatic_db_pw
       changed_when: false
@@ -25,7 +25,7 @@
     # Forgejo secrets
     - name: Fetch forgejo LFS JWT secret
       ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields lfs-jwt-secret --reveal
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/lfs-jwt-secret"
       delegate_to: localhost
       register: _forgejo_lfs_jwt
       changed_when: false
@@ -35,7 +35,7 @@
 
     - name: Fetch forgejo internal token
       ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields internal-token --reveal
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/internal-token"
       delegate_to: localhost
       register: _forgejo_internal_token
       changed_when: false
@@ -45,7 +45,7 @@
 
     - name: Fetch forgejo OAuth2 JWT secret
       ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields oauth2-jwt-secret --reveal
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/oauth2-jwt-secret"
       delegate_to: localhost
       register: _forgejo_oauth2_jwt
       changed_when: false
@@ -64,7 +64,7 @@
     # Forgejo Actions secrets (synced to Forgejo via API)
     - name: Fetch Forgejo API token
       ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields api-token --reveal
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
       delegate_to: localhost
       register: _forgejo_api_token
       changed_when: false
@@ -74,7 +74,7 @@
 
     - name: Fetch ArgoCD auth token for Forgejo Actions
       ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get w3663ffnvkewbftncqxtcpeavy --fields argocd_token --reveal
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/argocd_token"
       delegate_to: localhost
       register: _forgejo_argocd_token
       changed_when: false
@@ -84,7 +84,7 @@
 
     - name: Fetch Fly.io deploy token for Forgejo Actions
       ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get on5slfaygtdjrxmdwezyhfmqsq --fields deploy-token --reveal
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/on5slfaygtdjrxmdwezyhfmqsq/deploy-token"
       delegate_to: localhost
       register: _fly_deploy_token
       changed_when: false
@@ -96,14 +96,14 @@
       ansible.builtin.set_fact:
         forgejo_api_token: "{{ _forgejo_api_token.stdout }}"
         forgejo_secret_argocd_token: "{{ _forgejo_argocd_token.stdout }}"
-        forgejo_secret_fly_deploy_token: "{{ _fly_deploy_token.stdout | regex_replace('^\"|\"$', '') }}"
+        forgejo_secret_fly_deploy_token: "{{ _fly_deploy_token.stdout }}"
       no_log: true
       tags: [forgejo_actions_secrets]
 
     # Caddy Gandi token for ACME DNS-01 challenges
     - name: Fetch Gandi PAT for Caddy
       ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get mco6ka3dc3rmw7zkg2dhia5d2m --fields pat --reveal
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/mco6ka3dc3rmw7zkg2dhia5d2m/pat"
       delegate_to: localhost
       register: _caddy_gandi_token
       changed_when: false
@@ -120,7 +120,7 @@
     # Jellyfin API key for metrics collection
     - name: Fetch Jellyfin API key
       ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get ceywxkcd3z7najsy2nmmbs2vke --fields credential --reveal
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/ceywxkcd3z7najsy2nmmbs2vke/credential"
       delegate_to: localhost
       register: _jellyfin_metrics_api_key
       changed_when: false

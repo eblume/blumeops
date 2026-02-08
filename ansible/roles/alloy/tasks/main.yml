@@ -38,9 +38,7 @@
 
 - name: Fetch PostgreSQL metrics password from 1Password
   ansible.builtin.command:
-    cmd: >-
-      op --vault {{ alloy_op_vault }} item get {{ alloy_op_postgres_item }}
-      --fields {{ alloy_op_postgres_field }} --reveal
+    cmd: op read "op://{{ alloy_op_vault }}/{{ alloy_op_postgres_item }}/{{ alloy_op_postgres_field }}"
   delegate_to: localhost
   register: alloy_postgres_password_result
   changed_when: false
