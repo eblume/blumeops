@@ -12,6 +12,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.5.1] - 2026-02-08
+
+### Features
+
+- Add observability to Fly.io proxy: Alloy collects nginx access logs (→ Loki) and derived metrics (→ Prometheus), with Grafana dashboards for Docs APM and Fly.io proxy health.
+
+### Infrastructure
+
+- Add docs.eblu.me and Fly.io health check to services-check
+
+
 ## [v1.5.0] - 2026-02-08
 
 ### Features
