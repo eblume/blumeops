@@ -25,6 +25,7 @@ Metrics storage and querying for BlumeOps infrastructure.
 ### Remote Write (from Alloy)
 - Indri system metrics via [[alloy|Alloy]] remote_write
 - Textfile metrics: minikube, borgmatic, zot, jellyfin
+- [[flyio-proxy]] nginx metrics (`flyio_nginx_*`) via Alloy embedded in Fly.io container
 
 ### Scrape Targets
 

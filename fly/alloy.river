@@ -1,0 +1,142 @@
+// Grafana Alloy configuration for flyio-proxy
+// Collects nginx access logs → Loki, extracts metrics → Prometheus.
+// Note: stub_status connection metrics are not collected — Alloy has no
+// built-in nginx exporter. The log-derived metrics cover the key signals.
+
+// ============== LOG COLLECTION ==============
+
+// Tail the JSON access log written by nginx
+local.file_match "nginx_access" {
+  path_targets = [
+    {__path__ = "/var/log/nginx/access.json.log", job = "flyio-nginx"},
+  ]
+}
+
+loki.source.file "nginx_access" {
+  targets    = local.file_match.nginx_access.targets
+  forward_to = [loki.process.nginx.receiver]
+}
+
+// Parse JSON fields, extract labels, derive metrics
+loki.process "nginx" {
+  forward_to = [loki.relabel.instance.receiver]
+
+  // Parse the JSON log line
+  stage.json {
+    expressions = {
+      status               = "status",
+      method               = "request_method",
+      host                 = "http_host",
+      cache_status         = "upstream_cache_status",
+      request_time         = "request_time",
+      body_bytes_sent      = "body_bytes_sent",
+      upstream_response_time = "upstream_response_time",
+    }
+  }
+
+  // Promote to labels for filtering in Loki
+  stage.labels {
+    values = {
+      status       = "",
+      method       = "",
+      host         = "",
+      cache_status = "",
+    }
+  }
+
+  // --- Derived metrics (exposed on Alloy's /metrics endpoint) ---
+
+  stage.metrics {
+    metric.counter {
+      name        = "flyio_nginx_http_requests_total"
+      description = "Total HTTP requests by status, method, and host."
+      match_all   = true
+      action      = "inc"
+    }
+  }
+
+  stage.metrics {
+    metric.histogram {
+      name        = "flyio_nginx_http_request_duration_seconds"
+      description = "HTTP request latency in seconds."
+      source      = "request_time"
+      buckets     = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+    }
+  }
+
+  stage.metrics {
+    metric.counter {
+      name        = "flyio_nginx_http_response_bytes_total"
+      description = "Total bytes sent in HTTP responses."
+      source      = "body_bytes_sent"
+      action      = "add"
+    }
+  }
+
+  stage.metrics {
+    metric.counter {
+      name        = "flyio_nginx_cache_requests_total"
+      description = "Total cache lookups by cache status."
+      source      = "cache_status"
+      match_all   = true
+      action      = "inc"
+    }
+  }
+}
+
+// Add instance label to logs
+loki.relabel "instance" {
+  forward_to = [loki.write.loki.receiver]
+
+  rule {
+    target_label = "instance"
+    replacement  = "flyio-proxy"
+  }
+}
+
+// Write logs to Loki via Caddy (valid TLS, no skip_verify needed)
+loki.write "loki" {
+  endpoint {
+    url = "https://loki.ops.eblu.me/loki/api/v1/push"
+  }
+}
+
+// ============== METRICS PIPELINE ==============
+
+// Self-scrape to collect the log-derived metrics from /metrics
+prometheus.scrape "self" {
+  targets         = [{"__address__" = "127.0.0.1:12345"}]
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "15s"
+}
+
+// Strip the "loki_process_custom_" prefix that Alloy adds to stage.metrics,
+// then add instance label. This keeps dashboard queries clean.
+prometheus.relabel "instance" {
+  forward_to = [prometheus.remote_write.prometheus.receiver]
+
+  rule {
+    source_labels = ["__name__"]
+    regex         = "loki_process_custom_(.*)"
+    target_label  = "__name__"
+    replacement   = "$1"
+  }
+
+  // Drop internal labels added by the loki pipeline
+  rule {
+    regex  = "component_id|component_path|filename"
+    action = "labeldrop"
+  }
+
+  rule {
+    target_label = "instance"
+    replacement  = "flyio-proxy"
+  }
+}
+
+// Push metrics to Prometheus via Caddy (valid TLS, no skip_verify needed)
+prometheus.remote_write "prometheus" {
+  endpoint {
+    url = "https://prometheus.ops.eblu.me/api/v1/write"
+  }
+}

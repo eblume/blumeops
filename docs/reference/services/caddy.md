@@ -79,6 +79,10 @@ mise run provision-indri -- --tags caddy
 
 The token is written to `~/.config/caddy/gandi-token` (chmod 0600) and sourced by the Caddy wrapper script.
 
+## Security Considerations
+
+Caddy has no authentication layer — it is a plain reverse proxy. Access control relies entirely on Tailscale ACLs restricting which devices can reach indri on port 443. Currently `tag:homelab`, `autogroup:admin`, and `tag:flyio-proxy` can reach Caddy. The [[flyio-proxy]] grant exists so Alloy can push metrics/logs to Loki and Prometheus, but it means the Fly.io container can technically reach all Caddy-proxied services. See [[flyio-proxy#Security Considerations]] for the threat model.
+
 ## Custom Build
 
 Caddy is built from source with the Gandi DNS plugin:

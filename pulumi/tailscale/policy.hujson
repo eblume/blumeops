@@ -61,10 +61,10 @@
 		},
 
 		// --- Fly.io proxy ---
-		// Public reverse proxy can reach k8s services on HTTPS only
+		// Public reverse proxy can reach k8s services and Caddy on HTTPS
 		{
 			"src": ["tag:flyio-proxy"],
-			"dst": ["tag:k8s"],
+			"dst": ["tag:k8s", "tag:homelab"],
 			"ip":  ["tcp:443"],
 		},
 
@@ -175,10 +175,10 @@
 			"src":    "tag:ci-gateway",
 			"accept": ["tag:registry:443"],
 		},
-		// Fly.io proxy can reach k8s services (HTTPS only), nothing else
+		// Fly.io proxy can reach k8s and Caddy on indri (HTTPS only), nothing else
 		{
 			"src":    "tag:flyio-proxy",
-			"accept": ["tag:k8s:443"],
+			"accept": ["tag:k8s:443", "tag:homelab:443"],
 			"deny":   ["tag:homelab:22", "tag:nas:445", "tag:registry:443"],
 		},
 	],

@@ -17,6 +17,8 @@ resources:
   - dashboards/configmap-postgresql.yaml
   - dashboards/configmap-services.yaml
   - dashboards/configmap-zot.yaml
+  - dashboards/configmap-docs-apm.yaml
+  - dashboards/configmap-flyio.yaml
   # TeslaMate dashboards
   - dashboards/configmap-teslamate-overview.yaml
   - dashboards/configmap-teslamate-charges.yaml

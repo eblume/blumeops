@@ -36,12 +36,16 @@ Log aggregation system for BlumeOps infrastructure.
 **From Kubernetes (via Alloy DaemonSet):**
 - All pods in all namespaces
 
+**From Fly.io proxy (via embedded Alloy):**
+- nginx JSON access logs (`{instance="flyio-proxy", job="flyio-nginx"}`)
+
 ## Query Examples (LogQL)
 
 ```logql
 {service="forgejo"}                     # All forgejo logs
 {service="borgmatic", stream="stderr"}  # Borgmatic errors
 {host="indri"} |= "error"               # All logs containing "error"
+{instance="flyio-proxy"} |= "docs.eblu.me" # Fly.io proxy access logs for docs
 ```
 
 ## Related

@@ -13,5 +13,11 @@ tailscale up --authkey="${TS_AUTHKEY}" --hostname=flyio-proxy
 until tailscale status > /dev/null 2>&1; do sleep 1; done
 echo "Tailscale connected"
 
+# Start Alloy for observability (logs → Loki, metrics → Prometheus)
+alloy run /etc/alloy/config.alloy \
+    --server.http.listen-addr=127.0.0.1:12345 \
+    --storage.path=/tmp/alloy-data &
+echo "Alloy started"
+
 # Start nginx — MagicDNS resolves *.tail8d86e.ts.net hostnames
 nginx -g "daemon off;"

@@ -41,6 +41,8 @@ Optional annotation: `grafana_folder: "FolderName"`
 - Minikube - Kubernetes cluster overview
 - Borgmatic Backups - Backup status and trends
 - Services Health - HTTP probe results
+- Docs APM - Request rate, latency, cache for docs.eblu.me
+- Fly.io Proxy Health - Aggregate proxy health across all upstream services
 - TeslaMate (18 dashboards) - Vehicle data
 
 ## Related
