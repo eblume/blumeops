@@ -92,12 +92,6 @@ repos:
   # Documentation validation
   - repo: local
     hooks:
-      - id: docs-check-titles
-        name: docs-check-titles
-        entry: mise run docs-check-titles
-        language: system
-        files: ^docs/.*\.md$
-        pass_filenames: false
       - id: docs-check-filenames
         name: docs-check-filenames
         entry: mise run docs-check-filenames

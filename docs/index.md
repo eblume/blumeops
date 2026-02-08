@@ -1,5 +1,5 @@
 ---
-title: blumeops-documentation
+title: BlumeOps
 aliases: []
 id: index
 tags: []
@@ -14,11 +14,11 @@ infrastructure.
 ## What is BlumeOps?
 
 BlumeOps is my personal homelab infrastructure managed entirely through code.
-Everything lives in a single git repository, from service configs to deployment
-automation. Even the [[forgejo]] instance that hosts this repo is defined
-within it, making BlumeOps fully self-hosting. It's a digital life raft I built
-for myself as I went, and you can see it all from within your editor of choice.
-(I recommend vim.)
+Everything lives in a [single git repository](https://github.com/eblume/blumeops), from service configs to
+deployment automation. Even the [[forgejo]] instance that [hosts this repo](https://forge.ops.eblu.me/eblume/blumeops)
+is defined within it, making BlumeOps fully self-hosting. It's a digital life
+raft I built for myself as I went, and you can see it all from within your
+editor of choice. (I recommend vim.)
 
 These services run on my home [[hosts|infrastructure]], primarily an m1 mac
 mini named [[indri]] and a Synology NAS called [[sifaka]]. The infrastructure

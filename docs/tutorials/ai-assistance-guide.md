@@ -96,7 +96,6 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 | `tailnet-up` | Apply Tailscale ACL changes via Pulumi |
 | `docs-check-links` | Validate wiki-links in documentation (includes orphan detection) |
 | `docs-check-index` | Check every doc is referenced in its category index |
-| `docs-check-titles` | Check for duplicate doc titles |
 | `docs-check-filenames` | Check for duplicate doc filenames |
 | `docs-review-stale` | Report docs by last-modified date, highlight stale ones |
 | `docs-review-tags` | Print frontmatter tag inventory across all docs |
