@@ -67,7 +67,7 @@ Documentation uses `[[wiki-links]]` for cross-references:
 - `[[service-name]]` links to a reference page
 - `[[page|Display Text]]` customizes the link text
 
-When reading on the web (docs.ops.eblu.me), these render as clickable links. The backlinks panel shows what references each page.
+When reading on the web (docs.eblu.me), these render as clickable links. The backlinks panel shows what references each page.
 
 Pre-commit hooks automatically validate that all wiki-links point to existing files and that link targets are unambiguous.
 

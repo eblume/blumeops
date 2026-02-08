@@ -60,6 +60,14 @@
 			"ip":  ["*"],
 		},
 
+		// --- Fly.io proxy ---
+		// Public reverse proxy can reach k8s services on HTTPS only
+		{
+			"src": ["tag:flyio-proxy"],
+			"dst": ["tag:k8s"],
+			"ip":  ["tcp:443"],
+		},
+
 		// --- CI Gateway ---
 		// Ephemeral CI containers can push images to registry
 		{
@@ -136,6 +144,7 @@
 		"tag:k8s-operator": ["autogroup:admin", "tag:blumeops"],
 		"tag:k8s": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
 		"tag:ci-gateway": ["autogroup:admin", "tag:blumeops"],
+		"tag:flyio-proxy": ["autogroup:admin", "tag:blumeops"],
 	},
 
 	// ============== ACL Tests ==============
@@ -165,6 +174,12 @@
 		{
 			"src":    "tag:ci-gateway",
 			"accept": ["tag:registry:443"],
+		},
+		// Fly.io proxy can reach k8s services (HTTPS only), nothing else
+		{
+			"src":    "tag:flyio-proxy",
+			"accept": ["tag:k8s:443"],
+			"deny":   ["tag:homelab:22", "tag:nas:445", "tag:registry:443"],
 		},
 	],
 }

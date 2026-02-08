@@ -54,8 +54,22 @@ base_record = gandi.livedns.Record(
     values=[tailscale_ip],
 )
 
+# ============== Public Services (Fly.io proxy) ==============
+# CNAME records pointing public subdomains to Fly.io for reverse proxying
+# back to the tailnet. See docs/how-to/expose-service-publicly.md
+
+docs_public = gandi.livedns.Record(
+    "docs-public",
+    zone=domain,
+    name="docs",
+    type="CNAME",
+    ttl=300,
+    values=["blumeops-proxy.fly.dev."],
+)
+
 # ============== Exports ==============
 pulumi.export("domain", domain)
 pulumi.export("wildcard_fqdn", f"*.{subdomain}.{domain}")
 pulumi.export("base_fqdn", f"{subdomain}.{domain}")
 pulumi.export("target_ip", tailscale_ip)
+pulumi.export("docs_public_fqdn", f"docs.{domain}")

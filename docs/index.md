@@ -22,8 +22,10 @@ editor of choice. (I recommend vim.)
 
 These services run on my home [[hosts|infrastructure]], primarily an m1 mac
 mini named [[indri]] and a Synology NAS called [[sifaka]]. The infrastructure
-is networked via [[tailscale]], with the domain `eblu.me` hosted via [[gandi]]
-with [[caddy]] providing a reverse proxy to resolve tailnet devices.
+is networked via [[tailscale]], with the domain `eblu.me` hosted via [[gandi]],
+[[caddy]] providing a private reverse proxy for tailnet devices, and
+[[flyio-proxy|Fly.io]] serving public-facing services like
+[this documentation site](https://docs.eblu.me).
 
 The goal of BlumeOps is threefold:
 

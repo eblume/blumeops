@@ -47,7 +47,7 @@ K8s services are proxied via their Tailscale Ingress endpoints:
 |-----------|---------|---------|
 | `grafana.ops.eblu.me` | `grafana.tail8d86e.ts.net` | [[grafana]] |
 | `argocd.ops.eblu.me` | `argocd.tail8d86e.ts.net` | [[argocd]] |
-| `docs.ops.eblu.me` | `docs.tail8d86e.ts.net` | [[docs]] |
+| `docs.ops.eblu.me` | `docs.tail8d86e.ts.net` | [[docs]] (now publicly available at `docs.eblu.me` via [[flyio-proxy]]) |
 | `feed.ops.eblu.me` | `feed.tail8d86e.ts.net` | [[miniflux]] |
 | ... | ... | (see defaults/main.yml for full list) |
 

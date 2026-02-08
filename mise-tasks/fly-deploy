@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Deploy the Fly.io public proxy"
+
+set -euo pipefail
+
+cd "$(dirname "$0")/../fly"
+fly deploy "$@"

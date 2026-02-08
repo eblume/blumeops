@@ -80,6 +80,6 @@ This repo uses [Forgejo Actions](https://forgejo.org/docs/latest/user/actions/) 
 
 ## Documentation
 
-Documentation lives in `docs/` and follows the [Diataxis](https://diataxis.fr/) framework. Published at https://docs.ops.eblu.me.
+Documentation lives in `docs/` and follows the [Diataxis](https://diataxis.fr/) framework. Published at https://docs.eblu.me.
 
 Docs use [Obsidian](https://obsidian.md) wiki-link syntax (`[[link]]`) for cross-references. Edit with any markdown editor, or use [obsidian.nvim](https://github.com/obsidian-nvim/obsidian.nvim) for enhanced navigation.

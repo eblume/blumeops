@@ -11,8 +11,6 @@ id: expose-service-publicly
 
 # Expose a Service Publicly via Fly.io + Tailscale
 
-> **Status:** Plan — not yet implemented. First target: `docs.eblu.me`.
-
 This guide describes how to expose a BlumeOps service to the public internet
 using a reverse proxy container on [Fly.io](https://fly.io) that tunnels back
 to [[indri]] over [[tailscale]]. The approach keeps the home IP hidden,
@@ -50,7 +48,7 @@ infrastructure. They can continue to operate in parallel for private access.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Proxy host | Fly.io (free tier) | Managed container, no server to maintain via Ansible |
+| Proxy host | Fly.io (free tier) | Managed container, no server to maintain via Ansible. Shared IPv4 + IPv6 are free for HTTP/HTTPS; dedicated IPv4 is $2/mo if a service needs non-HTTP(S) protocols |
 | Tunnel | Tailscale (existing) | Already in use, WireGuard encryption, ACL control |
 | DNS | CNAME at [[gandi]] | No DNS migration needed, no Cloudflare dependency |
 | TLS (public) | Fly.io auto-provisions Let's Encrypt | No cert management, `$0.10/mo` per hostname |
@@ -146,7 +144,8 @@ COPY --from=docker.io/tailscale/tailscale:stable \
 COPY --from=docker.io/tailscale/tailscale:stable \
     /usr/local/bin/tailscale /usr/local/bin/tailscale
 
-RUN mkdir -p /var/run/tailscale /var/lib/tailscale
+RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
+    && apk add --no-cache iptables ip6tables
 
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY start.sh /start.sh
@@ -163,8 +162,9 @@ CMD ["/start.sh"]
 #!/bin/sh
 set -e
 
-# Start tailscale in userspace networking mode (no TUN device needed)
-tailscaled --tun=userspace-networking --statedir=/var/lib/tailscale &
+# Start tailscale daemon. Fly.io runs Firecracker microVMs which support
+# TUN devices natively — no need for --tun=userspace-networking.
+tailscaled --statedir=/var/lib/tailscale &
 sleep 2
 
 # Authenticate and join tailnet
@@ -174,7 +174,7 @@ tailscale up --authkey="${TS_AUTHKEY}" --hostname=flyio-proxy
 until tailscale status > /dev/null 2>&1; do sleep 1; done
 echo "Tailscale connected"
 
-# Start nginx
+# Start nginx — MagicDNS resolves *.tail8d86e.ts.net hostnames
 nginx -g "daemon off;"
 ```
 
@@ -211,6 +211,7 @@ http {
         location / {
             proxy_pass https://docs.tail8d86e.ts.net;
             proxy_ssl_verify off;
+            proxy_ssl_server_name on;
 
             # Cache aggressively — static site only.
             # Do NOT use these settings for dynamic services.
@@ -228,16 +229,19 @@ http {
 
             add_header X-Cache-Status $upstream_cache_status;
         }
+    }
+
+    # Catch-all: reject unknown hosts, but serve health check
+    server {
+        listen 8080 default_server;
 
         location /healthz {
             return 200 "ok\n";
         }
-    }
 
-    # Catch-all: reject unknown hosts
-    server {
-        listen 8080 default_server;
-        return 444;
+        location / {
+            return 444;
+        }
     }
 }
 ```
@@ -250,15 +254,21 @@ Extend the existing `pulumi/tailscale/` project.
 
 ```python
 # Auth key for Fly.io proxy container
-flyio_key = tailscale.TailscaleKey(
+flyio_key = tailscale.TailnetKey(
     "flyio-proxy-key",
     reusable=True,
     ephemeral=True,
+    preauthorized=True,  # Skip device approval on the tailnet
     tags=["tag:flyio-proxy"],
     expiry=7776000,  # 90 days
 )
 pulumi.export("flyio_authkey", flyio_key.key)
 ```
+
+> **Note:** `preauthorized=True` is required if your tailnet has device
+> approval enabled. Without it, each new container start (including
+> health-check restarts) creates a node that needs manual approval,
+> causing the container to hang before nginx starts.
 
 **Add to `pulumi/tailscale/policy.hujson`:**
 
@@ -323,10 +333,19 @@ set -euo pipefail
 
 APP="blumeops-proxy"
 
-# Fetch Tailscale auth key from 1Password
-TS_AUTHKEY=$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get <FLY_ITEM_ID> --fields ts-authkey --reveal)
-fly secrets set TS_AUTHKEY="$TS_AUTHKEY" -a "$APP"
-echo "Tailscale auth key set"
+# Fetch Tailscale auth key from Pulumi state
+echo "Fetching Tailscale auth key from Pulumi..."
+TS_AUTHKEY=$(cd "$(dirname "$0")/../pulumi/tailscale" && pulumi stack select tail8d86e && pulumi stack output flyio_authkey --show-secrets)
+fly secrets set TS_AUTHKEY="$TS_AUTHKEY" --stage -a "$APP"
+echo "Tailscale auth key staged (will take effect on next deploy)"
+
+# Allocate IPs (idempotent — fly errors if already allocated)
+# Shared IPv4 is free and sufficient for HTTP/HTTPS services.
+# Use 'fly ips allocate-v4' (no --shared) for dedicated IPv4 ($2/mo)
+# if the service needs non-HTTP protocols.
+fly ips allocate-v4 --shared -a "$APP" 2>/dev/null || true
+fly ips allocate-v6 -a "$APP" 2>/dev/null || true
+echo "IPs allocated"
 
 # Add certs for all public domains (idempotent — fly ignores duplicates)
 fly certs add docs.eblu.me -a "$APP" 2>/dev/null || true
@@ -497,9 +516,41 @@ Key differences for dynamic services:
 - **WebSocket support** — many modern web apps use WebSockets
 - **Larger body size** — git pushes and file uploads need more than the default 1MB
 
-### 2. Add DNS CNAME (Pulumi)
+### 2. Add Fly.io certificate
 
-Add to `pulumi/gandi/__main__.py`:
+```bash
+fly certs add wiki.eblu.me -a blumeops-proxy
+```
+
+Or add it to `mise-tasks/fly-setup` so it's captured for future runs.
+
+### 3. Deploy
+
+```bash
+mise run fly-deploy
+```
+
+Or push the `fly/nginx.conf` change to main — the Forgejo workflow deploys automatically.
+
+### 4. Verify against fly.dev
+
+Test the proxy before touching DNS. Use the `Host` header to simulate
+the real domain:
+
+```bash
+# Health check
+curl -sf https://blumeops-proxy.fly.dev/healthz
+
+# Simulate real domain request
+curl -I -H "Host: wiki.eblu.me" https://blumeops-proxy.fly.dev/
+# Should return 200 with X-Cache-Status header
+```
+
+If this fails, debug without any public DNS impact.
+
+### 5. Add DNS CNAME (Pulumi)
+
+Only after verifying the proxy works. Add to `pulumi/gandi/__main__.py`:
 
 ```python
 wiki_public = gandi.livedns.Record(
@@ -514,30 +565,14 @@ wiki_public = gandi.livedns.Record(
 
 Deploy: `mise run dns-preview` then `mise run dns-up`.
 
-### 3. Add Fly.io certificate
-
-```bash
-fly certs add wiki.eblu.me -a blumeops-proxy
-```
-
-Or add it to `mise-tasks/fly-setup` so it's captured for future runs.
-
-### 4. Deploy
-
-```bash
-mise run fly-deploy
-```
-
-Or push the `fly/nginx.conf` change to main — the Forgejo workflow deploys automatically.
-
-### 5. Verify
+### 6. Verify with real domain
 
 ```bash
 curl -I https://wiki.eblu.me
 # Should return 200 with X-Cache-Status header
 ```
 
-### 6. Update Tailscale ACLs if needed
+### 7. Update Tailscale ACLs if needed
 
 The one-time setup grants `tag:flyio-proxy` access to `tag:k8s` on port
 443. If the new service needs a different grant, add it to
@@ -620,22 +655,13 @@ Setup considerations for Forgejo specifically:
 
 ### Break-glass shutoff
 
-If the proxy is causing issues (DDoS, unexpected traffic, bandwidth consumption on the home network):
+If the proxy is causing issues, stop it immediately:
 
-**Level 1 — Stop the container (seconds, reversible):**
 ```bash
 mise run fly-shutoff
-# or: fly scale count 0 -a blumeops-proxy --yes
 ```
-All public services go offline immediately. Tailscale tunnel drops. Zero traffic reaches indri. Restore with `fly scale count 1 -a blumeops-proxy`.
 
-**Level 2 — Revoke Tailscale access (seconds):**
-Remove the `flyio-proxy` node in the Tailscale admin console. Even if the container is running, it cannot reach the tailnet. Use this if the container itself may be compromised.
-
-**Level 3 — Remove DNS (minutes to hours):**
-Delete the CNAME records at Gandi. Takes time for DNS propagation but is the permanent shutoff.
-
-**Level 1 is the primary response.** It is a single command, takes effect in seconds, and is trivially reversible. Document the `mise run fly-shutoff` command somewhere easily accessible (e.g., pinned in a notes app) so it can be run quickly under stress.
+This stops all machines in seconds — zero traffic reaches indri. See [[manage-flyio-proxy#Emergency Shutoff]] for the full escalation ladder (container stop → Tailscale revoke → DNS removal).
 
 ---
 
@@ -688,12 +714,23 @@ The "semi" for Fly.io secrets is a one-time operation backed by a repeatable mis
 
 ## Verification
 
-After initial deployment of a service (using `docs.eblu.me` as example):
+### Pre-DNS (verify against fly.dev)
+
+Test the proxy works before creating any public DNS records:
+
+1. `curl -sf https://blumeops-proxy.fly.dev/healthz` — returns `ok`
+2. `curl -I -H "Host: docs.eblu.me" https://blumeops-proxy.fly.dev/` — returns 200 with `X-Cache-Status` header
+3. `fly status -a blumeops-proxy` — shows healthy machine
+4. All `*.ops.eblu.me` services still work from tailnet (unchanged)
+5. `mise run services-check` passes
+
+If anything fails here, debug without public DNS impact.
+
+### Post-DNS (after CNAME is live)
+
+After deploying DNS (`mise run dns-up`):
 
 1. `curl -I https://docs.eblu.me` — returns 200 with `X-Cache-Status` header
 2. `dig docs.eblu.me` — resolves to Fly.io IPs (not Tailscale IP)
 3. `dig forge.ops.eblu.me` — still resolves to `100.98.163.89` (unchanged)
-4. All `*.ops.eblu.me` services work from tailnet
-5. `mise run services-check` passes
-6. `fly status -a blumeops-proxy` shows healthy machine
-7. Second request to same URL shows `X-Cache-Status: HIT`
+4. Second request to same URL shows `X-Cache-Status: HIT`

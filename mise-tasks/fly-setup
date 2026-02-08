@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#MISE description="One-time setup: configure Fly.io secrets and certs (idempotent)"
+
+set -euo pipefail
+
+APP="blumeops-proxy"
+
+# Fetch Tailscale auth key from Pulumi state
+echo "Fetching Tailscale auth key from Pulumi..."
+TS_AUTHKEY=$(cd "$(dirname "$0")/../pulumi/tailscale" && pulumi stack select tail8d86e && pulumi stack output flyio_authkey --show-secrets)
+fly secrets set TS_AUTHKEY="$TS_AUTHKEY" --stage -a "$APP"
+echo "Tailscale auth key staged (will take effect on next deploy)"
+
+# Allocate IPs (idempotent — fly errors if already allocated)
+# Shared IPv4 is free and sufficient for HTTP/HTTPS services.
+# Use 'fly ips allocate-v4' (no --shared) for dedicated IPv4 ($2/mo)
+# if the service needs non-HTTP protocols.
+fly ips allocate-v4 --shared -a "$APP" 2>/dev/null || true
+fly ips allocate-v6 -a "$APP" 2>/dev/null || true
+echo "IPs allocated"
+
+# Add certs for all public domains (idempotent — fly ignores duplicates)
+fly certs add docs.eblu.me -a "$APP" 2>/dev/null || true
+# fly certs add wiki.eblu.me -a "$APP" 2>/dev/null || true  # future services
+echo "Certificates configured"
+
+echo "Done. Run 'mise run fly-deploy' to deploy."

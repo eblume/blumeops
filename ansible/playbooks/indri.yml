@@ -82,10 +82,21 @@
       check_mode: false
       tags: [forgejo_actions_secrets]
 
+    - name: Fetch Fly.io deploy token for Forgejo Actions
+      ansible.builtin.command:
+        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get on5slfaygtdjrxmdwezyhfmqsq --fields deploy-token --reveal
+      delegate_to: localhost
+      register: _fly_deploy_token
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo_actions_secrets]
+
     - name: Set Forgejo Actions secrets facts
       ansible.builtin.set_fact:
         forgejo_api_token: "{{ _forgejo_api_token.stdout }}"
         forgejo_secret_argocd_token: "{{ _forgejo_argocd_token.stdout }}"
+        forgejo_secret_fly_deploy_token: "{{ _fly_deploy_token.stdout }}"
       no_log: true
       tags: [forgejo_actions_secrets]
 

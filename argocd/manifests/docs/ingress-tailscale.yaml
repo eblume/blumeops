@@ -11,7 +11,7 @@ metadata:
     gethomepage.dev/group: "Apps"
     gethomepage.dev/icon: "mdi-book-open-page-variant"
     gethomepage.dev/description: "BlumeOps Documentation"
-    gethomepage.dev/href: "https://docs.ops.eblu.me"
+    gethomepage.dev/href: "https://docs.eblu.me"
     gethomepage.dev/pod-selector: "app=docs"
 spec:
   ingressClassName: tailscale

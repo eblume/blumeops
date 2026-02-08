@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#MISE description="Emergency shutoff: stop all Fly.io proxy machines"
+
+set -euo pipefail
+
+APP="blumeops-proxy"
+
+echo "EMERGENCY SHUTOFF: Stopping all machines for $APP"
+fly scale count 0 -a "$APP" --yes
+echo "All machines stopped. Public services are offline."
+echo "To restore: fly scale count 1 -a $APP"

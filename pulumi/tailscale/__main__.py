@@ -70,9 +70,22 @@ sifaka_tags = tailscale.DeviceTags(
     ],
 )
 
+# ============== Auth Keys ==============
+
+# Auth key for Fly.io proxy container (public reverse proxy)
+flyio_key = tailscale.TailnetKey(
+    "flyio-proxy-key",
+    reusable=True,
+    ephemeral=True,
+    preauthorized=True,
+    tags=["tag:flyio-proxy"],
+    expiry=7776000,  # 90 days
+)
+
 # ============== Exports ==============
 pulumi.export("acl_id", acl.id)
 pulumi.export("policy_hash", policy_hash)
+pulumi.export("flyio_authkey", flyio_key.key)
 
 pulumi.export("indri_device_id", indri.node_id)
 pulumi.export("indri_tags", indri_tags.tags)

@@ -10,4 +10,6 @@ export TAILSCALE_OAUTH_CLIENT_SECRET
 export TAILSCALE_TAILNET="tail8d86e.ts.net"
 
 cd "$(dirname "$0")/../pulumi/tailscale"
+uv sync --quiet || { echo "uv sync failed — if devpi is down, run 'devpi off' and retry"; exit 1; }
+pulumi stack select tail8d86e
 pulumi preview "$@"

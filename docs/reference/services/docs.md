@@ -13,11 +13,13 @@ Documentation site built with [Quartz](https://quartz.jzhao.xyz/) and served via
 
 | Property | Value |
 |----------|-------|
-| **URL** | https://docs.ops.eblu.me |
+| **Public URL** | https://docs.eblu.me |
+| **Private URL** | `docs.ops.eblu.me` (tailnet only, via [[caddy]]) |
 | **Namespace** | `docs` |
 | **Container** | `registry.ops.eblu.me/blumeops/quartz:v1.0.0` |
 | **Source** | `docs/` directory in blumeops repo |
 | **Build** | Forgejo workflow `build-blumeops.yaml` |
+| **Public proxy** | [[flyio-proxy]] (Fly.io → Tailscale tunnel) |
 
 ## Architecture
 

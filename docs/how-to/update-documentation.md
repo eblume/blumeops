@@ -8,7 +8,7 @@ tags:
 
 # Update Documentation
 
-How to publish documentation changes to https://docs.ops.eblu.me.
+How to publish documentation changes to https://docs.eblu.me.
 
 ## Quick Release
 
