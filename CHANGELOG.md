@@ -12,6 +12,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.5.0] - 2026-02-08
+
+### Features
+
+- Add Fly.io public reverse proxy infrastructure for exposing services to the internet (first target: docs.eblu.me)
+
+### Documentation
+
+- Add how-to guide for exposing services publicly via Fly.io reverse proxy + Tailscale tunnel.
+- Update docs for public proxy: canonical URL is now docs.eblu.me, add Fly.io proxy reference card and operations how-to
+
+
 ## [v1.4.2] - 2026-02-08
 
 ### Documentation
