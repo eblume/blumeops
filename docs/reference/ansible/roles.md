@@ -1,5 +1,5 @@
 ---
-title: ansible-roles
+title: Roles
 tags:
   - ansible
   - reference

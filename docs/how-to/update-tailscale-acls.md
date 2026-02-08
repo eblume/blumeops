@@ -1,5 +1,5 @@
 ---
-title: update-tailscale-acls
+title: Update Tailscale ACLs
 tags:
   - how-to
   - tailscale

@@ -1,5 +1,5 @@
 ---
-title: navidrome
+title: Navidrome
 tags:
   - service
   - media

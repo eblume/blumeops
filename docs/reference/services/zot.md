@@ -1,5 +1,5 @@
 ---
-title: zot
+title: Zot
 tags:
   - service
   - registry

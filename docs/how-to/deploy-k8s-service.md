@@ -1,5 +1,5 @@
 ---
-title: deploy-k8s-service
+title: Deploy K8s Service
 tags:
   - how-to
   - kubernetes

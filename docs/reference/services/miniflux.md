@@ -1,5 +1,5 @@
 ---
-title: miniflux
+title: Miniflux
 tags:
   - service
   - rss

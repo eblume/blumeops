@@ -1,5 +1,5 @@
 ---
-title: service-routing
+title: Routing
 tags:
   - infrastructure
   - networking

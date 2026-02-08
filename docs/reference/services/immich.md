@@ -1,5 +1,5 @@
 ---
-title: immich
+title: Immich
 tags:
   - service
   - media

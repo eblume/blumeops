@@ -1,5 +1,5 @@
 ---
-title: grafana-alloy
+title: Alloy
 tags:
   - service
   - observability

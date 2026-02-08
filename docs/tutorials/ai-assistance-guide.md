@@ -1,5 +1,5 @@
 ---
-title: ai-assistance-guide
+title: AI Assistance Guide
 tags:
   - tutorials
   - ai

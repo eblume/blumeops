@@ -1,5 +1,5 @@
 ---
-title: why-gitops
+title: Why GitOps
 tags:
   - explanation
   - philosophy

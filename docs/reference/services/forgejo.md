@@ -1,5 +1,5 @@
 ---
-title: forgejo
+title: Forgejo
 tags:
   - service
   - git

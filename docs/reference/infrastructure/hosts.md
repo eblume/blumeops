@@ -1,5 +1,5 @@
 ---
-title: host-inventory
+title: Hosts
 tags:
   - infrastructure
 ---

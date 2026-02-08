@@ -1,5 +1,5 @@
 ---
-title: explanation
+title: Explanation
 tags:
   - explanation
 ---

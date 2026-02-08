@@ -1,5 +1,5 @@
 ---
-title: tailscale
+title: Tailscale
 tags:
   - infrastructure
   - networking

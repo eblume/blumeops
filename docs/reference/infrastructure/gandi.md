@@ -1,5 +1,5 @@
 ---
-title: gandi
+title: Gandi
 tags:
   - infrastructure
   - networking

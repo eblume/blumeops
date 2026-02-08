@@ -1,5 +1,5 @@
 ---
-title: caddy
+title: Caddy
 tags:
   - service
   - networking

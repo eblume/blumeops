@@ -1,5 +1,5 @@
 ---
-title: adding-a-service
+title: Adding a Service
 tags:
   - tutorials
   - argocd

@@ -1,5 +1,5 @@
 ---
-title: how-to
+title: How-To
 tags:
   - how-to
 ---

@@ -1,5 +1,5 @@
 ---
-title: postgresql
+title: PostgreSQL
 tags:
   - service
   - database

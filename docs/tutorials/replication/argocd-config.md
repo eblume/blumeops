@@ -1,5 +1,5 @@
 ---
-title: argocd-config
+title: ArgoCD Config
 tags:
   - tutorials
   - replication

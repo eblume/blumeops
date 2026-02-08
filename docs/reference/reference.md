@@ -1,5 +1,5 @@
 ---
-title: reference
+title: Reference
 tags:
   - reference
 ---
@@ -46,8 +46,6 @@ Host inventory and network configuration.
 - [[tailscale]] - ACLs, groups, tags
 - [[gandi]] - DNS hosting for `eblu.me`
 - [[routing|Routing]] - DNS domains, port mappings
-- [[title-test-alpha]] / [[title-test-beta]] - Duplicate title test (temporary)
-
 ## Kubernetes
 
 Cluster configuration and application registry.

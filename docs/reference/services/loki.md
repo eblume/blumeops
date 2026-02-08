@@ -1,5 +1,5 @@
 ---
-title: loki
+title: Loki
 tags:
   - service
   - observability

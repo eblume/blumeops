@@ -1,5 +1,5 @@
 ---
-title: replicating-blumeops
+title: Replicating BlumeOps
 tags:
   - tutorials
   - replication

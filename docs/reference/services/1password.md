@@ -1,5 +1,5 @@
 ---
-title: 1password
+title: 1Password
 tags:
   - service
   - secrets

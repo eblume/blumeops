@@ -1,5 +1,5 @@
 ---
-title: backup-policy
+title: Backups
 tags:
   - storage
   - backup

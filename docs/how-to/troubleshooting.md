@@ -1,5 +1,5 @@
 ---
-title: troubleshooting
+title: Troubleshooting
 tags:
   - how-to
   - operations

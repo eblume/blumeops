@@ -1,5 +1,5 @@
 ---
-title: kubernetes-bootstrap
+title: Kubernetes Bootstrap
 tags:
   - tutorials
   - replication

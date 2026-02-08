@@ -1,5 +1,5 @@
 ---
-title: argocd-applications
+title: Apps
 tags:
   - kubernetes
   - argocd

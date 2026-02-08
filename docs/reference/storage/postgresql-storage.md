@@ -1,5 +1,5 @@
 ---
-title: postgresql-storage
+title: PostgreSQL Storage
 tags:
   - storage
   - database

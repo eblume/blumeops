@@ -1,5 +1,5 @@
 ---
-title: exploring-the-docs
+title: Exploring the Docs
 tags:
   - tutorials
   - getting-started

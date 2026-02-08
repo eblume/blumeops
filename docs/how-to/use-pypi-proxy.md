@@ -1,5 +1,5 @@
 ---
-title: use-pypi-proxy
+title: Use PyPI Proxy
 tags:
   - how-to
   - python

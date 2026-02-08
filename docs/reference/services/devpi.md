@@ -1,5 +1,5 @@
 ---
-title: devpi
+title: Devpi
 tags:
   - service
   - python

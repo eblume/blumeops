@@ -1,5 +1,5 @@
 ---
-title: kubernetes-cluster
+title: Cluster
 tags:
   - kubernetes
 ---

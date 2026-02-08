@@ -1,5 +1,5 @@
 ---
-title: gilbert
+title: Gilbert
 tags:
   - infrastructure
   - host

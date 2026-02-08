@@ -1,5 +1,5 @@
 ---
-title: observability-stack
+title: Observability Stack
 tags:
   - tutorials
   - replication

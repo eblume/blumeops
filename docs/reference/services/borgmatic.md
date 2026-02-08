@@ -1,5 +1,5 @@
 ---
-title: borgmatic
+title: Borgmatic
 tags:
   - service
   - backup

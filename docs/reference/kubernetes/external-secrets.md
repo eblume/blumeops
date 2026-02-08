@@ -1,5 +1,5 @@
 ---
-title: external-secrets
+title: External Secrets
 tags:
   - kubernetes
   - secrets

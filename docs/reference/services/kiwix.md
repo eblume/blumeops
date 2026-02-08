@@ -1,5 +1,5 @@
 ---
-title: kiwix
+title: Kiwix
 tags:
   - service
   - knowledge

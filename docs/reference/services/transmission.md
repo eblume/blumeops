@@ -1,5 +1,5 @@
 ---
-title: transmission
+title: Transmission
 tags:
   - service
   - torrent

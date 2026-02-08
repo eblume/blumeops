@@ -1,5 +1,5 @@
 ---
-title: tailscale-operator
+title: Tailscale Operator
 tags:
   - kubernetes
   - tailscale

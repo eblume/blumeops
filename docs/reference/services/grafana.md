@@ -1,5 +1,5 @@
 ---
-title: grafana
+title: Grafana
 tags:
   - service
   - observability

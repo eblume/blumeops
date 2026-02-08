@@ -1,5 +1,5 @@
 ---
-title: docs
+title: Docs
 tags:
   - service
   - documentation

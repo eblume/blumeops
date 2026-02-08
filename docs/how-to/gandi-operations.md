@@ -1,5 +1,5 @@
 ---
-title: gandi-operations
+title: Gandi Operations
 tags:
   - how-to
   - dns

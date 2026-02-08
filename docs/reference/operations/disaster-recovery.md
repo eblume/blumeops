@@ -1,5 +1,5 @@
 ---
-title: disaster-recovery
+title: Disaster Recovery
 tags:
   - operations
 ---

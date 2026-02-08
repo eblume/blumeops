@@ -1,5 +1,5 @@
 ---
-title: prometheus
+title: Prometheus
 tags:
   - service
   - observability

@@ -1,5 +1,5 @@
 ---
-title: automounter
+title: Automounter
 tags:
   - services
   - macos

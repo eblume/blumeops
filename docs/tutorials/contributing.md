@@ -1,5 +1,5 @@
 ---
-title: contributing
+title: Contributing
 tags:
   - tutorials
   - contributing

@@ -1,5 +1,5 @@
 ---
-title: tailscale-setup
+title: Tailscale Setup
 tags:
   - tutorials
   - replication

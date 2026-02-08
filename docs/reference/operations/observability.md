@@ -1,5 +1,5 @@
 ---
-title: observability
+title: Observability
 tags:
   - operations
 ---

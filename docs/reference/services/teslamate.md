@@ -1,5 +1,5 @@
 ---
-title: teslamate
+title: TeslaMate
 tags:
   - service
   - vehicle

@@ -1,5 +1,5 @@
 ---
-title: indri
+title: Indri
 tags:
   - infrastructure
   - host

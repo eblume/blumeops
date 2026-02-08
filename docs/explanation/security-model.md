@@ -1,5 +1,5 @@
 ---
-title: security-model
+title: Security Model
 tags:
   - explanation
   - security

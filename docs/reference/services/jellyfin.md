@@ -1,5 +1,5 @@
 ---
-title: jellyfin
+title: Jellyfin
 tags:
   - service
   - media

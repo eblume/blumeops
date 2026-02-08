@@ -1,5 +1,5 @@
 ---
-title: restart-indri
+title: Restart Indri
 tags:
   - how-to
   - operations

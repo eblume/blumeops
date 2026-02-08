@@ -1,5 +1,5 @@
 ---
-title: add-ansible-role
+title: Add Ansible Role
 tags:
   - how-to
   - ansible

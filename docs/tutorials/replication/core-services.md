@@ -1,5 +1,5 @@
 ---
-title: core-services
+title: Core Services
 tags:
   - tutorials
   - replication
