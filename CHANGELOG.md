@@ -12,6 +12,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.4.0] - 2026-02-08
+
+### Features
+
+- Add documentation consistency checks: orphan detection in doc-links, new doc-index (category index coverage), doc-stale (staleness report), and doc-tags (tag inventory).
+
+### Bug Fixes
+
+- Fix broken icons for Pulumi and ArgoCD in homepage Admin bookmarks section.
+
+### Infrastructure
+
+- Add pre-commit to mise.toml project tools.
+
+### Documentation
+
+- Review exploring-the-docs tutorial: simplify wiki-links, fix broken replication/ reference, add Related section, match zk-docs flags to CLAUDE.md. Update use-pypi-proxy to document env-var-based proxy toggle.
+- Add Gandi DNS reference card and operations how-to, rewrite homepage intro for wider audience.
+- Add missing `ai` changelog fragment type to update-documentation guide, consolidate `cicd`→`ci-cd` and `network`→`networking` tags
+- Updated restart-indri how-to to reflect actual recovery procedure after power outage. Added UPS to indri specs.
+- Fixed zk-docs links after file renames due to relative path issues
+
+### Miscellaneous
+
+- Rename `doc-*` mise tasks to `docs-check-*` / `docs-review-*` for clearer naming convention.
+
+
 ## [v1.3.4] - 2026-02-05
 
 ### Documentation
