@@ -22,6 +22,7 @@ Usage: mise run blumeops-tasks
 
 import subprocess
 import sys
+from datetime import date
 
 import httpx
 from rich.console import Console
@@ -78,6 +79,19 @@ def get_tasks(client: httpx.Client, project_id: str) -> list[dict]:
     return response.json()
 
 
+def is_due(task: dict) -> bool:
+    """Check if a task should be displayed based on its due date.
+
+    Tasks without a due date are always shown. Tasks with a due date
+    are only shown when the date is today or in the past.
+    """
+    due = task.get("due")
+    if due is None:
+        return True
+    due_date = date.fromisoformat(due["date"][:10])
+    return due_date <= date.today()
+
+
 def sort_tasks(tasks: list[dict]) -> list[dict]:
     """Sort tasks by custom priority order: p1, p2, p4, p3."""
     return sorted(tasks, key=lambda t: PRIORITY_SORT_ORDER.get(t["priority"], 5))
@@ -102,8 +116,9 @@ def main() -> int:
             console.print(f"[red]Error:[/red] {e}")
             return 1
 
-        # Get and sort tasks
+        # Get, filter, and sort tasks
         tasks = get_tasks(client, project_id)
+        tasks = [t for t in tasks if is_due(t)]
         sorted_tasks = sort_tasks(tasks)
 
     if not sorted_tasks:
