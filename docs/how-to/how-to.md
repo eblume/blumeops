@@ -20,6 +20,7 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 | Guide | Description |
 |-------|-------------|
 | [[update-tailscale-acls]] | Update Tailscale access control policies |
+| [[gandi-operations]] | Manage DNS records and cycle the Gandi API token |
 | [[use-pypi-proxy]] | Configure pip and publish packages to devpi |
 
 ## Documentation

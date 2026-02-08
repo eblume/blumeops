@@ -92,6 +92,7 @@ The build includes the `github.com/caddy-dns/gandi` plugin for ACME DNS-01 chall
 
 ## Related
 
+- [[gandi]] - DNS hosting and ACME DNS-01 provider
 - [[routing]] - Service routing architecture
 - [[forgejo]] - Git forge (proxied by Caddy)
 - [[zot]] - Container registry (proxied by Caddy)

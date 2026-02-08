@@ -61,5 +61,6 @@ DNS points to indri's Tailscale IP (100.98.163.89). TLS via Let's Encrypt (ACME 
 
 ## Related
 
+- [[gandi]] - DNS hosting for `eblu.me`
 - [[tailscale]] - ACL configuration
 - [[indri]] - Where services run

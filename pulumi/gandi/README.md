@@ -37,7 +37,7 @@ This project requires a Gandi Personal Access Token (PAT) with LiveDNS permissio
 
 2. Create a new PAT:
    - Name: `blumeops-pulumi` (or similar)
-   - Expiration: 30 days (maximum)
+   - Expiration: 30 days (maximum is 90; shorter is fine if used rarely)
    - Permissions required:
      - **Manage domain name technical configurations** (required for DNS records)
      - See and renew domain names

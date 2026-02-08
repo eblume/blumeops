@@ -44,6 +44,7 @@ Host inventory and network configuration.
 - [[indri]] - Primary server
 - [[gilbert]] - Development workstation
 - [[tailscale]] - ACLs, groups, tags
+- [[gandi]] - DNS hosting for `eblu.me`
 - [[routing|Routing]] - DNS domains, port mappings
 
 ## Kubernetes
