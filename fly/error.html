@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Unavailable</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+  .container {
+    max-width: 480px;
+    text-align: center;
+  }
+  .status {
+    font-size: 4rem;
+    font-weight: 700;
+    color: #f97316;
+    line-height: 1;
+    margin-bottom: 1rem;
+  }
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  p {
+    color: #94a3b8;
+    line-height: 1.6;
+    margin-bottom: 0.75rem;
+  }
+  .hint {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: #1e293b;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    color: #64748b;
+  }
+  .hint a {
+    color: #64748b;
+    text-decoration: underline;
+    text-decoration-color: #475569;
+  }
+  .hint a:hover {
+    color: #94a3b8;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="status">503</div>
+  <h1>Service Unavailable</h1>
+  <p>The upstream server is not reachable right now. This usually means
+     the backend is offline for maintenance or the network tunnel is down.</p>
+  <p>Services should recover automatically. Please try again shortly.</p>
+  <div class="hint"><a href="https://github.com/eblume/blumeops">BlumeOps</a> &mdash; eblu.me</div>
+</div>
+</body>
+</html>
