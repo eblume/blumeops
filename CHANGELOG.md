@@ -12,6 +12,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.5.2] - 2026-02-09
+
+### Features
+
+- Filter blumeops-tasks to only show dated/recurring tasks when due today or earlier.
+- Add `docs-review` mise task that sorts docs by `last-reviewed` frontmatter date, prioritizing never-reviewed cards. Updated the review-documentation how-to to match.
+
+### Bug Fixes
+
+- Fix fly-deploy WARNING by starting nginx before Tailscale, deferring upstream DNS resolution to request time.
+
+### Infrastructure
+
+- Migrate all Ansible `op item get` calls to `op read` URI syntax for cleaner output and remove the `regex_replace` workaround on the Fly deploy token.
+- Restrict fly.io proxy ACLs to dedicated `tag:flyio-target` endpoints instead of broad `tag:k8s` and `tag:homelab` grants. Migrate all Tailscale Ingresses to a shared ProxyGroup with per-Ingress tag overrides (`tag:flyio-target` on docs, loki, prometheus). Add `autoApprovers` for VIP service routes. Enable `--accept-routes` on indri for ProxyGroup VIP routing.
+
+
 ## [v1.5.1] - 2026-02-08
 
 ### Features
