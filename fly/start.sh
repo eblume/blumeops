@@ -1,9 +1,9 @@
 #!/bin/sh
 set -e
 
-# Start nginx immediately so port 8080 is bound before Fly's deploy checks.
-# Upstream DNS resolution is deferred via resolver + variable in nginx.conf,
-# so nginx starts cleanly even before Tailscale connects.
+# Start nginx immediately so port 8080 is bound (avoids connection refused).
+# Health check returns 503 until /tmp/tailscale-ready exists, so Fly.io
+# keeps the old machine serving traffic until Tailscale connects.
 nginx -g "daemon off;" &
 NGINX_PID=$!
 echo "Nginx started (waiting for Tailscale before proxying)"
@@ -16,8 +16,9 @@ sleep 2
 # Authenticate and join tailnet
 tailscale up --authkey="${TS_AUTHKEY}" --hostname=flyio-proxy
 
-# Wait for tailscale to be ready
+# Wait for tailscale to be ready, then signal nginx health check
 until tailscale status > /dev/null 2>&1; do sleep 1; done
+touch /tmp/tailscale-ready
 echo "Tailscale connected"
 
 # Start Alloy for observability (logs → Loki, metrics → Prometheus)
