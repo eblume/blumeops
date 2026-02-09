@@ -10,15 +10,36 @@ tags:
 
 How to periodically review and maintain the BlumeOps knowledge base.
 
-## Quick Random Review
+## Review by Staleness
 
-Select a random documentation card for review:
+Show docs sorted by when they were last reviewed (most stale first):
 
 ```bash
-mise run docs-review-random
+mise run docs-review
 ```
 
-This displays a random card with a review checklist to guide your assessment.
+This reads the `last-reviewed` frontmatter field from each card. Cards without the field are treated as never-reviewed and appear at the top. The script shows a staleness table and then displays the most stale card with a review checklist.
+
+To show more entries in the table:
+
+```bash
+mise run docs-review -- --limit 30
+```
+
+### Marking a Card as Reviewed
+
+After reviewing a card, add or update the `last-reviewed` field in its frontmatter:
+
+```yaml
+---
+title: Some Card
+last-reviewed: 2026-02-09
+tags:
+  - reference
+---
+```
+
+Commit this change alongside any fixes you make during the review.
 
 ## Review Checklist
 
@@ -71,14 +92,6 @@ cd pulumi/gandi && pulumi preview
 ```
 
 If changes are pending, investigate whether docs or infrastructure is stale.
-
-## When to Review
-
-Consider running `mise run docs-review-random` during:
-
-- Start of work sessions (quick maintenance)
-- After major infrastructure changes (verify docs reflect reality)
-- When learning the system (random exploration)
 
 ## Making Changes
 

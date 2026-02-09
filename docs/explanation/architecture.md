@@ -1,5 +1,6 @@
 ---
 title: Architecture
+last-reviewed: 2026-02-09
 tags:
   - explanation
   - architecture
@@ -37,48 +38,33 @@ Two always-on devices form the infrastructure backbone:
 
 ## Network Layer
 
-[[tailscale]] provides the network fabric:
+[[tailscale]] provides the network fabric. All devices join a single tailnet (`tail8d86e.ts.net`) connected via WireGuard tunnels — no port forwarding or public IPs on homelab devices. ACLs control which devices and services can talk to each other, and MagicDNS provides `*.tail8d86e.ts.net` hostnames.
 
-- All devices on tailnet `tail8d86e.ts.net`
-- ACLs control access between devices and services
-- MagicDNS provides `*.tail8d86e.ts.net` hostnames
-- No port forwarding or public IPs on homelab devices
-- Selected services exposed publicly via [[flyio-proxy]] (Fly.io → Tailscale tunnel)
+## Routing Layer
 
-## Service Routing
+Three layers of reverse proxying expose services at different scopes:
 
-Three DNS domains route to services:
-
-| Domain | Mechanism | Reachable from |
-|--------|-----------|----------------|
-| `*.eblu.me` | [[flyio-proxy]] (Fly.io → Tailscale tunnel) | Public internet |
-| `*.ops.eblu.me` | Caddy reverse proxy on indri | k8s pods, containers, tailnet clients |
+| Domain | Proxy | Reachable from |
+|--------|-------|----------------|
 | `*.tail8d86e.ts.net` | Tailscale MagicDNS | Tailnet clients only |
+| `*.ops.eblu.me` | [[caddy]] on indri | k8s pods, containers, tailnet clients |
+| `*.eblu.me` | [[flyio-proxy]] on Fly.io | Public internet |
 
-See [[routing]] for details on when to use which.
+**Tailscale** is the base layer — every service gets a MagicDNS hostname. The [[tailscale-operator]] gives Kubernetes services their own Tailscale Ingress endpoints.
+
+**[[caddy]]** runs natively on [[indri]] and provides a unified `*.ops.eblu.me` wildcard with TLS (Let's Encrypt via DNS-01/Gandi). It proxies to both local services (Forgejo, Zot, Jellyfin) and Kubernetes services (via their Tailscale Ingress endpoints). Access is restricted by Tailscale ACLs — only `tag:homelab` and `autogroup:admin` can reach Caddy.
+
+**[[flyio-proxy]]** runs on Fly.io for select services that need public internet access. Traffic hits Fly.io's Anycast edge, terminates TLS, and tunnels back to the homelab over Tailscale. Only services explicitly tagged `tag:flyio-target` are reachable — a compromised proxy cannot route to arbitrary services on the tailnet.
+
+See [[routing]] for the full service URL table and port map.
 
 ## Compute Layer
 
-Services run in two places:
+Services run in two places on [[indri]]:
 
-### Native on Indri (Ansible)
+**Native (Ansible)** — services that need host-level access run directly on macOS, managed via Ansible roles in `ansible/roles/`. See [[indri]] for the full list.
 
-Some services run directly on macOS:
-- [[forgejo]] - Git forge (needs filesystem access)
-- [[zot]] - Container registry (k8s depends on it)
-- [[jellyfin]] - Media server (needs VideoToolbox hardware transcoding)
-- [[borgmatic]] - Backups (needs host filesystem access)
-
-Managed via Ansible roles in `ansible/roles/`.
-
-### Kubernetes (ArgoCD)
-
-Most services run in minikube on indri:
-- [[grafana]], [[prometheus]], [[loki]] - Observability
-- [[miniflux]], [[navidrome]], [[kiwix]] - Applications
-- [[postgresql]] - Shared database (CloudNativePG)
-
-Managed via ArgoCD from `argocd/manifests/`.
+**Kubernetes (ArgoCD)** — most services run in minikube, managed via ArgoCD from `argocd/manifests/`. See [[apps]] for the application registry.
 
 ## Data Flow
 
@@ -120,9 +106,10 @@ Managed via ArgoCD from `argocd/manifests/`.
                     └─────────────┘
 ```
 
-[[alloy]] runs in two places:
+[[alloy]] runs in three places:
 - On indri: collects host metrics and logs
 - In k8s: collects pod logs and service probes
+- On [[flyio-proxy]]: tails nginx access logs and derives request metrics
 
 See [[observability]] for details.
 

@@ -1,0 +1,169 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml>=6.0", "rich>=13.0.0", "typer>=0.9.0"]
+# ///
+#MISE description="Review the most stale documentation card by last-reviewed date"
+"""Review the most stale documentation card by last-reviewed date.
+
+Scans all markdown files in docs/ (excluding changelog.d/) and sorts them
+by the ``last-reviewed`` frontmatter field. Docs without the field are
+treated as never-reviewed and float to the top. Displays a staleness
+table and then shows the most stale doc with a review checklist.
+
+After reviewing, update the card's frontmatter:
+
+    last-reviewed: YYYY-MM-DD
+
+Usage: mise run docs-review [-- --limit 10]
+"""
+
+import sys
+from datetime import date
+from pathlib import Path
+from typing import Annotated
+
+import typer
+import yaml
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.table import Table
+
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+
+def extract_frontmatter(file_path: Path) -> dict | None:
+    """Extract YAML frontmatter from a markdown file."""
+    content = file_path.read_text()
+    if not content.startswith("---"):
+        return None
+
+    end_idx = content.find("---", 3)
+    if end_idx == -1:
+        return None
+
+    frontmatter_text = content[3:end_idx].strip()
+    try:
+        return yaml.safe_load(frontmatter_text) or {}
+    except yaml.YAMLError:
+        return None
+
+
+def get_last_reviewed(frontmatter: dict) -> date | None:
+    """Extract last-reviewed date from frontmatter."""
+    raw = frontmatter.get("last-reviewed")
+    if raw is None:
+        return None
+    if isinstance(raw, date):
+        return raw
+    try:
+        return date.fromisoformat(str(raw))
+    except ValueError:
+        return None
+
+
+def main(
+    limit: Annotated[int, typer.Option(help="Number of docs to show in the table")] = 15,
+) -> None:
+    console = Console()
+    today = date.today()
+
+    entries: list[tuple[str, date | None, Path]] = []
+
+    for md_file in sorted(DOCS_DIR.rglob("*.md")):
+        if "changelog.d" in md_file.parts:
+            continue
+
+        frontmatter = extract_frontmatter(md_file)
+        last_reviewed = get_last_reviewed(frontmatter) if frontmatter else None
+        rel_path = str(md_file.relative_to(DOCS_DIR))
+        entries.append((rel_path, last_reviewed, md_file))
+
+    # Sort: never-reviewed first (None), then oldest reviewed
+    entries.sort(key=lambda e: (e[1] is not None, e[1] or date.min))
+
+    never_reviewed = sum(1 for e in entries if e[1] is None)
+
+    # --- Staleness table ---
+    console.print()
+    console.print(Panel(
+        f"[bold]{len(entries)}[/bold] total docs, "
+        f"[bold red]{never_reviewed}[/bold red] never reviewed",
+        title="[bold]Documentation Review Queue[/bold]",
+        border_style="cyan",
+    ))
+    console.print()
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("#", justify="right")
+    table.add_column("File")
+    table.add_column("Last Reviewed", justify="right")
+    table.add_column("Age (days)", justify="right")
+
+    for i, (rel_path, last_reviewed, _) in enumerate(entries[:limit], 1):
+        if last_reviewed is None:
+            table.add_row(
+                str(i),
+                f"[red]{rel_path}[/red]",
+                "[red]never[/red]",
+                "[red]—[/red]",
+            )
+        else:
+            age = (today - last_reviewed).days
+            style = "yellow" if age > 90 else ""
+            age_str = f"[{style}]{age}[/{style}]" if style else str(age)
+            path_str = f"[{style}]{rel_path}[/{style}]" if style else rel_path
+            date_str = f"[{style}]{last_reviewed}[/{style}]" if style else str(last_reviewed)
+            table.add_row(str(i), path_str, date_str, age_str)
+
+    remaining = len(entries) - limit
+    if remaining > 0:
+        table.add_row("", f"[dim]… {remaining} more[/dim]", "", "")
+
+    console.print(table)
+    console.print()
+
+    # --- Show the most stale doc ---
+    if not entries:
+        console.print("[bold red]No documentation files found![/bold red]")
+        raise typer.Exit(code=1)
+
+    top_path, top_reviewed, top_file = entries[0]
+    console.print(Panel(
+        f"[bold cyan]{top_path}[/bold cyan]\n"
+        + (f"[dim]Last reviewed: {top_reviewed}[/dim]" if top_reviewed else "[dim red]Never reviewed[/dim red]"),
+        title="[bold]Up For Review[/bold]",
+        border_style="green",
+    ))
+    console.print()
+
+    content = top_file.read_text()
+    console.print(Markdown(content))
+
+    console.print()
+    console.print(Panel(
+        "[bold]Review Checklist:[/bold]\n\n"
+        "• Is the information accurate and up-to-date?\n"
+        "• Are there broken or missing wiki-links?\n"
+        "• Should this card link to other related cards?\n"
+        "• Is the card too large and should be split?\n"
+        "• Is the card too small and should be merged?\n"
+        "• Does the frontmatter (tags, title) make sense?\n"
+        "• Is the card in the correct category (reference/how-to/etc)?\n\n"
+        "[bold]Verify Deployed State:[/bold]\n\n"
+        "• If ArgoCD app: is it synced? (argocd app get <app>)\n"
+        "• If Ansible role: does it apply idempotently? (--check --diff)\n"
+        "• If Pulumi: is there drift? (pulumi preview)\n\n"
+        "[bold]After Review:[/bold]\n\n"
+        "• Update the card's frontmatter: [cyan]last-reviewed: "
+        + str(today)
+        + "[/cyan]\n"
+        "• Commit the change (along with any fixes)",
+        title="[bold yellow]Review Guidance[/bold yellow]",
+        border_style="yellow",
+    ))
+
+
+if __name__ == "__main__":
+    typer.run(main)
