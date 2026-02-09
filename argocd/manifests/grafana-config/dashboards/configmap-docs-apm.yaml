@@ -242,7 +242,7 @@ data:
             "wrapLogMessage": false
           },
           "targets": [
-            { "datasource": { "type": "loki", "uid": "loki" }, "expr": "{instance=\"flyio-proxy\", job=\"flyio-nginx\"} |= \"docs.eblu.me\"", "refId": "A" }
+            { "datasource": { "type": "loki", "uid": "loki" }, "expr": "{instance=\"flyio-proxy\", job=\"flyio-nginx\"} |= \"docs.eblu.me\" | json | line_format \"{{.client_ip}} {{.request_method}} {{.request_uri}} {{.status}} cache={{.upstream_cache_status}} {{.request_time}}s\"", "refId": "A" }
           ],
           "title": "Recent Access Logs",
           "type": "logs"

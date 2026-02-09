@@ -24,6 +24,7 @@ loki.process "nginx" {
   // Parse the JSON log line
   stage.json {
     expressions = {
+      client_ip            = "client_ip",
       status               = "status",
       method               = "request_method",
       host                 = "http_host",
