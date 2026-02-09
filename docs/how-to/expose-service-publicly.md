@@ -272,16 +272,16 @@ pulumi.export("flyio_authkey", flyio_key.key)
 
 **Add to `pulumi/tailscale/policy.hujson`:**
 
-Tag owner:
+Tag owner (allows the k8s operator to assign this tag to Ingress proxy nodes):
 ```
-"tag:flyio-proxy": ["autogroup:admin", "tag:blumeops"],
+"tag:flyio-target": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
 ```
 
-Access grant (Fly.io proxy → k8s services on HTTPS only):
+Access grant (Fly.io proxy → explicitly tagged endpoints on HTTPS only):
 ```
 {
     "src": ["tag:flyio-proxy"],
-    "dst": ["tag:k8s"],
+    "dst": ["tag:flyio-target"],
     "ip":  ["tcp:443"],
 },
 ```
@@ -290,10 +290,12 @@ ACL test:
 ```
 {
     "src":  "tag:flyio-proxy",
-    "accept": ["tag:k8s:443"],
-    "deny":   ["tag:homelab:22", "tag:nas:445", "tag:registry:443"],
+    "accept": ["tag:flyio-target:443"],
+    "deny":   ["tag:k8s:443", "tag:homelab:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
 },
 ```
+
+Each service's Tailscale Ingress must be annotated with `tag:flyio-target` to be reachable by the proxy — see [[#7. Update Tailscale ACLs if needed]].
 
 Deploy: `mise run tailnet-preview` then `mise run tailnet-up`.
 
@@ -572,20 +574,18 @@ curl -I https://wiki.eblu.me
 # Should return 200 with X-Cache-Status header
 ```
 
-### 7. Update Tailscale ACLs if needed
+### 7. Tag the Tailscale Ingress with `tag:flyio-target`
 
-The one-time setup grants `tag:flyio-proxy` access to `tag:k8s` on port
-443. If the new service needs a different grant, add it to
-`policy.hujson`. Examples:
+The fly.io proxy can only reach endpoints tagged with `tag:flyio-target`. Add the annotation to the service's Tailscale Ingress:
 
-- **Another k8s service** (e.g., Kiwix): No ACL change needed — already
-  covered by `tag:k8s:443`.
-- **Forgejo on indri**: Needs a new grant for `tag:homelab` on the
-  relevant ports (e.g., `tcp:3001` for HTTP, `tcp:2200` for SSH). Add
-  this as a separate, narrow grant — do not widen the existing one.
-- **Non-Tailscale-ingress service**: If the backend uses `tailscale
-  serve` instead of the k8s Tailscale operator, the Tailscale node will
-  have its own tag. Grant `tag:flyio-proxy` access to that specific tag.
+```yaml
+annotations:
+  tailscale.com/tags: "tag:k8s,tag:flyio-target"
+```
+
+Include `tag:k8s` to preserve existing access rules for the Ingress proxy node. The `tag:flyio-target` tag opts this specific endpoint into being reachable by the fly.io proxy — no broad ACL changes needed.
+
+For non-k8s services (e.g., Forgejo on indri), create a k8s ExternalName Service pointing to the host, then a Tailscale Ingress with the same annotation.
 
 ---
 
@@ -691,7 +691,7 @@ dynamic, authenticated service like [[forgejo]].
 - [ ] Audit access controls and permissions
 - [ ] Configure the service to log the forwarded client IP (not the proxy IP)
 - [ ] Set up fail2ban on indri with a filter for the service's log format
-- [ ] Add narrow Tailscale ACL grant for `tag:flyio-proxy` to the service
+- [ ] Tag the service's Tailscale Ingress with `tag:flyio-target`
 - [ ] Test the nginx config locally or in staging before deploying
 - [ ] Rehearse the break-glass shutoff (`mise run fly-shutoff`)
 
@@ -732,5 +732,5 @@ After deploying DNS (`mise run dns-up`):
 
 1. `curl -I https://docs.eblu.me` — returns 200 with `X-Cache-Status` header
 2. `dig docs.eblu.me` — resolves to Fly.io IPs (not Tailscale IP)
-3. `dig forge.ops.eblu.me` — still resolves to `100.98.163.89` (unchanged)
+3. `dig forge.ops.eblu.me` — still resolves to indri's Tailscale IP (unchanged)
 4. Second request to same URL shows `X-Cache-Status: HIT`

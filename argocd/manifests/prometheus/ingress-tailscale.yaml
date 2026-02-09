@@ -7,6 +7,8 @@ metadata:
   namespace: monitoring
   annotations:
     tailscale.com/funnel: "false"
+    tailscale.com/proxy-group: "ingress"
+    tailscale.com/tags: "tag:k8s,tag:flyio-target"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Prometheus"
     gethomepage.dev/group: "Observability"
@@ -17,8 +19,7 @@ metadata:
 spec:
   ingressClassName: tailscale
   rules:
-    - host: prometheus
-      http:
+    - http:
         paths:
           - path: /
             pathType: Prefix

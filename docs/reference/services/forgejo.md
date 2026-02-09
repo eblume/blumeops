@@ -71,6 +71,24 @@ The Ansible role authenticates to the Forgejo API using a Personal Access Token 
 
 This is a bootstrapping requirement - the PAT enables IaC for all other secrets.
 
+## Future: Public Access
+
+Forgejo can be exposed publicly at `forge.eblu.me` via [[flyio-proxy]]. Since Forgejo runs natively on [[indri]] (not in k8s), the pattern is:
+
+1. Create a k8s ExternalName Service pointing to indri's Tailscale IP
+2. Create a Tailscale Ingress with `tailscale.com/tags: "tag:k8s,tag:flyio-target"`
+3. Add the nginx server block and DNS CNAME
+
+Exposing a dynamic, authenticated service like Forgejo requires a full security review before going live:
+
+- Disable open user registration (require invites or admin approval)
+- Configure fail2ban on indri with a filter for Forgejo's log format
+- Ensure Forgejo logs the forwarded client IP (`X-Real-IP`) rather than the proxy's Tailscale IP
+- Audit repository visibility defaults and permissions
+- Rehearse the break-glass shutoff (`mise run fly-shutoff`)
+
+See [[expose-service-publicly]] for the full howto and dynamic service checklist.
+
 ## Related
 
 - [[argocd]] - Uses Forgejo as git source

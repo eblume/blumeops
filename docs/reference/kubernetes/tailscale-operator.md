@@ -19,11 +19,16 @@ The Tailscale operator enables Kubernetes services to be exposed directly on the
 
 ## How It Works
 
-When you create an Ingress with `ingressClassName: tailscale`:
+Ingresses use a shared ProxyGroup (`ingress`) rather than per-service Tailscale nodes. When you create an Ingress with `ingressClassName: tailscale`:
 
-1. Operator provisions a Tailscale node for the service
-2. Service becomes accessible at `<hostname>.tail8d86e.ts.net`
-3. TLS is handled automatically via Tailscale
+1. Operator configures the shared ProxyGroup pods to serve the new Ingress
+2. Service gets a VIP (Virtual IP) address on the tailnet
+3. Service becomes accessible at `<hostname>.tail8d86e.ts.net`
+4. TLS is handled automatically via Tailscale
+
+Tailnet clients must have `--accept-routes` enabled to route to VIP addresses.
+
+Services can be individually tagged (e.g., `tag:flyio-target`) via Ingress annotations to control which ACL grants apply. See [[expose-service-publicly]] for the tagging workflow.
 
 ## Limitations
 

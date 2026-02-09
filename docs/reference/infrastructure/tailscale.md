@@ -28,6 +28,9 @@ ACLs managed via Pulumi in `pulumi/policy.hujson`.
 | `tag:blumeops` | indri, sifaka | Pulumi IaC managed resources |
 | `tag:registry` | indri | Container registry access |
 | `tag:k8s-api` | indri | Kubernetes API server access |
+| `tag:k8s-operator` | (operator pod) | Tailscale operator for k8s |
+| `tag:k8s` | (Ingress proxy pods) | Kubernetes Tailscale Ingress nodes |
+| `tag:flyio-target` | (k8s Ingress nodes) | Endpoints reachable by fly.io proxy |
 
 **Important:** Don't tag user-owned devices (like gilbert). Tagging converts them to "tagged devices" which lose user identity and break user-based SSH rules.
 

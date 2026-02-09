@@ -71,11 +71,11 @@ Alloy listens on `127.0.0.1:12345` for self-scraping its `/metrics` endpoint. Al
 
 ## Security Considerations
 
-The `tag:flyio-proxy` ACL grants access to both `tag:k8s:443` (for proxying public services) and `tag:homelab:443` (for pushing metrics/logs to [[caddy|Caddy]]-proxied Loki and Prometheus). This means a compromised nginx config could route traffic to **any** Caddy-proxied service — not just the intended backends. Some of those services (Loki, Prometheus) have no auth; others ([[forgejo]], [[navidrome]], [[immich]]) do.
+The `tag:flyio-proxy` ACL grants access only to `tag:flyio-target:443`. Services must explicitly opt in by adding a `tailscale.com/tags: "tag:k8s,tag:flyio-target"` annotation to their Tailscale Ingress. This means the proxy can only reach endpoints that have been individually tagged — a compromised nginx config cannot route to arbitrary services on the tailnet.
 
-Exploitation requires either pushing a malicious image to Fly.io or modifying the nginx config — both of which require RCE on [[gilbert]] (where `fly` is authenticated) or access to [[1password]] (the deploy token). This is an acceptable boundary given that 1Password is already the trust root for the entire infrastructure.
+Currently tagged as `tag:flyio-target`: [[docs]], [[loki]], [[prometheus]]. Loki and Prometheus are tagged so that [[alloy|Alloy]] (running inside the container) can push logs and metrics directly via their Tailscale Ingress endpoints — the restricted ACL means Caddy on indri (`tag:homelab`) is not reachable from the proxy.
 
-If this surface area becomes a concern, an alternative would be to add dedicated Tailscale Ingress tags for Loki/Prometheus write endpoints and restrict `tag:flyio-proxy` to only those.
+To expose an additional service through the proxy, add the `tag:flyio-target` annotation to its Tailscale Ingress. See [[expose-service-publicly]] for the full workflow.
 
 ## Secrets
 

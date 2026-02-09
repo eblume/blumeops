@@ -42,15 +42,17 @@ Two always-on devices form the infrastructure backbone:
 - All devices on tailnet `tail8d86e.ts.net`
 - ACLs control access between devices and services
 - MagicDNS provides `*.tail8d86e.ts.net` hostnames
-- No port forwarding or public IPs needed
+- No port forwarding or public IPs on homelab devices
+- Selected services exposed publicly via [[flyio-proxy]] (Fly.io → Tailscale tunnel)
 
 ## Service Routing
 
-Two DNS domains route to services:
+Three DNS domains route to services:
 
 | Domain | Mechanism | Reachable from |
 |--------|-----------|----------------|
-| `*.ops.eblu.me` | Caddy reverse proxy on indri | Everywhere (k8s pods, containers, tailnet) |
+| `*.eblu.me` | [[flyio-proxy]] (Fly.io → Tailscale tunnel) | Public internet |
+| `*.ops.eblu.me` | Caddy reverse proxy on indri | k8s pods, containers, tailnet clients |
 | `*.tail8d86e.ts.net` | Tailscale MagicDNS | Tailnet clients only |
 
 See [[routing]] for details on when to use which.

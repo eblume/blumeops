@@ -9,6 +9,7 @@ metadata:
   namespace: monitoring
   annotations:
     tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Grafana"
     gethomepage.dev/group: "Observability"

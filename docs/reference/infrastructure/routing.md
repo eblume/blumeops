@@ -7,20 +7,21 @@ tags:
 
 # Service Routing
 
-Services are accessible via two DNS domains with different reachability.
+Services are accessible via three DNS domains with different reachability.
 
 ## DNS Domains
 
 | Domain | Proxy | Reachable From |
 |--------|-------|----------------|
+| `*.eblu.me` | [[flyio-proxy]] (Fly.io → Tailscale tunnel) | Public internet |
 | `*.ops.eblu.me` | Caddy on indri | k8s pods, docker containers, tailnet clients |
 | `*.tail8d86e.ts.net` | Tailscale MagicDNS | Tailnet clients only |
 
-**Use `*.ops.eblu.me`** for services that need pod-to-service communication.
+**Use `*.ops.eblu.me`** for services that need pod-to-service communication. Use `*.eblu.me` for services exposed publicly via Fly.io.
 
 ## Caddy Services (`*.ops.eblu.me`)
 
-DNS points to indri's Tailscale IP (100.98.163.89). TLS via Let's Encrypt (ACME DNS-01 with Gandi).
+DNS points to [[indri]]'s Tailscale IP. TLS via Let's Encrypt (ACME DNS-01 with Gandi).
 
 | Service | URL | Description |
 |---------|-----|-------------|
@@ -39,6 +40,14 @@ DNS points to indri's Tailscale IP (100.98.163.89). TLS via Let's Encrypt (ACME 
 | [[jellyfin]] | https://jellyfin.ops.eblu.me | Media server |
 | [[postgresql]] | pg.ops.eblu.me:5432 | Database |
 | [[sifaka|Sifaka]] | https://nas.ops.eblu.me | NAS dashboard |
+
+## Public Services (`*.eblu.me`)
+
+DNS CNAMEs point to `blumeops-proxy.fly.dev`. TLS via Fly.io-managed Let's Encrypt. Traffic tunnels back to the homelab over Tailscale. Only services tagged `tag:flyio-target` are reachable by the proxy — see [[flyio-proxy]] for details.
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| [[docs]] | https://docs.eblu.me | Documentation site |
 
 ## Tailscale-Only Services
 
@@ -64,3 +73,5 @@ DNS points to indri's Tailscale IP (100.98.163.89). TLS via Let's Encrypt (ACME 
 - [[gandi]] - DNS hosting for `eblu.me`
 - [[tailscale]] - ACL configuration
 - [[indri]] - Where services run
+- [[flyio-proxy]] - Public reverse proxy for `*.eblu.me`
+- [[expose-service-publicly]] - How to add a new public service

@@ -61,10 +61,10 @@
 		},
 
 		// --- Fly.io proxy ---
-		// Public reverse proxy can reach k8s services and Caddy on HTTPS
+		// Public reverse proxy can only reach explicitly tagged endpoints
 		{
 			"src": ["tag:flyio-proxy"],
-			"dst": ["tag:k8s", "tag:homelab"],
+			"dst": ["tag:flyio-target"],
 			"ip":  ["tcp:443"],
 		},
 
@@ -126,6 +126,15 @@
 		},
 	],
 
+	// ============== Auto Approvers ==============
+	// Allow ProxyGroup pods (tag:k8s) to auto-approve VIP Services
+	// Required for multi-cluster Ingress per Tailscale docs
+	"autoApprovers": {
+		"services": {
+			"tag:k8s": ["tag:k8s"],
+		},
+	},
+
 	// ============== Tag Owners ==============
 	"tagOwners": {
 		"tag:blumeops": ["autogroup:admin", "tag:blumeops"],
@@ -145,6 +154,7 @@
 		"tag:k8s": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
 		"tag:ci-gateway": ["autogroup:admin", "tag:blumeops"],
 		"tag:flyio-proxy": ["autogroup:admin", "tag:blumeops"],
+		"tag:flyio-target": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
 	},
 
 	// ============== ACL Tests ==============
@@ -175,11 +185,11 @@
 			"src":    "tag:ci-gateway",
 			"accept": ["tag:registry:443"],
 		},
-		// Fly.io proxy can reach k8s and Caddy on indri (HTTPS only), nothing else
+		// Fly.io proxy can only reach flyio-target tagged endpoints, nothing else
 		{
 			"src":    "tag:flyio-proxy",
-			"accept": ["tag:k8s:443", "tag:homelab:443"],
-			"deny":   ["tag:homelab:22", "tag:nas:445", "tag:registry:443"],
+			"accept": ["tag:flyio-target:443"],
+			"deny":   ["tag:k8s:443", "tag:homelab:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
 		},
 	],
 }

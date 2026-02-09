@@ -5,6 +5,7 @@ metadata:
   namespace: devpi
   annotations:
     tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "PyPI"
     gethomepage.dev/group: "Infrastructure"

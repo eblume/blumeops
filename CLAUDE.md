@@ -69,7 +69,8 @@ mise run provision-indri -- --check --diff  # dry run
 
 | Domain | Mechanism | Reachable from |
 |--------|-----------|----------------|
-| `*.ops.eblu.me` | Caddy on indri (100.98.163.89) | everywhere incl. k8s pods |
+| `*.eblu.me` | Fly.io proxy (Tailscale tunnel) | public internet |
+| `*.ops.eblu.me` | Caddy on indri | k8s pods, containers, tailnet |
 | `*.tail8d86e.ts.net` | Tailscale MagicDNS | tailnet clients only |
 
 Check tailscale serve: `ssh indri 'tailscale serve status --json'`

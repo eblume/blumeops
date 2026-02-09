@@ -16,7 +16,7 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 | **Model** | Mac mini M1, 2020 (Macmini9,1) |
 | **Storage** | 2TB internal SSD |
 | **macOS** | 15.7.3 (Sequoia) |
-| **Tailscale IP** | 100.98.163.89 |
+| **Tailscale hostname** | `indri.tail8d86e.ts.net` |
 | **Tailscale Tag** | `tag:homelab` |
 | **UPS** | Anker SOLIX F2000 GaNPrime |
 

@@ -17,18 +17,22 @@ The foundational security decision is using [[tailscale]] as the network layer.
 
 ### Zero Trust Networking
 
-BlumeOps has no public IP addresses or port forwarding. All services are only accessible via Tailscale:
+BlumeOps infrastructure has no public IP addresses or port forwarding. Most services are only accessible via Tailscale:
 
-- **No attack surface** from the public internet
 - **Encrypted by default** - WireGuard encryption for all traffic
 - **Identity-based access** - ACLs based on user/device identity, not IP addresses
+- **Minimal public surface** - only selected services are exposed via [[flyio-proxy]]
+
+### Public Access via Fly.io
+
+A small number of services are exposed to the internet through a reverse proxy on Fly.io that tunnels back to the homelab over Tailscale. The proxy uses restricted ACLs (`tag:flyio-target`) so it can only reach explicitly tagged endpoints — a compromised proxy cannot route to arbitrary services on the tailnet. See [[flyio-proxy]] for details and [[expose-service-publicly]] for the security considerations.
 
 ### Defense in Depth
 
 Even within the tailnet, access is restricted:
 
 ```
-Internet ──X──▶ Services (no public access)
+Internet ──▶ Fly.io proxy ──▶ tag:flyio-target only (docs, observability)
 
 Tailnet:
   Admin ────────▶ All services

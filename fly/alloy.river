@@ -94,10 +94,12 @@ loki.relabel "instance" {
   }
 }
 
-// Write logs to Loki via Caddy (valid TLS, no skip_verify needed)
+// Write logs to Loki via Tailscale Ingress (direct, bypasses Caddy)
+// Uses direct Tailscale endpoint because flyio-proxy ACLs only allow
+// tag:flyio-target — Caddy on indri (tag:homelab) is not reachable.
 loki.write "loki" {
   endpoint {
-    url = "https://loki.ops.eblu.me/loki/api/v1/push"
+    url = "https://loki.tail8d86e.ts.net/loki/api/v1/push"
   }
 }
 
@@ -134,9 +136,11 @@ prometheus.relabel "instance" {
   }
 }
 
-// Push metrics to Prometheus via Caddy (valid TLS, no skip_verify needed)
+// Push metrics to Prometheus via Tailscale Ingress (direct, bypasses Caddy)
+// Uses direct Tailscale endpoint because flyio-proxy ACLs only allow
+// tag:flyio-target — Caddy on indri (tag:homelab) is not reachable.
 prometheus.remote_write "prometheus" {
   endpoint {
-    url = "https://prometheus.ops.eblu.me/api/v1/write"
+    url = "https://prometheus.tail8d86e.ts.net/api/v1/write"
   }
 }

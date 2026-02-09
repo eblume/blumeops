@@ -74,10 +74,10 @@ A successful preview confirms the new PAT is working.
 
 ## Break-Glass Override
 
-If MagicDNS is unavailable and Pulumi can't resolve indri's IP, set the target IP manually:
+If MagicDNS is unavailable and Pulumi can't resolve indri's IP, set the target IP manually. Find indri's current Tailscale IP via `tailscale status` or the admin console:
 
 ```bash
-export BLUMEOPS_REVERSE_PROXY_IP=100.98.163.89
+export BLUMEOPS_REVERSE_PROXY_IP=<indri-tailscale-ip>
 mise run dns-up
 ```
 

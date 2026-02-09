@@ -11,6 +11,7 @@ metadata:
   namespace: argocd
   annotations:
     tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "ArgoCD"
     gethomepage.dev/group: "Infrastructure"

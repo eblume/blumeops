@@ -21,18 +21,30 @@ DNS hosting provider for the `eblu.me` domain, managed via Pulumi IaC.
 
 ## What It Does
 
-Gandi hosts the DNS records that make `*.ops.eblu.me` resolve to [[indri]]'s Tailscale IP (100.98.163.89). Since Tailscale IPs are not publicly routable, this gives services real DNS names while keeping them private to the tailnet.
+Gandi hosts the DNS records that make `*.ops.eblu.me` resolve to [[indri]]'s Tailscale IP (`indri.tail8d86e.ts.net`). Since Tailscale IPs are not publicly routable, this gives services real DNS names while keeping them private to the tailnet.
 
 The target IP is resolved dynamically from `indri.tail8d86e.ts.net` at deploy time, so if indri's Tailscale IP changes, re-running the deployment is sufficient.
 
 ## DNS Records
+
+### Private services (Caddy on indri)
 
 | Record | Type | Value | TTL |
 |--------|------|-------|-----|
 | `*.ops.eblu.me` | A | indri's Tailscale IP | 300s |
 | `ops.eblu.me` | A | indri's Tailscale IP | 300s |
 
-Both records point to [[indri]], which runs [[caddy]] as the reverse proxy for all services. See [[routing]] for the full service URL map.
+Both records point to [[indri]], which runs [[caddy]] as the reverse proxy for all private services.
+
+### Public services (Fly.io proxy)
+
+| Record | Type | Value | TTL |
+|--------|------|-------|-----|
+| `docs.eblu.me` | CNAME | `blumeops-proxy.fly.dev` | 300s |
+
+Public CNAMEs point to [[flyio-proxy]] on Fly.io. See [[expose-service-publicly]] for adding new public services.
+
+See [[routing]] for the full service URL map.
 
 ## Pulumi Configuration
 

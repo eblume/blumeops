@@ -6,6 +6,7 @@ metadata:
   namespace: navidrome
   annotations:
     tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "DJ"
     gethomepage.dev/group: "Apps"

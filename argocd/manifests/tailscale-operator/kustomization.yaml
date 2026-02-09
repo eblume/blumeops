@@ -6,6 +6,7 @@ namespace: tailscale
 resources:
   - operator.yaml
   - proxyclass.yaml
+  - proxygroup-ingress.yaml
   - dnsconfig.yaml
   - egress-forge.yaml
   - external-secret.yaml

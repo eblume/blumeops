@@ -81,7 +81,7 @@ The token is written to `~/.config/caddy/gandi-token` (chmod 0600) and sourced b
 
 ## Security Considerations
 
-Caddy has no authentication layer — it is a plain reverse proxy. Access control relies entirely on Tailscale ACLs restricting which devices can reach indri on port 443. Currently `tag:homelab`, `autogroup:admin`, and `tag:flyio-proxy` can reach Caddy. The [[flyio-proxy]] grant exists so Alloy can push metrics/logs to Loki and Prometheus, but it means the Fly.io container can technically reach all Caddy-proxied services. See [[flyio-proxy#Security Considerations]] for the threat model.
+Caddy has no authentication layer — it is a plain reverse proxy. Access control relies entirely on Tailscale ACLs restricting which devices can reach indri on port 443. Currently `tag:homelab` and `autogroup:admin` can reach Caddy. The [[flyio-proxy]] no longer routes through Caddy — it pushes logs and metrics directly to [[loki]] and [[prometheus]] via their Tailscale Ingress endpoints.
 
 ## Custom Build
 

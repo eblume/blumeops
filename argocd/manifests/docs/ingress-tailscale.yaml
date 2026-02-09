@@ -6,6 +6,8 @@ metadata:
   namespace: docs
   annotations:
     tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
+    tailscale.com/tags: "tag:k8s,tag:flyio-target"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Docs"
     gethomepage.dev/group: "Apps"

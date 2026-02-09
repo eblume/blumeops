@@ -6,6 +6,7 @@ metadata:
   namespace: torrent
   annotations:
     tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Transmission"
     gethomepage.dev/group: "Apps"
