@@ -7,22 +7,11 @@ enableRbac: true
 serviceAccount:
   create: true
 
-# Tailscale Ingress - exposes at go.tail8d86e.ts.net
-# Caddy proxies go.ops.eblu.me to this
+# Tailscale Ingress is managed separately in ingress-tailscale.yaml
+# (Helm chart template doesn't support tailscale.com/* annotations)
 ingress:
   main:
-    enabled: true
-    ingressClassName: tailscale
-    annotations:
-      gethomepage.dev/enabled: "false"
-    hosts:
-      - host: go
-        paths:
-          - path: /
-            pathType: Prefix
-    tls:
-      - hosts:
-          - go
+    enabled: false
 
 env:
   - name: HOMEPAGE_ALLOWED_HOSTS

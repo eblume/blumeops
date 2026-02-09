@@ -1,0 +1,27 @@
+# Tailscale Ingress for Homepage
+# Exposes at go.tail8d86e.ts.net
+# Caddy proxies go.ops.eblu.me to this
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: homepage-tailscale
+  namespace: homepage
+  annotations:
+    tailscale.com/funnel: "false"
+    tailscale.com/proxy-group: "ingress"
+    gethomepage.dev/enabled: "false"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: homepage
+                port:
+                  number: 3000
+  tls:
+    - hosts:
+        - go

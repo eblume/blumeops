@@ -25,8 +25,7 @@ metadata:
 spec:
   ingressClassName: tailscale
   rules:
-    - host: photos
-      http:
+    - http:
         paths:
           - path: /
             pathType: Prefix

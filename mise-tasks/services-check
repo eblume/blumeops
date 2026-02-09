@@ -77,6 +77,8 @@ check_http "Miniflux" "https://feed.ops.eblu.me/healthcheck"
 check_http "TeslaMate" "https://tesla.ops.eblu.me/"
 check_http "Devpi" "https://pypi.ops.eblu.me/+api"
 check_http "Transmission" "https://torrent.ops.eblu.me/"
+check_http "Immich" "https://photos.ops.eblu.me/"
+check_http "Navidrome" "https://dj.ops.eblu.me/"
 
 echo ""
 echo "Public services (via Fly.io):"
