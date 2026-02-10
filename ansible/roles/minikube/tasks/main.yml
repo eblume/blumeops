@@ -37,9 +37,9 @@
     msg: "WARNING: Docker does not appear to be running. Please start Docker Desktop manually."
   when: minikube_docker_status.rc != 0
 
-- name: Check if minikube cluster exists
+- name: Check minikube cluster status
   ansible.builtin.command:
-    cmd: minikube status --format={% raw %}'{{.Host}}'{% endraw %}
+    cmd: minikube status
   register: minikube_status
   changed_when: false
   failed_when: false
@@ -63,11 +63,11 @@
   failed_when: false  # Don't fail - may need manual intervention
   when:
     - minikube_docker_status.rc == 0
-    - minikube_status.rc != 0 or 'Running' not in minikube_status.stdout
+    - minikube_status.rc != 0
 
 - name: Check minikube status after start attempt
   ansible.builtin.command:
-    cmd: minikube status --format={% raw %}'{{.Host}}'{% endraw %}
+    cmd: minikube status
   register: minikube_final_status
   changed_when: false
   failed_when: false
@@ -75,7 +75,7 @@
 - name: Warn if minikube failed to start
   ansible.builtin.debug:
     msg: "WARNING: minikube may not have started properly. Run 'minikube start' manually on indri if needed. Status: {{ minikube_final_status.stdout | default('unknown') }}"
-  when: minikube_final_status.rc != 0 or 'Running' not in minikube_final_status.stdout
+  when: minikube_final_status.rc != 0
 
 # Configure containerd to use zot registry as pull-through cache
 # With docker driver, use host.minikube.internal to reach the host
@@ -90,7 +90,7 @@
     - ghcr.io
     - quay.io
   changed_when: false
-  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+  when: minikube_final_status.rc == 0
 
 # Private registry (registry.ops.eblu.me) - direct to zot
 - name: Check registry.ops.eblu.me config
@@ -98,7 +98,7 @@
     cmd: minikube ssh --native-ssh=false "cat /etc/containerd/certs.d/registry.ops.eblu.me/hosts.toml 2>/dev/null || echo ''"
   register: minikube_registry_config
   changed_when: false
-  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+  when: minikube_final_status.rc == 0
 
 - name: Configure registry.ops.eblu.me mirror
   ansible.builtin.command:
@@ -110,7 +110,7 @@
         skip_verify = true" | sudo tee /etc/containerd/certs.d/registry.ops.eblu.me/hosts.toml'
   changed_when: true
   when:
-    - minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+    - minikube_final_status.rc == 0
     - "'host.minikube.internal:5050' not in minikube_registry_config.stdout"
   notify: Restart containerd in minikube
 
@@ -120,7 +120,7 @@
     cmd: minikube ssh --native-ssh=false "cat /etc/containerd/certs.d/docker.io/hosts.toml 2>/dev/null || echo ''"
   register: minikube_dockerio_config
   changed_when: false
-  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+  when: minikube_final_status.rc == 0
 
 - name: Configure docker.io mirror through zot
   ansible.builtin.command:
@@ -132,7 +132,7 @@
         skip_verify = true" | sudo tee /etc/containerd/certs.d/docker.io/hosts.toml'
   changed_when: true
   when:
-    - minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+    - minikube_final_status.rc == 0
     - "'host.minikube.internal:5050' not in minikube_dockerio_config.stdout"
   notify: Restart containerd in minikube
 
@@ -142,7 +142,7 @@
     cmd: minikube ssh --native-ssh=false "cat /etc/containerd/certs.d/ghcr.io/hosts.toml 2>/dev/null || echo ''"
   register: minikube_ghcr_config
   changed_when: false
-  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+  when: minikube_final_status.rc == 0
 
 - name: Configure ghcr.io mirror through zot
   ansible.builtin.command:
@@ -154,7 +154,7 @@
         skip_verify = true" | sudo tee /etc/containerd/certs.d/ghcr.io/hosts.toml'
   changed_when: true
   when:
-    - minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+    - minikube_final_status.rc == 0
     - "'host.minikube.internal:5050' not in minikube_ghcr_config.stdout"
   notify: Restart containerd in minikube
 
@@ -164,7 +164,7 @@
     cmd: minikube ssh --native-ssh=false "cat /etc/containerd/certs.d/quay.io/hosts.toml 2>/dev/null || echo ''"
   register: minikube_quay_config
   changed_when: false
-  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+  when: minikube_final_status.rc == 0
 
 - name: Configure quay.io mirror through zot
   ansible.builtin.command:
@@ -176,7 +176,7 @@
         skip_verify = true" | sudo tee /etc/containerd/certs.d/quay.io/hosts.toml'
   changed_when: true
   when:
-    - minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+    - minikube_final_status.rc == 0
     - "'host.minikube.internal:5050' not in minikube_quay_config.stdout"
   notify: Restart containerd in minikube
 
@@ -188,13 +188,13 @@
     cmd: kubectl config view --minify -o jsonpath="{.clusters[0].cluster.server}"
   register: minikube_api_url
   changed_when: false
-  when: minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+  when: minikube_final_status.rc == 0
 
 - name: Extract API server port from URL
   ansible.builtin.set_fact:
     minikube_api_port: "{{ minikube_api_url.stdout | regex_search(':([0-9]+)$', '\\1') | first }}"
   when:
-    - minikube_final_status.rc == 0 and 'Running' in minikube_final_status.stdout
+    - minikube_final_status.rc == 0
     - minikube_api_url.stdout is defined
 
 - name: Check current tailscale serve config for k8s
