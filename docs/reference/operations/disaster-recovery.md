@@ -6,14 +6,17 @@ tags:
 
 # Disaster Recovery
 
-TBD. Current state:
+Recovery procedures for BlumeOps infrastructure.
 
-- [[borgmatic]] provides daily backups to [[sifaka|Sifaka]]
-- Infrastructure can be rebootstrapped using the blumeops repo
-- Detailed DR procedures not yet documented
+## Procedures
+
+| Scenario | Guide |
+|----------|-------|
+| Lost 1Password access | [[restore-1password-backup]] |
+| Indri reboot/power loss | [[restart-indri]] |
 
 ## Components
 
 - [[borgmatic]] - Backup restoration
-- [[1password]] - Credential recovery
+- [[1password]] - Credential recovery (backed up via `mise run op-backup`)
 - [[forgejo]] - Source of truth for infrastructure code

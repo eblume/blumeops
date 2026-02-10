@@ -57,3 +57,4 @@ Dashboard: "Borgmatic Backups" in [[grafana]]
 - [[backups|Backups]] - Full backup policy
 - [[sifaka|Sifaka]] - Backup target
 - [[postgresql]] - Database backups
+- [[restore-1password-backup]] - Recover 1Password from backup

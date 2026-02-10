@@ -34,7 +34,13 @@ The `blumeops` vault contains all infrastructure credentials.
 
 Services reference 1Password items via `ExternalSecret` manifests.
 
+## Disaster Recovery Backup
+
+The `mise run op-backup` task encrypts a `.1pux` vault export and transfers it to [[indri]] for inclusion in [[borgmatic]] backups. See [[restore-1password-backup]] for the full recovery procedure.
+
 ## Related
 
 - [[argocd]] - Uses secrets for git access
 - [[postgresql]] - Database credentials
+- [[restore-1password-backup]] - Recovery from backup
+- [[borgmatic]] - Backup system

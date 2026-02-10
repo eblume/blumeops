@@ -42,6 +42,7 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 |-------|-------------|
 | [[restart-indri]] | Safely shut down and restart indri |
 | [[manage-flyio-proxy]] | Deploy, shutoff, and troubleshoot the public proxy |
+| [[restore-1password-backup]] | Recover 1Password credentials from borgmatic backup |
 | [[troubleshooting]] | Diagnose and fix common issues |
 
 ## Plans

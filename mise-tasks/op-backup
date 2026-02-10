@@ -19,7 +19,7 @@ If no path is given, prompts you to export from the 1Password desktop app first.
 
 DISASTER RECOVERY:
     1. Restore borgmatic archive to get the .age and .key.enc files
-    2. Retrieve Emergency Kit from safety deposit box
+    2. Retrieve Emergency Kit from fire safety box
     3. openssl enc -d -aes-256-cbc -pbkdf2 < backup.key.enc > key.txt
        (passphrase: {master_password}:{secret_key})
     4. age -d -i key.txt < backup.age > export.1pux

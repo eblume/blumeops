@@ -24,7 +24,7 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | `~/code/personal/zk` | Zettelkasten notes | Critical |
 | `/opt/homebrew/var/forgejo` | Git repositories | Critical |
 | `~/.config/borgmatic` | Backup config | High |
-| `~/Documents` | Personal documents | High |
+| `~/Documents` | Personal documents (includes [[1password]] encrypted export) | High |
 
 ### Databases
 
@@ -72,3 +72,4 @@ Dashboard: "Borgmatic Backups" in [[grafana]]
 - [[borgmatic]] - Backup system details
 - [[sifaka|Sifaka]] - Backup storage
 - [[postgresql]] - Database backups
+- [[restore-1password-backup]] - Recover 1Password from backup
