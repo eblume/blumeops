@@ -29,8 +29,8 @@
 
 - name: Add BorgBase host key to known_hosts
   ansible.builtin.known_hosts:
-    name: k04ljcd7.repo.borgbase.com
-    key: "k04ljcd7.repo.borgbase.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGU0mISTyHBw9tBs6SuhSq8tvNM8m9eifQxM+88TowPO"
+    name: u3ugi1x1.repo.borgbase.com
+    key: "u3ugi1x1.repo.borgbase.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGU0mISTyHBw9tBs6SuhSq8tvNM8m9eifQxM+88TowPO"
     state: present
 
 - name: Deploy borgmatic configuration

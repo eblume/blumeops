@@ -23,7 +23,7 @@ borgmatic_repositories:
     label: sifaka-borg-backups
     encryption: repokey
     append_only: true
-  - path: ssh://k04ljcd7@k04ljcd7.repo.borgbase.com/./repo
+  - path: ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo
     label: borgbase-offsite
     encryption: repokey
     append_only: true
