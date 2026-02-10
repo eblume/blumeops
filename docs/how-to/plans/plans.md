@@ -14,3 +14,4 @@ Plans differ from regular how-to guides in that they describe work that has been
 | Plan | Status | Description |
 |------|--------|-------------|
 | [[migrate-forgejo-from-brew]] | Planned | Transition Forgejo from Homebrew to source-built binary with LaunchAgent |
+| [[add-unifi-pulumi-stack]] | Planned | Add Pulumi IaC for UniFi Express 7 home network |

@@ -3,9 +3,9 @@
 
 set -euo pipefail
 
-TAILSCALE_OAUTH_CLIENT_ID=$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get wi6bkf7bcccwfy4eu776ab4p4u --fields client_id)
+TAILSCALE_OAUTH_CLIENT_ID=$(op read "op://blumeops/tailscale - blumeops/client_id")
 export TAILSCALE_OAUTH_CLIENT_ID
-TAILSCALE_OAUTH_CLIENT_SECRET=$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get wi6bkf7bcccwfy4eu776ab4p4u --fields client_secret --reveal)
+TAILSCALE_OAUTH_CLIENT_SECRET=$(op read "op://blumeops/tailscale - blumeops/client_secret")
 export TAILSCALE_OAUTH_CLIENT_SECRET
 export TAILSCALE_TAILNET="tail8d86e.ts.net"
 

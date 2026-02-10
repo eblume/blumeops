@@ -53,3 +53,4 @@ Migration and transition plans for upcoming infrastructure changes.
 |------|-------------|
 | [[plans]] | Index of all plans |
 | [[migrate-forgejo-from-brew]] | Transition Forgejo from Homebrew to source-built binary |
+| [[add-unifi-pulumi-stack]] | Add Pulumi IaC for UniFi Express 7 |

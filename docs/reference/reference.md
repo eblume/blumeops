@@ -46,6 +46,7 @@ Host inventory and network configuration.
 - [[gilbert]] - Development workstation
 - [[tailscale]] - ACLs, groups, tags
 - [[gandi]] - DNS hosting for `eblu.me`
+- [[unifi]] - Home WiFi router (UniFi Express 7)
 - [[routing|Routing]] - DNS domains, port mappings
 - [[power]] - Battery-backed power chain
 

@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-GANDI_PERSONAL_ACCESS_TOKEN=$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get mco6ka3dc3rmw7zkg2dhia5d2m --fields pat --reveal)
+GANDI_PERSONAL_ACCESS_TOKEN=$(op read "op://blumeops/gandi - blumeops/pat")
 export GANDI_PERSONAL_ACCESS_TOKEN
 
 cd "$(dirname "$0")/../pulumi/gandi"
