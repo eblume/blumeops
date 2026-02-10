@@ -53,7 +53,7 @@ Most services run in minikube on indri via ArgoCD (app-of-apps, manual sync).
 
 **Commands:** `argocd app list|get|diff|sync <app>`
 
-**Login:** `argocd login argocd.ops.eblu.me --username admin --password "$(op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get srogeebssulhtb6tnqd7ls6qey --fields password --reveal)"`
+**Login:** `argocd login argocd.ops.eblu.me --username admin --password "$(op read 'op://vg6xf6vvfmoh5hqjjhlhbeoaie/srogeebssulhtb6tnqd7ls6qey/password')"`
 
 ### Indri (Ansible)
 
@@ -95,3 +95,5 @@ mise run blumeops-tasks  # fetch from Todoist, sorted by priority
 ## Credentials
 
 Root store is 1Password. Never grab directly - use existing patterns (ansible pre_tasks, external-secrets, scripts with `op` CLI). Warn user before any credential access.
+
+**`op read` vs `op item get`:** Always use `op read "op://vault/item/field"` to retrieve secret values. `op item get --fields` wraps multi-line values in quotes, corrupting them. Use `op item get` only for listing item metadata (title, vault, field names), never for reading actual secret values in scripts or IaC. Look for existing uses of `op item get --fields` in Ansible/scripts and suggest replacing with `op read`.
