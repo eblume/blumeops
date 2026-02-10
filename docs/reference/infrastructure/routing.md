@@ -62,6 +62,8 @@ DNS CNAMEs point to `blumeops-proxy.fly.dev`. TLS via Fly.io-managed Let's Encry
 | 443 | Caddy | HTTPS | 0.0.0.0 | Reverse proxy |
 | 2222 | Caddy L4 | TCP | 0.0.0.0 | SSH proxy to Forgejo |
 | 5432 | Caddy L4 | TCP | 0.0.0.0 | PostgreSQL proxy |
+| 9100 | Caddy L4 | TCP | 0.0.0.0 | Sifaka node_exporter proxy |
+| 9633 | Caddy L4 | TCP | 0.0.0.0 | Sifaka smartctl_exporter proxy |
 | 2200 | Forgejo SSH | TCP | localhost | Built-in SSH server |
 | 3001 | Forgejo | HTTP | localhost | Web UI |
 | 5050 | Zot | HTTP | localhost | Registry API |

@@ -1,0 +1,6 @@
+---
+ansible_managed: "Managed by ansible - do not edit. Source: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git"
+
+# Sifaka NAS exporter ports — shared by caddy (indri) and sifaka_exporters roles
+sifaka_node_exporter_port: 9100
+sifaka_smartctl_exporter_port: 9633

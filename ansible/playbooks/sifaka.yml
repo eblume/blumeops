@@ -1,0 +1,7 @@
+---
+- name: Configure sifaka
+  hosts: nas
+
+  roles:
+    - role: sifaka_exporters
+      tags: sifaka_exporters

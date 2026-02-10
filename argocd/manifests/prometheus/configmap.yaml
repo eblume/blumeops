@@ -13,12 +13,15 @@ data:
     # K8s services are scraped directly
 
     scrape_configs:
-      # Sifaka NAS node-exporter (via LAN - Docker NATs through indri)
-      # Using LAN IP since k8s pods can reach LAN via Docker NAT (same as NFS mounts)
-      # If IP changes, fallback: create Tailscale egress in tailscale-operator/egress-sifaka.yaml
+      # Sifaka NAS exporters (via Caddy L4 TCP proxy on indri)
       - job_name: "node-exporter-sifaka"
         static_configs:
-          - targets: ["192.168.1.203:9100"]
+          - targets: ["nas.ops.eblu.me:9100"]
+
+      - job_name: "smartctl-sifaka"
+        scrape_interval: 60s
+        static_configs:
+          - targets: ["nas.ops.eblu.me:9633"]
 
       # CNPG PostgreSQL metrics (k8s internal)
       - job_name: "cnpg-postgres"

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Run ansible playbook to provision sifaka"
+
+set -euo pipefail
+
+export MISE_TASK_OUTPUT=interleave
+
+cd ansible
+ansible-playbook playbooks/sifaka.yml "$@"

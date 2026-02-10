@@ -1,0 +1,91 @@
+---
+# Manage Prometheus exporter containers on sifaka NAS
+# Uses command module to avoid requiring docker Python SDK on Synology
+# Requires passwordless sudo for docker — see docs/reference/storage/sifaka.md
+
+# --- node_exporter ---
+
+- name: Pull node_exporter image
+  ansible.builtin.command: "{{ sifaka_exporters_docker }} pull {{ sifaka_exporters_node_exporter_image }}"
+  become: true
+  register: sifaka_exporters_node_pull
+  changed_when: "'Downloaded newer image' in sifaka_exporters_node_pull.stdout"
+
+- name: Check if node_exporter container exists
+  ansible.builtin.command: "{{ sifaka_exporters_docker }} inspect {{ sifaka_exporters_node_exporter_name }} --format {% raw %}'{{.Config.Image}}'{% endraw %}"
+  become: true
+  register: sifaka_exporters_node_inspect
+  changed_when: false
+  failed_when: false
+
+- name: Remove node_exporter container if image changed
+  ansible.builtin.command: "{{ sifaka_exporters_docker }} rm -f {{ sifaka_exporters_node_exporter_name }}"
+  become: true
+  when:
+    - sifaka_exporters_node_inspect.rc == 0
+    - sifaka_exporters_node_inspect.stdout != sifaka_exporters_node_exporter_image
+  changed_when: true
+
+- name: Start node_exporter container
+  ansible.builtin.command:
+    argv:
+      - "{{ sifaka_exporters_docker }}"
+      - run
+      - -d
+      - "--name={{ sifaka_exporters_node_exporter_name }}"
+      - --restart=always
+      - --net=host
+      - "{{ sifaka_exporters_node_exporter_image }}"
+  become: true
+  register: sifaka_exporters_node_start
+  when: >
+    sifaka_exporters_node_inspect.rc != 0 or
+    sifaka_exporters_node_inspect.stdout != sifaka_exporters_node_exporter_image
+  changed_when: sifaka_exporters_node_start.rc == 0
+
+# --- smartctl_exporter ---
+
+- name: Pull smartctl_exporter image
+  ansible.builtin.command: "{{ sifaka_exporters_docker }} pull {{ sifaka_exporters_smartctl_exporter_image }}"
+  become: true
+  register: sifaka_exporters_smartctl_pull
+  changed_when: "'Downloaded newer image' in sifaka_exporters_smartctl_pull.stdout"
+
+- name: Check if smartctl_exporter container exists
+  ansible.builtin.command: "{{ sifaka_exporters_docker }} inspect {{ sifaka_exporters_smartctl_exporter_name }} --format {% raw %}'{{.Config.Image}}'{% endraw %}"
+  become: true
+  register: sifaka_exporters_smartctl_inspect
+  changed_when: false
+  failed_when: false
+
+- name: Remove smartctl_exporter container if image changed
+  ansible.builtin.command: "{{ sifaka_exporters_docker }} rm -f {{ sifaka_exporters_smartctl_exporter_name }}"
+  become: true
+  when:
+    - sifaka_exporters_smartctl_inspect.rc == 0
+    - sifaka_exporters_smartctl_inspect.stdout != sifaka_exporters_smartctl_exporter_image
+  changed_when: true
+
+- name: Build smartctl_exporter device arguments
+  ansible.builtin.set_fact:
+    sifaka_exporters_smartctl_device_args: >-
+      {{ sifaka_exporters_smartctl_devices | map('regex_replace', '^(.*)$', '--smartctl.device=\1') | list }}
+
+- name: Start smartctl_exporter container
+  ansible.builtin.command:
+    argv: >-
+      {{ [
+        sifaka_exporters_docker, 'run', '-d',
+        '--name=' + sifaka_exporters_smartctl_exporter_name,
+        '--restart=always',
+        '--privileged',
+        '--user=root',
+        '-p', sifaka_smartctl_exporter_port | string + ':' + sifaka_smartctl_exporter_port | string,
+        sifaka_exporters_smartctl_exporter_image
+      ] + sifaka_exporters_smartctl_device_args }}
+  become: true
+  register: sifaka_exporters_smartctl_start
+  when: >
+    sifaka_exporters_smartctl_inspect.rc != 0 or
+    sifaka_exporters_smartctl_inspect.stdout != sifaka_exporters_smartctl_exporter_image
+  changed_when: sifaka_exporters_smartctl_start.rc == 0

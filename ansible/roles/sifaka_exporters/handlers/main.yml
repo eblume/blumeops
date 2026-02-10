@@ -1,0 +1,12 @@
+---
+- name: Restart node_exporter
+  ansible.builtin.command: "{{ sifaka_exporters_docker }} restart {{ sifaka_exporters_node_exporter_name }}"
+  become: true
+  listen: Restart node_exporter
+  changed_when: true
+
+- name: Restart smartctl_exporter
+  ansible.builtin.command: "{{ sifaka_exporters_docker }} restart {{ sifaka_exporters_smartctl_exporter_name }}"
+  become: true
+  listen: Restart smartctl_exporter
+  changed_when: true

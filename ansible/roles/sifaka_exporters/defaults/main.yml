@@ -1,0 +1,15 @@
+---
+# Docker images for Prometheus exporters on sifaka NAS
+# Ports are defined in group_vars/all.yml (shared with caddy role)
+sifaka_exporters_docker: /volume1/@appstore/ContainerManager/usr/bin/docker
+sifaka_exporters_node_exporter_image: "prom/node-exporter:latest"
+sifaka_exporters_node_exporter_name: "prom-node-exporter-1"
+sifaka_exporters_smartctl_exporter_image: "prometheuscommunity/smartctl-exporter:latest"
+sifaka_exporters_smartctl_exporter_name: "smartctl-exporter"
+
+# Synology uses /dev/sata* instead of /dev/sd* — smartctl can't auto-detect them
+sifaka_exporters_smartctl_devices:
+  - /dev/sata1
+  - /dev/sata2
+  - /dev/sata3
+  - /dev/sata4

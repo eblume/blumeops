@@ -84,3 +84,7 @@ caddy_tcp_services:
     backend: "localhost:2200"  # Forgejo SSH
   - port: 5432
     backend: "pg.tail8d86e.ts.net:5432"  # PostgreSQL
+  - port: "{{ sifaka_node_exporter_port }}"
+    backend: "sifaka:{{ sifaka_node_exporter_port }}"  # Sifaka node_exporter
+  - port: "{{ sifaka_smartctl_exporter_port }}"
+    backend: "sifaka:{{ sifaka_smartctl_exporter_port }}"  # Sifaka smartctl_exporter
