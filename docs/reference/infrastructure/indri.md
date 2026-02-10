@@ -18,7 +18,7 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 | **macOS** | 15.7.3 (Sequoia) |
 | **Tailscale hostname** | `indri.tail8d86e.ts.net` |
 | **Tailscale Tag** | `tag:homelab` |
-| **UPS** | Anker SOLIX F2000 GaNPrime |
+| **Power** | [[power|Battery-backed UPS]] |
 
 ## Services Hosted
 
