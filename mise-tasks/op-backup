@@ -1,0 +1,307 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["rich>=13.0.0"]
+# ///
+#MISE description="Encrypt a 1Password .1pux export and send to indri for borgmatic"
+#USAGE arg "[export_path]" help="Path to .1pux export file (prompted if omitted)"
+"""Encrypt a 1Password export and transfer to indri for borgmatic backup.
+
+Generates a temporary age key pair, encrypts the .1pux with the public key,
+then encrypts the private key with openssl using your 1Password master password
+and secret key as the passphrase (via fd, never exposed in env or ps).  Both
+files are SCPed to indri for borgmatic pickup.
+
+Usage:
+    mise run op-backup [path/to/export.1pux]
+
+If no path is given, prompts you to export from the 1Password desktop app first.
+
+DISASTER RECOVERY:
+    1. Restore borgmatic archive to get the .age and .key.enc files
+    2. Retrieve Emergency Kit from safety deposit box
+    3. openssl enc -d -aes-256-cbc -pbkdf2 < backup.key.enc > key.txt
+       (passphrase: {master_password}:{secret_key})
+    4. age -d -i key.txt < backup.age > export.1pux
+    5. Open export.1pux with 1Password or unzip to inspect
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from datetime import datetime
+from pathlib import Path
+
+from rich.console import Console
+
+REMOTE_DIR = "/Users/erichblume/Documents/1password-backup"
+DEFAULT_EXPORT_PATH = Path.home() / "Documents" / "1Password-export.1pux"
+KEEP_RECENT = 3
+
+# 1Password vault/item references for the encryption credentials
+OP_VAULT = "wpwhqn557rkb4ybpyvdxi5wsmu"
+OP_ITEM = "nev7fcgapzcjtdlxxlhg5kz7ca"
+
+console = Console()
+
+
+def check_dependencies() -> bool:
+    """Verify required CLI tools are installed."""
+    ok = True
+    for cmd in ("op", "age", "openssl", "ssh", "scp"):
+        if not shutil.which(cmd):
+            console.print(f"[red]ERROR:[/red] {cmd} is required but not installed")
+            if cmd == "age":
+                console.print("  Install with: brew install age")
+            ok = False
+    return ok
+
+
+def get_export_path(argv_path: str | None) -> Path | None:
+    """Resolve the .1pux file path from argument or interactive prompt."""
+    if argv_path:
+        path = Path(argv_path).expanduser()
+    else:
+        console.print("[bold]=== 1Password Disaster Recovery Backup ===[/bold]")
+        console.print()
+        console.print("Export your vaults from the 1Password desktop app:")
+        console.print("  1. Open 1Password")
+        console.print("  2. File > Export > All Vaults (or select specific vaults)")
+        console.print(f"  3. Save as 1PUX format to: [cyan]{DEFAULT_EXPORT_PATH}[/cyan]")
+        console.print()
+        raw = console.input(f"Path to .1pux file [{DEFAULT_EXPORT_PATH}]: ").strip()
+        path = Path(raw).expanduser() if raw else DEFAULT_EXPORT_PATH
+
+    if not path.is_file():
+        console.print(f"[red]ERROR:[/red] File not found: {path}")
+        return None
+
+    if path.suffix != ".1pux":
+        console.print(f"[yellow]WARNING:[/yellow] File does not have .1pux extension: {path}")
+        confirm = console.input("Continue anyway? [y/N]: ").strip().lower()
+        if confirm != "y":
+            return None
+
+    return path
+
+
+def fetch_credentials() -> str | None:
+    """Fetch master password and secret key from 1Password (triggers biometric)."""
+    console.print("Fetching encryption credentials from 1Password...")
+
+    password = _op_field("password")
+    if not password:
+        console.print("[red]ERROR:[/red] Failed to fetch password from 1Password")
+        return None
+
+    secret_key = _op_field("Secret Key")
+    if not secret_key:
+        console.print("[red]ERROR:[/red] Failed to fetch secret key from 1Password")
+        return None
+
+    return f"{password}:{secret_key}"
+
+
+def _op_field(field: str) -> str | None:
+    """Retrieve a single field from the 1Password credentials item."""
+    result = subprocess.run(
+        [
+            "op", "--vault", OP_VAULT,
+            "item", "get", OP_ITEM,
+            "--fields", field, "--reveal",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def encrypt(export_path: Path, passphrase: str, tmpdir: Path) -> tuple[Path, Path] | None:
+    """Encrypt the .1pux with a temporary age key pair.
+
+    Returns (encrypted_export, encrypted_key) paths on success, None on failure.
+
+    1. age-keygen generates a fresh key pair
+    2. age encrypts the .1pux with the public key (non-interactive)
+    3. openssl encrypts the private key with the passphrase via fd (no env/ps leak)
+    """
+    console.print("Generating age key pair...")
+    key_path = tmpdir / "key.txt"
+    result = subprocess.run(
+        ["age-keygen", "-o", str(key_path)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        console.print("[red]ERROR:[/red] age-keygen failed")
+        return None
+
+    # Extract public key from stderr (age-keygen prints "Public key: age1...")
+    pubkey = None
+    for line in result.stderr.splitlines():
+        if line.startswith("Public key:"):
+            pubkey = line.split(": ", 1)[1].strip()
+            break
+    if not pubkey:
+        console.print("[red]ERROR:[/red] Could not parse public key from age-keygen")
+        return None
+
+    # Encrypt the .1pux with the public key (non-interactive)
+    console.print("Encrypting export...")
+    encrypted_export = tmpdir / "export.age"
+    with open(export_path, "rb") as src, open(encrypted_export, "wb") as dst:
+        result = subprocess.run(
+            ["age", "-e", "-r", pubkey, "--armor"],
+            stdin=src,
+            stdout=dst,
+        )
+    if result.returncode != 0 or encrypted_export.stat().st_size == 0:
+        console.print("[red]ERROR:[/red] age encryption failed")
+        return None
+
+    # Encrypt the private key with openssl, passphrase via fd (not env or cli arg)
+    console.print("Encrypting age key with passphrase...")
+    encrypted_key = tmpdir / "key.enc"
+    pass_read_fd, pass_write_fd = os.pipe()
+    os.write(pass_write_fd, passphrase.encode())
+    os.close(pass_write_fd)
+
+    with open(key_path, "rb") as src, open(encrypted_key, "wb") as dst:
+        result = subprocess.run(
+            [
+                "openssl", "enc", "-aes-256-cbc", "-pbkdf2",
+                "-pass", f"fd:{pass_read_fd}",
+            ],
+            stdin=src,
+            stdout=dst,
+            pass_fds=(pass_read_fd,),
+        )
+    os.close(pass_read_fd)
+
+    if result.returncode != 0 or encrypted_key.stat().st_size == 0:
+        console.print("[red]ERROR:[/red] openssl encryption of key failed")
+        return None
+
+    # Shred the plaintext key immediately
+    key_path.unlink()
+
+    return encrypted_export, encrypted_key
+
+
+def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: str) -> bool:
+    """SCP both encrypted files to indri and clean up old exports."""
+    console.print("Transferring to indri...")
+
+    remote_export = f"{REMOTE_DIR}/1password-export-{timestamp}.age"
+    remote_key = f"{REMOTE_DIR}/1password-export-{timestamp}.key.enc"
+
+    # Ensure remote directory exists
+    subprocess.run(
+        ["ssh", "indri", f"mkdir -p {REMOTE_DIR}"],
+        capture_output=True,
+    )
+
+    # Transfer both files
+    result = subprocess.run(
+        [
+            "scp", "-q",
+            str(encrypted_export), f"indri:{remote_export}",
+        ],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        console.print("[red]ERROR:[/red] SCP of encrypted export failed")
+        console.print(f"Encrypted files preserved in: {encrypted_export.parent}")
+        return False
+
+    result = subprocess.run(
+        [
+            "scp", "-q",
+            str(encrypted_key), f"indri:{remote_key}",
+        ],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        console.print("[red]ERROR:[/red] SCP of encrypted key failed")
+        console.print(f"Encrypted files preserved in: {encrypted_export.parent}")
+        return False
+
+    # Clean up old exports (keep last N sets — each set is a .age + .key.enc)
+    subprocess.run(
+        [
+            "ssh", "indri",
+            f"ls -t {REMOTE_DIR}/1password-export-*.age 2>/dev/null"
+            f" | tail -n +{KEEP_RECENT + 1} | xargs rm -f 2>/dev/null",
+        ],
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "ssh", "indri",
+            f"ls -t {REMOTE_DIR}/1password-export-*.key.enc 2>/dev/null"
+            f" | tail -n +{KEEP_RECENT + 1} | xargs rm -f 2>/dev/null",
+        ],
+        capture_output=True,
+    )
+
+    # Report size
+    size_result = subprocess.run(
+        ["ssh", "indri", f"du -h '{remote_export}'"],
+        capture_output=True,
+        text=True,
+    )
+    size = size_result.stdout.split()[0] if size_result.returncode == 0 else "?"
+
+    console.print()
+    console.print(f"[green]Backup complete:[/green] indri:{remote_export} ({size})")
+    return True
+
+
+def main() -> int:
+    if not check_dependencies():
+        return 1
+
+    export_path = get_export_path(sys.argv[1] if len(sys.argv) > 1 else None)
+    if not export_path:
+        return 1
+
+    file_size = f"{export_path.stat().st_size / 1024 / 1024:.1f} MB"
+    console.print(f"Source: {export_path} ({file_size})")
+
+    passphrase = fetch_credentials()
+    if not passphrase:
+        return 1
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = encrypt(export_path, passphrase, Path(tmpdir))
+        del passphrase
+        if not result:
+            return 1
+
+        encrypted_export, encrypted_key = result
+
+        # Delete plaintext .1pux
+        export_path.unlink()
+        console.print(f"Deleted plaintext export: {export_path}")
+
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        if not transfer_to_indri(encrypted_export, encrypted_key, timestamp):
+            return 1
+
+    console.print()
+    console.print("[bold]DISASTER RECOVERY:[/bold]")
+    console.print(f"  1. Restore borgmatic archive containing {REMOTE_DIR}/")
+    console.print("  2. Retrieve Emergency Kit from safety deposit box")
+    console.print(f"  3. openssl enc -d -aes-256-cbc -pbkdf2 < ...key.enc > key.txt")
+    console.print("     Passphrase: {master_password}:{secret_key}")
+    console.print(f"  4. age -d -i key.txt < ...age > export.1pux")
+    console.print("  5. Open export.1pux with 1Password or unzip to inspect")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

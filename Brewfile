@@ -1,5 +1,6 @@
 # CLI tools for blumeops management
 brew "actionlint"  # GitHub/Forgejo Actions workflow linter
+brew "age"  # File encryption for 1Password backup (op-backup)
 brew "argocd"  # ArgoCD CLI for GitOps management
 brew "bat"  # Syntax-highlighted file concatenation
 brew "mise"  # Task runner and toolchain manager
