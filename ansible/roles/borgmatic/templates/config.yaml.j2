@@ -31,6 +31,8 @@ exclude_patterns:
 
 encryption_passcommand: {{ borgmatic_encryption_passcommand }}
 
+ssh_command: ssh -o IdentitiesOnly=yes -i {{ borgmatic_borgbase_ssh_key_path }}
+
 # Retention policy
 keep_daily: {{ borgmatic_keep_daily }}
 keep_monthly: {{ borgmatic_keep_monthly }}

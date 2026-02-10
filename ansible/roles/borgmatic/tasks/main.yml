@@ -19,6 +19,20 @@
     mode: '0600'
   no_log: true
 
+# BorgBase offsite backup - SSH key and host verification
+- name: Deploy BorgBase SSH private key
+  ansible.builtin.copy:
+    content: "{{ borgbase_ssh_private_key }}\n"
+    dest: "{{ borgmatic_borgbase_ssh_key_path }}"
+    mode: '0600'
+  no_log: true
+
+- name: Add BorgBase host key to known_hosts
+  ansible.builtin.known_hosts:
+    name: k04ljcd7.repo.borgbase.com
+    key: "k04ljcd7.repo.borgbase.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGU0mISTyHBw9tBs6SuhSq8tvNM8m9eifQxM+88TowPO"
+    state: present
+
 - name: Deploy borgmatic configuration
   ansible.builtin.template:
     src: config.yaml.j2

@@ -22,6 +22,22 @@
       no_log: true
       tags: [borgmatic]
 
+    - name: Fetch BorgBase SSH private key
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/noiobufntsxyzageu7mvlp2nbe/ssh-private-key"
+      delegate_to: localhost
+      register: _borgbase_ssh_key
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [borgmatic]
+
+    - name: Set BorgBase SSH key fact
+      ansible.builtin.set_fact:
+        borgbase_ssh_private_key: "{{ _borgbase_ssh_key.stdout }}"
+      no_log: true
+      tags: [borgmatic]
+
     # Forgejo secrets
     - name: Fetch forgejo LFS JWT secret
       ansible.builtin.command:

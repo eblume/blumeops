@@ -17,12 +17,19 @@ borgmatic_source_directories:
   - /Users/erichblume/.config/borgmatic
   - /Users/erichblume/Documents
 
-# Backup repository
+# Backup repositories
 borgmatic_repositories:
   - path: /Volumes/backups/borg/
     label: sifaka-borg-backups
     encryption: repokey
     append_only: true
+  - path: ssh://k04ljcd7@k04ljcd7.repo.borgbase.com/./repo
+    label: borgbase-offsite
+    encryption: repokey
+    append_only: true
+
+# BorgBase SSH key (fetched from 1Password in playbook pre_tasks)
+borgmatic_borgbase_ssh_key_path: /Users/erichblume/.ssh/borgbase_ed25519
 
 # Exclude patterns
 borgmatic_exclude_patterns: []
