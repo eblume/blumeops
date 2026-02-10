@@ -122,6 +122,66 @@ mise run services-check
 
 All checks should pass. If any fail, see [[troubleshooting]].
 
+## Troubleshooting: CNI Conflict After Unclean Shutdown
+
+After a power loss or unclean reboot, minikube may come up with broken pod networking. The symptom is that **new pods cannot reach CoreDNS** — services crash-loop with DNS errors (`EAI_AGAIN`, `connection timed out; no servers could be reached`) or fail liveness probes because their event loops hang on blocked network calls.
+
+Existing pods that were restarted (not recreated) may appear healthy because the kubelet reuses their cached network namespaces.
+
+### Cause
+
+During minikube recovery from a bad state, the CRI-O / Docker networking bootstrap can regenerate a default CNI config file (`1-k8s.conflist`) that conflicts with kindnet's config (`10-kindnet.conflist`). Since `1-` sorts before `10-`, the stale bridge+firewall config takes precedence, and new pods get attached to a different network topology than existing pods.
+
+### Diagnosis
+
+**1. Check if new pods can resolve DNS:**
+
+```bash
+kubectl --context=minikube-indri run dns-test --image=alpine:3.21 --restart=Never \
+  --command -- sh -c 'nslookup kubernetes.default.svc.cluster.local'
+sleep 10
+kubectl --context=minikube-indri logs dns-test
+kubectl --context=minikube-indri delete pod dns-test
+```
+
+If this shows `connection timed out; no servers could be reached`, pod networking is broken.
+
+**2. Check for conflicting CNI configs:**
+
+```bash
+ssh indri 'minikube ssh "ls -la /etc/cni/net.d/"'
+```
+
+You should see **only** `10-kindnet.conflist` (plus `200-loopback.conf` and disabled `.mk_disabled` files). If `1-k8s.conflist` or any other active config exists alongside `10-kindnet.conflist`, that's the conflict.
+
+**3. Confirm the conflict by inspecting the stale config:**
+
+```bash
+ssh indri 'minikube ssh "cat /etc/cni/net.d/1-k8s.conflist"'
+```
+
+If it uses a `bridge` plugin with a `firewall` plugin (instead of kindnet's `ptp` plugin), it's the culprit.
+
+### Fix
+
+**1. Remove the stale CNI config:**
+
+```bash
+ssh indri 'minikube ssh "sudo rm /etc/cni/net.d/1-k8s.conflist"'
+```
+
+**2. Delete all pods that were created while the bad config was active.** The simplest approach is to restart all deployments:
+
+```bash
+kubectl --context=minikube-indri get deployments -A --no-headers | \
+  awk '{print "-n " $1 " " $2}' | \
+  xargs -L1 kubectl --context=minikube-indri rollout restart deployment
+```
+
+StatefulSets managed by operators (CNPG, Tailscale) generally survive because the kubelet restarts their containers in-place rather than creating new pods.
+
+**3. Verify with the DNS test above**, then run `mise run services-check`.
+
 ## Related
 
 - [[indri]] - Server specifications
