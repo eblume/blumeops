@@ -43,3 +43,12 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 | [[restart-indri]] | Safely shut down and restart indri |
 | [[manage-flyio-proxy]] | Deploy, shutoff, and troubleshoot the public proxy |
 | [[troubleshooting]] | Diagnose and fix common issues |
+
+## Plans
+
+Migration and transition plans for upcoming infrastructure changes.
+
+| Plan | Description |
+|------|-------------|
+| [[plans]] | Index of all plans |
+| [[migrate-forgejo-from-brew]] | Transition Forgejo from Homebrew to source-built binary |
