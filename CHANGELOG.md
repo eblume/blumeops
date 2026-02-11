@@ -12,6 +12,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.5.4] - 2026-02-11
+
+### Bug Fixes
+
+- Bump Fly.io proxy VM memory from 256MB to 512MB to prevent Alloy OOM kills.
+
+### Documentation
+
+- Add plan documents for Dagger CI/CD adoption and upstream fork strategy.
+- Add plan documents for OIDC provider adoption, zot registry hardening, and expanded network segmentation details.
+- Review security-model.md: fix op CLI pattern, add Tailscale Operator section.
+
+
 ## [v1.5.3] - 2026-02-11
 
 ### Features
