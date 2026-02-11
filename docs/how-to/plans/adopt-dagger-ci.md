@@ -9,7 +9,7 @@ tags:
 
 # Plan: Adopt Dagger as CI/CD Build Engine
 
-> **Status:** Planned (not yet executed)
+> **Status:** Phase 1 implemented
 
 ## Background
 
@@ -488,10 +488,10 @@ BuildKit caches aggressively, making repeated builds fast. Since the Forgejo run
 ## Verification Checklist
 
 ### Phase 1 (Containers)
-- [ ] `dagger call build --src=. --container-name=nettest` succeeds locally
+- [x] `dagger call build --src=. --container-name=nettest` succeeds locally
 - [ ] `dagger call build --src=. --container-name=nettest terminal` drops into container shell
-- [ ] `dagger call publish --src=. --container-name=nettest --version=test` pushes to zot
-- [ ] Zot manifest compatibility confirmed (no skopeo needed) or fallback implemented
+- [x] `dagger call publish --src=. --container-name=nettest --version=test` pushes to zot
+- [x] Zot manifest compatibility confirmed (no skopeo needed) or fallback implemented
 - [ ] Tag-triggered Forgejo Action successfully calls `dagger call publish`
 - [ ] Existing `mise run container-tag-and-release` workflow still works end-to-end
 

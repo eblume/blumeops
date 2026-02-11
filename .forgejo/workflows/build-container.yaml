@@ -2,6 +2,8 @@
 # Triggers on tags matching: <container>-v<version>
 # Builds from containers/<container>/Dockerfile if it exists
 #
+# Uses Dagger to build and push images to the Zot registry.
+#
 # Examples:
 #   nettest-v1.0.0  -> builds containers/nettest/
 #   devpi-v2.1.0    -> builds containers/devpi/
@@ -45,7 +47,6 @@ jobs:
           if [ -f "$CONTEXT/Dockerfile" ]; then
             echo "Found $CONTEXT/Dockerfile"
             echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "context=$CONTEXT" >> "$GITHUB_OUTPUT"
           else
             echo "No Dockerfile found at $CONTEXT/Dockerfile"
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -67,10 +68,22 @@ jobs:
           echo ""
           echo "Skipping build."
 
-      - name: Build and push image
+      - name: Ensure Dagger CLI
         if: steps.check.outputs.exists == 'true'
-        uses: ./.forgejo/actions/build-push-image
-        with:
-          context: ${{ steps.check.outputs.context }}
-          image_name: blumeops/${{ steps.parse.outputs.container }}
-          version: ${{ steps.parse.outputs.version }}
+        run: |
+          # Bootstrap: install dagger if not already in the runner image.
+          # Remove once all runners include dagger (Phase 3).
+          if ! command -v dagger &>/dev/null; then
+            echo "Dagger not found, installing..."
+            curl -fsSL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.19.11 sh
+            mv ./bin/dagger /usr/local/bin/dagger && rmdir ./bin
+          fi
+          dagger version
+
+      - name: Publish
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          dagger call publish \
+            --src=. \
+            --container-name=${{ steps.parse.outputs.container }} \
+            --version=${{ steps.parse.outputs.version }}

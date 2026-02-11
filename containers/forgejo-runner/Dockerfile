@@ -51,5 +51,14 @@ RUN ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" \
     && chmod +x /usr/local/bin/argocd \
     && argocd version --client
 
+# Install Dagger CLI (for running Dagger CI pipelines)
+ARG DAGGER_VERSION=0.19.11
+RUN ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" \
+    && curl -fsSL -o /tmp/dagger.tar.gz \
+    "https://dl.dagger.io/dagger/releases/${DAGGER_VERSION}/dagger_v${DAGGER_VERSION}_linux_${ARCH}.tar.gz" \
+    && tar -xzf /tmp/dagger.tar.gz -C /usr/local/bin dagger \
+    && rm /tmp/dagger.tar.gz \
+    && dagger version
+
 # Default to bash
 CMD ["/bin/bash"]
