@@ -3,12 +3,6 @@
 # This container tests connectivity to tailnet services from various environments:
 # - Docker on indri (during CI build)
 # - Minikube pods (manual testing)
-#
-# Build:
-#   docker build -t registry.ops.eblu.me/blumeops/nettest:latest .
-#
-# Run:
-#   docker run --rm registry.ops.eblu.me/blumeops/nettest:latest
 
 FROM alpine:3.21
 

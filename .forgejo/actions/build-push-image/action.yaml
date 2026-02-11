@@ -30,7 +30,7 @@ runs:
       shell: bash
       run: |
         echo "Building ${{ inputs.image_name }}:${{ inputs.version }}"
-        docker build \
+        docker buildx build \
           --tag ${{ inputs.image_name }}:${{ inputs.version }} \
           --file ${{ inputs.context }}/${{ inputs.dockerfile }} \
           ${{ inputs.context }}
