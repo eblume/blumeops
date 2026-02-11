@@ -17,3 +17,7 @@ Plans differ from regular how-to guides in that they describe work that has been
 | [[add-unifi-pulumi-stack]] | Planned | Add Pulumi IaC for UniFi Express 7 home network |
 | [[adopt-dagger-ci]] | Planned | Adopt Dagger as CI/CD build engine, migrate docs artifacts to Forgejo packages |
 | [[upstream-fork-strategy]] | Planned | Stacked-branch forking strategy for tracking upstream projects |
+| [[adopt-oidc-provider]] | Planning | Deploy OIDC identity provider for SSO across services |
+| [[harden-zot-registry]] | Planned | Add authentication and tag immutability to zot registry |
+| [[forgejo-actions-dashboard]] | Planned | Grafana dashboard and custom Prometheus exporter for Forgejo Actions CI metrics |
+| [[operationalize-reolink-camera]] | Planned | Cloud-free NVR with Frigate, object detection, and ring buffer recording to sifaka |

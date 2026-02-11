@@ -56,3 +56,7 @@ Migration and transition plans for upcoming infrastructure changes.
 | [[add-unifi-pulumi-stack]] | Add Pulumi IaC for UniFi Express 7 |
 | [[adopt-dagger-ci]] | Adopt Dagger as CI/CD build engine |
 | [[upstream-fork-strategy]] | Stacked-branch forking strategy for upstream projects |
+| [[adopt-oidc-provider]] | Deploy OIDC identity provider for SSO across services |
+| [[harden-zot-registry]] | Add authentication and tag immutability to zot registry |
+| [[forgejo-actions-dashboard]] | Grafana dashboard for Forgejo Actions CI metrics |
+| [[operationalize-reolink-camera]] | Cloud-free NVR with Frigate and ring buffer recording |

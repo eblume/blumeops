@@ -75,17 +75,44 @@ The `pulumiverse_unifi` PyPI package bridges from `paultyng/terraform-provider-u
 
 Once the stack is operational, we plan to configure these network zones:
 
-| Network | VLAN | Subnet | Purpose |
-|---------|------|--------|---------|
-| Default LAN | 1 | `192.168.1.0/24` | Main network (indri, gilbert, ringtail, sifaka) |
-| Guest | TBD | `192.168.2.0/24` | Guest WiFi, internet-only |
-| IoT | TBD | `192.168.3.0/24` | Smart devices, isolated from LAN |
+| Network | VLAN | Subnet | Purpose | Devices |
+|---------|------|--------|---------|---------|
+| BlumeOps Services | TBD | `192.168.10.0/24` | Infrastructure and services | indri, sifaka, k8s pods |
+| User Devices | 1 | `192.168.1.0/24` | Trusted personal devices | gilbert, ringtail |
+| Guest | TBD | `192.168.2.0/24` | Guest WiFi, internet-only | Visitors |
+| IoT / Appliances | TBD | `192.168.3.0/24` | Smart devices, isolated | Frame TV, dishwasher, etc. |
 
-Zone-based firewall rules will enforce:
+### Motivation: NFS Share Exposure
 
-- Guest → Internet only (no LAN, no IoT)
-- IoT → Internet + limited LAN access (e.g., mDNS)
-- LAN → full access
+The immediate security driver for segmentation is NFS. Currently, sifaka's NFS exports (`/volume1/torrents`, `/volume1/music`, `/volume1/photos`) whitelist `192.168.1.0/24` and `100.64.0.0/10` (Docker NAT). This means **any device on the WiFi** — including IoT appliances, guest devices, or a compromised smart TV — can mount and write to these shares.
+
+After segmentation, NFS exports will be restricted to the BlumeOps Services subnet (`192.168.10.0/24`) and the Docker NAT range (`100.64.0.0/10`). Only indri, sifaka, and k8s pods will have NFS access.
+
+### Zone-Based Firewall Rules
+
+| Source | Destination | Policy |
+|--------|-------------|--------|
+| BlumeOps Services | Internet | Allow |
+| BlumeOps Services | User Devices | Allow (for management, e.g., SSH from ringtail) |
+| User Devices | BlumeOps Services | Allow (trusted users need access to services) |
+| User Devices | Internet | Allow |
+| Guest | Internet | Allow |
+| Guest | All other zones | **Block** |
+| IoT / Appliances | Internet | Allow |
+| IoT / Appliances | User Devices | **Block** (except mDNS for AirPlay/casting) |
+| IoT / Appliances | BlumeOps Services | **Allow specific ports** (Jellyfin, Navidrome for streaming) |
+
+### NFS Export Changes
+
+After the network migration, update sifaka's NFS export rules:
+
+| Share | Before | After |
+|-------|--------|-------|
+| `/volume1/torrents` | `192.168.1.0/24`, `100.64.0.0/10` | `192.168.10.0/24`, `100.64.0.0/10` |
+| `/volume1/music` | `192.168.1.0/24`, `100.64.0.0/10` | `192.168.10.0/24`, `100.64.0.0/10` |
+| `/volume1/photos` | `192.168.1.0/24`, `100.64.0.0/10` | `192.168.10.0/24`, `100.64.0.0/10` |
+
+This is a manual change in the Synology DSM NFS settings (not managed by Pulumi — sifaka's NFS config is outside the UniFi provider's scope). The k8s PersistentVolume definitions (`argocd/manifests/*/pv-nfs.yaml`) resolve sifaka by hostname and don't need subnet changes.
 
 These will be declared after the initial import is stable.
 
