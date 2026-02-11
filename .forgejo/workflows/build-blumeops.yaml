@@ -332,7 +332,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_DEPLOY_TOKEN }}
         run: |
           echo "Purging nginx cache on Fly.io proxy..."
-          fly ssh console -a blumeops-proxy -C "rm -rf /tmp/cache && nginx -s reload"
+          fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"
           echo "Cache purged"
 
       - name: Summary
