@@ -492,8 +492,8 @@ BuildKit caches aggressively, making repeated builds fast. Since the Forgejo run
 - [ ] `dagger call build --src=. --container-name=nettest terminal` drops into container shell
 - [x] `dagger call publish --src=. --container-name=nettest --version=test` pushes to zot
 - [x] Zot manifest compatibility confirmed (no skopeo needed) or fallback implemented
-- [ ] Tag-triggered Forgejo Action successfully calls `dagger call publish`
-- [ ] Existing `mise run container-tag-and-release` workflow still works end-to-end
+- [x] Tag-triggered Forgejo Action successfully calls `dagger call publish`
+- [x] Existing `mise run container-tag-and-release` workflow still works end-to-end
 
 ### Phase 2 (Docs)
 - [ ] `dagger call build-docs --src=. --version=dev` produces valid tarball locally
