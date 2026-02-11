@@ -3,6 +3,9 @@ primary_region = "sjc"
 
 [build]
 
+[[vm]]
+memory = "512mb"
+
 [deploy]
 strategy = "bluegreen"
 

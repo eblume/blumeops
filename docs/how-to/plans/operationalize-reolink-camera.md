@@ -172,9 +172,9 @@ ReoLink cameras need go2rtc as an intermediary (direct RTSP from Frigate can dro
 go2rtc:
   streams:
     front_floodlight:
-      - "ffmpeg:http://admin:password@192.168.3.X/flv?port=1935&app=bcs&stream=channel0_main.bcs#video=copy#audio=copy#audio=opus"
+      - "ffmpeg:http://admin:<your-password>@192.168.3.X/flv?port=1935&app=bcs&stream=channel0_main.bcs#video=copy#audio=copy#audio=opus"
     front_floodlight_sub:
-      - "ffmpeg:http://admin:password@192.168.3.X/flv?port=1935&app=bcs&stream=channel0_sub.bcs"
+      - "ffmpeg:http://admin:<your-password>@192.168.3.X/flv?port=1935&app=bcs&stream=channel0_sub.bcs"
 
 cameras:
   front_floodlight:
