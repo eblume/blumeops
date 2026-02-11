@@ -322,6 +322,19 @@ jobs:
 
           echo "Docs app synced successfully!"
 
+      - name: Install flyctl
+        run: |
+          curl -L https://fly.io/install.sh | sh
+          echo "/root/.fly/bin" >> "$GITHUB_PATH"
+
+      - name: Purge Fly.io proxy cache
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_DEPLOY_TOKEN }}
+        run: |
+          echo "Purging nginx cache on Fly.io proxy..."
+          fly ssh console -a blumeops-proxy -C "rm -rf /tmp/cache && nginx -s reload"
+          echo "Cache purged"
+
       - name: Summary
         run: |
           VERSION="${{ steps.version.outputs.version }}"
