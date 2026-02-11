@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.6.0] - 2026-02-11
+
+### Bug Fixes
+
+- Purge Fly.io proxy cache after docs deploy so new releases are served immediately.
+
+
 ## [v1.5.4] - 2026-02-11
 
 ### Bug Fixes
