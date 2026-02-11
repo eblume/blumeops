@@ -15,3 +15,5 @@ Plans differ from regular how-to guides in that they describe work that has been
 |------|--------|-------------|
 | [[migrate-forgejo-from-brew]] | Planned | Transition Forgejo from Homebrew to source-built binary with LaunchAgent |
 | [[add-unifi-pulumi-stack]] | Planned | Add Pulumi IaC for UniFi Express 7 home network |
+| [[adopt-dagger-ci]] | Planned | Adopt Dagger as CI/CD build engine, migrate docs artifacts to Forgejo packages |
+| [[upstream-fork-strategy]] | Planned | Stacked-branch forking strategy for tracking upstream projects |
