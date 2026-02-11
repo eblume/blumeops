@@ -1,5 +1,6 @@
 ---
 title: Security Model
+last-reviewed: 2026-02-11
 tags:
   - explanation
   - security
@@ -42,6 +43,10 @@ Tailnet:
 
 See [[tailscale]] for the full ACL matrix.
 
+### Tailscale Operator Privileges
+
+The [[tailscale-operator]] bridges Kubernetes and the Tailscale control plane. Its Kubernetes RBAC is namespaced to `tailscale` — it can't read secrets or create pods in other namespaces. On the Tailscale side, its OAuth client can create devices, generate auth keys, and assign `tag:k8s` or `tag:flyio-target`. In practice this means anyone who can write Ingress resources to the cluster can expose a service to the tailnet (or publicly, via `tag:flyio-target`), and Tailscale admins can reconfigure how those services are routed. Both are expected parts of normal operations — but be careful about granting write access to either Kubernetes or the Tailscale admin console, since both can change what's exposed.
+
 ## Secrets Management
 
 Secrets follow a hierarchy:
@@ -65,15 +70,16 @@ Services reference native Kubernetes Secrets; they don't know about 1Password.
 
 ### Ansible: op CLI
 
-Ansible playbooks fetch secrets at runtime via `op` CLI:
+Ansible playbooks fetch secrets at runtime via `op read`:
 
 ```yaml
 - name: Fetch secret
-  command: op item get <id> --fields password --reveal
+  ansible.builtin.command:
+    cmd: op read "op://vault/item/field"
   delegate_to: localhost
 ```
 
-Secrets are held in memory as Ansible facts, never written to disk.
+Always use `op read` — never `op item get --fields`, which corrupts multi-line values by wrapping them in quotes. Secrets are held in memory as Ansible facts, never written to disk.
 
 ### Git Repository
 
