@@ -12,6 +12,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.5.3] - 2026-02-11
+
+### Features
+
+- Add BorgBase offsite backup repository for 3-2-1 backup strategy
+- Fly.io proxy serves a friendly error page when upstreams are unreachable (indri offline, Tailscale tunnel down, etc.). Test at `docs.eblu.me/_error`.
+- Add `op-backup` mise task for encrypted 1Password disaster recovery backups via borgmatic
+- Add SMART disk health monitoring for sifaka NAS with smartctl_exporter, Grafana dashboard, Ansible playbook, and Caddy L4 routing via ops.eblu.me.
+
+### Bug Fixes
+
+- Replace `op item get --fields` with `op read` in all mise tasks (tailnet-up, tailnet-preview, dns-up, dns-preview) to prevent multi-line secret corruption.
+- Fix 502 errors during Fly.io proxy deploys by deferring health check until Tailscale is connected.
+- Fix minikube ansible role not restarting cluster after power loss — status check only examined host VM state, missing stopped kubelet/apiserver.
+- Log real client IPs in Fly.io proxy access logs using Fly-Client-IP header instead of showing the internal proxy address.
+
+### Infrastructure
+
+- Switch CI container builds from deprecated `docker build` to `docker buildx build` (BuildKit).
+- Install `docker-buildx-plugin` in forgejo-runner image to support `docker buildx build`.
+- Eliminate 502 errors during Fly.io proxy deploys by starting nginx after Tailscale, switching to bluegreen deploys, and using service-level health checks for traffic gating.
+
+### Documentation
+
+- Add troubleshooting guide for CNI conflict after unclean shutdown to restart-indri how-to.
+- Add migration plan for Forgejo brew-to-source transition
+- Document `op read` vs `op item get` convention for 1Password secret retrieval
+- Add power infrastructure reference card documenting the battery-backed UPS chain (Anker SOLIX F2000 → CyberPower UPS → homelab).
+- Add plan and reference card for UniFi Express 7 Pulumi IaC management.
+- Add how-to guide for restoring 1Password backup from borgmatic, with cross-links from disaster recovery, borgmatic, 1password, and backup policy docs
+
+
 ## [v1.5.2] - 2026-02-09
 
 ### Features
