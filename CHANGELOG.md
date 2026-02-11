@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.6.1] - 2026-02-11
+
+### Bug Fixes
+
+- Fix Fly.io proxy cache purge command for BusyBox shell compatibility.
+
+
 ## [v1.6.0] - 2026-02-11
 
 ### Bug Fixes
