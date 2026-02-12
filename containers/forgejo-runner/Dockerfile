@@ -4,7 +4,7 @@
 # The host runner daemon creates containers from this image to run workflow steps.
 #
 # Build logic (container images, docs site) runs inside Dagger containers,
-# so this image only needs: git, Dagger CLI, ArgoCD CLI, uv, and basic tools.
+# so this image only needs: git, Docker CLI, Dagger CLI, ArgoCD CLI, uv, and basic tools.
 #
 # Usage: Configure runner with label like:
 #   docker:docker://registry.ops.eblu.me/blumeops/forgejo-runner:latest
@@ -28,6 +28,15 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
     && node --version
+
+# Install Docker CLI (Dagger shells out to `docker` to provision its engine)
+RUN install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
+    && chmod a+r /etc/apt/keyrings/docker.asc \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends docker-ce-cli \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install uv (Python package runner for towncrier)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
