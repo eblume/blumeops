@@ -1,6 +1,6 @@
 ---
 title: Reference
-modified: 2026-02-10
+modified: 2026-02-12
 tags:
   - reference
 ---
@@ -34,6 +34,7 @@ Individual service reference cards with URLs and configuration details.
 | [[transmission]] | BitTorrent daemon | k8s |
 | [[zot]] | Container registry | indri |
 | [[devpi]] | PyPI caching proxy | k8s |
+| [[cv]] | Resume / CV site | k8s |
 | [[docs]] | Documentation site (Quartz) | k8s |
 | [[flyio-proxy]] | Public reverse proxy (Fly.io + Tailscale) | Fly.io |
 | [[automounter]] | SMB share automounter | indri |

@@ -1,6 +1,6 @@
 ---
 title: Apps
-modified: 2026-02-07
+modified: 2026-02-12
 tags:
   - kubernetes
   - argocd
@@ -34,6 +34,7 @@ Registry of all applications deployed via [[argocd]].
 | `torrent` | torrent | `argocd/manifests/torrent/` | [[transmission]] |
 | `navidrome` | navidrome | `argocd/manifests/navidrome/` | [[navidrome]] |
 | `teslamate` | teslamate | `argocd/manifests/teslamate/` | [[teslamate]] |
+| `cv` | cv | `argocd/manifests/cv/` | [[cv]] |
 | `forgejo-runner` | forgejo-runner | `argocd/manifests/forgejo-runner/` | [[forgejo]] CI |
 
 ## Sync Policies
