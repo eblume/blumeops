@@ -1,6 +1,6 @@
 ---
 title: Deploy K8s Service
-date-modified: 2026-02-07
+modified: 2026-02-07
 tags:
   - how-to
   - kubernetes

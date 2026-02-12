@@ -1,6 +1,6 @@
 ---
 title: Replicating BlumeOps
-date-modified: 2026-02-07
+modified: 2026-02-07
 tags:
   - tutorials
   - replication

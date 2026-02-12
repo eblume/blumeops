@@ -1,6 +1,6 @@
 ---
 title: Security Model
-date-modified: 2026-02-11
+modified: 2026-02-11
 last-reviewed: 2026-02-11
 tags:
   - explanation

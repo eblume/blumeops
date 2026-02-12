@@ -1,6 +1,6 @@
 ---
 title: Manage Fly.io Proxy
-date-modified: 2026-02-08
+modified: 2026-02-08
 tags:
   - how-to
   - fly-io

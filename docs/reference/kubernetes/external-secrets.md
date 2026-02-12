@@ -1,6 +1,6 @@
 ---
 title: External Secrets
-date-modified: 2026-02-07
+modified: 2026-02-07
 tags:
   - kubernetes
   - secrets

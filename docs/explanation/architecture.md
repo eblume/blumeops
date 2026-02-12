@@ -1,6 +1,6 @@
 ---
 title: Architecture
-date-modified: 2026-02-09
+modified: 2026-02-09
 last-reviewed: 2026-02-09
 tags:
   - explanation

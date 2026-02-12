@@ -1,6 +1,6 @@
 ---
 title: Update Tailscale ACLs
-date-modified: 2026-02-07
+modified: 2026-02-07
 tags:
   - how-to
   - tailscale

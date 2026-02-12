@@ -1,6 +1,6 @@
 ---
 title: "Plan: Harden Zot Registry"
-date-modified: 2026-02-11
+modified: 2026-02-11
 tags:
   - how-to
   - plans

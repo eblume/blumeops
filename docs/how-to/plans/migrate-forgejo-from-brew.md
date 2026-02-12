@@ -1,6 +1,6 @@
 ---
 title: "Plan: Migrate Forgejo from Brew to Source Build"
-date-modified: 2026-02-10
+modified: 2026-02-10
 tags:
   - how-to
   - plans

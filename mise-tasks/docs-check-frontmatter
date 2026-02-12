@@ -6,7 +6,7 @@
 #MISE description="Check that all docs have required frontmatter fields"
 """Validate that all documentation files have required YAML frontmatter.
 
-Required fields: title, tags, date-modified
+Required fields: title, tags, modified
 
 Scans all markdown files in docs/ (excluding changelog.d/) and checks
 that each file has YAML frontmatter containing the required fields.
@@ -22,7 +22,7 @@ from rich.console import Console
 from rich.table import Table
 
 DOCS_DIR = Path(__file__).parent.parent / "docs"
-REQUIRED_FIELDS = {"title", "tags", "date-modified"}
+REQUIRED_FIELDS = {"title", "tags", "modified"}
 
 # Match YAML frontmatter block
 FRONTMATTER_PATTERN = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
