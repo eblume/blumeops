@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.6.4] - 2026-02-12
+
+### Bug Fixes
+
+- Set Forgejo runner timezone to America/Los_Angeles. The runner previously used UTC, causing towncrier changelog entries to show tomorrow's date when releases were cut in the evening. Note: the v1.6.2 changelog entry shows 2026-02-12 due to this bug; dates may appear non-sequential as a result.
+
+
 ## [v1.6.2] - 2026-02-12
 
 ### Features
