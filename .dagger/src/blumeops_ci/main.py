@@ -31,6 +31,7 @@ class BlumeopsCi:
         return await (
             dag.container()
             .from_("python:3.12-slim")
+            .with_env_variable("TZ", "America/Los_Angeles")
             # git is required because towncrier stages CHANGELOG.md via git add
             .with_exec(["apt-get", "update", "-qq"])
             .with_exec(["apt-get", "install", "-y", "-qq", "git"])
