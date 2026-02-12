@@ -15,6 +15,7 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 |-------|-------------|
 | [[deploy-k8s-service]] | Deploy a new service to Kubernetes via ArgoCD |
 | [[add-ansible-role]] | Add a new Ansible role for indri services |
+| [[create-release-artifact-workflow]] | Build artifacts and publish to Forgejo packages |
 
 ## Configuration
 
