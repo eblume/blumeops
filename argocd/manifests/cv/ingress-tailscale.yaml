@@ -7,7 +7,7 @@ metadata:
   annotations:
     tailscale.com/proxy-class: "default"
     tailscale.com/proxy-group: "ingress"
-    tailscale.com/tags: "tag:k8s"
+    tailscale.com/tags: "tag:k8s,tag:flyio-target"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "CV"
     gethomepage.dev/group: "Apps"
