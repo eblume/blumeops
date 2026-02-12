@@ -13,7 +13,7 @@ metadata:
     gethomepage.dev/group: "Apps"
     gethomepage.dev/icon: "mdi-file-document"
     gethomepage.dev/description: "Resume / CV"
-    gethomepage.dev/href: "https://cv.ops.eblu.me"
+    gethomepage.dev/href: "https://cv.eblu.me"
     gethomepage.dev/pod-selector: "app=cv"
 spec:
   ingressClassName: tailscale

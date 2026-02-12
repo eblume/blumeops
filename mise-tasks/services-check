@@ -79,10 +79,12 @@ check_http "Devpi" "https://pypi.ops.eblu.me/+api"
 check_http "Transmission" "https://torrent.ops.eblu.me/"
 check_http "Immich" "https://photos.ops.eblu.me/"
 check_http "Navidrome" "https://dj.ops.eblu.me/"
+check_http "CV" "https://cv.ops.eblu.me/"
 
 echo ""
 echo "Public services (via Fly.io):"
 check_http "Docs (public)" "https://docs.eblu.me/"
+check_http "CV (public)" "https://cv.eblu.me/"
 check_http "Fly.io healthz" "https://blumeops-proxy.fly.dev/healthz"
 
 echo ""
