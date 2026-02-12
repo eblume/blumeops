@@ -12,6 +12,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.7.0] - 2026-02-12
+
+### Features
+
+- Add CV/resume web app at cv.ops.eblu.me — container, k8s manifests, Caddy route, and deploy workflow. Content built from separate cv repo.
+
+### Infrastructure
+
+- Extend forgejo_actions_secrets Ansible role to support multiple repos.
+
+### Documentation
+
+- Add CV service reference card and update apps registry, Caddy docs, and services index.
+- Add how-to guide for creating release artifact workflows with Forgejo packages.
+
+
 ## [v1.6.9] - 2026-02-11
 
 ### Bug Fixes
