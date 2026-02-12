@@ -1,0 +1,123 @@
+# CV Deploy Workflow
+#
+# Updates the CV deployment to a specific package version, commits
+# the change, and syncs via ArgoCD.
+#
+# Usage:
+#   1. Release a new CV package from the cv repo first
+#   2. Go to Actions > Deploy CV > Run workflow
+#   3. Enter the version to deploy, or leave as "latest"
+
+name: Deploy CV
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'CV package version to deploy (e.g., v1.0.0, or "latest")'
+        required: true
+        default: 'latest'
+        type: string
+
+jobs:
+  deploy:
+    runs-on: k8s
+    steps:
+      - name: Resolve version
+        id: version
+        run: |
+          INPUT_VERSION="${{ inputs.version }}"
+
+          if [ "$INPUT_VERSION" = "latest" ]; then
+            echo "Resolving latest CV package version..."
+            VERSION=$(curl -s "https://forge.ops.eblu.me/api/v1/packages/eblume?type=generic&q=cv" \
+              | jq -r '[.[] | select(.name == "cv")] | sort_by(.version) | last | .version // empty')
+
+            if [ -z "$VERSION" ]; then
+              echo "Error: No CV packages found"
+              exit 1
+            fi
+            echo "Resolved latest version: $VERSION"
+          else
+            VERSION="$INPUT_VERSION"
+            if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Error: Version must be in format vX.Y.Z (e.g., v1.0.0)"
+              exit 1
+            fi
+          fi
+
+          # Verify the package exists
+          TARBALL="cv-${VERSION}.tar.gz"
+          PACKAGE_URL="https://forge.ops.eblu.me/api/packages/eblume/generic/cv/${VERSION}/${TARBALL}"
+          if ! curl -fsSL --head "$PACKAGE_URL" > /dev/null 2>&1; then
+            echo "Error: Package not found at $PACKAGE_URL"
+            echo "Run the 'Release CV' workflow in the cv repo first."
+            exit 1
+          fi
+          echo "Package verified: $PACKAGE_URL"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update CV deployment
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TARBALL="cv-${VERSION}.tar.gz"
+          DEPLOYMENT_FILE="argocd/manifests/cv/deployment.yaml"
+          RELEASE_URL="https://forge.ops.eblu.me/api/packages/eblume/generic/cv/${VERSION}/${TARBALL}"
+
+          echo "Updating $DEPLOYMENT_FILE with CV_RELEASE_URL..."
+          sed -i "s|value: \"https://forge.ops.eblu.me/api/packages/eblume/generic/cv/[^\"]*\"|value: \"${RELEASE_URL}\"|" "$DEPLOYMENT_FILE"
+
+          echo "Updated deployment:"
+          grep -A1 "CV_RELEASE_URL" "$DEPLOYMENT_FILE"
+
+      - name: Commit release changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          git config user.name "Forgejo Actions"
+          git config user.email "actions@forge.ops.eblu.me"
+
+          git add argocd/manifests/cv/deployment.yaml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit (already at $VERSION)"
+          else
+            git commit -m "Update CV release to $VERSION
+
+          [skip ci]"
+            git push origin HEAD:main
+            echo "Changes committed and pushed"
+          fi
+
+      - name: Deploy CV
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+        run: |
+          echo "Syncing CV app via ArgoCD..."
+
+          argocd app sync cv \
+            --server argocd.ops.eblu.me \
+            --grpc-web \
+            --prune
+
+          argocd app wait cv \
+            --server argocd.ops.eblu.me \
+            --grpc-web \
+            --timeout 120
+
+          echo "CV app synced successfully!"
+
+      - name: Summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "================================================"
+          echo "CV Deployed: $VERSION"
+          echo "================================================"
+          echo ""
+          echo "CV should now be live at:"
+          echo "  https://cv.ops.eblu.me/"

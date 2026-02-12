@@ -1,0 +1,43 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cv
+  namespace: cv
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cv
+  template:
+    metadata:
+      labels:
+        app: cv
+    spec:
+      containers:
+        - name: cv
+          image: registry.ops.eblu.me/blumeops/cv:v1.0.0
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: CV_RELEASE_URL
+              value: "https://forge.ops.eblu.me/api/packages/eblume/generic/cv/v0.1.0/cv-v0.1.0.tar.gz"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "10m"
+            limits:
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10

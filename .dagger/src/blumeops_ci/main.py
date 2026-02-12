@@ -78,9 +78,12 @@ class BlumeopsCi:
             .with_exec(["npx", "quartz", "build", "-d", "docs"])
             .with_exec(
                 [
-                    "sh",
-                    "-c",
-                    f"tar -czf /docs-{version}.tar.gz -C public .",
+                    "tar",
+                    "-czf",
+                    f"/docs-{version}.tar.gz",
+                    "-C",
+                    "public",
+                    ".",
                 ]
             )
             .file(f"/docs-{version}.tar.gz")

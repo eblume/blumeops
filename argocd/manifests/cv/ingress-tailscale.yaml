@@ -1,0 +1,27 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cv-tailscale
+  namespace: cv
+  annotations:
+    tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
+    tailscale.com/tags: "tag:k8s"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "CV"
+    gethomepage.dev/group: "Apps"
+    gethomepage.dev/icon: "mdi-file-document"
+    gethomepage.dev/description: "Resume / CV"
+    gethomepage.dev/href: "https://cv.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=cv"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: cv
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - cv

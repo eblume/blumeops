@@ -73,6 +73,9 @@ caddy_services:
   - name: docs
     host: "docs.{{ caddy_domain }}"
     backend: "https://docs.tail8d86e.ts.net"
+  - name: cv
+    host: "cv.{{ caddy_domain }}"
+    backend: "https://cv.tail8d86e.ts.net"
   - name: sifaka
     host: "nas.{{ caddy_domain }}"
     backend: "http://sifaka:5000"
