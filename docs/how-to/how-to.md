@@ -53,6 +53,7 @@ Migration and transition plans for upcoming infrastructure changes.
 | Plan | Description |
 |------|-------------|
 | [[plans]] | Index of all plans |
+| [[completed]] | Completed plans archive |
 | [[migrate-forgejo-from-brew]] | Transition Forgejo from Homebrew to source-built binary |
 | [[add-unifi-pulumi-stack]] | Add Pulumi IaC for UniFi Express 7 |
 | [[adopt-dagger-ci]] | Adopt Dagger as CI/CD build engine |

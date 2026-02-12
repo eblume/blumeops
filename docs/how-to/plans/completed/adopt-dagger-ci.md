@@ -10,7 +10,7 @@ tags:
 
 # Plan: Adopt Dagger as CI/CD Build Engine
 
-> **Status:** Phase 3 implemented
+> **Status:** Phases 1–3 complete
 
 ## Background
 
@@ -429,13 +429,15 @@ The `forgejo-runner` container (at `containers/forgejo-runner/`) bundles:
 
 ### Simplified Runner
 
-With Dagger, the runner only needs:
-- Docker (for the Dagger engine — already available via DinD sidecar)
+With Dagger, the runner needs:
+- Docker CLI (Dagger shells out to `docker` to provision its BuildKit engine)
 - The `dagger` CLI binary
+- Node.js (required by `actions/checkout@v4` and other JavaScript Actions)
 - Git (for checkout)
-- Basic shell utilities
+- ArgoCD CLI, uv, flyctl (used directly in workflow steps)
+- Basic shell utilities and tzdata
 
-All other tools (Node.js, skopeo, argocd, Python, npm) live inside the Dagger containers defined by the module. Adding a new tool to a build never requires rebuilding the runner image.
+Removed from the pre-Dagger image: Docker buildx plugin, skopeo, lsb-release, xz-utils. These tools now live inside Dagger containers.
 
 ### Implementation
 
@@ -502,14 +504,18 @@ BuildKit caches aggressively, making repeated builds fast. Since the Forgejo run
 - [ ] ~~`dagger call release-docs` uploads to Forgejo packages successfully~~ (deferred — artifact hosting stays on Forgejo Releases)
 - [ ] ~~Quartz container starts and serves docs from Forgejo packages URL~~ (deferred)
 - [ ] ~~ArgoCD sync works from within Dagger~~ (deferred)
-- [ ] Forgejo Actions workflow_dispatch completes full release cycle
-- [ ] CHANGELOG.md and fragment cleanup committed correctly
+- [x] Forgejo Actions workflow_dispatch completes full release cycle
+- [x] CHANGELOG.md and fragment cleanup committed correctly
 
 ### Phase 3 (Runner)
-- [ ] Simplified runner image builds and runs
-- [ ] Dagger engine starts inside the runner's DinD environment
-- [ ] All existing workflows pass with the simplified runner
-- [ ] TZ=America/Los_Angeles works in job containers (tzdata installed)
+- [x] Simplified runner image builds and runs (forgejo-runner v3.0.2)
+- [x] Dagger engine starts inside the runner's DinD environment
+- [x] All existing workflows pass with the simplified runner
+- [x] TZ=America/Los_Angeles works in job containers (tzdata installed)
+
+### Known Issues
+
+- **Changelog dates show UTC date:** Towncrier uses `datetime.date.today()` which respects `TZ`, and `tzdata` is installed in the runner image, but the changelog still renders tomorrow's date (UTC). The runner pod and job containers both have `TZ=America/Los_Angeles` set. Root cause is unresolved — may require passing an explicit `--date` flag to towncrier or patching the Dagger `build_changelog` container.
 
 ## How-To Articles to Write
 
