@@ -68,18 +68,6 @@ jobs:
           echo ""
           echo "Skipping build."
 
-      - name: Ensure Dagger CLI
-        if: steps.check.outputs.exists == 'true'
-        run: |
-          # Bootstrap: install dagger if not already in the runner image.
-          # Remove once all runners include dagger (Phase 3).
-          if ! command -v dagger &>/dev/null; then
-            echo "Dagger not found, installing..."
-            curl -fsSL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.19.11 sh
-            mv ./bin/dagger /usr/local/bin/dagger && rmdir ./bin
-          fi
-          dagger version
-
       - name: Publish
         if: steps.check.outputs.exists == 'true'
         run: |

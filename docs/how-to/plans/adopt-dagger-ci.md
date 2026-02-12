@@ -10,7 +10,7 @@ tags:
 
 # Plan: Adopt Dagger as CI/CD Build Engine
 
-> **Status:** Phase 2 implemented
+> **Status:** Phase 3 implemented
 
 ## Background
 
@@ -509,6 +509,7 @@ BuildKit caches aggressively, making repeated builds fast. Since the Forgejo run
 - [ ] Simplified runner image builds and runs
 - [ ] Dagger engine starts inside the runner's DinD environment
 - [ ] All existing workflows pass with the simplified runner
+- [ ] TZ=America/Los_Angeles works in job containers (tzdata installed)
 
 ## How-To Articles to Write
 

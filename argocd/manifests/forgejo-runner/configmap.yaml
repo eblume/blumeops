@@ -12,9 +12,10 @@ data:
       file: /data/.runner
       capacity: 2
       timeout: 3h
-      # Set DOCKER_HOST in job containers so they can run docker commands
+      # Env vars injected into all job containers
       envs:
         DOCKER_HOST: tcp://127.0.0.1:2375
+        TZ: America/Los_Angeles
 
     container:
       # Use our custom job execution image with Node.js + Docker CLI

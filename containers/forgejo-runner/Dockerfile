@@ -3,7 +3,8 @@
 # This image is used as the job execution environment for Forgejo Actions.
 # The host runner daemon creates containers from this image to run workflow steps.
 #
-# Includes: Node.js (for GitHub Actions), Docker CLI, git, and common CI tools.
+# Build logic (container images, docs site) runs inside Dagger containers,
+# so this image only needs: git, Dagger CLI, ArgoCD CLI, uv, and basic tools.
 #
 # Usage: Configure runner with label like:
 #   docker:docker://registry.ops.eblu.me/blumeops/forgejo-runner:latest
@@ -18,24 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     jq \
-    gnupg \
-    lsb-release \
-    xz-utils \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Node.js 24.x LTS (required for actions/checkout@v4 and Quartz builds)
-RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Docker CLI (for container builds - daemon accessed via socket mount)
-# and skopeo (for pushing images to zot registry - Docker 27 manifest compat issues)
-RUN install -m 0755 -d /etc/apt/keyrings \
-    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
-    && chmod a+r /etc/apt/keyrings/docker.asc \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin skopeo \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv (Python package runner for towncrier)
@@ -44,7 +28,6 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
     && mv /root/.local/bin/uvx /usr/local/bin/uvx
 
 # Install argocd CLI (for syncing apps from workflows)
-# Use dpkg --print-architecture as fallback since TARGETARCH may be empty in single-platform builds
 RUN ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" \
     && curl -fsSL -o /usr/local/bin/argocd \
     "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-${ARCH}" \
@@ -59,6 +42,11 @@ RUN ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" \
     && tar -xzf /tmp/dagger.tar.gz -C /usr/local/bin dagger \
     && rm /tmp/dagger.tar.gz \
     && dagger version
+
+# Install flyctl (for Fly.io cache purge after docs deploy)
+RUN curl -L https://fly.io/install.sh | sh \
+    && mv /root/.fly/bin/flyctl /usr/local/bin/fly \
+    && rm -rf /root/.fly
 
 # Default to bash
 CMD ["/bin/bash"]
