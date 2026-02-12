@@ -56,6 +56,9 @@ spec:
               mountPath: /data
             - name: config
               mountPath: /config
+            - name: zoneinfo
+              mountPath: /usr/share/zoneinfo
+              readOnly: true
 
         # Docker-in-Docker sidecar
         - name: dind
@@ -77,3 +80,7 @@ spec:
         - name: config
           configMap:
             name: forgejo-runner-config
+        - name: zoneinfo
+          hostPath:
+            path: /usr/share/zoneinfo
+            type: Directory
