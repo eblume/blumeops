@@ -1,6 +1,6 @@
 ---
 title: Deploy K8s Service
-modified: 2026-02-07
+modified: 2026-02-11
 tags:
   - how-to
   - kubernetes
@@ -47,15 +47,17 @@ spec:
 
 ## Configure Ingress
 
-Add [[tailscale-operator|Tailscale Ingress]] with Homepage annotations:
+Add a [[tailscale-operator|Tailscale Ingress]] routed through the ProxyGroup with Homepage annotations:
 
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: <service>
+  name: <service>-tailscale
   namespace: <service>
   annotations:
+    tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Service Name"
     gethomepage.dev/group: "Apps"
@@ -64,18 +66,20 @@ metadata:
     gethomepage.dev/pod-selector: "app=<service>"
 spec:
   ingressClassName: tailscale
-  rules:
-  - host: <service>
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: <service>
-            port:
-              number: 80
+  defaultBackend:
+    service:
+      name: <service>
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - <service>
 ```
+
+Key points:
+- **`proxy-group: "ingress"`** routes through the shared ProxyGroup instead of spawning a per-ingress proxy
+- **Do not use `rules:` with `host:`** — the ProxyGroup proxy receives the FQDN as Host header (e.g. `<service>.tail8d86e.ts.net`), so a short `host: <service>` won't match. Use `defaultBackend` instead.
+- **`tls.hosts`** sets the MagicDNS hostname (becomes `<service>.tail8d86e.ts.net`)
 
 ## Add Caddy Route (if needed)
 
@@ -114,7 +118,7 @@ argocd app sync <service>
 
 - [ ] Manifests in `argocd/manifests/<service>/`
 - [ ] Application in `argocd/apps/<service>.yaml`
-- [ ] Tailscale Ingress with Homepage annotations
+- [ ] Tailscale Ingress via ProxyGroup with Homepage annotations
 - [ ] Caddy route (if pod-to-service access needed)
 - [ ] Tested on feature branch
 - [ ] PR reviewed and merged
