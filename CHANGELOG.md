@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.6.8] - 2026-02-11
+
+### Documentation
+
+- Update "Deploy K8s Service" how-to with current ProxyGroup ingress pattern.
+
+
 ## [v1.6.7] - 2026-02-11
 
 ### Documentation
