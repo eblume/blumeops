@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.6.9] - 2026-02-11
+
+### Bug Fixes
+
+- Set ``TZ=America/Los_Angeles`` in the Dagger ``build_changelog`` container so towncrier stamps the correct local date instead of UTC (which showed tomorrow's date for evening releases).
+
+
 ## [v1.6.8] - 2026-02-11
 
 ### Documentation
