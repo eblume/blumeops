@@ -1,5 +1,6 @@
 ---
 title: Observability Stack
+date-modified: 2026-02-07
 tags:
   - tutorials
   - replication

@@ -1,5 +1,6 @@
 ---
 title: Borgmatic
+date-modified: 2026-02-10
 tags:
   - service
   - backup

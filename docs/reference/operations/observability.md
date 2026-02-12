@@ -1,5 +1,6 @@
 ---
 title: Observability
+date-modified: 2026-02-07
 tags:
   - operations
 ---

@@ -1,5 +1,6 @@
 ---
 title: AI Assistance Guide
+date-modified: 2026-02-09
 tags:
   - tutorials
   - ai

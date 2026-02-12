@@ -1,0 +1,86 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["rich>=13.0.0"]
+# ///
+#MISE description="Check that all docs have required frontmatter fields"
+"""Validate that all documentation files have required YAML frontmatter.
+
+Required fields: title, tags, date-modified
+
+Scans all markdown files in docs/ (excluding changelog.d/) and checks
+that each file has YAML frontmatter containing the required fields.
+
+Usage: mise run docs-check-frontmatter
+"""
+
+import re
+import sys
+from pathlib import Path
+
+from rich.console import Console
+from rich.table import Table
+
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+REQUIRED_FIELDS = {"title", "tags", "date-modified"}
+
+# Match YAML frontmatter block
+FRONTMATTER_PATTERN = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
+
+# Match top-level YAML keys (not indented)
+KEY_PATTERN = re.compile(r"^([a-zA-Z][a-zA-Z0-9_-]*):", re.MULTILINE)
+
+
+def extract_frontmatter_keys(file_path: Path) -> set[str] | None:
+    """Extract top-level keys from YAML frontmatter. Returns None if no frontmatter."""
+    content = file_path.read_text()
+    match = FRONTMATTER_PATTERN.match(content)
+    if not match:
+        return None
+    frontmatter = match.group(1)
+    return set(KEY_PATTERN.findall(frontmatter))
+
+
+def main() -> int:
+    console = Console()
+    console.print("[bold]Frontmatter Validation[/bold]")
+    console.print(f"Required fields: {', '.join(sorted(REQUIRED_FIELDS))}")
+    console.print()
+
+    issues: list[tuple[str, set[str]]] = []
+
+    for md_file in sorted(DOCS_DIR.rglob("*.md")):
+        if "changelog.d" in md_file.parts:
+            continue
+
+        rel_path = str(md_file.relative_to(DOCS_DIR))
+        keys = extract_frontmatter_keys(md_file)
+
+        if keys is None:
+            issues.append((rel_path, REQUIRED_FIELDS))
+            continue
+
+        missing = REQUIRED_FIELDS - keys
+        if missing:
+            issues.append((rel_path, missing))
+
+    if issues:
+        console.print("[bold red]Missing Required Frontmatter[/bold red]")
+        console.print()
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("File")
+        table.add_column("Missing Fields")
+
+        for rel_path, missing in issues:
+            table.add_row(rel_path, ", ".join(sorted(missing)))
+
+        console.print(table)
+        console.print()
+        return 1
+
+    console.print("[bold green]All docs have required frontmatter![/bold green]")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -106,14 +106,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # Need full history for git operations
           fetch-depth: 0
+
+      - name: Ensure Dagger CLI
+        run: |
+          # Bootstrap: install dagger if not already in the runner image.
+          # Remove once all runners include dagger (Phase 3).
+          if ! command -v dagger &>/dev/null; then
+            echo "Dagger not found, installing..."
+            curl -fsSL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.19.11 sh
+            mv ./bin/dagger /usr/local/bin/dagger && rmdir ./bin
+          fi
+          dagger version
+
+      - name: Build docs
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TARBALL="docs-${VERSION}.tar.gz"
+          echo "Building docs via Dagger..."
+          # build-docs calls build_changelog internally (towncrier runs inside
+          # the Dagger container). The host working tree is not modified — only
+          # the tarball is exported. Towncrier runs a second time on the runner
+          # in the next step so that CHANGELOG.md and fragment deletion are
+          # captured in the git commit.
+          dagger call build-docs --src=. --version="$VERSION" \
+            export --path="./$TARBALL"
+          echo "Build complete!"
+          ls -lh "$TARBALL"
 
       - name: Build changelog
         id: changelog
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
+          # Run towncrier on the runner (not in Dagger) so that CHANGELOG.md
+          # updates and fragment deletions appear in the working tree for the
+          # git commit step. This is intentionally a second towncrier run —
+          # the first happened inside the Dagger build-docs container above.
           # Check if there are any changelog fragments
           FRAGMENTS=$(find docs/changelog.d -name "*.md" -not -name ".gitkeep" 2>/dev/null | wc -l)
 
@@ -123,7 +152,6 @@ jobs:
             echo "changelog_updated=true" >> "$GITHUB_OUTPUT"
 
             # Extract the changelog section for this release to include in release body
-            # The section starts with "## [$VERSION]" and ends before the next "## [" or EOF
             RELEASE_NOTES=$(awk -v ver="$VERSION" '
               /^## \[/ {
                 if (found) exit
@@ -132,7 +160,6 @@ jobs:
               found {print}
             ' CHANGELOG.md | tail -n +2)
 
-            # Save release notes to a file for later use (handles multiline content)
             echo "$RELEASE_NOTES" > /tmp/release_notes.md
             echo "Release notes extracted for $VERSION"
           else
@@ -140,51 +167,6 @@ jobs:
             echo "changelog_updated=false" >> "$GITHUB_OUTPUT"
             echo "" > /tmp/release_notes.md
           fi
-
-      - name: Build docs
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          echo "Node version: $(node --version)"
-          echo "NPM version: $(npm --version)"
-
-          # Clone Quartz to temp location
-          git clone --depth 1 https://github.com/jackyzha0/quartz.git /tmp/quartz
-
-          # Copy Quartz build system into blumeops workspace
-          # This allows building from within the repo so git can find file history
-          cp -r /tmp/quartz/quartz "$GITHUB_WORKSPACE/"
-          cp /tmp/quartz/package.json "$GITHUB_WORKSPACE/"
-          cp /tmp/quartz/package-lock.json "$GITHUB_WORKSPACE/"
-          cp /tmp/quartz/tsconfig.json "$GITHUB_WORKSPACE/"
-
-          cd "$GITHUB_WORKSPACE"
-
-          # Install dependencies
-          npm ci
-
-          # Copy our configuration to workspace root
-          cp docs/quartz.config.ts .
-          cp docs/quartz.layout.ts .
-
-          # Copy CHANGELOG.md into docs so it's part of the content
-          cp CHANGELOG.md docs/
-
-          # Build using -d docs so git can find file history at correct paths
-          echo "Building static site..."
-          npx quartz build -d docs
-
-          # Create tarball
-          TARBALL="docs-${VERSION}.tar.gz"
-          echo "Creating tarball: $TARBALL"
-          tar -czf "$TARBALL" -C public .
-
-          echo "Build complete!"
-          ls -lh "$TARBALL"
-
-          # Clean up Quartz build artifacts (keep tarball)
-          rm -rf quartz public node_modules
-          rm -f package.json package-lock.json tsconfig.json quartz.config.ts quartz.layout.ts
-          rm -f docs/CHANGELOG.md  # Remove copied file
 
       - name: Create release
         env:

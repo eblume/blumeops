@@ -1,5 +1,6 @@
 ---
 title: "Plan: Forgejo Actions Dashboard"
+date-modified: 2026-02-11
 tags:
   - how-to
   - plans

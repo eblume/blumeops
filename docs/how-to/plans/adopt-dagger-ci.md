@@ -1,5 +1,6 @@
 ---
 title: "Plan: Adopt Dagger as CI/CD Build Engine"
+date-modified: 2026-02-11
 tags:
   - how-to
   - plans
@@ -9,7 +10,7 @@ tags:
 
 # Plan: Adopt Dagger as CI/CD Build Engine
 
-> **Status:** Phase 1 implemented
+> **Status:** Phase 2 implemented
 
 ## Background
 
@@ -496,11 +497,11 @@ BuildKit caches aggressively, making repeated builds fast. Since the Forgejo run
 - [x] Existing `mise run container-tag-and-release` workflow still works end-to-end
 
 ### Phase 2 (Docs)
-- [ ] `dagger call build-docs --src=. --version=dev` produces valid tarball locally
-- [ ] Tarball contents match current Quartz build output
-- [ ] `dagger call release-docs` uploads to Forgejo packages successfully
-- [ ] Quartz container starts and serves docs from Forgejo packages URL
-- [ ] ArgoCD sync works from within Dagger
+- [x] `dagger call build-docs --src=. --version=dev` produces valid tarball locally
+- [x] Tarball contents match current Quartz build output
+- [ ] ~~`dagger call release-docs` uploads to Forgejo packages successfully~~ (deferred — artifact hosting stays on Forgejo Releases)
+- [ ] ~~Quartz container starts and serves docs from Forgejo packages URL~~ (deferred)
+- [ ] ~~ArgoCD sync works from within Dagger~~ (deferred)
 - [ ] Forgejo Actions workflow_dispatch completes full release cycle
 - [ ] CHANGELOG.md and fragment cleanup committed correctly
 

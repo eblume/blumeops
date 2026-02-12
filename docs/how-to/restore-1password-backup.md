@@ -1,5 +1,6 @@
 ---
 title: Restore 1Password Backup
+date-modified: 2026-02-10
 tags:
   - how-to
   - operations

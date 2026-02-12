@@ -1,5 +1,6 @@
 ---
 title: Expose a Service Publicly
+date-modified: 2026-02-08
 tags:
   - how-to
   - fly-io

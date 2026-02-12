@@ -1,5 +1,6 @@
 ---
 title: Use PyPI Proxy
+date-modified: 2026-02-07
 tags:
   - how-to
   - python

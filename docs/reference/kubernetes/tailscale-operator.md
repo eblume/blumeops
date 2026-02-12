@@ -1,5 +1,6 @@
 ---
 title: Tailscale Operator
+date-modified: 2026-02-08
 tags:
   - kubernetes
   - tailscale

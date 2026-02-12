@@ -1,5 +1,6 @@
 ---
 title: Caddy
+date-modified: 2026-02-08
 tags:
   - service
   - networking

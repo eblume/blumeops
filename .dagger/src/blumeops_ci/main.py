@@ -1,5 +1,5 @@
 import dagger
-from dagger import function, object_type
+from dagger import dag, function, object_type
 
 
 @object_type
@@ -22,3 +22,65 @@ class BlumeopsCi:
         ctr = self.build(src, container_name)
         ref = f"{registry}/blumeops/{container_name}:{version}"
         return await ctr.publish(ref)
+
+    @function
+    async def build_changelog(
+        self, src: dagger.Directory, version: str
+    ) -> dagger.Directory:
+        """Run towncrier to build changelog, return modified source tree."""
+        return await (
+            dag.container()
+            .from_("python:3.12-slim")
+            # git is required because towncrier stages CHANGELOG.md via git add
+            .with_exec(["apt-get", "update", "-qq"])
+            .with_exec(["apt-get", "install", "-y", "-qq", "git"])
+            .with_exec(["pip", "install", "towncrier"])
+            .with_directory("/workspace", src)
+            .with_workdir("/workspace")
+            .with_exec(["git", "init"])
+            .with_exec(["towncrier", "build", "--version", version, "--yes"])
+            .directory("/workspace")
+        )
+
+    @function
+    async def build_docs(self, src: dagger.Directory, version: str) -> dagger.File:
+        """Build changelog then Quartz site. Returns docs tarball."""
+        updated_src = await self.build_changelog(src, version)
+        return await (
+            dag.container()
+            .from_("node:20-slim")
+            .with_exec(["apt-get", "update", "-qq"])
+            .with_exec(["apt-get", "install", "-y", "-qq", "git"])
+            .with_directory("/workspace", updated_src)
+            .with_workdir("/workspace")
+            .with_exec(
+                [
+                    "git",
+                    "clone",
+                    "--depth=1",
+                    "https://github.com/jackyzha0/quartz.git",
+                    "/tmp/quartz",
+                ]
+            )
+            .with_exec(
+                [
+                    "sh",
+                    "-c",
+                    "cp -r /tmp/quartz/quartz /tmp/quartz/package*.json "
+                    "/tmp/quartz/tsconfig.json .",
+                ]
+            )
+            .with_exec(["npm", "ci"])
+            .with_exec(["cp", "docs/quartz.config.ts", "."])
+            .with_exec(["cp", "docs/quartz.layout.ts", "."])
+            .with_exec(["cp", "CHANGELOG.md", "docs/"])
+            .with_exec(["npx", "quartz", "build", "-d", "docs"])
+            .with_exec(
+                [
+                    "sh",
+                    "-c",
+                    f"tar -czf /docs-{version}.tar.gz -C public .",
+                ]
+            )
+            .file(f"/docs-{version}.tar.gz")
+        )

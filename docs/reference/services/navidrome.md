@@ -1,5 +1,6 @@
 ---
 title: Navidrome
+date-modified: 2026-02-07
 tags:
   - service
   - media

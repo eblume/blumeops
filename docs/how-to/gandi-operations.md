@@ -1,5 +1,6 @@
 ---
 title: Gandi Operations
+date-modified: 2026-02-08
 tags:
   - how-to
   - dns

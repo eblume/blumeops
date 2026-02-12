@@ -1,5 +1,6 @@
 ---
 title: Adding a Service
+date-modified: 2026-02-07
 tags:
   - tutorials
   - argocd

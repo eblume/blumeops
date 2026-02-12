@@ -1,5 +1,6 @@
 ---
 title: Routing
+date-modified: 2026-02-09
 tags:
   - infrastructure
   - networking
