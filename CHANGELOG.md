@@ -12,6 +12,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.7.1] - 2026-02-12
+
+### Features
+
+- Expose CV service publicly at cv.eblu.me via Fly.io proxy.
+- Update CV service to resume release v1.0.1.
+
+### Infrastructure
+
+- Add CV to services-check (tailnet and public endpoints).
+
+### Miscellaneous
+
+- Update CV homepage link to use public URL (cv.eblu.me).
+- Remove `/_error` test endpoint from Fly.io nginx proxy.
+
+
 ## [v1.7.0] - 2026-02-12
 
 ### Features
