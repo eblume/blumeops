@@ -6,12 +6,17 @@
 
 forgejo_actions_secrets_api_url: "https://forge.ops.eblu.me/api/v1"
 forgejo_actions_secrets_owner: eblume
-forgejo_actions_secrets_repo: blumeops
 
-# Secrets to sync: list of {name: "SECRET_NAME", value_var: "ansible_fact_name"}
-# The value_var references an Ansible fact set in playbook pre_tasks
-forgejo_actions_secrets_list:
-  - name: ARGOCD_AUTH_TOKEN
-    value_var: forgejo_secret_argocd_token
-  - name: FLY_DEPLOY_TOKEN
-    value_var: forgejo_secret_fly_deploy_token
+# Secrets to sync per repo.
+# Each entry: {repo: "name", secrets: [{name: "SECRET_NAME", value_var: "ansible_fact_name"}]}
+forgejo_actions_secrets_repos:
+  - repo: blumeops
+    secrets:
+      - name: ARGOCD_AUTH_TOKEN
+        value_var: forgejo_secret_argocd_token
+      - name: FLY_DEPLOY_TOKEN
+        value_var: forgejo_secret_fly_deploy_token
+  - repo: cv
+    secrets:
+      - name: FORGE_TOKEN
+        value_var: forgejo_api_token
