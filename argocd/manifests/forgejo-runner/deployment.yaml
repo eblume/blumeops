@@ -20,6 +20,8 @@ spec:
         - name: runner
           image: code.forgejo.org/forgejo/runner:6.3.1
           env:
+            - name: TZ
+              value: America/Los_Angeles
             - name: DOCKER_HOST
               value: tcp://localhost:2375
           command:

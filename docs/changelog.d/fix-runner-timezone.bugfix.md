@@ -1,0 +1,1 @@
+Set Forgejo runner timezone to America/Los_Angeles. The runner previously used UTC, causing towncrier changelog entries to show tomorrow's date when releases were cut in the evening. Note: the v1.6.2 changelog entry shows 2026-02-12 due to this bug; dates may appear non-sequential as a result.
