@@ -12,6 +12,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.6.2] - 2026-02-12
+
+### Features
+
+- Migrate docs build pipeline to Dagger (Phase 2): `dagger call build-docs --src=. --version=dev` now runs the full Quartz build locally, identically to CI. Adds `date-modified` frontmatter to all docs and a `docs-check-frontmatter` pre-commit hook.
+- Adopt Dagger as CI build engine for container images (Phase 1). Replaces the Docker buildx + skopeo composite action with a Dagger Python module. BuildKit's push is compatible with Zot, eliminating the skopeo workaround.
+
+### Bug Fixes
+
+- Fix blumeops-tasks: migrate from deprecated Todoist REST API v2 to API v1, handle cursor-based pagination, and use `op read` for 1Password credential retrieval.
+
+
 ## [v1.6.1] - 2026-02-11
 
 ### Bug Fixes
