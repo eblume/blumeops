@@ -12,6 +12,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.6.6] - 2026-02-11
+
+### Features
+
+- Simplify Forgejo runner image (Dagger Phase 3): remove Node.js, Docker CLI, buildx, skopeo, gnupg, lsb-release, and xz-utils. Add tzdata and flyctl. All build tools now live inside Dagger containers.
+
+### Bug Fixes
+
+- Restore Docker CLI to Forgejo runner image — Dagger shells out to ``docker`` to provision its BuildKit engine.
+- Restore Node.js to Forgejo runner image — required by ``actions/checkout@v4`` and other JavaScript Actions that were broken by the Phase 3 simplification.
+
+
 ## [v1.6.4] - 2026-02-12
 
 ### Bug Fixes
