@@ -22,7 +22,7 @@ spec:
               name: http
           env:
             - name: CV_RELEASE_URL
-              value: "https://forge.ops.eblu.me/api/packages/eblume/generic/cv/v1.0.2/cv-v1.0.2.tar.gz"
+              value: "https://forge.ops.eblu.me/api/packages/eblume/generic/cv/v1.0.3/cv-v1.0.3.tar.gz"
           resources:
             requests:
               memory: "64Mi"

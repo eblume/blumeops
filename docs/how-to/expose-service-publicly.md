@@ -229,6 +229,7 @@ http {
             proxy_ignore_headers Cache-Control Set-Cookie;
 
             add_header X-Cache-Status $upstream_cache_status;
+            add_header X-Clacks-Overhead "GNU Terry Pratchett" always;
         }
     }
 
@@ -454,6 +455,7 @@ server {
         proxy_ignore_headers Cache-Control Set-Cookie;
 
         add_header X-Cache-Status $upstream_cache_status;
+        add_header X-Clacks-Overhead "GNU Terry Pratchett" always;
     }
 }
 ```
@@ -503,6 +505,7 @@ server {
         proxy_cache_key $host$uri;
 
         add_header X-Cache-Status $upstream_cache_status;
+        add_header X-Clacks-Overhead "GNU Terry Pratchett" always;
     }
 }
 ```
