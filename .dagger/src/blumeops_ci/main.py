@@ -49,7 +49,7 @@ class BlumeopsCi:
         updated_src = await self.build_changelog(src, version)
         return await (
             dag.container()
-            .from_("node:20-slim")
+            .from_("node:22-slim")
             .with_exec(["apt-get", "update", "-qq"])
             .with_exec(["apt-get", "install", "-y", "-qq", "git"])
             .with_directory("/workspace", updated_src)
