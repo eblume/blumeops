@@ -68,7 +68,7 @@ jobs:
           RELEASE_URL="https://forge.ops.eblu.me/api/packages/eblume/generic/cv/${VERSION}/${TARBALL}"
 
           echo "Updating $DEPLOYMENT_FILE with CV_RELEASE_URL..."
-          sed -i "s|value: \"https://forge.ops.eblu.me/api/packages/eblume/generic/cv/[^\"]*\"|value: \"${RELEASE_URL}\"|" "$DEPLOYMENT_FILE"
+          yq -i "(.spec.template.spec.containers[0].env[] | select(.name == \"CV_RELEASE_URL\")).value = \"${RELEASE_URL}\"" "$DEPLOYMENT_FILE"
 
           echo "Updated deployment:"
           grep -A1 "CV_RELEASE_URL" "$DEPLOYMENT_FILE"

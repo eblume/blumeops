@@ -234,7 +234,7 @@ jobs:
           RELEASE_URL="https://forge.ops.eblu.me/eblume/blumeops/releases/download/${VERSION}/${TARBALL}"
 
           echo "Updating $DEPLOYMENT_FILE with new release URL..."
-          sed -i "s|value: \"https://forge.ops.eblu.me/eblume/blumeops/releases/download/[^\"]*\"|value: \"${RELEASE_URL}\"|" "$DEPLOYMENT_FILE"
+          yq -i "(.spec.template.spec.containers[0].env[] | select(.name == \"DOCS_RELEASE_URL\")).value = \"${RELEASE_URL}\"" "$DEPLOYMENT_FILE"
 
           echo "Updated deployment:"
           grep -A1 "DOCS_RELEASE_URL" "$DEPLOYMENT_FILE"

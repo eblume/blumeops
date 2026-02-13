@@ -4,7 +4,7 @@
 # The host runner daemon creates containers from this image to run workflow steps.
 #
 # Build logic (container images, docs site) runs inside Dagger containers,
-# so this image only needs: git, Docker CLI, Dagger CLI, ArgoCD CLI, uv, and basic tools.
+# so this image only needs: git, Docker CLI, Dagger CLI, ArgoCD CLI, uv, yq, and basic tools.
 #
 # Usage: Configure runner with label like:
 #   docker:docker://registry.ops.eblu.me/blumeops/forgejo-runner:latest
@@ -58,6 +58,13 @@ RUN ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" \
     && tar -xzf /tmp/dagger.tar.gz -C /usr/local/bin dagger \
     && rm /tmp/dagger.tar.gz \
     && dagger version
+
+# Install yq (for editing YAML files in workflows)
+RUN ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" \
+    && curl -fsSL -o /usr/local/bin/yq \
+    "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}" \
+    && chmod +x /usr/local/bin/yq \
+    && yq --version
 
 # Install flyctl (for Fly.io cache purge after docs deploy)
 RUN curl -L https://fly.io/install.sh | sh \
