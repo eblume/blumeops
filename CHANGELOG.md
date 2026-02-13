@@ -12,6 +12,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.8.2] - 2026-02-13
+
+### Features
+
+- Recategorize homepage groups: "Content" (Immich, Kiwix, Miniflux, DJ, Grafana) and "Misc" (CV, TeslaMate, Transmission, Docs, Prometheus, PyPI)
+
+### Infrastructure
+
+- Move non-secret forgejo-runner env vars from ExternalSecret to deployment spec so version bumps trigger automatic rollouts
+- Add yq to forgejo-runner container and replace sed-based YAML editing in workflows with yq
+
+
 ## [v1.8.0] - 2026-02-12
 
 ### Features
