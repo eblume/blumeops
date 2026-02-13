@@ -517,14 +517,9 @@ BuildKit caches aggressively, making repeated builds fast. Since the Forgejo run
 
 - **Changelog dates show UTC date:** Towncrier uses `datetime.date.today()` which respects `TZ`, and `tzdata` is installed in the runner image, but the changelog still renders tomorrow's date (UTC). The runner pod and job containers both have `TZ=America/Los_Angeles` set. Root cause is unresolved — may require passing an explicit `--date` flag to towncrier or patching the Dagger `build_changelog` container.
 
-## How-To Articles to Write
+## How-To Articles
 
-The following how-to guides should be created alongside implementation:
-
-| Article | Description |
-|---------|-------------|
-| `docs/how-to/use-dagger-containers.md` | Creating and iterating on containers with Dagger (build, terminal, publish workflow) |
-| `docs/how-to/release-docs.md` | Updated docs release process using Dagger + Forgejo packages (replaces current [[update-documentation]]) |
+Standalone how-to articles for Dagger were deemed unnecessary — the existing [[update-documentation]] how-to was updated to reflect the Dagger build process, and a [[dagger]] reference card covers CLI usage and function signatures.
 
 ## Reference
 

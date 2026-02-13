@@ -34,5 +34,6 @@ GitOps continuous delivery platform for the [[cluster|Kubernetes cluster]].
 
 ## Related
 
+- [[argocd-cli]] - CLI usage and deployment workflows
 - [[apps|Apps]] - Full application registry
 - [[forgejo]] - Git source

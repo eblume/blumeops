@@ -52,6 +52,15 @@ Host inventory and network configuration.
 - [[routing|Routing]] - DNS domains, port mappings
 - [[power]] - Battery-backed power chain
 
+## Tools
+
+Build, deployment, and IaC tool reference.
+
+- [[dagger]] - CI/CD build engine (Python SDK)
+- [[argocd-cli]] - ArgoCD CLI workflows
+- [[ansible]] - Configuration management for indri
+- [[pulumi]] - Infrastructure-as-Code (DNS, Tailscale ACLs)
+
 ## Kubernetes
 
 Cluster configuration and application registry.
@@ -60,12 +69,6 @@ Cluster configuration and application registry.
 - [[apps|Apps]] - ArgoCD application registry
 - [[tailscale-operator]] - Tailscale ingress for k8s services
 - [[external-secrets]] - Secrets management
-
-## Ansible
-
-Configuration management for [[indri]]-hosted services.
-
-- [[roles]] - Available ansible roles
 
 ## Storage
 

@@ -30,7 +30,7 @@ Forgejo runs directly on your server (not in Kubernetes) because Kubernetes depe
 
 ### Using Ansible (BlumeOps Approach)
 
-BlumeOps manages Forgejo via an Ansible role. See [[roles|Ansible Roles]].
+BlumeOps manages Forgejo via an Ansible role. See [[ansible]].
 
 ### Manual Installation
 

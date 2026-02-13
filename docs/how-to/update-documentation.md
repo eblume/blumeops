@@ -25,13 +25,13 @@ Direct link: https://forge.ops.eblu.me/eblume/blumeops/actions?workflow=build-bl
 
 The `build-blumeops` workflow (`.forgejo/workflows/build-blumeops.yaml`):
 
-1. **Resolves version** - Uses input or auto-increments from latest release
-2. **Builds changelog** - Runs towncrier to collect changelog fragments
-3. **Builds docs** - Clones Quartz, builds static site from `docs/`
-4. **Creates release** - Uploads `docs-<version>.tar.gz` to Forgejo releases
-5. **Updates deployment** - Edits `argocd/manifests/docs/deployment.yaml` with new URL
-6. **Commits changes** - Pushes changelog and deployment updates to main
-7. **Deploys** - Syncs the `docs` ArgoCD app
+1. **Resolves version** — Uses input or auto-increments from latest release
+2. **Builds changelog** — Calls `dagger call build-changelog` (towncrier in a container)
+3. **Builds docs** — Calls `dagger call build-docs` (Quartz build in a container)
+4. **Creates release** — Uploads `docs-<version>.tar.gz` to Forgejo releases
+5. **Updates deployment** — Edits `argocd/manifests/docs/deployment.yaml` with new URL
+6. **Commits changes** — Pushes changelog and deployment updates to main
+7. **Deploys** — Syncs the `docs` ArgoCD app
 
 ## Changelog Fragments (Towncrier)
 
@@ -66,7 +66,7 @@ The workflow runs on the `k8s` label, which uses the [[forgejo]]-runner in Kuber
 
 - **Runner deployment**: `argocd/manifests/forgejo-runner/`
 - **Job image**: `registry.ops.eblu.me/blumeops/forgejo-runner:latest`
-- **Includes**: Node.js 24, npm, git, jq, Docker CLI, uv/uvx, argocd CLI
+- **Build engine**: [[dagger]] CLI installed at runtime; Node.js and Python run inside Dagger containers
 
 The job image is built from `containers/forgejo-runner/Dockerfile`.
 
@@ -89,24 +89,14 @@ Quartz is cloned fresh during each build (not vendored) to use the latest versio
 To test docs locally without triggering a release:
 
 ```bash
-# Clone Quartz
-git clone --depth 1 https://github.com/jackyzha0/quartz.git /tmp/quartz
-cd /tmp/quartz
+# Build docs tarball (identical to CI)
+dagger call build-docs --src=. --version=dev export --path=./docs-dev.tar.gz
 
-# Install dependencies
-npm ci
+# Inspect the output
+tar tf docs-dev.tar.gz | head -20
 
-# Copy config and content
-cp /path/to/blumeops/docs/quartz.config.ts .
-cp /path/to/blumeops/docs/quartz.layout.ts .
-rm -rf content
-cp -r /path/to/blumeops/docs content
-
-# Build
-npx quartz build
-
-# Serve locally
-npx quartz build --serve
+# Debug a Quartz build failure interactively
+dagger call --interactive build-docs --src=. --version=dev
 ```
 
 ## Troubleshooting
@@ -128,5 +118,6 @@ npx quartz build --serve
 ## Related
 
 - [[docs]] - Documentation service reference
+- [[dagger]] - Build engine reference
 - [[forgejo]] - Git forge and CI/CD
 - [[argocd]] - GitOps deployment

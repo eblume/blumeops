@@ -1,14 +1,27 @@
 ---
-title: Roles
-modified: 2026-02-07
+title: Ansible
+modified: 2026-02-12
 tags:
   - ansible
   - reference
 ---
 
-# Ansible Roles
+# Ansible
 
-Roles for provisioning services on [[indri]]. Run via `mise run provision-indri`.
+Configuration management for native services on [[indri]]. The primary playbook is `ansible/playbooks/indri.yml`.
+
+## CLI Patterns
+
+```bash
+# Full provisioning
+mise run provision-indri
+
+# Specific role only
+mise run provision-indri -- --tags caddy
+
+# Dry run (preview changes)
+mise run provision-indri -- --check --diff
+```
 
 ## Available Roles
 
@@ -44,5 +57,5 @@ Roles that need secrets use 1Password via the playbook's `pre_tasks`. Secrets ar
 
 ## Related
 
-- [[indri]] - Target host
-- [[observability]] - Metrics collection
+- [[indri]] — Target host
+- [[observability]] — Metrics collection
