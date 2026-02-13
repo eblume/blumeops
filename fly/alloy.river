@@ -79,7 +79,6 @@ loki.process "nginx" {
       name        = "flyio_nginx_cache_requests_total"
       description = "Total cache lookups by cache status."
       source      = "cache_status"
-      match_all   = true
       action      = "inc"
     }
   }

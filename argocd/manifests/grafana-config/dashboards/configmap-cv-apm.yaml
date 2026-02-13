@@ -90,6 +90,7 @@ data:
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "thresholds" },
+              "mappings": [{ "type": "special", "options": { "match": "null+nan", "result": { "text": "No traffic", "color": "text" } } }],
               "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "green", "value": 0.8 }] },
               "unit": "percentunit"
             },
@@ -106,7 +107,7 @@ data:
             "textMode": "auto"
           },
           "targets": [
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(flyio_nginx_cache_requests_total{host=\"cv.eblu.me\",cache_status=\"HIT\"}[5m])) / sum(rate(flyio_nginx_cache_requests_total{host=\"cv.eblu.me\"}[5m]))", "refId": "A" }
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(flyio_nginx_cache_requests_total{host=\"cv.eblu.me\",cache_status=\"HIT\"}[$__range])) / sum(increase(flyio_nginx_cache_requests_total{host=\"cv.eblu.me\"}[$__range]))", "refId": "A" }
           ],
           "title": "Cache Hit Ratio",
           "type": "stat"
