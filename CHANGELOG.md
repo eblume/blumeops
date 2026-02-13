@@ -12,6 +12,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.8.0] - 2026-02-12
+
+### Features
+
+- Update CV release to v1.0.2
+- Update CV release to v1.0.3.
+
+### Bug Fixes
+
+- Fix cache hit rate panels on APM and Fly.io dashboards showing blank/red or misleading 100% for low-traffic static sites.
+
+### Documentation
+
+- Add reference/tools/ category with Dagger, ArgoCD CLI, Ansible, and Pulumi reference cards
+
+### Miscellaneous
+
+- Add X-Clacks-Overhead header to public proxy for cv and docs: GNU Terry Pratchett.
+
+
 ## [v1.7.1] - 2026-02-12
 
 ### Features
