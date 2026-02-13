@@ -8,7 +8,7 @@ metadata:
     tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "PyPI"
-    gethomepage.dev/group: "Infrastructure"
+    gethomepage.dev/group: "Misc"
     gethomepage.dev/icon: "pypi.png"
     gethomepage.dev/description: "PyPI cache"
     gethomepage.dev/href: "https://pypi.ops.eblu.me"

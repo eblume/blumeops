@@ -9,7 +9,7 @@ metadata:
     tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Kiwix"
-    gethomepage.dev/group: "Apps"
+    gethomepage.dev/group: "Content"
     gethomepage.dev/icon: "kiwix.png"
     gethomepage.dev/description: "Offline Wikipedia"
     gethomepage.dev/href: "https://kiwix.ops.eblu.me"

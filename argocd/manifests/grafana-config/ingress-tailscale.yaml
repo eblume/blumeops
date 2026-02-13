@@ -12,7 +12,7 @@ metadata:
     tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Grafana"
-    gethomepage.dev/group: "Observability"
+    gethomepage.dev/group: "Content"
     gethomepage.dev/icon: "grafana.png"
     gethomepage.dev/description: "Metrics dashboards"
     gethomepage.dev/href: "https://grafana.ops.eblu.me"

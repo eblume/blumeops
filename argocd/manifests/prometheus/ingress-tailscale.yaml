@@ -11,7 +11,7 @@ metadata:
     tailscale.com/tags: "tag:k8s,tag:flyio-target"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Prometheus"
-    gethomepage.dev/group: "Observability"
+    gethomepage.dev/group: "Misc"
     gethomepage.dev/icon: "prometheus.png"
     gethomepage.dev/description: "Metrics storage"
     gethomepage.dev/href: "https://prometheus.ops.eblu.me"

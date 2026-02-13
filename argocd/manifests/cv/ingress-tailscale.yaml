@@ -10,7 +10,7 @@ metadata:
     tailscale.com/tags: "tag:k8s,tag:flyio-target"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "CV"
-    gethomepage.dev/group: "Apps"
+    gethomepage.dev/group: "Misc"
     gethomepage.dev/icon: "mdi-file-document"
     gethomepage.dev/description: "Resume / CV"
     gethomepage.dev/href: "https://cv.eblu.me"

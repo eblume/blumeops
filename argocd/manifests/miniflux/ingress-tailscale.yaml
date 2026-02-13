@@ -8,7 +8,7 @@ metadata:
     tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Miniflux"
-    gethomepage.dev/group: "Apps"
+    gethomepage.dev/group: "Content"
     gethomepage.dev/icon: "miniflux.png"
     gethomepage.dev/description: "RSS reader"
     gethomepage.dev/href: "https://feed.ops.eblu.me"
