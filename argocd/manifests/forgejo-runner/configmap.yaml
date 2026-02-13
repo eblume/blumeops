@@ -18,7 +18,7 @@ data:
         TZ: America/Los_Angeles
 
     container:
-      # Job execution image is set via RUNNER_LABELS in external-secret.yaml
+      # Job execution image is set via RUNNER_LABELS in deployment.yaml
       network: "host"
       # Connect to DinD sidecar via TCP (not socket)
       docker_host: tcp://127.0.0.1:2375
