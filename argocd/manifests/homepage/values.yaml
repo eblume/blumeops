@@ -197,9 +197,7 @@ config:
     layout:
       Host Services:
         style: column
-      Apps:
+      Content:
         style: column
-      Observability:
-        style: column
-      Infrastructure:
+      Misc:
         style: column
