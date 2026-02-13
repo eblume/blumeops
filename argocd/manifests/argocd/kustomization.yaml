@@ -6,7 +6,7 @@ namespace: argocd
 resources:
   # Pin to specific version for intentional upgrades
   - https://raw.githubusercontent.com/argoproj/argo-cd/v3.2.6/manifests/install.yaml
-  - service-tailscale.yaml
+  - ingress-tailscale.yaml
   - external-secret-repo-forge.yaml
 
 patches:
