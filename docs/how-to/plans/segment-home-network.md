@@ -9,7 +9,7 @@ tags:
 
 # Plan: Segment Home Network
 
-> **Status:** Planned (not yet executed)
+> **Status:** Completed (2026-02-14)
 > **Replaces:** [[add-unifi-pulumi-stack]] (abandoned — provider bugs)
 
 ## Background
@@ -84,20 +84,21 @@ Settings → Networks → Global Network Settings:
 
 ## Firewall Rules (Zone-Based)
 
-Configured at Settings → Firewall & Security → Firewall Rules.
+Configured at Settings → Policy Engine → Traffic & Firewall Rules, using Zone-Based Firewall.
 
-UX7 zones correspond to networks. Default inter-VLAN policy is **allow**, so we add **block** rules. **Rule ordering matters** — allow rules must come before matching block rules.
+All three networks (Default, IoT, Guest) are in the **Internal** zone. Default inter-VLAN policy is **allow**, so we add **block** rules. **Rule ordering matters** — allow rules must come before matching block rules. Rules are combined where the UI supports multiple destinations.
 
 | # | Name | Action | Source | Destination | Protocol/Port | Notes |
 |---|------|--------|--------|-------------|---------------|-------|
-| 1 | Guest → LAN block | Block | Guest | Main | All | Internet-only isolation |
-| 2 | Guest → IoT block | Block | Guest | IoT | All | No cross-zone access |
-| 3 | IoT → Main streaming allow | Allow | IoT | Main (indri IP) | TCP 443 | Jellyfin/Navidrome via Caddy — must be BEFORE the block rule |
-| 4 | IoT → Main block | Block | IoT | Main | All | Protect NFS and trusted devices |
+| 1 | Guest → Main,IoT block | Block | Guest | Default + IoT | All | Internet-only isolation, combined into one rule |
+| 2 | IoT → Main streaming allow | Allow | IoT | 192.168.1.99 (indri) | TCP 443, 8096 | Jellyfin direct (8096) and Caddy (443) — must be BEFORE the block rule |
+| 3 | IoT → Main block | Block | IoT | Default | All | Protect NFS and trusted devices |
 
 ### Notes on Firewall Rules
 
-**IoT streaming:** Jellyfin (port 8096) and Navidrome bind behind [[caddy]] on indri:443. IoT devices (Frame TV) access media via `https://jellyfin.ops.eblu.me` which resolves to indri's LAN IP. Rule 3 allows IoT → indri:443 only. All other Main network access from IoT is blocked by rule 4.
+**IoT streaming:** Jellyfin listens on indri:8096 (HTTP). IoT devices (Frame TV) connect directly to `http://192.168.1.99:8096`. Rule 2 allows this specific port; all other Main network access from IoT is blocked by rule 3. The `*.ops.eblu.me` domain resolves to indri's Tailscale IP (100.x.x.x), which is unreachable from non-Tailscale devices, so IoT devices must use the LAN IP directly.
+
+**Indri static IP:** Set a DHCP reservation for indri at 192.168.1.99 in the UX7 client list to ensure the firewall rule remains valid.
 
 **NFS exports:** No changes needed to sifaka's NFS configuration. The exports whitelist `192.168.1.0/24` — after segmentation, only Main network devices are on that subnet. IoT (192.168.3.0/24) and Guest (192.168.2.0/24) can't reach NFS because they're on different subnets. The firewall rules provide defense-in-depth.
 
@@ -105,11 +106,11 @@ UX7 zones correspond to networks. Default inter-VLAN policy is **allow**, so we 
 
 After applying the configuration:
 
-- [ ] From Main device: internet works, can reach all services, can mount NFS
-- [ ] From IoT device: internet works, can stream Jellyfin, CANNOT mount NFS
+- [x] From Main device: internet works, can reach all services, can reach sifaka
+- [x] From IoT device: internet works, can stream Jellyfin (8096), CANNOT reach sifaka
 - [ ] From Guest device: internet works, CANNOT reach any internal service
 - [ ] AirPlay/casting from Main to IoT TV works (mDNS reflector)
-- [ ] All wired devices (indri, sifaka, gilbert) unaffected on default VLAN
+- [x] All wired devices (indri, sifaka, gilbert) unaffected on default VLAN
 
 ## Future Considerations
 
