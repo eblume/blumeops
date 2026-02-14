@@ -5362,7 +5362,7 @@ spec:
                       valueFrom:
                         fieldRef:
                             fieldPath: metadata.uid
-                  image: docker.io/tailscale/k8s-operator:v1.92.5
+                  image: docker.io/tailscale/k8s-operator:v1.94.1
                   imagePullPolicy: Always
                   name: operator
                   volumeMounts:

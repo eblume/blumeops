@@ -1,10 +1,10 @@
 # Minimal kubectl container
 # Multi-arch build: downloads correct binary for target platform
 
-FROM alpine:3.21 AS downloader
+FROM alpine:3.22 AS downloader
 
 ARG TARGETARCH
-ARG KUBECTL_VERSION=v1.34.1
+ARG KUBECTL_VERSION=v1.34.4
 
 RUN apk add --no-cache curl && \
     # Detect architecture - use TARGETARCH if set, otherwise detect from uname
@@ -22,7 +22,7 @@ RUN apk add --no-cache curl && \
     curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl" && \
     chmod +x kubectl
 
-FROM alpine:3.21
+FROM alpine:3.22
 
 COPY --from=downloader /kubectl /usr/local/bin/kubectl
 

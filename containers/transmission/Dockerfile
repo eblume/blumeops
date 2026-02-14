@@ -1,9 +1,9 @@
 # Transmission BitTorrent daemon
 # Simpler alternative to linuxserver image
 
-FROM alpine:3.21
+FROM alpine:3.22
 
-ARG TRANSMISSION_VERSION=4.0.6-r0
+ARG TRANSMISSION_VERSION=4.0.6-r4
 
 RUN apk add --no-cache \
     transmission-daemon=${TRANSMISSION_VERSION} \

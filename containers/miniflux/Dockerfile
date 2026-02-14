@@ -1,9 +1,9 @@
 # Miniflux RSS feed reader
 # Based on upstream packaging/docker/alpine/Dockerfile
 
-ARG MINIFLUX_VERSION=2.2.16
+ARG MINIFLUX_VERSION=2.2.17
 
-FROM golang:alpine3.21 AS build
+FROM golang:alpine3.22 AS build
 
 ARG MINIFLUX_VERSION
 RUN apk add --no-cache build-base git make
@@ -15,7 +15,7 @@ RUN git clone --depth 1 --branch ${MINIFLUX_VERSION} \
 WORKDIR /go/src/app
 RUN make miniflux
 
-FROM alpine:3.21
+FROM alpine:3.22
 
 LABEL org.opencontainers.image.title=Miniflux
 LABEL org.opencontainers.image.description="Miniflux is a minimalist and opinionated feed reader"

@@ -12,7 +12,7 @@ spec:
   sources:
     # Helm chart from forge mirror (SSH via egress)
     - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/cloudnative-pg-charts.git
-      targetRevision: cloudnative-pg-v0.27.0
+      targetRevision: cloudnative-pg-v0.27.1
       path: charts/cloudnative-pg
       helm:
         releaseName: cloudnative-pg

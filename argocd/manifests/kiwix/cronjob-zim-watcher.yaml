@@ -15,7 +15,7 @@ spec:
           serviceAccountName: zim-watcher
           containers:
             - name: watcher
-              image: registry.ops.eblu.me/blumeops/kubectl:v1.0.0
+              image: registry.ops.eblu.me/blumeops/kubectl:v1.1.0
               command: ["/bin/bash", "-c"]
               args:
                 - |

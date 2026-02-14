@@ -4,7 +4,7 @@
 # - Docker on indri (during CI build)
 # - Minikube pods (manual testing)
 
-FROM alpine:3.21
+FROM alpine:3.22
 
 RUN apk add --no-cache \
     curl \
