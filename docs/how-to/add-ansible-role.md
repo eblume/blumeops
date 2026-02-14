@@ -1,6 +1,7 @@
 ---
 title: Add Ansible Role
-modified: 2026-02-07
+modified: 2026-02-13
+last-reviewed: 2026-02-13
 tags:
   - how-to
   - ansible
@@ -44,24 +45,24 @@ role_port: 8080
     src: config.j2
     dest: "{{ role_data_dir }}/config"
     mode: '0644'
-  notify: Restart service
+  notify: Restart <service>
 
 - name: Deploy LaunchAgent plist
   ansible.builtin.template:
     src: launchagent.plist.j2
     dest: ~/Library/LaunchAgents/mcquack.<service>.plist
     mode: '0644'
-  notify: Restart service
+  notify: Restart <service>
 ```
 
 ```yaml
 # ansible/roles/<role>/handlers/main.yml
 ---
-- name: Restart service
+- name: Restart <service>
   ansible.builtin.shell: |
     launchctl unload ~/Library/LaunchAgents/mcquack.<service>.plist 2>/dev/null || true
     launchctl load ~/Library/LaunchAgents/mcquack.<service>.plist
-  listen: Restart service
+  changed_when: true
 ```
 
 ## Add Role to Playbook
@@ -72,7 +73,7 @@ Edit `ansible/playbooks/indri.yml`:
   roles:
     # ... existing roles ...
     - role: <role>
-      tags: [<role>]
+      tags: <role>
 ```
 
 ## Add Secrets (if needed)
@@ -84,19 +85,19 @@ If the role needs secrets from 1Password, add pre_tasks:
     # ... existing pre_tasks ...
     - name: Fetch <role> secret
       ansible.builtin.command:
-        cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get <item-id> --fields <field> --reveal
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/<item-id>/<field>"
       delegate_to: localhost
       register: _role_secret
       changed_when: false
       no_log: true
       check_mode: false
-      tags: [<role>]
+      tags: <role>
 
     - name: Set <role> secret fact
       ansible.builtin.set_fact:
         role_secret_var: "{{ _role_secret.stdout }}"
       no_log: true
-      tags: [<role>]
+      tags: <role>
 ```
 
 Then use `role_secret_var` in your role with a guard:
@@ -105,7 +106,7 @@ Then use `role_secret_var` in your role with a guard:
 # In role's tasks, fetch if not already set (allows running with --tags)
 - name: Fetch secret if not set
   ansible.builtin.command:
-    cmd: op --vault vg6xf6vvfmoh5hqjjhlhbeoaie item get <item-id> --fields <field> --reveal
+    cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/<item-id>/<field>"
   delegate_to: localhost
   register: _role_secret
   changed_when: false
