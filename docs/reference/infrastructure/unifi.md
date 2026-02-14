@@ -39,8 +39,7 @@ ISP Modem
             ├── sifaka (Synology NAS)
             └── ~12ft Cat6 ──→ Switch B (on desk)
                                  ├── indri (Mac Mini, primary server)
-                                 ├── ringtail (Raspberry Pi)
-                                 └── (gilbert via USB-C adapter, optional)
+                                 └── gilbert (USB-C adapter)
 ```
 
 All wired devices share the `192.168.1.0/24` subnet. The two daisy-chained UniFi Switch Flex Minis provide enough ports for all devices while using the UX7's single LAN port.
@@ -67,7 +66,7 @@ See [[add-unifi-pulumi-stack]] for the full implementation plan.
 
 ## Authentication
 
-The provider uses an API key created in the UX7 control plane (Settings → Control Plane → API). The key is stored in 1Password (`op://blumeops/unifi - blumeops/api_key`) and injected via mise task environment variables.
+The provider uses an API key created in the UX7 control plane (Settings → Control Plane → API). The key is stored in 1Password (`op://blumeops/unifi/credential`) and injected via mise task environment variables.
 
 ## Related
 
