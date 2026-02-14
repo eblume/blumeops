@@ -42,8 +42,10 @@ op connect token create blumeops --server <server-id> --vault blumeops
 ### 3. Store Credentials in 1Password
 
 Create a new item "1Password Connect" in the blumeops vault with:
-- `credentials-file` field: Paste the contents of `1password-credentials.json` (NOT base64 encoded)
+- `credentials-file` field: Paste the contents of `1password-credentials.json` (raw JSON, NOT base64 encoded)
 - `token` field: Paste the access token
+
+> **Note:** Chart 2.3.0+ mounts credentials as a file with standard k8s base64 encoding. The old `credentials-base64` field is no longer needed.
 
 ### 4. Create Bootstrap Secret
 
