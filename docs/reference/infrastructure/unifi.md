@@ -1,6 +1,6 @@
 ---
 title: UniFi
-modified: 2026-02-10
+modified: 2026-02-14
 tags:
   - infrastructure
   - networking
@@ -8,7 +8,7 @@ tags:
 
 # UniFi
 
-Home WiFi router and network controller, managed via Pulumi IaC.
+Home WiFi router and network controller, managed via the UX7 web UI.
 
 ## Quick Reference
 
@@ -17,8 +17,7 @@ Home WiFi router and network controller, managed via Pulumi IaC.
 | **Model** | UniFi Express 7 (UX7) |
 | **LAN IP** | `192.168.1.1` |
 | **Management URL** | `https://192.168.1.1` |
-| **IaC** | `pulumi/unifi/` (planned) |
-| **Stack** | `home-network` (planned) |
+| **Management** | Web UI only (no IaC — see [[add-unifi-pulumi-stack]]) |
 | **Power** | Battery-backed via UPS (see [[power]]) |
 
 ## What It Does
@@ -26,9 +25,19 @@ Home WiFi router and network controller, managed via Pulumi IaC.
 The UX7 is the home WiFi access point and network gateway. It provides:
 
 - WiFi (main, guest, IoT networks)
-- DHCP for `192.168.1.0/24`
-- Built-in UniFi controller for managing adopted devices (switches, APs)
-- Firewall and traffic management
+- DHCP for all network subnets
+- Built-in UniFi controller for managing adopted devices (switches)
+- Zone-based firewall and traffic management
+
+## Networks
+
+| Network | VLAN | Subnet | Purpose |
+|---------|------|--------|---------|
+| Main | 1 (default) | 192.168.1.0/24 | Trusted devices (indri, sifaka, gilbert, mouse) |
+| Guest | 2 | 192.168.2.0/24 | Visitors, internet-only |
+| IoT | 3 | 192.168.3.0/24 | Smart devices (Frame TV, appliances) |
+
+See [[segment-home-network]] for the full segmentation plan and firewall rules.
 
 ## Network Topology
 
@@ -42,36 +51,29 @@ ISP Modem
                                  └── gilbert (USB-C adapter)
 ```
 
-All wired devices share the `192.168.1.0/24` subnet. The two daisy-chained UniFi Switch Flex Minis provide enough ports for all devices while using the UX7's single LAN port.
-
-## Pulumi Configuration (Planned)
-
-The Pulumi program will live in `pulumi/unifi/`:
-
-- `__main__.py` — declares networks, WLANs, and firewall zones
-- `Pulumi.home-network.yaml` — stack config (router URL, site)
-- `sdks/unifi/` — generated Python SDK from `pulumi package add terraform-provider filipowm/unifi`
-
-Provider: [filipowm/terraform-provider-unifi](https://github.com/filipowm/terraform-provider-unifi) v1.0.0, consumed via `pulumi package add terraform-provider`.
-
-See [[add-unifi-pulumi-stack]] for the full implementation plan.
+All wired devices share the default VLAN (192.168.1.0/24). The two daisy-chained UniFi Switch Flex Minis provide enough ports for all devices while using the UX7's single LAN port.
 
 ## Operations
 
-| Task | Command |
-|------|---------|
-| Preview changes | `mise run unifi-preview` (planned) |
-| Apply changes | `mise run unifi-up` (planned) |
-| Web management | `https://192.168.1.1` |
+| Task | Method |
+|------|--------|
+| Manage networks/WiFi/firewall | `https://192.168.1.1` web UI |
+| Backup configuration | Settings → System → Backup |
+| Restore from backup | Settings → System → Backup → Restore |
 
 ## Authentication
 
-The provider uses an API key created in the UX7 control plane (Settings → Control Plane → API). The key is stored in 1Password (`op://blumeops/unifi/credential`) and injected via mise task environment variables.
+Local admin account on the UX7. Credentials stored in 1Password (vault `blumeops`). WiFi passphrase stored in 1Password item "Radio New Vegas" (Wireless Router type) in vault `blumeops`.
+
+## Why Not IaC?
+
+Attempted Feb 2026 with the `ubiquiti-community/unifi` Terraform provider via Pulumi. A "no-op" update on the default LAN network reset undeclared properties, bricking the network and requiring a factory reset. The provider ecosystem is too immature for single-device infrastructure. See [[add-unifi-pulumi-stack]] for details.
 
 ## Related
 
-- [[add-unifi-pulumi-stack]] - Implementation plan
-- [[hosts]] - Device inventory
-- [[power]] - UPS power chain
-- [[indri]] - Primary server (wired connection required for management)
-- [[tailscale]] - Tailnet networking
+- [[segment-home-network]] — Network segmentation plan
+- [[add-unifi-pulumi-stack]] — Previous IaC approach (abandoned)
+- [[hosts]] — Device inventory
+- [[power]] — UPS power chain
+- [[indri]] — Primary server (wired connection)
+- [[tailscale]] — Tailnet networking
