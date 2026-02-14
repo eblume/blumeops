@@ -16,7 +16,6 @@ Plans differ from regular how-to guides in that they describe work that has been
 |------|--------|-------------|
 | [[migrate-forgejo-from-brew]] | Planned | Transition Forgejo from Homebrew to source-built binary with LaunchAgent |
 | [[add-unifi-pulumi-stack]] | Abandoned | Add Pulumi IaC for UniFi Express 7 (provider bugs — see doc) |
-| [[segment-home-network]] | Completed | Manual three-network segmentation for UniFi Express 7 |
 | [[upstream-fork-strategy]] | Planned | Stacked-branch forking strategy for tracking upstream projects |
 | [[adopt-oidc-provider]] | Planning | Deploy OIDC identity provider for SSO across services |
 | [[harden-zot-registry]] | Planned | Add authentication and tag immutability to zot registry |
