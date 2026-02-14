@@ -38,6 +38,12 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 |-------|-------------|
 | [[review-documentation]] | Periodically review and maintain documentation |
 
+## Database
+
+| Guide | Description |
+|-------|-------------|
+| [[connect-to-postgres]] | Connect to PostgreSQL as a superuser via psql |
+
 ## Operations
 
 | Guide | Description |

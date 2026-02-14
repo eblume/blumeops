@@ -55,6 +55,7 @@ Backed up via [[borgmatic]] `postgresql_databases` hook. Streams `pg_dump` direc
 
 ## Related
 
+- [[connect-to-postgres]] - How to connect via psql
 - [[miniflux]] - Feed reader database
 - [[teslamate]] - Vehicle data database
 - [[borgmatic]] - Database backup
