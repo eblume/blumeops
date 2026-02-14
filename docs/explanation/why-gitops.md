@@ -1,6 +1,7 @@
 ---
 title: Why GitOps
-modified: 2026-02-07
+modified: 2026-02-13
+last-reviewed: 2026-02-13
 tags:
   - explanation
   - philosophy
@@ -45,9 +46,9 @@ BlumeOps uses layered GitOps:
 
 | Layer | Tool | What it manages |
 |-------|------|-----------------|
-| **Tailnet** | [[tailscale|Pulumi]] | ACLs, tags, DNS |
-| **Host config** | [[ansible|Ansible]] | Services on [[indri]] |
-| **Kubernetes** | [[argocd|ArgoCD]] | Containerized workloads |
+| **Network** | [[pulumi]] | Tailscale ACLs, tags; Gandi DNS |
+| **Host config** | [[ansible]] | Services on [[indri]] |
+| **Kubernetes** | [[argocd]] | Containerized workloads |
 
 Each layer has its own reconciliation loop:
 - Pulumi applies on `mise run tailnet-up`
@@ -59,7 +60,7 @@ Each layer has its own reconciliation loop:
 GitOps isn't free:
 
 - **Learning curve** - You need to understand Ansible, ArgoCD, Pulumi
-- **Indirection** - Can't just `apt install` something; need to add it to config
+- **Indirection** - Can't just `brew install` something; need to add it to config
 - **Complexity** - More moving parts than a simple server
 
 But for BlumeOps, the trade-off is worth it. The infrastructure is complex enough that managing it imperatively would be error-prone, and the GitOps approach enables effective AI-assisted operations.
@@ -67,5 +68,6 @@ But for BlumeOps, the trade-off is worth it. The infrastructure is complex enoug
 ## Related
 
 - [[architecture]] - How the pieces fit together
+- [[pulumi]] - Network infrastructure as code
 - [[argocd]] - Kubernetes GitOps
 - [[ansible]] - Host configuration
