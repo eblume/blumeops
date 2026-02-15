@@ -18,7 +18,7 @@ RUN npm run build
 FROM golang:alpine3.22 AS build
 
 ARG NAVIDROME_VERSION
-RUN apk add --no-cache build-base git taglib-dev
+RUN apk add --no-cache build-base git taglib-dev zlib-dev
 
 RUN git clone --depth 1 --branch ${NAVIDROME_VERSION} \
     https://forge.ops.eblu.me/eblume/navidrome.git /app
