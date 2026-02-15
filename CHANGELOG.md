@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.9.1] - 2026-02-15
+
+### Documentation
+
+- Review connect-to-postgres, create-release-artifact-workflow, and deploy-k8s-service docs. Fix stale repoURL, incorrect Caddy config keys, add Tailscale tag documentation, and migrate remaining `op item get` calls to `op read`.
+
+
 ## [v1.9.0] - 2026-02-14
 
 ### Features
