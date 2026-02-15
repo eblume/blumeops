@@ -67,7 +67,7 @@ caddy_services:
   - name: navidrome
     host: "dj.{{ caddy_domain }}"
     backend: "https://dj.tail8d86e.ts.net"
-  - name: hajimari
+  - name: homepage
     host: "go.{{ caddy_domain }}"
     backend: "https://go.tail8d86e.ts.net"
   - name: docs
@@ -76,6 +76,12 @@ caddy_services:
   - name: cv
     host: "cv.{{ caddy_domain }}"
     backend: "https://cv.tail8d86e.ts.net"
+  - name: nvr
+    host: "nvr.{{ caddy_domain }}"
+    backend: "https://nvr.tail8d86e.ts.net"
+  - name: ntfy
+    host: "ntfy.{{ caddy_domain }}"
+    backend: "https://ntfy.tail8d86e.ts.net"
   - name: sifaka
     host: "nas.{{ caddy_domain }}"
     backend: "http://sifaka:5000"

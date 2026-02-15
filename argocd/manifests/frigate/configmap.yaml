@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frigate-config
+  namespace: frigate
+data:
+  config.yml: |
+    mqtt:
+      host: mosquitto.mqtt.svc.cluster.local
+      port: 1883
+
+    go2rtc:
+      streams:
+        # GableCam IP is reserved in UX7 DHCP config
+        gablecam:
+          - "rtsp://{FRIGATE_CAMERA_USER}:{FRIGATE_CAMERA_PASSWORD}@192.168.1.159:554/h264Preview_01_main"
+        gablecam_sub:
+          - "rtsp://{FRIGATE_CAMERA_USER}:{FRIGATE_CAMERA_PASSWORD}@192.168.1.159:554/h264Preview_01_sub"
+
+    cameras:
+      gablecam:
+        enabled: true
+        ffmpeg:
+          inputs:
+            - path: rtsp://127.0.0.1:8554/gablecam
+              input_args: preset-rtsp-restream
+              roles: [record]
+            - path: rtsp://127.0.0.1:8554/gablecam_sub
+              input_args: preset-rtsp-restream
+              roles: [detect]
+        detect:
+          enabled: true
+          stationary:
+            max_frames:
+              default: 1500
+              objects:
+                car: 150
+        objects:
+          track: [person, car, dog, cat, bird]
+
+    detectors:
+      onnx:
+        type: onnx
+
+    model:
+      model_type: yolonas
+      width: 320
+      height: 320
+      input_tensor: nchw
+      input_pixel_format: bgr
+      path: /media/frigate/models/yolo_nas_s.onnx
+      labelmap_path: /labelmap/coco-80.txt
+
+    record:
+      enabled: true
+      retain:
+        days: 3
+        mode: all
+      alerts:
+        retain:
+          days: 30
+          mode: active_objects
+      detections:
+        retain:
+          days: 14
+          mode: motion
+
+    snapshots:
+      enabled: true
+      retain:
+        default: 14

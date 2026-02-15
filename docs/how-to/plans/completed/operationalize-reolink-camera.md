@@ -11,8 +11,9 @@ tags:
 
 # Plan: Operationalize ReoLink Camera
 
-> **Status:** Planned (not yet executed)
+> **Status:** Completed (2026-02-15)
 > **Depends on:** [[add-unifi-pulumi-stack]] — the camera must be on the IoT VLAN, isolated from the rest of the network.
+> **PR:** #190
 
 ## Background
 
@@ -241,23 +242,23 @@ Camera settings to apply: enable RTSP and ONVIF, set "fluency first" encoding mo
 
 ## Verification Checklist
 
-- [ ] Camera streams accessible via RTSP from services subnet
-- [ ] Camera has no internet access (blocked at firewall)
-- [ ] Frigate pod is running and showing live camera feed in web UI
-- [ ] Recordings appearing in NFS share on sifaka
-- [ ] Object detection working (person/vehicle detected in Frigate UI)
-- [ ] Retention policy active (old recordings cleaned up automatically)
-- [ ] Alerts firing on detection events
-- [ ] Prometheus metrics visible in Grafana dashboard
-- [ ] `mise run services-check` passes
+- [x] Camera streams accessible via RTSP from services subnet
+- [ ] Camera has no internet access (blocked at firewall) — pending IoT VLAN segmentation
+- [x] Frigate pod is running and showing live camera feed in web UI
+- [x] Recordings appearing in NFS share on sifaka
+- [x] Object detection working (person/vehicle detected in Frigate UI)
+- [x] Retention policy active (old recordings cleaned up automatically)
+- [x] Alerts firing on detection events (ntfy push notifications with ~6s delivery)
+- [x] Prometheus metrics visible in Grafana dashboard
+- [x] `mise run services-check` passes
 
-## Open Questions
+## Open Questions (Resolved)
 
-- **MQTT broker:** Is there an existing MQTT broker in the cluster, or does one need to be deployed? Mosquitto is lightweight and standard.
-- **Home Assistant:** Frigate works standalone, but HA adds richer automation (e.g., turn on floodlight when person detected, arm/disarm by time of day). Evaluate whether to add HA as a future plan.
-- **Sifaka NFS share sizing:** How much space to allocate on the NAS? Start with 2 TB and monitor. The hybrid retention strategy keeps this manageable.
-- **Additional cameras:** If more cameras are added later, CPU detection may become a bottleneck. At that point, evaluate a Hailo-8L USB accelerator or a dedicated Frigate host (e.g., RPi5).
-- **Floodlight automation:** The ReoLink HTTP API supports floodlight control. Could be automated to turn on when Frigate detects a person at night — but this requires either HA or a custom script listening to MQTT events.
+- **MQTT broker:** Deployed Mosquitto (eclipse-mosquitto:2) in the `mqtt` namespace. Lightweight, anonymous access, cluster-internal only (no Caddy/ingress needed since MQTT is TCP, not HTTP).
+- **Home Assistant:** Deferred. Frigate + frigate-notify + ntfy provides a complete pipeline without HA.
+- **Sifaka NFS share sizing:** Allocated 2 TB. Hybrid retention (3d continuous, 30d alerts, 14d detections) keeps usage well within bounds.
+- **Additional cameras:** Using ONNX/YOLO-NAS-s on CPU at ~535ms/frame, ~2 FPS detection. Adequate for single camera. Apple Silicon Detector (ASD) via ZMQ is the next upgrade path for better performance (~15ms via Neural Engine). Requires Frigate 0.17+.
+- **Floodlight automation:** Deferred to future Home Assistant evaluation.
 
 ## Future Considerations
 

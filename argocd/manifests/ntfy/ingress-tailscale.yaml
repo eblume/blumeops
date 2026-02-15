@@ -1,25 +1,26 @@
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: devpi-tailscale
-  namespace: devpi
+  name: ntfy-tailscale
+  namespace: ntfy
   annotations:
     tailscale.com/proxy-class: "default"
     tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
-    gethomepage.dev/name: "PyPI"
+    gethomepage.dev/name: "Ntfy"
     gethomepage.dev/group: "Infrastructure"
-    gethomepage.dev/icon: "pypi.png"
-    gethomepage.dev/description: "PyPI cache"
-    gethomepage.dev/href: "https://pypi.ops.eblu.me"
-    gethomepage.dev/pod-selector: "app=devpi"
+    gethomepage.dev/icon: "ntfy.png"
+    gethomepage.dev/description: "Push notifications"
+    gethomepage.dev/href: "https://ntfy.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=ntfy"
 spec:
   ingressClassName: tailscale
   defaultBackend:
     service:
-      name: devpi
+      name: ntfy
       port:
-        number: 3141
+        number: 80
   tls:
     - hosts:
-        - pypi
+        - ntfy

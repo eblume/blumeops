@@ -1,0 +1,15 @@
+# PersistentVolumeClaim for Frigate recordings
+# Binds to the NFS PV for sifaka:/volume1/frigate
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: frigate-recordings
+  namespace: frigate
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: frigate-recordings-nfs-pv
+  resources:
+    requests:
+      storage: 2Ti

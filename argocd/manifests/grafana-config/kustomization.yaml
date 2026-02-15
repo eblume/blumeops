@@ -17,6 +17,7 @@ resources:
   - dashboards/configmap-postgresql.yaml
   - dashboards/configmap-services.yaml
   - dashboards/configmap-zot.yaml
+  - dashboards/configmap-frigate.yaml
   - dashboards/configmap-cv-apm.yaml
   - dashboards/configmap-docs-apm.yaml
   - dashboards/configmap-flyio.yaml

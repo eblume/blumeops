@@ -44,3 +44,9 @@ data:
       - job_name: "kube-state-metrics"
         static_configs:
           - targets: ["kube-state-metrics.monitoring.svc.cluster.local:8080"]
+
+      # Frigate NVR metrics
+      - job_name: "frigate"
+        static_configs:
+          - targets: ["frigate.frigate.svc.cluster.local:5000"]
+        metrics_path: /api/metrics

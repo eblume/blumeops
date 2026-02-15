@@ -1,0 +1,80 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frigate
+  namespace: frigate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frigate
+  template:
+    metadata:
+      labels:
+        app: frigate
+    spec:
+      containers:
+        - name: frigate
+          image: ghcr.io/blakeblackshear/frigate:0.16.4-standard-arm64
+          ports:
+            - containerPort: 5000
+              name: http
+            - containerPort: 8554
+              name: rtsp
+            - containerPort: 1984
+              name: go2rtc
+          env:
+            - name: FRIGATE_CAMERA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: frigate-camera
+                  key: username
+            - name: FRIGATE_CAMERA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: frigate-camera
+                  key: password
+          volumeMounts:
+            - name: config
+              mountPath: /config/config.yml
+              subPath: config.yml
+            - name: recordings
+              mountPath: /media/frigate
+            - name: database
+              mountPath: /db
+            - name: shm
+              mountPath: /dev/shm
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /api/version
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/version
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: frigate-config
+        - name: recordings
+          persistentVolumeClaim:
+            claimName: frigate-recordings
+        - name: database
+          persistentVolumeClaim:
+            claimName: frigate-database
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi

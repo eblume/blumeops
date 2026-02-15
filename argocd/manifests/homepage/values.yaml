@@ -199,5 +199,7 @@ config:
         style: column
       Content:
         style: column
-      Misc:
+      Infrastructure:
+        style: column
+      Services:
         style: column

@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frigate-notify-config
+  namespace: frigate
+data:
+  config.yml: |
+    frigate:
+      server: http://frigate:5000
+      public_url: https://nvr.ops.eblu.me
+
+      webapi:
+        enabled: false
+
+      mqtt:
+        enabled: true
+        server: mosquitto.mqtt.svc.cluster.local
+        port: 1883
+        clientid: frigate-notify
+        topic_prefix: frigate
+
+    alerts:
+      general:
+        title: "Frigate Alert"
+
+      ntfy:
+        enabled: true
+        server: http://ntfy.ntfy.svc.cluster.local:80
+        topic: frigate-alerts
+        headers:
+          - X-Actions: "view, Open Event, {{.Extra.PublicURL}}/review?id={{.ID}}, clear=true; view, Open Camera, {{.Extra.PublicURL}}/#/cameras/{{.Camera}}"

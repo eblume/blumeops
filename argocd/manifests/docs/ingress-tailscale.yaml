@@ -10,7 +10,7 @@ metadata:
     tailscale.com/tags: "tag:k8s,tag:flyio-target"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Docs"
-    gethomepage.dev/group: "Misc"
+    gethomepage.dev/group: "Services"
     gethomepage.dev/icon: "mdi-book-open-page-variant"
     gethomepage.dev/description: "BlumeOps Documentation"
     gethomepage.dev/href: "https://docs.eblu.me"

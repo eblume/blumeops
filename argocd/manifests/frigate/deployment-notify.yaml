@@ -1,0 +1,34 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frigate-notify
+  namespace: frigate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frigate-notify
+  template:
+    metadata:
+      labels:
+        app: frigate-notify
+    spec:
+      containers:
+        - name: frigate-notify
+          image: ghcr.io/0x2142/frigate-notify:v0.3.5
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yml
+              subPath: config.yml
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+      volumes:
+        - name: config
+          configMap:
+            name: frigate-notify-config

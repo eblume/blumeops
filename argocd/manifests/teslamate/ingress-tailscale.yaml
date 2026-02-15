@@ -8,7 +8,7 @@ metadata:
     tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "TeslaMate"
-    gethomepage.dev/group: "Misc"
+    gethomepage.dev/group: "Services"
     gethomepage.dev/icon: "teslamate.png"
     gethomepage.dev/description: "Tesla data logger"
     gethomepage.dev/href: "https://tesla.ops.eblu.me"

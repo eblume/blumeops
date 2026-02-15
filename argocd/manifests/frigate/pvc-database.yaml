@@ -1,0 +1,13 @@
+# PersistentVolumeClaim for Frigate SQLite database
+# Uses minikube's default storage class for local provisioning
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: frigate-database
+  namespace: frigate
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
