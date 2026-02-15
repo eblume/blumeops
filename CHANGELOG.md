@@ -12,6 +12,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.9.0] - 2026-02-14
+
+### Features
+
+- Deploy cloud-free NVR stack: Frigate 0.16.4 (ARM64) with ONNX/YOLO-NAS-s detection, Mosquitto MQTT broker, Ntfy self-hosted push notifications (with iOS APNs relay), and frigate-notify for detection alerting. GableCam (ReoLink Elite Floodlight) connected via RTSP with NFS recordings on sifaka, Grafana dashboard, Prometheus scraping, Homepage integration, and Caddy reverse proxies at nvr.ops.eblu.me and ntfy.ops.eblu.me.
+
+### Infrastructure
+
+- Configure DinD sidecar to use Zot as a pull-through registry mirror for Docker Hub images, reducing bandwidth and avoiding rate limits during Dagger CI builds.
+- Abandon UniFi Pulumi IaC (provider bugs caused network outage); add manual three-network segmentation plan for UX7 web UI.
+- Upgrade Node.js from 20 to 22 (LTS) in Dagger docs build and forgejo-runner container
+- Tier 1 version bumps: upstream images (prometheus, loki, alloy, kube-state-metrics, tailscale, navidrome), helm charts (CloudNativePG, 1Password Connect), and custom containers (miniflux, kubectl, kiwix-serve, nettest, transmission) updated to latest stable versions with Alpine 3.22 base.
+
+### Documentation
+
+- Add how-to guide for connecting to PostgreSQL as a superuser via psql.
+- Review add-ansible-role doc: fix secrets to use `op read`, match tag format to playbook, fix handler pattern, add last-reviewed date.
+- Review and fix why-gitops doc: correct wiki-links, fix apt->brew, broaden Pulumi scope, add last-reviewed.
+
+
 ## [v1.8.2] - 2026-02-13
 
 ### Features

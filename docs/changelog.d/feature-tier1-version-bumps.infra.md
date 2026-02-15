@@ -1,1 +1,0 @@
-Tier 1 version bumps: upstream images (prometheus, loki, alloy, kube-state-metrics, tailscale, navidrome), helm charts (CloudNativePG, 1Password Connect), and custom containers (miniflux, kubectl, kiwix-serve, nettest, transmission) updated to latest stable versions with Alpine 3.22 base.
