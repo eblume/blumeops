@@ -48,5 +48,4 @@ COPY --from=build /navidrome /usr/bin/navidrome
 
 EXPOSE 4533
 
-USER 65534
 CMD ["/usr/bin/navidrome"]
