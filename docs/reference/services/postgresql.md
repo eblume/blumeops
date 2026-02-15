@@ -1,6 +1,6 @@
 ---
 title: PostgreSQL
-modified: 2026-02-07
+modified: 2026-02-15
 tags:
   - service
   - database
@@ -8,7 +8,7 @@ tags:
 
 # PostgreSQL
 
-Database cluster via CloudNativePG operator.
+Database clusters via CloudNativePG operator.
 
 ## Quick Reference
 
@@ -17,15 +17,18 @@ Database cluster via CloudNativePG operator.
 | **URL** | `tcp://pg.ops.eblu.me:5432` |
 | **Metrics** | `http://cnpg-metrics.tail8d86e.ts.net:9187/metrics` |
 | **Namespace** | `databases` |
-| **Cluster** | `blumeops-pg` |
+| **Clusters** | `blumeops-pg`, `immich-pg` |
 | **Operator** | CloudNativePG |
 
 ## Databases
 
-| Database | Owner | Purpose |
-|----------|-------|---------|
-| miniflux | miniflux | [[miniflux]] feed data |
-| teslamate | teslamate | [[teslamate]] vehicle data |
+| Database | Cluster | Owner | Purpose |
+|----------|---------|-------|---------|
+| miniflux | blumeops-pg | miniflux | [[miniflux]] feed data |
+| teslamate | blumeops-pg | teslamate | [[teslamate]] vehicle data |
+| immich | immich-pg | immich | [[immich]] photo management |
+
+The `immich-pg` cluster uses a custom image (`cloudnative-vectorchord`) with vector search extensions (vector, vchord, cube, earthdistance).
 
 ## Users
 
@@ -47,15 +50,19 @@ Backed up via [[borgmatic]] `postgresql_databases` hook. Streams `pg_dump` direc
 - `guxu3j7ajhjyey6xxl2ovsl2ui` - eblume password
 - `mw2bv5we7woicjza7hc6s44yvy` - borgmatic password
 
-**CNPG-managed secrets:**
+**CNPG-managed secrets (blumeops-pg):**
 - `blumeops-pg-app` - miniflux user
 - `blumeops-pg-eblume` - eblume superuser
 - `blumeops-pg-borgmatic` - borgmatic backup user
 - `blumeops-pg-teslamate` - teslamate user
+
+**CNPG-managed secrets (immich-pg):**
+- `immich-pg-app` - immich user
 
 ## Related
 
 - [[connect-to-postgres]] - How to connect via psql
 - [[miniflux]] - Feed reader database
 - [[teslamate]] - Vehicle data database
+- [[immich]] - Photo management database
 - [[borgmatic]] - Database backup

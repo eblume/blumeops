@@ -1,6 +1,7 @@
 ---
 title: Deploy K8s Service
-modified: 2026-02-11
+modified: 2026-02-15
+last-reviewed: 2026-02-15
 tags:
   - how-to
   - kubernetes
@@ -34,7 +35,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
     targetRevision: main
     path: argocd/manifests/<service>
   destination:
@@ -60,7 +61,7 @@ metadata:
     tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "Service Name"
-    gethomepage.dev/group: "Apps"
+    gethomepage.dev/group: "Services"
     gethomepage.dev/icon: "<service>.png"
     gethomepage.dev/href: "https://<service>.ops.eblu.me"
     gethomepage.dev/pod-selector: "app=<service>"
@@ -80,6 +81,12 @@ Key points:
 - **`proxy-group: "ingress"`** routes through the shared ProxyGroup instead of spawning a per-ingress proxy
 - **Do not use `rules:` with `host:`** — the ProxyGroup proxy receives the FQDN as Host header (e.g. `<service>.tail8d86e.ts.net`), so a short `host: <service>` won't match. Use `defaultBackend` instead.
 - **`tls.hosts`** sets the MagicDNS hostname (becomes `<service>.tail8d86e.ts.net`)
+- **`gethomepage.dev/group`** — use one of the existing groups: "Services", "Content", or "Infrastructure"
+- **`tailscale.com/tags`** is not needed in the default case — the ProxyGroup already applies `tag:k8s`. Only add this annotation when the service needs public internet access via the [[flyio-proxy]]. When you do, you must include both tags (setting tags overrides the ProxyGroup default):
+  ```yaml
+  tailscale.com/tags: "tag:k8s,tag:flyio-target"
+  ```
+  Then add a Caddy route and Fly.io proxy config per [[expose-service-publicly]].
 
 ## Add Caddy Route (if needed)
 
@@ -88,7 +95,8 @@ If other pods need to access the service, add to `ansible/roles/caddy/defaults/m
 ```yaml
 caddy_services:
   - name: <service>
-    upstream: "https://<service>.tail8d86e.ts.net"
+    host: "<service>.{{ caddy_domain }}"
+    backend: "https://<service>.tail8d86e.ts.net"
 ```
 
 Then: `mise run provision-indri -- --tags caddy`

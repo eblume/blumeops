@@ -36,8 +36,8 @@ op inject -i argocd/manifests/teslamate/secret-db.yaml.tpl | kubectl apply -f -
 After the teslamate user exists in PostgreSQL (sync blumeops-pg first):
 
 ```bash
-PGPASSWORD=$(op --vault blumeops item get <eblume-item-id> --fields password --reveal) \
-  psql -h pg.tail8d86e.ts.net -U eblume -c "CREATE DATABASE teslamate OWNER teslamate;"
+PGPASSWORD=$(op read "op://blumeops/postgres/password") \
+  psql -h pg.ops.eblu.me -U eblume -c "CREATE DATABASE teslamate OWNER teslamate;"
 ```
 
 ## Deployment

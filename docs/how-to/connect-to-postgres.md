@@ -1,6 +1,7 @@
 ---
 title: Connect to Postgres
-modified: 2026-02-14
+modified: 2026-02-15
+last-reviewed: 2026-02-15
 tags:
   - how-to
   - database

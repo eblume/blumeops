@@ -32,7 +32,7 @@ Both tasks fetch the Gandi PAT from 1Password automatically.
 To run Pulumi directly:
 
 ```bash
-export GANDI_PERSONAL_ACCESS_TOKEN=$(op item get mco6ka3dc3rmw7zkg2dhia5d2m --field pat --reveal --vault vg6xf6vvfmoh5hqjjhlhbeoaie)
+export GANDI_PERSONAL_ACCESS_TOKEN=$(op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/mco6ka3dc3rmw7zkg2dhia5d2m/pat")
 cd pulumi/gandi
 pulumi preview
 pulumi up --yes

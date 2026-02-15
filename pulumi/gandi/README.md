@@ -70,7 +70,7 @@ mise run dns-preview   # Preview only
 Or manually:
 
 ```bash
-export GANDI_PERSONAL_ACCESS_TOKEN=$(op item get mco6ka3dc3rmw7zkg2dhia5d2m --field pat --reveal --vault vg6xf6vvfmoh5hqjjhlhbeoaie)
+export GANDI_PERSONAL_ACCESS_TOKEN=$(op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/mco6ka3dc3rmw7zkg2dhia5d2m/pat")
 pulumi up
 ```
 

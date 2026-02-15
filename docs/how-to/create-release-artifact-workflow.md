@@ -1,6 +1,7 @@
 ---
 title: Create Release Artifact Workflow
-modified: 2026-02-12
+modified: 2026-02-15
+last-reviewed: 2026-02-15
 tags:
   - how-to
   - forgejo
@@ -34,7 +35,7 @@ This is required because Forgejo's built-in `GITHUB_TOKEN` does not have permiss
 
 ## 2. Create the workflow
 
-Create `.forgejo/workflows/<name>-release.yaml` with `workflow_dispatch` and a version input. Use the semver bump pattern (see `cv-release.yaml` or `build-blumeops.yaml` for examples).
+Create `.forgejo/workflows/<name>-release.yaml` with `workflow_dispatch` and a version input. Use the semver bump pattern (see `cv-release.yaml` for the full upload flow, or `build-blumeops.yaml` for the version bump logic only — it uploads to Forgejo releases, not generic packages).
 
 The upload step uses `FORGE_TOKEN`:
 

@@ -54,7 +54,7 @@ After the cluster is healthy:
 psql -h k8s-pg.tail8d86e.ts.net -U eblume -W -d miniflux
 
 # Or with password from 1Password
-PGPASSWORD=$(op --vault blumeops item get guxu3j7ajhjyey6xxl2ovsl2ui --fields password --reveal) \
+PGPASSWORD=$(op read "op://blumeops/guxu3j7ajhjyey6xxl2ovsl2ui/password") \
   psql -h k8s-pg.tail8d86e.ts.net -U eblume -d miniflux
 
 # Get miniflux app credentials (for applications)
@@ -73,7 +73,7 @@ Alternative if Tailscale service is unavailable:
 kubectl -n databases port-forward svc/blumeops-pg-rw 5432:5432
 
 # Terminal 2: Connect as eblume
-PGPASSWORD=$(op --vault blumeops item get guxu3j7ajhjyey6xxl2ovsl2ui --fields password --reveal) \
+PGPASSWORD=$(op read "op://blumeops/guxu3j7ajhjyey6xxl2ovsl2ui/password") \
   psql -h localhost -U eblume -d miniflux
 ```
 

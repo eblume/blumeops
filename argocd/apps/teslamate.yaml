@@ -8,8 +8,8 @@
 #   op inject -i argocd/manifests/teslamate/secret-db.yaml.tpl | kubectl apply -f -
 #
 # Then create the database:
-#   PGPASSWORD=$(op --vault blumeops item get <eblume-item-id> --fields password --reveal) \
-#     psql -h pg.tail8d86e.ts.net -U eblume -c "CREATE DATABASE teslamate OWNER teslamate;"
+#   PGPASSWORD=$(op read "op://blumeops/postgres/password") \
+#     psql -h pg.ops.eblu.me -U eblume -c "CREATE DATABASE teslamate OWNER teslamate;"
 #
 # After syncing, access the TeslaMate UI at https://tesla.tail8d86e.ts.net to complete
 # Tesla API authentication via OAuth flow.
