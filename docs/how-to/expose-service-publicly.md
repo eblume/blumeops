@@ -1,6 +1,7 @@
 ---
 title: Expose a Service Publicly
-modified: 2026-02-08
+modified: 2026-02-16
+last-reviewed: 2026-02-16
 tags:
   - how-to
   - fly-io
@@ -103,150 +104,30 @@ Create the `fly/` directory at the repository root. This is separate from `conta
 
 ```
 fly/
-├── README.md           # Setup notes and context
 ├── fly.toml            # Fly.io app configuration
-├── Dockerfile          # nginx + tailscale
+├── Dockerfile          # nginx + tailscale + alloy
 ├── nginx.conf          # Reverse proxy + cache config
-└── start.sh            # Entrypoint: start tailscale, then nginx
+├── start.sh            # Entrypoint: start tailscale, nginx, alloy
+├── alloy.river         # Observability: logs → Loki, metrics → Prometheus
+└── error.html          # Friendly 503 page for upstream failures
 ```
 
-**`fly/fly.toml`** — app configuration:
+See the actual files in `fly/` for current configuration. Key design points:
 
-```toml
-app = "blumeops-proxy"
-primary_region = "sjc"
+- **`fly.toml`** — uses bluegreen deploys so the old machine serves traffic until the new one passes health checks. `auto_stop_machines = "off"` keeps the proxy always-on.
+- **`Dockerfile`** — multi-stage build pulling nginx, Tailscale, and [[alloy]] binaries. Alloy runs as a sidecar inside the container for observability (see below).
+- **`start.sh`** — starts `tailscaled` first (MagicDNS must be available before nginx resolves upstreams), then nginx in the background, then Alloy, and blocks on the nginx process.
+- **`nginx.conf`** — uses a `resolver 100.100.100.100` directive so upstream DNS resolution is deferred to request time (not config load time). Each service gets a `server` block with a `set $upstream` variable pattern. Includes a JSON access log format that Alloy tails for log collection and metric extraction. A catch-all server block serves `/healthz` and rejects unknown hosts.
+- **`error.html`** — shown via `proxy_intercept_errors` when upstreams are unreachable (indri offline, tunnel down, etc.). Cached responses still take priority via `proxy_cache_use_stale`.
 
-[build]
+#### Observability sidecar
 
-[http_service]
-  internal_port = 8080
-  force_https = true
-  auto_stop_machines = false
-  auto_start_machines = true
-  min_machines_running = 1
+The Fly.io container includes [[alloy]] baked in (`fly/alloy.river`). Alloy tails the nginx JSON access log and:
 
-[checks]
-  [checks.health]
-    port = 8080
-    type = "http"
-    interval = "30s"
-    timeout = "5s"
-    path = "/healthz"
-```
+- Forwards log lines to [[loki]] via the Tailscale Ingress endpoint
+- Derives Prometheus metrics (`flyio_nginx_http_requests_total`, `flyio_nginx_http_request_duration_seconds`, `flyio_nginx_cache_requests_total`, etc.) and remote-writes them to [[prometheus]]
 
-**`fly/Dockerfile`** — nginx + tailscale:
-
-```dockerfile
-FROM nginx:alpine
-
-# Copy tailscale binaries from official image
-COPY --from=docker.io/tailscale/tailscale:stable \
-    /usr/local/bin/tailscaled /usr/local/bin/tailscaled
-COPY --from=docker.io/tailscale/tailscale:stable \
-    /usr/local/bin/tailscale /usr/local/bin/tailscale
-
-RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
-    && apk add --no-cache iptables ip6tables
-
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
-
-EXPOSE 8080
-
-CMD ["/start.sh"]
-```
-
-**`fly/start.sh`** — entrypoint:
-
-```bash
-#!/bin/sh
-set -e
-
-# Start tailscale daemon. Fly.io runs Firecracker microVMs which support
-# TUN devices natively — no need for --tun=userspace-networking.
-tailscaled --statedir=/var/lib/tailscale &
-sleep 2
-
-# Authenticate and join tailnet
-tailscale up --authkey="${TS_AUTHKEY}" --hostname=flyio-proxy
-
-# Wait for tailscale to be ready
-until tailscale status > /dev/null 2>&1; do sleep 1; done
-echo "Tailscale connected"
-
-# Start nginx — MagicDNS resolves *.tail8d86e.ts.net hostnames
-nginx -g "daemon off;"
-```
-
-**`fly/nginx.conf`** — reverse proxy with caching and rate limiting:
-
-> The example below shows a **static site** configuration (docs.eblu.me).
-> For dynamic services, see [[#Considerations for dynamic services]].
-
-```nginx
-worker_processes auto;
-
-events {
-    worker_connections 1024;
-}
-
-http {
-    include /etc/nginx/mime.types;
-    default_type application/octet-stream;
-
-    # Rate limiting zones — define per-service zones as needed
-    limit_req_zone $binary_remote_addr zone=general:10m rate=10r/s;
-
-    # Proxy cache: 200MB, evict after 24h of no access
-    proxy_cache_path /tmp/cache levels=1:2 keys_zone=services:10m
-                     max_size=200m inactive=24h;
-
-    # --- docs.eblu.me (static site) ---
-    server {
-        listen 8080;
-        server_name docs.eblu.me;
-
-        limit_req zone=general burst=20 nodelay;
-
-        location / {
-            proxy_pass https://docs.tail8d86e.ts.net;
-            proxy_ssl_verify off;
-            proxy_ssl_server_name on;
-
-            # Cache aggressively — static site only.
-            # Do NOT use these settings for dynamic services.
-            proxy_cache services;
-            proxy_cache_valid 200 1d;
-            proxy_cache_valid 404 1m;
-            proxy_cache_use_stale error timeout updating;
-            proxy_cache_lock on;
-
-            # Prevent cache-busting: ignore query strings and
-            # client cache-control headers.
-            # Safe for static sites; breaks dynamic services.
-            proxy_cache_key $host$uri;
-            proxy_ignore_headers Cache-Control Set-Cookie;
-
-            add_header X-Cache-Status $upstream_cache_status;
-            add_header X-Clacks-Overhead "GNU Terry Pratchett" always;
-        }
-    }
-
-    # Catch-all: reject unknown hosts, but serve health check
-    server {
-        listen 8080 default_server;
-
-        location /healthz {
-            return 200 "ok\n";
-        }
-
-        location / {
-            return 444;
-        }
-    }
-}
-```
+Both Loki and Prometheus are reached directly via their `*.tail8d86e.ts.net` Tailscale Ingress endpoints (not via [[caddy]]), since the proxy's ACLs only allow `tag:flyio-target`.
 
 ### Step 3: Tailscale auth key and ACLs (Pulumi)
 
@@ -297,7 +178,7 @@ ACL test:
 },
 ```
 
-Each service's Tailscale Ingress must be annotated with `tag:flyio-target` to be reachable by the proxy — see [[#7. Update Tailscale ACLs if needed]].
+Each service's Tailscale Ingress must be annotated with `tag:flyio-target` to be reachable by the proxy — see [[#7. Tag the Tailscale Ingress with tag:flyio-target]].
 
 Deploy: `mise run tailnet-preview` then `mise run tailnet-up`.
 
@@ -315,109 +196,15 @@ Store the auth key in 1Password as well for the `fly-setup` mise task.
 
 ### Step 4: Mise tasks
 
-**`mise-tasks/fly-deploy`:**
+Three mise tasks manage the proxy lifecycle. See the actual scripts in `mise-tasks/` for current implementation:
 
-```bash
-#!/usr/bin/env bash
-#MISE description="Deploy the Fly.io public proxy"
-
-set -euo pipefail
-
-cd "$(dirname "$0")/../fly"
-fly deploy "$@"
-```
-
-**`mise-tasks/fly-setup`:**
-
-```bash
-#!/usr/bin/env bash
-#MISE description="One-time setup: configure Fly.io secrets and certs (idempotent)"
-
-set -euo pipefail
-
-APP="blumeops-proxy"
-
-# Fetch Tailscale auth key from Pulumi state
-echo "Fetching Tailscale auth key from Pulumi..."
-TS_AUTHKEY=$(cd "$(dirname "$0")/../pulumi/tailscale" && pulumi stack select tail8d86e && pulumi stack output flyio_authkey --show-secrets)
-fly secrets set TS_AUTHKEY="$TS_AUTHKEY" --stage -a "$APP"
-echo "Tailscale auth key staged (will take effect on next deploy)"
-
-# Allocate IPs (idempotent — fly errors if already allocated)
-# Shared IPv4 is free and sufficient for HTTP/HTTPS services.
-# Use 'fly ips allocate-v4' (no --shared) for dedicated IPv4 ($2/mo)
-# if the service needs non-HTTP protocols.
-fly ips allocate-v4 --shared -a "$APP" 2>/dev/null || true
-fly ips allocate-v6 -a "$APP" 2>/dev/null || true
-echo "IPs allocated"
-
-# Add certs for all public domains (idempotent — fly ignores duplicates)
-fly certs add docs.eblu.me -a "$APP" 2>/dev/null || true
-# fly certs add wiki.eblu.me -a "$APP" 2>/dev/null || true  # future services
-echo "Certificates configured"
-
-echo "Done. Run 'mise run fly-deploy' to deploy."
-```
-
-**`mise-tasks/fly-shutoff`:**
-
-```bash
-#!/usr/bin/env bash
-#MISE description="Emergency shutoff: stop all Fly.io proxy machines"
-
-set -euo pipefail
-
-APP="blumeops-proxy"
-
-echo "EMERGENCY SHUTOFF: Stopping all machines for $APP"
-fly scale count 0 -a "$APP" --yes
-echo "All machines stopped. Public services are offline."
-echo "To restore: fly scale count 1 -a $APP"
-```
+- **`mise run fly-deploy`** — runs `fly deploy` from the `fly/` directory
+- **`mise run fly-setup`** — one-time, idempotent setup: fetches the Tailscale auth key from Pulumi state, stages it as a Fly.io secret, allocates IPs, and adds TLS certs for all public domains (currently `docs.eblu.me` and `cv.eblu.me`)
+- **`mise run fly-shutoff`** — emergency shutoff: scales machines to zero, immediately stopping all public traffic
 
 ### Step 5: Forgejo CI workflow
 
-**`.forgejo/workflows/deploy-fly.yaml`:**
-
-```yaml
-name: Deploy Fly.io Proxy
-
-on:
-  workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'fly/**'
-
-jobs:
-  deploy:
-    runs-on: k8s
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install flyctl
-        run: |
-          curl -L https://fly.io/install.sh | sh
-          echo "/root/.fly/bin" >> "$GITHUB_PATH"
-
-      - name: Deploy to Fly.io
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_DEPLOY_TOKEN }}
-        run: |
-          cd fly
-          fly deploy
-
-      - name: Verify health
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_DEPLOY_TOKEN }}
-        run: |
-          fly status -a blumeops-proxy
-          echo ""
-          echo "Health check:"
-          sleep 10
-          curl -sf https://blumeops-proxy.fly.dev/healthz || echo "Warning: health check failed (may need DNS propagation)"
-```
+A Forgejo Actions workflow (`.forgejo/workflows/deploy-fly.yaml`) auto-deploys on pushes to `main` that touch `fly/**`. It installs `flyctl`, runs `fly deploy`, and verifies health. It can also be triggered manually via `workflow_dispatch`.
 
 The `FLY_DEPLOY_TOKEN` Forgejo Actions secret must be set via the [[forgejo]] API or UI, following the pattern in the `forgejo_actions_secrets` Ansible role.
 
@@ -430,9 +217,12 @@ To expose an additional service (example: `wiki.eblu.me`):
 ### 1. Add nginx server block
 
 Edit `fly/nginx.conf` — add a new `server` block. The configuration
-differs significantly between static and dynamic services.
+differs significantly between static and dynamic services. See the
+existing `docs.eblu.me` and `cv.eblu.me` blocks in `fly/nginx.conf`
+for the current pattern (uses `set $upstream` variable for deferred
+DNS resolution, `proxy_intercept_errors` for error pages, etc.).
 
-**Static site example** (same pattern as docs):
+**Static site template** (simplified — adapt from existing blocks):
 
 ```nginx
 # --- wiki.eblu.me (static) ---
@@ -442,9 +232,18 @@ server {
 
     limit_req zone=general burst=20 nodelay;
 
+    error_page 502 503 504 /error.html;
+    location = /error.html {
+        root /usr/share/nginx/html;
+        internal;
+    }
+
     location / {
-        proxy_pass https://wiki.tail8d86e.ts.net;
+        set $upstream_wiki https://wiki.tail8d86e.ts.net;
+        proxy_pass $upstream_wiki$request_uri;
         proxy_ssl_verify off;
+        proxy_ssl_server_name on;
+        proxy_intercept_errors on;
 
         proxy_cache services;
         proxy_cache_valid 200 1d;
@@ -460,7 +259,7 @@ server {
 }
 ```
 
-**Dynamic service example** (e.g., Forgejo):
+**Dynamic service template** (e.g., Forgejo — hypothetical, not currently deployed):
 
 ```nginx
 # --- forge.eblu.me (dynamic, authenticated) ---
@@ -476,9 +275,18 @@ server {
     # Git LFS and repo uploads can be large
     client_max_body_size 512m;
 
+    error_page 502 503 504 /error.html;
+    location = /error.html {
+        root /usr/share/nginx/html;
+        internal;
+    }
+
     location / {
-        proxy_pass https://forge.tail8d86e.ts.net;
+        set $upstream_forge https://forge.tail8d86e.ts.net;
+        proxy_pass $upstream_forge$request_uri;
         proxy_ssl_verify off;
+        proxy_ssl_server_name on;
+        proxy_intercept_errors on;
 
         # NO proxy_cache — dynamic content with sessions.
         # Caching would serve stale pages and break authentication.
@@ -497,8 +305,10 @@ server {
 
     # Selectively cache static assets only
     location ~* \.(css|js|png|jpg|svg|woff2?)$ {
-        proxy_pass https://forge.tail8d86e.ts.net;
+        set $upstream_forge_static https://forge.tail8d86e.ts.net;
+        proxy_pass $upstream_forge_static$request_uri;
         proxy_ssl_verify off;
+        proxy_ssl_server_name on;
 
         proxy_cache services;
         proxy_cache_valid 200 7d;
@@ -709,6 +519,7 @@ dynamic, authenticated service like [[forgejo]].
 | Tailscale ACLs | Pulumi (`pulumi/tailscale/policy.hujson`) | yes |
 | DNS CNAMEs | Pulumi (`pulumi/gandi/`) | yes |
 | Container + app config | `fly/Dockerfile` + `fly/fly.toml` in repo | yes |
+| Observability | `fly/alloy.river` in repo | yes |
 | Deployment | Forgejo CI on push to `fly/`, or `mise run fly-deploy` | yes |
 | Fly.io secrets + certs | `mise run fly-setup` (one-time, idempotent) | semi |
 
@@ -735,6 +546,7 @@ If anything fails here, debug without public DNS impact.
 After deploying DNS (`mise run dns-up`):
 
 1. `curl -I https://docs.eblu.me` — returns 200 with `X-Cache-Status` header
-2. `dig docs.eblu.me` — resolves to Fly.io IPs (not Tailscale IP)
-3. `dig forge.ops.eblu.me` — still resolves to indri's Tailscale IP (unchanged)
-4. Second request to same URL shows `X-Cache-Status: HIT`
+2. `curl -I https://cv.eblu.me` — same for each public service
+3. `dig docs.eblu.me` — resolves to Fly.io IPs (not Tailscale IP)
+4. `dig forge.ops.eblu.me` — still resolves to indri's Tailscale IP (unchanged)
+5. Second request to same URL shows `X-Cache-Status: HIT`
