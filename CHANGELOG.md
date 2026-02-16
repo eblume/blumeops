@@ -12,6 +12,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.9.2] - 2026-02-16
+
+### Features
+
+- Add how-to guide for building container images and port navidrome to a custom-built container image.
+
+### Bug Fixes
+
+- Fix Frigate repeatedly alerting on parked cars by removing per-object max_frames and setting stationary interval to 0. Make Frigate config writable so UI changes (zones, masks) persist within a pod lifecycle.
+- Switch navidrome to custom container image with dedicated non-root user and fsGroup security context
+
+### Documentation
+
+- Review expose-service-publicly doc: replace stale inline code with references to actual files, add observability sidecar section, fix broken internal link, update templates to current patterns.
+
+
 ## [v1.9.1] - 2026-02-15
 
 ### Documentation

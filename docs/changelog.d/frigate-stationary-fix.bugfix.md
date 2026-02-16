@@ -1,1 +1,0 @@
-Fix Frigate repeatedly alerting on parked cars by removing per-object max_frames and setting stationary interval to 0. Make Frigate config writable so UI changes (zones, masks) persist within a pod lifecycle.
