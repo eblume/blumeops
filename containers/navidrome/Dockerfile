@@ -42,10 +42,13 @@ LABEL org.opencontainers.image.description="Navidrome is a self-hosted music ser
 # Points to upstream canonical source, not the forge mirror used for builds
 LABEL org.opencontainers.image.source=https://github.com/navidrome/navidrome
 
-RUN apk add --no-cache ca-certificates tzdata taglib ffmpeg
+RUN apk add --no-cache ca-certificates tzdata taglib ffmpeg \
+ && addgroup -g 1000 navidrome \
+ && adduser -u 1000 -G navidrome -D navidrome
 
 COPY --from=build /navidrome /usr/bin/navidrome
 
 EXPOSE 4533
 
+USER 1000
 CMD ["/usr/bin/navidrome"]
