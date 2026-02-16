@@ -14,6 +14,15 @@ spec:
       labels:
         app: frigate
     spec:
+      initContainers:
+        - name: copy-config
+          image: busybox:1.37
+          command: ["cp", "/config-ro/config.yml", "/config/config.yml"]
+          volumeMounts:
+            - name: config-ro
+              mountPath: /config-ro
+            - name: config
+              mountPath: /config
       containers:
         - name: frigate
           image: ghcr.io/blakeblackshear/frigate:0.16.4-standard-arm64
@@ -37,8 +46,7 @@ spec:
                   key: password
           volumeMounts:
             - name: config
-              mountPath: /config/config.yml
-              subPath: config.yml
+              mountPath: /config
             - name: recordings
               mountPath: /media/frigate
             - name: database
@@ -65,9 +73,11 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 10
       volumes:
-        - name: config
+        - name: config-ro
           configMap:
             name: frigate-config
+        - name: config
+          emptyDir: {}
         - name: recordings
           persistentVolumeClaim:
             claimName: frigate-recordings
