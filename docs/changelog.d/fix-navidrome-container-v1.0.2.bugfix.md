@@ -1,1 +1,1 @@
-Fix navidrome custom container image (removed non-root user that prevented SQLite writes)
+Switch navidrome to custom container image with dedicated non-root user and fsGroup security context

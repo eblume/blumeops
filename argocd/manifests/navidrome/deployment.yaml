@@ -14,9 +14,16 @@ spec:
       labels:
         app: navidrome
     spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       containers:
         - name: navidrome
-          image: registry.ops.eblu.me/blumeops/navidrome:v1.0.2
+          image: registry.ops.eblu.me/blumeops/navidrome:v1.0.3
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
           ports:
             - containerPort: 4533
               name: http
