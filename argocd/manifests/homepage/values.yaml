@@ -150,6 +150,9 @@ config:
         - ArgoCD:
             - href: https://argocd.ops.eblu.me
               icon: argo-cd
+        - UniFi:
+            - href: https://unifi.ui.com
+              icon: ubiquiti
 
   # Widgets on the page (info bar at top)
   widgets:
