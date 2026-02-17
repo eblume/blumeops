@@ -35,7 +35,7 @@ services:
   - name: mosquitto
     type: argocd
     last-reviewed: 2026-02-16
-    current-version: "2.1.2"
+    current-version: "2.0.22"
     upstream-source: https://github.com/eclipse/mosquitto/releases
 
   - name: ntfy
