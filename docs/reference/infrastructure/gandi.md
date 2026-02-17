@@ -1,6 +1,6 @@
 ---
 title: Gandi
-modified: 2026-02-08
+modified: 2026-02-17
 tags:
   - infrastructure
   - networking
@@ -42,6 +42,7 @@ Both records point to [[indri]], which runs [[caddy]] as the reverse proxy for a
 | Record | Type | Value | TTL |
 |--------|------|-------|-----|
 | `docs.eblu.me` | CNAME | `blumeops-proxy.fly.dev` | 300s |
+| `cv.eblu.me` | CNAME | `blumeops-proxy.fly.dev` | 300s |
 
 Public CNAMEs point to [[flyio-proxy]] on Fly.io. See [[expose-service-publicly]] for adding new public services.
 

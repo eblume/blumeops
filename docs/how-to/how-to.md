@@ -1,6 +1,6 @@
 ---
 title: How-To
-modified: 2026-02-14
+modified: 2026-02-17
 tags:
   - how-to
 ---
@@ -26,11 +26,6 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 | [[gandi-operations]] | Manage DNS records and cycle the Gandi API token |
 | [[use-pypi-proxy]] | Configure pip and publish packages to devpi |
 | [[expose-service-publicly]] | Expose a service to the public internet via Fly.io + Tailscale |
-
-## Documentation
-
-| Guide | Description |
-|-------|-------------|
 | [[update-documentation]] | Publish docs via build-blumeops workflow |
 
 ## Knowledge Base
@@ -40,16 +35,11 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 | [[review-documentation]] | Periodically review and maintain documentation |
 | [[review-services]] | Periodically review services for version freshness |
 
-## Database
-
-| Guide | Description |
-|-------|-------------|
-| [[connect-to-postgres]] | Connect to PostgreSQL as a superuser via psql |
-
 ## Operations
 
 | Guide | Description |
 |-------|-------------|
+| [[connect-to-postgres]] | Connect to PostgreSQL as a superuser via psql |
 | [[restart-indri]] | Safely shut down and restart indri |
 | [[manage-flyio-proxy]] | Deploy, shutoff, and troubleshoot the public proxy |
 | [[restore-1password-backup]] | Recover 1Password credentials from borgmatic backup |

@@ -8,7 +8,7 @@ This program manages DNS records for blumeops infrastructure:
 
 Authentication:
   Set GANDI_PERSONAL_ACCESS_TOKEN environment variable.
-  See README.md for PAT management instructions.
+  See docs/how-to/gandi-operations.md for PAT management instructions.
 """
 
 import os

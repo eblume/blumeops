@@ -1,6 +1,7 @@
 ---
 title: Gandi Operations
-modified: 2026-02-08
+modified: 2026-02-17
+last-reviewed: 2026-02-17
 tags:
   - how-to
   - dns
