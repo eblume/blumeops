@@ -61,4 +61,5 @@ Migration and transition plans for upcoming infrastructure changes.
 | [[adopt-oidc-provider]] | Deploy OIDC identity provider for SSO across services |
 | [[harden-zot-registry]] | Add authentication and tag immutability to zot registry |
 | [[forgejo-actions-dashboard]] | Grafana dashboard for Forgejo Actions CI metrics |
+| [[upgrade-grafana-helm-chart]] | Upgrade Grafana Helm chart from 8.8.2 to 11.x |
 | [[operationalize-reolink-camera]] | Cloud-free NVR with Frigate and ring buffer recording |
