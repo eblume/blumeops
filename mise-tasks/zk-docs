@@ -11,7 +11,7 @@ FILES=(
     "$DOCS_DIR/index.md"
     "$DOCS_DIR/reference/reference.md"
     "$DOCS_DIR/how-to/how-to.md"
-    "$DOCS_DIR/how-to/troubleshooting.md"
+    "$DOCS_DIR/how-to/operations/troubleshooting.md"
     "$DOCS_DIR/how-to/plans/plans.md"
     "$DOCS_DIR/how-to/plans/completed/completed.md"
     "$DOCS_DIR/explanation/explanation.md"
