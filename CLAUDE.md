@@ -28,16 +28,23 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 ```
 ./docs/                 # documentation (Diataxis, Quartz)
 ./docs/changelog.d/     # towncrier fragments
+./.dagger/              # dagger pipelines
+./.forgejo/             # forgejo-runner actions and workflows
 ./mise-tasks/           # scripts via `mise run`
 ./ansible/playbooks/    # ansible (indri.yml primary)
 ./ansible/roles/        # indri service roles
 ./argocd/apps/          # ArgoCD Application definitions
 ./argocd/manifests/     # k8s manifests per service
-./pulumi/               # Pulumi IaC (tailnet ACLs, cloud)
+./fly/                  # fly.io proxy for public routing
+./pulumi/               # Pulumi IaC (tailnet ACLs, dns, cloud)
+~/.config/{nvim,fish}   # user's shell config, managed by chezmoi
 ~/code/personal/        # user's projects
+~/code/personal/zk      # user's Obsidian-sync managed zettelkasten. Potential source for reference data.
 ~/code/3rd/             # mirrored external projects
 ~/code/work             # FORBIDDEN
 ```
+Other code paths will be listed via zk-docs, this is just an overview. When you
+encounter wiki-links (`[[like-this]]`) it is referring to docs/ cards.
 
 ## Service Deployment
 
@@ -47,7 +54,7 @@ Most services run in minikube on indri via ArgoCD (app-of-apps, manual sync).
 
 **PR workflow:**
 1. Create branch, modify `argocd/manifests/<service>/`
-2. Push, then `argocd app sync apps`
+2. Push. Sync 'apps' app if service definition changed (set --revision to branch).
 3. Test on branch: `argocd app set <service> --revision <branch> && argocd app sync <service>`
 4. After merge: `argocd app set <service> --revision main && argocd app sync <service>`
 
@@ -81,6 +88,9 @@ Check tailscale serve: `ssh indri 'tailscale serve status --json'`
 mise run container-list                       # show images/tags
 mise run container-release <name> <version>   # tag and build
 ```
+The goal is to eventually use only locally built containers in all cases, with
+full supply chain control via forge.ops.eblu.me repositories, mirroring source
+from upstream.
 
 ## Third-Party Projects
 
@@ -91,9 +101,16 @@ Ask user to mirror on forge first, then clone to `~/code/3rd/<project>/`.
 ```fish
 mise run blumeops-tasks  # fetch from Todoist, sorted by priority
 ```
+Most tasks are stored in `./mise-tasks/`. For scripts with any logic or
+complexity, use uv run --script 's with explicit dependencies. Complex
+workflows with artifacts should become dagger pipelines. Mise tasks are for
+development processes and operations - tools for the user or the agent.
 
 ## Credentials
 
-Root store is 1Password. Never grab directly - use existing patterns (ansible pre_tasks, external-secrets, scripts with `op` CLI). Warn user before any credential access.
+Root store is 1Password. Never grab directly - use existing patterns (ansible
+pre_tasks, external-secrets, scripts with `op` CLI). It's ok to use `op item
+get` without `--reveal` to explore what secrets are available, however.
 
-Prefer `op read "op://vault/item/field"` over `op item get --fields` to avoid quoting issues with multi-line values.
+Prefer `op read "op://vault/item/field"` over `op item get --fields` to avoid
+quoting issues with multi-line values.
