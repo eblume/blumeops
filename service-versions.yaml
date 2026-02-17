@@ -16,26 +16,26 @@ services:
 
   - name: prometheus
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-16
+    current-version: "v3.9.1"
     upstream-source: https://github.com/prometheus/prometheus/releases
 
   - name: loki
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-16
+    current-version: "3.6.5"
     upstream-source: https://github.com/grafana/loki/releases
 
   - name: kube-state-metrics
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-16
+    current-version: "v2.18.0"
     upstream-source: https://github.com/kubernetes/kube-state-metrics/releases
 
   - name: mosquitto
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-16
+    current-version: "2.1.2"
     upstream-source: https://github.com/eclipse/mosquitto/releases
 
   - name: ntfy
@@ -53,8 +53,8 @@ services:
 
   - name: frigate
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-16
+    current-version: "0.16.4"
     upstream-source: https://github.com/blakeblackshear/frigate/releases
 
   - name: frigate-notify
@@ -65,14 +65,14 @@ services:
 
   - name: alloy-k8s
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-16
+    current-version: "v1.13.1"
     upstream-source: https://github.com/grafana/alloy/releases
 
   - name: tailscale-operator
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-16
+    current-version: "v1.94.2"
     upstream-source: https://github.com/tailscale/tailscale/releases
 
   # --- ArgoCD Helm charts ---
