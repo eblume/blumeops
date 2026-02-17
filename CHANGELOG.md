@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.9.4] - 2026-02-17
+
+### Documentation
+
+- Reorganize how-to guides into `deployment/`, `configuration/`, and `operations/` subdirectories; review and update gandi-operations doc; fix missing cv.eblu.me CNAME in gandi reference card.
+
+
 ## [v1.9.3] - 2026-02-16
 
 ### Features
