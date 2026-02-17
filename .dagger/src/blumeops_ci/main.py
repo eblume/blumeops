@@ -24,35 +24,14 @@ class BlumeopsCi:
         return await ctr.publish(ref)
 
     @function
-    async def build_changelog(
-        self, src: dagger.Directory, version: str
-    ) -> dagger.Directory:
-        """Run towncrier to build changelog, return modified source tree."""
-        return await (
-            dag.container()
-            .from_("python:3.12-slim")
-            .with_env_variable("TZ", "America/Los_Angeles")
-            # git is required because towncrier stages CHANGELOG.md via git add
-            .with_exec(["apt-get", "update", "-qq"])
-            .with_exec(["apt-get", "install", "-y", "-qq", "git"])
-            .with_exec(["pip", "install", "towncrier"])
-            .with_directory("/workspace", src)
-            .with_workdir("/workspace")
-            .with_exec(["git", "init"])
-            .with_exec(["towncrier", "build", "--version", version, "--yes"])
-            .directory("/workspace")
-        )
-
-    @function
     async def build_docs(self, src: dagger.Directory, version: str) -> dagger.File:
-        """Build changelog then Quartz site. Returns docs tarball."""
-        updated_src = await self.build_changelog(src, version)
+        """Build Quartz docs site. Returns docs tarball."""
         return await (
             dag.container()
             .from_("node:22-slim")
             .with_exec(["apt-get", "update", "-qq"])
             .with_exec(["apt-get", "install", "-y", "-qq", "git"])
-            .with_directory("/workspace", updated_src)
+            .with_directory("/workspace", src)
             .with_workdir("/workspace")
             .with_exec(
                 [

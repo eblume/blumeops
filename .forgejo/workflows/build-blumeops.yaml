@@ -108,30 +108,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Build docs
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TARBALL="docs-${VERSION}.tar.gz"
-          echo "Building docs via Dagger..."
-          # build-docs calls build_changelog internally (towncrier runs inside
-          # the Dagger container). The host working tree is not modified — only
-          # the tarball is exported. Towncrier runs a second time on the runner
-          # in the next step so that CHANGELOG.md and fragment deletion are
-          # captured in the git commit.
-          dagger call build-docs --src=. --version="$VERSION" \
-            export --path="./$TARBALL"
-          echo "Build complete!"
-          ls -lh "$TARBALL"
-
       - name: Build changelog
         id: changelog
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
-          # Run towncrier on the runner (not in Dagger) so that CHANGELOG.md
-          # updates and fragment deletions appear in the working tree for the
-          # git commit step. This is intentionally a second towncrier run —
-          # the first happened inside the Dagger build-docs container above.
+          # Run towncrier on the runner so that CHANGELOG.md updates and
+          # fragment deletions appear in the working tree for both the Quartz
+          # build (next step) and the git commit step.
           # Check if there are any changelog fragments
           FRAGMENTS=$(find docs/changelog.d -name "*.md" -not -name ".gitkeep" 2>/dev/null | wc -l)
 
@@ -156,6 +140,19 @@ jobs:
             echo "changelog_updated=false" >> "$GITHUB_OUTPUT"
             echo "" > /tmp/release_notes.md
           fi
+
+      - name: Build docs
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TARBALL="docs-${VERSION}.tar.gz"
+          echo "Building docs via Dagger..."
+          # Towncrier already ran on the runner above, so the working tree
+          # has an up-to-date CHANGELOG.md. build-docs now only runs the
+          # Quartz static site build (no towncrier).
+          dagger call build-docs --src=. --version="$VERSION" \
+            export --path="./$TARBALL"
+          echo "Build complete!"
+          ls -lh "$TARBALL"
 
       - name: Create release
         env:

@@ -26,7 +26,7 @@ Direct link: https://forge.ops.eblu.me/eblume/blumeops/actions?workflow=build-bl
 The `build-blumeops` workflow (`.forgejo/workflows/build-blumeops.yaml`):
 
 1. **Resolves version** — Uses input or auto-increments from latest release
-2. **Builds changelog** — Calls `dagger call build-changelog` (towncrier in a container)
+2. **Builds changelog** — Runs towncrier on the runner to update `CHANGELOG.md`
 3. **Builds docs** — Calls `dagger call build-docs` (Quartz build in a container)
 4. **Creates release** — Uploads `docs-<version>.tar.gz` to Forgejo releases
 5. **Updates deployment** — Edits `argocd/manifests/docs/deployment.yaml` with new URL

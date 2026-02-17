@@ -27,8 +27,7 @@ Build engine for BlumeOps CI/CD pipelines. Replaces shell-based build scripts wi
 |----------|-----------|-------------|
 | `build` | `(src, container_name) → Container` | Build a container from `containers/<name>/Dockerfile` |
 | `publish` | `(src, container_name, version, registry?) → str` | Build and push to registry (default: `registry.ops.eblu.me`) |
-| `build_changelog` | `(src, version) → Directory` | Run towncrier to collect changelog fragments |
-| `build_docs` | `(src, version) → File` | Build changelog then Quartz site, return docs tarball |
+| `build_docs` | `(src, version) → File` | Build Quartz docs site, return docs tarball |
 
 ## CLI Examples
 
