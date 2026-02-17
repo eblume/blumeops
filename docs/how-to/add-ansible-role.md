@@ -136,8 +136,17 @@ For metrics collection, create a companion `<role>_metrics` role that:
 
 See [[alloy]] for how metrics are collected from textfiles.
 
+## Checklist
+
+- [ ] Role created in `ansible/roles/<role>/`
+- [ ] Role added to `ansible/playbooks/indri.yml` with tag
+- [ ] Secrets wired via pre_tasks (if needed)
+- [ ] Dry run passes: `mise run provision-indri -- --tags <role> --check --diff`
+- [ ] Service added to `service-versions.yaml` for version tracking
+
 ## Related
 
 - [[ansible]] - Available roles reference
 - [[indri]] - Target host
 - [[observability]] - Metrics collection
+- [[review-services]] - Periodic service version review

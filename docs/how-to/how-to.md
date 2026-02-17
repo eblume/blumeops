@@ -38,6 +38,7 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 | Guide | Description |
 |-------|-------------|
 | [[review-documentation]] | Periodically review and maintain documentation |
+| [[review-services]] | Periodically review services for version freshness |
 
 ## Database
 

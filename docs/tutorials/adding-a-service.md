@@ -246,6 +246,7 @@ See [[grafana]] for dashboard provisioning details.
 - [ ] Metrics/dashboard configured (if applicable)
 - [ ] PR created and reviewed
 - [ ] Reset to main after merge
+- [ ] Service added to `service-versions.yaml` for version tracking
 
 ## Related
 

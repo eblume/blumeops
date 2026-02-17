@@ -1,0 +1,205 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml>=6.0", "rich>=13.0.0", "typer>=0.9.0"]
+# ///
+#MISE description="Review the most stale service for version freshness"
+"""Review the most stale service for version freshness.
+
+Reads ``docs/reference/services/service-versions.yaml`` and sorts services
+by the ``last-reviewed`` field. Services without the field (or null) are
+treated as never-reviewed and float to the top. Displays a staleness table
+and then shows the most stale service with a review checklist.
+
+After reviewing, update the service entry in the YAML file:
+
+    last-reviewed: YYYY-MM-DD
+    current-version: "x.y.z"
+
+Usage: mise run service-review [-- --limit 15] [-- --type argocd]
+"""
+
+import sys
+from datetime import date
+from pathlib import Path
+from typing import Annotated
+
+import typer
+import yaml
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
+VERSIONS_FILE = Path(__file__).parent.parent / "service-versions.yaml"
+
+
+def load_services(path: Path) -> list[dict]:
+    """Load services from the YAML tracking file."""
+    data = yaml.safe_load(path.read_text())
+    return data.get("services", [])
+
+
+def parse_date(raw) -> date | None:
+    """Parse a date value from YAML."""
+    if raw is None:
+        return None
+    if isinstance(raw, date):
+        return raw
+    try:
+        return date.fromisoformat(str(raw))
+    except ValueError:
+        return None
+
+
+def main(
+    limit: Annotated[int, typer.Option(help="Number of services to show in the table")] = 15,
+    type: Annotated[str | None, typer.Option(help="Filter by service type (argocd, ansible, hybrid)")] = None,
+) -> None:
+    console = Console()
+    today = date.today()
+
+    if not VERSIONS_FILE.exists():
+        console.print(f"[bold red]Tracking file not found:[/bold red] {VERSIONS_FILE}")
+        raise typer.Exit(code=1)
+
+    services = load_services(VERSIONS_FILE)
+
+    if type:
+        services = [s for s in services if s.get("type") == type]
+        if not services:
+            console.print(f"[bold red]No services found with type '{type}'[/bold red]")
+            raise typer.Exit(code=1)
+
+    # Parse dates and build sortable entries
+    entries: list[tuple[dict, date | None]] = []
+    for svc in services:
+        reviewed = parse_date(svc.get("last-reviewed"))
+        entries.append((svc, reviewed))
+
+    # Sort: never-reviewed first (None), then oldest reviewed
+    entries.sort(key=lambda e: (e[1] is not None, e[1] or date.min))
+
+    never_reviewed = sum(1 for _, r in entries if r is None)
+    type_label = f" ({type})" if type else ""
+
+    # --- Summary panel ---
+    console.print()
+    console.print(Panel(
+        f"[bold]{len(entries)}[/bold] total services{type_label}, "
+        f"[bold red]{never_reviewed}[/bold red] never reviewed",
+        title="[bold]Service Review Queue[/bold]",
+        border_style="cyan",
+    ))
+    console.print()
+
+    # --- Staleness table ---
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("#", justify="right")
+    table.add_column("Service")
+    table.add_column("Type", justify="center")
+    table.add_column("Version")
+    table.add_column("Last Reviewed", justify="right")
+    table.add_column("Age (days)", justify="right")
+
+    for i, (svc, reviewed) in enumerate(entries[:limit], 1):
+        name = svc["name"]
+        svc_type = svc.get("type", "?")
+        version = svc.get("current-version") or "—"
+
+        if reviewed is None:
+            table.add_row(
+                str(i),
+                f"[red]{name}[/red]",
+                svc_type,
+                f"[dim]{version}[/dim]",
+                "[red]never[/red]",
+                "[red]—[/red]",
+            )
+        else:
+            age = (today - reviewed).days
+            style = "yellow" if age > 90 else ""
+            name_str = f"[{style}]{name}[/{style}]" if style else name
+            date_str = f"[{style}]{reviewed}[/{style}]" if style else str(reviewed)
+            age_str = f"[{style}]{age}[/{style}]" if style else str(age)
+            table.add_row(str(i), name_str, svc_type, version, date_str, age_str)
+
+    remaining = len(entries) - limit
+    if remaining > 0:
+        table.add_row("", f"[dim]… {remaining} more[/dim]", "", "", "", "")
+
+    console.print(table)
+    console.print()
+
+    # --- Show the most stale service ---
+    if not entries:
+        console.print("[bold red]No services found![/bold red]")
+        raise typer.Exit(code=1)
+
+    top_svc, top_reviewed = entries[0]
+    upstream = top_svc.get("upstream-source") or "N/A"
+    notes = top_svc.get("notes") or ""
+
+    detail_lines = [
+        f"[bold cyan]{top_svc['name']}[/bold cyan]  [dim]({top_svc.get('type', '?')})[/dim]",
+        f"[dim]Last reviewed: {top_reviewed or 'never'}[/dim]",
+        f"[dim]Current version: {top_svc.get('current-version') or 'unknown'}[/dim]",
+        f"[dim]Upstream: {upstream}[/dim]",
+    ]
+    if notes:
+        detail_lines.append(f"[dim]Notes: {notes}[/dim]")
+
+    console.print(Panel(
+        "\n".join(detail_lines),
+        title="[bold]Up For Review[/bold]",
+        border_style="green",
+    ))
+    console.print()
+
+    # --- Review checklist ---
+    checklist_parts = [
+        "[bold]Version Check:[/bold]\n",
+        f"• Check upstream releases: {upstream}\n",
+        "• Compare upstream latest to current deployed version\n",
+        "• Review changelog for breaking changes or security fixes\n",
+    ]
+
+    svc_type = top_svc.get("type", "")
+    if svc_type == "hybrid":
+        checklist_parts += [
+            "\n[bold]Custom Container (hybrid):[/bold]\n",
+            "• Check base image for updates\n",
+            "• Rebuild container if needed: mise run container-tag-and-release\n",
+            "• Update ArgoCD manifest with new image tag\n",
+        ]
+    elif svc_type == "argocd":
+        checklist_parts += [
+            "\n[bold]ArgoCD Deployment:[/bold]\n",
+            "• Update image tag or Helm chart version in argocd/manifests/\n",
+            f"• Verify sync status: argocd app get {top_svc['name']}\n",
+        ]
+    elif svc_type == "ansible":
+        checklist_parts += [
+            "\n[bold]Ansible Deployment:[/bold]\n",
+            f"• Check role vars for version pins: ansible/roles/{top_svc['name']}/\n",
+            f"• Dry run: mise run provision-indri -- --tags {top_svc['name']} --check --diff\n",
+        ]
+
+    checklist_parts += [
+        "\n[bold]Health Check:[/bold]\n",
+        "• Verify the service is running and healthy\n",
+        "• Check logs for errors or warnings\n",
+        "\n[bold]After Review:[/bold]\n",
+        "• Update the tracking file: [cyan]docs/reference/services/service-versions.yaml[/cyan]\n",
+        f"• Set [cyan]last-reviewed: {today}[/cyan] and [cyan]current-version[/cyan]\n",
+        "• Commit the change (along with any upgrades)",
+    ]
+
+    console.print(Panel(
+        "".join(checklist_parts),
+        title="[bold yellow]Review Guidance[/bold yellow]",
+        border_style="yellow",
+    ))
+
+
+if __name__ == "__main__":
+    typer.run(main)

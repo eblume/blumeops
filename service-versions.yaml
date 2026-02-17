@@ -1,0 +1,234 @@
+# Service Version Tracking
+#
+# Tracks when each BlumeOps service was last reviewed for version freshness.
+# Used by `mise run service-review` to surface stale services.
+#
+# Fields:
+#   name            - kebab-case service identifier
+#   type            - argocd | ansible | hybrid (custom container + ArgoCD)
+#   last-reviewed   - date (YYYY-MM-DD) or null
+#   current-version - deployed version string or null
+#   upstream-source - URL to upstream releases/changelog
+#   notes           - optional context
+
+services:
+  # --- ArgoCD plain manifests ---
+
+  - name: prometheus
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/prometheus/prometheus/releases
+
+  - name: loki
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/grafana/loki/releases
+
+  - name: kube-state-metrics
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/kubernetes/kube-state-metrics/releases
+
+  - name: mosquitto
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/eclipse/mosquitto/releases
+
+  - name: ntfy
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/binwiederhier/ntfy/releases
+
+  - name: homepage
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/gethomepage/homepage/releases
+    notes: Deployed via Helm chart
+
+  - name: frigate
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/blakeblackshear/frigate/releases
+
+  - name: frigate-notify
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/0x2142/frigate-notify/releases
+
+  - name: alloy-k8s
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/grafana/alloy/releases
+
+  - name: tailscale-operator
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/tailscale/tailscale/releases
+
+  # --- ArgoCD Helm charts ---
+
+  - name: grafana
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/grafana/grafana/releases
+    notes: Deployed via Helm chart
+
+  - name: cloudnative-pg
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/cloudnative-pg/cloudnative-pg/releases
+    notes: Deployed via Helm chart
+
+  - name: immich
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/immich-app/immich/releases
+    notes: Deployed via Helm chart
+
+  - name: external-secrets
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/external-secrets/external-secrets/releases
+    notes: Deployed via Helm chart
+
+  - name: 1password-connect
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/1Password/connect/releases
+    notes: Deployed via Helm chart
+
+  # --- ArgoCD infra ---
+
+  - name: argocd
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/argoproj/argo-cd/releases
+
+  - name: blumeops-pg
+    type: argocd
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/cloudnative-pg/cloudnative-pg/releases
+    notes: CloudNativePG Cluster resource
+
+  # --- Hybrid (custom container + ArgoCD) ---
+
+  - name: navidrome
+    type: hybrid
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/navidrome/navidrome/releases
+
+  - name: miniflux
+    type: hybrid
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/miniflux/v2/releases
+
+  - name: teslamate
+    type: hybrid
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/teslamate-org/teslamate/releases
+
+  - name: transmission
+    type: hybrid
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/transmission/transmission/releases
+
+  - name: kiwix
+    type: hybrid
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/kiwix/kiwix-tools/releases
+
+  - name: devpi
+    type: hybrid
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/devpi/devpi/releases
+
+  - name: cv
+    type: hybrid
+    last-reviewed: null
+    current-version: null
+    upstream-source: null
+    notes: Personal static site, no upstream
+
+  - name: docs
+    type: hybrid
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/jackyzha0/quartz/releases
+    notes: Quartz static site generator
+
+  - name: forgejo-runner
+    type: hybrid
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://code.forgejo.org/forgejo/runner/releases
+
+  # --- Ansible native ---
+
+  - name: forgejo
+    type: ansible
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://codeberg.org/forgejo/forgejo/releases
+
+  - name: alloy
+    type: ansible
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/grafana/alloy/releases
+    notes: Built from source on indri
+
+  - name: zot
+    type: ansible
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/project-zot/zot/releases
+    notes: Built from source on indri
+
+  - name: caddy
+    type: ansible
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/caddyserver/caddy/releases
+    notes: Built from source with Gandi DNS plugin
+
+  - name: borgmatic
+    type: ansible
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/borgmatic-collective/borgmatic/releases
+
+  - name: jellyfin
+    type: ansible
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://github.com/jellyfin/jellyfin/releases
+
+  - name: automounter
+    type: ansible
+    last-reviewed: null
+    current-version: null
+    upstream-source: null
+    notes: Custom systemd service, no upstream

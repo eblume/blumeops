@@ -131,6 +131,7 @@ argocd app sync <service>
 - [ ] Tested on feature branch
 - [ ] PR reviewed and merged
 - [ ] Reset to main branch
+- [ ] Service added to `service-versions.yaml` for version tracking
 
 ## Related
 
