@@ -12,6 +12,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.9.3] - 2026-02-16
+
+### Features
+
+- Add service version review system with `mise run service-review` task, tracking file, and how-to guide.
+- Add UniFi admin link to homepage dashboard bookmarks.
+
+### Infrastructure
+
+- Eliminate double towncrier run in release workflow — changelog is now built once on the runner, then the pre-processed source tree is passed to a new `build_quartz` Dagger function for the Quartz site build only.
+- First service version review: pin mosquitto to 2.0.22, bump tailscale-operator to v1.94.2, record 7 reviewed services
+
+
 ## [v1.9.2] - 2026-02-16
 
 ### Features

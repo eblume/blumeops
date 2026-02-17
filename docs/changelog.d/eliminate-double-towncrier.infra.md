@@ -1,1 +1,0 @@
-Eliminate double towncrier run in release workflow — changelog is now built once on the runner, then the pre-processed source tree is passed to a new `build_quartz` Dagger function for the Quartz site build only.
