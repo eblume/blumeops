@@ -40,8 +40,8 @@ services:
 
   - name: ntfy
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-17
+    current-version: "v2.17.0"
     upstream-source: https://github.com/binwiederhier/ntfy/releases
 
   - name: homepage

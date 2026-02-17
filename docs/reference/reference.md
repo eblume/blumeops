@@ -1,6 +1,6 @@
 ---
 title: Reference
-modified: 2026-02-12
+modified: 2026-02-17
 tags:
   - reference
 ---
@@ -21,6 +21,7 @@ Individual service reference cards with URLs and configuration details.
 | [[caddy]] | Reverse proxy & TLS termination | indri |
 | [[1password]] | Secrets management | cloud + k8s |
 | [[forgejo]] | Git forge & CI/CD | indri |
+| [[frigate]] | Network video recorder | k8s |
 | [[grafana]] | Dashboards & visualization | k8s |
 | [[immich]] | Photo management | k8s |
 | [[jellyfin]] | Media server | indri |
@@ -28,6 +29,7 @@ Individual service reference cards with URLs and configuration details.
 | [[loki]] | Log aggregation | k8s |
 | [[miniflux]] | RSS feed reader | k8s |
 | [[navidrome]] | Music streaming | k8s |
+| [[ntfy]] | Push notifications | k8s |
 | [[postgresql]] | Database cluster | k8s |
 | [[prometheus]] | Metrics collection | k8s |
 | [[teslamate]] | Tesla data logger | k8s |
