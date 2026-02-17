@@ -8,6 +8,8 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 
 **CRITICAL: Public repo at github.com/eblume/blumeops - never commit secrets!**
 
+**Shell:** The user's shell is **fish**. Use `$status` not `$?` for exit codes. Use fish syntax in interactive examples.
+
 ## Rules
 
 1. **Always run `mise run zk-docs -- --style=header --color=never --decorations=always` at session start**
