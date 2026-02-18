@@ -46,6 +46,7 @@
     ];
   };
   security.polkit.enable = true;
+  security.sudo.wheelNeedsPassword = false;
 
   # Enable greetd as display manager for sway
   services.greetd = {
