@@ -100,6 +100,7 @@
   # System packages
   environment.systemPackages = with pkgs; [
     git
+    python3 # required for Ansible
     vim
     htop
     curl
