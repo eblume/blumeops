@@ -175,3 +175,5 @@
       tags: jellyfin_metrics
     - role: caddy
       tags: caddy
+    - role: frigate_detector
+      tags: frigate_detector

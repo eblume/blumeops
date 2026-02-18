@@ -1,0 +1,6 @@
+---
+- name: Restart frigate-detector
+  ansible.builtin.shell: |
+    launchctl unload ~/Library/LaunchAgents/mcquack.eblume.frigate-detector.plist 2>/dev/null || true
+    launchctl load ~/Library/LaunchAgents/mcquack.eblume.frigate-detector.plist
+  changed_when: true

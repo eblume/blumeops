@@ -1,0 +1,8 @@
+---
+frigate_detector_repo: https://forge.ops.eblu.me/eblume/apple-silicon-detector.git
+frigate_detector_dir: "{{ ansible_env.HOME }}/code/3rd/apple-silicon-detector"
+frigate_detector_endpoint: "tcp://*:5555"
+frigate_detector_model: AUTO
+frigate_detector_log_dir: "{{ ansible_env.HOME }}/Library/Logs"
+frigate_detector_uv_binary: "{{ ansible_env.HOME }}/.local/share/mise/installs/uv/latest/uv-aarch64-apple-darwin/uv"
+frigate_detector_python: "3.12"

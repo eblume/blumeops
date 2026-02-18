@@ -27,12 +27,14 @@ Open-source network video recorder (NVR) with object detection. Runs cloud-free 
 ReoLink Camera (GableCam)
     │ RTSP
     ▼
-Frigate pod
-    ├── go2rtc        — RTSP restream proxy
-    ├── FFmpeg         — stream decoding
-    ├── ONNX detector  — object detection (YOLO-NAS-s, CPU)
-    ├── /media/frigate — NFS recordings (sifaka)
-    └── /db            — SQLite (local PVC)
+Frigate pod (minikube)
+    ├── go2rtc         — RTSP restream proxy
+    ├── FFmpeg          — stream decoding
+    ├── ZMQ detector ──tcp://host.minikube.internal:5555──→ apple-silicon-detector
+    │                                                        ├── CoreML / Neural Engine
+    │                                                        └── LaunchAgent (mcquack.eblume.frigate-detector)
+    ├── /media/frigate  — NFS recordings (sifaka)
+    └── /db             — SQLite (local PVC)
         │
         └──→ MQTT (Mosquitto) → frigate-notify → ntfy → mobile
 ```
@@ -47,9 +49,9 @@ Camera credentials are stored in 1Password and synced via [[external-secrets]] t
 
 ## Detection
 
-Object detection uses ONNX with a YOLO-NAS-s model running on CPU (ARM64). The model file lives on the NFS recordings volume at `/media/frigate/models/yolo_nas_s.onnx`.
+Object detection uses the [apple-silicon-detector](https://github.com/frigate-nvr/apple-silicon-detector) with a YOLOv9-m model (`yolo-generic`, 320x320), running natively on [[indri]] as a LaunchAgent (`mcquack.eblume.frigate-detector`). It communicates with Frigate via ZMQ over TCP (`tcp://host.minikube.internal:5555`), using CoreML with partial Neural Engine acceleration (~100-170ms inference). Model ONNX files are stored on the NFS volume at `/media/frigate/models/`.
 
-A `driveway_entrance` zone is configured for alert filtering — only detections in this zone trigger review alerts.
+Two zones are configured: `driveway_entrance` (triggers review alerts for person/car) and `driveway` (triggers review detections).
 
 ## Retention
 

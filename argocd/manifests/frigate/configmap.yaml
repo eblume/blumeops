@@ -30,7 +30,6 @@ data:
               roles: [detect]
         detect:
           enabled: true
-          fps: 2
           stationary:
             max_frames:
               default: 1500
@@ -42,25 +41,32 @@ data:
           driveway_entrance:
             coordinates: 0.85,0.366,0.735,0.344,0.681,0.2,0.795,0.255
             objects: [car, dog, person]
+          driveway:
+            coordinates: 0.767,0.25,0.58,0.2,0.218,0.25,0.128,0.296,0.003,0.565,0.001,0.992,0.826,0.992,0.897,0.665,0.869,0.608,0.788,0.354
         review:
           alerts:
             labels: [person, car]
             required_zones:
               - driveway_entrance
+          detections:
+            required_zones:
+              - driveway
+              - driveway_entrance
         objects:
           track: [person, car, dog, cat, bird]
 
     detectors:
-      onnx:
-        type: onnx
+      apple_silicon:
+        type: zmq
+        endpoint: tcp://host.minikube.internal:5555
 
     model:
-      model_type: yolonas
+      model_type: yolo-generic
       width: 320
       height: 320
       input_tensor: nchw
-      input_pixel_format: bgr
-      path: /media/frigate/models/yolo_nas_s.onnx
+      input_dtype: float
+      path: /media/frigate/models/yolov9m.onnx
       labelmap_path: /labelmap/coco-80.txt
 
     record:

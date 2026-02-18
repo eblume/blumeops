@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>mcquack.eblume.frigate-detector</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ frigate_detector_uv_binary }}</string>
+		<string>run</string>
+		<string>--python</string>
+		<string>{{ frigate_detector_python }}</string>
+		<string>--with</string>
+		<string>numpy==1.26.*</string>
+		<string>--with</string>
+		<string>opencv-python-headless==4.11.0.*</string>
+		<string>--with</string>
+		<string>opencv-contrib-python==4.11.0.*</string>
+		<string>--with</string>
+		<string>onnxruntime==1.22.*</string>
+		<string>--with</string>
+		<string>pyzmq==26.2.*</string>
+		<string>--with</string>
+		<string>pydantic==2.10.*</string>
+		<string>detector/zmq_onnx_client.py</string>
+		<string>--model</string>
+		<string>{{ frigate_detector_model }}</string>
+		<string>--endpoint</string>
+		<string>{{ frigate_detector_endpoint }}</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>{{ frigate_detector_dir }}</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>{{ frigate_detector_log_dir }}/mcquack.frigate-detector.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>{{ frigate_detector_log_dir }}/mcquack.frigate-detector.err.log</string>
+</dict>
+</plist>
