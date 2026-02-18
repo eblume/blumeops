@@ -1,0 +1,1 @@
+Add NixOS configuration for ringtail (gaming/compute workstation with RTX 4080). Includes declarative disk partitioning via disko, NVIDIA drivers, sway/Wayland desktop, Steam, Tailscale, and Ansible-driven provisioning.

@@ -1,0 +1,25 @@
+---
+- name: Configure ringtail (NixOS)
+  hosts: ringtail
+  become: true
+
+  tasks:
+    - name: Ensure blumeops repo is present
+      ansible.builtin.git:
+        repo: "https://forge.ops.eblu.me/eblume/blumeops.git"
+        dest: /etc/blumeops
+        version: main
+      register: _repo
+
+    - name: Rebuild NixOS
+      ansible.builtin.command:
+        cmd: nixos-rebuild switch --flake /etc/blumeops/nixos/ringtail#ringtail
+      register: _rebuild
+      changed_when: "'activating the configuration' in _rebuild.stdout"
+      when: _repo.changed
+
+    - name: Verify tailscale is connected
+      ansible.builtin.command: tailscale status --self --json
+      register: _ts_status
+      changed_when: false
+      failed_when: "'Running' not in _ts_status.stdout"

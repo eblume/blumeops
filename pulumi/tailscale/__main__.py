@@ -5,7 +5,7 @@ This program manages:
 - Device tags for infrastructure classification
 
 Devices are tagged based on their role:
-- tag:homelab - Server infrastructure (indri)
+- tag:homelab - Server infrastructure (indri, ringtail)
 - tag:workstation - Development machines that can manage homelab (gilbert)
 - tag:nas - Network-attached storage (sifaka)
 - tag:blumeops - Resources managed by this IaC
@@ -82,10 +82,23 @@ flyio_key = tailscale.TailnetKey(
     expiry=7776000,  # 90 days
 )
 
+# Auth key for ringtail (gaming/compute workstation, NixOS)
+# Used during bootstrap: `tailscale up --auth-key=<key>`
+# Once ringtail is on the tailnet, add DeviceTags resource for ongoing management.
+ringtail_key = tailscale.TailnetKey(
+    "ringtail-key",
+    reusable=False,
+    ephemeral=False,
+    preauthorized=True,
+    tags=["tag:homelab", "tag:blumeops"],
+    expiry=86400,  # 24 hours - single use for bootstrap
+)
+
 # ============== Exports ==============
 pulumi.export("acl_id", acl.id)
 pulumi.export("policy_hash", policy_hash)
 pulumi.export("flyio_authkey", flyio_key.key)
+pulumi.export("ringtail_authkey", ringtail_key.key)
 
 pulumi.export("indri_device_id", indri.node_id)
 pulumi.export("indri_tags", indri_tags.tags)
