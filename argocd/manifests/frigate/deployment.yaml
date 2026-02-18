@@ -25,7 +25,7 @@ spec:
               mountPath: /config
       containers:
         - name: frigate
-          image: ghcr.io/blakeblackshear/frigate:0.16.4-standard-arm64
+          image: ghcr.io/blakeblackshear/frigate:0.17.0-rc2-standard-arm64
           ports:
             - containerPort: 5000
               name: http

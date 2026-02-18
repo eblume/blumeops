@@ -37,10 +37,10 @@ data:
         motion:
           mask:
             - 0.401,0.026,0.4,0.078,0.587,0.072,0.585,0.02
-            - 0.881,0.422,0.79,0.233,0.593,0.038,0.553,0,0.634,0,0.824,0.192,0.892,0.307
+            - 0.881,0.422,0.789,0.245,0.595,0.054,0.531,0,0.634,0,0.824,0.192,0.892,0.307
         zones:
           driveway_entrance:
-            coordinates: 0.85,0.366,0.781,0.35,0.734,0.222,0.795,0.255
+            coordinates: 0.85,0.366,0.735,0.344,0.681,0.2,0.795,0.255
             objects: [car, dog, person]
         review:
           alerts:
@@ -65,9 +65,8 @@ data:
 
     record:
       enabled: true
-      retain:
+      continuous:
         days: 3
-        mode: all
       alerts:
         retain:
           days: 30
