@@ -1,7 +1,7 @@
 # Nix-built nettest container
 # Equivalent to the Dockerfile: curl, jq, bind (nslookup), ca-certs, bash
 # Built with dockerTools.buildLayeredImage for efficient layer caching
-{ pkgs ? import <nixpkgs> { system = "aarch64-linux"; } }:
+{ pkgs ? import <nixpkgs> { } }:
 
 let
   testScript = ./test-connectivity.sh;

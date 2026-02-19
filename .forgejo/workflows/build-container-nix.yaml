@@ -66,13 +66,25 @@ jobs:
           echo ""
           echo "Skipping build."
 
+      - name: Resolve nixpkgs
+        if: steps.check.outputs.exists == 'true'
+        id: nixpkgs
+        run: |
+          # Resolve nixpkgs from the flake registry for <nixpkgs> lookup
+          NIXPKGS_PATH=$(nix flake metadata nixpkgs --json | jq -r '.path')
+          echo "Resolved nixpkgs: $NIXPKGS_PATH"
+          echo "path=$NIXPKGS_PATH" >> "$GITHUB_OUTPUT"
+
       - name: Build with nix
         if: steps.check.outputs.exists == 'true'
         id: build
+        env:
+          NIX_PATH: "nixpkgs=${{ steps.nixpkgs.outputs.path }}"
         run: |
           CONTAINER="${{ steps.parse.outputs.container }}"
           echo "Building containers/$CONTAINER/default.nix"
-          nix build -f "containers/$CONTAINER/default.nix" -o result
+          echo "NIX_PATH=$NIX_PATH"
+          nix-build "containers/$CONTAINER/default.nix" -o result
           echo "Build complete: $(readlink result)"
 
       - name: Push to registry
