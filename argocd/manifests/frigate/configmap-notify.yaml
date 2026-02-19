@@ -23,6 +23,16 @@ data:
       general:
         title: "Frigate Alert"
 
+      zones:
+        unzoned: drop
+        allow:
+          - driveway_entrance
+
+      labels:
+        allow:
+          - person
+          - car
+
       ntfy:
         enabled: true
         server: http://ntfy.ntfy.svc.cluster.local:80

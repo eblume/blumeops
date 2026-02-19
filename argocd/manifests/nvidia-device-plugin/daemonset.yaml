@@ -1,0 +1,51 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvidia-device-plugin
+  namespace: nvidia-device-plugin
+  labels:
+    app: nvidia-device-plugin
+spec:
+  selector:
+    matchLabels:
+      app: nvidia-device-plugin
+  template:
+    metadata:
+      labels:
+        app: nvidia-device-plugin
+    spec:
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      priorityClassName: system-node-critical
+      containers:
+        - name: nvidia-device-plugin
+          image: nvcr.io/nvidia/k8s-device-plugin:v0.18.2
+          args:
+            - --device-id-strategy=index
+          env:
+            - name: LD_LIBRARY_PATH
+              value: /run/nvidia/lib
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: device-plugins
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: cdi-specs
+              mountPath: /var/run/cdi
+              readOnly: true
+            - name: nvidia-libs
+              mountPath: /run/nvidia/lib
+              readOnly: true
+      volumes:
+        - name: device-plugins
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: cdi-specs
+          hostPath:
+            path: /var/run/cdi
+        - name: nvidia-libs
+          hostPath:
+            path: /etc/nvidia-driver/lib

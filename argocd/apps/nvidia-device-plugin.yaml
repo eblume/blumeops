@@ -2,17 +2,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: frigate
+  name: nvidia-device-plugin
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
     targetRevision: main
-    path: argocd/manifests/frigate
+    path: argocd/manifests/nvidia-device-plugin
   destination:
     server: https://ringtail.tail8d86e.ts.net:6443
-    namespace: frigate
+    namespace: nvidia-device-plugin
   syncPolicy:
     syncOptions:
       - CreateNamespace=true

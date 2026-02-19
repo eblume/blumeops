@@ -51,6 +51,13 @@ services:
     upstream-source: https://github.com/gethomepage/homepage/releases
     notes: Deployed via Helm chart
 
+  - name: nvidia-device-plugin
+    type: argocd
+    last-reviewed: 2026-02-19
+    current-version: "v0.18.2"
+    upstream-source: https://github.com/NVIDIA/k8s-device-plugin/releases
+    notes: DaemonSet + RuntimeClass on ringtail for GPU workloads
+
   - name: frigate
     type: argocd
     last-reviewed: 2026-02-17

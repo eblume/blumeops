@@ -1,5 +1,5 @@
 # PersistentVolumeClaim for Frigate SQLite database
-# Uses minikube's default storage class for local provisioning
+# Uses k3s local-path storage class for local provisioning
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

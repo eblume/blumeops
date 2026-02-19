@@ -35,6 +35,28 @@ in
     package = config.boot.kernelPackages.nvidiaPackages.stable;
   };
 
+  # NVIDIA container toolkit (CDI specs + runtime for containerd/k3s GPU pods)
+  hardware.nvidia-container-toolkit.enable = true;
+
+  # Stable path to NVIDIA driver libraries for k3s device plugin pod mounts.
+  # Avoids mounting all of /nix/store — only the driver derivation is needed.
+  environment.etc."nvidia-driver/lib".source = "${config.hardware.nvidia.package}/lib";
+
+  # Stable-path wrapper for nvidia-container-runtime.cdi (the CDI-based OCI
+  # runtime that injects GPU devices/libs from NixOS-generated CDI specs).
+  # The wrapper adds runc to PATH since k3s doesn't ship a standalone runc binary.
+  environment.etc."nvidia-container-runtime/nvidia-runtime-cdi-wrapper" = {
+    mode = "0755";
+    text = ''
+      #!/bin/sh
+      export PATH="${pkgs.runc}/bin:$PATH"
+      exec ${pkgs.nvidia-container-toolkit.tools}/bin/nvidia-container-runtime.cdi "$@"
+    '';
+  };
+
+  # NFS client support (required for k3s to mount NFS PersistentVolumes)
+  boot.supportedFilesystems = [ "nfs" ];
+
   # Wayland / Sway
   programs.sway = {
     enable = true;
@@ -109,6 +131,19 @@ in
       "--write-kubeconfig-mode=644"
       "--tls-san=ringtail.tail8d86e.ts.net"
     ];
+    containerdConfigTemplate = ''
+      {{ template "base" . }}
+
+      [plugins.'io.containerd.cri.v1.runtime']
+        enable_cdi = true
+        cdi_spec_dirs = ["/var/run/cdi", "/etc/cdi"]
+
+      [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.nvidia]
+        privileged_without_host_devices = false
+        runtime_type = "io.containerd.runc.v2"
+      [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.nvidia.options]
+        BinaryName = "/etc/nvidia-container-runtime/nvidia-runtime-cdi-wrapper"
+    '';
   };
 
   # K3s containerd registry mirrors (pull through Zot on indri)

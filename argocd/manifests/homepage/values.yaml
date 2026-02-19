@@ -135,6 +135,17 @@ config:
         #       type: caddy
         #       url: http://indri.tail8d86e.ts.net:2019
 
+    # Services on ringtail k3s (not autodiscovered — different cluster)
+    - Infrastructure:
+        - NVR:
+            href: https://nvr.ops.eblu.me
+            icon: frigate.png
+            description: Network video recorder
+        - Ntfy:
+            href: https://ntfy.ops.eblu.me
+            icon: ntfy.png
+            description: Push notifications
+
   # External bookmarks
   bookmarks:
     - Admin:

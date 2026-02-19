@@ -6,6 +6,8 @@ metadata:
   namespace: frigate
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: frigate
@@ -14,6 +16,7 @@ spec:
       labels:
         app: frigate
     spec:
+      runtimeClassName: nvidia
       initContainers:
         - name: copy-config
           image: busybox:1.37
@@ -25,7 +28,7 @@ spec:
               mountPath: /config
       containers:
         - name: frigate
-          image: ghcr.io/blakeblackshear/frigate:0.17.0-rc2-standard-arm64
+          image: ghcr.io/blakeblackshear/frigate:0.17.0-rc2-tensorrt
           ports:
             - containerPort: 5000
               name: http
@@ -60,6 +63,7 @@ spec:
             limits:
               memory: "2Gi"
               cpu: "2000m"
+              nvidia.com/gpu: "1"
           livenessProbe:
             httpGet:
               path: /api/version
@@ -87,4 +91,4 @@ spec:
         - name: shm
           emptyDir:
             medium: Memory
-            sizeLimit: 256Mi
+            sizeLimit: 512Mi
