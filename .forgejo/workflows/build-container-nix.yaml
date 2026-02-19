@@ -1,17 +1,17 @@
 # Nix container build workflow
-# Triggers on tags matching: <container>-nix-v<version>
-# Builds from containers/<container>/default.nix using nix build
-# Pushes to Zot registry via skopeo
+# Triggers on tags matching: <container>-v<version>
+# Builds from containers/<container>/default.nix if it exists, skips otherwise
+# Pushes to Zot registry via skopeo with -nix image tag suffix
 #
 # Examples:
-#   nettest-nix-v1.0.0  -> builds containers/nettest/default.nix, pushes :v1.0.0-nix
-#   myapp-nix-v2.1.0    -> builds containers/myapp/default.nix, pushes :v2.1.0-nix
+#   nettest-v1.0.0  -> builds containers/nettest/default.nix, pushes :v1.0.0-nix
+#   devpi-v2.1.0    -> skips (no default.nix)
 name: Build Container (Nix)
 
 on:
   push:
     tags:
-      - '*-nix-v[0-9]*'
+      - '*-v[0-9]*'
 
 jobs:
   build:
@@ -23,10 +23,10 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           echo "Tag: $TAG"
 
-          # Extract container name (everything before -nix-v)
-          # e.g., "nettest-nix-v1.0.0" -> "nettest"
-          CONTAINER="${TAG%-nix-v[0-9]*}"
-          VERSION="${TAG#"${CONTAINER}"-nix-}"
+          # Extract container name (everything before -v)
+          # e.g., "nettest-v1.0.0" -> "nettest", "my-app-v2.0.0" -> "my-app"
+          CONTAINER="${TAG%-v[0-9]*}"
+          VERSION="${TAG#"${CONTAINER}"-}"
 
           echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -46,25 +46,9 @@ jobs:
             echo "Found $CONTEXT/default.nix"
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No default.nix found at $CONTEXT/default.nix"
+            echo "No default.nix found at $CONTEXT/default.nix — skipping"
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Skip if container not found
-        if: steps.check.outputs.exists != 'true'
-        run: |
-          echo "========================================"
-          echo "Nix container not found: ${{ steps.parse.outputs.container }}"
-          echo "========================================"
-          echo ""
-          echo "Tag '${{ github.ref_name }}' does not match any nix container in containers/"
-          echo ""
-          echo "Available nix containers:"
-          for nix in containers/*/default.nix; do
-            [ -f "$nix" ] && echo "  - $(basename "$(dirname "$nix")")"
-          done
-          echo ""
-          echo "Skipping build."
 
       - name: Resolve nixpkgs
         if: steps.check.outputs.exists == 'true'

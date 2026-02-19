@@ -6,17 +6,12 @@
 #MISE description="Release a container image by creating a git tag"
 #USAGE arg "<container>" help="Container name (directory under containers/)"
 #USAGE arg "<version>" help="Version in vX.Y.Z format"
-#USAGE flag "--nix" help="Release only the nix variant"
-#USAGE flag "--dockerfile" help="Release only the dockerfile variant"
 #USAGE flag "--dry-run" help="Show what would be done without creating tags"
-"""Release a container image by creating git tag(s) that trigger CI builds.
+"""Release a container image by creating a git tag that triggers CI builds.
 
-When a container has both a Dockerfile and default.nix, both tags are created
-by default. Use --nix or --dockerfile to release only one variant.
-
-Tag conventions:
-  <container>-v<version>       -> build-container.yaml  -> :v<version>
-  <container>-nix-v<version>   -> build-container-nix.yaml -> :v<version>-nix
+One tag triggers all applicable workflows:
+  - Dockerfile present -> Build Container workflow  -> :v<version>
+  - default.nix present -> Build Container (Nix) workflow -> :v<version>-nix
 """
 
 import re
@@ -60,33 +55,13 @@ def list_containers() -> None:
             typer.echo(f"  - {d.name} ({', '.join(types)})")
 
 
-def create_and_push_tag(tag: str, image: str, image_tag: str, dry_run: bool) -> bool:
-    """Create a git tag and push it. Returns True on success."""
-    if git_tag_exists(tag):
-        typer.echo(f"  Skip: Tag '{tag}' already exists")
-        return False
-    if dry_run:
-        typer.echo(f"  [dry-run] Would create and push: {tag}  ->  {REGISTRY}/{image}:{image_tag}")
-    else:
-        git("tag", tag)
-        git("push", "origin", tag)
-        typer.echo(f"  {tag}  ->  {REGISTRY}/{image}:{image_tag}")
-    return True
-
-
 @app.command()
 def main(
     container: str = typer.Argument(help="Container name (directory under containers/)"),
     version: str = typer.Argument(help="Version in vX.Y.Z format"),
-    nix: bool = typer.Option(False, "--nix", help="Release only the nix variant"),
-    dockerfile: bool = typer.Option(False, "--dockerfile", help="Release only the dockerfile variant"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be done without creating tags"),
 ) -> None:
-    """Release a container image by creating git tag(s) that trigger CI builds."""
-    if nix and dockerfile:
-        typer.echo("Error: --nix and --dockerfile are mutually exclusive")
-        raise typer.Exit(1)
-
+    """Release a container image by creating a git tag that triggers CI builds."""
     if not re.match(r"^v\d+\.\d+\.\d+$", version):
         typer.echo("Error: Version must be in format vX.Y.Z (e.g. v1.0.0)")
         raise typer.Exit(1)
@@ -101,51 +76,35 @@ def main(
         list_containers()
         raise typer.Exit(1)
 
-    if nix and not has_nix:
-        typer.echo(f"Error: --nix specified but no default.nix in '{container_dir}'")
-        raise typer.Exit(1)
-    if dockerfile and not has_dockerfile:
-        typer.echo(f"Error: --dockerfile specified but no Dockerfile in '{container_dir}'")
-        raise typer.Exit(1)
-
-    # Decide which builds to release
-    builds: list[str] = []
-    if nix:
-        builds = ["nix"]
-    elif dockerfile:
-        builds = ["dockerfile"]
-    else:
-        if has_dockerfile:
-            builds.append("dockerfile")
-        if has_nix:
-            builds.append("nix")
-
     image = f"blumeops/{container}"
+    tag = f"{container}-{version}"
+
+    # Show what workflows will trigger
+    builds = []
+    if has_dockerfile:
+        builds.append(f"  dockerfile -> {REGISTRY}/{image}:{version}")
+    if has_nix:
+        builds.append(f"  nix        -> {REGISTRY}/{image}:{version}-nix")
 
     if dry_run:
         typer.echo("[dry-run mode]")
     typer.echo(f"Container: {container}")
-    typer.echo(f"Image:     {REGISTRY}/{image}")
-    typer.echo(f"Version:   {version}")
-    typer.echo(f"Builds:    {', '.join(builds)}")
+    typer.echo(f"Tag:       {tag}")
+    typer.echo(f"Builds:")
+    for b in builds:
+        typer.echo(b)
     typer.echo()
 
-    # Create and push tags
-    tags_created = 0
-    for build in builds:
-        if build == "nix":
-            tag = f"{container}-nix-{version}"
-            image_tag = f"{version}-nix"
-        else:
-            tag = f"{container}-{version}"
-            image_tag = version
-        if create_and_push_tag(tag, image, image_tag, dry_run):
-            tags_created += 1
-
-    if tags_created == 0:
-        typer.echo()
-        typer.echo("No tags created (all already existed)")
+    if git_tag_exists(tag):
+        typer.echo(f"Error: Tag '{tag}' already exists")
         raise typer.Exit(1)
+
+    if dry_run:
+        typer.echo(f"[dry-run] Would create and push tag: {tag}")
+    else:
+        git("tag", tag)
+        git("push", "origin", tag)
+        typer.echo(f"Tag '{tag}' created and pushed")
 
     typer.echo()
     typer.echo(f"Monitor builds at: {FORGE_ACTIONS}")

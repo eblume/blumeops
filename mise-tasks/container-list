@@ -52,10 +52,10 @@ for dir in "$CONTAINER_DIR"/*/; do
 done
 
 echo "---"
-echo "To release a new version (builds all available types by default):"
+echo "To release a new version:"
 echo "  mise run container-tag-and-release <container> <version>"
-echo "  mise run container-tag-and-release <container> <version> --nix        # nix only"
-echo "  mise run container-tag-and-release <container> <version> --dockerfile # dockerfile only"
+echo ""
+echo "One tag triggers all applicable workflows (dockerfile and/or nix)."
 echo ""
 echo "Example:"
 echo "  mise run container-tag-and-release nettest v1.0.0"
