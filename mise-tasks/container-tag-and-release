@@ -1,110 +1,153 @@
-#!/usr/bin/env bash
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["typer>=0.15.0"]
+# ///
 #MISE description="Release a container image by creating a git tag"
+#USAGE arg "<container>" help="Container name (directory under containers/)"
+#USAGE arg "<version>" help="Version in vX.Y.Z format"
+#USAGE flag "--nix" help="Release only the nix variant"
+#USAGE flag "--dockerfile" help="Release only the dockerfile variant"
+#USAGE flag "--dry-run" help="Show what would be done without creating tags"
+"""Release a container image by creating git tag(s) that trigger CI builds.
 
-set -euo pipefail
+When a container has both a Dockerfile and default.nix, both tags are created
+by default. Use --nix or --dockerfile to release only one variant.
 
-CONTAINER="${1:-}"
-VERSION="${2:-}"
-BUILD_TYPE_FLAG="${3:-}"
+Tag conventions:
+  <container>-v<version>       -> triggers build-container.yaml (Dockerfile)
+  <container>-nix-v<version>   -> triggers build-container-nix.yaml (Nix)
+"""
 
-if [[ -z "$CONTAINER" || -z "$VERSION" ]]; then
-    echo "Usage: mise run container-tag-and-release <container> <version> [--nix|--dockerfile]"
-    echo ""
-    echo "When a container has both a Dockerfile and default.nix, you must specify"
-    echo "the build type with --nix or --dockerfile."
-    echo ""
-    echo "Run 'mise run container-list' to see available containers and recent tags."
-    exit 1
-fi
+import re
+import subprocess
+import sys
+from pathlib import Path
 
-# Validate version format
-if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "Error: Version must be in format vX.Y.Z (e.g. v1.0.0)"
-    exit 1
-fi
+import typer
 
-# Determine build type: Nix or Dockerfile
-CONTAINER_DIR="containers/${CONTAINER}"
-HAS_NIX=false
-HAS_DOCKERFILE=false
+REGISTRY = "registry.ops.eblu.me"
+FORGE_ACTIONS = "https://forge.ops.eblu.me/eblume/blumeops/actions"
 
-[[ -f "$CONTAINER_DIR/default.nix" ]] && HAS_NIX=true
-[[ -f "$CONTAINER_DIR/Dockerfile" ]] && HAS_DOCKERFILE=true
+app = typer.Typer(add_completion=False)
 
-if ! $HAS_NIX && ! $HAS_DOCKERFILE; then
-    echo "Error: No Dockerfile or default.nix found in '$CONTAINER_DIR'"
-    echo ""
-    echo "Available containers:"
-    for dir in containers/*/; do
-        [[ -d "$dir" ]] || continue
-        name=$(basename "$dir")
-        types=()
-        [[ -f "$dir/Dockerfile" ]] && types+=("dockerfile")
-        [[ -f "$dir/default.nix" ]] && types+=("nix")
-        [[ ${#types[@]} -gt 0 ]] && echo "  - $name ($(IFS=, ; echo "${types[*]}"))"
-    done
-    exit 1
-fi
 
-if $HAS_NIX && $HAS_DOCKERFILE; then
-    # Both exist — require explicit flag
-    case "$BUILD_TYPE_FLAG" in
-        --nix)
-            BUILD_TYPE="nix"
-            ;;
-        --dockerfile)
-            BUILD_TYPE="dockerfile"
-            ;;
-        *)
-            echo "Error: '$CONTAINER' has both a Dockerfile and default.nix."
-            echo ""
-            echo "Specify the build type:"
-            echo "  mise run container-tag-and-release $CONTAINER $VERSION --nix"
-            echo "  mise run container-tag-and-release $CONTAINER $VERSION --dockerfile"
-            exit 1
-            ;;
-    esac
-elif $HAS_NIX; then
-    BUILD_TYPE="nix"
-elif $HAS_DOCKERFILE; then
-    BUILD_TYPE="dockerfile"
-fi
+def git(*args: str) -> str:
+    result = subprocess.run(
+        ["git", *args], capture_output=True, text=True, check=True
+    )
+    return result.stdout.strip()
 
-if [[ "$BUILD_TYPE" == "nix" ]]; then
-    TAG="${CONTAINER}-nix-${VERSION}"
-else
-    TAG="${CONTAINER}-${VERSION}"
-fi
 
-echo "Creating release tag: $TAG"
-echo "Build type: $BUILD_TYPE"
-echo ""
+def git_tag_exists(tag: str) -> bool:
+    result = subprocess.run(
+        ["git", "rev-parse", tag], capture_output=True, text=True
+    )
+    return result.returncode == 0
 
-# Check if tag already exists
-if git rev-parse "$TAG" >/dev/null 2>&1; then
-    echo "Error: Tag '$TAG' already exists"
-    echo "Existing tags for $CONTAINER:"
-    git tag -l "${CONTAINER}-*v*" | sort -V | tail -5
-    exit 1
-fi
 
-# Image name follows convention: blumeops/<container>
-IMAGE="blumeops/${CONTAINER}"
+def list_containers() -> None:
+    typer.echo("Available containers:")
+    for d in sorted(Path("containers").iterdir()):
+        if not d.is_dir():
+            continue
+        types = []
+        if (d / "Dockerfile").exists():
+            types.append("dockerfile")
+        if (d / "default.nix").exists():
+            types.append("nix")
+        if types:
+            typer.echo(f"  - {d.name} ({', '.join(types)})")
 
-echo "Container: $CONTAINER"
-echo "Directory: $CONTAINER_DIR"
-echo "Image: registry.ops.eblu.me/$IMAGE:$VERSION"
-echo ""
 
-# Create and push tag
-git tag "$TAG"
-git push origin "$TAG"
+def create_and_push_tag(tag: str, image: str, version: str, dry_run: bool) -> bool:
+    """Create a git tag and push it. Returns True on success."""
+    if git_tag_exists(tag):
+        typer.echo(f"  Skip: Tag '{tag}' already exists")
+        return False
+    if dry_run:
+        typer.echo(f"  [dry-run] Would create and push: {tag}  ->  {REGISTRY}/{image}:{version}")
+    else:
+        git("tag", tag)
+        git("push", "origin", tag)
+        typer.echo(f"  {tag}  ->  {REGISTRY}/{image}:{version}")
+    return True
 
-echo ""
-echo "Tag '$TAG' created and pushed"
-echo ""
-echo "The workflow will now build and push:"
-echo "  registry.ops.eblu.me/$IMAGE:$VERSION"
-echo ""
-echo "Monitor the build at:"
-echo "  https://forge.ops.eblu.me/eblume/blumeops/actions"
+
+@app.command()
+def main(
+    container: str = typer.Argument(help="Container name (directory under containers/)"),
+    version: str = typer.Argument(help="Version in vX.Y.Z format"),
+    nix: bool = typer.Option(False, "--nix", help="Release only the nix variant"),
+    dockerfile: bool = typer.Option(False, "--dockerfile", help="Release only the dockerfile variant"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be done without creating tags"),
+) -> None:
+    """Release a container image by creating git tag(s) that trigger CI builds."""
+    if nix and dockerfile:
+        typer.echo("Error: --nix and --dockerfile are mutually exclusive")
+        raise typer.Exit(1)
+
+    if not re.match(r"^v\d+\.\d+\.\d+$", version):
+        typer.echo("Error: Version must be in format vX.Y.Z (e.g. v1.0.0)")
+        raise typer.Exit(1)
+
+    container_dir = Path("containers") / container
+    has_dockerfile = (container_dir / "Dockerfile").exists()
+    has_nix = (container_dir / "default.nix").exists()
+
+    if not has_dockerfile and not has_nix:
+        typer.echo(f"Error: No Dockerfile or default.nix found in '{container_dir}'")
+        typer.echo()
+        list_containers()
+        raise typer.Exit(1)
+
+    if nix and not has_nix:
+        typer.echo(f"Error: --nix specified but no default.nix in '{container_dir}'")
+        raise typer.Exit(1)
+    if dockerfile and not has_dockerfile:
+        typer.echo(f"Error: --dockerfile specified but no Dockerfile in '{container_dir}'")
+        raise typer.Exit(1)
+
+    # Decide which builds to release
+    builds: list[str] = []
+    if nix:
+        builds = ["nix"]
+    elif dockerfile:
+        builds = ["dockerfile"]
+    else:
+        if has_dockerfile:
+            builds.append("dockerfile")
+        if has_nix:
+            builds.append("nix")
+
+    image = f"blumeops/{container}"
+
+    if dry_run:
+        typer.echo("[dry-run mode]")
+    typer.echo(f"Container: {container}")
+    typer.echo(f"Image:     {REGISTRY}/{image}")
+    typer.echo(f"Version:   {version}")
+    typer.echo(f"Builds:    {', '.join(builds)}")
+    typer.echo()
+
+    # Create and push tags
+    tags_created = 0
+    for build in builds:
+        if build == "nix":
+            tag = f"{container}-nix-{version}"
+        else:
+            tag = f"{container}-{version}"
+        if create_and_push_tag(tag, image, version, dry_run):
+            tags_created += 1
+
+    if tags_created == 0:
+        typer.echo()
+        typer.echo("No tags created (all already existed)")
+        raise typer.Exit(1)
+
+    typer.echo()
+    typer.echo(f"Monitor builds at: {FORGE_ACTIONS}")
+
+
+if __name__ == "__main__":
+    app()
