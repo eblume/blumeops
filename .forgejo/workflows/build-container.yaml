@@ -17,7 +17,6 @@ on:
 
 jobs:
   build:
-    if: "!contains(github.ref_name, '-nix-v')"
     runs-on: k8s
     steps:
       - name: Parse tag

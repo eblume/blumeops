@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-02-08
+modified: 2026-02-19
 tags:
   - service
   - git
@@ -31,14 +31,19 @@ Git forge and CI/CD platform. **Primary source of truth for blumeops** (mirrored
 
 ## CI/CD (Forgejo Actions)
 
-**Runner:** Kubernetes pod with Docker-in-Docker sidecar
-- Namespace: `forgejo-runner`
-- Labels: `k8s`
-- ArgoCD app: `forgejo-runner`
+**Runners:**
+
+| Runner | Host | Labels | Purpose |
+|--------|------|--------|---------|
+| k8s DinD pod | [[indri]] (minikube) | `k8s` | Dockerfile builds via Dagger |
+| ringtail-nix-builder | [[ringtail]] (native) | `nix-container-builder` | Nix builds via `nix-build` + `skopeo` |
 
 **Workflows:** `.forgejo/workflows/`
-- `build-container.yaml` - Container image builds on tag
+- `build-container.yaml` - Dockerfile builds on tag (runs on `k8s`)
+- `build-container-nix.yaml` - Nix builds on tag (runs on `nix-container-builder`)
 - `build-blumeops.yaml` - Documentation builds and releases
+
+Both container workflows trigger on the same tag pattern (`*-v[0-9]*`). Each checks for its build file (`Dockerfile` or `default.nix`) and skips if not present. See [[build-container-image]].
 
 ## Secrets (Forgejo Config)
 

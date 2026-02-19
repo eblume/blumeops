@@ -1,6 +1,6 @@
 ---
 title: Ringtail
-modified: 2026-02-18
+modified: 2026-02-19
 tags:
   - infrastructure
   - host
@@ -81,7 +81,7 @@ argocd cluster add default --name k3s-ringtail
 
 ### Forgejo Actions Runner
 
-A native Forgejo Actions runner (`ringtail-nix-builder`) runs as a systemd service via the NixOS `services.gitea-actions-runner` module. It builds containers using `nix build` and pushes them to Zot via `skopeo`.
+A native Forgejo Actions runner (`ringtail-nix-builder`) runs as a systemd service via the NixOS `services.gitea-actions-runner` module. It builds containers using `nix-build` and pushes them to Zot via `skopeo`.
 
 | Property | Value |
 |----------|-------|
@@ -89,6 +89,9 @@ A native Forgejo Actions runner (`ringtail-nix-builder`) runs as a systemd servi
 | **Execution** | Host (no containers) |
 | **Token** | `/etc/forgejo-runner/token.env` (provisioned by Ansible) |
 | **Service unit** | `gitea-runner-nix_container_builder.service` |
+| **Host packages** | bash, coreutils, curl, gawk, git, gnused, jq, nodejs, wget, nix, skopeo |
+
+The runner resolves `<nixpkgs>` from the flake registry at build time. Container trust policy (`/etc/containers/policy.json`) and registry search order (`/etc/containers/registries.conf`) are configured minimally in `configuration.nix` for skopeo — no full `virtualisation.containers` module needed.
 
 ## Maintenance Notes
 

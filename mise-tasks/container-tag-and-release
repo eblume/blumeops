@@ -1,77 +1,114 @@
-#!/usr/bin/env bash
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["typer>=0.15.0"]
+# ///
 #MISE description="Release a container image by creating a git tag"
+#USAGE arg "<container>" help="Container name (directory under containers/)"
+#USAGE arg "<version>" help="Version in vX.Y.Z format"
+#USAGE flag "--dry-run" help="Show what would be done without creating tags"
+"""Release a container image by creating a git tag that triggers CI builds.
 
-set -euo pipefail
+One tag triggers all applicable workflows:
+  - Dockerfile present -> Build Container workflow  -> :v<version>
+  - default.nix present -> Build Container (Nix) workflow -> :v<version>-nix
+"""
 
-CONTAINER="${1:-}"
-VERSION="${2:-}"
+import re
+import subprocess
+import sys
+from pathlib import Path
 
-if [[ -z "$CONTAINER" || -z "$VERSION" ]]; then
-    echo "Usage: mise run container-tag-and-release <container> <version>"
-    echo ""
-    echo "Run 'mise run container-list' to see available containers and recent tags."
-    exit 1
-fi
+import typer
 
-# Validate version format
-if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "Error: Version must be in format vX.Y.Z (e.g. v1.0.0)"
-    exit 1
-fi
+REGISTRY = "registry.ops.eblu.me"
+FORGE_ACTIONS = "https://forge.ops.eblu.me/eblume/blumeops/actions"
 
-# Determine build type: Nix or Dockerfile
-CONTAINER_DIR="containers/${CONTAINER}"
-if [[ -f "$CONTAINER_DIR/default.nix" ]]; then
-    BUILD_TYPE="nix"
-    TAG="${CONTAINER}-nix-${VERSION}"
-elif [[ -f "$CONTAINER_DIR/Dockerfile" ]]; then
-    BUILD_TYPE="dockerfile"
-    TAG="${CONTAINER}-${VERSION}"
-else
-    echo "Error: No Dockerfile or default.nix found in '$CONTAINER_DIR'"
-    echo ""
-    echo "Available containers:"
-    for dir in containers/*/; do
-        [[ -d "$dir" ]] || continue
-        name=$(basename "$dir")
-        if [[ -f "$dir/default.nix" ]]; then
-            echo "  - $name (nix)"
-        elif [[ -f "$dir/Dockerfile" ]]; then
-            echo "  - $name (dockerfile)"
-        fi
-    done
-    exit 1
-fi
+app = typer.Typer(add_completion=False)
 
-echo "Creating release tag: $TAG"
-echo "Build type: $BUILD_TYPE"
-echo ""
 
-# Check if tag already exists
-if git rev-parse "$TAG" >/dev/null 2>&1; then
-    echo "Error: Tag '$TAG' already exists"
-    echo "Existing tags for $CONTAINER:"
-    git tag -l "${CONTAINER}-*v*" | sort -V | tail -5
-    exit 1
-fi
+def git(*args: str) -> str:
+    result = subprocess.run(
+        ["git", *args], capture_output=True, text=True, check=True
+    )
+    return result.stdout.strip()
 
-# Image name follows convention: blumeops/<container>
-IMAGE="blumeops/${CONTAINER}"
 
-echo "Container: $CONTAINER"
-echo "Directory: $CONTAINER_DIR"
-echo "Image: registry.ops.eblu.me/$IMAGE:$VERSION"
-echo ""
+def git_tag_exists(tag: str) -> bool:
+    result = subprocess.run(
+        ["git", "rev-parse", tag], capture_output=True, text=True
+    )
+    return result.returncode == 0
 
-# Create and push tag
-git tag "$TAG"
-git push origin "$TAG"
 
-echo ""
-echo "Tag '$TAG' created and pushed"
-echo ""
-echo "The workflow will now build and push:"
-echo "  registry.ops.eblu.me/$IMAGE:$VERSION"
-echo ""
-echo "Monitor the build at:"
-echo "  https://forge.ops.eblu.me/eblume/blumeops/actions"
+def list_containers() -> None:
+    typer.echo("Available containers:")
+    for d in sorted(Path("containers").iterdir()):
+        if not d.is_dir():
+            continue
+        types = []
+        if (d / "Dockerfile").exists():
+            types.append("dockerfile")
+        if (d / "default.nix").exists():
+            types.append("nix")
+        if types:
+            typer.echo(f"  - {d.name} ({', '.join(types)})")
+
+
+@app.command()
+def main(
+    container: str = typer.Argument(help="Container name (directory under containers/)"),
+    version: str = typer.Argument(help="Version in vX.Y.Z format"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be done without creating tags"),
+) -> None:
+    """Release a container image by creating a git tag that triggers CI builds."""
+    if not re.match(r"^v\d+\.\d+\.\d+$", version):
+        typer.echo("Error: Version must be in format vX.Y.Z (e.g. v1.0.0)")
+        raise typer.Exit(1)
+
+    container_dir = Path("containers") / container
+    has_dockerfile = (container_dir / "Dockerfile").exists()
+    has_nix = (container_dir / "default.nix").exists()
+
+    if not has_dockerfile and not has_nix:
+        typer.echo(f"Error: No Dockerfile or default.nix found in '{container_dir}'")
+        typer.echo()
+        list_containers()
+        raise typer.Exit(1)
+
+    image = f"blumeops/{container}"
+    tag = f"{container}-{version}"
+
+    # Show what workflows will trigger
+    builds = []
+    if has_dockerfile:
+        builds.append(f"  dockerfile -> {REGISTRY}/{image}:{version}")
+    if has_nix:
+        builds.append(f"  nix        -> {REGISTRY}/{image}:{version}-nix")
+
+    if dry_run:
+        typer.echo("[dry-run mode]")
+    typer.echo(f"Container: {container}")
+    typer.echo(f"Tag:       {tag}")
+    typer.echo(f"Builds:")
+    for b in builds:
+        typer.echo(b)
+    typer.echo()
+
+    if git_tag_exists(tag):
+        typer.echo(f"Error: Tag '{tag}' already exists")
+        raise typer.Exit(1)
+
+    if dry_run:
+        typer.echo(f"[dry-run] Would create and push tag: {tag}")
+    else:
+        git("tag", tag)
+        git("push", "origin", tag)
+        typer.echo(f"Tag '{tag}' created and pushed")
+
+    typer.echo()
+    typer.echo(f"Monitor builds at: {FORGE_ACTIONS}")
+
+
+if __name__ == "__main__":
+    app()

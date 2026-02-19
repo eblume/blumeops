@@ -446,6 +446,15 @@ in
     "d /mnt/storage2 0755 eblume users -"
   ];
 
+  # Container config for skopeo (used by the forgejo runner to push images)
+  # and for unqualified image pulls via Zot pull-through cache
+  environment.etc."containers/policy.json".text = builtins.toJSON {
+    default = [{ type = "insecureAcceptAnything"; }];
+  };
+  environment.etc."containers/registries.conf".text = ''
+    unqualified-search-registries = ["registry.ops.eblu.me", "docker.io", "ghcr.io", "quay.io"]
+  '';
+
   # Forgejo Actions runner (nix container builder)
   services.gitea-actions-runner = {
     package = pkgs.forgejo-runner;
@@ -456,7 +465,7 @@ in
       tokenFile = "/etc/forgejo-runner/token.env";
       labels = [ "nix-container-builder:host" ];
       hostPackages = with pkgs; [
-        bash coreutils curl gawk gitMinimal gnused nodejs wget
+        bash coreutils curl gawk gitMinimal gnused jq nodejs wget
         nix skopeo
       ];
       settings = {

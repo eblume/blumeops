@@ -1,6 +1,6 @@
 ---
 title: Build Container Image
-modified: 2026-02-15
+modified: 2026-02-19
 last-reviewed: 2026-02-15
 tags:
   - how-to
@@ -14,30 +14,35 @@ How to create a custom container image in BlumeOps, build it locally, and releas
 
 ## Prerequisites
 
-- [Dagger CLI](https://docs.dagger.io/install) installed locally
-- A Dockerfile for the service you want to build
+- [Dagger CLI](https://docs.dagger.io/install) installed locally (for Dockerfile builds)
+- A `Dockerfile` and/or `default.nix` for the service
 
 ## 1. Create the container directory
 
-Add a `Dockerfile` (and any supporting files) under `containers/<name>/`:
+Add build files under `containers/<name>/`:
 
 ```
 containers/<name>/
-├── Dockerfile
+├── Dockerfile      (built by Dagger on the k8s runner)
+├── default.nix     (built by nix-build on the ringtail runner)
 └── (optional scripts, configs)
 ```
 
-The directory name becomes the image name: `registry.ops.eblu.me/blumeops/<name>`.
+A container can have one or both build files. The directory name becomes the image name: `registry.ops.eblu.me/blumeops/<name>`.
 
 ## 2. Build locally
 
-Test your image with Dagger:
+**Dockerfile** — test with Dagger:
 
 ```bash
 dagger call build --src=. --container-name=<name>
 ```
 
-This builds `containers/<name>/Dockerfile` using the Dagger `docker_build()` function. Fix any build errors before proceeding.
+**Nix** — test with nix-build (requires nix, e.g. on [[ringtail]]):
+
+```bash
+nix-build containers/<name>/default.nix -o result
+```
 
 ## 3. Release
 
@@ -47,7 +52,14 @@ Once the image builds cleanly, create a tagged release:
 mise run container-tag-and-release <name> v1.0.0
 ```
 
-This creates a git tag `<name>-v1.0.0` and pushes it. The `build-container` Forgejo workflow triggers on the tag, builds the image via Dagger, and publishes it to the registry as `registry.ops.eblu.me/blumeops/<name>:v1.0.0`.
+Use `--dry-run` to preview without creating tags.
+
+This creates a single git tag `<name>-v1.0.0` and pushes it. Both Forgejo workflows trigger on the tag — each checks for its build file and skips if not present:
+
+| Build file | Workflow | Runner | Registry tag |
+|------------|----------|--------|--------------|
+| `Dockerfile` | `build-container.yaml` | `k8s` (indri) | `:v1.0.0` |
+| `default.nix` | `build-container-nix.yaml` | `nix-container-builder` ([[ringtail]]) | `:v1.0.0-nix` |
 
 Check available images and tags with:
 
@@ -76,6 +88,7 @@ Existing containers demonstrate several build approaches:
 | Multi-stage with Node + Go | [[#navidrome]] | Separate UI and backend build stages |
 | Multi-stage Elixir | [[#teslamate]] | Elixir release with Node assets |
 | Runtime tarball download | [[#kiwix-serve]] | Download pre-built binary with arch detection |
+| Nix `dockerTools` | [[#nettest-nix]] | `buildLayeredImage` with nixpkgs tools |
 
 ### transmission
 
@@ -96,6 +109,10 @@ Existing containers demonstrate several build approaches:
 ### kiwix-serve
 
 `containers/kiwix-serve/Dockerfile` — Downloads a pre-built binary from upstream, with architecture detection for cross-platform support.
+
+### nettest (nix)
+
+`containers/nettest/default.nix` — Uses `dockerTools.buildLayeredImage` with `buildEnv` to merge nixpkgs tools (curl, jq, dnsutils, bash). Runs alongside the existing Dockerfile; the nix variant is tagged `:version-nix` in the registry.
 
 ## Related
 
