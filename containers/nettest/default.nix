@@ -14,6 +14,7 @@ let
       pkgs.dnsutils # provides nslookup, dig
       pkgs.cacert
       pkgs.coreutils
+      pkgs.hostname
       pkgs.bashInteractive
     ];
   };
