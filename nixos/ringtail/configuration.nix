@@ -53,6 +53,7 @@ in
     ];
   };
   security.polkit.enable = true;
+  security.pam.services.swaylock = {}; # Allow swaylock to authenticate
   security.sudo.wheelNeedsPassword = false;
 
   # Enable greetd as display manager for sway
@@ -261,6 +262,7 @@ in
           "${mod}+d" = "exec wmenu-run";
           "${mod}+space" = "exec fuzzel";
           "${mod}+Shift+c" = "reload";
+          "${mod}+l" = "exec swaylock -f";
           "--locked XF86AudioMute" = "exec pactl set-sink-mute @DEFAULT_SINK@ toggle";
           "--locked XF86AudioLowerVolume" = "exec pactl set-sink-volume @DEFAULT_SINK@ -5%";
           "--locked XF86AudioRaiseVolume" = "exec pactl set-sink-volume @DEFAULT_SINK@ +5%";
@@ -271,6 +273,56 @@ in
           { command = "steam"; }
         ];
       };
+    };
+
+    programs.swaylock = {
+      enable = true;
+      settings = {
+        color = "24273a";
+        font = "VictorMono Nerd Font";
+        font-size = 24;
+        indicator-radius = 100;
+        indicator-thickness = 7;
+        inside-color = "24273a";
+        inside-clear-color = "24273a";
+        inside-ver-color = "24273a";
+        inside-wrong-color = "24273a";
+        key-hl-color = "8aadf4";
+        bs-hl-color = "ed8796";
+        ring-color = "363a4f";
+        ring-clear-color = "f5a97f";
+        ring-ver-color = "8aadf4";
+        ring-wrong-color = "ed8796";
+        line-color = "00000000";
+        line-clear-color = "00000000";
+        line-ver-color = "00000000";
+        line-wrong-color = "00000000";
+        separator-color = "00000000";
+        text-color = "cad3f5";
+        text-clear-color = "cad3f5";
+        text-ver-color = "cad3f5";
+        text-wrong-color = "ed8796";
+        show-failed-attempts = true;
+      };
+    };
+
+    services.swayidle = {
+      enable = true;
+      events = [
+        { event = "before-sleep"; command = "${pkgs.swaylock}/bin/swaylock -f"; }
+        { event = "lock"; command = "${pkgs.swaylock}/bin/swaylock -f"; }
+      ];
+      timeouts = [
+        {
+          timeout = 900; # 15 minutes — lock screen
+          command = "${pkgs.swaylock}/bin/swaylock -f";
+        }
+        {
+          timeout = 3600; # 60 minutes — turn off display
+          command = "${pkgs.sway}/bin/swaymsg 'output * dpms off'";
+          resumeCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms on'";
+        }
+      ];
     };
 
     programs.fuzzel = {
@@ -418,6 +470,14 @@ in
 
   # Allow the runner's dynamic user to access the nix daemon
   nix.settings.trusted-users = [ "gitea-runner" ];
+
+  # Prevent machine from sleeping (workstation should stay on)
+  systemd.sleep.extraConfig = ''
+    AllowSuspend=no
+    AllowHibernation=no
+    AllowHybridSleep=no
+    AllowSuspendThenHibernate=no
+  '';
 
   # NixOS release
   system.stateVersion = "25.11";
