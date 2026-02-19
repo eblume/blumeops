@@ -15,8 +15,8 @@ When a container has both a Dockerfile and default.nix, both tags are created
 by default. Use --nix or --dockerfile to release only one variant.
 
 Tag conventions:
-  <container>-v<version>       -> triggers build-container.yaml (Dockerfile)
-  <container>-nix-v<version>   -> triggers build-container-nix.yaml (Nix)
+  <container>-v<version>       -> build-container.yaml  -> :v<version>
+  <container>-nix-v<version>   -> build-container-nix.yaml -> :v<version>-nix
 """
 
 import re
@@ -60,17 +60,17 @@ def list_containers() -> None:
             typer.echo(f"  - {d.name} ({', '.join(types)})")
 
 
-def create_and_push_tag(tag: str, image: str, version: str, dry_run: bool) -> bool:
+def create_and_push_tag(tag: str, image: str, image_tag: str, dry_run: bool) -> bool:
     """Create a git tag and push it. Returns True on success."""
     if git_tag_exists(tag):
         typer.echo(f"  Skip: Tag '{tag}' already exists")
         return False
     if dry_run:
-        typer.echo(f"  [dry-run] Would create and push: {tag}  ->  {REGISTRY}/{image}:{version}")
+        typer.echo(f"  [dry-run] Would create and push: {tag}  ->  {REGISTRY}/{image}:{image_tag}")
     else:
         git("tag", tag)
         git("push", "origin", tag)
-        typer.echo(f"  {tag}  ->  {REGISTRY}/{image}:{version}")
+        typer.echo(f"  {tag}  ->  {REGISTRY}/{image}:{image_tag}")
     return True
 
 
@@ -135,9 +135,11 @@ def main(
     for build in builds:
         if build == "nix":
             tag = f"{container}-nix-{version}"
+            image_tag = f"{version}-nix"
         else:
             tag = f"{container}-{version}"
-        if create_and_push_tag(tag, image, version, dry_run):
+            image_tag = version
+        if create_and_push_tag(tag, image, image_tag, dry_run):
             tags_created += 1
 
     if tags_created == 0:

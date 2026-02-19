@@ -4,8 +4,8 @@
 # Pushes to Zot registry via skopeo
 #
 # Examples:
-#   nettest-nix-v1.0.0  -> builds containers/nettest/default.nix
-#   myapp-nix-v2.1.0    -> builds containers/myapp/default.nix
+#   nettest-nix-v1.0.0  -> builds containers/nettest/default.nix, pushes :v1.0.0-nix
+#   myapp-nix-v2.1.0    -> builds containers/myapp/default.nix, pushes :v2.1.0-nix
 name: Build Container (Nix)
 
 on:
@@ -80,7 +80,7 @@ jobs:
         run: |
           CONTAINER="${{ steps.parse.outputs.container }}"
           VERSION="${{ steps.parse.outputs.version }}"
-          IMAGE="registry.ops.eblu.me/blumeops/$CONTAINER:$VERSION"
+          IMAGE="registry.ops.eblu.me/blumeops/$CONTAINER:$VERSION-nix"
 
           echo "Pushing to $IMAGE"
           skopeo copy \
