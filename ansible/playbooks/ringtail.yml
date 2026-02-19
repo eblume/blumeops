@@ -100,7 +100,8 @@
             --from-literal=1password-credentials.json='{{ _op_credentials.stdout }}' \
             --dry-run=client -o yaml | k3s kubectl apply -f -
         executable: /run/current-system/sw/bin/bash
-      changed_when: true
+      register: _op_credentials_apply
+      changed_when: "'configured' in _op_credentials_apply.stdout or 'created' in _op_credentials_apply.stdout"
       no_log: true
 
     - name: Create or update onepassword-token secret
@@ -112,5 +113,6 @@
             --from-literal=token={{ _op_token.stdout }} \
             --dry-run=client -o yaml | k3s kubectl apply -f -
         executable: /run/current-system/sw/bin/bash
-      changed_when: true
+      register: _op_token_apply
+      changed_when: "'configured' in _op_token_apply.stdout or 'created' in _op_token_apply.stdout"
       no_log: true
