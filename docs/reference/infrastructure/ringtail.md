@@ -45,6 +45,51 @@ mise run provision-ringtail
 
 This updates `flake.lock` via Dagger, verifies the current commit is pushed to forge, then deploys the exact commit via ansible. If the lockfile changed, it stages the file and exits so you can commit and re-run.
 
+## K3s Cluster
+
+Ringtail runs a single-node k3s cluster for native amd64 workloads, registered in [[argocd|ArgoCD]] on indri as `k3s-ringtail`.
+
+- **Disabled components:** Traefik, ServiceLB, metrics-server (minimal footprint)
+- **TLS SAN:** `ringtail.tail8d86e.ts.net` (ArgoCD connects via Tailscale)
+- **Registry mirrors:** Containerd pulls through Zot on indri (`registry.ops.eblu.me`)
+- **Token:** `/etc/k3s/token` (generated on first provision)
+- **Kubeconfig:** `/etc/rancher/k3s/k3s.yaml` (world-readable via `--write-kubeconfig-mode=644`)
+
+### Secrets Management
+
+1Password Connect + External Secrets Operator syncs secrets from 1Password to k8s, matching the [[1password|indri pattern]]. Bootstrap credentials (`op-credentials`, `onepassword-token`) are provisioned by Ansible; ArgoCD manages the operator stack.
+
+Sync order: `1password-connect-ringtail` -> `external-secrets-crds-ringtail` -> `external-secrets-ringtail` -> `external-secrets-config-ringtail`
+
+### Workloads
+
+No k8s workloads currently deployed. K3s is available for future workloads (e.g. Frigate, running nix-built containers).
+
+### Manual Cluster Registration
+
+After first provision, register the cluster in ArgoCD:
+
+```fish
+ssh ringtail 'sudo cat /etc/rancher/k3s/k3s.yaml' | \
+  sed 's|127.0.0.1|ringtail.tail8d86e.ts.net|' > /tmp/k3s-ringtail.yaml
+set -x KUBECONFIG /tmp/k3s-ringtail.yaml
+kubectl get nodes  # verify access
+argocd cluster add default --name k3s-ringtail
+```
+
+## Systemd Services
+
+### Forgejo Actions Runner
+
+A native Forgejo Actions runner (`ringtail-nix-builder`) runs as a systemd service via the NixOS `services.gitea-actions-runner` module. It builds containers using `nix build` and pushes them to Zot via `skopeo`.
+
+| Property | Value |
+|----------|-------|
+| **Label** | `nix-container-builder` |
+| **Execution** | Host (no containers) |
+| **Token** | `/etc/forgejo-runner/token.env` (provisioned by Ansible) |
+| **Service unit** | `gitea-runner-nix_container_builder.service` |
+
 ## Maintenance Notes
 
 **1Password:** Desktop app must be running for `op` CLI. Use `$mod+Shift+minus` to send to scratchpad.

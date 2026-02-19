@@ -3,6 +3,57 @@
   hosts: ringtail
   become: true
 
+  pre_tasks:
+    - name: Fetch 1Password Connect credentials from 1Password
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/1Password Connect/credentials-file"
+      register: _op_credentials
+      changed_when: false
+      delegate_to: localhost
+      become: false
+
+    - name: Fetch 1Password Connect token from 1Password
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/1Password Connect/token"
+      register: _op_token
+      changed_when: false
+      delegate_to: localhost
+      become: false
+
+    - name: Fetch Forgejo runner registration token from 1Password
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/Forgejo Secrets/runner_reg"
+      register: _runner_reg
+      changed_when: false
+      delegate_to: localhost
+      become: false
+
+    - name: Ensure /etc/forgejo-runner directory exists
+      ansible.builtin.file:
+        path: /etc/forgejo-runner
+        state: directory
+        mode: "0700"
+
+    - name: Write Forgejo runner token file
+      ansible.builtin.copy:
+        content: "TOKEN={{ _runner_reg.stdout }}"
+        dest: /etc/forgejo-runner/token.env
+        mode: "0600"
+      no_log: true
+
+    - name: Ensure /etc/k3s directory exists
+      ansible.builtin.file:
+        path: /etc/k3s
+        state: directory
+        mode: "0700"
+
+    - name: Generate k3s token if not present
+      ansible.builtin.copy:
+        content: "{{ lookup('ansible.builtin.password', '/dev/null', chars=['hexdigits'], length=32) }}"
+        dest: /etc/k3s/token
+        mode: "0600"
+        force: false
+
   tasks:
     - name: Ensure blumeops repo is present
       ansible.builtin.git:
@@ -24,3 +75,42 @@
       register: _ts_status
       changed_when: false
       failed_when: "'Running' not in _ts_status.stdout"
+
+  post_tasks:
+    - name: Wait for k3s to be ready
+      ansible.builtin.command: k3s kubectl get nodes
+      register: _k3s_ready
+      changed_when: false
+      retries: 30
+      delay: 5
+      until: _k3s_ready.rc == 0
+
+    - name: Create 1password namespace
+      ansible.builtin.command: k3s kubectl create namespace 1password
+      register: _ns
+      changed_when: _ns.rc == 0
+      failed_when: _ns.rc != 0 and 'AlreadyExists' not in _ns.stderr
+
+    - name: Create or update op-credentials secret
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          k3s kubectl create secret generic op-credentials \
+            --namespace=1password \
+            --from-literal=1password-credentials.json='{{ _op_credentials.stdout }}' \
+            --dry-run=client -o yaml | k3s kubectl apply -f -
+        executable: /run/current-system/sw/bin/bash
+      changed_when: true
+      no_log: true
+
+    - name: Create or update onepassword-token secret
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          k3s kubectl create secret generic onepassword-token \
+            --namespace=1password \
+            --from-literal=token={{ _op_token.stdout }} \
+            --dry-run=client -o yaml | k3s kubectl apply -f -
+        executable: /run/current-system/sw/bin/bash
+      changed_when: true
+      no_log: true

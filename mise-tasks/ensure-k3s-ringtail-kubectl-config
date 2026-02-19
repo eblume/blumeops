@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+#MISE description="Ensure kubectl config for k3s-ringtail is set up on this workstation"
+
+set -euo pipefail
+
+CONFIG_DIR="$HOME/.kube/k3s-ringtail"
+CONFIG_FILE="$CONFIG_DIR/config.yml"
+
+echo "Ensuring k3s-ringtail kubectl config..."
+
+# Create directory if needed
+mkdir -p "$CONFIG_DIR"
+
+# Fetch kubeconfig from ringtail and extract the CA cert
+echo "Fetching kubeconfig from ringtail..."
+RAW_CONFIG=$(ssh ringtail 'sudo cat /etc/rancher/k3s/k3s.yaml')
+
+# Extract and decode the CA certificate
+echo "$RAW_CONFIG" | grep certificate-authority-data | awk '{print $2}' | base64 -d > "$CONFIG_DIR/ca.crt"
+
+# Extract and decode the client certificate
+echo "$RAW_CONFIG" | grep client-certificate-data | awk '{print $2}' | base64 -d > "$CONFIG_DIR/client.crt"
+
+# Extract and decode the client key
+echo "$RAW_CONFIG" | grep client-key-data | awk '{print $2}' | base64 -d > "$CONFIG_DIR/client.key"
+chmod 600 "$CONFIG_DIR/client.key"
+
+# Write kubeconfig with file-based certs and tailscale hostname
+cat > "$CONFIG_FILE" << EOF
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    certificate-authority: $CONFIG_DIR/ca.crt
+    server: https://ringtail.tail8d86e.ts.net:6443
+  name: k3s-ringtail
+contexts:
+- context:
+    cluster: k3s-ringtail
+    user: k3s-ringtail
+  name: k3s-ringtail
+current-context: k3s-ringtail
+users:
+- name: k3s-ringtail
+  user:
+    client-certificate: $CONFIG_DIR/client.crt
+    client-key: $CONFIG_DIR/client.key
+EOF
+
+echo "Config written to $CONFIG_FILE"
+
+# Warn if KUBECONFIG doesn't include this file
+if [[ -z "${KUBECONFIG:-}" ]] || [[ ":$KUBECONFIG:" != *":$CONFIG_FILE:"* ]]; then
+    echo ""
+    echo "WARNING: KUBECONFIG does not include $CONFIG_FILE"
+    echo "Add this to your shell config:"
+    echo "  export KUBECONFIG=\"\$KUBECONFIG:$CONFIG_FILE\""
+fi
+
+echo ""
+echo "Test with: kubectl --context=k3s-ringtail get nodes"

@@ -10,16 +10,24 @@ echo "Container Images"
 echo "================"
 echo ""
 
-# Find all container directories with Dockerfiles
+# Find all container directories with Dockerfiles or default.nix
 for dir in "$CONTAINER_DIR"/*/; do
     [[ -d "$dir" ]] || continue
-    [[ -f "$dir/Dockerfile" ]] || continue
+
+    # Determine build type
+    if [[ -f "$dir/default.nix" ]]; then
+        build_type="nix"
+    elif [[ -f "$dir/Dockerfile" ]]; then
+        build_type="dockerfile"
+    else
+        continue
+    fi
 
     # Extract container name from directory
     container=$(basename "$dir")
     image="blumeops/$container"
 
-    echo "📦 $container"
+    echo "[$build_type] $container"
     echo "   Image: $REGISTRY/$image"
     echo "   Path: $dir"
 

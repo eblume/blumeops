@@ -1,0 +1,89 @@
+# Nix container build workflow
+# Triggers on tags matching: <container>-nix-v<version>
+# Builds from containers/<container>/default.nix using nix build
+# Pushes to Zot registry via skopeo
+#
+# Examples:
+#   nettest-nix-v1.0.0  -> builds containers/nettest/default.nix
+#   myapp-nix-v2.1.0    -> builds containers/myapp/default.nix
+name: Build Container (Nix)
+
+on:
+  push:
+    tags:
+      - '*-nix-v[0-9]*'
+
+jobs:
+  build:
+    runs-on: nix-container-builder
+    steps:
+      - name: Parse tag
+        id: parse
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          echo "Tag: $TAG"
+
+          # Extract container name (everything before -nix-v)
+          # e.g., "nettest-nix-v1.0.0" -> "nettest"
+          CONTAINER="${TAG%-nix-v[0-9]*}"
+          VERSION="${TAG#"${CONTAINER}"-nix-}"
+
+          echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Container: $CONTAINER"
+          echo "Version: $VERSION"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check if nix container exists
+        id: check
+        run: |
+          CONTAINER="${{ steps.parse.outputs.container }}"
+          CONTEXT="containers/$CONTAINER"
+
+          if [ -f "$CONTEXT/default.nix" ]; then
+            echo "Found $CONTEXT/default.nix"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No default.nix found at $CONTEXT/default.nix"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip if container not found
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          echo "========================================"
+          echo "Nix container not found: ${{ steps.parse.outputs.container }}"
+          echo "========================================"
+          echo ""
+          echo "Tag '${{ github.ref_name }}' does not match any nix container in containers/"
+          echo ""
+          echo "Available nix containers:"
+          for nix in containers/*/default.nix; do
+            [ -f "$nix" ] && echo "  - $(basename "$(dirname "$nix")")"
+          done
+          echo ""
+          echo "Skipping build."
+
+      - name: Build with nix
+        if: steps.check.outputs.exists == 'true'
+        id: build
+        run: |
+          CONTAINER="${{ steps.parse.outputs.container }}"
+          echo "Building containers/$CONTAINER/default.nix"
+          nix build -f "containers/$CONTAINER/default.nix" -o result
+          echo "Build complete: $(readlink result)"
+
+      - name: Push to registry
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          CONTAINER="${{ steps.parse.outputs.container }}"
+          VERSION="${{ steps.parse.outputs.version }}"
+          IMAGE="registry.ops.eblu.me/blumeops/$CONTAINER:$VERSION"
+
+          echo "Pushing to $IMAGE"
+          skopeo copy \
+            "docker-archive:result" \
+            "docker://$IMAGE"
+          echo "Push complete: $IMAGE"

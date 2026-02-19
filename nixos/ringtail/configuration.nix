@@ -96,11 +96,31 @@ in
     dedicatedServer.openFirewall = true;
   };
 
+  # K3s single-node cluster
+  services.k3s = {
+    enable = true;
+    role = "server";
+    tokenFile = "/etc/k3s/token";
+    extraFlags = toString [
+      "--disable=traefik"
+      "--disable=servicelb"
+      "--disable=metrics-server"
+      "--write-kubeconfig-mode=644"
+      "--tls-san=ringtail.tail8d86e.ts.net"
+    ];
+  };
+
+  # K3s containerd registry mirrors (pull through Zot on indri)
+  environment.etc."rancher/k3s/registries.yaml".source = ./k3s-registries.yaml;
+
   # Tailscale
   services.tailscale = {
     enable = true;
     extraUpFlags = [ "--accept-routes" "--ssh" ];
   };
+
+  # Trust Tailscale interface (ArgoCD on indri connects via tailnet)
+  networking.firewall.trustedInterfaces = [ "tailscale0" ];
 
   # SSH
   services.openssh = {
@@ -124,6 +144,7 @@ in
   # System packages
   environment.systemPackages = with pkgs; [
     git
+    kubectl
     python3 # required for Ansible
     vim
     htop
@@ -369,8 +390,34 @@ in
     "d /mnt/storage2 0755 eblume users -"
   ];
 
+  # Forgejo Actions runner (nix container builder)
+  services.gitea-actions-runner = {
+    package = pkgs.forgejo-runner;
+    instances.nix_container_builder = {
+      enable = true;
+      name = "ringtail-nix-builder";
+      url = "https://forge.ops.eblu.me";
+      tokenFile = "/etc/forgejo-runner/token.env";
+      labels = [ "nix-container-builder:host" ];
+      hostPackages = with pkgs; [
+        bash coreutils curl gawk gitMinimal gnused nodejs wget
+        nix skopeo
+      ];
+      settings = {
+        log.level = "info";
+        runner = {
+          capacity = 1;
+          timeout = "3h";
+        };
+      };
+    };
+  };
+
   # Enable nix flakes
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
+  # Allow the runner's dynamic user to access the nix daemon
+  nix.settings.trusted-users = [ "gitea-runner" ];
 
   # NixOS release
   system.stateVersion = "25.11";

@@ -1,0 +1,13 @@
+mirrors:
+  docker.io:
+    endpoint:
+      - "https://registry.ops.eblu.me"
+  ghcr.io:
+    endpoint:
+      - "https://registry.ops.eblu.me"
+  quay.io:
+    endpoint:
+      - "https://registry.ops.eblu.me"
+  registry.ops.eblu.me:
+    endpoint:
+      - "https://registry.ops.eblu.me"
