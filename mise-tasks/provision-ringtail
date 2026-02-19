@@ -17,7 +17,7 @@ if ! git diff --quiet nixos/ringtail/flake.lock; then
 fi
 
 COMMIT=$(git rev-parse HEAD)
-REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null | awk '{print $1}')
+REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null | awk 'NR==1{print $1}')
 
 if [[ "$REMOTE_REF" != "$COMMIT" ]]; then
     echo "ERROR: Current commit $COMMIT is not pushed to forge."
