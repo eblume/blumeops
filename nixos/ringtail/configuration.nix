@@ -213,6 +213,10 @@ in
         window = {
           border = 2;
           titlebar = false;
+          commands = [
+            { command = "inhibit_idle fullscreen"; criteria = { class = ".*"; }; }
+            { command = "inhibit_idle fullscreen"; criteria = { app_id = ".*"; }; }
+          ];
         };
         colors = {
           focused = {
