@@ -1,6 +1,6 @@
 ---
 title: "Plan: Operationalize ReoLink Camera"
-modified: 2026-02-11
+modified: 2026-02-19
 tags:
   - how-to
   - plans
@@ -276,6 +276,10 @@ Camera settings to apply: enable RTSP and ONVIF, set "fluency first" encoding mo
 | `argocd/manifests/grafana-config/dashboards/configmap-zot.yaml` | Grafana dashboard ConfigMap pattern |
 | `argocd/manifests/prometheus/configmap.yaml` | Prometheus scrape target config |
 | `docs/reference/storage/sifaka.md` | NFS export documentation |
+
+## Post-Completion Update
+
+Frigate, Mosquitto, and ntfy were migrated from indri's minikube to [[ringtail]]'s k3s cluster with RTX 4080 GPU acceleration (PRs #216, #217). The ZMQ Apple Silicon Detector has been retired in favour of ONNX with CUDA execution provider. Object detection now runs on the GPU rather than CPU.
 
 ## Related
 

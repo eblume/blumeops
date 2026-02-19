@@ -1,6 +1,6 @@
 ---
 title: Indri
-modified: 2026-02-09
+modified: 2026-02-19
 tags:
   - infrastructure
   - host
@@ -32,7 +32,7 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 - [[caddy]] - Reverse proxy for `*.ops.eblu.me`
 
 **Kubernetes (via minikube):**
-- [[apps|All k8s applications]]
+- [[apps|Most k8s applications]] (Frigate, Mosquitto, ntfy migrated to [[ringtail]] k3s)
 
 **GUI Applications (manual start required):**
 - Docker Desktop - Container runtime for minikube

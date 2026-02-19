@@ -63,7 +63,13 @@ Sync order: `1password-connect-ringtail` -> `external-secrets-crds-ringtail` -> 
 
 ### Workloads
 
-No k8s workloads currently deployed. K3s is available for future workloads (e.g. Frigate, running nix-built containers).
+| Workload | Namespace | Notes |
+|----------|-----------|-------|
+| [[frigate]] | `frigate` | NVR with GPU-accelerated detection (RTX 4080) |
+| [[frigate]]-notify | `frigate` | MQTT-to-ntfy alert bridge |
+| Mosquitto | `mqtt` | MQTT broker for Frigate events |
+| [[ntfy]] | `ntfy` | Push notification server |
+| nvidia-device-plugin | `nvidia-device-plugin` | Exposes GPU to pods via CDI + nvidia RuntimeClass |
 
 ### Manual Cluster Registration
 

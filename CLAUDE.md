@@ -14,7 +14,7 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 
 1. **Always run `mise run zk-docs -- --style=header --color=never --decorations=always` at session start**
     This will refresh your context with important information you will be assumed to know and follow.
-2. **Always use `--context=minikube-indri` with kubectl** - work contexts must never be touched
+2. **Always use `--context=minikube-indri` with kubectl** (or `--context=k3s-ringtail` for ringtail services) - work contexts must never be touched
 3. **Feature branches only** - checkout main, pull, create branch, commit often
 4. **Create PRs via `tea pr create`** - user reviews before deploy, merges after
 5. **Check PR comments with `mise run pr-comments <pr_number>`** before proceeding
@@ -52,7 +52,7 @@ encounter wiki-links (`[[like-this]]`) it is referring to docs/ cards.
 
 ### Kubernetes (ArgoCD)
 
-Most services run in minikube on indri via ArgoCD (app-of-apps, manual sync).
+Most services run in minikube on indri via ArgoCD (app-of-apps, manual sync). GPU workloads (Frigate, Mosquitto, ntfy) run on ringtail's k3s cluster, also managed by ArgoCD.
 
 **PR workflow:**
 1. Create branch, modify `argocd/manifests/<service>/`

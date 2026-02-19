@@ -1,6 +1,6 @@
 ---
 title: Architecture
-modified: 2026-02-09
+modified: 2026-02-19
 last-reviewed: 2026-02-09
 tags:
   - explanation
@@ -15,7 +15,7 @@ How all the BlumeOps pieces fit together.
 
 ## Physical Layer
 
-Two always-on devices form the infrastructure backbone:
+Three always-on devices form the infrastructure backbone:
 
 ```
 ┌─────────────────┐     ┌─────────────────┐
@@ -23,8 +23,13 @@ Two always-on devices form the infrastructure backbone:
 │  Mac Mini M1    │────▶│  Synology NAS   │
 │  (compute)      │     │  (storage)      │
 └─────────────────┘     └─────────────────┘
-        │
-        │ Tailscale
+        │                       ▲
+        │ Tailscale             │ NFS
+        │               ┌──────┴──────────┐
+        │               │    Ringtail     │
+        │               │  NixOS PC      │
+        │               │  (GPU compute) │
+        │               └─────────────────┘
         ▼
 ┌─────────────────┐
 │    Gilbert      │
@@ -33,7 +38,8 @@ Two always-on devices form the infrastructure backbone:
 └─────────────────┘
 ```
 
-- **[[indri]]** runs all services (native and containerized)
+- **[[indri]]** runs most services (native and containerized)
+- **[[ringtail]]** runs GPU workloads (Frigate NVR) and related services (MQTT, ntfy)
 - **[[sifaka]]** provides bulk storage and backup targets
 - **[[gilbert]]** is the development workstation
 
@@ -61,11 +67,13 @@ See [[routing]] for the full service URL table and port map.
 
 ## Compute Layer
 
-Services run in two places on [[indri]]:
+Services run across three compute targets:
 
-**Native (Ansible)** — services that need host-level access run directly on macOS, managed via Ansible roles in `ansible/roles/`. See [[indri]] for the full list.
+**Native on indri (Ansible)** — services that need host-level access run directly on macOS, managed via Ansible roles in `ansible/roles/`. See [[indri]] for the full list.
 
-**Kubernetes (ArgoCD)** — most services run in minikube, managed via ArgoCD from `argocd/manifests/`. See [[apps]] for the application registry.
+**Minikube on indri (ArgoCD)** — most services run in minikube, managed via ArgoCD from `argocd/manifests/`. See [[apps]] for the application registry.
+
+**K3s on ringtail (ArgoCD)** — GPU workloads and related services run on [[ringtail]]'s single-node k3s cluster. Frigate NVR uses the RTX 4080 for object detection; Mosquitto and ntfy support its alerting pipeline.
 
 ## Data Flow
 

@@ -1,6 +1,6 @@
 ---
 title: Frigate
-modified: 2026-02-17
+modified: 2026-02-19
 tags:
   - service
   - surveillance
@@ -17,7 +17,7 @@ Open-source network video recorder (NVR) with object detection. Runs cloud-free 
 | **URL** | https://nvr.ops.eblu.me |
 | **Tailscale URL** | https://nvr.tail8d86e.ts.net |
 | **Namespace** | `frigate` |
-| **Image** | `ghcr.io/blakeblackshear/frigate:0.17.0-rc2-standard-arm64` |
+| **Image** | `ghcr.io/blakeblackshear/frigate:0.17.0-rc2-tensorrt` |
 | **Upstream** | https://github.com/blakeblackshear/frigate |
 | **Manifests** | `argocd/manifests/frigate/` |
 
@@ -30,7 +30,7 @@ ReoLink Camera (GableCam)
 Frigate pod (ringtail k3s)
     ├── go2rtc         — RTSP restream proxy
     ├── FFmpeg          — stream decoding
-    ├── detector       — GPU-accelerated (RTX 4080, pending migration)
+    ├── detector       — ONNX with CUDA (RTX 4080)
     ├── /media/frigate  — NFS recordings (sifaka)
     └── /db             — SQLite (local PVC)
         │
@@ -47,7 +47,7 @@ Camera credentials are stored in 1Password and synced via [[external-secrets]] t
 
 ## Detection
 
-Object detection will use GPU-accelerated inference on [[ringtail]]'s RTX 4080 (migration pending). The previous Apple Silicon Detector on [[indri]] has been retired.
+Object detection runs on [[ringtail]]'s RTX 4080 via the ONNX detector with CUDA execution provider. The model is YOLO-NAS-S (`yolo_nas_s.onnx`). The previous Apple Silicon Detector on [[indri]] has been retired.
 
 Two zones are configured: `driveway_entrance` (triggers review alerts for person/car) and `driveway` (triggers review detections).
 
@@ -66,7 +66,7 @@ Two zones are configured: `driveway_entrance` (triggers review alerts for person
 |-------|---------|------|
 | `/media/frigate` | NFS PV on [[sifaka]] (`/volume1/frigate`) | 2 Ti |
 | `/db` | Local PVC (`frigate-database`) | SQLite |
-| `/dev/shm` | Memory-backed `emptyDir` | 256 Mi |
+| `/dev/shm` | Memory-backed `emptyDir` | 512 Mi |
 
 ## Alerting (frigate-notify)
 
