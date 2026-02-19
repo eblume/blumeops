@@ -124,6 +124,14 @@
 			"users":  ["autogroup:nonroot"],
 			"checkPeriod": "12h0m0s",
 		},
+		// Homelab can SSH to homelab (for ansible, cross-host management)
+		// Tagged devices can't do interactive "check" auth, so use "accept".
+		{
+			"action": "accept",
+			"src":    ["tag:homelab"],
+			"dst":    ["tag:homelab"],
+			"users":  ["autogroup:nonroot"],
+		},
 	],
 
 	// ============== Auto Approvers ==============

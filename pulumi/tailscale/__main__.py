@@ -70,6 +70,18 @@ sifaka_tags = tailscale.DeviceTags(
     ],
 )
 
+# ringtail - NixOS gaming/compute workstation
+# Managed by this IaC after initial bootstrap via auth key.
+ringtail = tailscale.get_device(name="ringtail.tail8d86e.ts.net")
+ringtail_tags = tailscale.DeviceTags(
+    "ringtail-tags",
+    device_id=ringtail.node_id,
+    tags=[
+        "tag:homelab",  # Server role - allows SSH from workstations and homelab peers
+        "tag:blumeops",  # Managed by this IaC
+    ],
+)
+
 # ============== Auth Keys ==============
 
 # Auth key for Fly.io proxy container (public reverse proxy)
@@ -82,26 +94,16 @@ flyio_key = tailscale.TailnetKey(
     expiry=7776000,  # 90 days
 )
 
-# Auth key for ringtail (gaming/compute workstation, NixOS)
-# Used during bootstrap: `tailscale up --auth-key=<key>`
-# Once ringtail is on the tailnet, add DeviceTags resource for ongoing management.
-ringtail_key = tailscale.TailnetKey(
-    "ringtail-key",
-    reusable=False,
-    ephemeral=False,
-    preauthorized=True,
-    tags=["tag:homelab", "tag:blumeops"],
-    expiry=86400,  # 24 hours - single use for bootstrap
-)
-
 # ============== Exports ==============
 pulumi.export("acl_id", acl.id)
 pulumi.export("policy_hash", policy_hash)
 pulumi.export("flyio_authkey", flyio_key.key)
-pulumi.export("ringtail_authkey", ringtail_key.key)
 
 pulumi.export("indri_device_id", indri.node_id)
 pulumi.export("indri_tags", indri_tags.tags)
 
 pulumi.export("sifaka_device_id", sifaka.node_id)
 pulumi.export("sifaka_tags", sifaka_tags.tags)
+
+pulumi.export("ringtail_device_id", ringtail.node_id)
+pulumi.export("ringtail_tags", ringtail_tags.tags)
