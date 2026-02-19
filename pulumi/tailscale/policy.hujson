@@ -158,7 +158,7 @@
 		"tag:feed": ["autogroup:admin", "tag:blumeops"],
 		"tag:registry": ["autogroup:admin", "tag:blumeops"],
 		"tag:k8s-api": ["autogroup:admin", "tag:blumeops"],
-		"tag:k8s-operator": ["autogroup:admin", "tag:blumeops"],
+		"tag:k8s-operator": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
 		"tag:k8s": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
 		"tag:ci-gateway": ["autogroup:admin", "tag:blumeops"],
 		"tag:flyio-proxy": ["autogroup:admin", "tag:blumeops"],

@@ -7,5 +7,4 @@ namespace: tailscale
 resources:
   - ../tailscale-operator-base
   - proxygroup-ingress.yaml
-  - egress-forge.yaml
   - external-secret.yaml

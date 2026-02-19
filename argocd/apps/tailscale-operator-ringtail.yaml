@@ -1,0 +1,27 @@
+---
+# ArgoCD Application for Tailscale Kubernetes Operator on ringtail
+# Shares operator.yaml, proxyclass, and dnsconfig with indri; ringtail-specific
+# ProxyGroup (1 replica) and ExternalSecret live in the overlay directory.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tailscale-operator-ringtail
+  namespace: argocd
+spec:
+  project: default
+  # Tailscale operator mutates externalName from "placeholder" to actual proxy service
+  ignoreDifferences:
+    - group: ""
+      kind: Service
+      jsonPointers:
+        - /spec/externalName
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/tailscale-operator-ringtail
+  destination:
+    server: https://ringtail.tail8d86e.ts.net:6443
+    namespace: tailscale
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
