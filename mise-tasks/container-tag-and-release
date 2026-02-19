@@ -5,9 +5,13 @@ set -euo pipefail
 
 CONTAINER="${1:-}"
 VERSION="${2:-}"
+BUILD_TYPE_FLAG="${3:-}"
 
 if [[ -z "$CONTAINER" || -z "$VERSION" ]]; then
-    echo "Usage: mise run container-tag-and-release <container> <version>"
+    echo "Usage: mise run container-tag-and-release <container> <version> [--nix|--dockerfile]"
+    echo ""
+    echo "When a container has both a Dockerfile and default.nix, you must specify"
+    echo "the build type with --nix or --dockerfile."
     echo ""
     echo "Run 'mise run container-list' to see available containers and recent tags."
     exit 1
@@ -21,26 +25,55 @@ fi
 
 # Determine build type: Nix or Dockerfile
 CONTAINER_DIR="containers/${CONTAINER}"
-if [[ -f "$CONTAINER_DIR/default.nix" ]]; then
-    BUILD_TYPE="nix"
-    TAG="${CONTAINER}-nix-${VERSION}"
-elif [[ -f "$CONTAINER_DIR/Dockerfile" ]]; then
-    BUILD_TYPE="dockerfile"
-    TAG="${CONTAINER}-${VERSION}"
-else
+HAS_NIX=false
+HAS_DOCKERFILE=false
+
+[[ -f "$CONTAINER_DIR/default.nix" ]] && HAS_NIX=true
+[[ -f "$CONTAINER_DIR/Dockerfile" ]] && HAS_DOCKERFILE=true
+
+if ! $HAS_NIX && ! $HAS_DOCKERFILE; then
     echo "Error: No Dockerfile or default.nix found in '$CONTAINER_DIR'"
     echo ""
     echo "Available containers:"
     for dir in containers/*/; do
         [[ -d "$dir" ]] || continue
         name=$(basename "$dir")
-        if [[ -f "$dir/default.nix" ]]; then
-            echo "  - $name (nix)"
-        elif [[ -f "$dir/Dockerfile" ]]; then
-            echo "  - $name (dockerfile)"
-        fi
+        types=()
+        [[ -f "$dir/Dockerfile" ]] && types+=("dockerfile")
+        [[ -f "$dir/default.nix" ]] && types+=("nix")
+        [[ ${#types[@]} -gt 0 ]] && echo "  - $name ($(IFS=, ; echo "${types[*]}"))"
     done
     exit 1
+fi
+
+if $HAS_NIX && $HAS_DOCKERFILE; then
+    # Both exist — require explicit flag
+    case "$BUILD_TYPE_FLAG" in
+        --nix)
+            BUILD_TYPE="nix"
+            ;;
+        --dockerfile)
+            BUILD_TYPE="dockerfile"
+            ;;
+        *)
+            echo "Error: '$CONTAINER' has both a Dockerfile and default.nix."
+            echo ""
+            echo "Specify the build type:"
+            echo "  mise run container-tag-and-release $CONTAINER $VERSION --nix"
+            echo "  mise run container-tag-and-release $CONTAINER $VERSION --dockerfile"
+            exit 1
+            ;;
+    esac
+elif $HAS_NIX; then
+    BUILD_TYPE="nix"
+elif $HAS_DOCKERFILE; then
+    BUILD_TYPE="dockerfile"
+fi
+
+if [[ "$BUILD_TYPE" == "nix" ]]; then
+    TAG="${CONTAINER}-nix-${VERSION}"
+else
+    TAG="${CONTAINER}-${VERSION}"
 fi
 
 echo "Creating release tag: $TAG"

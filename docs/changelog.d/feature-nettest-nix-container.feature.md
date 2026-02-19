@@ -1,0 +1,1 @@
+Added Nix container build for nettest, validating the full nix-container-builder pipeline on ringtail. Updated container-list and container-tag-and-release to support containers with both Dockerfile and default.nix.

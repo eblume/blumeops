@@ -14,20 +14,26 @@ echo ""
 for dir in "$CONTAINER_DIR"/*/; do
     [[ -d "$dir" ]] || continue
 
-    # Determine build type
-    if [[ -f "$dir/default.nix" ]]; then
-        build_type="nix"
-    elif [[ -f "$dir/Dockerfile" ]]; then
-        build_type="dockerfile"
-    else
-        continue
-    fi
+    # Determine available build types
+    has_dockerfile=false
+    has_nix=false
+    [[ -f "$dir/Dockerfile" ]] && has_dockerfile=true
+    [[ -f "$dir/default.nix" ]] && has_nix=true
+
+    # Skip directories with no build files
+    $has_dockerfile || $has_nix || continue
+
+    # Build type label
+    types=()
+    $has_dockerfile && types+=("dockerfile")
+    $has_nix && types+=("nix")
+    label=$(IFS=+; echo "${types[*]}")
 
     # Extract container name from directory
     container=$(basename "$dir")
     image="blumeops/$container"
 
-    echo "[$build_type] $container"
+    echo "[$label] $container"
     echo "   Image: $REGISTRY/$image"
     echo "   Path: $dir"
 
@@ -48,6 +54,8 @@ done
 echo "---"
 echo "To release a new version:"
 echo "  mise run container-tag-and-release <container> <version>"
+echo "  mise run container-tag-and-release <container> <version> --nix        # nix build"
+echo "  mise run container-tag-and-release <container> <version> --dockerfile # dockerfile build"
 echo ""
 echo "Example:"
 echo "  mise run container-tag-and-release nettest v1.0.0"
