@@ -27,12 +27,10 @@ Open-source network video recorder (NVR) with object detection. Runs cloud-free 
 ReoLink Camera (GableCam)
     │ RTSP
     ▼
-Frigate pod (minikube)
+Frigate pod (ringtail k3s)
     ├── go2rtc         — RTSP restream proxy
     ├── FFmpeg          — stream decoding
-    ├── ZMQ detector ──tcp://host.minikube.internal:5555──→ apple-silicon-detector
-    │                                                        ├── CoreML / Neural Engine
-    │                                                        └── LaunchAgent (mcquack.eblume.frigate-detector)
+    ├── detector       — GPU-accelerated (RTX 4080, pending migration)
     ├── /media/frigate  — NFS recordings (sifaka)
     └── /db             — SQLite (local PVC)
         │
@@ -49,7 +47,7 @@ Camera credentials are stored in 1Password and synced via [[external-secrets]] t
 
 ## Detection
 
-Object detection uses the [apple-silicon-detector](https://github.com/frigate-nvr/apple-silicon-detector) with a YOLOv9-m model (`yolo-generic`, 320x320), running natively on [[indri]] as a LaunchAgent (`mcquack.eblume.frigate-detector`). It communicates with Frigate via ZMQ over TCP (`tcp://host.minikube.internal:5555`), using CoreML with partial Neural Engine acceleration (~100-170ms inference). Model ONNX files are stored on the NFS volume at `/media/frigate/models/`.
+Object detection will use GPU-accelerated inference on [[ringtail]]'s RTX 4080 (migration pending). The previous Apple Silicon Detector on [[indri]] has been retired.
 
 Two zones are configured: `driveway_entrance` (triggers review alerts for person/car) and `driveway` (triggers review detections).
 
