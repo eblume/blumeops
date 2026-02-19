@@ -1,6 +1,8 @@
 import dagger
 from dagger import dag, function, object_type
 
+NIX_IMAGE = "nixos/nix:2.33.3"
+
 
 @object_type
 class BlumeopsCi:
@@ -66,4 +68,27 @@ class BlumeopsCi:
                 ]
             )
             .file(f"/docs-{version}.tar.gz")
+        )
+
+    @function
+    async def flake_lock(
+        self, src: dagger.Directory, flake_path: str = "nixos/ringtail"
+    ) -> dagger.File:
+        """Resolve flake inputs and return updated flake.lock."""
+        return await (
+            dag.container()
+            .from_(NIX_IMAGE)
+            .with_directory("/workspace", src)
+            .with_workdir(f"/workspace/{flake_path}")
+            .with_exec(
+                [
+                    "nix",
+                    "--extra-experimental-features",
+                    "nix-command flakes",
+                    "flake",
+                    "lock",
+                    "--accept-flake-config",
+                ]
+            )
+            .file(f"/workspace/{flake_path}/flake.lock")
         )

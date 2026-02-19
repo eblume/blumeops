@@ -1,6 +1,6 @@
 ---
 title: Hosts
-modified: 2026-02-10
+modified: 2026-02-18
 tags:
   - infrastructure
 ---
@@ -16,6 +16,7 @@ All devices connected via [Tailscale](https://login.tailscale.com/) tailnet `tai
 | **Indri** | Mac Mini M1, 2020 - Primary server | [[indri|Details]] |
 | **Gilbert** | MacBook Air M4, 2025 - Workstation | [[gilbert|Details]] |
 | **[[sifaka|Sifaka]]** | Synology NAS - Storage & backups | [[sifaka|Details]] |
+| **[[ringtail|Ringtail]]** | Custom PC, NixOS - Service host & gaming | [[ringtail|Details]] |
 | **Mouse** | MacBook Air M2 - Allison's laptop | - |
 | **UniFi** | UniFi Express 7 - Home WiFi | [[unifi|Details]] |
 | **Dwarf** | iPad Air - Employer-provided, off tailnet | - |

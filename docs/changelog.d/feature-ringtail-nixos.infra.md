@@ -1,0 +1,1 @@
+Ringtail post-install: NixOS config (sway with Catppuccin Macchiato theme, fish, 1Password, Steam, LibreWolf, Bluetooth audio, chezmoi, dev tools, nix-ld), Dagger flake-lock pipeline, improved provision-ringtail workflow, services-check integration, and reference documentation.

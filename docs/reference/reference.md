@@ -47,6 +47,7 @@ Host inventory and network configuration.
 
 - [[hosts|Hosts]] - Device inventory
 - [[indri]] - Primary server
+- [[ringtail]] - Service host & gaming PC
 - [[gilbert]] - Development workstation
 - [[tailscale]] - ACLs, groups, tags
 - [[gandi]] - DNS hosting for `eblu.me`

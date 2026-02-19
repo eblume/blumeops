@@ -5,5 +5,27 @@ set -euo pipefail
 
 export MISE_TASK_OUTPUT=interleave
 
+# Update flake.lock via Dagger before deploying
+echo "Updating nixos/ringtail/flake.lock..."
+dagger call flake-lock --src=. --flake-path=nixos/ringtail \
+    export --path=nixos/ringtail/flake.lock
+
+if ! git diff --quiet nixos/ringtail/flake.lock; then
+    git add nixos/ringtail/flake.lock
+    echo "flake.lock changed and staged. Commit, push, and re-run."
+    exit 1
+fi
+
+COMMIT=$(git rev-parse HEAD)
+REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null | awk '{print $1}')
+
+if [[ "$REMOTE_REF" != "$COMMIT" ]]; then
+    echo "ERROR: Current commit $COMMIT is not pushed to forge."
+    echo "Push your changes first: git push"
+    exit 1
+fi
+
+echo "Deploying commit $COMMIT to ringtail..."
+
 cd ansible
-ansible-playbook playbooks/ringtail.yml "$@"
+ansible-playbook playbooks/ringtail.yml -e "ringtail_commit=$COMMIT" "$@"

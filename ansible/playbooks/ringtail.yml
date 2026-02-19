@@ -8,7 +8,7 @@
       ansible.builtin.git:
         repo: "https://forge.ops.eblu.me/eblume/blumeops.git"
         dest: /etc/blumeops
-        version: main
+        version: "{{ ringtail_commit | default('main') }}"
         force: true
       register: _repo
 
@@ -16,7 +16,7 @@
       ansible.builtin.command:
         cmd: nixos-rebuild switch --flake /etc/blumeops/nixos/ringtail#ringtail
       register: _rebuild
-      changed_when: "'activating the configuration' in _rebuild.stdout"
+      changed_when: "'activating the configuration' in _rebuild.stderr"
       when: _repo.changed
 
     - name: Verify tailscale is connected

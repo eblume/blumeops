@@ -84,6 +84,11 @@ check_http "Ntfy" "https://ntfy.ops.eblu.me/v1/health"
 check_http "Frigate" "https://nvr.ops.eblu.me/api/version"
 
 echo ""
+echo "Ringtail (NixOS):"
+check_service "ssh" "ssh -o ConnectTimeout=5 ringtail true"
+check_service "tailscale" "ssh ringtail 'tailscale status --self --json' | jq -e '.Self.Online' > /dev/null"
+
+echo ""
 echo "Public services (via Fly.io):"
 check_http "Docs (public)" "https://docs.eblu.me/"
 check_http "CV (public)" "https://cv.eblu.me/"
