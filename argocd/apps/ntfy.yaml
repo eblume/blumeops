@@ -11,7 +11,7 @@ spec:
     targetRevision: main
     path: argocd/manifests/ntfy
   destination:
-    server: https://kubernetes.default.svc
+    server: https://ringtail.tail8d86e.ts.net:6443
     namespace: ntfy
   syncPolicy:
     syncOptions:
