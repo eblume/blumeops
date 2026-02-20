@@ -89,6 +89,10 @@ data:
         #       type: caddy
         #       url: http://indri.tail8d86e.ts.net:2019
     - Infrastructure:
+        - Authentik:
+            href: https://authentik.ops.eblu.me
+            icon: authentik
+            description: Identity provider
         - NVR:
             href: https://nvr.ops.eblu.me
             icon: frigate.png
