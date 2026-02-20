@@ -53,6 +53,15 @@ spec:
                   key: postgresql-password
             - name: AUTHENTIK_REDIS__HOST
               value: authentik-redis
+            - name: AUTHENTIK_GRAFANA_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-config
+                  key: grafana-client-secret
+          volumeMounts:
+            - name: blueprints
+              mountPath: /blueprints/custom
+              readOnly: true
           resources:
             requests:
               memory: "256Mi"
@@ -60,3 +69,7 @@ spec:
             limits:
               memory: "1Gi"
               cpu: "1000m"
+      volumes:
+        - name: blueprints
+          configMap:
+            name: authentik-blueprints

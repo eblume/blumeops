@@ -1,0 +1,72 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authentik-blueprints
+  namespace: authentik
+data:
+  grafana.yaml: |
+    version: 1
+    metadata:
+      name: BlumeOps Grafana SSO
+      labels:
+        blueprints.goauthentik.io/description: "Grafana OIDC provider and application"
+    entries:
+      # admins group — gates access to admin-only applications
+      - model: authentik_core.group
+        id: admins-group
+        identifiers:
+          name: admins
+        attrs:
+          name: admins
+
+      # OAuth2 provider for Grafana
+      - model: authentik_providers_oauth2.oauth2provider
+        id: grafana-provider
+        identifiers:
+          name: Grafana
+        attrs:
+          name: Grafana
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+          client_type: confidential
+          client_id: grafana
+          client_secret: !Env [AUTHENTIK_GRAFANA_CLIENT_SECRET]
+          redirect_uris:
+            - matching_mode: strict
+              url: https://grafana.ops.eblu.me/login/generic_oauth
+            - matching_mode: strict
+              url: https://grafana.tail8d86e.ts.net/login/generic_oauth
+          signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+          property_mappings:
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+          sub_mode: hashed_user_id
+          include_claims_in_id_token: true
+
+      # Grafana application — linked to the OAuth2 provider
+      - model: authentik_core.application
+        id: grafana-app
+        identifiers:
+          slug: grafana
+        attrs:
+          name: Grafana
+          slug: grafana
+          provider: !KeyOf grafana-provider
+          meta_launch_url: https://grafana.ops.eblu.me
+          policy_engine_mode: any
+
+      # Policy binding — restrict Grafana to admins group
+      - model: authentik_policies.policybinding
+        identifiers:
+          order: 0
+          target: !KeyOf grafana-app
+          group: !KeyOf admins-group
+        attrs:
+          target: !KeyOf grafana-app
+          group: !KeyOf admins-group
+          order: 0
+          enabled: true
+          negate: false
+          timeout: 30

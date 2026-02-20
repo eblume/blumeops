@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: authentik
 resources:
   - external-secret.yaml
+  - configmap-blueprint.yaml
   - deployment-server.yaml
   - deployment-worker.yaml
   - deployment-redis.yaml
