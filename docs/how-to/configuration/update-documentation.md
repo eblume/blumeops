@@ -1,6 +1,7 @@
 ---
 title: Update Documentation
-modified: 2026-02-08
+modified: 2026-02-19
+last-reviewed: 2026-02-19
 tags:
   - how-to
   - documentation
@@ -32,6 +33,7 @@ The `build-blumeops` workflow (`.forgejo/workflows/build-blumeops.yaml`):
 5. **Updates deployment** — Edits `argocd/manifests/docs/deployment.yaml` with new URL
 6. **Commits changes** — Pushes changelog and deployment updates to main
 7. **Deploys** — Syncs the `docs` ArgoCD app
+8. **Purges cache** — Clears the nginx cache on the [[flyio-proxy]] so the new docs are served immediately
 
 ## Changelog Fragments (Towncrier)
 
@@ -51,14 +53,14 @@ echo "Fix bug Y" > docs/changelog.d/+fix-bug.bugfix.md
 Fragments are automatically collected into `CHANGELOG.md` (at repo root) during release.
 
 **Fragment types:**
-| Type | Directory | Description |
-|------|-----------|-------------|
-| `feature` | `feature/` | New features |
-| `bugfix` | `bugfix/` | Bug fixes |
-| `infra` | `infra/` | Infrastructure changes |
-| `doc` | `doc/` | Documentation updates |
-| `ai` | `ai/` | AI assistance changes |
-| `misc` | `misc/` | Other changes |
+| Type | Description |
+|------|-------------|
+| `feature` | New features |
+| `bugfix` | Bug fixes |
+| `infra` | Infrastructure changes |
+| `doc` | Documentation updates |
+| `ai` | AI assistance changes |
+| `misc` | Other changes |
 
 ## Runner Environment
 
