@@ -1,6 +1,6 @@
 ---
 title: Review Services
-modified: 2026-02-16
+modified: 2026-02-19
 tags:
   - how-to
   - maintenance
@@ -61,6 +61,10 @@ Same as ArgoCD, but also check for new chart versions in the mirrored chart repo
 2. Review the role's vars/defaults for version pins in `ansible/roles/<service>/`
 3. If upgrading, update the version and dry-run: `mise run provision-indri -- --tags <service> --check --diff`
 4. Follow [[add-ansible-role]] patterns for role changes
+
+## Version Tracking Convention
+
+The `current-version` field in `service-versions.yaml` tracks the **upstream application version**, not the container image tag. For hybrid services, the container image tag (e.g., `v1.0.0`) is decoupled from the contained app version (e.g., `v1.10.1`). This allows container rebuilds (base image updates, build fixes) without implying an upstream version change.
 
 ## Marking a Service as Reviewed
 

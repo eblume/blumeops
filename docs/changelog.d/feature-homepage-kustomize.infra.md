@@ -1,0 +1,1 @@
+Replace Homepage Helm chart (jameswynn/homepage v2.1.0, pinned at app v1.2.0) with plain kustomize manifests and a custom Dockerfile built from upstream v1.10.1. Gives full version control and matches the pattern used by other blumeops services.

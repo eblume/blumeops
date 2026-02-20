@@ -1,9 +1,7 @@
 # Homepage - Service Dashboard / Start Page
 #
-# Replaced hajimari with gethomepage for active maintenance and better features.
-# Auto-discovers k8s services via ingress annotations.
-#
-# Helm chart: https://github.com/jameswynn/helm-charts/tree/main/charts/homepage
+# Custom container built from gethomepage/homepage, kustomize manifests.
+# Dashboard at go.ops.eblu.me / go.tail8d86e.ts.net
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -11,25 +9,10 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  sources:
-    # Helm chart
-    - repoURL: https://jameswynn.github.io/helm-charts
-      chart: homepage
-      targetRevision: 2.1.0
-      helm:
-        releaseName: homepage
-        valueFiles:
-          - $values/argocd/manifests/homepage/values.yaml
-    # Values file reference
-    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
-      targetRevision: main
-      ref: values
-    # Extra manifests (ExternalSecrets, etc)
-    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
-      targetRevision: main
-      path: argocd/manifests/homepage
-      directory:
-        exclude: "values.yaml"
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/homepage
   destination:
     server: https://kubernetes.default.svc
     namespace: homepage
