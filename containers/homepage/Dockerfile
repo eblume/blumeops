@@ -3,7 +3,7 @@
 
 ARG HOMEPAGE_VERSION=v1.10.1
 
-FROM node:22-slim AS builder
+FROM node:24-slim AS builder
 
 ARG HOMEPAGE_VERSION
 RUN apt-get update && apt-get install -y --no-install-recommends git \
@@ -18,7 +18,7 @@ RUN mkdir -p config \
  && pnpm install --frozen-lockfile \
  && NEXT_TELEMETRY_DISABLED=1 pnpm run build
 
-FROM node:22-alpine
+FROM node:24-alpine
 
 LABEL org.opencontainers.image.title=Homepage
 LABEL org.opencontainers.image.description="A self-hosted services landing page"
