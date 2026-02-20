@@ -3,6 +3,20 @@
 # Built with dockerTools.buildLayeredImage for efficient layer caching
 { pkgs ? import <nixpkgs> { } }:
 
+let
+  # Wrapper entrypoint that sets up /blueprints symlinks before running ak.
+  # buildLayeredImage's extraCommands can't access store paths from contents (they're
+  # in separate layers), so we create the symlinks at container start instead.
+  entrypoint = pkgs.writeShellScript "authentik-entrypoint" ''
+    # Link built-in blueprint dirs from the Nix store into /blueprints
+    for item in /nix/store/*authentik-django*/blueprints/*/; do
+      name=$(basename "$item")
+      [ ! -e "/blueprints/$name" ] && ln -s "$item" "/blueprints/$name" 2>/dev/null || true
+    done
+    exec ${pkgs.authentik}/bin/ak "$@"
+  '';
+in
+
 pkgs.dockerTools.buildLayeredImage {
   name = "blumeops/authentik";
   tag = "latest";
@@ -15,20 +29,17 @@ pkgs.dockerTools.buildLayeredImage {
     pkgs.tzdata
   ];
 
-  # Create /blueprints with symlinks to built-in blueprint dirs from the Nix store.
+  # Create /blueprints as world-writable so user 65534 can create symlinks at runtime.
   # The nixpkgs authentik-django package hardcodes blueprints_dir to its Nix store path,
-  # making custom blueprints mounted at /blueprints/custom invisible. This creates a
-  # stable /blueprints root that includes both built-in and custom blueprint directories.
+  # making custom blueprints mounted at /blueprints/custom invisible. The entrypoint
+  # wrapper populates this directory with symlinks to built-in blueprints on each start.
   extraCommands = ''
     mkdir -p blueprints
-    for item in nix/store/*authentik-django*/blueprints/*; do
-      name=$(basename "$item")
-      ln -s "/$item" "blueprints/$name"
-    done
+    chmod 777 blueprints
   '';
 
   config = {
-    Entrypoint = [ "${pkgs.authentik}/bin/ak" ];
+    Entrypoint = [ "${entrypoint}" ];
     Env = [
       "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
       "TZDIR=${pkgs.tzdata}/share/zoneinfo"
