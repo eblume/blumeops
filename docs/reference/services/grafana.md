@@ -20,6 +20,15 @@ Dashboards and visualization for BlumeOps observability.
 | **Helm Chart** | grafana (mirrored to forge) |
 | **Values** | `argocd/manifests/grafana/values.yaml` |
 
+## Authentication
+
+Grafana supports two login methods:
+
+- **SSO via [[dex]]** — federated login through [[forgejo]] (`auth.generic_oauth`). Users click "Sign in with Dex", authenticate at Forgejo, and are redirected back as Admin.
+- **Local admin** — break-glass login using the password from 1Password ("Grafana (blumeops)"). Always available if Dex is down.
+
+The OIDC client secret is injected via [[external-secrets]] (`grafana-dex-oauth` secret in monitoring namespace).
+
 ## Datasources
 
 | Name | Type | Target |
@@ -48,6 +57,7 @@ Optional annotation: `grafana_folder: "FolderName"`
 
 ## Related
 
+- [[dex]] - OIDC identity provider for SSO
 - [[prometheus]] - Metrics datasource
 - [[loki]] - Logs datasource
 - [[alloy|Alloy]] - Data collector

@@ -21,4 +21,5 @@ Understanding-oriented content explaining the "why" behind BlumeOps design decis
 | Article | Description |
 |---------|-------------|
 | [[architecture]] | How all the pieces fit together |
+| [[federated-login]] | How SSO works across BlumeOps (Dex + Forgejo) |
 | [[security-model]] | Network security, secrets, and access control |

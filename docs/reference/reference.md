@@ -37,6 +37,7 @@ Individual service reference cards with URLs and configuration details.
 | [[zot]] | Container registry | indri |
 | [[devpi]] | PyPI caching proxy | k8s |
 | [[cv]] | Resume / CV site | k8s |
+| [[dex]] | OIDC identity provider | k8s (ringtail) |
 | [[docs]] | Documentation site (Quartz) | k8s |
 | [[flyio-proxy]] | Public reverse proxy (Fly.io + Tailscale) | Fly.io |
 | [[automounter]] | SMB share automounter | indri |
