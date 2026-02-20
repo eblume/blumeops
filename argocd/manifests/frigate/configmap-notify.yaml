@@ -27,6 +27,7 @@ data:
         unzoned: drop
         allow:
           - driveway_entrance
+          - driveway
 
       labels:
         allow:
