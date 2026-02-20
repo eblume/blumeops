@@ -10,7 +10,7 @@ tags:
 
 # Plan: Adopt OIDC Identity Provider
 
-> **Status:** Completed (2026-02-19) — Phase 1 (Dex + Grafana)
+> **Status:** Completed (2026-02-19) — Phase 1 (Dex + Grafana). Dex was subsequently replaced by [[authentik]] (see [[deploy-authentik]]).
 > **PR:** #222
 
 ## Background
@@ -98,7 +98,7 @@ Key design decisions:
 
 ## Related
 
-- [[dex]] - Service reference card
+- [[authentik]] - Current OIDC identity provider (replaced Dex)
 - [[federated-login]] - How authentication works across BlumeOps
 - [[harden-zot-registry]] - Future OIDC client
 - [[forgejo]] - Upstream OAuth2 provider

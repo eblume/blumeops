@@ -65,7 +65,7 @@ Zot supports native OIDC authentication with a built-in API key feature designed
           "oidc": {
             "name": "BlumeOps",
             "credentialsFile": "/Users/erichblume/.config/zot/oidc-credentials.json",
-            "issuer": "https://dex.ops.eblu.me",
+            "issuer": "https://authentik.ops.eblu.me",
             "scopes": ["openid", "profile", "email"]
           }
         }
@@ -97,7 +97,7 @@ Zot supports native OIDC authentication with a built-in API key feature designed
 The OIDC credentials file (client ID and secret) is deployed by Ansible from 1Password — never committed to the repo.
 
 **CI push flow after setup:**
-1. Log in to zot UI via browser (OIDC redirect to Dex)
+1. Log in to zot UI via browser (OIDC redirect to Authentik)
 2. Generate an API key: `POST /zot/auth/apikey` with label `forgejo-ci`, scoped to `blumeops/**`
 3. Store the key in 1Password (`op://blumeops/zot-ci-apikey/credential`)
 4. CI uses the key: `docker login -u eblume -p zak_... registry.ops.eblu.me`
@@ -122,7 +122,7 @@ The push-side approach is pragmatic: it prevents accidental overwrites in the no
 
 The `ansible/roles/zot/` role needs:
 
-- **New template:** `oidc-credentials.json.j2` (client ID and secret for the Dex OIDC client)
+- **New template:** `oidc-credentials.json.j2` (client ID and secret for the Authentik OIDC client)
 - **Updated config template:** `config.json.j2` gains `http.auth` (openid + apikey) and `accessControl` sections
 - **Updated config template:** `config.json.j2` gains `externalUrl` set to `https://registry.ops.eblu.me` (required for OIDC callback redirects behind Caddy)
 - **New variables:** `zot_oidc_client_id` and `zot_oidc_client_secret` sourced from 1Password in the playbook's `pre_tasks`
@@ -146,7 +146,7 @@ The minikube containerd config (`ansible/roles/minikube/tasks/main.yml`) current
 ## Execution Steps
 
 1. **Prerequisite: OIDC provider is running** (see [[adopt-oidc-provider]])
-   - Dex (or chosen provider) is deployed and serving `https://dex.ops.eblu.me`
+   - Authentik (or chosen provider) is deployed and serving `https://authentik.ops.eblu.me`
    - A zot OIDC client is registered with the provider
 
 2. **Update Ansible role**
@@ -161,7 +161,7 @@ The minikube containerd config (`ansible/roles/minikube/tasks/main.yml`) current
    - Verify unauthenticated push fails: `skopeo copy ... docker://registry.ops.eblu.me/blumeops/test:fail` (should get 401)
 
 4. **Set up OIDC login and generate CI API key**
-   - Log in to zot UI via browser (OIDC flow through Dex)
+   - Log in to zot UI via browser (OIDC flow through Authentik)
    - Generate an API key for CI use, store in 1Password
    - Verify authenticated push works: `docker login -u eblume -p zak_... registry.ops.eblu.me`
 
@@ -178,7 +178,7 @@ The minikube containerd config (`ansible/roles/minikube/tasks/main.yml`) current
 - [ ] Anonymous pull works (k8s pods, containerd, curl)
 - [ ] Pull-through caching still works (pull an uncached image from docker.io)
 - [ ] Unauthenticated push is rejected (401)
-- [ ] OIDC browser login works (redirect to Dex and back)
+- [ ] OIDC browser login works (redirect to Authentik and back)
 - [ ] API key generation works from zot UI
 - [ ] Authenticated push with API key succeeds
 - [ ] Pushing a duplicate version tag fails (immutability check)

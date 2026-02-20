@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: authentik-tailscale
+  namespace: authentik
+  annotations:
+    tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Authentik"
+    gethomepage.dev/group: "Infrastructure"
+    gethomepage.dev/icon: "authentik"
+    gethomepage.dev/description: "Identity provider (SSO)"
+    gethomepage.dev/href: "https://authentik.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=authentik"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: authentik
+      port:
+        number: 9000
+  tls:
+    - hosts:
+        - authentik

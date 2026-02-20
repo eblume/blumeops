@@ -6,8 +6,8 @@ namespace: monitoring
 resources:
   - ingress-tailscale.yaml
   - external-secret-admin.yaml
-  - external-secret-dex-oauth.yaml
   - external-secret-teslamate-datasource.yaml
+  - external-secret-authentik-oauth.yaml
   # Dashboard ConfigMaps - discovered by Grafana sidecar via label grafana_dashboard=1
   - dashboards/configmap-borgmatic.yaml
   - dashboards/configmap-devpi.yaml

@@ -77,11 +77,9 @@ The Ansible role authenticates to the Forgejo API using a Personal Access Token 
 
 This is a bootstrapping requirement - the PAT enables IaC for all other secrets.
 
-## OAuth2 Provider for Dex
+## Identity Provider
 
-Forgejo acts as the upstream OAuth2 provider for [[dex]], the BlumeOps OIDC identity provider. An OAuth2 application is registered in Forgejo's Site Administration with a redirect URI pointing to Dex's callback (`https://dex.ops.eblu.me/callback`). Client credentials are stored in 1Password ("Dex (blumeops)").
-
-This means Forgejo accounts are the source of truth for BlumeOps SSO identity. Adding a user to any Dex-integrated service (currently [[grafana]]) is just creating a Forgejo account.
+[[authentik]] is the BlumeOps OIDC identity provider and source of truth for user identity. Forgejo will eventually authenticate against Authentik as an OIDC client, with user provisioning managed in Authentik. This migration is deferred — the existing `eblume` account has extensive automations that need careful migration.
 
 ## Future: Public Access
 
@@ -104,5 +102,5 @@ See [[expose-service-publicly]] for the full howto and dynamic service checklist
 ## Related
 
 - [[argocd]] - Uses Forgejo as git source
-- [[dex]] - OIDC identity provider (Forgejo is the upstream OAuth2 source)
+- [[authentik]] - OIDC identity provider
 - [[zot]] - Container registry for built images

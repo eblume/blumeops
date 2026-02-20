@@ -24,10 +24,10 @@ Dashboards and visualization for BlumeOps observability.
 
 Grafana supports two login methods:
 
-- **SSO via [[dex]]** — federated login through [[forgejo]] (`auth.generic_oauth`). Users click "Sign in with Dex", authenticate at Forgejo, and are redirected back as Admin.
-- **Local admin** — break-glass login using the password from 1Password ("Grafana (blumeops)"). Always available if Dex is down.
+- **SSO via [[authentik]]** — OIDC login through Authentik (`auth.generic_oauth`). Users click "Sign in with Authentik", authenticate at Authentik, and are redirected back as Admin.
+- **Local admin** — break-glass login using the password from 1Password ("Grafana (blumeops)"). Always available if Authentik is down.
 
-The OIDC client secret is injected via [[external-secrets]] (`grafana-dex-oauth` secret in monitoring namespace).
+The OIDC client secret is injected via [[external-secrets]] (`grafana-authentik-oauth` secret in monitoring namespace).
 
 ## Datasources
 
@@ -57,7 +57,7 @@ Optional annotation: `grafana_folder: "FolderName"`
 
 ## Related
 
-- [[dex]] - OIDC identity provider for SSO
+- [[authentik]] - OIDC identity provider for SSO
 - [[prometheus]] - Metrics datasource
 - [[loki]] - Logs datasource
 - [[alloy|Alloy]] - Data collector

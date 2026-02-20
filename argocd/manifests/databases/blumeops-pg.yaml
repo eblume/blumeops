@@ -55,6 +55,15 @@ spec:
         createdb: true
         passwordSecret:
           name: blumeops-pg-teslamate
+      # authentik user for Authentik identity provider (runs on ringtail)
+      - name: authentik
+        login: true
+        connectionLimit: -1
+        ensure: present
+        inherit: true
+        createdb: true
+        passwordSecret:
+          name: blumeops-pg-authentik
 
   # Resource limits for minikube environment
   resources:

@@ -12,7 +12,7 @@ admin:
 envFromSecrets:
   - name: grafana-teslamate-datasource
     optional: true
-  - name: grafana-dex-oauth
+  - name: grafana-authentik-oauth
     optional: true
 
 # Persistence with PVC for SQLite database
@@ -32,13 +32,13 @@ grafana.ini:
     allow_embedding: false
   auth.generic_oauth:
     enabled: true
-    name: Dex
+    name: Authentik
     client_id: grafana
     client_secret: $__env{GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET}
     scopes: openid profile email
-    auth_url: https://dex.ops.eblu.me/auth
-    token_url: https://dex.ops.eblu.me/token
-    api_url: https://dex.ops.eblu.me/userinfo
+    auth_url: https://authentik.ops.eblu.me/application/o/authorize/
+    token_url: https://authentik.ops.eblu.me/application/o/token/
+    api_url: https://authentik.ops.eblu.me/application/o/userinfo/
     allow_sign_up: true
     role_attribute_path: "'Admin'"
     auto_login: false

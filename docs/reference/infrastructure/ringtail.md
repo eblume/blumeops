@@ -68,7 +68,7 @@ Sync order: `1password-connect-ringtail` -> `external-secrets-crds-ringtail` -> 
 | [[frigate]] | `frigate` | NVR with GPU-accelerated detection (RTX 4080) |
 | [[frigate]]-notify | `frigate` | MQTT-to-ntfy alert bridge |
 | Mosquitto | `mqtt` | MQTT broker for Frigate events |
-| [[dex]] | `dex` | OIDC identity provider (Forgejo-backed) |
+| [[authentik]] | `authentik` | OIDC identity provider |
 | [[ntfy]] | `ntfy` | Push notification server |
 | nvidia-device-plugin | `nvidia-device-plugin` | Exposes GPU to pods via CDI + nvidia RuntimeClass |
 
