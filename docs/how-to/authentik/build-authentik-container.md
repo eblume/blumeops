@@ -1,6 +1,5 @@
 ---
 title: Build Authentik Container Image
-status: active
 modified: 2026-02-20
 tags:
   - how-to
