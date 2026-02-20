@@ -10,6 +10,7 @@ pkgs.dockerTools.buildLayeredImage {
   contents = [
     pkgs.authentik
     pkgs.bashInteractive
+    pkgs.coreutils
     pkgs.cacert
     pkgs.tzdata
   ];
