@@ -11,3 +11,4 @@ resources:
   - external-secret-eblume.yaml
   - external-secret-borgmatic.yaml
   - external-secret-teslamate.yaml
+  - external-secret-authentik.yaml
