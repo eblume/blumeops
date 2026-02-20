@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dex-tailscale
+  namespace: dex
+  annotations:
+    tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Dex"
+    gethomepage.dev/group: "Infrastructure"
+    gethomepage.dev/icon: "mdi-shield-key"
+    gethomepage.dev/description: "OIDC identity provider"
+    gethomepage.dev/href: "https://dex.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=dex"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: dex
+      port:
+        number: 5556
+  tls:
+    - hosts:
+        - dex

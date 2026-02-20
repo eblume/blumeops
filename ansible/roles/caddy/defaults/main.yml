@@ -79,6 +79,9 @@ caddy_services:
   - name: nvr
     host: "nvr.{{ caddy_domain }}"
     backend: "https://nvr.tail8d86e.ts.net"
+  - name: dex
+    host: "dex.{{ caddy_domain }}"
+    backend: "https://dex.tail8d86e.ts.net"
   - name: ntfy
     host: "ntfy.{{ caddy_domain }}"
     backend: "https://ntfy.tail8d86e.ts.net"
