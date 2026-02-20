@@ -17,12 +17,12 @@ This guide provides context for AI agents (like Claude Code) assisting with Blum
 These are non-negotiable for AI agents working in this repo:
 
 1. **Always use `--context=minikube-indri` with kubectl** - Work contexts exist that must never be touched
-2. **Run `mise run zk-docs` at session start** - Review current infrastructure state
+2. **Run `mise run ai-docs` at session start** - Review current infrastructure state
 3. **Never commit secrets** - The repo is public at github.com/eblume/blumeops
 4. **Wait for user review before deploying** - Create PRs, don't auto-deploy
 5. **Never merge PRs without explicit request** - The user merges after review
 
-Full rules are in the repo's `CLAUDE.md`.
+Full rules are in the repo's `CLAUDE.md`. See [[agent-change-process]] for the C0/C1/C2 change classification methodology.
 
 ## Workflow Conventions
 
@@ -84,7 +84,8 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 
 | Task | When to Use |
 |------|-------------|
-| `zk-docs` | At session start - review infrastructure documentation |
+| `ai-docs` | At session start - review infrastructure documentation |
+| `docs-mikado` | View active Mikado dependency chains for C1/C2 changes |
 | `provision-indri` | Deploy changes to [[indri]]-hosted services via Ansible |
 | `services-check` | After deployments - verify all services are healthy |
 | `pr-comments` | Check unresolved PR comments during review |

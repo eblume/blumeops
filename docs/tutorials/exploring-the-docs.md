@@ -33,7 +33,7 @@ You probably want quick access to operational details:
 - [[plans]] captures migration and transition plans for future execution
 - [[reference]] has service URLs, commands, and config locations
 - [[ai-assistance-guide]] explains how to work effectively with Claude
-- Run `mise run zk-docs` to prime AI context with key documentation
+- Run `mise run ai-docs` to prime AI context with key documentation
 
 ### For Claude/AI Agents
 
@@ -77,10 +77,10 @@ Pre-commit hooks automatically validate that all wiki-links point to existing fi
 
 ## AI Context Priming
 
-The `zk-docs` mise task concatenates key documentation files for AI context:
+The `ai-docs` mise task concatenates key documentation files for AI context:
 
 ```bash
-mise run zk-docs -- --style=header --color=never --decorations=always
+mise run ai-docs -- --style=header --color=never --decorations=always
 ```
 
 This outputs the AI assistance guide, reference index, how-to index, architecture overview, and tutorials index - providing Claude with essential context for BlumeOps operations.

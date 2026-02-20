@@ -1,0 +1,273 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml>=6.0", "rich>=13.0.0", "typer>=0.15.0"]
+# ///
+#MISE description="View active Mikado dependency chains for C1/C2 changes"
+#USAGE arg "[card]" help="Card stem to show chain for"
+#USAGE flag "--all" help="Show all cards in full, including complete ones"
+"""View active Mikado dependency chains for C1/C2 changes.
+
+Scans all markdown files in docs/ for YAML frontmatter with ``status: active``
+and ``requires`` fields, then builds and displays the Mikado dependency graph.
+
+Usage:
+    mise run docs-mikado                         # list all active chains
+    mise run docs-mikado deploy-authentik        # show chain for a card
+    mise run docs-mikado deploy-authentik --all  # include complete cards in full
+"""
+
+import sys
+from pathlib import Path
+from typing import Annotated
+
+import typer
+import yaml
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.table import Table
+
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+
+def extract_frontmatter(file_path: Path) -> dict | None:
+    """Extract YAML frontmatter from a markdown file."""
+    content = file_path.read_text()
+    if not content.startswith("---"):
+        return None
+
+    end_idx = content.find("---", 3)
+    if end_idx == -1:
+        return None
+
+    frontmatter_text = content[3:end_idx].strip()
+    try:
+        return yaml.safe_load(frontmatter_text) or {}
+    except yaml.YAMLError:
+        return None
+
+
+def build_graph() -> dict[str, dict]:
+    """Build the dependency graph from all docs."""
+    cards: dict[str, dict] = {}
+
+    for md_file in sorted(DOCS_DIR.rglob("*.md")):
+        if "changelog.d" in md_file.parts:
+            continue
+
+        frontmatter = extract_frontmatter(md_file)
+        if frontmatter is None:
+            continue
+
+        stem = md_file.stem
+        cards[stem] = {
+            "path": md_file,
+            "title": frontmatter.get("title", stem),
+            "status": frontmatter.get("status"),
+            "requires": frontmatter.get("requires", []) or [],
+            "required_by": [],
+        }
+
+    # Compute inverse relationships
+    for stem, card in cards.items():
+        for req in card["requires"]:
+            if req in cards:
+                cards[req]["required_by"].append(stem)
+
+    return cards
+
+
+def detect_cycles(cards: dict[str, dict]) -> list[list[str]]:
+    """Detect circular dependencies in the graph. Returns list of cycles."""
+    cycles: list[list[str]] = []
+    visited: set[str] = set()
+    on_stack: set[str] = set()
+
+    def dfs(stem: str, path: list[str]) -> None:
+        if stem in on_stack:
+            cycle_start = path.index(stem)
+            cycles.append(path[cycle_start:] + [stem])
+            return
+        if stem in visited or stem not in cards:
+            return
+        visited.add(stem)
+        on_stack.add(stem)
+        path.append(stem)
+        for req in cards[stem]["requires"]:
+            dfs(req, path)
+        path.pop()
+        on_stack.discard(stem)
+
+    for stem in cards:
+        dfs(stem, [])
+
+    return cycles
+
+
+def is_active(card: dict) -> bool:
+    """Check if a card has status: active."""
+    return card.get("status") == "active"
+
+
+def find_root_goals(cards: dict[str, dict]) -> list[str]:
+    """Find active cards that aren't required by another active card."""
+    roots = []
+    for stem, card in cards.items():
+        if not is_active(card):
+            continue
+        # A root goal is not required by any other active card
+        has_active_parent = any(
+            is_active(cards[rb]) for rb in card["required_by"] if rb in cards
+        )
+        if not has_active_parent:
+            roots.append(stem)
+    return sorted(roots)
+
+
+def walk_chain(
+    cards: dict[str, dict],
+    stem: str,
+    console: Console,
+    show_all: bool,
+    visited: set[str] | None = None,
+    depth: int = 0,
+) -> None:
+    """Walk the dependency tree depth-first from a card."""
+    if visited is None:
+        visited = set()
+
+    if stem in visited:
+        console.print(f"{'  ' * depth}[dim](circular: {stem})[/dim]")
+        return
+    visited.add(stem)
+
+    card = cards.get(stem)
+    if card is None:
+        console.print(f"{'  ' * depth}[red](missing: {stem})[/red]")
+        return
+
+    active = is_active(card)
+
+    if active or show_all:
+        # Print full card content
+        console.print()
+        separator = "=" * 72
+        console.print(f"[bold cyan]{separator}[/bold cyan]")
+        status_tag = "[active]" if active else "[complete]"
+        console.print(
+            f"[bold]{status_tag} {stem}[/bold] — {card['title']}"
+        )
+        console.print(f"[dim]{card['path'].relative_to(DOCS_DIR)}[/dim]")
+        if card["requires"]:
+            console.print(f"[dim]requires: {', '.join(card['requires'])}[/dim]")
+        if card["required_by"]:
+            console.print(
+                f"[dim]required-by: {', '.join(card['required_by'])}[/dim]"
+            )
+        console.print(f"[bold cyan]{separator}[/bold cyan]")
+        console.print()
+        content = card["path"].read_text()
+        console.print(content)
+    else:
+        # One-line summary for complete cards
+        console.print(
+            f"{'  ' * depth}[green][complete][/green] {stem} — {card['title']}"
+        )
+
+    # Recurse into dependencies
+    for req in card["requires"]:
+        walk_chain(cards, req, console, show_all, visited, depth + 1)
+
+
+def main(
+    card: Annotated[
+        str | None, typer.Argument(help="Card stem to show chain for")
+    ] = None,
+    all: Annotated[
+        bool,
+        typer.Option("--all", help="Show all cards in full, including complete ones"),
+    ] = False,
+) -> None:
+    console = Console()
+    cards = build_graph()
+
+    # Check for circular dependencies
+    cycles = detect_cycles(cards)
+    if cycles:
+        console.print("[bold red]Circular dependencies detected![/bold red]")
+        for cycle in cycles:
+            console.print(f"  [red]{' → '.join(cycle)}[/red]")
+        console.print()
+
+    if card is None:
+        # List all active Mikado chains
+        roots = find_root_goals(cards)
+
+        if not roots:
+            console.print("[dim]No active Mikado chains found.[/dim]")
+            console.print(
+                "[dim]Cards need status: active in frontmatter to appear here.[/dim]"
+            )
+            raise typer.Exit()
+
+        table = Table(
+            title="Active Mikado Chains", show_header=True, header_style="bold"
+        )
+        table.add_column("Goal Card")
+        table.add_column("Title")
+        table.add_column("Active Deps", justify="right")
+        table.add_column("Total Deps", justify="right")
+
+        for stem in roots:
+            card_data = cards[stem]
+
+            # Count dependencies
+            def count_deps(s: str, seen: set[str] | None = None) -> tuple[int, int]:
+                if seen is None:
+                    seen = set()
+                if s in seen:
+                    return 0, 0
+                seen.add(s)
+                active_count = 0
+                total_count = 0
+                c = cards.get(s)
+                if c is None:
+                    return 0, 0
+                for req in c["requires"]:
+                    total_count += 1
+                    req_card = cards.get(req)
+                    if req_card and is_active(req_card):
+                        active_count += 1
+                    sub_active, sub_total = count_deps(req, seen)
+                    active_count += sub_active
+                    total_count += sub_total
+                return active_count, total_count
+
+            active_deps, total_deps = count_deps(stem)
+            table.add_row(
+                f"[bold]{stem}[/bold]",
+                card_data["title"],
+                str(active_deps),
+                str(total_deps),
+            )
+
+        console.print()
+        console.print(table)
+        console.print()
+        console.print(
+            "[dim]Run: mise run docs-mikado <card> to see full chain[/dim]"
+        )
+    else:
+        if card not in cards:
+            console.print(f"[red]Card not found: {card}[/red]")
+            console.print("[dim]Available cards with status: active:[/dim]")
+            for stem, data in sorted(cards.items()):
+                if is_active(data):
+                    console.print(f"  {stem} — {data['title']}")
+            raise typer.Exit(code=1)
+
+        walk_chain(cards, card, console, show_all=all)
+
+
+if __name__ == "__main__":
+    typer.run(main)

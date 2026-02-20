@@ -22,7 +22,10 @@ from rich.console import Console
 from rich.table import Table
 
 DOCS_DIR = Path(__file__).parent.parent / "docs"
+HOWTO_DIR = DOCS_DIR / "how-to"
 REQUIRED_FIELDS = {"title", "tags", "modified"}
+# These fields are only permitted in docs/how-to/
+HOWTO_ONLY_FIELDS = {"status", "requires"}
 
 # Match YAML frontmatter block
 FRONTMATTER_PATTERN = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
@@ -47,7 +50,8 @@ def main() -> int:
     console.print(f"Required fields: {', '.join(sorted(REQUIRED_FIELDS))}")
     console.print()
 
-    issues: list[tuple[str, set[str]]] = []
+    missing_issues: list[tuple[str, set[str]]] = []
+    misplaced_issues: list[tuple[str, set[str]]] = []
 
     for md_file in sorted(DOCS_DIR.rglob("*.md")):
         if "changelog.d" in md_file.parts:
@@ -57,25 +61,50 @@ def main() -> int:
         keys = extract_frontmatter_keys(md_file)
 
         if keys is None:
-            issues.append((rel_path, REQUIRED_FIELDS))
+            missing_issues.append((rel_path, REQUIRED_FIELDS))
             continue
 
         missing = REQUIRED_FIELDS - keys
         if missing:
-            issues.append((rel_path, missing))
+            missing_issues.append((rel_path, missing))
 
-    if issues:
+        # Check that status/requires only appear in how-to docs
+        is_howto = HOWTO_DIR in md_file.parents or md_file.parent == HOWTO_DIR
+        if not is_howto:
+            misplaced = keys & HOWTO_ONLY_FIELDS
+            if misplaced:
+                misplaced_issues.append((rel_path, misplaced))
+
+    has_issues = bool(missing_issues or misplaced_issues)
+
+    if missing_issues:
         console.print("[bold red]Missing Required Frontmatter[/bold red]")
         console.print()
         table = Table(show_header=True, header_style="bold")
         table.add_column("File")
         table.add_column("Missing Fields")
 
-        for rel_path, missing in issues:
+        for rel_path, missing in missing_issues:
             table.add_row(rel_path, ", ".join(sorted(missing)))
 
         console.print(table)
         console.print()
+
+    if misplaced_issues:
+        console.print("[bold red]Misplaced Frontmatter Fields[/bold red]")
+        console.print(f"[dim]These fields are only allowed in {HOWTO_DIR.relative_to(DOCS_DIR)}/[/dim]")
+        console.print()
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("File")
+        table.add_column("Disallowed Fields")
+
+        for rel_path, misplaced in misplaced_issues:
+            table.add_row(rel_path, ", ".join(sorted(misplaced)))
+
+        console.print(table)
+        console.print()
+
+    if has_issues:
         return 1
 
     console.print("[bold green]All docs have required frontmatter![/bold green]")

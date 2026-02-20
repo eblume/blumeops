@@ -12,7 +12,7 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 
 ## Rules
 
-1. **Always run `mise run zk-docs -- --style=header --color=never --decorations=always` at session start**
+1. **Always run `mise run ai-docs -- --style=header --color=never --decorations=always` at session start**
     This will refresh your context with important information you will be assumed to know and follow.
 2. **Always use `--context=minikube-indri` with kubectl** (or `--context=k3s-ringtail` for ringtail services) - work contexts must never be touched
 3. **Feature branches only** - checkout main, pull, create branch, commit often
@@ -24,6 +24,18 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 8. **Wait for user review before deploying**
 9. **Never merge PRs or push to main without explicit request**
 10. **Verify deployments** - `mise run services-check`
+
+## Change Classification
+
+Before starting work, classify the change:
+
+| Class | Scope | Process |
+|-------|-------|---------|
+| **C0** | Quick fix, single-file, obvious | Read `ai-docs`, implement directly |
+| **C1** | Moderate, potential hidden complexity | Mikado method, single session, single PR |
+| **C2** | Complex, multi-session | Mikado method, documentation-driven, single PR |
+
+See [[agent-change-process]] for the full methodology.
 
 ## Project Structure
 
@@ -45,7 +57,7 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 ~/code/3rd/             # mirrored external projects
 ~/code/work             # FORBIDDEN
 ```
-Other code paths will be listed via zk-docs, this is just an overview. When you
+Other code paths will be listed via ai-docs, this is just an overview. When you
 encounter wiki-links (`[[like-this]]`) it is referring to docs/ cards.
 
 ## Service Deployment
