@@ -71,6 +71,17 @@ When an attempt fails and you discover prerequisites, the branch must be cleaned
 
 The branch between attempts should contain only documentation. Code returns when prerequisites are satisfied and the next attempt succeeds.
 
+### Build artifacts and tags
+
+Mikado resets apply to branch code, not build artifacts. Container images in the registry and git tags created by `container-tag-and-release` are independent of branch lifecycle:
+
+- **Git tags** point to commit SHAs, not branches — they survive branch deletion and force-pushes.
+- **Registry images** are build outputs cached in zot — a wrong image is overwritten by the next release.
+- **If a build succeeds but deployment fails**, the image is fine; the problem is elsewhere. Document what you learned, bump the version, and try again.
+- **If a build fails in CI**, no image is pushed. Delete the git tag (`git tag -d <tag> && git push --delete origin <tag>`) and fix the nix/dockerfile before re-releasing.
+
+Tag freely during leaf node work. The build IS the verification step — deferring it creates a chicken-and-egg where the card can't be marked complete without a built image.
+
 ## Card Conventions
 
 ### Frontmatter
