@@ -63,8 +63,13 @@ Migration and transition plans for upcoming infrastructure changes.
 | [[harden-zot-registry]] | Add authentication and tag immutability to zot registry |
 | [[forgejo-actions-dashboard]] | Grafana dashboard for Forgejo Actions CI metrics |
 | [[upgrade-grafana-helm-chart]] | Upgrade Grafana Helm chart from 8.8.2 to 11.x |
-| [[deploy-authentik]] | Deploy Authentik identity provider to replace Dex |
-| [[build-authentik-container]] | Build Nix container image for Authentik |
-| [[provision-authentik-database]] | Create PostgreSQL database for Authentik |
-| [[create-authentik-secrets]] | Create 1Password secrets for Authentik |
 | [[operationalize-reolink-camera]] | Cloud-free NVR with Frigate and ring buffer recording |
+
+## Authentik
+
+Mikado chain for replacing Dex with Authentik. Track progress with `mise run docs-mikado deploy-authentik`.
+
+- [[deploy-authentik]]
+- [[build-authentik-container]]
+- [[provision-authentik-database]]
+- [[create-authentik-secrets]]

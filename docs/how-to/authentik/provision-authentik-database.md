@@ -4,7 +4,6 @@ status: active
 modified: 2026-02-20
 tags:
   - how-to
-  - plans
   - authentik
   - postgresql
 ---

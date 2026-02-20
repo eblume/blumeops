@@ -93,7 +93,8 @@ tags:
 
 ### Writing Cards
 
-- Cards live in `docs/how-to/` — they're how-to docs with lifecycle metadata
+- **Mikado cards are not plans.** Plans are designed upfront; Mikado cards are discovered through failed attempts. Don't put Mikado prerequisite cards in `docs/how-to/plans/`.
+- Cards live in a topic subdirectory under `docs/how-to/` (e.g., `docs/how-to/authentik/` for the deploy-authentik chain). The goal card may live in `plans/` if it started as a plan.
 - Keep cards brief (<30 seconds to read)
 - Link to other cards rather than inlining their content
 - Document what was learned from failures, not just what to do

@@ -8,7 +8,6 @@ requires:
   - create-authentik-secrets
 tags:
   - how-to
-  - plans
   - authentik
   - security
   - oidc
