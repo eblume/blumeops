@@ -1,76 +1,30 @@
-# Homepage values for blumeops
-# Service dashboard at go.ops.eblu.me
+# Homepage configuration files
+# Extracted from former Helm values.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-config
+  namespace: homepage
+data:
+  bookmarks.yaml: |
+    - Admin:
+        - Tailscale Admin:
+            - href: https://login.tailscale.com/admin
+              icon: tailscale
+        - 1Password:
+            - href: https://my.1password.com
+              icon: 1password
+        - Pulumi:
+            - href: https://app.pulumi.com/eblume/blumeops-tailnet
+              icon: si-pulumi
+        - ArgoCD:
+            - href: https://argocd.ops.eblu.me
+              icon: argo-cd
+        - UniFi:
+            - href: https://unifi.ui.com
+              icon: ubiquiti
 
-# Enable RBAC for Kubernetes service autodiscovery
-enableRbac: true
-
-serviceAccount:
-  create: true
-
-# Tailscale Ingress is managed separately in ingress-tailscale.yaml
-# (Helm chart template doesn't support tailscale.com/* annotations)
-ingress:
-  main:
-    enabled: false
-
-env:
-  - name: HOMEPAGE_ALLOWED_HOSTS
-    value: "go.tail8d86e.ts.net,go.ops.eblu.me"
-  # Weather widget
-  - name: HOMEPAGE_VAR_OPENWEATHERMAP_API_KEY
-    valueFrom:
-      secretKeyRef:
-        name: homepage-openweathermap
-        key: apikey
-  # Jellyfin widget
-  - name: HOMEPAGE_VAR_JELLYFIN_API_KEY
-    valueFrom:
-      secretKeyRef:
-        name: homepage-jellyfin
-        key: apikey
-  # Miniflux widget
-  - name: HOMEPAGE_VAR_MINIFLUX_API_KEY
-    valueFrom:
-      secretKeyRef:
-        name: homepage-miniflux
-        key: apikey
-  # Grafana widget
-  - name: HOMEPAGE_VAR_GRAFANA_USERNAME
-    valueFrom:
-      secretKeyRef:
-        name: homepage-grafana
-        key: username
-  - name: HOMEPAGE_VAR_GRAFANA_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: homepage-grafana
-        key: password
-  # Forgejo widget
-  - name: HOMEPAGE_VAR_FORGEJO_API_KEY
-    valueFrom:
-      secretKeyRef:
-        name: homepage-forgejo
-        key: apikey
-  # Navidrome widget
-  - name: HOMEPAGE_VAR_NAVIDROME_USER
-    valueFrom:
-      secretKeyRef:
-        name: homepage-navidrome
-        key: user
-  - name: HOMEPAGE_VAR_NAVIDROME_SALT
-    valueFrom:
-      secretKeyRef:
-        name: homepage-navidrome
-        key: salt
-  - name: HOMEPAGE_VAR_NAVIDROME_TOKEN
-    valueFrom:
-      secretKeyRef:
-        name: homepage-navidrome
-        key: token
-
-config:
-  # Host services (non-k8s, on indri or LAN)
-  services:
+  services.yaml: |
     - Host Services:
         - Forgejo:
             href: https://forge.ops.eblu.me
@@ -134,8 +88,6 @@ config:
         #     widget:
         #       type: caddy
         #       url: http://indri.tail8d86e.ts.net:2019
-
-    # Services on ringtail k3s (not autodiscovered — different cluster)
     - Infrastructure:
         - NVR:
             href: https://nvr.ops.eblu.me
@@ -146,27 +98,7 @@ config:
             icon: ntfy.png
             description: Push notifications
 
-  # External bookmarks
-  bookmarks:
-    - Admin:
-        - Tailscale Admin:
-            - href: https://login.tailscale.com/admin
-              icon: tailscale
-        - 1Password:
-            - href: https://my.1password.com
-              icon: 1password
-        - Pulumi:
-            - href: https://app.pulumi.com/eblume/blumeops-tailnet
-              icon: si-pulumi
-        - ArgoCD:
-            - href: https://argocd.ops.eblu.me
-              icon: argo-cd
-        - UniFi:
-            - href: https://unifi.ui.com
-              icon: ubiquiti
-
-  # Widgets on the page (info bar at top)
-  widgets:
+  widgets.yaml: |
     - greeting:
         text_size: xl
         text: Welcome to Blue Mops
@@ -194,12 +126,12 @@ config:
     #     url: http://indri.tail8d86e.ts.net:61208
     #     metric: cpu
 
-  # Kubernetes autodiscovery
-  kubernetes:
+  kubernetes.yaml: |
     mode: cluster
 
-  # Layout and styling
-  settingsString: |
+  docker.yaml: ""
+
+  settings.yaml: |
     title: BlumeOps
     headerStyle: boxed
     quicklaunch:

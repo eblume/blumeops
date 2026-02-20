@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homepage
+  namespace: homepage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: homepage
+  template:
+    metadata:
+      labels:
+        app: homepage
+    spec:
+      serviceAccountName: homepage
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: homepage
+          image: registry.ops.eblu.me/blumeops/homepage:v1.10.1
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: HOMEPAGE_ALLOWED_HOSTS
+              value: "go.tail8d86e.ts.net,go.ops.eblu.me"
+            # Weather widget
+            - name: HOMEPAGE_VAR_OPENWEATHERMAP_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: homepage-openweathermap
+                  key: apikey
+            # Jellyfin widget
+            - name: HOMEPAGE_VAR_JELLYFIN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: homepage-jellyfin
+                  key: apikey
+            # Miniflux widget
+            - name: HOMEPAGE_VAR_MINIFLUX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: homepage-miniflux
+                  key: apikey
+            # Grafana widget
+            - name: HOMEPAGE_VAR_GRAFANA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: homepage-grafana
+                  key: username
+            - name: HOMEPAGE_VAR_GRAFANA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: homepage-grafana
+                  key: password
+            # Forgejo widget
+            - name: HOMEPAGE_VAR_FORGEJO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: homepage-forgejo
+                  key: apikey
+            # Navidrome widget
+            - name: HOMEPAGE_VAR_NAVIDROME_USER
+              valueFrom:
+                secretKeyRef:
+                  name: homepage-navidrome
+                  key: user
+            - name: HOMEPAGE_VAR_NAVIDROME_SALT
+              valueFrom:
+                secretKeyRef:
+                  name: homepage-navidrome
+                  key: salt
+            - name: HOMEPAGE_VAR_NAVIDROME_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: homepage-navidrome
+                  key: token
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+            - name: logs
+              mountPath: /app/config/logs
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /api/healthcheck
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/healthcheck
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: homepage-config
+        - name: logs
+          emptyDir: {}

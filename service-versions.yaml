@@ -45,11 +45,11 @@ services:
     upstream-source: https://github.com/binwiederhier/ntfy/releases
 
   - name: homepage
-    type: argocd
-    last-reviewed: null
-    current-version: null
+    type: hybrid
+    last-reviewed: 2026-02-19
+    current-version: "v1.10.1"
     upstream-source: https://github.com/gethomepage/homepage/releases
-    notes: Deployed via Helm chart
+    notes: Custom container, kustomize manifests
 
   - name: nvidia-device-plugin
     type: argocd
