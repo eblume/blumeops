@@ -113,7 +113,8 @@ tags:
 ### Git Discipline
 
 - Single feature branch per C1/C2 change
-- **Create a PR early** — open a draft PR after the first doc commit so the user can review the Mikado graph as it evolves between iterations. Push doc updates after each attempt cycle.
+- **Create a PR early** — open a draft PR after the first doc commit so the user can review the Mikado graph as it evolves between iterations.
+- **Push after every iteration** — after completing a leaf node or documenting a failed attempt, push to origin. This is the save point for multi-session work.
 - Amend a single working commit as you iterate; keep the branch history clean
 - GitOps requires pushing to test — if a pushed commit breaks, revert it promptly
 - Commit doc updates noting what was learned from failures
