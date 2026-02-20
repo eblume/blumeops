@@ -6,7 +6,7 @@ ARG HOMEPAGE_VERSION=v1.10.1
 FROM node:24-slim AS builder
 
 ARG HOMEPAGE_VERSION
-RUN apt-get update && apt-get install -y --no-install-recommends git \
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
 RUN git clone --depth 1 --branch ${HOMEPAGE_VERSION} \
