@@ -82,6 +82,9 @@ caddy_services:
   - name: dex
     host: "dex.{{ caddy_domain }}"
     backend: "https://dex.tail8d86e.ts.net"
+  - name: authentik
+    host: "authentik.{{ caddy_domain }}"
+    backend: "https://authentik.tail8d86e.ts.net"
   - name: ntfy
     host: "ntfy.{{ caddy_domain }}"
     backend: "https://ntfy.tail8d86e.ts.net"
