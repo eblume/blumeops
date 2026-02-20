@@ -62,4 +62,5 @@ Migration and transition plans for upcoming infrastructure changes.
 | [[harden-zot-registry]] | Add authentication and tag immutability to zot registry |
 | [[forgejo-actions-dashboard]] | Grafana dashboard for Forgejo Actions CI metrics |
 | [[upgrade-grafana-helm-chart]] | Upgrade Grafana Helm chart from 8.8.2 to 11.x |
+| [[deploy-authentik]] | Deploy Authentik identity provider to replace Dex |
 | [[operationalize-reolink-camera]] | Cloud-free NVR with Frigate and ring buffer recording |
