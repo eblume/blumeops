@@ -73,3 +73,4 @@ Mikado chain for replacing Dex with Authentik. Track progress with `mise run doc
 - [[build-authentik-container]]
 - [[provision-authentik-database]]
 - [[create-authentik-secrets]]
+- [[migrate-grafana-to-authentik]]
