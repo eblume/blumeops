@@ -1,6 +1,5 @@
 ---
 title: Create Authentik Secrets
-status: active
 modified: 2026-02-20
 tags:
   - how-to
@@ -12,27 +11,22 @@ tags:
 
 Create the 1Password item that the ExternalSecret references for Authentik configuration.
 
-## Context
+## What Was Done
 
-Discovered while attempting [[deploy-authentik]]: the ExternalSecret references 1Password item "Authentik (blumeops)" which doesn't exist. Without it, the `authentik-config` Kubernetes secret won't be created and pods can't start.
-
-## What to Do
-
-1. Generate a random secret key for Authentik (`AUTHENTIK_SECRET_KEY`)
-2. Create 1Password item "Authentik (blumeops)" in vault `blumeops` with fields:
-   - `secret-key`: random 50+ character string
-   - `postgresql-host`: Tailscale-accessible postgres hostname
+1. Created 1Password item "Authentik (blumeops)" in vault `blumeops` (category: database) with fields:
+   - `secret-key`: random 68-character base64 string (for `AUTHENTIK_SECRET_KEY`)
+   - `postgresql-host`: `pg.ops.eblu.me`
    - `postgresql-port`: `5432`
    - `postgresql-name`: `authentik`
    - `postgresql-user`: `authentik`
-   - `postgresql-password`: the password from [[provision-authentik-database]]
-3. Verify the ExternalSecret can resolve on ringtail's cluster
+   - `postgresql-password`: random 44-character base64 string
+2. ExternalSecret `blumeops-pg-authentik` in databases namespace resolves successfully (verified during [[provision-authentik-database]])
 
 ## Notes
 
-- This partially depends on [[provision-authentik-database]] for the postgres password, but the 1Password item structure and secret key can be created independently.
+- The database password in this 1Password item is the same one used by the CNPG managed role via `external-secret-authentik.yaml`. Both the database ExternalSecret and the future Authentik deployment ExternalSecret reference the same 1Password item but different fields.
 
 ## Related
 
 - [[deploy-authentik]] — Parent goal
-- [[provision-authentik-database]] — Source of database credentials
+- [[provision-authentik-database]] — Database provisioning (uses `postgresql-password` field)

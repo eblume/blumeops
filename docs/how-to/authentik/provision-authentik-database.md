@@ -1,6 +1,5 @@
 ---
 title: Provision Authentik Database
-status: active
 modified: 2026-02-20
 tags:
   - how-to
@@ -12,20 +11,18 @@ tags:
 
 Create a PostgreSQL database and user for Authentik on the existing CNPG cluster.
 
-## Context
+## What Was Done
 
-Discovered while attempting [[deploy-authentik]]: Authentik requires a PostgreSQL database, but no `authentik` database exists on `blumeops-pg`. The CNPG cluster runs on [[indri]] (minikube) and is reachable from [[ringtail]] via Tailscale at `blumeops-pg-rw.databases.svc:5432` or the Tailscale endpoint.
+1. Added `authentik` managed role to `blumeops-pg` CNPG cluster (`argocd/manifests/databases/blumeops-pg.yaml`) — non-superuser with `createdb` and `login`
+2. Created ExternalSecret `blumeops-pg-authentik` pulling password from 1Password item "Authentik (blumeops)" field `postgresql-password`
+3. Synced CNPG cluster — role reconciled with password set
+4. Created `authentik` database owned by `authentik` user
+5. Verified cross-cluster connectivity: ringtail pod → `pg.ops.eblu.me:5432` (Caddy L4)
 
-## What to Do
+## Resolved Questions
 
-1. Create database `authentik` and user `authentik` on the CNPG cluster
-2. Store credentials in 1Password (part of the "Authentik (blumeops)" item)
-3. Verify cross-cluster connectivity: ringtail pod → indri postgres via Tailscale
-
-## Open Questions
-
-- What Tailscale hostname does the CNPG cluster expose? Need to check if there's a Tailscale Ingress for postgres or if we need to use the MagicDNS name directly.
-- Should the database user have limited permissions or superuser access?
+- **Hostname:** `pg.ops.eblu.me` via Caddy L4 plugin (not MagicDNS)
+- **Permissions:** Non-superuser with `createdb` — Authentik manages its own schema via migrations
 
 ## Related
 
