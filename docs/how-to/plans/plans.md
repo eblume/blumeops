@@ -22,4 +22,7 @@ Plans differ from regular how-to guides in that they describe work that has been
 | [[forgejo-actions-dashboard]] | Planned | Grafana dashboard and custom Prometheus exporter for Forgejo Actions CI metrics |
 | [[upgrade-grafana-helm-chart]] | Planned | Upgrade Grafana Helm chart from 8.8.2 to 11.x (3 phases) |
 | [[deploy-authentik]] | Active (C2) | Deploy Authentik identity provider to replace Dex for full SSO and user management |
+| [[build-authentik-container]] | Active (C2) | Build Nix container image for Authentik (prerequisite of deploy-authentik) |
+| [[provision-authentik-database]] | Active (C2) | Create PostgreSQL database for Authentik (prerequisite of deploy-authentik) |
+| [[create-authentik-secrets]] | Active (C2) | Create 1Password secrets for Authentik (prerequisite of deploy-authentik) |
 | [[operationalize-reolink-camera]] | Planned | Cloud-free NVR with Frigate, object detection, and ring buffer recording to sifaka |

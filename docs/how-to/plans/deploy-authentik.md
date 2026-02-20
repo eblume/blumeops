@@ -2,6 +2,10 @@
 title: Deploy Authentik Identity Provider
 status: active
 modified: 2026-02-20
+requires:
+  - build-authentik-container
+  - provision-authentik-database
+  - create-authentik-secrets
 tags:
   - how-to
   - plans
@@ -27,7 +31,7 @@ Replace [[dex]] with [Authentik](https://goauthentik.io/) as the SSO identity pr
 
 ## Open Questions
 
-- **nixpkgs:** Verify `pkgs.authentik` exists. If not, packaging from source is a significant sub-task.
+- ~~**nixpkgs:** Verify `pkgs.authentik` exists.~~ **Resolved:** exists at v2025.10.1, entrypoint is `ak` (bash wrapper). See [[build-authentik-container]].
 - **Cross-cluster metrics:** Prometheus on indri scraping authentik on ringtail needs a new pattern (Dex has no metrics collection today).
 - **Dex decommission:** Separate effort after all OIDC clients migrate to Authentik.
 
