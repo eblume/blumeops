@@ -1,1 +1,0 @@
-Added Nix container build for nettest, validating the full nix-container-builder pipeline on ringtail. One git tag now triggers both Dockerfile and Nix workflows — each skips if its build file is absent. Rewrote container-tag-and-release as a typer CLI with --dry-run support. Added container policy.json and registries.conf to ringtail for skopeo.

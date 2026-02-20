@@ -12,6 +12,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.10.0] - 2026-02-19
+
+### Features
+
+- Deploy Dex OIDC identity provider on ringtail with Grafana as first SSO client.
+- Added Nix container build for nettest, validating the full nix-container-builder pipeline on ringtail. One git tag now triggers both Dockerfile and Nix workflows — each skips if its build file is absent. Rewrote container-tag-and-release as a typer CLI with --dry-run support. Added container policy.json and registries.conf to ringtail for skopeo.
+- Add NixOS configuration for ringtail (gaming/compute workstation with RTX 4080). Includes declarative disk partitioning via disko, NVIDIA drivers, sway/Wayland desktop, Steam, Tailscale, and Ansible-driven provisioning.
+- Add screen lock, idle timeout, and sleep prevention to ringtail: swaylock locks after 15min, display powers off after 60min, machine never suspends.
+- Systemd Forgejo Actions runner on ringtail (`nix-container-builder` label) for building containers with `nix build` and pushing via `skopeo`. K3s cluster retained for future workloads. 1Password Connect + External Secrets Operator available for k8s secret management.
+
+### Bug Fixes
+
+- Cap detect FPS to 2 and sync motion masks/zones from live config
+- Fix `zk-docs` task to use new path for troubleshooting doc after how-to reorg.
+- Inhibit swayidle lock screen when a fullscreen window is active on ringtail, preventing screen lock during gamepad-only gaming sessions.
+- Make 1Password secret tasks in ringtail playbook idempotent by checking kubectl apply output instead of always reporting changed.
+
+### Infrastructure
+
+- Port Frigate NVR to ringtail k3s with RTX 4080 GPU acceleration (TensorRT/ONNX), replacing the ZMQ-based Apple Silicon detector on indri.
+- Replace Homepage Helm chart (jameswynn/homepage v2.1.0, pinned at app v1.2.0) with plain kustomize manifests and a custom Dockerfile built from upstream v1.10.1. Gives full version control and matches the pattern used by other blumeops services.
+- Port ntfy to a locally built container image from forge mirror source.
+- Port Mosquitto (MQTT) and ntfy to ringtail k3s; retire Apple Silicon Detector from indri.
+- Ringtail post-install: NixOS config (sway with Catppuccin Macchiato theme, fish, 1Password, Steam, LibreWolf, Bluetooth audio, chezmoi, dev tools, nix-ld), Dagger flake-lock pipeline, improved provision-ringtail workflow, services-check integration, and reference documentation.
+- Add ringtail DeviceTags to Pulumi and allow homelab-to-homelab Tailscale SSH for cross-host ansible/management.
+- Update Frigate zone masks from live config and expand alert notifications to cover both Driveway and Driveway_entrance zones.
+- Add Apple Silicon ZMQ detector for Frigate — inference moves from in-pod ONNX CPU to CoreML on indri via ZMQ, using YOLOv9-m model
+- Deploy Tailscale operator on ringtail k3s cluster
+- Upgrade ntfy from v2.11.0 to v2.17.0 and add ntfy and frigate reference docs.
+- Update External Secrets Operator Helm chart from 1.3.1 to 2.0.0 (operator v1.3.2)
+- Upgrade Frigate NVR from 0.16.4 to 0.17.0-rc2 (prerequisite for Apple Silicon ZMQ detector)
+
+### Documentation
+
+- Add Dex OIDC documentation: reference card, federated login explanation, services-check integration, and updated plan.
+- Update services-check and documentation to reflect Frigate, Mosquitto, and ntfy migration from indri minikube to ringtail k3s (PRs #216, #217).
+- Review and fix update-documentation how-to: add missing cache purge step, clean up fragment types table.
+
+
 ## [v1.9.4] - 2026-02-17
 
 ### Documentation

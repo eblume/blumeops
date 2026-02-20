@@ -1,1 +1,0 @@
-Systemd Forgejo Actions runner on ringtail (`nix-container-builder` label) for building containers with `nix build` and pushing via `skopeo`. K3s cluster retained for future workloads. 1Password Connect + External Secrets Operator available for k8s secret management.
