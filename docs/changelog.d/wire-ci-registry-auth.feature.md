@@ -1,1 +1,1 @@
-Enable OIDC + API key authentication on zot registry with three-tier access control (anonymous read, CI create, admin full). Wire both CI push paths (Dagger and Nix/skopeo) with registry credentials via Forgejo Actions secrets.
+Enable OIDC + API key authentication on zot registry with three-tier access control (anonymous read, CI create, admin full). Wire both CI push paths (Dagger and Nix/skopeo) with registry credentials via Forgejo Actions secrets. Allow anonymous Prometheus metrics scraping via `accessControl.metrics.users`.

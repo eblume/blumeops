@@ -17,7 +17,7 @@ Tag immutability is enforced server-side via `accessControl` policies in [[harde
 
 - **Anonymous:** `["read"]` — pull only, no push at all
 - **`artifact-workloads` group (CI):** `["read", "create"]` — can push new tags but cannot overwrite or delete existing ones
-- **Admins:** `["read", "create", "delete"]` — break-glass for removing bad images
+- **Admins:** `["read", "create", "update", "delete"]` — break-glass for removing bad images
 
 Since CI only has `create` (not `update`), pushing an existing version tag is rejected by zot itself. Commit SHA tags are inherently unique and never collide.
 

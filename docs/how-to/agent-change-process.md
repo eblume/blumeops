@@ -96,8 +96,8 @@ tags:
 ---
 ```
 
-- `status: active` marks in-progress work; omit when done
-- `requires` lists card stems (filenames without `.md`) that must be completed first
+- `status: active` marks in-progress work; remove when done (this is the ONLY way a card is marked complete)
+- `requires` lists card stems (filenames without `.md`) that must be completed first. **Keep `requires` permanently** even after prerequisites are done — it documents the dependency graph history
 - `required-by` is NOT stored — it's computed by `docs-mikado`
 
 ### Writing Cards
