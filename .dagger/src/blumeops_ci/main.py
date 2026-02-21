@@ -18,11 +18,15 @@ class BlumeopsCi:
         src: dagger.Directory,
         container_name: str,
         version: str,
+        commit_sha: str,
         registry: str = "registry.ops.eblu.me",
     ) -> str:
-        """Build and push to registry. Returns the image ref."""
+        """Build and push to registry. Returns the image ref.
+
+        Tag format: {version}-{commit_sha} (e.g. v1.0.0-abc1234)
+        """
         ctr = self.build(src, container_name)
-        ref = f"{registry}/blumeops/{container_name}:{version}"
+        ref = f"{registry}/blumeops/{container_name}:{version}-{commit_sha}"
         return await ctr.publish(ref)
 
     @function

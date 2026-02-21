@@ -1,77 +1,105 @@
-# Generic container build workflow
-# Triggers on tags matching: <container>-v<version>
-# Builds from containers/<container>/Dockerfile if it exists
-#
-# Uses Dagger to build and push images to the Zot registry.
-#
-# Examples:
-#   nettest-v1.0.0  -> builds containers/nettest/
-#   devpi-v2.1.0    -> builds containers/devpi/
-#   foo-v1.0.0      -> skips if containers/foo/ doesn't exist
+# Dockerfile container build workflow
+# Triggers on pushes to main that modify containers/*, or via manual dispatch.
+# Detects which containers changed, extracts version from CONTAINER_APP_VERSION,
+# and publishes with commit-SHA-based tags: vX.Y.Z-<sha>
 name: Build Container
 
 on:
   push:
-    tags:
-      - '*-v[0-9]*'
+    branches: [main]
+    paths: ['containers/**']
+  workflow_dispatch:
+    inputs:
+      container:
+        description: 'Container name (directory under containers/)'
+        required: true
+        type: string
+      ref:
+        description: 'Commit SHA to build (defaults to current HEAD)'
+        required: false
+        type: string
 
 jobs:
-  build:
+  detect:
     runs-on: k8s
+    outputs:
+      containers: ${{ steps.list.outputs.containers }}
     steps:
-      - name: Parse tag
-        id: parse
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed containers
+        id: list
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          echo "Tag: $TAG"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            CONTAINERS='["${{ inputs.container }}"]'
+          else
+            # Diff against parent commit to find changed container dirs
+            CONTAINERS=$(git diff --name-only HEAD~1 HEAD -- containers/ \
+              | cut -d/ -f2 | sort -u \
+              | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          fi
+          echo "containers=$CONTAINERS" >> "$GITHUB_OUTPUT"
+          echo "Containers to build: $CONTAINERS"
 
-          # Extract container name (everything before -v)
-          # e.g., "nettest-v1.0.0" -> "nettest", "my-app-v2.0.0" -> "my-app"
-          CONTAINER="${TAG%-v[0-9]*}"
-          VERSION="${TAG#"${CONTAINER}"-}"
-
-          echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Container: $CONTAINER"
-          echo "Version: $VERSION"
-
+  build:
+    needs: detect
+    if: needs.detect.outputs.containers != '[]'
+    runs-on: k8s
+    strategy:
+      matrix:
+        container: ${{ fromJson(needs.detect.outputs.containers) }}
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check if container exists
+      - name: Check for Dockerfile
         id: check
         run: |
-          CONTAINER="${{ steps.parse.outputs.container }}"
-          CONTEXT="containers/$CONTAINER"
-
-          if [ -f "$CONTEXT/Dockerfile" ]; then
-            echo "Found $CONTEXT/Dockerfile"
+          if [ -f "containers/${{ matrix.container }}/Dockerfile" ]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No Dockerfile found at $CONTEXT/Dockerfile"
+            echo "No Dockerfile for ${{ matrix.container }} — skipping"
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Skip if container not found
-        if: steps.check.outputs.exists != 'true'
+      - name: Extract version and SHA
+        if: steps.check.outputs.exists == 'true'
+        id: meta
         run: |
-          echo "========================================"
-          echo "Container not found: ${{ steps.parse.outputs.container }}"
-          echo "========================================"
-          echo ""
-          echo "Tag '${{ github.ref_name }}' does not match any container in containers/"
-          echo ""
-          echo "Available containers:"
-          find containers -maxdepth 1 -mindepth 1 -type d -exec basename {} \; 2>/dev/null | sort | while read -r name; do
-            echo "  - $name"
-          done || echo "  (none)"
-          echo ""
-          echo "Skipping build."
+          VERSION=$(grep -m1 '^ARG CONTAINER_APP_VERSION=' \
+            "containers/${{ matrix.container }}/Dockerfile" \
+            | sed 's/^ARG CONTAINER_APP_VERSION=//')
+
+          if [ -z "$VERSION" ]; then
+            echo "Error: No CONTAINER_APP_VERSION found in Dockerfile"
+            exit 1
+          fi
+
+          # Use dispatch input ref if provided, otherwise current commit
+          REF="${{ inputs.ref }}"
+          if [ -z "$REF" ]; then
+            REF="${GITHUB_SHA}"
+          fi
+          SHORT_SHA=$(echo "$REF" | head -c 7)
+
+          # Ensure version starts with 'v'
+          case "$VERSION" in
+            v*) ;; # already has v prefix
+            *) VERSION="v${VERSION}" ;;
+          esac
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION, SHA: $SHORT_SHA"
 
       - name: Publish
         if: steps.check.outputs.exists == 'true'
         run: |
           dagger call publish \
             --src=. \
-            --container-name=${{ steps.parse.outputs.container }} \
-            --version=${{ steps.parse.outputs.version }}
+            --container-name=${{ matrix.container }} \
+            --version=${{ steps.meta.outputs.version }} \
+            --commit-sha=${{ steps.meta.outputs.sha }}

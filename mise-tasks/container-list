@@ -52,10 +52,11 @@ for dir in "$CONTAINER_DIR"/*/; do
 done
 
 echo "---"
-echo "To release a new version:"
-echo "  mise run container-tag-and-release <container> <version>"
+echo "To trigger a build:"
+echo "  mise run container-build-and-release <container>"
 echo ""
-echo "One tag triggers all applicable workflows (dockerfile and/or nix)."
+echo "Dispatches both Dockerfile and Nix workflows (each skips if build file absent)."
+echo "Tags: vX.Y.Z-<sha> (Dockerfile), vX.Y.Z-<sha>-nix (Nix)"
 echo ""
 echo "Example:"
-echo "  mise run container-tag-and-release nettest v1.0.0"
+echo "  mise run container-build-and-release nettest"

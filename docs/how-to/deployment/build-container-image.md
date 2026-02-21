@@ -52,20 +52,23 @@ nix-build containers/<name>/default.nix -o result
 
 ## 3. Release
 
-Once the image builds cleanly, create a tagged release:
+Container builds trigger automatically when changes to `containers/<name>/` are merged to `main`. Both workflows fire and each skips if the relevant build file is absent.
+
+To trigger a manual build (e.g. from a branch or to rebuild at a specific commit):
 
 ```bash
-mise run container-tag-and-release <name> v1.0.0
+mise run container-build-and-release <name>
+mise run container-build-and-release <name> --ref <commit-sha>
 ```
 
-Use `--dry-run` to preview without creating tags.
-
-This creates a single git tag `<name>-v1.0.0` and pushes it. Both Forgejo workflows trigger on the tag — each checks for its build file and skips if not present:
+Use `--dry-run` to preview without dispatching.
 
 | Build file | Workflow | Runner | Registry tag |
 |------------|----------|--------|--------------|
-| `Dockerfile` | `build-container.yaml` | `k8s` (indri) | `:v1.0.0` |
-| `default.nix` | `build-container-nix.yaml` | `nix-container-builder` ([[ringtail]]) | `:v1.0.0-nix` |
+| `Dockerfile` | `build-container.yaml` | `k8s` (indri) | `:vX.Y.Z-<sha>` |
+| `default.nix` | `build-container-nix.yaml` | `nix-container-builder` ([[ringtail]]) | `:vX.Y.Z-<sha>-nix` |
+
+The version (`X.Y.Z`) is extracted from `ARG CONTAINER_APP_VERSION=` in the Dockerfile or `version = "..."` in `default.nix`. The SHA is the short (7-char) commit hash.
 
 Check available images and tags with:
 
@@ -78,7 +81,7 @@ mise run container-list
 Change the image reference in `argocd/manifests/<service>/deployment.yaml`:
 
 ```yaml
-image: registry.ops.eblu.me/blumeops/<name>:v1.0.0
+image: registry.ops.eblu.me/blumeops/<name>:vX.Y.Z-abc1234
 ```
 
 Then deploy per [[deploy-k8s-service]].

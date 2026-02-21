@@ -168,7 +168,7 @@ def main(
         checklist_parts += [
             "\n[bold]Custom Container (hybrid):[/bold]\n",
             "• Check base image for updates\n",
-            "• Rebuild container if needed: mise run container-tag-and-release\n",
+            "• Rebuild container if needed: mise run container-build-and-release\n",
             "• Update ArgoCD manifest with new image tag\n",
         ]
     elif svc_type == "argocd":

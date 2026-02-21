@@ -1,82 +1,138 @@
 # Nix container build workflow
-# Triggers on tags matching: <container>-v<version>
-# Builds from containers/<container>/default.nix if it exists, skips otherwise
-# Pushes to Zot registry via skopeo with -nix image tag suffix
-#
-# Examples:
-#   nettest-v1.0.0  -> builds containers/nettest/default.nix, pushes :v1.0.0-nix
-#   devpi-v2.1.0    -> skips (no default.nix)
+# Triggers on pushes to main that modify containers/*, or via manual dispatch.
+# Detects which containers changed, builds from default.nix, and pushes via
+# skopeo with commit-SHA-based tags: vX.Y.Z-<sha>-nix
 name: Build Container (Nix)
 
 on:
   push:
-    tags:
-      - '*-v[0-9]*'
+    branches: [main]
+    paths: ['containers/**']
+  workflow_dispatch:
+    inputs:
+      container:
+        description: 'Container name (directory under containers/)'
+        required: true
+        type: string
+      ref:
+        description: 'Commit SHA to build (defaults to current HEAD)'
+        required: false
+        type: string
 
 jobs:
-  build:
+  detect:
     runs-on: nix-container-builder
+    outputs:
+      containers: ${{ steps.list.outputs.containers }}
     steps:
-      - name: Parse tag
-        id: parse
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed containers
+        id: list
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          echo "Tag: $TAG"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            CONTAINERS='["${{ inputs.container }}"]'
+          else
+            CONTAINERS=$(git diff --name-only HEAD~1 HEAD -- containers/ \
+              | cut -d/ -f2 | sort -u \
+              | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          fi
+          echo "containers=$CONTAINERS" >> "$GITHUB_OUTPUT"
+          echo "Containers to build: $CONTAINERS"
 
-          # Extract container name (everything before -v)
-          # e.g., "nettest-v1.0.0" -> "nettest", "my-app-v2.0.0" -> "my-app"
-          CONTAINER="${TAG%-v[0-9]*}"
-          VERSION="${TAG#"${CONTAINER}"-}"
-
-          echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Container: $CONTAINER"
-          echo "Version: $VERSION"
-
+  build:
+    needs: detect
+    if: needs.detect.outputs.containers != '[]'
+    runs-on: nix-container-builder
+    strategy:
+      matrix:
+        container: ${{ fromJson(needs.detect.outputs.containers) }}
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check if nix container exists
+      - name: Check for default.nix
         id: check
         run: |
-          CONTAINER="${{ steps.parse.outputs.container }}"
-          CONTEXT="containers/$CONTAINER"
-
-          if [ -f "$CONTEXT/default.nix" ]; then
-            echo "Found $CONTEXT/default.nix"
+          if [ -f "containers/${{ matrix.container }}/default.nix" ]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No default.nix found at $CONTEXT/default.nix — skipping"
+            echo "No default.nix for ${{ matrix.container }} — skipping"
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Extract version and SHA
+        if: steps.check.outputs.exists == 'true'
+        id: meta
+        run: |
+          CONTAINER="${{ matrix.container }}"
+          NIX_FILE="containers/$CONTAINER/default.nix"
+
+          # Try extracting version = "..." from the nix file (e.g. ntfy)
+          VERSION=$(grep -m1 '^\s*version\s*=\s*"' "$NIX_FILE" \
+            | sed 's/.*"\(.*\)".*/\1/' || true)
+
+          # Fall back to CONTAINER_APP_VERSION from Dockerfile (e.g. nettest)
+          if [ -z "$VERSION" ] && [ -f "containers/$CONTAINER/Dockerfile" ]; then
+            VERSION=$(grep -m1 '^ARG CONTAINER_APP_VERSION=' \
+              "containers/$CONTAINER/Dockerfile" \
+              | sed 's/^ARG CONTAINER_APP_VERSION=//')
+          fi
+
+          # Last resort: dagger call nix-version for nixpkgs packages (e.g. authentik)
+          if [ -z "$VERSION" ]; then
+            VERSION=$(dagger call nix-version --package="$CONTAINER")
+          fi
+
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not determine version for $CONTAINER"
+            exit 1
+          fi
+
+          REF="${{ inputs.ref }}"
+          if [ -z "$REF" ]; then
+            REF="${GITHUB_SHA}"
+          fi
+          SHORT_SHA=$(echo "$REF" | head -c 7)
+
+          # Ensure version starts with 'v'
+          case "$VERSION" in
+            v*) ;;
+            *) VERSION="v${VERSION}" ;;
+          esac
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION, SHA: $SHORT_SHA"
 
       - name: Resolve nixpkgs
         if: steps.check.outputs.exists == 'true'
         id: nixpkgs
         run: |
-          # Resolve nixpkgs from the flake registry for <nixpkgs> lookup
           NIXPKGS_PATH=$(nix flake metadata nixpkgs --json | jq -r '.path')
           echo "Resolved nixpkgs: $NIXPKGS_PATH"
           echo "path=$NIXPKGS_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Build with nix
         if: steps.check.outputs.exists == 'true'
-        id: build
         env:
           NIX_PATH: "nixpkgs=${{ steps.nixpkgs.outputs.path }}"
         run: |
-          CONTAINER="${{ steps.parse.outputs.container }}"
-          echo "Building containers/$CONTAINER/default.nix"
+          echo "Building containers/${{ matrix.container }}/default.nix"
           echo "NIX_PATH=$NIX_PATH"
-          nix-build "containers/$CONTAINER/default.nix" -o result
+          nix-build "containers/${{ matrix.container }}/default.nix" -o result
           echo "Build complete: $(readlink result)"
 
       - name: Push to registry
         if: steps.check.outputs.exists == 'true'
         run: |
-          CONTAINER="${{ steps.parse.outputs.container }}"
-          VERSION="${{ steps.parse.outputs.version }}"
-          IMAGE="registry.ops.eblu.me/blumeops/$CONTAINER:$VERSION-nix"
+          CONTAINER="${{ matrix.container }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+          SHORT_SHA="${{ steps.meta.outputs.sha }}"
+          IMAGE="registry.ops.eblu.me/blumeops/$CONTAINER:${VERSION}-${SHORT_SHA}-nix"
 
           echo "Pushing to $IMAGE"
           skopeo copy \

@@ -1,0 +1,1 @@
+Container builds now trigger automatically on merge to main (path-based) and use commit-SHA-based image tags (`vX.Y.Z-<sha>`) for full traceability. The `container-tag-and-release` task is replaced by `container-build-and-release` which dispatches workflows via the Forgejo API. Added pre-commit hook to keep container versions in sync with `service-versions.yaml`.

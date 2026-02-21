@@ -91,7 +91,7 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 | `pr-comments` | Check unresolved PR comments during review |
 | `blumeops-tasks` | Find pending tasks from Todoist |
 | `container-list` | View available container images and tags |
-| `container-tag-and-release` | Release a new container image version |
+| `container-build-and-release` | Trigger container build workflows |
 | `dns-preview` | Preview DNS changes before applying |
 | `dns-up` | Apply DNS changes via Pulumi |
 | `tailnet-preview` | Preview Tailscale ACL changes |
