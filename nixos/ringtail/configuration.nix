@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, dagger-pkg, ... }:
 
 let
   # Libraries needed by mise-compiled runtimes (python-build, etc.)
@@ -500,7 +500,7 @@ in
       tokenFile = "/etc/forgejo-runner/token.env";
       labels = [ "nix-container-builder:host" ];
       hostPackages = with pkgs; [
-        bash coreutils curl dagger gawk gitMinimal gnused jq nodejs wget
+        bash coreutils curl dagger-pkg gawk gitMinimal gnused jq nodejs wget
         nix skopeo
       ];
       settings = {
