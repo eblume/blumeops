@@ -62,9 +62,20 @@ Authentik runs on [[ringtail]]'s k3s cluster while most services run on indri's 
 
 No k8s-internal DNS crosses cluster boundaries. Everything uses the `*.ops.eblu.me` domain.
 
+## Forgejo
+
+[[forgejo]] authenticates against Authentik using the same OIDC flow as Grafana. The auth source is created via CLI (`forgejo admin auth add-oauth`) rather than config file — it lives in Forgejo's SQLite database.
+
+Account linking is configured with `ACCOUNT_LINKING = login`: when an Authentik user's email matches an existing local account, Forgejo prompts for the local password to confirm the link. This safely preserves the existing `eblume` account with all its API tokens, SSH keys, and repository ownership.
+
+The `admins` group in Authentik maps to Forgejo admin status, enabling centralized admin management.
+
+### MFA
+
+Authentik enforces TOTP MFA on its default authentication flow (`not_configured_action: configure`). Forgejo's auth source has `SkipLocalTwoFA: true`, so SSO logins bypass Forgejo's local 2FA — Authentik has already verified the second factor. Local password logins (break-glass) still require Forgejo's own TOTP.
+
 ## Future Work
 
-- **Forgejo OIDC:** Make Forgejo an OIDC client of Authentik (deferred — existing `eblume` account needs careful migration)
 - **Additional services:** ArgoCD, Miniflux, Immich, Zot (see [[harden-zot-registry]])
 
 ## Related

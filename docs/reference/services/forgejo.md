@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-02-19
+modified: 2026-02-20
 tags:
   - service
   - git
@@ -79,7 +79,20 @@ This is a bootstrapping requirement - the PAT enables IaC for all other secrets.
 
 ## Identity Provider
 
-[[authentik]] is the BlumeOps OIDC identity provider and source of truth for user identity. Forgejo will eventually authenticate against Authentik as an OIDC client, with user provisioning managed in Authentik. This migration is deferred — the existing `eblume` account has extensive automations that need careful migration.
+[[authentik]] is the BlumeOps OIDC identity provider and source of truth for user identity. Forgejo authenticates against Authentik as an OIDC client.
+
+**Configuration:**
+- OAuth2 provider and application defined in Authentik blueprints (`argocd/manifests/authentik/configmap-blueprint.yaml`)
+- Auth source created via `forgejo admin auth add-oauth` with `--skip-local-2fa` (lives in Forgejo's SQLite database, not app.ini)
+- `[oauth2_client]` section in `app.ini.j2` controls auto-registration and account linking behavior
+
+**MFA:** SSO logins skip Forgejo's local 2FA (`--skip-local-2fa` on the auth source) — Authentik enforces MFA instead. Local password logins still require Forgejo's own TOTP. Note: the `--skip-local-2fa` CLI flag has a [known bug](https://codeberg.org/forgejo/forgejo/issues/5366) where it doesn't persist via `update-oauth`; it was set directly in the `login_source.cfg` JSON (`SkipLocalTwoFA: true`).
+
+**Account linking:** `ACCOUNT_LINKING = login` — when an Authentik user's email matches an existing local account, Forgejo prompts for the local password (and local MFA) to confirm the link. This is a one-time operation that preserves existing accounts, API tokens, SSH keys, and repository ownership.
+
+**Group-based admin:** The `admins` group in Authentik maps to Forgejo admin status via `--admin-group admins` on the auth source. Manage admin access in Authentik, not Forgejo.
+
+**Break-glass:** Local password login always works (with local MFA). Authentik SSO is additive — if Authentik is down, log in with local credentials.
 
 ## Future: Public Access
 
@@ -91,7 +104,7 @@ Forgejo can be exposed publicly at `forge.eblu.me` via [[flyio-proxy]]. Since Fo
 
 Exposing a dynamic, authenticated service like Forgejo requires a full security review before going live:
 
-- Disable open user registration (require invites or admin approval)
+- Disable all local registration — only allow login via [[authentik]] (`DISABLE_REGISTRATION = true`, `ALLOW_ONLY_EXTERNAL_REGISTRATION = true`)
 - Configure fail2ban on indri with a filter for Forgejo's log format
 - Ensure Forgejo logs the forwarded client IP (`X-Real-IP`) rather than the proxy's Tailscale IP
 - Audit repository visibility defaults and permissions

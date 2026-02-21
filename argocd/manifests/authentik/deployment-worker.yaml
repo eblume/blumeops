@@ -58,6 +58,11 @@ spec:
                 secretKeyRef:
                   name: authentik-config
                   key: grafana-client-secret
+            - name: AUTHENTIK_FORGEJO_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-config
+                  key: forgejo-client-secret
           volumeMounts:
             - name: blueprints
               mountPath: /blueprints/custom

@@ -39,11 +39,14 @@ Uses the shared CNPG `blumeops-pg` cluster on [[indri]], accessed cross-cluster 
 
 ## Blueprints
 
-Authentik configuration is managed via Blueprints (YAML) stored as a ConfigMap mounted into the worker at `/blueprints/custom/`. Current blueprints define:
+Authentik configuration is managed via Blueprints (YAML) stored as a ConfigMap mounted into the worker at `/blueprints/custom/`. Current blueprints:
 
-- `admins` group
-- Grafana OAuth2 provider (client ID: `grafana`)
-- Grafana application with group-based policy binding
+- **`common.yaml`** — shared identity resources (`admins` group)
+- **`mfa.yaml`** — MFA enforcement on the default authentication flow (`not_configured_action: configure`)
+- **`grafana.yaml`** — Grafana OAuth2 provider, application, and policy binding
+- **`forgejo.yaml`** — Forgejo OAuth2 provider, application, and policy binding
+
+Group membership is included in the `profile` scope claim (Authentik built-in). Services use `--group-claim-name groups` to read it.
 
 Blueprint file: `argocd/manifests/authentik/configmap-blueprint.yaml`
 
@@ -52,8 +55,9 @@ Blueprint file: `argocd/manifests/authentik/configmap-blueprint.yaml`
 | Client | Status |
 |--------|--------|
 | [[grafana]] | Active |
+| [[forgejo]] | Active |
 
-Future clients: [[forgejo]], [[argocd]], [[miniflux]], [[zot]]
+Future clients: [[argocd]], [[miniflux]], [[zot]]
 
 ## Secrets
 
@@ -64,6 +68,7 @@ Injected via [[external-secrets]] from the "Authentik (blumeops)" 1Password item
 | `secret-key` | Authentik secret key |
 | `db-password` | PostgreSQL password |
 | `grafana-client-secret` | OIDC client secret for Grafana |
+| `forgejo-client-secret` | OIDC client secret for Forgejo |
 | `api-token` | Authentik API token |
 
 ## Container Image

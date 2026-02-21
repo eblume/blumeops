@@ -5,12 +5,12 @@ metadata:
   name: authentik-blueprints
   namespace: authentik
 data:
-  grafana.yaml: |
+  common.yaml: |
     version: 1
     metadata:
-      name: BlumeOps Grafana SSO
+      name: BlumeOps Common Identity
       labels:
-        blueprints.goauthentik.io/description: "Grafana OIDC provider and application"
+        blueprints.goauthentik.io/description: "Shared groups and identity resources"
     entries:
       # admins group — gates access to admin-only applications
       - model: authentik_core.group
@@ -20,6 +20,34 @@ data:
         attrs:
           name: admins
 
+  mfa.yaml: |
+    version: 1
+    metadata:
+      name: BlumeOps MFA Enforcement
+      labels:
+        blueprints.goauthentik.io/description: "Require MFA on default authentication flow"
+    entries:
+      # Require MFA — force_setup prompts users without MFA to enroll.
+      - model: authentik_stages_authenticator_validate.authenticatorvalidatestage
+        identifiers:
+          name: default-authentication-mfa-validation
+        attrs:
+          not_configured_action: configure
+          device_classes:
+            - totp
+            - webauthn
+            - static
+          configuration_stages:
+            - !Find [authentik_stages_authenticator_totp.authenticatortotpstage, [name, default-authenticator-totp-setup]]
+            - !Find [authentik_stages_authenticator_static.authenticatorstaticstage, [name, default-authenticator-static-setup]]
+
+  grafana.yaml: |
+    version: 1
+    metadata:
+      name: BlumeOps Grafana SSO
+      labels:
+        blueprints.goauthentik.io/description: "Grafana OIDC provider and application"
+    entries:
       # OAuth2 provider for Grafana
       - model: authentik_providers_oauth2.oauth2provider
         id: grafana-provider
@@ -62,10 +90,66 @@ data:
         identifiers:
           order: 0
           target: !KeyOf grafana-app
-          group: !KeyOf admins-group
+          group: !Find [authentik_core.group, [name, admins]]
         attrs:
           target: !KeyOf grafana-app
-          group: !KeyOf admins-group
+          group: !Find [authentik_core.group, [name, admins]]
+          order: 0
+          enabled: true
+          negate: false
+          timeout: 30
+
+  forgejo.yaml: |
+    version: 1
+    metadata:
+      name: BlumeOps Forgejo SSO
+      labels:
+        blueprints.goauthentik.io/description: "Forgejo OIDC provider and application"
+    entries:
+      # OAuth2 provider for Forgejo
+      - model: authentik_providers_oauth2.oauth2provider
+        id: forgejo-provider
+        identifiers:
+          name: Forgejo
+        attrs:
+          name: Forgejo
+          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+          invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+          client_type: confidential
+          client_id: forgejo
+          client_secret: !Env AUTHENTIK_FORGEJO_CLIENT_SECRET
+          redirect_uris:
+            - matching_mode: strict
+              url: https://forge.ops.eblu.me/user/oauth2/authentik/callback
+          signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+          property_mappings:
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+          sub_mode: hashed_user_id
+          include_claims_in_id_token: true
+
+      # Forgejo application — linked to the OAuth2 provider
+      - model: authentik_core.application
+        id: forgejo-app
+        identifiers:
+          slug: forgejo
+        attrs:
+          name: Forgejo
+          slug: forgejo
+          provider: !KeyOf forgejo-provider
+          meta_launch_url: https://forge.ops.eblu.me
+          policy_engine_mode: any
+
+      # Policy binding — restrict Forgejo to admins group
+      - model: authentik_policies.policybinding
+        identifiers:
+          order: 0
+          target: !KeyOf forgejo-app
+          group: !Find [authentik_core.group, [name, admins]]
+        attrs:
+          target: !KeyOf forgejo-app
+          group: !Find [authentik_core.group, [name, admins]]
           order: 0
           enabled: true
           negate: false

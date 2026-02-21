@@ -77,6 +77,12 @@ PASSWORD_HASH_ALGO = pbkdf2_hi
 [oauth2]
 JWT_SECRET = {{ forgejo_oauth2_jwt_secret }}
 
+[oauth2_client]
+ENABLE_AUTO_REGISTRATION = true
+ACCOUNT_LINKING = login
+USERNAME = nickname
+REGISTER_EMAIL_CONFIRM = false
+
 [actions]
 ENABLED = {{ forgejo_actions_enabled | lower }}
 DEFAULT_ACTIONS_URL = {{ forgejo_actions_default_url }}
