@@ -18,7 +18,6 @@ Plans differ from regular how-to guides in that they describe work that has been
 | [[add-unifi-pulumi-stack]] | Abandoned | Add Pulumi IaC for UniFi Express 7 (provider bugs — see doc) |
 | [[upstream-fork-strategy]] | Planned | Stacked-branch forking strategy for tracking upstream projects |
 | [[adopt-oidc-provider]] | Completed | Deploy OIDC identity provider for SSO across services |
-| [[harden-zot-registry]] | Planned | Add authentication and tag immutability to zot registry |
 | [[forgejo-actions-dashboard]] | Planned | Grafana dashboard and custom Prometheus exporter for Forgejo Actions CI metrics |
 | [[upgrade-grafana-helm-chart]] | Planned | Upgrade Grafana Helm chart from 8.8.2 to 11.x (3 phases) |
 | [[deploy-authentik]] | Active (C2) | Deploy Authentik IdP — Mikado chain tracked in `how-to/authentik/` |
