@@ -6,6 +6,8 @@
 #
 # The container downloads the tarball on startup, extracts it, and serves with nginx.
 
+ARG CONTAINER_APP_VERSION=1.0.3
+
 FROM nginx:alpine
 
 # Install curl for downloading release assets

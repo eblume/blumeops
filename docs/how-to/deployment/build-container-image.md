@@ -1,6 +1,6 @@
 ---
 title: Build Container Image
-modified: 2026-02-19
+modified: 2026-02-20
 last-reviewed: 2026-02-15
 tags:
   - how-to
@@ -38,7 +38,13 @@ A container can have one or both build files. The directory name becomes the ima
 dagger call build --src=. --container-name=<name>
 ```
 
-**Nix** — test with nix-build (requires nix, e.g. on [[ringtail]]):
+**Nix** — test with Dagger (no local nix required):
+
+```bash
+dagger call build-nix --src=. --container-name=<name> export --path=./<name>.tar.gz
+```
+
+Or with nix-build directly (requires nix, e.g. on [[ringtail]]):
 
 ```bash
 nix-build containers/<name>/default.nix -o result

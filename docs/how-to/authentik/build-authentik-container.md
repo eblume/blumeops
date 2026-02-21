@@ -16,7 +16,7 @@ Discovered while attempting [[deploy-authentik]]: the deployment references `reg
 
 ## What to Do
 
-1. Verify `containers/authentik/default.nix` builds on ringtail (the Nix builder runs there)
+1. Verify `containers/authentik/default.nix` builds — locally via Dagger (`dagger call build-nix --src=. --container-name=authentik`) or on ringtail (the CI nix builder runs there)
 2. The `ak` entrypoint needs bash (included via `bashInteractive`) and orchestrates both `server` and `worker` subcommands
 3. Tag and release: `mise run container-tag-and-release authentik v1.0.0`
 4. Verify the `-nix` tagged image appears in the registry

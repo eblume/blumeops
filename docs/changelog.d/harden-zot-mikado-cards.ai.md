@@ -1,1 +1,1 @@
-Create C2 Mikado cards for harden-zot-registry: root goal and three prerequisite cards (register-zot-oidc-client, wire-ci-registry-auth, enforce-tag-immutability).
+Expand harden-zot-registry Mikado chain: add prereqs for container version sync check, pin container versions, and Dagger nix build function.

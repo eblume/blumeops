@@ -4,6 +4,8 @@
 # - Docker on indri (during CI build)
 # - Minikube pods (manual testing)
 
+ARG CONTAINER_APP_VERSION=0.1.0
+
 FROM alpine:3.22
 
 RUN apk add --no-cache \

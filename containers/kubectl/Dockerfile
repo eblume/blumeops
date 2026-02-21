@@ -1,10 +1,13 @@
 # Minimal kubectl container
 # Multi-arch build: downloads correct binary for target platform
 
+ARG CONTAINER_APP_VERSION=v1.34.4
+
 FROM alpine:3.22 AS downloader
 
 ARG TARGETARCH
-ARG KUBECTL_VERSION=v1.34.4
+ARG CONTAINER_APP_VERSION
+ARG KUBECTL_VERSION=${CONTAINER_APP_VERSION}
 
 RUN apk add --no-cache curl && \
     # Detect architecture - use TARGETARCH if set, otherwise detect from uname

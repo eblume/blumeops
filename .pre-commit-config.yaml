@@ -89,6 +89,16 @@ repos:
         args: ['-config-file', '.github/actionlint.yaml']
         files: ^\.forgejo/workflows/
 
+  # Container version consistency
+  - repo: local
+    hooks:
+      - id: container-version-check
+        name: container-version-check
+        entry: mise run container-version-check
+        language: system
+        files: ^(containers/|service-versions\.yaml)
+        pass_filenames: false
+
   # Documentation validation
   - repo: local
     hooks:

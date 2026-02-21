@@ -1,0 +1,255 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml>=6.0", "rich>=13.0.0", "typer>=0.15.0"]
+# ///
+#MISE description="Validate container version consistency across Dockerfiles, nix derivations, and service-versions.yaml"
+#USAGE flag "--all-files" help="Check all containers, not just changed ones"
+"""Validate that container versions are consistent across all declaration sites.
+
+For each container directory under containers/, checks:
+1. Any Dockerfile must declare ARG CONTAINER_APP_VERSION=<value>
+2. Any default.nix must produce a version (via dagger call nix-version)
+3. At least one build file (Dockerfile or default.nix) must exist
+4. A matching entry in service-versions.yaml must exist with non-null current-version
+5. All resolved versions from (1), (2), and (4) must agree
+
+By default, only checks containers whose files differ from main.
+Pass --all-files to check every container.
+
+Usage:
+  mise run container-version-check              # changed containers only
+  mise run container-version-check --all-files  # all containers
+"""
+
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+import typer
+import yaml
+from rich.console import Console
+from rich.table import Table
+
+REPO_ROOT = Path(__file__).parent.parent
+CONTAINERS_DIR = REPO_ROOT / "containers"
+SERVICE_VERSIONS_FILE = REPO_ROOT / "service-versions.yaml"
+
+# Containers that are utility/test images, not tracked services
+BLACKLIST = {"kubectl", "nettest"}
+
+# Container dir name → service-versions.yaml name (when they differ)
+CONTAINER_TO_SERVICE = {
+    "quartz": "docs",
+    "kiwix-serve": "kiwix",
+}
+
+# Container dir name → nixpkgs package name for dagger nix-version.
+# Used for containers that use an unmodified nixpkgs package (version matches upstream).
+# Containers with local overrides (e.g. ntfy) declare version in default.nix
+# and are detected automatically via NIX_VERSION_PATTERN.
+NIX_PACKAGE_MAP = {
+    "authentik": "authentik",
+}
+
+VERSION_ARG_PATTERN = re.compile(r"^ARG\s+CONTAINER_APP_VERSION=(\S+)", re.MULTILINE)
+NIX_VERSION_PATTERN = re.compile(r'^\s*version\s*=\s*"([^"]+)"\s*;', re.MULTILINE)
+
+app = typer.Typer()
+console = Console()
+
+
+def strip_v(version: str) -> str:
+    """Strip leading 'v' prefix for comparison."""
+    return version.lstrip("v")
+
+
+def changed_containers() -> set[str] | None:
+    """Return container names with changes vs main, or None on git failure."""
+    result = subprocess.run(
+        ["git", "diff", "--name-only", "main...HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    if result.returncode != 0:
+        return None
+
+    names: set[str] = set()
+    sv_changed = False
+    for line in result.stdout.splitlines():
+        if line.startswith("containers/"):
+            parts = line.split("/")
+            if len(parts) >= 2:
+                names.add(parts[1])
+        if line == "service-versions.yaml":
+            sv_changed = True
+
+    # If service-versions.yaml changed, check all containers
+    if sv_changed:
+        return None
+
+    return names
+
+
+def get_nix_version(container_name: str, nix_file: Path) -> str | None:
+    """Extract nix package version. Tries local nix file first, then dagger."""
+    # Try extracting version declared directly in the nix file (local overrides)
+    match = NIX_VERSION_PATTERN.search(nix_file.read_text())
+    if match:
+        return match.group(1)
+
+    # Fall back to dagger for unmodified nixpkgs packages
+    pkg = NIX_PACKAGE_MAP.get(container_name)
+    if pkg is None:
+        return None
+
+    if not shutil.which("dagger"):
+        return None
+
+    result = subprocess.run(
+        ["dagger", "-m", ".dagger", "call", "nix-version", f"--package={pkg}"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    if result.returncode != 0:
+        return None
+
+    return result.stdout.strip().splitlines()[-1].strip()
+
+
+@app.command()
+def main(
+    all_files: bool = typer.Option(False, "--all-files", help="Check all containers, not just changed ones"),
+) -> None:
+    """Validate container version consistency."""
+    # Determine which containers to check
+    if all_files:
+        scope = None  # check all
+    else:
+        scope = changed_containers()  # None means check all (fallback)
+
+    # Load service versions
+    data = yaml.safe_load(SERVICE_VERSIONS_FILE.read_text())
+    services = {svc["name"]: svc for svc in data.get("services", [])}
+
+    errors: list[tuple[str, str]] = []
+    results: list[dict] = []
+
+    for container_dir in sorted(CONTAINERS_DIR.iterdir()):
+        if not container_dir.is_dir():
+            continue
+
+        name = container_dir.name
+        if name in BLACKLIST:
+            continue
+        if scope is not None and name not in scope:
+            continue
+
+        dockerfile = container_dir / "Dockerfile"
+        nix_file = container_dir / "default.nix"
+        has_dockerfile = dockerfile.exists()
+        has_nix = nix_file.exists()
+
+        versions: dict[str, str] = {}
+        entry = {
+            "name": name,
+            "has_dockerfile": has_dockerfile,
+            "has_nix": has_nix,
+            "versions": versions,
+        }
+        results.append(entry)
+
+        # Rule 3: at least one build file
+        if not has_dockerfile and not has_nix:
+            errors.append((name, "No Dockerfile or default.nix found"))
+            continue
+
+        # Rule 1: Dockerfile must declare CONTAINER_APP_VERSION
+        if has_dockerfile:
+            match = VERSION_ARG_PATTERN.search(dockerfile.read_text())
+            if match:
+                versions["dockerfile"] = match.group(1)
+            else:
+                errors.append((name, "Dockerfile missing ARG CONTAINER_APP_VERSION"))
+
+        # Rule 2: nix derivation must produce a version
+        if has_nix:
+            nix_ver = get_nix_version(name, nix_file)
+            if nix_ver is not None:
+                versions["nix"] = nix_ver
+            elif name in NIX_PACKAGE_MAP:
+                errors.append((name, "Failed to extract nix version via dagger"))
+
+        # Rule 4: service-versions.yaml entry with non-null version
+        svc_name = CONTAINER_TO_SERVICE.get(name, name)
+        svc = services.get(svc_name)
+        if svc is None:
+            errors.append((name, f"No entry '{svc_name}' in service-versions.yaml"))
+        elif svc.get("current-version") is None:
+            errors.append((name, f"Null current-version for '{svc_name}' in service-versions.yaml"))
+        else:
+            versions["service-versions"] = str(svc["current-version"])
+
+        # Rule 5: all resolved versions must match
+        if len(versions) >= 2:
+            normalized = {src: strip_v(v) for src, v in versions.items()}
+            unique = set(normalized.values())
+            if len(unique) > 1:
+                detail = ", ".join(f"{src}={v}" for src, v in sorted(versions.items()))
+                errors.append((name, f"Version mismatch: {detail}"))
+
+    # Output
+    console.print("[bold]Container Version Sync Check[/bold]")
+    if scope is not None:
+        console.print(f"Scope: {len(scope)} container(s) changed vs main")
+    else:
+        console.print("Scope: all containers")
+    console.print()
+
+    if results:
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Container")
+        table.add_column("Build")
+        table.add_column("Versions")
+        table.add_column("Status")
+
+        for entry in results:
+            name = entry["name"]
+            build_parts = []
+            if entry["has_dockerfile"]:
+                build_parts.append("dockerfile")
+            if entry["has_nix"]:
+                build_parts.append("nix")
+
+            ver_parts = [f"{src}={v}" for src, v in sorted(entry["versions"].items())]
+            has_error = any(e[0] == name for e in errors)
+            status = "[red]FAIL[/red]" if has_error else "[green]OK[/green]"
+
+            table.add_row(
+                name,
+                "+".join(build_parts),
+                ", ".join(ver_parts) or "—",
+                status,
+            )
+
+        console.print(table)
+        console.print()
+
+    if errors:
+        console.print(f"[bold red]{len(errors)} error(s):[/bold red]")
+        for name, msg in errors:
+            console.print(f"  {name}: {msg}")
+        console.print()
+        raise typer.Exit(code=1)
+
+    if not results:
+        console.print("[dim]No containers to check.[/dim]")
+    else:
+        console.print("[bold green]All container versions are consistent![/bold green]")
+
+
+if __name__ == "__main__":
+    app()

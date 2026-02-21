@@ -1,7 +1,8 @@
 # Homepage - self-hosted services dashboard
 # Two-stage build: Node.js build, Alpine runtime
 
-ARG HOMEPAGE_VERSION=v1.10.1
+ARG CONTAINER_APP_VERSION=v1.10.1
+ARG HOMEPAGE_VERSION=${CONTAINER_APP_VERSION}
 
 FROM node:24-slim AS builder
 

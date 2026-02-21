@@ -1,7 +1,8 @@
 # Navidrome music server
 # Three-stage build: UI (Node), backend (Go+taglib), runtime (Alpine)
 
-ARG NAVIDROME_VERSION=v0.60.3
+ARG CONTAINER_APP_VERSION=v0.60.3
+ARG NAVIDROME_VERSION=${CONTAINER_APP_VERSION}
 
 FROM node:22-alpine AS ui-build
 

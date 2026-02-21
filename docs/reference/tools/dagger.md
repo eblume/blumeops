@@ -1,6 +1,6 @@
 ---
 title: Dagger
-modified: 2026-02-12
+modified: 2026-02-20
 tags:
   - reference
   - ci-cd
@@ -27,7 +27,10 @@ Build engine for BlumeOps CI/CD pipelines. Replaces shell-based build scripts wi
 |----------|-----------|-------------|
 | `build` | `(src, container_name) → Container` | Build a container from `containers/<name>/Dockerfile` |
 | `publish` | `(src, container_name, version, registry?) → str` | Build and push to registry (default: `registry.ops.eblu.me`) |
+| `build_nix` | `(src, container_name) → File` | Build a nix container from `containers/<name>/default.nix`, return docker-archive tarball |
+| `nix_version` | `(package) → str` | Extract the version of a nixpkgs package |
 | `build_docs` | `(src, version) → File` | Build Quartz docs site, return docs tarball |
+| `flake_lock` | `(src, flake_path?) → File` | Resolve flake inputs, return updated `flake.lock` |
 
 ## CLI Examples
 
@@ -43,6 +46,12 @@ dagger call --interactive build --src=. --container-name=devpi
 
 # Publish a container to zot
 dagger call publish --src=. --container-name=devpi --version=v1.1.0
+
+# Build a nix container (no local nix required)
+dagger call build-nix --src=. --container-name=nettest export --path=./nettest.tar.gz
+
+# Check a nixpkgs package version
+dagger call nix-version --package=authentik
 
 # Build docs tarball locally
 dagger call build-docs --src=. --version=dev export --path=./docs-dev.tar.gz

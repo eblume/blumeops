@@ -1,7 +1,8 @@
 # Miniflux RSS feed reader
 # Based on upstream packaging/docker/alpine/Dockerfile
 
-ARG MINIFLUX_VERSION=2.2.17
+ARG CONTAINER_APP_VERSION=2.2.17
+ARG MINIFLUX_VERSION=${CONTAINER_APP_VERSION}
 
 FROM golang:alpine3.22 AS build
 

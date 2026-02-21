@@ -2,6 +2,8 @@
 title: Adopt Commit-Based Container Tags
 modified: 2026-02-20
 status: active
+requires:
+  - add-container-version-sync-check
 tags:
   - how-to
   - containers
@@ -35,7 +37,12 @@ Both the Dockerfile and Nix workflows fire for each trigger, each bailing out if
 
 ### Version Source
 
-Each container declares the version of its primary bundled app. The mechanism for declaring this (e.g., a `VERSION` file, parsing a Dockerfile `ARG`, or a convention per container) should be determined during implementation.
+Each container's version is extracted at build time from existing declarations — no separate VERSION file:
+
+- **Dockerfile builds**: parsed from `ARG CONTAINER_APP_VERSION=<value>` in the Dockerfile
+- **Nix builds**: extracted via `dagger call nix-version` or `nix eval`
+
+The [[add-container-version-sync-check]] pre-commit check ensures these declarations stay in sync with `service-versions.yaml`. See [[pin-container-versions]] for the work to ensure every container has a parseable version.
 
 ### Image Tag Format
 

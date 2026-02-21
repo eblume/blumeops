@@ -73,6 +73,10 @@ Mikado chain for hardening the zot registry. Track progress with `mise run docs-
 - [[wire-ci-registry-auth]]
 - [[enforce-tag-immutability]]
 - [[adopt-commit-based-container-tags]]
+- [[add-container-version-sync-check]]
+- [[pin-container-versions]]
+- [[add-dagger-nix-build]]
+- [[fix-ntfy-nix-version]]
 
 ## Authentik
 

@@ -1,10 +1,13 @@
 # kiwix-serve container
 # Downloads pre-built binary from kiwix mirror
 
+ARG CONTAINER_APP_VERSION=3.8.1
+
 FROM alpine:3.22
 
 ARG TARGETPLATFORM
-ARG KIWIX_VERSION=3.8.1
+ARG CONTAINER_APP_VERSION
+ARG KIWIX_VERSION=${CONTAINER_APP_VERSION}
 
 RUN set -e && \
     apk --no-cache add dumb-init curl && \

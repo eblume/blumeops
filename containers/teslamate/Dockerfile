@@ -1,7 +1,8 @@
 # TeslaMate - Tesla data logger
 # Based on upstream Dockerfile
 
-ARG TESLAMATE_VERSION=v2.2.0
+ARG CONTAINER_APP_VERSION=v2.2.0
+ARG TESLAMATE_VERSION=${CONTAINER_APP_VERSION}
 
 FROM elixir:1.18-otp-26 AS builder
 

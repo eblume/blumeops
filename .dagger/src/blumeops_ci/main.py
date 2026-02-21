@@ -71,6 +71,57 @@ class BlumeopsCi:
         )
 
     @function
+    async def build_nix(
+        self, src: dagger.Directory, container_name: str
+    ) -> dagger.File:
+        """Build a nix container from containers/<name>/default.nix.
+
+        Returns the docker-archive tarball that can be loaded with
+        `docker load` or pushed with `skopeo copy`.
+        """
+        nix_file = f"containers/{container_name}/default.nix"
+        # Resolve nixpkgs store path from flake registry, then build.
+        # Uses nix-instantiate to parse JSON (avoids needing jq).
+        resolve_and_build = (
+            "set -e; "
+            "nix --extra-experimental-features 'nix-command flakes' "
+            "flake metadata nixpkgs --json > /tmp/nixpkgs.json; "
+            "NIXPKGS_PATH=$(nix-instantiate --eval -E "
+            '"(builtins.fromJSON (builtins.readFile /tmp/nixpkgs.json)).path" '
+            "| tr -d '\"'); "
+            'export NIX_PATH="nixpkgs=$NIXPKGS_PATH"; '
+            'echo "NIX_PATH=$NIX_PATH"; '
+            'nix-build "$1" -o /result'
+        )
+        return await (
+            dag.container()
+            .from_(NIX_IMAGE)
+            .with_directory("/workspace", src)
+            .with_workdir("/workspace")
+            .with_exec(["sh", "-c", resolve_and_build, "_", nix_file])
+            .file("/result")
+        )
+
+    @function
+    async def nix_version(self, package: str) -> str:
+        """Extract the version of a nixpkgs package. Returns version string."""
+        return await (
+            dag.container()
+            .from_(NIX_IMAGE)
+            .with_exec(
+                [
+                    "nix",
+                    "--extra-experimental-features",
+                    "nix-command flakes",
+                    "eval",
+                    "--raw",
+                    f"nixpkgs#{package}.version",
+                ]
+            )
+            .stdout()
+        )
+
+    @function
     async def flake_lock(
         self, src: dagger.Directory, flake_path: str = "nixos/ringtail"
     ) -> dagger.File:

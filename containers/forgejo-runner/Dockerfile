@@ -9,9 +9,13 @@
 # Usage: Configure runner with label like:
 #   docker:docker://registry.ops.eblu.me/blumeops/forgejo-runner:latest
 
+ARG CONTAINER_APP_VERSION=0.19.11
+
 FROM debian:bookworm-slim
 
 ARG TARGETARCH
+ARG CONTAINER_APP_VERSION
+ARG DAGGER_VERSION=${CONTAINER_APP_VERSION}
 
 # Install base dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -51,7 +55,6 @@ RUN ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" \
     && argocd version --client
 
 # Install Dagger CLI (for running Dagger CI pipelines)
-ARG DAGGER_VERSION=0.19.11
 RUN ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" \
     && curl -fsSL -o /tmp/dagger.tar.gz \
     "https://dl.dagger.io/dagger/releases/${DAGGER_VERSION}/dagger_v${DAGGER_VERSION}_linux_${ARCH}.tar.gz" \
