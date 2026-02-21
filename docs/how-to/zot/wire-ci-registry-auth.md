@@ -1,6 +1,6 @@
 ---
 title: Wire CI Registry Auth
-modified: 2026-02-20
+modified: 2026-02-21
 status: active
 tags:
   - how-to
@@ -22,6 +22,8 @@ There are two push paths to update:
 2. **Nix/skopeo path** (`.forgejo/workflows/build-container-nix.yaml`): Add `--dest-creds` to `skopeo copy`, sourcing the API key from the same env var.
 
 > **Note:** The API key must be generated manually after OIDC login is working — log in to zot UI via browser, generate an API key, and store it in 1Password. This is a manual step between [[register-zot-oidc-client]] and this card, but not modeled as a formal `requires` dependency.
+
+CI authenticates as a service account in the `artifact-workloads` group (created in [[register-zot-oidc-client]]). This group grants `["read", "create"]` — CI can push new tags but cannot overwrite or delete existing ones, enforcing tag immutability server-side.
 
 ## Secret Flow
 

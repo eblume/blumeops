@@ -1,6 +1,6 @@
 ---
 title: Harden Zot Registry
-modified: 2026-02-20
+modified: 2026-02-21
 status: active
 requires:
   - register-zot-oidc-client
@@ -32,8 +32,13 @@ Update `ansible/roles/zot/templates/config.json.j2` to add:
 
 1. **`http.auth.openid`** — OIDC provider pointing to Authentik
 2. **`http.auth.apikey: true`** — enable API key generation for CI
-3. **`accessControl`** — anonymous read, authenticated write
+3. **`accessControl`** — three-tier policy enforcing tag immutability:
+   - `anonymousPolicy: ["read"]` — anyone can pull
+   - `artifact-workloads` group: `["read", "create"]` — CI can push new tags but cannot overwrite or delete (immutable tags)
+   - admins group: `["read", "create", "delete"]` — break-glass for removing bad images
 4. **`externalUrl`** — `https://registry.ops.eblu.me` for OIDC callback redirects
+
+The `artifact-workloads` group must be created in Authentik (see [[register-zot-oidc-client]]) and a service account added to it for CI use.
 
 ## Key Files
 
@@ -49,6 +54,8 @@ Update `ansible/roles/zot/templates/config.json.j2` to add:
 - [ ] Unauthenticated push fails (401)
 - [ ] OIDC browser login works (redirect to Authentik and back)
 - [ ] API key push works (`docker login` with `zak_...` token)
+- [ ] Pushing an existing version tag as CI user fails (no update permission)
+- [ ] Admin can delete a tag if needed
 - [ ] Pull-through caching still works
 - [ ] `mise run services-check` passes
 
@@ -56,6 +63,6 @@ Update `ansible/roles/zot/templates/config.json.j2` to add:
 
 - [[register-zot-oidc-client]] — Prereq: register OIDC client in Authentik
 - [[wire-ci-registry-auth]] — Prereq: update CI push paths with credentials
-- [[enforce-tag-immutability]] — Prereq: prevent version tag overwrites
+- [[enforce-tag-immutability]] — Folded into this card (server-side via accessControl)
 - [[adopt-commit-based-container-tags]] — Prereq: commit-SHA-based image tags
 - [[agent-change-process]] — C2 methodology

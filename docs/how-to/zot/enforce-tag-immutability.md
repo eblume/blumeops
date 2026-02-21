@@ -1,7 +1,6 @@
 ---
 title: Enforce Tag Immutability
-modified: 2026-02-20
-status: active
+modified: 2026-02-21
 tags:
   - how-to
   - zot
@@ -12,33 +11,18 @@ tags:
 
 Prevent accidental overwrite of version tags during CI push.
 
-## Approach
+## Resolution
 
-Push-side enforcement: before pushing a version tag, query `GET /v2/blumeops/<name>/tags/list` and fail if the tag already exists. Commit SHA tags are inherently unique and skip this check.
+Tag immutability is enforced server-side via `accessControl` policies in [[harden-zot-registry]], not by client-side push checks. The three-tier access model makes push-side enforcement unnecessary:
 
-## Two Push Paths to Update
+- **Anonymous:** `["read"]` — pull only, no push at all
+- **`artifact-workloads` group (CI):** `["read", "create"]` — can push new tags but cannot overwrite or delete existing ones
+- **Admins:** `["read", "create", "delete"]` — break-glass for removing bad images
 
-1. **Dagger path:** Add tag-existence check before `ctr.publish()` in `.dagger/src/blumeops_ci/main.py`
-2. **Nix/skopeo path:** Add tag-existence check before `skopeo copy` in `.forgejo/workflows/build-container-nix.yaml`
+Since CI only has `create` (not `update`), pushing an existing version tag is rejected by zot itself. Commit SHA tags are inherently unique and never collide.
 
-## Key Files
-
-| File | Purpose |
-|------|---------|
-| `.dagger/src/blumeops_ci/main.py` | Add pre-publish tag check |
-| `.forgejo/workflows/build-container-nix.yaml` | Add pre-copy tag check |
-
-## Notes
-
-- After auth is enabled, the tag check API call may need auth too — or it can rely on anonymous read access from `anonymousPolicy: ["read"]`
-- Only version tags (e.g., `v1.2.0`) need the check; commit SHA tags are unique by nature
-
-## Verification
-
-- [ ] Pushing a new version tag succeeds
-- [ ] Pushing an existing version tag fails with a clear error
-- [ ] Pushing a commit SHA tag always succeeds
+This approach requires authentication to be meaningful — without auth, everyone is anonymous. The requirements are therefore part of the root [[harden-zot-registry]] goal's `accessControl` configuration.
 
 ## Related
 
-- [[harden-zot-registry]] — Parent goal
+- [[harden-zot-registry]] — Parent goal (includes this requirement)
