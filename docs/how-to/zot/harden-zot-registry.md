@@ -6,6 +6,7 @@ requires:
   - register-zot-oidc-client
   - wire-ci-registry-auth
   - enforce-tag-immutability
+  - adopt-commit-based-container-tags
 tags:
   - how-to
   - zot
@@ -56,4 +57,5 @@ Update `ansible/roles/zot/templates/config.json.j2` to add:
 - [[register-zot-oidc-client]] — Prereq: register OIDC client in Authentik
 - [[wire-ci-registry-auth]] — Prereq: update CI push paths with credentials
 - [[enforce-tag-immutability]] — Prereq: prevent version tag overwrites
+- [[adopt-commit-based-container-tags]] — Prereq: commit-SHA-based image tags
 - [[agent-change-process]] — C2 methodology
