@@ -9,7 +9,7 @@ tags:
 
 # Install Dagger on Nix Runner
 
-Install the Dagger CLI on the ringtail nix-container-builder runner so that the nix container build workflow can use `dagger call nix-version` to extract package versions from nixpkgs.
+Use `nix eval` instead of `dagger call nix-version` for version extraction on the ringtail nix-container-builder runner.
 
 ## Context
 
@@ -17,21 +17,14 @@ The `build-container-nix.yaml` workflow extracts container versions in this orde
 
 1. `version = "..."` from `default.nix` (e.g. ntfy)
 2. `ARG CONTAINER_APP_VERSION=` from Dockerfile (e.g. nettest)
-3. `dagger call nix-version --package=<name>` for nixpkgs packages (e.g. authentik)
+3. Nixpkgs package version for packages without explicit versions (e.g. authentik)
 
-Step 3 fails on the ringtail nix runner because dagger is not installed. The runner currently only has nix, skopeo, and jq.
+Step 3 originally used `dagger call nix-version`, but dagger can't run on the bare nix runner:
 
-## What to Do
+- **Dagger is not in nixpkgs** — removed due to [trademark concerns](https://github.com/NixOS/nixpkgs/issues/260848). Available via `github:dagger/nix` flake.
+- **Dagger needs a container runtime** — the CLI is just an API client; the engine runs as a container via Docker/containerd, which the nix runner doesn't have.
 
-1. Add `dagger` to the ringtail nix runner environment in `nixos/ringtail/configuration.nix` (or equivalent)
-2. Verify `dagger` is available in the runner's PATH
-3. Re-run `mise run container-build-and-release authentik` to confirm the nix build succeeds
-
-## Verification
-
-- [ ] `ssh ringtail 'which dagger'` returns a path
-- [ ] Authentik nix build workflow completes successfully
-- [ ] `dagger call nix-version --package=authentik` works on the runner
+The fix was to use `nix eval --raw "nixpkgs#<package>.version"` directly, which is already available on the nix host and more appropriate.
 
 ## Related
 
