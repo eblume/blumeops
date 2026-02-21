@@ -1,7 +1,6 @@
 ---
 title: Adopt Commit-Based Container Tags
 modified: 2026-02-20
-status: active
 requires:
   - add-container-version-sync-check
   - install-dagger-on-nix-runner
