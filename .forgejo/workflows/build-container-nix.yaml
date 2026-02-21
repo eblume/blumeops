@@ -82,9 +82,10 @@ jobs:
               | sed 's/^ARG CONTAINER_APP_VERSION=//')
           fi
 
-          # Last resort: dagger call nix-version for nixpkgs packages (e.g. authentik)
+          # Last resort: nix eval for nixpkgs packages (e.g. authentik)
           if [ -z "$VERSION" ]; then
-            VERSION=$(dagger call nix-version --package="$CONTAINER")
+            VERSION=$(nix --extra-experimental-features "nix-command flakes" \
+              eval --raw "nixpkgs#${CONTAINER}.version")
           fi
 
           if [ -z "$VERSION" ]; then
