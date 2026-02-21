@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: cv
-          image: registry.ops.eblu.me/blumeops/cv:v1.0.0
+          image: registry.ops.eblu.me/blumeops/cv:v1.0.3-ffa8727
           ports:
             - containerPort: 80
               name: http

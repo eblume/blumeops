@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: ntfy
-          image: registry.ops.eblu.me/blumeops/ntfy:v1.1.0-nix
+          image: registry.ops.eblu.me/blumeops/ntfy:v2.17.0-ffa8727-nix
           args: ["serve", "--config", "/etc/ntfy/server.yml"]
           ports:
             - containerPort: 80
