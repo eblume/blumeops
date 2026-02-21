@@ -5,6 +5,8 @@ zot_data_dir: /Users/erichblume/zot
 zot_config_dir: /Users/erichblume/.config/zot
 zot_port: 5050
 zot_log_dir: /Users/erichblume/Library/Logs
+zot_external_url: https://registry.ops.eblu.me
+zot_oidc_issuer: https://authentik.ops.eblu.me/application/o/zot/
 
 # Pull-through cache registries (on-demand sync)
 zot_sync_registries:

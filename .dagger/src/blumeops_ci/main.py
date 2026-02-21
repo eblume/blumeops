@@ -20,12 +20,16 @@ class BlumeopsCi:
         version: str,
         commit_sha: str,
         registry: str = "registry.ops.eblu.me",
+        registry_username: str = "zot-ci",
+        registry_password: dagger.Secret | None = None,
     ) -> str:
         """Build and push to registry. Returns the image ref.
 
         Tag format: {version}-{commit_sha} (e.g. v1.0.0-abc1234)
         """
         ctr = self.build(src, container_name)
+        if registry_password is not None:
+            ctr = ctr.with_registry_auth(registry, registry_username, registry_password)
         ref = f"{registry}/blumeops/{container_name}:{version}-{commit_sha}"
         return await ctr.publish(ref)
 

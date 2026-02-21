@@ -8,7 +8,41 @@
   },
   "http": {
     "address": "0.0.0.0",
-    "port": "{{ zot_port }}"
+    "port": "{{ zot_port }}",
+    "externalUrl": "{{ zot_external_url }}",
+    "auth": {
+      "openid": {
+        "providers": {
+          "oidc": {
+            "credentialsFile": "{{ zot_config_dir }}/oidc-credentials.json",
+            "issuer": "{{ zot_oidc_issuer }}",
+            "scopes": ["openid", "email", "profile"],
+            "claimMapping": {
+              "username": "preferred_username"
+            }
+          }
+        }
+      },
+      "apikey": true
+    },
+    "accessControl": {
+      "repositories": {
+        "**": {
+          "policies": [
+            {
+              "groups": ["artifact-workloads"],
+              "actions": ["read", "create"]
+            },
+            {
+              "groups": ["admins"],
+              "actions": ["read", "create", "update", "delete"]
+            }
+          ],
+          "anonymousPolicy": ["read"],
+          "defaultPolicy": ["read"]
+        }
+      }
+    }
   },
   "log": {
     "level": "info"

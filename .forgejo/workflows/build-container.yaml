@@ -97,9 +97,12 @@ jobs:
 
       - name: Publish
         if: steps.check.outputs.exists == 'true'
+        env:
+          ZOT_CI_API_KEY: ${{ secrets.ZOT_CI_API_KEY }}
         run: |
           dagger call publish \
             --src=. \
             --container-name=${{ matrix.container }} \
             --version=${{ steps.meta.outputs.version }} \
-            --commit-sha=${{ steps.meta.outputs.sha }}
+            --commit-sha=${{ steps.meta.outputs.sha }} \
+            --registry-password=env:ZOT_CI_API_KEY

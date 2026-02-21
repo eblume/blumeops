@@ -129,6 +129,8 @@ jobs:
 
       - name: Push to registry
         if: steps.check.outputs.exists == 'true'
+        env:
+          ZOT_CI_API_KEY: ${{ secrets.ZOT_CI_API_KEY }}
         run: |
           CONTAINER="${{ matrix.container }}"
           VERSION="${{ steps.meta.outputs.version }}"
@@ -137,6 +139,7 @@ jobs:
 
           echo "Pushing to $IMAGE"
           skopeo copy \
+            --dest-creds="zot-ci:$ZOT_CI_API_KEY" \
             "docker-archive:result" \
             "docker://$IMAGE"
           echo "Push complete: $IMAGE"

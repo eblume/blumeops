@@ -16,6 +16,8 @@ forgejo_actions_secrets_repos:
         value_var: forgejo_secret_argocd_token
       - name: FLY_DEPLOY_TOKEN
         value_var: forgejo_secret_fly_deploy_token
+      - name: ZOT_CI_API_KEY
+        value_var: forgejo_secret_zot_ci_api_key
   - repo: cv
     secrets:
       - name: FORGE_TOKEN

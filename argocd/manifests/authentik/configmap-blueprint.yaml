@@ -218,7 +218,7 @@ data:
           meta_launch_url: https://registry.ops.eblu.me
           policy_engine_mode: any
 
-      # Policy binding — restrict Zot to admins group
+      # Policy binding — allow admins group access to Zot
       - model: authentik_policies.policybinding
         identifiers:
           order: 0
@@ -228,6 +228,20 @@ data:
           target: !KeyOf zot-app
           group: !Find [authentik_core.group, [name, admins]]
           order: 0
+          enabled: true
+          negate: false
+          timeout: 30
+
+      # Policy binding — allow artifact-workloads group access to Zot (CI push)
+      - model: authentik_policies.policybinding
+        identifiers:
+          order: 1
+          target: !KeyOf zot-app
+          group: !KeyOf artifact-workloads-group
+        attrs:
+          target: !KeyOf zot-app
+          group: !KeyOf artifact-workloads-group
+          order: 1
           enabled: true
           negate: false
           timeout: 30

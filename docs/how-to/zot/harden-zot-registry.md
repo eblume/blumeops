@@ -1,12 +1,6 @@
 ---
 title: Harden Zot Registry
 modified: 2026-02-21
-status: active
-requires:
-  - register-zot-oidc-client
-  - wire-ci-registry-auth
-  - enforce-tag-immutability
-  - adopt-commit-based-container-tags
 tags:
   - how-to
   - zot
@@ -16,44 +10,40 @@ tags:
 
 # Harden Zot Registry
 
-Enable OIDC + API key authentication on zot with anonymous pull preserved, and enforce tag immutability for version tags. This is the C2 Mikado root goal.
+OIDC + API key authentication on zot with anonymous pull preserved, and tag immutability enforced server-side via accessControl. This was a C2 Mikado goal — all prerequisites are now complete.
 
-## Context
+## What Was Done
 
-Zot currently has **no authentication** — security relies entirely on the Tailscale ACL boundary. Any tailnet client can push images, and tags are mutable.
+Updated `ansible/roles/zot/templates/config.json.j2` with:
 
-Both prerequisites from the original plan are now complete:
-- [[adopt-oidc-provider]] — Authentik is deployed and serving OIDC
-- [[adopt-dagger-ci]] — Dagger handles container builds
-
-## Core Change
-
-Update `ansible/roles/zot/templates/config.json.j2` to add:
-
-1. **`http.auth.openid`** — OIDC provider pointing to Authentik
-2. **`http.auth.apikey: true`** — enable API key generation for CI
-3. **`accessControl`** — three-tier policy enforcing tag immutability:
+1. **`http.auth.openid`** — OIDC provider pointing to Authentik (`sso.ops.eblu.me`)
+2. **`http.auth.apikey: true`** — API key generation for CI service accounts
+3. **`http.accessControl`** — three-tier policy:
    - `anonymousPolicy: ["read"]` — anyone can pull
    - `artifact-workloads` group: `["read", "create"]` — CI can push new tags but cannot overwrite or delete (immutable tags)
-   - admins group: `["read", "create", "delete"]` — break-glass for removing bad images
-4. **`externalUrl`** — `https://registry.ops.eblu.me` for OIDC callback redirects
+   - `admins` group: `["read", "create", "update", "delete"]` — break-glass
+4. **`http.externalUrl`** — `https://registry.ops.eblu.me` for OIDC callback redirects
 
-The `artifact-workloads` group must be created in Authentik (see [[register-zot-oidc-client]]) and a service account added to it for CI use.
+CI authenticates via a zot API key generated from the `zot-ci` service account's OIDC session. The key is stored in 1Password and synced to Forgejo Actions secrets.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `ansible/roles/zot/templates/config.json.j2` | Zot config — add auth + access control |
-| `ansible/roles/zot/defaults/main.yml` | New OIDC variables |
-| `ansible/roles/zot/tasks/main.yml` | Deploy OIDC credentials file |
+| `ansible/roles/zot/templates/config.json.j2` | Zot config with auth + access control |
+| `ansible/roles/zot/defaults/main.yml` | OIDC issuer and external URL variables |
+| `ansible/roles/zot/templates/oidc-credentials.json.j2` | OIDC client credentials |
+| `.dagger/src/blumeops_ci/main.py` | `publish()` with registry auth |
+| `.forgejo/workflows/build-container.yaml` | Dagger push with API key |
+| `.forgejo/workflows/build-container-nix.yaml` | Skopeo push with API key |
 
 ## Verification
 
 - [ ] Anonymous pull works (`curl -sf https://registry.ops.eblu.me/v2/_catalog`)
 - [ ] Unauthenticated push fails (401)
 - [ ] OIDC browser login works (redirect to Authentik and back)
-- [ ] API key push works (`docker login` with `zak_...` token)
+- [ ] API key push works (`docker login` with zot API key)
+- [ ] CI push succeeds (Dagger and Nix/skopeo paths)
 - [ ] Pushing an existing version tag as CI user fails (no update permission)
 - [ ] Admin can delete a tag if needed
 - [ ] Pull-through caching still works
@@ -61,8 +51,8 @@ The `artifact-workloads` group must be created in Authentik (see [[register-zot-
 
 ## Related
 
-- [[register-zot-oidc-client]] — Prereq: register OIDC client in Authentik
-- [[wire-ci-registry-auth]] — Prereq: update CI push paths with credentials
+- [[register-zot-oidc-client]] — OIDC client registration in Authentik
+- [[wire-ci-registry-auth]] — CI push path wiring
 - [[enforce-tag-immutability]] — Folded into this card (server-side via accessControl)
-- [[adopt-commit-based-container-tags]] — Prereq: commit-SHA-based image tags
+- [[adopt-commit-based-container-tags]] — Commit-SHA-based image tags
 - [[agent-change-process]] — C2 methodology

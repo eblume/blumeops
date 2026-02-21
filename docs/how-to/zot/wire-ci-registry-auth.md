@@ -1,7 +1,6 @@
 ---
 title: Wire CI Registry Auth
 modified: 2026-02-21
-status: active
 tags:
   - how-to
   - zot
@@ -11,48 +10,39 @@ tags:
 
 # Wire CI Registry Auth
 
-Ensure both CI push paths authenticate to zot after auth is enabled.
+How CI pipelines authenticate to the zot registry after OIDC + apikey auth is enabled.
 
-## Context
+## Overview
 
-There are two push paths to update:
+The `zot-ci` service account (created in [[register-zot-oidc-client]]) belongs to the `artifact-workloads` group, granting `["read", "create"]` permissions — CI can push new tags but cannot overwrite or delete existing ones.
 
-1. **Dagger path** (`.forgejo/workflows/build-container.yaml` → `.dagger/src/blumeops_ci/main.py`): Add `with_registry_auth()` to the Dagger `publish()` call, sourcing the API key from env var `ZOT_CI_API_KEY`.
+Authentication uses a zot API key generated after the service account's first OIDC login. The key is stored in 1Password (`Forgejo Secrets` item, field `zot-ci-api`, in blumeops vault) and synced to Forgejo Actions secrets via the `forgejo_actions_secrets` ansible role. The key expires every 90 days — see [[zot#API Key Rotation]] for the rotation procedure.
 
-2. **Nix/skopeo path** (`.forgejo/workflows/build-container-nix.yaml`): Add `--dest-creds` to `skopeo copy`, sourcing the API key from the same env var.
+## Push Paths
 
-> **Note:** The API key must be generated manually after OIDC login is working — log in to zot UI via browser, generate an API key, and store it in 1Password. This is a manual step between [[register-zot-oidc-client]] and this card, but not modeled as a formal `requires` dependency.
+### Dagger path (Dockerfile containers)
 
-CI authenticates as a service account in the `artifact-workloads` group (created in [[register-zot-oidc-client]]). This group grants `["read", "create"]` — CI can push new tags but cannot overwrite or delete existing ones, enforcing tag immutability server-side.
+`.forgejo/workflows/build-container.yaml` passes `--registry-password=env:ZOT_CI_API_KEY` to the Dagger `publish()` function, which calls `with_registry_auth()` before pushing.
+
+### Nix/skopeo path (Nix containers)
+
+`.forgejo/workflows/build-container-nix.yaml` passes `--dest-creds=zot-ci:$ZOT_CI_API_KEY` to `skopeo copy`.
 
 ## Secret Flow
 
-### Indri runner (minikube)
-
-1Password item (new: `zot-ci-apikey`) → ExternalSecret in `forgejo-runner` namespace → env var `ZOT_CI_API_KEY` in runner pod
-
-### Ringtail runner (k3s)
-
-1Password → `/etc/forgejo-runner/zot-api-key.env` (or similar) deployed by NixOS config
+1Password `Forgejo Secrets` item (field `zot-ci-api`) → ansible pre_task fetches it → `forgejo_actions_secrets` role syncs to Forgejo API → both runners (k8s on indri, host on ringtail) access it as `${{ secrets.ZOT_CI_API_KEY }}`.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `.dagger/src/blumeops_ci/main.py` | Add `with_registry_auth()` to publish |
-| `.forgejo/workflows/build-container.yaml` | Pass `ZOT_CI_API_KEY` to Dagger |
-| `.forgejo/workflows/build-container-nix.yaml` | Add `--dest-creds` to skopeo |
-| `argocd/manifests/forgejo-runner/deployment.yaml` | Mount secret as env var |
-| `argocd/manifests/forgejo-runner/external-secret.yaml` | Pull API key from 1Password |
-| `nixos/ringtail/configuration.nix` | Ringtail runner secret provisioning |
-
-## Verification
-
-- [ ] Dagger push succeeds with registry auth
-- [ ] Nix/skopeo push succeeds with registry auth
-- [ ] Push without credentials fails (401)
+| `.dagger/src/blumeops_ci/main.py` | `publish()` accepts optional `registry_password` |
+| `.forgejo/workflows/build-container.yaml` | Passes API key to Dagger |
+| `.forgejo/workflows/build-container-nix.yaml` | Passes API key to skopeo |
+| `ansible/playbooks/indri.yml` | Pre_task fetches API key from 1Password |
+| `ansible/roles/forgejo_actions_secrets/defaults/main.yml` | Secret entry for `ZOT_CI_API_KEY` |
 
 ## Related
 
 - [[harden-zot-registry]] — Parent goal
-- [[register-zot-oidc-client]] — OIDC client registration (do first)
+- [[register-zot-oidc-client]] — OIDC client registration
