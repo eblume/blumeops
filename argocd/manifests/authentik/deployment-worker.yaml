@@ -63,6 +63,11 @@ spec:
                 secretKeyRef:
                   name: authentik-config
                   key: forgejo-client-secret
+            - name: AUTHENTIK_ZOT_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-config
+                  key: zot-client-secret
           volumeMounts:
             - name: blueprints
               mountPath: /blueprints/custom

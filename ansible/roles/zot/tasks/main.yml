@@ -46,6 +46,14 @@
     mode: '0644'
   notify: Restart zot
 
+- name: Deploy zot OIDC credentials
+  ansible.builtin.template:
+    src: oidc-credentials.json.j2
+    dest: "{{ zot_config_dir }}/oidc-credentials.json"
+    mode: '0600'
+  notify: Restart zot
+  when: zot_oidc_client_secret is defined
+
 - name: Deploy zot LaunchAgent plist
   ansible.builtin.template:
     src: zot.plist.j2

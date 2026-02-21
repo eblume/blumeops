@@ -116,6 +116,23 @@
       no_log: true
       tags: [forgejo_actions_secrets]
 
+    # Zot OIDC client secret
+    - name: Fetch zot OIDC client secret
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/oor7os5kapczgpbwv7obkca4y4/zot-client-secret"
+      delegate_to: localhost
+      register: _zot_oidc_secret
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [zot]
+
+    - name: Set zot OIDC client secret fact
+      ansible.builtin.set_fact:
+        zot_oidc_client_secret: "{{ _zot_oidc_secret.stdout }}"
+      no_log: true
+      tags: [zot]
+
     # Caddy Gandi token for ACME DNS-01 challenges
     - name: Fetch Gandi PAT for Caddy
       ansible.builtin.command:
