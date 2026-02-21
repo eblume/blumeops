@@ -1,7 +1,6 @@
 ---
 title: Register Zot OIDC Client
 modified: 2026-02-21
-status: active
 tags:
   - how-to
   - zot
@@ -13,43 +12,30 @@ tags:
 
 Register a zot OAuth2 provider and application in Authentik via blueprint, following the same pattern as Grafana and Forgejo.
 
-## What to Do
+Completed in PR [#236](https://forge.ops.eblu.me/eblume/blumeops/pulls/236).
 
-1. **Add `zot.yaml` blueprint section** to `argocd/manifests/authentik/configmap-blueprint.yaml`:
-   - OAuth2Provider: `client_id: zot`, redirect URI `https://registry.ops.eblu.me/zot/auth/callback/oidc`
-   - Application linked to the provider
-   - PolicyBinding restricting access to the admins group
+## What Was Done
 
-2. **Generate and store client secret** in 1Password item "Authentik (blumeops)" as field `zot-client-secret`
+1. **Added `zot.yaml` blueprint section** to `argocd/manifests/authentik/configmap-blueprint.yaml`:
+   - OAuth2Provider (`client_id: zot`), Application, PolicyBinding (admins group), `artifact-workloads` group, and `zot-ci` service account
+2. **Client secret** stored in 1Password as field `zot-client-secret` on the "Authentik (blumeops)" item (referenced by item ID `oor7os5kapczgpbwv7obkca4y4` to avoid parentheses in `op read`)
+3. **ExternalSecret** wired `zot-client-secret` → worker Deployment env var `AUTHENTIK_ZOT_CLIENT_SECRET` → blueprint `!Env`
+4. **OIDC credentials template** (`ansible/roles/zot/templates/oidc-credentials.json.j2`) deployed by zot role with a `when` guard; pre_task in `ansible/playbooks/indri.yml` fetches the secret from 1Password
 
-3. **Add `AUTHENTIK_ZOT_CLIENT_SECRET`** to Authentik worker's ExternalSecret at `argocd/manifests/authentik/external-secret.yaml`
+### Deviations from Original Plan
 
-4. **Blueprint references the secret** via `!Env AUTHENTIK_ZOT_CLIENT_SECRET`
-
-5. **Create OIDC credentials file** for zot's Ansible role:
-   - New template `ansible/roles/zot/templates/oidc-credentials.json.j2` containing `client_id` and `client_secret`
-   - Source `client_secret` from 1Password via a new pre_task in `ansible/playbooks/indri.yml`
-
-6. **Create `artifact-workloads` group** in Authentik blueprint:
-   - Add a group resource to the blueprint with name `artifact-workloads`
-   - Create a service account user in the `artifact-workloads` group for CI push operations
-   - This group gets `["read", "create"]` in zot's `accessControl` (no update/delete — enforces tag immutability)
+- Worker Deployment env var injection was an additional wiring step not originally listed
+- Service account password and API keys are manual post-deploy steps (not automated in the blueprint)
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `argocd/manifests/authentik/configmap-blueprint.yaml` | Add zot blueprint (provider + app + policy + group) |
-| `argocd/manifests/authentik/external-secret.yaml` | Add `AUTHENTIK_ZOT_CLIENT_SECRET` env var |
-| `ansible/roles/zot/templates/oidc-credentials.json.j2` | New: OIDC credentials for zot |
-| `ansible/playbooks/indri.yml` | New pre_task for zot OIDC client secret |
-
-## Verification
-
-- [ ] Authentik admin UI shows zot application
-- [ ] OIDC discovery endpoint includes zot client
-- [ ] Blueprint status is `successful` (check via API, not just logs)
-- [ ] `artifact-workloads` group exists with CI service account
+| `argocd/manifests/authentik/configmap-blueprint.yaml` | Zot blueprint (provider + app + policy + group + service account) |
+| `argocd/manifests/authentik/external-secret.yaml` | `AUTHENTIK_ZOT_CLIENT_SECRET` env var |
+| `argocd/manifests/authentik/deployment-worker.yaml` | Env var injection for blueprint `!Env` |
+| `ansible/roles/zot/templates/oidc-credentials.json.j2` | OIDC credentials for zot |
+| `ansible/playbooks/indri.yml` | Pre_task for zot OIDC client secret |
 
 ## Related
 
