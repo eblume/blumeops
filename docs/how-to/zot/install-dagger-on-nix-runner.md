@@ -1,7 +1,6 @@
 ---
 title: Install Dagger on Nix Runner
 modified: 2026-02-20
-status: active
 tags:
   - how-to
   - ci

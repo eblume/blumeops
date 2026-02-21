@@ -500,7 +500,7 @@ in
       tokenFile = "/etc/forgejo-runner/token.env";
       labels = [ "nix-container-builder:host" ];
       hostPackages = with pkgs; [
-        bash coreutils curl gawk gitMinimal gnused jq nodejs wget
+        bash coreutils curl dagger gawk gitMinimal gnused jq nodejs wget
         nix skopeo
       ];
       settings = {

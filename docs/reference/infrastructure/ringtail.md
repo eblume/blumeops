@@ -96,7 +96,6 @@ A native Forgejo Actions runner (`ringtail-nix-builder`) runs as a systemd servi
 | **Execution** | Host (no containers) |
 | **Token** | `/etc/forgejo-runner/token.env` (provisioned by Ansible) |
 | **Service unit** | `gitea-runner-nix_container_builder.service` |
-| **Host packages** | bash, coreutils, curl, gawk, git, gnused, jq, nodejs, wget, nix, skopeo |
 
 The runner resolves `<nixpkgs>` from the flake registry at build time. Container trust policy (`/etc/containers/policy.json`) and registry search order (`/etc/containers/registries.conf`) are configured minimally in `configuration.nix` for skopeo — no full `virtualisation.containers` module needed.
 
