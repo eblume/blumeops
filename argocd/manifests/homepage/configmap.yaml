@@ -36,7 +36,7 @@ data:
               key: "{{HOMEPAGE_VAR_FORGEJO_API_KEY}}"
         - Registry:
             href: https://registry.ops.eblu.me
-            icon: docker
+            icon: zot-registry
             description: Container registry
         - Sifaka NAS:
             href: https://nas.ops.eblu.me
