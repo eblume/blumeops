@@ -102,7 +102,7 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 | `docs-review-stale` | Report docs by last-modified date, highlight stale ones |
 | `docs-review-tags` | Print frontmatter tag inventory across all docs |
 | `docs-review` | Review the most stale doc by last-reviewed date |
-| `indri-runner-logs` | View Forgejo workflow logs from local runner |
+| `runner-logs` | View Forgejo workflow logs (indri or ringtail runner) |
 
 For ArgoCD operations, use the `argocd` CLI directly:
 - `argocd app diff <service>` - Preview changes

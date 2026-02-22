@@ -24,7 +24,7 @@ This reads the `last-reviewed` frontmatter field from each card. Cards without t
 To show more entries in the table:
 
 ```bash
-mise run docs-review -- --limit 30
+mise run docs-review --limit 30
 ```
 
 ### Marking a Card as Reviewed

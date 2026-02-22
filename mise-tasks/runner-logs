@@ -1,0 +1,131 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx>=0.28.0", "rich>=13.0.0", "typer>=0.15.0"]
+# ///
+#MISE description="Get logs for a Forgejo Actions workflow run (indri or ringtail runner)"
+#USAGE arg "<runner>" help="Runner filter: indri, ringtail, or all"
+#USAGE arg "[run_id]" help="Run ID to fetch logs for (omit to list recent runs)"
+"""Fetch Forgejo Actions workflow logs from indri's log storage.
+
+Both the indri k8s runner and ringtail nix-container-builder runner report
+logs back to the Forgejo server on indri. This tool lists recent runs
+(optionally filtered by runner) and fetches compressed logs by run ID.
+
+Usage:
+    mise run runner-logs all              # list recent runs from all runners
+    mise run runner-logs ringtail         # list recent ringtail runs
+    mise run runner-logs all 337          # fetch logs for run 337
+"""
+
+import subprocess
+import sys
+from typing import Annotated
+
+import httpx
+import typer
+from rich.console import Console
+from rich.table import Table
+
+FORGE_API = "https://forge.ops.eblu.me/api/v1"
+REPO = "eblume/blumeops"
+ACTIONS_LOG_DIR = "/opt/homebrew/var/forgejo/data/actions_log/eblume/blumeops"
+
+# Workflows using the ringtail nix-container-builder runner; everything else
+# runs on the indri k8s runner.
+RINGTAIL_WORKFLOWS = {"build-container-nix.yaml"}
+
+app = typer.Typer(add_completion=False)
+
+
+def runner_for_workflow(workflow_id: str) -> str:
+    return "ringtail" if workflow_id in RINGTAIL_WORKFLOWS else "indri"
+
+
+def list_runs(runner: str, console: Console) -> None:
+    resp = httpx.get(
+        f"{FORGE_API}/repos/{REPO}/actions/tasks",
+        timeout=15,
+    )
+    resp.raise_for_status()
+    runs = resp.json().get("workflow_runs", [])
+
+    table = Table(title=f"Recent runs (filter: {runner})")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Status")
+    table.add_column("Runner")
+    table.add_column("Name")
+    table.add_column("Title")
+
+    for run in runs[:20]:
+        host = runner_for_workflow(run.get("workflow_id", ""))
+        if runner != "all" and host != runner:
+            continue
+        status = run.get("status", "")
+        style = "green" if status == "success" else "red" if status == "failure" else "yellow"
+        table.add_row(
+            str(run["id"]),
+            f"[{style}]{status}[/{style}]",
+            host,
+            (run.get("name") or "")[:40],
+            (run.get("display_title") or "")[:30],
+        )
+
+    console.print(table)
+
+
+def fetch_log(run_id: int) -> None:
+    hex_subdir = f"{run_id:02x}"
+    log_file = f"{ACTIONS_LOG_DIR}/{hex_subdir}/{run_id}.log.zst"
+
+    # All logs live on indri (the Forgejo server) regardless of runner
+    result = subprocess.run(
+        ["ssh", "indri", f"test -f '{log_file}' && zstd -d -c '{log_file}'"],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode == 0:
+        sys.stdout.write(result.stdout)
+    else:
+        typer.echo(f"Error: Log file not found for run {run_id}", err=True)
+        typer.echo(f"Expected path: {log_file}", err=True)
+        typer.echo("", err=True)
+        typer.echo("Available logs:", err=True)
+        avail = subprocess.run(
+            [
+                "ssh",
+                "indri",
+                f"find '{ACTIONS_LOG_DIR}' -name '*.log.zst' -exec basename {{}} .log.zst \\; | sort -n | tail -10",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        typer.echo(avail.stdout, err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
+def main(
+    runner: Annotated[
+        str,
+        typer.Argument(help="Runner filter: indri, ringtail, or all"),
+    ],
+    run_id: Annotated[
+        int | None,
+        typer.Argument(help="Run ID to fetch logs for (omit to list recent runs)"),
+    ] = None,
+) -> None:
+    """Get logs for a Forgejo Actions workflow run."""
+    if runner not in ("indri", "ringtail", "all"):
+        typer.echo(f"Error: runner must be 'indri', 'ringtail', or 'all', got '{runner}'")
+        raise typer.Exit(1)
+
+    if run_id is None:
+        list_runs(runner, Console())
+    else:
+        fetch_log(run_id)
+
+
+if __name__ == "__main__":
+    app()

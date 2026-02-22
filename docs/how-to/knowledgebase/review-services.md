@@ -24,15 +24,15 @@ This reads the tracking file at `service-versions.yaml` (repo root) and sorts by
 To show more entries in the table:
 
 ```bash
-mise run service-review -- --limit 30
+mise run service-review --limit 30
 ```
 
 To filter by service type:
 
 ```bash
-mise run service-review -- --type argocd
-mise run service-review -- --type ansible
-mise run service-review -- --type hybrid
+mise run service-review --type argocd
+mise run service-review --type ansible
+mise run service-review --type hybrid
 ```
 
 ## Review Process by Service Type

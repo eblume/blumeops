@@ -4,6 +4,7 @@
 # dependencies = ["rich>=13.0.0", "typer>=0.9.0"]
 # ///
 #MISE description="Report docs by git-last-modified date, highlighting stale ones"
+#USAGE flag "--threshold <threshold>" default="180" help="Days before a doc is considered stale"
 """Report documentation files sorted by git-last-modified date.
 
 Scans all markdown files in docs/ (excluding changelog.d/) and shows
