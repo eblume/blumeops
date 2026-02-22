@@ -20,7 +20,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: navidrome
-          image: registry.ops.eblu.me/blumeops/navidrome:v0.60.3-ffa8727
+          image: registry.ops.eblu.me/blumeops/navidrome:v0.60.3-a72a0d8
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false
