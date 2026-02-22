@@ -12,6 +12,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.11.0] - 2026-02-22
+
+### Features
+
+- Add agent change process (C0/C1/C2) documentation and `docs-mikado` tool for Mikado method dependency chain resolution. Rename `zk-docs` task to `ai-docs`.
+- Deploy Authentik identity provider on ringtail k3s cluster, replacing Dex as the SSO provider. Includes Nix-built container, CNPG database, Redis, and Caddy routing at `authentik.ops.eblu.me`.
+- Integrate Forgejo with Authentik OIDC for single sign-on with group-based admin propagation. Enforce TOTP MFA on Authentik authentication flow.
+- Add Authentik SSO to Jellyfin with admin group mapping
+- Container builds now trigger automatically on merge to main (path-based) and use commit-SHA-based image tags (`vX.Y.Z-<sha>`) for full traceability. The `container-tag-and-release` task is replaced by `container-build-and-release` which dispatches workflows via the Forgejo API. Added pre-commit hook to keep container versions in sync with `service-versions.yaml`.
+- Register Zot as an OIDC client in Authentik via blueprint, with artifact-workloads group, zot-ci service account, and OIDC credentials template for Ansible deployment.
+- Enable OIDC + API key authentication on zot registry with three-tier access control (anonymous read, CI create, admin full). Wire both CI push paths (Dagger and Nix/skopeo) with registry credentials via Forgejo Actions secrets. Allow anonymous Prometheus metrics scraping via `accessControl.metrics.users`.
+
+### Bug Fixes
+
+- Fix frigate-notify notification pipeline: switch to webapi polling, enable dedup, drop events without snapshots, use hi-res snapshots
+
+### Infrastructure
+
+- Add Mikado prereq for commit-based container tagging scheme to harden-zot-registry chain
+- Convert deploy-authentik plan to C2 Mikado chain entry point.
+- Add `flake-update` Dagger pipeline for updating ringtail NixOS flake inputs.
+- Upgrade frigate-notify from v0.3.5 to v0.5.4
+
+### Documentation
+
+- Add deployment plan for Authentik identity provider to replace Dex
+
+
 ## [v1.10.0] - 2026-02-19
 
 ### Features
