@@ -66,8 +66,8 @@ services:
 
   - name: frigate-notify
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-22
+    current-version: "v0.5.4"
     upstream-source: https://github.com/0x2142/frigate-notify/releases
 
   - name: alloy-k8s

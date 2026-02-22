@@ -10,7 +10,7 @@ data:
       public_url: https://nvr.ops.eblu.me
 
       webapi:
-        enabled: false
+        enabled: true
 
       mqtt:
         enabled: true
