@@ -195,6 +195,23 @@
       no_log: true
       tags: [jellyfin_metrics]
 
+    # Forgejo API token for metrics collection
+    - name: Fetch Forgejo API token for metrics
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
+      delegate_to: localhost
+      register: _forgejo_metrics_api_token
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo_metrics]
+
+    - name: Set Forgejo metrics API token fact
+      ansible.builtin.set_fact:
+        forgejo_metrics_api_key: "{{ _forgejo_metrics_api_token.stdout }}"
+      no_log: true
+      tags: [forgejo_metrics]
+
   roles:
     - role: alloy
       tags: alloy
@@ -218,5 +235,7 @@
       tags: jellyfin
     - role: jellyfin_metrics
       tags: jellyfin_metrics
+    - role: forgejo_metrics
+      tags: forgejo_metrics
     - role: caddy
       tags: caddy

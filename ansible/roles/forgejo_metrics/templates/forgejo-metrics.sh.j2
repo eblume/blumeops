@@ -1,0 +1,162 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Collects Forgejo repository health metrics for node_exporter textfile collector
+
+set -euo pipefail
+
+FORGEJO_URL="{{ forgejo_metrics_url }}"
+API_KEY_FILE="{{ forgejo_metrics_api_key_file }}"
+OUTPUT_FILE="{{ forgejo_metrics_dir }}/forgejo.prom"
+TEMP_FILE="${OUTPUT_FILE}.tmp"
+
+TOKEN=$(cat "$API_KEY_FILE" 2>/dev/null | tr -d '\n' || true)
+
+# Authenticated API request; returns empty string on failure
+api() {
+    curl -sf -H "Authorization: token ${TOKEN}" -H "Accept: application/json" \
+        "${FORGEJO_URL}/api/v1${1}" 2>/dev/null || echo ""
+}
+
+# jq helper: convert ISO 8601 timestamp (with any tz offset) to epoch seconds
+# jq's fromdate only handles Z, so we parse the offset and apply it manually
+JQ_EPOCH='def epoch: sub("[.][0-9]+"; "") | if test("[+-][0-9]{2}:[0-9]{2}$") then capture("^(?<dt>.*)(?<sign>[+-])(?<h>[0-9]{2}):(?<m>[0-9]{2})$") | (.dt + "Z" | fromdate) as $base | ((.h | tonumber) * 3600 + (.m | tonumber) * 60) as $off | if .sign == "-" then $base + $off else $base - $off end else sub("Z$"; "") + "Z" | fromdate end;'
+
+forgejo_up=0
+if curl -sf "${FORGEJO_URL}/api/v1/version" >/dev/null 2>&1; then
+    forgejo_up=1
+fi
+
+{
+# --- Metric type declarations ---
+cat << 'HEADER'
+# HELP forgejo_up Forgejo server is up and responding
+# TYPE forgejo_up gauge
+# HELP forgejo_repo_open_pull_requests Number of open pull requests
+# TYPE forgejo_repo_open_pull_requests gauge
+# HELP forgejo_repo_open_issues Number of open issues
+# TYPE forgejo_repo_open_issues gauge
+# HELP forgejo_repo_language_bytes Repository language size in bytes
+# TYPE forgejo_repo_language_bytes gauge
+# HELP forgejo_repo_releases_total Total number of releases
+# TYPE forgejo_repo_releases_total gauge
+# HELP forgejo_repo_latest_release_timestamp_seconds Unix timestamp of the latest release
+# TYPE forgejo_repo_latest_release_timestamp_seconds gauge
+# HELP forgejo_repo_latest_commit_timestamp_seconds Unix timestamp of the latest commit on default branch
+# TYPE forgejo_repo_latest_commit_timestamp_seconds gauge
+# HELP forgejo_actions_runs_total Action runs by status from most recent 30
+# TYPE forgejo_actions_runs_total gauge
+# HELP forgejo_actions_run_duration_seconds Duration of the latest completed run per workflow in seconds
+# TYPE forgejo_actions_run_duration_seconds gauge
+# HELP forgejo_actions_last_success_timestamp_seconds Unix timestamp of last successful run per workflow
+# TYPE forgejo_actions_last_success_timestamp_seconds gauge
+# HELP forgejo_actions_jobs_waiting Number of action runs currently waiting or queued
+# TYPE forgejo_actions_jobs_waiting gauge
+# HELP forgejo_actions_jobs_running Number of action runs currently in progress
+# TYPE forgejo_actions_jobs_running gauge
+HEADER
+
+echo "forgejo_up ${forgejo_up}"
+
+if [ "$forgejo_up" -eq 1 ] && [ -n "$TOKEN" ]; then
+    # Discover all repos accessible to the token owner
+    repos_json=$(api "/repos/search?limit=50")
+    [ -z "$repos_json" ] && repos_json='{"data":[]}'
+
+    repo_count=$(echo "$repos_json" | jq '.data | length' 2>/dev/null || echo "0")
+
+    for i in $(seq 0 $((repo_count - 1))); do
+        repo_data=$(echo "$repos_json" | jq ".data[$i]")
+        full_name=$(echo "$repo_data" | jq -r '.full_name')
+        [ -z "$full_name" ] || [ "$full_name" = "null" ] && continue
+
+        r="$full_name"
+
+        # Basic repo metrics (from search results — no extra API call)
+        echo "forgejo_repo_open_pull_requests{repo=\"${r}\"} $(echo "$repo_data" | jq '.open_pr_counter // 0')"
+        echo "forgejo_repo_open_issues{repo=\"${r}\"} $(echo "$repo_data" | jq '.open_issues_count // 0')"
+
+        default_branch=$(echo "$repo_data" | jq -r '.default_branch // "main"')
+
+        # --- Languages ---
+        langs=$(api "/repos/${r}/languages")
+        if [ -n "$langs" ] && echo "$langs" | jq -e 'type == "object" and length > 0' >/dev/null 2>&1; then
+            echo "$langs" | jq -r --arg r "$r" \
+                'to_entries[] | "forgejo_repo_language_bytes{repo=\"\($r)\",language=\"\(.key)\"} \(.value)"' \
+                2>/dev/null || true
+        fi
+
+        # --- Releases ---
+        releases=$(api "/repos/${r}/releases?limit=50")
+        if [ -n "$releases" ] && echo "$releases" | jq -e 'type == "array"' >/dev/null 2>&1; then
+            echo "forgejo_repo_releases_total{repo=\"${r}\"} $(echo "$releases" | jq 'length')"
+            # Latest release timestamp and version
+            echo "$releases" | jq -r --arg r "$r" "${JQ_EPOCH}"'
+                if length > 0 then
+                    .[0] |
+                    "forgejo_repo_latest_release_timestamp_seconds{repo=\"\($r)\",version=\"\(.tag_name)\"} \((.published_at // .created_at // .created) | epoch)"
+                else empty end' 2>/dev/null || true
+        else
+            echo "forgejo_repo_releases_total{repo=\"${r}\"} 0"
+        fi
+
+        # --- Latest commit on default branch ---
+        commits=$(api "/repos/${r}/commits?limit=1&sha=${default_branch}")
+        if [ -n "$commits" ] && echo "$commits" | jq -e 'type == "array" and length > 0' >/dev/null 2>&1; then
+            echo "$commits" | jq -r --arg r "$r" "${JQ_EPOCH}"'
+                .[0] |
+                "forgejo_repo_latest_commit_timestamp_seconds{repo=\"\($r)\"} \((.created // .commit.committer.date) | epoch)"' \
+                2>/dev/null || true
+        fi
+
+        # --- Action runs ---
+        runs_json=$(api "/repos/${r}/actions/runs?limit=30")
+        if [ -n "$runs_json" ] && echo "$runs_json" | jq -e '.workflow_runs | type == "array"' >/dev/null 2>&1; then
+            # Count by status
+            echo "$runs_json" | jq -r --arg r "$r" '
+                .workflow_runs | group_by(.status) | .[] |
+                "forgejo_actions_runs_total{repo=\"\($r)\",status=\"\(.[0].status)\"} \(length)"' \
+                2>/dev/null || true
+
+            # Jobs waiting/running
+            waiting=$(echo "$runs_json" | jq '[.workflow_runs[] | select(.status == "waiting" or .status == "queued")] | length' 2>/dev/null || echo "0")
+            running=$(echo "$runs_json" | jq '[.workflow_runs[] | select(.status == "running")] | length' 2>/dev/null || echo "0")
+            echo "forgejo_actions_jobs_waiting{repo=\"${r}\"} ${waiting}"
+            echo "forgejo_actions_jobs_running{repo=\"${r}\"} ${running}"
+
+            # Discover current workflow files on the default branch (.forgejo/ or .github/)
+            current_wfs=""
+            for wf_dir in .forgejo/workflows .github/workflows; do
+                wf_list=$(api "/repos/${r}/contents/${wf_dir}?ref=${default_branch}")
+                if [ -n "$wf_list" ] && echo "$wf_list" | jq -e 'type == "array"' >/dev/null 2>&1; then
+                    current_wfs=$(echo "$wf_list" | jq -r '[.[].name] | join(",")' 2>/dev/null || true)
+                    break
+                fi
+            done
+
+            # Per-workflow: latest completed run duration and last success timestamp
+            # Only include workflows that currently exist on the default branch
+            # Forgejo fields: workflow_id (filename), created/stopped, duration (nanoseconds)
+            if [ -n "$current_wfs" ]; then
+                echo "$runs_json" | jq -r --arg r "$r" --arg wfs "$current_wfs" "${JQ_EPOCH}"'
+                    ($wfs | split(",")) as $current |
+                    [.workflow_runs[] | select((.status == "success" or .status == "failure") and (.workflow_id | IN($current[])))] |
+                    if length > 0 then
+                        group_by(.workflow_id) | .[] |
+                        (sort_by(.created) | reverse) as $sorted |
+                        ($sorted[0]) as $latest |
+                        ($latest.workflow_id | sub("[.]ya?ml$"; "")) as $wf |
+                        "forgejo_actions_run_duration_seconds{repo=\"\($r)\",workflow=\"\($wf)\"} \(($latest.duration // 0) / 1000000000 | floor)",
+                        ([$sorted[] | select(.status == "success")] |
+                            if length > 0 then
+                                .[0] as $last_ok |
+                                "forgejo_actions_last_success_timestamp_seconds{repo=\"\($r)\",workflow=\"\($wf)\"} \($last_ok.stopped | epoch)"
+                            else empty end)
+                    else empty end' 2>/dev/null || true
+            fi
+        fi
+    done
+fi
+} > "$TEMP_FILE"
+
+# Atomic move
+mv "$TEMP_FILE" "$OUTPUT_FILE"

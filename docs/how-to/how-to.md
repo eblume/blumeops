@@ -60,7 +60,6 @@ Migration and transition plans for upcoming infrastructure changes.
 | [[adopt-dagger-ci]] | Adopt Dagger as CI/CD build engine |
 | [[upstream-fork-strategy]] | Stacked-branch forking strategy for upstream projects |
 | [[adopt-oidc-provider]] | Deploy OIDC identity provider for SSO across services |
-| [[forgejo-actions-dashboard]] | Grafana dashboard for Forgejo Actions CI metrics |
 | [[upgrade-grafana-helm-chart]] | Upgrade Grafana Helm chart from 8.8.2 to 11.x |
 | [[operationalize-reolink-camera]] | Cloud-free NVR with Frigate and ring buffer recording |
 

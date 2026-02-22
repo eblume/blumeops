@@ -1,0 +1,20 @@
+---
+# Forgejo metrics collection configuration
+
+# Forgejo server URL
+forgejo_metrics_url: "http://localhost:3001"
+
+# Path to file containing Forgejo API token (should have 600 permissions)
+forgejo_metrics_api_key_file: "/Users/erichblume/.forgejo-api-key"
+
+# Metrics collection interval in seconds
+forgejo_metrics_interval: 60
+
+# Output directory for prometheus textfile collector
+forgejo_metrics_dir: /opt/homebrew/var/node_exporter/textfile
+
+# Script installation path
+forgejo_metrics_script: /Users/erichblume/.local/bin/forgejo-metrics
+
+# Log directory for metrics script output
+forgejo_metrics_log_dir: /opt/homebrew/var/log

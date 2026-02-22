@@ -1,0 +1,55 @@
+---
+- name: Fetch Forgejo API token (when running with --tags forgejo_metrics)
+  ansible.builtin.command:
+    cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
+  delegate_to: localhost
+  register: forgejo_metrics_api_key_fallback
+  changed_when: false
+  no_log: true
+  check_mode: false
+  when: forgejo_metrics_api_key is not defined
+
+- name: Set Forgejo API token fact (fallback)
+  ansible.builtin.set_fact:
+    forgejo_metrics_api_key: "{{ forgejo_metrics_api_key_fallback.stdout }}"
+  no_log: true
+  when: forgejo_metrics_api_key is not defined
+
+- name: Write Forgejo API token file
+  ansible.builtin.copy:
+    content: "{{ forgejo_metrics_api_key }}"
+    dest: "{{ forgejo_metrics_api_key_file }}"
+    mode: '0600'
+  no_log: true
+
+- name: Ensure bin directory exists
+  ansible.builtin.file:
+    path: "{{ forgejo_metrics_script | dirname }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy forgejo metrics collection script
+  ansible.builtin.template:
+    src: forgejo-metrics.sh.j2
+    dest: "{{ forgejo_metrics_script }}"
+    mode: '0755'
+  notify: Reload forgejo-metrics
+
+- name: Deploy forgejo-metrics LaunchAgent plist
+  ansible.builtin.template:
+    src: forgejo-metrics.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.forgejo-metrics.plist
+    mode: '0644'
+  notify: Reload forgejo-metrics
+
+- name: Check if forgejo-metrics LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.forgejo-metrics
+  register: forgejo_metrics_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load forgejo-metrics LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-metrics.plist
+  when: forgejo_metrics_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false
