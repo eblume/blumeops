@@ -61,3 +61,17 @@
     dest: "{{ jellyfin_plugins_dir }}/configurations/SSO-Auth.xml"
     mode: '0644'
   notify: Reload jellyfin
+
+# Branding — add SSO login button to login page
+- name: Ensure Jellyfin config directory exists
+  ansible.builtin.file:
+    path: "{{ jellyfin_data_dir }}/config"
+    state: directory
+    mode: '0755'
+
+- name: Deploy Jellyfin branding configuration
+  ansible.builtin.template:
+    src: branding.xml.j2
+    dest: "{{ jellyfin_data_dir }}/config/branding.xml"
+    mode: '0644'
+  notify: Reload jellyfin
