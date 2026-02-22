@@ -153,6 +153,87 @@ class BlumeopsCi:
         )
 
     @function
+    async def export_yolov9(
+        self,
+        model_size: str = "c",
+        input_size: int = 640,
+    ) -> dagger.File:
+        """Export YOLOv9 pretrained weights to ONNX for Frigate NVR.
+
+        Downloads pretrained weights from the WongKinYiu/yolov9 repo and
+        exports to ONNX with onnx-simplifier. Use with Frigate's
+        `model_type: yolo-generic`.
+
+        Args:
+            model_size: Model variant: s (small), c (compact), e (extra-large).
+            input_size: Input resolution (width and height). 640 recommended.
+        """
+        output_file = f"yolov9-{model_size}-{input_size}.onnx"
+        weights_url = (
+            "https://github.com/WongKinYiu/yolov9/releases/download/v0.1/"
+            f"yolov9-{model_size}-converted.pt"
+        )
+        # Patch torch.load to allow weights_only=False (required for
+        # YOLOv9 checkpoints that contain non-tensor objects).
+        patch_and_export = (
+            "set -e; "
+            "cd /yolov9 && "
+            "sed -i "
+            '"s/ckpt = torch.load(attempt_download(w),'
+            " map_location='cpu')/ckpt = torch.load(attempt_download(w),"
+            " map_location='cpu', weights_only=False)/g\""
+            " models/experimental.py && "
+            f"python3 export.py --weights ./weights.pt"
+            f" --imgsz {input_size} --simplify --include onnx && "
+            f"mv ./weights.onnx /output/{output_file}"
+        )
+        return await (
+            dag.container(platform=dagger.Platform("linux/amd64"))
+            .from_("python:3.11-slim")
+            .with_exec(["apt-get", "update", "-qq"])
+            .with_exec(
+                [
+                    "apt-get",
+                    "install",
+                    "-y",
+                    "-qq",
+                    "git",
+                    "libgl1",
+                    "libglib2.0-0",
+                    "cmake",
+                    "build-essential",
+                ]
+            )
+            .with_exec(
+                [
+                    "git",
+                    "clone",
+                    "--depth=1",
+                    "https://github.com/WongKinYiu/yolov9.git",
+                    "/yolov9",
+                ]
+            )
+            .with_exec(
+                [
+                    "pip",
+                    "install",
+                    "--quiet",
+                    "-r",
+                    "/yolov9/requirements.txt",
+                    "numpy<2",
+                    "onnx>=1.18.0",
+                    "onnxruntime",
+                    "onnx-simplifier>=0.4.1",
+                    "onnxscript",
+                ]
+            )
+            .with_exec(["mkdir", "-p", "/output"])
+            .with_file("/yolov9/weights.pt", dag.http(weights_url))
+            .with_exec(["sh", "-c", patch_and_export])
+            .file(f"/output/{output_file}")
+        )
+
+    @function
     async def flake_update(
         self, src: dagger.Directory, flake_path: str = "nixos/ringtail"
     ) -> dagger.File:

@@ -63,12 +63,12 @@ data:
         type: onnx
 
     model:
-      model_type: yolonas
-      width: 320
-      height: 320
+      model_type: yolo-generic
+      width: 640
+      height: 640
       input_tensor: nchw
-      input_dtype: int
-      path: /media/frigate/models/yolo_nas_s.onnx
+      input_dtype: float
+      path: /media/frigate/models/yolov9-c-640.onnx
       labelmap_path: /labelmap/coco-80.txt
 
     record:

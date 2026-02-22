@@ -1,6 +1,6 @@
 ---
 title: Frigate
-modified: 2026-02-19
+modified: 2026-02-22
 tags:
   - service
   - surveillance
@@ -47,7 +47,7 @@ Camera credentials are stored in 1Password and synced via [[external-secrets]] t
 
 ## Detection
 
-Object detection runs on [[ringtail]]'s RTX 4080 via the ONNX detector with CUDA execution provider. The model is YOLO-NAS-S (`yolo_nas_s.onnx`). The previous Apple Silicon Detector on [[indri]] has been retired.
+Object detection runs on [[ringtail]]'s RTX 4080 via the ONNX detector with CUDA execution provider (TensorRT). The model is YOLOv9-c at 640x640 (`yolov9-c-640.onnx`, `model_type: yolo-generic`), which benefits from CUDA Graphs in Frigate 0.17. To re-export or change model size, use `mise run frigate-export-model`.
 
 Two zones are configured: `driveway_entrance` (triggers review alerts for person/car) and `driveway` (triggers review detections).
 

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+#MISE description="Export YOLOv9 model weights to ONNX for Frigate NVR via Dagger"
+#USAGE flag "--model-size <size>" default="c" help="Model variant: s (small), c (compact), e (extra-large)"
+#USAGE flag "--input-size <pixels>" default="640" help="Input resolution (width=height)"
+#USAGE flag "--deploy" help="Copy exported model to sifaka NAS frigate share"
+
+set -euo pipefail
+
+MODEL_SIZE="${usage_model_size:-c}"
+INPUT_SIZE="${usage_input_size:-640}"
+DEPLOY="${usage_deploy:-false}"
+OUTPUT_FILE="yolov9-${MODEL_SIZE}-${INPUT_SIZE}.onnx"
+
+echo "Exporting YOLOv9-${MODEL_SIZE} (${INPUT_SIZE}x${INPUT_SIZE}) via Dagger..."
+echo ""
+
+dagger call export-yolov-9 \
+    --model-size="$MODEL_SIZE" \
+    --input-size="$INPUT_SIZE" \
+    export --path="$OUTPUT_FILE"
+
+SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
+echo ""
+echo "Exported: ${OUTPUT_FILE} (${SIZE})"
+
+if [[ "$DEPLOY" == "true" ]]; then
+    DEST="sifaka:/volume1/frigate/models/${OUTPUT_FILE}"
+    echo "Copying to ${DEST}..."
+    scp -O "$OUTPUT_FILE" "$DEST"
+    echo "Deployed."
+    echo ""
+    echo "Update argocd/manifests/frigate/configmap.yaml:"
+    echo "  model:"
+    echo "    model_type: yolo-generic"
+    echo "    width: ${INPUT_SIZE}"
+    echo "    height: ${INPUT_SIZE}"
+    echo "    input_tensor: nchw"
+    echo "    input_dtype: float"
+    echo "    path: /media/frigate/models/${OUTPUT_FILE}"
+    echo "    labelmap_path: /labelmap/coco-80.txt"
+else
+    echo ""
+    echo "To deploy to Frigate NAS:"
+    echo "  scp ${OUTPUT_FILE} sifaka:/volume1/frigate/models/"
+    echo ""
+    echo "Then update argocd/manifests/frigate/configmap.yaml:"
+    echo "  model:"
+    echo "    model_type: yolo-generic"
+    echo "    width: ${INPUT_SIZE}"
+    echo "    height: ${INPUT_SIZE}"
+    echo "    input_tensor: nchw"
+    echo "    input_dtype: float"
+    echo "    path: /media/frigate/models/${OUTPUT_FILE}"
+    echo "    labelmap_path: /labelmap/coco-80.txt"
+fi
