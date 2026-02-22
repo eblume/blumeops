@@ -11,17 +11,17 @@ data:
 
       webapi:
         enabled: true
+        interval: 15
 
       mqtt:
-        enabled: true
-        server: mosquitto.mqtt.svc.cluster.local
-        port: 1883
-        clientid: frigate-notify
-        topic_prefix: frigate
+        enabled: false
 
     alerts:
       general:
         title: "Frigate Alert"
+        nosnap: drop
+        snap_hires: true
+        notify_once: true
 
       zones:
         unzoned: drop
