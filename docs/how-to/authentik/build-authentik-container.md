@@ -1,6 +1,7 @@
 ---
 title: Build Authentik Container Image
 modified: 2026-02-20
+last-reviewed: 2026-02-22
 tags:
   - how-to
   - authentik

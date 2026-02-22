@@ -1,6 +1,7 @@
 ---
 title: Create Authentik Secrets
-modified: 2026-02-20
+modified: 2026-02-22
+last-reviewed: 2026-02-22
 tags:
   - how-to
   - authentik
@@ -25,6 +26,7 @@ Create the 1Password item that the ExternalSecret references for Authentik confi
 ## Notes
 
 - The database password in this 1Password item is the same one used by the CNPG managed role via `external-secret-authentik.yaml`. Both the database ExternalSecret and the future Authentik deployment ExternalSecret reference the same 1Password item but different fields.
+- The 1Password item has since grown with OIDC client secrets (`grafana-client-secret`, `forgejo-client-secret`, `zot-client-secret`, `jellyfin-client-secret`) and an `api-token` field, added during subsequent service integrations.
 
 ## Related
 
