@@ -151,3 +151,26 @@ class BlumeopsCi:
             )
             .file(f"/workspace/{flake_path}/flake.lock")
         )
+
+    @function
+    async def flake_update(
+        self, src: dagger.Directory, flake_path: str = "nixos/ringtail"
+    ) -> dagger.File:
+        """Update all flake inputs to latest and return updated flake.lock."""
+        return await (
+            dag.container()
+            .from_(NIX_IMAGE)
+            .with_directory("/workspace", src)
+            .with_workdir(f"/workspace/{flake_path}")
+            .with_exec(
+                [
+                    "nix",
+                    "--extra-experimental-features",
+                    "nix-command flakes",
+                    "flake",
+                    "update",
+                    "--accept-flake-config",
+                ]
+            )
+            .file(f"/workspace/{flake_path}/flake.lock")
+        )

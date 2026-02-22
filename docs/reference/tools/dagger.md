@@ -1,6 +1,6 @@
 ---
 title: Dagger
-modified: 2026-02-20
+modified: 2026-02-22
 tags:
   - reference
   - ci-cd
@@ -31,6 +31,7 @@ Build engine for BlumeOps CI/CD pipelines. Replaces shell-based build scripts wi
 | `nix_version` | `(package) → str` | Extract the version of a nixpkgs package |
 | `build_docs` | `(src, version) → File` | Build Quartz docs site, return docs tarball |
 | `flake_lock` | `(src, flake_path?) → File` | Resolve flake inputs, return updated `flake.lock` |
+| `flake_update` | `(src, flake_path?) → File` | Update all flake inputs to latest, return `flake.lock` |
 
 ## CLI Examples
 
@@ -58,6 +59,10 @@ dagger call build-docs --src=. --version=dev export --path=./docs-dev.tar.gz
 
 # Debug a docs build failure
 dagger call --interactive build-docs --src=. --version=dev
+
+# Update all ringtail flake inputs
+dagger call flake-update --src=. --flake-path=nixos/ringtail \
+    export --path=nixos/ringtail/flake.lock
 ```
 
 ## Secrets
@@ -84,3 +89,4 @@ In [[forgejo]] Actions, secrets are injected as env vars. Locally, mise tasks ca
 - [[zot]] — Container registry (publish target)
 - [[docs]] — Documentation site (build target)
 - [[adopt-dagger-ci]] — Adoption plan (phases 1–3 complete)
+- [[manage-lockfile]] — Ringtail flake lockfile management

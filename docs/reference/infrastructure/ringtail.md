@@ -1,6 +1,6 @@
 ---
 title: Ringtail
-modified: 2026-02-19
+modified: 2026-02-22
 tags:
   - infrastructure
   - host
@@ -43,7 +43,7 @@ Managed declaratively via `nixos/ringtail/configuration.nix`. Home-manager handl
 mise run provision-ringtail
 ```
 
-This updates `flake.lock` via Dagger, verifies the current commit is pushed to forge, then deploys the exact commit via ansible. If the lockfile changed, it stages the file and exits so you can commit and re-run.
+This locks new flake inputs via Dagger, verifies the current commit is pushed to forge, then deploys the exact commit via ansible. If the lockfile changed, it stages the file and exits so you can commit and re-run. To update all inputs to latest versions, see [[manage-lockfile]].
 
 ## K3s Cluster
 

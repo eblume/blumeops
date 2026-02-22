@@ -1,6 +1,6 @@
 ---
 title: How-To
-modified: 2026-02-17
+modified: 2026-02-22
 tags:
   - how-to
 ---
@@ -63,6 +63,12 @@ Migration and transition plans for upcoming infrastructure changes.
 | [[forgejo-actions-dashboard]] | Grafana dashboard for Forgejo Actions CI metrics |
 | [[upgrade-grafana-helm-chart]] | Upgrade Grafana Helm chart from 8.8.2 to 11.x |
 | [[operationalize-reolink-camera]] | Cloud-free NVR with Frigate and ring buffer recording |
+
+## Ringtail
+
+| Guide | Description |
+|-------|-------------|
+| [[manage-lockfile]] | Update or lock NixOS flake inputs via Dagger |
 
 ## Zot
 
