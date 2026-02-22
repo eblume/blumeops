@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.11.1] - 2026-02-22
+
+### Infrastructure
+
+- Use Zot registry logo instead of Docker logo on homepage dashboard
+
+
 ## [v1.11.0] - 2026-02-22
 
 ### Features
