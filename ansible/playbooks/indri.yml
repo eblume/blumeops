@@ -161,6 +161,23 @@
       no_log: true
       tags: [caddy]
 
+    # Jellyfin SSO client secret
+    - name: Fetch Jellyfin OIDC client secret
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/oor7os5kapczgpbwv7obkca4y4/jellyfin-client-secret"
+      delegate_to: localhost
+      register: _jellyfin_oidc_secret
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [jellyfin]
+
+    - name: Set Jellyfin OIDC client secret fact
+      ansible.builtin.set_fact:
+        jellyfin_sso_client_secret: "{{ _jellyfin_oidc_secret.stdout }}"
+      no_log: true
+      tags: [jellyfin]
+
     # Jellyfin API key for metrics collection
     - name: Fetch Jellyfin API key
       ansible.builtin.command:

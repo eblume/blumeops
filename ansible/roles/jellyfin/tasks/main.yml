@@ -28,3 +28,36 @@
   when: jellyfin_launchctl_check.rc != 0
   changed_when: true
   failed_when: false
+
+# SSO plugin installation
+- name: Ensure SSO-Auth plugin directory exists
+  ansible.builtin.file:
+    path: "{{ jellyfin_plugins_dir }}/SSO-Auth_{{ jellyfin_sso_plugin_version }}"
+    state: directory
+    mode: '0755'
+
+- name: Download SSO-Auth plugin archive
+  ansible.builtin.get_url:
+    url: "https://github.com/9p4/jellyfin-plugin-sso/releases/download/v{{ jellyfin_sso_plugin_version }}/sso-authentication_{{ jellyfin_sso_plugin_version }}.zip"
+    dest: "/tmp/sso-authentication_{{ jellyfin_sso_plugin_version }}.zip"
+    mode: '0644'
+
+- name: Extract SSO-Auth plugin
+  ansible.builtin.unarchive:
+    src: "/tmp/sso-authentication_{{ jellyfin_sso_plugin_version }}.zip"
+    dest: "{{ jellyfin_plugins_dir }}/SSO-Auth_{{ jellyfin_sso_plugin_version }}"
+    remote_src: true
+  notify: Reload jellyfin
+
+- name: Ensure plugin configurations directory exists
+  ansible.builtin.file:
+    path: "{{ jellyfin_plugins_dir }}/configurations"
+    state: directory
+    mode: '0755'
+
+- name: Deploy SSO-Auth plugin configuration
+  ansible.builtin.template:
+    src: sso-auth.xml.j2
+    dest: "{{ jellyfin_plugins_dir }}/configurations/SSO-Auth.xml"
+    mode: '0644'
+  notify: Reload jellyfin

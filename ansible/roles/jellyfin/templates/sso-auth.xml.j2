@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- {{ ansible_managed }} -->
+<PluginConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <SamlConfigs />
+  <OidConfigs>
+    <item>
+      <key><string>{{ jellyfin_sso_provider_name }}</string></key>
+      <value>
+        <PluginConfiguration>
+          <OidEndpoint>https://authentik.ops.eblu.me/application/o/jellyfin</OidEndpoint>
+          <OidClientId>{{ jellyfin_sso_client_id }}</OidClientId>
+          <OidSecret>{{ jellyfin_sso_client_secret }}</OidSecret>
+          <Enabled>true</Enabled>
+          <EnableAuthorization>true</EnableAuthorization>
+          <EnableAllFolders>true</EnableAllFolders>
+          <EnabledFolders />
+          <AdminRoles><string>admins</string></AdminRoles>
+          <Roles />
+          <EnableFolderRoles>false</EnableFolderRoles>
+          <FolderRoleMappings />
+          <RoleClaim>groups</RoleClaim>
+          <OidScopes>
+            <string>openid</string>
+            <string>email</string>
+            <string>profile</string>
+          </OidScopes>
+          <SchemeOverride>https</SchemeOverride>
+          <CanonicalLinks />
+        </PluginConfiguration>
+      </value>
+    </item>
+  </OidConfigs>
+</PluginConfiguration>

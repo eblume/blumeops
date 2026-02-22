@@ -21,3 +21,10 @@ jellyfin_webdir: "{{ jellyfin_cask_app_path }}/Contents/Resources/jellyfin-web"
 
 # Log directory
 jellyfin_log_dir: "{{ ansible_env.HOME }}/Library/Logs"
+
+# SSO plugin configuration
+jellyfin_sso_plugin_version: "4.0.0.3"
+jellyfin_sso_client_id: jellyfin
+jellyfin_sso_client_secret: ""
+jellyfin_sso_provider_name: authentik
+jellyfin_plugins_dir: "{{ jellyfin_data_dir }}/plugins"
