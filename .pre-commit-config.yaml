@@ -20,7 +20,7 @@ repos:
 
   # Secret detection
   - repo: https://github.com/trufflesecurity/trufflehog
-    rev: v3.92.5
+    rev: v3.93.4
     hooks:
       - id: trufflehog
         entry: trufflehog git file://. --since-commit HEAD --no-verification --fail
@@ -47,7 +47,7 @@ repos:
 
   # Python - ruff for linting and formatting
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.13
+    rev: v0.15.2
     hooks:
       - id: ruff
         args: ['--fix']
@@ -55,7 +55,7 @@ repos:
 
   # Shell scripts - shellcheck and shfmt
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
+    rev: v0.11.0.1
     hooks:
       - id: shellcheck
         args: ['--severity=warning']
@@ -75,7 +75,7 @@ repos:
 
   # JSON formatting (prettier for consistent style)
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: v3.8.0
+    rev: v3.8.1
     hooks:
       - id: prettier
         types_or: [json]
@@ -83,7 +83,7 @@ repos:
 
   # GitHub/Forgejo Actions workflow linting
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.10
+    rev: v1.7.11
     hooks:
       - id: actionlint-system
         args: ['-config-file', '.github/actionlint.yaml']

@@ -27,6 +27,7 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 | [[use-pypi-proxy]] | Configure pip and publish packages to devpi |
 | [[expose-service-publicly]] | Expose a service to the public internet via Fly.io + Tailscale |
 | [[update-documentation]] | Publish docs via build-blumeops workflow |
+| [[update-tooling-dependencies]] | Monthly update cycle for pre-commit, Fly, mise, and workflow deps |
 
 ## Knowledge Base
 

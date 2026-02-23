@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["rich>=13.0.0", "typer>=0.9.0"]
+# dependencies = ["rich>=13.0.0", "typer>=0.15.0"]
 # ///
 #MISE description="Report docs by git-last-modified date, highlighting stale ones"
 #USAGE flag "--threshold <threshold>" default="180" help="Days before a doc is considered stale"

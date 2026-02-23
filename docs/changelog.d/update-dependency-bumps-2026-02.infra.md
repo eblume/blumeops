@@ -1,0 +1,1 @@
+Update tooling dependencies: pre-commit hooks (trufflehog, ruff, shellcheck, prettier, actionlint), Fly.io Dockerfile (pin nginx 1.28.2-alpine, alloy v1.13.1), and normalize mise task Python lower bounds.
