@@ -1,1 +1,0 @@
-Add `branch-cleanup` mise task and scheduled Forgejo workflow to delete merged branches locally and on the Forgejo remote. Detects squash-merged PRs via the Forgejo API. The workflow runs approximately every 10 days with a configurable age cutoff (default 30 days).

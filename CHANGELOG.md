@@ -12,6 +12,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.11.2] - 2026-02-22
+
+### Features
+
+- Add `branch-cleanup` mise task and scheduled Forgejo workflow to delete merged branches locally and on the Forgejo remote. Detects squash-merged PRs via the Forgejo API. The workflow runs approximately every 10 days with a configurable age cutoff (default 30 days).
+- Add Forgejo repository health metrics collector and Grafana dashboard with CI/CD, release, and language tracking across all repos.
+- Switch Frigate object detection from YOLO-NAS-S (320x320) to YOLOv9-c (640x640) with CUDA Graphs support, and add `frigate-export-model` Dagger pipeline + mise task for reproducible model exports.
+
+### Infrastructure
+
+- Simplify service-versions.yaml type taxonomy to `argocd | ansible | nixos`; add nix-container-builder entry; backfill forgejo and forgejo-runner versions
+- Prepare forgejo-runner v12 upgrade: review config compatibility, add workflow schema validation via Dagger, wire pre-commit hook
+- Upgrade k8s forgejo-runner daemon from v6.3.1 to v12.7.0
+
+### Documentation
+
+- Add Mikado chain for upgrading k8s forgejo-runner from v6.3.1 to v12.x
+
+
 ## [v1.11.1] - 2026-02-22
 
 ### Infrastructure
