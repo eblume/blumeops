@@ -5,6 +5,7 @@ metadata:
   namespace: forgejo-runner
 data:
   config.yaml: |
+    # Reviewed against v12.7.0 defaults (2026-02-22)
     log:
       level: info
 
@@ -12,6 +13,7 @@ data:
       file: /data/.runner
       capacity: 2
       timeout: 3h
+      shutdown_timeout: 3h
       # Env vars injected into all job containers
       envs:
         DOCKER_HOST: tcp://127.0.0.1:2375

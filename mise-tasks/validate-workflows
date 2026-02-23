@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Validate Forgejo workflow files against runner schema"
+
+set -euo pipefail
+
+dagger call validate-workflows --src=.

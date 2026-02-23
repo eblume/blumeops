@@ -89,6 +89,16 @@ repos:
         args: ['-config-file', '.github/actionlint.yaml']
         files: ^\.forgejo/workflows/
 
+  # Forgejo workflow schema validation (via Dagger + forgejo-runner validate)
+  - repo: local
+    hooks:
+      - id: validate-workflows
+        name: validate-workflows
+        entry: mise run validate-workflows
+        language: system
+        files: ^\.forgejo/workflows/
+        pass_filenames: false
+
   # Container version consistency
   - repo: local
     hooks:

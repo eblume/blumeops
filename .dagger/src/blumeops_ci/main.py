@@ -234,6 +234,27 @@ class BlumeopsCi:
         )
 
     @function
+    async def validate_workflows(
+        self,
+        src: dagger.Directory,
+        runner_version: str = "12.7.0",
+    ) -> str:
+        """Validate Forgejo Actions workflow files against runner schema.
+
+        Runs forgejo-runner validate (available v9.0+) against all workflow
+        files in .forgejo/workflows/. Returns validation output. Fails if
+        any workflow has schema errors.
+        """
+        return await (
+            dag.container()
+            .from_(f"code.forgejo.org/forgejo/runner:{runner_version}")
+            .with_directory("/workspace", src)
+            .with_workdir("/workspace")
+            .with_exec(["forgejo-runner", "validate", "--directory", "."])
+            .stdout()
+        )
+
+    @function
     async def flake_update(
         self, src: dagger.Directory, flake_path: str = "nixos/ringtail"
     ) -> dagger.File:
