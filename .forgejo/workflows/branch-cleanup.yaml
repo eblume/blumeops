@@ -1,0 +1,40 @@
+# Automated Branch Cleanup
+#
+# Deletes remote branches that have been merged into main and are older
+# than a cutoff (default 30 days). Detects both fast-forward and
+# squash-merged branches via the Forgejo API.
+#
+# Runs on a schedule (~every 10 days) and can be triggered manually
+# with a custom cutoff for testing.
+
+name: Branch Cleanup
+
+on:
+  schedule:
+    # Approximately every 10 days: 1st, 11th, 21st of each month at 06:00 UTC
+    - cron: '0 6 1,11,21 * *'
+  workflow_dispatch:
+    inputs:
+      cutoff:
+        description: 'Delete branches older than N days'
+        required: false
+        default: '30'
+        type: string
+
+jobs:
+  cleanup:
+    runs-on: k8s
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run branch cleanup
+        env:
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CUTOFF="${{ inputs.cutoff || '30' }}"
+          echo "Running branch cleanup with cutoff=${CUTOFF} days..."
+          uv run --script mise-tasks/branch-cleanup \
+            --remote-only \
+            --yes \
+            --cutoff "$CUTOFF"

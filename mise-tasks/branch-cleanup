@@ -1,0 +1,429 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx>=0.28.0", "rich>=13.0.0", "typer>=0.15.0"]
+# ///
+#MISE description="Delete branches that have been merged into main (local and remote)"
+#MISE alias="bc"
+#USAGE flag "--dry-run" help="Show what would be deleted without deleting"
+#USAGE flag "--yes" help="Skip confirmation prompt"
+#USAGE flag "--local-only" help="Only clean up local branches"
+#USAGE flag "--remote-only" help="Only clean up remote branches"
+#USAGE flag "--token <token>" help="Forgejo API token (default: read from 1Password)"
+#USAGE flag "--cutoff <cutoff>" default="30" help="Only delete branches whose HEAD commit is older than N days (default 30)"
+"""Clean up merged branches locally and on the Forgejo remote.
+
+Detects merged branches via two methods:
+  1. git branch --merged (catches fast-forward merges)
+  2. Forgejo API (catches squash-merged PRs)
+
+Remote branches are deleted via the Forgejo API. The token is resolved:
+  1. --token flag (explicit)
+  2. FORGEJO_TOKEN environment variable (for CI)
+  3. 1Password: op read (for local use, prompts biometric)
+
+Local branches are deleted via git branch -D.
+
+Warns about stale local branches that couldn't be confirmed as merged.
+
+Usage:
+    mise run branch-cleanup                  # interactive cleanup (30-day cutoff)
+    mise run branch-cleanup --cutoff 7       # only branches older than 7 days
+    mise run branch-cleanup --cutoff 0       # all merged branches regardless of age
+    mise run branch-cleanup --dry-run        # preview only
+"""
+
+import os
+import subprocess
+from datetime import datetime, timezone
+from typing import Annotated
+
+import httpx
+import typer
+from rich.console import Console
+from rich.table import Table
+
+PROTECTED_BRANCHES = {"main", "master"}
+FORGE_API = "https://forge.ops.eblu.me/api/v1"
+REPO_OWNER = "eblume"
+REPO_NAME = "blumeops"
+OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
+
+
+def run_git(*args: str) -> str:
+    """Run a git command and return stdout."""
+    result = subprocess.run(
+        ["git", *args],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def resolve_token(explicit_token: str | None, console: Console) -> str:
+    """Resolve Forgejo API token: explicit flag > FORGEJO_TOKEN env > 1Password."""
+    if explicit_token:
+        return explicit_token
+    env_token = os.environ.get("FORGEJO_TOKEN", "").strip()
+    if env_token:
+        return env_token
+    console.print("[dim]Reading Forgejo API token from 1Password...[/dim]")
+    try:
+        result = subprocess.run(
+            ["op", "read", OP_TOKEN_REF],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        console.print(f"[red]Failed to read token from 1Password:[/red] {e}")
+        console.print("[dim]Pass --token explicitly or ensure op CLI is available[/dim]")
+        raise typer.Exit(1)
+
+
+def branch_head_age_days(ref: str) -> int | None:
+    """Get the age in days of the HEAD commit on a branch ref."""
+    try:
+        date_str = run_git("log", "-1", "--format=%aI", ref)
+        if not date_str:
+            return None
+        commit_date = datetime.fromisoformat(date_str)
+        return (datetime.now(timezone.utc) - commit_date).days
+    except subprocess.CalledProcessError:
+        return None
+
+
+def api_branch_age_days(commit_date_str: str) -> int | None:
+    """Compute age in days from an ISO date string."""
+    try:
+        commit_date = datetime.fromisoformat(commit_date_str)
+        return (datetime.now(timezone.utc) - commit_date).days
+    except (ValueError, TypeError):
+        return None
+
+
+def get_git_merged_local_branches() -> set[str]:
+    """Get local branches that are fully merged into main (fast-forward)."""
+    try:
+        output = run_git("branch", "--merged", "main")
+    except subprocess.CalledProcessError:
+        return set()
+    branches = set()
+    for line in output.splitlines():
+        name = line.strip().lstrip("* ")
+        if name and name not in PROTECTED_BRANCHES:
+            branches.add(name)
+    return branches
+
+
+def get_git_merged_remote_branches() -> set[str]:
+    """Get remote branches that are fully merged into origin/main (fast-forward)."""
+    try:
+        output = run_git("branch", "-r", "--merged", "origin/main")
+    except subprocess.CalledProcessError:
+        return set()
+    branches = set()
+    for line in output.splitlines():
+        name = line.strip()
+        if " -> " in name:
+            continue
+        if not name.startswith("origin/"):
+            continue
+        short = name.removeprefix("origin/")
+        if short not in PROTECTED_BRANCHES:
+            branches.add(short)
+    return branches
+
+
+def get_all_local_branches() -> set[str]:
+    """Get all local branch names."""
+    output = run_git("branch")
+    branches = set()
+    for line in output.splitlines():
+        name = line.strip().lstrip("* ")
+        if name and name not in PROTECTED_BRANCHES:
+            branches.add(name)
+    return branches
+
+
+def get_api_branches(client: httpx.Client) -> dict[str, str]:
+    """Get all remote branches via API. Returns {name: commit_date_iso}."""
+    branches: dict[str, str] = {}
+    page = 1
+    limit = 50
+    while True:
+        resp = client.get(
+            f"{FORGE_API}/repos/{REPO_OWNER}/{REPO_NAME}/branches",
+            params={"limit": limit, "page": page},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if not data:
+            break
+        for branch in data:
+            name = branch["name"]
+            if name not in PROTECTED_BRANCHES:
+                date = branch.get("commit", {}).get("timestamp", "")
+                branches[name] = date
+        page += 1
+    return branches
+
+
+def get_merged_pr_branches(client: httpx.Client, console: Console) -> set[str]:
+    """Query Forgejo API for branch names from merged PRs."""
+    merged_branches: set[str] = set()
+    page = 1
+    limit = 50
+    try:
+        while True:
+            resp = client.get(
+                f"{FORGE_API}/repos/{REPO_OWNER}/{REPO_NAME}/pulls",
+                params={"state": "closed", "limit": limit, "page": page},
+            )
+            resp.raise_for_status()
+            prs = resp.json()
+            if not prs:
+                break
+            for pr in prs:
+                if pr.get("merged"):
+                    ref = pr.get("head", {}).get("ref", "")
+                    if ref and ref not in PROTECTED_BRANCHES:
+                        merged_branches.add(ref)
+            page += 1
+    except httpx.HTTPError as e:
+        console.print(f"[yellow]Warning:[/yellow] Failed to query merged PRs: {e}")
+    return merged_branches
+
+
+def delete_local_branch(branch: str) -> tuple[bool, str]:
+    """Delete a local branch. Returns (success, message)."""
+    try:
+        # Use -D since squash-merged branches aren't git-ancestors of main
+        run_git("branch", "-D", branch)
+        return True, "deleted"
+    except subprocess.CalledProcessError as e:
+        return False, e.stderr.strip()
+
+
+def delete_remote_branch_api(
+    client: httpx.Client, branch: str,
+) -> tuple[bool, str]:
+    """Delete a remote branch via Forgejo API. Returns (success, message)."""
+    resp = client.delete(
+        f"{FORGE_API}/repos/{REPO_OWNER}/{REPO_NAME}/branches/{branch}",
+    )
+    if resp.status_code == 204:
+        return True, "deleted"
+    return False, f"HTTP {resp.status_code}: {resp.text[:120]}"
+
+
+app = typer.Typer(add_completion=False)
+
+
+@app.command()
+def main(
+    cutoff: Annotated[
+        int,
+        typer.Option(help="Only delete branches whose HEAD commit is older than N days"),
+    ] = 30,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Show what would be deleted without deleting"),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip confirmation prompt"),
+    ] = False,
+    local_only: Annotated[
+        bool,
+        typer.Option("--local-only", help="Only clean up local branches"),
+    ] = False,
+    remote_only: Annotated[
+        bool,
+        typer.Option("--remote-only", help="Only clean up remote branches"),
+    ] = False,
+    token: Annotated[
+        str | None,
+        typer.Option("--token", help="Forgejo API token (default: read from 1Password)"),
+    ] = None,
+) -> None:
+    """Delete branches that have been merged into main."""
+    console = Console()
+
+    do_local = not remote_only
+    do_remote = not local_only
+
+    # Resolve token (needed for API branch listing and deletion)
+    api_token = resolve_token(token, console) if do_remote else None
+
+    # Fetch latest remote state for local branch operations
+    if do_local:
+        console.print("[dim]Fetching remote branches...[/dim]")
+        try:
+            run_git("fetch", "--prune", "origin")
+        except subprocess.CalledProcessError as e:
+            console.print(f"[yellow]Warning:[/yellow] git fetch failed: {e.stderr}")
+
+    # Gather merge info
+    console.print("[dim]Checking Forgejo for squash-merged PRs...[/dim]")
+    with httpx.Client(
+        timeout=15,
+        headers={"Authorization": f"token {api_token}"} if api_token else {},
+    ) as client:
+        api_merged = get_merged_pr_branches(client, console)
+        git_merged_local = get_git_merged_local_branches() if do_local else set()
+        git_merged_remote = get_git_merged_remote_branches() if do_local else set()
+
+        # Union of all confirmed-merged branch names
+        all_confirmed_merged = api_merged | git_merged_local | git_merged_remote
+
+        # Remote branches and ages via API
+        remote_branch_ages: dict[str, int | None] = {}
+        if do_remote:
+            console.print("[dim]Listing remote branches via API...[/dim]")
+            api_branches = get_api_branches(client)
+            for name, date_str in api_branches.items():
+                remote_branch_ages[name] = api_branch_age_days(date_str)
+            all_remote = set(api_branches.keys())
+        else:
+            all_remote = set()
+
+        remote_to_delete = sorted(all_remote & all_confirmed_merged)
+
+        # Local branches
+        all_local = get_all_local_branches() if do_local else set()
+        local_to_delete = sorted(all_local & all_confirmed_merged)
+
+        # Compute ages for all candidates
+        all_candidates = sorted(set(local_to_delete) | set(remote_to_delete))
+        branch_ages: dict[str, int | None] = {}
+        for name in all_candidates:
+            age = remote_branch_ages.get(name)
+            if age is None and name in all_local:
+                age = branch_head_age_days(name)
+            branch_ages[name] = age
+
+        # Apply cutoff filter
+        local_to_delete = [
+            b for b in local_to_delete
+            if branch_ages.get(b) is not None and branch_ages[b] >= cutoff  # type: ignore[operator]
+        ]
+        remote_to_delete = [
+            b for b in remote_to_delete
+            if branch_ages.get(b) is not None and branch_ages[b] >= cutoff  # type: ignore[operator]
+        ]
+
+        filtered_candidates = sorted(set(local_to_delete) | set(remote_to_delete))
+        skipped_count = len(all_candidates) - len(filtered_candidates)
+
+        if filtered_candidates:
+            table = Table(title=f"Merged branches to delete (older than {cutoff} days)")
+            table.add_column("Branch")
+            table.add_column("Age (days)", justify="right")
+            table.add_column("Method")
+            table.add_column("Local")
+            table.add_column("Remote")
+
+            for branch in filtered_candidates:
+                has_local = branch in local_to_delete
+                has_remote = branch in remote_to_delete
+                age = branch_ages.get(branch)
+                age_str = str(age) if age is not None else "?"
+
+                methods = []
+                if branch in git_merged_local or branch in git_merged_remote:
+                    methods.append("git")
+                if branch in api_merged:
+                    methods.append("api")
+                method_str = "+".join(methods)
+
+                table.add_row(
+                    branch,
+                    age_str,
+                    method_str,
+                    "[yellow]delete[/yellow]" if has_local else "[dim]-[/dim]",
+                    "[yellow]delete[/yellow]" if has_remote else "[dim]-[/dim]",
+                )
+
+            console.print(table)
+            console.print(
+                f"\n[bold]{len(local_to_delete)}[/bold] local, "
+                f"[bold]{len(remote_to_delete)}[/bold] remote branches to delete"
+            )
+            if skipped_count:
+                console.print(f"[dim]({skipped_count} merged branches skipped — "
+                              f"newer than {cutoff} days)[/dim]")
+        else:
+            console.print(f"[green]No merged branches older than "
+                          f"{cutoff} days to clean up.[/green]")
+            if skipped_count:
+                console.print(f"[dim]({skipped_count} merged branches skipped — "
+                              f"newer than {cutoff} days)[/dim]")
+
+        # Warn about stale unmerged local branches
+        if do_local:
+            unmerged_local = all_local - all_confirmed_merged
+            stale_unmerged = []
+            for name in sorted(unmerged_local):
+                age = branch_head_age_days(name)
+                if age is not None and age >= cutoff:
+                    stale_unmerged.append((name, age))
+
+            if stale_unmerged:
+                console.print()
+                warn_table = Table(
+                    title=f"[yellow]Warning:[/yellow] Stale unmerged local branches "
+                          f"(older than {cutoff} days)",
+                    title_style="",
+                )
+                warn_table.add_column("Branch")
+                warn_table.add_column("Age (days)", justify="right")
+                for name, age in stale_unmerged:
+                    warn_table.add_row(f"[yellow]{name}[/yellow]", str(age))
+                console.print(warn_table)
+                console.print(
+                    f"[dim]These {len(stale_unmerged)} branches have no merged PR on "
+                    f"Forgejo and are not git-ancestors of main.\n"
+                    f"They may contain work-in-progress — inspect manually "
+                    f"before deleting.[/dim]"
+                )
+
+        if not filtered_candidates:
+            raise typer.Exit(0)
+
+        if dry_run:
+            console.print("\n[dim]Dry run — no branches were deleted.[/dim]")
+            raise typer.Exit(0)
+
+        # Confirm
+        if not yes and not typer.confirm("\nProceed with deletion?"):
+            console.print("[dim]Aborted.[/dim]")
+            raise typer.Exit(0)
+
+        # Delete remote branches via API
+        if remote_to_delete:
+            console.print("\n[bold]Deleting remote branches...[/bold]")
+            for branch in remote_to_delete:
+                ok, msg = delete_remote_branch_api(client, branch)
+                if ok:
+                    console.print(f"  [green]✓[/green] origin/{branch}")
+                else:
+                    console.print(f"  [red]✗[/red] origin/{branch}: {msg}")
+
+    # Delete local branches (outside httpx client context)
+    if local_to_delete:
+        console.print("\n[bold]Deleting local branches...[/bold]")
+        for branch in local_to_delete:
+            ok, msg = delete_local_branch(branch)
+            if ok:
+                console.print(f"  [green]✓[/green] {branch}")
+            else:
+                console.print(f"  [red]✗[/red] {branch}: {msg}")
+
+    console.print("\n[green]Done.[/green]")
+
+
+if __name__ == "__main__":
+    app()
