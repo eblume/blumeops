@@ -1,6 +1,7 @@
 ---
 title: Deploy Authentik Identity Provider
-modified: 2026-02-20
+modified: 2026-02-23
+last-reviewed: 2026-02-23
 requires:
   - build-authentik-container
   - provision-authentik-database
@@ -15,7 +16,7 @@ tags:
 
 # Deploy Authentik Identity Provider
 
-Replace Dex with [Authentik](https://goauthentik.io/) as the SSO identity provider. Authentik is the **source of truth** for user identity in BlumeOps. Users are created and managed in Authentik; services authenticate against it via OIDC. Forgejo federation is deferred to a future effort (existing `eblume` account has extensive automations that need careful migration).
+Replace Dex with [Authentik](https://goauthentik.io/) as the SSO identity provider. Authentik is the **source of truth** for user identity in BlumeOps. Users are created and managed in Authentik; services authenticate against it via OIDC.
 
 ## Architecture Decisions
 
@@ -30,29 +31,21 @@ Replace Dex with [Authentik](https://goauthentik.io/) as the SSO identity provid
 | **Networking** | Tailscale Ingress + Caddy reverse proxy | Same pattern as Dex |
 | **IaC** | Authentik Blueprints (YAML in ConfigMap) | GitOps-native, config stored in repo |
 
-## What Was Done
+## Deployment Process
 
-1. Built Nix container image (`v1.1.2-nix`) — `pkgs.authentik` + `coreutils` + `bashInteractive` + entrypoint wrapper for blueprint symlinks
-2. Created 1Password item "Authentik (blumeops)" with secret key and DB credentials
-3. Provisioned `authentik` database and CNPG managed role on `blumeops-pg`
-4. Deployed to ringtail k3s: server, worker, Redis (3 deployments)
-5. ExternalSecret pulls config from 1Password
-6. Tailscale Ingress at `authentik.tail8d86e.ts.net`
-7. Caddy reverse proxy at `authentik.ops.eblu.me`
-8. Completed first-run wizard (admin account created)
-9. Migrated Grafana OIDC from Dex to Authentik (Blueprint-driven)
-10. Decommissioned Dex (ArgoCD app deleted, manifests removed, Caddy entry removed)
+1. Build a Nix container image — Authentik needs `coreutils` and `bashInteractive` alongside the main package; the entrypoint wrapper must symlink built-in blueprint directories so custom blueprints coexist with defaults
+2. Create secrets in 1Password (secret key, DB credentials, OIDC client secrets)
+3. Provision a dedicated database and managed role on the shared CNPG cluster
+4. Deploy server, worker, and Redis as separate deployments
+5. Wire ExternalSecret to pull config from 1Password
+6. Add Tailscale Ingress and Caddy reverse proxy entries
+7. Complete the first-run wizard manually (creates admin account)
+8. Migrate OIDC clients via Blueprints, then decommission the old IdP
 
 ## URLs
 
 - **Admin:** https://authentik.ops.eblu.me/if/admin/
 - **Tailscale:** https://authentik.tail8d86e.ts.net
-
-## Future Work (not blocking this card)
-
-- **Forgejo federation:** Make Forgejo an OIDC client of Authentik (deferred — needs careful `eblume` account migration)
-- **Cross-cluster metrics:** Prometheus on indri scraping authentik on ringtail
-- **Redis image:** Replace upstream `redis:7-alpine` with Nix-built container
 
 ## Related
 

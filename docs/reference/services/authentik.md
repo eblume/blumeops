@@ -20,7 +20,6 @@ OIDC identity provider for BlumeOps. Authentik is the **source of truth** for us
 | **Tailscale URL** | https://authentik.tail8d86e.ts.net |
 | **Namespace** | `authentik` |
 | **Cluster** | k3s (ringtail) |
-| **Image** | `registry.ops.eblu.me/blumeops/authentik:v1.1.2-nix` |
 | **Manifests** | `argocd/manifests/authentik/` |
 | **Container build** | `containers/authentik/default.nix` |
 

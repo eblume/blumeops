@@ -19,5 +19,5 @@ Plans differ from regular how-to guides in that they describe work that has been
 | [[upstream-fork-strategy]] | Planned | Stacked-branch forking strategy for tracking upstream projects |
 | [[adopt-oidc-provider]] | Completed | Deploy OIDC identity provider for SSO across services |
 | [[upgrade-grafana-helm-chart]] | Planned | Upgrade Grafana Helm chart from 8.8.2 to 11.x (3 phases) |
-| [[deploy-authentik]] | Active (C2) | Deploy Authentik IdP — Mikado chain tracked in `how-to/authentik/` |
+| [[deploy-authentik]] | Completed | Deploy Authentik IdP — Mikado chain tracked in `how-to/authentik/` |
 | [[operationalize-reolink-camera]] | Planned | Cloud-free NVR with Frigate, object detection, and ring buffer recording to sifaka |

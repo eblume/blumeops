@@ -1,6 +1,6 @@
 ---
 title: Completed Plans
-modified: 2026-02-14
+modified: 2026-02-23
 tags:
   - how-to
   - plans
@@ -16,3 +16,4 @@ Plans that have been fully implemented and verified. Kept for historical referen
 | [[segment-home-network]] | 2026-02-14 | Manual three-network segmentation for UniFi Express 7 |
 | [[operationalize-reolink-camera]] | 2026-02-15 | Deploy Frigate NVR stack with Mosquitto, Ntfy, and frigate-notify |
 | [[adopt-oidc-provider]] | 2026-02-19 | Deploy OIDC identity provider with Grafana SSO (initially Dex, replaced by Authentik) |
+| [[deploy-authentik]] | 2026-02-20 | Deploy Authentik IdP with Nix container, Blueprints, and OIDC client migration |
