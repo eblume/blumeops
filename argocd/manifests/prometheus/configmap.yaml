@@ -45,8 +45,9 @@ data:
         static_configs:
           - targets: ["kube-state-metrics.monitoring.svc.cluster.local:8080"]
 
-      # Frigate NVR metrics
+      # Frigate NVR metrics (via Caddy on indri — Frigate runs on ringtail)
       - job_name: "frigate"
+        scheme: https
         static_configs:
-          - targets: ["frigate.frigate.svc.cluster.local:5000"]
+          - targets: ["nvr.ops.eblu.me"]
         metrics_path: /api/metrics

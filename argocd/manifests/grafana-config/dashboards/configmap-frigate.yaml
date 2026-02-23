@@ -13,42 +13,23 @@ data:
       },
       "editable": true,
       "fiscalYearStartMonth": 0,
-      "graphTooltip": 0,
+      "graphTooltip": 1,
       "id": null,
       "links": [],
       "panels": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "0": { "color": "red", "index": 0, "text": "DOWN" }
-                  },
-                  "type": "value"
-                },
-                {
-                  "options": {
-                    "1": { "color": "green", "index": 1, "text": "UP" }
-                  },
-                  "type": "value"
-                }
-              ],
+              "color": { "mode": "thresholds" },
+              "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "red", "value": null },
-                  { "color": "green", "value": 1 }
+                  { "color": "green", "value": null }
                 ]
               },
-              "unit": "short"
+              "unit": "s"
             },
             "overrides": []
           },
@@ -66,27 +47,21 @@ data:
             },
             "textMode": "auto"
           },
-          "pluginVersion": "10.0.0",
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "frigate_service_info",
+              "expr": "frigate_service_uptime_seconds",
               "refId": "A"
             }
           ],
-          "title": "Frigate Status",
+          "title": "Uptime",
           "type": "stat"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
+              "color": { "mode": "thresholds" },
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
@@ -114,37 +89,30 @@ data:
             },
             "textMode": "auto"
           },
-          "pluginVersion": "10.0.0",
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "frigate_detector_inference_speed_seconds{name=\"onnx\"} * 1000",
+              "expr": "frigate_detector_inference_speed_seconds * 1000",
+              "legendFormat": "{{ name }}",
               "refId": "A"
             }
           ],
-          "title": "Detector Inference",
+          "title": "Inference Speed",
           "type": "stat"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
+              "color": { "mode": "thresholds" },
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 5 },
-                  { "color": "red", "value": 10 }
+                  { "color": "green", "value": null }
                 ]
               },
-              "unit": "fps"
+              "unit": "short"
             },
             "overrides": []
           },
@@ -162,32 +130,27 @@ data:
             },
             "textMode": "auto"
           },
-          "pluginVersion": "10.0.0",
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "frigate_camera_fps{camera_name=\"gablecam\"}",
-              "legendFormat": "{{type}}",
+              "expr": "sum(frigate_camera_fps)",
               "refId": "A"
             }
           ],
-          "title": "Camera FPS",
+          "title": "Total Camera FPS",
           "type": "stat"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
+              "color": { "mode": "thresholds" },
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
-                "steps": [{ "color": "green", "value": null }]
+                "steps": [
+                  { "color": "green", "value": null }
+                ]
               },
               "unit": "short"
             },
@@ -207,11 +170,10 @@ data:
             },
             "textMode": "auto"
           },
-          "pluginVersion": "10.0.0",
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "frigate_detection_total_fps",
+              "expr": "frigate_detection_fps",
               "refId": "A"
             }
           ],
@@ -219,15 +181,96 @@ data:
           "type": "stat"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
-              "color": {
-                "mode": "palette-classic"
+              "color": { "mode": "thresholds" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 80 },
+                  { "color": "red", "value": 95 }
+                ]
               },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+          "id": 5,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "frigate_gpu_usage_percent",
+              "legendFormat": "{{ gpu_name }}",
+              "refId": "A"
+            }
+          ],
+          "title": "GPU Usage",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 60 },
+                  { "color": "red", "value": 80 }
+                ]
+              },
+              "unit": "celsius"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+          "id": 6,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "frigate_device_temperature",
+              "legendFormat": "{{ device_name }}",
+              "refId": "A"
+            }
+          ],
+          "title": "GPU Temp",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
               "custom": {
                 "axisBorderShow": false,
                 "axisCenteredZero": false,
@@ -259,7 +302,7 @@ data:
             "overrides": []
           },
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
-          "id": 5,
+          "id": 7,
           "options": {
             "legend": {
               "calcs": ["mean", "max"],
@@ -269,12 +312,11 @@ data:
             },
             "tooltip": { "mode": "multi", "sort": "desc" }
           },
-          "pluginVersion": "10.0.0",
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "frigate_cpu_usage_percent",
-              "legendFormat": "{{type}} - {{pid}}",
+              "legendFormat": "{{ type }} - {{ pid }}",
               "refId": "A"
             }
           ],
@@ -282,15 +324,10 @@ data:
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
+              "color": { "mode": "palette-classic" },
               "custom": {
                 "axisBorderShow": false,
                 "axisCenteredZero": false,
@@ -322,7 +359,7 @@ data:
             "overrides": []
           },
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
-          "id": 6,
+          "id": 8,
           "options": {
             "legend": {
               "calcs": ["mean", "max"],
@@ -332,12 +369,11 @@ data:
             },
             "tooltip": { "mode": "multi", "sort": "desc" }
           },
-          "pluginVersion": "10.0.0",
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "frigate_mem_usage_percent",
-              "legendFormat": "{{type}} - {{pid}}",
+              "legendFormat": "{{ type }} - {{ pid }}",
               "refId": "A"
             }
           ],
@@ -345,15 +381,10 @@ data:
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
+              "color": { "mode": "palette-classic" },
               "custom": {
                 "axisBorderShow": false,
                 "axisCenteredZero": false,
@@ -380,12 +411,12 @@ data:
                 "mode": "absolute",
                 "steps": [{ "color": "green", "value": null }]
               },
-              "unit": "fps"
+              "unit": "short"
             },
             "overrides": []
           },
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
-          "id": 7,
+          "id": 9,
           "options": {
             "legend": {
               "calcs": ["mean", "max"],
@@ -395,28 +426,91 @@ data:
             },
             "tooltip": { "mode": "multi", "sort": "desc" }
           },
-          "pluginVersion": "10.0.0",
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "frigate_camera_fps{camera_name=\"gablecam\"}",
-              "legendFormat": "{{type}}",
+              "expr": "frigate_camera_fps",
+              "legendFormat": "{{ camera_name }}",
               "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "frigate_skipped_fps",
+              "legendFormat": "{{ camera_name }} (skipped)",
+              "refId": "B"
             }
           ],
-          "title": "Camera FPS Over Time",
+          "title": "Camera FPS",
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
-              "color": {
-                "mode": "palette-classic"
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": { "type": "linear" },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": { "group": "A", "mode": "none" },
+                "thresholdsStyle": { "mode": "off" }
               },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+          "id": 10,
+          "options": {
+            "legend": {
+              "calcs": ["mean", "max"],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "frigate_gpu_usage_percent",
+              "legendFormat": "{{ gpu_name }} usage",
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "frigate_gpu_mem_usage_percent",
+              "legendFormat": "{{ gpu_name }} memory",
+              "refId": "B"
+            }
+          ],
+          "title": "GPU Over Time",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
               "custom": {
                 "axisBorderShow": false,
                 "axisCenteredZero": false,
@@ -447,8 +541,8 @@ data:
             },
             "overrides": []
           },
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
-          "id": 8,
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+          "id": 11,
           "options": {
             "legend": {
               "calcs": ["lastNotNull"],
@@ -458,16 +552,72 @@ data:
             },
             "tooltip": { "mode": "multi", "sort": "desc" }
           },
-          "pluginVersion": "10.0.0",
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "frigate_storage_used_bytes",
-              "legendFormat": "{{storage}}",
+              "legendFormat": "{{ storage }}",
               "refId": "A"
             }
           ],
           "title": "Storage Usage",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": { "type": "linear" },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": { "group": "A", "mode": "none" },
+                "thresholdsStyle": { "mode": "off" }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+          "id": 12,
+          "options": {
+            "legend": {
+              "calcs": ["mean", "max"],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "rate(frigate_camera_events[5m])",
+              "legendFormat": "{{ camera_name }} - {{ label }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Detection Events (rate)",
           "type": "timeseries"
         }
       ],
