@@ -5,6 +5,8 @@ last-reviewed: 2026-02-23
 tags:
   - how-to
   - configuration
+aliases: []
+id: update-tooling-dependencies
 ---
 
 # Update Tooling Dependencies
@@ -54,9 +56,19 @@ grep -r 'dependencies' mise-tasks/ | grep '# dependencies'
 
 Ensure all scripts using the same package agree on the minimum version. When a package has a new major or breaking minor release, bump the lower bound across all scripts at once.
 
-### 4. Check Forgejo workflow action versions
+### 4. Pin Forgejo workflow action versions
 
-Review `.forgejo/workflows/*.yaml` for `uses:` directives. Currently all workflows use `actions/checkout@v4` which tracks the latest v4.x.
+All `uses:` directives in `.forgejo/workflows/*.yaml` must reference upstream actions by **commit SHA**, not mutable tags. This prevents supply-chain attacks where a tag is moved to point at malicious code.
+
+Format: `uses: actions/checkout@<full-sha> # v4.3.1`
+
+The trailing comment documents the human-readable version. To update:
+
+```fish
+git ls-remote --tags https://github.com/actions/checkout.git 'refs/tags/v4*' | sort -t/ -k3 -V | tail -5
+```
+
+Pick the latest patch tag, note its SHA, and update all occurrences across the workflow files.
 
 ### 5. Commit and create PR
 
