@@ -1,6 +1,5 @@
 ---
 title: Upgrade K8s Forgejo Runner to v12
-status: active
 requires:
   - validate-workflows-against-v12
   - review-runner-config-v12

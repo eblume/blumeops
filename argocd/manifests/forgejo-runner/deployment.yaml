@@ -18,7 +18,7 @@ spec:
       containers:
         # Forgejo runner daemon
         - name: runner
-          image: code.forgejo.org/forgejo/runner:6.3.1
+          image: code.forgejo.org/forgejo/runner:12.7.0
           env:
             - name: TZ
               value: America/Los_Angeles
