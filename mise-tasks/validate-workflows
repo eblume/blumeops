@@ -3,4 +3,4 @@
 
 set -euo pipefail
 
-dagger call validate-workflows --src=.
+dagger call --progress=plain validate-workflows --src=.

@@ -14,7 +14,7 @@ OUTPUT_FILE="yolov9-${MODEL_SIZE}-${INPUT_SIZE}.onnx"
 echo "Exporting YOLOv9-${MODEL_SIZE} (${INPUT_SIZE}x${INPUT_SIZE}) via Dagger..."
 echo ""
 
-dagger call export-yolov-9 \
+dagger call --progress=plain export-yolov-9 \
     --model-size="$MODEL_SIZE" \
     --input-size="$INPUT_SIZE" \
     export --path="$OUTPUT_FILE"

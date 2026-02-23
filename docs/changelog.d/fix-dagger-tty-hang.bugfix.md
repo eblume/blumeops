@@ -1,0 +1,1 @@
+Fix Dagger pipelines hanging when called from mise tasks in interactive terminals. Added `--progress=plain` to all `dagger call` invocations to prevent SIGTTOU from stopping the process when mise's child process group is not the terminal foreground group.

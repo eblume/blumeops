@@ -7,7 +7,7 @@ export MISE_TASK_OUTPUT=interleave
 
 # Update flake.lock via Dagger before deploying
 echo "Updating nixos/ringtail/flake.lock..."
-dagger call flake-lock --src=. --flake-path=nixos/ringtail \
+dagger call --progress=plain flake-lock --src=. --flake-path=nixos/ringtail \
     export --path=nixos/ringtail/flake.lock
 
 if ! git diff --quiet nixos/ringtail/flake.lock; then
