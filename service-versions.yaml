@@ -5,15 +5,13 @@
 #
 # Fields:
 #   name            - kebab-case service identifier
-#   type            - argocd | ansible | hybrid (custom container + ArgoCD)
+#   type            - argocd | ansible | nixos
 #   last-reviewed   - date (YYYY-MM-DD) or null
 #   current-version - deployed version string or null
 #   upstream-source - URL to upstream releases/changelog
 #   notes           - optional context
 
 services:
-  # --- ArgoCD plain manifests ---
-
   - name: prometheus
     type: argocd
     last-reviewed: 2026-02-16
@@ -45,7 +43,7 @@ services:
     upstream-source: https://github.com/binwiederhier/ntfy/releases
 
   - name: homepage
-    type: hybrid
+    type: argocd
     last-reviewed: 2026-02-19
     current-version: "v1.10.1"
     upstream-source: https://github.com/gethomepage/homepage/releases
@@ -82,8 +80,6 @@ services:
     current-version: "v1.94.2"
     upstream-source: https://github.com/tailscale/tailscale/releases
 
-  # --- ArgoCD Helm charts ---
-
   - name: grafana
     type: argocd
     last-reviewed: null
@@ -119,8 +115,6 @@ services:
     upstream-source: https://github.com/1Password/connect/releases
     notes: Deployed via Helm chart
 
-  # --- ArgoCD infra ---
-
   - name: argocd
     type: argocd
     last-reviewed: null
@@ -134,77 +128,84 @@ services:
     upstream-source: https://github.com/cloudnative-pg/cloudnative-pg/releases
     notes: CloudNativePG Cluster resource
 
-  # --- Hybrid (custom container + ArgoCD) ---
-
   - name: authentik
-    type: hybrid
+    type: argocd
     last-reviewed: null
     current-version: "2025.10.1"
     upstream-source: https://github.com/goauthentik/authentik/releases
 
   - name: navidrome
-    type: hybrid
+    type: argocd
     last-reviewed: null
     current-version: "v0.60.3"
     upstream-source: https://github.com/navidrome/navidrome/releases
 
   - name: miniflux
-    type: hybrid
+    type: argocd
     last-reviewed: null
     current-version: "2.2.17"
     upstream-source: https://github.com/miniflux/v2/releases
 
   - name: teslamate
-    type: hybrid
+    type: argocd
     last-reviewed: null
     current-version: "v2.2.0"
     upstream-source: https://github.com/teslamate-org/teslamate/releases
 
   - name: transmission
-    type: hybrid
+    type: argocd
     last-reviewed: null
     current-version: "4.0.6-r4"
     upstream-source: https://github.com/transmission/transmission/releases
 
   - name: kiwix
-    type: hybrid
+    type: argocd
     last-reviewed: null
     current-version: "3.8.1"
     upstream-source: https://github.com/kiwix/kiwix-tools/releases
 
   - name: devpi
-    type: hybrid
+    type: argocd
     last-reviewed: null
     current-version: "6.19.1"
     upstream-source: https://github.com/devpi/devpi/releases
 
   - name: cv
-    type: hybrid
+    type: argocd
     last-reviewed: null
     current-version: "1.0.3"
     upstream-source: null
     notes: Personal static site, no upstream
 
   - name: docs
-    type: hybrid
+    type: argocd
     last-reviewed: null
     current-version: "1.28.2"
     upstream-source: https://github.com/jackyzha0/quartz/releases
     notes: Quartz static site generator; container version tracks nginx base
 
   - name: forgejo-runner
-    type: hybrid
-    last-reviewed: null
-    current-version: "0.19.11"
+    type: argocd
+    last-reviewed: 2026-02-22
+    current-version: "6.3.1"
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
+    notes: >-
+      Runner daemon version. Job execution container (containers/forgejo-runner)
+      tracks Dagger at v0.19.11.
 
-  # --- Ansible native ---
+  - name: nix-container-builder
+    type: nixos
+    last-reviewed: 2026-02-22
+    current-version: "12.6.4"
+    upstream-source: https://code.forgejo.org/forgejo/runner/releases
+    notes: Forgejo runner on ringtail via nixpkgs; version tracks flake.lock
 
   - name: forgejo
     type: ansible
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-22
+    current-version: "14.0.2"
     upstream-source: https://codeberg.org/forgejo/forgejo/releases
+    notes: Installed via Homebrew on indri; plan to migrate to source build
 
   - name: alloy
     type: ansible
@@ -244,4 +245,4 @@ services:
     last-reviewed: null
     current-version: null
     upstream-source: null
-    notes: Custom systemd service, no upstream
+    notes: Custom service, no upstream

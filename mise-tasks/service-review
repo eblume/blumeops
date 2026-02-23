@@ -5,7 +5,7 @@
 # ///
 #MISE description="Review the most stale service for version freshness"
 #USAGE flag "--limit <limit>" default="15" help="Number of services to show in the table"
-#USAGE flag "--type <type>" help="Filter by service type (argocd, ansible, hybrid)"
+#USAGE flag "--type <type>" help="Filter by service type (argocd, ansible, nixos)"
 """Review the most stale service for version freshness.
 
 Reads ``docs/reference/services/service-versions.yaml`` and sorts services
@@ -55,7 +55,7 @@ def parse_date(raw) -> date | None:
 
 def main(
     limit: Annotated[int, typer.Option(help="Number of services to show in the table")] = 15,
-    type: Annotated[str | None, typer.Option(help="Filter by service type (argocd, ansible, hybrid)")] = None,
+    type: Annotated[str | None, typer.Option(help="Filter by service type (argocd, ansible, nixos)")] = None,
 ) -> None:
     console = Console()
     today = date.today()
@@ -166,14 +166,7 @@ def main(
     ]
 
     svc_type = top_svc.get("type", "")
-    if svc_type == "hybrid":
-        checklist_parts += [
-            "\n[bold]Custom Container (hybrid):[/bold]\n",
-            "• Check base image for updates\n",
-            "• Rebuild container if needed: mise run container-build-and-release\n",
-            "• Update ArgoCD manifest with new image tag\n",
-        ]
-    elif svc_type == "argocd":
+    if svc_type == "argocd":
         checklist_parts += [
             "\n[bold]ArgoCD Deployment:[/bold]\n",
             "• Update image tag or Helm chart version in argocd/manifests/\n",
@@ -184,6 +177,13 @@ def main(
             "\n[bold]Ansible Deployment:[/bold]\n",
             f"• Check role vars for version pins: ansible/roles/{top_svc['name']}/\n",
             f"• Dry run: mise run provision-indri -- --tags {top_svc['name']} --check --diff\n",
+        ]
+    elif svc_type == "nixos":
+        checklist_parts += [
+            "\n[bold]NixOS Deployment:[/bold]\n",
+            "• Version tracks nixpkgs via flake.lock\n",
+            "• Update: dagger call flake-update --src=. export --path=nixos/ringtail/flake.lock\n",
+            "• Deploy: mise run provision-ringtail\n",
         ]
 
     checklist_parts += [

@@ -93,3 +93,11 @@ Mikado chain for deploying Authentik. Track progress with `mise run docs-mikado 
 - [[provision-authentik-database]]
 - [[create-authentik-secrets]]
 - [[migrate-grafana-to-authentik]]
+
+## Forgejo Runner
+
+Mikado chain for upgrading the k8s forgejo-runner daemon from v6.3.1 to v12.x. Track progress with `mise run docs-mikado upgrade-k8s-runner`.
+
+- [[upgrade-k8s-runner]]
+- [[validate-workflows-against-v12]]
+- [[review-runner-config-v12]]
