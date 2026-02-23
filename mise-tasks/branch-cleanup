@@ -188,7 +188,12 @@ def get_merged_pr_branches(client: httpx.Client, console: Console) -> set[str]:
                 break
             for pr in prs:
                 if pr.get("merged"):
-                    ref = pr.get("head", {}).get("ref", "")
+                    head = pr.get("head", {})
+                    ref = head.get("ref", "")
+                    # Forgejo rewrites ref to refs/pull/N/head once the
+                    # source branch is deleted; the original name is in label
+                    if ref.startswith("refs/pull/"):
+                        ref = head.get("label", "")
                     if ref and ref not in PROTECTED_BRANCHES:
                         merged_branches.add(ref)
             page += 1
