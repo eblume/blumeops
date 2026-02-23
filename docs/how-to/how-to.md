@@ -61,7 +61,7 @@ Migration and transition plans for upcoming infrastructure changes.
 | [[adopt-dagger-ci]] | Adopt Dagger as CI/CD build engine |
 | [[upstream-fork-strategy]] | Stacked-branch forking strategy for upstream projects |
 | [[adopt-oidc-provider]] | Deploy OIDC identity provider for SSO across services |
-| [[upgrade-grafana-helm-chart]] | Upgrade Grafana Helm chart from 8.8.2 to 11.x |
+| [[upgrade-grafana]] | Upgrade Grafana to 12.x with kustomize and home-built container |
 | [[operationalize-reolink-camera]] | Cloud-free NVR with Frigate and ring buffer recording |
 
 ## Ringtail
@@ -94,6 +94,14 @@ Mikado chain for deploying Authentik. Track progress with `mise run docs-mikado 
 - [[provision-authentik-database]]
 - [[create-authentik-secrets]]
 - [[migrate-grafana-to-authentik]]
+
+## Grafana
+
+Mikado chain for upgrading Grafana to 12.x with kustomize and home-built containers. Track progress with `mise run docs-mikado upgrade-grafana`.
+
+- [[upgrade-grafana]]
+- [[kustomize-grafana-deployment]]
+- [[build-grafana-container]]
 
 ## Forgejo Runner
 

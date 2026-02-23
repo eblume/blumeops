@@ -82,10 +82,10 @@ services:
 
   - name: grafana
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-23
+    current-version: "v11.4.0"
     upstream-source: https://github.com/grafana/grafana/releases
-    notes: Deployed via Helm chart
+    notes: Helm chart 8.8.2; Mikado chain to upgrade to 12.x with kustomize
 
   - name: cloudnative-pg
     type: argocd
