@@ -1,6 +1,5 @@
 ---
 title: Build Grafana Container
-status: active
 modified: 2026-02-23
 tags:
   - how-to
@@ -10,25 +9,32 @@ tags:
 
 # Build Grafana Container
 
-Build a home-built Grafana 12.x container image and publish to the forge registry.
+Home-built Grafana container image published to `registry.ops.eblu.me/blumeops/grafana`.
 
-## Context
+## How It Works
 
-Grafana currently uses the upstream `docker.io/grafana/grafana:11.4.0` image via the Helm chart. Per supply-chain policy, this should be replaced with a locally built image pushed to `forge.ops.eblu.me/eblume/grafana`.
+The Dockerfile at `containers/grafana/Dockerfile` downloads the official Grafana OSS tarball for the target architecture (arm64/amd64), installs it into Alpine, and sets up standard paths.
 
-## Steps
+To build and push a new version:
 
-1. Add a Grafana container build to Dagger (or Nix, following existing patterns)
-2. Base on the official Grafana source or use a Nix derivation
-3. Tag and push to `forge.ops.eblu.me/eblume/grafana:<version>`
-4. Add to `mise run container-list` inventory
+```fish
+# Update version in Dockerfile
+# ARG CONTAINER_APP_VERSION=12.3.3
 
-## Reference
+mise run container-build-and-release grafana
+```
 
-- Follow [[build-container-image]] for the standard container build workflow
-- See existing container builds in `.dagger/` for patterns
-- The k8s-sidecar image (`quay.io/kiwigrid/k8s-sidecar`) is a secondary concern — address after the main Grafana image
+## Gotchas
+
+- **Tarball directory name:** Extracts to `grafana-<version>` (e.g. `grafana-12.3.3`), *not* `grafana-v<version>`.
+- **Binary PATH:** The binary lives at `bin/grafana` inside the extracted directory. The Dockerfile sets `ENV PATH="/usr/share/grafana/bin:$PATH"`.
+- **UID 472:** Matches the official Grafana image for PVC ownership compatibility.
+
+## Future Work
+
+The k8s-sidecar image (`quay.io/kiwigrid/k8s-sidecar`) is still pulled from upstream. Replace with a home-built image when prioritized.
 
 ## Related
 
-- [[upgrade-grafana]] — Goal card
+- [[upgrade-grafana]] — Migration context
+- [[build-container-image]] — Standard container build workflow

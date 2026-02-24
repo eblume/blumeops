@@ -1,7 +1,5 @@
 # Grafana - Dashboards & Observability
 #
-# Chart mirrored from https://github.com/grafana/helm-charts to forge
-#
 # Before syncing, create the admin password secret:
 #   kubectl create namespace monitoring
 #   op inject -i argocd/manifests/grafana-config/secret-admin.yaml.tpl | kubectl apply -f -
@@ -12,19 +10,10 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  sources:
-    # Helm chart from forge mirror (SSH via egress)
-    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/grafana-helm-charts.git
-      targetRevision: grafana-8.8.2
-      path: charts/grafana
-      helm:
-        releaseName: grafana
-        valueFiles:
-          - $values/argocd/manifests/grafana/values.yaml
-    # Values from our git repo
-    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
-      targetRevision: main
-      ref: values
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/grafana
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
