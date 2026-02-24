@@ -1,85 +1,95 @@
 # blumeops
+aka "Blue Mops"
+
+Tools and configuration for Erich Blume's personal infrastructure, orchestrated
+across a Tailscale tailnet.
+
+This is a homelab, but it's also a testing ground for AI-assisted
+infrastructure development. Much of this codebase was co-authored with [Claude
+Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview),
+and the repo places heavy emphasis on documentation, process, and change
+classification to make that collaboration work well. I don't know entirely how
+I feel about LLMs in our current era (there are real concerns about how
+training data is sourced and energy subsidy) but it felt important to learn how
+to work with these tools.
+
+The full documentation is published at **[docs.eblu.me](https://docs.eblu.me)**
+and lives in the [`docs/`](docs/) directory, structured around the
+[Diataxis](https://diataxis.fr/) framework and designed to be compatible with
+[Obsidian](https://obsidian,nd)/[Obsidian.nvim](https://github.com/obsidian-nvim/obsidian.nvim).
+
+## What runs here
+
+Services are a mix of Kubernetes pods (managed by ArgoCD), macOS LaunchAgent
+services (managed by Ansible), and NixOS systemd services (managed by Nix
+flakes), all connected via Tailscale:
+
+- **Indri** (Mac Mini M1) - primary server. Most services run in Minikube via
+  ArgoCD; Forgejo, Caddy, and others run natively as LaunchAgent services via
+  Ansible.
+- **Ringtail** (NixOS desktop, RTX 4080) - GPU workloads (Frigate NVR,
+  Authentik SSO) on k3s, plus NixOS systemd services.
+- **Sifaka** (Synology NAS) - backup target and bulk storage.
+
+Notable services include Grafana/Prometheus/Loki observability, Immich photos,
+Jellyfin media, Forgejo git forge, a Zot container registry, and more. Public
+access is routed through a Fly.io proxy; everything else is tailnet-only.
+
+## Project structure
 
 ```
-                    l0K                                k..:k.
-                  .:...c.                            ;c....
-                    ....'o                          x.....
-                      ....k                        x....
-                       ... l'                    'c....
-                        ....,l                  o'....
-                         .....x                k....
-                          .....d.             c....
-                            ... l            x....
-                              .,.d         ;c.c'
-                               'c':;      x',c.
-                                .:,'o   .x.::.
-                                 .;:.k ,:.c'
-                                   ,c.c';:.
-                                    .,.:;.
-                                   ;'.c, l
-                                  d',c..:.d.
-                                 O.:;.  'c';c
-                               ;c.c'     .:;.x
-                              o',c.       .;:.k
-                             x.::.          'c.l.
-                         dOKl.c,             .c,'o
-                   0l'...... ..'              .::.ocx.
-                 'o ............              o .... :olx;
-                x,ox;. ....... .k             ....,dKKo;..x
-              'd,OXXXXk:. ...... ;            ;:dXOl;',';l;o;
-             x,oXXXXXXXXXkc. ...              .lc,',':dKNNNx;x;
-           ;o;0KXXXXXXXXXXXX0l.                .',ckNNNNNNNNNxco0d
-          l,d0oOXKOKXXXXKXXXX0.                  kNNNNNNNNNNNNNXxloo::
-             .OXxdXKOX0kXXXX0.                   .KNNNNNNNNNNXONX0o.
-                ,OdxKldXXXXx.                     ,NNNNNNNNNNNKoc
-                   :.OXXkKo                       .kNNNNNNNNXx.
-                      ':0c                         .NdNkXkc
+ansible/            Ansible playbooks and roles (indri, sifaka)
+argocd/apps/        ArgoCD Application definitions
+argocd/manifests/   Kubernetes manifests per service
+containers/         Custom container builds (Dockerfile + Nix)
+docs/               Diataxis documentation (published at docs.eblu.me)
+fly/                Fly.io public proxy configuration
+mise-tasks/         Operational scripts run via mise
+nixos/              NixOS configuration for ringtail
+pulumi/             Pulumi IaC (Tailscale ACLs, Gandi DNS)
+.dagger/            Dagger CI pipelines
+.forgejo/           Forgejo Actions CI/CD workflows
 ```
 
-*Blue Mops* — GitOps for Erich Blume's personal computing environment.
+## Getting started
 
-## What is this?
-
-Infrastructure-as-code for my tailnet (`tail8d86e.ts.net`). This repo contains
-ansible playbooks, configuration, and automation for managing my personal
-infrastructure.
-
-This codebase was heavily co-authored by Claude Code, as an experiment in
-LLM-assisted development. I want to include a personal note here that I don't
-know entirely how I feel about LLMs in our current era, but it felt important
-to learn.
-
-## Development
-
-### Pre-commit Hooks
-
-This repo uses [pre-commit](https://pre-commit.com) for code quality and consistency. Install hooks with:
+You'll need [Homebrew](https://brew.sh) and [mise](https://mise.jdx.dev):
 
 ```bash
-uvx pre-commit install
+brew bundle                    # install CLI tools (argocd, tea, flyctl, etc.)
+mise install                   # install managed toolchains (ansible, pulumi, dagger, etc.)
+uvx pre-commit install         # set up pre-commit hooks
 ```
 
-Run all hooks manually:
+Pre-commit hooks enforce secret scanning (TruffleHog), linting, formatting, and
+custom checks like doc link validation and the Mikado branch invariant. Run
+them manually with `uvx pre-commit run --all-files`.
+
+Operational tasks are driven through mise. Run `mise tasks` to see what's
+available. Key examples:
 
 ```bash
-uvx pre-commit run --all-files
+mise run provision-indri       # deploy to indri via Ansible
+mise run services-check        # verify service health
+mise run container-list        # list tracked container images
 ```
 
-Hooks include:
-- **General**: trailing whitespace, end-of-file fixer, large files, merge conflicts
-- **Secrets**: [TruffleHog](https://github.com/trufflesecurity/trufflehog) for secret detection
-- **YAML**: yamllint, ansible-lint
-- **Python**: ruff (linting + formatting)
-- **Shell**: shellcheck, shfmt
-- **TOML**: taplo
-- **JSON**: prettier
+## AI-assisted development
 
-## CI/CD
+This repo is designed to be worked on by both humans and AI agents. The
+[`CLAUDE.md`](CLAUDE.md) file provides instructions for Claude Code, and the
+[`docs/tutorials/ai-assistance-guide.md`](docs/tutorials/ai-assistance-guide.md)
+explains the full workflow.
 
-This repo uses [Forgejo Actions](https://forgejo.org/docs/latest/user/actions/) for CI/CD. Workflows live in `.forgejo/workflows/` (not `.github/workflows/`). The runner executes jobs in host mode within the Kubernetes cluster.
+Changes are classified before starting work:
 
-## Documentation
+- **C0** - quick fixes, committed directly to main
+- **C1** - feature branch + PR, documentation written before code
+- **C2** - multi-phase work using the Mikado method for dependency tracking
 
-Documentation lives in `docs/` and follows the [Diataxis](https://diataxis.fr/) framework. Published at https://docs.eblu.me.
+See the [agent change process](docs/how-to/agent-change-process.md) for
+details.
 
-Docs use [Obsidian](https://obsidian.md) wiki-link syntax (`[[link]]`) for cross-references. Edit with any markdown editor, or use [obsidian.nvim](https://github.com/obsidian-nvim/obsidian.nvim) for enhanced navigation.
+## License
+
+[GPLv3](LICENSE)
