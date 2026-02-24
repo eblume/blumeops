@@ -84,6 +84,9 @@ def main(
 
     if not ref:
         ref = git("rev-parse", "HEAD")
+    else:
+        # Resolve short SHAs or branch names to full SHA
+        ref = git("rev-parse", ref)
 
     short_sha = ref[:7]
     image = f"blumeops/{container}"
