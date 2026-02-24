@@ -63,6 +63,7 @@ data:
       database: teslamate
       editable: false
       jsonData:
+        database: teslamate
         connMaxLifetime: 14400
         maxIdleConns: 2
         maxOpenConns: 5
