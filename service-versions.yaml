@@ -89,10 +89,10 @@ services:
 
   - name: cloudnative-pg
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-24
+    current-version: "v1.28.1"
     upstream-source: https://github.com/cloudnative-pg/cloudnative-pg/releases
-    notes: Deployed via Helm chart
+    notes: Deployed via Helm chart (chart v0.27.1 from forge mirror)
 
   - name: immich
     type: argocd
