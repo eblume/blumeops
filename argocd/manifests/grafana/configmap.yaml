@@ -21,7 +21,8 @@ data:
     client_secret = $__env{GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET}
     enabled = true
     name = Authentik
-    role_attribute_path = 'Admin'
+    role_attribute_path = contains(groups[*], 'admins') && 'Admin' || 'Viewer'
+    skip_org_role_sync = false
     scopes = openid profile email
     token_url = https://authentik.ops.eblu.me/application/o/token/
 

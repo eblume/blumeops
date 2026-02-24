@@ -1,0 +1,1 @@
+Fix Grafana OAuth role mapping: INI parser was stripping quotes from `role_attribute_path = 'Admin'`, causing all Authentik users to get Viewer role instead of Admin. Now uses group-based mapping from the `admins` Authentik group.
