@@ -1,6 +1,7 @@
 ---
 title: Migrate Grafana to Authentik
-modified: 2026-02-20
+modified: 2026-02-24
+last-reviewed: 2026-02-24
 tags:
   - how-to
   - authentik
@@ -26,8 +27,8 @@ The Nix-built container hardcoded `blueprints_dir` to its Nix store path, making
 
 ### Grafana configuration
 
-- `values.yaml` updated to point at Authentik OIDC endpoints (`authentik.ops.eblu.me`)
-- `external-secret-authentik-oauth.yaml` pulls client secret from "Authentik (blumeops)"
+- `argocd/manifests/grafana/configmap.yaml` updated to point at Authentik OIDC endpoints (`authentik.ops.eblu.me`)
+- `argocd/manifests/grafana-config/external-secret-authentik-oauth.yaml` pulls client secret from "Authentik (blumeops)"
 - Old Dex OAuth user deleted from Grafana (different `auth_id` caused "user already exists")
 
 ### Dex decommission
