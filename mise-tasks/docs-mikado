@@ -3,10 +3,11 @@
 # requires-python = ">=3.12"
 # dependencies = ["pyyaml>=6.0", "rich>=13.0.0", "typer>=0.15.0"]
 # ///
-#MISE description="View active Mikado dependency chains for C1/C2 changes"
+#MISE description="View active Mikado dependency chains for C2 changes"
 #USAGE arg "[card]" help="Card stem to show chain for"
 #USAGE flag "--all" help="Show all cards in full, including complete ones"
-"""View active Mikado dependency chains for C1/C2 changes.
+#USAGE flag "--resume" help="Resume a chain: detect branch, show state and next steps"
+"""View active Mikado dependency chains for C2 changes.
 
 Scans all markdown files in docs/ for YAML frontmatter with ``status: active``
 and ``requires`` fields, then builds and displays the Mikado dependency graph.
@@ -15,8 +16,12 @@ Usage:
     mise run docs-mikado                         # list all active chains
     mise run docs-mikado deploy-authentik        # show chain for a card
     mise run docs-mikado deploy-authentik --all  # include complete cards in full
+    mise run docs-mikado --resume                # resume: detect branch, show state
+    mise run docs-mikado --resume deploy-authentik  # resume specific chain
 """
 
+import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -25,9 +30,13 @@ import typer
 import yaml
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.panel import Panel
 from rich.table import Table
 
 DOCS_DIR = Path(__file__).parent.parent / "docs"
+REPO_DIR = Path(__file__).parent.parent
+
+C2_COMMIT_RE = re.compile(r"^C2\(([^)]+)\):\s+(plan|impl|close|finalize)\s+(.+)$")
 
 
 def extract_frontmatter(file_path: Path) -> dict | None:
@@ -64,6 +73,7 @@ def build_graph() -> dict[str, dict]:
             "path": md_file,
             "title": frontmatter.get("title", stem),
             "status": frontmatter.get("status"),
+            "branch": frontmatter.get("branch"),
             "requires": frontmatter.get("requires", []) or [],
             "required_by": [],
         }
@@ -124,6 +134,280 @@ def find_root_goals(cards: dict[str, dict]) -> list[str]:
     return sorted(roots)
 
 
+def find_ready_leaves(cards: dict[str, dict], root: str) -> list[str]:
+    """Find active leaf nodes ready for work (no unmet active requires)."""
+    leaves = []
+    visited: set[str] = set()
+
+    def walk(stem: str) -> None:
+        if stem in visited or stem not in cards:
+            return
+        visited.add(stem)
+        card = cards[stem]
+        if not is_active(card):
+            return
+        # Check if all requires are met (not active)
+        unmet = [
+            r for r in card["requires"] if r in cards and is_active(cards[r])
+        ]
+        if not unmet:
+            leaves.append(stem)
+        for req in card["requires"]:
+            walk(req)
+
+    walk(root)
+    return sorted(leaves)
+
+
+def get_current_branch() -> str | None:
+    """Get the current git branch name."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_DIR,
+        )
+        if result.returncode == 0:
+            branch = result.stdout.strip()
+            return branch if branch != "HEAD" else None
+        return None
+    except FileNotFoundError:
+        return None
+
+
+def get_branch_commits(branch: str) -> list[dict]:
+    """Get commits on a branch since it diverged from main."""
+    try:
+        result = subprocess.run(
+            ["git", "log", "--oneline", "--format=%H %s", f"main..{branch}"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_DIR,
+        )
+        if result.returncode != 0:
+            return []
+        commits = []
+        for line in result.stdout.strip().split("\n"):
+            if not line:
+                continue
+            sha, _, subject = line.partition(" ")
+            match = C2_COMMIT_RE.match(subject)
+            commits.append(
+                {
+                    "sha": sha,
+                    "subject": subject,
+                    "chain": match.group(1) if match else None,
+                    "verb": match.group(2) if match else None,
+                    "description": match.group(3) if match else None,
+                    "conventional": match is not None,
+                }
+            )
+        # git log returns newest first; reverse for chronological
+        commits.reverse()
+        return commits
+    except FileNotFoundError:
+        return []
+
+
+def classify_branch_position(commits: list[dict]) -> str:
+    """Determine where in the invariant the branch currently is."""
+    if not commits:
+        return "empty"
+
+    verbs = [c["verb"] for c in commits if c["conventional"]]
+    if not verbs:
+        return "unconventional"
+
+    last_verb = verbs[-1]
+    has_plan = "plan" in verbs
+    has_impl = "impl" in verbs
+    has_close = "close" in verbs
+
+    if last_verb == "finalize":
+        return "finalized"
+    if not has_impl and not has_close:
+        return "planning"
+    if last_verb == "close":
+        return "between-cycles"
+    if last_verb == "impl":
+        return "mid-cycle"
+    if last_verb == "plan" and has_impl:
+        # plan after impl — invariant violation
+        return "invariant-violation"
+    return "unknown"
+
+
+def show_resume(
+    cards: dict[str, dict],
+    console: Console,
+    chain_name: str | None,
+) -> None:
+    """Show resume information for continuing C2 work."""
+    current_branch = get_current_branch()
+    roots = find_root_goals(cards)
+
+    # Find chain-to-branch mapping from goal cards
+    chain_branches: dict[str, str | None] = {}
+    for stem in roots:
+        card = cards[stem]
+        chain_branches[stem] = card.get("branch")
+
+    if chain_name:
+        # Explicit chain requested — validate
+        if chain_name not in cards:
+            console.print(f"[red]Chain not found: {chain_name}[/red]")
+            raise typer.Exit(code=1)
+        if not is_active(cards[chain_name]):
+            console.print(
+                f"[yellow]{chain_name} is not active (no status: active)[/yellow]"
+            )
+            raise typer.Exit(code=1)
+
+        expected_branch = cards[chain_name].get("branch")
+        if expected_branch and current_branch != expected_branch:
+            console.print(
+                f"[red]Branch mismatch:[/red] chain {chain_name} expects "
+                f"branch [bold]{expected_branch}[/bold] but you are on "
+                f"[bold]{current_branch}[/bold]"
+            )
+            console.print(
+                f"\n[dim]Run: git checkout {expected_branch}[/dim]"
+            )
+            raise typer.Exit(code=1)
+
+        _show_chain_resume(cards, console, chain_name, current_branch)
+        return
+
+    # No explicit chain — try to detect from branch
+    if current_branch and current_branch.startswith("mikado/"):
+        chain_stem = current_branch.removeprefix("mikado/")
+        # Try to match to a goal card
+        matched = None
+        for stem in roots:
+            if stem == chain_stem:
+                matched = stem
+                break
+            if cards[stem].get("branch") == current_branch:
+                matched = stem
+                break
+
+        if matched:
+            _show_chain_resume(cards, console, matched, current_branch)
+            return
+        else:
+            console.print(
+                f"[yellow]On branch {current_branch} but no matching "
+                f"active chain found for stem '{chain_stem}'[/yellow]"
+            )
+
+    # On main or unrecognized branch — list options
+    console.print()
+    if not roots:
+        console.print("[dim]No active Mikado chains to resume.[/dim]")
+        raise typer.Exit()
+
+    console.print("[bold]Active Mikado chains:[/bold]")
+    console.print()
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Chain")
+    table.add_column("Title")
+    table.add_column("Branch")
+    table.add_column("Status")
+    table.add_column("Ready Leaves")
+
+    for stem in roots:
+        card = cards[stem]
+        branch = card.get("branch")
+        if branch:
+            branch_display = f"[green]{branch}[/green]"
+            status = "in progress"
+        else:
+            branch_display = "[dim]not started[/dim]"
+            status = "planned"
+
+        leaves = find_ready_leaves(cards, stem)
+        leaves_display = ", ".join(leaves) if leaves else "[dim]none[/dim]"
+
+        table.add_row(stem, card["title"], branch_display, status, leaves_display)
+
+    console.print(table)
+    console.print()
+    console.print(
+        "[dim]Run: mise run docs-mikado --resume <chain> to resume a specific chain[/dim]"
+    )
+
+
+def _show_chain_resume(
+    cards: dict[str, dict],
+    console: Console,
+    chain: str,
+    current_branch: str | None,
+) -> None:
+    """Show detailed resume info for a specific chain."""
+    card = cards[chain]
+    branch = card.get("branch") or current_branch
+
+    console.print()
+    console.print(
+        Panel(
+            f"[bold]{chain}[/bold] — {card['title']}\n"
+            f"Branch: [green]{branch or 'not set'}[/green]",
+            title="Resuming Mikado Chain",
+        )
+    )
+
+    # Show branch position if we can read commits
+    if branch and current_branch == branch:
+        commits = get_branch_commits(branch)
+        position = classify_branch_position(commits)
+
+        position_labels = {
+            "empty": "[dim]No commits on branch yet[/dim]",
+            "planning": "[cyan]Planning phase[/cyan] — still adding cards",
+            "mid-cycle": "[yellow]Mid-cycle[/yellow] — impl in progress, leaf not yet closed",
+            "between-cycles": "[green]Between cycles[/green] — ready for next leaf",
+            "finalized": "[green]Finalized[/green] — chain complete, awaiting merge",
+            "unconventional": "[yellow]Unconventional commits[/yellow] — commits don't follow C2() convention",
+            "invariant-violation": "[red]Invariant violation[/red] — plan commit found after impl",
+            "unknown": "[dim]Unknown position[/dim]",
+        }
+        console.print(f"\nBranch position: {position_labels.get(position, position)}")
+
+        if commits:
+            console.print("\n[bold]Recent commits:[/bold]")
+            # Show last 10 commits
+            for c in commits[-10:]:
+                if c["conventional"]:
+                    verb_colors = {
+                        "plan": "cyan",
+                        "impl": "yellow",
+                        "close": "green",
+                        "finalize": "magenta",
+                    }
+                    color = verb_colors.get(c["verb"], "white")
+                    console.print(
+                        f"  {c['sha'][:8]} [{color}]{c['verb']}[/{color}] {c['description']}"
+                    )
+                else:
+                    console.print(
+                        f"  {c['sha'][:8]} [dim]{c['subject']}[/dim]"
+                    )
+
+    # Show ready leaves
+    leaves = find_ready_leaves(cards, chain)
+    if leaves:
+        console.print("\n[bold]Ready leaf nodes (no unmet dependencies):[/bold]")
+        for leaf in leaves:
+            leaf_card = cards[leaf]
+            console.print(f"  [green]→[/green] {leaf} — {leaf_card['title']}")
+    else:
+        console.print("\n[dim]No ready leaf nodes — all leaves have unmet dependencies[/dim]")
+
+    console.print()
+
+
 def walk_chain(
     cards: dict[str, dict],
     stem: str,
@@ -158,6 +442,8 @@ def walk_chain(
             f"[bold]{status_tag} {stem}[/bold] — {card['title']}"
         )
         console.print(f"[dim]{card['path'].relative_to(DOCS_DIR)}[/dim]")
+        if card.get("branch"):
+            console.print(f"[dim]branch: {card['branch']}[/dim]")
         if card["requires"]:
             console.print(f"[dim]requires: {', '.join(card['requires'])}[/dim]")
         if card["required_by"]:
@@ -187,6 +473,10 @@ def main(
         bool,
         typer.Option("--all", help="Show all cards in full, including complete ones"),
     ] = False,
+    resume: Annotated[
+        bool,
+        typer.Option("--resume", help="Resume a chain: detect branch, show state"),
+    ] = False,
 ) -> None:
     console = Console()
     cards = build_graph()
@@ -198,6 +488,10 @@ def main(
         for cycle in cycles:
             console.print(f"  [red]{' → '.join(cycle)}[/red]")
         console.print()
+
+    if resume:
+        show_resume(cards, console, chain_name=card)
+        return
 
     if card is None:
         # List all active Mikado chains
@@ -215,6 +509,7 @@ def main(
         )
         table.add_column("Goal Card")
         table.add_column("Title")
+        table.add_column("Branch")
         table.add_column("Active Deps", justify="right")
         table.add_column("Total Deps", justify="right")
 
@@ -244,9 +539,16 @@ def main(
                 return active_count, total_count
 
             active_deps, total_deps = count_deps(stem)
+            branch = card_data.get("branch")
+            if branch:
+                branch_display = branch
+            else:
+                branch_display = "[dim]not started[/dim]"
+
             table.add_row(
                 f"[bold]{stem}[/bold]",
                 card_data["title"],
+                branch_display,
                 str(active_deps),
                 str(total_deps),
             )
@@ -256,6 +558,9 @@ def main(
         console.print()
         console.print(
             "[dim]Run: mise run docs-mikado <card> to see full chain[/dim]"
+        )
+        console.print(
+            "[dim]Run: mise run docs-mikado --resume to resume work on a chain[/dim]"
         )
     else:
         if card not in cards:

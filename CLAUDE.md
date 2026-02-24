@@ -15,25 +15,31 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 1. **Always run `mise run ai-docs -- --style=header --color=never --decorations=always` at session start**
     This will refresh your context with important information you will be assumed to know and follow.
 2. **Always use `--context=minikube-indri` with kubectl** (or `--context=k3s-ringtail` for ringtail services) - work contexts must never be touched
-3. **Feature branches only** - checkout main, pull, create branch, commit often
-4. **Create PRs via `tea pr create`** - user reviews before deploy, merges after
+3. **Classify the change as C0/C1/C2 before starting** (see below) — this determines branching and PR requirements
+4. **Feature branches + PRs for C1/C2** - checkout main, pull, create branch, open PR via `tea pr create`. C0 goes direct to main.
 5. **Check PR comments with `mise run pr-comments <pr_number>`** before proceeding
 6. **Add changelog fragments** - `docs/changelog.d/<branch>.<type>.md`
     Types: `feature`, `bugfix`, `infra`, `doc`, `ai`, `misc`
 7. **Test before applying** - dry runs (`--check --diff`), syntax checks, `ssh indri '...'`
-8. **Wait for user review before deploying**
-9. **Never merge PRs or push to main without explicit request**
+8. **Wait for user review before deploying** (C1/C2)
+9. **Never merge PRs or push to main without explicit request** (C0 commits to main are fine)
 10. **Verify deployments** - `mise run services-check`
 
 ## Change Classification
 
 Before starting work, classify the change:
 
-| Class | Scope | Process |
-|-------|-------|---------|
-| **C0** | Quick fix, single-file, obvious | Read `ai-docs`, implement directly |
-| **C1** | Moderate, potential hidden complexity | Mikado method, single session, single PR |
-| **C2** | Complex, multi-session | Mikado method, documentation-driven, single PR |
+| Class | Name | When to use | Key trait |
+|-------|------|-------------|-----------|
+| **C0** | Quick Fix | Small, low-risk, fix-forward safe | Direct to main, no PR |
+| **C1** | Human Review | Moderate complexity or risk | Feature branch + PR, docs-first |
+| **C2** | Mikado Chain | Multi-phase, multi-session, high complexity | Mikado Branch Invariant |
+
+**C0** — commit directly to main. No branch or PR needed. Fix forward if problems arise.
+
+**C1** — feature branch with early PR. Search related docs first, write documentation changes before code, deploy from the unmerged branch (ArgoCD `--revision`, Ansible from checkout). Upgrade to C2 if complexity spirals.
+
+**C2** — branch `mikado/<chain-stem>` governed by the Mikado Branch Invariant: all card commits first, then code progress, then card closures. Commits use `C2(<chain>): plan/impl/close/finalize` convention. Reset the branch when new prerequisites are discovered. Resume with `mise run docs-mikado --resume`.
 
 See [[agent-change-process]] for the full methodology.
 

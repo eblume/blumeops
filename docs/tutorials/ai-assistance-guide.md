@@ -1,6 +1,6 @@
 ---
 title: AI Assistance Guide
-modified: 2026-02-09
+modified: 2026-02-23
 tags:
   - tutorials
   - ai
@@ -22,13 +22,16 @@ These are non-negotiable for AI agents working in this repo:
 4. **Wait for user review before deploying** - Create PRs, don't auto-deploy
 5. **Never merge PRs without explicit request** - The user merges after review
 
-Full rules are in the repo's `CLAUDE.md`. See [[agent-change-process]] for the C0/C1/C2 change classification methodology.
+Full rules are in the repo's `CLAUDE.md`. See [[agent-change-process]] for the C0/C1/C2 change classification methodology — C0 (direct to main), C1 (feature branch + PR), C2 (Mikado Branch Invariant).
 
 ## Workflow Conventions
 
-### Feature Branches
+### Branching
 
-All work happens on feature branches:
+Branching depends on change classification (see [[agent-change-process]]):
+
+- **C0 (Quick Fix):** Commit directly to main — no branch or PR needed
+- **C1/C2:** Feature branch required:
 ```bash
 git checkout main && git pull
 git checkout -b feature/descriptive-name
@@ -85,7 +88,8 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 | Task | When to Use |
 |------|-------------|
 | `ai-docs` | At session start - review infrastructure documentation |
-| `docs-mikado` | View active Mikado dependency chains for C1/C2 changes |
+| `docs-mikado` | View active Mikado dependency chains for C2 changes |
+| `docs-mikado --resume` | Resume a C2 chain: detect branch, show state and next steps |
 | `provision-indri` | Deploy changes to [[indri]]-hosted services via Ansible |
 | `services-check` | After deployments - verify all services are healthy |
 | `pr-comments` | Check unresolved PR comments during review |
@@ -131,5 +135,5 @@ Credentials live in 1Password. Never retrieve them directly - use existing patte
 | Missing kubectl context | Always add `--context=minikube-indri` |
 | Deploying without review | Create PR first, wait for user approval |
 | Re-explaining reference material | Link to reference cards instead |
-| Committing to main | Use feature branches |
+| Committing to main without classifying | Classify as C0/C1/C2 first — only C0 goes to main |
 | Guessing at credentials | Ask user or check 1Password patterns |

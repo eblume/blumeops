@@ -1,0 +1,197 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["rich>=13.0.0"]
+# ///
+#MISE description="Validate Mikado Branch Invariant on mikado/* branches"
+"""Validate the Mikado Branch Invariant for C2 change branches.
+
+Runs as a commit-msg hook on mikado/* branches. Receives the commit message
+file as its first argument, classifies the incoming commit, appends it to the
+existing branch history, and validates the full sequence.
+
+Checks:
+1. All commits follow the C2(<chain>): <verb> <description> convention
+2. The invariant ordering is maintained: plan commits come before impl/close
+3. No plan commits appear after any impl or close commits
+4. Close commits don't appear before impl commits in the same cycle
+5. The chain stem in commit messages matches the branch name
+
+Can also be run standalone (no arguments) to validate existing branch history.
+
+Exit code 0 if valid (or not on a mikado/* branch), 1 if violations found.
+"""
+
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+from rich.console import Console
+
+REPO_DIR = Path(__file__).parent.parent
+C2_COMMIT_RE = re.compile(r"^C2\(([^)]+)\):\s+(plan|impl|close|finalize)\s+(.+)$")
+
+
+def get_current_branch() -> str | None:
+    """Get the current git branch name."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_DIR,
+    )
+    if result.returncode == 0:
+        branch = result.stdout.strip()
+        return branch if branch != "HEAD" else None
+    return None
+
+
+def get_branch_commits(branch: str) -> list[dict]:
+    """Get commits on a branch since it diverged from main."""
+    result = subprocess.run(
+        ["git", "log", "--oneline", "--format=%H %s", f"main..{branch}"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_DIR,
+    )
+    if result.returncode != 0:
+        return []
+    commits = []
+    for line in result.stdout.strip().split("\n"):
+        if not line:
+            continue
+        sha, _, subject = line.partition(" ")
+        match = C2_COMMIT_RE.match(subject)
+        commits.append(
+            {
+                "sha": sha,
+                "subject": subject,
+                "chain": match.group(1) if match else None,
+                "verb": match.group(2) if match else None,
+                "description": match.group(3) if match else None,
+                "conventional": match is not None,
+            }
+        )
+    # git log returns newest first; reverse for chronological
+    commits.reverse()
+    return commits
+
+
+def parse_commit_message(msg_path: str) -> str:
+    """Read and return the first line of a commit message file."""
+    with open(msg_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                return line
+    return ""
+
+
+def make_pending_commit(subject: str) -> dict:
+    """Create a pseudo-commit dict for the incoming (not yet created) commit."""
+    match = C2_COMMIT_RE.match(subject)
+    return {
+        "sha": "(pending)",
+        "subject": subject,
+        "chain": match.group(1) if match else None,
+        "verb": match.group(2) if match else None,
+        "description": match.group(3) if match else None,
+        "conventional": match is not None,
+    }
+
+
+def check_invariant(commits: list[dict], chain_stem: str) -> list[str]:
+    """Check the Mikado Branch Invariant. Returns list of violation messages."""
+    errors: list[str] = []
+
+    if not commits:
+        return errors
+
+    seen_impl = False
+    seen_close = False
+
+    for i, commit in enumerate(commits):
+        sha_short = commit["sha"][:8]
+
+        if not commit["conventional"]:
+            errors.append(
+                f"{sha_short}: commit doesn't follow C2() convention: "
+                f"{commit['subject']}"
+            )
+            continue
+
+        if commit["chain"] != chain_stem:
+            errors.append(
+                f"{sha_short}: chain mismatch — expected C2({chain_stem}) "
+                f"but found C2({commit['chain']})"
+            )
+
+        verb = commit["verb"]
+
+        if verb == "plan":
+            if seen_impl or seen_close:
+                errors.append(
+                    f"{sha_short}: plan commit after impl/close — "
+                    f"violates the Mikado Branch Invariant. "
+                    f"New prerequisites require a branch reset."
+                )
+        elif verb == "impl":
+            seen_impl = True
+        elif verb == "close":
+            seen_close = True
+            if not seen_impl:
+                errors.append(
+                    f"{sha_short}: close commit without preceding impl — "
+                    f"leaf nodes should be closed after implementation work"
+                )
+        elif verb == "finalize":
+            # finalize is the permitted exception — must be last
+            if i != len(commits) - 1:
+                errors.append(
+                    f"{sha_short}: finalize must be the last commit on the branch"
+                )
+
+    return errors
+
+
+def main() -> None:
+    console = Console(stderr=True)
+    branch = get_current_branch()
+
+    if not branch or not branch.startswith("mikado/"):
+        # Not on a mikado branch — nothing to check
+        sys.exit(0)
+
+    chain_stem = branch.removeprefix("mikado/")
+    commits = get_branch_commits(branch)
+
+    # If called with a commit message file (commit-msg hook), include the
+    # pending commit in the validation
+    if len(sys.argv) > 1:
+        subject = parse_commit_message(sys.argv[1])
+        if subject:
+            commits.append(make_pending_commit(subject))
+
+    if not commits:
+        # No commits on branch yet — valid (length-zero case)
+        sys.exit(0)
+
+    errors = check_invariant(commits, chain_stem)
+
+    if errors:
+        console.print("[bold red]Mikado Branch Invariant violations:[/bold red]")
+        for error in errors:
+            console.print(f"  [red]✗[/red] {error}")
+        console.print()
+        console.print(
+            "[dim]See: docs/how-to/agent-change-process.md "
+            "§ The Mikado Branch Invariant[/dim]"
+        )
+        sys.exit(1)
+
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

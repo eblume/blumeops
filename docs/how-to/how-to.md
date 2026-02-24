@@ -35,7 +35,7 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 |-------|-------------|
 | [[review-documentation]] | Periodically review and maintain documentation |
 | [[review-services]] | Periodically review services for version freshness |
-| [[agent-change-process]] | C0/C1/C2 change classification and Mikado method for agents |
+| [[agent-change-process]] | C0/C1/C2 change classification and Mikado Branch Invariant |
 
 ## Operations
 
