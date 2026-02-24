@@ -20,7 +20,7 @@ spec:
       containers:
         # Main kiwix-serve container
         - name: kiwix-serve
-          image: registry.ops.eblu.me/blumeops/kiwix-serve:v3.8.1-ffa8727
+          image: registry.ops.eblu.me/blumeops/kiwix-serve
           args:
             - "/bin/sh"
             - "-c"
@@ -53,7 +53,7 @@ spec:
 
         # Sidecar: Syncs declarative ZIM torrents to transmission
         - name: torrent-sync
-          image: registry.ops.eblu.me/blumeops/transmission:v4.0.6-r4-ffa8727
+          image: registry.ops.eblu.me/blumeops/transmission
           command: ["/bin/bash", "-c"]
           args:
             - |

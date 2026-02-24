@@ -1,0 +1,34 @@
+apiVersion: 1
+datasources:
+- access: proxy
+  editable: false
+  isDefault: true
+  name: Prometheus
+  orgId: 1
+  type: prometheus
+  uid: prometheus
+  url: http://prometheus.monitoring.svc.cluster.local:9090
+- access: proxy
+  editable: false
+  name: Loki
+  orgId: 1
+  type: loki
+  uid: loki
+  url: http://loki.monitoring.svc.cluster.local:3100
+- access: proxy
+  database: teslamate
+  editable: false
+  jsonData:
+    database: teslamate
+    connMaxLifetime: 14400
+    maxIdleConns: 2
+    maxOpenConns: 5
+    sslmode: disable
+  name: TeslaMate
+  orgId: 1
+  secureJsonData:
+    password: $TESLAMATE_DB_PASSWORD
+  type: postgres
+  uid: TeslaMate
+  url: blumeops-pg-rw.databases.svc.cluster.local:5432
+  user: teslamate

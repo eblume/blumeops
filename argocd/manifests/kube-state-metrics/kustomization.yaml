@@ -4,3 +4,6 @@ resources:
   - rbac.yaml
   - deployment.yaml
   - service.yaml
+images:
+  - name: registry.k8s.io/kube-state-metrics/kube-state-metrics
+    newTag: v2.18.0

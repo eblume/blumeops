@@ -1,0 +1,6 @@
+base-url: https://ntfy.ops.eblu.me
+upstream-base-url: https://ntfy.sh
+attachment-cache-dir: /var/cache/ntfy/attachments
+attachment-total-size-limit: 1G
+attachment-file-size-limit: 10M
+attachment-expiry-duration: 24h

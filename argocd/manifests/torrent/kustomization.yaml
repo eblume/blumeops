@@ -8,3 +8,6 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress-tailscale.yaml
+images:
+  - name: registry.ops.eblu.me/blumeops/transmission
+    newTag: v4.0.6-r4-ffa8727

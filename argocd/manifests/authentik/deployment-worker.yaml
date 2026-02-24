@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: registry.ops.eblu.me/blumeops/authentik:v2025.10.1-a72a0d8-nix
+          image: registry.ops.eblu.me/blumeops/authentik
           args: ["worker"]
           env:
             - name: AUTHENTIK_SECRET_KEY

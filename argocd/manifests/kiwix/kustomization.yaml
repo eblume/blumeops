@@ -3,9 +3,23 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: kiwix
 resources:
-  - configmap-zim-torrents.yaml
-  - configmap-sync-script.yaml
   - deployment.yaml
   - service.yaml
   - ingress-tailscale.yaml
   - cronjob-zim-watcher.yaml
+
+images:
+  - name: registry.ops.eblu.me/blumeops/kiwix-serve
+    newTag: v3.8.1-ffa8727
+  - name: registry.ops.eblu.me/blumeops/transmission
+    newTag: v4.0.6-r4-ffa8727
+  - name: registry.ops.eblu.me/blumeops/kubectl
+    newTag: v1.34.4-a72a0d8
+
+configMapGenerator:
+  - name: kiwix-zim-torrents
+    files:
+      - torrents.txt
+  - name: zim-torrent-sync-script
+    files:
+      - sync-zim-torrents.sh

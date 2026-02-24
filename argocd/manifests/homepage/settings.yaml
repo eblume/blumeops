@@ -1,0 +1,17 @@
+title: BlumeOps
+headerStyle: boxed
+quicklaunch:
+  searchDescriptions: true
+  showSearchSuggestions: true
+  provider: custom
+  url: https://kagi.com/search?q=
+  suggestionUrl: https://kagisuggest.com/api/autosuggest?q=
+layout:
+  Host Services:
+    style: column
+  Content:
+    style: column
+  Infrastructure:
+    style: column
+  Services:
+    style: column

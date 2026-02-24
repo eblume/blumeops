@@ -32,7 +32,7 @@ spec:
         runAsUser: 472
       initContainers:
         - name: init-chown-data
-          image: docker.io/library/busybox:1.31.1
+          image: docker.io/library/busybox
           imagePullPolicy: IfNotPresent
           command: ["chown", "-R", "472:472", "/var/lib/grafana"]
           securityContext:
@@ -48,7 +48,7 @@ spec:
       containers:
         # Dashboard sidecar - watches ConfigMaps with grafana_dashboard=1
         - name: grafana-sc-dashboard
-          image: quay.io/kiwigrid/k8s-sidecar:1.28.0
+          image: quay.io/kiwigrid/k8s-sidecar
           imagePullPolicy: IfNotPresent
           env:
             - name: METHOD
@@ -88,7 +88,7 @@ spec:
               mountPath: /tmp/dashboards
         # Grafana
         - name: grafana
-          image: registry.ops.eblu.me/blumeops/grafana:v12.3.3-d05d2fb
+          image: registry.ops.eblu.me/blumeops/grafana
           imagePullPolicy: IfNotPresent
           env:
             - name: POD_IP

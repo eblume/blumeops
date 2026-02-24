@@ -1,0 +1,46 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Indri system metrics are pushed via Alloy remote_write
+# K8s services are scraped directly
+
+scrape_configs:
+  # Sifaka NAS exporters (via Caddy L4 TCP proxy on indri)
+  - job_name: "node-exporter-sifaka"
+    static_configs:
+      - targets: ["nas.ops.eblu.me:9100"]
+
+  - job_name: "smartctl-sifaka"
+    scrape_interval: 60s
+    static_configs:
+      - targets: ["nas.ops.eblu.me:9633"]
+
+  # CNPG PostgreSQL metrics (k8s internal)
+  - job_name: "cnpg-postgres"
+    static_configs:
+      - targets: ["blumeops-pg-metrics-tailscale.databases.svc.cluster.local:9187"]
+        labels:
+          instance: "blumeops-pg"
+
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Loki metrics
+  - job_name: "loki"
+    static_configs:
+      - targets: ["loki.monitoring.svc.cluster.local:3100"]
+
+  # Kubernetes state metrics (pods, deployments, resource usage, etc.)
+  - job_name: "kube-state-metrics"
+    static_configs:
+      - targets: ["kube-state-metrics.monitoring.svc.cluster.local:8080"]
+
+  # Frigate NVR metrics (via Caddy on indri — Frigate runs on ringtail)
+  - job_name: "frigate"
+    scheme: https
+    static_configs:
+      - targets: ["nvr.ops.eblu.me"]
+    metrics_path: /api/metrics

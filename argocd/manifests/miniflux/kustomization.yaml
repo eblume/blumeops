@@ -7,3 +7,7 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress-tailscale.yaml
+
+images:
+  - name: registry.ops.eblu.me/blumeops/miniflux
+    newTag: v2.2.17-a72a0d8

@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: docs
-          image: registry.ops.eblu.me/blumeops/quartz:v1.28.2-ffa8727
+          image: registry.ops.eblu.me/blumeops/quartz
           ports:
             - containerPort: 80
               name: http

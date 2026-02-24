@@ -20,7 +20,7 @@ spec:
         runAsUser: 10001
       containers:
         - name: loki
-          image: grafana/loki:3.6.5
+          image: grafana/loki
           args:
             - -config.file=/etc/loki/loki-config.yaml
           ports:

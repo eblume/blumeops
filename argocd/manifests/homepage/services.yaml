@@ -1,0 +1,76 @@
+- Host Services:
+    - Forgejo:
+        href: https://forge.ops.eblu.me
+        icon: forgejo
+        description: Git forge
+        widget:
+          type: gitea
+          url: https://forge.ops.eblu.me
+          key: "{{HOMEPAGE_VAR_FORGEJO_API_KEY}}"
+    - Registry:
+        href: https://registry.ops.eblu.me
+        icon: zot-registry
+        description: Container registry
+    - Sifaka NAS:
+        href: https://nas.ops.eblu.me
+        icon: synology
+        description: NAS dashboard
+        widget:
+          type: prometheusmetric
+          url: https://prometheus.ops.eblu.me
+          metrics:
+            - label: Used
+              query: node_filesystem_size_bytes{mountpoint="/Volumes/backups"} - node_filesystem_avail_bytes{mountpoint="/Volumes/backups"}
+              format:
+                type: bytes
+            - label: Total
+              query: node_filesystem_size_bytes{mountpoint="/Volumes/backups"}
+              format:
+                type: bytes
+    - Borgmatic:
+        href: https://grafana.ops.eblu.me/d/borgmatic
+        icon: borgmatic
+        description: Backup system
+        widget:
+          type: prometheusmetric
+          url: https://prometheus.ops.eblu.me
+          metrics:
+            - label: Last backup
+              query: time() - borgmatic_last_archive_timestamp
+              format:
+                type: duration
+            - label: Archive size
+              query: borgmatic_repo_deduplicated_size_bytes
+              format:
+                type: bytes
+    - Jellyfin:
+        href: https://jellyfin.ops.eblu.me
+        icon: jellyfin
+        description: Media server
+        widget:
+          type: jellyfin
+          url: https://jellyfin.ops.eblu.me
+          key: "{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}"
+          enableBlocks: true
+          enableNowPlaying: true
+    # TODO: Add Caddy widget when admin API is enabled (currently admin off)
+    # - Caddy:
+    #     href: https://indri.tail8d86e.ts.net
+    #     icon: caddy
+    #     description: Reverse proxy
+    #     widget:
+    #       type: caddy
+    #       url: http://indri.tail8d86e.ts.net:2019
+- Infrastructure:
+    - Authentik:
+        href: https://authentik.ops.eblu.me
+        icon: authentik
+        description: Identity provider
+    - NVR:
+        href: https://nvr.ops.eblu.me
+        icon: frigate.png
+        description: Network video recorder
+    - Ntfy:
+        href: https://ntfy.ops.eblu.me
+        icon: ntfy.png
+        description: Push notifications

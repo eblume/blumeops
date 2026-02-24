@@ -4,8 +4,6 @@ kind: Kustomization
 namespace: frigate
 resources:
   - external-secret.yaml
-  - configmap.yaml
-  - configmap-notify.yaml
   - pv-nfs.yaml
   - pvc-recordings.yaml
   - pvc-database.yaml
@@ -13,3 +11,19 @@ resources:
   - deployment-notify.yaml
   - service.yaml
   - ingress-tailscale.yaml
+
+images:
+  - name: busybox
+    newTag: "1.37"
+  - name: ghcr.io/blakeblackshear/frigate
+    newTag: 0.17.0-rc2-tensorrt
+  - name: ghcr.io/0x2142/frigate-notify
+    newTag: v0.5.4
+
+configMapGenerator:
+  - name: frigate-config
+    files:
+      - config.yml=frigate-config.yml
+  - name: frigate-notify-config
+    files:
+      - config.yml=frigate-notify-config.yml

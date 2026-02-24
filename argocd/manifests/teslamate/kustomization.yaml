@@ -9,3 +9,7 @@ resources:
   - ingress-tailscale.yaml
   - external-secret-db.yaml
   - external-secret-encryption-key.yaml
+
+images:
+  - name: registry.ops.eblu.me/blumeops/teslamate
+    newTag: v2.2.0-ffa8727

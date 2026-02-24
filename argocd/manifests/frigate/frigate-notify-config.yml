@@ -1,0 +1,35 @@
+frigate:
+  server: http://frigate:5000
+  public_url: https://nvr.ops.eblu.me
+
+  webapi:
+    enabled: true
+    interval: 15
+
+  mqtt:
+    enabled: false
+
+alerts:
+  general:
+    title: "Frigate Alert"
+    nosnap: drop
+    snap_hires: true
+    notify_once: true
+
+  zones:
+    unzoned: drop
+    allow:
+      - driveway_entrance
+      - driveway
+
+  labels:
+    allow:
+      - person
+      - car
+
+  ntfy:
+    enabled: true
+    server: http://ntfy.ntfy.svc.cluster.local:80
+    topic: frigate-alerts
+    headers:
+      - X-Actions: "view, Open Event, {{.Extra.PublicURL}}/review?id={{.ID}}, clear=true; view, Open Camera, {{.Extra.PublicURL}}/#/cameras/{{.Camera}}"

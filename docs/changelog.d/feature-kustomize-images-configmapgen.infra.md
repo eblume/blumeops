@@ -1,0 +1,1 @@
+Move image tags to kustomize `images:` transformer across 22 services and replace hand-written ConfigMaps with `configMapGenerator:` in 12 services, enabling content-hash-based automatic rollouts on config changes.

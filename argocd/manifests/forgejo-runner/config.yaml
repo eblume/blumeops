@@ -1,0 +1,19 @@
+# Reviewed against v12.7.0 defaults (2026-02-22)
+log:
+  level: info
+
+runner:
+  file: /data/.runner
+  capacity: 2
+  timeout: 3h
+  shutdown_timeout: 3h
+  # Env vars injected into all job containers
+  envs:
+    DOCKER_HOST: tcp://127.0.0.1:2375
+    TZ: America/Los_Angeles
+
+container:
+  # Job execution image is set via RUNNER_LABELS in deployment.yaml
+  network: "host"
+  # Connect to DinD sidecar via TCP (not socket)
+  docker_host: tcp://127.0.0.1:2375

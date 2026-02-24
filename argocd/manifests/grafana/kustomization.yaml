@@ -5,8 +5,24 @@ namespace: monitoring
 
 resources:
   - serviceaccount.yaml
-  - configmap.yaml
   - pvc.yaml
   - deployment.yaml
   - service.yaml
   - rbac.yaml
+
+images:
+  - name: docker.io/library/busybox
+    newTag: 1.31.1
+  - name: quay.io/kiwigrid/k8s-sidecar
+    newTag: 1.28.0
+  - name: registry.ops.eblu.me/blumeops/grafana
+    newTag: v12.3.3-d05d2fb
+
+configMapGenerator:
+  - name: grafana
+    files:
+      - grafana.ini
+      - datasources.yaml
+  - name: grafana-config-dashboards
+    files:
+      - provider.yaml

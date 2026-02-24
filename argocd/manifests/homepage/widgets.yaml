@@ -1,0 +1,26 @@
+- greeting:
+    text_size: xl
+    text: Welcome to Blue Mops
+- datetime:
+    text_size: lg
+    format:
+      dateStyle: long
+      timeStyle: short
+      hour12: true
+- openweathermap:
+    label: Camano
+    latitude: 48.18235
+    longitude: -122.52590
+    units: imperial
+    provider: openweathermap
+    apiKey: "{{HOMEPAGE_VAR_OPENWEATHERMAP_API_KEY}}"
+    cache: 15
+# TODO: Add UniFi widget when controller is set up
+# - unifi_console:
+#     url: https://192.168.1.1
+#     username: homepage
+#     password: "{{HOMEPAGE_VAR_UNIFI_PASSWORD}}"
+# TODO: Add Glances widget when Glances is deployed
+# - glances:
+#     url: http://indri.tail8d86e.ts.net:61208
+#     metric: cpu

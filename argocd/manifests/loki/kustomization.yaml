@@ -4,7 +4,15 @@ kind: Kustomization
 namespace: monitoring
 
 resources:
-  - configmap.yaml
   - statefulset.yaml
   - service.yaml
   - ingress-tailscale.yaml
+
+images:
+  - name: grafana/loki
+    newTag: "3.6.5"
+
+configMapGenerator:
+  - name: loki-config
+    files:
+      - loki-config.yaml

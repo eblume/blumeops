@@ -20,7 +20,7 @@ spec:
         runAsUser: 65534
       containers:
         - name: prometheus
-          image: registry.ops.eblu.me/blumeops/prometheus:v3.9.1-2ba5d8a
+          image: registry.ops.eblu.me/blumeops/prometheus
           args:
             - --config.file=/etc/prometheus/prometheus.yml
             - --storage.tsdb.path=/prometheus
