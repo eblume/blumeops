@@ -117,7 +117,6 @@ repos:
         entry: mise run mikado-branch-invariant-check
         language: system
         always_run: true
-        pass_filenames: false
         stages: [commit-msg]
 
   # Documentation validation
