@@ -1,1 +1,0 @@
-Fix Frigate Prometheus scrape target to route via Caddy (nvr.ops.eblu.me) after migration to ringtail, and rebuild Grafana dashboard with updated Frigate 0.17 metrics (GPU usage, temperature, skipped FPS, detection events).

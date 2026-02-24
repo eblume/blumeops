@@ -12,6 +12,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.11.3] - 2026-02-23
+
+### Features
+
+- Upgrade Grafana from 11.4.0 to 12.3.3 with home-built container image and Kustomize manifests, replacing the Helm chart deployment.
+
+### Bug Fixes
+
+- Fix Dagger pipelines hanging when called from mise tasks in interactive terminals. Added `--progress=plain` to all `dagger call` invocations to prevent SIGTTOU from stopping the process when mise's child process group is not the terminal foreground group.
+- Fix Grafana TeslaMate dashboards not appearing in a folder — enabled `foldersFromFilesStructure` so the sidecar's `grafana_folder` annotation is respected.
+- Container build workflows now checkout the dispatch ref when building from feature branches, fixing "No Dockerfile — skipping" errors for containers not yet on main.
+
+### Infrastructure
+
+- Fix Frigate Prometheus scrape target to route via Caddy (nvr.ops.eblu.me) after migration to ringtail, and rebuild Grafana dashboard with updated Frigate 0.17 metrics (GPU usage, temperature, skipped FPS, detection events).
+- Update tooling dependencies: pre-commit hooks (trufflehog, ruff, shellcheck, prettier, actionlint), Fly.io Dockerfile (pin nginx 1.28.2-alpine, alloy v1.13.1), and normalize mise task Python lower bounds.
+- Rename `containers/forgejo-runner` to `containers/runner-job-image` to distinguish the CI job execution image from the Forgejo runner daemon, fixing a version-check false positive.
+
+### Documentation
+
+- Review deploy-authentik card: rewrite as reproducible process guide, remove stale version info and future work section, mark plan as completed.
+- Formalize C0/C1/C2 change classification: C0 allows direct-to-main commits, C1 adds docs-first workflow with branch deployment, C2 introduces the Mikado Branch Invariant for strict commit ordering on multi-phase changes. Add C2 conventions: `C2(<chain>): plan/impl/close/finalize` commit messages, `mikado/<chain-stem>` branch naming, and `branch:` frontmatter on goal cards. New tooling: `docs-mikado --resume` for cold-start session pickup and `mikado-branch-invariant-check` pre-commit hook.
+- Replace Grafana Helm upgrade plan with C2 Mikado chain for upgrading to 12.x with kustomize and home-built containers.
+
+### AI Assistance
+
+- Improved Mikado C2 process: end-of-cycle session prompts, rigorous reset discipline with documented git patterns, and `--resume` now shows PR number and stash hints.
+
+
 ## [v1.11.2] - 2026-02-22
 
 ### Features
