@@ -88,7 +88,7 @@ spec:
               mountPath: /tmp/dashboards
         # Grafana
         - name: grafana
-          image: registry.ops.eblu.me/blumeops/grafana:v12.3.3-09ac36b
+          image: registry.ops.eblu.me/blumeops/grafana:v12.3.3-d05d2fb
           imagePullPolicy: IfNotPresent
           env:
             - name: POD_IP
