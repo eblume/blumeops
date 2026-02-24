@@ -23,6 +23,14 @@ configMapGenerator:
     files:
       - grafana.ini
       - datasources.yaml
+    options:
+      labels:
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/instance: grafana
   - name: grafana-config-dashboards
     files:
       - provider.yaml
+    options:
+      labels:
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/instance: grafana
