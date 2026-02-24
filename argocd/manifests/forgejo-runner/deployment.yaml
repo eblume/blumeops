@@ -29,7 +29,7 @@ spec:
             - name: RUNNER_NAME
               value: "k8s-runner"
             - name: RUNNER_LABELS
-              value: "k8s:docker://registry.ops.eblu.me/blumeops/forgejo-runner:v0.19.11-96a2d42"
+              value: "k8s:docker://registry.ops.eblu.me/blumeops/runner-job-image:v0.19.11-4c5e0f0"
           command:
             - /bin/sh
             - -c
