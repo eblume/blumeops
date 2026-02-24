@@ -7,7 +7,7 @@
 # so this image only needs: git, Docker CLI, Dagger CLI, ArgoCD CLI, uv, yq, and basic tools.
 #
 # Usage: Configure runner with label like:
-#   docker:docker://registry.ops.eblu.me/blumeops/forgejo-runner:latest
+#   docker:docker://registry.ops.eblu.me/blumeops/runner-job-image:latest
 
 ARG CONTAINER_APP_VERSION=0.19.11
 

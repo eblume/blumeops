@@ -190,8 +190,17 @@ services:
     current-version: "12.7.0"
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
     notes: >-
-      Runner daemon version. Job execution container (containers/forgejo-runner)
-      tracks Dagger at v0.19.11.
+      Runner daemon version (code.forgejo.org/forgejo/runner). Job execution
+      image is tracked separately as runner-job-image.
+
+  - name: runner-job-image
+    type: argocd
+    last-reviewed: 2026-02-23
+    current-version: "0.19.11"
+    upstream-source: https://github.com/dagger/dagger/releases
+    notes: >-
+      Forgejo Actions job execution image. CONTAINER_APP_VERSION tracks the
+      Dagger CLI version, the primary build tool in the image.
 
   - name: nix-container-builder
     type: nixos

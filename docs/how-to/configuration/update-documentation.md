@@ -67,7 +67,7 @@ Fragments are automatically collected into `CHANGELOG.md` (at repo root) during 
 The workflow runs on the `k8s` label, which uses the [[forgejo]]-runner in Kubernetes:
 
 - **Runner deployment**: `argocd/manifests/forgejo-runner/`
-- **Job image**: `registry.ops.eblu.me/blumeops/forgejo-runner:latest`
+- **Job image**: `registry.ops.eblu.me/blumeops/runner-job-image` (commit-SHA tagged)
 - **Build engine**: [[dagger]] CLI installed at runtime; Node.js and Python run inside Dagger containers
 
 The job image is built from `containers/forgejo-runner/Dockerfile`.
