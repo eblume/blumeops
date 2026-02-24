@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["pyyaml>=6.0", "rich>=13.0.0", "typer>=0.15.0"]
+# dependencies = ["httpx>=0.28.0", "pyyaml>=6.0", "rich>=13.0.0", "typer>=0.15.0"]
 # ///
 #MISE description="View active Mikado dependency chains for C2 changes"
 #USAGE arg "[card]" help="Card stem to show chain for"
@@ -238,6 +238,49 @@ def classify_branch_position(commits: list[dict]) -> str:
     return "unknown"
 
 
+FORGE_API = "https://forge.ops.eblu.me/api/v1"
+
+
+def find_pr_for_branch(branch: str) -> dict | None:
+    """Find an open PR for the given branch via the Forgejo API."""
+    import httpx
+
+    try:
+        resp = httpx.get(
+            f"{FORGE_API}/repos/eblume/blumeops/pulls",
+            params={"state": "open", "limit": 50},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return None
+        for pr in resp.json():
+            if pr.get("head", {}).get("ref") == branch:
+                return {
+                    "number": pr["number"],
+                    "title": pr["title"],
+                    "url": pr.get("html_url", ""),
+                }
+    except (httpx.HTTPError, KeyError):
+        pass
+    return None
+
+
+def get_stash_list() -> list[str]:
+    """Get the list of git stash entries."""
+    try:
+        result = subprocess.run(
+            ["git", "stash", "list"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_DIR,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip().split("\n")
+    except FileNotFoundError:
+        pass
+    return []
+
+
 def show_resume(
     cards: dict[str, dict],
     console: Console,
@@ -350,13 +393,26 @@ def _show_chain_resume(
     branch = card.get("branch") or current_branch
 
     console.print()
-    console.print(
-        Panel(
-            f"[bold]{chain}[/bold] — {card['title']}\n"
-            f"Branch: [green]{branch or 'not set'}[/green]",
-            title="Resuming Mikado Chain",
+
+    # Look up PR for this branch
+    pr_info = find_pr_for_branch(branch) if branch else None
+    panel_lines = [
+        f"[bold]{chain}[/bold] — {card['title']}",
+        f"Branch: [green]{branch or 'not set'}[/green]",
+    ]
+    if pr_info:
+        panel_lines.append(
+            f"PR: [cyan]#{pr_info['number']}[/cyan] — {pr_info['title']}"
         )
-    )
+        if pr_info["url"]:
+            panel_lines.append(f"    {pr_info['url']}")
+
+    console.print(Panel("\n".join(panel_lines), title="Resuming Mikado Chain"))
+
+    if pr_info:
+        console.print(
+            f"[dim]Check PR comments: mise run pr-comments {pr_info['number']}[/dim]"
+        )
 
     # Show branch position if we can read commits
     if branch and current_branch == branch:
@@ -404,6 +460,20 @@ def _show_chain_resume(
             console.print(f"  [green]→[/green] {leaf} — {leaf_card['title']}")
     else:
         console.print("\n[dim]No ready leaf nodes — all leaves have unmet dependencies[/dim]")
+
+    # Check for stashed work
+    stashes = get_stash_list()
+    if stashes:
+        console.print(
+            f"\n[yellow]Note: {len(stashes)} stash entr{'y' if len(stashes) == 1 else 'ies'} found:[/yellow]"
+        )
+        for entry in stashes[:5]:
+            console.print(f"  [dim]{entry}[/dim]")
+        if len(stashes) > 5:
+            console.print(f"  [dim]... and {len(stashes) - 5} more[/dim]")
+        console.print(
+            "[dim]Review with: git stash list / git stash show[/dim]"
+        )
 
     console.print()
 

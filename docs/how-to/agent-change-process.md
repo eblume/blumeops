@@ -165,18 +165,35 @@ The `mikado-branch-invariant-check` commit-msg hook validates this convention an
    - **Verify the change works** (deploy from branch, run tests, etc.) before closing
    - Commit the card closure (`C2(<chain>): close ...`) — remove `status: active`
    - Push to origin — this is the save point
-4. **Repeat** until the chain is complete
-5. **New agent sessions** pick up state by running `mise run docs-mikado --resume`
+4. **End the cycle** — after pushing a closed leaf node, prompt the user to review the PR and suggest ending the session. Each closed leaf is a natural stopping point; the chain is designed to be resumed later. Don't rush into the next leaf without the user's go-ahead.
+5. **Repeat** until the chain is complete
+6. **New agent sessions** pick up state by running `mise run docs-mikado --resume`
 
-### Discovering new prerequisites
+### Discovering new prerequisites or errors
 
-When you discover a new prerequisite during code work, you must restore the Mikado Branch Invariant:
+When you discover a new prerequisite **or encounter an error** during code work, do not fix forward. The Mikado method's power comes from rigorous resets that keep the plan honest. You must restore the Mikado Branch Invariant:
 
-1. **Reset the branch** back to the top of the Mikado commit stack — the last `C2(<chain>): plan` or `C2(<chain>): close` commit before your current `impl` commits
-2. **Add a new commit** (`C2(<chain>): plan ...`) introducing the new prerequisite card (and updating `requires` on existing cards if needed)
-3. **Replay the Mikado process** from the new state of the card stack
+1. **Stash or note any in-progress work** you want to preserve
+2. **Identify the reset point** — the last `plan` or `close` commit before your current `impl` commits:
+   ```bash
+   git log --oneline mikado/<chain-stem> --not main
+   ```
+3. **Reset the branch** to that commit:
+   ```bash
+   git reset --hard <reset-point-sha>
+   ```
+4. **Update the plan** — add a `plan` commit that captures what you learned:
+   - If you discovered a new prerequisite: add a new card and update `requires`
+   - If you hit an error: update the relevant card with what you learned, or introduce a new prerequisite card that addresses the root cause
+5. **Replay valid work** by cherry-picking commits that still apply:
+   ```bash
+   git cherry-pick <sha1> <sha2> ...
+   ```
+6. **Resume the Mikado process** from the new state of the card stack
 
-**Saving work across resets:** It is acceptable to cherry-pick or rebase code commits from before the reset back onto the branch after adding the new card. This is a pragmatic exception — use it only when you are confident the saved work is still valid given the new prerequisite. When in doubt, redo the work from scratch.
+**When to reset vs. fix forward:** If an `impl` commit introduces a bug that's a simple typo or one-liner, another `impl` commit is fine. But if the error reveals a gap in understanding, a missing prerequisite, or requires rethinking the approach — reset. The threshold is: "does this error teach us something that should be in the plan?" If yes, reset.
+
+**Saving work across resets:** It is acceptable to cherry-pick code commits from before the reset back onto the branch after adding the new card. Use `git stash` for uncommitted work. This is a pragmatic exception — use it only when you are confident the saved work is still valid given the new prerequisite. When in doubt, redo the work from scratch.
 
 ### Completing a chain
 
@@ -199,8 +216,10 @@ When starting a new session to continue C2 work:
 2. Run `mise run docs-mikado --resume` — this will:
    - Detect the current branch and match it to an active chain
    - Show the chain state, ready leaf nodes, and current position in the invariant
+   - Show the PR number and URL if an open PR exists for the branch
+   - Warn about any stashed work in `git stash list`
    - If on main, list active chains and suggest which to resume
-3. Check PR comments with `mise run pr-comments <pr_number>`
+3. Check PR comments with `mise run pr-comments <pr_number>` — use the PR number from the `--resume` output above
 4. Pick the next ready leaf node and continue with a work cycle
 
 ### Build artifacts
