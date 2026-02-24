@@ -1,6 +1,6 @@
 ---
 title: Build Container Image
-modified: 2026-02-20
+modified: 2026-02-24
 last-reviewed: 2026-02-15
 tags:
   - how-to
@@ -85,6 +85,26 @@ image: registry.ops.eblu.me/blumeops/<name>:vX.Y.Z-abc1234
 ```
 
 Then deploy per [[deploy-k8s-service]].
+
+### Squash-merge and container tags
+
+Container image tags include the git commit SHA they were built from (e.g. `v3.9.1-74029e1`). When a PR is squash-merged, the original branch commits are replaced by a single new commit on main — the SHA in the image tag no longer exists on main. After branch cleanup (30 days), the SHA becomes unreachable and the container loses source traceability.
+
+**The rule:** Production manifests must reference images built from a commit on main. After merging a PR that changed `containers/<name>/`:
+
+1. The merge to main automatically triggers a rebuild (the `build-container.yaml` / `build-container-nix.yaml` workflows fire on pushes to `main` that touch `containers/**`)
+2. Wait for the workflow to complete — check at `https://forge.ops.eblu.me/eblume/blumeops/actions`
+3. Find the new main-SHA tag:
+   ```bash
+   mise run container-list <name>
+   ```
+   Tags marked `[main]` were built from a commit on main; tags marked `[branch]` are from PR branches
+4. Commit a C0 follow-up updating the manifest to use the `[main]` tag:
+   ```yaml
+   image: registry.ops.eblu.me/blumeops/<name>:vX.Y.Z-<main-sha>
+   ```
+
+This follow-up C0 is expected and routine — it's the cost of squash-merge + SHA-tagged containers.
 
 ## Common Patterns
 

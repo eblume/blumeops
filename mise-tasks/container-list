@@ -1,62 +1,147 @@
-#!/usr/bin/env bash
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx>=0.28.0", "rich>=13.0.0", "typer>=0.15.0"]
+# ///
 #MISE description="List available containers and their recent tags"
+#USAGE arg "[name]" help="Optional container name to filter output"
+"""List container images and their recent registry tags.
 
-set -euo pipefail
+Shows build type (dockerfile/nix), registry path, and recent tags from the
+zot registry. Tags are annotated with [main] or [branch] to indicate whether
+the build commit is an ancestor of origin/main.
 
-REGISTRY="registry.ops.eblu.me"
-CONTAINER_DIR="containers"
+Usage:
+    mise run container-list                # all containers
+    mise run container-list prometheus     # single container (more tags shown)
+"""
 
-echo "Container Images"
-echo "================"
-echo ""
+import re
+import subprocess
+from pathlib import Path
 
-# Find all container directories with Dockerfiles or default.nix
-for dir in "$CONTAINER_DIR"/*/; do
-    [[ -d "$dir" ]] || continue
+import httpx
+import typer
+from rich.console import Console
+from rich.table import Table
 
-    # Determine available build types
-    has_dockerfile=false
-    has_nix=false
-    [[ -f "$dir/Dockerfile" ]] && has_dockerfile=true
-    [[ -f "$dir/default.nix" ]] && has_nix=true
+REGISTRY = "registry.ops.eblu.me"
+CONTAINER_DIR = Path("containers")
 
-    # Skip directories with no build files
-    $has_dockerfile || $has_nix || continue
+console = Console()
+app = typer.Typer(add_completion=False)
 
-    # Build type label
-    types=()
-    $has_dockerfile && types+=("dockerfile")
-    $has_nix && types+=("nix")
-    label=$(IFS=+; echo "${types[*]}")
 
-    # Extract container name from directory
-    container=$(basename "$dir")
-    image="blumeops/$container"
+def git(*args: str) -> str:
+    result = subprocess.run(
+        ["git", *args], capture_output=True, text=True, check=True
+    )
+    return result.stdout.strip()
 
-    echo "[$label] $container"
-    echo "   Image: $REGISTRY/$image"
-    echo "   Path: $dir"
 
-    # Query zot for recent tags
-    tags=$(curl -sf "https://$REGISTRY/v2/$image/tags/list" 2>/dev/null | jq -r '.tags // [] | .[]' | grep -E '^v[0-9]' | sort -V | tail -4 || true)
+def sha_hint(tag: str) -> str:
+    """Check if the 7-char hex SHA in a tag is on origin/main."""
+    match = re.search(r"[0-9a-f]{7}", tag)
+    if not match:
+        return ""
+    sha = match.group()
+    try:
+        full_sha = git("rev-parse", "--verify", sha)
+    except subprocess.CalledProcessError:
+        return "[dim]\\[unknown][/dim]"
+    try:
+        git("merge-base", "--is-ancestor", full_sha, "origin/main")
+        return "[green]\\[main][/green]"
+    except subprocess.CalledProcessError:
+        return "[yellow]\\[branch][/yellow]"
 
-    if [[ -n "$tags" ]]; then
-        echo "   Recent tags:"
-        echo "$tags" | while read -r tag; do
-            echo "     - $tag"
-        done
-    else
-        echo "   Recent tags: (none)"
-    fi
-    echo ""
-done
 
-echo "---"
-echo "To trigger a build:"
-echo "  mise run container-build-and-release <container>"
-echo ""
-echo "Dispatches both Dockerfile and Nix workflows (each skips if build file absent)."
-echo "Tags: vX.Y.Z-<sha> (Dockerfile), vX.Y.Z-<sha>-nix (Nix)"
-echo ""
-echo "Example:"
-echo "  mise run container-build-and-release nettest"
+def get_tags(image: str) -> list[str]:
+    """Query zot registry for version tags."""
+    try:
+        resp = httpx.get(
+            f"https://{REGISTRY}/v2/{image}/tags/list", timeout=10
+        )
+        resp.raise_for_status()
+        tags = resp.json().get("tags", [])
+        return sorted(
+            [t for t in tags if re.match(r"^v[0-9]", t)],
+            key=lambda t: t,
+        )
+    except (httpx.HTTPError, ValueError):
+        return []
+
+
+def discover_containers() -> list[dict]:
+    """Find container directories with build files."""
+    containers = []
+    for d in sorted(CONTAINER_DIR.iterdir()):
+        if not d.is_dir():
+            continue
+        has_dockerfile = (d / "Dockerfile").exists()
+        has_nix = (d / "default.nix").exists()
+        if not has_dockerfile and not has_nix:
+            continue
+        types = []
+        if has_dockerfile:
+            types.append("dockerfile")
+        if has_nix:
+            types.append("nix")
+        containers.append({
+            "name": d.name,
+            "types": types,
+            "path": str(d),
+        })
+    return containers
+
+
+@app.command()
+def main(
+    name: str = typer.Argument("", help="Container name to filter (optional)"),
+) -> None:
+    """List available containers and their recent tags."""
+    containers = discover_containers()
+
+    if name:
+        containers = [c for c in containers if c["name"] == name]
+        if not containers:
+            console.print(f"[red]No container found matching '{name}'.[/red]")
+            console.print("Run without arguments to see all containers.")
+            raise typer.Exit(1)
+
+    tag_count = 10 if name else 4
+
+    for c in containers:
+        image = f"blumeops/{c['name']}"
+        label = "+".join(c["types"])
+        tags = get_tags(image)
+        recent = tags[-tag_count:] if tags else []
+
+        console.print(f"[bold]\\[{label}] {c['name']}[/bold]")
+        console.print(f"   Image: {REGISTRY}/{image}")
+        console.print(f"   Path:  {c['path']}")
+
+        if recent:
+            console.print("   Recent tags:")
+            for tag in recent:
+                hint = sha_hint(tag)
+                console.print(f"     - {tag} {hint}")
+        else:
+            console.print("   Recent tags: [dim](none)[/dim]")
+        console.print()
+
+    console.print("[dim]---[/dim]")
+    console.print(
+        "Tags marked [green]\\[main][/green] were built from a commit on main."
+    )
+    console.print(
+        "Tags marked [yellow]\\[branch][/yellow] were built from a PR branch — "
+        "use \\[main] tags in production manifests."
+    )
+    console.print()
+    console.print("To trigger a build:")
+    console.print("  mise run container-build-and-release <container>")
+
+
+if __name__ == "__main__":
+    app()

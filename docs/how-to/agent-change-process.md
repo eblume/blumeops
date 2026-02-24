@@ -1,6 +1,6 @@
 ---
 title: Agent Change Process
-modified: 2026-02-23
+modified: 2026-02-24
 last-reviewed: 2026-02-23
 tags:
   - how-to
@@ -52,6 +52,7 @@ A change with enough complexity or risk that a human should review it, but not s
    - **Workflows:** point workflow triggers at the branch if needed
 7. After user review and successful deployment, the user merges the PR
 8. **After merge:** reset ArgoCD revisions back to main, re-sync
+9. **If the PR changed `containers/`:** the merge triggers a rebuild from main automatically. Once it completes, commit a C0 updating the manifest to the new `[main]`-tagged image (see [[build-container-image#Squash-merge and container tags]])
 
 ### Upgrading to C2
 
@@ -227,6 +228,7 @@ When starting a new session to continue C2 work:
 Mikado resets apply to branch code, not build artifacts. Container images in the registry are independent of branch lifecycle:
 
 - **Registry images** are build outputs cached in zot — tagged with commit SHAs, so each build is unique and traceable
+- **Squash-merge orphans:** Images built during PR development reference branch SHAs that won't exist on main after merge. After merge, a rebuild triggers automatically; commit a C0 to update manifests to the new `[main]`-tagged image. Use `mise run container-list <name>` to find it
 - **Automatic builds** trigger when container changes merge to main. Use `mise run container-build-and-release` for manual dispatch
 - **If a build succeeds but deployment fails**, the image is fine; the problem is elsewhere. Document what you learned and try again
 - **If a build fails in CI**, no image is pushed. Fix the nix/dockerfile and re-merge or re-dispatch
