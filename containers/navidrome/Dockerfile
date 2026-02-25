@@ -10,7 +10,7 @@ ARG NAVIDROME_VERSION
 RUN apk add --no-cache git
 
 RUN git clone --depth 1 --branch ${NAVIDROME_VERSION} \
-    https://forge.ops.eblu.me/eblume/navidrome.git /app
+    https://forge.ops.eblu.me/mirrors/navidrome.git /app
 
 WORKDIR /app/ui
 RUN npm ci
@@ -22,7 +22,7 @@ ARG NAVIDROME_VERSION
 RUN apk add --no-cache build-base git taglib-dev zlib-dev
 
 RUN git clone --depth 1 --branch ${NAVIDROME_VERSION} \
-    https://forge.ops.eblu.me/eblume/navidrome.git /app
+    https://forge.ops.eblu.me/mirrors/navidrome.git /app
 
 WORKDIR /app
 

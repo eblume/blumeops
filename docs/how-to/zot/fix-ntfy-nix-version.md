@@ -14,7 +14,7 @@ Override the nixpkgs ntfy-sh derivation to build v2.17.0 from the forge mirror, 
 
 ## Context
 
-Discovered during [[add-container-version-sync-check]]: the ntfy container has both a Dockerfile and a `default.nix`. The Dockerfile builds v2.17.0 from `forge.ops.eblu.me/eblume/ntfy.git`, but the nix derivation uses `pkgs.ntfy-sh` from nixpkgs which is pinned at 2.15.0. The version sync check currently excludes ntfy from nix version validation as a workaround.
+Discovered during [[add-container-version-sync-check]]: the ntfy container has both a Dockerfile and a `default.nix`. The Dockerfile builds v2.17.0 from `forge.ops.eblu.me/mirrors/ntfy.git`, but the nix derivation uses `pkgs.ntfy-sh` from nixpkgs which is pinned at 2.15.0. The version sync check currently excludes ntfy from nix version validation as a workaround.
 
 ## What Was Done
 

@@ -7,7 +7,7 @@ let
   version = "2.17.0";
 
   src = pkgs.fetchgit {
-    url = "https://forge.ops.eblu.me/eblume/ntfy.git";
+    url = "https://forge.ops.eblu.me/mirrors/ntfy.git";
     rev = "v${version}";
     hash = "sha256-/dxILAkye1HwYcybnx1WrMRK2jXZMrxal2ZKm6y2bWc=";
   };

@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
  && rm -rf /var/lib/apt/lists/*
 
 RUN git clone --depth 1 --branch ${HOMEPAGE_VERSION} \
-    https://forge.ops.eblu.me/eblume/homepage.git /app
+    https://forge.ops.eblu.me/mirrors/homepage.git /app
 
 WORKDIR /app
 RUN mkdir -p config \

@@ -12,7 +12,7 @@ RUN apk add --no-cache git
 
 RUN mkdir /app && cd /app \
     && git init \
-    && git remote add origin https://forge.ops.eblu.me/eblume/ntfy.git \
+    && git remote add origin https://forge.ops.eblu.me/mirrors/ntfy.git \
     && git fetch --depth 1 origin ${NTFY_COMMIT} \
     && git checkout FETCH_HEAD
 
@@ -28,7 +28,7 @@ RUN apk add --no-cache build-base git
 
 RUN mkdir /app && cd /app \
     && git init \
-    && git remote add origin https://forge.ops.eblu.me/eblume/ntfy.git \
+    && git remote add origin https://forge.ops.eblu.me/mirrors/ntfy.git \
     && git fetch --depth 1 origin ${NTFY_COMMIT} \
     && git checkout FETCH_HEAD
 

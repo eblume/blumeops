@@ -32,7 +32,7 @@ https://codeberg.org/forgejo/forgejo.git
 Add the forge mirror as a secondary remote for convenience and backup:
 
 ```
-https://forge.ops.eblu.me/eblume/forgejo.git
+https://forge.ops.eblu.me/mirrors/forgejo.git
 ```
 
 ## One-Time Migration Steps
@@ -48,7 +48,7 @@ ssh indri 'git clone https://codeberg.org/forgejo/forgejo.git ~/code/3rd/forgejo
 ### 2. Add Forge Mirror as Secondary Remote
 
 ```fish
-ssh indri 'cd ~/code/3rd/forgejo && git remote add forge https://forge.ops.eblu.me/eblume/forgejo.git'
+ssh indri 'cd ~/code/3rd/forgejo && git remote add forge https://forge.ops.eblu.me/mirrors/forgejo.git'
 ```
 
 ### 3. Check Out the Desired Version Tag
@@ -155,7 +155,7 @@ Replace brew install/start with binary-check + LaunchAgent pattern (matching `an
 #    ssh indri 'git clone https://codeberg.org/forgejo/forgejo.git ~/code/3rd/forgejo'
 #
 # 2. Add forge mirror as secondary remote:
-#    ssh indri 'cd ~/code/3rd/forgejo && git remote add forge https://forge.ops.eblu.me/eblume/forgejo.git'
+#    ssh indri 'cd ~/code/3rd/forgejo && git remote add forge https://forge.ops.eblu.me/mirrors/forgejo.git'
 #
 # 3. Set up Go and Node via mise:
 #    ssh indri 'cd ~/code/3rd/forgejo && mise use go@1.24 node@20'

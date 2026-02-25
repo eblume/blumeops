@@ -177,7 +177,7 @@ This branch is maintained independently — it does not participate in the daily
 Quartz (the documentation site generator) is the planned first fork and the primary motivation for this strategy.
 
 - **Upstream:** `https://github.com/jackyzha0/quartz.git`
-- **Forge repo:** `forge.ops.eblu.me/eblume/quartz`
+- **Forge repo:** `forge.ops.eblu.me/mirrors/quartz`
 - **Primary branch:** `blumeops`
 
 ### BlumeOps-Specific Patches (`blumeops` branch)
@@ -209,7 +209,7 @@ This fork directly supports the [[adopt-dagger-ci]] plan. Once the fork exists, 
 
 # After (using the BlumeOps fork):
 .with_exec(["git", "clone", "--depth=1", "--branch=blumeops",
-             "https://forge.ops.eblu.me/eblume/quartz.git", "/tmp/quartz"])
+             "https://forge.ops.eblu.me/mirrors/quartz.git", "/tmp/quartz"])
 ```
 
 This means the `build-blumeops.yaml` workflow automatically picks up fork customizations (like `last-reviewed` rendering) when building docs — no separate integration step needed. Local iteration via `dagger call build-docs` also uses the fork, so you can test Quartz customizations against actual BlumeOps content before pushing.
