@@ -1,6 +1,7 @@
 ---
 title: Update Tailscale ACLs
-modified: 2026-02-07
+modified: 2026-02-25
+last-reviewed: 2026-02-25
 tags:
   - how-to
   - tailscale
@@ -18,7 +19,7 @@ How to modify Tailscale access control policies for the tailnet.
 
 ## Edit the Policy
 
-The ACL policy lives in `pulumi/policy.hujson` (HuJSON format with comments).
+The ACL policy lives in `pulumi/tailscale/policy.hujson` (HuJSON format with comments).
 
 Common changes:
 
@@ -65,11 +66,8 @@ Common changes:
 # Preview changes (always do this first)
 mise run tailnet-preview
 
-# Apply changes
+# Apply changes (auto-confirms via --yes)
 mise run tailnet-up
-
-# Skip confirmation prompt
-mise run tailnet-up -- --yes
 ```
 
 ## Verify
@@ -126,4 +124,5 @@ ACL changes are applied immediately. If a device isn't following new rules, try 
 ## Related
 
 - [[tailscale]] - ACL reference and current configuration
+- [[pulumi]] - Pulumi IaC reference
 - [[routing]] - Service routing

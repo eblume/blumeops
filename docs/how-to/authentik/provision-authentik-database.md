@@ -1,6 +1,7 @@
 ---
 title: Provision Authentik Database
 modified: 2026-02-20
+last-reviewed: 2026-02-25
 tags:
   - how-to
   - authentik
