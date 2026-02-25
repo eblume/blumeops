@@ -10,7 +10,7 @@ ARG PROMETHEUS_VERSION
 RUN apk add --no-cache git bash
 
 RUN git clone --depth 1 --branch ${PROMETHEUS_VERSION} \
-    https://github.com/prometheus/prometheus.git /app
+    https://forge.ops.eblu.me/mirrors/prometheus.git /app
 
 WORKDIR /app/web/ui
 
@@ -29,7 +29,7 @@ ARG PROMETHEUS_VERSION
 RUN apk add --no-cache build-base git bash
 
 RUN git clone --depth 1 --branch ${PROMETHEUS_VERSION} \
-    https://github.com/prometheus/prometheus.git /app
+    https://forge.ops.eblu.me/mirrors/prometheus.git /app
 
 WORKDIR /app
 

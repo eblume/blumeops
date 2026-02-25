@@ -28,7 +28,7 @@ RUN mix local.rebar --force && \
 
 # Clone specific version
 RUN git clone --depth 1 --branch ${TESLAMATE_VERSION} \
-    https://github.com/teslamate-org/teslamate.git /opt/app
+    https://forge.ops.eblu.me/mirrors/teslamate.git /opt/app
 
 ENV MIX_ENV=prod
 WORKDIR /opt/app

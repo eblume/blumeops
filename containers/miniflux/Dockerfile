@@ -11,7 +11,7 @@ RUN apk add --no-cache build-base git make
 
 # Clone specific version
 RUN git clone --depth 1 --branch ${MINIFLUX_VERSION} \
-    https://github.com/miniflux/v2.git /go/src/app
+    https://forge.ops.eblu.me/mirrors/miniflux.git /go/src/app
 
 WORKDIR /go/src/app
 RUN make miniflux
