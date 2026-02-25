@@ -8,7 +8,7 @@ resources:
   - ingress-tailscale.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/ntfy
-    newTag: v2.17.0-ffa8727-nix
+    newTag: v2.17.0-cd57814-nix
 configMapGenerator:
   - name: ntfy-config
     files:
