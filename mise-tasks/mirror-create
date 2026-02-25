@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+#MISE description="Create a new upstream mirror in the mirrors/ Forgejo org"
+#USAGE arg "<url>" help="Upstream git URL to mirror (e.g. https://github.com/org/repo.git)"
+#USAGE flag "--name <name>" help="Repository name on forge (default: derived from URL)"
+#USAGE flag "--description <description>" help="Repository description"
+#USAGE flag "--dry-run" help="Show what would be done without creating"
+set -euo pipefail
+
+FORGE_API="https://forge.ops.eblu.me/api/v1"
+ORG="mirrors"
+OP_TOKEN_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
+
+url="${usage_url:?}"
+
+# Derive repo name from URL if not provided
+if [[ -n "${usage_name:-}" ]]; then
+    repo_name="${usage_name}"
+else
+    # Strip trailing .git and extract last path component
+    repo_name="$(basename "$url" .git)"
+fi
+
+description="${usage_description:-}"
+
+# Detect service type from URL
+service="git"
+case "$url" in
+    *github.com*)    service="github" ;;
+    *codeberg.org*)  service="gitea" ;;
+    *forgejo.org*)   service="gitea" ;;
+esac
+
+echo "Mirror:      $url"
+echo "Forge repo:  $ORG/$repo_name"
+echo "Service:     $service"
+[[ -n "$description" ]] && echo "Description: $description"
+echo
+
+if [[ "${usage_dry_run:-}" == "true" ]]; then
+    echo "[dry-run] Would create mirror at ${FORGE_API}/repos/migrate"
+    exit 0
+fi
+
+echo "Reading Forgejo API token from 1Password..."
+token="$(op read "$OP_TOKEN_REF")"
+
+payload=$(cat <<ENDJSON
+{
+    "clone_addr": "$url",
+    "repo_name": "$repo_name",
+    "repo_owner": "$ORG",
+    "mirror": true,
+    "service": "$service",
+    "description": "$description"
+}
+ENDJSON
+)
+
+http_code=$(curl -s -o /tmp/mirror-create-response.json -w "%{http_code}" \
+    -X POST "${FORGE_API}/repos/migrate" \
+    -H "Authorization: token ${token}" \
+    -H "Content-Type: application/json" \
+    -d "$payload")
+
+if [[ "$http_code" == "201" ]]; then
+    echo "Created mirror: https://forge.ops.eblu.me/${ORG}/${repo_name}"
+else
+    echo "Error (HTTP $http_code):"
+    cat /tmp/mirror-create-response.json
+    exit 1
+fi
