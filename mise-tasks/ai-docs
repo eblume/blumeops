@@ -18,6 +18,7 @@ FILES=(
     "$DOCS_DIR/explanation/explanation.md"
     "$DOCS_DIR/explanation/architecture.md"
     "$DOCS_DIR/tutorials/tutorials.md"
+    "$DOCS_DIR/reference/tools/mise-tasks.md"
 )
 
 # Concatenate files with headers showing paths

@@ -1,6 +1,6 @@
 ---
 title: Reference
-modified: 2026-02-19
+modified: 2026-02-24
 tags:
   - reference
 ---
@@ -60,6 +60,7 @@ Host inventory and network configuration.
 
 Build, deployment, and IaC tool reference.
 
+- [[mise-tasks]] - Operational task runner (all `mise run` tasks)
 - [[dagger]] - CI/CD build engine (Python SDK)
 - [[argocd-cli]] - ArgoCD CLI workflows
 - [[ansible]] - Configuration management for indri
