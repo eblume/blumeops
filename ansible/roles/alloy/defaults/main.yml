@@ -10,7 +10,7 @@
 # Build on dev machine (gilbert), then copy to indri:
 #
 # 1. Clone from forge mirror:
-#    git clone ssh://forgejo@forge.ops.eblu.me:2222/eblume/alloy.git ~/code/3rd/alloy
+#    git clone ssh://forgejo@forge.ops.eblu.me:2222/mirrors/alloy.git ~/code/3rd/alloy
 #
 # 2. Set up build tools via mise:
 #    cd ~/code/3rd/alloy && mise use go@1.25 node yarn

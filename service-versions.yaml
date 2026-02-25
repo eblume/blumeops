@@ -96,8 +96,8 @@ services:
 
   - name: immich
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-25
+    current-version: "v2.5.6"
     upstream-source: https://github.com/immich-app/immich/releases
     notes: Deployed via Helm chart
 

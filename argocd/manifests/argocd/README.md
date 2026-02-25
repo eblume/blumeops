@@ -30,11 +30,13 @@ argocd account update-password
 
 # 6. Apply repo-creds-forge credential template for SSH access to all forge repos
 PRIV_KEY=$(op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/csjncynh6htjvnh2l2da65y32q/private key?ssh-format=openssh")$'\n' && \
+KNOWN_HOSTS=$(ssh-keyscan -p 2222 forge.ops.eblu.me 2>/dev/null | grep ssh-rsa) && \
 kubectl create secret generic repo-creds-forge -n argocd \
   --from-literal=type=git \
-  --from-literal=url='ssh://forgejo@forge.ops.eblu.me:2222/eblume/' \
-  --from-literal=insecure=true \
-  --from-literal=sshPrivateKey="$PRIV_KEY" && \
+  --from-literal=url='ssh://forgejo@forge.ops.eblu.me:2222/' \
+  --from-literal=insecure=false \
+  --from-literal=sshPrivateKey="$PRIV_KEY" \
+  --from-literal=sshKnownHosts="$KNOWN_HOSTS" && \
 kubectl label secret repo-creds-forge -n argocd argocd.argoproj.io/secret-type=repo-creds
 
 # 7. Apply ArgoCD Applications (self-management + app-of-apps)
@@ -110,6 +112,6 @@ spec:
 
 - **TODO:** Secrets (`repo-creds-forge`) are not managed by ArgoCD and must be applied manually.
   Future improvement: integrate with a secrets operator (e.g., External Secrets).
-- The credential template (`repo-creds`) uses a URL prefix to match all repos under `eblume/`.
+- The credential template (`repo-creds`) uses a URL prefix to match all repos on forge.
 - ArgoCD uses Tailscale Ingress with Let's Encrypt for TLS termination.
 - The `--grpc-web` flag is required for CLI access through the Tailscale ingress.
