@@ -12,6 +12,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.11.4] - 2026-02-25
+
+### Features
+
+- Add `mirror-create` mise task for creating upstream mirrors in the `mirrors/` Forgejo org
+
+### Bug Fixes
+
+- Fix Grafana OAuth role mapping: INI parser was stripping quotes from `role_attribute_path = 'Admin'`, causing all Authentik users to get Viewer role instead of Admin. Now uses group-based mapping from the `admins` Authentik group.
+- Fix TeslaMate dashboards showing "No Data": Grafana 12.x's `grafana-postgresql-datasource` plugin requires the database name in `jsonData`, not just the top-level `database` field.
+
+### Infrastructure
+
+- Move image tags to kustomize `images:` transformer across 22 services and replace hand-written ConfigMaps with `configMapGenerator:` in 12 services, enabling content-hash-based automatic rollouts on config changes.
+- Migrate upstream mirror repos from `eblume/` to `mirrors/` Forgejo organization
+- Port Prometheus to local container build (3-stage: Node UI, Go binaries, Alpine runtime) for supply chain control via Zot registry.
+- Fix ArgoCD app definitions and credential template to use `mirrors/` org after forge mirror migration; bump immich v2.5.2 → v2.5.6.
+- Document AirPlay cross-VLAN firewall rules for Samsung Frame TV (established/related, AirPlay ports, dynamic reverse) and fix rule ordering in segment-home-network plan.
+- Update image tags for all 6 mirror-migrated containers (homepage, navidrome, ntfy, miniflux, prometheus, teslamate)
+- Switch prometheus, teslamate, and miniflux container builds to forge mirrors; create miniflux mirror
+
+### Documentation
+
+- Document squash-merge container tag provenance issue and post-merge workflow for updating manifests to main-SHA tags.
+- Add mise-tasks reference card with categorized task inventory; include in ai-docs context
+- Review 3 how-to docs: stamp provision-authentik-database and use-pypi-proxy, fix wrong policy path and misleading --yes in update-tailscale-acls
+
+
 ## [v1.11.3] - 2026-02-23
 
 ### Features
