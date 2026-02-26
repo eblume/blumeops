@@ -1,6 +1,6 @@
 ---
 title: Apps
-modified: 2026-02-12
+modified: 2026-02-25
 tags:
   - kubernetes
   - argocd
@@ -20,7 +20,7 @@ Registry of all applications deployed via [[argocd]].
 | `1password-connect` | 1password | `argocd/manifests/1password-connect/` | [[1password]] |
 | `external-secrets` | external-secrets | Helm chart | [[1password]] |
 | `external-secrets-config` | external-secrets | `argocd/manifests/external-secrets-config/` | [[1password]] |
-| `cloudnative-pg` | cnpg-system | Helm chart (forge mirror) | PostgreSQL operator |
+| `cloudnative-pg` | cnpg-system | `mirrors/cloudnative-pg` release manifest | PostgreSQL operator |
 | `blumeops-pg` | databases | `argocd/manifests/databases/` | [[postgresql]] |
 | `prometheus` | monitoring | `argocd/manifests/prometheus/` | [[prometheus]] |
 | `loki` | monitoring | `argocd/manifests/loki/` | [[loki]] |

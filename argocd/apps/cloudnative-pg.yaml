@@ -1,7 +1,7 @@
 # CloudNativePG Operator - PostgreSQL for Kubernetes
 # Deploys the operator only; PostgreSQL clusters are created separately
 #
-# Chart mirrored from https://github.com/cloudnative-pg/charts to forge
+# Mirror of https://github.com/cloudnative-pg/cloudnative-pg
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -9,19 +9,12 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  sources:
-    # Helm chart from forge mirror (SSH via egress)
-    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/mirrors/cloudnative-pg-charts.git
-      targetRevision: cloudnative-pg-v0.27.1
-      path: charts/cloudnative-pg
-      helm:
-        releaseName: cloudnative-pg
-        valueFiles:
-          - $values/argocd/manifests/cloudnative-pg/values.yaml
-    # Values from our git repo
-    - repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
-      targetRevision: main
-      ref: values
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/mirrors/cloudnative-pg.git
+    targetRevision: v1.27.1
+    path: releases
+    directory:
+      include: 'cnpg-1.27.1.yaml'
   destination:
     server: https://kubernetes.default.svc
     namespace: cnpg-system
