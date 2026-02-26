@@ -110,16 +110,17 @@ services:
 
   - name: 1password-connect
     type: argocd
-    last-reviewed: null
-    current-version: null
-    upstream-source: https://github.com/1Password/connect/releases
-    notes: Deployed via Helm chart
+    last-reviewed: 2026-02-26
+    current-version: "1.8.1"
+    upstream-source: https://hub.docker.com/r/1password/connect-api/tags
+    notes: Deployed via Helm chart (chart v2.3.0)
 
   - name: argocd
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-26
+    current-version: "v3.3.2"
     upstream-source: https://github.com/argoproj/argo-cd/releases
+    notes: Kustomize-based install with ServerSideApply
 
   - name: blumeops-pg
     type: argocd
