@@ -139,8 +139,8 @@ def main(
     ))
     console.print()
 
-    content = top_file.read_text()
-    console.print(Markdown(content))
+    console.print(f"[bold]Read the file:[/bold] {top_file.resolve()}")
+    console.print()
 
     console.print()
     console.print(Panel(
