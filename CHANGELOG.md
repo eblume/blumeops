@@ -12,6 +12,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.11.5] - 2026-02-26
+
+### Features
+
+- Add authenticated GitHub mirror sync with PAT rotation tooling (`mirror-update-pats`, `mirror-create` auth support, how-to doc).
+- Add Transmission Grafana dashboard with metrics exporter sidecar for monitoring upload/download speeds, transfer volumes, and per-torrent breakdowns.
+
+### Bug Fixes
+
+- Fix Frigate dashboard "Detection Events Rate" panel showing no data — corrected metric name to `frigate_camera_events_total` and label to `camera`.
+- Filter car and bird detections from Frigate driveway zone to stop repeated alerts on parked cars at night
+
+### Infrastructure
+
+- Port CloudNative-PG operator from Helm chart to direct upstream release manifest via forge mirror.
+- Add multi-cluster Kubernetes observability: deploy kube-state-metrics and Alloy on ringtail (k3s), add `cluster` label to all metrics/logs, replace single-cluster dashboards with multi-cluster Kubernetes dashboard and dedicated Ringtail dashboard with GPU monitoring.
+- Add explicit ExternalSecret defaults for SSA sync parity with ArgoCD v3.3
+- Upgrade ArgoCD from v3.2.6 to v3.3.2 with Server-Side Apply enabled
+
+### AI Assistance
+
+- Bake default bat options into `ai-docs` mise task so agents no longer need verbose flags at session start.
+- docs-review task now prints the file path instead of the file content, so the LLM reads it directly.
+
+
 ## [v1.11.4] - 2026-02-25
 
 ### Features
