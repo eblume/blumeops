@@ -22,5 +22,5 @@ FILES=(
 )
 
 # Concatenate files with headers showing paths
-# Pass through any args to bat (e.g., --style=header --color=never --decorations=always)
-bat "$@" "${FILES[@]}"
+# Defaults are tuned for AI consumption (plain text, file headers only)
+bat --style=header --color=never --decorations=always "$@" "${FILES[@]}"

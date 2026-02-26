@@ -80,10 +80,10 @@ Pre-commit hooks automatically validate that all wiki-links point to existing fi
 The `ai-docs` mise task concatenates key documentation files for AI context:
 
 ```bash
-mise run ai-docs -- --style=header --color=never --decorations=always
+mise run ai-docs
 ```
 
-This outputs the AI assistance guide, reference index, how-to index, architecture overview, and tutorials index - providing Claude with essential context for BlumeOps operations.
+This outputs the AI assistance guide, reference index, how-to index, architecture overview, and tutorials index in plain text with file headers - providing Claude with essential context for BlumeOps operations.
 
 ## Related
 
