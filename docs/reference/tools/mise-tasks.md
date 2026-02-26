@@ -50,6 +50,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `container-build-and-release` | Trigger container build workflows via Forgejo API |
 | `container-version-check` | Validate version consistency across Dockerfiles, nix, and manifests |
 | `mirror-create` | Create an upstream mirror in the `mirrors/` Forgejo org |
+| `mirror-update-pats` | Update GitHub PAT on all mirror repos on indri |
 
 ## Git & Forge
 

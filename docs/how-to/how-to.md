@@ -26,6 +26,7 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 | [[gandi-operations]] | Manage DNS records and cycle the Gandi API token |
 | [[use-pypi-proxy]] | Configure pip and publish packages to devpi |
 | [[expose-service-publicly]] | Expose a service to the public internet via Fly.io + Tailscale |
+| [[manage-forgejo-mirrors]] | Create mirrors, update PATs, and rotate GitHub credentials |
 | [[update-documentation]] | Publish docs via build-blumeops workflow |
 | [[update-tooling-dependencies]] | Monthly update cycle for pre-commit, Fly, mise, and workflow deps |
 

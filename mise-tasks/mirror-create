@@ -9,6 +9,7 @@ set -euo pipefail
 FORGE_API="https://forge.ops.eblu.me/api/v1"
 ORG="mirrors"
 OP_TOKEN_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
+OP_GITHUB_PAT_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/github-mirror-pat"
 
 url="${usage_url:?}"
 
@@ -41,8 +42,15 @@ if [[ "${usage_dry_run:-}" == "true" ]]; then
     exit 0
 fi
 
-echo "Reading Forgejo API token from 1Password..."
+echo "Reading secrets from 1Password..."
 token="$(op read "$OP_TOKEN_REF")"
+
+# For GitHub upstreams, include the PAT for authenticated sync
+auth_token=""
+if [[ "$service" == "github" ]]; then
+    auth_token="$(op read "$OP_GITHUB_PAT_REF")"
+    echo "Using GitHub PAT for authenticated mirror sync"
+fi
 
 payload=$(cat <<ENDJSON
 {
@@ -51,7 +59,8 @@ payload=$(cat <<ENDJSON
     "repo_owner": "$ORG",
     "mirror": true,
     "service": "$service",
-    "description": "$description"
+    "description": "$description",
+    "auth_token": "$auth_token"
 }
 ENDJSON
 )

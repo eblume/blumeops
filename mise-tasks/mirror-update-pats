@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+#MISE description="Update GitHub PAT on all mirror repos on indri"
+#USAGE flag "--dry-run" help="Show what would be done without changing anything"
+set -euo pipefail
+
+OP_GITHUB_PAT_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/github-mirror-pat"
+REPO_BASE="/opt/homebrew/var/forgejo/data/forgejo-repositories"
+DB_PATH="/opt/homebrew/var/forgejo/data/forgejo.db"
+DRY_RUN="${usage_dry_run:-false}"
+
+echo "Reading GitHub PAT from 1Password..."
+pat="$(op read "$OP_GITHUB_PAT_REF")"
+
+if [[ -z "$pat" ]]; then
+    echo "Error: GitHub PAT is empty"
+    exit 1
+fi
+
+echo "Querying mirrors on indri..."
+
+# Get all GitHub mirrors: org_name, repo_name, upstream_url
+mirrors=$(ssh indri "sqlite3 '$DB_PATH' \"
+    SELECT u.name, r.name, m.remote_address
+    FROM mirror m
+    JOIN repository r ON m.repo_id = r.id
+    JOIN [user] u ON r.owner_id = u.id
+    WHERE m.remote_address LIKE '%github.com%'
+\"" 2>/dev/null)
+
+if [[ -z "$mirrors" ]]; then
+    echo "No GitHub mirrors found."
+    exit 0
+fi
+
+updated=0
+skipped=0
+
+while IFS='|' read -r org repo upstream_url; do
+    bare_repo="${REPO_BASE}/${org}/${repo}.git"
+
+    # Build authenticated URL: https://eblume:<pat>@github.com/...
+    auth_url="${upstream_url/https:\/\/github.com/https:\/\/eblume:${pat}@github.com}"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "[dry-run] ${org}/${repo}: would set origin to authenticated URL"
+        ((updated++))
+        continue
+    fi
+
+    # Check current remote URL (< /dev/null prevents ssh from consuming loop stdin)
+    current_url=$(ssh indri "git -C '${bare_repo}' config remote.origin.url" < /dev/null 2>/dev/null || echo "")
+
+    if [[ "$current_url" == "$auth_url" ]]; then
+        echo "  ${org}/${repo}: already up to date"
+        ((skipped++))
+        continue
+    fi
+
+    ssh indri "git -C '${bare_repo}' remote set-url origin '${auth_url}'" < /dev/null 2>/dev/null
+    echo "  ${org}/${repo}: updated"
+    ((updated++))
+done <<< "$mirrors"
+
+echo
+echo "Done. Updated: ${updated}, Skipped: ${skipped}"
+
+if [[ "$DRY_RUN" == "true" ]]; then
+    echo "(dry-run mode — no changes were made)"
+fi
