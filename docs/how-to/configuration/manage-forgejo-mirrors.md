@@ -1,6 +1,7 @@
 ---
 title: Manage Forgejo Mirrors
-modified: 2026-02-25
+modified: 2026-02-26
+last-reviewed: 2026-02-26
 tags:
   - how-to
   - forgejo
@@ -40,7 +41,7 @@ Mirror sync frequency is controlled by two settings in `app.ini`:
 
 With 10–30 mirrors at 8h intervals, expect ~1–4 fetches/hour — well within any rate limit when authenticated.
 
-The explicit configuration lives in `ansible/roles/forgejo/templates/app.ini.j2`.
+The `[mirror]` settings are explicitly configured in `ansible/roles/forgejo/templates/app.ini.j2`. The `[cron.update_mirrors]` SCHEDULE is a Forgejo built-in default and is not in the template.
 
 ## Prerequisites
 
