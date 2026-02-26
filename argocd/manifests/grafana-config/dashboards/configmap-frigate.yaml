@@ -569,8 +569,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "rate(frigate_camera_events[5m])",
-              "legendFormat": "{{ camera_name }} - {{ label }}",
+              "expr": "rate(frigate_camera_events_total[5m])",
+              "legendFormat": "{{ camera }} - {{ label }}",
               "refId": "A"
             }
           ],
