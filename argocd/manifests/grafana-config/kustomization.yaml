@@ -19,6 +19,7 @@ resources:
   - dashboards/configmap-ringtail.yaml
   - dashboards/configmap-zot.yaml
   - dashboards/configmap-frigate.yaml
+  - dashboards/configmap-transmission.yaml
   - dashboards/configmap-cv-apm.yaml
   - dashboards/configmap-docs-apm.yaml
   - dashboards/configmap-flyio.yaml

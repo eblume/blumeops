@@ -11,3 +11,6 @@ spec:
     - name: web
       port: 9091
       targetPort: 9091
+    - name: metrics
+      port: 19091
+      targetPort: 19091

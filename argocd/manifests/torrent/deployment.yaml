@@ -55,6 +55,20 @@ spec:
               port: 9091
             initialDelaySeconds: 10
             periodSeconds: 10
+        - name: transmission-exporter
+          image: docker.io/metalmatze/transmission-exporter:master
+          env:
+            - name: TRANSMISSION_ADDR
+              value: "http://localhost:9091"
+          ports:
+            - containerPort: 19091
+              name: metrics
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "64Mi"
       volumes:
         - name: downloads
           persistentVolumeClaim:
