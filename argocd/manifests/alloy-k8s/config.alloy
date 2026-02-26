@@ -108,6 +108,11 @@ loki.process "pods" {
       repository = "",
     }
   }
+
+  // Add cluster label for multi-cluster identification
+  stage.static_labels {
+    values = { cluster = "indri" }
+  }
 }
 
 // Write logs to Loki
@@ -163,6 +168,8 @@ prometheus.scrape "blackbox" {
 
 // Push metrics to Prometheus
 prometheus.remote_write "prometheus" {
+  external_labels = { cluster = "indri" }
+
   endpoint {
     url = "http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
   }

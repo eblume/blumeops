@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: grafana-dashboard-minikube
+  name: grafana-dashboard-kubernetes
   namespace: monitoring
   labels:
     grafana_dashboard: "1"
 data:
-  minikube.json: |
+  kubernetes.json: |
     {
       "annotations": { "list": [] },
       "editable": true,
@@ -17,93 +17,61 @@ data:
       "panels": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "fieldConfig": {
-            "defaults": {
-              "color": { "mode": "thresholds" },
-              "mappings": [{ "options": { "0": { "color": "red", "text": "DOWN" }, "1": { "color": "green", "text": "UP" } }, "type": "value" }],
-              "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
-            }
-          },
-          "gridPos": { "h": 3, "w": 3, "x": 0, "y": 0 },
-          "id": 1,
-          "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
-          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "minikube_up", "refId": "A" }],
-          "title": "Cluster",
-          "type": "stat"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "fieldConfig": {
-            "defaults": {
-              "color": { "mode": "thresholds" },
-              "mappings": [{ "options": { "0": { "color": "red", "text": "DOWN" }, "1": { "color": "green", "text": "UP" } }, "type": "value" }],
-              "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
-            }
-          },
-          "gridPos": { "h": 3, "w": 3, "x": 3, "y": 0 },
-          "id": 2,
-          "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
-          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "minikube_apiserver_up", "refId": "A" }],
-          "title": "API Server",
-          "type": "stat"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } } },
-          "gridPos": { "h": 3, "w": 3, "x": 6, "y": 0 },
-          "id": 3,
+          "gridPos": { "h": 3, "w": 4, "x": 0, "y": 0 },
+          "id": 1,
           "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
-          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_pod_info{namespace=~\"$namespace\"})", "refId": "A" }],
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_pod_info{cluster=~\"$cluster\", namespace=~\"$namespace\"})", "refId": "A" }],
           "title": "Pods",
           "type": "stat"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } } },
-          "gridPos": { "h": 3, "w": 3, "x": 9, "y": 0 },
-          "id": 4,
+          "gridPos": { "h": 3, "w": 4, "x": 4, "y": 0 },
+          "id": 2,
           "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
-          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_deployment_created{namespace=~\"$namespace\"})", "refId": "A" }],
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_deployment_created{cluster=~\"$cluster\", namespace=~\"$namespace\"})", "refId": "A" }],
           "title": "Deployments",
           "type": "stat"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } } },
-          "gridPos": { "h": 3, "w": 3, "x": 12, "y": 0 },
-          "id": 5,
+          "gridPos": { "h": 3, "w": 4, "x": 8, "y": 0 },
+          "id": 3,
           "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
-          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_statefulset_created{namespace=~\"$namespace\"})", "refId": "A" }],
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_statefulset_created{cluster=~\"$cluster\", namespace=~\"$namespace\"})", "refId": "A" }],
           "title": "StatefulSets",
           "type": "stat"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } } },
-          "gridPos": { "h": 3, "w": 3, "x": 15, "y": 0 },
-          "id": 6,
+          "gridPos": { "h": 3, "w": 4, "x": 12, "y": 0 },
+          "id": 4,
           "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
-          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_namespace_created)", "refId": "A" }],
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_namespace_created{cluster=~\"$cluster\"})", "refId": "A" }],
           "title": "Namespaces",
           "type": "stat"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "bytes", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } } },
-          "gridPos": { "h": 3, "w": 3, "x": 18, "y": 0 },
-          "id": 7,
+          "gridPos": { "h": 3, "w": 4, "x": 16, "y": 0 },
+          "id": 5,
           "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
-          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(kube_pod_container_resource_requests{resource=\"memory\",namespace=~\"$namespace\"})", "refId": "A" }],
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(kube_pod_container_resource_requests{resource=\"memory\", cluster=~\"$cluster\", namespace=~\"$namespace\"})", "refId": "A" }],
           "title": "Memory Requests",
           "type": "stat"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "short", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } } },
-          "gridPos": { "h": 3, "w": 3, "x": 21, "y": 0 },
-          "id": 8,
+          "gridPos": { "h": 3, "w": 4, "x": 20, "y": 0 },
+          "id": 6,
           "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
-          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(kube_pod_container_resource_requests{resource=\"cpu\",namespace=~\"$namespace\"})", "refId": "A" }],
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(kube_pod_container_resource_requests{resource=\"cpu\", cluster=~\"$cluster\", namespace=~\"$namespace\"})", "refId": "A" }],
           "title": "CPU Requests (cores)",
           "type": "stat"
         },
@@ -117,9 +85,9 @@ data:
             }
           },
           "gridPos": { "h": 4, "w": 6, "x": 0, "y": 3 },
-          "id": 13,
+          "id": 7,
           "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
-          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_pod_container_status_waiting_reason{namespace=~\"$namespace\", reason=~\"ImagePullBackOff|ErrImagePull|CrashLoopBackOff|CreateContainerError|RunContainerError\"}) or vector(0)", "refId": "A" }],
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_pod_container_status_waiting_reason{cluster=~\"$cluster\", namespace=~\"$namespace\", reason=~\"ImagePullBackOff|ErrImagePull|CrashLoopBackOff|CreateContainerError|RunContainerError\"}) or vector(0)", "refId": "A" }],
           "title": "Unhealthy Pods",
           "type": "stat"
         },
@@ -135,9 +103,9 @@ data:
             }
           },
           "gridPos": { "h": 4, "w": 18, "x": 6, "y": 3 },
-          "id": 14,
+          "id": 8,
           "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "Last *", "sortDesc": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (reason) (kube_pod_container_status_waiting_reason{namespace=~\"$namespace\"})", "legendFormat": "{{reason}}", "refId": "A" }],
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (reason) (kube_pod_container_status_waiting_reason{cluster=~\"$cluster\", namespace=~\"$namespace\"})", "legendFormat": "{{reason}}", "refId": "A" }],
           "title": "Pods by Waiting Reason",
           "type": "timeseries"
         },
@@ -155,7 +123,7 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
           "id": 9,
           "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "Last *", "sortDesc": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count by (namespace) (kube_pod_info{namespace=~\"$namespace\"})", "legendFormat": "{{namespace}}", "refId": "A" }],
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count by (namespace) (kube_pod_info{cluster=~\"$cluster\", namespace=~\"$namespace\"})", "legendFormat": "{{namespace}}", "refId": "A" }],
           "title": "Pods by Namespace",
           "type": "timeseries"
         },
@@ -173,7 +141,7 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
           "id": 10,
           "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "Last *", "sortDesc": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (namespace) (kube_pod_container_resource_requests{resource=\"memory\",namespace=~\"$namespace\"})", "legendFormat": "{{namespace}}", "refId": "A" }],
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (namespace) (kube_pod_container_resource_requests{resource=\"memory\", cluster=~\"$cluster\", namespace=~\"$namespace\"})", "legendFormat": "{{namespace}}", "refId": "A" }],
           "title": "Memory Requests by Namespace",
           "type": "timeseries"
         },
@@ -197,11 +165,11 @@ data:
           "id": 11,
           "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "Pods" }] },
           "targets": [
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count by (namespace) (kube_pod_info{namespace=~\"$namespace\"})", "format": "table", "instant": true, "refId": "pods" },
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (namespace) (kube_pod_container_resource_requests{resource=\"memory\",namespace=~\"$namespace\"})", "format": "table", "instant": true, "refId": "mem_req" },
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (namespace) (kube_pod_container_resource_limits{resource=\"memory\",namespace=~\"$namespace\"})", "format": "table", "instant": true, "refId": "mem_lim" },
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (namespace) (kube_pod_container_resource_requests{resource=\"cpu\",namespace=~\"$namespace\"})", "format": "table", "instant": true, "refId": "cpu_req" },
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (namespace) (kube_pod_container_resource_limits{resource=\"cpu\",namespace=~\"$namespace\"})", "format": "table", "instant": true, "refId": "cpu_lim" }
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count by (namespace) (kube_pod_info{cluster=~\"$cluster\", namespace=~\"$namespace\"})", "format": "table", "instant": true, "refId": "pods" },
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (namespace) (kube_pod_container_resource_requests{resource=\"memory\", cluster=~\"$cluster\", namespace=~\"$namespace\"})", "format": "table", "instant": true, "refId": "mem_req" },
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (namespace) (kube_pod_container_resource_limits{resource=\"memory\", cluster=~\"$cluster\", namespace=~\"$namespace\"})", "format": "table", "instant": true, "refId": "mem_lim" },
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (namespace) (kube_pod_container_resource_requests{resource=\"cpu\", cluster=~\"$cluster\", namespace=~\"$namespace\"})", "format": "table", "instant": true, "refId": "cpu_req" },
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (namespace) (kube_pod_container_resource_limits{resource=\"cpu\", cluster=~\"$cluster\", namespace=~\"$namespace\"})", "format": "table", "instant": true, "refId": "cpu_lim" }
           ],
           "title": "Namespace Resource Summary",
           "transformations": [
@@ -215,27 +183,44 @@ data:
           "gridPos": { "h": 8, "w": 24, "x": 0, "y": 23 },
           "id": 12,
           "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": false },
-          "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "{namespace=~\"$namespace\"}", "refId": "A" }],
+          "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "{cluster=~\"$cluster\", namespace=~\"$namespace\"}", "refId": "A" }],
           "title": "Pod Logs",
           "type": "logs"
         }
       ],
       "refresh": "30s",
       "schemaVersion": 38,
-      "tags": ["minikube", "kubernetes", "k8s"],
+      "tags": ["kubernetes", "k8s", "multi-cluster"],
       "templating": {
         "list": [
           {
             "current": { "selected": true, "text": "All", "value": "$__all" },
             "datasource": { "type": "prometheus", "uid": "prometheus" },
-            "definition": "label_values(kube_namespace_created, namespace)",
+            "definition": "label_values(kube_namespace_created, cluster)",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Cluster",
+            "multi": true,
+            "name": "cluster",
+            "options": [],
+            "query": { "query": "label_values(kube_namespace_created, cluster)", "refId": "StandardVariableQuery" },
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 1,
+            "type": "query"
+          },
+          {
+            "current": { "selected": true, "text": "All", "value": "$__all" },
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "definition": "label_values(kube_namespace_created{cluster=~\"$cluster\"}, namespace)",
             "hide": 0,
             "includeAll": true,
             "label": "Namespace",
             "multi": true,
             "name": "namespace",
             "options": [],
-            "query": { "query": "label_values(kube_namespace_created, namespace)", "refId": "StandardVariableQuery" },
+            "query": { "query": "label_values(kube_namespace_created{cluster=~\"$cluster\"}, namespace)", "refId": "StandardVariableQuery" },
             "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
@@ -247,8 +232,8 @@ data:
       "time": { "from": "now-6h", "to": "now" },
       "timepicker": {},
       "timezone": "browser",
-      "title": "Minikube Kubernetes",
-      "uid": "minikube",
-      "version": 2,
+      "title": "Kubernetes Clusters",
+      "uid": "kubernetes",
+      "version": 1,
       "weekStart": ""
     }

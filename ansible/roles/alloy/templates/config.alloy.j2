@@ -29,6 +29,11 @@ prometheus.relabel "instance" {
     target_label = "instance"
     replacement  = "{{ alloy_instance_label }}"
   }
+
+  rule {
+    target_label = "cluster"
+    replacement  = "indri"
+  }
 }
 
 // Push metrics to Prometheus via remote_write
@@ -109,6 +114,11 @@ loki.relabel "add_host" {
   rule {
     target_label = "host"
     replacement  = "{{ alloy_instance_label }}"
+  }
+
+  rule {
+    target_label = "cluster"
+    replacement  = "indri"
   }
 }
 

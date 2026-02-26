@@ -13,10 +13,10 @@ resources:
   - dashboards/configmap-devpi.yaml
   - dashboards/configmap-loki.yaml
   - dashboards/configmap-macos.yaml
-  - dashboards/configmap-minikube.yaml
+  - dashboards/configmap-kubernetes.yaml
   - dashboards/configmap-jellyfin.yaml
   - dashboards/configmap-postgresql.yaml
-  - dashboards/configmap-services.yaml
+  - dashboards/configmap-ringtail.yaml
   - dashboards/configmap-zot.yaml
   - dashboards/configmap-frigate.yaml
   - dashboards/configmap-cv-apm.yaml

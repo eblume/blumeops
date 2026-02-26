@@ -1,0 +1,1 @@
+Add multi-cluster Kubernetes observability: deploy kube-state-metrics and Alloy on ringtail (k3s), add `cluster` label to all metrics/logs, replace single-cluster dashboards with multi-cluster Kubernetes dashboard and dedicated Ringtail dashboard with GPU monitoring.
