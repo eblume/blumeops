@@ -6,6 +6,7 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress-tailscale.yaml
+  - pdb.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/cv
     newTag: v1.0.3-ffa8727
