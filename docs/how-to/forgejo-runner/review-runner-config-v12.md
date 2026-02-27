@@ -1,6 +1,7 @@
 ---
 title: Review Runner Config for v12
-modified: 2026-02-22
+modified: 2026-02-27
+last-reviewed: 2026-02-27
 tags:
   - how-to
   - forgejo-runner
@@ -35,3 +36,4 @@ Added `shutdown_timeout: 3h` to allow graceful job completion on pod termination
 ## Related
 
 - [[upgrade-k8s-runner]] — Parent goal
+- [[validate-workflows-against-v12]] — Sibling prerequisite

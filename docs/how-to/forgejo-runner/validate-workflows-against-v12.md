@@ -1,6 +1,7 @@
 ---
 title: Validate Workflows Against v12
-modified: 2026-02-22
+modified: 2026-02-27
+last-reviewed: 2026-02-27
 tags:
   - how-to
   - forgejo-runner
@@ -41,3 +42,4 @@ dagger call validate-workflows --src=.
 ## Related
 
 - [[upgrade-k8s-runner]] — Parent goal
+- [[review-runner-config-v12]] — Sibling prerequisite

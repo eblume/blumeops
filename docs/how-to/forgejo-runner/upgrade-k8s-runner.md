@@ -3,7 +3,8 @@ title: Upgrade K8s Forgejo Runner to v12
 requires:
   - validate-workflows-against-v12
   - review-runner-config-v12
-modified: 2026-02-22
+modified: 2026-02-27
+last-reviewed: 2026-02-27
 tags:
   - how-to
   - forgejo-runner
@@ -37,7 +38,7 @@ Once prerequisites are met:
 
 1. Update `argocd/manifests/forgejo-runner/deployment.yaml`:
    - Change runner image from `code.forgejo.org/forgejo/runner:6.3.1` to `code.forgejo.org/forgejo/runner:12.7.0`
-2. Update `argocd/manifests/forgejo-runner/configmap.yaml` with any config changes from [[review-runner-config-v12]]
+2. Update `argocd/manifests/forgejo-runner/config.yaml` with any config changes from [[review-runner-config-v12]]
 3. Push, sync ArgoCD: `argocd app sync forgejo-runner`
 4. Verify runner registers and connects: check Forgejo admin → runners
 5. Trigger a test workflow (manual dispatch of `build-container.yaml` or `branch-cleanup.yaml`)
