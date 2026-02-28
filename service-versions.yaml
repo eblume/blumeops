@@ -124,10 +124,10 @@ services:
 
   - name: blumeops-pg
     type: argocd
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-02-27
+    current-version: "18.3"
     upstream-source: https://github.com/cloudnative-pg/cloudnative-pg/releases
-    notes: CloudNativePG Cluster resource
+    notes: CloudNativePG Cluster resource; pinned to PG minor version
 
   - name: authentik
     type: argocd
