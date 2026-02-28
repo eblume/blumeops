@@ -46,10 +46,11 @@ Once all prerequisites are complete:
 
 1. Assemble the component derivations into a final `ak`-wrapped package in `containers/authentik/`
 2. Update `containers/authentik/default.nix` to use the custom derivation instead of `pkgs.authentik`
-3. Build and push the container: `mise run container-build-and-release authentik`
-4. Update `argocd/manifests/authentik/kustomization.yaml` with the new image tag
-5. Update `service-versions.yaml` with the new version
-6. Verify deployment: ArgoCD sync, UI login, OAuth2 flows
+3. Test locally via Dagger before pushing to CI: `dagger call build-nix --src=. --container-name=authentik`
+4. Build and push the container: `mise run container-build-and-release authentik`
+5. Update `argocd/manifests/authentik/kustomization.yaml` with the new image tag
+6. Update `service-versions.yaml` with the new version
+7. Verify deployment: ArgoCD sync, UI login, OAuth2 flows
 
 ## Related
 
