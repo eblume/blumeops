@@ -96,6 +96,16 @@ Mikado chain for deploying Authentik. Track progress with `mise run docs-mikado 
 - [[create-authentik-secrets]]
 - [[migrate-grafana-to-authentik]]
 
+## Authentik Source Build
+
+Mikado chain for building Authentik from a custom Nix derivation (from source). Track progress with `mise run docs-mikado build-authentik-from-source`.
+
+- [[build-authentik-from-source]]
+- [[authentik-api-client-generation]]
+- [[authentik-python-backend-derivation]]
+- [[authentik-web-ui-derivation]]
+- [[authentik-go-server-derivation]]
+
 ## Grafana
 
 Mikado chain for upgrading Grafana to 12.x with kustomize and home-built containers. Track progress with `mise run docs-mikado upgrade-grafana`.
