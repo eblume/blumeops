@@ -1,6 +1,7 @@
 ---
 title: Build Grafana Container
-modified: 2026-02-23
+modified: 2026-02-28
+last-reviewed: 2026-02-28
 tags:
   - how-to
   - grafana
@@ -36,5 +37,7 @@ The k8s-sidecar image (`quay.io/kiwigrid/k8s-sidecar`) is still pulled from upst
 
 ## Related
 
+- [[grafana]] — Service reference card
 - [[upgrade-grafana]] — Migration context
+- [[kustomize-grafana-deployment]] — Kustomize manifest structure
 - [[build-container-image]] — Standard container build workflow
