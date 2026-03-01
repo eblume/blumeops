@@ -142,6 +142,7 @@ pkgs.stdenv.mkDerivation {
 
     # --- Top-level structure ---
     ln -s ${sp}/lifecycle $out/lifecycle
+    ln -s ${sp}/authentik $out/authentik
     cp -r blueprints $out/blueprints
     cp manage.py $out/manage.py
 
