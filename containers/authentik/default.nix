@@ -57,8 +57,8 @@ pkgs.dockerTools.buildLayeredImage {
   # authentik-django hardcodes blueprints_dir to $out/blueprints; the AUTHENTIK_BLUEPRINTS_DIR
   # env var overrides it to /blueprints, where custom blueprints are mounted by k8s ConfigMap.
   extraCommands = ''
-    mkdir -p blueprints
-    chmod 777 blueprints
+    mkdir -p blueprints tmp
+    chmod 777 blueprints tmp
   '';
 
   config = {
