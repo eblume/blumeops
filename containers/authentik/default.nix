@@ -66,6 +66,7 @@ pkgs.dockerTools.buildLayeredImage {
     Env = [
       "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
       "TZDIR=${pkgs.tzdata}/share/zoneinfo"
+      "TMPDIR=/tmp"
       "AUTHENTIK_BLUEPRINTS_DIR=/blueprints"
     ];
     ExposedPorts = {
