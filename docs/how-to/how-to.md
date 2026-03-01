@@ -101,6 +101,7 @@ Mikado chain for deploying Authentik. Track progress with `mise run docs-mikado 
 Mikado chain for building Authentik from a custom Nix derivation (from source). Track progress with `mise run docs-mikado build-authentik-from-source`.
 
 - [[build-authentik-from-source]]
+- [[mirror-authentik-build-deps]]
 - [[authentik-api-client-generation]]
 - [[authentik-python-backend-derivation]]
 - [[authentik-web-ui-derivation]]

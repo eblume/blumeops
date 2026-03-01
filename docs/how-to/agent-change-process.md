@@ -163,7 +163,7 @@ The `mikado-branch-invariant-check` commit-msg hook validates this convention an
 2. **Open a PR** after the first card commits so the user can review the Mikado graph
 3. **Work leaf nodes** — pick a leaf (a card with `status: active` and no unmet `requires`):
    - Commit code changes (`C2(<chain>): impl ...`) that progress toward closing it
-   - **Verify the change works** (deploy from branch, run tests, etc.) before closing
+   - **Verify the card's own deliverables** (deploy from branch, run tests, etc.) before closing. "Works" means the card's stated outputs are correct — not that downstream consumers have integrated them. If a downstream card later discovers the output doesn't fit, that's a new prerequisite discovery handled by the normal reset mechanism.
    - Commit the card closure (`C2(<chain>): close ...`) — remove `status: active`
    - Push to origin — this is the save point
 4. **End the cycle** — after pushing a closed leaf node, prompt the user to review the PR and suggest ending the session. Each closed leaf is a natural stopping point; the chain is designed to be resumed later. Don't rush into the next leaf without the user's go-ahead.

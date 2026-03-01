@@ -1,7 +1,6 @@
 ---
 title: Build Authentik Go Server
-modified: 2026-02-28
-status: active
+modified: 2026-03-01
 requires:
   - authentik-api-client-generation
   - authentik-python-backend-derivation

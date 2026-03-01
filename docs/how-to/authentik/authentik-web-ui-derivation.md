@@ -1,7 +1,6 @@
 ---
 title: Build Authentik Web UI
-modified: 2026-02-28
-status: active
+modified: 2026-03-01
 requires:
   - authentik-api-client-generation
 tags:
@@ -14,30 +13,28 @@ tags:
 
 Build the Lit-based TypeScript web frontend for authentik.
 
-## Context
+## Overview
 
-The web UI lives in `web/` in the authentik repo. It's built with Rollup and uses Lit web components. The nixpkgs derivation builds this in two phases:
+The web UI lives in `web/` in the authentik repo. As of 2026.2.0, the main build uses **esbuild** (via wireit) and the SFE sub-package uses **rollup**. The Nix build uses a two-phase approach:
 
-1. **`webui-deps`** — Fixed-output derivation that runs `npm ci` to fetch Node dependencies. Uses platform-specific output hashes (aarch64-linux vs x86_64-linux).
-2. **`webui`** — Patches in the generated TypeScript API client (`client-ts`), then runs `npm run build`. Output includes `dist/` and `authentik/` static directories.
+1. **`webui-deps.nix`** — Fixed-output derivation that runs `npm ci` to fetch Node dependencies. Platform-specific output hash (npm downloads architecture-specific native binaries for esbuild, rollup, and SWC).
+2. **`webui.nix`** — Copies deps, patches in the generated TypeScript API client (`client-ts`), patches shebangs, then runs `npm run build` (wireit/esbuild) and `npm run build:sfe` (rollup). Output includes `dist/` and `authentik/` static directories.
 
-There's also a **`website`** derivation (Docusaurus-based API docs at `website/`) that produces the `/help` endpoint. This is optional but included in the nixpkgs build.
+## Build Details
 
-## What to Do
+- **Node.js:** `nodejs_24` (authentik requires Node >= 24, npm >= 11.6.2)
+- **Build time:** ~33s on ringtail (x86_64-linux)
+- **FOD hash:** Platform-specific — will need updating on each authentik version bump
+- **Output:** `$out/dist/` (JS/CSS bundles) and `$out/authentik/` (static SVG/PNG icons)
+- **Consumed by:** Go server (`authentik-server.nix` via `webui` parameter) for static file serving, and `authentik-django.nix` for email template icon paths
+- **Docusaurus website** (`/help` endpoint) is not built — optional and can be added later
 
-1. Create a fixed-output derivation for `npm ci` in `web/` (platform-specific hashes)
-2. Patch the generated TypeScript client into `web/node_modules/@goauthentik/api/`
-3. Build with `npm run build` — produces `dist/` and `authentik/` directories
-4. Optionally build the Docusaurus website (`website/`) for the `/help` endpoint
-5. Verify: static assets exist and reference correct paths
+## Key Lessons
 
-## Key Details
-
-- Build tool: Rollup (via npm scripts)
-- Node.js version: `nodejs_24` in current nixpkgs (check upstream requirements)
-- The TypeScript API client must be patched in before the build
-- Fixed-output hashes break on any npm dependency change — will need updating per release
-- Output is consumed by both `authentik-django` (email templates) and the Go server (static serving)
+- The 2026.2.0 build switched from rollup to esbuild for the main frontend. Only the SFE sub-package still uses rollup.
+- The version string in `packages/core/version/node.js` uses a JSON import-with-assertion that doesn't resolve in the Nix sandbox — must be patched to hardcode the version.
+- `NODE_OPTIONS=--openssl-legacy-provider` is needed for compatibility.
+- Workspace packages have separate `node_modules/` directories — the FOD must collect all of them via `find`.
 
 ## Related
 

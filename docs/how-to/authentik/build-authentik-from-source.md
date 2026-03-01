@@ -1,8 +1,6 @@
 ---
 title: Build Authentik from Source
-modified: 2026-02-28
-status: active
-branch: mikado/authentik-source-build
+modified: 2026-03-01
 requires:
   - authentik-go-server-derivation
   - authentik-web-ui-derivation
@@ -15,45 +13,58 @@ tags:
 
 # Build Authentik from Source
 
-Replace `pkgs.authentik` from nixpkgs with a custom Nix derivation that builds authentik from source. This removes the dependency on the nixpkgs packaging timeline and gives full version control.
+Custom Nix derivation that builds authentik from source, replacing the `pkgs.authentik` nixpkgs dependency. This gives full version control independent of the nixpkgs release cycle.
 
 ## Motivation
 
-The nix-container-builder runner on ringtail resolves `nixpkgs` via the NixOS nix registry, which pins to `nixos-25.11`. That channel lags behind upstream authentik releases — e.g. nixos-25.11 has 2025.10.1 while upstream is at 2025.12.4+. Building from source lets us target any release.
-
-This also serves as practice for packaging services from source using Nix, relying on nixpkgs only for satellite dependencies (Python interpreter, Node.js, Go toolchain, system libraries).
+The nix-container-builder runner on ringtail resolves `nixpkgs` via the NixOS nix registry, which pins to `nixos-25.11`. That channel lags behind upstream authentik releases. Building from source lets us target any release by updating `sources.nix`.
 
 ## Architecture
 
-Authentik has four build components that must be assembled:
+Authentik has four build components assembled by `containers/authentik/default.nix`:
 
-1. **API client generation** — Go and TypeScript bindings generated from `schema.yml` (OpenAPI)
-2. **Python backend** (`authentik-django`) — Django application with 60+ Python dependencies, including 4 in-tree packages and a forked `djangorestframework`
-3. **Web UI** — Lit-based TypeScript frontend built with Rollup
-4. **Go server** — HTTP server binary (`cmd/server`) that serves the web UI and spawns gunicorn for Django
+1. **API client generation** (`client-go.nix`, `client-ts.nix`) — Go and TypeScript bindings generated from `schema.yml` (OpenAPI)
+2. **Python backend** (`authentik-django.nix`) — Django application with 60+ Python dependencies installed via `uv` from PyPI (see [[authentik-python-backend-derivation]])
+3. **Web UI** (`webui.nix`) — Lit-based TypeScript frontend built with esbuild + rollup
+4. **Go server** (`authentik-server.nix`) — HTTP server binary that serves the web UI and spawns gunicorn for Django
 
-The final package is the `ak` bash wrapper that orchestrates Go server + Python worker.
+The `ak` wrapper script in `default.nix` sets PATH/VIRTUAL_ENV and delegates to `lifecycle/ak`, which dispatches `server` to the Go binary and everything else to Python/Django.
+
+**Python packaging strategy:** Nix provides the Python 3.14 interpreter and system libraries. Python packages are installed from PyPI using `uv`, locked by authentik's `uv.lock`. This avoids nixpkgs' Python 3.14 compatibility issues and aligns with upstream's build process.
 
 ## Source
 
-Forge mirror: https://forge.ops.eblu.me/mirrors/authentik (upstream: `goauthentik/authentik`)
+All derivations fetch from forge mirrors for supply chain control:
+- https://forge.ops.eblu.me/mirrors/authentik (upstream: `goauthentik/authentik`)
+- https://forge.ops.eblu.me/mirrors/authentik-client-go (upstream: `goauthentik/client-go`)
 
-Reference derivation: [nixpkgs `pkgs/by-name/au/authentik/package.nix`](https://github.com/NixOS/nixpkgs/tree/master/pkgs/by-name/au/authentik)
+Version and hashes are centralized in `containers/authentik/sources.nix`.
 
-## What to Do
+## Updating to a New Version
 
-Once all prerequisites are complete:
+1. Update `version` in `sources.nix` and `default.nix`
+2. Update `src` and `client-go-src` hashes in `sources.nix` (use `nix-prefetch-git` on ringtail)
+3. Rebuild `python-deps.nix` FOD — hash changes when `uv.lock` changes
+4. Rebuild `webui-deps.nix` FOD — hash changes when `package-lock.json` or platform-specific npm binaries change
+5. Recompute `vendorHash` in `authentik-server.nix` if Go dependencies changed
+6. Test on ringtail: `nix-build test-build.nix -A assembled`
+7. Build and push the container via CI
 
-1. Assemble the component derivations into a final `ak`-wrapped package in `containers/authentik/`
-2. Update `containers/authentik/default.nix` to use the custom derivation instead of `pkgs.authentik`
-3. Test locally via Dagger before pushing to CI: `dagger call build-nix --src=. --container-name=authentik`
-4. Build and push the container: `mise run container-build-and-release authentik`
-5. Update `argocd/manifests/authentik/kustomization.yaml` with the new image tag
-6. Update `service-versions.yaml` with the new version
-7. Verify deployment: ArgoCD sync, UI login, OAuth2 flows
+## Testing
+
+Nix derivations target `x86_64-linux`. Test incrementally on ringtail:
+
+```fish
+set tmpdir (ssh ringtail 'mktemp -d /tmp/authentik-test.XXXXXX')
+scp containers/authentik/*.nix ringtail:$tmpdir/
+ssh ringtail "cd $tmpdir && nix-build test-build.nix -A assembled --extra-experimental-features 'nix-command flakes'"
+ssh ringtail "rm -rf $tmpdir"
+```
+
+`test-build.nix` provides both individual component targets and a fully-wired `assembled` target.
 
 ## Related
 
-- [[build-authentik-container]] — Current nixpkgs-based build (to be replaced)
+- [[build-authentik-container]] — Container build reference
 - [[deploy-authentik]] — Parent deployment goal
 - [[agent-change-process]] — C2 methodology

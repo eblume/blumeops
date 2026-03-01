@@ -1,7 +1,8 @@
 ---
 title: Generate Authentik API Clients
 modified: 2026-02-28
-status: active
+requires:
+  - mirror-authentik-build-deps
 tags:
   - how-to
   - authentik
@@ -31,6 +32,30 @@ Both clients are generated from the same `schema.yml` OpenAPI spec in the main a
 - Go client replaces `vendor/goauthentik.io/api/v3/` in the server build
 - TypeScript client replaces `web/node_modules/@goauthentik/api/` in the web UI build
 - The nixpkgs derivation patches the generated Go client (`client-go-config.patch`) — check if still needed
+
+## Testing on Ringtail
+
+Use this ad-hoc `test-build.nix` harness (not committed to the repo):
+
+```nix
+# test-build.nix
+let
+  pkgs = (builtins.getFlake "nixpkgs").legacyPackages.x86_64-linux;
+  sources = import ./sources.nix { inherit pkgs; };
+in
+{
+  client-go = import ./client-go.nix { inherit pkgs sources; };
+  client-ts = import ./client-ts.nix { inherit pkgs sources; };
+  api-go-vendor-hook = import ./api-go-vendor-hook.nix { inherit pkgs sources; };
+}
+```
+
+```fish
+set tmpdir (ssh ringtail 'mktemp -d /tmp/authentik-test.XXXXXX')
+scp containers/authentik/*.nix ringtail:$tmpdir/
+ssh ringtail "cd $tmpdir && nix-build test-build.nix -A client-go --extra-experimental-features 'nix-command flakes'"
+ssh ringtail "rm -rf $tmpdir"
+```
 
 ## Related
 

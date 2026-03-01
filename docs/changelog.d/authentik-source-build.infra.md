@@ -1,1 +1,1 @@
-Start C2 Mikado chain: build authentik from a custom Nix derivation (from source) to replace nixpkgs dependency and gain full version control.
+Build authentik 2026.2.0 from source via custom Nix derivation, replacing the nixpkgs `pkgs.authentik` dependency. Four components (API client generation, Python backend, web UI, Go server) assembled into a single container image with full supply chain control via forge mirrors.
