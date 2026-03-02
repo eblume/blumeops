@@ -137,13 +137,13 @@ services:
 
   - name: navidrome
     type: argocd
-    last-reviewed: null
+    last-reviewed: 2026-03-02
     current-version: "v0.60.3"
     upstream-source: https://github.com/navidrome/navidrome/releases
 
   - name: miniflux
     type: argocd
-    last-reviewed: null
+    last-reviewed: 2026-03-02
     current-version: "2.2.17"
     upstream-source: https://github.com/miniflux/v2/releases
 
