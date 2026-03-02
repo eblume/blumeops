@@ -136,6 +136,14 @@ pkgs.stdenv.mkDerivation {
       --replace-fail 'Path("web/dist/assets/icons/icon_left_brand.png")' \
                      'Path("${webuiPath}/dist/assets/icons/icon_left_brand.png")'
 
+    # Migration ordering: 0010 removes Role.group_id, but 0056 needs it
+    # for data migration. Upstream bug in authentik 2026.2.0.
+    # https://github.com/goauthentik/authentik/issues/19616
+    substituteInPlace ${sp}/authentik/rbac/migrations/0010_remove_role_group_alter_role_name.py \
+      --replace-fail \
+        '("authentik_rbac", "0009_remove_initialpermissions_mode"),' \
+        '("authentik_rbac", "0009_remove_initialpermissions_mode"), ("authentik_core", "0056_user_roles"),'
+
     # Lifecycle bash script: use Nix store bash (no /usr/bin/env in containers)
     substituteInPlace ${sp}/lifecycle/ak \
       --replace-fail '#!/usr/bin/env -S bash' '#!${pkgs.bash}/bin/bash'

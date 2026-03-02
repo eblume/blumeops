@@ -65,6 +65,7 @@ Build issues encountered and resolved:
 | `xargs grep` exit code 123 under `pipefail` | Wrap pipeline in `{ ... \|\| true; }` — grep returning 1 (no match) causes xargs to return 123 |
 | `grep -aoE` includes filename prefix in output | Use `grep -aohE` (`-h` suppresses filenames) to get clean store paths |
 | autoPatchelfHook can't find libraries | `buildInputs` in main derivation must include all libraries that `.so` files link against |
+| `FieldError: Cannot resolve keyword 'group_id'` on startup | Django migration ordering bug: `authentik_rbac/0010` (drops `Role.group_id`) can run before `authentik_core/0056` (reads it). Add explicit dependency via `substituteInPlace` on the migration file. Upstream [#19616](https://github.com/goauthentik/authentik/issues/19616) |
 
 The `uv sync` completes in ~3.5 minutes. Dynamic reference discovery finds 19 unique store paths and strips all of them. After stripping, `remove-references-to` mangles hashes to `eeee...` bytes — about 40 files still "contain" `/nix/store/` strings but with invalid hashes, which is expected and harmless. `autoPatchelfHook` in the main derivation resolves all NEEDED entries with 0 unsatisfied dependencies.
 
