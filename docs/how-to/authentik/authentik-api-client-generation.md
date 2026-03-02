@@ -1,6 +1,7 @@
 ---
 title: Generate Authentik API Clients
-modified: 2026-02-28
+modified: 2026-03-01
+last-reviewed: 2026-03-01
 requires:
   - mirror-authentik-build-deps
 tags:
@@ -29,31 +30,18 @@ Both clients are generated from the same `schema.yml` OpenAPI spec in the main a
 ## Key Details
 
 - Source spec: `schema.yml` in the authentik repo root
-- Go client replaces `vendor/goauthentik.io/api/v3/` in the server build
-- TypeScript client replaces `web/node_modules/@goauthentik/api/` in the web UI build
-- The nixpkgs derivation patches the generated Go client (`client-go-config.patch`) — check if still needed
+- Go client replaces `vendor/goauthentik.io/api/v3/` in the server build (via `api-go-vendor-hook.nix`)
+- TypeScript client replaces `web/node_modules/@goauthentik/api/` in the web UI build (symlinked in `webui.nix`)
 
 ## Testing on Ringtail
 
-Use this ad-hoc `test-build.nix` harness (not committed to the repo):
-
-```nix
-# test-build.nix
-let
-  pkgs = (builtins.getFlake "nixpkgs").legacyPackages.x86_64-linux;
-  sources = import ./sources.nix { inherit pkgs; };
-in
-{
-  client-go = import ./client-go.nix { inherit pkgs sources; };
-  client-ts = import ./client-ts.nix { inherit pkgs sources; };
-  api-go-vendor-hook = import ./api-go-vendor-hook.nix { inherit pkgs sources; };
-}
-```
+The `test-build.nix` harness in `containers/authentik/` supports individual component builds:
 
 ```fish
 set tmpdir (ssh ringtail 'mktemp -d /tmp/authentik-test.XXXXXX')
 scp containers/authentik/*.nix ringtail:$tmpdir/
 ssh ringtail "cd $tmpdir && nix-build test-build.nix -A client-go --extra-experimental-features 'nix-command flakes'"
+ssh ringtail "cd $tmpdir && nix-build test-build.nix -A client-ts --extra-experimental-features 'nix-command flakes'"
 ssh ringtail "rm -rf $tmpdir"
 ```
 
