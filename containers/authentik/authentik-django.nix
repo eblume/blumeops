@@ -95,7 +95,7 @@ pkgs.stdenv.mkDerivation {
     from importlib.metadata import entry_points
     eps = entry_points(group='console_scripts', name='$ep')
     if eps:
-        sys.exit(eps[0].load()())
+        sys.exit(next(iter(eps)).load()())
     SCRIPT
         chmod +x $out/bin/$ep
       fi
