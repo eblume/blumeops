@@ -1,6 +1,7 @@
 ---
 title: Build Authentik Go Server
-modified: 2026-03-01
+modified: 2026-03-02
+last-reviewed: 2026-03-02
 requires:
   - authentik-api-client-generation
   - authentik-python-backend-derivation
@@ -31,7 +32,8 @@ The nixpkgs derivation patches store paths into two Go source files so the compi
 2. Inject the generated Go API client into the vendor directory (via `apiGoVendorHook`)
 3. Apply `substituteInPlace` patches to hardcode Nix store paths:
    - `internal/gounicorn/gounicorn.go`: `./lifecycle` → `${authentik-django}/lifecycle`
-   - `web/static.go`: `./web` → `${authentik-django}/web`
+   - `web/static.go`: `./web` → `${webAssetsPath}` (the webui derivation)
+   - `internal/web/static.go`: `./web` → `${webAssetsPath}` (the webui derivation)
 4. Compute the `vendorHash` — note that the hook replaces vendored API code *after* hash verification, so the hash reflects `go.sum` only
 5. Rename the output binary from `server` to `authentik`
 6. Verify: `./authentik --help` runs successfully

@@ -1,6 +1,7 @@
 ---
 title: Build Authentik Python Backend
 modified: 2026-03-01
+last-reviewed: 2026-03-02
 requires:
   - mirror-authentik-build-deps
 tags:

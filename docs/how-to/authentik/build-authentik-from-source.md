@@ -1,6 +1,7 @@
 ---
 title: Build Authentik from Source
 modified: 2026-03-01
+last-reviewed: 2026-03-02
 requires:
   - authentik-go-server-derivation
   - authentik-web-ui-derivation

@@ -1,6 +1,7 @@
 ---
 title: Mirror Authentik Build Dependencies
-modified: 2026-02-28
+modified: 2026-03-02
+last-reviewed: 2026-03-02
 tags:
   - how-to
   - authentik
@@ -12,10 +13,11 @@ Mirror the external repositories needed to build authentik from source onto the 
 
 ## Context
 
-Building authentik from source requires fetching code from three GitHub repositories. The main `goauthentik/authentik` repo is already mirrored, but two companion repos are not:
+Building authentik from source requires fetching code from two GitHub repositories. The main `goauthentik/authentik` repo is already mirrored, but one companion repo needed mirroring:
 
 - **`goauthentik/client-go`** — Go API client bindings, versioned in lockstep with authentik (e.g. `v3.2026.2.0` matches `version/2026.2.0`). Used by the Go server build.
-- **`authentik-community/django-rest-framework`** — Fork of DRF pinned to a specific commit. Authentik's Python backend requires this custom version. The upstream org name (`authentik-community`) differs from the main repo org (`goauthentik`), so the mirror name must be explicit.
+
+Previously, `authentik-community/django-rest-framework` (a DRF fork) was also needed. As of authentik 2026.2.0, standard `djangorestframework` from PyPI is used instead — the fork mirror (`authentik-django-rest-framework`) can be archived.
 
 ## What to Do
 
@@ -25,16 +27,9 @@ Building authentik from source requires fetching code from three GitHub reposito
      --name authentik-client-go \
      --description "Go API client for authentik (lockstep versioned)"
    ```
-2. Mirror `authentik-community/django-rest-framework`:
-   ```fish
-   mise run mirror-create https://github.com/authentik-community/django-rest-framework.git \
-     --name authentik-django-rest-framework \
-     --description "Authentik fork of Django REST Framework"
-   ```
-3. Verify both mirrors sync: check tags appear on forge
+2. Verify mirror syncs: check tags appear on forge
 
 ## Related
 
 - [[build-authentik-from-source]] — Parent goal
 - [[authentik-api-client-generation]] — Consumes client-go mirror
-- [[authentik-python-backend-derivation]] — Consumes django-rest-framework mirror
