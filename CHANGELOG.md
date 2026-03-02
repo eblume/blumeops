@@ -12,6 +12,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.12.0] - 2026-03-01
+
+### Bug Fixes
+
+- Fix authentik 2026.2.0 startup crash caused by Django migration ordering bug (`FieldError: Cannot resolve keyword 'group_id'`). Patch ensures `authentik_core/0056` runs before `authentik_rbac/0010`.
+
+### Infrastructure
+
+- Upgrade authentik from 2025.10.1 to 2026.2.0, building core services from source via custom Nix derivations rather than using nixpkgs directly (nixpkgs still provides satellite dependencies like Python, Go, and system libraries). Four components (API client generation, Python backend, web UI, Go server) assembled into a single container image with full supply chain control via forge mirrors.
+- Sync Frigate zone coordinates from live API to manifest (driveway_entrance, driveway)
+- Pin blumeops-pg to PostgreSQL 18.3 (from floating `:18` tag at 18.1)
+
+### Documentation
+
+- Review and update authentik-api-client-generation doc: remove stale patch note, fix test-build.nix section, add last-reviewed date.
+- Review all three forgejo-runner Mikado chain docs: stamp `last-reviewed`, add cross-links, fix `configmap.yaml` → `config.yaml` reference.
+- Review build-grafana-container docs; fix stale grafana.md reference card (Helm → Kustomize).
+
+
 ## [v1.11.5] - 2026-02-26
 
 ### Features
