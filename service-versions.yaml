@@ -156,8 +156,8 @@ services:
 
   - name: teslamate
     type: argocd
-    last-reviewed: null
-    current-version: "v2.2.0"
+    last-reviewed: 2026-03-03
+    current-version: "v3.0.0"
     upstream-source: https://github.com/teslamate-org/teslamate/releases
 
   - name: transmission

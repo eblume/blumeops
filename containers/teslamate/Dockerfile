@@ -1,17 +1,17 @@
 # TeslaMate - Tesla data logger
 # Based on upstream Dockerfile
 
-ARG CONTAINER_APP_VERSION=v2.2.0
+ARG CONTAINER_APP_VERSION=v3.0.0
 ARG TESLAMATE_VERSION=${CONTAINER_APP_VERSION}
 
-FROM elixir:1.18-otp-26 AS builder
+FROM elixir:1.19.5-otp-26 AS builder
 
 ARG TESLAMATE_VERSION
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN apt-get update \
-    && apt-get install -y ca-certificates curl gnupg git \
+    && apt-get install -y ca-certificates curl gnupg git zstd brotli \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
      | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
@@ -43,7 +43,7 @@ RUN mix compile
 RUN SKIP_LOCALE_DOWNLOAD=true mix release --path /opt/built
 
 # Runtime image
-FROM debian:bookworm-slim AS app
+FROM debian:trixie-slim AS app
 
 ENV LANG=C.UTF-8 \
     SRTM_CACHE=/opt/app/.srtm_cache \
@@ -54,7 +54,7 @@ WORKDIR $HOME
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libodbc2 \
         libsctp1 \
-        libssl3 \
+        libssl3t64 \
         libstdc++6 \
         netcat-openbsd \
         tini \
@@ -65,11 +65,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --uid 10000 --system --gid nonroot --home-dir /home/nonroot --shell /sbin/nologin nonroot \
     && chown -R nonroot:nonroot .
 
-COPY entrypoint.sh /
-COPY --from=builder /opt/built .
-RUN chmod 555 /entrypoint.sh && \
-    chown -R nonroot:nonroot . && \
-    mkdir $SRTM_CACHE
+COPY --chown=nonroot:nonroot --chmod=555 entrypoint.sh /
+COPY --from=builder --chown=nonroot:nonroot /opt/built .
+RUN mkdir $SRTM_CACHE
 
 USER nonroot:nonroot
 
