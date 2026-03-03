@@ -19,6 +19,7 @@ Dashboards and visualization for BlumeOps observability.
 | **Namespace** | `monitoring` |
 | **Deployment** | Kustomize (`argocd/manifests/grafana/`) |
 | **Image** | `registry.ops.eblu.me/blumeops/grafana` |
+| **Sidecar Image** | `registry.ops.eblu.me/blumeops/grafana-sidecar` |
 
 ## Authentication
 
@@ -58,6 +59,7 @@ Optional annotation: `grafana_folder: "FolderName"`
 ## Related
 
 - [[build-grafana-container]] - Home-built container image
+- [[build-grafana-sidecar]] - Home-built sidecar container
 - [[kustomize-grafana-deployment]] - Kustomize manifest structure
 - [[authentik]] - OIDC identity provider for SSO
 - [[prometheus]] - Metrics datasource

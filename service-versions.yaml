@@ -87,6 +87,13 @@ services:
     upstream-source: https://github.com/grafana/grafana/releases
     notes: Home-built container; upgrading to 12.x via Mikado chain
 
+  - name: grafana-sidecar
+    type: argocd
+    last-reviewed: "2026-03-03"
+    current-version: "1.28.0"
+    upstream-source: https://github.com/kiwigrid/k8s-sidecar/releases
+    notes: Dashboard ConfigMap watcher sidecar in grafana deployment
+
   - name: cloudnative-pg
     type: argocd
     last-reviewed: 2026-02-24

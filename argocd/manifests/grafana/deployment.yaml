@@ -48,7 +48,7 @@ spec:
       containers:
         # Dashboard sidecar - watches ConfigMaps with grafana_dashboard=1
         - name: grafana-sc-dashboard
-          image: quay.io/kiwigrid/k8s-sidecar
+          image: registry.ops.eblu.me/blumeops/grafana-sidecar
           imagePullPolicy: IfNotPresent
           env:
             - name: METHOD

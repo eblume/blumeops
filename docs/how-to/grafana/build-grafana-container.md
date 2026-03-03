@@ -31,13 +31,10 @@ mise run container-build-and-release grafana
 - **Binary PATH:** The binary lives at `bin/grafana` inside the extracted directory. The Dockerfile sets `ENV PATH="/usr/share/grafana/bin:$PATH"`.
 - **UID 472:** Matches the official Grafana image for PVC ownership compatibility.
 
-## Future Work
-
-The k8s-sidecar image (`quay.io/kiwigrid/k8s-sidecar`) is still pulled from upstream. Replace with a home-built image when prioritized.
-
 ## Related
 
 - [[grafana]] — Service reference card
 - [[upgrade-grafana]] — Migration context
 - [[kustomize-grafana-deployment]] — Kustomize manifest structure
+- [[build-grafana-sidecar]] — Home-built sidecar container
 - [[build-container-image]] — Standard container build workflow

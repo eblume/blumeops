@@ -16,7 +16,7 @@ Grafana is deployed via plain Kustomize manifests in `argocd/manifests/grafana/`
 | File | Purpose |
 |------|---------|
 | `kustomization.yaml` | Resource list + configMapGenerator for config files |
-| `deployment.yaml` | Grafana container + k8s-sidecar for dashboards |
+| `deployment.yaml` | Grafana container + home-built k8s-sidecar for dashboards |
 | `service.yaml` | ClusterIP on port 80 → 3000 |
 | `pvc.yaml` | 1Gi SQLite storage |
 | `grafana.ini` | Grafana server configuration (fed to configMapGenerator) |
@@ -34,4 +34,5 @@ Grafana is deployed via plain Kustomize manifests in `argocd/manifests/grafana/`
 ## Related
 
 - [[upgrade-grafana]] — Migration context
+- [[build-grafana-sidecar]] — Home-built sidecar container
 - [[grafana]] — Service reference card

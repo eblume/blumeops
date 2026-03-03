@@ -114,6 +114,7 @@ Mikado chain for upgrading Grafana to 12.x with kustomize and home-built contain
 - [[upgrade-grafana]]
 - [[kustomize-grafana-deployment]]
 - [[build-grafana-container]]
+- [[build-grafana-sidecar]]
 
 ## Forgejo Runner
 
