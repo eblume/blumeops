@@ -1,3 +1,6 @@
+database:
+  path: /db/frigate.db
+
 mqtt:
   host: mosquitto.mqtt.svc.cluster.local
   port: 1883
