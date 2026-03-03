@@ -12,6 +12,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.12.1] - 2026-03-02
+
+### Features
+
+- Mikado branch invariant hook now rejects `impl` commits that modify Mikado card files (docs with `requires:`, `status:`, or `branch: mikado/` frontmatter).
+
+### Infrastructure
+
+- Switch git hooks from pre-commit to [prek](https://github.com/j178/prek), a faster Rust-native drop-in replacement. Adds built-in checks for case conflicts, private key detection, and executable shebangs. Configuration migrated from `.pre-commit-config.yaml` to `prek.toml`.
+
+### Documentation
+
+- Review build-authentik-from-source Mikado chain: fix go-server-derivation path errors, remove stale DRF fork content from mirror doc, add last-reviewed to all cards.
+
+
 ## [v1.12.0] - 2026-03-01
 
 ### Bug Fixes

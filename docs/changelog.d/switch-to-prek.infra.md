@@ -1,1 +1,0 @@
-Switch git hooks from pre-commit to [prek](https://github.com/j178/prek), a faster Rust-native drop-in replacement. Adds built-in checks for case conflicts, private key detection, and executable shebangs. Configuration migrated from `.pre-commit-config.yaml` to `prek.toml`.
