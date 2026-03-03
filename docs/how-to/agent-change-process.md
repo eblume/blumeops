@@ -281,7 +281,7 @@ tags:
 | `mise run docs-mikado --resume` | Resume a chain: detect branch, show state and next steps |
 | `mise run docs-mikado --resume <chain>` | Resume a specific chain with branch consistency check |
 
-The `mikado-branch-invariant-check` commit-msg hook runs automatically on `mikado/*` branches, validating commit message conventions and invariant ordering. Requires `uvx pre-commit install --hook-type commit-msg`.
+The `mikado-branch-invariant-check` commit-msg hook runs automatically on `mikado/*` branches, validating commit message conventions and invariant ordering. Requires `prek install --hook-type commit-msg`.
 
 ## Related
 

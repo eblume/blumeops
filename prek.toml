@@ -1,0 +1,169 @@
+# prek.toml - Git hooks configuration
+# Run: prek run --all-files
+# Install: prek install && prek install --hook-type commit-msg
+
+# Built-in hooks (fast, Rust-native — no external dependencies)
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace" },
+  { id = "end-of-file-fixer" },
+  { id = "check-added-large-files", args = [
+    "--maxkb=1000",
+  ] },
+  { id = "check-merge-conflict" },
+  { id = "check-json" },
+  { id = "check-toml" },
+  { id = "check-case-conflict" },
+  { id = "detect-private-key" },
+  { id = "check-executables-have-shebangs" },
+]
+
+# check-yaml with --unsafe (builtin fast path doesn't support --unsafe yet)
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v6.0.0"
+hooks = [{ id = "check-yaml", args = ["--unsafe"] }]
+
+# Secret detection
+[[repos]]
+repo = "https://github.com/trufflesecurity/trufflehog"
+rev = "v3.93.4"
+hooks = [
+  { id = "trufflehog", entry = "trufflehog git file://. --since-commit HEAD --no-verification --fail", stages = [
+    "pre-commit",
+    "pre-push",
+  ] },
+]
+
+# YAML linting
+[[repos]]
+repo = "https://github.com/adrienverge/yamllint"
+rev = "v1.38.0"
+hooks = [{ id = "yamllint", args = ["-c", ".yamllint.yaml"] }]
+
+# Ansible linting
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "ansible-lint"
+name = "ansible-lint"
+entry = "env ANSIBLE_ROLES_PATH=ansible/roles ansible-lint"
+language = "python"
+files = "^ansible/"
+additional_dependencies = ["ansible-lint>=26.1.1", "ansible-core>=2.15"]
+
+# Python - ruff for linting and formatting
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.15.2"
+hooks = [{ id = "ruff", args = ["--fix"] }, { id = "ruff-format" }]
+
+# Shell scripts - shellcheck and shfmt
+[[repos]]
+repo = "https://github.com/shellcheck-py/shellcheck-py"
+rev = "v0.11.0.1"
+hooks = [{ id = "shellcheck", args = ["--severity=warning"] }]
+
+[[repos]]
+repo = "https://github.com/scop/pre-commit-shfmt"
+rev = "v3.12.0-2"
+hooks = [{ id = "shfmt", args = ["-i", "2", "-ci", "-bn"] }]
+
+# TOML - taplo
+[[repos]]
+repo = "https://github.com/ComPWA/taplo-pre-commit"
+rev = "v0.9.3"
+hooks = [{ id = "taplo-format" }, { id = "taplo-lint" }]
+
+# JSON formatting (prettier for consistent style)
+[[repos]]
+repo = "https://github.com/rbubley/mirrors-prettier"
+rev = "v3.8.1"
+hooks = [{ id = "prettier", types_or = ["json"], args = ["--tab-width", "2"] }]
+
+# GitHub/Forgejo Actions workflow linting
+[[repos]]
+repo = "https://github.com/rhysd/actionlint"
+rev = "v1.7.11"
+hooks = [
+  { id = "actionlint-system", args = [
+    "-config-file",
+    ".github/actionlint.yaml",
+  ], files = '\.forgejo/workflows/' },
+]
+
+# Custom local hooks
+
+# Forgejo workflow schema validation (via Dagger + forgejo-runner validate)
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "validate-workflows"
+name = "validate-workflows"
+entry = "mise run validate-workflows"
+language = "system"
+files = '\.forgejo/workflows/'
+pass_filenames = false
+
+# Container version consistency
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "container-version-check"
+name = "container-version-check"
+entry = "mise run container-version-check"
+language = "system"
+files = "^(containers/|service-versions\\.yaml)"
+pass_filenames = false
+
+# Mikado Branch Invariant (C2 changes)
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "mikado-branch-invariant-check"
+name = "mikado-branch-invariant-check"
+entry = "mise run mikado-branch-invariant-check"
+language = "system"
+always_run = true
+stages = ["commit-msg"]
+
+# Documentation validation
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "docs-check-filenames"
+name = "docs-check-filenames"
+entry = "mise run docs-check-filenames"
+language = "system"
+files = '^docs/.*\.md$'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "docs-check-links"
+name = "docs-check-links"
+entry = "mise run docs-check-links"
+language = "system"
+files = '^docs/.*\.md$'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "docs-check-index"
+name = "docs-check-index"
+entry = "mise run docs-check-index"
+language = "system"
+files = '^docs/.*\.md$'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "docs-check-frontmatter"
+name = "docs-check-frontmatter"
+entry = "mise run docs-check-frontmatter"
+language = "system"
+files = '^docs/.*\.md$'
+pass_filenames = false

@@ -17,7 +17,7 @@ Monthly maintenance cycle for updating development tooling and CI dependencies. 
 
 | Category | Location | What to check |
 |----------|----------|---------------|
-| Pre-commit hooks | `.pre-commit-config.yaml` | `rev:` tags for all remote repos |
+| Prek hooks | `prek.toml` | `rev:` tags for all remote repos |
 | Fly.io proxy | `fly/Dockerfile` | Pinned image tags (nginx, alloy) |
 | Mise task scripts | `mise-tasks/*` | Python `# dependencies` lower bounds |
 | Forgejo workflows | `.forgejo/workflows/*.yaml` | `uses:` action versions |
@@ -26,14 +26,14 @@ Out of scope: ArgoCD-deployed service images, Ansible role versions, NixOS flake
 
 ## Procedure
 
-### 1. Check pre-commit hook versions
+### 1. Check prek hook versions
 
-For each repo in `.pre-commit-config.yaml` with a `rev:` tag, check the upstream GitHub releases page for a newer tag. Update each `rev:` to the latest release tag. Also check `additional_dependencies` entries for PyPI version bumps.
+For each repo in `prek.toml` with a `rev =` value, check the upstream GitHub releases page for a newer tag. Update each `rev` to the latest release tag. Also check `additional_dependencies` entries for PyPI version bumps.
 
 Verify after updating:
 
 ```fish
-uvx pre-commit run --all-files
+prek run --all-files
 ```
 
 ### 2. Check Fly.io Dockerfile pins
@@ -77,5 +77,5 @@ Create a single PR with all dependency bumps. The changelog fragment type is `in
 ## Notes
 
 - **Alloy version gaps**: Grafana Alloy releases frequently. Large version jumps (e.g., v1.5 to v1.13) are normal and generally safe — check the [changelog](https://github.com/grafana/alloy/releases) for breaking changes in the Alloy River config syntax.
-- **Ruff minor bumps**: Ruff adds new lint rules in minor versions. A bump may surface new warnings. Run `uvx pre-commit run ruff --all-files` to check before committing.
+- **Ruff minor bumps**: Ruff adds new lint rules in minor versions. A bump may surface new warnings. Run `prek run ruff --all-files` to check before committing.
 - **shellcheck bumps**: New shellcheck versions may flag previously-ignored patterns. Review any new failures before updating.

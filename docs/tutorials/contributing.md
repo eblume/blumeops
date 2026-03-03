@@ -27,7 +27,7 @@ The repo includes a `Brewfile` and `mise.toml` for easy setup, but these are opt
 
 - `tea` - Gitea/Forgejo CLI for creating PRs
 - `argocd` - ArgoCD CLI for deployments
-- `pre-commit` - Git hooks for validation
+- `prek` - Git hooks for validation
 
 ### Using Brewfile (Optional)
 
@@ -42,12 +42,12 @@ Mise manages language toolchains and runs tasks:
 mise install  # installs Python, Node.js, etc. from mise.toml
 ```
 
-### Pre-commit Hooks
+### Git Hooks (prek)
 
-Pre-commit hooks validate changes on `git commit`:
+Git hooks validate changes on `git commit`:
 ```bash
-pre-commit install
-pre-commit run --all-files  # verify setup
+prek install
+prek run --all-files  # verify setup
 ```
 
 All hooks should pass on a fresh clone.

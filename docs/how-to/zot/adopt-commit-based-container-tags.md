@@ -42,7 +42,7 @@ Each container's version is extracted at build time from existing declarations â
 - **Dockerfile builds**: parsed from `ARG CONTAINER_APP_VERSION=<value>` in the Dockerfile
 - **Nix builds**: extracted from `version = "..."` in `default.nix`, or `CONTAINER_APP_VERSION` from the Dockerfile, or `dagger call nix-version` for nixpkgs packages
 
-The [[add-container-version-sync-check]] pre-commit check ensures these declarations stay in sync with `service-versions.yaml`. See [[pin-container-versions]] for the work to ensure every container has a parseable version.
+The [[add-container-version-sync-check]] prek check ensures these declarations stay in sync with `service-versions.yaml`. See [[pin-container-versions]] for the work to ensure every container has a parseable version.
 
 ### Image Tag Format
 

@@ -6,4 +6,4 @@ This directory contains configuration for GitHub-ecosystem tooling only.
 
 ## Contents
 
-- `actionlint.yaml` - Configuration for actionlint pre-commit hook (custom runner labels)
+- `actionlint.yaml` - Configuration for actionlint prek hook (custom runner labels)

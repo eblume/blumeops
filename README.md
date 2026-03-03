@@ -58,12 +58,12 @@ You'll need [Homebrew](https://brew.sh) and [mise](https://mise.jdx.dev):
 ```bash
 brew bundle                    # install CLI tools (argocd, tea, flyctl, etc.)
 mise install                   # install managed toolchains (ansible, pulumi, dagger, etc.)
-uvx pre-commit install         # set up pre-commit hooks
+prek install                    # set up git hooks
 ```
 
-Pre-commit hooks enforce secret scanning (TruffleHog), linting, formatting, and
-custom checks like doc link validation and the Mikado branch invariant. Run
-them manually with `uvx pre-commit run --all-files`.
+Git hooks (via [prek](https://github.com/j178/prek)) enforce secret scanning
+(TruffleHog), linting, formatting, and custom checks like doc link validation
+and the Mikado branch invariant. Run them manually with `prek run --all-files`.
 
 Operational tasks are driven through mise. Run `mise tasks` to see what's
 available. Key examples:

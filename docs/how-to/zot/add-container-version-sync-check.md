@@ -14,7 +14,7 @@ tags:
 
 # Add Container Version Sync Check
 
-Add a pre-commit check that validates version consistency across the three places container versions are declared: Dockerfile ARGs, `service-versions.yaml`, and nix derivations. No VERSION files needed — the existing sources are the source of truth, and the check enforces they agree.
+Add a prek check that validates version consistency across the three places container versions are declared: Dockerfile ARGs, `service-versions.yaml`, and nix derivations. No VERSION files needed — the existing sources are the source of truth, and the check enforces they agree.
 
 ## Context
 
@@ -38,7 +38,7 @@ Blacklisted containers (utility images, not tracked services): `kubectl`, `nette
 
 Container-to-service name mapping: `quartz` → `docs`, `kiwix-serve` → `kiwix`.
 
-### 2. Added pre-commit hook
+### 2. Added prek hook
 
 ```yaml
 - id: container-version-check
@@ -62,7 +62,7 @@ The check discovered that ntfy's Dockerfile pins v2.17.0 but nixpkgs has ntfy-sh
 | File | Change |
 |------|--------|
 | `mise-tasks/container-version-check` | New: typer CLI sync validation script |
-| `.pre-commit-config.yaml` | Add `container-version-check` hook |
+| `prek.toml` | Add `container-version-check` hook |
 | `service-versions.yaml` | Populate `current-version` for all hybrid services + authentik |
 
 ## Verification

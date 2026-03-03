@@ -28,7 +28,7 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 | [[expose-service-publicly]] | Expose a service to the public internet via Fly.io + Tailscale |
 | [[manage-forgejo-mirrors]] | Create mirrors, update PATs, and rotate GitHub credentials |
 | [[update-documentation]] | Publish docs via build-blumeops workflow |
-| [[update-tooling-dependencies]] | Monthly update cycle for pre-commit, Fly, mise, and workflow deps |
+| [[update-tooling-dependencies]] | Monthly update cycle for prek hooks, Fly, mise, and workflow deps |
 
 ## Knowledge Base
 
