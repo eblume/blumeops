@@ -155,8 +155,10 @@ in
     extraUpFlags = [ "--accept-routes" "--ssh" ];
   };
 
-  # Trust Tailscale interface (ArgoCD on indri connects via tailnet)
-  networking.firewall.trustedInterfaces = [ "tailscale0" ];
+  # Trust Tailscale and k3s CNI interfaces
+  # - tailscale0: ArgoCD on indri connects via tailnet
+  # - cni0/flannel.1: k3s pod overlay network (pods must reach host API server)
+  networking.firewall.trustedInterfaces = [ "tailscale0" "cni0" "flannel.1" ];
 
   # SSH
   services.openssh = {
