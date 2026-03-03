@@ -93,7 +93,7 @@ Container image tags include the git commit SHA they were built from (e.g. `v3.9
 **The rule:** Production manifests must reference images built from a commit on main. After merging a PR that changed `containers/<name>/`:
 
 1. The merge to main automatically triggers a rebuild (the `build-container.yaml` / `build-container-nix.yaml` workflows fire on pushes to `main` that touch `containers/**`)
-2. Wait for the workflow to complete — check at `https://forge.ops.eblu.me/eblume/blumeops/actions`
+2. Wait for the workflow to complete — check at `https://forge.eblu.me/eblume/blumeops/actions`
 3. Find the new main-SHA tag:
    ```bash
    mise run container-list <name>

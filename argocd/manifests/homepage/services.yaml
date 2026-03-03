@@ -1,11 +1,11 @@
 - Host Services:
     - Forgejo:
-        href: https://forge.ops.eblu.me
+        href: https://forge.eblu.me
         icon: forgejo
         description: Git forge
         widget:
           type: gitea
-          url: https://forge.ops.eblu.me
+          url: https://forge.eblu.me
           key: "{{HOMEPAGE_VAR_FORGEJO_API_KEY}}"
     - Registry:
         href: https://registry.ops.eblu.me

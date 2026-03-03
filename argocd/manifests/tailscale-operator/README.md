@@ -73,7 +73,6 @@ kubectl logs -n tailscale -l app.kubernetes.io/name=operator
 | `operator.yaml` | Operator deployment, CRDs, RBAC (secret removed) |
 | `proxyclass.yaml` | ProxyClass with fully-qualified images |
 | `dnsconfig.yaml` | DNSConfig for cluster-to-tailnet name resolution |
-| `egress-forge.yaml` | Egress proxy for accessing forge on indri |
 | `secret.yaml.tpl` | 1Password template for OAuth credentials (manual) |
 | `README.md` | This file |
 
@@ -86,5 +85,3 @@ kubectl logs -n tailscale -l app.kubernetes.io/name=operator
   annotations:
     tailscale.com/proxy-class: "default"
   ```
-- The egress proxy for forge is **deprecated**. Forge is now accessible via Caddy at
-  `forge.ops.eblu.me` (HTTPS) and `forge.ops.eblu.me:2222` (SSH), which pods can reach directly.

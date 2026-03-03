@@ -27,7 +27,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-FORGE_API = "https://forge.ops.eblu.me/api/v1"
+FORGE_API = "https://forge.eblu.me/api/v1"
 REPO = "eblume/blumeops"
 ACTIONS_LOG_DIR = "/opt/homebrew/var/forgejo/data/actions_log/eblume/blumeops"
 

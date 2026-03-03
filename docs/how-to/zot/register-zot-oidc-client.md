@@ -12,7 +12,7 @@ tags:
 
 Register a zot OAuth2 provider and application in Authentik via blueprint, following the same pattern as Grafana and Forgejo.
 
-Completed in PR [#236](https://forge.ops.eblu.me/eblume/blumeops/pulls/236).
+Completed in PR [#236](https://forge.eblu.me/eblume/blumeops/pulls/236).
 
 ## What Was Done
 

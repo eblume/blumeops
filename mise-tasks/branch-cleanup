@@ -44,7 +44,7 @@ from rich.console import Console
 from rich.table import Table
 
 PROTECTED_BRANCHES = {"main", "master"}
-FORGE_API = "https://forge.ops.eblu.me/api/v1"
+FORGE_API = "https://forge.eblu.me/api/v1"
 REPO_OWNER = "eblume"
 REPO_NAME = "blumeops"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"

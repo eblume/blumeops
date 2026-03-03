@@ -16,7 +16,7 @@ This tutorial walks through making your first contribution to BluemeOps - from u
 
 Before contributing, you'll need:
 - Access to the [[tailscale|Tailscale]] network (request from Erich)
-- SSH key added to [[forgejo|Forgejo]] (https://forge.ops.eblu.me)
+- SSH key added to [[forgejo|Forgejo]] (https://forge.eblu.me)
 - Development tools installed (see below)
 
 ## Tooling Setup

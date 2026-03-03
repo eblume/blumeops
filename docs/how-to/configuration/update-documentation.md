@@ -20,7 +20,7 @@ After merging documentation changes to main:
 2. Select version bump type (patch/minor/major) or enter a specific version
 3. The workflow builds, releases, and deploys automatically
 
-Direct link: https://forge.ops.eblu.me/eblume/blumeops/actions?workflow=build-blumeops.yaml
+Direct link: https://forge.eblu.me/eblume/blumeops/actions?workflow=build-blumeops.yaml
 
 ## What the Workflow Does
 

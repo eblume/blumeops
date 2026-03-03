@@ -76,6 +76,15 @@ cv_public = gandi.livedns.Record(
     values=["blumeops-proxy.fly.dev."],
 )
 
+forge_public = gandi.livedns.Record(
+    "forge-public",
+    zone=domain,
+    name="forge",
+    type="CNAME",
+    ttl=300,
+    values=["blumeops-proxy.fly.dev."],
+)
+
 # ============== Exports ==============
 pulumi.export("domain", domain)
 pulumi.export("wildcard_fqdn", f"*.{subdomain}.{domain}")
@@ -83,3 +92,4 @@ pulumi.export("base_fqdn", f"{subdomain}.{domain}")
 pulumi.export("target_ip", tailscale_ip)
 pulumi.export("docs_public_fqdn", f"docs.{domain}")
 pulumi.export("cv_public_fqdn", f"cv.{domain}")
+pulumi.export("forge_public_fqdn", f"forge.{domain}")

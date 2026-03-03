@@ -21,7 +21,7 @@ import httpx
 import typer
 
 REGISTRY = "registry.ops.eblu.me"
-FORGE_URL = "https://forge.ops.eblu.me"
+FORGE_URL = "https://forge.eblu.me"
 FORGE_API = f"{FORGE_URL}/api/v1"
 REPO = "eblume/blumeops"
 FORGE_ACTIONS = f"{FORGE_URL}/{REPO}/actions"

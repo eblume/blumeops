@@ -11,7 +11,7 @@
 #   3. The workflow creates a release with attached artifacts
 #
 # Documentation asset URL:
-#   https://forge.ops.eblu.me/eblume/blumeops/releases/download/<tag>/docs-<version>.tar.gz
+#   https://forge.eblu.me/eblume/blumeops/releases/download/<tag>/docs-<version>.tar.gz
 
 name: Build BlumeOps
 
@@ -46,7 +46,7 @@ jobs:
 
           # Fetch latest release
           echo "Fetching latest release..."
-          LATEST=$(curl -s "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/latest" | jq -r '.tag_name // empty' || true)
+          LATEST=$(curl -s "https://forge.eblu.me/api/v1/repos/eblume/blumeops/releases/latest" | jq -r '.tag_name // empty' || true)
 
           if [ -z "$LATEST" ]; then
             LATEST="v0.0.0"
@@ -94,9 +94,9 @@ jobs:
           esac
 
           # Check if this version already exists
-          if curl -sf "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/tags/$VERSION" > /dev/null 2>&1; then
+          if curl -sf "https://forge.eblu.me/api/v1/repos/eblume/blumeops/releases/tags/$VERSION" > /dev/null 2>&1; then
             echo "Error: Release $VERSION already exists"
-            echo "See: https://forge.ops.eblu.me/eblume/blumeops/releases/tag/$VERSION"
+            echo "See: https://forge.eblu.me/eblume/blumeops/releases/tag/$VERSION"
             exit 1
           fi
 
@@ -181,7 +181,7 @@ jobs:
             echo "Download \`$TARBALL\` and configure the quartz container with:"
             echo ""
             echo "\`\`\`"
-            echo "DOCS_RELEASE_URL=https://forge.ops.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL"
+            echo "DOCS_RELEASE_URL=https://forge.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL"
             echo "\`\`\`"
           } > /tmp/release_body.txt
 
@@ -197,7 +197,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Authorization: token $GITHUB_TOKEN" \
             -d "$RELEASE_DATA" \
-            "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases")
+            "https://forge.eblu.me/api/v1/repos/eblume/blumeops/releases")
 
           echo "API Response: $RELEASE_RESPONSE"
 
@@ -217,7 +217,7 @@ jobs:
             -H "Content-Type: application/gzip" \
             -H "Authorization: token $GITHUB_TOKEN" \
             --data-binary "@$TARBALL" \
-            "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/$RELEASE_ID/assets?name=$TARBALL")
+            "https://forge.eblu.me/api/v1/repos/eblume/blumeops/releases/$RELEASE_ID/assets?name=$TARBALL")
 
           echo "Upload Response: $UPLOAD_RESPONSE"
           echo ""
@@ -228,7 +228,7 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           TARBALL="docs-${VERSION}.tar.gz"
           DEPLOYMENT_FILE="argocd/manifests/docs/deployment.yaml"
-          RELEASE_URL="https://forge.ops.eblu.me/eblume/blumeops/releases/download/${VERSION}/${TARBALL}"
+          RELEASE_URL="https://forge.eblu.me/eblume/blumeops/releases/download/${VERSION}/${TARBALL}"
 
           echo "Updating $DEPLOYMENT_FILE with new release URL..."
           yq -i "(.spec.template.spec.containers[0].env[] | select(.name == \"DOCS_RELEASE_URL\")).value = \"${RELEASE_URL}\"" "$DEPLOYMENT_FILE"
@@ -307,7 +307,7 @@ jobs:
           echo "================================================"
           echo ""
           echo "Release URL:"
-          echo "  https://forge.ops.eblu.me/eblume/blumeops/releases/tag/$VERSION"
+          echo "  https://forge.eblu.me/eblume/blumeops/releases/tag/$VERSION"
           echo ""
           echo "Asset URL (for DOCS_RELEASE_URL ConfigMap):"
-          echo "  https://forge.ops.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL"
+          echo "  https://forge.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL"

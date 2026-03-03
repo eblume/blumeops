@@ -18,8 +18,8 @@ forgejo_log_path: "{{ forgejo_work_path }}/log"
 # Server settings
 forgejo_http_addr: 0.0.0.0
 forgejo_http_port: 3001
-forgejo_domain: forge.ops.eblu.me
-forgejo_ssh_domain: "{{ forgejo_domain }}"
+forgejo_domain: forge.eblu.me
+forgejo_ssh_domain: forge.ops.eblu.me
 forgejo_root_url: "https://{{ forgejo_domain }}/"
 forgejo_offline_mode: true
 

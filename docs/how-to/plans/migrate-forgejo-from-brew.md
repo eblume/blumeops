@@ -32,7 +32,7 @@ https://codeberg.org/forgejo/forgejo.git
 Add the forge mirror as a secondary remote for convenience and backup:
 
 ```
-https://forge.ops.eblu.me/mirrors/forgejo.git
+https://forge.eblu.me/mirrors/forgejo.git
 ```
 
 ## One-Time Migration Steps
@@ -48,7 +48,7 @@ ssh indri 'git clone https://codeberg.org/forgejo/forgejo.git ~/code/3rd/forgejo
 ### 2. Add Forge Mirror as Secondary Remote
 
 ```fish
-ssh indri 'cd ~/code/3rd/forgejo && git remote add forge https://forge.ops.eblu.me/mirrors/forgejo.git'
+ssh indri 'cd ~/code/3rd/forgejo && git remote add forge https://forge.eblu.me/mirrors/forgejo.git'
 ```
 
 ### 3. Check Out the Desired Version Tag
@@ -155,7 +155,7 @@ Replace brew install/start with binary-check + LaunchAgent pattern (matching `an
 #    ssh indri 'git clone https://codeberg.org/forgejo/forgejo.git ~/code/3rd/forgejo'
 #
 # 2. Add forge mirror as secondary remote:
-#    ssh indri 'cd ~/code/3rd/forgejo && git remote add forge https://forge.ops.eblu.me/mirrors/forgejo.git'
+#    ssh indri 'cd ~/code/3rd/forgejo && git remote add forge https://forge.eblu.me/mirrors/forgejo.git'
 #
 # 3. Set up Go and Node via mise:
 #    ssh indri 'cd ~/code/3rd/forgejo && mise use go@1.24 node@20'
@@ -275,7 +275,7 @@ No changes needed — paths already flow through variables in `defaults/main.yml
 After running the migration and Ansible:
 
 - [ ] `ssh indri 'launchctl list mcquack.eblume.forgejo'` — shows running
-- [ ] `curl https://forge.ops.eblu.me/api/v1/version` — returns JSON with version
+- [ ] `curl https://forge.eblu.me/api/v1/version` — returns JSON with version
 - [ ] Git clone over SSH: `git clone ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git /tmp/test-clone`
 - [ ] Git push works on an existing clone
 - [ ] Ansible dry-run is clean: `mise run provision-indri -- --tags forgejo --check --diff`

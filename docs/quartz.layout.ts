@@ -14,7 +14,7 @@ export const sharedPageComponents: SharedLayout = {
   footer: Component.Footer({
     links: {
       "GitHub": "https://github.com/eblume/blumeops",
-      "Forge": "https://forge.ops.eblu.me/eblume/blumeops",
+      "Forge": "https://forge.eblu.me/eblume/blumeops",
     },
   }),
 }

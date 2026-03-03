@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://forge.ops.eblu.me/eblume/blumeops.git
+    repoURL: https://forge.eblu.me/eblume/blumeops.git
     targetRevision: main
     path: argocd/manifests/forgejo-runner
   destination:

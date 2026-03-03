@@ -25,7 +25,7 @@ spec:
             - name: DOCKER_HOST
               value: tcp://localhost:2375
             - name: FORGEJO_URL
-              value: "https://forge.ops.eblu.me"
+              value: "https://forge.eblu.me"
             - name: RUNNER_NAME
               value: "k8s-runner"
             - name: RUNNER_LABELS

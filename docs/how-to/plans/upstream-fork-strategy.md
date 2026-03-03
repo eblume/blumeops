@@ -209,7 +209,7 @@ This fork directly supports the [[adopt-dagger-ci]] plan. Once the fork exists, 
 
 # After (using the BlumeOps fork):
 .with_exec(["git", "clone", "--depth=1", "--branch=blumeops",
-             "https://forge.ops.eblu.me/mirrors/quartz.git", "/tmp/quartz"])
+             "https://forge.eblu.me/mirrors/quartz.git", "/tmp/quartz"])
 ```
 
 This means the `build-blumeops.yaml` workflow automatically picks up fork customizations (like `last-reviewed` rendering) when building docs — no separate integration step needed. Local iteration via `dagger call build-docs` also uses the fork, so you can test Quartz customizations against actual BlumeOps content before pushing.

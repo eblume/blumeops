@@ -30,7 +30,7 @@ jobs:
 
           if [ "$INPUT_VERSION" = "latest" ]; then
             echo "Resolving latest CV package version..."
-            VERSION=$(curl -s "https://forge.ops.eblu.me/api/v1/packages/eblume?type=generic&q=cv" \
+            VERSION=$(curl -s "https://forge.eblu.me/api/v1/packages/eblume?type=generic&q=cv" \
               | jq -r '[.[] | select(.name == "cv")] | sort_by(.version) | last | .version // empty')
 
             if [ -z "$VERSION" ]; then
@@ -48,7 +48,7 @@ jobs:
 
           # Verify the package exists
           TARBALL="cv-${VERSION}.tar.gz"
-          PACKAGE_URL="https://forge.ops.eblu.me/api/packages/eblume/generic/cv/${VERSION}/${TARBALL}"
+          PACKAGE_URL="https://forge.eblu.me/api/packages/eblume/generic/cv/${VERSION}/${TARBALL}"
           if ! curl -fsSL --head "$PACKAGE_URL" > /dev/null 2>&1; then
             echo "Error: Package not found at $PACKAGE_URL"
             echo "Run the 'Release CV' workflow in the cv repo first."
@@ -65,7 +65,7 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           TARBALL="cv-${VERSION}.tar.gz"
           DEPLOYMENT_FILE="argocd/manifests/cv/deployment.yaml"
-          RELEASE_URL="https://forge.ops.eblu.me/api/packages/eblume/generic/cv/${VERSION}/${TARBALL}"
+          RELEASE_URL="https://forge.eblu.me/api/packages/eblume/generic/cv/${VERSION}/${TARBALL}"
 
           echo "Updating $DEPLOYMENT_FILE with CV_RELEASE_URL..."
           yq -i "(.spec.template.spec.containers[0].env[] | select(.name == \"CV_RELEASE_URL\")).value = \"${RELEASE_URL}\"" "$DEPLOYMENT_FILE"

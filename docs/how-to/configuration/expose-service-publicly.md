@@ -1,7 +1,7 @@
 ---
 title: Expose a Service Publicly
-modified: 2026-02-16
-last-reviewed: 2026-02-16
+modified: 2026-03-03
+last-reviewed: 2026-03-03
 tags:
   - how-to
   - fly-io
@@ -259,7 +259,7 @@ server {
 }
 ```
 
-**Dynamic service template** (e.g., Forgejo — hypothetical, not currently deployed):
+**Dynamic service template** (e.g., Forgejo — see `fly/nginx.conf` for the live configuration):
 
 ```nginx
 # --- forge.eblu.me (dynamic, authenticated) ---
@@ -440,32 +440,30 @@ see plan history in git).
 ### fail2ban
 
 fail2ban monitors log files for repeated failed authentication attempts
-(SSH brute force, bad login passwords, API abuse) and bans IPs via
-firewall rules.
+and bans offending IPs.
 
 **Static sites**: fail2ban does not apply. There is no login surface,
 no sessions, no credentials to brute force.
 
-**Dynamic services with authentication** (e.g., Forgejo): fail2ban is
-relevant and should be configured on **indri**, not on Fly.io. The
-nginx proxy is transparent — it forwards requests but does not see
-authentication outcomes. fail2ban watches the service's own logs on
-indri for patterns like repeated failed logins.
+**Dynamic services with authentication** (e.g., Forgejo): fail2ban
+runs in the **Fly.io container**, not on indri. Standard iptables
+banning won't work in Fly.io because `$remote_addr` is Fly's internal
+proxy IP, not the client. Instead, fail2ban uses a custom nginx-based
+ban action:
 
-Setup considerations for Forgejo specifically:
+1. fail2ban watches the nginx JSON access log for repeated 401/403
+   responses to login endpoints, keyed on the `client_ip` field
+   (populated from the `Fly-Client-IP` header)
+2. On ban, it appends the IP to `/etc/nginx/forge-deny.conf` and
+   reloads nginx
+3. nginx uses a `geo` directive keyed on `$http_fly_client_ip` to
+   check the deny list and return 403 for banned IPs
 
-- Forgejo logs failed auth attempts to its log file
-- fail2ban needs a filter matching Forgejo's log format
-- Banned IPs are blocked at indri's firewall (the Fly.io proxy IP is
-  the Tailscale address of the `flyio-proxy` node, not the end user's
-  IP)
-- **Important**: for fail2ban to see real client IPs, the nginx proxy
-  must pass `X-Real-IP` / `X-Forwarded-For` headers (included in the
-  dynamic service nginx config above), and Forgejo must be configured
-  to trust the proxy and log the forwarded IP rather than the proxy's
-  Tailscale IP
-- Disable open user registration before exposing Forgejo publicly —
-  require explicit invites
+Ban lists are **ephemeral across deploys** — nginx rate limiting
+provides the persistent baseline; fail2ban adds escalating bans for
+active attacks.
+
+See `fly/fail2ban/` for the filter, jail, and action configuration.
 
 ### Break-glass shutoff
 
@@ -504,7 +502,7 @@ dynamic, authenticated service like [[forgejo]].
 - [ ] Disable open user registration (require invites or admin approval)
 - [ ] Audit access controls and permissions
 - [ ] Configure the service to log the forwarded client IP (not the proxy IP)
-- [ ] Set up fail2ban on indri with a filter for the service's log format
+- [ ] Set up fail2ban in the Fly.io container with a filter for the service's login endpoints
 - [ ] Tag the service's Tailscale Ingress with `tag:flyio-target`
 - [ ] Test the nginx config locally or in staging before deploying
 - [ ] Rehearse the break-glass shutoff (`mise run fly-shutoff`)

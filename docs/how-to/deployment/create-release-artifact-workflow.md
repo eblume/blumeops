@@ -48,16 +48,16 @@ The upload step uses `FORGE_TOKEN`:
       -X PUT \
       -H "Authorization: token $FORGE_TOKEN" \
       --upload-file "./$TARBALL" \
-      "https://forge.ops.eblu.me/api/packages/eblume/generic/<package>/${VERSION}/${TARBALL}"
+      "https://forge.eblu.me/api/packages/eblume/generic/<package>/${VERSION}/${TARBALL}"
 ```
 
 ## 3. Link the package to the repo
 
-After the first successful upload, the package appears under your **user-level** packages at `https://forge.ops.eblu.me/eblume/-/packages` but is not yet linked to the repo.
+After the first successful upload, the package appears under your **user-level** packages at `https://forge.eblu.me/eblume/-/packages` but is not yet linked to the repo.
 
 To link it:
 
-1. Go to `https://forge.ops.eblu.me/eblume/-/packages`
+1. Go to `https://forge.eblu.me/eblume/-/packages`
 2. Click the package name
 3. Click **Settings**
 4. Under **Link this package to a repository**, select the repo

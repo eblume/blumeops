@@ -222,12 +222,12 @@ Migrate `build-blumeops.yaml` to use Dagger for the build logic and switch from 
 
 **Current:** Docs tarball uploaded as a Forgejo release asset.
 ```
-https://forge.ops.eblu.me/eblume/blumeops/releases/download/v1.5.2/docs-v1.5.2.tar.gz
+https://forge.eblu.me/eblume/blumeops/releases/download/v1.5.2/docs-v1.5.2.tar.gz
 ```
 
 **New:** Docs tarball uploaded to Forgejo generic packages registry.
 ```
-https://forge.ops.eblu.me/api/packages/eblume/generic/blumeops-docs/v1.6.0/docs-v1.6.0.tar.gz
+https://forge.eblu.me/api/packages/eblume/generic/blumeops-docs/v1.6.0/docs-v1.6.0.tar.gz
 ```
 
 This decouples the docs artifact from git releases while keeping the versioned URL pattern. Forgejo releases can still be created for changelog/announcement purposes without carrying the tarball.
@@ -290,13 +290,13 @@ async def upload_docs(
     async with httpx.AsyncClient() as client:
         with open(f"/tmp/docs-{version}.tar.gz", "rb") as f:
             resp = await client.put(
-                f"https://forge.ops.eblu.me/api/packages/eblume/generic/"
+                f"https://forge.eblu.me/api/packages/eblume/generic/"
                 f"blumeops-docs/{version}/docs-{version}.tar.gz",
                 headers={"Authorization": f"token {token}"},
                 content=f.read(),
             )
             resp.raise_for_status()
-    return f"https://forge.ops.eblu.me/api/packages/eblume/generic/blumeops-docs/{version}/docs-{version}.tar.gz"
+    return f"https://forge.eblu.me/api/packages/eblume/generic/blumeops-docs/{version}/docs-{version}.tar.gz"
 
 @function
 async def release_docs(
@@ -388,7 +388,7 @@ jobs:
       - name: Update manifest and commit
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          URL="https://forge.ops.eblu.me/api/packages/eblume/generic/blumeops-docs/${VERSION}/docs-${VERSION}.tar.gz"
+          URL="https://forge.eblu.me/api/packages/eblume/generic/blumeops-docs/${VERSION}/docs-${VERSION}.tar.gz"
           sed -i "s|value: \"https://.*\"|value: \"${URL}\"|" \
             argocd/manifests/docs/deployment.yaml
           git config user.name "Forgejo Actions"
@@ -405,11 +405,11 @@ The quartz container's `DOCS_RELEASE_URL` env var in `argocd/manifests/docs/depl
 ```yaml
 # Before (Forgejo releases):
 - name: DOCS_RELEASE_URL
-  value: "https://forge.ops.eblu.me/eblume/blumeops/releases/download/v1.5.2/docs-v1.5.2.tar.gz"
+  value: "https://forge.eblu.me/eblume/blumeops/releases/download/v1.5.2/docs-v1.5.2.tar.gz"
 
 # After (Forgejo generic packages):
 - name: DOCS_RELEASE_URL
-  value: "https://forge.ops.eblu.me/api/packages/eblume/generic/blumeops-docs/v1.6.0/docs-v1.6.0.tar.gz"
+  value: "https://forge.eblu.me/api/packages/eblume/generic/blumeops-docs/v1.6.0/docs-v1.6.0.tar.gz"
 ```
 
 The quartz container's `start.sh` already downloads from `DOCS_RELEASE_URL` via curl — no container changes needed, just the URL format changes.

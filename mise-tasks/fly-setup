@@ -22,6 +22,7 @@ echo "IPs allocated"
 # Add certs for all public domains (idempotent — fly ignores duplicates)
 fly certs add docs.eblu.me -a "$APP" 2>/dev/null || true
 fly certs add cv.eblu.me -a "$APP" 2>/dev/null || true
+fly certs add forge.eblu.me -a "$APP" 2>/dev/null || true
 echo "Certificates configured"
 
 echo "Done. Run 'mise run fly-deploy' to deploy."

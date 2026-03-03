@@ -7,5 +7,10 @@ namespace: tailscale
 resources:
   - ../tailscale-operator-base
   - proxygroup-ingress.yaml
-  - egress-forge.yaml
   - external-secret.yaml
+  - svc-forge-external.yaml
+  # endpoints-forge.yaml is NOT managed by ArgoCD — Endpoints are globally
+  # excluded in argocd-cm resource.exclusions (too noisy for auto-managed
+  # Endpoints). Apply manually:
+  #   kubectl --context=minikube-indri apply -f endpoints-forge.yaml
+  - ingress-forge.yaml

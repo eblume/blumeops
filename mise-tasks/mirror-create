@@ -6,7 +6,7 @@
 #USAGE flag "--dry-run" help="Show what would be done without creating"
 set -euo pipefail
 
-FORGE_API="https://forge.ops.eblu.me/api/v1"
+FORGE_API="https://forge.eblu.me/api/v1"
 ORG="mirrors"
 OP_TOKEN_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
 OP_GITHUB_PAT_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/github-mirror-pat"
@@ -72,7 +72,7 @@ http_code=$(curl -s -o /tmp/mirror-create-response.json -w "%{http_code}" \
     -d "$payload")
 
 if [[ "$http_code" == "201" ]]; then
-    echo "Created mirror: https://forge.ops.eblu.me/${ORG}/${repo_name}"
+    echo "Created mirror: https://forge.eblu.me/${ORG}/${repo_name}"
 else
     echo "Error (HTTP $http_code):"
     cat /tmp/mirror-create-response.json

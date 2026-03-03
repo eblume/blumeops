@@ -238,7 +238,7 @@ def classify_branch_position(commits: list[dict]) -> str:
     return "unknown"
 
 
-FORGE_API = "https://forge.ops.eblu.me/api/v1"
+FORGE_API = "https://forge.eblu.me/api/v1"
 
 
 def find_pr_for_branch(branch: str) -> dict | None:

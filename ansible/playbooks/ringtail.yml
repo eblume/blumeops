@@ -57,7 +57,7 @@
   tasks:
     - name: Ensure blumeops repo is present
       ansible.builtin.git:
-        repo: "https://forge.ops.eblu.me/eblume/blumeops.git"
+        repo: "https://forge.eblu.me/eblume/blumeops.git"
         dest: /etc/blumeops
         version: "{{ ringtail_commit | default('main') }}"
         force: true

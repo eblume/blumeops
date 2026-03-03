@@ -1,6 +1,6 @@
 ---
 title: Routing
-modified: 2026-02-09
+modified: 2026-03-03
 tags:
   - infrastructure
   - networking
@@ -49,6 +49,7 @@ DNS CNAMEs point to `blumeops-proxy.fly.dev`. TLS via Fly.io-managed Let's Encry
 | Service | URL | Description |
 |---------|-----|-------------|
 | [[docs]] | https://docs.eblu.me | Documentation site |
+| [[forgejo]] | https://forge.eblu.me | Git hosting (public) |
 
 ## Tailscale-Only Services
 

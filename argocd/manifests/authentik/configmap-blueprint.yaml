@@ -120,7 +120,7 @@ data:
           client_secret: !Env AUTHENTIK_FORGEJO_CLIENT_SECRET
           redirect_uris:
             - matching_mode: strict
-              url: https://forge.ops.eblu.me/user/oauth2/authentik/callback
+              url: https://forge.eblu.me/user/oauth2/authentik/callback
           signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
           property_mappings:
             - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
@@ -138,7 +138,7 @@ data:
           name: Forgejo
           slug: forgejo
           provider: !KeyOf forgejo-provider
-          meta_launch_url: https://forge.ops.eblu.me
+          meta_launch_url: https://forge.eblu.me
           policy_engine_mode: any
 
       # Policy binding — restrict Forgejo to admins group

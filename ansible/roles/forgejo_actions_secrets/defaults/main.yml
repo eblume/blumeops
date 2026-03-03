@@ -4,7 +4,7 @@
 # This role syncs repository-level Actions secrets from 1Password to Forgejo
 # via the Forgejo API.
 
-forgejo_actions_secrets_api_url: "https://forge.ops.eblu.me/api/v1"
+forgejo_actions_secrets_api_url: "https://forge.eblu.me/api/v1"
 forgejo_actions_secrets_owner: eblume
 
 # Secrets to sync per repo.

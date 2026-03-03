@@ -496,7 +496,7 @@ in
     instances.nix_container_builder = {
       enable = true;
       name = "ringtail-nix-builder";
-      url = "https://forge.ops.eblu.me";
+      url = "https://forge.eblu.me";
       tokenFile = "/etc/forgejo-runner/token.env";
       labels = [ "nix-container-builder:host" ];
       hostPackages = with pkgs; [

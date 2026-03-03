@@ -36,8 +36,8 @@ The `ak` wrapper script in `default.nix` sets PATH/VIRTUAL_ENV and delegates to 
 ## Source
 
 All derivations fetch from forge mirrors for supply chain control:
-- https://forge.ops.eblu.me/mirrors/authentik (upstream: `goauthentik/authentik`)
-- https://forge.ops.eblu.me/mirrors/authentik-client-go (upstream: `goauthentik/client-go`)
+- https://forge.eblu.me/mirrors/authentik (upstream: `goauthentik/authentik`)
+- https://forge.eblu.me/mirrors/authentik-client-go (upstream: `goauthentik/client-go`)
 
 Version and hashes are centralized in `containers/authentik/sources.nix`.
 

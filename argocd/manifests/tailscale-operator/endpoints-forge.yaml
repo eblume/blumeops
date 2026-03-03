@@ -1,0 +1,24 @@
+---
+# Manual Endpoints pointing to indri's Tailscale IP for the
+# forge-external Service. Must match the Service name exactly.
+#
+# NOTE: ArgoCD excludes all Endpoints resources (resource.exclusions in
+# argocd-cm) because they are normally auto-managed by the control plane.
+# This manual Endpoints is the exception — it must be applied directly
+# with kubectl, not via ArgoCD. It is listed in kustomization.yaml for
+# documentation purposes only; ArgoCD will silently skip it.
+#
+#   kubectl --context=minikube-indri apply -f endpoints-forge.yaml
+#
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: forge-external
+  namespace: tailscale
+subsets:
+  - addresses:
+      - ip: 100.98.163.89
+    ports:
+      - name: http
+        port: 3001
+        protocol: TCP

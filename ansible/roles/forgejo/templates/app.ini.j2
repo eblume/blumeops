@@ -20,6 +20,8 @@ SSH_LISTEN_PORT = {{ forgejo_ssh_listen_port }}
 LFS_START_SERVER = {{ forgejo_lfs_start_server | lower }}
 LFS_JWT_SECRET = {{ forgejo_lfs_jwt_secret }}
 OFFLINE_MODE = {{ forgejo_offline_mode | lower }}
+REVERSE_PROXY_LIMIT = 2
+REVERSE_PROXY_TRUSTED_PROXIES = *
 
 [database]
 DB_TYPE = {{ forgejo_db_type }}
@@ -40,7 +42,7 @@ ENABLED = false
 REGISTER_EMAIL_CONFIRM = false
 ENABLE_NOTIFY_MAIL = false
 DISABLE_REGISTRATION = {{ forgejo_disable_registration | lower }}
-ALLOW_ONLY_EXTERNAL_REGISTRATION = false
+ALLOW_ONLY_EXTERNAL_REGISTRATION = true
 ENABLE_CAPTCHA = false
 REQUIRE_SIGNIN_VIEW = {{ forgejo_require_signin_view | lower }}
 DEFAULT_KEEP_EMAIL_PRIVATE = false

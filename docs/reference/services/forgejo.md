@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-02-20
+modified: 2026-03-03
 tags:
   - service
   - git
@@ -15,7 +15,8 @@ Git forge and CI/CD platform. **Primary source of truth for blumeops** (mirrored
 
 | Property | Value |
 |----------|-------|
-| **URL** | https://forge.ops.eblu.me |
+| **URL (public)** | https://forge.eblu.me |
+| **URL (internal)** | https://forge.ops.eblu.me |
 | **SSH** | `ssh://forgejo@forge.ops.eblu.me:2222` |
 | **Local Ports** | 3001 (HTTP), 2200 (SSH) |
 | **Config** | `ansible/roles/forgejo/templates/app.ini.j2` |
@@ -71,7 +72,7 @@ mise run provision-indri -- --tags forgejo_actions_secrets
 
 The Ansible role authenticates to the Forgejo API using a Personal Access Token (PAT). This PAT must be created manually:
 
-1. Go to https://forge.ops.eblu.me/user/settings/applications
+1. Go to https://forge.eblu.me/user/settings/applications
 2. Create a new token with `write:repository` scope
 3. Store it in 1Password → "Forgejo Secrets" item → `api-token` field
 
@@ -94,23 +95,30 @@ This is a bootstrapping requirement - the PAT enables IaC for all other secrets.
 
 **Break-glass:** Local password login always works (with local MFA). Authentik SSO is additive — if Authentik is down, log in with local credentials.
 
-## Future: Public Access
+## Public Access
 
-Forgejo can be exposed publicly at `forge.eblu.me` via [[flyio-proxy]]. Since Forgejo runs natively on [[indri]] (not in k8s), the pattern is:
+Forgejo is publicly accessible at `https://forge.eblu.me` via [[flyio-proxy]]. This is the first dynamic, authenticated service exposed publicly.
 
-1. Create a k8s ExternalName Service pointing to indri's Tailscale IP
-2. Create a Tailscale Ingress with `tailscale.com/tags: "tag:k8s,tag:flyio-target"`
-3. Add the nginx server block and DNS CNAME
+| Access Method | URL | Reachable From |
+|---------------|-----|----------------|
+| **HTTPS (public)** | https://forge.eblu.me | Public internet |
+| **HTTPS (internal)** | https://forge.ops.eblu.me | Tailnet only |
+| **SSH** | `ssh://forgejo@forge.ops.eblu.me:2222` | Tailnet only |
 
-Exposing a dynamic, authenticated service like Forgejo requires a full security review before going live:
+The UI shows `forge.eblu.me` for HTTPS clone URLs and `forge.ops.eblu.me` for SSH clone URLs.
 
-- Disable all local registration — only allow login via [[authentik]] (`DISABLE_REGISTRATION = true`, `ALLOW_ONLY_EXTERNAL_REGISTRATION = true`)
-- Configure fail2ban on indri with a filter for Forgejo's log format
-- Ensure Forgejo logs the forwarded client IP (`X-Real-IP`) rather than the proxy's Tailscale IP
-- Audit repository visibility defaults and permissions
-- Rehearse the break-glass shutoff (`mise run fly-shutoff`)
+### Security Controls
 
-See [[expose-service-publicly]] for the full howto and dynamic service checklist.
+- **Registration:** Local registration disabled; only [[authentik]] SSO login allowed (`ALLOW_ONLY_EXTERNAL_REGISTRATION = true`)
+- **Reverse proxy trust:** `REVERSE_PROXY_LIMIT = 2`, `REVERSE_PROXY_TRUSTED_PROXIES = *` — Forgejo logs the real client IP from `X-Real-IP` header, not the proxy's Tailscale IP
+- **Rate limiting:** nginx rate limits login/signup/forgot-password endpoints (3r/s per client IP via `Fly-Client-IP` header)
+- **fail2ban:** Runs in the Fly.io container; bans IPs after 5 failed logins in 10 minutes via nginx deny list (ephemeral across deploys)
+- **Swagger:** Blocked at the proxy (`/swagger` returns 403); use forge.ops.eblu.me for API access
+- **OAuth dead-end:** "Sign in with Authentik" redirects to the (tailnet-only) Authentik URL — SSO only works from the tailnet
+
+### Break-glass
+
+`mise run fly-shutoff` stops all public traffic immediately. forge.ops.eblu.me continues to work from the tailnet. See [[expose-service-publicly#Break-glass shutoff]].
 
 ## Related
 
