@@ -1,6 +1,7 @@
 ---
 title: Kustomize Grafana Deployment
-modified: 2026-02-23
+modified: 2026-03-03
+last-reviewed: 2026-03-03
 tags:
   - how-to
   - grafana
@@ -14,11 +15,13 @@ Grafana is deployed via plain Kustomize manifests in `argocd/manifests/grafana/`
 
 | File | Purpose |
 |------|---------|
-| `kustomization.yaml` | Resource list |
+| `kustomization.yaml` | Resource list + configMapGenerator for config files |
 | `deployment.yaml` | Grafana container + k8s-sidecar for dashboards |
 | `service.yaml` | ClusterIP on port 80 → 3000 |
 | `pvc.yaml` | 1Gi SQLite storage |
-| `configmap.yaml` | `grafana.ini` and datasource provisioning |
+| `grafana.ini` | Grafana server configuration (fed to configMapGenerator) |
+| `datasources.yaml` | Datasource provisioning (fed to configMapGenerator) |
+| `provider.yaml` | Dashboard provider config (fed to configMapGenerator) |
 | `serviceaccount.yaml` | Service account |
 | `rbac.yaml` | ClusterRole/RoleBinding for sidecar ConfigMap access |
 
