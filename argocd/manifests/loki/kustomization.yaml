@@ -10,7 +10,8 @@ resources:
 
 images:
   - name: grafana/loki
-    newTag: "3.6.5"
+    newName: registry.ops.eblu.me/blumeops/loki
+    newTag: "v3.6.5-bcb0835"
 
 configMapGenerator:
   - name: loki-config
