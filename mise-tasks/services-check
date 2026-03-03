@@ -105,6 +105,7 @@ echo ""
 echo "Public services (via Fly.io):"
 check_http "Docs (public)" "https://docs.eblu.me/"
 check_http "CV (public)" "https://cv.eblu.me/"
+check_http "Forge (public)" "https://forge.eblu.me/"
 check_http "Fly.io healthz" "https://blumeops-proxy.fly.dev/healthz"
 
 echo ""
