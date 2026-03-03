@@ -16,6 +16,7 @@ Checks:
 3. No plan commits appear after any impl or close commits
 4. Close commits don't appear before impl commits in the same cycle
 5. The chain stem in commit messages matches the branch name
+6. impl commits don't modify Mikado card files (docs with mikado frontmatter)
 
 Can also be run standalone (no arguments) to validate existing branch history.
 
@@ -31,6 +32,7 @@ from rich.console import Console
 
 REPO_DIR = Path(__file__).parent.parent
 C2_COMMIT_RE = re.compile(r"^C2\(([^)]+)\):\s+(plan|impl|close|finalize)\s+(.+)$")
+FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---", re.DOTALL)
 
 
 def get_current_branch() -> str | None:
@@ -99,6 +101,97 @@ def make_pending_commit(subject: str) -> dict:
         "description": match.group(3) if match else None,
         "conventional": match is not None,
     }
+
+
+def is_mikado_card(content: str) -> bool:
+    """Check if file content has Mikado card frontmatter.
+
+    A file is a Mikado card if its YAML frontmatter contains any of:
+    - requires: (dependency list, kept permanently on cards)
+    - status: (e.g. 'active' for in-progress cards)
+    - branch: mikado/... (goal cards linking to their branch)
+    """
+    match = FRONTMATTER_RE.match(content)
+    if not match:
+        return False
+    for line in match.group(1).split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("requires:"):
+            return True
+        if stripped.startswith("status:"):
+            return True
+        if stripped.startswith("branch:") and "mikado/" in stripped:
+            return True
+    return False
+
+
+def get_file_at_ref(ref: str, path: str) -> str | None:
+    """Get file content at a git ref. Use ':path' for staged, 'sha:path' for commits."""
+    result = subprocess.run(
+        ["git", "show", f"{ref}:{path}"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_DIR,
+    )
+    return result.stdout if result.returncode == 0 else None
+
+
+def get_staged_md_files() -> list[str]:
+    """Get markdown files staged for commit (added, copied, modified, renamed)."""
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_DIR,
+    )
+    if result.returncode != 0:
+        return []
+    return [f for f in result.stdout.strip().split("\n") if f.endswith(".md")]
+
+
+def get_commit_md_files(sha: str) -> list[str]:
+    """Get markdown files changed in a specific commit."""
+    result = subprocess.run(
+        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", sha],
+        capture_output=True,
+        text=True,
+        cwd=REPO_DIR,
+    )
+    if result.returncode != 0:
+        return []
+    return [f for f in result.stdout.strip().split("\n") if f.endswith(".md")]
+
+
+def check_impl_files_staged() -> list[str]:
+    """Check that staged files for a pending impl commit don't include Mikado cards."""
+    errors = []
+    for path in get_staged_md_files():
+        # Check staged version; fall back to HEAD for deletions
+        content = get_file_at_ref("", path)
+        if content is None:
+            content = get_file_at_ref("HEAD", path)
+        if content and is_mikado_card(content):
+            errors.append(
+                f"(pending): impl commit modifies Mikado card: {path} — "
+                f"use 'plan' for card changes or 'close' to close leaf nodes"
+            )
+    return errors
+
+
+def check_impl_files_historical(sha: str) -> list[str]:
+    """Check that a historical impl commit didn't modify Mikado cards."""
+    errors = []
+    for path in get_commit_md_files(sha):
+        # Try file at this commit; fall back to parent for deletions
+        content = get_file_at_ref(sha, path)
+        if content is None:
+            content = get_file_at_ref(f"{sha}~1", path)
+        if content and is_mikado_card(content):
+            errors.append(
+                f"{sha[:8]}: impl commit modifies Mikado card: {path} — "
+                f"use 'plan' for card changes or 'close' to close leaf nodes"
+            )
+    return errors
 
 
 def check_invariant(commits: list[dict], chain_stem: str) -> list[str]:
@@ -178,6 +271,17 @@ def main() -> None:
         sys.exit(0)
 
     errors = check_invariant(commits, chain_stem)
+
+    # Check file discipline: impl commits must not touch Mikado cards
+    for commit in commits:
+        if commit["verb"] != "impl":
+            continue
+        if commit["sha"] == "(pending)":
+            # Pending commit — check staged files
+            errors.extend(check_impl_files_staged())
+        else:
+            # Historical commit — check files in that commit
+            errors.extend(check_impl_files_historical(commit["sha"]))
 
     if errors:
         console.print("[bold red]Mikado Branch Invariant violations:[/bold red]")
