@@ -6,6 +6,7 @@ namespace: nvidia-device-plugin
 resources:
   - daemonset.yaml
   - runtime-class.yaml
+  - time-slicing-config.yaml
 
 images:
   - name: nvcr.io/nvidia/k8s-device-plugin

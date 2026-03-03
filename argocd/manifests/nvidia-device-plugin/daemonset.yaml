@@ -25,6 +25,7 @@ spec:
           image: nvcr.io/nvidia/k8s-device-plugin
           args:
             - --device-id-strategy=index
+            - --config-file=/config/config.yaml
           env:
             - name: LD_LIBRARY_PATH
               value: /run/nvidia/lib
@@ -39,6 +40,9 @@ spec:
             - name: nvidia-libs
               mountPath: /run/nvidia/lib
               readOnly: true
+            - name: plugin-config
+              mountPath: /config
+              readOnly: true
       volumes:
         - name: device-plugins
           hostPath:
@@ -49,3 +53,6 @@ spec:
         - name: nvidia-libs
           hostPath:
             path: /etc/nvidia-driver/lib
+        - name: plugin-config
+          configMap:
+            name: nvidia-device-plugin-config

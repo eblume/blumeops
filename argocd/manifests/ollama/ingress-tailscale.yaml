@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ollama-tailscale
+  namespace: ollama
+  annotations:
+    tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Ollama"
+    gethomepage.dev/group: "AI"
+    gethomepage.dev/icon: "ollama.png"
+    gethomepage.dev/description: "LLM inference server"
+    gethomepage.dev/href: "https://ollama.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=ollama"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: ollama
+      port:
+        number: 11434
+  tls:
+    - hosts:
+        - ollama

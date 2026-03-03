@@ -135,6 +135,13 @@ services:
     current-version: "2026.2.0"
     upstream-source: https://github.com/goauthentik/authentik/releases
 
+  - name: ollama
+    type: argocd
+    last-reviewed: "2026-03-02"
+    current-version: "0.17.5"
+    upstream-source: https://github.com/ollama/ollama/releases
+    notes: LLM inference server on ringtail (GPU); upstream container image
+
   - name: navidrome
     type: argocd
     last-reviewed: 2026-03-02

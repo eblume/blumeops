@@ -1,0 +1,84 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: ollama
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      runtimeClassName: nvidia
+      containers:
+        - name: ollama
+          image: ollama/ollama
+          ports:
+            - containerPort: 11434
+              name: http
+          env:
+            - name: OLLAMA_MODELS
+              value: /models
+            - name: OLLAMA_HOST
+              value: "0.0.0.0:11434"
+          volumeMounts:
+            - name: models
+              mountPath: /models
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "16Gi"
+              cpu: "4000m"
+              nvidia.com/gpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 10
+            periodSeconds: 10
+        - name: model-sync
+          image: ollama/ollama
+          command: ["/bin/bash", "/scripts/sync-models.sh"]
+          env:
+            - name: MODEL_LIST
+              value: /config/models.txt
+            - name: OLLAMA_HOST
+              value: "http://localhost:11434"
+          volumeMounts:
+            - name: models-config
+              mountPath: /config
+            - name: sync-script
+              mountPath: /scripts
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: ollama-models
+        - name: models-config
+          configMap:
+            name: ollama-models
+        - name: sync-script
+          configMap:
+            name: ollama-sync-script
+            defaultMode: 0755 # yamllint disable-line rule:octal-values
