@@ -130,8 +130,6 @@ in
       "--disable=metrics-server"
       "--write-kubeconfig-mode=644"
       "--tls-san=ringtail.tail8d86e.ts.net"
-      # Allow ollama NodePort on port 80 for non-tailnet LAN devices
-      "--service-node-port-range=80-32767"
     ];
     containerdConfigTemplate = ''
       {{ template "base" . }}

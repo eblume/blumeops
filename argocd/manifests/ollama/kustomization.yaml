@@ -7,7 +7,6 @@ resources:
   - pvc.yaml
   - deployment.yaml
   - service.yaml
-  - service-nodeport.yaml
   - ingress-tailscale.yaml
 
 images:
