@@ -491,7 +491,15 @@ def walk_chain(
         visited = set()
 
     if stem in visited:
-        console.print(f"{'  ' * depth}[dim](circular: {stem})[/dim]")
+        card = cards.get(stem)
+        if card:
+            status = "[active]" if is_active(card) else "[complete]"
+            console.print(
+                f"{'  ' * depth}[dim]↑ {stem} — {card['title']} {status}"
+                f" (shared dep, shown above)[/dim]"
+            )
+        else:
+            console.print(f"{'  ' * depth}[red](missing: {stem})[/red]")
         return
     visited.add(stem)
 
