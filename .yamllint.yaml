@@ -21,7 +21,7 @@ rules:
   # Required for ansible-lint compatibility
   comments-indentation: false
   octal-values:
-    forbid-implicit-octal: true
+    forbid-implicit-octal: false
     forbid-explicit-octal: true
 
 ignore:

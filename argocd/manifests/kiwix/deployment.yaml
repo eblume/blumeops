@@ -96,4 +96,4 @@ spec:
         - name: sync-script
           configMap:
             name: zim-torrent-sync-script
-            defaultMode: 493  # 0755 in decimal
+            defaultMode: 0755

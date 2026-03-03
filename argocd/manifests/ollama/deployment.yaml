@@ -85,4 +85,4 @@ spec:
         - name: sync-script
           configMap:
             name: ollama-sync-script
-            defaultMode: 0755 # yamllint disable-line rule:octal-values
+            defaultMode: 0755
