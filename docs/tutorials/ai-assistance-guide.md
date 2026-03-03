@@ -58,7 +58,11 @@ EOF
 
 Add a fragment for user-visible changes:
 ```bash
+# C1/C2: use branch name
 echo "Description" > docs/changelog.d/branch-name.feature.md
+
+# C0: use orphan prefix (no branch to name after)
+echo "Description" > docs/changelog.d/+descriptive-slug.feature.md
 ```
 
 Types (file suffix): `.feature`, `.bugfix`, `.infra`, `.doc`, `.ai`, `.misc`

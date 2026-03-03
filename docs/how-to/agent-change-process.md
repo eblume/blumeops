@@ -29,7 +29,7 @@ A change where the risk is low enough that problems can be quickly fixed forward
 
 1. Run `mise run ai-docs` to load context
 2. Implement the change directly on main
-3. Add a changelog fragment if the change is user-visible or noteworthy (`docs/changelog.d/<description>.<type>.md`)
+3. Add a changelog fragment if the change is user-visible or noteworthy (`docs/changelog.d/+<descriptive-slug>.<type>.md`)
 4. Commit and push
 
 No feature branch or PR required. If something goes wrong, fix forward with another commit.
@@ -270,7 +270,7 @@ tags:
 - **C0:** Commit directly to main
 - **C1:** Single feature branch, PR early, push often
 - **C2:** Branch named `mikado/<chain-stem>`, Mikado Branch Invariant enforced, `C2()` commit convention, PR early, push after every leaf-node closure
-- **Changelog fragments (all levels):** Add `docs/changelog.d/<name>.<type>.md` for any user-visible or noteworthy change, regardless of change class. C0 includes the fragment in the same commit. C1 includes it during the branch work. C2 includes it in the `finalize` commit.
+- **Changelog fragments (all levels):** Add `docs/changelog.d/<name>.<type>.md` for any user-visible or noteworthy change, regardless of change class. C0 uses orphan fragments (`+<descriptive-slug>.<type>.md`) to avoid `main.*` collisions. C1/C2 use the branch name (`<branch>.<type>.md`). C0 includes the fragment in the same commit. C1 includes it during the branch work. C2 includes it in the `finalize` commit.
 - **Deploy from branches** — C1 and C2 changes deploy from the unmerged branch (ArgoCD `--revision`, Ansible from checkout, etc.). Reset to main after merge.
 - GitOps requires pushing to test — if a pushed commit breaks, revert it promptly
 

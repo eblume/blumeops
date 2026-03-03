@@ -19,9 +19,11 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 3. **Classify the change as C0/C1/C2 before starting** (see below) — this determines branching and PR requirements
 4. **Feature branches + PRs for C1/C2** - checkout main, pull, create branch, open PR via `tea pr create`. C0 goes direct to main.
 5. **Check PR comments with `mise run pr-comments <pr_number>`** before proceeding
-6. **Add changelog fragments (all change levels)** - `docs/changelog.d/<branch>.<type>.md`
+6. **Add changelog fragments (all change levels)** - `docs/changelog.d/<name>.<type>.md`
     Types: `feature`, `bugfix`, `infra`, `doc`, `ai`, `misc`
     Applies to C0, C1, and C2 whenever the change is user-visible or noteworthy.
+    - **C1/C2:** Use branch name: `<branch>.<type>.md`
+    - **C0:** Use orphan prefix: `+<descriptive-slug>.<type>.md` (avoids `main.*` collisions)
 7. **Test before applying** - dry runs (`--check --diff`), syntax checks, `ssh indri '...'`
 8. **Wait for user review before deploying** (C1/C2)
 9. **Never merge PRs or push to main without explicit request** (C0 commits to main are fine)
