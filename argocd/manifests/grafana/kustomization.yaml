@@ -14,7 +14,7 @@ images:
   - name: docker.io/library/busybox
     newTag: 1.31.1
   - name: registry.ops.eblu.me/blumeops/grafana-sidecar
-    newTag: v1.28.0-49c8045
+    newTag: v1.28.0-a2bb9ab
   - name: registry.ops.eblu.me/blumeops/grafana
     newTag: v12.3.3-d05d2fb
 
