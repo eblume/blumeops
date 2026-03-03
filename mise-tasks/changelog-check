@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#MISE description="Validate changelog fragments are flat files in docs/changelog.d/"
+# Ensures no fragments end up in subdirectories (e.g. from branch names like feature/foo).
+# Towncrier expects flat <name>.<type>.md files, not nested paths.
+
+set -euo pipefail
+
+CHANGELOG_DIR="$(git rev-parse --show-toplevel)/docs/changelog.d"
+
+errors=0
+while IFS= read -r -d '' entry; do
+  rel="${entry#"$CHANGELOG_DIR/"}"
+  if [[ "$rel" == */* ]]; then
+    echo "ERROR: changelog fragment in subdirectory: docs/changelog.d/$rel"
+    echo "  Move to: docs/changelog.d/$(echo "$rel" | tr '/' '-')"
+    errors=$((errors + 1))
+  fi
+done < <(find "$CHANGELOG_DIR" -name '*.md' -print0)
+
+if [ "$errors" -gt 0 ]; then
+  echo ""
+  echo "$errors fragment(s) in subdirectories. Towncrier requires flat files in docs/changelog.d/."
+  exit 1
+fi
+
+echo "All changelog fragments are correctly placed."

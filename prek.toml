@@ -120,6 +120,18 @@ language = "system"
 files = "^(containers/|service-versions\\.yaml)"
 pass_filenames = false
 
+# Changelog fragment validation (no subdirectories)
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "changelog-check"
+name = "changelog-check"
+entry = "mise run changelog-check"
+language = "system"
+files = '^docs/changelog\.d/'
+pass_filenames = false
+
 # Mikado Branch Invariant (C2 changes)
 [[repos]]
 repo = "local"
