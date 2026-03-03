@@ -1,6 +1,6 @@
 ---
 title: Agent Change Process
-modified: 2026-02-24
+modified: 2026-03-03
 last-reviewed: 2026-02-23
 tags:
   - how-to
@@ -29,7 +29,8 @@ A change where the risk is low enough that problems can be quickly fixed forward
 
 1. Run `mise run ai-docs` to load context
 2. Implement the change directly on main
-3. Commit and push
+3. Add a changelog fragment if the change is user-visible or noteworthy (`docs/changelog.d/<description>.<type>.md`)
+4. Commit and push
 
 No feature branch or PR required. If something goes wrong, fix forward with another commit.
 
@@ -46,13 +47,14 @@ A change with enough complexity or risk that a human should review it, but not s
 3. **Create a feature branch** and open a PR early (draft is fine)
 4. **Documentation first** — commit doc changes reflecting the desired end state before writing code. This helps the reviewer understand intent and catches design issues early
 5. **Implement** — commit code changes, pushing as you go. The PR gets updated along the way and the user can review and comment at any point
-6. **Deploy from the branch** — do not wait for merge:
+6. **Add changelog fragment** — `docs/changelog.d/<branch>.<type>.md` for any user-visible or noteworthy changes
+7. **Deploy from the branch** — do not wait for merge:
    - **ArgoCD:** `argocd app set <service> --revision <branch> && argocd app sync <service>`
    - **Ansible:** run playbooks directly from the branch checkout
    - **Workflows:** point workflow triggers at the branch if needed
-7. After user review and successful deployment, the user merges the PR
-8. **After merge:** reset ArgoCD revisions back to main, re-sync
-9. **If the PR changed `containers/`:** the merge triggers a rebuild from main automatically. Once it completes, commit a C0 updating the manifest to the new `[main]`-tagged image (see [[build-container-image#Squash-merge and container tags]])
+8. After user review and successful deployment, the user merges the PR
+9. **After merge:** reset ArgoCD revisions back to main, re-sync
+10. **If the PR changed `containers/`:** the merge triggers a rebuild from main automatically. Once it completes, commit a C0 updating the manifest to the new `[main]`-tagged image (see [[build-container-image#Squash-merge and container tags]])
 
 ### Upgrading to C2
 
@@ -268,6 +270,7 @@ tags:
 - **C0:** Commit directly to main
 - **C1:** Single feature branch, PR early, push often
 - **C2:** Branch named `mikado/<chain-stem>`, Mikado Branch Invariant enforced, `C2()` commit convention, PR early, push after every leaf-node closure
+- **Changelog fragments (all levels):** Add `docs/changelog.d/<name>.<type>.md` for any user-visible or noteworthy change, regardless of change class. C0 includes the fragment in the same commit. C1 includes it during the branch work. C2 includes it in the `finalize` commit.
 - **Deploy from branches** — C1 and C2 changes deploy from the unmerged branch (ArgoCD `--revision`, Ansible from checkout, etc.). Reset to main after merge.
 - GitOps requires pushing to test — if a pushed commit breaks, revert it promptly
 
