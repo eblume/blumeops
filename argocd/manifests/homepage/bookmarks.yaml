@@ -14,3 +14,6 @@
     - UniFi:
         - href: https://unifi.ui.com
           icon: ubiquiti
+    - Gandi:
+        - href: https://admin.gandi.net
+          icon: si-gandi
