@@ -39,7 +39,9 @@ while IFS='|' read -r org repo upstream_url; do
     bare_repo="${REPO_BASE}/${org}/${repo}.git"
 
     # Build authenticated URL: https://eblume:<pat>@github.com/...
-    auth_url="${upstream_url/https:\/\/github.com/https:\/\/eblume:${pat}@github.com}"
+    # Note: \/  in the replacement part of ${var/pat/rep} is literal backslash-slash,
+    # not an escaped slash. Use prefix stripping instead.
+    auth_url="https://eblume:${pat}@github.com${upstream_url#https://github.com}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         echo "[dry-run] ${org}/${repo}: would set origin to authenticated URL"
