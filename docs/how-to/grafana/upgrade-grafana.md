@@ -3,7 +3,8 @@ title: Upgrade Grafana
 requires:
   - kustomize-grafana-deployment
   - build-grafana-container
-modified: 2026-02-23
+modified: 2026-03-04
+last-reviewed: 2026-03-04
 tags:
   - how-to
   - grafana
@@ -16,7 +17,7 @@ Upgraded Grafana from 11.4.0 (Helm chart) to 12.3.3, converting from Helm to Kus
 
 ## What Changed
 
-- **Image:** `docker.io/grafana/grafana:11.4.0` → `registry.ops.eblu.me/blumeops/grafana:v12.3.3`
+- **Image:** `docker.io/grafana/grafana:11.4.0` → `registry.ops.eblu.me/blumeops/grafana` (tagged via Kustomize `images:` overlay)
 - **Deployment:** Helm multi-source (chart + values) → single Kustomize directory
 - **ArgoCD app:** Simplified to one source pointing at `argocd/manifests/grafana/`
 
@@ -36,7 +37,7 @@ To upgrade Grafana again in the future:
 
 1. Update `CONTAINER_APP_VERSION` in `containers/grafana/Dockerfile`
 2. Build and push via `mise run container-build-and-release grafana`
-3. Update the image tag in `argocd/manifests/grafana/deployment.yaml`
+3. Update the image tag in `argocd/manifests/grafana/kustomization.yaml` (under `images:`)
 4. Update `service-versions.yaml`
 5. Sync: `argocd app sync grafana`
 
@@ -46,4 +47,5 @@ The SQLite PVC is disposable — dashboards come from ConfigMaps and datasources
 
 - [[grafana]] — Service reference card
 - [[build-grafana-container]] — Building the container image
+- [[build-grafana-sidecar]] — Building the dashboard sidecar image
 - [[kustomize-grafana-deployment]] — Kustomize manifest structure

@@ -85,7 +85,7 @@ services:
     last-reviewed: 2026-02-23
     current-version: "12.3.3"
     upstream-source: https://github.com/grafana/grafana/releases
-    notes: Home-built container; upgrading to 12.x via Mikado chain
+    notes: Home-built container from Alpine; upgraded from Helm to Kustomize
 
   - name: grafana-sidecar
     type: argocd
