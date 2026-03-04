@@ -17,7 +17,7 @@ BitTorrent daemon, primarily for downloading ZIM archives for [[kiwix]].
 | **URL** | https://torrent.ops.eblu.me |
 | **Tailscale URL** | https://torrent.tail8d86e.ts.net |
 | **Namespace** | `torrent` |
-| **Image** | `lscr.io/linuxserver/transmission:latest` |
+| **Image** | `registry.ops.eblu.me/blumeops/transmission` |
 | **Storage** | NFS PVC from [[sifaka|Sifaka]] |
 
 ## Storage Layout
