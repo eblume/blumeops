@@ -231,7 +231,7 @@ services:
   - name: runner-job-image
     type: argocd
     last-reviewed: 2026-02-23
-    current-version: "0.19.11"
+    current-version: "0.20.0"
     upstream-source: https://github.com/dagger/dagger/releases
     notes: >-
       Forgejo Actions job execution image. CONTAINER_APP_VERSION tracks the
