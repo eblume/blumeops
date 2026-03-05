@@ -107,6 +107,16 @@ class TransmissionCollector:
             "Torrent total uploaded ever in bytes",
             labels=["name"],
         )
+        t_download_rate = GaugeMetricFamily(
+            "transmission_torrent_download_rate_bytes",
+            "Torrent current download rate in bytes/s",
+            labels=["name"],
+        )
+        t_upload_rate = GaugeMetricFamily(
+            "transmission_torrent_upload_rate_bytes",
+            "Torrent current upload rate in bytes/s",
+            labels=["name"],
+        )
         t_done = GaugeMetricFamily(
             "transmission_torrent_done",
             "Torrent percent done (0.0-1.0)",
@@ -117,12 +127,16 @@ class TransmissionCollector:
             name = t.name or "unknown"
             t_download.add_metric([name], t.total_size * t.percent_done)
             t_upload.add_metric([name], t.uploaded_ever)
+            t_download_rate.add_metric([name], t.rate_download)
+            t_upload_rate.add_metric([name], t.rate_upload)
             t_ratio.add_metric([name], t.ratio)
             t_uploaded_ever.add_metric([name], t.uploaded_ever)
             t_done.add_metric([name], t.percent_done)
 
         yield t_download
         yield t_upload
+        yield t_download_rate
+        yield t_upload_rate
         yield t_ratio
         yield t_uploaded_ever
         yield t_done

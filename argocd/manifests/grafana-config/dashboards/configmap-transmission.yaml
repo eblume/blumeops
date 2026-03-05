@@ -378,7 +378,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "transmission_torrent_download_bytes > 0",
+              "expr": "transmission_torrent_download_rate_bytes > 0",
               "legendFormat": "{{name}}",
               "refId": "A"
             }
@@ -435,7 +435,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "transmission_torrent_upload_bytes > 0",
+              "expr": "transmission_torrent_upload_rate_bytes > 0",
               "legendFormat": "{{name}}",
               "refId": "A"
             }
