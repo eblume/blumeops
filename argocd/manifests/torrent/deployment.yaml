@@ -56,7 +56,7 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
         - name: transmission-exporter
-          image: docker.io/metalmatze/transmission-exporter:master
+          image: registry.ops.eblu.me/blumeops/transmission-exporter
           env:
             - name: TRANSMISSION_ADDR
               value: "http://localhost:9091"

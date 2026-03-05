@@ -11,3 +11,5 @@ resources:
 images:
   - name: registry.ops.eblu.me/blumeops/transmission
     newTag: v4.1.1-r1-ab34cbd
+  - name: registry.ops.eblu.me/blumeops/transmission-exporter
+    newTag: v1.0.0

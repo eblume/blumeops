@@ -173,6 +173,13 @@ services:
     current-version: "4.1.1-r1"
     upstream-source: https://github.com/transmission/transmission/releases
 
+  - name: transmission-exporter
+    type: argocd
+    last-reviewed: 2026-03-04
+    current-version: "1.0.0"
+    upstream-source: null
+    notes: Homegrown Python exporter, no upstream
+
   - name: kiwix
     type: argocd
     last-reviewed: null
