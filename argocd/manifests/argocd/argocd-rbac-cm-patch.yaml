@@ -1,14 +1,16 @@
-# ArgoCD RBAC ConfigMap patch for workflow-bot permissions
+# ArgoCD RBAC ConfigMap patch
 #
-# Grants minimal permissions for CI/CD workflows:
-# - applications: sync, get (for syncing apps after builds)
+# - workflow-bot: minimal CI/CD permissions (sync, get)
+# - admins: Authentik admins group mapped to ArgoCD admin role
 #
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: argocd-rbac-cm
 data:
+  scopes: '[groups]'
   policy.csv: |
     p, role:workflow-bot, applications, sync, *, allow
     p, role:workflow-bot, applications, get, *, allow
     g, workflow-bot, role:workflow-bot
+    g, admins, role:admin

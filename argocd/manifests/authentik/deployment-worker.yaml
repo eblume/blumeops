@@ -73,6 +73,11 @@ spec:
                 secretKeyRef:
                   name: authentik-config
                   key: jellyfin-client-secret
+            - name: AUTHENTIK_ARGOCD_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-config
+                  key: argocd-client-secret
           volumeMounts:
             - name: blueprints
               mountPath: /blueprints/custom

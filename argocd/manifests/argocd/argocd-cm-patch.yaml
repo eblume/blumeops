@@ -1,13 +1,23 @@
-# ArgoCD ConfigMap patch for workflow-bot account
+# ArgoCD ConfigMap patch
 #
-# Creates a service account that can generate API tokens for CI/CD workflows.
-# Account is used by forgejo-runner to sync apps after builds.
+# - workflow-bot: service account for CI/CD automation
+# - OIDC: Authentik SSO for admin login
 #
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: argocd-cm
 data:
+  url: https://argocd.ops.eblu.me
   # workflow-bot: service account for CI/CD automation
   # - apiKey: allows generating API tokens via `argocd account generate-token`
   accounts.workflow-bot: apiKey
+  oidc.config: |
+    name: Authentik
+    issuer: https://authentik.ops.eblu.me/application/o/argocd/
+    clientID: argocd
+    clientSecret: $argocd-oidc-authentik:client-secret
+    requestedScopes:
+      - openid
+      - profile
+      - email
