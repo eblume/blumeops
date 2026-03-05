@@ -1,10 +1,6 @@
 ---
 title: Add Container Version Sync Check
 modified: 2026-02-20
-requires:
-  - pin-container-versions
-  - add-dagger-nix-build
-  - fix-ntfy-nix-version
 tags:
   - how-to
   - containers

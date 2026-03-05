@@ -1,6 +1,6 @@
 ---
 title: Agent Change Process
-modified: 2026-03-03
+modified: 2026-03-04
 last-reviewed: 2026-02-23
 tags:
   - how-to
@@ -203,10 +203,11 @@ When you discover a new prerequisite **or encounter an error** during code work,
 When the final leaf node is closed and no `status: active` cards remain:
 
 1. **Rewrite all Mikado cards** to reflect their nature as historical documentation:
+   - **Remove all Mikado frontmatter** from every card in the chain: `requires:`, `status:`, and `branch:`. Cards become "just documentation" — the Mikado metadata served its purpose during the chain and should not persist.
+   - Cards can (and should) still link to one another via wiki-links in their body text, just not via frontmatter dependencies.
    - Remove transient technical details (specific version numbers, temporary workarounds) that won't matter in the future
    - Frame the content as "what to do if someone wanted to repeat this process"
    - Add appropriate context about what was learned
-   - Remove `branch:` from the goal card frontmatter
 2. **Add changelog information** in `docs/changelog.d/`
 3. Commit as `C2(<chain>): finalize ...` — this is the one permitted exception to the invariant's "no card changes after code" rule
 4. The user reviews and merges the PR
@@ -253,8 +254,9 @@ tags:
 ```
 
 - `status: active` marks in-progress work; remove when done (this is the ONLY way a card is marked complete)
-- `branch` is set on goal cards only, linking the card to its `mikado/<chain-stem>` branch. A goal card with `status: active` but no `branch` indicates a chain that is planned but not yet started. Remove `branch` when the chain is finalized.
-- `requires` lists card stems (filenames without `.md`) that must be completed first. **Keep `requires` permanently** even after prerequisites are done — it documents the dependency graph history
+- `branch` is set on goal cards only, linking the card to its `mikado/<chain-stem>` branch. A goal card with `status: active` but no `branch` indicates a chain that is planned but not yet started.
+- `requires` lists card stems (filenames without `.md`) that must be completed first.
+- **During finalization**, remove all Mikado frontmatter (`requires`, `status`, `branch`) from every card in the chain. Use wiki-links in body text to preserve cross-references.
 - `required-by` is NOT stored — it's computed by `docs-mikado`
 
 ### Writing Cards

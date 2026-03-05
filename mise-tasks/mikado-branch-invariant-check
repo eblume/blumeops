@@ -107,7 +107,7 @@ def is_mikado_card(content: str) -> bool:
     """Check if file content has Mikado card frontmatter.
 
     A file is a Mikado card if its YAML frontmatter contains any of:
-    - requires: (dependency list, kept permanently on cards)
+    - requires: (dependency list for active chain cards)
     - status: (e.g. 'active' for in-progress cards)
     - branch: mikado/... (goal cards linking to their branch)
     """

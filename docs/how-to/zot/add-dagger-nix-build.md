@@ -1,7 +1,6 @@
 ---
 title: Add Dagger Nix Build Function
 modified: 2026-02-20
-status:
 tags:
   - how-to
   - containers

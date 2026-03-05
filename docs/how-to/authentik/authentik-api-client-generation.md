@@ -2,8 +2,6 @@
 title: Generate Authentik API Clients
 modified: 2026-03-01
 last-reviewed: 2026-03-01
-requires:
-  - mirror-authentik-build-deps
 tags:
   - how-to
   - authentik

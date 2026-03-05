@@ -1,9 +1,6 @@
 ---
 title: Adopt Commit-Based Container Tags
 modified: 2026-02-20
-requires:
-  - add-container-version-sync-check
-  - install-dagger-on-nix-runner
 tags:
   - how-to
   - containers

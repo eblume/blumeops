@@ -1,8 +1,5 @@
 ---
 title: Upgrade K8s Forgejo Runner to v12
-requires:
-  - validate-workflows-against-v12
-  - review-runner-config-v12
 modified: 2026-02-27
 last-reviewed: 2026-02-27
 tags:

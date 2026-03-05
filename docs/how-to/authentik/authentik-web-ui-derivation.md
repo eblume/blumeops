@@ -2,8 +2,6 @@
 title: Build Authentik Web UI
 modified: 2026-03-01
 last-reviewed: 2026-03-02
-requires:
-  - authentik-api-client-generation
 tags:
   - how-to
   - authentik

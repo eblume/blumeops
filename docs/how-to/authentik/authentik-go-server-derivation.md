@@ -2,9 +2,6 @@
 title: Build Authentik Go Server
 modified: 2026-03-02
 last-reviewed: 2026-03-02
-requires:
-  - authentik-api-client-generation
-  - authentik-python-backend-derivation
 tags:
   - how-to
   - authentik

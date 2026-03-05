@@ -2,11 +2,6 @@
 title: Deploy Authentik Identity Provider
 modified: 2026-02-23
 last-reviewed: 2026-02-23
-requires:
-  - build-authentik-container
-  - provision-authentik-database
-  - create-authentik-secrets
-  - migrate-grafana-to-authentik
 tags:
   - how-to
   - authentik

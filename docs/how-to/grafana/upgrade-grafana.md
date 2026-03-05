@@ -1,8 +1,5 @@
 ---
 title: Upgrade Grafana
-requires:
-  - kustomize-grafana-deployment
-  - build-grafana-container
 modified: 2026-03-04
 last-reviewed: 2026-03-04
 tags:
