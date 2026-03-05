@@ -15,6 +15,39 @@ datasources:
   type: loki
   uid: loki
   url: http://loki.monitoring.svc.cluster.local:3100
+  jsonData:
+    derivedFields:
+    - datasourceUid: tempo
+      matcherRegex: '"traceID":"(\w+)"'
+      name: TraceID
+      url: "$${__value.raw}"
+- access: proxy
+  editable: false
+  name: Tempo
+  orgId: 1
+  type: tempo
+  uid: tempo
+  url: http://tempo.monitoring.svc.cluster.local:3200
+  jsonData:
+    tracesToLogsV2:
+      datasourceUid: loki
+      filterByTraceID: true
+      filterBySpanID: false
+    tracesToMetrics:
+      datasourceUid: prometheus
+      spanStartTimeShift: "-1h"
+      spanEndTimeShift: "1h"
+      queries:
+      - name: Request rate
+        query: "sum(rate(traces_spanmetrics_calls_total{$$__tags}[5m]))"
+      - name: Error rate
+        query: "sum(rate(traces_spanmetrics_calls_total{$$__tags, status_code=\"STATUS_CODE_ERROR\"}[5m]))"
+      - name: Duration (p95)
+        query: "histogram_quantile(0.95, sum(rate(traces_spanmetrics_duration_seconds_bucket{$$__tags}[5m])) by (le))"
+    serviceMap:
+      datasourceUid: prometheus
+    nodeGraph:
+      enabled: true
 - access: proxy
   database: teslamate
   editable: false

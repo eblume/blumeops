@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alloy-tracing
+  namespace: alloy
+  labels:
+    app: alloy-tracing
+spec:
+  selector:
+    matchLabels:
+      app: alloy-tracing
+  template:
+    metadata:
+      labels:
+        app: alloy-tracing
+    spec:
+      serviceAccountName: alloy-tracing
+      hostPID: true
+      containers:
+        - name: alloy
+          image: grafana/alloy
+          args:
+            - run
+            - --server.http.listen-addr=0.0.0.0:12346
+            - --storage.path=/var/lib/alloy/data
+            - /etc/alloy/config.alloy
+          ports:
+            - containerPort: 12346
+              name: http
+          env:
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+            - name: data
+              mountPath: /var/lib/alloy/data
+          securityContext:
+            privileged: true
+      tolerations:
+        - operator: Exists
+      volumes:
+        - name: config
+          configMap:
+            name: alloy-tracing-config
+        - name: data
+          emptyDir: {}

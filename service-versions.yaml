@@ -68,6 +68,19 @@ services:
     current-version: "v0.5.4"
     upstream-source: https://github.com/0x2142/frigate-notify/releases
 
+  - name: tempo
+    type: argocd
+    last-reviewed: 2026-03-05
+    current-version: "2.10.1"
+    upstream-source: https://github.com/grafana/tempo/releases
+
+  - name: alloy-tracing-ringtail
+    type: argocd
+    last-reviewed: 2026-03-05
+    current-version: "v1.13.1"
+    upstream-source: https://github.com/grafana/alloy/releases
+    notes: Privileged DaemonSet with Beyla eBPF for HTTP tracing on ringtail
+
   - name: alloy-k8s
     type: argocd
     last-reviewed: 2026-02-16

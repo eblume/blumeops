@@ -1,0 +1,26 @@
+# Tailscale Ingress for Tempo query API
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tempo-tailscale
+  namespace: monitoring
+  annotations:
+    tailscale.com/funnel: "false"
+    tailscale.com/proxy-group: "ingress"
+    tailscale.com/tags: "tag:k8s"
+    gethomepage.dev/enabled: "false"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tempo
+                port:
+                  number: 3200
+  tls:
+    - hosts:
+        - tempo

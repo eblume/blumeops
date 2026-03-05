@@ -27,6 +27,7 @@ Individual service reference cards with URLs and configuration details.
 | [[jellyfin]] | Media server | indri |
 | [[kiwix]] | Offline Wikipedia & ZIM archives | k8s |
 | [[loki]] | Log aggregation | k8s |
+| [[tempo]] | Distributed tracing | k8s |
 | [[miniflux]] | RSS feed reader | k8s |
 | [[navidrome]] | Music streaming | k8s |
 | [[ntfy]] | Push notifications | k8s (ringtail) |

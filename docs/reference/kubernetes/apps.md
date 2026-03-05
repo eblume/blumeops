@@ -27,7 +27,9 @@ Registry of all applications deployed via [[argocd]].
 | `grafana` | monitoring | Helm chart (forge mirror) | [[grafana]] |
 | `grafana-config` | monitoring | `argocd/manifests/grafana-config/` | [[grafana]] |
 | `immich` | immich | Helm chart | [[immich]] |
+| `tempo` | monitoring | `argocd/manifests/tempo/` | [[tempo]] |
 | `alloy-k8s` | alloy | `argocd/manifests/alloy-k8s/` | [[alloy|Alloy]] |
+| `alloy-tracing-ringtail` | alloy | `argocd/manifests/alloy-tracing-ringtail/` | [[alloy|Alloy]] (eBPF tracing) |
 | `kube-state-metrics` | monitoring | `argocd/manifests/kube-state-metrics/` | K8s metrics |
 | `miniflux` | miniflux | `argocd/manifests/miniflux/` | [[miniflux]] |
 | `kiwix` | kiwix | `argocd/manifests/kiwix/` | [[kiwix]] |

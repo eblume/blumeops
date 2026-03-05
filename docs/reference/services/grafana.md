@@ -36,6 +36,7 @@ The OIDC client secret is injected via [[external-secrets]] (`grafana-authentik-
 |------|------|--------|
 | Prometheus | prometheus | `prometheus.monitoring.svc.cluster.local:9090` |
 | Loki | loki | `loki.monitoring.svc.cluster.local:3100` |
+| Tempo | tempo | `tempo.monitoring.svc.cluster.local:3200` |
 | TeslaMate | postgres | `blumeops-pg-rw.databases.svc.cluster.local:5432` |
 
 ## Dashboard Provisioning
@@ -64,4 +65,5 @@ Optional annotation: `grafana_folder: "FolderName"`
 - [[authentik]] - OIDC identity provider for SSO
 - [[prometheus]] - Metrics datasource
 - [[loki]] - Logs datasource
+- [[tempo]] - Traces datasource
 - [[alloy|Alloy]] - Data collector

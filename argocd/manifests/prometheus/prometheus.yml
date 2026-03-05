@@ -64,6 +64,14 @@ scrape_configs:
       - target_label: cluster
         replacement: indri
 
+  # Tempo operational metrics
+  - job_name: "tempo"
+    static_configs:
+      - targets: ["tempo.monitoring.svc.cluster.local:3200"]
+    metric_relabel_configs:
+      - target_label: cluster
+        replacement: indri
+
   # Frigate NVR metrics (via Caddy on indri — Frigate runs on ringtail)
   - job_name: "frigate"
     scheme: https

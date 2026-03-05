@@ -1,0 +1,93 @@
+// Alloy tracing configuration for ringtail
+// Uses Beyla eBPF to auto-instrument HTTP services and export traces to Tempo on indri
+
+// ============== BEYLA eBPF AUTO-INSTRUMENTATION ==============
+
+beyla.ebpf "http_services" {
+  discovery {
+    // Instrument HTTP services on common ports
+    instrument {
+      open_ports = "80-9999"
+    }
+
+    // Exclude infrastructure pods
+    exclude_instrument {
+      kubernetes {
+        namespace = "kube-system"
+      }
+    }
+    exclude_instrument {
+      kubernetes {
+        namespace = "tailscale"
+      }
+    }
+    exclude_instrument {
+      kubernetes {
+        pod_labels = { app = "alloy" }
+      }
+    }
+    exclude_instrument {
+      kubernetes {
+        pod_labels = { app = "alloy-tracing" }
+      }
+    }
+    exclude_instrument {
+      kubernetes {
+        pod_labels = { app = "kube-state-metrics" }
+      }
+    }
+    exclude_instrument {
+      kubernetes {
+        pod_labels = { "app.kubernetes.io/name" = "nvidia-device-plugin" }
+      }
+    }
+  }
+
+  attributes {
+    kubernetes {
+      enable       = "true"
+      cluster_name = "ringtail"
+    }
+  }
+
+  traces {
+    instrumentations = ["http"]
+  }
+
+  output {
+    traces = [otelcol.processor.batch.default.input]
+  }
+}
+
+// ============== OTEL TRACE PIPELINE ==============
+
+// Batch traces before export
+otelcol.processor.batch "default" {
+  output {
+    traces = [otelcol.processor.attributes.add_cluster.input]
+  }
+}
+
+// Add cluster label to all spans
+otelcol.processor.attributes "add_cluster" {
+  action {
+    key   = "cluster"
+    value = "ringtail"
+    action = "upsert"
+  }
+
+  output {
+    traces = [otelcol.exporter.otlphttp.tempo.input]
+  }
+}
+
+// Export traces to Tempo on indri via Tailscale
+otelcol.exporter.otlphttp "tempo" {
+  client {
+    endpoint = "https://tempo-otlp.tail8d86e.ts.net"
+
+    tls {
+      insecure_skip_verify = true
+    }
+  }
+}

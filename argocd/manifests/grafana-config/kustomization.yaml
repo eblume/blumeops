@@ -25,6 +25,7 @@ resources:
   - dashboards/configmap-flyio.yaml
   - dashboards/configmap-sifaka-disks.yaml
   - dashboards/configmap-forgejo.yaml
+  - dashboards/configmap-tempo.yaml
   # TeslaMate dashboards
   - dashboards/configmap-teslamate-overview.yaml
   - dashboards/configmap-teslamate-charges.yaml

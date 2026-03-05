@@ -7,11 +7,12 @@ tags:
 
 # Observability
 
-Metrics, logs, and dashboards for BlumeOps infrastructure.
+Metrics, logs, traces, and dashboards for BlumeOps infrastructure.
 
 ## Components
 
 - [[prometheus]] - Metrics storage and querying
 - [[loki]] - Log aggregation
-- [[alloy|Alloy]] - Metrics and log collection
+- [[tempo]] - Distributed tracing
+- [[alloy|Alloy]] - Metrics, log, and trace collection
 - [[grafana]] - Dashboards and visualization
