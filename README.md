@@ -63,7 +63,7 @@ prek install                    # set up git hooks
 
 Git hooks (via [prek](https://github.com/j178/prek)) enforce secret scanning
 (TruffleHog), linting, formatting, and custom checks like doc link validation
-and the Mikado branch invariant. Run them manually with `prek run --all-files`.
+and the Mikado branch invariant. They run automatically on `git commit`.
 
 Operational tasks are driven through mise. Run `mise tasks` to see what's
 available. Key examples:
