@@ -48,22 +48,11 @@ Task-oriented instructions for common BlumeOps operations. These guides assume y
 | [[restore-1password-backup]] | Recover 1Password credentials from borgmatic backup |
 | [[troubleshooting]] | Diagnose and fix common issues |
 
-## Plans
+## Forgejo
 
-Migration and transition plans for upcoming infrastructure changes.
+Mikado chain for migrating Forgejo from Homebrew to source-built binary. Track progress with `mise run docs-mikado migrate-forgejo-from-brew`.
 
-| Plan | Description |
-|------|-------------|
-| [[plans]] | Index of all plans |
-| [[completed]] | Completed plans archive |
-| [[migrate-forgejo-from-brew]] | Transition Forgejo from Homebrew to source-built binary |
-| [[add-unifi-pulumi-stack]] | Add Pulumi IaC for UniFi Express 7 (abandoned) |
-| [[segment-home-network]] | Manual three-network segmentation for UniFi Express 7 |
-| [[adopt-dagger-ci]] | Adopt Dagger as CI/CD build engine |
-| [[upstream-fork-strategy]] | Stacked-branch forking strategy for upstream projects |
-| [[adopt-oidc-provider]] | Deploy OIDC identity provider for SSO across services |
-| [[upgrade-grafana]] | Upgrade Grafana to 12.x with kustomize and home-built container |
-| [[operationalize-reolink-camera]] | Cloud-free NVR with Frigate and ring buffer recording |
+- [[migrate-forgejo-from-brew]]
 
 ## Ringtail
 

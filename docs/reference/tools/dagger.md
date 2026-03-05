@@ -88,5 +88,4 @@ In [[forgejo]] Actions, secrets are injected as env vars. Locally, mise tasks ca
 - [[forgejo]] — CI/CD trigger layer
 - [[zot]] — Container registry (publish target)
 - [[docs]] — Documentation site (build target)
-- [[adopt-dagger-ci]] — Adoption plan (phases 1–3 complete)
 - [[manage-lockfile]] — Ringtail flake lockfile management

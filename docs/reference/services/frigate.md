@@ -77,4 +77,3 @@ A separate **frigate-notify** pod (`ghcr.io/0x2142/frigate-notify:v0.3.5`) subsc
 - [[ntfy]] - Push notification delivery
 - [[sifaka]] - NAS storage for recordings
 - [[observability]] - Prometheus metrics at `/api/metrics`
-- [[operationalize-reolink-camera]] - Original deployment plan

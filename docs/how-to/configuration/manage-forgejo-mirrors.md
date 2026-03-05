@@ -144,5 +144,4 @@ Trigger a manual sync on one mirror to confirm the new PAT works:
 ## Related
 
 - [[forgejo]] — Forgejo service reference
-- [[upstream-fork-strategy]] — Stacked-branch forking for repos with local modifications
 - [[gandi-operations]] — Similar PAT rotation workflow for Gandi DNS

@@ -17,7 +17,7 @@ Home WiFi router and network controller, managed via the UX7 web UI.
 | **Model** | UniFi Express 7 (UX7) |
 | **LAN IP** | `192.168.1.1` |
 | **Management URL** | `https://192.168.1.1` |
-| **Management** | Web UI only (no IaC — see [[add-unifi-pulumi-stack]]) |
+| **Management** | Web UI only (no IaC) |
 | **Power** | Battery-backed via UPS (see [[power]]) |
 
 ## What It Does
@@ -37,7 +37,7 @@ The UX7 is the home WiFi access point and network gateway. It provides:
 | Guest | 2 | 192.168.2.0/24 | Visitors, internet-only |
 | IoT | 3 | 192.168.3.0/24 | Smart devices (Frame TV, appliances) |
 
-See [[segment-home-network]] for the full segmentation plan and firewall rules.
+Three-network segmentation configured manually via UX7 web UI (Feb 2026).
 
 ## Network Topology
 
@@ -67,12 +67,10 @@ Local admin account on the UX7. Credentials stored in 1Password (vault `blumeops
 
 ## Why Not IaC?
 
-Attempted Feb 2026 with the `ubiquiti-community/unifi` Terraform provider via Pulumi. A "no-op" update on the default LAN network reset undeclared properties, bricking the network and requiring a factory reset. The provider ecosystem is too immature for single-device infrastructure. See [[add-unifi-pulumi-stack]] for details.
+Attempted Feb 2026 with the `ubiquiti-community/unifi` Terraform provider via Pulumi. A "no-op" update on the default LAN network reset undeclared properties, bricking the network and requiring a factory reset. The provider ecosystem is too immature for single-device infrastructure.
 
 ## Related
 
-- [[segment-home-network]] — Network segmentation plan
-- [[add-unifi-pulumi-stack]] — Previous IaC approach (abandoned)
 - [[hosts]] — Device inventory
 - [[power]] — UPS power chain
 - [[indri]] — Primary server (wired connection)

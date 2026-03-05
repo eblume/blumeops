@@ -21,7 +21,6 @@ The docs follow the [Diataxis](https://diataxis.fr/) framework:
 | **[[tutorials|Tutorials]]** | Learning-oriented | "I'm new and want to understand" |
 | **[[reference|Reference]]** | Information-oriented | "I need specific technical details" |
 | **[[how-to|How-to]]** | Task-oriented | "I need to do X" |
-| **[[plans|Plans]]** | Future work | "What's planned next?" |
 | **[[explanation|Explanation]]** | Understanding-oriented | "I want to understand why" |
 
 ## Quick Paths by Audience
@@ -30,7 +29,6 @@ The docs follow the [Diataxis](https://diataxis.fr/) framework:
 
 You probably want quick access to operational details:
 - [[how-to]] guides for common operations (deploy, troubleshoot, update ACLs)
-- [[plans]] captures migration and transition plans for future execution
 - [[reference]] has service URLs, commands, and config locations
 - [[ai-assistance-guide]] explains how to work effectively with Claude
 - Run `mise run ai-docs` to prime AI context with key documentation
@@ -39,7 +37,6 @@ You probably want quick access to operational details:
 
 Context for effective assistance:
 - Read [[ai-assistance-guide]] for operational conventions
-- [[plans]] has migration plans designed for AI-executed sessions
 - [[reference]] has the technical specifics you'll need
 - The repo's `CLAUDE.md` has critical rules (especially the kubectl context requirement)
 
@@ -73,7 +70,7 @@ Documentation uses `[[wiki-links]]` for cross-references:
 
 When reading on the web (docs.eblu.me), these render as clickable links. The backlinks panel shows what references each page.
 
-Pre-commit hooks automatically validate that all wiki-links point to existing files and that link targets are unambiguous.
+Prek hooks automatically validate that all wiki-links point to existing files and that link targets are unambiguous.
 
 ## AI Context Priming
 

@@ -51,6 +51,5 @@ Replace Dex with [Authentik](https://goauthentik.io/) as the SSO identity provid
 
 - [[authentik]] — OIDC identity provider
 - [[federated-login]] — How authentication works across BlumeOps
-- [[adopt-oidc-provider]] — Dex deployment plan (completed)
 - [[ringtail]] — Target cluster
 - [[agent-change-process]] — C2 methodology used for this change
