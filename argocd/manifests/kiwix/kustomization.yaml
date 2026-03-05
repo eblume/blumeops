@@ -10,7 +10,7 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/kiwix-serve
-    newTag: v3.8.1-ffa8727
+    newTag: v3.8.2-f6f0f79
   - name: registry.ops.eblu.me/blumeops/transmission
     newTag: v4.0.6-r4-ffa8727
   - name: registry.ops.eblu.me/blumeops/kubectl
