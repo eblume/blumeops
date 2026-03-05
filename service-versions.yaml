@@ -182,8 +182,8 @@ services:
 
   - name: kiwix
     type: argocd
-    last-reviewed: null
-    current-version: "3.8.1"
+    last-reviewed: 2026-03-05
+    current-version: "3.8.2"
     upstream-source: https://github.com/kiwix/kiwix-tools/releases
 
   - name: devpi

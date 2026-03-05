@@ -1,7 +1,7 @@
 # kiwix-serve container
 # Downloads pre-built binary from kiwix mirror
 
-ARG CONTAINER_APP_VERSION=3.8.1
+ARG CONTAINER_APP_VERSION=3.8.2
 
 FROM alpine:3.22
 

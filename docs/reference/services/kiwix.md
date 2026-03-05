@@ -1,6 +1,6 @@
 ---
 title: Kiwix
-modified: 2026-02-07
+modified: 2026-03-05
 tags:
   - service
   - knowledge
@@ -17,7 +17,7 @@ Offline Wikipedia and ZIM archive server.
 | **URL** | https://kiwix.ops.eblu.me |
 | **Tailscale URL** | https://kiwix.tail8d86e.ts.net |
 | **Namespace** | `kiwix` |
-| **Image** | `ghcr.io/kiwix/kiwix-serve:3.8.1` |
+| **Image** | `registry.ops.eblu.me/blumeops/kiwix-serve:v3.8.2` |
 | **Storage** | NFS from [[sifaka|Sifaka]] (`/volume1/torrents`) |
 
 ## Architecture
@@ -37,7 +37,7 @@ Offline Wikipedia and ZIM archive server.
 - LibreTexts textbooks
 - DevDocs developer documentation
 
-Full list: `argocd/manifests/kiwix/configmap-zim-torrents.yaml`
+Full list: `argocd/manifests/kiwix/torrents.txt`
 
 ## Adding Archives
 
