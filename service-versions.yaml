@@ -175,8 +175,8 @@ services:
 
   - name: transmission-exporter
     type: argocd
-    last-reviewed: 2026-03-04
-    current-version: "1.0.0"
+    last-reviewed: 2026-03-05
+    current-version: "1.0.1"
     upstream-source: null
     notes: Homegrown Python exporter, no upstream
 

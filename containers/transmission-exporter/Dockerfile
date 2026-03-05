@@ -1,7 +1,7 @@
 # Transmission Prometheus exporter - collect-on-scrape, no polling loop
 # uv run --script handles dependency resolution at runtime
 
-ARG CONTAINER_APP_VERSION=1.0.0
+ARG CONTAINER_APP_VERSION=1.0.1
 
 FROM python:3.13-alpine3.23
 
