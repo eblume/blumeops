@@ -1,6 +1,6 @@
 ---
 title: Reference
-modified: 2026-02-24
+modified: 2026-03-04
 tags:
   - reference
 ---
@@ -40,6 +40,7 @@ Individual service reference cards with URLs and configuration details.
 | [[authentik]] | OIDC identity provider | k8s (ringtail) |
 | [[docs]] | Documentation site (Quartz) | k8s |
 | [[flyio-proxy]] | Public reverse proxy (Fly.io + Tailscale) | Fly.io |
+| [[ollama]] | LLM inference server | k8s (ringtail) |
 | [[automounter]] | SMB share automounter | indri |
 
 ## Infrastructure

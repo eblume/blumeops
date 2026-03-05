@@ -1,6 +1,6 @@
 ---
 title: Apps
-modified: 2026-02-25
+modified: 2026-03-04
 tags:
   - kubernetes
   - argocd
@@ -36,6 +36,7 @@ Registry of all applications deployed via [[argocd]].
 | `teslamate` | teslamate | `argocd/manifests/teslamate/` | [[teslamate]] |
 | `cv` | cv | `argocd/manifests/cv/` | [[cv]] |
 | `forgejo-runner` | forgejo-runner | `argocd/manifests/forgejo-runner/` | [[forgejo]] CI |
+| `ollama` | ollama | `argocd/manifests/ollama/` | [[ollama]] |
 
 ## Sync Policies
 
