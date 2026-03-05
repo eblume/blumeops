@@ -84,11 +84,27 @@ data:
               "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
             }
           },
-          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 3 },
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 3 },
           "id": 7,
           "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
           "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_pod_container_status_waiting_reason{cluster=~\"$cluster\", namespace=~\"$namespace\", reason=~\"ImagePullBackOff|ErrImagePull|CrashLoopBackOff|CreateContainerError|RunContainerError\"}) or vector(0)", "refId": "A" }],
           "title": "Unhealthy Pods",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [],
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+            }
+          },
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 3 },
+          "id": 13,
+          "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\", cluster=~\"$cluster\", namespace=~\"$namespace\"} == 1) or vector(0)", "refId": "A" }],
+          "title": "OOMKilled Containers",
           "type": "stat"
         },
         {
@@ -102,7 +118,7 @@ data:
               "unit": "short"
             }
           },
-          "gridPos": { "h": 4, "w": 18, "x": 6, "y": 3 },
+          "gridPos": { "h": 4, "w": 16, "x": 8, "y": 3 },
           "id": 8,
           "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "Last *", "sortDesc": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
           "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (reason) (kube_pod_container_status_waiting_reason{cluster=~\"$cluster\", namespace=~\"$namespace\"})", "legendFormat": "{{reason}}", "refId": "A" }],
@@ -149,6 +165,26 @@ data:
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "fieldConfig": {
             "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": { "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "bars", "fillOpacity": 80, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "normal" }, "thresholdsStyle": { "mode": "off" } },
+              "mappings": [],
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+              "unit": "short"
+            }
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+          "id": 14,
+          "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "Last *", "sortDesc": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+          "targets": [
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "round(increase(kube_pod_container_status_restarts_total{cluster=~\"$cluster\", namespace=~\"$namespace\"}[$__rate_interval])) > 0", "legendFormat": "{{namespace}}/{{pod}}", "refId": "A" }
+          ],
+          "title": "Container Restarts",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
               "color": { "mode": "thresholds" },
               "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
               "mappings": [],
@@ -161,7 +197,7 @@ data:
               { "matcher": { "id": "byName", "options": "CPU Limits" }, "properties": [{ "id": "unit", "value": "short" }] }
             ]
           },
-          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 23 },
           "id": 11,
           "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "Pods" }] },
           "targets": [
@@ -180,7 +216,7 @@ data:
         },
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 23 },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 31 },
           "id": 12,
           "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": false },
           "targets": [{ "datasource": { "type": "loki", "uid": "loki" }, "expr": "{cluster=~\"$cluster\", namespace=~\"$namespace\"}", "refId": "A" }],
