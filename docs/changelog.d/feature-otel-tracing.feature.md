@@ -1,1 +1,0 @@
-Add distributed tracing via Grafana Tempo and Beyla eBPF auto-instrumentation. Tempo runs on minikube-indri for trace storage, while a privileged Alloy DaemonSet on ringtail uses Beyla to instrument HTTP services (Frigate, ntfy, Ollama, Immich) without code changes. Grafana gets trace-to-log and trace-to-metrics correlation.

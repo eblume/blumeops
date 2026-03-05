@@ -1,1 +1,0 @@
-Replace unmaintained `metalmatze/transmission-exporter` sidecar with homegrown Python exporter using `prometheus_client` and `transmission-rpc`. Same metric names, so Grafana dashboards work unchanged.

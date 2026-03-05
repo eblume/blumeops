@@ -12,6 +12,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.13.0] - 2026-03-05
+
+### Features
+
+- Add Authentik OIDC login for ArgoCD — `eblume` (admins group) gets admin access via SSO while local admin password remains as break-glass.
+- Expose Forgejo publicly at forge.eblu.me via Fly.io reverse proxy with rate limiting, fail2ban, and security hardening.
+- Deploy Ollama LLM server on ringtail with GPU acceleration and declarative model management
+- Add distributed tracing via Grafana Tempo and Beyla eBPF auto-instrumentation. Tempo runs on minikube-indri for trace storage, while a privileged Alloy DaemonSet on ringtail uses Beyla to instrument HTTP services (Frigate, ntfy, Ollama, Immich) without code changes. Grafana gets trace-to-log and trace-to-metrics correlation.
+- Add fly.io nginx proxy observability and application logs to Forgejo dashboard; rename from "Forgejo Repository Health" to "Forgejo".
+
+### Bug Fixes
+
+- Add per-torrent rate metrics using Transmission's native rate_download/rate_upload fields. Dashboard panels were querying cumulative byte gauges (torrent size) instead of actual transfer rates.
+- Fix Frigate database loss on pod restart by pointing database path to persistent /db volume
+- Fix runner-job-image Dagger version mismatch: bump from 0.19.11 to 0.20.0 to match upgraded Dagger module.
+
+### Infrastructure
+
+- Home-build grafana-sidecar container image, replacing upstream `quay.io/kiwigrid/k8s-sidecar` for supply chain control.
+- Add HA (2 replicas + PDB) for CV and Docs services for zero-downtime deploys.
+- Build Loki container image locally instead of pulling from upstream
+- Replace unmaintained `metalmatze/transmission-exporter` sidecar with homegrown Python exporter using `prometheus_client` and `transmission-rpc`. Same metric names, so Grafana dashboards work unchanged.
+- Upgrade Transmission from 4.0.6-r4 to 4.1.1-r1 (Alpine edge community repo)
+- Bump Frigate memory limit from 2Gi to 3Gi to prevent OOMKills under steady-state ONNX + CUDA workload.
+- Add Gandi bookmark to homepage dashboard
+- Allow implicit octals in yamllint and use `0755` directly in k8s manifests instead of decimal or disable-line comments.
+- Upgrade Dagger engine and CLI from v0.19.11 to v0.20.0
+- Upgrade TeslaMate from v2.2.0 to v3.0.0 (dark mode, BRIN index optimization, Elixir 1.19.5, trixie-slim runtime)
+- Add OOMKilled Containers stat panel and Container Restarts timeseries to the Kubernetes Clusters dashboard for persistent OOMKill visibility.
+- Add pre-commit hook to prevent changelog fragments from being placed in subdirectories.
+- Bump kiwix-serve from 3.8.1 to 3.8.2
+
+### Documentation
+
+- Clarify that changelog fragments apply to all change levels (C0, C1, C2), not just C2.
+- Add reference card for the Ollama LLM inference service.
+- Clarify that all mikado frontmatter is removed during chain finalization; clean up stale frontmatter from closed chains; fix ai-docs exit code after plans directory retirement.
+- Retire docs plans directory: deleted completed/abandoned plans, converted migrate-forgejo-from-brew to a mikado chain root card, removed plans references from tutorials and how-to index.
+- Review and fix upgrade-grafana doc: correct image tag reference to kustomization.yaml, add sidecar cross-reference, update stale service-versions notes.
+- Use towncrier orphan fragment naming (`+slug.<type>.md`) for C0 changes to avoid `main.*` collisions.
+
+
 ## [v1.12.1] - 2026-03-02
 
 ### Features
