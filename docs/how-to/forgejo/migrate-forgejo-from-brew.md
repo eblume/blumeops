@@ -2,6 +2,7 @@
 title: Migrate Forgejo from Brew to Source Build
 status: active
 modified: 2026-03-04
+last-reviewed: 2026-03-05
 tags:
   - how-to
   - forgejo

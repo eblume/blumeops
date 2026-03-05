@@ -7,7 +7,7 @@ forgejo_app_slogan: "Beyond coding. We Forge."
 forgejo_run_user: forgejo
 forgejo_run_mode: prod
 
-# Paths (brew-managed for now, will change to mcquack in Phase 3)
+# Paths (brew-managed for now, will change to mcquack per migrate-forgejo-from-brew)
 forgejo_work_path: /opt/homebrew/var/forgejo
 forgejo_config_path: "{{ forgejo_work_path }}/custom/conf/app.ini"
 forgejo_data_path: "{{ forgejo_work_path }}/data"
