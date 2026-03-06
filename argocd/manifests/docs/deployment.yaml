@@ -27,7 +27,7 @@ spec:
               name: http
           env:
             - name: DOCS_RELEASE_URL
-              value: "https://forge.eblu.me/eblume/blumeops/releases/download/v1.13.0/docs-v1.13.0.tar.gz"
+              value: "https://forge.eblu.me/eblume/blumeops/releases/download/v1.13.1/docs-v1.13.1.tar.gz"
           resources:
             requests:
               memory: "64Mi"

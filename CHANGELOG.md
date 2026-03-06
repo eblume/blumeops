@@ -12,6 +12,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.13.1] - 2026-03-06
+
+### Infrastructure
+
+- Add `:kustomized` sentinel tag to all manifest image references overridden by kustomize, making it clear the real tag lives in kustomization.yaml.
+- Add nginx spider-trap guards to docs.eblu.me Quartz container — blocks recursive crawler paths at /tags/ depth >1 and global depth ≥5.
+
+
 ## [v1.13.0] - 2026-03-05
 
 ### Features
