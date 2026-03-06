@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: docs
-          image: registry.ops.eblu.me/blumeops/quartz
+          image: registry.ops.eblu.me/blumeops/quartz:kustomized
           ports:
             - containerPort: 80
               name: http

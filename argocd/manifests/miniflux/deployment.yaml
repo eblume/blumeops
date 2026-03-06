@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: miniflux
-          image: registry.ops.eblu.me/blumeops/miniflux
+          image: registry.ops.eblu.me/blumeops/miniflux:kustomized
           ports:
             - containerPort: 8080
           env:

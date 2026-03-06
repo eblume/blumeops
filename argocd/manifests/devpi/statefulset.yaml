@@ -18,7 +18,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: devpi
-          image: registry.ops.eblu.me/blumeops/devpi
+          image: registry.ops.eblu.me/blumeops/devpi:kustomized
           env:
             - name: DEVPI_ROOT_PASSWORD
               valueFrom:

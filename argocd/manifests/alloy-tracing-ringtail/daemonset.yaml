@@ -18,7 +18,7 @@ spec:
       hostPID: true
       containers:
         - name: alloy
-          image: grafana/alloy
+          image: grafana/alloy:kustomized
           args:
             - run
             - --server.http.listen-addr=0.0.0.0:12346

@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: frigate-notify
-          image: ghcr.io/0x2142/frigate-notify
+          image: ghcr.io/0x2142/frigate-notify:kustomized
           env:
             - name: TZ
               value: America/Los_Angeles

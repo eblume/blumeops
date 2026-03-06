@@ -20,7 +20,7 @@ spec:
         runAsUser: 10001
       containers:
         - name: tempo
-          image: grafana/tempo
+          image: grafana/tempo:kustomized
           args:
             - -config.file=/etc/tempo/tempo.yaml
           ports:

@@ -19,7 +19,7 @@ spec:
       runtimeClassName: nvidia
       initContainers:
         - name: copy-config
-          image: busybox
+          image: busybox:kustomized
           command: ["cp", "/config-ro/config.yml", "/config/config.yml"]
           volumeMounts:
             - name: config-ro
@@ -28,7 +28,7 @@ spec:
               mountPath: /config
       containers:
         - name: frigate
-          image: ghcr.io/blakeblackshear/frigate
+          image: ghcr.io/blakeblackshear/frigate:kustomized
           ports:
             - containerPort: 5000
               name: http

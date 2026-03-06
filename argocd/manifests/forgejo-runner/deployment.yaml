@@ -18,7 +18,7 @@ spec:
       containers:
         # Forgejo runner daemon
         - name: runner
-          image: code.forgejo.org/forgejo/runner
+          image: code.forgejo.org/forgejo/runner:kustomized
           env:
             - name: TZ
               value: America/Los_Angeles
@@ -68,7 +68,7 @@ spec:
 
         # Docker-in-Docker sidecar
         - name: dind
-          image: docker
+          image: docker:kustomized
           securityContext:
             privileged: true
           env:

@@ -201,7 +201,7 @@ services:
 
   - name: devpi
     type: argocd
-    last-reviewed: null
+    last-reviewed: 2026-03-06
     current-version: "6.19.1"
     upstream-source: https://github.com/devpi/devpi/releases
 

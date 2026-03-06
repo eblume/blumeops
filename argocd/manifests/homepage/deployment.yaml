@@ -20,7 +20,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: homepage
-          image: registry.ops.eblu.me/blumeops/homepage
+          image: registry.ops.eblu.me/blumeops/homepage:kustomized
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false

@@ -18,6 +18,7 @@ spec:
   statefulSet:
     pod:
       tailscaleContainer:
+        # NOTE: keep in sync with kustomization.yaml (CRD fields aren't processed by kustomize images)
         image: docker.io/tailscale/tailscale:v1.94.2
       tailscaleInitContainer:
         image: docker.io/tailscale/tailscale:v1.94.2

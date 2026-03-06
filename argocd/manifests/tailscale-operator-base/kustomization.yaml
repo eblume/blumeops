@@ -9,6 +9,10 @@ resources:
   - proxyclass.yaml
   - dnsconfig.yaml
 
+# NOTE: also update proxyclass.yaml when changing the Tailscale version.
+# The kustomize images transformer only processes standard k8s container specs
+# (Deployments, StatefulSets, etc.), not CRD fields like ProxyClass, so
+# proxyclass.yaml tags must be updated manually.
 images:
   - name: docker.io/tailscale/k8s-operator
     newTag: v1.94.2

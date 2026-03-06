@@ -32,7 +32,7 @@ spec:
         runAsUser: 472
       initContainers:
         - name: init-chown-data
-          image: docker.io/library/busybox
+          image: docker.io/library/busybox:kustomized
           imagePullPolicy: IfNotPresent
           command: ["chown", "-R", "472:472", "/var/lib/grafana"]
           securityContext:
@@ -48,7 +48,7 @@ spec:
       containers:
         # Dashboard sidecar - watches ConfigMaps with grafana_dashboard=1
         - name: grafana-sc-dashboard
-          image: registry.ops.eblu.me/blumeops/grafana-sidecar
+          image: registry.ops.eblu.me/blumeops/grafana-sidecar:kustomized
           imagePullPolicy: IfNotPresent
           env:
             - name: METHOD
@@ -88,7 +88,7 @@ spec:
               mountPath: /tmp/dashboards
         # Grafana
         - name: grafana
-          image: registry.ops.eblu.me/blumeops/grafana
+          image: registry.ops.eblu.me/blumeops/grafana:kustomized
           imagePullPolicy: IfNotPresent
           env:
             - name: POD_IP
