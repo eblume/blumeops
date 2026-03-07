@@ -1,6 +1,7 @@
 ---
 title: Review Services
 modified: 2026-02-19
+last-reviewed: 2026-03-07
 tags:
   - how-to
   - maintenance
@@ -37,34 +38,30 @@ mise run service-review --type hybrid
 
 ## Review Process by Service Type
 
-### ArgoCD Services
+### ArgoCD Services (`type: argocd`)
 
 1. Check the upstream releases page for new versions
-2. Compare to the image tag or Helm chart version in `argocd/manifests/<service>/`
+2. Compare to the image tag in `argocd/manifests/<service>/kustomization.yaml` (`images[].newTag`)
 3. Review the upstream changelog for breaking changes
-4. If upgrading, update the manifest and follow [[deploy-k8s-service]]
+4. If the service uses a custom-built container, also check the base image for security updates and follow [[build-container-image]] to rebuild
+5. If upgrading, update the manifest and follow [[deploy-k8s-service]]
 
-### Helm Chart Services
-
-Same as ArgoCD, but also check for new chart versions in the mirrored chart repos under `argocd/manifests/<service>/charts/`.
-
-### Hybrid Services (Custom Container + ArgoCD)
-
-1. Check the upstream project for new releases
-2. Check the base image for security updates
-3. If rebuilding, follow [[build-container-image]] to tag and release
-4. Update the ArgoCD manifest with the new image tag
-
-### Ansible Services
+### Ansible Services (`type: ansible`)
 
 1. Check the upstream releases page for new versions
 2. Review the role's vars/defaults for version pins in `ansible/roles/<service>/`
 3. If upgrading, update the version and dry-run: `mise run provision-indri -- --tags <service> --check --diff`
 4. Follow [[add-ansible-role]] patterns for role changes
 
+### NixOS Services (`type: nixos`)
+
+1. Check the upstream project for new releases
+2. Review the Nix derivation or flake input for version pins
+3. If upgrading, update and deploy via `mise run provision-ringtail`
+
 ## Version Tracking Convention
 
-The `current-version` field in `service-versions.yaml` tracks the **upstream application version**, not the container image tag. For hybrid services, the container image tag (e.g., `v1.0.0`) is decoupled from the contained app version (e.g., `v1.10.1`). This allows container rebuilds (base image updates, build fixes) without implying an upstream version change.
+The `current-version` field in `service-versions.yaml` tracks the **upstream application version**, not the container image tag. For services with custom-built containers, the container image tag (e.g., `v1.0.0`) is decoupled from the contained app version (e.g., `v1.10.1`). This allows container rebuilds (base image updates, build fixes) without implying an upstream version change.
 
 ## Marking a Service as Reviewed
 
