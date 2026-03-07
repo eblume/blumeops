@@ -84,6 +84,10 @@ tags:
 - [[build-grafana-container]]
 - [[build-grafana-sidecar]]
 
+## Dagger
+
+- [[upgrade-dagger]]
+
 ## Forgejo Runner
 
 - [[upgrade-k8s-runner]]

@@ -1,6 +1,6 @@
 ---
 title: Dagger
-modified: 2026-02-22
+modified: 2026-03-06
 tags:
   - reference
   - ci-cd
@@ -80,7 +80,7 @@ In [[forgejo]] Actions, secrets are injected as env vars. Locally, mise tasks ca
 
 ## Caveats
 
-- **Pre-1.0 API** — Current version is v0.19.x. Pin the CLI version and test upgrades on a branch before adopting.
+- **Pre-1.0 API** — Current version is v0.20.x. Pin the CLI version and test upgrades on a branch before adopting. See [[upgrade-dagger]] for the upgrade procedure.
 - **Privileged container** — The Dagger engine requires privileged container access. The Forgejo runner's DinD sidecar provides this.
 
 ## Related
