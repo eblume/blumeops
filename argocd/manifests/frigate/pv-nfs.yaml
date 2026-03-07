@@ -6,6 +6,9 @@
 # 2. Name: frigate, Location: Volume 1
 # 3. Control Panel > File Services > NFS > NFS Rules
 # 4. Add rule for "frigate" share: Hostname=ringtail, Privilege=Read/Write, Squash=No mapping
+#
+# Required directories (Frigate 0.17 does not auto-create these):
+#   clips/previews/<camera_name>/   — review page preview clips
 apiVersion: v1
 kind: PersistentVolume
 metadata:
