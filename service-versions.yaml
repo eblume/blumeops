@@ -207,14 +207,14 @@ services:
 
   - name: cv
     type: argocd
-    last-reviewed: null
+    last-reviewed: 2026-03-07
     current-version: "1.0.3"
     upstream-source: null
     notes: Personal static site, no upstream
 
   - name: docs
     type: argocd
-    last-reviewed: null
+    last-reviewed: 2026-03-07
     current-version: "1.28.2"
     upstream-source: https://github.com/jackyzha0/quartz/releases
     notes: Quartz static site generator; container version tracks nginx base
