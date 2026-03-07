@@ -2,4 +2,4 @@
 "pipx:ansible-core" = { version = "latest", uvx = "true", uvx_args = "--with botocore --with boto3" }
 prek = "latest"
 pulumi = "latest"
-dagger = "0.20.0"
+dagger = "0.20.1"

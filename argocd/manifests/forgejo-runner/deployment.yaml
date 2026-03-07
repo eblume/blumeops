@@ -29,7 +29,7 @@ spec:
             - name: RUNNER_NAME
               value: "k8s-runner"
             - name: RUNNER_LABELS
-              value: "k8s:docker://registry.ops.eblu.me/blumeops/runner-job-image:v0.20.0-448689b"
+              value: "k8s:docker://registry.ops.eblu.me/blumeops/runner-job-image:v0.20.1-24f7512"
           command:
             - /bin/sh
             - -c
