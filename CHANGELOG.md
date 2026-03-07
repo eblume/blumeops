@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.13.2] - 2026-03-06
+
+### Infrastructure
+
+- Replace nginx spider-trap 404 guards with robots.txt disallowing /explorer/ to prevent crawler-induced infinite URL trees.
+
+
 ## [v1.13.1] - 2026-03-06
 
 ### Infrastructure
