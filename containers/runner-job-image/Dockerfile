@@ -9,7 +9,7 @@
 # Usage: Configure runner with label like:
 #   docker:docker://registry.ops.eblu.me/blumeops/runner-job-image:latest
 
-ARG CONTAINER_APP_VERSION=0.20.0
+ARG CONTAINER_APP_VERSION=0.20.1
 
 FROM debian:bookworm-slim
 
