@@ -9,4 +9,4 @@ resources:
   - pdb.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/quartz
-    newTag: v1.28.2-6636576
+    newTag: v1.28.2-b64010b
