@@ -12,6 +12,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.13.3] - 2026-03-06
+
+### Infrastructure
+
+- Upgrade Dagger engine and CLI from v0.20.0 to v0.20.1.
+
+### Documentation
+
+- Add how-to guide for upgrading Dagger, documenting the correct phase ordering to avoid chicken-and-egg CI failures.
+
+
 ## [v1.13.2] - 2026-03-06
 
 ### Infrastructure
