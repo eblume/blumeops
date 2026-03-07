@@ -1,6 +1,7 @@
 ---
 title: Review Documentation
 modified: 2026-02-09
+last-reviewed: 2026-03-07
 tags:
   - how-to
   - documentation
@@ -85,23 +86,20 @@ If changes would be made, either the docs are stale or the host has drifted.
 Check for drift:
 
 ```bash
-# Tailscale ACLs
-cd pulumi/tailscale && pulumi preview
-
-# DNS (Gandi)
-cd pulumi/gandi && pulumi preview
+mise run tailnet-preview  # Tailscale ACLs
+mise run dns-preview      # DNS (Gandi)
 ```
 
 If changes are pending, investigate whether docs or infrastructure is stale.
 
 ## Making Changes
 
-If a card needs updates:
+If a card needs updates, classify the change (see [[agent-change-process]]):
 
-1. Create a feature branch
-2. Make the edits
-3. Run `mise run docs-check-links` to verify links
-4. Create a PR for review
+- **C0 (small fix):** Edit, commit directly to main
+- **C1/C2 (larger changes):** Create a feature branch and PR
+
+Link validation runs automatically via prek on commit.
 
 See [[update-documentation]] for publishing changes.
 
