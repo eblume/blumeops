@@ -100,6 +100,18 @@ loki.process "pods" {
     values = ["__error__", "__error_details__"]
   }
 
+  // Normalize 1password-connect numeric log levels to strings (1=error..5=trace)
+  // Scoped to the 1password namespace so other services are unaffected.
+  // See: https://github.com/1Password/connect/issues/44
+  stage.match {
+    selector = "{namespace=\"1password\"}"
+
+    stage.template {
+      source   = "level"
+      template = "{{ if eq .Value \"1\" }}error{{ else if eq .Value \"2\" }}warn{{ else if eq .Value \"3\" }}info{{ else if eq .Value \"4\" }}debug{{ else if eq .Value \"5\" }}trace{{ else }}{{ .Value }}{{ end }}"
+    }
+  }
+
   // Extract labels from parsed JSON data
   stage.labels {
     values = {
