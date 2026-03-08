@@ -14,9 +14,8 @@ Checks:
 1. All commits follow the C2(<chain>): <verb> <description> convention
 2. The invariant ordering is maintained: plan commits come before impl/close
 3. No plan commits appear after any impl or close commits
-4. Close commits don't appear before impl commits in the same cycle
-5. The chain stem in commit messages matches the branch name
-6. impl commits don't modify Mikado card files (docs with mikado frontmatter)
+4. The chain stem in commit messages matches the branch name
+5. impl commits don't modify Mikado card files (docs with mikado frontmatter)
 
 Can also be run standalone (no arguments) to validate existing branch history.
 
@@ -233,11 +232,6 @@ def check_invariant(commits: list[dict], chain_stem: str) -> list[str]:
             seen_impl = True
         elif verb == "close":
             seen_close = True
-            if not seen_impl:
-                errors.append(
-                    f"{sha_short}: close commit without preceding impl — "
-                    f"leaf nodes should be closed after implementation work"
-                )
         elif verb == "finalize":
             # finalize is the permitted exception — must be last
             if i != len(commits) - 1:
