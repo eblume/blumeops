@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jobsync-tailscale
+  namespace: jobsync
+  annotations:
+    tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "JobSync"
+    gethomepage.dev/group: "Apps"
+    gethomepage.dev/icon: "mdi-briefcase-search"
+    gethomepage.dev/description: "Job application tracker"
+    gethomepage.dev/href: "https://jobsync.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=jobsync"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: jobsync
+      port:
+        number: 3000
+  tls:
+    - hosts:
+        - jobsync

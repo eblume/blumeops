@@ -88,6 +88,11 @@ tags:
 
 - [[upgrade-dagger]]
 
+## JobSync
+
+- [[deploy-jobsync]]
+- [[build-jobsync-container]]
+
 ## Forgejo Runner
 
 - [[upgrade-k8s-runner]]
