@@ -12,4 +12,4 @@ resources:
 images:
   - name: blumeops/jobsync
     newName: registry.ops.eblu.me/blumeops/jobsync
-    newTag: "v1.1.4-e51ec83-nix"
+    newTag: "v1.1.4-3a811fb-nix"
