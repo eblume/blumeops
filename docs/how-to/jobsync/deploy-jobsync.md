@@ -39,6 +39,7 @@ All in `argocd/manifests/jobsync/`:
 | `AUTH_TRUST_HOST` | Hardcoded | `true` |
 | `TZ` | Hardcoded | `America/Los_Angeles` |
 | `OLLAMA_BASE_URL` | Hardcoded | `http://ollama.ollama.svc.cluster.local:11434` |
+| `RAPIDAPI_KEY` | ExternalSecret | JSearch job search API key |
 
 ## Updating the Container
 
@@ -50,11 +51,22 @@ See [[build-jobsync-container]] for nix build details.
 
 ## Notes
 
-- **1Password item:** "JobSync" in blumeops vault, fields `auth_secret` and `encryption_key`
+- **1Password item:** "JobSync" in blumeops vault, fields `auth_secret`, `encryption_key`, and `rapidapi_key`
 - **Caddy route:** `jobsync.ops.eblu.me` → `https://jobsync.tail8d86e.ts.net` (in `ansible/roles/caddy/defaults/main.yml`)
 - **`service-versions.yaml`:** Must have a `jobsync` entry or the pre-commit hook rejects container changes
 
+## Observability
+
+JobSync has no metrics endpoint. Logs are collected by Alloy on ringtail and shipped to Loki. Query in Grafana:
+
+```logql
+{namespace="jobsync", app="jobsync"}
+```
+
+The app runs a scheduled job search daily at 4 AM. Search failures appear in logs during those executions.
+
 ## Related
 
+- [[jobsync]] — Service reference card
 - [[build-jobsync-container]]
 - [[deploy-k8s-service]]

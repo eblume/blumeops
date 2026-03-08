@@ -25,6 +25,7 @@ Individual service reference cards with URLs and configuration details.
 | [[grafana]] | Dashboards & visualization | k8s |
 | [[immich]] | Photo management | k8s |
 | [[jellyfin]] | Media server | indri |
+| [[jobsync]] | Job application tracker | k8s (ringtail) |
 | [[kiwix]] | Offline Wikipedia & ZIM archives | k8s |
 | [[loki]] | Log aggregation | k8s |
 | [[tempo]] | Distributed tracing | k8s |

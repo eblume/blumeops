@@ -45,6 +45,11 @@ spec:
                 secretKeyRef:
                   name: jobsync-secrets
                   key: encryption_key
+            - name: RAPIDAPI_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jobsync-secrets
+                  key: rapidapi_key
           volumeMounts:
             - name: data
               mountPath: /data
