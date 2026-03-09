@@ -3,19 +3,21 @@
 # requires-python = ">=3.12"
 # dependencies = ["rich>=13.0.0"]
 # ///
-#MISE description="Validate all wiki-links point to existing doc filenames"
+#MISE description="Validate all wiki-links point to existing doc files"
 """Validate that all wiki-links in documentation point to existing files.
 
 This script scans all markdown files in the docs/ directory (excluding
-changelog.d/), extracts wiki-links, and verifies each link target
-exists as a unique filename in the documentation.
+changelog.d/), extracts wiki-links, and verifies each link target resolves
+to an existing file.
 
 Wiki-link formats supported:
-- [[filename]] - links to filename.md (must be unique across all docs)
-- [[target|Display Text]] - filename with display text
+- [[filename]] - resolves by stem (errors if ambiguous)
+- [[path/to/file]] - resolves by relative path from docs root
+- [[target|Display Text]] - either form with display text
+- [[target#Heading]] - with anchor fragment (file part validated)
 
-Path-based links (containing '/') are NOT supported to ensure all
-filenames are unique and links work correctly in obsidian.nvim.
+Resolution mirrors Quartz's "shortest" markdownLinkResolution:
+bare names resolve when unique; use paths to disambiguate duplicates.
 
 Usage: mise run docs-check-links
 """
@@ -31,7 +33,6 @@ from rich.table import Table
 DOCS_DIR = Path(__file__).parent.parent / "docs"
 
 # Regex to match wiki-links: [[Target]] or [[Target|Display]]
-# Captures: group(1) = target (may have spaces), group(2) = full "|Display" part if present
 WIKILINK_PATTERN = re.compile(r"\[\[([^\]|]+)(\|[^\]]+)?\]\]")
 
 # Regex to match inline code (backticks)
@@ -68,51 +69,42 @@ def extract_wikilinks(file_path: Path) -> list[tuple[str, int, bool]]:
 def main() -> int:
     console = Console()
 
-    # Collect all valid targets (both filenames and paths)
-    valid_targets: set[str] = set()
-    # Track which filenames are ambiguous (appear multiple times)
-    filename_counts: dict[str, list[str]] = {}
+    # Build lookup structures:
+    # - path_targets: set of relative paths without extension (e.g., "reference/services/alloy")
+    # - stem_to_paths: map from filename stem to list of paths (for ambiguity detection)
+    path_targets: set[str] = set()
+    stem_to_paths: dict[str, list[str]] = {}
 
-    # Scan all markdown files (excluding changelog.d/)
     for md_file in DOCS_DIR.rglob("*.md"):
         if "changelog.d" in md_file.parts:
             continue
-        # Track filename occurrences
-        filename = md_file.stem
+        stem = md_file.stem
         rel_path_str = str(md_file.relative_to(DOCS_DIR).with_suffix(""))
-        if filename not in filename_counts:
-            filename_counts[filename] = []
-        filename_counts[filename].append(rel_path_str)
-        # Add relative path without extension (e.g., "reference/services/alloy")
-        valid_targets.add(rel_path_str)
+        path_targets.add(rel_path_str)
+        if stem not in stem_to_paths:
+            stem_to_paths[stem] = []
+        stem_to_paths[stem].append(rel_path_str)
 
-    # Only add filenames that are unique (not ambiguous)
-    ambiguous_filenames: set[str] = set()
-    for filename, paths in filename_counts.items():
-        if len(paths) == 1:
-            valid_targets.add(filename)
-        else:
-            ambiguous_filenames.add(filename)
-
-    # Special case: files at repo root that are copied into docs during build
-    # These are valid link targets even though they don't exist in docs/
+    # Special case: files at repo root copied into docs during build
     REPO_ROOT = DOCS_DIR.parent
     BUILD_TIME_DOCS = ["CHANGELOG.md"]
     for filename in BUILD_TIME_DOCS:
         if (REPO_ROOT / filename).exists():
-            valid_targets.add(Path(filename).stem)
+            stem = Path(filename).stem
+            if stem not in stem_to_paths:
+                stem_to_paths[stem] = []
+            stem_to_paths[stem].append(stem)
+            path_targets.add(stem)
 
-    # Collect all broken, ambiguous, path-based, and spaced links
+    # Collect errors
     broken_links: list[tuple[str, int, str]] = []
     ambiguous_links: list[tuple[str, int, str, list[str]]] = []
-    path_links: list[tuple[str, int, str]] = []
     spaced_links: list[tuple[str, int, str]] = []
 
-    # Track which doc stems are linked-to from other docs (for orphan detection)
-    all_doc_stems: set[str] = set(filename_counts.keys())
+    # Track linked stems for orphan detection
+    all_doc_stems: set[str] = set(stem_to_paths.keys())
     linked_stems: set[str] = set()
 
-    # Scan all markdown files for wiki-links (excluding changelog.d/)
     for md_file in sorted(DOCS_DIR.rglob("*.md")):
         if "changelog.d" in md_file.parts:
             continue
@@ -123,35 +115,41 @@ def main() -> int:
 
         for target, line_num, has_spaces in links:
             if has_spaces:
-                # Links with spaces in target or around pipe are not allowed
                 spaced_links.append((rel_path, line_num, target))
                 continue
 
-            # Handle anchor links: [[#Heading]] or [[file#Heading]]
-            # Strip the #fragment for validation; pure anchors (#Heading) skip file check
+            # Strip anchor fragment for file validation
             file_target = target
             if "#" in target:
                 file_target = target.split("#", 1)[0]
                 if not file_target:
-                    # Pure in-page anchor like [[#Break-glass shutoff]] — always valid
+                    # Pure in-page anchor like [[#Heading]] — always valid
                     continue
 
             if "/" in file_target:
-                # Path-based links are not allowed - use simple filenames only
-                path_links.append((rel_path, line_num, target))
-            elif file_target in ambiguous_filenames:
-                # Link uses an ambiguous filename - needs to be renamed
-                ambiguous_links.append((rel_path, line_num, target, filename_counts[file_target]))
-            elif file_target not in valid_targets:
-                broken_links.append((rel_path, line_num, target))
-            elif file_target != source_stem:
-                # Valid link to a different doc — record it for orphan detection
-                linked_stems.add(file_target)
+                # Path-based link — resolve against path_targets
+                if file_target not in path_targets:
+                    broken_links.append((rel_path, line_num, target))
+                else:
+                    # Extract the stem for orphan tracking
+                    linked_stem = file_target.rsplit("/", 1)[-1]
+                    if linked_stem != source_stem:
+                        linked_stems.add(linked_stem)
+            else:
+                # Bare stem link — check for existence and ambiguity
+                paths = stem_to_paths.get(file_target)
+                if paths is None:
+                    broken_links.append((rel_path, line_num, target))
+                elif len(paths) > 1:
+                    # Ambiguous: multiple files share this stem
+                    ambiguous_links.append((rel_path, line_num, target, paths))
+                elif file_target != source_stem:
+                    linked_stems.add(file_target)
 
     # Print results
     console.print("[bold]Wiki-Link Validation[/bold]")
     console.print()
-    console.print(f"Found {len(valid_targets)} valid link targets in documentation.")
+    console.print(f"Found {len(path_targets)} valid link targets in documentation.")
     console.print()
 
     has_errors = False
@@ -173,28 +171,11 @@ def main() -> int:
         console.print(table)
         console.print()
 
-    if path_links:
-        has_errors = True
-        console.print("[bold red]Path-Based Wiki-Links Found[/bold red]")
-        console.print("Wiki-links must use simple filenames only (no '/' paths).")
-        console.print("Rename files to be unique, then use [[filename]] format.")
-        console.print()
-        table = Table(show_header=True, header_style="bold")
-        table.add_column("File")
-        table.add_column("Line", justify="right")
-        table.add_column("Target")
-
-        for file_path, line_num, target in path_links:
-            table.add_row(file_path, str(line_num), escape(f"[[{target}]]"))
-
-        console.print(table)
-        console.print()
-
     if ambiguous_links:
         has_errors = True
         console.print("[bold red]Ambiguous Wiki-Links Found[/bold red]")
-        console.print("These links use filenames that exist in multiple locations.")
-        console.print("Rename files to be unique across all documentation.")
+        console.print("These bare-name links match multiple files.")
+        console.print("Use a path-based link to disambiguate: [[path/to/file]]")
         console.print()
         table = Table(show_header=True, header_style="bold")
         table.add_column("File")
@@ -221,7 +202,7 @@ def main() -> int:
 
         console.print(table)
         console.print()
-        console.print("Each wiki-link target must match a filename or path in docs/.")
+        console.print("Each wiki-link target must match a filename stem or path in docs/.")
         console.print()
 
     # Orphan detection: docs not linked from any other doc
@@ -237,7 +218,7 @@ def main() -> int:
         table.add_column("Stem")
 
         for stem in orphan_stems:
-            paths = filename_counts[stem]
+            paths = stem_to_paths[stem]
             for path in paths:
                 table.add_row(f"{path}.md", stem)
 

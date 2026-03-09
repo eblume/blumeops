@@ -91,7 +91,7 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 
 | Task | When to Use |
 |------|-------------|
-| `ai-docs` | At session start - review infrastructure documentation |
+| `ai-docs` | At session start - review infrastructure documentation (see [[mise-tasks]]) |
 | `docs-mikado` | View active Mikado dependency chains for C2 changes |
 | `docs-mikado --resume` | Resume a C2 chain: detect branch, show state and next steps |
 | `provision-indri` | Deploy changes to [[indri]]-hosted services via Ansible |
@@ -104,9 +104,7 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 | `dns-up` | Apply DNS changes via Pulumi |
 | `tailnet-preview` | Preview Tailscale ACL changes |
 | `tailnet-up` | Apply Tailscale ACL changes via Pulumi |
-| `docs-check-links` | Validate wiki-links in documentation (includes orphan detection) |
-| `docs-check-index` | Check every doc is referenced in its category index |
-| `docs-check-filenames` | Check for duplicate doc filenames |
+| `docs-check-links` | Validate wiki-links resolve correctly (supports path-based links, orphan detection) |
 | `docs-review-stale` | Report docs by last-modified date, highlight stale ones |
 | `docs-review-tags` | Print frontmatter tag inventory across all docs |
 | `docs-review` | Review the most stale doc by last-reviewed date |
@@ -120,7 +118,7 @@ For ArgoCD operations, use the `argocd` CLI directly:
 
 For AI agents building context:
 
-- [[reference|Reference]] - Entry point for technical details
+- [Reference](/reference/) - Entry point for technical details
 - [[hosts|Host Inventory]] - What hardware exists
 - [[apps|ArgoCD Apps]] - What's deployed in Kubernetes
 - [[routing|Routing]] - How services are exposed

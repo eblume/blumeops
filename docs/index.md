@@ -39,8 +39,8 @@ The goal of BlumeOps is threefold:
 
 ## Sections
 
-- [[tutorials|Tutorials]] - Learning-oriented guides for getting started
-- [[reference|Reference]] - Technical specifications and service details
-- [[how-to|How-to]] - Task-oriented instructions for common operations
-- [[explanation|Explanation]] - Understanding the "why" behind BlumeOps
+- [Tutorials](/tutorials/) - Learning-oriented guides for getting started
+- [Reference](/reference/) - Technical specifications and service details
+- [How-to](/how-to/) - Task-oriented instructions for common operations
+- [Explanation](/explanation/) - Understanding the "why" behind BlumeOps
 - [[CHANGELOG]] - Release history and changes

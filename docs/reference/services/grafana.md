@@ -63,6 +63,7 @@ Optional annotation: `grafana_folder: "FolderName"`
 - [[build-grafana-sidecar]] - Home-built sidecar container
 - [[kustomize-grafana-deployment]] - Kustomize manifest structure
 - [[authentik]] - OIDC identity provider for SSO
+- [[migrate-grafana-to-authentik]] - How SSO was migrated from Dex to Authentik
 - [[prometheus]] - Metrics datasource
 - [[loki]] - Logs datasource
 - [[tempo]] - Traces datasource

@@ -149,25 +149,9 @@ stages = ["commit-msg"]
 repo = "local"
 
 [[repos.hooks]]
-id = "docs-check-filenames"
-name = "docs-check-filenames"
-entry = "mise run docs-check-filenames"
-language = "system"
-files = '^docs/.*\.md$'
-pass_filenames = false
-
-[[repos.hooks]]
 id = "docs-check-links"
 name = "docs-check-links"
 entry = "mise run docs-check-links"
-language = "system"
-files = '^docs/.*\.md$'
-pass_filenames = false
-
-[[repos.hooks]]
-id = "docs-check-index"
-name = "docs-check-index"
-entry = "mise run docs-check-index"
 language = "system"
 files = '^docs/.*\.md$'
 pass_filenames = false

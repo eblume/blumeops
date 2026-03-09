@@ -136,5 +136,5 @@ Begin with [[tailscale-setup]] - networking is the foundation everything else bu
 
 ## Related
 
-- [[reference]] - See BlumeOps' specific configurations
+- [Reference](/reference/) - See BlumeOps' specific configurations
 - [[contributing]] - Help improve BlumeOps instead

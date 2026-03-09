@@ -17,11 +17,9 @@ Run `mise tasks --sort name` for the live list with descriptions.
 
 | Task | Description |
 |------|-------------|
-| `ai-docs` | Prime AI context with key documentation |
-| `docs-check-filenames` | Detect duplicate filenames in documentation |
+| `ai-docs` | Prime AI context with key documentation and doc tree |
 | `docs-check-frontmatter` | Check required frontmatter fields |
-| `docs-check-index` | Check every doc is referenced in its category index |
-| `docs-check-links` | Validate wiki-links point to existing filenames |
+| `docs-check-links` | Validate wiki-links resolve correctly (supports path-based links) |
 | `docs-mikado` | View active Mikado dependency chains (C2 changes) |
 | `docs-review` | Review the most stale doc by `last-reviewed` date |
 | `docs-review-stale` | Report docs by last-modified date |

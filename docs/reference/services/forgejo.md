@@ -120,6 +120,10 @@ The UI shows `forge.eblu.me` for HTTPS clone URLs and `forge.ops.eblu.me` for SS
 
 `mise run fly-shutoff` stops all public traffic immediately. forge.ops.eblu.me continues to work from the tailnet. See [[expose-service-publicly#Break-glass shutoff]].
 
+## Mirrors
+
+Forgejo hosts pull mirrors of external repositories (GitHub, etc.) for supply chain control. Mirrors live in the `mirrors/` org and sync on a configurable interval. See [[manage-forgejo-mirrors]] for operations.
+
 ## Related
 
 - [[argocd]] - Uses Forgejo as git source
