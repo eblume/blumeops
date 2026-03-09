@@ -12,6 +12,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.14.0] - 2026-03-09
+
+### Features
+
+- Deploy JobSync to ringtail k3s — nix-built container, Tailscale Ingress, Caddy route at `jobsync.ops.eblu.me`, Ollama integration for AI features.
+
+### Bug Fixes
+
+- Fix 1Password Connect logs showing as errors in Grafana by normalizing numeric log levels (1-5) to standard strings (error/warn/info/debug/trace) in the Alloy log processing pipeline.
+- Fix mikado-branch-invariant-check false positive: close commits without preceding impl commits are valid (e.g., operational tasks with no code changes).
+
+### Infrastructure
+
+- Disable Quartz SPA mode and remove robots.txt crawler exclusions to fix the Facebook crawler spider trap. Remove hand-curated category index files in favor of Quartz auto-generated folder pages.
+
+### Documentation
+
+- Add JobSync reference card, update ringtail workloads table, document observability via Loki, and wire RAPIDAPI_KEY through ExternalSecret for job search automation.
+- Relax wiki-link constraints: allow path-based links for disambiguation, drop global filename uniqueness requirement, remove docs-check-filenames and docs-check-index hooks.
+
+
 ## [v1.13.3] - 2026-03-06
 
 ### Infrastructure
