@@ -9,7 +9,7 @@ metadata:
     tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "JobSync"
-    gethomepage.dev/group: "Apps"
+    gethomepage.dev/group: "Services"
     gethomepage.dev/icon: "mdi-briefcase-search"
     gethomepage.dev/description: "Job application tracker"
     gethomepage.dev/href: "https://jobsync.ops.eblu.me"

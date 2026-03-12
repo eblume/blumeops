@@ -61,6 +61,11 @@
     #     widget:
     #       type: caddy
     #       url: http://indri.tail8d86e.ts.net:2019
+- Services:
+    - JobSync:
+        href: https://jobsync.ops.eblu.me
+        icon: mdi-briefcase-search
+        description: Job application tracker
 - Infrastructure:
     - Authentik:
         href: https://authentik.ops.eblu.me
