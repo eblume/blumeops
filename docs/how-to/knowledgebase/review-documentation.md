@@ -94,11 +94,7 @@ If changes are pending, investigate whether docs or infrastructure is stale.
 
 ## Visual Preview
 
-After reviewing and editing a card, visually verify the rendered output.
-
-**Quick scan (agent):** Have the agent display the card with `bat` for a terminal-based visual check.
-
-**Full rendered preview:** Build the entire Quartz docs site locally and open directly to the card:
+After reviewing and editing a card, visually verify the rendered output. This step is for the human reviewer — build the full Quartz docs site locally and open directly to the card:
 
 ```bash
 mise run docs-preview how-to/knowledgebase/review-documentation

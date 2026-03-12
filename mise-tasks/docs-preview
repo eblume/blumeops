@@ -89,7 +89,7 @@ def main(
 
         console.print("[bold]Extracting docs...[/bold]")
         with tarfile.open(tarball, "r:gz") as tf:
-            tf.extractall(docroot)
+            tf.extractall(docroot, filter="data")
 
     console.print("[bold]Starting preview container...[/bold]")
     subprocess.run(

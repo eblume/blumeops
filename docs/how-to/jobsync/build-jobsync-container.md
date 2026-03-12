@@ -1,6 +1,7 @@
 ---
 title: Build JobSync Container
-modified: 2026-03-08
+modified: 2026-03-11
+last-reviewed: 2026-03-11
 tags:
   - how-to
   - jobsync
@@ -19,7 +20,7 @@ The derivation is at `containers/jobsync/default.nix`. It uses `buildNpmPackage`
 
 ## Upgrading JobSync
 
-1. Update the forge mirror: `mise run mirror-sync jobsync`
+1. Verify the forge mirror is current: check `https://forge.eblu.me/mirrors/jobsync` (mirrors sync automatically)
 2. Update `version` in `default.nix` to match the new upstream tag
 3. Clear `hash` in `fetchgit` (set to `""`), build, grab the correct hash from the error
 4. Clear `npmDepsHash` (set to `""`), build again, grab the correct hash

@@ -156,14 +156,12 @@ def main(
         "• If ArgoCD app: is it synced? (argocd app get <app>)\n"
         "• If Ansible role: does it apply idempotently? (--check --diff)\n"
         "• If Pulumi: is there drift? (pulumi preview)\n\n"
-        "[bold]Visual Preview:[/bold]\n\n"
-        "• Agent: use [cyan]bat[/cyan] to display the reviewed card for user visual scan\n"
-        "• For full rendered preview: [cyan]mise run docs-preview <card-path>[/cyan]\n\n"
         "[bold]After Review:[/bold]\n\n"
         "• Update the card's frontmatter: [cyan]last-reviewed: "
         + str(today)
         + "[/cyan]\n"
-        "• Commit the change (along with any fixes)",
+        "• Commit the change (along with any fixes)\n"
+        "• User: run [cyan]mise run docs-preview <card-path>[/cyan] for a rendered visual check",
         title="[bold yellow]Review Guidance[/bold yellow]",
         border_style="yellow",
     ))
