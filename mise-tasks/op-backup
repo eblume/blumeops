@@ -37,7 +37,7 @@ from pathlib import Path
 from rich.console import Console
 
 REMOTE_DIR = "/Users/erichblume/Documents/1password-backup"
-DEFAULT_EXPORT_PATH = Path.home() / "Documents" / "1Password-export.1pux"
+EXPORT_DIR = Path.home() / "Documents"
 KEEP_RECENT = 3
 
 # 1Password vault/item references for the encryption credentials
@@ -59,20 +59,40 @@ def check_dependencies() -> bool:
     return ok
 
 
+def _find_1pux_files() -> list[Path]:
+    """Find .1pux files in the default export directory."""
+    return sorted(EXPORT_DIR.glob("*.1pux"), key=lambda p: p.stat().st_mtime, reverse=True)
+
+
 def get_export_path(argv_path: str | None) -> Path | None:
-    """Resolve the .1pux file path from argument or interactive prompt."""
+    """Resolve the .1pux file path from argument, auto-detection, or interactive prompt."""
     if argv_path:
         path = Path(argv_path).expanduser()
     else:
         console.print("[bold]=== 1Password Disaster Recovery Backup ===[/bold]")
         console.print()
-        console.print("Export your vaults from the 1Password desktop app:")
-        console.print("  1. Open 1Password")
-        console.print("  2. File > Export > All Vaults (or select specific vaults)")
-        console.print(f"  3. Save as 1PUX format to: [cyan]{DEFAULT_EXPORT_PATH}[/cyan]")
-        console.print()
-        raw = console.input(f"Path to .1pux file [{DEFAULT_EXPORT_PATH}]: ").strip()
-        path = Path(raw).expanduser() if raw else DEFAULT_EXPORT_PATH
+
+        candidates = _find_1pux_files()
+        if len(candidates) == 1:
+            path = candidates[0]
+            console.print(f"Found export: [cyan]{path.name}[/cyan]")
+        elif len(candidates) > 1:
+            console.print("[red]ERROR:[/red] Multiple .1pux files found in ~/Documents:")
+            for c in candidates:
+                console.print(f"  {c.name}")
+            console.print("Delete the extras and try again, or pass the path explicitly.")
+            return None
+        else:
+            console.print("Export your vaults from the 1Password desktop app:")
+            console.print("  1. Open 1Password")
+            console.print("  2. File > Export > All Vaults (or select specific vaults)")
+            console.print(f"  3. Save as 1PUX format to: [cyan]{EXPORT_DIR}[/cyan]")
+            console.print()
+            raw = console.input("Path to .1pux file: ").strip()
+            if not raw:
+                console.print("[red]ERROR:[/red] No path provided")
+                return None
+            path = Path(raw).expanduser()
 
     if not path.is_file():
         console.print(f"[red]ERROR:[/red] File not found: {path}")
