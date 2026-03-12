@@ -32,6 +32,8 @@ spec:
               value: "1"
             - name: OLLAMA_NUM_PARALLEL
               value: "1"
+            - name: OLLAMA_FLASH_ATTENTION
+              value: "1"
           volumeMounts:
             - name: models
               mountPath: /models
@@ -40,7 +42,7 @@ spec:
               memory: "512Mi"
               cpu: "500m"
             limits:
-              memory: "22Gi"
+              memory: "24Gi"
               cpu: "4000m"
               nvidia.com/gpu: "1"
           livenessProbe:
