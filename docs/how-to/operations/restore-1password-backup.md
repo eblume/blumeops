@@ -95,6 +95,7 @@ The borg repo uses `repokey` encryption — the key is stored in the repo itself
 
 ## Related
 
+- [[run-1password-backup]] - How to create the backup (export + encrypt + transfer)
 - [[borgmatic]] - Backup system
 - [[1password]] - Credential management
 - [[backups]] - Backup policy and schedule

@@ -37,11 +37,12 @@ Services reference 1Password items via `ExternalSecret` manifests.
 
 ## Disaster Recovery Backup
 
-The `mise run op-backup` task encrypts a `.1pux` vault export and transfers it to [[indri]] for inclusion in [[borgmatic]] backups. See [[restore-1password-backup]] for the full recovery procedure.
+The `mise run op-backup` task encrypts a `.1pux` vault export and transfers it to [[indri]] for inclusion in [[borgmatic]] backups. See [[run-1password-backup]] for the step-by-step procedure and [[restore-1password-backup]] for disaster recovery.
 
 ## Related
 
 - [[argocd]] - Uses secrets for git access
 - [[postgresql]] - Database credentials
+- [[run-1password-backup]] - Periodic backup procedure
 - [[restore-1password-backup]] - Recovery from backup
 - [[borgmatic]] - Backup system
