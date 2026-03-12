@@ -39,7 +39,7 @@ Three always-on devices form the infrastructure backbone:
 ```
 
 - **[[indri]]** runs most services (native and containerized)
-- **[[ringtail]]** runs GPU workloads (Frigate NVR) and related services (MQTT, ntfy)
+- **[[ringtail]]** runs GPU workloads (Frigate NVR) and related services (ntfy)
 - **[[sifaka]]** provides bulk storage and backup targets
 - **[[gilbert]]** is the development workstation
 
@@ -73,7 +73,7 @@ Services run across three compute targets:
 
 **Minikube on indri (ArgoCD)** — most services run in minikube, managed via ArgoCD from `argocd/manifests/`. See [[apps]] for the application registry.
 
-**K3s on ringtail (ArgoCD)** — GPU workloads and related services run on [[ringtail]]'s single-node k3s cluster. Frigate NVR uses the RTX 4080 for object detection; Mosquitto and ntfy support its alerting pipeline.
+**K3s on ringtail (ArgoCD)** — GPU workloads and related services run on [[ringtail]]'s single-node k3s cluster. Frigate NVR uses the RTX 4080 for object detection; ntfy supports its alerting pipeline.
 
 ## Data Flow
 

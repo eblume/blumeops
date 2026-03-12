@@ -95,7 +95,6 @@ check_service "forgejo-runner" "ssh ringtail 'systemctl is-active gitea-runner-n
 
 echo ""
 echo "Ringtail k3s pods:"
-check_service "mosquitto" "kubectl --context=k3s-ringtail -n mqtt get pods -l app=mosquitto -o jsonpath='{.items[0].status.phase}' | grep -q Running"
 check_service "ntfy" "kubectl --context=k3s-ringtail -n ntfy get pods -l app=ntfy -o jsonpath='{.items[0].status.phase}' | grep -q Running"
 check_service "authentik" "kubectl --context=k3s-ringtail -n authentik get pods -l component=server -o jsonpath='{.items[0].status.phase}' | grep -q Running"
 check_service "frigate" "kubectl --context=k3s-ringtail -n frigate get pods -l app=frigate -o jsonpath='{.items[0].status.phase}' | grep -q Running"

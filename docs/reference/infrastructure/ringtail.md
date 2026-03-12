@@ -66,8 +66,7 @@ Sync order: `1password-connect-ringtail` -> `external-secrets-crds-ringtail` -> 
 | Workload | Namespace | Notes |
 |----------|-----------|-------|
 | [[frigate]] | `frigate` | NVR with GPU-accelerated detection (RTX 4080) |
-| [[frigate]]-notify | `frigate` | MQTT-to-ntfy alert bridge |
-| Mosquitto | `mqtt` | MQTT broker for Frigate events |
+| [[frigate]]-notify | `frigate` | Webapi-to-ntfy alert bridge |
 | [[authentik]] | `authentik` | OIDC identity provider |
 | [[ntfy]] | `ntfy` | Push notification server |
 | [[ollama]] | `ollama` | LLM inference with GPU (RTX 4080) |

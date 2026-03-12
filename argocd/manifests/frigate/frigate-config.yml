@@ -1,10 +1,6 @@
 database:
   path: /db/frigate.db
 
-mqtt:
-  host: mosquitto.mqtt.svc.cluster.local
-  port: 1883
-
 go2rtc:
   streams:
     # GableCam IP is reserved in UX7 DHCP config

@@ -29,10 +29,10 @@ The upstream relay (`ntfy.sh`) is configured so mobile app clients can receive p
 
 ## Producers
 
-Currently the only producer is **frigate-notify**, which publishes camera detection alerts (person, vehicle, animal) from [[frigate|Frigate]] via MQTT to ntfy:
+Currently the only producer is **frigate-notify**, which polls Frigate's webapi for camera detection alerts (person, vehicle, animal) and forwards them to ntfy:
 
 ```
-Frigate → MQTT (Mosquitto) → frigate-notify → ntfy → mobile clients
+Frigate → frigate-notify (webapi polling) → ntfy → mobile clients
 ```
 
 The frigate-notify config points to ntfy's cluster-internal address:

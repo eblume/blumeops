@@ -30,11 +30,6 @@ services:
     current-version: "v2.18.0"
     upstream-source: https://github.com/kubernetes/kube-state-metrics/releases
 
-  - name: mosquitto
-    type: argocd
-    last-reviewed: 2026-02-16
-    current-version: "2.0.22"
-    upstream-source: https://github.com/eclipse/mosquitto/releases
 
   - name: ntfy
     type: argocd

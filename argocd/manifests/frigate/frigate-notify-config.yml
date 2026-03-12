@@ -6,8 +6,6 @@ frigate:
     enabled: true
     interval: 15
 
-  mqtt:
-    enabled: false
 
 alerts:
   general:

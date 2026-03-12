@@ -74,7 +74,7 @@ encounter wiki-links (`[[like-this]]`) it is referring to docs/ cards.
 
 ### Kubernetes (ArgoCD)
 
-Most services run in minikube on indri via ArgoCD (app-of-apps, manual sync). GPU workloads (Frigate, Mosquitto, ntfy) run on ringtail's k3s cluster, also managed by ArgoCD.
+Most services run in minikube on indri via ArgoCD (app-of-apps, manual sync). GPU workloads (Frigate, ntfy) run on ringtail's k3s cluster, also managed by ArgoCD.
 
 **PR workflow:**
 1. Create branch, modify `argocd/manifests/<service>/`

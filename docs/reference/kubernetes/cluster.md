@@ -7,7 +7,7 @@ tags:
 
 # Kubernetes Cluster
 
-BlumeOps runs two Kubernetes clusters: a Minikube cluster on [[indri]] (most services) and a k3s cluster on [[ringtail]] (GPU workloads, MQTT, notifications). Both are managed by [[argocd]] on indri.
+BlumeOps runs two Kubernetes clusters: a Minikube cluster on [[indri]] (most services) and a k3s cluster on [[ringtail]] (GPU workloads, notifications). Both are managed by [[argocd]] on indri.
 
 ## Cluster Specifications
 
@@ -41,7 +41,7 @@ Single-node k3s cluster for workloads requiring amd64 or GPU access. See [[ringt
 |----------|-------|
 | **Context** | `k3s-ringtail` |
 | **API Server** | `https://ringtail.tail8d86e.ts.net:6443` |
-| **Workloads** | Frigate (GPU), Mosquitto, ntfy, frigate-notify, nvidia-device-plugin |
+| **Workloads** | Frigate (GPU), ntfy, frigate-notify, nvidia-device-plugin |
 
 ## Related
 

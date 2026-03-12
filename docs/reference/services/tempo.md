@@ -41,7 +41,7 @@ Distributed tracing backend for BlumeOps infrastructure. Receives traces via OTL
 | [[ollama]] | HTTP REST | Same (model inference latency) |
 | [[immich]] | HTTP REST | Same |
 
-Beyla auto-instruments HTTP services via eBPF kernel hooks — no code changes needed. MQTT (Mosquitto) is not instrumented (no eBPF parser for MQTT).
+Beyla auto-instruments HTTP services via eBPF kernel hooks — no code changes needed.
 
 **Future: SDK instrumentation**
 Services with OTel SDK support (e.g., Hermes) can send traces directly to the OTLP endpoint for deeper internal spans (DB queries, business logic) alongside eBPF envelope traces.

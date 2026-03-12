@@ -32,7 +32,7 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 - [[caddy]] - Reverse proxy for `*.ops.eblu.me`
 
 **Kubernetes (via minikube):**
-- [[apps|Most k8s applications]] (Frigate, Mosquitto, ntfy migrated to [[ringtail]] k3s)
+- [[apps|Most k8s applications]] (Frigate, ntfy migrated to [[ringtail]] k3s)
 
 **GUI Applications (manual start required):**
 - Docker Desktop - Container runtime for minikube

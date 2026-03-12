@@ -34,7 +34,7 @@ Frigate pod (ringtail k3s)
     ├── /media/frigate  — NFS recordings (sifaka)
     └── /db             — SQLite (local PVC)
         │
-        └──→ MQTT (Mosquitto) → frigate-notify → ntfy → mobile
+        └──→ frigate-notify (webapi poll) → ntfy → mobile
 ```
 
 ## Cameras
@@ -70,7 +70,7 @@ Two zones are configured: `driveway_entrance` (triggers review alerts for person
 
 ## Alerting (frigate-notify)
 
-A separate **frigate-notify** pod (`ghcr.io/0x2142/frigate-notify:v0.3.5`) subscribes to Frigate's MQTT events via Mosquitto and pushes alerts to [[ntfy]] on the `frigate-alerts` topic. Alert messages include action buttons linking back to the Frigate review UI.
+A separate **frigate-notify** pod polls Frigate's webapi every 15 seconds for detection events and pushes alerts to [[ntfy]] on the `frigate-alerts` topic. Alert messages include action buttons linking back to the Frigate review UI.
 
 ## Related
 
