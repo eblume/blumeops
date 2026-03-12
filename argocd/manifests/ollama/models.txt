@@ -5,3 +5,4 @@ deepseek-r1:14b
 phi4:14b
 gemma3:12b
 qwen3.5:9b
+qwen3.5:27b

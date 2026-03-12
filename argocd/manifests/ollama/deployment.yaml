@@ -40,7 +40,7 @@ spec:
               memory: "512Mi"
               cpu: "500m"
             limits:
-              memory: "16Gi"
+              memory: "22Gi"
               cpu: "4000m"
               nvidia.com/gpu: "1"
           livenessProbe:
