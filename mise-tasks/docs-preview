@@ -1,0 +1,133 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml>=6.0", "rich>=13.0.0", "typer>=0.15.0"]
+# ///
+#MISE description="Build docs with Dagger and serve locally, opening to a specific card"
+#USAGE arg "<card>" help="Card path relative to docs/, e.g. how-to/knowledgebase/review-documentation"
+#USAGE flag "--port <port>" default="8484" help="Port for preview server (default 8484)"
+"""Build the full Quartz docs site and serve locally for visual preview.
+
+Builds the documentation using Dagger's build_docs function, extracts the
+result, and serves it in the same quartz container used in production
+(image parsed from the ArgoCD kustomization). Opens the browser directly
+to the specified card. The container auto-removes after 1 hour.
+
+Usage: mise run docs-preview how-to/knowledgebase/review-documentation
+"""
+
+import shutil
+import subprocess
+import tarfile
+import tempfile
+import webbrowser
+from pathlib import Path
+from typing import Annotated
+
+import typer
+import yaml
+from rich.console import Console
+
+REPO_ROOT = Path(__file__).parent.parent
+CONTAINER_NAME = "docs-preview"
+
+
+def get_quartz_image() -> str:
+    """Parse the quartz container image from the ArgoCD kustomization."""
+    kustomization = REPO_ROOT / "argocd" / "manifests" / "docs" / "kustomization.yaml"
+    data = yaml.safe_load(kustomization.read_text())
+    for img in data.get("images", []):
+        if img["name"] == "registry.ops.eblu.me/blumeops/quartz":
+            return f"{img['name']}:{img['newTag']}"
+    raise RuntimeError("Could not find quartz image in kustomization.yaml")
+
+
+def main(
+    card: Annotated[str, typer.Argument(help="Card path relative to docs/")],
+    port: Annotated[int, typer.Option(help="Port for preview server")] = 8484,
+) -> None:
+    console = Console()
+
+    # Normalize: accept with or without .md suffix
+    card_stem = card.removesuffix(".md")
+    card_file = REPO_ROOT / "docs" / f"{card_stem}.md"
+    if not card_file.exists():
+        console.print(f"[bold red]Card not found:[/bold red] {card_file}")
+        raise typer.Exit(code=1)
+
+    url_path = "/" + card_stem
+    image = get_quartz_image()
+    console.print(f"[dim]Using image: {image}[/dim]")
+
+    # Clean up any previous preview container and its docroot
+    subprocess.run(
+        ["docker", "rm", "-f", CONTAINER_NAME],
+        capture_output=True,
+    )
+    docroot = Path(tempfile.gettempdir()) / "docs-preview"
+    if docroot.exists():
+        shutil.rmtree(docroot)
+    docroot.mkdir()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tarball = Path(tmpdir) / "docs-preview.tar.gz"
+
+        console.print("[bold]Building docs with Dagger...[/bold]")
+        subprocess.run(
+            [
+                "dagger",
+                "call",
+                "build-docs",
+                "--src=.",
+                "--version=preview",
+                "export",
+                f"--path={tarball}",
+            ],
+            cwd=REPO_ROOT,
+            check=True,
+        )
+
+        console.print("[bold]Extracting docs...[/bold]")
+        with tarfile.open(tarball, "r:gz") as tf:
+            tf.extractall(docroot)
+
+    console.print("[bold]Starting preview container...[/bold]")
+    subprocess.run(
+        [
+            "docker",
+            "run",
+            "-d",
+            "--rm",
+            "--name", CONTAINER_NAME,
+            "--stop-timeout", "0",
+            "-p", f"{port}:80",
+            "-v", f"{docroot}:/usr/share/nginx/html:ro",
+            "--entrypoint", "nginx",
+            image,
+            "-g", "daemon off;",
+        ],
+        check=True,
+    )
+
+    url = f"http://localhost:{port}{url_path}"
+    console.print(f"\n[bold green]Preview running at http://localhost:{port}[/bold green]")
+    console.print(f"[bold cyan]Opening {url}[/bold cyan]\n")
+    webbrowser.open(url)
+
+    console.print(f"[yellow]Container will auto-stop in 1 hour.[/yellow]")
+    console.print(f"[yellow]To stop sooner: docker rm -f {CONTAINER_NAME}[/yellow]\n")
+
+    # Schedule auto-cleanup after 1 hour (container + docroot)
+    subprocess.Popen(
+        [
+            "sh", "-c",
+            f"sleep 3600 && docker rm -f {CONTAINER_NAME} 2>/dev/null && rm -rf {docroot}",
+        ],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+if __name__ == "__main__":
+    typer.run(main)

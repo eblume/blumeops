@@ -92,6 +92,20 @@ mise run dns-preview      # DNS (Gandi)
 
 If changes are pending, investigate whether docs or infrastructure is stale.
 
+## Visual Preview
+
+After reviewing and editing a card, visually verify the rendered output.
+
+**Quick scan (agent):** Have the agent display the card with `bat` for a terminal-based visual check.
+
+**Full rendered preview:** Build the entire Quartz docs site locally and open directly to the card:
+
+```bash
+mise run docs-preview how-to/knowledgebase/review-documentation
+```
+
+This builds the docs with Dagger, serves them on `localhost:8484`, and opens the browser to the specified card. Press Ctrl-C to stop. Accepts paths with or without the `.md` suffix.
+
 ## Making Changes
 
 If a card needs updates, classify the change (see [[agent-change-process]]):
