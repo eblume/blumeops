@@ -1,6 +1,7 @@
 ---
 title: Deploy JobSync
-modified: 2026-03-08
+modified: 2026-03-13
+last-reviewed: 2026-03-13
 tags:
   - how-to
   - jobsync
@@ -37,6 +38,7 @@ All in `argocd/manifests/jobsync/`:
 | `ENCRYPTION_KEY` | ExternalSecret | AES-256-GCM for stored API keys |
 | `NEXTAUTH_URL` | Hardcoded | `https://jobsync.ops.eblu.me` |
 | `AUTH_TRUST_HOST` | Hardcoded | `true` |
+| `NEXT_TELEMETRY_DISABLED` | Hardcoded | `1` (opt out of Next.js telemetry) |
 | `TZ` | Hardcoded | `America/Los_Angeles` |
 | `OLLAMA_BASE_URL` | Hardcoded | `http://ollama.ollama.svc.cluster.local:11434` |
 | `RAPIDAPI_KEY` | ExternalSecret | JSearch job search API key |
@@ -44,7 +46,7 @@ All in `argocd/manifests/jobsync/`:
 ## Updating the Container
 
 1. Build and push: `mise run container-release jobsync <version>`
-2. Update `newTag` in `kustomization.yaml` to the full tag (e.g. `v1.1.4-e51ec83-nix`)
+2. Update `newTag` in `kustomization.yaml` to the full tag (e.g. `v1.1.4-3a811fb-nix`)
 3. Sync: `argocd app sync jobsync`
 
 See [[build-jobsync-container]] for nix build details.
