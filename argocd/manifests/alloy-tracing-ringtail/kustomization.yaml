@@ -9,7 +9,7 @@ resources:
 
 images:
   - name: grafana/alloy
-    newTag: v1.13.1
+    newTag: v1.14.0
 
 configMapGenerator:
   - name: alloy-tracing-config
