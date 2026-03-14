@@ -269,8 +269,8 @@ services:
 
   - name: zot
     type: ansible
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-03-14
+    current-version: "v2.1.15"
     upstream-source: https://github.com/project-zot/zot/releases
     notes: Built from source on indri
 
