@@ -50,9 +50,16 @@ def main(
 
     # Normalize: accept with or without .md suffix
     card_stem = card.removesuffix(".md")
-    card_file = REPO_ROOT / "docs" / f"{card_stem}.md"
-    if not card_file.exists():
-        console.print(f"[bold red]Card not found:[/bold red] {card_file}")
+    # Try exact path first (e.g. "docs/how-to/..."), then inside docs/
+    exact_file = REPO_ROOT / f"{card_stem}.md"
+    docs_file = REPO_ROOT / "docs" / f"{card_stem}.md"
+    if exact_file.exists() and card_stem.startswith("docs/"):
+        card_stem = card_stem.removeprefix("docs/")
+        card_file = exact_file
+    elif docs_file.exists():
+        card_file = docs_file
+    else:
+        console.print(f"[bold red]Card not found:[/bold red] {docs_file}")
         raise typer.Exit(code=1)
 
     url_path = "/" + card_stem
