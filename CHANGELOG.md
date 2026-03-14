@@ -12,6 +12,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.14.1] - 2026-03-14
+
+### Features
+
+- Add `docs-preview` mise task: builds docs with Dagger and serves them locally in the production quartz container, opening the browser directly to the specified card. Also adds visual preview hints to the `docs-review` checklist and the review-documentation how-to.
+
+### Infrastructure
+
+- Add jobsync to services-check and homepage dashboard; mark as reviewed at v1.1.4
+- Bump Grafana Alloy to v1.14.0 across all deployments (indri, alloy-k8s, alloy-ringtail, alloy-tracing-ringtail)
+- Upgrade zot container registry from v2.1.13 to v2.1.15 (CVE-2025-30204, open redirect fix). Fix trivy CVE DB downloads by adding /usr/local/bin to LaunchAgent PATH.
+- Remove Mosquitto (MQTT broker) — unused since frigate-notify switched to webapi polling. Deleted ArgoCD app, k8s manifests, namespace, and updated all docs.
+
+### Documentation
+
+- Add how-to card for running the 1Password backup (`mise run op-backup`), with bidirectional links to restore procedure and service reference.
+
+
 ## [v1.14.0] - 2026-03-09
 
 ### Features
