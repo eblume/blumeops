@@ -1,6 +1,7 @@
 ---
 title: Restore 1Password Backup
-modified: 2026-02-10
+modified: 2026-03-15
+last-reviewed: 2026-03-15
 tags:
   - how-to
   - operations
@@ -13,7 +14,7 @@ How to recover a 1Password `.1pux` export from a [[borgmatic]] backup. This proc
 
 ## Prerequisites
 
-- A copy of the borg backup repository (from [[sifaka]], or an off-site copy — TBD)
+- A copy of the borg backup repository (from [[sifaka]], or the BorgBase offsite repo)
 - `borg`, `age`, and `openssl` installed on any machine
 - Your **1Password Emergency Kit** (fire safety box) — contains the master password and secret key
 - The borg repo passphrase (printed on the Emergency Kit, or from `/Users/erichblume/.borg/config.yaml` if [[indri]] is accessible)
@@ -30,7 +31,11 @@ If you have direct access to the borg repository (e.g. mounted from [[sifaka]] o
 
 ```bash
 mkdir -p /tmp/op-restore && cd /tmp/op-restore
+
+# List recent archives — pick one from the output (e.g. "indri-2026-03-15T02:00:07")
 BORG_PASSPHRASE="<your-borg-passphrase>" borg list /path/to/borg/repo --last 5
+
+# Extract using the archive name from the list above
 BORG_PASSPHRASE="<your-borg-passphrase>" borg extract \
   "/path/to/borg/repo::<archive-name>" \
   Users/erichblume/Documents/1password-backup/

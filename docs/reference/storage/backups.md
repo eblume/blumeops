@@ -1,6 +1,6 @@
 ---
 title: Backups
-modified: 2026-02-10
+modified: 2026-03-15
 tags:
   - storage
   - backup
@@ -55,9 +55,12 @@ Some data lives directly on [[sifaka]] rather than being backed up to it (photos
 | Monthly | 12 backups |
 | Yearly | 1000 backups |
 
-## Backup Target
+## Backup Targets
 
-Repository: `/Volumes/backups/borg/` on [[sifaka|Sifaka]]
+| Repository | Location | Label |
+|------------|----------|-------|
+| `/Volumes/backups/borg/` | [[sifaka]] (local NAS) | — |
+| `ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo` | BorgBase (offsite) | `borgbase-offsite` |
 
 ## Monitoring
 
