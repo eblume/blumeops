@@ -276,10 +276,10 @@ services:
 
   - name: caddy
     type: ansible
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-03-15
+    current-version: "v2.11.2"
     upstream-source: https://github.com/caddyserver/caddy/releases
-    notes: Built from source with Gandi DNS plugin
+    notes: Built from source with Gandi DNS and Layer 4 plugins
 
   - name: borgmatic
     type: ansible

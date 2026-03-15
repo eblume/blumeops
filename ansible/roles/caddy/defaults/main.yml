@@ -1,6 +1,6 @@
 ---
 # Caddy reverse proxy configuration
-# Caddy is built manually from ~/code/3rd/caddy with the Gandi DNS plugin
+# Caddy is built from ~/code/3rd/caddy with Gandi DNS and Layer 4 plugins
 
 caddy_repo_dir: /Users/erichblume/code/3rd/caddy
 caddy_binary: "{{ caddy_repo_dir }}/bin/caddy"
