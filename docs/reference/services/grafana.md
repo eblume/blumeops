@@ -59,8 +59,7 @@ Optional annotation: `grafana_folder: "FolderName"`
 
 ## Related
 
-- [[build-grafana-container]] - Home-built container image
-- [[build-grafana-sidecar]] - Home-built sidecar container
+- [[build-grafana-images]] - Home-built container images (Grafana + sidecar)
 - [[kustomize-grafana-deployment]] - Kustomize manifest structure
 - [[authentik]] - OIDC identity provider for SSO
 - [[migrate-grafana-to-authentik]] - How SSO was migrated from Dex to Authentik

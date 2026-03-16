@@ -1,13 +1,15 @@
 ---
 title: Agent Change Process
-modified: 2026-03-04
+modified: 2026-03-15
 last-reviewed: 2026-02-23
 tags:
-  - how-to
+  - explanation
   - ai
 ---
 
 # Agent Change Process
+
+> **Note:** This article was drafted by AI and reviewed by Erich. I plan to rewrite all explanatory content in my own words - these serve as placeholders to establish the documentation structure.
 
 How to classify and execute infrastructure changes, especially when working with AI agents that may lose context across sessions.
 

@@ -21,7 +21,7 @@ The nix-container-builder runner on ringtail resolves `nixpkgs` via the NixOS ni
 Authentik has four build components assembled by `containers/authentik/default.nix`:
 
 1. **API client generation** (`client-go.nix`, `client-ts.nix`) — Go and TypeScript bindings generated from `schema.yml` (OpenAPI)
-2. **Python backend** (`authentik-django.nix`) — Django application with 60+ Python dependencies installed via `uv` from PyPI (see [[authentik-python-backend-derivation]])
+2. **Python backend** (`authentik-django.nix`) — Django application with 60+ Python dependencies installed via `uv` from PyPI (see [[authentik-nix-build-components#Python Backend]])
 3. **Web UI** (`webui.nix`) — Lit-based TypeScript frontend built with esbuild + rollup
 4. **Go server** (`authentik-server.nix`) — HTTP server binary that serves the web UI and spawns gunicorn for Django
 

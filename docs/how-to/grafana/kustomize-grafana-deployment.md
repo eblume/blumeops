@@ -34,5 +34,5 @@ Grafana is deployed via plain Kustomize manifests in `argocd/manifests/grafana/`
 ## Related
 
 - [[upgrade-grafana]] — Migration context
-- [[build-grafana-sidecar]] — Home-built sidecar container
+- [[build-grafana-images]] — Home-built container images
 - [[grafana]] — Service reference card

@@ -1,9 +1,9 @@
 ---
 title: Expose a Service Publicly
-modified: 2026-03-03
+modified: 2026-03-15
 last-reviewed: 2026-03-03
 tags:
-  - how-to
+  - tutorials
   - fly-io
   - tailscale
   - networking

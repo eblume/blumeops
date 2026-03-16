@@ -32,4 +32,4 @@ Previously, `authentik-community/django-rest-framework` (a DRF fork) was also ne
 ## Related
 
 - [[build-authentik-from-source]] — Parent goal
-- [[authentik-api-client-generation]] — Consumes client-go mirror
+- [[authentik-nix-build-components]] — Consumes client-go mirror

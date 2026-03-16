@@ -43,6 +43,5 @@ The SQLite PVC is disposable — dashboards come from ConfigMaps and datasources
 ## Related
 
 - [[grafana]] — Service reference card
-- [[build-grafana-container]] — Building the container image
-- [[build-grafana-sidecar]] — Building the dashboard sidecar image
+- [[build-grafana-images]] — Building the container images
 - [[kustomize-grafana-deployment]] — Kustomize manifest structure

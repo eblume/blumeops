@@ -87,20 +87,7 @@ Caddy has no authentication layer — it is a plain reverse proxy. Access contro
 
 ## Custom Build
 
-Caddy is built from source using `xcaddy` with two plugins:
-
-- `github.com/caddy-dns/gandi` — ACME DNS-01 challenges via Gandi API
-- `github.com/mholt/caddy-l4` — Layer 4 (TCP/UDP) proxying
-
-```bash
-# Source and build location (mirrored on forge)
-~/code/3rd/caddy/bin/caddy
-
-# Build via mise task in the caddy clone
-cd ~/code/3rd/caddy && mise run build
-```
-
-Forge mirrors: `mirrors/caddy`, `mirrors/caddy-gandi`, `mirrors/xcaddy`, `mirrors/caddy-l4`.
+Custom `xcaddy` build with Gandi DNS and L4 plugins. See [[build-caddy-with-plugins]] for build instructions and forge mirror details.
 
 ## Related
 
