@@ -1,26 +1,13 @@
 #!/usr/bin/env bash
-#MISE description="Prime AI context with key BlumeOps documentation"
+#MISE description="Prime AI context with all BlumeOps documentation"
 
 set -euo pipefail
 
 DOCS_DIR="$(cd "$(dirname "$0")/.." && pwd)/docs"
 
-# Key files for AI context priming, in order of importance
-FILES=(
-    "$DOCS_DIR/tutorials/ai-assistance-guide.md"
-    "$DOCS_DIR/how-to/agent-change-process.md"
-    "$DOCS_DIR/index.md"
-    "$DOCS_DIR/how-to/operations/troubleshooting.md"
-    "$DOCS_DIR/explanation/architecture.md"
-    "$DOCS_DIR/reference/tools/mise-tasks.md"
-)
-
-# Concatenate files with headers showing paths
-bat --style=header --color=never --decorations=always "$@" "${FILES[@]}"
-
-# Documentation tree — replaces the old hand-curated index files
-echo ""
-echo "=== Documentation Structure ==="
-echo "All docs under $DOCS_DIR (excluding changelog.d/):"
-echo ""
-find "$DOCS_DIR" -name '*.md' -not -path '*/changelog.d/*' | sort | sed "s|$DOCS_DIR/||"
+# Concatenate all docs (excluding changelog fragments)
+find "$DOCS_DIR" -name '*.md' -not -path '*/changelog.d/*' | sort | while read -r f; do
+  printf '=== %s ===\n' "${f#"$DOCS_DIR/"}"
+  cat "$f"
+  printf '\n'
+done

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+#MISE description="Concatenate all BlumeOps source files for AI context"
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# All git-tracked files, excluding lock files and other non-useful artifacts
+git -C "$ROOT" ls-files \
+  | grep -v '\.lock$' \
+  | grep -v '\.gitignore$' \
+  | grep -v '\.gitkeep$' \
+  | grep -v '\.gitattributes$' \
+  | grep -v '^LICENSE$' \
+  | while read -r f; do
+      printf '=== %s ===\n' "$f"
+      cat "$ROOT/$f"
+      printf '\n'
+    done
