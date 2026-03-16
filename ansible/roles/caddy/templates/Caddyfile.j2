@@ -31,7 +31,15 @@
 {% for service in caddy_services %}
 	@{{ service.name }} host {{ service.host }}
 	handle @{{ service.name }} {
+{% if service.backend.startswith('https://') %}
+		reverse_proxy {{ service.backend }} {
+			# Caddy v2.11+ rewrites Host to upstream for HTTPS backends.
+			# Preserve the original Host so services see *.ops.eblu.me.
+			header_up Host {http.request.host}
+		}
+{% else %}
 		reverse_proxy {{ service.backend }}
+{% endif %}
 	}
 
 {% endfor %}
