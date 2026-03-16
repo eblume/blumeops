@@ -283,9 +283,10 @@ services:
 
   - name: borgmatic
     type: ansible
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-03-16
+    current-version: "2.1.3"
     upstream-source: https://github.com/borgmatic-collective/borgmatic/releases
+    notes: Installed via mise (pipx), not managed by Ansible role
 
   - name: jellyfin
     type: ansible
