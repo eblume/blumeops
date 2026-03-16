@@ -12,6 +12,7 @@ git -C "$ROOT" ls-files \
   | grep -v '\.gitkeep$' \
   | grep -v '\.gitattributes$' \
   | grep -v '^LICENSE$' \
+  | grep -v '^docs/' \
   | while read -r f; do
       printf '=== %s ===\n' "$f"
       cat "$ROOT/$f"

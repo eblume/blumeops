@@ -15,6 +15,7 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 1. **Always run `mise run ai-docs` at session start**
     This will refresh your context with important information you will be assumed to know and follow.
     **Read the full output** — never truncate, pipe to `head`/`tail`, or skip sections.
+    For problems with a large surface area, ask the user if `mise run ai-sources` should also be run — it concatenates all non-doc source files (~270K tokens) for deep codebase context.
 2. **Always use `--context=minikube-indri` with kubectl** (or `--context=k3s-ringtail` for ringtail services) - work contexts must never be touched
 3. **Classify the change as C0/C1/C2 before starting** (see below) — this determines branching and PR requirements
 4. **Feature branches + PRs for C1/C2** - checkout main, pull, create branch, open PR via `tea pr create`. C0 goes direct to main.
