@@ -1,6 +1,7 @@
 ---
 title: Troubleshooting
-modified: 2026-02-07
+modified: 2026-03-16
+last-reviewed: 2026-03-16
 tags:
   - how-to
   - operations
@@ -20,7 +21,9 @@ mise run services-check
 
 This checks all services on indri and in Kubernetes.
 
-## Kubernetes Issues
+## Kubernetes Issues (Indri / Minikube)
+
+Most services run on [[indri]]'s minikube. For [[ringtail]] (k3s) services, see the ringtail section below.
 
 ### Pod not starting
 
@@ -44,7 +47,7 @@ Common causes:
 - **Pending** - Insufficient resources or node issues
 - **ContainerCreating** - Waiting for volumes or secrets
 
-### ArgoCD sync issues
+### [[argocd|ArgoCD]] sync issues
 
 ```bash
 # Check app status
@@ -102,7 +105,7 @@ ssh indri 'tail -50 ~/Library/Logs/mcquack.<service>.err.log'
 ssh indri 'tail -50 ~/Library/Logs/mcquack.<service>.out.log'
 ```
 
-### Forgejo not accessible
+### [[forgejo|Forgejo]] not accessible
 
 ```bash
 # Check if forgejo is running
@@ -115,7 +118,7 @@ ssh indri 'tail -50 ~/Library/Logs/mcquack.forgejo.err.log'
 ssh indri 'launchctl kickstart -k gui/$(id -u)/mcquack.forgejo'
 ```
 
-### Registry (Zot) issues
+### Registry ([[zot|Zot]]) issues
 
 ```bash
 # Test registry API
@@ -132,7 +135,7 @@ ssh indri 'launchctl kickstart -k gui/$(id -u)/mcquack.zot'
 
 ### Service unreachable via *.ops.eblu.me
 
-Caddy handles routing for `*.ops.eblu.me`:
+[[caddy|Caddy]] handles routing for `*.ops.eblu.me`:
 
 ```bash
 # Check if Caddy is running
@@ -161,10 +164,10 @@ ssh indri 'tailscale down && tailscale up'
 ### Check metrics
 
 ```bash
-# Open Grafana
+# Open [[grafana|Grafana]]
 open https://grafana.ops.eblu.me
 
-# Check Prometheus directly
+# Check [[prometheus|Prometheus]] directly
 open https://prometheus.ops.eblu.me
 ```
 
@@ -174,13 +177,13 @@ open https://prometheus.ops.eblu.me
 # Open Grafana Explore
 open https://grafana.ops.eblu.me/explore
 
-# Query Loki directly
+# Query [[loki|Loki]] directly
 curl -G 'https://loki.ops.eblu.me/loki/api/v1/query_range' \
   --data-urlencode 'query={service="<service>"}' \
   --data-urlencode 'limit=100'
 ```
 
-### Alloy (metrics/logs collector) issues
+### [[alloy|Alloy]] (metrics/logs collector) issues
 
 ```bash
 # Indri alloy (host metrics)
@@ -193,7 +196,7 @@ kubectl --context=minikube-indri -n monitoring logs -l app=alloy
 
 ## Database Issues
 
-### PostgreSQL connection failed
+### [[postgresql|PostgreSQL]] connection failed
 
 ```bash
 # Check CNPG cluster status
@@ -208,7 +211,7 @@ kubectl --context=minikube-indri -n databases exec -it blumeops-pg-1 -- psql -U 
 
 ## Backup Issues
 
-### Check backup status
+### Check [[borgmatic|backup]] status
 
 ```bash
 # View latest backup info
@@ -221,9 +224,37 @@ ssh indri 'borgmatic --verbosity 1'
 ssh indri 'tail -100 /opt/homebrew/var/log/borgmatic/borgmatic.log'
 ```
 
+## Kubernetes Issues (Ringtail / k3s)
+
+[[ringtail]] runs GPU workloads ([[frigate|Frigate]], [[ntfy]]) and [[authentik|Authentik]] on a single-node k3s cluster. The same debugging patterns apply, but use `--context=k3s-ringtail`:
+
+```bash
+# Check pod status
+kubectl --context=k3s-ringtail -n <namespace> get pods
+
+# Describe pod for events
+kubectl --context=k3s-ringtail -n <namespace> describe pod <pod>
+
+# Check logs
+kubectl --context=k3s-ringtail -n <namespace> logs <pod>
+```
+
+### Ringtail unreachable
+
+```bash
+# Check if ringtail is on the tailnet
+tailscale ping ringtail
+
+# SSH in directly
+ssh ringtail
+```
+
+If ringtail is unreachable, it may need a physical power cycle. See [[ringtail]] for details.
+
 ## Related
 
 - [[observability]] - Metrics and logs
 - [[argocd]] - GitOps platform
 - [[cluster]] - Kubernetes cluster
 - [[routing]] - Service routing
+- [[restart-indri]] - Shutdown/startup procedure and CNI conflict fix
