@@ -102,9 +102,8 @@ spec:
               BASE_URL="https://forge.ops.eblu.me/mirrors/unpoller-dashboards/raw/branch/master/v2.0.0"
               DEST="/tmp/dashboards/UniFi"
               mkdir -p "$DEST"
+              # DPI dashboard omitted — requires DPI enabled on both UX7 and UnPoller
               for f in \
-                # DPI dashboard requires DPI enabled on both UX7 and UnPoller
-                # "UniFi-Poller_ Client DPI - Prometheus.json" \
                 "UniFi-Poller_ Client Insights - Prometheus.json" \
                 "UniFi-Poller_ Network Sites - Prometheus.json" \
                 "UniFi-Poller_ UAP Insights - Prometheus.json" \
