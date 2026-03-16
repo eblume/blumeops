@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: monitoring
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - external-secret.yaml
+
+images:
+  - name: registry.ops.eblu.me/blumeops/unpoller
+    newTag: v2.34.0-6b0005d
+
+configMapGenerator:
+  - name: unpoller-config
+    files:
+      - up.conf

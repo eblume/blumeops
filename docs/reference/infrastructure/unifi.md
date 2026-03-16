@@ -1,6 +1,6 @@
 ---
 title: UniFi
-modified: 2026-02-24
+modified: 2026-03-16
 tags:
   - infrastructure
   - networking
@@ -68,6 +68,14 @@ Local admin account on the UX7. Credentials stored in 1Password (vault `blumeops
 ## Why Not IaC?
 
 Attempted Feb 2026 with the `ubiquiti-community/unifi` Terraform provider via Pulumi. A "no-op" update on the default LAN network reset undeclared properties, bricking the network and requiring a factory reset. The provider ecosystem is too immature for single-device infrastructure.
+
+## Monitoring
+
+UniFi metrics are exported to Prometheus via [UnPoller](https://github.com/unpoller/unpoller), running as a k8s deployment in the `monitoring` namespace on indri. UnPoller polls the UX7 controller API using an API key and exposes metrics on port 9130.
+
+- **Prometheus job:** `unpoller`
+- **Metrics prefix:** `unifi_`
+- **Credentials:** 1Password item `unpoller` (vault `blumeops`, API key)
 
 ## Related
 

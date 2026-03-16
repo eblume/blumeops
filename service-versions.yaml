@@ -253,6 +253,13 @@ services:
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
     notes: Forgejo runner on ringtail via nixpkgs; version tracks flake.lock
 
+  - name: unpoller
+    type: argocd
+    last-reviewed: 2026-03-16
+    current-version: "v2.34.0"
+    upstream-source: https://github.com/unpoller/unpoller/releases
+    notes: UniFi metrics exporter for Prometheus
+
   - name: forgejo
     type: ansible
     last-reviewed: 2026-02-22

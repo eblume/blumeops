@@ -90,6 +90,42 @@ spec:
           volumeMounts:
             - name: sc-dashboard-volume
               mountPath: /tmp/dashboards
+        # Fetch UnPoller (UniFi) dashboards from forge mirror.
+        # Source: github.com/unpoller/dashboards (v2.0.0 Prometheus set)
+        - name: init-unpoller-dashboards
+          image: docker.io/library/alpine:kustomized
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              BASE_URL="https://forge.ops.eblu.me/mirrors/unpoller-dashboards/raw/branch/master/v2.0.0"
+              DEST="/tmp/dashboards/UniFi"
+              mkdir -p "$DEST"
+              for f in \
+                # DPI dashboard requires DPI enabled on both UX7 and UnPoller
+                # "UniFi-Poller_ Client DPI - Prometheus.json" \
+                "UniFi-Poller_ Client Insights - Prometheus.json" \
+                "UniFi-Poller_ Network Sites - Prometheus.json" \
+                "UniFi-Poller_ UAP Insights - Prometheus.json" \
+                "UniFi-Poller_ USG Insights - Prometheus.json" \
+                "UniFi-Poller_ USW Insights - Prometheus.json" \
+              ; do
+                wget -q -O "$DEST/$f" "$BASE_URL/$(echo "$f" | sed 's/ /%20/g')"
+              done
+              # Fix datasource UIDs to match our Prometheus instance
+              sed -i 's/"uid": *"bdkj55oguty4gd"/"uid": "prometheus"/g' "$DEST"/*.json
+              sed -i 's/"uid": *"\${DS_PROMETHEUS}"/"uid": "prometheus"/g' "$DEST"/*.json
+              echo "Fetched $(ls "$DEST" | wc -l) UnPoller dashboards"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: sc-dashboard-volume
+              mountPath: /tmp/dashboards
       containers:
         # Dashboard sidecar - watches ConfigMaps with grafana_dashboard=1
         - name: grafana-sc-dashboard
