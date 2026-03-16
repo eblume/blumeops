@@ -17,7 +17,7 @@ GitOps continuous delivery platform for the [[cluster|Kubernetes cluster]].
 | **URL** | https://argocd.ops.eblu.me |
 | **Tailscale URL** | https://argocd.tail8d86e.ts.net |
 | **Namespace** | `argocd` |
-| **Git Source** | `ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git` |
+| **Git Source** | `ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git` |
 | **Manifests Path** | `argocd/` |
 
 ## Sync Policy

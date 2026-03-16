@@ -44,6 +44,7 @@ Authentik configuration is managed via Blueprints (YAML) stored as a ConfigMap m
 - **`mfa.yaml`** — MFA enforcement on the default authentication flow (`not_configured_action: configure`)
 - **`grafana.yaml`** — Grafana OAuth2 provider, application, and policy binding
 - **`forgejo.yaml`** — Forgejo OAuth2 provider, application, and policy binding
+- **`zot.yaml`** — Zot registry OAuth2 provider, application, and policy binding
 
 Group membership is included in the `profile` scope claim (Authentik built-in). Services use `--group-claim-name groups` to read it.
 
@@ -55,8 +56,9 @@ Blueprint file: `argocd/manifests/authentik/configmap-blueprint.yaml`
 |--------|--------|
 | [[grafana]] | Active |
 | [[forgejo]] | Active |
+| [[zot]] | Active |
 
-Future clients: [[argocd]], [[miniflux]], [[zot]]
+Future clients: [[argocd]], [[miniflux]]
 
 ## Secrets
 
@@ -68,6 +70,7 @@ Injected via [[external-secrets]] from the "Authentik (blumeops)" 1Password item
 | `db-password` | PostgreSQL password |
 | `grafana-client-secret` | OIDC client secret for Grafana |
 | `forgejo-client-secret` | OIDC client secret for Forgejo |
+| `zot-client-secret` | OIDC client secret for Zot |
 | `api-token` | Authentik API token |
 
 ## Container Image

@@ -76,7 +76,7 @@ Authentik enforces TOTP MFA on its default authentication flow (`not_configured_
 
 ## Future Work
 
-- **Additional services:** ArgoCD, Miniflux, Immich, Zot (see [[harden-zot-registry]])
+- **Additional services:** ArgoCD, Miniflux, Immich
 
 ## Related
 

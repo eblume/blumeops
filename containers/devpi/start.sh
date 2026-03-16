@@ -21,11 +21,11 @@ if [ ! -f "$SERVERDIR/.serverversion" ]; then
 fi
 
 # Build command
-CMD="devpi-server --serverdir $SERVERDIR --host $HOST --port $PORT"
+CMD=(devpi-server --serverdir "$SERVERDIR" --host "$HOST" --port "$PORT")
 
 if [ -n "$OUTSIDE_URL" ]; then
-    CMD="$CMD --outside-url $OUTSIDE_URL"
+    CMD+=(--outside-url "$OUTSIDE_URL")
 fi
 
 echo "Starting devpi-server..."
-exec $CMD
+exec "${CMD[@]}"
