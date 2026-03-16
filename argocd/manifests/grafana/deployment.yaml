@@ -45,6 +45,51 @@ spec:
           volumeMounts:
             - name: storage
               mountPath: /var/lib/grafana
+        # Fetch TeslaMate dashboards from forge mirror at a pinned tag.
+        # To upgrade: update TESLAMATE_VERSION below.
+        - name: init-teslamate-dashboards
+          image: docker.io/library/alpine:kustomized
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              TESLAMATE_VERSION="v3.0.0"
+              BASE_URL="https://forge.ops.eblu.me/mirrors/teslamate/raw/tag/${TESLAMATE_VERSION}/grafana/dashboards"
+              DEST="/tmp/dashboards/TeslaMate"
+              mkdir -p "$DEST"
+              for f in \
+                battery-health.json \
+                charge-level.json \
+                charges.json \
+                charging-stats.json \
+                drive-stats.json \
+                drives.json \
+                efficiency.json \
+                locations.json \
+                mileage.json \
+                overview.json \
+                projected-range.json \
+                states.json \
+                statistics.json \
+                timeline.json \
+                trip.json \
+                updates.json \
+                vampire-drain.json \
+                visited.json \
+              ; do
+                wget -q -O "$DEST/$f" "$BASE_URL/$f"
+              done
+              echo "Fetched $(ls "$DEST" | wc -l) TeslaMate dashboards"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: sc-dashboard-volume
+              mountPath: /tmp/dashboards
       containers:
         # Dashboard sidecar - watches ConfigMaps with grafana_dashboard=1
         - name: grafana-sc-dashboard

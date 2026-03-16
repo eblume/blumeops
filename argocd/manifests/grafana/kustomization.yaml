@@ -11,6 +11,8 @@ resources:
   - rbac.yaml
 
 images:
+  - name: docker.io/library/alpine
+    newTag: "3.21"
   - name: docker.io/library/busybox
     newTag: 1.31.1
   - name: registry.ops.eblu.me/blumeops/grafana-sidecar
