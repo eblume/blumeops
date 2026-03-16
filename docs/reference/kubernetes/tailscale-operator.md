@@ -15,8 +15,8 @@ The Tailscale operator enables Kubernetes services to be exposed directly on the
 | Property | Value |
 |----------|-------|
 | **Namespace** | `tailscale` |
-| **Helm Chart** | `tailscale/tailscale-operator` |
-| **ArgoCD App** | `tailscale-operator` |
+| **Upstream** | `mirrors/tailscale` on forge (static manifest) |
+| **ArgoCD Apps** | `tailscale-operator-base` (upstream), `tailscale-operator` (config) |
 
 ## How It Works
 

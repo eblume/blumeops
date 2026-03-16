@@ -3,6 +3,8 @@
 # Specifies fully-qualified image names for Tailscale proxy pods.
 # This ensures consistent behavior across different container runtimes.
 #
+# Version must match targetRevision in argocd/apps/tailscale-operator-base.yaml.
+#
 # Usage:
 # Add this annotation to any Tailscale Service or Ingress:
 #   tailscale.com/proxy-class: "default"
@@ -18,7 +20,6 @@ spec:
   statefulSet:
     pod:
       tailscaleContainer:
-        # NOTE: keep in sync with kustomization.yaml (CRD fields aren't processed by kustomize images)
         image: docker.io/tailscale/tailscale:v1.94.2
       tailscaleInitContainer:
         image: docker.io/tailscale/tailscale:v1.94.2
