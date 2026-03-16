@@ -91,7 +91,8 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 
 | Task | When to Use |
 |------|-------------|
-| `ai-docs` | At session start - review infrastructure documentation (see [[mise-tasks]]) |
+| `ai-docs` | At session start - all documentation concatenated for AI context (~85K tokens, see [[mise-tasks]]) |
+| `ai-sources` | Deep context - all non-doc source files (~270K tokens). Ask user before running; useful for problems with a large surface area |
 | `docs-mikado` | View active Mikado dependency chains for C2 changes |
 | `docs-mikado --resume` | Resume a C2 chain: detect branch, show state and next steps |
 | `provision-indri` | Deploy changes to [[indri]]-hosted services via Ansible |

@@ -23,6 +23,8 @@ Before starting work, classify the change:
 
 When in doubt, start at C1. Upgrade to C2 if complexity spirals or the user requests it.
 
+**Context loading:** All change classes start with `mise run ai-docs` (~85K tokens of documentation). For problems with a large surface area, ask the user if `mise run ai-sources` should also be run — it concatenates all non-doc source files (~270K tokens). Together they cover the full codebase without overlap.
+
 ## C0 — Quick Fix
 
 A change where the risk is low enough that problems can be quickly fixed forward.
