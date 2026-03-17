@@ -39,8 +39,8 @@ spec:
             - name: OIDC_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: mealie-oidc
-                  key: client-secret
+                  name: mealie-secrets
+                  key: oidc-client-secret
             - name: OIDC_AUTO_REDIRECT
               value: "false"
             - name: OIDC_PROVIDER_NAME
@@ -51,6 +51,18 @@ spec:
               value: "true"
             - name: OIDC_USER_CLAIM
               value: "email"
+            # OpenAI — recipe parsing, image OCR, ingredient extraction
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mealie-secrets
+                  key: openai-api-key
+            - name: OPENAI_MODEL
+              value: "gpt-4o"
+            - name: OPENAI_REQUEST_TIMEOUT
+              value: "120"
+            - name: OPENAI_WORKERS
+              value: "1"
           volumeMounts:
             - name: data
               mountPath: /app/data
