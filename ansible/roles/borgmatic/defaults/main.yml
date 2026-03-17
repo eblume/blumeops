@@ -16,6 +16,7 @@ borgmatic_source_directories:
   - /opt/homebrew/var/forgejo
   - /Users/erichblume/.config/borgmatic
   - /Users/erichblume/Documents
+  - /Users/erichblume/.local/share/borgmatic/k8s-dumps
 
 # Backup repositories
 borgmatic_repositories:
@@ -30,6 +31,19 @@ borgmatic_repositories:
 
 # BorgBase SSH key (fetched from 1Password in playbook pre_tasks)
 borgmatic_borgbase_ssh_key_path: /Users/erichblume/.ssh/borgbase_ed25519
+
+# Directory for pre-backup database dumps from k8s pods
+borgmatic_k8s_dump_dir: /Users/erichblume/.local/share/borgmatic/k8s-dumps
+
+# K8s SQLite databases to dump before backup via kubectl exec
+# Each entry runs: kubectl exec <pod-selector> -- sqlite3 <path> ".backup /tmp/backup.db"
+# then copies the dump to borgmatic_k8s_dump_dir/<name>.db
+borgmatic_k8s_sqlite_dumps:
+  - name: mealie
+    namespace: mealie
+    label_selector: app=mealie
+    db_path: /app/data/mealie.db
+    context: minikube-indri
 
 # Exclude patterns
 borgmatic_exclude_patterns: []

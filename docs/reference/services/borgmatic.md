@@ -1,6 +1,6 @@
 ---
 title: Borgmatic
-modified: 2026-02-10
+modified: 2026-03-16
 tags:
   - service
   - backup
@@ -26,10 +26,14 @@ Daily backup system using Borg backup, running on indri.
 - `/opt/homebrew/var/forgejo` - Git forge data
 - `~/.config/borgmatic` - Borgmatic config
 - `~/Documents` - Personal documents
+- `~/.local/share/borgmatic/k8s-dumps/` - SQLite dumps from k8s pods
 
-**Databases:**
+**PostgreSQL databases:**
 - `miniflux` on [[postgresql]]
 - `teslamate` on [[postgresql]]
+
+**K8s SQLite databases (pre-backup dump via kubectl exec):**
+- [[mealie]] - Recipe manager (`/app/data/mealie.db`)
 
 **Not backed up (by design):**
 - ZIM archives (re-downloadable)

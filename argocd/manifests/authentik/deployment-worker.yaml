@@ -78,6 +78,11 @@ spec:
                 secretKeyRef:
                   name: authentik-config
                   key: argocd-client-secret
+            - name: AUTHENTIK_MEALIE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-config
+                  key: mealie-client-secret
           volumeMounts:
             - name: blueprints
               mountPath: /blueprints/custom

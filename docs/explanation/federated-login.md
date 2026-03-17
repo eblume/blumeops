@@ -76,11 +76,12 @@ Authentik enforces TOTP MFA on its default authentication flow (`not_configured_
 
 ## Future Work
 
-- **Additional services:** ArgoCD, Miniflux, Immich
+- **Additional services:** Miniflux, Immich
 
 ## Related
 
 - [[authentik]] - OIDC identity provider reference
 - [[grafana]] - First OIDC client
+- [[mealie]] - Recipe manager (public PKCE client)
 - [[security-model]] - Network security and access control
 - [[deploy-authentik]] - Deployment how-to

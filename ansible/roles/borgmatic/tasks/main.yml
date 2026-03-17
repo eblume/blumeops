@@ -33,6 +33,13 @@
     key: "u3ugi1x1.repo.borgbase.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGU0mISTyHBw9tBs6SuhSq8tvNM8m9eifQxM+88TowPO"
     state: present
 
+- name: Ensure k8s dump directory exists
+  ansible.builtin.file:
+    path: "{{ borgmatic_k8s_dump_dir }}"
+    state: directory
+    mode: '0700'
+  when: borgmatic_k8s_sqlite_dumps | length > 0
+
 - name: Deploy borgmatic configuration
   ansible.builtin.template:
     src: config.yaml.j2

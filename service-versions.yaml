@@ -253,6 +253,13 @@ services:
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
     notes: Forgejo runner on ringtail via nixpkgs; version tracks flake.lock
 
+  - name: mealie
+    type: argocd
+    last-reviewed: 2026-03-16
+    current-version: "v3.12.0"
+    upstream-source: https://github.com/mealie-recipes/mealie/releases
+    notes: Recipe manager; built from source via forge mirror
+
   - name: unpoller
     type: argocd
     last-reviewed: 2026-03-16

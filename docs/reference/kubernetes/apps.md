@@ -39,6 +39,7 @@ Registry of all applications deployed via [[argocd]].
 | `cv` | cv | `argocd/manifests/cv/` | [[cv]] |
 | `forgejo-runner` | forgejo-runner | `argocd/manifests/forgejo-runner/` | [[forgejo]] CI |
 | `ollama` | ollama | `argocd/manifests/ollama/` | [[ollama]] |
+| `mealie` | mealie | `argocd/manifests/mealie/` | [[mealie]] |
 
 ## Sync Policies
 
