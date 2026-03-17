@@ -8,8 +8,8 @@ resources:
   - daemonset.yaml
 
 images:
-  - name: grafana/alloy
-    newTag: v1.14.0
+  - name: registry.ops.eblu.me/blumeops/alloy
+    newTag: v1.14.0-placeholder
 
 configMapGenerator:
   - name: alloy-tracing-config
