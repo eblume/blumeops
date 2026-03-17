@@ -8,7 +8,8 @@
 """Review the most stale documentation card by last-reviewed date.
 
 Scans all markdown files in docs/ (excluding changelog.d/) and sorts them
-by the ``last-reviewed`` frontmatter field. Docs without the field are
+by the ``last-reviewed`` frontmatter field, with git last-modified date as
+a tiebreaker (least recently updated first). Docs without the field are
 treated as never-reviewed and float to the top. Displays a staleness
 table and then shows the most stale doc with a review checklist.
 
@@ -19,8 +20,9 @@ After reviewing, update the card's frontmatter:
 Usage: mise run docs-review [-- --limit 10]
 """
 
+import subprocess
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -64,13 +66,30 @@ def get_last_reviewed(frontmatter: dict) -> date | None:
         return None
 
 
+def git_last_modified(file_path: Path) -> datetime | None:
+    """Get the last git commit date for a file."""
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%aI", "--", str(file_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        date_str = result.stdout.strip()
+        if not date_str:
+            return None
+        return datetime.fromisoformat(date_str)
+    except subprocess.CalledProcessError:
+        return None
+
+
 def main(
     limit: Annotated[int, typer.Option(help="Number of docs to show in the table")] = 15,
 ) -> None:
     console = Console()
     today = date.today()
 
-    entries: list[tuple[str, date | None, Path]] = []
+    entries: list[tuple[str, date | None, datetime | None, Path]] = []
 
     for md_file in sorted(DOCS_DIR.rglob("*.md")):
         if "changelog.d" in md_file.parts:
@@ -78,11 +97,17 @@ def main(
 
         frontmatter = extract_frontmatter(md_file)
         last_reviewed = get_last_reviewed(frontmatter) if frontmatter else None
+        last_updated = git_last_modified(md_file)
         rel_path = str(md_file.relative_to(DOCS_DIR))
-        entries.append((rel_path, last_reviewed, md_file))
+        entries.append((rel_path, last_reviewed, last_updated, md_file))
 
-    # Sort: never-reviewed first (None), then oldest reviewed
-    entries.sort(key=lambda e: (e[1] is not None, e[1] or date.min))
+    # Sort: never-reviewed first (None), then oldest reviewed,
+    # then least recently updated as tiebreaker
+    entries.sort(key=lambda e: (
+        e[1] is not None,
+        e[1] or date.min,
+        e[2] or datetime.min.replace(tzinfo=timezone.utc),
+    ))
 
     never_reviewed = sum(1 for e in entries if e[1] is None)
 
@@ -101,14 +126,17 @@ def main(
     table.add_column("File")
     table.add_column("Last Reviewed", justify="right")
     table.add_column("Age (days)", justify="right")
+    table.add_column("Last Updated", justify="right")
 
-    for i, (rel_path, last_reviewed, _) in enumerate(entries[:limit], 1):
+    for i, (rel_path, last_reviewed, last_updated, _) in enumerate(entries[:limit], 1):
+        updated_str = last_updated.strftime("%Y-%m-%d") if last_updated else "?"
         if last_reviewed is None:
             table.add_row(
                 str(i),
                 f"[red]{rel_path}[/red]",
                 "[red]never[/red]",
                 "[red]—[/red]",
+                updated_str,
             )
         else:
             age = (today - last_reviewed).days
@@ -116,11 +144,11 @@ def main(
             age_str = f"[{style}]{age}[/{style}]" if style else str(age)
             path_str = f"[{style}]{rel_path}[/{style}]" if style else rel_path
             date_str = f"[{style}]{last_reviewed}[/{style}]" if style else str(last_reviewed)
-            table.add_row(str(i), path_str, date_str, age_str)
+            table.add_row(str(i), path_str, date_str, age_str, updated_str)
 
     remaining = len(entries) - limit
     if remaining > 0:
-        table.add_row("", f"[dim]… {remaining} more[/dim]", "", "")
+        table.add_row("", f"[dim]… {remaining} more[/dim]", "", "", "")
 
     console.print(table)
     console.print()
@@ -130,7 +158,7 @@ def main(
         console.print("[bold red]No documentation files found![/bold red]")
         raise typer.Exit(code=1)
 
-    top_path, top_reviewed, top_file = entries[0]
+    top_path, top_reviewed, _, top_file = entries[0]
     console.print(Panel(
         f"[bold cyan]{top_path}[/bold cyan]\n"
         + (f"[dim]Last reviewed: {top_reviewed}[/dim]" if top_reviewed else "[dim red]Never reviewed[/dim red]"),
