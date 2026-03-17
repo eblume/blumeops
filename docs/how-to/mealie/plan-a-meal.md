@@ -47,16 +47,18 @@ Select one recipe from each tag category to build a balanced dinner:
 Query by tag:
 
 ```fish
+set SEED (date +%s)
+
 # Get a random protein
-curl -sf "https://meals.ops.eblu.me/api/recipes?tags=protein&orderBy=random&perPage=1" \
+curl -sf "https://meals.ops.eblu.me/api/recipes?tags=protein&orderBy=random&paginationSeed=$SEED&perPage=1" \
   -H "Authorization: Bearer $MEALIE_TOKEN"
 
 # Get a random carb
-curl -sf "https://meals.ops.eblu.me/api/recipes?tags=carb&orderBy=random&perPage=1" \
+curl -sf "https://meals.ops.eblu.me/api/recipes?tags=carb&orderBy=random&paginationSeed=$SEED&perPage=1" \
   -H "Authorization: Bearer $MEALIE_TOKEN"
 
 # Get a random vegetable
-curl -sf "https://meals.ops.eblu.me/api/recipes?tags=vegetable&orderBy=random&perPage=1" \
+curl -sf "https://meals.ops.eblu.me/api/recipes?tags=vegetable&orderBy=random&paginationSeed=$SEED&perPage=1" \
   -H "Authorization: Bearer $MEALIE_TOKEN"
 ```
 
