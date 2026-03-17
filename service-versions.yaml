@@ -304,13 +304,13 @@ services:
 
   - name: jellyfin
     type: ansible
-    last-reviewed: null
-    current-version: null
+    last-reviewed: 2026-03-17
+    current-version: "10.11.6"
     upstream-source: https://github.com/jellyfin/jellyfin/releases
 
   - name: automounter
     type: ansible
-    last-reviewed: null
-    current-version: null
-    upstream-source: null
-    notes: Custom service, no upstream
+    last-reviewed: 2026-03-17
+    current-version: "1.11.0"
+    upstream-source: https://www.pixeleyes.co.nz/automounter/
+    notes: Mac App Store app, no Ansible role. Updates via App Store.

@@ -28,6 +28,7 @@ macOS app that automatically mounts [[sifaka]] SMB shares on [[indri]].
 | music | `/Volumes/music` | [[navidrome]] |
 | allisonflix | `/Volumes/allisonflix` | [[jellyfin]] |
 | photos | `/Volumes/photos` | [[immich]] |
+| frigate | `/Volumes/frigate` | [[frigate]] |
 
 ## Why AutoMounter?
 
