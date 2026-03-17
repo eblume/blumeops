@@ -56,6 +56,7 @@ SQLite database backed up via [[borgmatic]]'s `before_backup` hook. Borgmatic ru
 
 ## Related
 
+- [[plan-a-meal]] — Generate unified cooking timelines from meal plans
 - [[authentik]] — OIDC identity provider
 - [[ollama]] — LLM backend for meal timeline generation
 - [[borgmatic]] — Data backup
