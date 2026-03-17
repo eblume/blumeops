@@ -12,6 +12,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.14.2] - 2026-03-17
+
+### Features
+
+- Deploy Mealie recipe manager on minikube-indri for meal planning and prep automation.
+- Add UnPoller deployment to monitor UniFi network metrics via Prometheus
+
+### Bug Fixes
+
+- Fix Caddy v2.11 breaking change: preserve original Host header for HTTPS upstreams.
+- Fix plan-a-meal random recipe queries — add required `paginationSeed` parameter
+
+### Infrastructure
+
+- Externalize Tailscale operator manifest to forge mirror, removing 495 KB vendored file from the repo.
+- Externalize TeslaMate Grafana dashboards to forge mirror, removing 713 KB of ConfigMaps from the repo.
+- Upgrade Caddy from v2.10.2 to v2.11.2 (7 CVE fixes), create caddy-l4 forge mirror, migrate all ~/code/3rd clones on indri to HTTPS forge.ops.eblu.me remotes.
+- Upgrade borgmatic from 2.0.13 to 2.1.3 on indri (improved borg warning handling, memory/performance improvements)
+
+### Documentation
+
+- Add git last-modified subsort to docs-review script, so ties in review date are broken by least recently updated first.
+- Review jellyfin (10.11.6, current) and automounter (1.11.0) services; add missing frigate share to automounter docs.
+
+
 ## [v1.14.1] - 2026-03-14
 
 ### Features
