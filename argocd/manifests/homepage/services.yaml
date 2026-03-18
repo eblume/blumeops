@@ -28,7 +28,7 @@
               query: node_filesystem_size_bytes{mountpoint="/Volumes/backups"}
               format:
                 type: bytes
-    - Borgmatic:
+    - Borg Backups:
         href: https://grafana.ops.eblu.me/d/borgmatic
         icon: borgmatic
         description: Backup system
