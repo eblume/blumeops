@@ -80,6 +80,11 @@ spec:
               ; do
                 wget -q -O "$DEST/$f" "$BASE_URL/$f"
               done
+              # Stamp stable UIDs so stars/bookmarks survive pod restarts
+              for f in "$DEST"/*.json; do
+                uid="teslamate-$(basename "$f" .json)"
+                sed -i "s/\"uid\": *\"[^\"]*\"/\"uid\": \"${uid}\"/" "$f"
+              done
               echo "Fetched $(ls "$DEST" | wc -l) TeslaMate dashboards"
           securityContext:
             allowPrivilegeEscalation: false
@@ -115,7 +120,42 @@ spec:
               # Fix datasource UIDs to match our Prometheus instance
               sed -i 's/"uid": *"bdkj55oguty4gd"/"uid": "prometheus"/g' "$DEST"/*.json
               sed -i 's/"uid": *"\${DS_PROMETHEUS}"/"uid": "prometheus"/g' "$DEST"/*.json
+              # Stamp stable UIDs so stars/bookmarks survive pod restarts
+              for f in "$DEST"/*.json; do
+                slug=$(basename "$f" .json | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
+                uid="unpoller-${slug}"
+                sed -i "s/\"uid\": *\"[^\"]*\"/\"uid\": \"${uid}\"/" "$f"
+              done
               echo "Fetched $(ls "$DEST" | wc -l) UnPoller dashboards"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: sc-dashboard-volume
+              mountPath: /tmp/dashboards
+        # Pre-populate ConfigMap dashboards so they exist before Grafana starts.
+        # Without this, the sidecar and Grafana race: if the provisioner scans
+        # before the sidecar writes files, it deletes existing DB records and
+        # re-creates them with new IDs, breaking starred dashboards.
+        - name: init-configmap-dashboards
+          image: registry.ops.eblu.me/blumeops/grafana-sidecar:kustomized
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: METHOD
+              value: LIST
+            - name: LABEL
+              value: grafana_dashboard
+            - name: LABEL_VALUE
+              value: "1"
+            - name: FOLDER
+              value: /tmp/dashboards
+            - name: RESOURCE
+              value: both
+            - name: FOLDER_ANNOTATION
+              value: grafana_folder
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
