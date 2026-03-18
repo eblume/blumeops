@@ -16,6 +16,7 @@ metadata:
     gethomepage.dev/widget.type: "miniflux"
     gethomepage.dev/widget.url: "https://feed.ops.eblu.me"
     gethomepage.dev/widget.key: "{{HOMEPAGE_VAR_MINIFLUX_API_KEY}}"
+    gethomepage.dev/widget.fields: '["unread"]'
 spec:
   ingressClassName: tailscale
   defaultBackend:
