@@ -43,6 +43,19 @@
               query: borgmatic_repo_deduplicated_size_bytes
               format:
                 type: bytes
+    # TODO: Add Caddy widget when admin API is enabled (currently admin off)
+    # - Caddy:
+    #     href: https://indri.tail8d86e.ts.net
+    #     icon: caddy
+    #     description: Reverse proxy
+    #     widget:
+    #       type: caddy
+    #       url: http://indri.tail8d86e.ts.net:2019
+- Home:
+    - NVR:
+        href: https://nvr.ops.eblu.me
+        icon: frigate.png
+        description: Network video recorder
     - Jellyfin:
         href: https://jellyfin.ops.eblu.me
         icon: jellyfin
@@ -53,14 +66,6 @@
           key: "{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}"
           enableBlocks: true
           enableNowPlaying: true
-    # TODO: Add Caddy widget when admin API is enabled (currently admin off)
-    # - Caddy:
-    #     href: https://indri.tail8d86e.ts.net
-    #     icon: caddy
-    #     description: Reverse proxy
-    #     widget:
-    #       type: caddy
-    #       url: http://indri.tail8d86e.ts.net:2019
 - Services:
     - JobSync:
         href: https://jobsync.ops.eblu.me
@@ -71,10 +76,6 @@
         href: https://authentik.ops.eblu.me
         icon: authentik
         description: Identity provider
-    - NVR:
-        href: https://nvr.ops.eblu.me
-        icon: frigate.png
-        description: Network video recorder
     - Ntfy:
         href: https://ntfy.ops.eblu.me
         icon: ntfy.png

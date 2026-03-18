@@ -9,7 +9,7 @@ metadata:
     tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "NVR"
-    gethomepage.dev/group: "Infrastructure"
+    gethomepage.dev/group: "Home"
     gethomepage.dev/icon: "frigate.png"
     gethomepage.dev/description: "Network video recorder"
     gethomepage.dev/href: "https://nvr.ops.eblu.me"

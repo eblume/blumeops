@@ -8,10 +8,12 @@ quicklaunch:
   suggestionUrl: https://kagisuggest.com/api/autosuggest?q=
 layout:
   Host Services:
-    style: column
+    style: row
+  Home:
+    style: row
   Content:
-    style: column
+    style: row
   Infrastructure:
-    style: column
+    style: row
   Services:
-    style: column
+    style: row

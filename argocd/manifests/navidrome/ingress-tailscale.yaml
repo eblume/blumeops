@@ -9,7 +9,7 @@ metadata:
     tailscale.com/proxy-group: "ingress"
     gethomepage.dev/enabled: "true"
     gethomepage.dev/name: "DJ"
-    gethomepage.dev/group: "Content"
+    gethomepage.dev/group: "Home"
     gethomepage.dev/icon: "navidrome.png"
     gethomepage.dev/description: "Music streaming server"
     gethomepage.dev/href: "https://dj.ops.eblu.me"
