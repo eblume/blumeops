@@ -1,8 +1,10 @@
 ---
 title: Power
 modified: 2026-02-09
+last-reviewed: 2026-03-18
 tags:
   - infrastructure
+  - reference
 ---
 
 # Power Infrastructure
@@ -26,6 +28,7 @@ AC Grid (120V) → Anker SOLIX F2000 → CyberPower CP1000PFCLCD → Homelab
 | Device | Role |
 |--------|------|
 | [[indri]] | Primary server |
+| [[ringtail]] | GPU compute / gaming PC |
 | [[sifaka]] | NAS |
 | UniFi Express 7 | WiFi router |
 | Starlink | Satellite internet uplink |
