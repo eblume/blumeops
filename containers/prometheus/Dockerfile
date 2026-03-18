@@ -1,7 +1,7 @@
 # Prometheus monitoring system
 # Three-stage build: Web UI (Node), binaries (Go), runtime (Alpine)
 
-ARG CONTAINER_APP_VERSION=v3.9.1
+ARG CONTAINER_APP_VERSION=v3.10.0
 ARG PROMETHEUS_VERSION=${CONTAINER_APP_VERSION}
 
 FROM node:22-alpine AS ui-build
