@@ -14,6 +14,9 @@
     - UniFi:
         - href: https://unifi.ui.com
           icon: ubiquiti
+    - Fly.io:
+        - href: https://fly.io/dashboard
+          icon: si-flydotio
     - Gandi:
         - href: https://admin.gandi.net
           icon: si-gandi
