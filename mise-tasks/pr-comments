@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx>=0.28.0", "rich>=13.0.0"]
+# dependencies = ["httpx>=0.28.0", "rich>=13.0.0", "typer>=0.15.0"]
 # ///
 #MISE description="List unresolved comments on a PR"
 #USAGE arg "<pr_number>" help="Pull request number"
@@ -14,9 +14,10 @@ if its 'resolver' field is null.
 Usage: mise run pr-comments <pr_number>
 """
 
-import sys
+from typing import Annotated
 
 import httpx
+import typer
 from rich.console import Console
 from rich.text import Text
 
@@ -43,19 +44,14 @@ def get_review_comments(client: httpx.Client, pr_number: int, review_id: int) ->
     return response.json()
 
 
-def main() -> int:
+app = typer.Typer()
+
+
+@app.command()
+def main(
+    pr_number: Annotated[int, typer.Argument(help="Pull request number")],
+) -> None:
     console = Console()
-
-    if len(sys.argv) < 2:
-        console.print("[red]Error:[/red] Please provide a PR number")
-        console.print("Usage: mise run pr-comments <pr_number>")
-        return 1
-
-    try:
-        pr_number = int(sys.argv[1])
-    except ValueError:
-        console.print(f"[red]Error:[/red] '{sys.argv[1]}' is not a valid PR number")
-        return 1
 
     unresolved_comments: list[tuple[dict, dict]] = []  # (review, comment) pairs
 
@@ -68,7 +64,7 @@ def main() -> int:
                 console.print(f"[red]Error:[/red] PR #{pr_number} not found")
             else:
                 console.print(f"[red]Error:[/red] API request failed: {e}")
-            return 1
+            raise SystemExit(1)
 
         # For each review, get comments and filter to unresolved
         for review in reviews:
@@ -83,7 +79,7 @@ def main() -> int:
 
     if not unresolved_comments:
         console.print(f"[green]No unresolved comments on PR #{pr_number}[/green]")
-        return 0
+        raise SystemExit(0)
 
     # Display unresolved comments
     console.print(f"[bold]Unresolved Comments on PR #{pr_number}[/bold] ({len(unresolved_comments)} comments)")
@@ -111,8 +107,6 @@ def main() -> int:
 
         console.print()
 
-    return 0
-
 
 if __name__ == "__main__":
-    sys.exit(main())
+    app()

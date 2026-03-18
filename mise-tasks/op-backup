@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["rich>=13.0.0"]
+# dependencies = ["rich>=13.0.0", "typer>=0.15.0"]
 # ///
 #MISE description="Encrypt a 1Password .1pux export and send to indri for borgmatic"
 #USAGE arg "[export_path]" help="Path to .1pux export file (prompted if omitted)"
@@ -29,11 +29,12 @@ DISASTER RECOVERY:
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated
 
+import typer
 from rich.console import Console
 
 REMOTE_DIR = "/Users/erichblume/Documents/1password-backup"
@@ -281,26 +282,35 @@ def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: st
     return True
 
 
-def main() -> int:
-    if not check_dependencies():
-        return 1
+app = typer.Typer()
 
-    export_path = get_export_path(sys.argv[1] if len(sys.argv) > 1 else None)
+
+@app.command()
+def main(
+    export_path_arg: Annotated[
+        str | None,
+        typer.Argument(help="Path to .1pux export file (prompted if omitted)"),
+    ] = None,
+) -> None:
+    if not check_dependencies():
+        raise SystemExit(1)
+
+    export_path = get_export_path(export_path_arg)
     if not export_path:
-        return 1
+        raise SystemExit(1)
 
     file_size = f"{export_path.stat().st_size / 1024 / 1024:.1f} MB"
     console.print(f"Source: {export_path} ({file_size})")
 
     passphrase = fetch_credentials()
     if not passphrase:
-        return 1
+        raise SystemExit(1)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         result = encrypt(export_path, passphrase, Path(tmpdir))
         del passphrase
         if not result:
-            return 1
+            raise SystemExit(1)
 
         encrypted_export, encrypted_key = result
 
@@ -310,7 +320,7 @@ def main() -> int:
 
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         if not transfer_to_indri(encrypted_export, encrypted_key, timestamp):
-            return 1
+            raise SystemExit(1)
 
     console.print()
     console.print("[bold]DISASTER RECOVERY:[/bold]")
@@ -320,8 +330,7 @@ def main() -> int:
     console.print("     Passphrase: {master_password}:{secret_key}")
     console.print(f"  4. age -d -i key.txt < ...age > export.1pux")
     console.print("  5. Open export.1pux with 1Password or unzip to inspect")
-    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    app()

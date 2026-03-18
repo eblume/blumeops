@@ -1,9 +1,10 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["rich>=13.0.0"]
+# dependencies = ["rich>=13.0.0", "typer>=0.15.0"]
 # ///
 #MISE description="Validate Mikado Branch Invariant on mikado/* branches"
+#USAGE arg "[commit_msg_file]" help="Commit message file (passed by commit-msg hook)"
 """Validate the Mikado Branch Invariant for C2 change branches.
 
 Runs as a commit-msg hook on mikado/* branches. Receives the commit message
@@ -24,9 +25,10 @@ Exit code 0 if valid (or not on a mikado/* branch), 1 if violations found.
 
 import re
 import subprocess
-import sys
 from pathlib import Path
+from typing import Annotated
 
+import typer
 from rich.console import Console
 
 REPO_DIR = Path(__file__).parent.parent
@@ -242,27 +244,36 @@ def check_invariant(commits: list[dict], chain_stem: str) -> list[str]:
     return errors
 
 
-def main() -> None:
+app = typer.Typer()
+
+
+@app.command()
+def main(
+    commit_msg_file: Annotated[
+        str | None,
+        typer.Argument(help="Commit message file (passed by commit-msg hook)"),
+    ] = None,
+) -> None:
     console = Console(stderr=True)
     branch = get_current_branch()
 
     if not branch or not branch.startswith("mikado/"):
         # Not on a mikado branch — nothing to check
-        sys.exit(0)
+        raise SystemExit(0)
 
     chain_stem = branch.removeprefix("mikado/")
     commits = get_branch_commits(branch)
 
     # If called with a commit message file (commit-msg hook), include the
     # pending commit in the validation
-    if len(sys.argv) > 1:
-        subject = parse_commit_message(sys.argv[1])
+    if commit_msg_file is not None:
+        subject = parse_commit_message(commit_msg_file)
         if subject:
             commits.append(make_pending_commit(subject))
 
     if not commits:
         # No commits on branch yet — valid (length-zero case)
-        sys.exit(0)
+        raise SystemExit(0)
 
     errors = check_invariant(commits, chain_stem)
 
@@ -286,10 +297,10 @@ def main() -> None:
             "[dim]See: docs/how-to/agent-change-process.md "
             "§ The Mikado Branch Invariant[/dim]"
         )
-        sys.exit(1)
+        raise SystemExit(1)
 
-    sys.exit(0)
+    raise SystemExit(0)
 
 
 if __name__ == "__main__":
-    main()
+    app()
