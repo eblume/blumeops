@@ -63,4 +63,4 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 50Gi
+            storage: 20Gi  # Not enforced by minikube hostpath; data grows freely on 1.8TB disk
