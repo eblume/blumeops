@@ -24,7 +24,7 @@ spec:
           args:
             - --config.file=/etc/prometheus/prometheus.yml
             - --storage.tsdb.path=/prometheus
-            - --storage.tsdb.retention.time=15d
+            - --storage.tsdb.retention.time=3650d
             - --web.enable-remote-write-receiver
             - --web.enable-lifecycle
           ports:
@@ -65,4 +65,4 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 20Gi
+            storage: 200Gi
