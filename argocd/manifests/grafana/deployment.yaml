@@ -80,12 +80,11 @@ spec:
               ; do
                 wget -q -O "$DEST/$f" "$BASE_URL/$f"
               done
-              # Stamp stable top-level UIDs so stars/bookmarks survive pod restarts
-              # Uses 0,/pattern/ to replace only the first "uid" (the dashboard UID),
-              # leaving datasource UIDs inside panels untouched.
+              # Stamp stable top-level UIDs so stars/bookmarks survive pod restarts.
+              # Match root-level uid (2-space indent) to avoid clobbering datasource refs.
               for f in "$DEST"/*.json; do
                 uid="teslamate-$(basename "$f" .json)"
-                sed -i "0,/\"uid\": *\"[^\"]*\"/{s/\"uid\": *\"[^\"]*\"/\"uid\": \"${uid}\"/}" "$f"
+                sed -i "s/^  \"uid\": *\"[^\"]*\"/  \"uid\": \"${uid}\"/" "$f"
               done
               echo "Fetched $(ls "$DEST" | wc -l) TeslaMate dashboards"
           securityContext:
@@ -122,11 +121,12 @@ spec:
               # Fix datasource UIDs to match our Prometheus instance
               sed -i 's/"uid": *"bdkj55oguty4gd"/"uid": "prometheus"/g' "$DEST"/*.json
               sed -i 's/"uid": *"\${DS_PROMETHEUS}"/"uid": "prometheus"/g' "$DEST"/*.json
-              # Stamp stable top-level UIDs so stars/bookmarks survive pod restarts
+              # Stamp stable top-level UIDs so stars/bookmarks survive pod restarts.
+              # Match root-level uid (2-space indent) to avoid clobbering datasource refs.
               for f in "$DEST"/*.json; do
                 slug=$(basename "$f" .json | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
                 uid="unpoller-${slug}"
-                sed -i "0,/\"uid\": *\"[^\"]*\"/{s/\"uid\": *\"[^\"]*\"/\"uid\": \"${uid}\"/}" "$f"
+                sed -i "s/^  \"uid\": *\"[^\"]*\"/  \"uid\": \"${uid}\"/" "$f"
               done
               echo "Fetched $(ls "$DEST" | wc -l) UnPoller dashboards"
           securityContext:
