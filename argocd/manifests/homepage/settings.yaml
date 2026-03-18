@@ -6,15 +6,19 @@ quicklaunch:
   provider: custom
   url: https://kagi.com/search?q=
   suggestionUrl: https://kagisuggest.com/api/autosuggest?q=
-maxGroupColumns: 1
 layout:
   Host Services:
-    style: column
+    style: row
+    columns: 4
   Home:
-    style: column
+    style: row
+    columns: 4
   Content:
-    style: column
+    style: row
+    columns: 4
   Infrastructure:
-    style: column
+    style: row
+    columns: 4
   Services:
-    style: column
+    style: row
+    columns: 4
