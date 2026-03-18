@@ -7,6 +7,7 @@
           type: gitea
           url: https://forge.eblu.me
           key: "{{HOMEPAGE_VAR_FORGEJO_API_KEY}}"
+          fields: ["notifications", "pulls"]
     - Registry:
         href: https://registry.ops.eblu.me
         icon: zot-registry
@@ -65,7 +66,8 @@
           url: https://jellyfin.ops.eblu.me
           key: "{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}"
           enableBlocks: true
-          enableNowPlaying: true
+          enableNowPlaying: false
+          fields: ["movies", "series", "episodes"]
 - Services:
     - JobSync:
         href: https://jobsync.ops.eblu.me
