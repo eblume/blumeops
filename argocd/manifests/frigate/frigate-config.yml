@@ -70,14 +70,14 @@ model:
 record:
   enabled: true
   continuous:
-    days: 3
+    days: 180
   alerts:
     retain:
-      days: 30
+      days: 730
       mode: active_objects
   detections:
     retain:
-      days: 14
+      days: 30
       mode: motion
 
 snapshots:
