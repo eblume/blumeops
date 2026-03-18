@@ -43,7 +43,7 @@ borgmatic_k8s_sqlite_dumps:
     namespace: mealie
     label_selector: app=mealie
     db_path: /app/data/mealie.db
-    context: minikube-indri
+    context: minikube
 
 # Exclude patterns
 borgmatic_exclude_patterns: []
