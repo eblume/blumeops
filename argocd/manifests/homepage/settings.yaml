@@ -10,15 +10,20 @@ layout:
   Host Services:
     style: row
     columns: 4
+    useEqualHeights: true
   Home:
     style: row
     columns: 4
+    useEqualHeights: true
   Content:
     style: row
     columns: 4
+    useEqualHeights: true
   Infrastructure:
     style: row
     columns: 4
+    useEqualHeights: true
   Services:
     style: row
     columns: 4
+    useEqualHeights: true
