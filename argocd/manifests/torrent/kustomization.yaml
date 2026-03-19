@@ -10,6 +10,6 @@ resources:
   - ingress-tailscale.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/transmission
-    newTag: v4.1.1-r1-ab34cbd
+    newTag: v4.1.1-r1-613f05d
   - name: registry.ops.eblu.me/blumeops/transmission-exporter
-    newTag: v1.0.1-c93448f
+    newTag: v1.0.1-613f05d

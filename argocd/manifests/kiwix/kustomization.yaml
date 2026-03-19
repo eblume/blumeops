@@ -10,11 +10,11 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/kiwix-serve
-    newTag: v3.8.2-f6f0f79
+    newTag: v3.8.2-613f05d
   - name: registry.ops.eblu.me/blumeops/transmission
     newTag: v4.0.6-r4-ffa8727
   - name: registry.ops.eblu.me/blumeops/kubectl
-    newTag: v1.34.4-a72a0d8
+    newTag: v1.34.4-613f05d
 
 configMapGenerator:
   - name: kiwix-zim-torrents

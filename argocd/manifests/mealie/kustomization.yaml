@@ -12,4 +12,4 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/mealie
-    newTag: v3.12.0-11330eb
+    newTag: v3.12.0-613f05d

@@ -11,4 +11,4 @@ resources:
   - ingress-tailscale.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/navidrome
-    newTag: v0.60.3-cd57814
+    newTag: v0.60.3-613f05d

@@ -9,4 +9,4 @@ resources:
   - pdb.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/cv
-    newTag: v1.0.3-ffa8727
+    newTag: v1.0.3-613f05d
