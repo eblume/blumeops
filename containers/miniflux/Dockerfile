@@ -18,9 +18,12 @@ RUN make miniflux
 
 FROM alpine:3.22
 
-LABEL org.opencontainers.image.title=Miniflux
+ARG CONTAINER_APP_VERSION
+LABEL org.opencontainers.image.title="Miniflux"
 LABEL org.opencontainers.image.description="Miniflux is a minimalist and opinionated feed reader"
-LABEL org.opencontainers.image.source=https://github.com/miniflux/v2
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 
 EXPOSE 8080
 ENV LISTEN_ADDR=0.0.0.0:8080

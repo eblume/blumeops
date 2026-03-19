@@ -49,9 +49,12 @@ RUN go build \
 
 FROM alpine:3.22
 
-LABEL org.opencontainers.image.title=ntfy
+ARG CONTAINER_APP_VERSION
+LABEL org.opencontainers.image.title="ntfy"
 LABEL org.opencontainers.image.description="ntfy is a simple HTTP-based pub-sub notification service"
-LABEL org.opencontainers.image.source=https://github.com/binwiederhier/ntfy
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 
 RUN apk --no-cache add tzdata
 

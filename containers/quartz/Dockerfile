@@ -11,6 +11,13 @@ ARG NGINX_VERSION=${CONTAINER_APP_VERSION}
 
 FROM nginx:${NGINX_VERSION}-alpine
 
+ARG CONTAINER_APP_VERSION
+LABEL org.opencontainers.image.title="Quartz"
+LABEL org.opencontainers.image.description="Static site server for Quartz-built documentation"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
+
 # Install curl for downloading release assets
 RUN apk add --no-cache curl
 

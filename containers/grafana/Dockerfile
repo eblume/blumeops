@@ -51,9 +51,12 @@ USER grafana
 WORKDIR /usr/share/grafana
 EXPOSE 3000
 
+ARG CONTAINER_APP_VERSION
 LABEL org.opencontainers.image.title="Grafana"
 LABEL org.opencontainers.image.description="Grafana OSS observability platform"
-LABEL org.opencontainers.image.source="https://github.com/grafana/grafana"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["grafana", "server", \

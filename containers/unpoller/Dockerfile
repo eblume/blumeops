@@ -26,9 +26,12 @@ RUN go build -ldflags="-s -w \
 
 FROM alpine:3.22
 
+ARG CONTAINER_APP_VERSION
 LABEL org.opencontainers.image.title="UnPoller"
 LABEL org.opencontainers.image.description="UniFi metrics exporter for Prometheus"
-LABEL org.opencontainers.image.source="https://github.com/unpoller/unpoller"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 
 RUN apk add --no-cache ca-certificates tzdata
 

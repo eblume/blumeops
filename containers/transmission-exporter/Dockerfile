@@ -5,8 +5,12 @@ ARG CONTAINER_APP_VERSION=1.0.1
 
 FROM python:3.13-alpine3.23
 
+ARG CONTAINER_APP_VERSION
 LABEL org.opencontainers.image.title="Transmission Exporter"
 LABEL org.opencontainers.image.description="Prometheus exporter for Transmission BitTorrent client"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 

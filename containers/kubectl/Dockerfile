@@ -27,6 +27,13 @@ RUN apk add --no-cache curl && \
 
 FROM alpine:3.22
 
+ARG CONTAINER_APP_VERSION
+LABEL org.opencontainers.image.title="kubectl"
+LABEL org.opencontainers.image.description="Minimal kubectl container"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
+
 COPY --from=downloader /kubectl /usr/local/bin/kubectl
 
 # Add ca-certificates for HTTPS connections and bash for scripts

@@ -4,6 +4,12 @@ FROM python:3.12-slim
 
 ARG CONTAINER_APP_VERSION
 ARG DEVPI_SERVER_VERSION=${CONTAINER_APP_VERSION}
+
+LABEL org.opencontainers.image.title="devpi"
+LABEL org.opencontainers.image.description="devpi PyPI server and caching proxy"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 ARG DEVPI_WEB_VERSION=5.0.1
 
 # Install devpi-server and devpi-web

@@ -45,6 +45,13 @@ RUN SKIP_LOCALE_DOWNLOAD=true mix release --path /opt/built
 # Runtime image
 FROM debian:trixie-slim AS app
 
+ARG CONTAINER_APP_VERSION
+LABEL org.opencontainers.image.title="TeslaMate"
+LABEL org.opencontainers.image.description="Tesla data logger and visualization"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
+
 ENV LANG=C.UTF-8 \
     SRTM_CACHE=/opt/app/.srtm_cache \
     HOME=/opt/app

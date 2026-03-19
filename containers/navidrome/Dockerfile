@@ -38,10 +38,12 @@ RUN go build -tags=netgo \
 
 FROM alpine:3.22
 
-LABEL org.opencontainers.image.title=Navidrome
+ARG CONTAINER_APP_VERSION
+LABEL org.opencontainers.image.title="Navidrome"
 LABEL org.opencontainers.image.description="Navidrome is a self-hosted music server and streamer"
-# Points to upstream canonical source, not the forge mirror used for builds
-LABEL org.opencontainers.image.source=https://github.com/navidrome/navidrome
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 
 RUN apk add --no-cache ca-certificates tzdata taglib ffmpeg \
  && addgroup -g 1000 navidrome \

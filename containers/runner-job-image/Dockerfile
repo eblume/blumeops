@@ -17,6 +17,12 @@ ARG TARGETARCH
 ARG CONTAINER_APP_VERSION
 ARG DAGGER_VERSION=${CONTAINER_APP_VERSION}
 
+LABEL org.opencontainers.image.title="Runner Job Image"
+LABEL org.opencontainers.image.description="Forgejo Actions job execution environment"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
+
 # Install base dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \

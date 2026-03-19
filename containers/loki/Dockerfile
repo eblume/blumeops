@@ -25,9 +25,12 @@ RUN go build -tags netgo \
 
 FROM alpine:3.22
 
-LABEL org.opencontainers.image.title=Loki
+ARG CONTAINER_APP_VERSION
+LABEL org.opencontainers.image.title="Loki"
 LABEL org.opencontainers.image.description="Grafana Loki log aggregation system"
-LABEL org.opencontainers.image.source=https://github.com/grafana/loki
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 
 RUN apk add --no-cache ca-certificates tzdata
 RUN mkdir -p /loki && chown 10001:10001 /loki

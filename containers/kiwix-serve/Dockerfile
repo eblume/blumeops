@@ -38,6 +38,13 @@ RUN set -e && \
     curl -k -L $url | tar -xz -C /usr/local/bin/ --strip-components 1 && \
     apk del curl
 
+ARG CONTAINER_APP_VERSION
+LABEL org.opencontainers.image.title="kiwix-serve"
+LABEL org.opencontainers.image.description="Kiwix content server for offline ZIM files"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
+
 EXPOSE 80
 
 # Run as non-root

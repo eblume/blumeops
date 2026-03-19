@@ -10,6 +10,13 @@ ARG CONTAINER_APP_VERSION=1.0.3
 
 FROM nginx:alpine
 
+ARG CONTAINER_APP_VERSION
+LABEL org.opencontainers.image.title="CV"
+LABEL org.opencontainers.image.description="Static site server for CV/resume"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
+
 # Install curl for downloading release assets
 RUN apk add --no-cache curl
 

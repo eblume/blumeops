@@ -54,9 +54,12 @@ RUN go build -tags netgo,builtinassets \
 
 FROM alpine:3.22
 
-LABEL org.opencontainers.image.title=Prometheus
+ARG CONTAINER_APP_VERSION
+LABEL org.opencontainers.image.title="Prometheus"
 LABEL org.opencontainers.image.description="Prometheus monitoring system and time series database"
-LABEL org.opencontainers.image.source=https://github.com/prometheus/prometheus
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 
 RUN apk add --no-cache ca-certificates tzdata
 

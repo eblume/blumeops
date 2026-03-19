@@ -135,8 +135,11 @@ ENV HOST=0.0.0.0
 COPY --from=backend-builder /src/docker/entry.sh $MEALIE_HOME/run.sh
 RUN chmod +x $MEALIE_HOME/run.sh
 
+ARG CONTAINER_APP_VERSION
 LABEL org.opencontainers.image.title="Mealie"
 LABEL org.opencontainers.image.description="Self-hosted recipe manager"
-LABEL org.opencontainers.image.source="https://github.com/mealie-recipes/mealie"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 
 ENTRYPOINT ["/app/run.sh"]

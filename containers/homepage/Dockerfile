@@ -21,9 +21,12 @@ RUN mkdir -p config \
 
 FROM node:24-alpine
 
-LABEL org.opencontainers.image.title=Homepage
+ARG CONTAINER_APP_VERSION
+LABEL org.opencontainers.image.title="Homepage"
 LABEL org.opencontainers.image.description="A self-hosted services landing page"
-LABEL org.opencontainers.image.source=https://github.com/gethomepage/homepage
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 
 WORKDIR /app
 

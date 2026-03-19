@@ -8,6 +8,12 @@ FROM alpine:3.22
 ARG CONTAINER_APP_VERSION
 ARG TRANSMISSION_VERSION=${CONTAINER_APP_VERSION}
 
+LABEL org.opencontainers.image.title="Transmission"
+LABEL org.opencontainers.image.description="Transmission BitTorrent daemon"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
+
 # Transmission 4.1.x is only in edge; base OS stays on stable 3.22
 RUN apk add --no-cache \
     --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community \

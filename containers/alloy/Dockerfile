@@ -48,9 +48,12 @@ RUN RELEASE_BUILD=1 VERSION=${ALLOY_VERSION} \
 
 FROM alpine:3.22
 
-LABEL org.opencontainers.image.title=alloy
+ARG CONTAINER_APP_VERSION
+LABEL org.opencontainers.image.title="Alloy"
 LABEL org.opencontainers.image.description="Grafana Alloy is an OpenTelemetry Collector distribution"
-LABEL org.opencontainers.image.source=https://github.com/grafana/alloy
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 
 RUN apk --no-cache add ca-certificates tzdata \
     && addgroup -g 473 alloy \

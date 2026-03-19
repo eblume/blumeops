@@ -20,9 +20,12 @@ RUN python -m venv .venv && \
 
 FROM base
 
+ARG CONTAINER_APP_VERSION
 LABEL org.opencontainers.image.title="Grafana Sidecar"
 LABEL org.opencontainers.image.description="K8s sidecar to sync ConfigMap dashboards into Grafana"
-LABEL org.opencontainers.image.source="https://github.com/kiwigrid/k8s-sidecar"
+LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
+LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
+LABEL org.opencontainers.image.vendor="blumeops"
 
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app
