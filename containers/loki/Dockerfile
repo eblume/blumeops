@@ -1,7 +1,7 @@
 # Grafana Loki log aggregation system
 # Two-stage build: Go binary, Alpine runtime
 
-ARG CONTAINER_APP_VERSION=3.6.5
+ARG CONTAINER_APP_VERSION=3.6.7
 ARG LOKI_VERSION=v${CONTAINER_APP_VERSION}
 
 FROM golang:alpine3.22 AS build
