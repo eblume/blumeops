@@ -1,0 +1,1 @@
+Deploy infrastructure alerting pipeline using Grafana Unified Alerting with ntfy push notifications. 7 alert rules with runbooks covering service health, pod readiness, PostgreSQL, textfile freshness, Frigate cameras, and ArgoCD sync status. services-check now queries the alerting API for covered checks.

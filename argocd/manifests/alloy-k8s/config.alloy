@@ -169,6 +169,43 @@ prometheus.exporter.blackbox "services" {
     address = "http://argocd-server.argocd.svc.cluster.local:80/healthz"
     module  = "http_2xx"
   }
+
+  target {
+    name    = "prometheus"
+    address = "http://prometheus.monitoring.svc.cluster.local:9090/-/healthy"
+    module  = "http_2xx"
+  }
+
+  target {
+    name    = "loki"
+    address = "http://loki.monitoring.svc.cluster.local:3100/ready"
+    module  = "http_2xx"
+  }
+
+  target {
+    name    = "grafana"
+    address = "http://grafana.monitoring.svc.cluster.local:80/api/health"
+    module  = "http_2xx"
+  }
+
+  target {
+    name    = "teslamate"
+    address = "http://teslamate.teslamate.svc.cluster.local:4000/"
+    module  = "http_2xx"
+  }
+
+  target {
+    name    = "immich"
+    address = "http://immich-server.immich.svc.cluster.local:2283/api/server/ping"
+    module  = "http_2xx"
+  }
+
+  target {
+    name    = "navidrome"
+    address = "http://navidrome.navidrome.svc.cluster.local:4533/"
+    module  = "http_2xx"
+  }
+
 }
 
 // Scrape blackbox probe results

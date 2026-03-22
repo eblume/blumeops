@@ -25,6 +25,7 @@ configMapGenerator:
     files:
       - grafana.ini
       - datasources.yaml
+      - alerting.yaml
     options:
       labels:
         app.kubernetes.io/name: grafana

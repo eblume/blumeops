@@ -80,6 +80,14 @@ scrape_configs:
       - target_label: cluster
         replacement: indri
 
+  # ArgoCD application metrics
+  - job_name: "argocd"
+    static_configs:
+      - targets: ["argocd-metrics.argocd.svc.cluster.local:8082"]
+    metric_relabel_configs:
+      - target_label: cluster
+        replacement: indri
+
   # Frigate NVR metrics (via Caddy on indri — Frigate runs on ringtail)
   - job_name: "frigate"
     scheme: https
