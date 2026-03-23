@@ -20,6 +20,6 @@ spec:
   statefulSet:
     pod:
       tailscaleContainer:
-        image: docker.io/tailscale/tailscale:v1.96.3
+        image: docker.io/tailscale/tailscale:v1.94.2
       tailscaleInitContainer:
-        image: docker.io/tailscale/tailscale:v1.96.3
+        image: docker.io/tailscale/tailscale:v1.94.2

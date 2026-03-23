@@ -92,7 +92,7 @@ services:
   - name: tailscale-operator
     type: argocd
     last-reviewed: 2026-03-22
-    current-version: "v1.96.3"
+    current-version: "v1.94.2"
     upstream-source: https://github.com/tailscale/tailscale/releases
 
   - name: grafana
