@@ -9,8 +9,7 @@ spec:
   project: default
   # Tailscale operator mutates externalName from "placeholder" to actual proxy service
   ignoreDifferences:
-    - group: ""
-      kind: Service
+    - kind: Service
       jsonPointers:
         - /spec/externalName
   source:
