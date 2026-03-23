@@ -1,9 +1,9 @@
 # ntfy push notification server
 # Three-stage build: Web UI (Node), server (Go+SQLite), runtime (Alpine)
 
-ARG CONTAINER_APP_VERSION=v2.17.0
+ARG CONTAINER_APP_VERSION=v2.19.2
 ARG NTFY_VERSION=${CONTAINER_APP_VERSION}
-ARG NTFY_COMMIT=a03a37feb1869e84e3af0dd6190bdc7183f211ec
+ARG NTFY_COMMIT=2ad78edca12f1a43c566ffab9e93b3ed26426a6c
 
 FROM node:22-alpine AS web-build
 
