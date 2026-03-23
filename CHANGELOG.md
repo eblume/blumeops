@@ -12,6 +12,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.14.3] - 2026-03-22
+
+### Features
+
+- Deploy infrastructure alerting pipeline using Grafana Unified Alerting with ntfy push notifications. 7 alert rules with runbooks covering service health, pod readiness, PostgreSQL, textfile freshness, Frigate cameras, and ArgoCD sync status. services-check now queries the alerting API for covered checks.
+
+### Bug Fixes
+
+- Fix Frigate NVR crash by re-adding required `mqtt` config section (disabled) after Mosquitto removal.
+- Fix borgmatic backup failure: use correct kubectl context (`minikube`) on indri for Mealie SQLite dump hook
+
+### Infrastructure
+
+- Localize Grafana Alloy container image with dual Dockerfile + Nix builds from forge mirror
+- Upgrade Prometheus from v3.9.1 to v3.10.0 (distroless variants, PromQL fill operators, performance improvements)
+- Bump Frigate recording retention (180d continuous, 30d detections, 730d alerts) and add camera-fps health check to services-check.
+- Improve Frigate health checks in services-check: per-camera FPS validation and NFS storage accessibility check.
+- Increase data retention: Prometheus 15d → 10y, Loki 31d → 365d (PVC sizes unchanged; minikube hostpath doesn't enforce limits)
+- Standardize OCI labels across all container Dockerfiles with consistent title, description, version, source, and vendor metadata.
+
+### Documentation
+
+- Review and correct Tailscale reference doc: fix ACL path, add missing device tags (ringtail, per-service tags, ci-gateway, flyio-proxy), correct access matrix (PyPI→DevPI, homelab grants), add SSH homelab→homelab rule, document auto approvers, add last-reviewed frontmatter.
+
+### AI Assistance
+
+- Add four Claude Code subagents: infra-health (background health monitor), doc-reviewer (persistent-memory doc review), change-classifier (C0/C1/C2 triage), and mikado-navigator (C2 chain state advisor).
+
+### Miscellaneous
+
+- Standardized USAGE pragmas and typer CLI parsing across all mise tasks: added missing `#USAGE` directive to `mikado-branch-invariant-check`, converted `pr-comments` and `op-backup` from raw `sys.argv` to typer for consistency with all other uv python scripts.
+
+
 ## [v1.14.2] - 2026-03-17
 
 ### Features
