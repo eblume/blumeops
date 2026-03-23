@@ -1,0 +1,1 @@
+Review and correct Tailscale reference doc: fix ACL path, add missing device tags (ringtail, per-service tags, ci-gateway, flyio-proxy), correct access matrix (PyPI→DevPI, homelab grants), add SSH homelab→homelab rule, document auto approvers, add last-reviewed frontmatter.
