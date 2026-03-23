@@ -26,7 +26,7 @@ services:
 
   - name: kube-state-metrics
     type: argocd
-    last-reviewed: 2026-02-16
+    last-reviewed: 2026-03-22
     current-version: "v2.18.0"
     upstream-source: https://github.com/kubernetes/kube-state-metrics/releases
 
@@ -91,8 +91,8 @@ services:
 
   - name: tailscale-operator
     type: argocd
-    last-reviewed: 2026-02-16
-    current-version: "v1.94.2"
+    last-reviewed: 2026-03-22
+    current-version: "v1.96.3"
     upstream-source: https://github.com/tailscale/tailscale/releases
 
   - name: grafana

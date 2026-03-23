@@ -7,14 +7,14 @@ namespace: tailscale
 # Upstream Tailscale operator manifest from forge mirror.
 # To upgrade: update the ref in the URL AND the newTag below.
 resources:
-  - https://forge.eblu.me/mirrors/tailscale/raw/tag/v1.94.2/cmd/k8s-operator/deploy/manifests/operator.yaml
+  - https://forge.eblu.me/mirrors/tailscale/raw/tag/v1.96.3/cmd/k8s-operator/deploy/manifests/operator.yaml
   - proxyclass.yaml
   - dnsconfig.yaml
 
 images:
   - name: tailscale/k8s-operator
     newName: docker.io/tailscale/k8s-operator
-    newTag: v1.94.2
+    newTag: v1.96.3
 
 # The upstream manifest includes a placeholder OAuth Secret with empty values.
 # We manage this secret via ExternalSecret, so drop the upstream copy.

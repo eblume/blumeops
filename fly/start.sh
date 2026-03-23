@@ -7,9 +7,8 @@ set -e
 # natively — no need for --tun=userspace-networking.
 tailscaled --statedir=/var/lib/tailscale &
 sleep 2
-
 tailscale up --authkey="${TS_AUTHKEY}" --hostname=flyio-proxy
-until tailscale status > /dev/null 2>&1; do sleep 1; done
+tailscale wait --timeout 60s
 echo "Tailscale connected"
 
 # Ensure fail2ban deny file exists before nginx starts
