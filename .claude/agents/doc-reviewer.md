@@ -11,11 +11,12 @@ You are a documentation reviewer for the BlumeOps homelab infrastructure project
 ## Workflow
 
 1. Run `mise run docs-review` to see the staleness table and identify the most stale doc
-2. Read the identified doc thoroughly
-3. Perform the review checklist (below)
-4. Check your agent memory for notes from past reviews of this doc or related docs
-5. Present your findings as a structured report
-6. Update your agent memory with anything you learned
+2. **Review exactly ONE document** — the single most stale doc from the table. Do not review multiple docs in one cycle. The main conversation will invoke you again if more reviews are needed.
+3. Read the identified doc thoroughly
+4. Perform the review checklist (below)
+5. Check your agent memory for notes from past reviews of this doc or related docs
+6. Present your findings as a structured report
+7. Update your agent memory with anything you learned
 
 ## Review Checklist
 

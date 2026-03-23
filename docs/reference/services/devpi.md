@@ -1,6 +1,7 @@
 ---
 title: Devpi
-modified: 2026-02-07
+modified: 2026-03-23
+last-reviewed: 2026-03-23
 tags:
   - service
   - python
@@ -18,7 +19,7 @@ PyPI caching proxy and private package index.
 | **Namespace** | `devpi` |
 | **ArgoCD App** | `devpi` |
 | **Storage** | 50Gi PVC |
-| **Image** | `registry.ops.eblu.me/blumeops/devpi:latest` |
+| **Image** | `registry.ops.eblu.me/blumeops/devpi` (see `argocd/manifests/devpi/kustomization.yaml` for current tag) |
 
 ## Indices
 

@@ -1,6 +1,7 @@
 ---
 title: Loki
-modified: 2026-02-08
+modified: 2026-03-23
+last-reviewed: 2026-03-23
 tags:
   - service
   - observability
@@ -15,9 +16,8 @@ Log aggregation system for BlumeOps infrastructure.
 | Property | Value |
 |----------|-------|
 | **URL** | https://loki.ops.eblu.me |
-| **Tailscale URL** | https://loki.tail8d86e.ts.net |
 | **Namespace** | `monitoring` |
-| **Image** | `grafana/loki:3.4.2` |
+| **Image** | `registry.ops.eblu.me/blumeops/loki` (see `argocd/manifests/loki/kustomization.yaml` for current tag) |
 | **Storage** | 50Gi PVC |
 | **Retention** | 31 days |
 

@@ -1,6 +1,7 @@
 ---
 title: Docs
-modified: 2026-02-08
+modified: 2026-03-23
+last-reviewed: 2026-03-23
 tags:
   - service
   - documentation
@@ -17,7 +18,7 @@ Documentation site built with [Quartz](https://quartz.jzhao.xyz/) and served via
 | **Public URL** | https://docs.eblu.me |
 | **Private URL** | `docs.ops.eblu.me` (tailnet only, via [[caddy]]) |
 | **Namespace** | `docs` |
-| **Container** | `registry.ops.eblu.me/blumeops/quartz:v1.0.0` |
+| **Image** | `registry.ops.eblu.me/blumeops/quartz` (see `argocd/manifests/docs/kustomization.yaml` for current tag) |
 | **Source** | `docs/` directory in blumeops repo |
 | **Build** | Forgejo workflow `build-blumeops.yaml` |
 | **Public proxy** | [[flyio-proxy]] (Fly.io → Tailscale tunnel) |
@@ -31,13 +32,12 @@ Documentation site built with [Quartz](https://quartz.jzhao.xyz/) and served via
 
 ## Release Process
 
-Documentation is automatically built and released when changes are pushed to main:
+Documentation is built and released via the `build-blumeops` Forgejo workflow (manual dispatch):
 
-1. Workflow detects changes in `docs/` directory
-2. Quartz builds static HTML/CSS/JS
-3. Assets uploaded as release attachment
-4. ArgoCD deployment updated with new `DOCS_RELEASE_URL`
-5. Pod restarts and downloads new bundle
+1. Quartz builds static HTML/CSS/JS
+2. Assets uploaded as Forgejo release attachment
+3. Workflow updates `DOCS_RELEASE_URL` in `argocd/manifests/docs/deployment.yaml` and commits to main
+4. ArgoCD syncs the updated deployment; new pod downloads the release bundle at startup
 
 ## Configuration
 

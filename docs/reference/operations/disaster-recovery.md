@@ -1,6 +1,7 @@
 ---
 title: Disaster Recovery
-modified: 2026-02-10
+modified: 2026-03-23
+last-reviewed: 2026-03-23
 tags:
   - operations
 ---
@@ -18,6 +19,7 @@ Recovery procedures for BlumeOps infrastructure.
 
 ## Components
 
+- [[backup]] - Backup overview
 - [[borgmatic]] - Backup restoration
 - [[1password]] - Credential recovery (backed up via `mise run op-backup`)
 - [[forgejo]] - Source of truth for infrastructure code

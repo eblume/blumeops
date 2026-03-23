@@ -1,6 +1,7 @@
 ---
 title: TeslaMate
-modified: 2026-02-07
+modified: 2026-03-23
+last-reviewed: 2026-03-23
 tags:
   - service
   - vehicle
@@ -8,16 +9,15 @@ tags:
 
 # TeslaMate
 
-Self-hosted Tesla data logger collecting vehicle telemetry from the Tesla Owner API.
+Self-hosted Tesla data logger collecting vehicle telemetry from the Tesla API.
 
 ## Quick Reference
 
 | Property | Value |
 |----------|-------|
 | **URL** | https://tesla.ops.eblu.me |
-| **Tailscale URL** | https://tesla.tail8d86e.ts.net |
 | **Namespace** | `teslamate` |
-| **Image** | `teslamate/teslamate:2.2.0` |
+| **Image** | `registry.ops.eblu.me/blumeops/teslamate` (see `argocd/manifests/teslamate/kustomization.yaml` for current tag) |
 | **Database** | [[postgresql]] |
 
 ## Data Collected

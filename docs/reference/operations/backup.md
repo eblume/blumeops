@@ -1,6 +1,7 @@
 ---
 title: Backup
-modified: 2026-02-07
+modified: 2026-03-23
+last-reviewed: 2026-03-23
 tags:
   - operations
 ---
@@ -13,4 +14,5 @@ Daily automated backups of BlumeOps data.
 
 - [[borgmatic]] - Backup orchestration
 - [[sifaka|Sifaka]] - Backup target (NAS)
-- [[backups|backup-policy]] - What gets backed up and retention
+- [[backups]] - What gets backed up and retention
+- [[disaster-recovery]] - Recovery procedures

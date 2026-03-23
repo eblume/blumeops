@@ -1,6 +1,7 @@
 ---
 title: Prometheus
-modified: 2026-02-08
+modified: 2026-03-23
+last-reviewed: 2026-03-23
 tags:
   - service
   - observability
@@ -15,9 +16,8 @@ Metrics storage and querying for BlumeOps infrastructure.
 | Property | Value |
 |----------|-------|
 | **URL** | https://prometheus.ops.eblu.me |
-| **Tailscale URL** | https://prometheus.tail8d86e.ts.net |
 | **Namespace** | `monitoring` |
-| **Image** | `prom/prometheus:v3.2.1` |
+| **Image** | `registry.ops.eblu.me/blumeops/prometheus` (see `argocd/manifests/prometheus/kustomization.yaml` for current tag) |
 | **Storage** | 50Gi PVC |
 | **Manifests** | `argocd/manifests/prometheus/` |
 
@@ -33,7 +33,7 @@ Metrics storage and querying for BlumeOps infrastructure.
 | Target | Metrics |
 |--------|---------|
 | `sifaka:9100` | [[sifaka|Sifaka]] NAS (node_exporter) |
-| `cnpg-metrics.tail8d86e.ts.net:9187` | [[postgresql|CloudNativePG]] metrics |
+| `blumeops-pg-metrics-tailscale.databases.svc.cluster.local:9187` | [[postgresql|CloudNativePG]] metrics |
 | `kube-state-metrics.monitoring.svc:8080` | Kubernetes resource metrics |
 
 ## Related

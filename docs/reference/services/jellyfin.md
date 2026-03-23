@@ -1,6 +1,7 @@
 ---
 title: Jellyfin
 modified: 2026-02-07
+last-reviewed: 2026-03-23
 tags:
   - service
   - media
