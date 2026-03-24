@@ -26,6 +26,7 @@ resources:
   - dashboards/configmap-sifaka-disks.yaml
   - dashboards/configmap-forgejo.yaml
   - dashboards/configmap-tempo.yaml
+  - dashboards/configmap-alerts.yaml
   # TeslaMate dashboards are fetched by the init-teslamate-dashboards init
   # container in the Grafana deployment, sourced from mirrors/teslamate on forge.
   # See argocd/manifests/grafana/deployment.yaml for the version pin.

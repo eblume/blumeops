@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-alerts
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  alerts.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+          "id": 1,
+          "options": {
+            "alertListOptions": {
+              "showOptions": "current",
+              "maxItems": 50,
+              "sortOrder": 1,
+              "stateFilter": {
+                "firing": true,
+                "pending": true,
+                "noData": true,
+                "normal": false,
+                "error": true
+              }
+            }
+          },
+          "title": "Firing Alerts",
+          "type": "alertlist"
+        },
+        {
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 10 },
+          "id": 2,
+          "options": {
+            "alertListOptions": {
+              "showOptions": "changes",
+              "maxItems": 50,
+              "sortOrder": 1,
+              "stateFilter": {
+                "firing": true,
+                "pending": true,
+                "noData": true,
+                "normal": true,
+                "error": true
+              }
+            }
+          },
+          "title": "Recent State Changes",
+          "type": "alertlist"
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 38,
+      "tags": ["alerts"],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-24h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Alerts",
+      "uid": "alerts",
+      "version": 1,
+      "weekStart": ""
+    }
