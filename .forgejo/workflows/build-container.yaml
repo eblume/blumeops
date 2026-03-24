@@ -1,7 +1,8 @@
-# Dockerfile container build workflow
+# Unified container build workflow
 # Triggers on pushes to main that modify containers/*, or via manual dispatch.
-# Detects which containers changed, extracts version from CONTAINER_APP_VERSION,
-# and publishes with commit-SHA-based tags: vX.Y.Z-<sha>
+# Detects which containers changed and routes to the correct runner:
+#   - Dockerfile containers build on k8s (indri) via Dagger
+#   - Nix containers build on nix-container-builder (ringtail) via nix-build + skopeo
 name: Build Container
 
 on:
@@ -23,52 +24,64 @@ jobs:
   detect:
     runs-on: k8s
     outputs:
-      containers: ${{ steps.list.outputs.containers }}
+      dockerfile: ${{ steps.classify.outputs.dockerfile }}
+      nix: ${{ steps.classify.outputs.nix }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 2
 
-      - name: Detect changed containers
-        id: list
+      - name: Detect and classify changed containers
+        id: classify
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            CONTAINERS='["${{ inputs.container }}"]'
+            CHANGED='["${{ inputs.container }}"]'
           else
-            # Diff against parent commit to find changed container dirs
-            CONTAINERS=$(git diff --name-only HEAD~1 HEAD -- containers/ \
+            CHANGED=$(git diff --name-only HEAD~1 HEAD -- containers/ \
               | cut -d/ -f2 | sort -u \
               | jq -R -s -c 'split("\n") | map(select(length > 0))')
           fi
-          echo "containers=$CONTAINERS" >> "$GITHUB_OUTPUT"
-          echo "Containers to build: $CONTAINERS"
 
-  build:
+          echo "Changed containers: $CHANGED"
+
+          # Classify each container by build type (a container can appear in both)
+          DOCKERFILE='[]'
+          NIX='[]'
+          for name in $(echo "$CHANGED" | jq -r '.[]'); do
+            has_any=false
+            if [ -f "containers/$name/Dockerfile" ]; then
+              DOCKERFILE=$(echo "$DOCKERFILE" | jq -c --arg n "$name" '. + [$n]')
+              has_any=true
+            fi
+            if [ -f "containers/$name/default.nix" ]; then
+              NIX=$(echo "$NIX" | jq -c --arg n "$name" '. + [$n]')
+              has_any=true
+            fi
+            if [ "$has_any" = "false" ]; then
+              echo "Warning: $name has neither Dockerfile nor default.nix — skipping"
+            fi
+          done
+
+          echo "dockerfile=$DOCKERFILE" >> "$GITHUB_OUTPUT"
+          echo "nix=$NIX" >> "$GITHUB_OUTPUT"
+          echo "Dockerfile builds: $DOCKERFILE"
+          echo "Nix builds: $NIX"
+
+  build-dockerfile:
     needs: detect
-    if: needs.detect.outputs.containers != '[]'
+    if: needs.detect.outputs.dockerfile != '[]'
     runs-on: k8s
     strategy:
       matrix:
-        container: ${{ fromJson(needs.detect.outputs.containers) }}
+        container: ${{ fromJson(needs.detect.outputs.dockerfile) }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: ${{ inputs.ref || github.sha }}
 
-      - name: Check for Dockerfile
-        id: check
-        run: |
-          if [ -f "containers/${{ matrix.container }}/Dockerfile" ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No Dockerfile for ${{ matrix.container }} — skipping"
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Extract version and SHA
-        if: steps.check.outputs.exists == 'true'
         id: meta
         run: |
           VERSION=$(grep -m1 '^ARG CONTAINER_APP_VERSION=' \
@@ -80,7 +93,6 @@ jobs:
             exit 1
           fi
 
-          # Use dispatch input ref if provided, otherwise current commit
           REF="${{ inputs.ref }}"
           if [ -z "$REF" ]; then
             REF="${GITHUB_SHA}"
@@ -89,7 +101,7 @@ jobs:
 
           # Ensure version starts with 'v'
           case "$VERSION" in
-            v*) ;; # already has v prefix
+            v*) ;;
             *) VERSION="v${VERSION}" ;;
           esac
 
@@ -98,7 +110,6 @@ jobs:
           echo "Version: $VERSION, SHA: $SHORT_SHA"
 
       - name: Publish
-        if: steps.check.outputs.exists == 'true'
         env:
           ZOT_CI_API_KEY: ${{ secrets.ZOT_CI_API_KEY }}
         run: |
@@ -108,3 +119,79 @@ jobs:
             --version=${{ steps.meta.outputs.version }} \
             --commit-sha=${{ steps.meta.outputs.sha }} \
             --registry-password=env:ZOT_CI_API_KEY
+
+  build-nix:
+    needs: detect
+    if: needs.detect.outputs.nix != '[]'
+    runs-on: nix-container-builder
+    strategy:
+      matrix:
+        container: ${{ fromJson(needs.detect.outputs.nix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Extract version and SHA
+        id: meta
+        run: |
+          CONTAINER="${{ matrix.container }}"
+          NIX_FILE="containers/$CONTAINER/default.nix"
+
+          # Extract version = "..." from the nix file
+          VERSION=$(grep -m1 '^\s*version\s*=\s*"' "$NIX_FILE" \
+            | sed 's/.*"\(.*\)".*/\1/' || true)
+
+          if [ -z "$VERSION" ]; then
+            echo "Error: No version declaration found in $NIX_FILE"
+            exit 1
+          fi
+
+          REF="${{ inputs.ref }}"
+          if [ -z "$REF" ]; then
+            REF="${GITHUB_SHA}"
+          fi
+          SHORT_SHA=$(echo "$REF" | head -c 7)
+
+          # Ensure version starts with 'v'
+          case "$VERSION" in
+            v*) ;;
+            *) VERSION="v${VERSION}" ;;
+          esac
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION, SHA: $SHORT_SHA"
+
+      - name: Resolve nixpkgs
+        id: nixpkgs
+        run: |
+          NIXPKGS_PATH=$(nix flake metadata nixpkgs --json | jq -r '.path')
+          echo "Resolved nixpkgs: $NIXPKGS_PATH"
+          echo "path=$NIXPKGS_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Build with nix
+        env:
+          NIX_PATH: "nixpkgs=${{ steps.nixpkgs.outputs.path }}"
+        run: |
+          echo "Building containers/${{ matrix.container }}/default.nix"
+          echo "NIX_PATH=$NIX_PATH"
+          nix-build "containers/${{ matrix.container }}/default.nix" -o result
+          echo "Build complete: $(readlink result)"
+
+      - name: Push to registry
+        env:
+          ZOT_CI_API_KEY: ${{ secrets.ZOT_CI_API_KEY }}
+        run: |
+          CONTAINER="${{ matrix.container }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+          SHORT_SHA="${{ steps.meta.outputs.sha }}"
+          IMAGE="registry.ops.eblu.me/blumeops/$CONTAINER:${VERSION}-${SHORT_SHA}-nix"
+
+          echo "Pushing to $IMAGE"
+          skopeo copy \
+            --dest-creds="zot-ci:$ZOT_CI_API_KEY" \
+            "docker-archive:result" \
+            "docker://$IMAGE"
+          echo "Push complete: $IMAGE"

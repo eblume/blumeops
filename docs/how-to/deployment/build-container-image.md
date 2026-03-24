@@ -117,7 +117,7 @@ Existing containers demonstrate several build approaches:
 | Multi-stage with Node + Go | [[#navidrome]] | Separate UI and backend build stages |
 | Multi-stage Elixir | [[#teslamate]] | Elixir release with Node assets |
 | Runtime tarball download | [[#kiwix-serve]] | Download pre-built binary with arch detection |
-| Nix `dockerTools` | [[#nettest-nix]] | `buildLayeredImage` with nixpkgs tools |
+| Nix `dockerTools` | [[#ntfy-nix]] | `buildLayeredImage` with nix-built app |
 
 ### transmission
 
@@ -139,9 +139,9 @@ Existing containers demonstrate several build approaches:
 
 `containers/kiwix-serve/Dockerfile` — Downloads a pre-built binary from upstream, with architecture detection for cross-platform support.
 
-### nettest (nix)
+### ntfy (nix)
 
-`containers/nettest/default.nix` — Uses `dockerTools.buildLayeredImage` with `buildEnv` to merge nixpkgs tools (curl, jq, dnsutils, bash). Runs alongside the existing Dockerfile; the nix variant is tagged `:version-nix` in the registry.
+`containers/ntfy/default.nix` — Builds ntfy from source using `buildGoModule` and packages it with `dockerTools.buildLayeredImage`. Runs alongside the existing Dockerfile; the nix variant is tagged `:version-nix` in the registry.
 
 ## Related
 

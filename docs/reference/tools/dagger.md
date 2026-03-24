@@ -49,7 +49,7 @@ dagger call --interactive build --src=. --container-name=devpi
 dagger call publish --src=. --container-name=devpi --version=v1.1.0
 
 # Build a nix container (no local nix required)
-dagger call build-nix --src=. --container-name=nettest export --path=./nettest.tar.gz
+dagger call build-nix --src=. --container-name=ntfy export --path=./ntfy.tar.gz
 
 # Check a nixpkgs package version
 dagger call nix-version --package=authentik

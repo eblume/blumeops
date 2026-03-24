@@ -30,7 +30,7 @@ A typer-based uv-script that iterates over `containers/*/` and validates five ru
 
 Scoping: by default only checks containers changed vs main. `--all-files` checks everything. If `service-versions.yaml` itself changed, all containers are checked.
 
-Blacklisted containers (utility images, not tracked services): `kubectl`, `nettest`.
+Blacklisted containers (utility images, not tracked services): `kubectl`.
 
 Container-to-service name mapping: `quartz` → `docs`, `kiwix-serve` → `kiwix`.
 

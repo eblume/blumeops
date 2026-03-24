@@ -15,7 +15,7 @@ Add Dagger functions for building nix container images and extracting version in
 
 ## Context
 
-Discovered during analysis of [[adopt-commit-based-container-tags]]: nix containers (authentik, ntfy, nettest) derive their bundled app version from the nixpkgs pin, not from an explicit declaration. To validate that a VERSION file matches the actual nix-built version, we need a way to query the version from nix.
+Discovered during analysis of [[adopt-commit-based-container-tags]]: nix containers (authentik, ntfy) derive their bundled app version from the nixpkgs pin, not from an explicit declaration. To validate that a VERSION file matches the actual nix-built version, we need a way to query the version from nix.
 
 Currently, nix containers can only be built on ringtail (the `nix-container-builder` runner). There is no local build path for developers — the only option is to push and wait for CI. Adding a Dagger-based nix build gives both local evaluation and version extraction.
 
@@ -84,7 +84,7 @@ The `flake_lock` function already demonstrates running nix inside Dagger using `
 
 ## Verification
 
-- [ ] `dagger call build-nix --src=. --container-name=nettest` produces a valid docker-archive tarball
+- [ ] `dagger call build-nix --src=. --container-name=ntfy` produces a valid docker-archive tarball
 - [ ] `dagger call nix-version --src=. --package=ntfy-sh` returns the correct version string
 - [ ] `dagger call nix-version --src=. --package=authentik` returns the Authentik version
 - [ ] Tarball from `build-nix` can be loaded with `docker load` and run locally

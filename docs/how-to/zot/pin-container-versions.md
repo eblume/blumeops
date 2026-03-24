@@ -29,7 +29,6 @@ Specific changes:
 - **devpi**: Pinned devpi-server==6.19.1 and devpi-web==5.0.1
 - **cv**: `CONTAINER_APP_VERSION=1.0.3` (matches latest Forgejo package release)
 - **quartz**: `CONTAINER_APP_VERSION=1.28.2` (pinned nginx:1.28.2-alpine base)
-- **nettest**: `CONTAINER_APP_VERSION=0.1.0` (internal, no upstream)
 - **All others**: Existing versions carried forward with new uniform ARG pattern
 
 ## Key Files
