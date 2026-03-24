@@ -17,6 +17,9 @@ spec:
         app: ollama
     spec:
       runtimeClassName: nvidia
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: ollama
           image: ollama/ollama:kustomized

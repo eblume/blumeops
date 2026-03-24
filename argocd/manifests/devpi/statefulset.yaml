@@ -16,6 +16,8 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: devpi
           image: registry.ops.eblu.me/blumeops/devpi:kustomized

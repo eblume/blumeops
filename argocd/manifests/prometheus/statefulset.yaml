@@ -18,6 +18,8 @@ spec:
         fsGroup: 65534
         runAsNonRoot: true
         runAsUser: 65534
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: prometheus
           image: registry.ops.eblu.me/blumeops/prometheus:kustomized

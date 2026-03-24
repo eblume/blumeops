@@ -17,6 +17,9 @@ spec:
         app: frigate
     spec:
       runtimeClassName: nvidia
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: copy-config
           image: busybox:kustomized

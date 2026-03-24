@@ -19,6 +19,9 @@ spec:
       labels:
         app: cv
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: cv
           image: registry.ops.eblu.me/blumeops/cv:kustomized

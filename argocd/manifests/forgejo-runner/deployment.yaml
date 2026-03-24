@@ -15,6 +15,9 @@ spec:
       labels:
         app: forgejo-runner
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         # Forgejo runner daemon
         - name: runner

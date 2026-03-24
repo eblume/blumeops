@@ -12,6 +12,9 @@ spec:
       template:
         spec:
           serviceAccountName: prowler
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: prowler
               image: registry.ops.eblu.me/blumeops/prowler:kustomized

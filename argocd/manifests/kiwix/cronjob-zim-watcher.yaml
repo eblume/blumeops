@@ -13,6 +13,9 @@ spec:
       template:
         spec:
           serviceAccountName: zim-watcher
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: watcher
               image: registry.ops.eblu.me/blumeops/kubectl:kustomized

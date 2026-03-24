@@ -15,6 +15,9 @@ spec:
       labels:
         app: unpoller
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: unpoller
           image: registry.ops.eblu.me/blumeops/unpoller:kustomized

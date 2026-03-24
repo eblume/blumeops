@@ -17,6 +17,9 @@ spec:
       labels:
         app: kiwix
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         # Main kiwix-serve container
         - name: kiwix-serve

@@ -19,6 +19,9 @@ spec:
       labels:
         app: docs
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: docs
           image: registry.ops.eblu.me/blumeops/quartz:kustomized

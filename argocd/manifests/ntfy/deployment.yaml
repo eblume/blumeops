@@ -14,6 +14,9 @@ spec:
       labels:
         app: ntfy
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: ntfy
           image: registry.ops.eblu.me/blumeops/ntfy:kustomized

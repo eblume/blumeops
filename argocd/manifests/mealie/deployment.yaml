@@ -13,6 +13,9 @@ spec:
       labels:
         app: mealie
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: mealie
           image: registry.ops.eblu.me/blumeops/mealie:kustomized
