@@ -1,6 +1,7 @@
 ---
 title: ArgoCD Config
-modified: 2026-02-07
+modified: 2026-03-24
+last-reviewed: 2026-03-24
 tags:
   - tutorials
   - replication
@@ -52,7 +53,7 @@ tailscale serve --bg --https 8443 https+insecure://localhost:$(kubectl -n argocd
 
 Or create a Tailscale Ingress in Kubernetes (see [[tailscale-operator]]).
 
-Access at `https://your-server.tailnet.ts.net:8443`
+Access at `https://your-server.tailnet.ts.net:8443` (replace `tailnet` with your tailnet name, found in the Tailscale admin console)
 
 ### Install the CLI
 
@@ -77,6 +78,8 @@ argocd repo add https://github.com/you/your-repo.git \
   --username you \
   --password your-token
 ```
+
+For BlumeOps, the git server is [[forgejo]] at `ssh://forgejo@forge.ops.eblu.me:2222`.
 
 ## Step 4: Create Your First Application
 
@@ -173,11 +176,11 @@ spec:
     server: https://kubernetes.default.svc
     namespace: argocd
   syncPolicy:
-    automated:
-      prune: true
+    syncOptions:
+      - CreateNamespace=true
 ```
 
-Now adding a new application is just creating a YAML file.
+Now adding a new application is just creating a YAML file. BlumeOps syncs the `apps` Application manually — run `argocd app sync apps` after adding new Application YAMLs.
 
 ## Step 7: Configure Sync Policies
 
@@ -188,7 +191,7 @@ Now adding a new application is just creating a YAML file.
 | Auto prune | Remove resources deleted from git |
 | Self heal | Revert manual kubectl changes |
 
-BlumeOps uses manual sync for workloads, auto sync only for the `apps` Application itself.
+BlumeOps uses manual sync for all applications, including the root `apps` Application.
 
 ## What You Now Have
 
@@ -203,7 +206,7 @@ BlumeOps uses manual sync for workloads, auto sync only for the `apps` Applicati
 - Add more applications to your repo
 - Set up notifications for sync failures
 
-## BluemeOps Specifics
+## BlumeOps Specifics
 
 BlumeOps' ArgoCD configuration includes:
 - SSH connection to [[forgejo]] git server
