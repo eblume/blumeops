@@ -16,5 +16,3 @@ resources:
 images:
   - name: registry.ops.eblu.me/blumeops/prowler
     newTag: v5.22.0-6960243
-  - name: alpine/git
-    newTag: v2.47.2
