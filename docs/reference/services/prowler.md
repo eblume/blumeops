@@ -17,13 +17,18 @@ CIS Kubernetes Benchmark scanner for compliance posture reporting.
 |----------|-------|
 | **Namespace** | `prowler` |
 | **Image** | `registry.ops.eblu.me/blumeops/prowler` (see `argocd/manifests/prowler/kustomization.yaml` for current tag) |
-| **Schedule** | Weekly (Sunday 3am) |
-| **Reports** | `sifaka:/volume1/reports/prowler/` (NFS) |
+| **Schedule** | K8s CIS: Sunday 3am / Image scan: Saturday 3am |
+| **Reports** | `sifaka:/volume1/reports/prowler/` and `prowler-images/` (NFS) |
 | **Manifests** | `argocd/manifests/prowler/` |
 
 ## What it does
 
-Runs Prowler 5 as a CronJob against minikube-indri, executing CIS Kubernetes Benchmark v1.11 checks across pod security, RBAC, apiserver, etcd, kubelet, controller-manager, and scheduler. Reports are written in HTML, CSV, and JSON-OCSF to the NFS share on sifaka.
+Runs Prowler 5 as two CronJobs:
+
+- **K8s CIS scan** (Sunday) — CIS Kubernetes Benchmark v1.11 checks across pod security, RBAC, apiserver, etcd, kubelet, controller-manager, and scheduler
+- **Image scan** (Saturday) — CVE, secret, and misconfiguration scanning of all `blumeops/*` container images in the registry via Trivy
+
+Reports are written in HTML, CSV, and JSON-OCSF to the NFS share on sifaka.
 
 ## See also
 

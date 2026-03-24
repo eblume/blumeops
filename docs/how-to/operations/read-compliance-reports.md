@@ -18,7 +18,8 @@ Reports are stored on sifaka at `/volume1/reports/`. Each scanner writes to its 
 
 | Scanner | Path | Schedule |
 |---------|------|----------|
-| [[prowler]] | `sifaka:/volume1/reports/prowler/` | Weekly (Sunday 3am) |
+| [[prowler]] K8s CIS | `sifaka:/volume1/reports/prowler/` | Weekly (Sunday 3am) |
+| [[prowler]] Image | `sifaka:/volume1/reports/prowler-images/` | Weekly (Saturday 3am) |
 
 Copy reports to your local machine (remember `scp -O` for sifaka):
 

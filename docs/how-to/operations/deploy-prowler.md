@@ -15,6 +15,8 @@ Prowler runs weekly CIS Kubernetes Benchmark scans against minikube-indri and wr
 
 ## What it checks
 
+### Kubernetes CIS benchmarks (Sunday 3am)
+
 Prowler's Kubernetes provider runs ~70 checks from the CIS Kubernetes Benchmark v1.11, grouped into:
 
 | Category | Checks | How it works |
@@ -30,6 +32,22 @@ Prowler's Kubernetes provider runs ~70 checks from the CIS Kubernetes Benchmark 
 **Minikube relevance:** Most checks work because minikube runs control plane as static pods. Kubelet file permission checks return MANUAL unless Prowler runs on the node (we mount host paths to enable this).
 
 **k3s note:** k3s embeds the control plane in a single binary — no static pods exist. Only core + RBAC checks (~22 of 70) produce results. Consider `kube-bench` for k3s control plane checks.
+
+### Image vulnerability scanning (Saturday 3am)
+
+Prowler's image provider scans all `blumeops/*` container images in `registry.ops.eblu.me` for:
+
+- **CVEs** — known vulnerabilities from NVD, Alpine SecDB, Debian Security Tracker, and other sources
+- **Embedded secrets** — credentials or API keys baked into image layers
+- **Misconfigurations** — Dockerfile best practices (running as root, missing HEALTHCHECK, etc.)
+
+Uses Trivy under the hood. Reports are written to `sifaka:/volume1/reports/prowler-images/`.
+
+To run an ad-hoc image scan:
+
+```fish
+kubectl create job --from=cronjob/prowler-image-scan prowler-image-manual -n prowler --context=minikube-indri
+```
 
 ## Reports
 

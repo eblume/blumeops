@@ -1,5 +1,6 @@
-# Prowler CIS scanner — slim build for Kubernetes provider only
-# Strips PowerShell (M365), Trivy (IaC), and dashboard dependencies from upstream
+# Prowler CIS scanner — slim build for Kubernetes, image, and IaC providers
+# Strips PowerShell (M365) and dashboard dependencies from upstream
+# Includes Trivy for image vulnerability and IaC scanning
 ARG CONTAINER_APP_VERSION=5.22.0
 
 FROM python:3.12-slim-bookworm AS build
@@ -30,14 +31,31 @@ LABEL org.opencontainers.image.title="prowler"
 LABEL org.opencontainers.image.version="${CONTAINER_APP_VERSION}"
 LABEL org.opencontainers.image.source="https://forge.eblu.me/eblume/blumeops"
 LABEL org.opencontainers.image.vendor="blumeops"
-LABEL org.opencontainers.image.description="Prowler CIS scanner (Kubernetes provider)"
+LABEL org.opencontainers.image.description="Prowler scanner (Kubernetes, image, IaC providers)"
+
+ARG TRIVY_VERSION=0.69.2
+
+RUN ARCH=$(dpkg --print-architecture) \
+    && case "$ARCH" in \
+        amd64) TRIVY_ARCH="Linux-64bit" ;; \
+        arm64) TRIVY_ARCH="Linux-ARM64" ;; \
+        *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+    esac \
+    && apt-get update && apt-get install -y --no-install-recommends wget ca-certificates \
+    && wget -q "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz" -O /tmp/trivy.tar.gz \
+    && tar xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy \
+    && chmod +x /usr/local/bin/trivy \
+    && rm /tmp/trivy.tar.gz \
+    && apt-get purge -y wget && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --gid 1000 prowler \
-    && adduser --uid 1000 --gid 1000 --disabled-password --gecos "" prowler
+    && adduser --uid 1000 --gid 1000 --disabled-password --gecos "" prowler \
+    && mkdir -p /tmp/.cache/trivy && chown prowler:prowler /tmp/.cache/trivy
 
 COPY --from=build /opt/prowler /opt/prowler
 
 ENV PATH="/opt/prowler/bin:${PATH}"
+ENV TRIVY_CACHE_DIR="/tmp/.cache/trivy"
 
 USER prowler
 WORKDIR /home/prowler

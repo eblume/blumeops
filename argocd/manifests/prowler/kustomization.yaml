@@ -9,6 +9,7 @@ resources:
   - pv-nfs.yaml
   - pvc.yaml
   - cronjob.yaml
+  - cronjob-image-scan.yaml
 
 images:
   - name: registry.ops.eblu.me/blumeops/prowler

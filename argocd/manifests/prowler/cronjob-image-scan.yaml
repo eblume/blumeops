@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: prowler-image-scan
+  namespace: prowler
+spec:
+  schedule: "0 3 * * 6"  # Saturday 3am
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 604800  # Auto-delete after 7 days
+      template:
+        spec:
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: prowler
+              image: registry.ops.eblu.me/blumeops/prowler:kustomized
+              args:
+                - image
+                - --registry
+                - registry.ops.eblu.me
+                - --image-filter
+                - blumeops/
+                - -z
+                - --output-formats
+                - html
+                - csv
+                - json-ocsf
+                - --output-directory
+                - /reports/prowler-images
+              volumeMounts:
+                - name: reports
+                  mountPath: /reports
+          restartPolicy: OnFailure
+          volumes:
+            - name: reports
+              persistentVolumeClaim:
+                claimName: prowler-reports

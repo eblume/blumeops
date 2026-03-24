@@ -49,5 +49,5 @@ All compliance scan reports are stored on `sifaka:/volume1/reports/`. See [[read
 
 - No SOC 2 compliance mapping for Kubernetes (Prowler only maps SOC 2 for AWS/Azure/GCP)
 - k3s control plane checks produce no results (embedded binary, no static pods) — consider kube-bench
-- No container image vulnerability scanning yet (Prowler has an `image` provider)
+- Container image scanning covers `blumeops/*` images only — upstream images (ollama, immich, etc.) are not scanned
 - No IaC scanning of manifests/Dockerfiles yet (Prowler has an `iac` provider using Trivy)
