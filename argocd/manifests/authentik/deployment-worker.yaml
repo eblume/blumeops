@@ -53,6 +53,8 @@ spec:
                   key: postgresql-password
             - name: AUTHENTIK_REDIS__HOST
               value: authentik-redis
+            - name: AUTHENTIK_WORKER_CONCURRENCY
+              value: "2"
             - name: AUTHENTIK_GRAFANA_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
