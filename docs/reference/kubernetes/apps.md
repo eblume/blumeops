@@ -40,6 +40,7 @@ Registry of all applications deployed via [[argocd]].
 | `forgejo-runner` | forgejo-runner | `argocd/manifests/forgejo-runner/` | [[forgejo]] CI |
 | `ollama` | ollama | `argocd/manifests/ollama/` | [[ollama]] |
 | `mealie` | mealie | `argocd/manifests/mealie/` | [[mealie]] |
+| `prowler` | prowler | `argocd/manifests/prowler/` | [[prowler]] |
 
 ## Sync Policies
 

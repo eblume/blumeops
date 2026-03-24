@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: prowler
+
+resources:
+  - serviceaccount.yaml
+  - rbac.yaml
+  - pv-nfs.yaml
+  - pvc.yaml
+  - cronjob.yaml
+
+images:
+  - name: registry.ops.eblu.me/blumeops/prowler
+    newTag: v5.22.0-870be4e
