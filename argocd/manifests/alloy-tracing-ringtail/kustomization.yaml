@@ -9,7 +9,7 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/alloy
-    newTag: v1.14.0-613f05d-nix
+    newTag: v1.14.0-fd0bebb-nix
 
 configMapGenerator:
   - name: alloy-tracing-config
