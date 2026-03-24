@@ -20,7 +20,7 @@ spec:
               args:
                 - image
                 - --registry
-                - registry.ops.eblu.me
+                - https://registry.ops.eblu.me
                 - --image-filter
                 - blumeops/
                 - -z
