@@ -1,3 +1,4 @@
+---
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -10,7 +11,10 @@ resources:
   - pvc.yaml
   - cronjob.yaml
   - cronjob-image-scan.yaml
+  - cronjob-iac-scan.yaml
 
 images:
   - name: registry.ops.eblu.me/blumeops/prowler
     newTag: v5.22.0-d021b35
+  - name: alpine/git
+    newTag: v2.47.2

@@ -49,6 +49,22 @@ To run an ad-hoc image scan:
 kubectl create job --from=cronjob/prowler-image-scan prowler-image-manual -n prowler --context=minikube-indri
 ```
 
+### IaC scanning (Saturday 2am)
+
+Prowler's IaC provider scans the blumeops repository (cloned at scan time) for misconfigurations in:
+
+- **Dockerfiles** — running as root, using `latest` tags, missing `HEALTHCHECK`
+- **Kubernetes manifests** — missing resource limits, privileged containers, insecure settings
+- **Other IaC files** — Terraform, CloudFormation, etc. if present
+
+Uses Trivy under the hood. Reports are written to `sifaka:/volume1/reports/prowler-iac/`.
+
+To run an ad-hoc IaC scan:
+
+```fish
+kubectl create job --from=cronjob/prowler-iac-scan prowler-iac-manual -n prowler --context=minikube-indri
+```
+
 ## Reports
 
 Reports are written to `sifaka:/volume1/reports/prowler/` with timestamped filenames. See [[read-compliance-reports]] for how to access and interpret them.
