@@ -161,7 +161,6 @@ check_http "CV" "https://cv.ops.eblu.me/"
 check_http "Ntfy" "https://ntfy.ops.eblu.me/v1/health"
 check_http "Authentik" "https://authentik.ops.eblu.me/-/health/live/"
 check_http "Frigate" "https://nvr.ops.eblu.me/api/version"
-check_http "JobSync" "https://jobsync.ops.eblu.me/"
 
 echo ""
 echo "Frigate (via alerting):"

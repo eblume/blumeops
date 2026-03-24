@@ -85,9 +85,6 @@ caddy_services:
   - name: ntfy
     host: "ntfy.{{ caddy_domain }}"
     backend: "https://ntfy.tail8d86e.ts.net"
-  - name: jobsync
-    host: "jobsync.{{ caddy_domain }}"
-    backend: "https://jobsync.tail8d86e.ts.net"
   - name: ollama
     host: "ollama.{{ caddy_domain }}"
     backend: "https://ollama.tail8d86e.ts.net"

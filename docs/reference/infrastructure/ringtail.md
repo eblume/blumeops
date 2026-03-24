@@ -70,7 +70,6 @@ Sync order: `1password-connect-ringtail` -> `external-secrets-crds-ringtail` -> 
 | [[authentik]] | `authentik` | OIDC identity provider |
 | [[ntfy]] | `ntfy` | Push notification server |
 | [[ollama]] | `ollama` | LLM inference with GPU (RTX 4080) |
-| [[jobsync]] | `jobsync` | Job application tracker |
 | nvidia-device-plugin | `nvidia-device-plugin` | Exposes GPU to pods via CDI + nvidia RuntimeClass |
 
 ### Manual Cluster Registration

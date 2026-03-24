@@ -68,11 +68,6 @@
           enableBlocks: true
           enableNowPlaying: false
           fields: ["movies", "series", "episodes"]
-- Services:
-    - JobSync:
-        href: https://jobsync.ops.eblu.me
-        icon: mdi-briefcase-search
-        description: Job application tracker
 - Infrastructure:
     - Authentik:
         href: https://authentik.ops.eblu.me
