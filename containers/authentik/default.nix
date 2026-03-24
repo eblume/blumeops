@@ -41,8 +41,6 @@ in
 
 pkgs.dockerTools.buildLayeredImage {
   name = "blumeops/authentik";
-  tag = "latest";
-
   contents = [
     ak
     authentik-django

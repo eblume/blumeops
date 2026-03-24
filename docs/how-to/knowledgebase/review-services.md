@@ -1,6 +1,6 @@
 ---
 title: Review Services
-modified: 2026-02-19
+modified: 2026-03-24
 last-reviewed: 2026-03-07
 tags:
   - how-to
@@ -58,6 +58,29 @@ mise run service-review --type hybrid
 1. Check the upstream project for new releases
 2. Review the Nix derivation or flake input for version pins
 3. If upgrading, update and deploy via `mise run provision-ringtail`
+
+## Attached Services
+
+Some services have auxiliary dependencies that run as separate containers — caches, sidecars, init helpers. These are tracked as **attached services** with a naming convention and an optional `parent` field:
+
+```yaml
+- name: authentik-redis
+  type: argocd
+  parent: authentik
+  current-version: "8.2.3"
+  upstream-source: https://github.com/redis/redis/releases
+  notes: >-
+    Attached service: Redis cache/broker for Authentik.
+```
+
+**Conventions:**
+
+- **Naming:** `<parent>-<component>` (e.g., `authentik-redis`, `grafana-sidecar`)
+- **`parent` field:** points to the parent service entry. Currently informational — the review task doesn't use it yet, but it enables future grouping/dependency-aware reviews.
+- **`notes` field:** always starts with "Attached service:" to make the relationship clear at a glance.
+- **Version tracking:** attached services that use nixpkgs packages should include a version assertion in `default.nix` (`assert pkgs.<pkg>.version == version;`) so that `flake.lock` updates that change the package version break the build and force explicit acknowledgment.
+
+Existing attached services: `grafana-sidecar`, `authentik-redis`.
 
 ## Version Tracking Convention
 

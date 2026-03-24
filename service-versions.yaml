@@ -104,6 +104,7 @@ services:
 
   - name: grafana-sidecar
     type: argocd
+    parent: grafana
     last-reviewed: "2026-03-03"
     current-version: "1.28.0"
     upstream-source: https://github.com/kiwigrid/k8s-sidecar/releases
@@ -156,6 +157,16 @@ services:
     last-reviewed: "2026-03-01"
     current-version: "2026.2.0"
     upstream-source: https://github.com/goauthentik/authentik/releases
+
+  - name: authentik-redis
+    type: argocd
+    parent: authentik
+    last-reviewed: "2026-03-24"
+    current-version: "8.2.3"
+    upstream-source: https://github.com/redis/redis/releases
+    notes: >-
+      Attached service: Redis cache/broker for Authentik (sessions, Celery task
+      queue, caching). Nix-built container from nixpkgs with version assertion.
 
   - name: ollama
     type: argocd

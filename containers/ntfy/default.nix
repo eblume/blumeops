@@ -67,8 +67,6 @@ in
 
 pkgs.dockerTools.buildLayeredImage {
   name = "blumeops/ntfy";
-  tag = "latest";
-
   contents = [
     ntfy
     pkgs.cacert

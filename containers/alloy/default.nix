@@ -116,8 +116,6 @@ in
 
 pkgs.dockerTools.buildLayeredImage {
   name = "blumeops/alloy";
-  tag = "latest";
-
   contents = [
     alloy
     pkgs.cacert
