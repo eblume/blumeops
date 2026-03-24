@@ -28,7 +28,7 @@ hooks = [{ id = "check-yaml", args = ["--unsafe"] }]
 # Secret detection
 [[repos]]
 repo = "https://github.com/trufflesecurity/trufflehog"
-rev = "v3.93.4"
+rev = "v3.94.0"
 hooks = [
   { id = "trufflehog", entry = "trufflehog git file://. --since-commit HEAD --no-verification --fail", stages = [
     "pre-commit",
@@ -52,12 +52,12 @@ name = "ansible-lint"
 entry = "env ANSIBLE_ROLES_PATH=ansible/roles ansible-lint"
 language = "python"
 files = "^ansible/"
-additional_dependencies = ["ansible-lint>=26.1.1", "ansible-core>=2.15"]
+additional_dependencies = ["ansible-lint>=26.3.0", "ansible-core>=2.18"]
 
 # Python - ruff for linting and formatting
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.15.2"
+rev = "v0.15.7"
 hooks = [{ id = "ruff", args = ["--fix"] }, { id = "ruff-format" }]
 
 # Shell scripts - shellcheck and shfmt
@@ -68,7 +68,7 @@ hooks = [{ id = "shellcheck", args = ["--severity=warning"] }]
 
 [[repos]]
 repo = "https://github.com/scop/pre-commit-shfmt"
-rev = "v3.12.0-2"
+rev = "v3.13.0-1"
 hooks = [{ id = "shfmt", args = ["-i", "2", "-ci", "-bn"] }]
 
 # TOML - taplo

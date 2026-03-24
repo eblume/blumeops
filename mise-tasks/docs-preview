@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["pyyaml>=6.0", "rich>=13.0.0", "typer>=0.15.0"]
+# dependencies = ["pyyaml>=6.0.2", "rich>=14.0.0", "typer>=0.24.0"]
 # ///
 #MISE description="Build docs with Dagger and serve locally, opening to a specific card"
 #USAGE arg "<card>" help="Card path relative to docs/, e.g. how-to/knowledgebase/review-documentation"

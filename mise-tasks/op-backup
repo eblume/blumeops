@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["rich>=13.0.0", "typer>=0.15.0"]
+# dependencies = ["rich>=14.0.0", "typer>=0.24.0"]
 # ///
 #MISE description="Encrypt a 1Password .1pux export and send to indri for borgmatic"
 #USAGE arg "[export_path]" help="Path to .1pux export file (prompted if omitted)"

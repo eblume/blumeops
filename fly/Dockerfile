@@ -1,4 +1,4 @@
-FROM nginx:1.28.2-alpine
+FROM nginx:1.29.6-alpine
 
 # Copy tailscale binaries from official image
 COPY --from=docker.io/tailscale/tailscale:stable \
@@ -13,7 +13,7 @@ RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
     && rm -f /etc/fail2ban/jail.d/alpine-ssh.conf
 
 # Copy Alloy binary from official image (Ubuntu-based, needs libc6-compat)
-COPY --from=docker.io/grafana/alloy:v1.13.1 \
+COPY --from=docker.io/grafana/alloy:v1.14.1 \
     /bin/alloy /usr/local/bin/alloy
 
 RUN mkdir -p /var/log/nginx /etc/alloy /tmp/alloy-data

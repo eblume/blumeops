@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["rich>=13.0.0"]
+# dependencies = ["rich>=14.0.0"]
 # ///
 #MISE description="Validate all wiki-links point to existing doc files"
 """Validate that all wiki-links in documentation point to existing files.

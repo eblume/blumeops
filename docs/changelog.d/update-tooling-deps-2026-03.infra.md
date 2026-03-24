@@ -1,0 +1,1 @@
+Monthly tooling dependency update: bump prek hooks (trufflehog 3.94.0, ruff 0.15.7, shfmt 3.13.0), Fly.io images (nginx 1.29.6, Alloy 1.14.1), actions/checkout v4.3.1→v6.0.2, tighten mise task Python lower bounds (rich 14, typer 0.24, httpx 0.28.1, pyyaml 6.0.2), and bump ansible-lint/ansible-core floors.
