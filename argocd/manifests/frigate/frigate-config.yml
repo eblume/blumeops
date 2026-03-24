@@ -70,7 +70,9 @@ model:
 record:
   enabled: true
   continuous:
-    days: 180
+    days: 30
+  motion:
+    days: 365
   alerts:
     retain:
       days: 730
