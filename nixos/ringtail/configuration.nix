@@ -492,6 +492,37 @@ in
     unqualified-search-registries = ["registry.ops.eblu.me", "docker.io", "ghcr.io", "quay.io"]
   '';
 
+  # Tor Snowflake proxy (anti-censorship bridge, not an exit node)
+  systemd.services.snowflake-proxy = {
+    description = "Tor Snowflake Proxy";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      ExecStart = toString [
+        "${pkgs.snowflake}/bin/proxy"
+        "-metrics" "-metrics-address" "0.0.0.0"
+        "-geoipdb" "${pkgs.tor.geoip}/share/tor/geoip"
+        "-geoip6db" "${pkgs.tor.geoip}/share/tor/geoip6"
+      ];
+      DynamicUser = true;
+      Restart = "always";
+      RestartSec = 10;
+      # Hardening
+      NoNewPrivileges = true;
+      ProtectSystem = "strict";
+      ProtectHome = true;
+      PrivateTmp = true;
+      ProtectKernelTunables = true;
+      ProtectKernelModules = true;
+      ProtectControlGroups = true;
+      RestrictNamespaces = true;
+      RestrictRealtime = true;
+      MemoryDenyWriteExecute = true;
+      MemoryMax = "512M";
+    };
+  };
+
   # Forgejo Actions runner (nix container builder)
   services.gitea-actions-runner = {
     package = pkgs.forgejo-runner;

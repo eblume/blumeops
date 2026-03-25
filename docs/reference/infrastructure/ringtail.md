@@ -86,6 +86,15 @@ argocd cluster add default --name k3s-ringtail
 
 ## Systemd Services
 
+### Snowflake Proxy
+
+A Tor [[snowflake-proxy]] that helps censored users reach the Tor network. Runs as a simple systemd service using the `snowflake` nixpkgs package. The proxy is not a Tor exit node — it only bridges encrypted WebRTC connections to Tor relays.
+
+| Property | Value |
+|----------|-------|
+| **Service unit** | `snowflake-proxy.service` |
+| **Metrics** | `localhost:9999/metrics` (Prometheus) |
+
 ### Forgejo Actions Runner
 
 A native Forgejo Actions runner (`ringtail-nix-builder`) runs as a systemd service via the NixOS `services.gitea-actions-runner` module. It builds containers using `nix-build` and pushes them to Zot via `skopeo`.

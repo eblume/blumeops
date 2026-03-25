@@ -33,6 +33,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
           resources:
             requests:
               cpu: 50m

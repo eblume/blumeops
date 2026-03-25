@@ -27,6 +27,16 @@ prometheus.relabel "instance" {
   }
 }
 
+// ============== SNOWFLAKE PROXY METRICS ==============
+
+// Scrape Tor Snowflake proxy metrics from host (systemd service on port 9999)
+prometheus.scrape "snowflake_proxy" {
+  targets         = [{"__address__" = coalesce(sys.env("HOST_IP"), "localhost") + ":9999", "job" = "snowflake_proxy"}]
+  metrics_path    = "/internal/metrics"
+  scrape_interval = "30s"
+  forward_to      = [prometheus.relabel.instance.receiver]
+}
+
 // ============== KUBE-STATE-METRICS SCRAPE ==============
 
 prometheus.scrape "kube_state_metrics" {

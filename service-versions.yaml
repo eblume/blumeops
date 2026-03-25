@@ -257,6 +257,13 @@ services:
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
     notes: Forgejo runner on ringtail via nixpkgs; version tracks flake.lock
 
+  - name: snowflake-proxy
+    type: nixos
+    last-reviewed: 2026-03-24
+    current-version: "2.11.0"
+    upstream-source: https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/-/releases
+    notes: Tor Snowflake proxy on ringtail; anti-censorship bridge, not an exit node
+
   - name: mealie
     type: argocd
     last-reviewed: 2026-03-16
