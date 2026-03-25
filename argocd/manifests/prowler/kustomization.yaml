@@ -16,5 +16,3 @@ resources:
 images:
   - name: registry.ops.eblu.me/blumeops/prowler
     newTag: v5.22.0-6960243
-  - name: registry.ops.eblu.me/blumeops/kubectl
-    newTag: v1.34.4-613f05d

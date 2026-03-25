@@ -20,31 +20,27 @@ spec:
             # not passed to provider constructor). Generate image list from
             # zot catalog API instead.
             - name: enumerate-images
-              image: registry.ops.eblu.me/blumeops/kubectl:kustomized
-              command: ["/bin/bash", "-c"]
+              image: registry.ops.eblu.me/blumeops/prowler:kustomized
+              command: ["python3", "-c"]
               args:
                 - |
-                  set -euo pipefail
-                  REGISTRY="https://registry.ops.eblu.me"
-                  repos=$(curl -sf "${REGISTRY}/v2/_catalog" | python3 -c "
-                  import json, sys
-                  for r in json.load(sys.stdin)['repositories']:
-                      if r.startswith('blumeops/'):
-                          print(r)
-                  ")
-                  > /shared/images.txt
-                  for repo in $repos; do
-                      tags=$(curl -sf "${REGISTRY}/v2/${repo}/tags/list" | python3 -c "
-                  import json, sys
-                  for t in (json.load(sys.stdin).get('tags') or []):
-                      print(t)
-                  ")
-                      for tag in $tags; do
-                          echo "registry.ops.eblu.me/${repo}:${tag}" >> /shared/images.txt
-                      done
-                  done
-                  echo "Discovered $(wc -l < /shared/images.txt) images"
-                  cat /shared/images.txt
+                  import json, urllib.request
+
+                  REGISTRY = "https://registry.ops.eblu.me"
+                  catalog = json.loads(urllib.request.urlopen(f"{REGISTRY}/v2/_catalog").read())
+                  images = []
+                  for repo in catalog["repositories"]:
+                      if not repo.startswith("blumeops/"):
+                          continue
+                      tags = json.loads(urllib.request.urlopen(f"{REGISTRY}/v2/{repo}/tags/list").read())
+                      for tag in tags.get("tags") or []:
+                          images.append(f"registry.ops.eblu.me/{repo}:{tag}")
+
+                  with open("/shared/images.txt", "w") as f:
+                      f.write("\n".join(images) + "\n")
+                  print(f"Discovered {len(images)} images")
+                  for img in images:
+                      print(img)
               volumeMounts:
                 - name: shared
                   mountPath: /shared
