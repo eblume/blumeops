@@ -12,6 +12,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.15.0] - 2026-03-24
+
+### Features
+
+- Deploy Prowler CIS scanner as a weekly CronJob on minikube-indri, with reports written to sifaka NFS share.
+- Add Grafana "Alerts" dashboard showing currently firing alerts and recent state changes.
+- Add IaC scanning via Prowler IaC provider (Saturday 2am, Dockerfiles and K8s manifests).
+- Add container image vulnerability scanning via Prowler image provider (Saturday 3am, all blumeops/* images).
+
+### Bug Fixes
+
+- Fix authentik worker OOMKill by setting AUTHENTIK_WORKER_CONCURRENCY=2 (was defaulting to 16 based on CPU count).
+- Remove `group: ""` from tailscale-operator ignoreDifferences — ArgoCD normalizes away the empty string, causing permanent OutOfSync on the apps app.
+
+### Infrastructure
+
+- Decommission JobSync service — removed ArgoCD app, k8s manifests, container build, Caddy proxy, Homepage entry, docs, and forge mirror. Replaced by datasette-based job tracking (coming soon).
+- Localize authentik-redis container: replace upstream `redis:7-alpine` with nix-built image from nixpkgs (Redis 8.2.3). Introduces attached service pattern with `parent` field in service-versions.yaml and version assertion in default.nix to prevent silent version drift.
+- Unified Dockerfile and Nix container build workflows into a single workflow that auto-classifies containers by build type and routes to the correct runner (k8s for Dockerfile, nix-container-builder for Nix). Removed nettest container (outgrown). Nix builds now require an explicit `version = "..."` declaration — no implicit nixpkgs fallback.
+- Monthly tooling dependency update: bump prek hooks (trufflehog 3.94.0, ruff 0.15.7, shfmt 3.13.0), Fly.io images (nginx 1.29.6, Alloy 1.14.1), actions/checkout v4.3.1→v6.0.2, tighten mise task Python lower bounds (rich 14, typer 0.24, httpx 0.28.1, pyyaml 6.0.2), and bump ansible-lint/ansible-core floors.
+- Upgrade ntfy v2.17.0 → v2.19.2 (adds experimental PostgreSQL support, read replicas, web push fixes)
+- Revert Tailscale operator to v1.94.2 (v1.96.3 images not yet published); keep Fly proxy `tailscale wait` improvement
+- Add RuntimeDefault seccomp profiles to all managed deployments, statefulsets, and cronjobs.
+- Upgrade Frigate from 0.17.0-rc2 to 0.17.1 (security fixes, bugfixes). Add motion retention tier (365 days), reduce continuous retention from 180 to 30 days.
+
+### Documentation
+
+- Review and fix ArgoCD config tutorial: correct sync policy example, fix typo, add missing cross-references and frontmatter.
+- Review and update 12 reference docs: fix stale image references to point at kustomization manifests instead of hardcoded tags, correct Prometheus scrape target, expand external-secrets stub, add cross-references between backup/disaster-recovery docs, and remove misleading `.ts.net` URLs from Quick Reference tables.
+
+
 ## [v1.14.3] - 2026-03-22
 
 ### Features

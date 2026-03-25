@@ -1,1 +1,0 @@
-Unified Dockerfile and Nix container build workflows into a single workflow that auto-classifies containers by build type and routes to the correct runner (k8s for Dockerfile, nix-container-builder for Nix). Removed nettest container (outgrown). Nix builds now require an explicit `version = "..."` declaration — no implicit nixpkgs fallback.

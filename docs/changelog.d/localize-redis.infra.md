@@ -1,1 +1,0 @@
-Localize authentik-redis container: replace upstream `redis:7-alpine` with nix-built image from nixpkgs (Redis 8.2.3). Introduces attached service pattern with `parent` field in service-versions.yaml and version assertion in default.nix to prevent silent version drift.

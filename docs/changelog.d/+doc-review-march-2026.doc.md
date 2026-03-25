@@ -1,1 +1,0 @@
-Review and update 12 reference docs: fix stale image references to point at kustomization manifests instead of hardcoded tags, correct Prometheus scrape target, expand external-secrets stub, add cross-references between backup/disaster-recovery docs, and remove misleading `.ts.net` URLs from Quick Reference tables.
