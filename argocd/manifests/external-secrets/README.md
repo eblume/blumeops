@@ -35,7 +35,7 @@ kubectl --context=minikube-indri get externalsecret -A
 To sync a secret from 1Password, create an ExternalSecret in the target namespace:
 
 ```yaml
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: my-secret

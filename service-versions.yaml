@@ -126,10 +126,10 @@ services:
 
   - name: external-secrets
     type: argocd
-    last-reviewed: 2026-02-17
-    current-version: "helm-chart-2.0.0"
+    last-reviewed: 2026-03-25
+    current-version: "v2.2.0"
     upstream-source: https://github.com/external-secrets/external-secrets/releases
-    notes: Deployed via Helm chart (operator v1.3.2)
+    notes: Static kustomize manifests rendered from upstream Helm chart
 
   - name: 1password-connect
     type: argocd
