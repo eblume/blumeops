@@ -19,6 +19,7 @@ spec:
             # Workaround: Prowler's --registry flag is broken (registry args
             # not passed to provider constructor). Generate image list from
             # zot catalog API instead.
+            # See: https://github.com/prowler-cloud/prowler/issues/10457
             - name: enumerate-images
               image: registry.ops.eblu.me/blumeops/prowler:kustomized
               command: ["python3", "-c"]
