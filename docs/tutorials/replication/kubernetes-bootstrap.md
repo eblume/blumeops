@@ -1,6 +1,7 @@
 ---
 title: Kubernetes Bootstrap
-modified: 2026-02-07
+modified: 2026-03-25
+last-reviewed: 2026-03-25
 tags:
   - tutorials
   - replication
@@ -20,7 +21,7 @@ For homelab use, lightweight distributions work well:
 | Distribution | Best For | BlumeOps Uses |
 |--------------|----------|---------------|
 | **Minikube** | Single-node, macOS | Yes |
-| **k3s** | Single-node, Linux | - |
+| **k3s** | Single-node, Linux | Yes (ringtail) |
 | **kind** | Local development | - |
 | **kubeadm** | Multi-node clusters | - |
 
@@ -76,7 +77,7 @@ To access the cluster from other Tailscale devices, expose the API server:
 ### Option A: Tailscale Serve (Simple)
 
 ```bash
-tailscale serve --bg --tcp 6443 tcp://localhost:$(minikube ip --format '{{.Port}}')
+tailscale serve --bg --tcp 6443 tcp://$(minikube ip):8443
 ```
 
 ### Option B: Tailscale Kubernetes Operator (Advanced)
@@ -125,21 +126,43 @@ kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storagec
 
 ### NFS for Shared Storage
 
-If you have a NAS:
+If you have a NAS on your tailnet, create a static PersistentVolume and PersistentVolumeClaim pair:
+
 ```yaml
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: nfs-share
+  name: media-nfs-pv
 spec:
   capacity:
     storage: 1Ti
   accessModes:
     - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
   nfs:
-    server: nas.your-tailnet.ts.net
-    path: /volume1/k8s
+    server: nas           # Tailscale MagicDNS hostname
+    path: /volume1/media
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-nfs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: media-nfs-pv
+  resources:
+    requests:
+      storage: 1Ti
 ```
+
+Key details:
+- `storageClassName: ""` ensures static binding (not dynamic provisioning)
+- `volumeName` in the PVC binds it to the specific PV
+- `Retain` reclaim policy prevents accidental data loss
+- Use the NAS's Tailscale hostname, not an IP address
 
 ## What You Now Have
 
@@ -152,7 +175,7 @@ spec:
 - [[argocd-config|Configure ArgoCD]] - GitOps deployments
 - Install essential addons (ingress controller, cert-manager)
 
-## BluemeOps Specifics
+## BlumeOps Specifics
 
 BlumeOps' cluster configuration includes:
 - Tailscale operator for automatic ingress
