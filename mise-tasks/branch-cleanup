@@ -44,10 +44,16 @@ from rich.console import Console
 from rich.table import Table
 
 PROTECTED_BRANCHES = {"main", "master"}
+PROTECTED_PREFIXES = ("preserve/",)
 FORGE_API = "https://forge.eblu.me/api/v1"
 REPO_OWNER = "eblume"
 REPO_NAME = "blumeops"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
+
+
+def is_protected(name: str) -> bool:
+    """Check if a branch is protected by name or prefix."""
+    return name in PROTECTED_BRANCHES or name.startswith(PROTECTED_PREFIXES)
 
 
 def run_git(*args: str) -> str:
@@ -113,7 +119,7 @@ def get_git_merged_local_branches() -> set[str]:
     branches = set()
     for line in output.splitlines():
         name = line.strip().lstrip("* ")
-        if name and name not in PROTECTED_BRANCHES:
+        if name and not is_protected(name):
             branches.add(name)
     return branches
 
@@ -143,7 +149,7 @@ def get_all_local_branches() -> set[str]:
     branches = set()
     for line in output.splitlines():
         name = line.strip().lstrip("* ")
-        if name and name not in PROTECTED_BRANCHES:
+        if name and not is_protected(name):
             branches.add(name)
     return branches
 
@@ -164,7 +170,7 @@ def get_api_branches(client: httpx.Client) -> dict[str, str]:
             break
         for branch in data:
             name = branch["name"]
-            if name not in PROTECTED_BRANCHES:
+            if not is_protected(name):
                 date = branch.get("commit", {}).get("timestamp", "")
                 branches[name] = date
         page += 1
