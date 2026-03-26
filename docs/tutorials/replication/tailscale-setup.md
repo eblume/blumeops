@@ -1,6 +1,7 @@
 ---
 title: Tailscale Setup
-modified: 2026-02-07
+modified: 2026-03-26
+last-reviewed: 2026-03-26
 tags:
   - tutorials
   - replication
@@ -34,8 +35,13 @@ For BlumeOps context, see [[tailscale|Tailscale Reference]].
 ### macOS
 
 ```bash
+# Option A: GUI app (recommended for desktop Macs)
+brew install --cask tailscale
+# Then launch Tailscale from Applications and follow the UI
+
+# Option B: Headless CLI (servers/VMs)
 brew install tailscale
-sudo tailscaled &
+brew services start tailscale
 tailscale up
 ```
 
@@ -65,7 +71,8 @@ ping <other-device>.yourname.ts.net
 
 Default Tailscale allows all-to-all connectivity. For a homelab, you'll want restrictions.
 
-Create `policy.hujson` (or use the web admin):
+You can edit ACLs directly in the [Tailscale admin console](https://login.tailscale.com/admin/acls), or manage them as code with `tailscale policy` (see `tailscale policy --help`). Here's an example policy to start from:
+
 ```json
 {
   "groups": {
@@ -83,7 +90,9 @@ Create `policy.hujson` (or use the web admin):
 }
 ```
 
-BlumeOps manages ACLs via Pulumi - see [[tailscale|Tailscale Reference]] for the actual configuration.
+If editing as code, save this as `policy.hujson` and apply it with `tailscale policy set policy.hujson`.
+
+BlumeOps manages ACLs via Pulumi — see [[tailscale|Tailscale Reference]] for the actual configuration.
 
 ## Step 5: Enable MagicDNS
 
@@ -104,6 +113,8 @@ sudo tailscale up --advertise-tags=tag:homelab
 
 Tags must be defined in ACLs before use.
 
+> **Tip:** If you plan to use subnet routing or Tailscale ProxyGroup Ingress, clients must also run `tailscale up --accept-routes` (or enable "Accept Routes" in the GUI). Without this, advertised routes are invisible to the client.
+
 ## What You Now Have
 
 - Encrypted mesh network between all your devices
@@ -114,12 +125,12 @@ Tags must be defined in ACLs before use.
 
 With networking established:
 - [[core-services|Set Up Core Services]] - Install Forgejo and optionally a container registry
-- [[kubernetes-bootstrap|Bootstrap Kubernetes]] - Your cluster will join the tailnet
+- [[kubernetes-bootstrap|Bootstrap Kubernetes]] - Your cluster will join the tailnet via the [[tailscale-operator|Tailscale Operator]]
 
 ## BlumeOps Specifics
 
 BlumeOps' Tailscale configuration includes:
-- Multiple device tags (`homelab`, `nas`, `registry`, `k8s-api`)
+- Multiple device tags (`homelab`, `nas`, `registry`, `k8s-operator`)
 - Group-based access for family members
 - SSH access rules with authentication requirements
 
