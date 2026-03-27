@@ -277,7 +277,7 @@ groups:
           - refId: A
             datasourceUid: prometheus
             relativeTimeRange:
-              from: 300
+              from: 60
               to: 0
             model:
               expr: >-
