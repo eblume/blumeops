@@ -38,6 +38,8 @@ mise run service-review --type hybrid
 
 ## Review Process by Service Type
 
+For all service types, start by reading the service's reference card (`docs/reference/services/<service>.md`) for architecture, configuration, and endpoint details.
+
 ### ArgoCD Services (`type: argocd`)
 
 1. Check the upstream releases page for new versions
@@ -58,6 +60,18 @@ mise run service-review --type hybrid
 1. Check the upstream project for new releases
 2. Review the Nix derivation or flake input for version pins
 3. If upgrading, update and deploy via `mise run provision-ringtail`
+
+### Private Forge Repos (`upstream-source` under `forge.eblu.me/eblume/`)
+
+Some services are built from private repos on the forge rather than tracking an external upstream project. When `upstream-source` points to a `forge.eblu.me/eblume/` repo:
+
+1. Clone the repo to `~/code/personal/` if not already checked out
+2. Review the repo's dependency pins — uv script metadata, `pyproject.toml`, `package.json`, `flake.nix` inputs, etc.
+3. Update stale dependencies and rebuild locally to verify nothing breaks
+4. If changes were made, commit, push, and trigger a new release from that repo
+5. Back in blumeops, update the container image or release artifact reference as needed
+
+This extends the service review into the source repo's build-time dependencies, which would otherwise be a blind spot — the blumeops-side review only covers the deployment manifest and container base image.
 
 ## Attached Services
 

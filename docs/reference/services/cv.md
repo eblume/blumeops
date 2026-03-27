@@ -1,6 +1,7 @@
 ---
 title: CV
-modified: 2026-02-12
+modified: 2026-03-27
+last-reviewed: 2026-03-27
 tags:
   - service
   - resume
@@ -14,11 +15,11 @@ Personal resume/CV served as a static HTML page with PDF download, built from YA
 
 | Property | Value |
 |----------|-------|
-| **URL** | `cv.ops.eblu.me` (tailnet only, via [[caddy]]) |
+| **URL** | `cv.eblu.me` (public, via [[flyio-proxy]]) |
 | **Namespace** | `cv` |
-| **Container** | `registry.ops.eblu.me/blumeops/cv:v1.0.0` |
-| **Source repo** | `forge.ops.eblu.me/eblume/cv` (private, not mirrored to GitHub) |
-| **Content packages** | `forge.ops.eblu.me/eblume/-/packages` (generic package `cv`) |
+| **Container** | `registry.ops.eblu.me/blumeops/cv` ([kustomization](https://forge.eblu.me/eblume/blumeops/src/branch/main/argocd/manifests/cv/kustomization.yaml)) |
+| **Source repo** | `forge.eblu.me/eblume/cv` (private, not mirrored to GitHub) |
+| **Content packages** | `forge.eblu.me/eblume/-/packages` (generic package `cv`) |
 | **ArgoCD App** | `cv` |
 
 ## Architecture
@@ -66,6 +67,6 @@ Provisioned via `forgejo_actions_secrets` Ansible role. See [[create-release-art
 ## Related
 
 - [[docs]] — Similar architecture (nginx container + content tarball)
-- [[caddy]] — Reverse proxy for `cv.ops.eblu.me`
+- [[flyio-proxy]] — Exposes `cv.eblu.me` publicly via Tailscale tunnel
 - [[create-release-artifact-workflow]] — How to set up release artifact workflows
 - [[deploy-k8s-service]] — General k8s deployment guide
