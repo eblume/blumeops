@@ -1,0 +1,11 @@
+[tools]
+go = "1.25"
+
+[tasks.serve]
+description = "Build and launch the QArt Tuner web UI"
+run = """
+go run . \
+  -url "${QART_URL:-https://docs.eblu.me}" \
+  -image "${QART_IMAGE:?Set QART_IMAGE to path of source photo}" \
+  -serve -port "${QART_PORT:-8088}"
+"""

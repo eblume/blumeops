@@ -89,3 +89,4 @@ Run `mise tasks --sort name` for the live list with descriptions.
 - [[ansible]] — Configuration management
 - [[argocd-cli]] — ArgoCD deployment workflows
 - [[pulumi]] — DNS and Tailscale IaC
+- [[qart-tuner]] — QR code art generator (`utils/qart/`)

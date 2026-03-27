@@ -1,0 +1,1 @@
+Add QArt Tuner — a Go tool that generates QR codes whose data modules form a recognizable image, with an interactive web UI for parameter tuning. Based on the [QArt technique](https://research.swtch.com/qart) by Russ Cox. Lives in `utils/qart/`.
