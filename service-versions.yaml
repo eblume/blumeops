@@ -46,8 +46,8 @@ services:
 
   - name: nvidia-device-plugin
     type: argocd
-    last-reviewed: 2026-02-19
-    current-version: "v0.18.2"
+    last-reviewed: 2026-03-27
+    current-version: "v0.19.0"
     upstream-source: https://github.com/NVIDIA/k8s-device-plugin/releases
     notes: DaemonSet + RuntimeClass on ringtail for GPU workloads
 

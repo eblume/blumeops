@@ -74,6 +74,7 @@ A separate **frigate-notify** pod polls Frigate's webapi every 15 seconds for de
 
 ## Related
 
+- [[nvidia-device-plugin]] - GPU device plugin enabling CUDA access
 - [[ntfy]] - Push notification delivery
 - [[sifaka]] - NAS storage for recordings
 - [[observability]] - Prometheus metrics at `/api/metrics`
