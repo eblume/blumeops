@@ -1,0 +1,166 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["rich>=14.0.0", "typer>=0.24.0"]
+# ///
+#MISE description="Prune old NixOS generations on ringtail, preserving rollback safety"
+#MISE alias="prg"
+#USAGE flag "--dry-run" help="Show what would be deleted without deleting"
+#USAGE flag "--keep <keep>" default="5" help="Number of most recent generations to keep (default 5)"
+"""Prune old NixOS system generations on ringtail.
+
+Keeps the N most recent generations (default 5), plus the most recent generation
+whose kernel matches the currently booted kernel. This ensures at least one
+rollback target that won't require a reboot.
+
+After pruning, runs nix-collect-garbage to free unreferenced store paths.
+
+Usage:
+    mise run prune-ringtail-generations              # keep 5 + kernel-safe gen
+    mise run prune-ringtail-generations --keep 3     # keep 3 + kernel-safe gen
+    mise run prune-ringtail-generations --dry-run    # preview only
+"""
+
+import re
+import subprocess
+import sys
+from dataclasses import dataclass
+from typing import Annotated
+
+from rich.console import Console
+from rich.table import Table
+
+console = Console()
+
+
+@dataclass
+class Generation:
+    number: int
+    profile_path: str
+    kernel_path: str
+
+
+def ssh(cmd: str) -> str:
+    """Run a command on ringtail via SSH and return stdout."""
+    result = subprocess.run(
+        ["ssh", "ringtail", cmd],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def get_generations() -> list[Generation]:
+    """List all system generations with their kernel store paths."""
+    # Single SSH call: for each generation, print "gen_number<TAB>profile_path<TAB>kernel_path"
+    output = ssh(
+        "command bash -c '"
+        'for p in /nix/var/nix/profiles/system-*-link; do '
+        '  [ -e "$p" ] || continue; '
+        '  num=$(basename "$p" | grep -oP "\\d+"); '
+        '  kern=$(readlink "$p/kernel"); '
+        '  printf "%s\\t%s\\t%s\\n" "$num" "$p" "$kern"; '
+        "done'"
+    )
+    if not output:
+        return []
+
+    generations = []
+    for line in output.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 3:
+            continue
+        gen_num, profile_path, kernel_path = int(parts[0]), parts[1], parts[2]
+        generations.append(Generation(gen_num, profile_path, kernel_path))
+
+    # Sort newest-first
+    generations.sort(key=lambda g: g.number, reverse=True)
+    return generations
+
+
+def main(
+    dry_run: Annotated[bool, "dry_run"] = False,
+    keep: Annotated[int, "keep"] = 5,
+) -> None:
+    console.print(f"[bold]Scanning ringtail NixOS generations...[/bold]")
+
+    booted_kernel = ssh("readlink /run/booted-system/kernel")
+    console.print(f"Booted kernel: [cyan]{booted_kernel}[/cyan]")
+
+    generations = get_generations()
+    if not generations:
+        console.print("[yellow]No generations found.[/yellow]")
+        return
+
+    # Build the keep set: top N newest + most recent kernel-matching gen
+    keep_set: set[int] = set()
+
+    # Keep the N most recent
+    for gen in generations[:keep]:
+        keep_set.add(gen.number)
+
+    # Find and keep the most recent generation matching booted kernel
+    kernel_gen: Generation | None = None
+    for gen in generations:
+        if gen.kernel_path == booted_kernel:
+            kernel_gen = gen
+            keep_set.add(gen.number)
+            break
+
+    to_delete = [g for g in generations if g.number not in keep_set]
+
+    # Display a summary table
+    table = Table(title="System Generations")
+    table.add_column("Gen", style="bold")
+    table.add_column("Kernel Match", justify="center")
+    table.add_column("Action")
+
+    for gen in generations:
+        matches_booted = gen.kernel_path == booted_kernel
+        kernel_col = "[green]yes[/green]" if matches_booted else "no"
+
+        if gen.number not in keep_set:
+            action = "[red]delete[/red]"
+        elif kernel_gen and gen.number == kernel_gen.number and gen.number not in {g.number for g in generations[:keep]}:
+            action = "[blue]keep (kernel safety)[/blue]"
+        else:
+            action = f"[green]keep (top {keep})[/green]"
+
+        table.add_row(str(gen.number), kernel_col, action)
+
+    console.print(table)
+
+    if kernel_gen is None:
+        console.print(
+            "[yellow]Warning: no generation matches booted kernel. "
+            "Rollback will require a reboot.[/yellow]"
+        )
+
+    if not to_delete:
+        console.print("[green]Nothing to prune.[/green]")
+        return
+
+    delete_nums = " ".join(str(g.number) for g in to_delete)
+
+    if dry_run:
+        console.print(f"[yellow]Dry run:[/yellow] would delete generations: {delete_nums}")
+        console.print("[yellow]Dry run:[/yellow] would run nix-collect-garbage")
+        return
+
+    console.print(f"Deleting generations: {delete_nums}")
+    ssh(f"sudo nix-env --delete-generations {delete_nums} -p /nix/var/nix/profiles/system")
+
+    console.print("Running nix-collect-garbage...")
+    ssh("sudo nix-collect-garbage")
+
+    console.print("[green]Done.[/green]")
+
+
+if __name__ == "__main__":
+    try:
+        import typer
+
+        typer.run(main)
+    except ImportError:
+        main()
