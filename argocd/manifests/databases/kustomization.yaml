@@ -7,8 +7,10 @@ resources:
   - blumeops-pg.yaml
   - immich-pg.yaml
   - service-tailscale.yaml
+  - service-immich-pg-tailscale.yaml
   - service-metrics-tailscale.yaml
   - external-secret-eblume.yaml
   - external-secret-borgmatic.yaml
+  - external-secret-immich-borgmatic.yaml
   - external-secret-teslamate.yaml
   - external-secret-authentik.yaml

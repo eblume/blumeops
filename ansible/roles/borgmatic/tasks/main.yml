@@ -15,6 +15,7 @@
     content: |
       # Managed by ansible (borgmatic role) - k8s PostgreSQL backup credentials
       pg.ops.eblu.me:5432:*:borgmatic:{{ borgmatic_db_password }}
+      pg.ops.eblu.me:5433:*:borgmatic:{{ borgmatic_db_password }}
     dest: ~/.pgpass
     mode: '0600'
   no_log: true

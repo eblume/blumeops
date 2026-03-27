@@ -1,6 +1,6 @@
 ---
 title: Backups
-modified: 2026-03-15
+modified: 2026-03-27
 tags:
   - storage
   - backup
@@ -29,10 +29,13 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 
 ### Databases
 
-| Database | Host | Method |
-|----------|------|--------|
-| miniflux | [[postgresql|pg.ops.eblu.me]] | pg_dump stream |
-| teslamate | [[postgresql|pg.ops.eblu.me]] | pg_dump stream |
+| Database | Cluster | Host | Method |
+|----------|---------|------|--------|
+| miniflux | blumeops-pg | [[postgresql|pg.ops.eblu.me:5432]] | pg_dump stream |
+| teslamate | blumeops-pg | [[postgresql|pg.ops.eblu.me:5432]] | pg_dump stream |
+| authentik | blumeops-pg | [[postgresql|pg.ops.eblu.me:5432]] | pg_dump stream |
+| immich | immich-pg | [[postgresql|pg.ops.eblu.me:5433]] | pg_dump stream |
+| mealie | — (SQLite) | k8s pod | kubectl exec sqlite3 .backup |
 
 ## Sifaka-Native Data
 

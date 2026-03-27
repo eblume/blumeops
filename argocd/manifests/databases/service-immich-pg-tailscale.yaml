@@ -1,0 +1,22 @@
+# Tailscale LoadBalancer for immich-pg PostgreSQL access
+# Canonical hostname: immich-pg.tail8d86e.ts.net
+# Caddy L4 proxies pg.ops.eblu.me:5433 → this service for borgmatic backups
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich-pg-tailscale
+  namespace: databases
+  annotations:
+    tailscale.com/hostname: "immich-pg"
+    tailscale.com/proxy-class: "default"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  selector:
+    cnpg.io/cluster: immich-pg
+    role: primary
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: 5432
+      protocol: TCP

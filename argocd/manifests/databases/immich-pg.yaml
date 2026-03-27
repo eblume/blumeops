@@ -30,6 +30,21 @@ spec:
         - CREATE EXTENSION IF NOT EXISTS cube CASCADE;
         - CREATE EXTENSION IF NOT EXISTS earthdistance CASCADE;
 
+  # Managed roles
+  # Note: connectionLimit, ensure, inherit are CNPG defaults added to prevent ArgoCD drift
+  managed:
+    roles:
+      # borgmatic read-only user for backups
+      - name: borgmatic
+        login: true
+        connectionLimit: -1
+        ensure: present
+        inherit: true
+        inRoles:
+          - pg_read_all_data
+        passwordSecret:
+          name: immich-pg-borgmatic
+
   # Resource limits for minikube environment
   resources:
     requests:
