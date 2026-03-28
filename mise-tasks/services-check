@@ -120,7 +120,7 @@ echo ""
 
 # Local services on indri (not yet covered by alerting)
 echo "Local services on indri:"
-check_service "forgejo (brew)" "ssh indri 'brew services list | grep forgejo | grep started'"
+check_service "forgejo" "ssh indri 'launchctl list mcquack.eblume.forgejo | grep -v \"^-\"'"
 check_service "alloy" "ssh indri 'launchctl list mcquack.eblume.alloy | grep -v \"^-\"'"
 check_service "borgmatic" "ssh indri 'launchctl list mcquack.eblume.borgmatic | grep -v \"^-\"'"
 check_service "borgmatic-metrics" "ssh indri 'launchctl list mcquack.borgmatic-metrics | grep -v \"^-\"'"
