@@ -28,11 +28,14 @@
     mode: '0600'
   no_log: true
 
-- name: Add BorgBase host key to known_hosts
+- name: Add BorgBase host keys to known_hosts
   ansible.builtin.known_hosts:
-    name: u3ugi1x1.repo.borgbase.com
-    key: "u3ugi1x1.repo.borgbase.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGU0mISTyHBw9tBs6SuhSq8tvNM8m9eifQxM+88TowPO"
+    name: "{{ item }}"
+    key: "{{ item }} ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGU0mISTyHBw9tBs6SuhSq8tvNM8m9eifQxM+88TowPO"
     state: present
+  loop:
+    - u3ugi1x1.repo.borgbase.com
+    - xcrtl5tg.repo.borgbase.com
 
 - name: Ensure k8s dump directory exists
   ansible.builtin.file:
@@ -63,5 +66,32 @@
 - name: Load borgmatic LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic.plist
   when: borgmatic_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false
+
+# --- Immich photo library backup (BorgBase offsite only) ---
+
+- name: Deploy borgmatic photos configuration
+  ansible.builtin.template:
+    src: photos.yaml.j2
+    dest: "{{ borgmatic_photos_config }}"
+    mode: '0600'
+
+- name: Deploy borgmatic-photos LaunchAgent plist
+  ansible.builtin.template:
+    src: borgmatic-photos.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.borgmatic-photos.plist
+    mode: '0644'
+  notify: Reload borgmatic-photos
+
+- name: Check if borgmatic-photos LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.borgmatic-photos
+  register: borgmatic_photos_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load borgmatic-photos LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic-photos.plist
+  when: borgmatic_photos_launchctl_check.rc != 0
   changed_when: true
   failed_when: false

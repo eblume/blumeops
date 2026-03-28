@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<false/>
+	<key>Label</key>
+	<string>mcquack.eblume.borgmatic-photos</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/bin:/bin</string>
+	</dict>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/opt/mise/bin/mise</string>
+		<string>x</string>
+		<string>--</string>
+		<string>borgmatic</string>
+		<string>--config</string>
+		<string>{{ borgmatic_photos_config }}</string>
+		<string>create</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>{{ borgmatic_log_dir }}/mcquack.borgmatic-photos.err.log</string>
+	<key>StandardOutPath</key>
+	<string>{{ borgmatic_log_dir }}/mcquack.borgmatic-photos.out.log</string>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>{{ borgmatic_photos_schedule_hour }}</integer>
+		<key>Minute</key>
+		<integer>{{ borgmatic_photos_schedule_minute }}</integer>
+	</dict>
+</dict>
+</plist>

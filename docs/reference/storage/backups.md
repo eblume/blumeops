@@ -37,9 +37,23 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | immich | immich-pg | [[postgresql|pg.ops.eblu.me:5433]] | pg_dump stream |
 | mealie | — (SQLite) | k8s pod | kubectl exec sqlite3 .backup |
 
+## Immich Photo Library (Offsite Only)
+
+The [[immich]] photo library lives on [[sifaka]] at `/volume1/photos` (SMB-mounted on [[indri]] as `/Volumes/photos`). Since sifaka is already the local backup target, photos are backed up to BorgBase offsite only — not back to sifaka.
+
+| Property | Value |
+|----------|-------|
+| **Config** | `~/.config/borgmatic/photos.yaml` |
+| **Schedule** | Daily at 4:00 AM (offset from main backup) |
+| **Source** | `/Volumes/photos` (sifaka SMB mount) |
+| **Target** | BorgBase `borgbase-immich-photos` repo |
+| **Size** | ~128 GB |
+
+Uses the same encryption passphrase and SSH key as the main borgmatic config.
+
 ## Sifaka-Native Data
 
-Some data lives directly on [[sifaka]] rather than being backed up to it (photos via [[immich]], music via [[navidrome]], video via [[jellyfin]]). See [[sifaka]] for data protection details.
+Other data lives directly on [[sifaka]] (music via [[navidrome]], video via [[jellyfin]]). See [[sifaka]] for data protection details.
 
 ## What Is NOT Backed Up
 
@@ -60,10 +74,11 @@ Some data lives directly on [[sifaka]] rather than being backed up to it (photos
 
 ## Backup Targets
 
-| Repository | Location | Label |
-|------------|----------|-------|
-| `/Volumes/backups/borg/` | [[sifaka]] (local NAS) | — |
-| `ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo` | BorgBase (offsite) | `borgbase-offsite` |
+| Repository | Location | Label | Backs up |
+|------------|----------|-------|----------|
+| `/Volumes/backups/borg/` | [[sifaka]] (local NAS) | `sifaka-borg-backups` | indri data |
+| `ssh://u3ugi1x1@...repo.borgbase.com/./repo` | BorgBase (offsite) | `borgbase-offsite` | indri data |
+| `ssh://xcrtl5tg@...repo.borgbase.com/./repo` | BorgBase (offsite) | `borgbase-immich-photos` | immich photos |
 
 ## Monitoring
 

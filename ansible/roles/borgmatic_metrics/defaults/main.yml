@@ -1,6 +1,14 @@
 ---
-borgmatic_metrics_repo: /Volumes/backups/borg/
+# Borg repositories to collect metrics from
+# Each entry needs a path (local or ssh://) and a label for Prometheus metrics
+borgmatic_metrics_repos:
+  - path: /Volumes/backups/borg/
+    label: sifaka-local
+  - path: ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo
+    label: borgbase-immich-photos
+
 borgmatic_metrics_passcommand: cat /Users/erichblume/.borg/config.yaml
+borgmatic_metrics_ssh_key: /Users/erichblume/.ssh/borgbase_ed25519
 borgmatic_metrics_dir: /opt/homebrew/var/node_exporter/textfile
 borgmatic_metrics_script: /Users/erichblume/.local/bin/borgmatic-metrics
 borgmatic_metrics_interval: 3600  # seconds between metric collection (hourly)

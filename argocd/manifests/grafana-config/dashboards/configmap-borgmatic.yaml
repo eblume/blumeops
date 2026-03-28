@@ -70,7 +70,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_up",
+              "expr": "borgmatic_up{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -114,7 +115,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_repo_deduplicated_size_bytes",
+              "expr": "borgmatic_repo_deduplicated_size_bytes{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -158,7 +160,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_last_archive_original_size_bytes",
+              "expr": "borgmatic_last_archive_original_size_bytes{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -202,7 +205,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_archive_count",
+              "expr": "borgmatic_archive_count{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -250,7 +254,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "time() - borgmatic_last_archive_timestamp",
+              "expr": "time() - borgmatic_last_archive_timestamp{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -299,7 +304,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_repo_original_size_bytes / borgmatic_repo_deduplicated_size_bytes",
+              "expr": "borgmatic_repo_original_size_bytes{repo=~\"$repo\"} / borgmatic_repo_deduplicated_size_bytes{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -343,7 +349,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_last_archive_deduplicated_size_bytes",
+              "expr": "borgmatic_last_archive_deduplicated_size_bytes{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -387,7 +394,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_last_archive_files",
+              "expr": "borgmatic_last_archive_files{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -435,7 +443,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_last_archive_duration_seconds",
+              "expr": "borgmatic_last_archive_duration_seconds{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -479,7 +488,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_repo_unique_chunks",
+              "expr": "borgmatic_repo_unique_chunks{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -524,8 +534,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "topk(10, borgmatic_source_size_bytes)",
-              "legendFormat": "{{source}}",
+              "expr": "topk(10, borgmatic_source_size_bytes{repo=~\"$repo\"})",
+              "legendFormat": "{{repo}} / {{source}}",
               "refId": "A"
             }
           ],
@@ -541,8 +551,7 @@ data:
           "fieldConfig": {
             "defaults": {
               "color": {
-                "fixedColor": "green",
-                "mode": "fixed"
+                "mode": "palette-classic"
               },
               "custom": {
                 "axisBorderShow": false,
@@ -603,8 +612,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_last_archive_original_size_bytes",
-              "legendFormat": "Backup Size (if extracted)",
+              "expr": "borgmatic_last_archive_original_size_bytes{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -620,8 +629,7 @@ data:
           "fieldConfig": {
             "defaults": {
               "color": {
-                "fixedColor": "blue",
-                "mode": "fixed"
+                "mode": "palette-classic"
               },
               "custom": {
                 "axisBorderShow": false,
@@ -682,8 +690,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_repo_deduplicated_size_bytes",
-              "legendFormat": "Repository Size on Disk",
+              "expr": "borgmatic_repo_deduplicated_size_bytes{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -699,8 +707,7 @@ data:
           "fieldConfig": {
             "defaults": {
               "color": {
-                "fixedColor": "orange",
-                "mode": "fixed"
+                "mode": "palette-classic"
               },
               "custom": {
                 "axisBorderShow": false,
@@ -761,8 +768,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_last_archive_deduplicated_size_bytes",
-              "legendFormat": "New Data Added",
+              "expr": "borgmatic_last_archive_deduplicated_size_bytes{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -778,8 +785,7 @@ data:
           "fieldConfig": {
             "defaults": {
               "color": {
-                "fixedColor": "yellow",
-                "mode": "fixed"
+                "mode": "palette-classic"
               },
               "custom": {
                 "axisBorderShow": false,
@@ -844,8 +850,8 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "borgmatic_last_archive_duration_seconds",
-              "legendFormat": "Backup Duration",
+              "expr": "borgmatic_last_archive_duration_seconds{repo=~\"$repo\"}",
+              "legendFormat": "{{repo}}",
               "refId": "A"
             }
           ],
@@ -858,7 +864,36 @@ data:
       "schemaVersion": 38,
       "tags": ["borg", "backup"],
       "templating": {
-        "list": []
+        "list": [
+          {
+            "current": {
+              "selected": true,
+              "text": ["All"],
+              "value": ["$__all"]
+            },
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "definition": "label_values(borgmatic_up, repo)",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Repository",
+            "multi": true,
+            "name": "repo",
+            "options": [],
+            "query": {
+              "qryType": 1,
+              "query": "label_values(borgmatic_up, repo)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            },
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 1,
+            "type": "query"
+          }
+        ]
       },
       "time": {
         "from": "now-30d",

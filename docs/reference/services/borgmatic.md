@@ -15,9 +15,12 @@ Daily backup system using Borg backup, running on indri.
 | Property | Value |
 |----------|-------|
 | **Install** | mise (pipx) |
-| **Config** | `~/.config/borgmatic/config.yaml` |
-| **Schedule** | Daily at 2:00 AM |
-| **Repository** | `/Volumes/backups/borg/` on [[sifaka|Sifaka]] |
+| **Main config** | `~/.config/borgmatic/config.yaml` |
+| **Photos config** | `~/.config/borgmatic/photos.yaml` |
+| **Main schedule** | Daily at 2:00 AM |
+| **Photos schedule** | Daily at 4:00 AM |
+| **Main targets** | [[sifaka]] local + BorgBase offsite |
+| **Photos target** | BorgBase offsite only |
 
 ## What Gets Backed Up
 
@@ -34,6 +37,9 @@ Daily backup system using Borg backup, running on indri.
 
 **K8s SQLite databases (pre-backup dump via kubectl exec):**
 - [[mealie]] - Recipe manager (`/app/data/mealie.db`)
+
+**Immich photo library** (separate config, BorgBase offsite only):
+- `/Volumes/photos` (sifaka SMB mount, ~128 GB)
 
 **Not backed up (by design):**
 - ZIM archives (re-downloadable)

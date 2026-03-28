@@ -1,11 +1,12 @@
 #!/bin/bash
 # {{ ansible_managed }}
 # Collects borg backup metrics for node_exporter textfile collector
+# Supports multiple repositories with a repo label for Prometheus
 
 set -euo pipefail
 
 export BORG_PASSCOMMAND="{{ borgmatic_metrics_passcommand }}"
-BORG_REPO="{{ borgmatic_metrics_repo }}"
+export BORG_RSH="ssh -o IdentitiesOnly=yes -i {{ borgmatic_metrics_ssh_key }}"
 OUTPUT_FILE="{{ borgmatic_metrics_dir }}/borgmatic.prom"
 TEMP_FILE="${OUTPUT_FILE}.tmp"
 
@@ -13,129 +14,109 @@ TEMP_FILE="${OUTPUT_FILE}.tmp"
 BORG_CMD="/opt/homebrew/bin/borg"
 JQ_CMD="/opt/homebrew/bin/jq"
 
-# Get repository info
-repo_json=$($BORG_CMD info --json "$BORG_REPO" 2>/dev/null) || {
-    echo "Failed to get borg repo info" >&2
-    # Write down metric
-    cat > "$TEMP_FILE" << 'EOF'
+# Start fresh
+cat > "$TEMP_FILE" << 'EOF'
 # HELP borgmatic_up Borg backup repository is accessible
 # TYPE borgmatic_up gauge
-borgmatic_up 0
-EOF
-    mv "$TEMP_FILE" "$OUTPUT_FILE"
-    exit 0
-}
-
-# Get archive list
-archives_json=$($BORG_CMD list --json "$BORG_REPO" 2>/dev/null) || {
-    echo "Failed to list borg archives" >&2
-    exit 1
-}
-
-# Extract repository stats
-total_size=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_size')
-total_csize=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_csize')
-unique_size=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.unique_size')
-unique_csize=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.unique_csize')
-total_chunks=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_chunks')
-unique_chunks=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_unique_chunks')
-
-# Count archives
-archive_count=$(echo "$archives_json" | $JQ_CMD -r '.archives | length')
-
-# Get last archive info
-last_archive_name=$(echo "$archives_json" | $JQ_CMD -r '.archives[-1].name // empty')
-
-if [ -n "$last_archive_name" ]; then
-    # Get detailed info for the last archive
-    last_archive_json=$($BORG_CMD info --json "${BORG_REPO}::${last_archive_name}" 2>/dev/null) || {
-        echo "Failed to get last archive info" >&2
-        last_archive_json=""
-    }
-
-    if [ -n "$last_archive_json" ]; then
-        last_original_size=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].stats.original_size')
-        last_compressed_size=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].stats.compressed_size')
-        last_deduplicated_size=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].stats.deduplicated_size')
-        last_nfiles=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].stats.nfiles')
-        last_start=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].start')
-        last_end=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].end')
-        last_duration=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].duration')
-
-        # Convert timestamp to unix epoch
-        last_timestamp=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${last_start%.*}" "+%s" 2>/dev/null || echo "0")
-    fi
-fi
-
-# Write metrics
-cat > "$TEMP_FILE" << EOF
-# HELP borgmatic_up Borg backup repository is accessible
-# TYPE borgmatic_up gauge
-borgmatic_up 1
-
 # HELP borgmatic_repo_original_size_bytes Total original size of all archives (sum of what each backup contains)
 # TYPE borgmatic_repo_original_size_bytes gauge
-borgmatic_repo_original_size_bytes $total_size
-
 # HELP borgmatic_repo_compressed_size_bytes Total compressed size of all archives
 # TYPE borgmatic_repo_compressed_size_bytes gauge
-borgmatic_repo_compressed_size_bytes $total_csize
-
 # HELP borgmatic_repo_deduplicated_size_bytes Actual disk usage after deduplication (unique data)
 # TYPE borgmatic_repo_deduplicated_size_bytes gauge
-borgmatic_repo_deduplicated_size_bytes $unique_csize
-
 # HELP borgmatic_repo_total_chunks Total number of chunks across all archives
 # TYPE borgmatic_repo_total_chunks gauge
-borgmatic_repo_total_chunks $total_chunks
-
 # HELP borgmatic_repo_unique_chunks Number of unique chunks (after deduplication)
 # TYPE borgmatic_repo_unique_chunks gauge
-borgmatic_repo_unique_chunks $unique_chunks
-
 # HELP borgmatic_archive_count Number of archives in the repository
 # TYPE borgmatic_archive_count gauge
-borgmatic_archive_count $archive_count
-EOF
-
-# Add last archive metrics if available
-if [ -n "${last_original_size:-}" ]; then
-    cat >> "$TEMP_FILE" << EOF
-
 # HELP borgmatic_last_archive_original_size_bytes Original size of the last archive (data being backed up)
 # TYPE borgmatic_last_archive_original_size_bytes gauge
-borgmatic_last_archive_original_size_bytes $last_original_size
-
 # HELP borgmatic_last_archive_compressed_size_bytes Compressed size of the last archive
 # TYPE borgmatic_last_archive_compressed_size_bytes gauge
-borgmatic_last_archive_compressed_size_bytes $last_compressed_size
-
 # HELP borgmatic_last_archive_deduplicated_size_bytes Deduplicated size of last archive (new data added)
 # TYPE borgmatic_last_archive_deduplicated_size_bytes gauge
-borgmatic_last_archive_deduplicated_size_bytes $last_deduplicated_size
-
 # HELP borgmatic_last_archive_files Number of files in the last archive
 # TYPE borgmatic_last_archive_files gauge
-borgmatic_last_archive_files $last_nfiles
-
 # HELP borgmatic_last_archive_timestamp Unix timestamp of the last backup
 # TYPE borgmatic_last_archive_timestamp gauge
-borgmatic_last_archive_timestamp $last_timestamp
-
 # HELP borgmatic_last_archive_duration_seconds Duration of the last backup in seconds
 # TYPE borgmatic_last_archive_duration_seconds gauge
-borgmatic_last_archive_duration_seconds ${last_duration:-0}
-EOF
-
-    # Collect per-source-directory sizes
-    cat >> "$TEMP_FILE" << 'EOF'
-
 # HELP borgmatic_source_size_bytes Size of each backup source directory in bytes
 # TYPE borgmatic_source_size_bytes gauge
 EOF
 
-    # List archive contents and group by source directory
-    $BORG_CMD list "${BORG_REPO}::${last_archive_name}" --format "{size} {path}{NL}" 2>/dev/null | awk '
+collect_repo_metrics() {
+    local repo_path="$1"
+    local repo_label="$2"
+
+    # Get repository info
+    repo_json=$($BORG_CMD info --json "$repo_path" 2>/dev/null) || {
+        echo "Failed to get borg repo info for $repo_label" >&2
+        echo "borgmatic_up{repo=\"$repo_label\"} 0" >> "$TEMP_FILE"
+        return
+    }
+
+    # Get archive list
+    archives_json=$($BORG_CMD list --json "$repo_path" 2>/dev/null) || {
+        echo "Failed to list borg archives for $repo_label" >&2
+        echo "borgmatic_up{repo=\"$repo_label\"} 0" >> "$TEMP_FILE"
+        return
+    }
+
+    # Extract repository stats
+    total_size=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_size')
+    total_csize=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_csize')
+    unique_size=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.unique_size')
+    unique_csize=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.unique_csize')
+    total_chunks=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_chunks')
+    unique_chunks=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_unique_chunks')
+    archive_count=$(echo "$archives_json" | $JQ_CMD -r '.archives | length')
+
+    cat >> "$TEMP_FILE" << EOF
+borgmatic_up{repo="$repo_label"} 1
+borgmatic_repo_original_size_bytes{repo="$repo_label"} $total_size
+borgmatic_repo_compressed_size_bytes{repo="$repo_label"} $total_csize
+borgmatic_repo_deduplicated_size_bytes{repo="$repo_label"} $unique_csize
+borgmatic_repo_total_chunks{repo="$repo_label"} $total_chunks
+borgmatic_repo_unique_chunks{repo="$repo_label"} $unique_chunks
+borgmatic_archive_count{repo="$repo_label"} $archive_count
+EOF
+
+    # Get last archive info
+    last_archive_name=$(echo "$archives_json" | $JQ_CMD -r '.archives[-1].name // empty')
+
+    if [ -z "$last_archive_name" ]; then
+        return
+    fi
+
+    # Get detailed info for the last archive
+    last_archive_json=$($BORG_CMD info --json "${repo_path}::${last_archive_name}" 2>/dev/null) || {
+        echo "Failed to get last archive info for $repo_label" >&2
+        return
+    }
+
+    last_original_size=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].stats.original_size')
+    last_compressed_size=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].stats.compressed_size')
+    last_deduplicated_size=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].stats.deduplicated_size')
+    last_nfiles=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].stats.nfiles')
+    last_start=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].start')
+    last_duration=$(echo "$last_archive_json" | $JQ_CMD -r '.archives[0].duration')
+
+    # Convert timestamp to unix epoch
+    last_timestamp=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${last_start%.*}" "+%s" 2>/dev/null || echo "0")
+
+    cat >> "$TEMP_FILE" << EOF
+borgmatic_last_archive_original_size_bytes{repo="$repo_label"} $last_original_size
+borgmatic_last_archive_compressed_size_bytes{repo="$repo_label"} $last_compressed_size
+borgmatic_last_archive_deduplicated_size_bytes{repo="$repo_label"} $last_deduplicated_size
+borgmatic_last_archive_files{repo="$repo_label"} $last_nfiles
+borgmatic_last_archive_timestamp{repo="$repo_label"} $last_timestamp
+borgmatic_last_archive_duration_seconds{repo="$repo_label"} ${last_duration:-0}
+EOF
+
+    # Collect per-source-directory sizes
+    $BORG_CMD list "${repo_path}::${last_archive_name}" --format "{size} {path}{NL}" 2>/dev/null | awk -v repo="$repo_label" '
     {
         size = $1
         path = $2
@@ -145,8 +126,10 @@ EOF
         else if (path ~ /^Users\/[^\/]+\/devpi/) { source = "devpi" }
         else if (path ~ /^Users\/[^\/]+\/code\/personal\/zk/) { source = "Zettelkasten" }
         else if (path ~ /^Users\/[^\/]+\/.config\/borgmatic/) { source = "borgmatic_config" }
+        else if (path ~ /^Users\/[^\/]+\/.local\/share\/borgmatic/) { source = "k8s_dumps" }
         else if (path ~ /^opt\/homebrew\/var\/forgejo/) { source = "Forgejo" }
         else if (path ~ /^opt\/homebrew\/var\/loki/) { source = "Loki" }
+        else if (path ~ /^Volumes\/photos/) { source = "immich_photos" }
         else if (path ~ /^borgmatic\/postgresql_databases/) { source = "PostgreSQL" }
         else if (path ~ /^borgmatic\//) { source = "borgmatic_metadata" }
         else { source = "other" }
@@ -155,10 +138,15 @@ EOF
     }
     END {
         for (src in totals) {
-            printf "borgmatic_source_size_bytes{source=\"%s\"} %.0f\n", src, totals[src]
+            printf "borgmatic_source_size_bytes{repo=\"%s\",source=\"%s\"} %.0f\n", repo, src, totals[src]
         }
     }' >> "$TEMP_FILE"
-fi
+}
+
+# Collect metrics for each configured repository
+{% for repo in borgmatic_metrics_repos %}
+collect_repo_metrics "{{ repo.path }}" "{{ repo.label }}"
+{% endfor %}
 
 # Atomic move
 mv "$TEMP_FILE" "$OUTPUT_FILE"
