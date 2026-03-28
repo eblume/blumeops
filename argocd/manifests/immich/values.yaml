@@ -37,19 +37,29 @@ immich:
 # Machine Learning service
 machine-learning:
   enabled: true
+  controllers:
+    main:
+      containers:
+        main:
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "100m"
+            limits:
+              memory: "4Gi"
+          probes:
+            liveness:
+              spec:
+                timeoutSeconds: 5
+            readiness:
+              spec:
+                timeoutSeconds: 5
   persistence:
     cache:
       enabled: true
       type: persistentVolumeClaim
       accessMode: ReadWriteOnce
       size: 10Gi
-  resources:
-    requests:
-      memory: "512Mi"
-      cpu: "100m"
-    limits:
-      memory: "4Gi"
-      cpu: "2000m"
 
 # Valkey (Redis fork) - included in chart
 valkey:
@@ -60,12 +70,22 @@ valkey:
       type: emptyDir
       size: 1Gi
 
-# Server resources for minikube
+# Server configuration
 server:
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "100m"
-    limits:
-      memory: "2Gi"
-      cpu: "2000m"
+  controllers:
+    main:
+      containers:
+        main:
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "2Gi"
+          probes:
+            liveness:
+              spec:
+                timeoutSeconds: 5
+            readiness:
+              spec:
+                timeoutSeconds: 5
