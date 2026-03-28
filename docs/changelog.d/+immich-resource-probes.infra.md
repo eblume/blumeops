@@ -1,0 +1,1 @@
+Fix Immich Helm values: resource limits and probe timeouts were silently ignored due to wrong value keys. Resources now actually apply to pods, and liveness/readiness probe timeouts increased from 1s to 5s to prevent kubelet from killing pods during ML inference.
