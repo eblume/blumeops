@@ -59,7 +59,7 @@ services:
 
   - name: frigate-notify
     type: argocd
-    last-reviewed: 2026-02-22
+    last-reviewed: 2026-03-28
     current-version: "v0.5.4"
     upstream-source: https://github.com/0x2142/frigate-notify/releases
 
@@ -112,7 +112,7 @@ services:
 
   - name: cloudnative-pg
     type: argocd
-    last-reviewed: 2026-02-24
+    last-reviewed: 2026-03-28
     current-version: "v1.28.1"
     upstream-source: https://github.com/cloudnative-pg/cloudnative-pg/releases
     notes: Deployed via Helm chart (chart v0.27.1 from forge mirror)
@@ -147,7 +147,7 @@ services:
 
   - name: blumeops-pg
     type: argocd
-    last-reviewed: 2026-02-27
+    last-reviewed: 2026-03-28
     current-version: "18.3"
     upstream-source: https://github.com/cloudnative-pg/cloudnative-pg/releases
     notes: CloudNativePG Cluster resource; pinned to PG minor version
@@ -287,10 +287,10 @@ services:
 
   - name: forgejo
     type: ansible
-    last-reviewed: 2026-02-22
-    current-version: "14.0.2"
+    last-reviewed: 2026-03-28
+    current-version: "14.0.3"
     upstream-source: https://codeberg.org/forgejo/forgejo/releases
-    notes: Installed via Homebrew on indri; plan to migrate to source build
+    notes: Built from source on indri (~/code/3rd/forgejo)
 
   - name: alloy
     type: ansible

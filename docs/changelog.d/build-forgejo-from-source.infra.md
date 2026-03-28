@@ -1,0 +1,1 @@
+Migrate Forgejo from Homebrew to source build with mcquack LaunchAgent, matching the pattern used by zot, caddy, and alloy. Upgrades to v14.0.3 (7 security fixes including PKCE bypass and OAuth scope bypass).

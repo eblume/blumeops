@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>mcquack.eblume.forgejo</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ forgejo_binary }}</string>
+		<string>-w</string>
+		<string>{{ forgejo_work_path }}</string>
+		<string>-c</string>
+		<string>{{ forgejo_config_path }}</string>
+		<string>web</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>{{ forgejo_log_dir }}/mcquack.forgejo.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>{{ forgejo_log_dir }}/mcquack.forgejo.err.log</string>
+</dict>
+</plist>

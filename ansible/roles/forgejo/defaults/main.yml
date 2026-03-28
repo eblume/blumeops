@@ -4,16 +4,21 @@
 
 forgejo_app_name: Forgejo
 forgejo_app_slogan: "Beyond coding. We Forge."
-forgejo_run_user: forgejo
+forgejo_run_user: erichblume
 forgejo_run_mode: prod
 
-# Paths (brew-managed for now, will change to mcquack per migrate-forgejo-from-brew)
-forgejo_work_path: /opt/homebrew/var/forgejo
+# Source build paths
+forgejo_repo_dir: /Users/erichblume/code/3rd/forgejo
+forgejo_binary: "{{ forgejo_repo_dir }}/forgejo"
+
+# Data paths (migrated from brew to ~/forgejo)
+forgejo_work_path: /Users/erichblume/forgejo
 forgejo_config_path: "{{ forgejo_work_path }}/custom/conf/app.ini"
 forgejo_data_path: "{{ forgejo_work_path }}/data"
 forgejo_repo_root: "{{ forgejo_data_path }}/forgejo-repositories"
 forgejo_lfs_path: "{{ forgejo_data_path }}/lfs"
 forgejo_log_path: "{{ forgejo_work_path }}/log"
+forgejo_log_dir: /Users/erichblume/Library/Logs
 
 # Server settings
 forgejo_http_addr: 0.0.0.0

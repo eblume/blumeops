@@ -1,16 +1,34 @@
 ---
-# Forgejo role
+# Forgejo role — source-built binary with LaunchAgent
 #
-# Currently uses brew-managed forgejo. Phase 3 of ci-cd-bootstrap will
-# transition to mcquack LaunchAgent with CI-built binary.
+# ONE-TIME SETUP (before running ansible):
+#
+# 1. Clone forgejo from codeberg (avoid circular dependency):
+#    ssh indri 'git clone https://codeberg.org/forgejo/forgejo.git ~/code/3rd/forgejo'
+#
+# 2. Add forge mirror as secondary remote:
+#    ssh indri 'cd ~/code/3rd/forgejo && git remote add forge https://forge.eblu.me/mirrors/forgejo.git'
+#
+# 3. Build (mise.toml handles Go/Node versions and build tags):
+#    ssh indri 'cd ~/code/3rd/forgejo && mise run build'
+#
+# 4. Run ansible to deploy config and LaunchAgent
 #
 # Secrets (lfs_jwt_secret, internal_token, oauth2_jwt_secret) are fetched
 # from 1Password in the playbook pre_tasks.
 
-- name: Install forgejo via homebrew
-  community.general.homebrew:
-    name: forgejo
-    state: present
+- name: Verify forgejo binary exists
+  ansible.builtin.stat:
+    path: "{{ forgejo_binary }}"
+  register: forgejo_binary_stat
+
+- name: Fail if forgejo binary not found
+  ansible.builtin.fail:
+    msg: |
+      Forgejo binary not found at {{ forgejo_binary }}.
+      Please build from source first:
+        ssh indri 'cd ~/code/3rd/forgejo && mise run build'
+  when: not forgejo_binary_stat.stat.exists
 
 - name: Ensure forgejo config directory exists
   ansible.builtin.file:
@@ -25,8 +43,21 @@
     mode: '0600'
   notify: Restart forgejo
 
-- name: Ensure forgejo service is started
-  ansible.builtin.command: brew services start forgejo
-  register: forgejo_brew_start
-  changed_when: "'Successfully started' in forgejo_brew_start.stdout"
+- name: Deploy forgejo LaunchAgent plist
+  ansible.builtin.template:
+    src: forgejo.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.forgejo.plist
+    mode: '0644'
+  notify: Restart forgejo
+
+- name: Check if forgejo LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.forgejo
+  register: forgejo_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load forgejo LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo.plist
+  when: forgejo_launchctl_check.rc != 0
+  changed_when: true
   failed_when: false

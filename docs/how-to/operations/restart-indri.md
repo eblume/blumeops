@@ -37,10 +37,8 @@ ssh indri 'minikube status'
 Native services managed by launchd will stop automatically during macOS shutdown. However, if you want to stop them explicitly first:
 
 ```bash
-# Forgejo (managed by brew services)
-ssh indri 'brew services stop forgejo'
-
 # LaunchAgent services
+ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo.plist'
 ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.caddy.plist'
 ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.zot.plist'
 ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.jellyfin.plist'
@@ -68,7 +66,7 @@ Or if you're at the console, use the Apple menu.
 
 After indri boots, most services recover automatically. Only a few things need manual attention.
 
-**What autostarts:** Docker Desktop, brew services (Forgejo), and all mcquack LaunchAgent services (Caddy, Zot, Jellyfin, Alloy, Borgmatic, metrics collectors).
+**What autostarts:** Docker Desktop and all mcquack LaunchAgent services (Forgejo, Caddy, Zot, Jellyfin, Alloy, Borgmatic, metrics collectors).
 
 **What needs manual action:** Amphetamine, AutoMounter, and minikube (including its Tailscale serve port).
 

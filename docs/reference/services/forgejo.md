@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-03-03
+modified: 2026-03-28
 tags:
   - service
   - git
@@ -11,6 +11,8 @@ tags:
 
 Git forge and CI/CD platform. **Primary source of truth for blumeops** (mirrored to GitHub).
 
+Built from source on indri, managed via Ansible + mcquack LaunchAgent. Source cloned from Codeberg with a forge mirror as secondary remote.
+
 ## Quick Reference
 
 | Property | Value |
@@ -20,6 +22,39 @@ Git forge and CI/CD platform. **Primary source of truth for blumeops** (mirrored
 | **SSH** | `ssh://forgejo@forge.ops.eblu.me:2222` |
 | **Local Ports** | 3001 (HTTP), 2200 (SSH) |
 | **Config** | `ansible/roles/forgejo/templates/app.ini.j2` |
+| **Binary** | `~/code/3rd/forgejo/forgejo` (source-built) |
+| **Data** | `~/forgejo` |
+| **LaunchAgent** | `mcquack.eblume.forgejo` |
+| **Source** | `~/code/3rd/forgejo` (cloned from Codeberg) |
+
+## Building from Source
+
+Forgejo is built from source on indri, matching the pattern used by [[zot]], [[caddy]], and [[alloy]].
+
+**One-time setup:**
+
+```fish
+# Clone from Codeberg (avoids circular dependency with forge)
+ssh indri 'git clone https://codeberg.org/forgejo/forgejo.git ~/code/3rd/forgejo'
+
+# Add forge mirror as secondary remote
+ssh indri 'cd ~/code/3rd/forgejo && git remote add forge https://forge.eblu.me/mirrors/forgejo.git'
+```
+
+**Building a specific version:**
+
+```fish
+ssh indri 'cd ~/code/3rd/forgejo && git fetch --tags && git checkout v14.0.3'
+ssh indri 'cd ~/code/3rd/forgejo && mise run build'
+```
+
+The `build` mise task (defined in the repo's `mise.toml`) runs `make build` with the correct tags and creates the `./forgejo` hardlink. It uses `go@1.25.8` and `node@24` as configured by `mise use`.
+
+**WARNING:** Do NOT use `make forgejo` directly — it rebuilds with empty TAGS, stripping SQLite support. Always use `mise run build` or pass TAGS explicitly to `make build` and `ln -f gitea forgejo` afterwards.
+
+Build tags: `bindata` (embed assets), `timetzdata` (embed timezone data), `sqlite sqlite_unlock_notify` (SQLite support).
+
+After building, run `mise run provision-indri -- --tags forgejo` to deploy the config and restart the service.
 
 ## Repositories
 
