@@ -1,1 +1,0 @@
-Add borgmatic pg_dump backups for authentik and immich databases. Authentik uses the existing blumeops-pg cluster on port 5432. Immich requires a new borgmatic role on the immich-pg cluster, a Tailscale service, and Caddy L4 proxy on port 5433.

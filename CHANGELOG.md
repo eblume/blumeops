@@ -12,6 +12,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.15.1] - 2026-03-28
+
+### Features
+
+- Add Tor Snowflake proxy on ringtail as a systemd service to support anti-censorship efforts.
+- Add offsite backup for immich photo library to BorgBase, running daily at 4 AM from indri via sifaka SMB mount.
+- Add QArt Tuner — a Go tool that generates QR codes whose data modules form a recognizable image, with an interactive web UI for parameter tuning. Based on the [QArt technique](https://research.swtch.com/qart) by Russ Cox. Lives in `utils/qart/`.
+
+### Infrastructure
+
+- Migrate Forgejo from Homebrew to source build with mcquack LaunchAgent, matching the pattern used by zot, caddy, and alloy. Upgrades to v14.0.3 (7 security fixes including PKCE bypass and OAuth scope bypass).
+- Add borgmatic pg_dump backups for authentik and immich databases. Authentik uses the existing blumeops-pg cluster on port 5432. Immich requires a new borgmatic role on the immich-pg cluster, a Tailscale service, and Caddy L4 proxy on port 5433.
+- Upgrade External Secrets Operator from v1.3.2 to v2.2.0 and migrate from Helm chart to static kustomize manifests.
+- Add post-deploy maintenance docs and generation pruning task for ringtail.
+- Fix Immich Helm values: resource limits and probe timeouts were silently ignored due to wrong value keys. Resources now actually apply to pods, and liveness/readiness probe timeouts increased from 1s to 5s to prevent kubelet from killing pods during ML inference.
+- Reduce PodNotReady alert lookback window from 5m to 60s to clear faster after rollouts.
+- Tighten ArgoCDAppOutOfSync alert: reduce pending duration from 30m to 5m and lookback window from 5m to 1m so alerts clear faster after sync.
+- Update ringtail flake inputs (nixpkgs, home-manager).
+- Upgrade Homepage dashboard from v1.10.1 to v1.11.0
+- Upgrade nvidia-device-plugin from v0.18.2 to v0.19.0
+
+### Documentation
+
+- Review and fix CV service doc (correct URL, forge domain, container tag link) and add private forge repo review guidance to review-services process.
+- Review tailscale-setup tutorial: fix macOS install steps, add `--accept-routes` tip, correct tag name, add ACL apply instructions, add `[[tailscale-operator]]` cross-reference.
+
+### Miscellaneous
+
+- Add `preserve/*` branch prefix exclusion to `branch-cleanup` task; document Pyroscope profiling work and blockers in observability reference.
+
+
 ## [v1.15.0] - 2026-03-24
 
 ### Features
