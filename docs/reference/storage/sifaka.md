@@ -1,7 +1,7 @@
 ---
 title: Sifaka
-modified: 2026-02-09
-last-reviewed: 2026-03-23
+modified: 2026-03-28
+last-reviewed: 2026-03-28
 tags:
   - storage
 ---
@@ -28,14 +28,19 @@ Synology NAS providing network storage and backup target.
 | music | `/volume1/music` | Music library | [[navidrome]] |
 | allisonflix | `/volume1/allisonflix` | Video library | [[jellyfin]] |
 | photos | `/volume1/photos` | Photo library | [[immich]] |
+| frigate | `/volume1/frigate` | NVR recordings, clips, models | [[frigate]] |
 
 ## NFS Exports
 
-| Export | Allowed Clients | Purpose |
-|--------|-----------------|---------|
-| `/volume1/torrents` | 192.168.1.0/24, 100.64.0.0/10 | k8s pods via Docker NAT |
-| `/volume1/music` | 192.168.1.0/24, 100.64.0.0/10 | k8s pods via Docker NAT |
-| `/volume1/photos` | 192.168.1.0/24, 100.64.0.0/10 | k8s pods via Docker NAT |
+| Export | Allowed Clients | Squash | Purpose |
+|--------|-----------------|--------|---------|
+| `/volume1/torrents` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods |
+| `/volume1/music` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods |
+| `/volume1/photos` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods |
+| `/volume1/frigate` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | k8s pods on ringtail |
+| `/volume1/reports` | 192.168.1.0/24, 100.64.0.0/10 | Map all users to admin | Prowler reports |
+
+All exports use `all_squash` mapping to uid 1024 (`admin`) / gid 100 (`users`). If NFS mounts fail with permission denied, see [[troubleshoot-sifaka-nfs]].
 
 ## Monitoring
 
@@ -108,6 +113,7 @@ Synology uses `/dev/sata*` (e.g., `/dev/sata1` through `/dev/sata4`) instead of 
 
 - Tag: `tag:nas`
 - ACL: `tag:homelab` can access for backups
+- **Must run in TUN mode** for NFS — see [[troubleshoot-sifaka-nfs]]
 
 ## Backup
 
@@ -117,8 +123,10 @@ Data protection for sifaka itself currently relies on the Synology RAID 5 config
 
 ## Related
 
+- [[troubleshoot-sifaka-nfs]] - NFS permission denied troubleshooting
 - [[backups|Backups]] - Backup policy
 - [[borgmatic]] - Backup system
+- [[frigate]] - NVR recordings consumer
 - [[immich]] - Photo consumer
 - [[jellyfin]] - Media consumer
 - [[navidrome]] - Music consumer
