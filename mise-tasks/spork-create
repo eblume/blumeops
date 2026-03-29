@@ -242,21 +242,43 @@ def main(
     console.print(f"[bold]Sporking[/bold] {MIRROR_ORG}/{repo_name}")
     console.print()
 
+    # --- Preflight checks (fail fast before any mutations) ---
+    local_path = LOCAL_BASE / repo_name
+    if not no_clone and local_path.exists():
+        console.print(
+            f"[red]Error:[/red] Local directory already exists: [bold]{local_path}[/bold]"
+        )
+        console.print(
+            "Remove it first or use [dim]--no-clone[/dim] to skip local setup."
+        )
+        raise SystemExit(1)
+
     token = op_read(OP_TOKEN_REF)
 
     with httpx.Client(timeout=30) as client:
-        # 1. Verify mirror exists and get info
+        # Verify mirror exists
         mirror_info = get_mirror_info(client, token, repo_name)
         detected_main = main_branch or mirror_info.get("default_branch", "main")
         upstream_url = mirror_info.get("original_url", "unknown")
         desc = description or mirror_info.get("description", "")
+
+        # Verify fork doesn't already exist
+        if repo_exists(client, token, OWNER, repo_name):
+            console.print(
+                f"[red]Error:[/red] Fork already exists: [bold]{OWNER}/{repo_name}[/bold]"
+            )
+            console.print(
+                "If re-sporking, delete the fork on forge first."
+            )
+            raise SystemExit(1)
 
         console.print(f"  Mirror:       {MIRROR_ORG}/{repo_name}")
         console.print(f"  Upstream:     {upstream_url}")
         console.print(f"  Main branch:  {detected_main}")
         console.print(f"  Description:  {desc}")
         console.print(f"  Fork target:  {OWNER}/{repo_name}")
-        console.print(f"  Local clone:  {LOCAL_BASE / repo_name}")
+        if not no_clone:
+            console.print(f"  Local clone:  {local_path}")
         console.print()
 
         if dry_run:
@@ -266,16 +288,13 @@ def main(
             console.print("  3. Add .forgejo/workflows/mirror-sync.yaml")
             console.print("  4. Set 'blumeops' as default branch")
             if not no_clone:
-                console.print(f"  5. Clone to {LOCAL_BASE / repo_name} with 3 remotes")
+                console.print(f"  5. Clone to {local_path} with 3 remotes")
             return
 
-        # 2. Fork (or confirm existing)
-        if repo_exists(client, token, OWNER, repo_name):
-            console.print(f"[yellow]Fork already exists:[/yellow] {OWNER}/{repo_name}")
-        else:
-            console.print("Forking mirror...")
-            fork_mirror(client, token, repo_name)
-            console.print(f"[green]Created fork:[/green] {OWNER}/{repo_name}")
+        # --- All checks passed, start mutating ---
+        console.print("Forking mirror...")
+        fork_mirror(client, token, repo_name)
+        console.print(f"[green]Created fork:[/green] {OWNER}/{repo_name}")
 
         # 3. Clone to temp dir, create blumeops branch with workflow
         console.print("Setting up blumeops branch...")
@@ -352,16 +371,6 @@ def main(
     if no_clone:
         console.print("[dim]Skipping local clone (--no-clone)[/dim]")
     else:
-        local_path = LOCAL_BASE / repo_name
-        if local_path.exists():
-            console.print(
-                f"[red]Error:[/red] Local directory already exists: [bold]{local_path}[/bold]"
-            )
-            console.print(
-                "Remove it first or use [dim]--no-clone[/dim] to skip local setup."
-            )
-            raise SystemExit(1)
-
         console.print(f"Cloning to {local_path}...")
         clone_url = f"{FORGE_SSH}/{OWNER}/{repo_name}.git"
         subprocess.run(
