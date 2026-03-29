@@ -1,0 +1,65 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kingfisher
+  namespace: kingfisher
+spec:
+  schedule: "0 4 * * 0"  # Sunday 4am (after Prowler k8s scan at 3am)
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 604800  # Auto-delete after 7 days
+      template:
+        spec:
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: kingfisher
+              image: ghcr.io/mongodb/kingfisher:kustomized
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  STAMP=$(date +%Y%m%d-%H%M%S)
+                  OUTDIR=/reports/kingfisher
+                  mkdir -p "$OUTDIR"
+
+                  COMMON_ARGS="scan gitea \
+                    --api-url https://forge.ops.eblu.me/api/v1/ \
+                    --user eblume \
+                    --repo-type all \
+                    --no-update-check \
+                    --tls-mode lax \
+                    --allow-internal-ips"
+
+                  # HTML report for human review
+                  kingfisher $COMMON_ARGS \
+                    --format html \
+                    --output "$OUTDIR/scan-${STAMP}.html" || true
+
+                  # JSON report for machine parsing
+                  kingfisher $COMMON_ARGS \
+                    --format json \
+                    --output "$OUTDIR/scan-${STAMP}.json"
+              env:
+                - name: KF_GITEA_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: kingfisher-forgejo-token
+                      key: KF_GITEA_TOKEN
+              volumeMounts:
+                - name: reports
+                  mountPath: /reports
+              resources:
+                requests:
+                  memory: 256Mi
+                  cpu: 100m
+                limits:
+                  memory: 1Gi
+          restartPolicy: OnFailure
+          volumes:
+            - name: reports
+              persistentVolumeClaim:
+                claimName: kingfisher-reports

@@ -1,0 +1,17 @@
+# NFS PersistentVolume for Kingfisher secret scan reports
+# Reuses the same sifaka:/volume1/reports share as Prowler
+# NFS rules already configured for indri
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kingfisher-reports-nfs-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: sifaka
+    path: /volume1/reports
