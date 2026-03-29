@@ -296,6 +296,18 @@ def main(
         fork_mirror(client, token, repo_name)
         console.print(f"[green]Created fork:[/green] {OWNER}/{repo_name}")
 
+        # Enable Actions (forks from mirrors have it disabled by default)
+        console.print("Enabling Actions...")
+        resp = forge_api(
+            client,
+            "PATCH",
+            f"/repos/{OWNER}/{repo_name}",
+            token,
+            json_data={"has_actions": True},
+        )
+        resp.raise_for_status()
+        console.print("[green]Actions enabled[/green]")
+
         # 3. Clone to temp dir, create blumeops branch with workflow
         console.print("Setting up blumeops branch...")
         import tempfile
