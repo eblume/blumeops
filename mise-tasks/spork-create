@@ -153,7 +153,7 @@ def mirror_sync_workflow(main_branch: str, repo_name: str) -> str:
 
               - name: Fast-forward {main_branch} from mirror
                 run: |
-                  git checkout {main_branch}
+                  git checkout -B {main_branch} origin/{main_branch}
                   git merge --ff-only mirror/{main_branch}
                   git push origin {main_branch}
 
