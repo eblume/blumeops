@@ -28,7 +28,33 @@ Long-lived work against a sporked repo must accept that there is no "safe" branc
 
 Three remotes, five branch types, one daily sync workflow. The `blumeops` branch is the default — it looks just like upstream with local workflows overlaid. Feature branches come in two flavors: upstreamable (branched off `main`, clean for contribution) and non-upstreamable (branched off `blumeops`, local-only). A `deploy` branch merges everything together as a build artifact.
 
-Forgejo Actions only checks `.forgejo/workflows/` when that directory exists, so upstream's `.github/workflows/` won't run on forge — no deletion needed. If upstream has its own `.forgejo/` directory (rare), it's removed during spork setup.
+Forgejo Actions checks `.forgejo/workflows/` first; if that directory exists, `.github/workflows/` is ignored. This protects the `blumeops` branch and `feature/local/*` branches (which inherit `.forgejo/` from `blumeops`). However, `main` and `feature/upstream/*` branches do NOT have `.forgejo/workflows/` — they're clean upstream code — so Forgejo falls back to `.github/workflows/` on those branches. See [[spork-strategy#Spork Attack]] for the security implications.
+
+## Spork Attack
+
+A "spork attack" is a supply-chain risk inherent to the spork strategy. Because `main` and `feature/upstream/*` branches carry upstream's `.github/workflows/`, those workflows are registered by Forgejo Actions. If an upstream project publishes a workflow targeting runner labels that match your infrastructure, it will execute on your runners.
+
+**Attack chain:**
+
+1. Upstream pushes a workflow (in `.github/workflows/` or `.forgejo/workflows/`) with `runs-on: <your-runner-label>`
+2. Mirror auto-syncs, mirror-sync fast-forwards `main` on your fork
+3. The workflow triggers — via push event, PR event, cron schedule, or any other trigger mechanism
+4. Workflow executes on your runner with access to `GITHUB_TOKEN` and the runner's environment
+
+Note that a cron-triggered workflow is especially dangerous: it requires no user interaction at all. As soon as `main` is updated with the malicious workflow, Forgejo schedules it automatically.
+
+**Current mitigations:**
+
+- **Runner label mismatch** — our runner uses `k8s`, upstream workflows typically use `ubuntu-24.04` / `macos-latest` / `windows-latest`. Jobs queue but never execute. This is effective but fragile — it depends on upstream never guessing our label.
+- **Trust boundary** — we only spork projects we trust. Kingfisher is maintained by a MongoDB security engineer.
+- **Mirror review** — mirror syncs are visible in Forgejo; malicious workflow changes would appear in the commit history. But this is not a real-time defense — the workflow may execute before anyone reviews.
+
+**What would fix this properly:**
+
+- A Forgejo per-repo setting to disable workflow discovery entirely on specific branches, or to require an explicit allow-list of workflow files. Neither exists today.
+- Runner-level repo allow-lists could limit blast radius, but the workflow files still come from the sporked repo via upstream, so the runner would still execute them.
+
+**Recommendation:** Use non-standard runner labels (not `ubuntu-latest`, `linux`, etc.) and only spork projects you trust. Document which projects are sporked and review upstream workflow changes periodically. Consider this an open problem — there is no complete defense short of disabling Actions on the repo entirely (which breaks mirror-sync).
 
 ## How-to guides
 
