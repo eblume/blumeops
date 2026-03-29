@@ -354,56 +354,42 @@ def main(
     else:
         local_path = LOCAL_BASE / repo_name
         if local_path.exists():
-            console.print(f"[yellow]Local directory already exists:[/yellow] {local_path}")
-            console.print("Setting up remotes on existing clone...")
-            # Add missing remotes
-            mirror_url = f"{FORGE_SSH}/{MIRROR_ORG}/{repo_name}.git"
-            subprocess.run(
-                ["git", "remote", "add", "mirror", mirror_url],
-                cwd=local_path,
-                capture_output=True,  # may already exist
+            console.print(
+                f"[red]Error:[/red] Local directory already exists: [bold]{local_path}[/bold]"
             )
-            if upstream_url and upstream_url != "unknown":
-                subprocess.run(
-                    ["git", "remote", "add", "upstream", upstream_url],
-                    cwd=local_path,
-                    capture_output=True,
-                )
-            subprocess.run(
-                ["git", "fetch", "--all"],
-                cwd=local_path,
-                check=True,
-                capture_output=True,
+            console.print(
+                "Remove it first or use [dim]--no-clone[/dim] to skip local setup."
             )
-        else:
-            console.print(f"Cloning to {local_path}...")
-            clone_url = f"{FORGE_SSH}/{OWNER}/{repo_name}.git"
+            raise SystemExit(1)
+
+        console.print(f"Cloning to {local_path}...")
+        clone_url = f"{FORGE_SSH}/{OWNER}/{repo_name}.git"
+        subprocess.run(
+            ["git", "clone", clone_url, str(local_path)],
+            check=True,
+            capture_output=True,
+        )
+        # Add mirror and upstream remotes
+        mirror_url = f"{FORGE_SSH}/{MIRROR_ORG}/{repo_name}.git"
+        subprocess.run(
+            ["git", "remote", "add", "mirror", mirror_url],
+            cwd=local_path,
+            check=True,
+            capture_output=True,
+        )
+        if upstream_url and upstream_url != "unknown":
             subprocess.run(
-                ["git", "clone", clone_url, str(local_path)],
-                check=True,
-                capture_output=True,
-            )
-            # Add mirror and upstream remotes
-            mirror_url = f"{FORGE_SSH}/{MIRROR_ORG}/{repo_name}.git"
-            subprocess.run(
-                ["git", "remote", "add", "mirror", mirror_url],
+                ["git", "remote", "add", "upstream", upstream_url],
                 cwd=local_path,
                 check=True,
                 capture_output=True,
             )
-            if upstream_url and upstream_url != "unknown":
-                subprocess.run(
-                    ["git", "remote", "add", "upstream", upstream_url],
-                    cwd=local_path,
-                    check=True,
-                    capture_output=True,
-                )
-            subprocess.run(
-                ["git", "fetch", "--all"],
-                cwd=local_path,
-                check=True,
-                capture_output=True,
-            )
+        subprocess.run(
+            ["git", "fetch", "--all"],
+            cwd=local_path,
+            check=True,
+            capture_output=True,
+        )
         console.print(f"[green]Local clone ready at {local_path}[/green]")
 
     # Summary
