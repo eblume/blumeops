@@ -98,7 +98,7 @@ git push --force-with-lease origin feature/upstream/my-change
 
 The next mirror-sync run will pick up the resolved branch and rebuild `deploy`.
 
-**TODO:** Rebase failures are currently only visible in the Forgejo Actions UI. Alerting via Grafana is planned but not yet implemented.
+**TODO:** Workflow failures — whether from rebase conflicts or upstream history rewrites (force-push on main) — are currently only visible in the Forgejo Actions UI. Alerting via Grafana is planned but not yet implemented.
 
 ## Future: `.spork.toml`
 
