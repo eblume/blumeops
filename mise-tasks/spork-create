@@ -272,6 +272,21 @@ def main(
             )
             raise SystemExit(1)
 
+        # Verify upstream doesn't have branches that conflict with spork names
+        for reserved in ("blumeops", "deploy"):
+            resp = forge_api(
+                client,
+                "GET",
+                f"/repos/{MIRROR_ORG}/{repo_name}/branches/{reserved}",
+                token,
+            )
+            if resp.status_code == 200:
+                console.print(
+                    f"[red]Error:[/red] Upstream already has a branch named "
+                    f"[bold]{reserved}[/bold] — this conflicts with the spork strategy."
+                )
+                raise SystemExit(1)
+
         console.print(f"  Mirror:       {MIRROR_ORG}/{repo_name}")
         console.print(f"  Upstream:     {upstream_url}")
         console.print(f"  Main branch:  {detected_main}")
