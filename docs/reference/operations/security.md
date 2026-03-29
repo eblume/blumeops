@@ -24,6 +24,7 @@ Security posture and compliance scanning for BlumeOps infrastructure.
 - [[prowler]] — CIS Kubernetes Benchmark scanner (weekly CronJob)
   - [[deploy-prowler]] — deployment and ad-hoc scan how-to
   - [[read-compliance-reports]] — accessing and interpreting reports
+- [[kingfisher]] — Secret detection and live validation for Forgejo repos (weekly CronJob + prek hook)
 
 ## Identity & access
 
