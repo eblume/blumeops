@@ -26,7 +26,7 @@ Secret detection and live validation scanner for Forgejo repositories, using Mon
 
 Runs as a weekly CronJob that scans all repositories in the `eblume` user on Forgejo for leaked secrets, API keys, and credentials. Produces timestamped HTML and JSON reports on the sifaka NFS share.
 
-Uses the Forgejo/Gitea API to enumerate repos, then clones and scans each one. Validation is enabled (secrets are tested against their respective APIs to confirm they're live).
+Uses the Forgejo/Gitea API to enumerate repos, then clones and scans each one. Validation is enabled (secrets are tested against their respective APIs to confirm they're live). Reports are HTML only.
 
 ## Pre-commit hook
 
@@ -47,7 +47,7 @@ kubectl logs -f job/kingfisher-manual -n kingfisher --context=minikube-indri
 ## Limitations
 
 - Clone URLs come from Forgejo's API response using the instance's public `ROOT_URL` (`forge.eblu.me`), so clones roundtrip through Fly.io. Mirror/org scanning is excluded for now to avoid unnecessary external bandwidth. A clone URL rewrite option would need an upstream contribution.
-- Only one output format per invocation, so the CronJob runs Kingfisher twice (HTML then JSON).
+- Only one output format per invocation. Currently producing HTML only.
 
 ## See also
 
