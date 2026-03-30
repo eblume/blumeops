@@ -30,7 +30,6 @@ spec:
                     --api-url https://forge.ops.eblu.me/api/v1/ \
                     --clone-url-base https://forge.ops.eblu.me/ \
                     --user eblume \
-                    --all-organizations \
                     --repo-type all \
                     --no-update-check \
                     --tls-mode lax \
