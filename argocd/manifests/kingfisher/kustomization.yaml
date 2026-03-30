@@ -12,4 +12,4 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/kingfisher
-    newTag: v165768b-5cd32f8-nix
+    newTag: v165768b-f9206bf-nix
