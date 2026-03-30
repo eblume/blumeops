@@ -26,6 +26,9 @@ spec:
                   OUTDIR=/reports/kingfisher
                   mkdir -p "$OUTDIR"
 
+                  # Exit codes: 0=clean, 200=findings, 205=validated findings.
+                  # All are successful scans; only other codes are real errors.
+                  rc=0
                   kingfisher scan gitea \
                     --api-url https://forge.ops.eblu.me/api/v1/ \
                     --clone-url-base https://forge.ops.eblu.me/ \
@@ -35,7 +38,13 @@ spec:
                     --tls-mode lax \
                     --allow-internal-ips \
                     --format html \
-                    --output "$OUTDIR/scan-${STAMP}.html"
+                    --output "$OUTDIR/scan-${STAMP}.html" \
+                  || rc=$?
+
+                  if [ "$rc" -eq 0 ] || [ "$rc" -eq 200 ] || [ "$rc" -eq 205 ]; then
+                    exit 0
+                  fi
+                  exit "$rc"
               env:
                 - name: KF_GITEA_TOKEN
                   valueFrom:
