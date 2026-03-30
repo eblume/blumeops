@@ -98,6 +98,8 @@ pkgs.dockerTools.buildLayeredImage {
   name = "blumeops/kingfisher";
   contents = [
     kingfisher
+    pkgs.bashInteractive
+    pkgs.coreutils
     pkgs.cacert
     pkgs.git
     pkgs.tzdata

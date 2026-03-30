@@ -18,7 +18,7 @@ spec:
           containers:
             - name: kingfisher
               image: registry.ops.eblu.me/blumeops/kingfisher:kustomized
-              command: ["/bin/sh", "-c"]
+              command: ["/bin/bash", "-c"]
               args:
                 - |
                   set -e
