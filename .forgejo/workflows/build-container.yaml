@@ -46,10 +46,18 @@ jobs:
 
           echo "Changed containers: $CHANGED"
 
+          # Containers that are too resource-intensive to build on k8s (indri).
+          # These must be built locally and pushed manually.
+          SKIP_CONTAINERS="kingfisher"
+
           # Classify each container by build type (a container can appear in both)
           DOCKERFILE='[]'
           NIX='[]'
           for name in $(echo "$CHANGED" | jq -r '.[]'); do
+            if echo "$SKIP_CONTAINERS" | grep -qw "$name"; then
+              echo "Skipping $name (in SKIP_CONTAINERS — build locally)"
+              continue
+            fi
             has_any=false
             if [ -f "containers/$name/Dockerfile" ]; then
               DOCKERFILE=$(echo "$DOCKERFILE" | jq -c --arg n "$name" '. + [$n]')
