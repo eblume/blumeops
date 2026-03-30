@@ -11,5 +11,5 @@ resources:
   - cronjob.yaml
 
 images:
-  - name: ghcr.io/mongodb/kingfisher
-    newTag: "1.91.0"
+  - name: registry.ops.eblu.me/blumeops/kingfisher
+    newTag: v165768b-5cd32f8-nix

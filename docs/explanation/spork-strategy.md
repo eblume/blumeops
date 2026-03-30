@@ -60,6 +60,7 @@ Note that a cron-triggered workflow is especially dangerous: it requires no user
 
 - [[create-a-spork]] — initial setup with `mise run spork-create`
 - [[manage-spork-branches]] — feature branches, the deploy branch, handling rebase conflicts
+- [[build-spork-container]] — building reproducible containers from pinned SHAs
 
 ## See also
 

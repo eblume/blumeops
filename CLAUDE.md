@@ -121,6 +121,18 @@ from upstream.
 
 Ask user to mirror on forge first, then clone to `~/code/3rd/<project>/`.
 
+### Sporked Projects
+
+Some mirrored projects are "sporked" — a floating-branch soft-fork strategy
+where local patches are continuously rebased on top of upstream. See
+[[spork-strategy]] and [[create-a-spork]] for the full methodology.
+
+Sporked projects live in `~/code/3rd/<project>/` with three remotes:
+`origin` (eblume/ fork on forge), `mirror` (mirrors/ on forge), `upstream`
+(canonical). The `blumeops` branch is the default; `deploy` merges everything.
+
+Create a new spork: `mise run spork-create <mirror-name>`
+
 ## Task Discovery
 
 ```fish

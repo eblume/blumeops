@@ -1,6 +1,5 @@
 # NFS PersistentVolume for Kingfisher secret scan reports
 # Reuses the same sifaka:/volume1/reports share as Prowler
-# NFS rules already configured for indri
 apiVersion: v1
 kind: PersistentVolume
 metadata:
