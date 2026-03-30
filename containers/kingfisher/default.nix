@@ -105,11 +105,16 @@ pkgs.dockerTools.buildLayeredImage {
     pkgs.tzdata
   ];
 
+  extraCommands = ''
+    mkdir -p tmp
+  '';
+
   config = {
     Entrypoint = [ "${kingfisher}/bin/kingfisher" ];
     Env = [
       "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
       "TZDIR=${pkgs.tzdata}/share/zoneinfo"
+      "TMPDIR=/tmp"
     ];
     User = "65534";
   };
