@@ -1,7 +1,10 @@
 # {{ ansible_managed }}
 #
 # Borgmatic config for immich photo library backup.
-# Backs up /Volumes/photos (sifaka SMB mount) to BorgBase offsite ONLY.
+# Backs up library/ and upload/ from /Volumes/photos (sifaka SMB mount)
+# to BorgBase offsite ONLY. Excludes encoded-video/, thumbs/, backups/
+# since those are regenerable from originals.
+#
 # Separate from the main borgmatic config to keep concerns isolated:
 # - main config: indri data → sifaka + borgbase
 # - this config: sifaka photos → borgbase (different repo)
@@ -9,7 +12,9 @@
 local_path: {{ borgmatic_local_path }}
 
 source_directories:
-    - {{ borgmatic_photos_source_dir }}
+{% for dir in borgmatic_photos_source_directories %}
+    - {{ dir }}
+{% endfor %}
 
 source_directories_must_exist: true
 
@@ -21,7 +26,10 @@ repositories:
 
 encryption_passcommand: {{ borgmatic_encryption_passcommand }}
 
-ssh_command: ssh -o IdentitiesOnly=yes -i {{ borgmatic_borgbase_ssh_key_path }}
+ssh_command: ssh -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=5 -i {{ borgmatic_borgbase_ssh_key_path }}
+
+# Save checkpoints every 10 minutes so interrupted backups don't lose all progress
+checkpoint_interval: 600
 
 # Retention policy — photos are precious, keep more history
 keep_daily: {{ borgmatic_photos_keep_daily }}

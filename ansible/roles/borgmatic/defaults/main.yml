@@ -61,7 +61,9 @@ borgmatic_keep_yearly: 1000
 # pg_dump_command must be full path since LaunchAgent doesn't have homebrew in PATH
 # --- Immich photo library backup (BorgBase offsite only) ---
 borgmatic_photos_config: /Users/erichblume/.config/borgmatic/photos.yaml
-borgmatic_photos_source_dir: /Volumes/photos
+borgmatic_photos_source_directories:
+  - /Volumes/photos/library
+  - /Volumes/photos/upload
 borgmatic_photos_borgbase_repo: ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo
 # Schedule: runs daily at 4:00 AM (offset from main backup at 2:00 AM)
 borgmatic_photos_schedule_hour: 4
