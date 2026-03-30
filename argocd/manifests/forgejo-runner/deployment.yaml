@@ -74,6 +74,8 @@ spec:
           image: docker:kustomized
           securityContext:
             privileged: true
+            seccompProfile:
+              type: Unconfined
           env:
             - name: DOCKER_TLS_CERTDIR
               value: ""
