@@ -10,7 +10,7 @@ resources:
 
 images:
   - name: code.forgejo.org/forgejo/runner
-    newTag: "12.7.0"
+    newTag: "12.7.3"
   - name: docker
     newTag: 27-dind
 

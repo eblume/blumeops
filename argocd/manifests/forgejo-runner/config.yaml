@@ -1,4 +1,4 @@
-# Reviewed against v12.7.0 defaults (2026-02-22)
+# Reviewed against v12.7.3 defaults (2026-03-30)
 log:
   level: info
 

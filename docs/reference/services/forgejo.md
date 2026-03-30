@@ -161,6 +161,7 @@ Forgejo hosts pull mirrors of external repositories (GitHub, etc.) for supply ch
 
 ## Related
 
+- [[forgejo-runner]] - k8s CI/CD runner (minikube on indri)
 - [[argocd]] - Uses Forgejo as git source
 - [[authentik]] - OIDC identity provider
 - [[zot]] - Container registry for built images
