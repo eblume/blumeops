@@ -107,6 +107,7 @@ pkgs.dockerTools.buildLayeredImage {
 
   extraCommands = ''
     mkdir -p tmp
+    chmod 1777 tmp
   '';
 
   config = {
