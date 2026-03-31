@@ -1,5 +1,4 @@
 # Minikube apiserver — flags managed by static pod manifests.
-# Compensating control: cluster not internet-exposed; access via Tailscale ACLs.
 Mutelist:
   Accounts:
     "*":
@@ -7,48 +6,48 @@ Mutelist:
         "apiserver_always_pull_images_plugin":
           Regions: ["*"]
           Resources: ["^kube-apiserver-minikube$"]
-          Description: "Minikube default; AlwaysPullImages not enabled."
+          Description: "CC: single-user-cluster, local-registry. Only the operator has cluster access; all images pulled from private zot registry."
         "apiserver_audit_log_maxage_set":
           Regions: ["*"]
           Resources: ["^kube-apiserver-minikube$"]
-          Description: "Minikube does not configure audit logging."
+          Description: "CC: observability-stack-audit. Alloy/Loki provides pod-level audit trail."
         "apiserver_audit_log_maxbackup_set":
           Regions: ["*"]
           Resources: ["^kube-apiserver-minikube$"]
-          Description: "Minikube does not configure audit logging."
+          Description: "CC: observability-stack-audit. Alloy/Loki provides pod-level audit trail."
         "apiserver_audit_log_maxsize_set":
           Regions: ["*"]
           Resources: ["^kube-apiserver-minikube$"]
-          Description: "Minikube does not configure audit logging."
+          Description: "CC: observability-stack-audit. Alloy/Loki provides pod-level audit trail."
         "apiserver_audit_log_path_set":
           Regions: ["*"]
           Resources: ["^kube-apiserver-minikube$"]
-          Description: "Minikube does not configure audit logging."
+          Description: "CC: observability-stack-audit. Alloy/Loki provides pod-level audit trail."
         "apiserver_deny_service_external_ips":
           Regions: ["*"]
           Resources: ["^kube-apiserver-minikube$"]
-          Description: "Minikube default; no external IPs in use."
+          Description: "CC: tailscale-network-isolation. No external IPs routable; cluster only reachable via tailnet."
         "apiserver_disable_profiling":
           Regions: ["*"]
           Resources: ["^kube-apiserver-minikube$"]
-          Description: "Minikube default; profiling endpoint not exposed."
+          Description: "CC: tailscale-network-isolation. Profiling endpoint unreachable from public internet."
         "apiserver_encryption_provider_config_set":
           Regions: ["*"]
           Resources: ["^kube-apiserver-minikube$"]
-          Description: "Minikube does not configure etcd encryption at rest."
+          Description: "CC: tailscale-network-isolation, single-user-cluster. Etcd not network-exposed; only operator has node access."
         "apiserver_kubelet_cert_auth":
           Regions: ["*"]
           Resources: ["^kube-apiserver-minikube$"]
-          Description: "Minikube manages kubelet certificates automatically."
+          Description: "CC: tailscale-network-isolation. Kubelet API not exposed outside the node; minikube auto-generates certificates."
         "apiserver_request_timeout_set":
           Regions: ["*"]
           Resources: ["^kube-apiserver-minikube$"]
-          Description: "Minikube default; using K8s default timeout."
+          Description: "CC: tailscale-network-isolation. API server only reachable via tailnet; DoS risk limited to trusted clients."
         "apiserver_service_account_lookup_true":
           Regions: ["*"]
           Resources: ["^kube-apiserver-minikube$"]
-          Description: "Minikube default."
+          Description: "CC: single-user-cluster. Only operator manages service accounts; no revoked tokens in circulation."
         "apiserver_strong_ciphers_only":
           Regions: ["*"]
           Resources: ["^kube-apiserver-minikube$"]
-          Description: "Minikube default TLS cipher suite."
+          Description: "CC: tailscale-network-isolation. API server traffic encrypted by WireGuard at the network layer."

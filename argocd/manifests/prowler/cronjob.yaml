@@ -40,19 +40,17 @@ spec:
           containers:
             - name: prowler
               image: registry.ops.eblu.me/blumeops/prowler:kustomized
+              command: ["/bin/sh", "-c"]
               args:
-                - kubernetes
-                - --compliance
-                - cis_1.11_kubernetes
-                - --mutelist-file
-                - /tmp/mutelist/mutelist.yaml
-                - -z
-                - --output-formats
-                - html
-                - csv
-                - json-ocsf
-                - --output-directory
-                - /reports/prowler
+                - |
+                  DATEDIR=/reports/prowler/$(date +%Y-%m-%d)
+                  mkdir -p "$DATEDIR"
+                  prowler kubernetes \
+                    --compliance cis_1.11_kubernetes \
+                    --mutelist-file /tmp/mutelist/mutelist.yaml \
+                    -z \
+                    --output-formats html csv json-ocsf \
+                    --output-directory "$DATEDIR"
               volumeMounts:
                 - name: reports
                   mountPath: /reports

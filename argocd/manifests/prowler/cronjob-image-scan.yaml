@@ -48,17 +48,16 @@ spec:
           containers:
             - name: prowler
               image: registry.ops.eblu.me/blumeops/prowler:kustomized
+              command: ["/bin/sh", "-c"]
               args:
-                - image
-                - --image-list
-                - /shared/images.txt
-                - -z
-                - --output-formats
-                - html
-                - csv
-                - json-ocsf
-                - --output-directory
-                - /reports/prowler-images
+                - |
+                  DATEDIR=/reports/prowler-images/$(date +%Y-%m-%d)
+                  mkdir -p "$DATEDIR"
+                  prowler image \
+                    --image-list /shared/images.txt \
+                    -z \
+                    --output-formats html csv json-ocsf \
+                    --output-directory "$DATEDIR"
               volumeMounts:
                 - name: reports
                   mountPath: /reports

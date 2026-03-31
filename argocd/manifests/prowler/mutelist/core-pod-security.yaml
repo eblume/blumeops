@@ -7,7 +7,7 @@ Mutelist:
         "core_minimize_hostNetwork_containers":
           Regions: ["*"]
           Resources:
-            # Minikube control plane — requires hostNetwork by design
+            # Minikube control plane
             - "^etcd-minikube$"
             - "^kube-apiserver-minikube$"
             - "^kube-controller-manager-minikube$"
@@ -17,8 +17,9 @@ Mutelist:
             - "^kindnet-"
             - "^storage-provisioner$"
           Description: >-
-            Control-plane and networking pods require hostNetwork.
-            All managed by minikube.
+            CC: tailscale-network-isolation. Control-plane and networking
+            pods require hostNetwork by design. Host network itself is
+            only reachable via tailnet.
         "core_minimize_privileged_containers":
           Regions: ["*"]
           Resources:
@@ -27,12 +28,13 @@ Mutelist:
             # Tailscale operator-managed proxies
             - "^ts-"
             - "^ingress-"
-            # Forgejo runner — Docker-in-Docker for CI builds
+            # Forgejo runner
             - "^forgejo-runner-"
           Description: >-
-            kube-proxy: iptables (minikube). ts-*/ingress-*: network
-            namespace manipulation (Tailscale operator). forgejo-runner:
-            Docker-in-Docker for CI.
+            CC: single-user-cluster, operator-managed-pods, trusted-ci-only.
+            kube-proxy: system pod, single-user cluster. ts-*/ingress-*:
+            Tailscale operator-managed. forgejo-runner: DinD limited to
+            trusted private forge repos.
         "core_seccomp_profile_docker_default":
           Regions: ["*"]
           Resources:
@@ -47,34 +49,38 @@ Mutelist:
             - "^nameserver-"
             - "^ingress-"
           Description: >-
-            System pods (minikube) and Tailscale operator pods — seccomp
-            profiles set by upstream/operator, not user manifests.
+            CC: single-user-cluster, operator-managed-pods. System pods
+            managed by minikube and Tailscale operator; seccomp profiles
+            set by upstream. Single-user cluster limits exploit surface.
         "core_minimize_hostPID_containers":
           Regions: ["*"]
           Resources:
             - "^prowler-"
           Description: >-
-            Prowler CIS scanner requires hostPID to check file
-            permissions on kubelet and etcd data directories.
+            CC: ephemeral-privileged-jobs. Prowler CIS scanner requires
+            hostPID for file permission checks. Runs as CronJob with
+            7-day TTL, not a persistent workload.
         "core_minimize_root_containers_admission":
           Regions: ["*"]
           Resources:
             - "^grafana-"
           Description: >-
-            Grafana init-chown-data runs as root to fix PVC ownership.
-            Main containers run as UID 472. Standard pattern.
+            CC: init-container-isolation. Root limited to init-chown-data
+            container; all runtime containers run as UID 472 with caps
+            dropped.
         "core_minimize_containers_added_capabilities":
           Regions: ["*"]
           Resources:
             # Minikube system pods
             - "^coredns-"
             - "^kindnet-"
-            # Grafana init-chown-data (CHOWN capability)
+            # Grafana init-chown-data
             - "^grafana-"
           Description: >-
-            System pods: NET_BIND_SERVICE/NET_RAW required by function
-            (minikube). Grafana: CHOWN for PVC init; all other
-            containers drop ALL.
+            CC: single-user-cluster, init-container-isolation. System
+            pods: capabilities required by function (minikube-managed).
+            Grafana: CHOWN limited to init phase; runtime containers
+            drop ALL.
         "core_minimize_containers_capabilities_assigned":
           Regions: ["*"]
           Resources:
@@ -82,5 +88,5 @@ Mutelist:
             - "^kindnet-"
             - "^grafana-"
           Description: >-
-            System pods (minikube) and Grafana init-chown-data.
-            See core_minimize_containers_added_capabilities.
+            CC: single-user-cluster, init-container-isolation. See
+            core_minimize_containers_added_capabilities.

@@ -18,17 +18,16 @@ spec:
           containers:
             - name: prowler
               image: registry.ops.eblu.me/blumeops/prowler:kustomized
+              command: ["/bin/sh", "-c"]
               args:
-                - iac
-                - --scan-repository-url
-                - https://forge.ops.eblu.me/eblume/blumeops.git
-                - -z
-                - --output-formats
-                - html
-                - csv
-                - json-ocsf
-                - --output-directory
-                - /reports/prowler-iac
+                - |
+                  DATEDIR=/reports/prowler-iac/$(date +%Y-%m-%d)
+                  mkdir -p "$DATEDIR"
+                  prowler iac \
+                    --scan-repository-url https://forge.ops.eblu.me/eblume/blumeops.git \
+                    -z \
+                    --output-formats html csv json-ocsf \
+                    --output-directory "$DATEDIR"
               volumeMounts:
                 - name: reports
                   mountPath: /reports

@@ -23,7 +23,7 @@ spec:
                 - |
                   set -e
                   STAMP=$(date +%Y%m%d-%H%M%S)
-                  OUTDIR=/reports/kingfisher
+                  OUTDIR=/reports/kingfisher/$(date +%Y-%m-%d)
                   mkdir -p "$OUTDIR"
 
                   # Exit codes: 0=clean, 200=findings, 205=validated findings.

@@ -10,12 +10,12 @@ Mutelist:
             # Built-in Kubernetes roles
             - "^cluster-admin$"
             - "^system:"
-            # ArgoCD — requires broad access for deployment management;
-            # ArgoCD itself is SSO-gated via Authentik
+            # ArgoCD
             - "^argocd-"
           Description: >-
-            Built-in K8s roles and ArgoCD. ArgoCD access is SSO-gated
-            via Authentik.
+            CC: single-user-cluster, sso-gated-admin-tools. Built-in
+            K8s roles: only operator can bind them. ArgoCD: requires
+            broad access but is SSO-gated via Authentik OIDC.
         "rbac_minimize_pod_creation_access":
           Regions: ["*"]
           Resources:
@@ -26,12 +26,14 @@ Mutelist:
             # CloudNativePG operator
             - "^cnpg-manager$"
           Description: >-
-            Built-in K8s roles required for workload controllers.
-            cnpg-manager: CloudNativePG operator manages PostgreSQL pods.
+            CC: single-user-cluster. Built-in K8s roles and CNPG
+            operator. Only the operator can assign these roles; no
+            untrusted users have cluster access.
         "rbac_minimize_service_account_token_creation":
           Regions: ["*"]
           Resources:
             - "^system:"
           Description: >-
-            kube-controller-manager requires token creation for service
-            account management. Built-in role.
+            CC: single-user-cluster. kube-controller-manager requires
+            token creation for SA management. Only operator manages
+            service accounts.

@@ -1,0 +1,122 @@
+# Compensating Controls
+#
+# Documents controls that mitigate risks from suppressed or accepted security
+# findings. Referenced by security tools (Prowler mutelist, Kingfisher config,
+# etc.) via "CC: <id>" in finding descriptions or suppression notes.
+#
+# Used by `mise run review-compensating-controls` to surface stale controls.
+#
+# Fields:
+#   id              - kebab-case unique identifier, referenced from tool configs
+#   description     - what the control actually does to mitigate risk
+#   created         - date (YYYY-MM-DD) the control was documented
+#   last-reviewed   - date (YYYY-MM-DD) or null
+#   notes           - optional context
+
+controls:
+  - id: single-user-cluster
+    description: >-
+      Only the cluster operator (eblume) has kubectl access. No untrusted
+      users can create pods, access cached images, or bind RBAC roles.
+    created: 2026-03-30
+    last-reviewed: 2026-03-30
+    notes: >-
+      Verify by checking kubeconfig distribution and Tailscale ACLs.
+      If additional users gain cluster access, re-evaluate all findings
+      muted under this control.
+
+  - id: tailscale-network-isolation
+    description: >-
+      Cluster is not internet-exposed. All access requires Tailscale
+      identity with ACL enforcement. Profiling endpoints, debug ports,
+      and control-plane APIs are unreachable from the public internet.
+    created: 2026-03-30
+    last-reviewed: 2026-03-30
+    notes: >-
+      Verify with 'tailscale serve status --json' on indri and review
+      Tailscale ACLs in pulumi/tailscale/. Only tag:flyio-target services
+      are publicly routable.
+
+  - id: local-registry
+    description: >-
+      All container images are pulled from private zot registry
+      (registry.ops.eblu.me). No shared external registry credentials
+      are cached on cluster nodes.
+    created: 2026-03-30
+    last-reviewed: 2026-03-30
+    notes: >-
+      Verify by checking image prefixes in kustomization.yaml files.
+      Upstream images (immich, ollama) are exceptions — track in
+      service-versions.yaml.
+
+  - id: sso-gated-admin-tools
+    description: >-
+      ArgoCD and Grafana require SSO authentication via Authentik OIDC.
+      Wildcard RBAC in ArgoCD is mitigated by requiring authenticated
+      identity before any API access.
+    created: 2026-03-30
+    last-reviewed: 2026-03-30
+    notes: >-
+      Verify Authentik provider config and that anonymous access is
+      disabled. Check ArgoCD --auth-token isn't leaked.
+
+  - id: operator-managed-pods
+    description: >-
+      Tailscale operator manages proxy pod specs (ts-*, ingress-*,
+      operator-*, nameserver-*). Pod security settings are set by the
+      operator, not user manifests. Operator is tracked in
+      service-versions.yaml and regularly updated.
+    created: 2026-03-30
+    last-reviewed: 2026-03-30
+    notes: >-
+      Verify operator version is current via 'mise run service-review'.
+      Check Tailscale changelog for security fixes. If operator adds
+      seccomp support, remove these mutes.
+
+  - id: ephemeral-privileged-jobs
+    description: >-
+      Prowler CIS scanner runs as a CronJob with 7-day TTL
+      auto-deletion, not as a persistent privileged workload. hostPID
+      exposure is time-bounded to scan duration (~20s).
+    created: 2026-03-30
+    last-reviewed: 2026-03-30
+    notes: >-
+      Verify TTL is set in cronjob.yaml. Check that no persistent
+      pods run with hostPID.
+
+  - id: trusted-ci-only
+    description: >-
+      Forgejo runner only executes workflows from repos on the private
+      forge (forge.ops.eblu.me). No external or untrusted repos can
+      trigger privileged CI jobs.
+    created: 2026-03-30
+    last-reviewed: 2026-03-30
+    notes: >-
+      Verify runner registration is limited to the forge instance.
+      Check Forgejo runner config for repo allow-lists.
+
+  - id: init-container-isolation
+    description: >-
+      Root privileges and added capabilities (CHOWN) are limited to
+      init containers that run once at pod startup. All runtime
+      containers run as non-root (UID 472) with all capabilities
+      dropped.
+    created: 2026-03-30
+    last-reviewed: 2026-03-30
+    notes: >-
+      Verify by inspecting grafana deployment.yaml securityContext
+      for both init and runtime containers. If fsGroup alone can
+      handle PVC ownership, remove init-chown-data and this control.
+
+  - id: observability-stack-audit
+    description: >-
+      Alloy collects pod logs and ships them to Loki, providing an
+      audit trail for cluster activity. Compensates for missing
+      apiserver audit logging which minikube does not configure.
+    created: 2026-03-30
+    last-reviewed: 2026-03-30
+    notes: >-
+      Verify Alloy DaemonSet is running and Loki is receiving logs.
+      Note this is weaker than native apiserver audit logs — it
+      captures pod stdout/stderr, not API request-level auditing.
+      Consider enabling minikube audit logging if supported.

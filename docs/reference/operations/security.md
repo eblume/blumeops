@@ -46,6 +46,14 @@ Security posture and compliance scanning for BlumeOps infrastructure.
 
 All compliance scan reports are stored on `sifaka:/volume1/reports/`. See [[read-compliance-reports]] for access and interpretation.
 
+## Compensating controls
+
+Suppressed findings reference named compensating controls tracked in `compensating-controls.yaml` (repo root). Each control has a review date and verification steps. See [[review-compensating-controls]] for the review process.
+
+```bash
+mise run review-compensating-controls
+```
+
 ## Known gaps
 
 - No SOC 2 compliance mapping for Kubernetes (Prowler only maps SOC 2 for AWS/Azure/GCP)
