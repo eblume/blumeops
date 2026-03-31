@@ -15,6 +15,28 @@ spec:
           securityContext:
             seccompProfile:
               type: RuntimeDefault
+          initContainers:
+            - name: merge-mutelist
+              image: registry.ops.eblu.me/blumeops/prowler:kustomized
+              command: ["python3", "-c"]
+              args:
+                - |
+                  import yaml, glob, pathlib
+                  merged = {"Mutelist": {"Accounts": {"*": {"Checks": {}}}}}
+                  for f in sorted(glob.glob("/mutelist-parts/*.yaml")):
+                      with open(f) as fh:
+                          data = yaml.safe_load(fh)
+                      checks = data.get("Mutelist", {}).get("Accounts", {}).get("*", {}).get("Checks", {})
+                      merged["Mutelist"]["Accounts"]["*"]["Checks"].update(checks)
+                  pathlib.Path("/tmp/mutelist").mkdir(exist_ok=True)
+                  with open("/tmp/mutelist/mutelist.yaml", "w") as fh:
+                      yaml.dump(merged, fh, default_flow_style=False)
+                  print(f"Merged {len(merged['Mutelist']['Accounts']['*']['Checks'])} checks from {len(glob.glob('/mutelist-parts/*.yaml'))} files")
+              volumeMounts:
+                - name: mutelist-parts
+                  mountPath: /mutelist-parts
+                - name: mutelist-merged
+                  mountPath: /tmp/mutelist
           containers:
             - name: prowler
               image: registry.ops.eblu.me/blumeops/prowler:kustomized
@@ -22,6 +44,8 @@ spec:
                 - kubernetes
                 - --compliance
                 - cis_1.11_kubernetes
+                - --mutelist-file
+                - /tmp/mutelist/mutelist.yaml
                 - -z
                 - --output-formats
                 - html
@@ -32,6 +56,9 @@ spec:
               volumeMounts:
                 - name: reports
                   mountPath: /reports
+                - name: mutelist-merged
+                  mountPath: /tmp/mutelist
+                  readOnly: true
                 - name: var-lib-kubelet
                   mountPath: /var/lib/kubelet
                   readOnly: true
@@ -47,6 +74,11 @@ spec:
             - name: reports
               persistentVolumeClaim:
                 claimName: prowler-reports
+            - name: mutelist-parts
+              configMap:
+                name: prowler-mutelist
+            - name: mutelist-merged
+              emptyDir: {}
             - name: var-lib-kubelet
               hostPath:
                 path: /var/lib/kubelet

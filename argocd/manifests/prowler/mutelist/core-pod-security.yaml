@@ -1,0 +1,86 @@
+# Pod security checks — system pods, operator-managed pods, and accepted
+# operational needs. Each check ID appears once with all matching resources.
+Mutelist:
+  Accounts:
+    "*":
+      Checks:
+        "core_minimize_hostNetwork_containers":
+          Regions: ["*"]
+          Resources:
+            # Minikube control plane — requires hostNetwork by design
+            - "^etcd-minikube$"
+            - "^kube-apiserver-minikube$"
+            - "^kube-controller-manager-minikube$"
+            - "^kube-scheduler-minikube$"
+            # Minikube system pods
+            - "^kube-proxy-"
+            - "^kindnet-"
+            - "^storage-provisioner$"
+          Description: >-
+            Control-plane and networking pods require hostNetwork.
+            All managed by minikube.
+        "core_minimize_privileged_containers":
+          Regions: ["*"]
+          Resources:
+            # Minikube system
+            - "^kube-proxy-"
+            # Tailscale operator-managed proxies
+            - "^ts-"
+            - "^ingress-"
+            # Forgejo runner — Docker-in-Docker for CI builds
+            - "^forgejo-runner-"
+          Description: >-
+            kube-proxy: iptables (minikube). ts-*/ingress-*: network
+            namespace manipulation (Tailscale operator). forgejo-runner:
+            Docker-in-Docker for CI.
+        "core_seccomp_profile_docker_default":
+          Regions: ["*"]
+          Resources:
+            # Minikube system pods
+            - "^coredns-"
+            - "^kube-proxy-"
+            - "^kindnet-"
+            - "^storage-provisioner$"
+            # Tailscale operator-managed pods
+            - "^ts-"
+            - "^operator-"
+            - "^nameserver-"
+            - "^ingress-"
+          Description: >-
+            System pods (minikube) and Tailscale operator pods — seccomp
+            profiles set by upstream/operator, not user manifests.
+        "core_minimize_hostPID_containers":
+          Regions: ["*"]
+          Resources:
+            - "^prowler-"
+          Description: >-
+            Prowler CIS scanner requires hostPID to check file
+            permissions on kubelet and etcd data directories.
+        "core_minimize_root_containers_admission":
+          Regions: ["*"]
+          Resources:
+            - "^grafana-"
+          Description: >-
+            Grafana init-chown-data runs as root to fix PVC ownership.
+            Main containers run as UID 472. Standard pattern.
+        "core_minimize_containers_added_capabilities":
+          Regions: ["*"]
+          Resources:
+            # Minikube system pods
+            - "^coredns-"
+            - "^kindnet-"
+            # Grafana init-chown-data (CHOWN capability)
+            - "^grafana-"
+          Description: >-
+            System pods: NET_BIND_SERVICE/NET_RAW required by function
+            (minikube). Grafana: CHOWN for PVC init; all other
+            containers drop ALL.
+        "core_minimize_containers_capabilities_assigned":
+          Regions: ["*"]
+          Resources:
+            - "^coredns-"
+            - "^kindnet-"
+            - "^grafana-"
+          Description: >-
+            System pods (minikube) and Grafana init-chown-data.
+            See core_minimize_containers_added_capabilities.

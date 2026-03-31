@@ -1,0 +1,37 @@
+# RBAC checks — built-in Kubernetes roles and operator roles that require
+# broad permissions by design.
+Mutelist:
+  Accounts:
+    "*":
+      Checks:
+        "rbac_minimize_wildcard_use_roles":
+          Regions: ["*"]
+          Resources:
+            # Built-in Kubernetes roles
+            - "^cluster-admin$"
+            - "^system:"
+            # ArgoCD — requires broad access for deployment management;
+            # ArgoCD itself is SSO-gated via Authentik
+            - "^argocd-"
+          Description: >-
+            Built-in K8s roles and ArgoCD. ArgoCD access is SSO-gated
+            via Authentik.
+        "rbac_minimize_pod_creation_access":
+          Regions: ["*"]
+          Resources:
+            # Built-in Kubernetes roles
+            - "^admin$"
+            - "^edit$"
+            - "^system:"
+            # CloudNativePG operator
+            - "^cnpg-manager$"
+          Description: >-
+            Built-in K8s roles required for workload controllers.
+            cnpg-manager: CloudNativePG operator manages PostgreSQL pods.
+        "rbac_minimize_service_account_token_creation":
+          Regions: ["*"]
+          Resources:
+            - "^system:"
+          Description: >-
+            kube-controller-manager requires token creation for service
+            account management. Built-in role.

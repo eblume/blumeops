@@ -13,6 +13,16 @@ resources:
   - cronjob-image-scan.yaml
   - cronjob-iac-scan.yaml
 
+configMapGenerator:
+  - name: prowler-mutelist
+    options:
+      disableNameSuffixHash: true
+    files:
+      - mutelist/apiserver.yaml
+      - mutelist/control-plane.yaml
+      - mutelist/core-pod-security.yaml
+      - mutelist/rbac.yaml
+
 images:
   - name: registry.ops.eblu.me/blumeops/prowler
     newTag: v5.22.0-6960243

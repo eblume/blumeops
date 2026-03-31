@@ -1,0 +1,18 @@
+# Minikube control-plane components — managed by static pod manifests.
+# Compensating control: cluster not internet-exposed; access via Tailscale ACLs.
+Mutelist:
+  Accounts:
+    "*":
+      Checks:
+        "controllermanager_disable_profiling":
+          Regions: ["*"]
+          Resources: ["^kube-controller-manager-minikube$"]
+          Description: "Minikube default; profiling endpoint not exposed outside tailnet."
+        "scheduler_profiling":
+          Regions: ["*"]
+          Resources: ["^kube-scheduler-minikube$"]
+          Description: "Minikube default; profiling endpoint not exposed outside tailnet."
+        "kubelet_tls_cert_and_key":
+          Regions: ["*"]
+          Resources: ["^kubelet-config$"]
+          Description: "Minikube uses auto-generated kubelet certificates."
