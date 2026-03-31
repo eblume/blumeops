@@ -12,6 +12,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.15.2] - 2026-03-30
+
+### Features
+
+- Build custom Kingfisher container from sporked deploy branch, replacing upstream image with locally-built version including --clone-url-base patch.
+- Add Kingfisher secret scanner as a weekly CronJob scanning all Forgejo repos, with HTML and JSON reports written to sifaka NFS.
+- Add MongoDB Kingfisher secret scanner as a prek hook alongside TruffleHog for comparative coverage evaluation.
+- Add spork strategy: floating-branch soft-fork tooling (`mise run spork-create`) and documentation for maintaining local patches against upstream projects.
+
+### Infrastructure
+
+- Add compensating controls framework: tracking file, review mise task, and how-to doc. Map all Prowler mutelist entries to named controls with CC: prefixes.
+- Add Prowler mutelist to suppress expected findings from system components, operator-managed pods, and accepted operational needs. Fix missing seccomp profile on kube-state-metrics.
+- Borgmatic photos backup: restrict to library/ and upload/ (skip regenerable dirs), add SSH keepalives and checkpoint interval to prevent broken pipe failures on large initial syncs.
+- Upgrade forgejo-runner from 12.7.0 to 12.7.3 (bug fixes, security dep update). Add service reference card.
+
+### Documentation
+
+- Add service reference documentation for Kingfisher secret scanner.
+- Review and update Ansible reference doc: add missing roles, sibling playbooks, and clarify Ansible's role in the IaC stack.
+
+
 ## [v1.15.1] - 2026-03-28
 
 ### Features
