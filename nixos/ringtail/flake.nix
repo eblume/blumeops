@@ -28,6 +28,7 @@
         ./disk-config.nix
         ./hardware-configuration.nix
         ./configuration.nix
+        ./gaming.nix
         # Pin versioned services to nixpkgs-services instead of the rolling nixpkgs.
         # This prevents `nix flake update nixpkgs` from silently upgrading them.
         # Bump nixpkgs-services explicitly during service reviews.

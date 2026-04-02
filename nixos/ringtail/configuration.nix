@@ -113,12 +113,6 @@ in
     polkitPolicyOwners = [ "eblume" ];
   };
 
-  # Steam
-  programs.steam = {
-    enable = true;
-    dedicatedServer.openFirewall = true;
-  };
-
   # K3s single-node cluster
   services.k3s = {
     enable = true;
