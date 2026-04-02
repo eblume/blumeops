@@ -1,6 +1,7 @@
 ---
 title: ArgoCD CLI
 modified: 2026-02-12
+last-reviewed: 2026-04-01
 tags:
   - reference
   - gitops
