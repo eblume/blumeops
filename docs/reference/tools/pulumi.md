@@ -1,6 +1,7 @@
 ---
 title: Pulumi
-modified: 2026-02-12
+modified: 2026-04-02
+last-reviewed: 2026-04-02
 tags:
   - reference
   - iac
@@ -42,12 +43,14 @@ mise run tailnet-up      # Apply ACL/tag changes
 
 ## Authentication
 
-- **Gandi**: `GANDI_PERSONAL_ACCESS_TOKEN` environment variable
-- **Tailscale**: `TAILSCALE_API_KEY` environment variable
+- **Gandi**: `GANDI_PERSONAL_ACCESS_TOKEN` (fetched from 1Password by the mise task)
+- **Tailscale**: `TAILSCALE_OAUTH_CLIENT_ID` + `TAILSCALE_OAUTH_CLIENT_SECRET` (fetched from 1Password by the mise task)
 - **Pulumi state**: Local backend (no Pulumi Cloud)
 
 ## Related
 
+- [[gandi-operations]] — DNS PAT rotation and Pulumi workflow
+- [[update-tailscale-acls]] — ACL editing and Pulumi workflow
 - [[gandi]] — DNS hosting
 - [[tailscale]] — Tailnet configuration
 - [[routing]] — How DNS records map to services
