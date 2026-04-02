@@ -252,17 +252,39 @@ services:
 
   - name: nix-container-builder
     type: nixos
-    last-reviewed: 2026-02-22
-    current-version: "12.6.4"
+    last-reviewed: 2026-04-01
+    current-version: "12.7.2"
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
-    notes: Forgejo runner on ringtail via nixpkgs; version tracks flake.lock
+    notes: >-
+      Forgejo runner on ringtail; pinned via nixpkgs-services overlay in flake.nix.
+      Update nixpkgs-services rev during service reviews, not via nix flake update.
 
   - name: snowflake-proxy
     type: nixos
-    last-reviewed: 2026-03-24
+    last-reviewed: 2026-04-01
     current-version: "2.11.0"
     upstream-source: https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/-/releases
-    notes: Tor Snowflake proxy on ringtail; anti-censorship bridge, not an exit node
+    notes: >-
+      Tor Snowflake proxy on ringtail; pinned via nixpkgs-services overlay in flake.nix.
+      Anti-censorship bridge, not an exit node.
+
+  - name: k3s
+    type: nixos
+    last-reviewed: 2026-04-01
+    current-version: "1.34.5+k3s1"
+    upstream-source: https://github.com/k3s-io/k3s/releases
+    notes: >-
+      Single-node k3s cluster on ringtail; pinned via nixpkgs-services overlay in flake.nix.
+      Update nixpkgs-services rev during service reviews.
+
+  - name: minikube
+    type: ansible
+    last-reviewed: 2026-04-01
+    current-version: "1.38.0"
+    upstream-source: https://github.com/kubernetes/minikube/releases
+    notes: >-
+      Single-node minikube on indri; installed via homebrew (not version-pinned).
+      Homebrew may silently upgrade on brew update/upgrade.
 
   - name: mealie
     type: argocd

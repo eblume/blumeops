@@ -258,7 +258,11 @@ class BlumeopsCi:
     async def flake_update(
         self, src: dagger.Directory, flake_path: str = "nixos/ringtail"
     ) -> dagger.File:
-        """Update all flake inputs to latest and return updated flake.lock."""
+        """Update rolling flake inputs to latest and return updated flake.lock.
+
+        Skips nixpkgs-services, which is pinned to a specific commit and should
+        only be updated deliberately during service reviews.
+        """
         return await (
             dag.container()
             .from_(NIX_IMAGE)
@@ -271,6 +275,8 @@ class BlumeopsCi:
                     "nix-command flakes",
                     "flake",
                     "update",
+                    "--exclude",
+                    "nixpkgs-services",
                     "--accept-flake-config",
                 ]
             )

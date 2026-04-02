@@ -31,6 +31,14 @@
 {% for service in caddy_services %}
 	@{{ service.name }} host {{ service.host }}
 	handle @{{ service.name }} {
+{% if service.cache_policy | default('') == 'spa' %}
+		# SPA cache policy: hashed static assets are immutable, HTML must revalidate.
+		# Prevents stale HTML from referencing chunk hashes that no longer exist.
+		@{{ service.name }}_static path /static/dist/*
+		header @{{ service.name }}_static Cache-Control "public, max-age=31536000, immutable"
+		@{{ service.name }}_html path /if/*
+		header @{{ service.name }}_html Cache-Control "no-cache"
+{% endif %}
 {% if service.backend.startswith('https://') %}
 		reverse_proxy {{ service.backend }} {
 			# Caddy v2.11+ rewrites Host to upstream for HTTPS backends.

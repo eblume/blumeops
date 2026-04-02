@@ -82,6 +82,7 @@ caddy_services:
   - name: authentik
     host: "authentik.{{ caddy_domain }}"
     backend: "https://authentik.tail8d86e.ts.net"
+    cache_policy: spa
   - name: ntfy
     host: "ntfy.{{ caddy_domain }}"
     backend: "https://ntfy.tail8d86e.ts.net"

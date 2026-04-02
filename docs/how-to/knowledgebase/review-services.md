@@ -57,9 +57,13 @@ For all service types, start by reading the service's reference card (`docs/refe
 
 ### NixOS Services (`type: nixos`)
 
+Versioned NixOS services (forgejo-runner, snowflake, k3s) are pinned via a `nixpkgs-services` overlay in `nixos/ringtail/flake.nix`. This prevents `nix flake update` from silently upgrading them — they only change when the `nixpkgs-services` input is deliberately updated.
+
 1. Check the upstream project for new releases
-2. Review the Nix derivation or flake input for version pins
-3. If upgrading, update and deploy via `mise run provision-ringtail`
+2. Check what version nixpkgs has: `ssh ringtail 'nix eval nixpkgs#<pkg>.version'`
+3. To upgrade, update the `nixpkgs-services` rev in `flake.nix` to a nixpkgs commit that includes the desired version, then run `nix flake update nixpkgs-services` from `nixos/ringtail/`
+4. Deploy via `mise run provision-ringtail`
+5. Update `service-versions.yaml` with the new version
 
 ### Private Forge Repos (`upstream-source` under `forge.eblu.me/eblume/`)
 

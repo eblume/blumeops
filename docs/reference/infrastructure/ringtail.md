@@ -108,6 +108,10 @@ A native Forgejo Actions runner (`ringtail-nix-builder`) runs as a systemd servi
 
 The runner resolves `<nixpkgs>` from the flake registry at build time. Container trust policy (`/etc/containers/policy.json`) and registry search order (`/etc/containers/registries.conf`) are configured minimally in `configuration.nix` for skopeo — no full `virtualisation.containers` module needed.
 
+## Pinned Service Versions
+
+Versioned services (forgejo-runner, snowflake, k3s) are pinned via a `nixpkgs-services` overlay in `flake.nix`, separate from the rolling `nixpkgs` input. This prevents `nix flake update` from silently upgrading them. The Dagger `flake-update` pipeline excludes `nixpkgs-services` automatically. See [[review-services]] for the upgrade procedure.
+
 ## Maintenance Notes
 
 **1Password:** Desktop app must be running for `op` CLI. Use `$mod+Shift+minus` to send to scratchpad.
