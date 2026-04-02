@@ -19,7 +19,7 @@ controls:
       Only the cluster operator (eblume) has kubectl access. No untrusted
       users can create pods, access cached images, or bind RBAC roles.
     created: 2026-03-30
-    last-reviewed: 2026-03-30
+    last-reviewed: 2026-04-01
     notes: >-
       Verify by checking kubeconfig distribution and Tailscale ACLs.
       If additional users gain cluster access, re-evaluate all findings

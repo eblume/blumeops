@@ -72,6 +72,7 @@ Then reference it in the suppression configuration with `CC: my-new-control`.
 
 ## Related
 
+- [[record-review-evidence]] — Capturing evidence artifacts for audit (aspirational)
 - [[security]] — Security posture overview
 - [[read-compliance-reports]] — Accessing and interpreting Prowler reports
 - [[review-services]] — Periodic service version review (similar staleness pattern)
