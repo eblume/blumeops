@@ -247,6 +247,7 @@ in
           commands = [
             { command = "inhibit_idle fullscreen"; criteria = { class = ".*"; }; }
             { command = "inhibit_idle fullscreen"; criteria = { app_id = ".*"; }; }
+            { command = "fullscreen enable"; criteria = { class = "steam_app_1174180"; }; }
           ];
         };
         colors = {
