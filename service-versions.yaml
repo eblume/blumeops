@@ -97,8 +97,8 @@ services:
 
   - name: grafana
     type: argocd
-    last-reviewed: 2026-02-23
-    current-version: "12.3.3"
+    last-reviewed: 2026-04-02
+    current-version: "12.4.2"
     upstream-source: https://github.com/grafana/grafana/releases
     notes: Home-built container from Alpine; upgraded from Helm to Kustomize
 
