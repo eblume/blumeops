@@ -118,8 +118,13 @@ After reviewing, edit `service-versions.yaml` (repo root) and update the service
 
 Commit this change alongside any upgrades you make during the review.
 
+## Deployment Policy
+
+BlumeOps uses kustomize manifests for all services. Helm charts should not be introduced for new services. See [[no-helm-policy]] for rationale and migration history.
+
 ## Related
 
+- [[no-helm-policy]] - Why blumeops avoids Helm charts
 - [[review-documentation]] - Periodically review documentation cards
 - [[deploy-k8s-service]] - Deploy changes to Kubernetes services
 - [[build-container-image]] - Build and release custom container images

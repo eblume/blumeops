@@ -169,7 +169,7 @@ def main(
     if svc_type == "argocd":
         checklist_parts += [
             "\n[bold]ArgoCD Deployment:[/bold]\n",
-            "• Update image tag or Helm chart version in argocd/manifests/\n",
+            "• Update image tag in argocd/manifests/<service>/kustomization.yaml\n",
             f"• Verify sync status: argocd app get {top_svc['name']}\n",
         ]
     elif svc_type == "ansible":

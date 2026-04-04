@@ -11,11 +11,18 @@ Self-hosted photo and video management solution with AI-powered search and face 
 ## Deployment Order
 
 1. Sync `blumeops-pg` (to get CloudNativePG operator if not already running)
-2. Sync `immich-storage` (creates PV, PVC, and Tailscale Ingress)
-3. Wait for `immich-pg` cluster to be healthy
-4. Create secrets (see below)
-5. Sync `immich` (deploys the Helm chart)
-6. Run `mise run provision-indri -- --tags caddy` to update Caddy config
+2. Wait for `immich-pg` cluster to be healthy
+3. Create secrets (see below)
+4. Sync `immich` (deploys all resources: storage, services, deployments)
+5. Run `mise run provision-indri -- --tags caddy` to update Caddy config
+
+## Components
+
+| Component | Deployment | Service | Port |
+|-----------|------------|---------|------|
+| Server (web/API) | `immich-server` | `immich-server` | 2283 |
+| Machine Learning | `immich-machine-learning` | `immich-machine-learning` | 3003 |
+| Valkey (Redis) | `immich-valkey` | `immich-valkey` | 6379 |
 
 ## Secret Setup
 
@@ -72,30 +79,37 @@ To import existing photos from iCloud sync on indri:
 └─────────────────┘
 ```
 
-## Helm Values
+## Version Management
 
-The Helm chart is configured via `values.yaml`. Key settings:
+Image versions are controlled via `kustomization.yaml`:
 
-- `image.tag`: Immich version (update manually)
-- `immich.persistence.library.existingClaim`: Points to `immich-library` PVC
-- `machine-learning.enabled`: AI features for face/object recognition
-- `valkey.enabled`: Redis cache included in chart
+```yaml
+images:
+  - name: ghcr.io/immich-app/immich-server
+    newTag: v2.6.3
+  - name: ghcr.io/immich-app/immich-machine-learning
+    newTag: v2.6.3
+  - name: docker.io/valkey/valkey
+    newTag: "8.1-alpine"
+```
+
+To upgrade, update `newTag` values and sync via ArgoCD.
 
 ## Troubleshooting
 
 ```bash
 # Check pods
-kubectl -n immich get pods
+kubectl --context=minikube-indri -n immich get pods
 
 # Check immich-pg cluster
-kubectl -n databases get cluster immich-pg
+kubectl --context=minikube-indri -n databases get cluster immich-pg
 
 # View server logs
-kubectl -n immich logs -l app.kubernetes.io/name=immich-server
+kubectl --context=minikube-indri -n immich logs -l app=immich,component=server
 
 # View ML logs
-kubectl -n immich logs -l app.kubernetes.io/name=immich-machine-learning
+kubectl --context=minikube-indri -n immich logs -l app=immich,component=machine-learning
 
 # Check PVC binding
-kubectl -n immich get pvc
+kubectl --context=minikube-indri -n immich get pvc
 ```

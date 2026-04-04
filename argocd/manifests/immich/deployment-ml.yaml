@@ -1,0 +1,60 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich-machine-learning
+  namespace: immich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: immich
+      component: machine-learning
+  template:
+    metadata:
+      labels:
+        app: immich
+        component: machine-learning
+    spec:
+      containers:
+        - name: machine-learning
+          image: ghcr.io/immich-app/immich-machine-learning:kustomized
+          ports:
+            - name: http
+              containerPort: 3003
+          env:
+            - name: TZ
+              value: "America/Los_Angeles"
+            - name: TRANSFORMERS_CACHE
+              value: /cache
+            - name: HF_XET_CACHE
+              value: /cache/huggingface-xet
+            - name: MPLCONFIGDIR
+              value: /cache/matplotlib-config
+          volumeMounts:
+            - name: cache
+              mountPath: /cache
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 3003
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 3003
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "100m"
+            limits:
+              memory: "4Gi"
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: immich-ml-cache
