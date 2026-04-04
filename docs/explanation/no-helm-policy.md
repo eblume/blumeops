@@ -8,6 +8,8 @@ tags:
 
 # No Helm Policy
 
+> **Note:** This article was drafted by AI and reviewed by Erich. I plan to rewrite all explanatory content in my own words - these serve as placeholders to establish the documentation structure.
+
 BlumeOps avoids Helm charts as a deployment mechanism. Plain kustomize manifests are the standard for all services.
 
 ## Rationale
