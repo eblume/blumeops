@@ -15,7 +15,7 @@ metadata:
     gethomepage.dev/icon: "immich.png"
     gethomepage.dev/description: "Photo management"
     gethomepage.dev/href: "https://photos.ops.eblu.me"
-    gethomepage.dev/pod-selector: "app.kubernetes.io/name=server"
+    gethomepage.dev/pod-selector: "app=immich,component=server"
     # TODO: Add Immich widget - requires API key from Account Settings > API Keys
     # See: https://gethomepage.dev/widgets/services/immich/
     # gethomepage.dev/widget.type: "immich"
