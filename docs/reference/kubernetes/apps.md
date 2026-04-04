@@ -24,9 +24,9 @@ Registry of all applications deployed via [[argocd]].
 | `blumeops-pg` | databases | `argocd/manifests/databases/` | [[postgresql]] |
 | `prometheus` | monitoring | `argocd/manifests/prometheus/` | [[prometheus]] |
 | `loki` | monitoring | `argocd/manifests/loki/` | [[loki]] |
-| `grafana` | monitoring | Helm chart (forge mirror) | [[grafana]] |
+| `grafana` | monitoring | `argocd/manifests/grafana/` | [[grafana]] |
 | `grafana-config` | monitoring | `argocd/manifests/grafana-config/` | [[grafana]] |
-| `immich` | immich | Helm chart | [[immich]] |
+| `immich` | immich | `argocd/manifests/immich/` | [[immich]] |
 | `tempo` | monitoring | `argocd/manifests/tempo/` | [[tempo]] |
 | `alloy-k8s` | alloy | `argocd/manifests/alloy-k8s/` | [[alloy|Alloy]] |
 | `alloy-tracing-ringtail` | alloy | `argocd/manifests/alloy-tracing-ringtail/` | [[alloy|Alloy]] (eBPF tracing) |

@@ -77,6 +77,37 @@
     msg: "WARNING: minikube may not have started properly. Run 'minikube start' manually on indri if needed. Status: {{ minikube_final_status.stdout | default('unknown') }}"
   when: minikube_final_status.rc != 0
 
+# The storage-provisioner is a bare Pod (no controller). If the node restarts
+# via Docker Desktop rather than `minikube start`, kubelet brings back static
+# pods (apiserver, etcd) but bare pods like storage-provisioner are lost.
+# `minikube start` on a running cluster is safe and re-applies all addons.
+- name: Check storage-provisioner pod is running
+  ansible.builtin.command:
+    cmd: kubectl -n kube-system get pod storage-provisioner -o jsonpath='{.status.phase}'
+  register: minikube_storage_provisioner
+  changed_when: false
+  failed_when: false
+  when: minikube_final_status.rc == 0
+
+- name: Re-run minikube start to restore addons
+  ansible.builtin.command:
+    cmd: >
+      minikube start
+      --driver={{ minikube_driver }}
+      --container-runtime={{ minikube_container_runtime }}
+      --cpus={{ minikube_cpus }}
+      --memory={{ minikube_memory }}
+      --disk-size={{ minikube_disk_size }}
+      {% for name in minikube_apiserver_names %}
+      --apiserver-names={{ name }}
+      {% endfor %}
+      --apiserver-port={{ minikube_apiserver_port }}
+      --listen-address={{ minikube_listen_address }}
+  when:
+    - minikube_final_status.rc == 0
+    - minikube_storage_provisioner.stdout | default('') != 'Running'
+  changed_when: true
+
 # Configure containerd to use zot registry as pull-through cache
 # With docker driver, use host.minikube.internal to reach the host
 # Zot runs on indri:5050 and caches images from docker.io, ghcr.io, quay.io

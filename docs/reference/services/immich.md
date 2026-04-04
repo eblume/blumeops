@@ -1,6 +1,6 @@
 ---
 title: Immich
-modified: 2026-02-07
+modified: 2026-04-04
 last-reviewed: 2026-03-23
 tags:
   - service
@@ -17,7 +17,7 @@ Self-hosted photo and video management.
 |----------|-------|
 | **URL** | https://photos.ops.eblu.me |
 | **Namespace** | `immich` |
-| **Deployment** | Helm chart (k8s) |
+| **Deployment** | Kustomize (k8s) |
 | **Database** | [[postgresql]] (CNPG) |
 | **Storage** | [[sifaka|Sifaka]] photos volume |
 

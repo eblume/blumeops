@@ -1,0 +1,39 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich-valkey
+  namespace: immich
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: immich
+      component: valkey
+  template:
+    metadata:
+      labels:
+        app: immich
+        component: valkey
+    spec:
+      containers:
+        - name: valkey
+          image: docker.io/valkey/valkey:kustomized
+          ports:
+            - name: redis
+              containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "25m"
+            limits:
+              memory: "256Mi"
+      volumes:
+        - name: data
+          emptyDir:
+            sizeLimit: 1Gi
