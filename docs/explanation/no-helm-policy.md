@@ -33,7 +33,7 @@ Services previously deployed via Helm that have been migrated to kustomize:
 | Grafana | 2026-02 | Converted during v12.x upgrade |
 | CloudNative-PG | 2026-02 | Switched to upstream release manifest via forge mirror |
 | External Secrets | 2026-03 | Static manifests rendered from chart |
-| Homepage | 2025-12 | Replaced chart with plain manifests |
+| Homepage | 2026-02 | Replaced chart with plain manifests |
 | Immich | 2026-04 | Converted during v2.6.3 upgrade |
 
 ## Guidelines
