@@ -1,7 +1,7 @@
 ---
 title: Read Compliance Reports
-modified: 2026-03-24
-last-reviewed: 2026-03-24
+modified: 2026-04-06
+last-reviewed: 2026-04-06
 tags:
   - how-to
   - security
@@ -11,6 +11,14 @@ tags:
 # Read Compliance Reports
 
 How to access and interpret compliance scan reports from [[prowler]] and other security scanners.
+
+## Quick summary
+
+```fish
+mise run review-compliance-reports
+```
+
+This fetches the latest Prowler report from sifaka, parses it (respecting muted status), compares against the previous week, and shows only actionable unmuted failures. Use `--show-muted` to also see muted findings, or `--full` for complete detail.
 
 ## Accessing reports
 
@@ -75,7 +83,8 @@ Not all failures require action. Common expected failures in our minikube cluste
 3. **Mutelist** — suppress expected/accepted failures via Prowler's `--mutelist-file` to reduce noise in future scans
 4. **Track** — compare reports over time to spot regressions
 
-## See also
+## Related
 
 - [[security]] — security & compliance posture overview
 - [[deploy-prowler]] — Prowler deployment and ad-hoc scans
+- [[kingfisher]] — secret detection scanner
