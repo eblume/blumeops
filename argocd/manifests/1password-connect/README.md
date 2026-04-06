@@ -55,6 +55,15 @@ op inject -i argocd/manifests/1password-connect/secret-credentials.yaml.tpl | \
   kubectl --context=minikube-indri apply -f -
 ```
 
+## Version Management
+
+Image versions are pinned in `kustomization.yaml` via `images[].newTag`. To upgrade:
+
+1. Update `newTag` for both `1password/connect-api` and `1password/connect-sync`
+2. Sync via ArgoCD
+
+The manifests were rendered from `connect-helm-charts v2.4.1` and are maintained as plain kustomize.
+
 ## Deployment
 
 ```bash

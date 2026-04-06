@@ -1,6 +1,6 @@
 ---
 title: No Helm Policy
-modified: 2026-04-04
+modified: 2026-04-06
 tags:
   - explanation
   - kubernetes
@@ -20,9 +20,7 @@ Kustomize overlays preserve the readability of plain YAML while providing the co
 
 ## Current State
 
-All services in blumeops use kustomize manifests except:
-
-- **1Password Connect** — still deployed via Helm chart (`connect-helm-charts v2.3.0`). Migration is a future goal.
+All services in blumeops use kustomize manifests. The last Helm dependency (1Password Connect) was migrated in 2026-04.
 
 ## Migration History
 
@@ -35,6 +33,7 @@ Services previously deployed via Helm that have been migrated to kustomize:
 | External Secrets | 2026-03 | Static manifests rendered from chart |
 | Homepage | 2026-02 | Replaced chart with plain manifests |
 | Immich | 2026-04 | Converted during v2.6.3 upgrade |
+| 1Password Connect | 2026-04 | Rendered from chart v2.4.1, bumped to 1.8.2 |
 
 ## Guidelines
 

@@ -134,10 +134,10 @@ services:
 
   - name: 1password-connect
     type: argocd
-    last-reviewed: 2026-02-26
-    current-version: "1.8.1"
+    last-reviewed: 2026-04-06
+    current-version: "1.8.2"
     upstream-source: https://hub.docker.com/r/1password/connect-api/tags
-    notes: Deployed via Helm chart (chart v2.3.0)
+    notes: Kustomize manifests rendered from connect-helm-charts v2.4.1
 
   - name: argocd
     type: argocd
