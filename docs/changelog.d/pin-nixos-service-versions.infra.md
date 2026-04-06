@@ -1,1 +1,0 @@
-Pin NixOS service versions (forgejo-runner, snowflake, k3s) via `nixpkgs-services` overlay in ringtail flake, preventing silent upgrades from `nix flake update`. Add k3s and minikube to service-versions.yaml tracking. Fix stale nix-container-builder version (was 12.6.4, actually running 12.7.2).

@@ -12,6 +12,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.15.3] - 2026-04-05
+
+### Infrastructure
+
+- Build Tempo container from source via forge mirror; bump 2.10.1 → 2.10.3
+- Pin NixOS service versions (forgejo-runner, snowflake, k3s) via `nixpkgs-services` overlay in ringtail flake, preventing silent upgrades from `nix flake update`. Add k3s and minikube to service-versions.yaml tracking. Fix stale nix-container-builder version (was 12.6.4, actually running 12.7.2).
+- Migrate Immich from Helm chart to kustomize manifests and upgrade from v2.5.6 to v2.6.3
+- Upgrade Grafana from 12.3.3 to 12.4.2 — patches 7 CVEs including an unauthenticated DoS (CVE-2026-27880).
+
+### Documentation
+
+- First compensating control review: verified `single-user-cluster` still in effect. Added aspirational how-to card for PCI DSS evidence collection.
+- Prowler `--registry` fix merged upstream (PR #10470); initContainer workaround documented as pending release.
+
+
 ## [v1.15.2] - 2026-03-30
 
 ### Features
