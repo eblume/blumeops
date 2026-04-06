@@ -1,7 +1,7 @@
 import dagger
 from dagger import dag, function, object_type
 
-NIX_IMAGE = "nixos/nix:2.33.3"
+NIX_IMAGE = "nixos/nix:2.34.4"
 
 
 @object_type
@@ -256,29 +256,52 @@ class BlumeopsCi:
 
     @function
     async def flake_update(
-        self, src: dagger.Directory, flake_path: str = "nixos/ringtail"
+        self,
+        src: dagger.Directory,
+        flake_path: str = "nixos/ringtail",
+        skip_inputs: str = "nixpkgs-services",
     ) -> dagger.File:
         """Update rolling flake inputs to latest and return updated flake.lock.
 
-        Skips nixpkgs-services, which is pinned to a specific commit and should
-        only be updated deliberately during service reviews.
+        Dynamically discovers all flake inputs, filters out skip_inputs
+        (comma-separated), and passes the rest as positional args to
+        `nix flake update`. This avoids hardcoding input names.
+
+        Args:
+            src: Source directory containing the flake.
+            flake_path: Path to the flake within src.
+            skip_inputs: Comma-separated input names to exclude from update.
         """
+        # nix has no --exclude flag; instead we enumerate inputs via
+        # `nix flake metadata --json` and pass the ones we want as
+        # positional args.
+        update_script = (
+            "set -e; "
+            "SKIP='$SKIP_INPUTS'; "
+            "ALL=$(nix --extra-experimental-features 'nix-command flakes' "
+            "flake metadata --json 2>/dev/null "
+            "| nix-instantiate --eval -E "
+            '"builtins.concatStringsSep \\" \\" '
+            "(builtins.attrNames "
+            "(builtins.fromJSON (builtins.readFile /dev/stdin))"
+            '.locks.nodes.root.inputs)" '
+            "| tr -d '\"'); "
+            "INPUTS=''; "
+            "for i in $ALL; do "
+            '  case ",$SKIP," in *",$i,"*) continue ;; esac; '
+            '  INPUTS="$INPUTS $i"; '
+            "done; "
+            'echo "Updating inputs:$INPUTS"; '
+            'echo "Skipping: $SKIP"; '
+            "nix --extra-experimental-features 'nix-command flakes' "
+            "flake update $INPUTS --accept-flake-config"
+        )
         return await (
             dag.container()
             .from_(NIX_IMAGE)
             .with_directory("/workspace", src)
             .with_workdir(f"/workspace/{flake_path}")
-            .with_exec(
-                [
-                    "nix",
-                    "--extra-experimental-features",
-                    "nix-command flakes",
-                    "flake",
-                    "update",
-                    "--exclude",
-                    "nixpkgs-services",
-                    "--accept-flake-config",
-                ]
-            )
+            .with_env_variable("SKIP_INPUTS", skip_inputs)
+            .with_exec(["sh", "-c", update_script])
             .file(f"/workspace/{flake_path}/flake.lock")
         )
