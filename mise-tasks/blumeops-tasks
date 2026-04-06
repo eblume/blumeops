@@ -26,6 +26,7 @@ from datetime import date
 
 import httpx
 from rich.console import Console
+from rich.markup import escape
 from rich.text import Text
 
 TODOIST_API_BASE = "https://api.todoist.com/api/v1"
@@ -150,10 +151,10 @@ def main() -> int:
         header.append(f" {content}")
         console.print(header)
 
-        # Description indented
+        # Description indented (escape rich markup to preserve brackets)
         if description:
             for line in description.split("\n"):
-                console.print(f"      {line}", style="dim")
+                console.print(f"      {escape(line)}", style="dim")
 
         console.print()
 
