@@ -1,6 +1,7 @@
 ---
 title: Core Services
 modified: 2026-02-07
+last-reviewed: 2026-04-05
 tags:
   - tutorials
   - replication
@@ -8,6 +9,8 @@ tags:
 ---
 
 # Core Services Setup
+
+> **TODO:** This tutorial is light on specifics and should be expanded. In its current form it serves as a general sketch of how BlumeOps got started — every component mentioned here (Forgejo, Zot, CI runners, etc.) receives much deeper treatment elsewhere in the blumeops codebase and documentation.
 
 > **Audiences:** Replicator
 >
@@ -46,11 +49,13 @@ Key configuration points:
 
 ## Step 2: Configure SSH Access
 
+Forgejo runs its own SSH server on a non-standard port (e.g., 2222) to avoid conflicting with the host's SSH daemon on port 22. Later, [[caddy]] with the L4 plugin can map port 22 to 2222 using a DNS name (e.g., `forge.ops.eblu.me`), so git clients don't need to specify a port.
+
 Set up SSH for git operations:
 
 ```bash
 # Add your SSH key to Forgejo via the web UI
-# Then test access:
+# Then test access (using the non-standard port directly):
 ssh -T git@your-server.tailnet.ts.net -p 2222
 ```
 
@@ -75,13 +80,46 @@ your-repo/
 
 ## Step 4: Set Up CI/CD Runner (Optional)
 
-Forgejo Actions runs workflows defined in `.forgejo/workflows/`. To use it:
+Forgejo Actions runs workflows defined in `.forgejo/workflows/`. The simplest setup is a native runner that executes jobs directly on the host (no Docker required):
 
-1. Register a runner on your server
-2. Configure runner to access your build tools
-3. Create workflow files for builds and deployments
+1. Download the `forgejo-runner` binary from [code.forgejo.org](https://code.forgejo.org/forgejo/runner/releases):
 
-BlumeOps runs a Forgejo runner in Kubernetes - see [[forgejo]] for details.
+```bash
+# macOS ARM64 example
+curl -L -o forgejo-runner \
+  https://code.forgejo.org/forgejo/runner/releases/download/v6.3.1/forgejo-runner-6.3.1-darwin-arm64
+chmod +x forgejo-runner
+```
+
+2. Generate a registration token from the Forgejo admin UI (Site Administration → Actions → Runners)
+
+3. Register and start the runner using the `host` scheme (no container isolation):
+
+```bash
+forgejo-runner register \
+  --instance https://your-forge.tailnet.ts.net \
+  --token <registration-token> \
+  --name local-runner \
+  --labels "native:host" \
+  --no-interactive
+
+forgejo-runner daemon
+```
+
+4. Reference the label in your workflows:
+
+```yaml
+# .forgejo/workflows/example.yaml
+jobs:
+  build:
+    runs-on: native
+    steps:
+      - run: echo "Running on bare metal"
+```
+
+> **Note:** Host mode has no isolation — jobs run as whatever user runs `forgejo-runner`. This is fine for a personal setup with trusted repos. Use a `launchd` plist or `brew services` wrapper to keep it running.
+
+BlumeOps runs its Forgejo runner inside Kubernetes instead — see [[forgejo]] for that approach.
 
 ## Step 5: Container Registry (Optional)
 
