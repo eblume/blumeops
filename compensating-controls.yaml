@@ -31,7 +31,7 @@ controls:
       identity with ACL enforcement. Profiling endpoints, debug ports,
       and control-plane APIs are unreachable from the public internet.
     created: 2026-03-30
-    last-reviewed: 2026-03-30
+    last-reviewed: 2026-04-06
     notes: >-
       Verify with 'tailscale serve status --json' on indri and review
       Tailscale ACLs in pulumi/tailscale/. Only tag:flyio-target services
