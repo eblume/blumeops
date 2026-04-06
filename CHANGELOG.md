@@ -12,6 +12,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.15.4] - 2026-04-06
+
+### Infrastructure
+
+- Migrate 1Password Connect from Helm to kustomize (1.8.1 → 1.8.2), completing the no-helm-policy migration.
+
+### Documentation
+
+- Rewrite observability stack tutorial: replace Helm instructions with actual kustomize/ArgoCD patterns, fix typos, document Alloy as core component
+
+
 ## [v1.15.3] - 2026-04-05
 
 ### Infrastructure
