@@ -16,6 +16,9 @@ spec:
         app: immich
         component: server
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: server
           image: ghcr.io/immich-app/immich-server:kustomized

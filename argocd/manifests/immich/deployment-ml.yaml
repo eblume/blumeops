@@ -16,6 +16,9 @@ spec:
         app: immich
         component: machine-learning
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: machine-learning
           image: ghcr.io/immich-app/immich-machine-learning:kustomized

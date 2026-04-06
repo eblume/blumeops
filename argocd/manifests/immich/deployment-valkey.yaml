@@ -18,6 +18,9 @@ spec:
         app: immich
         component: valkey
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: valkey
           image: docker.io/valkey/valkey:kustomized

@@ -17,6 +17,8 @@ spec:
       serviceAccountName: alloy
       securityContext:
         fsGroup: 473  # alloy user group
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: alloy
           image: registry.ops.eblu.me/blumeops/alloy:kustomized
