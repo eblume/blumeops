@@ -63,7 +63,6 @@ After building, run `mise run provision-indri -- --tags forgejo` to deploy the c
 | `eblume/blumeops` | Infrastructure as code (primary) |
 | `eblume/alloy` | Grafana Alloy fork (CGO build) |
 | `eblume/tesla_auth` | Tesla OAuth helper |
-| Helm chart mirrors | cloudnative-pg-charts, grafana-helm-charts |
 
 ## CI/CD (Forgejo Actions)
 
