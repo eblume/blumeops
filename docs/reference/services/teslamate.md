@@ -1,6 +1,6 @@
 ---
 title: TeslaMate
-modified: 2026-03-23
+modified: 2026-04-07
 last-reviewed: 2026-03-23
 tags:
   - service
@@ -39,7 +39,19 @@ Self-hosted Tesla data logger collecting vehicle telemetry from the Tesla API.
 - Drive Stats, Charging Stats, Projected Range
 - Timeline, Updates, Visited
 
-Dashboards use PostgreSQL datasource (not Prometheus).
+Dashboards use PostgreSQL datasource (not Prometheus). The Grafana datasource connects as the `teslamate` database user.
+
+## Database Permissions
+
+The `teslamate` role was initially provisioned as superuser to allow extension creation (`cube`, `earthdistance`) during initial setup. Superuser has been removed — `teslamate` is now a plain database owner with extension ownership transferred so it can `ALTER EXTENSION ... UPDATE` without superuser.
+
+Note: `earthdistance` is not a trusted extension in PostgreSQL, so `CREATE EXTENSION earthdistance` still requires superuser. If a future TeslaMate migration does `DROP EXTENSION ... CASCADE` + re-create (as happened in the 2024 migration), it will fail. In that case, temporarily grant superuser for the migration and remove it afterward.
+
+Extension ownership persists across pod restarts and CNPG failovers, but a full cluster rebuild (major PG upgrade, fresh `initdb`) would re-create extensions as `postgres`. After any rebuild, transfer ownership back:
+
+```sql
+UPDATE pg_extension SET extowner = (SELECT oid FROM pg_roles WHERE rolname = 'teslamate') WHERE extname IN ('cube', 'earthdistance');
+```
 
 ## Authentication
 

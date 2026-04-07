@@ -45,14 +45,15 @@ spec:
         passwordSecret:
           name: blumeops-pg-borgmatic
       # teslamate user for TeslaMate Tesla data logger
-      # Note: superuser required for extension management during migrations
+      # Superuser removed. Extension ownership (cube, earthdistance)
+      # transferred manually so teslamate can ALTER EXTENSION UPDATE.
+      # earthdistance is untrusted — DROP+CREATE needs temporary
+      # superuser escalation during upgrades.
       - name: teslamate
         login: true
-        superuser: true
         connectionLimit: -1
         ensure: present
         inherit: true
-        createdb: true
         passwordSecret:
           name: blumeops-pg-teslamate
       # authentik user for Authentik identity provider (runs on ringtail)

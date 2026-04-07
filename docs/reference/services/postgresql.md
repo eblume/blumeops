@@ -38,7 +38,7 @@ The `immich-pg` cluster uses a custom image (`cloudnative-vectorchord`) with vec
 |------|---------|------|---------|
 | postgres | both | superuser | CNPG internal |
 | miniflux | blumeops-pg | app owner | Owns miniflux database |
-| teslamate | blumeops-pg | superuser | TeslaMate (needs extensions) |
+| teslamate | blumeops-pg | db owner | TeslaMate (owns extensions) |
 | authentik | blumeops-pg | createdb | [[authentik]] identity provider |
 | eblume | blumeops-pg | superuser | Admin access |
 | borgmatic | both | pg_read_all_data | [[borgmatic|Backup]] access |
