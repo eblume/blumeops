@@ -6,4 +6,5 @@ resources:
   - service.yaml
 images:
   - name: registry.k8s.io/kube-state-metrics/kube-state-metrics
-    newTag: v2.18.0
+    newName: registry.ops.eblu.me/blumeops/kube-state-metrics
+    newTag: v2.18.0-e2e35cc
