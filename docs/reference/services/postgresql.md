@@ -1,6 +1,7 @@
 ---
 title: PostgreSQL
-modified: 2026-02-15
+modified: 2026-04-07
+last-reviewed: 2026-04-07
 tags:
   - service
   - database
@@ -26,19 +27,21 @@ Database clusters via CloudNativePG operator.
 |----------|---------|-------|---------|
 | miniflux | blumeops-pg | miniflux | [[miniflux]] feed data |
 | teslamate | blumeops-pg | teslamate | [[teslamate]] vehicle data |
+| authentik | blumeops-pg | authentik | [[authentik]] identity provider |
 | immich | immich-pg | immich | [[immich]] photo management |
 
 The `immich-pg` cluster uses a custom image (`cloudnative-vectorchord`) with vector search extensions (vector, vchord, cube, earthdistance).
 
 ## Users
 
-| User | Role | Purpose |
-|------|------|---------|
-| postgres | superuser | CNPG internal |
-| miniflux | app owner | Owns miniflux database |
-| teslamate | superuser | TeslaMate (needs extensions) |
-| eblume | superuser | Admin access |
-| borgmatic | pg_read_all_data | [[borgmatic|Backup]] access |
+| User | Cluster | Role | Purpose |
+|------|---------|------|---------|
+| postgres | both | superuser | CNPG internal |
+| miniflux | blumeops-pg | app owner | Owns miniflux database |
+| teslamate | blumeops-pg | superuser | TeslaMate (needs extensions) |
+| authentik | blumeops-pg | createdb | [[authentik]] identity provider |
+| eblume | blumeops-pg | superuser | Admin access |
+| borgmatic | both | pg_read_all_data | [[borgmatic|Backup]] access |
 
 ## Backup
 
@@ -55,9 +58,11 @@ Backed up via [[borgmatic]] `postgresql_databases` hook. Streams `pg_dump` direc
 - `blumeops-pg-eblume` - eblume superuser
 - `blumeops-pg-borgmatic` - borgmatic backup user
 - `blumeops-pg-teslamate` - teslamate user
+- `blumeops-pg-authentik` - authentik user
 
 **CNPG-managed secrets (immich-pg):**
 - `immich-pg-app` - immich user
+- `immich-pg-borgmatic` - borgmatic backup user
 
 ## Related
 
@@ -65,4 +70,5 @@ Backed up via [[borgmatic]] `postgresql_databases` hook. Streams `pg_dump` direc
 - [[miniflux]] - Feed reader database
 - [[teslamate]] - Vehicle data database
 - [[immich]] - Photo management database
+- [[authentik]] - Identity provider database
 - [[borgmatic]] - Database backup
