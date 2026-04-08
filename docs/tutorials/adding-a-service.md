@@ -1,6 +1,7 @@
 ---
 title: Adding a Service
-modified: 2026-02-07
+modified: 2026-04-08
+last-reviewed: 2026-04-08
 tags:
   - tutorials
   - argocd
@@ -26,7 +27,8 @@ Adding a service involves:
 2. Creating an ArgoCD Application
 3. Configuring Tailscale ingress
 4. Adding Homepage dashboard entry
-5. Setting up Grafana dashboards (optional)
+5. Creating a reference card
+6. Setting up Grafana dashboards (optional)
 
 ## Step 1: Create Manifests Directory
 
@@ -34,11 +36,33 @@ Create a directory for your service's Kubernetes manifests:
 
 ```
 argocd/manifests/<service-name>/
+├── kustomization.yaml
 ├── deployment.yaml
 ├── service.yaml
 ├── ingress-tailscale.yaml
 └── configmap.yaml  # if needed
 ```
+
+### Kustomization
+
+Every service needs a `kustomization.yaml` that lists its resources and pins the container image tag. ArgoCD uses kustomize to render manifests.
+
+```yaml
+# argocd/manifests/myservice/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - ingress-tailscale.yaml
+
+images:
+  - name: registry.ops.eblu.me/myservice
+    newTag: v1.0.0
+```
+
+Use the `:kustomized` sentinel tag in `deployment.yaml` — kustomize replaces it with the `newTag` from above. To deploy a new version, update `newTag` here (not in the deployment).
 
 ### Example Deployment
 
@@ -61,7 +85,7 @@ spec:
     spec:
       containers:
       - name: myservice
-        image: registry.ops.eblu.me/myservice:v1.0.0
+        image: registry.ops.eblu.me/myservice:kustomized
         ports:
         - containerPort: 8080
 ```
@@ -96,9 +120,11 @@ metadata:
   namespace: myservice
 spec:
   ingressClassName: tailscale
+  tls:
+  - hosts:
+    - myservice
   rules:
-  - host: myservice
-    http:
+  - http:
       paths:
       - path: /
         pathType: Prefix
@@ -143,7 +169,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: ssh://forgejo@indri.tail8d86e.ts.net:2200/eblume/blumeops.git
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
     targetRevision: main
     path: argocd/manifests/myservice
   destination:
@@ -154,7 +180,42 @@ spec:
     - CreateNamespace=true
 ```
 
-## Step 5: Add Caddy Route (Optional)
+## Step 5: Create a Reference Card
+
+Add a reference card at `docs/reference/services/<service-name>.md` so the service is discoverable in documentation. Keep it short — target a 30-second reading time or less. Include a Quick Reference table with URLs, namespace, and image, then link out to how-to cards or other docs for anything deeper.
+
+```yaml
+---
+title: My Service
+modified: 2026-04-08
+tags:
+  - service
+---
+```
+
+```markdown
+# My Service
+
+One-sentence description of what the service does.
+
+## Quick Reference
+
+| Property | Value |
+|----------|-------|
+| **URL** | https://myservice.ops.eblu.me |
+| **Tailscale URL** | https://myservice.tail8d86e.ts.net |
+| **Namespace** | `myservice` |
+| **Image** | `registry.ops.eblu.me/myservice` |
+| **Manifests** | `argocd/manifests/myservice/` |
+
+## Related
+
+- [[adding-a-service]] - Deployment tutorial
+```
+
+See existing cards like [[navidrome]] or [[kiwix]] for examples.
+
+## Step 6: Add Caddy Route (Optional)
 
 If the service needs to be accessible from other pods or containers, add a Caddy route in `ansible/roles/caddy/defaults/main.yml`:
 
@@ -169,7 +230,7 @@ Then run `mise run provision-indri -- --tags caddy` to apply.
 
 This enables access via `https://myservice.ops.eblu.me`. See [[routing]] for details on when this is needed.
 
-## Step 6: Deploy
+## Step 7: Deploy
 
 ### Testing on a Feature Branch
 
@@ -199,7 +260,7 @@ argocd app set myservice --revision main
 argocd app sync myservice
 ```
 
-## Step 7: Add Observability (Optional)
+## Step 8: Add Observability (Optional)
 
 ### Prometheus Metrics
 
@@ -241,6 +302,7 @@ See [[grafana]] for dashboard provisioning details.
 - [ ] ArgoCD Application created in `argocd/apps/`
 - [ ] Tailscale Ingress configured
 - [ ] Homepage annotations added
+- [ ] Reference card created in `docs/reference/services/`
 - [ ] Caddy route added (if needed for pod access)
 - [ ] Feature branch tested via ArgoCD
 - [ ] Metrics/dashboard configured (if applicable)
