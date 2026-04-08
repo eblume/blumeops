@@ -91,7 +91,7 @@ for a in alerts:
         continue
     if '$filter_key' and a['labels'].get('$filter_key') != '$filter_value':
         continue
-    if a['state'] in ('Alerting', 'Pending'):
+    if a['state'] in ('Alerting', 'Pending') or a['state'].startswith('Alerting'):
         url = a.get('annotations', {}).get('runbook_url', '')
         summary = a.get('annotations', {}).get('summary', '')
         print(f'{summary}|{url}')

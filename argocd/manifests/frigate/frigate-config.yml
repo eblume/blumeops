@@ -67,11 +67,10 @@ model:
   path: /media/frigate/models/yolov9-c-640.onnx
   labelmap_path: /labelmap/coco-80.txt
 
-preview:
-  quality: 8
-
 record:
   enabled: true
+  preview:
+    quality: very_low
   continuous:
     days: 30
   motion:
