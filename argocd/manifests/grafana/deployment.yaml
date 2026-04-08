@@ -123,8 +123,9 @@ spec:
               sed -i 's/"uid": *"\${DS_PROMETHEUS}"/"uid": "prometheus"/g' "$DEST"/*.json
               # Stamp stable top-level UIDs so stars/bookmarks survive pod restarts.
               # Match root-level uid (2-space indent) to avoid clobbering datasource refs.
+              # UIDs must be ≤40 chars (Grafana 12+ enforcement).
               for f in "$DEST"/*.json; do
-                slug=$(basename "$f" .json | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
+                slug=$(basename "$f" .json | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//' | sed 's/^unifi-poller-//')
                 uid="unpoller-${slug}"
                 sed -i "s/^  \"uid\": *\"[^\"]*\"/  \"uid\": \"${uid}\"/" "$f"
               done
