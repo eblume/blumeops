@@ -12,7 +12,7 @@
 let
   sources = import ./sources.nix { inherit pkgs; };
   # Duplicated from sources.nix so build-container-nix.yaml can grep it
-  version = "2026.2.0";
+  version = "2026.2.2";
   webui = import ./webui.nix { inherit pkgs sources; };
   authentik-django = import ./authentik-django.nix { inherit pkgs sources webui; };
   authentik-server = import ./authentik-server.nix { inherit pkgs sources authentik-django webui; };

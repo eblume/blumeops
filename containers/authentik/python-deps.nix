@@ -119,7 +119,7 @@ pkgs.stdenv.mkDerivation {
 
   outputHashMode = "recursive";
   outputHashAlgo = "sha256";
-  outputHash = "sha256-DtpcYQyI07m7v84D/UC28Tj35R9wye6IX+1D0gMZPgY=";
+  outputHash = "sha256-PMNooWKoEWy/G0G3BLAWEJTqvj3FJi34ibougjwdE+c=";
 
   dontFixup = true;
 }
