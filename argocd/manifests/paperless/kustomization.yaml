@@ -13,7 +13,7 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/paperless
-    newTag: v2.20.13-42f6299
+    newTag: v2.20.13-07f52e9
   # TODO: borrowing authentik-redis image — consider building a generic
   # blumeops/redis container if more services need Redis sidecars
   - name: docker.io/library/redis
