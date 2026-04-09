@@ -1,6 +1,7 @@
 ---
 title: Gandi
-modified: 2026-02-17
+modified: 2026-04-09
+last-reviewed: 2026-04-09
 tags:
   - infrastructure
   - networking
@@ -43,6 +44,7 @@ Both records point to [[indri]], which runs [[caddy]] as the reverse proxy for a
 |--------|------|-------|-----|
 | `docs.eblu.me` | CNAME | `blumeops-proxy.fly.dev` | 300s |
 | `cv.eblu.me` | CNAME | `blumeops-proxy.fly.dev` | 300s |
+| `forge.eblu.me` | CNAME | `blumeops-proxy.fly.dev` | 300s |
 
 Public CNAMEs point to [[flyio-proxy]] on Fly.io. See [[expose-service-publicly]] for adding new public services.
 
@@ -52,7 +54,7 @@ See [[routing]] for the full service URL map.
 
 The Pulumi program lives in `pulumi/gandi/`:
 
-- `__main__.py` - Creates the two A records via `pulumiverse_gandi`
+- `__main__.py` - Creates A and CNAME records via `pulumiverse_gandi`
 - `Pulumi.eblu-me.yaml` - Stack config (domain, subdomain)
 
 Stack config values:
