@@ -65,6 +65,14 @@ spec:
         createdb: true
         passwordSecret:
           name: blumeops-pg-authentik
+      # paperless user for Paperless-ngx document management
+      - name: paperless
+        login: true
+        connectionLimit: -1
+        ensure: present
+        inherit: true
+        passwordSecret:
+          name: blumeops-pg-paperless
 
   # Resource limits for minikube environment
   resources:

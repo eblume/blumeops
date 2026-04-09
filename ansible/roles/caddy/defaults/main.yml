@@ -92,6 +92,9 @@ caddy_services:
   - name: mealie
     host: "meals.{{ caddy_domain }}"
     backend: "https://meals.tail8d86e.ts.net"
+  - name: paperless
+    host: "paperless.{{ caddy_domain }}"
+    backend: "https://paperless.tail8d86e.ts.net"
   - name: sifaka
     host: "nas.{{ caddy_domain }}"
     backend: "http://sifaka:5000"

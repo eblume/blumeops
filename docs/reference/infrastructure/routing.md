@@ -41,6 +41,7 @@ DNS points to [[indri]]'s Tailscale IP. TLS via Let's Encrypt (ACME DNS-01 with 
 | [[jellyfin]] | https://jellyfin.ops.eblu.me | Media server |
 | [[postgresql]] | pg.ops.eblu.me:5432 | Database |
 | [[mealie]] | https://meals.ops.eblu.me | Recipe manager |
+| [[paperless]] | https://paperless.ops.eblu.me | Document management |
 | [[sifaka|Sifaka]] | https://nas.ops.eblu.me | NAS dashboard |
 
 ## Public Services (`*.eblu.me`)

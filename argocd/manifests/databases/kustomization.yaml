@@ -14,3 +14,4 @@ resources:
   - external-secret-immich-borgmatic.yaml
   - external-secret-teslamate.yaml
   - external-secret-authentik.yaml
+  - external-secret-paperless.yaml

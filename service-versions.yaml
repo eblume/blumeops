@@ -294,6 +294,13 @@ services:
     upstream-source: https://github.com/mealie-recipes/mealie/releases
     notes: Recipe manager; built from source via forge mirror
 
+  - name: paperless
+    type: argocd
+    last-reviewed: "2026-04-08"
+    current-version: "v2.20.13"
+    upstream-source: https://github.com/paperless-ngx/paperless-ngx/releases
+    notes: Document management; built from source via forge mirror
+
   - name: unpoller
     type: argocd
     last-reviewed: 2026-03-16
