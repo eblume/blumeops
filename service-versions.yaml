@@ -171,8 +171,8 @@ services:
 
   - name: ollama
     type: argocd
-    last-reviewed: "2026-03-02"
-    current-version: "0.17.5"
+    last-reviewed: "2026-04-09"
+    current-version: "0.20.4"
     upstream-source: https://github.com/ollama/ollama/releases
     notes: LLM inference server on ringtail (GPU); upstream container image
 
