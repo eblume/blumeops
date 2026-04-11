@@ -5,7 +5,7 @@
 #
 # Fields:
 #   name            - kebab-case service identifier
-#   type            - argocd | ansible | nixos
+#   type            - argocd | ansible | nixos | fly
 #   last-reviewed   - date (YYYY-MM-DD) or null
 #   current-version - deployed version string or null
 #   upstream-source - URL to upstream releases/changelog
@@ -369,3 +369,27 @@ services:
     current-version: "1.11.0"
     upstream-source: https://www.pixeleyes.co.nz/automounter/
     notes: Mac App Store app, no Ansible role. Updates via App Store.
+
+  - name: flyio-tailscale
+    type: fly
+    last-reviewed: "2026-04-10"
+    current-version: "v1.94.1"
+    upstream-source: https://github.com/tailscale/tailscale/releases
+    notes: >-
+      Pinned after v1.96.5 broke MagicDNS in containers. Test DNS resolution
+      inside Fly container before upgrading. COPY --from in fly/Dockerfile.
+
+  - name: flyio-nginx
+    type: fly
+    last-reviewed: "2026-04-10"
+    current-version: "1.29.6-alpine"
+    upstream-source: https://hub.docker.com/_/nginx
+    notes: Base image for Fly proxy (fly/Dockerfile)
+
+  - name: flyio-alloy
+    type: fly
+    parent: flyio-nginx
+    last-reviewed: "2026-04-10"
+    current-version: "v1.14.1"
+    upstream-source: https://github.com/grafana/alloy/releases
+    notes: COPY --from in fly/Dockerfile for log shipping and metrics
