@@ -1,9 +1,9 @@
 FROM nginx:1.29.6-alpine
 
 # Copy tailscale binaries from official image
-COPY --from=docker.io/tailscale/tailscale:stable \
+COPY --from=docker.io/tailscale/tailscale:v1.94.1 \
     /usr/local/bin/tailscaled /usr/local/bin/tailscaled
-COPY --from=docker.io/tailscale/tailscale:stable \
+COPY --from=docker.io/tailscale/tailscale:v1.94.1 \
     /usr/local/bin/tailscale /usr/local/bin/tailscale
 
 RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
