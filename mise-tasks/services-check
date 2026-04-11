@@ -100,16 +100,17 @@ for a in alerts:
     if [ -z "$firing" ]; then
         echo -e "${GREEN}OK${NC}"
     else
-        local summary runbook
-        summary=$(echo "$firing" | head -1 | cut -d'|' -f1)
-        runbook=$(echo "$firing" | head -1 | cut -d'|' -f2)
         echo -e "${RED}FIRING${NC}"
-        if [ -n "$summary" ]; then
-            echo -e "                           $summary"
-        fi
-        if [ -n "$runbook" ]; then
-            echo -e "                           Runbook: $runbook"
-        fi
+        local runbook_printed=false
+        while IFS='|' read -r summary runbook; do
+            if [ -n "$summary" ]; then
+                echo -e "                           $summary"
+            fi
+            if [ -n "$runbook" ] && [ "$runbook_printed" = false ]; then
+                echo -e "                           Runbook: $runbook"
+                runbook_printed=true
+            fi
+        done <<< "$firing"
         FAILED=1
     fi
 }
