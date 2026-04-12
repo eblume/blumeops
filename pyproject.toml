@@ -10,3 +10,10 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 dagger-io = { path = "sdk", editable = true }
+
+[tool.ty.environment]
+python-version = "3.13"
+extra-paths = ["sdk/src"]
+
+[tool.ty.src]
+exclude = ["pulumi/", "containers/transmission-exporter/"]

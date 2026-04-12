@@ -1,0 +1,1 @@
+Add `ty` (Astral) Python typechecker to prek hooks, configured for Dagger SDK and container.py modules. Add `type: mise` to service-versions.yaml for tracking development tool versions (dagger, ansible-core, prek, pulumi, ty) through the standard service review process.

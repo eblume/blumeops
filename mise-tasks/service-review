@@ -5,7 +5,7 @@
 # ///
 #MISE description="Review the most stale service for version freshness"
 #USAGE flag "--limit <limit>" default="15" help="Number of services to show in the table"
-#USAGE flag "--type <type>" help="Filter by service type (argocd, ansible, nixos)"
+#USAGE flag "--type <type>" help="Filter by service type (argocd, ansible, nixos, fly, mise)"
 """Review the most stale service for version freshness.
 
 Reads ``docs/reference/services/service-versions.yaml`` and sorts services
@@ -196,6 +196,13 @@ def main(
             "• Version tracks nixpkgs via flake.lock\n",
             "• Update: dagger call flake-update --src=. export --path=nixos/ringtail/flake.lock\n",
             "• Deploy: mise run provision-ringtail\n",
+        ]
+    elif svc_type == "mise":
+        checklist_parts += [
+            "\n[bold]Mise Tool Update:[/bold]\n",
+            "• Update pinned version in mise.toml\n",
+            "• Run: mise install to verify\n",
+            "• Check for breaking changes in release notes\n",
         ]
 
     checklist_parts += [

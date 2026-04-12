@@ -1,7 +1,7 @@
 ---
 title: Review Services
-modified: 2026-03-24
-last-reviewed: 2026-03-07
+modified: 2026-04-12
+last-reviewed: 2026-04-12
 tags:
   - how-to
   - maintenance
@@ -64,6 +64,16 @@ Versioned NixOS services (forgejo-runner, snowflake, k3s) are pinned via a `nixp
 2. Check what version nixpkgs has: `ssh ringtail 'nix eval nixpkgs#<pkg>.version'`
 3. To upgrade, update the `nixpkgs-services` rev in `flake.nix` to a nixpkgs commit that includes the desired version, then run `nix flake update nixpkgs-services` from `nixos/ringtail/`
 4. Deploy via `mise run provision-ringtail`
+5. Update `service-versions.yaml` with the new version
+
+### Mise Tools (`type: mise`)
+
+Development tools managed via `mise.toml` with pinned versions. These are local CLI tools (dagger, pulumi, prek, ty, ansible-core) rather than deployed services.
+
+1. Check the upstream releases page for new versions
+2. Review the changelog for breaking changes
+3. Update the pinned version in `mise.toml`
+4. Run `mise install` to verify the new version installs correctly
 5. Update `service-versions.yaml` with the new version
 
 ### Private Forge Repos (`upstream-source` under `forge.eblu.me/eblume/`)

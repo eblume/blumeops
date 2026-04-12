@@ -131,20 +131,26 @@ def alpine_runtime(
     uid: int = 65534,
     gid: int = 65534,
     username: str = "app",
+    create_user: bool = True,
 ) -> dagger.Container:
-    """Standard Alpine 3.22 runtime base with non-root user."""
+    """Standard Alpine 3.22 runtime base.
+
+    When create_user is True (default), creates a non-root user with the given
+    uid/gid/username. Set create_user=False to use an existing user (e.g.
+    Alpine's built-in nobody:65534).
+    """
     packages = extra_apk or []
     setup_cmds = []
     if packages:
         setup_cmds.append(f"apk add --no-cache {' '.join(packages)}")
-    setup_cmds.append(f"addgroup -g {gid} {username}")
-    setup_cmds.append(f"adduser -u {uid} -G {username} -D {username}")
+    if create_user:
+        setup_cmds.append(f"addgroup -g {gid} {username}")
+        setup_cmds.append(f"adduser -u {uid} -G {username} -D {username}")
 
-    return (
-        dag.container()
-        .from_("alpine:3.22")
-        .with_exec(["sh", "-c", " && ".join(setup_cmds)])
-    )
+    ctr = dag.container().from_("alpine:3.22")
+    if setup_cmds:
+        ctr = ctr.with_exec(["sh", "-c", " && ".join(setup_cmds)])
+    return ctr
 
 
 def oci_labels(

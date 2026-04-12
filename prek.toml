@@ -77,6 +77,18 @@ repo = "https://github.com/astral-sh/ruff-pre-commit"
 rev = "v0.15.7"
 hooks = [{ id = "ruff", args = ["--fix"] }, { id = "ruff-format" }]
 
+# Python - ty type checker
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "ty-check"
+name = "ty type check"
+entry = "ty check"
+language = "system"
+types = ["python"]
+pass_filenames = false
+
 # Shell scripts - shellcheck and shfmt
 [[repos]]
 repo = "https://github.com/shellcheck-py/shellcheck-py"

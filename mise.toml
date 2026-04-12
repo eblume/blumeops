@@ -1,5 +1,6 @@
 [tools]
-"pipx:ansible-core" = { version = "latest", uvx = "true", uvx_args = "--with botocore --with boto3" }
-prek = "latest"
-pulumi = "latest"
+"pipx:ansible-core" = { version = "2.20.1", uvx = "true", uvx_args = "--with botocore --with boto3" }
+prek = "0.3.4"
+pulumi = "3.215.0"
 dagger = "0.20.1"
+ty = "0.0.29"

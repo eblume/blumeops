@@ -5,7 +5,7 @@
 #
 # Fields:
 #   name            - kebab-case service identifier
-#   type            - argocd | ansible | nixos | fly
+#   type            - argocd | ansible | nixos | fly | mise
 #   last-reviewed   - date (YYYY-MM-DD) or null
 #   current-version - deployed version string or null
 #   upstream-source - URL to upstream releases/changelog
@@ -184,8 +184,8 @@ services:
 
   - name: miniflux
     type: argocd
-    last-reviewed: 2026-03-02
-    current-version: "2.2.17"
+    last-reviewed: 2026-04-12
+    current-version: "2.2.19"
     upstream-source: https://github.com/miniflux/v2/releases
 
   - name: teslamate
@@ -393,3 +393,40 @@ services:
     current-version: "v1.14.1"
     upstream-source: https://github.com/grafana/alloy/releases
     notes: COPY --from in fly/Dockerfile for log shipping and metrics
+
+  # --- Mise-managed development tools ---
+
+  - name: dagger
+    type: mise
+    last-reviewed: 2026-04-12
+    current-version: "0.20.1"
+    upstream-source: https://github.com/dagger/dagger/releases
+    notes: Dagger CI/CD engine; pinned in mise.toml
+
+  - name: ansible-core
+    type: mise
+    last-reviewed: 2026-04-12
+    current-version: "2.20.1"
+    upstream-source: https://github.com/ansible/ansible/releases
+    notes: Installed via pipx/uvx with botocore and boto3
+
+  - name: prek
+    type: mise
+    last-reviewed: 2026-04-12
+    current-version: "0.3.4"
+    upstream-source: https://github.com/j178/prek/releases
+    notes: Pre-commit hook runner (Rust reimplementation)
+
+  - name: pulumi-cli
+    type: mise
+    last-reviewed: 2026-04-12
+    current-version: "3.215.0"
+    upstream-source: https://github.com/pulumi/pulumi/releases
+    notes: IaC CLI for tailscale and gandi stacks
+
+  - name: ty
+    type: mise
+    last-reviewed: 2026-04-12
+    current-version: "0.0.29"
+    upstream-source: https://github.com/astral-sh/ty/releases
+    notes: Astral Python typechecker (beta); prek hook
