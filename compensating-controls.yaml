@@ -39,15 +39,23 @@ controls:
 
   - id: local-registry
     description: >-
-      All container images are pulled from private zot registry
-      (registry.ops.eblu.me). No shared external registry credentials
-      are cached on cluster nodes.
+      Operator-built services use a private zot registry
+      (registry.ops.eblu.me) for supply-chain control. Remaining
+      images are pulled from public registries without stored
+      credentials. No shared registry secrets are cached on cluster
+      nodes.
     created: 2026-03-30
-    last-reviewed: 2026-03-30
+    last-reviewed: 2026-04-12
     notes: >-
       Verify by checking image prefixes in kustomization.yaml files.
-      Upstream images (immich, ollama) are exceptions — track in
-      service-versions.yaml.
+      Known external-image categories: (1) upstream apps not yet
+      mirrored — immich, ollama, frigate, frigate-notify, valkey;
+      (2) infrastructure components — tailscale operator/proxy,
+      external-secrets, 1password-connect, forgejo-runner, docker
+      DinD, nvidia-device-plugin; (3) utility base images — busybox,
+      alpine (grafana init containers). Track upstream versions in
+      service-versions.yaml. Goal is to progressively mirror these
+      into zot.
 
   - id: sso-gated-admin-tools
     description: >-
