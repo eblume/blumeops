@@ -57,7 +57,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 |------|-------------|
 | `branch-cleanup` | Delete merged branches (local and remote) |
 | `pr-comments` | List unresolved PR comments |
-| `runner-logs` | View Forgejo Actions workflow logs |
+| `runner-logs` | List Forgejo Actions runs and fetch job logs (supports `--repo`, `--limit`) |
 | `validate-workflows` | Validate workflow files against runner schema |
 | `mikado-branch-invariant-check` | Validate Mikado Branch Invariant on `mikado/*` branches |
 

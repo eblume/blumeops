@@ -1,0 +1,1 @@
+Rewrite `mise run runner-logs` CLI: list runs by run number (not task ID), drill into jobs per run, fetch logs via Forgejo web API instead of SSH+filesystem. Fixes broken log retrieval caused by incorrect hex path calculation and stale data directory. Added `--repo` to query any forge repo (e.g. sporks) and `--limit`/`-n` to control listing size (0 for all).

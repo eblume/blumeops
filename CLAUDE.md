@@ -117,6 +117,17 @@ The goal is to eventually use only locally built containers in all cases, with
 full supply chain control via forge.ops.eblu.me repositories, mirroring source
 from upstream.
 
+**After triggering a build** (manual dispatch or push to main), verify the
+workflow succeeded before proceeding:
+
+```fish
+mise run runner-logs                          # find the run number
+mise run runner-logs <run#>                   # see jobs in the run
+mise run runner-logs <run#> -j <N>            # fetch logs on failure
+```
+
+This also works for other forge repos (`--repo eblume/hermes`).
+
 ## Third-Party Projects
 
 Ask user to mirror on forge first, then clone to `~/code/3rd/<project>/`.

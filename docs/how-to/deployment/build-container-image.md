@@ -68,6 +68,14 @@ mise run container-build-and-release <name> --ref <commit-sha>
 
 Use `--dry-run` to preview without dispatching.
 
+After dispatching, verify the workflow succeeded with `runner-logs`:
+
+```bash
+mise run runner-logs                    # find the new run number
+mise run runner-logs <run#>             # see jobs and their status
+mise run runner-logs <run#> -j <N>      # fetch full logs (e.g. on failure)
+```
+
 | Build file | Workflow | Runner | Registry tag |
 |------------|----------|--------|--------------|
 | `container.py` | `build-container.yaml` | `k8s` (indri) | `:vX.Y.Z-<sha>` |
@@ -99,7 +107,7 @@ Container image tags include the git commit SHA they were built from (e.g. `v3.9
 **The rule:** Production manifests must reference images built from a commit on main. After merging a PR that changed `containers/<name>/`:
 
 1. The merge to main automatically triggers a rebuild (the `build-container.yaml` / `build-container-nix.yaml` workflows fire on pushes to `main` that touch `containers/**`)
-2. Wait for the workflow to complete — check at `https://forge.eblu.me/eblume/blumeops/actions`
+2. Wait for the workflow to complete — verify with `mise run runner-logs` (find the run, check status)
 3. Find the new main-SHA tag:
    ```bash
    mise run container-list <name>
