@@ -140,3 +140,4 @@ BlumeOps uses kustomize manifests for all services. Helm charts should not be in
 - [[deploy-k8s-service]] - Deploy changes to Kubernetes services
 - [[build-container-image]] - Build and release custom container images
 - [[add-ansible-role]] - Add or modify Ansible roles
+- [[service-versions]] - Version tracking file reference

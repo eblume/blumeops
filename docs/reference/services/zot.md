@@ -66,4 +66,4 @@ The `zot-ci` API key expires every **90 days**. To rotate:
 - [[cluster|Cluster]] - Registry consumer
 - [[authentik]] - OIDC identity provider
 - [[harden-zot-registry]] - Security hardening guide
-- [[install-dagger-on-nix-runner]] - Why Dagger can't run on the Nix builder
+- [[service-versions]] - Version tracking for deployed services
