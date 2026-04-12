@@ -73,6 +73,10 @@ jobs:
     needs: detect
     if: needs.detect.outputs.dagger != '[]'
     runs-on: k8s
+    env:
+      # Disable Python SDK OTLP metrics exporter — the Dagger engine's local
+      # OTLP endpoint returns 500s, causing ~9s retry cycles per minute.
+      OTEL_METRICS_EXPORTER: none
     strategy:
       matrix:
         container: ${{ fromJson(needs.detect.outputs.dagger) }}
