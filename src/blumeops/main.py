@@ -1,4 +1,9 @@
+import os
 from pathlib import Path
+
+# Disable OTLP metrics exporter before the Dagger SDK initializes OpenTelemetry.
+# The Dagger engine's local OTLP endpoint returns 500s, causing ~11s retry delays.
+os.environ.setdefault("OTEL_METRICS_EXPORTER", "none")
 
 import dagger
 from dagger import dag, function, object_type
