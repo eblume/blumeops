@@ -1,6 +1,6 @@
 ---
 title: Dagger
-modified: 2026-03-06
+modified: 2026-04-11
 tags:
   - reference
   - ci-cd
@@ -15,23 +15,36 @@ Build engine for BlumeOps CI/CD pipelines. Replaces shell-based build scripts wi
 
 | Property | Value |
 |----------|-------|
-| **Module** | `blumeops-ci` |
+| **Module** | `blumeops` |
 | **Engine Version** | v0.20.1 |
 | **SDK** | Python |
-| **Source** | `.dagger/src/blumeops_ci/main.py` |
-| **Config** | `dagger.json` |
+| **Source** | `src/blumeops/main.py` |
+| **Config** | `dagger.json` (source: `.`) |
 
 ## Functions
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `build` | `(src, container_name) → Container` | Build a container from `containers/<name>/Dockerfile` |
+| `build` | `(src, container_name) → Container` | Build a container — uses native pipeline (`container.py`) if available, falls back to `docker_build()` for Dockerfile containers |
+| `container_version` | `(container_name) → str` | Return the `VERSION` from a container's `container.py` (empty string if no `container.py`) |
 | `publish` | `(src, container_name, version, registry?) → str` | Build and push to registry (default: `registry.ops.eblu.me`) |
 | `build_nix` | `(src, container_name) → File` | Build a nix container from `containers/<name>/default.nix`, return docker-archive tarball |
 | `nix_version` | `(package) → str` | Extract the version of a nixpkgs package |
 | `build_docs` | `(src, version) → File` | Build Quartz docs site, return docs tarball |
 | `flake_lock` | `(src, flake_path?) → File` | Resolve flake inputs, return updated `flake.lock` |
 | `flake_update` | `(src, flake_path?) → File` | Update all flake inputs to latest, return `flake.lock` |
+
+## Container Build Types
+
+Containers can be built in three ways:
+
+| Build file | How it works | Error visibility |
+|------------|-------------|-----------------|
+| `container.py` | Native Dagger pipeline (preferred) | Full per-step output |
+| `Dockerfile` | `docker_build()` fallback (legacy) | Opaque — errors swallowed |
+| `default.nix` | `nix-build` on ringtail runner | Full nix output |
+
+New containers for indri (k8s runner) should use `container.py`. Ringtail containers should continue using `default.nix`. Existing Dockerfile containers are migrated incrementally during [[review-services|service reviews]]. See `containers/navidrome/container.py` for the reference pattern.
 
 ## CLI Examples
 

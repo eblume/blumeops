@@ -3,16 +3,17 @@
 # requires-python = ">=3.12"
 # dependencies = ["pyyaml>=6.0.2", "rich>=14.0.0", "typer>=0.24.0"]
 # ///
-#MISE description="Validate container version consistency across Dockerfiles, nix derivations, and service-versions.yaml"
+#MISE description="Validate container version consistency across container.py, Dockerfiles, nix derivations, and service-versions.yaml"
 #USAGE flag "--all-files" help="Check all containers, not just changed ones"
 """Validate that container versions are consistent across all declaration sites.
 
 For each container directory under containers/, checks:
-1. Any Dockerfile must declare ARG CONTAINER_APP_VERSION=<value>
-2. Any default.nix must produce a version (via dagger call nix-version)
-3. At least one build file (Dockerfile or default.nix) must exist
-4. A matching entry in service-versions.yaml must exist with non-null current-version
-5. All resolved versions from (1), (2), and (4) must agree
+1. Any container.py must declare VERSION=<value>
+2. Any Dockerfile must declare ARG CONTAINER_APP_VERSION=<value>
+3. Any default.nix must produce a version (via dagger call nix-version)
+4. At least one build file (container.py, Dockerfile, or default.nix) must exist
+5. A matching entry in service-versions.yaml must exist with non-null current-version
+6. All resolved versions from (1), (2), (3), and (5) must agree
 
 By default, only checks containers whose files differ from main.
 Pass --all-files to check every container.
@@ -53,6 +54,7 @@ NIX_PACKAGE_MAP = {
     "authentik": "authentik",
 }
 
+CONTAINER_PY_VERSION_PATTERN = re.compile(r'^VERSION\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
 VERSION_ARG_PATTERN = re.compile(r"^ARG\s+CONTAINER_APP_VERSION=(\S+)", re.MULTILINE)
 NIX_VERSION_PATTERN = re.compile(r'^\s*version\s*=\s*"([^"]+)"\s*;', re.MULTILINE)
 
@@ -109,7 +111,7 @@ def get_nix_version(container_name: str, nix_file: Path) -> str | None:
         return None
 
     result = subprocess.run(
-        ["dagger", "-m", ".dagger", "call", "nix-version", f"--package={pkg}"],
+        ["dagger", "call", "nix-version", f"--package={pkg}"],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
@@ -148,26 +150,37 @@ def main(
         if scope is not None and name not in scope:
             continue
 
+        container_py = container_dir / "container.py"
         dockerfile = container_dir / "Dockerfile"
         nix_file = container_dir / "default.nix"
+        has_container_py = container_py.exists()
         has_dockerfile = dockerfile.exists()
         has_nix = nix_file.exists()
 
         versions: dict[str, str] = {}
         entry = {
             "name": name,
+            "has_container_py": has_container_py,
             "has_dockerfile": has_dockerfile,
             "has_nix": has_nix,
             "versions": versions,
         }
         results.append(entry)
 
-        # Rule 3: at least one build file
-        if not has_dockerfile and not has_nix:
-            errors.append((name, "No Dockerfile or default.nix found"))
+        # Rule 4: at least one build file
+        if not has_container_py and not has_dockerfile and not has_nix:
+            errors.append((name, "No container.py, Dockerfile, or default.nix found"))
             continue
 
-        # Rule 1: Dockerfile must declare CONTAINER_APP_VERSION
+        # Rule 1: container.py must declare VERSION
+        if has_container_py:
+            match = CONTAINER_PY_VERSION_PATTERN.search(container_py.read_text())
+            if match:
+                versions["container.py"] = match.group(1)
+            else:
+                errors.append((name, "container.py missing VERSION declaration"))
+
+        # Rule 2: Dockerfile must declare CONTAINER_APP_VERSION
         if has_dockerfile:
             match = VERSION_ARG_PATTERN.search(dockerfile.read_text())
             if match:
@@ -175,7 +188,7 @@ def main(
             else:
                 errors.append((name, "Dockerfile missing ARG CONTAINER_APP_VERSION"))
 
-        # Rule 2: nix derivation must produce a version
+        # Rule 3: nix derivation must produce a version
         if has_nix:
             nix_ver = get_nix_version(name, nix_file)
             if nix_ver is not None:
@@ -219,6 +232,8 @@ def main(
         for entry in results:
             name = entry["name"]
             build_parts = []
+            if entry["has_container_py"]:
+                build_parts.append("dagger")
             if entry["has_dockerfile"]:
                 build_parts.append("dockerfile")
             if entry["has_nix"]:

@@ -78,11 +78,14 @@ def discover_containers() -> list[dict]:
     for d in sorted(CONTAINER_DIR.iterdir()):
         if not d.is_dir():
             continue
+        has_container_py = (d / "container.py").exists()
         has_dockerfile = (d / "Dockerfile").exists()
         has_nix = (d / "default.nix").exists()
-        if not has_dockerfile and not has_nix:
+        if not has_container_py and not has_dockerfile and not has_nix:
             continue
         types = []
+        if has_container_py:
+            types.append("dagger")
         if has_dockerfile:
             types.append("dockerfile")
         if has_nix:

@@ -178,8 +178,8 @@ services:
 
   - name: navidrome
     type: argocd
-    last-reviewed: 2026-03-02
-    current-version: "v0.60.3"
+    last-reviewed: 2026-04-11
+    current-version: "v0.61.1"
     upstream-source: https://github.com/navidrome/navidrome/releases
 
   - name: miniflux

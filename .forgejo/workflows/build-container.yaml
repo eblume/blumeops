@@ -24,7 +24,7 @@ jobs:
   detect:
     runs-on: k8s
     outputs:
-      dockerfile: ${{ steps.classify.outputs.dockerfile }}
+      dagger: ${{ steps.classify.outputs.dagger }}
       nix: ${{ steps.classify.outputs.nix }}
     steps:
       - name: Checkout
@@ -47,12 +47,12 @@ jobs:
           echo "Changed containers: $CHANGED"
 
           # Classify each container by build type (a container can appear in both)
-          DOCKERFILE='[]'
+          DAGGER='[]'
           NIX='[]'
           for name in $(echo "$CHANGED" | jq -r '.[]'); do
             has_any=false
-            if [ -f "containers/$name/Dockerfile" ]; then
-              DOCKERFILE=$(echo "$DOCKERFILE" | jq -c --arg n "$name" '. + [$n]')
+            if [ -f "containers/$name/container.py" ] || [ -f "containers/$name/Dockerfile" ]; then
+              DAGGER=$(echo "$DAGGER" | jq -c --arg n "$name" '. + [$n]')
               has_any=true
             fi
             if [ -f "containers/$name/default.nix" ]; then
@@ -60,22 +60,22 @@ jobs:
               has_any=true
             fi
             if [ "$has_any" = "false" ]; then
-              echo "Warning: $name has neither Dockerfile nor default.nix — skipping"
+              echo "Warning: $name has neither container.py, Dockerfile, nor default.nix — skipping"
             fi
           done
 
-          echo "dockerfile=$DOCKERFILE" >> "$GITHUB_OUTPUT"
+          echo "dagger=$DAGGER" >> "$GITHUB_OUTPUT"
           echo "nix=$NIX" >> "$GITHUB_OUTPUT"
-          echo "Dockerfile builds: $DOCKERFILE"
+          echo "Dagger builds: $DAGGER"
           echo "Nix builds: $NIX"
 
-  build-dockerfile:
+  build-dagger:
     needs: detect
-    if: needs.detect.outputs.dockerfile != '[]'
+    if: needs.detect.outputs.dagger != '[]'
     runs-on: k8s
     strategy:
       matrix:
-        container: ${{ fromJson(needs.detect.outputs.dockerfile) }}
+        container: ${{ fromJson(needs.detect.outputs.dagger) }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -85,12 +85,19 @@ jobs:
       - name: Extract version and SHA
         id: meta
         run: |
-          VERSION=$(grep -m1 '^ARG CONTAINER_APP_VERSION=' \
-            "containers/${{ matrix.container }}/Dockerfile" \
-            | sed 's/^ARG CONTAINER_APP_VERSION=//')
+          CONTAINER="${{ matrix.container }}"
+
+          # Try native Dagger pipeline (container.py) first, fall back to Dockerfile
+          if [ -f "containers/$CONTAINER/container.py" ]; then
+            VERSION=$(dagger call container-version --container-name="$CONTAINER")
+          elif [ -f "containers/$CONTAINER/Dockerfile" ]; then
+            VERSION=$(grep -m1 '^ARG CONTAINER_APP_VERSION=' \
+              "containers/$CONTAINER/Dockerfile" \
+              | sed 's/^ARG CONTAINER_APP_VERSION=//')
+          fi
 
           if [ -z "$VERSION" ]; then
-            echo "Error: No CONTAINER_APP_VERSION found in Dockerfile"
+            echo "Error: Could not extract version for $CONTAINER"
             exit 1
           fi
 

@@ -54,6 +54,8 @@ def list_containers() -> None:
         if not d.is_dir():
             continue
         types = []
+        if (d / "container.py").exists():
+            types.append("dagger")
         if (d / "Dockerfile").exists():
             types.append("dockerfile")
         if (d / "default.nix").exists():
@@ -70,11 +72,12 @@ def main(
 ) -> None:
     """Trigger container build workflows via Forgejo API dispatch."""
     container_dir = Path("containers") / container
+    has_container_py = (container_dir / "container.py").exists()
     has_dockerfile = (container_dir / "Dockerfile").exists()
     has_nix = (container_dir / "default.nix").exists()
 
-    if not has_dockerfile and not has_nix:
-        typer.echo(f"Error: No Dockerfile or default.nix found in '{container_dir}'")
+    if not has_container_py and not has_dockerfile and not has_nix:
+        typer.echo(f"Error: No container.py, Dockerfile, or default.nix found in '{container_dir}'")
         typer.echo()
         list_containers()
         raise typer.Exit(1)
@@ -90,10 +93,11 @@ def main(
 
     # Show expected builds
     builds = []
-    if has_dockerfile:
-        builds.append(f"  dockerfile -> {REGISTRY}/{image}:v<version>-{short_sha}")
+    if has_container_py or has_dockerfile:
+        label = "dagger" if has_container_py else "dockerfile"
+        builds.append(f"  {label:12s} -> {REGISTRY}/{image}:v<version>-{short_sha}")
     if has_nix:
-        builds.append(f"  nix        -> {REGISTRY}/{image}:v<version>-{short_sha}-nix")
+        builds.append(f"  {'nix':12s} -> {REGISTRY}/{image}:v<version>-{short_sha}-nix")
 
     if dry_run:
         typer.echo("[dry-run mode]")

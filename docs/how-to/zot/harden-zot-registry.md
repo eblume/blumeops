@@ -1,6 +1,6 @@
 ---
 title: Harden Zot Registry
-modified: 2026-02-21
+modified: 2026-04-11
 tags:
   - how-to
   - zot
@@ -32,7 +32,7 @@ Updated `ansible/roles/zot/templates/config.json.j2` with:
 | `ansible/roles/zot/templates/config.json.j2` | Zot config with auth + access control |
 | `ansible/roles/zot/defaults/main.yml` | OIDC issuer and external URL variables |
 | `ansible/roles/zot/templates/oidc-credentials.json.j2` | OIDC client credentials |
-| `.dagger/src/blumeops_ci/main.py` | `publish()` with registry auth |
+| `src/blumeops/main.py` | `publish()` with registry auth |
 | `.forgejo/workflows/build-container.yaml` | Dagger push with API key |
 | `.forgejo/workflows/build-container-nix.yaml` | Skopeo push with API key |
 

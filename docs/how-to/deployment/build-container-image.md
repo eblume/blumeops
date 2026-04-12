@@ -1,6 +1,6 @@
 ---
 title: Build Container Image
-modified: 2026-02-24
+modified: 2026-04-11
 last-reviewed: 2026-02-15
 tags:
   - how-to
@@ -14,8 +14,8 @@ How to create a custom container image in BlumeOps, build it locally, and releas
 
 ## Prerequisites
 
-- [Dagger CLI](https://docs.dagger.io/install) installed locally (for Dockerfile builds)
-- A `Dockerfile` and/or `default.nix` for the service
+- [Dagger CLI](https://docs.dagger.io/install) installed locally
+- A `container.py`, `Dockerfile`, and/or `default.nix` for the service
 
 ## 1. Create the container directory
 
@@ -23,16 +23,21 @@ Add build files under `containers/<name>/`:
 
 ```
 containers/<name>/
-├── Dockerfile      (built by Dagger on the k8s runner)
+├── container.py    (native Dagger pipeline — preferred for new containers)
+├── Dockerfile      (legacy — built via docker_build() fallback)
 ├── default.nix     (built by nix-build on the ringtail runner)
 └── (optional scripts, configs)
 ```
 
-A container can have one or both build files. The directory name becomes the image name: `registry.ops.eblu.me/blumeops/<name>`.
+A container can have one or more build files. The directory name becomes the image name: `registry.ops.eblu.me/blumeops/<name>`.
+
+**New containers for indri (k8s runner) should use `container.py`** — native Dagger pipelines surface full build errors per step, while `docker_build()` (used for Dockerfiles) swallows errors. See `containers/navidrome/container.py` for the reference pattern. Existing Dockerfile containers are migrated incrementally during [[review-services|service reviews]].
+
+**Ringtail containers should continue using `default.nix`** — these are built by `nix-build` on the ringtail runner and don't benefit from the Dagger migration.
 
 ## 2. Build locally
 
-**Dockerfile** — test with Dagger:
+**Any container** (native `container.py` or legacy Dockerfile) — test with Dagger:
 
 ```bash
 dagger call build --src=. --container-name=<name>
@@ -65,10 +70,11 @@ Use `--dry-run` to preview without dispatching.
 
 | Build file | Workflow | Runner | Registry tag |
 |------------|----------|--------|--------------|
+| `container.py` | `build-container.yaml` | `k8s` (indri) | `:vX.Y.Z-<sha>` |
 | `Dockerfile` | `build-container.yaml` | `k8s` (indri) | `:vX.Y.Z-<sha>` |
-| `default.nix` | `build-container-nix.yaml` | `nix-container-builder` ([[ringtail]]) | `:vX.Y.Z-<sha>-nix` |
+| `default.nix` | `build-container.yaml` | `nix-container-builder` ([[ringtail]]) | `:vX.Y.Z-<sha>-nix` |
 
-The version (`X.Y.Z`) is extracted from `ARG CONTAINER_APP_VERSION=` in the Dockerfile or `version = "..."` in `default.nix`. The SHA is the short (7-char) commit hash.
+The version (`X.Y.Z`) is extracted from `VERSION` in `container.py` (via `dagger call container-version`), `ARG CONTAINER_APP_VERSION=` in Dockerfiles, or `version = "..."` in `default.nix`. The SHA is the short (7-char) commit hash.
 
 Check available images and tags with:
 
@@ -112,36 +118,36 @@ Existing containers demonstrate several build approaches:
 
 | Pattern | Example | Notes |
 |---------|---------|-------|
-| Alpine package install | [[#transmission]] | Simplest — install from apk |
-| Go from source | [[#miniflux]] | Clone upstream, `go build` |
-| Multi-stage with Node + Go | [[#navidrome]] | Separate UI and backend build stages |
-| Multi-stage Elixir | [[#teslamate]] | Elixir release with Node assets |
-| Runtime tarball download | [[#kiwix-serve]] | Download pre-built binary with arch detection |
-| Nix `dockerTools` | [[#ntfy-nix]] | `buildLayeredImage` with nix-built app |
-
-### transmission
-
-`containers/transmission/Dockerfile` — Installs transmission-daemon directly from Alpine packages. Good starting point for services available in apk.
-
-### miniflux
-
-`containers/miniflux/Dockerfile` — Two-stage Go build. Clones upstream at a pinned version tag, runs `make`, copies the binary into a minimal Alpine runtime.
+| Native Dagger (Go + Node) | [[#navidrome]] | `container.py` with helper functions — preferred for new containers |
+| Alpine package install | [[#transmission]] | Simplest Dockerfile — install from apk |
+| Go from source | [[#miniflux]] | Dockerfile: clone upstream, `go build` |
+| Multi-stage Elixir | [[#teslamate]] | Dockerfile: Elixir release with Node assets |
+| Runtime tarball download | [[#kiwix-serve]] | Dockerfile: download pre-built binary with arch detection |
+| Nix `dockerTools` | [[#ntfy-nix]] | `buildLayeredImage` with nix-built app (ringtail runner) |
 
 ### navidrome
 
-`containers/navidrome/Dockerfile` — Three-stage build with separate Node.js UI compilation, Go backend build with CGO (taglib), and a minimal Alpine runtime with ffmpeg.
+`containers/navidrome/container.py` — Native Dagger build. Three-stage pipeline using helper functions: `node_build()` for UI, `go_build()` with CGO/taglib/FTS5 for backend, `alpine_runtime()` with ffmpeg. This is the reference pattern for migrating Dockerfile containers to native Dagger builds.
+
+### transmission
+
+`containers/transmission/Dockerfile` — Installs transmission-daemon directly from Alpine packages. Good starting point for services available in apk. (Legacy Dockerfile — migrate to `container.py` during review.)
+
+### miniflux
+
+`containers/miniflux/Dockerfile` — Two-stage Go build. Clones upstream at a pinned version tag, runs `make`, copies the binary into a minimal Alpine runtime. (Legacy Dockerfile — migrate to `container.py` during review.)
 
 ### teslamate
 
-`containers/teslamate/Dockerfile` — Two-stage Elixir build with Node.js asset compilation. Uses Debian-based images due to Elixir/OTP dependencies.
+`containers/teslamate/Dockerfile` — Two-stage Elixir build with Node.js asset compilation. Uses Debian-based images due to Elixir/OTP dependencies. (Legacy Dockerfile — migrate to `container.py` during review.)
 
 ### kiwix-serve
 
-`containers/kiwix-serve/Dockerfile` — Downloads a pre-built binary from upstream, with architecture detection for cross-platform support.
+`containers/kiwix-serve/Dockerfile` — Downloads a pre-built binary from upstream, with architecture detection for cross-platform support. (Legacy Dockerfile — migrate to `container.py` during review.)
 
 ### ntfy (nix)
 
-`containers/ntfy/default.nix` — Builds ntfy from source using `buildGoModule` and packages it with `dockerTools.buildLayeredImage`. Runs alongside the existing Dockerfile; the nix variant is tagged `:version-nix` in the registry.
+`containers/ntfy/default.nix` — Builds ntfy from source using `buildGoModule` and packages it with `dockerTools.buildLayeredImage`. Runs alongside the existing Dockerfile; the nix variant is tagged `:version-nix` in the registry. Nix containers should continue using `default.nix`.
 
 ## Related
 

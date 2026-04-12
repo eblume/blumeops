@@ -21,7 +21,6 @@ After reviewing, update the service entry in the YAML file:
 Usage: mise run service-review [-- --limit 15] [-- --type argocd]
 """
 
-import sys
 from datetime import date
 from pathlib import Path
 from typing import Annotated
@@ -166,12 +165,25 @@ def main(
     ]
 
     svc_type = top_svc.get("type", "")
+    container_dir = Path(__file__).parent.parent / "containers" / top_svc["name"]
+    has_dockerfile_only = (
+        (container_dir / "Dockerfile").exists()
+        and not (container_dir / "container.py").exists()
+    )
+
     if svc_type == "argocd":
         checklist_parts += [
             "\n[bold]ArgoCD Deployment:[/bold]\n",
             "• Update image tag in argocd/manifests/<service>/kustomization.yaml\n",
             f"• Verify sync status: argocd app get {top_svc['name']}\n",
         ]
+        if has_dockerfile_only:
+            checklist_parts += [
+                "\n[bold yellow]Dagger Migration:[/bold yellow]\n",
+                "• This container still uses a Dockerfile (no container.py)\n",
+                "• Consider migrating to a native Dagger build for better error visibility\n",
+                f"• See containers/{top_svc['name']}/Dockerfile\n",
+            ]
     elif svc_type == "ansible":
         checklist_parts += [
             "\n[bold]Ansible Deployment:[/bold]\n",

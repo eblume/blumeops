@@ -1,6 +1,6 @@
 ---
 title: Upgrade Dagger
-modified: 2026-03-06
+modified: 2026-04-11
 last-reviewed: 2026-03-06
 tags:
   - how-to
@@ -26,7 +26,7 @@ Dagger versions are pinned in multiple places. The runner job image (which execu
 | `service-versions.yaml` | `runner-job-image` version and `last-reviewed` | 1 |
 | `mise.toml` | `dagger` tool version | 2 |
 | `dagger.json` | `engineVersion` | 2 |
-| `.dagger/uv.lock` | SDK dependency lock (regenerated automatically) | 2 |
+| `uv.lock` | SDK dependency lock (regenerated automatically) | 2 |
 | `docs/reference/tools/dagger.md` | Version references in documentation | 2 |
 | `argocd/manifests/forgejo-runner/deployment.yaml` | `RUNNER_LABELS` image tag | 2 |
 
@@ -63,7 +63,7 @@ Once the Phase 1 build completes, upgrade the module engine version and deploy t
    "engineVersion": "v<new-version>"
    ```
 
-4. Regenerate the SDK lock file — run any `dagger call` command (e.g., `dagger call --help` or `dagger functions`). This updates `.dagger/uv.lock` if SDK dependencies changed.
+4. Regenerate the SDK lock file — run any `dagger call` command (e.g., `dagger call --help` or `dagger functions`). This updates `uv.lock` if SDK dependencies changed.
 
 5. Update `docs/reference/tools/dagger.md` — bump the version in the Quick Reference table and any version references in the body text.
 

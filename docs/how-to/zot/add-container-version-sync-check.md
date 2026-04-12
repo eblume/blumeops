@@ -1,6 +1,6 @@
 ---
 title: Add Container Version Sync Check
-modified: 2026-02-20
+modified: 2026-04-11
 tags:
   - how-to
   - containers
@@ -10,7 +10,7 @@ tags:
 
 # Add Container Version Sync Check
 
-Add a prek check that validates version consistency across the three places container versions are declared: Dockerfile ARGs, `service-versions.yaml`, and nix derivations. No VERSION files needed — the existing sources are the source of truth, and the check enforces they agree.
+Add a prek check that validates version consistency across the places container versions are declared: `container.py` VERSION constants, Dockerfile ARGs, `service-versions.yaml`, and nix derivations. The check enforces they agree.
 
 ## Context
 
@@ -20,13 +20,14 @@ Discovered during analysis of [[adopt-commit-based-container-tags]]: the new com
 
 ### 1. Created `mise run container-version-check` task
 
-A typer-based uv-script that iterates over `containers/*/` and validates five rules per container:
+A typer-based uv-script that iterates over `containers/*/` and validates six rules per container:
 
-1. Any Dockerfile must declare `ARG CONTAINER_APP_VERSION=<value>`
-2. Any `default.nix` must produce a version via `dagger call nix-version`
-3. At least one build file must exist (Dockerfile or default.nix)
-4. A matching `service-versions.yaml` entry must exist with non-null `current-version`
-5. All resolved versions from (1), (2), and (4) must agree (v-prefix stripped for comparison)
+1. Any `container.py` must declare `VERSION = "<value>"`
+2. Any Dockerfile must declare `ARG CONTAINER_APP_VERSION=<value>`
+3. Any `default.nix` must produce a version via `dagger call nix-version`
+4. At least one build file must exist (`container.py`, Dockerfile, or `default.nix`)
+5. A matching `service-versions.yaml` entry must exist with non-null `current-version`
+6. All resolved versions from (1), (2), (3), and (5) must agree (v-prefix stripped for comparison)
 
 Scoping: by default only checks containers changed vs main. `--all-files` checks everything. If `service-versions.yaml` itself changed, all containers are checked.
 

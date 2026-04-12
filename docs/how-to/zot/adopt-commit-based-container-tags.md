@@ -1,6 +1,6 @@
 ---
 title: Adopt Commit-Based Container Tags
-modified: 2026-02-20
+modified: 2026-04-11
 tags:
   - how-to
   - containers
@@ -64,7 +64,7 @@ Where:
 |------|--------|
 | `.forgejo/workflows/build-container.yaml` | Replace tag trigger with path + dispatch triggers; compute version and SHA |
 | `.forgejo/workflows/build-container-nix.yaml` | Same trigger changes; add `-nix` suffix to new tag format |
-| `.dagger/src/blumeops_ci/main.py` | Accept SHA parameter; publish with new tag format |
+| `src/blumeops/main.py` | Accept SHA parameter; publish with new tag format |
 | `mise-tasks/container-build-and-release` | New task replacing `container-tag-and-release`; triggers workflow dispatch |
 | `mise-tasks/container-list` | Updated tag display for new format |
 | `docs/how-to/deployment/build-container-image.md` | Updated documentation |

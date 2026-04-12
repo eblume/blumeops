@@ -1,6 +1,6 @@
 ---
 title: Validate Workflows Against v12
-modified: 2026-02-27
+modified: 2026-04-11
 last-reviewed: 2026-02-27
 tags:
   - how-to
@@ -25,7 +25,7 @@ All 6 workflows pass v12.7.0 schema validation with no changes needed:
 
 ## Deliverables
 
-1. `validate_workflows` function added to `.dagger/src/blumeops_ci/main.py`
+1. `validate_workflows` function added to `src/blumeops/main.py` (formerly `.dagger/src/blumeops_ci/main.py`)
    - Uses `forgejo-runner validate --directory .` inside the upstream runner container
    - `runner_version` parameter (default `12.7.0`) pins to deployed version
 2. `mise run validate-workflows` task wired to `dagger call validate-workflows`

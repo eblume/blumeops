@@ -1,8 +1,8 @@
 {
-  "name": "blumeops-ci",
+  "name": "blumeops",
   "engineVersion": "v0.20.1",
   "sdk": {
     "source": "python"
   },
-  "source": ".dagger"
+  "source": "."
 }

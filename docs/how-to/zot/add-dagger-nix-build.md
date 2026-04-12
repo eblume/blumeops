@@ -1,6 +1,6 @@
 ---
 title: Add Dagger Nix Build Function
-modified: 2026-02-20
+modified: 2026-04-11
 tags:
   - how-to
   - containers
@@ -23,7 +23,7 @@ Currently, nix containers can only be built on ringtail (the `nix-container-buil
 
 ### 1. Add `build_nix` Dagger function
 
-A new function in `.dagger/src/blumeops_ci/main.py` that builds a nix container inside a `nixos/nix` container:
+A new function in `src/blumeops/main.py` (formerly `.dagger/src/blumeops_ci/main.py`) that builds a nix container inside a `nixos/nix` container:
 
 ```python
 @function
@@ -80,7 +80,7 @@ The `flake_lock` function already demonstrates running nix inside Dagger using `
 
 | File | Change |
 |------|--------|
-| `.dagger/src/blumeops_ci/main.py` | Add `build_nix`, `nix_version`, optionally `publish_nix` |
+| `src/blumeops/main.py` | Add `build_nix`, `nix_version`, optionally `publish_nix` |
 
 ## Verification
 

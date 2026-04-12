@@ -1,6 +1,6 @@
 ---
 title: Wire CI Registry Auth
-modified: 2026-02-21
+modified: 2026-04-11
 tags:
   - how-to
   - zot
@@ -36,7 +36,7 @@ Authentication uses a zot API key generated after the service account's first OI
 
 | File | Purpose |
 |------|---------|
-| `.dagger/src/blumeops_ci/main.py` | `publish()` accepts optional `registry_password` |
+| `src/blumeops/main.py` | `publish()` accepts optional `registry_password` |
 | `.forgejo/workflows/build-container.yaml` | Passes API key to Dagger |
 | `.forgejo/workflows/build-container-nix.yaml` | Passes API key to skopeo |
 | `ansible/playbooks/indri.yml` | Pre_task fetches API key from 1Password |

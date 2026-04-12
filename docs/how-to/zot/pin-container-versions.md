@@ -1,6 +1,6 @@
 ---
 title: Pin Container Versions
-modified: 2026-02-20
+modified: 2026-04-11
 tags:
   - how-to
   - containers
@@ -18,12 +18,14 @@ Discovered during analysis of [[adopt-commit-based-container-tags]]: containers 
 
 ## What Was Done
 
-Every container Dockerfile now declares `ARG CONTAINER_APP_VERSION=X.Y.Z` as its first ARG, providing a uniform parsing target. Containers that use the version in build commands chain it to a semantic ARG:
+Every container Dockerfile declares `ARG CONTAINER_APP_VERSION=X.Y.Z` as its first ARG, providing a uniform parsing target. Containers that use the version in build commands chain it to a semantic ARG:
 
 ```dockerfile
 ARG CONTAINER_APP_VERSION=v0.60.3
 ARG NAVIDROME_VERSION=${CONTAINER_APP_VERSION}
 ```
+
+> **Note:** Containers migrated to native Dagger builds use `VERSION = "X.Y.Z"` in `container.py` instead. See `containers/navidrome/container.py` for the pattern. New containers should use `container.py` rather than Dockerfiles.
 
 Specific changes:
 - **devpi**: Pinned devpi-server==6.19.1 and devpi-web==5.0.1

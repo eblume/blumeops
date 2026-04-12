@@ -47,6 +47,7 @@ For all service types, start by reading the service's reference card (`docs/refe
 3. Review the upstream changelog for breaking changes
 4. If the service uses a custom-built container, also check the base image for security updates and follow [[build-container-image]] to rebuild
 5. If upgrading, update the manifest and follow [[deploy-k8s-service]]
+6. If the container still uses a Dockerfile (no `container.py`), consider migrating to a native Dagger build — see the `containers/navidrome/container.py` pattern for reference
 
 ### Ansible Services (`type: ansible`)
 
