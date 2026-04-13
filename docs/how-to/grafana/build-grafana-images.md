@@ -34,23 +34,22 @@ mise run container-build-and-release grafana
 
 ## Grafana Sidecar
 
-**Dockerfile:** `containers/grafana-sidecar/Dockerfile`
+**Build:** `containers/grafana-sidecar/container.py` (native Dagger)
 **Image:** `registry.ops.eblu.me/blumeops/grafana-sidecar`
 
-Clones the [kiwigrid/k8s-sidecar](https://github.com/kiwigrid/k8s-sidecar) source from the forge mirror, installs Python dependencies into a venv, and copies the application into a minimal Alpine runtime image.
+Clones the [kiwigrid/k8s-sidecar](https://github.com/kiwigrid/k8s-sidecar) source from the forge mirror, installs the Python package into a venv, and copies it into a Python Alpine runtime image.
 
 ```fish
-# Update version in Dockerfile
-# ARG CONTAINER_APP_VERSION=1.28.0
+# Update VERSION in container.py
 
 mise run container-build-and-release grafana-sidecar
 ```
 
 **Gotchas:**
 
-- **Pinned to v1.28.0:** v2.x has a 135% memory regression ([#462](https://github.com/kiwigrid/k8s-sidecar/issues/462)) and `readOnlyRootFilesystem` crashloop ([#3936](https://github.com/grafana/helm-charts/issues/3936)). Upgrade separately after upstream fixes land.
 - **UID 65534:** Matches upstream's `nobody` user convention for non-root execution.
 - **Forge mirror name:** `mirrors/kiwigrid-grafana-sidecar` (not `k8s-sidecar`).
+- **Health endpoint:** 2.x exposes `/healthz` on port 8080 (liveness + readiness probes configured in deployment).
 
 ## Related
 

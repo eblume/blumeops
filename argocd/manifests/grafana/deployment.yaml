@@ -200,6 +200,18 @@ spec:
               value: http://localhost:3000/api/admin/provisioning/dashboards/reload
             - name: REQ_METHOD
               value: POST
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
