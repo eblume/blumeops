@@ -1,12 +1,4 @@
-import os
 from pathlib import Path
-
-# Force-disable OTLP metrics exporter before the Dagger SDK initializes
-# OpenTelemetry. The engine shim may set OTEL_METRICS_EXPORTER=otlp before
-# our module loads, so setdefault won't work — we need a hard override.
-# Without this, the engine's local OTLP endpoint returns 500s on metrics,
-# causing ~9s retry cycles per pipeline step.
-os.environ["OTEL_METRICS_EXPORTER"] = "none"
 
 import dagger
 from dagger import dag, function, object_type

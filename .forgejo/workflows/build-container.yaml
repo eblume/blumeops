@@ -73,6 +73,11 @@ jobs:
     needs: detect
     if: needs.detect.outputs.dagger != '[]'
     runs-on: k8s
+    env:
+      # Send Dagger OTLP telemetry to Tempo. Without a real backend the
+      # engine's internal proxy returns 500 on /v1/metrics, causing noisy
+      # retry warnings in every build.
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo.tracing.svc.cluster.local:4318
     strategy:
       matrix:
         container: ${{ fromJson(needs.detect.outputs.dagger) }}
