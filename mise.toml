@@ -1,4 +1,9 @@
 [tools]
+# Versions set here are referenced against service-versions.yaml
+# If you add a new tool, please:
+#   1. pin a specific version (or even better, a SHA)
+#   2. create a new entry in service-versions.yaml
+# This will help ensure reviewed upgrades at a steady cadence
 "pipx:ansible-core" = { version = "2.20.1", uvx = "true", uvx_args = "--with botocore --with boto3" }
 prek = "0.3.4"
 pulumi = "3.215.0"

@@ -1,4 +1,4 @@
-# Service Version Tracking
+# Service / Tooling/ Application Version Tracking
 #
 # Tracks when each BlumeOps service was last reviewed for version freshness.
 # Used by `mise run service-review` to surface stale services.
@@ -393,8 +393,6 @@ services:
     current-version: "v1.14.1"
     upstream-source: https://github.com/grafana/alloy/releases
     notes: COPY --from in fly/Dockerfile for log shipping and metrics
-
-  # --- Mise-managed development tools ---
 
   - name: dagger
     type: mise
