@@ -59,14 +59,16 @@ controls:
 
   - id: sso-gated-admin-tools
     description: >-
-      ArgoCD and Grafana require SSO authentication via Authentik OIDC.
-      Wildcard RBAC in ArgoCD is mitigated by requiring authenticated
-      identity before any API access.
+      ArgoCD requires SSO authentication via Authentik OIDC. Wildcard
+      RBAC roles are mitigated by requiring authenticated identity
+      before any API access.
     created: 2026-03-30
-    last-reviewed: 2026-03-30
+    last-reviewed: 2026-04-14
     notes: >-
-      Verify Authentik provider config and that anonymous access is
-      disabled. Check ArgoCD --auth-token isn't leaked.
+      Verify Authentik OIDC provider config for ArgoCD and that
+      anonymous access is disabled. Check ArgoCD --auth-token isn't
+      leaked. The workflow-bot API key account is scoped to sync/get
+      only.
 
   - id: operator-managed-pods
     description: >-
