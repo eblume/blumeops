@@ -14,8 +14,9 @@ resources:
 images:
   - name: registry.ops.eblu.me/blumeops/paperless
     newTag: v2.20.13-07f52e9
-  # TODO: borrowing authentik-redis image — consider building a generic
-  # blumeops/redis container if more services need Redis sidecars
+  # TODO(DR-2026-04): authentik-redis is amd64-only (nix-built on ringtail).
+  # Was running under QEMU emulation before. Switched to upstream valkey
+  # during DR recovery. Build a multi-arch blumeops/redis or keep upstream.
   - name: docker.io/library/redis
-    newName: registry.ops.eblu.me/blumeops/authentik-redis
-    newTag: v8.2.3-fd0bebb-nix
+    newName: docker.io/valkey/valkey
+    newTag: "8.1-alpine"
