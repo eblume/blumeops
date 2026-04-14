@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.15.6] - 2026-04-14
+
+### Bug Fixes
+
+- Rotate ArgoCD workflow-bot token and admin password after DR rebuild invalidated signing keys, fixing build-blumeops workflow failures.
+
+
 ## [v1.15.5] - 2026-04-14
 
 ### Features
