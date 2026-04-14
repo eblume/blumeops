@@ -1,7 +1,7 @@
 # Prowler CIS scanner — slim build for Kubernetes, image, and IaC providers
 # Strips PowerShell (M365) and dashboard dependencies from upstream
 # Includes Trivy for image vulnerability and IaC scanning
-ARG CONTAINER_APP_VERSION=5.22.0
+ARG CONTAINER_APP_VERSION=5.23.0
 
 FROM python:3.12-slim-bookworm AS build
 

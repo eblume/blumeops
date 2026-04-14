@@ -15,39 +15,6 @@ spec:
           securityContext:
             seccompProfile:
               type: RuntimeDefault
-          initContainers:
-            # Workaround: Prowler's --registry flag is broken (registry args
-            # not passed to provider constructor). Generate image list from
-            # zot catalog API instead.
-            # See: https://github.com/prowler-cloud/prowler/issues/10457
-            # Fix merged upstream (PR #10470, 2026-03-30) but not yet in a
-            # release (latest: 5.22.0). Remove this initContainer once a
-            # release includes the fix and we upgrade.
-            - name: enumerate-images
-              image: registry.ops.eblu.me/blumeops/prowler:kustomized
-              command: ["python3", "-c"]
-              args:
-                - |
-                  import json, urllib.request
-
-                  REGISTRY = "https://registry.ops.eblu.me"
-                  catalog = json.loads(urllib.request.urlopen(f"{REGISTRY}/v2/_catalog").read())
-                  images = []
-                  for repo in catalog["repositories"]:
-                      if not repo.startswith("blumeops/"):
-                          continue
-                      tags = json.loads(urllib.request.urlopen(f"{REGISTRY}/v2/{repo}/tags/list").read())
-                      for tag in tags.get("tags") or []:
-                          images.append(f"registry.ops.eblu.me/{repo}:{tag}")
-
-                  with open("/shared/images.txt", "w") as f:
-                      f.write("\n".join(images) + "\n")
-                  print(f"Discovered {len(images)} images")
-                  for img in images:
-                      print(img)
-              volumeMounts:
-                - name: shared
-                  mountPath: /shared
           containers:
             - name: prowler
               image: registry.ops.eblu.me/blumeops/prowler:kustomized
@@ -57,20 +24,16 @@ spec:
                   DATEDIR=/reports/prowler-images/$(date +%Y-%m-%d)
                   mkdir -p "$DATEDIR"
                   prowler image \
-                    --image-list /shared/images.txt \
+                    --registry https://registry.ops.eblu.me \
+                    --image-filter "^blumeops/" \
                     -z \
                     --output-formats html csv json-ocsf \
                     --output-directory "$DATEDIR"
               volumeMounts:
                 - name: reports
                   mountPath: /reports
-                - name: shared
-                  mountPath: /shared
-                  readOnly: true
           restartPolicy: OnFailure
           volumes:
             - name: reports
               persistentVolumeClaim:
                 claimName: prowler-reports
-            - name: shared
-              emptyDir: {}
