@@ -239,6 +239,26 @@ mise run services-check
 | Zot → Authentik OIDC | All container image pulls from Zot | Sync authentik early; Zot will crash-loop until OIDC is reachable |
 | ArgoCD Endpoints exclusion → forge-external | Forge Tailscale ingress has no backend | Manual `kubectl apply` for Endpoints |
 
+## Post-Rebuild: Cold Cache Failures
+
+### Devpi (PyPI Cache)
+
+After a rebuild, devpi's package cache is empty. The first Dagger-based container build will trigger a flood of concurrent package downloads. Devpi uses lazy caching — it serves package metadata (simple index) immediately from upstream PyPI but fetches wheel files on demand. Under heavy concurrent load with a cold cache, the upstream fetch can race with the client request, causing devpi to return `no such file` (HTTP 404) for packages it knows about but hasn't finished downloading yet.
+
+**Symptoms:** Forgejo Actions Dagger builds fail during module initialization with errors like:
+```
+Failed to download `googleapis-common-protos==1.74.0`
+HTTP status client error (404 Not Found) for url (https://pypi.ops.eblu.me/root/pypi/+f/...)
+```
+
+**Fix:** Re-run the failed build. The first attempt warms the cache; subsequent builds succeed. Alternatively, warm the cache manually before triggering CI builds:
+
+```bash
+# From any machine that can reach pypi.ops.eblu.me, install the Dagger SDK
+# to pre-populate the most common packages:
+pip install --dry-run --index-url https://pypi.ops.eblu.me/root/pypi/+simple/ dagger-io
+```
+
 ## Related
 
 - [[restart-indri]] — Normal restart procedure (no data loss)
