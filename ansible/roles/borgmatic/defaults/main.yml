@@ -88,6 +88,10 @@ borgmatic_postgresql_databases:
     hostname: pg.ops.eblu.me
     port: 5432
     username: borgmatic
+  - name: paperless
+    hostname: pg.ops.eblu.me
+    port: 5432
+    username: borgmatic
   # immich-pg cluster (VectorChord) via Caddy L4 on port 5433
   - name: immich
     hostname: pg.ops.eblu.me
