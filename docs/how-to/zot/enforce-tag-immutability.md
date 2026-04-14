@@ -1,6 +1,7 @@
 ---
 title: Enforce Tag Immutability
 modified: 2026-02-21
+last-reviewed: 2026-04-14
 tags:
   - how-to
   - zot
@@ -26,3 +27,4 @@ This approach requires authentication to be meaningful — without auth, everyon
 ## Related
 
 - [[harden-zot-registry]] — Parent goal (includes this requirement)
+- [[zot]] — Zot registry service reference
