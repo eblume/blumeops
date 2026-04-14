@@ -17,6 +17,7 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
     **Read the full output** — never truncate, pipe to `head`/`tail`, or skip sections.
     For problems with a large surface area, ask the user if `mise run ai-sources` should also be run — it concatenates all non-doc source files (~270K tokens) for deep codebase context.
 2. **Always use `--context=minikube-indri` with kubectl** (or `--context=k3s-ringtail` for ringtail services) - work contexts must never be touched
+    **NEVER run `minikube delete`** — it destroys all PVs, etcd, and cluster state. Use `minikube stop`/`minikube start` for restarts. If minikube is stuck, see [[restart-indri]]. Full rebuild from scratch requires the DR procedure in [[rebuild-minikube-cluster]].
 3. **Classify the change as C0/C1/C2 before starting** (see below) — this determines branching and PR requirements
 4. **Feature branches + PRs for C1/C2** - checkout main, pull, create branch, open PR via `tea pr create`. C0 goes direct to main.
 5. **Check PR comments with `mise run pr-comments <pr_number>`** before proceeding

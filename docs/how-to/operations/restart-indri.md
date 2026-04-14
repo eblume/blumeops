@@ -70,6 +70,12 @@ After indri boots, most services recover automatically. Only a few things need m
 
 **What needs manual action:** Amphetamine, AutoMounter, and minikube (including its Tailscale serve port).
 
+> **Warning:** Do NOT run `minikube delete` — it destroys all PersistentVolumes, etcd state, and requires a full DR rebuild. Use `minikube stop` / `minikube start` instead. If minikube is stuck, see [[#Troubleshooting CNI Conflict After Unclean Shutdown]]. For full cluster rebuild, see [[rebuild-minikube-cluster]].
+
+### 0. Dismiss macOS Permission Dialogs
+
+After a cold boot, the **first inbound Tailscale SSH connection** to indri triggers a macOS GUI permission dialog from tailscaled. This blocks the SSH session (and anything downstream like ansible) until dismissed at the console. You must be logged in to indri (via Screen Sharing or physically) to approve it before running any remote commands.
+
 ### 1. Log In and Start GUI Apps
 
 Log in to indri (via Screen Sharing or physically) and launch:
@@ -102,6 +108,8 @@ Run the minikube ansible role to detect the new port and update Tailscale serve:
 ```bash
 mise run provision-indri -- --tags minikube
 ```
+
+> **Note:** Do NOT run the full `mise run provision-indri` without tags during startup — the `forgejo_actions_secrets` role will timeout because the Forgejo API routes through Caddy → k8s, which isn't up yet. Use `--tags minikube` (or `--tags minikube,minikube_metrics`) to target just the minikube role.
 
 This will:
 - Start minikube if it hasn't started yet

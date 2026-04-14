@@ -14,8 +14,9 @@ Recovery procedures for BlumeOps infrastructure.
 
 | Scenario | Guide |
 |----------|-------|
-| Lost 1Password access | [[restore-1password-backup]] |
 | Indri reboot/power loss | [[restart-indri]] |
+| Full minikube cluster rebuild | [[rebuild-minikube-cluster]] |
+| Lost 1Password access | [[restore-1password-backup]] |
 
 ## Components
 
