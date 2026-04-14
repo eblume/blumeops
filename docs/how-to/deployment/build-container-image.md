@@ -129,7 +129,7 @@ Existing containers demonstrate several build approaches:
 | Native Dagger (Go + Node) | [[#navidrome]] | `container.py` with helper functions — preferred for new containers |
 | Alpine package install | [[#transmission]] | Simplest Dockerfile — install from apk |
 | Go from source | [[#miniflux]] | Dockerfile: clone upstream, `go build` |
-| Multi-stage Elixir | [[#teslamate]] | Dockerfile: Elixir release with Node assets |
+| Native Dagger (Elixir + Node) | [[#teslamate]] | `container.py` with Debian runtime — Elixir release with Node assets |
 | Runtime tarball download | [[#kiwix-serve]] | Dockerfile: download pre-built binary with arch detection |
 | Nix `dockerTools` | [[#ntfy-nix]] | `buildLayeredImage` with nix-built app (ringtail runner) |
 
@@ -147,7 +147,7 @@ Existing containers demonstrate several build approaches:
 
 ### teslamate
 
-`containers/teslamate/Dockerfile` — Two-stage Elixir build with Node.js asset compilation. Uses Debian-based images due to Elixir/OTP dependencies. (Legacy Dockerfile — migrate to `container.py` during review.)
+`containers/teslamate/container.py` — Native Dagger build. Two-stage pipeline: Elixir builder with Node.js for asset compilation, Debian slim runtime. Uses Debian-based images (not Alpine) due to Elixir/OTP dependencies. Includes entrypoint script for pg-wait and migrations.
 
 ### kiwix-serve
 

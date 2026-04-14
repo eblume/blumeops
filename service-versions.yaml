@@ -190,7 +190,7 @@ services:
 
   - name: teslamate
     type: argocd
-    last-reviewed: 2026-03-03
+    last-reviewed: 2026-04-14
     current-version: "v3.0.0"
     upstream-source: https://github.com/teslamate-org/teslamate/releases
 
