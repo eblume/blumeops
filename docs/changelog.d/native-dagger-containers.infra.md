@@ -1,1 +1,0 @@
-Migrate Dagger module from .dagger/ to repo root (src/blumeops/) and replace docker_build() with native Dagger pipelines for container builds. Navidrome is the first container migrated, with full build error visibility.

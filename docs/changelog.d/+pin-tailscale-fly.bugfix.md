@@ -1,1 +1,0 @@
-Pin Fly.io proxy Tailscale to v1.94.1 — the `:stable` tag pulled v1.96.5 which has a MagicDNS regression (SERVFAIL on tailnet names), breaking all public routing through forge.eblu.me, docs.eblu.me, and cv.eblu.me.

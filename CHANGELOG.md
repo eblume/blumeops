@@ -12,6 +12,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.15.5] - 2026-04-14
+
+### Features
+
+- Deploy Paperless-ngx document management system at paperless.ops.eblu.me with OCR, Authentik SSO, and NFS storage on sifaka.
+- Add `ty` (Astral) Python typechecker to prek hooks, configured for Dagger SDK and container.py modules. Add `type: mise` to service-versions.yaml for tracking development tool versions (dagger, ansible-core, prek, pulumi, ty) through the standard service review process.
+- Upgrade grafana-sidecar from 1.28.0 to 2.6.0, adding health probes and porting build to native Dagger container.py.
+- Upgrade Navidrome to v0.61.1 — major artwork overhaul with per-disc cover art, rebuilt search engine (SQLite FTS5), server-managed transcoding, and WebP performance fix.
+- Add `mise run review-compliance-reports` task for weekly compliance report review with muted/unmuted distinction and week-over-week delta
+
+### Bug Fixes
+
+- Add paperless database to borgmatic backup configuration. Previously the only service DB not included in nightly pg_dump backups.
+- Fix Fly.io proxy rate limiting to key on real client IP instead of Fly's internal proxy IP, so crawlers no longer consume the shared rate limit bucket for all clients.
+- Fix UnPoller (UniFi) Grafana dashboards failing to load due to UID exceeding Grafana 12's 40-character limit.
+- Fix blumeops-tasks swallowing wiki-link brackets in task descriptions (rich markup escaping)
+- Fix dagger flake-update pipeline: replace nonexistent `--exclude` flag with dynamic input discovery
+- Fix services-check to display all firing alerts for a given alert name, not just the first one.
+- Pin Fly.io proxy Tailscale to v1.94.1 — the `:stable` tag pulled v1.96.5 which has a MagicDNS regression (SERVFAIL on tailnet names), breaking all public routing through forge.eblu.me, docs.eblu.me, and cv.eblu.me.
+- Rewrite `mise run runner-logs` CLI: list runs by run number (not task ID), drill into jobs per run, fetch logs via Forgejo web API instead of SSH+filesystem. Fixes broken log retrieval caused by incorrect hex path calculation and stale data directory. Added `--repo` to query any forge repo (e.g. sporks) and `--limit`/`-n` to control listing size (0 for all).
+- Route Dagger build telemetry to Tempo, fixing OTEL metrics exporter warnings.
+- Switch paperless redis sidecar from amd64-only nix-built `authentik-redis` image to upstream `valkey:8.1-alpine` (multi-arch). The nix image was previously running under QEMU emulation on arm64 minikube.
+
+### Infrastructure
+
+- Build forgejo-runner container locally via native Dagger pipeline instead of pulling from upstream.
+- Build kube-state-metrics container locally (Dockerfile + nix) from forge mirror, replacing upstream registry.k8s.io image on both indri and ringtail.
+- Upgrade miniflux from 2.2.17 to 2.2.19 and migrate from Dockerfile to native Dagger container.py build (second container after navidrome). Refactor `alpine_runtime()` with `create_user` parameter to support Alpine's built-in nobody user. Pin all mise.toml tool versions to explicit versions instead of "latest".
+- Migrate Dagger module from .dagger/ to repo root (src/blumeops/) and replace docker_build() with native Dagger pipelines for container builds. Navidrome is the first container migrated, with full build error visibility.
+- Migrate teslamate container build from legacy Dockerfile to native Dagger container.py.
+- Add seccomp RuntimeDefault profiles to alloy-k8s and immich pods, resolving 4 unmuted Prowler findings
+- Full DR recovery from power loss and minikube cluster rebuild. Validated bootstrap procedure, identified circular dependencies (forge.eblu.me, Zot/Authentik OIDC), Tailscale device name collision issues, and documented recovery steps for restart-indri.
+- Set Frigate preview quality to CRF 8 (from default 1) to reduce preview file sizes and improve review timeline loading over NFS.
+- Track Fly.io proxy component versions (Tailscale, nginx, Alloy) in service-versions.yaml with new `fly` service type.
+- Upgrade ArgoCD from v3.3.2 to v3.3.6 (bug-fix patches), SHA-pin install manifest
+- Upgrade authentik 2026.2.0 → 2026.2.2 (bug-fix patch release)
+- Upgrade ollama from 0.17.5 to 0.20.4 (adds Gemma 4 support, benchmark tooling, Apple Silicon perf improvements)
+
+### Documentation
+
+- Delete outdated install-dagger-on-nix-runner card; add service-versions reference card; clean up zot.md and review-services.md links.
+- Enhanced the adding-a-service tutorial with kustomization setup, corrected Tailscale ingress format, updated ArgoCD repoURL, and added a step for creating service reference cards.
+- Review gandi.md: add missing forge.eblu.me CNAME, fix program description, stamp review date.
+
+
 ## [v1.15.4] - 2026-04-06
 
 ### Infrastructure

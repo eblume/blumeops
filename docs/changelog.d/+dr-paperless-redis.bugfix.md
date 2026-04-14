@@ -1,1 +1,0 @@
-Switch paperless redis sidecar from amd64-only nix-built `authentik-redis` image to upstream `valkey:8.1-alpine` (multi-arch). The nix image was previously running under QEMU emulation on arm64 minikube.

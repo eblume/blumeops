@@ -1,1 +1,0 @@
-Full DR recovery from power loss and minikube cluster rebuild. Validated bootstrap procedure, identified circular dependencies (forge.eblu.me, Zot/Authentik OIDC), Tailscale device name collision issues, and documented recovery steps for restart-indri.

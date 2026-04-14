@@ -1,1 +1,0 @@
-Upgrade miniflux from 2.2.17 to 2.2.19 and migrate from Dockerfile to native Dagger container.py build (second container after navidrome). Refactor `alpine_runtime()` with `create_user` parameter to support Alpine's built-in nobody user. Pin all mise.toml tool versions to explicit versions instead of "latest".
