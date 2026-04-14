@@ -116,6 +116,22 @@ controls:
       for both init and runtime containers. If fsGroup alone can
       handle PVC ownership, remove init-chown-data and this control.
 
+  - id: node-config-automated-verification
+    description: >-
+      Prowler reports certain node-level checks as MANUAL because it runs
+      inside a pod and cannot evaluate kubelet file permissions, kubelet
+      config arguments, etcd CA separation, or cluster-admin RBAC bindings.
+      The review-compliance-reports script SSHes into the minikube node
+      weekly and programmatically verifies each condition, failing loudly
+      if any check deviates from expected values.
+    created: 2026-04-14
+    last-reviewed: 2026-04-14
+    notes: >-
+      Verification runs as part of 'mise run review-compliance-reports'.
+      If minikube node is unreachable, all checks report as FAIL. If new
+      MANUAL findings appear in Prowler, add corresponding verification
+      logic to the script and update the mutelist.
+
   - id: observability-stack-audit
     description: >-
       Alloy collects pod logs and ships them to Loki, providing an

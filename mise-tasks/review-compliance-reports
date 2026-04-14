@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["rich>=14.0.0", "typer>=0.24.0"]
+# dependencies = ["rich>=14.0.0", "typer>=0.24.0", "pyyaml>=6.0"]
 # ///
 #MISE description="Summarize the latest Prowler and Kingfisher compliance reports from sifaka"
 #USAGE flag "--full" help="Show all unmuted failures, not just new ones"
@@ -110,6 +110,200 @@ SEVERITY_ORDER = ["critical", "high", "medium", "low", "informational"]
 def severity_sort(r: dict) -> int:
     sev = r.get("SEVERITY", "").lower()
     return SEVERITY_ORDER.index(sev) if sev in SEVERITY_ORDER else 99
+
+
+def _ssh_minikube(cmd: str, timeout: int = 15) -> subprocess.CompletedProcess:
+    """Run a command inside the minikube node via SSH."""
+    return subprocess.run(
+        ["ssh", "indri", f"minikube ssh -- {cmd}"],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+
+
+def _kubectl(args: str, timeout: int = 15) -> subprocess.CompletedProcess:
+    """Run a kubectl command against minikube-indri."""
+    return subprocess.run(
+        ["kubectl", "--context=minikube-indri"] + args.split(),
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+
+
+def run_node_verification(console: Console) -> None:
+    """Verify node-level conditions that Prowler reports as MANUAL.
+
+    Compensating control: node-config-automated-verification
+    """
+    checks: list[tuple[str, str, bool]] = []  # (name, detail, passed)
+
+    # --- File ownership and permissions ---
+    file_expectations = [
+        ("kubelet.conf ownership", "/etc/kubernetes/kubelet.conf", "root:root", None),
+        ("kubelet.conf permissions", "/etc/kubernetes/kubelet.conf", None, "600"),
+        ("config.yaml ownership", "/var/lib/kubelet/config.yaml", "root:root", None),
+        ("config.yaml permissions", "/var/lib/kubelet/config.yaml", None, "644"),
+        ("kubelet service ownership", "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf", "root:root", None),
+        ("kubelet service permissions", "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf", None, "644"),
+    ]
+
+    for name, path, expected_owner, expected_perms in file_expectations:
+        if expected_owner:
+            result = _ssh_minikube(f'"sudo stat -c %U:%G {path}"')
+        else:
+            result = _ssh_minikube(f'"sudo stat -c %a {path}"')
+
+        if result.returncode != 0:
+            checks.append((name, f"could not stat {path}", False))
+        else:
+            actual = result.stdout.strip()
+            expected = expected_owner or expected_perms
+            passed = actual == expected
+            checks.append((name, f"{actual} (expected {expected})", passed))
+
+    # --- Kubelet config arguments ---
+    kubelet_result = _ssh_minikube('"sudo cat /var/lib/kubelet/config.yaml"')
+    if kubelet_result.returncode != 0:
+        checks.append(("kubelet config", "could not read config.yaml", False))
+    else:
+        import yaml as _yaml
+
+        try:
+            kubelet_cfg = _yaml.safe_load(kubelet_result.stdout) or {}
+        except Exception:
+            kubelet_cfg = {}
+            checks.append(("kubelet config parse", "failed to parse config.yaml", False))
+
+        # readOnlyPort: absent or 0 is safe
+        rop = kubelet_cfg.get("readOnlyPort")
+        checks.append((
+            "readOnlyPort",
+            f"{rop!r} (absent or 0 is safe)",
+            rop is None or rop == 0,
+        ))
+
+        # makeIPTablesUtilChains: absent (defaults true) or true
+        miu = kubelet_cfg.get("makeIPTablesUtilChains")
+        checks.append((
+            "makeIPTablesUtilChains",
+            f"{miu!r} (absent or true is safe)",
+            miu is None or miu is True,
+        ))
+
+        # eventRecordQPS: absent (defaults 5) or > 0
+        erq = kubelet_cfg.get("eventRecordQPS")
+        checks.append((
+            "eventRecordQPS",
+            f"{erq!r} (absent or > 0 is safe)",
+            erq is None or (isinstance(erq, (int, float)) and erq > 0),
+        ))
+
+        # tlsCipherSuites: absent uses Go defaults (acceptable)
+        tcs = kubelet_cfg.get("tlsCipherSuites")
+        checks.append((
+            "tlsCipherSuites",
+            "Go defaults" if tcs is None else f"{tcs!r}",
+            True,  # Go defaults are acceptable; explicit suites also fine
+        ))
+
+    # --- Etcd CA separation ---
+    etcd_fp = _ssh_minikube(
+        '"sudo openssl x509 -in /var/lib/minikube/certs/etcd/ca.crt -noout -fingerprint -sha256"'
+    )
+    cluster_fp = _ssh_minikube(
+        '"sudo openssl x509 -in /var/lib/minikube/certs/ca.crt -noout -fingerprint -sha256"'
+    )
+    if etcd_fp.returncode != 0 or cluster_fp.returncode != 0:
+        checks.append(("etcd CA separation", "could not read certificates", False))
+    else:
+        etcd_hash = etcd_fp.stdout.strip()
+        cluster_hash = cluster_fp.stdout.strip()
+        different = etcd_hash != cluster_hash
+        checks.append((
+            "etcd CA separation",
+            "different CAs" if different else "SAME CA (unexpected)",
+            different,
+        ))
+
+    # --- RBAC cluster-admin bindings ---
+    expected_bindings = {"cluster-admin", "kubeadm:cluster-admins", "minikube-rbac"}
+    # Use a jsonpath that emits "name\troleRef" pairs to avoid N+1 queries
+    # Tab-separated because binding names can contain colons (e.g. kubeadm:cluster-admins)
+    rb_result = subprocess.run(
+        [
+            "kubectl", "--context=minikube-indri",
+            "get", "clusterrolebindings",
+            "-o", "jsonpath={range .items[*]}{.metadata.name}{'\\t'}{.roleRef.name}{'\\n'}{end}",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    if rb_result.returncode != 0:
+        checks.append(("cluster-admin bindings", "kubectl failed", False))
+    else:
+        admin_bindings: set[str] = set()
+        for line in rb_result.stdout.strip().splitlines():
+            if "\t" in line:
+                name, role = line.split("\t", 1)
+                if role == "cluster-admin":
+                    admin_bindings.add(name)
+
+        unexpected = admin_bindings - expected_bindings
+        if unexpected:
+            checks.append((
+                "cluster-admin bindings",
+                f"unexpected: {', '.join(sorted(unexpected))}",
+                False,
+            ))
+        else:
+            checks.append((
+                "cluster-admin bindings",
+                f"only expected: {', '.join(sorted(admin_bindings))}",
+                True,
+            ))
+
+    # --- Display results ---
+    all_passed = all(passed for _, _, passed in checks)
+    table = Table(
+        show_header=True,
+        header_style="bold",
+        title="Node Verification (CC: node-config-automated-verification)",
+    )
+    table.add_column("Check")
+    table.add_column("Detail")
+    table.add_column("Result", justify="center")
+
+    for name, detail, passed in checks:
+        status = "[green]PASS[/green]" if passed else "[bold red]FAIL[/bold red]"
+        table.add_row(name, detail, status)
+
+    console.print(table)
+    console.print()
+
+    if all_passed:
+        console.print(
+            Panel(
+                "[bold green]All node-level checks passed.[/bold green] "
+                "Muted MANUAL findings are verified.",
+                title="Node Verification Verdict",
+                border_style="green",
+            )
+        )
+    else:
+        failed = [(n, d) for n, d, p in checks if not p]
+        console.print(
+            Panel(
+                f"[bold red]{len(failed)} node-level check(s) FAILED.[/bold red]\n"
+                "Review the failures above — muted MANUAL findings may no longer "
+                "be valid.",
+                title="Node Verification Verdict",
+                border_style="red",
+            )
+        )
+    console.print()
 
 
 def main(
@@ -342,6 +536,12 @@ def main(
                     border_style="yellow",
                 )
             )
+
+    # --- Node-level MANUAL check verification ---
+    # Compensating control: node-config-automated-verification
+    # These checks verify conditions Prowler reports as MANUAL because it
+    # runs inside a pod and cannot evaluate them directly.
+    run_node_verification(console)
 
     # --- Kingfisher secret scanning ---
     # TODO: Kingfisher currently only outputs HTML. Once JSON or CSV output

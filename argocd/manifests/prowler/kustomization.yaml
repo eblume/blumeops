@@ -21,6 +21,7 @@ configMapGenerator:
       - mutelist/apiserver.yaml
       - mutelist/control-plane.yaml
       - mutelist/core-pod-security.yaml
+      - mutelist/manual-node-checks.yaml
       - mutelist/rbac.yaml
 
 images:
