@@ -6,6 +6,16 @@ borgmatic_log_dir: /Users/erichblume/Library/Logs
 # Full path to borg binary since LaunchAgent doesn't have homebrew in PATH
 borgmatic_local_path: /opt/homebrew/bin/borg
 
+# Borgmatic version — keep in sync with mise.toml in the repo root.
+# Ansible installs this via `mise install` so indri doesn't need the repo cloned.
+borgmatic_version: "2.1.4"
+
+# Full path to borgmatic binary — called directly by LaunchAgents to avoid
+# routing through mise, which triggers macOS TCC permission dialogs for
+# protected folders (e.g. ~/Documents) that hang headless LaunchAgent sessions.
+# Uses mise's "latest" symlink so version bumps don't break the LaunchAgent path.
+borgmatic_bin: /Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/bin/borgmatic
+
 # Schedule: runs daily at 2:00 AM
 borgmatic_schedule_hour: 2
 borgmatic_schedule_minute: 0

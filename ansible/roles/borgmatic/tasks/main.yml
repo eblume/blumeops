@@ -1,6 +1,11 @@
 ---
-# Note: borgmatic is installed via mise (pipx), not managed here.
-# This role manages the config file and scheduled LaunchAgent.
+# Borgmatic is installed via mise (pipx) and called directly by LaunchAgents.
+# This role manages installation, config, and the scheduled LaunchAgents.
+
+- name: Install borgmatic via mise
+  ansible.builtin.command: mise install pipx:borgmatic@{{ borgmatic_version }}
+  register: borgmatic_install
+  changed_when: "'installed' in borgmatic_install.stderr"
 
 - name: Ensure borgmatic config directory exists
   ansible.builtin.file:

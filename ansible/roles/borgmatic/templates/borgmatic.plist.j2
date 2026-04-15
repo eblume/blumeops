@@ -14,10 +14,7 @@
 	</dict>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/opt/homebrew/opt/mise/bin/mise</string>
-		<string>x</string>
-		<string>--</string>
-		<string>borgmatic</string>
+		<string>{{ borgmatic_bin }}</string>
 		<string>--config</string>
 		<string>{{ borgmatic_config }}</string>
 		<string>create</string>
