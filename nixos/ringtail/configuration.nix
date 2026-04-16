@@ -109,7 +109,6 @@ in
   # Firefox with 1Password extension
   programs.firefox = {
     enable = true;
-    nativeMessagingHosts.packages = [ pkgs._1password-gui ];
     policies = {
       ExtensionSettings = {
         "{d634138d-c276-4fc8-924b-40a0ea21d284}" = {
