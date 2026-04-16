@@ -202,6 +202,7 @@ in
     fuzzel
     pulseaudio
     librewolf
+    firefox
   ];
 
   # Allow running dynamically linked binaries (mise-installed runtimes, etc.)
@@ -225,13 +226,6 @@ in
   home-manager.useUserPackages = true;
   home-manager.users.eblume = {
     home.stateVersion = "25.11";
-
-    # Librewolf: delegate claude-cli:// URIs to system handler (xdg-open)
-    home.file.".config/librewolf/librewolf/backlhkh.default/user.js".text = ''
-      user_pref("network.protocol-handler.expose.claude-cli", false);
-      user_pref("network.protocol-handler.external.claude-cli", true);
-      user_pref("network.protocol-handler.warn-external.claude-cli", false);
-    '';
 
     wayland.windowManager.sway = {
       enable = true;
@@ -366,22 +360,6 @@ in
           resumeCommand = "${pkgs.sway}/bin/swaymsg 'output * dpms on'";
         }
       ];
-    };
-
-    # Claude Code OAuth callback handler (claude-cli:// URI scheme)
-    xdg.desktopEntries.claude-code-url-handler = {
-      name = "Claude Code URL Handler";
-      exec = "/run/current-system/sw/bin/mise exec -- claude --handle-uri %u";
-      type = "Application";
-      noDisplay = true;
-      mimeType = [ "x-scheme-handler/claude-cli" ];
-    };
-
-    xdg.mimeApps = {
-      enable = true;
-      defaultApplications = {
-        "x-scheme-handler/claude-cli" = [ "claude-code-url-handler.desktop" ];
-      };
     };
 
     programs.fuzzel = {
