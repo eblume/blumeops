@@ -226,6 +226,13 @@ in
   home-manager.users.eblume = {
     home.stateVersion = "25.11";
 
+    # Librewolf: delegate claude-cli:// URIs to system handler (xdg-open)
+    home.file.".config/librewolf/librewolf/backlhkh.default/user.js".text = ''
+      user_pref("network.protocol-handler.expose.claude-cli", false);
+      user_pref("network.protocol-handler.external.claude-cli", true);
+      user_pref("network.protocol-handler.warn-external.claude-cli", false);
+    '';
+
     wayland.windowManager.sway = {
       enable = true;
       checkConfig = false;
