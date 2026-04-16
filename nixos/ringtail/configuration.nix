@@ -227,6 +227,15 @@ in
   home-manager.users.eblume = {
     home.stateVersion = "25.11";
 
+    xdg.mimeApps = {
+      enable = true;
+      defaultApplications = {
+        "x-scheme-handler/http" = [ "firefox.desktop" ];
+        "x-scheme-handler/https" = [ "firefox.desktop" ];
+        "text/html" = [ "firefox.desktop" ];
+      };
+    };
+
     wayland.windowManager.sway = {
       enable = true;
       checkConfig = false;
