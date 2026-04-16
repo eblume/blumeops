@@ -1,14 +1,13 @@
 # Unified container build workflow
-# Triggers on pushes to main that modify containers/*, or via manual dispatch.
-# Detects which containers changed and routes to the correct runner:
-#   - Dockerfile containers build on k8s (indri) via Dagger
+# Manual dispatch only — use `mise run container-build-and-release <name>`.
+# Shared Dagger helpers (src/blumeops/) make path-based auto-triggers unreliable,
+# so all container builds are triggered explicitly.
+# Routes to the correct runner:
+#   - Dockerfile/Dagger containers build on k8s (indri) via Dagger
 #   - Nix containers build on nix-container-builder (ringtail) via nix-build + skopeo
 name: Build Container
 
 on:
-  push:
-    branches: [main]
-    paths: ['containers/**']
   workflow_dispatch:
     inputs:
       container:
@@ -33,18 +32,11 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
           fetch-depth: 2
 
-      - name: Detect and classify changed containers
+      - name: Classify container build type
         id: classify
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            CHANGED='["${{ inputs.container }}"]'
-          else
-            CHANGED=$(git diff --name-only HEAD~1 HEAD -- containers/ \
-              | cut -d/ -f2 | sort -u \
-              | jq -R -s -c 'split("\n") | map(select(length > 0))')
-          fi
-
-          echo "Changed containers: $CHANGED"
+          CHANGED='["${{ inputs.container }}"]'
+          echo "Building container: $CHANGED"
 
           # Classify each container by build type (a container can appear in both)
           DAGGER='[]'

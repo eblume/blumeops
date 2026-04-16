@@ -43,7 +43,7 @@ The runner job image contains the Dagger CLI binary. Upgrading it first means th
 
 2. Update `service-versions.yaml` — bump `current-version` and `last-reviewed` for `runner-job-image`.
 
-3. Commit and push to main. The `Build Container` workflow triggers automatically (it watches `containers/**`), building and publishing the new runner-job-image with the updated Dagger CLI.
+3. Commit and push to main. Trigger a build with `mise run container-build-and-release runner-job-image`.
 
 4. Verify the build succeeds — check the workflow run on Forgejo. Note the image tag from the build output (format: `v<version>-<sha>`).
 

@@ -57,9 +57,9 @@ nix-build containers/<name>/default.nix -o result
 
 ## 3. Release
 
-Container builds trigger automatically when changes to `containers/<name>/` are merged to `main`. Both workflows fire and each skips if the relevant build file is absent.
+Container builds are triggered manually. Shared Dagger helpers (`src/blumeops/`) affect all Dagger-built containers, making path-based auto-triggers unreliable.
 
-To trigger a manual build (e.g. from a branch or to rebuild at a specific commit):
+To trigger a build:
 
 ```bash
 mise run container-build-and-release <name>
@@ -106,7 +106,7 @@ Container image tags include the git commit SHA they were built from (e.g. `v3.9
 
 **The rule:** Production manifests must reference images built from a commit on main. After merging a PR that changed `containers/<name>/`:
 
-1. The merge to main automatically triggers a rebuild (the `build-container.yaml` / `build-container-nix.yaml` workflows fire on pushes to `main` that touch `containers/**`)
+1. Trigger a rebuild: `mise run container-build-and-release <name>`
 2. Wait for the workflow to complete — verify with `mise run runner-logs` (find the run, check status)
 3. Find the new main-SHA tag:
    ```bash

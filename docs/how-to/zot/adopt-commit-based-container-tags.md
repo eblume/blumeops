@@ -25,12 +25,11 @@ Currently, container builds trigger on git tags matching `<container>-vX.Y.Z`. T
 
 ### Triggers
 
-1. **Merged changes to main** — any push to `main` that modifies files under `containers/<name>/` triggers builds for that container
-2. **Manual workflow dispatch** — for ad-hoc builds. Accepts two inputs:
-   - `container` (required) — which container to build
-   - `ref` (optional, string) — the source commit SHA to build, defaulting to `GITHUB_SHA`
+All container builds are triggered manually via `mise run container-build-and-release <name>` (which dispatches the workflow). Accepts two inputs:
+- `container` (required) — which container to build
+- `ref` (optional, string) — the source commit SHA to build, defaulting to `GITHUB_SHA`
 
-Both the Dockerfile and Nix workflows fire for each trigger, each bailing out if the container lacks the relevant build file (same as today).
+The workflow classifies the container by build type and routes to the correct runner.
 
 ### Version Source
 
