@@ -361,6 +361,22 @@ in
       ];
     };
 
+    # Claude Code OAuth callback handler (claude-cli:// URI scheme)
+    xdg.desktopEntries.claude-code-url-handler = {
+      name = "Claude Code URL Handler";
+      exec = "/run/current-system/sw/bin/mise exec -- claude --handle-uri %u";
+      type = "Application";
+      noDisplay = true;
+      mimeType = [ "x-scheme-handler/claude-cli" ];
+    };
+
+    xdg.mimeApps = {
+      enable = true;
+      defaultApplications = {
+        "x-scheme-handler/claude-cli" = [ "claude-code-url-handler.desktop" ];
+      };
+    };
+
     programs.fuzzel = {
       enable = true;
       settings = {
