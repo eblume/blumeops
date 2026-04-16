@@ -106,6 +106,20 @@ in
   # Fish shell
   programs.fish.enable = true;
 
+  # Firefox with 1Password extension
+  programs.firefox = {
+    enable = true;
+    nativeMessagingHosts.packages = [ pkgs._1password-gui ];
+    policies = {
+      ExtensionSettings = {
+        "{d634138d-c276-4fc8-924b-40a0ea21d284}" = {
+          install_url = "https://addons.mozilla.org/firefox/downloads/latest/1password-x-password-manager/latest.xpi";
+          installation_mode = "force_installed";
+        };
+      };
+    };
+  };
+
   # 1Password (modules handle CLI group/setgid and polkit for GUI integration)
   programs._1password.enable = true;
   programs._1password-gui = {
@@ -202,7 +216,6 @@ in
     fuzzel
     pulseaudio
     librewolf
-    firefox
   ];
 
   # Allow running dynamically linked binaries (mise-installed runtimes, etc.)
