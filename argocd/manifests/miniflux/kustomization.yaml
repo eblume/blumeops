@@ -10,4 +10,4 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/miniflux
-    newTag: v2.2.19-138e23d
+    newTag: v2.2.19-352b95c
