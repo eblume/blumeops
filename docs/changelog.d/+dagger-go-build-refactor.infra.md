@@ -1,0 +1,1 @@
+Refactored Dagger container pipelines: extended `go_build()` helper with `buildmode` and `extra_env` params, migrated miniflux and forgejo-runner to use it, and standardized all Alpine bases from 3.22 to 3.23.

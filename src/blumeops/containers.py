@@ -70,33 +70,31 @@ def go_build(
     cmd_path: str = ".",
     tags: str = "netgo",
     ldflags: str = "-w -s",
+    buildmode: str | None = None,
     cgo_enabled: bool = False,
     extra_apk: list[str] | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> dagger.Container:
-    """Go build stage on golang:alpine3.22.
+    """Go build stage on golang:alpine3.23.
 
     Returns a container with the built binary at `output`.
     """
     apk_packages = ["build-base", "git"] + (extra_apk or [])
-    return (
+    ctr = (
         dag.container()
-        .from_("golang:alpine3.22")
+        .from_("golang:alpine3.23")
         .with_exec(["apk", "add", "--no-cache", *apk_packages])
         .with_directory("/app", source)
         .with_workdir("/app")
         .with_env_variable("CGO_ENABLED", "1" if cgo_enabled else "0")
-        .with_exec(
-            [
-                "go",
-                "build",
-                f"-tags={tags}",
-                f"-ldflags={ldflags}",
-                "-o",
-                output,
-                cmd_path,
-            ]
-        )
     )
+    for key, val in (extra_env or {}).items():
+        ctr = ctr.with_env_variable(key, val)
+    build_cmd = ["go", "build"]
+    if buildmode:
+        build_cmd.append(f"-buildmode={buildmode}")
+    build_cmd += [f"-tags={tags}", f"-ldflags={ldflags}", "-o", output, cmd_path]
+    return ctr.with_exec(build_cmd)
 
 
 def node_build(
@@ -133,7 +131,7 @@ def alpine_runtime(
     username: str = "app",
     create_user: bool = True,
 ) -> dagger.Container:
-    """Standard Alpine 3.22 runtime base.
+    """Standard Alpine 3.23 runtime base.
 
     When create_user is True (default), creates a non-root user with the given
     uid/gid/username. Set create_user=False to use an existing user (e.g.
@@ -147,7 +145,7 @@ def alpine_runtime(
         setup_cmds.append(f"addgroup -g {gid} {username}")
         setup_cmds.append(f"adduser -u {uid} -G {username} -D {username}")
 
-    ctr = dag.container().from_("alpine:3.22")
+    ctr = dag.container().from_("alpine:3.23")
     if setup_cmds:
         ctr = ctr.with_exec(["sh", "-c", " && ".join(setup_cmds)])
     return ctr

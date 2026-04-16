@@ -5,11 +5,11 @@ Source cloned from forge mirror.
 """
 
 import dagger
-from dagger import dag
 
 from blumeops.containers import (
     alpine_runtime,
     clone_from_forge,
+    go_build,
     oci_labels,
 )
 
@@ -20,25 +20,12 @@ async def build(src: dagger.Directory) -> dagger.Container:
     source = clone_from_forge("miniflux", VERSION)
 
     # Stage 1: Build Go backend (PIE mode, matching upstream Makefile)
-    ldflags = f"-s -w -X 'miniflux.app/v2/internal/version.Version={VERSION}'"
-    backend = (
-        dag.container()
-        .from_("golang:alpine3.22")
-        .with_exec(["apk", "add", "--no-cache", "build-base", "git"])
-        .with_directory("/app", source)
-        .with_workdir("/app")
-        .with_env_variable("CGO_ENABLED", "1")
-        .with_exec(
-            [
-                "go",
-                "build",
-                "-buildmode=pie",
-                f"-ldflags={ldflags}",
-                "-o",
-                "/miniflux",
-                ".",
-            ]
-        )
+    backend = go_build(
+        source,
+        "/miniflux",
+        buildmode="pie",
+        ldflags=f"-s -w -X 'miniflux.app/v2/internal/version.Version={VERSION}'",
+        cgo_enabled=True,
     )
 
     # Stage 2: Runtime (uses Alpine's built-in nobody:65534)

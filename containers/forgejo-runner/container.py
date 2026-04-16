@@ -5,11 +5,11 @@ Source cloned from forge mirror.
 """
 
 import dagger
-from dagger import dag
 
 from blumeops.containers import (
     alpine_runtime,
     clone_from_forge,
+    go_build,
     oci_labels,
 )
 
@@ -20,29 +20,16 @@ async def build(src: dagger.Directory) -> dagger.Container:
     source = clone_from_forge("forgejo-runner", f"v{VERSION}")
 
     # Stage 1: Build Go binary (static, CGO enabled for SQLite)
-    ldflags = (
-        '-extldflags "-static" -s -w'
-        f' -X "code.forgejo.org/forgejo/runner/v12/internal/pkg/ver.version=v{VERSION}"'
-    )
-    backend = (
-        dag.container()
-        .from_("golang:alpine3.22")
-        .with_exec(["apk", "add", "--no-cache", "build-base", "git"])
-        .with_directory("/app", source)
-        .with_workdir("/app")
-        .with_env_variable("CGO_ENABLED", "1")
-        .with_env_variable("CGO_CFLAGS", "-DSQLITE_MAX_VARIABLE_NUMBER=32766")
-        .with_exec(
-            [
-                "go",
-                "build",
-                "-tags=netgo osusergo",
-                f"-ldflags={ldflags}",
-                "-o",
-                "/forgejo-runner",
-                ".",
-            ]
-        )
+    backend = go_build(
+        source,
+        "/forgejo-runner",
+        tags="netgo osusergo",
+        ldflags=(
+            '-extldflags "-static" -s -w'
+            f' -X "code.forgejo.org/forgejo/runner/v12/internal/pkg/ver.version=v{VERSION}"'
+        ),
+        cgo_enabled=True,
+        extra_env={"CGO_CFLAGS": "-DSQLITE_MAX_VARIABLE_NUMBER=32766"},
     )
 
     # Stage 2: Runtime
