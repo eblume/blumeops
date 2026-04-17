@@ -61,6 +61,12 @@ MIN_INTERVAL = 10m
 [cron.update_checker]
 ENABLED = false
 
+[cron.archive_cleanup]
+ENABLED = true
+RUN_AT_START = true
+SCHEDULE = @midnight
+OLDER_THAN = 2h
+
 [session]
 PROVIDER = {{ forgejo_session_provider }}
 
