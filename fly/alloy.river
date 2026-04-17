@@ -61,7 +61,7 @@ loki.process "nginx" {
       name        = "flyio_nginx_http_request_duration_seconds"
       description = "HTTP request latency in seconds."
       source      = "request_time"
-      buckets     = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+      buckets     = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 30, 45, 60]
     }
   }
 
