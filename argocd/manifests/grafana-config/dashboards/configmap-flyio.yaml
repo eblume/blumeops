@@ -249,57 +249,11 @@ data:
             "tooltip": { "mode": "multi", "sort": "desc" }
           },
           "targets": [
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.50, sum by (le) (rate(flyio_nginx_http_request_duration_seconds_bucket{instance=\"flyio-proxy\",host=\"forge.eblu.me\"}[5m])))", "legendFormat": "p50", "refId": "A" },
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.90, sum by (le) (rate(flyio_nginx_http_request_duration_seconds_bucket{instance=\"flyio-proxy\",host=\"forge.eblu.me\"}[5m])))", "legendFormat": "p90", "refId": "B" },
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.99, sum by (le) (rate(flyio_nginx_http_request_duration_seconds_bucket{instance=\"flyio-proxy\",host=\"forge.eblu.me\"}[5m])))", "legendFormat": "p99", "refId": "C" }
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.50, sum by (le) (rate(flyio_nginx_http_request_duration_seconds_bucket{instance=\"flyio-proxy\"}[5m])))", "legendFormat": "p50", "refId": "A" },
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.90, sum by (le) (rate(flyio_nginx_http_request_duration_seconds_bucket{instance=\"flyio-proxy\"}[5m])))", "legendFormat": "p90", "refId": "B" },
+            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.99, sum by (le) (rate(flyio_nginx_http_request_duration_seconds_bucket{instance=\"flyio-proxy\"}[5m])))", "legendFormat": "p99", "refId": "C" }
           ],
-          "title": "Proxy: Latency Percentiles",
-          "type": "timeseries"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "fieldConfig": {
-            "defaults": {
-              "color": { "mode": "palette-classic" },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "seconds",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": { "legend": false, "tooltip": false, "viz": false },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": { "type": "linear" },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": { "group": "A", "mode": "none" },
-                "thresholdsStyle": { "mode": "off" }
-              },
-              "mappings": [],
-              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
-              "unit": "s"
-            },
-            "overrides": []
-          },
-          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
-          "id": 8,
-          "options": {
-            "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true },
-            "tooltip": { "mode": "multi", "sort": "desc" }
-          },
-          "targets": [
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.50, sum by (le) (rate(flyio_nginx_upstream_response_time_seconds_bucket{instance=\"flyio-proxy\",host=\"forge.eblu.me\"}[5m])))", "legendFormat": "upstream p50", "refId": "A" },
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.90, sum by (le) (rate(flyio_nginx_upstream_response_time_seconds_bucket{instance=\"flyio-proxy\",host=\"forge.eblu.me\"}[5m])))", "legendFormat": "upstream p90", "refId": "B" },
-            { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.99, sum by (le) (rate(flyio_nginx_upstream_response_time_seconds_bucket{instance=\"flyio-proxy\",host=\"forge.eblu.me\"}[5m])))", "legendFormat": "upstream p99", "refId": "C" }
-          ],
-          "title": "Forgejo: Upstream Response Time",
+          "title": "Latency Percentiles (all hosts)",
           "type": "timeseries"
         }
       ],
