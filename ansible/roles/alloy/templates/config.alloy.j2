@@ -74,6 +74,18 @@ prometheus.scrape "zot" {
 }
 {% endif %}
 
+{% if alloy_collect_forgejo | default(false) %}
+// ============== FORGEJO METRICS ==============
+
+// Scrape Forgejo's native metrics endpoint
+prometheus.scrape "forgejo" {
+  targets         = [{"__address__" = "localhost:{{ alloy_forgejo_port }}"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "{{ alloy_scrape_interval }}"
+}
+{% endif %}
+
 {% if alloy_collect_logs %}
 // ============== LOG COLLECTION ==============
 

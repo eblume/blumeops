@@ -95,6 +95,11 @@ ACCOUNT_LINKING = login
 USERNAME = nickname
 REGISTER_EMAIL_CONFIRM = false
 
+[metrics]
+ENABLED = true
+ENABLED_ISSUE_BY_LABEL = false
+ENABLED_ISSUE_BY_REPOSITORY = false
+
 [actions]
 ENABLED = {{ forgejo_actions_enabled | lower }}
 DEFAULT_ACTIONS_URL = {{ forgejo_actions_default_url }}

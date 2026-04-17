@@ -66,6 +66,15 @@ loki.process "nginx" {
   }
 
   stage.metrics {
+    metric.histogram {
+      name        = "flyio_nginx_upstream_response_time_seconds"
+      description = "Upstream (Forgejo) response time in seconds, excluding proxy overhead."
+      source      = "upstream_response_time"
+      buckets     = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 20, 30, 45, 60]
+    }
+  }
+
+  stage.metrics {
     metric.counter {
       name        = "flyio_nginx_http_response_bytes_total"
       description = "Total bytes sent in HTTP responses."
