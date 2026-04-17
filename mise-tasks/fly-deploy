@@ -3,5 +3,8 @@
 
 set -euo pipefail
 
+export FLY_API_TOKEN
+FLY_API_TOKEN="$(op read 'op://blumeops/fly.io admin/add more/deploy-token')"
+
 cd "$(dirname "$0")/../fly"
 fly deploy "$@"
