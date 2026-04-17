@@ -373,6 +373,66 @@ groups:
                     type: and
               refId: C
 
+  - orgId: 1
+    name: flyio-proxy-health
+    folder: Infrastructure Alerts
+    interval: 30s
+    rules:
+      - uid: flyio-upstream-unreachable
+        title: FlyioUpstreamUnreachable
+        condition: C
+        for: 3m
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            Fly.io proxy returning elevated 502s — upstream DNS may be stale. Run: mise run fly-reload
+          runbook_url: https://docs.eblu.me/how-to/operations/manage-flyio-proxy
+        labels:
+          severity: warning
+          service: flyio-proxy
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              expr: >-
+                sum(rate(flyio_nginx_http_requests_total{instance="flyio-proxy",status="502"}[5m]))
+                / sum(rate(flyio_nginx_http_requests_total{instance="flyio-proxy"}[5m]))
+                > 0.5
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+              refId: C
+
 templates:
   - orgId: 1
     name: ntfy-infra

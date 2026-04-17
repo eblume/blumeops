@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#MISE description="Reload Fly.io proxy nginx config (re-resolves upstream DNS)"
+
+set -euo pipefail
+
+export FLY_API_TOKEN
+FLY_API_TOKEN="$(op read 'op://blumeops/fly.io admin/add more/deploy-token')"
+
+# SSH into the Fly machine and send nginx a reload signal.
+# This re-resolves upstream DNS without a full redeploy.
+APP="blumeops-proxy"
+MACHINE_ID=$(fly machines list -a "$APP" --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
+
+echo "Reloading nginx on machine $MACHINE_ID..."
+fly ssh console -a "$APP" -C "nginx -s reload"
+echo "Done. Upstream DNS re-resolved."

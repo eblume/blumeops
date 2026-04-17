@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-03-28
+modified: 2026-04-17
 tags:
   - service
   - git
@@ -148,11 +148,23 @@ The UI shows `forge.eblu.me` for HTTPS clone URLs and `forge.ops.eblu.me` for SS
 - **Rate limiting:** nginx rate limits login/signup/forgot-password endpoints (3r/s per client IP via `Fly-Client-IP` header)
 - **fail2ban:** Runs in the Fly.io container; bans IPs after 5 failed logins in 10 minutes via nginx deny list (ephemeral across deploys)
 - **Swagger:** Blocked at the proxy (`/swagger` returns 403); use forge.ops.eblu.me for API access
+- **Archive redirect:** Archive endpoints (`/*/archive/*`) are 302-redirected to `forge.ops.eblu.me` — prevents unauthenticated crawlers from triggering unbounded git bundle generation (known DoS vector, see [[flyio-proxy#Crawler Mitigation]])
+- **robots.txt:** Blocks crawlers from `/mirrors/`, `/user/`, `/users/`, `/*/archive/`, `/*/releases/download/`
 - **OAuth dead-end:** "Sign in with Authentik" redirects to the (tailnet-only) Authentik URL — SSO only works from the tailnet
 
 ### Break-glass
 
 `mise run fly-shutoff` stops all public traffic immediately. forge.ops.eblu.me continues to work from the tailnet. See [[expose-service-publicly#Break-glass shutoff]].
+
+## Monitoring
+
+Forgejo exposes a Prometheus `/metrics` endpoint (enabled via `[metrics]` in `app.ini`). Alloy on indri scrapes it at `localhost:3001/metrics`. Metrics are mostly Go runtime stats and repo counters (no per-request latency histogram).
+
+Request latency is measured at the Fly.io proxy layer via the `flyio_nginx_upstream_response_time_seconds` histogram, visible on the Forgejo Grafana dashboard under "Forgejo: Upstream Response Time".
+
+### Archive Cleanup
+
+The `[cron.archive_cleanup]` section is enabled with `OLDER_THAN = 2h` and `RUN_AT_START = true`. This prevents the `repo-archive/` directory from growing unboundedly when crawlers or users trigger archive downloads. Without this, the directory grew to 54GB in 2 days during a crawler incident in April 2026.
 
 ## Mirrors
 

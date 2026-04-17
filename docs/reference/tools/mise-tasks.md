@@ -33,7 +33,8 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `provision-indri` | Run Ansible playbook for [[indri]] |
 | `provision-ringtail` | Run Ansible playbook for [[ringtail]] (NixOS) |
 | `provision-sifaka` | Run Ansible playbook for [[sifaka]] |
-| `fly-deploy` | Deploy Fly.io public proxy |
+| `fly-deploy` | Deploy Fly.io public proxy (uses op for auth) |
+| `fly-reload` | Reload nginx config, re-resolve upstream DNS (no redeploy) |
 | `fly-setup` | One-time Fly.io secrets and certs setup |
 | `fly-shutoff` | Emergency shutoff: stop all Fly.io proxy machines |
 | `dns-preview` | Preview DNS changes with [[pulumi]] |

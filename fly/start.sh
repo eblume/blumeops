@@ -11,10 +11,18 @@ tailscale up --authkey="${TS_AUTHKEY}" --hostname=flyio-proxy
 until tailscale status > /dev/null 2>&1; do sleep 1; done
 echo "Tailscale connected"
 
+# Wait for MagicDNS to be ready — upstream blocks resolve DNS at config
+# load, so nginx will fail to start if MagicDNS can't resolve yet.
+echo "Waiting for MagicDNS..."
+until nslookup forge.tail8d86e.ts.net 100.100.100.100 > /dev/null 2>&1; do
+    sleep 1
+done
+echo "MagicDNS ready"
+
 # Ensure fail2ban deny file exists before nginx starts
 touch /etc/nginx/forge-deny.conf
 
-# Start nginx — MagicDNS is available, health check passes immediately.
+# Start nginx — MagicDNS is available, upstreams resolved.
 nginx -g "daemon off;" &
 NGINX_PID=$!
 echo "Nginx started"

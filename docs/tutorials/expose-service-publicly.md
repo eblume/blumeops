@@ -1,7 +1,7 @@
 ---
 title: Expose a Service Publicly
-modified: 2026-03-15
-last-reviewed: 2026-03-03
+modified: 2026-04-17
+last-reviewed: 2026-04-17
 tags:
   - tutorials
   - fly-io
@@ -116,8 +116,8 @@ See the actual files in `fly/` for current configuration. Key design points:
 
 - **`fly.toml`** — uses bluegreen deploys so the old machine serves traffic until the new one passes health checks. `auto_stop_machines = "off"` keeps the proxy always-on.
 - **`Dockerfile`** — multi-stage build pulling nginx, Tailscale, and [[alloy]] binaries. Alloy runs as a sidecar inside the container for observability (see below).
-- **`start.sh`** — starts `tailscaled` first (MagicDNS must be available before nginx resolves upstreams), then nginx in the background, then Alloy, and blocks on the nginx process.
-- **`nginx.conf`** — uses a `resolver 100.100.100.100` directive so upstream DNS resolution is deferred to request time (not config load time). Each service gets a `server` block with a `set $upstream` variable pattern. Includes a JSON access log format that Alloy tails for log collection and metric extraction. A catch-all server block serves `/healthz` and rejects unknown hosts.
+- **`start.sh`** — starts `tailscaled` first, waits for MagicDNS readiness (polls `nslookup` against `100.100.100.100`), then starts nginx, fail2ban, and Alloy, and blocks on the nginx process. The MagicDNS check is required because `upstream` blocks resolve DNS at config load.
+- **`nginx.conf`** — uses `upstream` blocks with `keepalive` connection pools for each backend service. DNS is resolved at config load via MagicDNS (`resolver 100.100.100.100`). Each upstream requires `proxy_ssl_name` set explicitly to the Tailscale hostname (nginx sends the block name as SNI by default). A `map` directive conditionally sets the `Connection` header — empty string for keepalive on normal requests, `upgrade` only for WebSocket requests. Includes a JSON access log format that Alloy tails for log collection and metric extraction. A catch-all server block serves `/healthz` and rejects unknown hosts.
 - **`error.html`** — shown via `proxy_intercept_errors` when upstreams are unreachable (indri offline, tunnel down, etc.). Cached responses still take priority via `proxy_cache_use_stale`.
 
 #### Observability sidecar
@@ -216,11 +216,18 @@ To expose an additional service (example: `wiki.eblu.me`):
 
 ### 1. Add nginx server block
 
-Edit `fly/nginx.conf` — add a new `server` block. The configuration
-differs significantly between static and dynamic services. See the
-existing `docs.eblu.me` and `cv.eblu.me` blocks in `fly/nginx.conf`
-for the current pattern (uses `set $upstream` variable for deferred
-DNS resolution, `proxy_intercept_errors` for error pages, etc.).
+Edit `fly/nginx.conf` — two changes needed:
+
+1. **Add an `upstream` block** (in the `http` context, alongside the existing ones):
+
+```nginx
+upstream wiki_backend {
+    server wiki.tail8d86e.ts.net:443;
+    keepalive 4;
+}
+```
+
+2. **Add a `server` block.** The configuration differs significantly between static and dynamic services. See the existing blocks in `fly/nginx.conf` for the current pattern.
 
 **Static site template** (simplified — adapt from existing blocks):
 
@@ -239,11 +246,15 @@ server {
     }
 
     location / {
-        set $upstream_wiki https://wiki.tail8d86e.ts.net;
-        proxy_pass $upstream_wiki$request_uri;
+        proxy_pass https://wiki_backend$request_uri;
         proxy_ssl_verify off;
         proxy_ssl_server_name on;
+        proxy_ssl_name wiki.tail8d86e.ts.net;
+        proxy_set_header Host wiki.tail8d86e.ts.net;
         proxy_intercept_errors on;
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection $connection_upgrade;
 
         proxy_cache services;
         proxy_cache_valid 200 1d;
@@ -259,66 +270,12 @@ server {
 }
 ```
 
-**Dynamic service template** (e.g., Forgejo — see `fly/nginx.conf` for the live configuration):
+**Key points for all upstream blocks:**
+- `proxy_ssl_name` must be set explicitly — nginx sends the upstream block name as SNI by default, which the Tailscale Ingress won't recognize
+- `proxy_http_version 1.1` + `Connection $connection_upgrade` enables keepalive (empty string for normal requests, "upgrade" for WebSocket)
+- `keepalive` pool size: 4 for low-traffic static sites, 8 for higher-traffic dynamic services
 
-```nginx
-# --- forge.eblu.me (dynamic, authenticated) ---
-server {
-    listen 8080;
-    server_name forge.eblu.me;
-
-    # Higher rate limit — git operations, CI webhooks, and API calls
-    # can legitimately burst. Forgejo also has its own rate limiting,
-    # so this is a safety net, not the primary control.
-    limit_req zone=general burst=50 nodelay;
-
-    # Git LFS and repo uploads can be large
-    client_max_body_size 512m;
-
-    error_page 502 503 504 /error.html;
-    location = /error.html {
-        root /usr/share/nginx/html;
-        internal;
-    }
-
-    location / {
-        set $upstream_forge https://forge.tail8d86e.ts.net;
-        proxy_pass $upstream_forge$request_uri;
-        proxy_ssl_verify off;
-        proxy_ssl_server_name on;
-        proxy_intercept_errors on;
-
-        # NO proxy_cache — dynamic content with sessions.
-        # Caching would serve stale pages and break authentication.
-
-        # Pass through headers needed for proper proxying
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket support (Forgejo uses it for live updates)
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-
-    # Selectively cache static assets only
-    location ~* \.(css|js|png|jpg|svg|woff2?)$ {
-        set $upstream_forge_static https://forge.tail8d86e.ts.net;
-        proxy_pass $upstream_forge_static$request_uri;
-        proxy_ssl_verify off;
-        proxy_ssl_server_name on;
-
-        proxy_cache services;
-        proxy_cache_valid 200 7d;
-        proxy_cache_key $host$uri;
-
-        add_header X-Cache-Status $upstream_cache_status;
-        add_header X-Clacks-Overhead "GNU Terry Pratchett" always;
-    }
-}
-```
+**Dynamic service template** — see `fly/nginx.conf` for the live Forgejo configuration, which includes rate-limited auth endpoints, cached static assets and release downloads, archive endpoint redirects, robots.txt, and WebSocket support.
 
 Key differences for dynamic services:
 - **No blanket caching** — only static assets (CSS, JS, images) are cached
