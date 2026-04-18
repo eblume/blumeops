@@ -1,7 +1,7 @@
 ---
 title: Tailscale
-modified: 2026-03-22
-last-reviewed: 2026-03-22
+modified: 2026-04-18
+last-reviewed: 2026-04-18
 tags:
   - infrastructure
   - networking
@@ -36,7 +36,7 @@ ACLs managed via Pulumi in `pulumi/tailscale/policy.hujson`.
 | `tag:k8s` | (Ingress proxy pods) | Kubernetes Tailscale Ingress nodes; each also carries a per-service tag (`tag:grafana`, `tag:kiwix`, `tag:devpi`, `tag:feed`, `tag:pg`) |
 | `tag:ci-gateway` | (ephemeral CI containers) | CI containers pushing images to registry |
 | `tag:flyio-proxy` | (Fly.io proxy container) | Public reverse proxy |
-| `tag:flyio-target` | (designated Ingress endpoints) | Endpoints reachable by the Fly.io proxy |
+| `tag:flyio-target` | indri, designated Ingress endpoints | Endpoints reachable by the Fly.io proxy (indri for Caddy routing, Ingress pods for Alloy metrics/logs) |
 
 **Important:** Don't tag user-owned devices (like gilbert) via Pulumi. Tagging converts them to "tagged devices" which lose user identity and break user-based SSH rules. Gilbert is referenced as `tag:workstation` in tagOwners for ownership purposes but remains user-owned so `blume.erich@gmail.com` identity is preserved.
 
@@ -80,6 +80,19 @@ ProxyGroup pods (`tag:k8s`) can auto-approve their own VIP Services. This is req
 Pulumi uses OAuth client from 1Password (blumeops vault):
 - Scopes: acl, dns, devices, services
 - Auto-applies `tag:blumeops` to IaC-managed resources
+
+## Direct Peering vs DERP Relay
+
+Just because Tailscale can route traffic does not mean it routes it efficiently. DERP relay servers are a fallback for when direct WireGuard connections cannot be established — they add significant latency (20+ seconds observed under load) because every packet bounces through a relay server.
+
+**Direct peering is critical for any production-like traffic path.** Check with `tailscale ping <host>` — it should say `via <ip>:<port>`, not `via DERP(<region>)`.
+
+Common reasons direct peering fails:
+- **k8s pods**: Tailscale Ingress pods behind pod-network NAT cannot hole-punch. Route through a host-level Tailscale node (e.g., Caddy on indri) instead.
+- **Cloud VMs**: Some cloud providers block incoming UDP. Pin the WireGuard port (`tailscaled --port=41641`) and expose it as a UDP service if possible.
+- **Double NAT / CGNAT**: Multiple NAT layers make hole punching unreliable.
+
+The [[flyio-proxy]] uses `--port=41641` pinning to enable direct peering with indri, and routes through [[caddy]] (host-level Tailscale) to avoid the DERP bottleneck of k8s-hosted Tailscale Ingress pods.
 
 ## Related
 

@@ -1,6 +1,6 @@
 ---
 title: Routing
-modified: 2026-04-17
+modified: 2026-04-18
 tags:
   - infrastructure
   - networking
@@ -46,7 +46,7 @@ DNS points to [[indri]]'s Tailscale IP. TLS via Let's Encrypt (ACME DNS-01 with 
 
 ## Public Services (`*.eblu.me`)
 
-DNS CNAMEs point to `blumeops-proxy.fly.dev`. TLS via Fly.io-managed Let's Encrypt. Traffic tunnels back to the homelab over Tailscale. Only services tagged `tag:flyio-target` are reachable by the proxy — see [[flyio-proxy]] for details.
+DNS CNAMEs point to `blumeops-proxy.fly.dev`. TLS via Fly.io-managed Let's Encrypt. Traffic tunnels back to [[caddy]] on [[indri]] over a direct Tailscale WireGuard connection, then Caddy routes to the service. See [[flyio-proxy]] for details.
 
 | Service | URL | Description |
 |---------|-----|-------------|

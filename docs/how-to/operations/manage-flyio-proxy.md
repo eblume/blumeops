@@ -1,7 +1,7 @@
 ---
 title: Manage Fly.io Proxy
-modified: 2026-04-17
-last-reviewed: 2026-04-17
+modified: 2026-04-18
+last-reviewed: 2026-04-18
 tags:
   - how-to
   - fly-io
@@ -22,16 +22,6 @@ mise run fly-deploy
 ```
 
 Pushes to `fly/` on main also trigger automatic deployment via the Forgejo CI workflow.
-
-## Reload Nginx (Re-resolve Upstream DNS)
-
-Nginx uses `upstream` blocks with keepalive connection pools. DNS is resolved at config load. If Tailscale Ingress pods get new IPs (restart, reschedule, minikube restart), reload nginx to re-resolve without a full redeploy:
-
-```bash
-mise run fly-reload
-```
-
-A Grafana alert fires when upstreams are unreachable, prompting this action. A full `fly-deploy` also re-resolves DNS (it replaces the container).
 
 ## Add a New Public Service
 
@@ -88,15 +78,13 @@ The auth key expires every 90 days. To rotate:
 
 ## Troubleshooting
 
-**502 Bad Gateway after Tailscale Ingress restart**: Upstream DNS is stale. Run `mise run fly-reload` to re-resolve. This is the most common cause of 502s.
-
 **502 Bad Gateway on fresh deploy**: MagicDNS may not be ready when nginx starts. The `start.sh` script polls `nslookup` before launching nginx, but if it still fails, check that `tailscale status` is healthy inside the container.
 
 **Health check failing**: `fly ssh console -a blumeops-proxy` then `curl localhost:8080/healthz` to test locally.
 
 **TLS errors on custom domain**: Check cert status with `fly certs show <domain> -a blumeops-proxy`. Certs auto-provision via Let's Encrypt and may take a few minutes.
 
-**High latency (>1s p50)**: Likely lost keepalive — redeploy with `mise run fly-deploy`. Before the keepalive change (April 2026), per-request TLS handshakes through the WireGuard tunnel caused 35s+ p50 at >1 req/s.
+**High latency (>1s p50)**: Check if direct WireGuard peering is established: `fly ssh console -a blumeops-proxy -C "tailscale ping indri"`. If it shows `via DERP`, the tunnel is relayed and latency will be 10-30s. See [[tailscale#Direct Peering vs DERP Relay]] for diagnosis.
 
 ## Related
 

@@ -1,6 +1,6 @@
 ---
 title: Fly.io Proxy
-modified: 2026-04-17
+modified: 2026-04-18
 tags:
   - service
   - networking
@@ -23,23 +23,27 @@ Public reverse proxy on [Fly.io](https://fly.io) that exposes selected BlumeOps 
 
 ## Exposed Services
 
-| Public domain | Backend | Service |
-|---------------|---------|---------|
-| `docs.eblu.me` | `docs.tail8d86e.ts.net` | [[docs]] |
-| `cv.eblu.me` | `cv.tail8d86e.ts.net` | [[cv]] |
-| `forge.eblu.me` | `forge.tail8d86e.ts.net` | [[forgejo]] |
+| Public domain | Backend (via Caddy) | Service |
+|---------------|---------------------|---------|
+| `docs.eblu.me` | `docs.ops.eblu.me` | [[docs]] |
+| `cv.eblu.me` | `cv.ops.eblu.me` | [[cv]] |
+| `forge.eblu.me` | `forge.ops.eblu.me` | [[forgejo]] |
 
 ## Architecture
 
-Internet traffic hits Fly.io's Anycast edge, terminates TLS with a Let's Encrypt certificate, and is proxied by nginx to the backend service over a Tailscale WireGuard tunnel. See [[expose-service-publicly]] for the full architecture diagram.
+Internet traffic hits Fly.io's Anycast edge, terminates TLS with a Let's Encrypt certificate, and is proxied by nginx to [[caddy]] on [[indri]] over a direct Tailscale WireGuard tunnel. Caddy then routes to the actual service. See [[expose-service-publicly]] for the full architecture diagram.
 
-### Upstream Keepalive
+### Why Caddy, not per-service Tailscale Ingress?
 
-Nginx uses `upstream` blocks with `keepalive` connection pools to reuse TLS connections through the WireGuard tunnel. This avoids a per-request TLS handshake, which was previously the dominant source of latency (35s+ p50 before keepalive, sub-second after).
+Previously, nginx connected directly to each service's `*.tail8d86e.ts.net` Tailscale Ingress endpoint. This caused **20+ second latency** because the Tailscale Ingress pods (running inside k8s) are behind pod-network NAT and can only reach the Fly VM via Tailscale DERP relay servers — not direct WireGuard peering.
 
-**Trade-off:** DNS for upstream hostnames is resolved once at config load, not per-request. If Tailscale Ingress pods get new IPs (restart, reschedule, minikube restart), run `mise run fly-reload` to re-resolve without a full redeploy. A Grafana alert fires when upstreams are unreachable.
+Routing through Caddy on indri solves this because indri's host-level Tailscale can establish direct WireGuard connections with the Fly VM (45ms round trip). This generalizes to all services regardless of where they run (native on indri, minikube, or ringtail k3s), since Caddy already routes to everything.
 
-Each upstream requires `proxy_ssl_name` set to the actual Tailscale hostname — nginx sends the upstream block name as SNI by default, which the Tailscale Ingress proxy won't recognize.
+### Direct WireGuard Peering
+
+The Fly VM pins its Tailscale WireGuard listener to port 41641 (`tailscaled --port=41641`). Combined with well-behaved NAT on both sides (`MappingVariesByDestIP: false`), this allows Tailscale to establish direct peer-to-peer connections via UDP hole punching — no dedicated IPv4 required.
+
+If direct peering fails (observable via `tailscale ping indri` showing "via DERP"), allocate a dedicated IPv4 ($2/month) with `fly ips allocate-v4` to provide a guaranteed inbound UDP path.
 
 ## Key Files
 
@@ -57,6 +61,8 @@ Each upstream requires `proxy_ssl_name` set to the actual Tailscale hostname —
 ## Networking
 
 Fly.io runs Firecracker microVMs which support TUN devices natively. Tailscale runs with a real TUN interface (not userspace networking), so MagicDNS and direct Tailscale IP routing work normally.
+
+The `tailscaled` process is started with `--port=41641` to pin the WireGuard listener to a fixed port. This is critical for direct peering — without it, hole punching is unreliable. A `[[services]]` block in `fly.toml` exposes this port as UDP, though it is only active when a dedicated IPv4 is allocated.
 
 The Tailscale auth key is `preauthorized=True` to avoid device approval hangs on container restarts.
 
@@ -83,9 +89,7 @@ Alloy listens on `127.0.0.1:12345` for self-scraping its `/metrics` endpoint. Al
 
 ## Security Considerations
 
-The `tag:flyio-proxy` ACL grants access only to `tag:flyio-target:443`. Services must explicitly opt in by adding a `tailscale.com/tags: "tag:k8s,tag:flyio-target"` annotation to their Tailscale Ingress. This means the proxy can only reach endpoints that have been individually tagged — a compromised nginx config cannot route to arbitrary services on the tailnet.
-
-Currently tagged as `tag:flyio-target`: [[docs]], [[cv]], [[forgejo]], [[loki]], [[prometheus]]. Loki and Prometheus are tagged so that [[alloy|Alloy]] (running inside the container) can push logs and metrics directly via their Tailscale Ingress endpoints — the restricted ACL means Caddy on indri (`tag:homelab`) is not reachable from the proxy.
+The `tag:flyio-proxy` ACL grants access only to `tag:flyio-target:443`. Indri carries this tag (for Caddy), and the k8s Tailscale Ingress pods for Loki and Prometheus also carry it so [[alloy|Alloy]] can push logs and metrics directly. A compromised proxy cannot route to arbitrary services on the tailnet — only `tag:flyio-target` endpoints on port 443.
 
 ### Crawler Mitigation
 
@@ -101,7 +105,7 @@ Archive requests (`/<owner>/<repo>/archive/*`) are 302-redirected to `forge.ops.
 
 Release downloads are cached at the proxy layer (7-day TTL, keyed by URI) to absorb repeated downloads of the same artifact.
 
-To expose an additional service through the proxy, add the `tag:flyio-target` annotation to its Tailscale Ingress. See [[expose-service-publicly]] for the full workflow.
+To expose an additional service through the proxy, add a Caddy route for it and an nginx `server` block. See [[expose-service-publicly]] for the full workflow.
 
 ## Spider Trap Mitigation
 

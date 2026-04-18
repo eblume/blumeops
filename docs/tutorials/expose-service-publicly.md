@@ -1,7 +1,7 @@
 ---
 title: Expose a Service Publicly
-modified: 2026-04-17
-last-reviewed: 2026-04-17
+modified: 2026-04-18
+last-reviewed: 2026-04-18
 tags:
   - tutorials
   - fly-io
@@ -27,24 +27,21 @@ Internet → <service>.eblu.me
          Fly.io edge (Anycast, TLS via Let's Encrypt)
                │
          Fly.io VM (nginx reverse proxy + Tailscale)
-               │  (WireGuard tunnel)
-         tailnet (tail8d86e.ts.net)
+               │  (direct WireGuard tunnel to indri)
+         Caddy on indri (*.ops.eblu.me routing)
                │
-         <service>.tail8d86e.ts.net (Tailscale ingress)
-               │
-         k8s Service → pod
+         backend service (k8s, native, or remote)
 ```
-(The approach works similarly for non-k8s services via `tailscale serve`
-service definitions, eg. [[forgejo]] and [[zot]])
 
 A single Fly.io container serves as the public-facing proxy for all exposed
-services. Each service gets a `server` block in the nginx config and a DNS
-CNAME. The container joins the tailnet via an ephemeral auth key and reaches
-backend services through Tailscale ingress endpoints.
+services. Nginx routes all traffic through [[caddy]] on [[indri]] via a
+direct Tailscale WireGuard connection. Caddy already knows how to route
+to every service (native, minikube, or ringtail k3s), so adding a new
+public service only requires an nginx `server` block and a DNS CNAME.
 
-Existing `*.ops.eblu.me` services remain private behind Tailscale — this
-approach does not touch [[caddy]], [[gandi]] DNS-01, or any other existing
-infrastructure. They can continue to operate in parallel for private access.
+The `*.ops.eblu.me` routes continue to work in parallel for private tailnet
+access — the Fly proxy sends `Host: <service>.ops.eblu.me` headers that
+match the same Caddy routes.
 
 ## Key decisions
 
@@ -61,20 +58,17 @@ infrastructure. They can continue to operate in parallel for private access.
 
 ## TLS in this architecture
 
-There are three independent TLS segments — none involve Caddy:
+There are three independent TLS segments:
 
 1. **Browser → Fly.io edge**: Fly.io auto-provisions a Let's Encrypt
    certificate for each custom domain (e.g., `docs.eblu.me`). Validated via
    TLS-ALPN challenge — no DNS API needed.
-2. **nginx → Tailscale ingress**: nginx proxies to
-   `https://<service>.tail8d86e.ts.net`. The Tailscale ingress serves a
-   Tailscale-issued cert. nginx uses `proxy_ssl_verify off` since the
-   underlying tunnel is already encrypted.
+2. **nginx → Caddy on indri**: nginx proxies to `https://indri.tail8d86e.ts.net`
+   with `Host: <service>.ops.eblu.me`. Caddy serves its `*.ops.eblu.me`
+   Let's Encrypt wildcard cert. nginx uses `proxy_ssl_verify off` since the
+   underlying WireGuard tunnel is already encrypted.
 3. **WireGuard tunnel**: All Tailscale traffic is encrypted at the network
    layer regardless of application-level TLS.
-
-Caddy continues to serve `*.ops.eblu.me` with its existing Gandi DNS-01
-certificates. The two TLS domains are completely independent.
 
 ## External references
 
@@ -116,8 +110,8 @@ See the actual files in `fly/` for current configuration. Key design points:
 
 - **`fly.toml`** — uses bluegreen deploys so the old machine serves traffic until the new one passes health checks. `auto_stop_machines = "off"` keeps the proxy always-on.
 - **`Dockerfile`** — multi-stage build pulling nginx, Tailscale, and [[alloy]] binaries. Alloy runs as a sidecar inside the container for observability (see below).
-- **`start.sh`** — starts `tailscaled` first, waits for MagicDNS readiness (polls `nslookup` against `100.100.100.100`), then starts nginx, fail2ban, and Alloy, and blocks on the nginx process. The MagicDNS check is required because `upstream` blocks resolve DNS at config load.
-- **`nginx.conf`** — uses `upstream` blocks with `keepalive` connection pools for each backend service. DNS is resolved at config load via MagicDNS (`resolver 100.100.100.100`). Each upstream requires `proxy_ssl_name` set explicitly to the Tailscale hostname (nginx sends the block name as SNI by default). A `map` directive conditionally sets the `Connection` header — empty string for keepalive on normal requests, `upgrade` only for WebSocket requests. Includes a JSON access log format that Alloy tails for log collection and metric extraction. A catch-all server block serves `/healthz` and rejects unknown hosts.
+- **`start.sh`** — starts `tailscaled --port=41641` first (pinned port enables direct WireGuard peering), waits for MagicDNS readiness (polls `nslookup` against `100.100.100.100`), then starts nginx, fail2ban, and Alloy, and blocks on the nginx process. The MagicDNS check is required because the `upstream` block resolves DNS at config load.
+- **`nginx.conf`** — uses a single `upstream` block with `keepalive` pointing at Caddy on indri (`indri.tail8d86e.ts.net:443`). All services route through this upstream with `Host: <service>.ops.eblu.me` headers for Caddy routing. Includes a JSON access log format that Alloy tails for log collection and metric extraction. A catch-all server block serves `/healthz` and rejects unknown hosts.
 - **`error.html`** — shown via `proxy_intercept_errors` when upstreams are unreachable (indri offline, tunnel down, etc.). Cached responses still take priority via `proxy_cache_use_stale`.
 
 #### Observability sidecar
@@ -174,11 +168,11 @@ ACL test:
 {
     "src":  "tag:flyio-proxy",
     "accept": ["tag:flyio-target:443"],
-    "deny":   ["tag:k8s:443", "tag:homelab:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
+    "deny":   ["tag:k8s:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
 },
 ```
 
-Each service's Tailscale Ingress must be annotated with `tag:flyio-target` to be reachable by the proxy — see [[#7. Tag the Tailscale Ingress with tag:flyio-target]].
+Indri carries `tag:flyio-target` so the Fly proxy can reach Caddy. No per-service tagging is needed — Caddy handles routing to all services.
 
 Deploy: `mise run tailnet-preview` then `mise run tailnet-up`.
 
@@ -214,20 +208,17 @@ The `FLY_DEPLOY_TOKEN` Forgejo Actions secret must be set via the [[forgejo]] AP
 
 To expose an additional service (example: `wiki.eblu.me`):
 
-### 1. Add nginx server block
+### 1. Ensure the service has a Caddy route
 
-Edit `fly/nginx.conf` — two changes needed:
+The service must be accessible via `<service>.ops.eblu.me` through [[caddy]].
+Most services already have this. If not, add it to `ansible/roles/caddy/defaults/main.yml`
+and deploy with `mise run provision-indri -- --tags caddy`.
 
-1. **Add an `upstream` block** (in the `http` context, alongside the existing ones):
+### 2. Add nginx server block
 
-```nginx
-upstream wiki_backend {
-    server wiki.tail8d86e.ts.net:443;
-    keepalive 4;
-}
-```
-
-2. **Add a `server` block.** The configuration differs significantly between static and dynamic services. See the existing blocks in `fly/nginx.conf` for the current pattern.
+Edit `fly/nginx.conf` — add a `server` block. All services use the shared
+`indri_backend` upstream (Caddy on indri). Set `Host` and `proxy_ssl_name`
+to the service's `*.ops.eblu.me` hostname so Caddy routes correctly.
 
 **Static site template** (simplified — adapt from existing blocks):
 
@@ -246,11 +237,11 @@ server {
     }
 
     location / {
-        proxy_pass https://wiki_backend$request_uri;
+        proxy_pass https://indri_backend$request_uri;
         proxy_ssl_verify off;
         proxy_ssl_server_name on;
-        proxy_ssl_name wiki.tail8d86e.ts.net;
-        proxy_set_header Host wiki.tail8d86e.ts.net;
+        proxy_ssl_name wiki.ops.eblu.me;
+        proxy_set_header Host wiki.ops.eblu.me;
         proxy_intercept_errors on;
 
         proxy_http_version 1.1;
@@ -270,24 +261,7 @@ server {
 }
 ```
 
-**Key points for all upstream blocks:**
-- `proxy_ssl_name` must be set explicitly — nginx sends the upstream block name as SNI by default, which the Tailscale Ingress won't recognize
-- `proxy_http_version 1.1` + `Connection $connection_upgrade` enables keepalive (empty string for normal requests, "upgrade" for WebSocket)
-- `keepalive` pool size: 4 for low-traffic static sites, 8 for higher-traffic dynamic services
-
 **Dynamic service template** — see `fly/nginx.conf` for the live Forgejo configuration, which includes rate-limited auth endpoints, cached static assets and release downloads, archive endpoint redirects, robots.txt, and WebSocket support.
-
-Key differences for dynamic services:
-- **No blanket caching** — only static assets (CSS, JS, images) are cached
-- **Respect `Set-Cookie`** — do not ignore session headers
-- **Include query strings** in non-cached requests (default behavior when
-  `proxy_cache_key` is not overridden)
-- **Higher rate limits** — legitimate usage patterns are burstier
-- **Proxy headers** — pass `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`
-  so the backend sees the real client IP (important for Forgejo's audit logs
-  and its own rate limiting)
-- **WebSocket support** — many modern web apps use WebSockets
-- **Larger body size** — git pushes and file uploads need more than the default 1MB
 
 ### 2. Add Fly.io certificate
 
@@ -345,18 +319,9 @@ curl -I https://wiki.eblu.me
 # Should return 200 with X-Cache-Status header
 ```
 
-### 7. Tag the Tailscale Ingress with `tag:flyio-target`
+### 7. Verify routing
 
-The fly.io proxy can only reach endpoints tagged with `tag:flyio-target`. Add the annotation to the service's Tailscale Ingress:
-
-```yaml
-annotations:
-  tailscale.com/tags: "tag:k8s,tag:flyio-target"
-```
-
-Include `tag:k8s` to preserve existing access rules for the Ingress proxy node. The `tag:flyio-target` tag opts this specific endpoint into being reachable by the fly.io proxy — no broad ACL changes needed.
-
-For non-k8s services (e.g., Forgejo on indri), create a k8s ExternalName Service pointing to the host, then a Tailscale Ingress with the same annotation.
+Since all traffic routes through Caddy on indri, no per-service Tailscale Ingress tagging is needed. As long as the service has a Caddy route (step 1), the Fly proxy can reach it.
 
 ---
 

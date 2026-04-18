@@ -1,6 +1,6 @@
 ---
 title: Caddy
-modified: 2026-03-15
+modified: 2026-04-18
 tags:
   - service
   - networking
@@ -83,7 +83,9 @@ The token is written to `~/.config/caddy/gandi-token` (chmod 0600) and sourced b
 
 ## Security Considerations
 
-Caddy has no authentication layer — it is a plain reverse proxy. Access control relies entirely on Tailscale ACLs restricting which devices can reach indri on port 443. Currently `tag:homelab` and `autogroup:admin` can reach Caddy. The [[flyio-proxy]] no longer routes through Caddy — it pushes logs and metrics directly to [[loki]] and [[prometheus]] via their Tailscale Ingress endpoints.
+Caddy has no authentication layer — it is a plain reverse proxy. Access control relies entirely on Tailscale ACLs restricting which devices can reach indri on port 443. Currently `tag:homelab`, `autogroup:admin`, and `tag:flyio-proxy` (via `tag:flyio-target` on indri) can reach Caddy.
+
+The [[flyio-proxy]] routes all public traffic through Caddy. This is the path for `*.eblu.me` requests from the public internet. Caddy sees these as requests from the Fly VM with `Host: *.ops.eblu.me` headers — the same routes used by tailnet clients.
 
 ## Custom Build
 
