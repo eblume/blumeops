@@ -153,6 +153,10 @@ in
     '';
   };
 
+  # Raise memlock rlimit for k3s so eBPF workloads (Beyla/Alloy tracing) can
+  # call setrlimit(RLIMIT_MEMLOCK, unlimited) inside privileged containers.
+  systemd.services.k3s.serviceConfig.LimitMEMLOCK = "infinity";
+
   # K3s containerd registry mirrors (pull through Zot on indri)
   environment.etc."rancher/k3s/registries.yaml".source = ./k3s-registries.yaml;
 
