@@ -5,7 +5,7 @@ set -e
 # With bluegreen deploys, the old machine serves traffic until this one is
 # fully ready. Fly.io runs Firecracker microVMs that support TUN devices
 # natively — no need for --tun=userspace-networking.
-tailscaled --statedir=/var/lib/tailscale &
+tailscaled --statedir=/var/lib/tailscale --port=41641 &
 sleep 2
 tailscale up --authkey="${TS_AUTHKEY}" --hostname=flyio-proxy
 until tailscale status > /dev/null 2>&1; do sleep 1; done

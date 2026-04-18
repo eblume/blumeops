@@ -22,3 +22,12 @@ interval = "10s"
 method = "GET"
 path = "/healthz"
 timeout = "5s"
+
+# Expose Tailscale's WireGuard port so direct peer-to-peer connections can
+# establish instead of falling back to DERP relay. Requires a dedicated IPv4.
+[[services]]
+internal_port = 41641
+protocol = "udp"
+
+[[services.ports]]
+port = 41641
