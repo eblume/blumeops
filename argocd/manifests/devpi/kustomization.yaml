@@ -11,4 +11,4 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/devpi
-    newTag: v6.19.1-613f05d
+    newTag: v6.19.3-37b8a21
