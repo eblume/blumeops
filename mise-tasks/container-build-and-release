@@ -89,6 +89,7 @@ def main(
         ref = git("rev-parse", ref)
 
     short_sha = ref[:7]
+
     image = f"blumeops/{container}"
 
     # Show expected builds
@@ -119,6 +120,17 @@ def main(
         "Authorization": f"token {token}",
         "Content-Type": "application/json",
     }
+
+    # Verify the commit has been pushed to the remote
+    resp = httpx.get(
+        f"{FORGE_API}/repos/{REPO}/git/commits/{ref}",
+        headers=headers,
+        timeout=15,
+    )
+    if resp.status_code != 200:
+        typer.echo(f"Error: commit {short_sha} not found on remote")
+        typer.echo("Push your changes before triggering a build: git push origin main")
+        raise typer.Exit(1)
 
     url = f"{FORGE_API}/repos/{REPO}/actions/workflows/{WORKFLOW}/dispatches"
     payload = {
