@@ -215,8 +215,8 @@ services:
 
   - name: devpi
     type: argocd
-    last-reviewed: 2026-03-06
-    current-version: "6.19.1"
+    last-reviewed: 2026-04-18
+    current-version: "6.19.3"
     upstream-source: https://github.com/devpi/devpi/releases
 
   - name: cv
