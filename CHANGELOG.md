@@ -12,6 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.16.0] - 2026-04-18
+
+### Infrastructure
+
+- Route Fly.io proxy through Caddy on indri with direct WireGuard peering, reducing public-facing latency from 20+ seconds (DERP relay) to sub-second. Fixed Beyla eBPF tracing on ringtail (memlock rlimit + BPF permissions). Restored trace collection to Tempo.
+
+
 ## [v1.15.7] - 2026-04-18
 
 ### Bug Fixes

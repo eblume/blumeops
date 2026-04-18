@@ -1,1 +1,0 @@
-Route Fly.io proxy through Caddy on indri with direct WireGuard peering, reducing public-facing latency from 20+ seconds (DERP relay) to sub-second. Fixed Beyla eBPF tracing on ringtail (memlock rlimit + BPF permissions). Restored trace collection to Tempo.
