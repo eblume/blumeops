@@ -157,6 +157,11 @@ in
   # call setrlimit(RLIMIT_MEMLOCK, unlimited) inside privileged containers.
   systemd.services.k3s.serviceConfig.LimitMEMLOCK = "infinity";
 
+  # Allow BPF in privileged containers (Beyla eBPF tracing). NixOS defaults
+  # to 2 (block BPF outside init namespace even with CAP_BPF). Value 1 allows
+  # BPF for processes with CAP_BPF/CAP_SYS_ADMIN in any namespace.
+  boot.kernel.sysctl."kernel.unprivileged_bpf_disabled" = 1;
+
   # K3s containerd registry mirrors (pull through Zot on indri)
   environment.etc."rancher/k3s/registries.yaml".source = ./k3s-registries.yaml;
 
