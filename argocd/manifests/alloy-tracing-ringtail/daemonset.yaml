@@ -46,6 +46,7 @@ spec:
               mountPath: /var/lib/alloy/data
           securityContext:
             privileged: true
+            runAsUser: 0
       tolerations:
         - operator: Exists
       volumes:
