@@ -193,11 +193,13 @@
 			"src":    "tag:ci-gateway",
 			"accept": ["tag:registry:443"],
 		},
-		// Fly.io proxy can only reach flyio-target tagged endpoints, nothing else
+		// Fly.io proxy can only reach flyio-target tagged endpoints, nothing else.
+		// indri has tag:flyio-target (Caddy) so tag:homelab:443 is reachable on
+		// indri specifically but not other homelab devices.
 		{
 			"src":    "tag:flyio-proxy",
 			"accept": ["tag:flyio-target:443"],
-			"deny":   ["tag:k8s:443", "tag:homelab:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
+			"deny":   ["tag:k8s:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
 		},
 	],
 }

@@ -50,6 +50,7 @@ indri_tags = tailscale.DeviceTags(
         "tag:loki",
         "tag:registry",  # Zot container registry
         "tag:k8s-api",  # Kubernetes API server (minikube)
+        "tag:flyio-target",  # Fly proxy routes through Caddy on indri
     ],
 )
 
