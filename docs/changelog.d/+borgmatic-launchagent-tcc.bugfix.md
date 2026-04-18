@@ -1,1 +1,0 @@
-Fix borgmatic LaunchAgent failing silently due to macOS TCC permission dialogs. LaunchAgents now call borgmatic directly instead of routing through `mise x`, which triggered "wants to access Documents" dialogs that hung headless sessions. The ansible role now also manages borgmatic installation via `mise install`.

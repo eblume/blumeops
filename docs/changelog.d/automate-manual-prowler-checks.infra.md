@@ -1,1 +1,0 @@
-Automate verification of Prowler MANUAL findings (kubelet file perms, kubelet config, etcd CA, RBAC cluster-admin) in `review-compliance-reports` and mute them with `node-config-automated-verification` compensating control.

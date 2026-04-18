@@ -12,6 +12,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.15.7] - 2026-04-18
+
+### Bug Fixes
+
+- Fix borgmatic LaunchAgent failing silently due to macOS TCC permission dialogs. LaunchAgents now call borgmatic directly instead of routing through `mise x`, which triggered "wants to access Documents" dialogs that hung headless sessions. The ansible role now also manages borgmatic installation via `mise install`.
+
+### Infrastructure
+
+- Automate verification of Prowler MANUAL findings (kubelet file perms, kubelet config, etcd CA, RBAC cluster-admin) in `review-compliance-reports` and mute them with `node-config-automated-verification` compensating control.
+- Migrate transmission and transmission-exporter containers from Dockerfile to native Dagger builds (`container.py`). Updates base images to Alpine 3.23 and Python 3.14, pins uv to 0.11.6.
+- Switched Fly proxy to upstream keepalive pools, reducing forge.eblu.me latency from 35s+ p50 to sub-second. Added `mise run fly-reload` for DNS re-resolution without redeploy.
+- Upgrade Prowler from 5.22.0 to 5.23.0; remove init container workaround for broken `--registry` flag (upstream fix in PR #10470).
+- Added `robots.txt` to `forge.eblu.me` blocking crawlers from `/mirrors/` to reduce load from Facebook scraping.
+- Container builds are now manual-only via `mise run container-build-and-release`. Removed auto-trigger on push to main — shared Dagger helpers made path-based detection unreliable.
+- Migrate devpi container from Dockerfile to native Dagger build; bump devpi-server 6.19.1→6.19.3 and devpi-web 5.0.1→5.0.2.
+- Migrated kiwix-serve container from Dockerfile to native Dagger build, bumping Alpine base from 3.22 to 3.23.
+- Mitigated Forgejo archive endpoint DoS: redirect public archive requests to tailnet, expanded robots.txt, enabled archive cleanup cron, cached release downloads at proxy.
+- Refactored Dagger container pipelines: extended `go_build()` helper with `buildmode` and `extra_env` params, migrated miniflux and forgejo-runner to use it, and standardized all Alpine bases from 3.22 to 3.23.
+
+### Miscellaneous
+
+- Review compensating control `sso-gated-admin-tools`: tightened scope to ArgoCD only, removed Grafana reference.
+- container-build-and-release now verifies the commit exists on the remote before dispatching a build.
+
+
 ## [v1.15.6] - 2026-04-14
 
 ### Bug Fixes
