@@ -176,6 +176,10 @@ kubectl --context=minikube-indri exec -n databases blumeops-pg-1 -c postgres -- 
   psql -U postgres -c "CREATE DATABASE authentik OWNER authentik;"
 # (repeat for other DBs as needed)
 
+# For teslamate: create extensions BEFORE restoring
+kubectl --context=minikube-indri exec -n databases blumeops-pg-1 -c postgres -- \
+  psql -U postgres -d teslamate -c "CREATE EXTENSION IF NOT EXISTS cube CASCADE; CREATE EXTENSION IF NOT EXISTS earthdistance CASCADE;"
+
 # For immich: create extensions BEFORE restoring
 kubectl --context=minikube-indri exec -n databases immich-pg-1 -c postgres -- \
   psql -U postgres -d immich -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS vchord CASCADE; CREATE EXTENSION IF NOT EXISTS cube CASCADE; CREATE EXTENSION IF NOT EXISTS earthdistance CASCADE; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS unaccent; CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
