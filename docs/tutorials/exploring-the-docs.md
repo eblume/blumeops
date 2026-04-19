@@ -30,15 +30,15 @@ The docs follow the [Diataxis](https://diataxis.fr/) framework:
 You probably want quick access to operational details:
 - [How-to](/how-to/) guides for common operations (deploy, troubleshoot, update ACLs)
 - [Reference](/reference/) has service URLs, commands, and config locations
-- [[ai-assistance-guide]] explains how to work effectively with Claude
+- [[ai-assistance-guide]] explains how to work effectively with AI agents
 - Run `mise run ai-docs` to prime AI context with key documentation
 
-### For Claude/AI Agents
+### For AI Agents
 
 Context for effective assistance:
 - Read [[ai-assistance-guide]] for operational conventions
 - [Reference](/reference/) has the technical specifics you'll need
-- The repo's `CLAUDE.md` has critical rules (especially the kubectl context requirement)
+- The repo's `AGENTS.md` has critical rules (especially the kubectl context requirement)
 
 ### For External Readers
 
@@ -81,7 +81,7 @@ The `ai-docs` mise task concatenates key documentation files for AI context:
 mise run ai-docs
 ```
 
-This outputs key documentation files and a full tree listing of all docs, providing Claude with essential context for BlumeOps operations.
+This outputs key documentation files and a full tree listing of all docs, providing an agent with essential context for BlumeOps operations.
 
 ## Related
 

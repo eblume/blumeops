@@ -294,7 +294,7 @@ def main(
             console.print(f"  [red]✗[/red] {error}")
         console.print()
         console.print(
-            "[dim]See: docs/how-to/agent-change-process.md "
+            "[dim]See: docs/explanation/agent-change-process.md "
             "§ The Mikado Branch Invariant[/dim]"
         )
         raise SystemExit(1)

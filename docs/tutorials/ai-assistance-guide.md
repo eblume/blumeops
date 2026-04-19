@@ -10,7 +10,7 @@ tags:
 
 > **Audiences:** AI, Owner
 
-This guide provides context for AI agents (like Claude Code) assisting with BlumeOps operations, and helps Erich understand how to work effectively with AI assistance.
+This guide provides context for AI agents assisting with BlumeOps operations, and helps Erich understand how to work effectively with AI assistance.
 
 ## Critical Rules
 
@@ -22,7 +22,7 @@ These are non-negotiable for AI agents working in this repo:
 4. **Wait for user review before deploying** - Create PRs, don't auto-deploy
 5. **Never merge PRs without explicit request** - The user merges after review
 
-Full rules are in the repo's `CLAUDE.md`. See [[agent-change-process]] for the C0/C1/C2 change classification methodology — C0 (direct to main), C1 (feature branch + PR), C2 (Mikado Branch Invariant).
+Full rules are in the repo's `AGENTS.md`. See [[agent-change-process]] for the C0/C1/C2 change classification methodology — C0 (direct to main), C1 (feature branch + PR), C2 (Mikado Branch Invariant).
 
 ## Workflow Conventions
 

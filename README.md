@@ -5,7 +5,7 @@ Tools and configuration for Erich Blume's personal infrastructure, orchestrated
 across a Tailscale tailnet.
 
 This is a homelab, but it's also a testing ground for AI-assisted
-infrastructure development. Much of this codebase was co-authored with [Claude
+infrastructure development. Much of this codebase was initially co-authored with [Claude
 Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview),
 and the repo places heavy emphasis on documentation, process, and change
 classification to make that collaboration work well. I don't know entirely how
@@ -77,7 +77,7 @@ mise run container-list        # list tracked container images
 ## AI-assisted development
 
 This repo is designed to be worked on by both humans and AI agents. The
-[`CLAUDE.md`](CLAUDE.md) file provides instructions for Claude Code, and the
+[`AGENTS.md`](AGENTS.md) file provides shared instructions for agentic tools, and the
 [`docs/tutorials/ai-assistance-guide.md`](docs/tutorials/ai-assistance-guide.md)
 explains the full workflow.
 
@@ -87,7 +87,7 @@ Changes are classified before starting work:
 - **C1** - feature branch + PR, documentation written before code
 - **C2** - multi-phase work using the Mikado method for dependency tracking
 
-See the [agent change process](docs/how-to/agent-change-process.md) for
+See the [agent change process](docs/explanation/agent-change-process.md) for
 details.
 
 ## License
