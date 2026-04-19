@@ -203,18 +203,47 @@ def show_jobs(run_number: int, repo: str, token: str, console: Console) -> None:
 
 
 def fetch_log(run_number: int, job_index: int, repo: str, token: str) -> None:
-    """Fetch logs for a specific job via the Forgejo web endpoint."""
-    url = f"{FORGE_URL}/{repo}/actions/runs/{run_number}/jobs/{job_index}/attempt/1/logs"
-    resp = httpx.get(url, headers=auth_headers(token), timeout=30, follow_redirects=True)
-    if resp.status_code == 404:
+    """Fetch logs for a specific job via SSH to indri.
+
+    Forgejo stores action logs as zstd-compressed files on disk at
+    ~/forgejo/data/actions_log/{owner}/{repo}/{hex_prefix}/{task_id}.log.zst
+    regardless of which runner executed the job.  The web log endpoint doesn't
+    support API-token auth for private repos, so we read the files directly.
+    """
+    tasks = fetch_tasks(repo, token)
+    jobs = sorted(
+        [t for t in tasks if t["run_number"] == run_number],
+        key=lambda x: x["id"],
+    )
+    if not jobs:
+        typer.echo(f"Error: No jobs found for run #{run_number}", err=True)
+        raise typer.Exit(1)
+    if job_index < 0 or job_index >= len(jobs):
         typer.echo(
-            f"Error: No logs found for run #{run_number} job {job_index}",
+            f"Error: job index {job_index} out of range (run #{run_number} has {len(jobs)} jobs)",
             err=True,
         )
-        typer.echo(f"URL: {url}", err=True)
         raise typer.Exit(1)
-    resp.raise_for_status()
-    sys.stdout.write(resp.text)
+
+    task_id = jobs[job_index]["id"]
+    hex_prefix = f"{task_id & 0xff:02x}"
+    log_path = f"~/forgejo/data/actions_log/{repo}/{hex_prefix}/{task_id}.log.zst"
+
+    result = subprocess.run(
+        ["ssh", "indri", f"zstdcat {log_path}"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        typer.echo(
+            f"Error: could not read log for run #{run_number} job {job_index} (task {task_id})",
+            err=True,
+        )
+        typer.echo(f"Path: indri:{log_path}", err=True)
+        if result.stderr.strip():
+            typer.echo(result.stderr.strip(), err=True)
+        raise typer.Exit(1)
+    sys.stdout.write(result.stdout)
 
 
 @app.command()
