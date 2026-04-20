@@ -235,7 +235,7 @@ services:
 
   - name: forgejo-runner
     type: argocd
-    last-reviewed: 2026-03-30
+    last-reviewed: 2026-04-20
     current-version: "12.8.2"
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
     notes: >-
