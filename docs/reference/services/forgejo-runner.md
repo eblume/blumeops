@@ -1,7 +1,7 @@
 ---
 title: Forgejo Runner
-modified: 2026-03-30
-last-reviewed: 2026-03-30
+modified: 2026-04-20
+last-reviewed: 2026-04-20
 tags:
   - service
   - ci-cd
@@ -22,21 +22,21 @@ Forgejo Actions runner daemon for CI/CD job execution. Runs as a Kubernetes pod 
 | **Capacity** | 2 concurrent jobs |
 | **Timeout** | 3h |
 | **Forgejo Instance** | https://forge.ops.eblu.me |
-| **Image** | `code.forgejo.org/forgejo/runner` (see `argocd/manifests/forgejo-runner/kustomization.yaml` for current tag) |
+| **Image** | `registry.ops.eblu.me/blumeops/forgejo-runner` (see `argocd/manifests/forgejo-runner/kustomization.yaml` for current tag) |
 | **DinD Sidecar** | `docker:27-dind` |
 
 ## Architecture
 
 The pod runs two containers:
 
-1. **runner** - The Forgejo runner daemon. Registers with the forge on first start, then polls for jobs. Talks to DinD via `tcp://localhost:2375`.
+1. **runner** - The Forgejo runner daemon. Loads a rendered `server.connections` config at startup, then polls for jobs. Talks to DinD via `tcp://localhost:2375`.
 2. **dind** - Docker-in-Docker sidecar (privileged). Provides the Docker daemon for job container execution. Uses a registry mirror at `host.minikube.internal:5050` ([[zot]]).
 
-Runner state (`/data/.runner`) is stored in an `emptyDir` volume, so re-registration happens on pod restart. The registration token comes from 1Password via [[external-secrets]].
+The runner daemon image is built from `containers/forgejo-runner/container.py`, not pulled directly from upstream. Credentials come from 1Password via [[external-secrets]], and the startup script renders the final config before launching the daemon. The `/data` volume remains for the runner home directory and job scratch space, not for `.runner` registration state.
 
 ## Job Execution Image
 
-The actual container image used to run workflow steps is set via `RUNNER_LABELS` in the deployment, not in the runner config. This image is tracked separately as `runner-job-image` in `service-versions.yaml`. See [[build-container-image]] for how it's built.
+The actual container image used to run workflow steps is declared in `server.connections.labels` in the runner config. This image is tracked separately as `runner-job-image` in `service-versions.yaml`. See [[build-container-image]] for how it's built.
 
 ## Network
 
@@ -46,7 +46,8 @@ Jobs run with `network: "host"` to share the DinD network namespace. This gives 
 
 | Secret | Source | Purpose |
 |--------|--------|---------|
-| `RUNNER_TOKEN` | 1Password ("Forgejo Secrets" → `runner_reg`) | Runner registration with forge |
+| `FORGEJO_RUNNER_UUID` | 1Password ("Forgejo Secrets" → `runner_k8s_uuid`) | Static runner identity for `server.connections` |
+| `FORGEJO_RUNNER_TOKEN` | 1Password ("Forgejo Secrets" → `runner_k8s_token`) | Static runner credential for `server.connections` |
 
 ## Related
 

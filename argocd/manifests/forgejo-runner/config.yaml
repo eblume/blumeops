@@ -1,9 +1,8 @@
-# Reviewed against v12.7.3 defaults (2026-03-30)
+# Reviewed against v12.8.2 defaults (2026-04-20)
 log:
   level: info
 
 runner:
-  file: /data/.runner
   capacity: 2
   timeout: 3h
   shutdown_timeout: 3h
@@ -13,7 +12,15 @@ runner:
     TZ: America/Los_Angeles
 
 container:
-  # Job execution image is set via RUNNER_LABELS in deployment.yaml
   network: "host"
   # Connect to DinD sidecar via TCP (not socket)
   docker_host: tcp://127.0.0.1:2375
+
+server:
+  connections:
+    forgejo:
+      url: https://forge.ops.eblu.me/
+      uuid: ${FORGEJO_RUNNER_UUID}
+      token: ${FORGEJO_RUNNER_TOKEN}
+      labels:
+        - k8s:docker://registry.ops.eblu.me/blumeops/runner-job-image:v0.20.1-24f7512

@@ -11,7 +11,7 @@ resources:
 images:
   - name: code.forgejo.org/forgejo/runner
     newName: registry.ops.eblu.me/blumeops/forgejo-runner
-    newTag: v12.7.3-352b95c
+    newTag: v12.8.2-bf16b8a
   - name: docker
     newTag: 27-dind
 

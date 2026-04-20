@@ -13,7 +13,7 @@ from blumeops.containers import (
     oci_labels,
 )
 
-VERSION = "12.7.3"
+VERSION = "12.8.2"
 
 
 async def build(src: dagger.Directory) -> dagger.Container:
@@ -34,7 +34,7 @@ async def build(src: dagger.Directory) -> dagger.Container:
 
     # Stage 2: Runtime
     runtime = alpine_runtime(
-        extra_apk=["git", "bash", "ca-certificates"],
+        extra_apk=["git", "bash", "ca-certificates", "gettext-envsubst"],
         uid=1000,
         gid=1000,
         username="runner",

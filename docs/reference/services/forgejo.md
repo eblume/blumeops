@@ -85,6 +85,7 @@ Both container workflows trigger on the same tag pattern (`*-v[0-9]*`). Each che
 Server configuration secrets managed via 1Password → Ansible:
 - `lfs-jwt-secret`, `internal-token`, `oauth2-jwt-secret` - Forgejo server tokens
 - `runner_reg` - Runner registration token (also in k8s via [[external-secrets]])
+- `runner_k8s_uuid`, `runner_k8s_token` - Static credentials for the k8s runner `server.connections` flow
 
 ## Forgejo Actions Secrets
 

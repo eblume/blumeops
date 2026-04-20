@@ -1,20 +1,20 @@
 ---
-title: Validate Workflows Against v12
+title: Validate Forgejo Workflows
 modified: 2026-04-11
-last-reviewed: 2026-02-27
+last-reviewed: 2026-04-20
 tags:
   - how-to
   - forgejo-runner
   - ci
 ---
 
-# Validate Workflows Against v12
+# Validate Forgejo Workflows
 
-Run `forgejo-runner validate` (available from v9.0+) against all workflow files to catch schema issues before upgrading the k8s runner daemon.
+Run `forgejo-runner validate` against all workflow files to catch schema issues before upgrading the k8s runner daemon.
 
 ## Result
 
-All 6 workflows pass v12.7.0 schema validation with no changes needed:
+All current workflows pass the validation step with no changes needed:
 
 - `branch-cleanup.yaml` — OK
 - `build-blumeops.yaml` — OK
@@ -27,7 +27,7 @@ All 6 workflows pass v12.7.0 schema validation with no changes needed:
 
 1. `validate_workflows` function added to `src/blumeops/main.py` (formerly `.dagger/src/blumeops_ci/main.py`)
    - Uses `forgejo-runner validate --directory .` inside the upstream runner container
-   - `runner_version` parameter (default `12.7.0`) pins to deployed version
+   - `runner_version` parameter pins validation to the deployed runner line
 2. `mise run validate-workflows` task wired to `dagger call validate-workflows`
 3. Pre-commit hook triggers on `.forgejo/workflows/` changes
 
@@ -41,5 +41,4 @@ dagger call validate-workflows --src=.
 
 ## Related
 
-- [[upgrade-k8s-runner]] — Parent goal
-- [[review-runner-config-v12]] — Sibling prerequisite
+- [[configure-k8s-runner]] — Runner configuration and upgrade flow

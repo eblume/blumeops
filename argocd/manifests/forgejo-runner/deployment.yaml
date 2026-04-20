@@ -25,14 +25,6 @@ spec:
           env:
             - name: TZ
               value: America/Los_Angeles
-            - name: DOCKER_HOST
-              value: tcp://localhost:2375
-            - name: FORGEJO_URL
-              value: "https://forge.ops.eblu.me"
-            - name: RUNNER_NAME
-              value: "k8s-runner"
-            - name: RUNNER_LABELS
-              value: "k8s:docker://registry.ops.eblu.me/blumeops/runner-job-image:v0.20.1-24f7512"
           command:
             - /bin/sh
             - -c
@@ -44,19 +36,11 @@ spec:
               done
               echo "Docker daemon ready"
 
-              # Register if not already registered
-              if [ ! -f /data/.runner ]; then
-                echo "Registering runner..."
-                forgejo-runner register \
-                  --instance "$FORGEJO_URL" \
-                  --token "$RUNNER_TOKEN" \
-                  --name "$RUNNER_NAME" \
-                  --labels "$RUNNER_LABELS" \
-                  --no-interactive
-              fi
+              # Render config with credentials from ExternalSecret.
+              envsubst < /config/config.yaml > /tmp/config.yaml
 
               # Start daemon
-              exec forgejo-runner daemon --config /config/config.yaml
+              exec forgejo-runner daemon --config /tmp/config.yaml
           envFrom:
             - secretRef:
                 name: forgejo-runner-env
