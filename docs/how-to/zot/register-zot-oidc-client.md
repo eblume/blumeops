@@ -1,6 +1,7 @@
 ---
 title: Register Zot OIDC Client
 modified: 2026-02-21
+last-reviewed: 2026-04-20
 tags:
   - how-to
   - zot
