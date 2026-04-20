@@ -52,7 +52,7 @@ Filled in `current-version` for all hybrid services: navidrome (v0.60.3), minifl
 
 ### ntfy nix version skew (resolved)
 
-The check discovered that ntfy's Dockerfile pins v2.17.0 but nixpkgs has ntfy-sh 2.15.0. This was resolved in [[fix-ntfy-nix-version]] by building a custom nix derivation from the forge mirror. The version check now extracts the version from local nix files via regex, falling back to Dagger for unmodified nixpkgs packages.
+The check discovered that ntfy's Dockerfile pinned a newer version than nixpkgs `ntfy-sh` provided. Resolved by replacing the nixpkgs reference in `containers/ntfy/default.nix` with a custom derivation built from the forge mirror. The version check now extracts the version from local nix files via regex, falling back to Dagger for unmodified nixpkgs packages.
 
 ## Key Files
 
@@ -68,12 +68,11 @@ The check discovered that ntfy's Dockerfile pins v2.17.0 but nixpkgs has ntfy-sh
 - [x] Intentionally changing a Dockerfile ARG without updating `service-versions.yaml` fails the check
 - [x] `service-versions.yaml` has `current-version` populated for all hybrid services
 - [x] Nix-only container versions (authentik) checked via Dagger
-- [x] ntfy nix version resolved via [[fix-ntfy-nix-version]]
+- [x] ntfy nix version resolved via custom derivation in `containers/ntfy/default.nix`
 
 ## Related
 
 - [[pin-container-versions]] — Prereq: containers need parseable version ARGs first
 - [[add-dagger-nix-build]] — Prereq: nix version extraction
-- [[fix-ntfy-nix-version]] — Prereq: ntfy nix derivation version skew
 - [[adopt-commit-based-container-tags]] — Parent: CI uses the same version extraction at build time
 - [[harden-zot-registry]] — Root goal
