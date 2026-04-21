@@ -75,11 +75,6 @@ spec:
                 secretKeyRef:
                   name: authentik-config
                   key: jellyfin-client-secret
-            - name: AUTHENTIK_ARGOCD_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: authentik-config
-                  key: argocd-client-secret
             - name: AUTHENTIK_MEALIE_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:

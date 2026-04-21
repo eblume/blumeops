@@ -9,7 +9,6 @@ resources:
   - https://raw.githubusercontent.com/argoproj/argo-cd/998fb59dc355653c0657908a6ea2f87136e022d1/manifests/install.yaml
   - ingress-tailscale.yaml
   - external-secret-repo-forge.yaml
-  - external-secret-oidc-authentik.yaml
 
 patches:
   - path: argocd-cmd-params-cm.yaml
