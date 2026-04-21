@@ -16,7 +16,6 @@ data:
     name: Authentik
     issuer: https://authentik.ops.eblu.me/application/o/argocd/
     clientID: argocd
-    clientSecret: $argocd-oidc-authentik:client-secret
     requestedScopes:
       - openid
       - profile

@@ -262,9 +262,8 @@ data:
           name: ArgoCD
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-          client_type: confidential
+          client_type: public
           client_id: argocd
-          client_secret: !Env AUTHENTIK_ARGOCD_CLIENT_SECRET
           redirect_uris:
             - matching_mode: strict
               url: https://argocd.ops.eblu.me/auth/callback
