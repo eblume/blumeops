@@ -77,11 +77,16 @@ controls:
       operator, not user manifests. Operator is tracked in
       service-versions.yaml and regularly updated.
     created: 2026-03-30
-    last-reviewed: 2026-03-30
+    last-reviewed: 2026-04-21
     notes: >-
       Verify operator version is current via 'mise run service-review'.
       Check Tailscale changelog for security fixes. If operator adds
-      seccomp support, remove these mutes.
+      seccomp support, remove these mutes. As of 2026-04-21: still no
+      default seccomp on operator-generated pods (upstream issue #7359
+      open). A ProxyClass + generic device plugin can downgrade proxies
+      from privileged to NET_ADMIN+NET_RAW and set seccompProfile —
+      potential future remediation to remove the seccomp mute without
+      waiting for upstream defaults.
 
   - id: ephemeral-privileged-jobs
     description: >-
