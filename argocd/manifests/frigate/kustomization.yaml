@@ -18,7 +18,7 @@ images:
   - name: ghcr.io/blakeblackshear/frigate
     newTag: 0.17.1-tensorrt
   - name: registry.ops.eblu.me/blumeops/frigate-notify
-    newTag: v0.5.4-fb4bf5a-nix
+    newTag: v0.5.4-e928054-nix
 
 configMapGenerator:
   - name: frigate-config
