@@ -43,8 +43,17 @@ pkgs.dockerTools.buildLayeredImage {
     pkgs.tzdata
   ];
 
+  # Upstream Dockerfile expects WORKDIR=/app (config at ./config.yml, logfile at
+  # ./log/app.log via lumberjack). Create /app world-writable so nonroot can
+  # write logs; the config is mounted in from a ConfigMap.
+  extraCommands = ''
+    mkdir -p app
+    chmod 1777 app
+  '';
+
   config = {
     Entrypoint = [ "${frigate-notify}/bin/frigate-notify" ];
+    WorkingDir = "/app";
     Env = [
       "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
       "TZDIR=${pkgs.tzdata}/share/zoneinfo"
