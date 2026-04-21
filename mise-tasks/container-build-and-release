@@ -15,6 +15,7 @@ Dockerfile and Nix builds in a single workflow.
 
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import httpx
@@ -46,6 +47,52 @@ def get_forge_token() -> str:
         check=True,
     )
     return result.stdout.strip()
+
+
+def max_run_number(headers: dict[str, str]) -> int:
+    """Return the highest current run_number for WORKFLOW, or 0 if none."""
+    resp = httpx.get(
+        f"{FORGE_API}/repos/{REPO}/actions/tasks",
+        params={"limit": 50},
+        headers=headers,
+        timeout=15,
+    )
+    if resp.status_code != 200:
+        return 0
+    runs = [
+        t["run_number"]
+        for t in resp.json().get("workflow_runs", [])
+        if t.get("workflow_id") == WORKFLOW
+    ]
+    return max(runs, default=0)
+
+
+def find_dispatched_run(
+    ref: str, floor: int, headers: dict[str, str], timeout_s: int = 20
+) -> int | None:
+    """Poll the tasks endpoint for the run triggered by our dispatch.
+
+    Matches by head_sha + workflow + run_number > floor so we don't pick up
+    an older build of the same commit or a concurrent unrelated dispatch.
+    """
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        resp = httpx.get(
+            f"{FORGE_API}/repos/{REPO}/actions/tasks",
+            params={"limit": 20},
+            headers=headers,
+            timeout=15,
+        )
+        if resp.status_code == 200:
+            for task in resp.json().get("workflow_runs", []):
+                if (
+                    task.get("head_sha") == ref
+                    and task.get("workflow_id") == WORKFLOW
+                    and task.get("run_number", 0) > floor
+                ):
+                    return task["run_number"]
+        time.sleep(1)
+    return None
 
 
 def list_containers() -> None:
@@ -112,7 +159,8 @@ def main(
     if dry_run:
         typer.echo(f"[dry-run] Would dispatch {WORKFLOW}")
         typer.echo()
-        typer.echo(f"Monitor builds at: {FORGE_ACTIONS}")
+        typer.echo("Monitor builds with: mise run runner-logs")
+        typer.echo(f"           or visit: {FORGE_ACTIONS}")
         return
 
     token = get_forge_token()
@@ -132,6 +180,10 @@ def main(
         typer.echo("Push your changes before triggering a build: git push origin main")
         raise typer.Exit(1)
 
+    # Snapshot the highest existing run_number so we can identify the one
+    # our dispatch creates.
+    floor = max_run_number(headers)
+
     url = f"{FORGE_API}/repos/{REPO}/actions/workflows/{WORKFLOW}/dispatches"
     payload = {
         "ref": "main",
@@ -148,7 +200,12 @@ def main(
         raise typer.Exit(1)
 
     typer.echo()
-    typer.echo(f"Monitor builds at: {FORGE_ACTIONS}")
+    run_number = find_dispatched_run(ref, floor, headers)
+    if run_number is not None:
+        typer.echo(f"Monitor builds with: mise run runner-logs {run_number}")
+    else:
+        typer.echo("Monitor builds with: mise run runner-logs")
+    typer.echo(f"           or visit: {FORGE_ACTIONS}")
 
 
 if __name__ == "__main__":
