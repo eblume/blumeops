@@ -108,18 +108,13 @@ kubectl --context=minikube-indri apply -f argocd/apps/apps.yaml
 # 6. Login and sync apps
 argocd login argocd.tail8d86e.ts.net --username admin \
   --password "$(kubectl --context=minikube-indri -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d)" \
-  --grpc-web
-argocd app sync apps --grpc-web
-```
+ argocd app sync apps```
 
 ## Phase 4: Bootstrap 1Password Connect + External Secrets
 
 ```bash
 # 1. Sync foundation
-argocd app sync external-secrets-crds --grpc-web
-argocd app sync external-secrets --grpc-web
-argocd app sync 1password-connect --grpc-web
-
+argocd app sync external-secrets-crdsargocd app sync external-secretsargocd app sync 1password-connect
 # 2. Create 1Password Connect secrets manually
 CREDS_RAW=$(op read "op://blumeops/1Password Connect/credentials-file")
 echo "$CREDS_RAW" | kubectl --context=minikube-indri create secret generic op-credentials -n 1password \
@@ -140,25 +135,20 @@ kubectl --context=minikube-indri get clustersecretstores
 
 ```bash
 # Foundation (CRDs, operators)
-argocd app sync cloudnative-pg kube-state-metrics --grpc-web
-
+argocd app sync cloudnative-pg kube-state-metrics
 # Databases
-argocd app sync blumeops-pg --grpc-web
-
+argocd app sync blumeops-pg
 # Observability
-argocd app sync loki prometheus tempo grafana grafana-config --grpc-web
-
+argocd app sync loki prometheus tempo grafana grafana-config
 # Register ringtail cluster (for authentik, ntfy, ollama, frigate)
 ssh ringtail 'sudo cat /etc/rancher/k3s/k3s.yaml' | \
   sed 's|127.0.0.1|ringtail.tail8d86e.ts.net|' > /tmp/k3s-ringtail.yaml
 KUBECONFIG=/tmp/k3s-ringtail.yaml argocd cluster add default --name k3s-ringtail --grpc-web -y
 
 # Authentik (critical — Zot OIDC depends on it, most image pulls depend on Zot)
-argocd app sync authentik --grpc-web
-
+argocd app sync authentik
 # Everything else
-argocd app sync tailscale-operator alloy-k8s --grpc-web
-# ... remaining apps
+argocd app sync tailscale-operator alloy-k8s# ... remaining apps
 ```
 
 ## Phase 6: Restore Databases from Borgmatic

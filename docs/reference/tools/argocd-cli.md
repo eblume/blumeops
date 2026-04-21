@@ -24,6 +24,14 @@ argocd app sync apps           # Sync the app-of-apps (picks up new Application 
 
 ## Login
 
+Default (Authentik SSO, PKCE, opens browser):
+
+```bash
+argocd login argocd.ops.eblu.me --sso
+```
+
+Break-glass admin login (only if Authentik is down):
+
 ```bash
 argocd login argocd.ops.eblu.me \
   --username admin \

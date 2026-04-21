@@ -86,7 +86,7 @@ Most services run in minikube on indri via ArgoCD (app-of-apps, manual sync). GP
 
 **Commands:** `argocd app list|get|diff|sync <app>`
 
-**Login:** `argocd login argocd.ops.eblu.me --username admin --password "$(op read 'op://vg6xf6vvfmoh5hqjjhlhbeoaie/srogeebssulhtb6tnqd7ls6qey/password')"`
+**Login:** `argocd login argocd.ops.eblu.me --sso` (opens browser for Authentik SSO). Admin fallback for break-glass: `argocd login argocd.ops.eblu.me --username admin --password "$(op read 'op://vg6xf6vvfmoh5hqjjhlhbeoaie/srogeebssulhtb6tnqd7ls6qey/password')"`
 
 ### Indri (Ansible)
 

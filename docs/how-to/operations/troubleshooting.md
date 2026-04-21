@@ -72,6 +72,11 @@ kubectl --context=minikube-indri -n <namespace> get pods --field-selector=status
 
 **ArgoCD login expired:**
 ```bash
+argocd login argocd.ops.eblu.me --sso
+```
+
+If Authentik itself is down, fall back to admin:
+```bash
 argocd login argocd.ops.eblu.me --username admin --password "$(op read 'op://vg6xf6vvfmoh5hqjjhlhbeoaie/srogeebssulhtb6tnqd7ls6qey/password')"
 ```
 

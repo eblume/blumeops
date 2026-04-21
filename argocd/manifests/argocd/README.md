@@ -25,7 +25,7 @@ kubectl wait --for=condition=available deployment/argocd-server -n argocd --time
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo
 
 # 5. Login and change password
-argocd login argocd.tail8d86e.ts.net --username admin --grpc-web
+argocd login argocd.tail8d86e.ts.net --username admin
 argocd account update-password
 
 # 6. Apply repo-creds-forge credential template for SSH access to all forge repos
@@ -114,4 +114,4 @@ spec:
   Future improvement: integrate with a secrets operator (e.g., External Secrets).
 - The credential template (`repo-creds`) uses a URL prefix to match all repos on forge.
 - ArgoCD uses Tailscale Ingress with Let's Encrypt for TLS termination.
-- The `--grpc-web` flag is required for CLI access through the Tailscale ingress.
+- After Authentik is up, prefer `argocd login argocd.ops.eblu.me --sso` over the admin password login above; admin is only needed during bootstrap or as break-glass.
