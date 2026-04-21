@@ -23,4 +23,4 @@ server:
       uuid: ${FORGEJO_RUNNER_UUID}
       token: ${FORGEJO_RUNNER_TOKEN}
       labels:
-        - k8s:docker://registry.ops.eblu.me/blumeops/runner-job-image:v0.20.6-9b6be09
+        - k8s:docker://registry.ops.eblu.me/blumeops/runner-job-image:v0.20.6-50f8c2a
