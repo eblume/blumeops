@@ -1,6 +1,7 @@
 ---
 title: Contributing
-modified: 2026-02-07
+modified: 2026-04-21
+last-reviewed: 2026-04-21
 tags:
   - tutorials
   - contributing
@@ -37,14 +38,14 @@ brew bundle  # installs tea, argocd, mise, etc.
 
 ### Using Mise (Optional)
 
-Mise manages language toolchains and runs tasks:
+Mise manages language toolchains, runs tasks, and pins tools like `prek`:
 ```bash
-mise install  # installs Python, Node.js, etc. from mise.toml
+mise install  # installs Python, Node.js, prek, etc. from mise.toml
 ```
 
 ### Git Hooks (prek)
 
-Git hooks validate changes on `git commit`:
+Git hooks validate changes on `git commit` (prek is pinned in `mise.toml`):
 ```bash
 prek install
 prek run --all-files  # verify setup
@@ -104,6 +105,7 @@ Fragment types (file suffix):
 - `.bugfix.md` - Bug fixes
 - `.infra.md` - Infrastructure changes
 - `.doc.md` - Documentation
+- `.ai.md` - AI-assisted changes
 - `.misc.md` - Other
 
 ### 4. Test Your Changes
