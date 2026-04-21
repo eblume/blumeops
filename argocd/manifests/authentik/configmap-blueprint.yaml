@@ -270,6 +270,8 @@ data:
               url: https://argocd.ops.eblu.me/auth/callback
             - matching_mode: strict
               url: https://argocd.tail8d86e.ts.net/auth/callback
+            - matching_mode: strict
+              url: http://localhost:8085/auth/callback
           signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
           property_mappings:
             - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
