@@ -1,0 +1,1 @@
+Upgraded Dagger from v0.20.1 to v0.20.6 (engine, CLI pin, and SDK regen) and migrated `runner-job-image` from a Debian-based Dockerfile to a native Dagger `container.py` on Alpine 3.23, reusing the shared `alpine_runtime` helper.

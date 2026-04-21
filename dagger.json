@@ -1,8 +1,7 @@
 {
   "name": "blumeops",
-  "engineVersion": "v0.20.1",
+  "engineVersion": "v0.20.6",
   "sdk": {
     "source": "python"
-  },
-  "source": "."
+  }
 }

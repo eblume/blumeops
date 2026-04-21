@@ -244,8 +244,8 @@ services:
 
   - name: runner-job-image
     type: argocd
-    last-reviewed: 2026-03-06
-    current-version: "0.20.1"
+    last-reviewed: 2026-04-21
+    current-version: "0.20.6"
     upstream-source: https://github.com/dagger/dagger/releases
     notes: >-
       Forgejo Actions job execution image. CONTAINER_APP_VERSION tracks the
@@ -396,8 +396,8 @@ services:
 
   - name: dagger
     type: mise
-    last-reviewed: 2026-04-12
-    current-version: "0.20.1"
+    last-reviewed: 2026-04-21
+    current-version: "0.20.6"
     upstream-source: https://github.com/dagger/dagger/releases
     notes: Dagger CI/CD engine; pinned in mise.toml
 
