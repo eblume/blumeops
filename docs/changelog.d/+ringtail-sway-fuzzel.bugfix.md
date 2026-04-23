@@ -1,0 +1,3 @@
+Fixed sway keybindings on ringtail — the home-manager `keybindings` block was replacing the module's defaults entirely, leaving only explicit overrides (no workspace switching, focus, move, splits, resize mode, etc). Switched to `lib.mkOptionDefault` with `lib.mkForce` on the conflicting custom binds (`Mod+Return`, `Mod+d`, `Mod+space`, `Mod+l`) so defaults merge back in. Also added `Mod+F1` to show a filterable fuzzel list of current keybindings.
+
+Fixed fuzzel config errors on launch — `border-radius` and `border-width` were under `[main]`, but fuzzel expects them as `radius`/`width` under a `[border]` section.

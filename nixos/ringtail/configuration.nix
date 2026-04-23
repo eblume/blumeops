@@ -323,13 +323,16 @@ in
             bg = "~/.config/sway/wallpaper.jpg fill";
           };
         };
-        keybindings = let mod = "Mod4"; in {
-          "${mod}+Return" = "exec wezterm";
-          "${mod}+Shift+q" = "kill";
-          "${mod}+d" = "exec wmenu-run";
-          "${mod}+space" = "exec fuzzel";
-          "${mod}+Shift+c" = "reload";
-          "${mod}+l" = "exec swaylock -f";
+        # Extend (not replace) the home-manager default sway keybindings.
+        # lib.mkForce is needed on keys whose defaults we want to override
+        # (same priority otherwise conflicts). Audio keys and Mod+d (wmenu-run
+        # vs the default menu binding) don't collide with defaults.
+        keybindings = let mod = "Mod4"; in lib.mkOptionDefault {
+          "${mod}+Return" = lib.mkForce "exec wezterm";
+          "${mod}+d" = lib.mkForce "exec wmenu-run";
+          "${mod}+space" = lib.mkForce "exec fuzzel";
+          "${mod}+l" = lib.mkForce "exec swaylock -f";
+          "${mod}+F1" = "exec grep '^bindsym' ~/.config/sway/config | fuzzel --dmenu";
           "--locked XF86AudioMute" = "exec pactl set-sink-mute @DEFAULT_SINK@ toggle";
           "--locked XF86AudioLowerVolume" = "exec pactl set-sink-volume @DEFAULT_SINK@ -5%";
           "--locked XF86AudioRaiseVolume" = "exec pactl set-sink-volume @DEFAULT_SINK@ +5%";
@@ -401,8 +404,10 @@ in
           width = 40;
           horizontal-pad = 16;
           vertical-pad = 8;
-          border-radius = 8;
-          border-width = 2;
+        };
+        border = {
+          radius = 8;
+          width = 2;
         };
         colors = {
           background = "24273add";
