@@ -46,6 +46,8 @@ OIDC via [[authentik]] using a confidential client. Client secret stored in 1Pas
 
 SQLite database backed up via [[borgmatic]]'s `before_backup` hook. Borgmatic runs `kubectl exec` to create a safe `.backup` copy (via Python's `sqlite3` module), then `kubectl cp` to the host. The dump lands in `~/.local/share/borgmatic/k8s-dumps/mealie.db` and is included in both local (sifaka) and offsite (BorgBase) backups.
 
+To restore from a borg archive, see [[restore-from-borg]].
+
 ## Networking
 
 | Endpoint | Reachable from |
