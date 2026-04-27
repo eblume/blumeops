@@ -221,7 +221,7 @@ services:
 
   - name: cv
     type: argocd
-    last-reviewed: 2026-03-07
+    last-reviewed: 2026-04-27
     current-version: "1.0.3"
     upstream-source: https://forge.eblu.me/eblume/cv
     notes: Personal static site; review build deps (WeasyPrint, Jinja2) in source repo
