@@ -1,7 +1,7 @@
 ---
 title: Gandi
-modified: 2026-04-09
-last-reviewed: 2026-04-09
+modified: 2026-04-27
+last-reviewed: 2026-04-27
 tags:
   - infrastructure
   - networking
@@ -20,12 +20,11 @@ DNS hosting provider for the `eblu.me` domain, managed via Pulumi IaC.
 | **Provider** | Gandi LiveDNS |
 | **IaC** | `pulumi/gandi/` |
 | **Stack** | `eblu-me` |
+| **PAT** | `op://blumeops/gandi - blumeops/pat` |
 
 ## What It Does
 
-Gandi hosts the DNS records that make `*.ops.eblu.me` resolve to [[indri]]'s Tailscale IP (`indri.tail8d86e.ts.net`). Since Tailscale IPs are not publicly routable, this gives services real DNS names while keeping them private to the tailnet.
-
-The target IP is resolved dynamically from `indri.tail8d86e.ts.net` at deploy time, so if indri's Tailscale IP changes, re-running the deployment is sufficient.
+Gandi hosts the DNS records that make `*.ops.eblu.me` resolve to [[indri]]'s Tailscale IP. Since Tailscale IPs are not publicly routable, this gives services real DNS names while keeping them private to the tailnet. The target IP is resolved dynamically from `indri.tail8d86e.ts.net` at deploy time.
 
 ## DNS Records
 
@@ -46,38 +45,25 @@ Both records point to [[indri]], which runs [[caddy]] as the reverse proxy for a
 | `cv.eblu.me` | CNAME | `blumeops-proxy.fly.dev` | 300s |
 | `forge.eblu.me` | CNAME | `blumeops-proxy.fly.dev` | 300s |
 
-Public CNAMEs point to [[flyio-proxy]] on Fly.io. See [[expose-service-publicly]] for adding new public services.
-
-See [[routing]] for the full service URL map.
-
-## Pulumi Configuration
-
-The Pulumi program lives in `pulumi/gandi/`:
-
-- `__main__.py` - Creates A and CNAME records via `pulumiverse_gandi`
-- `Pulumi.eblu-me.yaml` - Stack config (domain, subdomain)
-
-Stack config values:
-
-| Key | Value |
-|-----|-------|
-| `blumeops-dns:domain` | `eblu.me` |
-| `blumeops-dns:subdomain` | `ops` |
-
-A break-glass override is available via the `BLUMEOPS_REVERSE_PROXY_IP` environment variable, which bypasses dynamic IP resolution.
+Public CNAMEs point to [[flyio-proxy]] on Fly.io. See [[expose-service-publicly]] for adding new public services. See [[routing]] for the full service URL map.
 
 ## TLS Integration
 
-[[caddy]] uses Gandi's API separately (via `GANDI_BEARER_TOKEN`) for ACME DNS-01 challenges to obtain a wildcard Let's Encrypt certificate for `*.ops.eblu.me`. This is a different credential from the Pulumi PAT.
+[[caddy]] uses this same Gandi PAT for ACME DNS-01 challenges to obtain a wildcard Let's Encrypt certificate for `*.ops.eblu.me`. Caddy reads the PAT from `~/.config/caddy/gandi-token` on [[indri]], populated by ansible from 1Password.
 
 ## Authentication
 
-Gandi requires a Personal Access Token (PAT) for API access. PATs have a maximum lifetime of 90 days (currently set to 30). See [[gandi-operations]] for deployment and PAT cycling instructions.
+One Gandi Personal Access Token, shared by Pulumi and Caddy. Gandi caps PATs at 90 days; rotate every 60 days via [[rotate-gandi-pat]].
+
+## ACME Challenge Cleanup
+
+Caddy's renewal flow leaves `_acme-challenge.ops` TXT orphans in the zone — a value-comparison bug in `libdns/gandi` v1.1.0 makes the cleanup phase a no-op. Run `mise run dns-acme-cleanup` periodically (alongside PAT rotation works well).
 
 ## Related
 
-- [[gandi-operations]] - PAT cycling and deployment how-to
-- [[routing]] - Service URLs and routing architecture
-- [[caddy]] - Reverse proxy using Gandi for TLS
-- [[tailscale]] - Tailnet networking
-- [[indri]] - Server hosting Caddy (DNS target)
+- [[manage-eblu-me-dns]] — Add/change DNS records via Pulumi
+- [[rotate-gandi-pat]] — Rotate the shared Gandi PAT
+- [[routing]] — Service URLs and routing architecture
+- [[caddy]] — Reverse proxy using this PAT for TLS
+- [[tailscale]] — Tailnet networking
+- [[indri]] — Server hosting Caddy (DNS target)

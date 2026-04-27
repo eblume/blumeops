@@ -144,6 +144,6 @@ Trigger a manual sync on one mirror to confirm the new PAT works:
 ## Related
 
 - [[forgejo]] — Forgejo service reference
-- [[gandi-operations]] — Similar PAT rotation workflow for Gandi DNS
+- [[rotate-gandi-pat]] — Similar PAT rotation workflow for Gandi DNS
 - [[spork-strategy]] — floating-branch soft-fork strategy explanation
 - [[create-a-spork]] — create a spork on top of a mirror

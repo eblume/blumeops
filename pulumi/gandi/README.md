@@ -27,50 +27,19 @@ pulumi stack select eblu-me  # or: pulumi stack init eblu-me
 
 ## Authentication
 
-This project requires a Gandi Personal Access Token (PAT) with LiveDNS permissions.
+This project uses a Gandi Personal Access Token (PAT) shared with Caddy. See the [Gandi reference card](../../docs/reference/infrastructure/gandi.md) and [Rotate the Gandi PAT](../../docs/how-to/configuration/rotate-gandi-pat.md).
 
-**The PAT expires every 30 days and must be cycled manually.**
-
-### Cycling the PAT
-
-1. Go to [Gandi PAT Management](https://admin.gandi.net/organizations/1db8d76a-f729-11ed-b8d1-00163e94b645/account/pat)
-
-2. Create a new PAT:
-   - Name: `blumeops-pulumi` (or similar)
-   - Expiration: 30 days (maximum is 90; shorter is fine if used rarely)
-   - Permissions required:
-     - **Manage domain name technical configurations** (required for DNS records)
-     - See and renew domain names
-   - Optional permissions (enabled but not strictly required):
-     - See & download SSL certificates
-     - Manage Cloud resources
-     - See Cloud resources
-     - View Organization
-     - Deploy Web Hosting instances
-     - Manage Web Hosting instances
-     - See and renew Web Hosting instances
-
-3. Update 1Password:
-   ```bash
-   # Update the existing item with the new PAT value
-   op item edit mco6ka3dc3rmw7zkg2dhia5d2m pat="<NEW_PAT_VALUE>" --vault vg6xf6vvfmoh5hqjjhlhbeoaie
-   ```
-
-4. Delete the old PAT from Gandi admin console
-
-### Running with Authentication
-
-The mise task handles fetching the PAT from 1Password:
+The mise tasks handle fetching the PAT from 1Password:
 
 ```bash
-mise run dns-up        # Preview and apply changes
 mise run dns-preview   # Preview only
+mise run dns-up        # Preview and apply
 ```
 
 Or manually:
 
 ```bash
-export GANDI_PERSONAL_ACCESS_TOKEN=$(op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/mco6ka3dc3rmw7zkg2dhia5d2m/pat")
+export GANDI_PERSONAL_ACCESS_TOKEN=$(op read "op://blumeops/gandi - blumeops/pat")
 pulumi up
 ```
 

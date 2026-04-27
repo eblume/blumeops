@@ -39,6 +39,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `fly-shutoff` | Emergency shutoff: stop all Fly.io proxy machines |
 | `dns-preview` | Preview DNS changes with [[pulumi]] |
 | `dns-up` | Apply DNS changes with [[pulumi]] |
+| `dns-acme-cleanup` | Delete orphaned `_acme-challenge.ops` TXT records (libdns/gandi v1.1.0 workaround) |
 | `tailnet-preview` | Preview Tailscale ACL changes with [[pulumi]] |
 | `tailnet-up` | Apply Tailscale ACL changes with [[pulumi]] |
 

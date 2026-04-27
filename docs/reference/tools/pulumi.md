@@ -49,7 +49,8 @@ mise run tailnet-up      # Apply ACL/tag changes
 
 ## Related
 
-- [[gandi-operations]] — DNS PAT rotation and Pulumi workflow
+- [[manage-eblu-me-dns]] — DNS records workflow
+- [[rotate-gandi-pat]] — Rotate the Gandi PAT
 - [[update-tailscale-acls]] — ACL editing and Pulumi workflow
 - [[gandi]] — DNS hosting
 - [[tailscale]] — Tailnet configuration
