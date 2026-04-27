@@ -189,7 +189,12 @@ def main() -> int:
         meta = []
         days = days_until_due(task)
         if days is not None:
-            meta.append(f"due:{days:+d}" if days != 0 else "due:today")
+            if days == 0:
+                meta.append("due today")
+            elif days > 0:
+                meta.append(f"{days}d overdue")
+            else:
+                meta.append(f"due in {-days}d")
         recurrence = recurrence_string(task)
         if recurrence:
             meta.append(f"↻ {recurrence}")
