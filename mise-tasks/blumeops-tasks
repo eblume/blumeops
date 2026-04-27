@@ -101,9 +101,45 @@ def is_due(task: dict) -> bool:
     return due_date <= date.today()
 
 
+def days_until_due(task: dict) -> int | None:
+    """Return signed days offset from today, or None if no due date.
+
+    Negative = days remaining before due (e.g. -2 = due in 2 days).
+    Positive = days past due (overdue). Zero = due today.
+    """
+    due = task.get("due")
+    if due is None:
+        return None
+    due_date = date.fromisoformat(due["date"][:10])
+    return (date.today() - due_date).days
+
+
+def recurrence_string(task: dict) -> str | None:
+    """Return the Todoist natural-language recurrence string, or None.
+
+    Todoist's REST API doesn't expose RFC 5545 RRULE; the natural-language
+    `due.string` (e.g. "every monday", "every 2 weeks") is the terse form.
+    """
+    due = task.get("due")
+    if due is None or not due.get("is_recurring"):
+        return None
+    return due.get("string")
+
+
 def sort_tasks(tasks: list[dict]) -> list[dict]:
-    """Sort tasks by custom priority order: p1, p2, p4, p3."""
-    return sorted(tasks, key=lambda t: PRIORITY_SORT_ORDER.get(t["priority"], 5))
+    """Sort by overdue-ness, then priority.
+
+    Most overdue first (largest +N); tasks with no due date come last.
+    Within a given day, tiebreaker is the custom priority order p1, p2, p4, p3.
+    """
+
+    def key(task: dict) -> tuple[int, int, int]:
+        days = days_until_due(task)
+        no_due = 1 if days is None else 0
+        days_key = -(days if days is not None else 0)  # descending
+        return (no_due, days_key, PRIORITY_SORT_ORDER.get(task["priority"], 5))
+
+    return sorted(tasks, key=key)
 
 
 def main() -> int:
@@ -149,6 +185,16 @@ def main() -> int:
         header = Text()
         header.append(f"[{label}]", style="bold")
         header.append(f" {content}")
+
+        meta = []
+        days = days_until_due(task)
+        if days is not None:
+            meta.append(f"due:{days:+d}" if days != 0 else "due:today")
+        recurrence = recurrence_string(task)
+        if recurrence:
+            meta.append(f"↻ {recurrence}")
+        if meta:
+            header.append(f"  ({', '.join(meta)})", style="dim")
         console.print(header)
 
         # Description indented (escape rich markup to preserve brackets)
