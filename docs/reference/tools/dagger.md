@@ -50,16 +50,16 @@ New containers for indri (k8s runner) should use `container.py`. Ringtail contai
 
 ```bash
 # Build a container
-dagger call build --src=. --container-name=devpi
+dagger call build --src=. --container-name=miniflux
 
 # Drop into container shell for inspection
-dagger call build --src=. --container-name=devpi terminal
+dagger call build --src=. --container-name=miniflux terminal
 
 # Debug a failure interactively
-dagger call --interactive build --src=. --container-name=devpi
+dagger call --interactive build --src=. --container-name=miniflux
 
 # Publish a container to zot
-dagger call publish --src=. --container-name=devpi --version=v1.1.0
+dagger call publish --src=. --container-name=miniflux --version=v1.1.0
 
 # Build a nix container (no local nix required)
 dagger call build-nix --src=. --container-name=ntfy export --path=./ntfy.tar.gz
