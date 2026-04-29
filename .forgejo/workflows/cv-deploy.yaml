@@ -1,12 +1,14 @@
 # CV Deploy Workflow
 #
-# Updates the CV deployment to a specific package version, commits
-# the change, and syncs via ArgoCD.
+# Bumps cv_version in ansible/roles/cv/defaults/main.yml and pushes the change.
+# Deployment to indri is manual (runner has no SSH access to indri):
+#   mise run provision-indri -- --tags cv
 #
 # Usage:
 #   1. Release a new CV package from the cv repo first
 #   2. Go to Actions > Deploy CV > Run workflow
 #   3. Enter the version to deploy, or leave as "latest"
+#   4. Run the command above on gilbert to apply
 
 name: Deploy CV
 
@@ -60,18 +62,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Update CV deployment
+      - name: Bump cv_version in ansible role
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          TARBALL="cv-${VERSION}.tar.gz"
-          DEPLOYMENT_FILE="argocd/manifests/cv/deployment.yaml"
-          RELEASE_URL="https://forge.eblu.me/api/packages/eblume/generic/cv/${VERSION}/${TARBALL}"
+          DEFAULTS_FILE="ansible/roles/cv/defaults/main.yml"
 
-          echo "Updating $DEPLOYMENT_FILE with CV_RELEASE_URL..."
-          yq -i "(.spec.template.spec.containers[0].env[] | select(.name == \"CV_RELEASE_URL\")).value = \"${RELEASE_URL}\"" "$DEPLOYMENT_FILE"
+          echo "Bumping cv_version in $DEFAULTS_FILE to ${VERSION}..."
+          yq -i ".cv_version = \"${VERSION}\"" "$DEFAULTS_FILE"
 
-          echo "Updated deployment:"
-          grep -A1 "CV_RELEASE_URL" "$DEPLOYMENT_FILE"
+          echo "Updated defaults:"
+          grep -E "^cv_version:" "$DEFAULTS_FILE"
 
       - name: Commit release changes
         env:
@@ -82,7 +82,7 @@ jobs:
           git config user.name "Forgejo Actions"
           git config user.email "actions@forge.ops.eblu.me"
 
-          git add argocd/manifests/cv/deployment.yaml
+          git add ansible/roles/cv/defaults/main.yml
 
           if git diff --cached --quiet; then
             echo "No changes to commit (already at $VERSION)"
@@ -94,38 +94,16 @@ jobs:
             echo "Changes committed and pushed"
           fi
 
-      - name: Deploy CV
-        env:
-          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
-        run: |
-          echo "Syncing CV app via ArgoCD..."
-
-          argocd app sync cv \
-            --server argocd.ops.eblu.me \
-            --grpc-web \
-            --prune
-
-          argocd app wait cv \
-            --server argocd.ops.eblu.me \
-            --grpc-web \
-            --timeout 120
-
-          echo "CV app synced successfully!"
-
-      - name: Purge Fly.io proxy cache
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_DEPLOY_TOKEN }}
-        run: |
-          echo "Purging nginx cache on Fly.io proxy..."
-          fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"
-          echo "Cache purged"
-
       - name: Summary
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           echo "================================================"
-          echo "CV Deployed: $VERSION"
+          echo "CV version bumped: $VERSION"
           echo "================================================"
           echo ""
-          echo "CV should now be live at:"
-          echo "  https://cv.ops.eblu.me/"
+          echo "To deploy on indri, run from gilbert:"
+          echo "  mise run provision-indri -- --tags cv"
+          echo ""
+          echo "Then purge the Fly.io proxy cache:"
+          echo "  fly ssh console -a blumeops-proxy -C \\"
+          echo "    \"sh -c 'rm -rf /tmp/cache && nginx -s reload'\""

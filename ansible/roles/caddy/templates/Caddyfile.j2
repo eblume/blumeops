@@ -31,6 +31,25 @@
 {% for service in caddy_services %}
 	@{{ service.name }} host {{ service.host }}
 	handle @{{ service.name }} {
+{% if service.kind | default('proxy') == 'static' %}
+		root * {{ service.root }}
+		encode gzip
+		# Long-cache fingerprinted assets; everything else stays default.
+		@{{ service.name }}_assets path_regexp \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2)$
+		header @{{ service.name }}_assets Cache-Control "public, max-age=31536000, immutable"
+{% for dl in service.download_paths | default([]) %}
+		@{{ service.name }}_dl{{ loop.index }} path {{ dl.path }}
+		header @{{ service.name }}_dl{{ loop.index }} Content-Disposition `attachment; filename="{{ dl.filename }}"`
+{% endfor %}
+{% if service.try_html | default(false) %}
+		try_files {path} {path}/ {path}.html
+		handle_errors 404 {
+			rewrite * /404.html
+			file_server
+		}
+{% endif %}
+		file_server
+{% else %}
 {% if service.cache_policy | default('') == 'spa' %}
 		# SPA cache policy: hashed static assets are immutable, HTML must revalidate.
 		# Prevents stale HTML from referencing chunk hashes that no longer exist.
@@ -47,6 +66,7 @@
 		}
 {% else %}
 		reverse_proxy {{ service.backend }}
+{% endif %}
 {% endif %}
 	}
 

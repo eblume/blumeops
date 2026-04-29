@@ -1,7 +1,7 @@
 ---
 title: Docs
-modified: 2026-03-23
-last-reviewed: 2026-03-23
+modified: 2026-04-29
+last-reviewed: 2026-04-29
 tags:
   - service
   - documentation
@@ -9,44 +9,42 @@ tags:
 
 # Docs (Quartz)
 
-Documentation site built with [Quartz](https://quartz.jzhao.xyz/) and served via nginx.
+Documentation site built with [Quartz](https://quartz.jzhao.xyz/).
 
 ## Quick Reference
 
 | Property | Value |
 |----------|-------|
-| **Public URL** | https://docs.eblu.me |
-| **Private URL** | `docs.ops.eblu.me` (tailnet only, via [[caddy]]) |
-| **Namespace** | `docs` |
-| **Image** | `registry.ops.eblu.me/blumeops/quartz` (see `argocd/manifests/docs/kustomization.yaml` for current tag) |
+| **Public URL** | https://docs.eblu.me (via [[flyio-proxy]]) |
+| **Private URL** | `docs.ops.eblu.me` (Caddy on indri) |
+| **Deployment** | Ansible role `docs` on indri (no daemon — Caddy serves files directly) |
+| **Content dir** | `~/blumeops/docs/content/` on indri |
 | **Source** | `docs/` directory in blumeops repo |
 | **Build** | Forgejo workflow `build-blumeops.yaml` |
-| **Public proxy** | [[flyio-proxy]] (Fly.io → Tailscale tunnel) |
+
+Migrated from minikube to indri-native on 2026-04-29 (see [[docs-on-indri]]).
 
 ## Architecture
 
 1. **Source**: Markdown files in `docs/` with Obsidian-compatible wiki-links
-2. **Build**: Forgejo workflow builds Quartz static site on push to main
-3. **Release**: Built assets published as Forgejo release attachments
-4. **Deploy**: Container downloads release bundle on startup, serves via nginx
-
-## Release Process
-
-Documentation is built and released via the `build-blumeops` Forgejo workflow (manual dispatch):
-
-1. Quartz builds static HTML/CSS/JS
-2. Assets uploaded as Forgejo release attachment
-3. Workflow updates `DOCS_RELEASE_URL` in `argocd/manifests/docs/deployment.yaml` and commits to main
-4. ArgoCD syncs the updated deployment; new pod downloads the release bundle at startup
+2. **Build**: `Build BlumeOps` Forgejo workflow runs towncrier + Quartz, uploads tarball as a release asset, and bumps `docs_version` in the ansible role
+3. **Deploy**: ansible role downloads the tarball into `~/blumeops/docs/content/` on indri; Caddy serves the directory directly with Quartz-style `try_files` (path → path/ → path.html → 404.html)
 
 ## Configuration
 
 - **Quartz config**: `quartz.config.ts`
 - **Layout**: `quartz.layout.ts`
-- **ArgoCD app**: `argocd/apps/docs.yaml`
-- **Manifests**: `argocd/manifests/docs/`
+- **Ansible role**: `ansible/roles/docs/`
+- **Caddy entry**: `ansible/roles/caddy/defaults/main.yml` (`kind: static`, `try_html: true`)
+
+## Release flow
+
+1. Run the `Build BlumeOps` workflow → builds tarball, creates release, bumps `docs_version` in the ansible role and pushes
+2. Run `mise run provision-indri -- --tags docs` from gilbert
+3. Purge the Fly.io proxy cache so the new content is fetched
 
 ## Related
 
-- [[argocd]] - Deployment management
-- [[forgejo]] - Build workflows
+- [[docs-on-indri]] — Operations how-to
+- [[cv]] — Similar architecture
+- [[forgejo]] — Build workflows

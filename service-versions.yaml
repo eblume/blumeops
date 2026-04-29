@@ -221,18 +221,26 @@ services:
     notes: Installed via uv into a venv on indri; version pinned in ansible/roles/devpi/defaults/main.yml
 
   - name: cv
-    type: argocd
-    last-reviewed: 2026-04-27
+    type: ansible
+    last-reviewed: 2026-04-29
     current-version: "1.0.3"
     upstream-source: https://forge.eblu.me/eblume/cv
-    notes: Personal static site; review build deps (WeasyPrint, Jinja2) in source repo
+    notes: >-
+      Static tarball downloaded by ansible/roles/cv into ~/blumeops/cv/content on indri;
+      served directly by Caddy (kind=static). Migrated from minikube 2026-04-29.
+      Review build deps (WeasyPrint, Jinja2) in source repo on upstream review.
 
   - name: docs
-    type: argocd
-    last-reviewed: 2026-03-07
+    type: ansible
+    last-reviewed: 2026-04-29
     current-version: "1.28.2"
-    upstream-source: https://github.com/jackyzha0/quartz/releases
-    notes: Quartz static site generator; container version tracks nginx base
+    upstream-source: https://forge.eblu.me/eblume/blumeops/releases
+    notes: >-
+      Quartz-built tarball downloaded by ansible/roles/docs into ~/blumeops/docs/content
+      on indri; served directly by Caddy (kind=static, try_html). Migrated from
+      minikube 2026-04-29. current-version still tracks the legacy quartz/nginx
+      base; will switch to the docs release tag (e.g. v1.16.0) once the dead
+      containers/quartz Dockerfile is removed in the cleanup commit.
 
   - name: forgejo-runner
     type: argocd

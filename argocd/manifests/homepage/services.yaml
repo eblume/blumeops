@@ -12,6 +12,10 @@
         href: https://registry.ops.eblu.me
         icon: zot-registry
         description: Container registry
+    - Devpi:
+        href: https://pypi.ops.eblu.me
+        icon: mdi-language-python
+        description: PyPI caching mirror
     - Sifaka NAS:
         href: https://nas.ops.eblu.me
         icon: synology
@@ -77,3 +81,15 @@
         href: https://ntfy.ops.eblu.me
         icon: ntfy.png
         description: Push notifications
+- Services:
+    # CV and Docs were previously auto-discovered from k8s Ingresses; after
+    # the indri-native migration ([[cv-on-indri]], [[docs-on-indri]]) there
+    # is no Ingress to discover, so they live here as static entries.
+    - CV:
+        href: https://cv.eblu.me
+        icon: mdi-file-document
+        description: Resume / CV
+    - Docs:
+        href: https://docs.eblu.me
+        icon: mdi-book-open-page-variant
+        description: BlumeOps Documentation

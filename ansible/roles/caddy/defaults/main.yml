@@ -72,10 +72,16 @@ caddy_services:
     backend: "https://go.tail8d86e.ts.net"
   - name: docs
     host: "docs.{{ caddy_domain }}"
-    backend: "https://docs.tail8d86e.ts.net"
+    kind: static
+    root: "{{ docs_content_dir }}"
+    try_html: true  # Quartz: path → path/ → path.html → 404.html
   - name: cv
     host: "cv.{{ caddy_domain }}"
-    backend: "https://cv.tail8d86e.ts.net"
+    kind: static
+    root: "{{ cv_content_dir }}"
+    download_paths:
+      - path: /resume.pdf
+        filename: erich-blume-resume.pdf
   - name: nvr
     host: "nvr.{{ caddy_domain }}"
     backend: "https://nvr.tail8d86e.ts.net"

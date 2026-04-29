@@ -1,0 +1,57 @@
+---
+# docs role — download and extract the Quartz-built docs tarball into
+# docs_content_dir. Caddy serves the directory directly with Quartz-style
+# try_files; there is no daemon to manage.
+#
+# Idempotency: a sentinel file records the installed docs_version. The
+# download/extract steps only run when the sentinel doesn't match docs_version.
+#
+# Mirrors the cv role's curl-based download for consistency, even though the
+# forge releases endpoint here does support HEAD.
+
+- name: Ensure docs home exists
+  ansible.builtin.file:
+    path: "{{ docs_home }}"
+    state: directory
+    mode: '0755'
+
+- name: Read installed docs version sentinel
+  ansible.builtin.slurp:
+    src: "{{ docs_version_sentinel }}"
+  register: docs_installed_raw
+  failed_when: false
+  changed_when: false
+
+- name: Set installed docs version fact
+  ansible.builtin.set_fact:
+    docs_installed_version: >-
+      {{ (docs_installed_raw.content | b64decode).strip()
+         if (docs_installed_raw.content is defined) else '' }}
+
+- name: Recreate docs content dir
+  ansible.builtin.file:
+    path: "{{ docs_content_dir }}"
+    state: "{{ item }}"
+    mode: '0755'
+  loop:
+    - absent
+    - directory
+  when: docs_installed_version != docs_version
+
+- name: Download and extract docs release tarball
+  ansible.builtin.shell:
+    cmd: >-
+      set -euo pipefail;
+      curl -fsSL {{ docs_release_url | quote }} -o {{ docs_home }}/docs.tar.gz &&
+      tar -xzf {{ docs_home }}/docs.tar.gz -C {{ docs_content_dir }} &&
+      rm -f {{ docs_home }}/docs.tar.gz
+    executable: /bin/bash
+  when: docs_installed_version != docs_version
+  changed_when: true
+
+- name: Write docs version sentinel
+  ansible.builtin.copy:
+    content: "{{ docs_version }}\n"
+    dest: "{{ docs_version_sentinel }}"
+    mode: '0644'
+  when: docs_installed_version != docs_version

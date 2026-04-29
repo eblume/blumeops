@@ -178,10 +178,11 @@ jobs:
 
             echo "## Documentation"
             echo ""
-            echo "Download \`$TARBALL\` and configure the quartz container with:"
+            echo "Download \`$TARBALL\` directly, or bump \`docs_version\`"
+            echo "in \`ansible/roles/docs/defaults/main.yml\` and run:"
             echo ""
             echo "\`\`\`"
-            echo "DOCS_RELEASE_URL=https://forge.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL"
+            echo "mise run provision-indri -- --tags docs"
             echo "\`\`\`"
           } > /tmp/release_body.txt
 
@@ -223,18 +224,16 @@ jobs:
           echo ""
           echo "Release created successfully!"
 
-      - name: Update docs deployment
+      - name: Bump docs_version in ansible role
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          TARBALL="docs-${VERSION}.tar.gz"
-          DEPLOYMENT_FILE="argocd/manifests/docs/deployment.yaml"
-          RELEASE_URL="https://forge.eblu.me/eblume/blumeops/releases/download/${VERSION}/${TARBALL}"
+          DEFAULTS_FILE="ansible/roles/docs/defaults/main.yml"
 
-          echo "Updating $DEPLOYMENT_FILE with new release URL..."
-          yq -i "(.spec.template.spec.containers[0].env[] | select(.name == \"DOCS_RELEASE_URL\")).value = \"${RELEASE_URL}\"" "$DEPLOYMENT_FILE"
+          echo "Bumping docs_version in $DEFAULTS_FILE to ${VERSION}..."
+          yq -i ".docs_version = \"${VERSION}\"" "$DEFAULTS_FILE"
 
-          echo "Updated deployment:"
-          grep -A1 "DOCS_RELEASE_URL" "$DEPLOYMENT_FILE"
+          echo "Updated defaults:"
+          grep -E "^docs_version:" "$DEFAULTS_FILE"
 
       - name: Commit release changes
         env:
@@ -248,7 +247,7 @@ jobs:
           git config user.email "actions@forge.ops.eblu.me"
 
           # Stage deployment changes
-          git add argocd/manifests/docs/deployment.yaml
+          git add ansible/roles/docs/defaults/main.yml
 
           # Stage changelog changes if updated
           if [ "$CHANGELOG_UPDATED" = "true" ]; then
@@ -270,34 +269,6 @@ jobs:
             echo "Changes committed and pushed"
           fi
 
-      - name: Deploy docs
-        env:
-          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
-        run: |
-          echo "Syncing docs app via ArgoCD..."
-
-          # Sync docs app (uses ARGOCD_AUTH_TOKEN env var for auth)
-          argocd app sync docs \
-            --server argocd.ops.eblu.me \
-            --grpc-web \
-            --prune
-
-          # Wait for sync to complete
-          argocd app wait docs \
-            --server argocd.ops.eblu.me \
-            --grpc-web \
-            --timeout 120
-
-          echo "Docs app synced successfully!"
-
-      - name: Purge Fly.io proxy cache
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_DEPLOY_TOKEN }}
-        run: |
-          echo "Purging nginx cache on Fly.io proxy..."
-          fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"
-          echo "Cache purged"
-
       - name: Summary
         run: |
           VERSION="${{ steps.version.outputs.version }}"
@@ -309,5 +280,12 @@ jobs:
           echo "Release URL:"
           echo "  https://forge.eblu.me/eblume/blumeops/releases/tag/$VERSION"
           echo ""
-          echo "Asset URL (for DOCS_RELEASE_URL ConfigMap):"
+          echo "Asset URL:"
           echo "  https://forge.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL"
+          echo ""
+          echo "To deploy on indri, run from gilbert:"
+          echo "  mise run provision-indri -- --tags docs"
+          echo ""
+          echo "Then purge the Fly.io proxy cache:"
+          echo "  fly ssh console -a blumeops-proxy -C \\"
+          echo "    \"sh -c 'rm -rf /tmp/cache && nginx -s reload'\""
