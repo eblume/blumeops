@@ -139,6 +139,42 @@ controls:
       MANUAL findings appear in Prowler, add corresponding verification
       logic to the script and update the mutelist.
 
+  - id: operator-purpose-bound-rbac
+    description: >-
+      Operators whose entire function is to manage a sensitive resource
+      legitimately need RBAC over that resource. external-secrets-operator
+      manages Secret objects (its purpose) and the cert-controller mutates
+      its own ValidatingWebhookConfigurations to inject rotating CA bundles.
+      Risk is bounded by: (1) the operator code being upstream open-source
+      and reviewed; (2) RBAC scoped to specific named webhooks where
+      possible; (3) supply chain controls on the operator image (mirrored
+      to local registry, version tracked in service-versions.yaml).
+    created: 2026-04-27
+    last-reviewed: 2026-04-27
+    notes: >-
+      Verify by checking that the operators in question still match their
+      stated purpose (i.e. external-secrets is still the only consumer of
+      these ClusterRoles) and that upstream hasn't published advisories
+      for credential-handling bugs. Re-evaluate if a non-secrets-managing
+      ClusterRole appears under this control.
+
+  - id: kube-state-metrics-metadata-only
+    description: >-
+      kube-state-metrics holds list/watch on Secrets cluster-wide but only
+      exposes Secret object *metadata* (name, namespace, type, creation
+      timestamp, labels) via the kube_secret_info / kube_secret_labels
+      metrics. Secret data fields are never read into KSM's exposed
+      metrics by upstream design. Mitigation rests on KSM's metric
+      schema, the version pin in service-versions.yaml, and the metrics
+      endpoint being reachable only on the cluster network.
+    created: 2026-04-27
+    last-reviewed: 2026-04-27
+    notes: >-
+      Verify by inspecting the /metrics endpoint output for any series
+      that include secret data (only *_info and *_labels metrics should
+      reference secrets, and labels should be limited to user-applied
+      labels — never the data:). Re-evaluate on KSM version bumps.
+
   - id: observability-stack-audit
     description: >-
       Alloy collects pod logs and ships them to Loki, providing an

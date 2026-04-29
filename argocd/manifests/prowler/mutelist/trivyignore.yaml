@@ -1,0 +1,39 @@
+# Trivy ignorefile for Prowler IaC scan.
+#
+# Prowler's `--mutelist-file` flag is a no-op for the IaC provider
+# (iac_provider.py sets self._mutelist = None and delegates to Trivy).
+# Trivy in turn does not auto-discover this YAML form from cwd, so the
+# Prowler image ships a shim wrapper around `trivy` that injects
+# --ignorefile $TRIVY_IGNOREFILE when the env var is set. The cronjob
+# mounts this file and sets TRIVY_IGNOREFILE accordingly.
+#
+# Schema: https://trivy.dev/latest/docs/configuration/filtering/
+# IDs use the hyphenated form Trivy displays (KSV-0041, not KSV0041).
+misconfigurations:
+  - id: KSV-0041
+    paths:
+      - "argocd/manifests/external-secrets/rbac.yaml"
+    statement: >-
+      CC: operator-purpose-bound-rbac. external-secrets-operator's entire
+      function is to read and synthesize Secret objects; ClusterRole over
+      secrets is its purpose. Both the controller and cert-controller are
+      upstream-defined.
+  - id: KSV-0041
+    paths:
+      - "argocd/manifests/kube-state-metrics/rbac.yaml"
+      - "argocd/manifests/kube-state-metrics-ringtail/rbac.yaml"
+    statement: >-
+      CC: kube-state-metrics-metadata-only. KSM exposes only Secret
+      metadata (name, namespace, type, labels), never the data field.
+      list/watch on secrets is required for kube_secret_info /
+      kube_secret_labels metrics.
+  - id: KSV-0114
+    paths:
+      - "argocd/manifests/external-secrets/rbac.yaml"
+    statement: >-
+      CC: operator-purpose-bound-rbac. cert-controller manages the
+      external-secrets validating webhook configurations to inject its
+      own rotating CA bundle. RBAC is scoped to two named webhooks
+      (secretstore-validate, externalsecret-validate) via resourceNames;
+      KSV-0114 doesn't see the resourceNames restriction so reports the
+      full ClusterRole.

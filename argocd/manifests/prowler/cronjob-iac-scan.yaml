@@ -19,6 +19,13 @@ spec:
             - name: prowler
               image: registry.ops.eblu.me/blumeops/prowler:kustomized
               command: ["/bin/sh", "-c"]
+              # Prowler's --mutelist-file is a no-op for the IaC provider
+              # (it delegates to Trivy). The Prowler image's trivy shim
+              # injects --ignorefile $TRIVY_IGNOREFILE when set; see
+              # containers/prowler/Dockerfile.
+              env:
+                - name: TRIVY_IGNOREFILE
+                  value: /mutelist/trivyignore.yaml
               args:
                 - |
                   DATEDIR=/reports/prowler-iac/$(date +%Y-%m-%d)
@@ -31,8 +38,17 @@ spec:
               volumeMounts:
                 - name: reports
                   mountPath: /reports
+                - name: mutelist
+                  mountPath: /mutelist
+                  readOnly: true
           restartPolicy: OnFailure
           volumes:
             - name: reports
               persistentVolumeClaim:
                 claimName: prowler-reports
+            - name: mutelist
+              configMap:
+                name: prowler-mutelist
+                items:
+                  - key: trivyignore.yaml
+                    path: trivyignore.yaml

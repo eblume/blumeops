@@ -156,7 +156,9 @@ spec:
             - name: FOLDER
               value: /tmp/dashboards
             - name: RESOURCE
-              value: both
+              # ConfigMap-only — no dashboards are sourced from Secrets,
+              # so the ServiceAccount has no read access to secrets.
+              value: configmap
             - name: FOLDER_ANNOTATION
               value: grafana_folder
           securityContext:
@@ -183,7 +185,7 @@ spec:
             - name: FOLDER
               value: /tmp/dashboards
             - name: RESOURCE
-              value: both
+              value: configmap
             - name: FOLDER_ANNOTATION
               value: grafana_folder
             - name: REQ_USERNAME
