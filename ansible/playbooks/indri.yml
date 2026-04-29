@@ -212,6 +212,23 @@
       no_log: true
       tags: [forgejo_metrics]
 
+    # Devpi root password (PyPI mirror admin)
+    - name: Fetch devpi root password
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/kyhzfifryqnuk7jeyibmmjvxxm/add more/root password"
+      delegate_to: localhost
+      register: _devpi_root_password
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [devpi]
+
+    - name: Set devpi root password fact
+      ansible.builtin.set_fact:
+        devpi_root_password: "{{ _devpi_root_password.stdout }}"
+      no_log: true
+      tags: [devpi]
+
   roles:
     - role: alloy
       tags: alloy
@@ -227,6 +244,8 @@
       tags: zot
     - role: zot_metrics
       tags: zot_metrics
+    - role: devpi
+      tags: devpi
     - role: minikube
       tags: minikube
     - role: minikube_metrics

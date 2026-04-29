@@ -159,8 +159,10 @@ prometheus.exporter.blackbox "services" {
   }
 
   target {
+    // devpi runs natively on indri (LaunchAgent), not in-cluster.
+    // We probe through Caddy (https://pypi.ops.eblu.me) which the cluster can reach via Tailscale.
     name    = "devpi"
-    address = "http://devpi.devpi.svc.cluster.local:3141/+api"
+    address = "https://pypi.ops.eblu.me/+api"
     module  = "http_2xx"
   }
 

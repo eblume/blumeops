@@ -62,7 +62,7 @@ Other data lives directly on [[sifaka]] (music via [[navidrome]], video via [[je
 | ZIM archives (`~/transmission/`) | Re-downloadable via torrent |
 | Prometheus metrics | Ephemeral, in k8s PVC |
 | Loki logs | Ephemeral, in k8s PVC |
-| devpi cache | Re-fetchable from PyPI |
+| devpi cache (`~/devpi/server-dir/` on indri) | Re-fetchable from PyPI on first request |
 
 ## Retention Policy
 

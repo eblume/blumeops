@@ -37,7 +37,7 @@ acl = tailscale.Acl(
 
 # indri - Mac Mini M1, primary homelab server
 # Hosts forge, loki, zot registry, and the k8s control plane.
-# Other services (grafana, kiwix, devpi, etc.) run in k8s with their own Tailscale devices.
+# Other services (grafana, kiwix, etc.) run in k8s with their own Tailscale devices.
 indri = tailscale.get_device(name="indri.tail8d86e.ts.net")
 indri_tags = tailscale.DeviceTags(
     "indri-tags",

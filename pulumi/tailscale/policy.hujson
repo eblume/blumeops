@@ -20,7 +20,8 @@
 		},
 
 		// --- Members: user-facing services only ---
-		// Kiwix, Forge, devpi, Miniflux, PostgreSQL
+		// Kiwix, Forge, Miniflux, PostgreSQL
+		// (devpi moved off-cluster to indri; reachable via Caddy on tag:flyio-target)
 		{
 			"src": ["autogroup:member"],
 			"dst": ["tag:kiwix"],
@@ -30,11 +31,6 @@
 			"src": ["autogroup:member"],
 			"dst": ["tag:forge"],
 			"ip":  ["tcp:443", "tcp:22"],
-		},
-		{
-			"src": ["autogroup:member"],
-			"dst": ["tag:devpi"],
-			"ip":  ["tcp:443"],
 		},
 		{
 			"src": ["autogroup:member"],
@@ -152,7 +148,6 @@
 		"tag:grafana": ["autogroup:admin", "tag:blumeops"],
 		"tag:kiwix": ["autogroup:admin", "tag:blumeops"],
 		"tag:forge": ["autogroup:admin", "tag:blumeops"],
-		"tag:devpi": ["autogroup:admin", "tag:blumeops"],
 		"tag:loki": ["autogroup:admin", "tag:blumeops"],
 		"tag:pg": ["autogroup:admin", "tag:blumeops"],
 		"tag:feed": ["autogroup:admin", "tag:blumeops"],

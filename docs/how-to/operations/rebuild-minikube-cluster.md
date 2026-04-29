@@ -235,25 +235,7 @@ mise run services-check
 
 ## Post-Rebuild: Cold Cache Failures
 
-### Devpi (PyPI Cache)
-
-After a rebuild, devpi's package cache is empty. The first Dagger-based container build will trigger a flood of concurrent package downloads. Devpi uses lazy caching — it serves package metadata (simple index) immediately from upstream PyPI but fetches wheel files on demand. Under heavy concurrent load with a cold cache, the upstream fetch can race with the client request, causing devpi to return `no such file` (HTTP 404) for packages it knows about but hasn't finished downloading yet.
-
-**Why devpi, not PyPI?** The repo's `uv.lock` was generated with devpi as the index, so every package source URL points at `pypi.ops.eblu.me`. Dagger's Python SDK runtime does a locked install (`uv sync`), not fresh resolution — it fetches from whatever URLs are in the lockfile. This is intentional (supply chain control), but means all builds — local and CI — depend on devpi being available and warm.
-
-**Symptoms:** Forgejo Actions Dagger builds fail during module initialization with errors like:
-```
-Failed to download `googleapis-common-protos==1.74.0`
-HTTP status client error (404 Not Found) for url (https://pypi.ops.eblu.me/root/pypi/+f/...)
-```
-
-**Fix:** Re-run the failed build. The first attempt warms the cache; subsequent builds succeed. Alternatively, warm the cache manually before triggering CI builds:
-
-```bash
-# From any machine that can reach pypi.ops.eblu.me, install the Dagger SDK
-# to pre-populate the most common packages:
-pip install --dry-run --index-url https://pypi.ops.eblu.me/root/pypi/+simple/ dagger-io
-```
+Devpi runs natively on indri (see [[devpi-on-indri]]) and is unaffected by minikube rebuilds, so the historical "devpi cold cache after rebuild" failure mode no longer applies. If devpi itself goes cold (fresh server-dir), the same lazy-cache race can still cause `404` on the first Dagger build under concurrent load — re-run the build to warm the cache, or pre-warm with `uv pip install --dry-run --index-url https://pypi.ops.eblu.me/root/pypi/+simple/ dagger-io`.
 
 ## Related
 

@@ -1,0 +1,71 @@
+---
+# devpi role — devpi-server in a uv-managed venv, run via LaunchAgent.
+# Replaces the prior minikube StatefulSet; see [[devpi-on-indri]].
+#
+# The root password is fetched in the indri.yml playbook pre_tasks and
+# exposed as `devpi_root_password`.
+
+- name: Ensure devpi home exists
+  ansible.builtin.file:
+    path: "{{ devpi_home }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure devpi server-dir exists
+  ansible.builtin.file:
+    path: "{{ devpi_server_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: Create devpi venv if missing
+  ansible.builtin.command:
+    cmd: "{{ devpi_uv_binary }} venv --python {{ devpi_python_version }} {{ devpi_venv }}"
+    creates: "{{ devpi_venv }}/bin/python"
+
+- name: Install devpi-server and devpi-web into venv
+  # Always bootstrap from upstream PyPI — devpi is the index it would otherwise resolve through,
+  # and that's a circular dependency (devpi cannot install itself from itself).
+  ansible.builtin.command:
+    cmd: >-
+      {{ devpi_uv_binary }} pip install
+      --python {{ devpi_venv }}/bin/python
+      --index-url https://pypi.org/simple/
+      devpi-server=={{ devpi_server_version }}
+      devpi-web=={{ devpi_web_version }}
+  register: devpi_pip_install
+  changed_when: "'Installed' in devpi_pip_install.stdout or 'Uninstalled' in devpi_pip_install.stdout"
+  notify: Restart devpi
+
+- name: Check if devpi server-dir is initialized
+  ansible.builtin.stat:
+    path: "{{ devpi_server_dir }}/.serverversion"
+  register: devpi_serverversion
+
+- name: Initialize devpi server-dir
+  ansible.builtin.command:
+    cmd: >-
+      {{ devpi_init_binary }}
+      --serverdir {{ devpi_server_dir }}
+      --root-passwd {{ devpi_root_password }}
+  when: not devpi_serverversion.stat.exists
+  changed_when: true
+  no_log: true
+
+- name: Deploy devpi LaunchAgent plist
+  ansible.builtin.template:
+    src: devpi.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.devpi.plist
+    mode: '0644'
+  notify: Restart devpi
+
+- name: Check if devpi LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.devpi
+  register: devpi_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load devpi LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.devpi.plist
+  when: devpi_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false

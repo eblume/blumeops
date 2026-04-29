@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>mcquack.eblume.devpi</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ devpi_binary }}</string>
+		<string>--serverdir</string>
+		<string>{{ devpi_server_dir }}</string>
+		<string>--host</string>
+		<string>{{ devpi_host }}</string>
+		<string>--port</string>
+		<string>{{ devpi_port }}</string>
+		<string>--outside-url</string>
+		<string>{{ devpi_outside_url }}</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>{{ devpi_venv }}/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>{{ devpi_log_dir }}/mcquack.devpi.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>{{ devpi_log_dir }}/mcquack.devpi.err.log</string>
+</dict>
+</plist>

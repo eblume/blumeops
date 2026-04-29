@@ -214,10 +214,11 @@ services:
     upstream-source: https://github.com/kiwix/kiwix-tools/releases
 
   - name: devpi
-    type: argocd
-    last-reviewed: 2026-04-18
+    type: ansible
+    last-reviewed: 2026-04-29
     current-version: "6.19.3"
     upstream-source: https://github.com/devpi/devpi/releases
+    notes: Installed via uv into a venv on indri; version pinned in ansible/roles/devpi/defaults/main.yml
 
   - name: cv
     type: argocd

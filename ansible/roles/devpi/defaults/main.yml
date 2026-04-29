@@ -1,0 +1,21 @@
+---
+# devpi PyPI caching mirror (native launchd, replaces minikube StatefulSet)
+
+devpi_home: /Users/erichblume/devpi
+devpi_venv: "{{ devpi_home }}/venv"
+devpi_server_dir: "{{ devpi_home }}/server-dir"
+devpi_binary: "{{ devpi_venv }}/bin/devpi-server"
+devpi_init_binary: "{{ devpi_venv }}/bin/devpi-init"
+
+devpi_python_version: "3.12"
+devpi_server_version: "6.19.3"
+devpi_web_version: "5.0.2"
+
+devpi_host: 127.0.0.1
+devpi_port: 3141
+devpi_outside_url: "https://pypi.ops.eblu.me"
+
+devpi_log_dir: /Users/erichblume/Library/Logs
+
+# uv binary on indri — mise shim so version bumps via `mise upgrade uv` flow through transparently
+devpi_uv_binary: /Users/erichblume/.local/share/mise/shims/uv

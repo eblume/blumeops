@@ -41,6 +41,7 @@ Native services managed by launchd will stop automatically during macOS shutdown
 ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo.plist'
 ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.caddy.plist'
 ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.zot.plist'
+ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.devpi.plist'  # see [[devpi-on-indri]]
 ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.jellyfin.plist'
 ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.alloy.plist'
 ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.borgmatic.plist'
