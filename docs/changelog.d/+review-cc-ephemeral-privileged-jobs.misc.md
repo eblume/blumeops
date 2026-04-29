@@ -1,0 +1,1 @@
+Reviewed compensating control `ephemeral-privileged-jobs`: TTL and hostPID scope verified on indri. Noted that the alloy-tracing DaemonSet on ringtail is out of scope until Prowler scans ringtail (tracked in Todoist).

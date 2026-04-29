@@ -94,10 +94,15 @@ controls:
       auto-deletion, not as a persistent privileged workload. hostPID
       exposure is time-bounded to scan duration (~20s).
     created: 2026-03-30
-    last-reviewed: 2026-03-30
+    last-reviewed: 2026-04-29
     notes: >-
       Verify TTL is set in cronjob.yaml. Check that no persistent
-      pods run with hostPID.
+      pods run with hostPID on the scanned cluster (indri). The
+      alloy-tracing DaemonSet on ringtail also uses hostPID but is
+      out of scope — Prowler only scans indri. Tracked in Todoist:
+      "prowler scan against ringtail" — once that lands, the
+      DaemonSet's hostPID+privileged posture will surface as a CIS
+      finding and need its own CC or remediation.
 
   - id: trusted-ci-only
     description: >-
