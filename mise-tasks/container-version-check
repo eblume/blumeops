@@ -42,7 +42,6 @@ BLACKLIST = {"kubectl"}
 
 # Container dir name → service-versions.yaml name (when they differ)
 CONTAINER_TO_SERVICE = {
-    "quartz": "docs",
     "kiwix-serve": "kiwix",
 }
 

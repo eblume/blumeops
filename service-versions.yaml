@@ -233,14 +233,12 @@ services:
   - name: docs
     type: ansible
     last-reviewed: 2026-04-29
-    current-version: "1.28.2"
+    current-version: "v1.16.0"
     upstream-source: https://forge.eblu.me/eblume/blumeops/releases
     notes: >-
       Quartz-built tarball downloaded by ansible/roles/docs into ~/blumeops/docs/content
-      on indri; served directly by Caddy (kind=static, try_html). Migrated from
-      minikube 2026-04-29. current-version still tracks the legacy quartz/nginx
-      base; will switch to the docs release tag (e.g. v1.16.0) once the dead
-      containers/quartz Dockerfile is removed in the cleanup commit.
+      on indri; served directly by Caddy (kind=static, try_html). current-version
+      tracks the blumeops docs release tag.
 
   - name: forgejo-runner
     type: argocd
