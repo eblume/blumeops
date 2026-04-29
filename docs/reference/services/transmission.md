@@ -1,6 +1,7 @@
 ---
 title: Transmission
-modified: 2026-02-07
+modified: 2026-04-29
+last-reviewed: 2026-04-29
 tags:
   - service
   - torrent
@@ -22,14 +23,13 @@ BitTorrent daemon, primarily for downloading ZIM archives for [[kiwix]].
 
 ## Storage Layout
 
-NFS share on sifaka (`/volume1/torrents`):
+| Path | Backing | Purpose |
+|------|---------|---------|
+| `/downloads/incomplete/` | NFS (`sifaka:/volume1/torrents`) | Active downloads |
+| `/downloads/complete/` | NFS (`sifaka:/volume1/torrents`) | Completed downloads |
+| `/config/` | `emptyDir` (ephemeral) | Transmission `settings.json`, regenerated on pod start |
 
-| Path | Purpose |
-|------|---------|
-| `/downloads/` | Active downloads and metadata |
-| `/downloads/complete/` | Completed downloads |
-| `/config/` | Transmission configuration |
-| `/watch/` | Watch directory for .torrent files |
+The watch directory is disabled (`watch-dir-enabled: false`); torrents are added via RPC (see Kiwix integration below).
 
 [[kiwix]] reads from `/downloads/complete/` to serve ZIM archives.
 
@@ -44,7 +44,7 @@ When downloads complete, the zim-watcher CronJob detects new ZIMs and restarts K
 
 ## Monitoring
 
-Basic uptime via blackbox probe in [[alloy|Alloy]] k8s (Services Health dashboard).
+A `transmission-exporter` sidecar (image `registry.ops.eblu.me/blumeops/transmission-exporter`) scrapes the local RPC and exposes Prometheus metrics on port 19091. Uptime is also covered by a blackbox probe in [[alloy|Alloy]] k8s (Services Health dashboard).
 
 Web UI shows: active/seeding/paused counts, speeds, disk usage.
 
