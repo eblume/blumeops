@@ -42,11 +42,11 @@
 		header @{{ service.name }}_dl{{ loop.index }} Content-Disposition `attachment; filename="{{ dl.filename }}"`
 {% endfor %}
 {% if service.try_html | default(false) %}
-		try_files {path} {path}/ {path}.html
-		handle_errors 404 {
-			rewrite * /404.html
-			file_server
-		}
+		# Quartz clean URLs: path → path/ → path.html → /404.html (200).
+		# Caddy's handle_errors is a top-level directive and can't live in
+		# this nested handle, so the 404 page rides as the final try_files
+		# candidate (served with 200 — acceptable for a human-facing 404).
+		try_files {path} {path}/ {path}.html /404.html
 {% endif %}
 		file_server
 {% else %}
