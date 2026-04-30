@@ -1,0 +1,1 @@
+New how-to: rotate-fly-deploy-token. Documents the 75-day rotation cadence, why we use `org`-scoped tokens (silences the cosmetic metrics-token warning on `fly status` with marginal blast-radius cost given the single-app personal org), and the procedure for rotation + Forgejo Actions secret sync.

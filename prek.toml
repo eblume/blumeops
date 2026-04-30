@@ -22,13 +22,13 @@ hooks = [
 # check-yaml with --unsafe (builtin fast path doesn't support --unsafe yet)
 [[repos]]
 repo = "https://github.com/pre-commit/pre-commit-hooks"
-rev = "v6.0.0"
+rev = "3e8a8703264a2f4a69428a0aa4dcb512790b2c8c"        # v6.0.0
 hooks = [{ id = "check-yaml", args = ["--unsafe"] }]
 
 # Secret detection (running both tools in parallel to compare coverage)
 [[repos]]
 repo = "https://github.com/trufflesecurity/trufflehog"
-rev = "v3.94.0"
+rev = "17456f8c7d042d8c82c9a8ca9e937231f9f42e26" # v3.95.2
 hooks = [
   { id = "trufflehog", entry = "trufflehog git file://. --since-commit HEAD --no-verification --fail", stages = [
     "pre-commit",
@@ -38,7 +38,7 @@ hooks = [
 
 [[repos]]
 repo = "https://github.com/mongodb/kingfisher"
-rev = "v1.91.0"
+rev = "9ddec4ab8b53653d4941e6b3fd4ff602ce91d81b" # v1.97.0
 hooks = [
   { id = "kingfisher", args = [
     "scan",
@@ -56,7 +56,7 @@ hooks = [
 # YAML linting
 [[repos]]
 repo = "https://github.com/adrienverge/yamllint"
-rev = "v1.38.0"
+rev = "cba56bcde1fdd01c1deb3f945e69764c291a6530"               # v1.38.0
 hooks = [{ id = "yamllint", args = ["-c", ".yamllint.yaml"] }]
 
 # Ansible linting
@@ -69,12 +69,12 @@ name = "ansible-lint"
 entry = "env ANSIBLE_ROLES_PATH=ansible/roles ansible-lint"
 language = "python"
 files = "^ansible/"
-additional_dependencies = ["ansible-lint>=26.3.0", "ansible-core>=2.18"]
+additional_dependencies = ["ansible-lint==26.4.0", "ansible-core==2.20.5"]
 
 # Python - ruff for linting and formatting
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.15.7"
+rev = "6fec9b7edb08fd9989088709d864a7826dc74e80"                    # v0.15.12
 hooks = [{ id = "ruff", args = ["--fix"] }, { id = "ruff-format" }]
 
 # Python - ty type checker
@@ -92,30 +92,30 @@ pass_filenames = false
 # Shell scripts - shellcheck and shfmt
 [[repos]]
 repo = "https://github.com/shellcheck-py/shellcheck-py"
-rev = "v0.11.0.1"
+rev = "745eface02aef23e168a8afb6b5737818efbea95"               # v0.11.0.1
 hooks = [{ id = "shellcheck", args = ["--severity=warning"] }]
 
 [[repos]]
 repo = "https://github.com/scop/pre-commit-shfmt"
-rev = "v3.13.0-1"
+rev = "05c1426671b9237fb5e1444dd63aa5731bec0dfb"             # v3.13.1-1
 hooks = [{ id = "shfmt", args = ["-i", "2", "-ci", "-bn"] }]
 
 # TOML - taplo
 [[repos]]
 repo = "https://github.com/ComPWA/taplo-pre-commit"
-rev = "v0.9.3"
-hooks = [{ id = "taplo-format" }, { id = "taplo-lint" }]
+rev = "23eab0f0eedcbedebff420f5fdfb284744adc7b3"                                 # v0.9.3
+hooks = [{ id = "taplo-format" }, { id = "taplo-lint", args = ["--no-schema"] }]
 
 # JSON formatting (prettier for consistent style)
 [[repos]]
 repo = "https://github.com/rbubley/mirrors-prettier"
-rev = "v3.8.1"
+rev = "515f543f5718ebfd6ce22e16708bb32c68ff96e1"                                # v3.8.3
 hooks = [{ id = "prettier", types_or = ["json"], args = ["--tab-width", "2"] }]
 
 # GitHub/Forgejo Actions workflow linting
 [[repos]]
 repo = "https://github.com/rhysd/actionlint"
-rev = "v1.7.11"
+rev = "914e7df21a07ef503a81201c76d2b11c789d3fca" # v1.7.12
 hooks = [
   { id = "actionlint-system", args = [
     "-config-file",

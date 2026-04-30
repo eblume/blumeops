@@ -28,33 +28,45 @@ Out of scope: ArgoCD-deployed service images, Ansible role versions, NixOS flake
 
 ### 1. Check prek hook versions
 
-For each repo in `prek.toml` with a `rev =` value, check the upstream GitHub releases page for a newer tag. Update each `rev` to the latest release tag. Also check `additional_dependencies` entries for PyPI version bumps.
-
-Verify after updating:
+For each repo in `prek.toml` with a `rev =` value, check the upstream GitHub releases page for a newer tag. Update each `rev` to the **commit SHA** of the latest release with a trailing `# vX.Y.Z` comment (matches the `additional_dependencies` and Forgejo workflow pinning style). Also check `additional_dependencies` entries for PyPI version bumps and pin them with `==`.
 
 ```fish
+git ls-remote --tags https://github.com/<owner>/<repo>.git 'refs/tags/v*' | sort -t/ -k3 -V | tail -5
+```
+
+Clear the prek cache before verifying — it can grow to several GiB (one venv per hook per version) and old cached environments can mask resolution failures or stale catalogs:
+
+```fish
+prek clean
 prek run --all-files
 ```
 
 ### 2. Check Fly.io Dockerfile pins
 
-Review `fly/Dockerfile` for pinned image tags:
+Review `fly/Dockerfile` for pinned image digests. Each `FROM` and `COPY --from=` uses `image@sha256:...` digest pinning with a comment line above documenting the human-readable version.
 
 - **nginx** — check [Docker Hub](https://hub.docker.com/_/nginx) for latest stable alpine tag
 - **grafana/alloy** — check [GitHub releases](https://github.com/grafana/alloy/releases)
-- **tailscale/tailscale** — uses `stable` rolling tag, no action needed
+- **tailscale/tailscale** — pinned to a known-good version. Do not bump to v1.96.5 or later (MagicDNS regression breaks the proxy boot)
+
+To resolve a tag to a digest:
+
+```fish
+docker buildx imagetools inspect docker.io/<image>:<tag>
+# Use the top-level "Digest:" line (multi-arch index) — not the per-platform sub-digest
+```
 
 After updating, the deploy-fly workflow will build and deploy on merge to main. Verify with `fly status -a blumeops-proxy` after deploy.
 
-### 3. Normalize mise task dependency bounds
+### 3. Pin mise task dependencies
 
-Mise tasks use `uv run --script` with inline PEP 723 dependency metadata. Check that lower bounds are consistent across all scripts:
+Mise tasks use `uv run --script` with inline PEP 723 dependency metadata. All packages are pinned with `==` (PEP 508 doesn't support hashes inline). Check that pinned versions are consistent across all scripts:
 
 ```fish
 grep -r 'dependencies' mise-tasks/ | grep '# dependencies'
 ```
 
-Ensure all scripts using the same package agree on the minimum version. When a package has a new major or breaking minor release, bump the lower bound across all scripts at once.
+For each package in use (`httpx`, `rich`, `typer`, `pyyaml`), pick the latest PyPI version and update every script in lockstep — divergence between scripts is the failure mode this catches. Bump everything together; don't leave one script behind.
 
 ### 4. Pin Forgejo workflow action versions
 

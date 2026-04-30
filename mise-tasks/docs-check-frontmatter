@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["rich>=14.0.0"]
+# dependencies = ["rich==15.0.0"]
 # ///
 #MISE description="Check that all docs have required frontmatter fields"
 """Validate that all documentation files have required YAML frontmatter.

@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["rich>=14.0.0", "typer>=0.24.0", "pyyaml>=6.0"]
+# dependencies = ["rich==15.0.0", "typer==0.25.0", "pyyaml==6.0.3"]
 # ///
 #MISE description="Summarize the latest Prowler and Kingfisher compliance reports from sifaka"
 #USAGE flag "--full" help="Show all unmuted failures, not just new ones"

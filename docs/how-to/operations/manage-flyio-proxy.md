@@ -76,6 +76,10 @@ The auth key expires every 90 days. To rotate:
 2. Re-run setup to stage the new secret: `mise run fly-setup`
 3. Deploy to pick up the new secret: `mise run fly-deploy`
 
+## Rotate Fly.io API Token
+
+See [[rotate-fly-deploy-token]] for the full rotation procedure (75-day cadence, `org`-scoped).
+
 ## Troubleshooting
 
 **502 Bad Gateway on fresh deploy**: MagicDNS may not be ready when nginx starts. The `start.sh` script polls `nslookup` before launching nginx, but if it still fails, check that `tailscale status` is healthy inside the container.

@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["pyyaml>=6.0.2", "rich>=14.0.0"]
+# dependencies = ["pyyaml==6.0.3", "rich==15.0.0"]
 # ///
 #MISE description="Print frontmatter tag inventory across all docs"
 """Print every frontmatter tag with usage count and file list.
