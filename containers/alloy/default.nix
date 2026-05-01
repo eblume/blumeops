@@ -1,24 +1,24 @@
 # Nix-built Grafana Alloy telemetry collector
-# Builds v1.14.0 from forge mirror with embedded web UI
+# Builds v1.16.0 from forge mirror with embedded web UI
 # Uses stdenv + make (not buildGoModule) due to multi-module workspace
 # with local replace directives (collector/ -> ../, ../syntax, ../extension)
 # Built with dockerTools.buildLayeredImage for efficient layer caching
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "1.14.0";
+  version = "1.16.0";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/alloy.git";
     rev = "v${version}";
-    hash = "sha256-gxNz4XDE8XSl6LsP3k8DERqDdMLcmbWKfXZGGyRULkg=";
+    hash = "sha256-q5R2noxBZ3OPyZqmB+bx3iJKWFxC2WIprcgh9RwjLzk=";
   };
 
   ui = pkgs.buildNpmPackage {
     inherit version;
     pname = "alloy-ui";
     src = "${src}/internal/web/ui";
-    npmDepsHash = "sha256-GT0yisPn+3FCtWL3he0i5zPMlaWNparQDefU69G4Yis=";
+    npmDepsHash = "sha256-vResNUT4auDsK9ngnJYfMUUOYr/ikPhrvakqCjGq2Q8=";
 
     buildPhase = ''
       runHook preBuild
@@ -40,11 +40,12 @@ let
     pname = "alloy-go-modules";
     inherit src version;
 
-    nativeBuildInputs = with pkgs; [ go git cacert ];
+    nativeBuildInputs = with pkgs; [ go_1_26 git cacert ];
 
     buildPhase = ''
       export GOPATH=$TMPDIR/go
       export GOFLAGS=-modcacherw
+      export GOTOOLCHAIN=local
       # Download modules for all three go.mod files
       go mod download
       cd syntax && go mod download && cd ..
@@ -56,7 +57,7 @@ let
     '';
 
     outputHashMode = "recursive";
-    outputHash = "sha256-rD7zqomSVv4d8NaC7jXXgihuQvK8guaAN0KrsBRWMVQ=";
+    outputHash = "sha256-9/v85HyDInJB+9qHauKVuDol6Yf5mkXfMWgCr7RdRTk=";
     outputHashAlgo = "sha256";
   };
 
@@ -65,7 +66,7 @@ let
     pname = "alloy";
 
     nativeBuildInputs = with pkgs; [
-      go
+      go_1_26
       git
       gnumake
       cacert
@@ -77,6 +78,7 @@ let
       export HOME=$TMPDIR
       export GOPATH=$TMPDIR/go
       export GOFLAGS=-modcacherw
+      export GOTOOLCHAIN=local
 
       # Populate module cache from pre-fetched modules
       mkdir -p $GOPATH/pkg
