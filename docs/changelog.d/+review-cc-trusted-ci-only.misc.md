@@ -1,0 +1,1 @@
+Reviewed compensating control `trusted-ci-only`: Forgejo runner is registered only to the private forge, which has registration disabled — no untrusted users can create repos or trigger privileged CI. Tightened the notes to reflect that the closed-forge property (not a per-repo allow-list) is what actually mitigates the risk.

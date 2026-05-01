@@ -110,10 +110,17 @@ controls:
       forge (forge.ops.eblu.me). No external or untrusted repos can
       trigger privileged CI jobs.
     created: 2026-03-30
-    last-reviewed: 2026-03-30
+    last-reviewed: 2026-05-01
     notes: >-
-      Verify runner registration is limited to the forge instance.
-      Check Forgejo runner config for repo allow-lists.
+      Verification: (1) Runner config (argocd/manifests/forgejo-runner/
+      config.yaml) connects only to https://forge.ops.eblu.me/. (2) Forge
+      app.ini has DISABLE_REGISTRATION=true and ALLOW_ONLY_EXTERNAL_REGISTRATION
+      =true (ansible/roles/forgejo/defaults/main.yml) — no untrusted users
+      can sign up or create repos. The runner registers at instance scope
+      (repo_id=0/owner_id=0 in action_runner table), but the instance itself
+      is closed, so no per-repo allow-list is needed. Re-evaluate if the
+      forge ever opens to additional users or if the runner is repointed
+      to an external forge.
 
   - id: init-container-isolation
     description: >-
