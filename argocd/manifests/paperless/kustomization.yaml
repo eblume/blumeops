@@ -16,4 +16,4 @@ images:
     newTag: v2.20.13-07f52e9
   - name: docker.io/library/redis
     newName: registry.ops.eblu.me/blumeops/valkey
-    newTag: v8.1.6-r0-946fa75
+    newTag: v8.1.6-r0-fabca04
