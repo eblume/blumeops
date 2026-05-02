@@ -19,4 +19,5 @@ images:
   - name: ghcr.io/immich-app/immich-machine-learning
     newTag: v2.6.3
   - name: docker.io/valkey/valkey
-    newTag: "8.1-alpine"
+    newName: registry.ops.eblu.me/blumeops/valkey
+    newTag: v8.1.6-r0-946fa75

@@ -125,6 +125,18 @@ services:
     upstream-source: https://github.com/immich-app/immich/releases
     notes: Kustomize manifests with upstream images
 
+  - name: valkey
+    type: argocd
+    last-reviewed: 2026-05-01
+    current-version: "8.1.6-r0"
+    upstream-source: https://pkgs.alpinelinux.org/package/v3.22/community/aarch64/valkey
+    notes: >-
+      Shared Alpine-built valkey image, used as a sidecar/cache by paperless
+      (sidecar) and immich (separate Deployment). Mirrors the upstream
+      docker.io/valkey/valkey:8.1-alpine. Pinned to Alpine 3.22 for valkey 8.1.x;
+      Alpine 3.23 jumps to 9.0. Distinct from authentik-redis (nix-built Redis
+      8.x) which has its own entry.
+
   - name: external-secrets
     type: argocd
     last-reviewed: 2026-03-25
