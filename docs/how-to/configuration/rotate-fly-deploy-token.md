@@ -1,7 +1,7 @@
 ---
 title: Rotate the Fly.io API Token
-modified: 2026-04-30
-last-reviewed: 2026-04-30
+modified: 2026-05-04
+last-reviewed: 2026-05-04
 tags:
   - how-to
   - fly-io
@@ -45,24 +45,38 @@ fly auth login
 
 (Browser-based. Required to mint a new token, since the existing deploy token can't create tokens.)
 
-### 2. Mint the new token
+### 2. Mint the new token and store it
+
+The token is shown only once at creation, so combine the mint and the 1Password write into a single command. Pick the form for your shell.
+
+`fish`:
 
 ```fish
-fly tokens create org \
-  --org personal \
-  --name "blumeops-proxy deploy $(date +%Y-%m-%d)" \
-  --expiry 2160h
+op item edit on5slfaygtdjrxmdwezyhfmqsq "add more.deploy-token=(fly tokens create org --org personal --name 'blumeops-proxy deploy '(date +%Y-%m-%d) --expiry 2160h)" --vault vg6xf6vvfmoh5hqjjhlhbeoaie
 ```
 
-(`2160h` = 90 days, paired with the 75-day rotation cadence for a 15-day buffer. Capture the output — it's the only time the token is shown.)
+`bash` / `zsh`:
 
-### 3. Update 1Password
+```bash
+op item edit on5slfaygtdjrxmdwezyhfmqsq "add more.deploy-token=$(fly tokens create org --org personal --name "blumeops-proxy deploy $(date +%Y-%m-%d)" --expiry 2160h)" --vault vg6xf6vvfmoh5hqjjhlhbeoaie
+```
+
+(`2160h` = 90 days, paired with the 75-day rotation cadence for a 15-day buffer.)
+
+If you'd rather paste manually:
 
 ```fish
+fly tokens create org --org personal --name "blumeops-proxy deploy $(date +%Y-%m-%d)" --expiry 2160h
 op item edit on5slfaygtdjrxmdwezyhfmqsq 'add more.deploy-token=<paste-new-token>' --vault vg6xf6vvfmoh5hqjjhlhbeoaie
 ```
 
-### 4. Sync to Forgejo Actions
+> **op validator gotcha:** If `op item edit` returns `Password item requires ps value`, the item's primary `password` field is empty. The 1Password CLI validator rejects edits to a Password-category item with no primary password, even when you're only touching a section field. Set a placeholder once and future rotations will work:
+>
+> ```fish
+> op item edit on5slfaygtdjrxmdwezyhfmqsq 'password=unused - see deploy-token field' --vault vg6xf6vvfmoh5hqjjhlhbeoaie
+> ```
+
+### 3. Sync to Forgejo Actions
 
 The `deploy-fly` workflow reads the same token from a Forgejo Actions secret named `FLY_DEPLOY_TOKEN`, populated by the `forgejo_actions_secrets` ansible role:
 
@@ -70,7 +84,7 @@ The `deploy-fly` workflow reads the same token from a Forgejo Actions secret nam
 mise run provision-indri -- --tags forgejo_actions_secrets
 ```
 
-### 5. Verify
+### 4. Verify
 
 ```fish
 mise run fly-deploy
@@ -80,7 +94,7 @@ A successful deploy confirms the new token works locally. Watch for the metrics-
 
 Then trigger the CI workflow (push a no-op commit touching `fly/`, or dispatch manually) to confirm Forgejo Actions has the new secret.
 
-### 6. Revoke the old token
+### 5. Revoke the old token
 
 ```fish
 fly tokens list
