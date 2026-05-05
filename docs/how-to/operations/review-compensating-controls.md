@@ -38,6 +38,8 @@ A compensating control is a security measure that mitigates the risk a finding w
 
 Controls are documented in `compensating-controls.yaml` and referenced from security tool configurations (Prowler mutelist files, Kingfisher config, etc.) using the format `CC: <control-id>`.
 
+A compensating control is only one of three structurally distinct ways to suppress a finding — see [[compliance-mute-categories]] for when to reach for a CC versus a not-applicable (`NA:`) or risk-accepted (`RA:`) tag instead.
+
 ## Review Process
 
 For each control up for review:
