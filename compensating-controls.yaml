@@ -129,11 +129,16 @@ controls:
       containers run as non-root (UID 472) with all capabilities
       dropped.
     created: 2026-03-30
-    last-reviewed: 2026-03-30
+    last-reviewed: 2026-05-04
     notes: >-
       Verify by inspecting grafana deployment.yaml securityContext
       for both init and runtime containers. If fsGroup alone can
       handle PVC ownership, remove init-chown-data and this control.
+      Retirement deferred until grafana lands on ringtail's k3s
+      (see [[indri-k8s-migration]]) — storage backend will change,
+      and removing init-chown-data right before that migration
+      trades a real safety net for marginal cleanup. Revisit
+      post-migration.
 
   - id: node-config-automated-verification
     description: >-
