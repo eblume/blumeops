@@ -1,6 +1,7 @@
 ---
 title: Kiwix
-modified: 2026-03-05
+modified: 2026-05-04
+last-reviewed: 2026-05-04
 tags:
   - service
   - knowledge
@@ -41,7 +42,7 @@ Full list: `argocd/manifests/kiwix/torrents.txt`
 
 ## Adding Archives
 
-1. Edit `configmap-zim-torrents.yaml`
+1. Edit `argocd/manifests/kiwix/torrents.txt` (rendered into a ConfigMap by `configMapGenerator`)
 2. Add torrent URL from https://download.kiwix.org/zim/
 3. Sync: `argocd app sync kiwix`
 4. Torrent-sync adds to [[transmission]]
