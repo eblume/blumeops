@@ -1,6 +1,7 @@
 ---
 title: BlumeOps
-modified: 2026-02-08
+modified: 2026-05-06
+last-reviewed: 2026-05-06
 aliases: []
 id: index
 tags: []
@@ -22,8 +23,9 @@ raft I built for myself as I went, and you can see it all from within your
 editor of choice. (I recommend vim.)
 
 These services run on my home [[hosts|infrastructure]], primarily an m1 mac
-mini named [[indri]] and a Synology NAS called [[sifaka]]. The infrastructure
-is networked via [[tailscale]], with the domain `eblu.me` hosted via [[gandi]],
+mini named [[indri]], a NixOS GPU host called [[ringtail]] running a k3s
+cluster, and a Synology NAS called [[sifaka]]. The infrastructure is networked
+via [[tailscale]], with the domain `eblu.me` hosted via [[gandi]],
 [[caddy]] providing a private reverse proxy for tailnet devices, and
 [[flyio-proxy|Fly.io]] serving public-facing services like
 [this documentation site](https://docs.eblu.me).
