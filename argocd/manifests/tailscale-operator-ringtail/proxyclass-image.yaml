@@ -6,6 +6,6 @@ spec:
   statefulSet:
     pod:
       tailscaleContainer:
-        image: registry.ops.eblu.me/blumeops/tailscale:v1.94.2-67af7a8-nix
+        image: registry.ops.eblu.me/blumeops/tailscale:v1.94.2-0108b68-nix
       tailscaleInitContainer:
-        image: registry.ops.eblu.me/blumeops/tailscale:v1.94.2-67af7a8-nix
+        image: registry.ops.eblu.me/blumeops/tailscale:v1.94.2-0108b68-nix
