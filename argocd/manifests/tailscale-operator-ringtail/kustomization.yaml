@@ -8,3 +8,17 @@ resources:
   - ../tailscale-operator-base
   - proxygroup-ingress.yaml
   - external-secret.yaml
+
+# Rewrite the proxyclass image to our local nix-built mirror.
+# Scoped to ringtail only; indri's tailscale-operator/kustomization.yaml still
+# pulls from upstream docker.io. A strategic merge patch is used instead of
+# kustomize's `images:` directive because that directive only rewrites images
+# in standard k8s container fields, not custom-resource fields like
+# ProxyClass.spec.statefulSet.pod.tailscaleContainer.image.
+patches:
+  - path: proxyclass-image.yaml
+    target:
+      group: tailscale.com
+      version: v1alpha1
+      kind: ProxyClass
+      name: default
