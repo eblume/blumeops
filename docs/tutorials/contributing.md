@@ -11,7 +11,7 @@ tags:
 
 > **Audiences:** Contributor
 
-This tutorial walks through making your first contribution to BluemeOps - from understanding the codebase to submitting a pull request.
+This tutorial walks through making your first contribution to BlumeOps - from understanding the codebase to submitting a pull request.
 
 ## Prerequisites
 

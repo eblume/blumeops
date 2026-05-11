@@ -1,6 +1,7 @@
 ---
 title: Replicating BlumeOps
-modified: 2026-02-07
+modified: 2026-05-11
+last-reviewed: 2026-05-11
 tags:
   - tutorials
   - replication
@@ -10,7 +11,7 @@ tags:
 
 > **Audiences:** Replicator
 
-This tutorial provides a roadmap for building your own homelab GitOps environment inspired by BluemeOps. It links to detailed component tutorials for each major piece.
+This tutorial provides a roadmap for building your own homelab GitOps environment inspired by BlumeOps. It links to detailed component tutorials for each major piece.
 
 ## What You'll Build
 
@@ -23,7 +24,7 @@ By following this guide, you'll have:
 
 ## Hardware Requirements
 
-BluemeOps runs on modest hardware. At minimum:
+BlumeOps runs on modest hardware. At minimum:
 
 | Component | BlumeOps Uses | Minimum Alternative |
 |-----------|---------------|---------------------|
@@ -94,7 +95,7 @@ Without observability, you're flying blind.
 
 ### Phase 6: Your First Services
 
-With the foundation in place, deploy actual workloads. BluemeOps runs:
+With the foundation in place, deploy actual workloads. BlumeOps runs:
 - [[miniflux]] - RSS reader
 - [[jellyfin]] - Media server
 - [[immich]] - Photo management
@@ -118,7 +119,7 @@ Protect your data.
 
 ## Alternative Approaches
 
-BluemeOps makes specific choices that may not suit everyone:
+BlumeOps makes specific choices that may not suit everyone:
 
 | BlumeOps Choice | Alternative |
 |-----------------|-------------|
