@@ -1,3 +1,6 @@
+# Homepage runs on ringtail (k3s) — its k8s autodiscovery only sees ringtail
+# Ingresses (frigate→NVR, authentik, ntfy, ollama). Services that live on
+# minikube (and indri-native) need explicit static entries here.
 - Host Services:
     - Forgejo:
         href: https://forge.eblu.me
@@ -57,10 +60,6 @@
     #       type: caddy
     #       url: http://indri.tail8d86e.ts.net:2019
 - Home:
-    - NVR:
-        href: https://nvr.ops.eblu.me
-        icon: frigate.png
-        description: Network video recorder
     - Jellyfin:
         href: https://jellyfin.ops.eblu.me
         icon: jellyfin
@@ -72,15 +71,61 @@
           enableBlocks: true
           enableNowPlaying: false
           fields: ["movies", "series", "episodes"]
+    - Mealie:
+        href: https://meals.ops.eblu.me
+        icon: mealie.png
+        description: Recipe manager
+    - DJ:
+        href: https://dj.ops.eblu.me
+        icon: navidrome.png
+        description: Music streaming server
+        widget:
+          type: navidrome
+          url: https://dj.ops.eblu.me
+          user: "{{HOMEPAGE_VAR_NAVIDROME_USER}}"
+          token: "{{HOMEPAGE_VAR_NAVIDROME_TOKEN}}"
+          salt: "{{HOMEPAGE_VAR_NAVIDROME_SALT}}"
+    - Paperless:
+        href: https://paperless.ops.eblu.me
+        icon: paperless-ngx.png
+        description: Document management
+- Content:
+    - Immich:
+        href: https://photos.ops.eblu.me
+        icon: immich.png
+        description: Photo management
+    - Kiwix:
+        href: https://kiwix.ops.eblu.me
+        icon: kiwix.png
+        description: Offline Wikipedia
+    - Miniflux:
+        href: https://feed.ops.eblu.me
+        icon: miniflux.png
+        description: RSS reader
+        widget:
+          type: miniflux
+          url: https://feed.ops.eblu.me
+          key: "{{HOMEPAGE_VAR_MINIFLUX_API_KEY}}"
+          fields: ["unread"]
 - Infrastructure:
-    - Authentik:
-        href: https://authentik.ops.eblu.me
-        icon: authentik
-        description: Identity provider
-    - Ntfy:
-        href: https://ntfy.ops.eblu.me
-        icon: ntfy.png
-        description: Push notifications
+    - ArgoCD:
+        href: https://argocd.ops.eblu.me
+        icon: argo-cd.png
+        description: GitOps CD
+    - Grafana:
+        href: https://grafana.ops.eblu.me
+        icon: grafana.png
+        description: Metrics dashboards
+        widget:
+          type: grafana
+          url: https://grafana.ops.eblu.me
+          username: "{{HOMEPAGE_VAR_GRAFANA_USERNAME}}"
+          password: "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}"
+          fields: ["dashboards", "totalalerts", "alertstriggered"]
+    - Prometheus:
+        href: https://prometheus.ops.eblu.me
+        icon: prometheus.png
+        description: Metrics storage
 - Services:
     # CV and Docs were previously auto-discovered from k8s Ingresses; after
     # the indri-native migration ([[cv-on-indri]], [[docs-on-indri]]) there
@@ -93,3 +138,11 @@
         href: https://docs.eblu.me
         icon: mdi-book-open-page-variant
         description: BlumeOps Documentation
+    - TeslaMate:
+        href: https://tesla.ops.eblu.me
+        icon: teslamate.png
+        description: Tesla data logger
+    - Transmission:
+        href: https://torrent.ops.eblu.me
+        icon: transmission.png
+        description: Torrent client

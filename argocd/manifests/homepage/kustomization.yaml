@@ -17,7 +17,7 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/homepage
-    newTag: v1.11.0-e375859
+    newTag: v1.11.0-b87f62e-nix
 
 configMapGenerator:
   - name: homepage-config
