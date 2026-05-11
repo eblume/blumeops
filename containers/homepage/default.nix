@@ -100,6 +100,17 @@ pkgs.dockerTools.buildLayeredImage {
     chmod 1777 tmp
   '';
 
+  # /app/config must be writable by the runtime user (1000): homepage seeds
+  # missing skeleton configs (proxmox.yaml, etc.) and writes /app/config/logs.
+  # The deployment mounts ConfigMap files at /app/config/<file>.yaml via
+  # subPath, which leaves the parent dir as image filesystem — so its
+  # ownership has to be set at build time.
+  fakeRootCommands = ''
+    mkdir -p app/config
+    chown -R 1000:1000 app
+  '';
+  enableFakechroot = true;
+
   config = {
     Entrypoint = [ "${homepage}/bin/homepage" ];
     Env = [
