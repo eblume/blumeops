@@ -196,11 +196,15 @@ controls:
     description: >-
       Alloy collects pod logs and ships them to Loki, providing an
       audit trail for cluster activity. Compensates for missing
-      apiserver audit logging which minikube does not configure.
+      apiserver audit logging which neither minikube (indri) nor
+      k3s (ringtail) configures by default.
     created: 2026-03-30
-    last-reviewed: 2026-03-30
+    last-reviewed: 2026-05-11
     notes: >-
-      Verify Alloy DaemonSet is running and Loki is receiving logs.
+      Verify Alloy DaemonSet is running on each cluster (alloy-k8s on
+      minikube, alloy-ringtail on k3s) and Loki is receiving logs.
       Note this is weaker than native apiserver audit logs — it
       captures pod stdout/stderr, not API request-level auditing.
-      Consider enabling minikube audit logging if supported.
+      Consider enabling apiserver audit logging on k3s post-migration
+      (`--audit-log-path` / `--audit-policy-file`) — minikube made it
+      hard, k3s makes it straightforward.
