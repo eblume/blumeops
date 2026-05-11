@@ -327,10 +327,14 @@ services:
 
   - name: mealie
     type: argocd
-    last-reviewed: 2026-03-16
+    last-reviewed: 2026-05-11
     current-version: "v3.12.0"
     upstream-source: https://github.com/mealie-recipes/mealie/releases
-    notes: Recipe manager; built from source via forge mirror
+    notes: >-
+      Recipe manager; built from source via forge mirror.
+      Upstream is at v3.17.0 as of 2026-05-11 (5 minor versions ahead).
+      Container/manifest still pinned to v3.12.0 — upgrade deferred to a
+      separate task (build new image, review changelog for breaking changes).
 
   - name: paperless
     type: argocd
