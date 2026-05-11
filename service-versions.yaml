@@ -44,6 +44,16 @@ services:
     upstream-source: https://github.com/gethomepage/homepage/releases
     notes: Custom container, kustomize manifests
 
+  - name: shower
+    type: argocd
+    last-reviewed: 2026-05-10
+    current-version: "1.0.2"
+    upstream-source: https://forge.eblu.me/eblume/adelaide-baby-shower-app
+    notes: |
+      Django app for Adelaide / Heidi / Addie's baby shower. Wheel
+      published to Forgejo Packages PyPI; runs on ringtail k3s. Public
+      at shower.eblu.me (fly proxy), tailnet admin at shower.ops.eblu.me.
+
   - name: nvidia-device-plugin
     type: argocd
     last-reviewed: 2026-03-27
@@ -95,6 +105,15 @@ services:
     last-reviewed: 2026-03-22
     current-version: "v1.94.2"
     upstream-source: https://github.com/tailscale/tailscale/releases
+
+  - name: tailscale
+    type: container
+    last-reviewed: 2026-05-10
+    current-version: "1.94.2"
+    upstream-source: https://github.com/tailscale/tailscale/releases
+    notes: |
+      Locally mirrored tailscale image used by ringtail's tailscale-operator
+      ProxyClass. Built via containers/tailscale/default.nix.
 
   - name: grafana
     type: argocd

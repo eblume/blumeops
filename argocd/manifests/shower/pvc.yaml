@@ -1,0 +1,30 @@
+# Media PVC — RWX NFS share for /app/media (prize photo uploads).
+# SQLite DB lives in a separate local-path PVC; NFS file locking is not
+# reliable enough for SQLite's WAL/journal.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shower-media
+  namespace: shower
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: shower-media-nfs-pv
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Database PVC — k3s local-path (default storage class) for SQLite.
+# RWO is fine: the deployment runs with a single replica.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shower-data
+  namespace: shower
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

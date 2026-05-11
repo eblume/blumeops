@@ -101,6 +101,9 @@ caddy_services:
   - name: paperless
     host: "paperless.{{ caddy_domain }}"
     backend: "https://paperless.tail8d86e.ts.net"
+  - name: shower
+    host: "shower.{{ caddy_domain }}"
+    backend: "https://shower.tail8d86e.ts.net"
   - name: sifaka
     host: "nas.{{ caddy_domain }}"
     backend: "http://sifaka:5000"

@@ -1,0 +1,20 @@
+# Adelaide / Heidi / Addie baby shower app — Django guest/raffle/prize system.
+# Public landing page at shower.eblu.me (via fly proxy), staff console + admin
+# at shower.ops.eblu.me (tailnet only). Built from forge PyPI wheel.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: shower
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/shower
+  destination:
+    server: https://ringtail.tail8d86e.ts.net:6443
+    namespace: shower
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

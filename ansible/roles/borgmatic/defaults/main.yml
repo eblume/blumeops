@@ -27,6 +27,9 @@ borgmatic_source_directories:
   - /Users/erichblume/.config/borgmatic
   - /Users/erichblume/Documents
   - /Users/erichblume/.local/share/borgmatic/k8s-dumps
+  # Shower app prize-photo uploads (sifaka SMB mount). Mounted manually
+  # on indri via Finder — see docs/how-to/operations/shower-app.md.
+  - /Volumes/shower
 
 # Backup repositories
 borgmatic_repositories:
@@ -54,6 +57,11 @@ borgmatic_k8s_sqlite_dumps:
     label_selector: app=mealie
     db_path: /app/data/mealie.db
     context: minikube
+  - name: shower
+    namespace: shower
+    label_selector: app=shower
+    db_path: /app/data/db.sqlite3
+    context: k3s-ringtail
 
 # Exclude patterns
 borgmatic_exclude_patterns: []

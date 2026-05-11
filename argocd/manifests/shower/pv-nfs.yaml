@@ -1,0 +1,24 @@
+# NFS PersistentVolume for shower app media uploads (prize photos).
+#
+# Requires the `shower` share on sifaka with NFS exports matching the
+# blumeops standard (192.168.1.0/24 + 100.64.0.0/10, all_squash → admin).
+# See docs/how-to/operations/shower-app.md for the Synology web-UI walk
+# and docs/reference/storage/sifaka.md for the exports table.
+#
+# Because all_squash rewrites every NFS write to admin:users (1024:100),
+# the in-pod runAsUser does NOT have to match an on-disk uid. Mode 0777
+# on /volume1/shower lets the pod read back what it wrote.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: shower-media-nfs-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: sifaka
+    path: /volume1/shower

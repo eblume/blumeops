@@ -176,17 +176,39 @@ Indri carries `tag:flyio-target` so the Fly proxy can reach Caddy. No per-servic
 
 Deploy: `mise run tailnet-preview` then `mise run tailnet-up`.
 
-After deploying, extract the auth key and set it as a Fly.io secret:
+After deploying, push the auth key to Fly.io. The simplest path is
+`mise run fly-setup`, which reads the current value from Pulumi state
+and stages it as a Fly.io secret:
 
 ```bash
-# Get the key from Pulumi state
-cd pulumi/tailscale && pulumi stack output flyio_authkey --show-secrets
-
-# Set it in Fly.io
-fly secrets set TS_AUTHKEY="tskey-auth-..." -a blumeops-proxy
+mise run fly-setup
 ```
 
-Store the auth key in 1Password as well for the `fly-setup` mise task.
+Manual equivalent for reference:
+
+```bash
+cd pulumi/tailscale && pulumi stack output flyio_authkey --show-secrets
+# then in fly/:
+fly secrets set TS_AUTHKEY="tskey-auth-..." -a blumeops-proxy --stage
+```
+
+**Pulumi state is the only source of truth for this key.** No other
+process (mise tasks, ansible, scripts) reads it from anywhere else —
+in particular, the key is not stored in 1Password. To rotate
+(every 90 days, or after a compromise), force-replace the resource
+and re-run `fly-setup`:
+
+```bash
+mise run tailnet-up -- \
+    --replace='urn:pulumi:tail8d86e::blumeops-tailnet::tailscale:index/tailnetKey:TailnetKey::flyio-proxy-key'
+mise run fly-setup
+mise run fly-deploy
+```
+
+Pulumi destroys the old key and mints a new 90-day one in a single
+operation. Older fly machines that already authed against the old key
+are unaffected (they don't need it after the initial join); only
+*new* machine starts read the rotated value.
 
 ### Step 4: Mise tasks
 

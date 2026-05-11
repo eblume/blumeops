@@ -3,7 +3,7 @@
 # Caddy serves cv_content_dir directly via the static-kind service block.
 
 cv_version: "v1.0.3"
-cv_release_url: "https://forge.eblu.me/api/packages/eblume/generic/cv/{{ cv_version }}/cv-{{ cv_version }}.tar.gz"
+cv_release_url: "https://forge.ops.eblu.me/api/packages/eblume/generic/cv/{{ cv_version }}/cv-{{ cv_version }}.tar.gz"
 
 cv_home: /Users/erichblume/blumeops/cv
 cv_content_dir: "{{ cv_home }}/content"

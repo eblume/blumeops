@@ -22,6 +22,7 @@ resources:
   - dashboards/configmap-transmission.yaml
   - dashboards/configmap-cv-apm.yaml
   - dashboards/configmap-docs-apm.yaml
+  - dashboards/configmap-shower-apm.yaml
   - dashboards/configmap-flyio.yaml
   - dashboards/configmap-sifaka-disks.yaml
   - dashboards/configmap-forgejo.yaml

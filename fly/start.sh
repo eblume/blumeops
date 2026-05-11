@@ -20,6 +20,7 @@ done
 echo "MagicDNS ready"
 
 # Ensure fail2ban deny file exists before nginx starts
+# (the geo directive's `include` fails if the file is missing).
 touch /etc/nginx/forge-deny.conf
 
 # Start nginx — MagicDNS is available, upstreams resolved.

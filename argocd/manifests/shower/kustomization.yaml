@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: shower
+
+resources:
+  - configmap.yaml
+  - external-secret.yaml
+  - pv-nfs.yaml
+  - pvc.yaml
+  - service.yaml
+  - ingress-tailscale.yaml
+  - deployment.yaml
+
+images:
+  - name: registry.ops.eblu.me/blumeops/shower
+    newTag: v1.0.2-039d9b9-nix

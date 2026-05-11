@@ -1,0 +1,30 @@
+# Tailscale Ingress for shower app.
+# Exposes at shower.tail8d86e.ts.net.
+# Caddy on indri proxies shower.ops.eblu.me here. The fly proxy then proxies
+# shower.eblu.me through Caddy to this same endpoint (fly does not contact
+# the k8s service directly — all traffic routes through indri's Caddy).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shower-tailscale
+  namespace: shower
+  annotations:
+    tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Shower"
+    gethomepage.dev/group: "Home"
+    gethomepage.dev/icon: "mdi-baby"
+    gethomepage.dev/description: "Adelaide baby shower"
+    gethomepage.dev/href: "https://shower.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=shower"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: shower
+      port:
+        number: 8000
+  tls:
+    - hosts:
+        - shower

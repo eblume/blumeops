@@ -41,6 +41,7 @@ Registry of all applications deployed via [[argocd]].
 | `ollama` | ollama | `argocd/manifests/ollama/` | [[ollama]] |
 | `mealie` | mealie | `argocd/manifests/mealie/` | [[mealie]] |
 | `paperless` | paperless | `argocd/manifests/paperless/` | [[paperless]] |
+| `shower` | shower | `argocd/manifests/shower/` | [[shower-app]] |
 | `prowler` | prowler | `argocd/manifests/prowler/` | [[prowler]] |
 
 ## Sync Policies

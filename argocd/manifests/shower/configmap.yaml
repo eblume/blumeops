@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shower-app-config
+  namespace: shower
+data:
+  DJANGO_DEBUG: "0"
+  # The app's settings.py hardcodes ALLOWED_HOSTS = ["shower.eblu.me",
+  # "localhost", "127.0.0.1"] and exposes this env var as a comma-separated
+  # extras list. shower.ops.eblu.me is what Caddy on indri and the
+  # Tailscale ProxyGroup both send as the Host header, so the app needs to
+  # accept it.
+  DJANGO_ALLOWED_HOSTS: "shower.ops.eblu.me"
+  # /host/, /admin/, and Django's login surface are all tailnet-only — the
+  # public proxy 403s everything outside of `/` and `/prizes/<token>/`.
+  # /host/'s "Django admin" link follows DJANGO_ADMIN_URL.
+  DJANGO_ADMIN_URL: "https://shower.ops.eblu.me/admin/"
+  # /host/ is served on shower.ops.eblu.me (tailnet), but the QR codes it
+  # generates need to point at the public WAN hostname so guest phones can
+  # reach them. PUBLIC_URL_BASE overrides Django's request.build_absolute_uri()
+  # in the QR views — see shower/views.py:_public_url. Added in app v1.0.1.
+  DJANGO_PUBLIC_URL_BASE: "https://shower.eblu.me"
