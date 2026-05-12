@@ -16,8 +16,20 @@ in
   systemd.tpm2.enable = false;
 
   # Networking
+  # Wired interface (enp5s0) uses a static IP configured by NixOS scripted
+  # networking; NetworkManager is left enabled for the wireless fallback only.
   networking.hostName = "ringtail";
-  networking.networkmanager.enable = true;
+  networking.networkmanager = {
+    enable = true;
+    unmanaged = [ "interface-name:enp5s0" ];
+  };
+  networking.useDHCP = false;
+  networking.interfaces.enp5s0.ipv4.addresses = [{
+    address = "192.168.1.21";
+    prefixLength = 24;
+  }];
+  networking.defaultGateway = "192.168.1.1";
+  networking.nameservers = [ "192.168.1.1" "1.1.1.1" ];
 
   # Time zone
   time.timeZone = "America/Los_Angeles";

@@ -25,6 +25,19 @@ Service host and gaming PC. Custom-built PC running NixOS.
 | **OS** | NixOS 25.11 (Sway/Wayland) |
 | **Tailscale hostname** | `ringtail.tail8d86e.ts.net` |
 
+## Networking
+
+| Property | Value |
+|----------|-------|
+| **Interface (wired)** | `enp5s0` |
+| **IP** | `192.168.1.21/24` (static, set by NixOS scripted networking) |
+| **Gateway** | `192.168.1.1` (UX7) |
+| **DNS** | `192.168.1.1`, `1.1.1.1` (used as Tailscale's upstream resolvers; `/etc/resolv.conf` is owned by Tailscale's MagicDNS at `100.100.100.100`) |
+| **DHCP reservation** | UniFi "Fixed IP" tied to ringtail's MAC; belt-and-suspenders so the UX7 won't lease `192.168.1.21` to anyone else even though ringtail no longer asks for it |
+| **Wireless** | `wlp6s0` still managed by NetworkManager as a fallback path |
+
+NetworkManager is enabled but explicitly excluded from managing `enp5s0` via `networking.networkmanager.unmanaged = [ "interface-name:enp5s0" ]`. The wired address is configured by a deterministic `network-addresses-enp5s0.service` oneshot — no daemon, no lease, no renewal.
+
 ## Software
 
 Managed declaratively via `nixos/ringtail/configuration.nix`. Home-manager handles ringtail-specific sway/waybar config; chezmoi manages cross-platform dotfiles.

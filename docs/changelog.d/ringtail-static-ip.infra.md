@@ -1,0 +1,1 @@
+Pin ringtail's wired IP to `192.168.1.21` via NixOS scripted networking; NetworkManager no longer manages `enp5s0`. Removes DHCP lease renewal as a failure mode after a silent lease teardown took ringtail offline.
