@@ -14,4 +14,4 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/shower
-    newTag: v1.0.2-292d354-nix
+    newTag: v1.1.0-444ff91-nix

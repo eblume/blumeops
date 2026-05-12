@@ -1,11 +1,15 @@
 # Nix-built shower app container — Adelaide / Heidi / Addie baby shower.
 #
 # The app is published as a wheel to the Forgejo PyPI index at
-# https://forge.eblu.me/api/packages/eblume/pypi/. The wheel + its
-# transitive Python deps are baked in at build time via a fixed-output
-# derivation that runs `pip install --target` against forge PyPI (proxied
-# through pypi.ops.eblu.me for upstream packages). Build runs on the
-# nix-container-builder runner (ringtail, amd64) so the image is native.
+# https://forge.ops.eblu.me/api/packages/eblume/pypi/ (tailnet-only — the
+# public forge.eblu.me /api/packages/* surface is blocked at the Fly edge).
+# We can't point pip at Forgejo's simple index even from the tailnet,
+# because Forgejo's index returns absolute file URLs hardcoded to its
+# public ROOT_URL (forge.eblu.me), which then 403s. So both the wheel and
+# the sdist are pulled by direct `fetchurl` against forge.ops.eblu.me, and
+# the wheel is then handed to `pip install` as a local path; transitive
+# deps come from pypi.ops.eblu.me. Build runs on the nix-container-builder
+# runner (ringtail, amd64) so the image is native.
 #
 # Going through pip-install-target rather than nixpkgs Python packages
 # sidesteps two issues we hit going through `python.pkgs.buildPythonPackage`:
@@ -21,7 +25,7 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "1.0.2";
+  version = "1.1.0";
 
   python = pkgs.python314;
 
@@ -39,7 +43,17 @@ let
   showerSdist = pkgs.fetchurl {
     name = "adelaide_baby_shower_app-${version}.tar.gz";
     url = "https://forge.ops.eblu.me/api/packages/eblume/pypi/files/adelaide-baby-shower-app/${version}/adelaide_baby_shower_app-${version}.tar.gz";
-    hash = "sha256-nlCtlx9zuYaLoJZSckybLV5YPpA8vZamN96O3RXOstM=";
+    hash = "sha256-5dp+0u4metOIC6s6/nPlT4cdpFBCV6S3+Z/3RO0sX5U=";
+  };
+
+  # Wheel pulled from forge.ops.eblu.me (tailnet) for the same reason the
+  # sdist is: Forgejo's PyPI simple index would return forge.eblu.me URLs
+  # that the Fly edge 403s on /api/packages/*. We hand this path to pip
+  # below so it never touches the forge index at all.
+  showerWheel = pkgs.fetchurl {
+    name = "adelaide_baby_shower_app-${version}-py3-none-any.whl";
+    url = "https://forge.ops.eblu.me/api/packages/eblume/pypi/files/adelaide-baby-shower-app/${version}/adelaide_baby_shower_app-${version}-py3-none-any.whl";
+    hash = "sha256-7orFbycON9dQxEIb6q45Xx2rFlEZ8xXSrC2tnrO5uug=";
   };
 
   staticAssets = pkgs.runCommand "shower-static-assets-${version}" { } ''
@@ -68,11 +82,16 @@ let
 
       ${python}/bin/python -m venv "$TMPDIR/venv"
       "$TMPDIR/venv/bin/pip" install --upgrade pip
+
+      # Nix store paths embed a 32-char hash prefix, which pip's wheel
+      # filename parser rejects ("Invalid wheel filename"). Copy to a
+      # clean filename in TMPDIR before installing.
+      cp ${showerWheel} "$TMPDIR/${showerWheel.name}"
+
       "$TMPDIR/venv/bin/pip" install \
         --no-cache-dir \
         --index-url=https://pypi.ops.eblu.me/root/pypi/+simple/ \
-        --extra-index-url=https://forge.ops.eblu.me/api/packages/eblume/pypi/simple/ \
-        "adelaide-baby-shower-app==${version}" \
+        "$TMPDIR/${showerWheel.name}" \
         gunicorn
 
       runHook postBuild
@@ -129,7 +148,7 @@ let
     outputHashAlgo = "sha256";
     # Pinned dep closure — reproducible until version bumps. To recompute,
     # set to pkgs.lib.fakeHash and read the failure.
-    outputHash = "sha256-tSTH/HaDY7M0qxlauBTM+JekZAgF++K2lGP3PLvym/o=";
+    outputHash = "sha256-kTNOswobtkgyQmmqbQM8XO4vvaGg57nCuuZGbNXb0NM=";
 
     dontFixup = true;
   };
