@@ -31,6 +31,12 @@ in
   networking.defaultGateway = "192.168.1.1";
   networking.nameservers = [ "192.168.1.1" "1.1.1.1" ];
 
+  # K3s pod networking and Tailscale tunnel routing require IP forwarding.
+  # NixOS leaves this off by default; previously it was being enabled
+  # implicitly by NM/scripted-DHCP setup, but with static networking we
+  # have to set it explicitly.
+  boot.kernel.sysctl."net.ipv4.ip_forward" = 1;
+
   # Time zone
   time.timeZone = "America/Los_Angeles";
 
