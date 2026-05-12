@@ -1,5 +1,6 @@
 .claude/settings.local.json
 .claude/agent-memory/
+.claude/scheduled_tasks.lock
 
 # Python
 __pycache__/
