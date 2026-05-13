@@ -1,0 +1,29 @@
+# NFS PersistentVolume for Immich photo library on ringtail k3s.
+#
+# Mirror of argocd/manifests/immich/pv-nfs.yaml (minikube) but with
+# a distinct name (minikube and ringtail are separate clusters, so PV
+# names don't collide cluster-side, but using the same name in two
+# manifests is confusing).
+#
+# The sifaka NFS export for /volume1/photos already permits
+# 192.168.1.0/24 + 100.64.0.0/10. Ringtail's wired IP (192.168.1.21)
+# falls in the first CIDR, so no DSM rule changes are needed.
+#
+# Verified 2026-05-13: ringtail pod can read existing dirs, write
+# new files, and delete them. DNS resolves sifaka to 192.168.1.203
+# (LAN), so NFS traffic stays off the tailnet — avoids the known
+# sifaka-tailscale-userspace bite.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: immich-library-nfs-pv-ringtail
+spec:
+  capacity:
+    storage: 2Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: sifaka
+    path: /volume1/photos

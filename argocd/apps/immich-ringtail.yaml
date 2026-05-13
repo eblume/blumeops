@@ -1,0 +1,31 @@
+# Immich on ringtail k3s.
+#
+# Staging deployment; the minikube `immich` app remains in parallel
+# until cutover. See [[immich-cutover-and-decommission]] for the
+# routing flip + minikube cleanup.
+#
+# Prerequisites:
+# - cnpg-on-ringtail + databases-ringtail (postgres)
+# - 1password-connect-ringtail + external-secrets-ringtail (not used
+#   by this app today — immich-db Secret is created manually,
+#   matching the minikube pattern)
+# - The immich-db Secret in the immich namespace, holding the
+#   password for the `immich` postgres role (copied from the source
+#   immich-pg-app Secret at migration time).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: immich-ringtail
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/immich-ringtail
+  destination:
+    server: https://ringtail.tail8d86e.ts.net:6443
+    namespace: immich
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,26 @@
+# Databases on ringtail k3s.
+#
+# Today: only immich-pg (CNPG Cluster) + its borgmatic ExternalSecret.
+# More databases may move here as the indri-k8s decommission proceeds.
+#
+# Prerequisites:
+# - cloudnative-pg-ringtail (operator must exist before the Cluster CR)
+# - external-secrets-ringtail + 1password-connect-ringtail (for the
+#   immich-pg-borgmatic ExternalSecret to sync)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: databases-ringtail
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/databases-ringtail
+  destination:
+    server: https://ringtail.tail8d86e.ts.net:6443
+    namespace: databases
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

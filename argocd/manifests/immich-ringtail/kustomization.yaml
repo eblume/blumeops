@@ -1,7 +1,8 @@
----
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+
 namespace: immich
+
 resources:
   - deployment-server.yaml
   - deployment-ml.yaml
@@ -13,11 +14,15 @@ resources:
   - pv-nfs.yaml
   - pvc.yaml
   - ingress-tailscale.yaml
+
 images:
   - name: ghcr.io/immich-app/immich-server
     newTag: v2.6.3
   - name: ghcr.io/immich-app/immich-machine-learning
-    newTag: v2.6.3
+    # CUDA variant of the same release — ringtail has an RTX 4080
+    newTag: v2.6.3-cuda
+  # Using upstream multi-arch valkey image directly; the
+  # registry.ops.eblu.me/blumeops/valkey mirror is arm64-only (built
+  # on indri) and would crashloop on ringtail.
   - name: docker.io/valkey/valkey
-    newName: registry.ops.eblu.me/blumeops/valkey
-    newTag: v8.1.6-r0-fabca04
+    newTag: "8.1.6"

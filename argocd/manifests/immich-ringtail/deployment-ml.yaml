@@ -16,11 +16,16 @@ spec:
         app: immich
         component: machine-learning
     spec:
+      runtimeClassName: nvidia
       securityContext:
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: machine-learning
+          # ringtail uses the -cuda tag (set in kustomization.yaml)
+          # to take advantage of the RTX 4080 via the nvidia
+          # device plugin. Time-slicing is configured for 4 replicas
+          # so frigate + ollama + this pod can share.
           image: ghcr.io/immich-app/immich-machine-learning:kustomized
           ports:
             - name: http
@@ -57,6 +62,7 @@ spec:
               cpu: "100m"
             limits:
               memory: "4Gi"
+              nvidia.com/gpu: "1"
       volumes:
         - name: cache
           persistentVolumeClaim:

@@ -1,6 +1,9 @@
-# Tailscale Ingress for Immich
-# Exposes Immich at photos.tail8d86e.ts.net
-# Caddy will proxy photos.ops.eblu.me to this endpoint
+# Tailscale ProxyGroup Ingress for Immich on ringtail.
+#
+# Production hostname: photos.tail8d86e.ts.net
+# (during the cutover window this was photos-ringtail; the minikube
+# ingress was torn down before this was renamed to photos to avoid
+# the Tailscale device-name collision.)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -16,12 +19,6 @@ metadata:
     gethomepage.dev/description: "Photo management"
     gethomepage.dev/href: "https://photos.ops.eblu.me"
     gethomepage.dev/pod-selector: "app=immich,component=server"
-    # TODO: Add Immich widget - requires API key from Account Settings > API Keys
-    # See: https://gethomepage.dev/widgets/services/immich/
-    # gethomepage.dev/widget.type: "immich"
-    # gethomepage.dev/widget.url: "https://photos.ops.eblu.me"
-    # gethomepage.dev/widget.key: "{{HOMEPAGE_VAR_IMMICH_API_KEY}}"
-    # gethomepage.dev/widget.version: "2"
 spec:
   ingressClassName: tailscale
   rules:

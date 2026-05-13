@@ -1,5 +1,5 @@
-# PersistentVolumeClaim for Immich photo library
-# Binds to the NFS PV for sifaka:/volume1/photos
+# PersistentVolumeClaim for Immich photo library on ringtail.
+# Binds to immich-library-nfs-pv-ringtail (sifaka:/volume1/photos).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -9,7 +9,7 @@ spec:
   accessModes:
     - ReadWriteMany
   storageClassName: ""
-  volumeName: immich-library-nfs-pv
+  volumeName: immich-library-nfs-pv-ringtail
   resources:
     requests:
       storage: 2Ti

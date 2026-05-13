@@ -1,6 +1,8 @@
-# Tailscale LoadBalancer for immich-pg PostgreSQL access
-# Canonical hostname: immich-pg.tail8d86e.ts.net
-# Caddy L4 proxies pg.ops.eblu.me:5433 → this service for borgmatic backups
+# Tailscale LoadBalancer for immich-pg PostgreSQL access on ringtail.
+# Canonical hostname: immich-pg.tail8d86e.ts.net (claimed from the
+# minikube side after the minikube service was removed during the
+# immich-to-ringtail migration). Borgmatic on indri uses this
+# hostname for nightly backups.
 apiVersion: v1
 kind: Service
 metadata:
