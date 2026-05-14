@@ -148,7 +148,7 @@ let
     outputHashAlgo = "sha256";
     # Pinned dep closure — reproducible until version bumps. To recompute,
     # set to pkgs.lib.fakeHash and read the failure.
-    outputHash = pkgs.lib.fakeHash;
+    outputHash = "sha256-HTTmAldIijG03pYZNyO72LBNPCrjmyJQKgW+gU9NplI=";
 
     dontFixup = true;
   };
