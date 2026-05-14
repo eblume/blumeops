@@ -32,12 +32,20 @@ exclude_patterns:
 encryption_passcommand: {{ borgmatic_encryption_passcommand }}
 
 {% if borgmatic_k8s_sqlite_dumps %}
-# Pre-backup: dump SQLite databases from k8s pods
-# Uses sqlite3 .backup for a safe, consistent copy (no corruption from concurrent writes)
+# Pre-backup: dump SQLite databases from k8s pods.
+# Uses sqlite3.backup() for a safe, consistent copy.
+#
+# Quoting/escaping is delegated to ~/bin/borgmatic-k8s-sqlite-dump
+# (deployed by the borgmatic ansible role). Each entry's `target`
+# is either:
+#   - local:<context>  -> local kubectl with --context (mealie etc.)
+#   - ssh:<user@host>  -> ssh + k3s kubectl on the cluster host,
+#                         used for ringtail since indri's kubeconfig
+#                         deliberately doesn't carry that context.
 before_backup:
     - mkdir -p {{ borgmatic_k8s_dump_dir }}
 {% for db in borgmatic_k8s_sqlite_dumps %}
-    - /opt/homebrew/bin/kubectl --context={{ db.context }} exec -n {{ db.namespace }} deploy/{{ db.name }} -- python3 -c "import sqlite3; sqlite3.connect('{{ db.db_path }}').backup(sqlite3.connect('/tmp/{{ db.name }}-backup.db'))" && /opt/homebrew/bin/kubectl --context={{ db.context }} cp {{ db.namespace }}/$(/opt/homebrew/bin/kubectl --context={{ db.context }} get pod -n {{ db.namespace }} -l {{ db.label_selector }} -o jsonpath='{.items[0].metadata.name}'):/tmp/{{ db.name }}-backup.db {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db
+    - {{ ansible_env.HOME }}/bin/borgmatic-k8s-sqlite-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.db_path }} {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db
 {% endfor %}
 {% endif %}
 

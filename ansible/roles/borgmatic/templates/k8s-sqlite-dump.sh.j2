@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+#
+# Helper script invoked by borgmatic's before_backup hook to capture a
+# k8s pod's SQLite database. Keeps the borgmatic config readable by
+# pulling all the quoting out of YAML.
+#
+# Usage:
+#   borgmatic-k8s-sqlite-dump <target> <namespace> <selector> \
+#                             <db_path> <name> <dump_target>
+#
+# <target> is one of:
+#   local:<context>   - run local kubectl with --context=<context>
+#   ssh:<user@host>   - ssh to host and run k3s kubectl there
+#                       (no indri-side kubeconfig needed)
+#
+# <namespace>      - k8s namespace of the pod
+# <selector>       - label selector to find the pod (e.g. app=shower)
+# <db_path>        - absolute path inside the pod to the SQLite DB
+# <name>           - short name used for temp filenames
+# <dump_target>    - file on this host to receive the dump
+set -euo pipefail
+
+target=${1:?missing target}
+namespace=${2:?missing namespace}
+selector=${3:?missing selector}
+db_path=${4:?missing db path}
+name=${5:?missing name}
+dump_target=${6:?missing dump target}
+
+pod_tmp="/tmp/${name}-backup.db"
+
+python_backup='import sqlite3; sqlite3.connect("'"$db_path"'").backup(sqlite3.connect("'"$pod_tmp"'"))'
+
+mode=${target%%:*}
+ref=${target#*:}
+
+case "$mode" in
+    local)
+        # Pulls dump bytes out via "kubectl exec -- cat" rather than
+        # "kubectl cp", which would otherwise need tar inside the pod
+        # (nix-built images like shower don't bundle tar).
+        context=$ref
+        kubectl="/opt/homebrew/bin/kubectl --context=$context -n $namespace"
+        pod=$($kubectl get pod -l "$selector" \
+            -o jsonpath='{.items[0].metadata.name}')
+        $kubectl exec "$pod" -- python3 -c "$python_backup"
+        $kubectl exec "$pod" -- cat "$pod_tmp" > "$dump_target"
+        $kubectl exec "$pod" -- rm -f "$pod_tmp"
+        ;;
+    ssh)
+        host=$ref
+        # Force bash on the remote (user's login shell on ringtail is
+        # fish). Pipe the script via stdin to dodge nested quoting.
+        # The dump bytes come back over the ssh stdout stream — no
+        # intermediate scp, no tar requirement in the pod.
+        ssh "$host" bash <<EOF > "$dump_target"
+set -euo pipefail
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+pod=\$(k3s kubectl -n "$namespace" get pod -l "$selector" -o jsonpath='{.items[0].metadata.name}')
+k3s kubectl -n "$namespace" exec "\$pod" -- python3 -c '$python_backup' 1>&2
+k3s kubectl -n "$namespace" exec "\$pod" -- cat "$pod_tmp"
+k3s kubectl -n "$namespace" exec "\$pod" -- rm -f "$pod_tmp" 1>&2
+EOF
+        ;;
+    *)
+        echo "borgmatic-k8s-sqlite-dump: unknown target mode: $mode" >&2
+        echo "  expected local:<context> or ssh:<user@host>" >&2
+        exit 1
+        ;;
+esac

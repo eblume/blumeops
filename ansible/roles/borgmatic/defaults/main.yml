@@ -56,12 +56,16 @@ borgmatic_k8s_sqlite_dumps:
     namespace: mealie
     label_selector: app=mealie
     db_path: /app/data/mealie.db
-    context: minikube
+    # local kubectl, --context=minikube (indri's only configured ctx)
+    target: local:minikube
   - name: shower
     namespace: shower
     label_selector: app=shower
     db_path: /app/data/db.sqlite3
-    context: k3s-ringtail
+    # ssh to ringtail and run k3s kubectl there — avoids needing a
+    # ringtail kubeconfig on indri. k3s.yaml on ringtail is
+    # world-readable (mode 644), so no sudo required.
+    target: ssh:eblume@ringtail
 
 # Exclude patterns
 borgmatic_exclude_patterns: []

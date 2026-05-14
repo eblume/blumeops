@@ -49,6 +49,20 @@
     mode: '0700'
   when: borgmatic_k8s_sqlite_dumps | length > 0
 
+- name: Ensure ~/bin exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/bin"
+    state: directory
+    mode: '0755'
+  when: borgmatic_k8s_sqlite_dumps | length > 0
+
+- name: Deploy k8s SQLite dump helper script
+  ansible.builtin.template:
+    src: k8s-sqlite-dump.sh.j2
+    dest: "{{ ansible_env.HOME }}/bin/borgmatic-k8s-sqlite-dump"
+    mode: '0755'
+  when: borgmatic_k8s_sqlite_dumps | length > 0
+
 - name: Deploy borgmatic configuration
   ansible.builtin.template:
     src: config.yaml.j2
