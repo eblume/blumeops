@@ -46,8 +46,8 @@ services:
 
   - name: shower
     type: argocd
-    last-reviewed: 2026-05-11
-    current-version: "1.1.0"
+    last-reviewed: 2026-05-15
+    current-version: "1.1.2"
     upstream-source: https://forge.eblu.me/eblume/adelaide-baby-shower-app
     notes: |
       Django app for Adelaide / Heidi / Addie's baby shower. Wheel
