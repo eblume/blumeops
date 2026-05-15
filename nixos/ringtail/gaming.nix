@@ -5,6 +5,7 @@
   programs.steam = {
     enable = true;
     dedicatedServer.openFirewall = true;
+    extraCompatPackages = [ pkgs.proton-ge-bin ];
   };
 
   # Proton Experimental ships an accessibility bridge (xalia) that hangs during
