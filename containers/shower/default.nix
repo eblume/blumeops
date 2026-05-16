@@ -25,7 +25,7 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "1.1.2";
+  version = "1.1.3";
 
   python = pkgs.python314;
 
@@ -43,7 +43,7 @@ let
   showerSdist = pkgs.fetchurl {
     name = "adelaide_baby_shower_app-${version}.tar.gz";
     url = "https://forge.ops.eblu.me/api/packages/eblume/pypi/files/adelaide-baby-shower-app/${version}/adelaide_baby_shower_app-${version}.tar.gz";
-    hash = "sha256-U00259dlvHSo0c9I/W0kSThyhNKUT8ukG6X+vzj0k9c=";
+    hash = "sha256-a3rCwEdOB+rnYXqsWDifyltpyKUgkOj0ikWB+WGQYKE=";
   };
 
   # Wheel pulled from forge.ops.eblu.me (tailnet) for the same reason the
@@ -53,7 +53,7 @@ let
   showerWheel = pkgs.fetchurl {
     name = "adelaide_baby_shower_app-${version}-py3-none-any.whl";
     url = "https://forge.ops.eblu.me/api/packages/eblume/pypi/files/adelaide-baby-shower-app/${version}/adelaide_baby_shower_app-${version}-py3-none-any.whl";
-    hash = "sha256-lF79G9SiCuxG9LcyDJkTeTeJL72qTJTDVE196At1Ods=";
+    hash = "sha256-a6j91gBigG4IzE2DVTBntnZ46Yrx9b5PgHn+Uro98Tk=";
   };
 
   staticAssets = pkgs.runCommand "shower-static-assets-${version}" { } ''
@@ -148,7 +148,7 @@ let
     outputHashAlgo = "sha256";
     # Pinned dep closure — reproducible until version bumps. To recompute,
     # set to pkgs.lib.fakeHash and read the failure.
-    outputHash = "sha256-B5INpydOP3DmlgHfgpzKf+2mv0y9Wr2YNK7/5kh0hOc=";
+    outputHash = "sha256-1xx2qWAIwherklHIPXo6IOKkKHML1KUrUx6pbkMxffc=";
 
     dontFixup = true;
   };
