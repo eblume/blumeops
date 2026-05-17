@@ -45,6 +45,26 @@ prometheus.scrape "kube_state_metrics" {
   forward_to      = [prometheus.remote_write.prometheus.receiver]
 }
 
+// ============== SERVICE HEALTH PROBES ==============
+
+// Blackbox-style HTTP probes for in-cluster services on ringtail
+prometheus.exporter.blackbox "services" {
+  config = "{ modules: { http_2xx: { prober: http, timeout: 5s } } }"
+
+  target {
+    name    = "immich"
+    address = "http://immich-server.immich.svc.cluster.local:2283/api/server/ping"
+    module  = "http_2xx"
+  }
+}
+
+// Scrape blackbox probe results
+prometheus.scrape "blackbox" {
+  targets         = prometheus.exporter.blackbox.services.targets
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.prometheus.receiver]
+}
+
 // Push metrics to indri Prometheus
 prometheus.remote_write "prometheus" {
   external_labels = { cluster = "ringtail" }

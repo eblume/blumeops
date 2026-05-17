@@ -197,12 +197,6 @@ prometheus.exporter.blackbox "services" {
   }
 
   target {
-    name    = "immich"
-    address = "http://immich-server.immich.svc.cluster.local:2283/api/server/ping"
-    module  = "http_2xx"
-  }
-
-  target {
     name    = "navidrome"
     address = "http://navidrome.navidrome.svc.cluster.local:4533/"
     module  = "http_2xx"
