@@ -1,0 +1,1 @@
+Switched Grafana's deployment strategy from `RollingUpdate` to `Recreate`. With an RWO PVC holding the SQLite database and Bleve search index, `RollingUpdate` reliably crashloops the new pod on the index lock until rollout timeout. `Recreate` terminates the old pod first so the new one acquires the lock cleanly.

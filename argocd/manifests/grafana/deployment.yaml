@@ -14,7 +14,9 @@ spec:
       app.kubernetes.io/name: grafana
       app.kubernetes.io/instance: grafana
   strategy:
-    type: RollingUpdate
+    # RWO PVC for SQLite + Bleve index — RollingUpdate spawns the new pod
+    # before the old one terminates, and it crashloops on the index lock.
+    type: Recreate
   template:
     metadata:
       labels:
