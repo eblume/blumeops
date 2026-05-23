@@ -1,6 +1,7 @@
 ---
 title: 1Password
-modified: 2026-02-10
+modified: 2026-05-22
+last-reviewed: 2026-05-22
 tags:
   - service
   - secrets
@@ -8,15 +9,22 @@ tags:
 
 # 1Password
 
-Root credential store for all BlumeOps secrets, synced to Kubernetes via External Secrets Operator.
+Root credential store for all BlumeOps secrets. Kubernetes workloads read items via [[external-secrets|External Secrets Operator]]; humans and agents read via the `op` CLI.
 
-## Architecture
+## Vaults
+
+| Vault | Purpose |
+|-------|---------|
+| `blumeops` | Infrastructure secrets — referenced by ExternalSecret manifests and scripts. |
+| `Personal` | Human login credentials keyed by URL for autofill. Not consumed by infrastructure. |
+
+## Kubernetes Integration
 
 ```
 1Password Cloud
       |
       v
-1Password Connect (namespace: 1password)
+1Password Connect (namespace: 1password, deployed on both indri and ringtail)
       |
       v
 External Secrets Operator (namespace: external-secrets)
@@ -25,15 +33,15 @@ External Secrets Operator (namespace: external-secrets)
 Native Kubernetes Secrets
 ```
 
-## Vault
+**ClusterSecretStore:** `onepassword-blumeops` (same name on both clusters).
 
-The `blumeops` vault contains all infrastructure credentials.
+Services reference 1Password items via `ExternalSecret` manifests. Both `minikube-indri` and `k3s-ringtail` run their own `onepassword-connect` deployment talking to the same vault.
 
-## Kubernetes Integration
+## Direct Access
 
-**ClusterSecretStore:** `onepassword-blumeops`
+Prefer `op read "op://vault/item/field"` over `op item get --fields` in scripts and IaC — `op item get --fields` wraps multi-line values in quotes, corrupting them. `op item get` without flags is fine for exploring item metadata.
 
-Services reference 1Password items via `ExternalSecret` manifests.
+If an item name contains special characters (e.g. parentheses), use the item ID instead of the name in the `op://` path.
 
 ## Disaster Recovery Backup
 
@@ -41,8 +49,9 @@ The `mise run op-backup` task encrypts a `.1pux` vault export and transfers it t
 
 ## Related
 
-- [[argocd]] - Uses secrets for git access
-- [[postgresql]] - Database credentials
-- [[run-1password-backup]] - Periodic backup procedure
-- [[restore-1password-backup]] - Recovery from backup
-- [[borgmatic]] - Backup system
+- [[external-secrets]] — Kubernetes operator that consumes ClusterSecretStore
+- [[argocd]] — Uses secrets for git access
+- [[postgresql]] — Database credentials
+- [[run-1password-backup]] — Periodic backup procedure
+- [[restore-1password-backup]] — Recovery from backup
+- [[borgmatic]] — Backup system
