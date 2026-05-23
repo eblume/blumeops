@@ -56,8 +56,9 @@ The `zot-ci` API key expires every **90 days**. To rotate:
 5. Generate a new API key, copy it to clipboard
 6. Update 1Password:
    ```fish
-   pbpaste | op item edit "Forgejo Secrets" --vault blumeops "zot-ci-api[password]=-"
+   set -l NEWKEY (pbpaste); op item edit "Forgejo Secrets" --vault blumeops "zot-ci-api[password]=$NEWKEY"; set -e NEWKEY
    ```
+   The value is briefly visible to other `ps`-readers on this machine (single-user mac, acceptable tradeoff). The older `pbpaste | op item edit ... "field[password]=-"` stdin syntax was rejected by op 2.34 as "invalid JSON" — recent op versions treat piped input as a full JSON template.
 7. Sync to Forgejo: `mise run provision-indri -- --tags forgejo_actions_secrets`
 
 ## Related
