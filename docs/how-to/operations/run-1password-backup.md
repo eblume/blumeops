@@ -26,19 +26,17 @@ How to export and encrypt your 1Password vaults for inclusion in [[borgmatic]] b
 1. Open the 1Password desktop app
 2. **File > Export > All Vaults**
 3. Choose **1PUX** format
-4. Save to `~/Documents/1Password-export.1pux`
+4. Save to `~/Documents/` — 1Password names the file `1PasswordExport-<account-uuid>-<timestamp>.1pux` automatically; don't bother renaming it, pass the path to the task in the next step
 
 ### 2. Run the Backup Task
 
-```fish
-mise run op-backup
-```
-
-Or, if you saved the export to a non-default location:
+Pass the exported file's path:
 
 ```fish
-mise run op-backup ~/path/to/export.1pux
+mise run op-backup ~/Documents/1PasswordExport-*.1pux
 ```
+
+(If only one export exists in `~/Documents/`, the glob expands cleanly. Otherwise, paste the full path.)
 
 The task will:
 
