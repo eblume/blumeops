@@ -143,7 +143,10 @@ def _kubectl(args: str, timeout: int = 15) -> subprocess.CompletedProcess:
 def run_node_verification(console: Console) -> None:
     """Verify node-level conditions that Prowler reports as MANUAL.
 
-    Compensating control: node-config-automated-verification
+    Prowler runs inside a pod and can't evaluate kubelet file permissions,
+    kubelet config arguments, etcd CA separation, or cluster-admin RBAC
+    bindings. We SSH into the minikube node and check each condition here,
+    failing loudly if any deviates from expected values.
     """
     checks: list[tuple[str, str, bool]] = []  # (name, detail, passed)
 
@@ -278,7 +281,7 @@ def run_node_verification(console: Console) -> None:
     table = Table(
         show_header=True,
         header_style="bold",
-        title="Node Verification (CC: node-config-automated-verification)",
+        title="Node Verification (out-of-band checks for MANUAL findings)",
     )
     table.add_column("Check")
     table.add_column("Detail")
@@ -528,8 +531,8 @@ def summarize_report(
             Panel(
                 f"[bold yellow]{len(latest['unmuted'])} unmuted failure(s) "
                 f"need triage.[/bold yellow]\n\n"
-                "For each: remediate or mute "
-                "(add to mutelist + compensating control).",
+                "For each: remediate, or add a Resource entry to the "
+                "matching check in argocd/manifests/prowler/mutelist/.",
                 title=f"{label} Verdict",
                 border_style="yellow",
             )
@@ -653,7 +656,6 @@ def main(
             )
 
     # --- Node-level MANUAL check verification ---
-    # Compensating control: node-config-automated-verification
     # These checks verify conditions Prowler reports as MANUAL because it
     # runs inside a pod and cannot evaluate them directly.
     run_node_verification(console)

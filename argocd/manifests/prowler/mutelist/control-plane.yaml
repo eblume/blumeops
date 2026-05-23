@@ -6,12 +6,12 @@ Mutelist:
         "controllermanager_disable_profiling":
           Regions: ["*"]
           Resources: ["^kube-controller-manager-minikube$"]
-          Description: "CC: tailscale-network-isolation. Profiling endpoint unreachable from public internet."
+          Description: "Profiling endpoint unreachable from public internet."
         "scheduler_profiling":
           Regions: ["*"]
           Resources: ["^kube-scheduler-minikube$"]
-          Description: "CC: tailscale-network-isolation. Profiling endpoint unreachable from public internet."
+          Description: "Profiling endpoint unreachable from public internet."
         "kubelet_tls_cert_and_key":
           Regions: ["*"]
           Resources: ["^kubelet-config$"]
-          Description: "CC: tailscale-network-isolation, single-user-cluster. Kubelet API not exposed outside node; minikube auto-generates certificates."
+          Description: "Kubelet API not exposed outside node; minikube auto-generates certificates."

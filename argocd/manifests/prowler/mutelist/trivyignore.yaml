@@ -14,26 +14,24 @@ misconfigurations:
     paths:
       - "argocd/manifests/external-secrets/rbac.yaml"
     statement: >-
-      CC: operator-purpose-bound-rbac. external-secrets-operator's entire
-      function is to read and synthesize Secret objects; ClusterRole over
-      secrets is its purpose. Both the controller and cert-controller are
+      external-secrets-operator's entire function is to read and
+      synthesize Secret objects; ClusterRole over secrets is its
+      purpose. Both the controller and cert-controller are
       upstream-defined.
   - id: KSV-0041
     paths:
       - "argocd/manifests/kube-state-metrics/rbac.yaml"
       - "argocd/manifests/kube-state-metrics-ringtail/rbac.yaml"
     statement: >-
-      CC: kube-state-metrics-metadata-only. KSM exposes only Secret
-      metadata (name, namespace, type, labels), never the data field.
-      list/watch on secrets is required for kube_secret_info /
-      kube_secret_labels metrics.
+      KSM exposes only Secret metadata (name, namespace, type, labels),
+      never the data field. list/watch on secrets is required for
+      kube_secret_info / kube_secret_labels metrics.
   - id: KSV-0114
     paths:
       - "argocd/manifests/external-secrets/rbac.yaml"
     statement: >-
-      CC: operator-purpose-bound-rbac. cert-controller manages the
-      external-secrets validating webhook configurations to inject its
-      own rotating CA bundle. RBAC is scoped to two named webhooks
-      (secretstore-validate, externalsecret-validate) via resourceNames;
-      KSV-0114 doesn't see the resourceNames restriction so reports the
-      full ClusterRole.
+      cert-controller manages the external-secrets validating webhook
+      configurations to inject its own rotating CA bundle. RBAC is
+      scoped to two named webhooks (secretstore-validate,
+      externalsecret-validate) via resourceNames; KSV-0114 doesn't see
+      the resourceNames restriction so reports the full ClusterRole.

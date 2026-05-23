@@ -80,7 +80,7 @@ Not all failures require action. Common expected failures in our minikube cluste
 
 1. **Triage** — review new failures, distinguish real issues from expected noise
 2. **Remediate** — fix what you can (pod security contexts, RBAC tightening)
-3. **Mutelist** — suppress expected/accepted failures via Prowler's `--mutelist-file` to reduce noise in future scans
+3. **Mutelist** — suppress expected/accepted failures by adding a Resource entry under the matching Check in `argocd/manifests/prowler/mutelist/*.yaml` with a free-form `Description` explaining why
 4. **Track** — compare reports over time to spot regressions
 
 ## Related

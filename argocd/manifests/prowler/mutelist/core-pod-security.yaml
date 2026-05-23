@@ -17,9 +17,8 @@ Mutelist:
             - "^kindnet-"
             - "^storage-provisioner$"
           Description: >-
-            CC: tailscale-network-isolation. Control-plane and networking
-            pods require hostNetwork by design. Host network itself is
-            only reachable via tailnet.
+            Control-plane and networking pods require hostNetwork by design.
+            Host network itself is only reachable via tailnet.
         "core_minimize_privileged_containers":
           Regions: ["*"]
           Resources:
@@ -31,7 +30,6 @@ Mutelist:
             # Forgejo runner
             - "^forgejo-runner-"
           Description: >-
-            CC: single-user-cluster, operator-managed-pods, trusted-ci-only.
             kube-proxy: system pod, single-user cluster. ts-*/ingress-*:
             Tailscale operator-managed. forgejo-runner: DinD limited to
             trusted private forge repos.
@@ -49,25 +47,24 @@ Mutelist:
             - "^nameserver-"
             - "^ingress-"
           Description: >-
-            CC: single-user-cluster, operator-managed-pods. System pods
-            managed by minikube and Tailscale operator; seccomp profiles
-            set by upstream. Single-user cluster limits exploit surface.
+            System pods managed by minikube and Tailscale operator;
+            seccomp profiles set by upstream. Single-user cluster limits
+            exploit surface.
         "core_minimize_hostPID_containers":
           Regions: ["*"]
           Resources:
             - "^prowler-"
           Description: >-
-            CC: ephemeral-privileged-jobs. Prowler CIS scanner requires
-            hostPID for file permission checks. Runs as CronJob with
-            7-day TTL, not a persistent workload.
+            Prowler CIS scanner requires hostPID for file permission
+            checks. Runs as CronJob with 7-day TTL, not a persistent
+            workload.
         "core_minimize_root_containers_admission":
           Regions: ["*"]
           Resources:
             - "^grafana-"
           Description: >-
-            CC: init-container-isolation. Root limited to init-chown-data
-            container; all runtime containers run as UID 472 with caps
-            dropped.
+            Root limited to init-chown-data container; all runtime
+            containers run as UID 472 with caps dropped.
         "core_minimize_containers_added_capabilities":
           Regions: ["*"]
           Resources:
@@ -77,10 +74,9 @@ Mutelist:
             # Grafana init-chown-data
             - "^grafana-"
           Description: >-
-            CC: single-user-cluster, init-container-isolation. System
-            pods: capabilities required by function (minikube-managed).
-            Grafana: CHOWN limited to init phase; runtime containers
-            drop ALL.
+            System pods: capabilities required by function
+            (minikube-managed). Grafana: CHOWN limited to init phase;
+            runtime containers drop ALL.
         "core_minimize_containers_capabilities_assigned":
           Regions: ["*"]
           Resources:
@@ -88,5 +84,4 @@ Mutelist:
             - "^kindnet-"
             - "^grafana-"
           Description: >-
-            CC: single-user-cluster, init-container-isolation. See
-            core_minimize_containers_added_capabilities.
+            See core_minimize_containers_added_capabilities.
