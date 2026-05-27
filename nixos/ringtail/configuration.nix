@@ -609,6 +609,22 @@ in
     AllowSuspendThenHibernate=no
   '';
 
+  # Cap systemd-coredump. Wine/Proton games (Diablo IV, etc.) segfault
+  # regularly and dump multi-GB cores; with the stock (effectively unbounded)
+  # limits, systemd-coredump then spends minutes streaming and compressing the
+  # dump to disk — e.g. a single D4 crash produced a 4.6G core, read 13.7G and
+  # wrote 17.4G, pinning the CPU and locking up the desktop for ~3.5 minutes.
+  # Those cores are useless anyway: Nix .so files carry no build-id, so no
+  # backtrace can be generated. Capping uncompressed size at 1G makes oversized
+  # cores get logged-but-skipped (the kernel stops dumping once we stop reading)
+  # while real service cores (well under 1G) are still captured. MaxUse bounds
+  # the on-disk store so frequent game crashes can't accumulate (was at 8.6G).
+  systemd.coredump.extraConfig = ''
+    ProcessSizeMax=1G
+    ExternalSizeMax=1G
+    MaxUse=2G
+  '';
+
   # NixOS release
   system.stateVersion = "25.11";
 }
