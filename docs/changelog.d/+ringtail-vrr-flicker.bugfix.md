@@ -1,0 +1,1 @@
+Disabled adaptive sync (VRR) on ringtail's DP-1 output. The OMEN 27i IPS panel pumps brightness when its refresh rate swings into the low VRR range during low-framerate content (e.g. game cutscenes), producing a flicker that worsened over a session until a reboot. Pinning the panel to a fixed 165Hz eliminates it.

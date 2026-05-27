@@ -337,7 +337,12 @@ in
         output = {
           "DP-1" = {
             mode = "2560x1440@165Hz";
-            adaptive_sync = "on";
+            # VRR off: the OMEN 27i IPS pumps gamma/brightness when the panel
+            # refresh swings into its low VRR range (e.g. low-fps game
+            # cutscenes), producing a ~20Hz flicker that compounds over a long
+            # session until a reboot. Fixed refresh at 165Hz eliminates it.
+            # If you want VRR back, cap in-game fps so refresh never dips low.
+            adaptive_sync = "off";
             bg = "~/.config/sway/wallpaper.jpg fill";
           };
         };
