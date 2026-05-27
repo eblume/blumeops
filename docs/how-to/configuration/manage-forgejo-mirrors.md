@@ -137,8 +137,8 @@ Return to [GitHub token settings](https://github.com/settings/tokens?type=beta) 
 
 Trigger a manual sync on one mirror to confirm the new PAT works:
 
-1. Go to any mirror repo on forge (e.g., `mirrors/cloudnative-pg`)
-2. Click the sync button (circular arrows icon) next to the mirror status
+1. Go to any mirror repo's settings page on forge (e.g., `https://forge.eblu.me/mirrors/cloudnative-pg/settings`)
+2. In the "Mirror settings" section, click "Synchronize now"
 3. Confirm the sync completes without errors
 
 ## Related
