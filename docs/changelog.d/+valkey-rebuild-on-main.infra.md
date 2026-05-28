@@ -1,0 +1,1 @@
+Rebuild valkey container from squashed main commit (both arm64 dagger and amd64 nix variants), and update paperless + immich-ringtail kustomizations to the main-SHA tags `v8.1.7-ecded30` and `v8.1.7-ecded30-nix`.
