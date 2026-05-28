@@ -1,0 +1,1 @@
+Upgrade unpoller v2.34.0 → v3.2.0 and migrate container build from Dockerfile to native Dagger (container.py). v3.0.0 carries breaking UniFi API changes; v3.2.0 introduces a 60s background poll (cached scrapes) by default — set `interval = 0` in `up.conf` to restore on-demand polling.
