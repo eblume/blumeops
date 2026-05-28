@@ -1,6 +1,7 @@
 ---
 title: Indri
-modified: 2026-02-19
+modified: 2026-05-27
+last-reviewed: 2026-05-27
 tags:
   - infrastructure
   - host
@@ -15,6 +16,7 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 | Property | Value |
 |----------|-------|
 | **Model** | Mac mini M1, 2020 (Macmini9,1) |
+| **CPU / RAM** | 8 cores / 16 GB |
 | **Storage** | 2TB internal SSD |
 | **macOS** | 15.7.3 (Sequoia) |
 | **Tailscale hostname** | `indri.tail8d86e.ts.net` |
@@ -30,9 +32,12 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 - [[borgmatic]] - Backup system
 - [[alloy|Alloy]] - Metrics/logs collector
 - [[caddy]] - Reverse proxy for `*.ops.eblu.me`
+- [[devpi]] - PyPI mirror (LaunchAgent)
+- [[cv]] - Static CV site, served by Caddy
+- [[docs]] - Quartz-built docs site, served by Caddy
 
 **Kubernetes (via minikube):**
-- [[apps|Most k8s applications]] (Frigate, ntfy migrated to [[ringtail]] k3s)
+- [[apps|Most k8s applications]]. A growing set of apps (Authentik, Frigate, ntfy, Immich, Homepage, Shower, Kingfisher, alloy-ringtail) now run on [[ringtail]]'s k3s instead. Long-term plan is to decommission indri's minikube entirely.
 
 **GUI Applications (manual start required):**
 - Docker Desktop - Container runtime for minikube
