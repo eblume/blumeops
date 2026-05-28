@@ -229,12 +229,35 @@ def fetch_log(run_number: int, job_index: int, repo: str, token: str) -> None:
     hex_prefix = f"{task_id & 0xff:02x}"
     log_path = f"~/forgejo/data/actions_log/{repo}/{hex_prefix}/{task_id}.log.zst"
 
+    # indri's login shell (fish) silently swallows SSH exit codes, so we can't
+    # rely on returncode. zstdcat itself also exits 0 with a "can't stat ...
+    # -- ignored" stderr message when the file is missing. Detect missing logs
+    # by running `test -f` over SSH and parsing the marker line from stdout.
+    probe = subprocess.run(
+        ["ssh", "indri", f"test -f {log_path} && echo EXISTS || echo MISSING"],
+        capture_output=True,
+        text=True,
+    )
+    marker = probe.stdout.strip().splitlines()[-1] if probe.stdout.strip() else ""
+    if marker != "EXISTS":
+        typer.echo(
+            f"Error: log not found for run #{run_number} job {job_index} (task {task_id})",
+            err=True,
+        )
+        typer.echo(f"Path: indri:{log_path}", err=True)
+        typer.echo(
+            "The runner may have crashed before uploading its log buffer "
+            "(action_task.log_in_storage = 0).",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     result = subprocess.run(
         ["ssh", "indri", f"zstdcat {log_path}"],
         capture_output=True,
         text=True,
     )
-    if result.returncode != 0:
+    if result.returncode != 0 or not result.stdout:
         typer.echo(
             f"Error: could not read log for run #{run_number} job {job_index} (task {task_id})",
             err=True,
