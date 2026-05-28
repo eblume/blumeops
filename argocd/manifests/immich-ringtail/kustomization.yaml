@@ -21,8 +21,9 @@ images:
   - name: ghcr.io/immich-app/immich-machine-learning
     # CUDA variant of the same release — ringtail has an RTX 4080
     newTag: v2.6.3-cuda
-  # Using upstream multi-arch valkey image directly; the
-  # registry.ops.eblu.me/blumeops/valkey mirror is arm64-only (built
-  # on indri) and would crashloop on ringtail.
+  # amd64 valkey built via nix on the ringtail nix-container-builder
+  # (see containers/valkey/default.nix). The Alpine container.py build
+  # is arm64-only and serves paperless on indri.
   - name: docker.io/valkey/valkey
-    newTag: "8.1.6"
+    newName: registry.ops.eblu.me/blumeops/valkey
+    newTag: v8.1.7-02859c5-nix

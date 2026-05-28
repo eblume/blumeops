@@ -146,14 +146,15 @@ services:
 
   - name: valkey
     type: argocd
-    last-reviewed: 2026-05-01
-    current-version: "8.1.6-r0"
-    upstream-source: https://pkgs.alpinelinux.org/package/v3.22/community/aarch64/valkey
+    last-reviewed: 2026-05-28
+    current-version: "8.1.7"
+    upstream-source: https://github.com/valkey-io/valkey/releases
     notes: >-
-      Shared Alpine-built valkey image, used as a sidecar/cache by paperless
-      (sidecar) and immich (separate Deployment). Mirrors the upstream
-      docker.io/valkey/valkey:8.1-alpine. Pinned to Alpine 3.22 for valkey 8.1.x;
-      Alpine 3.23 jumps to 9.0. Distinct from authentik-redis (nix-built Redis
+      Dual-build valkey image: container.py builds Alpine 3.22 + apk valkey
+      (arm64, indri) for paperless; default.nix builds via nixpkgs (amd64,
+      ringtail) for immich-ringtail. Both track upstream valkey 8.1.x; Alpine
+      3.22 currently ships 8.1.7-r0 and nixpkgs valkey is 8.1.7. Alpine 3.23
+      jumps to 9.0. Distinct from authentik-redis (nix-built Redis
       8.x) which has its own entry.
 
   - name: external-secrets

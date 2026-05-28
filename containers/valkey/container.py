@@ -1,8 +1,8 @@
-"""Valkey — native Dagger build.
+"""Valkey — native Dagger build (arm64, indri).
 
 Alpine 3.22 base with the `valkey` apk package (8.1.x — Redis-compatible).
-Mirrors `docker.io/valkey/valkey:8.1-alpine`, used by paperless and immich
-as a cache/queue sidecar.
+Used by paperless (sidecar) on indri. immich on ringtail uses the
+nix-built amd64 variant from `default.nix` in this directory.
 """
 
 import dagger
@@ -10,9 +10,10 @@ from dagger import dag
 
 from blumeops.containers import oci_labels
 
-# Alpine 3.22 ships valkey 8.1.6-r0. Alpine 3.23 jumps to 9.0 — hold on 3.22
-# to keep this a 1:1 swap for the upstream `valkey:8.1-alpine` image.
-VERSION = "8.1.6-r0"
+# Alpine 3.22 currently ships valkey 8.1.7-r0. Alpine 3.23 jumps to 9.0 —
+# hold on 3.22 to keep this aligned with the 8.1 line.
+VERSION = "8.1.7"
+ALPINE_PIN = "8.1.7-r0"
 
 ALPINE_BASE = "alpine:3.22"
 
@@ -21,7 +22,7 @@ async def build(src: dagger.Directory) -> dagger.Container:
     ctr = (
         dag.container()
         .from_(ALPINE_BASE)
-        .with_exec(["apk", "add", "--no-cache", f"valkey={VERSION}"])
+        .with_exec(["apk", "add", "--no-cache", f"valkey={ALPINE_PIN}"])
         .with_exec(["mkdir", "-p", "/data"])
         .with_exec(["chown", "valkey:valkey", "/data"])
         .with_workdir("/data")
