@@ -376,6 +376,13 @@ Mitigations for dynamic services:
 - fail2ban on indri (see below) can block IPs showing abuse patterns
 - The break-glass shutoff remains the last resort
 
+The most acute version of this in practice has been **AI scrapers**, which
+ignore `robots.txt` and crawl dynamic services (notably [[forgejo|Forgejo]]'s
+infinite git-history URL space) into both a surprise egress bill and an
+effective L7 DoS. See [[ai-scraper-mitigation]] for the incident, the tiered
+defense (mirror black-hole, user-agent denylist, Anubis proof-of-work), and
+why a Cloudflare Tunnel is *not* the chosen answer here.
+
 If a publicly exposed dynamic service attracts targeted attacks or the
 home network bandwidth is impacted, consider migrating to Cloudflare
 Tunnel for enterprise-grade DDoS protection (requires DNS migration;

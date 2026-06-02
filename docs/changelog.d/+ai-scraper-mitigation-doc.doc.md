@@ -1,0 +1,1 @@
+Add `docs/explanation/ai-scraper-mitigation.md` — the egress-cost / AI-crawler threat model for the public Fly proxy, the tiered mitigation plan (Tier 1: mirror black-hole, shipped; Tier 2: user-agent denylist + Anubis; Tier 3: Cloudflare, rejected on principle), and the data behind it.

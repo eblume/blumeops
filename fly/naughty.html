@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>403 · Roll of Dishonour</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center;
+      background: #14110f; color: #e8e2da;
+      font: 16px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    main { max-width: 44rem; padding: 2.5rem 1.5rem; }
+    h1 { font-size: 1.6rem; margin: 0 0 .25rem; color: #f2c14e; }
+    .sub { color: #9b948b; margin: 0 0 1.75rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1.25rem 0; }
+    th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid #2a2521; }
+    th { color: #9b948b; font-weight: 600; }
+    td.share { color: #f2c14e; text-align: right; font-variant-numeric: tabular-nums; }
+    .name { color: #e8867a; }
+    a { color: #7fb3d5; }
+    footer { margin-top: 2rem; color: #5c574f; font-size: .85rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>🪤 403 — you walked into the scraper trap</h1>
+    <p class="sub">These are mirror repositories. They are tailnet-only.</p>
+
+    <p>
+      This path used to serve the web UI for mirrors of public upstream
+      projects. It exists for supply-chain control, not for crawling. A
+      <code>robots.txt</code> politely disallowed <code>/mirrors/</code>.
+      A pack of AI scrapers ignored it, walked the infinite git-history URL
+      space, and ran up <strong>~1.25&nbsp;TB</strong> of egress and a real
+      money bill in a single month — while timing out the server for everyone
+      else.
+    </p>
+
+    <p>So <code>/mirrors/</code> is closed at the edge now. Roll of dishonour,
+      by share of the bytes they stole:</p>
+
+    <table>
+      <thead><tr><th>Operator</th><th>User-Agent</th><th class="share">Bytes</th></tr></thead>
+      <tbody>
+        <tr><td class="name">Meta</td><td><code>meta-externalagent</code></td><td class="share">66%</td></tr>
+        <tr><td class="name">OpenAI</td><td><code>GPTBot</code></td><td class="share">16%</td></tr>
+        <tr><td class="name">Amazon</td><td><code>Amazonbot</code></td><td class="share">3%</td></tr>
+        <tr><td class="name">ByteDance</td><td><code>Bytespider</code></td><td class="share">1%</td></tr>
+      </tbody>
+    </table>
+
+    <p>
+      If you are a human who actually wanted these mirrors, they are reachable
+      from the tailnet at <code>forge.ops.eblu.me</code>. If you are a crawler:
+      read the <code>robots.txt</code> next time. We left you a header, too.
+    </p>
+
+    <footer>GNU Terry Pratchett</footer>
+  </main>
+</body>
+</html>
