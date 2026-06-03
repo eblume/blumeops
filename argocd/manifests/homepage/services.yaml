@@ -71,10 +71,6 @@
           enableBlocks: true
           enableNowPlaying: false
           fields: ["movies", "series", "episodes"]
-    - Mealie:
-        href: https://meals.ops.eblu.me
-        icon: mealie.png
-        description: Recipe manager
     - DJ:
         href: https://dj.ops.eblu.me
         icon: navidrome.png
@@ -85,15 +81,7 @@
           user: "{{HOMEPAGE_VAR_NAVIDROME_USER}}"
           token: "{{HOMEPAGE_VAR_NAVIDROME_TOKEN}}"
           salt: "{{HOMEPAGE_VAR_NAVIDROME_SALT}}"
-    - Paperless:
-        href: https://paperless.ops.eblu.me
-        icon: paperless-ngx.png
-        description: Document management
 - Content:
-    - Immich:
-        href: https://photos.ops.eblu.me
-        icon: immich.png
-        description: Photo management
     - Kiwix:
         href: https://kiwix.ops.eblu.me
         icon: kiwix.png
@@ -138,10 +126,6 @@
         href: https://docs.eblu.me
         icon: mdi-book-open-page-variant
         description: BlumeOps Documentation
-    - TeslaMate:
-        href: https://tesla.ops.eblu.me
-        icon: teslamate.png
-        description: Tesla data logger
     - Transmission:
         href: https://torrent.ops.eblu.me
         icon: transmission.png
