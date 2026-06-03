@@ -1,0 +1,14 @@
+# SQLite data volume for Mealie on ringtail. Contents copied from the
+# minikube mealie-data PVC at cutover (recipes, meal plans, uploaded media).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mealie-data
+  namespace: mealie
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 2Gi

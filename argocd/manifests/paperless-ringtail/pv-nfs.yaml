@@ -1,0 +1,22 @@
+# NFS PersistentVolume for the Paperless document library, mounted from
+# ringtail. Same sifaka export (/volume1/paperless) as the minikube PV,
+# but a distinct PV name so both clusters can declare it during the
+# parallel-run before cutover.
+#
+# Prerequisite: sifaka must have an NFS rule granting ringtail Read/Write
+# (Squash=No mapping) on the paperless share — the same step done for
+# immich. See [[sifaka-nfs-from-ringtail]].
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: paperless-media-nfs-pv-ringtail
+spec:
+  capacity:
+    storage: 500Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: sifaka
+    path: /volume1/paperless

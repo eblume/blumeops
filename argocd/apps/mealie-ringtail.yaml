@@ -1,0 +1,26 @@
+# Mealie on ringtail k3s.
+#
+# Wave-1 indri-k8s decommission. Staging deployment; the minikube `mealie`
+# app stays in parallel until cutover (copy SQLite PVC, drop the minikube
+# tailscale ingress, flip Caddy). See [[migrate-wave1-ringtail]].
+#
+# Prerequisites:
+# - external-secrets-ringtail (onepassword-blumeops ClusterSecretStore)
+# - mealie-data PVC contents copied from minikube at cutover
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mealie-ringtail
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/mealie-ringtail
+  destination:
+    server: https://ringtail.tail8d86e.ts.net:6443
+    namespace: mealie
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

@@ -1,12 +1,18 @@
+# Mealie on ringtail k3s — Nix image.
+#
+# Single gunicorn process (the Nix image's default `mealie-run` entrypoint
+# runs init_db then gunicorn), serving the prebuilt frontend. DB is SQLite
+# on the mealie-data PVC; its contents are copied from the minikube PVC at
+# cutover. See [[migrate-wave1-ringtail]].
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mealie
   namespace: mealie
 spec:
-  # Migrated to ringtail (mealie-ringtail). Scaled to 0; SQLite PVC retained
-  # for rollback until the decommission PR. See [[migrate-wave1-ringtail]].
-  replicas: 0
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: mealie

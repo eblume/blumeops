@@ -7,9 +7,9 @@ resources:
   - deployment.yaml
   - service.yaml
   - pvc.yaml
-  # ingress removed: name 'meals' handed off to mealie-ringtail at cutover
+  - ingress-tailscale.yaml
   - external-secret.yaml
 
 images:
   - name: registry.ops.eblu.me/blumeops/mealie
-    newTag: v3.12.0-613f05d
+    newTag: v3.16.0-1d4cbbf-nix

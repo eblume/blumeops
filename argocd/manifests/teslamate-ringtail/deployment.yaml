@@ -1,13 +1,17 @@
+# TeslaMate on ringtail k3s — Nix image.
+#
+# The Nix image's Entrypoint waits for postgres, runs migrations
+# (TeslaMate.Release.migrate), then starts the release — so no command
+# override is needed. Stateless; all data lives in the teslamate database
+# on the ringtail blumeops-pg (DATABASE_HOST already an in-cluster name,
+# unchanged from minikube). See [[migrate-wave1-ringtail]].
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: teslamate
   namespace: teslamate
 spec:
-  # Migrated to ringtail (teslamate-ringtail). Scaled to 0 to prevent
-  # double-writing the now-ringtail-owned database; manifest retained for
-  # rollback until the decommission PR. See [[migrate-wave1-ringtail]].
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app: teslamate

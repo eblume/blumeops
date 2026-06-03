@@ -1,0 +1,15 @@
+# PersistentVolumeClaim for the Paperless document library on ringtail.
+# Binds the NFS PV for sifaka:/volume1/paperless.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperless-media
+  namespace: paperless
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: paperless-media-nfs-pv-ringtail
+  resources:
+    requests:
+      storage: 500Gi

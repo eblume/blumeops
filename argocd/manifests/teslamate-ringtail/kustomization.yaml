@@ -6,10 +6,10 @@ namespace: teslamate
 resources:
   - deployment.yaml
   - service.yaml
-  # ingress removed: name 'tesla' handed off to teslamate-ringtail at cutover
+  - ingress-tailscale.yaml
   - external-secret-db.yaml
   - external-secret-encryption-key.yaml
 
 images:
   - name: registry.ops.eblu.me/blumeops/teslamate
-    newTag: v3.0.0-08c698e
+    newTag: v3.0.0-191be1b-nix

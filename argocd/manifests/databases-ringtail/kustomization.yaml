@@ -7,3 +7,9 @@ resources:
   - immich-pg.yaml
   - external-secret-immich-borgmatic.yaml
   - service-immich-pg-tailscale.yaml
+  # wave-1 indri-k8s decommission: blumeops-pg (paperless + teslamate)
+  - blumeops-pg.yaml
+  - external-secret-eblume.yaml
+  - external-secret-borgmatic.yaml
+  - external-secret-paperless.yaml
+  - external-secret-teslamate.yaml

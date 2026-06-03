@@ -1,0 +1,97 @@
+# PostgreSQL Cluster for blumeops services on ringtail k3s.
+#
+# Wave-1 indri-k8s decommission target (see [[migrate-wave1-ringtail]]).
+# Holds the paperless and teslamate databases migrated off the minikube
+# blumeops-pg via cold pg_dump/pg_restore at cutover. miniflux + authentik
+# stay where they are for now (later waves), so this cluster only carries
+# the wave-1 roles.
+#
+# Apps reach this in-cluster at blumeops-pg-rw.databases.svc.cluster.local
+# — the same name they used on minikube, so teslamate's DATABASE_HOST is
+# unchanged.
+#
+# Database creation is deferred to cutover, mirroring the minikube cluster
+# (where only the bootstrap database is declared and the rest were created
+# out-of-band):
+#   - paperless: the bootstrap database below (restored into at cutover).
+#   - teslamate: created at its cutover by the eblume superuser, because the
+#     dump's `earthdistance` extension is untrusted and CREATE EXTENSION
+#     needs superuser. (cube + earthdistance ownership then transferred to
+#     the teslamate role so it can ALTER EXTENSION UPDATE.)
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: blumeops-pg
+  namespace: databases
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.3
+
+  storage:
+    size: 10Gi
+    storageClass: local-path
+
+  bootstrap:
+    initdb:
+      database: paperless
+      owner: paperless
+
+  managed:
+    roles:
+      # eblume superuser for admin + privileged restore steps (extensions)
+      - name: eblume
+        login: true
+        superuser: true
+        createdb: true
+        createrole: true
+        connectionLimit: -1
+        ensure: present
+        inherit: true
+        passwordSecret:
+          name: blumeops-pg-eblume
+      # borgmatic read-only user for backups
+      - name: borgmatic
+        login: true
+        connectionLimit: -1
+        ensure: present
+        inherit: true
+        inRoles:
+          - pg_read_all_data
+        passwordSecret:
+          name: blumeops-pg-borgmatic
+      # paperless user (also the bootstrap database owner above; the
+      # managed role sets its password from the 1Password-backed secret)
+      - name: paperless
+        login: true
+        connectionLimit: -1
+        ensure: present
+        inherit: true
+        passwordSecret:
+          name: blumeops-pg-paperless
+      # teslamate user. Extension ownership (cube, earthdistance) is
+      # transferred to this role at cutover so it can ALTER EXTENSION UPDATE.
+      - name: teslamate
+        login: true
+        connectionLimit: -1
+        ensure: present
+        inherit: true
+        passwordSecret:
+          name: blumeops-pg-teslamate
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+  postgresql:
+    parameters:
+      max_connections: "50"
+      shared_buffers: "128MB"
+      password_encryption: "scram-sha-256"
+    pg_hba:
+      # Password auth from anywhere; network security is via Tailscale.
+      - host all all 0.0.0.0/0 scram-sha-256
+      - host all all ::/0 scram-sha-256

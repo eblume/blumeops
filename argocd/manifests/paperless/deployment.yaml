@@ -4,7 +4,10 @@ metadata:
   name: paperless
   namespace: paperless
 spec:
-  replicas: 1
+  # Migrated to ringtail (paperless-ringtail). Scaled to 0 to prevent
+  # double-writing the now-ringtail-owned database; manifest retained for
+  # rollback until the decommission PR. See [[migrate-wave1-ringtail]].
+  replicas: 0
   selector:
     matchLabels:
       app: paperless
