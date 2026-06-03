@@ -191,8 +191,9 @@ prometheus.exporter.blackbox "services" {
   }
 
   target {
+    // Migrated to ringtail (wave-1); probe through Caddy over Tailscale.
     name    = "teslamate"
-    address = "http://teslamate.teslamate.svc.cluster.local:4000/"
+    address = "https://tesla.ops.eblu.me/"
     module  = "http_2xx"
   }
 

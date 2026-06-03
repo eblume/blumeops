@@ -2,6 +2,9 @@
 #
 # - workflow-bot: minimal CI/CD permissions (sync, get)
 # - admins: Authentik admins group mapped to ArgoCD admin role
+# - admin: local break-glass account — keeps ArgoCD admin rights for when
+#   Authentik SSO is unavailable (without this it has no permissions, since
+#   policy.default is unset)
 #
 apiVersion: v1
 kind: ConfigMap
@@ -14,3 +17,4 @@ data:
     p, role:workflow-bot, applications, get, *, allow
     g, workflow-bot, role:workflow-bot
     g, admins, role:admin
+    g, admin, role:admin
