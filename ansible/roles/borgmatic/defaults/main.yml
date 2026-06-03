@@ -56,8 +56,9 @@ borgmatic_k8s_sqlite_dumps:
     namespace: mealie
     label_selector: app=mealie
     db_path: /app/data/mealie.db
-    # local kubectl, --context=minikube (indri's only configured ctx)
-    target: local:minikube
+    # migrated to ringtail (wave-1); ssh to ringtail and run k3s kubectl
+    # there, same as shower below.
+    target: ssh:eblume@ringtail
   - name: shower
     namespace: shower
     label_selector: app=shower
@@ -102,17 +103,18 @@ borgmatic_postgresql_databases:
     hostname: pg.ops.eblu.me
     port: 5432
     username: borgmatic
-  - name: teslamate
-    hostname: pg.ops.eblu.me
-    port: 5432
-    username: borgmatic
   - name: authentik
     hostname: pg.ops.eblu.me
     port: 5432
     username: borgmatic
+  # migrated to ringtail blumeops-pg (wave-1); port 5434 = Caddy L4 route
+  - name: teslamate
+    hostname: pg.ops.eblu.me
+    port: 5434
+    username: borgmatic
   - name: paperless
     hostname: pg.ops.eblu.me
-    port: 5432
+    port: 5434
     username: borgmatic
   # immich-pg cluster (VectorChord) via Caddy L4 on port 5433
   - name: immich

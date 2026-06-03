@@ -48,6 +48,10 @@ pkgs.dockerTools.buildLayeredImage {
     pkgs.coreutils
     pkgs.cacert
     pkgs.tzdata
+    # python3 (stdlib sqlite3) for the borgmatic k8s-sqlite-dump helper,
+    # which runs `python3 -c "...sqlite3...backup..."` inside the pod.
+    # Same nixpkgs python mealie is built against, so ~no added closure.
+    pkgs.python3
   ];
 
   config = {

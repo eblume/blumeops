@@ -28,7 +28,9 @@ db_path=${4:?missing db path}
 name=${5:?missing name}
 dump_target=${6:?missing dump target}
 
-pod_tmp="/tmp/${name}-backup.db"
+# Stage the backup next to the source DB (a guaranteed-writable volume);
+# minimal nix images (e.g. mealie) have no /tmp.
+pod_tmp="$(dirname "$db_path")/.borgmatic-backup-${name}.db"
 
 python_backup='import sqlite3; sqlite3.connect("'"$db_path"'").backup(sqlite3.connect("'"$pod_tmp"'"))'
 

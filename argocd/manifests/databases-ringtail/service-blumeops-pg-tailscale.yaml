@@ -1,0 +1,24 @@
+# Tailscale LoadBalancer for the ringtail blumeops-pg cluster.
+# Canonical hostname: blumeops-pg-ringtail.tail8d86e.ts.net (distinct from
+# the minikube blumeops-pg, which still owns pg.tail8d86e.ts.net until the
+# wave-1 decommission). Borgmatic on indri and the Grafana TeslaMate
+# datasource reach it via the Caddy L4 route pg.ops.eblu.me:5434.
+apiVersion: v1
+kind: Service
+metadata:
+  name: blumeops-pg-tailscale
+  namespace: databases
+  annotations:
+    tailscale.com/hostname: "blumeops-pg-ringtail"
+    tailscale.com/proxy-class: "default"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  selector:
+    cnpg.io/cluster: blumeops-pg
+    role: primary
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: 5432
+      protocol: TCP

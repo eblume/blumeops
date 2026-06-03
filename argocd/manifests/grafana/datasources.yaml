@@ -63,5 +63,7 @@ datasources:
     password: $TESLAMATE_DB_PASSWORD
   type: postgres
   uid: TeslaMate
-  url: blumeops-pg-rw.databases.svc.cluster.local:5432
+  # teslamate DB migrated to ringtail blumeops-pg (wave-1); reached via the
+  # Caddy L4 route on indri (pg.ops.eblu.me:5434 -> blumeops-pg-ringtail).
+  url: pg.ops.eblu.me:5434
   user: teslamate

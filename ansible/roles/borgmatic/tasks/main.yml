@@ -19,8 +19,10 @@
   ansible.builtin.copy:
     content: |
       # Managed by ansible (borgmatic role) - k8s PostgreSQL backup credentials
+      # 5432 = minikube blumeops-pg, 5433 = immich-pg, 5434 = ringtail blumeops-pg
       pg.ops.eblu.me:5432:*:borgmatic:{{ borgmatic_db_password }}
       pg.ops.eblu.me:5433:*:borgmatic:{{ borgmatic_db_password }}
+      pg.ops.eblu.me:5434:*:borgmatic:{{ borgmatic_db_password }}
     dest: ~/.pgpass
     mode: '0600'
   no_log: true

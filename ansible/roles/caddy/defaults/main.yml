@@ -117,6 +117,8 @@ caddy_tcp_services:
     backend: "pg.tail8d86e.ts.net:5432"  # PostgreSQL (blumeops-pg)
   - port: 5433
     backend: "immich-pg.tail8d86e.ts.net:5432"  # PostgreSQL (immich-pg)
+  - port: 5434
+    backend: "blumeops-pg-ringtail.tail8d86e.ts.net:5432"  # PostgreSQL (blumeops-pg on ringtail)
   - port: "{{ sifaka_node_exporter_port }}"
     backend: "sifaka:{{ sifaka_node_exporter_port }}"  # Sifaka node_exporter
   - port: "{{ sifaka_smartctl_exporter_port }}"
