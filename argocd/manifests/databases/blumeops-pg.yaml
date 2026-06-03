@@ -44,18 +44,9 @@ spec:
           - pg_read_all_data
         passwordSecret:
           name: blumeops-pg-borgmatic
-      # teslamate user for TeslaMate Tesla data logger
-      # Superuser removed. Extension ownership (cube, earthdistance)
-      # transferred manually so teslamate can ALTER EXTENSION UPDATE.
-      # earthdistance is untrusted — DROP+CREATE needs temporary
-      # superuser escalation during upgrades.
-      - name: teslamate
-        login: true
-        connectionLimit: -1
-        ensure: present
-        inherit: true
-        passwordSecret:
-          name: blumeops-pg-teslamate
+      # teslamate + paperless roles removed: migrated to ringtail blumeops-pg
+      # (wave-1 decommission). Their databases were dropped from this cluster
+      # after the cutover was verified and backed up.
       # authentik user for Authentik identity provider (runs on ringtail)
       - name: authentik
         login: true
@@ -65,14 +56,6 @@ spec:
         createdb: true
         passwordSecret:
           name: blumeops-pg-authentik
-      # paperless user for Paperless-ngx document management
-      - name: paperless
-        login: true
-        connectionLimit: -1
-        ensure: present
-        inherit: true
-        passwordSecret:
-          name: blumeops-pg-paperless
 
   # Resource limits for minikube environment
   resources:

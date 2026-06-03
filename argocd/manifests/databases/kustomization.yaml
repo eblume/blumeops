@@ -9,6 +9,4 @@ resources:
   - service-metrics-tailscale.yaml
   - external-secret-eblume.yaml
   - external-secret-borgmatic.yaml
-  - external-secret-teslamate.yaml
   - external-secret-authentik.yaml
-  - external-secret-paperless.yaml
