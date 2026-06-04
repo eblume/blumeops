@@ -1,0 +1,16 @@
+# Ringtail (amd64) overlay for external-secrets.
+#
+# Reuses the shared indri manifest as a base and only overrides the controller
+# image to the nix-built amd64 variant (`-nix` tag). The base sets the arm64
+# image (built via containers/external-secrets/container.py on indri's Dagger
+# runner); ringtail's k3s is amd64 and needs the image built by
+# containers/external-secrets/default.nix on the nix-container-builder.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../external-secrets
+
+images:
+  - name: registry.ops.eblu.me/blumeops/external-secrets
+    newTag: v2.2.0-59dace8-nix
