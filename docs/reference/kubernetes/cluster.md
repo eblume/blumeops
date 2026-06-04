@@ -1,6 +1,7 @@
 ---
 title: Cluster
-modified: 2026-02-19
+modified: 2026-06-04
+last-reviewed: 2026-06-04
 tags:
   - kubernetes
 ---
@@ -15,7 +16,7 @@ BlumeOps runs two Kubernetes clusters: a Minikube cluster on [[indri]] (most ser
 |----------|-------|
 | **Driver** | docker |
 | **Container Runtime** | docker |
-| **Kubernetes Version** | v1.34.0 |
+| **Kubernetes Version** | v1.35.0 |
 | **CPUs** | 6 |
 | **Memory** | 11GB |
 | **Disk** | 200GB |
@@ -41,7 +42,9 @@ Single-node k3s cluster for workloads requiring amd64 or GPU access. See [[ringt
 |----------|-------|
 | **Context** | `k3s-ringtail` |
 | **API Server** | `https://ringtail.tail8d86e.ts.net:6443` |
-| **Workloads** | Frigate (GPU), ntfy, frigate-notify, nvidia-device-plugin |
+| **Workloads** | GPU workloads (Frigate, Ollama), notifications (ntfy, frigate-notify), [[authentik]], and services migrated off indri minikube (Immich, Mealie, Paperless, TeslaMate). See [[ringtail]] for the authoritative list. |
+
+Services are being progressively migrated from indri's minikube to ringtail's k3s; the split above reflects an in-progress state, not a fixed boundary.
 
 ## Related
 

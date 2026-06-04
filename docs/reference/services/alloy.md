@@ -1,6 +1,7 @@
 ---
 title: Alloy
-modified: 2026-03-13
+modified: 2026-06-04
+last-reviewed: 2026-06-04
 tags:
   - service
   - observability
@@ -20,10 +21,10 @@ Unified observability collector for metrics and logs with three deployments:
 | **Indri Binary** | `~/.local/bin/alloy` |
 | **Indri Config** | `~/.config/grafana-alloy/config.alloy` |
 | **K8s Namespace** | `alloy` |
-| **K8s Image** | `grafana/alloy:v1.14.0` |
+| **K8s Image** | `registry.ops.eblu.me/blumeops/alloy:v1.16.0-9564435` (locally built) |
 | **ArgoCD App** | `alloy-k8s` |
 | **Fly.io Config** | `fly/alloy.river` |
-| **Fly.io Image** | `grafana/alloy:v1.5.1` (binary copied into nginx container) |
+| **Fly.io Image** | `grafana/alloy:v1.16.1` (binary copied into nginx container, sha-pinned) |
 
 ## Metrics Collected
 

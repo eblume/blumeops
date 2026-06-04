@@ -1,0 +1,1 @@
+Upgraded the nvidia-device-plugin on ringtail from v0.19.0 to v0.19.2 (upstream patch release: CDI/Tegra fixes and dependency bumps, no breaking changes for our manifest-based CDI + RuntimeClass setup).

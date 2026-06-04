@@ -1,6 +1,7 @@
 ---
 title: Ntfy
-modified: 2026-02-17
+modified: 2026-06-04
+last-reviewed: 2026-06-04
 tags:
   - service
   - notifications
@@ -17,7 +18,7 @@ Self-hosted push notification service. Ntfy receives HTTP POST messages and deli
 | **URL** | https://ntfy.ops.eblu.me |
 | **Tailscale URL** | https://ntfy.tail8d86e.ts.net |
 | **Namespace** | `ntfy` |
-| **Image** | `binwiederhier/ntfy:v2.17.0` |
+| **Image** | `registry.ops.eblu.me/blumeops/ntfy:v2.19.2-fd0bebb-nix` (locally built) |
 | **Upstream** | https://github.com/binwiederhier/ntfy |
 | **Manifests** | `argocd/manifests/ntfy/` |
 
