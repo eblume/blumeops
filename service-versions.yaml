@@ -159,10 +159,13 @@ services:
 
   - name: external-secrets
     type: argocd
-    last-reviewed: 2026-03-25
+    last-reviewed: 2026-06-04
     current-version: "v2.2.0"
     upstream-source: https://github.com/external-secrets/external-secrets/releases
-    notes: Static kustomize manifests rendered from upstream Helm chart
+    notes: >-
+      Static kustomize manifests rendered from upstream Helm chart. Controller
+      image is locally built from the forge mirror via containers/external-secrets/container.py
+      (single all_providers static Go binary).
 
   - name: 1password-connect
     type: argocd
