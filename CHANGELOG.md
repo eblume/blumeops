@@ -12,6 +12,259 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.17.0] - 2026-06-03
+
+### Features
+
+- Deploy the Adelaide / Heidi / Addie baby shower app — guest splash, raffle
+  picker, and prize assignment console — on ringtail k3s with `shower.eblu.me`
+  as the public entry and `shower.ops.eblu.me` as the tailnet admin host. App
+  source: [`adelaide-baby-shower-app`](https://forge.eblu.me/eblume/adelaide-baby-shower-app).
+- Deploy adelaide-baby-shower-app v1.1.0 to ringtail k3s. Replaces the
+  boolean lock with a four-phase `ShowerState` (`pre_event` → `party` →
+  `prizes_locked` → `event_locked`), adds an append-only "guest memories"
+  panel where guests can leave photos and comments for the baby, and
+  polishes the admin and QR views. Three Django migrations
+  (`0009_shower_phase`, `0010_guest_memories`, `0011_book_description`)
+  run automatically in the entrypoint against the SQLite PV. No config
+  or env-var changes.
+
+  Container build also gains a Forgejo-PyPI workaround: Forgejo's simple
+  index returns absolute file URLs hardcoded to the public ROOT_URL
+  (`forge.eblu.me`), which the Fly edge 403s on `/api/packages/*`. The
+  wheel and sdist are now both pulled via direct `fetchurl` against
+  `forge.ops.eblu.me` (tailnet-only) and the wheel is handed to pip as
+  a local path.
+- `review-compliance-reports` now also fetches and summarizes the weekly Prowler container-image and IaC scans (previously only the K8s CIS in-cluster scan was processed). For each scan it shows status counts, severity breakdown, week-over-week delta, and — for the high-volume image/IaC scans — top-N tables grouped by check ID and resource instead of per-finding listings.
+- runner-logs now authenticates with Forgejo API token and auto-detects the repo from git remote. Job logs are fetched via SSH to indri (reading Forgejo's on-disk zstd log files) instead of the web endpoint, which doesn't support token auth for private repos.
+
+### Bug Fixes
+
+- Fix nightly borgmatic backups failing for 2 days. The shower SQLite
+  dump hook referenced `kubectl --context=k3s-ringtail`, but indri's
+  kubeconfig deliberately doesn't carry the ringtail credentials. The
+  `before_backup` hook's failure aborted the entire run, taking out
+  *both* the local sifaka repo and the BorgBase offsite. Replaced
+  the inline-shell dump with a `~/bin/borgmatic-k8s-sqlite-dump`
+  helper deployed by the ansible role. Each dump entry now declares a
+  `target` of either `local:<context>` (mealie — kubectl uses indri's
+  kubeconfig) or `ssh:<user@host>` (shower — ssh into ringtail and
+  run `k3s kubectl` there, no indri-side kubeconfig needed; k3s.yaml
+  on ringtail is mode 644 so no sudo required). Bytes stream back via
+  `kubectl exec ... -- cat` rather than `kubectl cp`, since `kubectl
+  cp` requires `tar` inside the pod and nix-built images like shower
+  don't bundle it.
+- Shower app container now bakes the wheel + Python deps into the image
+  at build time via `buildPythonPackage` instead of pip-installing on
+  first boot. Boots are deterministic and don't depend on forge PyPI
+  being reachable from the pod. The `wheelHash` in
+  `containers/shower/default.nix` is the sha256 sourced from the
+  [forge PyPI simple index](https://forge.eblu.me/api/packages/eblume/pypi/simple/adelaide-baby-shower-app/);
+  bumping the version means bumping that hash too.
+
+  Borgmatic now covers the shower app: SQLite is dumped from the live
+  pod via `kubectl exec` (mirroring the existing mealie entry, with
+  `context: k3s-ringtail`), and the prize-photo media share is picked up
+  through `/Volumes/shower` (sifaka SMB mount on indri, same pattern as
+  `/Volumes/photos`).
+- Disabled adaptive sync (VRR) on ringtail's DP-1 output. The OMEN 27i IPS panel pumps brightness when its refresh rate swings into the low VRR range during low-framerate content (e.g. game cutscenes), producing a flicker that worsened over a session until a reboot. Pinning the panel to a fixed 165Hz eliminates it.
+- Fixed forge.eblu.me static assets (CSS, JS, images, fonts) not loading — the proxy's static asset cache block was missing the `Host` header, so Caddy couldn't route the requests.
+- Fixed homepage container EACCES on cold start: the nix-built image now chowns
+  `/app/config` to uid 1000 at build time via `fakeRootCommands`, matching the
+  behavior of the old Dockerfile. Without this, homepage couldn't seed missing
+  skeleton configs (proxmox.yaml etc.) or create `/app/config/logs`, crashing on
+  its first uncached request. Caught during the ringtail cutover.
+- Fixed sway keybindings on ringtail — the home-manager `keybindings` block was replacing the module's defaults entirely, leaving only explicit overrides (no workspace switching, focus, move, splits, resize mode, etc). Switched to `lib.mkOptionDefault` with `lib.mkForce` on the conflicting custom binds (`Mod+Return`, `Mod+d`, `Mod+space`, `Mod+l`) so defaults merge back in. Also added `Mod+F1` to show a filterable fuzzel list of current keybindings.
+
+  Fixed fuzzel config errors on launch — `border-radius` and `border-width` were under `[main]`, but fuzzel expects them as `radius`/`width` under a `[border]` section.
+- Pin the Quartz docs build to v4.5.2. The Dagger `build_docs` pipeline cloned Quartz from the default branch unpinned; Quartz v5.0.0 restructured its config layout (`.quartz/plugins`, `../quartz` imports) and broke the docs build against our existing `quartz.config.ts`/`quartz.layout.ts`.
+
+### Infrastructure
+
+- Wire the ringtail `blumeops-pg` cluster (which holds the wave-1-migrated
+  paperless + teslamate databases) into backups and Grafana. Adds a Tailscale
+  LoadBalancer Service (`blumeops-pg-ringtail.tail8d86e.ts.net`) and a Caddy L4
+  route (`pg.ops.eblu.me:5434`), then repoints borgmatic's `teslamate` +
+  `paperless` postgres dumps and the `mealie` SQLite dump at ringtail, and the
+  Grafana TeslaMate datasource at the ringtail DB. Closes the backup gap that
+  opened at cutover (the migrated live data was still being backed up from the
+  now-frozen minikube copies) and unblocks the wave-1 decommission.
+- Migrated homepage dashboard from minikube (indri/arm64) to k3s (ringtail/amd64).
+  The container is now built via nix (`containers/homepage/default.nix`), adapted
+  from nixpkgs `homepage-dashboard` with the upstream Next.js cache patches and
+  wrapped with `dockerTools.buildLayeredImage`. Autodiscovery shifts: services on
+  minikube (ArgoCD, Immich, Kiwix, Mealie, Miniflux, Grafana, Prometheus,
+  Navidrome, Paperless, TeslaMate, Transmission) become explicit static entries
+  in `services.yaml`; ringtail services (Authentik, Frigate/NVR, Ntfy, Ollama)
+  auto-populate via Ingress annotations.
+- Migrated CV (`cv.eblu.me`) and Docs (`docs.eblu.me`) from minikube Deployments to indri-native ansible roles. Caddy now serves the extracted release tarballs directly via a new `kind: static` service-block in the Caddy template — no daemon, no container — replacing the prior nginx-in-a-pod layer. Removes a network hop on every request and shrinks minikube's footprint. See [[cv-on-indri]] and [[docs-on-indri]]. Part of the broader minikube wind-down.
+- Migrated devpi (PyPI mirror at `pypi.ops.eblu.me`) from a minikube StatefulSet to a launchd-managed service on indri. devpi-server now runs in a uv-managed venv with pinned `devpi-server` and `devpi-web` versions, listens on `127.0.0.1:3141`, and is fronted by Caddy. The minikube StatefulSet was crash-looping under memory pressure (and breaking the Python toolchain everywhere); the new layout removes a layer of dependency on cluster health for critical-path tooling. See [[devpi-on-indri]].
+- Move the entire Immich stack — server, machine-learning, valkey,
+  and the PostgreSQL+VectorChord cluster — off `minikube-indri` and
+  onto `k3s-ringtail`. Postgres data migrated zero-loss via CNPG
+  `pg_basebackup` (replica catch-up then promote); row counts on
+  `asset`, `user`, `album`, `smart_search`, `activity`, `asset_face`
+  verified equal between source and replica before cutover. The ML
+  pod now uses ringtail's RTX 4080 via the nvidia-device-plugin
+  (time-slicing bumped 2 → 4 to share with frigate + ollama). Caddy
+  routing at `photos.ops.eblu.me` is unchanged (still
+  `photos.tail8d86e.ts.net`, the device just lives on ringtail now).
+  Borgmatic backups continue against the same `immich-pg` tailnet
+  hostname. First concrete chain in the broader indri-k8s
+  decommission effort.
+- Add local nix container build for `tailscale` (`containers/tailscale/default.nix`) so ringtail's tailscale-operator ProxyClass proxy pods pull from the forge mirror instead of `docker.io/tailscale/tailscale`. Pinned at v1.94.2 to match `service-versions.yaml`. Indri's tailscale-operator continues to use upstream during the k8s-to-ringtail migration.
+- Address the 6 critical Prowler IaC findings against `argocd/manifests/`. Prowler's IaC provider hardcodes `self._mutelist = None` and delegates filtering to Trivy, but doesn't plumb `--ignorefile` through — so the documented "use Trivy filtering" path is actually broken. Added a shim around `trivy` in the Prowler image that injects `--ignorefile $TRIVY_IGNOREFILE` for `trivy fs` invocations when the env var points at a real file. The IaC cronjob now mounts `mutelist/trivyignore.yaml` (Trivy's per-path schema) and sets the env var, muting the `external-secrets` and `kube-state-metrics` Secret-access findings (KSV-0041, KSV-0114). Separately, `grafana-clusterrole` is tightened to remove `secrets` access entirely: the dashboard sidecar already only consumes ConfigMap-labeled dashboards, so its `RESOURCE` env var is now `configmap` instead of `both`.
+- Pin ringtail's wired IP to `192.168.1.21` via NixOS scripted networking; NetworkManager no longer manages `enp5s0`. Removes DHCP lease renewal as a failure mode after a silent lease teardown took ringtail offline. Also explicitly enables `net.ipv4.ip_forward` (previously set implicitly by scripted-DHCP) so k3s pod networking and Tailscale routing continue to work with static networking.
+- Ripped out the compensating-controls (CC) framework: deleted `compensating-controls.yaml`, the `review-compensating-controls` mise task, and the associated how-to / explanation docs. Prowler and Kingfisher continue to run weekly and produce reports; the Prowler mutelist YAML files remain in place but no longer carry `CC: <id>` prefixes — each entry just keeps a free-form `Description` of why the finding is muted. The CC review cadence proved to be more overhead than this single-operator homelab needed.
+- Wire shower app for public exposure: fly nginx `shower.eblu.me` server
+  block as a guest-only surface — splash page, `/prizes/<token>/`, static
+  assets, media. Everything authenticated (`/admin/`, `/host/`,
+  `/accounts/`) returns 403 with a "tailnet only" pointer. Staff hit
+  `shower.ops.eblu.me` for the operator console + admin; the app's
+  v1.0.1 `DJANGO_PUBLIC_URL_BASE` setting makes QR codes generated on
+  the tailnet point back at the WAN host for guests. Plus a Caddy route
+  on indri, Pulumi Gandi CNAME, and a Grafana APM dashboard tracking
+  request rate, error rate, latency, bandwidth, and access logs.
+- Mirror Valkey 8.1 locally as `registry.ops.eblu.me/blumeops/valkey`. Replaces direct pulls of `docker.io/valkey/valkey:8.1-alpine` for paperless and immich sidecars. Built via native Dagger pipeline on Alpine 3.22. Stateless swap — no data migration. Authentik's nix-built Redis remains separate.
+- Add nix-built amd64 valkey for ringtail (`containers/valkey/default.nix`) so immich-ringtail can stop pulling the upstream multi-arch `docker.io/valkey/valkey` image. Existing `container.py` continues to build Alpine arm64 for paperless on indri. Both bump to valkey 8.1.7 (Alpine 3.22 8.1.7-r0 / nixpkgs 8.1.7).
+- Upgrade Grafana Alloy v1.14.0 → v1.16.0 across all four service deployments
+  (alloy-k8s, alloy-ringtail, alloy-tracing-ringtail on k8s; alloy native on
+  indri). Pulls in stable database observability (v1.15) and the OTel Collector
+  v0.147.0 bump. Container build also migrated from Dockerfile to native Dagger
+  `container.py` per the build-container-image migration playbook.
+- Upgraded Dagger from v0.20.1 to v0.20.6 (engine, CLI pin, and SDK regen) and migrated `runner-job-image` from a Debian-based Dockerfile to a native Dagger `container.py` on Alpine 3.23, reusing the shared `alpine_runtime` helper.
+- Decommission the wave-1 services on minikube-indri now that paperless,
+  teslamate, and mealie run on ringtail with their data backed up. Removes the
+  minikube `paperless`/`teslamate`/`mealie` manifest dirs + ArgoCD app
+  definitions (pruning the parked Deployments, Services, and the redundant
+  minikube mealie/paperless PVCs), and drops the `paperless`/`teslamate` roles
+  from the minikube `blumeops-pg` cluster. The `paperless` and `teslamate`
+  databases are dropped from indri's blumeops-pg as the finalization step.
+  miniflux + authentik remain on the minikube cluster (later waves).
+- Upgraded the k8s Forgejo runner to the v12.8 line, switched it from first-boot registration to declarative `server.connections` credentials from 1Password, and consolidated the supporting runner how-to documentation.
+- Move paperless, teslamate, and mealie off `minikube-indri` onto
+  `k3s-ringtail`, shedding ~1.1 GiB of resident load from the
+  OOM-thrashing 8 GiB minikube node (the kernel OOM killer had been
+  killing `kube-apiserver`/`dockerd`/argocd, flapping every
+  minikube-hosted service at once). paperless + teslamate databases
+  move into a fresh CNPG `blumeops-pg` cluster on ringtail via a cold
+  `pg_dump`/`pg_restore` from the quiesced source — row counts verified
+  equal before any routing flip; source DBs dropped only after the
+  ringtail side serves traffic. mealie's SQLite PVC is copied as-is.
+  paperless media stays on sifaka NFS. Downtime-tolerant cold cutover
+  (no streaming replication); rollback is repoint-and-scale-up with the
+  source untouched. Second chain in the indri-k8s decommission after
+  [[migrate-immich-to-ringtail]].
+- Recurring maintenance batch:
+
+  - Ringtail flake inputs refreshed (`disko`, `home-manager`, `nixpkgs`).
+  - Tooling deps bumped: prek hooks (trufflehog v3.95.3, kingfisher v1.101.0, ruff v0.15.14, `ansible-core` 2.21.0); fly proxy base images (nginx 1.30.1-alpine, alloy v1.16.1); `typer==0.26.2` in mise tasks.
+- Updated `nixos/ringtail/flake.lock` (weekly cadence): `disko`, `home-manager`, and `nixpkgs` inputs refreshed. `nixpkgs-services` skipped per overlay convention.
+- Reviewed `mealie` service version freshness; upstream is 5 minor versions ahead (v3.17.0 vs deployed v3.12.0). Marked reviewed; upgrade deferred.
+- Deploy shower v1.1.2 — bump container build to new app release.
+- Upgrade unpoller v2.34.0 → v3.2.0 and migrate container build from Dockerfile to native Dagger (container.py). v3.0.0 carries breaking UniFi API changes; v3.2.0 introduces a 60s background poll (cached scrapes) by default — set `interval = 0` in `up.conf` to restore on-demand polling.
+- Monthly tooling dependency refresh: prek hooks (trufflehog, kingfisher, ruff, shfmt, prettier, actionlint, ansible-lint), fly proxy base images (nginx 1.30.0, tailscale v1.94.2, alloy v1.16.0), normalize pyyaml lower bound in mise-tasks.
+- Add GE-Proton (`pkgs.proton-ge-bin`) to `programs.steam.extraCompatPackages`
+  on ringtail. Subnautica 2 hangs at Mercuna plugin init under Proton
+  Experimental + DXVK D3D12; GE-Proton is available as a Steam per-game
+  compatibility option to work around it.
+- Add `sn2-prelaunch` Steam launch wrapper on ringtail that removes
+  Subnautica 2's stale `Saved/running.dat` and `Saved/beforelobby.dat`
+  lockfiles before each launch. SN2 pops up an invisible (0×0-sized)
+  Error dialog when it detects an unclean exit, blocking GameThread
+  forever; this is observable only as a black screen with a spinning
+  loader. Use via Steam launch option: `sn2-prelaunch %command%`.
+- Add local nix container build for `frigate-notify` (`containers/frigate-notify/default.nix`) so the Frigate→ntfy bridge is rebuilt on ringtail from the forge mirror instead of pulled from `ghcr.io/0x2142/frigate-notify`.
+- Add resource limits to all ArgoCD pods to prevent unbounded resource consumption during node-wide pressure events.
+- Black-hole the `/mirrors/*` repositories at the Fly proxy edge (`return 403` → `forge.ops.eblu.me`). A surprise $29.60 Fly bill traced to ~1.24 TB/30d of egress on `forge.eblu.me`, 99.95% of all proxy egress — of which ~71% was AI scrapers (Meta `meta-externalagent`, OpenAI `GPTBot`, Amazonbot) crawling the near-infinite git-history URL space of the public mirror repos and timing out Forgejo in the process. Mirrors exist for supply-chain control and are consumed over the tailnet, so their public web UI had no legitimate audience. `robots.txt` already disallowed `/mirrors/`, but the offending agents ignore it. Tier-2 mitigations (user-agent denylist, Anubis proof-of-work gateway) are documented in `docs/explanation/ai-scraper-mitigation.md`.
+- Bump paperless and immich kustomizations to the main-SHA-built valkey tag (`v8.1.6-r0-fabca04`). Routine post-merge follow-up to keep production manifests pointing at images built from a commit on main.
+- Bump shower container to v1.1.1 (probe FOD hash).
+- Bumped shower app to v1.1.3 (wheel/sdist + FOD hashes probed on ringtail).
+- Cap systemd-coredump on ringtail (ProcessSizeMax/ExternalSizeMax 1G, MaxUse 2G) so multi-GB Wine/Proton game crash dumps no longer thrash the disk and lock up the desktop.
+- Deploy shower v1.1.1 to ringtail (kustomize newTag bump).
+- Deployed shower v1.1.3 to ringtail (image built and pushed from ringtail; runner bypassed due to indri overload).
+- Fix three follow-ups from the wave-1 decommission: grant the local
+  break-glass `admin` account ArgoCD admin rights (`g, admin, role:admin` —
+  previously only the Authentik `admins` group had access, so admin was
+  locked out whenever its token expired), and repoint the alloy blackbox
+  probe for teslamate from the deleted minikube service to
+  `https://tesla.ops.eblu.me/` (through Caddy over Tailscale). The orphaned
+  paperless/teslamate roles + ExternalSecrets left on the minikube
+  blumeops-pg are also cleaned up.
+- Moved the Immich blackbox health probe from indri's alloy to ringtail's alloy. After the immich migration to ringtail, the probe still targeted `immich-server.immich.svc.cluster.local` on indri's cluster where the service no longer exists, causing a persistent `ServiceProbeFailure` alert.
+- Pin shower v1.1.1 FOD outputHash (probed locally on ringtail).
+- Rebuild Prowler container against main HEAD (v5.23.0-495e45d) after merging the IaC mutelist Dockerfile changes.
+- Rebuild and retag alloy v1.16.0 container images from the main-branch SHA
+  following the squash-merge of #345, per the build-container-image
+  squash-merge convention. Both images (`registry.ops.eblu.me/blumeops/alloy`)
+  now reference `9564435` rather than the branch SHA `26a3ab5`, restoring
+  source traceability after branch cleanup.
+- Rebuild shower from the post-merge commit on main so the container's
+  SHA tag points at a commit that will still exist after the 30-day
+  branch-cleanup window. Functionally identical to the branch-tag image
+  already deployed, just preserves source traceability per
+  [[build-container-image#Squash-merge and container tags]].
+- Rebuild unpoller container from squashed main commit so the image SHA tag matches a commit in main's history (was tagged with the pre-squash branch SHA).
+- Rebuild valkey container from squashed main commit (both arm64 dagger and amd64 nix variants), and update paperless + immich-ringtail kustomizations to the main-SHA tags `v8.1.7-ecded30` and `v8.1.7-ecded30-nix`.
+- Retired the `blumeops-tasks` mise task (Todoist API) in favor of `heph list --project Blumeops --json` from the self-hosted [hephaestus](https://github.com/eblume/hephaestus) system. Updated docs to point task discovery and rotation reminders at heph, and noted that the `~/code/personal/zk` zettelkasten is migrating into heph docs.
+- Switch the Fly proxy deploy strategy from `bluegreen` to `immediate` in `fly/fly.toml`. With a single proxy machine, bluegreen offers little benefit — the green machine routinely failed to reach "started" inside Fly's default 5-minute deploy timeout (the cold-start sequence of `tailscaled` → `tailscale up` → wait-for-MagicDNS → nginx startup eats most of the budget), and the failed deploys would roll back. `immediate` replaces the machine in place with a brief downtime (~5–10s) but actually completes.
+- Switch the ringtail provisioning playbook's blumeops clone URL from `forge.eblu.me` (public, via Fly proxy) to `forge.ops.eblu.me` (tailnet, direct via Caddy on indri). Ringtail is always on the tailnet, so the WAN round-trip is pure overhead — it also made `provision-ringtail` brittle whenever the Fly proxy was slow or down.
+- Switched Grafana's deployment strategy from `RollingUpdate` to `Recreate`. With an RWO PVC holding the SQLite database and Bleve search index, `RollingUpdate` reliably crashloops the new pod on the index lock until rollout timeout. `Recreate` terminates the old pod first so the new one acquires the lock cleanly.
+- Update `tailscale-operator-ringtail` ProxyClass to reference the `0108b68` main-SHA build of the tailscale container. Routine post-merge cleanup so the deployed image traces to a commit that survives PR branch cleanup.
+- Update the ringtail NixOS flake lockfile (`nixos/ringtail/flake.lock`): bump
+  `nixpkgs` (b77b3de → 25f5383) and `disko` (5ba0c95 → 115e521) to latest.
+  `nixpkgs-services` was intentionally left pinned (skipped by the
+  `flake-update` pipeline). Routine recurring maintenance per [[manage-lockfile]].
+- Upgrade native macOS Alloy on indri to v1.16.0. Built on gilbert with Go
+  1.26.2 + CGO (required for the macOS native DNS resolver, which Tailscale
+  MagicDNS depends on), scp'd to `~/.local/bin/alloy` on indri, codesigned,
+  and the LaunchAgent reloaded. Completes the v1.16.0 fleet upgrade started
+  in #345 — all four Alloy services (alloy-k8s, alloy-ringtail,
+  alloy-tracing-ringtail, alloy ansible) now run v1.16.0.
+- Upgraded zot on indri from v2.1.15 to v2.1.16 (security fixes: TLS verification on metrics client, CORS Allow-Credentials suppression on wildcard origins, manifest/API-key body size limits).
+
+### Documentation
+
+- Reviewed `replicating-blumeops` tutorial: fixed "BluemeOps" typos (also in `contributing.md`) and added `last-reviewed` frontmatter.
+- Reviewed [[indri]] reference card: added `devpi`, `cv`, and `docs` to the native-services list; widened the k8s note to reflect the growing set of apps now on ringtail and the planned indri-minikube decommission; added CPU/RAM specs.
+- New how-to: rotate-fly-deploy-token. Documents the 75-day rotation cadence, why we use `org`-scoped tokens (silences the cosmetic metrics-token warning on `fly status` with marginal blast-radius cost given the single-app personal org), and the procedure for rotation + Forgejo Actions secret sync.
+- Add `docs/explanation/ai-scraper-mitigation.md` — the egress-cost / AI-crawler threat model for the public Fly proxy, the tiered mitigation plan (Tier 1: mirror black-hole, shipped; Tier 2: user-agent denylist + Anubis; Tier 3: Cloudflare, rejected on principle), and the data behind it.
+- Fix manage-forgejo-mirrors verify step — sync button is on the repo settings page ("Synchronize now"), not the main repo page.
+- Fixed the `op item edit` invocation in the [[zot]] API-key rotation procedure: the previous `pbpaste | op item edit ... "field[password]=-"` stdin syntax is rejected by op 2.34 as "invalid JSON" (recent op versions treat piped input as a full JSON template, not a single field value). Procedure now reads the clipboard into a local fish variable and passes it as an inline assignment.
+- Fixed the export-filename step in [[run-1password-backup]]: 1Password's desktop app names the export `1PasswordExport-<account-uuid>-<timestamp>.1pux` automatically rather than letting you save to a fixed name, so the procedure now points the task at that glob instead of pretending the default name is `1Password-export.1pux`.
+- Refresh the contributing tutorial: add `last-reviewed`, include the `.ai.md` changelog fragment type, and clarify that `prek` is pinned via `mise`.
+- Review and refresh the Navidrome reference card: add `last-reviewed`, correct the scanner env var name, document the current image/version, and record routing and runtime details from the manifests.
+- Review and refresh the Ollama reference card: add `last-reviewed`, bump the documented image tag to 0.20.4, and add the two `qwen3.5` models now declared in `models.txt`.
+- Reviewed [[1password]] reference card: added the `blumeops` vs `Personal` vault split, noted that `onepassword-connect` runs on both indri and ringtail (not just one cluster), and pulled the `op read` vs `op item get --fields` guidance up from agent memory into the card.
+- Reviewed `index.md`; added ringtail to the infrastructure overview and stamped `last-reviewed`.
+- Reviewed transmission card: corrected storage layout (`/config/` is emptyDir, watch dir disabled) and noted the Prometheus exporter sidecar.
+- rotate-fly-deploy-token: combine mint+store into one command with both fish and bash forms; document the `op item edit` "Password item requires ps value" validator gotcha and the placeholder-password workaround.
+
+### AI Assistance
+
+- Adopt `AGENTS.md` as the canonical agent instruction file, keep `CLAUDE.md` as a compatibility shim, and update docs to reference the neutral file and the correct agent-change-process path.
+- CLAUDE.md now imports AGENTS.md via `@AGENTS.md` instead of telling agents to go read it. Claude Code only auto-loads CLAUDE.md, so the prose shim was easy to skip; the import inlines AGENTS.md into the session prompt unconditionally.
+
+### Miscellaneous
+
+- Removed the dead minikube manifests, container builds, and tooling shims left behind after the cv + docs migration to indri-native (#342). Deletes `argocd/{apps,manifests}/{cv,docs}/`, `containers/{cv,quartz}/`, and the `quartz`→`docs` mapping in `mise-tasks/container-version-check`. Bumps `docs.current-version` to `v1.16.0` (the blumeops release tag) now that the legacy nginx-base version pin is gone.
+- Rebuild shower v1.1.0 container from main HEAD (`3c7967e`) and bump the
+  kustomization tag to `v1.1.0-3c7967e-nix`. The PR was squash-merged, so
+  the branch commit `444ff91` baked into the prior tag isn't reachable
+  from main's history. The new tag points at a commit that exists on
+  main; image content is byte-identical because the FOD output is content
+  addressed and the inputs didn't change.
+- Rebuild shower v1.1.2 from main HEAD (a33fa47) and retag — PR #358 was squash-merged so the branch SHA baked into the prior image tag isn't reachable from main. FOD is content-addressed, so image bytes are identical; only provenance changes.
+- Remove the duplicate Homepage tiles for Mealie, Paperless, Immich, and
+  TeslaMate. Homepage runs on ringtail and autodiscovers ringtail Ingresses via
+  `gethomepage.dev/*` annotations; once these services migrated to ringtail they
+  were discovered automatically, making their leftover static `services.yaml`
+  entries (needed only while they lived on minikube) redundant.
+- Removed the now-unused `containers/devpi/` Dagger build artifact. Devpi runs natively on indri via uv venv; the container image is no longer referenced anywhere. Doc examples in `docs/reference/tools/dagger.md` updated to use `miniflux` as the example container name.
+- `container-build-and-release` now prints the specific `mise run runner-logs <N>` command after dispatching, polling the Forgejo API to resolve the run number for the commit it just triggered.
+- `mise run runner-logs <run> -j <n>` now reports a clear error when the log file doesn't exist on indri (e.g. a runner crash that left `action_task.log_in_storage = 0`). Previously it printed only the header and exited 0, because `zstdcat` exits 0 with a "can't stat … -- ignored" stderr message and ssh+fish on indri swallows the remote exit code.
+
+
 ## [v1.16.0] - 2026-04-18
 
 ### Infrastructure

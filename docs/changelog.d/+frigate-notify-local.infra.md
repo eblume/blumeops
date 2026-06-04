@@ -1,1 +1,0 @@
-Add local nix container build for `frigate-notify` (`containers/frigate-notify/default.nix`) so the Frigate→ntfy bridge is rebuilt on ringtail from the forge mirror instead of pulled from `ghcr.io/0x2142/frigate-notify`.

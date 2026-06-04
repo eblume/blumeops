@@ -1,1 +1,0 @@
-Removed the now-unused `containers/devpi/` Dagger build artifact. Devpi runs natively on indri via uv venv; the container image is no longer referenced anywhere. Doc examples in `docs/reference/tools/dagger.md` updated to use `miniflux` as the example container name.

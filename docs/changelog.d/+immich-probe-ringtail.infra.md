@@ -1,1 +1,0 @@
-Moved the Immich blackbox health probe from indri's alloy to ringtail's alloy. After the immich migration to ringtail, the probe still targeted `immich-server.immich.svc.cluster.local` on indri's cluster where the service no longer exists, causing a persistent `ServiceProbeFailure` alert.

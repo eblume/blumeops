@@ -1,1 +1,0 @@
-Monthly tooling dependency refresh: prek hooks (trufflehog, kingfisher, ruff, shfmt, prettier, actionlint, ansible-lint), fly proxy base images (nginx 1.30.0, tailscale v1.94.2, alloy v1.16.0), normalize pyyaml lower bound in mise-tasks.

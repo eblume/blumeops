@@ -1,1 +1,0 @@
-Switch the ringtail provisioning playbook's blumeops clone URL from `forge.eblu.me` (public, via Fly proxy) to `forge.ops.eblu.me` (tailnet, direct via Caddy on indri). Ringtail is always on the tailnet, so the WAN round-trip is pure overhead — it also made `provision-ringtail` brittle whenever the Fly proxy was slow or down.

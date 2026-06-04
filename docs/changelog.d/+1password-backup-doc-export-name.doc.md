@@ -1,1 +1,0 @@
-Fixed the export-filename step in [[run-1password-backup]]: 1Password's desktop app names the export `1PasswordExport-<account-uuid>-<timestamp>.1pux` automatically rather than letting you save to a fixed name, so the procedure now points the task at that glob instead of pretending the default name is `1Password-export.1pux`.

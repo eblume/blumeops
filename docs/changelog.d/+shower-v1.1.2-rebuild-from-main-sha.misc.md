@@ -1,1 +1,0 @@
-Rebuild shower v1.1.2 from main HEAD (a33fa47) and retag — PR #358 was squash-merged so the branch SHA baked into the prior image tag isn't reachable from main. FOD is content-addressed, so image bytes are identical; only provenance changes.

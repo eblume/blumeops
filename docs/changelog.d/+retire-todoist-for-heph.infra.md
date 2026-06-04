@@ -1,1 +1,0 @@
-Retired the `blumeops-tasks` mise task (Todoist API) in favor of `heph list --project Blumeops --json` from the self-hosted [hephaestus](https://github.com/eblume/hephaestus) system. Updated docs to point task discovery and rotation reminders at heph, and noted that the `~/code/personal/zk` zettelkasten is migrating into heph docs.

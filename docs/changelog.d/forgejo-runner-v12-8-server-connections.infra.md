@@ -1,1 +1,0 @@
-Upgraded the k8s Forgejo runner to the v12.8 line, switched it from first-boot registration to declarative `server.connections` credentials from 1Password, and consolidated the supporting runner how-to documentation.

@@ -1,1 +1,0 @@
-Reviewed [[1password]] reference card: added the `blumeops` vs `Personal` vault split, noted that `onepassword-connect` runs on both indri and ringtail (not just one cluster), and pulled the `op read` vs `op item get --fields` guidance up from agent memory into the card.

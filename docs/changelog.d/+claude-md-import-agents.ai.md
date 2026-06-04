@@ -1,1 +1,0 @@
-CLAUDE.md now imports AGENTS.md via `@AGENTS.md` instead of telling agents to go read it. Claude Code only auto-loads CLAUDE.md, so the prose shim was easy to skip; the import inlines AGENTS.md into the session prompt unconditionally.

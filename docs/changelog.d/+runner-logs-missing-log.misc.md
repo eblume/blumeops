@@ -1,1 +1,0 @@
-`mise run runner-logs <run> -j <n>` now reports a clear error when the log file doesn't exist on indri (e.g. a runner crash that left `action_task.log_in_storage = 0`). Previously it printed only the header and exited 0, because `zstdcat` exits 0 with a "can't stat … -- ignored" stderr message and ssh+fish on indri swallows the remote exit code.

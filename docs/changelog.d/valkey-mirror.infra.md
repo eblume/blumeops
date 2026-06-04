@@ -1,1 +1,0 @@
-Mirror Valkey 8.1 locally as `registry.ops.eblu.me/blumeops/valkey`. Replaces direct pulls of `docker.io/valkey/valkey:8.1-alpine` for paperless and immich sidecars. Built via native Dagger pipeline on Alpine 3.22. Stateless swap — no data migration. Authentik's nix-built Redis remains separate.

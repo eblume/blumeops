@@ -1,1 +1,0 @@
-Pin the Quartz docs build to v4.5.2. The Dagger `build_docs` pipeline cloned Quartz from the default branch unpinned; Quartz v5.0.0 restructured its config layout (`.quartz/plugins`, `../quartz` imports) and broke the docs build against our existing `quartz.config.ts`/`quartz.layout.ts`.

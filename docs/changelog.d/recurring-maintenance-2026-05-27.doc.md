@@ -1,1 +1,0 @@
-Reviewed [[indri]] reference card: added `devpi`, `cv`, and `docs` to the native-services list; widened the k8s note to reflect the growing set of apps now on ringtail and the planned indri-minikube decommission; added CPU/RAM specs.

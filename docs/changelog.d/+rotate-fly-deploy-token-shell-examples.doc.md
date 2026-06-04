@@ -1,1 +1,0 @@
-rotate-fly-deploy-token: combine mint+store into one command with both fish and bash forms; document the `op item edit` "Password item requires ps value" validator gotcha and the placeholder-password workaround.

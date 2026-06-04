@@ -1,1 +1,0 @@
-Add nix-built amd64 valkey for ringtail (`containers/valkey/default.nix`) so immich-ringtail can stop pulling the upstream multi-arch `docker.io/valkey/valkey` image. Existing `container.py` continues to build Alpine arm64 for paperless on indri. Both bump to valkey 8.1.7 (Alpine 3.22 8.1.7-r0 / nixpkgs 8.1.7).

@@ -1,1 +1,0 @@
-Add local nix container build for `tailscale` (`containers/tailscale/default.nix`) so ringtail's tailscale-operator ProxyClass proxy pods pull from the forge mirror instead of `docker.io/tailscale/tailscale`. Pinned at v1.94.2 to match `service-versions.yaml`. Indri's tailscale-operator continues to use upstream during the k8s-to-ringtail migration.

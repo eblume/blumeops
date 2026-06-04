@@ -1,1 +1,0 @@
-runner-logs now authenticates with Forgejo API token and auto-detects the repo from git remote. Job logs are fetched via SSH to indri (reading Forgejo's on-disk zstd log files) instead of the web endpoint, which doesn't support token auth for private repos.

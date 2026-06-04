@@ -1,1 +1,0 @@
-Bump paperless and immich kustomizations to the main-SHA-built valkey tag (`v8.1.6-r0-fabca04`). Routine post-merge follow-up to keep production manifests pointing at images built from a commit on main.

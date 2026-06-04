@@ -1,1 +1,0 @@
-Update `tailscale-operator-ringtail` ProxyClass to reference the `0108b68` main-SHA build of the tailscale container. Routine post-merge cleanup so the deployed image traces to a commit that survives PR branch cleanup.
