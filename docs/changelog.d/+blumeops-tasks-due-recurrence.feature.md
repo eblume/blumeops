@@ -1,1 +1,0 @@
-`blumeops-tasks` now annotates each task with a human-readable due offset (`5d overdue` / `due in 2d` / `due today`) and a `↻ <recurrence>` marker for recurring tasks, and sorts by overdue-ness (most overdue first, no-due-date last) with priority as tiebreaker.

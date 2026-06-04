@@ -65,7 +65,7 @@ See [[agent-change-process]] for the full methodology.
 ./pulumi/               # Pulumi IaC (tailnet ACLs, dns, cloud)
 ~/.config/{nvim,fish}   # user's shell config, managed by chezmoi
 ~/code/personal/        # user's projects
-~/code/personal/zk      # user's Obsidian-sync managed zettelkasten. Potential source for reference data.
+~/code/personal/zk      # user's zettelkasten (Obsidian-sync). Reference-data source; migrating into heph docs (hephaestus).
 ~/code/3rd/             # mirrored external projects
 ~/code/work             # FORBIDDEN
 ```
@@ -147,10 +147,16 @@ Create a new spork: `mise run spork-create <mirror-name>`
 
 ## Task Discovery
 
+BlumeOps tasks live in [hephaestus](https://github.com/eblume/hephaestus) (`heph`),
+the user's self-hosted context/task system. Fetch them with the CLI:
+
 ```fish
-mise run blumeops-tasks  # fetch from Todoist, sorted by priority
+heph list --project Blumeops --json  # outstanding Blumeops tasks as JSON
 ```
-Most tasks are stored in `./mise-tasks/`. For scripts with any logic or
+
+(This replaced the retired `blumeops-tasks` mise task, which read from Todoist.)
+
+Most operational scripts are stored in `./mise-tasks/`. For scripts with any logic or
 complexity, use uv run --script 's with explicit dependencies. Complex
 workflows with artifacts should become dagger pipelines. Mise tasks are for
 development processes and operations - tools for the user or the agent.

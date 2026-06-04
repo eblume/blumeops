@@ -69,7 +69,6 @@ Run `mise tasks --sort name` for the live list with descriptions.
 |------|-------------|
 | `services-check` | Check all services are online and responding |
 | `service-review` | Review the most stale service for version freshness |
-| `blumeops-tasks` | List tasks from Todoist sorted by priority |
 | `op-backup` | Encrypt 1Password export and send to indri for borgmatic |
 
 ## Infrastructure Setup

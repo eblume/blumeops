@@ -98,7 +98,6 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 | `provision-indri` | Deploy changes to [[indri]]-hosted services via Ansible |
 | `services-check` | After deployments - verify all services are healthy |
 | `pr-comments` | Check unresolved PR comments during review |
-| `blumeops-tasks` | Find pending tasks from Todoist |
 | `container-list` | View available container images and tags |
 | `container-build-and-release` | Trigger container build workflows |
 | `dns-preview` | Preview DNS changes before applying |
@@ -110,6 +109,8 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 | `docs-review-tags` | Print frontmatter tag inventory across all docs |
 | `docs-review` | Review the most stale doc by last-reviewed date |
 | `runner-logs` | View Forgejo workflow logs (indri or ringtail runner) |
+
+For task discovery, BlumeOps tasks live in [hephaestus](https://github.com/eblume/hephaestus) (`heph`), not Todoist. List outstanding work with `heph list --project Blumeops --json`.
 
 For ArgoCD operations, use the `argocd` CLI directly:
 - `argocd app diff <service>` - Preview changes

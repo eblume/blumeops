@@ -25,7 +25,7 @@ Daily backup system using Borg backup, running on indri.
 ## What Gets Backed Up
 
 **Directories:**
-- `~/code/personal/zk` - Zettelkasten
+- `~/code/personal/zk` - Zettelkasten (migrating into heph docs; see [hephaestus](https://github.com/eblume/hephaestus))
 - `/opt/homebrew/var/forgejo` - Git forge data
 - `~/.config/borgmatic` - Borgmatic config
 - `~/Documents` - Personal documents

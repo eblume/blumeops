@@ -14,7 +14,7 @@ How to rotate the Gandi Personal Access Token. **One PAT** is shared by [[caddy]
 
 ## When to rotate
 
-- Every 60 days (Todoist recurring task)
+- Every 60 days (heph recurring task)
 - After any compromise / accidental disclosure
 - Whenever Gandi starts rejecting the PAT (see [Debugging](#debugging))
 

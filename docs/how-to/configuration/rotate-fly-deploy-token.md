@@ -14,7 +14,7 @@ How to rotate the Fly.io API token used to deploy [[flyio-proxy]]. The token liv
 
 ## When to rotate
 
-- Every 75 days (Todoist recurring task)
+- Every 75 days (heph recurring task)
 - After any compromise / accidental disclosure
 - If `fly deploy` starts returning auth errors
 

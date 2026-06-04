@@ -22,7 +22,7 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 
 | Path | Description | Priority |
 |------|-------------|----------|
-| `~/code/personal/zk` | Zettelkasten notes | Critical |
+| `~/code/personal/zk` | Zettelkasten notes (migrating into heph docs) | Critical |
 | `/opt/homebrew/var/forgejo` | Git repositories | Critical |
 | `~/.config/borgmatic` | Backup config | High |
 | `~/Documents` | Personal documents (includes [[1password]] encrypted export) | High |
