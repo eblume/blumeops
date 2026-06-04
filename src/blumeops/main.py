@@ -80,6 +80,10 @@ class Blumeops:
                     "git",
                     "clone",
                     "--depth=1",
+                    # Pin to last v4 release. v5.0.0 restructured config
+                    # layout (.quartz/plugins, ../quartz imports) and breaks
+                    # our quartz.config.ts/quartz.layout.ts. See changelog.
+                    "--branch=v4.5.2",
                     "https://github.com/jackyzha0/quartz.git",
                     "/tmp/quartz",
                 ]
