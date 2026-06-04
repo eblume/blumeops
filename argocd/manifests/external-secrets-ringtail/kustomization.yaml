@@ -13,4 +13,4 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/external-secrets
-    newTag: v2.2.0-59dace8-nix
+    newTag: v2.2.0-13895bb-nix

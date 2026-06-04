@@ -1,0 +1,1 @@
+Rebuilt the external-secrets images off `main` and repointed both clusters to the stable main-sha tags (`v2.2.0-13895bb` arm64 / `v2.2.0-13895bb-nix` amd64), so the deployed images on indri and ringtail trace to the same `main` commit rather than earlier feature-branch builds.

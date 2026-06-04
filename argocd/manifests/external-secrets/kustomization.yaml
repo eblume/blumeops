@@ -13,4 +13,4 @@ resources:
 images:
   - name: ghcr.io/external-secrets/external-secrets
     newName: registry.ops.eblu.me/blumeops/external-secrets
-    newTag: v2.2.0-0e70a1b
+    newTag: v2.2.0-13895bb
