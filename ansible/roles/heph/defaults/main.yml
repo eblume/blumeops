@@ -6,7 +6,7 @@
 # Pinned release used for the initial `cargo install` and the PWA shell.
 # After bootstrap, hephd's own --self-update keeps the binary current; this
 # pin only governs the first install and the bundled PWA shell version.
-heph_version: v1.2.0
+heph_version: v1.2.1
 
 # Anonymous public HTTPS clone — matches hephd's INSTALL_GIT_URL so the initial
 # install and unattended self-update build from the same source (no ssh-agent).
