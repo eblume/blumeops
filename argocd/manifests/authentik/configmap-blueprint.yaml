@@ -477,9 +477,16 @@ data:
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
           client_type: public
           client_id: heph
-          # Device-code (RFC 8628) + PKCE use no redirect, but the provider
-          # serializer requires the field — an empty list satisfies it.
-          redirect_uris: []
+          # CLI/TUI use the device-code grant (no redirect). The heph-pwa browser
+          # login uses Authorization Code + PKCE, which DOES redirect back to the
+          # app's origin — register those here (Authentik also keys token-endpoint
+          # CORS off these origins). Trailing slash matters: the PWA's redirect_uri
+          # is its base dir, e.g. https://heph.ops.eblu.me/.
+          redirect_uris:
+            - matching_mode: strict
+              url: https://heph.ops.eblu.me/
+            - matching_mode: strict
+              url: http://localhost:8787/  # local dev (hephd --web-root)
           signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
           property_mappings:
             - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]

@@ -1,0 +1,1 @@
+Registered the heph-pwa redirect URIs (`https://heph.ops.eblu.me/`, plus `http://localhost:8787/` for dev) on the Authentik `heph` OAuth2 provider, enabling the PWA's new Authorization Code + PKCE "Login with Authentik" flow (and the token-endpoint CORS it needs). Pairs with hephaestus PR #9.
