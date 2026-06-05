@@ -414,6 +414,23 @@ services:
     upstream-source: https://github.com/caddyserver/caddy/releases
     notes: Built from source with Gandi DNS and Layer 4 plugins
 
+  - name: heph
+    type: ansible
+    last-reviewed: 2026-06-05
+    current-version: "v1.2.1"
+    upstream-source: https://forge.eblu.me/eblume/hephaestus/releases
+    notes: >-
+      hephaestus task/context sync hub on indri (server-mode launchagent,
+      ansible/roles/heph; cargo-built from the forge). SELF-UPDATING: hephd
+      polls the forge for newer releases every 10 min and rebuilds + restarts
+      itself, so the running version drifts AHEAD of the ansible heph_version
+      pin. current-version here is the last observed/deployed tag, not a hard
+      pin — verify the live version via `curl https://heph.ops.eblu.me/config`
+      is served (hub up) and the hub log's `current=` line. Reconciling this
+      self-update vs IaC-pin drift is tracked in the heph "Hephaestus" project:
+      "Reconcile hephd self-update with ansible-pinned version (drift on indri
+      hub)" (node 01KTBXWT6XTHNDH92CVJY88E5K).
+
   - name: borgmatic
     type: ansible
     last-reviewed: 2026-04-15
