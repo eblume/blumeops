@@ -52,6 +52,9 @@ caddy_services:
   - name: devpi
     host: "pypi.{{ caddy_domain }}"
     backend: "http://localhost:3141"
+  - name: heph
+    host: "heph.{{ caddy_domain }}"
+    backend: "http://localhost:8787"  # hephaestus hub (server mode) + PWA shell
   - name: kiwix
     host: "kiwix.{{ caddy_domain }}"
     backend: "https://kiwix.tail8d86e.ts.net"

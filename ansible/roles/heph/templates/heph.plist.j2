@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>mcquack.eblume.heph</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ heph_binary }}</string>
+		<string>--mode</string>
+		<string>server</string>
+		<string>--http-addr</string>
+		<string>{{ heph_http_addr }}</string>
+		<string>--db</string>
+		<string>{{ heph_db }}</string>
+		<string>--socket</string>
+		<string>{{ heph_socket }}</string>
+		<string>--web-root</string>
+		<string>{{ heph_web_root }}</string>
+		<string>--oidc-issuer</string>
+		<string>{{ heph_oidc_issuer }}</string>
+		<string>--oidc-audience</string>
+		<string>{{ heph_oidc_audience }}</string>
+		<string>--self-update</string>
+		<string>--self-update-interval-secs</string>
+		<string>{{ heph_self_update_interval_secs }}</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<!-- cargo + toolchain on PATH so --self-update can run `cargo install`. -->
+		<key>PATH</key>
+		<string>{{ heph_bin_dir }}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>HOME</key>
+		<string>/Users/erichblume</string>
+		<!-- Pin the rustup channel: the launchagent runs without mise, so a bare
+		     cargo shim would otherwise use rustup's (stale) default toolchain. -->
+		<key>RUSTUP_TOOLCHAIN</key>
+		<string>{{ heph_rust_toolchain }}</string>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>{{ heph_log_dir }}/mcquack.heph.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>{{ heph_log_dir }}/mcquack.heph.err.log</string>
+</dict>
+</plist>

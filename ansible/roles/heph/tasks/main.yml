@@ -1,0 +1,82 @@
+---
+# hephaestus hub (server mode) on indri.
+#
+# DATA SEEDING (one-time, Path A — do this BEFORE the first provision so the hub
+# adopts gilbert's existing data instead of being born empty):
+#
+#   1. On the seed device (gilbert):   heph daemon stop
+#   2. Copy its store to indri:         scp ~/.local/share/heph/heph.db \
+#                                           indri:~/.local/share/heph/heph.db
+#   3. On indri, give the hub its OWN device origin (keeps gilbert's owner_id +
+#      data; hephd regenerates a fresh origin on next start when it is missing):
+#        sqlite3 ~/.local/share/heph/heph.db "DELETE FROM meta WHERE key='origin';"
+#   4. Run this role (installs hephd, stages the PWA, loads the launchagent).
+#
+# hephd auto-creates an empty store on first start if none exists, so seeding is
+# optional — skip it only if you intend a fresh, empty hub.
+
+- name: Ensure heph data directory exists
+  ansible.builtin.file:
+    path: "{{ heph_data_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: Check for installed hephd binary
+  ansible.builtin.stat:
+    path: "{{ heph_binary }}"
+  register: heph_binary_stat
+
+# Bootstrap install only when hephd is absent. Thereafter hephd's own
+# --self-update keeps it current; ansible must not fight (or downgrade) it.
+# This builds from source and can take several minutes on a cold cargo cache.
+- name: Bootstrap-install heph + hephd from the forge ({{ heph_version }})
+  ansible.builtin.command:
+    cmd: >-
+      {{ heph_bin_dir }}/cargo install --locked
+      --git {{ heph_repo_url }}
+      --tag {{ heph_version }}
+      heph hephd
+  environment:
+    PATH: "{{ heph_bin_dir }}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+    RUSTUP_TOOLCHAIN: "{{ heph_rust_toolchain }}"
+  when: not heph_binary_stat.stat.exists
+  changed_when: true
+  notify: Restart heph
+
+# Checkout provides the PWA shell at {{ heph_web_root }} (heph-pwa/ subdir),
+# served directly by hephd. Static files are read from disk per request, so a
+# version bump needs no restart; the service worker (CACHE = "heph-pwa-vN")
+# evicts stale assets on next load.
+- name: Ensure heph cache parent directory exists
+  ansible.builtin.file:
+    path: "{{ heph_pwa_src_dir | dirname }}"
+    state: directory
+    mode: '0755'
+
+- name: Stage heph-pwa source at {{ heph_version }}
+  ansible.builtin.git:
+    repo: "{{ heph_repo_url }}"
+    dest: "{{ heph_pwa_src_dir }}"
+    version: "{{ heph_version }}"
+    depth: 1
+    single_branch: true
+    force: true
+
+- name: Deploy heph LaunchAgent plist
+  ansible.builtin.template:
+    src: heph.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.heph.plist
+    mode: '0644'
+  notify: Restart heph
+
+- name: Check if heph LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.heph
+  register: heph_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load heph LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.heph.plist
+  when: heph_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false
