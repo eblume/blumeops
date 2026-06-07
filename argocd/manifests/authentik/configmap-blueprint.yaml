@@ -492,6 +492,10 @@ data:
             - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
             - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
             - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+            # offline_access: heph CLI requests "openid offline_access"; without
+            # this mapping the refresh token is session-bound and hephd's
+            # refresh_token grant 400s once the session lapses (spoke sync dies).
+            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, offline_access]]
           sub_mode: hashed_user_id
           include_claims_in_id_token: true
 

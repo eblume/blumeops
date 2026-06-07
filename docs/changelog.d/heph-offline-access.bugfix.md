@@ -1,0 +1,1 @@
+Granted the `offline_access` scope on the Authentik `heph` OAuth2 provider so hephaestus spokes receive a durable 30-day refresh token. Previously the refresh token was session-bound, so spoke sync would silently fail with a `400 Bad Request` on the `refresh_token` grant once the Authentik session lapsed.
