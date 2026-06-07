@@ -68,6 +68,17 @@ in the [[authentik]] blueprint (`argocd/manifests/authentik/configmap-blueprint.
 - Issuer: `https://authentik.ops.eblu.me/application/o/heph/`
 - Audience / client id: `heph`
 - Restricted to the `admins` group (single-owner, sensitive data).
+- Scope mappings: `openid`, `email`, `profile`, **`offline_access`**.
+
+> **`offline_access` is required for durable sync.** The `heph` CLI requests
+> `scope = "openid offline_access"`, and a refresh token is only issued for the
+> 30-day refresh-token window when the provider actually grants `offline_access`.
+> Without that scope mapping the refresh token is bound to the login **session**;
+> once the session lapses, hephd's `refresh_token` grant returns `400 Bad
+> Request`, the bearer can't be refreshed, and spoke sync silently degrades
+> (`heph sync --status` → `auth_failure: true`). `heph auth login` papers over it
+> until the next session expiry. Keep `offline_access` in the provider's
+> `property_mappings`.
 
 Because no Authentik instance ships a device-code flow by default, the blueprint
 also creates `default-device-code-flow` and binds it to the default brand's
