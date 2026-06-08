@@ -1,7 +1,7 @@
 ---
 title: Jellyfin
-modified: 2026-02-07
-last-reviewed: 2026-03-23
+modified: 2026-06-08
+last-reviewed: 2026-06-08
 tags:
   - service
   - media
@@ -40,6 +40,24 @@ Dashboard > Playback:
 1. Hardware Acceleration: Apple VideoToolbox
 2. Allow hardware encoding: Enabled
 3. VPP Tone mapping: Enabled
+
+## Upgrades
+
+Installed via Homebrew cask (`state: present`, unpinned), so the Ansible role
+won't bump an already-installed cask. To upgrade, run on indri:
+
+```bash
+brew upgrade --cask jellyfin
+```
+
+**Gatekeeper gotcha:** a cask upgrade replaces `/Applications/Jellyfin.app` and
+re-applies the `com.apple.quarantine` xattr. When launchd respawns the service,
+the new binary hangs silently — process alive but ~0 CPU, no logs, no listening
+socket — because Gatekeeper is holding the first launch pending approval.
+Removing the xattr over SSH fails (`xattr -dr com.apple.quarantine ...` →
+"Operation not permitted", blocked by macOS TCC). Approve the first-launch
+dialog on indri's GUI console (or run the `xattr` removal from a local Terminal
+with Full Disk Access), then reload the LaunchAgent.
 
 ## Observability
 

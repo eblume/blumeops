@@ -440,9 +440,15 @@ services:
 
   - name: jellyfin
     type: ansible
-    last-reviewed: 2026-03-17
-    current-version: "10.11.6"
+    last-reviewed: 2026-06-08
+    current-version: "10.11.11"
     upstream-source: https://github.com/jellyfin/jellyfin/releases
+    notes: >-
+      Homebrew cask (state: present, unpinned). Upgrade with
+      `brew upgrade --cask jellyfin` on indri. After upgrade the .app is
+      re-quarantined; launchd-spawned launch hangs silently until the
+      Gatekeeper first-launch dialog is approved on indri's GUI console
+      (xattr removal over SSH is blocked by TCC).
 
   - name: automounter
     type: ansible
