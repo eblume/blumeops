@@ -1,6 +1,6 @@
 ---
 title: Read Compliance Reports
-modified: 2026-04-06
+modified: 2026-06-08
 last-reviewed: 2026-04-06
 tags:
   - how-to
@@ -27,8 +27,13 @@ Reports are stored on sifaka at `/volume1/reports/`. Each scanner writes to its 
 | Scanner | Path | Schedule |
 |---------|------|----------|
 | [[prowler]] K8s CIS | `sifaka:/volume1/reports/prowler/` | Weekly (Sunday 3am) |
-| [[prowler]] Image | `sifaka:/volume1/reports/prowler-images/` | Weekly (Saturday 3am) |
-| [[prowler]] IaC | `sifaka:/volume1/reports/prowler-iac/` | Weekly (Saturday 2am) |
+
+> **Retired (2026-06):** the Prowler **image** (`prowler-images/`) and **IaC**
+> (`prowler-iac/`) scans were retired. They produced tens of thousands of
+> un-actioned, un-muted findings every week — mostly unpatchable upstream-image
+> CVEs and systemic pod-security KSV warnings — and nobody triaged them. See
+> [[deploy-prowler#Why only the K8s CIS scan]] for the rationale. Their stale
+> report directories may linger on sifaka until manually removed.
 
 Copy reports to your local machine (remember `scp -O` for sifaka):
 

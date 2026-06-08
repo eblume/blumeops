@@ -10,8 +10,6 @@ resources:
   - pv-nfs.yaml
   - pvc.yaml
   - cronjob.yaml
-  - cronjob-image-scan.yaml
-  - cronjob-iac-scan.yaml
 
 configMapGenerator:
   - name: prowler-mutelist
@@ -23,7 +21,6 @@ configMapGenerator:
       - mutelist/core-pod-security.yaml
       - mutelist/manual-node-checks.yaml
       - mutelist/rbac.yaml
-      - mutelist/trivyignore.yaml
 
 images:
   - name: registry.ops.eblu.me/blumeops/prowler

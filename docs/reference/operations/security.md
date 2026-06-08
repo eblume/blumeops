@@ -1,6 +1,6 @@
 ---
 title: Security & Compliance
-modified: 2026-03-24
+modified: 2026-06-08
 last-reviewed: 2026-03-24
 tags:
   - operations
@@ -21,7 +21,7 @@ Security posture and compliance scanning for BlumeOps infrastructure.
 
 ## Scanning tools
 
-- [[prowler]] — CIS Kubernetes Benchmark scanner (weekly CronJob)
+- [[prowler]] — CIS Kubernetes Benchmark scanner (weekly CronJob). The container-image CVE scan and IaC scan were retired in 2026-06 (un-actioned noise — see [[deploy-prowler#Why only the K8s CIS scan]]); only the K8s CIS scan remains.
   - [[deploy-prowler]] — deployment and ad-hoc scan how-to
   - [[read-compliance-reports]] — accessing and interpreting reports
 - [[kingfisher]] — Secret detection and live validation for Forgejo repos (weekly CronJob + prek hook)
@@ -52,5 +52,5 @@ Suppressed findings are kept in Prowler mutelist YAML under `argocd/manifests/pr
 
 - No SOC 2 compliance mapping for Kubernetes (Prowler only maps SOC 2 for AWS/Azure/GCP)
 - k3s control plane checks produce no results (embedded binary, no static pods) — consider kube-bench
-- Container image scanning covers `blumeops/*` images only — upstream images (ollama, immich, etc.) are not scanned
-- IaC scanning covers the blumeops repo only — no scanning of third-party Helm charts or vendored manifests
+- No container-image CVE scanning (the Prowler image scan was retired 2026-06 as un-actioned noise). If reintroduced, scope it to critical-severity, currently-deployed tags, alert-on-new
+- No automated IaC misconfiguration scanning (the Prowler IaC scan was retired 2026-06). Manifest pod-security hardening is now an accept-and-document decision rather than a weekly report
