@@ -1,6 +1,7 @@
 ---
 title: Tailscale Operator
-modified: 2026-02-08
+modified: 2026-06-08
+last-reviewed: 2026-06-08
 tags:
   - kubernetes
   - tailscale
@@ -15,8 +16,16 @@ The Tailscale operator enables Kubernetes services to be exposed directly on the
 | Property | Value |
 |----------|-------|
 | **Namespace** | `tailscale` |
-| **Upstream** | `mirrors/tailscale` on forge (static manifest) |
-| **ArgoCD Apps** | `tailscale-operator-base` (upstream), `tailscale-operator` (config) |
+| **Upstream** | `mirrors/tailscale` on forge (static manifest, pinned `v1.94.2`) |
+| **ArgoCD Apps** | `tailscale-operator` (indri/minikube), `tailscale-operator-ringtail` (ringtail/k3s) |
+
+The operator runs on **both** clusters — indri's minikube and ringtail's k3s.
+Both apps layer on the shared `tailscale-operator-base` kustomize directory
+(operator manifest, `ProxyClass`, `dnsconfig`); each cluster supplies its own
+`ProxyGroup` (indri: 2 replicas, ringtail: 1) and OAuth `ExternalSecret`. The
+ringtail overlay additionally rewrites the proxy image to a locally nix-built
+mirror. See [[ringtail]] and [[migrate-wave1-ringtail]] for the ongoing
+migration of k8s workloads onto ringtail.
 
 ## How It Works
 
@@ -27,7 +36,13 @@ Ingresses use a shared ProxyGroup (`ingress`) rather than per-service Tailscale 
 3. Service becomes accessible at `<hostname>.tail8d86e.ts.net`
 4. TLS is handled automatically via Tailscale
 
-Tailnet clients must have `--accept-routes` enabled to route to VIP addresses.
+Two requirements for VIP routing to work:
+
+1. Tailnet clients must have `--accept-routes` enabled to route to VIP addresses.
+2. Ingress rules must **not** set an explicit `host:` field. The ProxyGroup
+   proxy receives the FQDN as the `Host` header (e.g.
+   `prometheus.tail8d86e.ts.net`), which won't match a short name. Use
+   `host: "*"` or omit `host:` entirely.
 
 Services can be individually tagged (e.g., `tag:flyio-target`) via Ingress annotations to control which ACL grants apply. See [[expose-service-publicly]] for the tagging workflow.
 
