@@ -1,6 +1,6 @@
 ---
 title: Mise Tasks
-modified: 2026-04-11
+modified: 2026-06-09
 tags:
   - reference
   - tools
@@ -17,7 +17,6 @@ Run `mise tasks --sort name` for the live list with descriptions.
 
 | Task | Description |
 |------|-------------|
-| `ai-docs` | All documentation concatenated for AI context (~85K tokens) |
 | `ai-sources` | All non-doc source files for deep AI context (~270K tokens) |
 | `docs-check-frontmatter` | Check required frontmatter fields |
 | `docs-check-links` | Validate wiki-links resolve correctly (supports path-based links) |

@@ -1,6 +1,7 @@
 ---
 title: Plan a Meal
-modified: 2026-03-17
+modified: 2026-06-09
+last-reviewed: 2026-06-09
 tags:
   - how-to
   - mealie

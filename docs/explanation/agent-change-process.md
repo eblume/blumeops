@@ -1,6 +1,6 @@
 ---
 title: Agent Change Process
-modified: 2026-03-15
+modified: 2026-06-09
 last-reviewed: 2026-02-23
 tags:
   - explanation
@@ -25,13 +25,13 @@ Before starting work, classify the change:
 
 When in doubt, start at C1. Upgrade to C2 if complexity spirals or the user requests it.
 
-**Context loading:** All change classes start with `mise run ai-docs` (~85K tokens of documentation). For problems with a large surface area, ask the user if `mise run ai-sources` should also be run — it concatenates all non-doc source files (~270K tokens). Together they cover the full codebase without overlap.
+**Context loading:** All change classes start by finding and reading the docs relevant to the change area — grep `docs/` and follow wiki-links. For problems with a very large surface area, `mise run ai-sources` concatenates all non-doc source files (~270K tokens); confirm with the user before loading it wholesale.
 
 ## C0 — Quick Fix
 
 A change where the risk is low enough that problems can be quickly fixed forward.
 
-1. Run `mise run ai-docs` to load context
+1. Find and read the docs relevant to the change area
 2. Implement the change directly on main
 3. Add a changelog fragment if the change is user-visible or noteworthy (`docs/changelog.d/+<descriptive-slug>.<type>.md`)
 4. Commit and push
@@ -46,7 +46,7 @@ A change with enough complexity or risk that a human should review it, but not s
 
 ### Process
 
-1. Run `mise run ai-docs` to load context
+1. Find and read the docs relevant to the change area
 2. **Search related docs** — read existing documentation and reference cards related to the change area
 3. **Create a feature branch** and open a PR early (draft is fine)
 4. **Documentation first** — commit doc changes reflecting the desired end state before writing code. This helps the reviewer understand intent and catches design issues early
@@ -77,7 +77,7 @@ A complex, multi-session change managed through the [Mikado method](https://mika
 
 Before writing any code, invest in understanding the problem:
 
-1. Run `mise run ai-docs` to load context
+1. Find and read the docs relevant to the change area
 2. Search related docs, reference cards, and existing how-to guides for the change area
 3. Think through the dependency graph — what prerequisites exist? What could go wrong?
 4. Create Mikado cards for everything you can anticipate (you'll discover more later — that's the point of the method)
@@ -220,7 +220,7 @@ When the final leaf node is closed and no `status: active` cards remain:
 
 When starting a new session to continue C2 work:
 
-1. Run `mise run ai-docs` to load context
+1. Find and read the docs relevant to the change area
 2. Run `mise run docs-mikado --resume` — this will:
    - Detect the current branch and match it to an active chain
    - Show the chain state, ready leaf nodes, and current position in the invariant

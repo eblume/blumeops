@@ -12,10 +12,9 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 
 ## Rules
 
-1. **Always run `mise run ai-docs` at session start**
-    This will refresh your context with important information you will be assumed to know and follow.
-    **Read the full output** — never truncate, pipe to `head`/`tail`, or skip sections.
-    For problems with a large surface area, ask the user if `mise run ai-sources` should also be run — it concatenates all non-doc source files (~270K tokens) for deep codebase context.
+1. **Start every task by finding and reading the relevant docs**
+    Search `docs/` for cards related to the change area (grep for titles/tags, follow `[[wiki-links]]`) and read what you find before acting. Wiki-links refer to cards under `docs/` by filename stem.
+    For problems with a very large surface area, `mise run ai-sources` concatenates all non-doc source files (~270K tokens) — opt-in only, confirm with the user before loading it wholesale; targeted reading is usually better.
 2. **Always use `--context=minikube-indri` with kubectl** (or `--context=k3s-ringtail` for ringtail services) - work contexts must never be touched
     **NEVER run `minikube delete`** — it destroys all PVs, etcd, and cluster state. Use `minikube stop`/`minikube start` for restarts. If minikube is stuck, see [[restart-indri]]. Full rebuild from scratch requires the DR procedure in [[rebuild-minikube-cluster]].
 3. **Classify the change as C0/C1/C2 before starting** (see below) — this determines branching and PR requirements
@@ -69,7 +68,7 @@ See [[agent-change-process]] for the full methodology.
 ~/code/3rd/             # mirrored external projects
 ~/code/work             # FORBIDDEN
 ```
-Other code paths will be listed via ai-docs, this is just an overview. When you
+This is just an overview — explore `docs/` for the rest. When you
 encounter wiki-links (`[[like-this]]`) it is referring to docs/ cards.
 
 ## Service Deployment
@@ -148,13 +147,42 @@ Create a new spork: `mise run spork-create <mirror-name>`
 ## Task Discovery
 
 BlumeOps tasks live in [hephaestus](https://github.com/eblume/hephaestus) (`heph`),
-the user's self-hosted context/task system. Fetch them with the CLI:
+the user's self-hosted context/task system. The CLI is a thin client of the
+local `hephd` daemon. (This replaced the retired `blumeops-tasks` mise task,
+which read from Todoist.)
+
+### Reading tasks
 
 ```fish
-heph list --project Blumeops --json  # outstanding Blumeops tasks as JSON
+heph list --project Blumeops --json   # outstanding Blumeops tasks as JSON
+heph next                             # tactical "what is next?" ranking
+heph show <node_id>                   # one task with its scalars
+heph context <node_id>                # print the task's canonical-context doc
+heph log <node_id>                    # print the task's latest log entries
 ```
 
-(This replaced the retired `blumeops-tasks` mise task, which read from Todoist.)
+JSON rows carry `node_id` (use this as `<ID>` in all commands below), `title`,
+`state`, `do_date`/`late_on` (epoch ms), `recurrence` (RFC-5545), and
+`attention` (red|orange|white|blue — a1–a4 urgency tiers; blue = on-deck).
+
+### Manipulating tasks
+
+```fish
+heph done <node_id>                   # mark done (recurring tasks roll forward)
+heph drop <node_id>                   # mark dropped
+heph skip <node_id>                   # skip a recurring task's current occurrence
+heph log <node_id> "text"             # append a log entry
+heph context <node_id> --append "…"   # append to the canonical-context doc (--body replaces; `-` reads stdin)
+heph edit <node_id> --do-date +3d     # reschedule; also --late-on/--recur/--attention/--project (`none` clears)
+heph task "Title" --project Blumeops --do-date fri --attention white  # create a task
+```
+
+Date forms: `today|tomorrow|+3d|fri|YYYY-MM-DD`. Recurrence: presets
+(`daily|weekly|monthly|yearly|weekdays`) or natural language (`"every 3 days"`).
+
+Conventions: don't save TODOs to agent memory — file them as heph tasks under
+the Blumeops project. When completing a recurring chore (e.g. "BlumeOps doc
+review"), `heph log` a short note of what was done, then `heph done` it.
 
 Most operational scripts are stored in `./mise-tasks/`. For scripts with any logic or
 complexity, use uv run --script 's with explicit dependencies. Complex

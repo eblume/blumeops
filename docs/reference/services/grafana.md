@@ -1,6 +1,7 @@
 ---
 title: Grafana
-modified: 2026-02-28
+modified: 2026-06-09
+last-reviewed: 2026-06-09
 tags:
   - service
   - observability
@@ -25,7 +26,7 @@ Dashboards and visualization for BlumeOps observability.
 
 Grafana supports two login methods:
 
-- **SSO via [[authentik]]** — OIDC login through Authentik (`auth.generic_oauth`). Users click "Sign in with Authentik", authenticate at Authentik, and are redirected back as Admin.
+- **SSO via [[authentik]]** — OIDC login through Authentik (`auth.generic_oauth`). Members of the Authentik `admins` group get the Admin role; everyone else gets Viewer (`role_attribute_path` in `grafana.ini`).
 - **Local admin** — break-glass login using the password from 1Password ("Grafana (blumeops)"). Always available if Authentik is down.
 
 The OIDC client secret is injected via [[external-secrets]] (`grafana-authentik-oauth` secret in monitoring namespace).
@@ -37,7 +38,7 @@ The OIDC client secret is injected via [[external-secrets]] (`grafana-authentik-
 | Prometheus | prometheus | `prometheus.monitoring.svc.cluster.local:9090` |
 | Loki | loki | `loki.monitoring.svc.cluster.local:3100` |
 | Tempo | tempo | `tempo.monitoring.svc.cluster.local:3200` |
-| TeslaMate | postgres | `blumeops-pg-rw.databases.svc.cluster.local:5432` |
+| TeslaMate | postgres | `pg.ops.eblu.me:5434` (TeslaMate's database on [[ringtail]], via Caddy L4) |
 
 ## Dashboard Provisioning
 
@@ -49,13 +50,9 @@ Optional annotation: `grafana_folder: "FolderName"`
 
 ## Key Dashboards
 
-- macOS System - Host metrics for indri
-- Minikube - Kubernetes cluster overview
-- Borgmatic Backups - Backup status and trends
-- Services Health - HTTP probe results
-- Docs APM - Request rate, latency, cache for docs.eblu.me
-- Fly.io Proxy Health - Aggregate proxy health across all upstream services
-- TeslaMate (18 dashboards) - Vehicle data
+Provisioned dashboards live in `argocd/manifests/grafana-config/dashboards/` (one ConfigMap per dashboard). Coverage as of 2026-06: alerts, borgmatic, CV APM, devpi, docs APM, fly.io proxy, forgejo, frigate, jellyfin, kubernetes, loki, macOS (indri host), postgresql, ringtail, shower APM, sifaka disks, snowflake proxy, tempo, transmission, zot.
+
+TeslaMate's dashboards are not in the repo — an init container fetches them from the forge mirror at a pinned tag (`TESLAMATE_VERSION` in `argocd/manifests/grafana/deployment.yaml`).
 
 ## Related
 

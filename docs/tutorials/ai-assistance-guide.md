@@ -1,6 +1,6 @@
 ---
 title: AI Assistance Guide
-modified: 2026-02-23
+modified: 2026-06-09
 tags:
   - tutorials
   - ai
@@ -17,7 +17,7 @@ This guide provides context for AI agents assisting with BlumeOps operations, an
 These are non-negotiable for AI agents working in this repo:
 
 1. **Always use `--context=minikube-indri` with kubectl** - Work contexts exist that must never be touched
-2. **Run `mise run ai-docs` at session start** - Review current infrastructure state
+2. **Start every task by finding and reading the relevant docs** - Grep `docs/` and follow wiki-links
 3. **Never commit secrets** - The repo is public at github.com/eblume/blumeops
 4. **Wait for user review before deploying** - Create PRs, don't auto-deploy
 5. **Never merge PRs without explicit request** - The user merges after review
@@ -91,8 +91,7 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 
 | Task | When to Use |
 |------|-------------|
-| `ai-docs` | At session start - all documentation concatenated for AI context (~85K tokens, see [[mise-tasks]]) |
-| `ai-sources` | Deep context - all non-doc source files (~270K tokens). Ask user before running; useful for problems with a large surface area |
+| `ai-sources` | Deep context - all non-doc source files (~270K tokens). Ask user before running; useful for problems with a large surface area (see [[mise-tasks]]) |
 | `docs-mikado` | View active Mikado dependency chains for C2 changes |
 | `docs-mikado --resume` | Resume a C2 chain: detect branch, show state and next steps |
 | `provision-indri` | Deploy changes to [[indri]]-hosted services via Ansible |

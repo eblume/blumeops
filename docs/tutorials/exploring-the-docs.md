@@ -1,6 +1,6 @@
 ---
 title: Exploring the Docs
-modified: 2026-02-10
+modified: 2026-06-09
 tags:
   - tutorials
   - getting-started
@@ -31,7 +31,6 @@ You probably want quick access to operational details:
 - [How-to](/how-to/) guides for common operations (deploy, troubleshoot, update ACLs)
 - [Reference](/reference/) has service URLs, commands, and config locations
 - [[ai-assistance-guide]] explains how to work effectively with AI agents
-- Run `mise run ai-docs` to prime AI context with key documentation
 
 ### For AI Agents
 
@@ -75,13 +74,7 @@ Prek hooks validate that all wiki-links resolve to existing files and flag ambig
 
 ## AI Context Priming
 
-The `ai-docs` mise task concatenates key documentation files for AI context:
-
-```bash
-mise run ai-docs
-```
-
-This outputs key documentation files and a full tree listing of all docs, providing an agent with essential context for BlumeOps operations.
+AI agents prime themselves by searching `docs/` for cards relevant to the task at hand and following wiki-links from there. (The retired `ai-docs` mise task used to concatenate every doc for this purpose, but the corpus outgrew a context window.) For deep codebase questions, `mise run ai-sources` concatenates all non-doc source files.
 
 ## Related
 
