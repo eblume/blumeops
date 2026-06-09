@@ -8,7 +8,7 @@
 #USAGE flag "--type <type>" help="Filter by service type (argocd, ansible, nixos, fly, mise)"
 """Review the most stale service for version freshness.
 
-Reads ``docs/reference/services/service-versions.yaml`` and sorts services
+Reads ``service-versions.yaml`` (repo root) and sorts services
 by the ``last-reviewed`` field. Services without the field (or null) are
 treated as never-reviewed and float to the top. Displays a staleness table
 and then shows the most stale service with a review checklist.
@@ -210,7 +210,7 @@ def main(
         "• Verify the service is running and healthy\n",
         "• Check logs for errors or warnings\n",
         "\n[bold]After Review:[/bold]\n",
-        "• Update the tracking file: [cyan]docs/reference/services/service-versions.yaml[/cyan]\n",
+        "• Update the tracking file: [cyan]service-versions.yaml[/cyan] (repo root)\n",
         f"• Set [cyan]last-reviewed: {today}[/cyan] and [cyan]current-version[/cyan]\n",
         "• Commit the change (along with any upgrades)",
     ]

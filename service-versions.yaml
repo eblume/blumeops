@@ -452,8 +452,8 @@ services:
 
   - name: automounter
     type: ansible
-    last-reviewed: 2026-03-17
-    current-version: "1.11.0"
+    last-reviewed: 2026-06-09
+    current-version: "1.13.0"
     upstream-source: https://www.pixeleyes.co.nz/automounter/
     notes: Mac App Store app, no Ansible role. Updates via App Store.
 
