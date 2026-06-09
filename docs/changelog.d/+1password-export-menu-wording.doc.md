@@ -1,0 +1,1 @@
+Corrected the 1Password backup how-to: the desktop app's export menu item is named after the account ("File > Export > Blume/Davis"), not "All Vaults". Verified an account export contains all four vaults (Private, blumeops, Payrix, Shared).

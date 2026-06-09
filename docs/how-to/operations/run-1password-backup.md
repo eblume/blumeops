@@ -1,7 +1,7 @@
 ---
 title: Run 1Password Backup
-modified: 2026-03-11
-last-reviewed: 2026-03-16
+modified: 2026-06-09
+last-reviewed: 2026-06-09
 tags:
   - how-to
   - operations
@@ -24,7 +24,7 @@ How to export and encrypt your 1Password vaults for inclusion in [[borgmatic]] b
 ### 1. Export Vaults From 1Password
 
 1. Open the 1Password desktop app
-2. **File > Export > All Vaults**
+2. **File > Export > Blume/Davis** (the menu item is named after the account, not "All Vaults" — exporting the account covers all vaults: Private, blumeops, Payrix, and Shared)
 3. Choose **1PUX** format
 4. Save to `~/Documents/` — 1Password names the file `1PasswordExport-<account-uuid>-<timestamp>.1pux` automatically; don't bother renaming it, pass the path to the task in the next step
 

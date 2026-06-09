@@ -86,7 +86,7 @@ def get_export_path(argv_path: str | None) -> Path | None:
         else:
             console.print("Export your vaults from the 1Password desktop app:")
             console.print("  1. Open 1Password")
-            console.print("  2. File > Export > All Vaults (or select specific vaults)")
+            console.print("  2. File > Export > <account name> (exports all vaults in the account)")
             console.print(f"  3. Save as 1PUX format to: [cyan]{EXPORT_DIR}[/cyan]")
             console.print()
             raw = console.input("Path to .1pux file: ").strip()
