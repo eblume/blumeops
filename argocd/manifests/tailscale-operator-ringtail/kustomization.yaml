@@ -9,12 +9,19 @@ resources:
   - proxygroup-ingress.yaml
   - external-secret.yaml
 
-# Rewrite the proxyclass image to our local nix-built mirror.
-# Scoped to ringtail only; indri's tailscale-operator/kustomization.yaml still
-# pulls from upstream docker.io. A strategic merge patch is used instead of
-# kustomize's `images:` directive because that directive only rewrites images
-# in standard k8s container fields, not custom-resource fields like
-# ProxyClass.spec.statefulSet.pod.tailscaleContainer.image.
+# Rewrite the operator image to the locally nix-built (amd64) mirror.
+# The name must match the post-base-render image (base already rewrites
+# tailscale/k8s-operator -> docker.io/tailscale/k8s-operator).
+images:
+  - name: docker.io/tailscale/k8s-operator
+    newName: registry.ops.eblu.me/blumeops/tailscale-operator
+    newTag: v1.94.2-ac40a18-nix
+
+# Rewrite the proxyclass image to our local nix-built mirror (indri's overlay
+# carries the equivalent dagger/arm64 patch). A strategic merge patch is used
+# instead of kustomize's `images:` directive because that directive only
+# rewrites images in standard k8s container fields, not custom-resource fields
+# like ProxyClass.spec.statefulSet.pod.tailscaleContainer.image.
 patches:
   - path: proxyclass-image.yaml
     target:

@@ -1,7 +1,7 @@
 ---
 title: Tailscale Operator
-modified: 2026-06-08
-last-reviewed: 2026-06-08
+modified: 2026-06-09
+last-reviewed: 2026-06-09
 tags:
   - kubernetes
   - tailscale
@@ -22,10 +22,42 @@ The Tailscale operator enables Kubernetes services to be exposed directly on the
 The operator runs on **both** clusters — indri's minikube and ringtail's k3s.
 Both apps layer on the shared `tailscale-operator-base` kustomize directory
 (operator manifest, `ProxyClass`, `dnsconfig`); each cluster supplies its own
-`ProxyGroup` (indri: 2 replicas, ringtail: 1) and OAuth `ExternalSecret`. The
-ringtail overlay additionally rewrites the proxy image to a locally nix-built
-mirror. See [[ringtail]] and [[migrate-wave1-ringtail]] for the ongoing
-migration of k8s workloads onto ringtail.
+`ProxyGroup` (indri: 2 replicas, ringtail: 1) and OAuth `ExternalSecret`. See
+[[ringtail]] and [[migrate-wave1-ringtail]] for the ongoing migration of k8s
+workloads onto ringtail.
+
+## Local Images
+
+Both the operator and the proxy run locally-built images from the forge
+mirror (`mirrors/tailscale`), not Docker Hub:
+
+| Image | Build | Used by |
+|-------|-------|---------|
+| `blumeops/tailscale-operator` | `containers/tailscale-operator/` (`container.py` for indri/arm64, `default.nix` `-nix` tag for ringtail/amd64) | operator Deployment, via each overlay's `images:` override |
+| `blumeops/tailscale` | `containers/tailscale/` (same dual build) | `ProxyClass` proxy pods, via a strategic-merge patch in each overlay |
+
+The ProxyClass image must be set with a **patch**, not kustomize's `images:`
+directive — that directive only rewrites standard container fields, not
+custom-resource fields like `ProxyClass.spec.statefulSet.pod.tailscaleContainer.image`.
+
+The `dnsconfig` nameserver image (`tailscale/k8s-nameserver:stable`) is still
+upstream — a known follow-up.
+
+## Rollout Safety (device identity)
+
+Proxy and operator tailnet identity lives in Kubernetes state Secrets in the
+`tailscale` namespace, not in pods or images. An image swap rolls the
+Deployment/StatefulSets but pods re-authenticate with their existing node
+keys — devices keep their names. Shadow devices (`foo-1` suffixes) appear only
+when a pod registers *fresh* while a stale device record still holds the name
+(deleted state Secrets, cluster rebuilds). When rolling out image changes:
+
+1. Never delete the `tailscale` namespace state Secrets.
+2. Verify after sync: pods healthy, device names unchanged in the admin
+   console, `mise run services-check` green.
+3. If a collision does occur: delete the stale device in the admin console
+   AND the affected state Secret, then restart the pod (see
+   [[rebuild-minikube-cluster]]).
 
 ## How It Works
 

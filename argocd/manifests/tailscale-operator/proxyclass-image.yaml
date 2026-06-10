@@ -1,0 +1,11 @@
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyClass
+metadata:
+  name: default
+spec:
+  statefulSet:
+    pod:
+      tailscaleContainer:
+        image: registry.ops.eblu.me/blumeops/tailscale:v1.94.2-ac40a18
+      tailscaleInitContainer:
+        image: registry.ops.eblu.me/blumeops/tailscale:v1.94.2-ac40a18
