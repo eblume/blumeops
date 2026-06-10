@@ -21,7 +21,7 @@ resources:
 images:
   - name: docker.io/tailscale/k8s-operator
     newName: registry.ops.eblu.me/blumeops/tailscale-operator
-    newTag: v1.94.2-ac40a18
+    newTag: v1.94.2-d03ed33
 
 # Rewrite the proxyclass image to the local mirror. A strategic merge patch
 # is used instead of kustomize's `images:` directive because that directive

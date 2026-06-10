@@ -15,7 +15,7 @@ resources:
 images:
   - name: docker.io/tailscale/k8s-operator
     newName: registry.ops.eblu.me/blumeops/tailscale-operator
-    newTag: v1.94.2-ac40a18-nix
+    newTag: v1.94.2-d03ed33-nix
 
 # Rewrite the proxyclass image to our local nix-built mirror (indri's overlay
 # carries the equivalent dagger/arm64 patch). A strategic merge patch is used
