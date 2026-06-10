@@ -121,6 +121,14 @@ prometheus.scrape "self" {
   scrape_interval = "15s"
 }
 
+// Anubis proof-of-work gateway metrics (anubis_challenges_issued,
+// anubis_policy_results{action,rule}, ...)
+prometheus.scrape "anubis" {
+  targets         = [{"__address__" = "127.0.0.1:9091"}]
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "15s"
+}
+
 // Strip the "loki_process_custom_" prefix that Alloy adds to stage.metrics,
 // then add instance label. This keeps dashboard queries clean.
 prometheus.relabel "instance" {

@@ -23,6 +23,21 @@ echo "MagicDNS ready"
 # (the geo directive's `include` fails if the file is missing).
 touch /etc/nginx/forge-deny.conf
 
+# Start Anubis — proof-of-work gateway for forge.eblu.me. Sits between the
+# public forge server block (:8080) and the internal forge backend vhost
+# (:8081). Started before nginx so the first proxied request doesn't 502.
+# ANUBIS_ED25519_PRIVATE_KEY_HEX is a Fly secret; without it Anubis
+# generates an ephemeral signing key (challenge cookies reset each deploy).
+if [ -n "${ANUBIS_ED25519_PRIVATE_KEY_HEX:-}" ]; then
+    export ED25519_PRIVATE_KEY_HEX="$ANUBIS_ED25519_PRIVATE_KEY_HEX"
+fi
+BIND=127.0.0.1:8923 \
+TARGET=http://127.0.0.1:8081 \
+METRICS_BIND=127.0.0.1:9091 \
+COOKIE_DOMAIN=forge.eblu.me \
+anubis &
+echo "Anubis started"
+
 # Start nginx — MagicDNS is available, upstreams resolved.
 nginx -g "daemon off;" &
 NGINX_PID=$!

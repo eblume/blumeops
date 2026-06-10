@@ -1,7 +1,7 @@
 ---
 title: AI Scraper Mitigation
-modified: 2026-06-01
-last-reviewed: 2026-06-01
+modified: 2026-06-10
+last-reviewed: 2026-06-10
 tags:
   - explanation
   - fly-io
@@ -104,13 +104,32 @@ HTML the crawlers were taking.
 `403`. Legitimate consumers already pull these over the tailnet, and the public
 exposure was the same crawl liability, so this is intentional.
 
-### Tier 2 — Defend the repos that *stay* public (planned)
+### June 2026: the crawl moves to `/eblume/*`
+
+Tier 1 held — `/mirrors/` traffic stayed at zero cost — but on 2026-06-10 the
+crawl resurfaced one path over: a single AWS-hosted client (no declared bot
+UA) walked the `/eblume/*` commit-history surface (`src/commit/<sha>/<path>`,
+`blame/commit/`, `commits/commit/`) at ~5.7 req/s, each request costing
+Forgejo 0.5–1.7s of git CPU. Combined with minikube's footprint, that pinned
+[[indri]] at load ~19 and made Forgejo's heavier API endpoints (e.g.
+`/actions/tasks`) time out entirely.
+
+Two lessons folded into the plan:
+
+1. **Path black-holes don't generalize.** `/eblume/*` is the surface we
+   *want* public; we can't 403 our way out of an infinite URL space that
+   humans also browse.
+2. **UA denylists are already moot.** The June crawler declared no bot UA at
+   all, so Tier 2a below would not have touched it. We skipped 2a and went
+   straight to the proof-of-work gateway.
+
+### Tier 2 — Defend the repos that *stay* public
 
 `/eblume/*` is intentionally public (a public profile is a feature). But the
 same git-history endpoints are still a tarpit there, just lower-volume. Two
 layers, in increasing order of effort and effectiveness:
 
-#### 2a. User-agent denylist (cheap, evadable)
+#### 2a. User-agent denylist (cheap, evadable — skipped)
 
 Block the declared AI crawlers at the edge regardless of path:
 
@@ -134,6 +153,11 @@ trivially evadable — a scraper need only spoof a browser UA — so it is a
 speed-bump, not a wall. Keep `robots.txt` too: well-behaved crawlers
 (Googlebot, Bingbot) do honor it, and it documents intent.
 
+**Skipped in practice:** by the time we got here (June 2026), the active
+scraper declared no bot UA, so this tier would have caught nothing. Anubis's
+stock policy also subsumes it (`ai-block-aggressive` denies the declared
+bots), so there was no reason to ship 2a separately.
+
 #### 2b. Anubis proof-of-work gateway (the real wall)
 
 [Anubis](https://github.com/TecharoHQ/anubis) is a Go reverse proxy that
@@ -152,17 +176,59 @@ Why it fits BlumeOps better than the alternatives:
 - **It stays in-house.** No third party terminates our TLS or sees our
   traffic.
 
-Placement options:
+**Placement decision: the Fly edge.** An earlier draft of this card leaned
+toward indri (between [[caddy|Caddy]] and Forgejo) for uniform coverage, but
+the June incident flipped the call:
 
-| Where | Pros | Cons |
-|-------|------|------|
-| On [[indri]], between [[caddy|Caddy]] and Forgejo | Protects every path and every entry (WAN *and* tailnet); one config | Adds a hop and a service to the indri critical path; the challenge page still tunnels back through Fly for WAN clients (small egress) |
-| On the Fly proxy machine, in front of nginx | Challenge served at the edge — bots never even tunnel to indri | Fly VM is small (512 MB); another moving part in the boot sequence alongside `tailscaled`/nginx/`fail2ban`/Alloy |
+- Bots are stopped *before* the Tailscale tunnel — challenge pages are a few
+  KB served at the edge, so egress and indri load collapse together.
+  Indri-side placement would still tunnel every challenge through Fly, and
+  adds a service to the box the [[indri]]→ringtail migration is evacuating.
+- The tailnet path (`forge.ops.eblu.me`) stays completely unchallenged: CI,
+  git remotes, and agents are untouched, and only WAN traffic — where the
+  scrapers are — pays the toll.
+- Only `forge.eblu.me` gets the gate. The static sites (docs, cv) are cached
+  at the proxy and shower's guest surface is rate-limited; neither serves an
+  infinite URL space.
 
-Leaning toward Caddy-side on indri for simplicity and uniform coverage, but
-this is the open design question for Tier 2. Anubis is MIT-licensed and the
-author has signalled a future move to an `equi-x`-based challenge, so pin a
-version and track upstream.
+Anubis cannot rewrite the `Host` header, and indri's Caddy routes on
+`forge.ops.eblu.me` (Host *and* SNI), so Anubis sits between two nginx
+contexts in the same VM — the standard "nginx sandwich":
+
+```
+WAN → Fly TLS → nginx :8080 (forge.eblu.me server block)
+        cheap edge blocks first: fail2ban deny, rate limits, robots.txt,
+        /mirrors/ 403, packages/swagger 403, archive redirect
+      → proxy_pass http://127.0.0.1:8923          (Anubis)
+      → Anubis → TARGET http://127.0.0.1:8081      (internal-only nginx vhost)
+      → existing static-caching + TLS/SNI proxy to indri Caddy → Forgejo
+```
+
+The edge 403s stay in front so black-holed paths never even cost a
+challenge. The internal `:8081` vhost inherits the existing per-location
+config (static-asset caching, release-artifact caching, upstream SNI) — see
+`fly/nginx.conf`. Nothing changes on indri; Forgejo's trusted-proxy chain is
+untouched.
+
+Configuration is the stock v1.25.0 policy (no `POLICY_FNAME`), which divides
+traffic the way we want out of the box:
+
+- git clients and API callers (non-`Mozilla` UA) → weight 0 → pass through;
+  public `git clone` over HTTPS keeps working
+- browsers → one JS proof-of-work interstitial, then a 7-day cookie
+- declared AI crawlers (GPTBot, meta-externalagent, Amazonbot, Bytespider …)
+  → denied outright
+- caveat: the GeoIP/ASN weighting rules require Techaro's Thoth service, so
+  they are inert here; UA-based rules carry the load
+
+Operational details: the binary is copied from the upstream container image
+(pinned by digest, same idiom as tailscaled/Alloy in `fly/Dockerfile`);
+`ED25519_PRIVATE_KEY_HEX` is a Fly secret (stored in 1Password) so challenge
+cookies survive deploys; Prometheus metrics are served on
+`127.0.0.1:9091` and scraped by the embedded Alloy. Anubis is MIT-licensed
+and the author has signalled a future move to an `equi-x`-based challenge, so
+the version is pinned (tracked as `flyio-anubis` in `service-versions.yaml`)
+and upstream is worth watching.
 
 ### Tier 3 — Move egress off Fly entirely (rejected)
 
@@ -191,8 +257,8 @@ required regardless of where egress is billed.
 | Tier | Lever | Cost | Availability | Status |
 |------|-------|------|--------------|--------|
 | 1 | Black-hole `/mirrors/*` at edge | −~71% | big drop | **shipped** |
-| 2a | UA denylist on remaining repos | −most of the rest | further drop | planned |
-| 2b | Anubis PoW gateway | −near-total | near-total | planned |
+| 2a | UA denylist on remaining repos | −most of the rest | further drop | skipped (moot — see above) |
+| 2b | Anubis PoW gateway | −near-total | near-total | **shipped** |
 | 3 | Cloudflare Tunnel | −total | needs 2b anyway | **rejected (principle)** |
 
 The guiding insight: the cheapest, lowest-risk mitigation is to **not serve an

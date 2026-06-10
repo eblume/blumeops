@@ -481,6 +481,18 @@ services:
     upstream-source: https://github.com/grafana/alloy/releases
     notes: COPY --from in fly/Dockerfile for log shipping and metrics
 
+  - name: flyio-anubis
+    type: fly
+    parent: flyio-nginx
+    last-reviewed: "2026-06-10"
+    current-version: "v1.25.0"
+    upstream-source: https://github.com/TecharoHQ/anubis/releases
+    notes: >-
+      Attached service: proof-of-work anti-scraper gateway for forge.eblu.me.
+      COPY --from in fly/Dockerfile (ko-built static binary, embedded
+      assets). Stock bot policy. Upstream has signalled a future equi-x
+      challenge algorithm — watch release notes when bumping.
+
   - name: dagger
     type: mise
     last-reviewed: 2026-04-21

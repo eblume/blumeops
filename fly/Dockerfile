@@ -17,6 +17,11 @@ RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
 COPY --from=docker.io/grafana/alloy@sha256:51aeb9d829239345070619dad3edd6873186f913c84f45b365b74574fcb38ec0 \
     /bin/alloy /usr/local/bin/alloy
 
+# Copy Anubis binary from official image (v1.25.0, ko-built static binary
+# with embedded assets) — proof-of-work gateway for forge.eblu.me
+COPY --from=ghcr.io/techarohq/anubis@sha256:5cf4c0d6c7ea01a356c6685a779971bdd28d6a5a4a6719201f73a9c4ae108db0 \
+    /ko-app/anubis /usr/local/bin/anubis
+
 RUN mkdir -p /var/log/nginx /etc/alloy /tmp/alloy-data
 
 COPY fail2ban/filter.d/forge-login.conf /etc/fail2ban/filter.d/forge-login.conf
