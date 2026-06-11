@@ -1,0 +1,1 @@
+[[retire-minikube]] phase 1 complete: prowler migrated to ringtail k3s (Nix-built from nixpkgs at 5.12.3 — a step back from 5.23.0 until nixpkgs catches up; same cis_1.11_kubernetes framework). Weekly CIS scans now target ringtail, k3s-appropriate node mounts, trivy + the image/IaC Dockerfile retired.

@@ -1,0 +1,59 @@
+# Node-level and RBAC checks that Prowler reports as MANUAL because it
+# cannot evaluate them from inside a pod. Verified out-of-band by the
+# node-verification block in `mise run review-compliance-reports`, which
+# SSHes into the minikube node and checks each condition directly.
+Mutelist:
+  Accounts:
+    "*":
+      Checks:
+        "etcd_unique_ca":
+          Regions: ["*"]
+          Resources: ["^etcd-minikube$"]
+          Description: "Etcd CA fingerprint verified different from cluster CA by review-compliance-reports."
+        "kubelet_conf_file_ownership":
+          Regions: ["*"]
+          Resources: ["^kubelet-config$"]
+          Description: "File ownership verified root:root by review-compliance-reports."
+        "kubelet_conf_file_permissions":
+          Regions: ["*"]
+          Resources: ["^kubelet-config$"]
+          Description: "File permissions verified 600 by review-compliance-reports."
+        "kubelet_config_yaml_ownership":
+          Regions: ["*"]
+          Resources: ["^kubelet-config$"]
+          Description: "File ownership verified root:root by review-compliance-reports."
+        "kubelet_config_yaml_permissions":
+          Regions: ["*"]
+          Resources: ["^kubelet-config$"]
+          Description: "File permissions verified 644 by review-compliance-reports."
+        "kubelet_service_file_ownership_root":
+          Regions: ["*"]
+          Resources: ["^kubelet-config$"]
+          Description: "File ownership verified root:root by review-compliance-reports."
+        "kubelet_service_file_permissions":
+          Regions: ["*"]
+          Resources: ["^kubelet-config$"]
+          Description: "File permissions verified 644 by review-compliance-reports."
+        "kubelet_disable_read_only_port":
+          Regions: ["*"]
+          Resources: ["^kubelet-config$"]
+          Description: "readOnlyPort absence (defaults to 0) verified by review-compliance-reports."
+        "kubelet_event_record_qps":
+          Regions: ["*"]
+          Resources: ["^kubelet-config$"]
+          Description: "eventRecordQPS absence (defaults to 5) verified by review-compliance-reports."
+        "kubelet_manage_iptables":
+          Regions: ["*"]
+          Resources: ["^kubelet-config$"]
+          Description: "makeIPTablesUtilChains absence (defaults to true) verified by review-compliance-reports."
+        "kubelet_strong_ciphers_only":
+          Regions: ["*"]
+          Resources: ["^kubelet-config$"]
+          Description: "Go default ciphers used; all traffic WireGuard-encrypted via tailnet."
+        "rbac_cluster_admin_usage":
+          Regions: ["*"]
+          Resources:
+            - "^cluster-admin$"
+            - "^kubeadm:cluster-admins$"
+            - "^minikube-rbac$"
+          Description: "Only built-in/minikube cluster-admin bindings present; verified by review-compliance-reports."

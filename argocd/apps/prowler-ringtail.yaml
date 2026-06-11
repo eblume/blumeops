@@ -1,0 +1,24 @@
+# Prowler on ringtail k3s.
+#
+# [[retire-minikube]] phase 1 (final service) — this also flips the scan
+# target: prowler scans the cluster it runs in, so weekly CIS reports now
+# cover ringtail instead of minikube. The mutelist still carries
+# minikube-shaped entries (inert on k3s — no static control-plane pods);
+# expect a mutelist rework pass after the first k3s scan.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prowler-ringtail
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/prowler-ringtail
+  destination:
+    server: https://ringtail.tail8d86e.ts.net:6443
+    namespace: prowler
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

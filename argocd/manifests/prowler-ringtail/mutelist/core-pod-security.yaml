@@ -1,0 +1,87 @@
+# Pod security checks — system pods, operator-managed pods, and accepted
+# operational needs. Each check ID appears once with all matching resources.
+Mutelist:
+  Accounts:
+    "*":
+      Checks:
+        "core_minimize_hostNetwork_containers":
+          Regions: ["*"]
+          Resources:
+            # Minikube control plane
+            - "^etcd-minikube$"
+            - "^kube-apiserver-minikube$"
+            - "^kube-controller-manager-minikube$"
+            - "^kube-scheduler-minikube$"
+            # Minikube system pods
+            - "^kube-proxy-"
+            - "^kindnet-"
+            - "^storage-provisioner$"
+          Description: >-
+            Control-plane and networking pods require hostNetwork by design.
+            Host network itself is only reachable via tailnet.
+        "core_minimize_privileged_containers":
+          Regions: ["*"]
+          Resources:
+            # Minikube system
+            - "^kube-proxy-"
+            # Tailscale operator-managed proxies
+            - "^ts-"
+            - "^ingress-"
+            # Forgejo runner
+            - "^forgejo-runner-"
+          Description: >-
+            kube-proxy: system pod, single-user cluster. ts-*/ingress-*:
+            Tailscale operator-managed. forgejo-runner: DinD limited to
+            trusted private forge repos.
+        "core_seccomp_profile_docker_default":
+          Regions: ["*"]
+          Resources:
+            # Minikube system pods
+            - "^coredns-"
+            - "^kube-proxy-"
+            - "^kindnet-"
+            - "^storage-provisioner$"
+            # Tailscale operator-managed pods
+            - "^ts-"
+            - "^operator-"
+            - "^nameserver-"
+            - "^ingress-"
+          Description: >-
+            System pods managed by minikube and Tailscale operator;
+            seccomp profiles set by upstream. Single-user cluster limits
+            exploit surface.
+        "core_minimize_hostPID_containers":
+          Regions: ["*"]
+          Resources:
+            - "^prowler-"
+          Description: >-
+            Prowler CIS scanner requires hostPID for file permission
+            checks. Runs as CronJob with 7-day TTL, not a persistent
+            workload.
+        "core_minimize_root_containers_admission":
+          Regions: ["*"]
+          Resources:
+            - "^grafana-"
+          Description: >-
+            Root limited to init-chown-data container; all runtime
+            containers run as UID 472 with caps dropped.
+        "core_minimize_containers_added_capabilities":
+          Regions: ["*"]
+          Resources:
+            # Minikube system pods
+            - "^coredns-"
+            - "^kindnet-"
+            # Grafana init-chown-data
+            - "^grafana-"
+          Description: >-
+            System pods: capabilities required by function
+            (minikube-managed). Grafana: CHOWN limited to init phase;
+            runtime containers drop ALL.
+        "core_minimize_containers_capabilities_assigned":
+          Regions: ["*"]
+          Resources:
+            - "^coredns-"
+            - "^kindnet-"
+            - "^grafana-"
+          Description: >-
+            See core_minimize_containers_added_capabilities.
