@@ -16,3 +16,5 @@ resources:
   - external-secret-teslamate.yaml
   # retire-minikube phase 1: miniflux
   - external-secret-miniflux.yaml
+  # retire-minikube phase 2: authentik
+  - external-secret-authentik.yaml

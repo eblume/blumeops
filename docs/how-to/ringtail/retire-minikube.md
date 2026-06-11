@@ -1,6 +1,6 @@
 ---
 title: Retire minikube on indri
-modified: 2026-06-10
+modified: 2026-06-11
 last-reviewed: 2026-06-10
 tags:
   - how-to
@@ -120,7 +120,7 @@ branch and merged after verification — exactly the wave-1 cadence.
 This card is the umbrella plan; per-phase PRs update it as reality
 intrudes.
 
-## Phase 0 — forgejo-runner → launchd on indri
+## Phase 0 — forgejo-runner → launchd on indri ✅ (2026-06-11)
 
 Unblocks PR #375 immediately and removes the build/VM resource
 contention that triggered this project. No data at risk.
@@ -164,7 +164,7 @@ few days of clean runs, delete the `forgejo-runner` app + manifests
 and the old uuid/token fields. Update
 [[forgejo-runner]] reference + the configure-k8s-runner how-to.
 
-## Phase 1 — simple apps to ringtail
+## Phase 1 — simple apps to ringtail ✅ (2026-06-11)
 
 miniflux, kiwix, torrent (transmission), navidrome, unpoller, prowler
 — one service at a time, each following the wave-1 cold-cutover steps
@@ -217,9 +217,10 @@ phase 4 (ArgoCD re-login depends on working SSO).
    session/recovery path open during the window.
 6. Update borgmatic's authentik entry 5432 → 5434; verify a dump.
 
-After miniflux (phase 1) and authentik move, minikube `blumeops-pg`
-is empty: keep it idle for a week, then remove the `blumeops-pg` +
-`cloudnative-pg` minikube apps. Retire the Caddy L4 `:5432` route and
+After the authentik move, minikube `blumeops-pg` carries no live
+tenants (the miniflux database was deliberately left in place at its
+phase-1 cutover — it retires with the cluster): keep it idle for a
+week, then remove the `blumeops-pg` + `cloudnative-pg` minikube apps. Retire the Caddy L4 `:5432` route and
 its `.pgpass` line (5433 immich / 5434 blumeops-pg-ringtail remain);
 the `pg.tail8d86e.ts.net` device name dies with the minikube ingress.
 

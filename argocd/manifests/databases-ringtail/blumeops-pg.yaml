@@ -87,6 +87,18 @@ spec:
         inherit: true
         passwordSecret:
           name: blumeops-pg-miniflux
+      # authentik user ([[retire-minikube]] phase 2). Same password as the
+      # minikube-side role (sourced from the same 1Password item), so the
+      # cutover is only a postgresql-host flip. Database created at cutover
+      # (CREATE DATABASE authentik OWNER authentik), then restored into from
+      # the quiesced minikube dump (no extensions needed).
+      - name: authentik
+        login: true
+        connectionLimit: -1
+        ensure: present
+        inherit: true
+        passwordSecret:
+          name: blumeops-pg-authentik
 
   resources:
     requests:
