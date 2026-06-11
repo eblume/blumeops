@@ -220,7 +220,7 @@ services:
   - name: miniflux
     type: argocd
     last-reviewed: 2026-04-12
-    current-version: "2.2.19"
+    current-version: "2.3.1"
     upstream-source: https://github.com/miniflux/v2/releases
 
   - name: teslamate
@@ -240,7 +240,7 @@ services:
   - name: transmission
     type: argocd
     last-reviewed: 2026-04-15
-    current-version: "4.1.1-r1"
+    current-version: "4.1.1"
     upstream-source: https://github.com/transmission/transmission/releases
 
   - name: transmission-exporter

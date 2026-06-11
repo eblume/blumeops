@@ -1,0 +1,17 @@
+# NFS PersistentVolume for the Navidrome music library, mounted from
+# ringtail ([[retire-minikube]] phase 1). sifaka exports /volume1/music
+# read-only to the LAN + tailnet CGNAT ranges; see [[sifaka-nfs-from-ringtail]].
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: navidrome-music-nfs-pv-ringtail
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: sifaka
+    path: /volume1/music

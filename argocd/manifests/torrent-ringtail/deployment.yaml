@@ -1,0 +1,86 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transmission
+  namespace: torrent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transmission
+  template:
+    metadata:
+      labels:
+        app: transmission
+    spec:
+      securityContext:
+        # The Nix image has a fixed uid-1000 user (no PUID/su-exec dance);
+        # fsGroup makes the /config emptyDir writable for it. Matches the
+        # ownership of the existing NFS download dirs.
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: transmission
+          image: registry.ops.eblu.me/blumeops/transmission:kustomized
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "America/Los_Angeles"
+          ports:
+            - containerPort: 9091
+              name: web
+            - containerPort: 51413
+              name: peer-tcp
+            - containerPort: 51413
+              protocol: UDP
+              name: peer-udp
+          volumeMounts:
+            - name: downloads
+              mountPath: /downloads
+            - name: config
+              mountPath: /config
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /transmission/web/
+              port: 9091
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /transmission/web/
+              port: 9091
+            initialDelaySeconds: 10
+            periodSeconds: 10
+        - name: transmission-exporter
+          image: registry.ops.eblu.me/blumeops/transmission-exporter:kustomized
+          env:
+            - name: TRANSMISSION_ADDR
+              value: "http://localhost:9091"
+          ports:
+            - containerPort: 19091
+              name: metrics
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "64Mi"
+      volumes:
+        - name: downloads
+          persistentVolumeClaim:
+            claimName: torrents-storage
+        - name: config
+          emptyDir: {}  # Config is ephemeral; torrents persist in NFS

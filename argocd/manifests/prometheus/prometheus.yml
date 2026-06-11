@@ -56,26 +56,13 @@ scrape_configs:
       - target_label: cluster
         replacement: indri
 
-  # Transmission BitTorrent metrics (via sidecar exporter)
-  - job_name: "transmission"
-    static_configs:
-      - targets: ["transmission.torrent.svc.cluster.local:19091"]
-    metric_relabel_configs:
-      - target_label: cluster
-        replacement: indri
+  # transmission + unpoller moved to ringtail (retire-minikube phase 1);
+  # alloy-ringtail scrapes them in-cluster and remote_writes here.
 
   # Tempo operational metrics
   - job_name: "tempo"
     static_configs:
       - targets: ["tempo.monitoring.svc.cluster.local:3200"]
-    metric_relabel_configs:
-      - target_label: cluster
-        replacement: indri
-
-  # UniFi network metrics (via UnPoller exporter)
-  - job_name: "unpoller"
-    static_configs:
-      - targets: ["unpoller.monitoring.svc.cluster.local:9130"]
     metric_relabel_configs:
       - target_label: cluster
         replacement: indri

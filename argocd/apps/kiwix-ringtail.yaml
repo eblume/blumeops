@@ -1,0 +1,22 @@
+# kiwix on ringtail k3s.
+#
+# [[retire-minikube]] phase 1. Staging deployment; the minikube app stays
+# parked until cutover. All state is on the sifaka torrents NFS export —
+# no data copy needed, only the ingress device-name handoff.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kiwix-ringtail
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/kiwix-ringtail
+  destination:
+    server: https://ringtail.tail8d86e.ts.net:6443
+    namespace: kiwix
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

@@ -45,6 +45,23 @@ prometheus.scrape "kube_state_metrics" {
   forward_to      = [prometheus.remote_write.prometheus.receiver]
 }
 
+// ============== APP EXPORTER SCRAPES ==============
+// Exporters that minikube's prometheus used to scrape in-cluster; their
+// apps moved here in [[retire-minikube]] phase 1, so alloy scrapes them
+// locally and remote_writes like everything else.
+
+prometheus.scrape "transmission" {
+  targets         = [{"__address__" = "transmission.torrent.svc.cluster.local:19091", "job" = "transmission"}]
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.prometheus.receiver]
+}
+
+prometheus.scrape "unpoller" {
+  targets         = [{"__address__" = "unpoller.monitoring.svc.cluster.local:9130", "job" = "unpoller"}]
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.prometheus.receiver]
+}
+
 // ============== SERVICE HEALTH PROBES ==============
 
 // Blackbox-style HTTP probes for in-cluster services on ringtail

@@ -149,14 +149,16 @@ prometheus.exporter.blackbox "services" {
   }
 
   target {
+    // kiwix runs on ringtail now ([[retire-minikube]] phase 1).
     name    = "kiwix"
-    address = "http://kiwix.kiwix.svc.cluster.local:80/"
+    address = "https://kiwix.ops.eblu.me/"
     module  = "http_2xx"
   }
 
   target {
+    // transmission runs on ringtail now ([[retire-minikube]] phase 1).
     name    = "transmission"
-    address = "http://transmission.torrent.svc.cluster.local:9091/transmission/web/"
+    address = "https://torrent.ops.eblu.me/transmission/web/"
     module  = "http_2xx"
   }
 
@@ -200,8 +202,10 @@ prometheus.exporter.blackbox "services" {
   }
 
   target {
+    // navidrome runs on ringtail now ([[retire-minikube]] phase 1);
+    // probe through Caddy like miniflux/devpi.
     name    = "navidrome"
-    address = "http://navidrome.navidrome.svc.cluster.local:4533/"
+    address = "https://dj.ops.eblu.me/ping"
     module  = "http_2xx"
   }
 

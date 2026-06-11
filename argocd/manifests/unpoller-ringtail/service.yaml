@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: unpoller
+  namespace: monitoring
+spec:
+  selector:
+    app: unpoller
+  ports:
+    - port: 9130
+      targetPort: metrics
+      protocol: TCP
+      name: metrics

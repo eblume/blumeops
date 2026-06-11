@@ -1,0 +1,26 @@
+# Navidrome on ringtail k3s.
+#
+# [[retire-minikube]] phase 1. Staging deployment; the minikube `navidrome`
+# app stays parked in parallel until cutover (copy the navidrome-data PVC,
+# drop the minikube tailscale ingress to release the `dj` device name).
+#
+# Prerequisites:
+# - sifaka /volume1/music NFS export reachable from ringtail (verified)
+# - navidrome-data PVC contents copied from minikube at cutover
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: navidrome-ringtail
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/navidrome-ringtail
+  destination:
+    server: https://ringtail.tail8d86e.ts.net:6443
+    namespace: navidrome
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

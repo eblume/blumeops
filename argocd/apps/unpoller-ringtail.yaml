@@ -1,0 +1,22 @@
+# UnPoller on ringtail k3s.
+#
+# [[retire-minikube]] phase 1. Stateless; cutover is scale-down on
+# minikube + sync here. Metrics flow via alloy-ringtail scrape →
+# remote_write (no tailscale ingress — nothing routes to unpoller).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: unpoller-ringtail
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/unpoller-ringtail
+  destination:
+    server: https://ringtail.tail8d86e.ts.net:6443
+    namespace: monitoring
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
