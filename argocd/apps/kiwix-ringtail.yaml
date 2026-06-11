@@ -1,8 +1,7 @@
 # kiwix on ringtail k3s.
 #
-# [[retire-minikube]] phase 1. Staging deployment; the minikube app stays
-# parked until cutover. All state is on the sifaka torrents NFS export —
-# no data copy needed, only the ingress device-name handoff.
+# [[retire-minikube]] phase 1. All state is on the sifaka torrents NFS
+# export — no data copy was needed, only the ingress device-name handoff.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -20,3 +19,9 @@ spec:
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
+  # Ignore zim-hash annotation - updated dynamically by zim-watcher CronJob
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /metadata/annotations/kiwix.blumeops~1zim-hash
