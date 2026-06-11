@@ -224,7 +224,7 @@ week, then remove the `blumeops-pg` + `cloudnative-pg` minikube apps. Retire the
 its `.pgpass` line (5433 immich / 5434 blumeops-pg-ringtail remain);
 the `pg.tail8d86e.ts.net` device name dies with the minikube ingress.
 
-## Phase 3 — observability stack
+## Phase 3 — observability stack ✅ cutover 2026-06-11 (minikube LGTM parked for rollback soak)
 
 prometheus, loki, tempo, grafana (+grafana-config), and deletion of
 minikube-only alloy-k8s / kube-state-metrics (ringtail variants
@@ -245,9 +245,19 @@ while they move.
   remote_write/loki push retry against `prometheus.ops.eblu.me` /
   `loki.ops.eblu.me` (Caddy hostnames, unchanged). Keep each window
   well under the WAL horizon (~2h).
-- Move the blackbox probes living in `alloy-k8s/config.alloy` (e.g.
-  the tesla/devpi/immich HTTPS probes) into `alloy-ringtail`'s config
-  before deleting alloy-k8s.
+- **alloy-k8s survives this phase** (deviation from the original plan
+  to delete it here): it still ships minikube pod logs and absorbs the
+  in-cluster scrapes the minikube prometheus loses at cutover (argocd
+  metrics — the argocd-sync alert depends on them — and minikube
+  kube-state-metrics). Its loki/prometheus endpoints and the
+  prometheus/loki/grafana blackbox probes repoint to the external
+  names. argocd's scrape dies in phase 4, the rest in phase 5.
+- prometheus-ringtail's scrape config also picks up **in-cluster CNPG
+  metrics for both ringtail pg clusters** (new ClusterIP metrics
+  services in databases-ringtail) — closing a pre-existing gap: only
+  the minikube blumeops-pg was ever scraped, and it idles toward
+  retirement, which would have left the postgres-cluster-unhealthy
+  alert evaluating nothing.
 - Grafana datasource URLs are in-cluster names — identical on
   ringtail (`monitoring` namespace). The TeslaMate datasource already
   points at `:5434`. Verify dashboards, alert rules, and the alerting

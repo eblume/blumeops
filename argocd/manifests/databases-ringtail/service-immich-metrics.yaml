@@ -1,0 +1,16 @@
+# ClusterIP metrics service for ringtail immich-pg
+# ([[retire-minikube]] phase 3); see service-metrics.yaml.
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich-pg-metrics
+  namespace: databases
+spec:
+  selector:
+    cnpg.io/cluster: immich-pg
+    role: primary
+  ports:
+    - name: metrics
+      port: 9187
+      targetPort: 9187
+      protocol: TCP

@@ -1,0 +1,27 @@
+# Tailscale Ingress for Tempo OTLP HTTP receiver
+# Used by ringtail Alloy to push traces across tailnet
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tempo-otlp-tailscale
+  namespace: monitoring
+  annotations:
+    tailscale.com/funnel: "false"
+    tailscale.com/proxy-group: "ingress"
+    tailscale.com/tags: "tag:k8s"
+    gethomepage.dev/enabled: "false"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tempo
+                port:
+                  number: 4318
+  tls:
+    - hosts:
+        - tempo-otlp

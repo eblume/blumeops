@@ -1,0 +1,19 @@
+# ClusterIP metrics service for ringtail blumeops-pg
+# ([[retire-minikube]] phase 3). prometheus-ringtail scrapes this
+# in-cluster (job cnpg-postgres) — before this, neither ringtail pg
+# cluster had metrics coverage; only the retiring minikube blumeops-pg
+# was scraped (via its tailscale metrics service).
+apiVersion: v1
+kind: Service
+metadata:
+  name: blumeops-pg-metrics
+  namespace: databases
+spec:
+  selector:
+    cnpg.io/cluster: blumeops-pg
+    role: primary
+  ports:
+    - name: metrics
+      port: 9187
+      targetPort: 9187
+      protocol: TCP

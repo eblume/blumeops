@@ -1,0 +1,33 @@
+# Tailscale Ingress for Prometheus
+# Allows Alloy on indri to push metrics via remote_write
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prometheus-tailscale
+  namespace: monitoring
+  annotations:
+    tailscale.com/funnel: "false"
+    tailscale.com/proxy-group: "ingress"
+    tailscale.com/tags: "tag:k8s,tag:flyio-target"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Prometheus"
+    gethomepage.dev/group: "Infrastructure"
+    gethomepage.dev/icon: "prometheus.png"
+    gethomepage.dev/description: "Metrics storage"
+    gethomepage.dev/href: "https://prometheus.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=prometheus"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090
+  tls:
+    - hosts:
+        - prometheus

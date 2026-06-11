@@ -1,0 +1,85 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Prometheus on ringtail ([[retire-minikube]] phase 3).
+#
+# Push topology is unchanged: indri alloy, alloy-ringtail, and (until
+# phase 5) minikube alloy-k8s all remote_write here via the
+# `prometheus` tailscale ingress name, which transferred at cutover.
+#
+# Scrape topology vs the minikube config:
+#   - loki/tempo in-cluster jobs keep their service names (identical on
+#     ringtail) and are relabeled cluster=ringtail.
+#   - kube-state-metrics job dropped: alloy-ringtail already scrapes
+#     ringtail's KSM; minikube's KSM moved to an alloy-k8s scrape.
+#   - argocd job moved to alloy-k8s (argocd stays on minikube until
+#     phase 4; its in-cluster name is unreachable from here).
+#   - cnpg job now scrapes BOTH ringtail pg clusters in-cluster
+#     (blumeops-pg + immich-pg metrics services in databases-ringtail) —
+#     these were dark before; the retiring minikube blumeops-pg
+#     (idle since phase 2) is deliberately not scraped.
+
+scrape_configs:
+  # Sifaka NAS exporters (via Caddy L4 TCP proxy on indri)
+  - job_name: "node-exporter-sifaka"
+    static_configs:
+      - targets: ["nas.ops.eblu.me:9100"]
+    metric_relabel_configs:
+      - target_label: cluster
+        replacement: indri
+
+  - job_name: "smartctl-sifaka"
+    scrape_interval: 60s
+    static_configs:
+      - targets: ["nas.ops.eblu.me:9633"]
+    metric_relabel_configs:
+      - target_label: cluster
+        replacement: indri
+
+  # CNPG PostgreSQL metrics (ringtail in-cluster)
+  - job_name: "cnpg-postgres"
+    static_configs:
+      - targets: ["blumeops-pg-metrics.databases.svc.cluster.local:9187"]
+        labels:
+          instance: "blumeops-pg"
+      - targets: ["immich-pg-metrics.databases.svc.cluster.local:9187"]
+        labels:
+          instance: "immich-pg"
+    metric_relabel_configs:
+      - target_label: cluster
+        replacement: ringtail
+
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+    metric_relabel_configs:
+      - target_label: cluster
+        replacement: ringtail
+
+  # Loki metrics
+  - job_name: "loki"
+    static_configs:
+      - targets: ["loki.monitoring.svc.cluster.local:3100"]
+    metric_relabel_configs:
+      - target_label: cluster
+        replacement: ringtail
+
+  # Tempo operational metrics
+  - job_name: "tempo"
+    static_configs:
+      - targets: ["tempo.monitoring.svc.cluster.local:3200"]
+    metric_relabel_configs:
+      - target_label: cluster
+        replacement: ringtail
+
+  # Frigate NVR metrics (via Caddy on indri — Frigate runs on ringtail)
+  - job_name: "frigate"
+    scheme: https
+    static_configs:
+      - targets: ["nvr.ops.eblu.me"]
+    metrics_path: /api/metrics
+    metric_relabel_configs:
+      - target_label: cluster
+        replacement: ringtail

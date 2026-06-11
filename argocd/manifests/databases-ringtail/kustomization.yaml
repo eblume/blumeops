@@ -18,3 +18,6 @@ resources:
   - external-secret-miniflux.yaml
   # retire-minikube phase 2: authentik
   - external-secret-authentik.yaml
+  # retire-minikube phase 3: in-cluster CNPG metrics for prometheus-ringtail
+  - service-metrics.yaml
+  - service-immich-metrics.yaml

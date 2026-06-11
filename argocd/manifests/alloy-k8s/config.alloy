@@ -127,10 +127,15 @@ loki.process "pods" {
   }
 }
 
-// Write logs to Loki
+// Write logs to Loki ([[retire-minikube]] phase 3: loki lives on
+// ringtail now; the tailscale ingress name transferred at cutover)
 loki.write "loki" {
   endpoint {
-    url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+    url = "https://loki.tail8d86e.ts.net/loki/api/v1/push"
+
+    tls_config {
+      insecure_skip_verify = true
+    }
   }
 }
 
@@ -177,20 +182,24 @@ prometheus.exporter.blackbox "services" {
   }
 
   target {
+    // prometheus runs on ringtail now ([[retire-minikube]] phase 3);
+    // probe through Caddy like the phase-1 services.
     name    = "prometheus"
-    address = "http://prometheus.monitoring.svc.cluster.local:9090/-/healthy"
+    address = "https://prometheus.ops.eblu.me/-/healthy"
     module  = "http_2xx"
   }
 
   target {
+    // loki runs on ringtail now ([[retire-minikube]] phase 3).
     name    = "loki"
-    address = "http://loki.monitoring.svc.cluster.local:3100/ready"
+    address = "https://loki.ops.eblu.me/ready"
     module  = "http_2xx"
   }
 
   target {
+    // grafana runs on ringtail now ([[retire-minikube]] phase 3).
     name    = "grafana"
-    address = "http://grafana.monitoring.svc.cluster.local:80/api/health"
+    address = "https://grafana.ops.eblu.me/api/health"
     module  = "http_2xx"
   }
 
@@ -218,11 +227,35 @@ prometheus.scrape "blackbox" {
   forward_to      = [prometheus.remote_write.prometheus.receiver]
 }
 
-// Push metrics to Prometheus
+// ============== MINIKUBE-LOCAL SCRAPES ==============
+// Jobs the minikube prometheus scraped in-cluster before it moved to
+// ringtail ([[retire-minikube]] phase 3). They keep their job names
+// (and cluster=indri via external_labels) for metric continuity, and
+// die with their workloads: argocd moves in phase 4, kube-state-metrics
+// retires with the cluster in phase 5.
+
+prometheus.scrape "argocd" {
+  targets         = [{"__address__" = "argocd-metrics.argocd.svc.cluster.local:8082", "job" = "argocd"}]
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.prometheus.receiver]
+}
+
+prometheus.scrape "kube_state_metrics" {
+  targets         = [{"__address__" = "kube-state-metrics.monitoring.svc.cluster.local:8080", "job" = "kube-state-metrics"}]
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.prometheus.receiver]
+}
+
+// Push metrics to Prometheus ([[retire-minikube]] phase 3: prometheus
+// lives on ringtail now; the tailscale ingress name transferred)
 prometheus.remote_write "prometheus" {
   external_labels = { cluster = "indri" }
 
   endpoint {
-    url = "http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+    url = "https://prometheus.tail8d86e.ts.net/api/v1/write"
+
+    tls_config {
+      insecure_skip_verify = true
+    }
   }
 }
