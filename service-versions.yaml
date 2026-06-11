@@ -14,8 +14,8 @@
 services:
   - name: prometheus
     type: argocd
-    last-reviewed: 2026-03-18
-    current-version: "v3.10.0"
+    last-reviewed: 2026-06-10
+    current-version: "v3.12.0"
     upstream-source: https://github.com/prometheus/prometheus/releases
 
   - name: loki
