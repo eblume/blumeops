@@ -12,7 +12,7 @@ resources:
 images:
   - name: grafana/tempo
     newName: registry.ops.eblu.me/blumeops/tempo
-    newTag: "v2.10.3-7060961-nix"
+    newTag: "v2.10.3-8b1f89e-nix"
 
 configMapGenerator:
   - name: tempo-config
