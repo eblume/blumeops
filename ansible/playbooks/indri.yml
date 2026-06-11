@@ -127,6 +127,34 @@
       no_log: true
       tags: [forgejo_actions_secrets]
 
+    # Forgejo runner identity (launchd runner on indri)
+    - name: Fetch forgejo runner UUID
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/runner_indri_uuid"
+      delegate_to: localhost
+      register: _forgejo_runner_uuid
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo_runner]
+
+    - name: Fetch forgejo runner token
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/runner_indri_token"
+      delegate_to: localhost
+      register: _forgejo_runner_token
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo_runner]
+
+    - name: Set forgejo runner identity facts
+      ansible.builtin.set_fact:
+        forgejo_runner_uuid: "{{ _forgejo_runner_uuid.stdout }}"
+        forgejo_runner_token: "{{ _forgejo_runner_token.stdout }}"
+      no_log: true
+      tags: [forgejo_runner]
+
     # Zot OIDC client secret
     - name: Fetch zot OIDC client secret
       ansible.builtin.command:
@@ -240,6 +268,8 @@
       tags: forgejo
     - role: forgejo_actions_secrets
       tags: forgejo_actions_secrets
+    - role: forgejo_runner
+      tags: forgejo_runner
     - role: zot
       tags: zot
     - role: zot_metrics

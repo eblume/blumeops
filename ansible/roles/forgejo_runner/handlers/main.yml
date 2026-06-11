@@ -1,0 +1,13 @@
+---
+- name: Restart forgejo-runner
+  ansible.builtin.shell: |
+    launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist 2>/dev/null || true
+    launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist
+  changed_when: true
+
+- name: Note Docker Desktop restart required
+  ansible.builtin.debug:
+    msg: >-
+      daemon.json changed: restart Docker Desktop on indri to activate
+      the registry mirror. While minikube still exists, a Docker
+      restart takes the cluster down — pick a quiet moment.

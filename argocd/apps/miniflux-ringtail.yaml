@@ -1,0 +1,27 @@
+# Miniflux on ringtail k3s.
+#
+# [[retire-minikube]] phase 1. Staging deployment; the minikube `miniflux`
+# app stays in parallel until cutover (pg_dump/pg_restore the miniflux DB,
+# drop the minikube tailscale ingress to release the `feed` device name).
+#
+# Prerequisites:
+# - external-secrets-ringtail (onepassword-blumeops ClusterSecretStore)
+# - miniflux role + database in the ringtail blumeops-pg (databases-ringtail)
+# - "Miniflux" 1Password item (db_password)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: miniflux-ringtail
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/miniflux-ringtail
+  destination:
+    server: https://ringtail.tail8d86e.ts.net:6443
+    namespace: miniflux
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

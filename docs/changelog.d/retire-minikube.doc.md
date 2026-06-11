@@ -1,0 +1,1 @@
+Kick off the minikube retirement: umbrella migration plan ([[retire-minikube]]) to move all remaining k8s workloads (miniflux, navidrome, torrent, kiwix, unpoller, prowler, the LGTM observability stack, authentik's database, and ArgoCD itself) from indri/minikube to ringtail/k3s, convert the forgejo-runner to a native launchd service on indri, and decommission minikube.

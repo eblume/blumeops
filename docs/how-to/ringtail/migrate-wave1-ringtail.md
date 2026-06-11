@@ -19,7 +19,8 @@ which made every minikube-hosted service probe-flap at once. These
 three app pods are ~1.1 GiB resident combined and are the heaviest
 non-observability tenants left on minikube. Following
 [[migrate-immich-to-ringtail]], the first chain in the indri-k8s
-decommission.
+decommission. The final phase — everything else, the forgejo-runner,
+and minikube itself — is planned in [[retire-minikube]].
 
 ## End state
 

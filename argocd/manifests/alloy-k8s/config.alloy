@@ -141,8 +141,10 @@ prometheus.exporter.blackbox "services" {
   config = "{ modules: { http_2xx: { prober: http, timeout: 5s } } }"
 
   target {
+    // miniflux runs on ringtail now ([[retire-minikube]] phase 1);
+    // probe through Caddy like devpi/tesla.
     name    = "miniflux"
-    address = "http://miniflux.miniflux.svc.cluster.local:8080/healthcheck"
+    address = "https://feed.ops.eblu.me/healthcheck"
     module  = "http_2xx"
   }
 

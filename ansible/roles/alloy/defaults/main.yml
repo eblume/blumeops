@@ -81,6 +81,12 @@ alloy_mcquack_logs:
   - path: /Users/erichblume/Library/Logs/mcquack.jellyfin.err.log
     service: jellyfin
     stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.forgejo-runner.out.log
+    service: forgejo-runner
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.forgejo-runner.err.log
+    service: forgejo-runner
+    stream: stderr
 
 # Enable log collection (requires Loki to be running)
 alloy_collect_logs: true

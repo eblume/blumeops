@@ -1,0 +1,92 @@
+---
+# Forgejo runner role — source-built binary with LaunchAgent.
+# See [[configure-launchd-runner]] for one-time setup (binary build +
+# runner registration) and the cutover plan from the k8s runner.
+
+- name: Verify forgejo-runner binary exists
+  ansible.builtin.stat:
+    path: "{{ forgejo_runner_binary }}"
+  register: forgejo_runner_binary_stat
+
+- name: Fail if forgejo-runner binary not found
+  ansible.builtin.fail:
+    msg: |
+      forgejo-runner binary not found at {{ forgejo_runner_binary }}.
+      Build from source first:
+        ssh indri 'cd {{ forgejo_runner_repo_dir }} && git fetch --tags && git checkout {{ forgejo_runner_version }} && make build'
+  when: not forgejo_runner_binary_stat.stat.exists
+
+- name: Check forgejo-runner binary version
+  ansible.builtin.command:
+    cmd: "{{ forgejo_runner_binary }} --version"
+  register: forgejo_runner_version_check
+  changed_when: false
+  check_mode: false
+
+- name: Fail if forgejo-runner binary version doesn't match the pin
+  ansible.builtin.fail:
+    msg: |
+      Binary reports "{{ forgejo_runner_version_check.stdout }}" but the
+      role pins {{ forgejo_runner_version }}. Rebuild at the pinned tag:
+        ssh indri 'cd {{ forgejo_runner_repo_dir }} && git fetch --tags && git checkout {{ forgejo_runner_version }} && make build'
+  when: forgejo_runner_version not in forgejo_runner_version_check.stdout
+
+- name: Ensure forgejo-runner home directory exists
+  ansible.builtin.file:
+    path: "{{ forgejo_runner_home }}"
+    state: directory
+    mode: '0700'
+
+- name: Deploy forgejo-runner config (contains runner token)
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ forgejo_runner_config_path }}"
+    mode: '0600'
+  notify: Restart forgejo-runner
+
+# --- Docker Desktop registry mirror (zot pull-through cache) ---
+# Merge, don't clobber: daemon.json carries Docker Desktop's own
+# settings (builder gc etc). The daemon only re-reads this on restart,
+# and restarting Docker Desktop also restarts minikube while it still
+# exists — so we notify instead of restarting.
+
+- name: Read Docker Desktop daemon.json
+  ansible.builtin.slurp:
+    src: "{{ forgejo_runner_docker_daemon_json }}"
+  register: forgejo_runner_daemon_json_raw
+  failed_when: false
+
+- name: Merge registry mirror into daemon.json settings
+  ansible.builtin.set_fact:
+    forgejo_runner_daemon_json_merged: >-
+      {{ (forgejo_runner_daemon_json_raw.content is defined)
+         | ternary(forgejo_runner_daemon_json_raw.content | default('') | b64decode | from_json, {})
+         | combine({'registry-mirrors': [forgejo_runner_registry_mirror]}) }}
+
+- name: Write Docker Desktop daemon.json with registry mirror
+  ansible.builtin.copy:
+    content: "{{ forgejo_runner_daemon_json_merged | to_nice_json }}\n"
+    dest: "{{ forgejo_runner_docker_daemon_json }}"
+    mode: '0644'
+  notify: Note Docker Desktop restart required
+
+# --- LaunchAgent ---
+
+- name: Deploy forgejo-runner LaunchAgent plist
+  ansible.builtin.template:
+    src: forgejo-runner.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist
+    mode: '0644'
+  notify: Restart forgejo-runner
+
+- name: Check if forgejo-runner LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.forgejo-runner
+  register: forgejo_runner_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load forgejo-runner LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist
+  when: forgejo_runner_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false

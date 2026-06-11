@@ -98,16 +98,19 @@ borgmatic_photos_keep_yearly: 1000
 
 borgmatic_pg_dump_command: /opt/homebrew/opt/postgresql@18/bin/pg_dump
 borgmatic_postgresql_databases:
-  # k8s PostgreSQL (CloudNativePG) via Caddy L4 proxy
-  - name: miniflux
-    hostname: pg.ops.eblu.me
-    port: 5432
-    username: borgmatic
+  # k8s PostgreSQL (CloudNativePG) via Caddy L4 proxy.
+  # port 5432 = minikube blumeops-pg (retiring); 5434 = ringtail blumeops-pg.
+  # authentik moves to 5434 in [[retire-minikube]] phase 2, then the
+  # 5432 route is retired.
   - name: authentik
     hostname: pg.ops.eblu.me
     port: 5432
     username: borgmatic
-  # migrated to ringtail blumeops-pg (wave-1); port 5434 = Caddy L4 route
+  # migrated to ringtail blumeops-pg (wave-1 + retire-minikube phase 1)
+  - name: miniflux
+    hostname: pg.ops.eblu.me
+    port: 5434
+    username: borgmatic
   - name: teslamate
     hostname: pg.ops.eblu.me
     port: 5434

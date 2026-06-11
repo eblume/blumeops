@@ -10,6 +10,11 @@ tags:
 
 # Configure K8s Forgejo Runner
 
+> **Being replaced:** the runner is moving to a native launchd service
+> on indri — see [[configure-launchd-runner]] ([[retire-minikube]]
+> phase 0). This card describes the outgoing minikube deployment and
+> is deleted when the cutover completes.
+
 Configure the Kubernetes Forgejo runner on [[indri]] using declarative `server.connections` config instead of first-boot `register`.
 
 ## Why This Flow

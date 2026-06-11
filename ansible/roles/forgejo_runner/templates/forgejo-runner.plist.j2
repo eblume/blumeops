@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>mcquack.eblume.forgejo-runner</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ forgejo_runner_binary }}</string>
+		<string>daemon</string>
+		<string>--config</string>
+		<string>{{ forgejo_runner_config_path }}</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>{{ forgejo_runner_home }}</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>HOME</key>
+		<string>/Users/erichblume</string>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>{{ forgejo_runner_log_dir }}/mcquack.forgejo-runner.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>{{ forgejo_runner_log_dir }}/mcquack.forgejo-runner.err.log</string>
+</dict>
+</plist>

@@ -14,3 +14,5 @@ resources:
   - external-secret-borgmatic.yaml
   - external-secret-paperless.yaml
   - external-secret-teslamate.yaml
+  # retire-minikube phase 1: miniflux
+  - external-secret-miniflux.yaml
