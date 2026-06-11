@@ -194,7 +194,7 @@ Service-specific notes:
 - **unpoller:** stateless; just needs the Nix port and tailnet/LAN
   reachability to the UX7.
 
-## Phase 2 — authentik DB move, retire minikube blumeops-pg
+## Phase 2 — authentik DB move ✅ (2026-06-11), retire minikube blumeops-pg (soaking until ~2026-06-18)
 
 Small, but the highest-blast-radius data surface: authentik is SSO
 for ArgoCD, Grafana, forge, and everything else. Must complete before
