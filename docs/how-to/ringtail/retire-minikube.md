@@ -301,7 +301,7 @@ on ringtail.
 6. `argocd login argocd.ops.eblu.me --sso` re-login; verify
    `mise run services-check` end to end.
 
-## Phase 5 — decommission and cleanup
+## Phase 5 — decommission and cleanup ✅ (2026-06-11, soak collapsed by user call)
 
 Only after every prior phase has soaked:
 
