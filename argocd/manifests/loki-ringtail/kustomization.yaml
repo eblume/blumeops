@@ -11,7 +11,7 @@ resources:
 images:
   - name: grafana/loki
     newName: registry.ops.eblu.me/blumeops/loki
-    newTag: v3.6.7-8b1f89e-nix
+    newTag: v3.7.2-ef3f03a-nix
 
 configMapGenerator:
   - name: loki-config

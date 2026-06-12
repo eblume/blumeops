@@ -7,15 +7,19 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "3.6.7";
+  version = "3.7.2";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/loki.git";
     rev = "v${version}";
-    hash = "sha256-4nu8ao0nGBMohf9b4uxkUzZwt1m1qbJ9YIKMF6Gh4TE=";
+    hash = "sha256-2VM5/SMgjxHraP+7H+AmDor9g4r+xglhqd/cVL7mCgQ=";
   };
 
-  loki = pkgs.buildGoModule {
+  # Loki 3.7.x go.mod requires go >= 1.26.2; the builder's default
+  # buildGoModule is still on go 1.25.
+  buildGo126Module = pkgs.buildGoModule.override { go = pkgs.go_1_26; };
+
+  loki = buildGo126Module {
     inherit src version;
     pname = "loki";
     vendorHash = null; # repo vendors its dependencies
