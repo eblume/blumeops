@@ -1,6 +1,7 @@
 ---
 title: Automounter
-modified: 2026-02-07
+modified: 2026-06-12
+last-reviewed: 2026-06-12
 tags:
   - services
   - macos
@@ -23,12 +24,20 @@ macOS app that automatically mounts [[sifaka]] SMB shares on [[indri]].
 
 | Share | Mount Point | Consumers |
 |-------|-------------|-----------|
-| backups | `/Volumes/backups` | [[borgmatic]] |
-| torrents | `/Volumes/torrents` | [[kiwix]], [[transmission]] |
-| music | `/Volumes/music` | [[navidrome]] |
+| backups | `/Volumes/backups` | [[borgmatic]] (repository storage) |
+| photos | `/Volumes/photos` | [[borgmatic]] (backs up immich library/upload) |
+| shower | `/Volumes/shower` | [[borgmatic]] (backup source) |
 | allisonflix | `/Volumes/allisonflix` | [[jellyfin]] |
-| photos | `/Volumes/photos` | [[immich]] |
-| frigate | `/Volumes/frigate` | [[frigate]] |
+| music | `/Volumes/music` | none — vestigial since [[retire-minikube]] |
+| torrents | `/Volumes/torrents` | none — vestigial since [[retire-minikube]] |
+| frigate | `/Volumes/frigate` | none — vestigial since [[retire-minikube]] |
+
+Workloads that moved to ringtail k3s ([[navidrome]], [[immich]], [[kiwix]],
+[[transmission]], [[frigate]], paperless) mount sifaka directly over NFS
+(see [[sifaka-nfs-from-ringtail]]) rather than going through indri's SMB
+mounts. The vestigial mounts are harmless but could be removed from
+AutoMounter's configuration; note that borgmatic still reads `photos` over
+SMB even though immich itself uses NFS.
 
 ## Why AutoMounter?
 
