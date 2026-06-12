@@ -154,7 +154,6 @@ which read from Todoist.)
 
 ```fish
 heph list --project Blumeops --json   # outstanding Blumeops tasks as JSON
-heph next                             # tactical "what is next?" ranking
 heph show <node_id>                   # one task with its scalars
 heph context <node_id>                # print the task's canonical-context doc
 heph log <node_id>                    # print the task's latest log entries
