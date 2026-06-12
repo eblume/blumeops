@@ -74,7 +74,6 @@ Run `mise tasks --sort name` for the live list with descriptions.
 
 | Task | Description |
 |------|-------------|
-| `ensure-minikube-indri-kubectl-config` | Set up kubectl config for minikube-indri |
 | `ensure-k3s-ringtail-kubectl-config` | Set up kubectl config for k3s-ringtail |
 
 ## ML & Hardware

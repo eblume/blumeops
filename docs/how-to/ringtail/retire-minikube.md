@@ -323,7 +323,7 @@ Only after every prior phase has soaked:
 6. Pulumi: remove `tag:k8s-api` and `tag:loki` from indri's device
    tags; sweep `policy.hujson` for rules referencing them. Clean up
    stale tailnet devices, including the `ingress-0-1` rename debt.
-7. Docs sweep: delete/archive [[rebuild-minikube-cluster]]; revise
+7. Docs sweep: delete/archive `rebuild-minikube-cluster` (done); revise
    [[restart-indri]], [[architecture]], the kubernetes cluster +
    tailscale-operator reference cards, [[indri]],
    disaster-recovery, deploy-k8s-service, mise-tasks reference, and

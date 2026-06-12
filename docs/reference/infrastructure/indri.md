@@ -37,11 +37,10 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 - [[cv]] - Static CV site, served by Caddy
 - [[docs]] - Quartz-built docs site, served by Caddy
 
-**Kubernetes (via minikube):**
-- [[apps|Most k8s applications]]. A growing set of apps (Authentik, Frigate, ntfy, Immich, Homepage, Shower, Kingfisher, alloy-ringtail) now run on [[ringtail]]'s k3s instead. Long-term plan is to decommission indri's minikube entirely.
+**Kubernetes:** none — indri's minikube cluster was retired 2026-06 ([[retire-minikube]]); all k8s workloads run on [[ringtail]]'s k3s.
 
 **GUI Applications (manual start required):**
-- Docker Desktop - Container runtime for minikube
+- Docker Desktop - Container runtime for the forgejo-runner's job containers (retires in [[retire-minikube]] phase 6)
 - Amphetamine - Prevents sleep
 - [[automounter]] - Mounts [[sifaka]] SMB shares
 

@@ -67,13 +67,11 @@ See [[routing]] for the full service URL table and port map.
 
 ## Compute Layer
 
-Services run across three compute targets:
+Services run across two compute targets:
 
 **Native on indri (Ansible)** — services that need host-level access run directly on macOS, managed via Ansible roles in `ansible/roles/`. See [[indri]] for the full list.
 
-**Minikube on indri (ArgoCD)** — most services run in minikube, managed via ArgoCD from `argocd/manifests/`. See [[apps]] for the application registry.
-
-**K3s on ringtail (ArgoCD)** — GPU workloads and related services run on [[ringtail]]'s single-node k3s cluster. Frigate NVR uses the RTX 4080 for object detection; ntfy supports its alerting pipeline.
+**K3s on ringtail (ArgoCD)** — all Kubernetes workloads, including ArgoCD itself, run on [[ringtail]]'s single-node k3s cluster, managed from `argocd/manifests/`. See [[apps]] for the application registry. GPU workloads (Frigate NVR object detection, Ollama) use the RTX 4080. (Until 2026-06 most services ran in minikube on indri — see [[retire-minikube]].)
 
 ## Data Flow
 

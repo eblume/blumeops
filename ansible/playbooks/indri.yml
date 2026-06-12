@@ -276,10 +276,6 @@
       tags: zot_metrics
     - role: devpi
       tags: devpi
-    - role: minikube
-      tags: minikube
-    - role: minikube_metrics
-      tags: minikube_metrics
     - role: jellyfin
       tags: jellyfin
     - role: jellyfin_metrics
