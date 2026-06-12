@@ -1,7 +1,7 @@
 ---
 title: AI Scraper Mitigation
-modified: 2026-06-10
-last-reviewed: 2026-06-10
+modified: 2026-06-12
+last-reviewed: 2026-06-12
 tags:
   - explanation
   - fly-io
@@ -230,6 +230,52 @@ and the author has signalled a future move to an `equi-x`-based challenge, so
 the version is pinned (tracked as `flyio-anubis` in `service-versions.yaml`)
 and upstream is worth watching.
 
+#### 2c. Edge UA deny ahead of Anubis (cost optimization)
+
+A day after Anubis shipped, a declared-bot storm (2026-06-11 PM) peaked at
+~170 req/s — ClaudeBot, GPTBot, Amazonbot, Bytespider, and Alibaba-cloud
+clients hammering the same git-history URLs. Anubis denied everything
+(availability held on the Forgejo side), but the **proxy VM itself**
+(shared-cpu-1x, 512MB) saturated serving the rejections, timing out public
+`forge.eblu.me` while the tailnet path stayed healthy.
+
+The 2026-06-12 review of the surge found:
+
+- ~987k requests/day to `forge.eblu.me`; **746k Anubis DENYs** and ~274k
+  nginx edge 403s (mostly `/mirrors/`). Challenges issued: ~11k/day,
+  validated: ~124 (≈1% — challenged clients are almost all headless).
+  Only **~1.3k requests/day** actually reach Forgejo from WAN.
+- Egress collapsed from 14–71 GB/day pre-Anubis to ~2.5 GB/day — but
+  **>99% of the remaining egress is bot-rejection bytes**: Anubis's deny
+  page is ~2.4 KB of HTML (served as HTTP 200) and the `/mirrors/`
+  naughty page is ~2.7 KB, each multiplied by hundreds of thousands of
+  requests per day.
+- The offenders are overwhelmingly *declared* bots: ClaudeBot (524k/day),
+  meta-externalagent (195k/day, almost all still grinding `/mirrors/`
+  403s), GPTBot (148k/day), Amazonbot (16k/day) — ~88% of all traffic,
+  UA-identifiable, and already unconditionally denied by Anubis.
+
+So Tier 2a comes back from the dead — not as a security layer (it is still
+trivially evadable) but as a **cost optimization in front of Anubis**: a
+`map $http_user_agent $deny_bot` in nginx returns a bare ~60-byte 403 to the
+declared crawlers before the request ever reaches the Anubis proxy hop. No
+Go proxy round-trip, no 2.4 KB HTML page, no `/mirrors/` naughty page for
+bots (the roll of dishonour remains for human visitors). Anubis stays
+exactly as configured — any bot that spoofs a browser UA to evade the map
+lands on the proof-of-work wall as before. Defense in depth, with the cheap
+check first.
+
+Consequences accepted:
+
+- Listed bots can no longer fetch `robots.txt` (the server-level `return`
+  fires before location matching). These are precisely the agents that
+  ignore it, so nothing of value is lost.
+- `facebookexternalhit` (link previews) is deliberately **not** on the
+  list — only `meta-externalagent` (Meta's AI trainer).
+- The machine stays shared-cpu-1x/512MB. With denies short-circuited at
+  nginx, the per-request cost under a storm drops enough that a size bump
+  is not warranted; revisit if saturation recurs.
+
 ### Tier 3 — Move egress off Fly entirely (rejected)
 
 A [[#The incident|Cloudflare]] Tunnel (`cloudflared` on indri → Cloudflare
@@ -257,8 +303,9 @@ required regardless of where egress is billed.
 | Tier | Lever | Cost | Availability | Status |
 |------|-------|------|--------------|--------|
 | 1 | Black-hole `/mirrors/*` at edge | −~71% | big drop | **shipped** |
-| 2a | UA denylist on remaining repos | −most of the rest | further drop | skipped (moot — see above) |
+| 2a | UA denylist on remaining repos | −most of the rest | further drop | skipped as security (moot); revived as 2c |
 | 2b | Anubis PoW gateway | −near-total | near-total | **shipped** |
+| 2c | Edge UA deny ahead of Anubis | −rejection-page egress | protects proxy VM under storms | **shipped** |
 | 3 | Cloudflare Tunnel | −total | needs 2b anyway | **rejected (principle)** |
 
 The guiding insight: the cheapest, lowest-risk mitigation is to **not serve an
