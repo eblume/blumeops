@@ -45,12 +45,14 @@ There is also a second, independent runner: the
 `nix-container-builder` on [[ringtail]] (NixOS systemd service) used
 by `build-container-nix.yaml` workflows.
 
-## Job Execution Image
+## Job Execution
 
-Workflow steps run in `runner-job-image` (declared in
-`server.connections.labels` in the role's config template, tracked in
-`service-versions.yaml`). It is arm64, built on this very runner. See
-[[build-container-image]].
+Host-mode ([[retire-minikube]] phase 6): workflow steps run directly as
+`erichblume` on indri with the mise-managed toolchain (node, uv, yq,
+jq, prek, dagger — installed by the role). Dagger pipelines work
+unchanged: the CLI runs on the host and its engine runs as a container
+in Docker Desktop, which survives solely for this purpose (right-sized
+2cpu/4GiB). The old arm64 `runner-job-image` is retired.
 
 ## Credentials
 

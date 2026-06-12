@@ -338,34 +338,40 @@ Only after every prior phase has soaked:
 Desktop guest VM doesn't play well with indri's native workloads, and
 once every service image is Nix-built amd64 on ringtail, the only
 things keeping docker around are the runner's job containers and
-dagger. Both go:
+dagger.
 
-- The indri runner stays (deploy-fly, cv-deploy, branch-cleanup, and
-  the docs deploy all want a general-purpose runner) but flips to
-  **host-mode jobs**: labels become `k8s:host` / `indri:host`, jobs
-  run directly as `erichblume` with indri's mise-managed toolchain.
-  No `runner-job-image`, no dagger engine, no zot docker.io mirror,
-  no Docker Desktop (removed after minikube delete — it's minikube's
-  driver until then).
+**Scope revised at execution (2026-06-11): Docker Desktop STAYS.**
+The original "docker-free indri" goal assumed the docs build was the
+only non-container-build dagger user — wrong: `hephaestus` runs its
+whole cargo CI via `dagger call check` and `cv` releases via
+`dagger call build`. Rather than rework three repos' CI, Docker
+Desktop survives **solely as the dagger engine host**, right-sized
+from the minikube-era 6cpu/8GiB down to **2cpu/4GiB** (the heaviest
+remaining job is the Quartz docs build, ~1–1.5GiB; container image
+builds are all nix-on-ringtail now). What actually shipped:
+
+- The runner flips to **host-mode jobs**: labels `k8s:host` /
+  `indri:host`, jobs run directly as `erichblume` with indri's
+  mise-managed toolchain (PATH gets mise shims in the launchd plist).
+  `runner-job-image` is deleted; dagger pipelines work unchanged —
+  the CLI (mise-pinned `dagger@0.20.6`, matching `dagger.json`) talks
+  to the engine in Docker Desktop. `prek@0.3.4` joins the host
+  toolchain, fixing the standing template-`validate` issue. flyctl is
+  self-installed by `deploy-fly`; nothing in CI needs argocd.
+- The stale arm64 build files are deleted (every remaining
+  `container.py` except the dagger module itself, plus the
+  kube-state-metrics/ntfy/kubectl Dockerfiles), and
+  `build-container.yaml` is nix-only.
+- The zot docker.io mirror in Docker Desktop's `daemon.json` stays —
+  the dagger engine still pulls base images through it.
 - Accepted trade: no container isolation for CI jobs. In this setup
   the boundary was already thin — jobs could reach the host docker
   socket, and the runner shares a host (and user) with the forge
   itself. Mitigations: Actions stay disabled for the `mirrors/` org
   (the one place third-party commits could reach CI); a dedicated
   runner user is optional future hardening.
-- **Prerequisite: unwind dagger.** `build-blumeops.yaml`'s docs build
-  is the only non-container-build dagger user — rework it as a plain
-  host job (Quartz/node via mise) or a nix build. The
-  container-build dagger path retires with the migration (delete
-  each migrated service's `containers/<name>/container.py`, then
-  drop the dagger path from `build-container.yaml`, making it
-  nix-only).
-- Toolchain parity audit before the label flip: every workflow
-  running on `k8s`/`indri` (this repo + other forge repos, e.g. the
-  project template's `validate`) must find its tools on the host —
-  git, node, uv, yq, jq, argocd, flyctl, prek. Host-mode fixes the
-  standing "runner-job-image lacks prek" issue for free, and moots
-  the dagger-version-decoupling and DinD-cache-PVC tasks.
+- Host-mode moots the dagger-version-decoupling (now an explicit mise
+  pin) and DinD-cache-PVC tasks.
 
 ## Cross-cutting cautions
 

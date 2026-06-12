@@ -1,7 +1,11 @@
 # {{ ansible_managed }}
 # Reviewed against {{ forgejo_runner_version }} defaults.
-# Ported from argocd/manifests/forgejo-runner/config.yaml (minikube),
-# adapted for Docker Desktop instead of a DinD sidecar.
+#
+# Host-mode jobs ([[retire-minikube]] phase 6): jobs run directly as
+# erichblume with indri's mise-managed toolchain — no job container,
+# no runner-job-image. Docker Desktop stays (right-sized 2cpu/4GiB)
+# solely as the dagger engine host; the dagger CLI on the host finds
+# its socket at the default /var/run/docker.sock.
 log:
   level: info
 
@@ -9,18 +13,9 @@ runner:
   capacity: {{ forgejo_runner_capacity }}
   timeout: {{ forgejo_runner_timeout }}
   shutdown_timeout: {{ forgejo_runner_timeout }}
-  # Env vars injected into all job containers
+  # Env vars injected into all jobs
   envs:
     TZ: America/Los_Angeles
-
-container:
-  # "automount": find the docker host (Docker Desktop's socket) and
-  # mount it into job containers, with DOCKER_HOST set to match —
-  # docker/dagger calls inside jobs hit the host daemon
-  # (docker-outside-of-docker; engine containers run as siblings).
-  # An explicit socket + options -v mount would duplicate what
-  # automount does and fails with "Duplicate mount point".
-  docker_host: automount
 
 server:
   connections:
@@ -30,5 +25,5 @@ server:
       token: {{ forgejo_runner_token }}
       labels:
 {% for label in forgejo_runner_labels %}
-        - {{ label }}:docker://{{ forgejo_runner_job_image }}
+        - {{ label }}:host
 {% endfor %}

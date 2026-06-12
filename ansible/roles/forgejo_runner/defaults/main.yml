@@ -20,16 +20,21 @@ forgejo_runner_forge_url: https://forge.ops.eblu.me/
 forgejo_runner_capacity: 2
 forgejo_runner_timeout: 3h
 
-# Workflow step execution image (arm64, built on this runner).
-# Tracked as runner-job-image in service-versions.yaml.
-forgejo_runner_job_image: registry.ops.eblu.me/blumeops/runner-job-image:v0.20.6-50f8c2a
-
-# Labels advertised to forge. `k8s` is compatibility for existing
-# workflows in every forge repo; `indri` is the honest name. Both run
-# jobs in forgejo_runner_job_image via Docker Desktop.
+# Labels advertised to forge, all host-mode ([[retire-minikube]]
+# phase 6): jobs run directly as erichblume with the mise toolchain.
+# `k8s` is compatibility for existing workflows in every forge repo;
+# `indri` is the honest name.
 forgejo_runner_labels:
   - k8s
   - indri
+
+# Host toolchain for CI jobs, installed via `mise use --global`.
+# dagger is pinned to the engineVersion in dagger.json (the engine
+# runs as a container in the right-sized Docker Desktop, 2cpu/4GiB);
+# prek matches the repo's mise.toml pin.
+forgejo_runner_host_tools:
+  - dagger@0.20.6
+  - prek@0.3.4
 
 # Zot pull-through cache for docker.io pulls, merged into Docker
 # Desktop's daemon.json. host.docker.internal resolves to indri from

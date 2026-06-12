@@ -20,8 +20,10 @@
 	<true/>
 	<key>EnvironmentVariables</key>
 	<dict>
+		<!-- mise shims first: host-mode jobs use indri's mise toolchain
+		     (node, uv, yq, jq, prek, dagger, ...) -->
 		<key>PATH</key>
-		<string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<string>/Users/erichblume/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
 		<key>HOME</key>
 		<string>/Users/erichblume</string>
 	</dict>

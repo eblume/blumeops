@@ -44,11 +44,23 @@
     mode: '0600'
   notify: Restart forgejo-runner
 
+# --- Host CI toolchain (host-mode jobs, [[retire-minikube]] phase 6) ---
+
+- name: Install host CI tools via mise
+  ansible.builtin.command:
+    cmd: "mise use --global {{ item }}"
+  loop: "{{ forgejo_runner_host_tools }}"
+  register: forgejo_runner_mise_tool
+  changed_when: "'installing' in forgejo_runner_mise_tool.stderr | default('') or 'installing' in forgejo_runner_mise_tool.stdout | default('')"
+  environment:
+    PATH: "/Users/erichblume/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+
 # --- Docker Desktop registry mirror (zot pull-through cache) ---
+# Docker Desktop survives the docker-free plan as the dagger engine
+# host only (right-sized 2cpu/4GiB — see [[retire-minikube]] phase 6).
 # Merge, don't clobber: daemon.json carries Docker Desktop's own
 # settings (builder gc etc). The daemon only re-reads this on restart,
-# and restarting Docker Desktop also restarts minikube while it still
-# exists — so we notify instead of restarting.
+# so we notify instead of restarting.
 
 - name: Read Docker Desktop daemon.json
   ansible.builtin.slurp:
