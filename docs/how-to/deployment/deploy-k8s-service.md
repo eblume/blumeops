@@ -114,8 +114,8 @@ argocd app set <service> --revision <branch>
 argocd app sync <service>
 
 # Verify
-kubectl --context=minikube-indri -n <service> get pods
-kubectl --context=minikube-indri -n <service> logs -f deployment/<service>
+kubectl --context=k3s-ringtail -n <service> get pods
+kubectl --context=k3s-ringtail -n <service> logs -f deployment/<service>
 
 # After PR merge, reset to main
 argocd app set <service> --revision main

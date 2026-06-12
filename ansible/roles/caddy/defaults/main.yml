@@ -116,8 +116,7 @@ caddy_services:
 caddy_tcp_services:
   - port: 2222
     backend: "localhost:2200"  # Forgejo SSH
-  - port: 5432
-    backend: "pg.tail8d86e.ts.net:5432"  # PostgreSQL (blumeops-pg)
+  # 5432 (minikube blumeops-pg) retired with the cluster — [[retire-minikube]] phase 5
   - port: 5433
     backend: "immich-pg.tail8d86e.ts.net:5432"  # PostgreSQL (immich-pg)
   - port: 5434

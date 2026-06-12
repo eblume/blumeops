@@ -15,8 +15,7 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 1. **Start every task by finding and reading the relevant docs**
     Search `docs/` for cards related to the change area (grep for titles/tags, follow `[[wiki-links]]`) and read what you find before acting. Wiki-links refer to cards under `docs/` by filename stem.
     For problems with a very large surface area, `mise run ai-sources` concatenates all non-doc source files (~270K tokens) — opt-in only, confirm with the user before loading it wholesale; targeted reading is usually better.
-2. **Always use `--context=minikube-indri` with kubectl** (or `--context=k3s-ringtail` for ringtail services) - work contexts must never be touched
-    **NEVER run `minikube delete`** — it destroys all PVs, etcd, and cluster state. Use `minikube stop`/`minikube start` for restarts. If minikube is stuck, see [[restart-indri]]. Full rebuild from scratch requires the DR procedure in [[rebuild-minikube-cluster]].
+2. **Always use `--context=k3s-ringtail` with kubectl** — it is the only blumeops cluster (minikube on indri was retired 2026-06, see [[retire-minikube]]); work contexts must never be touched
 3. **Classify the change as C0/C1/C2 before starting** (see below) — this determines branching and PR requirements
 4. **Feature branches + PRs for C1/C2** - checkout main, pull, create branch, open PR via `tea pr create`. C0 goes direct to main.
 5. **Check PR comments with `mise run pr-comments <pr_number>`** before proceeding
@@ -75,7 +74,7 @@ encounter wiki-links (`[[like-this]]`) it is referring to docs/ cards.
 
 ### Kubernetes (ArgoCD)
 
-Most services run in minikube on indri via ArgoCD (app-of-apps, manual sync). GPU workloads (Frigate, ntfy) run on ringtail's k3s cluster, also managed by ArgoCD.
+All Kubernetes workloads (including ArgoCD itself) run on ringtail's k3s cluster via ArgoCD (app-of-apps, manual sync).
 
 **PR workflow:**
 1. Create branch, modify `argocd/manifests/<service>/`

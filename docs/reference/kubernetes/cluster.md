@@ -1,53 +1,46 @@
 ---
 title: Cluster
-modified: 2026-06-04
-last-reviewed: 2026-06-04
+modified: 2026-06-11
+last-reviewed: 2026-06-11
 tags:
   - kubernetes
 ---
 
 # Kubernetes Cluster
 
-BlumeOps runs two Kubernetes clusters: a Minikube cluster on [[indri]] (most services) and a k3s cluster on [[ringtail]] (GPU workloads, notifications). Both are managed by [[argocd]] on indri.
+BlumeOps runs a single Kubernetes cluster: k3s on [[ringtail]], managed
+by [[argocd]] running in-cluster. (Until 2026-06 a minikube cluster on
+[[indri]] hosted most services — retired in [[retire-minikube]].)
 
 ## Cluster Specifications
 
 | Property | Value |
 |----------|-------|
-| **Driver** | docker |
-| **Container Runtime** | docker |
-| **Kubernetes Version** | v1.35.0 |
-| **CPUs** | 6 |
-| **Memory** | 11GB |
-| **Disk** | 200GB |
-| **API Server** | https://k8s.tail8d86e.ts.net |
+| **Distribution** | k3s (single node) |
+| **Context** | `k3s-ringtail` |
+| **API Server** | `https://ringtail.tail8d86e.ts.net:6443` |
+| **Architecture** | x86_64, RTX 4080 GPU |
 
-**Prerequisites:** Docker Desktop with at least 12GB memory allocated.
+See [[ringtail]] for host specs, the workload list, and secrets
+management.
 
 ## Volume Mounting
 
-Pods mount NFS directly from [[sifaka|Sifaka]]. Docker NATs outbound traffic through indri's LAN IP (192.168.1.50), allowing access to Sifaka's NFS exports.
+Stateful workloads use the `local-path` storage class (node-local).
+Media and bulk data mount NFS directly from [[sifaka|Sifaka]] — see
+[[sifaka-nfs-from-ringtail]].
 
-## Registry Mirror
+## Images
 
-Containerd uses [[zot]] as a pull-through cache at `host.minikube.internal:5050`.
-
-Mirrors configured: `registry.ops.eblu.me`, `docker.io`, `ghcr.io`, `quay.io`
-
-## K3s on Ringtail
-
-Single-node k3s cluster for workloads requiring amd64 or GPU access. See [[ringtail]] for cluster specs, workload list, and secrets management.
-
-| Property | Value |
-|----------|-------|
-| **Context** | `k3s-ringtail` |
-| **API Server** | `https://ringtail.tail8d86e.ts.net:6443` |
-| **Workloads** | GPU workloads (Frigate, Ollama), notifications (ntfy, frigate-notify), [[authentik]], and services migrated off indri minikube (Immich, Mealie, Paperless, TeslaMate). See [[ringtail]] for the authoritative list. |
-
-Services are being progressively migrated from indri's minikube to ringtail's k3s; the split above reflects an in-progress state, not a fixed boundary.
+Workload images are locally built (Nix, amd64, `-nix` tags) and pulled
+from [[zot]] at `registry.ops.eblu.me`. A handful of infrastructure
+images (argocd, cnpg, external-secrets, 1password-connect) remain
+pinned upstream multi-arch — tracked by the local-registry compliance
+task.
 
 ## Related
 
 - [[apps|Apps]] - ArgoCD applications
 - [[argocd]] - GitOps deployment
-- [[zot]] - Registry mirror
+- [[zot]] - Registry
+- [[ringtail]] - Host reference

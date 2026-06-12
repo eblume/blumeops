@@ -47,9 +47,7 @@ indri_tags = tailscale.DeviceTags(
         "tag:blumeops",  # Managed by this IaC
         # Service tags for services still hosted directly on indri
         "tag:forge",
-        "tag:loki",
         "tag:registry",  # Zot container registry
-        "tag:k8s-api",  # Kubernetes API server (minikube)
         "tag:flyio-target",  # Fly proxy routes through Caddy on indri
     ],
 )

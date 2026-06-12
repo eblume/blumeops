@@ -17,14 +17,13 @@ The Tailscale operator enables Kubernetes services to be exposed directly on the
 |----------|-------|
 | **Namespace** | `tailscale` |
 | **Upstream** | `mirrors/tailscale` on forge (static manifest, pinned `v1.94.2`) |
-| **ArgoCD Apps** | `tailscale-operator` (indri/minikube), `tailscale-operator-ringtail` (ringtail/k3s) |
+| **ArgoCD Apps** | `tailscale-operator-ringtail` (ringtail/k3s) |
 
-The operator runs on **both** clusters — indri's minikube and ringtail's k3s.
-Both apps layer on the shared `tailscale-operator-base` kustomize directory
-(operator manifest, `ProxyClass`, `dnsconfig`); each cluster supplies its own
-`ProxyGroup` (indri: 2 replicas, ringtail: 1) and OAuth `ExternalSecret`. See
-[[ringtail]] and [[migrate-wave1-ringtail]] for the ongoing migration of k8s
-workloads onto ringtail.
+The app layers on the `tailscale-operator-base` kustomize directory
+(operator manifest, `ProxyClass`, `dnsconfig`) and supplies the
+`ProxyGroup` (1 replica) and OAuth `ExternalSecret`. (A second operator
+ran on indri's minikube until the cluster retired —
+[[retire-minikube]].)
 
 ## Local Images
 
@@ -33,8 +32,8 @@ mirror (`mirrors/tailscale`), not Docker Hub:
 
 | Image | Build | Used by |
 |-------|-------|---------|
-| `blumeops/tailscale-operator` | `containers/tailscale-operator/` (`container.py` for indri/arm64, `default.nix` `-nix` tag for ringtail/amd64) | operator Deployment, via each overlay's `images:` override |
-| `blumeops/tailscale` | `containers/tailscale/` (same dual build) | `ProxyClass` proxy pods, via a strategic-merge patch in each overlay |
+| `blumeops/tailscale-operator` | `containers/tailscale-operator/` (`default.nix` `-nix` tag, amd64) | operator Deployment, via the overlay's `images:` override |
+| `blumeops/tailscale` | `containers/tailscale/` (same build) | `ProxyClass` proxy pods, via a strategic-merge patch in the overlay |
 
 The ProxyClass image must be set with a **patch**, not kustomize's `images:`
 directive — that directive only rewrites standard container fields, not
@@ -56,8 +55,7 @@ when a pod registers *fresh* while a stale device record still holds the name
 2. Verify after sync: pods healthy, device names unchanged in the admin
    console, `mise run services-check` green.
 3. If a collision does occur: delete the stale device in the admin console
-   AND the affected state Secret, then restart the pod (see
-   [[rebuild-minikube-cluster]]).
+   AND the affected state Secret, then restart the pod.
 
 ## How It Works
 
