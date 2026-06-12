@@ -81,6 +81,16 @@ spec:
               value: "/usr/src/paperless/media"
             - name: PAPERLESS_CONSUMPTION_DIR
               value: "/usr/src/paperless/consume"
+            # Scratch must be SHARED across web and worker: API uploads are
+            # written into SCRATCH_DIR by web (which mkdirs it) and read back
+            # by the worker's consume_file (which doesn't) — so point it at
+            # the root of a shared emptyDir, which always exists. Unset, it
+            # resolved to /paperless: the Nix image has no /tmp, so Python's
+            # gettempdir() falls back to the cwd (/), and the dir was neither
+            # present in the worker nor shared from web. See the paperless
+            # service card.
+            - name: PAPERLESS_SCRATCH_DIR
+              value: "/usr/src/paperless/scratch"
             - name: PAPERLESS_SECRET_KEY
               valueFrom:
                 secretKeyRef:
@@ -123,6 +133,13 @@ spec:
               mountPath: /usr/src/paperless/media
             - name: consume
               mountPath: /usr/src/paperless/consume
+            - name: scratch
+              mountPath: /usr/src/paperless/scratch
+            # The Nix image ships no /tmp; without one, gettempdir() falls
+            # back to / and general temp files (celery multiprocessing,
+            # etc.) land on the container overlay.
+            - name: tmp
+              mountPath: /tmp
       containers:
         - name: web
           image: registry.ops.eblu.me/blumeops/paperless:kustomized
@@ -195,6 +212,10 @@ spec:
           persistentVolumeClaim:
             claimName: paperless-media
         - name: consume
+          emptyDir: {}
+        - name: scratch
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}
         - name: redis-data
           emptyDir:
