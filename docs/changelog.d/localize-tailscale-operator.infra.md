@@ -1,1 +1,0 @@
-Localized the Tailscale operator stack: the k8s-operator image (both clusters) and the ProxyClass proxy image (indri, completing parity with ringtail) are now built from the forge mirror instead of pulled from Docker Hub.

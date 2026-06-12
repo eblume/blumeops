@@ -1,1 +1,0 @@
-Rebuilt the locally-built external-secrets image from the `main` branch so the deployed tag (`v2.2.0-0e70a1b`) traces to a `main` commit rather than the now-merged feature branch, giving a stable provenance reference.

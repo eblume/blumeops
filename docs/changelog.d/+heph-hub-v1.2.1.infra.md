@@ -1,1 +1,0 @@
-Bumped the indri heph hub to v1.2.1, which adds the hub `GET /config` endpoint and ships the heph-pwa **Login with Authentik** flow (Authorization Code + PKCE). Pairs with the Authentik `heph` provider redirect URIs registered earlier.

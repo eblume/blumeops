@@ -12,6 +12,99 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.18.0] - 2026-06-11
+
+### Bug Fixes
+
+- Granted the `offline_access` scope on the Authentik `heph` OAuth2 provider so hephaestus spokes receive a durable 30-day refresh token. Previously the refresh token was session-bound, so spoke sync would silently fail with a `400 Bad Request` on the `refresh_token` grant once the Authentik session lapsed.
+- Fixed the `tailscale-operator` and `tailscale-operator-ringtail` ArgoCD apps showing `Unknown` sync status. Their shared base kustomization fetched the upstream operator manifest from the public `forge.eblu.me/mirrors/...`, which the AI-scraper mitigation now black-holes (403). Pointed the remote resource at the tailnet host `forge.ops.eblu.me` instead, which the in-cluster repo-server can reach.
+- Upgraded Jellyfin on indri from 10.11.6 to 10.11.11, picking up the security fixes in 10.11.7 (disclosed CVEs/GHSAs, flagged "upgrade immediately") and 10.11.10 (three further GHSAs). Noted the recurring gotcha in the service-versions tracking: after a `brew upgrade --cask jellyfin`, the re-quarantined `.app` makes the launchd-spawned process hang silently until the Gatekeeper first-launch dialog is approved on indri's GUI console — removing the quarantine xattr over SSH is blocked by macOS TCC.
+
+### Infrastructure
+
+- Deployed Anubis v1.25.0 (proof-of-work anti-scraper gateway) on the Fly.io
+  proxy in front of forge.eblu.me, after an AWS-hosted crawler with no declared
+  bot UA DoS'd Forgejo by walking the `/eblume/*` commit-history surface at
+  ~5.7 req/s. Browsers clear one JS challenge per week; git and API clients
+  pass through untouched; declared AI crawlers are denied. The tailnet path
+  (forge.ops.eblu.me) is unaffected. Tier 2b of the AI scraper mitigation plan.
+- Completed the external-secrets localization for the ringtail (amd64) cluster. The indri Dagger build (`container.py`) only produces an arm64 image; added `containers/external-secrets/default.nix` to build the amd64 variant on ringtail's nix-container-builder, and gave `external-secrets-ringtail` a thin kustomize overlay that reuses the shared manifest and points at the `-nix` image. Both clusters now run the locally-built external-secrets binary on their native architecture.
+- Added the [[hephaestus]] (`heph`) sync hub to indri as a self-updating LaunchAgent managed by Ansible (`ansible/roles/heph`, tag `heph`). The hub runs `hephd --mode server` behind `heph.ops.eblu.me` (Caddy TLS), with self-update on a 10-minute interval and the heph-pwa mobile shell served from `--web-root`. Access is gated by a new Authentik device-code (RFC 8628) OIDC application. Indri is now the canonical hub; other devices (e.g. gilbert) attach as offline-capable spokes. The hub's store was seeded from gilbert via the data-safe Path A bring-up (copy store, reset `meta.origin`).
+- Registered the heph-pwa redirect URIs (`https://heph.ops.eblu.me/`, plus `http://localhost:8787/` for dev) on the Authentik `heph` OAuth2 provider, enabling the PWA's new Authorization Code + PKCE "Login with Authentik" flow (and the token-endpoint CORS it needs). Pairs with hephaestus PR #9.
+- Localized the external-secrets controller image. It now builds from the forge mirror via a native Dagger `container.py` (single `all_providers` static Go binary, faithful to upstream's `make build`) and is served from `registry.ops.eblu.me/blumeops/external-secrets` instead of `ghcr.io`, bringing another platform component under local supply-chain control.
+- Localized the Tailscale operator stack: the k8s-operator image (both clusters) and the ProxyClass proxy image (indri, completing parity with ringtail) are now built from the forge mirror instead of pulled from Docker Hub.
+- Phase 0 of [[retire-minikube]]: the forgejo-runner becomes a native macOS LaunchAgent on indri (new `forgejo_runner` ansible role), running jobs against Docker Desktop instead of a DinD sidecar in minikube. New runner identity `indri-runner` advertising both `k8s` (compat) and `indri` labels; zot registry mirror moves into Docker Desktop's daemon.json; runner logs ship to Loki via alloy.
+- [[retire-minikube]] phase 1 complete: prowler migrated to ringtail k3s (Nix-built from nixpkgs at 5.12.3 — a step back from 5.23.0 until nixpkgs catches up; same cis_1.11_kubernetes framework). Weekly CIS scans now target ringtail, k3s-appropriate node mounts, trivy + the image/IaC Dockerfile retired.
+- Retired the Prowler container-image CVE scan and IaC scan, keeping only the K8s CIS benchmark scan. The two retired scans generated tens of thousands of un-actioned, un-muted findings every week (~20,000 image findings and growing, mostly unpatchable upstream-image CVEs; ~650 systemic Trivy KSV pod-security warnings) — the weekly `mise run review-compliance-reports` re-surfaced them all as "action needed" though none were ever triaged. The K8s CIS scan is fully mutelisted and runs clean, so it stays. Removed the two CronJobs, the now-unused `trivyignore.yaml` mutelist, and the grouped-findings rendering in the review tool that existed solely for the high-volume scans.
+- Upgraded Prometheus v3.10.0 → v3.12.0. Picks up fixes for stored XSS
+  (CVE-2026-40179, GHSA-fw8g-cg8f-9j28) and remote-write/remote-read snappy
+  decompression DoS (CVE-2026-42154), plus TSDB performance improvements. No
+  breaking changes affect our deployment.
+- [[retire-minikube]] phase 1 continued: navidrome migrated from minikube to ringtail k3s (Nix-built 0.61.1, exact version lift-and-shift; data PVC copied, music NFS remounted from sifaka).
+- [[retire-minikube]] phase 4: ArgoCD self-migrated to ringtail k3s — the
+  last workload off minikube. All 32 ringtail app destinations rewritten
+  to in-cluster, the 13 minikube-only Application definitions deleted
+  (their live workloads run unmanaged until phase 5), the argocd metrics
+  job back in-cluster, and the admin password rotated on the fresh
+  install. Minikube's ArgoCD is scaled to 0 as rollback.
+- [[retire-minikube]] phase 2 groundwork: ringtail `blumeops-pg` gains a
+  managed `authentik` role (password sourced from the same 1Password item
+  the authentik app reads, so the cutover is only a `postgresql-host`
+  flip), and borgmatic's authentik entry moves from port 5432 (minikube)
+  to 5434 (ringtail). The authentik database itself is dump/restored at
+  the cutover window per the plan card.
+- [[retire-minikube]] phase 1 closed out: the seven parked minikube workloads (miniflux, navidrome, torrent, kiwix, unpoller, prowler, the k8s forgejo-runner) are decommissioned — ArgoCD apps cascade-deleted and manifests removed. All seven now serve from ringtail (or, for the runner, as a launchd service on indri). The miniflux database remains on minikube blumeops-pg untouched until the cluster itself retires in phase 2. Also restores the kiwix zim-hash `ignoreDifferences` that the ringtail app definition dropped in the port (the zim-watcher CronJob patches that annotation at runtime, so without it the app reads permanently OutOfSync).
+- [[retire-minikube]] phase 5: minikube fully decommissioned. The 12
+  remaining minikube manifest dirs deleted, ansible `minikube`/
+  `minikube_metrics` roles removed, the Caddy L4 `:5432` route and its
+  `.pgpass` line retired, `services-check` rewritten for the
+  single-cluster world (ArgoCD app table now reads ringtail),
+  `ensure-minikube-indri-kubectl-config` deleted, the compliance report
+  tooling's minikube node-verification removed (k3s equivalent tracked in
+  heph), tailnet tags `tag:k8s-api`/`tag:loki`/`tag:pg` swept from
+  pulumi, and the docs sweep (AGENTS.md rule 2 inverted to k3s-ringtail,
+  restart-indri/architecture/cluster/tailscale-operator/indri/
+  disaster-recovery cards revised, rebuild-minikube-cluster deleted).
+- [[retire-minikube]] phase 3 groundwork: Nix `default.nix` ports for the
+  five LGTM-stack containers (prometheus v3.12.0 with the embedded mantine
+  UI built from source, grafana 12.4.2 from the official release tarball,
+  loki v3.6.7, tempo v2.10.3, grafana-sidecar 2.6.0), all build-verified
+  on ringtail. Their Dockerfile/dagger build paths are retired. The
+  `*-ringtail` manifests stage the move: prometheus-ringtail gains
+  in-cluster CNPG metrics scrapes for both ringtail pg clusters
+  (previously dark), alloy-k8s repoints to the external LGTM names and
+  absorbs the argocd/kube-state-metrics scrapes, and the PVC data copies
+  + cutover follow on this branch.
+- Upgraded the nvidia-device-plugin on ringtail from v0.19.0 to v0.19.2 (upstream patch release: CDI/Tegra fixes and dependency bumps, no breaking changes for our manifest-based CDI + RuntimeClass setup).
+- Bumped the indri heph hub to v1.2.1, which adds the hub `GET /config` endpoint and ships the heph-pwa **Login with Authentik** flow (Authorization Code + PKCE). Pairs with the Authentik `heph` provider redirect URIs registered earlier.
+- Rebuilt all six migrated phase-1 service images from main (`-f386e2e-nix` tags) and repointed the ringtail deployments at them, closing out the branch-built artifacts.
+- Rebuilt the external-secrets images off `main` and repointed both clusters to the stable main-sha tags (`v2.2.0-13895bb` arm64 / `v2.2.0-13895bb-nix` amd64), so the deployed images on indri and ringtail trace to the same `main` commit rather than earlier feature-branch builds.
+- Rebuilt the locally-built external-secrets image from the `main` branch so the deployed tag (`v2.2.0-0e70a1b`) traces to a `main` commit rather than the now-merged feature branch, giving a stable provenance reference.
+- Updated ringtail NixOS flake inputs (nixpkgs `nixos-25.11`, disko) to latest via `dagger call flake-update`.
+- [[retire-minikube]] phase 3 close-out: the five LGTM images rebuilt
+  from main (`-8b1f89e-nix`) and the ringtail apps repointed to them.
+
+### Documentation
+
+- Reviewed the five stalest documentation cards (argocd, authentik, grafana, unifi, plan-a-meal): brought ArgoCD's SSO/dual-cluster/sync-policy story up to date, expanded Authentik's blueprint and OIDC client inventory to all eight clients, fixed Grafana's TeslaMate datasource target and dashboard list, and noted UnPoller's locally-built image.
+- Kick off the minikube retirement: umbrella migration plan ([[retire-minikube]]) to move all remaining k8s workloads (miniflux, navidrome, torrent, kiwix, unpoller, prowler, the LGTM observability stack, authentik's database, and ArgoCD itself) from indri/minikube to ringtail/k3s, convert the forgejo-runner to a native launchd service on indri, and decommission minikube.
+- Reviewed four never-reviewed reference cards (`cluster`, `ntfy`, `tempo`, `alloy`) and corrected drift: minikube is now Kubernetes v1.35.0; ntfy, tempo, and alloy-k8s images are now locally-built `registry.ops.eblu.me/blumeops/*` nix containers (v2.19.2, v2.10.3, v1.16.0) rather than upstream Docker Hub; the Fly.io alloy binary is v1.16.1; and the ringtail workload list reflects the in-progress minikube→k3s migration.
+- Corrected the 1Password backup how-to: the desktop app's export menu item is named after the account ("File > Export > Blume/Davis"), not "All Vaults". Verified an account export contains all four vaults (Private, blumeops, Payrix, Shared).
+- Reviewed the tailscale-operator reference card: documented the dual indri/ringtail deployment, corrected the ArgoCD apps list, pinned the upstream version, and added the ProxyGroup Ingress `host:` caveat.
+- [[retire-minikube]] phase 2 cutover complete: authentik now reads its
+  database from ringtail `blumeops-pg` in-cluster (row-exact restore, SSO
+  verified). Minikube `blumeops-pg` soaks idle until ~2026-06-18, then
+  retires with cnpg, the Caddy L4 `:5432` route, and its `.pgpass` line.
+
+### AI Assistance
+
+- Retired the `ai-docs` mise task and its mandatory session-start rule: the concatenated docs corpus had grown to ~130K tokens, too large to ingest wholesale. Agents now start tasks by finding and reading the relevant docs (grep + wiki-links); `ai-sources` remains for opt-in deep codebase context. Also documented the full `heph` CLI task workflow (read, log, complete, create) in AGENTS.md.
+
+### Miscellaneous
+
+- Service review: AutoMounter on indri is current at 1.13.0 (App Store auto-updated from the tracked 1.11.0); all sifaka SMB mounts verified healthy. Fixed the stale tracking-file path shown by `mise run service-review`.
+
+
 ## [v1.17.0] - 2026-06-03
 
 ### Features

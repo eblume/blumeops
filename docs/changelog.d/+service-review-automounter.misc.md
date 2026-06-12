@@ -1,1 +1,0 @@
-Service review: AutoMounter on indri is current at 1.13.0 (App Store auto-updated from the tracked 1.11.0); all sifaka SMB mounts verified healthy. Fixed the stale tracking-file path shown by `mise run service-review`.

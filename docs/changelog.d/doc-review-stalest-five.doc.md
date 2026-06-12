@@ -1,1 +1,0 @@
-Reviewed the five stalest documentation cards (argocd, authentik, grafana, unifi, plan-a-meal): brought ArgoCD's SSO/dual-cluster/sync-policy story up to date, expanded Authentik's blueprint and OIDC client inventory to all eight clients, fixed Grafana's TeslaMate datasource target and dashboard list, and noted UnPoller's locally-built image.

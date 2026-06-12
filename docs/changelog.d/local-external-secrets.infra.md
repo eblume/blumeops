@@ -1,1 +1,0 @@
-Localized the external-secrets controller image. It now builds from the forge mirror via a native Dagger `container.py` (single `all_providers` static Go binary, faithful to upstream's `make build`) and is served from `registry.ops.eblu.me/blumeops/external-secrets` instead of `ghcr.io`, bringing another platform component under local supply-chain control.

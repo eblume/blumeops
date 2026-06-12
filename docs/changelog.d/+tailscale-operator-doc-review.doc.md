@@ -1,1 +1,0 @@
-Reviewed the tailscale-operator reference card: documented the dual indri/ringtail deployment, corrected the ArgoCD apps list, pinned the upstream version, and added the ProxyGroup Ingress `host:` caveat.
