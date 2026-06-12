@@ -11,6 +11,12 @@ tags:
 
 # Retire minikube on indri
 
+**COMPLETE 2026-06-11: all six phases executed in a single day** —
+minikube is deleted, every Kubernetes workload (including ArgoCD) runs
+on `k3s-ringtail`, and the forgejo-runner serves host-mode jobs as a
+native launchd service on indri. This card is retained as the
+historical plan and execution record.
+
 Move every remaining Kubernetes workload off `minikube-indri` onto
 `k3s-ringtail`, convert the forgejo-runner into a native macOS launchd
 service on indri (ansible-managed), and decommission minikube
@@ -332,7 +338,7 @@ Only after every prior phase has soaked:
    context). Remove the minikube entry from `service-versions.yaml`.
 8. Final `mise run services-check` + a full borgmatic run.
 
-## Phase 6 — zero docker on indri (host-mode runner, dagger retirement)
+## Phase 6 — host-mode runner (scope revised: Docker Desktop stays for dagger) ✅ (2026-06-11)
 
 **Decision (2026-06-11): indri goes fully docker-free.** The Docker
 Desktop guest VM doesn't play well with indri's native workloads, and
