@@ -175,11 +175,8 @@ prometheus.exporter.blackbox "services" {
     module  = "http_2xx"
   }
 
-  target {
-    name    = "argocd"
-    address = "http://argocd-server.argocd.svc.cluster.local:80/healthz"
-    module  = "http_2xx"
-  }
+  // argocd probe removed in [[retire-minikube]] phase 4 (argocd runs on
+  // ringtail; prometheus-ringtail scrapes it in-cluster).
 
   target {
     // prometheus runs on ringtail now ([[retire-minikube]] phase 3);
@@ -228,17 +225,13 @@ prometheus.scrape "blackbox" {
 }
 
 // ============== MINIKUBE-LOCAL SCRAPES ==============
-// Jobs the minikube prometheus scraped in-cluster before it moved to
-// ringtail ([[retire-minikube]] phase 3). They keep their job names
-// (and cluster=indri via external_labels) for metric continuity, and
-// die with their workloads: argocd moves in phase 4, kube-state-metrics
-// retires with the cluster in phase 5.
-
-prometheus.scrape "argocd" {
-  targets         = [{"__address__" = "argocd-metrics.argocd.svc.cluster.local:8082", "job" = "argocd"}]
-  scrape_interval = "15s"
-  forward_to      = [prometheus.remote_write.prometheus.receiver]
-}
+// kube-state-metrics keeps its job name (and cluster=indri via
+// external_labels) for metric continuity and retires with the cluster
+// in phase 5. The argocd scrape lived here only during phase 3; it
+// went back in-cluster (prometheus-ringtail) when argocd moved in
+// phase 4. NOTE: as of phase 4 alloy-k8s has no ArgoCD Application —
+// deploy config changes manually:
+//   kubectl --context=minikube-indri kustomize argocd/manifests/alloy-k8s | kubectl --context=minikube-indri apply -f -
 
 prometheus.scrape "kube_state_metrics" {
   targets         = [{"__address__" = "kube-state-metrics.monitoring.svc.cluster.local:8080", "job" = "kube-state-metrics"}]

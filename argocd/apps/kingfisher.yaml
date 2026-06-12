@@ -10,7 +10,7 @@ spec:
     targetRevision: main
     path: argocd/manifests/kingfisher
   destination:
-    server: https://ringtail.tail8d86e.ts.net:6443
+    server: https://kubernetes.default.svc
     namespace: kingfisher
   syncPolicy:
     syncOptions:

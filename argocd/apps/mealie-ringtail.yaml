@@ -19,7 +19,7 @@ spec:
     targetRevision: main
     path: argocd/manifests/mealie-ringtail
   destination:
-    server: https://ringtail.tail8d86e.ts.net:6443
+    server: https://kubernetes.default.svc
     namespace: mealie
   syncPolicy:
     syncOptions:

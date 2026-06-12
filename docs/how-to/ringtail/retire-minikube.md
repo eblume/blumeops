@@ -285,6 +285,17 @@ on ringtail.
    `https://ringtail.tail8d86e.ts.net:6443` to in-cluster
    `https://kubernetes.default.svc`; the `apps` app-of-apps moves
    with them. No minikube cluster secret on the new install.
+   **Critical corollary (added at execution):** every minikube-only
+   Application definition must be DELETED from `argocd/apps/` in the
+   same change — after the move, `kubernetes.default.svc` means
+   ringtail, and a stale minikube app definition would deploy minikube
+   infra (tailscale-operator, blumeops-pg, …) onto ringtail. Their
+   live minikube workloads keep running unmanaged until phase 5;
+   alloy-k8s config changes deploy manually via
+   `kubectl kustomize | kubectl apply` from then on. The argocd
+   metrics job moves back in-cluster (prometheus-ringtail) and its
+   alloy-k8s scrape + blackbox probe are removed (the live alloy-k8s
+   needs one manual apply at cutover for this).
 5. Sync everything from the new ArgoCD; scale the minikube ArgoCD's
    controllers to 0 (don't delete until phase 5).
 6. `argocd login argocd.ops.eblu.me --sso` re-login; verify

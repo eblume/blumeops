@@ -11,7 +11,7 @@ spec:
     targetRevision: main
     path: argocd/manifests/frigate
   destination:
-    server: https://ringtail.tail8d86e.ts.net:6443
+    server: https://kubernetes.default.svc
     namespace: frigate
   syncPolicy:
     syncOptions:

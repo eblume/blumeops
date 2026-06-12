@@ -11,7 +11,7 @@ spec:
     targetRevision: main
     path: argocd/manifests/nvidia-device-plugin
   destination:
-    server: https://ringtail.tail8d86e.ts.net:6443
+    server: https://kubernetes.default.svc
     namespace: nvidia-device-plugin
   syncPolicy:
     syncOptions:

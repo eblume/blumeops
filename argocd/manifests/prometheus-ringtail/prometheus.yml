@@ -13,8 +13,8 @@ global:
 #     ringtail) and are relabeled cluster=ringtail.
 #   - kube-state-metrics job dropped: alloy-ringtail already scrapes
 #     ringtail's KSM; minikube's KSM moved to an alloy-k8s scrape.
-#   - argocd job moved to alloy-k8s (argocd stays on minikube until
-#     phase 4; its in-cluster name is unreachable from here).
+#   - argocd job is back in-cluster as of phase 4 (argocd itself
+#     migrated here; it briefly lived in alloy-k8s during phase 3).
 #   - cnpg job now scrapes BOTH ringtail pg clusters in-cluster
 #     (blumeops-pg + immich-pg metrics services in databases-ringtail) —
 #     these were dark before; the retiring minikube blumeops-pg
@@ -70,6 +70,14 @@ scrape_configs:
   - job_name: "tempo"
     static_configs:
       - targets: ["tempo.monitoring.svc.cluster.local:3200"]
+    metric_relabel_configs:
+      - target_label: cluster
+        replacement: ringtail
+
+  # ArgoCD application metrics ([[retire-minikube]] phase 4: in-cluster)
+  - job_name: "argocd"
+    static_configs:
+      - targets: ["argocd-metrics.argocd.svc.cluster.local:8082"]
     metric_relabel_configs:
       - target_label: cluster
         replacement: ringtail

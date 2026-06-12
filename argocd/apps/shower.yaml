@@ -13,7 +13,7 @@ spec:
     targetRevision: main
     path: argocd/manifests/shower
   destination:
-    server: https://ringtail.tail8d86e.ts.net:6443
+    server: https://kubernetes.default.svc
     namespace: shower
   syncPolicy:
     syncOptions:
