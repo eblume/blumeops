@@ -266,7 +266,7 @@ while they move.
   `*.ops.eblu.me` hostnames, which flip transparently when the
   ingress device names transfer.
 
-## Phase 4 — ArgoCD self-migration
+## Phase 4 — ArgoCD self-migration ✅ (2026-06-11)
 
 Last workload off minikube, after everything it manages already runs
 on ringtail.
