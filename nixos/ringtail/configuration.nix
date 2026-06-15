@@ -155,6 +155,12 @@ in
       "--disable=metrics-server"
       "--write-kubeconfig-mode=644"
       "--tls-san=ringtail.tail8d86e.ts.net"
+      # Kubelet refuses to start when swap is present unless told otherwise.
+      # We run zram swap (below) as an OOM pressure valve since this is a
+      # gaming+homelab host. Default swapBehavior is NoSwap, so pod cgroups
+      # still get memory.swap.max=0 (RAM-bound, OOM at limit as before) — only
+      # host processes (the game, system.slice) may use the zram swap.
+      "--kubelet-arg=fail-swap-on=false"
     ];
     containerdConfigTemplate = ''
       {{ template "base" . }}
@@ -179,6 +185,21 @@ in
   # to 2 (block BPF outside init namespace even with CAP_BPF). Value 1 allows
   # BPF for processes with CAP_BPF/CAP_SYS_ADMIN in any namespace.
   boot.kernel.sysctl."kernel.unprivileged_bpf_disabled" = 1;
+
+  # Compressed RAM-backed swap as an OOM pressure valve. This box is a
+  # gaming + ~25-service homelab on 32G with no headroom; a game spike (e.g.
+  # Diablo 4) previously pushed the host over the top and the kernel OOM-killed
+  # k3s pods (no swap to fall back on). zram lets cold anonymous pages (idle
+  # services, the game's untouched pages) compress into RAM instead of
+  # triggering kills — no disk thrash, no SSD wear. zstd ~3:1 on such pages.
+  zramSwap = {
+    enable = true;
+    algorithm = "zstd";
+    memoryPercent = 50; # max uncompressed logical size; real RAM cost is /ratio
+  };
+
+  # Only swap under genuine pressure — keep the game's hot working set resident.
+  boot.kernel.sysctl."vm.swappiness" = 10;
 
   # K3s containerd registry mirrors (pull through Zot on indri)
   environment.etc."rancher/k3s/registries.yaml".source = ./k3s-registries.yaml;
