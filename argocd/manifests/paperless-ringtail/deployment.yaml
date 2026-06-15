@@ -173,12 +173,16 @@ spec:
           command: ["celery", "--app", "paperless", "worker", "--loglevel", "INFO"]
           env: *paperless-env
           volumeMounts: *paperless-mounts
+          # OCR (ocrmypdf/tesseract) rasterizes pages and blows past 1Gi even
+          # for small multi-page scans — the 1Gi cap from the indri→ringtail
+          # migration OOMKilled consume_file mid-import, stranding uploads and
+          # freezing the auto-incrementing ASN. 3Gi gives OCR real headroom.
           resources:
             requests:
-              memory: "256Mi"
+              memory: "512Mi"
               cpu: "100m"
             limits:
-              memory: "1Gi"
+              memory: "3Gi"
               cpu: "1000m"
 
         - name: beat
