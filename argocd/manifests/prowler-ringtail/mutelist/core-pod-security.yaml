@@ -29,10 +29,15 @@ Mutelist:
             - "^ingress-"
             # Forgejo runner
             - "^forgejo-runner-"
+            # k3s node agents
+            - "^alloy-tracing-"
+            - "^nvidia-device-plugin-"
           Description: >-
             kube-proxy: system pod, single-user cluster. ts-*/ingress-*:
             Tailscale operator-managed. forgejo-runner: DinD limited to
-            trusted private forge repos.
+            trusted private forge repos. alloy-tracing: node profiling
+            agent needs privileged host access. nvidia-device-plugin:
+            requires privileged access to GPU device nodes.
         "core_seccomp_profile_docker_default":
           Regions: ["*"]
           Resources:
@@ -46,25 +51,39 @@ Mutelist:
             - "^operator-"
             - "^nameserver-"
             - "^ingress-"
+            # k3s system pods / node agents (upstream-managed securityContext)
+            - "^alloy"
+            - "^local-path-provisioner-"
+            - "^nvidia-device-plugin-"
           Description: >-
-            System pods managed by minikube and Tailscale operator;
-            seccomp profiles set by upstream. Single-user cluster limits
-            exploit surface.
+            System pods managed by minikube/k3s and the Tailscale operator;
+            seccomp profiles set by upstream. alloy/local-path-provisioner/
+            nvidia-device-plugin: node-level agents with upstream-managed
+            securityContext. Single-user cluster limits exploit surface.
+            App-pod seccomp findings (authentik, frigate-notify) are tracked
+            for RuntimeDefault remediation rather than muted.
         "core_minimize_hostPID_containers":
           Regions: ["*"]
           Resources:
             - "^prowler-"
+            # k3s node agents
+            - "^alloy-tracing-"
           Description: >-
             Prowler CIS scanner requires hostPID for file permission
-            checks. Runs as CronJob with 7-day TTL, not a persistent
-            workload.
+            checks (CronJob with 7-day TTL). alloy-tracing: node profiling
+            agent needs hostPID to attribute profiles to host processes.
         "core_minimize_root_containers_admission":
           Regions: ["*"]
           Resources:
             - "^grafana-"
+            # k3s node agents / scanners
+            - "^alloy-tracing-"
+            - "^prowler-"
           Description: >-
-            Root limited to init-chown-data container; all runtime
-            containers run as UID 472 with caps dropped.
+            grafana: root limited to init-chown-data container; runtime
+            containers run as UID 472 with caps dropped. alloy-tracing:
+            node profiling agent needs root for host access. prowler:
+            CIS scanner CronJob, ephemeral.
         "core_minimize_containers_added_capabilities":
           Regions: ["*"]
           Resources:

@@ -12,9 +12,14 @@ Mutelist:
             - "^system:"
             # ArgoCD
             - "^argocd-"
+            # k3s built-in system components
+            - "^k3s-cloud-controller-manager$"
+            - "^local-path-provisioner-role$"
           Description: >-
             Built-in K8s roles: only operator can bind them. ArgoCD:
             requires broad access but is SSO-gated via Authentik OIDC.
+            k3s-cloud-controller-manager/local-path-provisioner-role:
+            k3s built-in components, ClusterRoles shipped by upstream.
         "rbac_minimize_pod_creation_access":
           Regions: ["*"]
           Resources:
@@ -24,9 +29,21 @@ Mutelist:
             - "^system:"
             # CloudNativePG operator
             - "^cnpg-manager$"
+            # k3s built-in storage provisioner
+            - "^local-path-provisioner-role$"
           Description: >-
-            Built-in K8s roles and CNPG operator. Only the operator can
-            assign these roles; no untrusted users have cluster access.
+            Built-in K8s roles and CNPG operator. local-path-provisioner:
+            k3s storage provisioner creates helper pods to set up
+            PersistentVolumes. Only the operator can assign these roles;
+            no untrusted users have cluster access.
+        "rbac_minimize_node_proxy_subresource_access":
+          Regions: ["*"]
+          Resources:
+            - "^kube-apiserver$"
+          Description: >-
+            kube-apiserver is a built-in control-plane component; node
+            proxy access is required for its core function. Single-user
+            cluster reachable only via tailnet.
         "rbac_minimize_service_account_token_creation":
           Regions: ["*"]
           Resources:

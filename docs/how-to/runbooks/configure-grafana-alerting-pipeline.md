@@ -1,6 +1,7 @@
 ---
 title: Configure Grafana Alerting Pipeline
-modified: 2026-03-22
+modified: 2026-06-15
+last-reviewed: 2026-06-15
 tags:
   - how-to
   - alerting
@@ -21,7 +22,7 @@ Add the `[unified_alerting]` section to the Grafana ConfigMap. Grafana 11+ has u
 
 Grafana supports provisioning alert resources via YAML files in `/etc/grafana/provisioning/alerting/`. Create:
 
-- **Contact point** — ntfy webhook targeting `http://ntfy.ntfy.svc.cluster.local:80/infra-alerts` (cluster-internal, since Grafana and ntfy are on different clusters, use `ntfy.ops.eblu.me` via Caddy instead)
+- **Contact point** — ntfy webhook. The deployed contact point posts to `https://ntfy.ops.eblu.me` (public Caddy endpoint). Since the [[retire-minikube|k3s migration]] both Grafana and ntfy run on ringtail's k3s, so cluster-internal `http://ntfy.ntfy.svc.cluster.local:80` is now a viable simplification that would avoid the Caddy round-trip — not yet adopted.
 - **Notification policy** — root policy with `group_wait: 1m`, `group_interval: 12h`, `repeat_interval: 24h`, grouped by `alertname` and `service`
 - **Message template** — format that includes alert name, summary, and a clickable runbook URL as an ntfy action button
 
@@ -41,7 +42,7 @@ ntfy topics are created on first publish — no explicit setup needed. But verif
 
 ## Key Details
 
-- Grafana runs on minikube (indri), ntfy runs on k3s (ringtail). The contact point URL must go through Caddy: `https://ntfy.ops.eblu.me/infra-alerts`
+- Grafana and ntfy both run on ringtail's k3s cluster (since [[retire-minikube]]). The deployed contact point uses the public Caddy URL `https://ntfy.ops.eblu.me`; cluster-internal DNS (`http://ntfy.ntfy.svc.cluster.local`) is now an option but is not currently used.
 - ntfy action buttons use the `X-Actions` header or JSON body format: `view, Open Runbook, <url>`
 - Grafana provisioning files are applied on startup and cannot be edited from the UI (which is what we want for GitOps)
 

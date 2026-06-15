@@ -41,6 +41,14 @@ rules:
     resources:
       - horizontalpodautoscalers
     verbs: ["list", "watch"]
+  - apiGroups: ["policy"]
+    resources:
+      - poddisruptionbudgets
+    verbs: ["list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources:
+      - endpointslices
+    verbs: ["list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources:
       - networkpolicies
