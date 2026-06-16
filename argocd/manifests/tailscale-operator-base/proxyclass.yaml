@@ -20,10 +20,10 @@ spec:
   statefulSet:
     pod:
       tailscaleContainer:
-        image: docker.io/tailscale/tailscale:v1.94.2
+        image: docker.io/tailscale/tailscale:v1.98.5
         resources:
           requests:
             cpu: 100m
             memory: 128Mi
       tailscaleInitContainer:
-        image: docker.io/tailscale/tailscale:v1.94.2
+        image: docker.io/tailscale/tailscale:v1.98.5

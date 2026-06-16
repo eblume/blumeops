@@ -1,6 +1,7 @@
 ---
 title: Deploy Infrastructure Alerting Pipeline
-modified: 2026-03-22
+modified: 2026-06-16
+last-reviewed: 2026-06-16
 tags:
   - how-to
   - alerting
@@ -58,7 +59,7 @@ These checks will be migrated to alert rules:
 |----------|--------|-------------|
 | Local services (indri) | forgejo, alloy, borgmatic, zot via brew/launchctl | Need new probes or textfile metrics |
 | Metrics textfiles | freshness of `.prom` files | Existing node_textfile metrics |
-| K8s cluster health | minikube API, k3s API | kube-state-metrics |
+| K8s cluster health | k3s API (ringtail) | kube-state-metrics |
 | HTTP endpoints | ~12 services via Caddy | Alloy blackbox exporter (already exists) |
 | Ringtail | SSH, tailscale, k3s health | Need new probes |
 | K3s pods | ntfy, authentik, frigate, etc. | kube-state-metrics on ringtail |

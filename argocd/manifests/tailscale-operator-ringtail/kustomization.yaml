@@ -15,13 +15,14 @@ resources:
 images:
   - name: docker.io/tailscale/k8s-operator
     newName: registry.ops.eblu.me/blumeops/tailscale-operator
-    newTag: v1.94.2-d03ed33-nix
+    newTag: v1.98.5-585e57e-nix
 
-# Rewrite the proxyclass image to our local nix-built mirror (indri's overlay
-# carries the equivalent dagger/arm64 patch). A strategic merge patch is used
-# instead of kustomize's `images:` directive because that directive only
-# rewrites images in standard k8s container fields, not custom-resource fields
-# like ProxyClass.spec.statefulSet.pod.tailscaleContainer.image.
+# Rewrite the proxyclass and DNSConfig nameserver images to our local nix-built
+# mirrors. A strategic merge patch is used instead of kustomize's `images:`
+# directive because that directive only rewrites images in standard k8s
+# container fields, not custom-resource fields like
+# ProxyClass.spec.statefulSet.pod.tailscaleContainer.image and
+# DNSConfig.spec.nameserver.image.
 patches:
   - path: proxyclass-image.yaml
     target:
@@ -29,3 +30,9 @@ patches:
       version: v1alpha1
       kind: ProxyClass
       name: default
+  - path: dnsconfig-image.yaml
+    target:
+      group: tailscale.com
+      version: v1alpha1
+      kind: DNSConfig
+      name: ts-dns

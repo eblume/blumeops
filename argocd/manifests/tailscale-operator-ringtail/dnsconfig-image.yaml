@@ -1,0 +1,9 @@
+apiVersion: tailscale.com/v1alpha1
+kind: DNSConfig
+metadata:
+  name: ts-dns
+spec:
+  nameserver:
+    image:
+      repo: registry.ops.eblu.me/blumeops/tailscale-k8s-nameserver
+      tag: v1.98.5-585e57e-nix

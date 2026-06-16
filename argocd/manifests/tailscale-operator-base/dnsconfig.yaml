@@ -12,5 +12,8 @@ metadata:
 spec:
   nameserver:
     image:
+      # Upstream default; the ringtail overlay rewrites this to the local
+      # nix-built mirror via dnsconfig-image.yaml. Tag pinned (not :stable) so
+      # the upstream fallback can't pull the v1.96.5 MagicDNS regression.
       repo: docker.io/tailscale/k8s-nameserver
-      tag: stable
+      tag: v1.98.5

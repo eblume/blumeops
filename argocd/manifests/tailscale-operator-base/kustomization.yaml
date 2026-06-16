@@ -10,14 +10,14 @@ namespace: tailscale
 # black-holes /mirrors/ at the Fly edge (AI-scraper mitigation), which the
 # in-cluster ArgoCD repo-server would otherwise hit and fail with a 403.
 resources:
-  - https://forge.ops.eblu.me/mirrors/tailscale/raw/tag/v1.94.2/cmd/k8s-operator/deploy/manifests/operator.yaml
+  - https://forge.ops.eblu.me/mirrors/tailscale/raw/tag/v1.98.5/cmd/k8s-operator/deploy/manifests/operator.yaml
   - proxyclass.yaml
   - dnsconfig.yaml
 
 images:
   - name: tailscale/k8s-operator
     newName: docker.io/tailscale/k8s-operator
-    newTag: v1.94.2
+    newTag: v1.98.5
 
 # The upstream manifest includes a placeholder OAuth Secret with empty values.
 # We manage this secret via ExternalSecret, so drop the upstream copy.

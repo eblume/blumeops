@@ -102,18 +102,31 @@ services:
 
   - name: tailscale-operator
     type: argocd
-    last-reviewed: 2026-03-22
-    current-version: "v1.94.2"
+    last-reviewed: 2026-06-16
+    current-version: "v1.98.5"
     upstream-source: https://github.com/tailscale/tailscale/releases
 
   - name: tailscale
     type: container
-    last-reviewed: 2026-05-10
-    current-version: "1.94.2"
+    last-reviewed: 2026-06-16
+    current-version: "1.98.5"
     upstream-source: https://github.com/tailscale/tailscale/releases
     notes: |
       Locally mirrored tailscale image used by ringtail's tailscale-operator
-      ProxyClass. Built via containers/tailscale/default.nix.
+      ProxyClass. Built via containers/tailscale/default.nix. v1.98.5 needs the
+      go_1_26 buildGoModule override (go.mod floor >= 1.26.3).
+
+  - name: tailscale-k8s-nameserver
+    type: container
+    parent: tailscale-operator
+    last-reviewed: 2026-06-16
+    current-version: "1.98.5"
+    upstream-source: https://github.com/tailscale/tailscale/releases
+    notes: >-
+      Attached service: locally mirrored k8s-nameserver image for the
+      tailscale-operator DNSConfig (in-cluster MagicDNS). Built via
+      containers/tailscale-k8s-nameserver/default.nix; replaces the floating
+      docker.io/tailscale/k8s-nameserver:stable tag.
 
   - name: grafana
     type: argocd

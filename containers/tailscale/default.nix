@@ -1,21 +1,23 @@
 # Nix-built tailscale container for ringtail's tailscale-operator ProxyClass
-# Builds v1.94.2 from forge mirror; mirrors upstream Dockerfile contents.
+# Builds v1.98.5 from forge mirror; mirrors upstream Dockerfile contents.
 # Built with dockerTools.buildLayeredImage on the ringtail nix-container-builder.
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "1.94.2";
+  version = "1.98.5";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/tailscale.git";
     rev = "v${version}";
-    hash = "sha256-qjWVB8xWVgIVUgrf27F6hwiFIE+4ERXWeHv26ugg/x4=";
+    hash = "sha256-JaVCmMdZMaP/8RaNRmYpQOj+y/NfHuXdqp8qyWNYEqM=";
   };
 
-  tailscale = pkgs.buildGoModule {
+  # v1.98.5 go.mod floor is go >= 1.26.3; nixpkgs default Go (1.25.x) fails with
+  # GOTOOLCHAIN=local, so pin go_1_26 explicitly (buildGoModule toolchain floor).
+  tailscale = (pkgs.buildGoModule.override { go = pkgs.go_1_26; }) {
     inherit src version;
     pname = "tailscale";
-    vendorHash = "sha256-WeMTOkERj4hvdg4yPaZ1gRgKnhRIBXX55kUVbX/k/xM=";
+    vendorHash = "sha256-mbxLXR2TBgiwyVGfLmMR5xWk+0f66mPDas95Wla70Lk=";
 
     subPackages = [
       "cmd/tailscale"
