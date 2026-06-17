@@ -1,12 +1,27 @@
 ---
 title: First Alert and Runbook
-modified: 2026-03-22
+modified: 2026-06-17
+last-reviewed: 2026-06-17
 tags:
   - how-to
   - alerting
 ---
 
 # First Alert and Runbook
+
+> **Status (2026-06-17):** This POC is **complete and deployed.** The
+> `ServiceProbeFailure` alert rule, the `ntfy-infra` webhook contact point, and
+> the runbook template all live in `argocd/manifests/grafana-ringtail/alerting.yaml`.
+> The runbook it links to is [[runbook-service-probe-failure]].
+>
+> **Coverage caveat:** the blackbox probe set has since been reduced to a single
+> target (`immich`) in `argocd/manifests/alloy-ringtail/config.alloy`. The
+> original five-service list below (miniflux, kiwix, transmission, devpi,
+> argocd) is historical — `devpi` has been retired and the others lost their
+> probes during the observability refactor, so only an `immich` outage fires
+> this alert today. See [[port-services-check-alerts]] for re-expanding
+> coverage. This card is retained as the design rationale for the deployed
+> alert.
 
 Create one end-to-end alert as proof of concept — an alert rule that fires, delivers a notification to ntfy with a runbook link, and has a corresponding runbook doc.
 
@@ -15,7 +30,7 @@ Create one end-to-end alert as proof of concept — an alert rule that fires, de
 ### 1. Choose the First Alert
 
 The best candidate is a **blackbox probe failure** because:
-- Alloy's blackbox exporter already probes 5 services (miniflux, kiwix, transmission, devpi, argocd) at 30s intervals
+- Alloy's blackbox exporter probes in-cluster services at 30s intervals (currently only `immich`; historically miniflux, kiwix, transmission, devpi, argocd)
 - The metric `probe_success` is already in Prometheus
 - It maps directly to what services-check does (HTTP health checks)
 - A single alert rule with a `service` label can cover all probed services
