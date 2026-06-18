@@ -63,7 +63,7 @@ services:
 
   - name: frigate
     type: argocd
-    last-reviewed: 2026-03-24
+    last-reviewed: 2026-06-18
     current-version: "0.17.1"
     upstream-source: https://github.com/blakeblackshear/frigate/releases
 

@@ -1,6 +1,7 @@
 ---
 title: Port services-check Alerts to Grafana
-modified: 2026-03-22
+modified: 2026-06-18
+last-reviewed: 2026-06-18
 tags:
   - how-to
   - alerting
@@ -56,7 +57,7 @@ As each check is ported, remove it from the services-check script (or mark it as
 - Don't try to port everything in one session — this card may span multiple work cycles within the C2 chain
 - Prioritize checks that have caught real problems in the past
 - Some checks (like ArgoCD sync status table) may remain in services-check as a human-readable summary even after alerting covers the failure cases
-- The Alloy blackbox exporter on k8s already covers 5 services; extending it to more is straightforward
+- The Alloy blackbox exporter on ringtail currently probes only one target (`immich`, in `argocd/manifests/alloy-ringtail/config.alloy`). Re-broadening this probe set is the most impactful next step — most services-check HTTP probes still have no Grafana coverage. Coverage narrowed to immich-only during the observability refactor (see [[first-alert-and-runbook]]).
 
 ## Verification
 
