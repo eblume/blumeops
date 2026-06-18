@@ -1,6 +1,6 @@
 ---
 title: Forgejo Runner
-modified: 2026-06-10
+modified: 2026-06-17
 last-reviewed: 2026-06-10
 tags:
   - service
@@ -43,7 +43,7 @@ Desktop's `daemon.json` carries the [[zot]] registry mirror
 
 There is also a second, independent runner: the
 `nix-container-builder` on [[ringtail]] (NixOS systemd service) used
-by `build-container-nix.yaml` workflows.
+by the `build-container.yaml` workflow (its nix build job).
 
 ## Job Execution
 

@@ -1,6 +1,6 @@
 ---
 title: Adopt Commit-Based Container Tags
-modified: 2026-04-11
+modified: 2026-06-17
 tags:
   - how-to
   - containers
@@ -11,6 +11,12 @@ tags:
 # Adopt Commit-Based Container Tags
 
 Replace the current git-tag-triggered container build system with path-based triggers and commit-SHA-based image tags, so that container versions reflect the actual bundled app version and are traceable to exact source commits.
+
+> **Superseded in part by [[retire-minikube]] (2026-06):** all containers are now
+> nix-only. The commit-SHA tag scheme (`vX.Y.Z-<sha>-nix`) is live, but the
+> Dockerfile/`container.py` build types and their version sources described below
+> no longer exist — the version always comes from `version = "..."` in
+> `default.nix`.
 
 ## Context
 

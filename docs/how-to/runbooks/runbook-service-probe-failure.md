@@ -15,17 +15,18 @@ A blackbox HTTP health check has failed for 2+ minutes, meaning a service is not
 
 ## Affected Services
 
-This alert covers services probed by the Alloy blackbox exporter on ringtail's k3s cluster:
+This alert covers services probed by the Alloy blackbox exporter on ringtail's
+k3s cluster. The probe targets are defined in
+`argocd/manifests/alloy-ringtail/config.alloy` (`prometheus.exporter.blackbox`):
 
 | Service | Health Endpoint |
 |---------|----------------|
-| miniflux | `/healthcheck` |
-| kiwix | `/` |
-| transmission | `/transmission/web/` |
-| devpi | `/+api` |
-| argocd | `/healthz` |
+| immich | `/api/server/ping` |
 
-The failing service is identified by the `service` label in the alert (extracted from the `job` label).
+The failing service is identified by the `service` label in the alert, extracted
+from the `job` label (e.g. `integrations/blackbox/immich` → `immich`). To add a
+service to this alert, add a `target` block to the blackbox exporter in the Alloy
+config.
 
 ## Diagnostic Steps
 

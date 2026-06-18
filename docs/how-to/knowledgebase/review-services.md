@@ -1,6 +1,6 @@
 ---
 title: Review Services
-modified: 2026-04-12
+modified: 2026-06-17
 last-reviewed: 2026-04-12
 tags:
   - how-to
@@ -45,9 +45,8 @@ For all service types, start by reading the service's reference card (`docs/refe
 1. Check the upstream releases page for new versions
 2. Compare to the image tag in `argocd/manifests/<service>/kustomization.yaml` (`images[].newTag`)
 3. Review the upstream changelog for breaking changes
-4. If the service uses a custom-built container, also check the base image for security updates and follow [[build-container-image]] to rebuild
+4. If the service uses a custom-built container, also check the nixpkgs pin / upstream pin in `containers/<service>/default.nix` and follow [[build-container-image]] to rebuild
 5. If upgrading, update the manifest and follow [[deploy-k8s-service]]
-6. If the container still uses a Dockerfile (no `container.py`), consider migrating to a native Dagger build — see the `containers/navidrome/container.py` pattern for reference
 
 ### Ansible Services (`type: ansible`)
 

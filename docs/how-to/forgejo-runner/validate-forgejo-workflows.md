@@ -1,6 +1,6 @@
 ---
 title: Validate Forgejo Workflows
-modified: 2026-04-11
+modified: 2026-06-17
 last-reviewed: 2026-04-20
 tags:
   - how-to
@@ -18,7 +18,6 @@ All current workflows pass the validation step with no changes needed:
 
 - `branch-cleanup.yaml` — OK
 - `build-blumeops.yaml` — OK
-- `build-container-nix.yaml` — OK
 - `build-container.yaml` — OK
 - `cv-deploy.yaml` — OK
 - `deploy-fly.yaml` — OK

@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-04-17
+modified: 2026-06-17
 tags:
   - service
   - git
@@ -70,15 +70,14 @@ After building, run `mise run provision-indri -- --tags forgejo` to deploy the c
 
 | Runner | Host | Labels | Purpose |
 |--------|------|--------|---------|
-| k8s DinD pod | [[indri]] (minikube) | `k8s` | Dockerfile builds via Dagger |
-| ringtail-nix-builder | [[ringtail]] (native) | `nix-container-builder` | Nix builds via `nix-build` + `skopeo` |
+| `indri-runner` | [[indri]] (native, host-mode) | `k8s` (compat), `indri` | Lightweight jobs; Dagger CLI talks to the Docker Desktop engine |
+| `nix-container-builder` | [[ringtail]] (NixOS) | `nix-container-builder` | Nix container builds via `nix-build` + `skopeo` |
 
 **Workflows:** `.forgejo/workflows/`
-- `build-container.yaml` - Dockerfile builds on tag (runs on `k8s`)
-- `build-container-nix.yaml` - Nix builds on tag (runs on `nix-container-builder`)
+- `build-container.yaml` - Nix container builds (manual dispatch; classify on `k8s`, build on `nix-container-builder`)
 - `build-blumeops.yaml` - Documentation builds and releases
 
-Both container workflows trigger on the same tag pattern (`*-v[0-9]*`). Each checks for its build file (`Dockerfile` or `default.nix`) and skips if not present. See [[build-container-image]].
+`build-container.yaml` is manual-dispatch only and nix-only: it builds `containers/<name>/default.nix` on the `nix-container-builder` runner. See [[build-container-image]]. (Until [[retire-minikube]] the `k8s` runner was a minikube DinD pod that also built Dockerfile/Dagger containers; that path was retired.)
 
 ## Secrets (Forgejo Config)
 

@@ -1,6 +1,6 @@
 ---
 title: Add Container Version Sync Check
-modified: 2026-04-11
+modified: 2026-06-17
 tags:
   - how-to
   - containers
@@ -11,6 +11,11 @@ tags:
 # Add Container Version Sync Check
 
 Add a prek check that validates version consistency across the places container versions are declared: `container.py` VERSION constants, Dockerfile ARGs, `service-versions.yaml`, and nix derivations. The check enforces they agree.
+
+> **Superseded by [[retire-minikube]] (2026-06):** all containers are now nix-only,
+> so `container-version-check` was simplified to validate just `default.nix`
+> against `service-versions.yaml`. The `container.py`/Dockerfile rules described
+> below were removed. This card is the historical design record.
 
 ## Context
 

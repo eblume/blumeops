@@ -9,12 +9,11 @@
 #USAGE flag "--dry-run" help="Show what would be done without triggering"
 """Trigger container build workflow via Forgejo API dispatch.
 
-Dispatches the unified build-container workflow, which handles both
-Dockerfile and Nix builds in a single workflow.
+Dispatches the build-container workflow, which builds the container's
+default.nix on the nix-container-builder runner and pushes to zot.
 """
 
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -98,17 +97,8 @@ def find_dispatched_run(
 def list_containers() -> None:
     typer.echo("Available containers:")
     for d in sorted(Path("containers").iterdir()):
-        if not d.is_dir():
-            continue
-        types = []
-        if (d / "container.py").exists():
-            types.append("dagger")
-        if (d / "Dockerfile").exists():
-            types.append("dockerfile")
-        if (d / "default.nix").exists():
-            types.append("nix")
-        if types:
-            typer.echo(f"  - {d.name} ({', '.join(types)})")
+        if d.is_dir() and (d / "default.nix").exists():
+            typer.echo(f"  - {d.name}")
 
 
 @app.command()
@@ -119,12 +109,10 @@ def main(
 ) -> None:
     """Trigger container build workflows via Forgejo API dispatch."""
     container_dir = Path("containers") / container
-    has_container_py = (container_dir / "container.py").exists()
-    has_dockerfile = (container_dir / "Dockerfile").exists()
     has_nix = (container_dir / "default.nix").exists()
 
-    if not has_container_py and not has_dockerfile and not has_nix:
-        typer.echo(f"Error: No container.py, Dockerfile, or default.nix found in '{container_dir}'")
+    if not has_nix:
+        typer.echo(f"Error: No default.nix found in '{container_dir}'")
         typer.echo()
         list_containers()
         raise typer.Exit(1)
@@ -139,19 +127,14 @@ def main(
 
     image = f"blumeops/{container}"
 
-    # Show expected builds
-    builds = []
-    if has_container_py or has_dockerfile:
-        label = "dagger" if has_container_py else "dockerfile"
-        builds.append(f"  {label:12s} -> {REGISTRY}/{image}:v<version>-{short_sha}")
-    if has_nix:
-        builds.append(f"  {'nix':12s} -> {REGISTRY}/{image}:v<version>-{short_sha}-nix")
+    # Show expected build
+    builds = [f"  {'nix':12s} -> {REGISTRY}/{image}:v<version>-{short_sha}-nix"]
 
     if dry_run:
         typer.echo("[dry-run mode]")
     typer.echo(f"Container:  {container}")
     typer.echo(f"Commit:     {ref} ({short_sha})")
-    typer.echo(f"Expected builds:")
+    typer.echo("Expected builds:")
     for b in builds:
         typer.echo(b)
     typer.echo()

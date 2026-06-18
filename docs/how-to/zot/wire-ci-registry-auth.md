@@ -1,6 +1,6 @@
 ---
 title: Wire CI Registry Auth
-modified: 2026-04-11
+modified: 2026-06-17
 tags:
   - how-to
   - zot
@@ -18,27 +18,26 @@ The `zot-ci` service account (created in [[register-zot-oidc-client]]) belongs t
 
 Authentication uses a zot API key generated after the service account's first OIDC login. The key is stored in 1Password (`Forgejo Secrets` item, field `zot-ci-api`, in blumeops vault) and synced to Forgejo Actions secrets via the `forgejo_actions_secrets` ansible role. The key expires every 90 days — see [[zot#API Key Rotation]] for the rotation procedure.
 
-## Push Paths
+## Push Path
 
-### Dagger path (Dockerfile containers)
+`.forgejo/workflows/build-container.yaml` builds `containers/<name>/default.nix`
+with `nix-build` on the `nix-container-builder` runner, then passes
+`--dest-creds=zot-ci:$ZOT_CI_API_KEY` to `skopeo copy` to push the image.
 
-`.forgejo/workflows/build-container.yaml` passes `--registry-password=env:ZOT_CI_API_KEY` to the Dagger `publish()` function, which calls `with_registry_auth()` before pushing.
-
-### Nix/skopeo path (Nix containers)
-
-`.forgejo/workflows/build-container-nix.yaml` passes `--dest-creds=zot-ci:$ZOT_CI_API_KEY` to `skopeo copy`.
+(Until [[retire-minikube]] a parallel Dagger path pushed Dockerfile/`container.py`
+containers via the `publish()` function and `with_registry_auth()`; that path —
+and its workflow — were retired when the build went nix-only.)
 
 ## Secret Flow
 
-1Password `Forgejo Secrets` item (field `zot-ci-api`) → ansible pre_task fetches it → `forgejo_actions_secrets` role syncs to Forgejo API → both runners (k8s on indri, host on ringtail) access it as `${{ secrets.ZOT_CI_API_KEY }}`.
+1Password `Forgejo Secrets` item (field `zot-ci-api`) → ansible pre_task fetches it → `forgejo_actions_secrets` role syncs to Forgejo API → the `nix-container-builder` runner (ringtail) accesses it as `${{ secrets.ZOT_CI_API_KEY }}`.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `src/blumeops/main.py` | `publish()` accepts optional `registry_password` |
-| `.forgejo/workflows/build-container.yaml` | Passes API key to Dagger |
-| `.forgejo/workflows/build-container-nix.yaml` | Passes API key to skopeo |
+| `.forgejo/workflows/build-container.yaml` | Passes API key to `skopeo copy` |
+| `ansible/roles/forgejo_actions_secrets/` | Syncs the key to Forgejo Actions secrets |
 | `ansible/playbooks/indri.yml` | Pre_task fetches API key from 1Password |
 | `ansible/roles/forgejo_actions_secrets/defaults/main.yml` | Secret entry for `ZOT_CI_API_KEY` |
 

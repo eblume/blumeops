@@ -3,17 +3,15 @@
 # requires-python = ">=3.12"
 # dependencies = ["pyyaml==6.0.3", "rich==15.0.0", "typer==0.26.2"]
 # ///
-#MISE description="Validate container version consistency across container.py, Dockerfiles, nix derivations, and service-versions.yaml"
+#MISE description="Validate container version consistency across nix derivations and service-versions.yaml"
 #USAGE flag "--all-files" help="Check all containers, not just changed ones"
 """Validate that container versions are consistent across all declaration sites.
 
 For each container directory under containers/, checks:
-1. Any container.py must declare VERSION=<value>
-2. Any Dockerfile must declare ARG CONTAINER_APP_VERSION=<value>
-3. Any default.nix must produce a version (via dagger call nix-version)
-4. At least one build file (container.py, Dockerfile, or default.nix) must exist
-5. A matching entry in service-versions.yaml must exist with non-null current-version
-6. All resolved versions from (1), (2), (3), and (5) must agree
+1. A default.nix must exist and produce a version (declared locally, or via
+   `dagger call nix-version` for unmodified nixpkgs packages)
+2. A matching entry in service-versions.yaml must exist with non-null current-version
+3. The resolved versions from (1) and (2) must agree
 
 By default, only checks containers whose files differ from main.
 Pass --all-files to check every container.
@@ -53,8 +51,6 @@ NIX_PACKAGE_MAP = {
     "authentik": "authentik",
 }
 
-CONTAINER_PY_VERSION_PATTERN = re.compile(r'^VERSION\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
-VERSION_ARG_PATTERN = re.compile(r"^ARG\s+CONTAINER_APP_VERSION=(\S+)", re.MULTILINE)
 NIX_VERSION_PATTERN = re.compile(r'^\s*version\s*=\s*"([^"]+)"\s*;', re.MULTILINE)
 
 app = typer.Typer()
@@ -149,53 +145,29 @@ def main(
         if scope is not None and name not in scope:
             continue
 
-        container_py = container_dir / "container.py"
-        dockerfile = container_dir / "Dockerfile"
         nix_file = container_dir / "default.nix"
-        has_container_py = container_py.exists()
-        has_dockerfile = dockerfile.exists()
         has_nix = nix_file.exists()
 
         versions: dict[str, str] = {}
         entry = {
             "name": name,
-            "has_container_py": has_container_py,
-            "has_dockerfile": has_dockerfile,
             "has_nix": has_nix,
             "versions": versions,
         }
         results.append(entry)
 
-        # Rule 4: at least one build file
-        if not has_container_py and not has_dockerfile and not has_nix:
-            errors.append((name, "No container.py, Dockerfile, or default.nix found"))
+        # Rule 1: a default.nix must exist and produce a version
+        if not has_nix:
+            errors.append((name, "No default.nix found"))
             continue
 
-        # Rule 1: container.py must declare VERSION
-        if has_container_py:
-            match = CONTAINER_PY_VERSION_PATTERN.search(container_py.read_text())
-            if match:
-                versions["container.py"] = match.group(1)
-            else:
-                errors.append((name, "container.py missing VERSION declaration"))
+        nix_ver = get_nix_version(name, nix_file)
+        if nix_ver is not None:
+            versions["nix"] = nix_ver
+        elif name in NIX_PACKAGE_MAP:
+            errors.append((name, "Failed to extract nix version via dagger"))
 
-        # Rule 2: Dockerfile must declare CONTAINER_APP_VERSION
-        if has_dockerfile:
-            match = VERSION_ARG_PATTERN.search(dockerfile.read_text())
-            if match:
-                versions["dockerfile"] = match.group(1)
-            else:
-                errors.append((name, "Dockerfile missing ARG CONTAINER_APP_VERSION"))
-
-        # Rule 3: nix derivation must produce a version
-        if has_nix:
-            nix_ver = get_nix_version(name, nix_file)
-            if nix_ver is not None:
-                versions["nix"] = nix_ver
-            elif name in NIX_PACKAGE_MAP:
-                errors.append((name, "Failed to extract nix version via dagger"))
-
-        # Rule 4: service-versions.yaml entry with non-null version
+        # Rule 2: service-versions.yaml entry with non-null version
         svc_name = CONTAINER_TO_SERVICE.get(name, name)
         svc = services.get(svc_name)
         if svc is None:
@@ -205,7 +177,7 @@ def main(
         else:
             versions["service-versions"] = str(svc["current-version"])
 
-        # Rule 5: all resolved versions must match
+        # Rule 3: all resolved versions must match
         if len(versions) >= 2:
             normalized = {src: strip_v(v) for src, v in versions.items()}
             unique = set(normalized.values())
@@ -224,27 +196,17 @@ def main(
     if results:
         table = Table(show_header=True, header_style="bold")
         table.add_column("Container")
-        table.add_column("Build")
         table.add_column("Versions")
         table.add_column("Status")
 
         for entry in results:
             name = entry["name"]
-            build_parts = []
-            if entry["has_container_py"]:
-                build_parts.append("dagger")
-            if entry["has_dockerfile"]:
-                build_parts.append("dockerfile")
-            if entry["has_nix"]:
-                build_parts.append("nix")
-
             ver_parts = [f"{src}={v}" for src, v in sorted(entry["versions"].items())]
             has_error = any(e[0] == name for e in errors)
             status = "[red]FAIL[/red]" if has_error else "[green]OK[/green]"
 
             table.add_row(
                 name,
-                "+".join(build_parts),
                 ", ".join(ver_parts) or "—",
                 status,
             )

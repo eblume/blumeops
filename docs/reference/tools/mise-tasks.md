@@ -1,6 +1,6 @@
 ---
 title: Mise Tasks
-modified: 2026-06-09
+modified: 2026-06-17
 tags:
   - reference
   - tools
@@ -48,7 +48,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 |------|-------------|
 | `container-list` | List containers and their recent tags |
 | `container-build-and-release` | Trigger container build workflows via Forgejo API |
-| `container-version-check` | Validate version consistency across container.py, Dockerfiles, nix, and manifests |
+| `container-version-check` | Validate version consistency between each container's `default.nix` and `service-versions.yaml` |
 | `mirror-create` | Create an upstream mirror in the `mirrors/` Forgejo org |
 | `mirror-update-pats` | Update GitHub PAT on all mirror repos on indri |
 

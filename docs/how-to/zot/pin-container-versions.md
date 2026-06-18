@@ -1,6 +1,6 @@
 ---
 title: Pin Container Versions
-modified: 2026-04-11
+modified: 2026-06-17
 tags:
   - how-to
   - containers
@@ -11,6 +11,11 @@ tags:
 # Pin Container Versions
 
 Ensure every container has an explicit, parseable version declaration so that [[add-container-version-sync-check]] has something to validate against.
+
+> **Superseded by [[retire-minikube]] (2026-06):** all containers are now nix-only.
+> The `ARG CONTAINER_APP_VERSION` / `container.py` `VERSION` conventions below
+> were retired with the Dockerfile/Dagger build paths; versions now live in
+> `version = "..."` in each `default.nix`. This card is the historical record.
 
 ## Context
 
