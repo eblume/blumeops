@@ -3,15 +3,13 @@
 # requires-python = ">=3.12"
 # dependencies = ["rich==15.0.0", "typer==0.26.2", "pyyaml==6.0.3"]
 # ///
-#MISE description="Summarize the latest Prowler and Kingfisher compliance reports from sifaka"
+#MISE description="Summarize the latest Prowler security-scan reports from sifaka"
 #USAGE flag "--full" help="Show all unmuted failures, not just new ones"
 #USAGE flag "--show-muted" help="Also show muted failures"
-"""Fetch and summarize compliance reports from sifaka.
+"""Fetch and summarize Prowler security-scan reports from sifaka.
 
 Covers:
   - Prowler K8s CIS (in-cluster): per-finding detail
-  - Kingfisher secret scanning: TODO — pending upstream JSON/CSV output
-    support (currently HTML-only; contribute from spork)
 
 The Prowler container-image CVE scan and IaC scan were retired in 2026-06
 (see docs/how-to/operations/deploy-prowler.md) — they produced tens of
@@ -380,36 +378,6 @@ def main(
     # perms, etcd CA separation, RBAC bindings) was minikube-specific and
     # retired with the cluster ([[retire-minikube]] phase 5). A
     # k3s/ringtail-shaped equivalent is tracked in heph.
-
-    # --- Kingfisher secret scanning ---
-    # TODO: Kingfisher currently only outputs HTML. Once JSON or CSV output
-    # is supported upstream (contribute from our spork), add parsing here:
-    #
-    # KINGFISHER_BASE = "/volume1/reports/kingfisher"
-    # - Fetch latest JSON/CSV from sifaka:{KINGFISHER_BASE}/
-    # - Parse findings: active vs inactive vs skipped validations
-    # - Flag any "Active Credential" findings as critical
-    # - Compare against previous scan for delta
-    # - Show summary panel similar to Prowler
-    #
-    # For now, check that a recent report exists and warn if missing.
-    kf_check = subprocess.run(
-        ["ssh", "sifaka", "ls -1t /volume1/reports/kingfisher/ | head -1"],
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    kf_latest = kf_check.stdout.strip() if kf_check.returncode == 0 else ""
-    if kf_latest and kf_latest.startswith("202"):
-        console.print(
-            f"[dim]Kingfisher: latest report directory is {kf_latest} "
-            f"(HTML only — JSON/CSV pending upstream)[/dim]"
-        )
-    else:
-        console.print(
-            "[bold yellow]Warning: No recent Kingfisher report found on "
-            "sifaka. Check the CronJob on ringtail.[/bold yellow]"
-        )
 
 
 if __name__ == "__main__":

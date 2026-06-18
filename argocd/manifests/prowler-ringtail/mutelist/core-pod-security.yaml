@@ -56,12 +56,13 @@ Mutelist:
             - "^local-path-provisioner-"
             - "^nvidia-device-plugin-"
           Description: >-
-            System pods managed by minikube/k3s and the Tailscale operator;
+            System pods managed by k3s and the Tailscale operator;
             seccomp profiles set by upstream. alloy/local-path-provisioner/
             nvidia-device-plugin: node-level agents with upstream-managed
             securityContext. Single-user cluster limits exploit surface.
-            App-pod seccomp findings (authentik, frigate-notify) are tracked
-            for RuntimeDefault remediation rather than muted.
+            App-pod seccomp findings on workloads we control (authentik,
+            frigate-notify) were remediated with seccompProfile:
+            RuntimeDefault rather than muted.
         "core_minimize_hostPID_containers":
           Regions: ["*"]
           Resources:

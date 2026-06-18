@@ -9,17 +9,17 @@ tags:
 
 # Prowler
 
-CIS Kubernetes Benchmark scanner for compliance posture reporting.
+CIS Kubernetes Benchmark scanner — a weekly Kubernetes security hygiene check.
 
 ## Quick Reference
 
 | Property | Value |
 |----------|-------|
 | **Namespace** | `prowler` |
-| **Image** | `registry.ops.eblu.me/blumeops/prowler` (see `argocd/manifests/prowler/kustomization.yaml` for current tag) |
+| **Image** | `registry.ops.eblu.me/blumeops/prowler` (see `argocd/manifests/prowler-ringtail/kustomization.yaml` for current tag) |
 | **Schedule** | K8s CIS: Sunday 3am |
 | **Reports** | `sifaka:/volume1/reports/prowler/` (NFS) |
-| **Manifests** | `argocd/manifests/prowler/` |
+| **Manifests** | `argocd/manifests/prowler-ringtail/` |
 
 ## What it does
 
@@ -33,6 +33,6 @@ The **image** and **IaC** scans (formerly Saturday CronJobs) were retired in 202
 
 ## See also
 
-- [[security]] — security & compliance posture overview
+- [[security]] — security posture overview
 - [[deploy-prowler]] — deployment how-to, ad-hoc scan instructions, check relevance notes
 - [[read-compliance-reports]] — how to access and interpret reports

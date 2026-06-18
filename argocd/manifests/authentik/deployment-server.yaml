@@ -16,6 +16,9 @@ spec:
         app: authentik
         component: server
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: server
           image: registry.ops.eblu.me/blumeops/authentik:kustomized

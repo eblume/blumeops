@@ -16,6 +16,9 @@ spec:
         app: authentik
         component: worker
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: worker
           image: registry.ops.eblu.me/blumeops/authentik:kustomized

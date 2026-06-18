@@ -46,7 +46,7 @@ Note that a cron-triggered workflow is especially dangerous: it requires no user
 **Current mitigations:**
 
 - **Runner label mismatch** — our runner uses `k8s`, upstream workflows typically use `ubuntu-24.04` / `macos-latest` / `windows-latest`. Jobs queue but never execute. This is effective but fragile — it depends on upstream never guessing our label.
-- **Trust boundary** — we only spork projects we trust. Kingfisher is maintained by a MongoDB security engineer.
+- **Trust boundary** — we only spork projects we trust. (Kingfisher, the first spork, was maintained by a MongoDB security engineer; it has since been retired.)
 - **Mirror review** — mirror syncs are visible in Forgejo; malicious workflow changes would appear in the commit history. But this is not a real-time defense — the workflow may execute before anyone reviews.
 
 **What would fix this properly:**
@@ -65,4 +65,5 @@ Note that a cron-triggered workflow is especially dangerous: it requires no user
 ## See also
 
 - [[manage-forgejo-mirrors]] — how upstream mirrors work
-- [[kingfisher]] — first project using the spork strategy
+
+> Kingfisher was the first project to use this strategy and has since been retired; there are no active sporks at the moment. The machinery (`mise run spork-create`, the how-to guides below) stays in place for future sporks. The how-to guides keep Kingfisher as the worked example.

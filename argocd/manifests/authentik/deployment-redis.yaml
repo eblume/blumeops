@@ -16,6 +16,9 @@ spec:
         app: authentik
         component: redis
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: redis
           image: docker.io/library/redis:kustomized

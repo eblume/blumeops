@@ -25,29 +25,12 @@ repo = "https://github.com/pre-commit/pre-commit-hooks"
 rev = "3e8a8703264a2f4a69428a0aa4dcb512790b2c8c"        # v6.0.0
 hooks = [{ id = "check-yaml", args = ["--unsafe"] }]
 
-# Secret detection (running both tools in parallel to compare coverage)
+# Secret detection
 [[repos]]
 repo = "https://github.com/trufflesecurity/trufflehog"
 rev = "37b77001d0174ebec2fcca2bd83ff83a6d45a3ab" # v3.95.3
 hooks = [
   { id = "trufflehog", entry = "trufflehog git file://. --since-commit HEAD --no-verification --fail", stages = [
-    "pre-commit",
-    "pre-push",
-  ] },
-]
-
-[[repos]]
-repo = "https://github.com/mongodb/kingfisher"
-rev = "6f560103cc6ea082ef4b80a9098e3f3111afb8bc" # v1.101.0
-hooks = [
-  { id = "kingfisher", args = [
-    "scan",
-    ".",
-    "--staged",
-    "--quiet",
-    "--no-update-check",
-    "--no-validate",
-  ], stages = [
     "pre-commit",
     "pre-push",
   ] },

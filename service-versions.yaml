@@ -386,14 +386,7 @@ services:
     # via service-review when nixpkgs catches up.
     current-version: "5.12.3"
     upstream-source: https://github.com/prowler-cloud/prowler/releases
-    notes: CIS Kubernetes Benchmark scanner; weekly CronJob on minikube-indri
-
-  - name: kingfisher
-    type: argocd
-    last-reviewed: 2026-03-29
-    current-version: "165768b"
-    upstream-source: https://github.com/mongodb/kingfisher/releases
-    notes: Secret scanner; sporked from upstream with --clone-url-base patch. Version is upstream main SHA.
+    notes: CIS Kubernetes Benchmark scanner; weekly CronJob on ringtail
 
   - name: forgejo
     type: ansible

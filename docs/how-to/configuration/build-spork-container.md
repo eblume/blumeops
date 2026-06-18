@@ -98,4 +98,4 @@ The invariant: **feature revs are descendants of the upstream rev**. Mirror-sync
 
 - [[create-a-spork]] — initial spork setup
 - [[manage-spork-branches]] — feature branch workflow
-- [[kingfisher]] — first sporked project
+- [[spork-strategy]] — why we spork (Kingfisher, the worked example here, has been retired)
