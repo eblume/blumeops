@@ -1,6 +1,6 @@
 ---
 title: Add Dagger Nix Build Function
-modified: 2026-04-11
+modified: 2026-06-17
 tags:
   - how-to
   - containers
@@ -36,7 +36,7 @@ async def build_nix(
     # Returns the docker-archive tarball
 ```
 
-This mirrors the existing `build` function (Dockerfile) but for nix. The result is a docker-archive tarball that can be loaded with `docker load` or pushed with `skopeo`.
+The result is a docker-archive tarball that can be loaded with `docker load` or pushed with `skopeo`. (At the time this was the nix counterpart to the Dockerfile `build` function; that function was later retired in [[retire-minikube]] and `build_nix`/`nix-build` are now the only container build paths.)
 
 ### 2. Add `nix_version` Dagger function
 
@@ -53,20 +53,12 @@ async def nix_version(
 
 This lets the version sync check run `dagger call nix-version --src=. --package=authentik` to get the actual version that would be built.
 
-### 3. Add `publish_nix` Dagger function (optional)
+### 3. Add `publish_nix` Dagger function (not pursued)
 
-If useful, a combined build-and-push that mirrors `publish` but for nix images:
-
-```python
-@function
-async def publish_nix(
-    self, src: dagger.Directory, container_name: str, version: str,
-    registry: str = "registry.ops.eblu.me",
-) -> str:
-    """Build nix container and push to registry via skopeo."""
-```
-
-This would give a `dagger call publish-nix` path parallel to the existing `dagger call publish`.
+A combined build-and-push was considered but never added — the
+`build-container.yaml` workflow handles the push (`nix-build` + `skopeo copy`)
+directly on the `nix-container-builder` runner, so a Dagger publish path was
+unnecessary.
 
 ## Nix in Dagger
 

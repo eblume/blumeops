@@ -1,6 +1,6 @@
 ---
 title: Dagger
-modified: 2026-04-11
+modified: 2026-06-17
 tags:
   - reference
   - ci-cd
@@ -25,43 +25,30 @@ Build engine for BlumeOps CI/CD pipelines. Replaces shell-based build scripts wi
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `build` | `(src, container_name) → Container` | Build a container — uses native pipeline (`container.py`) if available, falls back to `docker_build()` for Dockerfile containers |
-| `container_version` | `(container_name) → str` | Return the `VERSION` from a container's `container.py` (empty string if no `container.py`) |
-| `publish` | `(src, container_name, version, registry?) → str` | Build and push to registry (default: `registry.ops.eblu.me`) |
 | `build_nix` | `(src, container_name) → File` | Build a nix container from `containers/<name>/default.nix`, return docker-archive tarball |
 | `nix_version` | `(package) → str` | Extract the version of a nixpkgs package |
 | `build_docs` | `(src, version) → File` | Build Quartz docs site, return docs tarball |
 | `flake_lock` | `(src, flake_path?) → File` | Resolve flake inputs, return updated `flake.lock` |
-| `flake_update` | `(src, flake_path?) → File` | Update all flake inputs to latest, return `flake.lock` |
+| `flake_update` | `(src, flake_path?, skip_inputs?) → File` | Update rolling flake inputs to latest, return `flake.lock` |
+| `validate_workflows` | `(src, runner_version?) → str` | Validate Forgejo Actions workflows against the runner schema |
+| `export_yolov9` | `(model_size?, input_size?) → File` | Export YOLOv9 weights to ONNX for [[frigate|Frigate]] |
 
 ## Container Build Types
 
-Containers can be built in three ways:
+All BlumeOps containers are built from `containers/<name>/default.nix` via
+`nix-build` on the `nix-container-builder` runner ([[ringtail]]), then pushed
+to [[zot]] (amd64, `:vX.Y.Z-<sha>-nix` tags). See [[build-container-image]].
 
-| Build file | How it works | Error visibility |
-|------------|-------------|-----------------|
-| `container.py` | Native Dagger pipeline (preferred) | Full per-step output |
-| `Dockerfile` | `docker_build()` fallback (legacy) | Opaque — errors swallowed |
-| `default.nix` | `nix-build` on ringtail runner | Full nix output |
-
-New containers for indri (k8s runner) should use `container.py`. Ringtail containers should continue using `default.nix`. Existing Dockerfile containers are migrated incrementally during [[review-services|service reviews]]. See `containers/navidrome/container.py` for the reference pattern.
+> Until [[retire-minikube]] (2026-06), containers could also be built from a
+> `Dockerfile` (`docker_build()`) or a native `container.py` Dagger pipeline,
+> routed to an arm64 k8s runner. Both build paths — and the `build`,
+> `publish`, and `container_version` Dagger functions that drove them — were
+> retired with the minikube cluster.
 
 ## CLI Examples
 
 ```bash
-# Build a container
-dagger call build --src=. --container-name=miniflux
-
-# Drop into container shell for inspection
-dagger call build --src=. --container-name=miniflux terminal
-
-# Debug a failure interactively
-dagger call --interactive build --src=. --container-name=miniflux
-
-# Publish a container to zot
-dagger call publish --src=. --container-name=miniflux --version=v1.1.0
-
-# Build a nix container (no local nix required)
+# Build a nix container locally (no local nix required)
 dagger call build-nix --src=. --container-name=ntfy export --path=./ntfy.tar.gz
 
 # Check a nixpkgs package version

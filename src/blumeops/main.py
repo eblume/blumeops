@@ -1,70 +1,11 @@
-from pathlib import Path
-
 import dagger
 from dagger import dag, function, object_type
 
-from .containers import discover
-
 NIX_IMAGE = "nixos/nix:2.34.4"
-
-# Module root is src/blumeops/, repo root is two levels up
-_REPO_ROOT = Path(__file__).parent.parent.parent
-_CONTAINERS_DIR = _REPO_ROOT / "containers"
 
 
 @object_type
 class Blumeops:
-    @function
-    async def build(
-        self, src: dagger.Directory, container_name: str
-    ) -> dagger.Container:
-        """Build a container by name.
-
-        Uses the native Dagger pipeline from containers/<name>/container.py
-        if available, otherwise falls back to docker_build() for containers
-        still using Dockerfiles.
-        """
-        registry = discover(_CONTAINERS_DIR)
-        if container_name in registry:
-            mod = registry[container_name]
-            return await mod.build(src)
-        # Legacy fallback for containers still using Dockerfiles
-        context = src.directory(f"containers/{container_name}")
-        return context.docker_build()
-
-    @function
-    async def container_version(self, container_name: str) -> str:
-        """Return the VERSION declared in a container's container.py.
-
-        Used by CI and mise tasks to extract version without parsing
-        Dockerfiles. Returns empty string if no container.py exists.
-        """
-        registry = discover(_CONTAINERS_DIR)
-        if container_name in registry:
-            return getattr(registry[container_name], "VERSION", "")
-        return ""
-
-    @function
-    async def publish(
-        self,
-        src: dagger.Directory,
-        container_name: str,
-        version: str,
-        commit_sha: str,
-        registry: str = "registry.ops.eblu.me",
-        registry_username: str = "zot-ci",
-        registry_password: dagger.Secret | None = None,
-    ) -> str:
-        """Build and push to registry. Returns the image ref.
-
-        Tag format: {version}-{commit_sha} (e.g. v1.0.0-abc1234)
-        """
-        ctr = await self.build(src, container_name)
-        if registry_password is not None:
-            ctr = ctr.with_registry_auth(registry, registry_username, registry_password)
-        ref = f"{registry}/blumeops/{container_name}:{version}-{commit_sha}"
-        return await ctr.publish(ref)
-
     @function
     async def build_docs(self, src: dagger.Directory, version: str) -> dagger.File:
         """Build Quartz docs site. Returns docs tarball."""

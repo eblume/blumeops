@@ -1,6 +1,6 @@
 ---
 title: "Runbook: Pod Not Ready"
-modified: 2026-03-22
+modified: 2026-06-17
 tags:
   - how-to
   - alerting
@@ -17,23 +17,23 @@ A Kubernetes pod has been in a not-ready state for 5+ minutes.
 
 1. **Identify the pod** from the alert labels (`pod`, `namespace`):
    ```fish
-   kubectl describe pod <pod> -n <namespace> --context=minikube-indri
+   kubectl describe pod <pod> -n <namespace> --context=k3s-ringtail
    ```
 
 2. **Check events** — look for scheduling failures, image pull errors, or probe failures:
    ```fish
-   kubectl get events -n <namespace> --context=minikube-indri --sort-by='.lastTimestamp' | tail -20
+   kubectl get events -n <namespace> --context=k3s-ringtail --sort-by='.lastTimestamp' | tail -20
    ```
 
 3. **Check logs**:
    ```fish
-   kubectl logs <pod> -n <namespace> --context=minikube-indri --tail=50
+   kubectl logs <pod> -n <namespace> --context=k3s-ringtail --tail=50
    ```
 
 4. **Check node resources**:
    ```fish
-   kubectl top nodes --context=minikube-indri
-   kubectl top pods -n <namespace> --context=minikube-indri
+   kubectl top nodes --context=k3s-ringtail
+   kubectl top pods -n <namespace> --context=k3s-ringtail
    ```
 
 ## Common Causes

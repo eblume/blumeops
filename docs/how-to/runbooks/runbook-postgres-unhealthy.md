@@ -1,6 +1,6 @@
 ---
 title: "Runbook: PostgreSQL Cluster Unhealthy"
-modified: 2026-03-22
+modified: 2026-06-17
 tags:
   - how-to
   - alerting
@@ -15,9 +15,9 @@ The CNPG collector metrics endpoint is down, indicating the PostgreSQL cluster i
 
 ## Affected Services
 
-The `blumeops-pg` CNPG cluster on indri's minikube runs databases for:
+The `blumeops-pg` CNPG cluster on ringtail's k3s runs databases for:
 - TeslaMate
-- Authentik (cross-cluster from ringtail)
+- Authentik
 - Immich
 - Grafana dashboards (TeslaMate datasource)
 
@@ -25,13 +25,13 @@ The `blumeops-pg` CNPG cluster on indri's minikube runs databases for:
 
 1. **Check CNPG cluster status**:
    ```fish
-   kubectl get cluster blumeops-pg -n databases --context=minikube-indri
-   kubectl get pods -n databases -l cnpg.io/cluster=blumeops-pg --context=minikube-indri
+   kubectl get cluster blumeops-pg -n databases --context=k3s-ringtail
+   kubectl get pods -n databases -l cnpg.io/cluster=blumeops-pg --context=k3s-ringtail
    ```
 
 2. **Check pod logs**:
    ```fish
-   kubectl logs -n databases -l cnpg.io/cluster=blumeops-pg --context=minikube-indri --tail=30
+   kubectl logs -n databases -l cnpg.io/cluster=blumeops-pg --context=k3s-ringtail --tail=30
    ```
 
 3. **Check if pg_isready**:
@@ -41,7 +41,7 @@ The `blumeops-pg` CNPG cluster on indri's minikube runs databases for:
 
 4. **Check PVC storage**:
    ```fish
-   kubectl get pvc -n databases --context=minikube-indri
+   kubectl get pvc -n databases --context=k3s-ringtail
    ```
 
 ## Common Causes

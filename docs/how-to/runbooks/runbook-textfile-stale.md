@@ -1,6 +1,6 @@
 ---
 title: "Runbook: Textfile Stale"
-modified: 2026-03-22
+modified: 2026-06-17
 tags:
   - how-to
   - alerting
@@ -19,8 +19,9 @@ A Prometheus textfile collector `.prom` file on indri has not been updated for o
 |------|-------------|------------------|
 | `borgmatic.prom` | `mcquack.eblume.borgmatic` | Backup status |
 | `zot.prom` | `mcquack.eblume.zot` | Container registry |
-| `minikube.prom` | `mcquack.minikube-metrics` | Minikube cluster status |
+| `forgejo.prom` | `mcquack.eblume.forgejo-metrics` | Git forge |
 | `jellyfin.prom` | `mcquack.eblume.jellyfin-metrics` | Media server |
+| `macos_power.prom` | `mcquack.eblume.macos-power-metrics` | Host power/thermal |
 
 ## Diagnostic Steps
 
