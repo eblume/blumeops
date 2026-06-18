@@ -73,12 +73,19 @@ spec:
               port: 5000
             initialDelaySeconds: 30
             periodSeconds: 30
+            # Frigate's API thread blocks under detector/GPU load and NFS
+            # recording I/O; the default 1s timeout / 3 failures was killing
+            # the pod on transient stalls (206 SIGTERM restarts over 36d, never
+            # OOM). Tolerate ~2.5min of unresponsiveness before restarting.
+            timeoutSeconds: 10
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /api/version
               port: 5000
             initialDelaySeconds: 15
             periodSeconds: 10
+            timeoutSeconds: 5
       volumes:
         - name: config-ro
           configMap:
