@@ -26,6 +26,10 @@ pkgs.dockerTools.buildLayeredImage {
     pkgs.ffmpeg-headless
     pkgs.cacert
     pkgs.tzdata
+    # coreutils provides ls/cat so borgmatic on indri can discover and
+    # stream navidrome's own DB backups out of the pod (see the borgmatic
+    # role's k8s-file-dump helper). The base nix image ships no shell utils.
+    pkgs.coreutils
   ];
 
   config = {

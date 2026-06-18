@@ -44,6 +44,32 @@ The `/data` directory contains SQLite database, configuration, and cache.
 | `ND_LOGLEVEL` | info |
 | `ND_MUSICFOLDER` | /music |
 | `ND_DATAFOLDER` | /data |
+| `ND_BACKUP_PATH` | /data/backup |
+| `ND_BACKUP_SCHEDULE` | `0 1 * * *` (daily 01:00) |
+| `ND_BACKUP_COUNT` | 7 |
+
+## Backup
+
+The music *files* live on [[sifaka]] (NFS, read-only) and are backed up there.
+Navidrome's **database** — users, play counts, playlists, favorites — lives on
+the local `/data` PVC and predated the ringtail migration as a backup gap.
+
+Navidrome's [native backup](https://www.navidrome.org/docs/usage/admin/backup/)
+(`ND_BACKUP_*`) writes a consistent SQLite snapshot to
+`/data/backup/navidrome_backup_<YYYY.MM.DD_HH.MM.SS>.db` daily at 01:00, keeping the newest 7.
+[[borgmatic]] on [[indri]] then ferries the **newest** snapshot off the PVC at
+02:00 via its `borgmatic_k8s_file_dumps` hook (ssh to ringtail → `kubectl exec`
+`ls`/`cat` → `~/.local/share/borgmatic/k8s-dumps/navidrome.db`), so the DB lands
+in the daily Borg archive. This requires `coreutils` in the nix image (for the
+in-pod `ls`/`cat`) — see `containers/navidrome/default.nix`.
+
+Force an on-demand snapshot (e.g. to bootstrap before borgmatic's first run):
+
+```fish
+ssh eblume@ringtail 'KUBECONFIG=/etc/rancher/k3s/k3s.yaml k3s kubectl -n navidrome exec deploy/navidrome -- navidrome backup create'
+```
+
+Restore (offline only — stop navidrome first): `navidrome backup restore --backup-file <path>`.
 
 ## Runtime
 

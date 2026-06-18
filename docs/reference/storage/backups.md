@@ -31,11 +31,15 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 
 | Database | Cluster | Host | Method |
 |----------|---------|------|--------|
-| miniflux | blumeops-pg | [[postgresql|pg.ops.eblu.me:5432]] | pg_dump stream |
-| teslamate | blumeops-pg | [[postgresql|pg.ops.eblu.me:5432]] | pg_dump stream |
-| authentik | blumeops-pg | [[postgresql|pg.ops.eblu.me:5432]] | pg_dump stream |
+| miniflux | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
+| teslamate | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
+| authentik | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
+| paperless | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
 | immich | immich-pg | [[postgresql|pg.ops.eblu.me:5433]] | pg_dump stream |
+| heph | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
 | mealie | — (SQLite) | k8s pod | kubectl exec sqlite3 .backup |
+| shower | — (SQLite) | k8s pod (ringtail) | kubectl exec sqlite3 .backup |
+| navidrome | — (SQLite) | k8s pod (ringtail) | navidrome `ND_BACKUP_*` snapshot, newest ferried off PVC |
 
 ## Immich Photo Library (Offsite Only)
 
@@ -53,7 +57,7 @@ Uses the same encryption passphrase and SSH key as the main borgmatic config.
 
 ## Sifaka-Native Data
 
-Other data lives directly on [[sifaka]] (music via [[navidrome]], video via [[jellyfin]]). See [[sifaka]] for data protection details.
+Bulk media lives directly on [[sifaka]] (music files served by [[navidrome]], video via [[jellyfin]]). See [[sifaka]] for data protection details. Note this covers only the *media files* — [[navidrome]]'s own database (users, play counts, playlists) lives on a ringtail PVC and is backed up separately via the Databases table above.
 
 ## What Is NOT Backed Up
 

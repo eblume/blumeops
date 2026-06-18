@@ -38,6 +38,15 @@ spec:
               value: "/music"
             - name: ND_DATAFOLDER
               value: "/data"
+            # Native DB backup (users, play counts, playlists) — borgmatic on
+            # indri ferries the newest snapshot off this PVC. Schedule runs an
+            # hour before borgmatic's 02:00 run so a fresh copy is waiting.
+            - name: ND_BACKUP_PATH
+              value: "/data/backup"
+            - name: ND_BACKUP_SCHEDULE
+              value: "0 1 * * *"
+            - name: ND_BACKUP_COUNT
+              value: "7"
           volumeMounts:
             - name: music
               mountPath: /music

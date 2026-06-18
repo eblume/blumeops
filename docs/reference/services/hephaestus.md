@@ -59,6 +59,18 @@ The hub binds `0.0.0.0` so tailnet spokes can also sync directly
 (`http://indri.tail8d86e.ts.net:8787`); access is gated by Authentik OIDC either
 way — tailnet reachability alone is not enough.
 
+## Backups
+
+The hub DB (`~/.local/share/heph/heph.db`) is the **only** copy of all
+task/context data once spokes are pure replicas, so it is backed up daily by
+[[borgmatic]] on indri. Because the hub writes continuously (every spoke sync)
+in WAL mode, a plain file copy could tear — so a before-backup hook
+(`borgmatic_local_sqlite_dumps` in the borgmatic role) stages a WAL-safe online
+`sqlite3 .backup` snapshot into the archive. (We avoid borgmatic's native
+`sqlite_databases` hook because its `sqlite3 .dump` can fail *silently* on a WAL
+DB; `.backup` returns a real exit code, so a bad snapshot aborts the run.) See
+[[backups]].
+
 ## Authentication (Authentik OIDC, device-code)
 
 The hub verifies an OIDC bearer token on every sync. The `heph` application is a

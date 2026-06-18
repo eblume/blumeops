@@ -68,6 +68,39 @@ borgmatic_k8s_sqlite_dumps:
     # world-readable (mode 644), so no sudo required.
     target: ssh:eblume@ringtail
 
+# K8s services that produce their own consistent SQLite backup files on a
+# PVC (rather than us running an online dump via kubectl exec). Each entry's
+# `dir` is scanned for the newest backup file, which is streamed back and
+# stored at borgmatic_k8s_dump_dir/<name>.db. Uses the same `target` modes as
+# borgmatic_k8s_sqlite_dumps. See ~/bin/borgmatic-k8s-file-dump.
+borgmatic_k8s_file_dumps:
+  # navidrome writes its own WAL-safe DB backups (users, play counts,
+  # playlists) on a cron via ND_BACKUP_* — the minimal nix image has no
+  # python3/sqlite3 to dump online, so we just ferry navidrome's newest
+  # snapshot. Files are named navidrome_backup_<YYYY.MM.DD_HH.MM.SS>.db
+  # (fixed-width timestamp, so lexically sortable). Requires coreutils in the
+  # image for the in-pod ls/cat.
+  - name: navidrome
+    namespace: navidrome
+    label_selector: app=navidrome
+    dir: /data/backup
+    glob: 'navidrome_backup_*.db'
+    target: ssh:eblume@ringtail
+
+# Local (on-indri) SQLite databases captured in a before-backup hook via the
+# sqlite3 online .backup API. We deliberately avoid borgmatic's native
+# sqlite_databases hook: it dumps via `sqlite3 .dump`, which has a documented
+# silent-failure mode on WAL databases (exit code stays 0 on a torn read —
+# borgmatic #295 / SQLite forum). The .backup API is WAL-safe and returns a
+# real exit code, so a failed snapshot aborts the whole borgmatic run loudly.
+# Snapshots land in borgmatic_k8s_dump_dir (already in source_directories).
+borgmatic_local_sqlite_dumps:
+  # heph hub canonical store — the only copy of all task/context data once
+  # spokes are pure replicas (see [[hephaestus]]). WAL mode, continuously
+  # written by every spoke sync, so a plain file copy could tear.
+  - name: heph
+    path: /Users/erichblume/.local/share/heph/heph.db
+
 # Exclude patterns
 borgmatic_exclude_patterns: []
 

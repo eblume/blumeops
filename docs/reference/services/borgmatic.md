@@ -32,11 +32,18 @@ Daily backup system using Borg backup, running on indri.
 - `~/.local/share/borgmatic/k8s-dumps/` - SQLite dumps from k8s pods
 
 **PostgreSQL databases:**
-- `miniflux` on [[postgresql]]
-- `teslamate` on [[postgresql]]
+- `miniflux`, `teslamate`, `authentik`, `paperless` on [[postgresql]] (blumeops-pg)
+- `immich` on immich-pg
+
+**Local SQLite databases** (before-backup `sqlite3 .backup` online snapshot — WAL-safe, fails loud):
+- [[hephaestus|heph]] hub - `~/.local/share/heph/heph.db` (canonical task/context store)
 
 **K8s SQLite databases (pre-backup dump via kubectl exec):**
 - [[mealie]] - Recipe manager (`/app/data/mealie.db`)
+- `shower` - prize app (`/app/data/db.sqlite3`, on ringtail)
+
+**K8s service-produced backup files (newest ferried off the PVC):**
+- [[navidrome]] - music DB: users, play counts, playlists (navidrome's own `ND_BACKUP_*` snapshot in `/data/backup`)
 
 **Immich photo library** (separate config, BorgBase offsite only):
 - `/Volumes/photos` (sifaka SMB mount, ~128 GB)

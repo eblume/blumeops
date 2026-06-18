@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+#
+# Helper invoked by borgmatic's before_backup hook to ferry a *pre-existing*
+# backup file out of a k8s pod's PVC. Unlike borgmatic-k8s-sqlite-dump (which
+# runs an online dump inside the pod), this assumes the service produces its
+# own consistent backup files on a schedule — used for navidrome, whose
+# minimal nix image has no python3/sqlite3 to dump online but does ship
+# coreutils for the in-pod ls/cat. Picks the lexically-greatest file matching
+# <glob> (navidrome names backups navidrome.db.<YYYY-MM-DD-HHMMSS>, so lexical
+# order == chronological, e.g. navidrome_backup_2026.06.18_14.59.15.db) and
+# streams it to <dump_target>.
+#
+# Usage:
+#   borgmatic-k8s-file-dump <target> <namespace> <selector> \
+#                           <dir> <glob> <name> <dump_target>
+#
+# <target> is one of:
+#   local:<context>   - run local kubectl with --context=<context>
+#   ssh:<user@host>   - ssh to host and run k3s kubectl there
+#
+# <namespace>   - k8s namespace of the pod
+# <selector>    - label selector to find the pod (e.g. app=navidrome)
+# <dir>         - directory inside the pod holding the backup files
+# <glob>        - shell glob the backup filenames match (e.g. 'navidrome.db.*')
+# <name>        - short name (diagnostics only)
+# <dump_target> - file on this host to receive the newest backup
+set -euo pipefail
+
+target=${1:?missing target}
+namespace=${2:?missing namespace}
+selector=${3:?missing selector}
+dir=${4:?missing dir}
+glob=${5:?missing glob}
+name=${6:?missing name}
+dump_target=${7:?missing dump target}
+
+mode=${target%%:*}
+ref=${target#*:}
+
+# Print the newest matching filename in $dir for the given pod, or fail if
+# none match. Runs entirely in the local shell context with $kubectl bound to
+# the right exec prefix.
+pick_and_stream_local() {
+    local kubectl=$1
+    local pod
+    pod=$($kubectl get pod -l "$selector" \
+        -o jsonpath='{.items[0].metadata.name}')
+    local newest=""
+    local f
+    while IFS= read -r f; do
+        [[ -n "$f" ]] || continue
+        [[ "$f" == $glob ]] || continue
+        [[ "$f" > "$newest" ]] && newest="$f"
+    done < <($kubectl exec "$pod" -- ls -1 "$dir")
+    if [[ -z "$newest" ]]; then
+        echo "borgmatic-k8s-file-dump: no $glob in $dir ($name)" >&2
+        exit 1
+    fi
+    echo "borgmatic-k8s-file-dump: $name -> $newest" >&2
+    $kubectl exec "$pod" -- cat "$dir/$newest"
+}
+
+case "$mode" in
+    local)
+        context=$ref
+        pick_and_stream_local "/opt/homebrew/bin/kubectl --context=$context -n $namespace" \
+            > "$dump_target"
+        ;;
+    ssh)
+        host=$ref
+        # Force bash on the remote (login shell on ringtail is fish) and pipe
+        # the script via stdin to dodge nested quoting. Diagnostics go to
+        # stderr so only the backup bytes reach $dump_target.
+        ssh "$host" bash <<EOF > "$dump_target"
+set -euo pipefail
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+pod=\$(k3s kubectl -n "$namespace" get pod -l "$selector" -o jsonpath='{.items[0].metadata.name}')
+newest=""
+while IFS= read -r f; do
+    [[ -n "\$f" ]] || continue
+    [[ "\$f" == $glob ]] || continue
+    [[ "\$f" > "\$newest" ]] && newest="\$f"
+done < <(k3s kubectl -n "$namespace" exec "\$pod" -- ls -1 "$dir")
+if [[ -z "\$newest" ]]; then
+    echo "borgmatic-k8s-file-dump: no $glob in $dir ($name)" >&2
+    exit 1
+fi
+echo "borgmatic-k8s-file-dump: $name -> \$newest" >&2
+k3s kubectl -n "$namespace" exec "\$pod" -- cat "$dir/\$newest"
+EOF
+        ;;
+    *)
+        echo "borgmatic-k8s-file-dump: unknown target mode: $mode" >&2
+        echo "  expected local:<context> or ssh:<user@host>" >&2
+        exit 1
+        ;;
+esac
