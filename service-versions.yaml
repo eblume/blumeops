@@ -333,15 +333,6 @@ services:
       Single-node k3s cluster on ringtail; pinned via nixpkgs-services overlay in flake.nix.
       Update nixpkgs-services rev during service reviews.
 
-  - name: minikube
-    type: ansible
-    last-reviewed: 2026-04-01
-    current-version: "1.38.0"
-    upstream-source: https://github.com/kubernetes/minikube/releases
-    notes: >-
-      Single-node minikube on indri; installed via homebrew (not version-pinned).
-      Homebrew may silently upgrade on brew update/upgrade.
-
   - name: mealie
     type: argocd
     last-reviewed: "2026-06-03"
