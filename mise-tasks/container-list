@@ -7,9 +7,10 @@
 #USAGE arg "[name]" help="Optional container name to filter output"
 """List container images and their recent registry tags.
 
-Shows build type (dockerfile/nix), registry path, and recent tags from the
-zot registry. Tags are annotated with [main] or [branch] to indicate whether
-the build commit is an ancestor of origin/main.
+Shows the registry path and recent tags from the zot registry for each
+nix-built container (containers/*/default.nix). Tags are annotated with
+[main] or [branch] to indicate whether the build commit is an ancestor of
+origin/main.
 
 Usage:
     mise run container-list                # all containers
@@ -73,26 +74,15 @@ def get_tags(image: str) -> list[str]:
 
 
 def discover_containers() -> list[dict]:
-    """Find container directories with build files."""
+    """Find container directories with a nix build (containers/*/default.nix)."""
     containers = []
     for d in sorted(CONTAINER_DIR.iterdir()):
         if not d.is_dir():
             continue
-        has_container_py = (d / "container.py").exists()
-        has_dockerfile = (d / "Dockerfile").exists()
-        has_nix = (d / "default.nix").exists()
-        if not has_container_py and not has_dockerfile and not has_nix:
+        if not (d / "default.nix").exists():
             continue
-        types = []
-        if has_container_py:
-            types.append("dagger")
-        if has_dockerfile:
-            types.append("dockerfile")
-        if has_nix:
-            types.append("nix")
         containers.append({
             "name": d.name,
-            "types": types,
             "path": str(d),
         })
     return containers
@@ -116,11 +106,10 @@ def main(
 
     for c in containers:
         image = f"blumeops/{c['name']}"
-        label = "+".join(c["types"])
         tags = get_tags(image)
         recent = tags[-tag_count:] if tags else []
 
-        console.print(f"[bold]\\[{label}] {c['name']}[/bold]")
+        console.print(f"[bold]{c['name']}[/bold]")
         console.print(f"   Image: {REGISTRY}/{image}")
         console.print(f"   Path:  {c['path']}")
 

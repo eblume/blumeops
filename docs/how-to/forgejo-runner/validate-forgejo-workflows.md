@@ -40,4 +40,4 @@ dagger call validate-workflows --src=.
 
 ## Related
 
-- [[configure-k8s-runner]] — Runner configuration and upgrade flow
+- [[configure-launchd-runner]] — Runner configuration (host-mode on indri)

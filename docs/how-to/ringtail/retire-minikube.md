@@ -167,8 +167,9 @@ Cutover: deploy the launchd runner alongside the k8s one → re-run the
 prometheus build workflow (the job that killed Docker Desktop) pinned
 to the new runner → once green, scale the k8s runner to 0 → after a
 few days of clean runs, delete the `forgejo-runner` app + manifests
-and the old uuid/token fields. Update
-[[forgejo-runner]] reference + the configure-k8s-runner how-to.
+and the old uuid/token fields. Update the [[forgejo-runner]] reference
+and replace the configure-k8s-runner how-to with
+[[configure-launchd-runner]].
 
 ## Phase 1 — simple apps to ringtail ✅ (2026-06-11)
 

@@ -32,7 +32,7 @@ None affected us:
 
 To upgrade Grafana again in the future:
 
-1. Update `CONTAINER_APP_VERSION` in `containers/grafana/Dockerfile`
+1. Update `version = "..."` in `containers/grafana/default.nix` (see [[build-grafana-images]])
 2. Build and push via `mise run container-build-and-release grafana`
 3. Update the image tag in `argocd/manifests/grafana/kustomization.yaml` (under `images:`)
 4. Update `service-versions.yaml`

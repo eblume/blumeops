@@ -64,13 +64,12 @@ Fragments are automatically collected into `CHANGELOG.md` (at repo root) during 
 
 ## Runner Environment
 
-The workflow runs on the `k8s` label, which uses the [[forgejo]]-runner in Kubernetes:
+The workflow runs on the `k8s` label, served since [[retire-minikube]] phase 6
+by the host-mode [[forgejo]]-runner on [[indri]] ([[configure-launchd-runner]]):
 
-- **Runner deployment**: `argocd/manifests/forgejo-runner/`
-- **Job image**: `registry.ops.eblu.me/blumeops/runner-job-image` (commit-SHA tagged)
-- **Build engine**: [[dagger]] CLI installed at runtime; Node.js and Python run inside Dagger containers
-
-The job image is built from `containers/forgejo-runner/Dockerfile`.
+- **Runner**: native LaunchAgent on indri, managed by the `forgejo_runner` ansible role (no Kubernetes, no job container)
+- **Toolchain**: jobs run directly with indri's mise toolchain (Node.js, uv/Python, [[dagger]], …); the `k8s` label is kept for workflow compatibility
+- **Build engine**: the [[dagger]] CLI (mise-pinned in the `forgejo_runner` role) drives the Dagger engine container in indri's Docker Desktop
 
 ## Quartz Static Site Generator
 

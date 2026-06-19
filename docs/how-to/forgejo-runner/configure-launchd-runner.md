@@ -11,23 +11,25 @@ tags:
 # Configure the launchd Forgejo Runner on indri
 
 Run the Forgejo Actions runner as a native macOS LaunchAgent on
-[[indri]], managed by the `forgejo_runner` ansible role. Jobs still
-execute as containers — against Docker Desktop's daemon instead of a
-Docker-in-Docker sidecar. This replaces the minikube-hosted runner
-([[configure-k8s-runner]]) as phase 0 of [[retire-minikube]]: source
-builds no longer compete with the LGTM stack inside the minikube VM.
+[[indri]], managed by the `forgejo_runner` ansible role. Jobs run
+directly on the host with indri's mise toolchain (host-mode); Docker
+Desktop stays only as the [[dagger]] engine host. This replaced the
+minikube-hosted runner as phase 0 of [[retire-minikube]], so source
+builds no longer compete with the LGTM stack inside the minikube VM;
+phase 6 then dropped the per-job container entirely.
 
 ## Architecture
 
 - **Daemon:** the `forgejo-runner` binary, source-built from the
   mirror at `~/code/3rd/forgejo-runner`, runs as LaunchAgent
   `mcquack.eblume.forgejo-runner` (same pattern as [[forgejo]]).
-- **Jobs:** launched as containers via Docker Desktop's socket
-  (`/var/run/docker.sock`), using the same
-  `runner-job-image` as before (arm64 — correct for indri). The
-  socket is mounted into job containers (docker-outside-of-docker),
-  so `dagger` and `docker` calls inside jobs hit the host daemon —
-  the role the privileged DinD sidecar used to play.
+- **Jobs:** run directly on the host as `erichblume` with indri's
+  mise toolchain (labels are registered `:host`) — no per-job
+  container and no `runner-job-image` (phase 6). Docker Desktop stays
+  (right-sized 2cpu/4GiB) solely as the Dagger engine host; the host
+  `dagger`/`docker` CLIs reach its daemon at the default
+  `/var/run/docker.sock` — the role the privileged DinD sidecar used
+  to play.
 - **Labels:** advertises both `k8s` (compatibility — existing
   workflows across all forge repos) and `indri` (the honest name).
   Migrate workflows to `runs-on: indri` opportunistically; drop the

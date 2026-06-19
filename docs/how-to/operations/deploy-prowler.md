@@ -64,7 +64,11 @@ kubectl logs -f job/prowler-manual -n prowler --context=minikube-indri
 
 ## Container
 
-Custom slim build at `containers/prowler/Dockerfile` — strips PowerShell, Trivy, and non-Kubernetes providers from upstream. See [[build-container-image]] for the build/release process.
+Nix build at `containers/prowler/default.nix` — wraps nixpkgs' `prowler`
+(pinned to 5.12.3; nixpkgs lags upstream, re-bump via service-review when it
+catches up) plus `python3`/`pyyaml` for the mutelist-merge initContainer. The
+earlier Dockerfile build's bundled Trivy and non-Kubernetes providers were
+dropped. See [[build-container-image]] for the build/release process.
 
 Source is mirrored at `forge.ops.eblu.me/mirrors/prowler`.
 
