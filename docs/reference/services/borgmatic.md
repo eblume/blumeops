@@ -1,6 +1,6 @@
 ---
 title: Borgmatic
-modified: 2026-03-16
+modified: 2026-06-18
 tags:
   - service
   - backup
@@ -44,6 +44,12 @@ Daily backup system using Borg backup, running on indri.
 
 **K8s service-produced backup files (newest ferried off the PVC):**
 - [[navidrome]] - music DB: users, play counts, playlists (navidrome's own `ND_BACKUP_*` snapshot in `/data/backup`)
+
+The SQLite snapshots and ferried backup files above are staged into
+`~/.local/share/borgmatic/k8s-dumps/` (itself a source directory) by a
+`commands:` hook with `before: configuration`, so they run **once per backup
+run** rather than once per repository. A non-zero exit from any hook aborts the
+whole run — a failed snapshot is never silently skipped.
 
 **Immich photo library** (separate config, BorgBase offsite only):
 - `/Volumes/photos` (sifaka SMB mount, ~128 GB)

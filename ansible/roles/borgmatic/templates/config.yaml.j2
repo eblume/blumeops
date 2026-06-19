@@ -36,25 +36,34 @@ encryption_passcommand: {{ borgmatic_encryption_passcommand }}
 # source_directories, so the snapshots land in the archive). A non-zero exit
 # from any hook aborts the whole backup, so a failed snapshot is never silent.
 #
+# Uses the `commands:` hook syntax (the legacy `before_backup:` key is
+# deprecated as of borgmatic 2.x). `before: configuration` runs these once per
+# borgmatic run rather than once per repository — staging the snapshots a
+# single time even though both the sifaka and BorgBase repos consume them.
+# `when: [create]` scopes the hooks to backup runs only.
+#
 # Quoting/escaping for the k8s hooks is delegated to the helper scripts
 # deployed by the borgmatic ansible role. Each k8s entry's `target` is either:
 #   - local:<context>  -> local kubectl with --context (mealie etc.)
 #   - ssh:<user@host>  -> ssh + k3s kubectl on the cluster host,
 #                         used for ringtail since indri's kubeconfig
 #                         deliberately doesn't carry that context.
-before_backup:
-    - mkdir -p {{ borgmatic_k8s_dump_dir }}
+commands:
+    - before: configuration
+      when: [create]
+      run:
+          - mkdir -p {{ borgmatic_k8s_dump_dir }}
 {% for db in borgmatic_local_sqlite_dumps %}
-    # test -f guards the sqlite3 footgun: a missing source path is silently
-    # auto-created as an empty DB (exit 0), which would back up nothing. The
-    # guard makes a missing source abort the run instead.
-    - test -f "{{ db.path }}" && sqlite3 "{{ db.path }}" ".backup '{{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db'"
+          # test -f guards the sqlite3 footgun: a missing source path is
+          # silently auto-created as an empty DB (exit 0), which would back up
+          # nothing. The guard makes a missing source abort the run instead.
+          - test -f "{{ db.path }}" && sqlite3 "{{ db.path }}" ".backup '{{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db'"
 {% endfor %}
 {% for db in borgmatic_k8s_sqlite_dumps %}
-    - {{ ansible_env.HOME }}/bin/borgmatic-k8s-sqlite-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.db_path }} {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db
+          - {{ ansible_env.HOME }}/bin/borgmatic-k8s-sqlite-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.db_path }} {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db
 {% endfor %}
 {% for db in borgmatic_k8s_file_dumps %}
-    - {{ ansible_env.HOME }}/bin/borgmatic-k8s-file-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} '{{ db.glob }}' {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db
+          - {{ ansible_env.HOME }}/bin/borgmatic-k8s-file-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} '{{ db.glob }}' {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db
 {% endfor %}
 {% endif %}
 
