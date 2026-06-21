@@ -53,6 +53,18 @@ cameras:
           - driveway_entrance
     objects:
       track: [person, car, dog, cat, bird]
+      filters:
+        person:
+          # Ignore "person" false-positives over the bottom-right planter (a
+          # newly-planted Japanese maple, ~2026-06-20) that yolov9 reads as a
+          # person at 0.57-0.84 score — too high to threshold out. This corner is
+          # the front deck stairs, so the trade-off is that we no longer alert on
+          # someone actually on the stairs; in practice they should trip an alert
+          # as soon as they step off into the driveway. Driveway coverage is
+          # otherwise unaffected. Frigate filters an object when its box
+          # bottom-center falls inside the mask.
+          mask:
+            - 0.78,0.66,0.90,0.66,0.90,0.90,0.78,0.90
 
 detectors:
   onnx:
