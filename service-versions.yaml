@@ -210,8 +210,8 @@ services:
   - name: authentik-redis
     type: argocd
     parent: authentik
-    last-reviewed: "2026-03-24"
-    current-version: "8.2.3"
+    last-reviewed: "2026-06-20"
+    current-version: "8.6.3"
     upstream-source: https://github.com/redis/redis/releases
     notes: >-
       Attached service: Redis cache/broker for Authentik (sessions, Celery task

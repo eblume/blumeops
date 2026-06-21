@@ -1,6 +1,7 @@
 ---
 title: Refactor services-check to Query Alerts
 modified: 2026-03-22
+last-reviewed: 2026-06-20
 tags:
   - how-to
   - alerting
