@@ -153,10 +153,10 @@ which read from Todoist.)
 ### Reading tasks
 
 ```fish
-heph list --project Blumeops --json   # outstanding Blumeops tasks as JSON
-heph show <node_id>                   # one task with its scalars
-heph context <node_id>                # print the task's canonical-context doc
-heph log <node_id>                    # print the task's latest log entries
+heph list --project Blumeops --json --due # outstanding Blumeops tasks as JSON
+heph show <node_id>                       # one task with its scalars
+heph context <node_id>                    # print the task's canonical-context doc
+heph log <node_id>                        # print the task's latest log entries
 ```
 
 JSON rows carry `node_id` (use this as `<ID>` in all commands below), `title`,
