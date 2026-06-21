@@ -1,7 +1,7 @@
 ---
 title: Port services-check Alerts to Grafana
-modified: 2026-06-18
-last-reviewed: 2026-06-18
+modified: 2026-06-21
+last-reviewed: 2026-06-21
 tags:
   - how-to
   - alerting
@@ -57,7 +57,15 @@ As each check is ported, remove it from the services-check script (or mark it as
 - Don't try to port everything in one session — this card may span multiple work cycles within the C2 chain
 - Prioritize checks that have caught real problems in the past
 - Some checks (like ArgoCD sync status table) may remain in services-check as a human-readable summary even after alerting covers the failure cases
-- The Alloy blackbox exporter on ringtail currently probes only one target (`immich`, in `argocd/manifests/alloy-ringtail/config.alloy`). Re-broadening this probe set is the most impactful next step — most services-check HTTP probes still have no Grafana coverage. Coverage narrowed to immich-only during the observability refactor (see [[first-alert-and-runbook]]).
+- The Alloy blackbox exporter on ringtail now probes all in-cluster HTTP services
+  (18 targets as of 2026-06-21, in `argocd/manifests/alloy-ringtail/config.alloy`);
+  see [[runbook-service-probe-failure]] for the list. Coverage had narrowed to
+  immich-only during the observability refactor and the minikube retirement, then
+  was re-broadened. `ollama` is deliberately excluded (scaled to zero on demand).
+  The remaining gap is **indri-native and public services** (forgejo, zot, devpi,
+  jellyfin, cv) — they live outside the cluster, so blackbox-on-ringtail can't
+  reach them; `services-check` still probes those directly via `curl`. Folding
+  them into alerting needs a blackbox probe on indri and/or the Fly.io Alloy.
 
 ## Verification
 

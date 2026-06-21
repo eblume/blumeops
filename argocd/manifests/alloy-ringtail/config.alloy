@@ -64,13 +64,104 @@ prometheus.scrape "unpoller" {
 
 // ============== SERVICE HEALTH PROBES ==============
 
-// Blackbox-style HTTP probes for in-cluster services on ringtail
+// Blackbox-style HTTP probes for in-cluster services on ringtail.
+// The target `name` becomes the job label `integrations/blackbox/<name>`, which
+// the single `ServiceProbeFailure` Grafana alert turns into the `service` label
+// via label_replace — so adding a target here extends alerting with no new rule.
+// Health paths were chosen to return 2xx unauthenticated (verified 2026-06-21).
+// NOTE: `ollama` is intentionally omitted — it is scaled to zero unless needed,
+// so probing it would fire ServiceProbeFailure permanently.
 prometheus.exporter.blackbox "services" {
-  config = "{ modules: { http_2xx: { prober: http, timeout: 5s } } }"
+  config = "{ modules: { http_2xx: { prober: http, timeout: 5s }, http_2xx_shower: { prober: http, timeout: 5s, http: { headers: { Host: shower.ops.eblu.me, X-Forwarded-Proto: https } } } } }"
 
+  target {
+    name    = "argocd"
+    address = "http://argocd-server.argocd.svc.cluster.local:80/healthz"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "authentik"
+    address = "http://authentik.authentik.svc.cluster.local:9000/-/health/live/"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "frigate"
+    address = "http://frigate.frigate.svc.cluster.local:5000/api/version"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "grafana"
+    address = "http://grafana.monitoring.svc.cluster.local:80/api/health"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "homepage"
+    address = "http://homepage.homepage.svc.cluster.local:3000/"
+    module  = "http_2xx"
+  }
   target {
     name    = "immich"
     address = "http://immich-server.immich.svc.cluster.local:2283/api/server/ping"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "kiwix"
+    address = "http://kiwix.kiwix.svc.cluster.local:80/"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "loki"
+    address = "http://loki.monitoring.svc.cluster.local:3100/ready"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "mealie"
+    address = "http://mealie.mealie.svc.cluster.local:9000/api/app/about"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "miniflux"
+    address = "http://miniflux.miniflux.svc.cluster.local:8080/healthcheck"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "navidrome"
+    address = "http://navidrome.navidrome.svc.cluster.local:4533/ping"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "ntfy"
+    address = "http://ntfy.ntfy.svc.cluster.local:80/v1/health"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "paperless"
+    address = "http://paperless.paperless.svc.cluster.local:8000/accounts/login/"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "prometheus"
+    address = "http://prometheus.monitoring.svc.cluster.local:9090/-/healthy"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "shower"
+    address = "http://shower.shower.svc.cluster.local:8000/"
+    module  = "http_2xx_shower"
+  }
+  target {
+    name    = "teslamate"
+    address = "http://teslamate.teslamate.svc.cluster.local:4000/"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "tempo"
+    address = "http://tempo.monitoring.svc.cluster.local:3200/ready"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "transmission"
+    address = "http://transmission.torrent.svc.cluster.local:9091/transmission/web/"
     module  = "http_2xx"
   }
 }

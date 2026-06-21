@@ -1,7 +1,7 @@
 ---
 title: Federated Login
-modified: 2026-02-20
-last-reviewed: 2026-02-20
+modified: 2026-06-21
+last-reviewed: 2026-06-21
 tags:
   - explanation
   - security
@@ -53,14 +53,17 @@ Every service that uses Authentik SSO also keeps a local admin login. If Authent
 
 Authentik is additive — it's a convenience layer, not a hard dependency. Services never lose their local auth capability.
 
-## Cross-Cluster Communication
+## SSO Request Flow
 
-Authentik runs on [[ringtail]]'s k3s cluster while most services run on indri's minikube. This is deliberate — the IdP is independent of the main services cluster. Communication happens via the Tailscale network:
+Authentik and the application services all run on [[ringtail]]'s k3s cluster (the
+minikube cluster on indri was retired 2026-06 — see [[retire-minikube]]). SSO
+traffic still flows through [[caddy]] on indri because `*.ops.eblu.me` is routed
+there:
 
-- Grafana (minikube) → `authentik.ops.eblu.me` → Caddy (indri) → Tailscale → Authentik (ringtail k3s)
+- Grafana (ringtail k3s) → `authentik.ops.eblu.me` → Caddy (indri) → Tailscale → Authentik (ringtail k3s)
 - Browser redirects go through `authentik.ops.eblu.me`, resolved via Caddy
 
-No k8s-internal DNS crosses cluster boundaries. Everything uses the `*.ops.eblu.me` domain.
+Services never address Authentik by k8s-internal DNS — everything uses the public `*.ops.eblu.me` domain via Caddy.
 
 ## Forgejo
 

@@ -1,7 +1,7 @@
 ---
 title: Tailscale
-modified: 2026-04-18
-last-reviewed: 2026-04-18
+modified: 2026-06-21
+last-reviewed: 2026-06-21
 tags:
   - infrastructure
   - networking
@@ -30,8 +30,6 @@ ACLs managed via Pulumi in `pulumi/tailscale/policy.hujson`.
 | `tag:blumeops` | indri, sifaka, ringtail | Pulumi IaC managed resources |
 | `tag:registry` | indri | Container registry (Zot) |
 | `tag:forge` | indri | Forgejo git hosting |
-| `tag:loki` | indri | Loki log aggregation |
-| `tag:k8s-api` | indri | Kubernetes API server (minikube) |
 | `tag:k8s-operator` | (operator pod) | Tailscale operator for k8s — see [[tailscale-operator]] |
 | `tag:k8s` | (Ingress proxy pods) | Kubernetes Tailscale Ingress nodes; each also carries a per-service tag (`tag:grafana`, `tag:kiwix`, `tag:feed`, `tag:pg`) |
 | `tag:ci-gateway` | (ephemeral CI containers) | CI containers pushing images to registry |

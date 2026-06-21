@@ -1,6 +1,6 @@
 ---
 title: "Runbook: Service Probe Failure"
-modified: 2026-06-17
+modified: 2026-06-21
 tags:
   - how-to
   - alerting
@@ -15,18 +15,43 @@ A blackbox HTTP health check has failed for 2+ minutes, meaning a service is not
 
 ## Affected Services
 
-This alert covers services probed by the Alloy blackbox exporter on ringtail's
-k3s cluster. The probe targets are defined in
+This alert covers the in-cluster HTTP services probed by the Alloy blackbox
+exporter on ringtail's k3s cluster. The probe targets are defined in
 `argocd/manifests/alloy-ringtail/config.alloy` (`prometheus.exporter.blackbox`):
 
 | Service | Health Endpoint |
 |---------|----------------|
+| argocd | `/healthz` |
+| authentik | `/-/health/live/` |
+| frigate | `/api/version` |
+| grafana | `/api/health` |
+| homepage | `/` |
 | immich | `/api/server/ping` |
+| kiwix | `/` |
+| loki | `/ready` |
+| mealie | `/api/app/about` |
+| miniflux | `/healthcheck` |
+| navidrome | `/ping` |
+| ntfy | `/v1/health` |
+| paperless | `/accounts/login/` |
+| prometheus | `/-/healthy` |
+| shower | `/` (sent with `Host: shower.ops.eblu.me`) |
+| teslamate | `/` |
+| tempo | `/ready` |
+| transmission | `/transmission/web/` |
+
+`ollama` is **not** probed: it is scaled to zero unless explicitly needed, so a
+probe would fire this alert permanently.
+
+Indri-native and public services (forgejo, zot, devpi, jellyfin, cv) are **not**
+in this cluster and are checked directly by `mise run services-check`, not by
+this alert.
 
 The failing service is identified by the `service` label in the alert, extracted
 from the `job` label (e.g. `integrations/blackbox/immich` → `immich`). To add a
 service to this alert, add a `target` block to the blackbox exporter in the Alloy
-config.
+config — no new alert rule is needed, the single `label_replace` rule covers any
+`integrations/blackbox/*` job.
 
 ## Diagnostic Steps
 
