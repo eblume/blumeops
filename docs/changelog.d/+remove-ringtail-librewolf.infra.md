@@ -1,0 +1,1 @@
+Removed `librewolf` from ringtail's `systemPackages`. After the nixpkgs flake bump, nixpkgs marks `librewolf-151.0.2` insecure (unmaintained in nixpkgs, not a specific CVE), which blocked `nixos-rebuild`. Firefox remains the configured default browser; librewolf was a standalone extra.

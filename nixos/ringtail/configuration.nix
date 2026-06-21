@@ -262,7 +262,6 @@ in
     unzip
     fuzzel
     pulseaudio
-    librewolf
   ];
 
   # Allow running dynamically linked binaries (mise-installed runtimes, etc.)
