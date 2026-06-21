@@ -1,0 +1,1 @@
+Reviewed `runbook-argocd-out-of-sync.md` (never reviewed). Corrected the stale "30+ minutes" claim — the `ArgoCDAppOutOfSync` alert actually fires after a 5m `for:` window. Verified both wiki-links resolve and the alert is defined in `grafana-ringtail/alerting.yaml`. Set `last-reviewed: 2026-06-21`.

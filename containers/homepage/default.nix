@@ -1,5 +1,5 @@
 # Nix-built gethomepage/homepage dashboard
-# Builds v1.11.0 from forge mirror.
+# Builds v1.13.2 from forge mirror.
 #
 # Adapted from nixpkgs pkgs/by-name/ho/homepage-dashboard (commit master),
 # changed to fetch from our forge mirror and wrap with dockerTools for an
@@ -11,7 +11,7 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "1.11.0";
+  version = "1.13.2";
 
   homepage = pkgs.stdenv.mkDerivation (finalAttrs: {
     pname = "homepage-dashboard";
@@ -20,14 +20,14 @@ let
     src = pkgs.fetchgit {
       url = "https://forge.ops.eblu.me/mirrors/homepage.git";
       rev = "v${version}";
-      hash = "sha256-jnv9PnClm/jIQ4uU6c4A1UiAmwoihG0l6k3fUbD47I4=";
+      hash = "sha256-d6NNtaThDfVErGx7fFdqLdjx4UZXMN6CZUBpMZFZYhQ=";
     };
 
     pnpmDeps = pkgs.fetchPnpmDeps {
       inherit (finalAttrs) pname version src;
       pnpm = pkgs.pnpm_10;
       fetcherVersion = 3;
-      hash = "sha256-X5j9XppbcasGuC7fUsj4XzbaQFM9WcRcXjgJHN/inR8=";
+      hash = "sha256-jAcAbi++Wbyi07YdPuIhDAeNT4fJVAIxp51boD30x3k=";
     };
 
     nativeBuildInputs = [

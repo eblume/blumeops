@@ -1,6 +1,7 @@
 ---
 title: "Runbook: ArgoCD App Out of Sync"
-modified: 2026-03-22
+modified: 2026-06-21
+last-reviewed: 2026-06-21
 tags:
   - how-to
   - alerting
@@ -11,7 +12,7 @@ tags:
 
 **Alert name:** `ArgoCDAppOutOfSync`
 
-An ArgoCD application has been out of sync for 30+ minutes. This means the live state in Kubernetes differs from what's declared in Git.
+An ArgoCD application has been out of sync for 5+ minutes (the alert's `for:` window). This means the live state in Kubernetes differs from what's declared in Git.
 
 ## Diagnostic Steps
 

@@ -39,8 +39,8 @@ services:
 
   - name: homepage
     type: argocd
-    last-reviewed: 2026-03-26
-    current-version: "v1.11.0"
+    last-reviewed: 2026-06-21
+    current-version: "v1.13.2"
     upstream-source: https://github.com/gethomepage/homepage/releases
     notes: Custom container, kustomize manifests
 
