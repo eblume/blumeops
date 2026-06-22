@@ -1,0 +1,1 @@
+Monthly tooling dependency refresh: prek hooks (trufflehog v3.95.6, ruff v0.15.18, prettier v3.8.4, taplo SHA correction, ansible-core 2.21.1), Fly proxy images (nginx 1.30.3-alpine, alloy v1.17.0), mise-task `typer` pin 0.26.7, and `actions/checkout` v6.0.3 in Forgejo workflows.

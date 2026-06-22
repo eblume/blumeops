@@ -1,0 +1,1 @@
+Pruned dead minikube-era entries from the Prowler mutelist (removed `apiserver.yaml`, `control-plane.yaml`, `manual-node-checks.yaml`; trimmed `core-pod-security.yaml`), leaving only entries that match live k3s resources. No change to scan output (0 unmuted FAILs).

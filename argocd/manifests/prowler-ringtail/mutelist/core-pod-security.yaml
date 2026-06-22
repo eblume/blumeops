@@ -1,59 +1,38 @@
-# Pod security checks — system pods, operator-managed pods, and accepted
+# Pod security checks — k3s system pods, operator-managed pods, and accepted
 # operational needs. Each check ID appears once with all matching resources.
+# Mutes are keyed per-resource-name so a new workload deployed insecurely under
+# a new name surfaces as a fresh unmuted FAIL rather than being auto-suppressed.
 Mutelist:
   Accounts:
     "*":
       Checks:
-        "core_minimize_hostNetwork_containers":
-          Regions: ["*"]
-          Resources:
-            # Minikube control plane
-            - "^etcd-minikube$"
-            - "^kube-apiserver-minikube$"
-            - "^kube-controller-manager-minikube$"
-            - "^kube-scheduler-minikube$"
-            # Minikube system pods
-            - "^kube-proxy-"
-            - "^kindnet-"
-            - "^storage-provisioner$"
-          Description: >-
-            Control-plane and networking pods require hostNetwork by design.
-            Host network itself is only reachable via tailnet.
         "core_minimize_privileged_containers":
           Regions: ["*"]
           Resources:
-            # Minikube system
-            - "^kube-proxy-"
             # Tailscale operator-managed proxies
             - "^ts-"
             - "^ingress-"
-            # Forgejo runner
-            - "^forgejo-runner-"
             # k3s node agents
             - "^alloy-tracing-"
             - "^nvidia-device-plugin-"
           Description: >-
-            kube-proxy: system pod, single-user cluster. ts-*/ingress-*:
-            Tailscale operator-managed. forgejo-runner: DinD limited to
-            trusted private forge repos. alloy-tracing: node profiling
-            agent needs privileged host access. nvidia-device-plugin:
-            requires privileged access to GPU device nodes.
+            ts-*/ingress-*: Tailscale operator-managed. alloy-tracing:
+            node profiling agent needs privileged host access.
+            nvidia-device-plugin: requires privileged access to GPU
+            device nodes. Single-user cluster reachable only via tailnet.
         "core_seccomp_profile_docker_default":
           Regions: ["*"]
           Resources:
-            # Minikube system pods
+            # k3s system pods
             - "^coredns-"
-            - "^kube-proxy-"
-            - "^kindnet-"
-            - "^storage-provisioner$"
+            - "^local-path-provisioner-"
             # Tailscale operator-managed pods
             - "^ts-"
             - "^operator-"
             - "^nameserver-"
             - "^ingress-"
-            # k3s system pods / node agents (upstream-managed securityContext)
+            # k3s node agents (upstream-managed securityContext)
             - "^alloy"
-            - "^local-path-provisioner-"
             - "^nvidia-device-plugin-"
           Description: >-
             System pods managed by k3s and the Tailscale operator;
@@ -88,20 +67,18 @@ Mutelist:
         "core_minimize_containers_added_capabilities":
           Regions: ["*"]
           Resources:
-            # Minikube system pods
+            # k3s system pods
             - "^coredns-"
-            - "^kindnet-"
             # Grafana init-chown-data
             - "^grafana-"
           Description: >-
-            System pods: capabilities required by function
-            (minikube-managed). Grafana: CHOWN limited to init phase;
-            runtime containers drop ALL.
+            coredns: capabilities required by function (k3s-managed).
+            Grafana: CHOWN limited to init phase; runtime containers
+            drop ALL.
         "core_minimize_containers_capabilities_assigned":
           Regions: ["*"]
           Resources:
             - "^coredns-"
-            - "^kindnet-"
             - "^grafana-"
           Description: >-
             See core_minimize_containers_added_capabilities.

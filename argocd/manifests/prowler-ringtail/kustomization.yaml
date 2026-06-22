@@ -16,10 +16,7 @@ configMapGenerator:
     options:
       disableNameSuffixHash: true
     files:
-      - mutelist/apiserver.yaml
-      - mutelist/control-plane.yaml
       - mutelist/core-pod-security.yaml
-      - mutelist/manual-node-checks.yaml
       - mutelist/rbac.yaml
 
 images:

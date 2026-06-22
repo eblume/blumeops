@@ -1,6 +1,7 @@
 ---
 title: "Runbook: Frigate Camera Down"
 modified: 2026-03-22
+last-reviewed: 2026-06-22
 tags:
   - how-to
   - alerting

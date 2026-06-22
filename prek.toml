@@ -28,7 +28,7 @@ hooks = [{ id = "check-yaml", args = ["--unsafe"] }]
 # Secret detection
 [[repos]]
 repo = "https://github.com/trufflesecurity/trufflehog"
-rev = "37b77001d0174ebec2fcca2bd83ff83a6d45a3ab" # v3.95.3
+rev = "30d5bb91af1a771378349dbbb0c82129392acf70" # v3.95.6
 hooks = [
   { id = "trufflehog", entry = "trufflehog git file://. --since-commit HEAD --no-verification --fail", stages = [
     "pre-commit",
@@ -52,12 +52,12 @@ name = "ansible-lint"
 entry = "env ANSIBLE_ROLES_PATH=ansible/roles ansible-lint"
 language = "python"
 files = "^ansible/"
-additional_dependencies = ["ansible-lint==26.4.0", "ansible-core==2.21.0"]
+additional_dependencies = ["ansible-lint==26.4.0", "ansible-core==2.21.1"]
 
 # Python - ruff for linting and formatting
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "0c7b6c989466a93942def1f84baf36ddfcd60c83"                    # v0.15.14
+rev = "77039ccbba72c8aede339c5f8ae29b42aced0a2e"                    # v0.15.18
 hooks = [{ id = "ruff", args = ["--fix"] }, { id = "ruff-format" }]
 
 # Python - ty type checker
@@ -86,13 +86,13 @@ hooks = [{ id = "shfmt", args = ["-i", "2", "-ci", "-bn"] }]
 # TOML - taplo
 [[repos]]
 repo = "https://github.com/ComPWA/taplo-pre-commit"
-rev = "23eab0f0eedcbedebff420f5fdfb284744adc7b3"                                 # v0.9.3
+rev = "ade0f95ddcf661c697d4670d2cfcbe95d0048a0a"                                 # v0.9.3
 hooks = [{ id = "taplo-format" }, { id = "taplo-lint", args = ["--no-schema"] }]
 
 # JSON formatting (prettier for consistent style)
 [[repos]]
 repo = "https://github.com/rbubley/mirrors-prettier"
-rev = "515f543f5718ebfd6ce22e16708bb32c68ff96e1"                                # v3.8.3
+rev = "06507ab9500d4a9919b5ebd76d9d5b7074f15c1f"                                # v3.8.4
 hooks = [{ id = "prettier", types_or = ["json"], args = ["--tab-width", "2"] }]
 
 # GitHub/Forgejo Actions workflow linting

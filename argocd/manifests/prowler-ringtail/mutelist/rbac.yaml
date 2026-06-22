@@ -51,3 +51,10 @@ Mutelist:
           Description: >-
             kube-controller-manager requires token creation for SA
             management. Only operator manages service accounts.
+        "rbac_cluster_admin_usage":
+          Regions: ["*"]
+          Resources:
+            - "^cluster-admin$"
+          Description: >-
+            Only the built-in cluster-admin ClusterRole is present; bound
+            to the operator. Single-user cluster reachable only via tailnet.
