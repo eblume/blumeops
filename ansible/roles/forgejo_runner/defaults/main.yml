@@ -31,10 +31,13 @@ forgejo_runner_labels:
 # Host toolchain for CI jobs, installed via `mise use --global`.
 # dagger is pinned to the engineVersion in dagger.json (the engine
 # runs as a container in the right-sized Docker Desktop, 2cpu/4GiB);
-# prek matches the repo's mise.toml pin.
+# prek matches the repo's mise.toml pin. flyctl is used by the
+# deploy-fly workflow (replaces a fragile in-job `curl | sh` install
+# that hung on an interactive PATH prompt on the host-mode runner).
 forgejo_runner_host_tools:
   - dagger@0.20.6
   - prek@0.3.4
+  - flyctl@0.4.59
 
 # Zot pull-through cache for docker.io pulls, merged into Docker
 # Desktop's daemon.json. host.docker.internal resolves to indri from
