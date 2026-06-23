@@ -145,10 +145,13 @@ services:
 
   - name: cloudnative-pg
     type: argocd
-    last-reviewed: 2026-03-28
-    current-version: "v1.28.1"
+    last-reviewed: 2026-06-23
+    current-version: "v1.29.1"
     upstream-source: https://github.com/cloudnative-pg/cloudnative-pg/releases
-    notes: Deployed via Helm chart (chart v0.27.1 from forge mirror)
+    notes: >-
+      Operator deployed from forge mirror (mirrors/cloudnative-pg) via the
+      upstream release manifest (releases/cnpg-<version>.yaml), not Helm.
+      Upgraded 1.27.1 → 1.29.1 (1.27 series EOL); operand PostgreSQL stays 18.3.
 
   - name: immich
     type: argocd

@@ -1,10 +1,6 @@
 # CloudNativePG Operator for ringtail k3s cluster
-# Deploys the operator only; PostgreSQL clusters are created separately
-#
-# Sibling of cloudnative-pg.yaml (minikube). Same mirror, same release,
-# different destination. Both apps will coexist during the immich
-# migration; the minikube one is removed at the end of the broader
-# indri-k8s decommission.
+# Deploys the operator only; PostgreSQL clusters are created separately.
+# (The minikube sibling app was removed with the indri-k8s decommission.)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -14,10 +10,10 @@ spec:
   project: default
   source:
     repoURL: ssh://forgejo@forge.ops.eblu.me:2222/mirrors/cloudnative-pg.git
-    targetRevision: v1.27.1
+    targetRevision: v1.29.1
     path: releases
     directory:
-      include: 'cnpg-1.27.1.yaml'
+      include: 'cnpg-1.29.1.yaml'
   destination:
     server: https://kubernetes.default.svc
     namespace: cnpg-system

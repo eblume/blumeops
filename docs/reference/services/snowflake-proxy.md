@@ -1,6 +1,7 @@
 ---
 title: Snowflake Proxy
 modified: 2026-03-24
+last-reviewed: 2026-06-23
 tags:
   - service
   - privacy

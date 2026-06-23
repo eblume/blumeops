@@ -112,9 +112,13 @@ Check tailscale serve: `ssh indri 'tailscale serve status --json'`
 mise run container-list                       # show images/tags
 mise run container-release <name> <version>   # tag and build
 ```
-The goal is to eventually use only locally built containers in all cases, with
-full supply chain control via forge.ops.eblu.me repositories, mirroring source
-from upstream.
+**New services should use locally built containers** (Nix `dockerTools`,
+pulled from `registry.ops.eblu.me` with source mirrored on
+forge.ops.eblu.me) for supply-chain control. This is guidance for new work,
+not a campaign to retroactively localize everything — some upstream images
+(e.g. frigate's TensorRT build, immich's CUDA ML stack, the CloudNativePG
+PostgreSQL operands) are impractical to rebuild and stay on their upstream
+registries.
 
 **After triggering a build** (manual dispatch or push to main), verify the
 workflow succeeded before proceeding:
