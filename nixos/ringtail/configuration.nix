@@ -254,6 +254,7 @@ in
     bat
     ripgrep
     mise
+    uv
     gcc
     gnumake
     pkg-config
