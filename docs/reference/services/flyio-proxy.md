@@ -64,7 +64,7 @@ Fly.io runs Firecracker microVMs which support TUN devices natively. Tailscale r
 
 The `tailscaled` process is started with `--port=41641` to pin the WireGuard listener to a fixed port. This is critical for direct peering — without it, hole punching is unreliable. A `[[services]]` block in `fly.toml` exposes this port as UDP, though it is only active when a dedicated IPv4 is allocated.
 
-The Tailscale auth key is `preauthorized=True` to avoid device approval hangs on container restarts.
+The Tailscale auth key is `preauthorized=True` to avoid device approval hangs on container restarts, and `ephemeral=True` so offline nodes auto-GC. Because no Fly volume persists `/var/lib/tailscale`, the node re-registers on every restart and its name drifts (`flyio-proxy`, `flyio-proxy-1`, …) — expected and benign. See [[manage-flyio-proxy#Tailscale Node Name Drift]].
 
 ## Observability
 
