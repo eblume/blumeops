@@ -201,24 +201,38 @@ in
   # Only swap under genuine pressure — keep the game's hot working set resident.
   boot.kernel.sysctl."vm.swappiness" = 10;
 
-  # systemd-oomd swap-kill backstop. The zram valve above stops the *kernel*
-  # OOM-killer from reaping pods, but it adds no real capacity — a game spike
+  # systemd-oomd swap-kill. The zram valve above stops the *kernel* OOM-killer
+  # from firing on a host memory spike, but adds no real capacity — a game spike
   # (CK3, Diablo 4) can still fill zram to ~95% and thrash the whole host into a
-  # multi-minute memory-pressure stall (everything frozen, sshd/k3s included).
-  # oomd ran but monitored nothing: no cgroup carried ManagedOOMSwap=kill.
-  # enableRootSlice marks -.slice, so when swap exceeds SwapUsedLimit oomd kills
-  # the heaviest-swap cgroup. By construction that is always the GUI session
-  # (user.slice ~15G swap vs k3s.service ~47M, pods ~0 — kubelet pins pods to
-  # no-swap), so the service plane is never a candidate. Killing the gaming
-  # session is the intended outcome — ringtail's GUI is gaming-only.
-  systemd.oomd.enableRootSlice = true;
+  # multi-minute memory-pressure stall (everything frozen, sshd included). oomd
+  # was running but monitored nothing.
+  #
+  # Goal: when the host exhausts swap, NON-k3s processes die first. Pods are
+  # pinned to no-swap (fail-swap-on=false + NoSwap policy above), so the only
+  # cgroups holding swap are host/user procs — chiefly the gaming session
+  # (user.slice ~15G swap vs k3s.service ~47M, kubepods ~0). ManagedOOMSwap=kill
+  # on the root slice makes oomd kill the heaviest-swap cgroup when swap crosses
+  # SwapUsedLimit, which is therefore always a non-k3s process. Pod OOM remains
+  # the job of each pod's memory limit + the kernel cgroup OOM-killer, untouched.
+  #
+  # We deliberately avoid systemd.oomd.enableRootSlice: it enrolls the root slice
+  # for *pressure*-based killing, which picks a victim by memory footprint across
+  # all descendants and could reap a big pod (immich) before the game — the
+  # opposite of "non-k3s first".
+  systemd.slices."-".sliceConfig.ManagedOOMSwap = "kill";
 
-  # Act before zram is fully saturated — at 90% of a 15G zram the host is
-  # already thrashing. 80% gives oomd room to kill while reclaim still works.
+  # Act before zram is fully saturated — at 90% of a 15G zram the host is already
+  # thrashing. 80% gives oomd room to kill while reclaim still works.
   environment.etc."systemd/oomd.conf.d/ringtail.conf".text = ''
     [OOM]
     SwapUsedLimit=80%
   '';
+
+  # oomd reads oomd.conf only at startup and NixOS won't restart it for a drop-in
+  # change; restart oomd when our SwapUsedLimit override changes.
+  systemd.services.systemd-oomd.restartTriggers = [
+    config.environment.etc."systemd/oomd.conf.d/ringtail.conf".source
+  ];
 
   # K3s containerd registry mirrors (pull through Zot on indri)
   environment.etc."rancher/k3s/registries.yaml".source = ./k3s-registries.yaml;
