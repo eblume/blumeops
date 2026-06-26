@@ -31,6 +31,15 @@ in
   networking.defaultGateway = "192.168.1.1";
   networking.nameservers = [ "192.168.1.1" "1.1.1.1" ];
 
+  # Pin sifaka (Synology NAS) to its LAN IP so NFS mounts resolve over the LAN
+  # rather than via tailscale MagicDNS. This keeps NFS traffic off the tailnet
+  # and makes it immune to tailscale node-key churn: on 2026-06-26 sifaka's
+  # tailscale node key expired, MagicDNS kept resolving `sifaka` to the dead
+  # node, and every NFS mount hung. /etc/hosts (nsswitch `files`) wins over
+  # MagicDNS, so this is authoritative. sifaka's NFS export already permits
+  # 192.168.1.0/24. NOTE: assumes sifaka stays at .203 — keep a DHCP reservation.
+  networking.hosts."192.168.1.203" = [ "sifaka" "sifaka.tail8d86e.ts.net" ];
+
   # K3s pod networking and Tailscale tunnel routing require IP forwarding.
   # NixOS leaves this off by default; previously it was being enabled
   # implicitly by NM/scripted-DHCP setup, but with static networking we
