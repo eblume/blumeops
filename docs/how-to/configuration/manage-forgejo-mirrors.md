@@ -1,6 +1,6 @@
 ---
 title: Manage Forgejo Mirrors
-modified: 2026-02-26
+modified: 2026-06-27
 last-reviewed: 2026-02-26
 tags:
   - how-to
@@ -133,9 +133,21 @@ mise run mirror-update-pats
 
 Return to [GitHub token settings](https://github.com/settings/tokens?type=beta) and delete the previous token.
 
+> [!note] "Never used" is expected
+> The old token may show **"Last used: never"** in the GitHub UI even after weeks of active syncing. Fine-grained PAT last-used tracking is unreliable for **git-over-HTTPS** operations (it records API calls, but frequently never registers plain `git fetch`/`clone`), which is all the mirrors do. This is not a sign the PAT was unused — verify auth properly in step 5 instead.
+
 ### 5. Verify
 
-Trigger a manual sync on one mirror to confirm the new PAT works:
+The mirrors only use the PAT to lift GitHub's rate limit (public repos don't need auth for *access*), so confirm the token authenticates rather than relying on the "Last used" field.
+
+Check the token is recognized as authenticated — `5000`/hr means authed, `60`/hr means anonymous/invalid:
+
+```fish
+curl -s -H "Authorization: Bearer $(op read 'op://blumeops/w3663ffnvkewbftncqxtcpeavy/github-mirror-pat')" \
+  https://api.github.com/rate_limit | jq '.resources.core.limit'
+```
+
+Optionally, trigger a manual sync on one mirror to confirm end-to-end:
 
 1. Go to any mirror repo's settings page on forge (e.g., `https://forge.eblu.me/mirrors/cloudnative-pg/settings`)
 2. In the "Mirror settings" section, click "Synchronize now"
