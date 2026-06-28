@@ -1,6 +1,7 @@
 ---
 title: Observability
 modified: 2026-03-26
+last-reviewed: 2026-06-27
 tags:
   - operations
 ---

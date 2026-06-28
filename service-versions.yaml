@@ -199,8 +199,8 @@ services:
 
   - name: blumeops-pg
     type: argocd
-    last-reviewed: 2026-03-28
-    current-version: "18.3"
+    last-reviewed: 2026-06-27
+    current-version: "18.4"
     upstream-source: https://github.com/cloudnative-pg/cloudnative-pg/releases
     notes: CloudNativePG Cluster resource; pinned to PG minor version
 
