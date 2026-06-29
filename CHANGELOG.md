@@ -12,6 +12,271 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.18.1] - 2026-06-29
+
+### Bug Fixes
+
+- Restored the `argocd/manifests/1password-connect` and `argocd/manifests/external-secrets` base manifests that the minikube decommission (`a520f023`) deleted while leaving the `1password-connect-ringtail` and `external-secrets-ringtail` Applications still pointing at them. Both apps had been stuck in `ComparisonError` (ArgoCD could not generate their target state) ever since — the running pods stayed Healthy under Manual sync, so the breakage went unnoticed. The restored bases render images identical to what is live (`1password/connect-*:1.8.2`; `external-secrets:v2.2.0-13895bb-nix` via the ringtail overlay), so syncing is a no-op.
+- Fixed all paperless-ngx document ingestion (API upload, consume folder, mail), broken since the Nix-image migration: the image ships no `/tmp`, so `SCRATCH_DIR` resolved to a nonexistent `/paperless`, and in the multi-container pod the scratch dir was not shared between the web container (which writes API uploads there) and the worker (which reads them). `PAPERLESS_SCRATCH_DIR` now points at a shared emptyDir, and a `/tmp` emptyDir keeps general temp usage off the container overlay.
+- Fixed a silent backup gap: borgmatic was backing up the dead Homebrew-era forgejo path (`/opt/homebrew/var/forgejo`, frozen at 2026-04-06) while the live forge data at `/Users/erichblume/forgejo` — the 272MB DB and 8.8GB of git repositories — went uncaptured since the brew→source migration. Backups kept succeeding (the husk still existed), so no alarm fired. Now the live repos are in `source_directories` and `forgejo.db` is dumped WAL-safe via the online `.backup` API (it is WAL-mode); the raw db files are excluded to avoid torn copies. Verified a fresh archive captures the live 272MB DB + current repos.
+- Added a `person` object-filter mask to the `gablecam` Frigate camera to stop a
+  newly-planted Japanese maple (in the bottom-right planter) from being detected as
+  a person and spamming alerts. The false detections scored 0.57–0.84 — overlapping
+  real-person scores — so `min_score` couldn't filter them; the mask covers only the
+  front-deck-stairs corner by the building. Trade-off: a person actually on the
+  stairs no longer alerts, but should trip an alert as soon as they step off into
+  the driveway. Mask region derived from the actual false-positive bounding boxes
+  via the Frigate events API.
+- Fixed duplicate homepage entries (DJ/Navidrome, Kiwix, Miniflux, ArgoCD,
+  Grafana, Prometheus, Transmission) after [[retire-minikube]] — the static
+  `services.yaml` entries that covered the formerly-invisible minikube services
+  now collided with k8s Ingress annotation auto-discovery on ringtail. The
+  annotations are the source of truth; the static duplicates are removed.
+- Paperless-ngx: raised the Celery `worker` memory limit from 1Gi to 3Gi. The 1Gi cap introduced in the indri→ringtail migration OOMKilled OCR (`consume_file`) mid-import, stranding scanned uploads and freezing the auto-incrementing ASN at 46.
+- Refreshed all stale ZIM torrent URLs in `kiwix-ringtail/torrents.txt`. kiwix only
+  keeps the `.torrent` for the latest build of each ZIM, so the whole `_2026-01`
+  devdocs section plus the `wikipedia_en_top1m_maxi_2025-09` entry had silently
+  404'd — the kiwix sidecar could no longer add them to transmission. Bumped
+  wikipedia to `2026-04` and every devdocs package to its current build (mostly
+  `2026-04`, some `2026-05`); all 43 URLs now resolve 200. Added a note documenting
+  the latest-only behavior so future 404s are an obvious date bump.
+- Relaxed the `frigate` liveness probe (`timeoutSeconds: 10`, `failureThreshold: 5`;
+  readiness `timeoutSeconds: 5`). The default 1s timeout / 3 failures was killing the
+  pod with SIGTERM on transient API stalls — 206 graceful-shutdown restarts over 36d,
+  never an OOM — whenever frigate's API thread blocked under detector/GPU load or NFS
+  recording I/O. The pod now tolerates ~2.5min of unresponsiveness before a restart.
+
+### Infrastructure
+
+- Re-broadened the ringtail Alloy blackbox exporter from a single probe (`immich`) to
+  all 18 in-cluster HTTP services (argocd, authentik, frigate, grafana, homepage,
+  immich, kiwix, loki, mealie, miniflux, navidrome, ntfy, paperless, prometheus,
+  shower, teslamate, tempo, transmission). Coverage had collapsed to immich-only
+  during the minikube retirement, leaving the other services silently unmonitored —
+  and `mise run services-check` was reporting a green "OK" for 10 of them because its
+  `ServiceProbeFailure` check passes when no firing instance exists. Each health path
+  was verified to return 2xx unauthenticated from inside the cluster; `shower` is
+  probed with its `Host: shower.ops.eblu.me` header and `ollama` is intentionally
+  excluded (scaled to zero on demand). The single `ServiceProbeFailure` alert covers
+  every new target automatically via `label_replace` on the `integrations/blackbox/*`
+  job label, so no new alert rules were needed. `services-check` was updated to mirror
+  the probe list (no more false OKs) and to check indri/public services (forgejo, zot,
+  devpi, cv) directly. Also swept stale post-minikube monitoring-host claims from the
+  docs ([[runbook-service-probe-failure]], [[port-services-check-alerts]],
+  [[federated-login]], the `tag:loki`/`tag:k8s-api` rows in [[tailscale]], and the
+  prometheus textfile list).
+- Migrated the [[borgmatic]] role's pre-backup database snapshot hooks from the
+  deprecated `before_backup:` key to borgmatic 2.x's `commands:` syntax, clearing
+  the `before_backup is deprecated` warning logged since borgmatic 2.1.4. Using
+  `before: configuration` also stages the heph/mealie/shower/navidrome dumps
+  **once per run** instead of once per repository — previously the two repos
+  (sifaka + BorgBase) each re-ran every dump, harmless but redundant. The
+  abort-on-failure guarantee (a non-zero hook aborts the whole backup, so a failed
+  snapshot is never silent) is preserved.
+- [[retire-minikube]] tail cleanup (follow-up): simplified the container build
+  tooling to nix-only. `container-version-check` now validates each container's
+  `default.nix` against `service-versions.yaml` (dropped the dead container.py
+  `VERSION` / Dockerfile `ARG` rules), and `container-build-and-release` no longer
+  carries dead container.py/Dockerfile classification. Stale build-model
+  references purged from docs (forgejo, forgejo-runner, dagger tooling,
+  grafana-image how-to, review-services, zot CI-auth) and the
+  `build-container.yaml` workflow comment.
+- Pruned the remaining dead `container.py`/`Dockerfile` build-model references
+  left after [[retire-minikube]]. `container-list` and `service-review` mise tasks
+  dropped their `has_container_py`/`has_dockerfile` classification branches (every
+  container is now `containers/<name>/default.nix`), and the `upgrade-grafana` and
+  `deploy-prowler` how-tos now point at the nix builds instead of the retired
+  Dockerfiles.
+
+  Also reconciled the CI runner/dagger docs with the phase-6 host-mode reality
+  (jobs run directly on [[indri]] with the mise toolchain — no job container, no
+  `runner-job-image`): rewrote [[upgrade-dagger]] around the mise-pinned host CLI,
+  fixed the runner-environment section of the update-documentation how-to and the
+  job model in [[configure-launchd-runner]], and deleted the obsolete
+  configure-k8s-runner how-to (superseded by [[configure-launchd-runner]]),
+  repointing its inbound links.
+- [[retire-minikube]] tail cleanup: pruned the dead container-build framework.
+  Removed the `build`, `publish`, and `container_version` Dagger functions (and
+  the now-orphaned `containers.py` `container.py`-discovery module) — the
+  Dockerfile/`docker_build()` and native-`container.py` build paths were retired
+  when the minikube/arm64 runner went away, leaving nix as the only container
+  build path. Updated [[dagger]] and [[build-container-image]] to document the
+  nix-only reality.
+- deploy-fly CI: provision `flyctl` on the host-mode runner via mise (`forgejo_runner_host_tools`) and drop the in-job `curl | sh` install, which hung indefinitely on an interactive PATH prompt on the macOS host runner (the install assumed an ephemeral minikube container). Workflow now calls `flyctl` directly, matching how every other host-mode job finds its tools.
+- Declared AI crawlers (ClaudeBot, GPTBot, meta-externalagent, Amazonbot, …) now get a bare nginx 403 at the Fly edge before the Anubis proxy hop. Outcome of the 2026-06-11 scraper-surge review: these bots were ~88% of all forge.eblu.me traffic and their Anubis/naughty rejection pages were >99% of remaining proxy egress, enough to saturate the proxy VM under storms. Anubis is unchanged and still walls off UA-spoofing crawlers.
+- Closed two backup gaps in the [[borgmatic]] role on [[indri]]. The
+  [[hephaestus|heph]] hub DB (`heph.db`, the only copy of all task/context data)
+  is now snapshotted by a before-backup `sqlite3 .backup` hook — WAL-safe and
+  fails loud, unlike borgmatic's native `sqlite_databases` hook whose `.dump` can
+  fail silently on a live WAL database. [[navidrome]]'s database (users, play
+  counts, playlists) — a gap predating the ringtail migration — is now captured by
+  enabling navidrome's own `ND_BACKUP_*` snapshots (`/data/backup`, daily 01:00,
+  keep 7) and ferrying the newest snapshot off the PVC via a new
+  `borgmatic_k8s_file_dumps` hook (`ls`/`cat` over `kubectl exec`); this added
+  `coreutils` to the navidrome nix image for the in-pod tooling.
+- Upgraded `authentik-redis` (Authentik's cache/broker) from Redis 8.2.3 to 8.6.3, rebuilt from nixpkgs on the nix-container-builder. The deployment has no persistence (ephemeral cache/broker), so the jump carries no data-migration risk. Also reviewed the `refactor-services-check-to-query-alerts` doc card and the most-stale service (`authentik-redis`) as part of the recurring maintenance sweep.
+- ringtail: add zram swap (zstd, swappiness=10) as an OOM pressure valve and
+  set k3s `--kubelet-arg=fail-swap-on=false`. Scale ollama to 0 replicas
+  (on-demand) to drop its GPU contention and large memory tail. Relieves
+  host-level OOM kills of k3s pods when gaming pushes memory over the top.
+- Downgraded the security posture: kept the weekly Prowler K8s CIS hygiene scan
+  but retired the kingfisher secret scanner entirely (ArgoCD app, manifests,
+  custom container, prek hook, and the forge spork). TruffleHog remains the prek
+  secret scanner. Also remediated the outstanding app-pod seccomp Prowler findings
+  by adding `seccompProfile: RuntimeDefault` to the authentik (server/worker/redis)
+  and frigate-notify pods rather than muting them.
+- Tailscale operator stack: upgraded v1.94.2 → v1.98.5 (operator, proxy, and the
+  new local k8s-nameserver), rebuilt from the forge mirror with the `go_1_26`
+  buildGoModule override (v1.98.5 go.mod floor is >= 1.26.3). The in-cluster
+  MagicDNS nameserver is now a local nix-built image
+  (`containers/tailscale-k8s-nameserver/`), replacing the floating
+  `docker.io/tailscale/k8s-nameserver:stable` tag — that mutable tag was the
+  vector behind the v1.96.5 MagicDNS-in-containers regression.
+- Upgraded kube-state-metrics v2.18.0 → v2.19.1 (service review) — nix container
+  rebuild from the forge mirror, picking up Go-toolchain and golang.org/x CVE
+  fixes plus the pprof auth-filter hardening from v2.19.0. Added a
+  `RuntimeDefault` seccomp profile to its deployment, remediating one of the
+  Prowler K8s CIS findings. Compliance triage of the weekly Prowler report (18
+  unmuted, net-zero week-over-week) reworked the mutelist for the k3s finding
+  profile: alloy node agents, the nvidia device plugin, local-path-provisioner,
+  the k3s cloud-controller, and kube-apiserver node-proxy access are now muted as
+  upstream-managed system/node-agent privileges. Remaining app-pod seccomp
+  findings (authentik, frigate-notify) are tracked for RuntimeDefault remediation.
+- Upgraded the [[homepage]] dashboard `v1.11.0` → `v1.13.2` (service review). Rebuilt the custom nix image from the forge mirror (src + pnpm-deps hashes re-resolved, full build verified on ringtail). The range adds the ntfy widget, UniFi Drive widget, qBittorrent v5.2.0 / dispatcharr v24 API compatibility, and the `GHSA-rg3r-jprv-xq38` security fix — no breaking config changes for our widget set.
+- Service review: upgraded the CloudNativePG operator on ringtail from v1.27.1 to v1.29.1. The 1.27 series reached end-of-life upstream ("no longer supported"); 1.29.1 is the latest stable and carries a metrics-exporter privilege-escalation fix plus Go runtime CVE patches. Operand PostgreSQL stays at 18.3. Also corrected a stale `service-versions.yaml` entry (tracked 1.28.1 while the app deployed 1.27.1) and removed a dead minikube-sibling comment from the Application manifest.
+- Upgraded Forgejo from v14.0.3 to v15.0.3 (major version) and made the forgejo Ansible role version-driven: `forgejo_version` (+ `forgejo_go_version`/`forgejo_node_version`/`forgejo_build_tags`) in the role defaults now pins the deployed tag, and the role fetches from the mirror, checks out, rebuilds when the running binary differs, and restarts. Bumping `forgejo_version` in a PR is now the whole upgrade — reproducible and DR-safe, closing the gap where the forge version lived only on indri's filesystem. Added an [[upgrade-forgejo]] runbook (build-from-mirror flow, go-toolchain pin requirement, v15 breaking changes, SQLite DB backup, rollback).
+- Upgraded Loki 3.6.7 → 3.7.2 (service review). Breaking changes in 3.7 are
+  confined to the experimental v2 engine/scheduler, which blumeops' single-binary
+  deployment does not use.
+- Monthly tooling dependency refresh: prek hooks (trufflehog v3.95.6, ruff v0.15.18, prettier v3.8.4, taplo SHA correction, ansible-core 2.21.1), Fly proxy images (nginx 1.30.3-alpine, alloy v1.17.0), mise-task `typer` pin 0.26.7, and `actions/checkout` v6.0.3 in Forgejo workflows.
+- Daily recurring review pass (2026-06-18):
+  - Service review of `frigate` (stalest, 86d): already at the latest upstream
+    stable (0.17.1 — v0.17.1 is the newest GitHub release), pod healthy and
+    serving the API. No upgrade needed; `last-reviewed` bumped in
+    `service-versions.yaml`. Noted a high lifetime restart count (206 over 36d,
+    last a graceful SIGTERM 3d ago, not an active crash loop) — filed a heph task
+    to investigate.
+  - Doc review of [[port-services-check-alerts]] (never reviewed): corrected the
+    stale "blackbox exporter already covers 5 services" claim — the ringtail
+    blackbox probe set is currently only `immich`
+    (`argocd/manifests/alloy-ringtail/config.alloy`), so re-broadening it is now
+    the most impactful next step. All wiki-links verified; set `last-reviewed`.
+- Service review: bumped `blumeops-pg` PostgreSQL operand 18.3 → 18.4
+  (ghcr.io/cloudnative-pg/postgresql), picking up the May 2026 security release
+  (11 CVEs incl. CVE-2026-6473 buffer overruns and several SQL-injection fixes);
+  18.x→18.x needs no dump/restore. Updated ringtail flake.lock (nixpkgs
+  `d6df3513` → `3cac626e`, nixos-25.11; `nixpkgs-services` pin held) via
+  `dagger call flake-update`.
+- Daily recurring review pass (2026-06-17):
+  - ntfy upgraded v2.19.2 → v2.24.0 (service review). Custom nix image rebuilt
+    from the forge mirror; no breaking config changes across v2.20–v2.24 (S3
+    attachment store, verified-email recipients, ACL access cache, SQLite
+    case-sensitive ACL fix, PWA token auto-extend). Image tag bumped in
+    `argocd/manifests/ntfy/kustomization.yaml`.
+  - Doc review of [[first-alert-and-runbook]]: marked the alerting POC as
+    complete/deployed and corrected the stale "5 probed services" claim —
+    blackbox coverage is currently only `immich` (see [[port-services-check-alerts]]
+    to re-expand).
+- [[retire-minikube]] phase 6: the indri forgejo-runner flips to
+  host-mode jobs (no more `runner-job-image`; jobs run as `erichblume`
+  with the mise toolchain, which gains pinned `dagger` and `prek`).
+  Scope revision: Docker Desktop stays as the dagger engine host
+  (hephaestus/cv CI also use dagger), right-sized from 6cpu/8GiB to
+  2cpu/4GiB. All stale arm64 build files deleted and
+  `build-container.yaml` is nix-only.
+- Added `uv` to ringtail's `systemPackages` for fast Python package and project management alongside the existing `mise` tooling.
+- Enabled `systemd-oomd` swap-kill on ringtail (`ManagedOOMSwap=kill` on the root
+  slice, `SwapUsedLimit=80%`). A Crusader Kings 3 spike filled zram swap to ~95% and
+  froze the whole host in a multi-minute memory-pressure stall (PSI memory `full
+  avg300≈30%`) — sshd and the k3s API included. oomd was running but monitored zero
+  cgroups, so nothing got killed. Now oomd kills the heaviest-swap cgroup when swap
+  crosses 80%; because k3s pods are pinned to no-swap (so kubepods hold ~0 swap vs
+  the gaming session's ~15G), the victim is always a non-k3s process. Pod OOM
+  remains the job of each pod's memory limit plus the kernel cgroup OOM-killer.
+  Pressure-based root killing (`enableRootSlice`) was deliberately avoided — it
+  selects by memory footprint and could reap a pod before the game.
+- Pinned `sifaka` to its LAN IP (`192.168.1.203`) in ringtail's `/etc/hosts` via
+  `networking.hosts`, so NFS mounts resolve over the LAN instead of tailscale
+  MagicDNS. On 2026-06-26 sifaka's tailscale node key expired; MagicDNS kept
+  resolving `sifaka` to the now-dead node and every NFS mount on ringtail hung
+  (kiwix, transmission, immich, paperless, etc.). The LAN path is authoritative
+  (`/etc/hosts` beats MagicDNS), keeps NFS traffic off the tailnet, and is immune
+  to tailscale node-key churn — implementing the design the immich `pv-nfs.yaml`
+  comment always described. sifaka's NFS export already permits `192.168.1.0/24`.
+  Also disabled key expiry on sifaka's tailscale node so it stops expiring.
+- Removed `librewolf` from ringtail's `systemPackages`. After the nixpkgs flake bump, nixpkgs marks `librewolf-151.0.2` insecure (unmaintained in nixpkgs, not a specific CVE), which blocked `nixos-rebuild`. Firefox remains the configured default browser; librewolf was a standalone extra.
+- Removed the retired `minikube` entry from `service-versions.yaml` — minikube on
+  indri was retired 2026-06 (see [[retire-minikube]]); the service-review staleness
+  queue no longer lists a non-existent service.
+
+### Documentation
+
+- Corrected the `ServiceProbeFailure` runbook's Affected Services table: verified
+  against live Prometheus that the Alloy blackbox exporter now probes only immich
+  (`job=integrations/blackbox/immich`), so the table no longer lists the retired
+  indri-era services (miniflux/kiwix/transmission/devpi/argocd). Added superseded
+  notes to the historical zot version-sync/tagging design cards
+  (pin-container-versions, add-container-version-sync-check,
+  adopt-commit-based-container-tags) pointing at the nix-only reality.
+- Condensed the `docs/how-to/zot/` cards, which were verbose mikado-chain
+  leftovers. Merged the four overlapping container-versioning cards
+  (pin-container-versions, add-container-version-sync-check,
+  adopt-commit-based-container-tags, add-dagger-nix-build) into a single
+  [[container-versioning]] card documenting the current nix-only model, and
+  trimmed the zot-hardening cards ([[harden-zot-registry]],
+  [[wire-ci-registry-auth]], [[register-zot-oidc-client]]) down to tight
+  present-tense how-tos — dropping the `What Was Done` / `Verification` checklists
+  and file-listing tables that read as project records rather than documentation.
+- Doc review: purged retired-minikube references from the four alerting runbooks
+  (service-probe-failure, postgres-unhealthy, pod-not-ready, textfile-stale) —
+  `--context=minikube-indri` → `--context=k3s-ringtail`, "indri's minikube
+  cluster" → "ringtail's k3s cluster", and minikube health checks → k3s-on-ringtail
+  equivalents. Also corrected the textfile-stale collector table (dropped the dead
+  `minikube.prom`, added the live `forgejo.prom` and `macos_power.prom`).
+- Reframed the security docs away from compliance-program emulation: the
+  `security` reference card was retitled "Security & Compliance" → "Security",
+  dropped the PCI DSS / SOC 2 / ISO 27001 framework table, and now frames the
+  Prowler scan as a hygiene check. Stale `minikube-indri` and
+  `argocd/manifests/prowler/` paths corrected to ringtail /
+  `prowler-ringtail/`. Spork docs note that kingfisher (the worked example) has
+  been retired while the spork machinery stays for future sporks.
+- Doc review: `deploy-infra-alerting` runbook updated — the services-check
+  coverage table no longer references the retired minikube cluster (k3s on
+  ringtail is the only cluster post-[[retire-minikube]]).
+- Doc review: [[configure-grafana-alerting-pipeline]] accuracy pass — corrected
+  the stale "Grafana and ntfy are on different clusters" rationale. Both now run
+  on ringtail's k3s since the minikube retirement, so the cross-cluster Caddy
+  workaround is no longer load-bearing (cluster-internal ntfy DNS is now a viable
+  future simplification).
+- Reviewed `runbook-argocd-out-of-sync.md` (never reviewed). Corrected the stale "30+ minutes" claim — the `ArgoCDAppOutOfSync` alert actually fires after a 5m `for:` window. Verified both wiki-links resolve and the alert is defined in `grafana-ringtail/alerting.yaml`. Set `last-reviewed: 2026-06-21`.
+- Docs review: verified the [[snowflake-proxy]] reference card against the running service (`snowflake-proxy.service` active on ringtail, Prometheus metrics on :9999, v2.11.0 matching nixpkgs) and stamped it `last-reviewed: 2026-06-23`.
+- Recurring reviews (2026-06-29): doc review of the Frigate service card (corrected stale image tag rc2 → 0.17.1-tensorrt, stamped reviewed); service review surfaced Forgejo (see infra entry); weekly Prowler K8s CIS compliance scan all-clear (0 unmuted FAILs, net-zero week-over-week).
+- Doc review: stamped [[observability]] reference card as reviewed — all five
+  component and seven alerting/runbook wiki-links resolve, and the Pyroscope
+  (blocked on ringtail kernel sysctls) and Faro RUM (not deployed) future
+  sections remain accurate.
+- Doc review: automounter card updated for post-[[retire-minikube]] reality —
+  consumers table now reflects NFS-direct ringtail workloads, adds the shower
+  share, and flags vestigial mounts (music, torrents, frigate).
+- Documented the [[flyio-proxy]] Tailscale node name drift (`flyio-proxy` →
+  `flyio-proxy-1` → `-2`): caused by ephemeral microVM state with no persisted
+  `/var/lib/tailscale`, benign because routing/ACLs are tag-based and offline
+  nodes auto-GC. Recorded the Fly-volume fix and the decision not to apply it
+  (volume anchors the otherwise stateless proxy to one host).
+- [[manage-forgejo-mirrors]]: document that the old GitHub fine-grained PAT
+  shows "Last used: never" even after weeks of active syncing (last-used
+  tracking is unreliable for git-over-HTTPS), and add a `rate_limit` auth check
+  as the reliable way to verify a rotated mirror PAT.
+
+### AI Assistance
+
+- Retired the "migrate every container to a locally built image" campaign. The reachable wins are done — all remaining upstream images (frigate's TensorRT build, immich's CUDA ML stack, the CloudNativePG PostgreSQL operands) are impractical to rebuild in Nix and stay on their upstream registries. AGENTS.md now frames local container builds as guidance for *new* services rather than a goal of universal localization, and the recurring "pick one non-local container and make it local" task has been dropped.
+
+### Miscellaneous
+
+- Pruned dead minikube-era entries from the Prowler mutelist (removed `apiserver.yaml`, `control-plane.yaml`, `manual-node-checks.yaml`; trimmed `core-pod-security.yaml`), leaving only entries that match live k3s resources. No change to scan output (0 unmuted FAILs).
+
+
 ## [v1.18.0] - 2026-06-11
 
 ### Bug Fixes

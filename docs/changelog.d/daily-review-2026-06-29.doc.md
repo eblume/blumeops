@@ -1,1 +1,0 @@
-Recurring reviews (2026-06-29): doc review of the Frigate service card (corrected stale image tag rc2 → 0.17.1-tensorrt, stamped reviewed); service review surfaced Forgejo (see infra entry); weekly Prowler K8s CIS compliance scan all-clear (0 unmuted FAILs, net-zero week-over-week).

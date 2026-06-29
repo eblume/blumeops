@@ -1,1 +1,0 @@
-Paperless-ngx: raised the Celery `worker` memory limit from 1Gi to 3Gi. The 1Gi cap introduced in the indri→ringtail migration OOMKilled OCR (`consume_file`) mid-import, stranding scanned uploads and freezing the auto-incrementing ASN at 46.

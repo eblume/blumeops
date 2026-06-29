@@ -1,1 +1,0 @@
-Docs review: verified the [[snowflake-proxy]] reference card against the running service (`snowflake-proxy.service` active on ringtail, Prometheus metrics on :9999, v2.11.0 matching nixpkgs) and stamped it `last-reviewed: 2026-06-23`.

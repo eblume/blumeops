@@ -1,1 +1,0 @@
-deploy-fly CI: provision `flyctl` on the host-mode runner via mise (`forgejo_runner_host_tools`) and drop the in-job `curl | sh` install, which hung indefinitely on an interactive PATH prompt on the macOS host runner (the install assumed an ephemeral minikube container). Workflow now calls `flyctl` directly, matching how every other host-mode job finds its tools.
