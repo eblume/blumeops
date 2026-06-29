@@ -1,34 +1,77 @@
 ---
 # Forgejo role — source-built binary with LaunchAgent
 #
-# ONE-TIME SETUP (before running ansible):
+# Forgejo is built from source at {{ forgejo_repo_dir }} (origin = forge mirror,
+# codeberg = upstream) and run via the mcquack LaunchAgent. The version is
+# declared by `forgejo_version` in defaults/main.yml: this role fetches, checks
+# out that tag, and rebuilds when the running binary doesn't match. Bumping
+# `forgejo_version` and re-provisioning IS the upgrade. See [[upgrade-forgejo]].
 #
-# 1. Clone forgejo from codeberg (avoid circular dependency):
-#    ssh indri 'git clone https://codeberg.org/forgejo/forgejo.git ~/code/3rd/forgejo'
-#
-# 2. Add forge mirror as secondary remote:
-#    ssh indri 'cd ~/code/3rd/forgejo && git remote add forge https://forge.eblu.me/mirrors/forgejo.git'
-#
-# 3. Build (mise.toml handles Go/Node versions and build tags):
-#    ssh indri 'cd ~/code/3rd/forgejo && mise run build'
-#
-# 4. Run ansible to deploy config and LaunchAgent
+# ONE-TIME BOOTSTRAP (before ansible can manage it — avoids a circular
+# dependency on the forge mirror):
+#   ssh indri 'git clone https://codeberg.org/forgejo/forgejo.git ~/code/3rd/forgejo'
+#   ssh indri 'cd ~/code/3rd/forgejo && git remote add codeberg https://codeberg.org/forgejo/forgejo.git'
+#   ssh indri 'cd ~/code/3rd/forgejo && git remote set-url origin https://forge.ops.eblu.me/mirrors/forgejo.git'
 #
 # Secrets (lfs_jwt_secret, internal_token, oauth2_jwt_secret) are fetched
 # from 1Password in the playbook pre_tasks.
 
-- name: Verify forgejo binary exists
+- name: Verify forgejo source repo is cloned
   ansible.builtin.stat:
-    path: "{{ forgejo_binary }}"
-  register: forgejo_binary_stat
+    path: "{{ forgejo_repo_dir }}/.git"
+  register: forgejo_git_stat
 
-- name: Fail if forgejo binary not found
+- name: Fail if forgejo source repo not cloned
   ansible.builtin.fail:
     msg: |
-      Forgejo binary not found at {{ forgejo_binary }}.
-      Please build from source first:
-        ssh indri 'cd ~/code/3rd/forgejo && mise run build'
-  when: not forgejo_binary_stat.stat.exists
+      Forgejo source repo not found at {{ forgejo_repo_dir }}.
+      Run the one-time bootstrap clone (see this role's header comment).
+  when: not forgejo_git_stat.stat.isdir is defined or not forgejo_git_stat.stat.exists
+
+- name: Get currently built forgejo version
+  ansible.builtin.command: "{{ forgejo_binary }} --version"
+  register: forgejo_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Determine whether forgejo needs a (re)build
+  # `forgejo --version` prints e.g. "forgejo version 15.0.3+gitea-1.22.0 ...".
+  # Anchor on the trailing "+" so 15.0.3 doesn't spuriously match 15.0.30.
+  ansible.builtin.set_fact:
+    forgejo_needs_build: "{{ (forgejo_version | regex_replace('^v', '')) + '+' not in (forgejo_installed.stdout | default('')) }}"
+
+- name: Build and deploy forgejo at the pinned version
+  when: forgejo_needs_build | bool
+  block:
+    - name: Check out the pinned forgejo version from the mirror
+      # force discards modified *tracked* files only; untracked build outputs
+      # (gitea/forgejo binaries, local mise.toml) and the codeberg remote are
+      # left in place.
+      ansible.builtin.git:
+        repo: "{{ forgejo_mirror_url }}"
+        dest: "{{ forgejo_repo_dir }}"
+        version: "{{ forgejo_version }}"
+        force: true
+
+    - name: Build forgejo from source
+      # GOTOOLCHAIN=local + an explicit go matching go.mod's `toolchain` directive
+      # avoids the mise-GOROOT vs auto-switch conflict (see [[upgrade-forgejo]]).
+      # make build is invoked directly rather than via the untracked local
+      # mise.toml so the build is fully reproducible from this role.
+      ansible.builtin.command:
+        cmd: >-
+          {{ forgejo_mise_bin }} x go@{{ forgejo_go_version }} node@{{ forgejo_node_version }}
+          -- env GOTOOLCHAIN=local TAGS="{{ forgejo_build_tags }}" make build
+        chdir: "{{ forgejo_repo_dir }}"
+      changed_when: true
+
+    - name: Link the built binary to ./forgejo
+      ansible.builtin.command:
+        cmd: ln -f gitea forgejo
+        chdir: "{{ forgejo_repo_dir }}"
+      changed_when: true
+      notify: Restart forgejo
 
 - name: Ensure forgejo config directory exists
   ansible.builtin.file:

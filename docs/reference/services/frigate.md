@@ -1,6 +1,7 @@
 ---
 title: Frigate
 modified: 2026-02-22
+last-reviewed: 2026-06-29
 tags:
   - service
   - surveillance
@@ -17,7 +18,7 @@ Open-source network video recorder (NVR) with object detection. Runs cloud-free 
 | **URL** | https://nvr.ops.eblu.me |
 | **Tailscale URL** | https://nvr.tail8d86e.ts.net |
 | **Namespace** | `frigate` |
-| **Image** | `ghcr.io/blakeblackshear/frigate:0.17.0-rc2-tensorrt` |
+| **Image** | `ghcr.io/blakeblackshear/frigate:0.17.1-tensorrt` |
 | **Upstream** | https://github.com/blakeblackshear/frigate |
 | **Manifests** | `argocd/manifests/frigate/` |
 

@@ -384,10 +384,14 @@ services:
 
   - name: forgejo
     type: ansible
-    last-reviewed: 2026-03-28
-    current-version: "14.0.3"
+    last-reviewed: 2026-06-29
+    current-version: "15.0.3"
     upstream-source: https://codeberg.org/forgejo/forgejo/releases
-    notes: Built from source on indri (~/code/3rd/forgejo)
+    notes: >-
+      Built from source on indri (~/code/3rd/forgejo), origin remote = forge
+      mirror (forge.ops.eblu.me/mirrors/forgejo), codeberg = upstream. Off
+      Homebrew — custom LaunchAgent (mcquack.eblume.forgejo.plist), mise
+      toolchain. v15 major upgrade, see [[upgrade-forgejo]].
 
   - name: alloy
     type: ansible

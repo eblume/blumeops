@@ -11,6 +11,30 @@ forgejo_run_mode: prod
 forgejo_repo_dir: /Users/erichblume/code/3rd/forgejo
 forgejo_binary: "{{ forgejo_repo_dir }}/forgejo"
 
+# Source build version + toolchain.
+# Bumping forgejo_version here IS the upgrade: the role fetches from the forge
+# mirror (origin), checks out this tag, and rebuilds when the running binary
+# doesn't match. Deploy with `mise run provision-indri -- --tags forgejo`.
+#
+# !! DO NOT bump this blindly. Forgejo runs DB migrations automatically on the
+#    next start — there is no review-before-migrate step, and major migrations
+#    are effectively one-way. Before changing this value, especially across a
+#    MAJOR version (the leading number), you MUST:
+#      1. Read the release notes for every version in between for breaking
+#         changes / manual-intervention items (see [[upgrade-forgejo]]).
+#      2. Confirm a fresh forgejo.db backup exists (borgmatic dumps it nightly;
+#         take an ad-hoc one for a same-day major bump).
+#      3. For a major bump also set forgejo_go_version to satisfy the target
+#         tag's go.mod `toolchain` directive (v15 requires go1.26.4).
+forgejo_version: "v15.0.3"
+forgejo_go_version: "1.26.4"
+forgejo_node_version: "24"
+forgejo_build_tags: "bindata timetzdata sqlite sqlite_unlock_notify"
+forgejo_mise_bin: /etc/profiles/per-user/erichblume/bin/mise
+# Build source = the forge mirror (origin); codeberg remains as a manual
+# upstream remote and is left untouched by the role.
+forgejo_mirror_url: https://forge.ops.eblu.me/mirrors/forgejo.git
+
 # Data paths (migrated from brew to ~/forgejo)
 forgejo_work_path: /Users/erichblume/forgejo
 forgejo_config_path: "{{ forgejo_work_path }}/custom/conf/app.ini"

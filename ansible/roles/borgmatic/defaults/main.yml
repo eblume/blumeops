@@ -23,7 +23,11 @@ borgmatic_schedule_minute: 0
 # Source directories to back up
 borgmatic_source_directories:
   - /Users/erichblume/code/personal/zk
-  - /opt/homebrew/var/forgejo
+  # Forgejo lives here since the brew->source migration (was
+  # /opt/homebrew/var/forgejo, now a dead husk). Captures git repositories,
+  # LFS, and custom/conf. The live forgejo.db is WAL-mode and excluded below —
+  # it's snapshotted WAL-safe via borgmatic_local_sqlite_dumps instead.
+  - /Users/erichblume/forgejo
   - /Users/erichblume/.config/borgmatic
   - /Users/erichblume/Documents
   - /Users/erichblume/.local/share/borgmatic/k8s-dumps
@@ -100,9 +104,19 @@ borgmatic_local_sqlite_dumps:
   # written by every spoke sync, so a plain file copy could tear.
   - name: heph
     path: /Users/erichblume/.local/share/heph/heph.db
+  # forgejo — primary source of truth for blumeops. WAL mode (see the -wal
+  # file), so it must be snapshotted via the online .backup API, not copied
+  # raw from source_directories. The git repositories themselves come from the
+  # /Users/erichblume/forgejo source dir above.
+  - name: forgejo
+    path: /Users/erichblume/forgejo/data/forgejo.db
 
 # Exclude patterns
-borgmatic_exclude_patterns: []
+borgmatic_exclude_patterns:
+  # The live WAL-mode forgejo DB is captured WAL-safe via
+  # borgmatic_local_sqlite_dumps; exclude the raw db/-wal/-shm files from the
+  # /Users/erichblume/forgejo source dir so we never archive a torn copy.
+  - /Users/erichblume/forgejo/data/forgejo.db*
 
 # Encryption passcommand (reads borg passphrase)
 borgmatic_encryption_passcommand: cat /Users/erichblume/.borg/config.yaml

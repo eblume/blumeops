@@ -11,7 +11,7 @@ tags:
 
 Git forge and CI/CD platform. **Primary source of truth for blumeops** (mirrored to GitHub).
 
-Built from source on indri, managed via Ansible + mcquack LaunchAgent. Source cloned from Codeberg with a forge mirror as secondary remote.
+Built from source on indri, managed via Ansible + mcquack LaunchAgent. The build pulls from the forge mirror (`origin`); Codeberg is the upstream remote (`codeberg`). To upgrade, see [[upgrade-forgejo]].
 
 ## Quick Reference
 
@@ -25,36 +25,31 @@ Built from source on indri, managed via Ansible + mcquack LaunchAgent. Source cl
 | **Binary** | `~/code/3rd/forgejo/forgejo` (source-built) |
 | **Data** | `~/forgejo` |
 | **LaunchAgent** | `mcquack.eblume.forgejo` |
-| **Source** | `~/code/3rd/forgejo` (cloned from Codeberg) |
+| **Source** | `~/code/3rd/forgejo` (`origin` = forge mirror, `codeberg` = upstream) |
 
 ## Building from Source
 
 Forgejo is built from source on indri, matching the pattern used by [[zot]], [[caddy]], and [[alloy]].
 
-**One-time setup:**
+**Remotes:** `origin` → `https://forge.ops.eblu.me/mirrors/forgejo.git` (the
+build source), `codeberg` → `https://codeberg.org/forgejo/forgejo.git`
+(upstream). The original clone was from Codeberg to avoid a circular dependency
+with the forge; the mirror was later promoted to `origin`.
 
-```fish
-# Clone from Codeberg (avoids circular dependency with forge)
-ssh indri 'git clone https://codeberg.org/forgejo/forgejo.git ~/code/3rd/forgejo'
+**Version is declared in the Ansible role**, not built ad-hoc. `forgejo_version`
+(plus `forgejo_go_version`/`forgejo_node_version`/`forgejo_build_tags`) in
+`ansible/roles/forgejo/defaults/main.yml` pins the deployed tag. On
+`provision-indri --tags forgejo` the role fetches from the mirror, checks out the
+tag, rebuilds **only when the running binary doesn't match**, links `./forgejo`,
+and restarts. Bumping `forgejo_version` in a PR is therefore the whole upgrade —
+reproducible and DR-safe. See [[upgrade-forgejo]] for the full procedure (DB
+backup, breaking changes, verification, rollback).
 
-# Add forge mirror as secondary remote
-ssh indri 'cd ~/code/3rd/forgejo && git remote add forge https://forge.eblu.me/mirrors/forgejo.git'
-```
+**WARNING:** Do NOT use `make forgejo` directly — it rebuilds with empty TAGS, stripping SQLite support. The role passes `TAGS` explicitly to `make build` and `ln -f gitea forgejo` afterwards.
 
-**Building a specific version:**
+Build tags (`forgejo_build_tags`): `bindata` (embed assets), `timetzdata` (embed timezone data), `sqlite sqlite_unlock_notify` (SQLite support).
 
-```fish
-ssh indri 'cd ~/code/3rd/forgejo && git fetch --tags && git checkout v14.0.3'
-ssh indri 'cd ~/code/3rd/forgejo && mise run build'
-```
-
-The `build` mise task (defined in the repo's `mise.toml`) runs `make build` with the correct tags and creates the `./forgejo` hardlink. It uses `go@1.25.8` and `node@24` as configured by `mise use`.
-
-**WARNING:** Do NOT use `make forgejo` directly — it rebuilds with empty TAGS, stripping SQLite support. Always use `mise run build` or pass TAGS explicitly to `make build` and `ln -f gitea forgejo` afterwards.
-
-Build tags: `bindata` (embed assets), `timetzdata` (embed timezone data), `sqlite sqlite_unlock_notify` (SQLite support).
-
-After building, run `mise run provision-indri -- --tags forgejo` to deploy the config and restart the service.
+> The repo's local `mise.toml` (`mise run build`) is untracked and pins go 1.25.8 — it fails on v15+. The role builds with `mise x go@{{ forgejo_go_version }}` instead; use that form for manual builds too.
 
 ## Repositories
 
@@ -172,6 +167,7 @@ Forgejo hosts pull mirrors of external repositories (GitHub, etc.) for supply ch
 
 ## Related
 
+- [[upgrade-forgejo]] - Version upgrade procedure (DB backup, breaking changes, rollback)
 - [[forgejo-runner]] - k8s CI/CD runner (minikube on indri)
 - [[argocd]] - Uses Forgejo as git source
 - [[authentik]] - OIDC identity provider
