@@ -1,6 +1,6 @@
 ---
 title: Borgmatic
-modified: 2026-06-18
+modified: 2026-07-01
 tags:
   - service
   - backup
@@ -26,7 +26,7 @@ Daily backup system using Borg backup, running on indri.
 
 **Directories:**
 - `~/code/personal/zk` - Zettelkasten (migrating into heph docs; see [hephaestus](https://github.com/eblume/hephaestus))
-- `/opt/homebrew/var/forgejo` - Git forge data
+- `~/forgejo` - Git forge data (repos, LFS, `custom/conf`; live WAL `forgejo.db` is excluded here and snapshotted separately below). The old `/opt/homebrew/var/forgejo` brew path is a dead husk since the source-build migration.
 - `~/.config/borgmatic` - Borgmatic config
 - `~/Documents` - Personal documents
 - `~/.local/share/borgmatic/k8s-dumps/` - SQLite dumps from k8s pods
@@ -67,14 +67,37 @@ whole run — a failed snapshot is never silently skipped.
 | Monthly | 12 |
 | Yearly | 1000 |
 
+## Resilience
+
+The main config sets `retries: 3` / `retry_wait: 300`, so a transient failure on
+a single repository (typically a broken SSH pipe partway through a large offsite
+upload to BorgBase) is retried with linear backoff rather than failing the whole
+run. borg checkpoints an interrupted `create`, so each retry resumes from where
+it dropped. Only the failing repository is retried — the `before: configuration`
+dump hooks run once and are not repeated. sifaka (local) and BorgBase (offsite)
+are independent, so an offsite hiccup never affects the local archive.
+
 ## Monitoring
 
-Metrics exposed via textfile collector to [[prometheus]]:
+A one-shot script (launchd `StartInterval`, hourly) reads each repo's metadata
+via `borg info`/`borg list` and writes textfile metrics to [[prometheus]], per
+repository (`sifaka-local`, `borgbase-offsite`, `borgbase-immich-photos`):
 - `borgmatic_up` - Repository accessibility
 - `borgmatic_last_archive_timestamp` - Last backup time
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
 
+The per-source size breakdown (`borgmatic_source_size_bytes`) is collected for
+**local repos only** — it pulls the latest archive's full file manifest, cheap
+locally but a heavy hourly transfer for a remote (ssh://) repo, so it is skipped
+there. Remote repos still get the lightweight metrics above every hour.
+
 Dashboard: "Borgmatic Backups" in [[grafana]]
+
+**Alert:** `BorgmaticStale` (Grafana, ntfy-infra) fires when any repo's newest
+archive is older than 30h (for 1h) — roughly 7h after a missed nightly run,
+well before BorgBase's own 2-missed-runs email. The main offsite repo was
+previously unmonitored (only sifaka + photos were scraped), so a failed offsite
+run produced no metric and no alert; it is now collected explicitly.
 
 ## Related
 

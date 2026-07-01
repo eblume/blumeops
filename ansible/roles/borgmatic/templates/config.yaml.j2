@@ -69,6 +69,15 @@ commands:
 
 ssh_command: ssh -o IdentitiesOnly=yes -i {{ borgmatic_borgbase_ssh_key_path }}
 
+# Retry a failing repository action (e.g. a broken SSH pipe partway through a
+# large offsite upload to BorgBase) rather than failing the whole run. borg
+# checkpoints an interrupted `create`, so a retry resumes from where it dropped.
+# retry_wait backs off linearly across attempts to let a transient network issue
+# clear. Only the failing repository is retried; the before-backup dump hooks
+# (which run once at `before: configuration`) are not re-run.
+retries: {{ borgmatic_retries }}
+retry_wait: {{ borgmatic_retry_wait }}
+
 # Retention policy
 keep_daily: {{ borgmatic_keep_daily }}
 keep_monthly: {{ borgmatic_keep_monthly }}

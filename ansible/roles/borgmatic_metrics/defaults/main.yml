@@ -4,6 +4,11 @@
 borgmatic_metrics_repos:
   - path: /Volumes/backups/borg/
     label: sifaka-local
+  # Main offsite repo (the daily config's BorgBase target). Previously
+  # unmonitored — a failed offsite run (e.g. the 2026-06-30 broken-pipe) left
+  # no metric and thus no alert, so BorgBase's own email was the only signal.
+  - path: ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo
+    label: borgbase-offsite
   - path: ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo
     label: borgbase-immich-photos
 

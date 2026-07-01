@@ -115,7 +115,14 @@ borgmatic_last_archive_timestamp{repo="$repo_label"} $last_timestamp
 borgmatic_last_archive_duration_seconds{repo="$repo_label"} ${last_duration:-0}
 EOF
 
-    # Collect per-source-directory sizes
+    # Collect per-source-directory sizes. This pulls the full file manifest of
+    # the latest archive, which is cheap on a local repo but a heavy transfer on
+    # a remote (ssh://) one — 100k+ path entries over the internet, every run.
+    # We poll remote repos hourly for the light info/list metrics above (up,
+    # timestamp, repo sizes), but skip this per-source breakdown for them.
+    if [[ "$repo_path" == ssh://* ]]; then
+        return
+    fi
     $BORG_CMD list "${repo_path}::${last_archive_name}" --format "{size} {path}{NL}" 2>/dev/null | awk -v repo="$repo_label" '
     {
         size = $1
@@ -127,7 +134,7 @@ EOF
         else if (path ~ /^Users\/[^\/]+\/code\/personal\/zk/) { source = "Zettelkasten" }
         else if (path ~ /^Users\/[^\/]+\/.config\/borgmatic/) { source = "borgmatic_config" }
         else if (path ~ /^Users\/[^\/]+\/.local\/share\/borgmatic/) { source = "k8s_dumps" }
-        else if (path ~ /^opt\/homebrew\/var\/forgejo/) { source = "Forgejo" }
+        else if (path ~ /^Users\/[^\/]+\/forgejo/) { source = "Forgejo" }
         else if (path ~ /^opt\/homebrew\/var\/loki/) { source = "Loki" }
         else if (path ~ /^Volumes\/photos/) { source = "immich_photos" }
         else if (path ~ /^borgmatic\/postgresql_databases/) { source = "PostgreSQL" }
