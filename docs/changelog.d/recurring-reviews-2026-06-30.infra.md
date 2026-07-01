@@ -1,0 +1,1 @@
+Service review: upgraded the ringtail forgejo-runner (`nix-container-builder`) from 12.7.2 to 12.11.1 via the `nixpkgs-services` pin, picking up the Go toolchain, `golang.org/x/sys`, and `go-git` security fixes released since 12.7.2. k3s and snowflake (sharing the pin) are unchanged.

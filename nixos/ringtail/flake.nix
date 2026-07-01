@@ -6,8 +6,8 @@
 
     # Pinned nixpkgs for versioned services (forgejo-runner, snowflake, k3s).
     # Update this deliberately during service reviews, not via `nix flake update`.
-    # Current versions: forgejo-runner 12.7.2, snowflake 2.11.0, k3s 1.34.5+k3s1
-    nixpkgs-services.url = "github:NixOS/nixpkgs/1073dad219cb244572b74da2b20c7fe39cb3fa9e";
+    # Current versions: forgejo-runner 12.11.1, snowflake 2.11.0, k3s 1.34.5+k3s1
+    nixpkgs-services.url = "github:NixOS/nixpkgs/3cac626ec5e3703e835f227687e88aa9e2f25701";
 
     disko = {
       url = "github:nix-community/disko";

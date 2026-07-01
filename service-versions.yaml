@@ -311,8 +311,8 @@ services:
 
   - name: nix-container-builder
     type: nixos
-    last-reviewed: 2026-04-01
-    current-version: "12.7.2"
+    last-reviewed: 2026-06-30
+    current-version: "12.11.1"
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
     notes: >-
       Forgejo runner on ringtail; pinned via nixpkgs-services overlay in flake.nix.
