@@ -175,17 +175,32 @@ def main(
             "ref": ref,
         },
     }
-    resp = httpx.post(url, json=payload, headers=headers, timeout=30)
-    if resp.status_code == 204:
-        typer.echo(f"Dispatched {WORKFLOW}")
-    else:
-        typer.echo(f"Error dispatching {WORKFLOW}: {resp.status_code} {resp.text}")
-        raise typer.Exit(1)
+    # The dispatch endpoint routinely holds the connection open past the read
+    # timeout even though the dispatch itself lands, surfacing as a ReadTimeout.
+    # Treat a timeout as "probably dispatched" and fall through to verification,
+    # which polls for the run our dispatch created — that's the real confirmation.
+    dispatched = False
+    try:
+        resp = httpx.post(
+            url, json=payload, headers=headers, timeout=httpx.Timeout(30.0, connect=10.0)
+        )
+        if resp.status_code == 204:
+            dispatched = True
+            typer.echo(f"Dispatched {WORKFLOW}")
+        else:
+            typer.echo(f"Error dispatching {WORKFLOW}: {resp.status_code} {resp.text}")
+            raise typer.Exit(1)
+    except httpx.TimeoutException:
+        typer.echo("Dispatch POST timed out waiting for a response (the dispatch usually still lands); verifying...")
 
     typer.echo()
     run_number = find_dispatched_run(ref, floor, headers)
     if run_number is not None:
         typer.echo(f"Monitor builds with: mise run runner-logs {run_number}")
+    elif not dispatched:
+        typer.echo("Error: dispatch POST timed out and no matching run appeared — it may not have landed.")
+        typer.echo(f"           check: {FORGE_ACTIONS}")
+        raise typer.Exit(1)
     else:
         typer.echo("Monitor builds with: mise run runner-logs")
     typer.echo(f"           or visit: {FORGE_ACTIONS}")
