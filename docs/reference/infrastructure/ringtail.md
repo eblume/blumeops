@@ -49,6 +49,7 @@ Managed declaratively via `nixos/ringtail/configuration.nix`. Home-manager handl
 - **Secrets:** 1Password CLI + GUI (NixOS modules for polkit/setgid integration)
 - **Runtimes:** mise manages Node, Python, Rust, .NET; nix-ld enables dynamically linked binaries
 - **Dotfiles:** `chezmoi init eblume && chezmoi apply`
+- **Shell helpers:** the `myip` fish function (public-IP lookup) is managed declaratively via home-manager `xdg.configFile`. Ringtail's other fish config (`config.fish`, `conf.d/`, most functions) is still hand-placed and not yet under nix — a known drift.
 
 ## Deployment
 

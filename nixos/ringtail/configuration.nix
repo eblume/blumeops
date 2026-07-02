@@ -329,6 +329,21 @@ in
   home-manager.users.eblume = {
     home.stateVersion = "25.11";
 
+    # External-IP helper, managed declaratively so it can't drift again. Renamed
+    # from `ip`: the old stray ~/.config/fish/functions/ip.fish shadowed
+    # iproute2's real `ip`, so `ip addr`/`ip route` silently curled ipinfo.io.
+    # The stray ip.fish (and a broken prettyping-less ping.fish) are removed at
+    # deploy; this keeps the helper available as `myip`.
+    xdg.configFile."fish/functions/myip.fish".text = ''
+      function myip --description 'Show public IP (no arg) or look up an IP via ipinfo.io'
+          if count $argv >/dev/null
+              curl ipinfo.io/$argv
+          else
+              curl checkip.amazonaws.com
+          end
+      end
+    '';
+
     xdg.mimeApps = {
       enable = true;
       defaultApplications = {
