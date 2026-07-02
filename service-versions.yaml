@@ -320,12 +320,15 @@ services:
 
   - name: snowflake-proxy
     type: nixos
-    last-reviewed: 2026-04-01
+    last-reviewed: 2026-07-01
     current-version: "2.11.0"
     upstream-source: https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/-/releases
     notes: >-
       Tor Snowflake proxy on ringtail; pinned via nixpkgs-services overlay in flake.nix.
       Anti-censorship bridge, not an exit node.
+      2026-07-01: upstream at 2.14.1 (2.12/2.13/2.14 released since), but nixos-25.11
+      is frozen at 2.11.0 and the nixpkgs-services pin is shared with k3s + forgejo-runner.
+      Minor service — staying on the in-channel 2.11.0 build rather than channel-mixing.
 
   - name: k3s
     type: nixos

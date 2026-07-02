@@ -1,6 +1,7 @@
 ---
 title: Manage Ringtail Lockfile
 modified: 2026-03-27
+last-reviewed: 2026-07-01
 tags:
   - how-to
   - ringtail
