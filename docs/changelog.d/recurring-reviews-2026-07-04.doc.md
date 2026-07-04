@@ -1,0 +1,1 @@
+Doc review: verified the QArt Tuner reference card against `utils/qart/` — CLI flags, web-UI parameter ranges, keyboard shortcuts, mise `serve` task, and the `rsc.io/qr` dependency all match the code; wiki-links resolve. Stamped last-reviewed.
