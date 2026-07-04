@@ -107,6 +107,12 @@ The Ansible role authenticates to the Forgejo API using a Personal Access Token 
 
 This is a bootstrapping requirement - the PAT enables IaC for all other secrets.
 
+**Consumers — update all of these when rotating the token:**
+
+- The Ansible role (reads from 1Password at provision time)
+- `mise run runner-logs` (reads from 1Password at run time)
+- The `tea` CLI (**copies the token** into `~/.config/tea/config.yml`; re-paste it there after rotation). tea switched to this PAT 2026-07-04 after its OAuth token expired and tea 0.14.2 broke httpsign auth ([tea#1046](https://gitea.com/gitea/tea/issues/1046) — fixed in go-sdk but unreleased; httpsign can be re-enabled in tea's config once 0.14.3 ships).
+
 ## Identity Provider
 
 [[authentik]] is the BlumeOps OIDC identity provider and source of truth for user identity. Forgejo authenticates against Authentik as an OIDC client.
