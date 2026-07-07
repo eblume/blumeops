@@ -75,10 +75,14 @@ services:
 
   - name: tempo
     type: argocd
-    last-reviewed: 2026-04-02
-    current-version: "2.10.3"
+    last-reviewed: 2026-07-07
+    current-version: "2.10.7"
     upstream-source: https://github.com/grafana/tempo/releases
-    notes: Home-built container from forge mirror
+    notes: >-
+      Home-built container from forge mirror. Upgraded 2.10.3 -> 2.10.7
+      (x/net + x/crypto security fixes; needs Go 1.26 override). Upstream
+      3.0.x is a major with breaking config/write-path changes — deferred to
+      a separate task.
 
   - name: alloy-tracing-ringtail
     type: argocd

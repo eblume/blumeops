@@ -1,6 +1,7 @@
 ---
 title: No Helm Policy
 modified: 2026-04-06
+last-reviewed: 2026-07-07
 tags:
   - explanation
   - kubernetes
