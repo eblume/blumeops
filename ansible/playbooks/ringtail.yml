@@ -54,6 +54,49 @@
         mode: "0600"
         force: false
 
+    # --- Agent workspaces (see docs/reference/infrastructure/agent-workspaces.md) ---
+    - name: Fetch agents-ringtail-rw service-account token from 1Password
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/agents-ringtail Service Account/credential"
+      register: _agents_op_token
+      changed_when: false
+      delegate_to: localhost
+      become: false
+
+    - name: Fetch Forgejo agent-bot SSH private key from 1Password
+      ansible.builtin.command:
+        cmd: op read "op://3gr5thigekgwqq7hiftchf6cni/agents-forgejo-bot/private key"
+      register: _agents_bot_key
+      changed_when: false
+      delegate_to: localhost
+      become: false
+
+    - name: Ensure /etc/agents/ssh directory exists
+      ansible.builtin.file:
+        path: /etc/agents/ssh
+        state: directory
+        owner: "1500"
+        group: "1500"
+        mode: "0700"
+
+    - name: Write agents service-account token file
+      ansible.builtin.copy:
+        content: "{{ _agents_op_token.stdout }}"
+        dest: /etc/agents/op-token
+        owner: "1500"
+        group: "1500"
+        mode: "0400"
+      no_log: true
+
+    - name: Write Forgejo agent-bot SSH private key
+      ansible.builtin.copy:
+        content: "{{ _agents_bot_key.stdout }}\n"
+        dest: /etc/agents/ssh/id_ed25519
+        owner: "1500"
+        group: "1500"
+        mode: "0400"
+      no_log: true
+
   tasks:
     - name: Ensure blumeops repo is present
       ansible.builtin.git:

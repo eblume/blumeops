@@ -5,6 +5,10 @@ let
   buildDeps = with pkgs; [ zlib readline bzip2 xz libffi ncurses sqlite openssl ];
 in
 {
+  imports = [
+    ./agent-workspaces.nix
+  ];
+
   # Allow unfree packages (NVIDIA drivers, Steam)
   nixpkgs.config.allowUnfree = true;
 
