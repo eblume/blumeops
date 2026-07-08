@@ -84,34 +84,39 @@ sudo -u agent -H bash -lc 'curl -fsSL https://claude.ai/install.sh | bash'
 sudo -u agent -H bash -lc '~/.local/bin/claude --version'
 ```
 
-## 5. Log in (OAuth) and accept first-run prompts
+## 5. Log in (OAuth) — once, interactively
 
-Remote Control needs a subscription OAuth login. On a headless box the login
-prints a URL — open it on gilbert, approve, paste the code back.
-
-```fish
-sudo -u agent -H bash -lc 'cd ~/workspaces/blumeops/blumeops && ~/.local/bin/claude'
-```
-
-In that interactive session:
-
-1. Complete `/login` (browser on gilbert, paste code back).
-2. Accept the **workspace trust** dialog.
-3. `/exit`.
-
-Then seed the Remote Control **consent** prompt once (it persists to
-`~/.claude.json`), for one workspace — the consent is per-user, not per-dir:
+Remote Control needs a subscription OAuth login. Do it **once** in any
+workspace; it writes `~/.claude/.credentials.json` (account-wide). Use a real
+TTY (`ssh -t` + `sudo -i`) and the **full path** — the fresh `agent` login
+shell doesn't have `~/.local/bin` on PATH yet:
 
 ```fish
-sudo -u agent -H bash -lc 'cd ~/workspaces/blumeops/blumeops && ~/.local/bin/claude remote-control --spawn worktree --name ringtail-bootstrap'
-# answer "y" to "Enable Remote Control?", confirm it connects, then Ctrl-C
+ssh -t ringtail
+sudo -u agent -H -i
+cd ~/workspaces/blumeops/blumeops
+~/.local/bin/claude
 ```
 
-> **Trust per directory:** each workspace's primary repo dir needs the trust
-> dialog accepted once. Either repeat the `claude` run per workspace cwd, or
-> pre-seed trust in `~/.claude.json`. The `agent-ws-*` services run
-> non-interactively and cannot answer a trust prompt, so an unseeded workspace
-> will crash-loop until trusted.
+In that session: run `/login` (open the printed URL on gilbert, approve, paste
+the code back), accept the **workspace trust** dialog, then `/exit`.
+
+- **Remote Control consent is account-level.** If this account already enabled
+  Remote Control anywhere, the "Enable Remote Control?" prompt does *not*
+  recur — no per-workspace consent seeding needed. (If it's a brand-new
+  account, run `~/.local/bin/claude remote-control` once and answer `y`.)
+- **Trust is per-directory** (`~/.claude.json` →
+  `projects["<path>"].hasTrustDialogAccepted`). The `/login` above trusts only
+  its own cwd; the `agent-ws-*` services run non-interactively and crash-loop
+  on an untrusted dir. Pre-seed the other workspace cwds instead of logging in
+  to each:
+
+  ```fish
+  # as root; set hasTrustDialogAccepted=true for each remaining workspace cwd,
+  # then: chown agent:agent ~agent/.claude.json && chmod 600 ~agent/.claude.json
+  ```
+
+  (paths: `~agent/workspaces/{hephaestus/hephaestus,research/research,playground}`)
 
 ## 6. Start the services
 
