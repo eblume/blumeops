@@ -101,10 +101,21 @@ cd ~/workspaces/blumeops/blumeops
 In that session: run `/login` (open the printed URL on gilbert, approve, paste
 the code back), accept the **workspace trust** dialog, then `/exit`.
 
-- **Remote Control consent is account-level.** If this account already enabled
-  Remote Control anywhere, the "Enable Remote Control?" prompt does *not*
-  recur — no per-workspace consent seeding needed. (If it's a brand-new
-  account, run `~/.local/bin/claude remote-control` once and answer `y`.)
+- **Remote Control consent is per-config-dir and MUST be seeded**, or every
+  service blocks invisibly. On first `remote-control` launch Claude prompts
+  `Enable Remote Control? (y/n)`. A non-interactive service can't answer it, so
+  it **hangs at the prompt** — and because the launcher wraps Claude in
+  `script`, the hung process still reports `active (running)` to systemd with 0
+  restarts. It looks healthy but never connects (this bit us: the only visible
+  environment was a stale ghost from an earlier run). The consent is stored in
+  `<config-dir>/.claude.json` as `"remoteDialogSeen": true`. Seed it either by:
+  - running `~/.local/bin/claude remote-control` once interactively and
+    answering `y`+Enter (confirm it prints `Connected`), or
+  - **pre-seeding non-interactively**: set `"remoteDialogSeen": true` at the top
+    level of `.claude.json` (same edit pass as the trust flags below), which is
+    the reproducible path.
+  It persists on disk (survives reboots/re-provision), but a fresh `agent` home
+  needs it re-seeded.
 - **Trust is per-directory** (`~/.claude.json` →
   `projects["<path>"].hasTrustDialogAccepted`). The `/login` above trusts only
   its own cwd; the `agent-ws-*` services run non-interactively and crash-loop
