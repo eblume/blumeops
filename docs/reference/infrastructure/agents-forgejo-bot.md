@@ -29,8 +29,9 @@ gate before anything deploys.
 ## Access policy
 
 - **Write** (push branches, open PRs) to the repos agents work in:
-  `hephaestus`, `hephaestus.nvim`, `blumeops`, `project-template`,
-  `adelaide-baby-shower-app`, `research`.
+  `hephaestus`, `hephaestus.nvim`, `research`. **Not `blumeops`** — it is
+  deliberately not an agent workspace ([[agent-workspaces]] §"Why blumeops is
+  not a workspace"); blumeops work is local-on-gilbert with biometric `op`.
 - **`main` is not protected against the bot.** Convention is to open PRs, but
   the bot technically *can* push to `main` — branch protection was dropped
   because a username push-whitelist rejects CI's Forgejo Actions token

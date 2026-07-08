@@ -21,9 +21,8 @@ steps 4–6 require the `agent` user to exist (i.e. after the first
 
 ## 1. Create the Forgejo bot user
 
-> **Status:** already done (2026-07-08) — the `agents` user exists, has the bot
-> public key, and holds write on all six repos. This section documents how, for
-> reproduction/rotation.
+> **Status:** already done (2026-07-08) — the `agents` user exists and has the
+> bot public key. This section documents how, for reproduction/rotation.
 
 On indri (Forgejo admin CLI), create a non-admin user named `agents`. Forgejo
 runs as `erichblume` with its work path at `/Users/erichblume/forgejo`:
@@ -42,9 +41,14 @@ Then, in the Forgejo web UI as an admin:
 
 - Add the **public key** from the `agents-forgejo-bot` vault item (see
   [[agents-forgejo-bot]]) to the `agents` user's SSH keys.
-- Grant the `agents` user **write** on: `hephaestus`, `hephaestus.nvim`,
-  `blumeops`, `project-template`, `adelaide-baby-shower-app`, `research`
-  (add as a collaborator, or via a team).
+- Grant the `agents` user **write** on the workspace repos: `hephaestus`,
+  `hephaestus.nvim`, `research` (add as a collaborator, or via a team).
+
+> **Not `blumeops`.** blumeops is intentionally not an agent workspace (see
+> [[agent-workspaces]] §"Why blumeops is not a workspace"), so the bot needs no
+> write there. If the bot was granted `blumeops`/`project-template`/
+> `adelaide-baby-shower-app` write during the prototype, **revoke it** — the bot
+> should hold only what a live workspace uses.
 
 > **`main` is intentionally not branch-protected against the bot.** A username
 > push-whitelist rejects CI's automatic Forgejo Actions token (Forgejo
@@ -94,7 +98,7 @@ shell doesn't have `~/.local/bin` on PATH yet:
 ```fish
 ssh -t ringtail
 sudo -u agent -H -i
-cd ~/workspaces/blumeops/blumeops
+cd ~/workspaces/hephaestus/hephaestus
 ~/.local/bin/claude
 ```
 
@@ -138,9 +142,8 @@ ssh ringtail 'systemctl status "agent-ws-*" --no-pager'
 ```
 
 Open the **Code** tab in the Claude mobile app — `ringtail-hephaestus`,
-`ringtail-blumeops`, `ringtail-research`, and `ringtail-playground` should each
-appear online. Tapping one and starting a session spawns an isolated worktree
-of that repo.
+`ringtail-research`, and `ringtail-playground` should each appear online.
+Tapping one and starting a session spawns an isolated worktree of that repo.
 
 ## Verifying the secrets path
 

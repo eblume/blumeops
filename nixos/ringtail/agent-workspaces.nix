@@ -19,9 +19,16 @@ let
   # Workspace definitions. `primary` is the repo Remote Control roots in (cwd);
   # `also` are sibling checkouts cloned alongside for reference. A null primary
   # means an empty git repo (the playground).
+  #
+  # blumeops is deliberately NOT a workspace: real blumeops work needs the whole
+  # blumeops 1Password vault (its ansible pre_tasks and mise tasks `op read`
+  # broadly), and that vault is intentionally the operational-secret blast-radius
+  # boundary — there is no least-privilege subset to hand a service account, and
+  # a headless service account can't do biometric `op`. So blumeops stays a
+  # local-on-gilbert, biometric-`op` job. See agent-workspaces.md §"Why blumeops
+  # is not a workspace".
   workspaces = {
     hephaestus = { primary = "hephaestus"; also = [ "hephaestus.nvim" ]; };
-    blumeops = { primary = "blumeops"; also = [ "project-template" "adelaide-baby-shower-app" "research" ]; };
     research = { primary = "research"; also = [ ]; };
     playground = { primary = null; also = [ ]; };
   };

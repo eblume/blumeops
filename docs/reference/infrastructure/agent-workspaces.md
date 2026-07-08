@@ -38,14 +38,16 @@ ringtail — user `agent` (isolated, non-wheel)
 | Workspace | Primary repo (cwd) | Also cloned alongside |
 |-----------|--------------------|-----------------------|
 | `hephaestus` | `hephaestus` | `hephaestus.nvim` |
-| `blumeops` | `blumeops` | `project-template`, `adelaide-baby-shower-app`, `research` |
 | `research` | `research` | — |
 | `playground` | *(empty git repo)* | — |
 
-`blumeops` is the hub — it carries the sibling repos most work touches. Sibling
-repos are plain checkouts next to the primary; the agent can `cd` to them to
-read/reference. Only the **primary** repo gets per-session worktree isolation
-(that is what `--spawn worktree` operates on).
+Sibling repos are plain checkouts next to the primary; the agent can `cd` to
+them to read/reference. Only the **primary** repo gets per-session worktree
+isolation (that is what `--spawn worktree` operates on).
+
+> **blumeops is deliberately not a workspace** — see [§Why blumeops is not a
+> workspace](#why-blumeops-is-not-a-workspace). blumeops changes are made
+> locally on gilbert with biometric `op`, not by a remote agent.
 
 ### Why per-repo servers
 
@@ -55,6 +57,41 @@ on hephaestus" is just: open the `ringtail-hephaestus` environment in the app �
 new session → it wakes up in a hephaestus worktree, repo instructions already
 loaded. No clone-and-orient preamble. Idle servers cost nothing (no inference
 until a session is active).
+
+### Why blumeops is not a workspace
+
+blumeops was prototyped as the hub workspace, then **deliberately dropped**
+(2026-07-08). The reasoning, because it constrains any future attempt to add it
+back:
+
+- **Real blumeops work needs the whole blumeops vault.** Ansible `pre_tasks`
+  resolve secrets via `op` before anything runs (so even `--check --diff` dies
+  at the lookup, not just apply), and many `mise` tasks — PR creation via `tea`,
+  container releases, `runner-logs` — `op read` the blumeops vault too. A remote
+  agent authenticates only as the `agents`-vault service account, so it gets
+  `403` on all of it.
+- **There is no least-privilege subset to grant.** The blumeops vault exists
+  *precisely* to be the operational-secret blast-radius boundary — isolating
+  infra secrets from personal ones (bank, etc.). 1Password service-account
+  access is **per-vault, all-or-nothing** (no item-level whitelist), so the only
+  "subset" that covers blumeops work is the entire vault. Granting it would put
+  the argocd break-glass password and every ansible secret in agent reach —
+  collapsing both the vault boundary **and** the deploy backstop that makes an
+  unprotected `main` tolerable (§Isolation).
+- **Biometric `op` and a headless worker are mutually exclusive.** Biometric
+  approval needs an interactive desktop 1Password session; a background
+  service-account process can't route that prompt anywhere. So "gate blumeops
+  secrets behind biometric approval" and "run blumeops on a remote worker"
+  cannot both be true.
+
+Net: a remote blumeops worker could only *author* (edit code/docs, syntax-check)
+— it could never verify or deploy — and even a PR would need a vault-backed
+token. That sliver of value isn't worth standing up a worker that trips over
+`op` at every real step. **blumeops changes are made locally on gilbert with
+biometric `op`.** (The `project-template` and `adelaide-baby-shower-app` repos,
+previously cloned alongside blumeops, went with it; add them as their own
+workspaces if remote work on them is ever wanted — they carry no vault
+dependency.)
 
 ## Isolation & security
 
@@ -126,6 +163,21 @@ key, not `claude setup-token`). On Linux the credential is a portable file at
 `~/.claude/.credentials.json`; it is refreshed in place on use, so it must live
 on a writable path. The `agent` user logs in once during [[bootstrap-agent-workspaces|bootstrap]].
 
+### Terms of use
+
+This deployment is *unsupported* (Anthropic won't treat breakage as a bug; see
+[Known warts](#known-warts)) but not *prohibited*. It stays within subscription
+terms as **ordinary, individual usage**: one human (Erich), one subscription,
+native Claude Code via OAuth, steered on demand. Claude Code's
+[legal terms](https://code.claude.com/docs/en/legal-and-compliance) peg Pro/Max
+limits to *"ordinary, individual usage"* and reserve OAuth for *"ordinary use of
+Claude Code and other native Anthropic applications"* — so the line to respect
+is **attended, bounded use**, not a constantly-running autonomous fleet. Two
+guardrails keep it clearly inside: (1) one human, one subscription, on demand —
+never multi-user or serving others (that would require **API-key auth** via the
+Agent SDK/Console instead); (2) cap or human-gate anything scheduled, since the
+token-wasteful always-on pattern is also the fair-use risk.
+
 ## Operations
 
 - **Deploy:** `mise run provision-ringtail` (writes `/etc/agents/*` secrets via
@@ -136,7 +188,7 @@ on a writable path. The `agent` user logs in once during [[bootstrap-agent-works
   (stderr); the Remote Control status TUI (stdout) is discarded to avoid ~1M
   journal lines/day/workspace. Live session activity is in the app; add
   `--debug-file` to the launcher for deep diagnostics.
-- **Restart a workspace:** `ssh ringtail 'sudo systemctl restart agent-ws-blumeops'`
+- **Restart a workspace:** `ssh ringtail 'sudo systemctl restart agent-ws-hephaestus'`
   (ends that workspace's live sessions; the environment reappears in the app).
 
 ## Known warts
