@@ -31,8 +31,13 @@ gate before anything deploys.
 - **Write** (push branches, open PRs) to the repos agents work in:
   `hephaestus`, `hephaestus.nvim`, `blumeops`, `project-template`,
   `adelaide-baby-shower-app`, `research`.
-- **No push to `main`** — rely on branch protection. Agents open PRs; Erich
-  merges.
+- **`main` is not protected against the bot.** Convention is to open PRs, but
+  the bot technically *can* push to `main` — branch protection was dropped
+  because a username push-whitelist rejects CI's Forgejo Actions token
+  ([[agent-workspaces]] §Isolation, Forgejo
+  [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)). The safeguard
+  is that the bot has no deploy credentials, so a `main` commit deploys
+  nothing until a human provisions.
 - **Not an admin.** No org/settings/runner access. No deploy credentials.
 
 ## Rotating the key

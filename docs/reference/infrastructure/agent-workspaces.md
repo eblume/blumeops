@@ -71,10 +71,16 @@ The boundaries, weakest-first:
    transparent `op` shim (see below) so it never appears in a session's
    environment (agents dump `env` while debugging, and transcripts get
    archived).
-4. **Git-mediated writes** — agents push branches as a dedicated Forgejo bot
-   ([[agents-forgejo-bot]]); branch protection keeps them off `main`. **Human
-   merge is the deploy gate.** Deploy credentials (argocd, ansible, the
-   provision tasks) are never in agent reach.
+4. **Git-mediated writes** — agents push as a dedicated Forgejo bot
+   ([[agents-forgejo-bot]]) and, by convention, open PRs rather than committing
+   to `main`. Note this is **convention, not enforcement**: `main` is *not*
+   branch-protected against the bot (a username push-whitelist rejects the
+   automatic Forgejo Actions token — Forgejo
+   [#11159](https://codeberg.org/forgejo/forgejo/issues/11159) — which would
+   break the release workflows, so protection was intentionally dropped). The
+   real gate is that **deploy credentials (argocd, ansible, the provision
+   tasks) are never in agent reach** — a bot commit to `main` still deploys
+   nothing until a human runs a provision/sync.
 5. **Network** *(future)* — bare-metal phase has ambient tailnet reach; the
    planned containerized phase adds an egress allowlist (Anthropic, 1Password,
    `forge.ops.eblu.me`).
@@ -84,7 +90,9 @@ The boundaries, weakest-first:
 shim prevents *accidental* leakage, not a determined read. The vault scoping
 (1) bounds the blast radius; the container phase closes the uid gap. The main
 live threat is prompt injection driving malicious commits or vault-secret
-exfiltration, mitigated by (1), (4), and PR review.
+exfiltration; because the bot *can* push to `main` (see 4), the backstop is
+that no credential the agent can reach triggers a deploy on its own — a human
+provision/sync step always sits between a commit and production.
 
 ### The transparent `op` shim
 

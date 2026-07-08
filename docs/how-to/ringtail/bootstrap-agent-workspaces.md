@@ -21,14 +21,22 @@ steps 4–6 require the `agent` user to exist (i.e. after the first
 
 ## 1. Create the Forgejo bot user
 
-On indri (Forgejo admin CLI), create a non-admin user named `agents`:
+> **Status:** already done (2026-07-08) — the `agents` user exists, has the bot
+> public key, and holds write on all six repos. This section documents how, for
+> reproduction/rotation.
+
+On indri (Forgejo admin CLI), create a non-admin user named `agents`. Forgejo
+runs as `erichblume` with its work path at `/Users/erichblume/forgejo`:
 
 ```fish
 ssh indri
-# inside the forgejo environment (see forgejo.md for how admin CLI is invoked)
-forgejo admin user create --username agents --email agents@eblu.me \
-    --random-password --must-change-password=false
+FJ=/Users/erichblume/code/3rd/forgejo/forgejo
+WP=/Users/erichblume/forgejo; CFG=$WP/custom/conf/app.ini
+"$FJ" admin user create --username agents --email blume.erich+agents@gmail.com \
+    --random-password --must-change-password=false --work-path "$WP" --config "$CFG"
 ```
+
+(Email is a `+agents` gmail alias because `eblu.me` has no working MX yet.)
 
 Then, in the Forgejo web UI as an admin:
 
@@ -37,8 +45,13 @@ Then, in the Forgejo web UI as an admin:
 - Grant the `agents` user **write** on: `hephaestus`, `hephaestus.nvim`,
   `blumeops`, `project-template`, `adelaide-baby-shower-app`, `research`
   (add as a collaborator, or via a team).
-- Confirm `main` is protected on each (Settings → Branches) so the bot cannot
-  push to it.
+
+> **`main` is intentionally not branch-protected against the bot.** A username
+> push-whitelist rejects CI's automatic Forgejo Actions token (Forgejo
+> [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)), which breaks
+> the release workflows. The bot *can* push to `main`; the boundary is
+> convention (open PRs) plus the fact that the bot holds no deploy credentials.
+> See [[agent-workspaces]] §Isolation.
 
 ## 2. Confirm vault items exist
 
