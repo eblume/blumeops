@@ -81,9 +81,30 @@ let
   # TTY); the op shim leads PATH so agent sessions get token-injected `op`.
   wsRunner = name: ws: pkgs.writeShellScript "agent-ws-${name}" ''
     export HOME=${agentHome}
-    export PATH="${opShim}/bin:${lib.makeBinPath [ pkgs.git pkgs.openssh pkgs.coreutils ]}:$HOME/.local/bin:$PATH"
+    export PATH="${opShim}/bin:${lib.makeBinPath [ pkgs.git pkgs.openssh pkgs.coreutils pkgs.tea ]}:$HOME/.local/bin:$PATH"
     export GIT_SSH_COMMAND="${pkgs.openssh}/bin/ssh -i ${botKey} -o IdentitiesOnly=yes -o UserKnownHostsFile=${knownHosts} -o StrictHostKeyChecking=yes"
     export CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX=ringtail
+
+    # Git identity for the bot's commits — without it `git commit` fails with
+    # "Author identity unknown", so hephaestus/research couldn't commit either.
+    export GIT_AUTHOR_NAME=agents GIT_AUTHOR_EMAIL=blume.erich+agents@gmail.com
+    export GIT_COMMITTER_NAME=agents GIT_COMMITTER_EMAIL=blume.erich+agents@gmail.com
+
+    # Forgejo API token (agents-owned, write:repository only) so agents can open
+    # PRs. Fetched via the op shim from the AGENTS vault — no blumeops-vault
+    # dependency. Exported as FORGEJO_TOKEN (the pr-comments/branch-cleanup/
+    # runner-logs mise tasks honor it ahead of their blumeops-vault fallback)
+    # and written to tea's config so `tea pr create` works non-interactively.
+    # Least-privilege: an agents-owned PAT cannot exceed agents' own repo access
+    # (hephaestus, hephaestus.nvim, research) regardless of scope.
+    FORGEJO_TOKEN="$(op read "op://agents/agents-forgejo-token/api-token" 2>/dev/null || true)"
+    export FORGEJO_TOKEN
+    install -d -m 700 "$HOME/.config/tea"
+    tea_tmp="$(mktemp)"
+    printf 'logins:\n  - name: forge\n    url: https://forge.ops.eblu.me\n    token: %s\n    default: true\n' "$FORGEJO_TOKEN" > "$tea_tmp"
+    chmod 600 "$tea_tmp"
+    mv -f "$tea_tmp" "$HOME/.config/tea/config.yml"
+
     cd "${wsCwd name ws}"
     exec ${pkgs.util-linux}/bin/script -qfc \
       "${claudeBin} remote-control --spawn worktree --name ringtail-${name}" /dev/null

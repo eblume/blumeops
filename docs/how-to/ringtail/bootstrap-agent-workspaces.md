@@ -57,11 +57,36 @@ Then, in the Forgejo web UI as an admin:
 > convention (open PRs) plus the fact that the bot holds no deploy credentials.
 > See [[agent-workspaces]] §Isolation.
 
+## 1b. Create the agents Forgejo PAT (for PR creation)
+
+> **Status:** done (2026-07-08) — item `agents-forgejo-token` in the agents vault.
+
+Agents open PRs with `tea`, which needs a token. Mint it **as the `agents`
+user** (not admin): a Forgejo PAT can't exceed its owner's permissions, so an
+agents-owned token is structurally bounded to the repos agents collaborates on
+— the ownership bound is the guardrail, not the scope list.
+
+```fish
+ssh indri
+FJ=/Users/erichblume/code/3rd/forgejo/forgejo
+WP=/Users/erichblume/forgejo; CFG=$WP/custom/conf/app.ini
+"$FJ" admin user generate-access-token --username agents \
+    --scopes write:repository --token-name agent-pr --work-path "$WP" --config "$CFG"
+```
+
+Store it concealed in the **agents** vault as `agents-forgejo-token` →
+`api-token` (`op item create --vault agents --category "API Credential" --title
+agents-forgejo-token "api-token[password]=<tok>"`). The workspace launcher reads
+it via the op shim and both exports `FORGEJO_TOKEN` and seeds `tea`'s config, so
+PR creation has **no blumeops-vault dependency**. Scope is `write:repository`
+only — never `write:admin`/`write:organization`/`sudo`.
+
 ## 2. Confirm vault items exist
 
 The `agents` vault must contain (created during the prototype, 2026-07-08):
 
 - `agents-forgejo-bot` — SSH keypair (`private key`, `public key` fields).
+- `agents-forgejo-token` — Forgejo PAT (`api-token` field, `write:repository`).
 - The `agents-ringtail Service Account` item lives in the **blumeops** vault
   and holds the `agents-ringtail-rw` token (read/write on `agents` only).
 

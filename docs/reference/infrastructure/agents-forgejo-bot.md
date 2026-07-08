@@ -41,6 +41,20 @@ gate before anything deploys.
   nothing until a human provisions.
 - **Not an admin.** No org/settings/runner access. No deploy credentials.
 
+## Credentials
+
+The bot has two, both in the **agents** vault, both bounded to its own
+collaborations:
+
+- `agents-forgejo-bot` — SSH keypair. The public half is on the `agents` user;
+  the private half (concealed field) is deployed to `/etc/agents/ssh/id_ed25519`
+  and used for `git push`.
+- `agents-forgejo-token` — a Forgejo PAT, scope `write:repository` only,
+  **minted as the `agents` user** so it can't exceed the bot's own repo access.
+  Read by the workspace launcher via the op shim for `tea pr create` /
+  `FORGEJO_TOKEN`. A PAT minted this way is self-bounding — the ownership is the
+  guardrail, not the scope list.
+
 ## Rotating the key
 
 1. Generate a new `ed25519` keypair; update the `agents-forgejo-bot` item's
