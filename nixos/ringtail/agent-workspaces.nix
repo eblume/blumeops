@@ -245,12 +245,13 @@ in
     };
 
     # Build+install heph/hephd for the agent (mise-resolved rust). Oneshot; first
-    # run compiles the workspace, then it's a version-check no-op.
+    # run compiles the workspace (~tens of min), then it's a version-check no-op.
+    # Triggered by agent-heph-install.timer — deliberately NOT wantedBy a target,
+    # so the long compile never blocks `nixos-rebuild switch` activation.
     agent-heph-install = {
       description = "Install heph+hephd for the agent (mise rust + cargo install)";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
-      wantedBy = [ "multi-user.target" ];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
@@ -262,13 +263,16 @@ in
       };
     };
 
-    # The agent's hephd spoke, synced to the indri hub. Requires heph installed.
+    # The agent's hephd spoke, synced to the indri hub. Does NOT `requires` the
+    # install (that would drag the compile onto the activation path); instead it
+    # Restart=always-retries until the install timer has produced hephd. No start
+    # rate-limit so it keeps retrying across a long first build.
     agent-heph-spoke = {
       description = "Claude Code agent heph spoke (hephd synced to the indri hub)";
-      after = [ "network-online.target" "agent-heph-install.service" ];
+      after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
-      requires = [ "agent-heph-install.service" ];
       wantedBy = [ "multi-user.target" ];
+      startLimitIntervalSec = 0;
       serviceConfig = {
         User = "agent";
         Group = "agent";
@@ -284,4 +288,16 @@ in
       };
     };
   } // lib.listToAttrs (lib.mapAttrsToList mkWorkspaceService workspaces);
+
+  # Kick the (potentially long) heph build off the activation path: the timer
+  # fires shortly after boot / switch and triggers agent-heph-install, so
+  # `nixos-rebuild switch` never waits on a cold cargo compile.
+  systemd.timers.agent-heph-install = {
+    description = "Trigger agent-heph-install off the activation path";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "2min";
+      Persistent = true;
+    };
+  };
 }
