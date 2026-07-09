@@ -442,6 +442,21 @@ services:
       "Reconcile hephd self-update with ansible-pinned version (drift on indri
       hub)" (node 01KTBXWT6XTHNDH92CVJY88E5K).
 
+  - name: heph-agent-spoke
+    type: nixos
+    last-reviewed: 2026-07-09
+    current-version: "v1.7.0"
+    upstream-source: https://forge.eblu.me/eblume/hephaestus/releases
+    notes: >-
+      hephd spoke for the ringtail agent workspaces (nixos/ringtail/
+      agent-workspaces.nix, `hephTag`). Unlike the indri hub, this is
+      DECLARATIVELY PINNED with NO self-update — a version bump is a
+      source-controlled change to `hephTag`, and the agent-heph-install
+      oneshot recompiles on the next provision-ringtail. Deliberate: an
+      in-boundary agent shouldn't auto-fetch+run new code. current-version
+      is a hard pin. Review cadence exists so the pin doesn't rot into
+      sync-version skew with the hub; bump in step with the hub.
+
   - name: borgmatic
     type: ansible
     last-reviewed: 2026-04-15

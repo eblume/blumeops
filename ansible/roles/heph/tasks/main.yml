@@ -21,6 +21,24 @@
     state: directory
     mode: '0700'
 
+# Co-owner allowlist for the ringtail agent spoke's `heph-agents` identity. The
+# sub (a hashed_user_id) is discovered once at bootstrap and stored in the
+# blumeops vault, so it stays out of this public repo. Absent until bootstrap
+# runs — a missing item just leaves the hub single-owner.
+- name: Read the heph-agents authorized sub from the vault (if present)
+  ansible.builtin.command:
+    cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/heph-agents-sub/sub"
+  register: heph_agents_sub
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Add the heph-agents sub to the authorized-subs allowlist
+  ansible.builtin.set_fact:
+    heph_authorized_subs: "{{ heph_authorized_subs + [heph_agents_sub.stdout | trim] }}"
+  when: heph_agents_sub.rc == 0 and (heph_agents_sub.stdout | trim | length) > 0
+  no_log: true
+
 - name: Check for installed hephd binary
   ansible.builtin.stat:
     path: "{{ heph_binary }}"

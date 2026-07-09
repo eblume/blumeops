@@ -22,6 +22,10 @@
 		<string>{{ heph_oidc_issuer }}</string>
 		<string>--oidc-audience</string>
 		<string>{{ heph_oidc_audience }}</string>
+{% for sub in heph_authorized_subs %}
+		<string>--authorized-sub</string>
+		<string>{{ sub }}</string>
+{% endfor %}
 		<string>--self-update</string>
 		<string>--self-update-interval-secs</string>
 		<string>{{ heph_self_update_interval_secs }}</string>

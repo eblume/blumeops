@@ -160,6 +160,45 @@ masks it when the item is examined: `op item edit <item> --vault agents
 *public* key) belong in a `[text]` field. This is defence-in-depth behind an
 already-unlocked vault — minor, but free.
 
+## The heph spoke (deliberately in-boundary)
+
+[[hephaestus|heph]] is the **counterpoint** to the vault isolation above: it is
+*intentionally inside* the agent trust boundary, because it is the substrate
+agentic workflows run on (task discovery, logging, canonical-context docs). So
+the `agent` user runs a real `hephd` **spoke** synced to the indri hub and can
+read/write the owner's real tasks — this is the point, not a leak. (The blumeops
+1Password vault stays isolated; heph is a separate, deliberately-included
+substrate.)
+
+**Shape (all source-controlled — see `agent-workspaces.nix`):**
+
+- `agent-heph-install.service` — a oneshot that `cargo install`s `heph`+`hephd`
+  at a pinned tag (`hephTag`) using a **mise-resolved** Rust toolchain. nixpkgs'
+  `rustc` lags heph's fast-moving floor (it shipped 1.91 vs the ≥1.92 a heph dep
+  needs), so the toolchain comes from `mise x rust@stable` over the `nix-ld` +
+  build-deps setup the host already provides for mise runtimes. Idempotent: it
+  version-checks and only recompiles on a tag bump.
+- `agent-heph-spoke.service` — runs `hephd --mode local --hub-url
+  http://indri…:8787` (spoke sync is HTTP-only) authenticating via OIDC.
+- The spoke's token lives in the **agents vault** (`op://agents/heph-spoke-token`),
+  not a file, via hephd's **command token store** (`--token-load-cmd 'op read …'`
+  / `--token-save-cmd heph-token-save`) — no plaintext token at rest. The
+  `heph-token-save` wrapper writes refreshes back to the vault **without ever
+  putting the token in argv** (`/proc/<pid>/cmdline` is world-readable) using op
+  template files + `jq --rawfile`.
+
+**Identity & revocation.** The spoke authenticates as a dedicated
+**`heph-agents`** Authentik user in a heph-scoped group (*not* `admins` — that
+would grant every admin-gated app), so it is independently revocable from the
+human login. The hub admits it as a co-owner via `hephd --authorized-sub <sub>`
+(the sub is a `hashed_user_id`, kept in the blumeops vault and templated into the
+indri unit). Two independent kill switches, neither touching your own logins:
+disable the `heph-agents` Authentik user, or drop its sub from the hub's
+`--authorized-sub` and restart (the vault token goes inert even if unexpired).
+Bound the refresh-token lifetime on the Authentik provider as the third lever.
+
+See [[bootstrap-agent-workspaces]] for the one-time seeding steps.
+
 ## Authentication
 
 Remote Control requires a **claude.ai subscription OAuth login** (not an API

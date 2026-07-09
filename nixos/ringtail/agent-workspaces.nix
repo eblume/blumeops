@@ -43,6 +43,76 @@ let
     exec ${pkgs._1password-cli}/bin/op "$@"
   '';
 
+  # ── heph spoke ────────────────────────────────────────────────────────────
+  # The agent runs a hephd *spoke* synced to the indri hub, so agent sessions can
+  # use heph for task/context — heph is an in-boundary agentic-workflow substrate,
+  # not isolated out (unlike the blumeops vault). See agent-workspaces.md.
+  cargoBin = "${agentHome}/.cargo/bin";
+  hephTag = "v1.7.0"; # cargo-installed at this tag by agent-heph-install
+  rustChannel = "stable"; # mise-resolved toolchain — nixpkgs rustc lags heph's floor
+  hephHubUrl = "http://indri.tail8d86e.ts.net:8787"; # spoke sync is HTTP-only
+  hephIssuer = "https://authentik.ops.eblu.me/application/o/heph/";
+  hephTokenRef = "op://agents/heph-spoke-token/token"; # in the agents vault
+
+  # System libraries `cargo install heph hephd` needs to build (dbus for the
+  # compiled-in keyring backend, even though the spoke uses the command store).
+  hephBuildDeps = with pkgs; [ dbus openssl sqlite zlib ];
+
+  # Persist the spoke's OIDC token in the agents 1Password vault (no plaintext at
+  # rest). Reads the token JSON on stdin (from hephd `--token-save-cmd`) and
+  # writes it to a CONCEALED field — NEVER via argv (`/proc/<pid>/cmdline` is
+  # world-readable), using op template files + `jq --rawfile`.
+  hephTokenSave = pkgs.writeShellScriptBin "heph-token-save" ''
+    set -eu
+    umask 077
+    d="$(${pkgs.coreutils}/bin/mktemp -d)"
+    trap '${pkgs.coreutils}/bin/rm -rf "$d"' EXIT
+    ${pkgs.coreutils}/bin/cat > "$d/token" # token JSON on stdin
+    if ${opShim}/bin/op item get heph-spoke-token --vault agents --format json </dev/null > "$d/item.json" 2>/dev/null; then
+      ${pkgs.jq}/bin/jq --rawfile t "$d/token" \
+        '(.fields |= map(if .label == "token" then .value = $t else . end))' \
+        "$d/item.json" > "$d/new.json"
+      ${opShim}/bin/op item edit heph-spoke-token --vault agents --template "$d/new.json" </dev/null >/dev/null
+    else
+      ${pkgs.jq}/bin/jq -n --rawfile t "$d/token" \
+        '{title: "heph-spoke-token", category: "API_CREDENTIAL", fields: [{label: "token", type: "CONCEALED", value: $t}]}' \
+        > "$d/new.json"
+      ${opShim}/bin/op item create --vault agents --template "$d/new.json" </dev/null >/dev/null
+    fi
+  '';
+
+  # Idempotent install of heph+hephd at ${hephTag}. mise resolves a current rust
+  # toolchain (nixpkgs rustc is behind heph's floor); recompiles only when the
+  # installed version differs from the pin. First run compiles the workspace.
+  hephInstall = pkgs.writeShellScript "agent-heph-install" ''
+    set -eu
+    export HOME=${agentHome}
+    export PATH="${lib.makeBinPath [ pkgs.mise pkgs.gcc pkgs.pkg-config pkgs.binutils pkgs.gnumake pkgs.coreutils pkgs.gitMinimal pkgs.gawk ]}:$PATH"
+    export CC=gcc
+    export PKG_CONFIG_PATH="${lib.makeSearchPath "lib/pkgconfig" (map lib.getDev hephBuildDeps)}"
+    target="${lib.removePrefix "v" hephTag}"
+    have="$(${cargoBin}/hephd --version 2>/dev/null | ${pkgs.gawk}/bin/awk '{print $2}' || true)"
+    if [ "$have" = "$target" ]; then
+      echo "heph $target already installed"; exit 0
+    fi
+    echo "installing heph ${hephTag} (rust@${rustChannel} via mise)…"
+    exec mise x rust@${rustChannel} -- cargo install --locked --force \
+      --git ${forgeBase}/hephaestus.git --tag ${hephTag} heph hephd
+  '';
+
+  # The spoke daemon. Shares the default socket/db with agent sessions' `heph`
+  # CLI (same user + HOME), so a session's `heph` talks to this daemon.
+  hephSpoke = pkgs.writeShellScript "agent-heph-spoke" ''
+    export HOME=${agentHome}
+    export PATH="${opShim}/bin:${hephTokenSave}/bin:${lib.makeBinPath [ pkgs.jq pkgs.coreutils ]}:${cargoBin}:$PATH"
+    exec ${cargoBin}/hephd --mode local \
+      --hub-url ${hephHubUrl} \
+      --oidc-issuer ${hephIssuer} \
+      --oidc-client-id heph \
+      --token-load-cmd "${opShim}/bin/op read ${hephTokenRef}" \
+      --token-save-cmd "heph-token-save"
+  '';
+
   wsDir = name: "${agentHome}/workspaces/${name}";
   # Remote Control cwd: the primary repo checkout, or the playground dir itself.
   wsCwd = name: ws: if ws.primary == null then wsDir name else "${wsDir name}/${ws.primary}";
@@ -81,7 +151,7 @@ let
   # TTY); the op shim leads PATH so agent sessions get token-injected `op`.
   wsRunner = name: ws: pkgs.writeShellScript "agent-ws-${name}" ''
     export HOME=${agentHome}
-    export PATH="${opShim}/bin:${lib.makeBinPath [ pkgs.git pkgs.openssh pkgs.coreutils pkgs.tea ]}:$HOME/.local/bin:$PATH"
+    export PATH="${opShim}/bin:${lib.makeBinPath [ pkgs.git pkgs.openssh pkgs.coreutils pkgs.tea ]}:$HOME/.local/bin:${cargoBin}:$PATH"
     export GIT_SSH_COMMAND="${pkgs.openssh}/bin/ssh -i ${botKey} -o IdentitiesOnly=yes -o UserKnownHostsFile=${knownHosts} -o StrictHostKeyChecking=yes"
     export CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX=ringtail
 
@@ -171,6 +241,46 @@ in
         User = "agent";
         Group = "agent";
         ExecStart = reposInit;
+      };
+    };
+
+    # Build+install heph/hephd for the agent (mise-resolved rust). Oneshot; first
+    # run compiles the workspace, then it's a version-check no-op.
+    agent-heph-install = {
+      description = "Install heph+hephd for the agent (mise rust + cargo install)";
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        User = "agent";
+        Group = "agent";
+        ExecStart = hephInstall;
+        # First build compiles the whole workspace from a cold cargo cache.
+        TimeoutStartSec = "45min";
+      };
+    };
+
+    # The agent's hephd spoke, synced to the indri hub. Requires heph installed.
+    agent-heph-spoke = {
+      description = "Claude Code agent heph spoke (hephd synced to the indri hub)";
+      after = [ "network-online.target" "agent-heph-install.service" ];
+      wants = [ "network-online.target" ];
+      requires = [ "agent-heph-install.service" ];
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        User = "agent";
+        Group = "agent";
+        ExecStart = hephSpoke;
+        Restart = "always";
+        RestartSec = 10;
+        StandardOutput = "journal";
+        StandardError = "journal";
+        NoNewPrivileges = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
       };
     };
   } // lib.listToAttrs (lib.mapAttrsToList mkWorkspaceService workspaces);

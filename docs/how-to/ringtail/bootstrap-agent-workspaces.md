@@ -172,6 +172,61 @@ Open the **Code** tab in the Claude mobile app — `ringtail-hephaestus`,
 `ringtail-research`, and `ringtail-playground` should each appear online.
 Tapping one and starting a session spawns an isolated worktree of that repo.
 
+## 7. Seed the heph spoke (one-time)
+
+The agent runs a `hephd` spoke (see [[agent-workspaces#The heph spoke (deliberately in-boundary)]]).
+The mechanical parts — `cargo install` via mise, the services — are
+source-controlled and come up on `provision-ringtail`. These are the irreducible
+secret/identity steps a human does once:
+
+1. **Set the `heph-agents` Authentik password.** The blueprint creates the
+   `heph-agents` user (heph-scoped group, not `admins`). In the Authentik UI set
+   a password for it (Directory → Users → heph-agents → Set password) and stash
+   it in the agents vault. This is the credential for the device-code login below.
+
+2. **Wait for the install, then seed the token.** Confirm the build finished
+   (`ssh ringtail 'systemctl status agent-heph-install --no-pager'`), then run the
+   device-code login pointed at the vault-backed save command:
+
+   ```fish
+   ssh -t ringtail
+   sudo -u agent -H -i
+   heph auth login \
+     --hub-url   http://indri.tail8d86e.ts.net:8787 \
+     --issuer    https://authentik.ops.eblu.me/application/o/heph/ \
+     --client-id heph \
+     --token-save-cmd heph-token-save
+   ```
+
+   Open the printed URL, log in **as `heph-agents`**, approve. `heph-token-save`
+   writes the token to `op://agents/heph-spoke-token/token` (creating the item).
+
+3. **Record the authorized sub for the hub.** The hub only serves an identity it
+   recognizes as owner. The `sub` is a `hashed_user_id` — decode it from the
+   seeded token and store it in the **blumeops** vault as item `heph-agents-sub`,
+   field `sub`:
+
+   ```fish
+   # as the agent user; decode the access token's sub claim
+   op read op://agents/heph-spoke-token/token | jq -r .access_token \
+     | cut -d. -f2 | base64 -d 2>/dev/null | jq -r .sub
+   # then, with your own (blumeops-vault) op session, store it:
+   op item create --vault blumeops --category "API Credential" \
+     --title heph-agents-sub "sub[text]=<the-sub>"
+   ```
+
+4. **Deploy so the hub authorizes it, and start the spoke.**
+
+   ```fish
+   mise run provision-indri -- --tags heph     # hub picks up --authorized-sub
+   ssh ringtail 'sudo systemctl restart agent-heph-spoke'
+   ssh ringtail 'sudo -u agent -H heph sync --status'   # expect a healthy sync
+   ```
+
+> **Revoke** by disabling the `heph-agents` Authentik user, or by removing the
+> `heph-agents-sub` vault item and re-provisioning indri (drops it from
+> `--authorized-sub`) — either cuts the spoke without touching your own logins.
+
 ## Verifying the secrets path
 
 From a spawned session (or `sudo -u agent`), plain `op` should work read/write

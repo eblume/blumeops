@@ -524,3 +524,42 @@ data:
           enabled: true
           negate: false
           timeout: 30
+
+      # heph-agents group — scopes the agent spoke's heph access to heph ONLY.
+      # (Putting the agent identity in `admins` would grant it every admin-gated
+      # app — Grafana/ArgoCD/Forgejo/Zot — so it gets its own group + binding.)
+      - model: authentik_core.group
+        id: heph-agents-group
+        identifiers:
+          name: heph-agents
+        attrs:
+          name: heph-agents
+
+      # The agent spoke's identity — a dedicated user, independently revocable
+      # from the human login (disable this user, or drop its sub from the hub's
+      # --authorized-sub). Password set once at bootstrap for the device-code login.
+      - model: authentik_core.user
+        id: heph-agents-user
+        identifiers:
+          username: heph-agents
+        attrs:
+          username: heph-agents
+          name: Heph Agent Spoke
+          is_active: true
+          groups:
+            - !KeyOf heph-agents-group
+
+      # Policy binding — also allow heph-agents to reach heph. The hub still gates
+      # ownership via --authorized-sub, so this only lets the identity authenticate.
+      - model: authentik_policies.policybinding
+        identifiers:
+          order: 1
+          target: !KeyOf heph-app
+          group: !Find [authentik_core.group, [name, heph-agents]]
+        attrs:
+          target: !KeyOf heph-app
+          group: !Find [authentik_core.group, [name, heph-agents]]
+          order: 1
+          enabled: true
+          negate: false
+          timeout: 30

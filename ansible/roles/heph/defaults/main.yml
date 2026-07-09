@@ -45,5 +45,13 @@ heph_external_url: https://heph.ops.eblu.me
 heph_oidc_issuer: https://authentik.ops.eblu.me/application/o/heph/
 heph_oidc_audience: heph
 
+# Additional OIDC `sub`s the hub authorizes as co-owners (declarative allowlist,
+# hephd --authorized-sub). Used for the ringtail agent spoke's dedicated
+# `heph-agents` identity, kept distinct from the human login. The sub is a
+# hashed_user_id (discovered once at bootstrap) and lives in the blumeops vault
+# rather than this public repo; tasks/main.yml appends it when present. See
+# docs/reference/infrastructure/agent-workspaces.md.
+heph_authorized_subs: []
+
 # Self-update poll interval (seconds). 10 minutes.
 heph_self_update_interval_secs: 600
