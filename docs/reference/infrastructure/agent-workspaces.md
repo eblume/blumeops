@@ -118,7 +118,7 @@ The boundaries, weakest-first:
    real gate is that **deploy credentials (argocd, ansible, the provision
    tasks) are never in agent reach** — a bot commit to `main` still deploys
    nothing until a human runs a provision/sync. PRs are opened with `tea`,
-   authenticated by an agents-owned `write:repository` PAT
+   authenticated by an agents-owned `write:repository`+`write:issue` PAT
    (`agents-forgejo-token` in the agents vault) that the launcher exports as
    `FORGEJO_TOKEN` and seeds into tea's config — no blumeops-vault dependency,
    and the PAT is self-bounded to the bot's own repos ([[agents-forgejo-bot]]).

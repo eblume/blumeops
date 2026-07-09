@@ -49,8 +49,10 @@ collaborations:
 - `agents-forgejo-bot` — SSH keypair. The public half is on the `agents` user;
   the private half (concealed field) is deployed to `/etc/agents/ssh/id_ed25519`
   and used for `git push`.
-- `agents-forgejo-token` — a Forgejo PAT, scope `write:repository` only,
-  **minted as the `agents` user** so it can't exceed the bot's own repo access.
+- `agents-forgejo-token` — a Forgejo PAT, scopes `write:repository` +
+  `write:issue` (tea's `pr create` needs the issue scope — PRs are issues in
+  Forgejo), **minted as the `agents` user** so it can't exceed the bot's own
+  repo access.
   Read by the workspace launcher via the op shim for `tea pr create` /
   `FORGEJO_TOKEN`. A PAT minted this way is self-bounding — the ownership is the
   guardrail, not the scope list.

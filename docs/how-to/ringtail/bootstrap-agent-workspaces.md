@@ -71,15 +71,17 @@ ssh indri
 FJ=/Users/erichblume/code/3rd/forgejo/forgejo
 WP=/Users/erichblume/forgejo; CFG=$WP/custom/conf/app.ini
 "$FJ" admin user generate-access-token --username agents \
-    --scopes write:repository --token-name agent-pr --work-path "$WP" --config "$CFG"
+    --scopes write:repository,write:issue --token-name agent-pr \
+    --work-path "$WP" --config "$CFG"
 ```
 
 Store it concealed in the **agents** vault as `agents-forgejo-token` →
 `api-token` (`op item create --vault agents --category "API Credential" --title
 agents-forgejo-token "api-token[password]=<tok>"`). The workspace launcher reads
 it via the op shim and both exports `FORGEJO_TOKEN` and seeds `tea`'s config, so
-PR creation has **no blumeops-vault dependency**. Scope is `write:repository`
-only — never `write:admin`/`write:organization`/`sudo`.
+PR creation has **no blumeops-vault dependency**. Scopes are `write:repository`
++ `write:issue` (tea's `pr create` needs the issue scope — PRs are issues in
+Forgejo) — never `write:admin`/`write:organization`/`sudo`.
 
 ## 2. Confirm vault items exist
 
