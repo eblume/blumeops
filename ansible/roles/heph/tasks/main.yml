@@ -28,6 +28,7 @@
 - name: Read the heph-agents authorized sub from the vault (if present)
   ansible.builtin.command:
     cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/heph-agents-sub/sub"
+  delegate_to: localhost
   register: heph_agents_sub
   changed_when: false
   failed_when: false
