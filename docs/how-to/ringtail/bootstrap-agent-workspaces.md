@@ -180,9 +180,15 @@ source-controlled and come up on `provision-ringtail`. These are the irreducible
 secret/identity steps a human does once:
 
 1. **Set the `heph-agents` Authentik password.** The blueprint creates the
-   `heph-agents` user (heph-scoped group, not `admins`). In the Authentik UI set
-   a password for it (Directory → Users → heph-agents → Set password) and stash
-   it in the agents vault. This is the credential for the device-code login below.
+   `heph-agents` user (heph-scoped group, not `admins`). Set a password for it
+   (Authentik UI: Directory → Users → heph-agents → Set password, or
+   `ak shell` → `u.set_password(...)`) and store it in the **blumeops** vault
+   (item `heph-agents-login`) — the human doing the login reads blumeops, not the
+   agents vault. **MFA applies:** the default authentication flow enforces MFA
+   (`not_configured_action: configure`), so the device-code login below will
+   prompt a one-time TOTP enrollment for `heph-agents`; keep the enrollment (this
+   identity reaches your tasks — MFA is appropriate) and store the TOTP secret in
+   the blumeops vault alongside the password.
 
 2. **Wait for the install, then seed the token.** Confirm the build finished
    (`ssh ringtail 'systemctl status agent-heph-install --no-pager'`), then run the
