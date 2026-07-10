@@ -166,7 +166,13 @@ in
       "--disable=traefik"
       "--disable=servicelb"
       "--disable=metrics-server"
-      "--write-kubeconfig-mode=644"
+      # 0600, NOT 0644: ringtail is multi-user now (the unprivileged `agent`
+      # user runs the agent workspaces). A world-readable admin kubeconfig would
+      # hand `agent` cluster-admin — and via the argocd-* secrets, a deploy path
+      # — bypassing the vault gate that is supposed to keep agents author-only.
+      # Root still reads it; ansible provisions via `k3s kubectl` as root, and a
+      # human on the host uses `sudo k3s kubectl`. See agent-workspaces.md.
+      "--write-kubeconfig-mode=600"
       "--tls-san=ringtail.tail8d86e.ts.net"
       # Kubelet refuses to start when swap is present unless told otherwise.
       # We run zram swap (below) as an OOM pressure valve since this is a

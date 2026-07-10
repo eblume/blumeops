@@ -1,6 +1,6 @@
 ---
 title: Agent Workspaces
-modified: 2026-07-09
+modified: 2026-07-10
 last-reviewed: 2026-07-08
 tags:
   - reference
@@ -52,9 +52,13 @@ Sibling repos are plain checkouts alongside the primary in `~/code/personal/`;
 the agent can `cd` to them to read/reference. Only the **primary** repo gets
 per-session worktree isolation (that is what `--spawn worktree` operates on).
 
-> **blumeops is deliberately not a workspace** — see [§Why blumeops is not a
-> workspace](#why-blumeops-is-not-a-workspace). blumeops changes are made
-> locally on gilbert with biometric `op`, not by a remote agent.
+**Pool-only checkouts** (currently just `blumeops`) are cloned into
+`~/code/personal/` as well but have **no server of their own** — any session can
+`cd` into them to read or author. See [§blumeops: author-only](#blumeops-author-only-not-a-server).
+
+> **blumeops is a pool-only clone, not a workspace.** Agents can author blumeops
+> changes and open PRs as the bot, but cannot deploy — deploys stay on gilbert
+> with biometric `op`. See [§blumeops: author-only](#blumeops-author-only-not-a-server).
 
 ### Why per-repo servers
 
@@ -65,40 +69,42 @@ new session → it wakes up in a hephaestus worktree, repo instructions already
 loaded. No clone-and-orient preamble. Idle servers cost nothing (no inference
 until a session is active).
 
-### Why blumeops is not a workspace
+### blumeops: author-only, not a server
 
-blumeops was prototyped as the hub workspace, then **deliberately dropped**
-(2026-07-08). The reasoning, because it constrains any future attempt to add it
-back:
+blumeops is cloned into the pool at `~/code/personal/blumeops` (agent-owned, so
+`git` works) but is **not** a workspace — there is no `ringtail-blumeops` Remote
+Control server. Agents `cd` into it from any session to **author** changes and
+open PRs as the [[agents-forgejo-bot|bot]]. This is safe because blumeops is a
+**public, secret-free** repo: the gate has never been the code, it is the
+**blumeops 1Password vault** plus **cluster access**, and an agent holds neither.
 
-- **Real blumeops work needs the whole blumeops vault.** Ansible `pre_tasks`
-  resolve secrets via `op` before anything runs (so even `--check --diff` dies
-  at the lookup, not just apply), and many `mise` tasks — PR creation via `tea`,
-  container releases, `runner-logs` — `op read` the blumeops vault too. A remote
-  agent authenticates only as the `agents`-vault service account, so it gets
-  `403` on all of it.
-- **There is no least-privilege subset to grant.** The blumeops vault exists
-  *precisely* to be the operational-secret blast-radius boundary — isolating
-  infra secrets from personal ones (bank, etc.). 1Password service-account
-  access is **per-vault, all-or-nothing** (no item-level whitelist), so the only
-  "subset" that covers blumeops work is the entire vault. Granting it would put
-  the argocd break-glass password and every ansible secret in agent reach —
-  collapsing both the vault boundary **and** the deploy backstop that makes an
-  unprotected `main` tolerable (§Isolation).
-- **Biometric `op` and a headless worker are mutually exclusive.** Biometric
-  approval needs an interactive desktop 1Password session; a background
-  service-account process can't route that prompt anywhere. So "gate blumeops
-  secrets behind biometric approval" and "run blumeops on a remote worker"
-  cannot both be true.
+- **No deploy via ansible.** `provision-{indri,ringtail}` and most `mise` tasks
+  `op read` the blumeops vault in `pre_tasks` (so even `--check --diff` dies at
+  the lookup, not just apply). An agent authenticates only as the `agents`-vault
+  service account → `403`. Vault access is per-vault, all-or-nothing (no
+  item-level whitelist), and biometric `op` can't be routed to a headless worker
+  anyway — so there is no least-privilege subset to grant. That is by design: the
+  vault is the operational-secret blast-radius boundary (argocd break-glass,
+  every ansible secret).
+- **No deploy via k8s.** The k3s admin kubeconfig is `0600` root-only
+  (`--write-kubeconfig-mode=600`), so the agent can neither `kubectl` nor read
+  the `argocd-*` secrets; it is non-`wheel` with no sudo. (It was `0644` until
+  2026-07-10 — a hole that *did* hand the agent cluster-admin and an ArgoCD-admin
+  deploy path; see [§Isolation](#isolation--security).)
 
-Net: a remote blumeops worker could only *author* (edit code/docs, syntax-check)
-— it could never verify or deploy — and even a PR would need a vault-backed
-token. That sliver of value isn't worth standing up a worker that trips over
-`op` at every real step. **blumeops changes are made locally on gilbert with
-biometric `op`.** (The `project-template` and `adelaide-baby-shower-app` repos,
-previously cloned alongside blumeops, went with it; add them as their own
-workspaces if remote work on them is ever wanted — they carry no vault
-dependency.)
+Net: an agent can edit code/docs and open a blumeops PR, but a human
+provision/sync on gilbert (biometric `op`) always sits between that PR and
+production — the same backstop that makes an unprotected `main` tolerable. The
+agent-owned pool clone is distinct from the **root-owned deploy checkout at
+`/etc/blumeops`** that `nixos-rebuild` builds from (the agent can read its files
+but not `git` it — dubious-ownership guard).
+
+> **Superseded decision.** blumeops was *dropped entirely* on 2026-07-08 on the
+> reasoning that author-only was too thin to bother standing up. Reinstated
+> 2026-07-10 as a pool-only clone: authoring blumeops from other workflows turned
+> out to be valuable context worth having, and the deploy gate holds without a
+> server. (`project-template` and `adelaide-baby-shower-app`, once cloned
+> alongside, can be added the same way if wanted — no vault dependency.)
 
 ## Isolation & security
 
@@ -110,6 +116,12 @@ The boundaries, weakest-first:
    the hard secrets wall.
 2. **User boundary** — the `agent` user is not in `wheel`, has its own home, and
    never sees Erich's `~/.claude` credentials, repo checkouts, or shell history.
+   Also (co-tenant on the k3s host): the k3s admin kubeconfig is `0600` root-only
+   (`--write-kubeconfig-mode=600`), so the agent cannot `kubectl` the cluster or
+   read k8s secrets. **This was `0644` (world-readable) until 2026-07-10** — a
+   real hole that gave the agent cluster-admin and, via `argocd-initial-admin-secret`,
+   an ArgoCD-admin deploy path entirely bypassing the vault gate below. Locking it
+   is what makes the k8s deploy surface actually inaccessible to agents.
 3. **Credential handling** — the service-account token lives at
    `/etc/agents/op-token` (owned by `agent`, mode 0400) and is injected by a
    transparent `op` shim (see below) so it never appears in a session's

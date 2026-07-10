@@ -33,6 +33,17 @@ let
     playground = { primary = null; also = [ ]; };
   };
 
+  # Pool-only checkouts: cloned into ~/code/personal alongside the workspace
+  # repos, but with NO dedicated Remote Control server. Any workspace session can
+  # `cd` into them to read/edit. blumeops lives here so agents can *author*
+  # blumeops changes (it is a public, secret-free repo) and open PRs as the bot —
+  # WITHOUT a `ringtail-blumeops` server. This does NOT grant deploy: agents hold
+  # neither the blumeops 1Password vault (ansible/argocd creds) nor cluster access
+  # (the k3s kubeconfig is 0600 root-only), and are non-`wheel` with no sudo. The
+  # agent-owned clone is distinct from the root-owned deploy checkout at
+  # /etc/blumeops. See agent-workspaces.md §"blumeops: author-only, not a server".
+  extraRepos = [ "blumeops" ];
+
   # Transparent `op` shim: inject the service-account token, exec the real op.
   # Prepended to workspace PATH so plain `op` works without exporting the token.
   opShim = pkgs.writeShellScriptBin "op" ''
@@ -187,6 +198,8 @@ let
         fi
       ''}
     '') workspaces)}
+    # Pool-only checkouts (no server); cloned/updated the same way.
+    ${lib.concatMapStringsSep "\n" cloneRepo extraRepos}
   '';
 
   # Per-workspace launcher. `script` allocates a PTY (Remote Control needs a
