@@ -1,6 +1,6 @@
 ---
 title: Agent Workspaces
-modified: 2026-07-08
+modified: 2026-07-09
 last-reviewed: 2026-07-08
 tags:
   - reference
@@ -30,6 +30,7 @@ ringtail — user `agent` (isolated, non-wheel)
     └─ claude remote-control --spawn worktree --name ringtail-<name>
          cwd = ~/code/personal/<primary-repo>
          PATH prepends the transparent `op` shim + ~/.cargo/bin (heph)
+                   + the report toolchain (mise/uv/pandoc/typst/weasyprint)
   systemd: agent-repos-init.service  (oneshot, clones/updates repos first)
 ```
 
@@ -204,6 +205,32 @@ disable the `heph-agents` Authentik user, or drop its sub from the hub's
 Bound the refresh-token lifetime on the Authentik provider as the third lever.
 
 See [[bootstrap-agent-workspaces]] for the one-time seeding steps.
+
+## Report toolchain
+
+The workspace PATH is a deliberately minimal curated set (op shim, git, ssh, tea,
+coreutils, `~/.cargo/bin`, `~/.local/bin`) — it does **not** include
+`/run/current-system/sw/bin`, so system-wide tools there are invisible to agent
+sessions. The `research` workspace's `compile-report` / `save-session` tasks
+(`mise run …`, each a `uv run --script` program) therefore need their toolchain
+added explicitly. `agent-workspaces.nix` puts **mise, uv, pandoc, typst, and
+weasyprint** (all nixpkgs builds) on the session PATH.
+
+WeasyPrint is the wrinkle: `compile-report` pip-installs it into uv's *ephemeral*
+venv, and that venv can only render a PDF if WeasyPrint's **native libraries**
+(Pango, HarfBuzz, fontconfig, …) are discoverable. nix store libs live in no
+default loader path, so the launcher exports `LD_LIBRARY_PATH` over
+`pkgs.{pango,glib,harfbuzz,fontconfig,freetype,gdk-pixbuf,cairo,libffi}` — the
+Linux counterpart of the repo's macOS Brewfile. (`pkgs.weasyprint` is on PATH so
+`weasyprint` resolves as a CLI, but the render path is the uv venv, not that
+binary.) `MISE_TRUSTED_CONFIG_PATHS=~/code/personal` is set so `mise run …` never
+stalls on an interactive trust prompt.
+
+> A **global `mise.toml`** installing these tools via mise backends was
+> considered and rejected: mise's prebuilt binaries fight NixOS's dynamic linker
+> (they need `nix-ld` at best), whereas nixpkgs builds are deterministic and
+> already patched. The task's goal — the report tasks run unchanged — is met by
+> the nix PATH, not a mise config.
 
 ## Authentication
 

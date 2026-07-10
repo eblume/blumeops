@@ -43,6 +43,19 @@ let
     exec ${pkgs._1password-cli}/bin/op "$@"
   '';
 
+  # ── report toolchain ──────────────────────────────────────────────────────
+  # The research workspace's `mise run compile-report` / `save-session` tasks are
+  # `uv run --script` programs, so agent sessions need mise + uv on PATH. pandoc
+  # and typst are added as handy document converters. WeasyPrint's `compile-report`
+  # pip-installs WeasyPrint into uv's *ephemeral* venv; that venv can only render a
+  # PDF if WeasyPrint's native libraries (Pango and friends) are discoverable. nix
+  # store libs sit in no default loader path, so we expose them via LD_LIBRARY_PATH
+  # in the session env below — the Linux counterpart of the repo's macOS Brewfile
+  # (pango/gdk-pixbuf/libffi). `pkgs.weasyprint` is also on PATH so `weasyprint`
+  # resolves as a CLI, but the render path is the uv venv, not this binary.
+  reportTools = with pkgs; [ mise uv pandoc typst python3Packages.weasyprint ];
+  reportLibs = with pkgs; [ pango glib harfbuzz fontconfig freetype gdk-pixbuf cairo libffi ];
+
   # ── heph spoke ────────────────────────────────────────────────────────────
   # The agent runs a hephd *spoke* synced to the indri hub, so agent sessions can
   # use heph for task/context — heph is an in-boundary agentic-workflow substrate,
@@ -180,9 +193,17 @@ let
   # TTY); the op shim leads PATH so agent sessions get token-injected `op`.
   wsRunner = name: ws: pkgs.writeShellScript "agent-ws-${name}" ''
     export HOME=${agentHome}
-    export PATH="${opShim}/bin:${lib.makeBinPath [ pkgs.git pkgs.openssh pkgs.coreutils pkgs.tea ]}:$HOME/.local/bin:${cargoBin}:$PATH"
+    export PATH="${opShim}/bin:${lib.makeBinPath ([ pkgs.git pkgs.openssh pkgs.coreutils pkgs.tea ] ++ reportTools)}:$HOME/.local/bin:${cargoBin}:$PATH"
     export GIT_SSH_COMMAND="${pkgs.openssh}/bin/ssh -i ${botKey} -o IdentitiesOnly=yes -o UserKnownHostsFile=${knownHosts} -o StrictHostKeyChecking=yes"
     export CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX=ringtail
+
+    # Report toolchain runtime. WeasyPrint (pip-installed into uv's ephemeral venv
+    # by compile-report) dlopens Pango & co.; nix store libs are in no default
+    # loader path, so surface them here (the Linux analogue of the repo Brewfile).
+    export LD_LIBRARY_PATH="${lib.makeLibraryPath reportLibs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    # Pre-trust the agent's own repo mise configs so `mise run …` never blocks on
+    # an interactive trust prompt.
+    export MISE_TRUSTED_CONFIG_PATHS="${codeDir}"
 
     # Git identity for the bot's commits — without it `git commit` fails with
     # "Author identity unknown", so hephaestus/research couldn't commit either.
