@@ -135,13 +135,19 @@ let
       --token-save-cmd "heph-token-save"
   '';
 
-  wsDir = name: "${agentHome}/workspaces/${name}";
-  # Remote Control cwd: the primary repo checkout, or the playground dir itself.
-  wsCwd = name: ws: if ws.primary == null then wsDir name else "${wsDir name}/${ws.primary}";
+  # Repos live at ~/code/personal/<repo> so the paths agents read in the repo
+  # docs (every AGENTS.md/CLAUDE.md assumes ~/code/personal/…) actually resolve on
+  # the agent box too. The workspace NAME still names the Remote Control session
+  # (ringtail-<name>) — that is independent of where the checkout lives.
+  codeDir = "${agentHome}/code/personal";
+  repoDir = repo: "${codeDir}/${repo}";
+  # Remote Control cwd: the primary repo checkout, or the playground dir (named
+  # for the workspace) itself.
+  wsCwd = name: ws: if ws.primary == null then repoDir name else repoDir ws.primary;
 
-  # Clone-or-update one repo into a workspace.
-  cloneRepo = name: repo: ''
-    dest="${wsDir name}/${repo}"
+  # Clone-or-update one repo into ~/code/personal.
+  cloneRepo = repo: ''
+    dest="${repoDir repo}"
     if [ -d "$dest/.git" ]; then
       git -C "$dest" fetch --quiet --all --prune || true
     else
@@ -157,11 +163,12 @@ let
     set -eu
     export GIT_SSH_COMMAND="${pkgs.openssh}/bin/ssh -i ${botKey} -o IdentitiesOnly=yes -o UserKnownHostsFile=${knownHosts} -o StrictHostKeyChecking=yes"
     export PATH="${lib.makeBinPath [ pkgs.git pkgs.openssh ]}:$PATH"
+    mkdir -p "${codeDir}"
     ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: ws: ''
-      mkdir -p "${wsDir name}"
-      ${lib.concatMapStringsSep "\n" (cloneRepo name) (reposForWorkspace name ws)}
+      ${lib.concatMapStringsSep "\n" cloneRepo (reposForWorkspace name ws)}
       ${lib.optionalString (ws.primary == null) ''
         if [ ! -d "${wsCwd name ws}/.git" ]; then
+          mkdir -p "${wsCwd name ws}"
           git -C "${wsCwd name ws}" init --quiet
           git -C "${wsCwd name ws}" commit --quiet --allow-empty -m "playground" || true
         fi
@@ -285,16 +292,17 @@ in
       };
     };
 
-    # The agent's hephd spoke, synced to the indri hub. Does NOT `requires` the
-    # install (that would drag the compile onto the activation path); instead it
-    # Restart=always-retries until the install timer has produced hephd. No start
-    # rate-limit so it keeps retrying across a long first build.
+    # The agent's hephd spoke, synced to the indri hub. Started by
+    # agent-heph-spoke.path once the install has produced hephd (NOT wantedBy a
+    # target directly): ConditionPathExists means that before the first build the
+    # unit is cleanly *skipped*, not failed, so `nixos-rebuild switch` doesn't
+    # report a spurious failure during bootstrap.
     agent-heph-spoke = {
       description = "Claude Code agent heph spoke (hephd synced to the indri hub)";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
-      wantedBy = [ "multi-user.target" ];
       startLimitIntervalSec = 0;
+      unitConfig.ConditionPathExists = "${cargoBin}/hephd";
       serviceConfig = {
         User = "agent";
         Group = "agent";
@@ -321,5 +329,14 @@ in
       OnBootSec = "2min";
       Persistent = true;
     };
+  };
+
+  # Start the spoke as soon as the install has produced hephd (and at boot if it
+  # already exists). Pairs with the spoke's ConditionPathExists so bootstrap never
+  # shows a failed unit.
+  systemd.paths.agent-heph-spoke = {
+    description = "Start the heph spoke once hephd is installed";
+    wantedBy = [ "multi-user.target" ];
+    pathConfig.PathExists = "${agentHome}/.cargo/bin/hephd";
   };
 }
