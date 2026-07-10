@@ -80,6 +80,46 @@ factorio_record = gandi.livedns.Record(
 # CNAME records pointing public subdomains to Fly.io for reverse proxying
 # back to the tailnet. See docs/how-to/expose-service-publicly.md
 
+# Apex (eblu.me) landing page. A CNAME is illegal at the zone apex, so the
+# apex is pinned to Fly's ingress IPs directly instead of the CNAME the
+# subdomains use. These match what `blumeops-proxy.fly.dev` publishes: the
+# shared IPv4 (Fly routes it by SNI + the eblu.me cert) and the app's three
+# dedicated IPv6 addresses. If the Fly IPs ever change, update them here.
+FLY_INGRESS_IPV4 = "66.241.124.93"
+FLY_INGRESS_IPV6 = [
+    "2a09:8280:1::d1:8ef:0",
+    "2a09:8280:1::d1:8ef:1",
+    "2a09:8280:1::d1:8ef:2",
+]
+
+apex_a = gandi.livedns.Record(
+    "apex-a",
+    zone=domain,
+    name="@",
+    type="A",
+    ttl=300,
+    values=[FLY_INGRESS_IPV4],
+)
+
+apex_aaaa = gandi.livedns.Record(
+    "apex-aaaa",
+    zone=domain,
+    name="@",
+    type="AAAA",
+    ttl=300,
+    values=FLY_INGRESS_IPV6,
+)
+
+# www.eblu.me is a normal subdomain — CNAME to Fly like the others.
+www_public = gandi.livedns.Record(
+    "www-public",
+    zone=domain,
+    name="www",
+    type="CNAME",
+    ttl=300,
+    values=["blumeops-proxy.fly.dev."],
+)
+
 docs_public = gandi.livedns.Record(
     "docs-public",
     zone=domain,
@@ -123,6 +163,8 @@ pulumi.export("base_fqdn", f"{subdomain}.{domain}")
 pulumi.export("target_ip", tailscale_ip)
 pulumi.export("factorio_fqdn", f"factorio.{subdomain}.{domain}")
 pulumi.export("factorio_ip", factorio_ip)
+pulumi.export("apex_fqdn", domain)
+pulumi.export("www_public_fqdn", f"www.{domain}")
 pulumi.export("docs_public_fqdn", f"docs.{domain}")
 pulumi.export("cv_public_fqdn", f"cv.{domain}")
 pulumi.export("forge_public_fqdn", f"forge.{domain}")

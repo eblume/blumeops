@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>eblu.me — Erich Blume</title>
+    <meta name="description" content="Erich Blume — software developer in the Pacific Northwest. Site under construction.">
+    <style>
+        :root { color-scheme: light dark; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            font-family: -apple-system, "Segoe UI", Verdana, Geneva, sans-serif;
+            background: #b0d8f0;
+            color: #1a2733;
+        }
+        main {
+            width: 100%;
+            max-width: 560px;
+            background: #fffef7;
+            border: 3px solid #182533;
+            border-radius: 10px;
+            box-shadow: 6px 6px 0 rgba(24, 37, 51, 0.25);
+            padding: 2rem 2rem 1.75rem;
+            text-align: center;
+        }
+        h1 { margin: 0 0 0.25rem; font-size: 1.9rem; letter-spacing: 0.5px; }
+        .role { margin: 0 0 1.5rem; font-size: 1.05rem; color: #47576b; }
+        .barricade {
+            display: block;
+            width: 100%;
+            max-width: 320px;
+            height: auto;
+            margin: 0 auto 0.75rem;
+            image-rendering: auto;
+        }
+        .construction {
+            margin: 0 0 1.75rem;
+            font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #b26a00;
+        }
+        .links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+        }
+        .links a {
+            flex: 1 1 160px;
+            padding: 0.7rem 1rem;
+            border: 2px solid #182533;
+            border-radius: 6px;
+            background: #ffcc00;
+            color: #182533;
+            font-weight: 700;
+            text-decoration: none;
+            transition: transform 0.08s ease, box-shadow 0.08s ease;
+            box-shadow: 3px 3px 0 rgba(24, 37, 51, 0.35);
+        }
+        .links a:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 rgba(24, 37, 51, 0.35); }
+        .links a:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(24, 37, 51, 0.35); }
+        footer { margin-top: 1.5rem; font-size: 0.78rem; color: #6b7a8d; }
+        @media (prefers-color-scheme: dark) {
+            body { background: #0e1a24; color: #e6edf3; }
+            main { background: #14212c; border-color: #3a4d60; box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.4); }
+            .role { color: #9fb0c2; }
+            .construction { color: #ffb64d; }
+            .links a { background: #ffcc00; color: #182533; border-color: #182533; }
+            footer { color: #7c8b9d; }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Hi, I'm Erich Blume 👋</h1>
+        <p class="role">Software developer living in the Pacific Northwest.</p>
+
+        <img class="barricade" src="/under-construction.gif"
+             alt="Animated under-construction barricade with a blinking amber light"
+             width="320" height="150">
+        <p class="construction">🚧 This website is under construction 🚧</p>
+
+        <div class="links">
+            <a href="https://docs.eblu.me">docs.eblu.me</a>
+            <a href="https://forge.eblu.me">forge.eblu.me</a>
+        </div>
+
+        <footer>eblu.me</footer>
+    </main>
+</body>
+</html>

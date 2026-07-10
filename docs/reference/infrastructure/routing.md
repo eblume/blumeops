@@ -50,9 +50,17 @@ DNS CNAMEs point to `blumeops-proxy.fly.dev`. TLS via Fly.io-managed Let's Encry
 
 | Service | URL | Description |
 |---------|-----|-------------|
+| Landing page | https://eblu.me, https://www.eblu.me | "Under construction" apex splash |
 | [[docs]] | https://docs.eblu.me | Documentation site |
 | [[cv]] | https://cv.eblu.me | CV / resume |
 | [[forgejo]] | https://forge.eblu.me | Git hosting (public) |
+
+The apex landing page is the one exception to the "tunnel back to Caddy on
+indri" model: it's a single static splash served directly from nginx on the
+Fly proxy (files baked into the image), so it stays up even when indri or the
+tunnel is down. A `CNAME` is also illegal at the zone apex, so `eblu.me` uses
+`A`/`AAAA` records pointed at Fly's ingress IPs instead of the `CNAME` the
+subdomains use; `www.eblu.me` is a normal `CNAME` like the rest.
 
 ## Tailscale-Only Services
 

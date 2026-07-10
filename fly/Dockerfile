@@ -31,6 +31,7 @@ COPY fail2ban/action.d/nginx-deny.conf /etc/fail2ban/action.d/nginx-deny.conf
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY error.html /usr/share/nginx/html/error.html
 COPY naughty.html /usr/share/nginx/html/naughty.html
+COPY landing/ /usr/share/nginx/html/landing/
 COPY alloy.river /etc/alloy/config.alloy
 COPY start.sh /start.sh
 RUN chmod +x /start.sh

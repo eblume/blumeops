@@ -20,6 +20,8 @@ fly ips allocate-v6 -a "$APP" 2>/dev/null || true
 echo "IPs allocated"
 
 # Add certs for all public domains (idempotent — fly ignores duplicates)
+fly certs add eblu.me -a "$APP" 2>/dev/null || true
+fly certs add www.eblu.me -a "$APP" 2>/dev/null || true
 fly certs add docs.eblu.me -a "$APP" 2>/dev/null || true
 fly certs add cv.eblu.me -a "$APP" 2>/dev/null || true
 fly certs add forge.eblu.me -a "$APP" 2>/dev/null || true

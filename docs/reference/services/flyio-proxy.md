@@ -25,9 +25,16 @@ Public reverse proxy on [Fly.io](https://fly.io) that exposes selected BlumeOps 
 
 | Public domain | Backend (via Caddy) | Service |
 |---------------|---------------------|---------|
+| `eblu.me`, `www.eblu.me` | *(served at the edge)* | Apex landing page |
 | `docs.eblu.me` | `docs.ops.eblu.me` | [[docs]] |
 | `cv.eblu.me` | `cv.ops.eblu.me` | [[cv]] |
 | `forge.eblu.me` | `forge.ops.eblu.me` | [[forgejo]] |
+
+The apex landing page is the one service **not** tunneled to indri: it's a
+single static "under construction" splash served straight from nginx (files
+under `fly/landing/`, baked into the image), so it survives an indri or tunnel
+outage. Because a `CNAME` is illegal at the zone apex, `eblu.me` uses `A`/`AAAA`
+records to Fly's ingress IPs rather than the `CNAME` the subdomains use.
 
 ## Architecture
 
@@ -52,11 +59,12 @@ If direct peering fails (observable via `tailscale ping indri` showing "via DERP
 | `fly/fly.toml` | App configuration |
 | `fly/Dockerfile` | nginx + Tailscale + Alloy container |
 | `fly/nginx.conf` | Reverse proxy, caching, rate limiting, JSON logging |
+| `fly/landing/` | Apex landing page (`index.html` + construction GIF), served at the edge |
 | `fly/alloy.river` | Alloy config: log tailing, metric extraction, remote_write |
 | `fly/start.sh` | Entrypoint: start Tailscale, wait for MagicDNS, then nginx + Alloy |
 | `pulumi/tailscale/__main__.py` | Auth key (`tag:flyio-proxy`) |
 | `pulumi/tailscale/policy.hujson` | ACL grants for proxy |
-| `pulumi/gandi/__main__.py` | DNS CNAMEs |
+| `pulumi/gandi/__main__.py` | DNS: subdomain CNAMEs + apex `A`/`AAAA` |
 
 ## Networking
 
