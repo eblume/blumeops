@@ -32,12 +32,9 @@ tailscale_ip = os.environ.get("BLUMEOPS_REVERSE_PROXY_IP") or socket.gethostbyna
 )
 
 # ringtail hosts the Factorio server (UDP game protocol, not HTTP — it bypasses
-# Caddy on indri entirely). Resolve ringtail's Tailscale IP the same way.
-# Break-glass: set BLUMEOPS_FACTORIO_IP to override DNS resolution.
+# Caddy on indri entirely). See the factorio_record below for why this is a
+# CNAME to the MagicDNS name rather than a pinned A record.
 FACTORIO_HOST = "ringtail.tail8d86e.ts.net"
-factorio_ip = os.environ.get("BLUMEOPS_FACTORIO_IP") or socket.gethostbyname(
-    FACTORIO_HOST
-)
 
 # Wildcard A record for *.ops.eblu.me
 # Points to indri's Tailscale IP, which is only routable within the tailnet.
@@ -62,18 +59,26 @@ base_record = gandi.livedns.Record(
     values=[tailscale_ip],
 )
 
-# Exact A record for factorio.ops.eblu.me -> ringtail.
-# An exact DNS name always beats the *.ops wildcard, so this one name points at
-# ringtail (where the game server runs) instead of indri (Caddy). As with the
-# wildcard, this publishes a non-routable 100.x address in public DNS — the same
-# accepted posture already used for *.ops.
+# Exact CNAME for factorio.ops.eblu.me -> ringtail's MagicDNS name.
+#
+# NOT an A record: Tailscale assigns a *shared* node a different 100.x address
+# in each guest's tailnet when the owner-tailnet IP collides with something the
+# guest already has (ringtail is .77 here but was remapped to .76 in a guest's
+# tailnet). A pinned A record publishes one owner-tailnet IP that guests can't
+# route, so it times out for them. A CNAME instead delegates resolution to each
+# client's own MagicDNS, which returns the address correct for *their* view.
+#
+# Caveat: this resolves only for clients that forward lookups through the
+# Tailscale resolver (MagicDNS names aren't in public DNS). A guest on a
+# strict split-DNS setup should connect to ringtail.tail8d86e.ts.net directly.
+# An exact name still beats the *.ops wildcard, so this doesn't hit Caddy.
 factorio_record = gandi.livedns.Record(
     "factorio-ops",
     zone=domain,
     name=f"factorio.{subdomain}",  # -> factorio.ops
-    type="A",
+    type="CNAME",
     ttl=300,
-    values=[factorio_ip],
+    values=[f"{FACTORIO_HOST}."],
 )
 
 # ============== Public Services (Fly.io proxy) ==============
@@ -162,7 +167,7 @@ pulumi.export("wildcard_fqdn", f"*.{subdomain}.{domain}")
 pulumi.export("base_fqdn", f"{subdomain}.{domain}")
 pulumi.export("target_ip", tailscale_ip)
 pulumi.export("factorio_fqdn", f"factorio.{subdomain}.{domain}")
-pulumi.export("factorio_ip", factorio_ip)
+pulumi.export("factorio_cname", f"{FACTORIO_HOST}.")
 pulumi.export("apex_fqdn", domain)
 pulumi.export("www_public_fqdn", f"www.{domain}")
 pulumi.export("docs_public_fqdn", f"docs.{domain}")

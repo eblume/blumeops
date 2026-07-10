@@ -26,7 +26,7 @@ order; the server should be running before a guest connects):
 | Change | File | Effect |
 |--------|------|--------|
 | NixOS service | `nixos/ringtail/factorio.nix` (+ import in `configuration.nix`) | Runs `services.factorio` on UDP 34197. `openFirewall = false` — the port is reachable via the already-trusted `tailscale0` interface, not the LAN/WAN. |
-| DNS name | `pulumi/gandi/__main__.py` | Exact A record `factorio.ops.eblu.me → ringtail` (overrides the `*.ops → indri` wildcard; the game is UDP and bypasses Caddy). |
+| DNS name | `pulumi/gandi/__main__.py` | Exact **CNAME** `factorio.ops.eblu.me → ringtail.tail8d86e.ts.net` (overrides the `*.ops → indri` wildcard; the game is UDP and bypasses Caddy). A CNAME, **not** an A record — see "Why a CNAME, not an A record" below. |
 | ACL grant | `pulumi/tailscale/policy.hujson` | `tag:factorio` tag owner + a grant giving `autogroup:shared` exactly `udp:34197` on `tag:factorio`. |
 | ringtail tag | `pulumi/tailscale/__main__.py` | Adds `tag:factorio` to ringtail's declaratively-managed device tags. **Do this in Pulumi, not the admin console** — `ringtail_tags` is a `DeviceTags` resource that replaces the device's tags, so a console-added tag would be stripped on the next `tailnet-up`. |
 
@@ -76,9 +76,40 @@ after they accept), and add a positive ACL test naming them.
 ## The guest connects
 
 Factorio → **Multiplayer → Connect to address** → `factorio.ops.eblu.me` (or
-`factorio.ops.eblu.me:34197`). Their Tailscale must be up; the public DNS name
-resolves to ringtail's `100.x`, which their Tailscale routes to the shared
-machine.
+`factorio.ops.eblu.me:34197`). Their Tailscale must be up; the CNAME resolves,
+via *their* MagicDNS, to ringtail at whatever address it carries in their
+tailnet, which their Tailscale routes to the shared machine.
+
+If `factorio.ops.eblu.me` times out for a guest (a strict split-DNS client — see
+below), have them connect to **`ringtail.tail8d86e.ts.net:34197`** directly. That
+MagicDNS name always resolves correctly for any tailnet participant.
+
+> **Note:** the guest cannot `ping` the server, and that's expected — the ACL
+> grants only `udp:34197`, not ICMP. A failed ping does **not** mean a failed
+> connection; only the game port is open.
+
+## Why a CNAME, not an A record
+
+The obvious design — a public A record `factorio.ops.eblu.me → <ringtail's 100.x>`
+— **does not work for shared guests**, and this bit us on the first real guest.
+
+Tailscale IPs are not globally unique across tailnets. When ringtail is *shared*
+into a guest's tailnet and its owner-tailnet IP collides with a device the guest
+already has, Tailscale **remaps** ringtail to a different `100.x` address in the
+guest's tailnet. In the first case ringtail was `100.121.200.77` here but showed
+up as `100.121.200.76` in the guest's tailnet; `.77` didn't exist on their side
+at all. A pinned A record publishes *our* `.77`, which the guest can't route —
+so the name times out for them even though the share and ACL are correct.
+
+A CNAME to the MagicDNS name fixes this by never hardcoding an address: each
+client's own Tailscale resolves `ringtail.tail8d86e.ts.net` to the IP correct for
+*its* view. Owner resolves `.77`, guest resolves `.76`, both reach ringtail.
+
+The one limitation: MagicDNS names aren't in public DNS, so the CNAME only
+resolves for clients that send lookups through the Tailscale resolver. A client
+on strict split-DNS (only `*.ts.net` routed to Tailscale, everything else to a
+public resolver) will fail the CNAME's second lookup — those guests use the
+`ringtail.tail8d86e.ts.net` name directly, as noted above.
 
 ## Revoking access
 
