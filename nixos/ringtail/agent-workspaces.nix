@@ -56,6 +56,11 @@ let
   # Anonymous HTTPS clone for the build (public repo) — no SSH host key / bot key,
   # matching the ansible heph role + hephd self-update (forgeBase is SSH-only).
   hephRepoHttps = "https://forge.eblu.me/eblume/hephaestus.git";
+  # The hub's single owner id (Erich's heph data). The spoke ADOPTS it so the
+  # agent operates on the *same* nodes as Erich — the `heph-agents` credential is
+  # only the login identity (revocable), not a separate data owner. Not a secret
+  # (it appears in HLCs); nix can't read the vault at eval time anyway.
+  hephOwnerId = "01KT4MYCG6Q45N3MJ665V53AMM";
 
   # System libraries `cargo install heph hephd` needs to build (dbus for the
   # compiled-in keyring backend, even though the spoke uses the command store).
@@ -123,6 +128,7 @@ let
     export PATH="${opShim}/bin:${hephTokenSave}/bin:${lib.makeBinPath [ pkgs.jq pkgs.coreutils pkgs.bash ]}:${cargoBin}:$PATH"
     exec ${cargoBin}/hephd --mode local \
       --hub-url ${hephHubUrl} \
+      --owner-id ${hephOwnerId} \
       --oidc-issuer ${hephIssuer} \
       --oidc-client-id heph \
       --token-load-cmd "${opShim}/bin/op read ${hephTokenRef}" \
