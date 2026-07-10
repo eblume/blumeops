@@ -117,7 +117,10 @@ let
   # CLI (same user + HOME), so a session's `heph` talks to this daemon.
   hephSpoke = pkgs.writeShellScript "agent-heph-spoke" ''
     export HOME=${agentHome}
-    export PATH="${opShim}/bin:${hephTokenSave}/bin:${lib.makeBinPath [ pkgs.jq pkgs.coreutils ]}:${cargoBin}:$PATH"
+    # pkgs.bash provides `sh`: hephd's command token store runs the load/save
+    # commands via `Command::new("sh")`, which does a PATH lookup — without a
+    # shell on PATH the token never loads and every hub sync 401s.
+    export PATH="${opShim}/bin:${hephTokenSave}/bin:${lib.makeBinPath [ pkgs.jq pkgs.coreutils pkgs.bash ]}:${cargoBin}:$PATH"
     exec ${cargoBin}/hephd --mode local \
       --hub-url ${hephHubUrl} \
       --oidc-issuer ${hephIssuer} \
