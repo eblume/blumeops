@@ -53,6 +53,9 @@ let
   hephHubUrl = "http://indri.tail8d86e.ts.net:8787"; # spoke sync is HTTP-only
   hephIssuer = "https://authentik.ops.eblu.me/application/o/heph/";
   hephTokenRef = "op://agents/heph-spoke-token/token"; # in the agents vault
+  # Anonymous HTTPS clone for the build (public repo) — no SSH host key / bot key,
+  # matching the ansible heph role + hephd self-update (forgeBase is SSH-only).
+  hephRepoHttps = "https://forge.eblu.me/eblume/hephaestus.git";
 
   # System libraries `cargo install heph hephd` needs to build (dbus for the
   # compiled-in keyring backend, even though the spoke uses the command store).
@@ -96,8 +99,18 @@ let
       echo "heph $target already installed"; exit 0
     fi
     echo "installing heph ${hephTag} (rust@${rustChannel} via mise)…"
-    exec mise x rust@${rustChannel} -- cargo install --locked --force \
-      --git ${forgeBase}/hephaestus.git --tag ${hephTag} heph hephd
+    # Retry: a Type=oneshot won't auto-restart, and the mise toolchain download /
+    # cargo fetch can flake transiently on a cold cache.
+    for attempt in 1 2 3; do
+      if mise x rust@${rustChannel} -- cargo install --locked --force \
+          --git ${hephRepoHttps} --tag ${hephTag} heph hephd; then
+        exit 0
+      fi
+      echo "heph install attempt $attempt failed; retrying in 15s…" >&2
+      sleep 15
+    done
+    echo "heph install failed after 3 attempts" >&2
+    exit 1
   '';
 
   # The spoke daemon. Shares the default socket/db with agent sessions' `heph`
