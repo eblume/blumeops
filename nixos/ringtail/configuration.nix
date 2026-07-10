@@ -7,6 +7,7 @@ in
 {
   imports = [
     ./agent-workspaces.nix
+    ./factorio.nix
   ];
 
   # Allow unfree packages (NVIDIA drivers, Steam)

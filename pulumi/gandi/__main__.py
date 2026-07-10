@@ -31,6 +31,14 @@ tailscale_ip = os.environ.get("BLUMEOPS_REVERSE_PROXY_IP") or socket.gethostbyna
     REVERSE_PROXY_HOST
 )
 
+# ringtail hosts the Factorio server (UDP game protocol, not HTTP — it bypasses
+# Caddy on indri entirely). Resolve ringtail's Tailscale IP the same way.
+# Break-glass: set BLUMEOPS_FACTORIO_IP to override DNS resolution.
+FACTORIO_HOST = "ringtail.tail8d86e.ts.net"
+factorio_ip = os.environ.get("BLUMEOPS_FACTORIO_IP") or socket.gethostbyname(
+    FACTORIO_HOST
+)
+
 # Wildcard A record for *.ops.eblu.me
 # Points to indri's Tailscale IP, which is only routable within the tailnet.
 # This allows containers and other systems to resolve real DNS names
@@ -52,6 +60,20 @@ base_record = gandi.livedns.Record(
     type="A",
     ttl=300,
     values=[tailscale_ip],
+)
+
+# Exact A record for factorio.ops.eblu.me -> ringtail.
+# An exact DNS name always beats the *.ops wildcard, so this one name points at
+# ringtail (where the game server runs) instead of indri (Caddy). As with the
+# wildcard, this publishes a non-routable 100.x address in public DNS — the same
+# accepted posture already used for *.ops.
+factorio_record = gandi.livedns.Record(
+    "factorio-ops",
+    zone=domain,
+    name=f"factorio.{subdomain}",  # -> factorio.ops
+    type="A",
+    ttl=300,
+    values=[factorio_ip],
 )
 
 # ============== Public Services (Fly.io proxy) ==============
@@ -99,6 +121,8 @@ pulumi.export("domain", domain)
 pulumi.export("wildcard_fqdn", f"*.{subdomain}.{domain}")
 pulumi.export("base_fqdn", f"{subdomain}.{domain}")
 pulumi.export("target_ip", tailscale_ip)
+pulumi.export("factorio_fqdn", f"factorio.{subdomain}.{domain}")
+pulumi.export("factorio_ip", factorio_ip)
 pulumi.export("docs_public_fqdn", f"docs.{domain}")
 pulumi.export("cv_public_fqdn", f"cv.{domain}")
 pulumi.export("forge_public_fqdn", f"forge.{domain}")

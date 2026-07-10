@@ -88,6 +88,19 @@
 			"dst": ["tag:k8s"],
 			"ip":  ["tcp:443", "tcp:5432", "tcp:9187"],
 		},
+
+		// --- Shared guests: Factorio only ---
+		// External users we *share* ringtail with (autogroup:shared, NOT members)
+		// get exactly one thing: the Factorio UDP port on the machine carrying
+		// tag:factorio. autogroup:shared is separate and non-overlapping with
+		// autogroup:member, so guests inherit none of the member grants above.
+		// To tighten to a specific guest, replace autogroup:shared with their
+		// exact Tailscale login identity (e.g. ["ben.harris@example.com"]).
+		{
+			"src": ["autogroup:shared"],
+			"dst": ["tag:factorio"],
+			"ip":  ["udp:34197"],
+		},
 	],
 
 	// ============== SSH Access ==============
@@ -150,20 +163,23 @@
 		"tag:ci-gateway": ["autogroup:admin", "tag:blumeops"],
 		"tag:flyio-proxy": ["autogroup:admin", "tag:blumeops"],
 		"tag:flyio-target": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
+		// Applied to ringtail so shared guests can reach only the Factorio port.
+		"tag:factorio": ["autogroup:admin", "tag:blumeops"],
 	},
 
 	// ============== ACL Tests ==============
 	"tests": [
-		// Erich can access everything
+		// Erich can access everything (admin => also reaches the Factorio port)
 		{
 			"src":    "blume.erich@gmail.com",
-			"accept": ["tag:grafana:443", "tag:kiwix:443", "tag:feed:443", "tag:homelab:22", "tag:registry:443"],
+			"accept": ["tag:grafana:443", "tag:kiwix:443", "tag:feed:443", "tag:homelab:22", "tag:registry:443", "tag:factorio:34197"],
 		},
-		// Allison can access user services but NOT grafana, loki, or NAS
+		// Allison is a member: user services, but NOT grafana/loki/NAS — and
+		// crucially NOT Factorio (only autogroup:shared guests get that port).
 		{
 			"src":    "acmdavis@gmail.com",
 			"accept": ["tag:kiwix:443", "tag:forge:443", "tag:feed:443"],
-			"deny":   ["tag:grafana:443", "tag:nas:445", "tag:registry:443"],
+			"deny":   ["tag:grafana:443", "tag:nas:445", "tag:registry:443", "tag:factorio:34197"],
 		},
 		// Homelab can reach homelab, NAS, and k8s services (postgres, metrics, prometheus/loki)
 		{

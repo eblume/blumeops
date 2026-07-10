@@ -122,6 +122,19 @@ A native Forgejo Actions runner (`ringtail-nix-builder`) runs as a systemd servi
 
 The runner resolves `<nixpkgs>` from the flake registry at build time. Container trust policy (`/etc/containers/policy.json`) and registry search order (`/etc/containers/registries.conf`) are configured minimally in `configuration.nix` for skopeo — no full `virtualisation.containers` module needed.
 
+### Factorio Server
+
+A private Factorio dedicated server (`services.factorio`, `nixos/ringtail/factorio.nix`) — BlumeOps' first externally-shared service. It listens on UDP 34197 with `openFirewall = false`: the port is reachable only over the already-trusted `tailscale0` interface, never the LAN or internet. Named `factorio.ops.eblu.me` via an exact A record (in `pulumi/gandi`) that overrides the `*.ops → indri` wildcard, since the game is UDP and bypasses Caddy.
+
+| Property | Value |
+|----------|-------|
+| **Service unit** | `factorio.service` |
+| **Port** | UDP 34197 (tailnet only) |
+| **State / saves** | `/var/lib/factorio` |
+| **Access** | guests are *shared* onto ringtail (`autogroup:shared`), granted only `udp:34197` on `tag:factorio` |
+
+Guests are **shared** onto ringtail, never invited as members, so they inherit none of the member-facing services. See [[host-factorio-for-a-guest]] for the onboarding and revocation flow, and [[tailscale]] for the ACL model.
+
 ## Pinned Service Versions
 
 Versioned services (forgejo-runner, snowflake, k3s) are pinned via a `nixpkgs-services` overlay in `flake.nix`, separate from the rolling `nixpkgs` input. This prevents `nix flake update` from silently upgrading them. The Dagger `flake-update` pipeline excludes `nixpkgs-services` automatically. See [[review-services]] for the upgrade procedure.

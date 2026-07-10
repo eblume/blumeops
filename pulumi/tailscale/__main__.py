@@ -78,6 +78,8 @@ ringtail_tags = tailscale.DeviceTags(
     tags=[
         "tag:homelab",  # Server role - allows SSH from workstations and homelab peers
         "tag:blumeops",  # Managed by this IaC
+        "tag:factorio",  # Hosts the shared Factorio server; lets autogroup:shared
+        # guests reach udp:34197 here (and nothing else). See policy.hujson.
     ],
 )
 
