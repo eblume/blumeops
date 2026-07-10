@@ -28,10 +28,16 @@ Claude mobile app / claude.ai/code
 ringtail — user `agent` (isolated, non-wheel)
   systemd: agent-ws-<name>.service  (one per workspace)
     └─ claude remote-control --spawn worktree --name ringtail-<name>
-         cwd = ~/workspaces/<name>/<primary-repo>
-         PATH prepends the transparent `op` shim
+         cwd = ~/code/personal/<primary-repo>
+         PATH prepends the transparent `op` shim + ~/.cargo/bin (heph)
   systemd: agent-repos-init.service  (oneshot, clones/updates repos first)
 ```
+
+Checkouts live at **`~/code/personal/<repo>`** (not under a per-workspace dir) so
+the paths agents read in the repo docs — every `AGENTS.md`/`CLAUDE.md` assumes
+`~/code/personal/…` — actually resolve on the agent box. The workspace *name*
+only names the Remote Control session (`ringtail-<name>`); it is independent of
+where the checkout lives.
 
 ### Workspaces
 
@@ -41,9 +47,9 @@ ringtail — user `agent` (isolated, non-wheel)
 | `research` | `research` | — |
 | `playground` | *(empty git repo)* | — |
 
-Sibling repos are plain checkouts next to the primary; the agent can `cd` to
-them to read/reference. Only the **primary** repo gets per-session worktree
-isolation (that is what `--spawn worktree` operates on).
+Sibling repos are plain checkouts alongside the primary in `~/code/personal/`;
+the agent can `cd` to them to read/reference. Only the **primary** repo gets
+per-session worktree isolation (that is what `--spawn worktree` operates on).
 
 > **blumeops is deliberately not a workspace** — see [§Why blumeops is not a
 > workspace](#why-blumeops-is-not-a-workspace). blumeops changes are made

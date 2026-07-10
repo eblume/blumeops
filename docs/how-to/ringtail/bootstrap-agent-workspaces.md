@@ -125,7 +125,7 @@ shell doesn't have `~/.local/bin` on PATH yet:
 ```fish
 ssh -t ringtail
 sudo -u agent -H -i
-cd ~/workspaces/hephaestus/hephaestus
+cd ~/code/personal/hephaestus
 ~/.local/bin/claude
 ```
 
@@ -158,7 +158,7 @@ the code back), accept the **workspace trust** dialog, then `/exit`.
   # then: chown agent:agent ~agent/.claude.json && chmod 600 ~agent/.claude.json
   ```
 
-  (paths: `~agent/workspaces/{hephaestus/hephaestus,research/research,playground}`)
+  (paths: `~agent/code/personal/{hephaestus,research,playground}`)
 
 ## 6. Start the services
 
@@ -175,63 +175,84 @@ Tapping one and starting a session spawns an isolated worktree of that repo.
 ## 7. Seed the heph spoke (one-time)
 
 The agent runs a `hephd` spoke (see [[agent-workspaces#The heph spoke (deliberately in-boundary)]]).
-The mechanical parts — `cargo install` via mise, the services — are
-source-controlled and come up on `provision-ringtail`. These are the irreducible
-secret/identity steps a human does once:
+The mechanical parts — `cargo install` via mise, the services, owner adoption
+(`--owner-id`) — are source-controlled and come up on `provision-ringtail`. These
+are the irreducible secret/identity steps a human does once. **They are fiddlier
+than they look; read the gotchas.**
 
-1. **Set the `heph-agents` Authentik password.** The blueprint creates the
-   `heph-agents` user (heph-scoped group, not `admins`). Set a password for it
-   (Authentik UI: Directory → Users → heph-agents → Set password, or
-   `ak shell` → `u.set_password(...)`) and store it in the **blumeops** vault
-   (item `heph-agents-login`) — the human doing the login reads blumeops, not the
-   agents vault. **MFA applies:** the default authentication flow enforces MFA
-   (`not_configured_action: configure`), so the device-code login below will
-   prompt a one-time TOTP enrollment for `heph-agents`; keep the enrollment (this
-   identity reaches your tasks — MFA is appropriate) and store the TOTP secret in
-   the blumeops vault alongside the password.
+1. **Give `heph-agents` a password + MFA — logged in AS `heph-agents`.** The
+   blueprint creates the `heph-agents` user (heph-scoped group, not `admins`). Set
+   its password (`ak shell` → `u.set_password(...)`, or the UI) and store it in the
+   **blumeops** vault (item `heph-agents-login`) — the human reads blumeops, not
+   the agents vault. Then, **in a private/incognito window** (see the gotcha),
+   sign in to `https://authentik.ops.eblu.me` as `heph-agents` and complete the
+   forced **TOTP enrollment** (MFA is enforced on the default flow — appropriate,
+   this identity reaches your tasks). Save the TOTP secret into `heph-agents-login`.
 
-2. **Wait for the install, then seed the token.** Confirm the build finished
-   (`ssh ringtail 'systemctl status agent-heph-install --no-pager'`), then run the
-   device-code login pointed at the vault-backed save command:
+2. **Seed the token — approve the device code in that same `heph-agents` session.**
+   Confirm the build finished (`systemctl status agent-heph-install`), then:
 
-   ```fish
-   ssh -t ringtail
-   sudo -u agent -H -i
-   heph auth login \
-     --hub-url   http://indri.tail8d86e.ts.net:8787 \
-     --issuer    https://authentik.ops.eblu.me/application/o/heph/ \
-     --client-id heph \
-     --token-save-cmd heph-token-save
+   ```sh
+   # heph-token-save is a nix store path; resolve it from the spoke unit:
+   SAVE=$(ssh ringtail 'systemctl show agent-heph-spoke -p ExecStart --value' \
+     | grep -oE '/nix/store/[a-z0-9]+-heph-token-save/bin/heph-token-save')
+   ssh ringtail "sudo -u agent -H env HOME=/home/agent ~agent/.cargo/bin/heph auth login \
+     --hub-url http://indri.tail8d86e.ts.net:8787 \
+     --issuer https://authentik.ops.eblu.me/application/o/heph/ \
+     --client-id heph --no-browser --token-save-cmd $SAVE"
    ```
 
-   Open the printed URL, log in **as `heph-agents`**, approve. `heph-token-save`
-   writes the token to `op://agents/heph-spoke-token/token` (creating the item).
+   Approve the printed URL in the **incognito `heph-agents` session**. On success
+   `heph-token-save` writes the token to `op://agents/heph-spoke-token/token`.
 
-3. **Record the authorized sub for the hub.** The hub only serves an identity it
-   recognizes as owner. The `sub` is a `hashed_user_id` — decode it from the
-   seeded token and store it in the **blumeops** vault as item `heph-agents-sub`,
-   field `sub`:
+   > **THE trap:** the device flow authorizes as whoever the browser is logged
+   > into. If you open the URL in your normal browser (logged in as *you*), it
+   > silently binds **you** as the hub owner and puts *your* token in the agents
+   > vault — not what you want. Always approve from a session logged in as
+   > `heph-agents`. Device codes also **expire in a few minutes**, so do the TOTP
+   > enrollment (step 1) *first*, then the approval is a single click. If they keep
+   > expiring, pull the current code straight from Authentik:
+   > `DeviceToken.objects.filter(provider__name="Heph").order_by("-pk").first().user_code`.
+
+3. **Record the authorized sub for the hub.** Decode the token's `sub` (a
+   `hashed_user_id`) and store it in the **blumeops** vault (`heph-agents-sub`/`sub`):
 
    ```fish
-   # as the agent user; decode the access token's sub claim
-   op read op://agents/heph-spoke-token/token | jq -r .access_token \
-     | cut -d. -f2 | base64 -d 2>/dev/null | jq -r .sub
-   # then, with your own (blumeops-vault) op session, store it:
+   # as the agent; base64URL needs padding — python is more reliable than `base64 -d`
+   op read op://agents/heph-spoke-token/token \
+     | python3 -c 'import sys,json,base64; t=json.load(sys.stdin)["access_token"].split(".")[1]; t+="="*(-len(t)%4); print(json.loads(base64.urlsafe_b64decode(t))["sub"])'
    op item create --vault blumeops --category "API Credential" \
      --title heph-agents-sub "sub[text]=<the-sub>"
    ```
 
-4. **Deploy so the hub authorizes it, and start the spoke.**
+4. **Authorize on the hub, then (re)start the spoke on a clean store.**
 
    ```fish
-   mise run provision-indri -- --tags heph     # hub picks up --authorized-sub
-   ssh ringtail 'sudo systemctl restart agent-heph-spoke'
-   ssh ringtail 'sudo -u agent -H heph sync --status'   # expect a healthy sync
+   mise run provision-indri -- --tags heph        # hub picks up --authorized-sub
+   # the spoke's fresh store minted its own owner_id before adoption; reset it so
+   # it re-pulls under the adopted --owner-id:
+   ssh ringtail 'sudo systemctl stop agent-heph-spoke; \
+     sudo rm -f /home/agent/.local/share/heph/heph.db*; \
+     sudo systemctl start agent-heph-spoke'
+   ssh ringtail 'sudo -u agent -H env HOME=/home/agent ~agent/.cargo/bin/heph list --project Blumeops'
    ```
+
+   Expect your real Blumeops tasks. `heph sync --status` should show
+   `auth_failure=false, last_error=null`.
 
 > **Revoke** by disabling the `heph-agents` Authentik user, or by removing the
 > `heph-agents-sub` vault item and re-provisioning indri (drops it from
 > `--authorized-sub`) — either cuts the spoke without touching your own logins.
+
+**Other gotchas banked while bootstrapping this:**
+
+- If `git push` (or any forge SSH) *hangs*, it's an unapproved **1Password SSH-agent
+  biometric prompt**, not the network.
+- `nix build`/`nixos-rebuild --flake git+https://…?ref=main` **caches** the ref;
+  use `--refresh` (or `?rev=<full-sha>`) to pick up a just-pushed commit.
+- Owner model: `heph-agents` is only the **login credential** (revocable). The hub
+  still has one owner — *you* — and the spoke **adopts** your `owner_id`
+  (`--owner-id`) so the agent works your actual nodes. It is *not* a second owner.
 
 ## Verifying the secrets path
 
