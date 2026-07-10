@@ -82,15 +82,15 @@ factorio_record = gandi.livedns.Record(
 
 # Apex (eblu.me) landing page. A CNAME is illegal at the zone apex, so the
 # apex is pinned to Fly's ingress IPs directly instead of the CNAME the
-# subdomains use. These match what `blumeops-proxy.fly.dev` publishes: the
-# shared IPv4 (Fly routes it by SNI + the eblu.me cert) and the app's three
-# dedicated IPv6 addresses. If the Fly IPs ever change, update them here.
+# subdomains use. Unlike the subdomains' `fly.dev` CNAME (which publishes all
+# three of the app's dedicated IPv6 addresses), the apex uses the single
+# canonical ingress pair that `fly certs setup eblu.me` recommends — the shared
+# IPv4 (Fly routes it by SNI + the eblu.me cert) and the primary ingress IPv6.
+# Fly's cert validation flags the other two IPv6 addresses as "not pointing to
+# your app", so listing all three leaves the apex cert unverified. If the Fly
+# IPs ever change, re-check `fly certs setup eblu.me` and update them here.
 FLY_INGRESS_IPV4 = "66.241.124.93"
-FLY_INGRESS_IPV6 = [
-    "2a09:8280:1::d1:8ef:0",
-    "2a09:8280:1::d1:8ef:1",
-    "2a09:8280:1::d1:8ef:2",
-]
+FLY_INGRESS_IPV6 = ["2a09:8280:1::d1:8ef:2"]
 
 apex_a = gandi.livedns.Record(
     "apex-a",
