@@ -9,7 +9,43 @@
 #     members, so they inherit none of the member-facing grants. The ACL then
 #     hands them exactly udp:34197 on tag:factorio. See pulumi/tailscale.
 { ... }:
+let
+  # TEMPORARY version pin: nixos-25.11 ships factorio-headless 2.0.76, but the
+  # Steam client on gilbert auto-updated to 2.0.77 and Factorio refuses to join a
+  # server on a different build. Override just the versions.json fed to the
+  # upstream derivation so we track the client until nixpkgs catches up — then
+  # delete this whole overlay and let the pinned nixpkgs provide the version.
+  #
+  # sha256 (hex) of the headless tarball, from:
+  #   nix-prefetch-url https://factorio.com/get-download/2.0.77/headless/linux64 \
+  #     --name factorio_headless_x64-2.0.77.tar.xz   # -> base32
+  #   nix hash convert --hash-algo sha256 --to base16 <base32>
+  factorioDist = {
+    name = "factorio_headless_x64-2.0.77.tar.xz";
+    version = "2.0.77";
+    tarDirectory = "x64";
+    url = "https://factorio.com/get-download/2.0.77/headless/linux64";
+    needsAuth = false;
+    sha256 = "c4efc11529f74d37c96933e291e0db73fd9f5aa4738913d9301b24680b3e947f";
+  };
+  factorioVersions = {
+    x86_64-linux.headless = {
+      stable = factorioDist;
+      experimental = factorioDist;
+    };
+  };
+in
 {
+  nixpkgs.overlays = [
+    (final: prev: {
+      factorio-headless = prev.factorio-headless.override {
+        versionsJson = final.writeText "factorio-versions.json" (
+          builtins.toJSON factorioVersions
+        );
+      };
+    })
+  ];
+
   services.factorio = {
     enable = true;
     port = 34197; # UDP; the Factorio default

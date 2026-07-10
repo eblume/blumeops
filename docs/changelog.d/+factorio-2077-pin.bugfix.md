@@ -1,0 +1,1 @@
+Pinned ringtail's Factorio headless server to 2.0.77 via a temporary `versionsJson` overlay so it matches the auto-updated Steam client (nixos-25.11 still ships 2.0.76). Remove the overlay once nixpkgs catches up.
