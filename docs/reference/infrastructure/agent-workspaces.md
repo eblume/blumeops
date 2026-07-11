@@ -47,6 +47,7 @@ where the checkout lives.
 | `hephaestus` | `hephaestus` | `hephaestus.nvim` |
 | `research` | `research` | — |
 | `playground` | *(empty git repo)* | — |
+| `parsimony` | `timberborn-parsimony` | — |
 
 Sibling repos are plain checkouts alongside the primary in `~/code/personal/`;
 the agent can `cd` to them to read/reference. Only the **primary** repo gets

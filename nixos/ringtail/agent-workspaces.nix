@@ -31,6 +31,10 @@ let
     hephaestus = { primary = "hephaestus"; also = [ "hephaestus.nvim" ]; };
     research = { primary = "research"; also = [ ]; };
     playground = { primary = null; also = [ ]; };
+    # Timberborn mod (Least Actions Challenge). The agent builds against the
+    # game's Managed/ DLLs under /mnt/games (world-readable); launching the
+    # game itself stays a human-session job — see the repo's AGENTS.md.
+    parsimony = { primary = "timberborn-parsimony"; also = [ ]; };
   };
 
   # Pool-only checkouts: cloned into ~/code/personal alongside the workspace
