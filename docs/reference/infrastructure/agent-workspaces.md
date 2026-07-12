@@ -1,6 +1,6 @@
 ---
 title: Agent Workspaces
-modified: 2026-07-10
+modified: 2026-07-11
 last-reviewed: 2026-07-08
 tags:
   - reference
@@ -10,10 +10,12 @@ tags:
 
 # Agent Workspaces
 
-Persistent [Claude Code](https://code.claude.com) **Remote Control** servers on
-[[ringtail]], one per repository, that Erich steers on demand from the Claude
-mobile app or claude.ai/code. Each server spawns isolated per-session git
-worktrees, so several agents can work concurrently without colliding.
+A persistent [Claude Code](https://code.claude.com) **Remote Control** server on
+[[ringtail]] — a single **home-base** session environment rooted in the `agents`
+repo — that Erich steers on demand from the Claude mobile app or claude.ai/code.
+The server spawns isolated per-session git worktrees of the home-base repo, so
+several sessions can run concurrently; every other repo is a sibling checkout
+the session `cd`s into.
 
 This is the infrastructure landing of a prototype researched in the `research`
 repo (`2026/July/Remote-Agent-Sessions-On-Ringtail/`). BlumeOps is the platform;
@@ -26,9 +28,9 @@ Claude mobile app / claude.ai/code
         │   Anthropic relay (outbound-only from ringtail; no inbound ports)
         ▼
 ringtail — user `agent` (isolated, non-wheel)
-  systemd: agent-ws-<name>.service  (one per workspace)
-    └─ claude remote-control --spawn worktree --name ringtail-<name>
-         cwd = ~/code/personal/<primary-repo>
+  systemd: agent-ws-agent.service  (the single home-base workspace)
+    └─ claude remote-control --spawn worktree --name ringtail-agent
+         cwd = ~/code/personal/agents
          PATH prepends the transparent `op` shim + ~/.cargo/bin (heph)
                    + the report toolchain (mise/uv/pandoc/typst/weasyprint)
   systemd: agent-repos-init.service  (oneshot, clones/updates repos first)
@@ -36,39 +38,55 @@ ringtail — user `agent` (isolated, non-wheel)
 
 Checkouts live at **`~/code/personal/<repo>`** (not under a per-workspace dir) so
 the paths agents read in the repo docs — every `AGENTS.md`/`CLAUDE.md` assumes
-`~/code/personal/…` — actually resolve on the agent box. The workspace *name*
-only names the Remote Control session (`ringtail-<name>`); it is independent of
-where the checkout lives.
+`~/code/personal/…` — actually resolve on the agent box.
 
-### Workspaces
+### The home base: the `agents` repo
 
-| Workspace | Primary repo (cwd) | Also cloned alongside |
-|-----------|--------------------|-----------------------|
-| `hephaestus` | `hephaestus` | `hephaestus.nvim` |
-| `research` | `research` | — |
-| `playground` | *(empty git repo)* | — |
-| `parsimony` | `timberborn-parsimony` | — |
+The session root is the [`agents` repo](https://forge.eblu.me/eblume/agents):
+a small repo whose `AGENTS.md` (with `CLAUDE.md` symlinked to it) carries the
+**base instructions** every remote session wakes up with — the repo map
+(blumeops, hephaestus, research, …), the shared toolbox (heph, mise, uv, op,
+tea, …), and the execution environments (`gilbert`, `ringtail`,
+`ringtail-agent`). Per-repo details stay in each repo's own
+`AGENTS.md`/`CLAUDE.md`, which the session reads after `cd`ing in.
 
-Sibling repos are plain checkouts alongside the primary in `~/code/personal/`;
-the agent can `cd` to them to read/reference. Only the **primary** repo gets
-per-session worktree isolation (that is what `--spawn worktree` operates on).
+Repos cloned by `agent-repos-init`:
 
-**Pool-only checkouts** (currently just `blumeops`) are cloned into
-`~/code/personal/` as well but have **no server of their own** — any session can
-`cd` into them to read or author. See [§blumeops: author-only](#blumeops-author-only-not-a-server).
+| Repo | Role |
+|------|------|
+| `agents` | **Primary** — session cwd, worktree-isolated, base instructions |
+| `hephaestus`, `hephaestus.nvim` | Sibling checkouts |
+| `research` | Sibling checkout |
+| `timberborn-parsimony` | Sibling checkout |
+| `blumeops` | Pool-only, author-only — see [§blumeops](#blumeops-author-only-not-a-server) |
 
-> **blumeops is a pool-only clone, not a workspace.** Agents can author blumeops
-> changes and open PRs as the bot, but cannot deploy — deploys stay on gilbert
-> with biometric `op`. See [§blumeops: author-only](#blumeops-author-only-not-a-server).
+> **Concurrency caveat.** Only the **primary** repo gets per-session worktree
+> isolation (that is what `--spawn worktree` operates on). Sibling checkouts are
+> **shared** between concurrent sessions — the base instructions tell agents to
+> work siblings on a session-named branch (or a manual `git worktree add` into
+> the session's own worktree) so two sessions never fight over a checkout.
 
-### Why per-repo servers
+### Why one home-base server
 
 A Remote Control server is rooted in its start directory; new sessions spawn as
-worktrees of that repo and inherit its `CLAUDE.md`/tooling. So "an agent working
-on hephaestus" is just: open the `ringtail-hephaestus` environment in the app →
-new session → it wakes up in a hephaestus worktree, repo instructions already
-loaded. No clone-and-orient preamble. Idle servers cost nothing (no inference
-until a session is active).
+worktrees of that repo and inherit its `CLAUDE.md`/tooling. The home-base shape
+exploits that once: a session wakes up with the *base* instructions loaded and
+`cd`s to whatever repo the task needs. One environment in the app, one service
+to operate, one trust seed, one place to keep cross-repo instructions — and
+adding a repo to the fleet is a one-line clone entry plus a paragraph in the
+`agents` repo, not a new server. Idle servers cost nothing either way (no
+inference until a session is active).
+
+> **Superseded decision: per-repo servers (2026-07-08 → 2026-07-11).** The
+> first landing ran one server per repo (`ringtail-hephaestus`,
+> `ringtail-research`, `ringtail-playground`, briefly `ringtail-parsimony`) so
+> each session woke up inside its repo with instructions preloaded. In practice
+> the per-repo environment picker added friction (N environments, N services, N
+> trust seeds, duplicated base instructions) for little gain — sessions
+> regularly needed to cross repos anyway. Replaced by the single `agents`
+> home base; the per-repo trick (cwd sets the instruction context) still does
+> the work, just once. The `playground` workspace was dropped outright — a
+> home-base worktree is already a safe scratch space.
 
 ### blumeops: author-only, not a server
 
@@ -190,7 +208,10 @@ read/write the owner's real tasks — this is the point, not a leak. (The blumeo
 1Password vault stays isolated; heph is a separate, deliberately-included
 substrate.)
 
-**Shape (all source-controlled — see `agent-workspaces.nix`):**
+**Shape (all source-controlled — see `agent-workspaces.nix`; the version pin,
+hub/OIDC endpoints, and install/timer/path machinery are shared with Erich's
+own `eblume-heph-spoke` via `heph-common.nix` — see [[ringtail]] §Heph
+Spokes):**
 
 - `agent-heph-install.service` — a oneshot that `cargo install`s `heph`+`hephd`
   at a pinned tag (`hephTag`) using a **mise-resolved** Rust toolchain. nixpkgs'
@@ -224,7 +245,7 @@ See [[bootstrap-agent-workspaces]] for the one-time seeding steps.
 The workspace PATH is a deliberately minimal curated set (op shim, git, ssh, tea,
 coreutils, `~/.cargo/bin`, `~/.local/bin`) — it does **not** include
 `/run/current-system/sw/bin`, so system-wide tools there are invisible to agent
-sessions. The `research` workspace's `compile-report` / `save-session` tasks
+sessions. The `research` repo's `compile-report` / `save-session` tasks
 (`mise run …`, each a `uv run --script` program) therefore need their toolchain
 added explicitly. `agent-workspaces.nix` puts **mise, uv, pandoc, typst, and
 weasyprint** (all nixpkgs builds) on the session PATH.
@@ -272,13 +293,13 @@ token-wasteful always-on pattern is also the fair-use risk.
 - **Deploy:** `mise run provision-ringtail` (writes `/etc/agents/*` secrets via
   ansible, then `nixos-rebuild switch`). First-ever deploy needs the one-time
   [[bootstrap-agent-workspaces]] steps (OAuth login, trust + consent seeding).
-- **Status:** `ssh ringtail 'systemctl status "agent-ws-*"'`
-- **Logs:** `ssh ringtail 'journalctl -u agent-ws-hephaestus -f'` — only errors
+- **Status:** `ssh ringtail 'systemctl status agent-ws-agent'`
+- **Logs:** `ssh ringtail 'journalctl -u agent-ws-agent -f'` — only errors
   (stderr); the Remote Control status TUI (stdout) is discarded to avoid ~1M
-  journal lines/day/workspace. Live session activity is in the app; add
+  journal lines/day. Live session activity is in the app; add
   `--debug-file` to the launcher for deep diagnostics.
-- **Restart a workspace:** `ssh ringtail 'sudo systemctl restart agent-ws-hephaestus'`
-  (ends that workspace's live sessions; the environment reappears in the app).
+- **Restart the workspace:** `ssh ringtail 'sudo systemctl restart agent-ws-agent'`
+  (ends live sessions; the `ringtail-agent` environment reappears in the app).
 
 ## Known warts
 

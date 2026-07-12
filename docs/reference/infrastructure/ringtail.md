@@ -1,6 +1,6 @@
 ---
 title: Ringtail
-modified: 2026-02-22
+modified: 2026-07-11
 tags:
   - infrastructure
   - host
@@ -134,6 +134,38 @@ A private Factorio dedicated server (`services.factorio`, `nixos/ringtail/factor
 | **Access** | guests are *shared* onto ringtail (`autogroup:shared`), granted only `udp:34197` on `tag:factorio` |
 
 Guests are **shared** onto ringtail, never invited as members, so they inherit none of the member-facing services. See [[host-factorio-for-a-guest]] for the onboarding and revocation flow, and [[tailscale]] for the ACL model.
+
+### Heph Spokes
+
+Two `hephd` spokes sync this host to the indri heph hub. They share the version
+pin and install machinery (`nixos/ringtail/heph-common.nix`) but hold different
+login identities and token stores — hephd sockets/dbs are per-user, and keeping
+Erich's access decoupled from the agent kill switches is the point:
+
+| Property | `agent-heph-spoke` | `eblume-heph-spoke` |
+|----------|--------------------|---------------------|
+| **User** | `agent` | `eblume` |
+| **Config** | `agent-workspaces.nix` | `heph-eblume.nix` |
+| **Identity** | `heph-agents` (revocable) | Erich himself |
+| **Token store** | agents 1Password vault (op command store) | `~/.config/heph/hub-token.json` (0600, `--token-file`) |
+
+Both adopt the same hub owner id, so they operate on the same nodes. Each user
+gets its own `heph`/`hephd` at `~/.cargo/bin` via a `*-heph-install` oneshot
+(timer-fired, off the activation path; the spoke starts via a path unit the
+moment the binary lands — see `heph-common.nix` for the quartet).
+
+**One-time seed for the eblume spoke** (interactive, as eblume on ringtail;
+approve in the browser as yourself — no hub-side change needed, you are already
+the hub owner):
+
+```sh
+~/.cargo/bin/heph auth login \
+  --hub-url http://indri.tail8d86e.ts.net:8787 \
+  --issuer https://authentik.ops.eblu.me/application/o/heph/ \
+  --client-id heph --token-file ~/.config/heph/hub-token.json
+```
+
+The agent spoke's seeding is fiddlier — see [[bootstrap-agent-workspaces]] §7.
 
 ## Pinned Service Versions
 

@@ -8,6 +8,7 @@ in
   imports = [
     ./agent-workspaces.nix
     ./factorio.nix
+    ./heph-eblume.nix
   ];
 
   # Allow unfree packages (NVIDIA drivers, Steam)

@@ -16,30 +16,28 @@ let
   claudeBin = "${agentHome}/.local/bin/claude";
   forgeBase = "ssh://forgejo@forge.ops.eblu.me:2222/eblume";
 
-  # Workspace definitions. `primary` is the repo Remote Control roots in (cwd);
-  # `also` are sibling checkouts cloned alongside for reference. A null primary
-  # means an empty git repo (the playground).
-  #
-  # blumeops is deliberately NOT a workspace: real blumeops work needs the whole
-  # blumeops 1Password vault (its ansible pre_tasks and mise tasks `op read`
-  # broadly), and that vault is intentionally the operational-secret blast-radius
-  # boundary — there is no least-privilege subset to hand a service account, and
-  # a headless service account can't do biometric `op`. So blumeops stays a
-  # local-on-gilbert, biometric-`op` job. See agent-workspaces.md §"Why blumeops
-  # is not a workspace".
+  # The single home-base workspace. `primary` is the repo Remote Control roots
+  # in (cwd) — the `agents` repo, whose AGENTS.md carries the base instructions
+  # every remote session wakes up with. `also` are sibling checkouts cloned
+  # alongside for the session to `cd` into. Sessions spawn as worktrees of the
+  # PRIMARY only; siblings are SHARED between concurrent sessions, so the base
+  # instructions tell agents to work siblings on session-named branches.
+  # Per-repo servers were superseded 2026-07-11 — see agent-workspaces.md
+  # §"Why one home-base server".
   workspaces = {
-    hephaestus = { primary = "hephaestus"; also = [ "hephaestus.nvim" ]; };
-    research = { primary = "research"; also = [ ]; };
-    playground = { primary = null; also = [ ]; };
-    # Timberborn mod (Least Actions Challenge). The agent builds against the
-    # game's Managed/ DLLs under /mnt/games (world-readable); launching the
-    # game itself stays a human-session job — see the repo's AGENTS.md.
-    parsimony = { primary = "timberborn-parsimony"; also = [ ]; };
+    agent = {
+      primary = "agents";
+      # timberborn-parsimony builds against the game's Managed/ DLLs under
+      # /mnt/games (world-readable); launching the game itself stays a
+      # human-session job — see that repo's AGENTS.md.
+      also = [ "hephaestus" "hephaestus.nvim" "research" "timberborn-parsimony" ];
+    };
   };
 
   # Pool-only checkouts: cloned into ~/code/personal alongside the workspace
-  # repos, but with NO dedicated Remote Control server. Any workspace session can
-  # `cd` into them to read/edit. blumeops lives here so agents can *author*
+  # repos, but deliberately not in `also` — the distinction is documentation,
+  # not mechanics (both just get cloned). Any session can `cd` into them to
+  # read/edit. blumeops lives here so agents can *author*
   # blumeops changes (it is a public, secret-free repo) and open PRs as the bot —
   # WITHOUT a `ringtail-blumeops` server. This does NOT grant deploy: agents hold
   # neither the blumeops 1Password vault (ansible/argocd creds) nor cluster access
@@ -76,23 +74,11 @@ let
   # use heph for task/context — heph is an in-boundary agentic-workflow substrate,
   # not isolated out (unlike the blumeops vault). See agent-workspaces.md.
   cargoBin = "${agentHome}/.cargo/bin";
-  hephTag = "v1.7.0"; # cargo-installed at this tag by agent-heph-install
-  rustChannel = "stable"; # mise-resolved toolchain — nixpkgs rustc lags heph's floor
-  hephHubUrl = "http://indri.tail8d86e.ts.net:8787"; # spoke sync is HTTP-only
-  hephIssuer = "https://authentik.ops.eblu.me/application/o/heph/";
+  # Shared spoke plumbing (version pin, hub/OIDC endpoints, install machinery) —
+  # heph-eblume.nix builds Erich's own spoke from the same file, so the two
+  # spokes can't drift apart on the heph version.
+  heph = import ./heph-common.nix { inherit pkgs lib; };
   hephTokenRef = "op://agents/heph-spoke-token/token"; # in the agents vault
-  # Anonymous HTTPS clone for the build (public repo) — no SSH host key / bot key,
-  # matching the ansible heph role + hephd self-update (forgeBase is SSH-only).
-  hephRepoHttps = "https://forge.eblu.me/eblume/hephaestus.git";
-  # The hub's single owner id (Erich's heph data). The spoke ADOPTS it so the
-  # agent operates on the *same* nodes as Erich — the `heph-agents` credential is
-  # only the login identity (revocable), not a separate data owner. Not a secret
-  # (it appears in HLCs); nix can't read the vault at eval time anyway.
-  hephOwnerId = "01KT4MYCG6Q45N3MJ665V53AMM";
-
-  # System libraries `cargo install heph hephd` needs to build (dbus for the
-  # compiled-in keyring backend, even though the spoke uses the command store).
-  hephBuildDeps = with pkgs; [ dbus openssl sqlite zlib ];
 
   # Persist the spoke's OIDC token in the agents 1Password vault (no plaintext at
   # rest). Reads the token JSON on stdin (from hephd `--token-save-cmd`) and
@@ -117,37 +103,10 @@ let
     fi
   '';
 
-  # Idempotent install of heph+hephd at ${hephTag}. mise resolves a current rust
-  # toolchain (nixpkgs rustc is behind heph's floor); recompiles only when the
-  # installed version differs from the pin. First run compiles the workspace.
-  hephInstall = pkgs.writeShellScript "agent-heph-install" ''
-    set -eu
-    export HOME=${agentHome}
-    export PATH="${lib.makeBinPath [ pkgs.mise pkgs.gcc pkgs.pkg-config pkgs.binutils pkgs.gnumake pkgs.coreutils pkgs.gitMinimal pkgs.gawk ]}:$PATH"
-    export CC=gcc
-    export PKG_CONFIG_PATH="${lib.makeSearchPath "lib/pkgconfig" (map lib.getDev hephBuildDeps)}"
-    target="${lib.removePrefix "v" hephTag}"
-    have="$(${cargoBin}/hephd --version 2>/dev/null | ${pkgs.gawk}/bin/awk '{print $2}' || true)"
-    if [ "$have" = "$target" ]; then
-      echo "heph $target already installed"; exit 0
-    fi
-    echo "installing heph ${hephTag} (rust@${rustChannel} via mise)…"
-    # Retry: a Type=oneshot won't auto-restart, and the mise toolchain download /
-    # cargo fetch can flake transiently on a cold cache.
-    for attempt in 1 2 3; do
-      if mise x rust@${rustChannel} -- cargo install --locked --force \
-          --git ${hephRepoHttps} --tag ${hephTag} heph hephd; then
-        exit 0
-      fi
-      echo "heph install attempt $attempt failed; retrying in 15s…" >&2
-      sleep 15
-    done
-    echo "heph install failed after 3 attempts" >&2
-    exit 1
-  '';
-
   # The spoke daemon. Shares the default socket/db with agent sessions' `heph`
-  # CLI (same user + HOME), so a session's `heph` talks to this daemon.
+  # CLI (same user + HOME), so a session's `heph` talks to this daemon. The
+  # spoke ADOPTS the hub's owner id: the `heph-agents` credential is only the
+  # login identity (revocable), not a separate data owner.
   hephSpoke = pkgs.writeShellScript "agent-heph-spoke" ''
     export HOME=${agentHome}
     # pkgs.bash provides `sh`: hephd's command token store runs the load/save
@@ -155,13 +114,24 @@ let
     # shell on PATH the token never loads and every hub sync 401s.
     export PATH="${opShim}/bin:${hephTokenSave}/bin:${lib.makeBinPath [ pkgs.jq pkgs.coreutils pkgs.bash ]}:${cargoBin}:$PATH"
     exec ${cargoBin}/hephd --mode local \
-      --hub-url ${hephHubUrl} \
-      --owner-id ${hephOwnerId} \
-      --oidc-issuer ${hephIssuer} \
+      --hub-url ${heph.hubUrl} \
+      --owner-id ${heph.ownerId} \
+      --oidc-issuer ${heph.issuer} \
       --oidc-client-id heph \
       --token-load-cmd "${opShim}/bin/op read ${hephTokenRef}" \
       --token-save-cmd "heph-token-save"
   '';
+
+  # The agent's spoke unit quartet (install oneshot + timer + spoke + path unit)
+  # comes from the shared machinery; only the launcher above is agent-specific.
+  hephStack = heph.mkSpokeStack {
+    prefix = "agent-heph";
+    user = "agent";
+    group = "agent";
+    home = agentHome;
+    spokeExec = hephSpoke;
+    who = "the agent";
+  };
 
   # Repos live at ~/code/personal/<repo> so the paths agents read in the repo
   # docs (every AGENTS.md/CLAUDE.md assumes ~/code/personal/…) actually resolve on
@@ -169,9 +139,8 @@ let
   # (ringtail-<name>) — that is independent of where the checkout lives.
   codeDir = "${agentHome}/code/personal";
   repoDir = repo: "${codeDir}/${repo}";
-  # Remote Control cwd: the primary repo checkout, or the playground dir (named
-  # for the workspace) itself.
-  wsCwd = name: ws: if ws.primary == null then repoDir name else repoDir ws.primary;
+  # Remote Control cwd: the primary repo checkout.
+  wsCwd = ws: repoDir ws.primary;
 
   # Clone-or-update one repo into ~/code/personal.
   cloneRepo = repo: ''
@@ -183,8 +152,7 @@ let
     fi
   '';
 
-  reposForWorkspace = name: ws:
-    (lib.optional (ws.primary != null) ws.primary) ++ ws.also;
+  reposForWorkspace = ws: [ ws.primary ] ++ ws.also;
 
   # Oneshot: prepare every workspace's checkouts before the servers start.
   reposInit = pkgs.writeShellScript "agent-repos-init" ''
@@ -192,16 +160,8 @@ let
     export GIT_SSH_COMMAND="${pkgs.openssh}/bin/ssh -i ${botKey} -o IdentitiesOnly=yes -o UserKnownHostsFile=${knownHosts} -o StrictHostKeyChecking=yes"
     export PATH="${lib.makeBinPath [ pkgs.git pkgs.openssh ]}:$PATH"
     mkdir -p "${codeDir}"
-    ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: ws: ''
-      ${lib.concatMapStringsSep "\n" cloneRepo (reposForWorkspace name ws)}
-      ${lib.optionalString (ws.primary == null) ''
-        if [ ! -d "${wsCwd name ws}/.git" ]; then
-          mkdir -p "${wsCwd name ws}"
-          git -C "${wsCwd name ws}" init --quiet
-          git -C "${wsCwd name ws}" commit --quiet --allow-empty -m "playground" || true
-        fi
-      ''}
-    '') workspaces)}
+    ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: ws:
+      lib.concatMapStringsSep "\n" cloneRepo (reposForWorkspace ws)) workspaces)}
     # Pool-only checkouts (no server); cloned/updated the same way.
     ${lib.concatMapStringsSep "\n" cloneRepo extraRepos}
   '';
@@ -223,7 +183,7 @@ let
     export MISE_TRUSTED_CONFIG_PATHS="${codeDir}"
 
     # Git identity for the bot's commits — without it `git commit` fails with
-    # "Author identity unknown", so hephaestus/research couldn't commit either.
+    # "Author identity unknown", so no repo could commit.
     export GIT_AUTHOR_NAME=agents GIT_AUTHOR_EMAIL=blume.erich+agents@gmail.com
     export GIT_COMMITTER_NAME=agents GIT_COMMITTER_EMAIL=blume.erich+agents@gmail.com
 
@@ -242,7 +202,7 @@ let
     chmod 600 "$tea_tmp"
     mv -f "$tea_tmp" "$HOME/.config/tea/config.yml"
 
-    cd "${wsCwd name ws}"
+    cd "${wsCwd ws}"
     exec ${pkgs.util-linux}/bin/script -qfc \
       "${claudeBin} remote-control --spawn worktree --name ringtail-${name}" /dev/null
   '';
@@ -258,7 +218,7 @@ let
       serviceConfig = {
         User = "agent";
         Group = "agent";
-        WorkingDirectory = wsCwd name ws;
+        WorkingDirectory = wsCwd ws;
         ExecStart = wsRunner name ws;
         Restart = "always";
         RestartSec = 10;
@@ -311,70 +271,12 @@ in
       };
     };
 
-    # Build+install heph/hephd for the agent (mise-resolved rust). Oneshot; first
-    # run compiles the workspace (~tens of min), then it's a version-check no-op.
-    # Triggered by agent-heph-install.timer — deliberately NOT wantedBy a target,
-    # so the long compile never blocks `nixos-rebuild switch` activation.
-    agent-heph-install = {
-      description = "Install heph+hephd for the agent (mise rust + cargo install)";
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        User = "agent";
-        Group = "agent";
-        ExecStart = hephInstall;
-        # First build compiles the whole workspace from a cold cargo cache.
-        TimeoutStartSec = "45min";
-      };
-    };
+  } // hephStack.services
+    // lib.listToAttrs (lib.mapAttrsToList mkWorkspaceService workspaces);
 
-    # The agent's hephd spoke, synced to the indri hub. Started by
-    # agent-heph-spoke.path once the install has produced hephd (NOT wantedBy a
-    # target directly): ConditionPathExists means that before the first build the
-    # unit is cleanly *skipped*, not failed, so `nixos-rebuild switch` doesn't
-    # report a spurious failure during bootstrap.
-    agent-heph-spoke = {
-      description = "Claude Code agent heph spoke (hephd synced to the indri hub)";
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
-      startLimitIntervalSec = 0;
-      unitConfig.ConditionPathExists = "${cargoBin}/hephd";
-      serviceConfig = {
-        User = "agent";
-        Group = "agent";
-        ExecStart = hephSpoke;
-        Restart = "always";
-        RestartSec = 10;
-        StandardOutput = "journal";
-        StandardError = "journal";
-        NoNewPrivileges = true;
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectControlGroups = true;
-      };
-    };
-  } // lib.listToAttrs (lib.mapAttrsToList mkWorkspaceService workspaces);
-
-  # Kick the (potentially long) heph build off the activation path: the timer
-  # fires shortly after boot / switch and triggers agent-heph-install, so
-  # `nixos-rebuild switch` never waits on a cold cargo compile.
-  systemd.timers.agent-heph-install = {
-    description = "Trigger agent-heph-install off the activation path";
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnBootSec = "2min";
-      Persistent = true;
-    };
-  };
-
-  # Start the spoke as soon as the install has produced hephd (and at boot if it
-  # already exists). Pairs with the spoke's ConditionPathExists so bootstrap never
-  # shows a failed unit.
-  systemd.paths.agent-heph-spoke = {
-    description = "Start the heph spoke once hephd is installed";
-    wantedBy = [ "multi-user.target" ];
-    pathConfig.PathExists = "${agentHome}/.cargo/bin/hephd";
-  };
+  # Timer + path unit for the agent's heph spoke (see heph-common.nix for why:
+  # the compile stays off the activation path, and the spoke starts the moment
+  # the install produces hephd — bootstrap never shows a failed unit).
+  systemd.timers = hephStack.timers;
+  systemd.paths = hephStack.paths;
 }

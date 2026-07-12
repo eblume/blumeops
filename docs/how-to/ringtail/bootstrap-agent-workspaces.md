@@ -1,6 +1,6 @@
 ---
 title: Bootstrap Agent Workspaces
-modified: 2026-07-08
+modified: 2026-07-11
 last-reviewed: 2026-07-08
 tags:
   - how-to
@@ -41,12 +41,18 @@ Then, in the Forgejo web UI as an admin:
 
 - Add the **public key** from the `agents-forgejo-bot` vault item (see
   [[agents-forgejo-bot]]) to the `agents` user's SSH keys.
-- Grant the `agents` user **write** on the workspace repos: `hephaestus`,
-  `hephaestus.nvim`, `research` (add as a collaborator, or via a team).
+- Grant the `agents` user **write** on the workspace repos: `agents`,
+  `hephaestus`, `hephaestus.nvim`, `research`, `timberborn-parsimony` (add as a
+  collaborator, or via a team). Any repo `agent-repos-init` clones needs this —
+  a missing grant fails the oneshot and blocks the workspace service.
 
-> **Not `blumeops`.** blumeops is intentionally not an agent workspace (see
-> [[agent-workspaces]] §"Why blumeops is not a workspace"), so the bot needs no
-> write there. If the bot was granted `blumeops`/`project-template`/
+> **`blumeops` is write too, but author-only.** The bot holds write on
+> blumeops so it can push PR branches (granted 2026-07-10 with the author-only
+> pool clone) — but there is deliberately no blumeops workspace server, and
+> write ≠ deploy: the gates are the blumeops 1Password vault and the root-only
+> kubeconfig, not repo permissions. See [[agent-workspaces]] §"blumeops:
+> author-only, not a server". (`project-template` and `adelaide-baby-shower-app`
+> grants from the prototype should stay revoked.) If the bot was granted `blumeops`/`project-template`/
 > `adelaide-baby-shower-app` write during the prototype, **revoke it** — the bot
 > should hold only what a live workspace uses.
 
@@ -125,7 +131,7 @@ shell doesn't have `~/.local/bin` on PATH yet:
 ```fish
 ssh -t ringtail
 sudo -u agent -H -i
-cd ~/code/personal/hephaestus
+cd ~/code/personal/agents
 ~/.local/bin/claude
 ```
 
@@ -149,16 +155,11 @@ the code back), accept the **workspace trust** dialog, then `/exit`.
   needs it re-seeded.
 - **Trust is per-directory** (`~/.claude.json` →
   `projects["<path>"].hasTrustDialogAccepted`). The `/login` above trusts only
-  its own cwd; the `agent-ws-*` services run non-interactively and crash-loop
-  on an untrusted dir. Pre-seed the other workspace cwds instead of logging in
-  to each:
-
-  ```fish
-  # as root; set hasTrustDialogAccepted=true for each remaining workspace cwd,
-  # then: chown agent:agent ~agent/.claude.json && chmod 600 ~agent/.claude.json
-  ```
-
-  (paths: `~agent/code/personal/{hephaestus,research,playground}`)
+  its own cwd — with the single home-base workspace that is the only cwd that
+  needs it (`~agent/code/personal/agents`). If the workspace cwd ever moves,
+  pre-seed the new path (set `hasTrustDialogAccepted=true`, then
+  `chown agent:agent ~agent/.claude.json && chmod 600 ~agent/.claude.json`) or
+  the service crash-loops on the untrusted dir.
 
 ## 6. Start the services
 
@@ -168,9 +169,10 @@ ssh ringtail 'sudo systemctl start "agent-ws-*"'
 ssh ringtail 'systemctl status "agent-ws-*" --no-pager'
 ```
 
-Open the **Code** tab in the Claude mobile app — `ringtail-hephaestus`,
-`ringtail-research`, and `ringtail-playground` should each appear online.
-Tapping one and starting a session spawns an isolated worktree of that repo.
+Open the **Code** tab in the Claude mobile app — `ringtail-agent` should appear
+online. Tapping it and starting a session spawns an isolated worktree of the
+`agents` home-base repo, with the sibling repos alongside at
+`~/code/personal/`.
 
 ## 7. Seed the heph spoke (one-time)
 
