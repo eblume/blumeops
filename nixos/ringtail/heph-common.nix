@@ -24,19 +24,12 @@ rec {
   # compiled-in keyring backend, even where a spoke uses another token store).
   buildDeps = with pkgs; [ dbus openssl sqlite zlib ];
 
-  # The systemd quartet for one user's spoke:
+  # Install units (system scope) for one user's heph toolchain:
   #   <prefix>-install (oneshot)  — idempotent `cargo install` at hephTag via a
   #     mise-resolved rust toolchain; version-checks so re-runs are no-ops.
   #   <prefix>-install (timer)    — fires the install shortly after boot/switch,
   #     keeping the (first-run ~tens of minutes) compile OFF the activation path.
-  #   <prefix>-spoke (service)    — the hephd daemon. ConditionPathExists on the
-  #     hephd binary means pre-install it is cleanly *skipped*, not failed, so
-  #     bootstrap never shows a failed unit.
-  #   <prefix>-spoke (path)       — starts the spoke the moment the install
-  #     produces the binary (and at boot when it already exists).
-  # The caller supplies the spoke launcher (`spokeExec`) since the token store
-  # and PATH needs differ per spoke.
-  mkSpokeStack = { prefix, user, group, home, spokeExec, who }:
+  mkInstallUnits = { prefix, user, group, home, who }:
     let
       cargoBin = "${home}/.cargo/bin";
       install = pkgs.writeShellScript "${prefix}-install" ''
@@ -66,21 +59,49 @@ rec {
       '';
     in
     {
-      services = {
-        "${prefix}-install" = {
-          description = "Install heph+hephd for ${who} (mise rust + cargo install)";
-          after = [ "network-online.target" ];
-          wants = [ "network-online.target" ];
-          serviceConfig = {
-            Type = "oneshot";
-            RemainAfterExit = true;
-            User = user;
-            Group = group;
-            ExecStart = install;
-            # First build compiles the whole workspace from a cold cargo cache.
-            TimeoutStartSec = "45min";
-          };
+      services."${prefix}-install" = {
+        description = "Install heph+hephd for ${who} (mise rust + cargo install)";
+        after = [ "network-online.target" ];
+        wants = [ "network-online.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          User = user;
+          Group = group;
+          ExecStart = install;
+          # First build compiles the whole workspace from a cold cargo cache.
+          TimeoutStartSec = "45min";
         };
+      };
+      timers."${prefix}-install" = {
+        description = "Trigger ${prefix}-install off the activation path";
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnBootSec = "2min";
+          Persistent = true;
+        };
+      };
+    };
+
+  # Full SYSTEM-scope quartet: the install units above plus the spoke service
+  # (ConditionPathExists on the hephd binary, so pre-install it is cleanly
+  # *skipped*, not failed) and a path unit that starts the spoke the moment the
+  # install produces the binary. The caller supplies the spoke launcher
+  # (`spokeExec`) since the token store and PATH needs differ per spoke.
+  #
+  # System scope means NO XDG_RUNTIME_DIR: hephd binds its fallback socket at
+  # ~/.local/share/heph/hephd.sock. That fits the agent (its sessions run inside
+  # the equally env-less workspace service, so CLI and daemon agree) but NOT an
+  # interactive user, whose shells resolve /run/user/<uid>/heph/hephd.sock — an
+  # interactive user's spoke belongs in the systemd USER manager instead (see
+  # heph-eblume.nix).
+  mkSpokeStack = { prefix, user, group, home, spokeExec, who }:
+    let
+      cargoBin = "${home}/.cargo/bin";
+      installUnits = mkInstallUnits { inherit prefix user group home who; };
+    in
+    {
+      services = installUnits.services // {
         "${prefix}-spoke" = {
           description = "heph spoke for ${who} (hephd synced to the indri hub)";
           after = [ "network-online.target" ];
@@ -102,14 +123,7 @@ rec {
           };
         };
       };
-      timers."${prefix}-install" = {
-        description = "Trigger ${prefix}-install off the activation path";
-        wantedBy = [ "timers.target" ];
-        timerConfig = {
-          OnBootSec = "2min";
-          Persistent = true;
-        };
-      };
+      timers = installUnits.timers;
       paths."${prefix}-spoke" = {
         description = "Start ${who}'s heph spoke once hephd is installed";
         wantedBy = [ "multi-user.target" ];

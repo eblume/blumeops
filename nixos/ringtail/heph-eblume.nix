@@ -39,17 +39,50 @@ let
       --token-file ${tokenFile}
   '';
 
-  hephStack = heph.mkSpokeStack {
+  installUnits = heph.mkInstallUnits {
     prefix = "eblume-heph";
     user = "eblume";
     group = "users";
     inherit home;
-    spokeExec = spoke;
     who = "eblume";
   };
 in
 {
-  systemd.services = hephStack.services;
-  systemd.timers = hephStack.timers;
-  systemd.paths = hephStack.paths;
+  # The install oneshot + trigger timer are system units (they need
+  # network-online and don't care about session env).
+  systemd.services = installUnits.services;
+  systemd.timers = installUnits.timers;
+
+  # The spoke itself is a systemd USER service, unlike the agent's: hephd and
+  # the `heph` CLI find each other via the default socket path, which is
+  # XDG_RUNTIME_DIR-dependent. A system service has no XDG_RUNTIME_DIR and
+  # binds the ~/.local/share fallback, while eblume's interactive shells look
+  # in /run/user/1000 — they'd never meet. In the user manager both sides
+  # resolve /run/user/1000/heph/hephd.sock. Lingering keeps the user manager
+  # (and so the spoke) running from boot, no login needed.
+  users.users.eblume.linger = true;
+
+  systemd.user.services.eblume-heph-spoke = {
+    description = "heph spoke for eblume (hephd synced to the indri hub)";
+    unitConfig = {
+      ConditionUser = "eblume";
+      # Skip (cleanly, not failed) until eblume-heph-install produces hephd.
+      ConditionPathExists = "${cargoBin}/hephd";
+    };
+    startLimitIntervalSec = 0;
+    serviceConfig = {
+      ExecStart = spoke;
+      Restart = "always";
+      RestartSec = 10;
+    };
+  };
+
+  # Start the spoke the moment the install produces the binary (and at boot
+  # when it already exists).
+  systemd.user.paths.eblume-heph-spoke = {
+    description = "Start eblume's heph spoke once hephd is installed";
+    unitConfig.ConditionUser = "eblume";
+    wantedBy = [ "default.target" ];
+    pathConfig.PathExists = "${cargoBin}/hephd";
+  };
 }

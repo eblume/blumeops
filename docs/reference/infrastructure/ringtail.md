@@ -148,6 +148,15 @@ Erich's access decoupled from the agent kill switches is the point:
 | **Config** | `agent-workspaces.nix` | `heph-eblume.nix` |
 | **Identity** | `heph-agents` (revocable) | Erich himself |
 | **Token store** | agents 1Password vault (op command store) | `~/.config/heph/hub-token.json` (0600, `--token-file`) |
+| **Unit scope** | system | **user** (`systemctl --user`, linger enabled) |
+
+The scope difference is load-bearing: hephd and the `heph` CLI meet at the
+default socket path, which depends on `XDG_RUNTIME_DIR`. The agent's sessions
+run inside the equally env-less workspace service, so both sides use the
+`~/.local/share/heph` fallback; eblume's *interactive* shells resolve
+`/run/user/1000/heph/hephd.sock`, so his spoke must run in the systemd user
+manager (status/logs: `systemctl --user status eblume-heph-spoke`,
+`journalctl --user -u eblume-heph-spoke`).
 
 Both adopt the same hub owner id, so they operate on the same nodes. Each user
 gets its own `heph`/`hephd` at `~/.cargo/bin` via a `*-heph-install` oneshot
