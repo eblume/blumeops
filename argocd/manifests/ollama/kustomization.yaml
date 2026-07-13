@@ -11,7 +11,7 @@ resources:
 
 images:
   - name: ollama/ollama
-    newTag: "0.20.4"
+    newTag: "0.31.2"
 
 configMapGenerator:
   - name: ollama-models

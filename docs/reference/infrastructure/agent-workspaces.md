@@ -250,6 +250,15 @@ sessions. The `research` repo's `compile-report` / `save-session` tasks
 added explicitly. `agent-workspaces.nix` puts **mise, uv, pandoc, typst, and
 weasyprint** (all nixpkgs builds) on the session PATH.
 
+Alongside the report toolchain the launcher also adds a **general CLI toolbox**
+(`cliTools`: **gawk, jq, curl, python3**) — the staples a plain shell agent
+reaches for to munge text/JSON and write quick scripts. Without them sessions hit
+`command not found` on `awk`/`jq` pipelines and fall back to slower workarounds
+(WebFetch for `curl`, a full `uv run --script` for a `python3` one-liner). `uv`
+is already present for `uv run --script`; `python3` is a bare interpreter for
+one-off snippets and stdlib. All are nixpkgs builds on the curated PATH, so no
+`/run/current-system/sw/bin` exposure is implied.
+
 WeasyPrint is the wrinkle: `compile-report` pip-installs it into uv's *ephemeral*
 venv, and that venv can only render a PDF if WeasyPrint's **native libraries**
 (Pango, HarfBuzz, fontconfig, …) are discoverable. nix store libs live in no

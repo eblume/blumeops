@@ -134,10 +134,15 @@ services:
 
   - name: grafana
     type: argocd
-    last-reviewed: 2026-04-02
-    current-version: "12.4.2"
+    last-reviewed: 2026-07-13
+    current-version: "12.4.5"
     upstream-source: https://github.com/grafana/grafana/releases
-    notes: Home-built container from Alpine; upgraded from Helm to Kustomize
+    notes: >-
+      Home-built container (fetchurl of the upstream dl.grafana.com tarball,
+      autoPatchelf); upgraded from Helm to Kustomize. 2026-07-13: bumped
+      12.4.2 → 12.4.5 (in-minor) for security CVEs (CVE-2026-9029,
+      CVE-2026-33382, CVE-2026-42127); rebuilt via build-container CI and
+      deployed. The 13.x major is a separate, later upgrade.
 
   - name: grafana-sidecar
     type: argocd
@@ -196,10 +201,14 @@ services:
 
   - name: argocd
     type: argocd
-    last-reviewed: 2026-04-07
-    current-version: "v3.3.6"
+    last-reviewed: 2026-07-13
+    current-version: "v3.3.12"
     upstream-source: https://github.com/argoproj/argo-cd/releases
-    notes: Kustomize-based install with ServerSideApply
+    notes: >-
+      Kustomize-based install with ServerSideApply, pinned to the upstream
+      install.yaml at a specific commit. 2026-07-13: bumped v3.3.6 → v3.3.12
+      (in-minor) for CVE-2026-41240 (redoc/dompurify UI bump) plus in-minor
+      bugfixes. The v3.4.x minor is a separate, later upgrade.
 
   - name: blumeops-pg
     type: argocd
@@ -226,10 +235,14 @@ services:
 
   - name: ollama
     type: argocd
-    last-reviewed: "2026-04-09"
-    current-version: "0.20.4"
+    last-reviewed: 2026-07-13
+    current-version: "0.31.2"
     upstream-source: https://github.com/ollama/ollama/releases
-    notes: LLM inference server on ringtail (GPU); upstream container image
+    notes: >-
+      LLM inference server on ringtail (GPU); upstream container image.
+      2026-07-13: bumped 0.20.4 → 0.31.2 (straight upstream image-tag bump,
+      ~12 minors of GPU/flash-attention and model-loading fixes, no called-out
+      breaking changes) and deploy-tested on the GPU node.
 
   - name: navidrome
     type: argocd

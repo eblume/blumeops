@@ -69,6 +69,16 @@ let
   reportTools = with pkgs; [ mise uv pandoc typst python3Packages.weasyprint ];
   reportLibs = with pkgs; [ pango glib harfbuzz fontconfig freetype gdk-pixbuf cairo libffi ];
 
+  # ── general CLI toolbox ────────────────────────────────────────────────────
+  # The staples a plain shell agent reaches for constantly to munge text/JSON and
+  # write quick scripts. Without them sessions fall back to slower workarounds
+  # (WebFetch instead of `curl`, a whole `uv run --script` instead of a `python3`
+  # one-liner) or simply fail on `awk`/`jq` pipelines. `gawk` provides `awk`;
+  # `curl` for HTTP; `jq` for JSON. `python3` is a bare interpreter for one-liners
+  # and stdlib (json, etc.) — `uv` is already on PATH via reportTools for
+  # `uv run --script`, but a plain `python3`/`python` is what one-off snippets want.
+  cliTools = with pkgs; [ gawk jq curl python3 ];
+
   # ── heph spoke ────────────────────────────────────────────────────────────
   # The agent runs a hephd *spoke* synced to the indri hub, so agent sessions can
   # use heph for task/context — heph is an in-boundary agentic-workflow substrate,
@@ -170,7 +180,7 @@ let
   # TTY); the op shim leads PATH so agent sessions get token-injected `op`.
   wsRunner = name: ws: pkgs.writeShellScript "agent-ws-${name}" ''
     export HOME=${agentHome}
-    export PATH="${opShim}/bin:${lib.makeBinPath ([ pkgs.git pkgs.openssh pkgs.coreutils pkgs.tea ] ++ reportTools)}:$HOME/.local/bin:${cargoBin}:$PATH"
+    export PATH="${opShim}/bin:${lib.makeBinPath ([ pkgs.git pkgs.openssh pkgs.coreutils pkgs.tea ] ++ reportTools ++ cliTools)}:$HOME/.local/bin:${cargoBin}:$PATH"
     export GIT_SSH_COMMAND="${pkgs.openssh}/bin/ssh -i ${botKey} -o IdentitiesOnly=yes -o UserKnownHostsFile=${knownHosts} -o StrictHostKeyChecking=yes"
     export CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX=ringtail
 

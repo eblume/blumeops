@@ -9,11 +9,11 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "12.4.2";
+  version = "12.4.5";
 
   src = pkgs.fetchurl {
     url = "https://dl.grafana.com/oss/release/grafana-${version}.linux-amd64.tar.gz";
-    hash = "sha256-8kCyAKgDv2RZL65kUzF1DCaB318HSWdD1xTbEjk6WR8=";
+    hash = "sha256-VnvcMB/lw0Ogc/pkMmtbl41aL4lkUTT7zxC/dBqSCUs=";
   };
 
   grafanaDist = pkgs.stdenv.mkDerivation {
