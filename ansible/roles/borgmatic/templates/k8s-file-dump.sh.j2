@@ -72,22 +72,26 @@ case "$mode" in
         # Force bash on the remote (login shell on ringtail is fish) and pipe
         # the script via stdin to dodge nested quoting. Diagnostics go to
         # stderr so only the backup bytes reach $dump_target.
+        # /etc/rancher/k3s/k3s.yaml is 0600 root:root since ringtail became a
+        # multi-user host (a world-readable kubeconfig is cluster-admin any
+        # local user could grab). eblume can't read it, so reach the cluster
+        # as root via passwordless sudo — root's default k3s kubeconfig is
+        # that file. The file stays locked away from the restricted agent user.
         ssh "$host" bash <<EOF > "$dump_target"
 set -euo pipefail
-export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-pod=\$(k3s kubectl -n "$namespace" get pod -l "$selector" -o jsonpath='{.items[0].metadata.name}')
+pod=\$(sudo k3s kubectl -n "$namespace" get pod -l "$selector" -o jsonpath='{.items[0].metadata.name}')
 newest=""
 while IFS= read -r f; do
     [[ -n "\$f" ]] || continue
     [[ "\$f" == $glob ]] || continue
     [[ "\$f" > "\$newest" ]] && newest="\$f"
-done < <(k3s kubectl -n "$namespace" exec "\$pod" -- ls -1 "$dir")
+done < <(sudo k3s kubectl -n "$namespace" exec "\$pod" -- ls -1 "$dir")
 if [[ -z "\$newest" ]]; then
     echo "borgmatic-k8s-file-dump: no $glob in $dir ($name)" >&2
     exit 1
 fi
 echo "borgmatic-k8s-file-dump: $name -> \$newest" >&2
-k3s kubectl -n "$namespace" exec "\$pod" -- cat "$dir/\$newest"
+sudo k3s kubectl -n "$namespace" exec "\$pod" -- cat "$dir/\$newest"
 EOF
         ;;
     *)

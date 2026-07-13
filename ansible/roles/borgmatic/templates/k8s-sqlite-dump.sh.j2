@@ -56,13 +56,17 @@ case "$mode" in
         # fish). Pipe the script via stdin to dodge nested quoting.
         # The dump bytes come back over the ssh stdout stream — no
         # intermediate scp, no tar requirement in the pod.
+        # /etc/rancher/k3s/k3s.yaml is 0600 root:root since ringtail became a
+        # multi-user host (a world-readable kubeconfig is cluster-admin any
+        # local user could grab). eblume can't read it, so reach the cluster
+        # as root via passwordless sudo — root's default k3s kubeconfig is
+        # that file. The file stays locked away from the restricted agent user.
         ssh "$host" bash <<EOF > "$dump_target"
 set -euo pipefail
-export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-pod=\$(k3s kubectl -n "$namespace" get pod -l "$selector" -o jsonpath='{.items[0].metadata.name}')
-k3s kubectl -n "$namespace" exec "\$pod" -- python3 -c '$python_backup' 1>&2
-k3s kubectl -n "$namespace" exec "\$pod" -- cat "$pod_tmp"
-k3s kubectl -n "$namespace" exec "\$pod" -- rm -f "$pod_tmp" 1>&2
+pod=\$(sudo k3s kubectl -n "$namespace" get pod -l "$selector" -o jsonpath='{.items[0].metadata.name}')
+sudo k3s kubectl -n "$namespace" exec "\$pod" -- python3 -c '$python_backup' 1>&2
+sudo k3s kubectl -n "$namespace" exec "\$pod" -- cat "$pod_tmp"
+sudo k3s kubectl -n "$namespace" exec "\$pod" -- rm -f "$pod_tmp" 1>&2
 EOF
         ;;
     *)
