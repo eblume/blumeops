@@ -176,7 +176,10 @@ echo ""
 echo "Ringtail (not yet covered by alerting):"
 check_service "ssh" "ssh -o ConnectTimeout=5 ringtail true"
 check_service "tailscale" "ssh ringtail 'tailscale status --self --json' | jq -e '.Self.Online' > /dev/null"
-check_service "k3s" "ssh ringtail 'KUBECONFIG=/etc/rancher/k3s/k3s.yaml k3s kubectl get nodes --no-headers | grep -q Ready'"
+# /etc/rancher/k3s/k3s.yaml is 0600 root:root since ringtail became a multi-user
+# host, so read it via `sudo k3s kubectl` (eblume has passwordless sudo; kubeconfig
+# stays locked). `grep -qw` so a NotReady node can't false-pass on the substring.
+check_service "k3s" "ssh ringtail 'sudo k3s kubectl get nodes --no-headers | grep -qw Ready'"
 check_service "k3s-apiserver (remote)" "kubectl --context=k3s-ringtail get --raw /healthz"
 check_service "forgejo-runner" "ssh ringtail 'systemctl is-active gitea-runner-nix_container_builder.service'"
 
