@@ -164,10 +164,16 @@ services:
 
   - name: immich
     type: argocd
-    last-reviewed: 2026-04-04
-    current-version: "v2.6.3"
+    last-reviewed: 2026-07-14
+    current-version: "v3.0.2"
     upstream-source: https://github.com/immich-app/immich/releases
-    notes: Kustomize manifests with upstream images
+    notes: >-
+      Kustomize manifests with upstream images (server + ml-cuda).
+      Upgraded v2.6.3 -> v3.0.2 on 2026-07-14. The v3 pgvecto.rs ->
+      VectorChord break was already satisfied by the ringtail DB
+      (cloudnative-vectorchord:17-0.5.0: vchord 0.5.0, pgvector 0.8.0);
+      v3.0.2 accepts vchord >=0.3 <2 and vector >=0.5 <1, so the bump
+      was a clean tag change with immich's own startup migrations.
 
   - name: valkey
     type: argocd

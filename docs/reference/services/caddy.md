@@ -1,6 +1,7 @@
 ---
 title: Caddy
-modified: 2026-04-18
+modified: 2026-07-14
+last-reviewed: 2026-07-14
 tags:
   - service
   - networking
@@ -48,17 +49,32 @@ K8s services are proxied via their Tailscale Ingress endpoints:
 |-----------|---------|---------|
 | `grafana.ops.eblu.me` | `grafana.tail8d86e.ts.net` | [[grafana]] |
 | `argocd.ops.eblu.me` | `argocd.tail8d86e.ts.net` | [[argocd]] |
-| `cv.ops.eblu.me` | `cv.tail8d86e.ts.net` | [[cv]] |
-| `docs.ops.eblu.me` | `docs.tail8d86e.ts.net` | [[docs]] (now publicly available at `docs.eblu.me` via [[flyio-proxy]]) |
+| `authentik.ops.eblu.me` | `authentik.tail8d86e.ts.net` | [[authentik]] |
+| `photos.ops.eblu.me` | `photos.tail8d86e.ts.net` | [[immich]] |
+| `paperless.ops.eblu.me` | `paperless.tail8d86e.ts.net` | [[paperless]] |
 | `feed.ops.eblu.me` | `feed.tail8d86e.ts.net` | [[miniflux]] |
-| ... | ... | (see defaults/main.yml for full list) |
+| `heph.ops.eblu.me` | `localhost:8787` | hephaestus hub |
+| ... | ... | (see `defaults/main.yml` for the full ~25-service list) |
+
+### Statically-Served Sites
+
+Some sites are served directly by Caddy from disk (`kind: static`, `file_server`) rather than proxied to a backend:
+
+| Subdomain | Root | Site |
+|-----------|------|------|
+| `docs.ops.eblu.me` | `{{ docs_content_dir }}` | [[docs]] (Quartz; also public at `docs.eblu.me` via [[flyio-proxy]]) |
+| `cv.ops.eblu.me` | `{{ cv_content_dir }}` | [[cv]] (serves `resume.pdf` as an attachment download) |
 
 ### TCP Services (Layer 4)
 
 | Port | Backend | Service |
 |------|---------|---------|
 | 2222 | `localhost:2200` | Forgejo SSH |
-| 5432 | `pg.tail8d86e.ts.net:5432` | [[postgresql]] |
+| 5433 | `immich-pg.tail8d86e.ts.net:5432` | [[postgresql]] (immich-pg on ringtail) |
+| 5434 | `blumeops-pg-ringtail.tail8d86e.ts.net:5432` | [[postgresql]] (blumeops-pg on ringtail) |
+| (exporters) | `sifaka:*` | Sifaka node_exporter + smartctl_exporter |
+
+> Port `5432 → pg.tail8d86e.ts.net` (minikube blumeops-pg) was retired with the cluster — see [[retire-minikube]].
 
 ## Configuration
 

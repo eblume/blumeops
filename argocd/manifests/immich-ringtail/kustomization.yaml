@@ -17,10 +17,10 @@ resources:
 
 images:
   - name: ghcr.io/immich-app/immich-server
-    newTag: v2.6.3
+    newTag: v3.0.2
   - name: ghcr.io/immich-app/immich-machine-learning
     # CUDA variant of the same release — ringtail has an RTX 4080
-    newTag: v2.6.3-cuda
+    newTag: v3.0.2-cuda
   # amd64 valkey built via nix on the ringtail nix-container-builder
   # (see containers/valkey/default.nix). The Alpine container.py build
   # is arm64-only and serves paperless on indri.
