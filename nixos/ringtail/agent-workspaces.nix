@@ -79,6 +79,26 @@ let
   # `uv run --script`, but a plain `python3`/`python` is what one-off snippets want.
   cliTools = with pkgs; [ gawk jq curl python3 ];
 
+  # ── native build toolchain ────────────────────────────────────────────────
+  # Interactive sessions had no C toolchain, so `cargo build` (and anything that
+  # links) failed with `linker `cc` not found`: the heph *install* oneshot has
+  # its own gcc/pkg-config env (hephBuildDeps, below), but sessions did not.
+  # Surface a real toolchain so agents can build & verify Rust — notably the
+  # `gamedev` Bevy project. Rust itself still comes from mise (nixpkgs rustc lags,
+  # same as the heph install); this just supplies the linker + pkg-config. Running
+  # a windowed Bevy app needs a GPU/display this headless box lacks, but
+  # `cargo build`/`cargo check` verification works.
+  buildTools = with pkgs; [ gcc binutils pkg-config gnumake ];
+  # Bevy's Linux native deps. alsa (audio) & udev (gamepad) are pkg-config-probed
+  # at build time; the windowing/graphics libs (wayland, xkbcommon, vulkan, X11,
+  # GL) are dlopen'd at run time. Expose the dev outputs to pkg-config (build) and
+  # the runtime libs to the loader — the same trick reportLibs uses for WeasyPrint.
+  gameBuildDeps = with pkgs; [ alsa-lib udev ];
+  gameLibs = with pkgs; [
+    alsa-lib udev vulkan-loader libxkbcommon wayland libGL
+    xorg.libX11 xorg.libXcursor xorg.libXi xorg.libXrandr
+  ];
+
   # ── heph spoke ────────────────────────────────────────────────────────────
   # The agent runs a hephd *spoke* synced to the indri hub, so agent sessions can
   # use heph for task/context — heph is an in-boundary agentic-workflow substrate,
@@ -180,7 +200,7 @@ let
   # TTY); the op shim leads PATH so agent sessions get token-injected `op`.
   wsRunner = name: ws: pkgs.writeShellScript "agent-ws-${name}" ''
     export HOME=${agentHome}
-    export PATH="${opShim}/bin:${lib.makeBinPath ([ pkgs.git pkgs.openssh pkgs.coreutils pkgs.tea ] ++ reportTools ++ cliTools)}:$HOME/.local/bin:${cargoBin}:$PATH"
+    export PATH="${opShim}/bin:${lib.makeBinPath ([ pkgs.git pkgs.openssh pkgs.coreutils pkgs.tea ] ++ reportTools ++ cliTools ++ buildTools)}:$HOME/.local/bin:${cargoBin}:$PATH"
     export GIT_SSH_COMMAND="${pkgs.openssh}/bin/ssh -i ${botKey} -o IdentitiesOnly=yes -o UserKnownHostsFile=${knownHosts} -o StrictHostKeyChecking=yes"
     export CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX=ringtail
 
@@ -191,6 +211,14 @@ let
     # Pre-trust the agent's own repo mise configs so `mise run …` never blocks on
     # an interactive trust prompt.
     export MISE_TRUSTED_CONFIG_PATHS="${codeDir}"
+
+    # Native build toolchain env (see buildTools/gameBuildDeps/gameLibs). cargo
+    # needs a linker; Bevy's sys crates pkg-config-probe alsa/udev at build, and
+    # its windowing/graphics libs are dlopen'd at run — expose both. Prepends to
+    # the report LD_LIBRARY_PATH set just above.
+    export CC=gcc
+    export PKG_CONFIG_PATH="${lib.makeSearchPath "lib/pkgconfig" (map lib.getDev gameBuildDeps)}''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+    export LD_LIBRARY_PATH="${lib.makeLibraryPath gameLibs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
     # Git identity for the bot's commits — without it `git commit` fails with
     # "Author identity unknown", so no repo could commit.

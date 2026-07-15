@@ -275,6 +275,32 @@ stalls on an interactive trust prompt.
 > already patched. The task's goal — the report tasks run unchanged — is met by
 > the nix PATH, not a mise config.
 
+## Build toolchain
+
+The curated PATH also omitted a **C toolchain**, so `cargo build` — and anything
+that links a native binary — failed in a session with ``linker `cc` not found``.
+The heph *install* oneshot sidesteps this with its own `gcc`/`pkg-config` env
+(`hephBuildDeps`), but interactive sessions inherited none of it, so agents could
+not compile or verify Rust they authored.
+
+The launcher now adds **`buildTools`** (`gcc`, `binutils`, `pkg-config`,
+`gnumake`) to the session PATH and exports `CC=gcc`. Rust itself still comes from
+**mise** (`rust@stable`) — nixpkgs' `rustc` lags, exactly as for the heph install
+— so this change supplies only the linker and pkg-config that mise's toolchain
+needs to actually build.
+
+For the `gamedev` **Bevy** project specifically, the launcher also exposes Bevy's
+Linux native deps the same way the report toolchain exposes WeasyPrint's: `alsa`
+and `udev` (pkg-config-probed at build) go on `PKG_CONFIG_PATH` via
+`gameBuildDeps`, and the windowing/graphics libs that Bevy `dlopen`s at run time
+(`vulkan-loader`, `libxkbcommon`, `wayland`, `libGL`, and the core `xorg`
+client libs) go on `LD_LIBRARY_PATH` via `gameLibs`.
+
+> This lets agents `cargo build`/`cargo check` to verify their work. It does
+> **not** make the headless box *run* a windowed Bevy app — there is no GPU or
+> display — so actually playtesting a build stays a human job on gilbert/ringtail,
+> consistent with the timberborn-parsimony playtest rule.
+
 ## Authentication
 
 Remote Control requires a **claude.ai subscription OAuth login** (not an API
