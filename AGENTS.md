@@ -8,44 +8,31 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 
 **CRITICAL: Public repo at github.com/eblume/blumeops - never commit secrets!**
 
-**Shell:** The user's interactive shell may differ from the current harness shell. Prefer repo-safe, non-interactive commands when possible, and match the user's shell conventions when giving interactive examples.
+**Shell:** The user's interactive shell may differ from the current harness
+shell, but the user's preferred shell is fish. Configuration is managed by
+chezmoi.
+
+** Environment:** Agent's harness could be running either interactively from
+various hosts (gilbert (macos/arm64) or ringtail (nixos/amd64)), or it could be
+running in a remote-agent session on ringtail with restricted access to
+infrastructure. When running as a remote-agent, agents work product should be
+gitops (PRs typically preferred, some branches protected), with user-executed
+deployment actions. When operating outside of remote-agent, it's OK to use "op"
+to query for secrets to assist in deployment directly, because the user will
+need to confirm through biometric approval.
 
 ## Rules
 
-1. **Start every task by finding and reading the relevant docs**
-    Search `docs/` for cards related to the change area (grep for titles/tags, follow `[[wiki-links]]`) and read what you find before acting. Wiki-links refer to cards under `docs/` by filename stem.
-    For problems with a very large surface area, `mise run ai-sources` concatenates all non-doc source files (~270K tokens) — opt-in only, confirm with the user before loading it wholesale; targeted reading is usually better.
-2. **Always use `--context=k3s-ringtail` with kubectl** — it is the only blumeops cluster (minikube on indri was retired 2026-06, see [[retire-minikube]]); work contexts must never be touched
-3. **Classify the change as C0/C1/C2 before starting** (see below) — this determines branching and PR requirements
-4. **Feature branches + PRs for C1/C2** - checkout main, pull, create branch, open PR via `tea pr create`. C0 goes direct to main.
-5. **Check PR comments with `mise run pr-comments <pr_number>`** before proceeding
-6. **Add changelog fragments (all change levels)** - `docs/changelog.d/<name>.<type>.md`
+1. **Start every task by finding and reading the relevant docs and context**.
+2. **Feature branches + PRs** - checkout main, pull, create branch, open PR via
+   `tea pr create`. Before working, start by verifying you are up to date.
+3. Create, use, and modify tooling via the `mise run` system to provide tooling for users and agents.
+4. **Add changelog fragments (all change levels)** - `docs/changelog.d/<name>.<type>.md`
     Types: `feature`, `bugfix`, `infra`, `doc`, `ai`, `misc`
-    Applies to C0, C1, and C2 whenever the change is user-visible or noteworthy.
-    - **C1/C2:** Use branch name: `<branch>.<type>.md`
-    - **C0:** Use orphan prefix: `+<descriptive-slug>.<type>.md` (avoids `main.*` collisions)
-7. **Test before applying** - dry runs (`--check --diff`), syntax checks, `ssh indri '...'`
-8. **Wait for user review before deploying** (C1/C2)
-9. **Never merge PRs or push to main without explicit request** (C0 commits to main are fine)
-10. **Verify deployments** - `mise run services-check`
-
-## Change Classification
-
-Before starting work, classify the change:
-
-| Class | Name | When to use | Key trait |
-|-------|------|-------------|-----------|
-| **C0** | Quick Fix | Small, low-risk, fix-forward safe | Direct to main, no PR |
-| **C1** | Human Review | Moderate complexity or risk | Feature branch + PR, docs-first |
-| **C2** | Mikado Chain | Multi-phase, multi-session, high complexity | Mikado Branch Invariant |
-
-**C0** — commit directly to main. No branch or PR needed. Fix forward if problems arise.
-
-**C1** — feature branch with early PR. Search related docs first, write documentation changes before code, deploy from the unmerged branch (ArgoCD `--revision`, Ansible from checkout). Upgrade to C2 if complexity spirals.
-
-**C2** — branch `mikado/<chain-stem>` governed by the Mikado Branch Invariant: all card commits first, then code progress, then card closures. Commits use `C2(<chain>): plan/impl/close/finalize` convention. Reset the branch when new prerequisites are discovered. Resume with `mise run docs-mikado --resume`.
-
-See [[agent-change-process]] for the full methodology.
+    - **Feature branch/PR** Use branch name: `<branch>.<type>.md`
+    - **Direct to main:** Use orphan prefix: `+<descriptive-slug>.<type>.md` (avoids `main.*` collisions)
+5. Create, use, and modify forgejo workflows to enforce PR validity.
+6. **Verify deployments** - `mise run services-check`
 
 ## Project Structure
 
@@ -65,7 +52,6 @@ See [[agent-change-process]] for the full methodology.
 ~/code/personal/        # user's projects
 ~/code/personal/zk      # user's zettelkasten (Obsidian-sync). Reference-data source; migrating into heph docs (hephaestus).
 ~/code/3rd/             # mirrored external projects
-~/code/work             # FORBIDDEN
 ```
 This is just an overview — explore `docs/` for the rest. When you
 encounter wiki-links (`[[like-this]]`) it is referring to docs/ cards.
@@ -152,7 +138,7 @@ Create a new spork: `mise run spork-create <mirror-name>`
 BlumeOps tasks live in [hephaestus](https://github.com/eblume/hephaestus) (`heph`),
 the user's self-hosted context/task system. The CLI is a thin client of the
 local `hephd` daemon. (This replaced the retired `blumeops-tasks` mise task,
-which read from Todoist.)
+which read from Todoist.) If this agent doesn't have access to heph, there is a problem, and the agent should propose a fix to add it depending on the current context.
 
 ### Reading tasks
 
@@ -193,9 +179,11 @@ development processes and operations - tools for the user or the agent.
 
 ## Credentials
 
-Root store is 1Password. Never grab directly - use existing patterns (ansible
+Root store is 1Password. Never expose directly - use existing patterns (ansible
 pre_tasks, external-secrets, scripts with `op` CLI). It's ok to use `op item
 get` without `--reveal` to explore what secrets are available, however.
 
 Prefer `op read "op://vault/item/field"` over `op item get --fields` to avoid
 quoting issues with multi-line values.
+
+remote-agent sessions operate with a restricted service token that provides access only to the "agents" vault. Some scripts will fail to work - it is OK to propose changes to the workflow or to request new credentials to accomplish the goal, but this must always involve user approval by design.
