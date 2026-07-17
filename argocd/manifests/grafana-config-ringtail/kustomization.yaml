@@ -29,6 +29,7 @@ resources:
   - dashboards/configmap-tempo.yaml
   - dashboards/configmap-alerts.yaml
   - dashboards/configmap-snowflake-proxy.yaml
+  - dashboards/configmap-service-health.yaml
   # TeslaMate dashboards are fetched by the init-teslamate-dashboards init
   # container in the Grafana deployment, sourced from mirrors/teslamate on forge.
   # See argocd/manifests/grafana/deployment.yaml for the version pin.

@@ -225,9 +225,17 @@ services:
 
   - name: authentik
     type: argocd
-    last-reviewed: "2026-04-08"
-    current-version: "2026.2.2"
+    last-reviewed: "2026-07-17"
+    current-version: "2026.2.6"
     upstream-source: https://github.com/goauthentik/authentik/releases
+    notes: >-
+      2026-07-17 review (remote-agent): bumped 2026.2.2 → 2026.2.6 (latest
+      patch on the current train; source bump of the nix-built container via
+      Build Container CI dispatch). go.mod/go.sum unchanged so vendorHash and
+      the client-go pin (v3.2026.2.1) carry over; uv.lock and
+      web/package-lock.json changed, so python-deps/webui-deps FOD hashes
+      were re-discovered via the CI TOFU loop. Upstream latest is 2026.5.5 —
+      the train jump is a separate task (review migration notes first).
 
   - name: authentik-redis
     type: argocd

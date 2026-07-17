@@ -1,0 +1,182 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-service-health
+  namespace: monitoring
+  annotations:
+    grafana_folder: "Service Health"
+  labels:
+    grafana_dashboard: "1"
+data:
+  service-health.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Deployments with fewer available replicas than desired",
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": { "mode": "absolute", "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ] },
+              "unit": "short"
+            }
+          },
+          "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+          "id": 1,
+          "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "value_and_name" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_deployment_status_replicas_available < kube_deployment_spec_replicas) or vector(0)", "instant": true, "refId": "A" }],
+          "title": "Degraded deployments",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Containers stuck waiting: CrashLoopBackOff, image pull failures, container errors",
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": { "mode": "absolute", "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ] },
+              "unit": "short"
+            }
+          },
+          "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+          "id": 2,
+          "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "value_and_name" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(kube_pod_container_status_waiting_reason{reason=~\"ImagePullBackOff|ErrImagePull|CrashLoopBackOff|CreateContainerError|RunContainerError\"} == 1) or vector(0)", "instant": true, "refId": "A" }],
+          "title": "Containers stuck waiting",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Total container restarts across the cluster in the last hour",
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": { "mode": "absolute", "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1 },
+                { "color": "red", "value": 5 }
+              ] },
+              "unit": "short",
+              "decimals": 0
+            }
+          },
+          "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+          "id": 3,
+          "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "value_and_name" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(increase(kube_pod_container_status_restarts_total[1h])) or vector(0)", "instant": true, "refId": "A" }],
+          "title": "Container restarts (1h)",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Prometheus scrape targets currently down",
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": { "mode": "absolute", "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ] },
+              "unit": "short"
+            }
+          },
+          "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+          "id": 4,
+          "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "value_and_name" },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "count(up == 0) or vector(0)", "instant": true, "refId": "A" }],
+          "title": "Scrape targets down",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Deployments with unavailable replicas right now. Empty table = all healthy.",
+          "fieldConfig": {
+            "defaults": {
+              "custom": { "align": "auto", "filterable": false },
+              "thresholds": { "mode": "absolute", "steps": [ { "color": "text", "value": null } ] },
+              "unit": "short"
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+          "id": 5,
+          "options": { "showHeader": true },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "kube_deployment_status_replicas_unavailable > 0", "format": "table", "instant": true, "refId": "A" }],
+          "title": "Degraded deployments (empty = healthy)",
+          "transformations": [{ "id": "organize", "options": { "excludeByName": { "Time": true, "job": true, "instance": true, "__name__": true }, "renameByName": { "Value": "unavailable replicas" } } }],
+          "type": "table"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "StatefulSets with not-ready replicas right now. Empty table = all healthy.",
+          "fieldConfig": {
+            "defaults": {
+              "custom": { "align": "auto", "filterable": false },
+              "thresholds": { "mode": "absolute", "steps": [ { "color": "text", "value": null } ] },
+              "unit": "short"
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+          "id": 6,
+          "options": { "showHeader": true },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "(kube_statefulset_status_replicas - kube_statefulset_status_replicas_ready) > 0", "format": "table", "instant": true, "refId": "A" }],
+          "title": "Degraded statefulsets (empty = healthy)",
+          "transformations": [{ "id": "organize", "options": { "excludeByName": { "Time": true, "job": true, "instance": true, "__name__": true }, "renameByName": { "Value": "not-ready replicas" } } }],
+          "type": "table"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Container restarts per namespace (10m windows)",
+          "fieldConfig": {
+            "defaults": {
+              "custom": { "drawStyle": "line", "fillOpacity": 0, "lineWidth": 2, "pointSize": 8, "showPoints": "never", "spanNulls": true },
+              "thresholds": { "mode": "absolute", "steps": [ { "color": "text", "value": null } ] },
+              "unit": "short"
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+          "id": 7,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (namespace) (increase(kube_pod_container_status_restarts_total[10m])) > 0", "legendFormat": "{{namespace}}", "refId": "A" }],
+          "title": "Container restarts by namespace",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Pods reporting not-ready, by namespace",
+          "fieldConfig": {
+            "defaults": {
+              "custom": { "drawStyle": "line", "fillOpacity": 0, "lineWidth": 2, "pointSize": 8, "showPoints": "never", "spanNulls": true },
+              "thresholds": { "mode": "absolute", "steps": [ { "color": "text", "value": null } ] },
+              "unit": "short"
+            }
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+          "id": 8,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+          "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (namespace) (kube_pod_status_ready{condition=\"false\"}) > 0", "legendFormat": "{{namespace}}", "refId": "A" }],
+          "title": "Pods not ready by namespace",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "1m",
+      "schemaVersion": 39,
+      "tags": ["blumeops", "health"],
+      "templating": { "list": [] },
+      "time": { "from": "now-6h", "to": "now" },
+      "timezone": "browser",
+      "title": "Service Health",
+      "uid": "service-health",
+      "version": 1
+    }

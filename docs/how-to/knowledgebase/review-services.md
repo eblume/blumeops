@@ -1,6 +1,6 @@
 ---
 title: Review Services
-modified: 2026-06-17
+modified: 2026-07-17
 last-reviewed: 2026-04-12
 tags:
   - how-to
@@ -113,6 +113,39 @@ Existing attached services: `grafana-sidecar`, `authentik-redis`.
 ## Version Tracking Convention
 
 The `current-version` field in `service-versions.yaml` tracks the **upstream application version**, not the container image tag. For services with custom-built containers, the container image tag (e.g., `v1.0.0`) is decoupled from the contained app version (e.g., `v1.10.1`). This allows container rebuilds (base image updates, build fixes) without implying an upstream version change.
+
+## Scope: One Service Per Review
+
+The recurring review task covers the **single most-stale service** — the one
+`mise run service-review` surfaces in "Up For Review" — and the review
+**includes performing the upgrade**, not just flagging it. Stamp
+`last-reviewed` only for services actually reviewed-and-bumped; leave the
+rest in the queue for future runs. If the upgrade is genuinely out of scope
+for one sitting (e.g. a major train jump with migrations), do the largest
+safe step now (such as the latest patch on the current train) and file the
+rest as its own heph task, noting why in `notes`.
+
+## Remote-Agent Reviews
+
+Remote-agent sessions run the same loop by PR, with CI doing anything that
+needs nix or a builder:
+
+1. Work on a `recurring-reviews-YYYY-MM-DD` branch; the deliverable is a PR
+   containing the version bump.
+2. Check upstream versions without a browser: `curl` the GitHub API
+   (`https://api.github.com/repos/<owner>/<repo>/releases/latest`) or PyPI
+   (`https://pypi.org/pypi/<pkg>/json`).
+3. Upstream-image services: bump the image tag in the manifest directly.
+   Nix-built containers: bump the version/rev pins, set changed fetch/FOD
+   hashes to `pkgs.lib.fakeHash`, and ask the human to dispatch the
+   **Build Container** workflow on the branch — each failed build reveals
+   the next real hash (TOFU), patch it in and re-dispatch. After a green
+   build, point the manifest `newTag` at the pushed
+   `v<version>-<sha7>-nix` tag.
+4. Stamp `last-reviewed`, update `current-version`, and record findings in
+   `notes` (date-prefixed, e.g. `2026-07-17 review: …`).
+5. Deploy-testing and `argocd app sync` stay human-side, from the PR branch
+   or after merge.
 
 ## Marking a Service as Reviewed
 

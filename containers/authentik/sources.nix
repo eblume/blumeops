@@ -1,9 +1,9 @@
-# Centralized version and source pinning for authentik 2026.2.2
+# Centralized version and source pinning for authentik 2026.2.6
 # All sources fetched from forge mirrors for supply chain control
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "2026.2.2";
+  version = "2026.2.6";
 in
 {
   inherit version;
@@ -12,7 +12,7 @@ in
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/authentik.git";
     rev = "version/${version}";
-    hash = "sha256-Xq7JGI/8ppIydIuWd9KRJKUrh7UpeniwvZ4NAtXbYJ4=";
+    hash = "sha256-1OSG3kfsxXYD1riuBgE+MxmkkbktsZAH5kRcjyBb7xM=";
   };
 
   # Go API client repo — provides config.yaml, go.mod, go.sum, templates

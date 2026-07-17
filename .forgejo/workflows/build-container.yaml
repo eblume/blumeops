@@ -107,8 +107,49 @@ jobs:
         run: |
           echo "Building containers/${{ matrix.container }}/default.nix"
           echo "NIX_PATH=$NIX_PATH"
-          nix-build "containers/${{ matrix.container }}/default.nix" -o result
+          # Tee the build output so the failure-report step below can read it.
+          set -o pipefail
+          nix-build "containers/${{ matrix.container }}/default.nix" -o result 2>&1 \
+            | tee /tmp/nix-build.log
           echo "Build complete: $(readlink result)"
+
+      - name: Report build failure to PR
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Post the tail of the nix build log as a comment on the open PR for
+          # this branch (if any). This makes hash-TOFU rounds readable without
+          # runner-log access — remote-agent sessions drive rebuilds from the
+          # PR comment alone (nix prints 'specified:'/'got:' hash mismatches).
+          [ -f /tmp/nix-build.log ] || { echo "no build log captured"; exit 0; }
+          BRANCH="${GITHUB_REF_NAME}"
+          API="${GITHUB_SERVER_URL:-https://forge.eblu.me}/api/v1"
+          REPO="${{ github.repository }}"
+
+          PR_INDEX=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "$API/repos/$REPO/pulls?state=open&limit=50" \
+            | jq -r --arg ref "$BRANCH" '.[] | select(.head.ref == $ref) | .number' | head -1)
+          if [ -z "$PR_INDEX" ]; then
+            echo "No open PR for branch $BRANCH; skipping comment"
+            exit 0
+          fi
+
+          {
+            echo "**Build Container failed** — \`${{ matrix.container }}\` on \`$BRANCH\` (run ${GITHUB_RUN_NUMBER})"
+            echo ""
+            echo '```'
+            grep -E "hash mismatch|specified:|got:|error:" /tmp/nix-build.log | tail -20
+            echo '---'
+            tail -30 /tmp/nix-build.log
+            echo '```'
+          } > /tmp/pr-comment.md
+
+          jq -n --rawfile body /tmp/pr-comment.md '{body: $body}' \
+            | curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
+                -H "Content-Type: application/json" -d @- \
+                "$API/repos/$REPO/issues/$PR_INDEX/comments" \
+            | jq -r '"Commented: " + (.html_url // .message)'
 
       - name: Push to registry
         env:

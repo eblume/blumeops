@@ -203,12 +203,15 @@ def show_jobs(run_number: int, repo: str, token: str, console: Console) -> None:
 
 
 def fetch_log(run_number: int, job_index: int, repo: str, token: str) -> None:
-    """Fetch logs for a specific job via SSH to indri.
+    """Fetch logs for a specific job via the Forgejo web log route.
 
-    Forgejo stores action logs as zstd-compressed files on disk at
-    ~/forgejo/data/actions_log/{owner}/{repo}/{hex_prefix}/{task_id}.log.zst
-    regardless of which runner executed the job.  The web log endpoint doesn't
-    support API-token auth for private repos, so we read the files directly.
+    The REST API (checked against Forgejo 15 swagger) still has no job-logs
+    endpoint, but the web route
+    /{repo}/actions/runs/{run}/jobs/{job}/attempt/{n}/logs serves the raw log
+    and accepts normal API-token auth. It reads from log storage or from the
+    pending dbfs buffer transparently, and works from any host that can reach
+    the forge — including remote-agent sessions with no ssh access to indri.
+    Attempts are probed upward; the latest attempt's log wins.
     """
     tasks = fetch_tasks(repo, token)
     jobs = sorted(
@@ -226,47 +229,35 @@ def fetch_log(run_number: int, job_index: int, repo: str, token: str) -> None:
         raise typer.Exit(1)
 
     task_id = jobs[job_index]["id"]
-    hex_prefix = f"{task_id & 0xff:02x}"
-    log_path = f"~/forgejo/data/actions_log/{repo}/{hex_prefix}/{task_id}.log.zst"
+    web_url = f"{FORGE_URL}/{repo}/actions/runs/{run_number}/jobs/{job_index}"
 
-    # indri's login shell (fish) silently swallows SSH exit codes, so we can't
-    # rely on returncode. zstdcat itself also exits 0 with a "can't stat ...
-    # -- ignored" stderr message when the file is missing. Detect missing logs
-    # by running `test -f` over SSH and parsing the marker line from stdout.
-    probe = subprocess.run(
-        ["ssh", "indri", f"test -f {log_path} && echo EXISTS || echo MISSING"],
-        capture_output=True,
-        text=True,
-    )
-    marker = probe.stdout.strip().splitlines()[-1] if probe.stdout.strip() else ""
-    if marker != "EXISTS":
-        typer.echo(
-            f"Error: log not found for run #{run_number} job {job_index} (task {task_id})",
-            err=True,
+    # Re-runs create new attempts; probe upward and keep the latest 200.
+    # Attempt numbers are dense starting at 1, so stop at the first miss.
+    log_text: str | None = None
+    last_status = 0
+    attempt = 1
+    while attempt <= 50:
+        resp = httpx.get(
+            f"{web_url}/attempt/{attempt}/logs",
+            headers=auth_headers(token),
+            timeout=30,
+            follow_redirects=True,
         )
-        typer.echo(f"Path: indri:{log_path}", err=True)
-        typer.echo(
-            "The runner may have crashed before uploading its log buffer "
-            "(action_task.log_in_storage = 0).",
-            err=True,
-        )
-        raise typer.Exit(1)
+        last_status = resp.status_code
+        if resp.status_code != 200:
+            break
+        log_text = resp.text
+        attempt += 1
 
-    result = subprocess.run(
-        ["ssh", "indri", f"zstdcat {log_path}"],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0 or not result.stdout:
+    if log_text is None:
         typer.echo(
-            f"Error: could not read log for run #{run_number} job {job_index} (task {task_id})",
+            f"Error: no log available for run #{run_number} job {job_index} "
+            f"(task {task_id}, HTTP {last_status}).",
             err=True,
         )
-        typer.echo(f"Path: indri:{log_path}", err=True)
-        if result.stderr.strip():
-            typer.echo(result.stderr.strip(), err=True)
+        typer.echo(f"Check the web UI: {web_url}", err=True)
         raise typer.Exit(1)
-    sys.stdout.write(result.stdout)
+    sys.stdout.write(log_text)
 
 
 @app.command()

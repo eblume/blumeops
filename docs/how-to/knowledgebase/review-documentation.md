@@ -1,6 +1,6 @@
 ---
 title: Review Documentation
-modified: 2026-02-09
+modified: 2026-07-17
 last-reviewed: 2026-03-07
 tags:
   - how-to
@@ -92,6 +92,14 @@ mise run dns-preview      # DNS (Gandi)
 
 If changes are pending, investigate whether docs or infrastructure is stale.
 
+### From a Remote-Agent Session
+
+Remote-agent sessions can't run the live checks above (no `argocd`,
+`kubectl`, ansible, or pulumi access). Verify the card against **repo
+state** instead — manifests under `argocd/`, roles under `ansible/`,
+`service-versions.yaml` — and note in the PR which claims could not be
+verified against the deployed cluster.
+
 ## Visual Preview
 
 After reviewing and editing a card, visually verify the rendered output. This step is for the human reviewer — build the full Quartz docs site locally and open directly to the card:
@@ -104,10 +112,15 @@ This builds the docs with Dagger, serves them on `localhost:8484`, and opens the
 
 ## Making Changes
 
-If a card needs updates, classify the change (see [[agent-change-process]]):
+If a card needs updates:
 
-- **C0 (small fix):** Edit, commit directly to main
-- **C1/C2 (larger changes):** Create a feature branch and PR
+- **Interactive session, small fix:** edit and commit directly to main
+  (orphan-prefixed changelog fragment).
+- **Anything larger, and all remote-agent work:** feature branch + PR via
+  `tea pr create`.
+
+(The older C0/C1/C2 classification described in [[agent-change-process]] has
+been retired from AGENTS.md in favor of this simpler split.)
 
 Link validation runs automatically via prek on commit.
 

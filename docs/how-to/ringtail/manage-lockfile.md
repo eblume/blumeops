@@ -1,7 +1,7 @@
 ---
 title: Manage Ringtail Lockfile
-modified: 2026-03-27
-last-reviewed: 2026-07-01
+modified: 2026-07-17
+last-reviewed: 2026-07-17
 tags:
   - how-to
   - ringtail
@@ -29,6 +29,17 @@ mise run provision-ringtail
 ```
 
 After deploying, continue with [post-deploy maintenance](#post-deploy-maintenance).
+
+### From a Remote-Agent Session
+
+Remote-agent sessions have no nix, dagger, or deploy access, so the update
+runs in CI instead: the agent opens a branch/PR, then a human dispatches the
+**Ringtail Flake Update** workflow (Actions > Ringtail Flake Update > Run
+workflow, selecting the PR branch). The workflow runs the same dagger
+`flake-update` pipeline on the runner and pushes the refreshed `flake.lock`
+as a commit on that branch for review. After merge, a human deploys with
+`mise run provision-ringtail` from gilbert and continues with
+[post-deploy maintenance](#post-deploy-maintenance).
 
 ## Lock New Inputs Only
 

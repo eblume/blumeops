@@ -1,0 +1,62 @@
+# Ringtail Flake Update
+#
+# Runs the existing dagger `flake-update` pipeline (see [[manage-lockfile]])
+# on the runner and pushes the refreshed nixos/ringtail/flake.lock back to
+# the branch the workflow was dispatched on.
+#
+# This exists so remote-agent sessions (which have no nix, dagger, or deploy
+# access) can author a flake update by PR: the agent opens a branch/PR, a
+# human dispatches this workflow on that branch, and the lockfile bump lands
+# as a commit on the PR for review. Deployment stays human-only:
+# `mise run provision-ringtail` from gilbert after merge.
+#
+# Usage:
+#   1. Go to Actions > Ringtail Flake Update > Run workflow
+#   2. Select the branch to update (e.g. the open PR branch)
+#   3. Review the resulting lockfile commit on the branch
+
+name: Ringtail Flake Update
+
+on:
+  workflow_dispatch:
+
+jobs:
+  flake-update:
+    runs-on: k8s
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Update flake.lock via dagger
+        run: |
+          echo "Updating nixos/ringtail/flake.lock (all inputs)..."
+          dagger call flake-update --src=. --flake-path=nixos/ringtail \
+            export --path=nixos/ringtail/flake.lock
+
+      - name: Commit and push lockfile
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet nixos/ringtail/flake.lock; then
+            echo "flake.lock is already up to date; nothing to push"
+            exit 0
+          fi
+
+          git config user.name "Forgejo Actions"
+          git config user.email "actions@forge.ops.eblu.me"
+          git add nixos/ringtail/flake.lock
+          git commit -m "Update ringtail flake inputs (flake-update workflow)"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo "Pushed lockfile update to ${GITHUB_REF_NAME}"
+
+      - name: Summary
+        run: |
+          echo "================================================"
+          echo "Ringtail flake update on branch: ${GITHUB_REF_NAME}"
+          echo "================================================"
+          echo ""
+          git log -1 --stat -- nixos/ringtail/flake.lock || true
+          echo ""
+          echo "Next steps (human, from gilbert, after merge):"
+          echo "  mise run provision-ringtail"
+          echo "Then check for a pending kernel update (see manage-lockfile docs)."

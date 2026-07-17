@@ -1,6 +1,7 @@
 ---
 title: Apps
-modified: 2026-03-04
+modified: 2026-07-17
+last-reviewed: 2026-07-17
 tags:
   - kubernetes
   - argocd
@@ -8,7 +9,9 @@ tags:
 
 # ArgoCD Applications
 
-Registry of all applications deployed via [[argocd]].
+Registry of all applications deployed via [[argocd]]. App names carry a
+`-ringtail` suffix where they were migrated from the retired minikube
+cluster (see [[retire-minikube]]); newer apps use bare names.
 
 ## Application Registry
 
@@ -16,42 +19,50 @@ Registry of all applications deployed via [[argocd]].
 |-----|-----------|-------------|---------|
 | `apps` | argocd | `argocd/apps/` | App-of-apps root |
 | `argocd` | argocd | `argocd/manifests/argocd/` | [[argocd]] |
-| `tailscale-operator` | tailscale | `argocd/manifests/tailscale-operator/` | [[tailscale-operator]] |
-| `1password-connect` | 1password | `argocd/manifests/1password-connect/` | [[1password]] |
-| `external-secrets` | external-secrets | Helm chart | [[1password]] |
-| `external-secrets-config` | external-secrets | `argocd/manifests/external-secrets-config/` | [[1password]] |
-| `cloudnative-pg` | cnpg-system | `mirrors/cloudnative-pg` release manifest | PostgreSQL operator |
-| `blumeops-pg` | databases | `argocd/manifests/databases/` | [[postgresql]] |
-| `prometheus` | monitoring | `argocd/manifests/prometheus/` | [[prometheus]] |
-| `loki` | monitoring | `argocd/manifests/loki/` | [[loki]] |
-| `grafana` | monitoring | `argocd/manifests/grafana/` | [[grafana]] |
-| `grafana-config` | monitoring | `argocd/manifests/grafana-config/` | [[grafana]] |
-| `immich` | immich | `argocd/manifests/immich/` | [[immich]] |
-| `tempo` | monitoring | `argocd/manifests/tempo/` | [[tempo]] |
-| `alloy-k8s` | alloy | `argocd/manifests/alloy-k8s/` | [[alloy|Alloy]] |
+| `tailscale-operator-ringtail` | tailscale | `argocd/manifests/tailscale-operator-ringtail/` | [[tailscale-operator]] |
+| `1password-connect-ringtail` | 1password | `argocd/manifests/1password-connect/` | [[1password]] |
+| `external-secrets-ringtail` | external-secrets | `argocd/manifests/external-secrets-ringtail/` | [[1password]] |
+| `external-secrets-crds-ringtail` | external-secrets | `external-secrets` repo `config/crds/bases` | [[1password]] |
+| `cloudnative-pg-ringtail` | cnpg-system | `mirrors/cloudnative-pg` release manifest | PostgreSQL operator |
+| `databases-ringtail` | databases | `argocd/manifests/databases-ringtail/` | [[postgresql]] |
+| `authentik` | authentik | `argocd/manifests/authentik/` | [[authentik]] |
+| `prometheus-ringtail` | monitoring | `argocd/manifests/prometheus-ringtail/` | [[prometheus]] |
+| `loki-ringtail` | monitoring | `argocd/manifests/loki-ringtail/` | [[loki]] |
+| `tempo-ringtail` | monitoring | `argocd/manifests/tempo-ringtail/` | [[tempo]] |
+| `grafana-ringtail` | monitoring | `argocd/manifests/grafana-ringtail/` | [[grafana]] |
+| `grafana-config-ringtail` | monitoring | `argocd/manifests/grafana-config-ringtail/` | [[grafana]] |
+| `kube-state-metrics-ringtail` | monitoring | `argocd/manifests/kube-state-metrics-ringtail/` | K8s metrics |
+| `unpoller-ringtail` | monitoring | `argocd/manifests/unpoller-ringtail/` | [[unifi]] metrics poller |
+| `alloy-ringtail` | alloy | `argocd/manifests/alloy-ringtail/` | [[alloy|Alloy]] |
 | `alloy-tracing-ringtail` | alloy | `argocd/manifests/alloy-tracing-ringtail/` | [[alloy|Alloy]] (eBPF tracing) |
-| `kube-state-metrics` | monitoring | `argocd/manifests/kube-state-metrics/` | K8s metrics |
-| `miniflux` | miniflux | `argocd/manifests/miniflux/` | [[miniflux]] |
-| `kiwix` | kiwix | `argocd/manifests/kiwix/` | [[kiwix]] |
-| `torrent` | torrent | `argocd/manifests/torrent/` | [[transmission]] |
-| `navidrome` | navidrome | `argocd/manifests/navidrome/` | [[navidrome]] |
-| `teslamate` | teslamate | `argocd/manifests/teslamate/` | [[teslamate]] |
-| `cv` | cv | `argocd/manifests/cv/` | [[cv]] |
-| `forgejo-runner` | forgejo-runner | `argocd/manifests/forgejo-runner/` | [[forgejo]] CI |
+| `immich-ringtail` | immich | `argocd/manifests/immich-ringtail/` | [[immich]] |
+| `frigate` | frigate | `argocd/manifests/frigate/` | [[frigate]] |
+| `miniflux-ringtail` | miniflux | `argocd/manifests/miniflux-ringtail/` | [[miniflux]] |
+| `kiwix-ringtail` | kiwix | `argocd/manifests/kiwix-ringtail/` | [[kiwix]] |
+| `torrent-ringtail` | torrent | `argocd/manifests/torrent-ringtail/` | [[transmission]] |
+| `navidrome-ringtail` | navidrome | `argocd/manifests/navidrome-ringtail/` | [[navidrome]] |
+| `teslamate-ringtail` | teslamate | `argocd/manifests/teslamate-ringtail/` | [[teslamate]] |
+| `mealie-ringtail` | mealie | `argocd/manifests/mealie-ringtail/` | [[mealie]] |
+| `paperless-ringtail` | paperless | `argocd/manifests/paperless-ringtail/` | [[paperless]] |
 | `ollama` | ollama | `argocd/manifests/ollama/` | [[ollama]] |
-| `mealie` | mealie | `argocd/manifests/mealie/` | [[mealie]] |
-| `paperless` | paperless | `argocd/manifests/paperless/` | [[paperless]] |
+| `nvidia-device-plugin` | nvidia-device-plugin | `argocd/manifests/nvidia-device-plugin/` | [[nvidia-device-plugin]] |
+| `ntfy` | ntfy | `argocd/manifests/ntfy/` | [[ntfy]] |
+| `homepage` | homepage | `argocd/manifests/homepage/` | Homepage dashboard (no card yet) |
 | `shower` | shower | `argocd/manifests/shower/` | [[shower-app]] |
 | `prowler` | prowler | `argocd/manifests/prowler/` | [[prowler]] |
 
+No longer on Kubernetes: `cv` moved to indri (see [[cv]] and
+[[cv-on-indri]]), and `forgejo-runner` is now a NixOS service on ringtail
+pinned via the `nixpkgs-services` overlay (see [[forgejo-runner]]).
+
 ## Sync Policies
 
-| Application | Policy | Rationale |
-|-------------|--------|-----------|
-| `apps` | Automated | Picks up new Application manifests |
-| All others | Manual | Explicit control over deployments |
+All applications, including the `apps` app-of-apps root, are **manual
+sync** — deployments are explicit (`argocd app sync <app>`). To pick up a
+newly added Application manifest: `argocd app sync apps`.
 
 ## Related
 
 - [[argocd]] - GitOps platform details
 - [[cluster|Cluster]] - Kubernetes infrastructure
+- [[retire-minikube]] - Why most app names carry `-ringtail`
