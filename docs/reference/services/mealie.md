@@ -1,6 +1,7 @@
 ---
 title: Mealie
-modified: 2026-03-16
+modified: 2026-07-16
+last-reviewed: 2026-07-16
 tags:
   - service
   - recipes
@@ -21,7 +22,7 @@ Self-hosted recipe manager with a REST API. Part of the meal planning pipeline: 
 | **Database** | SQLite (local, at `/app/data/`) |
 | **API Docs** | https://meals.ops.eblu.me/docs |
 | **Upstream** | https://github.com/mealie-recipes/mealie |
-| **Manifests** | `argocd/manifests/mealie/` |
+| **Manifests** | `argocd/manifests/mealie-ringtail/` |
 
 ## Features
 
@@ -38,7 +39,7 @@ OIDC via [[authentik]] using a confidential client. Client secret stored in 1Pas
 
 ## Storage
 
-- 2Gi PVC at `/app/data/` via `standard` storageClassName (minikube-hostpath)
+- 2Gi PVC at `/app/data/` via `local-path` storageClassName (k3s local-path-provisioner)
 - SQLite database (sufficient for single-user)
 - Recipe images and assets stored alongside the database
 

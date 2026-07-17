@@ -200,7 +200,7 @@ services:
 
   - name: 1password-connect
     type: argocd
-    last-reviewed: 2026-04-06
+    last-reviewed: 2026-07-16
     current-version: "1.8.2"
     upstream-source: https://hub.docker.com/r/1password/connect-api/tags
     notes: Kustomize manifests rendered from connect-helm-charts v2.4.1
