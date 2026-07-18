@@ -258,12 +258,17 @@ class Blumeops:
             # silently disable the skip filter (letting `nix flake update`
             # bump the deliberately-pinned nixpkgs-services input).
             'SKIP="$SKIP_INPUTS"; '
-            "ALL=$(nix --extra-experimental-features 'nix-command flakes' "
-            "flake metadata --json 2>/dev/null "
-            "| nix-instantiate --eval -E "
+            # Land the metadata in a real file: nix-instantiate cannot
+            # readFile a pipe (/dev/stdin canonicalizes to
+            # /proc/<pid>/fd/pipe:[...] and readFile fails), which made
+            # discovery silently empty for as long as this pipeline existed.
+            # No stderr suppression — metadata failures should be visible.
+            "nix --extra-experimental-features 'nix-command flakes' "
+            "flake metadata --json > /tmp/flake-meta.json; "
+            "ALL=$(nix-instantiate --eval -E "
             '"builtins.concatStringsSep \\" \\" '
             "(builtins.attrNames "
-            "(builtins.fromJSON (builtins.readFile /dev/stdin))"
+            "(builtins.fromJSON (builtins.readFile /tmp/flake-meta.json))"
             '.locks.nodes.root.inputs)" '
             "| tr -d '\"'); "
             "INPUTS=''; "
