@@ -1,6 +1,7 @@
 ---
 title: Zot
-modified: 2026-03-14
+modified: 2026-07-18
+last-reviewed: 2026-07-18
 tags:
   - service
   - registry
@@ -31,7 +32,7 @@ OCI-native container registry providing pull-through cache and private image sto
 
 ## Pull-Through Cache
 
-When [[cluster|minikube]] pulls an image, containerd checks zot first. If cached, returns immediately. If not, zot fetches from upstream, caches it, then returns.
+When the [[cluster|k3s cluster]] pulls an image, containerd checks zot first. If cached, returns immediately. If not, zot fetches from upstream, caches it, then returns.
 
 ## Security Model
 

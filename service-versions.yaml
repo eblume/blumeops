@@ -530,12 +530,18 @@ services:
 
   - name: flyio-tailscale
     type: fly
-    last-reviewed: "2026-04-10"
-    current-version: "v1.94.1"
+    last-reviewed: "2026-07-18"
+    current-version: "v1.94.2"
     upstream-source: https://github.com/tailscale/tailscale/releases
     notes: >-
-      Pinned after v1.96.5 broke MagicDNS in containers. Test DNS resolution
-      inside Fly container before upgrading. COPY --from in fly/Dockerfile.
+      Pinned after v1.96.5 broke MagicDNS in containers. Stay on the 1.94 train
+      (currently v1.94.2). 2026-07-18: tested v1.98.8 live on this Fly proxy —
+      still SERVFAILs tailnet DNS in the Firecracker container and blacked out
+      all public routing (HTTP 000); rolled back to v1.94.2. The 1.98 train is
+      clean in k3s pods but NOT in the Fly no-DNS-manager container. Do not bump
+      past 1.94 until the resolv.conf/DNS-manager path is fixed and re-tested in
+      the container. COPY --from digest in fly/Dockerfile. See heph task /
+      lesson_tailscale_196_magicdns.
 
   - name: flyio-nginx
     type: fly
