@@ -55,7 +55,7 @@ jobs:
           echo "Ringtail flake update on branch: ${GITHUB_REF_NAME}"
           echo "================================================"
           echo ""
-          git log -1 --stat -- nixos/ringtail/flake.lock || true
+          git --no-pager log -1 --stat -- nixos/ringtail/flake.lock || true
           echo ""
           echo "Next steps (human, from gilbert, after merge):"
           echo "  mise run provision-ringtail"

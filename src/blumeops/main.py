@@ -254,7 +254,10 @@ class Blumeops:
         # positional args.
         update_script = (
             "set -e; "
-            "SKIP='$SKIP_INPUTS'; "
+            # Double quotes: single quotes would keep $SKIP_INPUTS literal and
+            # silently disable the skip filter (letting `nix flake update`
+            # bump the deliberately-pinned nixpkgs-services input).
+            'SKIP="$SKIP_INPUTS"; '
             "ALL=$(nix --extra-experimental-features 'nix-command flakes' "
             "flake metadata --json 2>/dev/null "
             "| nix-instantiate --eval -E "
@@ -270,6 +273,9 @@ class Blumeops:
             "done; "
             'echo "Updating inputs:$INPUTS"; '
             'echo "Skipping: $SKIP"; '
+            # Empty INPUTS would make `nix flake update` update *all* inputs,
+            # including the ones we meant to skip — fail loudly instead.
+            '[ -n "$INPUTS" ] || { echo "no inputs discovered; refusing bare flake update" >&2; exit 1; }; '
             "nix --extra-experimental-features 'nix-command flakes' "
             "flake update $INPUTS --accept-flake-config"
         )
