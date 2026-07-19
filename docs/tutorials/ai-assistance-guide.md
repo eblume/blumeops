@@ -1,6 +1,7 @@
 ---
 title: AI Assistance Guide
-modified: 2026-06-09
+modified: 2026-07-19
+last-reviewed: 2026-07-19
 tags:
   - tutorials
   - ai
@@ -16,7 +17,7 @@ This guide provides context for AI agents assisting with BlumeOps operations, an
 
 These are non-negotiable for AI agents working in this repo:
 
-1. **Always use `--context=minikube-indri` with kubectl** - Work contexts exist that must never be touched
+1. **Always pass an explicit kubectl context: `--context=k3s-ringtail`** - Work contexts (`eks-*`) exist that must never be touched. (The retired `minikube-indri` context may still linger in kubeconfigs — it is dead; see [[retire-minikube]].)
 2. **Start every task by finding and reading the relevant docs** - Grep `docs/` and follow wiki-links
 3. **Never commit secrets** - The repo is public at github.com/eblume/blumeops
 4. **Wait for user review before deploying** - Create PRs, don't auto-deploy
@@ -82,8 +83,9 @@ Understanding where services run helps target changes correctly:
 
 | Location | Services | Management |
 |----------|----------|------------|
-| [[indri]] (native) | Forgejo, Zot, Jellyfin, Caddy | Ansible |
-| [[cluster|Kubernetes]] | Everything else | ArgoCD |
+| [[indri]] (native) | Forgejo, Zot, Caddy, Borgmatic, Alloy | Ansible |
+| [[indri]] (native) | Jellyfin | LaunchAgent (not Ansible-managed) |
+| [[cluster|Kubernetes]] (k3s on [[ringtail]]) | Everything else | ArgoCD |
 
 ## Mise Tasks
 
@@ -109,7 +111,7 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 | `docs-review` | Review the most stale doc by last-reviewed date |
 | `runner-logs` | View Forgejo workflow logs (indri or ringtail runner) |
 
-For task discovery, BlumeOps tasks live in [hephaestus](https://github.com/eblume/hephaestus) (`heph`), not Todoist. List outstanding work with `heph list --project Blumeops --json`.
+For task discovery, BlumeOps tasks live in [hephaestus](https://github.com/eblume/hephaestus) (`heph`), not Todoist. List outstanding work with `heph list --project Blumeops --json --due`.
 
 For ArgoCD operations, use the `argocd` CLI directly:
 - `argocd app diff <service>` - Preview changes
@@ -135,7 +137,7 @@ Credentials live in 1Password. Never retrieve them directly - use existing patte
 
 | Pitfall | Correct Approach |
 |---------|------------------|
-| Missing kubectl context | Always add `--context=minikube-indri` |
+| Missing kubectl context | Always add `--context=k3s-ringtail` |
 | Deploying without review | Create PR first, wait for user approval |
 | Re-explaining reference material | Link to reference cards instead |
 | Committing to main without classifying | Classify as C0/C1/C2 first — only C0 goes to main |

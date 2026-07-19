@@ -1,5 +1,5 @@
-# nginx 1.30.3-alpine
-FROM nginx@sha256:92cf5e2f488744c90d3df4378dfa3f0842704950cfa1353975d5510c945b072f
+# nginx 1.30.4-alpine
+FROM nginx@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46
 
 # Copy tailscale binaries from official image (v1.94.2)
 COPY --from=docker.io/tailscale/tailscale@sha256:95e528798bebe75f39b10e74e7051cf51188ee615934f232ba7ad06a3390ffa1 \

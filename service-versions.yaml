@@ -545,10 +545,15 @@ services:
 
   - name: flyio-nginx
     type: fly
-    last-reviewed: "2026-04-10"
-    current-version: "1.29.6-alpine"
+    last-reviewed: "2026-07-19"
+    current-version: "1.30.4-alpine"
     upstream-source: https://hub.docker.com/_/nginx
-    notes: Base image for Fly proxy (fly/Dockerfile)
+    notes: >-
+      Base image for Fly proxy (fly/Dockerfile), digest-pinned. 2026-07-19:
+      bumped 1.30.3 -> 1.30.4 (security release: CVE-2026-42533,
+      CVE-2026-60005, CVE-2026-56434). Tracking file had lagged at 1.29.6;
+      the 2026-06-22 deps refresh (PR #403) had already moved the pin to the
+      1.30.x stable train. Mainline is 1.31.x; staying on stable.
 
   - name: flyio-alloy
     type: fly
