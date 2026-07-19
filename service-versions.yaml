@@ -609,3 +609,12 @@ services:
     current-version: "0.0.29"
     upstream-source: https://github.com/astral-sh/ty/releases
     notes: Astral Python typechecker (beta); prek hook
+
+  - name: flyctl
+    type: mise
+    last-reviewed: "2026-07-19"
+    current-version: "0.4.71"
+    upstream-source: https://github.com/superfly/flyctl/releases
+    notes: >-
+      Fly.io CLI for fly-deploy. Pinned in mise.toml 2026-07-19 so deploys
+      work from ringtail too (previously gilbert-only via brew).
