@@ -1,6 +1,7 @@
 ---
 title: Exploring the Docs
-modified: 2026-06-09
+modified: 2026-07-20
+last-reviewed: 2026-07-20
 tags:
   - tutorials
   - getting-started
@@ -37,7 +38,7 @@ You probably want quick access to operational details:
 Context for effective assistance:
 - Read [[ai-assistance-guide]] for operational conventions
 - [Reference](/reference/) has the technical specifics you'll need
-- The repo's `AGENTS.md` has critical rules (especially the kubectl context requirement)
+- The repo's `AGENTS.md` has critical rules (especially: this is a public repo — never commit secrets)
 
 ### For External Readers
 

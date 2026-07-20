@@ -558,8 +558,8 @@ services:
   - name: flyio-alloy
     type: fly
     parent: flyio-nginx
-    last-reviewed: "2026-04-10"
-    current-version: "v1.14.1"
+    last-reviewed: "2026-07-20"
+    current-version: "v1.17.1"
     upstream-source: https://github.com/grafana/alloy/releases
     notes: COPY --from in fly/Dockerfile for log shipping and metrics
 
