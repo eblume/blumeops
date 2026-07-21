@@ -152,6 +152,32 @@ in
     };
   };
 
+  # Run Firefox on XWayland instead of natively on Wayland.
+  #
+  # NVIDIA's Wayland EGL explicit-sync path can leave a DRM timeline fence
+  # unsignaled inside eglSwapBuffers, which deadlocks the whole browser:
+  #   Renderer   GLContextEGL::SwapBuffers -> libnvidia-egl-wayland
+  #              -> drmSyncobjTimelineWait -> ioctl() [never returns]
+  #   Compositor RecvFlushRendering -> WaitUntilPresentationFlushed [blocked]
+  #   main       nsMenuPopupFrame::PaintWindow -> SendFlushRendering [blocked]
+  # Painting any popup (permission doorhanger, menu, dropdown) can trigger it,
+  # and the UI thread waits on the compositor synchronously, so the window
+  # freezes at 0% CPU until killed.
+  #
+  # There is no Firefox pref or wlroots/sway toggle for this path, and nixpkgs
+  # production/latest/beta were all pinned to the affected 580.142 driver when
+  # this was diagnosed, so XWayland is the only lever available. The nixpkgs
+  # firefox wrapper uses `--set-default MOZ_ENABLE_WAYLAND 1`, so setting it
+  # here wins. Revisit (and drop this) once a newer NVIDIA driver ships.
+  #
+  # Note: this is set via environment.variables rather than
+  # programs.sway.extraSessionCommands, because the running sway comes from
+  # home-manager's wayland.windowManager.sway and never executes the NixOS
+  # module's session wrapper. (The same gap means the WLR_NO_HARDWARE_CURSORS
+  # export in programs.sway.extraSessionCommands is also inert -- tracked
+  # separately; verify with `tr '\0' '\n' < /proc/$(pgrep -x sway)/environ`.)
+  environment.variables.MOZ_ENABLE_WAYLAND = "0";
+
   # 1Password (modules handle CLI group/setgid and polkit for GUI integration)
   programs._1password.enable = true;
   programs._1password-gui = {
