@@ -3,13 +3,16 @@
 # Other devices (e.g. gilbert) are spokes that sync against this hub.
 # See [[set-up-sync-hub]] and [[host-heph-pwa]] in the hephaestus repo.
 
-# Pinned release used for the initial `cargo install` and the PWA shell.
-# After bootstrap, hephd's own --self-update keeps the binary current; this
-# pin only governs the first install and the bundled PWA shell version.
-heph_version: v1.2.1
+# Pinned release tag. This is the SINGLE source of truth for the hub's hephd
+# version and the bundled PWA shell — hephd self-update is OFF (see the plist),
+# so nothing changes it out from under us. The role converges to this tag on
+# every run: it installs on a fresh host, upgrades when the running binary is
+# older, and DOWNGRADES if this pin is lowered. Bump on each release, then
+# `mise run provision-indri -- --tags heph`. See docs/reference/services/hephaestus.md.
+heph_version: v1.7.0
 
-# Anonymous public HTTPS clone — matches hephd's INSTALL_GIT_URL so the initial
-# install and unattended self-update build from the same source (no ssh-agent).
+# Anonymous public HTTPS clone — used for the ansible-driven `cargo install`
+# and the PWA source checkout, so provisioning needs no ssh-agent.
 heph_repo_url: https://forge.eblu.me/eblume/hephaestus.git
 
 heph_bin_dir: /Users/erichblume/.cargo/bin
@@ -18,8 +21,8 @@ heph_binary: "{{ heph_bin_dir }}/hephd"
 # rustc/cargo here are rustup shims. The bare (non-mise) environment that the
 # launchagent and ansible run in falls back to rustup's *default* toolchain,
 # which can lag behind heph's rust-version floor (Cargo.toml: 1.89). Pin the
-# channel explicitly so both the bootstrap build and unattended self-update
-# always use a current toolchain regardless of the host's rustup default.
+# channel explicitly so the ansible-driven install/upgrade builds always use a
+# current toolchain regardless of the host's rustup default.
 heph_rust_toolchain: stable
 
 heph_data_dir: /Users/erichblume/.local/share/heph
@@ -44,6 +47,8 @@ heph_external_url: https://heph.ops.eblu.me
 # the device-code client id (see argocd/manifests/authentik heph blueprint).
 heph_oidc_issuer: https://authentik.ops.eblu.me/application/o/heph/
 heph_oidc_audience: heph
+# NOTE: hephd's opt-in --self-update is intentionally OFF (not passed in the
+# plist). Version is governed solely by heph_version above; there is no poller.
 
 # Additional OIDC `sub`s the hub authorizes as co-owners (declarative allowlist,
 # hephd --authorized-sub). Used for the ringtail agent spoke's dedicated
@@ -52,6 +57,3 @@ heph_oidc_audience: heph
 # rather than this public repo; tasks/main.yml appends it when present. See
 # docs/reference/infrastructure/agent-workspaces.md.
 heph_authorized_subs: []
-
-# Self-update poll interval (seconds). 10 minutes.
-heph_self_update_interval_secs: 600

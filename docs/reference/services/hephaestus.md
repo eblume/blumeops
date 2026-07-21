@@ -1,7 +1,7 @@
 ---
 title: Hephaestus
-modified: 2026-06-04
-last-reviewed: 2026-06-04
+modified: 2026-07-21
+last-reviewed: 2026-07-21
 tags:
   - service
   - hephaestus
@@ -21,7 +21,7 @@ against one canonical **hub**. Indri runs that hub.
 | **PWA URL** | https://heph.ops.eblu.me (browser PWA, Caddy TLS) |
 | **Spoke sync URL** | http://indri.tail8d86e.ts.net:8787 (direct, tailnet) |
 | **Local Port** | 8787 (`hephd --mode server`, bound `0.0.0.0`) |
-| **Binary** | `~/.cargo/bin/hephd` (self-updating) |
+| **Binary** | `~/.cargo/bin/hephd` (version pinned in IaC; see [Version management](#version-management)) |
 | **Data** | `~/.local/share/heph/heph.db` |
 | **PWA shell** | `~/.local/share/heph/web` |
 | **Logs** | `~/Library/Logs/mcquack.heph.{out,err}.log` |
@@ -30,34 +30,64 @@ against one canonical **hub**. Indri runs that hub.
 
 ## What runs on indri
 
-The launchagent runs the hub in server mode with three features enabled:
+The launchagent runs the hub in server mode:
 
 ```
 hephd --mode server --http-addr 0.0.0.0:8787 --db ~/.local/share/heph/heph.db
       --web-root ~/.local/share/heph/web
       --oidc-issuer https://authentik.ops.eblu.me/application/o/heph/
       --oidc-audience heph
-      --self-update --self-update-interval-secs 600
 ```
 
 - **Server mode** exposes the HTTP sync endpoint (`/rpc`, `/sync/*`) that spokes
   reconcile their op-log against.
-- **Self-update** (10-minute poll) rebuilds `hephd` from the forge when a newer
-  release tag appears (`cargo install --git https://forge.eblu.me/eblume/hephaestus.git`).
-  Indri's Rust toolchain (`~/.cargo/bin`) is on the agent's `PATH` for this, and
-  the plist pins `RUSTUP_TOOLCHAIN=stable` — the
-  launchagent runs without mise, so a bare `cargo` shim would otherwise fall back
-  to rustup's *default* toolchain, which can lag behind heph's `rust-version` floor
-  (1.89) and silently fail the build.
 - **PWA** (`--web-root`) serves the [heph-pwa] mobile shell; Caddy terminates TLS
   at `heph.ops.eblu.me` so the PWA runs in a secure context (service worker,
   install-to-home-screen, voice capture).
+
+> **No `--self-update`.** hephd's opt-in self-updater is deliberately **off**
+> everywhere (hub and spokes). Versions are pinned in IaC and converged by the
+> provisioner — see [Version management](#version-management). Leaving it off
+> means a fresh upstream release never lands on a device until a human bumps the
+> pin and re-provisions, so a release can't silently roll out (or roll out a
+> regression) between reviews.
 
 [heph-pwa]: https://github.com/eblume/hephaestus
 
 The hub binds `0.0.0.0` so tailnet spokes can also sync directly
 (`http://indri.tail8d86e.ts.net:8787`); access is gated by Authentik OIDC either
 way — tailnet reachability alone is not enough.
+
+## Version management
+
+Every heph binary in the network is pinned to an explicit release tag in IaC;
+**nothing auto-updates**. Upgrading is a deliberate, reviewed step: cut the
+upstream release, then bump the pin and re-provision.
+
+| Device | Managed by | Pin | Converged by |
+|--------|-----------|-----|--------------|
+| **indri** (hub) | `ansible/roles/heph` | `heph_version` (`defaults/main.yml`) | `mise run provision-indri -- --tags heph` — installs/upgrades `hephd` to the pinned tag on every run |
+| **ringtail-agent** (spoke) | `nixos/ringtail/agent-workspaces.nix` | `hephTag` | the `agent-heph-install` unit (idempotent `cargo install --tag`) on nixos rebuild |
+| **gilbert** (spoke) | manual (not yet IaC) | — | hand `cargo install --tag`; see [Connecting a spoke](#connecting-a-spoke-eg-gilbert) |
+
+The indri role converges the version on **every** provision (it compares
+`hephd --version` against `heph_version` and re-runs `cargo install --locked
+--tag …` on a mismatch), so bumping the pin and re-provisioning is all an
+upgrade takes — and it will also **downgrade** if the pin is lowered. That
+`cargo install` build runs with `RUSTUP_TOOLCHAIN` (`heph_rust_toolchain`,
+`stable`): ansible runs without mise, so a bare `cargo` shim would otherwise
+fall back to rustup's *default* toolchain, which can lag behind heph's
+`rust-version` floor and silently fail the build.
+
+**Release → deploy flow:**
+
+1. Cut the upstream release (new `vX.Y.Z` tag on the hephaestus repo).
+2. Bump the pins in blumeops: `heph_version` (ansible) and `hephTag`
+   (agent-workspaces.nix). Open a PR (C1) as usual.
+3. After review, converge each device:
+   - indri: `mise run provision-indri -- --tags heph`
+   - ringtail-agent: nixos rebuild (the install unit picks up the new `hephTag`)
+   - gilbert: run the `cargo install --tag vX.Y.Z` step below.
 
 ## Backups
 
@@ -145,6 +175,53 @@ heph auth login --hub-url http://indri.tail8d86e.ts.net:8787 \
 > start/restart` will regenerate the plist and drop them. Avoid `heph daemon`
 > subcommands on a configured spoke until that gap is closed; reload via
 > `launchctl` instead.
+
+### Turning off self-update on a manual spoke (gilbert)
+
+gilbert's spoke is not yet under IaC, so its version and self-update state are
+managed by hand. To bring it in line with the network policy (no auto-update,
+pinned version), run these **on gilbert** (adjust the plist label/path if it
+differs):
+
+```bash
+# 1. Find the launchd label and plist for the spoke daemon.
+launchctl list | grep -i heph
+ls ~/Library/LaunchAgents | grep -i heph
+
+# 2. Inspect the current ProgramArguments — look for --self-update.
+plutil -p ~/Library/LaunchAgents/<label>.plist | grep -A40 ProgramArguments
+```
+
+If `--self-update` (and `--self-update-interval-secs`) appear, remove them. Note
+`heph daemon` treats self-update as **sticky** (it re-adds the flag on every
+`start`/`restart` once it has been enabled, and offers no flag to disable it), so
+the plist must be edited directly and `heph daemon start/restart` avoided:
+
+```bash
+# 3. Stop the daemon, strip the self-update flags, and pin the binary.
+heph daemon stop        # or: launchctl unload ~/Library/LaunchAgents/<label>.plist
+
+# Edit ~/Library/LaunchAgents/<label>.plist by hand: delete the
+#   <string>--self-update</string>
+#   <string>--self-update-interval-secs</string><string>NNN</string>
+# entries from <array> under ProgramArguments. Keep every other argument.
+
+# 4. Pin hephd to the network's current tag (matches heph_version in ansible).
+RUSTUP_TOOLCHAIN=stable ~/.cargo/bin/cargo install --locked \
+  --git https://forge.eblu.me/eblume/hephaestus.git --tag v1.7.0 heph hephd
+
+# 5. Reload via launchctl (NOT `heph daemon`, which would re-add self-update).
+launchctl unload ~/Library/LaunchAgents/<label>.plist 2>/dev/null || true
+launchctl load   ~/Library/LaunchAgents/<label>.plist
+
+# 6. Verify: version matches the pin and no self-update flag remains.
+~/.cargo/bin/hephd --version
+plutil -p ~/Library/LaunchAgents/<label>.plist | grep -c self-update   # → 0
+```
+
+On each future release, redo step 4 with the new tag (there is no poller to do
+it automatically — that is the point). Folding gilbert into IaC (an ansible
+spoke role, mirroring the indri hub role) is tracked as follow-up.
 
 ## Related
 

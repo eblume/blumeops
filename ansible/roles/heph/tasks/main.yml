@@ -40,25 +40,38 @@
   when: heph_agents_sub.rc == 0 and (heph_agents_sub.stdout | trim | length) > 0
   no_log: true
 
-- name: Check for installed hephd binary
-  ansible.builtin.stat:
-    path: "{{ heph_binary }}"
-  register: heph_binary_stat
+# Read the currently-installed hephd version so we can converge to the pin.
+# `hephd --version` prints "hephd X.Y.Z (sha)"; awk pulls the bare semver. When
+# the binary is absent the command fails (rc 127) but awk still yields "", so
+# the mismatch below triggers a fresh install.
+- name: Check installed hephd version
+  ansible.builtin.shell:
+    cmd: "set -o pipefail; {{ heph_binary }} --version | awk '{print $2}'"
+    executable: /bin/bash
+  register: heph_installed
+  changed_when: false
+  failed_when: false
 
-# Bootstrap install only when hephd is absent. Thereafter hephd's own
-# --self-update keeps it current; ansible must not fight (or downgrade) it.
-# This builds from source and can take several minutes on a cold cargo cache.
-- name: Bootstrap-install heph + hephd from the forge ({{ heph_version }})
+- name: Compute the target hephd version (pin without the leading 'v')
+  ansible.builtin.set_fact:
+    heph_target_version: "{{ heph_version | regex_replace('^v', '') }}"
+    heph_current_version: "{{ heph_installed.stdout | trim }}"
+
+# hephd self-update is OFF, so ansible fully owns the version. Converge to the
+# pinned tag: install when absent, upgrade when older, downgrade when the pin is
+# lowered (`--force` lets cargo replace whatever is there). Builds from source;
+# can take several minutes on a cold cargo cache. No-op once versions match.
+- name: Install/upgrade heph + hephd from the forge to {{ heph_version }}
   ansible.builtin.command:
     cmd: >-
-      {{ heph_bin_dir }}/cargo install --locked
+      {{ heph_bin_dir }}/cargo install --locked --force
       --git {{ heph_repo_url }}
       --tag {{ heph_version }}
       heph hephd
   environment:
     PATH: "{{ heph_bin_dir }}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
     RUSTUP_TOOLCHAIN: "{{ heph_rust_toolchain }}"
-  when: not heph_binary_stat.stat.exists
+  when: heph_current_version != heph_target_version
   changed_when: true
   notify: Restart heph
 
