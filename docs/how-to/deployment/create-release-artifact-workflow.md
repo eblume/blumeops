@@ -1,6 +1,6 @@
 ---
 title: Create Release Artifact Workflow
-modified: 2026-02-15
+modified: 2026-07-21
 last-reviewed: 2026-02-15
 tags:
   - how-to
@@ -69,7 +69,42 @@ Once linked, the package shows up in the repo's **Packages** tab and the repo li
 
 If the artifact is consumed by a k8s deployment, create a separate deploy workflow in blumeops (see `cv-deploy.yaml`). This keeps the build/release concern in the source repo and the deploy concern in blumeops.
 
+## Pushing a commit back to a protected `main`
+
+Some release flows commit back to `main` (e.g. `build-blumeops.yaml` bumps
+`docs_version` + builds the changelog; `cv-deploy.yaml` bumps `cv_version`).
+`main` on blumeops is branch-protected with a push whitelist limited to
+`eblume`, and **the automatic Forgejo Actions token cannot be push-whitelisted**
+(Forgejo [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)) — so a
+plain `git push origin HEAD:main` is rejected with `pre-receive hook declined`.
+
+The fix is to authenticate the push as a whitelisted user via a PAT, not the
+automatic token:
+
+1. Provision `MAIN_PUSH_TOKEN` (an `eblume`-owned PAT, scope `write:repository`)
+   as an Actions secret — it is in `forgejo_actions_secrets` alongside the repo's
+   other secrets. The value lives in the blumeops 1Password vault
+   (`blumeops-main-push-token`).
+2. Pass it to `actions/checkout` so it becomes the persisted git credential:
+
+   ```yaml
+   - name: Checkout
+     uses: actions/checkout@… # pinned
+     with:
+       fetch-depth: 0
+       token: ${{ secrets.MAIN_PUSH_TOKEN }}
+   ```
+
+   Subsequent `git push origin HEAD:main` then authenticates as `eblume` and
+   passes branch protection. The release-creation API call can keep using the
+   automatic `GITHUB_TOKEN` (API actions aren't gated by the push whitelist);
+   only the git push needs the PAT.
+
+> The commit author can stay `Forgejo Actions` — branch protection checks the
+> **pusher** (the PAT owner), not the commit author.
+
 ## Related
 
 - [[deploy-k8s-service]] - Deploying the service that consumes the artifact
 - [[add-ansible-role]] - Adding Ansible roles
+- [[agents-forgejo-bot]] - the bot identity and the `main` branch-protection model

@@ -61,6 +61,12 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Persist a whitelisted PAT (owned by `eblume`) as the git credential so
+          # the cv_version bump push to protected `main` is authorized. The
+          # automatic Actions token can't be push-whitelisted (Forgejo #11159).
+          # See docs: agents-forgejo-bot.
+          token: ${{ secrets.MAIN_PUSH_TOKEN }}
 
       - name: Bump cv_version in ansible role
         run: |

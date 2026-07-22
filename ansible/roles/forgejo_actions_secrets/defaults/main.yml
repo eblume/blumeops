@@ -18,6 +18,11 @@ forgejo_actions_secrets_repos:
         value_var: forgejo_secret_fly_deploy_token
       - name: ZOT_CI_API_KEY
         value_var: forgejo_secret_zot_ci_api_key
+      # eblume-owned PAT (write:repository) whitelisted to push protected `main`;
+      # the release workflows push their commit with it because the automatic
+      # Actions token can't be push-whitelisted (Forgejo #11159).
+      - name: MAIN_PUSH_TOKEN
+        value_var: forgejo_secret_main_push_token
   - repo: cv
     secrets:
       - name: FORGE_TOKEN

@@ -118,12 +118,27 @@
       check_mode: false
       tags: [forgejo_actions_secrets]
 
+    # PAT owned by `eblume` (whitelisted to push protected `main`), used by the
+    # release workflows to push their version-bump/changelog commit. The
+    # automatic Actions token can't be push-whitelisted (Forgejo #11159). Scope
+    # it to write:repository. See docs/reference/infrastructure/agents-forgejo-bot.md.
+    - name: Fetch main-push PAT for Forgejo Actions
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/blumeops-main-push-token/token"
+      delegate_to: localhost
+      register: _forgejo_main_push_token
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo_actions_secrets]
+
     - name: Set Forgejo Actions secrets facts
       ansible.builtin.set_fact:
         forgejo_api_token: "{{ _forgejo_api_token.stdout }}"
         forgejo_secret_argocd_token: "{{ _forgejo_argocd_token.stdout }}"
         forgejo_secret_fly_deploy_token: "{{ _fly_deploy_token.stdout }}"
         forgejo_secret_zot_ci_api_key: "{{ _zot_ci_api_key.stdout }}"
+        forgejo_secret_main_push_token: "{{ _forgejo_main_push_token.stdout }}"
       no_log: true
       tags: [forgejo_actions_secrets]
 

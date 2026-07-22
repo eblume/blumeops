@@ -1,1 +1,0 @@
-Agent workspaces docs: corrected the security model — `main` is intentionally not branch-protected against the agents bot (a username push-whitelist rejects CI's automatic Forgejo Actions token, Forgejo #11159, breaking the release workflows). The boundary is convention plus the bot holding no deploy credentials.
