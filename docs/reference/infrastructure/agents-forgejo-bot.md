@@ -1,7 +1,7 @@
 ---
 title: Agents Forgejo Bot
-modified: 2026-07-08
-last-reviewed: 2026-07-08
+modified: 2026-07-21
+last-reviewed: 2026-07-21
 tags:
   - reference
   - infrastructure
@@ -29,16 +29,15 @@ gate before anything deploys.
 ## Access policy
 
 - **Write** (push branches, open PRs) to the repos agents work in:
-  `hephaestus`, `hephaestus.nvim`, `research`. **Not `blumeops`** — it is
-  deliberately not an agent workspace ([[agent-workspaces]] §"Why blumeops is
-  not a workspace"); blumeops work is local-on-gilbert with biometric `op`.
-- **`main` is not protected against the bot.** Convention is to open PRs, but
-  the bot technically *can* push to `main` — branch protection was dropped
-  because a username push-whitelist rejects CI's Forgejo Actions token
-  ([[agent-workspaces]] §Isolation, Forgejo
-  [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)). The safeguard
-  is that the bot has no deploy credentials, so a `main` commit deploys
-  nothing until a human provisions.
+  `hephaestus`, `hephaestus.nvim`, `research`.
+- **`blumeops`: read-only, author via fork.** The bot has **read** on the
+  canonical `eblume/blumeops` and pushes to its own fork **`agents/blumeops`**,
+  opening cross-repo PRs. Read (not write) is load-bearing: `workflow_dispatch`
+  is write-gated, so a read-only bot **cannot trigger blumeops' CI** and thus
+  cannot reach the deploy-credentialed Actions secrets (`ARGOCD_AUTH_TOKEN`,
+  `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`, `MAIN_PUSH_TOKEN`) — see
+  [[agent-workspaces]] §Isolation. `main` is additionally branch-protected
+  (push + merge whitelisted to `eblume`).
 - **Not an admin.** No org/settings/runner access. No deploy credentials.
 
 ## Credentials

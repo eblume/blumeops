@@ -1,6 +1,6 @@
 ---
 title: Agent Workspaces
-modified: 2026-07-11
+modified: 2026-07-21
 last-reviewed: 2026-07-08
 tags:
   - reference
@@ -93,9 +93,13 @@ inference until a session is active).
 blumeops is cloned into the pool at `~/code/personal/blumeops` (agent-owned, so
 `git` works) but is **not** a workspace — there is no `ringtail-blumeops` Remote
 Control server. Agents `cd` into it from any session to **author** changes and
-open PRs as the [[agents-forgejo-bot|bot]]. This is safe because blumeops is a
+open PRs as the [[agents-forgejo-bot|bot]]. The bot has only **read** on the
+canonical repo and works through its fork **`agents/blumeops`**: the clone's
+`origin` is the fork (push), `upstream` is `eblume/blumeops` (fetch) — branch off
+`upstream/main`, and PRs are cross-repo. This is safe because blumeops is a
 **public, secret-free** repo: the gate has never been the code, it is the
-**blumeops 1Password vault** plus **cluster access**, and an agent holds neither.
+**blumeops 1Password vault**, **cluster access**, and **CI execution** — and an
+agent holds none of them.
 
 - **No deploy via ansible.** `provision-{indri,ringtail}` and most `mise` tasks
   `op read` the blumeops vault in `pre_tasks` (so even `--check --diff` dies at
@@ -110,13 +114,20 @@ open PRs as the [[agents-forgejo-bot|bot]]. This is safe because blumeops is a
   the `argocd-*` secrets; it is non-`wheel` with no sudo. (It was `0644` until
   2026-07-10 — a hole that *did* hand the agent cluster-admin and an ArgoCD-admin
   deploy path; see [§Isolation](#isolation--security).)
+- **No deploy via CI.** blumeops' deploy workflows carry Actions secrets
+  (`ARGOCD_AUTH_TOKEN`, `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`, `MAIN_PUSH_TOKEN`).
+  `workflow_dispatch` is write-gated and the bot has only **read**, so it cannot
+  run a workflow — not even a modified one on a branch — to read those secrets.
+  Without this, write access would let the bot dispatch a branch workflow that
+  exfiltrates the deploy tokens (Forgejo has no per-run approval gate for write
+  users), which is exactly why the bot is read-only + fork here.
 
 Net: an agent can edit code/docs and open a blumeops PR, but a human
 provision/sync on gilbert (biometric `op`) always sits between that PR and
-production — the same backstop that makes an unprotected `main` tolerable. The
-agent-owned pool clone is distinct from the **root-owned deploy checkout at
-`/etc/blumeops`** that `nixos-rebuild` builds from (the agent can read its files
-but not `git` it — dubious-ownership guard).
+production, and `main` is branch-protected (push + merge whitelisted to
+`eblume`) on top. The agent-owned pool clone is distinct from the **root-owned
+deploy checkout at `/etc/blumeops`** that `nixos-rebuild` builds from (the agent
+can read its files but not `git` it — dubious-ownership guard).
 
 > **Superseded decision.** blumeops was *dropped entirely* on 2026-07-08 on the
 > reasoning that author-only was too thin to bother standing up. Reinstated
@@ -147,15 +158,18 @@ The boundaries, weakest-first:
    environment (agents dump `env` while debugging, and transcripts get
    archived).
 4. **Git-mediated writes** — agents push as a dedicated Forgejo bot
-   ([[agents-forgejo-bot]]) and, by convention, open PRs rather than committing
-   to `main`. Note this is **convention, not enforcement**: `main` is *not*
-   branch-protected against the bot (a username push-whitelist rejects the
-   automatic Forgejo Actions token — Forgejo
-   [#11159](https://codeberg.org/forgejo/forgejo/issues/11159) — which would
-   break the release workflows, so protection was intentionally dropped). The
-   real gate is that **deploy credentials (argocd, ansible, the provision
-   tasks) are never in agent reach** — a bot commit to `main` still deploys
-   nothing until a human runs a provision/sync. PRs are opened with `tea`,
+   ([[agents-forgejo-bot]]) and open PRs rather than committing to `main`. For
+   the repos the bot has *write* on (`hephaestus`, …) this is convention backed
+   by human PR review. For **`blumeops` it is enforced**: the bot has only
+   **read** on the canonical repo and pushes to its **fork** (`agents/blumeops`),
+   opening cross-repo PRs. Read-not-write is deliberate — `workflow_dispatch` is
+   write-gated, so a read-only bot **cannot run blumeops CI** and therefore
+   cannot reach the deploy-credentialed Actions secrets (`ARGOCD_AUTH_TOKEN`,
+   `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`, `MAIN_PUSH_TOKEN`); `main` is also
+   push+merge-whitelisted to `eblume`. This is what actually keeps **deploy
+   credentials out of agent reach** — layered over the fact that the bot holds
+   neither the blumeops vault nor cluster access, so even a hypothetical `main`
+   commit deploys nothing until a human provisions. PRs are opened with `tea`,
    authenticated by an agents-owned `write:repository`+`write:issue` PAT
    (`agents-forgejo-token` in the agents vault) that the launcher exports as
    `FORGEJO_TOKEN` and seeds into tea's config — no blumeops-vault dependency,

@@ -15,6 +15,10 @@ let
   knownHosts = "/etc/agents/ssh/known_hosts";
   claudeBin = "${agentHome}/.local/bin/claude";
   forgeBase = "ssh://forgejo@forge.ops.eblu.me:2222/eblume";
+  # Fork namespace. The bot has only READ on the canonical blumeops (so it can't
+  # push to it or dispatch its deploy-credentialed CI); it authors via its own
+  # fork under `agents/` and opens cross-repo PRs. See forkRepos / cloneForkRepo.
+  forkBase = "ssh://forgejo@forge.ops.eblu.me:2222/agents";
 
   # The single home-base workspace. `primary` is the repo Remote Control roots
   # in (cwd) — the `agents` repo, whose AGENTS.md carries the base instructions
@@ -34,17 +38,18 @@ let
     };
   };
 
-  # Pool-only checkouts: cloned into ~/code/personal alongside the workspace
-  # repos, but deliberately not in `also` — the distinction is documentation,
-  # not mechanics (both just get cloned). Any session can `cd` into them to
-  # read/edit. blumeops lives here so agents can *author*
-  # blumeops changes (it is a public, secret-free repo) and open PRs as the bot —
-  # WITHOUT a `ringtail-blumeops` server. This does NOT grant deploy: agents hold
-  # neither the blumeops 1Password vault (ansible/argocd creds) nor cluster access
-  # (the k3s kubeconfig is 0600 root-only), and are non-`wheel` with no sudo. The
-  # agent-owned clone is distinct from the root-owned deploy checkout at
-  # /etc/blumeops. See agent-workspaces.md §"blumeops: author-only, not a server".
-  extraRepos = [ "blumeops" ];
+  # Fork-based pool checkouts: cloned into ~/code/personal alongside the
+  # workspace repos so any session can `cd` in to *author* changes and open PRs —
+  # WITHOUT a per-repo server. blumeops lives here (public, secret-free). The bot
+  # has only READ on the canonical repo, so it works through its fork: origin =
+  # agents/<repo> (push), upstream = eblume/<repo> (fetch canonical main); branch
+  # off upstream/main, PRs are cross-repo. Read-only + fork is what stops the bot
+  # dispatching blumeops' deploy-credentialed CI — the real deploy gate, on top of
+  # holding neither the blumeops 1Password vault nor cluster access (k3s kubeconfig
+  # 0600 root-only, non-`wheel`, no sudo). The agent-owned clone is distinct from
+  # the root-owned deploy checkout at /etc/blumeops. See agent-workspaces.md
+  # §"blumeops: author-only, not a server".
+  forkRepos = [ "blumeops" ];
 
   # Transparent `op` shim: inject the service-account token, exec the real op.
   # Prepended to workspace PATH so plain `op` works without exporting the token.
@@ -182,6 +187,25 @@ let
     fi
   '';
 
+  # Fork-based clone-or-update: origin = the bot's fork (push target), upstream =
+  # the canonical repo (fetch main). Idempotent — it also repoints an existing
+  # canonical-origin clone, so migrating an already-checked-out repo needs no
+  # manual `git remote` surgery: the next agent-repos-init run fixes it.
+  cloneForkRepo = repo: ''
+    dest="${repoDir repo}"
+    if [ ! -d "$dest/.git" ]; then
+      git clone --quiet "${forkBase}/${repo}.git" "$dest"
+    fi
+    git -C "$dest" remote set-url origin "${forkBase}/${repo}.git" 2>/dev/null \
+      || git -C "$dest" remote add origin "${forkBase}/${repo}.git"
+    if git -C "$dest" remote | grep -qx upstream; then
+      git -C "$dest" remote set-url upstream "${forgeBase}/${repo}.git"
+    else
+      git -C "$dest" remote add upstream "${forgeBase}/${repo}.git"
+    fi
+    git -C "$dest" fetch --quiet --all --prune || true
+  '';
+
   reposForWorkspace = ws: [ ws.primary ] ++ ws.also;
 
   # Oneshot: prepare every workspace's checkouts before the servers start.
@@ -192,8 +216,8 @@ let
     mkdir -p "${codeDir}"
     ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: ws:
       lib.concatMapStringsSep "\n" cloneRepo (reposForWorkspace ws)) workspaces)}
-    # Pool-only checkouts (no server); cloned/updated the same way.
-    ${lib.concatMapStringsSep "\n" cloneRepo extraRepos}
+    # Fork-based pool checkouts (no server): origin = fork, upstream = canonical.
+    ${lib.concatMapStringsSep "\n" cloneForkRepo forkRepos}
   '';
 
   # Per-workspace launcher. `script` allocates a PTY (Remote Control needs a

@@ -24,8 +24,13 @@ need to confirm through biometric approval.
 ## Rules
 
 1. **Start every task by finding and reading the relevant docs and context**.
-2. **Feature branches + PRs** - checkout main, pull, create branch, open PR via
-   `tea pr create`. Before working, start by verifying you are up to date.
+2. **Fork + PRs (bot is read-only on canonical).** The `agents` bot has **read**
+   on `eblume/blumeops` and authors via its fork `agents/blumeops` — the clone's
+   `origin` is the fork, `upstream` is canonical. Branch off `upstream/main`,
+   push to `origin`, and open a **cross-repo** PR:
+   `tea pr create --repo eblume/blumeops --base main --head agents:<branch>`.
+   `git fetch upstream` before working. The bot **cannot** push to
+   `eblume/blumeops` or commit to `main` directly (that's a human, from gilbert).
 3. Create, use, and modify tooling via the `mise run` system to provide tooling for users and agents.
 4. **Add changelog fragments (all change levels)** - `docs/changelog.d/<name>.<type>.md`
     Types: `feature`, `bugfix`, `infra`, `doc`, `ai`, `misc`
