@@ -1,1 +1,0 @@
-Changed `factorio.ops.eblu.me` from a pinned A record to a CNAME → `ringtail.tail8d86e.ts.net`. Tailscale remaps a shared node's `100.x` address inside each guest's tailnet, so the hardcoded owner-tailnet IP was unroutable for guests and the name timed out for them; the CNAME lets each client's own MagicDNS resolve ringtail to the address correct for its view.

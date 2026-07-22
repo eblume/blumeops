@@ -12,6 +12,167 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.18.3] - 2026-07-21
+
+### Features
+
+- The ringtail agent workspaces now run a **heph spoke** synced to the indri hub, so agent sessions can use `heph` for task/context — heph is a deliberate in-boundary agentic-workflow substrate (distinct from the 1Password blumeops vault, which stays isolated). heph/hephd are cargo-installed at a pinned tag via a mise-resolved Rust toolchain (nixpkgs rustc lags heph's floor) by a `agent-heph-install` systemd oneshot; a `agent-heph-spoke` service runs `hephd` authenticating as a dedicated, independently-revocable `heph-agents` Authentik identity, with its OIDC token stored in the `agents` vault via hephd's command token store (no plaintext at rest). The indri hub authorizes that identity as a co-owner via `hephd --authorized-sub` (sourced from the vault). Requires heph ≥ v1.7.0.
+- Stood up an "under construction" landing page at the apex `eblu.me` (and `www.eblu.me`) — a hi-I'm-Erich splash with the obligatory old-school hazard-barricade GIF and links to docs.eblu.me / forge.eblu.me. Unlike the other public sites, it's served straight from nginx on the Fly proxy (files baked into the image) rather than tunneled back to Caddy on indri, so the front door stays up even when indri or the tunnel is down. The apex uses `A`/`AAAA` records to Fly's ingress IPs (a `CNAME` is illegal at the zone apex); `www` is a normal `CNAME` like the rest.
+- Stood up a private Factorio dedicated server on ringtail (`services.factorio`, UDP 34197), reachable at `factorio.ops.eblu.me`. It is BlumeOps' first externally-shared service: guests are *shared* onto ringtail (`autogroup:shared`) rather than invited as members, and the Tailscale ACL hands them exactly the one game port — they inherit none of the member-facing services.
+
+### Bug Fixes
+
+- Fixed flake input discovery in the dagger `flake-update` pipeline: nix cannot
+  `readFile /dev/stdin` (it canonicalizes to a `/proc/.../pipe:[...]` path), so
+  discovery had been silently empty since the pipeline was written, degenerating
+  every run into a bare `nix flake update` of all inputs — the `nixpkgs-services`
+  pin survived only because its URL is rev-pinned. Metadata now lands in a real
+  file, stderr is no longer suppressed, and run 658's "refusing bare flake
+  update" guard failure becomes a green no-op again.
+- Fixed the Ringtail Flake Update workflow hanging in its summary step (`git
+  log` spawned a pager on the runner; now `--no-pager`), and two latent bugs in
+  the dagger `flake-update` pipeline: `skip_inputs` was never applied
+  (single-quoted `$SKIP_INPUTS` never expanded, so a real update would have
+  bumped the pinned `nixpkgs-services` input), and an empty discovered-input
+  list now fails loudly instead of falling back to a bare `nix flake update`
+  of everything.
+- Changed `factorio.ops.eblu.me` from a pinned A record to a CNAME → `ringtail.tail8d86e.ts.net`. Tailscale remaps a shared node's `100.x` address inside each guest's tailnet, so the hardcoded owner-tailnet IP was unroutable for guests and the name timed out for them; the CNAME lets each client's own MagicDNS resolve ringtail to the address correct for its view.
+- Firefox on ringtail now runs under XWayland (`MOZ_ENABLE_WAYLAND=0`), working
+  around a hard deadlock that froze the whole browser. NVIDIA's Wayland EGL
+  explicit-sync path can leave a DRM timeline fence unsignaled inside
+  `eglSwapBuffers`, so the Renderer thread blocks forever in
+  `drmSyncobjTimelineWait`; the Compositor thread then blocks in
+  `WaitUntilPresentationFlushed`, and the main thread blocks behind a synchronous
+  `SendFlushRendering` IPC issued while painting a popup. Painting any doorhanger,
+  menu, or dropdown could trigger it, leaving Firefox wedged at 0% CPU until
+  killed — the trigger that surfaced it was clicking "enable notifications", which
+  is a repaint, not a network call. No Firefox pref or wlroots/sway toggle governs
+  this path, and nixpkgs production/latest/beta were all pinned to the affected
+  580.142 driver, so XWayland is the only lever until a newer driver ships.
+- Pinned ringtail's Factorio headless server to 2.0.77 via a temporary `versionsJson` overlay so it matches the auto-updated Steam client (nixos-25.11 still ships 2.0.76). Remove the overlay once nixpkgs catches up.
+- Restored the nightly indri borgmatic run, which had aborted since 2026-07-10.
+  The multi-user hardening that locked `/etc/rancher/k3s/k3s.yaml` to `0600 root`
+  on ringtail also locked out `eblume`, the user borgmatic's `before: configuration`
+  k8s-dump hooks SSH in as to snapshot mealie/shower/navidrome — a non-zero hook
+  exit aborts the whole run, so nothing landed. The hooks now reach the cluster
+  via `sudo k3s kubectl`, keeping the kubeconfig locked away from the restricted
+  web-agent user.
+- `container-build-and-release` no longer fails spuriously: the Forgejo dispatch endpoint routinely holds the connection open past the read timeout even though the dispatch lands, which surfaced as an unhandled `ReadTimeout`. The POST timeout is now non-fatal — the task falls through to run verification (polling for the dispatched run) as the real source of truth, and only errors if no matching run appears.
+- `eblume-heph-spoke` moved from a system unit to a systemd **user** service
+  (with linger): as a system service hephd bound the `~/.local/share` fallback
+  socket while interactive shells looked in `/run/user/1000`, so the `heph` CLI
+  could never reach the daemon. Shared install machinery split into
+  `mkInstallUnits` (heph-common.nix).
+- `mise run services-check`: the `k3s` node-readiness probe now reads the cluster via `sudo k3s kubectl` instead of `KUBECONFIG=/etc/rancher/k3s/k3s.yaml`. That kubeconfig went 0600 root-only when ringtail became a multi-user host, so the probe had been failing on permission (the cluster was healthy — `k3s-apiserver (remote)` and every pod/HTTP check passed). Same `sudo`-not-locked-kubeconfig pattern as the borgmatic dump hooks. Also tightened `grep -q Ready` → `grep -qw Ready` so a `NotReady` node can't false-pass on the substring.
+
+### Infrastructure
+
+- Agent workspaces: add a native build toolchain (`gcc`, `binutils`, `pkg-config`, `gnumake` + `CC=gcc`) to the session PATH so `cargo build` no longer dies with ``linker `cc` not found``, letting agents compile and verify Rust they author. Also expose the `gamedev` Bevy project's Linux native deps — `alsa`/`udev` on `PKG_CONFIG_PATH`, and the `dlopen`'d windowing/graphics libs (vulkan-loader, libxkbcommon, wayland, libGL, xorg) on `LD_LIBRARY_PATH`. Building/verifying works headlessly; running a windowed Bevy app still needs a GPU/display, so playtesting stays a human job.
+- Ringtail now hosts **agent workspaces** — per-repo Claude Code Remote Control servers (hephaestus, blumeops, research, playground) run under an unprivileged `agent` user, steerable on demand from the Claude mobile app. Agents authenticate to 1Password only as a vault-scoped service account and push to Forgejo as a dedicated bot (never `main`). See `agent-workspaces` and the `bootstrap-agent-workspaces` runbook.
+- Agent workspaces can now author blumeops: a read-write, agent-owned clone lands at `~agent/code/personal/blumeops` (pool-only, no dedicated server) so sessions can edit it and open PRs as the bot. Deploys stay gated — and to make that real, the k3s admin kubeconfig is locked from world-readable `0644` to `0600` (it previously handed the unprivileged `agent` user cluster-admin and an ArgoCD-admin deploy path).
+- Agent workspaces collapsed from per-repo Remote Control servers
+  (`ringtail-{hephaestus,research,playground,parsimony}`) to a single home-base
+  session, `ringtail-agent`, rooted in the new [`agents`
+  repo](https://forge.eblu.me/eblume/agents) whose `AGENTS.md` carries the base
+  instructions (repo map, toolbox, execution environments). All other repos are
+  sibling checkouts the session `cd`s into; the `playground` workspace is dropped
+  (a home-base worktree is already a scratch space).
+
+  Also: `heph` for Erich on ringtail — a second hephd spoke (`eblume-heph-spoke`,
+  token-file store, logging in as Erich himself) alongside the agent's, with the
+  shared version pin and install machinery extracted to
+  `nixos/ringtail/heph-common.nix`.
+- New `parsimony` agent workspace on ringtail for `timberborn-parsimony`, a
+  Timberborn "Least Actions Challenge" mod. The remote agent builds the mod
+  against the local game install's DLLs; playtesting (launching the game)
+  remains a human-session step via the repo's `mise run playtest`.
+- Agent workspaces: put the research report toolchain (mise, uv, pandoc, typst, weasyprint) on the session PATH, and expose WeasyPrint's native libraries via `LD_LIBRARY_PATH` so `mise run compile-report` renders a PDF on ringtail. Repo mise configs are pre-trusted to avoid interactive prompts.
+- The `agents` bot now authors blumeops via a **fork** (`agents/blumeops`) with only **read** on the canonical repo, instead of pushing branches to `eblume/blumeops` with write. This closes a privilege-escalation path: `workflow_dispatch` is write-gated, so a write-access bot could have dispatched a branch workflow that reads blumeops' deploy-credentialed Actions secrets (`ARGOCD_AUTH_TOKEN`, `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`, `MAIN_PUSH_TOKEN`) — Forgejo has no per-run approval gate for write users, so read-only + fork is the enforceable boundary. The ringtail agent-workspaces clone is repointed automatically (`origin` = fork, `upstream` = canonical); agents branch off `upstream/main` and open cross-repo PRs.
+- Closed a [[borgmatic]] monitoring blind spot: the metrics collector never
+  scraped the main BorgBase offsite repo (only `sifaka-local` and the immich
+  photos repo were configured), so a failed offsite run produced no metric and no
+  alert — BorgBase's own email was the only signal. Added the offsite repo to the
+  collector and a `BorgmaticStale` Grafana alert (fires when any repo's newest
+  archive is older than 30h, ~7h after a missed nightly run). The hourly per-repo
+  poll stays metadata-only (`borg info`/`list`); the heavy per-source manifest
+  listing is now skipped for remote repos to avoid pulling a 100k-entry file
+  manifest over the internet every hour. Also corrected the metrics script's
+  stale `/opt/homebrew/var/forgejo` source-path mapping to `~/forgejo`.
+- Added `retries: 3` / `retry_wait: 300` to the [[borgmatic]] config so a transient
+  failure on a single repository — e.g. a broken SSH pipe partway through a large
+  offsite upload to BorgBase — is retried (resuming from borg's checkpoint) instead
+  of losing that night's backup. Surfaced when PR #407 repointed the forgejo source
+  from the empty `/opt/homebrew/var/forgejo` husk to the real ~8.8 GB tree: the
+  first offsite run under the new config had ~6.7 GB of new deduplicated data to
+  push, the pipe broke mid-transfer (borg exit 87), and the night's offsite backup
+  failed with no retry. The dump hooks (`before: configuration`) are not re-run on
+  retry.
+- Agent workspaces can now open PRs and commit. Wired `tea` (with a login seeded from the agents vault), a `FORGEJO_TOKEN` for the pr/branch/runner mise tasks, and a git author/committer identity into the workspace launcher. The token is an **agents-owned** Forgejo PAT (scopes `write:repository` + `write:issue` — PRs are issues in Forgejo, so tea needs the issue scope — stored concealed as `agents-forgejo-token` in the agents vault) — structurally bounded to the repos agents collaborates on, with no blumeops-vault dependency. Also revoked the bot's leftover write on blumeops/project-template/adelaide-baby-shower-app.
+- Disabled hephd's `--self-update` on the indri **heph hub** and put its version fully under IaC: `ansible/roles/heph` now converges the installed `hephd` to the pinned `heph_version` (`v1.7.0`) on every provision — installing, upgrading, or downgrading as the pin changes — instead of bootstrapping once and letting the daemon self-update. The `--self-update`/`--self-update-interval-secs` flags are gone from the launchagent, so no release lands on the hub until a human bumps the pin and re-provisions. The ringtail agent spoke was already pin-only (no self-update); gilbert's manual spoke gets documented steps to strip its self-update flags and pin its binary. See `hephaestus` (reference/services) for the release → deploy flow.
+- blumeops `main` is branch-protected — a push + merge whitelist limited to `eblume` — so no write collaborator can merge a PR or push to `main`; human review/merge is the gate (the `agents` bot is separately read-only + fork, see the fork-model change). The release workflows (`build-blumeops`, `cv-deploy`) commit a version bump back to `main`, and because the automatic Forgejo Actions token can't be push-whitelisted (Forgejo [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)) they now push with `MAIN_PUSH_TOKEN` — an `eblume`-owned PAT (`write:repository`) provisioned as an Actions secret via the `forgejo_actions_secrets` role. This supersedes the earlier "`main` is intentionally left unprotected against the bot" stance.
+- Ringtail: the stray fish `ip` function (which curled ipinfo.io / checkip.amazonaws.com) was shadowing iproute2's real `ip`, so `ip addr`, `ip route`, etc. silently hit the network instead of running the command. Renamed it to `myip` and brought it under home-manager (`xdg.configFile`) so it can't drift back, and removed the shadowing `ip.fish` plus a broken (prettyping-less) `ping.fish` from the host.
+- Dropped the **blumeops agent workspace** — remote workers are now hephaestus, research, and playground only. Real blumeops work needs the whole blumeops 1Password vault (its ansible `pre_tasks` and mise tasks `op read` broadly), and that vault is deliberately the operational-secret blast-radius boundary with no least-privilege subset to grant a service account — so blumeops stays a local-on-gilbert, biometric-`op` job. Also documented the deployment's **terms-of-use** footing (ordinary, individual usage; native-app OAuth). See `agent-workspaces` §"Why blumeops is not a workspace".
+- Service review: reviewed the ringtail snowflake-proxy. Upstream is at 2.14.1 (2.12/2.13/2.14 released since), but nixos-25.11 is frozen at 2.11.0 and the `nixpkgs-services` pin is shared with k3s and forgejo-runner. As a minor anti-censorship service, it stays on the in-channel 2.11.0 build rather than mixing in an unstable channel; the version tracking now records the upstream gap.
+- Service review: upgraded the ringtail forgejo-runner (`nix-container-builder`) from 12.7.2 to 12.11.1 via the `nixpkgs-services` pin, picking up the Go toolchain, `golang.org/x/sys`, and `go-git` security fixes released since 12.7.2. k3s and snowflake (sharing the pin) are unchanged.
+- Service review: reviewed k3s on ringtail (most stale, 94d). nixos-25.11 is frozen at the deployed 1.34.5+k3s1 (no `k3s_1_35`/`k3s_1_36` attrs; unstable has 1.35.6, upstream latest 1.36.2), so it stays on the in-channel build rather than channel-mixing; the upstream 1.34.9 patch gap (klipper-helm CVE bump, containerd fixes) is recorded in version tracking. Cluster verified healthy. Also ran the weekly ringtail flake.lock update: nixpkgs `3cac626` → `b6018f8` (nixos-25.11); disko/home-manager already current, `nixpkgs-services` pin held.
+- Service review: reviewed tempo (most stale, 96d). Upgraded the home-built container 2.10.3 → 2.10.7 — the 2.10.x patch line brings `golang.org/x/net` and `golang.org/x/crypto` security fixes; its one breaking change (OpenCensus receiver removal in 2.10.6) doesn't apply since the distributor only uses the OTLP receiver. The v2.10.6 Go-1.26 floor required overriding `buildGoModule`'s Go to `go_1_26`. Upstream 3.0.x is a major with breaking write-path/config changes and was deferred to a separate task. Also reviewed the weekly Prowler K8s CIS report (2026-07-05): all clear, 0 unmuted FAILs, net-zero week-over-week (1127 PASS / 53 muted).
+- Service review (2026-07-13): reviewed the seven stalest ArgoCD services against upstream and actioned the three low-risk, self-contained bumps: **grafana** 12.4.2 → 12.4.5 (in-minor security CVEs — CVE-2026-9029/-33382/-42127; home-built `fetchurl` container rebuilt via CI), **argo-cd** v3.3.6 → v3.3.12 (in-minor, CVE-2026-41240 dompurify), and **ollama** 0.20.4 → 0.31.2 (upstream image tag). Deferred with heph follow-up tasks rather than stamping them reviewed: **miniflux** 2.3.2 and **navidrome** 0.63.2 (both bare-nixpkgs packages pinned to the deployed version — need a package override with recomputed hashes; navidrome also needs `EnableSharing=false`), **authentik** 2026.2.5 (from-source Nix build — sources + Go/Py/web vendorHashes; SSO blast radius), and **immich** v3.0.x (breaking major — pgvecto.rs dropped, DB migration). Their `last-reviewed` dates were intentionally left un-stamped so they resurface in the stale queue until actually upgraded.
+- agent-workspaces: add a general CLI toolbox (`cliTools`: gawk, jq, curl, python3) to the ringtail agent-session PATH alongside the report toolchain. Plain shell agents constantly reach for `awk`/`jq`/`curl` and quick `python3` one-liners; without them sessions hit `command not found` or fall back to slower workarounds. All nixpkgs builds — declarative, no new `/run/current-system/sw/bin` exposure. `python3` is a bare interpreter (uv is already on PATH for `uv run --script`). Applied on the next `provision-ringtail`.
+- Upgraded Immich v2.6.3 → v3.0.2 (server + machine-learning CUDA). The v3 breaking change (pgvecto.rs dropped for VectorChord) was already satisfied — ringtail's `immich-pg` runs `cloudnative-vectorchord:17-0.5.0` (vchord 0.5.0, pgvector 0.8.0), both inside v3.0.2's accepted ranges — so this was a clean tag bump plus immich's own startup migrations. Closes the v2.6.3 High-severity panorama-OCR stored XSS and the 2026-07-06 advisory cluster. A pre-upgrade `pg_dump` was taken as a rollback artifact, and post-upgrade a one-time Metadata Extraction re-run is pending (tracked in heph).
+- Service review 2026-07-17 (remote-agent): **authentik 2026.2.2 → 2026.2.6**
+  (most-stale service; latest patch on the current train — the 2026.5.x train
+  jump is a separate follow-up). Source bump of the nix-built container via the
+  Build Container CI dispatch with TOFU hash discovery; go vendorHash and the
+  client-go pin carry over (go.mod/go.sum unchanged upstream). Also added a
+  manual-dispatch **Ringtail Flake Update** workflow so remote-agent sessions
+  can land `flake.lock` bumps via CI on a PR branch.
+  Added a **Service Health** Grafana dashboard (`uid: service-health`, folder
+  "Service Health"): degraded deployments/statefulsets, containers stuck
+  waiting, restart counts, and scrape-target status — the read surface for
+  agent post-deploy health checks (credential design for agent API access
+  under discussion).
+  Reworked `mise run runner-logs` to fetch job logs over the Forgejo web log
+  route (`…/jobs/N/attempt/M/logs`) with the existing API token — no ssh to
+  indri needed, so it now works from remote-agent sessions and while logs are
+  still in dbfs. Also taught the Build Container workflow to post nix build
+  failures (including TOFU hash mismatches) as PR comments.
+- Service review (flyio-tailscale): reconciled tracking (the Fly proxy binary was bumped to v1.94.2 during the 2026-06-22 review but `service-versions.yaml` still read v1.94.1) and attempted the long-held jump to the 1.98 train. Deployed v1.98.8 to `blumeops-proxy` and tested MagicDNS inside the Firecracker container — it still `SERVFAIL`s tailnet names (`nslookup indri.tail8d86e.ts.net 100.100.100.100`) and blacked out all public routing (eblu.me/forge/cv → HTTP 000), the same failure mode as the original v1.96.5 regression. Rolled back to v1.94.2 in a few minutes; routing and MagicDNS verified restored. Notable: the 1.98 train is clean in k3s pods (PR #390) but NOT in the Fly no-DNS-manager container, so the pin stays on 1.94. Root cause (Fly container has no DNS manager, so tailscaled's split resolver isn't consulted) and the unblock path are tracked as a heph task.
+- Fly proxy nginx base image bumped 1.30.3-alpine → 1.30.4-alpine (security
+  release: CVE-2026-42533, CVE-2026-60005, CVE-2026-56434). Service review
+  stamp for flyio-nginx; tracking entry corrected from stale 1.29.6.
+- Service review: upgraded the Fly proxy's Grafana Alloy sidecar binary from
+  v1.17.0 to v1.17.1 (digest-pinned), and corrected the stale `flyio-alloy`
+  tracking entry in `service-versions.yaml`, which claimed v1.14.1 while the
+  Dockerfile had been on v1.17.0.
+- Agent workspace repos on ringtail now clone to `~/code/personal/<repo>` (was `~/workspaces/<name>/<repo>`), so the paths agents read in every `AGENTS.md`/`CLAUDE.md` resolve on the agent box. Remote Control session names (`ringtail-<name>`) are unchanged.
+- Fly proxy deploys now work from any host: flyctl 0.4.71 pinned in mise.toml (was gilbert-only via brew).
+
+### Documentation
+
+- Doc review: verified the "Manage Ringtail Lockfile" how-to — dagger `flake-lock`/`flake-update` pipelines, the `prune-ringtail-generations` task, and its wiki-links all resolve against the current tooling. Stamped last-reviewed.
+- Doc review: corrected the NVIDIA device plugin reference card — time-slicing is 4 replicas per GPU (not 2) and the deployed image tag (v0.19.2) is now recorded.
+- Doc review: verified the QArt Tuner reference card against `utils/qart/` — CLI flags, web-UI parameter ranges, keyboard shortcuts, mise `serve` task, and the `rsc.io/qr` dependency all match the code; wiki-links resolve. Stamped last-reviewed.
+- Doc review: verified the No Helm Policy explanation card against the live manifests — no Helm chart references remain anywhere under `argocd/`, 1Password Connect is plain rendered manifests, and ArgoCD and the Tailscale operator both pull pinned upstream manifests via `resources:` (forge mirror / raw GitHub) rather than charts. The migration-history table and "all services use kustomize" claim hold. No content changes; stamped last-reviewed.
+- Doc review (2026-07-14): reviewed the never-reviewed Caddy reference card and corrected several stale entries — `cv`/`docs` are now served as static files from disk (not proxied to Tailscale endpoints), the retired minikube `5432 → pg.tail8d86e.ts.net` L4 route was replaced with the live `5433`/`5434` Postgres routes, and the proxied-service table was refreshed against `ansible/roles/caddy/defaults/main.yml`.
+- Doc review: corrected the mealie reference card for the ringtail k3s migration — manifests path (`mealie/` → `mealie-ringtail/`) and storage class (`minikube-hostpath` → `local-path`). Service review: 1password-connect confirmed at upstream-latest 1.8.2 (Synced/Healthy), stamped reviewed.
+- Doc review 2026-07-17: rewrote the stale ArgoCD `apps.md` registry card
+  (post-minikube `-ringtail` app names, six missing apps, cv/forgejo-runner
+  departures, manual-sync-everywhere policy). Documented the remote-agent
+  variant of the service-review, doc-review, and flake-update runbooks, and
+  retired C0/C1/C2 references from `review-documentation.md` to match the new
+  AGENTS.md process.
+- Doc review: verified the Zot service reference card. Fixed the stale pull-through-cache description — it referred to `[[cluster|minikube]]`, but the cluster has been k3s on ringtail since the 2026-06 migration. Confirmed the registry is healthy (registry.ops.eblu.me/v2/ → 200) and the namespace convention, security model, and API-key-rotation steps still match the deployment. Stamped last-reviewed.
+- Doc review: tutorials/ai-assistance-guide.md — replaced the retired
+  `minikube-indri` kubectl context guidance with `k3s-ringtail`, corrected the
+  indri native-service list, and noted Jellyfin's LaunchAgent management.
+- Doc review: reviewed `tutorials/exploring-the-docs.md` — replaced the stale
+  reference to AGENTS.md's retired kubectl-context requirement with its current
+  critical rule (public repo, no secrets), and stamped `last-reviewed`.
+- Added the ringtail Factorio headless server to `service-versions.yaml` (nixos type, 2.0.77), documenting the temporary `versionsJson` overlay that pins it ahead of nixpkgs to match the Steam client — including how to bump the pin and the note to remove it once nixpkgs catches up.
+- Forgejo reference: documented the consumers of the `api-token` PAT (ansible role, runner-logs, and — new — the tea CLI, which keeps a copy in its own config) so a future rotation updates all three. Context: tea 0.14.2's httpsign deadlock forced tea off SSH-signature auth and onto this shared PAT.
+- run-1password-backup: note that the account-wide export now also covers the new `agents` vault (and that any newly-added vault is swept in automatically — the export has no per-vault selection). The `op-backup` script is vault-agnostic, so no code change was needed.
+
+
 ## [v1.18.1] - 2026-06-29
 
 ### Bug Fixes

@@ -1,1 +1,0 @@
-Forgejo reference: documented the consumers of the `api-token` PAT (ansible role, runner-logs, and — new — the tea CLI, which keeps a copy in its own config) so a future rotation updates all three. Context: tea 0.14.2's httpsign deadlock forced tea off SSH-signature auth and onto this shared PAT.

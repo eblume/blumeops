@@ -1,1 +1,0 @@
-run-1password-backup: note that the account-wide export now also covers the new `agents` vault (and that any newly-added vault is swept in automatically — the export has no per-vault selection). The `op-backup` script is vault-agnostic, so no code change was needed.

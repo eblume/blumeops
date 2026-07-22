@@ -1,1 +1,0 @@
-Agent workspace repos on ringtail now clone to `~/code/personal/<repo>` (was `~/workspaces/<name>/<repo>`), so the paths agents read in every `AGENTS.md`/`CLAUDE.md` resolve on the agent box. Remote Control session names (`ringtail-<name>`) are unchanged.

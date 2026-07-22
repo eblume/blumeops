@@ -1,1 +1,0 @@
-Agent workspaces: put the research report toolchain (mise, uv, pandoc, typst, weasyprint) on the session PATH, and expose WeasyPrint's native libraries via `LD_LIBRARY_PATH` so `mise run compile-report` renders a PDF on ringtail. Repo mise configs are pre-trusted to avoid interactive prompts.

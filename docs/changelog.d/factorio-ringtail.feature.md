@@ -1,1 +1,0 @@
-Stood up a private Factorio dedicated server on ringtail (`services.factorio`, UDP 34197), reachable at `factorio.ops.eblu.me`. It is BlumeOps' first externally-shared service: guests are *shared* onto ringtail (`autogroup:shared`) rather than invited as members, and the Tailscale ACL hands them exactly the one game port — they inherit none of the member-facing services.

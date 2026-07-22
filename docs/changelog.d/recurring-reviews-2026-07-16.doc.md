@@ -1,1 +1,0 @@
-Doc review: corrected the mealie reference card for the ringtail k3s migration — manifests path (`mealie/` → `mealie-ringtail/`) and storage class (`minikube-hostpath` → `local-path`). Service review: 1password-connect confirmed at upstream-latest 1.8.2 (Synced/Healthy), stamped reviewed.

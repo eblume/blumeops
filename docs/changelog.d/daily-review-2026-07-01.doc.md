@@ -1,1 +1,0 @@
-Doc review: verified the "Manage Ringtail Lockfile" how-to — dagger `flake-lock`/`flake-update` pipelines, the `prune-ringtail-generations` task, and its wiki-links all resolve against the current tooling. Stamped last-reviewed.

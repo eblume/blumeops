@@ -1,1 +1,0 @@
-Added the ringtail Factorio headless server to `service-versions.yaml` (nixos type, 2.0.77), documenting the temporary `versionsJson` overlay that pins it ahead of nixpkgs to match the Steam client — including how to bump the pin and the note to remove it once nixpkgs catches up.
