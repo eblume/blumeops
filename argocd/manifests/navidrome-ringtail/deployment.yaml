@@ -6,6 +6,11 @@ metadata:
   namespace: navidrome
 spec:
   replicas: 1
+  # SQLite single-writer: never leave the old pod holding the DB while the
+  # new pod runs startup migrations (the 0.63.2 rollout migrated with the
+  # 0.61.1 pod still live).
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: navidrome
@@ -58,6 +63,12 @@ spec:
               readOnly: true
             - name: data
               mountPath: /data
+            # The Nix image ships no /tmp; SQLite needs a writable temp dir
+            # for statement journals on large migrations (the 0.63.2
+            # bpm/bit_depth migration died with "disk I/O error: permission
+            # denied" without one). Same fix as paperless.
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               memory: "128Mi"
@@ -84,3 +95,5 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: navidrome-data
+        - name: tmp
+          emptyDir: {}
