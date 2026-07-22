@@ -1,6 +1,7 @@
 ---
 title: Paperless-ngx
-modified: 2026-06-12
+modified: 2026-07-21
+last-reviewed: 2026-07-21
 tags:
   - service
 ---
@@ -15,8 +16,11 @@ Self-hosted document management system with OCR, tagging, and full-text search.
 |----------|-------|
 | **URL** | https://paperless.ops.eblu.me |
 | **Tailscale URL** | https://paperless.tail8d86e.ts.net |
+| **ArgoCD app** | `paperless-ringtail` |
+| **Sync policy** | Manual |
 | **Namespace** | `paperless` |
 | **Image** | `registry.ops.eblu.me/blumeops/paperless` |
+| **Tracked upstream version** | `v2.20.15` |
 | **Manifests** | `argocd/manifests/paperless-ringtail/` |
 | **Container source** | `containers/paperless/default.nix` (Nix image) |
 | **Upstream** | [paperless-ngx/paperless-ngx](https://github.com/paperless-ngx/paperless-ngx) |
@@ -27,7 +31,9 @@ Self-hosted document management system with OCR, tagging, and full-text search.
 ## Architecture
 
 - **Web server**: Granian (ASGI), port 8000
-- **Task queue**: Celery worker + beat (Redis sidecar)
+- **Task queue**: Celery worker + beat (Redis-protocol sidecar — the
+  nix-built `blumeops/valkey` image, kustomize-rewritten from
+  `docker.io/library/redis`)
 - **OCR**: Tesseract (English)
 - **Process model**: no supervisor — one pod, four app containers (web,
   worker, beat, consumer) sharing the Nix image with different commands,

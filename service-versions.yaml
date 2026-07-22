@@ -260,9 +260,12 @@ services:
 
   - name: navidrome
     type: argocd
-    last-reviewed: 2026-04-11
-    current-version: "v0.61.1"
+    last-reviewed: 2026-07-21
+    current-version: "v0.63.2"
     upstream-source: https://github.com/navidrome/navidrome/releases
+    notes: >-
+      Nix lift-and-shift self-pinned to nixos-unstable (mealie precedent) —
+      ringtail's stable 25.11 nixpkgs lags at 0.61.1.
 
   - name: miniflux
     type: argocd

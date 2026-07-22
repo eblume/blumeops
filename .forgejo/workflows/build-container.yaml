@@ -14,7 +14,7 @@ on:
         required: true
         type: string
       ref:
-        description: 'Commit SHA to build (defaults to current HEAD)'
+        description: 'FULL 40-char commit SHA to build (defaults to current HEAD; short SHAs fail — checkout treats them as branch names)'
         required: false
         type: string
 
@@ -24,6 +24,19 @@ jobs:
     outputs:
       nix: ${{ steps.classify.outputs.nix }}
     steps:
+      # Fail fast on short SHAs: actions/checkout only fetches by commit for
+      # full 40-hex SHAs; anything else is fetched as refs/heads/<ref>*, which
+      # silently matches nothing for a short SHA (see run #665). The mise task
+      # container-build-and-release expands short SHAs before dispatching —
+      # this guards manual UI dispatches.
+      - name: Validate ref input
+        run: |
+          REF="${{ inputs.ref }}"
+          if [ -n "$REF" ] && echo "$REF" | grep -qE '^[0-9a-f]{4,39}$'; then
+            echo "::error::'ref' looks like a SHORT commit SHA ($REF). Pass the full 40-char SHA (or a branch name) — actions/checkout treats short SHAs as branch names and the fetch fails."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:

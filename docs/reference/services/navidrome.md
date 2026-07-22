@@ -1,6 +1,6 @@
 ---
 title: Navidrome
-modified: 2026-04-18
+modified: 2026-07-21
 last-reviewed: 2026-04-18
 tags:
   - service
@@ -17,12 +17,12 @@ Self-hosted music streaming server.
 |----------|-------|
 | **URL** | https://dj.ops.eblu.me |
 | **Tailscale URL** | https://dj.tail8d86e.ts.net |
-| **ArgoCD app** | `navidrome` |
+| **ArgoCD app** | `navidrome-ringtail` |
 | **Sync policy** | Manual |
 | **Namespace** | `navidrome` |
-| **Manifests** | `argocd/manifests/navidrome/` |
-| **Image** | `registry.ops.eblu.me/blumeops/navidrome:v0.61.1-3ecd888` |
-| **Tracked upstream version** | `v0.61.1` |
+| **Manifests** | `argocd/manifests/navidrome-ringtail/` |
+| **Image** | `registry.ops.eblu.me/blumeops/navidrome` (nix-built, see `containers/navidrome/default.nix`) |
+| **Tracked upstream version** | `v0.63.2` |
 
 Traffic reaches Navidrome through a Tailscale Ingress at `dj.tail8d86e.ts.net`,
 with [[caddy]] proxying `dj.ops.eblu.me` to that tailnet endpoint.

@@ -38,6 +38,11 @@ spec:
               value: "/music"
             - name: ND_DATAFOLDER
               value: "/data"
+            # v0.63.0 flipped the sharing default to enabled; pin the
+            # pre-upgrade behaviour (local accounts only, nothing shared
+            # anonymously — v0.62.0's security fixes were share-related).
+            - name: ND_ENABLE_SHARING
+              value: "false"
             # Native DB backup (users, play counts, playlists) — borgmatic on
             # indri ferries the newest snapshot off this PVC. Schedule runs an
             # hour before borgmatic's 02:00 run so a fresh copy is waiting.

@@ -6,13 +6,21 @@
 # nixpkgs wraps the binary with ffmpeg on PATH, but the runtime container
 # should not depend on that wrapper detail).
 #
-# Exact version match with the deployed Dockerfile build (0.61.1) — a true
-# lift-and-shift, no migration concerns. The version assertion makes
-# nix-build fail if a pin bump changes the version unexpectedly.
-{ pkgs ? import <nixpkgs> { } }:
-
+# Self-pins nixos-unstable (mealie precedent): ringtail's stable nixpkgs
+# (25.11) is stuck at 0.61.1, while unstable carries 0.63.2 — past the
+# v0.62.0 security fixes (cross-account share disclosure, authorization
+# checks, transcode-DoS cap). Navidrome migrates its SQLite schema forward
+# automatically on startup; the daily ND_BACKUP_* snapshot plus borgmatic
+# covers rollback. The version assertion makes nix-build fail if a pin
+# bump changes the version unexpectedly.
 let
-  version = "0.61.1";
+  nixpkgs = fetchTarball {
+    url = "https://github.com/NixOS/nixpkgs/archive/241313f4e8e508cb9b13278c2b0fa25b9ca27163.tar.gz";
+    sha256 = "09d83cyl9dlfkkbspkgkk7bfydj3mvw6r1x98kvc2v8wl2xd8ldy";
+  };
+  pkgs = import nixpkgs { system = "x86_64-linux"; };
+
+  version = "0.63.2";
   app = pkgs.navidrome;
 in
 
