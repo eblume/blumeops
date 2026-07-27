@@ -101,7 +101,7 @@ IoT → Main is blocked apart from pinholes and return traffic. mDNS forwarding 
 enabled on Main and IoT, so cross-VLAN discovery works.
 
 Notable IoT clients: Owlet Dream Sock base station (`10:b4:1d:b6:1a:40`,
-hostname `espressif`, 192.168.3.250 — DHCP reservation pending). The IoT SSID is
+hostname `espressif`, 192.168.3.250 — DHCP reserved Jul 2026). The IoT SSID is
 2.4GHz-only, WPA2-PSK, PMF disabled — keep it that way; IoT devices (Owlet
 included) commonly fail on WPA3/PMF/5GHz.
 
