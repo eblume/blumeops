@@ -487,6 +487,41 @@ services:
       is a hard pin. Review cadence exists so the pin doesn't rot into
       sync-version skew with the hub; bump in step with the hub.
 
+  - name: heph-cli-ringtail
+    type: nixos
+    last-reviewed: 2026-07-30
+    current-version: "v1.7.0"
+    upstream-source: https://forge.eblu.me/eblume/hephaestus/releases
+    notes: >-
+      2026-07-30: Erich's own desktop spoke on ringtail — hephd plus the three
+      user-facing surfaces (`heph`, `heph-tui`, `heph-quickadd`), installed by
+      the eblume-heph-install oneshot (nixos/ringtail/heph-eblume.nix). Shares
+      the `hephTag` pin in heph-common.nix with heph-agent-spoke, so the two
+      ringtail spokes cannot drift apart; same no-self-update declarative pin,
+      bumped by editing `hephTag` and running nixos-rebuild. KNOWN DRIFT:
+      `~/.cargo/bin/heph-quickadd` is a hand-built binary from what became
+      v1.8.0 — the sway Alt+' popover needed the one-shot `popover` mode before
+      that tag existed (its crate is byte-identical to v1.8.0's). The pin is
+      still v1.7.0; bumping it re-installs all four binaries from the tag and
+      clears the drift. Tracked as heph node 01KYTBFTJSG3H4GDBVTC14NVJC.
+
+  - name: heph-cli-gilbert
+    type: manual
+    last-reviewed: null
+    current-version: null
+    upstream-source: https://forge.eblu.me/eblume/hephaestus/releases
+    notes: >-
+      heph CLI + hephd spoke on gilbert (macOS) — the only heph install NOT
+      under IaC, put in place by hand with `cargo install --tag` (see
+      [[hephaestus]] "Connecting a spoke"). Nothing asserts its version, and
+      gilbert was unreachable from ringtail when this entry was added, so both
+      fields start null rather than claiming a version never verified — which
+      also floats it to the top of the review queue, where an untracked install
+      belongs. To review: on gilbert run `heph --version`, reconcile against
+      the hub, then stamp both fields. Bringing gilbert under IaC (a nix-darwin
+      or ansible spoke role) is the real fix and is tracked as hephaestus
+      follow-up.
+
   - name: factorio
     type: nixos
     last-reviewed: 2026-07-10

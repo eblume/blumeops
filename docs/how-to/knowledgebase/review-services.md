@@ -1,6 +1,6 @@
 ---
 title: Review Services
-modified: 2026-07-17
+modified: 2026-07-30
 last-reviewed: 2026-04-12
 tags:
   - how-to
@@ -33,8 +33,10 @@ To filter by service type:
 ```bash
 mise run service-review --type argocd
 mise run service-review --type ansible
-mise run service-review --type hybrid
+mise run service-review --type manual
 ```
+
+See [[service-versions]] for the full list of types in use.
 
 ## Review Process by Service Type
 
