@@ -67,8 +67,11 @@ upstream release, then bump the pin and re-provision.
 | Device | Managed by | Pin | Converged by |
 |--------|-----------|-----|--------------|
 | **indri** (hub) | `ansible/roles/heph` | `heph_version` (`defaults/main.yml`) | `mise run provision-indri -- --tags heph` — installs/upgrades `hephd` to the pinned tag on every run |
-| **ringtail-agent** (spoke) | `nixos/ringtail/agent-workspaces.nix` | `hephTag` | the `agent-heph-install` unit (idempotent `cargo install --tag`) on nixos rebuild |
+| **ringtail-agent** (spoke) | `nixos/ringtail/agent-workspaces.nix` | `hephTag` (`heph-common.nix`) | the `agent-heph-install` unit (idempotent `cargo install --tag`) on nixos rebuild |
+| **ringtail-eblume** (desktop spoke) | `nixos/ringtail/heph-eblume.nix` | `hephTag` (`heph-common.nix`) | the `eblume-heph-install` unit, same mechanism — see [Desktop surfaces](#desktop-surfaces-on-ringtail) |
 | **gilbert** (spoke) | manual (not yet IaC) | — | hand `cargo install --tag`; see [Connecting a spoke](#connecting-a-spoke-eg-gilbert) |
+
+Both ringtail spokes share one pin: `hephTag` in `nixos/ringtail/heph-common.nix`.
 
 The indri role converges the version on **every** provision (it compares
 `hephd --version` against `heph_version` and re-runs `cargo install --locked
@@ -146,6 +149,48 @@ identity** rather than rewriting the device:
 Only `meta.origin` changes; `owner_id`, nodes, op-log, and links are copied
 untouched. A clean `hephd --owner-id` / seed command is tracked upstream as
 hephaestus follow-up — until then this manual reset is the documented path.
+
+## Desktop surfaces on ringtail
+
+Erich's ringtail spoke (`nixos/ringtail/heph-eblume.nix`) is a **desktop** spoke:
+its `bins` list adds `heph-tui` and `heph-quickadd` to the `heph`/`hephd` the
+agent's headless spoke installs.
+
+> **`~/.cargo/bin` is on no session `PATH` here.** sway comes up under greetd
+> with only the nix profile directories, and neither fish's config nor
+> `fish_user_paths` adds cargo's — so a terminal opened from the desktop cannot
+> see `heph` or `heph-tui` at all, however they were installed. `mkShims` puts
+> exec shims in eblume's home-manager profile
+> (`/etc/profiles/per-user/eblume/bin`, which *is* on that PATH) for exactly the
+> `bins` the spoke installs. Check with a genuinely clean environment, not an
+> agent/harness shell — those often carry `~/.cargo/bin` and will hide the
+> problem:
+>
+> ```fish
+> env -i HOME=$HOME USER=eblume PATH=(tr '\0' '\n' < /proc/(pgrep -x sway)/environ | grep '^PATH=' | cut -d= -f2) fish -l -c 'type -P heph-tui'
+> ```
+
+**Quick capture is bound in sway, not in the app.** On gilbert the popover is an
+always-warm process that grabs ⌘' for itself; that model cannot work under
+Wayland, where a window cannot be hidden (winit's `set_visible` is a no-op, so a
+"hidden" popover would sit on screen) and there is no global key grab at all. So
+sway owns the binding — **Alt+'**, which also means it fires regardless of which
+application has focus — and launches `heph-quickadd popover`, the upstream
+one-shot mode: one process per capture, exiting when saved, escaped, or clicked
+away. The binding and the float/centre window rule live in `configuration.nix`
+next to the rest of the sway config; the launcher itself
+(`heph.mkQuickaddLauncher`) is in `heph-common.nix`.
+
+> **Why a launcher wrapper.** `heph-quickadd` is built by `cargo install`, so
+> nothing sets up its graphics stack: nix-ld resolves its `DT_NEEDED` entries,
+> but eframe (glutin/winit) `dlopen`s `libwayland-client` / `libEGL` /
+> `libxkbcommon` by soname at runtime, and the GL ICDs live in
+> `/run/opengl-driver/lib`. Without the wrapper's `LD_LIBRARY_PATH` it dies at
+> startup with `WaylandError(Connection(NoWaylandLib))`.
+
+Adding a binary to `bins` re-runs the install even when `hephd` already matches
+the pinned tag: the unit's skip check requires every requested binary to exist,
+not just a version match.
 
 ## Connecting a spoke (e.g. gilbert)
 

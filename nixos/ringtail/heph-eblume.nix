@@ -45,6 +45,11 @@ let
     group = "users";
     inherit home;
     who = "eblume";
+    # Erich's spoke is a *desktop* spoke: on top of the daemon and CLI it gets
+    # the agenda TUI and the quick-capture popover, which the agent's headless
+    # spoke has no use for. configuration.nix puts shims for the same list on
+    # the session PATH.
+    bins = heph.desktopBins;
   };
 in
 {

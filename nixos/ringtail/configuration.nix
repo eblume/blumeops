@@ -3,6 +3,12 @@
 let
   # Libraries needed by mise-compiled runtimes (python-build, etc.)
   buildDeps = with pkgs; [ zlib readline bzip2 xz libffi ncurses sqlite openssl ];
+
+  # Erich's heph toolchain (installed by heph-eblume.nix). Imported here too so
+  # the sway session can bind the quick-capture popover.
+  heph = import ./heph-common.nix { inherit pkgs lib; };
+  hephQuickadd = heph.mkQuickaddLauncher { home = "/home/eblume"; };
+  hephShims = heph.mkShims { home = "/home/eblume"; bins = heph.desktopBins; };
 in
 {
   imports = [
@@ -343,6 +349,11 @@ in
     unzip
     fuzzel
     pulseaudio
+    # Forgejo CLI — `tea pr create` is the documented way to open PRs here, but
+    # it was never installed on ringtail, so sessions on this host had to fall
+    # back to raw API calls. Authenticate once with `tea login add` (token from
+    # 1Password); the config lands in ~/.config/tea/config.yml.
+    tea
   ];
 
   # Allow running dynamically linked binaries (mise-installed runtimes, etc.)
@@ -366,6 +377,12 @@ in
   home-manager.useUserPackages = true;
   home-manager.users.eblume = {
     home.stateVersion = "25.11";
+
+    # `heph`/`heph-tui`/`heph-quickadd` shims. The real binaries are in
+    # ~/.cargo/bin, which is on no session PATH here — sway comes up under
+    # greetd with only the nix profile directories, so without these a terminal
+    # opened from the desktop can't find heph at all.
+    home.packages = [ hephShims ];
 
     # External-IP helper, managed declaratively so it can't drift again. Renamed
     # from `ip`: the old stray ~/.config/fish/functions/ip.fish shadowed
@@ -413,6 +430,13 @@ in
             { command = "inhibit_idle fullscreen"; criteria = { class = ".*"; }; }
             { command = "inhibit_idle fullscreen"; criteria = { app_id = ".*"; }; }
             { command = "fullscreen enable"; criteria = { class = "steam_app_1174180"; }; }
+            # heph quick-capture popover: a borderless HUD, centred over
+            # whatever you were doing. It can't place itself — winit ignores
+            # window positioning on Wayland — so sway centres it.
+            {
+              command = "floating enable, border none, move position center";
+              criteria = { app_id = "heph-quickadd"; };
+            }
           ];
         };
         colors = {
@@ -472,6 +496,12 @@ in
           "${mod}+space" = lib.mkForce "exec fuzzel";
           "${mod}+l" = lib.mkForce "exec swaylock -f";
           "${mod}+F1" = "exec grep '^bindsym' ~/.config/sway/config | fuzzel --dmenu";
+          # heph quick capture. Alt+' rather than the Super+' this uses on
+          # gilbert: Super is sway's own modifier here, and ⌘' is muscle memory
+          # for the *Command* key, which Alt sits under on this keyboard. Bound
+          # in sway (not by the app) because Wayland has no global key grab —
+          # which is also what makes it fire regardless of what has focus.
+          "Mod1+apostrophe" = "exec ${hephQuickadd}/bin/heph-quickadd-popover";
           "--locked XF86AudioMute" = "exec pactl set-sink-mute @DEFAULT_SINK@ toggle";
           "--locked XF86AudioLowerVolume" = "exec pactl set-sink-volume @DEFAULT_SINK@ -5%";
           "--locked XF86AudioRaiseVolume" = "exec pactl set-sink-volume @DEFAULT_SINK@ +5%";
