@@ -26,6 +26,20 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         fsGroup: 1500
+      initContainers:
+        # The local-path PV root (/home/agent) is created root-owned; fsGroup
+        # fixes group + setgid but NOT the owner, and op wants HOME owned by uid
+        # 1500 (see [[lesson_op_and_pvc_in_container]]). Chown it once at pod
+        # start, as root, so this holds on a fresh PVC without a manual chown.
+        # Uses the agent-ws image (chown is on the baked config.Env PATH).
+        - name: fix-home-ownership
+          image: registry.ops.eblu.me/blumeops/agent-ws:kustomized
+          command: ["chown", "1500:1500", "/home/agent"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: home
+              mountPath: /home/agent
       containers:
         # ── the agent ────────────────────────────────────────────────────────
         - name: agent

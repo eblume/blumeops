@@ -1,6 +1,6 @@
 # Shared plumbing for ringtail's hephd spokes. Two spokes run on this host —
 # same pinned heph version, same hub, different identities and token stores:
-#   - agent-heph-*  (agent-workspaces.nix): logs in as the revocable
+#   - agent-heph-*  (agent-heph-spoke.nix): logs in as the revocable
 #     `heph-agents` user; token lives in the agents 1Password vault.
 #   - eblume-heph-* (heph-eblume.nix): Erich's own spoke for interactive
 #     sessions; token cached as a 0600 file in his home.

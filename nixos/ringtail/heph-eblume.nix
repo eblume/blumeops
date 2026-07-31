@@ -2,7 +2,7 @@
 # indri hub, so interactive sessions on this host have a real `heph` CLI
 # (`~/.cargo/bin/heph`, installed by the eblume-heph-install oneshot).
 #
-# Deliberately SEPARATE from the agent's spoke (agent-workspaces.nix): hephd
+# Deliberately SEPARATE from the agent's spoke (agent-heph-spoke.nix): hephd
 # sockets/dbs are per-user, and the two spokes hold different login identities —
 # this one is Erich himself; the agent's is the independently revocable
 # `heph-agents` user. Sharing one daemon would couple Erich's own heph access

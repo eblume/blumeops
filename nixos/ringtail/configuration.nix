@@ -12,7 +12,7 @@ let
 in
 {
   imports = [
-    ./agent-workspaces.nix
+    ./agent-heph-spoke.nix
     ./factorio.nix
     ./heph-eblume.nix
     ./myeve-heph-sync.nix

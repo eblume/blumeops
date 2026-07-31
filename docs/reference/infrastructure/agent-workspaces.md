@@ -10,6 +10,16 @@ tags:
 
 # Agent Workspaces
 
+> **Superseded (2026-07-31): the workspace now runs as a k3s pod, not a host
+> service.** The shared-host Remote Control server described below was retired —
+> `agent-ws-agent.service` and `agent-repos-init.service` are gone from
+> `nixos/ringtail/` (the file is now `agent-heph-spoke.nix`, which keeps only the
+> `agent` user + heph spoke). The agent runs containerized with its own
+> `tag:agent` Tailscale identity; see [[agent-containerization]] for the live
+> design. This page is retained for the isolation-model rationale and history —
+> the **§Isolation & security** and **§The heph spoke** sections still describe
+> real, current concerns.
+
 A persistent [Claude Code](https://code.claude.com) **Remote Control** server on
 [[ringtail]] — a single **home-base** session environment rooted in the `agents`
 repo — that Erich steers on demand from the Claude mobile app or claude.ai/code.

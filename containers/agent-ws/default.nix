@@ -32,7 +32,7 @@ let
   # requires a `version = "…"` to form v<version>-<sha>-nix). There is no
   # upstream version to track — claude self-installs at pod-start — so bump this
   # by hand when the baked toolchain changes meaningfully.
-  version = "0.8.0";
+  version = "0.9.0";
 
   # ── the curated toolchain (mirrors nixos/ringtail/agent-workspaces.nix) ──────
   # op: real 1Password CLI. In a pod the service-account token arrives as
@@ -239,6 +239,11 @@ pkgs.dockerTools.buildLayeredImage {
   config = {
     Entrypoint = [ "${entrypoint}/bin/agent-ws-entrypoint" ];
     Env = [
+      # A default PATH so the toolchain is reachable WITHOUT the entrypoint's own
+      # PATH setup — for `kubectl exec` sessions (which the pod-agent reaches into
+      # for tools) and for the PVC-chown initContainer, which overrides the
+      # entrypoint. The entrypoint still sets its own richer PATH at runtime.
+      "PATH=${lib.makeBinPath allTools}:/home/agent/.local/bin:/home/agent/.cargo/bin:/bin"
       "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
       "TZDIR=${pkgs.tzdata}/share/zoneinfo"
     ];
