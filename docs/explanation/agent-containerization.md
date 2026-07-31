@@ -104,6 +104,17 @@ This foundation (tagOwner + grant + ACL tests) ships **first**, in
 a device carries the tag, so the fence is validated as policy logic independent
 of the pod rollout.
 
+> **The node-NAT trap (must prove on-box).** A k3s pod egresses through the
+> node by default, so a pod reaching indri's tailnet IP would appear as
+> *ringtail's* `tag:homelab` identity — silently re-opening the exact hole this
+> closes. The `tag:agent` identity is only real if the agent's forge/heph
+> traffic routes through the **sidecar's** tailscale interface, and a
+> NetworkPolicy blocks the pod's direct node path to the tailnet CGNAT range
+> (`100.64.0.0/10`). Internet traffic (Claude relay, 1Password) still egresses
+> via the node — that's fine, it carries no tailnet identity. Proving that the
+> pod reaches indri *only* as `tag:agent` (and not as the node) is the first
+> deploy milestone, ahead of any cutover.
+
 ### Secrets, unchanged in spirit
 
 - **1Password:** the `agents`-vault service-account token becomes a k8s Secret
@@ -130,8 +141,13 @@ of the pod rollout.
 1. **Identity foundation (this PR).** `tag:agent` tagOwner + fence grant + ACL
    tests in `policy.hujson`; this design doc. No behavior change until a device
    carries the tag. Deploy: `mise run tailnet-up`.
-2. **Image.** A Nix `dockerTools` image (per repo convention) with claude, the
-   op shim, the curated toolchain, and the build/report deps baked in.
+2. **Image.** A Nix `dockerTools` image (per repo convention) with the curated
+   toolchain baked in — `containers/agent-ws/default.nix`. `claude` is **not**
+   baked: it self-installs at pod-start onto the PVC via Anthropic's official
+   installer, so the image rebuilds only on toolchain changes, not claude
+   releases. The image symlinks the glibc loader so the prebuilt `claude`/rust
+   ELF binaries run in the non-FHS nix image (the container analogue of the
+   host's `nix-ld`).
 3. **Manifests.** `argocd/manifests/agent-ws/`: Deployment (agent + tailscale
    sidecar), restricted ServiceAccount, Secrets wiring, PVC for `~/.claude` +
    repo pool, NetworkPolicy egress allowlist.

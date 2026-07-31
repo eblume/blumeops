@@ -36,7 +36,10 @@ CONTAINERS_DIR = REPO_ROOT / "containers"
 SERVICE_VERSIONS_FILE = REPO_ROOT / "service-versions.yaml"
 
 # Containers that are utility/test images, not tracked services
-BLACKLIST = {"kubectl"}
+# agent-ws is a toolchain bundle for the containerized agent workspace — it has
+# no upstream version to track (claude self-installs at pod-start onto the PVC;
+# see [[agent-containerization]]).
+BLACKLIST = {"kubectl", "agent-ws"}
 
 # Container dir name → service-versions.yaml name (when they differ)
 CONTAINER_TO_SERVICE = {
