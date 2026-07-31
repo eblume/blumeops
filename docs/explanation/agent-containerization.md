@@ -148,9 +148,21 @@ of the pod rollout.
    releases. The image symlinks the glibc loader so the prebuilt `claude`/rust
    ELF binaries run in the non-FHS nix image (the container analogue of the
    host's `nix-ld`).
-3. **Manifests.** `argocd/manifests/agent-ws/`: Deployment (agent + tailscale
-   sidecar), restricted ServiceAccount, Secrets wiring, PVC for `~/.claude` +
-   repo pool, NetworkPolicy egress allowlist.
+3. **Manifests.** `argocd/manifests/agent-ws/`: Deployment (agent + userspace
+   `tag:agent` tailscale sidecar), restricted ServiceAccount (no cluster API,
+   token not mounted), PVC for `$HOME`, two ExternalSecrets (the op token from
+   the blumeops vault; the tag:agent auth key synced there by
+   `mise run agent-ws-authkey-sync`), and the egress NetworkPolicy. **The whole
+   egress mechanism was proven on-box first** (throwaway proof-pod): the pod
+   registers as its own `tag:agent` device, reaches forge/heph via the sidecar
+   SOCKS proxy (ACL grant confirmed), the node-NAT trap is real, and the
+   NetworkPolicy closes it while leaving the SOCKS path intact. The agent talks
+   to the forge over **HTTPS+token through the SOCKS proxy** (not ssh — the bot
+   ssh key is agents-vault-only, unreachable by external-secrets; HTTPS also
+   dodges ssh-over-SOCKS). **One-time bootstrap:** claude's OAuth login must be
+   seeded onto the PVC once — temporarily run the agent container as `sleep`,
+   `kubectl exec` in, run `claude` → `/login`, then let the entrypoint launch
+   Remote Control (mirrors the host bootstrap).
 4. **Cutover.** Retire `agent-ws-agent.service` + the host-user heph spoke from
    `nixos/ringtail/`; the pool clone and `/etc/agents/*` host secrets go away.
 5. **Verify** the read-only-bot fences from inside the pod (folds in heph

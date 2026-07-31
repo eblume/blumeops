@@ -1,0 +1,20 @@
+# Containerized ringtail-agent workspace — a Claude Code Remote Control server
+# running as a k3s pod with its own tag:agent Tailscale identity, replacing the
+# shared-host `agent` OS user. See docs/explanation/agent-containerization.md.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agent-ws
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/agent-ws
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: agent-ws
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#MISE description="Sync the Pulumi tag:agent Tailscale auth key into 1Password (for the agent-ws ExternalSecret)"
+#
+# Bridges the Pulumi-minted `agent_ws_authkey` (see pulumi/tailscale/__main__.py)
+# into a blumeops-vault item that external-secrets pulls into the agent-ws pod's
+# TS_AUTHKEY Secret (the tailscale sidecar can't `op read` for itself). Run after
+# `mise run tailnet-up` and on the ~90-day key rotation.
+#
+# Designed to be CI-portable (see heph 01KYV2MKS3…): no TTY assumption, and the
+# secret goes through a stdin template, never argv (/proc/cmdline is world-
+# readable on a shared runner).
+set -euo pipefail
+
+VAULT="blumeops"
+ITEM="agent-ws Tailscale Auth Key"
+
+cd "$(dirname "$0")/../pulumi/tailscale"
+KEY="$(pulumi stack output --show-secrets agent_ws_authkey)"
+[ -n "$KEY" ] || { echo "empty agent_ws_authkey from pulumi output" >&2; exit 1; }
+
+tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
+if op item get "$ITEM" --vault "$VAULT" --format json >/dev/null 2>&1; then
+  op item get "$ITEM" --vault "$VAULT" --format json \
+    | jq --arg k "$KEY" '(.fields |= map(if .label=="authkey" then .value=$k else . end))' > "$tmp"
+  op item edit "$ITEM" --vault "$VAULT" --template "$tmp" >/dev/null
+else
+  jq -n --arg t "$ITEM" --arg k "$KEY" \
+    '{title:$t, category:"API_CREDENTIAL", fields:[{label:"authkey", type:"CONCEALED", value:$k}]}' > "$tmp"
+  op item create --vault "$VAULT" --template "$tmp" >/dev/null
+fi
+echo "Synced tag:agent auth key -> op://$VAULT/$ITEM/authkey"

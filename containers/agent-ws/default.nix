@@ -28,6 +28,12 @@ let
   pkgs = import nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; };
   lib = pkgs.lib;
 
+  # Toolchain-schema version for the image tag (the Build Container workflow
+  # requires a `version = "…"` to form v<version>-<sha>-nix). There is no
+  # upstream version to track — claude self-installs at pod-start — so bump this
+  # by hand when the baked toolchain changes meaningfully.
+  version = "0.8.0";
+
   # ── the curated toolchain (mirrors nixos/ringtail/agent-workspaces.nix) ──────
   # op: real 1Password CLI. In a pod the service-account token arrives as
   #   OP_SERVICE_ACCOUNT_TOKEN from a k8s Secret, so plain `op` works — the host
@@ -43,22 +49,51 @@ let
   cliTools = with pkgs; [ gawk jq curl python3 ];
   buildTools = with pkgs; [ gcc binutils pkg-config gnumake ];
   baseTools = with pkgs; [
-    _1password-cli git openssh tea coreutils bash cacert tzdata
+    _1password-cli git openssh coreutils bash cacert tzdata
     gnused gnugrep gnutar gzip which findutils
   ];
+
+  # tea, wrapped to route through the tag:agent SOCKS sidecar. tea only ever
+  # contacts the forge (forge.ops.eblu.me), which the pod can reach ONLY via the
+  # proxy, and tea (unlike git) has no per-URL proxy config — so send all of
+  # tea's traffic through the proxy. A GLOBAL proxy would be wrong (it'd break
+  # claude↔Anthropic and op↔1Password, which must egress directly), hence a
+  # tea-specific wrapper. Shadows pkgs.tea on PATH.
+  teaWrapper = pkgs.writeShellScriptBin "tea" ''
+    export HTTPS_PROXY="socks5h://localhost:1055"
+    export HTTP_PROXY="socks5h://localhost:1055"
+    exec ${pkgs.tea}/bin/tea "$@"
+  '';
 
   # Prebuilt-binary runtime libs (claude, mise's rust): glibc provides the loader
   # we symlink below; libstdc++ + zlib cover the common dynamic deps. Exposed on
   # LD_LIBRARY_PATH in the entrypoint.
   ldLibs = with pkgs; [ glibc stdenv.cc.cc.lib zlib ];
 
-  allTools = baseTools ++ reportTools ++ cliTools ++ buildTools;
+  # heph CLI, baked in and built against THIS image's nixpkgs so it runs natively
+  # (the host's cargo binary won't — its ELF interpreter is a host nix-store glibc
+  # path absent here). The pod runs NO hephd; it shares the host agent-heph-spoke
+  # daemon via a hostPath-mounted socket (see the Deployment). Build only the
+  # `heph` crate — hephd + the GUI crate aren't needed. Pinned to hephTag v1.7.0
+  # (matches nixos/ringtail/heph-common.nix). nixpkgs rustc (1.96) clears heph's
+  # 1.89 floor, and the lockfile has no git deps, so nix vendors cleanly.
+  hephSrc = pkgs.fetchgit {
+    url = "https://forge.eblu.me/eblume/hephaestus.git";
+    rev = "refs/tags/v1.7.0";
+    hash = "sha256-M/wjIWX9Vg4YyItCf18UFgLjzEC6TGlbPJn26iRv7mw=";
+  };
+  heph = pkgs.rustPlatform.buildRustPackage {
+    pname = "heph";
+    version = "1.7.0";
+    src = hephSrc;
+    cargoLock.lockFile = hephSrc + "/Cargo.lock";
+    nativeBuildInputs = [ pkgs.pkg-config ];
+    buildInputs = [ pkgs.dbus pkgs.openssl pkgs.sqlite pkgs.zlib ];
+    cargoBuildFlags = [ "-p" "heph" ];
+    doCheck = false;
+  };
 
-  # Pinned forge SSH host key (public) so the bot's git push verifies the host —
-  # same key as environment.etc."agents/ssh/known_hosts" on the host.
-  knownHosts = pkgs.writeText "known_hosts" ''
-    [forge.ops.eblu.me]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDlGQT5w03XxlhmEiDVtGq2SkhLIZU4vYhdMey/T2tFLp7kEiOwCWgDgbBn12VDfqXTXJreykBuREqYNSx4tL4Znwap0+HjLOjTIVri8af2ZFF6IP52pcmJEOnxm/yUZhJCosu1wOZwLOoQEPBYM6sPN4OY9PFOsrsxMO2LWPJAZujPlnsfKOTsIS5iRpiT4yU7Z+oWB21rMxjZ9sXZRn8PI2MbUIs/Yazpah2XPJm2YJ7C+kqTLmld4mXQaQtHhzvPaRNB59RS8xyinuaRs618tD3DQq3Qpt8ZZKZydLVv4CIrGvjdqavt0l+4rsNGBh8dWvDR7l2Z6wo9ggDCej957+J6tInfZ82KHSW3ONdm2mUOHObUVSte2xUPlRpnIBFt3lcCapifPULE7PuN0Xdw4r+ewr+6R65RzdptqGfKyyAYsERhbq904ryNZ9fy30vH8+j9imL5AhMkCbP8S/UW49rDIdfN6MvZlX9MoBhmbrkv+kETB7qz9zaOrocEOZOE3fzB9iZxNwlXjstUnjkqi4P1yY/SKpyLC/yDCUpxC79FbCAKIJwar3C2mZaLeBGyqL31HPKOx175VsSxIbjeJX8uNO9WhbFPlcbRETeEoq+dczeU25OESCyyelGb72tTNJYObn2R8Br9NFPiwGZJX6TLlKqaE7x3D0M64ncTJQ==
-  '';
+  allTools = baseTools ++ reportTools ++ cliTools ++ buildTools ++ [ heph teaWrapper ];
 
   # ── entrypoint ───────────────────────────────────────────────────────────
   # Fuses the host's reposInit + wsRunner + claude-install into one pod entry.
@@ -66,7 +101,8 @@ let
   # concrete mount points:
   #   HOME                        persistent PVC (claude, OAuth cred, repo pool)
   #   OP_SERVICE_ACCOUNT_TOKEN    agents-vault token (k8s Secret, envFrom)
-  #   AGENT_BOT_KEY               Forgejo bot SSH key (mounted Secret, 0400)
+  # Git talks to the forge over HTTPS+token through the SOCKS sidecar (no ssh
+  # key needed — see the git config in the entrypoint body).
   # forge/fork bases match the host launcher (canonical read via upstream, push
   # to the agents/ fork).
   entrypoint = pkgs.writeShellScriptBin "agent-ws-entrypoint" ''
@@ -84,15 +120,39 @@ let
     export CC=gcc
     export MISE_TRUSTED_CONFIG_PATHS="$HOME/code/personal"
 
+    # 1Password CLI in a pod (learned the hard way): beyond the /etc/passwd entry
+    # baked into the image, op needs a TMPDIR it owns (the container /tmp is
+    # root-owned, which op's SingleUserEnvironment check rejects) and all of its
+    # state at 0600/0700. fsGroup makes new files group-accessible, and op
+    # refuses any group-readable config OR session file. Both dirs persist on the
+    # PVC, so a stale 0660 file from a prior pod breaks op on the next boot —
+    # patching perms piecemeal is unreliable (op has config + daemon + session
+    # files). Reset op's state entirely each boot and let umask 077 recreate it
+    # 0600/0700. op is a stateless service-account client, so this is free.
+    umask 077
+    export TMPDIR="$HOME/.optmp"
+    rm -rf "$HOME/.config/op" "$TMPDIR"
+    mkdir -p "$TMPDIR"
+
     # Git identity for the bot's commits.
     export GIT_AUTHOR_NAME=agents GIT_AUTHOR_EMAIL=blume.erich+agents@gmail.com
     export GIT_COMMITTER_NAME=agents GIT_COMMITTER_EMAIL=blume.erich+agents@gmail.com
 
-    bot_key="''${AGENT_BOT_KEY:-/etc/agents/ssh/id_ed25519}"
-    export GIT_SSH_COMMAND="ssh -i $bot_key -o IdentitiesOnly=yes -o UserKnownHostsFile=${knownHosts} -o StrictHostKeyChecking=yes"
+    # Git over HTTPS+token through the tag:agent SOCKS sidecar — NOT ssh. The
+    # forge bot SSH key lives in the agents vault, which external-secrets can't
+    # reach; the FORGEJO_TOKEN (op-read below) authenticates over HTTPS instead,
+    # and HTTPS-via-SOCKS avoids the ssh-over-SOCKS ProxyCommand dance entirely.
+    # Only forge.ops.eblu.me routes through the proxy (tag:agent can reach ONLY
+    # indri); public hosts (claude.ai, 1Password, forge.eblu.me) go direct.
+    git config --global "http.https://forge.ops.eblu.me/.proxy" "socks5h://localhost:1055"
+    git config --global "credential.https://forge.ops.eblu.me.username" "agents"
+    askpass="$HOME/.git-askpass"
+    printf '#!/bin/sh\nexec printf "%%s" "$FORGEJO_TOKEN"\n' > "$askpass"
+    chmod 700 "$askpass"
+    export GIT_ASKPASS="$askpass"
 
-    forge="ssh://forgejo@forge.ops.eblu.me:2222/eblume"
-    fork="ssh://forgejo@forge.ops.eblu.me:2222/agents"
+    forge="https://forge.ops.eblu.me/eblume"
+    fork="https://forge.ops.eblu.me/agents"
     code="$HOME/code/personal"
     mkdir -p "$code"
 
@@ -124,11 +184,33 @@ let
       else git -C "$dest" remote add upstream "$forge/$1.git"; fi
       git -C "$dest" fetch --quiet --all --prune || true
     }
-    for r in agents hephaestus hephaestus.nvim research; do clone_repo "$r"; done
-    clone_fork blumeops
+    # Non-fatal: a clone failure (proxy not ready, etc.) must not abort the
+    # entrypoint before Remote Control starts — otherwise the pod crashloops
+    # with no way to seed the OAuth login. Warn and continue.
+    #
+    # Wait for the tag:agent sidecar's SOCKS proxy to route before any git op:
+    # the userspace tailscale sidecar takes ~15s to authenticate + establish
+    # WireGuard, and git otherwise fails "cannot complete SOCKS5 connection to
+    # forge.ops.eblu.me". Bounded (~90s) so a broken sidecar can't hang boot.
+    echo "agent-ws: waiting for the tag:agent SOCKS proxy…" >&2
+    for _ in $(seq 1 45); do
+      curl -sf --max-time 4 -x socks5h://localhost:1055 https://forge.ops.eblu.me/ -o /dev/null 2>/dev/null && break
+      sleep 2
+    done
+
+    # agents (the home-base instruction substrate) and blumeops both use the
+    # FORK model: origin = agents/<repo> (the bot owns it → token push works),
+    # upstream = eblume/<repo> (canonical, fetched read-only). Edits go via
+    # cross-repo PR — a human gate on changes to the agent's own instructions.
+    # The siblings are ordinary author repos cloned canonically.
+    clone_fork agents || echo "agent-ws: clone agents fork failed (continuing)" >&2
+    for r in hephaestus hephaestus.nvim research; do
+      clone_repo "$r" || echo "agent-ws: clone $r failed (continuing)" >&2
+    done
+    clone_fork blumeops || echo "agent-ws: clone blumeops fork failed (continuing)" >&2
 
     # ── launch Remote Control under a PTY (no --headless flag yet) ────────────
-    cd "$code/agents"
+    cd "$code/agents" 2>/dev/null || cd "$HOME"
     export CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX=ringtail
     exec ${pkgs.util-linux}/bin/script -qfc \
       "$HOME/.local/bin/claude remote-control --spawn worktree --name ringtail-agent" /dev/null
@@ -136,15 +218,22 @@ let
 in
 pkgs.dockerTools.buildLayeredImage {
   name = "blumeops/agent-ws";
+  tag = "v${version}";
 
   contents = allTools ++ [ entrypoint pkgs.util-linux ];
 
   # Non-FHS fixups: the dynamic loader at its conventional path (so prebuilt
-  # ELF binaries run) and a /tmp for tooling that assumes it exists.
+  # ELF binaries run), a /tmp, and — critically — /etc/passwd + group + nsswitch
+  # so uid 1500 resolves to a username. Without a passwd entry, glibc getpwuid
+  # fails and the 1Password CLI's ownership checks ("not owned by the current
+  # user") reject every op call, breaking op read entirely in the pod.
   extraCommands = ''
-    mkdir -p lib64 tmp
+    mkdir -p lib64 tmp etc
     ln -s ${pkgs.glibc}/lib/ld-linux-x86-64.so.2 lib64/ld-linux-x86-64.so.2
     chmod 1777 tmp
+    printf 'root:x:0:0:root:/root:/bin/bash\nagent:x:1500:1500:agent:/home/agent:/bin/bash\n' > etc/passwd
+    printf 'root:x:0:\nagent:x:1500:\n' > etc/group
+    printf 'passwd: files\ngroup: files\nshadow: files\nhosts: files dns\n' > etc/nsswitch.conf
   '';
 
   config = {
