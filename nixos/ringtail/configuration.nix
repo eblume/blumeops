@@ -15,6 +15,7 @@ in
     ./agent-workspaces.nix
     ./factorio.nix
     ./heph-eblume.nix
+    ./myeve-heph-sync.nix
   ];
 
   # Allow unfree packages (NVIDIA drivers, Steam)

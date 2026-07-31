@@ -1,6 +1,6 @@
 ---
 title: Ringtail
-modified: 2026-07-11
+modified: 2026-07-30
 tags:
   - infrastructure
   - host
@@ -175,6 +175,40 @@ the hub owner):
 ```
 
 The agent spoke's seeding is fiddlier — see [[bootstrap-agent-workspaces]] §7.
+
+### MyEVE Heph Sync
+
+An hourly timer (`nixos/ringtail/myeve-heph-sync.nix`) that publishes EVE Online
+game state — PI extractor expiry, finished industry jobs, skill-queue
+exhaustion, undercut market orders — into heph as tasks under the **MyEVE**
+project, so the game's obligations rank alongside the rest of Erich's chores.
+
+| Property | Value |
+|----------|-------|
+| **Units** | `myeve-heph-sync.service` / `.timer` (**user** scope) |
+| **Schedule** | `OnCalendar=hourly`, `RandomizedDelaySec=10m`, `Persistent=true` |
+| **Sync logic** | `~/code/personal/myeve/scripts/heph-sync/eve_chores.py` (read from the working tree, not packaged) |
+| **Credentials** | `~/code/personal/myeve/secrets/esi-token.json` — an ESI game token, deliberately **not** a blumeops secret |
+| **Status / logs** | `systemctl --user status myeve-heph-sync.timer`, `journalctl --user -u myeve-heph-sync` |
+
+User scope for the same reason as the eblume spoke above: the sync shells out to
+`heph`, which needs `XDG_RUNTIME_DIR` to find `hephd.sock`. It runs `--apply`
+(write mode) unattended; `--commit` is an accepted alias of that flag and has
+nothing to do with git.
+
+The unit skips cleanly rather than failing when the `heph` CLI, the myeve
+checkout, the ESI token, or the spoke's socket is absent — a missing piece costs
+one tick, not a red unit. It does fail loudly if the ESI refresh token is
+revoked, which is the intended behaviour: better a failed unit than a silently
+stale chore list.
+
+Reconciliation is keyed on a `myeve-key:` line written into each task's
+canonical-context doc, and the heph store is the only state — there is no cache
+file. Tasks filed by hand under MyEVE carry no key and are never touched. To mute
+a chore the game cannot see you have abandoned, push it to **blue** (On Deck);
+blue is still `outstanding`, so the reconciler leaves it alone. Marking it `done`
+while ESI still reports the obligation just invites the next tick to file it
+again.
 
 ## Pinned Service Versions
 
