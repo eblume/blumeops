@@ -89,6 +89,25 @@
 			"ip":  ["tcp:443", "tcp:5432", "tcp:9187"],
 		},
 
+		// --- Agent workspace (containerized) ---
+		// The ringtail-agent pod carries its OWN tailnet identity (tag:agent via
+		// a tailscale sidecar) precisely so the ACL can fence it — a shared-host
+		// OS user inherits ringtail's tag:homelab device trust and cannot be
+		// distinguished (see [[agent-containerization]]). The agent authors code
+		// and opens PRs; it needs exactly three things on indri and nothing else:
+		//   tcp:443  — forge HTTPS (tea PR create) via Caddy L4
+		//   tcp:2222 — forge git push over SSH via Caddy L4
+		//   tcp:8787 — heph spoke sync to the indri hub (HTTP)
+		// Deliberately NO tcp:22 (OS SSH) and NO ssh rule below: this is what
+		// closes the `ssh erichblume@indri` bypass. Everything else (Claude relay,
+		// 1Password, forge.eblu.me public) is public internet, gated by the pod's
+		// NetworkPolicy, not the tailnet.
+		{
+			"src": ["tag:agent"],
+			"dst": ["tag:homelab"],
+			"ip":  ["tcp:443", "tcp:2222", "tcp:8787"],
+		},
+
 		// --- Shared guests: Factorio only ---
 		// External users we *share* ringtail with (autogroup:shared, NOT members)
 		// get exactly one thing: the Factorio UDP port on the machine carrying
@@ -165,6 +184,9 @@
 		"tag:flyio-target": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
 		// Applied to ringtail so shared guests can reach only the Factorio port.
 		"tag:factorio": ["autogroup:admin", "tag:blumeops"],
+		// Containerized ringtail-agent pod's tailscale sidecar. Provisioned by
+		// the k8s operator, same as tag:k8s. See [[agent-containerization]].
+		"tag:agent": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
 	},
 
 	// ============== ACL Tests ==============
@@ -195,6 +217,15 @@
 		{
 			"src":    "tag:ci-gateway",
 			"accept": ["tag:registry:443"],
+		},
+		// Agent workspace pod: reaches forge (HTTPS + git SSH) and the heph hub
+		// on indri, and NOTHING else. Crucially denies OS SSH (tcp:22) to indri —
+		// the closed bypass — plus k8s, NAS, and registry. This is the whole
+		// point of giving the pod its own tag:agent identity.
+		{
+			"src":    "tag:agent",
+			"accept": ["tag:homelab:443", "tag:homelab:2222", "tag:homelab:8787"],
+			"deny":   ["tag:homelab:22", "tag:k8s:443", "tag:k8s:5432", "tag:nas:445", "tag:registry:443"],
 		},
 		// Fly.io proxy can only reach flyio-target tagged endpoints, nothing else.
 		// indri has tag:flyio-target (Caddy) so tag:homelab:443 is reachable on

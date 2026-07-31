@@ -174,9 +174,14 @@ The boundaries, weakest-first:
    (`agents-forgejo-token` in the agents vault) that the launcher exports as
    `FORGEJO_TOKEN` and seeds into tea's config — no blumeops-vault dependency,
    and the PAT is self-bounded to the bot's own repos ([[agents-forgejo-bot]]).
-5. **Network** *(future)* — bare-metal phase has ambient tailnet reach; the
-   planned containerized phase adds an egress allowlist (Anthropic, 1Password,
-   `forge.ops.eblu.me`).
+5. **Network** *(in migration)* — the bare-metal phase has ambient tailnet
+   reach: because Tailscale ACL identity is per-**device**, the `agent` user
+   inherits ringtail's `tag:homelab` trust and can reach indri directly
+   (`ssh erichblume@indri`). The [[agent-containerization|containerized phase]]
+   gives the pod its own `tag:agent` tailnet identity behind an egress allowlist
+   (Claude relay, 1Password, `forge.ops.eblu.me`, the heph hub), which is the
+   only thing that lets the ACL fence the agent apart from the host — the
+   identity foundation for that has landed in `pulumi/tailscale/policy.hujson`.
 
 **Residual risk (bare-metal phase):** a same-uid agent can read
 `/etc/agents/op-token` and the `agent` user's own OAuth credential file — the
@@ -364,6 +369,7 @@ token-wasteful always-on pattern is also the fair-use risk.
 
 ## Related
 
+- [[agent-containerization]] — the migration off this shared-host model
 - [[bootstrap-agent-workspaces]] — one-time setup runbook
 - [[agents-forgejo-bot]] — the bot account and its key
 - [[security-model]] — service accounts and the `agents` vault
