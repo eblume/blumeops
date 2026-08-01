@@ -70,6 +70,10 @@ Repos cloned by `agent-repos-init`:
 | `timberborn-parsimony` | Sibling checkout |
 | `blumeops` | Pool-only, author-only — see [§blumeops](#blumeops-author-only-not-a-server) |
 
+> Historical list. `agent-repos-init` is gone; the live pool is the clone loop in
+> `containers/agent-ws/default.nix` — see [[agent-containerization]] §"The repo
+> pool".
+
 > **Concurrency caveat.** Only the **primary** repo gets per-session worktree
 > isolation (that is what `--spawn worktree` operates on). Sibling checkouts are
 > **shared** between concurrent sessions — the base instructions tell agents to

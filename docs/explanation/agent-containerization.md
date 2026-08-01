@@ -81,6 +81,35 @@ k3s-ringtail cluster
     NetworkPolicy: egress allowlist (Anthropic relay, 1Password, indri:{443,2222,8787})
 ```
 
+### The repo pool
+
+`containers/agent-ws/repos.json` is the source of truth for what lands in
+`~/code/personal` on the PVC — and, via `mise run agent-repo-access`, for the
+forge collaborator grants that make those clones possible at all. `default.nix`
+reads it with `builtins.fromJSON` to generate the entrypoint's clone loop:
+
+| Repo | Model | Why |
+|------|-------|-----|
+| `agents` | **fork** (`origin` = `agents/agents`, `upstream` = canonical) | Session cwd + base instructions; edits go via cross-repo PR so the agent can't rewrite its own instructions unreviewed |
+| `blumeops` | **fork** | Author-only; the read-only-on-canonical fence keeps CI (and its deploy secrets) out of reach |
+| `hephaestus`, `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony` | canonical, bot has push | Ordinary author repos — branch + PR |
+
+Adding a repo is one edit to `repos.json`. It used to be two independent manual
+steps — clone-loop entry *and* forge collaborator grant — and a missing grant is
+indistinguishable from a typo (Forgejo 404s rather than 403s on a private repo
+you cannot see), while the clone loop is deliberately non-fatal, so the only
+symptom was an absent directory. `timberborn-parsimony` was absent that way for
+three weeks. See [[agents-forgejo-bot]] §"Sharing a repo with the bot".
+
+`blumeops` and `agents` are pinned read-only by an invariant in the reconciler
+that `repos.json` cannot override — that fence lives in reviewed code, not in a
+data file.
+
+Only `agents` gets per-session worktree isolation (`--spawn worktree` operates
+on the cwd repo); every other checkout is **shared** across concurrent sessions,
+which is why the base instructions tell agents to work siblings on a
+session-named branch.
+
 ### The Tailscale fence (`tag:agent`)
 
 The sidecar makes the pod a first-class tailnet device with its own identity, so

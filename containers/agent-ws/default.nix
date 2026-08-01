@@ -32,7 +32,18 @@ let
   # requires a `version = "…"` to form v<version>-<sha>-nix). There is no
   # upstream version to track — claude self-installs at pod-start — so bump this
   # by hand when the baked toolchain changes meaningfully.
-  version = "0.9.0";
+  version = "0.10.0";
+
+  # ── the repo pool, from ./repos.json ──────────────────────────────────────
+  # That file is the single source of truth for BOTH halves of "share a repo
+  # with the agent": the forge collaborator grant (reconciled by
+  # `mise run agent-repo-access`) and the clone loop below. Keeping them in one
+  # file is the point — they used to drift, and a missing grant is invisible
+  # (Forgejo 404s rather than 403s on a private repo the bot cannot see).
+  repoPolicy = builtins.fromJSON (builtins.readFile ./repos.json);
+  poolOf = p: builtins.filter (r: r.pool == p) repoPolicy.repos;
+  forkRepos = map (r: r.name) (poolOf "fork");
+  canonicalRepos = map (r: r.name) (poolOf "canonical");
 
   # ── the curated toolchain (mirrors nixos/ringtail/agent-workspaces.nix) ──────
   # op: real 1Password CLI. In a pod the service-account token arrives as
@@ -203,11 +214,16 @@ let
     # upstream = eblume/<repo> (canonical, fetched read-only). Edits go via
     # cross-repo PR — a human gate on changes to the agent's own instructions.
     # The siblings are ordinary author repos cloned canonically.
-    clone_fork agents || echo "agent-ws: clone agents fork failed (continuing)" >&2
-    for r in hephaestus hephaestus.nvim research; do
+    #
+    # Both lists are GENERATED from ./repos.json — edit that, not this. Most of
+    # these are PRIVATE forge repos; they clone over HTTPS with the bot's token
+    # only while `agents` is a collaborator, which the same file drives.
+    for r in ${lib.escapeShellArgs forkRepos}; do
+      clone_fork "$r" || echo "agent-ws: clone $r fork failed (continuing)" >&2
+    done
+    for r in ${lib.escapeShellArgs canonicalRepos}; do
       clone_repo "$r" || echo "agent-ws: clone $r failed (continuing)" >&2
     done
-    clone_fork blumeops || echo "agent-ws: clone blumeops fork failed (continuing)" >&2
 
     # ── launch Remote Control under a PTY (no --headless flag yet) ────────────
     cd "$code/agents" 2>/dev/null || cd "$HOME"

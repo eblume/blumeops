@@ -1,0 +1,41 @@
+{
+  "_comment": [
+    "Which of eblume's repos the `agents` bot may touch, and which land in the",
+    "agent workspace's checkout pool. THE single source of truth for both halves:",
+    "",
+    "  access -> reconciled onto the forge as collaborator grants by",
+    "            `mise run agent-repo-access` (.forgejo/workflows/agent-repo-access.yaml)",
+    "  pool   -> compiled into the pod's clone loop by ./default.nix (fromJSON)",
+    "",
+    "Before this file existed those were two independent steps and a missed grant",
+    "looked exactly like a typo (Forgejo 404s rather than 403s for a private repo",
+    "you cannot see), so timberborn-parsimony sat documented-but-absent for weeks.",
+    "",
+    "access: write | read | none   (none = revoke any existing collaboration)",
+    "pool:   canonical | fork | none",
+    "        canonical = clone eblume/<repo> directly (bot pushes branches there)",
+    "        fork      = origin is agents/<repo>, upstream is eblume/<repo> read-only;",
+    "                    edits land via cross-repo PR (a human gate)",
+    "        none      = access is granted, but no checkout in the pod",
+    "",
+    "RECONCILE IS AUTHORITATIVE: a repo absent from this list has its `agents`",
+    "collaboration REMOVED. Adding a repo means adding it here, not clicking in",
+    "the forge UI. See docs/reference/infrastructure/agents-forgejo-bot.md.",
+    "",
+    "`agents` and `blumeops` are pinned to read by an invariant in the reconciler",
+    "that this file cannot override -- their read-only-on-canonical status is what",
+    "keeps blumeops CI (and its deploy secrets) out of agent reach."
+  ],
+  "owner": "eblume",
+  "collaborator": "agents",
+  "repos": [
+    { "name": "agents", "access": "read", "pool": "fork" },
+    { "name": "blumeops", "access": "read", "pool": "fork" },
+    { "name": "hephaestus", "access": "write", "pool": "canonical" },
+    { "name": "hephaestus.nvim", "access": "write", "pool": "canonical" },
+    { "name": "research", "access": "write", "pool": "canonical" },
+    { "name": "myeve", "access": "write", "pool": "canonical" },
+    { "name": "timberborn-parsimony", "access": "write", "pool": "canonical" },
+    { "name": "gamedev", "access": "write", "pool": "none" }
+  ]
+}

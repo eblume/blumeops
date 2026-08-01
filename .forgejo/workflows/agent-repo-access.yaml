@@ -1,0 +1,69 @@
+# Reconcile the agents bot's forge collaborations against
+# containers/agent-ws/repos.json — the same file the agent-ws image reads to
+# build its clone loop, so "share a repo with the agent" is one edit, not two.
+#
+# RECONCILE IS AUTHORITATIVE: a repo absent from repos.json has its `agents`
+# collaboration removed. The PR job runs --check so the revocations are visible
+# in review *before* the merge that applies them.
+#
+# Needs FORGEJO_ADMIN_TOKEN — admin on the target repos, since collaborator
+# management is admin-level and a write:repository token 403s. Provisioned the
+# same way as every other blumeops CI secret: declared in the
+# `forgejo_actions_secrets` ansible role and pushed by a human from gilbert with
+#   mise run provision-indri -- --tags forgejo_actions_secrets
+# That human step IS the gate — CI gets a curated subset of the blumeops vault,
+# never the vault itself. Locally the task falls back to `op read` on the same
+# 1Password item.
+name: Agent Repo Access
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'containers/agent-ws/repos.json'
+      - 'mise-tasks/agent-repo-access'
+      - '.forgejo/workflows/agent-repo-access.yaml'
+  pull_request:
+    paths:
+      - 'containers/agent-ws/repos.json'
+      - 'mise-tasks/agent-repo-access'
+      - '.forgejo/workflows/agent-repo-access.yaml'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview only — do not change any grants'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  reconcile:
+    runs-on: k8s
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # --skip-if-no-token is the bootstrap allowance: the secret is provisioned
+      # by the ansible role in this same change, so it cannot exist until after
+      # the first merge. Both steps log a loud yellow SKIPPED when it's unset.
+      # Once provisioned they behave normally; do the first real reconcile with a
+      # manual dispatch after `provision-indri`.
+
+      # On a PR: report drift and fail, so the diff's real-world effect (notably
+      # any revocation) is on screen before anyone merges it. Never mutates.
+      - name: Check (pull request)
+        if: github.event_name == 'pull_request'
+        env:
+          FORGEJO_ADMIN_TOKEN: ${{ secrets.FORGEJO_ADMIN_TOKEN }}
+        run: uv run --script mise-tasks/agent-repo-access --check --skip-if-no-token
+
+      - name: Apply
+        if: github.event_name != 'pull_request'
+        env:
+          FORGEJO_ADMIN_TOKEN: ${{ secrets.FORGEJO_ADMIN_TOKEN }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            uv run --script mise-tasks/agent-repo-access --dry-run --skip-if-no-token
+          else
+            uv run --script mise-tasks/agent-repo-access --skip-if-no-token
+          fi

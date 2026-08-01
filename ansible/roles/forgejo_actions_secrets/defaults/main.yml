@@ -23,6 +23,18 @@ forgejo_actions_secrets_repos:
       # Actions token can't be push-whitelisted (Forgejo #11159).
       - name: MAIN_PUSH_TOKEN
         value_var: forgejo_secret_main_push_token
+      # Lets the Agent Repo Access workflow reconcile the `agents` bot's
+      # collaborations against containers/agent-ws/repos.json. Collaborator
+      # management is an admin-level operation, so this reuses forgejo_api_token
+      # (the same eblume PAT this role authenticates with — writing Actions
+      # secrets is itself admin-level) rather than minting a second one.
+      #
+      # This is the deliberate shape of "CI gets more than the agents vault":
+      # a human runs `mise run provision-indri -- --tags forgejo_actions_secrets`
+      # from gilbert, under biometric `op`, to push a curated subset of the
+      # blumeops vault into Forgejo. The vault itself stays out of CI's reach.
+      - name: FORGEJO_ADMIN_TOKEN
+        value_var: forgejo_api_token
   - repo: cv
     secrets:
       - name: FORGE_TOKEN

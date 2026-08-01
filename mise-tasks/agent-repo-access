@@ -1,0 +1,309 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
+# ///
+#MISE description="Reconcile the agents bot's forge collaborations against containers/agent-ws/repos.json"
+#MISE alias="ara"
+#USAGE flag "--dry-run" help="Show what would change without changing it"
+#USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
+#USAGE flag "--token <token>" help="Forgejo API token with admin on the target repos (default: 1Password)"
+#USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when \$FORGEJO_ADMIN_TOKEN is unset (CI bootstrap)"
+"""Reconcile which of eblume's repos the `agents` bot may touch.
+
+`containers/agent-ws/repos.json` is the single source of truth: it drives both
+the forge collaborator grants (this script) and the agent workspace's clone loop
+(the image's default.nix reads the same file). Before it existed those were two
+independent manual steps, and a missing grant was invisible — Forgejo answers
+404, not 403, for a private repo the caller cannot see, so a repo the bot lacked
+access to looked exactly like a typo.
+
+RECONCILE IS AUTHORITATIVE. A repo absent from repos.json (or listed with
+access "none") has its `agents` collaboration REMOVED. Run --dry-run first.
+
+Two repos are pinned read-only by an invariant this script will not let
+repos.json override — see PINNED_READ_ONLY.
+
+The token is resolved:
+  1. --token flag (explicit)
+  2. $FORGEJO_ADMIN_TOKEN (for CI) — and ONLY that variable, see resolve_token
+  3. 1Password: op read (for local use on gilbert, prompts biometric)
+It must be owned by the repo owner and hold **admin** on the target repos:
+collaborator management is admin-level, so a plain write:repository token 403s.
+A preflight /api/v1/user call asserts this up front, because every downstream
+call degrades quietly under the wrong credential.
+
+Usage:
+    mise run agent-repo-access --dry-run    # preview (do this first)
+    mise run agent-repo-access              # apply
+    mise run agent-repo-access --check      # CI: exit 1 on drift
+"""
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+from typing import Annotated
+
+import httpx
+import typer
+from rich.console import Console
+from rich.table import Table
+
+FORGE_URL = "https://forge.ops.eblu.me"
+OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
+POLICY_PATH = Path(__file__).resolve().parent.parent / "containers/agent-ws/repos.json"
+
+# Repos whose read-only-on-canonical status is a security boundary, not a
+# preference: the bot must not be able to push to them or run their CI.
+#
+# blumeops — workflow_dispatch is write-gated, so a read-only bot cannot trigger
+#   blumeops CI and therefore cannot reach the deploy-credentialed Actions
+#   secrets (ARGOCD_AUTH_TOKEN, FLY_DEPLOY_TOKEN, ZOT_CI_API_KEY,
+#   MAIN_PUSH_TOKEN) or, on a privileged runner, the blumeops vault.
+# agents  — the repo carrying the agent's own base instructions. Read-only means
+#   an agent cannot rewrite what the next session is told to do without a human
+#   merging the PR.
+#
+# Both work via the fork model (origin = agents/<repo>, PRs to canonical), so
+# read costs them nothing. This lives in code, NOT in repos.json, on purpose: a
+# one-line data edit in a routine-looking PR must not be able to flip a fence.
+PINNED_READ_ONLY = frozenset({"blumeops", "agents"})
+
+VALID_ACCESS = frozenset({"write", "read", "none"})
+
+console = Console()
+
+
+def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
+    """Resolve the admin token, or None if --skip-if-no-token and none is set.
+
+    Deliberately narrow: only $FORGEJO_ADMIN_TOKEN, never $FORGEJO_TOKEN. The
+    indri runner is host-mode (a LaunchAgent running as erichblume), so jobs
+    INHERIT that session's environment — an earlier version of this script fell
+    back to $FORGEJO_TOKEN and silently picked up a token the workflow never
+    passed it. The wrong token then produced a wrong repo list, which surfaced as
+    a confusing "these repos do not exist" error rather than "wrong credential".
+    Accept exactly the one variable the workflow sets.
+    """
+    if explicit:
+        return explicit
+    if token := os.environ.get("FORGEJO_ADMIN_TOKEN"):
+        console.print("[dim]Using token from $FORGEJO_ADMIN_TOKEN[/dim]")
+        return token
+    if skip_if_missing:
+        return None
+    console.print("[dim]Reading token from 1Password…[/dim]")
+    try:
+        result = subprocess.run(
+            ["op", "read", OP_TOKEN_REF],
+            capture_output=True,
+            text=True,
+            check=True,
+            stdin=subprocess.DEVNULL,  # op misparses non-TTY stdin
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        console.print(f"[red]Could not read the token from 1Password: {exc}[/red]")
+        console.print("Pass --token, or set FORGEJO_ADMIN_TOKEN.")
+        raise typer.Exit(1) from exc
+    return result.stdout.strip()
+
+
+def load_policy() -> tuple[str, str, dict[str, str]]:
+    """Return (owner, collaborator, {repo: desired_access}) from repos.json."""
+    policy = json.loads(POLICY_PATH.read_text())
+    desired: dict[str, str] = {}
+    for entry in policy["repos"]:
+        name, access = entry["name"], entry["access"]
+        if access not in VALID_ACCESS:
+            console.print(
+                f"[red]{POLICY_PATH.name}: {name} has invalid access {access!r} "
+                f"(expected one of {sorted(VALID_ACCESS)})[/red]"
+            )
+            raise typer.Exit(1)
+        if name in PINNED_READ_ONLY and access == "write":
+            # Refuse rather than silently downgrade: someone asked for a fence
+            # to be flipped and should get told no, loudly.
+            console.print(
+                f"[red]{POLICY_PATH.name} asks for write on {name!r}, which is "
+                f"pinned read-only.[/red] That grant is a security boundary — see "
+                f"PINNED_READ_ONLY in {Path(__file__).name}. Refusing."
+            )
+            raise typer.Exit(1)
+        desired[name] = access
+    return policy["owner"], policy["collaborator"], desired
+
+
+def paged(client: httpx.Client, path: str, **params) -> list[dict]:
+    out: list[dict] = []
+    page = 1
+    while True:
+        resp = client.get(path, params={"page": page, "limit": 50, **params})
+        resp.raise_for_status()
+        payload = resp.json()
+        # /repos/search wraps its results in {"ok":…, "data":[…]}; the plain list
+        # endpoints return a bare array.
+        batch = payload.get("data", []) if isinstance(payload, dict) else payload
+        if not batch:
+            return out
+        out.extend(batch)
+        page += 1
+
+
+def owner_repos(client: httpx.Client, owner: str) -> list[str]:
+    """Every repo owned by `owner` that this token can see, private included.
+
+    /repos/search, NOT /users/{owner}/repos (public repos only — that bug made
+    every private repo in repos.json look nonexistent) and NOT /user/repos
+    (needs the `read:user` scope, which a repo-scoped PAT may not carry).
+    """
+    found = paged(client, "/api/v1/repos/search")
+    return [r["name"] for r in found if r["owner"]["login"] == owner]
+
+
+def current_access(client: httpx.Client, owner: str, repo: str, who: str) -> str:
+    """The collaborator grant on `repo`, or "none".
+
+    Deliberately reads the *collaborator list* rather than the effective-permission
+    endpoint: on a public repo the latter reports "read" for everyone, which would
+    make a non-collaborator indistinguishable from a granted one and cause this
+    script to think a grant exists where none does.
+    """
+    try:
+        collaborators = paged(client, f"/api/v1/repos/{owner}/{repo}/collaborators")
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (403, 404):
+            return "unreadable"
+        raise
+    for user in collaborators:
+        if user["login"].lower() != who.lower():
+            continue
+        perms = user.get("permissions", {})
+        if perms.get("admin"):
+            return "admin"
+        return "write" if perms.get("push") else "read"
+    return "none"
+
+
+def main(
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+    check: Annotated[bool, typer.Option("--check")] = False,
+    token: Annotated[str | None, typer.Option("--token")] = None,
+    skip_if_no_token: Annotated[bool, typer.Option("--skip-if-no-token")] = False,
+) -> None:
+    owner, who, desired = load_policy()
+    preview = dry_run or check
+
+    resolved = resolve_token(token, skip_if_no_token)
+    if resolved is None:
+        console.print(
+            "[yellow]SKIPPED: $FORGEJO_ADMIN_TOKEN is not set.[/yellow] Provision it with "
+            "`mise run provision-indri -- --tags forgejo_actions_secrets`."
+        )
+        return
+
+    client = httpx.Client(
+        base_url=FORGE_URL,
+        headers={"Authorization": f"token {resolved}"},
+        timeout=30.0,
+    )
+
+    with client:
+        # Every repo the owner has, not just the listed ones — that is what makes
+        # removal possible. A repo carrying a stale `agents` grant only shows up
+        # here if we go looking for it.
+        try:
+            all_repos = owner_repos(client, owner)
+        except httpx.HTTPStatusError as exc:
+            console.print(f"[red]Could not list {owner}'s repos: {exc}[/red]")
+            raise typer.Exit(1) from exc
+
+        unknown = sorted(set(desired) - set(all_repos))
+        if unknown:
+            console.print(
+                f"[red]repos.json lists repos that do not exist under {owner!r} "
+                f"(or the token cannot see them): {', '.join(unknown)}[/red]"
+            )
+            raise typer.Exit(1)
+
+        table = Table(title=f"`{who}` collaborations on {owner}/*")
+        table.add_column("Repo")
+        table.add_column("Current")
+        table.add_column("Desired")
+        table.add_column("Action")
+
+        actions: list[tuple[str, str, str]] = []  # (repo, verb, permission)
+        blocked: list[str] = []
+        for repo in sorted(all_repos):
+            want = desired.get(repo, "none")
+            have = current_access(client, owner, repo, who)
+            if have == "unreadable":
+                # Reading collaborators is admin-level. On a repo we were TOLD to
+                # manage this is fatal: skipping would silently not apply policy
+                # while still reporting success. On an unlisted repo it only means
+                # we cannot audit it for a stale grant — warn and move on.
+                if repo in desired:
+                    blocked.append(repo)
+                else:
+                    console.print(f"[dim]{owner}/{repo}: not readable, not listed — ignoring[/dim]")
+                continue
+
+            if have == want:
+                verb, style = "ok", "dim"
+            elif want == "none":
+                verb, style = "revoke", "red"
+                actions.append((repo, "revoke", want))
+            elif have == "none":
+                verb, style = "grant", "green"
+                actions.append((repo, "grant", want))
+            else:
+                verb, style = "update", "yellow"
+                actions.append((repo, "update", want))
+
+            if verb != "ok" or want != "none":
+                table.add_row(repo, have, want, f"[{style}]{verb}[/{style}]")
+
+        console.print(table)
+
+        if blocked:
+            console.print(
+                f"\n[red]Cannot read collaborators on {len(blocked)} listed repo(s): "
+                f"{', '.join(blocked)}[/red]\n"
+                f"Collaborator management is admin-level — this token is not an admin "
+                f"on them (Forgejo 404s rather than 403s when it cannot see a private "
+                f"repo at all, so 'wrong token' and 'no such repo' look identical). "
+                f"Refusing to apply a partial policy."
+            )
+            raise typer.Exit(1)
+
+        if not actions:
+            console.print("[green]In sync.[/green]")
+            return
+
+        if preview:
+            console.print(f"\n[bold]{len(actions)} change(s) pending.[/bold]")
+            for repo, verb, perm in actions:
+                console.print(f"  {verb} {owner}/{repo}" + (f" → {perm}" if perm != "none" else ""))
+            if check:
+                console.print("\n[red]Out of sync (--check).[/red]")
+                raise typer.Exit(1)
+            return
+
+        for repo, verb, perm in actions:
+            path = f"/api/v1/repos/{owner}/{repo}/collaborators/{who}"
+            try:
+                if verb == "revoke":
+                    client.delete(path).raise_for_status()
+                else:
+                    client.put(path, json={"permission": perm}).raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                console.print(f"[red]{verb} {owner}/{repo} failed: {exc}[/red]")
+                raise typer.Exit(1) from exc
+            console.print(f"[green]{verb}[/green] {owner}/{repo}" + (f" → {perm}" if perm != "none" else ""))
+
+        console.print(f"\n[green]Applied {len(actions)} change(s).[/green]")
+
+
+if __name__ == "__main__":
+    typer.run(main)
