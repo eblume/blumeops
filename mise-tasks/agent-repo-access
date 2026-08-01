@@ -8,7 +8,7 @@
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
 #USAGE flag "--token <token>" help="Forgejo API token with admin on the target repos (default: 1Password)"
-#USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when \$FORGEJO_ADMIN_TOKEN is unset (CI bootstrap)"
+#USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when \$FORGE_ADMIN_TOKEN is unset (CI bootstrap)"
 """Reconcile which of eblume's repos the `agents` bot may touch.
 
 `containers/agent-ws/repos.json` is the single source of truth: it drives both
@@ -26,12 +26,17 @@ repos.json override — see PINNED_READ_ONLY.
 
 The token is resolved:
   1. --token flag (explicit)
-  2. $FORGEJO_ADMIN_TOKEN (for CI) — and ONLY that variable, see resolve_token
+  2. $FORGE_ADMIN_TOKEN (for CI) — and ONLY that variable, see resolve_token
   3. 1Password: op read (for local use on gilbert, prompts biometric)
-It must be owned by the repo owner and hold **admin** on the target repos:
-collaborator management is admin-level, so a plain write:repository token 403s.
-A preflight /api/v1/user call asserts this up front, because every downstream
-call degrades quietly under the wrong credential.
+It must hold **admin** on the target repos: collaborator management is
+admin-level, so a plain write:repository token 403s. A token that can't read
+collaborators on a *listed* repo is fatal rather than skipped — see `blocked` —
+because every call degrades quietly under the wrong credential, and a partial
+apply that reports success is worse than a clean failure.
+
+The secret is `FORGE_ADMIN_TOKEN`, not `FORGEJO_ADMIN_TOKEN`: Forgejo reserves
+the `FORGEJO_` prefix for the Actions tokens it injects itself, and rejects
+creation of a secret using it with HTTP 400.
 
 Usage:
     mise run agent-repo-access --dry-run    # preview (do this first)
@@ -42,7 +47,6 @@ Usage:
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 from typing import Annotated
 
@@ -79,7 +83,7 @@ console = Console()
 def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
     """Resolve the admin token, or None if --skip-if-no-token and none is set.
 
-    Deliberately narrow: only $FORGEJO_ADMIN_TOKEN, never $FORGEJO_TOKEN. The
+    Deliberately narrow: only $FORGE_ADMIN_TOKEN, never $FORGEJO_TOKEN. The
     indri runner is host-mode (a LaunchAgent running as erichblume), so jobs
     INHERIT that session's environment — an earlier version of this script fell
     back to $FORGEJO_TOKEN and silently picked up a token the workflow never
@@ -89,8 +93,8 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
     """
     if explicit:
         return explicit
-    if token := os.environ.get("FORGEJO_ADMIN_TOKEN"):
-        console.print("[dim]Using token from $FORGEJO_ADMIN_TOKEN[/dim]")
+    if token := os.environ.get("FORGE_ADMIN_TOKEN"):
+        console.print("[dim]Using token from $FORGE_ADMIN_TOKEN[/dim]")
         return token
     if skip_if_missing:
         return None
@@ -105,7 +109,7 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
         )
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
         console.print(f"[red]Could not read the token from 1Password: {exc}[/red]")
-        console.print("Pass --token, or set FORGEJO_ADMIN_TOKEN.")
+        console.print("Pass --token, or set FORGE_ADMIN_TOKEN.")
         raise typer.Exit(1) from exc
     return result.stdout.strip()
 
@@ -198,7 +202,7 @@ def main(
     resolved = resolve_token(token, skip_if_no_token)
     if resolved is None:
         console.print(
-            "[yellow]SKIPPED: $FORGEJO_ADMIN_TOKEN is not set.[/yellow] Provision it with "
+            "[yellow]SKIPPED: $FORGE_ADMIN_TOKEN is not set.[/yellow] Provision it with "
             "`mise run provision-indri -- --tags forgejo_actions_secrets`."
         )
         return

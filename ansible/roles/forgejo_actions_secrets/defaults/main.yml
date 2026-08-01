@@ -33,7 +33,11 @@ forgejo_actions_secrets_repos:
       # a human runs `mise run provision-indri -- --tags forgejo_actions_secrets`
       # from gilbert, under biometric `op`, to push a curated subset of the
       # blumeops vault into Forgejo. The vault itself stays out of CI's reach.
-      - name: FORGEJO_ADMIN_TOKEN
+      #
+      # NOT `FORGEJO_ADMIN_TOKEN`: Forgejo reserves the `FORGEJO_` prefix for the
+      # Actions tokens it injects itself and rejects the create with HTTP 400
+      # (the same reason the `cv` entry below is FORGE_TOKEN).
+      - name: FORGE_ADMIN_TOKEN
         value_var: forgejo_api_token
   - repo: cv
     secrets:

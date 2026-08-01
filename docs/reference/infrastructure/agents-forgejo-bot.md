@@ -118,7 +118,7 @@ is to actually take it away.
 
 The reconciler needs **admin** on the target repos — collaborator management is
 admin-level, and a `write:repository` token gets 403. In CI that arrives as the
-`FORGEJO_ADMIN_TOKEN` Actions secret, declared in the `forgejo_actions_secrets`
+`FORGE_ADMIN_TOKEN` Actions secret, declared in the `forgejo_actions_secrets`
 ansible role and pushed by a human:
 
 ```fish
@@ -132,7 +132,7 @@ that same 1Password item.
 
 The reconciler deliberately avoids `/api/v1/user*` (those need the `read:user`
 scope, which a repo-scoped PAT may not carry) and enumerates via
-`/api/v1/repos/search` instead. It also reads **only** `$FORGEJO_ADMIN_TOKEN`,
+`/api/v1/repos/search` instead. It also reads **only** `$FORGE_ADMIN_TOKEN`,
 never `$FORGEJO_TOKEN`: the indri runner is host-mode, so jobs inherit
 `erichblume`'s LaunchAgent environment, and an earlier version silently picked
 up a token the workflow never passed it.

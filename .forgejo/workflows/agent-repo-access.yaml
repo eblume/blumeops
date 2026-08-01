@@ -6,7 +6,7 @@
 # collaboration removed. The PR job runs --check so the revocations are visible
 # in review *before* the merge that applies them.
 #
-# Needs FORGEJO_ADMIN_TOKEN — admin on the target repos, since collaborator
+# Needs FORGE_ADMIN_TOKEN — admin on the target repos, since collaborator
 # management is admin-level and a write:repository token 403s. Provisioned the
 # same way as every other blumeops CI secret: declared in the
 # `forgejo_actions_secrets` ansible role and pushed by a human from gilbert with
@@ -54,13 +54,13 @@ jobs:
       - name: Check (pull request)
         if: github.event_name == 'pull_request'
         env:
-          FORGEJO_ADMIN_TOKEN: ${{ secrets.FORGEJO_ADMIN_TOKEN }}
+          FORGE_ADMIN_TOKEN: ${{ secrets.FORGE_ADMIN_TOKEN }}
         run: uv run --script mise-tasks/agent-repo-access --check --skip-if-no-token
 
       - name: Apply
         if: github.event_name != 'pull_request'
         env:
-          FORGEJO_ADMIN_TOKEN: ${{ secrets.FORGEJO_ADMIN_TOKEN }}
+          FORGE_ADMIN_TOKEN: ${{ secrets.FORGE_ADMIN_TOKEN }}
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             uv run --script mise-tasks/agent-repo-access --dry-run --skip-if-no-token
