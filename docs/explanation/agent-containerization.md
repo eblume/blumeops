@@ -92,7 +92,15 @@ reads it with `builtins.fromJSON` to generate the entrypoint's clone loop:
 |------|-------|-----|
 | `agents` | **fork** (`origin` = `agents/agents`, `upstream` = canonical) | Session cwd + base instructions; edits go via cross-repo PR so the agent can't rewrite its own instructions unreviewed |
 | `blumeops` | **fork** | Author-only; the read-only-on-canonical fence keeps CI (and its deploy secrets) out of reach |
-| `hephaestus`, `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony` | canonical, bot has push | Ordinary author repos — branch + PR |
+| `hephaestus`, `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`, `gamedev` | canonical, bot has push | Ordinary author repos — branch + PR |
+
+> **A pooled repo has to be *buildable*, not just present.** `gamedev` was
+> granted but held at `pool: none` for exactly this reason, and adding it meant
+> carrying Bevy's native libraries in the image (`gameLibs` in `default.nix` —
+> `PKG_CONFIG_PATH` for the `-sys` crates that probe at build time,
+> `LD_LIBRARY_PATH` for the ones `dlopen`'d at run time). Rust itself stays out
+> of the image and comes from mise onto the PVC. When adding a repo, check what
+> its toolchain needs from the image before flipping `pool`.
 
 Adding a repo is one edit to `repos.json`. It used to be two independent manual
 steps — clone-loop entry *and* forge collaborator grant — and a missing grant is

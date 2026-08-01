@@ -36,6 +36,6 @@
     { "name": "research", "access": "write", "pool": "canonical" },
     { "name": "myeve", "access": "write", "pool": "canonical" },
     { "name": "timberborn-parsimony", "access": "write", "pool": "canonical" },
-    { "name": "gamedev", "access": "write", "pool": "none" }
+    { "name": "gamedev", "access": "write", "pool": "canonical" }
   ]
 }

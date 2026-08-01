@@ -32,7 +32,7 @@ let
   # requires a `version = "…"` to form v<version>-<sha>-nix). There is no
   # upstream version to track — claude self-installs at pod-start — so bump this
   # by hand when the baked toolchain changes meaningfully.
-  version = "0.11.0";
+  version = "0.12.0";
 
   # ── the repo pool, from ./repos.json ──────────────────────────────────────
   # That file is the single source of truth for BOTH halves of "share a repo
@@ -59,6 +59,25 @@ let
   reportLibs = with pkgs; [ pango glib harfbuzz fontconfig freetype gdk-pixbuf cairo libffi ];
   cliTools = with pkgs; [ gawk jq curl python3 ];
   buildTools = with pkgs; [ gcc binutils pkg-config gnumake ];
+  # Bevy's Linux native deps, for the `gamedev` workspace (added to the pool in
+  # the same change). Containerization dropped these — the retired host launcher
+  # had them and `containers/agent-ws/` was never given the equivalent — so a
+  # mise-provided rust toolchain linked an ordinary crate fine while `cargo
+  # check` on gamedev died in a -sys build script.
+  #
+  # Unlike WeasyPrint's Pango stack (pure run-time dlopen), this set needs BOTH
+  # paths, and the split is not the one the host file's comment implied. Two
+  # crates in gamedev's lockfile pkg-config-probe at BUILD time — `alsa-sys`
+  # (alsa) and `wayland-sys` (wayland-client) — the second of which the host
+  # file did NOT cover, having assumed every windowing lib was dlopen'd. So
+  # PKG_CONFIG_PATH gets the dev output of the whole set rather than a
+  # hand-picked subset: a .pc file that no build script asks for costs nothing,
+  # whereas a missing one is a hard build failure, and the probe set is a
+  # property of Bevy's feature flags that will drift.
+  gameLibs = with pkgs; [
+    alsa-lib wayland libxkbcommon udev vulkan-loader libGL
+    xorg.libX11 xorg.libXcursor xorg.libXi xorg.libXrandr
+  ];
   baseTools = with pkgs; [
     _1password-cli git openssh coreutils bash cacert tzdata
     gnused gnugrep gnutar gzip which findutils
@@ -153,11 +172,14 @@ let
     export TZDIR="${pkgs.tzdata}/share/zoneinfo"
 
     # Dynamic-loader shim for prebuilt binaries (claude, mise rust). See ldLibs.
-    export LD_LIBRARY_PATH="${lib.makeLibraryPath (ldLibs ++ reportLibs)}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    # Also carries WeasyPrint's Pango stack and the Bevy libs gamedev dlopen's.
+    export LD_LIBRARY_PATH="${lib.makeLibraryPath (ldLibs ++ reportLibs ++ gameLibs)}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
     # Native build env (cargo linker + weasyprint render path already covered by
-    # LD_LIBRARY_PATH above).
+    # LD_LIBRARY_PATH above). PKG_CONFIG_PATH carries the dev outputs of gameLibs
+    # so -sys build scripts (alsa-sys, wayland-sys) can probe them.
     export CC=gcc
+    export PKG_CONFIG_PATH="${lib.makeSearchPath "lib/pkgconfig" (map lib.getDev gameLibs)}''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
     export MISE_TRUSTED_CONFIG_PATHS="$HOME/code/personal"
 
     # 1Password CLI in a pod (learned the hard way): beyond the /etc/passwd entry
