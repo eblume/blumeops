@@ -59,6 +59,22 @@ spec:
               drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
+          # Zombie detector (2026-08-01 outage): remote-control can survive a
+          # WAN blip as a process but never re-dial Anthropic — a crash already
+          # self-heals via container restart, a zombie sat "healthy" for 6h.
+          # agent-ws-health (baked into the image) passes iff some claude
+          # process holds an ESTABLISHED TCP conn. Generous timing: boot can
+          # spend minutes on clones + the claude installer before remote-control
+          # starts, and a container-only restart is cheap (PVC + ts sidecar and
+          # its tailnet identity survive) — so ~10min of confirmed zombie
+          # before kubelet recycles us.
+          livenessProbe:
+            exec:
+              command: ["agent-ws-health"]
+            initialDelaySeconds: 300
+            periodSeconds: 60
+            timeoutSeconds: 15
+            failureThreshold: 10
           resources:
             requests:
               cpu: 250m

@@ -32,7 +32,7 @@ let
   # requires a `version = "…"` to form v<version>-<sha>-nix). There is no
   # upstream version to track — claude self-installs at pod-start — so bump this
   # by hand when the baked toolchain changes meaningfully.
-  version = "0.10.0";
+  version = "0.11.0";
 
   # ── the repo pool, from ./repos.json ──────────────────────────────────────
   # That file is the single source of truth for BOTH halves of "share a repo
@@ -104,7 +104,36 @@ let
     doCheck = false;
   };
 
-  allTools = baseTools ++ reportTools ++ cliTools ++ buildTools ++ [ heph teaWrapper ];
+  # Liveness check for the Deployment's exec probe. The failure mode it catches
+  # is a ZOMBIE, not a crash (observed 2026-08-01): remote-control survives a
+  # WAN blip as a process but never re-dials Anthropic, so k8s sees a healthy
+  # container while every Claude client sees a dead server. Crashes already
+  # self-heal (claude exits → script exits → container restarts).
+  #
+  # Signal: some claude process holds ≥1 ESTABLISHED TCP connection. A healthy
+  # remote-control keeps a persistent gateway websocket even when idle; the
+  # zombie held only unix sockets. /proc/net/tcp* is netns-WIDE (shared with
+  # the ts sidecar, whose control-plane conns are always up), so we must match
+  # per-process socket-fd inodes against ESTABLISHED (state 01) rows rather
+  # than testing the table globally. arg0-matching skips pid 1 (`script`, whose
+  # argv merely *mentions* claude) but covers both the launcher
+  # (~/.local/bin/claude) and version binaries (~/.local/share/claude/versions/…).
+  healthCheck = pkgs.writeShellScriptBin "agent-ws-health" ''
+    est=" $(${pkgs.gawk}/bin/awk '$4=="01" {print $10}' /proc/net/tcp /proc/net/tcp6 2>/dev/null | tr '\n' ' ') "
+    for p in /proc/[0-9]*; do
+      arg0=$(tr '\0' '\n' < "$p/cmdline" 2>/dev/null | head -n1)
+      case "$arg0" in *claude*) ;; *) continue ;; esac
+      for f in "$p"/fd/*; do
+        s=$(readlink "$f" 2>/dev/null) || continue
+        case "$s" in "socket:["*) i="''${s#socket:[}"; i="''${i%]}" ;; *) continue ;; esac
+        case "$est" in *" $i "*) exit 0 ;; esac
+      done
+    done
+    echo "agent-ws-health: no claude process holds an established TCP connection" >&2
+    exit 1
+  '';
+
+  allTools = baseTools ++ reportTools ++ cliTools ++ buildTools ++ [ heph teaWrapper healthCheck ];
 
   # ── entrypoint ───────────────────────────────────────────────────────────
   # Fuses the host's reposInit + wsRunner + claude-install into one pod entry.
@@ -226,10 +255,13 @@ let
     done
 
     # ── launch Remote Control under a PTY (no --headless flag yet) ────────────
+    # AGENT_WS_RC_FLAGS is a Deployment-settable escape hatch (e.g. "--verbose"
+    # for detailed connection/session logs) so diagnostics can be toggled
+    # without an image rebuild — post-2026-08-01-zombie observability lever.
     cd "$code/agents" 2>/dev/null || cd "$HOME"
     export CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX=ringtail
     exec ${pkgs.util-linux}/bin/script -qfc \
-      "$HOME/.local/bin/claude remote-control --spawn worktree --name ringtail-agent" /dev/null
+      "$HOME/.local/bin/claude remote-control --spawn worktree --name ringtail-agent ''${AGENT_WS_RC_FLAGS:-}" /dev/null
   '';
 in
 pkgs.dockerTools.buildLayeredImage {

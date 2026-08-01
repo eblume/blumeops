@@ -198,6 +198,29 @@ of the pod rollout.
    `01KXBEZF…` / Phase 4 `01KY3ZTVX6…`): push-to-fork OK, push-to-canonical
    denied, `workflow_dispatch` denied, `ssh erichblume@indri` **denied**.
 
+## Liveness: zombies, not crashes
+
+The observed failure mode of Remote Control (2026-08-01, first day in the pod)
+is a **zombie, not a crash**: after a transient WAN blip the process survived
+but never re-dialed Anthropic — it sat idle holding only unix sockets while
+Kubernetes reported a healthy container for six hours and every Claude client
+saw a dead server. Crashes already self-heal (claude exits → `script` exits →
+container restarts), so the gap is detection, not recovery.
+
+The `agent` container therefore carries an exec `livenessProbe`
+(`agent-ws-health`, baked into the image): healthy iff **some claude process
+holds at least one ESTABLISHED TCP connection** — a healthy Remote Control
+keeps a persistent gateway websocket even when idle. Because `/proc/net/tcp*`
+is netns-wide (the ts sidecar's always-up control-plane connections would mask
+the signal), the probe matches each claude process's socket-fd inodes against
+the ESTABLISHED rows rather than testing the table globally. Timing is
+generous (~10 min of confirmed zombie before restart) because boot legitimately
+spends minutes cloning the repo pool and self-installing claude — and the
+penalty is small: a container-only restart preserves the PVC and the ts
+sidecar's tailnet identity, so a recycled zombie comes back as the same
+`agent-ws` node with the same repo pool. A live session that still streams
+counts as healthy, so the probe never kills active work.
+
 ### The one unknown to prove on-box
 
 Remote Control is unsupported and needs a **PTY** (the `script` hack) plus an
