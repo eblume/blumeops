@@ -236,4 +236,26 @@
 			"deny":   ["tag:k8s:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
 		},
 	],
+
+	// ============== SSH Tests ==============
+	// Tailscale SSH authorization is separate from the L4 tests above; these
+	// pin the ssh-block invariants ([[warrant-approval-gated-runs]] P0).
+	"sshTests": [
+		// The agent pod must have NO Tailscale SSH anywhere. The shared-host
+		// fence break (heph 01KY57XB…) was closed structurally by the pod
+		// cutover; this test keeps any future ssh rule from re-opening it.
+		{
+			"src":  "tag:agent",
+			"dst":  ["tag:homelab", "tag:nas"],
+			"deny": ["erichblume", "eblume", "root"],
+		},
+		// homelab→homelab SSH is LOAD-BEARING: borgmatic's k8s SQLite dumps
+		// run ssh:eblume@ringtail from indri. PR #441 nearly removed the rule
+		// without spotting this consumer — this test makes removal fail loudly.
+		{
+			"src":    "tag:homelab",
+			"dst":    ["tag:homelab"],
+			"accept": ["eblume"],
+		},
+	],
 }
