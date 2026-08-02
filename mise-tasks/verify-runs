@@ -1,0 +1,148 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
+# ///
+#MISE description="Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit)"
+"""Close the request→approve→run loop: the audit sweep.
+
+Phase 2 of [[warrant-approval-gated-runs]]. `request-run` files an
+attention-orange heph task per privileged-run request; this task sweeps the
+open ones, matches each to its workflow run on the forge, and:
+
+- run succeeded  → `heph log` the outcome, `heph done` the task
+- run failed     → `heph log` the failure + run URL, LEAVE the task open
+                   (a failed approval needs human/agent follow-up)
+- no run yet / still running → leave untouched
+
+Run it from any agent session (`mise run verify-runs`) — it needs heph and
+the bot's forge token, nothing privileged. Idempotent; safe to run anytime.
+
+Usage: mise run verify-runs [--dry-run]
+"""
+
+import json
+import os
+import re
+import subprocess
+from typing import Annotated
+
+import httpx
+import typer
+from rich.console import Console
+
+FORGE_API_BASE = "https://forge.eblu.me/api/v1"
+REPO = "eblume/blumeops"
+TITLE_RE = re.compile(r"^Approve: (?P<workflow>\S+) @ (?P<sha7>[0-9a-f]{7}) \(PR #(?P<pr>\d+)\)$")
+
+console = Console()
+err = Console(stderr=True, style="bold red")
+
+
+def forge_token() -> str:
+    if token := os.environ.get("FORGEJO_TOKEN"):
+        return token.strip()
+    result = subprocess.run(
+        ["op", "read", "op://agents/agents-forgejo-token/api-token"],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+    )
+    if result.returncode != 0:
+        err.print(f"No FORGEJO_TOKEN and `op read` failed: {result.stderr.strip()}")
+        raise typer.Exit(1)
+    return result.stdout.strip()
+
+
+def heph(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["heph", *args], capture_output=True, text=True)
+
+
+def open_approve_tasks() -> list[dict]:
+    result = heph("list", "--project", "Blumeops", "--json")
+    if result.returncode != 0:
+        err.print(f"heph list failed: {result.stderr.strip()}")
+        raise typer.Exit(1)
+    tasks = []
+    for row in json.loads(result.stdout):
+        if row.get("state") != "outstanding" or row.get("tombstoned"):
+            continue
+        if match := TITLE_RE.match(row.get("title", "")):
+            tasks.append({**row, **match.groupdict()})
+    return tasks
+
+
+def recent_runs(client: httpx.Client) -> list[dict]:
+    resp = client.get(f"{FORGE_API_BASE}/repos/{REPO}/actions/tasks", params={"limit": 50})
+    resp.raise_for_status()
+    data = resp.json()
+    return data.get("workflow_runs") or data
+
+
+def match_run(task: dict, runs: list[dict]) -> dict | None:
+    """Newest run of the task's workflow at the task's SHA, started after the
+    request was filed (epoch ms → s). Dispatches always run on main's
+    definition, so head_sha is the payload SHA request-run bound."""
+    filed_at = (task.get("created_at") or 0) / 1000
+    candidates = [
+        r
+        for r in runs
+        if r.get("workflow_id") == task["workflow"]
+        and (r.get("head_sha") or "").startswith(task["sha7"])
+        and _epoch(r.get("run_started_at") or r.get("created_at") or "") >= filed_at - 60
+    ]
+    return max(candidates, key=lambda r: r["run_number"]) if candidates else None
+
+
+def _epoch(iso: str) -> float:
+    from datetime import datetime
+
+    try:
+        return datetime.fromisoformat(iso).timestamp()
+    except ValueError:
+        return 0.0
+
+
+def main(
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Report only; change nothing")] = False,
+) -> None:
+    tasks = open_approve_tasks()
+    if not tasks:
+        console.print("No open Approve tasks — the queue is clean.")
+        return
+
+    token = forge_token()
+    with httpx.Client(headers={"Authorization": f"token {token}"}, timeout=30.0) as client:
+        runs = recent_runs(client)
+
+    closed = failed = pending = 0
+    for task in tasks:
+        node_id = task["node_id"]
+        label = f"{task['workflow']} @ {task['sha7']} (PR #{task['pr']})"
+        run = match_run(task, runs)
+        if run is None:
+            console.print(f"[yellow]pending[/yellow]  {label} — not dispatched yet")
+            pending += 1
+            continue
+        url = f"https://forge.eblu.me/{REPO}/actions/runs/{run['run_number']}"
+        status = run.get("status")
+        if status == "success":
+            if not dry_run:
+                heph("log", node_id, f"AUDIT: run {run['run_number']} succeeded — {url}. Auto-closed by verify-runs.")
+                heph("done", node_id)
+            console.print(f"[green]closed[/green]   {label} — run {run['run_number']} succeeded")
+            closed += 1
+        elif status in ("failure", "cancelled"):
+            if not dry_run:
+                heph("log", node_id, f"AUDIT: run {run['run_number']} {status} — {url}. Left open for follow-up.")
+            console.print(f"[red]failed[/red]   {label} — run {run['run_number']} {status} (task left open)")
+            failed += 1
+        else:
+            console.print(f"[yellow]running[/yellow]  {label} — run {run['run_number']} {status}")
+            pending += 1
+
+    console.print(f"\n{closed} closed, {failed} failed (open), {pending} pending/running")
+
+
+if __name__ == "__main__":
+    typer.run(main)
