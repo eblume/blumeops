@@ -27,11 +27,10 @@ forgejo_runner_timeout: 3h
 # name and the only label advertised now.
 forgejo_runner_labels:
   - indri
-  # Privileged-workflow label ([[warrant-approval-gated-runs]] invariant 3).
-  # Only dispatch-gated privileged workflows use runs-on: priv; PR-check CI
-  # never does. Advertised by the indri runner until the dedicated Phase-2
-  # privileged runner exists — the label split precedes the host split.
-  - priv
+  # `priv` moved to the dedicated ringtail-priv-runner ([[warrant-approval-gated-runs]]
+  # Phase 2 — sandboxed DynamicUser instead of host-mode erichblume).
+  # Sequencing: provision-ringtail must register that runner BEFORE
+  # provision-indri applies this label drop, or priv dispatches queue.
 
 # Host toolchain for CI jobs, installed via `mise use --global`.
 # dagger is pinned to the engineVersion in dagger.json (the engine
@@ -43,8 +42,8 @@ forgejo_runner_host_tools:
   - dagger@0.20.6
   - prek@0.3.4
   - flyctl@0.4.59
-  # argocd-deploy workflow; matches the deployed server (service-versions.yaml).
-  # Pre-installed so CI-time `mise x` never hits the GitHub API from a job.
+  # argocd stays as a mise-x fallback for any argocd job that lands on this
+  # runner; the primary path is the ringtail-priv-runner's nixpkgs argocd.
   - argocd@3.3.12
 
 # Zot pull-through cache for docker.io pulls, merged into Docker

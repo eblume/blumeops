@@ -745,6 +745,33 @@ in
         };
       };
     };
+
+    # Privileged-workflow runner ([[warrant-approval-gated-runs]] Phase 2).
+    # Dispatch-only privileged jobs (argocd-deploy today, provision-* later)
+    # run here as a sandboxed systemd DynamicUser instead of host-mode as
+    # erichblume on indri — a hostile job compromises this sandbox, not the
+    # forge owner's account. Same instance-global registration token as the
+    # nix builder. argocd comes from nixpkgs (verify CLI/server skew against
+    # service-versions.yaml on upgrade; the workflow falls back to mise x on
+    # runners that lack a system argocd).
+    instances.priv = {
+      enable = true;
+      name = "ringtail-priv-runner";
+      url = "https://forge.ops.eblu.me";
+      tokenFile = "/etc/forgejo-runner/token.env";
+      labels = [ "priv:host" ];
+      hostPackages = with pkgs; [
+        bash coreutils curl gawk gitMinimal gnused jq nodejs wget
+        argocd
+      ];
+      settings = {
+        log.level = "info";
+        runner = {
+          capacity = 1;
+          timeout = "1h";
+        };
+      };
+    };
   };
 
   # Enable nix flakes

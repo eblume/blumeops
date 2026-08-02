@@ -41,9 +41,18 @@ Dagger engine containers run as siblings, not children. Docker
 Desktop's `daemon.json` carries the [[zot]] registry mirror
 (`http://host.docker.internal:5050`) for docker.io pulls.
 
-There is also a second, independent runner: the
-`nix-container-builder` on [[ringtail]] (NixOS systemd service) used
-by the `build-container.yaml` workflow (its nix build job).
+There are also two independent NixOS runners on [[ringtail]]
+(`services.gitea-actions-runner` in `nixos/ringtail/configuration.nix`,
+both sandboxed systemd DynamicUsers sharing the instance-global
+registration token):
+
+- `ringtail-nix-builder` (`nix-container-builder` label) — the
+  `build-container.yaml` nix build job.
+- `ringtail-priv-runner` (`priv` label) — privileged dispatch-only
+  workflows ([[warrant-approval-gated-runs]] Phase 2): argocd-deploy
+  today, `provision-*` later. Deliberately NOT host-mode-as-erichblume:
+  a hostile privileged job compromises a DynamicUser sandbox, not the
+  forge owner's account.
 
 ## Job Execution
 
