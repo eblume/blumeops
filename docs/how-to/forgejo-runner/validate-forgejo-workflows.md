@@ -10,7 +10,7 @@ tags:
 
 # Validate Forgejo Workflows
 
-Run `forgejo-runner validate` against all workflow files to catch schema issues before upgrading the k8s runner daemon.
+Run `forgejo-runner validate` against all workflow files to catch schema issues before upgrading the indri runner daemon.
 
 ## Result
 

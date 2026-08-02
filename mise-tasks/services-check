@@ -120,15 +120,19 @@ echo "===================="
 echo ""
 
 # Local services on indri (not yet covered by alerting)
+# ssh explicitly as erichblume: bare `ssh indri` relies on a local
+# username mapping that only exists on gilbert. Run from another host
+# (e.g. ringtail), tailscale SSH fails with "failed to look up local
+# user" since indri's account is erichblume, not the caller's username.
 echo "Local services on indri:"
-check_service "forgejo" "ssh indri 'launchctl list mcquack.eblume.forgejo | grep -v \"^-\"'"
-check_service "alloy" "ssh indri 'launchctl list mcquack.eblume.alloy | grep -v \"^-\"'"
-check_service "borgmatic" "ssh indri 'launchctl list mcquack.eblume.borgmatic | grep -v \"^-\"'"
-check_service "borgmatic-metrics" "ssh indri 'launchctl list mcquack.borgmatic-metrics | grep -v \"^-\"'"
-check_service "zot" "ssh indri 'launchctl list mcquack.eblume.zot | grep -v \"^-\"'"
-check_service "zot-metrics" "ssh indri 'launchctl list mcquack.zot-metrics | grep -v \"^-\"'"
-check_service "jellyfin-metrics" "ssh indri 'launchctl list mcquack.eblume.jellyfin-metrics | grep -v \"^-\"'"
-check_service "forgejo-runner (indri)" "ssh indri 'launchctl list mcquack.eblume.forgejo-runner | grep -v \"^-\"'"
+check_service "forgejo" "ssh erichblume@indri 'launchctl list mcquack.eblume.forgejo | grep -v \"^-\"'"
+check_service "alloy" "ssh erichblume@indri 'launchctl list mcquack.eblume.alloy | grep -v \"^-\"'"
+check_service "borgmatic" "ssh erichblume@indri 'launchctl list mcquack.eblume.borgmatic | grep -v \"^-\"'"
+check_service "borgmatic-metrics" "ssh erichblume@indri 'launchctl list mcquack.borgmatic-metrics | grep -v \"^-\"'"
+check_service "zot" "ssh erichblume@indri 'launchctl list mcquack.eblume.zot | grep -v \"^-\"'"
+check_service "zot-metrics" "ssh erichblume@indri 'launchctl list mcquack.zot-metrics | grep -v \"^-\"'"
+check_service "jellyfin-metrics" "ssh erichblume@indri 'launchctl list mcquack.eblume.jellyfin-metrics | grep -v \"^-\"'"
+check_service "forgejo-runner (indri)" "ssh erichblume@indri 'launchctl list mcquack.eblume.forgejo-runner | grep -v \"^-\"'"
 
 echo ""
 echo "Metrics textfiles (via alerting):"

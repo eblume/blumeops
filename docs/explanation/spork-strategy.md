@@ -45,7 +45,7 @@ Note that a cron-triggered workflow is especially dangerous: it requires no user
 
 **Current mitigations:**
 
-- **Runner label mismatch** — our runner uses `k8s`, upstream workflows typically use `ubuntu-24.04` / `macos-latest` / `windows-latest`. Jobs queue but never execute. This is effective but fragile — it depends on upstream never guessing our label.
+- **Runner label mismatch** — our runner uses `indri`, upstream workflows typically use `ubuntu-24.04` / `macos-latest` / `windows-latest`. Jobs queue but never execute. This is effective but fragile — it depends on upstream never guessing our label.
 - **Trust boundary** — we only spork projects we trust. (Kingfisher, the first spork, was maintained by a MongoDB security engineer; it has since been retired.)
 - **Mirror review** — mirror syncs are visible in Forgejo; malicious workflow changes would appear in the commit history. But this is not a real-time defense — the workflow may execute before anyone reviews.
 

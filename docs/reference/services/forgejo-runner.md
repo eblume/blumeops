@@ -23,7 +23,7 @@ Docker-in-Docker sidecar — replaced in phase 0 of
 | **LaunchAgent** | `mcquack.eblume.forgejo-runner` |
 | **Ansible role** | `ansible/roles/forgejo_runner/` |
 | **Runner Name** | `indri-runner` |
-| **Labels** | `k8s` (compat), `indri` |
+| **Labels** | `indri` |
 | **Capacity** | 2 concurrent jobs |
 | **Timeout** | 3h |
 | **Forgejo Instance** | https://forge.ops.eblu.me |

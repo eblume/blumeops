@@ -22,10 +22,10 @@ forgejo_runner_timeout: 3h
 
 # Labels advertised to forge, all host-mode ([[retire-minikube]]
 # phase 6): jobs run directly as erichblume with the mise toolchain.
-# `k8s` is compatibility for existing workflows in every forge repo;
-# `indri` is the honest name.
+# `k8s` was a compat holdover from the retired minikube cluster and
+# has been dropped from workflows repo-wide; `indri` is the honest
+# name and the only label advertised now.
 forgejo_runner_labels:
-  - k8s
   - indri
 
 # Host toolchain for CI jobs, installed via `mise use --global`.

@@ -30,10 +30,12 @@ phase 6 then dropped the per-job container entirely.
   `dagger`/`docker` CLIs reach its daemon at the default
   `/var/run/docker.sock` — the role the privileged DinD sidecar used
   to play.
-- **Labels:** advertises both `k8s` (compatibility — existing
-  workflows across all forge repos) and `indri` (the honest name).
-  Migrate workflows to `runs-on: indri` opportunistically; drop the
-  `k8s` label in a later cleanup.
+- **Labels:** advertises `indri` (the honest name) only. Originally
+  also advertised `k8s` for compatibility with existing workflows;
+  once blumeops workflows migrated to `runs-on: indri` the `k8s`
+  label was dropped from `forgejo_runner_labels` (see
+  [[forgejo-runner]]). Other forge repos still on `runs-on: k8s`
+  will need to migrate before the label can be dropped there too.
 - **Registry mirror:** Docker Desktop's `daemon.json` gets
   `registry-mirrors: ["http://host.docker.internal:5050"]` ([[zot]]
   pull-through cache, replacing the DinD config's

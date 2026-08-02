@@ -65,11 +65,11 @@ Build tags (`forgejo_build_tags`): `bindata` (embed assets), `timetzdata` (embed
 
 | Runner | Host | Labels | Purpose |
 |--------|------|--------|---------|
-| `indri-runner` | [[indri]] (native, host-mode) | `k8s` (compat), `indri` | Lightweight jobs; Dagger CLI talks to the Docker Desktop engine |
+| `indri-runner` | [[indri]] (native, host-mode) | `indri` | Lightweight jobs; Dagger CLI talks to the Docker Desktop engine |
 | `nix-container-builder` | [[ringtail]] (NixOS) | `nix-container-builder` | Nix container builds via `nix-build` + `skopeo` |
 
 **Workflows:** `.forgejo/workflows/`
-- `build-container.yaml` - Nix container builds (manual dispatch; classify on `k8s`, build on `nix-container-builder`)
+- `build-container.yaml` - Nix container builds (manual dispatch; classify on `indri`, build on `nix-container-builder`)
 - `build-blumeops.yaml` - Documentation builds and releases
 
 `build-container.yaml` is manual-dispatch only and nix-only: it builds `containers/<name>/default.nix` on the `nix-container-builder` runner. See [[build-container-image]]. (Until [[retire-minikube]] the `k8s` runner was a minikube DinD pod that also built Dockerfile/Dagger containers; that path was retired.)

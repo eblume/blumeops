@@ -36,7 +36,7 @@ on:
 
 jobs:
   build:
-    runs-on: k8s
+    runs-on: indri
     steps:
       - name: Resolve version
         id: version

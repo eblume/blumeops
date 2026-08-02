@@ -64,11 +64,11 @@ Fragments are automatically collected into `CHANGELOG.md` (at repo root) during 
 
 ## Runner Environment
 
-The workflow runs on the `k8s` label, served since [[retire-minikube]] phase 6
+The workflow runs on the `indri` label, served since [[retire-minikube]] phase 6
 by the host-mode [[forgejo]]-runner on [[indri]] ([[configure-launchd-runner]]):
 
 - **Runner**: native LaunchAgent on indri, managed by the `forgejo_runner` ansible role (no Kubernetes, no job container)
-- **Toolchain**: jobs run directly with indri's mise toolchain (Node.js, uv/Python, [[dagger]], …); the `k8s` label is kept for workflow compatibility
+- **Toolchain**: jobs run directly with indri's mise toolchain (Node.js, uv/Python, [[dagger]], …); the `k8s` compat label was dropped once workflows repo-wide moved to `runs-on: indri`
 - **Build engine**: the [[dagger]] CLI (mise-pinned in the `forgejo_runner` role) drives the Dagger engine container in indri's Docker Desktop
 
 ## Quartz Static Site Generator
