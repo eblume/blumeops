@@ -1,0 +1,102 @@
+# ArgoCD Deploy — the first approval-gated privileged workflow
+# ([[warrant-approval-gated-runs]] Phase 1). Manual dispatch only: a human
+# dispatching this IS the approval (workflow_dispatch is write-gated and the
+# agents bot is read-only on canonical). Definitions execute from main
+# (invariant 3); the revision input is the approved, immutable payload.
+#
+# Agents request a run with:
+#   mise run request-run argocd-deploy.yaml <full-sha> --pr N \
+#       -i app=<app> -i revision=<full-sha> [--why ...]
+#
+# runs-on: priv — the privileged runner label (invariant 3). Until the
+# dedicated Phase-2 runner exists, the indri runner advertises `priv`
+# alongside `indri` (see forgejo_runner role defaults); the label split is
+# what matters now, the host split comes later.
+#
+# Revision reachability caveat: ArgoCD fetches from canonical, so a SHA that
+# only exists on the agents fork (pre-merge PR head) may not resolve until
+# we verify pull-ref fetching (refs/pull/N/head) on first use. Post-merge
+# SHAs and "main" always work — start there.
+name: ArgoCD Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'ArgoCD Application name (must exist as argocd/apps/<app>.yaml on main)'
+        required: true
+        type: string
+      revision:
+        description: 'FULL 40-char commit SHA to deploy from, or "main" to reset to tracking main'
+        required: true
+        type: string
+      sync:
+        description: 'Sync (and wait healthy) after setting the revision'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  deploy:
+    runs-on: priv
+    steps:
+      # Inputs are passed through env vars everywhere below — never
+      # interpolated into shell text — so a crafted input cannot inject
+      # commands into a privileged job.
+      - name: Validate revision input
+        env:
+          REV: ${{ inputs.revision }}
+        run: |
+          if [ "$REV" != "main" ] && ! echo "$REV" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "::error::revision must be 'main' or a FULL 40-char SHA (got: $REV) — approvals bind to immutable SHAs"
+            exit 1
+          fi
+
+      - name: Checkout main (app allowlist comes from reviewed state)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Validate app is a declared Application
+        env:
+          APP: ${{ inputs.app }}
+        run: |
+          if ! [ -f "argocd/apps/$APP.yaml" ]; then
+            echo "::error::'$APP' is not a declared Application (argocd/apps/$APP.yaml missing on main)"
+            exit 1
+          fi
+
+      - name: Set target revision
+        env:
+          APP: ${{ inputs.app }}
+          REV: ${{ inputs.revision }}
+          ARGOCD_SERVER: argocd.ops.eblu.me
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          ARGOCD_OPTS: --grpc-web
+        run: |
+          if [ -z "$ARGOCD_AUTH_TOKEN" ]; then
+            echo "::error::ARGOCD_AUTH_TOKEN is not provisioned as an Actions secret — see [[warrant-approval-gated-runs]] and heph 01KZ0G21JS"
+            exit 1
+          fi
+          mise x argocd@3.3.12 -- argocd app set "$APP" --revision "$REV"
+
+      - name: Sync and wait healthy
+        if: ${{ inputs.sync }}
+        env:
+          APP: ${{ inputs.app }}
+          ARGOCD_SERVER: argocd.ops.eblu.me
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          ARGOCD_OPTS: --grpc-web
+        run: |
+          mise x argocd@3.3.12 -- argocd app sync "$APP" --timeout 600
+          mise x argocd@3.3.12 -- argocd app wait "$APP" --health --timeout 600
+
+      # Always show final state in the run log — this is the audit record
+      # until Phase 2's heph plumbing lands.
+      - name: Report application state
+        if: always()
+        env:
+          APP: ${{ inputs.app }}
+          ARGOCD_SERVER: argocd.ops.eblu.me
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          ARGOCD_OPTS: --grpc-web
+        run: |
+          mise x argocd@3.3.12 -- argocd app get "$APP" || true

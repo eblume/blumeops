@@ -27,6 +27,11 @@ forgejo_runner_timeout: 3h
 # name and the only label advertised now.
 forgejo_runner_labels:
   - indri
+  # Privileged-workflow label ([[warrant-approval-gated-runs]] invariant 3).
+  # Only dispatch-gated privileged workflows use runs-on: priv; PR-check CI
+  # never does. Advertised by the indri runner until the dedicated Phase-2
+  # privileged runner exists — the label split precedes the host split.
+  - priv
 
 # Host toolchain for CI jobs, installed via `mise use --global`.
 # dagger is pinned to the engineVersion in dagger.json (the engine
