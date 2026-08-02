@@ -15,6 +15,10 @@ data:
   policy.csv: |
     p, role:workflow-bot, applications, sync, *, allow
     p, role:workflow-bot, applications, get, *, allow
+    # update: lets the argocd-deploy workflow run `app set --revision <sha>`
+    # ([[warrant-approval-gated-runs]] Phase 1) — branch/SHA deploys and
+    # main-resets are the whole point of that privileged workflow.
+    p, role:workflow-bot, applications, update, *, allow
     g, workflow-bot, role:workflow-bot
     g, admins, role:admin
     g, admin, role:admin
