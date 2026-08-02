@@ -60,7 +60,8 @@ jobs:
           APP: ${{ inputs.app }}
         run: |
           if ! [ -f "argocd/apps/$APP.yaml" ]; then
-            echo "::error::'$APP' is not a declared Application (argocd/apps/$APP.yaml missing on main)"
+            echo "::error::'$APP' is not a declared Application (argocd/apps/$APP.yaml missing on main). Note most apps carry a -ringtail suffix. Declared apps:"
+            ls argocd/apps/ | sed 's/\.yaml$//'
             exit 1
           fi
 
@@ -76,6 +77,9 @@ jobs:
             echo "::error::ARGOCD_AUTH_TOKEN is not provisioned as an Actions secret — see [[warrant-approval-gated-runs]] and heph 01KZ0G21JS"
             exit 1
           fi
+          # Forgejo injects GITHUB_TOKEN (a *forge* token); mise would send it
+          # to api.github.com and get a 401. Unset before any mise x call.
+          unset GITHUB_TOKEN GITHUB_API_TOKEN
           mise x argocd@3.3.12 -- argocd app set "$APP" --revision "$REV"
 
       - name: Sync and wait healthy
@@ -86,6 +90,7 @@ jobs:
           ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
           ARGOCD_OPTS: --grpc-web
         run: |
+          unset GITHUB_TOKEN GITHUB_API_TOKEN
           mise x argocd@3.3.12 -- argocd app sync "$APP" --timeout 600
           mise x argocd@3.3.12 -- argocd app wait "$APP" --health --timeout 600
 
@@ -99,4 +104,5 @@ jobs:
           ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
           ARGOCD_OPTS: --grpc-web
         run: |
+          unset GITHUB_TOKEN GITHUB_API_TOKEN
           mise x argocd@3.3.12 -- argocd app get "$APP" || true
