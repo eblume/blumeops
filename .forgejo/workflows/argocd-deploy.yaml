@@ -80,7 +80,10 @@ jobs:
           # Forgejo injects GITHUB_TOKEN (a *forge* token); mise would send it
           # to api.github.com and get a 401. Unset before any mise x call.
           unset GITHUB_TOKEN GITHUB_API_TOKEN
-          mise x argocd@3.3.12 -- argocd app set "$APP" --revision "$REV"
+          # System argocd on the priv runner (nixpkgs); mise-x fallback on
+          # host-mode runners.
+          acd() { if command -v argocd >/dev/null 2>&1; then argocd "$@"; else mise x argocd@3.3.12 -- argocd "$@"; fi; }
+          acd app set "$APP" --revision "$REV"
 
       - name: Sync and wait healthy
         if: ${{ inputs.sync }}
@@ -91,8 +94,9 @@ jobs:
           ARGOCD_OPTS: --grpc-web
         run: |
           unset GITHUB_TOKEN GITHUB_API_TOKEN
-          mise x argocd@3.3.12 -- argocd app sync "$APP" --timeout 600
-          mise x argocd@3.3.12 -- argocd app wait "$APP" --health --timeout 600
+          acd() { if command -v argocd >/dev/null 2>&1; then argocd "$@"; else mise x argocd@3.3.12 -- argocd "$@"; fi; }
+          acd app sync "$APP" --timeout 600
+          acd app wait "$APP" --health --timeout 600
 
       # Always show final state in the run log — this is the audit record
       # until Phase 2's heph plumbing lands.
@@ -105,4 +109,5 @@ jobs:
           ARGOCD_OPTS: --grpc-web
         run: |
           unset GITHUB_TOKEN GITHUB_API_TOKEN
-          mise x argocd@3.3.12 -- argocd app get "$APP" || true
+          acd() { if command -v argocd >/dev/null 2>&1; then argocd "$@"; else mise x argocd@3.3.12 -- argocd "$@"; fi; }
+          acd app get "$APP" || true
