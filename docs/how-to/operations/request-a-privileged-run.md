@@ -59,6 +59,15 @@ read-only on canonical and cannot dispatch. The request *grants* nothing.
 To **deny**: reply on the request comment, then `heph done` the task with the
 reason.
 
+## Policy
+
+Requests are validated against **`warrant-policy.yaml` on `main`** — the
+reviewed agent-autonomy boundary ([[warrant-approval-gated-runs]] Phase 4).
+Unknown actions are deny-by-default; each action declares its input schema
+(required keys, patterns, existence validators), so typos fail at request
+time, not run time. Making a new workflow requestable = adding its policy
+entry in the same PR that adds the workflow.
+
 ## Rules of the road
 
 - Approvals bind to the **full SHA** in the request — if the branch moved,

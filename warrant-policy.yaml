@@ -1,0 +1,52 @@
+# Warrant policy — the agent-autonomy boundary as a reviewed artifact.
+# Phase 4 seed of [[warrant-approval-gated-runs]].
+#
+# `mise run request-run` reads THIS FILE FROM main (never the local
+# checkout — the same definitions-from-main rule as invariant 3) and
+# refuses to file requests that don't conform. The future Warrant broker
+# enforces the same policy server-side.
+#
+# Classes:
+#   warrant — requestable; a human approval is required to execute
+#   auto    — reserved: auto-approved with post-hoc audit (nothing uses
+#             this yet; moving an action here is a reviewed policy change)
+#   deny    — not requestable at all, with or without approval
+#
+# Unknown actions are implicitly `deny` — adding a privileged workflow
+# means adding its policy entry in the same PR.
+version: 1
+
+actions:
+  argocd-deploy.yaml:
+    class: warrant
+    inputs:
+      app:
+        required: true
+        # validated against argocd/apps/<app>.yaml on main at request time
+        validate: argocd-app
+      revision:
+        required: true
+        pattern: "^(main|[0-9a-f]{40})$"
+      sync:
+        required: false
+        pattern: "^(true|false)$"
+
+  build-container.yaml:
+    class: warrant
+    inputs:
+      container:
+        required: true
+        # validated against containers/<name>/default.nix on main
+        validate: container-dir
+      ref:
+        required: false
+        pattern: "^[0-9a-f]{40}$"
+
+  # Gated until the ops-ci vault split and priv-runner hardening land
+  # (Phase 2) — the largest-blast-radius scripts in the repo.
+  provision-indri.yaml:
+    class: deny
+    note: "Phase 2 gate: ops-ci vault + priv runner hardening first (heph 01KZ0G21JS)"
+  provision-ringtail.yaml:
+    class: deny
+    note: "Phase 2 gate: same as provision-indri, plus the ringtail runner story"
