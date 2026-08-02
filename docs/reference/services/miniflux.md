@@ -1,7 +1,7 @@
 ---
 title: Miniflux
-modified: 2026-03-23
-last-reviewed: 2026-03-23
+modified: 2026-07-22
+last-reviewed: 2026-07-22
 tags:
   - service
   - rss
@@ -17,8 +17,10 @@ Minimalist RSS/Atom feed reader.
 |----------|-------|
 | **URL** | https://feed.ops.eblu.me |
 | **Namespace** | `miniflux` |
-| **Image** | `registry.ops.eblu.me/blumeops/miniflux` (see `argocd/manifests/miniflux/kustomization.yaml` for current tag) |
+| **Image** | `registry.ops.eblu.me/blumeops/miniflux` (nix-built, self-pinned to nixos-unstable, see `containers/miniflux/default.nix`; current tag in `argocd/manifests/miniflux-ringtail/kustomization.yaml`) |
 | **Database** | [[postgresql]] |
+| **Upstream** | https://github.com/miniflux/v2 |
+| **Tracked upstream version** | `2.3.2` |
 
 ## Features
 

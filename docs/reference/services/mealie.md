@@ -1,7 +1,7 @@
 ---
 title: Mealie
-modified: 2026-07-16
-last-reviewed: 2026-07-16
+modified: 2026-07-22
+last-reviewed: 2026-07-22
 tags:
   - service
   - recipes
@@ -18,10 +18,11 @@ Self-hosted recipe manager with a REST API. Part of the meal planning pipeline: 
 | **URL** | https://meals.ops.eblu.me |
 | **Tailscale URL** | https://meals.tail8d86e.ts.net |
 | **Namespace** | `mealie` |
-| **Image** | `registry.ops.eblu.me/blumeops/mealie` (built from source) |
+| **Image** | `registry.ops.eblu.me/blumeops/mealie` (nix-built, self-pinned to nixos-unstable, see `containers/mealie/default.nix`) |
 | **Database** | SQLite (local, at `/app/data/`) |
 | **API Docs** | https://meals.ops.eblu.me/docs |
 | **Upstream** | https://github.com/mealie-recipes/mealie |
+| **Tracked upstream version** | `v3.20.1` |
 | **Manifests** | `argocd/manifests/mealie-ringtail/` |
 
 ## Features

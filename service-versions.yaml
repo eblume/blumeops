@@ -269,9 +269,15 @@ services:
 
   - name: miniflux
     type: argocd
-    last-reviewed: 2026-04-12
-    current-version: "2.3.1"
+    last-reviewed: "2026-07-22"
+    current-version: "2.3.2"
     upstream-source: https://github.com/miniflux/v2/releases
+    notes: >-
+      Self-pinned to nixos-unstable (mealie/navidrome precedent) — stable
+      nixos-25.11 is EOL and frozen at 2.3.1. Bumped 2.3.1 -> 2.3.2, a
+      single patch: security fix (prevents username enumeration via login
+      timing) plus search improvements; raises min PostgreSQL to 11 (this
+      deploy runs PG 18, no blocker). Build verified on ringtail.
 
   - name: teslamate
     type: argocd
@@ -379,19 +385,23 @@ services:
 
   - name: mealie
     type: argocd
-    last-reviewed: "2026-06-03"
-    current-version: "v3.16.0"
+    last-reviewed: "2026-07-22"
+    current-version: "v3.20.1"
     upstream-source: https://github.com/mealie-recipes/mealie/releases
     notes: >-
       Recipe manager. Container ported from Dockerfile to Nix
       (containers/mealie/default.nix wraps nixpkgs mealie from a pinned
       nixos-unstable; single gunicorn process, SQLite on the mealie-data
-      PVC). Bumped v3.12.0 -> v3.16.0 as part of the port (the deferred
-      upgrade). Breaking-change review v3.13-v3.16: no schema breaking
-      changes, SQLite auto-migrates forward via init_db; notable items are
-      minor (OIDC missing-claims log -> DEBUG, NLP parser uses user-defined
-      units, Nuxt 3->4 frontend, new Announcements feature, path-traversal
-      patches). Source PVC retained for rollback. Build verified on ringtail.
+      PVC). Bumped v3.16.0 -> v3.20.1 (filed task targeted v3.17.0, but
+      unstable has since moved on — bump-with-review to what unstable
+      currently carries, navidrome precedent). Breaking-change review
+      v3.17.0-v3.20.1: no DB/schema breaking changes, SQLite continues to
+      auto-migrate forward via init_db; notable items are a query-filter-API
+      data-exposure fix (GHSA-8m57-7cv5-rjp8, v3.19.0), stored-XSS hardening
+      for recipe content, a Home Assistant i-frame cookie refactor, and
+      in-app AI provider config replacing OPENAI_API_KEY-style env vars
+      (auto-imported once on upgrade; moot, this deploy sets none). Source
+      PVC retained for rollback. Build verified on ringtail.
 
   - name: paperless
     type: argocd
