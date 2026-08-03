@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7", "pyyaml==6.0.3"]
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.26.7", "pyyaml==6.0.3"]
 # ///
 #MISE description="Request a privileged workflow run (approval-gated; see warrant-approval-gated-runs)"
 #USAGE arg "<workflow>" help="Workflow file under .forgejo/workflows/, e.g. build-container.yaml"
@@ -154,6 +154,58 @@ def pr_touches_workflows(client: httpx.Client, number: int) -> list[str]:
     ]
 
 
+WARRANT_URL = "https://warrant.ops.eblu.me"
+AUTHENTIK_TOKEN_URL = "https://authentik.ops.eblu.me/application/o/token/"
+SOCKS_FALLBACK = "socks5://localhost:1055"  # agent pod's tailscale sidecar
+
+
+def _ops_client() -> httpx.Client:
+    """Client for *.ops.eblu.me: direct on gilbert, SOCKS fallback in-pod."""
+    c = httpx.Client(timeout=15.0, proxy=os.environ.get("ALL_PROXY"))
+    try:
+        c.get(f"{WARRANT_URL}/healthz", timeout=5.0)
+        return c
+    except httpx.TransportError:
+        c.close()
+        return httpx.Client(timeout=15.0, proxy=SOCKS_FALLBACK)
+
+
+def mirror_to_warrant(
+    workflow: str, sha: str, inputs: dict[str, str], why: str, pr: int
+) -> int | None:
+    """Mirror the request into the Warrant queue ([[warrant]]) with the
+    agents-m2m identity. Best-effort by design: Warrant v0.1 is an
+    informational mirror — the PR comment + heph task remain the system of
+    record, so any failure here warns and moves on."""
+    try:
+        app_pw = subprocess.run(
+            ["op", "read", "op://agents/agents-authentik-sa/app-password"],
+            capture_output=True, text=True, stdin=subprocess.DEVNULL, check=True,
+        ).stdout.strip()
+        with _ops_client() as c:
+            tok = c.post(
+                AUTHENTIK_TOKEN_URL,
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": "agents-m2m",
+                    "username": "agent-ringtail",
+                    "password": app_pw,
+                    "scope": "openid profile",
+                },
+            )
+            tok.raise_for_status()
+            resp = c.post(
+                f"{WARRANT_URL}/api/requests",
+                headers={"Authorization": f"Bearer {tok.json()['access_token']}"},
+                json={"action": workflow, "sha": sha, "inputs": inputs, "why": why, "pr": pr},
+            )
+            resp.raise_for_status()
+            return resp.json().get("id")
+    except (subprocess.CalledProcessError, httpx.HTTPError, KeyError, OSError) as exc:
+        err.print(f"warrant mirror failed (request still filed via PR+heph): {exc}")
+        return None
+
+
 def file_heph_task(title: str, body: str) -> str | None:
     """The heph task is the durable pending-approval record. Non-fatal if
     heph is unavailable — the PR comment still exists — but warn loudly."""
@@ -288,6 +340,10 @@ This request grants nothing: dispatch remains write-gated to humans.
     )
     task_id = file_heph_task(f"Approve: {workflow} @ {sha7} (PR #{number})", heph_body)
 
+    warrant_id = mirror_to_warrant(
+        workflow, sha, dict(p.split("=", 1) for p in inputs), why, number
+    )
+
     if notify:
         try:
             httpx.post(
@@ -305,6 +361,8 @@ This request grants nothing: dispatch remains write-gated to humans.
             err.print(f"ntfy push failed (request still filed): {exc}")
 
     console.print(f"[green]Request filed.[/green] PR comment: {comment_url}")
+    if warrant_id:
+        console.print(f"warrant: {WARRANT_URL}/ (request #{warrant_id})")
     if task_id:
         console.print(f"heph task: {task_id}")
 

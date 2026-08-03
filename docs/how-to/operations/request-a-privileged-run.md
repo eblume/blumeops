@@ -39,6 +39,9 @@ What it does:
 - files an attention-orange **heph task** (`Approve: <workflow> @ <sha7>`) —
   the system of record for pending approvals. An unactioned request is a
   visible orange task, not a lost chat message;
+- **mirrors the request into [[warrant]]** (`warrant.ops.eblu.me`) with the
+  agents-m2m identity — best-effort in v0.1 (the PR comment + heph task stay
+  the system of record; a broker failure warns and moves on);
 - with `--notify`, additionally pushes to ntfy topic `ops-approvals`
   (optional by design — see the notification-channel analysis in
   [[warrant-approval-gated-runs]]).
