@@ -33,6 +33,9 @@ spec:
             - secretRef:
                 name: warrant-oidc
                 optional: true  # human door degrades to 503 on /auth/login, API unaffected
+            - secretRef:
+                name: warrant-dispatch
+                optional: true  # dispatch stays inert without the token
           securityContext:
             runAsNonRoot: true
             runAsUser: 1500

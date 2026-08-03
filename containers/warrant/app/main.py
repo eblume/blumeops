@@ -13,11 +13,13 @@ flow — the step-up factor lives there, never here):
 - GET  /api/warrants
 
 An approval mints a **warrant**: a single-use, TTL'd record binding the
-frozen {action, sha, inputs}. This service holds **no privileged
-credential** — it records decisions; the human still dispatches. The
-dispatcher that consumes warrants is a later increment.
+frozen {action, sha, inputs}. When ``WARRANT_DISPATCH_ENABLED`` is set the
+warrant is then consumed to dispatch its workflow as ``warrant-bot``;
+otherwise the record stands and a human dispatches. Approving goes through
+a confirm page — privileged actions are never one click from a list view.
 """
 
+import json
 import os
 import sqlite3
 import time
@@ -54,7 +56,7 @@ PUBLIC_URL = os.environ.get("WARRANT_PUBLIC_URL", "https://warrant.ops.eblu.me")
 SESSION_COOKIE = "warrant_session"
 SESSION_TTL = 8 * 3600
 
-app = FastAPI(title="warrant", version="0.2.3")
+app = FastAPI(title="warrant", version="0.3.0")
 _jwks_client: jwt.PyJWKClient | None = None
 _human_jwks_client: jwt.PyJWKClient | None = None
 
@@ -255,14 +257,12 @@ def create_request(
     body: RunRequest, authorization: str | None = Header(default=None)
 ) -> dict:
     requester = verify_agent(authorization)
-    import json as _json
-
     with db() as conn:
         cur = conn.execute(
             "INSERT INTO requests (created_at, requester, action, sha, inputs, why, pr)"
             " VALUES (?, ?, ?, ?, ?, ?, ?)",
             (time.time(), requester, body.action, body.sha,
-             _json.dumps(body.inputs), body.why, body.pr),
+             json.dumps(body.inputs), body.why, body.pr),
         )
         return {"id": cur.lastrowid, "status": "pending", "requester": requester}
 
@@ -281,6 +281,92 @@ def list_requests(status: str | None = None, limit: int = 50) -> list[dict]:
 
 
 WARRANT_TTL = int(os.environ.get("WARRANT_TTL_SECONDS", "3600"))
+
+# ── v0.2c: dispatch ────────────────────────────────────────────────────────
+# The only place Warrant holds power. Disabled by default so deploying the
+# capability and arming it are separate, revertible decisions.
+DISPATCH_ENABLED = os.environ.get("WARRANT_DISPATCH_ENABLED") == "1"
+DISPATCH_TOKEN = os.environ.get("WARRANT_DISPATCH_TOKEN", "")
+FORGE_API = os.environ.get("WARRANT_FORGE_API", "https://forge.eblu.me/api/v1")
+REPO_OWNER = os.environ.get("WARRANT_REPO_OWNER", "eblume")
+REPO_NAME = os.environ.get("WARRANT_REPO_NAME", "blumeops")
+
+
+def _policy_allows(action: str) -> tuple[bool, str]:
+    """Re-check warrant-policy.yaml ON MAIN at dispatch time. An action
+    demoted to `deny` after its warrant was minted does not run."""
+    import yaml
+
+    url = f"{FORGE_API}/repos/{REPO_OWNER}/{REPO_NAME}/raw/main/warrant-policy.yaml"
+    try:
+        resp = httpx.get(
+            url, headers={"Authorization": f"token {DISPATCH_TOKEN}"}, timeout=15.0
+        )
+        resp.raise_for_status()
+        entry = (yaml.safe_load(resp.text).get("actions") or {}).get(action)
+    except (httpx.HTTPError, yaml.YAMLError) as exc:
+        return False, f"policy fetch failed: {exc}"
+    if entry is None:
+        return False, f"{action} has no policy entry (deny by default)"
+    if entry.get("class") == "deny":
+        return False, f"{action} is class deny: {entry.get('note', '')}"
+    return True, ""
+
+
+def consume_and_dispatch(warrant_id: int) -> dict:
+    """Consume a warrant exactly once and trigger its workflow.
+
+    Single-use is enforced by the conditional UPDATE: concurrent callers
+    race in SQLite and exactly one sees rowcount 1. Everything dispatched
+    comes from the warrant row — never from the caller — so nothing between
+    approval and execution can alter what runs.
+    """
+    if not (DISPATCH_ENABLED and DISPATCH_TOKEN):
+        return {"dispatched": False, "reason": "dispatch disabled"}
+
+    with db() as conn:
+        w = conn.execute("SELECT * FROM warrants WHERE id = ?", (warrant_id,)).fetchone()
+        if w is None:
+            return {"dispatched": False, "reason": "no such warrant"}
+        if w["expires_at"] <= time.time():
+            return {"dispatched": False, "reason": "warrant expired"}
+        allowed, why = _policy_allows(w["action"])
+        if not allowed:
+            return {"dispatched": False, "reason": why}
+        cur = conn.execute(
+            "UPDATE warrants SET consumed = 1 WHERE id = ? AND consumed = 0", (warrant_id,)
+        )
+        if cur.rowcount != 1:
+            return {"dispatched": False, "reason": "warrant already consumed"}
+        action, inputs, request_id = w["action"], json.loads(w["inputs"]), w["request_id"]
+
+    url = f"{FORGE_API}/repos/{REPO_OWNER}/{REPO_NAME}/actions/workflows/{action}/dispatches"
+    try:
+        resp = httpx.post(
+            url,
+            headers={"Authorization": f"token {DISPATCH_TOKEN}"},
+            json={"ref": "main", "inputs": inputs},
+            timeout=30.0,
+        )
+        ok = resp.status_code in (201, 204)
+        detail = "" if ok else f"{resp.status_code}: {resp.text[:200]}"
+    except httpx.HTTPError as exc:
+        ok, detail = False, str(exc)
+
+    # Failure is terminal: the warrant stays consumed and the request is
+    # marked failed. Re-running requires a fresh human decision.
+    runs_url = f"https://forge.eblu.me/{REPO_OWNER}/{REPO_NAME}/actions?workflow={action}"
+    with db() as conn:
+        conn.execute(
+            "UPDATE requests SET status = ? WHERE id = ?",
+            ("dispatched" if ok else "dispatch_failed", request_id),
+        )
+        conn.execute(
+            "UPDATE warrants SET note = ? WHERE id = ?",
+            ((w["note"] + f" | dispatched: {runs_url}") if ok
+             else (w["note"] + f" | dispatch FAILED: {detail}"), warrant_id),
+        )
+    return {"dispatched": ok, "reason": detail, "runs_url": runs_url if ok else None}
 
 
 def _require_approver(request: Request) -> dict:
@@ -328,12 +414,16 @@ def _decide(req_id: int, decision: str, note: str, user: dict) -> dict:
             )
             result["warrant_id"] = cur.lastrowid
             result["expires_in"] = WARRANT_TTL
+    if result.get("warrant_id"):
+        outcome = consume_and_dispatch(result["warrant_id"])
+        result["dispatch"] = outcome
+        if not outcome["dispatched"]:
             result["next_step"] = (
-                "v0.2b records approvals but dispatches nothing: run the forge "
+                "not dispatched (" + outcome["reason"] + ") — run the forge "
                 "dispatch per [[request-a-privileged-run]], quoting warrant "
-                f"#{cur.lastrowid} in the run's audit trail"
+                f"#{result['warrant_id']}"
             )
-        return result
+    return result
 
 
 @app.post("/api/requests/{req_id}/decision")
@@ -353,6 +443,41 @@ async def decide_form(req_id: int, request: Request) -> Response:
     resp = Response(status_code=303)
     resp.headers["Location"] = "/"
     return resp
+
+
+@app.get("/requests/{req_id}/confirm", response_class=HTMLResponse)
+def confirm(req_id: int, request: Request) -> str:
+    """Approval is a deliberate act: the full input set and a link to the
+    diff, on their own page. The list view can deny but not approve."""
+    _require_approver(request)
+    with db() as conn:
+        r = conn.execute("SELECT * FROM requests WHERE id = ?", (req_id,)).fetchone()
+    if r is None:
+        raise HTTPException(404, "no such request")
+    if r["status"] != "pending":
+        raise HTTPException(409, f"request is already {r['status']}")
+    inputs = json.loads(r["inputs"])
+    rows = "".join(f"<tr><td>{k}</td><td><code>{v}</code></td></tr>" for k, v in inputs.items())
+    effect = (
+        "<b>This will dispatch the workflow immediately.</b>"
+        if DISPATCH_ENABLED and DISPATCH_TOKEN
+        else "This records the approval; dispatch is currently disabled."
+    )
+    return f"""<!doctype html><html><head><title>approve #{req_id}</title>
+<style>body{{font-family:system-ui;margin:2rem;max-width:52rem}}
+td,th{{border:1px solid #ccc;padding:.4rem .7rem;text-align:left}}
+table{{border-collapse:collapse;margin:1rem 0}}</style></head>
+<body><h1>approve request #{req_id}?</h1>
+<p><b>{r['action']}</b> at {_sha_link(r['sha'])} · {_pr_links(r['pr'], r['sha'])}</p>
+<p><i>{r['why']}</i></p>
+<table><tr><th>input</th><th>value</th></tr>{rows or '<tr><td colspan=2><em>none</em></td></tr>'}</table>
+<p>{effect}</p>
+<form method=post action=/requests/{req_id}/decide>
+<input type=hidden name=csrf value='{_csrf_token()}'>
+<input type=hidden name=decision value=approve>
+<input name=note placeholder='note (optional)' size=40><br><br>
+<button type=submit>approve</button> <a href=/>cancel</a></form>
+</body></html>"""
 
 
 @app.get("/api/warrants")
@@ -405,8 +530,8 @@ def index(request: Request) -> str:
             f"<form method=post action=/requests/{r['id']}/decide style='display:inline'>"
             f"<input type=hidden name=csrf value='{csrf}'>"
             "<input name=note placeholder='note (optional)' size=18> "
-            "<button name=decision value=deny>deny</button> "
-            "<button name=decision value=approve>approve</button></form>"
+            "<button name=decision value=deny>deny</button></form> "
+            f"<a href='/requests/{r['id']}/confirm'>approve…</a>"
         )
 
     with db() as conn:

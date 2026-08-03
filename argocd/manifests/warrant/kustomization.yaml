@@ -8,6 +8,7 @@ resources:
   - service.yaml
   - ingress-tailscale.yaml
   - external-secret-oidc.yaml
+  - external-secret-dispatch.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/warrant
     newTag: v0.2.1-14970b4-nix
