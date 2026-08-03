@@ -90,6 +90,25 @@ def init_db() -> None:
                 status TEXT NOT NULL DEFAULT 'pending'
             )"""
         )
+        # v0.2b: warrants — the approval artifact (invariants 2 & 5). A row
+        # here is a RECORD of an authenticated human decision, bound to the
+        # frozen {action, sha, inputs}; single-use + TTL fields exist now so
+        # v0.2c's dispatcher can consume them without a schema change.
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS warrants (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_id INTEGER NOT NULL REFERENCES requests(id),
+                decision TEXT NOT NULL,
+                decided_by TEXT NOT NULL,
+                decided_at REAL NOT NULL,
+                action TEXT NOT NULL,
+                sha TEXT NOT NULL,
+                inputs TEXT NOT NULL,
+                note TEXT NOT NULL DEFAULT '',
+                expires_at REAL NOT NULL,
+                consumed INTEGER NOT NULL DEFAULT 0
+            )"""
+        )
 
 
 # Schema init at import — deterministic under uvicorn and test clients alike
@@ -259,51 +278,141 @@ def list_requests(status: str | None = None, limit: int = 50) -> list[dict]:
         return [dict(r) for r in conn.execute(q, args).fetchall()]
 
 
-@app.post("/api/requests/{req_id}/decision")
-def decide(req_id: int, request: Request) -> JSONResponse:
-    # v0.2a: authentication exists, authorization logic does not yet.
-    # A valid admins session gets an honest 501; everyone else gets the
-    # door. The approval flow (step-up, warrant minting, dispatch) is
-    # v0.2b+ and adds no power until reviewed.
+WARRANT_TTL = int(os.environ.get("WARRANT_TTL_SECONDS", "3600"))
+
+
+def _require_approver(request: Request) -> dict:
     user = current_user(request)
     if user is None:
         raise HTTPException(401, "sign in at /auth/login (admins only)")
     if "admins" not in (user.get("groups") or []):
         raise HTTPException(403, "approvers must be in the admins group")
-    return JSONResponse(
-        status_code=501,
-        content={
-            "error": "approval logic is not implemented yet (v0.2a is the door, not the desk)",
-            "authenticated_as": user.get("username"),
-            "how_to_approve": "dispatch the workflow from the forge UI per "
-            "[[request-a-privileged-run]] — dispatch-as-approval remains the "
-            "path until v0.2b lands the warrant-minting flow",
-        },
-    )
+    return user
+
+
+def _csrf_token() -> str:
+    return _sign({"kind": "csrf"}, 3600)
+
+
+def _check_csrf(token: str) -> None:
+    payload = _unsign(token)
+    if payload is None or payload.get("kind") != "csrf":
+        raise HTTPException(400, "bad csrf token")
+
+
+def _decide(req_id: int, decision: str, note: str, user: dict) -> dict:
+    """v0.2b: record an authenticated decision. Approval MINTS a warrant —
+    a single-use, TTL'd record binding {action, sha, inputs} (invariants
+    2 & 5) — but dispatches NOTHING. The human still runs the forge
+    dispatch; the warrant is the audit artifact v0.2c's dispatcher will
+    consume. Denial closes the request."""
+    if decision not in ("approve", "deny"):
+        raise HTTPException(400, "decision must be approve|deny")
+    with db() as conn:
+        row = conn.execute("SELECT * FROM requests WHERE id = ?", (req_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "no such request")
+        if row["status"] != "pending":
+            raise HTTPException(409, f"request is already {row['status']}")
+        new_status = "approved" if decision == "approve" else "denied"
+        conn.execute("UPDATE requests SET status = ? WHERE id = ?", (new_status, req_id))
+        result: dict = {"request_id": req_id, "status": new_status, "decided_by": user["username"]}
+        if decision == "approve":
+            cur = conn.execute(
+                "INSERT INTO warrants (request_id, decision, decided_by, decided_at,"
+                " action, sha, inputs, note, expires_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                (req_id, decision, user["username"], time.time(), row["action"],
+                 row["sha"], row["inputs"], note, time.time() + WARRANT_TTL),
+            )
+            result["warrant_id"] = cur.lastrowid
+            result["expires_in"] = WARRANT_TTL
+            result["next_step"] = (
+                "v0.2b records approvals but dispatches nothing: run the forge "
+                "dispatch per [[request-a-privileged-run]], quoting warrant "
+                f"#{cur.lastrowid} in the run's audit trail"
+            )
+        return result
+
+
+@app.post("/api/requests/{req_id}/decision")
+def decide(req_id: int, request: Request, body: dict | None = None) -> JSONResponse:
+    user = _require_approver(request)
+    body = body or {}
+    return JSONResponse(_decide(req_id, body.get("decision", ""), body.get("note", ""), user))
+
+
+@app.post("/requests/{req_id}/decide")
+async def decide_form(req_id: int, request: Request) -> Response:
+    """The UI buttons (form POST + CSRF; the JSON API above is for tools)."""
+    user = _require_approver(request)
+    form = await request.form()
+    _check_csrf(str(form.get("csrf", "")))
+    _decide(req_id, str(form.get("decision", "")), str(form.get("note", "")), user)
+    resp = Response(status_code=303)
+    resp.headers["Location"] = "/"
+    return resp
+
+
+@app.get("/api/warrants")
+def list_warrants(limit: int = 50) -> list[dict]:
+    with db() as conn:
+        return [
+            dict(r)
+            for r in conn.execute(
+                "SELECT * FROM warrants ORDER BY id DESC LIMIT ?", (min(limit, 500),)
+            ).fetchall()
+        ]
 
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request) -> str:
     user = current_user(request)
+    approver = user is not None and "admins" in (user.get("groups") or [])
     who = (
         f"signed in as <b>{user.get('username')}</b> · <a href=/auth/logout>logout</a>"
         if user
         else "<a href=/auth/login>sign in</a> (approvers)"
     )
+    csrf = _csrf_token() if approver else ""
+
+    def act_cell(r) -> str:
+        if not (approver and r["status"] == "pending"):
+            return ""
+        return (
+            f"<form method=post action=/requests/{r['id']}/decide style='display:inline'>"
+            f"<input type=hidden name=csrf value='{csrf}'>"
+            "<button name=decision value=approve>approve</button> "
+            "<button name=decision value=deny>deny</button></form>"
+        )
+
     with db() as conn:
         rows = conn.execute(
             "SELECT * FROM requests ORDER BY id DESC LIMIT 100"
         ).fetchall()
+        warrants = conn.execute(
+            "SELECT * FROM warrants ORDER BY id DESC LIMIT 20"
+        ).fetchall()
     items = "".join(
         f"<tr><td>{r['id']}</td><td>{r['status']}</td><td>{r['action']}</td>"
         f"<td><code>{r['sha'][:7]}</code></td><td>{r['pr'] or ''}</td>"
-        f"<td>{r['why'][:120]}</td><td>{r['requester']}</td></tr>"
+        f"<td>{r['why'][:120]}</td><td>{r['requester']}</td><td>{act_cell(r)}</td></tr>"
         for r in rows
-    ) or "<tr><td colspan=7><em>queue empty</em></td></tr>"
+    ) or "<tr><td colspan=8><em>queue empty</em></td></tr>"
+    witems = "".join(
+        f"<tr><td>{w['id']}</td><td>#{w['request_id']}</td><td>{w['action']}</td>"
+        f"<td><code>{w['sha'][:7]}</code></td><td>{w['decided_by']}</td>"
+        f"<td>{'consumed' if w['consumed'] else ('live' if w['expires_at'] > time.time() else 'expired')}</td></tr>"
+        for w in warrants
+    ) or "<tr><td colspan=6><em>none yet</em></td></tr>"
     return f"""<!doctype html><html><head><title>warrant</title>
-<style>body{{font-family:system-ui;margin:2rem}}table{{border-collapse:collapse}}
+<style>body{{font-family:system-ui;margin:2rem}}table{{border-collapse:collapse;margin-bottom:1.5rem}}
 td,th{{border:1px solid #ccc;padding:.4rem .7rem;text-align:left}}</style></head>
 <body><h1>warrant <small>v{app.version}</small></h1>
-<p>{who} · Approvals still happen via forge dispatch ([[request-a-privileged-run]]).</p>
+<p>{who} · Approvals are recorded here; execution remains forge dispatch
+([[request-a-privileged-run]]) until v0.2c.</p>
+<h2>requests</h2>
 <table><tr><th>id</th><th>status</th><th>action</th><th>sha</th><th>PR</th>
-<th>why</th><th>requester</th></tr>{items}</table></body></html>"""
+<th>why</th><th>requester</th><th></th></tr>{items}</table>
+<h2>warrants</h2>
+<table><tr><th>id</th><th>request</th><th>action</th><th>sha</th>
+<th>decided by</th><th>state</th></tr>{witems}</table></body></html>"""
