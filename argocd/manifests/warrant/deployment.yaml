@@ -29,6 +29,10 @@ spec:
           env:
             - name: WARRANT_DB
               value: /data/warrant.db
+          envFrom:
+            - secretRef:
+                name: warrant-oidc
+                optional: true  # human door degrades to 503 on /auth/login, API unaffected
           securityContext:
             runAsNonRoot: true
             runAsUser: 1500

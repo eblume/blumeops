@@ -22,7 +22,7 @@ import time
 from contextlib import contextmanager
 
 import jwt
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
@@ -36,8 +36,23 @@ CLIENT_ID = os.environ.get("WARRANT_CLIENT_ID", "agents-m2m")
 # Escape hatch for pre-Authentik smoke testing ONLY (never set in manifests).
 ALLOW_ANON = os.environ.get("WARRANT_DEV_ALLOW_ANON") == "1"
 
-app = FastAPI(title="warrant", version="0.1.0")
+# ── v0.2a: the human door ──────────────────────────────────────────────────
+# Separate provider from agents-m2m: humans arrive via the OIDC code flow,
+# app policy-bound to `admins` in authentik. The approval *step-up* factor
+# lives in the authentik flow, never here (invariant 4).
+HUMAN_ISSUER = os.environ.get(
+    "WARRANT_HUMAN_ISSUER", "https://authentik.ops.eblu.me/application/o/warrant/"
+)
+HUMAN_CLIENT_ID = os.environ.get("WARRANT_HUMAN_CLIENT_ID", "warrant")
+HUMAN_CLIENT_SECRET = os.environ.get("WARRANT_HUMAN_CLIENT_SECRET", "")
+SESSION_KEY = os.environ.get("WARRANT_SESSION_KEY", "")
+PUBLIC_URL = os.environ.get("WARRANT_PUBLIC_URL", "https://warrant.ops.eblu.me")
+SESSION_COOKIE = "warrant_session"
+SESSION_TTL = 8 * 3600
+
+app = FastAPI(title="warrant", version="0.2.0")
 _jwks_client: jwt.PyJWKClient | None = None
+_human_jwks_client: jwt.PyJWKClient | None = None
 
 
 class RunRequest(BaseModel):
@@ -104,12 +119,114 @@ def verify_agent(authorization: str | None) -> str:
         )
     except jwt.PyJWTError as exc:
         raise HTTPException(401, f"token rejected: {exc}") from exc
-    return str(claims.get("sub", "unknown"))
+    # Human-readable identity, not the hashed sub (pilot feedback).
+    return str(claims.get("preferred_username") or claims.get("sub", "unknown"))
 
 
 @app.get("/healthz")
 def healthz() -> dict:
     return {"ok": True, "version": app.version}
+
+
+# ── v0.2a human auth: OIDC code flow + signed session cookie ───────────────
+
+def _sign(claims: dict, ttl: int) -> str:
+    return jwt.encode({**claims, "exp": time.time() + ttl}, SESSION_KEY, algorithm="HS256")
+
+
+def _unsign(token: str) -> dict | None:
+    try:
+        return jwt.decode(token, SESSION_KEY, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        return None
+
+
+def current_user(request: Request) -> dict | None:
+    """The signed session, if present and valid. None = anonymous viewer."""
+    if not SESSION_KEY:
+        return None
+    if cookie := request.cookies.get(SESSION_COOKIE):
+        return _unsign(cookie)
+    return None
+
+
+@app.get("/auth/login")
+def auth_login() -> Response:
+    if not (SESSION_KEY and HUMAN_CLIENT_SECRET):
+        raise HTTPException(503, "human login not configured (warrant-oidc secret missing)")
+    state = _sign({"kind": "oauth-state", "nonce": os.urandom(16).hex()}, 600)
+    from urllib.parse import urlencode
+
+    params = urlencode(
+        {
+            "response_type": "code",
+            "client_id": HUMAN_CLIENT_ID,
+            "redirect_uri": f"{PUBLIC_URL}/auth/callback",
+            "scope": "openid profile email",
+            "state": state,
+        }
+    )
+    resp = Response(status_code=302)
+    resp.headers["Location"] = f"https://authentik.ops.eblu.me/application/o/authorize/?{params}"
+    return resp
+
+
+@app.get("/auth/callback")
+def auth_callback(code: str, state: str) -> Response:
+    if _unsign(state) is None or _unsign(state).get("kind") != "oauth-state":
+        raise HTTPException(400, "bad state")
+    import httpx as _httpx
+
+    token_resp = _httpx.post(
+        "https://authentik.ops.eblu.me/application/o/token/",
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": f"{PUBLIC_URL}/auth/callback",
+            "client_id": HUMAN_CLIENT_ID,
+            "client_secret": HUMAN_CLIENT_SECRET,
+        },
+        timeout=15.0,
+    )
+    if token_resp.status_code != 200:
+        raise HTTPException(401, f"code exchange failed: {token_resp.text[:200]}")
+    id_token = token_resp.json().get("id_token", "")
+    global _human_jwks_client
+    if _human_jwks_client is None:
+        _human_jwks_client = jwt.PyJWKClient(f"{HUMAN_ISSUER}jwks/", cache_keys=True)
+    try:
+        key = _human_jwks_client.get_signing_key_from_jwt(id_token)
+        claims = jwt.decode(
+            id_token, key.key, algorithms=["RS256", "ES256"], audience=HUMAN_CLIENT_ID
+        )
+    except jwt.PyJWTError as exc:
+        raise HTTPException(401, f"id_token rejected: {exc}") from exc
+    if "admins" not in (claims.get("groups") or []):
+        raise HTTPException(403, "warrant approvers must be in the admins group")
+    session = _sign(
+        {
+            "kind": "session",
+            "sub": claims.get("sub"),
+            "username": claims.get("preferred_username", "unknown"),
+            "groups": claims.get("groups", []),
+        },
+        SESSION_TTL,
+    )
+    resp = Response(status_code=302)
+    resp.headers["Location"] = "/"
+    resp.set_cookie(
+        SESSION_COOKIE, session, max_age=SESSION_TTL,
+        httponly=True, secure=True, samesite="lax",
+    )
+    return resp
+
+
+@app.get("/auth/logout")
+def auth_logout() -> Response:
+    resp = Response(status_code=302)
+    resp.headers["Location"] = "/"
+    resp.delete_cookie(SESSION_COOKIE)
+    return resp
 
 
 @app.post("/api/requests", status_code=201)
@@ -144,22 +261,35 @@ def list_requests(status: str | None = None, limit: int = 50) -> list[dict]:
 
 @app.post("/api/requests/{req_id}/decision")
 def decide(req_id: int, request: Request) -> JSONResponse:
-    # v0.2: Authentik session + WebAuthn/passkey step-up mints a single-use
-    # warrant bound to {action, sha, inputs}; the broker then dispatches and
-    # leases scoped secrets. v0.1 holds no credentials and refuses.
+    # v0.2a: authentication exists, authorization logic does not yet.
+    # A valid admins session gets an honest 501; everyone else gets the
+    # door. The approval flow (step-up, warrant minting, dispatch) is
+    # v0.2b+ and adds no power until reviewed.
+    user = current_user(request)
+    if user is None:
+        raise HTTPException(401, "sign in at /auth/login (admins only)")
+    if "admins" not in (user.get("groups") or []):
+        raise HTTPException(403, "approvers must be in the admins group")
     return JSONResponse(
         status_code=501,
         content={
-            "error": "approval is not implemented in the v0.1 scaffold",
+            "error": "approval logic is not implemented yet (v0.2a is the door, not the desk)",
+            "authenticated_as": user.get("username"),
             "how_to_approve": "dispatch the workflow from the forge UI per "
             "[[request-a-privileged-run]] — dispatch-as-approval remains the "
-            "Phase 1 path until Warrant v0.2 lands the passkey flow",
+            "path until v0.2b lands the warrant-minting flow",
         },
     )
 
 
 @app.get("/", response_class=HTMLResponse)
-def index() -> str:
+def index(request: Request) -> str:
+    user = current_user(request)
+    who = (
+        f"signed in as <b>{user.get('username')}</b> · <a href=/auth/logout>logout</a>"
+        if user
+        else "<a href=/auth/login>sign in</a> (approvers)"
+    )
     with db() as conn:
         rows = conn.execute(
             "SELECT * FROM requests ORDER BY id DESC LIMIT 100"
@@ -173,7 +303,7 @@ def index() -> str:
     return f"""<!doctype html><html><head><title>warrant</title>
 <style>body{{font-family:system-ui;margin:2rem}}table{{border-collapse:collapse}}
 td,th{{border:1px solid #ccc;padding:.4rem .7rem;text-align:left}}</style></head>
-<body><h1>warrant <small>v{app.version} (scaffold — read-only)</small></h1>
-<p>Approvals still happen via forge dispatch ([[request-a-privileged-run]]).</p>
+<body><h1>warrant <small>v{app.version}</small></h1>
+<p>{who} · Approvals still happen via forge dispatch ([[request-a-privileged-run]]).</p>
 <table><tr><th>id</th><th>status</th><th>action</th><th>sha</th><th>PR</th>
 <th>why</th><th>requester</th></tr>{items}</table></body></html>"""

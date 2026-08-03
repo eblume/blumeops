@@ -78,6 +78,11 @@ spec:
                 secretKeyRef:
                   name: authentik-config
                   key: agents-m2m-app-password
+            - name: AUTHENTIK_WARRANT_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-config
+                  key: warrant-client-secret
             - name: AUTHENTIK_ZOT_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
