@@ -29,6 +29,11 @@ spec:
           env:
             - name: WARRANT_DB
               value: /data/warrant.db
+            # Armed 2026-08-03. Approving a request now dispatches its
+            # workflow as warrant-bot. To disarm, set "0" and sync — the
+            # credential stays in place but is ignored.
+            - name: WARRANT_DISPATCH_ENABLED
+              value: "1"
           envFrom:
             - secretRef:
                 name: warrant-oidc
