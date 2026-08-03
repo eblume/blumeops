@@ -25,7 +25,7 @@ What it does (idempotent, --dry-run supported):
      `workflow_dispatch` requires — and nothing else
   3. mints a `write:repository` PAT **as warrant-bot itself** (basic auth —
      no admin scope needed for this step)
-  4. stores that PAT in the blumeops-ci vault for the Warrant pod
+  4. stores the PAT (and the bot's login password) in ONE blumeops-ci item
 
 Residual capability, stated plainly: a write collaborator can also push
 non-protected branches on blumeops. `main` is push+merge whitelisted to
@@ -36,6 +36,7 @@ accepted floor because Forgejo has no dispatch-only permission.
 Usage: mise run warrant-bot-provision [--dry-run] [--rotate] [--token <t>]
 """
 
+import secrets
 import subprocess
 import sys
 import time
@@ -61,9 +62,15 @@ err = Console(stderr=True, style="bold red")
 
 def op(*args: str, check: bool = True) -> subprocess.CompletedProcess:
     # op misparses non-TTY stdin as an item template — always /dev/null it.
-    return subprocess.run(
-        ["op", *args], capture_output=True, text=True, stdin=subprocess.DEVNULL, check=check
+    result = subprocess.run(
+        ["op", *args], capture_output=True, text=True, stdin=subprocess.DEVNULL
     )
+    if check and result.returncode != 0:
+        # Surface op's own message: a bare CalledProcessError hides the one
+        # line that says what went wrong.
+        err.print(f"op {' '.join(args[:2])} failed: {result.stderr.strip()}")
+        raise typer.Exit(1)
+    return result
 
 
 SCOPE_HELP = """
@@ -81,8 +88,9 @@ work — see agent-repo-access). Do NOT widen the stored token: mint an
 Alternative, no token at all: create the user in
 forge → Site Administration → Identity & Access → Users → Create User
 (username warrant-bot), store its password at
-op://blumeops-ci/warrant-bot-login, and re-run this task — it will grant
-the collaboration and mint the PAT as warrant-bot itself.
+op://blumeops-ci/warrant-dispatch-token as field `login-password`, and
+re-run this task — it will grant the collaboration and mint the PAT as
+warrant-bot itself.
 """
 
 
@@ -115,18 +123,17 @@ def main(
 
     token = admin_token(token_opt)
     owner, repo = TARGET_REPO
+    password: str | None = None
     with httpx.Client(headers={"Authorization": f"token {token}"}, timeout=30.0) as c:
         # 1. user
         exists = c.get(f"{FORGE_API}/users/{BOT_USER}").status_code == 200
         console.print(f"user {BOT_USER}: {'present' if exists else 'MISSING'}")
         if not exists and not dry_run:
-            # The login password is never used (the bot authenticates by PAT),
-            # but Forgejo requires one at creation. Generate it into the vault
-            # so it exists, is strong, and nobody has to invent one.
-            op("item", "create", "--generate-password", "--vault", VAULT,
-               "--title", f"{BOT_USER}-login", "--category", "Login",
-               f"username={BOT_USER}")
-            password = op("read", f"op://{VAULT}/{BOT_USER}-login/password").stdout.strip()
+            # Forgejo requires a password at creation; the bot then
+            # authenticates by PAT. Generated here and held in memory for the
+            # token mint below, then stored beside the PAT in one item — no
+            # second vault round-trip to get out of sync with.
+            password = secrets.token_urlsafe(32)
             resp = c.post(
                 f"{FORGE_API}/admin/users",
                 json={
@@ -167,16 +174,19 @@ def main(
         if stored and not rotate:
             console.print("nothing to mint (use --rotate to replace)")
         elif not dry_run:
-            pw = op("read", f"op://{VAULT}/{BOT_USER}-login/password", check=False)
-            if pw.returncode != 0:
+            if password is None:
+                password = op("read", f"op://{VAULT}/{VAULT_ITEM}/login-password", check=False)
+                password = password.stdout.strip() if password.returncode == 0 else None
+            if not password:
                 err.print(
-                    f"No password at op://{VAULT}/{BOT_USER}-login. If the user was "
-                    "created in the forge UI, store its password there and re-run."
+                    f"The bot exists but no login password is available. Store it at "
+                    f"op://{VAULT}/{VAULT_ITEM} field 'login-password' (or run with "
+                    "--rotate after resetting it in the forge UI) and re-run."
                 )
                 raise typer.Exit(1)
             resp = httpx.post(
                 f"{FORGE_API}/users/{BOT_USER}/tokens",
-                auth=(BOT_USER, pw.stdout.strip()),
+                auth=(BOT_USER, password),
                 json={"name": f"{TOKEN_NAME}-{int(time.time())}", "scopes": TOKEN_SCOPES},
                 timeout=30.0,
             )
@@ -184,11 +194,12 @@ def main(
                 err.print(f"token mint failed ({resp.status_code}): {resp.text[:300]}")
                 raise typer.Exit(1)
             pat = resp.json()["sha1"]
+            fields = [f"token[password]={pat}", f"login-password[password]={password}"]
             if stored:
-                op("item", "edit", VAULT_ITEM, "--vault", VAULT, f"token[password]={pat}")
+                op("item", "edit", VAULT_ITEM, "--vault", VAULT, *fields)
             else:
                 op("item", "create", "--vault", VAULT, "--title", VAULT_ITEM,
-                   "--category", "API Credential", f"token[password]={pat}")
+                   "--category", "API Credential", *fields)
             console.print(f"[green]stored[/green] op://{VAULT}/{VAULT_ITEM}/token")
 
     console.print(
