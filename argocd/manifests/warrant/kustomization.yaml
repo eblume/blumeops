@@ -10,4 +10,4 @@ resources:
   - external-secret-oidc.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/warrant
-    newTag: v0.1.0-68f84a3-nix
+    newTag: v0.2.0-9060183-nix
