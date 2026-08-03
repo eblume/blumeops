@@ -56,7 +56,7 @@ PUBLIC_URL = os.environ.get("WARRANT_PUBLIC_URL", "https://warrant.ops.eblu.me")
 SESSION_COOKIE = "warrant_session"
 SESSION_TTL = 8 * 3600
 
-app = FastAPI(title="warrant", version="0.3.1")
+app = FastAPI(title="warrant", version="0.3.2")
 _jwks_client: jwt.PyJWKClient | None = None
 _human_jwks_client: jwt.PyJWKClient | None = None
 
@@ -112,9 +112,18 @@ def init_db() -> None:
                 inputs TEXT NOT NULL,
                 note TEXT NOT NULL DEFAULT '',
                 expires_at REAL NOT NULL,
-                consumed INTEGER NOT NULL DEFAULT 0
+                consumed INTEGER NOT NULL DEFAULT 0,
+                run_number INTEGER,
+                run_url TEXT
             )"""
         )
+        # Added after the table shipped; SQLite has no IF NOT EXISTS for
+        # columns, so tolerate the duplicate on already-migrated databases.
+        for column in ("run_number INTEGER", "run_url TEXT"):
+            try:
+                conn.execute(f"ALTER TABLE warrants ADD COLUMN {column}")
+            except sqlite3.OperationalError:
+                pass
 
 
 # Schema init at import — deterministic under uvicorn and test clients alike
@@ -368,18 +377,47 @@ def consume_and_dispatch(warrant_id: int) -> dict:
 
     # Failure is terminal: the warrant stays consumed and the request is
     # marked failed. Re-running requires a fresh human decision.
-    runs_url = f"https://forge.eblu.me/{REPO_OWNER}/{REPO_NAME}/actions?workflow={action}"
+    run_number, run_url = (_find_run(action) if ok else (None, None))
     with db() as conn:
         conn.execute(
             "UPDATE requests SET status = ? WHERE id = ?",
             ("dispatched" if ok else "dispatch_failed", request_id),
         )
         conn.execute(
-            "UPDATE warrants SET note = ? WHERE id = ?",
-            ((w["note"] + f" | dispatched: {runs_url}") if ok
-             else (w["note"] + f" | dispatch FAILED: {detail}"), warrant_id),
+            "UPDATE warrants SET run_number = ?, run_url = ?, note = ? WHERE id = ?",
+            (run_number, run_url,
+             w["note"] if ok else (w["note"] + f" | dispatch FAILED: {detail}"),
+             warrant_id),
         )
-    return {"dispatched": ok, "reason": detail, "runs_url": runs_url if ok else None}
+    return {"dispatched": ok, "reason": detail, "run_url": run_url}
+
+
+def _find_run(action: str) -> tuple[int | None, str | None]:
+    """The run this dispatch just created. The dispatch API answers 204 with
+    no body, so the run is identified by polling for the newest run of this
+    workflow. Best-effort: a missing link never fails a successful dispatch,
+    it just leaves the warrant pointing at the workflow's run list."""
+    listing = f"https://forge.eblu.me/{REPO_OWNER}/{REPO_NAME}/actions?workflow={action}"
+    for _ in range(6):
+        try:
+            resp = httpx.get(
+                f"{FORGE_API}/repos/{REPO_OWNER}/{REPO_NAME}/actions/tasks",
+                headers={"Authorization": f"token {DISPATCH_TOKEN}"},
+                timeout=10.0,
+            )
+            resp.raise_for_status()
+            runs = [
+                r for r in (resp.json().get("workflow_runs") or [])
+                if r.get("workflow_id") == action
+            ]
+            if runs:
+                newest = max(runs, key=lambda r: r["id"])
+                n = newest["run_number"]
+                return n, f"https://forge.eblu.me/{REPO_OWNER}/{REPO_NAME}/actions/runs/{n}"
+        except httpx.HTTPError:
+            pass
+        time.sleep(1)
+    return None, listing
 
 
 def _require_approver(request: Request) -> dict:
@@ -514,6 +552,16 @@ def _sha_link(sha: str) -> str:
     return f"<a href='{FORGE_REPO_URL}/commit/{sha}'><code>{sha[:7]}</code></a>"
 
 
+def _run_link(w) -> str:
+    """The run an approval caused — the first thing worth clicking after
+    approving."""
+    url = w["run_url"] if "run_url" in w.keys() else None
+    if not url:
+        return ""
+    label = f"run {w['run_number']}" if w["run_number"] else "runs"
+    return f"<a href='{url}'>{label}</a>"
+
+
 def _pr_links(pr: int | None, sha: str) -> str:
     """PR + its diff. Tying the decision to the code change is the substance
     of the approve-fatigue answer; the ergonomics half comes later."""
@@ -565,9 +613,10 @@ def index(request: Request) -> str:
         f"<tr><td>{w['id']}</td><td>#{w['request_id']}</td><td>{w['action']}</td>"
         f"<td>{_sha_link(w['sha'])}</td><td>{w['decided_by']}</td>"
         f"<td>{'consumed' if w['consumed'] else ('live' if w['expires_at'] > time.time() else 'expired')}</td>"
+        f"<td>{_run_link(w)}</td>"
         f"<td>{w['note'][:60]}</td></tr>"
         for w in warrants
-    ) or "<tr><td colspan=7><em>none yet</em></td></tr>"
+    ) or "<tr><td colspan=8><em>none yet</em></td></tr>"
     return f"""<!doctype html><html><head><title>warrant</title>
 <style>body{{font-family:system-ui;margin:2rem}}table{{border-collapse:collapse;margin-bottom:1.5rem}}
 td,th{{border:1px solid #ccc;padding:.4rem .7rem;text-align:left}}</style></head>
@@ -579,4 +628,4 @@ td,th{{border:1px solid #ccc;padding:.4rem .7rem;text-align:left}}</style></head
 <th>why</th><th>requester</th><th></th></tr>{items}</table>
 <h2>warrants</h2>
 <table><tr><th>id</th><th>request</th><th>action</th><th>sha</th>
-<th>decided by</th><th>state</th><th>note</th></tr>{witems}</table></body></html>"""
+<th>decided by</th><th>state</th><th>run</th><th>note</th></tr>{witems}</table></body></html>"""
