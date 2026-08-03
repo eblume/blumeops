@@ -590,7 +590,7 @@ data:
           username: agent-ringtail
           name: Agent (ringtail workspace)
           type: service_account
-          path: goauthentik.io/service-accounts
+          is_active: true
           groups:
             - !KeyOf agents-sa-group
 
@@ -608,6 +608,13 @@ data:
           client_type: confidential
           client_id: agents-m2m
           client_secret: !Env AUTHENTIK_AGENTS_M2M_CLIENT_SECRET
+          # Required by the provider serializer even for a pure
+          # client_credentials flow (this entry silently failed without it —
+          # every working provider in this file has one). The URL doubles as
+          # Warrant's future code-flow callback.
+          redirect_uris:
+            - matching_mode: strict
+              url: https://warrant.ops.eblu.me/oauth/callback
           signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
           property_mappings:
             - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
