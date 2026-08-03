@@ -1,0 +1,154 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
+# ///
+#MISE description="Provision the warrant-bot forge identity + dispatch PAT (gilbert, human-run)"
+"""Provision `warrant-bot`: the identity Warrant uses to dispatch approved runs.
+
+**Human-run on gilbert, by design.** This script is deliberately NOT a
+workflow. Minting the dispatch credential from CI would (a) need a
+vault-*write* credential in CI, (b) let a compromised run turn "can run a
+workflow" into "holds a persistent dispatch identity" via FORGE_ADMIN_TOKEN,
+and (c) dissolve the human ceremony that is the boundary on new privileged
+credentials. Scripting the tedium is fine; automating the birth of the
+credential is not. Drift *verification* is the part that belongs in CI, and
+is a separate read-only job.
+
+What it does (idempotent, --dry-run supported):
+  1. creates the `warrant-bot` forge user if absent (admin API)
+  2. grants it **write** on eblume/blumeops — the permission
+     `workflow_dispatch` requires — and nothing else
+  3. mints a `write:repository` PAT (only when one isn't already stored)
+  4. stores that PAT in the blumeops-ci vault for the Warrant pod
+
+Residual capability, stated plainly: a write collaborator can also push
+non-protected branches on blumeops. `main` is push+merge whitelisted to
+eblume, so it cannot touch main or merge PRs; branch pushes are visible and
+revert-able, and the credential is revocable in one click. That is the
+accepted floor because Forgejo has no dispatch-only permission.
+
+Usage: mise run warrant-bot-provision [--dry-run] [--rotate]
+"""
+
+import subprocess
+import sys
+import time
+from typing import Annotated
+
+import httpx
+import typer
+from rich.console import Console
+
+FORGE_API = "https://forge.eblu.me/api/v1"
+BOT_USER = "warrant-bot"
+BOT_EMAIL = "warrant-bot@eblu.me"
+TARGET_REPO = ("eblume", "blumeops")
+TOKEN_NAME = "warrant-dispatch"
+TOKEN_SCOPES = ["write:repository"]
+ADMIN_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
+VAULT = "blumeops-ci"
+VAULT_ITEM = "warrant-dispatch-token"
+
+console = Console()
+err = Console(stderr=True, style="bold red")
+
+
+def op(*args: str, check: bool = True) -> subprocess.CompletedProcess:
+    # op misparses non-TTY stdin as an item template — always /dev/null it.
+    return subprocess.run(
+        ["op", *args], capture_output=True, text=True, stdin=subprocess.DEVNULL, check=check
+    )
+
+
+def admin_token() -> str:
+    """Biometric op on gilbert. No env fallback: this script must not be
+    runnable by an inherited token in a CI-like environment."""
+    result = op("read", ADMIN_TOKEN_REF, check=False)
+    if result.returncode != 0:
+        err.print("Could not read the forge admin token from 1Password.")
+        err.print("This task is gilbert-only and requires biometric `op`.")
+        err.print(result.stderr.strip())
+        raise typer.Exit(1)
+    return result.stdout.strip()
+
+
+def main(
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Report only; change nothing")] = False,
+    rotate: Annotated[bool, typer.Option("--rotate", help="Mint a fresh PAT even if one is stored")] = False,
+) -> None:
+    if not sys.stdin.isatty() and not dry_run:
+        err.print("Refusing to run non-interactively: this ceremony is human-run.")
+        raise typer.Exit(1)
+
+    token = admin_token()
+    owner, repo = TARGET_REPO
+    with httpx.Client(headers={"Authorization": f"token {token}"}, timeout=30.0) as c:
+        # 1. user
+        exists = c.get(f"{FORGE_API}/users/{BOT_USER}").status_code == 200
+        console.print(f"user {BOT_USER}: {'present' if exists else 'MISSING'}")
+        if not exists and not dry_run:
+            # The login password is never used (the bot authenticates by PAT),
+            # but Forgejo requires one at creation. Generate it into the vault
+            # so it exists, is strong, and nobody has to invent one.
+            op("item", "create", "--generate-password", "--vault", VAULT,
+               "--title", f"{BOT_USER}-login", "--category", "Login",
+               f"username={BOT_USER}")
+            password = op("read", f"op://{VAULT}/{BOT_USER}-login/password").stdout.strip()
+            resp = c.post(
+                f"{FORGE_API}/admin/users",
+                json={
+                    "username": BOT_USER,
+                    "email": BOT_EMAIL,
+                    "password": password,
+                    "must_change_password": False,
+                },
+            )
+            if resp.status_code not in (201, 200):
+                err.print(f"user creation failed ({resp.status_code}): {resp.text[:300]}")
+                raise typer.Exit(1)
+            console.print(f"[green]created[/green] {BOT_USER}")
+
+        # 2. collaborator grant (write — what workflow_dispatch needs)
+        perm = c.get(f"{FORGE_API}/repos/{owner}/{repo}/collaborators/{BOT_USER}/permission")
+        current = perm.json().get("permission") if perm.status_code == 200 else "none"
+        console.print(f"collaborator on {owner}/{repo}: {current}")
+        if current != "write" and not dry_run:
+            resp = c.put(
+                f"{FORGE_API}/repos/{owner}/{repo}/collaborators/{BOT_USER}",
+                json={"permission": "write"},
+            )
+            if resp.status_code not in (204, 201, 200):
+                err.print(f"collaborator grant failed ({resp.status_code}): {resp.text[:300]}")
+                raise typer.Exit(1)
+            console.print("[green]granted[/green] write")
+
+        # 3 + 4. PAT → vault
+        stored = op("read", f"op://{VAULT}/{VAULT_ITEM}/token", check=False).returncode == 0
+        console.print(f"stored PAT in {VAULT}: {'present' if stored else 'absent'}")
+        if stored and not rotate:
+            console.print("nothing to mint (use --rotate to replace)")
+        elif not dry_run:
+            resp = c.post(
+                f"{FORGE_API}/admin/users/{BOT_USER}/tokens",
+                json={"name": f"{TOKEN_NAME}-{int(time.time())}", "scopes": TOKEN_SCOPES},
+            )
+            if resp.status_code not in (201, 200):
+                err.print(f"token mint failed ({resp.status_code}): {resp.text[:300]}")
+                raise typer.Exit(1)
+            pat = resp.json()["sha1"]
+            if stored:
+                op("item", "edit", VAULT_ITEM, "--vault", VAULT, f"token[password]={pat}")
+            else:
+                op("item", "create", "--vault", VAULT, "--title", VAULT_ITEM,
+                   "--category", "API Credential", f"token[password]={pat}")
+            console.print(f"[green]stored[/green] op://{VAULT}/{VAULT_ITEM}/token")
+
+    console.print(
+        "\nNext: the warrant deployment reads this via ExternalSecret; "
+        "dispatch stays disabled until WARRANT_DISPATCH_ENABLED is set."
+    )
+
+
+if __name__ == "__main__":
+    typer.run(main)
