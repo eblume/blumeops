@@ -25,7 +25,7 @@ What it does (idempotent, --dry-run supported):
      `workflow_dispatch` requires — and nothing else
   3. mints a `write:repository` PAT **as warrant-bot itself** (basic auth —
      no admin scope needed for this step)
-  4. stores the PAT (and the bot's login password) in ONE blumeops-ci item
+  4. stores the PAT (and the bot's login password) in ONE blumeops item
 
 Residual capability, stated plainly: a write collaborator can also push
 non-protected branches on blumeops. `main` is push+merge whitelisted to
@@ -53,7 +53,11 @@ TARGET_REPO = ("eblume", "blumeops")
 TOKEN_NAME = "warrant-dispatch"
 TOKEN_SCOPES = ["write:repository"]
 ADMIN_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
-VAULT = "blumeops-ci"
+# The blumeops vault, not blumeops-ci: this credential is consumed by a k8s
+# service through external-secrets, and 1Password Connect is provisioned
+# --vaults blumeops. blumeops-ci is for CI job-time `op read`, a different
+# consumer with a different reader.
+VAULT = "blumeops"
 VAULT_ITEM = "warrant-dispatch-token"
 
 console = Console()
@@ -88,7 +92,7 @@ work — see agent-repo-access). Do NOT widen the stored token: mint an
 Alternative, no token at all: create the user in
 forge → Site Administration → Identity & Access → Users → Create User
 (username warrant-bot), store its password at
-op://blumeops-ci/warrant-dispatch-token as field `login-password`, and
+op://blumeops/warrant-dispatch-token as field `login-password`, and
 re-run this task — it will grant the collaboration and mint the PAT as
 warrant-bot itself.
 """

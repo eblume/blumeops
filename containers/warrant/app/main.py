@@ -56,7 +56,7 @@ PUBLIC_URL = os.environ.get("WARRANT_PUBLIC_URL", "https://warrant.ops.eblu.me")
 SESSION_COOKIE = "warrant_session"
 SESSION_TTL = 8 * 3600
 
-app = FastAPI(title="warrant", version="0.3.0")
+app = FastAPI(title="warrant", version="0.3.1")
 _jwks_client: jwt.PyJWKClient | None = None
 _human_jwks_client: jwt.PyJWKClient | None = None
 
@@ -150,7 +150,16 @@ def verify_agent(authorization: str | None) -> str:
 
 @app.get("/healthz")
 def healthz() -> dict:
-    return {"ok": True, "version": app.version}
+    return {
+        "ok": True,
+        "version": app.version,
+        # Readiness of the power, not the secret itself.
+        "dispatch": (
+            "armed" if DISPATCH_ENABLED and DISPATCH_TOKEN
+            else "armed-no-token" if DISPATCH_ENABLED
+            else "disarmed"
+        ),
+    }
 
 
 # ── v0.2a human auth: OIDC code flow + signed session cookie ───────────────
@@ -321,8 +330,12 @@ def consume_and_dispatch(warrant_id: int) -> dict:
     comes from the warrant row — never from the caller — so nothing between
     approval and execution can alter what runs.
     """
-    if not (DISPATCH_ENABLED and DISPATCH_TOKEN):
-        return {"dispatched": False, "reason": "dispatch disabled"}
+    if not DISPATCH_ENABLED:
+        return {"dispatched": False, "reason": "dispatch disarmed"}
+    if not DISPATCH_TOKEN:
+        # Armed but tokenless: the ExternalSecret didn't materialize. Loud,
+        # because the failure is otherwise indistinguishable from disarmed.
+        return {"dispatched": False, "reason": "ARMED BUT NO DISPATCH TOKEN — check the warrant-dispatch ExternalSecret"}
 
     with db() as conn:
         w = conn.execute("SELECT * FROM warrants WHERE id = ?", (warrant_id,)).fetchone()

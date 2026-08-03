@@ -40,7 +40,7 @@ services:
   - name: warrant
     type: argocd
     last-reviewed: 2026-08-03
-    current-version: "v0.3.0"
+    current-version: "v0.3.1"
     upstream-source: https://forge.eblu.me/eblume/blumeops/src/branch/main/containers/warrant
     notes: >-
       First-party approval broker ([[warrant-approval-gated-runs]] Phase 3
