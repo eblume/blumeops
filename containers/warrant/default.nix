@@ -15,6 +15,7 @@ let
     uvicorn
     pyjwt
     cryptography
+    python-multipart  # UI decision forms (v0.2b)
   ]);
 
   appDir = pkgs.runCommand "warrant-app" { } ''
