@@ -1,27 +1,29 @@
 """Warrant — the approval broker for agent-requested privileged runs.
 
-v0.1 SCAFFOLD ([[warrant-approval-gated-runs]] Phase 3). This version is a
-request queue with a read-only UI, deliberately WITHOUT an approval path:
+See [[warrant-approval-gated-runs]] for the program and
+[[warrant]] for the service reference.
 
-- POST /api/requests   — agents file requests, authenticated by an Authentik
-                         ``agents-m2m`` client-credentials JWT (JWKS-verified)
-- GET  /api/requests   — list (newest first, filterable by status)
-- GET  /               — human-readable queue (tailnet-only via ingress)
-- POST /api/requests/{id}/decision — **501 Not Implemented**, on purpose.
+Agents (authentik ``agents-m2m`` JWT, JWKS-verified):
+- POST /api/requests, GET /api/requests
 
-The approve/deny flow lands in v0.2 behind an Authentik session + passkey
-step-up, together with the dispatch credential. Until then this service
-holds NO privileged credentials of any kind — it can record intent, not act
-on it. That ordering is the point: the queue can go live and mirror into
-heph while the auth design is still being verified.
+Approvers (authentik OIDC session, ``admins`` group, MFA per the authentik
+flow — the step-up factor lives there, never here):
+- GET  /auth/{login,callback,logout}
+- POST /api/requests/{id}/decision, POST /requests/{id}/decide (UI form)
+- GET  /api/warrants
+
+An approval mints a **warrant**: a single-use, TTL'd record binding the
+frozen {action, sha, inputs}. This service holds **no privileged
+credential** — it records decisions; the human still dispatches. The
+dispatcher that consumes warrants is [[warrant-dispatch-credential]].
 """
 
 import os
 import sqlite3
 import time
+from contextlib import contextmanager
 
 import httpx
-from contextlib import contextmanager
 
 import jwt
 from fastapi import FastAPI, Header, HTTPException, Request, Response
@@ -52,7 +54,7 @@ PUBLIC_URL = os.environ.get("WARRANT_PUBLIC_URL", "https://warrant.ops.eblu.me")
 SESSION_COOKIE = "warrant_session"
 SESSION_TTL = 8 * 3600
 
-app = FastAPI(title="warrant", version="0.2.1")
+app = FastAPI(title="warrant", version="0.2.2")
 _jwks_client: jwt.PyJWKClient | None = None
 _human_jwks_client: jwt.PyJWKClient | None = None
 
@@ -381,8 +383,9 @@ def index(request: Request) -> str:
         return (
             f"<form method=post action=/requests/{r['id']}/decide style='display:inline'>"
             f"<input type=hidden name=csrf value='{csrf}'>"
-            "<button name=decision value=approve>approve</button> "
-            "<button name=decision value=deny>deny</button></form>"
+            "<input name=note placeholder='note (optional)' size=18> "
+            "<button name=decision value=deny>deny</button> "
+            "<button name=decision value=approve>approve</button></form>"
         )
 
     with db() as conn:
@@ -401,9 +404,10 @@ def index(request: Request) -> str:
     witems = "".join(
         f"<tr><td>{w['id']}</td><td>#{w['request_id']}</td><td>{w['action']}</td>"
         f"<td><code>{w['sha'][:7]}</code></td><td>{w['decided_by']}</td>"
-        f"<td>{'consumed' if w['consumed'] else ('live' if w['expires_at'] > time.time() else 'expired')}</td></tr>"
+        f"<td>{'consumed' if w['consumed'] else ('live' if w['expires_at'] > time.time() else 'expired')}</td>"
+        f"<td>{w['note'][:60]}</td></tr>"
         for w in warrants
-    ) or "<tr><td colspan=6><em>none yet</em></td></tr>"
+    ) or "<tr><td colspan=7><em>none yet</em></td></tr>"
     return f"""<!doctype html><html><head><title>warrant</title>
 <style>body{{font-family:system-ui;margin:2rem}}table{{border-collapse:collapse;margin-bottom:1.5rem}}
 td,th{{border:1px solid #ccc;padding:.4rem .7rem;text-align:left}}</style></head>
@@ -415,4 +419,4 @@ td,th{{border:1px solid #ccc;padding:.4rem .7rem;text-align:left}}</style></head
 <th>why</th><th>requester</th><th></th></tr>{items}</table>
 <h2>warrants</h2>
 <table><tr><th>id</th><th>request</th><th>action</th><th>sha</th>
-<th>decided by</th><th>state</th></tr>{witems}</table></body></html>"""
+<th>decided by</th><th>state</th><th>note</th></tr>{witems}</table></body></html>"""
