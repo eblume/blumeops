@@ -19,6 +19,8 @@ heph while the auth design is still being verified.
 import os
 import sqlite3
 import time
+
+import httpx
 from contextlib import contextmanager
 
 import jwt
@@ -50,7 +52,7 @@ PUBLIC_URL = os.environ.get("WARRANT_PUBLIC_URL", "https://warrant.ops.eblu.me")
 SESSION_COOKIE = "warrant_session"
 SESSION_TTL = 8 * 3600
 
-app = FastAPI(title="warrant", version="0.2.0")
+app = FastAPI(title="warrant", version="0.2.1")
 _jwks_client: jwt.PyJWKClient | None = None
 _human_jwks_client: jwt.PyJWKClient | None = None
 
@@ -194,9 +196,7 @@ def auth_login() -> Response:
 def auth_callback(code: str, state: str) -> Response:
     if _unsign(state) is None or _unsign(state).get("kind") != "oauth-state":
         raise HTTPException(400, "bad state")
-    import httpx as _httpx
-
-    token_resp = _httpx.post(
+    token_resp = httpx.post(
         "https://authentik.ops.eblu.me/application/o/token/",
         data={
             "grant_type": "authorization_code",

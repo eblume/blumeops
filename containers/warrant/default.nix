@@ -8,14 +8,15 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "0.2.0";
+  version = "0.2.1";
 
   python = pkgs.python3.withPackages (ps: with ps; [
     fastapi
     uvicorn
     pyjwt
     cryptography
-    python-multipart  # UI decision forms (v0.2b)
+    python-multipart  # UI decision forms
+    httpx  # OIDC code exchange in /auth/callback
   ]);
 
   appDir = pkgs.runCommand "warrant-app" { } ''
