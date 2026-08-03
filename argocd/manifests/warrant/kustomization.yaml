@@ -9,6 +9,4 @@ resources:
   - ingress-tailscale.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/warrant
-    # Placeholder — set to the real tag after the first Build Container
-    # dispatch of `warrant` (v0.1.0-<sha>-nix).
-    newTag: UNBUILT
+    newTag: v0.1.0-68f84a3-nix
