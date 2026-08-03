@@ -8,7 +8,7 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "0.2.0";
+  version = "0.2.1";
 
   python = pkgs.python3.withPackages (ps: with ps; [
     fastapi
@@ -16,6 +16,8 @@ let
     pyjwt
     cryptography
     python-multipart  # UI decision forms (v0.2b)
+    httpx  # OIDC code exchange in /auth/callback (v0.2.1 — was lazily
+           # imported and missing from the image; smoke tests masked it)
   ]);
 
   appDir = pkgs.runCommand "warrant-app" { } ''
