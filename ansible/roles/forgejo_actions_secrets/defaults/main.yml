@@ -39,6 +39,13 @@ forgejo_actions_secrets_repos:
       # (the same reason the `cv` entry below is FORGE_TOKEN).
       - name: FORGE_ADMIN_TOKEN
         value_var: forgejo_api_token
+      # Read-only op service account scoped to the blumeops-ci vault
+      # ([[warrant-approval-gated-runs]] Phase 2): privileged workflows
+      # `op read` runtime secrets with it at job time. The vault starts
+      # empty — items migrate in via the audited per-workflow review
+      # (heph 01KZ0G21JS), never wholesale.
+      - name: BLUMEOPS_CI_OP_TOKEN
+        value_var: forgejo_secret_blumeops_ci_op_token
   - repo: cv
     secrets:
       - name: FORGE_TOKEN
