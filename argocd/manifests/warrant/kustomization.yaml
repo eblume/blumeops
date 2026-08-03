@@ -7,6 +7,7 @@ resources:
   - pvc.yaml
   - service.yaml
   - ingress-tailscale.yaml
+  - external-secret-oidc.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/warrant
     newTag: v0.1.0-68f84a3-nix
