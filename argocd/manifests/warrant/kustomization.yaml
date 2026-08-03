@@ -11,4 +11,4 @@ resources:
   - external-secret-dispatch.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/warrant
-    newTag: v0.3.1-d16d480-nix
+    newTag: v0.3.2-7b56e49-nix
