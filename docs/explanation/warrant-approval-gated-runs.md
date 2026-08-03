@@ -1,6 +1,6 @@
 ---
 title: "Warrant: Approval-Gated Privileged Runs"
-modified: 2026-08-02
+modified: 2026-08-03
 last-reviewed: 2026-08-02
 tags:
   - explanation
@@ -94,10 +94,17 @@ it is convenient.
    This keeps "the thing reviewed" and "the thing executed" honest without the
    reviewer re-auditing workflow files per request, and never mixes privileged
    and unprivileged jobs in one workflow file or on one runner.
-4. **Approval is phishing-resistant human auth.** Whatever grants an approval
-   (Forgejo login, Authentik session) must require a credential no agent can
-   reach *and* a WebAuthn/passkey factor. No token an agent can read may
-   approve anything — otherwise a prompt-injected agent approves itself.
+4. **Approval is multi-factor human auth no agent can satisfy.** Whatever
+   grants an approval (Forgejo login, Authentik session) must require a
+   credential no agent can reach *plus* a second factor. No token an agent
+   can read may approve anything — otherwise a prompt-injected agent
+   approves itself. *Current factor (decided 2026-08-03): 1Password-managed
+   TOTP via Authentik's MFA stage — accepted with eyes open that both
+   factors then live in the 1Password basket. The upgrade path to
+   hardware-backed factors is preserved structurally: Warrant gates
+   decisions on an Authentik flow slug, so adding a WebAuthn/hardware-key
+   stage is authentik configuration, never Warrant code (see §Hardware-backed
+   approval).*
 5. **Every privileged run leaves an audit trail** — who approved, what SHA,
    which secrets were exposed, what happened — somewhere agents can *append* to
    but not rewrite (Forgejo run history + heph log).
@@ -320,7 +327,14 @@ Agent-side auth to the broker: the Authentik service-account groundwork in
 heph `01KXREABVH2FZAWKP4R0RN30S8` (client-credentials JWT) — that task becomes
 a Phase-3 prerequisite instead of a Grafana-only nicety.
 
-#### Hardware-backed approval (analysis before Phase 3)
+#### Hardware-backed approval (deferred 2026-08-03 — capability preserved)
+
+> **Status:** deferred by decision, not analysis — no hardware key on hand.
+> v0.2 ships with the Authentik session + TOTP step-up. The requirement
+> below stands as the upgrade path; everything in it becomes an
+> authentik-flow configuration change when a YubiKey arrives, because
+> Warrant's decision endpoint requires a *flow slug*, not a factor type.
+> The spike task (heph `01KZ0G21KZ…`) stays open, dormant.
 
 The requirement, stated precisely: proof that *human Erich* approved the
 action, via a physical device that is pocket-portable and works across an
