@@ -15,7 +15,7 @@ flow — the step-up factor lives there, never here):
 An approval mints a **warrant**: a single-use, TTL'd record binding the
 frozen {action, sha, inputs}. This service holds **no privileged
 credential** — it records decisions; the human still dispatches. The
-dispatcher that consumes warrants is [[warrant-dispatch-credential]].
+dispatcher that consumes warrants is a later increment.
 """
 
 import os
@@ -54,7 +54,7 @@ PUBLIC_URL = os.environ.get("WARRANT_PUBLIC_URL", "https://warrant.ops.eblu.me")
 SESSION_COOKIE = "warrant_session"
 SESSION_TTL = 8 * 3600
 
-app = FastAPI(title="warrant", version="0.2.2")
+app = FastAPI(title="warrant", version="0.2.3")
 _jwks_client: jwt.PyJWKClient | None = None
 _human_jwks_client: jwt.PyJWKClient | None = None
 
@@ -366,6 +366,27 @@ def list_warrants(limit: int = 50) -> list[dict]:
         ]
 
 
+FORGE_REPO_URL = os.environ.get(
+    "WARRANT_FORGE_REPO_URL", "https://forge.eblu.me/eblume/blumeops"
+)
+
+
+def _sha_link(sha: str) -> str:
+    """The commit itself — approving means having read this."""
+    return f"<a href='{FORGE_REPO_URL}/commit/{sha}'><code>{sha[:7]}</code></a>"
+
+
+def _pr_links(pr: int | None, sha: str) -> str:
+    """PR + its diff. Tying the decision to the code change is the substance
+    of the approve-fatigue answer; the ergonomics half comes later."""
+    if not pr:
+        return ""
+    return (
+        f"<a href='{FORGE_REPO_URL}/pulls/{pr}'>#{pr}</a> "
+        f"<a href='{FORGE_REPO_URL}/pulls/{pr}/files' title='review the diff'>diff</a>"
+    )
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request) -> str:
     user = current_user(request)
@@ -396,14 +417,15 @@ def index(request: Request) -> str:
             "SELECT * FROM warrants ORDER BY id DESC LIMIT 20"
         ).fetchall()
     items = "".join(
-        f"<tr><td>{r['id']}</td><td>{r['status']}</td><td>{r['action']}</td>"
-        f"<td><code>{r['sha'][:7]}</code></td><td>{r['pr'] or ''}</td>"
+        f"<tr><td>{r['id']}</td><td>{r['status']}</td>"
+        f"<td><a href='{FORGE_REPO_URL}/src/branch/main/.forgejo/workflows/{r['action']}'>{r['action']}</a></td>"
+        f"<td>{_sha_link(r['sha'])}</td><td>{_pr_links(r['pr'], r['sha'])}</td>"
         f"<td>{r['why'][:120]}</td><td>{r['requester']}</td><td>{act_cell(r)}</td></tr>"
         for r in rows
     ) or "<tr><td colspan=8><em>queue empty</em></td></tr>"
     witems = "".join(
         f"<tr><td>{w['id']}</td><td>#{w['request_id']}</td><td>{w['action']}</td>"
-        f"<td><code>{w['sha'][:7]}</code></td><td>{w['decided_by']}</td>"
+        f"<td>{_sha_link(w['sha'])}</td><td>{w['decided_by']}</td>"
         f"<td>{'consumed' if w['consumed'] else ('live' if w['expires_at'] > time.time() else 'expired')}</td>"
         f"<td>{w['note'][:60]}</td></tr>"
         for w in warrants
