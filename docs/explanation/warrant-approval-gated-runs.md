@@ -68,7 +68,7 @@ it is convenient.
    deliberately, one by one) — so the invariant is not "no operational
    secrets", it is that **the blumeops-tier vaults stay unreachable**: no
    approval flow ever widens what the harness's `op` can read, and no
-   blumeops/`ops-ci` secret ever lands in a session — approval unlocks an
+   blumeops/`blumeops-ci` secret ever lands in a session — approval unlocks an
    *execution context*, not the agent.
 2. **Execution binds to an immutable SHA.** Approvals name a full 40-char
    commit, never a branch (branches move after review — TOCTOU). The
@@ -202,7 +202,7 @@ The smallest thing that closes the loop end-to-end:
    - **`provision-indri.yaml` / `provision-ringtail.yaml`** — the high-value
      targets, promoted from "later, maybe" to **first Phase-2 deliverables**:
      they are also the largest-blast-radius scripts in the repo (every
-     ansible secret, root on both hosts), so they gate on the `ops-ci` vault
+     ansible secret, root on both hosts), so they gate on the `blumeops-ci` vault
      split *and* the `priv` runner, not the MVP. provision-indri can run on
      the indri runner (host-mode `op` + SSH-to-self already work);
      provision-ringtail needs a runner that can drive `nixos-rebuild` on
@@ -215,15 +215,15 @@ The smallest thing that closes the loop end-to-end:
    | Vault | Meaning | Who reads it |
    |-------|---------|--------------|
    | `agents` | what a session needs to be a useful agent — including some deliberately-curated operational API tokens (invariant 1's nuance) | the harness, always |
-   | **`ops-ci`** *(new)* | what privileged **execution contexts** read at runtime: argocd token, fly token, zot key, main-push PAT | approved CI runs only, via a **read-only** SA token stored as one new Actions secret (`OPS_CI_OP_TOKEN`) |
+   | **`blumeops-ci`** *(new)* | what privileged **execution contexts** read at runtime: argocd token, fly token, zot key, main-push PAT | approved CI runs only, via a **read-only** SA token stored as one new Actions secret (`BLUMEOPS_CI_OP_TOKEN`) |
    | `blumeops` | the whole keys to the kingdom: break-glass admin, every ansible pre_task secret, backup/NAS keys | humans with biometric `op`, **forever** (class B) |
 
    Why a middle layer at all: CI-runtime items are too hot for `agents`
    (invariant 1), but a CI-readable service account on `blumeops` would hand
    *every* ansible secret to any approved run — 1Password scoping is
    all-or-nothing per vault, so the blast-radius cut needs its own vault.
-   The harness gets **no** grant on `ops-ci`; the op-shim fence extends
-   unchanged. Migrate the static Actions secrets into `ops-ci` items over
+   The harness gets **no** grant on `blumeops-ci`; the op-shim fence extends
+   unchanged. Migrate the static Actions secrets into `blumeops-ci` items over
    time so rotation is one `op item edit`, not a re-provision (subsumes heph
    `01KT5Q9HDJ…` zot-key cycling).
 5. **Pilot:** PR #440 (mealie/miniflux). Merge, then run its container build +
@@ -231,7 +231,7 @@ The smallest thing that closes the loop end-to-end:
 
 What Phase 1 does *not* fix: repo-wide secret visibility (every dispatched
 workflow can still read all Actions secrets — bounded by invariant 3 and the
-`ops-ci` split), and the runner blast radius. Those are Phase 2.
+`blumeops-ci` split), and the runner blast radius. Those are Phase 2.
 
 #### Notification channel: ntfy vs heph
 
@@ -265,7 +265,7 @@ to mirror into heph wholesale.
 
 - **Vault tiering done properly.** Complete the three-tier taxonomy from
   Phase 1: audit which items each workflow actually reads and move *only
-  those* into `ops-ci`; everything else stays in `blumeops`, human-only.
+  those* into `blumeops-ci`; everything else stays in `blumeops`, human-only.
   Then land `provision-indri.yaml` / `provision-ringtail.yaml` (promoted per
   review — see Phase 1's workflow list for their runner constraints).
 - **Dedicated privileged runner.** Move privileged workflows off
@@ -442,4 +442,4 @@ history plus the follow-ups they leave behind:
 - [[security-model]] — vault and tailnet posture
 - heph: `01KXBNMYGHGDVSR5VTRWYXDRGN` (containerization), `01KXREABVH…`
   (Authentik SA), `01KY57XB…` (SSH fence break), `01KT5Q9HDJ…` (zot-ci key
-  cycling — subsumed by `ops-ci` vault rotation)
+  cycling — subsumed by `blumeops-ci` vault rotation)

@@ -42,7 +42,7 @@ step-up + warrant-minting flow.
    (see the hardware-auth spike, heph `01KZ0G21KZ…`)
 2. Approval mints a single-use, TTL'd warrant bound to
    `{action, sha, inputs, secret-scope}`
-3. Broker-held dispatch PAT + scoped secret leases (`ops-ci` vault)
+3. Broker-held dispatch PAT + scoped secret leases (`blumeops-ci` vault)
 4. heph mirroring (requests ↔ tasks) and ntfy/push integration
 5. `request-run` gains `--broker` to file here instead of (then alongside)
    PR comments
