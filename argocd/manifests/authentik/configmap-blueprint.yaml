@@ -594,6 +594,24 @@ data:
           groups:
             - !KeyOf agents-sa-group
 
+      # App password for agent-ringtail — authentik's documented
+      # client_credentials machine flow authenticates a *specific* service
+      # account via username + app password, issuing the token AS that user
+      # (so the JWT groups claim carries agents-sa — what Grafana role
+      # mapping and Warrant key on). The bare client_secret-only variant
+      # resolves to a provider-internal auto SA instead, which the app's
+      # agents-sa policy binding rightly rejects (invalid_grant).
+      - model: authentik_core.token
+        id: agent-ringtail-app-password
+        identifiers:
+          identifier: agent-ringtail-m2m
+        attrs:
+          user: !KeyOf agent-ringtail-user
+          intent: app_password
+          key: !Env AUTHENTIK_AGENTS_M2M_APP_PASSWORD
+          expiring: false
+          description: "agents-m2m client_credentials app password (vault-fed)"
+
       # OAuth2 provider for the client_credentials machine flow. The client
       # secret is ours (vault-fed via !Env), so consumers read the same value
       # from the agents vault — no UI copy step.
