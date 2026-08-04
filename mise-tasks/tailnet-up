@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Apply tailnet changes with Pulumi"
+#MISE description="[human] Apply tailnet changes with Pulumi"
 
 set -euo pipefail
 

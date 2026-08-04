@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Check that all services are online and responding"
+#MISE description="[human] Check that all services are online and responding"
 
 set -euo pipefail
 

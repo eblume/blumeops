@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
 # ///
-#MISE description="Create a spork (floating-branch soft-fork) of a mirrored upstream project"
+#MISE description="[human] Create a spork (floating-branch soft-fork) of a mirrored upstream project"
 #USAGE arg "<repo_name>" help="Repository name in the mirrors/ org on forge (e.g. kingfisher)"
 #USAGE flag "--description <description>" help="Repository description override"
 #USAGE flag "--main-branch <main_branch>" help="Name of the upstream main branch (default: auto-detect)"

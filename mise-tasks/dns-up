@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Apply DNS changes to eblu.me with Pulumi"
+#MISE description="[human] Apply DNS changes to eblu.me with Pulumi"
 
 set -euo pipefail
 

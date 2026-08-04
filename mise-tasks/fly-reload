@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Reload Fly.io proxy nginx config (re-resolves upstream DNS)"
+#MISE description="[human] Reload Fly.io proxy nginx config (re-resolves upstream DNS)"
 
 set -euo pipefail
 

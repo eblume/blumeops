@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
 # ///
-#MISE description="List recent Forgejo Actions runs or fetch logs for a specific job"
+#MISE description="[human] List recent Forgejo Actions runs or fetch logs for a specific job"
 #USAGE arg "[run_number]" help="Run number to show jobs for (omit to list recent runs)"
 #USAGE flag "--job -j <job>" help="Job index (0-based) to fetch logs for"
 #USAGE flag "--runner -r <runner>" help="Filter listing by runner: indri, ringtail, or all"

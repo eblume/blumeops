@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Update GitHub PAT on all mirror repos on indri"
+#MISE description="[human] Update GitHub PAT on all mirror repos on indri"
 #USAGE flag "--dry-run" help="Show what would be done without changing anything"
 set -euo pipefail
 

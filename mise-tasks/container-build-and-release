@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["typer==0.26.7", "httpx==0.28.1"]
 # ///
-#MISE description="Trigger container build workflows via Forgejo API"
+#MISE description="[human] Trigger container build workflows via Forgejo API"
 #USAGE arg "<container>" help="Container name (directory under containers/)"
 #USAGE flag "--ref <ref>" help="Commit SHA or branch to build (defaults to current HEAD)"
 #USAGE flag "--dry-run" help="Show what would be done without triggering"

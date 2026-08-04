@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
 # ///
-#MISE description="Reconcile the agents bot's forge collaborations against containers/agent-ws/repos.json"
+#MISE description="[human] Reconcile the agents bot's forge collaborations against containers/agent-ws/repos.json"
 #MISE alias="ara"
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
