@@ -61,6 +61,30 @@ need to confirm through biometric approval.
 This is just an overview — explore `docs/` for the rest. When you
 encounter wiki-links (`[[like-this]]`) it is referring to docs/ cards.
 
+## Privileged actions: request, don't ask
+
+Agents cannot deploy, build containers, or run vault-backed scripts directly
+— and don't need to ask for them in prose either. **File a request:**
+
+```fish
+mise run request-run <workflow> <full-40-char-sha> --pr <N> \
+    -i key=value --why "one line"
+```
+
+It validates the request against `warrant-policy.yaml` **on main**
+(unknown or `class: deny` actions are refused at request time), then records
+it as a PR comment, a heph task, and an entry in the approval queue. A human
+approves in Warrant, which dispatches the workflow. Requestable today:
+`argocd-deploy.yaml`, `build-container.yaml`.
+
+`mise run verify-runs` closes the loop afterwards; `mise run agent-health`
+checks the fleet without cluster access. Adding a new privileged workflow
+means adding its `warrant-policy.yaml` entry **in the same PR** — capability
+and boundary get reviewed together.
+
+See [[request-a-privileged-run]], [[warrant]], and
+[[warrant-approval-gated-runs]] for the design and its invariants.
+
 ## Service Deployment
 
 ### Kubernetes (ArgoCD)
