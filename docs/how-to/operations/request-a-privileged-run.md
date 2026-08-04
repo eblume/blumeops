@@ -52,15 +52,21 @@ read-only on canonical and cannot dispatch. The request *grants* nothing.
 
 ## Approve (human)
 
-1. Open the request comment; review the **diff at the requested SHA**.
-2. Open the dispatch page link → *Run workflow* → paste the SHA and inputs
-   from the request → run. (Forge login is the auth factor — keep WebAuthn
-   enrolled on the account.)
-3. Verify the run (`mise run runner-logs`), then `heph done` the tracking
-   task with a short log of the outcome.
+Approvals happen in [[warrant]] — https://warrant.ops.eblu.me:
 
-To **deny**: reply on the request comment, then `heph done` the task with the
-reason.
+1. Sign in (Authentik; MFA applies) and find the request.
+2. **Read the change**: the row links the PR, its diff, and the commit.
+3. `approve…` → the confirm page shows the full input set and states the
+   effect → approve. Warrant mints a single-use warrant and dispatches the
+   workflow as `warrant-bot`; the run is linked on the warrant.
+4. **deny** is inline on the row (with a note). Deny anything already
+   executed — the queue records intent, not history.
+
+`mise run verify-runs` then closes the tracking task from the run's outcome.
+
+**Fallback** (Warrant disarmed or down): dispatch from the forge UI using the
+SHA and inputs in the request comment — the request stays the record either
+way.
 
 ## Policy
 

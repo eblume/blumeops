@@ -11,13 +11,21 @@ tags:
 
 # Warrant: Approval-Gated Privileged Runs
 
-> **Status: PROPOSAL, revised after first review** — drafted by an agent
-> session 2026-08-01; revised 2026-08-02 addressing Erich's 19 review comments
-> on PR #455. Nothing here is deployed. This doc is the consolidated design
-> for letting agents *request* privileged actions (deploys, CI runs,
-> vault-backed scripts) that a *human* approves, after months of piecemeal
-> fence-building. If accepted, it becomes the program's north star; each
-> phase ships as its own PR(s).
+> **Status: BUILT AND RUNNING** (2026-08-04). Proposed 2026-08-01, accepted
+> after review (PR #455), and delivered across phases 0-4 in the days that
+> followed. Agents now request privileged actions with
+> `mise run request-run`; Erich approves in [[warrant]]; `warrant-bot`
+> dispatches. First self-dispatched run: 713 (`argocd-deploy` on ntfy,
+> 2026-08-03). This doc remains the program's north star and its record of
+> *why*; per-phase state is below.
+>
+> | Phase | State |
+> |-------|-------|
+> | 0 — fences, settings | done (squash-merge off, sshTests applied; WebAuthn on the forge account still open) |
+> | 1 — request loop, argocd-deploy | done and proven |
+> | 2 — priv runner, audit sweep, vault tier | runner + `verify-runs` + `blumeops-ci` done; **item migration** outstanding ([[blumeops-ci-item-migration]]) |
+> | 3 — agent identity, Warrant broker | done; Warrant at v0.3.2, armed |
+> | 4 — policy-as-code | `warrant-policy.yaml` enforced at request *and* dispatch |
 
 ## The problem
 
