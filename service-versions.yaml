@@ -47,6 +47,18 @@ services:
       scaffold). Version is ours — bump containers/warrant/default.nix and
       this entry together; no external upstream to watch.
 
+  - name: agent-ws
+    type: argocd
+    last-reviewed: 2026-08-04
+    current-version: "v0.13.0"
+    upstream-source: https://forge.eblu.me/eblume/blumeops/src/branch/main/containers/agent-ws
+    notes: >-
+      First-party agent workspace image ([[agent-containerization]]). Version is
+      ours and tracks the baked toolchain, not an upstream release — bump
+      containers/agent-ws/default.nix and this entry together. `claude` is
+      deliberately not baked in (it self-installs onto the PVC), so a claude
+      release is never a reason to bump.
+
   - name: homepage
     type: argocd
     last-reviewed: 2026-06-21
