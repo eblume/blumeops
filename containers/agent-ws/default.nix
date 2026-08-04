@@ -293,13 +293,17 @@ pkgs.dockerTools.buildLayeredImage {
   contents = allTools ++ [ entrypoint pkgs.util-linux ];
 
   # Non-FHS fixups: the dynamic loader at its conventional path (so prebuilt
-  # ELF binaries run), a /tmp, and — critically — /etc/passwd + group + nsswitch
-  # so uid 1500 resolves to a username. Without a passwd entry, glibc getpwuid
-  # fails and the 1Password CLI's ownership checks ("not owned by the current
-  # user") reject every op call, breaking op read entirely in the pod.
+  # ELF binaries run), /usr/bin/env (the kernel resolves shebang interpreters
+  # literally, so `#!/usr/bin/env …` needs the file to exist at that path —
+  # every mise-task script in blumeops uses that form), a /tmp, and —
+  # critically — /etc/passwd + group + nsswitch so uid 1500 resolves to a
+  # username. Without a passwd entry, glibc getpwuid fails and the 1Password
+  # CLI's ownership checks ("not owned by the current user") reject every op
+  # call, breaking op read entirely in the pod.
   extraCommands = ''
-    mkdir -p lib64 tmp etc
+    mkdir -p lib64 tmp etc usr/bin
     ln -s ${pkgs.glibc}/lib/ld-linux-x86-64.so.2 lib64/ld-linux-x86-64.so.2
+    ln -s ${pkgs.coreutils}/bin/env usr/bin/env
     chmod 1777 tmp
     printf 'root:x:0:0:root:/root:/bin/bash\nagent:x:1500:1500:agent:/home/agent:/bin/bash\n' > etc/passwd
     printf 'root:x:0:\nagent:x:1500:\n' > etc/group

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Create a new upstream mirror in the mirrors/ Forgejo org"
+#MISE description="[human] Create a new upstream mirror in the mirrors/ Forgejo org"
 #USAGE arg "<url>" help="Upstream git URL to mirror (e.g. https://github.com/org/repo.git)"
 #USAGE flag "--name <name>" help="Repository name on forge (default: derived from URL)"
 #USAGE flag "--description <description>" help="Repository description"

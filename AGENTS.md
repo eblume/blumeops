@@ -31,13 +31,19 @@ need to confirm through biometric approval.
    `tea pr create --repo eblume/blumeops --base main --head agents:<branch>`.
    `git fetch upstream` before working. The bot **cannot** push to
    `eblume/blumeops` or commit to `main` directly (that's a human, from gilbert).
-3. Create, use, and modify tooling via the `mise run` system to provide tooling for users and agents.
+3. Create, use, and modify tooling via the `mise run` system to provide tooling
+   for users and agents. **Tasks whose description starts with `[human]` need
+   the blumeops vault** and will fail from an agent pod — that is the fence, not
+   a bug. Check `mise tasks` before reaching for one; if you need its *effect*,
+   file a request (see §Privileged actions) or ask.
 4. **Add changelog fragments (all change levels)** - `docs/changelog.d/<name>.<type>.md`
     Types: `feature`, `bugfix`, `infra`, `doc`, `ai`, `misc`
     - **Feature branch/PR** Use branch name: `<branch>.<type>.md`
     - **Direct to main:** Use orphan prefix: `+<descriptive-slug>.<type>.md` (avoids `main.*` collisions)
 5. Create, use, and modify forgejo workflows to enforce PR validity.
-6. **Verify deployments** - `mise run services-check`
+6. **Verify deployments** - `mise run agent-health` (Grafana alert state; works
+   from anywhere). `mise run services-check` is the fuller `[human]` check —
+   it needs kubectl and ssh, so it is a gilbert job.
 
 ## Project Structure
 

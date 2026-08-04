@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
 # ///
-#MISE description="Delete branches that have been merged into main (local and remote)"
+#MISE description="[human] Delete branches that have been merged into main (local and remote)"
 #MISE alias="bc"
 #USAGE flag "--dry-run" help="Show what would be deleted without deleting"
 #USAGE flag "--yes" help="Skip confirmation prompt"

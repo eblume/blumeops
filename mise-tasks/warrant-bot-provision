@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
 # ///
-#MISE description="Provision the warrant-bot forge identity + dispatch PAT (gilbert, human-run)"
+#MISE description="[human] Provision the warrant-bot forge identity + dispatch PAT (gilbert, human-run)"
 """Provision `warrant-bot`: the identity Warrant uses to dispatch approved runs.
 
 **Human-run on gilbert, by design.** This script is deliberately NOT a

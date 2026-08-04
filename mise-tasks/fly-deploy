@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Deploy the Fly.io public proxy"
+#MISE description="[human] Deploy the Fly.io public proxy"
 
 set -euo pipefail
 
