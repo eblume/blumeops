@@ -32,7 +32,7 @@ let
   # requires a `version = "…"` to form v<version>-<sha>-nix). There is no
   # upstream version to track — claude self-installs at pod-start — so bump this
   # by hand when the baked toolchain changes meaningfully.
-  version = "0.12.0";
+  version = "0.13.0";
 
   # ── the repo pool, from ./repos.json ──────────────────────────────────────
   # That file is the single source of truth for BOTH halves of "share a repo
