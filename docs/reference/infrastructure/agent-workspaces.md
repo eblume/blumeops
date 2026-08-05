@@ -79,6 +79,11 @@ Repos cloned by `agent-repos-init`:
 > **shared** between concurrent sessions — the base instructions tell agents to
 > work siblings on a session-named branch (or a manual `git worktree add` into
 > the session's own worktree) so two sessions never fight over a checkout.
+>
+> *Resolved in the containerized model:* `agent-ws-workspace` makes those
+> per-session worktrees automatically from a `SessionStart` hook, so the
+> convention is now enforced rather than requested. See
+> [[agent-containerization]] §"Per-session worktrees".
 
 ### Why one home-base server
 

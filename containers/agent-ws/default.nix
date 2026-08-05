@@ -32,7 +32,7 @@ let
   # requires a `version = "…"` to form v<version>-<sha>-nix). There is no
   # upstream version to track — claude self-installs at pod-start — so bump this
   # by hand when the baked toolchain changes meaningfully.
-  version = "0.13.0";
+  version = "0.14.0";
 
   # ── the repo pool, from ./repos.json ──────────────────────────────────────
   # That file is the single source of truth for BOTH halves of "share a repo
@@ -44,6 +44,10 @@ let
   poolOf = p: builtins.filter (r: r.pool == p) repoPolicy.repos;
   forkRepos = map (r: r.name) (poolOf "fork");
   canonicalRepos = map (r: r.name) (poolOf "canonical");
+  # `<name>:<pool>` pairs for agent-ws-workspace, which needs the pool kind to
+  # know which remote is canonical (fork → upstream, canonical → origin).
+  repoPairs = lib.concatMapStringsSep " " (r: "${r.name}:${r.pool}")
+    (builtins.filter (r: r.pool != "none") repoPolicy.repos);
 
   # ── the curated toolchain (mirrors nixos/ringtail/agent-workspaces.nix) ──────
   # op: real 1Password CLI. In a pod the service-account token arrives as
@@ -152,7 +156,222 @@ let
     exit 1
   '';
 
-  allTools = baseTools ++ reportTools ++ cliTools ++ buildTools ++ [ heph teaWrapper healthCheck ];
+  # ── per-session workspace isolation ──────────────────────────────────────
+  # Only the `agents` repo gets per-session isolation for free: Remote Control's
+  # `--spawn worktree` operates on its own cwd repo and nothing else. Every other
+  # pooled repo is ONE shared checkout, so two concurrent sessions editing e.g.
+  # blumeops contend for one HEAD and one index — today that is prevented only by
+  # a paragraph of prose in the agents repo's AGENTS.md.
+  #
+  # This gives each session a linked worktree of every pooled repo, detached at
+  # canonical main, and reaps them when the session is gone. Worktrees (not
+  # clones) because they share the object store and, more importantly, enforce
+  # one-branch-one-checkout at the git level rather than by convention.
+  #
+  #   agent-ws-workspace sync   fetch + fast-forward the pool onto canonical main
+  #   agent-ws-workspace init   per-repo sync, then this session's worktrees
+  #   agent-ws-workspace gc     reap worktrees whose session has ended
+  #
+  # `init` is the SessionStart hook (seeded into ~/.claude/settings.json by the
+  # entrypoint); the entrypoint also runs `sync` then `gc` once at pod boot.
+  # `init` re-runs gc, but syncs each repo inline via sync_repo rather than
+  # calling the sync verb — `worktree add` needs that repo's fetch first.
+  workspace = pkgs.writeShellScriptBin "agent-ws-workspace" ''
+    set -eu
+
+    # Hooks inherit whatever PATH the session has; don't depend on it.
+    export PATH="${lib.makeBinPath (with pkgs; [ git jq gawk coreutils findutils ])}:$PATH"
+
+    # `<name>:<pool>` pairs generated from repos.json — deliberately word-split.
+    REPOS="${repoPairs}"
+    POOL="$HOME/code/personal"
+    SESSIONS="$HOME/code/sessions"
+    GC_AGE_DAYS="''${AGENT_WS_GC_AGE_DAYS:-7}"
+    GC_LOCK_MAX_DAYS="''${AGENT_WS_GC_LOCK_MAX_DAYS:-30}"
+
+    warn() { echo "agent-ws-workspace: $*" >&2; }
+
+    # A fork pool reads canonical through `upstream` and pushes the bot's fork as
+    # `origin`; a canonical pool has origin == canonical. Getting this backwards
+    # is the "up to date with origin/main" trap — on a fork that sentence is
+    # about the fork, which may be arbitrarily far behind eblume/<repo>.
+    canon_remote() {
+      case "$1" in
+        fork) echo upstream ;;
+        *) echo origin ;;
+      esac
+    }
+
+    sync_repo() {
+      name="$1"; kind="$2"
+      repo="$POOL/$name"
+      if [ ! -d "$repo/.git" ]; then
+        warn "$name: no pool checkout — skipped"
+        return 0
+      fi
+      remote="$(canon_remote "$kind")"
+
+      git -C "$repo" fetch --quiet --prune --all 2>/dev/null || {
+        warn "$name: fetch failed — using the refs already on disk"
+        return 0
+      }
+
+      # Pin the pool's own main to canonical main. Fast-forward only, and only
+      # when the checkout is clean: a diverged or dirty pool tree is somebody's
+      # in-flight work, not ours to move.
+      head="$(git -C "$repo" symbolic-ref --quiet --short HEAD || true)"
+      if [ "$head" = main ] && [ -z "$(git -C "$repo" status --porcelain)" ]; then
+        git -C "$repo" merge --quiet --ff-only "$remote/main" 2>/dev/null \
+          || warn "$name: pool main is not a fast-forward of $remote/main — left alone"
+      fi
+
+      # A fork whose main lags canonical makes every cross-repo PR diff look
+      # wrong and makes `git status` read as fresh when it is not. The bot owns
+      # the fork, so keep its main honest. Non-fast-forward means the fork has
+      # commits of its own; that is a human's problem, not a boot-time one.
+      if [ "$kind" = fork ]; then
+        git -C "$repo" push --quiet origin \
+          "refs/remotes/upstream/main:refs/heads/main" 2>/dev/null \
+          || warn "$name: could not fast-forward the fork's main"
+      fi
+    }
+
+    # The session id is the directory Remote Control spawned us into, which is
+    # also how gc correlates a session's sibling worktrees with its liveness.
+    session_id() {
+      dir="''${CLAUDE_PROJECT_DIR:-$PWD}"
+      rest="''${dir#"$POOL/agents/.claude/worktrees/"}"
+      if [ "$rest" = "$dir" ]; then echo ""; else echo "''${rest%%/*}"; fi
+    }
+
+    # Unpushed work is worth more than the disk it sits on: dirty tree, or any
+    # commit canonical main does not already contain, means hands off.
+    has_work() {
+      wt="$1"; base="$2"
+      [ -d "$wt" ] || return 1
+      [ -z "$(git -C "$wt" status --porcelain 2>/dev/null)" ] || return 0
+      [ "$(git -C "$wt" rev-list --count "$base..HEAD" 2>/dev/null || echo 0)" = 0 ] || return 0
+      return 1
+    }
+
+    reap_session() {
+      sid="$1"; dir="$2"; root="$SESSIONS/$sid"
+      if has_work "$dir" upstream/main; then
+        warn "$sid: agents worktree carries unmerged work — kept"
+        return 0
+      fi
+      for entry in $REPOS; do
+        name="''${entry%%:*}"; kind="''${entry##*:}"
+        if [ "$name" = agents ]; then continue; fi
+        if has_work "$root/$name" "$(canon_remote "$kind")/main"; then
+          warn "$sid/$name: unmerged work — session kept"
+          return 0
+        fi
+      done
+      for entry in $REPOS; do
+        name="''${entry%%:*}"
+        if [ "$name" = agents ]; then continue; fi
+        if [ -e "$root/$name" ]; then
+          git -C "$POOL/$name" worktree remove --force "$root/$name" 2>/dev/null || true
+        fi
+      done
+      rm -rf "$root"
+      git -C "$POOL/agents" worktree remove --force "$dir" 2>/dev/null || rm -rf "$dir"
+      git -C "$POOL/agents" branch -D "worktree-$sid" 2>/dev/null || true
+      echo "agent-ws-workspace: reaped session $sid" >&2
+    }
+
+    cmd_gc() {
+      agents="$POOL/agents"
+      [ -d "$agents/.git" ] || return 0
+
+      # Remote Control locks a worktree for the life of its session, so `locked`
+      # is the liveness signal. A crashed session leaves the lock behind
+      # forever, hence the much longer lock-override age.
+      locked="$(git -C "$agents" worktree list --porcelain 2>/dev/null \
+        | awk '/^worktree /{p=$2} /^locked/{print p}')"
+
+      for dir in "$agents"/.claude/worktrees/*; do
+        [ -d "$dir" ] || continue
+        sid="$(basename "$dir")"
+        case " $locked " in
+          *" $dir "*)
+            [ -n "$(find "$dir" -maxdepth 0 -mtime +"$GC_LOCK_MAX_DAYS" 2>/dev/null)" ] || continue
+            warn "$sid: lock is >''${GC_LOCK_MAX_DAYS}d old — treating as dead"
+            ;;
+        esac
+        [ -n "$(find "$dir" -maxdepth 0 -mtime +"$GC_AGE_DAYS" 2>/dev/null)" ] || continue
+        reap_session "$sid" "$dir"
+      done
+
+      for entry in $REPOS; do
+        git -C "$POOL/''${entry%%:*}" worktree prune 2>/dev/null || true
+      done
+    }
+
+    cmd_sync() {
+      for entry in $REPOS; do sync_repo "''${entry%%:*}" "''${entry##*:}"; done
+    }
+
+    cmd_init() {
+      sid="$(session_id)"
+      if [ -z "$sid" ]; then
+        warn "not inside a session worktree ($PWD) — nothing to do"
+        return 0
+      fi
+      root="$SESSIONS/$sid"
+      mkdir -p "$root"
+      cmd_gc || true
+
+      made=""
+      for entry in $REPOS; do
+        name="''${entry%%:*}"; kind="''${entry##*:}"
+        sync_repo "$name" "$kind" || true
+
+        # `agents` already has this session's worktree — Remote Control made it,
+        # off whatever the pool's main was at spawn. On a long-lived pod that is
+        # stale by however long the pod has been up, and the staleness is in the
+        # session's own instructions, so fast-forward it too.
+        if [ "$name" = agents ]; then
+          wt="$POOL/agents/.claude/worktrees/$sid"
+          if [ -d "$wt" ] && [ -z "$(git -C "$wt" status --porcelain)" ]; then
+            git -C "$wt" merge --quiet --ff-only upstream/main 2>/dev/null || true
+          fi
+          continue
+        fi
+
+        if [ ! -e "$root/$name" ]; then
+          git -C "$POOL/$name" worktree add --quiet --detach "$root/$name" \
+            "$(canon_remote "$kind")/main" 2>/dev/null || {
+              warn "$name: worktree add failed — fall back to the shared pool checkout"
+              continue
+            }
+        fi
+        made="$made $name"
+      done
+
+      list=""
+      for name in $made; do list="$list
+      $root/$name"; done
+      jq -n --arg c "Per-session checkouts (this session only, detached at canonical main):$list
+
+Work in those, NOT in ~/code/personal/<repo> — the pool is shared with any
+concurrent session and is kept pinned to canonical main. Branch before you
+commit: git -C $root/<repo> switch -c agent/<slug>. Push goes to 'origin'
+(the bot's fork for agents/blumeops, canonical for the rest)." \
+        '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:$c}}'
+    }
+
+    case "''${1:-init}" in
+      init) cmd_init ;;
+      sync) cmd_sync ;;
+      gc) cmd_gc ;;
+      *) warn "usage: agent-ws-workspace {init|sync|gc}"; exit 2 ;;
+    esac
+  '';
+
+  allTools = baseTools ++ reportTools ++ cliTools ++ buildTools
+    ++ [ heph teaWrapper healthCheck workspace ];
 
   # ── entrypoint ───────────────────────────────────────────────────────────
   # Fuses the host's reposInit + wsRunner + claude-install into one pod entry.
@@ -180,7 +399,14 @@ let
     # so -sys build scripts (alsa-sys, wayland-sys) can probe them.
     export CC=gcc
     export PKG_CONFIG_PATH="${lib.makeSearchPath "lib/pkgconfig" (map lib.getDev gameLibs)}''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-    export MISE_TRUSTED_CONFIG_PATHS="$HOME/code/personal"
+    export MISE_TRUSTED_CONFIG_PATHS="$HOME/code/personal:$HOME/code/sessions"
+
+    # One cargo target dir for every checkout. Per-session worktrees otherwise
+    # each build from cold — minutes for Bevy — and a `target/` per worktree per
+    # session fills a 20Gi PVC fast. Cargo takes a lock on the directory, so
+    # concurrent builds serialize rather than corrupt each other.
+    export CARGO_TARGET_DIR="$HOME/.cache/cargo-target"
+    mkdir -p "$CARGO_TARGET_DIR"
 
     # 1Password CLI in a pod (learned the hard way): beyond the /etc/passwd entry
     # baked into the image, op needs a TMPDIR it owns (the container /tmp is
@@ -275,6 +501,30 @@ let
     for r in ${lib.escapeShellArgs canonicalRepos}; do
       clone_repo "$r" || echo "agent-ws: clone $r failed (continuing)" >&2
     done
+
+    # ── per-session workspace isolation ──────────────────────────────────────
+    # The SessionStart hook goes in USER settings on the PVC, not in the agents
+    # repo as project settings: project-scoped hooks prompt for trust on first
+    # use and there is nobody at a terminal in this pod. jq-merged so the rest of
+    # the file survives, and re-seeded every boot so the image stays the source
+    # of truth for it (per the "changing your own environment is a blumeops PR"
+    # rule in the agents repo).
+    install -d -m 700 "$HOME/.claude"
+    settings="$HOME/.claude/settings.json"
+    [ -s "$settings" ] || echo '{}' > "$settings"
+    if jq '.hooks.SessionStart = [{"hooks":[{"type":"command","command":"agent-ws-workspace init","timeout":180}]}]' \
+         "$settings" > "$settings.tmp" 2>/dev/null; then
+      mv "$settings.tmp" "$settings"
+      chmod 600 "$settings"
+    else
+      rm -f "$settings.tmp"
+      echo "agent-ws: could not seed the SessionStart hook (continuing)" >&2
+    fi
+
+    # Pin the pool to canonical main, then reap worktrees left behind by sessions
+    # that ended — nothing else does, and they accumulate for the life of the PVC.
+    agent-ws-workspace sync || echo "agent-ws: pool sync failed (continuing)" >&2
+    agent-ws-workspace gc || echo "agent-ws: worktree gc failed (continuing)" >&2
 
     # ── launch Remote Control under a PTY (no --headless flag yet) ────────────
     # AGENT_WS_RC_FLAGS is a Deployment-settable escape hatch (e.g. "--verbose"
