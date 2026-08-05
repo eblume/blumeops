@@ -1,6 +1,6 @@
 ---
 title: ArgoCD
-modified: 2026-06-09
+modified: 2026-08-05
 last-reviewed: 2026-06-09
 tags:
   - service
@@ -23,22 +23,32 @@ GitOps continuous delivery platform for the [[cluster|Kubernetes cluster]].
 
 ## Clusters
 
-A single ArgoCD instance (on indri's minikube) manages both clusters:
-
-| Cluster | Destination | Apps |
-|---------|-------------|------|
-| minikube (indri) | `https://kubernetes.default.svc` | Most services |
-| k3s ([[ringtail]]) | `https://ringtail.tail8d86e.ts.net:6443` | GPU workloads and `*-ringtail` apps |
+One ArgoCD instance on [[ringtail]]'s k3s, managing that cluster in-place — every Application targets `https://kubernetes.default.svc`. The indri minikube cluster it used to also manage was decommissioned; see [[retire-minikube]].
 
 ## Sync Policy
 
-All applications use **manual sync** — including the `apps` app-of-apps root. To pick up newly added Application manifests, sync `apps` explicitly:
+**Workload applications sync automatically** (`automated: {prune: false, selfHeal: false}`): a merge to `main` reaches the cluster on its own, within ArgoCD's reconciliation interval. The human gate is the PR review and merge — both behind [[authentik]] SSO with TOTP, the same factor that gates a privileged dispatch — so the second confirmation a manual sync used to provide was a repeat of a decision already made, not an independent check.
+
+`prune` and `selfHeal` are both **off**. Removing a resource from git does not delete it from the cluster, and hand-applied drift is not reverted — several resources are manual by design (`repo-creds-forge`, the `immich-db` Secret). Deletions stay a deliberate `argocd app sync --prune`.
+
+Four applications remain **manual**, each for a stated reason in its manifest:
+
+| Application | Why |
+|-------------|-----|
+| `apps` | The app-of-apps root. A new Application appearing earns a second look, and automated sync here would revert `argocd app set --revision` overrides. |
+| `argocd` | Self-management: a manifest that breaks argocd-server breaks the reconciler that would repair it. |
+| `cloudnative-pg-ringtail` | Tracks a mutable tag on a mirror, not blumeops `main` — "the revision moved" is not "a human merged". |
+| `external-secrets-crds-ringtail` | Same, plus CRD churn under a live operator. |
+
+To pick up newly added Application manifests, sync `apps` explicitly:
 
 ```bash
 argocd app sync apps
 ```
 
-This gives explicit control over every deployment; nothing rolls out on push alone.
+### Deploying from a branch
+
+`argocd app set <app> --revision <ref>` still works for pre-merge testing, but on an automated app **always pass a full 40-char SHA, never a branch name**. A branch revision on an automated app means every subsequent push to that branch deploys itself unreviewed. The `ArgoCD Deploy` workflow enforces SHA-or-`main` for exactly this reason; hand-run commands should match it. Reset with `--revision main` when done.
 
 ## Authentication
 

@@ -1,5 +1,9 @@
 # ArgoCD self-management Application
 # After bootstrap, ArgoCD manages its own deployment
+#
+# Deliberately NOT automated: a manifest that breaks argocd-server also breaks
+# the reconciler that would repair it, and recovery is a kubectl session on
+# ringtail. Workload apps carry that risk cheaply; the control plane does not.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

@@ -53,11 +53,11 @@ A change with enough complexity or risk that a human should review it, but not s
 5. **Implement** — commit code changes, pushing as you go. The PR gets updated along the way and the user can review and comment at any point
 6. **Add changelog fragment** — `docs/changelog.d/<branch>.<type>.md` for any user-visible or noteworthy changes
 7. **Deploy from the branch** — do not wait for merge:
-   - **ArgoCD:** `argocd app set <service> --revision <branch> && argocd app sync <service>`
+   - **ArgoCD:** `argocd app set <service> --revision <full-40-char-sha> && argocd app sync <service>`. Pass a **SHA, never a branch name**: workload apps sync automatically, so a branch revision would make every later push to that branch deploy itself unreviewed. The `ArgoCD Deploy` workflow enforces SHA-or-`main`; hand-run commands should match it (see [[argocd#Deploying from a branch]])
    - **Ansible:** run playbooks directly from the branch checkout
    - **Workflows:** point workflow triggers at the branch if needed
 8. After user review and successful deployment, the user merges the PR
-9. **After merge:** reset ArgoCD revisions back to main, re-sync
+9. **After merge:** reset any overridden revision with `argocd app set <service> --revision main`. Apps still tracking `main` need nothing — the merge deploys itself
 10. **If the PR changed `containers/`:** trigger a rebuild with `mise run container-build-and-release <name>`. Once it completes, commit a C0 updating the manifest to the new `[main]`-tagged image (see [[build-container-image#Squash-merge and container tags]])
 
 ### Upgrading to C2

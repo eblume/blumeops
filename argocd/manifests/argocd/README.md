@@ -71,8 +71,13 @@ argocd app get <app-name> --hard-refresh
 ## Adding New Applications
 
 1. Create an Application manifest in `argocd/apps/<app-name>.yaml`
-2. Commit and push to forge
-3. ArgoCD (via app-of-apps) automatically picks it up
+2. Merge to `main`
+3. `argocd app sync apps` — the app-of-apps is manual on purpose, so a new
+   Application never appears unattended
+
+Once it exists, the app syncs itself on every subsequent merge. See
+[the ArgoCD reference](../../../docs/reference/services/argocd.md) for the full
+sync policy and the four applications deliberately left manual.
 
 Example Application:
 ```yaml
@@ -92,8 +97,8 @@ spec:
     namespace: my-app
   syncPolicy:
     automated:
-      prune: true
-      selfHeal: true
+      prune: false
+      selfHeal: false
     syncOptions:
       - CreateNamespace=true
 ```
