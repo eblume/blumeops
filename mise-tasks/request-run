@@ -6,6 +6,10 @@
 #MISE description="Request a privileged workflow run (approval-gated; see warrant-approval-gated-runs)"
 #USAGE arg "<workflow>" help="Workflow file under .forgejo/workflows/, e.g. build-container.yaml"
 #USAGE arg "<sha>" help="FULL 40-char commit SHA the request is bound to"
+#USAGE flag "--pr <pr>" help="PR to attach the request to (default: auto-detect from an open PR's head SHA)"
+#USAGE flag "-i --input <input>" var=#true help="Dispatch input as key=value (repeatable)"
+#USAGE flag "--why <why>" help="One-line justification"
+#USAGE flag "--notify" help="Also push to ntfy (heph is the system of record either way)"
 """Request an approval-gated privileged run.
 
 Implements Phase 1 of [[warrant-approval-gated-runs]]: an agent (or a human)
@@ -19,6 +23,19 @@ credentials and cannot trigger anything — by design (invariant 4).
 Usage:
   mise run request-run <workflow> <full-sha> [--pr N] [--input k=v]... \
       [--why TEXT] [--notify]
+
+Every flag typer accepts must also be declared in the #USAGE block above: mise
+validates argv against that spec before this script runs and rejects anything
+undeclared ("unexpected word: --pr"), which `--` does not bypass. Two traps
+when editing it, both found the hard way:
+
+  * The block must be CONTIGUOUS. An ordinary comment line between two #USAGE
+    lines truncates the spec silently — no warning, the later flags simply do
+    not exist. Explanatory prose goes here, not in there.
+  * Booleans are KDL v2, so repeatable flags need `var=#true`, not `var=true`.
+    `var=true` fails to parse, and mise's fallback for an unparseable spec is
+    to forward argv unvalidated — so it looks like it works until the day the
+    spec parses again.
 """
 
 import os
