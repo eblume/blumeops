@@ -123,8 +123,13 @@ between concurrent sessions — one HEAD, one index, contended. `agent-ws-worksp
 | Verb | When | What |
 |------|------|------|
 | `init` | `SessionStart` hook | a detached worktree of each pooled repo at `~/code/sessions/<session-id>/<repo>`, based on canonical `main` |
-| `sync` | pod boot, and before each `init` | fetch, fast-forward each pool checkout onto canonical `main`, and fast-forward the bot's fork `main` for the fork-pool repos |
-| `gc` | pod boot, and before each `init` | reap the worktrees of sessions that have ended |
+| `sync` | pod boot (entrypoint) | fetch, fast-forward each pool checkout onto canonical `main`, and fast-forward the bot's fork `main` for the fork-pool repos |
+| `gc` | pod boot, and again at the top of each `init` | reap the worktrees of sessions that have ended |
+
+`init` does not shell out to the `sync` verb; it calls the same per-repo sync
+inline, one repo at a time, because each `worktree add` needs *that* repo's fetch
+to have landed before it can base a tree on `<canonical>/main`. The `sync` verb is
+the boot-time loop over the same function, and a hand-runnable one for debugging.
 
 The pool checkouts stop being workspaces and become what they are already good
 at: a shared object store and a canonical mirror. Worktrees rather than clones

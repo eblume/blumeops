@@ -169,11 +169,13 @@ let
   # one-branch-one-checkout at the git level rather than by convention.
   #
   #   agent-ws-workspace sync   fetch + fast-forward the pool onto canonical main
-  #   agent-ws-workspace init   sync, then materialize this session's worktrees
+  #   agent-ws-workspace init   per-repo sync, then this session's worktrees
   #   agent-ws-workspace gc     reap worktrees whose session has ended
   #
   # `init` is the SessionStart hook (seeded into ~/.claude/settings.json by the
-  # entrypoint); `sync` and `gc` also run once at pod boot.
+  # entrypoint); the entrypoint also runs `sync` then `gc` once at pod boot.
+  # `init` re-runs gc, but syncs each repo inline via sync_repo rather than
+  # calling the sync verb — `worktree add` needs that repo's fetch first.
   workspace = pkgs.writeShellScriptBin "agent-ws-workspace" ''
     set -eu
 
