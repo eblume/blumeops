@@ -81,11 +81,14 @@ This repo is designed to be worked on by both humans and AI agents. The
 [`docs/tutorials/ai-assistance-guide.md`](docs/tutorials/ai-assistance-guide.md)
 explains the full workflow.
 
-Changes are classified before starting work:
+Changes reach main by one of two routes:
 
-- **C0** - quick fixes, committed directly to main
-- **C1** - feature branch + PR, documentation written before code
-- **C2** - multi-phase work using the Mikado method for dependency tracking
+- **Direct to main** - small fix-forward-safe changes, from an interactive human session
+- **Feature branch + PR** - everything larger, and all remote-agent work (the
+  `agents` bot is read-only on canonical). Documentation written before code
+
+Multi-phase work layers the Mikado method for dependency tracking on top of the
+branch + PR route.
 
 See the [agent change process](docs/explanation/agent-change-process.md) for
 details.

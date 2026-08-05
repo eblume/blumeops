@@ -1,6 +1,6 @@
 ---
 title: Agent Change Process
-modified: 2026-06-09
+modified: 2026-08-05
 last-reviewed: 2026-02-23
 tags:
   - explanation
@@ -11,38 +11,28 @@ tags:
 
 > **Note:** This article was drafted by AI and reviewed by Erich. I plan to rewrite all explanatory content in my own words - these serve as placeholders to establish the documentation structure.
 
-How to classify and execute infrastructure changes, especially when working with AI agents that may lose context across sessions.
+How to execute infrastructure changes, especially when working with AI agents that may lose context across sessions.
 
-## Change Classification
+## How changes reach main
 
-Before starting work, classify the change:
+There are two routes, and which one applies is mostly decided by *who* you are rather than how big the change is:
 
-| Class | Name | When to use | Key trait |
-|-------|------|-------------|-----------|
-| **C0** | Quick Fix | Small, low-risk, fix-forward safe | Direct to main, no PR |
-| **C1** | Human Review | Moderate complexity or risk | Feature branch + PR, docs-first |
-| **C2** | Mikado Chain | Multi-phase, multi-session, high complexity | Mikado Branch Invariant |
+| Route | When | Changelog fragment |
+|-------|------|--------------------|
+| **Direct to main** | An interactive human session making a small, fix-forward-safe change | Orphan prefix: `+<slug>.<type>.md` |
+| **Feature branch + PR** | Everything larger, and **all remote-agent work** | Branch name: `<branch>.<type>.md` |
 
-When in doubt, start at C1. Upgrade to C2 if complexity spirals or the user requests it.
+Remote agents have no choice in the matter: the `agents` bot is read-only on canonical, so a direct commit to `main` is not something it can do. Branch off `upstream/main`, push to `origin`, open a cross-repo PR. See `AGENTS.md` for the authoritative statement of both rules.
 
-**Context loading:** All change classes start by finding and reading the docs relevant to the change area — grep `docs/` and follow wiki-links. For problems with a very large surface area, `mise run ai-sources` concatenates all non-doc source files (~270K tokens); confirm with the user before loading it wholesale.
+For multi-phase work that spans sessions, see [Mikado chains](#mikado-chains) below — a discipline layered on top of the branch + PR route, not a third route.
 
-## C0 — Quick Fix
+**Context loading:** start by finding and reading the docs relevant to the change area — grep `docs/` and follow wiki-links. For problems with a very large surface area, `mise run ai-sources` concatenates all non-doc source files (~270K tokens); confirm with the user before loading it wholesale.
 
-A change where the risk is low enough that problems can be quickly fixed forward.
+> **Retired:** this document used to open with a C0/C1/C2 change *classification* to be assigned before work began. AGENTS.md dropped it in favour of the two-route split above. `C2(<chain>):` survives as the Mikado **commit-message** convention — it is enforced by `mise run mikado-branch-invariant-check` and parsed by `mise run docs-mikado`, so it is not going anywhere — but it names a commit format now, not a class of change.
 
-1. Find and read the docs relevant to the change area
-2. Implement the change directly on main
-3. Add a changelog fragment if the change is user-visible or noteworthy (`docs/changelog.d/+<descriptive-slug>.<type>.md`)
-4. Commit and push
+## Feature branch + PR
 
-No feature branch or PR required. If something goes wrong, fix forward with another commit.
-
-Examples: fix a typo, bump a version, add a simple config value, update a doc.
-
-## C1 — Human Review
-
-A change with enough complexity or risk that a human should review it, but not so much that a formal multi-phase approach is needed.
+The default route for anything non-trivial, and the only route available to remote agents.
 
 ### Process
 
@@ -58,20 +48,20 @@ A change with enough complexity or risk that a human should review it, but not s
    - **Workflows:** point workflow triggers at the branch if needed
 8. After user review and successful deployment, the user merges the PR
 9. **After merge:** reset any overridden revision with `argocd app set <service> --revision main`. Apps still tracking `main` need nothing — the merge deploys itself
-10. **If the PR changed `containers/`:** trigger a rebuild with `mise run container-build-and-release <name>`. Once it completes, commit a C0 updating the manifest to the new `[main]`-tagged image (see [[build-container-image#Squash-merge and container tags]])
+10. **If the PR changed `containers/`:** trigger a rebuild with `mise run container-build-and-release <name>`. Once it completes, update the manifest to the new tag (see [[build-container-image#Container tags and merge strategy]])
 
-### Upgrading to C2
+### When to escalate to a Mikado chain
 
-Upgrade to C2 if any of these happen during a C1 change:
+Escalate if any of these happen mid-change:
 
 - You discover the change requires multiple prerequisite changes that must be sequenced
 - The change is spiraling in complexity beyond a single session
 - The user requests it
 - During planning you realize this is a multi-phase project
 
-## C2 — Mikado Chain
+## Mikado chains
 
-A complex, multi-session change managed through the [Mikado method](https://mikadomethod.info/) with a strict branch discipline called the **Mikado Branch Invariant**.
+A complex, multi-session change managed through the [Mikado method](https://mikadomethod.info/) with a strict branch discipline called the **Mikado Branch Invariant**. Still the branch + PR route underneath — the Mikado rules govern commit *ordering* within the branch.
 
 ### Planning and research
 
@@ -86,7 +76,7 @@ This planning phase can span multiple sessions. Cards introduced during planning
 
 ### The Mikado Branch Invariant
 
-The invariant governs how commits are ordered on a C2 feature branch. The branch must always have this structure:
+The invariant governs how commits are ordered on a Mikado branch. The branch must always have this structure:
 
 ```
 main ← [plan commits] ← [impl, close] ← [impl, close] ← ... ← [finalize]
@@ -112,11 +102,11 @@ main ← [plan commits] ← [impl, close] ← [impl, close] ← ... ← [finaliz
 
 #### Branch naming
 
-C2 branches must be named `mikado/<chain-stem>`, where `<chain-stem>` is the filename stem of the goal card. Example: goal card `deploy-authentik.md` → branch `mikado/deploy-authentik`.
+Mikado branches must be named `mikado/<chain-stem>`, where `<chain-stem>` is the filename stem of the goal card. Example: goal card `deploy-authentik.md` → branch `mikado/deploy-authentik`.
 
 #### Goal card `branch:` frontmatter
 
-The goal card of a C2 chain must include a `branch:` field once work begins:
+The goal card of a Mikado chain must include a `branch:` field once work begins:
 
 ```yaml
 ---
@@ -218,7 +208,7 @@ When the final leaf node is closed and no `status: active` cards remain:
 
 ### Cold-start: resuming a chain in a new session
 
-When starting a new session to continue C2 work:
+When starting a new session to continue Mikado work:
 
 1. Find and read the docs relevant to the change area
 2. Run `mise run docs-mikado --resume` — this will:
@@ -273,11 +263,11 @@ tags:
 
 ### Git Discipline
 
-- **C0:** Commit directly to main
-- **C1:** Single feature branch, PR early, push often
-- **C2:** Branch named `mikado/<chain-stem>`, Mikado Branch Invariant enforced, `C2()` commit convention, PR early, push after every leaf-node closure
-- **Changelog fragments (all levels):** Add `docs/changelog.d/<name>.<type>.md` for any user-visible or noteworthy change, regardless of change class. C0 uses orphan fragments (`+<descriptive-slug>.<type>.md`) to avoid `main.*` collisions. C1/C2 use the branch name (`<branch>.<type>.md`). C0 includes the fragment in the same commit. C1 includes it during the branch work. C2 includes it in the `finalize` commit.
-- **Deploy from branches** — C1 and C2 changes deploy from the unmerged branch (ArgoCD `--revision`, Ansible from checkout, etc.). Reset to main after merge.
+- **Direct to main:** interactive human sessions only, small fix-forward-safe changes
+- **Feature branch + PR:** single branch, PR early, push often. The only route for remote agents
+- **Mikado chain:** branch named `mikado/<chain-stem>`, Mikado Branch Invariant enforced, `C2()` commit convention, PR early, push after every leaf-node closure
+- **Changelog fragments (always):** add `docs/changelog.d/<name>.<type>.md` for any user-visible or noteworthy change. Direct-to-main uses orphan fragments (`+<descriptive-slug>.<type>.md`) to avoid `main.*` collisions and includes the fragment in the same commit; branch work uses the branch name (`<branch>.<type>.md`) and adds it during the branch. A Mikado chain adds it in the `finalize` commit.
+- **Deploy from branches** — branch work deploys from the unmerged branch (ArgoCD `--revision`, Ansible from checkout, etc.). Reset to main after merge.
 - GitOps requires pushing to test — if a pushed commit breaks, revert it promptly
 
 ## Tools

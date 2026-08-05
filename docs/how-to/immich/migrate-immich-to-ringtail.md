@@ -78,7 +78,7 @@ distinct surface that has to work before cutover. See
 
 This chain adds three new ArgoCD `Application` definitions in
 `argocd/apps/`: `cloudnative-pg-ringtail`, `databases-ringtail`,
-and (later) `immich-ringtail`. The usual C1/C2 pattern of
+and (later) `immich-ringtail`. The usual branch-and-PR pattern of
 `argocd app set <app> --revision <branch> && argocd app sync <app>`
 does NOT work for the app-of-apps `apps` Application itself, because
 `apps` self-manages: it re-reads `apps.yaml` (which declares

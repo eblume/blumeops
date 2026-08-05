@@ -23,16 +23,16 @@ These are non-negotiable for AI agents working in this repo:
 4. **Wait for user review before deploying** - Create PRs, don't auto-deploy
 5. **Never merge PRs without explicit request** - The user merges after review
 
-Full rules are in the repo's `AGENTS.md`. See [[agent-change-process]] for the C0/C1/C2 change classification methodology — C0 (direct to main), C1 (feature branch + PR), C2 (Mikado Branch Invariant).
+Full rules are in the repo's `AGENTS.md`. See [[agent-change-process]] for the two routes a change can take — direct to main (interactive human sessions, small fixes) and feature branch + PR (everything else, and all remote-agent work) — plus the Mikado Branch Invariant for multi-phase chains.
 
 ## Workflow Conventions
 
 ### Branching
 
-Branching depends on change classification (see [[agent-change-process]]):
+Which route applies (see [[agent-change-process]]):
 
-- **C0 (Quick Fix):** Commit directly to main — no branch or PR needed
-- **C1/C2:** Feature branch required:
+- **Direct to main:** interactive human session, small fix-forward-safe change — no branch or PR needed. Not available to remote agents, which are read-only on canonical
+- **Feature branch + PR:** everything else
 ```bash
 git checkout main && git pull
 git checkout -b feature/descriptive-name
@@ -59,10 +59,10 @@ EOF
 
 Add a fragment for user-visible changes:
 ```bash
-# C1/C2: use branch name
+# branch work: use branch name
 echo "Description" > docs/changelog.d/branch-name.feature.md
 
-# C0: use orphan prefix (no branch to name after)
+# direct to main: use orphan prefix (no branch to name after)
 echo "Description" > docs/changelog.d/+descriptive-slug.feature.md
 ```
 
@@ -140,5 +140,5 @@ Credentials live in 1Password. Never retrieve them directly - use existing patte
 | Missing kubectl context | Always add `--context=k3s-ringtail` |
 | Deploying without review | Create PR first, wait for user approval |
 | Re-explaining reference material | Link to reference cards instead |
-| Committing to main without classifying | Classify as C0/C1/C2 first — only C0 goes to main |
+| Committing to main from a remote-agent session | Branch and open a PR — the `agents` bot cannot push canonical `main` |
 | Guessing at credentials | Ask user or check 1Password patterns |

@@ -121,7 +121,7 @@ build (wave-1 technique).
 
 ## Execution model
 
-Each phase is its own **C1** feature branch + PR, deployed from the
+Each phase is its own feature branch + PR, deployed from the
 branch and merged after verification — exactly the wave-1 cadence.
 This card is the umbrella plan; per-phase PRs update it as reality
 intrudes.

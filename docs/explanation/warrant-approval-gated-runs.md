@@ -217,7 +217,7 @@ The smallest thing that closes the loop end-to-end:
    only, payload-SHA inputs), in rough order of value:
    - `argocd-deploy.yaml` — `argocd app set <app> --revision <sha> && sync`
      (+ a `--revision main` reset mode). Uses the existing `ARGOCD_AUTH_TOKEN`.
-     **This is the big unlock**: the C1 “deploy from branch” step becomes
+     **This is the big unlock**: the “deploy from branch” step becomes
      agent-requestable instead of gilbert-only.
    - `services-check.yaml` — post-deploy verification an agent can *request*
      (or a human can chain after a deploy), pending #439's HTTP-leg rework.

@@ -169,7 +169,7 @@ mise run container-build-and-release shower
 
 After the workflow finishes, update `images[].newTag` in
 `argocd/manifests/shower/kustomization.yaml` to the resulting
-`vX.Y.Z-<sha>-nix` tag, then commit (C0).
+`vX.Y.Z-<sha>-nix` tag, then commit.
 
 ### 4. DNS
 

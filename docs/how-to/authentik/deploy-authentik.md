@@ -47,4 +47,4 @@ Replace Dex with [Authentik](https://goauthentik.io/) as the SSO identity provid
 - [[authentik]] — OIDC identity provider
 - [[federated-login]] — How authentication works across BlumeOps
 - [[ringtail]] — Target cluster
-- [[agent-change-process]] — C2 methodology used for this change
+- [[agent-change-process]] — Mikado methodology used for this change

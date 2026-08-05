@@ -26,7 +26,7 @@ An ArgoCD application has been out of sync for 5+ minutes (the alert's `for:` wi
    argocd app diff <app-name>
    ```
 
-3. **Check if it's a branch revision issue** — during C1/C2 work, apps may be pointed at a feature branch. After merge, they need to be reset to main:
+3. **Check if it's a branch revision issue** — during branch work, apps may be pointed at a feature branch. After merge, they need to be reset to main:
    ```fish
    argocd app get <app-name> -o json | python3 -c "import json,sys; print(json.load(sys.stdin)['spec']['source']['targetRevision'])"
    ```
@@ -56,7 +56,7 @@ argocd app sync <app-name>
 
 ## Silencing
 
-During active C1/C2 development, apps may intentionally be out of sync:
+During active branch development, apps may intentionally be out of sync:
 1. Grafana → Alerting → Silences → Create Silence
 2. Match `alertname = ArgoCDAppOutOfSync` and `name = <app-name>`
 
