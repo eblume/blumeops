@@ -20,7 +20,6 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `ai-sources` | All non-doc source files for deep AI context (~270K tokens) |
 | `docs-check-frontmatter` | Check required frontmatter fields |
 | `docs-check-links` | Validate wiki-links resolve correctly (supports path-based links) |
-| `docs-mikado` | View active Mikado dependency chains (C2 changes) |
 | `docs-review` | Review the most stale doc by `last-reviewed` date |
 | `docs-review-stale` | Report docs by last-modified date |
 | `docs-review-tags` | Print frontmatter tag inventory |
@@ -60,7 +59,6 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `pr-comments` | List unresolved PR comments |
 | `runner-logs` | List Forgejo Actions runs and fetch job logs (supports `--repo`, `--limit`) |
 | `validate-workflows` | Validate workflow files against runner schema |
-| `mikado-branch-invariant-check` | Validate Mikado Branch Invariant on `mikado/*` branches |
 
 ## Operations & Monitoring
 

@@ -13,7 +13,7 @@ How devpi (the PyPI caching mirror at `pypi.ops.eblu.me`) is deployed on indri a
 
 ## Why native, not Kubernetes
 
-Devpi has no runtime dependencies beyond a Python interpreter, a writable directory, and outbound HTTPS to upstream PyPI. Running it on indri natively removes a layer of operational complexity, frees minikube resources, and decouples this critical-path tooling (used by every Python build, including `mise run docs-mikado` itself) from cluster health.
+Devpi has no runtime dependencies beyond a Python interpreter, a writable directory, and outbound HTTPS to upstream PyPI. Running it on indri natively removes a layer of operational complexity, frees minikube resources, and decouples this critical-path tooling (used by every Python build, including the `mise run` task scripts themselves) from cluster health.
 
 ## Layout
 

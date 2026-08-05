@@ -7,8 +7,8 @@ across a Tailscale tailnet.
 This is a homelab, but it's also a testing ground for AI-assisted
 infrastructure development. Much of this codebase was initially co-authored with [Claude
 Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview),
-and the repo places heavy emphasis on documentation, process, and change
-classification to make that collaboration work well. I don't know entirely how
+and the repo places heavy emphasis on documentation and process to make that
+collaboration work well. I don't know entirely how
 I feel about LLMs in our current era (there are real concerns about how
 training data is sourced and energy subsidy) but it felt important to learn how
 to work with these tools.
@@ -62,8 +62,8 @@ prek install                    # set up git hooks
 ```
 
 Git hooks (via [prek](https://github.com/j178/prek)) enforce secret scanning
-(TruffleHog), linting, formatting, and custom checks like doc link validation
-and the Mikado branch invariant. They run automatically on `git commit`.
+(TruffleHog), linting, formatting, and custom checks like doc link validation.
+They run automatically on `git commit`.
 
 Operational tasks are driven through mise. Run `mise tasks` to see what's
 available. Key examples:
@@ -86,9 +86,6 @@ Changes reach main by one of two routes:
 - **Direct to main** - small fix-forward-safe changes, from an interactive human session
 - **Feature branch + PR** - everything larger, and all remote-agent work (the
   `agents` bot is read-only on canonical). Documentation written before code
-
-Multi-phase work layers the Mikado method for dependency tracking on top of the
-branch + PR route.
 
 See the [agent change process](docs/explanation/agent-change-process.md) for
 details.
