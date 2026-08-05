@@ -1,6 +1,11 @@
 # CloudNativePG Operator for ringtail k3s cluster
 # Deploys the operator only; PostgreSQL clusters are created separately.
 # (The minikube sibling app was removed with the indri-k8s decommission.)
+#
+# Deliberately NOT automated. Automated sync is safe on the blumeops apps
+# because "the revision moved" there means "a human merged a PR"; this app
+# tracks a mutable tag on a mirror, where a re-mirrored or force-moved upstream
+# tag would deploy itself with no review. Sync operator upgrades by hand.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

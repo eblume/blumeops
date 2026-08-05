@@ -1,5 +1,11 @@
 # App-of-apps root Application
 # Watches argocd/apps/ and creates/manages all Application resources
+#
+# Deliberately NOT automated, unlike the workload apps it manages. Two reasons:
+# a new Application appearing in the cluster is the one change that earns a
+# human's second look, and automated sync here would revert the
+# `argocd app set <app> --revision <sha>` overrides that deploy-from-branch and
+# the ArgoCD Deploy workflow both depend on.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

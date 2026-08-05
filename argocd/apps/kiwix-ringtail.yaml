@@ -17,6 +17,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: kiwix
   syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
     syncOptions:
       - CreateNamespace=true
   # Ignore zim-hash annotation - updated dynamically by zim-watcher CronJob
