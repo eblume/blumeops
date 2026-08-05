@@ -1,6 +1,6 @@
 ---
 title: "Warrant: Approval-Gated Privileged Runs"
-modified: 2026-08-03
+modified: 2026-08-05
 last-reviewed: 2026-08-02
 tags:
   - explanation
@@ -21,7 +21,7 @@ tags:
 >
 > | Phase | State |
 > |-------|-------|
-> | 0 — fences, settings | done (squash-merge off, sshTests applied; WebAuthn on the forge account still open) |
+> | 0 — fences, settings | done (squash-merge off, sshTests applied; forge MFA turned out to predate the phase — see Phase 0 item 3) |
 > | 1 — request loop, argocd-deploy | done and proven |
 > | 2 — priv runner, audit sweep, vault tier | runner + `verify-runs` + `blumeops-ci` done; **item migration** outstanding ([[blumeops-ci-item-migration]]) |
 > | 3 — agent identity, Warrant broker | done; Warrant at v0.3.2, armed |
@@ -107,7 +107,9 @@ it is convenient.
    credential no agent can reach *plus* a second factor. No token an agent
    can read may approve anything — otherwise a prompt-injected agent
    approves itself. *Current factor (decided 2026-08-03): 1Password-managed
-   TOTP via Authentik's MFA stage — accepted with eyes open that both
+   TOTP via Authentik's MFA stage — which gates **both** approval surfaces,
+   Warrant and the forge dispatch button alike, since the forge's own login
+   is Authentik SSO ([[federated-login]]). Accepted with eyes open that both
    factors then live in the 1Password basket. The upgrade path to
    hardware-backed factors is preserved structurally: Warrant gates
    decisions on an Authentik flow slug, so adding a WebAuthn/hardware-key
@@ -121,7 +123,9 @@ it is convenient.
 
 The read-only-bot fence has a flip side that is easy to miss: **because
 `workflow_dispatch` is write-gated, a human dispatching a workflow in the forge
-UI already *is* an approval gate.** Canonical CI already holds privileged
+UI already *is* an approval gate.** And a multi-factor one: the forge sits
+behind [[authentik]] SSO with TOTP enforced, so that button satisfies
+invariant 4 with nothing new built. Canonical CI already holds privileged
 Actions secrets (`ARGOCD_AUTH_TOKEN`, `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`,
 `MAIN_PUSH_TOKEN`, `FORGE_ADMIN_TOKEN`) that agents provably cannot reach
 (fence verified from in-pod 2026-07-31), and the runner executes them on human
@@ -161,14 +165,19 @@ the one new service. Phase 4 is the autonomy dividend.
 2. **Disable squash-merge on canonical** (forge repo settings; invariant 2's
    corollary) before the first approval-gated run, or approved SHAs never
    land on `main` as themselves.
-3. **2FA on the approval surface.** Forgejo's login is *local* — the forge is
-   not behind [[authentik]] SSO — so Authentik's MFA (TOTP, orchestrated via
-   1Password) does not protect the dispatch button at all; the forge account
-   needs its own second factor. Enable **WebAuthn on the `eblume` Forgejo
-   account** (human step, forge UI). Keep Authentik MFA as-is where it
-   applies (Grafana, ArgoCD); the deeper "all eggs in the 1Password basket"
-   concern — TOTP secrets living beside the passwords they second-factor — is
-   real and is addressed head-on in [§Hardware-backed approval](#hardware-backed-approval-analysis-before-phase-3).
+3. **2FA on the approval surface — satisfied on arrival.** The forge *is*
+   behind [[authentik]] SSO, and has been since 2026-02-20 (PR #228), five
+   months before this doc was written. Authentik enforces TOTP MFA on its
+   default authentication flow, so the dispatch button — Phase 1's entire
+   approval gate — was already multi-factor; the break-glass local login
+   carries Forgejo's own TOTP on top of that, so there is no password-only
+   route to a dispatch. See [[federated-login]] §MFA.
+
+   No Phase 0 action was required. What remains is not a gap but an upgrade:
+   both approval surfaces rest on a single 1Password-managed TOTP, and that
+   "all eggs in one basket" concern — TOTP secrets living beside the
+   passwords they second-factor — is real and is addressed head-on in
+   [§Hardware-backed approval](#hardware-backed-approval-analysis-before-phase-3).
 
 Phase 0 mints no credentials.
 
@@ -195,7 +204,8 @@ The smallest thing that closes the loop end-to-end:
 2. **Approval = the human dispatches** the named workflow from the forge UI
    (phone browser works — forge is behind the fly proxy) or via
    `mise run approve-run` on gilbert, passing the full SHA as the payload
-   input. WebAuthn-protected forge login is the auth factor. Known friction,
+   input. The auth factor is the Authentik SSO login — session plus TOTP —
+   that fronts the forge ([[federated-login]]). Known friction,
    Phase-1-temporary: the dispatch form means copy-pasting the SHA/inputs by
    hand. The request comment and heph task both carry a **direct link to the
    workflow's dispatch page** plus a single copy-paste block; during
