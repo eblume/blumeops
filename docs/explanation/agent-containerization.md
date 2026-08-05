@@ -113,10 +113,57 @@ three weeks. See [[agents-forgejo-bot]] §"Sharing a repo with the bot".
 that `repos.json` cannot override — that fence lives in reviewed code, not in a
 data file.
 
-Only `agents` gets per-session worktree isolation (`--spawn worktree` operates
-on the cwd repo); every other checkout is **shared** across concurrent sessions,
-which is why the base instructions tell agents to work siblings on a
-session-named branch.
+### Per-session worktrees
+
+`--spawn worktree` operates on the cwd repo and nothing else, so out of the box
+only `agents` is isolated per session and the other seven checkouts are shared
+between concurrent sessions — one HEAD, one index, contended. `agent-ws-workspace`
+(generated from `repos.json`, same as the clone loop) closes that with three verbs:
+
+| Verb | When | What |
+|------|------|------|
+| `init` | `SessionStart` hook | a detached worktree of each pooled repo at `~/code/sessions/<session-id>/<repo>`, based on canonical `main` |
+| `sync` | pod boot, and before each `init` | fetch, fast-forward each pool checkout onto canonical `main`, and fast-forward the bot's fork `main` for the fork-pool repos |
+| `gc` | pod boot, and before each `init` | reap the worktrees of sessions that have ended |
+
+The pool checkouts stop being workspaces and become what they are already good
+at: a shared object store and a canonical mirror. Worktrees rather than clones
+because they share that object store and enforce one-branch-one-checkout **in
+git** rather than by convention — 14 MB for all seven against a 43 MB pool.
+
+Three properties are worth knowing because they were bugs before they were
+features:
+
+- **Sessions used to wake up stale.** The clone loop fetches at pod boot only, so
+  on a long-lived pod `--spawn worktree` branches off an ever-older `main` — most
+  consequentially in `agents`, where that means the session's own base
+  instructions. `init` fast-forwards the session's `agents` worktree when clean.
+- **A fork's `main` lies.** `origin` for `agents` and `blumeops` is the bot's
+  fork, so "up to date with origin/main" can be true while canonical is a hundred
+  commits ahead. `sync` pushes canonical `main` onto the fork, fast-forward only.
+- **Nothing reaped worktrees.** `gc` uses Remote Control's own worktree lock as
+  the liveness signal and waits `AGENT_WS_GC_AGE_DAYS` (7) afterwards, but
+  **refuses** to remove any worktree with a dirty tree or a commit canonical
+  `main` lacks — it reports those and leaves them. Unpushed agent work outvalues
+  the disk. A crashed session holds its lock forever, so a lock older than
+  `AGENT_WS_GC_LOCK_MAX_DAYS` (30) counts as dead.
+
+The hook lives in **user** settings (`~/.claude/settings.json`, jq-merged and
+re-seeded every boot from the entrypoint), not in the agents repo as project
+settings: project-scoped hooks prompt for trust on first use and this pod is
+headless. The image therefore stays the source of truth for it.
+
+`CARGO_TARGET_DIR` is shared across every checkout for the same reason the pool
+is — without it each session rebuilds Rust from cold (minutes, for Bevy) and a
+`target/` per worktree per session fills 20Gi quickly. Cargo locks the directory,
+so concurrent builds serialize instead of corrupting each other.
+
+**What this is not.** It isolates working trees, not repositories: refs, remotes,
+config, hooks, and the object store stay shared, and every session is still one
+process, one uid, one PVC. It is a concurrency fix, not a security boundary — the
+security boundaries are the ones below. Genuine per-session isolation means a pod
+per session, which the RWO PVC and the single rooted Remote Control server rule
+out; that would be a re-architecture, not a change.
 
 ### The Tailscale fence (`tag:agent`)
 
