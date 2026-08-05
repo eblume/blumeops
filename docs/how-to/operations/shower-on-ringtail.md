@@ -222,9 +222,9 @@ can be created from `/admin/auth/user/` once you're signed in.
 3. `mise run container-build-and-release shower`. Verify the build
    with `mise run runner-logs`.
 4. Update the `newTag` in `argocd/manifests/shower/kustomization.yaml`
-   to the new `[main]` SHA tag.
-5. Commit (C0 after PR merge — see [[build-container-image#Squash-merge and container tags]]).
-6. `argocd app sync shower`.
+   to the tag the build produced, in the same PR
+   (see [[build-container-image#Container tags and merge strategy]]).
+5. Merge. `shower` syncs itself — see [[argocd#Sync Policy]].
 
 ## Verifying after a deploy
 

@@ -42,13 +42,13 @@ The default route for anything non-trivial, and the only route available to remo
 4. **Documentation first** — commit doc changes reflecting the desired end state before writing code. This helps the reviewer understand intent and catches design issues early
 5. **Implement** — commit code changes, pushing as you go. The PR gets updated along the way and the user can review and comment at any point
 6. **Add changelog fragment** — `docs/changelog.d/<branch>.<type>.md` for any user-visible or noteworthy changes
-7. **Deploy from the branch** — do not wait for merge:
+7. **If the PR changed `containers/`:** build from the final branch head with `mise run container-build-and-release <name>`, then commit the resulting tag into `argocd/manifests/<service>/kustomization.yaml` **in this same PR**. No post-merge rebuild — see [[build-container-image#Container tags and merge strategy]]
+8. **Deploy from the branch** — do not wait for merge:
    - **ArgoCD:** `argocd app set <service> --revision <full-40-char-sha> && argocd app sync <service>`. Pass a **SHA, never a branch name**: workload apps sync automatically, so a branch revision would make every later push to that branch deploy itself unreviewed. The `ArgoCD Deploy` workflow enforces SHA-or-`main`; hand-run commands should match it (see [[argocd#Deploying from a branch]])
    - **Ansible:** run playbooks directly from the branch checkout
    - **Workflows:** point workflow triggers at the branch if needed
-8. After user review and successful deployment, the user merges the PR
-9. **After merge:** reset any overridden revision with `argocd app set <service> --revision main`. Apps still tracking `main` need nothing — the merge deploys itself
-10. **If the PR changed `containers/`:** trigger a rebuild with `mise run container-build-and-release <name>`. Once it completes, update the manifest to the new tag (see [[build-container-image#Container tags and merge strategy]])
+9. After user review and successful deployment, the user merges the PR
+10. **After merge:** reset any overridden revision with `argocd app set <service> --revision main`. Apps still tracking `main` need nothing — the merge deploys itself
 
 ### When to escalate to a Mikado chain
 
@@ -225,7 +225,7 @@ When starting a new session to continue Mikado work:
 Mikado resets apply to branch code, not build artifacts. Container images in the registry are independent of branch lifecycle:
 
 - **Registry images** are build outputs cached in zot — tagged with commit SHAs, so each build is unique and traceable
-- **Squash-merge orphans:** Images built during PR development reference branch SHAs that won't exist on main after merge. After merge, trigger a rebuild with `mise run container-build-and-release <name>` and commit a C0 to update manifests to the new `[main]`-tagged image. Use `mise run container-list <name>` to find it
+- **Images built during PR development stay valid after merge.** Canonical merges with merge commits, so a branch-head SHA becomes an ancestor of main and its tag flips `[branch]` → `[main]` by itself. Build once from the final branch head and put the manifest tag bump in the same PR — no post-merge rebuild. Use `mise run container-list <name>` to check. See [[build-container-image#Container tags and merge strategy]]
 - **All builds are manual** — use `mise run container-build-and-release <name>` to dispatch
 - **If a build succeeds but deployment fails**, the image is fine; the problem is elsewhere. Document what you learned and try again
 - **If a build fails in CI**, no image is pushed. Fix the nix/dockerfile and re-merge or re-dispatch
