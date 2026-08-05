@@ -70,7 +70,7 @@ The version is pinned in four places that must agree:
 6. Update `docs/reference/tools/dagger.md` — bump the version in the Quick
    Reference table and any body references.
 
-7. Commit and push (this is a C1 — open a PR). Once merged, the next CI run uses
+7. Commit and push, and open a PR. Once merged, the next CI run uses
    the new `engineVersion` against the already-upgraded host CLI.
 
 8. Test CI — manual-dispatch `Build BlumeOps` and confirm the `build-docs` step
@@ -93,7 +93,7 @@ chicken-and-egg of the old k8s-runner flow is gone.
 
 ## Changelog
 
-Add a changelog fragment (branch name for a C1):
+Add a changelog fragment (named after the branch):
 `docs/changelog.d/<branch>.<type>.md`. Use type `infra` for routine upgrades;
 include both the old and new versions in the description.
 

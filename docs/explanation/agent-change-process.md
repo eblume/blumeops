@@ -1,6 +1,6 @@
 ---
 title: Agent Change Process
-modified: 2026-06-09
+modified: 2026-08-05
 last-reviewed: 2026-02-23
 tags:
   - explanation
@@ -11,38 +11,28 @@ tags:
 
 > **Note:** This article was drafted by AI and reviewed by Erich. I plan to rewrite all explanatory content in my own words - these serve as placeholders to establish the documentation structure.
 
-How to classify and execute infrastructure changes, especially when working with AI agents that may lose context across sessions.
+How to execute infrastructure changes, especially when working with AI agents that may lose context across sessions.
 
-## Change Classification
+## How changes reach main
 
-Before starting work, classify the change:
+There are two routes, and which one applies is mostly decided by *who* you are rather than how big the change is:
 
-| Class | Name | When to use | Key trait |
-|-------|------|-------------|-----------|
-| **C0** | Quick Fix | Small, low-risk, fix-forward safe | Direct to main, no PR |
-| **C1** | Human Review | Moderate complexity or risk | Feature branch + PR, docs-first |
-| **C2** | Mikado Chain | Multi-phase, multi-session, high complexity | Mikado Branch Invariant |
+| Route | When | Changelog fragment |
+|-------|------|--------------------|
+| **Direct to main** | An interactive human session making a small, fix-forward-safe change | Orphan prefix: `+<slug>.<type>.md` |
+| **Feature branch + PR** | Everything larger, and **all remote-agent work** | Branch name: `<branch>.<type>.md` |
 
-When in doubt, start at C1. Upgrade to C2 if complexity spirals or the user requests it.
+Remote agents have no choice in the matter: the `agents` bot is read-only on canonical, so a direct commit to `main` is not something it can do. Branch off `upstream/main`, push to `origin`, open a cross-repo PR. See `AGENTS.md` for the authoritative statement of both rules.
 
-**Context loading:** All change classes start by finding and reading the docs relevant to the change area — grep `docs/` and follow wiki-links. For problems with a very large surface area, `mise run ai-sources` concatenates all non-doc source files (~270K tokens); confirm with the user before loading it wholesale.
+Multi-phase work that spans sessions is still one branch and one PR — sequence it however the work wants, and lean on the PR to carry state between sessions.
 
-## C0 — Quick Fix
+**Context loading:** start by finding and reading the docs relevant to the change area — grep `docs/` and follow wiki-links. For problems with a very large surface area, `mise run ai-sources` concatenates all non-doc source files (~270K tokens); confirm with the user before loading it wholesale.
 
-A change where the risk is low enough that problems can be quickly fixed forward.
+> **Retired:** this document used to open with a C0/C1/C2 change *classification* assigned before work began, and devoted most of its length to the Mikado Branch Invariant — a commit-ordering discipline for C2 chains, enforced by a `commit-msg` hook. Both are gone: AGENTS.md replaced the classification with the two-route split above, and the Mikado apparatus (the hook, `mikado-branch-invariant-check`, `docs-mikado`, the `mikado-navigator` subagent, and the `C2(<chain>):` commit convention) was removed once no chain had used it in a long time. Old cards and commits referencing them are historical.
 
-1. Find and read the docs relevant to the change area
-2. Implement the change directly on main
-3. Add a changelog fragment if the change is user-visible or noteworthy (`docs/changelog.d/+<descriptive-slug>.<type>.md`)
-4. Commit and push
+## Feature branch + PR
 
-No feature branch or PR required. If something goes wrong, fix forward with another commit.
-
-Examples: fix a typo, bump a version, add a simple config value, update a doc.
-
-## C1 — Human Review
-
-A change with enough complexity or risk that a human should review it, but not so much that a formal multi-phase approach is needed.
+The default route for anything non-trivial, and the only route available to remote agents.
 
 ### Process
 
@@ -52,245 +42,32 @@ A change with enough complexity or risk that a human should review it, but not s
 4. **Documentation first** — commit doc changes reflecting the desired end state before writing code. This helps the reviewer understand intent and catches design issues early
 5. **Implement** — commit code changes, pushing as you go. The PR gets updated along the way and the user can review and comment at any point
 6. **Add changelog fragment** — `docs/changelog.d/<branch>.<type>.md` for any user-visible or noteworthy changes
-7. **Deploy from the branch** — do not wait for merge:
+7. **If the PR changed `containers/`:** build from the final branch head with `mise run container-build-and-release <name>`, then commit the resulting tag into `argocd/manifests/<service>/kustomization.yaml` **in this same PR**. No post-merge rebuild — see [[build-container-image#Container tags and merge strategy]]
+8. **Deploy from the branch** — do not wait for merge:
    - **ArgoCD:** `argocd app set <service> --revision <full-40-char-sha> && argocd app sync <service>`. Pass a **SHA, never a branch name**: workload apps sync automatically, so a branch revision would make every later push to that branch deploy itself unreviewed. The `ArgoCD Deploy` workflow enforces SHA-or-`main`; hand-run commands should match it (see [[argocd#Deploying from a branch]])
    - **Ansible:** run playbooks directly from the branch checkout
    - **Workflows:** point workflow triggers at the branch if needed
-8. After user review and successful deployment, the user merges the PR
-9. **After merge:** reset any overridden revision with `argocd app set <service> --revision main`. Apps still tracking `main` need nothing — the merge deploys itself
-10. **If the PR changed `containers/`:** trigger a rebuild with `mise run container-build-and-release <name>`. Once it completes, commit a C0 updating the manifest to the new `[main]`-tagged image (see [[build-container-image#Squash-merge and container tags]])
-
-### Upgrading to C2
-
-Upgrade to C2 if any of these happen during a C1 change:
-
-- You discover the change requires multiple prerequisite changes that must be sequenced
-- The change is spiraling in complexity beyond a single session
-- The user requests it
-- During planning you realize this is a multi-phase project
-
-## C2 — Mikado Chain
-
-A complex, multi-session change managed through the [Mikado method](https://mikadomethod.info/) with a strict branch discipline called the **Mikado Branch Invariant**.
-
-### Planning and research
-
-Before writing any code, invest in understanding the problem:
-
-1. Find and read the docs relevant to the change area
-2. Search related docs, reference cards, and existing how-to guides for the change area
-3. Think through the dependency graph — what prerequisites exist? What could go wrong?
-4. Create Mikado cards for everything you can anticipate (you'll discover more later — that's the point of the method)
-
-This planning phase can span multiple sessions. Cards introduced during planning are merged to main and become the foundation for work cycles later.
-
-### The Mikado Branch Invariant
-
-The invariant governs how commits are ordered on a C2 feature branch. The branch must always have this structure:
-
-```
-main ← [plan commits] ← [impl, close] ← [impl, close] ← ... ← [finalize]
-       ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       Planning layer    Repeating work cycles
-       (cards only)      (impl then close, one leaf at a time)
-```
-
-**Rules:**
-
-1. The first N commits on the branch (after diverging from main) must ALL be commits that **only introduce or modify Mikado cards** — no code changes
-2. After the card layer, work proceeds in **cycles**: each cycle is one or more code commits followed by one or more commits closing leaf nodes
-3. A cycle should target a single leaf node (though closing multiple in one cycle is acceptable if the code supports it)
-4. Cycles repeat until the chain is complete
-
-**The one rule:** No Mikado card may be introduced after any code or card-closing commit. New cards require a branch reset (see below).
-
-**The length-zero case:** It is valid for the "planning layer" to have zero commits on the branch — this happens when all Mikado cards were introduced in earlier sessions and are already in main's history. The invariant is satisfied.
-
-**Exception — finalize:** The terminal commit of a completed chain rewrites Mikado cards to historical documentation. This is a card modification after code commits, and is the only permitted violation of the one rule (see "Completing a chain" below).
-
-### Conventions
-
-#### Branch naming
-
-C2 branches must be named `mikado/<chain-stem>`, where `<chain-stem>` is the filename stem of the goal card. Example: goal card `deploy-authentik.md` → branch `mikado/deploy-authentik`.
-
-#### Goal card `branch:` frontmatter
-
-The goal card of a C2 chain must include a `branch:` field once work begins:
-
-```yaml
----
-title: Deploy Authentik
-status: active
-branch: mikado/deploy-authentik
-requires:
-  - configure-postgres
-  - setup-redis
-tags:
-  - how-to
----
-```
-
-A goal card with `status: active` but no `branch:` field indicates a chain that has been planned but not yet started — the planning-phase cards exist but no implementation branch has been created.
-
-#### Commit message convention
-
-All commits on a `mikado/*` branch must use this format:
-
-```
-C2(<chain-stem>): <verb> <short description>
-```
-
-Verbs and their meanings:
-
-| Verb | Phase | What it means |
-|------|-------|---------------|
-| `plan` | Planning layer | Introduces or modifies a Mikado card (no code changes) |
-| `impl` | Work cycle | Code progress toward closing a leaf node (no card changes) |
-| `close` | Work cycle | Closes a leaf node by removing `status: active` |
-| `finalize` | Terminal | Rewrites cards to historical docs, adds changelog |
-
-Examples:
-```
-C2(deploy-authentik): plan add postgres and redis prerequisite cards
-C2(deploy-authentik): impl configure external-secrets for authentik
-C2(deploy-authentik): close configure-postgres
-C2(deploy-authentik): finalize rewrite cards as historical documentation
-```
-
-The `mikado-branch-invariant-check` commit-msg hook validates this convention and the invariant ordering.
-
-### Process
-
-1. **Goal card:** Create a how-to doc in `docs/how-to/` describing the desired end state
-   - Add `status: active` and `branch: mikado/<chain-stem>` to frontmatter
-   - Create prerequisite cards discovered during planning, each with `status: active`
-   - Commit all cards together (or in a sequence of card-only commits) using `C2(<chain>): plan ...` messages
-2. **Open a PR** after the first card commits so the user can review the Mikado graph
-3. **Work leaf nodes** — pick a leaf (a card with `status: active` and no unmet `requires`):
-   - Commit code changes (`C2(<chain>): impl ...`) that progress toward closing it
-   - **Verify the card's own deliverables** (deploy from branch, run tests, etc.) before closing. "Works" means the card's stated outputs are correct — not that downstream consumers have integrated them. If a downstream card later discovers the output doesn't fit, that's a new prerequisite discovery handled by the normal reset mechanism.
-   - Commit the card closure (`C2(<chain>): close ...`) — remove `status: active`
-   - Push to origin — this is the save point
-4. **End the cycle** — after pushing a closed leaf node, prompt the user to review the PR and suggest ending the session. Each closed leaf is a natural stopping point; the chain is designed to be resumed later. Don't rush into the next leaf without the user's go-ahead.
-5. **Repeat** until the chain is complete
-6. **New agent sessions** pick up state by running `mise run docs-mikado --resume`
-
-### Discovering new prerequisites or errors
-
-When you discover a new prerequisite **or encounter an error** during code work, do not fix forward. The Mikado method's power comes from rigorous resets that keep the plan honest. You must restore the Mikado Branch Invariant:
-
-1. **Stash or note any in-progress work** you want to preserve
-2. **Identify the reset point** — the last `plan` or `close` commit before your current `impl` commits:
-   ```bash
-   git log --oneline mikado/<chain-stem> --not main
-   ```
-3. **Reset the branch** to that commit:
-   ```bash
-   git reset --hard <reset-point-sha>
-   ```
-4. **Update the plan** — add a `plan` commit that captures what you learned:
-   - If you discovered a new prerequisite: add a new card and update `requires`
-   - If you hit an error: update the relevant card with what you learned, or introduce a new prerequisite card that addresses the root cause
-5. **Replay valid work** by cherry-picking commits that still apply:
-   ```bash
-   git cherry-pick <sha1> <sha2> ...
-   ```
-6. **Resume the Mikado process** from the new state of the card stack
-
-**When to reset vs. fix forward:** If an `impl` commit introduces a bug that's a simple typo or one-liner, another `impl` commit is fine. But if the error reveals a gap in understanding, a missing prerequisite, or requires rethinking the approach — reset. The threshold is: "does this error teach us something that should be in the plan?" If yes, reset.
-
-**Saving work across resets:** It is acceptable to cherry-pick code commits from before the reset back onto the branch after adding the new card. Use `git stash` for uncommitted work. This is a pragmatic exception — use it only when you are confident the saved work is still valid given the new prerequisite. When in doubt, redo the work from scratch.
-
-### Completing a chain
-
-When the final leaf node is closed and no `status: active` cards remain:
-
-1. **Rewrite all Mikado cards** to reflect their nature as historical documentation:
-   - **Remove all Mikado frontmatter** from every card in the chain: `requires:`, `status:`, and `branch:`. Cards become "just documentation" — the Mikado metadata served its purpose during the chain and should not persist.
-   - Cards can (and should) still link to one another via wiki-links in their body text, just not via frontmatter dependencies.
-   - Remove transient technical details (specific version numbers, temporary workarounds) that won't matter in the future
-   - Frame the content as "what to do if someone wanted to repeat this process"
-   - Add appropriate context about what was learned
-2. **Add changelog information** in `docs/changelog.d/`
-3. Commit as `C2(<chain>): finalize ...` — this is the one permitted exception to the invariant's "no card changes after code" rule
-4. The user reviews and merges the PR
-
-### Cold-start: resuming a chain in a new session
-
-When starting a new session to continue C2 work:
-
-1. Find and read the docs relevant to the change area
-2. Run `mise run docs-mikado --resume` — this will:
-   - Detect the current branch and match it to an active chain
-   - Show the chain state, ready leaf nodes, and current position in the invariant
-   - Show the PR number and URL if an open PR exists for the branch
-   - Warn about any stashed work in `git stash list`
-   - If on main, list active chains and suggest which to resume
-3. Check PR comments with `mise run pr-comments <pr_number>` — use the PR number from the `--resume` output above
-4. Pick the next ready leaf node and continue with a work cycle
+9. After user review and successful deployment, the user merges the PR
+10. **After merge:** reset any overridden revision with `argocd app set <service> --revision main`. Apps still tracking `main` need nothing — the merge deploys itself
 
 ### Build artifacts
 
-Mikado resets apply to branch code, not build artifacts. Container images in the registry are independent of branch lifecycle:
+Container images in the registry are independent of branch lifecycle — a branch reset or a rebase does not invalidate them:
 
 - **Registry images** are build outputs cached in zot — tagged with commit SHAs, so each build is unique and traceable
-- **Squash-merge orphans:** Images built during PR development reference branch SHAs that won't exist on main after merge. After merge, trigger a rebuild with `mise run container-build-and-release <name>` and commit a C0 to update manifests to the new `[main]`-tagged image. Use `mise run container-list <name>` to find it
+- **Images built during PR development stay valid after merge.** Canonical merges with merge commits, so a branch-head SHA becomes an ancestor of main and its tag flips `[branch]` → `[main]` by itself. Build once from the final branch head and put the manifest tag bump in the same PR — no post-merge rebuild. Use `mise run container-list <name>` to check. See [[build-container-image#Container tags and merge strategy]]
 - **All builds are manual** — use `mise run container-build-and-release <name>` to dispatch
 - **If a build succeeds but deployment fails**, the image is fine; the problem is elsewhere. Document what you learned and try again
 - **If a build fails in CI**, no image is pushed. Fix the nix/dockerfile and re-merge or re-dispatch
 
-## Card Conventions
 
-### Frontmatter
+## Git discipline
 
-```yaml
----
-title: Deploy Authentik
-status: active          # omit when complete
-branch: mikado/deploy-authentik  # goal cards only; omit when complete
-requires:               # explicit dependencies
-  - configure-postgres
-  - setup-redis
-tags:
-  - how-to
----
-```
-
-- `status: active` marks in-progress work; remove when done (this is the ONLY way a card is marked complete)
-- `branch` is set on goal cards only, linking the card to its `mikado/<chain-stem>` branch. A goal card with `status: active` but no `branch` indicates a chain that is planned but not yet started.
-- `requires` lists card stems (filenames without `.md`) that must be completed first.
-- **During finalization**, remove all Mikado frontmatter (`requires`, `status`, `branch`) from every card in the chain. Use wiki-links in body text to preserve cross-references.
-- `required-by` is NOT stored — it's computed by `docs-mikado`
-
-### Writing Cards
-
-- **Mikado cards are not plans.** Plans are designed upfront; Mikado cards are discovered through failed attempts. Don't put Mikado prerequisite cards in `docs/how-to/plans/`.
-- Cards live in a topic subdirectory under `docs/how-to/` (e.g., `docs/how-to/authentik/` for the deploy-authentik chain). The goal card may live in `plans/` if it started as a plan.
-- Keep cards brief (<30 seconds to read)
-- Link to other cards rather than inlining their content
-- Document what was learned from failures, not just what to do
-
-### Git Discipline
-
-- **C0:** Commit directly to main
-- **C1:** Single feature branch, PR early, push often
-- **C2:** Branch named `mikado/<chain-stem>`, Mikado Branch Invariant enforced, `C2()` commit convention, PR early, push after every leaf-node closure
-- **Changelog fragments (all levels):** Add `docs/changelog.d/<name>.<type>.md` for any user-visible or noteworthy change, regardless of change class. C0 uses orphan fragments (`+<descriptive-slug>.<type>.md`) to avoid `main.*` collisions. C1/C2 use the branch name (`<branch>.<type>.md`). C0 includes the fragment in the same commit. C1 includes it during the branch work. C2 includes it in the `finalize` commit.
-- **Deploy from branches** — C1 and C2 changes deploy from the unmerged branch (ArgoCD `--revision`, Ansible from checkout, etc.). Reset to main after merge.
+- **Direct to main:** interactive human sessions only, small fix-forward-safe changes
+- **Feature branch + PR:** single branch, PR early, push often. The only route for remote agents
+- **Changelog fragments (always):** add `docs/changelog.d/<name>.<type>.md` for any user-visible or noteworthy change. Direct-to-main uses orphan fragments (`+<descriptive-slug>.<type>.md`) to avoid `main.*` collisions and includes the fragment in the same commit; branch work uses the branch name (`<branch>.<type>.md`) and adds it during the branch.
+- **Deploy from branches** — branch work deploys from the unmerged branch (ArgoCD `--revision`, Ansible from checkout, etc.). Reset to main after merge.
 - GitOps requires pushing to test — if a pushed commit breaks, revert it promptly
-
-## Tools
-
-| Command | Purpose |
-|---------|---------|
-| `mise run docs-mikado` | List all active Mikado chains with branch status |
-| `mise run docs-mikado <card>` | Show dependency chain for a goal card |
-| `mise run docs-mikado <card> --all` | Include completed cards in full |
-| `mise run docs-mikado --resume` | Resume a chain: detect branch, show state and next steps |
-| `mise run docs-mikado --resume <chain>` | Resume a specific chain with branch consistency check |
-
-The `mikado-branch-invariant-check` commit-msg hook runs automatically on `mikado/*` branches, validating commit message conventions and invariant ordering. Requires `prek install --hook-type commit-msg`.
 
 ## Related
 

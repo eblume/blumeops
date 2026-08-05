@@ -70,15 +70,14 @@ at, leaving the DB on minikube. We're not doing that because:
 
 ## Approach
 
-This is a C2 Mikado chain. The prerequisite cards each represent a
-distinct surface that has to work before cutover. See
-[[agent-change-process#C2 — Mikado Chain]] for the discipline.
+The prerequisite cards each represent a distinct surface that has to
+work before cutover.
 
 ## Workflow note: registering new ArgoCD apps during the chain
 
 This chain adds three new ArgoCD `Application` definitions in
 `argocd/apps/`: `cloudnative-pg-ringtail`, `databases-ringtail`,
-and (later) `immich-ringtail`. The usual C1/C2 pattern of
+and (later) `immich-ringtail`. The usual branch-and-PR pattern of
 `argocd app set <app> --revision <branch> && argocd app sync <app>`
 does NOT work for the app-of-apps `apps` Application itself, because
 `apps` self-manages: it re-reads `apps.yaml` (which declares
@@ -99,7 +98,7 @@ For apps whose source lives in **this** repo (e.g.
 on the branch until merge), follow the apply with a branch override:
 
 ```fish
-argocd app set <new-app> --revision mikado/migrate-immich-to-ringtail
+argocd app set <new-app> --revision <full-40-char-sha>
 argocd app sync <new-app>
 ```
 

@@ -54,7 +54,7 @@ As each check is ported, remove it from the services-check script (or mark it as
 
 ## Key Details
 
-- Don't try to port everything in one session — this card may span multiple work cycles within the C2 chain
+- Don't try to port everything in one session — this card may span multiple work sessions
 - Prioritize checks that have caught real problems in the past
 - Some checks (like ArgoCD sync status table) may remain in services-check as a human-readable summary even after alerting covers the failure cases
 - The Alloy blackbox exporter on ringtail now probes all in-cluster HTTP services

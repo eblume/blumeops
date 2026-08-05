@@ -119,8 +119,8 @@ If a card needs updates:
 - **Anything larger, and all remote-agent work:** feature branch + PR via
   `tea pr create`.
 
-(The older C0/C1/C2 classification described in [[agent-change-process]] has
-been retired from AGENTS.md in favor of this simpler split.)
+This is the same split [[agent-change-process]] describes; the older C0/C1/C2
+classification it used to lead with is retired.
 
 Link validation runs automatically via prek on commit.
 

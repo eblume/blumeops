@@ -64,4 +64,4 @@ ssh ringtail "rm -rf $tmpdir"
 
 - [[build-authentik-container]] — Container build reference
 - [[deploy-authentik]] — Parent deployment goal
-- [[agent-change-process]] — C2 methodology
+- [[agent-change-process]] — how changes reach main

@@ -86,7 +86,7 @@ fall back to rustup's *default* toolchain, which can lag behind heph's
 
 1. Cut the upstream release (new `vX.Y.Z` tag on the hephaestus repo).
 2. Bump the pins in blumeops: `heph_version` (ansible) and `hephTag`
-   (agent-workspaces.nix). Open a PR (C1) as usual.
+   (agent-workspaces.nix). Open a PR as usual.
 3. After review, converge each device:
    - indri: `mise run provision-indri -- --tags heph`
    - ringtail-agent: nixos rebuild (the install unit picks up the new `hephTag`)
