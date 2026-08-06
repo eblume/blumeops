@@ -331,6 +331,25 @@ inside the agent's cgroup. The baked `nix.conf` sets `max-jobs = 0` so that
 fails immediately rather than after several hours — a foot-gun guard, not a
 boundary.
 
+### Keeping it bounded
+
+The store is **pure cache** — nothing in the pod runs `nix-build -o result`, and
+an instantiate's temp roots die with the process, so no GC root is ever created.
+Two consequences. A sweep is all-or-nothing (it empties the store; the next eval
+re-fetches nixpkgs, a minute or two), and *time* is the wrong trigger, because a
+clock keeps discarding a warm store somebody is still using. So `agent-ws-workspace
+gc` sweeps on **size** instead: above 6 GiB (`AGENT_WS_NIX_STORE_MAX_MB`) it runs
+`nix-collect-garbage` and clears `~/.cache/nix`, which the collector does not
+touch and where flake inputs accumulate as a bare git repo. That threshold holds
+a working set of two or three unpacked nixpkgs trees — every container's
+self-pinned `fetchTarball` is another ~600 MiB — while keeping `$HOME` inside the
+PVC's declared 20 Gi, which the local-path provisioner does not enforce for us.
+
+It rides the existing `gc` verb rather than a CronJob or a timer: the PVC is RWO
+and the Deployment is `Recreate` precisely to keep a second writer off it, and
+`gc` already runs at pod boot and at every session start — often enough for a
+cache that grows by the eval.
+
 The boundary is elsewhere, and worth stating because "let the agent run nix"
 *sounds* like it touches it. Nothing this store produces can reach ringtail:
 the host's `/nix` is not mounted into the pod (the only hostPath is the heph

@@ -110,6 +110,9 @@ let
   # not a boundary — the boundary is that nothing this store produces can reach
   # ringtail: the host's /nix is not mounted into the pod (the only hostPath is
   # the heph socket dir), and there is no remote builder to push to.
+  #
+  # Nothing here ever creates a GC root, so the store is pure cache: it is swept
+  # on size by `agent-ws-workspace gc` (pod boot, and every session start).
   nixStateDir = "/home/agent/.local/state/nix";
   nixConfDir = pkgs.writeTextDir "nix.conf" ''
     experimental-features = nix-command flakes
@@ -205,7 +208,8 @@ let
   #
   #   agent-ws-workspace sync   fetch + fast-forward the pool onto canonical main
   #   agent-ws-workspace init   per-repo sync, then this session's worktrees
-  #   agent-ws-workspace gc     reap worktrees whose session has ended
+  #   agent-ws-workspace gc     reap worktrees whose session has ended, and
+  #                             sweep the nix eval store if it has grown
   #
   # `init` is the SessionStart hook (seeded into ~/.claude/settings.json by the
   # entrypoint); the entrypoint also runs `sync` then `gc` once at pod boot.
@@ -223,6 +227,11 @@ let
     SESSIONS="$HOME/code/sessions"
     GC_AGE_DAYS="''${AGENT_WS_GC_AGE_DAYS:-7}"
     GC_LOCK_MAX_DAYS="''${AGENT_WS_GC_LOCK_MAX_DAYS:-30}"
+    # Sweep the eval store above this. Sized to hold a working set of two or
+    # three unpacked nixpkgs trees (~600MiB each — every container's self-pinned
+    # fetchTarball is another one) while keeping $HOME inside the PVC's declared
+    # 20Gi, which the local-path provisioner does not enforce for us.
+    NIX_STORE_MAX_MB="''${AGENT_WS_NIX_STORE_MAX_MB:-6144}"
 
     warn() { echo "agent-ws-workspace: $*" >&2; }
 
@@ -317,6 +326,8 @@ let
     }
 
     cmd_gc() {
+      nix_store_gc
+
       agents="$POOL/agents"
       [ -d "$agents/.git" ] || return 0
 
@@ -342,6 +353,26 @@ let
       for entry in $REPOS; do
         git -C "$POOL/''${entry%%:*}" worktree prune 2>/dev/null || true
       done
+    }
+
+    # The eval store has no GC roots to age out: nothing here runs `nix-build -o
+    # result`, and an instantiate's temp roots die with the process. So a sweep
+    # is all-or-nothing — it empties the store and the next eval re-fetches
+    # nixpkgs (a minute or two). Size is therefore the only sane trigger: sweep
+    # when it has grown enough to matter, rather than on a clock that keeps
+    # throwing away a warm store somebody is still using.
+    nix_store_gc() {
+      store="''${NIX_STORE_DIR:-$HOME/.local/state/nix/store}"
+      [ -d "$store" ] || return 0
+      size_mb="$(du -sm "$store" 2>/dev/null | cut -f1)" || return 0
+      [ "''${size_mb:-0}" -gt "$NIX_STORE_MAX_MB" ] 2>/dev/null || return 0
+
+      warn "nix eval store is ''${size_mb}MiB (>''${NIX_STORE_MAX_MB}) — collecting"
+      ${pkgs.nix}/bin/nix-collect-garbage >/dev/null 2>&1 \
+        || warn "nix-collect-garbage failed (continuing)"
+      # Not covered by nix-collect-garbage: the fetcher caches, where flake
+      # inputs land as a bare git repo that only ever grows.
+      rm -rf "$HOME/.cache/nix"
     }
 
     cmd_sync() {
