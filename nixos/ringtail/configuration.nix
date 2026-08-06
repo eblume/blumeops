@@ -747,13 +747,14 @@ in
     };
 
     # Privileged-workflow runner ([[warrant-approval-gated-runs]] Phase 2).
-    # Dispatch-only privileged jobs (argocd-deploy today, provision-* later)
-    # run here as a sandboxed systemd DynamicUser instead of host-mode as
-    # erichblume on indri — a hostile job compromises this sandbox, not the
+    # Dispatch-only privileged jobs (argocd-deploy, deploy-fly, provision-*
+    # later) run here as a sandboxed systemd DynamicUser instead of host-mode
+    # as erichblume on indri — a hostile job compromises this sandbox, not the
     # forge owner's account. Same instance-global registration token as the
     # nix builder. argocd comes from nixpkgs (verify CLI/server skew against
     # service-versions.yaml on upgrade; the workflow falls back to mise x on
-    # runners that lack a system argocd).
+    # runners that lack a system argocd). flyctl (deploy-fly) builds via
+    # Fly.io's remote builders, so it needs no docker in the sandbox.
     instances.priv = {
       enable = true;
       name = "ringtail-priv-runner";
@@ -762,7 +763,7 @@ in
       labels = [ "priv:host" ];
       hostPackages = with pkgs; [
         bash coreutils curl gawk gitMinimal gnused jq nodejs wget
-        argocd
+        argocd flyctl
       ];
       settings = {
         log.level = "info";

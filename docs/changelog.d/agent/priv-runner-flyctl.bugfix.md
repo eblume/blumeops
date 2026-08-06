@@ -1,0 +1,1 @@
+The ringtail-priv-runner now carries `flyctl` in its hostPackages, fixing the first warrant-dispatched `deploy-fly` run (run 738: `flyctl: command not found`, exit 127 before any deploy action). The deploy-fly workflow header no longer claims the indri runner advertises `priv` — that was stale; the dedicated Phase-2 runner had already landed.
