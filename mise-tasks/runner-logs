@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
 # ///
-#MISE description="[human] List recent Forgejo Actions runs or fetch logs for a specific job"
+#MISE description="List recent Forgejo Actions runs or fetch logs for a specific job"
 #USAGE arg "[run_number]" help="Run number to show jobs for (omit to list recent runs)"
 #USAGE flag "--job -j <job>" help="Job index (0-based) to fetch logs for"
 #USAGE flag "--runner -r <runner>" help="Filter listing by runner: indri, ringtail, or all"
@@ -32,7 +32,11 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-FORGE_URL = "https://forge.ops.eblu.me"
+# The public host, as request-run and verify-runs use. forge.ops.eblu.me is the
+# tailnet name and is reachable from an agent pod only through the SOCKS proxy,
+# which plain httpx cannot speak — the symptom was a bare "Connection refused"
+# that reads like the forge is down.
+FORGE_URL = "https://forge.eblu.me"
 FORGE_API = f"{FORGE_URL}/api/v1"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
 
@@ -44,42 +48,65 @@ app = typer.Typer(add_completion=False)
 
 
 def resolve_token(explicit_token: str | None, console: Console) -> str:
-    """Resolve Forgejo API token: explicit flag > FORGEJO_TOKEN env > 1Password."""
+    """Resolve Forgejo API token: explicit flag > FORGEJO_TOKEN env > 1Password.
+
+    The `op` call is bounded on every axis. It misparses non-TTY stdin as an
+    item template, so inheriting the parent's stdin makes it block forever on
+    whatever happens to be there; a timeout keeps even an unforeseen stall
+    finite; and a failed read reports what to do instead of a traceback.
+    """
     if explicit_token:
         return explicit_token
     env_token = os.environ.get("FORGEJO_TOKEN", "").strip()
     if env_token:
         return env_token
     console.print("[dim]Reading Forgejo API token from 1Password...[/dim]")
-    result = subprocess.run(
-        ["op", "read", OP_TOKEN_REF],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    try:
+        result = subprocess.run(
+            ["op", "read", OP_TOKEN_REF],
+            capture_output=True,
+            text=True,
+            check=True,
+            stdin=subprocess.DEVNULL,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        console.print("[red]op read timed out after 30s.[/red]")
+        console.print("Pass --token, or set FORGEJO_TOKEN.")
+        raise typer.Exit(1) from None
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        detail = getattr(exc, "stderr", "") or str(exc)
+        console.print(f"[red]Could not read the token from 1Password: {detail.strip()}[/red]")
+        console.print("Pass --token, or set FORGEJO_TOKEN.")
+        raise typer.Exit(1) from exc
     return result.stdout.strip()
 
 
 def detect_repo_from_git() -> str | None:
-    """Sniff owner/repo from the git remote 'origin' URL."""
-    try:
-        result = subprocess.run(
-            ["git", "remote", "get-url", "origin"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-    url = result.stdout.strip()
-    # Match SSH (git@host:owner/repo.git) or HTTPS (https://host/owner/repo.git)
-    m = re.search(r"[/:]([^/]+/[^/]+?)(?:\.git)?$", url)
-    if not m:
-        return None
-    candidate = m.group(1)
-    # Only use it if the remote points at our forge
-    if "forge.ops.eblu.me" in url or "forge.eblu.me" in url:
-        return candidate
+    """Sniff owner/repo from a git remote, preferring `upstream` over `origin`.
+
+    Under the fork model an agent clone's `origin` is the bot's fork, which has
+    no Actions of its own — asking it for runs yields a bare 404. Canonical is
+    `upstream`, and that is where the runs are. On a plain clone there is no
+    `upstream` and `origin` already is canonical, so the preference is a no-op.
+    """
+    for remote in ("upstream", "origin"):
+        try:
+            result = subprocess.run(
+                ["git", "remote", "get-url", remote],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            continue
+        url = result.stdout.strip()
+        # Only use it if the remote points at our forge
+        if "forge.ops.eblu.me" not in url and "forge.eblu.me" not in url:
+            continue
+        # Match SSH (git@host:owner/repo.git) or HTTPS (https://host/owner/repo.git)
+        if m := re.search(r"[/:]([^/]+/[^/]+?)(?:\.git)?$", url):
+            return m.group(1)
     return None
 
 

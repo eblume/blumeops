@@ -153,6 +153,10 @@ Check tailscale serve: `ssh indri 'tailscale serve status --json'`
 mise run container-list                       # show images/tags
 mise run container-release <name> <version>   # tag and build
 ```
+`container-list` reads `registry.ops.eblu.me`, which is tailnet-only. From an
+agent pod, route it through the sidecar — `ALL_PROXY=socks5://localhost:1055
+mise run container-list`. Without it the task now fails loudly rather than
+reporting every container as untagged.
 **New services should use locally built containers** (Nix `dockerTools`,
 pulled from `registry.ops.eblu.me` with source mirrored on
 forge.ops.eblu.me) for supply-chain control. This is guidance for new work,

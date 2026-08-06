@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.26.7"]
 # ///
 #MISE description="List available containers and their recent tags"
 #USAGE arg "[name]" help="Optional container name to filter output"
@@ -57,20 +57,23 @@ def sha_hint(tag: str) -> str:
         return "[yellow]\\[branch][/yellow]"
 
 
-def get_tags(image: str) -> list[str]:
-    """Query zot registry for version tags."""
+def get_tags(image: str) -> list[str] | None:
+    """Version tags for `image`, or None if the registry could not be reached.
+
+    The distinction is the whole point. Collapsing both onto `[]` reports "no
+    tags", and "this container has never been built" is a confident answer to a
+    question we never got to ask — from an agent pod that was every container,
+    every time. A 404 does genuinely mean no such repository, so that stays [].
+    """
     try:
-        resp = httpx.get(
-            f"https://{REGISTRY}/v2/{image}/tags/list", timeout=10
-        )
+        resp = httpx.get(f"https://{REGISTRY}/v2/{image}/tags/list", timeout=10)
+        if resp.status_code == 404:
+            return []
         resp.raise_for_status()
         tags = resp.json().get("tags", [])
-        return sorted(
-            [t for t in tags if re.match(r"^v[0-9]", t)],
-            key=lambda t: t,
-        )
     except (httpx.HTTPError, ValueError):
-        return []
+        return None
+    return sorted(t for t in tags if re.match(r"^v[0-9]", t))
 
 
 def discover_containers() -> list[dict]:
@@ -104,23 +107,37 @@ def main(
 
     tag_count = 10 if name else 4
 
+    unreachable = 0
     for c in containers:
         image = f"blumeops/{c['name']}"
         tags = get_tags(image)
-        recent = tags[-tag_count:] if tags else []
 
         console.print(f"[bold]{c['name']}[/bold]")
         console.print(f"   Image: {REGISTRY}/{image}")
         console.print(f"   Path:  {c['path']}")
 
-        if recent:
+        if tags is None:
+            unreachable += 1
+            console.print("   Recent tags: [red]registry unreachable[/red]")
+        elif tags:
             console.print("   Recent tags:")
-            for tag in recent:
-                hint = sha_hint(tag)
-                console.print(f"     - {tag} {hint}")
+            for tag in tags[-tag_count:]:
+                console.print(f"     - {tag} {sha_hint(tag)}")
         else:
             console.print("   Recent tags: [dim](none)[/dim]")
         console.print()
+
+    if unreachable:
+        console.print(
+            f"[red]{unreachable} of {len(containers)} could not be queried — "
+            f"tag lists above are missing, not empty.[/red]"
+        )
+        console.print(
+            f"[dim]{REGISTRY} is tailnet-only. From an agent pod, route through "
+            f"the sidecar:[/dim]\n"
+            f"  ALL_PROXY=socks5://localhost:1055 mise run container-list"
+        )
+        raise typer.Exit(1)
 
     console.print("[dim]---[/dim]")
     console.print(
