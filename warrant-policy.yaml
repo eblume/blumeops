@@ -42,6 +42,13 @@ actions:
         required: false
         pattern: "^[0-9a-f]{40}$"
 
+  deploy-fly.yaml:
+    class: warrant
+    inputs:
+      revision:
+        required: true
+        pattern: "^(main|[0-9a-f]{40})$"
+
   # Gated until the blumeops-ci vault split and priv-runner hardening land
   # (Phase 2) — the largest-blast-radius scripts in the repo.
   provision-indri.yaml:

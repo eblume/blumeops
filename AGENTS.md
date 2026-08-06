@@ -81,7 +81,7 @@ It validates the request against `warrant-policy.yaml` **on main**
 (unknown or `class: deny` actions are refused at request time), then records
 it as a PR comment, a heph task, and an entry in the approval queue. A human
 approves in Warrant, which dispatches the workflow. Requestable today:
-`argocd-deploy.yaml`, `build-container.yaml`.
+`argocd-deploy.yaml`, `build-container.yaml`, `deploy-fly.yaml`.
 
 `mise run verify-runs` closes the loop afterwards; `mise run agent-health`
 checks the fleet without cluster access. Adding a new privileged workflow

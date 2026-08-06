@@ -62,7 +62,8 @@ a note** — the queue records intent to execute, not history.
 - **Rotate the dispatch PAT**: `mise run warrant-bot-provision -- --rotate`
   (gilbert; needs an ephemeral `write:admin` token, see the script).
 - **Scope**: only actions with `class: warrant` in `warrant-policy.yaml` are
-  requestable — today `argocd-deploy.yaml`, `build-container.yaml`.
+  requestable — today `argocd-deploy.yaml`, `build-container.yaml`,
+  `deploy-fly.yaml`.
   `provision-*` is `class: deny` (see [[blumeops-ci-item-migration]]).
 - **Test it**: `mise run warrant-test` — unit tests over
   `containers/warrant/app/main.py`. No forge token, cluster, or vault, so it
