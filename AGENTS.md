@@ -95,15 +95,35 @@ See [[request-a-privileged-run]], [[warrant]], and
 
 ### Kubernetes (ArgoCD)
 
-All Kubernetes workloads (including ArgoCD itself) run on ringtail's k3s cluster via ArgoCD (app-of-apps, manual sync).
+All Kubernetes workloads (including ArgoCD itself) run on ringtail's k3s cluster via ArgoCD (app-of-apps).
+
+**Workload apps sync themselves.** A manifest change merged to `main` reaches
+the cluster on its own, within ArgoCD's reconciliation interval — the PR review
+and merge *are* the gate ([[argocd#Sync Policy]]). **Do not follow a merge with
+a deploy.** It is not merely redundant: you are racing the auto-sync your own
+merge started, and `argocd app set` loses that race with `another operation is
+already in progress`.
+
+Four applications are **manual** by design, each with its reason stated in its
+manifest: `apps`, `argocd`, `cloudnative-pg-ringtail`,
+`external-secrets-crds-ringtail`. Those are the ones that do need an explicit
+deploy after merge.
 
 **PR workflow:**
 1. Create branch, modify `argocd/manifests/<service>/`
-2. Push. Sync 'apps' app if service definition changed (set --revision to branch).
-3. Test on branch: `argocd app set <service> --revision <branch> && argocd app sync <service>`
-4. After merge: `argocd app set <service> --revision main && argocd app sync <service>`
+2. Push. Sync the `apps` app if the Application definition itself changed.
+3. Optional, to test before merging: `argocd app set <service> --revision <branch> && argocd app sync <service>`
+4. Merge. An auto-sync app deploys itself. Only if you pinned in step 3, undo
+   it: `argocd app set <service> --revision main`
 
 **Commands:** `argocd app list|get|diff|sync <app>`
+
+**From an agent session** none of the above is available — there is no `argocd`
+binary in the pod and no cluster access. The only path is `mise run request-run
+argocd-deploy.yaml …` (see §Privileged actions), and it is warranted for one of
+three reasons: one of the four manual apps, pinning an application to a
+revision, or undoing such a pin. If you are reaching for it because you just
+merged a manifest, stop — that deploy has already happened.
 
 **Login:** `argocd login argocd.ops.eblu.me --sso` (opens browser for Authentik SSO). Admin fallback for break-glass: `argocd login argocd.ops.eblu.me --username admin --password "$(op read 'op://vg6xf6vvfmoh5hqjjhlhbeoaie/srogeebssulhtb6tnqd7ls6qey/password')"`
 

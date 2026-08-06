@@ -107,7 +107,11 @@ images:
     newTag: vX.Y.Z-abc1234-nix
 ```
 
-Then deploy per [[deploy-k8s-service]].
+Make that edit **in the same PR as the commit you built from** — see the merge
+strategy below. For an auto-syncing application, merging *is* the deploy; there
+is no step after it. The four manual applications are the exception
+([[argocd#Sync Policy]]); [[deploy-k8s-service]] covers standing a service up
+for the first time.
 
 ### Container tags and merge strategy
 
