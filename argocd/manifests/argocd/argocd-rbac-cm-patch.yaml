@@ -24,6 +24,15 @@ data:
     # application state" step — its audit record — is denied. Scoped `*`
     # rather than `default` so a new project cannot silently reopen that
     # hole; reading project metadata grants nothing on its own.
+    #
+    # THIS GRANT HAS A VERSION FLOOR. Under CVE-2025-55190 (CVSS 10.0) this
+    # exact permission leaked repository and cluster credentials — here, the
+    # forge SSH private key in `repo-creds-forge` — through
+    # /api/v1/projects/{project}/detailed, which returned them unsanitized.
+    # Fixed in 3.1.2 / 3.0.14 / 2.14.16 / 2.13.9; we pin v3.3.12. Scoping to
+    # `default` would not have helped: the leak was in the project every
+    # application already uses. Do not roll ArgoCD back below 3.1.2 while
+    # this line exists.
     p, role:workflow-bot, projects, get, *, allow
     g, workflow-bot, role:workflow-bot
     g, admins, role:admin
