@@ -1,6 +1,6 @@
 ---
 title: "Warrant: Approval-Gated Privileged Runs"
-modified: 2026-08-05
+modified: 2026-08-06
 last-reviewed: 2026-08-02
 tags:
   - explanation
@@ -304,6 +304,15 @@ to mirror into heph wholesale.
   SHA, dispatcher, outcome) as a `heph log` entry on a standing
   "Privileged runs" heph task, via the hub on indri:8787. Also a weekly ntfy
   digest of runs + pending requests, so nothing silently rots.
+- **Drift verification for the dispatch identity** (done). `warrant-bot` is
+  minted by a human on gilbert precisely so that granting a persistent
+  privileged identity stays a ceremony — but a ceremony's *result* can be
+  undone in the forge UI in five seconds, and none of it is version-controlled
+  here, so no diff would ever show it. `mise run warrant-bot-drift` asserts the
+  four facts that bound the blast radius (exactly write, blumeops only, not a
+  site admin, not on `main`'s whitelist) and runs weekly. Read-only by
+  construction: creating the credential and checking it are opposite kinds of
+  operation and should not share a credential, let alone a job.
 
 ### Phase 3 — The Warrant broker (the go-big destination)
 
