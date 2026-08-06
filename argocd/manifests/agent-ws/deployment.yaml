@@ -88,13 +88,19 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 15
             failureThreshold: 6
+          # memory limit sized for a full NixOS evaluation (~2-3Gi peak) sharing
+          # the cgroup with claude. At 4Gi the cgroup OOM killer picks the
+          # largest process, which is usually nix — but not reliably, and the
+          # other candidate is claude, whose death restarts the container and
+          # takes the session with it. Requests are unchanged, so this costs
+          # nothing at scheduling time.
           resources:
             requests:
               cpu: 250m
               memory: 1Gi
             limits:
               cpu: "2"
-              memory: 4Gi
+              memory: 6Gi
           volumeMounts:
             - name: home
               mountPath: /home/agent

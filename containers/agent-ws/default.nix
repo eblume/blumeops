@@ -32,7 +32,7 @@ let
   # requires a `version = "…"` to form v<version>-<sha>-nix). There is no
   # upstream version to track — claude self-installs at pod-start — so bump this
   # by hand when the baked toolchain changes meaningfully.
-  version = "0.14.0";
+  version = "0.15.0";
 
   # ── the repo pool, from ./repos.json ──────────────────────────────────────
   # That file is the single source of truth for BOTH halves of "share a repo
@@ -86,6 +86,41 @@ let
     _1password-cli git openssh coreutils bash cacert tzdata
     gnused gnugrep gnutar gzip which findutils
   ];
+
+  # ── nix, deliberately eval-only ───────────────────────────────────────────
+  # The pod cannot run a real nix build and is not meant to. Two independent
+  # reasons, both measured from inside it: uid 1500 cannot write the image's
+  # root-owned /nix/store (and there is no /nix/var at all), and the
+  # RuntimeDefault seccomp profile refuses CLONE_NEWUSER — so there is no build
+  # sandbox, and no local chroot store either (`--store /path` needs
+  # CAP_SYS_CHROOT, and every capability is dropped).
+  #
+  # What does work is a store relocated into $HOME, which needs none of that:
+  # evaluation, plus the evaluator-side fetchers (builtins.fetchTarball /
+  # fetchGit, nix-prefetch-url), none of which runs a builder. That is exactly
+  # the capability containerization dropped — on the shared host the agent
+  # reached nix at /run/current-system/sw/bin and used it to prove a change
+  # evaluates and to discover a real hash, instead of committing lib.fakeSha256
+  # and burning Build Container rounds to find one.
+  #
+  # Relocating store-dir rewrites every store path's hash, so cache.nixos.org
+  # can never answer for this store: a `nix-build` here would compile the world
+  # from source inside the agent's cgroup. max-jobs = 0 turns that into an
+  # immediate error instead of an hours-long surprise. It is a foot-gun guard,
+  # not a boundary — the boundary is that nothing this store produces can reach
+  # ringtail: the host's /nix is not mounted into the pod (the only hostPath is
+  # the heph socket dir), and there is no remote builder to push to.
+  nixStateDir = "/home/agent/.local/state/nix";
+  nixConfDir = pkgs.writeTextDir "nix.conf" ''
+    experimental-features = nix-command flakes
+    # Nothing in a relocated store can be substituted; asking is pure latency.
+    substituters =
+    # Eval and fetch, never build. Override per-invocation if you truly mean it.
+    max-jobs = 0
+    # No CLONE_NEWUSER in this pod — nix could not set the sandbox up anyway.
+    sandbox = false
+    warn-dirty = false
+  '';
 
   # tea, wrapped to route through the tag:agent SOCKS sidecar. tea only ever
   # contacts the forge (forge.ops.eblu.me), which the pod can reach ONLY via the
@@ -371,7 +406,7 @@ commit: git -C $root/<repo> switch -c agent/<slug>. Push goes to 'origin'
   '';
 
   allTools = baseTools ++ reportTools ++ cliTools ++ buildTools
-    ++ [ heph teaWrapper healthCheck workspace ];
+    ++ [ pkgs.nix heph teaWrapper healthCheck workspace ];
 
   # ── entrypoint ───────────────────────────────────────────────────────────
   # Fuses the host's reposInit + wsRunner + claude-install into one pod entry.
@@ -570,6 +605,15 @@ pkgs.dockerTools.buildLayeredImage {
       "PATH=${lib.makeBinPath allTools}:/home/agent/.local/bin:/home/agent/.cargo/bin:/bin"
       "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
       "TZDIR=${pkgs.tzdata}/share/zoneinfo"
+      # nix's store relocated onto the PVC — the whole of what makes nix usable
+      # here (see the eval-only block above). Set in the image rather than the
+      # entrypoint on purpose: these must hold for every way into the container,
+      # and unlike PATH there is no richer runtime version to layer on top. nix
+      # creates the directories itself on first use.
+      "NIX_STORE_DIR=${nixStateDir}/store"
+      "NIX_STATE_DIR=${nixStateDir}/var/nix"
+      "NIX_LOG_DIR=${nixStateDir}/var/log/nix"
+      "NIX_CONF_DIR=${nixConfDir}"
     ];
     # Matches the agent uid/gid pinned on the host (users.users.agent.uid = 1500).
     User = "1500:1500";
