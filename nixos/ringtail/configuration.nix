@@ -98,12 +98,15 @@ in
   boot.supportedFilesystems = [ "nfs" ];
 
   # Wayland / Sway
+  #
+  # No extraSessionCommands here. The sway that actually runs is
+  # home-manager's wayland.windowManager.sway build, which never executes this
+  # module's session wrapper, so anything exported there silently does
+  # nothing. Sway session environment goes in environment.variables — see
+  # WLR_NO_HARDWARE_CURSORS below.
   programs.sway = {
     enable = true;
     wrapperFeatures.gtk = true;
-    extraSessionCommands = ''
-      export WLR_NO_HARDWARE_CURSORS=1
-    '';
     extraPackages = with pkgs; [
       swaylock
       swayidle
@@ -180,10 +183,17 @@ in
   # Note: this is set via environment.variables rather than
   # programs.sway.extraSessionCommands, because the running sway comes from
   # home-manager's wayland.windowManager.sway and never executes the NixOS
-  # module's session wrapper. (The same gap means the WLR_NO_HARDWARE_CURSORS
-  # export in programs.sway.extraSessionCommands is also inert -- tracked
-  # separately; verify with `tr '\0' '\n' < /proc/$(pgrep -x sway)/environ`.)
+  # module's session wrapper.
   environment.variables.MOZ_ENABLE_WAYLAND = "0";
+
+  # Software cursors under the NVIDIA proprietary driver: wlroots' hardware
+  # cursor path corrupts or drops the pointer there. Lives here for the same
+  # reason MOZ_ENABLE_WAYLAND does — environment.variables reaches the session
+  # via /etc/set-environment, which the home-manager sway actually inherits.
+  #
+  # Verify after a rebuild + fresh login:
+  #   tr '\0' '\n' < /proc/$(pgrep -x sway)/environ | grep WLR_
+  environment.variables.WLR_NO_HARDWARE_CURSORS = "1";
 
   # 1Password (modules handle CLI group/setgid and polkit for GUI integration)
   programs._1password.enable = true;
