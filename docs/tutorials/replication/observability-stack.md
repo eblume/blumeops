@@ -1,7 +1,7 @@
 ---
 title: Observability Stack
-modified: 2026-04-06
-last-reviewed: 2026-04-06
+modified: 2026-08-06
+last-reviewed: 2026-08-06
 tags:
   - tutorials
   - replication
@@ -14,18 +14,29 @@ tags:
 >
 > **Prerequisites:** [[kubernetes-bootstrap|Kubernetes Bootstrap]], [[argocd-config|ArgoCD Config]]
 
-This tutorial walks through deploying metrics, logs, and dashboards for your homelab — because you can't fix what you can't see.
+This tutorial walks through deploying metrics, logs, and traces for your homelab — because you can't fix what you can't see.
 
 ## The Stack
 
-A complete observability solution has three pillars plus a collection layer:
+The three pillars of observability are **metrics, logs, and traces** — three
+independent signals, each answering a question the others can't. Metrics say
+*something is wrong*, logs say *what happened*, traces say *where in the call
+path it happened*. Around them sit two supporting layers: collection (getting
+the signals out of the systems producing them) and presentation (querying and
+alerting once they are stored).
 
-| Component | Purpose | BlumeOps Uses |
-|-----------|---------|---------------|
-| **Metrics** | Numeric measurements over time | [[prometheus]] |
-| **Logs** | Text output from applications | [[loki]] |
-| **Dashboards** | Visualization and alerting | [[grafana]] |
-| **Collection** | Gathering and forwarding data | [[alloy]] |
+| | Component | Purpose | BlumeOps Uses |
+|---|-----------|---------|---------------|
+| Pillar | **Metrics** | Numeric measurements over time | [[prometheus]] |
+| Pillar | **Logs** | Text output from applications | [[loki]] |
+| Pillar | **Traces** | Request paths across services, with timings | [[tempo]] |
+| Layer | **Collection** | Gathering and forwarding all three | [[alloy]] |
+| Layer | **Presentation** | Dashboards, exploration, alerting | [[grafana]] |
+
+Dashboards are not a fourth pillar. Grafana is how you *look at* the pillars,
+not a signal in its own right, and conflating the two hides a real diagnostic
+step: when a panel is empty, you need to know whether the panel or the
+underlying signal is what's missing.
 
 BlumeOps deploys all of these as plain kustomize manifests managed by ArgoCD — no Helm charts. See [[no-helm-policy]] for the rationale and [[observability]] for the full reference.
 
@@ -119,7 +130,29 @@ The config file (`loki-config.yaml`) defines storage, compaction, and retention.
 
 Same pattern as Prometheus — point to `argocd/manifests/loki`, target `monitoring` namespace.
 
-## Step 4: Deploy Grafana
+## Step 4: Deploy Tempo
+
+Tempo stores traces. Same shape as the other two stores: a StatefulSet with
+local storage, no object store or distributed mode needed at homelab scale.
+
+### Write the Manifests
+
+Create `argocd/manifests/tempo/` with a StatefulSet, ConfigMap (`tempo.yaml`),
+and Service. Tempo listens on **3200** (HTTP/query), **9095** (gRPC), and —
+the part that distinguishes it from Prometheus and Loki — accepts trace
+ingest on the OTLP receivers, **4317** (gRPC) and **4318** (HTTP). BlumeOps
+gives it a 10Gi PVC.
+
+Unlike metrics and logs, nothing pushes traces to Tempo by default: a service
+has to be instrumented, or something has to infer spans on its behalf. That is
+the next step's job.
+
+### Create the ArgoCD Application
+
+Same pattern as Prometheus — point to `argocd/manifests/tempo`, target
+`monitoring` namespace.
+
+## Step 5: Deploy Grafana
 
 Grafana provides dashboards, visualization, and alerting.
 
@@ -140,11 +173,27 @@ apiVersion: 1
 datasources:
   - name: Prometheus
     type: prometheus
+    uid: prometheus
     url: http://prometheus.monitoring.svc:9090
     isDefault: true
   - name: Loki
     type: loki
+    uid: loki
     url: http://loki.monitoring.svc:3100
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    url: http://tempo.monitoring.svc:3200
+    jsonData:
+      # Correlation is the payoff for having all three pillars in one place:
+      # jump from a slow span to that request's logs, or to its RED metrics.
+      # Both need the OTHER datasource's uid, which is why they are pinned
+      # above rather than left auto-generated.
+      tracesToLogsV2:
+        datasourceUid: loki
+        filterByTraceID: true
+      tracesToMetrics:
+        datasourceUid: prometheus
 ```
 
 ### Secrets
@@ -155,7 +204,7 @@ Grafana's admin password and any OAuth credentials (for [[authentik]] SSO) shoul
 
 BlumeOps exposes Grafana at `grafana.ops.eblu.me` through [[caddy]] on [[indri]], which reverse-proxies to the Kubernetes service via its Tailscale Ingress endpoint. This is the standard pattern for all services — see [[routing]] for details.
 
-## Step 5: Deploy Alloy
+## Step 6: Deploy Alloy
 
 Grafana Alloy is a unified telemetry collector that replaces multiple agents (Promtail, node_exporter, etc.). BlumeOps runs Alloy in **two places** — it is not optional; it's the glue that connects everything.
 
@@ -183,12 +232,40 @@ The host Alloy collects:
 
 It pushes to the same Prometheus and Loki endpoints via `*.ops.eblu.me`.
 
+### For Traces (a second DaemonSet)
+
+Traces are the one pillar you can't get by scraping. Normally a service must
+be instrumented with an OpenTelemetry SDK — a code change per service, which
+is a non-starter for a homelab full of third-party images.
+
+BlumeOps sidesteps that with **Beyla**, Grafana's eBPF auto-instrumentation:
+it watches syscalls in the kernel and synthesizes spans for HTTP traffic
+without touching the application. That buys traces from software you don't
+control, at the cost of a **privileged** DaemonSet — a real trade, and the
+reason this runs as its own `alloy-tracing` workload rather than being folded
+into the collector above.
+
+Create `argocd/manifests/alloy-tracing/` with a DaemonSet, RBAC, and a
+`config.alloy` that:
+
+- runs `beyla.ebpf` with a port range to watch and an **exclude list** for
+  things you don't want spans from (the observability stack itself, above all
+   — instrumenting your tracing pipeline with your tracing pipeline produces a
+  feedback loop)
+- pipes spans through `otelcol.processor.batch` and an `attributes` processor
+  that stamps the cluster name
+- exports via `otelcol.exporter.otlphttp` to Tempo's OTLP endpoint
+
+Start the exclude list broad and narrow it. Every excluded service is a blind
+spot, but an over-eager Beyla on a busy node is a real CPU cost.
+
 ## What You Now Have
 
 - **Prometheus** scraping metrics from all services
 - **Loki** aggregating logs from all pods and host services
-- **Grafana** with declarative dashboards and data sources
-- **Alloy** collecting from both Kubernetes and the host
+- **Tempo** storing traces, auto-generated by Beyla without instrumenting anything
+- **Grafana** with declarative dashboards, data sources, and trace↔log↔metric correlation
+- **Alloy** collecting all three signals, from both Kubernetes and the host
 - A foundation for alerting via Grafana Unified Alerting
 
 ## Adding Alerts
@@ -235,5 +312,6 @@ data:
 - [[alloy]] — Alloy collector reference
 - [[prometheus]] — Prometheus reference
 - [[loki]] — Loki reference
+- [[tempo]] — Tempo reference
 - [[grafana]] — Grafana reference
 - [[routing]] — Service routing and exposure
