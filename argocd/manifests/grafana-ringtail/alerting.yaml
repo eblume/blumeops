@@ -97,7 +97,7 @@ groups:
         execErrState: Alerting
         annotations:
           summary: >-
-            Metrics textfile {{ index $labels "file" }} has not been updated in over 1 hour
+            Metrics textfile {{ index $labels "file" }} has not been updated in over 2 hours
           runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-textfile-stale
         labels:
           severity: warning
@@ -137,7 +137,12 @@ groups:
                 - evaluator:
                     type: gt
                     params:
-                      - 3600
+                      # 2h, not 1h. borgmatic.prom is written by an HOURLY
+                      # LaunchAgent, so a 1h threshold equals its refresh
+                      # period: any scheduling jitter makes it "stale" for a
+                      # moment every single hour. The five continuously-written
+                      # textfiles sit at 20-50s, so they lose nothing here.
+                      - 7200
                   operator:
                     type: and
               refId: C
