@@ -63,18 +63,31 @@ spec:
           # WAN blip as a process but never re-dial Anthropic — a crash already
           # self-heals via container restart, a zombie sat "healthy" for 6h.
           # agent-ws-health (baked into the image) passes iff some claude
-          # process holds an ESTABLISHED TCP conn. Generous timing: boot can
-          # spend minutes on clones + the claude installer before remote-control
-          # starts, and a container-only restart is cheap (PVC + ts sidecar and
-          # its tailnet identity survive) — so ~10min of confirmed zombie
-          # before kubelet recycles us.
+          # process holds an ESTABLISHED TCP conn.
+          #
+          # Boot grace lives in the startupProbe: pod start can spend many
+          # minutes on repo clones + the claude installer before remote-control
+          # dials out, and on a cold PVC longer still. Liveness doesn't run
+          # until startup has passed once, so it can be tight.
+          startupProbe:
+            exec:
+              command: ["agent-ws-health"]
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 40 # up to ~20min to first connection
+          # Steady-state: zombies recur ~3x/day (WAN blips) and the 2026-08-06
+          # incident showed the old ~10min window is long enough for a human to
+          # notice the workspace "offline" first. A container-only restart is
+          # cheap (PVC + ts sidecar and its tailnet identity survive), so
+          # confirm a zombie for only ~3min before kubelet recycles us. During
+          # a real WAN outage this loops the container until the WAN returns —
+          # accepted; restarts are local and re-register cleanly.
           livenessProbe:
             exec:
               command: ["agent-ws-health"]
-            initialDelaySeconds: 300
-            periodSeconds: 60
+            periodSeconds: 30
             timeoutSeconds: 15
-            failureThreshold: 10
+            failureThreshold: 6
           resources:
             requests:
               cpu: 250m
