@@ -1,7 +1,7 @@
 ---
 title: Warrant
-modified: 2026-08-04
-last-reviewed: 2026-08-04
+modified: 2026-08-06
+last-reviewed: 2026-08-06
 tags:
   - service
   - ai
@@ -64,6 +64,24 @@ a note** — the queue records intent to execute, not history.
 - **Scope**: only actions with `class: warrant` in `warrant-policy.yaml` are
   requestable — today `argocd-deploy.yaml`, `build-container.yaml`.
   `provision-*` is `class: deny` (see [[blumeops-ci-item-migration]]).
+- **Test it**: `mise run warrant-test` — unit tests over
+  `containers/warrant/app/main.py`. No forge token, cluster, or vault, so it
+  runs from an agent pod as readily as from gilbert.
+
+## Run attribution
+
+The run a warrant names comes from the dispatch itself. Forgejo's dispatch
+endpoint answers 204 with no body by default, but with `return_run_info: true`
+in the request body it answers **201** naming the run it created — so there is
+nothing to infer, and no window in which an unrelated run could be taken for
+ours.
+
+A dispatch that answers any other way — 204 from a forge that ignores the
+flag, or a body carrying no run number — leaves `run_number` null and links
+the workflow's run list. That is the intended outcome, not a degraded one: a
+warrant asserts that a human authorized a *specific* run (invariant 5), so a
+confidently wrong link is worse than an honest absence. `dispatched_at` is
+recorded alongside, which makes a bad link falsifiable after the fact.
 
 ## Known gaps
 
