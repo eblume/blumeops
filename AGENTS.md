@@ -40,6 +40,10 @@ need to confirm through biometric approval.
     Types: `feature`, `bugfix`, `infra`, `doc`, `ai`, `misc`
     - **Feature branch/PR** Use branch name: `<branch>.<type>.md`
     - **Direct to main:** Use orphan prefix: `+<descriptive-slug>.<type>.md` (avoids `main.*` collisions)
+    - **Flatten slashes to dashes**: branch `agent/foo` → `agent-foo.<type>.md`,
+      never `agent/foo.<type>.md`. Towncrier reads flat files only and skips
+      subdirectories silently, so a nested fragment is simply lost.
+      `mise run changelog-check` catches it, and **Docs Checks** runs on every PR.
 5. Create, use, and modify forgejo workflows to enforce PR validity.
 6. **Verify deployments** - `mise run agent-health` (Grafana alert state; works
    from anywhere). For anything alerts don't answer — restart counts, pod ages,
