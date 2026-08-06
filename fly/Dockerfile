@@ -13,8 +13,8 @@ RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
     && apk add --no-cache fail2ban \
     && rm -f /etc/fail2ban/jail.d/alpine-ssh.conf
 
-# Copy Alloy binary from official image (v1.17.1, Ubuntu-based, needs libc6-compat)
-COPY --from=docker.io/grafana/alloy@sha256:4f6ddc56ffdcf8a6316748fc5162972e20cb301523cac1bb4a31957df733ae9b \
+# Copy Alloy binary from official image (v1.18.0, Ubuntu-based, needs libc6-compat)
+COPY --from=docker.io/grafana/alloy@sha256:491b0578c04983fd54fe99b587b6fab4404dc46d0dc16677bd6b00cc1140b308 \
     /bin/alloy /usr/local/bin/alloy
 
 # Copy Anubis binary from official image (v1.25.0, ko-built static binary
