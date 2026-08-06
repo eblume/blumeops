@@ -7,10 +7,10 @@
 #   mise run request-run deploy-fly.yaml <full-sha> --pr N \
 #       -i revision=<full-sha> [--why ...]
 #
-# runs-on: priv — until the dedicated Phase-2 runner exists, the indri runner
-# advertises `priv` alongside `indri`, so flyctl (provisioned there via mise,
-# see forgejo_runner_host_tools) is available. A future dedicated priv runner
-# must carry flyctl too.
+# runs-on: priv — the ringtail-priv-runner, a sandboxed NixOS runner whose
+# toolbox is the hostPackages list in nixos/ringtail/configuration.nix.
+# flyctl comes from there (nixpkgs); builds go through Fly.io's remote
+# builders, so the sandbox needs no docker.
 #
 # Revision reachability caveat (same as argocd-deploy): checkout fetches from
 # canonical, so a SHA that only exists on the agents fork (pre-merge PR head)
