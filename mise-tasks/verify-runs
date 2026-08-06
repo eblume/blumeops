@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.26.7"]
 # ///
 #MISE description="Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit)"
 """Close the request→approve→run loop: the audit sweep.
@@ -14,6 +14,14 @@ open ones, matches each to its workflow run on the forge, and:
 - run failed     → `heph log` the failure + run URL, LEAVE the task open
                    (a failed approval needs human/agent follow-up)
 - no run yet / still running → leave untouched
+
+Attribution prefers the RECORD over inference: warrant stores the run number
+the forge named in its dispatch response (`return_run_info`), and request-run
+stamps the warrant request id into the heph task, so a task closes against
+the exact run its approval caused. The forge-side heuristic (newest dispatch
+of that workflow after the request was filed) remains only as a fallback —
+for UI-dispatched runs, pre-stamp tasks, or a warrant outage — and closures
+it produces are marked as inferred in the audit log.
 
 Run it from any agent session (`mise run verify-runs`) — it needs heph and
 the bot's forge token, nothing privileged. Idempotent; safe to run anytime.
@@ -34,6 +42,12 @@ from rich.console import Console
 FORGE_API_BASE = "https://forge.eblu.me/api/v1"
 REPO = "eblume/blumeops"
 TITLE_RE = re.compile(r"^Approve: (?P<workflow>\S+) @ (?P<sha7>[0-9a-f]{7}) \(PR #(?P<pr>\d+)\)$")
+
+WARRANT_URL = "https://warrant.ops.eblu.me"
+AUTHENTIK_TOKEN_URL = "https://authentik.ops.eblu.me/application/o/token/"
+SOCKS_FALLBACK = "socks5://localhost:1055"  # agent pod's tailscale sidecar
+# request-run appends this line to each Approve task's context doc.
+WARRANT_ID_RE = re.compile(r"Warrant request: #(\d+)")
 
 console = Console()
 err = Console(stderr=True, style="bold red")
@@ -79,19 +93,82 @@ def recent_runs(client: httpx.Client) -> list[dict]:
     return data.get("workflow_runs") or data
 
 
+def _ops_client() -> httpx.Client:
+    """Client for *.ops.eblu.me: direct on gilbert, SOCKS fallback in-pod."""
+    c = httpx.Client(timeout=15.0, proxy=os.environ.get("ALL_PROXY"))
+    try:
+        c.get(f"{WARRANT_URL}/healthz", timeout=5.0)
+        return c
+    except httpx.TransportError:
+        c.close()
+        return httpx.Client(timeout=15.0, proxy=SOCKS_FALLBACK)
+
+
+def warrant_requests() -> dict[int, dict]:
+    """The recorded request→run links. Warrant stores the run number the
+    forge itself named in the dispatch response (`return_run_info`) — the one
+    attribution that is recorded rather than inferred. Best-effort: any
+    failure here warns and returns {}, degrading the sweep to the forge-side
+    heuristic rather than blocking it."""
+    try:
+        app_pw = subprocess.run(
+            ["op", "read", "op://agents/agents-authentik-sa/app-password"],
+            capture_output=True, text=True, stdin=subprocess.DEVNULL, check=True,
+        ).stdout.strip()
+        with _ops_client() as c:
+            tok = c.post(
+                AUTHENTIK_TOKEN_URL,
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": "agents-m2m",
+                    "username": "agent-ringtail",
+                    "password": app_pw,
+                    "scope": "openid profile",
+                },
+            )
+            tok.raise_for_status()
+            resp = c.get(
+                f"{WARRANT_URL}/api/requests",
+                params={"limit": 100},
+                headers={"Authorization": f"Bearer {tok.json()['access_token']}"},
+            )
+            resp.raise_for_status()
+            return {r["id"]: r for r in resp.json()}
+    except (subprocess.CalledProcessError, httpx.HTTPError, KeyError, OSError) as exc:
+        err.print(f"warrant lookup failed (falling back to forge-side matching): {exc}")
+        return {}
+
+
+def warrant_id_for(task: dict) -> int | None:
+    """The warrant request id request-run stamped into the task's context
+    doc; None for pre-stamp tasks or if heph is unreadable."""
+    result = heph("context", task["node_id"])
+    if result.returncode != 0:
+        return None
+    m = WARRANT_ID_RE.search(result.stdout)
+    return int(m.group(1)) if m else None
+
+
 def match_run(task: dict, runs: list[dict]) -> dict | None:
-    """Newest run of the task's workflow at the task's SHA, started after the
-    request was filed (epoch ms → s). Dispatches always run on main's
-    definition, so head_sha is the payload SHA request-run bound."""
+    """Forge-side FALLBACK when no recorded warrant link exists. A dispatched
+    run's head_sha is the main tip at dispatch time, not the payload SHA the
+    request bound — the two coincide only while the payload is the tip. So:
+    prefer a head_sha match when one exists, else the newest workflow_dispatch
+    run of that workflow started after the request was filed (epoch ms → s).
+    This is inference; the caller marks its closures as such."""
     filed_at = (task.get("created_at") or 0) / 1000
+
+    def started(r: dict) -> float:
+        return _epoch(r.get("run_started_at") or r.get("created_at") or "")
+
     candidates = [
         r
         for r in runs
-        if r.get("workflow_id") == task["workflow"]
-        and (r.get("head_sha") or "").startswith(task["sha7"])
-        and _epoch(r.get("run_started_at") or r.get("created_at") or "") >= filed_at - 60
+        if r.get("workflow_id") == task["workflow"] and started(r) >= filed_at - 60
     ]
-    return max(candidates, key=lambda r: r["run_number"]) if candidates else None
+    exact = [r for r in candidates if (r.get("head_sha") or "").startswith(task["sha7"])]
+    pool = exact or [r for r in candidates if r.get("event") == "workflow_dispatch"]
+    return max(pool, key=lambda r: r["run_number"]) if pool else None
 
 
 def _epoch(iso: str) -> float:
@@ -114,12 +191,35 @@ def main(
     token = forge_token()
     with httpx.Client(headers={"Authorization": f"token {token}"}, timeout=30.0) as client:
         runs = recent_runs(client)
+    warrants = warrant_requests()
 
     closed = failed = pending = 0
     for task in tasks:
         node_id = task["node_id"]
         label = f"{task['workflow']} @ {task['sha7']} (PR #{task['pr']})"
-        run = match_run(task, runs)
+
+        run, via = None, "inferred: newest dispatch after filing"
+        wid = warrant_id_for(task)
+        wrec = warrants.get(wid) if wid else None
+        if wrec and wrec.get("run_number"):
+            via = f"recorded: warrant #{wid}"
+            run = next(
+                (r for r in runs if r.get("run_number") == wrec["run_number"]), None
+            )
+            if run is None:
+                console.print(
+                    f"[yellow]pending[/yellow]  {label} — warrant #{wid} names run "
+                    f"{wrec['run_number']}, which is outside the recent-run window"
+                )
+                pending += 1
+                continue
+        elif wrec and wrec.get("status") == "pending":
+            console.print(f"[yellow]pending[/yellow]  {label} — warrant #{wid} awaits decision")
+            pending += 1
+            continue
+        else:
+            run = match_run(task, runs)
+
         if run is None:
             console.print(f"[yellow]pending[/yellow]  {label} — not dispatched yet")
             pending += 1
@@ -128,14 +228,14 @@ def main(
         status = run.get("status")
         if status == "success":
             if not dry_run:
-                heph("log", node_id, f"AUDIT: run {run['run_number']} succeeded — {url}. Auto-closed by verify-runs.")
+                heph("log", node_id, f"AUDIT: run {run['run_number']} succeeded — {url} ({via}). Auto-closed by verify-runs.")
                 heph("done", node_id)
-            console.print(f"[green]closed[/green]   {label} — run {run['run_number']} succeeded")
+            console.print(f"[green]closed[/green]   {label} — run {run['run_number']} succeeded ({via})")
             closed += 1
         elif status in ("failure", "cancelled"):
             if not dry_run:
-                heph("log", node_id, f"AUDIT: run {run['run_number']} {status} — {url}. Left open for follow-up.")
-            console.print(f"[red]failed[/red]   {label} — run {run['run_number']} {status} (task left open)")
+                heph("log", node_id, f"AUDIT: run {run['run_number']} {status} — {url} ({via}). Left open for follow-up.")
+            console.print(f"[red]failed[/red]   {label} — run {run['run_number']} {status} ({via}; task left open)")
             failed += 1
         else:
             console.print(f"[yellow]running[/yellow]  {label} — run {run['run_number']} {status}")

@@ -84,6 +84,12 @@ warrant asserts that a human authorized a *specific* run (invariant 5), so a
 confidently wrong link is worse than an honest absence. `dispatched_at` is
 recorded alongside, which makes a bad link falsifiable after the fact.
 
+Since v0.3.4, `GET /api/requests` serializes each request's latest warrant
+(`decision`, `decided_by`, `run_number`, `run_url`, `dispatched_at`) so the
+recorded link is consumable outside the database — `mise run verify-runs`
+uses it to close approval tasks against the exact run their approval caused,
+falling back to forge-side inference only for UI-dispatched runs.
+
 ## Known gaps
 
 - **UI ergonomics** — keyboard patterns, filtering, search, embedded diff

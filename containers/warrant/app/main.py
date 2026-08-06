@@ -56,7 +56,7 @@ PUBLIC_URL = os.environ.get("WARRANT_PUBLIC_URL", "https://warrant.ops.eblu.me")
 SESSION_COOKIE = "warrant_session"
 SESSION_TTL = 8 * 3600
 
-app = FastAPI(title="warrant", version="0.3.3")
+app = FastAPI(title="warrant", version="0.3.4")
 _jwks_client: jwt.PyJWKClient | None = None
 _human_jwks_client: jwt.PyJWKClient | None = None
 
@@ -290,12 +290,20 @@ def create_request(
 
 @app.get("/api/requests")
 def list_requests(status: str | None = None, limit: int = 50) -> list[dict]:
-    q = "SELECT * FROM requests"
+    # Each request carries its latest warrant's decision and run attribution.
+    # run_number/run_url are what the forge NAMED in the dispatch response
+    # (return_run_info) — a recorded link, never inferred from the run list —
+    # so auditors like `mise run verify-runs` can close the loop from record.
+    q = (
+        "SELECT r.*, w.decision, w.decided_by, w.run_number, w.run_url,"
+        " w.dispatched_at FROM requests r LEFT JOIN warrants w ON w.id ="
+        " (SELECT id FROM warrants WHERE request_id = r.id ORDER BY id DESC LIMIT 1)"
+    )
     args: list = []
     if status:
-        q += " WHERE status = ?"
+        q += " WHERE r.status = ?"
         args.append(status)
-    q += " ORDER BY id DESC LIMIT ?"
+    q += " ORDER BY r.id DESC LIMIT ?"
     args.append(min(limit, 500))
     with db() as conn:
         return [dict(r) for r in conn.execute(q, args).fetchall()]
