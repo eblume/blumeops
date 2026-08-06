@@ -14,6 +14,11 @@ from the agent pod (SOCKS fallback via the tailscale sidecar). Credentials:
 the `agents` vault only (`agents-authentik-sa` item) — no privileged access,
 Grafana sees a Viewer.
 
+Anything firing or pending is listed a second time with the labels that say
+*which* instance — which textfile, which camera, which pod. Every runbook in
+docs/how-to/runbooks/ opens by asking for exactly that, so a report without it
+sends the reader back to Grafana before step 1.
+
 Exit codes: 0 all inactive · 1 firing · 2 pending-only (warn).
 """
 
@@ -77,6 +82,37 @@ def mint_token() -> str:
     return resp.json()["access_token"]
 
 
+# Labels every instance carries, or that only restate the rule. Dropping them
+# leaves the ones that actually distinguish one instance from another.
+BOILERPLATE_LABELS = frozenset(
+    {"alertname", "grafana_folder", "__name__", "severity", "service", "job"}
+)
+
+
+def live_instances(rule: dict) -> list[dict]:
+    """The alert instances that are not Normal, with their identifying labels.
+
+    Grafana returns every series the rule evaluates, healthy ones included, so
+    filtering on the instance's own state is what makes this the short list of
+    things actually wrong.
+    """
+    out = []
+    for alert in rule.get("alerts") or []:
+        if (alert.get("state") or "Normal") == "Normal":
+            continue
+        labels = alert.get("labels") or {}
+        identity = ", ".join(
+            f"{k}={v}" for k, v in sorted(labels.items()) if k not in BOILERPLATE_LABELS
+        )
+        out.append({
+            "state": alert.get("state"),
+            "activeAt": alert.get("activeAt"),
+            "identity": identity or "(no distinguishing labels)",
+            "labels": labels,
+        })
+    return out
+
+
 def main(
     as_json: Annotated[bool, typer.Option("--json", help="Machine-readable output")] = False,
 ) -> None:
@@ -88,7 +124,12 @@ def main(
         raise typer.Exit(3)
 
     rules = [
-        {"group": g.get("name"), "name": r.get("name"), "state": r.get("state")}
+        {
+            "group": g.get("name"),
+            "name": r.get("name"),
+            "state": r.get("state"),
+            "instances": live_instances(r),
+        }
         for g in resp.json().get("data", {}).get("groups", [])
         for r in g.get("rules", [])
     ]
@@ -112,6 +153,15 @@ def main(
             f"{len(rules)} rules: {len(firing)} firing, {len(pending)} pending, "
             f"{len(rules) - len(firing) - len(pending)} inactive"
         )
+        # Which one. A rule name says a class of thing is wrong; the instance
+        # labels say which disk, which camera, which textfile — and that is the
+        # first line of every runbook we have.
+        for r in firing + pending:
+            for inst in r["instances"]:
+                console.print(
+                    f"  [bold]{r['name']}[/bold] [{inst['state']}] {inst['identity']}"
+                    + (f" since {inst['activeAt']}" if inst["activeAt"] else "")
+                )
 
     if firing:
         raise typer.Exit(1)
