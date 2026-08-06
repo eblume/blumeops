@@ -1,6 +1,6 @@
 # ArgoCD RBAC ConfigMap patch
 #
-# - workflow-bot: minimal CI/CD permissions (sync, get)
+# - workflow-bot: minimal CI/CD permissions (sync, get, update; project reads)
 # - admins: Authentik admins group mapped to ArgoCD admin role
 # - admin: local break-glass account — keeps ArgoCD admin rights for when
 #   Authentik SSO is unavailable (without this it has no permissions, since
@@ -19,6 +19,21 @@ data:
     # ([[warrant-approval-gated-runs]] Phase 1) — branch/SHA deploys and
     # main-resets are the whole point of that privileged workflow.
     p, role:workflow-bot, applications, update, *, allow
+    # projects/get: `argocd app get` resolves the app's project before it
+    # answers, so without this the argocd-deploy workflow's closing "Report
+    # application state" step — its audit record — is denied. Scoped `*`
+    # rather than `default` so a new project cannot silently reopen that
+    # hole; reading project metadata grants nothing on its own.
+    #
+    # THIS GRANT HAS A VERSION FLOOR. Under CVE-2025-55190 (CVSS 10.0) this
+    # exact permission leaked repository and cluster credentials — here, the
+    # forge SSH private key in `repo-creds-forge` — through
+    # /api/v1/projects/{project}/detailed, which returned them unsanitized.
+    # Fixed in 3.1.2 / 3.0.14 / 2.14.16 / 2.13.9; we pin v3.3.12. Scoping to
+    # `default` would not have helped: the leak was in the project every
+    # application already uses. Do not roll ArgoCD back below 3.1.2 while
+    # this line exists.
+    p, role:workflow-bot, projects, get, *, allow
     g, workflow-bot, role:workflow-bot
     g, admins, role:admin
     g, admin, role:admin
