@@ -56,7 +56,7 @@ PUBLIC_URL = os.environ.get("WARRANT_PUBLIC_URL", "https://warrant.ops.eblu.me")
 SESSION_COOKIE = "warrant_session"
 SESSION_TTL = 8 * 3600
 
-app = FastAPI(title="warrant", version="0.3.2")
+app = FastAPI(title="warrant", version="0.3.3")
 _jwks_client: jwt.PyJWKClient | None = None
 _human_jwks_client: jwt.PyJWKClient | None = None
 
@@ -114,12 +114,15 @@ def init_db() -> None:
                 expires_at REAL NOT NULL,
                 consumed INTEGER NOT NULL DEFAULT 0,
                 run_number INTEGER,
-                run_url TEXT
+                run_url TEXT,
+                dispatched_at REAL
             )"""
         )
         # Added after the table shipped; SQLite has no IF NOT EXISTS for
         # columns, so tolerate the duplicate on already-migrated databases.
-        for column in ("run_number INTEGER", "run_url TEXT"):
+        # `dispatched_at` is what makes a bad run link detectable after the
+        # fact: a run that started before it cannot be the one we caused.
+        for column in ("run_number INTEGER", "run_url TEXT", "dispatched_at REAL"):
             try:
                 conn.execute(f"ALTER TABLE warrants ADD COLUMN {column}")
             except sqlite3.OperationalError:
@@ -362,62 +365,66 @@ def consume_and_dispatch(warrant_id: int) -> dict:
             return {"dispatched": False, "reason": "warrant already consumed"}
         action, inputs, request_id = w["action"], json.loads(w["inputs"]), w["request_id"]
 
-    url = f"{FORGE_API}/repos/{REPO_OWNER}/{REPO_NAME}/actions/workflows/{action}/dispatches"
+    dispatched_at = time.time()
     try:
-        resp = httpx.post(
-            url,
-            headers={"Authorization": f"token {DISPATCH_TOKEN}"},
-            json={"ref": "main", "inputs": inputs},
-            timeout=30.0,
-        )
+        resp = _dispatch(action, inputs)
         ok = resp.status_code in (201, 204)
         detail = "" if ok else f"{resp.status_code}: {resp.text[:200]}"
     except httpx.HTTPError as exc:
-        ok, detail = False, str(exc)
+        ok, resp, detail = False, None, str(exc)
 
     # Failure is terminal: the warrant stays consumed and the request is
     # marked failed. Re-running requires a fresh human decision.
-    run_number, run_url = (_find_run(action) if ok else (None, None))
+    run_number, run_url = (_run_from_dispatch(resp, action) if ok else (None, None))
     with db() as conn:
         conn.execute(
             "UPDATE requests SET status = ? WHERE id = ?",
             ("dispatched" if ok else "dispatch_failed", request_id),
         )
         conn.execute(
-            "UPDATE warrants SET run_number = ?, run_url = ?, note = ? WHERE id = ?",
-            (run_number, run_url,
+            "UPDATE warrants SET run_number = ?, run_url = ?, dispatched_at = ?, "
+            "note = ? WHERE id = ?",
+            (run_number, run_url, dispatched_at,
              w["note"] if ok else (w["note"] + f" | dispatch FAILED: {detail}"),
              warrant_id),
         )
     return {"dispatched": ok, "reason": detail, "run_url": run_url}
 
 
-def _find_run(action: str) -> tuple[int | None, str | None]:
-    """The run this dispatch just created. The dispatch API answers 204 with
-    no body, so the run is identified by polling for the newest run of this
-    workflow. Best-effort: a missing link never fails a successful dispatch,
-    it just leaves the warrant pointing at the workflow's run list."""
+def _dispatch(action: str, inputs: dict) -> httpx.Response:
+    """POST the workflow dispatch.
+
+    ``return_run_info`` is what makes attribution possible at all: without it
+    the endpoint answers 204 with no body and the run we just caused can only
+    be guessed at from the run list. With it, the forge answers 201 and names
+    the run it created. Removing it silently reintroduces the guessing.
+    """
+    return httpx.post(
+        f"{FORGE_API}/repos/{REPO_OWNER}/{REPO_NAME}/actions/workflows/{action}/dispatches",
+        headers={"Authorization": f"token {DISPATCH_TOKEN}"},
+        json={"ref": "main", "inputs": inputs, "return_run_info": True},
+        timeout=30.0,
+    )
+
+
+def _run_from_dispatch(resp: httpx.Response, action: str) -> tuple[int | None, str | None]:
+    """The run this dispatch created, as reported by the dispatch itself.
+
+    A warrant that names a run asserts a human authorized *that* run
+    (invariant 5), so the only acceptable source is the forge's own answer to
+    our POST. Anything else — a 204 from a forge that does not honour
+    ``return_run_info``, a body without a run number — links the workflow's
+    run list and leaves ``run_number`` null. An honest absence is the correct
+    outcome there, and a missing link never fails a successful dispatch.
+    """
     listing = f"https://forge.eblu.me/{REPO_OWNER}/{REPO_NAME}/actions?workflow={action}"
-    for _ in range(6):
-        try:
-            resp = httpx.get(
-                f"{FORGE_API}/repos/{REPO_OWNER}/{REPO_NAME}/actions/tasks",
-                headers={"Authorization": f"token {DISPATCH_TOKEN}"},
-                timeout=10.0,
-            )
-            resp.raise_for_status()
-            runs = [
-                r for r in (resp.json().get("workflow_runs") or [])
-                if r.get("workflow_id") == action
-            ]
-            if runs:
-                newest = max(runs, key=lambda r: r["id"])
-                n = newest["run_number"]
-                return n, f"https://forge.eblu.me/{REPO_OWNER}/{REPO_NAME}/actions/runs/{n}"
-        except httpx.HTTPError:
-            pass
-        time.sleep(1)
-    return None, listing
+    try:
+        number = resp.json().get("run_number")
+    except (ValueError, AttributeError):
+        return None, listing
+    if not isinstance(number, int):
+        return None, listing
+    return number, f"https://forge.eblu.me/{REPO_OWNER}/{REPO_NAME}/actions/runs/{number}"
 
 
 def _require_approver(request: Request) -> dict:

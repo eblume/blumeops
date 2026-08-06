@@ -1,0 +1,36 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "pytest==8.4.2",
+#   "fastapi==0.121.2",
+#   "httpx==0.28.1",
+#   "pyjwt==2.10.1",
+#   "cryptography==46.0.3",
+#   "python-multipart==0.0.20",
+#   "pyyaml==6.0.3",
+# ]
+# ///
+#MISE description="Run the warrant service's unit tests (no network, no cluster)"
+"""Unit tests for `containers/warrant/app/main.py`.
+
+Pure-function coverage of the parts where being wrong is an audit-integrity
+problem rather than an outage — run attribution above all. Needs nothing
+privileged: no forge token, no cluster, no vault, so it works from an agent
+pod as well as from gilbert.
+
+The dependency pins here mirror what nixpkgs supplies to the image (see
+`containers/warrant/default.nix`); they are close enough for unit tests, and
+divergence in a *major* version is a signal worth chasing, not noise.
+
+Usage: mise run warrant-test [-- <pytest args>]
+"""
+
+import pathlib
+import sys
+
+import pytest
+
+TESTS = pathlib.Path(__file__).resolve().parent.parent / "containers" / "warrant" / "tests"
+
+sys.exit(pytest.main([str(TESTS), "-q", *sys.argv[1:]]))
