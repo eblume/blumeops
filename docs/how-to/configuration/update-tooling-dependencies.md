@@ -56,7 +56,7 @@ docker buildx imagetools inspect docker.io/<image>:<tag>
 # Use the top-level "Digest:" line (multi-arch index) — not the per-platform sub-digest
 ```
 
-After updating, the deploy-fly workflow will build and deploy on merge to main. Verify with `fly status -a blumeops-proxy` after deploy.
+After merging, deploy with the `deploy-fly` workflow (dispatch it with the merged SHA, or request it via `mise run request-run deploy-fly.yaml …` — see [[manage-flyio-proxy]]). Verify with `fly status -a blumeops-proxy` after deploy.
 
 ### 3. Pin mise task dependencies
 

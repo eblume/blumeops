@@ -220,7 +220,7 @@ Three mise tasks manage the proxy lifecycle. See the actual scripts in `mise-tas
 
 ### Step 5: Forgejo CI workflow
 
-A Forgejo Actions workflow (`.forgejo/workflows/deploy-fly.yaml`) auto-deploys on pushes to `main` that touch `fly/**`. It installs `flyctl`, runs `fly deploy`, and verifies health. It can also be triggered manually via `workflow_dispatch`.
+A Forgejo Actions workflow (`.forgejo/workflows/deploy-fly.yaml`) runs `fly deploy` and verifies health. It is `workflow_dispatch`-only — a privileged workflow per [[warrant-approval-gated-runs]] — so a human dispatches it from the forge UI (or runs `mise run fly-deploy` from gilbert), and agents request it via `mise run request-run deploy-fly.yaml …`. Merging alone does not deploy.
 
 The `FLY_DEPLOY_TOKEN` Forgejo Actions secret must be set via the [[forgejo]] API or UI, following the pattern in the `forgejo_actions_secrets` Ansible role.
 

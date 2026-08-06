@@ -1,6 +1,6 @@
 ---
 title: Manage Fly.io Proxy
-modified: 2026-04-18
+modified: 2026-08-06
 last-reviewed: 2026-04-18
 tags:
   - how-to
@@ -15,13 +15,15 @@ Operational tasks for the [[flyio-proxy]] public reverse proxy.
 
 ## Deploy Changes
 
-After modifying files in `fly/`:
+Merging a change under `fly/` does **not** deploy it — the `deploy-fly`
+workflow is a privileged, `workflow_dispatch`-only workflow per
+[[warrant-approval-gated-runs]] invariant 3. Three ways to run it:
 
-```bash
-mise run fly-deploy
-```
-
-Pushes to `fly/` on main also trigger automatic deployment via the Forgejo CI workflow.
+- **From gilbert** (human, vault-gated): `mise run fly-deploy`
+- **From the forge UI** (human): dispatch *Deploy Fly.io Proxy* with the
+  merged commit's full SHA (or `main`) as `revision`
+- **From an agent session** (approval-gated):
+  `mise run request-run deploy-fly.yaml <full-sha> --pr <N> -i revision=<full-sha> --why "…"`
 
 ## Add a New Public Service
 

@@ -1,30 +1,64 @@
+# Deploy Fly.io Proxy — a privileged workflow per [[warrant-approval-gated-runs]]
+# invariant 3: workflow_dispatch only, runs-on: priv, definition executes from
+# main. The revision input is the approved, immutable payload — the fly/ tree
+# actually deployed. A human dispatching from the forge UI IS the approval;
+# agents request a dispatch with:
+#
+#   mise run request-run deploy-fly.yaml <full-sha> --pr N \
+#       -i revision=<full-sha> [--why ...]
+#
+# runs-on: priv — until the dedicated Phase-2 runner exists, the indri runner
+# advertises `priv` alongside `indri`, so flyctl (provisioned there via mise,
+# see forgejo_runner_host_tools) is available. A future dedicated priv runner
+# must carry flyctl too.
+#
+# Revision reachability caveat (same as argocd-deploy): checkout fetches from
+# canonical, so a SHA that only exists on the agents fork (pre-merge PR head)
+# will not resolve. Post-merge SHAs and "main" always work — start there.
 name: Deploy Fly.io Proxy
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'fly/**'
+    inputs:
+      revision:
+        description: 'FULL 40-char commit SHA to deploy fly/ from, or "main" for the current tip'
+        required: true
+        type: string
 
 jobs:
   deploy:
-    runs-on: indri
+    runs-on: priv
     steps:
-      - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      # Inputs pass through env vars — never interpolated into shell text —
+      # so a crafted input cannot inject commands into a privileged job.
+      - name: Validate revision input
+        env:
+          REV: ${{ inputs.revision }}
+        run: |
+          if [ "$REV" != "main" ] && ! echo "$REV" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "::error::revision must be 'main' or a FULL 40-char SHA (got: $REV) — approvals bind to immutable SHAs"
+            exit 1
+          fi
 
-      # flyctl is provisioned on the host-mode runner via mise
-      # (forgejo_runner_host_tools); no in-job install needed.
+      - name: Checkout approved revision
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ inputs.revision }}
 
       - name: Deploy to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_DEPLOY_TOKEN }}
         run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::error::FLY_DEPLOY_TOKEN is not provisioned as an Actions secret — see [[rotate-fly-deploy-token]]"
+            exit 1
+          fi
           cd fly
           flyctl deploy
 
+      # Always show final state in the run log — this is the audit record.
       - name: Verify health
+        if: always()
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_DEPLOY_TOKEN }}
         run: |
