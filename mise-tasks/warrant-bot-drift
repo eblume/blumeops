@@ -134,14 +134,18 @@ def paged(client: httpx.Client, path: str, **params) -> list[dict]:
 def collaborator_access(client: httpx.Client, owner: str, repo: str, who: str) -> str:
     """`admin` | `write` | `read` | `none` | `unreadable`.
 
-    Reads the collaborator *list*, not the effective-permission endpoint: on a
-    public repo the latter reports `read` for everyone, which would make a
-    stranger indistinguishable from a grant.
+    Two calls, because neither endpoint answers the question alone.
 
-    A non-admin token can read the list but gets `permissions: null` on every
-    entry. Answering `read` there would be a lie that reads as drift, so the
-    missing field maps to `unreadable` — the check reports what it is, which
-    is blind.
+    Membership comes from the collaborator *list*. The effective-permission
+    endpoint cannot establish it: on a public repo it reports `read` for
+    everyone on the internet, which would make a stranger indistinguishable
+    from a grant.
+
+    The level has to come from `/collaborators/{who}/permission`, because list
+    entries are plain users — the API returns a `UserList` there, and `User`
+    has no permissions field at all. Both endpoints are admin-only reads, so a
+    token without admin gets 403 and this reports `unreadable` rather than
+    guessing.
     """
     try:
         collaborators = paged(client, f"/api/v1/repos/{owner}/{repo}/collaborators")
@@ -149,16 +153,26 @@ def collaborator_access(client: httpx.Client, owner: str, repo: str, who: str) -
         if exc.response.status_code in (403, 404):
             return "unreadable"
         raise
-    for user in collaborators:
-        if user["login"].lower() != who.lower():
-            continue
-        perms = user.get("permissions")
-        if perms is None:
+    if not any(user["login"].lower() == who.lower() for user in collaborators):
+        return "none"
+    try:
+        resp = client.get(f"/api/v1/repos/{owner}/{repo}/collaborators/{who}/permission")
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (403, 404):
             return "unreadable"
-        if perms.get("admin"):
+        raise
+    # Role names, not the boolean flags of a repo `permissions` object:
+    # none | read | write | admin | owner.
+    match resp.json().get("permission"):
+        case "owner" | "admin":
             return "admin"
-        return "write" if perms.get("push") else "read"
-    return "none"
+        case "write" | "read" as level:
+            return level
+        case _:
+            # Listed as a collaborator but reported as having no permission —
+            # a contradiction, so claim nothing.
+            return "unreadable"
 
 
 def check_repo_grant(client: httpx.Client, report: Report) -> None:

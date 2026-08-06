@@ -169,10 +169,14 @@ def owner_repos(client: httpx.Client, owner: str) -> list[str]:
 def current_access(client: httpx.Client, owner: str, repo: str, who: str) -> str:
     """The collaborator grant on `repo`, or "none".
 
-    Deliberately reads the *collaborator list* rather than the effective-permission
-    endpoint: on a public repo the latter reports "read" for everyone, which would
-    make a non-collaborator indistinguishable from a granted one and cause this
-    script to think a grant exists where none does.
+    Membership comes from the *collaborator list* rather than the
+    effective-permission endpoint: on a public repo the latter reports "read"
+    for everyone, which would make a non-collaborator indistinguishable from a
+    granted one and cause this script to think a grant exists where none does.
+
+    The level then comes from `/collaborators/{who}/permission`, because list
+    entries are plain users — the API returns a `UserList` there, and `User`
+    carries no permissions field to read a level out of.
     """
     try:
         collaborators = paged(client, f"/api/v1/repos/{owner}/{repo}/collaborators")
@@ -180,14 +184,24 @@ def current_access(client: httpx.Client, owner: str, repo: str, who: str) -> str
         if exc.response.status_code in (403, 404):
             return "unreadable"
         raise
-    for user in collaborators:
-        if user["login"].lower() != who.lower():
-            continue
-        perms = user.get("permissions", {})
-        if perms.get("admin"):
+    if not any(user["login"].lower() == who.lower() for user in collaborators):
+        return "none"
+    try:
+        resp = client.get(f"/api/v1/repos/{owner}/{repo}/collaborators/{who}/permission")
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (403, 404):
+            return "unreadable"
+        raise
+    # Role names, not the boolean flags of a repo `permissions` object:
+    # none | read | write | admin | owner.
+    match resp.json().get("permission"):
+        case "owner" | "admin":
             return "admin"
-        return "write" if perms.get("push") else "read"
-    return "none"
+        case "write" | "read" as level:
+            return level
+        case _:
+            return "unreadable"
 
 
 def main(
