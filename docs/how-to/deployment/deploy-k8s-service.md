@@ -42,9 +42,17 @@ spec:
     server: https://kubernetes.default.svc
     namespace: <service>
   syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
     syncOptions:
     - CreateNamespace=true
 ```
+
+`automated` is the default posture for a workload application — without it the
+new service becomes a fifth manual-sync app with no reason stated for being
+one. `prune` and `selfHeal` stay off fleet-wide; see [[argocd#Sync Policy]] for
+what each of the three settings buys.
 
 ## Configure Ingress
 
@@ -117,9 +125,11 @@ argocd app sync <service>
 kubectl --context=k3s-ringtail -n <service> get pods
 kubectl --context=k3s-ringtail -n <service> logs -f deployment/<service>
 
-# After PR merge, reset to main
+# After PR merge, undo the branch pin from above.
+# This is the ONLY post-merge step: the pin persists until you clear it, but
+# the merge itself already deployed (see [[argocd#Sync Policy]]). Do not add a
+# sync here — you would be racing the auto-sync your merge started.
 argocd app set <service> --revision main
-argocd app sync <service>
 ```
 
 ## Checklist
@@ -129,8 +139,8 @@ argocd app sync <service>
 - [ ] Tailscale Ingress via ProxyGroup with Homepage annotations
 - [ ] Caddy route (if pod-to-service access needed)
 - [ ] Tested on feature branch
-- [ ] PR reviewed and merged
-- [ ] Reset to main branch
+- [ ] PR reviewed and merged (this is the deploy)
+- [ ] Branch pin cleared, if one was set
 - [ ] Service added to `service-versions.yaml` for version tracking
 
 ## Related
