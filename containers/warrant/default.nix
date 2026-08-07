@@ -8,7 +8,7 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "0.3.4";
+  version = "0.4.0";
 
   python = pkgs.python3.withPackages (ps: with ps; [
     fastapi

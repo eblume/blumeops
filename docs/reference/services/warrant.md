@@ -1,7 +1,7 @@
 ---
 title: Warrant
-modified: 2026-08-06
-last-reviewed: 2026-08-06
+modified: 2026-08-07
+last-reviewed: 2026-08-07
 tags:
   - service
   - ai
@@ -46,6 +46,8 @@ a note** — the queue records intent to execute, not history.
 ## API
 
 - `POST /api/requests` — file a request `{action, sha, inputs, why, pr}` (Bearer JWT)
+- `POST /api/requests/{id}/supersede` `{by}` — retire one's own **pending**
+  request in favour of a later one (Bearer JWT)
 - `GET  /api/requests[?status=…]`, `GET /api/warrants` — read the queue and the decisions
 - `POST /api/requests/{id}/decision` `{decision, note}` — approve/deny (session; `admins`)
 - `POST /requests/{id}/decide` — the UI form (CSRF-signed); `GET /requests/{id}/confirm`
@@ -89,6 +91,27 @@ Since v0.3.4, `GET /api/requests` serializes each request's latest warrant
 recorded link is consumable outside the database — `mise run verify-runs`
 uses it to close approval tasks against the exact run their approval caused,
 falling back to forge-side inference only for UI-dispatched runs.
+
+## Superseding
+
+A PR that takes review feedback moves its head SHA, so the request bound to
+the old commit is dead on arrival of the new one — but it stays `pending`, and
+the queue then shows two near-identical entries with nothing to say which is
+live. `POST /api/requests/{id}/supersede {"by": <new id>}` retires the old one:
+status `superseded`, with `superseded_by` naming its replacement, rendered in
+the UI as `superseded → #N`.
+
+It is the only write an agent identity may make to an existing request, and it
+can only ever **reduce** (invariant 4). `superseded` is not `pending`, so the
+decision path refuses it: no warrant, no dispatch, no way back. The route is
+scoped to the caller's own still-pending requests, so an agent can neither
+retire another identity's request nor undo a human's decision.
+
+`mise run request-run <workflow> <sha> --supersedes <id>` is the whole loop
+from the agent's seat: file the new request, retire the old one, note the
+supersession on its PR comment, and close its heph tracking task (matched by
+title *and* the `Warrant request: #<id>` stamp — an ambiguous match closes
+nothing and says so).
 
 ## Known gaps
 
