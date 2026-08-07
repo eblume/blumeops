@@ -131,9 +131,9 @@ the PVC. It is the *only* credential Remote Control accepts — a
 claude refuses to start Remote Control with one (v0.16.0 shipped that and
 crash-looped; see [[agent-workspaces#Authentication]]).
 
-This is **not** a one-time step: the login's refresh token hard-expires ~7
+This is **not** a one-time step: the login's refresh token expires ~29
 days after login. Seed it now by performing one rotation —
-[[rotate-agent-ws-claude-login]] has the commands — and the recurring 5-day
+[[rotate-agent-ws-claude-login]] has the commands — and the recurring 21-day
 "Rotate agent-ws Claude OAuth login" heph chore (Blumeops project) keeps it
 alive from then on.
 
