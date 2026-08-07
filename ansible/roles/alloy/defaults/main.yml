@@ -35,6 +35,21 @@ alloy_log_dir: /Users/erichblume/Library/Logs
 # Textfile collector directory (same as node_exporter for compatibility)
 alloy_textfile_dir: /opt/homebrew/var/node_exporter/textfile
 
+# Where this user's LaunchAgent plists live.
+alloy_launchagents_dir: /Users/erichblume/Library/LaunchAgents
+
+# Collectors whose service is gone, named by the stem of the .prom file they
+# used to write. The role removes both that file and any matching LaunchAgent.
+# An entry here is a tombstone rather than config: it stays until you are
+# confident no indri still carries the leftover, and costs one no-op file check
+# per provision.
+#
+# minikube: the cluster was retired 2026-06 ([[retire-minikube]]), but as of
+# 2026-08-06 minikube.prom was still one of six series TextfileStale evaluated.
+# The runbook had already dropped it; the metrics pipeline had not.
+alloy_retired_collectors:
+  - minikube
+
 # Prometheus remote write endpoint (k8s via Caddy)
 alloy_prometheus_url: "https://prometheus.ops.eblu.me/api/v1/write"
 
