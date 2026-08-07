@@ -353,14 +353,22 @@ that token and crash-looped on the startup probe until v0.17.0 reverted it
 about Remote Control — that's the test that let the regression ship.
 
 The login credential does not survive unattended operation: its refresh token
-carries a hard **~7-day expiry anchored at login**, and Claude Code refresh
-tokens are single-use, so concurrent sessions in one pod can invalidate each
-other's and end it sooner
+expires **~29 days after login** (access tokens last ~8h and refresh in
+place), and Claude Code refresh tokens are single-use, so concurrent sessions
+in one pod can invalidate each other's and end it sooner
 ([claude-code#24317](https://github.com/anthropics/claude-code/issues/24317)).
 Worse, its death is silent — see [Known warts](#known-warts). The expiry is
-managed operationally: a recurring **5-day** heph chore ("Rotate agent-ws
-Claude OAuth login", Blumeops project) re-runs the login with ~2 days of
+managed operationally: a recurring **21-day** heph chore ("Rotate agent-ws
+Claude OAuth login", Blumeops project) re-runs the login with ~8 days of
 buffer. [[rotate-agent-ws-claude-login]] is the runbook.
+
+> The ~29 days is **measured, not documented** — a 2026-08-07T18:01Z login
+> wrote `refreshTokenExpiresAt` of 2026-09-05T19:54Z. Anthropic publishes no
+> figure. These docs briefly claimed ~7 days, from mistaking the PVC's
+> creation date for the login date; the credential had actually been carried
+> onto the PVC from the pre-container host login 22 days earlier. The runbook
+> reads the real deadline off the credential at each rotation rather than
+> trusting the number here.
 
 ### Terms of use
 
@@ -406,7 +414,7 @@ token-wasteful always-on pattern is also the fair-use risk.
   websocket up and kept printing `✔︎ Connected`, so `agent-ws-health` (which
   only asserts that a claude process holds an ESTABLISHED TCP connection) stayed
   green — while every session start failed `Failed to authenticate: OAuth
-  session expired and could not be refreshed`. The 5-day rotation chore
+  session expired and could not be refreshed`. The 21-day rotation chore
   ([[rotate-agent-ws-claude-login]]) keeps the expiry from being hit, but
   nothing yet *detects* a bad credential: `claude auth status --json` inside
   the pod is the check, and wiring it to an alert is still open work.
@@ -415,7 +423,7 @@ token-wasteful always-on pattern is also the fair-use risk.
 
 - [[agent-containerization]] — the migration off this shared-host model
 - [[bootstrap-agent-workspaces]] — one-time setup runbook
-- [[rotate-agent-ws-claude-login]] — the 5-day OAuth login rotation
+- [[rotate-agent-ws-claude-login]] — the 21-day OAuth login rotation
 - [[agents-forgejo-bot]] — the bot account and its key
 - [[security-model]] — service accounts and the `agents` vault
 - [[ringtail]] — the host
