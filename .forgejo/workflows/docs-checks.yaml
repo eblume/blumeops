@@ -9,6 +9,14 @@
 # That is what makes it safe to run on every PR including from a fork, and it
 # is the same property that lets an agent run all three locally before pushing.
 # Keep it that way: a check that needs a secret belongs in a different workflow.
+#
+# On an agent PR this sits `pending` with no run until a human clicks
+# "Approve and run" — the agents bot is read-only on canonical, so its PRs are
+# outside contributions. That click also decides WHICH workflow files run
+# (target branch for untrusted authors, the PR's own for trusted ones), so it
+# is a security control, not just friction. Do not switch this to
+# `pull_request_target` to skip it: that trigger gets secrets and a write
+# token. See [[agent-change-process#Why agent PRs need an approval click]].
 name: Docs Checks
 
 on:

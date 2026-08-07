@@ -1,6 +1,6 @@
 ---
 title: Agent Change Process
-modified: 2026-08-05
+modified: 2026-08-07
 last-reviewed: 2026-02-23
 tags:
   - explanation
@@ -47,8 +47,11 @@ The default route for anything non-trivial, and the only route available to remo
    - **ArgoCD:** `argocd app set <service> --revision <full-40-char-sha> && argocd app sync <service>`. Pass a **SHA, never a branch name**: workload apps sync automatically, so a branch revision would make every later push to that branch deploy itself unreviewed. The `ArgoCD Deploy` workflow enforces SHA-or-`main`; hand-run commands should match it (see [[argocd#Deploying from a branch]])
    - **Ansible:** run playbooks directly from the branch checkout
    - **Workflows:** point workflow triggers at the branch if needed
-9. After user review and successful deployment, the user merges the PR
-10. **After merge:** reset any overridden revision with `argocd app set <service> --revision main`. Apps still tracking `main` need nothing — the merge deploys itself
+9. **Approve the CI checks.** An agent PR's checks sit `pending` with no run
+   until a human clicks *Approve and run* in the forge. This is deliberate —
+   see [§Why agent PRs need an approval click](#why-agent-prs-need-an-approval-click)
+10. After user review and successful deployment, the user merges the PR
+11. **After merge:** reset any overridden revision with `argocd app set <service> --revision main`. Apps still tracking `main` need nothing — the merge deploys itself
 
 ### Build artifacts
 
@@ -60,6 +63,78 @@ Container images in the registry are independent of branch lifecycle — a branc
 - **If a build succeeds but deployment fails**, the image is fine; the problem is elsewhere. Document what you learned and try again
 - **If a build fails in CI**, no image is pushed. Fix the nix/dockerfile and re-merge or re-dispatch
 
+
+## Why agent PRs need an approval click
+
+Open an agent PR and its checks show `pending` with **no workflow run behind
+them**. Nothing is broken and nothing is queued: the forge is waiting for a
+human to press *Approve and run*. Press it and the run is created, executes,
+and reports normally.
+
+The cause is the fence working. The `agents` bot is deliberately read-only on
+canonical, which makes its PRs *outside contributions*, and Forgejo withholds
+workflow runs on outside contributions until someone with write access
+approves them.
+
+**The click decides which workflow files run — not merely whether they run.**
+That is the part worth remembering, because it is not what the button looks
+like it does:
+
+| Author | Which workflows execute |
+|--------|-------------------------|
+| Untrusted | *"the workflows found in the **target branch** of the pull request will be used instead of those found in the pull request"* |
+| Trusted (*Approve always*) | *"workflows found in the **pull request content** are used … taking into account any changes done to these files as part of that pull request"* |
+
+So trusting the bot permanently would mean an agent PR that adds a workflow with
+`on: pull_request` runs **that file**, on the `indri` runner, at PR-open time —
+before a human has read the diff. That is a path from "an agent wrote a file" to
+"code ran on a homelab host" with no human in between, and it undoes
+[[warrant-approval-gated-runs]] invariant 3 (*definitions run from `main` only*)
+one layer down, in forge settings rather than in the repo.
+
+*Approve always* was set for these workflows on 2026-08-07 and revoked the same
+day for exactly that reason. Trust is per-repo per-contributor and expires after
+three months idle, so a stale grant is not forever — but it should not be
+granted to an agent identity at all.
+
+### What the click does not protect
+
+Worth knowing so the click is not mistaken for more than it is:
+
+- **Secrets were never at risk.** Forgejo does not pass secrets to
+  `pull_request` runs from forks, trusted author or not. The blumeops vault and
+  the Actions secrets stay out of reach on this path.
+- **Deploys were never at risk.** Privileged workflows are `workflow_dispatch`
+  only on `runs-on: priv`; a pull request cannot trigger them at all. Warrant
+  still gates every one.
+- **Strangers are not the threat.** The instance has registration disabled, so
+  nobody can fork this repo without an account Erich created. The threat model
+  is prompt injection in an agent session — the case
+  [[agent-containerization]] exists for.
+
+### Do not reach for `pull_request_target`
+
+The obvious way to skip the click is `pull_request_target`, which runs the
+definition from `main` and is **not** subject to the approval gate. Resist it.
+It is the one trigger that receives repository secrets *and* a write-capable
+token, and it is the basis of the "pwn request" vulnerability class: the
+workflow is trusted, so the moment it checks out and executes the PR's code,
+the PR author has both.
+
+It can be written safely — check out `main` for the validators, check out the PR
+head into a subdirectory as **data only**, never execute a line of it — but that
+discipline then has to survive every future edit by every future agent, and the
+failure mode is far worse than the thing being avoided. For a check whose job is
+catching a forgotten changelog fragment, it is a bad trade. There are no
+`pull_request_target` workflows in this repo; adding one is a much larger
+decision than its diff will look.
+
+### The residual problem
+
+A PR where nobody clicked shows *no* check rather than a failing one, which
+reads the same as "nothing to validate". The fix is to make the Docs Checks
+status **required in branch protection on `main`**, so an unrun check blocks the
+merge instead of looking neutral — not to remove the gate.
 
 ## Git discipline
 
