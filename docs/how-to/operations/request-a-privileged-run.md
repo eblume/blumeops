@@ -29,6 +29,21 @@ mise run request-run build-container.yaml 892eeacbca29ee5e64fb6dae90ccc64a77ee69
     --why "post-squash-merge rebuild for the #440 mealie bump"
 ```
 
+Example — clear the orphan ConfigMaps holding an app `OutOfSync`. `prune` is the
+one input that **deletes live resources**, so say what you expect it to remove:
+
+```fish
+mise run request-run argocd-deploy.yaml <full-sha> --pr N \
+    -i app=grafana-ringtail -i revision=<full-sha> -i prune=true \
+    --why "clear the superseded grafana-* ConfigMap orphaned by the last configMapGenerator edit"
+```
+
+The run logs an `argocd app sync --prune --dry-run` preview before it prunes, so
+the run record names exactly what went. `prune=true` requires `sync=true` (the
+prune is an option on the sync) and the workflow refuses the combination rather
+than reporting green having pruned nothing. See [[argocd#Sync Policy]] for why
+orphans accumulate in the first place.
+
 What it does:
 
 - validates the SHA is full-length and the workflow exists **on `main`**
