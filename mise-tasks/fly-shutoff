@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Emergency shutoff: stop all Fly.io proxy machines"
+#MISE description="[human] Emergency shutoff: stop all Fly.io proxy machines"
 
 set -euo pipefail
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Run ansible playbook to provision sifaka"
+#MISE description="[human] Run ansible playbook to provision sifaka"
 
 set -euo pipefail
 

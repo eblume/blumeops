@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-#MISE description="Ensure kubectl config for k3s-ringtail is set up on this workstation"
+#MISE description="[human] Ensure kubectl config for k3s-ringtail is set up on this workstation"
 
 set -euo pipefail
+
+"$(dirname "$0")/_require" kubectl
 
 CONFIG_DIR="$HOME/.kube/k3s-ringtail"
 CONFIG_FILE="$CONFIG_DIR/config.yml"

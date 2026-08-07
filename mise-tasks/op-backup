@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["rich==15.0.0", "typer==0.26.7"]
 # ///
-#MISE description="Encrypt a 1Password .1pux export and send to indri for borgmatic"
+#MISE description="[human] Encrypt a 1Password .1pux export and send to indri for borgmatic"
 #USAGE arg "[export_path]" help="Path to .1pux export file (prompted if omitted)"
 """Encrypt a 1Password export and transfer to indri for borgmatic backup.
 

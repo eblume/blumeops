@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+#MISE hide=true
+# Refuse to start a task whose tools this machine does not have.
+#
+#     "$(dirname "$0")/_require" docker kubectl
+#
+# Put it directly under `set -euo pipefail`, before any work. Exits 0 when
+# every named command is on PATH, otherwise prints what is missing, where you
+# are, and what to do instead, and exits 1.
+#
+# The point is failing at the boundary rather than past it. A `[human]`
+# description tag tells an agent not to try and does nothing about a task that
+# runs anyway, half-works, and exits 0 — which is the failure mode that
+# actually costs a debugging session. A description is also invisible at the
+# moment of failure; this is not.
+#
+# Guard on what mise cannot supply. `mise.toml` installs dagger, pulumi,
+# ansible-core and flyctl into `~/.local/share/mise`, so inside `mise run`
+# those are on PATH even in the agent pod — guarding them would be a guard
+# that never fires. What is genuinely absent there is the image's business:
+# docker, kubectl, argocd, age, openssl, sqlite3.
+#
+# This checks PATH and nothing else. A task blocked by the blumeops vault or
+# by the pod's lack of a tailnet route is not a case this catches — `op` and
+# `ssh` already fail on their own, legibly, and a check that guessed at those
+# would be the silent-degradation problem wearing a different hat.
+#
+# mise makes every file in mise-tasks/ a task, underscore or not, so
+# `hide=true` above is what keeps it out of `mise tasks`. It still runs as
+# `mise run _require`, which is a reasonable way to test it.
+#
+# The task name in the message comes from MISE_TASK_NAME, which mise exports
+# and the calling task's shell passes down.
+set -euo pipefail
+
+missing=()
+for tool in "$@"; do
+    command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
+done
+[ ${#missing[@]} -eq 0 ] && exit 0
+
+task="${MISE_TASK_NAME:-this task}"
+
+# `agent` in a pod named agent-ws-* is the containerized Remote Control
+# session — the one environment where the answer is "request it", not
+# "install it".
+in_pod=false
+if [ "$(id -un)" = "agent" ]; then
+    case "$(uname -n)" in
+    agent-ws-*) in_pod=true ;;
+    esac
+fi
+
+printf '%s needs: %s\n' "$task" "${missing[*]}" >&2
+
+if $in_pod; then
+    cat >&2 <<'EOF'
+
+Not available in the agent pod: the agent-ws image carries a curated toolbox
+and these are deliberately not in it. Nothing here degrades gracefully into a
+useful result, so this stops rather than guessing.
+
+What to do instead:
+  - a privileged workflow covers it -> mise run request-run <workflow> <sha> \
+        --pr <N> --why "…"   (Erich approves in Warrant, which dispatches it)
+  - it does not -> it is a human job on gilbert; ask, and say what you needed
+  - the tool belongs in the image -> that is a PR to containers/agent-ws/
+
+See docs/explanation/warrant-approval-gated-runs.md and AGENTS.md
+§Privileged actions.
+EOF
+else
+    printf '\nInstall it, or run this from a host that has it (usually gilbert).\n' >&2
+fi
+
+exit 1

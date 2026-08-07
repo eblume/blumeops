@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-#MISE description="Validate Forgejo workflow files against runner schema"
+#MISE description="[human] Validate Forgejo workflow files against runner schema"
 
 set -euo pipefail
+
+"$(dirname "$0")/_require" docker
 
 dagger call --progress=plain validate-workflows --src=.
