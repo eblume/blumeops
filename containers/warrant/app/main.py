@@ -5,6 +5,7 @@ See [[warrant-approval-gated-runs]] for the program and
 
 Agents (authentik ``agents-m2m`` JWT, JWKS-verified):
 - POST /api/requests, GET /api/requests
+- POST /api/requests/{id}/supersede — retire one's own pending request
 
 Approvers (authentik OIDC session, ``admins`` group, MFA per the authentik
 flow — the step-up factor lives there, never here):
@@ -56,7 +57,7 @@ PUBLIC_URL = os.environ.get("WARRANT_PUBLIC_URL", "https://warrant.ops.eblu.me")
 SESSION_COOKIE = "warrant_session"
 SESSION_TTL = 8 * 3600
 
-app = FastAPI(title="warrant", version="0.3.4")
+app = FastAPI(title="warrant", version="0.4.0")
 _jwks_client: jwt.PyJWKClient | None = None
 _human_jwks_client: jwt.PyJWKClient | None = None
 
@@ -96,6 +97,12 @@ def init_db() -> None:
                 status TEXT NOT NULL DEFAULT 'pending'
             )"""
         )
+        # `superseded_by` names the request that replaced this one. Same
+        # ALTER-and-tolerate migration as the warrants table below.
+        try:
+            conn.execute("ALTER TABLE requests ADD COLUMN superseded_by INTEGER")
+        except sqlite3.OperationalError:
+            pass
         # v0.2b: warrants — the approval artifact (invariants 2 & 5). A row
         # here is a RECORD of an authenticated human decision, bound to the
         # frozen {action, sha, inputs}; single-use + TTL fields exist now so
@@ -307,6 +314,63 @@ def list_requests(status: str | None = None, limit: int = 50) -> list[dict]:
     args.append(min(limit, 500))
     with db() as conn:
         return [dict(r) for r in conn.execute(q, args).fetchall()]
+
+
+class Supersede(BaseModel):
+    by: int = Field(..., description="The request that replaces this one")
+
+
+@app.post("/api/requests/{req_id}/supersede")
+def supersede(
+    req_id: int, body: Supersede, authorization: str | None = Header(default=None)
+) -> dict:
+    """Retire a request its own requester has already replaced.
+
+    A PR that takes review feedback moves its head SHA, and the request bound
+    to the old commit is dead the moment the new one is filed — but until now
+    nothing could say so, and it sat in the queue looking live next to its
+    near-identical successor.
+
+    This is the only write an agent identity may make to an existing request,
+    and it only ever *reduces* (invariant 4): 'superseded' is not 'pending',
+    so ``_decide`` refuses it, no warrant can be minted, and nothing can be
+    dispatched. Scoped to the caller's own still-pending requests — an agent
+    cannot retire another identity's request, and cannot touch one a human
+    has already decided.
+    """
+    requester = verify_agent(authorization)
+    if body.by == req_id:
+        raise HTTPException(400, "a request cannot supersede itself")
+    with db() as conn:
+        row = conn.execute("SELECT * FROM requests WHERE id = ?", (req_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "no such request")
+        if row["requester"] != requester:
+            raise HTTPException(403, "you may only supersede your own requests")
+        if row["status"] != "pending":
+            raise HTTPException(409, f"request is already {row['status']}")
+        successor = conn.execute(
+            "SELECT * FROM requests WHERE id = ?", (body.by,)
+        ).fetchone()
+        if successor is None:
+            raise HTTPException(400, f"no such successor request #{body.by}")
+        if successor["requester"] != requester:
+            raise HTTPException(403, "the successor must be your own request")
+        conn.execute(
+            "UPDATE requests SET status = 'superseded', superseded_by = ?"
+            " WHERE id = ? AND status = 'pending'",
+            (body.by, req_id),
+        )
+    # The old request's own coordinates, so the caller can annotate the PR
+    # comment and close the heph task it filed alongside it.
+    return {
+        "id": req_id,
+        "status": "superseded",
+        "superseded_by": body.by,
+        "action": row["action"],
+        "sha": row["sha"],
+        "pr": row["pr"],
+    }
 
 
 WARRANT_TTL = int(os.environ.get("WARRANT_TTL_SECONDS", "3600"))
@@ -577,6 +641,16 @@ def _run_link(w) -> str:
     return f"<a href='{url}'>{label}</a>"
 
 
+def _status_cell(r) -> str:
+    """A retired request has to name its replacement: the whole point of
+    superseding is that the queue stops reading as two live requests for the
+    same thing."""
+    if r["status"] != "superseded":
+        return str(r["status"])
+    by = r["superseded_by"] if "superseded_by" in r.keys() else None
+    return f"superseded → #{by}" if by else "superseded"
+
+
 def _pr_links(pr: int | None, sha: str) -> str:
     """PR + its diff. Tying the decision to the code change is the substance
     of the approve-fatigue answer; the ergonomics half comes later."""
@@ -618,7 +692,7 @@ def index(request: Request) -> str:
             "SELECT * FROM warrants ORDER BY id DESC LIMIT 20"
         ).fetchall()
     items = "".join(
-        f"<tr><td>{r['id']}</td><td>{r['status']}</td>"
+        f"<tr><td>{r['id']}</td><td>{_status_cell(r)}</td>"
         f"<td><a href='{FORGE_REPO_URL}/src/branch/main/.forgejo/workflows/{r['action']}'>{r['action']}</a></td>"
         f"<td>{_sha_link(r['sha'])}</td><td>{_pr_links(r['pr'], r['sha'])}</td>"
         f"<td>{r['why'][:120]}</td><td>{r['requester']}</td><td>{act_cell(r)}</td></tr>"

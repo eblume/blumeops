@@ -1,7 +1,7 @@
 ---
 title: Request a Privileged Run
-modified: 2026-08-02
-last-reviewed: 2026-08-02
+modified: 2026-08-07
+last-reviewed: 2026-08-07
 tags:
   - how-to
   - operations
@@ -17,7 +17,8 @@ Phase 1 of [[warrant-approval-gated-runs]].
 ## Request
 
 ```fish
-mise run request-run <workflow> <full-sha> [--pr N] [-i key=value]... [--why TEXT] [--notify]
+mise run request-run <workflow> <full-sha> [--pr N] [-i key=value]... [--why TEXT] \
+    [--supersedes ID] [--notify]
 ```
 
 Example — request a container build at a merged commit:
@@ -50,6 +51,28 @@ The tool holds no privileged credentials and cannot trigger anything: it
 authenticates as the [[agents-forgejo-bot]] (`write:issue`), which is
 read-only on canonical and cannot dispatch. The request *grants* nothing.
 
+## When the PR moves
+
+A request is bound to one commit, so review feedback kills it: push a fix and
+the request that was filed against the old head can no longer be approved into
+anything useful. File the replacement and retire the old one in one step:
+
+```fish
+mise run request-run build-container.yaml <new-full-sha> \
+    --pr 525 -i container=agent-ws -i ref=<new-full-sha> \
+    --supersedes 21 --why "rebuild after review feedback"
+```
+
+`--supersedes` marks request 21 `superseded` in Warrant (it stops being
+approvable), notes the supersession on its PR comment, and closes its heph
+tracking task. Without it, both requests sit in the queue looking live and the
+approver has to work out which is which.
+
+It only ever *reduces*: Warrant scopes the call to your own still-pending
+requests, so it cannot retire someone else's request or undo a decision a
+human already made. If the retirement fails, the new request is still filed
+and the old one is still pending — the comment says so.
+
 ## Approve (human)
 
 Approvals happen in [[warrant]] — https://warrant.ops.eblu.me:
@@ -80,7 +103,8 @@ entry in the same PR that adds the workflow.
 ## Rules of the road
 
 - Approvals bind to the **full SHA** in the request — if the branch moved,
-  ask for a fresh request rather than dispatching the new tip.
+  file a fresh request (`--supersedes` the old one) rather than dispatching
+  the new tip.
 - Dispatch privileged workflows **from `main`'s definition** only.
 - Never paste secret values into requests, comments, or heph — requests
   reference *actions*, and secrets stay in the execution context.

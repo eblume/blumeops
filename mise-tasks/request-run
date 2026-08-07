@@ -9,6 +9,7 @@
 #USAGE flag "--pr <pr>" help="PR to attach the request to (default: auto-detect from an open PR's head SHA)"
 #USAGE flag "-i --input <input>" var=#true help="Dispatch input as key=value (repeatable)"
 #USAGE flag "--why <why>" help="One-line justification"
+#USAGE flag "--supersedes <supersedes>" help="Warrant request id this replaces; retires it so it stops looking live"
 #USAGE flag "--notify" help="Also push to ntfy (heph is the system of record either way)"
 """Request an approval-gated privileged run.
 
@@ -25,9 +26,14 @@ The bound SHA is enforced, not merely recorded: warrant-policy's `binds_sha`
 names the dispatch input that must carry it, and a request that would let CI
 build something else is refused before it is filed.
 
+A PR that takes review feedback moves its head SHA, which obsoletes the
+request bound to the old commit. `--supersedes <id>` retires that one as the
+new request is filed: Warrant marks it superseded (it can no longer be
+approved), the old PR comment gets a note, and its tracking task closes.
+
 Usage:
   mise run request-run <workflow> <full-sha> [--pr N] [--input k=v]... \
-      [--why TEXT] [--notify]
+      [--why TEXT] [--supersedes ID] [--notify]
 
 Every flag typer accepts must also be declared in the #USAGE block above: mise
 validates argv against that spec before this script runs and rejects anything
@@ -43,6 +49,7 @@ when editing it, both found the hard way:
     spec parses again.
 """
 
+import json
 import os
 import re
 import subprocess
@@ -267,6 +274,30 @@ def _ops_client() -> httpx.Client:
         return httpx.Client(timeout=15.0, proxy=SOCKS_FALLBACK)
 
 
+WARRANT_ERRORS = (subprocess.CalledProcessError, httpx.HTTPError, KeyError, OSError)
+
+
+def _warrant_bearer(c: httpx.Client) -> str:
+    """A client_credentials token for the agents-m2m identity. Nothing
+    privileged: it can file and retire requests, and decide none of them."""
+    app_pw = subprocess.run(
+        ["op", "read", "op://agents/agents-authentik-sa/app-password"],
+        capture_output=True, text=True, stdin=subprocess.DEVNULL, check=True,
+    ).stdout.strip()
+    tok = c.post(
+        AUTHENTIK_TOKEN_URL,
+        data={
+            "grant_type": "client_credentials",
+            "client_id": "agents-m2m",
+            "username": "agent-ringtail",
+            "password": app_pw,
+            "scope": "openid profile",
+        },
+    )
+    tok.raise_for_status()
+    return str(tok.json()["access_token"])
+
+
 def mirror_to_warrant(
     workflow: str, sha: str, inputs: dict[str, str], why: str, pr: int
 ) -> int | None:
@@ -275,32 +306,125 @@ def mirror_to_warrant(
     informational mirror — the PR comment + heph task remain the system of
     record, so any failure here warns and moves on."""
     try:
-        app_pw = subprocess.run(
-            ["op", "read", "op://agents/agents-authentik-sa/app-password"],
-            capture_output=True, text=True, stdin=subprocess.DEVNULL, check=True,
-        ).stdout.strip()
         with _ops_client() as c:
-            tok = c.post(
-                AUTHENTIK_TOKEN_URL,
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": "agents-m2m",
-                    "username": "agent-ringtail",
-                    "password": app_pw,
-                    "scope": "openid profile",
-                },
-            )
-            tok.raise_for_status()
             resp = c.post(
                 f"{WARRANT_URL}/api/requests",
-                headers={"Authorization": f"Bearer {tok.json()['access_token']}"},
+                headers={"Authorization": f"Bearer {_warrant_bearer(c)}"},
                 json={"action": workflow, "sha": sha, "inputs": inputs, "why": why, "pr": pr},
             )
             resp.raise_for_status()
             return resp.json().get("id")
-    except (subprocess.CalledProcessError, httpx.HTTPError, KeyError, OSError) as exc:
+    except WARRANT_ERRORS as exc:
         err.print(f"warrant mirror failed (request still filed via PR+heph): {exc}")
         return None
+
+
+def supersede_in_warrant(old_id: int, new_id: int) -> dict | None:
+    """Retire the request `new_id` replaces, returning its coordinates.
+
+    Warrant scopes this to our own still-pending requests and only ever
+    reduces — a superseded request cannot be approved, so this grants nothing
+    (invariant 4). A failure leaves the old request pending, which is the safe
+    direction: a stale entry in the queue, not a retired one that should have
+    stood."""
+    try:
+        with _ops_client() as c:
+            resp = c.post(
+                f"{WARRANT_URL}/api/requests/{old_id}/supersede",
+                headers={"Authorization": f"Bearer {_warrant_bearer(c)}"},
+                json={"by": new_id},
+            )
+            resp.raise_for_status()
+            return resp.json()
+    except WARRANT_ERRORS as exc:
+        detail = getattr(getattr(exc, "response", None), "text", "")
+        err.print(f"could not supersede request #{old_id} — it is still pending: {exc} {detail[:200]}")
+        return None
+
+
+def tracking_task_title(workflow: str, sha: str, pr: int) -> str:
+    """The title of the heph task a request files — and the key superseding
+    uses to find that task again, so both come from here."""
+    return f"Approve: {workflow} @ {sha[:7]} (PR #{pr})"
+
+
+def heph_context(node_id: str) -> str:
+    result = subprocess.run(
+        ["heph", "context", node_id], capture_output=True, text=True
+    )
+    return result.stdout if result.returncode == 0 else ""
+
+
+def close_tracking_task(old: dict, old_id: int, new_id: int) -> str | None:
+    """Close the heph task the superseded request filed.
+
+    Matched on title *and* on the `Warrant request: #<id>` line request-run
+    stamps into the task's context — a title alone is not enough evidence to
+    close someone's task on. Anything other than exactly one match prints what
+    to close by hand rather than guessing."""
+    title = tracking_task_title(old["action"], old["sha"], old["pr"])
+    try:
+        rows = json.loads(
+            subprocess.run(
+                ["heph", "list", "--project", "Blumeops", "--json"],
+                capture_output=True, text=True, check=True,
+            ).stdout
+        )
+    except (OSError, subprocess.CalledProcessError, ValueError) as exc:
+        err.print(f"heph list failed ({exc}); close the task for request #{old_id} by hand.")
+        return None
+
+    stamp = f"Warrant request: #{old_id}"
+    matches = [
+        row["node_id"]
+        for row in rows
+        if row.get("title") == title and stamp in heph_context(row["node_id"])
+    ]
+    if len(matches) != 1:
+        err.print(
+            f"{len(matches)} open tasks match '{title}' carrying '{stamp}' — "
+            "close the superseded one by hand (`heph done <id>`)."
+        )
+        return None
+
+    node_id = matches[0]
+    subprocess.run(
+        ["heph", "log", node_id,
+         f"Superseded by warrant request #{new_id}; retired in Warrant and "
+         "closed by request-run --supersedes. No decision was made on this one."],
+        capture_output=True, text=True,
+    )
+    result = subprocess.run(["heph", "done", node_id], capture_output=True, text=True)
+    if result.returncode != 0:
+        err.print(f"heph done {node_id} failed: {result.stderr.strip()}")
+        return None
+    return node_id
+
+
+def annotate_superseded_comment(
+    client: httpx.Client, old: dict, old_id: int, new_id: int, new_sha: str
+) -> None:
+    """Say on the PR that the old request is dead.
+
+    The approver reads the PR, so a request retired only in Warrant still
+    looks live where the decision actually gets made. Warrant ids are rendered
+    as links, never bare: `#N` in a comment body autolinks to PR N of this
+    repo."""
+    if not old.get("pr"):
+        return
+    body = (
+        "## 🚫 Request superseded\n\n"
+        f"[Request #{old_id}]({WARRANT_URL}/) — `{old['action']}` at `{old['sha'][:7]}` — "
+        f"is replaced by [request #{new_id}]({WARRANT_URL}/) at `{new_sha[:7]}`, and has "
+        "been retired in Warrant: it can no longer be approved. Decide the new request "
+        "instead.\n"
+    )
+    resp = client.post(f"{REPO_API}/issues/{old['pr']}/comments", json={"body": body})
+    if resp.status_code != 201:
+        err.print(
+            f"could not post the supersession note on PR #{old['pr']} "
+            f"({resp.status_code}) — request #{old_id} is retired in Warrant regardless."
+        )
 
 
 def file_heph_task(title: str, body: str) -> str | None:
@@ -341,6 +465,10 @@ def main(
         typer.Option("--input", "-i", help="Dispatch input as key=value (repeatable)"),
     ] = None,
     why: Annotated[str, typer.Option(help="One-line justification")] = "",
+    supersedes: Annotated[
+        int | None,
+        typer.Option("--supersedes", help="Warrant request id this replaces (it is retired)"),
+    ] = None,
     notify: Annotated[
         bool,
         typer.Option("--notify", help="Also push to ntfy (optional; heph is the system of record)"),
@@ -407,6 +535,28 @@ def main(
         # approver is meant to act on. Mirroring is best-effort and returns
         # None on failure, so the comment degrades to what it rendered before.
         warrant_id = mirror_to_warrant(workflow, sha, input_map, why, number)
+
+        # Retire the request this one replaces before commenting, so the
+        # comment can state the outcome rather than the intent.
+        superseded = None
+        if supersedes is not None:
+            if warrant_id is None:
+                err.print(
+                    f"not superseding request #{supersedes}: this request never reached "
+                    "Warrant, and retiring the old one would leave nothing live."
+                )
+            else:
+                superseded = supersede_in_warrant(supersedes, warrant_id)
+        supersedes_row = (
+            f"| **Supersedes** | [request #{supersedes}]({WARRANT_URL}/) at "
+            f"`{superseded['sha'][:7]}` — retired, no longer approvable |\n"
+            if superseded
+            else f"| **Supersedes** | ⚠️ `#{supersedes}` — retiring it FAILED; it is still "
+            "pending, ignore it |\n"
+            if supersedes is not None
+            else ""
+        )
+
         warrant_row = (
             f"| **Warrant** | [request #{warrant_id}]({WARRANT_URL}/) — approve or deny here |\n"
             if warrant_id
@@ -431,7 +581,7 @@ def main(
 | **Workflow** | [`{workflow}`]({REPO_WEB}/src/branch/main/.forgejo/workflows/{workflow}) |
 | **SHA** | `{sha}` |
 | **Diff** | {REPO_WEB}/pulls/{number}/files |
-{warrant_row}
+{warrant_row}{supersedes_row}
 {input_table}
 {why_line}{workflow_warning}
 {approve_line}
@@ -448,6 +598,9 @@ This request grants nothing: dispatch remains write-gated to humans.
             raise typer.Exit(1)
         comment_url = resp.json().get("html_url", f"{REPO_WEB}/pulls/{number}")
 
+        if superseded:
+            annotate_superseded_comment(client, superseded, supersedes, warrant_id, sha)
+
     heph_body = (
         f"Privileged run request: {workflow} @ {sha} (PR #{number}).\n"
         f"Request comment: {comment_url}\n"
@@ -457,7 +610,10 @@ This request grants nothing: dispatch remains write-gated to humans.
         f"Why: {why or '(not given)'}\n"
         "Close this task when the run is dispatched+verified (approve) or denied."
     )
-    task_id = file_heph_task(f"Approve: {workflow} @ {sha7} (PR #{number})", heph_body)
+    task_id = file_heph_task(tracking_task_title(workflow, sha, number), heph_body)
+
+    if superseded:
+        close_tracking_task(superseded, supersedes, warrant_id)
 
     if warrant_id and task_id:
         # verify-runs parses this line for exact request→run attribution —
@@ -489,6 +645,8 @@ This request grants nothing: dispatch remains write-gated to humans.
         console.print(f"warrant: {WARRANT_URL}/ (request #{warrant_id})")
     if task_id:
         console.print(f"heph task: {task_id}")
+    if superseded:
+        console.print(f"superseded: request #{supersedes} is retired and no longer approvable")
 
 
 if __name__ == "__main__":
