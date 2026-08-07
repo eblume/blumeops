@@ -1,6 +1,6 @@
 ---
 title: Bootstrap Agent Workspaces
-modified: 2026-07-11
+modified: 2026-08-07
 last-reviewed: 2026-07-08
 tags:
   - how-to
@@ -13,7 +13,8 @@ tags:
 One-time steps to bring up [[agent-workspaces]] on [[ringtail]]. Ordinary
 redeploys are just `mise run provision-ringtail`; these steps cover the state
 that lives *outside* git (the Forgejo bot user, the agent's OAuth login, and
-Claude's first-run consent) and must be done once by a human.
+Claude's first-run consent) and must be done by a human — once, except the
+OAuth login, which recurs every 5 days (see step 5).
 
 Do these **in order**. Steps 1–2 can happen before the config is deployed;
 steps 4–6 require the `agent` user to exist (i.e. after the first
@@ -121,40 +122,22 @@ sudo -u agent -H bash -lc 'curl -fsSL https://claude.ai/install.sh | bash'
 sudo -u agent -H bash -lc '~/.local/bin/claude --version'
 ```
 
-## 5. Mint the long-lived Anthropic token
+## 5. Log in (OAuth) — interactively, then again every 5 days
 
-Remote Control needs a subscription credential. **Use `claude setup-token`, not
-an interactive `claude auth login`** — the login credential's refresh token
-expires ~7 days after login and dies silently (see
-[[agent-workspaces#Authentication]]); a setup-token has no refresh cycle to
-break. Needs a real TTY and the **full path**:
+Remote Control needs a **full-scope subscription OAuth login**: the credential
+an interactive `claude auth login` writes to `~/.claude/.credentials.json` on
+the PVC. It is the *only* credential Remote Control accepts — a
+`claude setup-token` / `CLAUDE_CODE_OAUTH_TOKEN` token is inference-only and
+claude refuses to start Remote Control with one (v0.16.0 shipped that and
+crash-looped; see [[agent-workspaces#Authentication]]).
 
-```fish
-kubectl exec -it -n agent-ws deploy/agent-ws -c agent -- \
-    /home/agent/.local/bin/claude setup-token
-```
+This is **not** a one-time step: the login's refresh token hard-expires ~7
+days after login. Seed it now by performing one rotation —
+[[rotate-agent-ws-claude-login]] has the commands — and the recurring 5-day
+"Rotate agent-ws Claude OAuth login" heph chore (Blumeops project) keeps it
+alive from then on.
 
-Open the printed URL on gilbert, approve, and it prints an `sk-ant-oat01-…`
-token. Store it in the **agents** vault so the entrypoint can read it:
-
-```fish
-op item create --vault agents --category "API Credential" \
-    --title claude-oauth-token 'token[password]=sk-ant-oat01-…'
-```
-
-Restart the pod (`kubectl delete pod -n agent-ws -l app=agent-ws`) so the
-entrypoint picks it up, then confirm:
-
-```fish
-kubectl exec -n agent-ws deploy/agent-ws -c agent -- \
-    /home/agent/.local/bin/claude auth status --json   # authMethod: oauth_token
-```
-
-To rotate, repeat the two commands (`op item edit` the existing item) and
-restart the pod. Nothing is written to the PVC, so a fresh PVC needs no
-re-login.
-
-Two pieces of first-run state are *not* covered by the token and still need
+Two pieces of first-run state live outside the credential and still need
 seeding on a fresh PVC:
 
 - **Remote Control consent is per-config-dir and MUST be seeded**, or every
@@ -173,7 +156,7 @@ seeding on a fresh PVC:
   It persists on disk (survives reboots/re-provision), but a fresh `agent` home
   needs it re-seeded.
 - **Trust is per-directory** (`~/.claude.json` →
-  `projects["<path>"].hasTrustDialogAccepted`). The `/login` above trusts only
+  `projects["<path>"].hasTrustDialogAccepted`). A login trusts only
   its own cwd — with the single home-base workspace that is the only cwd that
   needs it (`~agent/code/personal/agents`). If the workspace cwd ever moves,
   pre-seed the new path (set `hasTrustDialogAccepted=true`, then

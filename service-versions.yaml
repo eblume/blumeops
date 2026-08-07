@@ -49,8 +49,8 @@ services:
 
   - name: agent-ws
     type: argocd
-    last-reviewed: 2026-08-06
-    current-version: "v0.16.0"
+    last-reviewed: 2026-08-07
+    current-version: "v0.17.0"
     upstream-source: https://forge.eblu.me/eblume/blumeops/src/branch/main/containers/agent-ws
     notes: >-
       First-party agent workspace image ([[agent-containerization]]). Version is
