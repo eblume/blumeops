@@ -76,12 +76,17 @@ def forge_token() -> str:
     if token := os.environ.get("FORGEJO_TOKEN"):
         return token.strip()
     # op parses non-TTY stdin as JSON — always feed it /dev/null.
-    result = subprocess.run(
-        ["op", "read", "op://agents/agents-forgejo-token/api-token"],
-        capture_output=True,
-        text=True,
-        stdin=subprocess.DEVNULL,
-    )
+    try:
+        result = subprocess.run(
+            ["op", "read", "op://agents/agents-forgejo-token/api-token"],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        err.print(f"No FORGEJO_TOKEN and `op read` failed: {exc}")
+        raise typer.Exit(1) from exc
     if result.returncode != 0:
         err.print("No FORGEJO_TOKEN and `op read` failed:")
         err.print(result.stderr.strip())
@@ -274,7 +279,13 @@ def _ops_client() -> httpx.Client:
         return httpx.Client(timeout=15.0, proxy=SOCKS_FALLBACK)
 
 
-WARRANT_ERRORS = (subprocess.CalledProcessError, httpx.HTTPError, KeyError, OSError)
+WARRANT_ERRORS = (
+    subprocess.CalledProcessError,
+    subprocess.TimeoutExpired,
+    httpx.HTTPError,
+    KeyError,
+    OSError,
+)
 
 
 def _warrant_bearer(c: httpx.Client) -> str:
@@ -283,6 +294,7 @@ def _warrant_bearer(c: httpx.Client) -> str:
     app_pw = subprocess.run(
         ["op", "read", "op://agents/agents-authentik-sa/app-password"],
         capture_output=True, text=True, stdin=subprocess.DEVNULL, check=True,
+        timeout=30,
     ).stdout.strip()
     tok = c.post(
         AUTHENTIK_TOKEN_URL,
