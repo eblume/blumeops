@@ -1,0 +1,39 @@
+# The repo's own doc and changelog validators, on every PR.
+#
+# All three already existed as mise tasks and none of them ran anywhere. That
+# gap is not theoretical: seven changelog fragments accumulated in
+# `docs/changelog.d/agent/` before this workflow's PR found them, and towncrier
+# would have dropped every one from the next release without a word.
+#
+# Deliberately credential-free — no token, no vault, no cluster, no network.
+# That is what makes it safe to run on every PR including from a fork, and it
+# is the same property that lets an agent run all three locally before pushing.
+# Keep it that way: a check that needs a secret belongs in a different workflow.
+name: Docs Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: indri
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # `if: always()` on the later steps: these are independent validators, so
+      # reporting all three failures in one run beats making someone push a fix
+      # to discover the next one.
+      - name: Changelog fragments are flat files
+        run: ./mise-tasks/changelog-check
+
+      - name: Docs have required frontmatter
+        if: always()
+        run: uv run --script mise-tasks/docs-check-frontmatter
+
+      - name: Wiki-links resolve
+        if: always()
+        run: uv run --script mise-tasks/docs-check-links
