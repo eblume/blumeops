@@ -1,0 +1,149 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.26.7"]
+# ///
+#MISE description="Run a PromQL query against Prometheus via Grafana, as the agents-m2m identity"
+#USAGE arg "<query>" help="PromQL expression, e.g. 'up{job=\"frigate\"}'"
+#USAGE flag "--json" help="Machine-readable output"
+#USAGE flag "--datasource <uid>" help="Grafana datasource uid (default: prometheus)"
+"""Ask Prometheus a question from anywhere, without cluster access.
+
+[[agent-health]]'s sibling. That task answers "is anything alerting?"; this
+answers everything else — restart counts, pod ages, disk headroom, whether the
+thing you changed last week actually changed anything.
+
+Goes through Grafana's datasource proxy rather than Prometheus directly:
+prometheus.monitoring.svc is in-cluster only, while Grafana is reachable over
+the tailnet and already federates the agents-m2m identity as a Viewer. Same
+credential as agent-health (`agents` vault, no privileged access), same
+direct-then-SOCKS fallback, so it works from gilbert and the agent pod alike.
+
+**There is no range mode, and none is needed** — PromQL already does time.
+`increase(metric[30d])` in a single instant query answers "how much over the
+last month", which is the shape almost every operational question takes:
+
+    mise run agent-metrics 'increase(kube_pod_container_status_restarts_total{namespace="frigate"}[30d])'
+    mise run agent-metrics 'kube_pod_start_time{namespace="warrant"}'
+    mise run agent-metrics 'time() - node_textfile_mtime_seconds'
+    mise run agent-metrics 'sum by (namespace) (kube_pod_status_ready{condition="false"})'
+
+Read-only: the Viewer role cannot write, and the datasource proxy exposes only
+the query API. Exit 1 if the query returns no series — an empty result is
+usually a typo'd label, and silently printing nothing invites the same
+"confident answer to a question we never asked" failure that made
+container-list report every image as unbuilt.
+
+Usage: mise run agent-metrics '<promql>' [--json]
+"""
+
+import json as jsonlib
+import os
+import subprocess
+from typing import Annotated
+
+import httpx
+import typer
+from rich.console import Console
+from rich.table import Table
+
+AUTHENTIK_TOKEN_URL = "https://authentik.ops.eblu.me/application/o/token/"
+GRAFANA_URL = "https://grafana.ops.eblu.me"
+SOCKS_FALLBACK = "socks5://localhost:1055"  # agent pod's tailscale sidecar
+# Labels present on every series that say nothing about which thing this is.
+BOILERPLATE_LABELS = frozenset({"__name__", "job", "instance", "endpoint", "container"})
+
+console = Console()
+err = Console(stderr=True, style="bold red")
+
+
+def op_read(ref: str) -> str:
+    result = subprocess.run(
+        ["op", "read", ref], capture_output=True, text=True, stdin=subprocess.DEVNULL
+    )
+    if result.returncode != 0:
+        err.print(f"op read {ref} failed: {result.stderr.strip()}")
+        raise typer.Exit(3)
+    return result.stdout.strip()
+
+
+def client_for(url: str) -> httpx.Client:
+    """Direct first; SOCKS fallback for the pod (its tailnet path is the
+    sidecar proxy). Honors ALL_PROXY if the caller sets one."""
+    proxy = os.environ.get("ALL_PROXY")
+    c = httpx.Client(timeout=30.0, proxy=proxy)
+    try:
+        c.get(url.split("/api/")[0] + "/", timeout=5.0)
+        return c
+    except httpx.TransportError:
+        c.close()
+        return httpx.Client(timeout=30.0, proxy=SOCKS_FALLBACK)
+
+
+def mint_token() -> str:
+    app_pw = op_read("op://agents/agents-authentik-sa/app-password")
+    with client_for(AUTHENTIK_TOKEN_URL) as c:
+        resp = c.post(
+            AUTHENTIK_TOKEN_URL,
+            data={
+                "grant_type": "client_credentials",
+                "client_id": "agents-m2m",
+                "username": "agent-ringtail",
+                "password": app_pw,
+                # groups claim (-> Grafana Viewer) requires the profile scope
+                "scope": "openid profile",
+            },
+        )
+    if resp.status_code != 200:
+        err.print(f"authentik token grant failed ({resp.status_code}): {resp.text[:200]}")
+        raise typer.Exit(3)
+    return resp.json()["access_token"]
+
+
+def identity(labels: dict) -> str:
+    """The labels that distinguish this series from its siblings."""
+    kept = {k: v for k, v in labels.items() if k not in BOILERPLATE_LABELS}
+    return ", ".join(f"{k}={v}" for k, v in sorted(kept.items())) or "(single series)"
+
+
+def main(
+    query: Annotated[str, typer.Argument(help="PromQL expression")],
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+    datasource: Annotated[str, typer.Option("--datasource")] = "prometheus",
+) -> None:
+    token = mint_token()
+    url = f"{GRAFANA_URL}/api/datasources/proxy/uid/{datasource}/api/v1/query"
+    with client_for(GRAFANA_URL) as c:
+        resp = c.get(url, params={"query": query}, headers={"X-JWT-Assertion": token})
+
+    if resp.status_code != 200:
+        err.print(f"query failed ({resp.status_code}): {resp.text[:300]}")
+        raise typer.Exit(3)
+    payload = resp.json()
+    if payload.get("status") != "success":
+        # Prometheus reports a bad expression in-band with HTTP 200.
+        err.print(f"prometheus rejected the query: {payload.get('error', payload)}")
+        raise typer.Exit(3)
+
+    results = payload.get("data", {}).get("result", [])
+    if as_json:
+        print(jsonlib.dumps(results))
+    else:
+        if not results:
+            err.print("No series matched. Check the metric name and label values.")
+            raise typer.Exit(1)
+        table = Table(title=query)
+        table.add_column("series")
+        table.add_column("value", justify="right")
+        for r in sorted(results, key=lambda r: identity(r.get("metric", {}))):
+            value = r.get("value", [None, ""])[1]
+            table.add_row(identity(r.get("metric", {})), str(value))
+        console.print(table)
+        console.print(f"[dim]{len(results)} series[/dim]")
+
+    if not results:
+        raise typer.Exit(1)
+
+
+if __name__ == "__main__":
+    typer.run(main)

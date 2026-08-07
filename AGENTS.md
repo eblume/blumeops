@@ -42,8 +42,12 @@ need to confirm through biometric approval.
     - **Direct to main:** Use orphan prefix: `+<descriptive-slug>.<type>.md` (avoids `main.*` collisions)
 5. Create, use, and modify forgejo workflows to enforce PR validity.
 6. **Verify deployments** - `mise run agent-health` (Grafana alert state; works
-   from anywhere). `mise run services-check` is the fuller `[human]` check —
-   it needs kubectl and ssh, so it is a gilbert job.
+   from anywhere). For anything alerts don't answer — restart counts, pod ages,
+   whether last week's change moved the needle — `mise run agent-metrics
+   '<promql>'` queries Prometheus through Grafana with the same credential.
+   `increase(metric[30d])` covers "how much over the last month" in one query.
+   `mise run services-check` is the fuller `[human]` check — it needs kubectl
+   and ssh, so it is a gilbert job.
 
 ## Project Structure
 
