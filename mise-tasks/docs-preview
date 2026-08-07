@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["pyyaml==6.0.3", "rich==15.0.0", "typer==0.26.7"]
 # ///
-#MISE description="Build docs with Dagger and serve locally, opening to a specific card"
+#MISE description="[human] Build docs with Dagger and serve locally, opening to a specific card"
 #USAGE arg "<card>" help="Card path relative to docs/, e.g. how-to/knowledgebase/review-documentation"
 #USAGE flag "--port <port>" default="8484" help="Port for preview server (default 8484)"
 """Build the full Quartz docs site and serve locally for visual preview.
@@ -47,6 +47,11 @@ def main(
     port: Annotated[int, typer.Option(help="Port for preview server")] = 8484,
 ) -> None:
     console = Console()
+
+    # Same guard the bash tasks use, shelled out to so the message and the
+    # exit code live in one place.
+    if rc := subprocess.run([Path(__file__).parent / "_require", "docker"]).returncode:
+        raise typer.Exit(code=rc)
 
     # Normalize: accept with or without .md suffix
     card_stem = card.removesuffix(".md")

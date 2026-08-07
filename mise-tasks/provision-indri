@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Run ansible playbook to provision indri"
+#MISE description="[human] Run ansible playbook to provision indri"
 
 set -euo pipefail
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="One-time setup: configure Fly.io secrets and certs (idempotent)"
+#MISE description="[human] One-time setup: configure Fly.io secrets and certs (idempotent)"
 
 set -euo pipefail
 

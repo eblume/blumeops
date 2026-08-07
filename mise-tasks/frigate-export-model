@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-#MISE description="Export YOLOv9 model weights to ONNX for Frigate NVR via Dagger"
+#MISE description="[human] Export YOLOv9 model weights to ONNX for Frigate NVR via Dagger"
 #USAGE flag "--model-size <size>" default="c" help="Model variant: s (small), c (compact), e (extra-large)"
 #USAGE flag "--input-size <pixels>" default="640" help="Input resolution (width=height)"
 #USAGE flag "--deploy" help="Copy exported model to sifaka NAS frigate share"
 
 set -euo pipefail
+
+"$(dirname "$0")/_require" docker
 
 MODEL_SIZE="${usage_model_size:-c}"
 INPUT_SIZE="${usage_input_size:-640}"
