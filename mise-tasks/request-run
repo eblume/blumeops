@@ -14,11 +14,16 @@
 
 Implements Phase 1 of [[warrant-approval-gated-runs]]: an agent (or a human)
 formally requests that a privileged workflow be dispatched at an immutable
-SHA. The request is recorded as a PR comment and a heph task (the system of
-record — heph is the information plane); an ntfy push is optional and off by
-default. Approval remains a human act: dispatching the workflow from the
-forge UI (WebAuthn-protected login) or gilbert. This tool holds no privileged
-credentials and cannot trigger anything — by design (invariant 4).
+SHA. The request is mirrored into the Warrant queue and recorded as a PR
+comment and a heph task (the system of record — heph is the information
+plane); an ntfy push is optional and off by default. Approval remains a human
+act: deciding the request in Warrant, or dispatching from the forge UI, both
+behind an Authentik SSO login. This tool holds no privileged credentials and
+cannot trigger anything — by design (invariant 4).
+
+The bound SHA is enforced, not merely recorded: warrant-policy's `binds_sha`
+names the dispatch input that must carry it, and a request that would let CI
+build something else is refused before it is filed.
 
 Usage:
   mise run request-run <workflow> <full-sha> [--pr N] [--input k=v]... \
@@ -88,11 +93,17 @@ def main_file_exists(client: httpx.Client, path: str) -> bool:
     return client.get(f"{REPO_API}/raw/main/{path}").status_code == 200
 
 
-def enforce_policy(client: httpx.Client, workflow: str, inputs: dict[str, str]) -> None:
+def enforce_policy(
+    client: httpx.Client, workflow: str, inputs: dict[str, str], sha: str
+) -> None:
     """Validate the request against warrant-policy.yaml ON MAIN (Phase 4 of
     [[warrant-approval-gated-runs]]) — the reviewed autonomy boundary.
     Unknown actions are deny-by-default; input schemas catch typos at
-    request time instead of run time (pilot friction d)."""
+    request time instead of run time (pilot friction d).
+
+    Also enforces the SHA binding: the policy's `binds_sha` names the input
+    that carries the approved commit, and a request whose bound SHA does not
+    reach that input is refused here rather than dispatched."""
     import yaml
 
     resp = client.get(f"{REPO_API}/raw/main/warrant-policy.yaml")
@@ -138,6 +149,75 @@ def enforce_policy(client: httpx.Client, workflow: str, inputs: dict[str, str]) 
                     raise typer.Exit(1)
             case None:
                 pass
+
+    enforce_sha_binding(workflow, entry, inputs, sha)
+
+
+def enforce_sha_binding(
+    workflow: str, entry: dict, inputs: dict[str, str], sha: str
+) -> None:
+    """The approved SHA must actually reach the run.
+
+    A privileged workflow takes its target as a dispatch input; the SHA a
+    request is *bound* to is a separate field in the warrant payload. Nothing
+    joined the two, so `-i container=agent-ws` with no `ref` filed a request
+    that read "build bcb2b55" and dispatched a build of main — which then
+    reported success (warrant #22, run 742). Every downstream signal was
+    green for a build of the wrong commit.
+
+    So: refuse. Injecting the bound SHA silently would guess at intent, and
+    the whole point of the binding is that the approver's reading of it is
+    authoritative."""
+    binding = entry.get("binds_sha")
+    if binding is None:
+        if entry.get("class") == "warrant":
+            err.print(
+                f"policy: '{workflow}' is class warrant but declares no binds_sha — "
+                "a requestable workflow must name the input carrying the approved SHA."
+            )
+            raise typer.Exit(1)
+        return
+
+    value = inputs.get(binding)
+    if value is None:
+        err.print(
+            f"policy: '{workflow}' binds its approved SHA through the '{binding}' input, "
+            f"which you did not pass — the run would build main, not {sha[:7]}.\n"
+            f"  Re-run with: -i {binding}={sha}"
+        )
+        raise typer.Exit(1)
+    if value == sha:
+        return
+    if not re.fullmatch(r"[0-9a-f]{40}", value):
+        # `main` is a legitimate dispatch value — the workflows accept it, and
+        # the policy pattern still admits it — but it resolves at dispatch
+        # time, which is the moving target an approval exists to pin down.
+        err.print(
+            f"policy: '{binding}={value}' is not an immutable commit, so this request "
+            f"would bind {sha[:7]} and dispatch whatever '{value}' points at when it "
+            "runs.\n"
+            f"  Pass -i {binding}={sha}, or if you really mean that ref's current tip, "
+            "resolve it to a SHA and bind the request to that."
+        )
+        raise typer.Exit(1)
+    err.print(
+        f"policy: '{binding}={value}' does not match the SHA this request binds "
+        f"({sha}). An approval that names one commit and dispatches another is "
+        "the failure this check exists to stop.\n"
+        f"  Bind the request to {value[:7]}… instead, or pass -i {binding}={sha}."
+    )
+    raise typer.Exit(1)
+
+
+def neutralize_refs(text: str) -> str:
+    """Wrap bare `#123` in a code span so Forgejo does not autolink it.
+
+    `--why` is where a human writes "supersedes request #21", and Forgejo
+    reads a bare #N as an issue/PR reference of *this repo* — on PR #525 that
+    rendered a confident link to an unrelated PR. Code spans are exempt from
+    reference expansion, and they survive copy-paste; a backslash escape does
+    not, because the reference transformer runs over text nodes regardless."""
+    return re.sub(r"(?<![\w`])#(\d+)\b", r"`#\1`", text)
 
 
 def find_pr_for_sha(client: httpx.Client, sha: str) -> dict | None:
@@ -290,7 +370,8 @@ def main(
             )
             raise typer.Exit(1)
 
-        enforce_policy(client, workflow, dict(p.split("=", 1) for p in inputs))
+        input_map = dict(p.split("=", 1) for p in inputs)
+        enforce_policy(client, workflow, input_map, sha)
 
         if pr_number is None:
             pr = find_pr_for_sha(client, sha)
@@ -320,7 +401,28 @@ def main(
             if touched
             else ""
         )
-        why_line = f"\n**Why:** {why}\n" if why else ""
+        why_line = f"\n**Why:** {neutralize_refs(why)}\n" if why else ""
+
+        # Mirror BEFORE commenting so the comment can name the queue entry the
+        # approver is meant to act on. Mirroring is best-effort and returns
+        # None on failure, so the comment degrades to what it rendered before.
+        warrant_id = mirror_to_warrant(workflow, sha, input_map, why, number)
+        warrant_row = (
+            f"| **Warrant** | [request #{warrant_id}]({WARRANT_URL}/) — approve or deny here |\n"
+            if warrant_id
+            else f"| **Warrant** | ⚠️ mirror failed — this request is PR+heph only, "
+            f"approve from the [dispatch page]({dispatch_url}) |\n"
+        )
+        approve_line = (
+            f"**To approve:** open [Warrant]({WARRANT_URL}/) and decide request "
+            f"#{warrant_id} — approving dispatches the run itself, with the SHA and "
+            "inputs above already bound. To deny, deny it there (or say so here) and "
+            "`heph done` the tracking task with a note."
+            if warrant_id
+            else f"**To approve:** open the [dispatch page]({dispatch_url}) → *Run "
+            f"workflow* → paste the SHA and inputs above → run. To deny, say so here "
+            "and `heph done` the tracking task with a note."
+        )
 
         comment_body = f"""## 🔏 Privileged run requested
 
@@ -329,12 +431,10 @@ def main(
 | **Workflow** | [`{workflow}`]({REPO_WEB}/src/branch/main/.forgejo/workflows/{workflow}) |
 | **SHA** | `{sha}` |
 | **Diff** | {REPO_WEB}/pulls/{number}/files |
-
+{warrant_row}
 {input_table}
 {why_line}{workflow_warning}
-**To approve:** open the [dispatch page]({dispatch_url}) → *Run workflow* →
-paste the SHA (and inputs above) → run. To deny, say so here and `heph done`
-the tracking task with a note.
+{approve_line}
 
 Requested via `mise run request-run` — see [[warrant-approval-gated-runs]].
 This request grants nothing: dispatch remains write-gated to humans.
@@ -350,16 +450,15 @@ This request grants nothing: dispatch remains write-gated to humans.
 
     heph_body = (
         f"Privileged run request: {workflow} @ {sha} (PR #{number}).\n"
-        f"Request comment: {comment_url}\nDispatch page: {dispatch_url}\n"
+        f"Request comment: {comment_url}\n"
+        + (f"Warrant: {WARRANT_URL}/ (request #{warrant_id})\n" if warrant_id else "")
+        + f"Dispatch page: {dispatch_url}\n"
         f"Inputs: {' '.join(inputs) if inputs else '(none)'}\n"
         f"Why: {why or '(not given)'}\n"
         "Close this task when the run is dispatched+verified (approve) or denied."
     )
     task_id = file_heph_task(f"Approve: {workflow} @ {sha7} (PR #{number})", heph_body)
 
-    warrant_id = mirror_to_warrant(
-        workflow, sha, dict(p.split("=", 1) for p in inputs), why, number
-    )
     if warrant_id and task_id:
         # verify-runs parses this line for exact request→run attribution —
         # keep the format in sync with its WARRANT_ID_RE.

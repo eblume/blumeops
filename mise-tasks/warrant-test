@@ -9,15 +9,23 @@
 #   "cryptography==46.0.3",
 #   "python-multipart==0.0.20",
 #   "pyyaml==6.0.3",
+#   # request-run's own imports, so tests/ can load it
+#   "typer==0.26.7",
+#   "rich==15.0.0",
 # ]
 # ///
-#MISE description="Run the warrant service's unit tests (no network, no cluster)"
-"""Unit tests for `containers/warrant/app/main.py`.
+#MISE description="Run the warrant unit tests — service and request client (no network, no cluster)"
+"""Unit tests for the approval path: `containers/warrant/app/main.py` and the
+`mise-tasks/request-run` client that files against it.
 
 Pure-function coverage of the parts where being wrong is an audit-integrity
-problem rather than an outage — run attribution above all. Needs nothing
-privileged: no forge token, no cluster, no vault, so it works from an agent
-pod as well as from gilbert.
+problem rather than an outage — run attribution and SHA binding above all.
+Needs nothing privileged: no forge token, no cluster, no vault, so it works
+from an agent pod as well as from gilbert.
+
+Two suites, deliberately in different places: the service's own tests live
+inside its build context (`containers/warrant/tests/`), while tests for repo
+tooling live in `tests/` so nothing reaches up out of a container directory.
 
 The dependency pins here mirror what nixpkgs supplies to the image (see
 `containers/warrant/default.nix`); they are close enough for unit tests, and
@@ -31,6 +39,7 @@ import sys
 
 import pytest
 
-TESTS = pathlib.Path(__file__).resolve().parent.parent / "containers" / "warrant" / "tests"
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+SUITES = [ROOT / "containers" / "warrant" / "tests", ROOT / "tests"]
 
-sys.exit(pytest.main([str(TESTS), "-q", *sys.argv[1:]]))
+sys.exit(pytest.main([*map(str, SUITES), "-q", *sys.argv[1:]]))

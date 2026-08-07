@@ -14,11 +14,23 @@
 #
 # Unknown actions are implicitly `deny` — adding a privileged workflow
 # means adding its policy entry in the same PR.
+#
+# `binds_sha: <input>` names the dispatch input that carries the approved
+# SHA — the payload half of invariant 3. request-run refuses a request
+# whose bound SHA does not reach that input, so an approval can no longer
+# read "build bcb2b55" while CI builds main. Every warrant-class action
+# needs one: a privileged run free to ignore the SHA is precisely what the
+# approval was meant to constrain.
+#
+# A binding input's `pattern` stays looser than that rule (it still admits
+# `main`) because the pattern is the floor for a manual UI dispatch and for
+# the future server-side check. request-run holds the tighter line.
 version: 1
 
 actions:
   argocd-deploy.yaml:
     class: warrant
+    binds_sha: revision
     inputs:
       app:
         required: true
@@ -33,17 +45,22 @@ actions:
 
   build-container.yaml:
     class: warrant
+    binds_sha: ref
     inputs:
       container:
         required: true
         # validated against containers/<name>/default.nix on main
         validate: container-dir
       ref:
+        # required: false here matches the workflow, where an omitted ref
+        # means "current HEAD" for a manual UI dispatch. binds_sha makes it
+        # mandatory for a *request*, which is bound to a specific commit.
         required: false
         pattern: "^[0-9a-f]{40}$"
 
   deploy-fly.yaml:
     class: warrant
+    binds_sha: revision
     inputs:
       revision:
         required: true
