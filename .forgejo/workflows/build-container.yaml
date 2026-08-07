@@ -94,6 +94,9 @@ jobs:
           REF="${{ inputs.ref }}"
           if [ -z "$REF" ]; then
             REF="${GITHUB_SHA}"
+            RESOLVED_FROM="defaulted to the dispatch ref — no 'ref' input was given"
+          else
+            RESOLVED_FROM="from the 'ref' input"
           fi
           SHORT_SHA=$(echo "$REF" | head -c 7)
 
@@ -106,6 +109,20 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
           echo "Version: $VERSION, SHA: $SHORT_SHA"
+
+          # State the commit actually built where an approver will see it.
+          # An approval binds a SHA, but `ref` is optional and defaults to the
+          # dispatch ref, so a request can name one commit while the run builds
+          # another (run 742). request-run refuses that now; this makes it
+          # legible for UI dispatches, which have no such check.
+          {
+            echo "### Built \`$CONTAINER\` $VERSION"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Commit built** | \`$REF\` |"
+            echo "| **Resolved** | $RESOLVED_FROM |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Resolve nixpkgs
         id: nixpkgs

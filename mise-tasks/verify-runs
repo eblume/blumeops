@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.26.7"]
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.26.7", "pyyaml==6.0.3"]
 # ///
 #MISE description="Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit)"
 """Close the request→approve→run loop: the audit sweep.
@@ -13,6 +13,9 @@ open ones, matches each to its workflow run on the forge, and:
 - run succeeded  → `heph log` the outcome, `heph done` the task
 - run failed     → `heph log` the failure + run URL, LEAVE the task open
                    (a failed approval needs human/agent follow-up)
+- run built the wrong commit → `heph log` an AUDIT FAILURE, LEAVE it open.
+                   A green run that did not carry the approved SHA is the
+                   worst of the four outcomes, because nothing else reports it.
 - no run yet / still running → leave untouched
 
 Attribution prefers the RECORD over inference: warrant stores the run number
@@ -149,6 +152,59 @@ def warrant_id_for(task: dict) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def sha_policy(client: httpx.Client) -> dict[str, str]:
+    """action → the input name that must carry the approved SHA, per
+    warrant-policy.yaml ON MAIN. Best-effort: an unreadable policy disables
+    the binding audit rather than blocking the sweep."""
+    import yaml
+
+    try:
+        resp = client.get(f"{FORGE_API_BASE}/repos/{REPO}/raw/main/warrant-policy.yaml")
+        resp.raise_for_status()
+        actions = (yaml.safe_load(resp.text) or {}).get("actions") or {}
+    except (httpx.HTTPError, yaml.YAMLError) as exc:
+        err.print(f"warrant-policy read failed (skipping SHA-binding audit): {exc}")
+        return {}
+    return {
+        name: entry["binds_sha"]
+        for name, entry in actions.items()
+        if entry.get("binds_sha")
+    }
+
+
+def binding_mismatch(wrec: dict, bindings: dict[str, str]) -> str | None:
+    """Did the dispatch actually carry the SHA the approval was bound to?
+
+    Compare the RECORD against itself — warrant stores both the bound `sha`
+    and the `inputs` it dispatched — never the run's `head_sha`. A dispatched
+    run's head_sha is main's tip at dispatch time, not the payload (that is
+    what `match_run` documents and what PR #523 fixed), so a head_sha
+    comparison would fail every honest approval filed before main moved on.
+
+    Catches warrant #22 retroactively: bound to bcb2b55, dispatched with no
+    `ref` at all, built main, reported success.
+
+    Returns None only when the binding is affirmatively verified. A record it
+    cannot read is reported, not waved through — an audit that closes a task
+    it failed to check is worse than one that asks a human to look."""
+    binding = bindings.get(wrec.get("action", ""))
+    if binding is None:
+        return None  # action declares no binding; nothing to verify
+    raw = wrec.get("inputs")
+    if raw is None:
+        return "request record carries no dispatch inputs, so the SHA binding cannot be verified"
+    try:
+        inputs = json.loads(raw)
+    except json.JSONDecodeError:
+        return "request record has unreadable dispatch inputs, so the SHA binding cannot be verified"
+    bound, sent = wrec.get("sha"), inputs.get(binding)
+    if sent == bound:
+        return None
+    if sent is None:
+        return f"dispatched with no '{binding}' input, so it ran against main, not {str(bound)[:7]}"
+    return f"dispatched '{binding}={sent}' but the approval bound {str(bound)[:7]}"
+
+
 def match_run(task: dict, runs: list[dict]) -> dict | None:
     """Forge-side FALLBACK when no recorded warrant link exists. A dispatched
     run's head_sha is the main tip at dispatch time, not the payload SHA the
@@ -191,9 +247,10 @@ def main(
     token = forge_token()
     with httpx.Client(headers={"Authorization": f"token {token}"}, timeout=30.0) as client:
         runs = recent_runs(client)
+        bindings = sha_policy(client)
     warrants = warrant_requests()
 
-    closed = failed = pending = 0
+    closed = failed = pending = mismatched = 0
     for task in tasks:
         node_id = task["node_id"]
         label = f"{task['workflow']} @ {task['sha7']} (PR #{task['pr']})"
@@ -226,6 +283,24 @@ def main(
             continue
         url = f"https://forge.eblu.me/{REPO}/actions/runs/{run['run_number']}"
         status = run.get("status")
+
+        # A run that built the wrong commit must never close its approval,
+        # however green the forge reports it.
+        if wrec and (why := binding_mismatch(wrec, bindings)):
+            if not dry_run:
+                heph(
+                    "log", node_id,
+                    f"AUDIT FAILURE: run {run['run_number']} {why} — {url} ({via}). "
+                    "The approved change was not what ran; left open. "
+                    "Re-request with the SHA bound to the workflow's payload input.",
+                )
+            console.print(
+                f"[red]MISMATCH[/red] {label} — run {run['run_number']} {why} "
+                "(task left open)"
+            )
+            mismatched += 1
+            continue
+
         if status == "success":
             if not dry_run:
                 heph("log", node_id, f"AUDIT: run {run['run_number']} succeeded — {url} ({via}). Auto-closed by verify-runs.")
@@ -241,7 +316,10 @@ def main(
             console.print(f"[yellow]running[/yellow]  {label} — run {run['run_number']} {status}")
             pending += 1
 
-    console.print(f"\n{closed} closed, {failed} failed (open), {pending} pending/running")
+    summary = f"\n{closed} closed, {failed} failed (open), {pending} pending/running"
+    if mismatched:
+        summary += f", [red]{mismatched} SHA-binding mismatch[/red] (open)"
+    console.print(summary)
 
 
 if __name__ == "__main__":

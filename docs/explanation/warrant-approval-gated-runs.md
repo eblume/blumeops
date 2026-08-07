@@ -188,8 +188,15 @@ The smallest thing that closes the loop end-to-end:
 1. **`mise run request-run <workflow> <full-sha> [-- key=val …]`** (agent-side,
    works with agents-vault creds only). It:
    - validates the SHA is the head of an open PR (or a commit on one),
+   - **enforces the SHA binding**: every warrant-class action in
+     `warrant-policy.yaml` carries `binds_sha: <input>`, naming the dispatch
+     input that must receive the approved commit. A request whose bound SHA
+     does not reach that input is refused rather than filed — see
+     [§The binding was decorative](#the-binding-was-decorative) below,
    - posts a structured **PR comment**: requested workflow, full SHA, dispatch
-     inputs ready to copy, why, and a diff link,
+     inputs ready to copy, why, a diff link, and a link to the Warrant queue
+     entry itself (a bare `#N` in `--why` is wrapped in a code span, because
+     Forgejo otherwise autolinks it to a PR of this repo),
    - flags loudly if the diff touches `.forgejo/workflows/**` (per invariant 3
      those changes only take effect after merge — the reviewer should know),
    - **files a heph task** (`Approve: <workflow> @ <sha7> (PR #N)`, project
@@ -454,6 +461,49 @@ history plus the follow-ups they leave behind:
   [[agent-containerization]] §"Why we can't just fix the ACL" already
   retracts the patch. Residual follow-up: assert in `policy.hujson`'s ACL
   tests that `tag:agent` has no SSH anywhere, if #445's tests don't already.
+
+## The binding was decorative
+
+Invariant 3 splits a privileged run in two: the *definition* comes from `main`,
+and the approved SHA is a **payload input** — what to check out, build, or sync.
+Warrant froze that SHA into every record. Nothing made it reach the run.
+
+The two halves lived in different fields and never met. `request-run` sends
+`{action, sha, inputs}`; the workflow reads only `inputs`. `build-container.yaml`
+declares `ref` as *optional*, defaulting to the dispatch ref, because a human
+dispatching from the UI reasonably means "current HEAD". So a request could
+name one commit and dispatch another, and did:
+
+> Warrant #22 bound `bcb2b55` (agent-ws 0.15.0). The request passed
+> `-i container=agent-ws` and no `ref`. Run 742 checked out `1cb0a614` — main's
+> tip — rebuilt the v0.14.0 image that already existed, and reported **success**.
+> `verify-runs` then closed the tracking task, and closed superseded #21's task
+> from the same run for good measure. Two requests bound to two different
+> commits, both marked satisfied by one build of a third.
+
+Every signal was green. The operator error was real, but the system offered no
+resistance at any point on the path, which is the part worth fixing.
+
+The repair names the join in the reviewed artifact rather than in code:
+`binds_sha: <input>` in `warrant-policy.yaml` says *this* input carries the
+approved commit. `request-run` refuses a request that omits it, that passes a
+different SHA, or that passes a mutable ref like `main` — a value the workflows
+accept and the policy pattern still admits, but which resolves at dispatch time
+and so is exactly the moving target an approval exists to pin down. A
+warrant-class action with no `binds_sha` at all is refused too, so the hole
+cannot reopen by omission when the next privileged workflow lands.
+
+`verify-runs` audits the same property after the fact, and it compares the
+**record against itself** — the bound `sha` versus the `inputs` actually
+dispatched — never the run's `head_sha`. A dispatched run's `head_sha` is
+main's tip at dispatch time, not the payload; comparing against it would fail
+every honest approval filed before main moved on. That distinction is the whole
+substance of the run-attribution fix in PR #523, and it is easy to lose, because
+"compare the run's SHA to the approved SHA" is the obvious wrong answer.
+
+The general shape, which recurs: **a value is not a constraint until something
+refuses on it.** Warrant recorded the SHA faithfully from day one, displayed it
+in the UI, and put it in the PR comment. It still bound nothing.
 
 ## Verify during implementation (assumptions to prove, not facts)
 
