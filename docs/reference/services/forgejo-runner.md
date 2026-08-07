@@ -1,6 +1,6 @@
 ---
 title: Forgejo Runner
-modified: 2026-06-17
+modified: 2026-08-07
 last-reviewed: 2026-06-10
 tags:
   - service
@@ -57,11 +57,22 @@ registration token):
 ## Job Execution
 
 Host-mode ([[retire-minikube]] phase 6): workflow steps run directly as
-`erichblume` on indri with the mise-managed toolchain (node, uv, yq,
-jq, prek, dagger — installed by the role). Dagger pipelines work
+`erichblume` on indri with the mise-managed toolchain. Dagger pipelines work
 unchanged: the CLI runs on the host and its engine runs as a container
 in Docker Desktop, which survives solely for this purpose (right-sized
 2cpu/4GiB). The old arm64 `runner-job-image` is retired.
+
+The toolchain the role installs is exactly `forgejo_runner_host_tools` in
+`ansible/roles/forgejo_runner/defaults/main.yml` — read it there rather than
+trusting a list here, which is how this card came to advertise a `jq` the role
+never installed. Anything else a job needs comes from the repo's own
+`mise.toml`, or from a Dagger container.
+
+**`prek` needs company.** prek downloads the environment for most hooks, but a
+`*-system` hook runs whatever is on `PATH` by definition — so `actionlint` and
+`stylua` are the host's responsibility, and a missing one is reported as a
+*failed* hook, not a skipped one. Adding a `*-system` hook to any repo's
+`prek.toml` means adding its binary here.
 
 ## Credentials
 

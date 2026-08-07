@@ -45,6 +45,15 @@ forgejo_runner_host_tools:
   # argocd stays as a mise-x fallback for any argocd job that lands on this
   # runner; the primary path is the ringtail-priv-runner's nixpkgs argocd.
   - argocd@3.3.12
+  # The two lint binaries prek cannot fetch for itself. prek downloads the
+  # environment for most hooks, but a `*-system` hook by definition runs
+  # whatever is on PATH — so `actionlint-system` and `stylua-system` are the
+  # host's responsibility. Absent, they do not skip: prek reports the hook as
+  # failed, which is why blumeops' own actionlint hook has never caught a
+  # workflow error and hephaestus.nvim's prek step is stubbed out with an echo.
+  # Versions track the prek.toml revs that pin the hooks.
+  - actionlint@1.7.12
+  - stylua@2.4.1
 
 # Zot pull-through cache for docker.io pulls, merged into Docker
 # Desktop's daemon.json. host.docker.internal resolves to indri from
