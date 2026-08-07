@@ -1,6 +1,6 @@
 ---
 title: "Runbook: Textfile Stale"
-modified: 2026-06-17
+modified: 2026-08-06
 tags:
   - how-to
   - alerting
@@ -11,7 +11,14 @@ tags:
 
 **Alert name:** `TextfileStale`
 
-A Prometheus textfile collector `.prom` file on indri has not been updated for over 1 hour, indicating the metrics exporter script has stopped running.
+A Prometheus textfile collector `.prom` file on indri has not been updated for
+over **2 hours**, indicating the metrics exporter script has stopped running.
+
+The threshold is 2h rather than 1h because `borgmatic.prom` is written by an
+**hourly** LaunchAgent — at a 1h threshold its own refresh period is the
+threshold, so ordinary scheduling jitter tripped the alert into `pending` every
+hour. The other five textfiles are rewritten every 20-50 seconds, so they alert
+just as fast in practice.
 
 ## Affected Textfiles
 
