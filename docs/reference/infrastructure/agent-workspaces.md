@@ -341,10 +341,25 @@ client libs) go on `LD_LIBRARY_PATH` via `gameLibs`.
 
 ## Authentication
 
-Remote Control requires a **claude.ai subscription OAuth login** (not an API
-key, not `claude setup-token`). On Linux the credential is a portable file at
-`~/.claude/.credentials.json`; it is refreshed in place on use, so it must live
-on a writable path. The `agent` user logs in once during [[bootstrap-agent-workspaces|bootstrap]].
+Remote Control requires a **claude.ai subscription credential** (not an API
+key). Two forms of that credential exist, and this deployment deliberately uses
+the second.
+
+An **interactive `claude auth login`** writes `~/.claude/.credentials.json` and
+refreshes it in place on use. That was the original bootstrap step, and it does
+not survive unattended operation: the refresh token carries a hard ~7-day
+expiry anchored at login, and Claude Code refresh tokens are single-use, so
+concurrent sessions in one pod can invalidate each other's and end it sooner
+([claude-code#24317](https://github.com/anthropics/claude-code/issues/24317)).
+Worse, its death is silent — see [Known warts](#known-warts).
+
+A **`claude setup-token` token** has no refresh cycle to break. It lives in the
+agents vault as `op://agents/claude-oauth-token/token`, and the entrypoint reads
+it into `CLAUDE_CODE_OAUTH_TOKEN` at pod start exactly as it reads
+`FORGEJO_TOKEN` — so auth survives PVC loss and rotates without a shell in the
+pod. This is still a subscription OAuth credential, so the terms posture below
+is unchanged. Mint a replacement with `claude setup-token` and overwrite the
+vault item; the pod picks it up on its next restart.
 
 ### Terms of use
 
@@ -385,6 +400,15 @@ token-wasteful always-on pattern is also the fair-use risk.
   [anthropics/claude-code#30447](https://github.com/anthropics/claude-code/issues/30447)).
 - This whole deployment shape (Remote Control server, headless, multi-session)
   is unsupported by Anthropic — treat upgrades as capable of breaking it.
+- **An auth failure here is invisible to every health signal we have.** When the
+  PVC OAuth credential expired on 2026-08-07, remote-control kept its gateway
+  websocket up and kept printing `✔︎ Connected`, so `agent-ws-health` (which
+  only asserts that a claude process holds an ESTABLISHED TCP connection) stayed
+  green — while every session start failed `Failed to authenticate: OAuth
+  session expired and could not be refreshed`. The long-lived token above
+  removes the recurring trigger, but nothing yet *detects* a bad credential:
+  `claude auth status --json` inside the pod is the check, and wiring it to an
+  alert is still open work.
 
 ## Related
 

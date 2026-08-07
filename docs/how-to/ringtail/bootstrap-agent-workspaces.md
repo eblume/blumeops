@@ -121,22 +121,41 @@ sudo -u agent -H bash -lc 'curl -fsSL https://claude.ai/install.sh | bash'
 sudo -u agent -H bash -lc '~/.local/bin/claude --version'
 ```
 
-## 5. Log in (OAuth) — once, interactively
+## 5. Mint the long-lived Anthropic token
 
-Remote Control needs a subscription OAuth login. Do it **once** in any
-workspace; it writes `~/.claude/.credentials.json` (account-wide). Use a real
-TTY (`ssh -t` + `sudo -i`) and the **full path** — the fresh `agent` login
-shell doesn't have `~/.local/bin` on PATH yet:
+Remote Control needs a subscription credential. **Use `claude setup-token`, not
+an interactive `claude auth login`** — the login credential's refresh token
+expires ~7 days after login and dies silently (see
+[[agent-workspaces#Authentication]]); a setup-token has no refresh cycle to
+break. Needs a real TTY and the **full path**:
 
 ```fish
-ssh -t ringtail
-sudo -u agent -H -i
-cd ~/code/personal/agents
-~/.local/bin/claude
+kubectl exec -it -n agent-ws deploy/agent-ws -c agent -- \
+    /home/agent/.local/bin/claude setup-token
 ```
 
-In that session: run `/login` (open the printed URL on gilbert, approve, paste
-the code back), accept the **workspace trust** dialog, then `/exit`.
+Open the printed URL on gilbert, approve, and it prints an `sk-ant-oat01-…`
+token. Store it in the **agents** vault so the entrypoint can read it:
+
+```fish
+op item create --vault agents --category "API Credential" \
+    --title claude-oauth-token 'token[password]=sk-ant-oat01-…'
+```
+
+Restart the pod (`kubectl delete pod -n agent-ws -l app=agent-ws`) so the
+entrypoint picks it up, then confirm:
+
+```fish
+kubectl exec -n agent-ws deploy/agent-ws -c agent -- \
+    /home/agent/.local/bin/claude auth status --json   # authMethod: oauth_token
+```
+
+To rotate, repeat the two commands (`op item edit` the existing item) and
+restart the pod. Nothing is written to the PVC, so a fresh PVC needs no
+re-login.
+
+Two pieces of first-run state are *not* covered by the token and still need
+seeding on a fresh PVC:
 
 - **Remote Control consent is per-config-dir and MUST be seeded**, or every
   service blocks invisibly. On first `remote-control` launch Claude prompts
