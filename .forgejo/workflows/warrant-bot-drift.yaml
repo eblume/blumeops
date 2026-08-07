@@ -12,6 +12,14 @@
 #
 # Needs FORGE_ADMIN_TOKEN: collaborator permissions and branch protections are
 # admin-only reads. Same secret and same provisioning path as Agent Repo Access.
+#
+# That credential is also why there is no `pull_request` trigger. Fork PRs get
+# no secrets, every agent PR is a fork PR, and the token is what this job needs
+# to see anything — so as a PR check it could only ever hit --skip-if-no-token,
+# which exits 0 and renders as a passing tick. A green check that verified
+# nothing is worse than no check. Editing the script is covered by the `push`
+# run on main, which is the first run with a real token, plus the weekly
+# schedule; both fail loudly and neither can pass by abstaining.
 name: Warrant Bot Drift
 
 on:
@@ -19,7 +27,8 @@ on:
     # Weekly, Monday 07:00 UTC — shortly after the 06:00 branch-cleanup slot so
     # the two scheduled jobs don't contend for the runner.
     - cron: '0 7 * * 1'
-  pull_request:
+  push:
+    branches: [main]
     paths:
       - 'mise-tasks/warrant-bot-drift'
       - 'mise-tasks/warrant-bot-provision'
