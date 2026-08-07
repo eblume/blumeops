@@ -12,6 +12,613 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.19.0] - 2026-08-06
+
+### Features
+
+- `mise run agent-health` now names the instance behind a firing or pending
+  alert, not just the rule: the distinguishing labels (`file=…`, `camera_name=…`,
+  `namespace=…`) plus how long it has been in that state. Grafana was already
+  returning them and the task discarded them, so a report said "TextfileStale is
+  pending" when it could have said which textfile — the first question every
+  runbook asks. `--json` carries the full label set per live instance.
+- `mise run agent-metrics '<promql>'` — ask Prometheus a question from anywhere,
+  without cluster access. Goes through Grafana's datasource proxy as the same
+  `agents-m2m` Viewer identity `agent-health` uses, so an agent can now verify a
+  fix with data instead of inference: the frigate liveness-probe fix turned out
+  to be a measurable 26x reduction in restarts (5.72/day → 0.22/day), which
+  closed a task that had been open on "verify this held" since June.
+- `mise run agent-health` — fleet health via Grafana alert-rule states, run
+  as the `agent-ringtail` machine identity (agents-vault creds only, Viewer
+  access, SOCKS fallback for the pod). Exit 0/2/1 for inactive/pending/
+  firing — the agent-usable replacement for services-check's kubectl/ssh
+  legs (heph 01KZ2XGW).
+- `mise run warrant-bot-drift` and a weekly **Warrant Bot Drift** workflow assert
+  that warrant-bot still holds exactly write on `eblume/blumeops`, is a
+  collaborator nowhere else, is not a site admin, and is not on `main`'s
+  push/merge whitelist. All four live in the forge rather than in this repo, so a
+  change made in the UI leaves no diff for review to catch. Read-only, and an
+  unreadable check reports UNKNOWN and fails rather than passing quietly.
+- Grafana gains `[auth.jwt]` for the `agents-m2m` machine identity
+  (heph 01KXREAB, second half): JWKS-verified tokens as `agent-ringtail` get
+  Viewer via the `agents-sa` groups claim, `X-JWT-Assertion` header,
+  auto-provisioned on first call. Gives agents a post-deploy observability
+  read path (agent-health follows).
+- Ringtail's heph spoke is now a **desktop** spoke: `heph-tui` (agenda/triage) and
+  `heph-quickadd` (quick capture) install alongside `heph`/`hephd`, and sway binds
+  **Alt+'** to the quick-capture popover from anywhere. The agent's headless spoke
+  still installs only the daemon and CLI. Shims in eblume's home-manager profile
+  put all four on the session `PATH` — `~/.cargo/bin` is on none of it, so until
+  now no heph binary (including the `heph` CLI) was reachable from a terminal
+  opened under sway. Because `heph-quickadd` is a
+  cargo-built GUI, `heph-common.nix` now also carries the graphics/input libraries
+  it `dlopen`s at runtime, and the install unit no longer skips a rebuild just
+  because `hephd` is already at the pinned tag — it also requires every requested
+  binary to be present.
+
+  Also installs `tea` on ringtail: `tea pr create` is the documented way to open
+  PRs here, but it was never on this host, so sessions running on ringtail had to
+  fall back to raw Forgejo API calls.
+- `request-run` now mirrors every privileged-run request into the
+  [[warrant]] queue (agents-m2m identity, SOCKS-aware, best-effort) — the
+  broker becomes the single pane of glass while PR comment + heph task
+  remain the system of record.
+- Arm Warrant: `WARRANT_DISPATCH_ENABLED=1`. Approving a request in
+  [[warrant]] now dispatches its workflow as `warrant-bot` — the loop from
+  agent request to executed run closes with one human decision. Disarm by
+  setting `"0"` and syncing.
+- `mise run warrant-bot-provision` — scripted, human-run ceremony for the
+  Warrant dispatch identity: creates the `warrant-bot` forge user, grants
+  write on blumeops, mints a `write:repository` PAT, and stores it in
+  `blumeops-ci`. Deliberately not a workflow — minting privileged
+  credentials from CI would need vault-write in CI and would turn
+  FORGE_ADMIN_TOKEN into an escalation path.
+- warrant v0.2.3: the queue links to the code — PR, its diff, the commit, and
+  the workflow definition. Tying each decision to the change it authorizes is
+  the substance of the approve-fatigue answer; richer ergonomics follow later.
+- warrant v0.3.2: an approved warrant records the CI run it caused —
+  `run_number`/`run_url` columns, a **run** column in the warrants table, and
+  the run URL in the decision API response. Closes the loop visually: approve,
+  then click through to what you started.
+- `argocd-deploy.yaml` — the first approval-gated privileged workflow
+  ([[warrant-approval-gated-runs]] Phase 1): a human-dispatched `app set
+  --revision <sha>` + sync + wait-healthy, with SHA/app validation and
+  env-indirected inputs. Introduces the `priv` runner label (advertised by the
+  indri runner until the dedicated Phase-2 runner exists). Makes the
+  "deploy from branch/merge" step agent-requestable via
+  `mise run request-run`.
+- Authentik gains the agent identity tier ([[warrant-approval-gated-runs]] P3
+  prereq, heph 01KXREAB): `agents-sa` group, `agent-ringtail` service account,
+  and an `agents-m2m` client-credentials OAuth2 provider whose client secret is
+  vault-fed (`Authentik (blumeops)` → `agents-m2m-client-secret`), so consumers
+  read the same value from the agents vault.
+- [[warrant]] v0.1 scaffold — the Phase-3 approval broker's request queue:
+  FastAPI + SQLite at warrant.ops.eblu.me, agent API authenticated by the
+  `agents-m2m` Authentik JWT, read-only queue UI. Deliberately holds no
+  approval path and no privileged credentials; forge dispatch remains the
+  approval mechanism until v0.2.
+- `warrant-policy.yaml` — the agent-autonomy boundary as a reviewed artifact
+  ([[warrant-approval-gated-runs]] Phase 4 seed): per-action classes
+  (warrant/auto/deny, unknown = deny) and input schemas. `request-run`
+  enforces it from main at request time — app-name typos and denied actions
+  now fail before a human ever sees the request (pilot friction d).
+- `mise run request-run` — agents can now formally request privileged workflow
+  dispatches ([[warrant-approval-gated-runs]] Phase 1): structured PR comment +
+  attention-orange heph task (the system of record), optional ntfy push, SHA and
+  definitions-from-main validation. Approval remains a human forge-UI dispatch.
+  See [[request-a-privileged-run]].
+- `mise run verify-runs` — the Phase-2 audit sweep for
+  [[warrant-approval-gated-runs]]: matches open `Approve:` heph tasks to their
+  workflow runs, auto-closes succeeded ones with an audit log line, and flags
+  failures while leaving them open. Closes pilot friction (b).
+- Warrant v0.3.0 — approvals can execute: an approved warrant is consumed
+  (single-use, TTL-checked, policy re-checked against main) and its workflow
+  dispatched as `warrant-bot`. Ships **disabled**; `WARRANT_DISPATCH_ENABLED`
+  arms it separately. Approving now goes through a confirm page showing the
+  full input set and diff link — the list view can deny, not approve.
+- Warrant v0.2a — the human door: Authentik OIDC login for the queue UI
+  (admins-only, TOTP-backed per the recorded decision), signed sessions, and
+  an honest decision endpoint (401/403/501 — authentication without power).
+  Agent requester names become human-readable. The approval flow itself is
+  v0.2b.
+- Warrant v0.2b — decisions and warrants: authenticated approvers
+  approve/deny from the UI (CSRF-guarded forms) or JSON API; approval mints
+  a single-use, TTL'd **warrant** binding the frozen {action, sha, inputs}
+  (invariants 2 & 5). Still dispatches nothing — execution stays forge-side
+  until v0.2c consumes warrants.
+
+### Bug Fixes
+
+- Recover seven changelog fragments that towncrier would have dropped. Branch
+  names containing a slash produced `docs/changelog.d/agent/*.md`, and towncrier
+  skips subdirectories without a word, so entries from PRs #439, #440, #521,
+  #522, #523 and #524 were headed for a release that never mentioned them.
+  `mise run changelog-check` had anticipated exactly this failure since it was
+  written and was wired into nothing; the new **Docs Checks** workflow now runs
+  it, plus the frontmatter and wiki-link validators, on every PR.
+- `warrant-bot-drift` and `agent-repo-access` read a collaborator's permission
+  level from `/collaborators/{who}/permission` instead of from the collaborator
+  list, whose entries are plain users and never carried a permissions field.
+  Warrant Bot Drift could not pass at all — every real grant read as "not
+  readable" (run 724); `agent-repo-access` saw every existing grant as `read`,
+  so `--check` never reported in sync and an over-privileged grant would have
+  read as under-privileged.
+- `runner-logs` works from an agent pod: it now targets the public forge host
+  instead of the tailnet name plain httpx cannot reach, prefers the `upstream`
+  remote over a fork's `origin` when detecting the repo, and bounds its `op read`
+  with `stdin=DEVNULL`, a timeout, and a clean error instead of hanging. Dropped
+  the `[human]` tag it should never have carried — AGENTS.md points agents at
+  this task for exactly the job it could not do.
+
+  `container-list` no longer reports every container as untagged when the
+  registry is unreachable; it says so and exits non-zero, and can be routed
+  through the pod's SOCKS sidecar with `ALL_PROXY`.
+- The ringtail-priv-runner now carries `flyctl` in its hostPackages, fixing the first warrant-dispatched `deploy-fly` run (run 738: `flyctl: command not found`, exit 127 before any deploy action). The deploy-fly workflow header no longer claims the indri runner advertises `priv` — that was stale; the dedicated Phase-2 runner had already landed.
+- Fixed `mise run services-check`'s "Local services on indri" leg to `ssh
+  erichblume@indri` instead of bare `ssh indri` — the bare form relies on a
+  local-username mapping that only exists on gilbert, so it fails with
+  `tailscale: failed to look up local user` when run from ringtail (indri's
+  account is `erichblume`, not the caller's username).
+- ringtail: `WLR_NO_HARDWARE_CURSORS=1` now actually reaches the sway session.
+  It had been configured via `programs.sway.extraSessionCommands` since
+  2026-02-18 and never applied — the running sway is home-manager's
+  `wayland.windowManager.sway` build, which never executes the NixOS module's
+  session wrapper. Moved to `environment.variables`, the mechanism the
+  `MOZ_ENABLE_WAYLAND` workaround already proved reaches the session.
+- `TextfileStale` no longer goes pending every hour. Its threshold was 3600s
+  while `borgmatic.prom` is written by an hourly LaunchAgent — the alert's
+  threshold and the file's refresh period were the same number, so ordinary
+  scheduling jitter made it "stale" once per hour, every hour. Raised to 2h; the
+  other five textfiles refresh every 20-50s and lose nothing. Shortening the
+  exporter's interval was the other option and was rejected: it calls `borg info`
+  over SSH to BorgBase, and doubling that collides with the separate
+  connection-count concern.
+- `verify-runs` now attributes approval tasks to runs by record instead of inference: warrant v0.3.4 serializes each request's `run_number`/`run_url` (captured at dispatch via `return_run_info`) in `GET /api/requests`, `request-run` stamps the warrant request id into the heph task, and the sweep closes tasks against exactly that run. The old matcher assumed a dispatched run's `head_sha` was the approved payload SHA — it's actually the main tip at dispatch time, so any request approved after main moved on (deploy-fly request #18, run 739) reported "not dispatched yet" forever. The forge-side heuristic remains only as a marked fallback for UI-dispatched runs.
+- warrant v0.3.3: a warrant no longer names a CI run it did not cause. v0.3.2's
+  `_find_run` retried only while the run list was *empty*, so for any workflow
+  with history the first poll returned the newest **pre-existing** run —
+  warrants #5 and #7 each asserted a run Erich never authorized. The dispatch
+  now sends `return_run_info`, so the forge answers 201 naming the run it just
+  created and there is nothing left to infer; a dispatch that comes back without
+  one links the workflow's run list rather than guessing. Warrants also record
+  `dispatched_at`, which makes a bad link detectable after the fact. First unit
+  tests for the service, run with `mise run warrant-test`.
+- `role:workflow-bot` can read ArgoCD projects. Without it `argocd app get` was
+  denied, so the argocd-deploy workflow's closing "Report application state"
+  step — the run's audit record — has been empty on every warrant-gated deploy
+  (runs 713, 721, 732), hidden by the step's `|| true`.
+- The agent-ws image gains `/usr/bin/env`, so `mise run <task>` works in the
+  pod — the kernel resolves shebang interpreters literally, and every
+  mise-task script uses `#!/usr/bin/env`. Tasks needing the blumeops vault are
+  now tagged `[human]` in their descriptions, and AGENTS.md points agents at
+  `agent-health` rather than the kubectl/ssh-bound `services-check`.
+- The agent-repo-access CI secret is `FORGE_ADMIN_TOKEN`, not
+  `FORGEJO_ADMIN_TOKEN`. Forgejo reserves the `FORGEJO_` prefix for the Actions
+  tokens it injects itself and rejects creating a secret that uses it, so
+  `provision-indri --tags forgejo_actions_secrets` failed with HTTP 400 on that one
+  entry while the other five synced fine. The `cv` repo's `FORGE_TOKEN` was already
+  the same workaround; the reason is now recorded in the role defaults so the name
+  doesn't get "corrected" back.
+- Fix navidrome 0.63.2 crash-loop: the Nix image ships no `/tmp`, so SQLite's
+  large `bpm`/`bit_depth` migration failed with `disk I/O error: permission
+  denied` (no writable temp dir for the statement journal). Mount an emptyDir at
+  `/tmp` (paperless precedent) and switch the deployment to `Recreate` so the old
+  pod never holds the SQLite DB while a new pod runs startup migrations.
+- `mise run request-run` rejected every one of its own flags, so the invocation
+  printed in `AGENTS.md` could not work.
+
+  Its `#USAGE` block declared the two positional args and no flags. mise validates
+  argv against that spec *before* the script runs, so `--pr`, `-i`, and `--why`
+  died at `unexpected word: --pr` — and `--` does not bypass it. The flags existed
+  in the typer signature below, and `./mise-tasks/request-run …` run directly
+  worked fine, which is presumably why it went unnoticed: the documented path was
+  the broken one. Found while filing the build request for agent-ws v0.14.0, which
+  is the first requestable action an agent has had reason to file from the pod.
+
+  Declaring the four flags fixes it. Two traps surfaced while doing so, both now
+  written down in the script's docstring because neither is discoverable:
+
+  - **The `#USAGE` block must be contiguous.** An ordinary comment line between
+    two `#USAGE` lines truncates the spec — every later line is silently dropped,
+    with no warning and no error. The first attempt at this fix put an
+    explanatory comment above the new flags and reproduced the original bug
+    exactly.
+  - **Booleans are KDL v2**, so a repeatable flag needs `var=#true`. `var=true`
+    fails to parse, and mise's fallback for an unparseable spec is to forward argv
+    *unvalidated* — so the broken spelling appears to work, right up until the
+    spec parses again and starts enforcing.
+
+  Verified by running the documented invocation against a deliberately bogus
+  workflow name: it now reaches `enforce_policy` and is refused there
+  (`.forgejo/workflows/zz-not-a-workflow.yaml does not exist on main`) rather than
+  dying in the argument parser, and nothing is filed. A scan of the rest of
+  `mise-tasks/` found no other task with either defect.
+- argocd-deploy maiden-run fixes: unset Forgejo's injected `GITHUB_TOKEN`
+  before `mise x` (it 401s against api.github.com), pre-install `argocd@3.3.12`
+  as a runner host tool, and list declared Applications when the `app` input
+  doesn't match (most carry a `-ringtail` suffix).
+- `warrant-bot-provision`: user creation needs `write:admin`, which the stored
+  forge token deliberately lacks. Adds `--token` for an ephemeral admin token
+  (never stored), mints the bot's PAT **as the bot** over basic auth (no admin
+  scope for that step), and prints the exact remediation on 403.
+- `warrant-bot-provision`: generate the bot's login password in-process and
+  store it beside the PAT in one `blumeops-ci` item (the two-item dance had a
+  read-after-create failure mode), and surface `op`'s own error text instead of
+  a bare CalledProcessError.
+- The dispatch token belongs in the `blumeops` vault: 1Password Connect (and
+  so external-secrets) is scoped to that vault alone, while `blumeops-ci` is
+  for CI job-time `op read`. Also: `/healthz` now reports
+  `armed | armed-no-token | disarmed`, so a missing token is visible instead
+  of masquerading as "disabled".
+- warrant v0.2.2: decision forms gain the note field the API always accepted,
+  notes surface in the warrants table, and deny sits left of approve so the
+  destructive-by-default ordering matches the design. Module docstring
+  refreshed to describe v0.2.
+- ArgoCD `workflow-bot` RBAC gains `applications update` so the argocd-deploy
+  workflow can `app set --revision`. Pairs with re-minting its stale token —
+  the provisioned `ARGOCD_AUTH_TOKEN` was signed by the retired minikube-era
+  ArgoCD and fails on the ringtail instance (`token signature is invalid`).
+- Fix the silently-skipped `agents-m2m` blueprint entry: the OAuth2 provider
+  needs `redirect_uris` even for a pure client_credentials flow (discovery
+  404'd; every working provider in the file has one). Placeholder points at
+  Warrant's future callback. Also aligns the service account with the zot-ci
+  shape (`is_active` instead of `path`).
+- authentik m2m round 2: the client_credentials flow authenticates a specific
+  service account via username + **app password** (issuing the token as
+  `agent-ringtail`, groups claim included); the bare client_secret-only
+  variant hits the app's `agents-sa` policy binding as a foreign auto-SA →
+  `invalid_grant`. Adds a vault-fed app-password token to the blueprint.
+- warrant v0.2.1: `/auth/callback` 500'd — `httpx` was lazily imported and
+  missing from the image (smoke tests masked it). Now a top-level import
+  (missing deps fail at boot, not first login) and in the nix package set.
+
+### Infrastructure
+
+- ArgoCD workload applications now sync automatically on merge to `main`
+  (`prune` and `selfHeal` both off). A merge reaches the cluster without a
+  separate sync step; `git revert` becomes a real rollback. The `apps`
+  app-of-apps, ArgoCD's self-management app, and the two apps tracking mutable
+  mirror tags stay manual.
+- Begin migrating the ringtail-agent workspace from a shared-host OS user to a k3s pod with its own Tailscale identity (`tag:agent`), closing the device-trust hole that let the agent user `ssh erichblume@indri`. This PR lands the identity foundation — `tag:agent` tagOwner, a fenced egress grant (forge + heph only, no OS SSH), and ACL tests — plus the [[agent-containerization]] design doc. No behavior change until the pod ships.
+- Bump mealie v3.16.0 -> v3.20.1 (bump-with-review to what nixos-unstable
+  currently carries; no DB/schema breaking changes, SQLite continues to
+  auto-migrate forward via init_db) and miniflux 2.3.1 -> 2.3.2 (converted to
+  the same nixos-unstable self-pin as mealie/navidrome, since stable
+  nixos-25.11 is EOL; 2.3.2 is a security patch preventing username
+  enumeration via login timing).
+- agent-ws 0.15.0: `nix` in the pod, deliberately eval-only. Its store, state and log dirs are relocated onto the PVC (`~/.local/state/nix`), which needs no root, daemon, namespace or capability — enough for `nix-instantiate`/`nix eval` and the evaluator-side fetchers (`nix-prefetch-url`), and structurally incapable of a useful build, since a relocated `store-dir` can never hit `cache.nixos.org` (`max-jobs = 0` makes that a clean error). Restores what containerization silently dropped: Nix changes to `nixos/ringtail/` and `containers/*/default.nix` no longer reach a human with their syntax unchecked. The store is pure cache — nothing in the pod creates a GC root — so `agent-ws-workspace gc` sweeps it on size (above 6 GiB it collects and clears `~/.cache/nix`, which the collector does not touch). The agent container's memory limit goes 4Gi → 6Gi to fit a full NixOS evaluation alongside claude.
+- Retire the host-level agent workspace now that the agent runs as a k3s pod ([[agent-containerization]]): `nixos/ringtail/agent-workspaces.nix` → `agent-heph-spoke.nix`, slimmed to just the `agent` user + its heph spoke (the workspace/remote-control/repo machinery and the unused Forgejo bot SSH key are gone; the heph spoke stays as the shared daemon the pod mounts). Also add a PVC-chown initContainer to the agent-ws Deployment so HOME ownership holds on a fresh volume without a manual chown, and bake a default `PATH` into the image (image v0.9.0).
+- Remove the Mikado apparatus: the `mikado-branch-invariant-check` commit-msg
+  hook, the `docs-mikado` viewer, the `mikado-navigator` subagent, and the
+  `C2(<chain>):` commit convention. No chain was using it — canonical carried no
+  `mikado/*` branch and no card with Mikado frontmatter. Multi-phase work is now
+  just a branch and a PR.
+- Renamed the `k8s` compat label on the indri Forgejo runner to the honest
+  `indri` label across all 6 workflows that used it (`runs-on: k8s` →
+  `runs-on: indri`), removed `k8s` from `forgejo_runner_labels` in the
+  `forgejo_runner` ansible role, and updated the docs that described the old
+  label as current state. The `nix-container-builder` runner is untouched.
+- `deploy-fly.yaml` is now a warrant-requestable privileged workflow: `workflow_dispatch`-only with a SHA-bound `revision` input, `runs-on: priv`, and a `warrant-policy.yaml` entry. The push-to-main auto-deploy trigger on `fly/**` is removed — merging no longer deploys the proxy; a human dispatch, gilbert's `mise run fly-deploy`, or an approved `mise run request-run deploy-fly.yaml …` does.
+- agent-ws: cut zombie-detection latency from ~10min to ~3min by moving boot
+  grace into a `startupProbe` (up to 20min for cold-PVC boots) and tightening
+  the `agent-ws-health` livenessProbe to 30s × 6 failures. The 2026-08-06
+  incident confirmed the detector fires correctly, but the old window was long
+  enough that the workspace read as "offline" in the Claude app before kubelet
+  recycled it.
+- `gamedev` joins the agent workspace pool, with the native libraries it actually
+  needs to build.
+
+  The repo was already granted (`access: write`) but held at `pool: none`, so it
+  had no checkout in the pod. Flipping it to `canonical` is the one-line half.
+  The other half is that containerization silently dropped Bevy's Linux native
+  deps: the retired host launcher exported `PKG_CONFIG_PATH` and `LD_LIBRARY_PATH`
+  over them, and `containers/agent-ws/` was never given the equivalent. So
+  `gamedev` would have arrived as a checkout that could not be compiled.
+
+  Verified from inside the pod rather than reasoned about, which is what caught
+  the interesting part. A mise-provided `rust@stable` builds and links an ordinary
+  crate fine; `mise run check` on gamedev fails in a `-sys` build script. But it
+  fails on **`wayland-sys`**, not only `alsa-sys` — and the host file's comment
+  asserted that every windowing library was `dlopen`'d at run time and therefore
+  needed nothing at build time. That was wrong for this dependency set. Porting
+  the host's `gameBuildDeps`/`gameLibs` split verbatim would have shipped a fix
+  that still did not build.
+
+  So `PKG_CONFIG_PATH` now carries the dev output of the *whole* `gameLibs` set
+  rather than a hand-picked subset, with the runtime libs on `LD_LIBRARY_PATH` as
+  before. A `.pc` file no build script asks for costs nothing; a missing one is a
+  hard failure, and which crates probe at build time is a property of Bevy's
+  feature flags that will drift.
+
+  Rust itself stays out of the image, and that is now confirmed rather than
+  assumed: `mise install rust@stable` works in the pod (the `ldLibs` loader shim
+  was already sized for it), installs to `~/.cargo/bin` on the PVC so it survives
+  restarts, and `gamedev`'s own `mise.toml` pins `rust = "stable"` — so
+  `mise run check` provisions its own toolchain.
+
+  This lets an agent `cargo check`/`build` the Bevy workspace to verify its work.
+  It does **not** make the pod able to *run* a windowed Bevy app — no GPU, no
+  display — so playtesting stays a human job, consistent with the
+  timberborn-parsimony rule.
+
+  Image toolchain version 0.11.0 → 0.12.0.
+- Add `containers/agent-ws/default.nix` — the dockerTools image for the containerized agent workspace (step 2 of [[agent-containerization]]). Carries the curated toolchain (op, git, tea, mise/uv/pandoc/typst/weasyprint, the CLI + build tools); `claude` self-installs at pod-start onto the PVC rather than being baked in. Symlinks the glibc loader so prebuilt ELF binaries run in the non-FHS image. No deployment yet — manifests follow once pod egress identity is proven on-box.
+- agent-ws 0.11.0: liveness watchdog for Remote Control zombies — an exec probe
+  (`agent-ws-health`) restarts the agent container when no claude process holds
+  an established TCP connection, catching the survived-a-WAN-blip-but-never-
+  reconnected failure mode from the 2026-08-01 outage.
+- Deploy the containerized agent workspace (step 3 of [[agent-containerization]]): a `tag:agent` Tailscale auth key (Pulumi), and the `agent-ws` k8s manifests — Deployment with a userspace Tailscale sidecar for own-identity egress, restricted ServiceAccount, PVC, Secrets, and a NetworkPolicy that forces forge/heph traffic through the sidecar (closing the node-NAT egress trap). Also gives the image an internal schema version so the Build Container workflow can tag it.
+- Which repos the `agents` bot may touch is now **declared, not clicked**.
+  `containers/agent-ws/repos.json` is one file driving both halves of "share a
+  repo with the agent": the forge collaborator grant (reconciled by
+  `mise run agent-repo-access`, wired to the new **Agent Repo Access** workflow)
+  and the pod's clone loop (`default.nix` reads the same file via
+  `builtins.fromJSON`). `myeve` and `timberborn-parsimony` join the pool.
+
+  Those were previously two independent manual steps, and skipping the grant fails
+  invisibly: Forgejo answers **404, not 403**, for a private repo the caller cannot
+  see, and the clone loop is deliberately non-fatal (one unreachable repo must not
+  crashloop the workspace) — so a missing grant is indistinguishable from a typo,
+  and the only symptom is a directory that never appears. `timberborn-parsimony`
+  was documented as a sibling checkout for three weeks while being absent for
+  exactly this reason.
+
+  Reconcile is authoritative: a repo absent from the file has its collaboration
+  removed, and the workflow's PR job runs `--check` so revocations are visible in
+  review before the merge that applies them. `blumeops` and `agents` are pinned
+  read-only by an invariant in the reconciler that the data file cannot override —
+  their read-only-on-canonical status is what keeps blumeops CI and its
+  deploy-credentialed Actions secrets out of agent reach, and a fence like that
+  should not be flippable by a one-line edit to a config file.
+
+  The reconciler's admin credential reaches CI the established way — declared in
+  the `forgejo_actions_secrets` ansible role and pushed by a human with
+  `mise run provision-indri -- --tags forgejo_actions_secrets`, reusing the
+  `eblume` PAT that role already authenticates with. That human step is the point:
+  the `agents` vault is the agent's, the blumeops vault is privileged, and Forgejo
+  Actions secrets are the curated subset a human deliberately moves across.
+
+  Image toolchain version 0.9.0 → 0.10.0.
+- Wire the `blumeops-ci` vault tier into CI: the read-only
+  `blumeops-ci-reader` service-account token provisions into Forgejo Actions
+  as `BLUMEOPS_CI_OP_TOKEN` ([[warrant-approval-gated-runs]] Phase 2).
+  The vault starts empty; items migrate via per-workflow audit.
+- EVE Online game state now publishes itself into heph. An hourly systemd **user**
+  timer on ringtail (`nixos/ringtail/myeve-heph-sync.nix`) runs the MyEVE sync,
+  filing PI extractor expiry, undelivered industry jobs, skill-queue exhaustion and
+  undercut market orders as tasks under the MyEVE project — and closing them again
+  when the game state resolves. The motivating case: a manufacturing job finished
+  2026-07-18 and sat undelivered for 12 days because nothing surfaced it.
+
+  User scope is load-bearing, the same constraint as the eblume heph spoke — the
+  sync shells out to `heph`, which needs `XDG_RUNTIME_DIR` to find `hephd.sock`. A
+  system service would bind the `~/.local/share` fallback and never meet the spoke.
+  The unit skips cleanly when the CLI, the myeve checkout, the ESI token or the
+  socket is missing, and fails loudly only when the ESI refresh token is revoked.
+
+  The sync logic lives in the myeve repo and gained matching fixes: reconciliation
+  is now keyed purely on the `myeve-key:` line in each task's context doc, with the
+  heph store as the only state. The local cache file it used to depend on could be
+  lost, and when it was, every live chore looked new — duplicates filed, originals
+  stranded beyond the reach of the closer. Two further bugs fell out: a collector
+  that raised had its live chores closed as if resolved (one flaky ESI call could
+  close "deliver your finished job"), and `--only pi` closed every non-PI chore.
+  Both now scope closing to the collectors that actually ran.
+- Each Remote Control session now gets its own worktree of every pooled repo,
+  and the pool itself is kept pinned to canonical `main`.
+
+  Only the `agents` repo had per-session isolation, because that is all
+  `claude remote-control --spawn worktree` does — it operates on its own cwd repo
+  and nothing else. The other seven pooled repos were one shared checkout each, so
+  two concurrent sessions editing blumeops contended for one HEAD and one index.
+  The only thing preventing that was a paragraph in the agents repo's `AGENTS.md`
+  telling sessions to branch first, and the evidence that it is load-bearing is
+  already on the PVC: two prior sessions had hand-rolled their own blumeops
+  worktrees, by two different methods, one detached and one on a branch.
+
+  `agent-ws-workspace` (new, generated from `repos.json` like the clone loop) has
+  three verbs. `init` is a `SessionStart` hook and gives the session a detached
+  worktree of each repo at `~/code/sessions/<session-id>/<repo>`. `sync` fetches
+  and fast-forwards each pool checkout onto canonical `main`. `gc` reaps the
+  worktrees of sessions that have ended. `sync` and `gc` also run once at pod boot.
+
+  Worktrees rather than clones: they share the object store, and they enforce
+  one-branch-one-checkout *in git* rather than by convention. Measured cost is
+  14 MB for all seven — the whole pool is 43 MB.
+
+  Three things fell out of building it that were not the original goal:
+
+  **Sessions were waking up stale.** The clone loop only fetches at pod boot, so
+  `--spawn worktree` branches off whatever `main` was when the pod started. On a
+  pod up for days that is visibly wrong in the one repo where it matters most:
+  this change was authored from a session whose `agents` worktree — and therefore
+  whose own base instructions — was two commits behind canonical. `init` now
+  fast-forwards the session's `agents` worktree too, when it is clean.
+
+  **A fork's `main` lies.** `origin` on `agents` and `blumeops` is the bot's fork,
+  so `git status` says "up to date with origin/main" while canonical is 110 commits
+  ahead. `sync` pushes canonical `main` onto the fork so that sentence means what
+  it appears to mean and cross-repo PR diffs stay honest. Fast-forward only; a
+  diverged fork is left alone and reported.
+
+  **Nothing ever reaped worktrees.** Fourteen had accumulated since 2026-07-31.
+  `gc` uses Remote Control's own worktree lock as the liveness signal, waits
+  `AGENT_WS_GC_AGE_DAYS` (7) after the session goes quiet, and — the part worth
+  reviewing — refuses to remove anything with a dirty tree or a commit canonical
+  `main` does not already contain, reporting it instead. Losing an agent's
+  unpushed work is worse than the disk. A crashed session would hold its lock
+  forever, so a lock older than `AGENT_WS_GC_LOCK_MAX_DAYS` (30) is treated as
+  dead.
+
+  The hook is seeded into **user** settings (`~/.claude/settings.json`, jq-merged,
+  re-written every boot) rather than committed to the agents repo as project
+  settings, because project-scoped hooks prompt for trust on first use and there is
+  nobody at a terminal in this pod. The image stays the source of truth for it,
+  which is also what the agents repo's own "changing your own environment is a
+  blumeops PR" rule asks for.
+
+  `CARGO_TARGET_DIR` is now shared across every checkout. Without it, per-session
+  worktrees each build Rust from cold — minutes for Bevy — and a `target/` per
+  worktree per session fills a 20Gi PVC quickly. Cargo locks the directory, so
+  concurrent builds serialize rather than corrupt each other.
+
+  Verified in the pod rather than reasoned about: the script was extracted from the
+  derivation and run against the real pool. `sync` is clean across all eight repos;
+  `init` produces seven detached worktrees at canonical `main` and is idempotent;
+  `gc` reaps a clean aged session and refuses an aged one carrying an unpushed
+  commit.
+
+  This is working-tree isolation, not a security boundary and not repository-level
+  isolation — refs, remotes, config, and the object store all stay shared, and all
+  sessions remain one process, one uid, one PVC. True per-session isolation means a
+  pod per session, which the RWO PVC and single rooted Remote Control server rule
+  out today.
+
+  Image toolchain version 0.13.0 → 0.14.0.
+- Point the warrant manifest at the first built image
+  (`v0.1.0-68f84a3-nix`, run 708) — replaces the UNBUILT placeholder.
+- Fly proxy: Grafana Alloy v1.17.1 → v1.18.0. The v1.18.0 breaking changes are
+  confined to `otelcol.*` components and `fly/alloy.river` uses none of them —
+  only `local.file_match`, `loki.*`, and `prometheus.*` — so the upgrade is a
+  no-op for our config. Deferred at the 2026-07-20 service review purely because
+  the release was hours old and this is the public-facing edge; v1.18.0 has since
+  stood 17 days as the head of the train with no patch behind it.
+- Deploy warrant v0.3.3 — the dispatch asks the forge which run it created
+  (`return_run_info`) instead of inferring it from the run list.
+- Warrant image bumped to v0.3.4-8a18aed-nix (run-attribution serializer in GET /api/requests, PR #523; built by approved run 741).
+- Deploy agent-ws 0.10.0 (`v0.10.0-55e2996-nix`) to the ringtail cluster.
+- Deploy agent-ws 0.12.0 (`v0.12.0-47e7efd-nix`) to the ringtail cluster — the
+  image carrying `gamedev` in the repo pool and Bevy's native build/run
+  libraries.
+- agent-ws 0.13.0 — the image version catches up with the `/usr/bin/env` fix
+  that shipped in 0.12.0's source without a bump.
+  The image also gains a `service-versions.yaml` entry, so `service-review`
+  tracks it like every other first-party container.
+- Deploy agent-ws v0.13.0 — `mise run <task>` works in the pod.
+- Deploy agent-ws v0.14.0 — each Remote Control session gets its own worktree of
+  every pooled repo, and the pool tracks canonical `main`.
+
+  Built from f6b3274 (the merge of #499) as request #12, run 720. Tag confirmed
+  present in the registry rather than derived from the naming convention —
+  `container-list` reports no tags from inside the pod, since it has no route to
+  `registry.ops.eblu.me`.
+
+  First boot on this image does three things the previous one did not: seeds the
+  `SessionStart` hook into `~/.claude/settings.json`, fast-forwards each pool
+  checkout onto canonical `main` (including pushing the bot's fork `main` up to
+  match), and reaps the fourteen session worktrees that have accumulated on the
+  PVC since 2026-07-31 — skipping any that are dirty or hold a commit canonical
+  `main` lacks.
+- Pilot follow-up to #440: point mealie/miniflux manifests at the images
+  actually built post-merge (`-892eeac-nix`) — the pre-bumped `-483b3d6-nix`
+  tags referenced a branch SHA orphaned by the squash-merge (the last one:
+  squash-merge is now disabled, so future approved SHAs survive merge).
+- Service review: upgraded navidrome v0.61.1 → v0.63.2 by self-pinning the
+  container's nixpkgs to nixos-unstable (mealie precedent — ringtail's stable
+  25.11 nixpkgs lags at 0.61.1). Picks up the v0.62.0 security fixes
+  (cross-account share disclosure, authorization checks, transcode-DoS cap)
+  and the v0.63.x scanner/search overhaul. Sharing stays off
+  (`ND_ENABLE_SHARING=false` pinned — v0.63.0 flips the default to enabled).
+  The Build Container workflow now fails fast with a clear error when
+  dispatched with a short commit SHA (actions/checkout treats those as
+  branch names; see run #665).
+- Warrant P0 chores: `agent-repo-access.yaml` moves off the retired `k8s`
+  runner label (the one straggler added after #439 branched), and
+  `policy.hujson` gains `sshTests` pinning two invariants — `tag:agent` has no
+  Tailscale SSH anywhere, and the load-bearing homelab→homelab SSH (borgmatic's
+  `ssh:eblume@ringtail` dumps, the rule PR #441 nearly removed) can't be
+  dropped silently.
+- Dedicated privileged runner ([[warrant-approval-gated-runs]] Phase 2):
+  `ringtail-priv-runner`, a sandboxed NixOS DynamicUser instance carrying the
+  `priv` label — privileged dispatch-only jobs move off host-mode
+  `erichblume@indri`. The indri runner drops `priv`; argocd-deploy prefers the
+  runner's nixpkgs `argocd` with a mise-x fallback.
+- Deploy warrant v0.2.0 (`v0.2.0-9060183-nix`, run 709) — the human door +
+  decisions/warrants go live.
+- Deploy warrant v0.2.1 (`v0.2.1-14970b4-nix`) — the login-flow fix.
+- Deploy warrant v0.3.0 (`v0.3.0-b87e4a2-nix`) — dispatch machinery present,
+  still disabled.
+- Deploy warrant v0.3.1 — dispatch reads the blumeops vault, and `/healthz`
+  reports the arming state.
+- Deploy warrant v0.3.2 — warrants link to the run they caused.
+
+### Documentation
+
+- Deployment docs describe the sync policy the fleet actually has. AGENTS.md
+  called ArgoCD "manual sync" and prescribed `app set --revision main && app
+  sync` after every merge; 31 of 35 applications sync themselves, so that step
+  raced the auto-sync the merge had already started. `deploy-k8s-service`'s
+  Application template also omitted `automated`, quietly making each new service
+  a manual-sync exception.
+- The observability replication tutorial had the three pillars wrong: it listed
+  metrics, logs and **dashboards**, omitting traces entirely — despite Tempo,
+  Beyla eBPF auto-instrumentation and full trace↔log↔metric correlation all being
+  deployed. Corrected to metrics/logs/traces with collection and presentation as
+  supporting layers, and added the two steps that were missing: deploying Tempo,
+  and the privileged `alloy-tracing` DaemonSet that produces spans without
+  instrumenting any application.
+- Retire the post-merge container rebuild. Since canonical stopped squash-merging,
+  a build from the PR branch head stays reachable from `main` after the merge, so
+  its tag becomes `[main]` on its own. Build once from the final branch head and
+  put the manifest tag bump in the same PR — no rebuild, no follow-up commit.
+- The PodNotReady runbook told you to run `kubectl top` — which cannot work on
+  ringtail, whose k3s runs `--disable=metrics-server`. Step 4 was a guaranteed
+  dead end, reached exactly when someone is mid-incident chasing a Pending pod.
+  Replaced with Prometheus queries (every metric verified to exist first), and
+  noted why they are the better tool anyway: `Pending` is a question about
+  requests versus allocatable, which utilisation numbers do not answer.
+- Correct the Warrant doc's claim that Forgejo login is local and unprotected by
+  Authentik MFA. The forge has been behind Authentik SSO with TOTP enforced since
+  2026-02-20 (PR #228), so Phase 0's "enable WebAuthn on the forge account" item
+  was satisfied before it was written, and dispatch-as-approval met invariant 4
+  from the start.
+- The blumeops-ci item-migration audit ([[blumeops-ci-item-migration]]):
+  which Actions secrets migrate to job-time `op read` (argocd pilot first),
+  the FORGE_ADMIN_TOKEN flag, and the verdict that wholesale `provision-*`
+  never migrates — decomposition into narrow per-role actions is the path.
+- Track the two user-facing heph installs in `service-versions.yaml`:
+  `heph-cli-ringtail` (Erich's desktop spoke, pinned by `hephTag`) and
+  `heph-cli-gilbert` (installed by hand, the only heph install not under IaC).
+  Previously only the indri hub and the ringtail agent spoke were tracked, so a
+  version review could never surface the CLIs Erich actually types at.
+
+  `heph-cli-gilbert` starts with null `last-reviewed`/`current-version` — nothing
+  asserts gilbert's version and the host was unreachable — which floats it to the
+  top of the review queue, where an untracked install belongs. Documents the
+  `type` values actually in use (the reference card listed neither `container` nor
+  `manual`) and when null fields are the right answer.
+- Rename the planned CI vault tier `ops-ci` → `blumeops-ci` before anything
+  functional references it (docs, policy notes, and the future
+  `BLUMEOPS_CI_OP_TOKEN` secret name).
+- Proposal doc: [[warrant-approval-gated-runs]] — a phased design for
+  agent-requested, human-approved privileged runs (request loop over
+  dispatch-as-approval, `ops-ci` vault tier, dedicated privileged runner, and
+  the Warrant broker), consolidating the agent-boundary program and disposing
+  of open PRs #439/#440/#441.
+- Documentation catches up with reality: the program doc reports built state
+  with a per-phase table, the [[warrant]] service card describes v0.3.2 (flow,
+  API, operating it, known gaps), [[request-a-privileged-run]] points approvals
+  at Warrant rather than the forge UI, and `AGENTS.md` tells agents to file
+  requests instead of asking in prose.
+- Record the approval-factor decision: no hardware key on hand, so Warrant
+  v0.2 ships with Authentik session + 1Password-managed TOTP as the step-up.
+  Invariant 4 amended accordingly; the WebAuthn/hardware upgrade path is
+  preserved structurally (decisions gate on an authentik flow slug, so
+  hardware later = authentik config, not Warrant code).
+- Retire the C0/C1/C2 change classification from the docs, matching AGENTS.md,
+  which replaced it with a two-route split: direct to main for small interactive
+  fixes, feature branch + PR for everything else and all remote-agent work.
+  The `change-classifier` subagent, whose only job was the retired triage, is
+  removed.
+- Doc review: reviewed `reference/services/paperless.md` (never reviewed) —
+  verified against the live manifests, added the missing ArgoCD app / sync
+  policy / tracked-version rows, clarified that the "Redis" sidecar is the
+  nix-built valkey image, and stamped `last-reviewed`. Also refreshed the
+  stale Quick Reference in `reference/services/navidrome.md` (post-minikube
+  app/manifest names) alongside the navidrome upgrade.
+- Document UX7 diagnostic API read access (X-API-KEY endpoints), current Internal-zone firewall posture, and IoT SSID compatibility notes (Owlet base station onboarding) in the UniFi reference card.
+
+
 ## [v1.18.3] - 2026-07-21
 
 ### Features
