@@ -1,6 +1,6 @@
 ---
 title: Ringtail
-modified: 2026-07-30
+modified: 2026-08-07
 tags:
   - infrastructure
   - host
@@ -59,6 +59,10 @@ mise run provision-ringtail
 
 This locks new flake inputs via Dagger, verifies the current commit is pushed to forge, then deploys the exact commit via ansible. If the lockfile changed, it stages the file and exits so you can commit and re-run. To update all inputs to latest versions, see [[manage-lockfile]].
 
+Activation runs **detached from the SSH session**, as a transient systemd unit named `blumeops-nixos-rebuild`. A switch restarts `sshd`, `tailscaled` and the network stack, so as a child of the session it could be killed partway through by the teardown it caused. The play starts the unit, reconnects, polls it to completion, and reports systemd's `Result` alongside the unit's journal on failure.
+
+The practical consequence: **losing your connection no longer aborts the switch.** If `provision-ringtail` dies on your end mid-activation, the rebuild is still running on the box — watch it with `ssh ringtail 'journalctl -fu blumeops-nixos-rebuild'` rather than re-running, and let it finish before provisioning again.
+
 ## K3s Cluster
 
 Ringtail runs a single-node k3s cluster for native amd64 workloads, registered in [[argocd|ArgoCD]] on indri as `k3s-ringtail`.
@@ -67,7 +71,7 @@ Ringtail runs a single-node k3s cluster for native amd64 workloads, registered i
 - **TLS SAN:** `ringtail.tail8d86e.ts.net` (ArgoCD connects via Tailscale)
 - **Registry mirrors:** Containerd pulls through Zot on indri (`registry.ops.eblu.me`)
 - **Token:** `/etc/k3s/token` (generated on first provision)
-- **Kubeconfig:** `/etc/rancher/k3s/k3s.yaml` (world-readable via `--write-kubeconfig-mode=644`)
+- **Kubeconfig:** `/etc/rancher/k3s/k3s.yaml`, root-only via `--write-kubeconfig-mode=600`. ringtail is a multi-user host — the `agent` uid is a co-tenant — so a readable admin kubeconfig is a cluster-admin grant to every local account. See [[agent-workspaces]] §Isolation.
 
 ### Secrets Management
 
