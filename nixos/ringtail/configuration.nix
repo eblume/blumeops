@@ -187,9 +187,13 @@ in
   environment.variables.MOZ_ENABLE_WAYLAND = "0";
 
   # Software cursors under the NVIDIA proprietary driver: wlroots' hardware
-  # cursor path corrupts or drops the pointer there. Lives here for the same
-  # reason MOZ_ENABLE_WAYLAND does — environment.variables reaches the session
-  # via /etc/set-environment, which the home-manager sway actually inherits.
+  # cursor path corrupts or drops the pointer there.
+  #
+  # wlroots reads this as it creates each output, from the compositor's own
+  # environment, so it has to be set before sway execs — being set somewhere
+  # inside the session is not enough. environment.variables reaches it because
+  # greetd runs the session as `/bin/sh -c '. /etc/profile; exec sway'` (its
+  # source_profile default), and /etc/profile sources /etc/set-environment.
   #
   # Verify after a rebuild + fresh login:
   #   tr '\0' '\n' < /proc/$(pgrep -x sway)/environ | grep WLR_
