@@ -48,9 +48,22 @@ app = typer.Typer(add_completion=False)
 
 def op_read(ref: str) -> str:
     """Read a secret from 1Password."""
-    result = subprocess.run(
-        ["op", "read", ref], capture_output=True, text=True, check=True
-    )
+    try:
+        result = subprocess.run(
+            ["op", "read", ref],
+            capture_output=True,
+            text=True,
+            check=True,
+            stdin=subprocess.DEVNULL,  # op misparses non-TTY stdin
+            timeout=30,
+        )
+    except (
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        FileNotFoundError,
+    ) as exc:
+        console.print(f"[red]Could not read {ref} from 1Password: {exc}[/red]")
+        raise typer.Exit(1) from exc
     return result.stdout.strip()
 
 

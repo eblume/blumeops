@@ -40,9 +40,17 @@ err = Console(stderr=True, style="bold red")
 
 
 def op_read(ref: str) -> str:
-    result = subprocess.run(
-        ["op", "read", ref], capture_output=True, text=True, stdin=subprocess.DEVNULL
-    )
+    try:
+        result = subprocess.run(
+            ["op", "read", ref],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        err.print(f"op read {ref} failed: {exc}")
+        raise typer.Exit(3) from exc
     if result.returncode != 0:
         err.print(f"op read {ref} failed: {result.stderr.strip()}")
         raise typer.Exit(3)

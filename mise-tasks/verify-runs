@@ -59,12 +59,17 @@ err = Console(stderr=True, style="bold red")
 def forge_token() -> str:
     if token := os.environ.get("FORGEJO_TOKEN"):
         return token.strip()
-    result = subprocess.run(
-        ["op", "read", "op://agents/agents-forgejo-token/api-token"],
-        capture_output=True,
-        text=True,
-        stdin=subprocess.DEVNULL,
-    )
+    try:
+        result = subprocess.run(
+            ["op", "read", "op://agents/agents-forgejo-token/api-token"],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        err.print(f"No FORGEJO_TOKEN and `op read` failed: {exc}")
+        raise typer.Exit(1) from exc
     if result.returncode != 0:
         err.print(f"No FORGEJO_TOKEN and `op read` failed: {result.stderr.strip()}")
         raise typer.Exit(1)
@@ -117,6 +122,7 @@ def warrant_requests() -> dict[int, dict]:
         app_pw = subprocess.run(
             ["op", "read", "op://agents/agents-authentik-sa/app-password"],
             capture_output=True, text=True, stdin=subprocess.DEVNULL, check=True,
+            timeout=30,
         ).stdout.strip()
         with _ops_client() as c:
             tok = c.post(
@@ -137,7 +143,13 @@ def warrant_requests() -> dict[int, dict]:
             )
             resp.raise_for_status()
             return {r["id"]: r for r in resp.json()}
-    except (subprocess.CalledProcessError, httpx.HTTPError, KeyError, OSError) as exc:
+    except (
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        httpx.HTTPError,
+        KeyError,
+        OSError,
+    ) as exc:
         err.print(f"warrant lookup failed (falling back to forge-side matching): {exc}")
         return {}
 

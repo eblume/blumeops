@@ -106,8 +106,13 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
             text=True,
             check=True,
             stdin=subprocess.DEVNULL,  # op misparses non-TTY stdin
+            timeout=30,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+    except (
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        FileNotFoundError,
+    ) as exc:
         console.print(f"[red]Could not read the token from 1Password: {exc}[/red]")
         console.print("Pass --token, or set FORGE_ADMIN_TOKEN.")
         raise typer.Exit(1) from exc
