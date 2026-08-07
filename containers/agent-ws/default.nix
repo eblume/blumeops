@@ -32,7 +32,7 @@ let
   # requires a `version = "…"` to form v<version>-<sha>-nix). There is no
   # upstream version to track — claude self-installs at pod-start — so bump this
   # by hand when the baked toolchain changes meaningfully.
-  version = "0.16.0";
+  version = "0.17.0";
 
   # ── the repo pool, from ./repos.json ──────────────────────────────────────
   # That file is the single source of truth for BOTH halves of "share a repo
@@ -516,32 +516,22 @@ commit: git -C $root/<repo> switch -c agent/<slug>. Push goes to 'origin'
       curl -fsSL https://claude.ai/install.sh | bash
     fi
 
-    # ── Anthropic auth: long-lived token, not a refreshing OAuth session ──────
-    # The interactive `claude auth login` credential on the PVC is NOT a
-    # one-time bootstrap step, despite what the bootstrap doc used to say: its
-    # refresh token carries a hard ~7-day expiry anchored at login, and Claude
-    # Code's refresh tokens are single-use, so concurrent sessions in this pod
-    # can invalidate each other's and kill it sooner (upstream #24317). When it
-    # dies the pod stays green in every way we watch — remote-control keeps its
-    # gateway websocket up and agent-ws-health only asserts an ESTABLISHED TCP
-    # conn — while every session start fails "OAuth session expired and could
-    # not be refreshed". That is exactly the silent failure containerization was
-    # supposed to end (observed 2026-08-07).
+    # ── Anthropic auth: the PVC OAuth login, rotated on a 5-day cadence ───────
+    # Do NOT export CLAUDE_CODE_OAUTH_TOKEN here. Remote Control refuses
+    # long-lived `claude setup-token` credentials outright — claude exits at
+    # startup with "Remote Control requires a full-scope login token.
+    # Long-lived tokens … are limited to inference-only for security reasons."
+    # v0.16.0 exported exactly such a token and crash-looped on the startup
+    # probe (2026-08-07); an inference call succeeding with the token proves
+    # nothing about Remote Control, which is how that regression got shipped.
     #
-    # A `claude setup-token` token has no refresh cycle to break, lives in the
-    # agents vault rather than on the PVC (so it survives PVC loss and is
-    # rotated without a shell in the pod), and is read here the same way
-    # FORGEJO_TOKEN is. Still a subscription OAuth credential — the
-    # attended-use posture in [[agent-workspaces]] §"Terms of use" is unchanged.
-    #
-    # Non-fatal on purpose: if the read fails, claude falls back to whatever
-    # ~/.claude/.credentials.json holds, which is the pre-2026-08-07 behaviour.
-    CLAUDE_CODE_OAUTH_TOKEN="$(op read "op://agents/claude-oauth-token/token" </dev/null 2>/dev/null || true)"
-    if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
-      export CLAUDE_CODE_OAUTH_TOKEN
-    else
-      echo "agent-ws: no claude-oauth-token in the agents vault — falling back to the PVC OAuth credential, which expires weekly" >&2
-    fi
+    # Auth is therefore the interactive `claude auth login` credential at
+    # ~/.claude/.credentials.json on the PVC. Its refresh token hard-expires ~7
+    # days after login and refresh tokens are single-use (upstream #24317), so
+    # a 5-day recurring heph chore re-runs the login before it dies — the
+    # runbook is docs/how-to/ringtail/rotate-agent-ws-claude-login.md. An
+    # expired credential is still invisible to agent-ws-health (websocket stays
+    # ESTABLISHED); detection remains a Known wart in [[agent-workspaces]].
 
     # ── FORGEJO_TOKEN + tea config (op reads the agents-vault PAT) ────────────
     FORGEJO_TOKEN="$(op read "op://agents/agents-forgejo-token/api-token" </dev/null 2>/dev/null || true)"

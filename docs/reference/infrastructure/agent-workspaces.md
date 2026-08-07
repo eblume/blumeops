@@ -1,6 +1,6 @@
 ---
 title: Agent Workspaces
-modified: 2026-07-21
+modified: 2026-08-07
 last-reviewed: 2026-07-08
 tags:
   - reference
@@ -341,25 +341,26 @@ client libs) go on `LD_LIBRARY_PATH` via `gameLibs`.
 
 ## Authentication
 
-Remote Control requires a **claude.ai subscription credential** (not an API
-key). Two forms of that credential exist, and this deployment deliberately uses
-the second.
+Remote Control requires a **full-scope claude.ai subscription OAuth login** —
+the credential an interactive `claude auth login` writes to
+`~/.claude/.credentials.json`, which lives on the PVC because it is refreshed
+in place on use. Nothing else works: not an API key, and not a long-lived
+`claude setup-token` credential (`CLAUDE_CODE_OAUTH_TOKEN`) — those are
+**inference-only**, and claude exits at startup with `Remote Control requires
+a full-scope login token … Run claude auth login`. v0.16.0 shipped exactly
+that token and crash-looped on the startup probe until v0.17.0 reverted it
+(2026-08-07). An inference call succeeding with a setup-token proves nothing
+about Remote Control — that's the test that let the regression ship.
 
-An **interactive `claude auth login`** writes `~/.claude/.credentials.json` and
-refreshes it in place on use. That was the original bootstrap step, and it does
-not survive unattended operation: the refresh token carries a hard ~7-day
-expiry anchored at login, and Claude Code refresh tokens are single-use, so
-concurrent sessions in one pod can invalidate each other's and end it sooner
+The login credential does not survive unattended operation: its refresh token
+carries a hard **~7-day expiry anchored at login**, and Claude Code refresh
+tokens are single-use, so concurrent sessions in one pod can invalidate each
+other's and end it sooner
 ([claude-code#24317](https://github.com/anthropics/claude-code/issues/24317)).
-Worse, its death is silent — see [Known warts](#known-warts).
-
-A **`claude setup-token` token** has no refresh cycle to break. It lives in the
-agents vault as `op://agents/claude-oauth-token/token`, and the entrypoint reads
-it into `CLAUDE_CODE_OAUTH_TOKEN` at pod start exactly as it reads
-`FORGEJO_TOKEN` — so auth survives PVC loss and rotates without a shell in the
-pod. This is still a subscription OAuth credential, so the terms posture below
-is unchanged. Mint a replacement with `claude setup-token` and overwrite the
-vault item; the pod picks it up on its next restart.
+Worse, its death is silent — see [Known warts](#known-warts). The expiry is
+managed operationally: a recurring **5-day** heph chore ("Rotate agent-ws
+Claude OAuth login", Blumeops project) re-runs the login with ~2 days of
+buffer. [[rotate-agent-ws-claude-login]] is the runbook.
 
 ### Terms of use
 
@@ -405,15 +406,16 @@ token-wasteful always-on pattern is also the fair-use risk.
   websocket up and kept printing `✔︎ Connected`, so `agent-ws-health` (which
   only asserts that a claude process holds an ESTABLISHED TCP connection) stayed
   green — while every session start failed `Failed to authenticate: OAuth
-  session expired and could not be refreshed`. The long-lived token above
-  removes the recurring trigger, but nothing yet *detects* a bad credential:
-  `claude auth status --json` inside the pod is the check, and wiring it to an
-  alert is still open work.
+  session expired and could not be refreshed`. The 5-day rotation chore
+  ([[rotate-agent-ws-claude-login]]) keeps the expiry from being hit, but
+  nothing yet *detects* a bad credential: `claude auth status --json` inside
+  the pod is the check, and wiring it to an alert is still open work.
 
 ## Related
 
 - [[agent-containerization]] — the migration off this shared-host model
 - [[bootstrap-agent-workspaces]] — one-time setup runbook
+- [[rotate-agent-ws-claude-login]] — the 5-day OAuth login rotation
 - [[agents-forgejo-bot]] — the bot account and its key
 - [[security-model]] — service accounts and the `agents` vault
 - [[ringtail]] — the host
