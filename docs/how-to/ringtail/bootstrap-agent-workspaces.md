@@ -42,20 +42,24 @@ Then, in the Forgejo web UI as an admin:
 
 - Add the **public key** from the `agents-forgejo-bot` vault item (see
   [[agents-forgejo-bot]]) to the `agents` user's SSH keys.
-- Grant the `agents` user **write** on the workspace repos: `agents`,
-  `hephaestus`, `hephaestus.nvim`, `research`, `timberborn-parsimony` (add as a
-  collaborator, or via a team). Any repo `agent-repos-init` clones needs this —
-  a missing grant fails the oneshot and blocks the workspace service.
+> **Do not grant repo access here.** Collaborations come from
+> `containers/agent-ws/repos.json`, reconciled by the **Agent Repo Access**
+> workflow, which is authoritative in both directions — a repo absent from that
+> file has its `agents` collaboration *removed*, so a grant clicked in the web UI
+> is reverted on the next run. The same file drives the pod's clone loop, which
+> is the point: a missing grant and a typo look identical from inside the pod
+> (Forgejo 404s rather than 403s on a private repo the bot cannot see). To share
+> a repo, edit `repos.json` and open a PR. See [[agents-forgejo-bot]].
 
-> **`blumeops` is write too, but author-only.** The bot holds write on
-> blumeops so it can push PR branches (granted 2026-07-10 with the author-only
-> pool clone) — but there is deliberately no blumeops workspace server, and
-> write ≠ deploy: the gates are the blumeops 1Password vault and the root-only
-> kubeconfig, not repo permissions. See [[agent-workspaces]] §"blumeops:
-> author-only, not a server". (`project-template` and `adelaide-baby-shower-app`
-> grants from the prototype should stay revoked.) If the bot was granted `blumeops`/`project-template`/
-> `adelaide-baby-shower-app` write during the prototype, **revoke it** — the bot
-> should hold only what a live workspace uses.
+> **`agents` and `blumeops` are pinned read-only.** The reconciler refuses a
+> `write` request for either, and `repos.json` cannot override it — that fence
+> lives in reviewed code. Both are cloned `fork`: the bot pushes branches to
+> `agents/<repo>` and opens cross-repo PRs, so a human merge sits in front of the
+> instructions every future session boots with and in front of blumeops CI (and
+> therefore its deploy secrets). Every other pooled repo is `write` +
+> `canonical`; write ≠ deploy, since the gates are the blumeops 1Password vault
+> and the root-only kubeconfig, not repo permissions. See [[agent-workspaces]]
+> §"blumeops: author-only, not a server".
 
 > **`main` is intentionally not branch-protected against the bot.** A username
 > push-whitelist rejects CI's automatic Forgejo Actions token (Forgejo
