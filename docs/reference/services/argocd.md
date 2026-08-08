@@ -1,6 +1,6 @@
 ---
 title: ArgoCD
-modified: 2026-08-07
+modified: 2026-08-08
 last-reviewed: 2026-06-09
 tags:
   - service
@@ -27,15 +27,25 @@ One ArgoCD instance on [[ringtail]]'s k3s, managing that cluster in-place — ev
 
 ## Sync Policy
 
-**Workload applications sync automatically** (`automated: {prune: false, selfHeal: false}`): a merge to `main` reaches the cluster on its own, within ArgoCD's reconciliation interval. The human gate is the PR review and merge — both behind [[authentik]] SSO with TOTP, the same factor that gates a privileged dispatch — so the second confirmation a manual sync used to provide was a repeat of a decision already made, not an independent check.
+**Workload applications sync automatically** (`automated`, `selfHeal: false`): a merge to `main` reaches the cluster on its own, within ArgoCD's reconciliation interval. The human gate is the PR review and merge — both behind [[authentik]] SSO with TOTP, the same factor that gates a privileged dispatch — so the second confirmation a manual sync used to provide was a repeat of a decision already made, not an independent check.
 
-`prune` and `selfHeal` are both **off**. Removing a resource from git does not delete it from the cluster, and hand-applied drift is not reverted — several resources are manual by design (`repo-creds-forge`, the `immich-db` Secret). Deletions stay a deliberate `argocd app sync --prune`, run from gilbert or through the `prune` input on the [[request-a-privileged-run|ArgoCD Deploy]] workflow.
+`selfHeal` is **off** everywhere: hand-applied drift is not reverted, and several resources are manual by design (`repo-creds-forge`, the `immich-db` Secret).
+
+`prune` is **on for the thirteen generator-backed apps below and off everywhere else**. Where it is off, removing a resource from git does not delete it from the cluster, and deletions stay a deliberate `argocd app sync --prune` — run from gilbert or through the `prune` input on the [[request-a-privileged-run|ArgoCD Deploy]] workflow.
 
 ### Orphan ConfigMaps from generators
 
-Thirteen apps render their config through a kustomize `configMapGenerator`, which appends a content hash to the ConfigMap name so that editing the content rolls the pods. With `prune: false` the superseded ConfigMap is never deleted, ArgoCD counts it as pending-prune, and **the app reads `OutOfSync` indefinitely** — tripping `ArgoCDAppOutOfSync` on a merge that deployed exactly as intended. Every later content edit leaves another one behind.
+Thirteen apps render their config through a kustomize `configMapGenerator`, which appends a content hash to the ConfigMap name so that editing the content rolls the pods. Under `prune: false` the superseded ConfigMap was never deleted, ArgoCD counted it as pending-prune, and **the app read `OutOfSync` indefinitely** — tripping `ArgoCDAppOutOfSync` on a merge that deployed exactly as intended, and stranding another ConfigMap on every later content edit.
 
-Clearing them is a prune, which is why the gated workflow takes a `prune` input. The standing choice — accept periodic manual pruning, or set `prune: true` on the generator-backed apps and accept that a resource dropped from git gets deleted — is still open; see heph `01KZD4HGAHXCVM8ASTRBVV39H3`.
+These thirteen therefore carry `prune: true`:
+
+`alloy-ringtail`, `alloy-tracing-ringtail`, `frigate`, `grafana-ringtail`, `homepage`, `kiwix-ringtail`, `loki-ringtail`, `ntfy`, `ollama`, `prometheus-ringtail`, `prowler-ringtail`, `tempo-ringtail`, `unpoller-ringtail`
+
+The cost is the general one: a resource dropped from git under one of these apps is deleted from the cluster on the next sync, rather than lingering. That is the intended trade — the alternative was an alert that flaps on every correct config edit. Nothing else changes, because ArgoCD prunes only what it *tracks*: resources created by a controller rather than by ArgoCD (an [[external-secrets]] `Secret`, say) carry no tracking label and are not candidates.
+
+Tracking is label-based (`app.kubernetes.io/instance`; no `resourceTrackingMethod` is configured, so ArgoCD's default applies). Five of the thirteen share the `monitoring` namespace and two share `alloy`, but each Application has a distinct name and therefore a distinct label, so they do not prune each other's resources.
+
+The [[request-a-privileged-run|ArgoCD Deploy]] `prune` input remains the route for the apps that keep `prune: false`.
 
 Four applications remain **manual**, each for a stated reason in its manifest:
 
