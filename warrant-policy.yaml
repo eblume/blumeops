@@ -42,6 +42,12 @@ actions:
       sync:
         required: false
         pattern: "^(true|false)$"
+      # The only input in this policy that DELETES live resources. It stays
+      # warrant-class with no shortcut: the approver reads which app is being
+      # pruned, and the run log names what went.
+      prune:
+        required: false
+        pattern: "^(true|false)$"
 
   build-container.yaml:
     class: warrant

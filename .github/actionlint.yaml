@@ -1,4 +1,9 @@
+# Every self-hosted label any workflow targets. actionlint errors on a label it
+# does not recognise, and that error is per-file — so a missing entry here makes
+# the whole workflow unlintable, not just its `runs-on` line.
 self-hosted-runner:
   labels:
     - k8s
     - nix-container-builder
+    - indri
+    - priv

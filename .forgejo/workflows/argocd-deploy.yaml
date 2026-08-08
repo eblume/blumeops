@@ -6,7 +6,15 @@
 #
 # Agents request a run with:
 #   mise run request-run argocd-deploy.yaml <full-sha> --pr N \
-#       -i app=<app> -i revision=<full-sha> [--why ...]
+#       -i app=<app> -i revision=<full-sha> [-i prune=true] [--why ...]
+#
+# prune is the one input here that DELETES. Apps sync with `prune: false`, so a
+# kustomize configMapGenerator — whose every content edit mints a new
+# hash-suffixed ConfigMap — leaves the old one behind, and ArgoCD counts that
+# orphan as pending-prune and reads OutOfSync forever. Clearing it is the
+# documented `argocd app sync --prune`, which needed a human on gilbert until
+# this input existed. Default false, and the run log records a dry-run preview
+# of exactly what a prune removed.
 #
 # runs-on: priv — the privileged runner label (invariant 3). Until the
 # dedicated Phase-2 runner exists, the indri runner advertises `priv`
@@ -35,6 +43,11 @@ on:
         required: false
         default: true
         type: boolean
+      prune:
+        description: 'Also delete live resources absent from the target revision (requires sync)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   deploy:
@@ -49,6 +62,20 @@ jobs:
         run: |
           if [ "$REV" != "main" ] && ! echo "$REV" | grep -qE '^[0-9a-f]{40}$'; then
             echo "::error::revision must be 'main' or a FULL 40-char SHA (got: $REV) — approvals bind to immutable SHAs"
+            exit 1
+          fi
+
+      # Pruning happens inside the sync, so prune-without-sync is a request that
+      # cannot do what it says. Refuse it rather than silently no-op: an approval
+      # that reads "prune the orphans" must not come back green having pruned
+      # nothing.
+      - name: Reject prune without sync
+        env:
+          SYNC: ${{ inputs.sync }}
+          PRUNE: ${{ inputs.prune }}
+        run: |
+          if [ "$PRUNE" = "true" ] && [ "$SYNC" != "true" ]; then
+            echo "::error::prune=true requires sync=true — pruning is an option on the sync, not a separate operation"
             exit 1
           fi
 
@@ -89,13 +116,24 @@ jobs:
         if: ${{ inputs.sync }}
         env:
           APP: ${{ inputs.app }}
+          PRUNE: ${{ inputs.prune }}
           ARGOCD_SERVER: argocd.ops.eblu.me
           ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
           ARGOCD_OPTS: --grpc-web
         run: |
           unset GITHUB_TOKEN GITHUB_API_TOKEN
           acd() { if command -v argocd >/dev/null 2>&1; then argocd "$@"; else mise x argocd@3.3.12 -- argocd "$@"; fi; }
-          acd app sync "$APP" --timeout 600
+          if [ "$PRUNE" = "true" ]; then
+            # A prune deletes live resources, so name them in the log before
+            # doing it — this run log is the audit record, and "what did that
+            # prune actually remove" has to be answerable after the fact.
+            echo "::group::Prune preview (dry-run)"
+            acd app sync "$APP" --prune --dry-run --timeout 600
+            echo "::endgroup::"
+            acd app sync "$APP" --prune --timeout 600
+          else
+            acd app sync "$APP" --timeout 600
+          fi
           acd app wait "$APP" --health --timeout 600
 
       # Always show final state in the run log — this is the audit record

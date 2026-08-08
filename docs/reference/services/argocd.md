@@ -1,6 +1,6 @@
 ---
 title: ArgoCD
-modified: 2026-08-05
+modified: 2026-08-07
 last-reviewed: 2026-06-09
 tags:
   - service
@@ -29,7 +29,13 @@ One ArgoCD instance on [[ringtail]]'s k3s, managing that cluster in-place — ev
 
 **Workload applications sync automatically** (`automated: {prune: false, selfHeal: false}`): a merge to `main` reaches the cluster on its own, within ArgoCD's reconciliation interval. The human gate is the PR review and merge — both behind [[authentik]] SSO with TOTP, the same factor that gates a privileged dispatch — so the second confirmation a manual sync used to provide was a repeat of a decision already made, not an independent check.
 
-`prune` and `selfHeal` are both **off**. Removing a resource from git does not delete it from the cluster, and hand-applied drift is not reverted — several resources are manual by design (`repo-creds-forge`, the `immich-db` Secret). Deletions stay a deliberate `argocd app sync --prune`.
+`prune` and `selfHeal` are both **off**. Removing a resource from git does not delete it from the cluster, and hand-applied drift is not reverted — several resources are manual by design (`repo-creds-forge`, the `immich-db` Secret). Deletions stay a deliberate `argocd app sync --prune`, run from gilbert or through the `prune` input on the [[request-a-privileged-run|ArgoCD Deploy]] workflow.
+
+### Orphan ConfigMaps from generators
+
+Thirteen apps render their config through a kustomize `configMapGenerator`, which appends a content hash to the ConfigMap name so that editing the content rolls the pods. With `prune: false` the superseded ConfigMap is never deleted, ArgoCD counts it as pending-prune, and **the app reads `OutOfSync` indefinitely** — tripping `ArgoCDAppOutOfSync` on a merge that deployed exactly as intended. Every later content edit leaves another one behind.
+
+Clearing them is a prune, which is why the gated workflow takes a `prune` input. The standing choice — accept periodic manual pruning, or set `prune: true` on the generator-backed apps and accept that a resource dropped from git gets deleted — is still open; see heph `01KZD4HGAHXCVM8ASTRBVV39H3`.
 
 Four applications remain **manual**, each for a stated reason in its manifest:
 
