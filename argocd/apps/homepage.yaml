@@ -18,7 +18,11 @@ spec:
     namespace: homepage
   syncPolicy:
     automated:
-      prune: false
+      # This app renders config through a kustomize configMapGenerator, so
+      # every content edit produces a new hash-suffixed ConfigMap. prune
+      # deletes the superseded one; without it the app reads OutOfSync
+      # forever and trips ArgoCDAppOutOfSync on a correct deploy.
+      prune: true
       selfHeal: false
     syncOptions:
       - CreateNamespace=true
