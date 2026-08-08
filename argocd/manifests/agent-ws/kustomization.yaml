@@ -13,4 +13,4 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/agent-ws
-    newTag: v0.17.0-5418120-nix
+    newTag: v0.18.0-0b71b6d-nix
