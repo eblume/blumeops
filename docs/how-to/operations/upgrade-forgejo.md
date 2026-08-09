@@ -89,8 +89,17 @@ ssh indri '~/code/3rd/forgejo/forgejo --version'
 mise run services-check
 
 # Database consistency (recommended after major upgrades)
-ssh indri 'cd ~/forgejo && ~/code/3rd/forgejo/forgejo doctor check --run check-db-consistency'
+# -w and -c are required and must precede the subcommand: forgejo derives its
+# work path from the binary's own directory, not the shell's, so without them it
+# looks for app.ini under ~/code/3rd/forgejo and dies with "Unable to load
+# config file for a installed Forgejo instance". Same two flags the LaunchAgent
+# passes. Read-only, so it is safe while forgejo is running.
+ssh indri '~/code/3rd/forgejo/forgejo -w ~/forgejo -c ~/forgejo/custom/conf/app.ini doctor check --run check-db-consistency'
 ```
+
+Two warnings are expected and benign on this instance: topics with an empty
+repository count, and `action` rows whose user no longer exists. Neither is an
+inconsistency the upgrade introduced.
 
 Then confirm the dependent paths still work:
 
@@ -109,7 +118,7 @@ The 15 → 16 major bump carried these; their impact on this deployment:
 
 | Change | Impact here |
 |--------|-------------|
-| **Repository-based server-side hooks replaced with centralised hooks** ([PR 10397](https://codeberg.org/forgejo/forgejo/pulls/10397)) | The big one. Rewrites hooks in every repository on upgrade. Upstream lists it under ["known problematic versions or upgrade paths"](https://forgejo.org/docs/latest/admin/upgrade/#when-upgrading-from--known-problematic-versions-or-upgrade-paths) — read that section before deploying, and run `forgejo doctor check --run check-db-consistency` after. Verify a push still triggers CI: a broken hook breaks pushes, not just Actions. |
+| **Repository-based server-side hooks replaced with centralised hooks** ([PR 10397](https://codeberg.org/forgejo/forgejo/pulls/10397)) | The big one. Rewrites hooks in every repository on upgrade. Upstream lists it under ["known problematic versions or upgrade paths"](https://forgejo.org/docs/latest/admin/upgrade/#when-upgrading-from--known-problematic-versions-or-upgrade-paths) — read that section before deploying, and run the `doctor check` above afterwards. Verify a push still triggers CI: a broken hook breaks pushes, not just Actions. |
 | **Docker default `REVERSE_PROXY_TRUSTED_PROXIES = *` removed** ([PR 12782](https://codeberg.org/forgejo/forgejo/pulls/12782)) | No-op for the upgrade: `app.ini.j2` sets it **explicitly** (with `REVERSE_PROXY_LIMIT = 2`), so nothing changes. Worth noting separately that upstream now treats `*` as unsafe — narrowing it to Caddy's address is its own change, not part of this bump. |
 | **git mirror HTTP operations no longer follow redirects** ([PR 13129](https://codeberg.org/forgejo/forgejo/pulls/13129)) | Affects the GitHub mirrors ([[manage-forgejo-mirrors]]). Direct `github.com/<owner>/<repo>` URLs don't redirect, but a *renamed* upstream does — a mirror that silently relied on GitHub's rename redirect will start failing. Check mirror sync status after deploying. |
 | **`${{ forgejo.ref }}` in scheduled workflows** ([PR 13081](https://codeberg.org/forgejo/forgejo/pulls/13081)) | No action: neither scheduled workflow here (`branch-cleanup`, `warrant-bot-drift`) reads `github.ref`. |
