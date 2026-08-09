@@ -370,6 +370,15 @@ services:
       Runner daemon version (code.forgejo.org/forgejo/runner). Host-mode
       jobs since [[retire-minikube]] phase 6 — no job image; the dagger
       CLI is mise-pinned on indri (see the forgejo_runner role).
+      REVIEW ALSO: `forgejo_runner_host_tools` in
+      ansible/roles/forgejo_runner/defaults/main.yml. Host-mode means the
+      runner's whole CI toolchain is that variable, but every entry there is a
+      *mirror* of a pin held elsewhere (dagger.json, mise.toml, this file, the
+      prek.toml hook revs) — so nothing bumps it when its source moves, and it
+      silently goes stale. Reviewing this entry means diffing that list against
+      each source and realigning; it is not an independent upgrade decision.
+      Found drifted 2026-08-09: flyctl sat at 0.4.59 against a mise.toml pin
+      moved to 0.4.71 on 2026-07-19.
 
   - name: nix-container-builder
     type: nixos

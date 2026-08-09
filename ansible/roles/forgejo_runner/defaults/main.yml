@@ -33,18 +33,38 @@ forgejo_runner_labels:
   # provision-indri applies this label drop, or priv dispatches queue.
 
 # Host toolchain for CI jobs, installed via `mise use --global`.
-# dagger is pinned to the engineVersion in dagger.json (the engine
-# runs as a container in the right-sized Docker Desktop, 2cpu/4GiB);
-# prek matches the repo's mise.toml pin. flyctl is used by the
-# deploy-fly workflow (replaces a fragile in-job `curl | sh` install
-# that hung on an interactive PATH prompt on the host-mode runner).
+#
+# Every version here MIRRORS a pin that lives somewhere else — this list is
+# never the source of truth, and bumping an entry on its own is drift, not an
+# upgrade. What each one has to match:
+#
+#   dagger      dagger.json engineVersion (a client/engine mismatch fails the
+#               job; the engine runs as a container in the right-sized Docker
+#               Desktop, 2cpu/4GiB)
+#   prek        mise.toml
+#   flyctl      mise.toml — used by the deploy-fly workflow
+#   argocd      service-versions.yaml `argocd`
+#   actionlint  the highest actionlint `rev` across the prek.toml files that
+#   stylua      run these hooks — blumeops for actionlint, hephaestus.nvim for
+#               both (a *-system hook runs the host binary, so one host version
+#               has to satisfy every repo the runner builds)
+#
+# So the review order is: bump the source of truth first, then realign here.
 forgejo_runner_host_tools:
   - dagger@0.20.6
   - prek@0.3.4
-  - flyctl@0.4.59
+  - flyctl@0.4.71
   # argocd stays as a mise-x fallback for any argocd job that lands on this
   # runner; the primary path is the ringtail-priv-runner's nixpkgs argocd.
   - argocd@3.3.12
+  # The two lint binaries prek cannot fetch for itself. prek downloads the
+  # environment for most hooks, but a `*-system` hook by definition runs
+  # whatever is on PATH — so `actionlint-system` and `stylua-system` are the
+  # host's responsibility. Absent, they do not skip: prek reports the hook as
+  # failed, which is why blumeops' own actionlint hook has never caught a
+  # workflow error and hephaestus.nvim's prek step is stubbed out with an echo.
+  - actionlint@1.7.12
+  - stylua@2.4.1
 
 # Zot pull-through cache for docker.io pulls, merged into Docker
 # Desktop's daemon.json. host.docker.internal resolves to indri from
