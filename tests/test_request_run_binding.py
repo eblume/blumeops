@@ -98,7 +98,10 @@ def test_non_warrant_action_without_binding_is_not_refused():
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("supersedes request #21, deny that one", "supersedes request `#21`, deny that one"),
+        (
+            "supersedes request #21, deny that one",
+            "supersedes request `#21`, deny that one",
+        ),
         ("no refs here", "no refs here"),
         ("already `#21` quoted", "already `#21` quoted"),
         ("rgb #ffffff is not a ref", "rgb #ffffff is not a ref"),

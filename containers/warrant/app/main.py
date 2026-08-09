@@ -146,7 +146,9 @@ def verify_agent(authorization: str | None) -> str:
     if ALLOW_ANON:
         return "anonymous-dev"
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(401, "Bearer token required (agents-m2m client_credentials)")
+        raise HTTPException(
+            401, "Bearer token required (agents-m2m client_credentials)"
+        )
     token = authorization.removeprefix("Bearer ")
     global _jwks_client
     if _jwks_client is None:
@@ -174,8 +176,10 @@ def healthz() -> dict:
         "version": app.version,
         # Readiness of the power, not the secret itself.
         "dispatch": (
-            "armed" if DISPATCH_ENABLED and DISPATCH_TOKEN
-            else "armed-no-token" if DISPATCH_ENABLED
+            "armed"
+            if DISPATCH_ENABLED and DISPATCH_TOKEN
+            else "armed-no-token"
+            if DISPATCH_ENABLED
             else "disarmed"
         ),
     }
@@ -183,8 +187,11 @@ def healthz() -> dict:
 
 # ── v0.2a human auth: OIDC code flow + signed session cookie ───────────────
 
+
 def _sign(claims: dict, ttl: int) -> str:
-    return jwt.encode({**claims, "exp": time.time() + ttl}, SESSION_KEY, algorithm="HS256")
+    return jwt.encode(
+        {**claims, "exp": time.time() + ttl}, SESSION_KEY, algorithm="HS256"
+    )
 
 
 def _unsign(token: str) -> dict | None:
@@ -206,7 +213,9 @@ def current_user(request: Request) -> dict | None:
 @app.get("/auth/login")
 def auth_login() -> Response:
     if not (SESSION_KEY and HUMAN_CLIENT_SECRET):
-        raise HTTPException(503, "human login not configured (warrant-oidc secret missing)")
+        raise HTTPException(
+            503, "human login not configured (warrant-oidc secret missing)"
+        )
     state = _sign({"kind": "oauth-state", "nonce": os.urandom(16).hex()}, 600)
     from urllib.parse import urlencode
 
@@ -220,7 +229,9 @@ def auth_login() -> Response:
         }
     )
     resp = Response(status_code=302)
-    resp.headers["Location"] = f"https://authentik.ops.eblu.me/application/o/authorize/?{params}"
+    resp.headers["Location"] = (
+        f"https://authentik.ops.eblu.me/application/o/authorize/?{params}"
+    )
     return resp
 
 
@@ -266,8 +277,12 @@ def auth_callback(code: str, state: str) -> Response:
     resp = Response(status_code=302)
     resp.headers["Location"] = "/"
     resp.set_cookie(
-        SESSION_COOKIE, session, max_age=SESSION_TTL,
-        httponly=True, secure=True, samesite="lax",
+        SESSION_COOKIE,
+        session,
+        max_age=SESSION_TTL,
+        httponly=True,
+        secure=True,
+        samesite="lax",
     )
     return resp
 
@@ -289,8 +304,15 @@ def create_request(
         cur = conn.execute(
             "INSERT INTO requests (created_at, requester, action, sha, inputs, why, pr)"
             " VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (time.time(), requester, body.action, body.sha,
-             json.dumps(body.inputs), body.why, body.pr),
+            (
+                time.time(),
+                requester,
+                body.action,
+                body.sha,
+                json.dumps(body.inputs),
+                body.why,
+                body.pr,
+            ),
         )
         return {"id": cur.lastrowid, "status": "pending", "requester": requester}
 
@@ -419,10 +441,15 @@ def consume_and_dispatch(warrant_id: int) -> dict:
     if not DISPATCH_TOKEN:
         # Armed but tokenless: the ExternalSecret didn't materialize. Loud,
         # because the failure is otherwise indistinguishable from disarmed.
-        return {"dispatched": False, "reason": "ARMED BUT NO DISPATCH TOKEN — check the warrant-dispatch ExternalSecret"}
+        return {
+            "dispatched": False,
+            "reason": "ARMED BUT NO DISPATCH TOKEN — check the warrant-dispatch ExternalSecret",
+        }
 
     with db() as conn:
-        w = conn.execute("SELECT * FROM warrants WHERE id = ?", (warrant_id,)).fetchone()
+        w = conn.execute(
+            "SELECT * FROM warrants WHERE id = ?", (warrant_id,)
+        ).fetchone()
         if w is None:
             return {"dispatched": False, "reason": "no such warrant"}
         if w["expires_at"] <= time.time():
@@ -431,11 +458,16 @@ def consume_and_dispatch(warrant_id: int) -> dict:
         if not allowed:
             return {"dispatched": False, "reason": why}
         cur = conn.execute(
-            "UPDATE warrants SET consumed = 1 WHERE id = ? AND consumed = 0", (warrant_id,)
+            "UPDATE warrants SET consumed = 1 WHERE id = ? AND consumed = 0",
+            (warrant_id,),
         )
         if cur.rowcount != 1:
             return {"dispatched": False, "reason": "warrant already consumed"}
-        action, inputs, request_id = w["action"], json.loads(w["inputs"]), w["request_id"]
+        action, inputs, request_id = (
+            w["action"],
+            json.loads(w["inputs"]),
+            w["request_id"],
+        )
 
     dispatched_at = time.time()
     try:
@@ -447,7 +479,7 @@ def consume_and_dispatch(warrant_id: int) -> dict:
 
     # Failure is terminal: the warrant stays consumed and the request is
     # marked failed. Re-running requires a fresh human decision.
-    run_number, run_url = (_run_from_dispatch(resp, action) if ok else (None, None))
+    run_number, run_url = _run_from_dispatch(resp, action) if ok else (None, None)
     with db() as conn:
         conn.execute(
             "UPDATE requests SET status = ? WHERE id = ?",
@@ -456,9 +488,13 @@ def consume_and_dispatch(warrant_id: int) -> dict:
         conn.execute(
             "UPDATE warrants SET run_number = ?, run_url = ?, dispatched_at = ?, "
             "note = ? WHERE id = ?",
-            (run_number, run_url, dispatched_at,
-             w["note"] if ok else (w["note"] + f" | dispatch FAILED: {detail}"),
-             warrant_id),
+            (
+                run_number,
+                run_url,
+                dispatched_at,
+                w["note"] if ok else (w["note"] + f" | dispatch FAILED: {detail}"),
+                warrant_id,
+            ),
         )
     return {"dispatched": ok, "reason": detail, "run_url": run_url}
 
@@ -479,7 +515,9 @@ def _dispatch(action: str, inputs: dict) -> httpx.Response:
     )
 
 
-def _run_from_dispatch(resp: httpx.Response, action: str) -> tuple[int | None, str | None]:
+def _run_from_dispatch(
+    resp: httpx.Response, action: str
+) -> tuple[int | None, str | None]:
     """The run this dispatch created, as reported by the dispatch itself.
 
     A warrant that names a run asserts a human authorized *that* run
@@ -489,14 +527,19 @@ def _run_from_dispatch(resp: httpx.Response, action: str) -> tuple[int | None, s
     run list and leaves ``run_number`` null. An honest absence is the correct
     outcome there, and a missing link never fails a successful dispatch.
     """
-    listing = f"https://forge.eblu.me/{REPO_OWNER}/{REPO_NAME}/actions?workflow={action}"
+    listing = (
+        f"https://forge.eblu.me/{REPO_OWNER}/{REPO_NAME}/actions?workflow={action}"
+    )
     try:
         number = resp.json().get("run_number")
     except (ValueError, AttributeError):
         return None, listing
     if not isinstance(number, int):
         return None, listing
-    return number, f"https://forge.eblu.me/{REPO_OWNER}/{REPO_NAME}/actions/runs/{number}"
+    return (
+        number,
+        f"https://forge.eblu.me/{REPO_OWNER}/{REPO_NAME}/actions/runs/{number}",
+    )
 
 
 def _require_approver(request: Request) -> dict:
@@ -533,14 +576,29 @@ def _decide(req_id: int, decision: str, note: str, user: dict) -> dict:
         if row["status"] != "pending":
             raise HTTPException(409, f"request is already {row['status']}")
         new_status = "approved" if decision == "approve" else "denied"
-        conn.execute("UPDATE requests SET status = ? WHERE id = ?", (new_status, req_id))
-        result: dict = {"request_id": req_id, "status": new_status, "decided_by": user["username"]}
+        conn.execute(
+            "UPDATE requests SET status = ? WHERE id = ?", (new_status, req_id)
+        )
+        result: dict = {
+            "request_id": req_id,
+            "status": new_status,
+            "decided_by": user["username"],
+        }
         if decision == "approve":
             cur = conn.execute(
                 "INSERT INTO warrants (request_id, decision, decided_by, decided_at,"
                 " action, sha, inputs, note, expires_at) VALUES (?,?,?,?,?,?,?,?,?)",
-                (req_id, decision, user["username"], time.time(), row["action"],
-                 row["sha"], row["inputs"], note, time.time() + WARRANT_TTL),
+                (
+                    req_id,
+                    decision,
+                    user["username"],
+                    time.time(),
+                    row["action"],
+                    row["sha"],
+                    row["inputs"],
+                    note,
+                    time.time() + WARRANT_TTL,
+                ),
             )
             result["warrant_id"] = cur.lastrowid
             result["expires_in"] = WARRANT_TTL
@@ -560,7 +618,9 @@ def _decide(req_id: int, decision: str, note: str, user: dict) -> dict:
 def decide(req_id: int, request: Request, body: dict | None = None) -> JSONResponse:
     user = _require_approver(request)
     body = body or {}
-    return JSONResponse(_decide(req_id, body.get("decision", ""), body.get("note", ""), user))
+    return JSONResponse(
+        _decide(req_id, body.get("decision", ""), body.get("note", ""), user)
+    )
 
 
 @app.post("/requests/{req_id}/decide")
@@ -587,7 +647,9 @@ def confirm(req_id: int, request: Request) -> str:
     if r["status"] != "pending":
         raise HTTPException(409, f"request is already {r['status']}")
     inputs = json.loads(r["inputs"])
-    rows = "".join(f"<tr><td>{k}</td><td><code>{v}</code></td></tr>" for k, v in inputs.items())
+    rows = "".join(
+        f"<tr><td>{k}</td><td><code>{v}</code></td></tr>" for k, v in inputs.items()
+    )
     effect = (
         "<b>This will dispatch the workflow immediately.</b>"
         if DISPATCH_ENABLED and DISPATCH_TOKEN
@@ -598,9 +660,9 @@ def confirm(req_id: int, request: Request) -> str:
 td,th{{border:1px solid #ccc;padding:.4rem .7rem;text-align:left}}
 table{{border-collapse:collapse;margin:1rem 0}}</style></head>
 <body><h1>approve request #{req_id}?</h1>
-<p><b>{r['action']}</b> at {_sha_link(r['sha'])} · {_pr_links(r['pr'], r['sha'])}</p>
-<p><i>{r['why']}</i></p>
-<table><tr><th>input</th><th>value</th></tr>{rows or '<tr><td colspan=2><em>none</em></td></tr>'}</table>
+<p><b>{r["action"]}</b> at {_sha_link(r["sha"])} · {_pr_links(r["pr"], r["sha"])}</p>
+<p><i>{r["why"]}</i></p>
+<table><tr><th>input</th><th>value</th></tr>{rows or "<tr><td colspan=2><em>none</em></td></tr>"}</table>
 <p>{effect}</p>
 <form method=post action=/requests/{req_id}/decide>
 <input type=hidden name=csrf value='{_csrf_token()}'>
@@ -691,21 +753,27 @@ def index(request: Request) -> str:
         warrants = conn.execute(
             "SELECT * FROM warrants ORDER BY id DESC LIMIT 20"
         ).fetchall()
-    items = "".join(
-        f"<tr><td>{r['id']}</td><td>{_status_cell(r)}</td>"
-        f"<td><a href='{FORGE_REPO_URL}/src/branch/main/.forgejo/workflows/{r['action']}'>{r['action']}</a></td>"
-        f"<td>{_sha_link(r['sha'])}</td><td>{_pr_links(r['pr'], r['sha'])}</td>"
-        f"<td>{r['why'][:120]}</td><td>{r['requester']}</td><td>{act_cell(r)}</td></tr>"
-        for r in rows
-    ) or "<tr><td colspan=8><em>queue empty</em></td></tr>"
-    witems = "".join(
-        f"<tr><td>{w['id']}</td><td>#{w['request_id']}</td><td>{w['action']}</td>"
-        f"<td>{_sha_link(w['sha'])}</td><td>{w['decided_by']}</td>"
-        f"<td>{'consumed' if w['consumed'] else ('live' if w['expires_at'] > time.time() else 'expired')}</td>"
-        f"<td>{_run_link(w)}</td>"
-        f"<td>{w['note'][:60]}</td></tr>"
-        for w in warrants
-    ) or "<tr><td colspan=8><em>none yet</em></td></tr>"
+    items = (
+        "".join(
+            f"<tr><td>{r['id']}</td><td>{_status_cell(r)}</td>"
+            f"<td><a href='{FORGE_REPO_URL}/src/branch/main/.forgejo/workflows/{r['action']}'>{r['action']}</a></td>"
+            f"<td>{_sha_link(r['sha'])}</td><td>{_pr_links(r['pr'], r['sha'])}</td>"
+            f"<td>{r['why'][:120]}</td><td>{r['requester']}</td><td>{act_cell(r)}</td></tr>"
+            for r in rows
+        )
+        or "<tr><td colspan=8><em>queue empty</em></td></tr>"
+    )
+    witems = (
+        "".join(
+            f"<tr><td>{w['id']}</td><td>#{w['request_id']}</td><td>{w['action']}</td>"
+            f"<td>{_sha_link(w['sha'])}</td><td>{w['decided_by']}</td>"
+            f"<td>{'consumed' if w['consumed'] else ('live' if w['expires_at'] > time.time() else 'expired')}</td>"
+            f"<td>{_run_link(w)}</td>"
+            f"<td>{w['note'][:60]}</td></tr>"
+            for w in warrants
+        )
+        or "<tr><td colspan=8><em>none yet</em></td></tr>"
+    )
     return f"""<!doctype html><html><head><title>warrant</title>
 <style>body{{font-family:system-ui;margin:2rem}}table{{border-collapse:collapse;margin-bottom:1.5rem}}
 td,th{{border:1px solid #ccc;padding:.4rem .7rem;text-align:left}}</style></head>
