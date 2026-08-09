@@ -1,7 +1,7 @@
 ---
 title: Upgrade Forgejo
-modified: 2026-06-29
-last-reviewed: 2026-06-29
+modified: 2026-08-09
+last-reviewed: 2026-08-09
 tags:
   - how-to
   - operations
@@ -51,10 +51,10 @@ same-day snapshot before deploying:
 ssh indri 'cp ~/forgejo/data/forgejo.db ~/forgejo/data/forgejo.db.bak-(date +%Y%m%d)'
 
 # 2. Bump the pinned version in the role defaults (this is the PR change):
-#      forgejo_version: "v15.0.3"
+#      forgejo_version: "v16.0.2"
 #    For a MAJOR bump, also set forgejo_go_version to match the target tag's
 #    go.mod `toolchain` directive (check: git show <tag>:go.mod | head).
-#    v15 requires go1.26.4.
+#    v16 requires go1.26.5.
 
 # 3. Deploy — fetches, checks out, builds with the pinned toolchain, restarts.
 mise run provision-indri -- --tags forgejo
@@ -72,8 +72,8 @@ mise run provision-indri -- --tags forgejo
 ### Manual build (fallback / debugging)
 
 ```fish
-ssh indri 'cd ~/code/3rd/forgejo && git fetch --tags origin && git checkout v15.0.3'
-ssh indri 'cd ~/code/3rd/forgejo && mise x go@1.26.4 node@24 -- env GOTOOLCHAIN=local TAGS="bindata timetzdata sqlite sqlite_unlock_notify" make build && ln -f gitea forgejo'
+ssh indri 'cd ~/code/3rd/forgejo && git fetch --tags origin && git checkout v16.0.2'
+ssh indri 'cd ~/code/3rd/forgejo && mise x go@1.26.5 node@24 -- env GOTOOLCHAIN=local TAGS="bindata timetzdata sqlite sqlite_unlock_notify" make build && ln -f gitea forgejo'
 mise run provision-indri -- --tags forgejo   # restart
 ```
 
@@ -96,8 +96,38 @@ Then confirm the dependent paths still work:
 
 - **Web UI / SSO login** at https://forge.ops.eblu.me
 - **CI**: trigger or watch a runner job (`mise run runner-logs`)
+- **Private-repo job logs** — the check that says the v16 API is live, since
+  it is the one thing v15 could not do at all:
+  `mise run runner-logs <run#> -j 0 --repo eblume/hephaestus.nvim`. On v15 this
+  prints "This forge predates the job-log REST API"; on v16 it prints the log.
 - **Mirror sync**: a private-repo API operation still succeeds (see token note
   below)
+
+## v16.0.0 breaking changes (relevant to this instance)
+
+The 15 → 16 major bump carried these; their impact on this deployment:
+
+| Change | Impact here |
+|--------|-------------|
+| **Repository-based server-side hooks replaced with centralised hooks** ([PR 10397](https://codeberg.org/forgejo/forgejo/pulls/10397)) | The big one. Rewrites hooks in every repository on upgrade. Upstream lists it under ["known problematic versions or upgrade paths"](https://forgejo.org/docs/latest/admin/upgrade/#when-upgrading-from--known-problematic-versions-or-upgrade-paths) — read that section before deploying, and run `forgejo doctor check --run check-db-consistency` after. Verify a push still triggers CI: a broken hook breaks pushes, not just Actions. |
+| **Docker default `REVERSE_PROXY_TRUSTED_PROXIES = *` removed** ([PR 12782](https://codeberg.org/forgejo/forgejo/pulls/12782)) | No-op for the upgrade: `app.ini.j2` sets it **explicitly** (with `REVERSE_PROXY_LIMIT = 2`), so nothing changes. Worth noting separately that upstream now treats `*` as unsafe — narrowing it to Caddy's address is its own change, not part of this bump. |
+| **git mirror HTTP operations no longer follow redirects** ([PR 13129](https://codeberg.org/forgejo/forgejo/pulls/13129)) | Affects the GitHub mirrors ([[manage-forgejo-mirrors]]). Direct `github.com/<owner>/<repo>` URLs don't redirect, but a *renamed* upstream does — a mirror that silently relied on GitHub's rename redirect will start failing. Check mirror sync status after deploying. |
+| **`${{ forgejo.ref }}` in scheduled workflows** ([PR 13081](https://codeberg.org/forgejo/forgejo/pulls/13081)) | No action: neither scheduled workflow here (`branch-cleanup`, `warrant-bot-drift`) reads `github.ref`. |
+| **PR API returns the API URL in the `url` field** ([PR 12643](https://codeberg.org/forgejo/forgejo/pulls/12643)) | Nothing in `mise-tasks/` reads `url` off a pull request (they build `html_url` or their own links), so no change here. Any *new* tooling wanting a browser link must use `html_url`. |
+| **`[migrations]` allow/deny host lists now enforced consistently** | No `[migrations]` block in `app.ini.j2`, so upstream defaults apply, unchanged. |
+
+Patch releases 15.0.4 – 15.0.6, passed through on the way, carry no breaking
+changes.
+
+What the upgrade buys, beyond staying current: the Actions REST API grew
+`/actions/runs/{run_id}/jobs`, `/actions/jobs/{job_id}/logs`,
+`/actions/runs/{run_id}/logs`, `/actions/runs/{run_id}/artifacts` and
+`/actions/runs/{run_id}/cancel`. The job-log endpoint is the reason this bump
+happened when it did: it is the only route that honours an API token, and so
+the only way to read a **private** repo's CI log without a browser session.
+`mise-tasks/runner-logs` prefers it and falls back to the old web route, which
+is anonymous-only. The `forgejo` entry in `service-versions.yaml` records the
+dependency so a future downgrade doesn't quietly cost that access.
 
 ## v15.0.0 breaking changes (relevant to this instance)
 

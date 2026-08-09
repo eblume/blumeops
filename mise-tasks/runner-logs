@@ -9,6 +9,7 @@
 #USAGE flag "--runner -r <runner>" help="Filter listing by runner: indri, ringtail, or all"
 #USAGE flag "--repo <repo>" help="Forge repo (owner/name), default: detected from git remote"
 #USAGE flag "--limit -n <limit>" help="Max runs to display (0 for all)"
+#USAGE flag "--attempt -a <attempt>" help="Job attempt to fetch (default: the latest)"
 #USAGE flag "--token <token>" help="Forgejo API token (default: read from 1Password)"
 """List recent Forgejo Actions runs and fetch job logs.
 
@@ -19,6 +20,7 @@ Usage:
     mise run runner-logs --repo eblume/hermes     # list runs for a different repo
     mise run runner-logs 474                      # show jobs in run 474
     mise run runner-logs 474 -j 1                 # fetch logs for job 1 of run 474
+    mise run runner-logs 474 -j 1 -a 2            # ...second attempt of that job
 """
 
 import os
@@ -138,6 +140,50 @@ def fetch_tasks(repo: str, token: str) -> list[dict]:
     return tasks
 
 
+def resolve_run_id(repo: str, run_number: int, token: str) -> int | None:
+    """Map a repo-visible run number to the global run id the API is keyed by.
+
+    Every `/actions/runs*` route resolves its `{run_id}` with `GetRunByID`, so
+    it wants the global id (1325), not the number in the URL you clicked (25).
+    The listing carries both: `index_in_repo` is the per-repo number.
+    """
+    page = 1
+    while True:
+        resp = httpx.get(
+            f"{FORGE_API}/repos/{repo}/actions/runs",
+            params={"page": page, "limit": 50},
+            headers=auth_headers(token),
+            timeout=15,
+        )
+        resp.raise_for_status()
+        batch = resp.json().get("workflow_runs", [])
+        if not batch:
+            return None
+        for run in batch:
+            if run.get("index_in_repo") == run_number:
+                return run["id"]
+        page += 1
+
+
+def list_run_jobs(repo: str, run_id: int, token: str) -> list[dict] | None:
+    """Jobs of a run, or None when the forge predates the endpoint.
+
+    `/actions/runs/{run_id}/jobs` arrived in Forgejo v16.0.0; on v15 the route
+    is simply absent and the router answers a bare 404. Callers pass a run_id
+    that `resolve_run_id` just found in the listing, so the run is known to
+    exist — a 404 here means the endpoint is missing, not the run.
+    """
+    resp = httpx.get(
+        f"{FORGE_API}/repos/{repo}/actions/runs/{run_id}/jobs",
+        headers=auth_headers(token),
+        timeout=15,
+    )
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    return resp.json()
+
+
 def list_runs(runner: str, repo: str, limit: int, token: str, console: Console) -> None:
     """List recent workflow runs, grouped by run number."""
     tasks = fetch_tasks(repo, token)
@@ -197,71 +243,123 @@ def list_runs(runner: str, repo: str, limit: int, token: str, console: Console) 
     console.print("[dim]      mise run runner-logs <run#> -j N   to fetch logs for job N[/dim]")
 
 
-def show_jobs(run_number: int, repo: str, token: str, console: Console) -> None:
-    """Show the jobs within a specific run."""
-    tasks = fetch_tasks(repo, token)
+def status_style(status: str) -> str:
+    return "green" if status == "success" else "red" if status == "failure" else "yellow"
 
-    jobs = sorted(
-        [t for t in tasks if t["run_number"] == run_number],
-        key=lambda x: x["id"],
-    )
-    if not jobs:
-        typer.echo(f"Error: No jobs found for run #{run_number}", err=True)
+
+def show_jobs(run_number: int, repo: str, token: str, console: Console) -> None:
+    """Show the jobs within a specific run.
+
+    The `Job #` printed here is the index `-j N` takes, so this listing has to
+    enumerate the same sequence `fetch_log` does — the jobs of the run. The
+    pre-v16 fallback enumerates *tasks* instead, which is one entry per
+    execution: a re-run job appears twice and the indices shift under you.
+    """
+    run_id = resolve_run_id(repo, run_number, token)
+    if run_id is None:
+        typer.echo(f"Error: no run #{run_number} in {repo}", err=True)
         raise typer.Exit(1)
 
+    jobs = list_run_jobs(repo, run_id, token)
     table = Table(title=f"Jobs in run #{run_number} — {repo}")
     table.add_column("Job #", style="cyan", no_wrap=True)
     table.add_column("Status")
     table.add_column("Name")
-    table.add_column("Created")
 
-    for i, job in enumerate(jobs):
-        status = job.get("status", "")
-        style = "green" if status == "success" else "red" if status == "failure" else "yellow"
-        table.add_row(
-            str(i),
-            f"[{style}]{status}[/{style}]",
-            job.get("name", ""),
-            job.get("created_at", ""),
+    if jobs is not None:
+        table.add_column("Attempt")
+        table.add_column("Runs on")
+        for i, job in enumerate(jobs):
+            status = job.get("status", "")
+            table.add_row(
+                str(i),
+                f"[{status_style(status)}]{status}[/{status_style(status)}]",
+                job.get("name", ""),
+                str(job.get("attempt", "")),
+                ", ".join(job.get("runs_on") or []),
+            )
+    else:
+        table.add_column("Created")
+        tasks = sorted(
+            [t for t in fetch_tasks(repo, token) if t["run_number"] == run_number],
+            key=lambda x: x["id"],
         )
+        if not tasks:
+            typer.echo(f"Error: No jobs found for run #{run_number}", err=True)
+            raise typer.Exit(1)
+        for i, task in enumerate(tasks):
+            status = task.get("status", "")
+            table.add_row(
+                str(i),
+                f"[{status_style(status)}]{status}[/{status_style(status)}]",
+                task.get("name", ""),
+                task.get("created_at", ""),
+            )
 
     console.print(table)
+    if jobs is None:
+        console.print(
+            "\n[yellow]This forge predates the jobs REST API (Forgejo < 16.0.0); "
+            "rows above are tasks, so a re-run job is listed once per attempt."
+            "[/yellow]"
+        )
     console.print(f"\n[dim]Use: mise run runner-logs {run_number} -j N   to fetch logs for job N[/dim]")
 
 
-def fetch_log(run_number: int, job_index: int, repo: str, token: str) -> None:
-    """Fetch logs for a specific job via the Forgejo web log route.
+def fetch_log_via_api(
+    repo: str, run_id: int, job_index: int, attempt: int | None, token: str
+) -> str | None:
+    """Job log from `/actions/jobs/{job_id}/logs`, or None on a pre-v16 forge.
 
-    The REST API (checked against Forgejo 15 swagger) still has no job-logs
-    endpoint, but the web route
-    /{repo}/actions/runs/{run}/jobs/{job}/attempt/{n}/logs serves the raw log
-    and accepts normal API-token auth. It reads from log storage or from the
-    pending dbfs buffer transparently, and works from any host that can reach
-    the forge — including remote-agent sessions with no ssh access to indri.
-    Attempts are probed upward; the latest attempt's log wins.
+    This is the only route that honours an API token, which makes it the only
+    route that can read a **private** repo's log. Forgejo does not accept token
+    auth on web routes at all, so the web fallback below is always an anonymous
+    request — fine for a public repo, a 404 for every private one.
     """
-    tasks = fetch_tasks(repo, token)
-    jobs = sorted(
-        [t for t in tasks if t["run_number"] == run_number],
-        key=lambda x: x["id"],
-    )
-    if not jobs:
-        typer.echo(f"Error: No jobs found for run #{run_number}", err=True)
-        raise typer.Exit(1)
+    jobs = list_run_jobs(repo, run_id, token)
+    if jobs is None:
+        return None
     if job_index < 0 or job_index >= len(jobs):
         typer.echo(
-            f"Error: job index {job_index} out of range (run #{run_number} has {len(jobs)} jobs)",
+            f"Error: job index {job_index} out of range (run has {len(jobs)} jobs)",
             err=True,
         )
         raise typer.Exit(1)
 
-    task_id = jobs[job_index]["id"]
-    web_url = f"{FORGE_URL}/{repo}/actions/runs/{run_number}/jobs/{job_index}"
+    job = jobs[job_index]
+    params = {"attempt": attempt} if attempt is not None else {}
+    resp = httpx.get(
+        f"{FORGE_API}/repos/{repo}/actions/jobs/{job['id']}/logs",
+        params=params,
+        headers=auth_headers(token),
+        timeout=60,
+    )
+    if resp.status_code == 404:
+        # The job exists, so a 404 is about the log: never executed, or expired
+        # out of log storage. Both are terminal — don't fall back to the web
+        # route, which would only report the same absence less clearly.
+        typer.echo(
+            f"Error: no stored log for job {job_index} ({job.get('name', '?')}, "
+            f"status {job.get('status', '?')}, attempt "
+            f"{attempt if attempt is not None else job.get('attempt', '?')}) — "
+            "the job never ran, or its log has expired.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    resp.raise_for_status()
+    return resp.text
 
-    # Re-runs create new attempts; probe upward and keep the latest 200.
-    # Attempt numbers are dense starting at 1, so stop at the first miss.
+
+def fetch_log_via_web(run_number: int, job_index: int, repo: str, token: str) -> str | None:
+    """Pre-v16 fallback: the web log route, which is public-repo-only.
+
+    /{repo}/actions/runs/{run}/jobs/{job}/attempt/{n}/logs serves the raw log,
+    but as a *web* route it ignores API tokens entirely — every auth form
+    (token, Bearer, basic, ?token=) leaves the request anonymous, so a private
+    repo answers 404. Attempts are probed upward; the latest attempt's log wins.
+    """
+    web_url = f"{FORGE_URL}/{repo}/actions/runs/{run_number}/jobs/{job_index}"
     log_text: str | None = None
-    last_status = 0
     attempt = 1
     while attempt <= 50:
         resp = httpx.get(
@@ -270,19 +368,46 @@ def fetch_log(run_number: int, job_index: int, repo: str, token: str) -> None:
             timeout=30,
             follow_redirects=True,
         )
-        last_status = resp.status_code
         if resp.status_code != 200:
             break
         log_text = resp.text
         attempt += 1
+    return log_text
+
+
+def fetch_log(
+    run_number: int, job_index: int, repo: str, attempt: int | None, token: str
+) -> None:
+    """Print one job's log, preferring the REST API over the web route."""
+    run_id = resolve_run_id(repo, run_number, token)
+    if run_id is None:
+        typer.echo(f"Error: no run #{run_number} in {repo}", err=True)
+        raise typer.Exit(1)
+
+    log_text = fetch_log_via_api(repo, run_id, job_index, attempt, token)
+    if log_text is None:
+        if attempt is not None:
+            typer.echo(
+                "Error: --attempt needs the job-log REST API, which this forge "
+                "predates (Forgejo < 16.0.0).",
+                err=True,
+            )
+            raise typer.Exit(1)
+        log_text = fetch_log_via_web(run_number, job_index, repo, token)
 
     if log_text is None:
         typer.echo(
-            f"Error: no log available for run #{run_number} job {job_index} "
-            f"(task {task_id}, HTTP {last_status}).",
+            f"Error: no log available for run #{run_number} job {job_index}.\n"
+            "This forge predates the job-log REST API (Forgejo < 16.0.0), so the "
+            "only route left is the web one — and that route ignores API tokens, "
+            "so it can only read public repos. Upgrade the forge to >= 16.0.2 "
+            "(see docs/how-to/operations/upgrade-forgejo.md), or read it in a "
+            "browser:",
             err=True,
         )
-        typer.echo(f"Check the web UI: {web_url}", err=True)
+        typer.echo(
+            f"{FORGE_URL}/{repo}/actions/runs/{run_number}/jobs/{job_index}", err=True
+        )
         raise typer.Exit(1)
     sys.stdout.write(log_text)
 
@@ -309,6 +434,10 @@ def main(
         int,
         typer.Option("--limit", "-n", help="Max runs to display (0 for all)"),
     ] = 15,
+    attempt: Annotated[
+        int | None,
+        typer.Option("--attempt", "-a", help="Job attempt to fetch (default: the latest)"),
+    ] = None,
     token: Annotated[
         str | None,
         typer.Option("--token", help="Forgejo API token (default: read from 1Password)"),
@@ -339,9 +468,12 @@ def main(
             raise typer.Exit(1)
         list_runs(runner, repo, limit, resolved_token, console)
     elif job is None:
+        if attempt is not None:
+            typer.echo("Error: --attempt requires --job", err=True)
+            raise typer.Exit(1)
         show_jobs(run_number, repo, resolved_token, console)
     else:
-        fetch_log(run_number, job, repo, resolved_token)
+        fetch_log(run_number, job, repo, attempt, resolved_token)
 
 
 if __name__ == "__main__":

@@ -25,9 +25,9 @@ forgejo_binary: "{{ forgejo_repo_dir }}/forgejo"
 #      2. Confirm a fresh forgejo.db backup exists (borgmatic dumps it nightly;
 #         take an ad-hoc one for a same-day major bump).
 #      3. For a major bump also set forgejo_go_version to satisfy the target
-#         tag's go.mod `toolchain` directive (v15 requires go1.26.4).
-forgejo_version: "v15.0.3"
-forgejo_go_version: "1.26.4"
+#         tag's go.mod `toolchain` directive (v16 requires go1.26.5).
+forgejo_version: "v16.0.2"
+forgejo_go_version: "1.26.5"
 forgejo_node_version: "24"
 forgejo_build_tags: "bindata timetzdata sqlite sqlite_unlock_notify"
 forgejo_mise_bin: /etc/profiles/per-user/erichblume/bin/mise
