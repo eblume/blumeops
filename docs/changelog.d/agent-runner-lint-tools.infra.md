@@ -13,3 +13,11 @@ one. Two consequences had been sitting unnoticed:
 The runner reference card also listed a toolchain that was never accurate — it
 advertised a `jq` the role does not install. It now points at
 `forgejo_runner_host_tools` as the source of truth rather than restating it.
+
+Realign `flyctl` 0.4.59 → 0.4.71, which had drifted from the `mise.toml` pin
+since 2026-07-19. Every version in `forgejo_runner_host_tools` mirrors a pin
+held elsewhere — `dagger.json`, `mise.toml`, `service-versions.yaml`, the
+`prek.toml` hook revs — and nothing bumps the mirror when the source moves, so
+it goes stale silently. The variable now documents which source each entry
+tracks, and the `forgejo-runner` entry in `service-versions.yaml` says to diff
+the list against those sources as part of the review.
