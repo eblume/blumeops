@@ -466,14 +466,17 @@ services:
 
   - name: forgejo
     type: ansible
-    last-reviewed: 2026-06-29
-    current-version: "15.0.3"
+    last-reviewed: 2026-08-09
+    current-version: "16.0.2"
     upstream-source: https://codeberg.org/forgejo/forgejo/releases
     notes: >-
       Built from source on indri (~/code/3rd/forgejo), origin remote = forge
       mirror (forge.ops.eblu.me/mirrors/forgejo), codeberg = upstream. Off
       Homebrew — custom LaunchAgent (mcquack.eblume.forgejo.plist), mise
-      toolchain. v15 major upgrade, see [[upgrade-forgejo]].
+      toolchain. v16 major upgrade, see [[upgrade-forgejo]].
+      REVIEW ALSO: the Actions job-log REST API arrived in v16.0.0 and
+      `mise run runner-logs` now depends on it — a downgrade below 16 silently
+      costs private-repo log access (the pre-16 web route is anonymous-only).
 
   - name: alloy
     type: ansible
