@@ -20,8 +20,16 @@ def _request(conn, status: str = "dispatched") -> int:
     cur = conn.execute(
         "INSERT INTO requests (created_at, requester, action, sha, inputs, why, pr, status)"
         " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (time.time(), "agent-ringtail", "deploy-fly.yaml", SHA,
-         json.dumps({"revision": SHA}), "test", 509, status),
+        (
+            time.time(),
+            "agent-ringtail",
+            "deploy-fly.yaml",
+            SHA,
+            json.dumps({"revision": SHA}),
+            "test",
+            509,
+            status,
+        ),
     )
     return cur.lastrowid
 
@@ -31,11 +39,22 @@ def _warrant(conn, request_id: int, run_number: int | None) -> None:
         "INSERT INTO warrants (request_id, decision, decided_by, decided_at, action,"
         " sha, inputs, expires_at, consumed, run_number, run_url, dispatched_at)"
         " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (request_id, "approve", "erich", time.time(), "deploy-fly.yaml", SHA,
-         json.dumps({"revision": SHA}), time.time() + 3600, 1, run_number,
-         f"https://forge.eblu.me/eblume/blumeops/actions/runs/{run_number}"
-         if run_number else None,
-         time.time()),
+        (
+            request_id,
+            "approve",
+            "erich",
+            time.time(),
+            "deploy-fly.yaml",
+            SHA,
+            json.dumps({"revision": SHA}),
+            time.time() + 3600,
+            1,
+            run_number,
+            f"https://forge.eblu.me/eblume/blumeops/actions/runs/{run_number}"
+            if run_number
+            else None,
+            time.time(),
+        ),
     )
 
 

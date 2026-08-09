@@ -39,17 +39,23 @@ def _request(requester: str = ME, status: str = "pending", sha: str = SHA) -> in
         cur = conn.execute(
             "INSERT INTO requests (created_at, requester, action, sha, inputs, why,"
             " pr, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (time.time(), requester, "build-container.yaml", sha,
-             json.dumps({"container": "agent-ws"}), "test", 525, status),
+            (
+                time.time(),
+                requester,
+                "build-container.yaml",
+                sha,
+                json.dumps({"container": "agent-ws"}),
+                "test",
+                525,
+                status,
+            ),
         )
         return cur.lastrowid
 
 
 def _row(req_id: int):
     with main.db() as conn:
-        return conn.execute(
-            "SELECT * FROM requests WHERE id = ?", (req_id,)
-        ).fetchone()
+        return conn.execute("SELECT * FROM requests WHERE id = ?", (req_id,)).fetchone()
 
 
 def test_supersede_retires_the_old_request_and_names_its_replacement():
@@ -69,7 +75,9 @@ def test_supersede_returns_the_old_requests_coordinates():
     old, new = _request(), _request(sha=NEW_SHA)
     result = main.supersede(old, main.Supersede(by=new))
     assert (result["action"], result["sha"], result["pr"]) == (
-        "build-container.yaml", SHA, 525,
+        "build-container.yaml",
+        SHA,
+        525,
     )
 
 
@@ -80,9 +88,12 @@ def test_superseded_request_cannot_be_approved():
         main._decide(old, "approve", "", {"username": "erich"})
     assert exc.value.status_code == 409
     with main.db() as conn:
-        assert conn.execute(
-            "SELECT COUNT(*) FROM warrants WHERE request_id = ?", (old,)
-        ).fetchone()[0] == 0
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM warrants WHERE request_id = ?", (old,)
+            ).fetchone()[0]
+            == 0
+        )
 
 
 def test_cannot_supersede_another_identitys_request():

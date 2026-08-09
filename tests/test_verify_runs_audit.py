@@ -78,7 +78,10 @@ def test_head_sha_is_never_consulted():
 
 
 def test_action_with_no_declared_binding_is_clean():
-    assert verify_runs.binding_mismatch(rec("some-unpoliced.yaml", SHA, {}), BINDINGS) is None
+    assert (
+        verify_runs.binding_mismatch(rec("some-unpoliced.yaml", SHA, {}), BINDINGS)
+        is None
+    )
 
 
 @pytest.mark.parametrize(
