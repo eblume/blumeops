@@ -33,6 +33,12 @@ Removing beats skipping: a skip list is a second place to drift, and it lets
 25 hooks that all pass, so the job's result is the whole of what the hook set
 checks.
 
+The job blanks `GITHUB_TOKEN`. Forgejo Actions sets it to the *forge* job token,
+and mise honours that name for `api.github.com` — so it offers a Forgejo
+credential to GitHub and takes a 401 on any tool it has to resolve, which fails
+every hook whose entry is `mise run`. This is the per-repo workaround; the class
+fix is a scopeless `MISE_GITHUB_TOKEN` in the runner's `envs`.
+
 Two of these are real capabilities and their loss is not free. **Secret scanning
 is now the builtin `detect-private-key` alone**, which catches private keys and
 nothing else — on a repo whose first rule is that it is public. Workflow *schema*

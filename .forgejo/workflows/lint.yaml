@@ -63,5 +63,20 @@ jobs:
       # the whole of what the hook set checks — nothing is quietly excluded, and the
       # config cannot drift into holding hooks that no longer run anywhere.
       # Adding a hook that cannot run in a clean checkout re-opens that gap.
+      #
+      # GITHUB_TOKEN is blanked because Forgejo Actions sets it to the FORGE job
+      # token — act writes every `github.*` value under a `GITHUB_` prefix too —
+      # and mise honours that name for api.github.com. It then offers a Forgejo
+      # credential to GitHub and takes a 401 on any tool it has to resolve, which
+      # fails the four hooks whose entry is `mise run`. Blanking it drops mise to
+      # anonymous API access and its 60-requests/hour ceiling, shared across
+      # everything this runner builds.
+      #
+      # This is the per-repo workaround, matching hephaestus.nvim #6. The class
+      # fix is a scopeless MISE_GITHUB_TOKEN in the runner's `envs`, which
+      # outranks the job token everywhere at once — heph 01KZKP8893WM8DQT5N97QF6PBD.
+      # Remove this line when that lands.
       - name: prek run --all-files
+        env:
+          GITHUB_TOKEN: ""
         run: prek run --all-files --show-diff-on-failure
