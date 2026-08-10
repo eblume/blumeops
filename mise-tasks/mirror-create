@@ -9,7 +9,7 @@ set -euo pipefail
 FORGE_API="https://forge.eblu.me/api/v1"
 ORG="mirrors"
 OP_TOKEN_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
-OP_GITHUB_PAT_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/github-mirror-pat"
+OP_GITHUB_PAT_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/forge-ci-github-pat"
 
 url="${usage_url:?}"
 

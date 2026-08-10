@@ -20,6 +20,6 @@ were noisy.
 `mirror-update-pats` also grows a preflight check on the database path. It
 swallowed sqlite3's stderr and treated an empty result as "No GitHub mirrors
 found", so a wrong path exited 0 with a success-shaped message; since the task
-is driven by the github-mirror-pat rotation, that surfaces as mirrors quietly
+is driven by the forge-ci-github-pat rotation, that surfaces as mirrors quietly
 going stale after a rotation rather than as an error during it. The query is
 now `-readonly`, appropriate for a database forgejo is serving live.

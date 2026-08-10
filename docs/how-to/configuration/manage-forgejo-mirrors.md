@@ -1,6 +1,6 @@
 ---
 title: Manage Forgejo Mirrors
-modified: 2026-06-27
+modified: 2026-08-10
 last-reviewed: 2026-02-26
 tags:
   - how-to
@@ -26,8 +26,16 @@ The GitHub PAT is stored in 1Password:
 |----------|-------|
 | **Vault** | blumeops (`vg6xf6vvfmoh5hqjjhlhbeoaie`) |
 | **Item** | Forgejo Secrets (`w3663ffnvkewbftncqxtcpeavy`) |
-| **Field** | `github-mirror-pat` |
-| **op ref** | `op://blumeops/w3663ffnvkewbftncqxtcpeavy/github-mirror-pat` |
+| **Field** | `forge-ci-github-pat` |
+| **op ref** | `op://blumeops/w3663ffnvkewbftncqxtcpeavy/forge-ci-github-pat` |
+
+The name is `forge-ci-` rather than `mirror-` because mirroring is one consumer
+of it, not the only one: it is indri's general-purpose credential for reading
+public GitHub, and CI tool resolution is the next consumer lined up. What the
+token *is* stays narrow — a fine-grained PAT with **no permissions**, which
+grants read-only access to public repositories and nothing else. Keep it that
+way. Anything needing a scope needs its own token, because this one is on a path
+to being readable by CI jobs.
 
 ### Sync Interval
 
@@ -101,10 +109,15 @@ The GitHub fine-grained PAT has a 30-day expiry. Set a recurring reminder (every
 
 Go to [GitHub fine-grained token settings](https://github.com/settings/personal-access-tokens/new) and create a new token:
 
-- **Name:** `forgejo-mirror-sync` (or similar, include the date for tracking)
+- **Name:** `forge-ci-github` (or similar, include the date for tracking)
 - **Expiration:** 30 days
 - **Repository access:** Public repositories (read-only)
 - **Permissions:** None required — fine-grained PATs automatically include read-only access to all public repos
+
+> **Grant no permissions, ever.** "None" is not merely the minimum that works
+> here, it is the property that makes this token safe to spread. Consumers
+> beyond mirroring read it, so a scope added for one caller is a scope every
+> caller gets. A task needing more needs its own token.
 
 Copy the new PAT to your clipboard.
 
@@ -113,13 +126,13 @@ Copy the new PAT to your clipboard.
 With the new PAT on your clipboard:
 
 ```fish
-op item edit w3663ffnvkewbftncqxtcpeavy github-mirror-pat=(pbpaste) --vault blumeops
+op item edit w3663ffnvkewbftncqxtcpeavy forge-ci-github-pat=(pbpaste) --vault blumeops
 ```
 
 Verify the update:
 
 ```fish
-op read "op://blumeops/w3663ffnvkewbftncqxtcpeavy/github-mirror-pat" | head -c 12
+op read "op://blumeops/w3663ffnvkewbftncqxtcpeavy/forge-ci-github-pat" | head -c 12
 # Should print the first 12 chars of the new PAT (github_pat_...)
 ```
 
@@ -143,7 +156,7 @@ The mirrors only use the PAT to lift GitHub's rate limit (public repos don't nee
 Check the token is recognized as authenticated — `5000`/hr means authed, `60`/hr means anonymous/invalid:
 
 ```fish
-curl -s -H "Authorization: Bearer $(op read 'op://blumeops/w3663ffnvkewbftncqxtcpeavy/github-mirror-pat')" \
+curl -s -H "Authorization: Bearer $(op read 'op://blumeops/w3663ffnvkewbftncqxtcpeavy/forge-ci-github-pat')" \
   https://api.github.com/rate_limit | jq '.resources.core.limit'
 ```
 
