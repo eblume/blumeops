@@ -64,14 +64,20 @@ alloy_scrape_interval: "15s"
 
 # Log paths to collect
 alloy_brew_logs:
-  - path: /opt/homebrew/var/log/forgejo.log
-    service: forgejo
-    stream: stdout
   - path: /opt/homebrew/var/log/tailscaled.log
     service: tailscale
     stream: stdout
 
+# Every path here must match a StandardOutPath/StandardErrorPath in the
+# corresponding role's plist template — alloy tails files, so a path that
+# names nothing ships nothing and reports no error.
 alloy_mcquack_logs:
+  - path: /Users/erichblume/Library/Logs/mcquack.forgejo.out.log
+    service: forgejo
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.forgejo.err.log
+    service: forgejo
+    stream: stderr
   - path: /Users/erichblume/Library/Logs/mcquack.alloy.out.log
     service: alloy
     stream: stdout
