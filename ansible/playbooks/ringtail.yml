@@ -122,6 +122,17 @@
       failed_when: false
       when: _repo.changed
 
+    # The journal is persistent here, so a query by unit name alone returns
+    # every past run's output as well as this one's — which would leave the
+    # `changed` test below matching an activation from weeks ago. Take the
+    # host's clock first and read the journal forward from it.
+    - name: Note the host clock before starting the rebuild
+      ansible.builtin.command:
+        cmd: date +%s
+      register: _rebuild_started_at
+      changed_when: false
+      when: _repo.changed
+
     - name: Start NixOS rebuild, detached from this SSH session
       ansible.builtin.command:
         # Absolute path and an explicit PATH: a transient unit gets systemd's
@@ -164,7 +175,9 @@
     # activation line this play keys `changed` off is still available.
     - name: Collect rebuild output
       ansible.builtin.command:
-        cmd: journalctl --unit={{ _rebuild_unit }} --no-pager --output=cat
+        cmd: >-
+          journalctl --unit={{ _rebuild_unit }} --no-pager --output=cat
+          --since=@{{ _rebuild_started_at.stdout }}
       register: _rebuild_log
       changed_when: "'activating the configuration' in _rebuild_log.stdout"
       when: _repo.changed
