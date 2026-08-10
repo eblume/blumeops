@@ -1,0 +1,13 @@
+# Request review from @eblume on every PR, so an agent-opened one lands in the
+# "Review requests" filter instead of no queue at all. A review request is a
+# notification, not a gate: nothing here blocks a merge.
+#
+# Patterns are Go regexps anchored as `^…$` against each changed path, not
+# gitignore globs. GitHub's `*` catch-all does not compile and Forgejo skips the
+# rule silently, leaving a file that looks right and does nothing; `.*` is the
+# equivalent that works.
+#
+# Forgejo reads this from the default branch of the base repo when a PR opens,
+# and only then. It skips drafts and WIP PRs, and never requests review from the
+# PR's own author.
+.*  @eblume

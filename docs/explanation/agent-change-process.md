@@ -53,6 +53,14 @@ The default route for anything non-trivial, and the only route available to remo
 10. After user review and successful deployment, the user merges the PR
 11. **After merge:** reset any overridden revision with `argocd app set <service> --revision main`. Apps still tracking `main` need nothing — the merge deploys itself
 
+### How the PR reaches a human
+
+`.forgejo/CODEOWNERS` holds one catch-all rule, so opening a PR requests review from `eblume` and the PR lands in his **Review requests** filter. Without it an agent PR carries no assignee and no reviewer, and so appears in no queue at all — owning the repo is not a filter. Every agent-ws repo carries the same file.
+
+This is a **notification, not a gate**: no branch protection is involved and nothing about it can block a merge. Forgejo reads the file from `main`, fires only when the PR opens, skips drafts, and never asks the PR's own author — so a PR the user opens himself stays quiet. Do not also pass `tea pr create --assignees`; the review request is the queue that gets watched.
+
+The pattern is `.*`, not GitHub's `*`. Forgejo compiles each one as a Go regexp anchored `^…$`, and `^*$` does not compile — the rule is dropped with only a warning, leaving a file that reads correctly and does nothing.
+
 ### Build artifacts
 
 Container images in the registry are independent of branch lifecycle — a branch reset or a rebase does not invalidate them:
