@@ -1,0 +1,80 @@
+# The prek hook set, on every PR.
+#
+# The hooks existed and ran nowhere. Enforcement was whoever remembered to run
+# `prek run --all-files` on gilbert, which is why drift keeps being found by
+# accident: five Python files had silently fallen out of ruff-format shape, and
+# ruff had never once looked at `mise-tasks/` — the directory holding most of
+# this repo's logic.
+#
+# Same shape and the same invariant as Docs Checks: no token, no vault, no
+# cluster, no network beyond fetching hook environments. That is what makes it
+# safe on every PR including from a fork. Keep it that way — a check needing a
+# secret belongs in a different workflow.
+#
+# The runner already carries everything this needs. `prek`, `actionlint` and
+# `stylua` are in `forgejo_runner_host_tools` (ansible/roles/forgejo_runner),
+# installed globally with mise; `uv` runs the extensionless mise-tasks. Note
+# that a `*-system` hook runs whatever is on PATH, so if a host tool goes
+# missing the hook does not skip — prek reports it FAILED. The version pins
+# there mirror this repo's `prek.toml` revs and must be bumped together.
+#
+# On an agent PR this sits `pending` with no run until a human clicks
+# "Approve and run" — the agents bot is read-only on canonical, so its PRs are
+# outside contributions. Do not switch to `pull_request_target` to skip it:
+# that trigger gets secrets and a write token.
+# See [[agent-change-process#Why agent PRs need an approval click]].
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  prek:
+    runs-on: indri
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # A missing prek must not look like a passing lint job. Same reasoning as
+      # mise-tasks/_require: refuse with an explanation rather than degrade.
+      - name: prek is on PATH
+        run: |
+          if ! command -v prek >/dev/null 2>&1; then
+            echo "::error::prek not found on the runner." >&2
+            echo "It is declared in forgejo_runner_host_tools" >&2
+            echo "(ansible/roles/forgejo_runner/defaults/main.yml) and installed" >&2
+            echo "by 'mise use --global'. Re-run provision-indri --tags forgejo_runner." >&2
+            exit 1
+          fi
+          prek --version
+
+      # SKIP names the four hooks that cannot work in a clean CI checkout. Each
+      # is an explicit exclusion rather than a silent omission, because a lint
+      # job that quietly covers less than it appears to is the failure mode this
+      # workflow exists to end:
+      #
+      #   ty-check           `[tool.ty.environment] extra-paths` points at
+      #                      sdk/src, the dagger-generated SDK. /sdk/ is
+      #                      gitignored, so ty aborts in ANY fresh checkout
+      #                      ("sdk/src does not point to a directory"), CI or
+      #                      local. Tracked in heph 01KZP4MRGSTEM63V0TQFDP7BRF.
+      #   validate-workflows shells to `dagger call`, which needs Docker Desktop
+      #                      and an engine container. Too heavy for a job whose
+      #                      value is being cheap enough to run on every push.
+      #   trufflehog         its entry is pinned to `--since-commit HEAD`, an
+      #                      incremental range that means nothing on a fresh
+      #                      checkout. Secret scanning that silently scans
+      #                      nothing is worse than none; a CI-shaped scan
+      #                      (full history, or the PR range) is its own design.
+      #   stylua-system      no Lua in this repo; it is a hephaestus.nvim hook.
+      #
+      # `actionlint-system` is deliberately NOT skipped. The runner has
+      # actionlint 1.7.12, matching the prek.toml rev, so this is the first
+      # place that hook has ever actually run.
+      - name: prek run --all-files
+        env:
+          SKIP: ty-check,validate-workflows,trufflehog,stylua-system
+        run: prek run --all-files --show-diff-on-failure
