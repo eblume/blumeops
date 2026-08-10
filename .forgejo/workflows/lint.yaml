@@ -1,0 +1,82 @@
+# The prek hook set, on every PR.
+#
+# The hooks existed and ran nowhere. Enforcement was whoever remembered to run
+# `prek run --all-files` on gilbert, which is why drift keeps being found by
+# accident: five Python files had silently fallen out of ruff-format shape, and
+# ruff had never once looked at `mise-tasks/` — the directory holding most of
+# this repo's logic.
+#
+# Same shape and the same invariant as Docs Checks: no token, no vault, no
+# cluster, no network beyond fetching hook environments. That is what makes it
+# safe on every PR including from a fork. Keep it that way — a check needing a
+# secret belongs in a different workflow.
+#
+# The runner already carries everything this needs. `prek` and `actionlint` are
+# in `forgejo_runner_host_tools` (ansible/roles/forgejo_runner), installed
+# globally with mise; `uv` runs the extensionless mise-tasks. Note that a
+# `*-system` hook runs whatever is on PATH, so if a host tool goes missing the
+# hook does not skip — prek reports it FAILED. The version pins there mirror
+# this repo's `prek.toml` revs and must be bumped together.
+#
+# This job is the enforcement point, so `prek.toml` holds only hooks that can
+# run in a clean checkout. Three were removed when it landed rather than
+# skipped: `ty-check` (needs the gitignored dagger SDK at `sdk/src`),
+# `validate-workflows` (needs Docker Desktop and a dagger engine) and
+# `trufflehog` (pinned to `--since-commit HEAD`, an incremental range that
+# scans nothing here). Each is a real capability worth rebuilding properly
+# rather than a check to reinstate as-is.
+#
+# On an agent PR this sits `pending` with no run until a human clicks
+# "Approve and run" — the agents bot is read-only on canonical, so its PRs are
+# outside contributions. Do not switch to `pull_request_target` to skip it:
+# that trigger gets secrets and a write token.
+# See [[agent-change-process#Why agent PRs need an approval click]].
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  prek:
+    runs-on: indri
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # A missing prek must not look like a passing lint job. Same reasoning as
+      # mise-tasks/_require: refuse with an explanation rather than degrade.
+      - name: prek is on PATH
+        run: |
+          if ! command -v prek >/dev/null 2>&1; then
+            echo "::error::prek not found on the runner." >&2
+            echo "It is declared in forgejo_runner_host_tools" >&2
+            echo "(ansible/roles/forgejo_runner/defaults/main.yml) and installed" >&2
+            echo "by 'mise use --global'. Re-run provision-indri --tags forgejo_runner." >&2
+            exit 1
+          fi
+          prek --version
+
+      # No SKIP list. Every hook in prek.toml runs here, so this job's result is
+      # the whole of what the hook set checks — nothing is quietly excluded, and the
+      # config cannot drift into holding hooks that no longer run anywhere.
+      # Adding a hook that cannot run in a clean checkout re-opens that gap.
+      #
+      # GITHUB_TOKEN is blanked because Forgejo Actions sets it to the FORGE job
+      # token — act writes every `github.*` value under a `GITHUB_` prefix too —
+      # and mise honours that name for api.github.com. It then offers a Forgejo
+      # credential to GitHub and takes a 401 on any tool it has to resolve, which
+      # fails the four hooks whose entry is `mise run`. Blanking it drops mise to
+      # anonymous API access and its 60-requests/hour ceiling, shared across
+      # everything this runner builds.
+      #
+      # This is the per-repo workaround, matching hephaestus.nvim #6. The class
+      # fix is a scopeless MISE_GITHUB_TOKEN in the runner's `envs`, which
+      # outranks the job token everywhere at once — heph 01KZKP8893WM8DQT5N97QF6PBD.
+      # Remove this line when that lands.
+      - name: prek run --all-files
+        env:
+          GITHUB_TOKEN: ""
+        run: prek run --all-files --show-diff-on-failure
