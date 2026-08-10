@@ -1,85 +1,221 @@
-#!/usr/bin/env bash
-#MISE description="[human] Update GitHub PAT on all mirror repos on indri"
-#USAGE flag "--dry-run" help="Show what would be done without changing anything"
-set -euo pipefail
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
+# ///
+#MISE description="[human] Push the current GitHub PAT onto every forge pull mirror on indri"
+#USAGE flag "--dry-run" help="Show what would change without changing anything"
+#USAGE flag "--only <only>" help="Act on one mirror only, by full name (e.g. mirrors/alloy)"
+#USAGE flag "--token <token>" help="Forgejo API token (default: read from 1Password)"
+"""Rotate the GitHub PAT used by forge pull mirrors.
 
-OP_GITHUB_PAT_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/forge-ci-github-pat"
+Forgejo v16 keeps a pull mirror's credential in `mirror.encrypted_remote_address`
+and writes only a sanitized, password-free URL to the repository's git config.
+There is no API for setting it: `routers/api/v1/api.go` exposes `mirror-sync` and
+the `push_mirrors` group and nothing else, and the repo settings form is the only
+sanctioned writer.
+
+So this drives Forgejo's own recovery path instead. `DecryptOrRecoverRemoteAddress`
+in `services/mirror/mirror_pull.go` treats a NULL `encrypted_remote_address` as
+"credentials may be on disk": it reads the remote URL from git config, encrypts it
+into the database, and rewrites the config sanitized. Writing the authenticated URL
+to git config and then clearing the column hands Forgejo the new credential through
+the door it already opens for mirrors predating that column.
+
+Per mirror, in this order:
+
+    1. git remote set-url  — put the authenticated URL on disk
+    2. UPDATE ... = NULL   — mark the credential as needing recovery
+    3. POST /mirror-sync   — recover it now rather than at the next scheduled sync
+
+Order matters. Clearing the column while git config still holds a password-free URL
+would have Forgejo encrypt *that*, losing the credential entirely.
+
+Usage:
+    mise run mirror-update-pats --dry-run
+    mise run mirror-update-pats --only mirrors/alloy
+    mise run mirror-update-pats
+"""
+
+import os
+import subprocess
+from typing import Annotated
+
+import httpx
+import typer
+from rich.console import Console
+
+FORGE_API = "https://forge.ops.eblu.me/api/v1"
+OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
+OP_GITHUB_PAT_REF = "op://blumeops/w3663ffnvkewbftncqxtcpeavy/forge-ci-github-pat"
+
 # Mirrors ansible/roles/forgejo/defaults/main.yml: forgejo_work_path, and the
 # forgejo_data_path / forgejo_repo_root derived from it.
-WORK_PATH="/Users/erichblume/forgejo"
-REPO_BASE="${WORK_PATH}/data/forgejo-repositories"
-DB_PATH="${WORK_PATH}/data/forgejo.db"
-DRY_RUN="${usage_dry_run:-false}"
+WORK_PATH = "/Users/erichblume/forgejo"
+DB_PATH = f"{WORK_PATH}/data/forgejo.db"
+REPO_BASE = f"{WORK_PATH}/data/forgejo-repositories"
 
-echo "Reading GitHub PAT from 1Password..."
-pat="$(op read "$OP_GITHUB_PAT_REF")"
+GITHUB_USER = "eblume"
 
-if [[ -z "$pat" ]]; then
-    echo "Error: GitHub PAT is empty"
-    exit 1
-fi
+console = Console()
+err = Console(stderr=True)
 
-echo "Querying mirrors on indri..."
 
-# A wrong DB_PATH and a forge with no GitHub mirrors both produce an empty
-# result set, and only one of them is good news. Fail on the first before the
-# empty-mirrors branch below can report it as success.
-if ! ssh indri "test -f '$DB_PATH'"; then
-    echo "Error: no forgejo database at ${DB_PATH} on indri." >&2
-    echo "Check forgejo_work_path in ansible/roles/forgejo/defaults/main.yml." >&2
-    exit 1
-fi
+def op_read(ref: str, what: str) -> str:
+    """Read one field from 1Password, or exit with an explanation."""
+    try:
+        result = subprocess.run(
+            ["op", "read", ref],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            stdin=subprocess.DEVNULL,
+        )
+    except subprocess.TimeoutExpired:
+        err.print(f"[red]op read timed out after 30s reading {what}.[/red]")
+        raise typer.Exit(1) from None
+    if result.returncode != 0:
+        err.print(f"[red]op read failed for {what}:[/red] {result.stderr.strip()}")
+        raise typer.Exit(1)
+    value = result.stdout.strip()
+    if not value:
+        err.print(f"[red]{what} is empty at {ref}.[/red]")
+        raise typer.Exit(1)
+    return value
 
-# Get all GitHub mirrors: org_name, repo_name, upstream_url.
-# -readonly: forgejo serves this database live and in WAL mode; querying it
-# must not write, and must not create a stand-in if the path is ever wrong.
-mirrors=$(ssh indri "sqlite3 -readonly '$DB_PATH' \"
-    SELECT u.name, r.name, m.remote_address
-    FROM mirror m
-    JOIN repository r ON m.repo_id = r.id
-    JOIN [user] u ON r.owner_id = u.id
-    WHERE m.remote_address LIKE '%github.com%'
-\"")
 
-if [[ -z "$mirrors" ]]; then
-    echo "No GitHub mirrors found."
-    exit 0
-fi
+def ssh_indri(command: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["ssh", "indri", command],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+    )
 
-updated=0
-skipped=0
 
-while IFS='|' read -r org repo upstream_url; do
-    bare_repo="${REPO_BASE}/${org}/${repo}.git"
+def db_mirror_count() -> int:
+    """How many pull mirrors Forgejo itself knows about."""
+    result = ssh_indri(f"sqlite3 -readonly '{DB_PATH}' 'SELECT COUNT(*) FROM mirror'")
+    if result.returncode != 0:
+        err.print(f"[red]Could not count mirrors on indri:[/red] {result.stderr.strip()}")
+        err.print("Check forgejo_work_path in ansible/roles/forgejo/defaults/main.yml.")
+        raise typer.Exit(1)
+    return int(result.stdout.strip())
 
-    # Build authenticated URL: https://eblume:<pat>@github.com/...
-    # Note: \/  in the replacement part of ${var/pat/rep} is literal backslash-slash,
-    # not an escaped slash. Use prefix stripping instead.
-    auth_url="https://eblume:${pat}@github.com${upstream_url#https://github.com}"
 
-    if [[ "$DRY_RUN" == "true" ]]; then
-        echo "[dry-run] ${org}/${repo}: would set origin to authenticated URL"
-        ((updated++))
-        continue
-    fi
+def fetch_mirrors(token: str) -> list[dict]:
+    """Every pull mirror visible to this token, paginated."""
+    mirrors: list[dict] = []
+    with httpx.Client(
+        base_url=FORGE_API,
+        headers={"Authorization": f"token {token}"},
+        timeout=30,
+    ) as client:
+        page = 1
+        while True:
+            resp = client.get("/repos/search", params={"limit": 50, "page": page})
+            resp.raise_for_status()
+            data = resp.json().get("data", [])
+            if not data:
+                break
+            mirrors.extend(r for r in data if r.get("mirror"))
+            page += 1
+    return mirrors
 
-    # Check current remote URL (< /dev/null prevents ssh from consuming loop stdin)
-    current_url=$(ssh indri "git -C '${bare_repo}' config remote.origin.url" < /dev/null 2>/dev/null || echo "")
 
-    if [[ "$current_url" == "$auth_url" ]]; then
-        echo "  ${org}/${repo}: already up to date"
-        ((skipped++))
-        continue
-    fi
+def main(
+    dry_run: Annotated[bool, typer.Option(help="Show what would change")] = False,
+    only: Annotated[str | None, typer.Option(help="One mirror, by full name")] = None,
+    token: Annotated[str | None, typer.Option(help="Forgejo API token")] = None,
+) -> None:
+    forge_token = token or os.environ.get("FORGEJO_TOKEN", "").strip()
+    if not forge_token:
+        console.print("[dim]Reading Forgejo API token from 1Password...[/dim]")
+        forge_token = op_read(OP_TOKEN_REF, "Forgejo API token")
 
-    ssh indri "git -C '${bare_repo}' remote set-url origin '${auth_url}'" < /dev/null 2>/dev/null
-    echo "  ${org}/${repo}: updated"
-    ((updated++))
-done <<< "$mirrors"
+    console.print("[dim]Reading GitHub PAT from 1Password...[/dim]")
+    pat = op_read(OP_GITHUB_PAT_REF, "GitHub PAT")
 
-echo
-echo "Done. Updated: ${updated}, Skipped: ${skipped}"
+    console.print("Querying mirrors on forge...")
+    mirrors = fetch_mirrors(forge_token)
 
-if [[ "$DRY_RUN" == "true" ]]; then
-    echo "(dry-run mode — no changes were made)"
-fi
+    # The API returns only what the token can see, so a token with narrower reach
+    # than Forgejo's own view would rotate a subset and report success. Forgejo's
+    # row count is the authority on how many mirrors exist.
+    expected = db_mirror_count()
+    if len(mirrors) != expected:
+        err.print(
+            f"[red]Discovery is incomplete:[/red] the API returned {len(mirrors)} "
+            f"mirrors but indri has {expected}."
+        )
+        err.print("This token cannot see every mirror. Use one that can — otherwise")
+        err.print("the invisible mirrors silently keep the outgoing PAT.")
+        raise typer.Exit(1)
+
+    targets = [m for m in mirrors if "github.com" in (m.get("original_url") or "")]
+    if only:
+        targets = [m for m in targets if m["full_name"] == only]
+        if not targets:
+            err.print(f"[red]No GitHub mirror named {only}.[/red]")
+            raise typer.Exit(1)
+
+    if not targets:
+        console.print("No GitHub mirrors found.")
+        return
+
+    console.print(f"{len(targets)} GitHub mirror(s) of {expected} total\n")
+
+    updated = 0
+    failed = 0
+    for repo in sorted(targets, key=lambda r: r["full_name"]):
+        full_name = repo["full_name"]
+        upstream = repo["original_url"]
+        # Forgejo stores repository directories lowercased.
+        bare = f"{REPO_BASE}/{full_name.lower()}.git"
+        auth_url = f"https://{GITHUB_USER}:{pat}@{upstream.split('://', 1)[1]}"
+
+        if dry_run:
+            console.print(f"  [dim][dry-run][/dim] {full_name}: would re-auth {upstream}")
+            updated += 1
+            continue
+
+        # set-url then clear, in one round trip, so the window where the database
+        # and the on-disk config disagree is as short as possible.
+        result = ssh_indri(
+            f"git -C '{bare}' remote set-url origin '{auth_url}' && "
+            f"sqlite3 -cmd '.timeout 5000' '{DB_PATH}' "
+            f'"UPDATE mirror SET encrypted_remote_address = NULL '
+            f'WHERE repo_id = {int(repo["id"])}"'
+        )
+        if result.returncode != 0:
+            err.print(f"  [red]{full_name}: {result.stderr.strip()}[/red]")
+            failed += 1
+            continue
+
+        # Recover the credential now. Left to the schedule, the mirror sits with a
+        # NULL column, which is indistinguishable from one that never had a
+        # credential — and the next sync is up to 8h away.
+        try:
+            resp = httpx.post(
+                f"{FORGE_API}/repos/{full_name}/mirror-sync",
+                headers={"Authorization": f"token {forge_token}"},
+                timeout=30,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            err.print(f"  [yellow]{full_name}: re-auth written, sync not triggered ({exc})[/yellow]")
+            updated += 1
+            continue
+
+        console.print(f"  {full_name}: updated")
+        updated += 1
+
+    console.print(f"\nDone. Updated: {updated}, Failed: {failed}")
+    if dry_run:
+        console.print("[dim](dry-run — nothing was changed)[/dim]")
+    if failed:
+        raise typer.Exit(1)
+
+
+if __name__ == "__main__":
+    typer.run(main)
