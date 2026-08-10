@@ -32,6 +32,50 @@
     state: directory
     mode: '0755'
 
+# === Retired collectors ===
+# node_exporter exports node_textfile_mtime_seconds for every .prom file it
+# finds, so a collector's series outlives the service it measured: retiring the
+# service removes the writer, and the file it last wrote goes on being scraped.
+# TextfileStale then watches a service that no longer exists — and with
+# noDataState: Alerting, a retired thing is positioned to page about its own
+# absence. Deleting the file by hand does not survive anything, so the tombstone
+# is declared here.
+#
+# Plist before file: removing the file while a writer is still loaded just gets
+# it rewritten. The LaunchAgent is matched by glob rather than by exact name —
+# the convention is mcquack.eblume.<something>, and the point is to catch
+# whatever it actually ended up called.
+
+- name: Find LaunchAgents for retired collectors
+  ansible.builtin.find:
+    paths: "{{ alloy_launchagents_dir }}"
+    patterns: "{{ alloy_retired_collectors | map('regex_replace', '^(.*)$', 'mcquack.eblume.*\\1*.plist') | list }}"
+  register: alloy_retired_agents
+  when: alloy_retired_collectors | length > 0
+
+- name: Unload LaunchAgents for retired collectors
+  ansible.builtin.command:
+    cmd: launchctl unload {{ item.path | quote }}
+  loop: "{{ alloy_retired_agents.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  changed_when: true
+  failed_when: false
+
+- name: Remove LaunchAgents for retired collectors
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ alloy_retired_agents.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+
+- name: Remove textfiles for retired collectors
+  ansible.builtin.file:
+    path: "{{ alloy_textfile_dir }}/{{ item }}.prom"
+    state: absent
+  loop: "{{ alloy_retired_collectors }}"
+
 # === Fetch PostgreSQL password from 1Password ===
 # Skipped when running full playbook (pre_tasks sets it)
 # but runs when using --tags alloy

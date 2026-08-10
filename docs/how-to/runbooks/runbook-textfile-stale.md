@@ -1,6 +1,6 @@
 ---
 title: "Runbook: Textfile Stale"
-modified: 2026-08-06
+modified: 2026-08-07
 tags:
   - how-to
   - alerting
@@ -29,6 +29,14 @@ just as fast in practice.
 | `forgejo.prom` | `mcquack.eblume.forgejo-metrics` | Git forge |
 | `jellyfin.prom` | `mcquack.eblume.jellyfin-metrics` | Media server |
 | `macos_power.prom` | `mcquack.eblume.macos-power-metrics` | Host power/thermal |
+
+**If the alert names a file that is not in this table**, the service it measured
+is probably gone and its `.prom` was left behind — node_exporter exports
+`node_textfile_mtime_seconds` for every file it finds, so a collector's series
+outlives the thing it measured. Don't `rm` it: add the stem to
+`alloy_retired_collectors` in `ansible/roles/alloy/defaults/main.yml` and
+re-provision, which removes the file *and* any LaunchAgent still writing it. A
+hand deletion comes back the next time either one runs.
 
 ## Diagnostic Steps
 
