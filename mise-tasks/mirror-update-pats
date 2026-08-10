@@ -4,8 +4,11 @@
 set -euo pipefail
 
 OP_GITHUB_PAT_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/github-mirror-pat"
-REPO_BASE="/opt/homebrew/var/forgejo/data/forgejo-repositories"
-DB_PATH="/opt/homebrew/var/forgejo/data/forgejo.db"
+# Mirrors ansible/roles/forgejo/defaults/main.yml: forgejo_work_path, and the
+# forgejo_data_path / forgejo_repo_root derived from it.
+WORK_PATH="/Users/erichblume/forgejo"
+REPO_BASE="${WORK_PATH}/data/forgejo-repositories"
+DB_PATH="${WORK_PATH}/data/forgejo.db"
 DRY_RUN="${usage_dry_run:-false}"
 
 echo "Reading GitHub PAT from 1Password..."
@@ -18,14 +21,25 @@ fi
 
 echo "Querying mirrors on indri..."
 
-# Get all GitHub mirrors: org_name, repo_name, upstream_url
-mirrors=$(ssh indri "sqlite3 '$DB_PATH' \"
+# A wrong DB_PATH and a forge with no GitHub mirrors both produce an empty
+# result set, and only one of them is good news. Fail on the first before the
+# empty-mirrors branch below can report it as success.
+if ! ssh indri "test -f '$DB_PATH'"; then
+    echo "Error: no forgejo database at ${DB_PATH} on indri." >&2
+    echo "Check forgejo_work_path in ansible/roles/forgejo/defaults/main.yml." >&2
+    exit 1
+fi
+
+# Get all GitHub mirrors: org_name, repo_name, upstream_url.
+# -readonly: forgejo serves this database live and in WAL mode; querying it
+# must not write, and must not create a stand-in if the path is ever wrong.
+mirrors=$(ssh indri "sqlite3 -readonly '$DB_PATH' \"
     SELECT u.name, r.name, m.remote_address
     FROM mirror m
     JOIN repository r ON m.repo_id = r.id
     JOIN [user] u ON r.owner_id = u.id
     WHERE m.remote_address LIKE '%github.com%'
-\"" 2>/dev/null)
+\"")
 
 if [[ -z "$mirrors" ]]; then
     echo "No GitHub mirrors found."

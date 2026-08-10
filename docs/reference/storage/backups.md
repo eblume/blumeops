@@ -1,6 +1,6 @@
 ---
 title: Backups
-modified: 2026-03-27
+modified: 2026-08-10
 tags:
   - storage
   - backup
@@ -23,7 +23,7 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | Path | Description | Priority |
 |------|-------------|----------|
 | `~/code/personal/zk` | Zettelkasten notes (migrating into heph docs) | Critical |
-| `/opt/homebrew/var/forgejo` | Git repositories | Critical |
+| `~/forgejo` | Git forge data — repositories, LFS, `custom/conf`. The live `forgejo.db` is excluded here and dumped separately below | Critical |
 | `~/.config/borgmatic` | Backup config | High |
 | `~/Documents` | Personal documents (includes [[1password]] encrypted export) | High |
 
@@ -36,6 +36,7 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | authentik | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
 | paperless | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
 | immich | immich-pg | [[postgresql|pg.ops.eblu.me:5433]] | pg_dump stream |
+| forgejo | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
 | heph | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
 | mealie | — (SQLite) | k8s pod | kubectl exec sqlite3 .backup |
 | shower | — (SQLite) | k8s pod (ringtail) | kubectl exec sqlite3 .backup |
