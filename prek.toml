@@ -55,10 +55,43 @@ files = "^ansible/"
 additional_dependencies = ["ansible-lint==26.4.0", "ansible-core==2.21.1"]
 
 # Python - ruff for linting and formatting
+#
+# The first two hooks select by content type and cover Python everywhere.
+#
+# mise-tasks/ is invisible to that selection: every task is an extensionless
+# file, and `identify` reads `#!/usr/bin/env -S uv run --script` as the
+# interpreter `uv`, so it never tags the file `python`. The third hook selects
+# that directory by path instead. It is where most of this repo's logic lives,
+# so it is the last place that should go unlinted.
+#
+# mise-tasks/ is mixed bash and uv-python and ruff cannot parse the bash.
+# `exclude_types = ["shell"]` is the split: bash tasks are tagged `shell` from
+# their shebang, uv scripts are tagged only `executable, file, text`. It needs
+# no maintenance as tasks are added in either language.
+#
+# There is deliberately no ruff-format pass over mise-tasks/. The formatter
+# normalizes `#COMMENT` to `# COMMENT`, and mise matches its task metadata
+# comments — `#MISE description=`, `#MISE alias=` — without a space. Formatting
+# the directory drops every task description from `mise tasks`, including the
+# `[human]` prefixes AGENTS.md keys the agent fence off, and breaks aliases.
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "77039ccbba72c8aede339c5f8ae29b42aced0a2e"                    # v0.15.18
-hooks = [{ id = "ruff", args = ["--fix"] }, { id = "ruff-format" }]
+rev = "77039ccbba72c8aede339c5f8ae29b42aced0a2e" # v0.15.18
+hooks = [
+  { id = "ruff", args = [
+    "--fix",
+  ] },
+  { id = "ruff-format" },
+  { id = "ruff", alias = "ruff-mise-tasks", name = "ruff (mise-tasks)", args = [
+    "--fix",
+  ], types = [
+    "text",
+  ], types_or = [
+    "text",
+  ], exclude_types = [
+    "shell",
+  ], files = '^mise-tasks/' },
+]
 
 # Python - ty type checker
 [[repos]]

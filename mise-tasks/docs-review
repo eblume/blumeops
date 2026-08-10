@@ -21,7 +21,6 @@ Usage: mise run docs-review [-- --limit 10]
 """
 
 import subprocess
-import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Annotated
@@ -29,7 +28,6 @@ from typing import Annotated
 import typer
 import yaml
 from rich.console import Console
-from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 

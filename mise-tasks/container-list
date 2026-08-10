@@ -24,7 +24,6 @@ from pathlib import Path
 import httpx
 import typer
 from rich.console import Console
-from rich.table import Table
 
 REGISTRY = "registry.ops.eblu.me"
 CONTAINER_DIR = Path("containers")

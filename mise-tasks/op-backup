@@ -326,9 +326,9 @@ def main(
     console.print("[bold]DISASTER RECOVERY:[/bold]")
     console.print(f"  1. Restore borgmatic archive containing {REMOTE_DIR}/")
     console.print("  2. Retrieve Emergency Kit from fire safety box")
-    console.print(f"  3. openssl enc -d -aes-256-cbc -pbkdf2 < ...key.enc > key.txt")
+    console.print("  3. openssl enc -d -aes-256-cbc -pbkdf2 < ...key.enc > key.txt")
     console.print("     Passphrase: {master_password}:{secret_key}")
-    console.print(f"  4. age -d -i key.txt < ...age > export.1pux")
+    console.print("  4. age -d -i key.txt < ...age > export.1pux")
     console.print("  5. Open export.1pux with 1Password or unzip to inspect")
 
 

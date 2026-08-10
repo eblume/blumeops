@@ -23,9 +23,7 @@ Prerequisites:
 See docs/explanation/spork-strategy.md for the full strategy.
 """
 
-import json
 import subprocess
-import sys
 import textwrap
 from pathlib import Path
 from typing import Annotated, Optional

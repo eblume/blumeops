@@ -21,9 +21,7 @@ Usage:
     mise run prune-ringtail-generations --dry-run    # preview only
 """
 
-import re
 import subprocess
-import sys
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -83,7 +81,7 @@ def main(
     dry_run: Annotated[bool, "dry_run"] = False,
     keep: Annotated[int, "keep"] = 5,
 ) -> None:
-    console.print(f"[bold]Scanning ringtail NixOS generations...[/bold]")
+    console.print("[bold]Scanning ringtail NixOS generations...[/bold]")
 
     booted_kernel = ssh("readlink /run/booted-system/kernel")
     console.print(f"Booted kernel: [cyan]{booted_kernel}[/cyan]")
