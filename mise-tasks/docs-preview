@@ -58,12 +58,11 @@ def main(
     # Try exact path first (e.g. "docs/how-to/..."), then inside docs/
     exact_file = REPO_ROOT / f"{card_stem}.md"
     docs_file = REPO_ROOT / "docs" / f"{card_stem}.md"
+    # Only the existence checks matter here; the card is served from the
+    # Dagger-built docroot below, addressed by url_path rather than by path.
     if exact_file.exists() and card_stem.startswith("docs/"):
         card_stem = card_stem.removeprefix("docs/")
-        card_file = exact_file
-    elif docs_file.exists():
-        card_file = docs_file
-    else:
+    elif not docs_file.exists():
         console.print(f"[bold red]Card not found:[/bold red] {docs_file}")
         raise typer.Exit(code=1)
 
@@ -126,7 +125,7 @@ def main(
     console.print(f"[bold cyan]Opening {url}[/bold cyan]\n")
     webbrowser.open(url)
 
-    console.print(f"[yellow]Container will auto-stop in 1 hour.[/yellow]")
+    console.print("[yellow]Container will auto-stop in 1 hour.[/yellow]")
     console.print(f"[yellow]To stop sooner: docker rm -f {CONTAINER_NAME}[/yellow]\n")
 
     # Schedule auto-cleanup after 1 hour (container + docroot)

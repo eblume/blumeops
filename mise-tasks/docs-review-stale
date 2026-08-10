@@ -17,7 +17,6 @@ Usage: mise run docs-review-stale [-- --threshold 90]
 """
 
 import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
