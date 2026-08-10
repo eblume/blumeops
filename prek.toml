@@ -25,17 +25,6 @@ repo = "https://github.com/pre-commit/pre-commit-hooks"
 rev = "3e8a8703264a2f4a69428a0aa4dcb512790b2c8c"        # v6.0.0
 hooks = [{ id = "check-yaml", args = ["--unsafe"] }]
 
-# Secret detection
-[[repos]]
-repo = "https://github.com/trufflesecurity/trufflehog"
-rev = "30d5bb91af1a771378349dbbb0c82129392acf70" # v3.95.6
-hooks = [
-  { id = "trufflehog", entry = "trufflehog git file://. --since-commit HEAD --no-verification --fail", stages = [
-    "pre-commit",
-    "pre-push",
-  ] },
-]
-
 # YAML linting
 [[repos]]
 repo = "https://github.com/adrienverge/yamllint"
@@ -93,18 +82,6 @@ hooks = [
   ], files = '^mise-tasks/' },
 ]
 
-# Python - ty type checker
-[[repos]]
-repo = "local"
-
-[[repos.hooks]]
-id = "ty-check"
-name = "ty type check"
-entry = "ty check"
-language = "system"
-types = ["python"]
-pass_filenames = false
-
 # Shell scripts - shellcheck and shfmt
 [[repos]]
 repo = "https://github.com/shellcheck-py/shellcheck-py"
@@ -140,18 +117,6 @@ hooks = [
 ]
 
 # Custom local hooks
-
-# Forgejo workflow schema validation (via Dagger + forgejo-runner validate)
-[[repos]]
-repo = "local"
-
-[[repos.hooks]]
-id = "validate-workflows"
-name = "validate-workflows"
-entry = "mise run validate-workflows"
-language = "system"
-files = '\.forgejo/workflows/'
-pass_filenames = false
 
 # Container version consistency
 [[repos]]

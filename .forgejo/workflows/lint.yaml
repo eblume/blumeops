@@ -11,12 +11,20 @@
 # safe on every PR including from a fork. Keep it that way — a check needing a
 # secret belongs in a different workflow.
 #
-# The runner already carries everything this needs. `prek`, `actionlint` and
-# `stylua` are in `forgejo_runner_host_tools` (ansible/roles/forgejo_runner),
-# installed globally with mise; `uv` runs the extensionless mise-tasks. Note
-# that a `*-system` hook runs whatever is on PATH, so if a host tool goes
-# missing the hook does not skip — prek reports it FAILED. The version pins
-# there mirror this repo's `prek.toml` revs and must be bumped together.
+# The runner already carries everything this needs. `prek` and `actionlint` are
+# in `forgejo_runner_host_tools` (ansible/roles/forgejo_runner), installed
+# globally with mise; `uv` runs the extensionless mise-tasks. Note that a
+# `*-system` hook runs whatever is on PATH, so if a host tool goes missing the
+# hook does not skip — prek reports it FAILED. The version pins there mirror
+# this repo's `prek.toml` revs and must be bumped together.
+#
+# This job is the enforcement point, so `prek.toml` holds only hooks that can
+# run in a clean checkout. Three were removed when it landed rather than
+# skipped: `ty-check` (needs the gitignored dagger SDK at `sdk/src`),
+# `validate-workflows` (needs Docker Desktop and a dagger engine) and
+# `trufflehog` (pinned to `--since-commit HEAD`, an incremental range that
+# scans nothing here). Each is a real capability worth rebuilding properly
+# rather than a check to reinstate as-is.
 #
 # On an agent PR this sits `pending` with no run until a human clicks
 # "Approve and run" — the agents bot is read-only on canonical, so its PRs are
@@ -51,30 +59,9 @@ jobs:
           fi
           prek --version
 
-      # SKIP names the four hooks that cannot work in a clean CI checkout. Each
-      # is an explicit exclusion rather than a silent omission, because a lint
-      # job that quietly covers less than it appears to is the failure mode this
-      # workflow exists to end:
-      #
-      #   ty-check           `[tool.ty.environment] extra-paths` points at
-      #                      sdk/src, the dagger-generated SDK. /sdk/ is
-      #                      gitignored, so ty aborts in ANY fresh checkout
-      #                      ("sdk/src does not point to a directory"), CI or
-      #                      local. Tracked in heph 01KZP4MRGSTEM63V0TQFDP7BRF.
-      #   validate-workflows shells to `dagger call`, which needs Docker Desktop
-      #                      and an engine container. Too heavy for a job whose
-      #                      value is being cheap enough to run on every push.
-      #   trufflehog         its entry is pinned to `--since-commit HEAD`, an
-      #                      incremental range that means nothing on a fresh
-      #                      checkout. Secret scanning that silently scans
-      #                      nothing is worse than none; a CI-shaped scan
-      #                      (full history, or the PR range) is its own design.
-      #   stylua-system      no Lua in this repo; it is a hephaestus.nvim hook.
-      #
-      # `actionlint-system` is deliberately NOT skipped. The runner has
-      # actionlint 1.7.12, matching the prek.toml rev, so this is the first
-      # place that hook has ever actually run.
+      # No SKIP list. Every hook in prek.toml runs here, so this job's result is
+      # the whole of what the hook set checks — nothing is quietly excluded, and the
+      # config cannot drift into holding hooks that no longer run anywhere.
+      # Adding a hook that cannot run in a clean checkout re-opens that gap.
       - name: prek run --all-files
-        env:
-          SKIP: ty-check,validate-workflows,trufflehog,stylua-system
         run: prek run --all-files --show-diff-on-failure
