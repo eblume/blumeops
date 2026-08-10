@@ -3,6 +3,16 @@
   hosts: ringtail
   become: true
 
+  vars:
+    # The transient unit the activation runs in. A fixed name (rather than
+    # systemd-run's generated one) is what lets the poll below find the run
+    # again after the SSH connection has been re-established.
+    _rebuild_unit: blumeops-nixos-rebuild
+    # Ceiling for one activation, in seconds. Generous on purpose: this bounds
+    # the wait, and a timeout here kills a switch partway through, which is the
+    # outcome the whole change exists to avoid.
+    _rebuild_timeout: 3600
+
   pre_tasks:
     - name: Fetch 1Password Connect credentials from 1Password
       ansible.builtin.command:
@@ -97,11 +107,99 @@
         force: true
       register: _repo
 
-    - name: Rebuild NixOS
+    # Activation restarts sshd, tailscaled and the network stack — the very
+    # things this play is talking over. Run inline, `nixos-rebuild` is a child of
+    # the ssh session, so a session teardown mid-activation kills it partway
+    # through; and even when it survives, ansible is left waiting on a socket
+    # that will never answer. Handing it to systemd as a transient unit puts the
+    # activation outside the session's lifetime, so the connection dropping
+    # becomes something to reconnect to rather than something that interrupts a
+    # half-applied switch.
+    - name: Clear any leftover rebuild unit from a previous run
       ansible.builtin.command:
-        cmd: nixos-rebuild switch --flake /etc/blumeops/nixos/ringtail#ringtail
-      register: _rebuild
-      changed_when: "'activating the configuration' in _rebuild.stderr"
+        cmd: systemctl reset-failed {{ _rebuild_unit }}
+      changed_when: false
+      failed_when: false
+      when: _repo.changed
+
+    # The journal is persistent here, so a query by unit name alone returns
+    # every past run's output as well as this one's — which would leave the
+    # `changed` test below matching an activation from weeks ago. Take the
+    # host's clock first and read the journal forward from it.
+    - name: Note the host clock before starting the rebuild
+      ansible.builtin.command:
+        cmd: date +%s
+      register: _rebuild_started_at
+      changed_when: false
+      when: _repo.changed
+
+    - name: Start NixOS rebuild, detached from this SSH session
+      ansible.builtin.command:
+        # Absolute path and an explicit PATH: a transient unit gets systemd's
+        # default environment, which on NixOS has neither nixos-rebuild nor the
+        # nix/systemctl it shells out to.
+        cmd: >-
+          systemd-run --unit={{ _rebuild_unit }} --service-type=oneshot
+          --property=TimeoutStartSec={{ _rebuild_timeout }}
+          --setenv=PATH=/run/current-system/sw/bin:/usr/bin:/bin
+          --setenv=HOME=/root
+          /run/current-system/sw/bin/nixos-rebuild switch
+          --flake /etc/blumeops/nixos/ringtail#ringtail
+      changed_when: true
+      when: _repo.changed
+
+    # The activation is what breaks the connection, so reconnect before asking
+    # anything else. Ansible treats a dropped ssh as *unreachable*, which ends
+    # the play outright rather than feeding into a task's `retries` — so the wait
+    # has to be explicit, not implied by the poll below.
+    - name: Wait for SSH to come back after activation
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 600
+      when: _repo.changed
+
+    # Queried with no state, systemd_service just reports — `status` is the full
+    # `systemctl show` property set, so this one task carries both the poll
+    # (ActiveState) and the verdict (Result) read below.
+    - name: Wait for the rebuild to finish
+      ansible.builtin.systemd_service:
+        name: "{{ _rebuild_unit }}"
+      register: _rebuild_state
+      until: _rebuild_state.status.ActiveState not in ["activating", "active", "reloading"]
+      retries: "{{ (_rebuild_timeout | int / 10) | int }}"
+      delay: 10
+      when: _repo.changed
+
+    # The unit's output went to the journal, not to ansible. Pull it back so a
+    # failure is legible here instead of "exit 1, go read the box", and so the
+    # activation line this play keys `changed` off is still available.
+    - name: Collect rebuild output
+      ansible.builtin.command:
+        cmd: >-
+          journalctl --unit={{ _rebuild_unit }} --no-pager --output=cat
+          --since=@{{ _rebuild_started_at.stdout }}
+      register: _rebuild_log
+      changed_when: "'activating the configuration' in _rebuild_log.stdout"
+      when: _repo.changed
+
+    # `Result` is systemd's verdict on the run — "success", or one of exit-code,
+    # timeout, signal, oom-kill. ActiveState alone cannot say: a finished
+    # Type=oneshot unit is `inactive` whether it succeeded or not.
+    - name: Fail if the rebuild did not succeed
+      ansible.builtin.fail:
+        msg: |
+          nixos-rebuild switch did not succeed (systemd Result: {{ _rebuild_state.status.Result }}).
+          Journal for {{ _rebuild_unit }}:
+          {{ _rebuild_log.stdout }}
+      when: _repo.changed and _rebuild_state.status.Result != "success"
+
+    # Transient units linger once they have run; without this the next provision
+    # trips over a unit that already exists.
+    - name: Release the rebuild unit
+      ansible.builtin.command:
+        cmd: systemctl reset-failed {{ _rebuild_unit }}
+      changed_when: false
+      failed_when: false
       when: _repo.changed
 
     - name: Verify tailscale is connected
