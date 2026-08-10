@@ -119,6 +119,18 @@ Go to [GitHub fine-grained token settings](https://github.com/settings/personal-
 > beyond mirroring read it, so a scope added for one caller is a scope every
 > caller gets. A task needing more needs its own token.
 
+**A classic token with zero scopes is an accepted alternative.** Create one at
+[token settings](https://github.com/settings/tokens/new) with the same name and
+expiry and **nothing checked**. The capability is the same — the token exists
+only to make the clones authenticated, so GitHub applies the 5000/hr limit
+instead of 60/hr, and no scopes means public read and nothing else.
+
+Use it when the fine-grained form fails. On 2026-08-10 it silently redirected to
+the token list on submit: no token, no approval request, no validation error,
+with `eblume` as resource owner and the default expiry. Private window and
+repeated attempts made no difference. The classic form has no resource-owner or
+org-approval step, which is the part that fails.
+
 Copy the new PAT to your clipboard.
 
 ### 2. Update 1Password
