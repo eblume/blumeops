@@ -3,7 +3,7 @@
 #USAGE flag "--dry-run" help="Show what would be done without changing anything"
 set -euo pipefail
 
-OP_GITHUB_PAT_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/github-mirror-pat"
+OP_GITHUB_PAT_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/forge-ci-github-pat"
 # Mirrors ansible/roles/forgejo/defaults/main.yml: forgejo_work_path, and the
 # forgejo_data_path / forgejo_repo_root derived from it.
 WORK_PATH="/Users/erichblume/forgejo"
