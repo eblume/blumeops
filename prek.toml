@@ -117,6 +117,29 @@ hooks = [
 ]
 
 # Custom local hooks
+#
+# The four hooks below run their script directly rather than through
+# `mise run <task>`. `mise run` installs the whole `[tools]` block before it
+# executes anything, so every one of these paid for pulumi, ansible-core,
+# borgmatic and ty — and on a Forgejo runner that install is not merely slow,
+# it fails: mise reads GITHUB_TOKEN, Forgejo Actions sets it to the forge job
+# token, and api.github.com answers 401. These scripts need bash and uv, both
+# already present, so taking mise out of the path removes the failure instead
+# of authenticating around it. `.forgejo/workflows/docs-checks.yaml` has
+# invoked three of them this way since it landed, which is why it never hit
+# the 401 that the prek copies of the same checks did.
+#
+# The shebangs are what make the bare path work, and they are the same ones
+# `mise run` honours. Nothing here reads a `usage_*` variable, so the `#USAGE`
+# directive that mise would have parsed costs nothing when it is skipped.
+# prek runs hooks from the repo root, so `./` resolves there whatever directory
+# the invocation started in.
+#
+# One tool does move out from under mise: `container-version-check` shells to
+# `dagger` for containers that track an unmodified nixpkgs package. The runner
+# has it globally (`forgejo_runner_host_tools`), and an activated mise shell on
+# gilbert has it from `[tools]`. Neither is silent if it is missing — the script
+# reports the container as failing to resolve a version, and the hook fails.
 
 # Container version consistency
 [[repos]]
@@ -125,7 +148,7 @@ repo = "local"
 [[repos.hooks]]
 id = "container-version-check"
 name = "container-version-check"
-entry = "mise run container-version-check"
+entry = "./mise-tasks/container-version-check"
 language = "system"
 files = "^(containers/|service-versions\\.yaml)"
 pass_filenames = false
@@ -137,7 +160,7 @@ repo = "local"
 [[repos.hooks]]
 id = "changelog-check"
 name = "changelog-check"
-entry = "mise run changelog-check"
+entry = "./mise-tasks/changelog-check"
 language = "system"
 files = '^docs/changelog\.d/'
 pass_filenames = false
@@ -149,7 +172,7 @@ repo = "local"
 [[repos.hooks]]
 id = "docs-check-links"
 name = "docs-check-links"
-entry = "mise run docs-check-links"
+entry = "./mise-tasks/docs-check-links"
 language = "system"
 files = '^docs/.*\.md$'
 pass_filenames = false
@@ -157,7 +180,7 @@ pass_filenames = false
 [[repos.hooks]]
 id = "docs-check-frontmatter"
 name = "docs-check-frontmatter"
-entry = "mise run docs-check-frontmatter"
+entry = "./mise-tasks/docs-check-frontmatter"
 language = "system"
 files = '^docs/.*\.md$'
 pass_filenames = false
