@@ -11,12 +11,12 @@
 # safe on every PR including from a fork. Keep it that way — a check needing a
 # secret belongs in a different workflow.
 #
-# The runner already carries everything this needs. `prek` and `actionlint` are
-# in `forgejo_runner_host_tools` (ansible/roles/forgejo_runner), installed
-# globally with mise; `uv` runs the extensionless mise-tasks. Note that a
-# `*-system` hook runs whatever is on PATH, so if a host tool goes missing the
-# hook does not skip — prek reports it FAILED. The version pins there mirror
-# this repo's `prek.toml` revs and must be bumped together.
+# The runner already carries everything this needs. `prek`, `actionlint` and
+# `dagger` are in `forgejo_runner_host_tools` (ansible/roles/forgejo_runner),
+# installed globally with mise; `uv` runs the extensionless mise-tasks. Note
+# that a `*-system` hook runs whatever is on PATH, so if a host tool goes
+# missing the hook does not skip — prek reports it FAILED. The version pins
+# there mirror this repo's `prek.toml` revs and must be bumped together.
 #
 # This job is the enforcement point, so `prek.toml` holds only hooks that can
 # run in a clean checkout. Three were removed when it landed rather than
@@ -64,18 +64,23 @@ jobs:
       # config cannot drift into holding hooks that no longer run anywhere.
       # Adding a hook that cannot run in a clean checkout re-opens that gap.
       #
-      # GITHUB_TOKEN is blanked because Forgejo Actions sets it to the FORGE job
-      # token — act writes every `github.*` value under a `GITHUB_` prefix too —
-      # and mise honours that name for api.github.com. It then offers a Forgejo
-      # credential to GitHub and takes a 401 on any tool it has to resolve, which
-      # fails the four hooks whose entry is `mise run`. Blanking it drops mise to
-      # anonymous API access and its 60-requests/hour ceiling, shared across
-      # everything this runner builds.
+      # GITHUB_TOKEN is blanked to make this job's credential-free claim literal.
+      # Forgejo Actions puts the FORGE job token in the environment under that
+      # name — act writes every `github.*` value under a `GITHUB_` prefix — so
+      # without this line all 25 hooks, half of them third-party code fetched at
+      # run time, execute with a live forge credential they have no use for.
       #
-      # This is the per-repo workaround, matching hephaestus.nvim #6. The class
-      # fix is a scopeless MISE_GITHUB_TOKEN in the runner's `envs`, which
-      # outranks the job token everywhere at once — heph 01KZKP8893WM8DQT5N97QF6PBD.
-      # Remove this line when that lands.
+      # It arrived as a workaround for a different problem: mise honours
+      # GITHUB_TOKEN for api.github.com, offered the Forgejo credential to GitHub
+      # and took a 401 on every tool it had to resolve, failing the four hooks
+      # whose entry was `mise run`. Those entries now invoke their script
+      # directly, so no hook reaches for mise or the GitHub API at all and the
+      # 401 cannot recur — see the header comment in `prek.toml`. The line stays
+      # for the reason above, which is the stronger one.
+      #
+      # A hook that genuinely needs mise to resolve a tool wants the runner-wide
+      # MISE_GITHUB_TOKEN in `envs` (heph 01KZKP8893WM8DQT5N97QF6PBD), not this
+      # job's forge token.
       - name: prek run --all-files
         env:
           GITHUB_TOKEN: ""
