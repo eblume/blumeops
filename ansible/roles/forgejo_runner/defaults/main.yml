@@ -20,6 +20,12 @@ forgejo_runner_forge_url: https://forge.ops.eblu.me/
 forgejo_runner_capacity: 2
 forgejo_runner_timeout: 3h
 
+# Zero-permission GitHub PAT (public read only) injected into every job as
+# MISE_GITHUB_TOKEN so mise tool resolution runs authenticated. Fetched from
+# 1Password in the playbook pre_tasks ("Forgejo Secrets" →
+# forge-ci-github-pat); empty renders no env entry.
+forgejo_runner_mise_github_token: ""
+
 # Labels advertised to forge, all host-mode ([[retire-minikube]]
 # phase 6): jobs run directly as erichblume with the mise toolchain.
 # `k8s` was a compat holdover from the retired minikube cluster and

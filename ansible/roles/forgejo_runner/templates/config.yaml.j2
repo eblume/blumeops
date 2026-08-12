@@ -16,6 +16,15 @@ runner:
   # Env vars injected into all jobs
   envs:
     TZ: America/Los_Angeles
+{% if forgejo_runner_mise_github_token %}
+    # Zero-permission GitHub PAT (public read only). mise prefers
+    # MISE_GITHUB_TOKEN over the forge-injected GITHUB_TOKEN (first
+    # non-empty of MISE_GITHUB_TOKEN, GITHUB_API_TOKEN, GITHUB_TOKEN
+    # wins), so tool resolution authenticates to api.github.com instead
+    # of offering forge's job token. Readable by every job this runner
+    # builds — nothing with a scope may ever land here.
+    MISE_GITHUB_TOKEN: {{ forgejo_runner_mise_github_token }}
+{% endif %}
 
 server:
   connections:

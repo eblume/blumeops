@@ -178,10 +178,26 @@
       check_mode: false
       tags: [forgejo_runner]
 
+    # Zero-permission GitHub PAT (public read only) shared with the mirror
+    # sync — see docs/how-to/configuration/manage-forgejo-mirrors.md for
+    # what the token is and its rotation. Injected into every job's env as
+    # MISE_GITHUB_TOKEN so mise resolves GitHub-backed tools authenticated
+    # instead of offering the forge-injected GITHUB_TOKEN to api.github.com.
+    - name: Fetch forge-ci GitHub PAT for runner job env
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/forge-ci-github-pat"
+      delegate_to: localhost
+      register: _forge_ci_github_pat
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo_runner]
+
     - name: Set forgejo runner identity facts
       ansible.builtin.set_fact:
         forgejo_runner_uuid: "{{ _forgejo_runner_uuid.stdout }}"
         forgejo_runner_token: "{{ _forgejo_runner_token.stdout }}"
+        forgejo_runner_mise_github_token: "{{ _forge_ci_github_pat.stdout }}"
       no_log: true
       tags: [forgejo_runner]
 
