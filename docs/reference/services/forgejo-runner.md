@@ -1,6 +1,6 @@
 ---
 title: Forgejo Runner
-modified: 2026-08-07
+modified: 2026-08-12
 last-reviewed: 2026-06-10
 tags:
   - service
@@ -80,10 +80,24 @@ never installed. Anything else a job needs comes from the repo's own
 |--------|--------|---------|
 | runner UUID | 1Password ("Forgejo Secrets" → `runner_indri_uuid`) | Static runner identity for `server.connections` |
 | runner token | 1Password ("Forgejo Secrets" → `runner_indri_token`) | Static runner credential for `server.connections` |
+| GitHub PAT | 1Password ("Forgejo Secrets" → `forge-ci-github-pat`) | `MISE_GITHUB_TOKEN` in `runner.envs`, injected into every job |
 
 Fetched by playbook `pre_tasks` via `op read`, rendered into the
 config file (mode 0600) at provision time. Rotation = re-register
 (see [[configure-launchd-runner]]) and re-provision.
+
+The GitHub PAT exists because Forgejo injects `GITHUB_TOKEN` (a *forge*
+job token) into every job, and mise honours that name for
+`api.github.com` — so any GitHub-backed tool resolution takes a 401.
+`MISE_GITHUB_TOKEN` outranks it in mise's lookup order (first non-empty
+of `MISE_GITHUB_TOKEN`, `GITHUB_API_TOKEN`, `GITHUB_TOKEN` wins). The
+token is the same zero-permission public-read PAT the mirror sync uses
+— rotation and constraints in [[manage-forgejo-mirrors]]. Because
+`runner.envs` is readable by every job on this runner, the no-scopes
+rule is load-bearing: a credential that needs *any* scope needs its own
+token and a narrower home. Note a runner-env change takes effect at
+provision time, so a PAT rotation is not live for CI until the next
+`provision-indri`.
 
 ## Related
 

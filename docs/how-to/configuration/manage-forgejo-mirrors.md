@@ -1,6 +1,6 @@
 ---
 title: Manage Forgejo Mirrors
-modified: 2026-08-10
+modified: 2026-08-12
 last-reviewed: 2026-02-26
 tags:
   - how-to
@@ -31,11 +31,16 @@ The GitHub PAT is stored in 1Password:
 
 The name is `forge-ci-` rather than `mirror-` because mirroring is one consumer
 of it, not the only one: it is indri's general-purpose credential for reading
-public GitHub, and CI tool resolution is the next consumer lined up. What the
-token *is* stays narrow — a fine-grained PAT with **no permissions**, which
-grants read-only access to public repositories and nothing else. Keep it that
-way. Anything needing a scope needs its own token, because this one is on a path
-to being readable by CI jobs.
+public GitHub. CI tool resolution is the other consumer — the runner injects it
+into every job as `MISE_GITHUB_TOKEN` (see [[forgejo-runner]]), so it is
+readable by CI jobs. What the token *is* stays narrow — a PAT with **no
+permissions** (fine-grained or classic zero-scope), which grants read-only
+access to public repositories and nothing else. Keep it that way. Anything
+needing a scope needs its own token.
+
+Rotation reaches the two consumers differently: `mise run mirror-update-pats`
+re-bakes the mirrors immediately, but the runner env only picks up the new
+value at the next `provision-indri`.
 
 ### Sync Interval
 
