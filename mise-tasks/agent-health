@@ -59,14 +59,17 @@ def op_read(ref: str) -> str:
 
 def client_for(url: str) -> httpx.Client:
     """Direct first; SOCKS fallback for the pod (its tailnet path is the
-    sidecar proxy). Honors ALL_PROXY if the caller sets one."""
+    sidecar proxy). Honors ALL_PROXY if the caller sets one.
+
+    The probe is a throwaway module-level request: callers enter the returned
+    client as a context manager, and httpx refuses to enter a client that has
+    already sent a request, so the client returned here must be unused."""
     proxy = os.environ.get("ALL_PROXY")
-    c = httpx.Client(timeout=30.0, proxy=proxy)
+    base = url.split("/api/")[0] + "/"
     try:
-        c.get(url.split("/api/")[0] + "/", timeout=5.0)
-        return c
+        httpx.get(base, timeout=5.0, proxy=proxy)
+        return httpx.Client(timeout=30.0, proxy=proxy)
     except httpx.TransportError:
-        c.close()
         return httpx.Client(timeout=30.0, proxy=SOCKS_FALLBACK)
 
 
