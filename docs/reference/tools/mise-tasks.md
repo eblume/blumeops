@@ -1,6 +1,6 @@
 ---
 title: Mise Tasks
-modified: 2026-06-17
+modified: 2026-08-13
 tags:
   - reference
   - tools
@@ -58,7 +58,6 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `branch-cleanup` | Delete merged branches (local and remote) |
 | `pr-comments` | List unresolved PR comments |
 | `runner-logs` | List Forgejo Actions runs and fetch job logs (supports `--repo`, `--limit`) |
-| `validate-workflows` | Validate workflow files against runner schema |
 
 ## Operations & Monitoring
 
