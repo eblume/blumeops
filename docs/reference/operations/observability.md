@@ -1,6 +1,6 @@
 ---
 title: Observability
-modified: 2026-03-26
+modified: 2026-08-13
 last-reviewed: 2026-06-27
 tags:
   - operations
@@ -41,5 +41,6 @@ Grafana Faro is a Real User Monitoring SDK that captures page loads, web vitals,
 - [[runbook-postgres-unhealthy]] - PostgreSQL cluster health runbook
 - [[runbook-pod-not-ready]] - Pod not ready runbook
 - [[runbook-textfile-stale]] - Metrics textfile freshness runbook
+- [[runbook-log-stream-silent]] - indri log stream missing from Loki runbook
 - [[runbook-frigate-camera-down]] - Frigate camera health runbook
 - [[runbook-argocd-out-of-sync]] - ArgoCD sync status runbook
