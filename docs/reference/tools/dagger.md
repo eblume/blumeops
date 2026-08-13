@@ -1,6 +1,6 @@
 ---
 title: Dagger
-modified: 2026-06-17
+modified: 2026-08-13
 tags:
   - reference
   - ci-cd
@@ -30,7 +30,6 @@ Build engine for BlumeOps CI/CD pipelines. Replaces shell-based build scripts wi
 | `build_docs` | `(src, version) → File` | Build Quartz docs site, return docs tarball |
 | `flake_lock` | `(src, flake_path?) → File` | Resolve flake inputs, return updated `flake.lock` |
 | `flake_update` | `(src, flake_path?, skip_inputs?) → File` | Update rolling flake inputs to latest, return `flake.lock` |
-| `validate_workflows` | `(src, runner_version?) → str` | Validate Forgejo Actions workflows against the runner schema |
 | `export_yolov9` | `(model_size?, input_size?) → File` | Export YOLOv9 weights to ONNX for [[frigate|Frigate]] |
 
 ## Container Build Types

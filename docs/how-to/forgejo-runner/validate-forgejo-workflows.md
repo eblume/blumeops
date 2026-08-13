@@ -1,7 +1,7 @@
 ---
 title: Validate Forgejo Workflows
-modified: 2026-06-17
-last-reviewed: 2026-04-20
+modified: 2026-08-13
+last-reviewed: 2026-08-13
 tags:
   - how-to
   - forgejo-runner
@@ -10,33 +10,41 @@ tags:
 
 # Validate Forgejo Workflows
 
-Run `forgejo-runner validate` against all workflow files to catch schema issues before upgrading the indri runner daemon.
+`forgejo-runner validate` checks every file under `.forgejo/workflows/`
+against the runner's own schema — the errors actionlint misses, because
+actionlint validates against GitHub's schema and Forgejo accepts and rejects
+different keys.
 
-## Result
+## In CI (the enforcement point)
 
-All current workflows pass the validation step with no changes needed:
+The Lint workflow's `workflows-validate` job runs on every PR and push to
+main. It invokes indri's source-built runner binary directly — the same
+binary that executes the workflows, so validation and execution can never
+disagree on schema version. There is nothing to install and nothing to
+remember; a schema error fails the PR.
 
-- `branch-cleanup.yaml` — OK
-- `build-blumeops.yaml` — OK
-- `build-container.yaml` — OK
-- `cv-deploy.yaml` — OK
-- `deploy-fly.yaml` — OK
+## By hand
 
-## Deliverables
-
-1. `validate_workflows` function added to `src/blumeops/main.py` (formerly `.dagger/src/blumeops_ci/main.py`)
-   - Uses `forgejo-runner validate --directory .` inside the upstream runner container
-   - `runner_version` parameter pins validation to the deployed runner line
-2. `mise run validate-workflows` task wired to `dagger call validate-workflows`
-3. Pre-commit hook triggers on `.forgejo/workflows/` changes
-
-## Usage
+On **indri**, use the runner's own build:
 
 ```fish
-mise run validate-workflows
-# or directly:
-dagger call validate-workflows --src=.
+ssh indri '~/code/3rd/forgejo-runner/forgejo-runner validate --directory ~/code/personal/blumeops'
 ```
+
+Anywhere with **docker** (gilbert), the upstream runner image carries the
+binary — match the version to `forgejo_runner_version` in
+`ansible/roles/forgejo_runner/defaults/main.yml`:
+
+```fish
+docker run --rm -v (pwd):/workspace -w /workspace \
+    code.forgejo.org/forgejo/runner:12.8.2 \
+    forgejo-runner validate --directory .
+```
+
+This replaced the `validate_workflows` dagger function and the
+`mise run validate-workflows` task, retired when the CI job landed: the
+dagger wrapper existed to standardize a docker invocation across
+environments, and CI is now the one environment that matters.
 
 ## Related
 

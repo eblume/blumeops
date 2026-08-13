@@ -1,4 +1,5 @@
-# The prek hook set, on every PR.
+# The lint gate, on every PR: the prek hook set, workflow schema validation,
+# and a full-history secret scan.
 #
 # The hooks existed and ran nowhere. Enforcement was whoever remembered to run
 # `prek run --all-files` on gilbert, which is why drift keeps being found by
@@ -18,13 +19,15 @@
 # missing the hook does not skip — prek reports it FAILED. The version pins
 # there mirror this repo's `prek.toml` revs and must be bumped together.
 #
-# This job is the enforcement point, so `prek.toml` holds only hooks that can
-# run in a clean checkout. Three were removed when it landed rather than
-# skipped: `ty-check` (needs the gitignored dagger SDK at `sdk/src`),
-# `validate-workflows` (needs Docker Desktop and a dagger engine) and
-# `trufflehog` (pinned to `--since-commit HEAD`, an incremental range that
-# scans nothing here). Each is a real capability worth rebuilding properly
-# rather than a check to reinstate as-is.
+# The prek job is the enforcement point for the hook set, so `prek.toml`
+# holds only hooks that can run in a clean checkout. Two capabilities that
+# rule pushed out of prek run here as sibling jobs instead:
+# `workflows-validate` (as a prek hook it needed Docker Desktop and a dagger
+# engine; the runner's own binary does the same validation in milliseconds)
+# and `secret-scan` (the old trufflehog hook was pinned to an incremental
+# range that scanned nothing in CI; gitleaks covers the full history).
+# The one capability still missing everywhere is `ty-check`, blocked on the
+# gitignored dagger SDK at `sdk/src` (heph 01KZP4MRGSTEM63V0TQFDP7BRF).
 #
 # On an agent PR this sits `pending` with no run until a human clicks
 # "Approve and run" — the agents bot is read-only on canonical, so its PRs are
@@ -85,3 +88,66 @@ jobs:
         env:
           GITHUB_TOKEN: ""
         run: prek run --all-files --show-diff-on-failure
+
+  # Schema validation against the runner's own parser — the check actionlint
+  # cannot do, since it validates against GitHub's schema and misses
+  # forgejo-specific keys (and forgejo-specific rejections). `validate` is a
+  # plain subcommand of the runner binary (v9.0+), so no docker and no
+  # dagger; this job replaces the retired validate_workflows dagger function.
+  # To validate by hand off-runner, see
+  # docs/how-to/forgejo-runner/validate-forgejo-workflows.md.
+  workflows-validate:
+    runs-on: indri
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # Upstream ships no darwin release binaries, which is why indri's runner
+      # is a source build — and why this step runs that same binary rather
+      # than downloading one. The path mirrors `forgejo_runner_binary` in
+      # ansible/roles/forgejo_runner/defaults/main.yml, and the role verifies
+      # both its existence and its version pin on every provision. The daemon
+      # executing this job is that binary, so it validates against exactly the
+      # schema the workflows will run under.
+      - name: forgejo-runner validate
+        run: |
+          runner_bin="$HOME/code/3rd/forgejo-runner/forgejo-runner"
+          if [ ! -x "$runner_bin" ]; then
+            echo "::error::forgejo-runner not found at $runner_bin." >&2
+            echo "The path mirrors forgejo_runner_binary in" >&2
+            echo "ansible/roles/forgejo_runner/defaults/main.yml." >&2
+            echo "Re-run provision-indri --tags forgejo_runner." >&2
+            exit 1
+          fi
+          "$runner_bin" --version
+          "$runner_bin" validate --directory .
+
+  # gitleaks over the FULL git history, not the PR range. This repo is public
+  # and its first rule is never commit secrets, so a credential that landed
+  # ten merges ago matters exactly as much as one this PR introduces — and the
+  # whole scan takes ~7s on ~1500 commits, so there is nothing to save by
+  # scoping down. False positives are allowlisted by class in `.gitleaks.toml`.
+  #
+  # Replaces the removed trufflehog prek hook, whose `--since-commit HEAD`
+  # range scanned nothing in CI (heph 01KZP8ADGMQ6TSXVAQ9YAWM2Z9).
+  secret-scan:
+    runs-on: indri
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0 # full history is the point
+
+      # `mise x` resolves gitleaks from GitHub releases using the runner-wide
+      # MISE_GITHUB_TOKEN (a zero-permission public-read PAT) and caches it on
+      # the host, so only the first run downloads anything. GITHUB_TOKEN is
+      # blanked for the same reason as in the prek job: gitleaks is
+      # third-party code reading every byte this repo has ever committed, and
+      # it has no use for a live forge credential. `--redact` keeps any real
+      # hit out of the CI log, which a finder could otherwise read.
+      - name: gitleaks (full history)
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          mise x gitleaks@8.30.1 -- gitleaks git . \
+            --no-banner --redact --config .gitleaks.toml
