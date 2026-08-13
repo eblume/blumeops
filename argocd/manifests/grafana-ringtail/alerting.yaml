@@ -511,14 +511,17 @@ groups:
   # rule per stream, because NoData is rule-level: folding the streams into
   # one query would let any single live stream mask the silence of the rest.
   #
-  # Only streams with guaranteed daily traffic are watched. The out/err
-  # siblings (forgejo.err, forgejo-runner.out, zot.err, jellyfin.err,
-  # alloy.out, borgmatic.out) are quiet by nature — each service logs to one
-  # fd — and jellyfin.out (~50 lines/day) and alloy.err (~35 lines/day) are
-  # too sparse to distinguish "quiet day" from "broken" without a window so
-  # wide the alert stops being useful. borgmatic has BorgmaticStale. If alloy
-  # itself dies, all four rules go NoData together — that pattern is the
-  # "alloy is down" signature, and the runbook leads with it.
+  # Only streams with guaranteed daily traffic are watched. Host inspection
+  # of the declared-but-unwatched files shows they either write nothing
+  # anymore (alloy.out, borgmatic.out, forgejo-runner.out, forgejo.err) or
+  # too sparsely to distinguish "quiet day" from "broken" without a window
+  # so wide the alert stops being useful (jellyfin.{out,err}, alloy.err,
+  # borgmatic.err). borgmatic freshness has BorgmaticStale. One exception:
+  # zot.err is actively written and its lines do not reach Loki — a broken
+  # tail under investigation (heph 01KZKPRWGHH301688YP32Z7BC0); add a rule
+  # for it once it ships. If alloy itself dies, all four rules go NoData
+  # together — that pattern is the "alloy is down" signature, and the
+  # runbook leads with it.
   - orgId: 1
     name: log-shipping
     folder: Infrastructure Alerts
