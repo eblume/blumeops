@@ -500,6 +500,251 @@ groups:
                     type: and
               refId: C
 
+  # Log shipping end-to-end: alloy on indri tails LaunchAgent log files and
+  # pushes them to Loki, and the failure mode seen in practice is total
+  # silence — a stream stops arriving and nothing notices (the forge's own
+  # log was absent for two months before anyone looked). Each rule asks Loki
+  # for one stream's line count over a window sized to that stream's
+  # guaranteed traffic. A stream with no lines returns no series at all, so
+  # detection rides on noDataState: Alerting, and the summaries are static
+  # text — a NoData instance carries no query labels to template with. One
+  # rule per stream, because NoData is rule-level: folding the streams into
+  # one query would let any single live stream mask the silence of the rest.
+  #
+  # Only streams with guaranteed daily traffic are watched. The out/err
+  # siblings (forgejo.err, forgejo-runner.out, zot.err, jellyfin.err,
+  # alloy.out, borgmatic.out) are quiet by nature — each service logs to one
+  # fd — and jellyfin.out (~50 lines/day) and alloy.err (~35 lines/day) are
+  # too sparse to distinguish "quiet day" from "broken" without a window so
+  # wide the alert stops being useful. borgmatic has BorgmaticStale. If alloy
+  # itself dies, all four rules go NoData together — that pattern is the
+  # "alloy is down" signature, and the runbook leads with it.
+  - orgId: 1
+    name: log-shipping
+    folder: Infrastructure Alerts
+    interval: 300s
+    rules:
+      - uid: log-silent-forgejo
+        title: LogStreamSilentForgejo
+        condition: C
+        for: 1h
+        noDataState: Alerting
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            No lines from indri's forgejo log (mcquack.forgejo.out.log)
+            reached Loki in 24h. The forge logs every request, so shipping
+            is broken: alloy tail, Loki push, or ingest.
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-log-stream-silent
+        labels:
+          severity: warning
+          service: forgejo
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            model:
+              expr: >-
+                sum(count_over_time({host="indri", service="forgejo", stream="stdout"}[24h]))
+              queryType: range
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+              refId: C
+
+      - uid: log-silent-forgejo-runner
+        title: LogStreamSilentForgejoRunner
+        condition: C
+        for: 1h
+        noDataState: Alerting
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            No lines from indri's forgejo-runner log
+            (mcquack.forgejo-runner.err.log) reached Loki in 48h. The runner
+            logs every CI job to stderr and scheduled workflows run daily, so
+            either CI is not running or its log is not shipping.
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-log-stream-silent
+        labels:
+          severity: warning
+          service: forgejo-runner
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            model:
+              expr: >-
+                sum(count_over_time({host="indri", service="forgejo-runner", stream="stderr"}[48h]))
+              queryType: range
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+              refId: C
+
+      - uid: log-silent-zot
+        title: LogStreamSilentZot
+        condition: C
+        for: 1h
+        noDataState: Alerting
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            No lines from indri's zot log (mcquack.zot.out.log) reached Loki
+            in 24h. The registry logs steadily (pull-through cache + CI
+            traffic), so shipping is broken.
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-log-stream-silent
+        labels:
+          severity: warning
+          service: zot
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            model:
+              expr: >-
+                sum(count_over_time({host="indri", service="zot", stream="stdout"}[24h]))
+              queryType: range
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+              refId: C
+
+      - uid: log-silent-tailscaled
+        title: LogStreamSilentTailscaled
+        condition: C
+        for: 1h
+        noDataState: Alerting
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            No lines from indri's tailscaled log
+            (/opt/homebrew/var/log/tailscaled.log) reached Loki in 24h.
+            tailscaled logs constantly, so shipping is broken.
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-log-stream-silent
+        labels:
+          severity: warning
+          service: tailscale
+        data:
+          - refId: A
+            datasourceUid: loki
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            model:
+              expr: >-
+                sum(count_over_time({host="indri", service="tailscale"}[24h]))
+              queryType: range
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+              refId: C
+
 templates:
   - orgId: 1
     name: ntfy-infra

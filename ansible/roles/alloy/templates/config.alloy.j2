@@ -43,6 +43,20 @@ prometheus.remote_write "prometheus" {
   }
 }
 
+// ============== ALLOY SELF-MONITORING ==============
+
+// Alloy's own component metrics: which log files are being tailed and how far
+// (loki_source_file_*), and whether pushes to Loki are failing (loki_write_*).
+// Without these, a broken tail is invisible from Prometheus and diagnosing a
+// missing log stream means ssh'ing to the host. The plist starts alloy without
+// --server.http.listen-addr, so its HTTP server is at the default address.
+prometheus.scrape "alloy_self" {
+  targets         = [{"__address__" = "127.0.0.1:12345"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "{{ alloy_scrape_interval }}"
+}
+
 {% if alloy_collect_postgres | default(false) %}
 // ============== POSTGRESQL METRICS ==============
 
