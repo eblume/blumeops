@@ -41,11 +41,17 @@ generated config lives at the path in `ansible/roles/alloy/defaults/main.yml`
 | LogStreamSilentZot | `mcquack.zot.out.log` | 24h | pull-through cache + CI traffic |
 | LogStreamSilentTailscaled | `/opt/homebrew/var/log/tailscaled.log` | 24h | tailscaled logs constantly |
 
-The other declared files (`forgejo.err`, `forgejo-runner.out`, `zot.err`,
-`jellyfin.err`, `alloy.out`, `borgmatic.out`) are quiet by nature — each
-service writes to one fd — and are deliberately unwatched. So is
-`jellyfin.out` (~50 lines/day, too sparse to alert on). borgmatic freshness
-has its own alert (`BorgmaticStale`).
+The other declared files are deliberately unwatched: `alloy.out`,
+`borgmatic.out`, `forgejo-runner.out` and `forgejo.err` no longer receive
+writes (each service currently logs to its other fd), and `jellyfin.{out,err}`,
+`alloy.err` and `borgmatic.err` write too sparsely to alert on. borgmatic
+freshness has its own alert (`BorgmaticStale`). **Known exception:**
+`zot.err` is actively written but its lines do not reach Loki — a broken
+tail under investigation (heph `01KZKPRWGHH301688YP32Z7BC0`); it should get
+a rule once fixed. It is also the worked example for step 2 below: once the
+alloy self-scrape is live, `loki_source_file_read_lines_total` either has a
+`zot.err` path (tail matched, push failing) or does not (tail never
+matched).
 
 ## Single alert: is it the source or the shipping?
 
