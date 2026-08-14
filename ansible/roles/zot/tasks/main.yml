@@ -54,12 +54,33 @@
   notify: Restart zot
   when: zot_oidc_client_secret is defined
 
+- name: Deploy zot launch wrapper
+  ansible.builtin.template:
+    src: zot-serve.sh.j2
+    dest: "{{ zot_config_dir }}/zot-serve.sh"
+    mode: '0755'
+  notify: Restart zot
+
 - name: Deploy zot LaunchAgent plist
   ansible.builtin.template:
     src: zot.plist.j2
     dest: ~/Library/LaunchAgents/mcquack.eblume.zot.plist
     mode: '0644'
   notify: Restart zot
+
+# The wrapper keeps new progress-bar frames out of this log; this clears the
+# frames already accumulated (they are the bulk of the file by bytes, and Loki
+# rejects them anyway — the normal lines are already shipped). Truncating also
+# snaps alloy's saved tail position back to a real offset: it treats
+# size < position as truncation and re-tails from zero. No-op once clean.
+- name: Truncate zot stderr log if it holds progress-bar frames
+  ansible.builtin.shell: |
+    if LC_ALL=C grep -q 'iB / ' '{{ zot_log_dir }}/mcquack.zot.err.log'; then
+      : > '{{ zot_log_dir }}/mcquack.zot.err.log'
+      echo truncated
+    fi
+  register: zot_errlog_truncate
+  changed_when: "'truncated' in zot_errlog_truncate.stdout"
 
 - name: Check if zot LaunchAgent is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.zot

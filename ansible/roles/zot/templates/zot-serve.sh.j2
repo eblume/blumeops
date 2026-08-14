@@ -1,0 +1,31 @@
+#!/bin/bash
+# {{ ansible_managed }}
+#
+# Launch wrapper for the zot LaunchAgent. Its one job is to pass zot's stderr
+# through a filter that removes Trivy DB-download progress bars.
+#
+# zot's CVE extension (extensions.search.cve) downloads trivy-db (~90MiB) and
+# trivy-java-db (~900MiB) every updateInterval, and zot hardcodes trivy's
+# quiet=false (updateDBInternal in pkg/extensions/search/cve/trivy/scanner.go),
+# so trivy draws a carriage-return-animated progress bar on stderr. Redirected
+# to a file, the CR frames of one download pile up into a single newline-less
+# line of up to several MB — which Loki rejects outright (256KB max entry
+# size), failing the whole batch it rides in.
+#
+# The filter splits each physical line on CR and drops the bar frames, keeping
+# any real content that shares the line. Output is fflush()ed per line so the
+# log stays tail-able in real time. stdout is untouched (launchd's
+# StandardOutPath applies); launchd's StandardErrorPath still catches this
+# wrapper's own errors. If the filter process dies, zot's next stderr write
+# takes SIGPIPE and KeepAlive restarts the pair.
+
+exec "{{ zot_binary }}" serve "{{ zot_config_dir }}/config.json" \
+  2> >(exec /usr/bin/awk '
+    {
+      if (index($0, "\r") == 0) { print; fflush(); next }
+      n = split($0, seg, "\r")
+      for (i = 1; i <= n; i++)
+        if (seg[i] != "" && seg[i] !~ /[KMGT]iB \/ [0-9]/) {
+          print seg[i]; fflush()
+        }
+    }' >> "{{ zot_log_dir }}/mcquack.zot.err.log")
