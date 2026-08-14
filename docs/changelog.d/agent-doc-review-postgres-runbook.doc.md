@@ -1,0 +1,1 @@
+Doc review: `runbook-postgres-unhealthy` rewritten against the deployed state — the alert covers two CNPG clusters, `pg_isready` pointed at the retired `pg.ops.eblu.me:5432` route, Immich was listed under the wrong cluster, and the NoData case was undocumented. `PostgresClusterUnhealthy`'s summary now names the cluster via `instance` instead of the repo-wide `cluster` label.

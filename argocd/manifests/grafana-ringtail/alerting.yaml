@@ -278,8 +278,12 @@ groups:
         noDataState: Alerting
         execErrState: Alerting
         annotations:
+          # `instance` is the CNPG cluster name — the cnpg-postgres scrape job
+          # sets it per target (blumeops-pg, immich-pg). `cluster` is the
+          # Prometheus-wide "ringtail" label every metric here carries, so it
+          # cannot distinguish the two.
           summary: >-
-            PostgreSQL cluster {{ index $labels "cluster" }} is unhealthy
+            PostgreSQL cluster {{ index $labels "instance" }} is unhealthy
           runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-postgres-unhealthy
         labels:
           severity: critical
