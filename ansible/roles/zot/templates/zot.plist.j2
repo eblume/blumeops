@@ -7,10 +7,9 @@
 	<string>mcquack.eblume.zot</string>
 	<key>ProgramArguments</key>
 	<array>
-		<!-- ABSOLUTE PATH to built binary in ~/code/3rd/zot -->
-		<string>{{ zot_binary }}</string>
-		<string>serve</string>
-		<string>{{ zot_config_dir }}/config.json</string>
+		<!-- wrapper execs {{ zot_binary }} with stderr filtered (see zot-serve.sh.j2) -->
+		<string>/bin/bash</string>
+		<string>{{ zot_config_dir }}/zot-serve.sh</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>

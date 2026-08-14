@@ -135,7 +135,7 @@ loki.source.file "mcquack_logs" {
 
 // Add host label to all logs
 loki.relabel "add_host" {
-  forward_to = [loki.write.loki.receiver]
+  forward_to = [loki.process.oversize_guard.receiver]
 
   rule {
     target_label = "host"
@@ -145,6 +145,20 @@ loki.relabel "add_host" {
   rule {
     target_label = "cluster"
     replacement  = "indri"
+  }
+}
+
+// Loki rejects any single entry over its 256KB max entry size with a 400
+// that fails the whole batch — one oversized line (e.g. a CR-animated
+// progress bar flattened into a log file) takes out every entry batched
+// with it. Drop such lines before they reach the write path; drops are
+// visible as loki_process_dropped_lines_total{reason="line_too_long"}.
+loki.process "oversize_guard" {
+  forward_to = [loki.write.loki.receiver]
+
+  stage.drop {
+    longer_than         = "255KB"
+    drop_counter_reason = "line_too_long"
   }
 }
 
