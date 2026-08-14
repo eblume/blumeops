@@ -13,13 +13,15 @@ RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
     && apk add --no-cache fail2ban \
     && rm -f /etc/fail2ban/jail.d/alpine-ssh.conf
 
-# Copy Alloy binary from official image (v1.18.0, Ubuntu-based, needs libc6-compat)
-COPY --from=docker.io/grafana/alloy@sha256:491b0578c04983fd54fe99b587b6fab4404dc46d0dc16677bd6b00cc1140b308 \
+# Copy Alloy binary from official image (v1.18.1, Ubuntu-based, needs libc6-compat)
+COPY --from=docker.io/grafana/alloy@sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33 \
     /bin/alloy /usr/local/bin/alloy
 
-# Copy Anubis binary from official image (v1.25.0, ko-built static binary
-# with embedded assets) — proof-of-work gateway for forge.eblu.me
-COPY --from=ghcr.io/techarohq/anubis@sha256:5cf4c0d6c7ea01a356c6685a779971bdd28d6a5a4a6719201f73a9c4ae108db0 \
+# Copy Anubis binary from official image (v1.27.0, ko-built static binary
+# with embedded assets) — proof-of-work gateway for forge.eblu.me.
+# Cookie names are derived from the cookie settings, so COOKIE_PREFIX is not a
+# stable string; nothing here reads the cookie by name.
+COPY --from=ghcr.io/techarohq/anubis@sha256:8828275668b7bc675679f100970f9714f731388fbbf66ae94de8aca952e3fc4a \
     /ko-app/anubis /usr/local/bin/anubis
 
 RUN mkdir -p /var/log/nginx /etc/alloy /tmp/alloy-data

@@ -640,22 +640,26 @@ services:
   - name: flyio-alloy
     type: fly
     parent: flyio-nginx
-    last-reviewed: "2026-08-06"
-    current-version: "v1.18.0"
+    last-reviewed: "2026-08-14"
+    current-version: "v1.18.1"
     upstream-source: https://github.com/grafana/alloy/releases
     notes: COPY --from in fly/Dockerfile for log shipping and metrics
 
   - name: flyio-anubis
     type: fly
     parent: flyio-nginx
-    last-reviewed: "2026-06-10"
-    current-version: "v1.25.0"
+    last-reviewed: "2026-08-14"
+    current-version: "v1.27.0"
     upstream-source: https://github.com/TecharoHQ/anubis/releases
     notes: >-
       Attached service: proof-of-work anti-scraper gateway for forge.eblu.me.
       COPY --from in fly/Dockerfile (ko-built static binary, embedded
       assets). Stock bot policy. Upstream has signalled a future equi-x
       challenge algorithm — watch release notes when bumping.
+      v1.27.0 derives the auth cookie name from the cookie settings
+      (`techaro.lol-anubis-auth-<hash>`), so a settings change no longer needs a
+      manual COOKIE_PREFIX bump. Clients holding a v1.25 cookie re-challenge
+      once after deploy; nothing in fly/ reads the cookie by name.
 
   - name: dagger
     type: mise

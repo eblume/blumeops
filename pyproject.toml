@@ -11,6 +11,21 @@ build-backend = "uv_build"
 [tool.uv.sources]
 dagger-io = { path = "sdk", editable = true }
 
+# The lint rule set is a decision, not a default.
+#
+# ruff's implicit default is whatever that release ships: 60 rules under 0.15,
+# 414 under 0.16. With no `select` here, a routine version bump in the monthly
+# [[update-tooling-dependencies]] cycle silently changes what the Lint gate
+# enforces — the 0.16 bump alone surfaced 42 findings across mise-tasks/,
+# pulumi/ and containers/warrant/ that nobody had opted into.
+#
+# These four are ruff's pre-0.16 default and the set this repo has actually
+# been linted against. Widening it is worthwhile (PLW1510, DTZ and SIM118 all
+# found real things) but is its own reviewed change, not a side effect of a
+# version bump — heph 01M00PYFZFHZ2KPFVCBQ5XTN6E.
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
 [tool.ty.environment]
 python-version = "3.13"
 extra-paths = ["sdk/src"]

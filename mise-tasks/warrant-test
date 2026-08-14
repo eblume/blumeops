@@ -10,7 +10,7 @@
 #   "python-multipart==0.0.20",
 #   "pyyaml==6.0.3",
 #   # request-run's own imports, so tests/ can load it
-#   "typer==0.26.7",
+#   "typer==0.27.1",
 #   "rich==15.0.0",
 # ]
 # ///
