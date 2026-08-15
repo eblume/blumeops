@@ -23,6 +23,9 @@ spec:
     spec:
       serviceAccountName: talos
       automountServiceAccountToken: false
+      # The service is named 'talos', so k8s service links would inject
+      # TALOS_PORT=tcp://... — colliding with the app's own env contract.
+      enableServiceLinks: false
       securityContext:
         fsGroup: 1500
       initContainers:
