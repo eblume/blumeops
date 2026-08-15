@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.26.7"]
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.1"]
 # ///
 #MISE description="Fleet health via Grafana alert rules, using the agents-m2m JWT (agent-usable)"
 """Agent-usable fleet health check ([[warrant-approval-gated-runs]] / heph

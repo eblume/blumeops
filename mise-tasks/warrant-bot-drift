@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.26.7"]
+# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.1"]
 # ///
 #MISE description="[human] Assert warrant-bot still holds exactly write on blumeops and nothing more (read-only)"
 #USAGE flag "--token <token>" help="Forgejo API token with admin on eblume/blumeops (default: 1Password)"
