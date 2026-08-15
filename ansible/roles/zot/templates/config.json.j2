@@ -72,7 +72,7 @@
       ]
     },
     "search": {
-      "enable": true{% if zot_cve_enabled | default(true) %},
+      "enable": true{% if zot_cve_enabled | default(true) | bool %},
       "cve": {
         "updateInterval": "24h"
       }{% endif %}
