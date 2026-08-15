@@ -9,8 +9,10 @@
 # Self-pins nixos-unstable (agent-ws/navidrome/mealie precedent); reuses the
 # shared pinned rev+hash so no new hash fetch is needed.
 #
-# Bumping talos: update `rev` + `srcHash` (and `npmDepsHash` if the lockfile
-# changed), then `mise run container-release talos <version>`.
+# `version` is the image-tag version: bump it for an upstream talos bump
+# (update `rev` + `srcHash`, and `npmDepsHash` if the lockfile changed) OR for
+# a meaningful change to the baked toolchain, then
+# `mise run container-release talos <version>`.
 let
   nixpkgs = fetchTarball {
     url = "https://github.com/NixOS/nixpkgs/archive/241313f4e8e508cb9b13278c2b0fa25b9ca27163.tar.gz";
@@ -20,7 +22,7 @@ let
   pkgs = import nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; };
   lib = pkgs.lib;
 
-  version = "0.2.2";
+  version = "0.2.3";
   rev = "d5bf330d0ad0644b42ab008e3b352e4ca4c9726f";
 
   src = pkgs.fetchgit {
@@ -144,17 +146,38 @@ exec printf "%%s" "$FORGEJO_TOKEN"
       clone_repo "$r" || echo "talos: clone $r failed (continuing)" >&2
     done
 
+    # The workspace's mise.toml/mise-tasks are trusted without a prompt —
+    # there is no terminal in this pod to answer one.
+    export MISE_TRUSTED_CONFIG_PATHS="$code"
+    # Dynamic-loader path for prebuilt binaries (mise's rust); see ldLibs.
+    export LD_LIBRARY_PATH="${lib.makeLibraryPath ldLibs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
     exec ${pkgs.bun}/bin/bun run /app/src/server.ts
   '';
 
   # Toolchain for the agent's bash tool. Deliberately smaller than agent-ws —
-  # talos v1 is a chat/agent service, not a full dev workspace; grow this as
-  # the workspace grows.
+  # talos is a chat/agent service, not a full dev workspace; grow this as the
+  # workspace grows.
+  #
+  # mise + uv + python3 earn their place because the repo's privileged-run
+  # path (`mise run request-run …`, [[warrant-approval-gated-runs]]) is a
+  # mise task whose script is `#!/usr/bin/env -S uv run --script`: without
+  # all three the agent hand-installed uv into the pod to file a warrant
+  # request (2026-08-15). python3 must be ON PATH — uv otherwise downloads
+  # its own CPython, whose glibc loader does not run in this non-FHS image.
+  # gnutar/gzip are what uv and mise unpack with; which is what _require
+  # guards reach for.
   toolchain = with pkgs; [
     bash coreutils gnugrep gnused findutils
     git openssh jq curl ripgrep
     _1password-cli tea heph
+    mise uv python3 gnutar gzip which
   ];
+
+  # Runtime libs for prebuilt dynamically-linked binaries (mise's rust),
+  # resolved via the /lib64 loader symlink in extraCommands — the container
+  # analogue of nix-ld (agent-ws precedent).
+  ldLibs = with pkgs; [ glibc stdenv.cc.cc.lib zlib ];
 
   # op needs /etc/passwd and an owned HOME ([[lesson_op_and_pvc_in_container]]).
   etcFiles = pkgs.runCommand "talos-etc" { } ''
@@ -170,6 +193,18 @@ pkgs.dockerTools.buildLayeredImage {
   tag = "v${version}";
 
   contents = [ pkgs.bun app etcFiles entrypoint pkgs.dockerTools.caCertificates ] ++ toolchain;
+
+  # Non-FHS fixups (agent-ws precedent): /usr/bin/env because every
+  # mise-tasks script uses a `#!/usr/bin/env -S …` shebang and the kernel
+  # resolves it literally; a /tmp because dockerTools images have none and
+  # half of userspace (uv, pytest, curl -o) assumes it; the glibc loader at
+  # its conventional path so prebuilt ELF binaries (mise) run — see ldLibs.
+  extraCommands = ''
+    mkdir -p lib64 tmp usr/bin
+    ln -s ${pkgs.glibc}/lib/ld-linux-x86-64.so.2 lib64/ld-linux-x86-64.so.2
+    ln -s ${pkgs.coreutils}/bin/env usr/bin/env
+    chmod 1777 tmp
+  '';
 
   config = {
     Cmd = [ "${entrypoint}/bin/talos-entrypoint" ];
