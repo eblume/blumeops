@@ -34,13 +34,13 @@ let
   # by hand when the baked toolchain changes meaningfully.
   version = "0.18.0";
 
-  # ── the repo pool, from ./repos.json ──────────────────────────────────────
+  # ── the repo pool, from ../../repos.json ──────────────────────────────────
   # That file is the single source of truth for BOTH halves of "share a repo
   # with the agent": the forge collaborator grant (reconciled by
   # `mise run agent-repo-access`) and the clone loop below. Keeping them in one
   # file is the point — they used to drift, and a missing grant is invisible
   # (Forgejo 404s rather than 403s on a private repo the bot cannot see).
-  repoPolicy = builtins.fromJSON (builtins.readFile ./repos.json);
+  repoPolicy = builtins.fromJSON (builtins.readFile ../../repos.json);
   poolOf = p: builtins.filter (r: r.pool == p) repoPolicy.repos;
   forkRepos = map (r: r.name) (poolOf "fork");
   canonicalRepos = map (r: r.name) (poolOf "canonical");
@@ -575,7 +575,7 @@ commit: git -C $root/<repo> switch -c agent/<slug>. Push goes to 'origin'
     # cross-repo PR — a human gate on changes to the agent's own instructions.
     # The siblings are ordinary author repos cloned canonically.
     #
-    # Both lists are GENERATED from ./repos.json — edit that, not this. Most of
+    # Both lists are GENERATED from ../../repos.json — edit that, not this. Most of
     # these are PRIVATE forge repos; they clone over HTTPS with the bot's token
     # only while `agents` is a collaborator, which the same file drives.
     for r in ${lib.escapeShellArgs forkRepos}; do

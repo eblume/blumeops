@@ -24,7 +24,7 @@ forgejo_actions_secrets_repos:
       - name: MAIN_PUSH_TOKEN
         value_var: forgejo_secret_main_push_token
       # Lets the Agent Repo Access workflow reconcile the `agents` bot's
-      # collaborations against containers/agent-ws/repos.json. Collaborator
+      # collaborations against repos.json. Collaborator
       # management is an admin-level operation, so this reuses forgejo_api_token
       # (the same eblume PAT this role authenticates with — writing Actions
       # secrets is itself admin-level) rather than minting a second one.

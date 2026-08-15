@@ -1,5 +1,5 @@
 # Reconcile the agents bot's forge collaborations against
-# containers/agent-ws/repos.json — the same file the agent-ws image reads to
+# repos.json (repo root) — the same file the agent-ws and talos images read to
 # build its clone loop, so "share a repo with the agent" is one edit, not two.
 #
 # RECONCILE IS AUTHORITATIVE: a repo absent from repos.json has its `agents`
@@ -20,12 +20,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'containers/agent-ws/repos.json'
+      - 'repos.json'
       - 'mise-tasks/agent-repo-access'
       - '.forgejo/workflows/agent-repo-access.yaml'
   pull_request:
     paths:
-      - 'containers/agent-ws/repos.json'
+      - 'repos.json'
       - 'mise-tasks/agent-repo-access'
       - '.forgejo/workflows/agent-repo-access.yaml'
   workflow_dispatch:

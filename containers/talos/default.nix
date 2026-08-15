@@ -52,9 +52,10 @@ let
     '';
   };
 
-  # Repo pool shared with agent-ws — ../agent-ws/repos.json is THE source of
-  # truth for what the agents bot may touch ([[agents-forgejo-bot]]).
-  repoPolicy = builtins.fromJSON (builtins.readFile ../agent-ws/repos.json);
+  # The repo pool — /repos.json at the repo root is THE source of truth for
+  # what the agents bot may touch ([[agents-forgejo-bot]]). Shared with
+  # agent-ws; the file is org-level agent policy, not container config.
+  repoPolicy = builtins.fromJSON (builtins.readFile ../../repos.json);
   poolOf = p: builtins.filter (r: r.pool == p) repoPolicy.repos;
   forkRepos = map (r: r.name) (poolOf "fork");
   canonicalRepos = map (r: r.name) (poolOf "canonical");

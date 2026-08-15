@@ -83,7 +83,7 @@ k3s-ringtail cluster
 
 ### The repo pool
 
-`containers/agent-ws/repos.json` is the source of truth for what lands in
+`repos.json` (repo root) is the source of truth for what lands in
 `~/code/personal` on the PVC — and, via `mise run agent-repo-access`, for the
 forge collaborator grants that make those clones possible at all. `default.nix`
 reads it with `builtins.fromJSON` to generate the entrypoint's clone loop:

@@ -43,7 +43,7 @@ Then, in the Forgejo web UI as an admin:
 - Add the **public key** from the `agents-forgejo-bot` vault item (see
   [[agents-forgejo-bot]]) to the `agents` user's SSH keys.
 > **Do not grant repo access here.** Collaborations come from
-> `containers/agent-ws/repos.json`, reconciled by the **Agent Repo Access**
+> `repos.json` (repo root), reconciled by the **Agent Repo Access**
 > workflow, which is authoritative in both directions — a repo absent from that
 > file has its `agents` collaboration *removed*, so a grant clicked in the web UI
 > is reverted on the next run. The same file drives the pod's clone loop, which

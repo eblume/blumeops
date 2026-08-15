@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.1"]
 # ///
-#MISE description="[human] Reconcile the agents bot's forge collaborations against containers/agent-ws/repos.json"
+#MISE description="[human] Reconcile the agents bot's forge collaborations against repos.json"
 #MISE alias="ara"
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
@@ -11,7 +11,7 @@
 #USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when \$FORGE_ADMIN_TOKEN is unset (CI bootstrap)"
 """Reconcile which of eblume's repos the `agents` bot may touch.
 
-`containers/agent-ws/repos.json` is the single source of truth: it drives both
+`repos.json` (repo root) is the single source of truth: it drives both
 the forge collaborator grants (this script) and the agent workspace's clone loop
 (the image's default.nix reads the same file). Before it existed those were two
 independent manual steps, and a missing grant was invisible — Forgejo answers
@@ -57,7 +57,7 @@ from rich.table import Table
 
 FORGE_URL = "https://forge.ops.eblu.me"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
-POLICY_PATH = Path(__file__).resolve().parent.parent / "containers/agent-ws/repos.json"
+POLICY_PATH = Path(__file__).resolve().parent.parent / "repos.json"
 
 # Repos whose read-only-on-canonical status is a security boundary, not a
 # preference: the bot must not be able to push to them or run their CI.
