@@ -22,7 +22,7 @@ let
   pkgs = import nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; };
   lib = pkgs.lib;
 
-  version = "0.2.3";
+  version = "0.2.4";
   rev = "d5bf330d0ad0644b42ab008e3b352e4ca4c9726f";
 
   src = pkgs.fetchgit {
@@ -153,6 +153,16 @@ exec printf "%%s" "$FORGEJO_TOKEN"
     # Dynamic-loader path for prebuilt binaries (mise's rust); see ldLibs.
     export LD_LIBRARY_PATH="${lib.makeLibraryPath ldLibs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
+    # The eval-only nix store is pure cache (see default.nix) — sweep on size
+    # so a warm store can't eat the PVC. All-or-nothing by design: no GC
+    # roots ever exist, so rm is safe and the next eval simply re-fetches.
+    nix_state="${NIX_STATE_DIR:-$HOME/.local/state/nix}"
+    size_mb=$(du -sm "$nix_state" 2>/dev/null | cut -f1)
+    if [ "''${size_mb:-0}" -gt "''${TALOS_NIX_STORE_MAX_MB:-6144}" ]; then
+      echo "talos: nix eval store is ''${size_mb}MiB — sweeping" >&2
+      rm -rf "$nix_state" || true
+    fi
+
     exec ${pkgs.bun}/bin/bun run /app/src/server.ts
   '';
 
@@ -173,6 +183,7 @@ exec printf "%%s" "$FORGEJO_TOKEN"
     git openssh jq curl ripgrep
     _1password-cli teaWrapper heph
     mise uv python3 gnutar gzip which
+    nix
   ];
 
   # tea, wrapped to route through the tag:agent SOCKS sidecar. tea only ever
@@ -193,6 +204,41 @@ exec printf "%%s" "$FORGEJO_TOKEN"
   # resolved via the /lib64 loader symlink in extraCommands — the container
   # analogue of nix-ld (agent-ws precedent).
   ldLibs = with pkgs; [ glibc stdenv.cc.cc.lib zlib ];
+
+  # ── nix, deliberately eval-only (agent-ws precedent) ─────────────────────
+  # The pod cannot run a real nix build and is not meant to: uid 1500 cannot
+  # write the image's root-owned /nix/store (and there is no /nix/var at
+  # all), and the RuntimeDefault seccomp profile refuses CLONE_NEWUSER — so
+  # no build sandbox, and no local chroot store either. See
+  # [[agent-containerization]] §"Nix in the pod" for the full argument.
+  #
+  # What works is a store relocated into $HOME (on the PVC): evaluation plus
+  # the evaluator-side fetchers (builtins.fetchTarball / fetchGit,
+  # nix-prefetch-url), none of which runs a builder. That buys the pod the
+  # ability to COMPUTE srcHash/npmDepsHash values for image bumps instead of
+  # committing guesses and burning warrant-approved Build Container rounds to
+  # discover them from hash-mismatch errors.
+  #
+  # max-jobs = 0: relocating store-dir rewrites every store path's hash, so
+  # cache.nixos.org can never answer for this store — a `nix-build` here
+  # would compile the world from source inside the pod's cgroup. That turns
+  # it into an immediate error instead of an hours-long surprise (foot-gun
+  # guard, not boundary; the boundary is that nothing this store produces can
+  # reach ringtail).
+  #
+  # The store is pure cache (no GC roots are ever created), swept on size by
+  # the entrypoint before the server starts.
+  nixStateDir = "/home/talos/.local/state/nix";
+  nixConfDir = pkgs.writeTextDir "nix.conf" ''
+    experimental-features = nix-command flakes
+    # Nothing in a relocated store can be substituted; asking is pure latency.
+    substituters =
+    # Eval and fetch, never build. Override per-invocation if you truly mean it.
+    max-jobs = 0
+    # No CLONE_NEWUSER in this pod — nix could not set the sandbox up anyway.
+    sandbox = false
+    warn-dirty = false
+  '';
 
   # op needs /etc/passwd and an owned HOME ([[lesson_op_and_pvc_in_container]]).
   etcFiles = pkgs.runCommand "talos-etc" { } ''
@@ -226,6 +272,16 @@ pkgs.dockerTools.buildLayeredImage {
     Env = [
       "PATH=${lib.makeBinPath ([ pkgs.bun entrypoint ] ++ toolchain)}"
       "TALOS_HOST=0.0.0.0"
+      # nix's store relocated onto the PVC — the whole of what makes nix usable
+      # here (see the eval-only block above). Set in the image rather than the
+      # entrypoint on purpose: these must hold for every way into the
+      # container (kubectl exec included). nix creates the dirs on first use.
+      "NIX_STORE_DIR=${nixStateDir}/store"
+      "NIX_STATE_DIR=${nixStateDir}/var/nix"
+      "NIX_LOG_DIR=${nixStateDir}/var/log/nix"
+      "NIX_CONF_DIR=${nixConfDir}"
+      # nix's fetchers speak TLS to the forge/GitHub — point them at a bundle.
+      "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
     ];
     ExposedPorts = { "3000/tcp" = { }; };
     User = "1500:1500";
