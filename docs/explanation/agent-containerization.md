@@ -377,6 +377,7 @@ a `max-jobs`/`cores` cap so a build cannot starve the node the homelab runs on.
 ## Related
 
 - [[agent-workspaces]] — the model being migrated
+- [[talos-design]] — planned pi-based agent service mirroring this access model
 - [[agents-forgejo-bot]] — the identity whose fences this hardens
 - [[security-model]] — service accounts and vault scoping
 - [[ringtail]] — the host / cluster

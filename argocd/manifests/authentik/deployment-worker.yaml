@@ -103,6 +103,11 @@ spec:
                 secretKeyRef:
                   name: authentik-config
                   key: paperless-client-secret
+            - name: AUTHENTIK_TALOS_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-config
+                  key: talos-client-secret
           volumeMounts:
             - name: blueprints
               mountPath: /blueprints/custom

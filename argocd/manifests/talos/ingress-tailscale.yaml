@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: talos-tailscale
+  namespace: talos
+  annotations:
+    tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Talos"
+    gethomepage.dev/group: "AI"
+    gethomepage.dev/icon: "mdi-robot"
+    gethomepage.dev/description: "Agent workflow service (pi + OpenRouter)"
+    gethomepage.dev/href: "https://talos.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=talos"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: talos
+      port:
+        number: 3000
+  tls:
+    - hosts:
+        - talos

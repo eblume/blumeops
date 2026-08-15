@@ -60,6 +60,7 @@ Blueprint file: `argocd/manifests/authentik/configmap-blueprint.yaml`
 | [[jellyfin]] | Confidential |
 | [[mealie]] | Confidential |
 | [[paperless]] | Confidential |
+| [[talos]] | Confidential |
 | heph | Public (PKCE, with `offline_access` for spoke sync refresh tokens) |
 
 Future clients: [[miniflux]]
@@ -72,7 +73,7 @@ Injected via [[external-secrets]] from the "Authentik (blumeops)" 1Password item
 |-----------------|---------|
 | `secret-key` | Authentik secret key |
 | `postgresql-host` / `-port` / `-name` / `-user` / `-password` | PostgreSQL connection |
-| `<client>-client-secret` | OIDC client secret, one per confidential client (grafana, forgejo, zot, jellyfin, mealie, paperless) |
+| `<client>-client-secret` | OIDC client secret, one per confidential client (grafana, forgejo, zot, jellyfin, mealie, paperless, warrant, talos) |
 
 The item also holds an `api-token` field (Authentik API access for admin scripting); it is not synced into the cluster.
 

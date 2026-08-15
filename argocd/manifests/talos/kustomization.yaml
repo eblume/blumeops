@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: talos
+
+resources:
+  - serviceaccount.yaml
+  - external-secret.yaml
+  - external-secret-op-token.yaml
+  - external-secret-ts-authkey.yaml
+  - pvc.yaml
+  - networkpolicy.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress-tailscale.yaml
+
+# First-party Nix image (containers/talos). Tag is stamped by the standard
+# container-release flow; bump here after each release.
+images:
+  - name: registry.ops.eblu.me/blumeops/talos
+    newTag: v0.1.0-PENDING-nix

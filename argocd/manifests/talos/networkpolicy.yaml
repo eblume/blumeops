@@ -1,0 +1,23 @@
+# Egress fence, agent-ws parity: block the tailnet CGNAT range so the pod
+# cannot reach tailnet hosts via node NAT (which would present ringtail's
+# tag:homelab identity). All tailnet access goes through the sidecar's own
+# WireGuard as tag:agent. Direct egress to the internet (OpenRouter,
+# Authentik via its public route) is unaffected. Ingress (ProxyGroup →
+# talos service) is not restricted by this policy — policyTypes is
+# Egress-only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: talos-egress-fence
+  namespace: talos
+spec:
+  podSelector:
+    matchLabels:
+      app: talos
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 100.64.0.0/10
