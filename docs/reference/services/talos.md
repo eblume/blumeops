@@ -32,6 +32,8 @@ Bun server embedding the pi runtime (`pi-coding-agent` SDK): sessions are append
 
 Models are env-pinned (`TALOS_MODEL`, currently `qwen/qwen3.8-max`); models newer than pi's catalog are synthesized from OpenRouter's live listing with real pricing so cost tracking stays correct.
 
+The image bakes an **eval-only nix** (agent-ws precedent, [[agent-containerization]] §"Nix in the pod"): `$HOME`-relocated store on the PVC, `max-jobs = 0`, swept on size by the entrypoint. It lets the pod compute `fetchgit`/`srcHash` values for its own image bumps instead of burning warrant-approved build rounds on hash-mismatch errors — builds stay impossible by construction.
+
 ## Cost accounting
 
 First-class ([[talos-design]]): per-message `Usage` in every transcript, per-session totals in the UI. The OpenRouter key ("openrouter (blumeops)") is a copy of the personal key — replace with a dedicated spend-limited key.
