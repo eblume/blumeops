@@ -85,6 +85,23 @@ Secrets: `talos-client-secret` field on "Authentik (blumeops)";
 `"openrouter (blumeops)"` item for the model API key (initially a copy of
 the personal key — **replace with a dedicated spend-limited key**).
 
+## Cost accounting (first-class)
+
+Every session answers "what did this cost?" This is a requirement, not a
+nice-to-have, and it shapes the data model:
+
+- **Per-message:** pi-ai attaches `Usage` (tokens + a cost breakdown) to
+  every assistant message, computed via `calculateCost()` from catalog
+  pricing. Persisting messages verbatim in the session store persists cost.
+- **Per-session:** aggregate over the transcript (SQL sum in the session
+  repository); surfaced in the session list and as a running total in the
+  chat UI. Forge-driven runs report their cost in the PR they produce.
+- **Reconciliation:** catalog-computed cost is an estimate. An async job
+  reconciles against OpenRouter's billed numbers (`/api/v1/generation` per
+  response id, `/api/v1/auth/key` usage counter) so drift is visible.
+- **Boundary:** the OpenRouter key itself carries a provider-side spend
+  limit — the app-level ledger is observability, not enforcement.
+
 ## Key dependencies and risks
 
 - **pi (badlogic/pi-mono, npm scope `@earendil-works`)** supplies the agent
