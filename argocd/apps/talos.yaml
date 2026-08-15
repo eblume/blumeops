@@ -1,0 +1,32 @@
+# Talos on ringtail k3s — self-hosted agent workflow service.
+#
+# Browser-driven pi agent sessions (OpenRouter models) behind Authentik
+# OIDC, with the agent-ws access model: tag:agent sidecar identity, egress
+# fence, op agents-vault token, heph spoke socket. See [[talos-design]].
+#
+# Prerequisites:
+# - external-secrets-ringtail (onepassword-blumeops ClusterSecretStore)
+# - 1Password blumeops vault: "openrouter (blumeops)" item and the
+#   talos-client-secret field on "Authentik (blumeops)"
+# - authentik blueprint client `talos` (configmap-blueprint.yaml)
+# - blumeops/talos image in the registry (build-container workflow)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: talos
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/talos
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: talos
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=true

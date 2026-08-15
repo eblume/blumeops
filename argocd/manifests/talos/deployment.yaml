@@ -1,0 +1,151 @@
+# Talos: browser-driven pi agent sessions. Two containers, agent-ws parity:
+#   talos — Bun server (sessions, SSE, OIDC, /api/transcribe) + pi runtime
+#   ts    — userspace Tailscale sidecar; the pod's OWN tag:agent identity and
+#           the only path to the tailnet (enforced by the egress NetworkPolicy)
+#
+# RWO PVC → Recreate strategy.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: talos
+  namespace: talos
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: talos
+  template:
+    metadata:
+      labels:
+        app: talos
+    spec:
+      serviceAccountName: talos
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 1500
+      initContainers:
+        # local-path PV root is created root-owned; fsGroup fixes group but
+        # not owner, and op wants HOME owned by uid 1500
+        # ([[lesson_op_and_pvc_in_container]]).
+        - name: fix-home-ownership
+          image: registry.ops.eblu.me/blumeops/talos:kustomized
+          command: ["chown", "1500:1500", "/home/talos"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: home
+              mountPath: /home/talos
+      containers:
+        - name: talos
+          image: registry.ops.eblu.me/blumeops/talos:kustomized
+          ports:
+            - containerPort: 3000
+          env:
+            - name: HOME
+              value: /home/talos
+            - name: TALOS_DATA_DIR
+              value: /home/talos/data
+            - name: TALOS_WORKSPACE
+              value: /home/talos/workspace
+            - name: TALOS_PUBLIC_URL
+              value: "https://talos.ops.eblu.me"
+            - name: TALOS_MODEL
+              value: "qwen/qwen3.8-max"
+            - name: TALOS_STT_MODEL
+              value: "google/gemini-3.7-flash"
+            - name: TALOS_STT_HINTS
+              value: "talos, blumeops, heph, Forgejo, ArgoCD, OpenRouter, ringtail, indri"
+            - name: TALOS_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: talos-secrets
+                  key: oidc-client-secret
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: talos-secrets
+                  key: openrouter-api-key
+          envFrom:
+            - secretRef:
+                name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1500
+            runAsGroup: 1500
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          # /auth/login answers 302 in both OIDC and open modes — a liveness
+          # signal that needs no cookie.
+          livenessProbe:
+            httpGet:
+              path: /auth/login
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /auth/login
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          volumeMounts:
+            - name: home
+              mountPath: /home/talos
+            # Shared hephd spoke socket, agent-ws parity (uid 1500 == host
+            # agent user).
+            - name: heph-socket
+              mountPath: /home/talos/.local/share/heph
+        # ── userspace Tailscale sidecar (tag:agent) ──────────────────────
+        # TS_HOSTNAME deliberately differs from the ingress MagicDNS name
+        # ("talos", owned by the ProxyGroup) — this is the pod's egress
+        # identity, not its ingress address.
+        - name: ts
+          image: registry.ops.eblu.me/blumeops/tailscale:v1.98.5-623e89a-nix
+          env:
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: ts-agent-authkey
+                  key: TS_AUTHKEY
+            - name: TS_USERSPACE
+              value: "true"
+            - name: TS_SOCKS5_SERVER
+              value: "localhost:1055"
+            - name: TS_STATE_DIR
+              value: "/tmp/ts"
+            - name: TS_KUBE_SECRET
+              value: ""
+            - name: TS_HOSTNAME
+              value: "talos-agent"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: ts-tmp
+              mountPath: /tmp
+      volumes:
+        - name: home
+          persistentVolumeClaim:
+            claimName: talos-home
+        - name: ts-tmp
+          emptyDir: {}
+        - name: heph-socket
+          hostPath:
+            path: /home/agent/.local/share/heph
+            type: Directory

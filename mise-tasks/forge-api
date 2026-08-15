@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#MISE description="Authenticated Forgejo API call against forge.ops.eblu.me (api-token from the blumeops vault)"
+# Usage: mise run forge-api <METHOD> </api/v1-path> [json-body]
+#   e.g. mise run forge-api GET /user/repos
+#        mise run forge-api POST /user/repos '{"name":"talos"}'
+set -euo pipefail
+
+METHOD=${1:?usage: forge-api <METHOD> <path> [json-body]}
+APIPATH=${2:?usage: forge-api <METHOD> <path> [json-body]}
+BODY=${3:-}
+
+# Item ID for "Forgejo Secrets" — op read chokes on names with spaces/parens
+TOKEN=$(op read 'op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token')
+
+args=(-sS -X "$METHOD" "https://forge.ops.eblu.me/api/v1${APIPATH}"
+  -H "Authorization: token $TOKEN"
+  -H 'Content-Type: application/json')
+if [[ -n "$BODY" ]]; then
+  args+=(-d "$BODY")
+fi
+curl "${args[@]}"

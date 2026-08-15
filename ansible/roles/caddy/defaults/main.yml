@@ -110,6 +110,9 @@ caddy_services:
   - name: shower
     host: "shower.{{ caddy_domain }}"
     backend: "https://shower.tail8d86e.ts.net"
+  - name: talos
+    host: "talos.{{ caddy_domain }}"
+    backend: "https://talos.tail8d86e.ts.net"
   - name: sifaka
     host: "nas.{{ caddy_domain }}"
     backend: "http://sifaka:5000"

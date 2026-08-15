@@ -43,6 +43,7 @@ cluster (see [[retire-minikube]]); newer apps use bare names.
 | `navidrome-ringtail` | navidrome | `argocd/manifests/navidrome-ringtail/` | [[navidrome]] |
 | `teslamate-ringtail` | teslamate | `argocd/manifests/teslamate-ringtail/` | [[teslamate]] |
 | `mealie-ringtail` | mealie | `argocd/manifests/mealie-ringtail/` | [[mealie]] |
+| `talos` | talos | `argocd/manifests/talos/` | [[talos]] |
 | `paperless-ringtail` | paperless | `argocd/manifests/paperless-ringtail/` | [[paperless]] |
 | `ollama` | ollama | `argocd/manifests/ollama/` | [[ollama]] |
 | `nvidia-device-plugin` | nvidia-device-plugin | `argocd/manifests/nvidia-device-plugin/` | [[nvidia-device-plugin]] |

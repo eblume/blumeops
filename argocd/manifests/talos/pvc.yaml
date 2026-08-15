@@ -1,0 +1,13 @@
+# Persistent HOME for talos: session transcripts (JSONL trees with
+# embedded per-message cost), the agent workspace, and pi's agent dir.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: talos-home
+  namespace: talos
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

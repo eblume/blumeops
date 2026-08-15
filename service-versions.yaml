@@ -414,6 +414,17 @@ services:
       — nothing critical). Staying on the in-channel build rather than channel-mixing; revisit
       when a newer version lands in 25.11 or a serious k8s CVE hits the 1.34 line.
 
+  - name: talos
+    type: argocd
+    last-reviewed: "2026-08-14"
+    current-version: "v0.1.0"
+    upstream-source: https://forge.eblu.me/eblume/talos
+    notes: >-
+      First-party agent workflow service ([[talos-design]]): pi runtime +
+      Bun server, OpenRouter models, Authentik OIDC, agent-ws-parity pod.
+      Version is ours — bump containers/talos/default.nix (rev + hashes)
+      and this entry together.
+
   - name: mealie
     type: argocd
     last-reviewed: "2026-07-22"
