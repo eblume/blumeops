@@ -12,20 +12,18 @@
 # line of up to several MB — which Loki rejects outright (256KB max entry
 # size), failing the whole batch it rides in.
 #
-# The filter splits each physical line on CR and drops the bar frames, keeping
-# any real content that shares the line. Output is fflush()ed per line so the
-# log stays tail-able in real time. stdout is untouched (launchd's
-# StandardOutPath applies); launchd's StandardErrorPath still catches this
-# wrapper's own errors. If the filter process dies, zot's next stderr write
-# takes SIGPIPE and KeepAlive restarts the pair.
+# The filter converts CR to LF as a byte stream (`tr -u`, unbuffered) and
+# drops the bar frames with line-buffered grep. It must never wait for a
+# newline: trivy's whole download is ONE newline-less CR-stream, and a
+# line-oriented filter (the original awk version) buffers it indefinitely
+# while zot blocks on a full stderr pipe — zot froze at "updating cve-db"
+# and never bound its HTTP port (2026-08-14 outage, registry dark ~12h).
+# stdout is untouched (launchd's StandardOutPath applies); launchd's
+# StandardErrorPath still catches this wrapper's own errors. If the filter
+# dies, zot's next stderr write takes SIGPIPE and KeepAlive restarts the
+# pair.
 
 exec "{{ zot_binary }}" serve "{{ zot_config_dir }}/config.json" \
-  2> >(exec /usr/bin/awk '
-    {
-      if (index($0, "\r") == 0) { print; fflush(); next }
-      n = split($0, seg, "\r")
-      for (i = 1; i <= n; i++)
-        if (seg[i] != "" && seg[i] !~ /[KMGT]iB \/ [0-9]/) {
-          print seg[i]; fflush()
-        }
-    }' >> "{{ zot_log_dir }}/mcquack.zot.err.log")
+  2> >(exec /usr/bin/tr -u '\r' '\n' \
+    | /usr/bin/grep --line-buffered -vE '^$|[KMGT]iB / [0-9]' \
+    >> "{{ zot_log_dir }}/mcquack.zot.err.log")
