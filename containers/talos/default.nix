@@ -35,7 +35,11 @@ let
   app = pkgs.buildNpmPackage {
     pname = "talos";
     inherit version src;
-    npmDepsHash = "sha256-HAs2MVgfvLtDIIqkzsL6axJlDEQ61penA7GdqcbKR7w=";
+    # v2 fetcher: the v1 cache layout drops nested duplicate entries
+    # (pi-coding-agent pins its own pi-* copies), which npm then can't
+    # resolve offline.
+    npmDepsFetcherVersion = 2;
+    npmDepsHash = "sha256-Tl3iKtXyy+K7yaH3jivctekoD0vjTsTMYx+VTw8G3m8=";
     dontNpmBuild = true;
     npmFlags = [ "--ignore-scripts" ];
     installPhase = ''
