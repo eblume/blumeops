@@ -7,9 +7,14 @@
 	<string>mcquack.eblume.zot</string>
 	<key>ProgramArguments</key>
 	<array>
-		<!-- wrapper execs {{ zot_binary }} with stderr filtered (see zot-serve.sh.j2) -->
-		<string>/bin/bash</string>
-		<string>{{ zot_config_dir }}/zot-serve.sh</string>
+		<!-- Direct exec. The stderr-filter wrapper (zot-serve.sh) is retired:
+		     under launchd it blocked zot's HTTP bind entirely (2026-08-14
+		     outage — mechanism unclear, reproduced manually: direct exec
+		     binds, wrapper does not). Loki oversized-line protection now
+		     lives in alloy's loki.process guard instead. -->
+		<string>{{ zot_binary }}</string>
+		<string>serve</string>
+		<string>{{ zot_config_dir }}/config.json</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>

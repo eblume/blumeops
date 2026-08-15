@@ -54,12 +54,10 @@
   notify: Restart zot
   when: zot_oidc_client_secret is defined
 
-- name: Deploy zot launch wrapper
-  ansible.builtin.template:
-    src: zot-serve.sh.j2
-    dest: "{{ zot_config_dir }}/zot-serve.sh"
-    mode: '0755'
-  notify: Restart zot
+- name: Remove retired zot launch wrapper
+  ansible.builtin.file:
+    path: "{{ zot_config_dir }}/zot-serve.sh"
+    state: absent
 
 - name: Deploy zot LaunchAgent plist
   ansible.builtin.template:
