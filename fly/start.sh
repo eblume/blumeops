@@ -2,8 +2,10 @@
 set -e
 
 # Connect to tailnet first — nginx needs MagicDNS for upstream resolution.
-# With bluegreen deploys, the old machine serves traffic until this one is
-# fully ready. Fly.io runs Firecracker microVMs that support TUN devices
+# Deploys use strategy=immediate (fly.toml, since f6febb1f): the old machine
+# is gone before this one boots, so this cold-start sequence is downtime —
+# the deploy workflow's fatal health check is what catches a boot that never
+# completes. Fly.io runs Firecracker microVMs that support TUN devices
 # natively — no need for --tun=userspace-networking.
 tailscaled --statedir=/var/lib/tailscale --port=41641 &
 sleep 2
