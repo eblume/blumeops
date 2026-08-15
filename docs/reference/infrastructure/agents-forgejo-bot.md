@@ -30,7 +30,7 @@ gate before anything deploys.
 
 - **Write** (push branches, open PRs) to the repos agents work in:
   `hephaestus`, `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`,
-  `gamedev`. Access is per-repo **collaborator** grants, not an org-wide role —
+  `gamedev`, `talos`. Access is per-repo **collaborator** grants, not an org-wide role —
   the bot sees nothing it was not explicitly added to.
 - **`blumeops`: read-only, author via fork.** The bot has **read** on the
   canonical `eblume/blumeops` and pushes to its own fork **`agents/blumeops`**,
