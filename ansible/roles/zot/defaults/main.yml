@@ -16,3 +16,7 @@ zot_sync_registries:
     url: https://ghcr.io
   - name: quay.io
     url: https://quay.io
+
+# CVE scanning (trivy). Disable temporarily when the trivy update path is
+# wedging startup — see the 2026-08-14 registry outage.
+zot_cve_enabled: true
