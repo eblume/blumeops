@@ -41,7 +41,7 @@ let
     # (pi-coding-agent pins its own pi-* copies), which npm then can't
     # resolve offline.
     npmDepsFetcherVersion = 2;
-    npmDepsHash = "sha256-Tl3iKtXyy+K7yaH3jivctekoD0vjTsTMYx+VTw8G3m8=";
+    npmDepsHash = "sha256-lpcFgjzSIeZf2LiXp5Gdy6r0EX2uGwoPZ3IgFQZaNmM=";
     dontNpmBuild = true;
     npmFlags = [ "--ignore-scripts" ];
     installPhase = ''
