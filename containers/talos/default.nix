@@ -23,12 +23,12 @@ let
   lib = pkgs.lib;
 
   version = "0.2.4";
-  rev = "d5bf330d0ad0644b42ab008e3b352e4ca4c9726f";
+  rev = "22b066bb59ed3102482b8e60da23bf3b192e27f3";
 
   src = pkgs.fetchgit {
     url = "https://forge.eblu.me/eblume/talos.git";
     inherit rev;
-    hash = "sha256-Yg019wd+nXGZxZnj6l+A/Xcjdul3vadGjysBAQ6x+24=";
+    hash = "sha256-5etCYLRj0efbWOsskSWO1kyItD6+o8PDmgW+c1RUXzg=";
   };
 
   # npm resolves the same registry deps bun would; install scripts are
