@@ -57,6 +57,8 @@ spec:
               value: "google/gemini-3.7-flash"
             - name: TALOS_STT_HINTS
               value: "talos, blumeops, heph, Forgejo, ArgoCD, OpenRouter, ringtail, indri"
+            - name: TALOS_OIDC_INTERNAL_URL
+              value: "http://authentik.authentik.svc.cluster.local:9000"
             - name: TALOS_OIDC_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
