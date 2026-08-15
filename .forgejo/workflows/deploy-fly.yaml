@@ -57,6 +57,12 @@ jobs:
           flyctl deploy
 
       # Always show final state in the run log — this is the audit record.
+      # The health check is FATAL: strategy=immediate (fly.toml) tears down the
+      # old machine before the new one proves itself, so a machine that never
+      # comes up is a live outage — the run must not report success. Seen
+      # 2026-08-15 (run 957): expired TS_AUTHKEY crash-looped the new machine
+      # while the job passed. Retries cover the cold start (tailscaled →
+      # MagicDNS → nginx, ~30-60s).
       - name: Verify health
         if: always()
         env:
@@ -64,6 +70,14 @@ jobs:
         run: |
           flyctl status -a blumeops-proxy
           echo ""
-          echo "Health check:"
-          sleep 10
-          curl -sf https://blumeops-proxy.fly.dev/healthz || echo "Warning: health check failed (may need DNS propagation)"
+          echo "Health check (up to 120s for cold start):"
+          for _ in $(seq 1 12); do
+            if curl -sf https://blumeops-proxy.fly.dev/healthz; then
+              echo ""
+              echo "Proxy healthy."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Proxy not serving /healthz after deploy — machine likely failed to boot. First suspect: expired TS_AUTHKEY (90-day Tailscale key; see manage-flyio-proxy.md §Rotate Tailscale Auth Key). Check 'flyctl logs -a blumeops-proxy'."
+          exit 1
