@@ -34,7 +34,12 @@ spec:
         # ([[lesson_op_and_pvc_in_container]]).
         - name: fix-home-ownership
           image: registry.ops.eblu.me/blumeops/talos:kustomized
-          command: ["chown", "1500:1500", "/home/talos"]
+          command:
+            - bash
+            - -c
+            - |
+              mkdir -p /home/talos/workspace /home/talos/data
+              chown 1500:1500 /home/talos /home/talos/workspace /home/talos/data
           securityContext:
             runAsUser: 0
           volumeMounts:
