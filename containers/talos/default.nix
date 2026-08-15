@@ -156,7 +156,7 @@ exec printf "%%s" "$FORGEJO_TOKEN"
     # The eval-only nix store is pure cache (see default.nix) — sweep on size
     # so a warm store can't eat the PVC. All-or-nothing by design: no GC
     # roots ever exist, so rm is safe and the next eval simply re-fetches.
-    nix_state="${NIX_STATE_DIR:-$HOME/.local/state/nix}"
+    nix_state="''${NIX_STATE_DIR:-$HOME/.local/state/nix}"
     size_mb=$(du -sm "$nix_state" 2>/dev/null | cut -f1)
     if [ "''${size_mb:-0}" -gt "''${TALOS_NIX_STORE_MAX_MB:-6144}" ]; then
       echo "talos: nix eval store is ''${size_mb}MiB — sweeping" >&2
