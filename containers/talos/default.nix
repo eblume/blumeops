@@ -170,9 +170,23 @@ exec printf "%%s" "$FORGEJO_TOKEN"
   toolchain = with pkgs; [
     bash coreutils gnugrep gnused findutils
     git openssh jq curl ripgrep
-    _1password-cli tea heph
+    _1password-cli teaWrapper heph
     mise uv python3 gnutar gzip which
   ];
+
+  # tea, wrapped to route through the tag:agent SOCKS sidecar. tea only ever
+  # contacts the forge (forge.ops.eblu.me), which the pod can reach ONLY via
+  # the proxy, and tea (unlike git) has no per-URL proxy config — so send all
+  # of tea's traffic through the proxy. A GLOBAL proxy would be wrong (it'd
+  # break op↔1Password and the server↔OpenRouter, which must egress
+  # directly), hence a tea-specific wrapper. Shadows pkgs.tea on PATH
+  # (agent-ws precedent). Without it, `tea pr create` from the pod dies with
+  # "connection refused" (2026-08-15).
+  teaWrapper = pkgs.writeShellScriptBin "tea" ''
+    export HTTPS_PROXY="socks5h://localhost:1055"
+    export HTTP_PROXY="socks5h://localhost:1055"
+    exec ${pkgs.tea}/bin/tea "$@"
+  '';
 
   # Runtime libs for prebuilt dynamically-linked binaries (mise's rust),
   # resolved via the /lib64 loader symlink in extraCommands — the container
