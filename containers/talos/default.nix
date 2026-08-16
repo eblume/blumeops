@@ -22,7 +22,7 @@ let
   pkgs = import nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; };
   lib = pkgs.lib;
 
-  version = "0.2.9";
+  version = "0.2.10";
   rev = "65d972714ce7416888f550c2636ef9418a5b1a58";
 
   src = pkgs.fetchgit {
@@ -179,10 +179,28 @@ exec printf "%%s" "$FORGEJO_TOKEN"
     # Dynamic-loader path for prebuilt binaries (mise's rust); see ldLibs.
     export LD_LIBRARY_PATH="${lib.makeLibraryPath ldLibs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-    # nix's store lives at the canonical /nix/store on the container's
-    # writable layer, which is fresh at every pod start — nothing to sweep.
-    # Within a pod's life, build outputs are reclaimed by `nix store gc`
-    # (no GC roots exist in the pod; see default.nix).
+    # nix: register the store paths that ship in the image layers (see
+    # imageClosureInfo in default.nix). They arrive root-owned and
+    # unknown to the fresh store DB; left unregistered, any substitution
+    # whose closure overlaps one of them fails. Registration makes them
+    # valid inputs nix reuses; the GC roots keep `nix store gc` from
+    # reclaiming the toolchain.
+    nixRegistration=/nix/image-store-registration
+    if [ -r "$nixRegistration" ]; then
+      if nix-store --load-db < "$nixRegistration" 2>/dev/null; then
+        mkdir -p /nix/var/nix/gcroots/image
+        while read -r sp; do
+          ln -sfn "$sp" "/nix/var/nix/gcroots/image/''${sp##*/}"
+        done < /nix/image-store-paths
+      else
+        echo "talos: warning: image store registration failed (nix builds may collide with image paths)" >&2
+      fi
+    fi
+
+    # The store lives at the canonical /nix/store on the container's
+    # writable layer, fresh at every pod start. Within a pod's life, build
+    # outputs are reclaimed by `nix store gc`; the image's own paths are
+    # gcrooted above and survive it.
 
     exec ${pkgs.bun}/bin/bun run /app/src/server.ts
   '';
@@ -228,9 +246,12 @@ exec printf "%%s" "$FORGEJO_TOKEN"
   ldLibs = with pkgs; [ glibc stdenv.cc.cc.lib zlib ];
 
   # ── nix, real builds in the pod ──────────────────────────────────────────
-  # /nix/store and /nix/var are chowned to uid 1500 in the image (see
-  # fakeRootCommands below), so nix builds against the canonical store and
-  # substitutes from cache.nixos.org. sandbox = false because seccomp refuses
+  # /nix/store and /nix/var/nix are created and chowned to uid 1500 in the
+  # image (see fakeRootCommands below), so nix builds against the canonical
+  # store and substitutes from cache.nixos.org. The store paths that ship in
+  # the image are additionally registered into the pod's store DB at startup
+  # (see imageClosureInfo) — unregistered, they collide with any
+  # substitution that overlaps them. sandbox = false because seccomp refuses
   # CLONE_NEWUSER; the pod's existing fences are the boundary. Full argument:
   # [[agent-containerization]] §"Nix in the pod".
   nixConfDir = pkgs.writeTextDir "nix.conf" ''
@@ -250,12 +271,26 @@ exec printf "%%s" "$FORGEJO_TOKEN"
       'talos:x:1500:1500::/home/talos:${pkgs.bash}/bin/bash' > $out/etc/passwd
     printf '%s\n' 'root:x:0:' 'talos:x:1500:' > $out/etc/group
   '';
+  # Everything that ships in the image's store. Named so the registration
+  # below covers exactly this closure.
+  imageContents = [ pkgs.bun app etcFiles entrypoint pkgs.dockerTools.caCertificates ] ++ toolchain;
+
+  # The image's store paths come from read-only, root-owned image layers
+  # (a fakeRoot layer cannot re-own files already in lower layers) and the
+  # pod's store DB is fresh at every start. Unregistered, they collide with
+  # any substitution whose closure overlaps them: nix must delete-and-replace
+  # the incumbent path, and root ownership refuses. So bake closureInfo's
+  # registration dump (built where the paths exist, authoritative NAR hashes
+  # and references) and let the entrypoint load it. Registered paths are
+  # also REUSED, not re-downloaded.
+  imageClosureInfo = pkgs.closureInfo { rootPaths = imageContents; };
+
 in
 pkgs.dockerTools.buildLayeredImage {
   name = "blumeops/talos";
   tag = "v${version}";
 
-  contents = [ pkgs.bun app etcFiles entrypoint pkgs.dockerTools.caCertificates ] ++ toolchain;
+  contents = imageContents;
 
   # Non-FHS fixups (agent-ws precedent): /usr/bin/env because every
   # mise-tasks script uses a `#!/usr/bin/env -S …` shebang and the kernel
@@ -267,11 +302,23 @@ pkgs.dockerTools.buildLayeredImage {
     ln -s ${pkgs.glibc}/lib/ld-linux-x86-64.so.2 lib64/ld-linux-x86-64.so.2
     ln -s ${pkgs.coreutils}/bin/env usr/bin/env
     chmod 1777 tmp
+    # Store-registration inputs for the entrypoint (see
+    # imageClosureInfo).
+    mkdir -p nix
+    cp ${imageClosureInfo}/store-paths nix/image-store-paths
+    cp ${imageClosureInfo}/registration nix/image-store-registration
   '';
 
-  # Make the canonical store writable by uid 1500 without hiding lower-layer content.
+  # Make the canonical store writable by uid 1500 without hiding lower-layer
+  # content. Only the top-level directories receive the chown — a fakeRoot
+  # layer cannot re-own files already in lower layers, so the image's store
+  # paths stay root-owned. That is fine (store paths are immutable; builds
+  # only need to CREATE paths), but it is why they must be registered rather
+  # than left for nix to delete-and-replace (see imageClosureInfo).
+  # nix/var/nix must exist or nix falls back to a chroot store that cannot
+  # build at all.
   fakeRootCommands = ''
-    mkdir -p nix/store nix/var
+    mkdir -p nix/store nix/var/nix
     chown -R 1500:1500 nix
   '';
 
