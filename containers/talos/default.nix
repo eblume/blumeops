@@ -22,13 +22,13 @@ let
   pkgs = import nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; };
   lib = pkgs.lib;
 
-  version = "0.2.8";
-  rev = "3995a5a0336423e49120a968d0b6bdada2e57088";
+  version = "0.2.9";
+  rev = "65d972714ce7416888f550c2636ef9418a5b1a58";
 
   src = pkgs.fetchgit {
     url = "https://forge.eblu.me/eblume/talos.git";
     inherit rev;
-    hash = "sha256-7ar2CshHyP09BjQidh2tsGaHKk06hMpztfDxtrIl5oA=";
+    hash = "sha256-bCDkre5c6/tz6nmJZyEuYBYkcdbZZEy+R0cBllcCYY8=";
   };
 
   # npm resolves the same registry deps bun would; install scripts are
@@ -147,6 +147,32 @@ exec printf "%%s" "$FORGEJO_TOKEN"
       clone_repo "$r" || echo "talos: clone $r failed (continuing)" >&2
     done
 
+    # Base pi assets from the agents repo (agents AGENTS.md §"Model tiers
+    # & cost discipline"): the
+    # subagent definitions and the (vendored) subagent extension that lets
+    # session models delegate bounded work to cheaper child models. The pool
+    # checkout is the source of truth — symlink, don't copy, so a pool fetch
+    # refreshes them. Hand-tuned pods keep any real (non-symlink) dirs.
+    agents_pi="$code/agents/pi"
+    if [ -d "$agents_pi" ]; then
+      install -d -m 700 "$HOME/.pi/agent" "$HOME/.pi/agent/bin"
+      for d in agents extensions; do
+        [ -d "$agents_pi/$d" ] || continue
+        dst="$HOME/.pi/agent/$d"
+        if [ -L "$dst" ]; then ln -sfn "$agents_pi/$d" "$dst"
+        elif [ ! -e "$dst" ]; then ln -s "$agents_pi/$d" "$dst"; fi
+      done
+      # pi CLI wrapper for subagent child processes. node_modules/.bin/pi
+      # carries a nodejs shebang the image doesn't ship; bun runs the CLI
+      # entry point directly.
+      printf '#!/bin/sh\nexec ${pkgs.bun}/bin/bun /app/node_modules/@earendil-works/pi-coding-agent/dist/cli.js "$@"\n' \
+        > "$HOME/.pi/agent/bin/pi"
+      chmod 700 "$HOME/.pi/agent/bin/pi"
+    fi
+    # The server process's PATH is fixed at image build and has no pi on
+    # it; the subagent extension resolves its child through PI_BIN.
+    export PI_BIN="$HOME/.pi/agent/bin/pi"
+
     # The workspace's mise.toml/mise-tasks are trusted without a prompt —
     # there is no terminal in this pod to answer one.
     export MISE_TRUSTED_CONFIG_PATHS="$code"
@@ -178,6 +204,7 @@ exec printf "%%s" "$FORGEJO_TOKEN"
     git openssh jq curl ripgrep
     _1password-cli teaWrapper heph
     mise uv python3 gnutar gzip which
+    diffutils gawk hostname
     nix
   ];
 
