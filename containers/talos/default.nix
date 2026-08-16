@@ -153,15 +153,10 @@ exec printf "%%s" "$FORGEJO_TOKEN"
     # Dynamic-loader path for prebuilt binaries (mise's rust); see ldLibs.
     export LD_LIBRARY_PATH="${lib.makeLibraryPath ldLibs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-    # The eval-only nix store is pure cache (see default.nix) — sweep on size
-    # so a warm store can't eat the PVC. All-or-nothing by design: no GC
-    # roots ever exist, so rm is safe and the next eval simply re-fetches.
-    nix_state="''${NIX_STATE_DIR:-$HOME/.local/state/nix}"
-    size_mb=$(du -sm "$nix_state" 2>/dev/null | cut -f1)
-    if [ "''${size_mb:-0}" -gt "''${TALOS_NIX_STORE_MAX_MB:-6144}" ]; then
-      echo "talos: nix eval store is ''${size_mb}MiB — sweeping" >&2
-      rm -rf "$nix_state" || true
-    fi
+    # nix's store lives at the canonical /nix/store on the container's
+    # writable layer, which is fresh at every pod start — nothing to sweep.
+    # Within a pod's life, build outputs are reclaimed by `nix store gc`
+    # (no GC roots exist in the pod; see default.nix).
 
     exec ${pkgs.bun}/bin/bun run /app/src/server.ts
   '';
@@ -205,36 +200,16 @@ exec printf "%%s" "$FORGEJO_TOKEN"
   # analogue of nix-ld (agent-ws precedent).
   ldLibs = with pkgs; [ glibc stdenv.cc.cc.lib zlib ];
 
-  # ── nix, deliberately eval-only (agent-ws precedent) ─────────────────────
-  # The pod cannot run a real nix build and is not meant to: uid 1500 cannot
-  # write the image's root-owned /nix/store (and there is no /nix/var at
-  # all), and the RuntimeDefault seccomp profile refuses CLONE_NEWUSER — so
-  # no build sandbox, and no local chroot store either. See
-  # [[agent-containerization]] §"Nix in the pod" for the full argument.
-  #
-  # What works is a store relocated into $HOME (on the PVC): evaluation plus
-  # the evaluator-side fetchers (builtins.fetchTarball / fetchGit,
-  # nix-prefetch-url), none of which runs a builder. That buys the pod the
-  # ability to COMPUTE srcHash/npmDepsHash values for image bumps instead of
-  # committing guesses and burning warrant-approved Build Container rounds to
-  # discover them from hash-mismatch errors.
-  #
-  # max-jobs = 0: relocating store-dir rewrites every store path's hash, so
-  # cache.nixos.org can never answer for this store — a `nix-build` here
-  # would compile the world from source inside the pod's cgroup. That turns
-  # it into an immediate error instead of an hours-long surprise (foot-gun
-  # guard, not boundary; the boundary is that nothing this store produces can
-  # reach ringtail).
-  #
-  # The store is pure cache (no GC roots are ever created), swept on size by
-  # the entrypoint before the server starts.
-  nixStateDir = "/home/talos/.local/state/nix";
+  # ── nix, real builds in the pod ──────────────────────────────────────────
+  # /nix/store and /nix/var are chowned to uid 1500 in the image (see
+  # fakeRootCommands below), so nix builds against the canonical store and
+  # substitutes from cache.nixos.org. sandbox = false because seccomp refuses
+  # CLONE_NEWUSER; the pod's existing fences are the boundary. Full argument:
+  # [[agent-containerization]] §"Nix in the pod".
   nixConfDir = pkgs.writeTextDir "nix.conf" ''
     experimental-features = nix-command flakes
-    # Nothing in a relocated store can be substituted; asking is pure latency.
-    substituters =
-    # Eval and fetch, never build. Override per-invocation if you truly mean it.
-    max-jobs = 0
+    # Matches the Deployment's CPU limit so a build cannot out-eat the node.
+    max-jobs = 2
     # No CLONE_NEWUSER in this pod — nix could not set the sandbox up anyway.
     sandbox = false
     warn-dirty = false
@@ -267,18 +242,20 @@ pkgs.dockerTools.buildLayeredImage {
     chmod 1777 tmp
   '';
 
+  # Make the canonical store writable by uid 1500 without hiding lower-layer content.
+  fakeRootCommands = ''
+    mkdir -p nix/store nix/var
+    chown -R 1500:1500 nix
+  '';
+
   config = {
     Cmd = [ "${entrypoint}/bin/talos-entrypoint" ];
     Env = [
       "PATH=${lib.makeBinPath ([ pkgs.bun entrypoint ] ++ toolchain)}"
       "TALOS_HOST=0.0.0.0"
-      # nix's store relocated onto the PVC — the whole of what makes nix usable
-      # here (see the eval-only block above). Set in the image rather than the
-      # entrypoint on purpose: these must hold for every way into the
-      # container (kubectl exec included). nix creates the dirs on first use.
-      "NIX_STORE_DIR=${nixStateDir}/store"
-      "NIX_STATE_DIR=${nixStateDir}/var/nix"
-      "NIX_LOG_DIR=${nixStateDir}/var/log/nix"
+      # nix config baked into the image (see the nix block above). Set here
+      # rather than in the entrypoint so it holds for every way into the
+      # container (kubectl exec included).
       "NIX_CONF_DIR=${nixConfDir}"
       # nix's fetchers speak TLS to the forge/GitHub — point them at a bundle.
       "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"

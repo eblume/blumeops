@@ -291,7 +291,7 @@ outbound-only relay) is the risk the spike flagged. It must be proven with a
 deploy-and-drive loop on the box before the host-user service is retired — the
 one step that can't be desk-checked. Steps 1–3 are safe to land ahead of it.
 
-## Nix in the pod: eval, never build
+## Nix in the pod: eval, fetch, and build
 
 Containerization dropped a capability nobody had listed as one. On the shared
 host the agent could reach `nix` at `/run/current-system/sw/bin` even though its
@@ -299,64 +299,83 @@ curated PATH omitted it, and used it for two things: proving that a change to
 `nixos/ringtail/` or a `containers/*/default.nix` **evaluates**, and
 `nix-prefetch-url --unpack` for a real hash — instead of committing
 `lib.fakeSha256` and burning Build Container rounds to discover one. In the pod
-there is no `nix` at all, so Nix changes now reach a human unverified. PR #510
+there was no `nix` at all, so Nix changes reached a human unverified. PR #510
 is the canonical example: a two-line NixOS edit whose *syntax* was never
 machine-checked, flagged as such in its own description.
 
-The pod cannot simply be given a working `nix`, for two independent reasons,
-both measured from inside it:
+The first restoration was eval-only; this section describes where it landed,
+because the constraints that shaped it are still load-bearing.
 
-- **The store is unwritable.** `/nix` and `/nix/store` come from the image as
-  root-owned `0755`, there is no `/nix/var` at all, and the container runs as
-  uid 1500. Mounting a volume over `/nix` is not an out: the toolchain *is*
-  those store paths, so the mount would hide the binaries that implement the
-  container.
+Two facts about the pod bound the design:
+
+- **The image's store ships root-owned.** `/nix` and `/nix/store` come from
+  the image as root-owned `0755`, and the container runs as uid 1500 with
+  every capability dropped. Mounting a volume over `/nix` is not an out: the
+  toolchain *is* those store paths, so the mount would hide the binaries that
+  implement the container.
 - **There are no user namespaces.** `unshare -Ur` returns `EPERM` — not a
   kernel limit (`user.max_user_namespaces` is 127668) but the `RuntimeDefault`
   seccomp profile refusing `CLONE_NEWUSER`. That removes the build sandbox
-  *and* the local chroot store (`--store /path` needs `CAP_SYS_CHROOT`, and the
-  pod drops every capability).
+  *and* the local chroot store (`--store /path` needs `CAP_SYS_CHROOT`).
 
-So the image relocates the store into `$HOME` instead — `NIX_STORE_DIR`,
-`NIX_STATE_DIR` and `NIX_LOG_DIR` under `~/.local/state/nix`, on the PVC, set in
-the image's `config.Env` so they hold for every way into the container. That
-needs no root, no daemon, no namespace and no capability, and it is enough for
-evaluation and for the evaluator-side fetchers (`builtins.fetchTarball` /
-`fetchGit`, `nix-prefetch-url`), none of which runs a builder.
+### The eval-only phase
 
-It is **not** enough to build anything, and that is the point. A relocated
-`store-dir` rewrites every store path's hash, so `cache.nixos.org` can never
-answer for this store; a `nix-build` here would compile the world from source
-inside the agent's cgroup. The baked `nix.conf` sets `max-jobs = 0` so that
-fails immediately rather than after several hours — a foot-gun guard, not a
-boundary.
+The first design relocated the store into `$HOME` — `NIX_STORE_DIR`,
+`NIX_STATE_DIR` and `NIX_LOG_DIR` under `~/.local/state/nix`, on the PVC.
+That needs no root, no daemon, no namespace and no capability, and it was
+enough for evaluation and for the evaluator-side fetchers
+(`builtins.fetchTarball` / `fetchGit`, `nix-prefetch-url`), none of which runs
+a builder. It bought the pod the ability to COMPUTE srcHash/npmDepsHash values
+for image bumps instead of committing guesses.
+
+It could not build, because a relocated `store-dir` rewrites every store
+path's hash, so `cache.nixos.org` can never answer for it — a `nix-build`
+would have compiled the world from source inside the agent's cgroup. The baked
+`nix.conf` set `max-jobs = 0` so that failed immediately rather than after
+several hours: a foot-gun guard, not a boundary.
+
+### Real builds: a writable canonical store
+
+The eval-only phase was explicitly provisioned as "the next step if this
+proves too thin." The step taken was making the store writable in the image
+rather than relocated:
+
+- The image's top layer chowns `/nix/store` and adds `/nix/var` owned by uid
+  1500 (`fakeRootCommands` in `containers/talos/default.nix`). A top layer's
+  directory entry takes ownership of the merged path without hiding any
+  lower-layer content, so the toolchain stays visible and the store becomes
+  writable.
+- With the store at its canonical path, store-path hashes are unchanged, so
+  `cache.nixos.org` substitutes. Builds fetch; they do not compile the world.
+- The relocation env vars left the image `Env`; only `NIX_CONF_DIR` stays.
+
+The sandbox is still off — seccomp forbids it — so build scripts run
+unsandboxed as uid 1500. That is accepted because the pod is already the
+fence: no host mounts beyond the heph socket dir, NetworkPolicy, and an
+agents-vault-only `op`. A build's reach is the same class as any `bun`/`uv`/
+`mise` execution the pod already runs.
 
 ### Keeping it bounded
 
-The store is **pure cache** — nothing in the pod runs `nix-build -o result`, and
-an instantiate's temp roots die with the process, so no GC root is ever created.
-Two consequences. A sweep is all-or-nothing (it empties the store; the next eval
-re-fetches nixpkgs, a minute or two), and *time* is the wrong trigger, because a
-clock keeps discarding a warm store somebody is still using. So `agent-ws-workspace
-gc` sweeps on **size** instead: above 6 GiB (`AGENT_WS_NIX_STORE_MAX_MB`) it runs
-`nix-collect-garbage` and clears `~/.cache/nix`, which the collector does not
-touch and where flake inputs accumulate as a bare git repo. That threshold holds
-a working set of two or three unpacked nixpkgs trees — every container's
-self-pinned `fetchTarball` is another ~600 MiB — while keeping `$HOME` inside the
-PVC's declared 20 Gi, which the local-path provisioner does not enforce for us.
+- **CPU / jobs.** `nix.conf` sets `max-jobs = 2`, matching the Deployment's
+  CPU limit, so a build cannot out-eat the node the homelab runs on.
+- **Disk.** Build outputs accumulate on the container's writable layer. The
+  Deployment sets an `ephemeral-storage` limit so a build spree evicts the
+  pod instead of filling the node's disk; the layer is wiped on every pod
+  restart regardless.
+- **GC.** No GC roots exist in the pod (nothing runs `nix-build -o result`
+  persistently, and instantiate's temp roots die with the process), so
+  `nix store gc` reclaims everything built. Image-shipped paths are unknown
+  to the fresh store DB after a restart, so gc cannot touch the toolchain.
 
-It rides the existing `gc` verb rather than a CronJob or a timer: the PVC is RWO
-and the Deployment is `Recreate` precisely to keep a second writer off it, and
-`gc` already runs at pod boot and at every session start — often enough for a
-cache that grows by the eval.
+### The boundary is unchanged
 
-The boundary is elsewhere, and worth stating because "let the agent run nix"
-*sounds* like it touches it. Nothing this store produces can reach ringtail:
-the host's `/nix` is not mounted into the pod (the only hostPath is the heph
-socket dir), there is no remote builder to push to, and `provision-ringtail.yaml`
-is `class: deny` in [[warrant-approval-gated-runs|warrant-policy]] regardless.
-Two rejected designs are worth recording, since both would have traded that
-boundary for convenience:
+Worth stating because "let the agent run nix builds" *sounds* like it touches
+it. Nothing this store produces can reach ringtail: the host's `/nix` is not
+mounted into the pod (the only hostPath is the heph socket dir), there is no
+remote builder to push to, and `provision-ringtail.yaml` is `class: deny` in
+[[warrant-approval-gated-runs|warrant-policy]] regardless. Two rejected
+designs remain rejected — this change took neither path:
 
 - **`seccompProfile: Unconfined`** to unlock user namespaces and get a real
   sandboxed build. This weakens a live syscall fence to gain a build cache;
@@ -367,12 +386,6 @@ boundary for convenience:
   agent arbitrary code execution on `nix-container-builder` — which holds
   registry credentials — which is precisely the lateral path [[warrant]]
   exists to close.
-
-If eval-only proves too thin, the next step is *not* either of those: it is
-making `/nix/store` agent-writable in the image and seeding a store DB from
-`closureInfo`, which grants the pod nothing it does not already have (its own
-container filesystem) but does need `ephemeral-storage` limits, GC settings and
-a `max-jobs`/`cores` cap so a build cannot starve the node the homelab runs on.
 
 ## Related
 
