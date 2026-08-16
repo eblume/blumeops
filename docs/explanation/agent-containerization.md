@@ -340,11 +340,24 @@ The eval-only phase was explicitly provisioned as "the next step if this
 proves too thin." The step taken was making the store writable in the image
 rather than relocated:
 
-- The image's top layer chowns `/nix/store` and adds `/nix/var` owned by uid
+- The image's top layer creates `/nix/store` and `/nix/var/nix` owned by uid
   1500 (`fakeRootCommands` in `containers/talos/default.nix`). A top layer's
   directory entry takes ownership of the merged path without hiding any
   lower-layer content, so the toolchain stays visible and the store becomes
-  writable.
+  writable. (`/nix/var/nix` must exist before first use: without it nix
+  falls back to a chroot store that cannot build.) The lower-layer store
+  paths themselves stay root-owned — a fakeRoot layer cannot re-own files
+  already in lower layers. That is harmless for building (store paths are
+  immutable; builds only need to create new paths), but it drives the next
+  bullet.
+- The image bakes `closureInfo`'s registration dump of its own store
+  paths, and the entrypoint loads it into the pod's fresh store DB
+  (`nix-store --load-db`) and gcroots them. Without registration the root-owned image paths are
+  invalid-but-present, and any substitution whose closure overlaps one of
+  them fails: nix tries to delete-and-replace the incumbent and cannot. With
+  it, overlapping paths are reused outright — a `hello` build fetches tens of
+  KiB instead of its whole closure — and `nix store gc` can no longer claim
+  the toolchain as garbage.
 - With the store at its canonical path, store-path hashes are unchanged, so
   `cache.nixos.org` substitutes. Builds fetch; they do not compile the world.
 - The relocation env vars left the image `Env`; only `NIX_CONF_DIR` stays.
@@ -363,10 +376,11 @@ agents-vault-only `op`. A build's reach is the same class as any `bun`/`uv`/
   Deployment sets an `ephemeral-storage` limit so a build spree evicts the
   pod instead of filling the node's disk; the layer is wiped on every pod
   restart regardless.
-- **GC.** No GC roots exist in the pod (nothing runs `nix-build -o result`
-  persistently, and instantiate's temp roots die with the process), so
-  `nix store gc` reclaims everything built. Image-shipped paths are unknown
-  to the fresh store DB after a restart, so gc cannot touch the toolchain.
+- **GC.** No persistent GC roots exist for anything the agent builds
+  (nothing runs `nix-build -o result` persistently, and instantiate's temp
+  roots die with the process), so `nix store gc` reclaims build outputs. The
+  image's own store paths are registered and gcrooted by the entrypoint, so
+  gc leaves the toolchain alone.
 
 ### The boundary is unchanged
 
