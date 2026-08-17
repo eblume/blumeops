@@ -60,7 +60,12 @@ spec:
             - name: TALOS_PUBLIC_URL
               value: "https://talos.ops.eblu.me"
             - name: TALOS_MODEL
-              value: "qwen/qwen3.8-max"
+              # 27B over max: ~4.4x cheaper input ($0.45/M vs $2/M), ~2x
+              # cheaper output, and Willison's review found it excellent for
+              # coding-agent loops once reasoning effort is kept low. The
+              # server synthesizes the catalog entry from OpenRouter's live
+              # listing (it postdates pi-ai's shipped catalog).
+              value: "qwen/qwen3.8-27b"
             - name: TALOS_STT_MODEL
               value: "google/gemini-3.7-flash"
             - name: TALOS_STT_HINTS
