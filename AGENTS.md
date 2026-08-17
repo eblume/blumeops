@@ -45,12 +45,16 @@ need to confirm through biometric approval.
    ansible-core and flyctl into the pod, so those are present inside
    `mise run`. Vault- and route-blocked tasks need no guard: `op` and `ssh`
    already fail legibly on their own.
-4. **Run the lint gate before pushing.** `mise run agent-lint` runs the
-   PR prek job's hook set locally (everything except prettier — a node hook,
-   and the agent pod ships no node). Agent PR checks sit pending until a
-   human clicks approve-and-run, so a lint failure is discovered late and
-   costs a review round; `container-version-check` mismatches in particular
-   are cheap to catch locally.
+4. **The lint gate runs automatically.** The pod's entrypoint installs
+   prek git hooks (pre-commit + pre-push) into every pool clone that carries
+   a `prek.toml`, and session worktrees inherit them — so commits and pushes
+   of blumeops already run the PR prek job's hook set (everything except
+   prettier — a node hook, and the agent pod ships no node) before anything
+   leaves the pod. Bypass deliberately with `git commit/push --no-verify`.
+   `mise run agent-lint` is the same gate on demand. Agent PR checks sit
+   pending until a human clicks approve-and-run, so a lint failure caught
+   late costs a review round; `container-version-check` mismatches in
+   particular are cheap to catch locally.
 5. **Add changelog fragments (all change levels)** - `docs/changelog.d/<name>.<type>.md`
     Types: `feature`, `bugfix`, `infra`, `doc`, `ai`, `misc`
     - **Feature branch/PR** Use branch name: `<branch>.<type>.md`

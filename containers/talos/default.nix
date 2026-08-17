@@ -22,7 +22,7 @@ let
   pkgs = import nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; };
   lib = pkgs.lib;
 
-  version = "0.2.10";
+  version = "0.2.11";
   rev = "65d972714ce7416888f550c2636ef9418a5b1a58";
 
   src = pkgs.fetchgit {
@@ -134,6 +134,35 @@ exec printf "%%s" "$FORGEJO_TOKEN"
       git -C "$dest" fetch --quiet --all --prune || true
     }
 
+    # Lint gate: in every pool repo that carries a prek.toml, install
+    # pre-commit/pre-push hooks running the CI hook set. Agent PR checks sit
+    # pending until a human approval click, so a lint failure found in CI
+    # costs a review round; the hooks catch it at commit/push time instead.
+    # The pool's hooks dir is the common git dir, so every session worktree
+    # of the repo inherits them. The hooks resolve prek through mise at run
+    # time — nothing extra baked into the image. git --no-verify bypasses.
+    install_prek_hooks() {
+      dest="$code/$1"
+      [ -f "$dest/prek.toml" ] || return 0
+      hooks="$(git -C "$dest" rev-parse --git-common-dir)/hooks"
+      case "$hooks" in /*) : ;; *) hooks="$dest/$hooks" ;; esac
+      mkdir -p "$hooks"
+      printf '%s\n' \
+        '#!/bin/sh' \
+        '# Installed by the talos entrypoint (containers/talos/default.nix).' \
+        '# prek on the staged changes; bypass with git commit --no-verify.' \
+        'exec mise exec -- prek run' > "$hooks/pre-commit"
+      chmod 755 "$hooks/pre-commit"
+      printf '%s\n' \
+        '#!/bin/sh' \
+        '# Installed by the talos entrypoint (containers/talos/default.nix).' \
+        '# The CI lint gate, locally; bypass with git push --no-verify.' \
+        '# prettier is a node hook and the pod ships no node — CI keeps it.' \
+        'export SKIP="''${SKIP:+$SKIP,}prettier"' \
+        'exec mise exec -- prek run --all-files' > "$hooks/pre-push"
+      chmod 755 "$hooks/pre-push"
+    }
+
     echo "talos: waiting for the tag:agent SOCKS proxy…" >&2
     for _ in $(seq 1 45); do
       curl -sf --max-time 4 -x socks5h://localhost:1055 https://forge.ops.eblu.me/ -o /dev/null 2>/dev/null && break
@@ -145,6 +174,13 @@ exec printf "%%s" "$FORGEJO_TOKEN"
     done
     for r in ${lib.escapeShellArgs canonicalRepos}; do
       clone_repo "$r" || echo "talos: clone $r failed (continuing)" >&2
+    done
+
+    for r in ${lib.escapeShellArgs forkRepos}; do
+      install_prek_hooks "$r" || echo "talos: hooks for $r failed (continuing)" >&2
+    done
+    for r in ${lib.escapeShellArgs canonicalRepos}; do
+      install_prek_hooks "$r" || echo "talos: hooks for $r failed (continuing)" >&2
     done
 
     # Base pi assets from the agents repo (agents AGENTS.md §"Model tiers
