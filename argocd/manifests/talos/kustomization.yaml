@@ -18,4 +18,4 @@ resources:
 # container-release flow; bump here after each release.
 images:
   - name: registry.ops.eblu.me/blumeops/talos
-    newTag: v0.2.10-b9c2cb3-nix
+    newTag: v0.2.11-8fe10b5-nix
