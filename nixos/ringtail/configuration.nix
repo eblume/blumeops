@@ -16,6 +16,7 @@ in
     ./factorio.nix
     ./heph-eblume.nix
     ./myeve-heph-sync.nix
+    ./skagit-cce-watch.nix
   ];
 
   # Allow unfree packages (NVIDIA drivers, Steam)
