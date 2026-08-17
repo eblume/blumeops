@@ -45,7 +45,13 @@ need to confirm through biometric approval.
    ansible-core and flyctl into the pod, so those are present inside
    `mise run`. Vault- and route-blocked tasks need no guard: `op` and `ssh`
    already fail legibly on their own.
-4. **Add changelog fragments (all change levels)** - `docs/changelog.d/<name>.<type>.md`
+4. **Run the lint gate before pushing.** `mise run agent-lint` runs the
+   PR prek job's hook set locally (everything except prettier — a node hook,
+   and the agent pod ships no node). Agent PR checks sit pending until a
+   human clicks approve-and-run, so a lint failure is discovered late and
+   costs a review round; `container-version-check` mismatches in particular
+   are cheap to catch locally.
+5. **Add changelog fragments (all change levels)** - `docs/changelog.d/<name>.<type>.md`
     Types: `feature`, `bugfix`, `infra`, `doc`, `ai`, `misc`
     - **Feature branch/PR** Use branch name: `<branch>.<type>.md`
     - **Direct to main:** Use orphan prefix: `+<descriptive-slug>.<type>.md` (avoids `main.*` collisions)
@@ -53,8 +59,8 @@ need to confirm through biometric approval.
       never `agent/foo.<type>.md`. Towncrier reads flat files only and skips
       subdirectories silently, so a nested fragment is simply lost.
       `mise run changelog-check` catches it, and **Docs Checks** runs on every PR.
-5. Create, use, and modify forgejo workflows to enforce PR validity.
-6. **Verify deployments** - `mise run agent-health` (Grafana alert state; works
+6. Create, use, and modify forgejo workflows to enforce PR validity.
+7. **Verify deployments** - `mise run agent-health` (Grafana alert state; works
    from anywhere). For anything alerts don't answer — restart counts, pod ages,
    whether last week's change moved the needle — `mise run agent-metrics
    '<promql>'` queries Prometheus through Grafana with the same credential.
