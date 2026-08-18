@@ -216,7 +216,7 @@ again.
 
 ### Skagit CCE Watch
 
-A daily timer (`nixos/ringtail/skagit-cce-watch.nix`) that watches the Skagit
+An hourly timer (`nixos/ringtail/skagit-cce-watch.nix`) that watches the Skagit
 Community & Continuing Education course catalog (a public ASPX category page)
 for a new ceramics class. Each listed class carries an "Item Number" — the
 canonical CCE class id — and the watch files a **red** heph task under the
@@ -226,7 +226,7 @@ appears, so it surfaces in Erich's agenda the moment the college lists it.
 | Property | Value |
 |----------|-------|
 | **Units** | `skagit-cce-watch.service` / `.timer` (**user** scope) |
-| **Schedule** | `OnCalendar=daily`, `RandomizedDelaySec=30m`, `Persistent=true` |
+| **Schedule** | `OnCalendar=hourly`, `RandomizedDelaySec=10m`, `Persistent=true` |
 | **Watch logic** | `nixos/ringtail/skagit-cce-watch.py` (stdlib-only, read via `builtins.readFile` and packaged by the module) |
 | **State** | `~/.local/state/skagit-cce-watch/state.json` — the set of known item numbers; a real dir under eblume's home so it survives rebuilds |
 | **Alert** | `heph task … --project Ceramics --attention red --do-date today` (+ source link in the task's context doc) |

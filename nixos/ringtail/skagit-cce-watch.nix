@@ -78,12 +78,14 @@ in
     unitConfig.ConditionUser = "eblume";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      # A course catalog refreshes on a human schedule, not a clock one; daily
-      # catches a new class within a day without hammering the site.
-      OnCalendar = "daily";
-      RandomizedDelaySec = "30m";   # do not fetch at the same instant daily
-      Persistent = true;            # catch up after the host has been off
-      AccuracySec = "10m";
+      # Erich wants a new ceramics class surfaced promptly, so this runs at
+      # least hourly rather than daily. One small GET an hour is negligible,
+      # and the jitter keeps the fetches from landing at the same instant.
+      # Persistent guarantees a catch-up tick after the host has been off.
+      OnCalendar = "hourly";
+      RandomizedDelaySec = "10m";
+      Persistent = true;
+      AccuracySec = "5m";
     };
   };
 }
