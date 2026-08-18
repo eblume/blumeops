@@ -1,0 +1,1 @@
+`mise run request-run`'s ntfy approval notification now goes through the `*.ops.eblu.me` client with the tailscale sidecar SOCKS fallback, so the notification actually reaches the tailnet when the task runs from an agent pod.
