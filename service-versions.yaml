@@ -598,7 +598,7 @@ services:
   - name: borgmatic
     type: ansible
     last-reviewed: 2026-04-15
-    current-version: "2.1.4"
+    current-version: "2.1.7"
     upstream-source: https://github.com/borgmatic-collective/borgmatic/releases
     notes: Installed via mise (pipx); version pinned in ansible/roles/borgmatic/defaults/main.yml and mise.toml
 
@@ -675,21 +675,21 @@ services:
   - name: dagger
     type: mise
     last-reviewed: 2026-04-21
-    current-version: "0.20.6"
+    current-version: "0.21.8"
     upstream-source: https://github.com/dagger/dagger/releases
     notes: Dagger CI/CD engine; pinned in mise.toml
 
   - name: ansible-core
     type: mise
-    last-reviewed: 2026-04-12
-    current-version: "2.20.1"
+    last-reviewed: 2026-08-18
+    current-version: "2.21.3"
     upstream-source: https://github.com/ansible/ansible/releases
     notes: Installed via pipx/uvx with botocore and boto3
 
   - name: prek
     type: mise
     last-reviewed: 2026-04-12
-    current-version: "0.3.4"
+    current-version: "0.4.14"
     upstream-source: https://github.com/j178/prek/releases
     notes: Pre-commit hook runner (Rust reimplementation)
 
@@ -703,21 +703,21 @@ services:
   - name: pulumi-cli
     type: mise
     last-reviewed: 2026-04-12
-    current-version: "3.215.0"
+    current-version: "3.258.0"
     upstream-source: https://github.com/pulumi/pulumi/releases
     notes: IaC CLI for tailscale and gandi stacks
 
   - name: ty
     type: mise
     last-reviewed: 2026-04-12
-    current-version: "0.0.29"
+    current-version: "0.0.72"
     upstream-source: https://github.com/astral-sh/ty/releases
     notes: Astral Python typechecker (beta); prek hook
 
   - name: flyctl
     type: mise
     last-reviewed: "2026-07-19"
-    current-version: "0.4.71"
+    current-version: "0.4.84"
     upstream-source: https://github.com/superfly/flyctl/releases
     notes: >-
       Fly.io CLI for fly-deploy. Pinned in mise.toml 2026-07-19 so deploys

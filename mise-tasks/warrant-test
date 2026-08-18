@@ -2,12 +2,12 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#   "pytest==8.4.2",
-#   "fastapi==0.121.2",
+#   "pytest==9.1.1",
+#   "fastapi==0.141.1",
 #   "httpx==0.28.1",
-#   "pyjwt==2.10.1",
-#   "cryptography==46.0.3",
-#   "python-multipart==0.0.20",
+#   "pyjwt==2.13.0",
+#   "cryptography==50.0.0",
+#   "python-multipart==0.0.32",
 #   "pyyaml==6.0.3",
 #   # request-run's own imports, so tests/ can load it
 #   "typer==0.27.1",
