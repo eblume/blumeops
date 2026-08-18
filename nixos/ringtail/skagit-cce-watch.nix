@@ -84,14 +84,15 @@ in
     unitConfig.ConditionUser = "eblume";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      # Erich wants a new ceramics class surfaced promptly, so this runs at
-      # least hourly rather than daily. One small GET an hour is negligible,
-      # and the jitter keeps the fetches from landing at the same instant.
+      # Erich wants a new ceramics class surfaced promptly, so this runs
+      # every 5 minutes. One small GET per tick is negligible, and the short
+      # jitter keeps the fetches from landing at the same instant without
+      # swallowing the cadence.
       # Persistent guarantees a catch-up tick after the host has been off.
-      OnCalendar = "hourly";
-      RandomizedDelaySec = "10m";
+      OnCalendar = "*:0/5";
+      RandomizedDelaySec = "30s";
       Persistent = true;
-      AccuracySec = "5m";
+      AccuracySec = "1m";
     };
   };
 }
