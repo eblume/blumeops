@@ -18,8 +18,6 @@ spec:
     server: https://kubernetes.default.svc
     namespace: torrent
   syncPolicy:
-    automated:
-      prune: false
-      selfHeal: false
+    automated: {}
     syncOptions:
       - CreateNamespace=true

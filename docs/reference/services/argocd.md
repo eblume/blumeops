@@ -1,6 +1,6 @@
 ---
 title: ArgoCD
-modified: 2026-08-08
+modified: 2026-08-18
 last-reviewed: 2026-06-09
 tags:
   - service
@@ -32,6 +32,8 @@ One ArgoCD instance on [[ringtail]]'s k3s, managing that cluster in-place — ev
 `selfHeal` is **off** everywhere: hand-applied drift is not reverted, and several resources are manual by design (`repo-creds-forge`, the `immich-db` Secret).
 
 `prune` is **on for the thirteen generator-backed apps below and off everywhere else**. Where it is off, removing a resource from git does not delete it from the cluster, and deletions stay a deliberate `argocd app sync --prune` — run from gilbert or through the `prune` input on the [[request-a-privileged-run|ArgoCD Deploy]] workflow.
+
+**Never spell the defaults** (`prune: false`, `selfHeal: false`) in an Application manifest. The application controller round-trips the Application spec through its Go structs — where both fields are `omitempty` — every time it initiates an automated sync, so explicit-false fields vanish from the live object the first time the app auto-syncs. The `apps` root then sees a field-level diff it can never reconcile and flaps `OutOfSync` (the 2026-08-18 `ArgoCDAppOutOfSync` episode: `talos` auto-synced during a release blitz and its live CR normalized to `automated: {}`). Write `automated: {}` for plain automated sync, and only add `prune: true` where intended.
 
 ### Orphan ConfigMaps from generators
 
