@@ -1,6 +1,7 @@
 ---
 title: Container Versioning and Tags
-modified: 2026-06-18
+modified: 2026-08-18
+last-reviewed: 2026-08-18
 tags:
   - how-to
   - containers
@@ -17,10 +18,11 @@ types and their `ARG CONTAINER_APP_VERSION` / `VERSION` conventions are gone.
 
 ## Version source
 
-Each container's version lives in `version = "..."` in its `default.nix`,
-asserted against the built package (e.g. `assert app.version == version;`). That
+Each container's version lives in `version = "..."` in its `default.nix`; that
 single declaration is the source of truth — no separate VERSION file or build
-ARG.
+ARG. Some derivations additionally guard it with an assertion against the built
+package (e.g. `assert app.version == version;`), but the `version` attribute is
+what the sync check reads.
 
 ## Sync check
 
@@ -33,8 +35,8 @@ ARG.
 
 It runs as a `prek.toml` hook scoped to `containers/` and `service-versions.yaml`
 — checking only changed containers by default (`--all-files` checks everything).
-The `kubectl` utility image is exempt; `kiwix-serve` → `kiwix` maps the dir name
-to its service name.
+The `kubectl` utility image and `agent-ws` are exempt; `kiwix-serve` → `kiwix`
+maps the dir name to its service name.
 
 ## Build and tag
 
