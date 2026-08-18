@@ -36,7 +36,7 @@ Internet → <service>.eblu.me
 A single Fly.io container serves as the public-facing proxy for all exposed
 services. Nginx routes all traffic through [[caddy]] on [[indri]] via a
 direct Tailscale WireGuard connection. Caddy already knows how to route
-to every service (native, minikube, or ringtail k3s), so adding a new
+to every service (native on indri or ringtail k3s), so adding a new
 public service only requires an nginx `server` block and a DNS CNAME.
 
 The `*.ops.eblu.me` routes continue to work in parallel for private tailnet

@@ -26,7 +26,7 @@ OIDC identity provider for BlumeOps. Authentik is the **source of truth** for us
 
 ## Architecture
 
-Authentik runs on [[ringtail]]'s k3s cluster, isolated from the main services on indri's minikube. This means the IdP is independent of the minikube cluster lifecycle.
+Authentik runs on [[ringtail]]'s k3s cluster alongside the other Kubernetes workloads. (It originally sat apart from indri's minikube so the IdP was independent of that cluster's lifecycle; minikube was retired 2026-06.)
 
 Three deployments:
 - **server** — HTTP/HTTPS interface, handles OIDC flows

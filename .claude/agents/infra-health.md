@@ -30,7 +30,7 @@ If there are failures, group them by category:
 Do NOT attempt to fix anything. Report findings only.
 
 Context:
-- Services run across indri (Mac Mini, native + minikube), ringtail (NixOS, k3s), and Fly.io
-- Use `--context=minikube-indri` for indri k8s commands, `--context=k3s-ringtail` for ringtail
+- Services run across indri (Mac Mini, native services), ringtail (NixOS, k3s — all Kubernetes workloads), and Fly.io
+- Use `--context=k3s-ringtail` for all k8s commands (the minikube cluster on indri was retired 2026-06)
 - HTTP endpoints are proxied through Caddy at `*.ops.eblu.me`
 - Public endpoints go through Fly.io at `*.eblu.me`

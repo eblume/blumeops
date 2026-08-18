@@ -107,7 +107,7 @@ included) commonly fail on WPA3/PMF/5GHz.
 
 ## Monitoring
 
-UniFi metrics are exported to Prometheus via [UnPoller](https://github.com/unpoller/unpoller), running as a k8s deployment in the `monitoring` namespace on indri's minikube (`argocd/manifests/unpoller/`, locally-built image `registry.ops.eblu.me/blumeops/unpoller`). UnPoller polls the UX7 controller API using an API key and exposes metrics on port 9130.
+UniFi metrics are exported to Prometheus via [UnPoller](https://github.com/unpoller/unpoller), running as a k8s deployment in the `monitoring` namespace on ringtail's k3s (`argocd/manifests/unpoller-ringtail/`, locally-built image `registry.ops.eblu.me/blumeops/unpoller`). UnPoller polls the UX7 controller API using an API key and exposes metrics on port 9130.
 
 - **Prometheus job:** `unpoller`
 - **Metrics prefix:** `unifi_`

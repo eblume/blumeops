@@ -1,0 +1,1 @@
+Sweep the last current-tense `minikube-indri` references out of the docs: troubleshooting, prowler, docs-deploy, tutorials, service reference cards, the infra-health agent brief, and the live 1password-connect bootstrap README now all point at `k3s-ringtail` (minikube was retired 2026-06; historical runbooks and provenance comments are left as history).

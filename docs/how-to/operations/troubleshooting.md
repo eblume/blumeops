@@ -1,7 +1,7 @@
 ---
 title: Troubleshooting
-modified: 2026-03-16
-last-reviewed: 2026-03-16
+modified: 2026-08-17
+last-reviewed: 2026-08-17
 tags:
   - how-to
   - operations
@@ -21,24 +21,24 @@ mise run services-check
 
 This checks all services on indri and in Kubernetes.
 
-## Kubernetes Issues (Indri / Minikube)
+## Kubernetes Issues (Ringtail / k3s)
 
-Most services run on [[indri]]'s minikube. For [[ringtail]] (k3s) services, see the ringtail section below.
+All Kubernetes workloads run on [[ringtail]]'s single-node k3s cluster (the minikube cluster on indri was retired 2026-06, [[retire-minikube]]). Always pass `--context=k3s-ringtail` explicitly — a stale default context is the most common cause of "server not reachable" errors.
 
 ### Pod not starting
 
 ```bash
 # Check pod status
-kubectl --context=minikube-indri -n <namespace> get pods
+kubectl --context=k3s-ringtail -n <namespace> get pods
 
 # Describe pod for events
-kubectl --context=minikube-indri -n <namespace> describe pod <pod>
+kubectl --context=k3s-ringtail -n <namespace> describe pod <pod>
 
 # Check logs
-kubectl --context=minikube-indri -n <namespace> logs <pod>
+kubectl --context=k3s-ringtail -n <namespace> logs <pod>
 
 # Previous container logs (if restarting)
-kubectl --context=minikube-indri -n <namespace> logs <pod> --previous
+kubectl --context=k3s-ringtail -n <namespace> logs <pod> --previous
 ```
 
 Common causes:
@@ -66,8 +66,8 @@ argocd app sync <app> --prune
 **App stuck in "Syncing":**
 Check if there are failed hooks or jobs:
 ```bash
-kubectl --context=minikube-indri -n <namespace> get jobs
-kubectl --context=minikube-indri -n <namespace> get pods --field-selector=status.phase=Failed
+kubectl --context=k3s-ringtail -n <namespace> get jobs
+kubectl --context=k3s-ringtail -n <namespace> get pods --field-selector=status.phase=Failed
 ```
 
 **ArgoCD login expired:**
@@ -82,15 +82,20 @@ argocd login argocd.ops.eblu.me --username admin --password "$(op read 'op://vg6
 
 ### kubectl connection refused
 
+First check your context — the k3s API is `https://ringtail.tail8d86e.ts.net:6443`, reached only via `--context=k3s-ringtail`:
+
 ```bash
-# Check if minikube is running (on indri)
-ssh indri 'minikube status'
+# Is the cluster reachable at all?
+kubectl --context=k3s-ringtail get nodes
+
+# Is ringtail on the tailnet?
+tailscale ping ringtail
+
+# Is k3s running?
+ssh ringtail 'systemctl status k3s'
 
 # Restart if needed
-ssh indri 'minikube start'
-
-# Verify tailscale is serving the API
-ssh indri 'tailscale serve status --json'
+ssh ringtail 'sudo systemctl restart k3s'
 ```
 
 ## Indri Service Issues
@@ -196,7 +201,7 @@ ssh indri 'launchctl list | grep alloy'
 ssh indri 'tail -50 ~/Library/Logs/alloy/alloy.log'
 
 # K8s alloy (pod logs)
-kubectl --context=minikube-indri -n monitoring logs -l app=alloy
+kubectl --context=k3s-ringtail -n alloy logs -l app=alloy
 ```
 
 ## Database Issues
@@ -205,13 +210,13 @@ kubectl --context=minikube-indri -n monitoring logs -l app=alloy
 
 ```bash
 # Check CNPG cluster status
-kubectl --context=minikube-indri -n databases get cluster
+kubectl --context=k3s-ringtail -n databases get cluster
 
 # Check PostgreSQL pods
-kubectl --context=minikube-indri -n databases get pods -l cnpg.io/cluster=blumeops-pg
+kubectl --context=k3s-ringtail -n databases get pods -l cnpg.io/cluster=blumeops-pg
 
 # Connect to database
-kubectl --context=minikube-indri -n databases exec -it blumeops-pg-1 -- psql -U postgres
+kubectl --context=k3s-ringtail -n databases exec -it blumeops-pg-1 -- psql -U postgres
 ```
 
 ## Backup Issues
@@ -229,20 +234,7 @@ ssh indri 'borgmatic --verbosity 1'
 ssh indri 'tail -100 /opt/homebrew/var/log/borgmatic/borgmatic.log'
 ```
 
-## Kubernetes Issues (Ringtail / k3s)
-
-[[ringtail]] runs GPU workloads ([[frigate|Frigate]], [[ntfy]]) and [[authentik|Authentik]] on a single-node k3s cluster. The same debugging patterns apply, but use `--context=k3s-ringtail`:
-
-```bash
-# Check pod status
-kubectl --context=k3s-ringtail -n <namespace> get pods
-
-# Describe pod for events
-kubectl --context=k3s-ringtail -n <namespace> describe pod <pod>
-
-# Check logs
-kubectl --context=k3s-ringtail -n <namespace> logs <pod>
-```
+## Ringtail Host Issues
 
 ### Ringtail unreachable
 

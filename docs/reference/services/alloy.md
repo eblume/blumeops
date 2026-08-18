@@ -22,7 +22,7 @@ Unified observability collector for metrics and logs with three deployments:
 | **Indri Config** | `~/.config/grafana-alloy/config.alloy` |
 | **K8s Namespace** | `alloy` |
 | **K8s Image** | `registry.ops.eblu.me/blumeops/alloy:v1.16.0-9564435` (locally built) |
-| **ArgoCD App** | `alloy-k8s` |
+| **ArgoCD App** | `alloy-ringtail` |
 | **Fly.io Config** | `fly/alloy.river` |
 | **Fly.io Image** | `grafana/alloy:v1.16.1` (binary copied into nginx container, sha-pinned) |
 
@@ -30,7 +30,7 @@ Unified observability collector for metrics and logs with three deployments:
 
 ### From Indri
 - System metrics via `prometheus.exporter.unix`
-- Textfile collector: `minikube.prom`, `borgmatic.prom`, `zot.prom`, `jellyfin.prom`
+- Textfile collector: `borgmatic.prom`, `zot.prom`, `jellyfin.prom` (`minikube.prom` retired with the cluster)
 - Zot registry metrics from `http://localhost:5050/metrics`
 - Pushed to [[prometheus]] via remote_write
 
