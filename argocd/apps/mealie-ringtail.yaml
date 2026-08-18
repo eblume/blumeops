@@ -22,8 +22,6 @@ spec:
     server: https://kubernetes.default.svc
     namespace: mealie
   syncPolicy:
-    automated:
-      prune: false
-      selfHeal: false
+    automated: {}
     syncOptions:
       - CreateNamespace=true

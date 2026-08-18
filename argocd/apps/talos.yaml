@@ -25,8 +25,6 @@ spec:
     server: https://kubernetes.default.svc
     namespace: talos
   syncPolicy:
-    automated:
-      prune: false
-      selfHeal: false
+    automated: {}
     syncOptions:
       - CreateNamespace=true
