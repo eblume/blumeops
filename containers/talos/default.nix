@@ -22,7 +22,7 @@ let
   pkgs = import nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; };
   lib = pkgs.lib;
 
-  version = "0.4.0";
+  version = "0.4.1";
   rev = "52c8955d47b1d1c9645aa69159e15d0171355e26";
 
   src = pkgs.fetchgit {
