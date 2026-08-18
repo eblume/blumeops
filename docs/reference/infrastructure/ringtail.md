@@ -229,7 +229,7 @@ appears, so it surfaces in Erich's agenda the moment the college lists it.
 | **Schedule** | `OnCalendar=hourly`, `RandomizedDelaySec=10m`, `Persistent=true` |
 | **Watch logic** | `nixos/ringtail/skagit-cce-watch.py` (stdlib-only, read via `builtins.readFile` and packaged by the module) |
 | **State** | `~/.local/state/skagit-cce-watch/state.json` — the set of known item numbers; a real dir under eblume's home so it survives rebuilds |
-| **Alert** | `heph task … --project Ceramics --attention red --do-date today` (+ source link in the task's context doc) |
+| **Alert** | `heph task … --project Ceramics --attention red --do-date today` (+ source link in the task's context doc), **and** a best-effort ntfy push to `https://ntfy.ops.eblu.me/ceramics` (tapping the notification opens the course page) |
 | **Status / logs** | `systemctl --user status skagit-cce-watch.timer`, `journalctl --user -u skagit-cce-watch` |
 
 User scope for the same reason as the MyEVE sync above: it shells out to `heph`,
@@ -244,6 +244,16 @@ so an already-listed course does not wake Erich; a new non-ceramics class is
 recorded (so it is never alerted on) but files nothing. The ceramics match is a
 loose term net in the script (`CERAMICS`) — extend it there if the college
 starts using a name it does not cover.
+
+On a new ceramics class it also fires a **best-effort** ntfy push to the
+self-hosted ntfy (`ntfy.ops.eblu.me`, topic `ceramics`) so the alert reaches
+Erich's phone; the push carries `X-Click` so tapping it opens the course page.
+A push failure never fails the tick — the red task is the primary alert.
+Subscribing is client-side only: in the ntfy app add a subscription with
+server `https://ntfy.ops.eblu.me`, topic `ceramics` (nothing is configured
+server-side; a topic needs no backend setup). Knobs: `SKAGIT_CCE_NTFY_URL`,
+`SKAGIT_CCE_NTFY_TOPIC`, and optional `SKAGIT_CCE_NTFY_TOKEN` (sent as a Bearer
+token) if/when the ntfy gains auth.
 
 ## Pinned Service Versions
 

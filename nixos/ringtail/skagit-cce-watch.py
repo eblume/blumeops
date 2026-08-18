@@ -12,10 +12,12 @@ course id (course.aspx?C=) and section id (moreInfoDiv_N) are recorded too, as
 fallbacks / provenance.
 
 Alert policy: a new class whose title matches the ceramics pattern files a red
-task. A new class that is *not* ceramics is recorded (so we never alert on it
-again) but files nothing — the watch is specifically "look for a new ceramics
-class". First run establishes a baseline and files nothing, so an already-listed
-course does not wake Erich.
+task and fires a best-effort ntfy push (self-hosted ntfy.ops.eblu.me, topic
+"ceramics") so it also reaches Erich's phone. A new class that is *not*
+ceramics is recorded (so we never alert on it again) but files nothing — the
+watch is specifically "look for a new ceramics class". First run establishes a
+baseline and files nothing, so an already-listed course does not wake Erich.
+An ntfy failure never fails the tick: the red heph task is the primary alert.
 """
 
 import datetime
@@ -25,6 +27,7 @@ import re
 import subprocess
 import sys
 import urllib.request
+from urllib.parse import urlsplit
 
 URL = os.environ.get(
     "SKAGIT_CCE_URL", "https://www.campusce.net/skagit/course/course.aspx?catId=47"
@@ -36,6 +39,12 @@ STATE_DIR = os.environ.get(
 STATE_FILE = os.path.join(STATE_DIR, "state.json")
 PROJECT = os.environ.get("SKAGIT_CCE_PROJECT", "Ceramics")
 HEPH = os.environ.get("SKAGIT_CCE_HEPH", "heph")
+# Best-effort phone alert alongside the red task: a push to the self-hosted
+# ntfy. Open today (no token); the token knob exists so enabling auth later is
+# a config change, not a code change.
+NTFY_URL = os.environ.get("SKAGIT_CCE_NTFY_URL", "https://ntfy.ops.eblu.me")
+NTFY_TOPIC = os.environ.get("SKAGIT_CCE_NTFY_TOPIC", "ceramics")
+NTFY_TOKEN = os.environ.get("SKAGIT_CCE_NTFY_TOKEN", "")
 # A ceramics class under whatever name the college gives it. Extend as needed;
 # the title is short free text, so a loose term net is fine (a near-miss alert
 # is cheap, a missed ceramics class is the failure we are here to avoid).
@@ -72,7 +81,7 @@ def fetch(url):
 def parse_courses(html):
     entries = []
     for m in COURSE_RE.finditer(html):
-        course_id, _pc, title = m.groups()
+        course_id, pc, title = m.groups()
         window = html[m.end() : m.end() + WINDOW]
         im = ITEM_RE.search(window)
         sm = SECTION_RE.search(window)
@@ -83,6 +92,7 @@ def parse_courses(html):
                 "key": item_no or course_id,  # item number = the class id
                 "item_no": item_no,
                 "course_id": course_id,
+                "pc": pc,
                 "section_id": section_id,
                 "title": title.strip(),
             }
@@ -161,6 +171,40 @@ def file_red_task(entry):
     log(f"filed RED task node={node} title={title!r}")
 
 
+def course_url(e):
+    """The course page for an entry, on the same host and path as the
+    watched catalog, so a tapped notification opens exactly that class."""
+    p = urlsplit(URL)
+    return f"{p.scheme}://{p.netloc}{p.path}?C={e['course_id']}&pc={e['pc']}"
+
+
+def ntfy_push(e):
+    """Best-effort phone alert for a new ceramics class, fired alongside the
+    red heph task. Any failure is logged and swallowed: ntfy is a convenience,
+    the red task is the primary alert, and a down ntfy must not fail the tick.
+    """
+    headers = {
+        "X-Title": "New ceramics class",
+        # 5 = maximum; this is a "look now" alert, not background noise.
+        "X-Priority": "5",
+        # Tapping the notification opens the course page.
+        "X-Click": course_url(e),
+    }
+    if NTFY_TOKEN:
+        headers["Authorization"] = f"Bearer {NTFY_TOKEN}"
+    req = urllib.request.Request(
+        f"{NTFY_URL.rstrip('/')}/{NTFY_TOPIC}",
+        data=f"New ceramics class: {e['title']}  (item {e['key']})".encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            log(f"ntfy push sent (HTTP {r.status}) to {NTFY_URL}/{NTFY_TOPIC}")
+    except Exception as exc:  # noqa: BLE001 - best-effort by design
+        log(f"warning: ntfy push failed (red task still primary): {exc}")
+
+
 def main():
     try:
         html = fetch(URL)
@@ -217,6 +261,7 @@ def main():
         if CERAMICS.search(c["title"]):
             ensure_project()
             file_red_task(c)
+            ntfy_push(c)
         else:
             log(
                 f"new non-ceramics class recorded (no alert): "

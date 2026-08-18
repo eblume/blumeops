@@ -16,8 +16,10 @@
 #   * keyed on the Item Number (a class is new when its item number is unseen)
 #   * first run establishes a baseline and files nothing (no wake-up for a
 #     course that is already listed)
-#   * a new ceramics-looking class files a red task; a new non-ceramics class
-#     is recorded but files nothing
+#   * a new ceramics-looking class files a red task and a best-effort ntfy
+#     push (ntfy.ops.eblu.me, topic "ceramics") so it reaches the phone; a
+#     push failure never fails the tick; a new non-ceramics class is recorded
+#     but files nothing
 #   * a zero-course parse fails the tick and leaves state untouched, so a page
 #     or parse regression goes red in the journal instead of wiping the
 #     baseline or flooding alerts
@@ -43,6 +45,10 @@ let
     export PATH=${cargoBin}:$PATH
     export SKAGIT_CCE_STATE_DIR=${stateDir}
     export SKAGIT_CCE_PROJECT="Ceramics"
+    export SKAGIT_CCE_NTFY_URL="https://ntfy.ops.eblu.me"
+    export SKAGIT_CCE_NTFY_TOPIC="ceramics"
+    # ntfy is open today; if/when it gains auth, export the token here:
+    # export SKAGIT_CCE_NTFY_TOKEN="..."
     exec ${pkgs.python3}/bin/python3 ${watch}
   '';
 in
