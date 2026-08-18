@@ -17,7 +17,7 @@ This tutorial walks through deploying a new service to BlumeOps via ArgoCD, incl
 ## Prerequisites
 
 - Access to the [[tailscale|Tailscale]] network
-- `kubectl` configured with `minikube-indri` context
+- `kubectl` configured with the `k3s-ringtail` context
 - `argocd` CLI installed (via Brewfile: `brew bundle`)
 
 ## Overview
@@ -248,8 +248,8 @@ argocd app sync myservice
 ### Verify Deployment
 
 ```bash
-kubectl --context=minikube-indri -n myservice get pods
-kubectl --context=minikube-indri -n myservice logs -f deployment/myservice
+kubectl --context=k3s-ringtail -n myservice get pods
+kubectl --context=k3s-ringtail -n myservice logs -f deployment/myservice
 ```
 
 ### After PR Merge

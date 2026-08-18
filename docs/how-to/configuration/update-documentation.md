@@ -30,10 +30,13 @@ The `build-blumeops` workflow (`.forgejo/workflows/build-blumeops.yaml`):
 2. **Builds changelog** — Runs towncrier on the runner to update `CHANGELOG.md`
 3. **Builds docs** — Calls `dagger call build-docs` (Quartz build in a container)
 4. **Creates release** — Uploads `docs-<version>.tar.gz` to Forgejo releases
-5. **Updates deployment** — Edits `argocd/manifests/docs/deployment.yaml` with new URL
-6. **Commits changes** — Pushes changelog and deployment updates to main
-7. **Deploys** — Syncs the `docs` ArgoCD app
-8. **Purges cache** — Clears the nginx cache on the [[flyio-proxy]] so the new docs are served immediately
+
+The workflow ends at the release. Deploying is a manual step (docs are served
+natively by Caddy on indri since [[retire-minikube]] — no ArgoCD app): bump
+`docs_version` in `ansible/roles/docs/defaults/main.yml`, then
+`mise run provision-indri -- --tags docs`, and purge the [[flyio-proxy]] nginx
+cache (`fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`)
+so the new docs are served immediately.
 
 ## Changelog Fragments (Towncrier)
 
@@ -107,9 +110,9 @@ dagger call --interactive build-docs --src=. --version=dev
 - Ensure version format is `vX.Y.Z`
 
 **Docs not updating after deploy:**
-- Check ArgoCD sync status: `argocd app get docs`
-- Verify the pod restarted: `kubectl --context=minikube-indri -n docs get pods`
-- Check pod logs for download errors
+- Confirm `docs_version` was bumped in `ansible/roles/docs/defaults/main.yml` and the provision ran
+- Check the installed version sentinel: `ssh indri 'cat ~/blumeops/docs/.installed-version'`
+- If stale content is served publicly, purge the [[flyio-proxy]] cache (see above)
 
 **Towncrier not finding fragments:**
 - Fragments must be in `docs/changelog.d/`

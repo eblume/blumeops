@@ -32,7 +32,7 @@ with [[caddy]] proxying `dj.ops.eblu.me` to that tailnet endpoint.
 | Mount | Type | Source | Access |
 |-------|------|--------|--------|
 | /music | NFS PV | sifaka:/volume1/music | Read-only |
-| /data | Local PVC (10Gi) | minikube storage | Read-write |
+| /data | Local PVC (10Gi) | k3s local-path storage | Read-write |
 
 The `/data` directory contains SQLite database, configuration, and cache.
 

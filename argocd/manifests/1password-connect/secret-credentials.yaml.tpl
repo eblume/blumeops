@@ -12,9 +12,9 @@
 #    - token: the access token
 #
 # Usage:
-#   kubectl --context=minikube-indri create namespace 1password
+#   kubectl --context=k3s-ringtail create namespace 1password
 #   op inject -i argocd/manifests/1password-connect/secret-credentials.yaml.tpl | \
-#     kubectl --context=minikube-indri apply -f -
+#     kubectl --context=k3s-ringtail apply -f -
 #
 # Note: chart 2.3.0+ mounts credentials as a file with standard k8s base64.
 # Use raw JSON here (not pre-encoded); k8s stringData handles encoding.

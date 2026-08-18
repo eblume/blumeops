@@ -63,11 +63,11 @@ Forgejo is central to GitOps - it's where your infrastructure definitions live a
 A cluster for running containerized workloads.
 
 **[[kubernetes-bootstrap|Bootstrapping Kubernetes]]**
-- Install minikube (or k3s, kind, etc.)
+- Install k3s (or minikube, kind, etc.)
 - Configure persistent storage
 - Expose the API securely via Tailscale
 
-BlumeOps uses minikube for simplicity, but the patterns apply to any distribution.
+BlumeOps uses single-node k3s (on ringtail), but the patterns apply to any distribution.
 
 ### Phase 4: GitOps with ArgoCD
 

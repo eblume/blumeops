@@ -35,7 +35,7 @@ Native Kubernetes Secrets
 
 **ClusterSecretStore:** `onepassword-blumeops` (same name on both clusters).
 
-Services reference 1Password items via `ExternalSecret` manifests. Both `minikube-indri` and `k3s-ringtail` run their own `onepassword-connect` deployment talking to the same vault.
+Services reference 1Password items via `ExternalSecret` manifests. The `k3s-ringtail` cluster runs a `onepassword-connect` deployment (`1password-connect-ringtail` app) talking to the vault.
 
 ## Direct Access
 

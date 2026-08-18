@@ -81,8 +81,7 @@ mise run provision-indri -- --tags forgejo_runner
 ```
 
 If the role changed Docker Desktop's `daemon.json` (registry mirror),
-it does **not** restart Docker Desktop — while minikube still exists,
-a Docker restart takes the whole cluster down. Restart Docker Desktop
+it does **not** restart Docker Desktop. Restart Docker Desktop
 manually at a quiet moment; until then the mirror simply isn't active.
 
 ## Verification
@@ -97,7 +96,7 @@ manually at a quiet moment; until then the mirror simply isn't active.
 - Logs: `~/Library/Logs/mcquack.forgejo-runner.{out,err}.log`,
   shipped to Loki by the [[alloy]] role.
 
-## Cutover from the k8s runner
+## Cutover from the k8s runner (historical — completed with [[retire-minikube]])
 
 1. Run both runners side by side; confirm several green runs on the
    launchd runner (jobs may land on either while both advertise

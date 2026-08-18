@@ -47,8 +47,6 @@ mise run provision-sifaka
 | **forgejo_metrics** | Forge metrics exporter | [[forgejo]] |
 | **jellyfin** | Media server | [[jellyfin]] |
 | **jellyfin_metrics** | Media metrics exporter | [[jellyfin]] |
-| **minikube** | Kubernetes cluster | [[cluster]] |
-| **minikube_metrics** | Cluster metrics | [[cluster]] |
 | **zot** | Container registry | [[zot]] |
 | **zot_metrics** | Registry metrics | [[zot]] |
 

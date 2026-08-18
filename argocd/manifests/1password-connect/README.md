@@ -50,9 +50,9 @@ Create a new item "1Password Connect" in the blumeops vault with:
 ### 4. Create Bootstrap Secret
 
 ```bash
-kubectl --context=minikube-indri create namespace 1password
+kubectl --context=k3s-ringtail create namespace 1password
 op inject -i argocd/manifests/1password-connect/secret-credentials.yaml.tpl | \
-  kubectl --context=minikube-indri apply -f -
+  kubectl --context=k3s-ringtail apply -f -
 ```
 
 ## Version Management
@@ -75,24 +75,24 @@ argocd app sync 1password-connect
 
 ```bash
 # Check pods are running
-kubectl --context=minikube-indri -n 1password get pods
+kubectl --context=k3s-ringtail -n 1password get pods
 
 # Check logs
-kubectl --context=minikube-indri -n 1password logs -l app=onepassword-connect
+kubectl --context=k3s-ringtail -n 1password logs -l app=onepassword-connect
 
 # Test API health (port-forward first)
-kubectl --context=minikube-indri -n 1password port-forward svc/onepassword-connect 8080:8080 &
+kubectl --context=k3s-ringtail -n 1password port-forward svc/onepassword-connect 8080:8080 &
 curl http://localhost:8080/health
 ```
 
 ## Troubleshooting
 
 ### Pods not starting
-- Check the bootstrap secret exists: `kubectl --context=minikube-indri -n 1password get secret op-credentials`
+- Check the bootstrap secret exists: `kubectl --context=k3s-ringtail -n 1password get secret op-credentials`
 - Verify credentials format in 1Password item
 
 ### API returning 401
-- Check the token secret: `kubectl --context=minikube-indri -n 1password get secret onepassword-token`
+- Check the token secret: `kubectl --context=k3s-ringtail -n 1password get secret onepassword-token`
 - Verify the token has access to the blumeops vault
 
 ## Related

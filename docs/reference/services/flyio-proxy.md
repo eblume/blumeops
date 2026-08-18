@@ -44,7 +44,7 @@ Internet traffic hits Fly.io's Anycast edge, terminates TLS with a Let's Encrypt
 
 Previously, nginx connected directly to each service's `*.tail8d86e.ts.net` Tailscale Ingress endpoint. This caused **20+ second latency** because the Tailscale Ingress pods (running inside k8s) are behind pod-network NAT and can only reach the Fly VM via Tailscale DERP relay servers — not direct WireGuard peering.
 
-Routing through Caddy on indri solves this because indri's host-level Tailscale can establish direct WireGuard connections with the Fly VM (45ms round trip). This generalizes to all services regardless of where they run (native on indri, minikube, or ringtail k3s), since Caddy already routes to everything.
+Routing through Caddy on indri solves this because indri's host-level Tailscale can establish direct WireGuard connections with the Fly VM (45ms round trip). This generalizes to all services regardless of where they run (native on indri or ringtail k3s), since Caddy already routes to everything.
 
 ### Direct WireGuard Peering
 
