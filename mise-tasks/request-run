@@ -638,17 +638,18 @@ This request grants nothing: dispatch remains write-gated to humans.
 
     if notify:
         try:
-            httpx.post(
-                NTFY_URL,
-                content=f"{workflow} @ {sha7} (PR #{number}) awaits approval",
-                headers={
-                    "Title": "Privileged run requested",
-                    "Click": comment_url,
-                    "Tags": "lock",
-                    "Actions": f"view, Review request, {comment_url}; view, Dispatch page, {dispatch_url}",
-                },
-                timeout=10.0,
-            ).raise_for_status()
+            with _ops_client() as client:
+                client.post(
+                    NTFY_URL,
+                    content=f"{workflow} @ {sha7} (PR #{number}) awaits approval",
+                    headers={
+                        "Title": "Privileged run requested",
+                        "Click": comment_url,
+                        "Tags": "lock",
+                        "Actions": f"view, Review request, {comment_url}; view, Dispatch page, {dispatch_url}",
+                    },
+                    timeout=10.0,
+                ).raise_for_status()
         except httpx.HTTPError as exc:
             err.print(f"ntfy push failed (request still filed): {exc}")
 
