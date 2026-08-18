@@ -1,0 +1,1 @@
+The talos pod `tea` wrapper now auto-assigns `eblume` on `tea pr create` (unless the caller specifies assignees), so agent-opened PRs surface in the assigned-to-me queue. Chosen over a per-repo Forgejo Actions workflow (eblume/hephaestus#43, closed). Takes effect on the next image rebuild + deploy.
