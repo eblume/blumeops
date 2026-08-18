@@ -1,10 +1,10 @@
 # nginx 1.30.4-alpine
 FROM nginx@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46
 
-# Copy tailscale binaries from official image (v1.94.2)
-COPY --from=docker.io/tailscale/tailscale@sha256:95e528798bebe75f39b10e74e7051cf51188ee615934f232ba7ad06a3390ffa1 \
+# Copy tailscale binaries from official image (v1.102.2)
+COPY --from=docker.io/tailscale/tailscale@sha256:321ce041508c19079b57a28b6666c8d81ab0b08accc0a2585b3ab663d557ac24 \
     /usr/local/bin/tailscaled /usr/local/bin/tailscaled
-COPY --from=docker.io/tailscale/tailscale@sha256:95e528798bebe75f39b10e74e7051cf51188ee615934f232ba7ad06a3390ffa1 \
+COPY --from=docker.io/tailscale/tailscale@sha256:321ce041508c19079b57a28b6666c8d81ab0b08accc0a2585b3ab663d557ac24 \
     /usr/local/bin/tailscale /usr/local/bin/tailscale
 
 RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
