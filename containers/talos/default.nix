@@ -268,9 +268,23 @@ exec printf "%%s" "$FORGEJO_TOKEN"
   # directly), hence a tea-specific wrapper. Shadows pkgs.tea on PATH
   # (agent-ws precedent). Without it, `tea pr create` from the pod dies with
   # "connection refused" (2026-08-15).
+  # The wrapper also auto-assigns eblume on `tea pr create` (unless the caller
+  # already passes assignees) so agent-opened PRs surface in his assigned-to-me
+  # queue (heph 01KY2TJZQ; chosen over a per-repo workflow, hephaestus#43).
   teaWrapper = pkgs.writeShellScriptBin "tea" ''
     export HTTPS_PROXY="socks5h://localhost:1055"
     export HTTP_PROXY="socks5h://localhost:1055"
+    if [ "$1" = pr ] || [ "$1" = pulls ]; then
+      if [ "$2" = create ] || [ "$2" = c ]; then
+        assignees=0
+        for arg in "$@"; do
+          case "$arg" in --assignees | --assignees=* | -a) assignees=1 ;; esac
+        done
+        if [ "$assignees" = 0 ]; then
+          set -- "$@" --assignees eblume
+        fi
+      fi
+    fi
     exec ${pkgs.tea}/bin/tea "$@"
   '';
 
