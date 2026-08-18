@@ -1,6 +1,6 @@
 ---
 title: "Runbook: ArgoCD App Out of Sync"
-modified: 2026-06-21
+modified: 2026-08-18
 last-reviewed: 2026-06-21
 tags:
   - how-to
@@ -39,6 +39,7 @@ An ArgoCD application has been out of sync for 5+ minutes (the alert's `for:` wi
 - **Branch revision not reset after PR merge** — app still points at a deleted branch
 - **Kustomize/manifest error** — invalid YAML or unsatisfiable resource requirements
 - **Pruning needed** — old ConfigMaps from `configMapGenerator` need pruning
+- **`apps` OutOfSync with a `syncPolicy.automated` field diff** — an Application manifest spells the defaults (`prune: false` / `selfHeal: false`); the controller strips explicit-false fields (Go `omitempty`) on every automated sync, so `apps` diffs forever. Fix the manifest to `automated: {}` (see [[argocd#Sync Policy]]); `argocd app diff apps` shows which app. Always record the diff *before* syncing `apps`.
 
 ## Resolution
 

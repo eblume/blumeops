@@ -23,7 +23,6 @@ spec:
       # deletes the superseded one; without it the app reads OutOfSync
       # forever and trips ArgoCDAppOutOfSync on a correct deploy.
       prune: true
-      selfHeal: false
     syncOptions:
       - CreateNamespace=true
   # Ignore zim-hash annotation - updated dynamically by zim-watcher CronJob
