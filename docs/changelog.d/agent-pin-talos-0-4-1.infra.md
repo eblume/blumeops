@@ -1,0 +1,1 @@
+Pin the talos image to `v0.4.1-0444de5-nix` (built by warrant run 1173), deploying the `tea` wrapper auto-assign from #598. talos is an auto-sync app, so the argocd sync on merge is the deploy — no explicit argocd-deploy run needed.
