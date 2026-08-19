@@ -5,10 +5,13 @@ metadata:
   name: ollama
   namespace: ollama
 spec:
-  # Single replica; shares the GPU (time-sliced) with gaming and other ML
-  # workloads. The 24Gi memory limit stays generous for a 27B model on a
+  # Scaled to zero 2026-08-19: qwen3.8:27b (smallest official quant ~18GB)
+  # exceeds the RTX 4080's 16GiB VRAM, so it partially offloads to CPU at
+  # ~3 tok/s. Not worth serving until a bigger GPU or a usable quant exists.
+  # When re-enabling: shares the GPU (time-sliced) with gaming and other ML
+  # workloads; the 24Gi memory limit stays generous for a 27B model on a
   # 32GB-RAM host.
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
