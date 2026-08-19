@@ -74,7 +74,7 @@ workspace checkout — are declared in **one** file:
   collaborator grant by `mise run agent-repo-access`, which the
   **Agent Repo Access** workflow runs on merge to `main`.
 - `pool` (`canonical` | `fork` | `none`) is compiled into the pod's clone loop
-  by `containers/agent-ws/default.nix` via `builtins.fromJSON`.
+  by `containers/talos/default.nix` via `builtins.fromJSON`.
 
 So adding a repo is: edit the file, open a PR, merge. No clicking in the forge
 UI — and nothing to forget, which is the point. See [[agent-containerization]]
@@ -97,7 +97,7 @@ UI — and nothing to forget, which is the point. See [[agent-containerization]]
 Forgejo returns **404, not 403**, for a private repo the caller cannot see. So a
 missing collaboration is indistinguishable from a misspelled repo name: the
 pod's clone loop (deliberately non-fatal, so one bad repo can't crashloop the
-workspace) logs `agent-ws: clone <repo> failed (continuing)` and the repo is
+workspace) logs `talos: clone <repo> failed (continuing)` and the repo is
 simply absent from `~/code/personal`. `timberborn-parsimony` sat documented as a
 sibling checkout for three weeks while being absent for exactly this reason —
 which is what motivated collapsing the two steps into one file.

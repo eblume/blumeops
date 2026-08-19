@@ -35,7 +35,7 @@ what the sync check reads.
 
 It runs as a `prek.toml` hook scoped to `containers/` and `service-versions.yaml`
 — checking only changed containers by default (`--all-files` checks everything).
-The `kubectl` utility image and `agent-ws` are exempt; `kiwix-serve` → `kiwix`
+The `kubectl` utility image is exempt; `kiwix-serve` → `kiwix`
 maps the dir name to its service name.
 
 ## Build and tag

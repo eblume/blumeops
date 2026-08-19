@@ -21,8 +21,8 @@ bronze automaton.
 Two pressures converged:
 
 1. **Claude remote control's relay is fragile and not ours.** WAN blips kill
-   the websocket with no client-side retry (the [[agent-workspaces|agent-ws]]
-   liveness probe exists to recycle exactly this failure); when it breaks we
+   the websocket with no client-side retry (the agent-ws pod's liveness probe
+   existed to recycle exactly this failure); when it breaks we
    can only restart. The session layer is the part we can't fix because we
    don't own it.
 2. **Model diversity.** OpenRouter gives access to open-weight models (Qwen
@@ -43,7 +43,7 @@ Runner/driver separation. The **runner** is reusable; drivers are thin.
  talos.ops.eblu.me ──Caddy──► talos.tail8d86e.ts.net (ProxyGroup ingress)
       │
       ▼
- ┌─ talos pod (agent-ws parity) ─────────────────────────────┐
+ ┌─ talos pod ───────────────────────────────────────────┐
  │  talos server (Bun/TS)                                    │
  │    ├─ static SPA (pi-web-ui + pi-client over WebSocket)   │
  │    ├─ OIDC (confidential client `talos`, admins only)     │
@@ -74,12 +74,12 @@ payoff; the interactive driver doubles as its debugging console.
 
 ## Access model
 
-Deliberately identical to [[agent-containerization|agent-ws]]: same tailnet
-identity class (`tag:agent` via userspace sidecar), same egress netpol, no
-cluster API, one bootstrap secret (op service-account token for the agents
-vault), author-only fork/PR git posture with the `agents` bot. Talos gets
-*ingress* (which agent-ws lacks) via the standard ProxyGroup + Caddy chain;
-ingress and the egress lockdown are independent directions.
+Deliberately mirrors the [[agent-containerization|containerized agent]] model:
+same tailnet identity class (`tag:agent` via userspace sidecar), same egress
+netpol, no cluster API, one bootstrap secret (op service-account token for the
+agents vault), author-only fork/PR git posture with the `agents` bot. Talos
+adds *ingress* the pure-egress agent pod lacked, via the standard ProxyGroup +
+Caddy chain; ingress and the egress lockdown are independent directions.
 
 Secrets: `talos-client-secret` field on "Authentik (blumeops)";
 `"openrouter (blumeops)"` item for the model API key (initially a copy of
@@ -127,8 +127,8 @@ nice-to-have, and it shapes the data model:
 - **P0 — local prototype (gilbert):** repo `eblume/talos` on the forge;
   pi runner + WebSocket bridge + minimal UI running locally against
   OpenRouter; prove create/resume/steer from two browsers.
-- **P1 — deploy:** Nix image, k8s manifests (agent-ws parity + ingress),
-  Authentik client, Caddy route, docs/service card.
+- **P1 — deploy:** Nix image, k8s manifests (containerized-agent parity +
+  ingress), Authentik client, Caddy route, docs/service card.
 - **P2 — forge driver:** issue/comment-triggered headless runs producing
   PRs; warrant-gated privileged actions unchanged.
 

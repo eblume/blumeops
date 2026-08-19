@@ -1,13 +1,13 @@
 {
   "_comment": [
     "Which of eblume's repos the `agents` bot may touch, and which land in the",
-    "agent pods' checkout pool (agent-ws and talos). THE single source of truth",
+    "agent pods' checkout pool (talos). THE single source of truth",
     "for both halves:",
     "",
     "  access -> reconciled onto the forge as collaborator grants by",
     "            `mise run agent-repo-access` (.forgejo/workflows/agent-repo-access.yaml)",
     "  pool   -> compiled into the agent pods' clone loops by their container",
-    "            default.nix files (fromJSON: containers/agent-ws, containers/talos)",
+    "            default.nix files (fromJSON: containers/talos)",
     "",
     "Before this file existed those were two independent steps and a missed grant",
     "looked exactly like a typo (Forgejo 404s rather than 403s for a private repo",

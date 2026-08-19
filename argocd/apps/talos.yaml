@@ -1,8 +1,8 @@
 # Talos on ringtail k3s — self-hosted agent workflow service.
 #
 # Browser-driven pi agent sessions (OpenRouter models) behind Authentik
-# OIDC, with the agent-ws access model: tag:agent sidecar identity, egress
-# fence, op agents-vault token, heph spoke socket. See [[talos-design]].
+# OIDC: tag:agent sidecar identity, egress fence, op agents-vault token,
+# heph spoke socket. See [[talos-design]].
 #
 # Prerequisites:
 # - external-secrets-ringtail (onepassword-blumeops ClusterSecretStore)

@@ -13,8 +13,14 @@ tags:
 One-time steps to bring up [[agent-workspaces]] on [[ringtail]]. Ordinary
 redeploys are just `mise run provision-ringtail`; these steps cover the state
 that lives *outside* git (the Forgejo bot user, the agent's OAuth login, and
-Claude's first-run consent) and must be done by a human — once, except the
-OAuth login, which recurs every 5 days (see step 5).
+Claude's first-run consent) — see the status note below — and must be done by
+a human.
+
+> **Status (2026-08-19):** the containerized stage of the agent workspace —
+> the `agent-ws` pod *and* the `agent-ws-*` / `agent-repos-init` host services —
+> is retired, superseded by [[talos-design|talos]]. The Forgejo-bot steps (§1–2)
+> and the `agent` user still apply; the Claude install / OAuth / start-services
+> steps (§4–6) are historical, retained for the pre-talos record.
 
 Do these **in order**. Steps 1–2 can happen before the config is deployed;
 steps 4–6 require the `agent` user to exist (i.e. after the first
@@ -109,10 +115,9 @@ The `agents` vault must contain (created during the prototype, 2026-07-08):
 mise run provision-ringtail
 ```
 
-This writes `/etc/agents/op-token` and `/etc/agents/ssh/id_ed25519`, creates the
-`agent` user, and installs the `agent-repos-init` + `agent-ws-*` services. The
-workspace services **will fail to start yet** — Claude isn't installed for the
-`agent` user and there's no OAuth login. That's expected; continue.
+This writes `/etc/agents/op-token` and `/etc/agents/ssh/id_ed25519`, and
+creates the `agent` user. (The `agent-repos-init` + `agent-ws-*` host services
+it used to install are retired — see the status note above.)
 
 ## 4. Install Claude Code for the agent user
 
@@ -136,10 +141,9 @@ claude refuses to start Remote Control with one (v0.16.0 shipped that and
 crash-looped; see [[agent-workspaces#Authentication]]).
 
 This is **not** a one-time step: the login's refresh token expires ~29
-days after login. Seed it now by performing one rotation —
-[[rotate-agent-ws-claude-login]] has the commands — and the recurring 21-day
-"Rotate agent-ws Claude OAuth login" heph chore (Blumeops project) keeps it
-alive from then on.
+days after login. Seed it by performing one rotation, and the recurring 21-day
+"Rotate Claude OAuth login" heph chore (Blumeops project) kept it alive from
+then on. (The dedicated rotation runbook retired with the `agent-ws` pod.)
 
 Two pieces of first-run state live outside the credential and still need
 seeding on a fresh PVC:
@@ -168,6 +172,9 @@ seeding on a fresh PVC:
   the service crash-loops on the untrusted dir.
 
 ## 6. Start the services
+
+> **Historical.** The `agent-ws-*` host services are retired (superseded by
+> [[talos-design|talos]]); the commands below are the pre-retirement record.
 
 ```fish
 ssh ringtail 'sudo systemctl start agent-repos-init.service'

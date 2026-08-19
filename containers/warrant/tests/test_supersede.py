@@ -44,7 +44,7 @@ def _request(requester: str = ME, status: str = "pending", sha: str = SHA) -> in
                 requester,
                 "build-container.yaml",
                 sha,
-                json.dumps({"container": "agent-ws"}),
+                json.dumps({"container": "talos"}),
                 "test",
                 525,
                 status,

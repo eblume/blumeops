@@ -14,11 +14,12 @@ tags:
 > service.** The shared-host Remote Control server described below was retired —
 > `agent-ws-agent.service` and `agent-repos-init.service` are gone from
 > `nixos/ringtail/` (the file is now `agent-heph-spoke.nix`, which keeps only the
-> `agent` user + heph spoke). The agent runs containerized with its own
-> `tag:agent` Tailscale identity; see [[agent-containerization]] for the live
-> design. This page is retained for the isolation-model rationale and history —
-> the **§Isolation & security** and **§The heph spoke** sections still describe
-> real, current concerns.
+> `agent` user + heph spoke). The agent ran containerized with its own
+> `tag:agent` Tailscale identity; see [[agent-containerization]] for that design.
+> **The `agent-ws` pod is now retired too, superseded by [[talos-design|talos]]**
+> — its image, k8s manifests, and ArgoCD app are gone. This page is retained for
+> the isolation-model rationale and history — the **§Isolation & security** and
+> **§The heph spoke** sections still describe real, current concerns.
 
 A persistent [Claude Code](https://code.claude.com) **Remote Control** server on
 [[ringtail]] — a single **home-base** session environment rooted in the `agents`
@@ -71,7 +72,7 @@ Repos cloned by `agent-repos-init`:
 | `blumeops` | Pool-only, author-only — see [§blumeops](#blumeops-author-only-not-a-server) |
 
 > Historical list. `agent-repos-init` is gone; the live pool is the clone loop in
-> `containers/agent-ws/default.nix` — see [[agent-containerization]] §"The repo
+> `containers/talos/default.nix` — see [[agent-containerization]] §"The repo
 > pool".
 
 > **Concurrency caveat.** Only the **primary** repo gets per-session worktree
@@ -80,9 +81,9 @@ Repos cloned by `agent-repos-init`:
 > work siblings on a session-named branch (or a manual `git worktree add` into
 > the session's own worktree) so two sessions never fight over a checkout.
 >
-> *Resolved in the containerized model:* `agent-ws-workspace` makes those
-> per-session worktrees automatically from a `SessionStart` hook, so the
-> convention is now enforced rather than requested. See
+> *Resolved in the containerized model (now in talos):* the workspace tool
+> makes those per-session worktrees automatically from a `SessionStart` hook, so
+> the convention is now enforced rather than requested. See
 > [[agent-containerization]] §"Per-session worktrees".
 
 ### Why one home-base server
@@ -358,10 +359,10 @@ expires **~29 days after login** (access tokens last ~8h and refresh in
 place), and Claude Code refresh tokens are single-use, so concurrent sessions
 in one pod can invalidate each other's and end it sooner
 ([claude-code#24317](https://github.com/anthropics/claude-code/issues/24317)).
-Worse, its death is silent — see [Known warts](#known-warts). The expiry is
-managed operationally: a recurring **21-day** heph chore ("Rotate agent-ws
-Claude OAuth login", Blumeops project) re-runs the login with ~8 days of
-buffer. [[rotate-agent-ws-claude-login]] is the runbook.
+Worse, its death is silent — see [Known warts](#known-warts). The expiry was
+managed operationally: a recurring **21-day** heph chore ("Rotate Claude OAuth
+login", Blumeops project) re-ran the login with ~8 days of buffer. (The rotation
+runbook retired with the `agent-ws` pod.)
 
 > The ~29 days is **measured, not documented** — a 2026-08-07T18:01Z login
 > wrote `refreshTokenExpiresAt` of 2026-09-05T19:54Z. Anthropic publishes no
@@ -391,13 +392,9 @@ token-wasteful always-on pattern is also the fair-use risk.
 - **Deploy:** `mise run provision-ringtail` (writes `/etc/agents/*` secrets via
   ansible, then `nixos-rebuild switch`). First-ever deploy needs the one-time
   [[bootstrap-agent-workspaces]] steps (OAuth login, trust + consent seeding).
-- **Status:** `ssh ringtail 'systemctl status agent-ws-agent'`
-- **Logs:** `ssh ringtail 'journalctl -u agent-ws-agent -f'` — only errors
-  (stderr); the Remote Control status TUI (stdout) is discarded to avoid ~1M
-  journal lines/day. Live session activity is in the app; add
-  `--debug-file` to the launcher for deep diagnostics.
-- **Restart the workspace:** `ssh ringtail 'sudo systemctl restart agent-ws-agent'`
-  (ends live sessions; the `ringtail-agent` environment reappears in the app).
+- The `agent-ws` host services and pod are both retired now; live operations for
+  the current agent run under talos ([[talos-design]]). The host model above is
+  retained for history.
 
 ## Known warts
 
@@ -412,19 +409,18 @@ token-wasteful always-on pattern is also the fair-use risk.
   is unsupported by Anthropic — treat upgrades as capable of breaking it.
 - **An auth failure here is invisible to every health signal we have.** When the
   PVC OAuth credential expired on 2026-08-07, remote-control kept its gateway
-  websocket up and kept printing `✔︎ Connected`, so `agent-ws-health` (which
+  websocket up and kept printing `✔︎ Connected`, so the pod health probe (which
   only asserts that a claude process holds an ESTABLISHED TCP connection) stayed
   green — while every session start failed `Failed to authenticate: OAuth
-  session expired and could not be refreshed`. The 21-day rotation chore
-  ([[rotate-agent-ws-claude-login]]) keeps the expiry from being hit, but
-  nothing yet *detects* a bad credential: `claude auth status --json` inside
-  the pod is the check, and wiring it to an alert is still open work.
+  session expired and could not be refreshed`. The 21-day rotation chore kept
+  the expiry from being hit, but nothing *detected* a bad credential: `claude
+  auth status --json` inside the pod was the check.
 
 ## Related
 
 - [[agent-containerization]] — the migration off this shared-host model
+- [[talos-design]] — the agent service that supersedes the retired `agent-ws` pod
 - [[bootstrap-agent-workspaces]] — one-time setup runbook
-- [[rotate-agent-ws-claude-login]] — the 21-day OAuth login rotation
 - [[agents-forgejo-bot]] — the bot account and its key
 - [[security-model]] — service accounts and the `agents` vault
 - [[ringtail]] — the host

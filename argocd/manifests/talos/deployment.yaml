@@ -1,4 +1,4 @@
-# Talos: browser-driven pi agent sessions. Two containers, agent-ws parity:
+# Talos: browser-driven pi agent sessions. Two containers:
 #   talos — Bun server (sessions, SSE, OIDC, /api/transcribe) + pi runtime
 #   ts    — userspace Tailscale sidecar; the pod's OWN tag:agent identity and
 #           the only path to the tailnet (enforced by the egress NetworkPolicy)
@@ -123,8 +123,7 @@ spec:
           volumeMounts:
             - name: home
               mountPath: /home/talos
-            # Shared hephd spoke socket, agent-ws parity (uid 1500 == host
-            # agent user).
+            # Shared hephd spoke socket (uid 1500 == host agent user).
             - name: heph-socket
               mountPath: /home/talos/.local/share/heph
         # ── userspace Tailscale sidecar (tag:agent) ──────────────────────

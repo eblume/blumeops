@@ -74,7 +74,7 @@ anything useful. File the replacement and retire the old one in one step:
 
 ```fish
 mise run request-run build-container.yaml <new-full-sha> \
-    --pr 525 -i container=agent-ws -i ref=<new-full-sha> \
+    --pr 525 -i container=talos -i ref=<new-full-sha> \
     --supersedes 21 --why "rebuild after review feedback"
 ```
 
