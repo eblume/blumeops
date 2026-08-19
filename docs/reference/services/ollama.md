@@ -1,7 +1,7 @@
 ---
 title: Ollama
-modified: 2026-05-01
-last-reviewed: 2026-05-01
+modified: 2026-08-18
+last-reviewed: 2026-08-18
 tags:
   - service
   - ai
@@ -19,7 +19,7 @@ LLM inference server with GPU acceleration. Runs on [[ringtail]] with declarativ
 | **Tailscale URL** | https://ollama.tail8d86e.ts.net |
 | **Namespace** | `ollama` |
 | **Cluster** | ringtail k3s |
-| **Image** | `ollama/ollama:0.20.4` |
+| **Image** | `ollama/ollama:0.31.2` |
 | **Upstream** | https://github.com/ollama/ollama |
 | **Manifests** | `argocd/manifests/ollama/` |
 | **API Port** | 11434 |
@@ -53,6 +53,7 @@ Declared in `argocd/manifests/ollama/models.txt`. The model-sync sidecar pulls m
 | `gemma3:12b` | 12B |
 | `qwen3.5:9b` | 9B |
 | `qwen3.5:27b` | 27B |
+| `qwen3.8:27b` | 27B |
 
 To add or remove models, edit `models.txt` and sync via ArgoCD.
 

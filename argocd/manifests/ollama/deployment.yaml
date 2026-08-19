@@ -5,10 +5,10 @@ metadata:
   name: ollama
   namespace: ollama
 spec:
-  # Scaled to 0: ollama shares the GPU with gaming and carries a large memory
-  # tail (24Gi limit). Kept off-by-default on this memory-constrained host;
-  # scale to 1 on demand when LLM inference is actually needed.
-  replicas: 0
+  # Single replica; shares the GPU (time-sliced) with gaming and other ML
+  # workloads. The 24Gi memory limit stays generous for a 27B model on a
+  # 32GB-RAM host.
+  replicas: 1
   strategy:
     type: Recreate
   selector:

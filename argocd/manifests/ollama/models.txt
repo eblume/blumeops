@@ -6,3 +6,4 @@ phi4:14b
 gemma3:12b
 qwen3.5:9b
 qwen3.5:27b
+qwen3.8:27b
