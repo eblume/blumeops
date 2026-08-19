@@ -1,0 +1,1 @@
+Pin the talos image to `v0.4.2-1b31ea6-nix` (built from the #605 bump by a warrant build-container run), deploying the tool/subagent transcript UI from eblume/talos#15. talos is an auto-sync app, so the argocd sync on merge is the deploy — no explicit argocd-deploy run needed.
