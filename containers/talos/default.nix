@@ -22,13 +22,13 @@ let
   pkgs = import nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; };
   lib = pkgs.lib;
 
-  version = "0.4.3";
-  rev = "56b430af0c84b3099e7fe704b35e5ebb794ecafd";
+  version = "0.4.4";
+  rev = "eaedc74bb4203d139232e1524b36b84b55270f2b";
 
   src = pkgs.fetchgit {
     url = "https://forge.eblu.me/eblume/talos.git";
     inherit rev;
-    hash = "sha256-IUm7o7mLUhXUKg2nWD6yAtyS7i7L1H34C45LNhJe55s=";
+    hash = "sha256-CGKJRpObWQrsun8tesg4o5yjGkacGhjmrusfCBs91Yc=";
   };
 
   # npm resolves the same registry deps bun would; install scripts are
