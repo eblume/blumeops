@@ -7,7 +7,7 @@
 # Plain import (`import ./heph-common.nix { inherit pkgs lib; }`), not a module.
 { pkgs, lib }:
 rec {
-  hephTag = "v1.7.0"; # cargo-installed at this tag by the per-user install oneshots
+  hephTag = "v1.8.1"; # cargo-installed at this tag by the per-user install oneshots
   rustChannel = "stable"; # mise-resolved toolchain — nixpkgs rustc lags heph's floor
   hubUrl = "http://indri.tail8d86e.ts.net:8787"; # spoke sync is HTTP-only
   issuer = "https://authentik.ops.eblu.me/application/o/heph/";
