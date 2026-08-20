@@ -64,16 +64,16 @@ def test_every_warrant_action_binds_its_sha(workflow):
 def test_omitted_binding_input_is_refused():
     """The original bug: no ref, so the dispatch silently built main."""
     with pytest.raises(typer.Exit):
-        check("build-container.yaml", {"container": "agent-ws"})
+        check("build-container.yaml", {"container": "talos"})
 
 
 def test_matching_sha_is_allowed():
-    check("build-container.yaml", {"container": "agent-ws", "ref": SHA})
+    check("build-container.yaml", {"container": "talos", "ref": SHA})
 
 
 def test_different_sha_is_refused():
     with pytest.raises(typer.Exit):
-        check("build-container.yaml", {"container": "agent-ws", "ref": OTHER})
+        check("build-container.yaml", {"container": "talos", "ref": OTHER})
 
 
 def test_mutable_ref_is_refused():

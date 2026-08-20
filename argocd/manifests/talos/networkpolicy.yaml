@@ -1,4 +1,4 @@
-# Egress fence, agent-ws parity: block the tailnet CGNAT range so the pod
+# Egress fence: block the tailnet CGNAT range so the pod
 # cannot reach tailnet hosts via node NAT (which would present ringtail's
 # tag:homelab identity). All tailnet access goes through the sidecar's own
 # WireGuard as tag:agent. Direct egress to the internet (OpenRouter,

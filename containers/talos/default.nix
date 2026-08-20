@@ -6,7 +6,7 @@
 # toolchain rides along for the agent's bash tool. Builds on
 # nix-container-builder like every other first-party image.
 #
-# Self-pins nixos-unstable (agent-ws/navidrome/mealie precedent); reuses the
+# Self-pins nixos-unstable; reuses the
 # shared pinned rev+hash so no new hash fetch is needed.
 #
 # `version` is the image-tag version: bump it for an upstream talos bump
@@ -53,15 +53,15 @@ let
   };
 
   # The repo pool — /repos.json at the repo root is THE source of truth for
-  # what the agents bot may touch ([[agents-forgejo-bot]]). Shared with
-  # agent-ws; the file is org-level agent policy, not container config.
+  # what the agents bot may touch ([[agents-forgejo-bot]]). The file is
+  # org-level agent policy, not container config.
   repoPolicy = builtins.fromJSON (builtins.readFile ../../repos.json);
   poolOf = p: builtins.filter (r: r.pool == p) repoPolicy.repos;
   forkRepos = map (r: r.name) (poolOf "fork");
   canonicalRepos = map (r: r.name) (poolOf "canonical");
 
-  # heph CLI — same derivation as agent-ws (pod shares the host spoke's
-  # socket via hostPath; no hephd here). Pinned v1.7.0.
+  # heph CLI — the pod shares the host spoke's socket via hostPath (no hephd
+  # here). Pinned v1.7.0.
   hephSrc = pkgs.fetchgit {
     url = "https://forge.eblu.me/eblume/hephaestus.git";
     rev = "refs/tags/v1.7.0";
@@ -78,7 +78,7 @@ let
     doCheck = false;
   };
 
-  # Pod-start bootstrap, mirroring agent-ws: bot git identity, HTTPS+token
+  # Pod-start bootstrap: bot git identity, HTTPS+token
   # git through the tag:agent SOCKS sidecar, repo pool clone, then exec the
   # talos server. All bootstrap failures are non-fatal — the UI must come up
   # even if the sidecar is slow.
@@ -239,7 +239,7 @@ exec printf "%%s" "$FORGEJO_TOKEN"
     exec ${pkgs.bun}/bin/bun run /app/src/server.ts
   '';
 
-  # Toolchain for the agent's bash tool. Deliberately smaller than agent-ws —
+  # Toolchain for the agent's bash tool. Deliberately minimal —
   # talos is a chat/agent service, not a full dev workspace; grow this as the
   # workspace grows.
   #
@@ -265,8 +265,8 @@ exec printf "%%s" "$FORGEJO_TOKEN"
   # the proxy, and tea (unlike git) has no per-URL proxy config — so send all
   # of tea's traffic through the proxy. A GLOBAL proxy would be wrong (it'd
   # break op↔1Password and the server↔OpenRouter, which must egress
-  # directly), hence a tea-specific wrapper. Shadows pkgs.tea on PATH
-  # (agent-ws precedent). Without it, `tea pr create` from the pod dies with
+  # directly), hence a tea-specific wrapper. Shadows pkgs.tea on PATH.
+  # Without it, `tea pr create` from the pod dies with
   # "connection refused" (2026-08-15).
   # The wrapper also auto-assigns eblume on `tea pr create` (unless the caller
   # already passes assignees) so agent-opened PRs surface in his assigned-to-me
@@ -290,7 +290,7 @@ exec printf "%%s" "$FORGEJO_TOKEN"
 
   # Runtime libs for prebuilt dynamically-linked binaries (mise's rust),
   # resolved via the /lib64 loader symlink in extraCommands — the container
-  # analogue of nix-ld (agent-ws precedent).
+  # analogue of nix-ld.
   ldLibs = with pkgs; [ glibc stdenv.cc.cc.lib zlib ];
 
   # ── nix, real builds in the pod ──────────────────────────────────────────
@@ -333,7 +333,7 @@ pkgs.dockerTools.buildLayeredImage {
 
   contents = imageContents;
 
-  # Non-FHS fixups (agent-ws precedent): /usr/bin/env because every
+  # Non-FHS fixups: /usr/bin/env because every
   # mise-tasks script uses a `#!/usr/bin/env -S …` shebang and the kernel
   # resolves it literally; a /tmp because dockerTools images have none and
   # half of userspace (uv, pytest, curl -o) assumes it; the glibc loader at

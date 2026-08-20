@@ -46,7 +46,7 @@ def rec(action: str, sha: str, inputs: dict) -> dict:
 def test_the_bug_case_missing_binding_input():
     """warrant #22 / run 742: no `ref`, so CI checked out main and succeeded."""
     why = verify_runs.binding_mismatch(
-        rec("build-container.yaml", SHA, {"container": "agent-ws"}), BINDINGS
+        rec("build-container.yaml", SHA, {"container": "talos"}), BINDINGS
     )
     assert why is not None
     assert "no 'ref' input" in why
@@ -55,7 +55,7 @@ def test_the_bug_case_missing_binding_input():
 def test_matching_binding_is_clean():
     assert (
         verify_runs.binding_mismatch(
-            rec("build-container.yaml", SHA, {"container": "agent-ws", "ref": SHA}),
+            rec("build-container.yaml", SHA, {"container": "talos", "ref": SHA}),
             BINDINGS,
         )
         is None
@@ -105,7 +105,7 @@ def test_empty_policy_disables_the_audit():
     mismatch on every task."""
     assert (
         verify_runs.binding_mismatch(
-            rec("build-container.yaml", SHA, {"container": "agent-ws"}), {}
+            rec("build-container.yaml", SHA, {"container": "talos"}), {}
         )
         is None
     )

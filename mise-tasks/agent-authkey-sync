@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-#MISE description="Sync the Pulumi tag:agent Tailscale auth key into 1Password (for the agent-ws ExternalSecret)"
+#MISE description="Sync the Pulumi tag:agent Tailscale auth key into 1Password (for the agent-pod ExternalSecret)"
 #
-# Bridges the Pulumi-minted `agent_ws_authkey` (see pulumi/tailscale/__main__.py)
-# into a blumeops-vault item that external-secrets pulls into the agent-ws pod's
-# TS_AUTHKEY Secret (the tailscale sidecar can't `op read` for itself). Run after
+# Bridges the Pulumi-minted `agent_authkey` (see pulumi/tailscale/__main__.py)
+# into a blumeops-vault item that external-secrets pulls into the agent pod's
+# (talos) TS_AUTHKEY Secret (the tailscale sidecar can't `op read` for itself). Run after
 # `mise run tailnet-up` and on the ~90-day key rotation.
 #
 # Designed to be CI-portable (see heph 01KYV2MKS3…): no TTY assumption, and the
@@ -12,11 +12,11 @@
 set -euo pipefail
 
 VAULT="blumeops"
-ITEM="agent-ws Tailscale Auth Key"
+ITEM="agent Tailscale Auth Key"
 
 cd "$(dirname "$0")/../pulumi/tailscale"
-KEY="$(pulumi stack output --show-secrets agent_ws_authkey)"
-[ -n "$KEY" ] || { echo "empty agent_ws_authkey from pulumi output" >&2; exit 1; }
+KEY="$(pulumi stack output --show-secrets agent_authkey)"
+[ -n "$KEY" ] || { echo "empty agent_authkey from pulumi output" >&2; exit 1; }
 
 tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
 if op item get "$ITEM" --vault "$VAULT" --format json >/dev/null 2>&1; then

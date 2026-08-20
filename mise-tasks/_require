@@ -41,36 +41,8 @@ done
 
 task="${MISE_TASK_NAME:-this task}"
 
-# `agent` in a pod named agent-ws-* is the containerized Remote Control
-# session — the one environment where the answer is "request it", not
-# "install it".
-in_pod=false
-if [ "$(id -un)" = "agent" ]; then
-    case "$(uname -n)" in
-    agent-ws-*) in_pod=true ;;
-    esac
-fi
-
 printf '%s needs: %s\n' "$task" "${missing[*]}" >&2
 
-if $in_pod; then
-    cat >&2 <<'EOF'
-
-Not available in the agent pod: the agent-ws image carries a curated toolbox
-and these are deliberately not in it. Nothing here degrades gracefully into a
-useful result, so this stops rather than guessing.
-
-What to do instead:
-  - a privileged workflow covers it -> mise run request-run <workflow> <sha> \
-        --pr <N> --why "…"   (Erich approves in Warrant, which dispatches it)
-  - it does not -> it is a human job on gilbert; ask, and say what you needed
-  - the tool belongs in the image -> that is a PR to containers/agent-ws/
-
-See docs/explanation/warrant-approval-gated-runs.md and AGENTS.md
-§Privileged actions.
-EOF
-else
-    printf '\nInstall it, or run this from a host that has it (usually gilbert).\n' >&2
-fi
+printf '\nInstall it, or run this from a host that has it (usually gilbert).\n' >&2
 
 exit 1

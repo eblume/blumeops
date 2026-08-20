@@ -33,7 +33,7 @@ need to confirm through biometric approval.
    `eblume/blumeops` or commit to `main` directly (that's a human, from gilbert).
 3. Create, use, and modify tooling via the `mise run` system to provide tooling
    for users and agents. **Tasks whose description starts with `[human]` cannot
-   run from an agent pod** — they need the blumeops vault, a tool the agent-ws
+   run from an agent pod** — they need the blumeops vault, a tool the talos
    image does not carry, or an ssh route to a host the pod cannot reach. That is
    the fence, not a bug. Check `mise tasks` before reaching for one; if you need
    its *effect*, file a request (see §Privileged actions) or ask.

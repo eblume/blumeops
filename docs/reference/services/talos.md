@@ -28,11 +28,11 @@ Self-hosted agent workflow service ([[talos-design]]): browser-driven pi agent s
 
 Bun server embedding the pi runtime (`pi-coding-agent` SDK): sessions are append-only JSONL trees on the `talos-home` PVC with per-message token/cost data embedded; the browser UI (JSON + SSE) streams responses, renders tool calls, shows per-session cost, and offers two dictation modes (browser SpeechRecognition, or `/api/transcribe` through an OpenRouter audio model). OIDC is a confidential client `talos`, admins only.
 
-**Access model = [[agent-containerization|agent-ws]] parity**: userspace Tailscale sidecar (`talos-agent`, tag:agent) as the only tailnet path, CGNAT egress fence NetworkPolicy, no cluster API, op agents-vault service-account token as the one bootstrap secret, shared hephd spoke socket. Ingress arrives separately via the ProxyGroup (`talos` MagicDNS name) + Caddy.
+**Access model = the [[agent-containerization|containerized agent]] model**: userspace Tailscale sidecar (`talos-agent`, tag:agent) as the only tailnet path, CGNAT egress fence NetworkPolicy, no cluster API, op agents-vault service-account token as the one bootstrap secret, shared hephd spoke socket. Ingress arrives separately via the ProxyGroup (`talos` MagicDNS name) + Caddy.
 
 Models are env-pinned (`TALOS_MODEL`, currently `qwen/qwen3.8-max`); models newer than pi's catalog are synthesized from OpenRouter's live listing with real pricing so cost tracking stays correct.
 
-The image bakes an **eval-only nix** (agent-ws precedent, [[agent-containerization]] §"Nix in the pod"): `$HOME`-relocated store on the PVC, `max-jobs = 0`, swept on size by the entrypoint. It lets the pod compute `fetchgit`/`srcHash` values for its own image bumps instead of burning warrant-approved build rounds on hash-mismatch errors — builds stay impossible by construction.
+The image bakes an **eval-only nix** (following the [[agent-containerization]] §"Nix in the pod" precedent): `$HOME`-relocated store on the PVC, `max-jobs = 0`, swept on size by the entrypoint. It lets the pod compute `fetchgit`/`srcHash` values for its own image bumps instead of burning warrant-approved build rounds on hash-mismatch errors — builds stay impossible by construction.
 
 ## Cost accounting
 

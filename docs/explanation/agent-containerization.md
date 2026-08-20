@@ -11,6 +11,12 @@ tags:
 
 # Agent Containerization
 
+> **Superseded (2026-08-19): the `agent-ws` pod is retired — talos replaces it.**
+> The `agent-ws` image, k8s manifests, and ArgoCD app described here have been
+> removed; [[talos-design|talos]] supersedes the pod. The fences and rationale in
+> this doc — the `tag:agent` Tailscale identity, the egress allowlist, and the
+> vault/bot boundaries — still apply to talos unchanged.
+
 Why the `ringtail-agent` workspace is moving from a **shared-host OS user** to a
 **pod with its own Tailscale identity** — and why that migration is the *only*
 real fix for the device-trust hole it closes, not merely defense-in-depth.
@@ -241,7 +247,7 @@ of the pod rollout.
    `tag:agent` tailscale sidecar), restricted ServiceAccount (no cluster API,
    token not mounted), PVC for `$HOME`, two ExternalSecrets (the op token from
    the blumeops vault; the tag:agent auth key synced there by
-   `mise run agent-ws-authkey-sync`), and the egress NetworkPolicy. **The whole
+   `mise run agent-authkey-sync`), and the egress NetworkPolicy. **The whole
    egress mechanism was proven on-box first** (throwaway proof-pod): the pod
    registers as its own `tag:agent` device, reaches forge/heph via the sidecar
    SOCKS proxy (ACL grant confirmed), the node-NAT trap is real, and the
