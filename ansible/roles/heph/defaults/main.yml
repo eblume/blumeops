@@ -9,7 +9,7 @@
 # every run: it installs on a fresh host, upgrades when the running binary is
 # older, and DOWNGRADES if this pin is lowered. Bump on each release, then
 # `mise run provision-indri -- --tags heph`. See docs/reference/services/hephaestus.md.
-heph_version: v1.8.1
+heph_version: v1.9.0
 
 # Anonymous public HTTPS clone — used for the ansible-driven `cargo install`
 # and the PWA source checkout, so provisioning needs no ssh-agent.
