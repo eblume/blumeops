@@ -57,7 +57,7 @@ PUBLIC_URL = os.environ.get("WARRANT_PUBLIC_URL", "https://warrant.ops.eblu.me")
 SESSION_COOKIE = "warrant_session"
 SESSION_TTL = 8 * 3600
 
-app = FastAPI(title="warrant", version="0.4.0")
+app = FastAPI(title="warrant", version="0.4.1")
 _jwks_client: jwt.PyJWKClient | None = None
 _human_jwks_client: jwt.PyJWKClient | None = None
 
@@ -68,6 +68,11 @@ class RunRequest(BaseModel):
     inputs: dict[str, str] = Field(default_factory=dict)
     why: str = Field("", max_length=2000)
     pr: int | None = None
+    pr_repo: str | None = Field(
+        None,
+        max_length=100,
+        description="owner/name of the repo holding `pr` (default eblume/blumeops)",
+    )
 
 
 @contextmanager
@@ -101,6 +106,12 @@ def init_db() -> None:
         # ALTER-and-tolerate migration as the warrants table below.
         try:
             conn.execute("ALTER TABLE requests ADD COLUMN superseded_by INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        # The attached PR may live outside blumeops (--repo); the links below
+        # need its owner/name. NULL = blumeops (pre-0.4.1 rows).
+        try:
+            conn.execute("ALTER TABLE requests ADD COLUMN pr_repo TEXT")
         except sqlite3.OperationalError:
             pass
         # v0.2b: warrants — the approval artifact (invariants 2 & 5). A row
@@ -302,8 +313,8 @@ def create_request(
     requester = verify_agent(authorization)
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO requests (created_at, requester, action, sha, inputs, why, pr)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO requests (created_at, requester, action, sha, inputs, why, pr, pr_repo)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 time.time(),
                 requester,
@@ -312,6 +323,7 @@ def create_request(
                 json.dumps(body.inputs),
                 body.why,
                 body.pr,
+                body.pr_repo,
             ),
         )
         return {"id": cur.lastrowid, "status": "pending", "requester": requester}
@@ -392,6 +404,7 @@ def supersede(
         "action": row["action"],
         "sha": row["sha"],
         "pr": row["pr"],
+        "pr_repo": row["pr_repo"],
     }
 
 
@@ -660,7 +673,7 @@ def confirm(req_id: int, request: Request) -> str:
 td,th{{border:1px solid #ccc;padding:.4rem .7rem;text-align:left}}
 table{{border-collapse:collapse;margin:1rem 0}}</style></head>
 <body><h1>approve request #{req_id}?</h1>
-<p><b>{r["action"]}</b> at {_sha_link(r["sha"])} · {_pr_links(r["pr"], r["sha"])}</p>
+<p><b>{r["action"]}</b> at {_sha_link(r["sha"])} · {_pr_links(r["pr"], r["sha"], r["pr_repo"])}</p>
 <p><i>{r["why"]}</i></p>
 <table><tr><th>input</th><th>value</th></tr>{rows or "<tr><td colspan=2><em>none</em></td></tr>"}</table>
 <p>{effect}</p>
@@ -683,8 +696,9 @@ def list_warrants(limit: int = 50) -> list[dict]:
         ]
 
 
+FORGE_HOST = os.environ.get("WARRANT_FORGE_HOST", "https://forge.eblu.me")
 FORGE_REPO_URL = os.environ.get(
-    "WARRANT_FORGE_REPO_URL", "https://forge.eblu.me/eblume/blumeops"
+    "WARRANT_FORGE_REPO_URL", f"{FORGE_HOST}/eblume/blumeops"
 )
 
 
@@ -713,14 +727,16 @@ def _status_cell(r) -> str:
     return f"superseded → #{by}" if by else "superseded"
 
 
-def _pr_links(pr: int | None, sha: str) -> str:
+def _pr_links(pr: int | None, sha: str, pr_repo: str | None = None) -> str:
     """PR + its diff. Tying the decision to the code change is the substance
-    of the approve-fatigue answer; the ergonomics half comes later."""
+    of the approve-fatigue answer; the ergonomics half comes later. The PR's
+    own repo when named — its #N means something different in each one."""
     if not pr:
         return ""
+    base = f"{FORGE_HOST}/{pr_repo}" if pr_repo else FORGE_REPO_URL
     return (
-        f"<a href='{FORGE_REPO_URL}/pulls/{pr}'>#{pr}</a> "
-        f"<a href='{FORGE_REPO_URL}/pulls/{pr}/files' title='review the diff'>diff</a>"
+        f"<a href='{base}/pulls/{pr}'>#{pr}</a> "
+        f"<a href='{base}/pulls/{pr}/files' title='review the diff'>diff</a>"
     )
 
 
@@ -757,7 +773,7 @@ def index(request: Request) -> str:
         "".join(
             f"<tr><td>{r['id']}</td><td>{_status_cell(r)}</td>"
             f"<td><a href='{FORGE_REPO_URL}/src/branch/main/.forgejo/workflows/{r['action']}'>{r['action']}</a></td>"
-            f"<td>{_sha_link(r['sha'])}</td><td>{_pr_links(r['pr'], r['sha'])}</td>"
+            f"<td>{_sha_link(r['sha'])}</td><td>{_pr_links(r['pr'], r['sha'], r['pr_repo'])}</td>"
             f"<td>{r['why'][:120]}</td><td>{r['requester']}</td><td>{act_cell(r)}</td></tr>"
             for r in rows
         )
