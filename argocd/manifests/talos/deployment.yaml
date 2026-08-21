@@ -72,6 +72,12 @@ spec:
               value: "talos, blumeops, heph, Forgejo, ArgoCD, OpenRouter, ringtail, indri"
             - name: TALOS_OIDC_INTERNAL_URL
               value: "http://authentik.authentik.svc.cluster.local:9000"
+            # Trust the fleet's shared agents-m2m machine identity for bearer
+            # auth, so agents drive the API (e.g. cron jobs) with the same
+            # credential agent-health uses — no browser session, no new secret.
+            # aud defaults to agents-m2m in the server. See talos README (Auth).
+            - name: TALOS_OIDC_M2M_ISSUER
+              value: "https://authentik.ops.eblu.me/application/o/agents-m2m/"
             - name: TALOS_OIDC_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
