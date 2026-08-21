@@ -146,6 +146,21 @@
       check_mode: false
       tags: [forgejo_actions_secrets]
 
+    # warrant-bot's write:repository PAT, reused by the talos/horkos release
+    # workflows to push their pin-bump branch and open the PR on blumeops.
+    # Same boundary the bot already has (write, cannot merge — main is
+    # protected and warrant-bot-drift asserts the grant set), so releasing
+    # reuses a drift-checked identity instead of minting a new one.
+    - name: Fetch release forge token (warrant-bot PAT) for Forgejo Actions
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/warrant-dispatch-token/token"
+      delegate_to: localhost
+      register: _release_forge_token
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo_actions_secrets]
+
     - name: Set Forgejo Actions secrets facts
       ansible.builtin.set_fact:
         forgejo_api_token: "{{ _forgejo_api_token.stdout }}"
@@ -154,6 +169,7 @@
         forgejo_secret_zot_ci_api_key: "{{ _zot_ci_api_key.stdout }}"
         forgejo_secret_main_push_token: "{{ _forgejo_main_push_token.stdout }}"
         forgejo_secret_blumeops_ci_op_token: "{{ _blumeops_ci_op_token.stdout }}"
+        forgejo_secret_release_forge_token: "{{ _release_forge_token.stdout }}"
       no_log: true
       tags: [forgejo_actions_secrets]
 

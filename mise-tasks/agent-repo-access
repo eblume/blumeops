@@ -69,11 +69,16 @@ POLICY_PATH = Path(__file__).resolve().parent.parent / "repos.json"
 # agents  — the repo carrying the agent's own base instructions. Read-only means
 #   an agent cannot rewrite what the next session is told to do without a human
 #   merging the PR.
+# horkos  — the approval gate itself, and its CI carries release secrets
+#   (ZOT_CI_API_KEY, RELEASE_FORGE_TOKEN). release.yaml is workflow_dispatch-able
+#   and runs the definition from the dispatched ref, so a write bot could dispatch
+#   it from a branch with a doctored step and exfiltrate those secrets. Read-only
+#   closes that path (and a compromised gate is the worst thing to hand an agent).
 #
-# Both work via the fork model (origin = agents/<repo>, PRs to canonical), so
-# read costs them nothing. This lives in code, NOT in repos.json, on purpose: a
-# one-line data edit in a routine-looking PR must not be able to flip a fence.
-PINNED_READ_ONLY = frozenset({"blumeops", "agents"})
+# All three work via the fork model (origin = agents/<repo>, PRs to canonical),
+# so read costs them nothing. This lives in code, NOT in repos.json, on purpose:
+# a one-line data edit in a routine-looking PR must not be able to flip a fence.
+PINNED_READ_ONLY = frozenset({"blumeops", "agents", "horkos"})
 
 VALID_ACCESS = frozenset({"write", "read", "none"})
 

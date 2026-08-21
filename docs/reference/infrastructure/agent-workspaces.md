@@ -71,9 +71,10 @@ Repos cloned by `agent-repos-init`:
 | `timberborn-parsimony` | Sibling checkout |
 | `blumeops` | Pool-only, author-only — see [§blumeops](#blumeops-author-only-not-a-server) |
 
-> Historical list. `agent-repos-init` is gone; the live pool is the clone loop in
-> `containers/talos/default.nix` — see [[agent-containerization]] §"The repo
-> pool".
+> Historical list. `agent-repos-init` is gone; the live pool is the clone loop
+> in the talos entrypoint (default.nix in the eblume/talos repo), driven by
+> blumeops `repos.json` fetched at pod start — see [[agent-containerization]]
+> §"The repo pool".
 
 > **Concurrency caveat.** Only the **primary** repo gets per-session worktree
 > isolation (that is what `--spawn worktree` operates on). Sibling checkouts are

@@ -14,8 +14,9 @@ resources:
   - service.yaml
   - ingress-tailscale.yaml
 
-# First-party Nix image (containers/talos). Tag is stamped by the standard
-# container-release flow; bump here after each release.
+# First-party Nix image, built from eblume/talos (default.nix there). Every
+# merge to talos main auto-releases and opens a pin-bump PR against this tag;
+# merging that PR is the deploy gate.
 images:
   - name: registry.ops.eblu.me/blumeops/talos
-    newTag: v0.4.6-c904e38-nix
+    newTag: v0.4.7-ed6337f-nix
