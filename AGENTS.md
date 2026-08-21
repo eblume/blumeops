@@ -149,12 +149,17 @@ deploy after merge.
 
 **Commands:** `argocd app list|get|diff|sync <app>`
 
-**From an agent session** none of the above is available — there is no `argocd`
-binary in the pod and no cluster access. The only path is `mise run request-run
-argocd-deploy.yaml …` (see §Privileged actions), and it is warranted for one of
-three reasons: one of the four manual apps, pinning an application to a
-revision, or undoing such a pin. If you are reaching for it because you just
-merged a manifest, stop — that deploy has already happened.
+**From an agent session** the `argocd` CLI works, but *read-only*: the pod
+image wraps it with the `agents-readonly` account (get on applications and
+projects, nothing else — no sync, no logs, no exec, and Secret values are
+masked server-side). Use it to *inspect* — `argocd app list`, `argocd app
+get/diff <app>` — to confirm deployed reality instead of inferring it from
+repo state. There is still no cluster access (`kubectl` is a dead-end by
+ACL design). For anything that mutates, the only path is `mise run
+request-run argocd-deploy.yaml …` (see §Privileged actions), and it is
+warranted for one of three reasons: one of the four manual apps, pinning an
+application to a revision, or undoing such a pin. If you are reaching for it
+because you just merged a manifest, stop — that deploy has already happened.
 
 **Login:** `argocd login argocd.ops.eblu.me --sso` (opens browser for Authentik SSO). Admin fallback for break-glass: `argocd login argocd.ops.eblu.me --username admin --password "$(op read 'op://vg6xf6vvfmoh5hqjjhlhbeoaie/srogeebssulhtb6tnqd7ls6qey/password')"`
 

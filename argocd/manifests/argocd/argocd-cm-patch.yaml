@@ -1,6 +1,7 @@
 # ArgoCD ConfigMap patch
 #
 # - workflow-bot: service account for CI/CD automation
+# - agents-readonly: read-only inspection account for agent pods (talos)
 # - OIDC: Authentik SSO for admin login
 #
 apiVersion: v1
@@ -12,6 +13,13 @@ data:
   # workflow-bot: service account for CI/CD automation
   # - apiKey: allows generating API tokens via `argocd account generate-token`
   accounts.workflow-bot: apiKey
+  # agents-readonly: lets talos agent pods inspect deployment state
+  # (app get/diff/health) without a human account. apiKey only — no UI
+  # login. Token lives in the *agents* 1Password vault; the pod reads it
+  # at runtime via its op service account, so it is never staged in etcd.
+  # RBAC scope (read-only, no sync) in argocd-rbac-cm-patch.yaml.
+  # Heph 01M0HAQ40Y8P3TYZ5958PVQQ6J.
+  accounts.agents-readonly: apiKey
   oidc.config: |
     name: Authentik
     issuer: https://authentik.ops.eblu.me/application/o/argocd/
