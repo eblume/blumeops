@@ -17,4 +17,4 @@ resources:
 # until the first release PR replaces it.
 images:
   - name: registry.ops.eblu.me/blumeops/horkos
-    newTag: v0.5.0-unbuilt-nix
+    newTag: v0.5.1-8b6b1b1-nix
