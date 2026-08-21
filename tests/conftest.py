@@ -1,10 +1,9 @@
 """Shared loading of `mise-tasks/request-run` for the repo-tooling suite.
 
-Exposed as a fixture rather than an importable helper on purpose: `mise run
-warrant-test` runs this directory alongside `containers/warrant/tests`, which
-has a conftest of its own, so both dirs land on `sys.path` and a plain
-`from conftest import …` would resolve to whichever came first. Fixtures are
-scoped per directory by pytest and cannot collide that way.
+Run via `mise run horkos-test`. (The service's own suite moved to the
+eblume/horkos repo with the extraction; only the client tooling is tested
+here.) Exposed as a fixture rather than an importable helper — a habit kept
+from the two-conftest era, and still the collision-proof shape.
 """
 
 import importlib.machinery

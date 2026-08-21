@@ -404,7 +404,7 @@ designs remain rejected — this change took neither path:
 - **A push-triggered "nix check" CI workflow.** Every blumeops workflow is
   `workflow_dispatch`-only by design. A job that ran on push would hand the
   agent arbitrary code execution on `nix-container-builder` — which holds
-  registry credentials — which is precisely the lateral path [[warrant]]
+  registry credentials — which is precisely the lateral path [[horkos]]
   exists to close.
 
 ## Related

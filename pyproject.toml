@@ -17,7 +17,7 @@ dagger-io = { path = "sdk", editable = true }
 # 414 under 0.16. With no `select` here, a routine version bump in the monthly
 # [[update-tooling-dependencies]] cycle silently changes what the Lint gate
 # enforces — the 0.16 bump alone surfaced 42 findings across mise-tasks/,
-# pulumi/ and containers/warrant/ that nobody had opted into.
+# pulumi/ (and the since-extracted containers/warrant/) that nobody had opted into.
 #
 # These four are ruff's pre-0.16 default and the set this repo has actually
 # been linted against. Widening it is worthwhile (PLW1510, DTZ and SIM118 all

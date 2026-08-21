@@ -629,11 +629,8 @@ data:
           # Required by the provider serializer even for a pure
           # client_credentials flow (this entry silently failed without it —
           # every working provider in this file has one). The URL doubles as
-          # a future code-flow callback (horkos, né warrant; the warrant URL
-          # retires with the decommission PR).
+          # a future code-flow callback (horkos).
           redirect_uris:
-            - matching_mode: strict
-              url: https://warrant.ops.eblu.me/oauth/callback
             - matching_mode: strict
               url: https://horkos.ops.eblu.me/oauth/callback
           signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
@@ -668,62 +665,6 @@ data:
           negate: false
           timeout: 30
 
-  warrant.yaml: |
-    version: 1
-    metadata:
-      name: BlumeOps Warrant SSO
-      labels:
-        blueprints.goauthentik.io/description: "Warrant human login ([[warrant-approval-gated-runs]] v0.2a) — admins only"
-    entries:
-      # Human OIDC provider for the Warrant UI. Approval decisions gate on
-      # the flow this provider uses — swapping TOTP for a hardware-key stage
-      # later is a change HERE, never in Warrant code (invariant 4).
-      - model: authentik_providers_oauth2.oauth2provider
-        id: warrant-provider
-        identifiers:
-          name: Warrant
-        attrs:
-          name: Warrant
-          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
-          invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-          client_type: confidential
-          client_id: warrant
-          client_secret: !Env AUTHENTIK_WARRANT_CLIENT_SECRET
-          redirect_uris:
-            - matching_mode: strict
-              url: https://warrant.ops.eblu.me/auth/callback
-          signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
-          property_mappings:
-            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
-            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
-            - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
-          sub_mode: hashed_user_id
-          include_claims_in_id_token: true
-
-      - model: authentik_core.application
-        id: warrant-app
-        identifiers:
-          slug: warrant
-        attrs:
-          name: Warrant
-          slug: warrant
-          provider: !KeyOf warrant-provider
-          meta_launch_url: https://warrant.ops.eblu.me
-          policy_engine_mode: any
-
-      # Admins only — approvers, not agents.
-      - model: authentik_policies.policybinding
-        identifiers:
-          order: 0
-          target: !KeyOf warrant-app
-          group: !Find [authentik_core.group, [name, admins]]
-        attrs:
-          target: !KeyOf warrant-app
-          group: !Find [authentik_core.group, [name, admins]]
-          order: 0
-          enabled: true
-          negate: false
-          timeout: 30
   horkos.yaml: |
     version: 1
     metadata:
