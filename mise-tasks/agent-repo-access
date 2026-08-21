@@ -11,9 +11,10 @@
 #USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when \$FORGE_ADMIN_TOKEN is unset (CI bootstrap)"
 """Reconcile which of eblume's repos the `agents` bot may touch.
 
-`repos.json` (repo root) is the single source of truth: it drives both
-the forge collaborator grants (this script) and the agent workspace's clone loop
-(the image's default.nix reads the same file). Before it existed those were two
+`argocd/manifests/talos/repos.json` is the single source of truth: it drives
+the forge collaborator grants (this script) and the talos pod's clone loop
+(delivered there as a kustomize-generated ConfigMap whose hashed name rolls
+the pod on every policy merge). Before it existed those were two
 independent manual steps, and a missing grant was invisible — Forgejo answers
 404, not 403, for a private repo the caller cannot see, so a repo the bot lacked
 access to looked exactly like a typo.
@@ -57,7 +58,7 @@ from rich.table import Table
 
 FORGE_URL = "https://forge.ops.eblu.me"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
-POLICY_PATH = Path(__file__).resolve().parent.parent / "repos.json"
+POLICY_PATH = Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
 
 # Repos whose read-only-on-canonical status is a security boundary, not a
 # preference: the bot must not be able to push to them or run their CI.
