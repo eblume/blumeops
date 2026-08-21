@@ -64,7 +64,7 @@ Most of Erich's repos are **private**, and the bot is a plain Forgejo user — i
 gets no access by owning nothing. Both halves — the forge grant and the
 workspace checkout — are declared in **one** file:
 
-**`repos.json`** (repo root)
+**`repos.json`** (`argocd/manifests/talos/`)
 
 ```json
 { "name": "myeve", "access": "write", "pool": "canonical" }

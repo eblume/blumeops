@@ -25,6 +25,10 @@ spec:
     server: https://kubernetes.default.svc
     namespace: talos
   syncPolicy:
-    automated: {}
+    # prune: the repos.json ConfigMap is kustomize-generated with a hash
+    # suffix (that hash change is what rolls the pod on a policy merge), so
+    # each edit orphans the previous talos-repos-<hash> — prune is the GC.
+    automated:
+      prune: true
     syncOptions:
       - CreateNamespace=true

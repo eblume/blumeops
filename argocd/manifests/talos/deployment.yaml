@@ -72,6 +72,12 @@ spec:
               value: "talos, blumeops, heph, Forgejo, ArgoCD, OpenRouter, ringtail, indri"
             - name: TALOS_OIDC_INTERNAL_URL
               value: "http://authentik.authentik.svc.cluster.local:9000"
+            # Repo-pool policy, delivered as the talos-repos ConfigMap (see
+            # kustomization.yaml) — its hashed name rolls this pod on every
+            # policy merge. The entrypoint falls back to curling the forge
+            # raw path only when this env/mount is absent.
+            - name: TALOS_REPOS_FILE
+              value: /etc/talos/repos.json
             # Trust the fleet's shared agents-m2m machine identity for bearer
             # auth, so agents drive the API (e.g. cron jobs) with the same
             # credential agent-health uses — no browser session, no new secret.
@@ -132,6 +138,9 @@ spec:
             # Shared hephd spoke socket (uid 1500 == host agent user).
             - name: heph-socket
               mountPath: /home/talos/.local/share/heph
+            - name: repos-policy
+              mountPath: /etc/talos
+              readOnly: true
         # ── userspace Tailscale sidecar (tag:agent) ──────────────────────
         # TS_HOSTNAME deliberately differs from the ingress MagicDNS name
         # ("talos", owned by the ProxyGroup) — this is the pod's egress
@@ -174,3 +183,6 @@ spec:
           hostPath:
             path: /home/agent/.local/share/heph
             type: Directory
+        - name: repos-policy
+          configMap:
+            name: talos-repos

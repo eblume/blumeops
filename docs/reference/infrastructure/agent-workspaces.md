@@ -73,7 +73,7 @@ Repos cloned by `agent-repos-init`:
 
 > Historical list. `agent-repos-init` is gone; the live pool is the clone loop
 > in the talos entrypoint (default.nix in the eblume/talos repo), driven by
-> blumeops `repos.json` fetched at pod start — see [[agent-containerization]]
+> blumeops `repos.json` mounted as a ConfigMap (rolls the pod on change) — see [[agent-containerization]]
 > §"The repo pool".
 
 > **Concurrency caveat.** Only the **primary** repo gets per-session worktree
