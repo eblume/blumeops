@@ -98,6 +98,9 @@ caddy_services:
   - name: warrant
     host: "warrant.{{ caddy_domain }}"
     backend: "https://warrant.tail8d86e.ts.net"
+  - name: horkos
+    host: "horkos.{{ caddy_domain }}"
+    backend: "https://horkos.tail8d86e.ts.net"
   - name: ollama
     host: "ollama.{{ caddy_domain }}"
     backend: "https://ollama.tail8d86e.ts.net"

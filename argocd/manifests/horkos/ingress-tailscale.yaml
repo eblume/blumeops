@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: horkos-tailscale
+  namespace: horkos
+  annotations:
+    tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Horkos"
+    gethomepage.dev/group: "Infrastructure"
+    gethomepage.dev/icon: "mdi-file-sign"
+    gethomepage.dev/description: "Privileged-run approval queue (né Warrant)"
+    gethomepage.dev/href: "https://horkos.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=horkos"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: horkos
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - horkos

@@ -83,6 +83,13 @@ spec:
                 secretKeyRef:
                   name: authentik-config
                   key: warrant-client-secret
+            # Horkos (né Warrant) reuses the same secret material during the
+            # cutover; the WARRANT_ env retires with the warrant provider.
+            - name: AUTHENTIK_HORKOS_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-config
+                  key: warrant-client-secret
             - name: AUTHENTIK_ZOT_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:

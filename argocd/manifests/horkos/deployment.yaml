@@ -1,0 +1,75 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: horkos
+  namespace: horkos
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate  # RWO PVC (SQLite)
+  selector:
+    matchLabels:
+      app: horkos
+  template:
+    metadata:
+      labels:
+        app: horkos
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        fsGroup: 1500
+      containers:
+        - name: horkos
+          image: registry.ops.eblu.me/blumeops/horkos:kustomized
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: HORKOS_DB
+              value: /data/horkos.db
+            # Armed from day one — horkos inherits warrant's armed state
+            # (warrant armed 2026-08-03). Approving a request dispatches its
+            # workflow as warrant-bot. To disarm, set "0" and sync — the
+            # credential stays in place but is ignored.
+            - name: HORKOS_DISPATCH_ENABLED
+              value: "1"
+          envFrom:
+            - secretRef:
+                name: horkos-oidc
+                optional: true  # human door degrades to 503 on /auth/login, API unaffected
+            - secretRef:
+                name: horkos-dispatch
+                optional: true  # dispatch stays inert without the token
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1500
+            runAsGroup: 1500
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: horkos-data
+        - name: tmp
+          emptyDir: {}

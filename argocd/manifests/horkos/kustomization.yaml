@@ -1,0 +1,20 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: horkos
+resources:
+  - deployment.yaml
+  - pvc.yaml
+  - service.yaml
+  - ingress-tailscale.yaml
+  - external-secret-oidc.yaml
+  - external-secret-dispatch.yaml
+# First-party Nix image, built from eblume/horkos (default.nix there). Every
+# merge to horkos main auto-releases and opens a pin-bump PR against this
+# tag; merging that PR + `argocd app sync horkos` is the deploy (the app is
+# manual-sync — see argocd/apps/horkos.yaml).
+# v0.5.0-unbuilt-nix is a pre-first-release placeholder: nothing to sync
+# until the first release PR replaces it.
+images:
+  - name: registry.ops.eblu.me/blumeops/horkos
+    newTag: v0.5.0-unbuilt-nix
