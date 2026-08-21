@@ -268,7 +268,7 @@ def pr_touches_workflows(client: httpx.Client, number: int, repo_api: str = REPO
     ]
 
 
-WARRANT_URL = "https://warrant.ops.eblu.me"
+HORKOS_URL = "https://horkos.ops.eblu.me"
 AUTHENTIK_TOKEN_URL = "https://authentik.ops.eblu.me/application/o/token/"
 SOCKS_FALLBACK = "socks5://localhost:1055"  # agent pod's tailscale sidecar
 
@@ -277,7 +277,7 @@ def _ops_client() -> httpx.Client:
     """Client for *.ops.eblu.me: direct on gilbert, SOCKS fallback in-pod."""
     c = httpx.Client(timeout=15.0, proxy=os.environ.get("ALL_PROXY"))
     try:
-        c.get(f"{WARRANT_URL}/healthz", timeout=5.0)
+        c.get(f"{HORKOS_URL}/healthz", timeout=5.0)
         return c
     except httpx.TransportError:
         c.close()
@@ -325,7 +325,7 @@ def mirror_to_warrant(
     try:
         with _ops_client() as c:
             resp = c.post(
-                f"{WARRANT_URL}/api/requests",
+                f"{HORKOS_URL}/api/requests",
                 headers={"Authorization": f"Bearer {_warrant_bearer(c)}"},
                 json={
                     "action": workflow,
@@ -354,7 +354,7 @@ def supersede_in_warrant(old_id: int, new_id: int) -> dict | None:
     try:
         with _ops_client() as c:
             resp = c.post(
-                f"{WARRANT_URL}/api/requests/{old_id}/supersede",
+                f"{HORKOS_URL}/api/requests/{old_id}/supersede",
                 headers={"Authorization": f"Bearer {_warrant_bearer(c)}"},
                 json={"by": new_id},
             )
@@ -441,8 +441,8 @@ def annotate_superseded_comment(
     old_repo = old.get("pr_repo") or DEFAULT_PR_REPO
     body = (
         "## 🚫 Request superseded\n\n"
-        f"[Request #{old_id}]({WARRANT_URL}/) — `{old['action']}` at `{old['sha'][:7]}` — "
-        f"is replaced by [request #{new_id}]({WARRANT_URL}/) at `{new_sha[:7]}`, and has "
+        f"[Request #{old_id}]({HORKOS_URL}/) — `{old['action']}` at `{old['sha'][:7]}` — "
+        f"is replaced by [request #{new_id}]({HORKOS_URL}/) at `{new_sha[:7]}`, and has "
         "been retired in Warrant: it can no longer be approved. Decide the new request "
         "instead.\n"
     )
@@ -589,7 +589,7 @@ def main(
             else:
                 superseded = supersede_in_warrant(supersedes, warrant_id)
         supersedes_row = (
-            f"| **Supersedes** | [request #{supersedes}]({WARRANT_URL}/) at "
+            f"| **Supersedes** | [request #{supersedes}]({HORKOS_URL}/) at "
             f"`{superseded['sha'][:7]}` — retired, no longer approvable |\n"
             if superseded
             else f"| **Supersedes** | ⚠️ `#{supersedes}` — retiring it FAILED; it is still "
@@ -599,13 +599,13 @@ def main(
         )
 
         warrant_row = (
-            f"| **Warrant** | [request #{warrant_id}]({WARRANT_URL}/) — approve or deny here |\n"
+            f"| **Warrant** | [request #{warrant_id}]({HORKOS_URL}/) — approve or deny here |\n"
             if warrant_id
             else f"| **Warrant** | ⚠️ mirror failed — this request is PR+heph only, "
             f"approve from the [dispatch page]({dispatch_url}) |\n"
         )
         approve_line = (
-            f"**To approve:** open [Warrant]({WARRANT_URL}/) and decide request "
+            f"**To approve:** open [Horkos]({HORKOS_URL}/) and decide request "
             f"#{warrant_id} — approving dispatches the run itself, with the SHA and "
             "inputs above already bound. To deny, deny it there (or say so here) and "
             "`heph done` the tracking task with a note."
@@ -646,7 +646,7 @@ This request grants nothing: dispatch remains write-gated to humans.
     heph_body = (
         f"Privileged run request: {workflow} @ {sha} ({pr_ref}).\n"
         f"Request comment: {comment_url}\n"
-        + (f"Warrant: {WARRANT_URL}/ (request #{warrant_id})\n" if warrant_id else "")
+        + (f"Warrant: {HORKOS_URL}/ (request #{warrant_id})\n" if warrant_id else "")
         + f"Dispatch page: {dispatch_url}\n"
         f"Inputs: {' '.join(inputs) if inputs else '(none)'}\n"
         f"Why: {why or '(not given)'}\n"
@@ -685,7 +685,7 @@ This request grants nothing: dispatch remains write-gated to humans.
 
     console.print(f"[green]Request filed.[/green] PR comment: {comment_url}")
     if warrant_id:
-        console.print(f"warrant: {WARRANT_URL}/ (request #{warrant_id})")
+        console.print(f"warrant: {HORKOS_URL}/ (request #{warrant_id})")
     if task_id:
         console.print(f"heph task: {task_id}")
     if superseded:

@@ -111,7 +111,7 @@ dispatch stay blumeops; only the attached PR moves.
 It validates the request against `warrant-policy.yaml` **on main**
 (unknown or `class: deny` actions are refused at request time), then records
 it as a PR comment, a heph task, and an entry in the approval queue. A human
-approves in Warrant, which dispatches the workflow. Requestable today:
+approves in Horkos (né Warrant), which dispatches the workflow. Requestable today:
 `argocd-deploy.yaml`, `build-container.yaml`, `deploy-fly.yaml`.
 
 `mise run verify-runs` closes the loop afterwards; `mise run agent-health`
@@ -119,7 +119,7 @@ checks the fleet without cluster access. Adding a new privileged workflow
 means adding its `warrant-policy.yaml` entry **in the same PR** — capability
 and boundary get reviewed together.
 
-See [[request-a-privileged-run]], [[warrant]], and
+See [[request-a-privileged-run]], [[horkos]], and
 [[warrant-approval-gated-runs]] for the design and its invariants.
 
 ## Service Deployment

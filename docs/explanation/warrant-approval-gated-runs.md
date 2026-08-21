@@ -11,10 +11,17 @@ tags:
 
 # Warrant: Approval-Gated Privileged Runs
 
+> **The broker is now [[horkos]]** (2026-08-20): the Warrant *service* was
+> renamed Horkos (Ὅρκος, the oath daimon) and extracted to its own repo,
+> `eblume/horkos`, with auto-release on merge. The *program* documented here,
+> the minted **warrant** artifact, `warrant-policy.yaml`, and `warrant-bot`
+> all keep their names — a warrant is still what Horkos mints. Historical
+> prose below says "Warrant" where it meant the service; read it as Horkos.
+
 > **Status: BUILT AND RUNNING** (2026-08-04). Proposed 2026-08-01, accepted
 > after review (PR #455), and delivered across phases 0-4 in the days that
 > followed. Agents now request privileged actions with
-> `mise run request-run`; Erich approves in [[warrant]]; `warrant-bot`
+> `mise run request-run`; Erich approves in [[horkos]]; `warrant-bot`
 > dispatches. First self-dispatched run: 713 (`argocd-deploy` on ntfy,
 > 2026-08-03). This doc remains the program's north star and its record of
 > *why*; per-phase state is below.

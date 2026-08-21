@@ -95,9 +95,6 @@ caddy_services:
   - name: ntfy
     host: "ntfy.{{ caddy_domain }}"
     backend: "https://ntfy.tail8d86e.ts.net"
-  - name: warrant
-    host: "warrant.{{ caddy_domain }}"
-    backend: "https://warrant.tail8d86e.ts.net"
   - name: horkos
     host: "horkos.{{ caddy_domain }}"
     backend: "https://horkos.tail8d86e.ts.net"

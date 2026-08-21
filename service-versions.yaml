@@ -37,18 +37,6 @@ services:
     current-version: "v2.24.0"
     upstream-source: https://github.com/binwiederhier/ntfy/releases
 
-  - name: warrant
-    type: argocd
-    last-reviewed: 2026-08-20
-    current-version: "v0.4.1"
-    upstream-source: https://forge.eblu.me/eblume/blumeops/src/branch/main/containers/warrant
-    notes: >-
-      First-party approval broker ([[warrant-approval-gated-runs]] Phase 3
-      scaffold). Version is ours — bump containers/warrant/default.nix and
-      this entry together; no external upstream to watch. RETIRING: renamed
-      Horkos, extracted to eblume/horkos — this entry goes away with the
-      decommission PR once the horkos cutover is verified.
-
   - name: horkos
     type: argocd
     last-reviewed: 2026-08-20

@@ -46,7 +46,7 @@ FORGE_API_BASE = "https://forge.eblu.me/api/v1"
 REPO = "eblume/blumeops"
 TITLE_RE = re.compile(r"^Approve: (?P<workflow>\S+) @ (?P<sha7>[0-9a-f]{7}) \(PR #(?P<pr>\d+)\)$")
 
-WARRANT_URL = "https://warrant.ops.eblu.me"
+HORKOS_URL = "https://horkos.ops.eblu.me"
 AUTHENTIK_TOKEN_URL = "https://authentik.ops.eblu.me/application/o/token/"
 SOCKS_FALLBACK = "socks5://localhost:1055"  # agent pod's tailscale sidecar
 # request-run appends this line to each Approve task's context doc.
@@ -105,7 +105,7 @@ def _ops_client() -> httpx.Client:
     """Client for *.ops.eblu.me: direct on gilbert, SOCKS fallback in-pod."""
     c = httpx.Client(timeout=15.0, proxy=os.environ.get("ALL_PROXY"))
     try:
-        c.get(f"{WARRANT_URL}/healthz", timeout=5.0)
+        c.get(f"{HORKOS_URL}/healthz", timeout=5.0)
         return c
     except httpx.TransportError:
         c.close()
@@ -137,7 +137,7 @@ def warrant_requests() -> dict[int, dict]:
             )
             tok.raise_for_status()
             resp = c.get(
-                f"{WARRANT_URL}/api/requests",
+                f"{HORKOS_URL}/api/requests",
                 params={"limit": 100},
                 headers={"Authorization": f"Bearer {tok.json()['access_token']}"},
             )

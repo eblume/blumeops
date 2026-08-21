@@ -56,7 +56,7 @@ mise run request-run build-container.yaml <full-blumeops-sha> \
 ```
 
 `--repo` moves only the attachment: the request comment, the heph task title,
-and Warrant's queue and approve page all name `eblume/talos` PR #12 instead of
+and Horkos's queue and approve page all name `eblume/talos` PR #12 instead of
 blumeops PR #12, which would be a different change entirely. The workflow
 validation, the bound SHA, and the dispatch stay blumeops.
 
@@ -73,7 +73,7 @@ What it does:
   (PR #N)` — with the repo named for non-blumeops PRs) — the system of record
   for pending approvals. An unactioned request is a
   visible orange task, not a lost chat message;
-- **mirrors the request into [[warrant]]** (`warrant.ops.eblu.me`) with the
+- **mirrors the request into [[horkos]]** (`horkos.ops.eblu.me`) with the
   agents-m2m identity — best-effort in v0.1 (the PR comment + heph task stay
   the system of record; a broker failure warns and moves on);
 - with `--notify`, additionally pushes to ntfy topic `ops-approvals`
@@ -96,31 +96,31 @@ mise run request-run build-container.yaml <new-full-sha> \
     --supersedes 21 --why "rebuild after review feedback"
 ```
 
-`--supersedes` marks request 21 `superseded` in Warrant (it stops being
+`--supersedes` marks request 21 `superseded` in Horkos (it stops being
 approvable), notes the supersession on its PR comment, and closes its heph
 tracking task. Without it, both requests sit in the queue looking live and the
 approver has to work out which is which.
 
-It only ever *reduces*: Warrant scopes the call to your own still-pending
+It only ever *reduces*: Horkos scopes the call to your own still-pending
 requests, so it cannot retire someone else's request or undo a decision a
 human already made. If the retirement fails, the new request is still filed
 and the old one is still pending — the comment says so.
 
 ## Approve (human)
 
-Approvals happen in [[warrant]] — https://warrant.ops.eblu.me:
+Approvals happen in [[horkos]] — https://horkos.ops.eblu.me:
 
 1. Sign in (Authentik; MFA applies) and find the request.
 2. **Read the change**: the row links the PR, its diff, and the commit.
 3. `approve…` → the confirm page shows the full input set and states the
-   effect → approve. Warrant mints a single-use warrant and dispatches the
+   effect → approve. Horkos mints a single-use warrant and dispatches the
    workflow as `warrant-bot`; the run is linked on the warrant.
 4. **deny** is inline on the row (with a note). Deny anything already
    executed — the queue records intent, not history.
 
 `mise run verify-runs` then closes the tracking task from the run's outcome.
 
-**Fallback** (Warrant disarmed or down): dispatch from the forge UI using the
+**Fallback** (Horkos disarmed or down): dispatch from the forge UI using the
 SHA and inputs in the request comment — the request stays the record either
 way.
 
