@@ -50,3 +50,20 @@ forgejo_actions_secrets_repos:
     secrets:
       - name: FORGE_TOKEN
         value_var: forgejo_api_token
+  # Auto-release secrets ([[horkos]] extraction, 2026-08): merge to main in
+  # these repos builds + pushes the image and opens a pin-bump PR on
+  # blumeops. ZOT_CI_API_KEY pushes to the registry; RELEASE_FORGE_TOKEN is
+  # warrant-bot's PAT (write on blumeops only — branch push + PR open, can
+  # never merge or dispatch).
+  - repo: talos
+    secrets:
+      - name: ZOT_CI_API_KEY
+        value_var: forgejo_secret_zot_ci_api_key
+      - name: RELEASE_FORGE_TOKEN
+        value_var: forgejo_secret_release_forge_token
+  - repo: horkos
+    secrets:
+      - name: ZOT_CI_API_KEY
+        value_var: forgejo_secret_zot_ci_api_key
+      - name: RELEASE_FORGE_TOKEN
+        value_var: forgejo_secret_release_forge_token
