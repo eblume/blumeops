@@ -410,8 +410,9 @@ services:
     notes: >-
       First-party agent workflow service ([[talos-design]]): pi runtime +
       Bun server, OpenRouter models, Authentik OIDC, sidecar-identity pod.
-      Version is ours — bump containers/talos/default.nix (rev + hashes)
-      and this entry together.
+      Version is ours — auto-released: every merge to eblume/talos main
+      builds the image and opens a pin-bump PR here that updates this entry
+      and the kustomization tag together (release.yaml in the talos repo).
 
   - name: mealie
     type: argocd
