@@ -347,7 +347,7 @@ proves too thin." The step taken was making the store writable in the image
 rather than relocated:
 
 - The image's top layer creates `/nix/store` and `/nix/var/nix` owned by uid
-  1500 (`fakeRootCommands` in `containers/talos/default.nix`). A top layer's
+  1500 (`fakeRootCommands` in the talos repo's `default.nix`). A top layer's
   directory entry takes ownership of the merged path without hiding any
   lower-layer content, so the toolchain stays visible and the store becomes
   writable. (`/nix/var/nix` must exist before first use: without it nix

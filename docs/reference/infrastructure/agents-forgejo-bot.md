@@ -73,8 +73,10 @@ workspace checkout — are declared in **one** file:
 - `access` (`write` | `read` | `none`) is reconciled onto the forge as a
   collaborator grant by `mise run agent-repo-access`, which the
   **Agent Repo Access** workflow runs on merge to `main`.
-- `pool` (`canonical` | `fork` | `none`) is compiled into the pod's clone loop
-  by `containers/talos/default.nix` via `builtins.fromJSON`.
+- `pool` (`canonical` | `fork` | `none`) drives the pod's clone loop: the
+  talos entrypoint (default.nix in the eblume/talos repo) fetches this file
+  from blumeops `main` at pod start — a pool change reaches pods on restart,
+  no image rebuild needed.
 
 So adding a repo is: edit the file, open a PR, merge. No clicking in the forge
 UI — and nothing to forget, which is the point. See [[agent-containerization]]

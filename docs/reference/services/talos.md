@@ -19,7 +19,7 @@ Self-hosted agent workflow service ([[talos-design]]): browser-driven pi agent s
 | **Tailscale URL** | https://talos.tail8d86e.ts.net |
 | **Namespace** | `talos` |
 | **Cluster** | ringtail k3s |
-| **Image** | `registry.ops.eblu.me/blumeops/talos` (first-party Nix, `containers/talos/`) |
+| **Image** | `registry.ops.eblu.me/blumeops/talos` (first-party Nix, built from `default.nix` in the talos repo — auto-released on merge to its main) |
 | **Source** | https://forge.eblu.me/eblume/talos |
 | **Manifests** | `argocd/manifests/talos/` |
 | **Port** | 3000 |
@@ -32,7 +32,7 @@ Bun server embedding the pi runtime (`pi-coding-agent` SDK): sessions are append
 
 Models are env-pinned (`TALOS_MODEL`, currently `qwen/qwen3.8-max`); models newer than pi's catalog are synthesized from OpenRouter's live listing with real pricing so cost tracking stays correct.
 
-The image bakes an **eval-only nix** (following the [[agent-containerization]] §"Nix in the pod" precedent): `$HOME`-relocated store on the PVC, `max-jobs = 0`, swept on size by the entrypoint. It lets the pod compute `fetchgit`/`srcHash` values for its own image bumps instead of burning warrant-approved build rounds on hash-mismatch errors — builds stay impossible by construction.
+The image bakes an **eval-only nix** (following the [[agent-containerization]] §"Nix in the pod" precedent): `$HOME`-relocated store on the PVC, `max-jobs = 0`, swept on size by the entrypoint. It lets the pod compute `fetchgit` hash values for the image's pinned dependencies (heph, npm deps) instead of burning CI rounds on hash-mismatch errors. (The image's own source needs no hash since the auto-release move — the talos repo's `default.nix` builds from the checkout itself, and every merge to talos main releases automatically.)
 
 ## Programmatic API
 
