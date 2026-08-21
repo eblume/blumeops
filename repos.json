@@ -25,15 +25,19 @@
     "collaboration REMOVED. Adding a repo means adding it here, not clicking in",
     "the forge UI. See docs/reference/infrastructure/agents-forgejo-bot.md.",
     "",
-    "`agents` and `blumeops` are pinned to read by an invariant in the reconciler",
-    "that this file cannot override -- their read-only-on-canonical status is what",
-    "keeps blumeops CI (and its deploy secrets) out of agent reach."
+    "`agents`, `blumeops`, and `horkos` are pinned to read by an invariant in",
+    "the reconciler that this file cannot override -- their read-only-on-canonical",
+    "status is what keeps their CI (and its deploy/release secrets) out of agent",
+    "reach. horkos is the approval gate itself and carries release secrets",
+    "(ZOT_CI_API_KEY, RELEASE_FORGE_TOKEN); a write bot could dispatch release.yaml",
+    "from a branch with a doctored step and exfiltrate them, so it authors via fork."
   ],
   "owner": "eblume",
   "collaborator": "agents",
   "repos": [
     { "name": "agents", "access": "read", "pool": "fork" },
     { "name": "blumeops", "access": "read", "pool": "fork" },
+    { "name": "horkos", "access": "read", "pool": "fork" },
     { "name": "hephaestus", "access": "write", "pool": "canonical" },
     { "name": "hephaestus.nvim", "access": "write", "pool": "canonical" },
     { "name": "research", "access": "write", "pool": "canonical" },
