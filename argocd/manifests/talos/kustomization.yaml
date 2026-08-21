@@ -19,4 +19,4 @@ resources:
 # merging that PR is the deploy gate.
 images:
   - name: registry.ops.eblu.me/blumeops/talos
-    newTag: v0.4.8-ea2791d-nix
+    newTag: v0.4.9-cc88c5e-nix
