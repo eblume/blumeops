@@ -1,6 +1,7 @@
 # ArgoCD RBAC ConfigMap patch
 #
 # - workflow-bot: minimal CI/CD permissions (sync, get, update; project reads)
+# - agents-readonly: read-only inspection for agent pods (get only, no sync)
 # - admins: Authentik admins group mapped to ArgoCD admin role
 # - admin: local break-glass account — keeps ArgoCD admin rights for when
 #   Authentik SSO is unavailable (without this it has no permissions, since
@@ -35,5 +36,20 @@ data:
     # this line exists.
     p, role:workflow-bot, projects, get, *, allow
     g, workflow-bot, role:workflow-bot
+    # agents-readonly: the talos pods' read surface (heph 01M0HAQ4…) — a
+    # deliberately different trust profile from workflow-bot: agents may
+    # *look*, never mutate. applications/get covers app state, health,
+    # resource tree, live manifests and diffs; ArgoCD masks Secret data
+    # values server-side (`++++++++`) in all of those, so the 1Password-
+    # sourced Secrets that external-secrets materializes are not readable
+    # through this grant. What is deliberately ABSENT: sync/update/delete/
+    # action/override (no mutation), logs (its own RBAC resource since 3.0,
+    # and pod logs can carry secrets), exec, repositories/clusters/
+    # certificates. projects/get is required for `argocd app get` to
+    # resolve the app's project, and shares the CVE-2025-55190 version
+    # floor documented above — do not roll below 3.1.2 while it exists.
+    p, role:agents-readonly, applications, get, *, allow
+    p, role:agents-readonly, projects, get, *, allow
+    g, agents-readonly, role:agents-readonly
     g, admins, role:admin
     g, admin, role:admin
