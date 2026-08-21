@@ -101,8 +101,12 @@ Agents cannot deploy, build containers, or run vault-backed scripts directly
 
 ```fish
 mise run request-run <workflow> <full-40-char-sha> --pr <N> \
-    -i key=value --why "one line"
+    [-i key=value ...] --why "one line"
 ```
+
+Pass `--repo owner/name` when the PR the request is about lives in another
+repo (e.g. `--repo eblume/talos`) — the workflow, the bound SHA, and the
+dispatch stay blumeops; only the attached PR moves.
 
 It validates the request against `warrant-policy.yaml` **on main**
 (unknown or `class: deny` actions are refused at request time), then records

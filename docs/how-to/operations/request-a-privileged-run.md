@@ -1,7 +1,7 @@
 ---
 title: Request a Privileged Run
-modified: 2026-08-07
-last-reviewed: 2026-08-07
+modified: 2026-08-20
+last-reviewed: 2026-08-20
 tags:
   - how-to
   - operations
@@ -17,8 +17,8 @@ Phase 1 of [[warrant-approval-gated-runs]].
 ## Request
 
 ```fish
-mise run request-run <workflow> <full-sha> [--pr N] [-i key=value]... [--why TEXT] \
-    [--supersedes ID] [--notify]
+mise run request-run <workflow> <full-sha> [--pr N] [--repo owner/name] [-i key=value]... \
+    [--why TEXT] [--supersedes ID] [--notify]
 ```
 
 Example — request a container build at a merged commit:
@@ -44,16 +44,34 @@ prune is an option on the sync) and the workflow refuses the combination rather
 than reporting green having pruned nothing. See [[argocd#Sync Policy]] for why
 orphans accumulate in the first place.
 
+Example — the attached PR lives in another repo. A change in `eblume/talos`
+that needs the talos image rebuilt is bound to a *blumeops* commit (the
+definition lives here), but the review the approver wants to read is the
+talos PR:
+
+```fish
+mise run request-run build-container.yaml <full-blumeops-sha> \
+    --pr 12 --repo eblume/talos -i container=talos -i ref=<full-blumeops-sha> \
+    --why "rebuild the talos image for the eblume/talos change"
+```
+
+`--repo` moves only the attachment: the request comment, the heph task title,
+and Warrant's queue and approve page all name `eblume/talos` PR #12 instead of
+blumeops PR #12, which would be a different change entirely. The workflow
+validation, the bound SHA, and the dispatch stay blumeops.
+
 What it does:
 
 - validates the SHA is full-length and the workflow exists **on `main`**
   (privileged definitions execute from main only — invariant 3);
 - resolves the PR (auto-detected when the SHA is an open PR's head; `--pr`
-  for post-merge or unusual cases) and posts a structured **request comment**
-  there: workflow, SHA, inputs, justification, diff + dispatch links;
+  for post-merge or unusual cases; `--repo owner/name` when the PR lives in
+  another repo) and posts a structured **request comment** there: workflow,
+  SHA, inputs, justification, diff + dispatch links;
 - warns loudly in the comment if the PR touches `.forgejo/workflows/**`;
-- files an attention-orange **heph task** (`Approve: <workflow> @ <sha7>`) —
-  the system of record for pending approvals. An unactioned request is a
+- files an attention-orange **heph task** (`Approve: <workflow> @ <sha7>
+  (PR #N)` — with the repo named for non-blumeops PRs) — the system of record
+  for pending approvals. An unactioned request is a
   visible orange task, not a lost chat message;
 - **mirrors the request into [[warrant]]** (`warrant.ops.eblu.me`) with the
   agents-m2m identity — best-effort in v0.1 (the PR comment + heph task stay

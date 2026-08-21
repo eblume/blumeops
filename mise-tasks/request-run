@@ -7,6 +7,7 @@
 #USAGE arg "<workflow>" help="Workflow file under .forgejo/workflows/, e.g. build-container.yaml"
 #USAGE arg "<sha>" help="FULL 40-char commit SHA the request is bound to"
 #USAGE flag "--pr <pr>" help="PR to attach the request to (default: auto-detect from an open PR's head SHA)"
+#USAGE flag "--repo <repo>" help="Repo holding that PR, owner/name (default eblume/blumeops)"
 #USAGE flag "-i --input <input>" var=#true help="Dispatch input as key=value (repeatable)"
 #USAGE flag "--why <why>" help="One-line justification"
 #USAGE flag "--supersedes <supersedes>" help="Warrant request id this replaces; retires it so it stops looking live"
@@ -32,8 +33,8 @@ new request is filed: Warrant marks it superseded (it can no longer be
 approved), the old PR comment gets a note, and its tracking task closes.
 
 Usage:
-  mise run request-run <workflow> <full-sha> [--pr N] [--input k=v]... \
-      [--why TEXT] [--supersedes ID] [--notify]
+  mise run request-run <workflow> <full-sha> [--pr N] [--repo owner/name] \
+      [--input k=v]... [--why TEXT] [--supersedes ID] [--notify]
 
 Every flag typer accepts must also be declared in the #USAGE block above: mise
 validates argv against that spec before this script runs and rejects anything
@@ -65,6 +66,10 @@ REPO_OWNER = "eblume"
 REPO_NAME = "blumeops"
 REPO_API = f"{FORGE_API_BASE}/repos/{REPO_OWNER}/{REPO_NAME}"
 REPO_WEB = f"{FORGE_BASE}/{REPO_OWNER}/{REPO_NAME}"
+# blumeops is where the workflow definitions, warrant-policy.yaml and the
+# dispatch live — always. The PR a request is *attached* to may live elsewhere
+# (--repo); the functions taking `repo_api` are the PR side.
+DEFAULT_PR_REPO = f"{REPO_OWNER}/{REPO_NAME}"
 NTFY_URL = "https://ntfy.ops.eblu.me/ops-approvals"
 
 console = Console()
@@ -232,9 +237,9 @@ def neutralize_refs(text: str) -> str:
     return re.sub(r"(?<![\w`])#(\d+)\b", r"`#\1`", text)
 
 
-def find_pr_for_sha(client: httpx.Client, sha: str) -> dict | None:
+def find_pr_for_sha(client: httpx.Client, sha: str, repo_api: str = REPO_API) -> dict | None:
     """The open PR whose head is the requested SHA, if any."""
-    resp = client.get(f"{REPO_API}/pulls", params={"state": "open", "limit": 50})
+    resp = client.get(f"{repo_api}/pulls", params={"state": "open", "limit": 50})
     resp.raise_for_status()
     for pr in resp.json():
         if pr.get("head", {}).get("sha") == sha:
@@ -242,18 +247,18 @@ def find_pr_for_sha(client: httpx.Client, sha: str) -> dict | None:
     return None
 
 
-def get_pr(client: httpx.Client, number: int) -> dict:
-    resp = client.get(f"{REPO_API}/pulls/{number}")
+def get_pr(client: httpx.Client, number: int, repo_api: str = REPO_API) -> dict:
+    resp = client.get(f"{repo_api}/pulls/{number}")
     if resp.status_code != 200:
-        err.print(f"PR #{number} not found ({resp.status_code})")
+        err.print(f"PR #{number} not found in that repo ({resp.status_code})")
         raise typer.Exit(1)
     return resp.json()
 
 
-def pr_touches_workflows(client: httpx.Client, number: int) -> list[str]:
+def pr_touches_workflows(client: httpx.Client, number: int, repo_api: str = REPO_API) -> list[str]:
     """Workflow files changed by the PR — flagged loudly in the request,
     because those changes only take effect after merge (invariant 3)."""
-    resp = client.get(f"{REPO_API}/pulls/{number}/files", params={"limit": 300})
+    resp = client.get(f"{repo_api}/pulls/{number}/files", params={"limit": 300})
     if resp.status_code != 200:
         return []  # non-fatal; the reviewer still sees the full diff
     return [
@@ -311,7 +316,7 @@ def _warrant_bearer(c: httpx.Client) -> str:
 
 
 def mirror_to_warrant(
-    workflow: str, sha: str, inputs: dict[str, str], why: str, pr: int
+    workflow: str, sha: str, inputs: dict[str, str], why: str, pr: int, pr_repo: str
 ) -> int | None:
     """Mirror the request into the Warrant queue ([[warrant]]) with the
     agents-m2m identity. Best-effort by design: Warrant v0.1 is an
@@ -322,7 +327,14 @@ def mirror_to_warrant(
             resp = c.post(
                 f"{WARRANT_URL}/api/requests",
                 headers={"Authorization": f"Bearer {_warrant_bearer(c)}"},
-                json={"action": workflow, "sha": sha, "inputs": inputs, "why": why, "pr": pr},
+                json={
+                    "action": workflow,
+                    "sha": sha,
+                    "inputs": inputs,
+                    "why": why,
+                    "pr": pr,
+                    "pr_repo": pr_repo,
+                },
             )
             resp.raise_for_status()
             return resp.json().get("id")
@@ -354,10 +366,12 @@ def supersede_in_warrant(old_id: int, new_id: int) -> dict | None:
         return None
 
 
-def tracking_task_title(workflow: str, sha: str, pr: int) -> str:
+def tracking_task_title(workflow: str, sha: str, pr: int, pr_repo: str | None = None) -> str:
     """The title of the heph task a request files — and the key superseding
-    uses to find that task again, so both come from here."""
-    return f"Approve: {workflow} @ {sha[:7]} (PR #{pr})"
+    uses to find that task again, so both come from here. #N is ambiguous across
+    repos, so a non-blumeops PR names its repo."""
+    repo = f" ({pr_repo})" if pr_repo and pr_repo != DEFAULT_PR_REPO else ""
+    return f"Approve: {workflow} @ {sha[:7]} (PR #{pr}{repo})"
 
 
 def heph_context(node_id: str) -> str:
@@ -374,7 +388,7 @@ def close_tracking_task(old: dict, old_id: int, new_id: int) -> str | None:
     stamps into the task's context — a title alone is not enough evidence to
     close someone's task on. Anything other than exactly one match prints what
     to close by hand rather than guessing."""
-    title = tracking_task_title(old["action"], old["sha"], old["pr"])
+    title = tracking_task_title(old["action"], old["sha"], old["pr"], old.get("pr_repo"))
     try:
         rows = json.loads(
             subprocess.run(
@@ -424,6 +438,7 @@ def annotate_superseded_comment(
     repo."""
     if not old.get("pr"):
         return
+    old_repo = old.get("pr_repo") or DEFAULT_PR_REPO
     body = (
         "## 🚫 Request superseded\n\n"
         f"[Request #{old_id}]({WARRANT_URL}/) — `{old['action']}` at `{old['sha'][:7]}` — "
@@ -431,7 +446,10 @@ def annotate_superseded_comment(
         "been retired in Warrant: it can no longer be approved. Decide the new request "
         "instead.\n"
     )
-    resp = client.post(f"{REPO_API}/issues/{old['pr']}/comments", json={"body": body})
+    resp = client.post(
+        f"{FORGE_API_BASE}/repos/{old_repo}/issues/{old['pr']}/comments",
+        json={"body": body},
+    )
     if resp.status_code != 201:
         err.print(
             f"could not post the supersession note on PR #{old['pr']} "
@@ -472,6 +490,10 @@ def main(
         int | None,
         typer.Option("--pr", help="PR to attach the request to (auto-detected from an open PR's head SHA if omitted)"),
     ] = None,
+    pr_repo: Annotated[
+        str | None,
+        typer.Option("--repo", help="Repo holding that PR, owner/name (default eblume/blumeops) — the workflow and SHA are always blumeops"),
+    ] = None,
     inputs: Annotated[
         list[str] | None,
         typer.Option("--input", "-i", help="Dispatch input as key=value (repeatable)"),
@@ -498,6 +520,12 @@ def main(
         if "=" not in pair:
             err.print(f"--input '{pair}' is not key=value")
             raise typer.Exit(1)
+    if pr_repo is not None and not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", pr_repo):
+        err.print(f"'{pr_repo}' should be owner/name, e.g. eblume/talos")
+        raise typer.Exit(1)
+    pr_repo = pr_repo or DEFAULT_PR_REPO
+    pr_api = f"{FORGE_API_BASE}/repos/{pr_repo}"
+    pr_web = f"{FORGE_BASE}/{pr_repo}"
 
     token = forge_token()
     with httpx.Client(
@@ -514,18 +542,19 @@ def main(
         enforce_policy(client, workflow, input_map, sha)
 
         if pr_number is None:
-            pr = find_pr_for_sha(client, sha)
+            pr = find_pr_for_sha(client, sha, pr_api)
             if pr is None:
                 err.print(
-                    "No open PR has this SHA as its head. Pass --pr <N> explicitly "
-                    "(e.g. the merged PR a post-merge build belongs to)."
+                    f"No open PR in {pr_repo} has this SHA as its head. Pass --pr <N> "
+                    "explicitly (e.g. the merged PR a post-merge build belongs to), "
+                    "or --repo if the PR lives in another repo."
                 )
                 raise typer.Exit(1)
         else:
-            pr = get_pr(client, pr_number)
+            pr = get_pr(client, pr_number, pr_api)
         number = pr["number"]
 
-        touched = pr_touches_workflows(client, number)
+        touched = pr_touches_workflows(client, number, pr_api)
 
         sha7 = sha[:7]
         dispatch_url = f"{REPO_WEB}/actions?workflow={workflow}"
@@ -546,7 +575,7 @@ def main(
         # Mirror BEFORE commenting so the comment can name the queue entry the
         # approver is meant to act on. Mirroring is best-effort and returns
         # None on failure, so the comment degrades to what it rendered before.
-        warrant_id = mirror_to_warrant(workflow, sha, input_map, why, number)
+        warrant_id = mirror_to_warrant(workflow, sha, input_map, why, number, pr_repo)
 
         # Retire the request this one replaces before commenting, so the
         # comment can state the outcome rather than the intent.
@@ -592,7 +621,7 @@ def main(
 |---|---|
 | **Workflow** | [`{workflow}`]({REPO_WEB}/src/branch/main/.forgejo/workflows/{workflow}) |
 | **SHA** | `{sha}` |
-| **Diff** | {REPO_WEB}/pulls/{number}/files |
+| **Diff** | {pr_web}/pulls/{number}/files |
 {warrant_row}{supersedes_row}
 {input_table}
 {why_line}{workflow_warning}
@@ -603,18 +632,19 @@ This request grants nothing: dispatch remains write-gated to humans.
 """
 
         resp = client.post(
-            f"{REPO_API}/issues/{number}/comments", json={"body": comment_body}
+            f"{pr_api}/issues/{number}/comments", json={"body": comment_body}
         )
         if resp.status_code != 201:
             err.print(f"Failed to post PR comment ({resp.status_code}): {resp.text[:300]}")
             raise typer.Exit(1)
-        comment_url = resp.json().get("html_url", f"{REPO_WEB}/pulls/{number}")
+        comment_url = resp.json().get("html_url", f"{pr_web}/pulls/{number}")
 
         if superseded:
             annotate_superseded_comment(client, superseded, supersedes, warrant_id, sha)
 
+    pr_ref = f"PR #{number}" + (f" ({pr_repo})" if pr_repo != DEFAULT_PR_REPO else "")
     heph_body = (
-        f"Privileged run request: {workflow} @ {sha} (PR #{number}).\n"
+        f"Privileged run request: {workflow} @ {sha} ({pr_ref}).\n"
         f"Request comment: {comment_url}\n"
         + (f"Warrant: {WARRANT_URL}/ (request #{warrant_id})\n" if warrant_id else "")
         + f"Dispatch page: {dispatch_url}\n"
@@ -622,7 +652,7 @@ This request grants nothing: dispatch remains write-gated to humans.
         f"Why: {why or '(not given)'}\n"
         "Close this task when the run is dispatched+verified (approve) or denied."
     )
-    task_id = file_heph_task(tracking_task_title(workflow, sha, number), heph_body)
+    task_id = file_heph_task(tracking_task_title(workflow, sha, number, pr_repo), heph_body)
 
     if superseded:
         close_tracking_task(superseded, supersedes, warrant_id)

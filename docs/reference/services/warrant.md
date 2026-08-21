@@ -45,7 +45,8 @@ a note** — the queue records intent to execute, not history.
 
 ## API
 
-- `POST /api/requests` — file a request `{action, sha, inputs, why, pr}` (Bearer JWT)
+- `POST /api/requests` — file a request `{action, sha, inputs, why, pr, pr_repo}`
+  (Bearer JWT); `pr_repo` is the `owner/name` holding `pr`, default blumeops
 - `POST /api/requests/{id}/supersede` `{by}` — retire one's own **pending**
   request in favour of a later one (Bearer JWT)
 - `GET  /api/requests[?status=…]`, `GET /api/warrants` — read the queue and the decisions
