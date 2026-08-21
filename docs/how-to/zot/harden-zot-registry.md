@@ -1,6 +1,7 @@
 ---
 title: Harden Zot Registry
-modified: 2026-06-18
+modified: 2026-08-21
+last-reviewed: 2026-08-21
 tags:
   - how-to
   - zot
@@ -18,8 +19,9 @@ with tag immutability enforced server-side via `accessControl`. Configured in
    (`authentik.ops.eblu.me`); see [[register-zot-oidc-client]]
 2. **`http.auth.apikey: true`** — API keys for CI service accounts
 3. **`http.externalUrl`** — `https://registry.ops.eblu.me` for OIDC callbacks
-4. **`http.accessControl`** — three-tier policy:
+4. **`http.accessControl`** — layered pull/push policy:
    - `anonymousPolicy: ["read"]` — anyone can pull
+   - `defaultPolicy: ["read"]` — authenticated users in no listed group
    - `artifact-workloads` group: `["read", "create"]` — CI pushes new tags but
      cannot overwrite or delete (see [[enforce-tag-immutability]])
    - `admins` group: `["read", "create", "update", "delete"]` — break-glass
