@@ -45,7 +45,22 @@ services:
     notes: >-
       First-party approval broker ([[warrant-approval-gated-runs]] Phase 3
       scaffold). Version is ours — bump containers/warrant/default.nix and
-      this entry together; no external upstream to watch.
+      this entry together; no external upstream to watch. RETIRING: renamed
+      Horkos, extracted to eblume/horkos — this entry goes away with the
+      decommission PR once the horkos cutover is verified.
+
+  - name: horkos
+    type: argocd
+    last-reviewed: 2026-08-20
+    current-version: "v0.5.0"
+    upstream-source: https://forge.eblu.me/eblume/horkos
+    notes: >-
+      First-party approval broker ([[warrant-approval-gated-runs]]), né
+      Warrant — extracted to its own repo and renamed 2026-08. Version is
+      ours — auto-released: every merge to eblume/horkos main builds the
+      image and opens a pin-bump PR here that updates this entry and the
+      kustomization tag together. v0.5.0 is the extraction-epoch seed tag;
+      the first deployed build is v0.5.1.
 
   - name: homepage
     type: argocd
