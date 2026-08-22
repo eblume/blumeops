@@ -12,6 +12,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.20.0] - 2026-08-22
+
+### Infrastructure
+
+- horkos v0.5.2: auto-release from eblume/horkos `ab9fdba` — image pin bumped to `v0.5.2-ab9fdba-nix`.
+- talos v0.4.12: auto-release from eblume/talos `6402c2c` — image pin bumped to `v0.4.12-6402c2c-nix`.
+
+
 ## [v1.19.1] - 2026-08-22
 
 ### Features

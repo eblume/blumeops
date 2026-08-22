@@ -3,7 +3,7 @@
 # Caddy serves docs_content_dir directly via the static-kind service block,
 # with Quartz-style try_files (path → path/ → path.html → 404).
 
-docs_version: "v1.19.1"
+docs_version: "v1.20.0"
 docs_release_url: "https://forge.eblu.me/eblume/blumeops/releases/download/{{ docs_version }}/docs-{{ docs_version }}.tar.gz"
 docs_home: /Users/erichblume/blumeops/docs
 docs_content_dir: "{{ docs_home }}/content"
