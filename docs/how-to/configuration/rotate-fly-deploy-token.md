@@ -76,12 +76,14 @@ op item edit on5slfaygtdjrxmdwezyhfmqsq 'add more.deploy-token=<paste-new-token>
 > op item edit on5slfaygtdjrxmdwezyhfmqsq 'password=unused - see deploy-token field' --vault vg6xf6vvfmoh5hqjjhlhbeoaie
 > ```
 
-### 3. Sync to Forgejo Actions
+### 3. Sync the CI copy
 
-The `deploy-fly` workflow reads the same token from a Forgejo Actions secret named `FLY_DEPLOY_TOKEN`, populated by the `forgejo_actions_secrets` ansible role:
+The `deploy-fly` workflow reads its copy from the `blumeops-ci` vault at
+job time ([[blumeops-ci-item-migration]]) — no provisioning round-trip,
+just update the CI item to match:
 
 ```fish
-mise run provision-indri -- --tags forgejo_actions_secrets
+op item edit fly-deploy "token=$(op read 'op://blumeops/fly.io admin/add more/deploy-token')" --vault blumeops-ci
 ```
 
 ### 4. Verify

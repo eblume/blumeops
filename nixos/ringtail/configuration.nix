@@ -748,9 +748,11 @@ in
       url = "https://forge.ops.eblu.me";
       tokenFile = "/etc/forgejo-runner/token.env";
       labels = [ "nix-container-builder:host" ];
+      # _1password-cli: job-time `op read` of blumeops-ci items with
+      # OP_SERVICE_ACCOUNT_TOKEN ([[blumeops-ci-item-migration]]).
       hostPackages = with pkgs; [
         bash coreutils curl gawk gitMinimal gnused jq nodejs wget
-        nix skopeo
+        nix skopeo _1password-cli
       ];
       settings = {
         log.level = "info";
@@ -776,9 +778,11 @@ in
       url = "https://forge.ops.eblu.me";
       tokenFile = "/etc/forgejo-runner/token.env";
       labels = [ "priv:host" ];
+      # _1password-cli: job-time `op read` of blumeops-ci items with
+      # OP_SERVICE_ACCOUNT_TOKEN ([[blumeops-ci-item-migration]]).
       hostPackages = with pkgs; [
         bash coreutils curl gawk gitMinimal gnused jq nodejs wget
-        argocd flyctl
+        argocd flyctl _1password-cli
       ];
       settings = {
         log.level = "info";
