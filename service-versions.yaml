@@ -663,10 +663,17 @@ services:
 
   - name: prek
     type: mise
-    last-reviewed: 2026-04-12
+    last-reviewed: "2026-08-22"
     current-version: "0.4.14"
     upstream-source: https://github.com/j178/prek/releases
-    notes: Pre-commit hook runner (Rust reimplementation)
+    notes: >-
+      Pre-commit hook runner (Rust reimplementation). 2026-08-22 review:
+      upstream latest is v0.4.14 (released 2026-08-17), already matching
+      the mise.toml pin (moved in 0ba22a63, tooling cycle 2026-08-18);
+      no bump needed. v0.4.14 is enhancement/bugfix only (check-yaml
+      unsafe mode, filter allocation reuse, check-yaml float and
+      comment handling, captured-output sanitization) - no breaking
+      changes.
 
   - name: actionlint
     type: mise
