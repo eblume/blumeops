@@ -12,17 +12,13 @@ forgejo_actions_secrets_owner: eblume
 forgejo_actions_secrets_repos:
   - repo: blumeops
     secrets:
-      - name: ARGOCD_AUTH_TOKEN
-        value_var: forgejo_secret_argocd_token
-      - name: FLY_DEPLOY_TOKEN
-        value_var: forgejo_secret_fly_deploy_token
-      - name: ZOT_CI_API_KEY
-        value_var: forgejo_secret_zot_ci_api_key
-      # eblume-owned PAT (write:repository) whitelisted to push protected `main`;
-      # the release workflows push their commit with it because the automatic
-      # Actions token can't be push-whitelisted (Forgejo #11159).
-      - name: MAIN_PUSH_TOKEN
-        value_var: forgejo_secret_main_push_token
+      # The per-purpose secrets that used to live here (ARGOCD_AUTH_TOKEN,
+      # FLY_DEPLOY_TOKEN, ZOT_CI_API_KEY, MAIN_PUSH_TOKEN) migrated to
+      # job-time `op read` of blumeops-ci items via BLUMEOPS_CI_OP_TOKEN
+      # ([[blumeops-ci-item-migration]]). This role no longer syncs them;
+      # delete the stale Actions secrets by hand once the migrated
+      # workflows are verified.
+      #
       # Lets the Agent Repo Access workflow reconcile the `agents` bot's
       # collaborations against repos.json. Collaborator
       # management is an admin-level operation, so this reuses forgejo_api_token
@@ -52,18 +48,21 @@ forgejo_actions_secrets_repos:
         value_var: forgejo_api_token
   # Auto-release secrets ([[horkos]] extraction, 2026-08): merge to main in
   # these repos builds + pushes the image and opens a pin-bump PR on
-  # blumeops. ZOT_CI_API_KEY pushes to the registry; RELEASE_FORGE_TOKEN is
+  # blumeops. The zot push key is read from blumeops-ci at job time with
+  # BLUMEOPS_CI_OP_TOKEN — sharing that token with talos/horkos release CI
+  # is the one-CI-trust-tier decision (2026-08-21, logged on heph
+  # 01KZ5ESS0W…): all eblume/* CI is one tier. RELEASE_FORGE_TOKEN is
   # warrant-bot's PAT (write on blumeops only — branch push + PR open, can
   # never merge or dispatch).
   - repo: talos
     secrets:
-      - name: ZOT_CI_API_KEY
-        value_var: forgejo_secret_zot_ci_api_key
+      - name: BLUMEOPS_CI_OP_TOKEN
+        value_var: forgejo_secret_blumeops_ci_op_token
       - name: RELEASE_FORGE_TOKEN
         value_var: forgejo_secret_release_forge_token
   - repo: horkos
     secrets:
-      - name: ZOT_CI_API_KEY
-        value_var: forgejo_secret_zot_ci_api_key
+      - name: BLUMEOPS_CI_OP_TOKEN
+        value_var: forgejo_secret_blumeops_ci_op_token
       - name: RELEASE_FORGE_TOKEN
         value_var: forgejo_secret_release_forge_token

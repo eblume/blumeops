@@ -88,22 +88,29 @@ jobs:
         run: |
           if ! [ -f "argocd/apps/$APP.yaml" ]; then
             echo "::error::'$APP' is not a declared Application (argocd/apps/$APP.yaml missing on main). Note most apps carry a -ringtail suffix. Declared apps:"
-            ls argocd/apps/ | sed 's/\.yaml$//'
+            find argocd/apps -name '*.yaml' -exec basename {} .yaml \;
             exit 1
           fi
 
+      # The ArgoCD token is read from the blumeops-ci vault at job time
+      # ([[blumeops-ci-item-migration]]): BLUMEOPS_CI_OP_TOKEN is the one
+      # Actions secret privileged jobs keep, and rotation is an `op item
+      # edit` away — no provisioning round-trip.
       - name: Set target revision
         env:
           APP: ${{ inputs.app }}
           REV: ${{ inputs.revision }}
           ARGOCD_SERVER: argocd.ops.eblu.me
-          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
           ARGOCD_OPTS: --grpc-web
         run: |
-          if [ -z "$ARGOCD_AUTH_TOKEN" ]; then
-            echo "::error::ARGOCD_AUTH_TOKEN is not provisioned as an Actions secret — see [[warrant-approval-gated-runs]] and heph 01KZ0G21JS"
+          if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+            echo "::error::BLUMEOPS_CI_OP_TOKEN is not provisioned as an Actions secret — see [[blumeops-ci-item-migration]]"
             exit 1
           fi
+          ARGOCD_AUTH_TOKEN=$(op read 'op://blumeops-ci/argocd-workflow-bot/token')
+          echo "::add-mask::$ARGOCD_AUTH_TOKEN"
+          export ARGOCD_AUTH_TOKEN
           # Forgejo injects GITHUB_TOKEN (a *forge* token); mise would send it
           # to api.github.com and get a 401. Unset before any mise x call.
           unset GITHUB_TOKEN GITHUB_API_TOKEN
@@ -118,9 +125,12 @@ jobs:
           APP: ${{ inputs.app }}
           PRUNE: ${{ inputs.prune }}
           ARGOCD_SERVER: argocd.ops.eblu.me
-          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
           ARGOCD_OPTS: --grpc-web
         run: |
+          ARGOCD_AUTH_TOKEN=$(op read 'op://blumeops-ci/argocd-workflow-bot/token')
+          echo "::add-mask::$ARGOCD_AUTH_TOKEN"
+          export ARGOCD_AUTH_TOKEN
           unset GITHUB_TOKEN GITHUB_API_TOKEN
           acd() { if command -v argocd >/dev/null 2>&1; then argocd "$@"; else mise x argocd@3.3.12 -- argocd "$@"; fi; }
           if [ "$PRUNE" = "true" ]; then
@@ -143,9 +153,12 @@ jobs:
         env:
           APP: ${{ inputs.app }}
           ARGOCD_SERVER: argocd.ops.eblu.me
-          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
           ARGOCD_OPTS: --grpc-web
         run: |
+          ARGOCD_AUTH_TOKEN=$(op read 'op://blumeops-ci/argocd-workflow-bot/token')
+          echo "::add-mask::$ARGOCD_AUTH_TOKEN"
+          export ARGOCD_AUTH_TOKEN
           unset GITHUB_TOKEN GITHUB_API_TOKEN
           acd() { if command -v argocd >/dev/null 2>&1; then argocd "$@"; else mise x argocd@3.3.12 -- argocd "$@"; fi; }
           acd app get "$APP" || true

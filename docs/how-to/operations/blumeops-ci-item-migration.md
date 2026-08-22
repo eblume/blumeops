@@ -1,7 +1,7 @@
 ---
 title: Blumeops-CI Item Migration
-modified: 2026-08-03
-last-reviewed: 2026-08-03
+modified: 2026-08-22
+last-reviewed: 2026-08-22
 tags:
   - how-to
   - operations
@@ -15,16 +15,36 @@ The audit and migration plan for the `blumeops-ci` vault tier
 exists and `BLUMEOPS_CI_OP_TOKEN` is provisioned; this doc decides *what
 moves in* and — more importantly — what never does.
 
-## The audit: who consumes what (2026-08-03, from main)
+**Status (2026-08-22): executed.** All four migration steps landed in one
+PR; `warrant-bot-drift` and `agent-repo-access` keep `FORGE_ADMIN_TOKEN`
+pending its collaborator-scoped replacement (heph `01KZ5ESS2G…`).
+
+## The audit: who consumes what (2026-08-22, from main)
+
+The 2026-08-03 audit predates the [[horkos]] extraction; talos and horkos
+release CI now consume `ZOT_CI_API_KEY` and `RELEASE_FORGE_TOKEN` too.
 
 | Workflow | Actions secret | Backing vault item (blumeops) | Verdict |
 |----------|----------------|-------------------------------|---------|
-| `argocd-deploy` | `ARGOCD_AUTH_TOKEN` | `w3663ffn…/argocd_token` (workflow-bot, get/sync/update) | **migrate** (pilot) |
-| `build-container` | `ZOT_CI_API_KEY` | `w3663ffn…/zot-ci-api` | **migrate** |
-| `deploy-fly` | `FLY_DEPLOY_TOKEN` | `on5slfay…/deploy-token` | **migrate** |
-| `build-blumeops`, `cv-deploy` | `MAIN_PUSH_TOKEN` | `blumeops-main-push-token/token` (eblume PAT, write:repository) | **migrate, eyes open** — it pushes protected `main` |
-| `agent-repo-access` | `FORGE_ADMIN_TOKEN` | `w3663ffn…/api-token` (**eblume admin PAT**) | **flag, do not migrate yet** — heaviest credential in CI; mint a narrower token first (admin scope is needed only for collaborator ops) |
+| `argocd-deploy` | `ARGOCD_AUTH_TOKEN` | `w3663ffn…/argocd_token` (workflow-bot, get/sync/update) | **migrated** (pilot) → `blumeops-ci/argocd-workflow-bot` |
+| `build-container`; talos + horkos `release.yaml` | `ZOT_CI_API_KEY` | `w3663ffn…/zot-ci-api` | **migrated** → `blumeops-ci/zot-ci` |
+| `deploy-fly` | `FLY_DEPLOY_TOKEN` | `on5slfay…/deploy-token` | **migrated** → `blumeops-ci/fly-deploy` |
+| `build-blumeops`, `cv-deploy` | `MAIN_PUSH_TOKEN` | `blumeops-main-push-token/token` (eblume PAT, write:repository) | **migrated, eyes open** — it pushes protected `main` → `blumeops-ci/forge-main-push` |
+| talos + horkos `release.yaml` | `RELEASE_FORGE_TOKEN` | `warrant-dispatch-token/token` (warrant-bot PAT, write on blumeops — branch push + PR open, cannot merge or dispatch) | **stays an Actions secret** — already a narrow, drift-checked bot identity; migrate only if rotation friction shows up |
+| `agent-repo-access`, `warrant-bot-drift` | `FORGE_ADMIN_TOKEN` | `w3663ffn…/api-token` (**eblume admin PAT**) | **flag, do not migrate yet** — heaviest credential in CI; mint a narrower token first (admin scope is needed only for collaborator ops) |
 | all | `GITHUB_TOKEN` | forge-injected | n/a |
+
+## The one-CI-trust-tier decision (2026-08-21)
+
+All CI in `eblume/*` repos is **one trust tier** — no per-repo
+stratification. Sharing `BLUMEOPS_CI_OP_TOKEN` (full `blumeops-ci` vault
+read) with talos/horkos release CI is by-design: it is *CI* reading the
+vault, not the services themselves, and workflow definitions reach main
+only through a human merge (bots can't merge or dispatch). Consciously
+accepted: the tier transitively includes push-to-blumeops-`main`
+(auto-sync deploys + policy/workflow edits); `forge-main-push` being an
+account-wide eblume PAT is a pre-existing narrowing task, not a blocker.
+Red-teaming this model is its own task (heph `01M0MX04Y8…`).
 
 ## What migration actually means
 
@@ -46,9 +66,11 @@ Won:
   which is the fix for the multi-field-item overwrite hazard noted on the
   heph task.
 
-Costs: runners need the `op` CLI (`_1password-cli` in the priv runner's
-hostPackages; mise-installed on indri), and jobs make a network call to
-1Password at runtime.
+Costs: runners need the `op` CLI (`_1password-cli` in the priv and
+nix-container-builder runners' hostPackages on ringtail; homebrew-installed
+on indri), and jobs make a network call to 1Password at runtime. With
+`OP_SERVICE_ACCOUNT_TOKEN` set, `op` ignores the desktop-app integration,
+so the host-mode indri runner never trips a biometric prompt.
 
 ## What never migrates: the provision-* verdict
 
@@ -67,18 +89,30 @@ items) added one at a time, each with its own policy entry and its own
 deliberate item copy. If a role's secret set is too broad to be comfortable
 in `blumeops-ci`, that role stays human-run — that is the system working.
 
-## Migration order (each its own small PR + human item-copy)
+## The migration (executed 2026-08-22, one PR + human item-copies)
 
-1. **Pilot: `argocd_token`** — create `blumeops-ci/argocd-workflow-bot`
-   (field `token`), switch `argocd-deploy.yaml` to job-time `op read`,
-   verify a dispatch, then delete the `ARGOCD_AUTH_TOKEN` Actions secret.
-2. `zot-ci-api` → `blumeops-ci/zot-ci` (also closes the standing
-   key-cycling chore's provisioning friction).
-3. `fly deploy-token` → `blumeops-ci/fly-deploy`.
-4. `main-push` PAT → `blumeops-ci/forge-main-push` — last, because its
-   blast radius (protected-`main` push) deserves the most-proven pattern.
-5. `FORGE_ADMIN_TOKEN`: **not migrated** — first mint a
-   collaborator-scoped token for agent-repo-access, then revisit.
+The item map — each a value-copy from the blumeops vault (same
+credential, per-purpose item; rotation to fresh values is the easy
+follow-up now that it needs no provisioning):
+
+| blumeops-ci item | field | copied from (blumeops) | consumed by |
+|------------------|-------|------------------------|-------------|
+| `argocd-workflow-bot` | `token` | `w3663ffn…/argocd_token` | `argocd-deploy.yaml` |
+| `zot-ci` | `api-key` | `w3663ffn…/zot-ci-api` | `build-container.yaml`; talos + horkos `release.yaml` |
+| `fly-deploy` | `token` | `on5slfay…/deploy-token` | `deploy-fly.yaml` |
+| `forge-main-push` | `token` | `blumeops-main-push-token/token` | `build-blumeops.yaml`, `cv-deploy.yaml` |
+
+`FORGE_ADMIN_TOKEN`: **not migrated** — first mint a collaborator-scoped
+token for agent-repo-access (heph `01KZ5ESS2G…`), then revisit.
+
+Rollout order after the PR merges: run
+`mise run provision-ringtail` (puts `op` on both ringtail runners), then
+`mise run provision-indri -- --tags forgejo_actions_secrets` (syncs
+`BLUMEOPS_CI_OP_TOKEN` to talos/horkos, stops syncing the migrated
+secrets), verify one dispatch per workflow, and finally delete the stale
+Actions secrets (`ARGOCD_AUTH_TOKEN`, `ZOT_CI_API_KEY`,
+`FLY_DEPLOY_TOKEN`, `MAIN_PUSH_TOKEN`) from the forge UI or API — the
+ansible role only creates/updates, never deletes.
 
 ## Related
 

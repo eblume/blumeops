@@ -88,49 +88,10 @@
       check_mode: false
       tags: [forgejo_actions_secrets]
 
-    - name: Fetch ArgoCD auth token for Forgejo Actions
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/argocd_token"
-      delegate_to: localhost
-      register: _forgejo_argocd_token
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo_actions_secrets]
-
-    - name: Fetch Fly.io deploy token for Forgejo Actions
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/on5slfaygtdjrxmdwezyhfmqsq/deploy-token"
-      delegate_to: localhost
-      register: _fly_deploy_token
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo_actions_secrets]
-
-    - name: Fetch Zot CI API key for Forgejo Actions
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/zot-ci-api"
-      delegate_to: localhost
-      register: _zot_ci_api_key
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo_actions_secrets]
-
-    # PAT owned by `eblume` (whitelisted to push protected `main`), used by the
-    # release workflows to push their version-bump/changelog commit. The
-    # automatic Actions token can't be push-whitelisted (Forgejo #11159). Scope
-    # it to write:repository. See docs/reference/infrastructure/agents-forgejo-bot.md.
-    - name: Fetch main-push PAT for Forgejo Actions
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/blumeops-main-push-token/token"
-      delegate_to: localhost
-      register: _forgejo_main_push_token
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo_actions_secrets]
+    # The per-secret Actions secrets (argocd token, fly deploy token, zot CI
+    # key, main-push PAT) migrated to job-time `op read` of blumeops-ci items
+    # ([[blumeops-ci-item-migration]]) — workflows fetch them with
+    # BLUMEOPS_CI_OP_TOKEN instead of this role syncing each one.
 
     # Read-only 1Password service-account token scoped to the blumeops-ci
     # vault ([[warrant-approval-gated-runs]] Phase 2 vault tier). Privileged
@@ -164,10 +125,6 @@
     - name: Set Forgejo Actions secrets facts
       ansible.builtin.set_fact:
         forgejo_api_token: "{{ _forgejo_api_token.stdout }}"
-        forgejo_secret_argocd_token: "{{ _forgejo_argocd_token.stdout }}"
-        forgejo_secret_fly_deploy_token: "{{ _fly_deploy_token.stdout }}"
-        forgejo_secret_zot_ci_api_key: "{{ _zot_ci_api_key.stdout }}"
-        forgejo_secret_main_push_token: "{{ _forgejo_main_push_token.stdout }}"
         forgejo_secret_blumeops_ci_op_token: "{{ _blumeops_ci_op_token.stdout }}"
         forgejo_secret_release_forge_token: "{{ _release_forge_token.stdout }}"
       no_log: true

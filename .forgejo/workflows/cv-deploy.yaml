@@ -62,11 +62,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Persist a whitelisted PAT (owned by `eblume`) as the git credential so
-          # the cv_version bump push to protected `main` is authorized. The
-          # automatic Actions token can't be push-whitelisted (Forgejo #11159).
-          # See docs: agents-forgejo-bot.
-          token: ${{ secrets.MAIN_PUSH_TOKEN }}
+          # No credential persists in the checkout: the "Commit release
+          # changes" step reads the main-push PAT from the blumeops-ci vault
+          # at push time ([[blumeops-ci-item-migration]]).
+          persist-credentials: false
 
       - name: Bump cv_version in ansible role
         run: |
@@ -81,7 +80,7 @@ jobs:
 
       - name: Commit release changes
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
@@ -96,7 +95,15 @@ jobs:
             git commit -m "Update CV release to $VERSION
 
           [skip ci]"
-            git push origin HEAD:main
+            # Push to protected main with the whitelisted eblume PAT, read
+            # from the blumeops-ci vault at push time. The automatic Actions
+            # token can't be push-whitelisted (Forgejo #11159). See docs:
+            # agents-forgejo-bot and [[blumeops-ci-item-migration]].
+            MAIN_PUSH_TOKEN=$(op read 'op://blumeops-ci/forge-main-push/token')
+            echo "::add-mask::$MAIN_PUSH_TOKEN"
+            git -c credential.helper= push \
+              "https://eblume:${MAIN_PUSH_TOKEN}@forge.eblu.me/eblume/blumeops.git" \
+              HEAD:main
             echo "Changes committed and pushed"
           fi
 

@@ -45,14 +45,20 @@ jobs:
         with:
           ref: ${{ inputs.revision }}
 
+      # The Fly deploy token is read from the blumeops-ci vault at job time
+      # ([[blumeops-ci-item-migration]]); BLUMEOPS_CI_OP_TOKEN is the one
+      # Actions secret this job needs.
       - name: Deploy to Fly.io
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_DEPLOY_TOKEN }}
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
         run: |
-          if [ -z "$FLY_API_TOKEN" ]; then
-            echo "::error::FLY_DEPLOY_TOKEN is not provisioned as an Actions secret — see [[rotate-fly-deploy-token]]"
+          if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+            echo "::error::BLUMEOPS_CI_OP_TOKEN is not provisioned as an Actions secret — see [[blumeops-ci-item-migration]]"
             exit 1
           fi
+          FLY_API_TOKEN=$(op read 'op://blumeops-ci/fly-deploy/token')
+          echo "::add-mask::$FLY_API_TOKEN"
+          export FLY_API_TOKEN
           cd fly
           flyctl deploy
 
@@ -66,8 +72,11 @@ jobs:
       - name: Verify health
         if: always()
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_DEPLOY_TOKEN }}
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
         run: |
+          FLY_API_TOKEN=$(op read 'op://blumeops-ci/fly-deploy/token')
+          echo "::add-mask::$FLY_API_TOKEN"
+          export FLY_API_TOKEN
           flyctl status -a blumeops-proxy
           echo ""
           echo "Health check (up to 120s for cold start):"

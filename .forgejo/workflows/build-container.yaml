@@ -181,10 +181,19 @@ jobs:
                 "$API/repos/$REPO/issues/$PR_INDEX/comments" \
             | jq -r '"Commented: " + (.html_url // .message)'
 
+      # The zot push key is read from the blumeops-ci vault at job time
+      # ([[blumeops-ci-item-migration]]); BLUMEOPS_CI_OP_TOKEN is the one
+      # Actions secret this job needs.
       - name: Push to registry
         env:
-          ZOT_CI_API_KEY: ${{ secrets.ZOT_CI_API_KEY }}
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
         run: |
+          if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+            echo "::error::BLUMEOPS_CI_OP_TOKEN is not provisioned as an Actions secret — see [[blumeops-ci-item-migration]]"
+            exit 1
+          fi
+          ZOT_CI_API_KEY=$(op read 'op://blumeops-ci/zot-ci/api-key')
+          echo "::add-mask::$ZOT_CI_API_KEY"
           CONTAINER="${{ matrix.container }}"
           VERSION="${{ steps.meta.outputs.version }}"
           SHORT_SHA="${{ steps.meta.outputs.sha }}"
