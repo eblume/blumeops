@@ -40,7 +40,7 @@ services:
   - name: horkos
     type: argocd
     last-reviewed: 2026-08-20
-    current-version: "v0.5.2"
+    current-version: "v0.5.3"
     upstream-source: https://forge.eblu.me/eblume/horkos
     notes: >-
       First-party approval broker ([[warrant-approval-gated-runs]]), né
