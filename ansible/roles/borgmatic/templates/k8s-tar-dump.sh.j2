@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+#
+# Helper script invoked by borgmatic's before_backup hook to capture a
+# k8s pod's data directory via tar. Keeps the borgmatic config readable by
+# pulling all the quoting out of YAML.
+#
+# Usage:
+#   borgmatic-k8s-tar-dump <target> <namespace> <selector> <dir> <name> <dump_target>
+#
+# <target> is one of:
+#   local:<context>   - run local kubectl with --context=<context>
+#   ssh:<user@host>   - ssh to host and run k3s kubectl there
+#                       (no indri-side kubeconfig needed)
+#
+# <namespace>      - k8s namespace of the pod
+# <selector>       - label selector to find the pod (e.g. app=shower)
+# <dir>            - absolute path inside the pod to tar (should be a directory)
+# <name>           - short name used for the dump filename
+# <dump_target>    - file on this host to receive the tar
+set -euo pipefail
+
+target=${1:?missing target}
+namespace=${2:?missing namespace}
+selector=${3:?missing selector}
+dir=${4:?missing dir}
+name=${5:?missing name}
+dump_target=${6:?missing dump target}
+
+mode=${target%%:*}
+ref=${target#*:}
+
+case "$mode" in
+    local)
+        # Streams the tar over kubectl exec stdout — no staging file in the
+        # pod. The pod image must ship tar (talos's does).
+        context=$ref
+        kubectl="/opt/homebrew/bin/kubectl --context=$context -n $namespace"
+        pod=$($kubectl get pod -l "$selector" \
+            -o jsonpath='{.items[0].metadata.name}')
+        $kubectl exec "$pod" -- tar cf - -C "$(dirname "$dir")" "$(basename "$dir")" > "$dump_target"
+        ;;
+    ssh)
+        host=$ref
+        # Force bash on the remote (user's login shell on ringtail is
+        # fish). Pipe the script via stdin to dodge nested quoting.
+        # The tar bytes come back over the ssh stdout stream — no
+        # intermediate scp. The pod image must ship tar (talos's does).
+        # /etc/rancher/k3s/k3s.yaml is 0600 root:root since ringtail became a
+        # multi-user host (a world-readable kubeconfig is cluster-admin any
+        # local user could grab). eblume can't read it, so reach the cluster
+        # as root via passwordless sudo — root's default k3s kubeconfig is
+        # that file. The file stays locked away from the restricted agent user.
+        ssh "$host" bash <<EOF > "$dump_target"
+set -euo pipefail
+pod=\$(sudo k3s kubectl -n "$namespace" get pod -l "$selector" -o jsonpath='{.items[0].metadata.name}')
+sudo k3s kubectl -n "$namespace" exec "\$pod" -- tar cf - -C "$(dirname "$dir")" "$(basename "$dir")"
+EOF
+        ;;
+    *)
+        echo "borgmatic-k8s-tar-dump: unknown target mode: $mode" >&2
+        echo "  expected local:<context> or ssh:<user@host>" >&2
+        exit 1
+        ;;
+esac

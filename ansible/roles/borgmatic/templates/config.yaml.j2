@@ -31,7 +31,7 @@ exclude_patterns:
 
 encryption_passcommand: {{ borgmatic_encryption_passcommand }}
 
-{% if borgmatic_k8s_sqlite_dumps or borgmatic_k8s_file_dumps or borgmatic_local_sqlite_dumps %}
+{% if borgmatic_k8s_sqlite_dumps or borgmatic_k8s_file_dumps or borgmatic_k8s_tar_dumps or borgmatic_local_sqlite_dumps %}
 # Pre-backup: stage database snapshots into the dump dir (which is in
 # source_directories, so the snapshots land in the archive). A non-zero exit
 # from any hook aborts the whole backup, so a failed snapshot is never silent.
@@ -65,6 +65,9 @@ commands:
 {% for db in borgmatic_k8s_file_dumps %}
           - {{ ansible_env.HOME }}/bin/borgmatic-k8s-file-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} '{{ db.glob }}' {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db
 {% endfor %}
+        {% for db in borgmatic_k8s_tar_dumps %}
+                - {{ ansible_env.HOME }}/bin/borgmatic-k8s-tar-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.tar
+        {% endfor %}
 {% endif %}
 
 ssh_command: ssh -o IdentitiesOnly=yes -i {{ borgmatic_borgbase_ssh_key_path }}
