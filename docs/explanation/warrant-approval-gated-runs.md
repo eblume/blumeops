@@ -134,7 +134,7 @@ UI already *is* an approval gate.** And a multi-factor one: the forge sits
 behind [[authentik]] SSO with TOTP enforced, so that button satisfies
 invariant 4 with nothing new built. Canonical CI already holds privileged
 Actions secrets (`ARGOCD_AUTH_TOKEN`, `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`,
-`MAIN_PUSH_TOKEN`, `FORGE_ADMIN_TOKEN`) that agents provably cannot reach
+`MAIN_PUSH_TOKEN`, `FORGE_REPO_WRITE_TOKEN`) that agents provably cannot reach
 (fence verified from in-pod 2026-07-31), and the runner executes them on human
 dispatch. `mise run container-build-and-release` is exactly this shape.
 

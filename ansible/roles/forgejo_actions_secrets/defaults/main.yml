@@ -20,21 +20,25 @@ forgejo_actions_secrets_repos:
       # workflows are verified.
       #
       # Lets the Agent Repo Access workflow reconcile the `agents` bot's
-      # collaborations against repos.json. Collaborator
-      # management is an admin-level operation, so this reuses forgejo_api_token
-      # (the same eblume PAT this role authenticates with — writing Actions
-      # secrets is itself admin-level) rather than minting a second one.
+      # collaborations against repos.json, and warrant-bot-drift read
+      # collaborator perms + branch protections. An eblume PAT scoped to
+      # write:repository (item forge-repo-write-token) — collaborator ops need
+      # repo-admin *permission* (eblume owns the repos) but only the
+      # repository token *scope*, so CI no longer holds the all-scopes admin
+      # PAT (heph 01KZ5ESS2G, 2026-08-22). The role itself still
+      # authenticates its secret PUTs with forgejo_api_token, which never
+      # leaves the human-run provisioning step.
       #
       # This is the deliberate shape of "CI gets more than the agents vault":
       # a human runs `mise run provision-indri -- --tags forgejo_actions_secrets`
       # from gilbert, under biometric `op`, to push a curated subset of the
       # blumeops vault into Forgejo. The vault itself stays out of CI's reach.
       #
-      # NOT `FORGEJO_ADMIN_TOKEN`: Forgejo reserves the `FORGEJO_` prefix for the
+      # NOT `FORGEJO_…`: Forgejo reserves the `FORGEJO_` prefix for the
       # Actions tokens it injects itself and rejects the create with HTTP 400
       # (the same reason the `cv` entry below is FORGE_TOKEN).
-      - name: FORGE_ADMIN_TOKEN
-        value_var: forgejo_api_token
+      - name: FORGE_REPO_WRITE_TOKEN
+        value_var: forgejo_secret_repo_write_token
       # Read-only op service account scoped to the blumeops-ci vault
       # ([[warrant-approval-gated-runs]] Phase 2): privileged workflows
       # `op read` runtime secrets with it at job time. The vault starts
