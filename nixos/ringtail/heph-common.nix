@@ -97,17 +97,33 @@ rec {
   # `bins` selects which workspace binaries to install. Headless spokes (the
   # agent) want just the daemon + CLI; a desktop spoke also wants the TUI and
   # the quick-capture GUI.
-  mkInstallUnits = { prefix, user, group, home, who, bins ? [ "heph" "hephd" ] }:
+  #
+  # `restartSpoke` is a shell snippet run (best-effort) after a successful
+  # install, so the spoke daemon picks up the new binary instead of running
+  # stale until a hand restart. It must evaluate as a single command —
+  # `if ! ${restartSpoke}; then` negates only the first command of a bare
+  # list — so wrap a compound command in `{ …; }`. `asRoot` runs the oneshot
+  # as root — dropping
+  # to `user` via runuser for the user-owned version check and cargo install —
+  # which is what lets a system-scope oneshot restart a system-scope spoke.
+  mkInstallUnits = { prefix, user, group, home, who, bins ? [ "heph" "hephd" ], asRoot ? false, restartSpoke ? "" }:
     let
       cargoBin = "${home}/.cargo/bin";
+      # runuser keeps the environment (HOME/PATH/CC above), so the mise
+      # resolution and cargo home are the user's, exactly as when the oneshot
+      # ran as that user.
+      runAsUser = lib.optionalString asRoot "runuser -u ${user} -- ";
+      # Callers may pass an indented string, whose trailing newline would
+      # break the `if ! …; then` it is spliced into.
+      restartCmd = lib.removeSuffix "\n" restartSpoke;
       install = pkgs.writeShellScript "${prefix}-install" ''
         set -eu
         export HOME=${home}
-        export PATH="${lib.makeBinPath [ pkgs.mise pkgs.gcc pkgs.pkg-config pkgs.binutils pkgs.gnumake pkgs.coreutils pkgs.gitMinimal pkgs.gawk ]}:$PATH"
+        export PATH="${lib.makeBinPath [ pkgs.mise pkgs.gcc pkgs.pkg-config pkgs.binutils pkgs.gnumake pkgs.coreutils pkgs.gitMinimal pkgs.gawk pkgs.systemd pkgs.util-linux ]}:$PATH"
         export CC=gcc
         export PKG_CONFIG_PATH="${lib.makeSearchPath "lib/pkgconfig" (map lib.getDev (buildDeps ++ guiDeps))}"
         target="${lib.removePrefix "v" hephTag}"
-        have="$(${cargoBin}/hephd --version 2>/dev/null | ${pkgs.gawk}/bin/awk '{print $2}' || true)"
+        have="$(${runAsUser}${cargoBin}/hephd --version 2>/dev/null | ${pkgs.gawk}/bin/awk '{print $2}' || true)"
         # Version-gate on hephd, but also require every requested binary to be
         # present: adding a bin to `bins` must not be skipped just because the
         # daemon is already at the pinned tag.
@@ -122,8 +138,15 @@ rec {
         # Retry: a Type=oneshot won't auto-restart, and the mise toolchain
         # download / cargo fetch can flake transiently on a cold cache.
         for attempt in 1 2 3; do
-          if mise x rust@${rustChannel} -- cargo install --locked --force \
+          if ${runAsUser}mise x rust@${rustChannel} -- cargo install --locked --force \
               --git ${repoHttps} --tag ${hephTag} ${lib.concatStringsSep " " bins}; then
+            ${lib.optionalString (restartSpoke != "") ''
+              # Best-effort: the install itself succeeded. A stale daemon
+              # announces itself as hub-sync 400s in its own journal.
+              if ! ${restartCmd}; then
+                echo "warning: spoke restart not completed; the daemon keeps the old binary until it is restarted manually" >&2
+              fi
+            ''}
             exit 0
           fi
           echo "heph install attempt $attempt failed; retrying in 15s…" >&2
@@ -141,11 +164,12 @@ rec {
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
-          User = user;
-          Group = group;
           ExecStart = install;
           # First build compiles the whole workspace from a cold cargo cache.
           TimeoutStartSec = "45min";
+        } // lib.optionalAttrs (!asRoot) {
+          User = user;
+          Group = group;
         };
       };
       timers."${prefix}-install" = {
@@ -173,7 +197,14 @@ rec {
   mkSpokeStack = { prefix, user, group, home, spokeExec, who }:
     let
       cargoBin = "${home}/.cargo/bin";
-      installUnits = mkInstallUnits { inherit prefix user group home who; };
+      installUnits = mkInstallUnits {
+        inherit prefix user group home who;
+        # The spoke is a SYSTEM service, so the oneshot needs root to restart
+        # it after a tag bump (try-restart is a clean no-op while it is not
+        # running, e.g. on first install — the path unit starts it then).
+        asRoot = true;
+        restartSpoke = "systemctl try-restart ${prefix}-spoke.service";
+      };
     in
     {
       services = installUnits.services // {

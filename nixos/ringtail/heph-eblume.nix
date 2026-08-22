@@ -50,6 +50,15 @@ let
     # spoke has no use for. configuration.nix puts shims for the same list on
     # the session PATH.
     bins = heph.desktopBins;
+    # The spoke is a USER service and this oneshot already runs as eblume, so
+    # a plain --user try-restart reaches it — the system-scope oneshot just
+    # needs the user bus location, which it has no XDG_RUNTIME_DIR for.
+    # /run/user/1000 exists iff the user manager is up (linger keeps it up
+    # from boot); otherwise the restart is skipped and the spoke picks up the
+    # new binary at its next (re)start.
+    restartSpoke = ''
+      { [ -d /run/user/1000 ] && XDG_RUNTIME_DIR=/run/user/1000 systemctl --user try-restart eblume-heph-spoke.service; }
+    '';
   };
 in
 {

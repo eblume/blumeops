@@ -149,7 +149,7 @@ Erich's access decoupled from the agent kill switches is the point:
 | Property | `agent-heph-spoke` | `eblume-heph-spoke` |
 |----------|--------------------|---------------------|
 | **User** | `agent` | `eblume` |
-| **Config** | `agent-workspaces.nix` | `heph-eblume.nix` |
+| **Config** | `agent-heph-spoke.nix` | `heph-eblume.nix` |
 | **Identity** | `heph-agents` (revocable) | Erich himself |
 | **Token store** | agents 1Password vault (op command store) | `~/.config/heph/hub-token.json` (0600, `--token-file`) |
 | **Unit scope** | system | **user** (`systemctl --user`, linger enabled) |
@@ -165,7 +165,10 @@ manager (status/logs: `systemctl --user status eblume-heph-spoke`,
 Both adopt the same hub owner id, so they operate on the same nodes. Each user
 gets its own `heph`/`hephd` at `~/.cargo/bin` via a `*-heph-install` oneshot
 (timer-fired, off the activation path; the spoke starts via a path unit the
-moment the binary lands — see `heph-common.nix` for the quartet).
+moment the binary lands — see `heph-common.nix` for the quartet). When the
+pin moves, the oneshot restarts the matching spoke after the install so the
+daemon never lags the installed binary (the agent's oneshot runs as root for
+that one step, dropping to `agent` via `runuser` for the cargo work).
 
 **One-time seed for the eblume spoke** (interactive, as eblume on ringtail;
 approve in the browser as yourself — no hub-side change needed, you are already
