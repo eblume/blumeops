@@ -83,3 +83,7 @@
         href: https://docs.eblu.me
         icon: mdi-book-open-page-variant
         description: BlumeOps Documentation
+    - Heph:
+        href: https://heph.ops.eblu.me
+        icon: mdi-hammer-wrench
+        description: Task & context hub (PWA)
