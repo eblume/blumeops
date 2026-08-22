@@ -4,8 +4,8 @@
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.1"]
 # ///
 #MISE description="[human] Assert warrant-bot still holds exactly write on blumeops and nothing more (read-only)"
-#USAGE flag "--token <token>" help="Forgejo API token with admin on eblume/blumeops (default: 1Password)"
-#USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when \$FORGE_ADMIN_TOKEN is unset (CI bootstrap)"
+#USAGE flag "--token <token>" help="Forgejo API token; the caller must be admin on eblume/blumeops (default: 1Password)"
+#USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when \$FORGE_REPO_WRITE_TOKEN is unset (CI bootstrap)"
 """Verify the blast radius of `warrant-bot` — the identity Warrant dispatches as.
 
 Reads only. Changes nothing, ever. `warrant-bot-provision` is the human
@@ -35,9 +35,11 @@ this job can reach would create a worse hole than the one it audits. Scope is
 pinned at mint time in `warrant-bot-provision`; rotation goes through the same
 script.
 
-Needs an **admin** token: collaborator permissions and branch protections are
-admin-only reads. Resolution order matches `agent-repo-access` — see
-resolve_token there for why it is deliberately narrow.
+Needs a token whose *user* is admin on eblume/blumeops (collaborator
+permissions and branch protections are repo-admin-level reads); the token
+*scope* only needs `write:repository` — the CI secret is a repository-scoped
+eblume PAT, not the admin PAT. Resolution order matches `agent-repo-access` —
+see resolve_token there for why it is deliberately narrow.
 
 Usage:
     mise run warrant-bot-drift               # exit 1 on drift
@@ -63,20 +65,20 @@ EXPECTED_ACCESS = "write"
 # Who may push to / merge into main. warrant-bot appearing here would turn its
 # dispatch grant into a path to production without review.
 EXPECTED_MAIN_WHITELIST = {"eblume"}
-OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
+OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
 
 console = Console()
 err = Console(stderr=True, style="bold red")
 
 
 def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
-    """Only $FORGE_ADMIN_TOKEN, never $FORGEJO_TOKEN — the indri runner is
+    """Only $FORGE_REPO_WRITE_TOKEN, never $FORGEJO_TOKEN — the indri runner is
     host-mode and jobs inherit that session's environment, so a broad fallback
     silently picks up a credential the workflow never passed."""
     if explicit:
         return explicit
-    if token := os.environ.get("FORGE_ADMIN_TOKEN"):
-        console.print("[dim]Using token from $FORGE_ADMIN_TOKEN[/dim]")
+    if token := os.environ.get("FORGE_REPO_WRITE_TOKEN"):
+        console.print("[dim]Using token from $FORGE_REPO_WRITE_TOKEN[/dim]")
         return token
     if skip_if_missing:
         return None
@@ -96,7 +98,7 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
         FileNotFoundError,
     ) as exc:
         err.print(f"Could not read the token from 1Password: {exc}")
-        err.print("Pass --token, or set FORGE_ADMIN_TOKEN.")
+        err.print("Pass --token, or set FORGE_REPO_WRITE_TOKEN.")
         raise typer.Exit(1) from exc
     return result.stdout.strip()
 
@@ -272,7 +274,7 @@ def main(
 ) -> None:
     resolved = resolve_token(token, skip_if_no_token)
     if resolved is None:
-        console.print("[yellow]SKIPPED: $FORGE_ADMIN_TOKEN is unset.[/yellow]")
+        console.print("[yellow]SKIPPED: $FORGE_REPO_WRITE_TOKEN is unset.[/yellow]")
         return
 
     report = Report()

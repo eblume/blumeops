@@ -88,6 +88,20 @@
       check_mode: false
       tags: [forgejo_actions_secrets]
 
+    # eblume PAT scoped to write:repository — the FORGE_REPO_WRITE_TOKEN CI
+    # secret for agent-repo-access + warrant-bot-drift, so CI no longer holds
+    # the all-scopes admin PAT above (heph 01KZ5ESS2G). Minted on indri with
+    # `forgejo admin user generate-access-token … --scopes write:repository`.
+    - name: Fetch repo-write forge token for Forgejo Actions
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
+      delegate_to: localhost
+      register: _forge_repo_write_token
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo_actions_secrets]
+
     # The per-secret Actions secrets (argocd token, fly deploy token, zot CI
     # key, main-push PAT) migrated to job-time `op read` of blumeops-ci items
     # ([[blumeops-ci-item-migration]]) — workflows fetch them with
@@ -125,6 +139,7 @@
     - name: Set Forgejo Actions secrets facts
       ansible.builtin.set_fact:
         forgejo_api_token: "{{ _forgejo_api_token.stdout }}"
+        forgejo_secret_repo_write_token: "{{ _forge_repo_write_token.stdout }}"
         forgejo_secret_blumeops_ci_op_token: "{{ _blumeops_ci_op_token.stdout }}"
         forgejo_secret_release_forge_token: "{{ _release_forge_token.stdout }}"
       no_log: true

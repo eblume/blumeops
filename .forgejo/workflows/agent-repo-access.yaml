@@ -6,8 +6,10 @@
 # collaboration removed. The PR job runs --check so the revocations are visible
 # in review *before* the merge that applies them.
 #
-# Needs FORGE_ADMIN_TOKEN — admin on the target repos, since collaborator
-# management is admin-level and a write:repository token 403s. Provisioned the
+# Needs FORGE_REPO_WRITE_TOKEN — an eblume PAT scoped to write:repository
+# (collaborator management needs repo-admin *permission*, which eblume has as
+# owner; the token *scope* only needs the repository category — verified
+# 2026-08-22, replacing the admin PAT that sat here before). Provisioned the
 # same way as every other blumeops CI secret: declared in the
 # `forgejo_actions_secrets` ansible role and pushed by a human from gilbert with
 #   mise run provision-indri -- --tags forgejo_actions_secrets
@@ -54,13 +56,13 @@ jobs:
       - name: Check (pull request)
         if: github.event_name == 'pull_request'
         env:
-          FORGE_ADMIN_TOKEN: ${{ secrets.FORGE_ADMIN_TOKEN }}
+          FORGE_REPO_WRITE_TOKEN: ${{ secrets.FORGE_REPO_WRITE_TOKEN }}
         run: uv run --script mise-tasks/agent-repo-access --check --skip-if-no-token
 
       - name: Apply
         if: github.event_name != 'pull_request'
         env:
-          FORGE_ADMIN_TOKEN: ${{ secrets.FORGE_ADMIN_TOKEN }}
+          FORGE_REPO_WRITE_TOKEN: ${{ secrets.FORGE_REPO_WRITE_TOKEN }}
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             uv run --script mise-tasks/agent-repo-access --dry-run --skip-if-no-token

@@ -9,7 +9,7 @@
 **Human-run on gilbert, by design.** This script is deliberately NOT a
 workflow. Minting the dispatch credential from CI would (a) need a
 vault-*write* credential in CI, (b) let a compromised run turn "can run a
-workflow" into "holds a persistent dispatch identity" via FORGE_ADMIN_TOKEN,
+workflow" into "holds a persistent dispatch identity" via an admin credential,
 and (c) dissolve the human ceremony that is the boundary on new privileged
 credentials. Scripting the tedium is fine; automating the birth of the
 credential is not. Drift *verification* is the part that belongs in CI, and

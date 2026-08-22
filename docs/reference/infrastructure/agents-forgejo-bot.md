@@ -118,23 +118,24 @@ effect for new clones immediately — but the pod's PVC keeps any checkout it
 already made, so also delete `~/code/personal/<repo>` in the pod if the intent
 is to actually take it away.
 
-The reconciler needs **admin** on the target repos — collaborator management is
-admin-level, and a `write:repository` token gets 403. In CI that arrives as the
-`FORGE_ADMIN_TOKEN` Actions secret, declared in the `forgejo_actions_secrets`
-ansible role and pushed by a human:
+The reconciler's *user* needs admin on the target repos — collaborator
+management is repo-admin-level, which `eblume` holds as owner. The token
+*scope* only needs `write:repository` (verified empirically 2026-08-22; an
+older note here claimed such a token 403s, which is no longer true). In CI
+that arrives as the `FORGE_REPO_WRITE_TOKEN` Actions secret — an `eblume` PAT
+scoped to `write:repository` (1Password item `forge-repo-write-token`,
+replacing the all-scopes admin PAT that previously sat in CI) — declared in
+the `forgejo_actions_secrets` ansible role and pushed by a human:
 
 ```fish
 mise run provision-indri -- --tags forgejo_actions_secrets
 ```
 
-It reuses `forgejo_api_token` — the same `eblume` PAT that role already
-authenticates with, since writing Actions secrets is itself admin-level — rather
-than minting a second credential. Locally the task falls back to `op read` on
-that same 1Password item.
+Locally the task falls back to `op read` on that same 1Password item.
 
 The reconciler deliberately avoids `/api/v1/user*` (those need the `read:user`
 scope, which a repo-scoped PAT may not carry) and enumerates via
-`/api/v1/repos/search` instead. It also reads **only** `$FORGE_ADMIN_TOKEN`,
+`/api/v1/repos/search` instead. It also reads **only** `$FORGE_REPO_WRITE_TOKEN`,
 never `$FORGEJO_TOKEN`: the indri runner is host-mode, so jobs inherit
 `erichblume`'s LaunchAgent environment, and an earlier version silently picked
 up a token the workflow never passed it.

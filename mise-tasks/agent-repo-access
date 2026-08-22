@@ -7,8 +7,8 @@
 #MISE alias="ara"
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
-#USAGE flag "--token <token>" help="Forgejo API token with admin on the target repos (default: 1Password)"
-#USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when \$FORGE_ADMIN_TOKEN is unset (CI bootstrap)"
+#USAGE flag "--token <token>" help="Forgejo API token; the caller must be admin on the target repos (default: 1Password)"
+#USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when \$FORGE_REPO_WRITE_TOKEN is unset (CI bootstrap)"
 """Reconcile which of eblume's repos the `agents` bot may touch.
 
 `argocd/manifests/talos/repos.json` is the single source of truth: it drives
@@ -27,17 +27,20 @@ repos.json override — see PINNED_READ_ONLY.
 
 The token is resolved:
   1. --token flag (explicit)
-  2. $FORGE_ADMIN_TOKEN (for CI) — and ONLY that variable, see resolve_token
+  2. $FORGE_REPO_WRITE_TOKEN (for CI) — and ONLY that variable, see resolve_token
   3. 1Password: op read (for local use on gilbert, prompts biometric)
-It must hold **admin** on the target repos: collaborator management is
-admin-level, so a plain write:repository token 403s. A token that can't read
-collaborators on a *listed* repo is fatal rather than skipped — see `blocked` —
-because every call degrades quietly under the wrong credential, and a partial
-apply that reports success is worse than a clean failure.
+Its *user* must hold admin on the target repos (collaborator management is
+repo-admin-level; eblume owns them all), but the token *scope* only needs
+`write:repository` — verified empirically 2026-08-22, retiring the older note
+here that claimed such a token 403s. That is the whole point of the CI secret:
+a repository-scoped eblume PAT instead of the all-scopes admin PAT. A token
+that can't read collaborators on a *listed* repo is fatal rather than skipped —
+see `blocked` — because every call degrades quietly under the wrong credential,
+and a partial apply that reports success is worse than a clean failure.
 
-The secret is `FORGE_ADMIN_TOKEN`, not `FORGEJO_ADMIN_TOKEN`: Forgejo reserves
-the `FORGEJO_` prefix for the Actions tokens it injects itself, and rejects
-creation of a secret using it with HTTP 400.
+The secret is `FORGE_…`, not `FORGEJO_…`: Forgejo reserves the `FORGEJO_`
+prefix for the Actions tokens it injects itself, and rejects creation of a
+secret using it with HTTP 400.
 
 Usage:
     mise run agent-repo-access --dry-run    # preview (do this first)
@@ -57,7 +60,7 @@ from rich.console import Console
 from rich.table import Table
 
 FORGE_URL = "https://forge.ops.eblu.me"
-OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
+OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
 POLICY_PATH = Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
 
 # Repos whose read-only-on-canonical status is a security boundary, not a
@@ -87,9 +90,9 @@ console = Console()
 
 
 def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
-    """Resolve the admin token, or None if --skip-if-no-token and none is set.
+    """Resolve the API token, or None if --skip-if-no-token and none is set.
 
-    Deliberately narrow: only $FORGE_ADMIN_TOKEN, never $FORGEJO_TOKEN. The
+    Deliberately narrow: only $FORGE_REPO_WRITE_TOKEN, never $FORGEJO_TOKEN. The
     indri runner is host-mode (a LaunchAgent running as erichblume), so jobs
     INHERIT that session's environment — an earlier version of this script fell
     back to $FORGEJO_TOKEN and silently picked up a token the workflow never
@@ -99,8 +102,8 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
     """
     if explicit:
         return explicit
-    if token := os.environ.get("FORGE_ADMIN_TOKEN"):
-        console.print("[dim]Using token from $FORGE_ADMIN_TOKEN[/dim]")
+    if token := os.environ.get("FORGE_REPO_WRITE_TOKEN"):
+        console.print("[dim]Using token from $FORGE_REPO_WRITE_TOKEN[/dim]")
         return token
     if skip_if_missing:
         return None
@@ -120,7 +123,7 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
         FileNotFoundError,
     ) as exc:
         console.print(f"[red]Could not read the token from 1Password: {exc}[/red]")
-        console.print("Pass --token, or set FORGE_ADMIN_TOKEN.")
+        console.print("Pass --token, or set FORGE_REPO_WRITE_TOKEN.")
         raise typer.Exit(1) from exc
     return result.stdout.strip()
 
@@ -227,7 +230,7 @@ def main(
     resolved = resolve_token(token, skip_if_no_token)
     if resolved is None:
         console.print(
-            "[yellow]SKIPPED: $FORGE_ADMIN_TOKEN is not set.[/yellow] Provision it with "
+            "[yellow]SKIPPED: $FORGE_REPO_WRITE_TOKEN is not set.[/yellow] Provision it with "
             "`mise run provision-indri -- --tags forgejo_actions_secrets`."
         )
         return
@@ -268,7 +271,7 @@ def main(
             want = desired.get(repo, "none")
             have = current_access(client, owner, repo, who)
             if have == "unreadable":
-                # Reading collaborators is admin-level. On a repo we were TOLD to
+                # Reading collaborators needs repo-admin permission. On a repo we were TOLD to
                 # manage this is fatal: skipping would silently not apply policy
                 # while still reporting success. On an unlisted repo it only means
                 # we cannot audit it for a stale grant — warn and move on.
@@ -299,8 +302,8 @@ def main(
             console.print(
                 f"\n[red]Cannot read collaborators on {len(blocked)} listed repo(s): "
                 f"{', '.join(blocked)}[/red]\n"
-                f"Collaborator management is admin-level — this token is not an admin "
-                f"on them (Forgejo 404s rather than 403s when it cannot see a private "
+                f"Collaborator management needs repo-admin permission — this token's user "
+                f"is not an admin on them (Forgejo 404s rather than 403s when it cannot see a private "
                 f"repo at all, so 'wrong token' and 'no such repo' look identical). "
                 f"Refusing to apply a partial policy."
             )

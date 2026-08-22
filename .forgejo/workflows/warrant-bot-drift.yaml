@@ -10,8 +10,9 @@
 # the UI leaves no diff for review to catch. That is the whole reason for a
 # scheduled job rather than a PR check alone.
 #
-# Needs FORGE_ADMIN_TOKEN: collaborator permissions and branch protections are
-# admin-only reads. Same secret and same provisioning path as Agent Repo Access.
+# Needs FORGE_REPO_WRITE_TOKEN: collaborator permissions and branch protections
+# are repo-admin-level reads (eblume is admin as owner; the token scope is just
+# write:repository). Same secret and same provisioning path as Agent Repo Access.
 #
 # That credential is also why there is no `pull_request` trigger. Fork PRs get
 # no secrets, every agent PR is a fork PR, and the token is what this job needs
@@ -49,5 +50,5 @@ jobs:
       # cannot see is not a check that passed.
       - name: Check warrant-bot scope
         env:
-          FORGE_ADMIN_TOKEN: ${{ secrets.FORGE_ADMIN_TOKEN }}
+          FORGE_REPO_WRITE_TOKEN: ${{ secrets.FORGE_REPO_WRITE_TOKEN }}
         run: uv run --script mise-tasks/warrant-bot-drift --skip-if-no-token
