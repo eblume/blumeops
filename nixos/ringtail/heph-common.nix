@@ -1,32 +1,23 @@
-# Shared plumbing for ringtail's hephd spokes. Two spokes run on this host —
-# same pinned heph version, same hub, different identities and token stores:
-#   - agent-heph-*  (agent-heph-spoke.nix): logs in as the revocable
-#     `heph-agents` user; token lives in the agents 1Password vault.
-#   - eblume-heph-* (heph-eblume.nix): Erich's own spoke for interactive
-#     sessions; token cached as a 0600 file in his home.
-# Plain import (`import ./heph-common.nix { inherit pkgs lib; }`), not a module.
+# Shared plumbing for ringtail's two hephd spokes (agent-heph-spoke.nix,
+# heph-eblume.nix): same heph pin and hub, different identities and token
+# stores. Plain import (`import ./heph-common.nix { inherit pkgs lib; }`),
+# not a module.
 { pkgs, lib }:
 rec {
-  hephTag = "v1.9.0"; # cargo-installed at this tag by the per-user install oneshots
-  rustChannel = "stable"; # mise-resolved toolchain — nixpkgs rustc lags heph's floor
-  hubUrl = "http://indri.tail8d86e.ts.net:8787"; # spoke sync is HTTP-only
+  hephTag = "v1.9.0";
+  rustChannel = "stable"; # mise-resolved — nixpkgs rustc lags heph's floor
+  hubUrl = "http://indri.tail8d86e.ts.net:8787";
   issuer = "https://authentik.ops.eblu.me/application/o/heph/";
-  # Anonymous HTTPS clone for the build (public repo) — no SSH host key / bot
-  # key, matching the ansible heph role + hephd self-update.
+  # HTTPS clone: the build (public repo) needs no SSH key.
   repoHttps = "https://forge.eblu.me/eblume/hephaestus.git";
-  # The hub's single owner id (Erich's heph data). Every spoke ADOPTS it so all
-  # spokes operate on the *same* nodes; only the login identity varies per
-  # spoke. Not a secret (it appears in HLCs); nix can't read the vault at eval
-  # time anyway.
+  # Adopted by every spoke so all spokes operate on the same nodes; only the
+  # login identity varies. Not a secret (it appears in HLCs).
   ownerId = "01KT4MYCG6Q45N3MJ665V53AMM";
 
-  # System libraries `cargo install heph hephd` needs to build (dbus for the
-  # compiled-in keyring backend, even where a spoke uses another token store).
+  # Build deps for `cargo install heph hephd` (dbus for the compiled-in keyring backend).
   buildDeps = with pkgs; [ dbus openssl sqlite zlib ];
 
-  # Extra libraries the `heph-quickadd` GUI needs — build (pkg-config) *and*
-  # run (dlopen). eframe/winit resolve most of these lazily at runtime, so the
-  # binary's DT_NEEDED list understates them; see `guiLibPath` below.
+  # heph-quickadd GUI deps — needed at build (pkg-config) and at runtime (dlopen).
   guiDeps = with pkgs; [
     libxkbcommon
     wayland
@@ -40,30 +31,20 @@ rec {
     freetype
   ];
 
-  # LD_LIBRARY_PATH for a cargo-built heph GUI binary. The nix-ld interpreter
-  # handles DT_NEEDED, but glutin/winit `dlopen` libEGL/libGL/libxkbcommon by
-  # soname at runtime, and /run/opengl-driver/lib is where NixOS puts the
-  # NVIDIA/mesa ICDs that libglvnd dispatches to.
+  # GUI LD_LIBRARY_PATH: the dlopened libs plus the /run/opengl-driver GL ICDs.
   guiLibPath = "/run/opengl-driver/lib:${lib.makeLibraryPath guiDeps}";
 
-  # What a desktop spoke installs: the daemon and CLI plus the two interactive
-  # surfaces. The agent's headless spoke takes the mkInstallUnits default.
+  # Desktop-spoke binaries; headless spokes use the mkInstallUnits default.
   desktopBins = [ "heph" "hephd" "heph-tui" "heph-quickadd" ];
 
-  # Only the GUI binary needs the graphics stack, and LD_LIBRARY_PATH is
-  # inherited by children — heph-tui shells out to nvim, which must not get it.
+  # GUI-only graphics stack — children inherit LD_LIBRARY_PATH, so the
+  # heph-tui shims must not use it (heph-tui shells out to nvim).
   guiLibExport = ''
     export LD_LIBRARY_PATH="${guiLibPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
   '';
 
-  # Shims that put the cargo-installed heph binaries on the session PATH.
-  #
-  # `cargo install` writes to ~/.cargo/bin, which nothing here adds to a session
-  # PATH: sway is started by greetd and passes on only the nix profile
-  # directories, so a terminal opened from the desktop cannot see `heph` or
-  # `heph-tui` at all (fish's config doesn't add it either). These shims live in
-  # the user's home-manager profile — /etc/profiles/per-user/<user>/bin, which
-  # *is* on that PATH — and exec the real binary.
+  # Shims that put the cargo-installed binaries (~/.cargo/bin, off the session
+  # PATH) on the session PATH via the home-manager profile.
   mkShims = { home, bins }:
     pkgs.buildEnv {
       name = "heph-shims";
@@ -75,46 +56,27 @@ rec {
         bins;
     };
 
-  # What a compositor keybinding runs to raise the quick-capture popover.
-  #
-  # `popover` is the one-shot mode: one process per capture, exiting when the
-  # popover is saved, escaped, or clicked away. The warm-agent mode heph-quickadd
-  # uses on macOS cannot work under Wayland — a window there cannot be hidden
-  # (winit's `set_visible` is a no-op) and there is no X11-style global key grab,
-  # so a "hidden" agent would both sit on screen and be unsummonable. Sway owns
-  # the hotkey instead; see the `Mod1+apostrophe` binding in configuration.nix.
+  # Raises the quick-capture popover; one process per capture, since Wayland
+  # cannot hide a window (no persistent agent possible).
   mkQuickaddLauncher = { home }:
     pkgs.writeShellScriptBin "heph-quickadd-popover" (guiLibExport + ''
       exec ${home}/.cargo/bin/heph-quickadd popover "$@"
     '');
 
-  # Install units (system scope) for one user's heph toolchain:
-  #   <prefix>-install (oneshot)  — idempotent `cargo install` at hephTag via a
-  #     mise-resolved rust toolchain; version-checks so re-runs are no-ops.
-  #   <prefix>-install (timer)    — fires the install shortly after boot/switch,
-  #     keeping the (first-run ~tens of minutes) compile OFF the activation path.
+  # <prefix>-install oneshot + timer: `cargo install`s `bins` at hephTag via a
+  # mise-resolved rust toolchain, off the activation path; the version + bin-set
+  # check makes re-runs no-ops.
   #
-  # `bins` selects which workspace binaries to install. Headless spokes (the
-  # agent) want just the daemon + CLI; a desktop spoke also wants the TUI and
-  # the quick-capture GUI.
-  #
-  # `restartSpoke` is a shell snippet run (best-effort) after a successful
-  # install, so the spoke daemon picks up the new binary instead of running
-  # stale until a hand restart. It must evaluate as a single command —
-  # `if ! ${restartSpoke}; then` negates only the first command of a bare
-  # list — so wrap a compound command in `{ …; }`. `asRoot` runs the oneshot
-  # as root — dropping
-  # to `user` via runuser for the user-owned version check and cargo install —
-  # which is what lets a system-scope oneshot restart a system-scope spoke.
+  # `restartSpoke`: one shell command (wrap a list in `{ …; }`) run
+  # best-effort after a successful install, so the spoke picks up the new
+  # binary. `asRoot`: run the oneshot as root, doing the user-owned work via
+  # runuser — needed to restart a system-scope spoke.
   mkInstallUnits = { prefix, user, group, home, who, bins ? [ "heph" "hephd" ], asRoot ? false, restartSpoke ? "" }:
     let
       cargoBin = "${home}/.cargo/bin";
-      # runuser keeps the environment (HOME/PATH/CC above), so the mise
-      # resolution and cargo home are the user's, exactly as when the oneshot
-      # ran as that user.
+      # runuser keeps the environment, so mise/cargo run in the user's state.
       runAsUser = lib.optionalString asRoot "runuser -u ${user} -- ";
-      # Callers may pass an indented string, whose trailing newline would
-      # break the `if ! …; then` it is spliced into.
+      # Indented-string callers end with a newline that would break the splice.
       restartCmd = lib.removeSuffix "\n" restartSpoke;
       install = pkgs.writeShellScript "${prefix}-install" ''
         set -eu
@@ -124,9 +86,7 @@ rec {
         export PKG_CONFIG_PATH="${lib.makeSearchPath "lib/pkgconfig" (map lib.getDev (buildDeps ++ guiDeps))}"
         target="${lib.removePrefix "v" hephTag}"
         have="$(${runAsUser}${cargoBin}/hephd --version 2>/dev/null | ${pkgs.gawk}/bin/awk '{print $2}' || true)"
-        # Version-gate on hephd, but also require every requested binary to be
-        # present: adding a bin to `bins` must not be skipped just because the
-        # daemon is already at the pinned tag.
+        # Also require every bin present: adding one to `bins` must install it.
         complete=1
         for b in ${lib.concatStringsSep " " bins}; do
           [ -x "${cargoBin}/$b" ] || complete=0
@@ -135,14 +95,12 @@ rec {
           echo "heph $target already installed (${lib.concatStringsSep ", " bins})"; exit 0
         fi
         echo "installing heph ${hephTag} (rust@${rustChannel} via mise)…"
-        # Retry: a Type=oneshot won't auto-restart, and the mise toolchain
-        # download / cargo fetch can flake transiently on a cold cache.
+        # Oneshots do not auto-retry; a cold mise/cargo fetch can flake.
         for attempt in 1 2 3; do
           if ${runAsUser}mise x rust@${rustChannel} -- cargo install --locked --force \
               --git ${repoHttps} --tag ${hephTag} ${lib.concatStringsSep " " bins}; then
             ${lib.optionalString (restartSpoke != "") ''
-              # Best-effort: the install itself succeeded. A stale daemon
-              # announces itself as hub-sync 400s in its own journal.
+              # Best-effort: a failed restart must not fail the install.
               if ! ${restartCmd}; then
                 echo "warning: spoke restart not completed; the daemon keeps the old binary until it is restarted manually" >&2
               fi
@@ -165,7 +123,7 @@ rec {
           Type = "oneshot";
           RemainAfterExit = true;
           ExecStart = install;
-          # First build compiles the whole workspace from a cold cargo cache.
+          # Cold-cache first build takes tens of minutes.
           TimeoutStartSec = "45min";
         } // lib.optionalAttrs (!asRoot) {
           User = user;
@@ -182,26 +140,20 @@ rec {
       };
     };
 
-  # Full SYSTEM-scope quartet: the install units above plus the spoke service
-  # (ConditionPathExists on the hephd binary, so pre-install it is cleanly
-  # *skipped*, not failed) and a path unit that starts the spoke the moment the
-  # install produces the binary. The caller supplies the spoke launcher
-  # (`spokeExec`) since the token store and PATH needs differ per spoke.
+  # System-scope quartet: the install units plus the spoke service and a path
+  # unit that starts it once hephd exists; ConditionPathExists keeps the
+  # pre-install state a clean skip, not a failure.
   #
-  # System scope means NO XDG_RUNTIME_DIR: hephd binds its fallback socket at
-  # ~/.local/share/heph/hephd.sock. That fits the agent (its sessions run inside
-  # the equally env-less workspace service, so CLI and daemon agree) but NOT an
-  # interactive user, whose shells resolve /run/user/<uid>/heph/hephd.sock — an
-  # interactive user's spoke belongs in the systemd USER manager instead (see
+  # System scope means no XDG_RUNTIME_DIR, so hephd binds the
+  # ~/.local/share/heph fallback socket — right for env-less services, wrong
+  # for interactive users (their spoke belongs in the USER manager;
   # heph-eblume.nix).
   mkSpokeStack = { prefix, user, group, home, spokeExec, who }:
     let
       cargoBin = "${home}/.cargo/bin";
       installUnits = mkInstallUnits {
         inherit prefix user group home who;
-        # The spoke is a SYSTEM service, so the oneshot needs root to restart
-        # it after a tag bump (try-restart is a clean no-op while it is not
-        # running, e.g. on first install — the path unit starts it then).
+        # Root so the oneshot can restart the system-scope spoke.
         asRoot = true;
         restartSpoke = "systemctl try-restart ${prefix}-spoke.service";
       };
