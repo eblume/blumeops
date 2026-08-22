@@ -33,7 +33,8 @@ Its *user* must hold admin on the target repos (collaborator management is
 repo-admin-level; eblume owns them all), but the token *scope* only needs
 `write:repository` — verified empirically 2026-08-22, retiring the older note
 here that claimed such a token 403s. That is the whole point of the CI secret:
-a repository-scoped eblume PAT instead of the all-scopes admin PAT. A token
+a narrowly-scoped eblume PAT (write:repository,read:user — the user half is
+for warrant-bot-drift, not this script) instead of the all-scopes admin PAT. A token
 that can't read collaborators on a *listed* repo is fatal rather than skipped —
 see `blocked` — because every call degrades quietly under the wrong credential,
 and a partial apply that reports success is worse than a clean failure.

@@ -11,8 +11,9 @@
 # scheduled job rather than a PR check alone.
 #
 # Needs FORGE_REPO_WRITE_TOKEN: collaborator permissions and branch protections
-# are repo-admin-level reads (eblume is admin as owner; the token scope is just
-# write:repository). Same secret and same provisioning path as Agent Repo Access.
+# are repo-admin-level reads (eblume is admin as owner; the token scopes are
+# just write:repository,read:user — the latter for the site-admin check on
+# /users/warrant-bot). Same secret and same provisioning path as Agent Repo Access.
 #
 # That credential is also why there is no `pull_request` trigger. Fork PRs get
 # no secrets, every agent PR is a fork PR, and the token is what this job needs
