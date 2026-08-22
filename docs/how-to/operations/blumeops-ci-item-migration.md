@@ -105,6 +105,15 @@ follow-up now that it needs no provisioning):
 `FORGE_ADMIN_TOKEN`: **not migrated** — first mint a collaborator-scoped
 token for agent-repo-access (heph `01KZ5ESS2G…`), then revisit.
 
+**Rotation after migration:** the blumeops-vault originals stay the
+human-tier master copies (`mise run fly-deploy` still reads the fly one;
+the rest are provenance). Rotating a credential now means updating **both**
+copies — the service/master side as before, plus `op item edit` on the
+`blumeops-ci` item, which takes effect on the next CI run with no
+provisioning. Keep item titles unique in `blumeops-ci`: `op read` resolves
+by name, and a duplicate title breaks every consumer of that item (the
+`warrant-bot-login` duplicate demonstrated this live).
+
 Rollout order after the PR merges: run
 `mise run provision-ringtail` (puts `op` on both ringtail runners), then
 `mise run provision-indri -- --tags forgejo_actions_secrets` (syncs

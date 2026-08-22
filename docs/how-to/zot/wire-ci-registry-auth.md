@@ -23,10 +23,13 @@ with `nix-build` on the `nix-container-builder` runner, then pushes with
 
 ## Secret flow
 
-The key lives in 1Password (`Forgejo Secrets` item, field `zot-ci-api`, blumeops
-vault). A pre_task in `ansible/playbooks/indri.yml` fetches it; the
-`forgejo_actions_secrets` role syncs it to Forgejo Actions secrets; the runner
-reads it as `${{ secrets.ZOT_CI_API_KEY }}`. The key expires every 90 days — see
+The key's master copy lives in 1Password (`Forgejo Secrets` item, field
+`zot-ci-api`, blumeops vault). CI consumes the `blumeops-ci/zot-ci` item
+(field `api-key`) at job time — workflows `op read` it with
+`BLUMEOPS_CI_OP_TOKEN` ([[blumeops-ci-item-migration]]); talos and horkos
+release CI read the same item. On rotation update both copies (the
+`op item edit` in the CI vault takes effect on the next run, no
+provisioning needed). The key expires every 90 days — see
 [[zot#API Key Rotation]].
 
 ## Related
