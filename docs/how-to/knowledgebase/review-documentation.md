@@ -1,6 +1,6 @@
 ---
 title: Review Documentation
-modified: 2026-07-17
+modified: 2026-08-22
 last-reviewed: 2026-03-07
 tags:
   - how-to
@@ -94,11 +94,13 @@ If changes are pending, investigate whether docs or infrastructure is stale.
 
 ### From a Remote-Agent Session
 
-Remote-agent sessions can't run the live checks above (no `argocd`,
-`kubectl`, ansible, or pulumi access). Verify the card against **repo
-state** instead — manifests under `argocd/`, roles under `ansible/`,
-`service-versions.yaml` — and note in the PR which claims could not be
-verified against the deployed cluster.
+Remote-agent sessions can run the **ArgoCD** check: the pod's `argocd` is
+a read-only client (the `agents-readonly` account — `app list`/`get`/
+`diff` against `argocd.ops.eblu.me`, every write denied, Secret values
+masked server-side). What it cannot run: `kubectl`, ansible, and pulumi.
+Verify those claims against **repo state** — roles under `ansible/`,
+`pulumi/`, `service-versions.yaml` — and note in the PR which claims
+could not be verified against the deployed host.
 
 ## Visual Preview
 
