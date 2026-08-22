@@ -1,6 +1,7 @@
 ---
 title: Register Zot OIDC Client
-modified: 2026-06-18
+modified: 2026-08-22
+last-reviewed: 2026-08-22
 tags:
   - how-to
   - zot
@@ -14,9 +15,9 @@ Zot's OAuth2 provider and application are registered in Authentik via blueprint,
 following the same pattern as Grafana and Forgejo.
 
 The `zot.yaml` section of `argocd/manifests/authentik/configmap-blueprint.yaml`
-defines an OAuth2Provider (`client_id: zot`), an Application, a PolicyBinding to
-the `admins` group, the `artifact-workloads` group, and the `zot-ci` service
-account.
+defines an OAuth2Provider (`client_id: zot`), an Application, PolicyBindings
+to the `admins` group and the `artifact-workloads` group, and a `zot-ci`
+service account belonging to `artifact-workloads`.
 
 The client secret is stored in 1Password as field `zot-client-secret` on the
 "Authentik (blumeops)" item (referenced by item ID `oor7os5kapczgpbwv7obkca4y4`
