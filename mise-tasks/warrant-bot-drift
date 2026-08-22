@@ -37,7 +37,8 @@ script.
 
 Needs a token whose *user* is admin on eblume/blumeops (collaborator
 permissions and branch protections are repo-admin-level reads); the token
-*scope* only needs `write:repository` — the CI secret is a repository-scoped
+*scopes* only need `write:repository,read:user` (the latter for the
+site-admin check on /users/warrant-bot) — the CI secret is a narrowly-scoped
 eblume PAT, not the admin PAT. Resolution order matches `agent-repo-access` —
 see resolve_token there for why it is deliberately narrow.
 

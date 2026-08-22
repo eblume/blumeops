@@ -6,7 +6,8 @@
 # collaboration removed. The PR job runs --check so the revocations are visible
 # in review *before* the merge that applies them.
 #
-# Needs FORGE_REPO_WRITE_TOKEN — an eblume PAT scoped to write:repository
+# Needs FORGE_REPO_WRITE_TOKEN — an eblume PAT scoped to
+# write:repository,read:user
 # (collaborator management needs repo-admin *permission*, which eblume has as
 # owner; the token *scope* only needs the repository category — verified
 # 2026-08-22, replacing the admin PAT that sat here before). Provisioned the

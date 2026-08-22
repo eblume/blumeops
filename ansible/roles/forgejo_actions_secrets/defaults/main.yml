@@ -22,9 +22,10 @@ forgejo_actions_secrets_repos:
       # Lets the Agent Repo Access workflow reconcile the `agents` bot's
       # collaborations against repos.json, and warrant-bot-drift read
       # collaborator perms + branch protections. An eblume PAT scoped to
-      # write:repository (item forge-repo-write-token) — collaborator ops need
-      # repo-admin *permission* (eblume owns the repos) but only the
-      # repository token *scope*, so CI no longer holds the all-scopes admin
+      # write:repository,read:user (item forge-repo-write-token) —
+      # collaborator ops need repo-admin *permission* (eblume owns the repos)
+      # but only the repository token *scope*, plus read:user for the drift
+      # job's site-admin check, so CI no longer holds the all-scopes admin
       # PAT (heph 01KZ5ESS2G, 2026-08-22). The role itself still
       # authenticates its secret PUTs with forgejo_api_token, which never
       # leaves the human-run provisioning step.

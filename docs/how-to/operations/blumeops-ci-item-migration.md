@@ -18,9 +18,10 @@ moves in* and — more importantly — what never does.
 **Status (2026-08-22): executed.** All four migration steps landed in one
 PR. Later the same day, `FORGE_ADMIN_TOKEN` was retired (heph `01KZ5ESS2G…`):
 `warrant-bot-drift` and `agent-repo-access` now use `FORGE_REPO_WRITE_TOKEN`,
-an eblume PAT scoped to `write:repository` (item `forge-repo-write-token`) —
-collaborator ops turned out to need only repo-admin *permission* plus the
-repository token *scope*, not the admin PAT. It stays an Actions secret for
+an eblume PAT scoped to `write:repository,read:user` (item
+`forge-repo-write-token`) — collaborator ops turned out to need only
+repo-admin *permission* plus the repository token *scope* (plus `read:user`
+for the drift job's site-admin check), not the admin PAT. It stays an Actions secret for
 now; moving it into `blumeops-ci` is the open follow-up below.
 
 ## The audit: who consumes what (2026-08-22, from main)
@@ -35,7 +36,7 @@ release CI now consume `ZOT_CI_API_KEY` and `RELEASE_FORGE_TOKEN` too.
 | `deploy-fly` | `FLY_DEPLOY_TOKEN` | `on5slfay…/deploy-token` | **migrated** → `blumeops-ci/fly-deploy` |
 | `build-blumeops`, `cv-deploy` | `MAIN_PUSH_TOKEN` | `blumeops-main-push-token/token` (eblume PAT, write:repository) | **migrated, eyes open** — it pushes protected `main` → `blumeops-ci/forge-main-push` |
 | talos + horkos `release.yaml` | `RELEASE_FORGE_TOKEN` | `warrant-dispatch-token/token` (warrant-bot PAT, write on blumeops — branch push + PR open, cannot merge or dispatch) | **stays an Actions secret** — already a narrow, drift-checked bot identity; migrate only if rotation friction shows up |
-| `agent-repo-access`, `warrant-bot-drift` | `FORGE_REPO_WRITE_TOKEN` (was `FORGE_ADMIN_TOKEN`) | `forge-repo-write-token/token` (eblume PAT, `write:repository`; was `w3663ffn…/api-token`, the admin PAT) | **narrowed 2026-08-22** — no longer the admin PAT; migration into `blumeops-ci` can now proceed as a follow-up |
+| `agent-repo-access`, `warrant-bot-drift` | `FORGE_REPO_WRITE_TOKEN` (was `FORGE_ADMIN_TOKEN`) | `forge-repo-write-token/token` (eblume PAT, `write:repository,read:user`; was `w3663ffn…/api-token`, the admin PAT) | **narrowed 2026-08-22** — no longer the admin PAT; migration into `blumeops-ci` can now proceed as a follow-up |
 | all | `GITHUB_TOKEN` | forge-injected | n/a |
 
 ## The one-CI-trust-tier decision (2026-08-21)
@@ -108,7 +109,8 @@ follow-up now that it needs no provisioning):
 
 `FORGE_REPO_WRITE_TOKEN`: **not yet migrated to `blumeops-ci`** — but the
 prerequisite is done (heph `01KZ5ESS2G…`, 2026-08-22): it is now the
-`write:repository`-scoped `forge-repo-write-token` PAT, not the admin PAT.
+`write:repository,read:user`-scoped `forge-repo-write-token` PAT, not the
+admin PAT.
 Moving it to a job-time `op read` like the rows above is the open follow-up.
 
 **Rotation after migration:** the blumeops-vault originals stay the

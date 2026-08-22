@@ -123,8 +123,10 @@ management is repo-admin-level, which `eblume` holds as owner. The token
 *scope* only needs `write:repository` (verified empirically 2026-08-22; an
 older note here claimed such a token 403s, which is no longer true). In CI
 that arrives as the `FORGE_REPO_WRITE_TOKEN` Actions secret — an `eblume` PAT
-scoped to `write:repository` (1Password item `forge-repo-write-token`,
-replacing the all-scopes admin PAT that previously sat in CI) — declared in
+scoped to `write:repository,read:user` (the `read:user` half is for
+`warrant-bot-drift`'s site-admin check, not the reconciler; 1Password item
+`forge-repo-write-token`, replacing the all-scopes admin PAT that previously
+sat in CI) — declared in
 the `forgejo_actions_secrets` ansible role and pushed by a human:
 
 ```fish
