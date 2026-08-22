@@ -1,1 +1,0 @@
-Upgraded heph to v1.9.0 across the fleet (hub `heph_version` + ringtail spoke `hephTag`): seq-based sync cursors with deferred out-of-order ops and chunked pushes, fixing the HLC-cursor drop and FK-wedge failure classes behind the 2026 pod spoke outages.

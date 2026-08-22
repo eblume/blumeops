@@ -1,1 +1,0 @@
-`containers/talos/default.nix` was bumped to 0.4.0 without the matching `service-versions.yaml` entry, which made `container-version-check` fail on every push. Sync the recorded current version to v0.4.0.

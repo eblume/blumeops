@@ -1,1 +1,0 @@
-docs/how-to/knowledgebase/review-documentation.md: the "From a Remote-Agent Session" section is updated — remote-agent pods now have a read-only argocd client (agents-readonly account), so the ArgoCD sync/health check can be run live; kubectl/ansible/pulumi still fall back to repo state.

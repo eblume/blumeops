@@ -12,6 +12,680 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.19.1] - 2026-08-22
+
+### Features
+
+- `ArgoCD Deploy` takes a `prune` input, so clearing orphaned resources is
+  reachable through the approval-gated route instead of only from gilbert. Apps
+  sync with `prune: false`, so the thirteen whose manifests use a kustomize
+  `configMapGenerator` strand their previous hash-suffixed ConfigMap on every
+  content edit; ArgoCD counts the orphan as pending-prune and the app reads
+  `OutOfSync` forever, tripping `ArgoCDAppOutOfSync` on a merge that deployed
+  exactly as intended. `argocd app sync --prune` is the documented fix and neither
+  automated sync nor the gated workflow could run it.
+
+  `prune` defaults to false, is refused without `sync=true` rather than silently
+  no-op'ing, and logs an `--dry-run` preview of what it is about to delete before
+  deleting it — this run log is the audit record. The `warrant-policy.yaml` entry
+  lands in the same change, per the rule that a capability and its boundary get
+  reviewed together.
+
+  Also adds `indri` and `priv` to `.github/actionlint.yaml`. actionlint errors on
+  an unrecognised `runs-on` label and that error is per-file, so their absence made
+  10 of the repo's 12 workflows unlintable; all 12 now pass.
+- Warrant 0.4.0 can retire an obsoleted request. `POST
+  /api/requests/{id}/supersede` marks a **pending** request `superseded` and
+  names its replacement, and `mise run request-run … --supersedes <id>` drives
+  the whole loop: file the new request, retire the old one, note it on the old
+  PR comment, close its heph tracking task. Before this, a PR that took review
+  feedback left two near-identical requests in the queue with nothing to say
+  which was live (warrant #21/#22 on PR #525), and the only recourse was prose
+  in the new request's `--why`.
+
+  The route only ever reduces (invariant 4): `superseded` is not `pending`, so
+  no warrant can be minted and nothing can be dispatched, and it is scoped to
+  the caller's own undecided requests — an agent cannot retire another
+  identity's request or undo a human's decision.
+- Deploy Talos at talos.ops.eblu.me — first-party agent workflow service
+  (pi runtime + OpenRouter, per-session cost tracking, voice dictation)
+  behind Authentik SSO with the agent-ws-parity access model. Includes the
+  `forge-api` mise task (authenticated Forgejo API calls from gilbert).
+- talos now trusts the shared `agents-m2m` machine identity as a second bearer
+  issuer (companion talos#22), so scripts, services, and non-talos agent
+  sessions can drive the talos API — e.g. create scheduled cron jobs (talos#21)
+  — without a browser login. Warrant + human approval still gates every
+  privileged action. Credential: `agents-m2m-app-password` (blumeops vault); no
+  wrapper task, just the API.
+- Talos v0.2.0 reaches agent-ws workspace equivalence: pod-start bootstrap
+  with the agents bot git identity (HTTPS+token through the tag:agent
+  SOCKS sidecar), the shared repos.json clone pool, and the heph + tea
+  CLIs baked into the image.
+
+### Bug Fixes
+
+- Clear out the last references to the Homebrew-era forgejo tree, which the
+  brew→source migration left behind in three places. The husk at
+  `/opt/homebrew/var/forgejo` still exists on indri, frozen at 2026-04-06, so each
+  of these read something plausible rather than erroring — the reason none of them
+  were noisy.
+
+  - `mirror-update-pats` queried the husk's `forgejo.db` for the mirror list and
+    resolved bare repos under the husk's `forgejo-repositories`. Against a
+    four-month-old snapshot it would skip any mirror added since, and rewrite
+    remotes on paths that are no longer the live ones. It now reads
+    `~/forgejo/data`, matching `forgejo_work_path`.
+  - The alloy role tailed `/opt/homebrew/var/log/forgejo.log` for the `forgejo`
+    service. The forge writes `~/Library/Logs/mcquack.forgejo.{out,err}.log` as a
+    LaunchAgent, so **the forge's own log has never reached Loki since the brew
+    exit.** Moved to `alloy_mcquack_logs` with both streams.
+  - The backup policy doc still listed the husk as the critical forgejo source
+    directory; borgmatic has backed up `~/forgejo` plus a WAL-safe `forgejo.db`
+    dump since the migration.
+
+  `mirror-update-pats` also grows a preflight check on the database path. It
+  swallowed sqlite3's stderr and treated an empty result as "No GitHub mirrors
+  found", so a wrong path exited 0 with a success-shaped message; since the task
+  is driven by the forge-ci-github-pat rotation, that surfaces as mirrors quietly
+  going stale after a rotation rather than as an error during it. The query is
+  now `-readonly`, appropriate for a database forgejo is serving live.
+- Fixed `mise run agent-metrics` and `mise run agent-health` crashing with `RuntimeError: Cannot open a client instance more than once` everywhere the direct network path works — which is to say, on gilbert, the primary place a human runs them. `client_for()` probed connectivity by sending a request on the very client it returned, and httpx refuses to enter a client that has already sent one; the probe is now a throwaway request. The bug was invisible from agent pods because their direct tailnet path always fails, taking the fallback branch that builds a fresh client — the scripts were only ever verified from the environment that couldn't hit the bug.
+- `mise run request-run`'s ntfy approval notification now goes through the `*.ops.eblu.me` client with the tailscale sidecar SOCKS fallback, so the notification actually reaches the tailnet when the task runs from an agent pod.
+- `mise run request-run` takes `--repo <owner/name>` for the repo that holds the
+  PR the request attaches to (default blumeops): the request comment, the heph
+  task title, and Warrant's queue and approve page now link that PR instead of a
+  same-numbered, unrelated blumeops PR. Warrant stores `pr_repo` (0.4.1) and
+  links the PR's diff in its own repo.
+- Retire `minikube.prom`, which `TextfileStale` was still evaluating on indri two
+  months after the minikube cluster itself was retired. node_exporter exports
+  `node_textfile_mtime_seconds` for every `.prom` file it finds, so a collector's
+  series outlives the service it measured — and with `noDataState: Alerting`, a
+  retired thing ends up positioned to page about its own absence.
+
+  The alloy role grows an `alloy_retired_collectors` list: for each entry it
+  removes the `.prom` file and unloads/removes any `mcquack.eblume.*<name>*.plist`
+  still writing it — plist first, since removing the file while a writer is loaded
+  just gets it rewritten. Declaring the tombstone is the point; a hand `rm` on
+  indri doesn't survive whichever of the two is still live.
+
+  The runbook grows the matching instruction, since "the alert names a file that
+  isn't in this table" is exactly the symptom.
+- talos pod: fix nix builds colliding with the image's own store paths. The
+  image's root-owned store paths were unknown to the pod's fresh store DB, so
+  any substitution whose closure overlapped them failed (nix tried to
+  delete-and-replace the incumbent; root ownership refused). The image now
+  bakes closureInfo's registration dump of the image closure, which the
+  entrypoint loads, gcrooting the toolchain; registered
+  paths are reused instead of re-downloaded. Also create `/nix/var/nix` in the
+  image — its absence made nix fall back to a chroot store that cannot build.
+  Verified in-pod on v0.2.9: registration + `hello` build end-to-end.
+- Every `op read` in `mise-tasks/` now runs with `stdin=subprocess.DEVNULL` and a
+  30s timeout, and every caller handles `TimeoutExpired`. `subprocess.run(...,
+  capture_output=True)` redirects stdout and stderr but leaves stdin inherited, so
+  `op` — which misparses a non-TTY stdin — could block forever on a parent whose
+  stdin was a pipe, with no timeout to break it. Four tasks (`branch-cleanup`,
+  `dns-acme-cleanup`, `spork-create`, `container-build-and-release`) were missing
+  the stdin redirect outright, and `spork-create` and `container-build-and-release`
+  turned a nonzero exit into an uncaught `CalledProcessError` traceback rather than
+  a message saying which secret could not be read.
+
+  The hang is reproducible without touching a real vault: give a parent process a
+  stdin pipe nobody writes to, put a shell `op` that does `read x` on PATH, and the
+  call never returns; `stdin=DEVNULL` makes it return immediately.
+- `provision-ringtail` no longer hangs, or half-applies a switch, when activation
+  restarts the network under it. Two independent causes, one per fix:
+
+  `nixos-rebuild switch` ran as a child of the SSH session it was invoked over,
+  and activation restarts `sshd`, `tailscaled` and the network stack — so a session
+  teardown mid-activation could kill the switch partway through. It now runs as a
+  transient systemd unit (`blumeops-nixos-rebuild`) via `systemd-run`, outside the
+  session's lifetime; the play reconnects with `wait_for_connection`, polls the
+  unit to completion, and fails with the unit's journal if systemd's `Result` is
+  anything but `success`.
+
+  Separately, `ansible.cfg` had no `[ssh_connection]` keepalives. When the far end
+  goes away mid-task the TCP connection is not closed, only silent, so ssh waited
+  on it forever and a playbook that had finished its work hung until someone
+  noticed. `ServerAliveInterval=15` with `ServerAliveCountMax=20` bounds that to
+  about five minutes; `ConnectTimeout=30` bounds the initial dial, which the
+  keepalives do not cover. This applies to every playbook, indri included.
+- An approved SHA now has to reach the run it approves. `warrant-policy.yaml`
+  gives every warrant-class action a `binds_sha` naming the dispatch input that
+  carries the commit, and `mise run request-run` refuses a request that omits it,
+  sends a different SHA, or sends a mutable ref like `main`. Previously the bound
+  SHA and the dispatch inputs were unrelated fields: warrant #22 approved
+  `bcb2b55`, dispatched with no `ref`, built main, and reported success.
+  `verify-runs` audits the same property afterwards — comparing the request record
+  against itself, never the run's `head_sha`, which is main's tip at dispatch time
+  — and leaves a mismatched task open instead of closing it. Request comments now
+  link the Warrant queue entry, and a bare `#N` in `--why` no longer autolinks to
+  an unrelated PR.
+- agent-ws now authenticates to Anthropic with a long-lived `claude setup-token`
+  credential read from `op://agents/claude-oauth-token/token`, instead of the
+  interactive OAuth login stored on the PVC. That login's refresh token carried a
+  hard ~7-day expiry and died silently — remote-control kept reporting
+  `✔︎ Connected` and the liveness probe stayed green while every session start
+  failed `OAuth session expired and could not be refreshed`. Auth now survives PVC
+  loss and rotates without a shell in the pod.
+- Remote Control refuses `claude setup-token` credentials — with
+  `CLAUDE_CODE_OAUTH_TOKEN` exported, claude exits at startup ("Long-lived
+  tokens … are limited to inference-only"), so the v0.16.0 agent-ws pod
+  crash-looped on its startup probe. v0.17.0 drops the export and returns to
+  the PVC `claude auth login` credential; its ~7-day expiry is now managed by a
+  recurring 5-day rotation chore documented in the new
+  [[rotate-agent-ws-claude-login]] how-to.
+- Stop zot's Trivy DB downloads from poisoning log shipping. The CVE extension
+  downloads trivy-db (~90MiB) and trivy-java-db (~900MiB) daily with trivy's
+  progress bar enabled — zot hardcodes `quiet=false`, no config knob — and under
+  launchd's file redirection the carriage-return animation frames of one download
+  pile up into a single newline-less line of up to 3.7MB. Loki rejects any entry
+  over its 256KB limit with a 400 that fails the whole batch, which is how
+  `mcquack.zot.err.log` shipped zero lines despite being actively written (the
+  zot.err half of the indri log-shipping audit): only 9 of the file's 37k lines
+  were progress bars, but they wedged alloy's position tracking and dragged the
+  normal lines down with them.
+
+  Three layers, in order of the pipeline:
+
+  - The zot LaunchAgent now starts via a wrapper (`zot-serve.sh`) that passes
+    stderr through an awk filter which splits physical lines on CR and drops the
+    bar frames, keeping any real content that shares the line. stdout is
+    untouched.
+  - A one-time idempotent task truncates the polluted stderr log (its real
+    content is already in Loki; the bar frames are unshippable), which also
+    resets alloy's saved tail position — parked mid-file at the end of the first
+    giant line — via truncation detection.
+  - The alloy role gains a `loki.process` guard that drops any line over 255KB
+    from any tailed service instead of letting it fail the batch, counted in
+    `loki_process_dropped_lines_total{reason="line_too_long"}`.
+- Stop spelling `prune: false` / `selfHeal: false` in Application manifests: the controller strips explicit-false fields (Go omitempty) on every automated sync, leaving a field-level diff that flapped the `apps` root OutOfSync (2026-08-18 ntfy alert; recurring since automated sync landed).
+- `mirror-update-pats` works again on Forgejo v16, which broke both halves of it.
+
+  The query half died outright: `mirror.remote_address` is now
+  `encrypted_remote_address`, a BLOB, so the task failed with `no such column` —
+  and then printed `No GitHub mirrors found.` and exited 0, the same
+  success-shaped failure the previous fix was meant to end. Discovery now comes
+  from the API (`/repos/search`, filtered on `mirror`, reading `original_url`),
+  which needs no database access and cannot break on an internal schema change.
+
+  The write half died more quietly. v16 moved the credential off disk into that
+  encrypted column and rewrites each mirror's git config to a sanitized,
+  password-free URL, so `git remote set-url` no longer sets the secret Forgejo
+  actually uses. There is no API for it — `routers/api/v1/api.go` exposes
+  `mirror-sync` and the `push_mirrors` group and nothing else, and the repo
+  settings form is the only sanctioned writer.
+
+  So the task drives Forgejo's own recovery path. `DecryptOrRecoverRemoteAddress`
+  treats a NULL `encrypted_remote_address` as "credentials may be on disk": it
+  reads the URL from git config, encrypts it into the database, and re-sanitizes
+  the config. Writing the authenticated URL and then clearing the column hands
+  Forgejo the new credential through the door it already opens for mirrors that
+  predate the encrypted column. Each mirror is then synced immediately, rather
+  than left up to 8h in a state indistinguishable from having no credential.
+
+  A new guard compares the API's mirror count against `SELECT COUNT(*) FROM
+  mirror` and refuses to proceed if they differ. The API returns only what the
+  token can see — 33 of 35 for a token without full visibility — so without this
+  the task would rotate a subset and report success, leaving the invisible
+  mirrors on the expiring PAT.
+
+  Two caveats worth knowing. Clearing the column is a write to a live WAL
+  database behind a running Forgejo, done with a busy timeout and immediately
+  followed by a sync. And the recovery path is documented upstream as being for
+  mirrors predating the column, so it may be removed — at which point this breaks
+  again. A pull-mirror credential endpoint is the durable fix and needs asking
+  for upstream.
+- Fix zot registry outage: the Trivy stderr progress-bar filter (awk,
+  line-oriented) buffered the newline-less CR-stream of a DB download
+  indefinitely, wedging zot's stderr pipe — zot froze at "updating cve-db"
+  before binding HTTP, leaving the registry dark for ~12h. Replaced with an
+  unbuffered byte-stream filter (`tr -u` + line-buffered grep).
+
+### Infrastructure
+
+- The thirteen ArgoCD apps that render config through a kustomize
+  `configMapGenerator` now sync with `prune: true`. Each content edit produces a
+  new hash-suffixed ConfigMap; with prune off the superseded one was never
+  deleted, so the app read `OutOfSync` indefinitely and `ArgoCDAppOutOfSync` fired
+  on a deploy that had worked exactly as intended. `selfHeal` stays off, and the
+  remaining apps keep `prune: false`.
+- Restored two of the three checks that the Lint workflow's prek cleanup removed rather than reinstated as-is. A `secret-scan` job now runs gitleaks over the repository's full git history on every PR (~7s for ~1500 commits) — the removed trufflehog hook's `--since-commit HEAD` range had scanned nothing in CI, and on a public repo a historical leak matters as much as a new one. A first full-history scan found six findings, all one false-positive class (nix-built image tags like `authentik:v2025.10.1-b8bc0bf-nix`, whose git-hash segment reads as entropic), now allowlisted by shape in `.gitleaks.toml`; the history is otherwise clean. A `workflows-validate` job validates `.forgejo/workflows/` against the runner's own schema by invoking indri's source-built `forgejo-runner` directly — `validate` is a plain subcommand, so the docker/dagger requirement that pushed this check out of prek never applied to CI. That made the `validate_workflows` dagger function and `mise run validate-workflows` fully redundant, and both are retired; the how-to keeps a docker one-liner for off-runner use. `ty-check` remains the one capability still missing, tracked separately.
+- New `.forgejo/CODEOWNERS` requests review from `eblume` on every PR, so an
+  agent-opened one lands in the "Review requests" filter rather than in no queue
+  at all. It is a notification, not a merge gate, and unlike a workflow it costs
+  no runner job per PR. Same file is going into every agent-ws repo.
+- Trade Warrant Bot Drift's `pull_request` trigger for a `push` on `main` over
+  the same paths. The job reads collaborator permissions and branch protections,
+  which needs `FORGE_ADMIN_TOKEN`; fork PRs receive no secrets and every agent PR
+  is a fork PR, so as a PR check it could only reach `--skip-if-no-token` — which
+  exits 0 and renders as a green tick. That false pass is how PR #506 merged a
+  check that could never have passed. The post-merge `push` run is the first one
+  with a real token, and the weekly schedule remains the standing check; neither
+  can pass by abstaining.
+- Homepage: add static tile for the heph PWA (heph.ops.eblu.me) — indri-native, so no Ingress to auto-discover.
+- Closed the observability gap where an indri log stream could stop reaching Loki and nothing would notice — the forge's own log was absent for two months (fixed in #548) and the audit that found it had no way to notice a recurrence. A new `log-shipping` Grafana alert group watches the four streams with guaranteed daily traffic (forgejo, forgejo-runner, zot, tailscaled), one rule per stream riding `noDataState: Alerting`, since a silent Loki stream returns no series rather than a zero; streams that currently write nothing or too sparsely to alert on are deliberately excluded, with the exclusions documented. Host inspection during review surfaced one live defect the new self-metrics are built to diagnose — `zot.err` is actively written but never reaches Loki — plus actively-written logs missing from the declared tail list entirely (`caddy.err` at 559MB, `heph`, `devpi`, `borgmatic-photos.err`), both tracked as follow-ups. All four rules go NoData together when alloy itself dies, and the new runbook (`runbook-log-stream-silent`) leads with that signature. Alloy on indri now also scrapes its own component metrics into Prometheus (`loki_source_file_*`, `loki_write_*`), so "is the file being tailed at all" is answerable from an agent pod instead of needing ssh.
+- `ruff` now lints `mise-tasks/`, which it has never covered. The hooks select
+  `types: [python]`, and `identify` derives that tag from the shebang — it reads
+  `#!/usr/bin/env -S uv run --script` as the interpreter `uv`, so none of the 26
+  uv-script tasks were ever tagged Python and no Python hook matched them. The
+  directory holding most of this repo's logic was the least-linted part of it.
+
+  A third ruff pass selects the directory by path. `mise-tasks/` is mixed bash and
+  uv-python and ruff cannot parse the bash, so the split is `exclude_types =
+  ["shell"]`: bash tasks carry a `shell` tag from their shebang, uv scripts are
+  tagged only `executable, file, text`. Nothing needs updating as tasks are added
+  in either language.
+
+  Turning it on found 13 issues across 7 tasks — dead imports, f-strings with no
+  placeholders, and one dead store in `docs-preview` where `card_file` was
+  assigned in both branches and never read. All fixed here; only the existence
+  checks that guard the not-found branch ever mattered.
+
+  **No `ruff-format` pass over `mise-tasks/`, deliberately.** The formatter
+  normalizes `#COMMENT` to `# COMMENT`, and mise matches its task metadata
+  comments without a space. Running it rewrites every `#MISE description=` and
+  `#MISE alias=` line, which silently empties the description column of
+  `mise tasks` for all 26 tasks and breaks task aliases. That takes the `[human]`
+  prefix with it — the marker AGENTS.md tells agents to check before reaching for
+  a task they cannot run. Formatting is cosmetic; that fence is not.
+- The four local prek hooks — `container-version-check`, `changelog-check`,
+  `docs-check-links`, `docs-check-frontmatter` — now run their script directly
+  instead of through `mise run`, which installed the whole `[tools]` block first
+  and made the Lint job depend on the GitHub API it has no credential for.
+- The prek hook set now runs on every PR, as a **Lint** workflow alongside Docs
+  Checks. Until now the hooks ran nowhere: no workflow invoked prek, and no git
+  hooks are installed in an agent pod, so enforcement was whoever remembered to
+  run `prek run --all-files` on gilbert. That is not a theoretical gap — it is how
+  five Python files drifted out of `ruff-format` shape unnoticed, and how ruff came
+  to have never once looked at `mise-tasks/`, the directory holding most of this
+  repo's logic.
+
+  The runner needed nothing added. `prek` and `actionlint` are already in
+  `forgejo_runner_host_tools` at revs mirroring `prek.toml`, and `uv` already runs
+  the extensionless mise-tasks. The toolchain was provisioned for exactly this and
+  then never wired up.
+
+  `actionlint-system` therefore runs here for the first time. A `*-system` hook
+  runs whatever is on PATH, and an absent binary does not skip — prek reports the
+  hook FAILED — which is why blumeops' actionlint hook had never caught a workflow
+  error in either state. The workflows are clean today, verified against actionlint
+  1.7.12.
+
+  **Three hooks are removed rather than skipped**, because CI is now the
+  enforcement point and a hook that cannot run in a clean checkout is one nobody
+  is running:
+
+  - `ty-check` — `[tool.ty.environment]` points at `sdk/src`, the dagger-generated
+    SDK. `/sdk/` is gitignored, so ty aborts in *any* fresh checkout, CI or local.
+  - `validate-workflows` — shells to `dagger call`, needing Docker Desktop and an
+    engine container. Still available as `mise run validate-workflows`.
+  - `trufflehog` — pinned to `--since-commit HEAD`, an incremental range that
+    scans nothing on a fresh checkout.
+
+  Removing beats skipping: a skip list is a second place to drift, and it lets
+  `prek.toml` keep accumulating hooks that only appear to run. What is left is
+  25 hooks that all pass, so the job's result is the whole of what the hook set
+  checks.
+
+  The job blanks `GITHUB_TOKEN`. Forgejo Actions sets it to the *forge* job token,
+  and mise honours that name for `api.github.com` — so it offers a Forgejo
+  credential to GitHub and takes a 401 on any tool it has to resolve, which fails
+  every hook whose entry is `mise run`. This is the per-repo workaround; the class
+  fix is a scopeless `MISE_GITHUB_TOKEN` in the runner's `envs`.
+
+  Two of these are real capabilities and their loss is not free. **Secret scanning
+  is now the builtin `detect-private-key` alone**, which catches private keys and
+  nothing else — on a repo whose first rule is that it is public. Workflow *schema*
+  validation is likewise gone, though actionlint covers much of the same ground.
+  Both are tracked for a CI-shaped rebuild rather than reinstatement as-is.
+- Share `eblume/project-template` with the agents bot — `write` + `canonical` in
+  `containers/agent-ws/repos.json`, so it lands in the pod's checkout pool like any
+  other worked-on repo. Three open template tasks (rename `build.yaml`, pin the
+  mise versions, reconcile the `prek` step) all stalled at the same line in their
+  notes: *"NOT checked out under ~/code/personal — a later session must clone it to
+  edit."* The repo is public, so it was always readable; what was missing was push,
+  and a checkout to notice it from.
+
+  Also corrects the bootstrap how-to, which still told a human to grant repo access
+  by hand in the Forgejo web UI and listed a repo set predating `repos.json`. That
+  instruction is now actively wrong: the reconcile is authoritative in both
+  directions, so a hand-clicked grant is reverted on the next run.
+- Move `repos.json` from `containers/agent-ws/` to the repo root. The file
+  has outgrown agent-ws: it defines both the `agents` bot's forge access
+  policy and the workspace checkout pool, and the pool is now consumed by two
+  images (agent-ws *and* talos — the latter already read it cross-directory,
+  `../agent-ws/repos.json`). Root placement reflects that it is org-level
+  agent policy, not container config, and survives agent-ws' eventual
+  retirement. Pure source-tree refactor: both container `default.nix` files
+  bake it at build time (`readFile`), the reconciler mise task, the workflow
+  path filters, and doc references are updated to match. Nothing reads it at
+  runtime.
+- Add `mise-tasks/_require`, a guard that refuses to start a task whose tools the
+  machine does not have, and wire it into the four tasks whose blocker really is a
+  missing binary: `validate-workflows`, `frigate-export-model` and `docs-preview`
+  (docker, for Dagger's engine) and `services-check`,
+  `ensure-k3s-ringtail-kubectl-config` (kubectl). It names what is missing, that
+  you are in the agent pod, and what to do instead — a `[human]` description tag
+  is invisible at the moment of failure and does nothing about a task that runs,
+  half-works and exits 0.
+
+  Also marks `[human]` on eleven tasks that cannot run from the pod but were not
+  labelled, and corrects that label's definition: it means "needs something the
+  pod does not have", of which the blumeops vault is only one case — a missing
+  tool or an ssh route to indri/ringtail are the others.
+- Retire agent-ws. Remove the agent-ws image (containers/agent-ws), its k8s
+  manifests and ArgoCD app, its service-versions entry, and the claude-login
+  rotation runbook; talos supersedes it. The shared tag:agent Tailscale auth key
+  is renamed to generic agent naming (Pulumi `agent_authkey`, 1Password item
+  'agent Tailscale Auth Key', `mise run agent-authkey-sync`).
+- Install `actionlint` and `stylua` on the Forgejo runner. prek downloads the
+  environment for most hooks, but a `*-system` hook runs whatever is on `PATH` by
+  definition — and a missing binary is reported as a **failed** hook, not a skipped
+  one. Two consequences had been sitting unnoticed:
+
+  - blumeops' own `actionlint-system` hook has never linted a workflow. It would
+    have been failing anyway: `.github/actionlint.yaml` was missing the `indri` and
+    `priv` labels, which made 10 of 12 workflows unlintable (fixed separately).
+  - `hephaestus.nvim`'s CI has its `prek run --all-files` step stubbed out with an
+    `echo`, blamed on a runner without prek. prek has been installed for a while;
+    what actually still blocked the restore was `stylua` and `actionlint`.
+
+  The runner reference card also listed a toolchain that was never accurate — it
+  advertised a `jq` the role does not install. It now points at
+  `forgejo_runner_host_tools` as the source of truth rather than restating it.
+
+  Realign `flyctl` 0.4.59 → 0.4.71, which had drifted from the `mise.toml` pin
+  since 2026-07-19. Every version in `forgejo_runner_host_tools` mirrors a pin
+  held elsewhere — `dagger.json`, `mise.toml`, `service-versions.yaml`, the
+  `prek.toml` hook revs — and nothing bumps the mirror when the source moves, so
+  it goes stale silently. The variable now documents which source each entry
+  tracks, and the `forgejo-runner` entry in `service-versions.yaml` says to diff
+  the list against those sources as part of the review.
+- The indri runner now injects `MISE_GITHUB_TOKEN` into every job's environment
+  via `runner.envs`, sourced at provision time from the `forge-ci-github-pat`
+  1Password field. Forgejo sets `GITHUB_TOKEN` in every job to the *forge* job
+  token, and mise honours that name for `api.github.com` — so any GitHub-backed
+  tool resolution took a 401. `MISE_GITHUB_TOKEN` outranks it in mise's lookup
+  order (first non-empty of `MISE_GITHUB_TOKEN`, `GITHUB_API_TOKEN`,
+  `GITHUB_TOKEN` wins), fixing the class for every repo the runner builds with
+  no workflow changes.
+
+  The token is the same zero-permission public-read PAT the mirror sync uses —
+  readable by every job on the runner, which is exactly why it must never grow a
+  scope. Takes effect at the next `provision-indri`; after that,
+  hephaestus.nvim's per-step `GITHUB_TOKEN: ""` workaround can come out
+  (blumeops' own Lint keeps its blank deliberately — that job is
+  credential-free by design and no longer touches the GitHub API at all).
+
+  heph: 01KZKP8893WM8DQT5N97QF6PBD (design), 01KZP94PSDXAMV3GNN2WE51HGA
+  (credential decision).
+- Add an hourly `skagit-cce-watch` user timer on ringtail that polls the Skagit
+  CCE course-catalog category and files a **red** heph task (under the new
+  **Ceramics** project) the first time a new ceramics class is listed, keyed on
+  the catalog's Item Number. State lives in `~/.local/state/skagit-cce-watch/`;
+  first run baselines silently and a zero-course parse fails loudly without
+  touching state.
+
+  On a new ceramics class it also fires a **best-effort** ntfy push to
+  `ntfy.ops.eblu.me/ceramics` (tapping opens the course page) so the alert
+  reaches Erich's phone; a push failure never fails the tick.
+- `containers/talos/default.nix` was bumped to 0.4.0 without the matching `service-versions.yaml` entry, which made `container-version-check` fail on every push. Sync the recorded current version to v0.4.0.
+- Bake an eval-only nix into the talos image (agent-ws precedent):
+  `$HOME`-relocated store on the PVC (`NIX_{STORE,STATE,LOG,CONF}_DIR` in the
+  image config), `max-jobs = 0` nix.conf, size-swept by the entrypoint. Lets
+  the talos pod compute `srcHash` values for its own image bumps via
+  `nix-prefetch-git` instead of guessing and burning warrant-approved Build
+  Container rounds on hash-mismatch errors — the pod that needed this was
+  caught computing a wrong hash by hand during the v0.2.4 release. Version
+  bump 0.2.3 → 0.2.4 for the toolchain change.
+- The talos pod's nix can now **build**, not just evaluate: the image's top
+  layer chowns the canonical `/nix/store` to the container user, so store-path
+  hashes stay canonical and `cache.nixos.org` substitutes. Builds run
+  unsandboxed (seccomp forbids user namespaces) inside the already-fenced pod,
+  capped by `max-jobs = 2` and a new `ephemeral-storage` limit on the
+  Deployment. `docs/explanation/agent-containerization.md` §"Nix in the pod"
+  records the eval-only phase this supersedes.
+- talos image v0.2.3: bake the `mise run` toolchain (mise, uv, python3,
+  gnutar/gzip, which), a `/tmp`, and `/usr/bin/env` into the pod, and wrap
+  `tea` to route through the tag:agent SOCKS sidecar. Filing a warrant
+  request or opening a PR from the pod previously required hand-installing
+  `uv`, hand-exporting proxy env for `tea`, and working around the missing
+  `/tmp`; the uv-managed CPython it fell back to cannot execute in the
+  non-FHS image, so `python3` now rides on `PATH` instead.
+- The talos pod now enforces the lint gate locally instead of relying on agents to remember `mise run agent-lint` (#582): the entrypoint installs prek git hooks into every pool clone that carries a `prek.toml` (blumeops today). `pre-commit` runs prek over the staged changes; `pre-push` runs the exact CI hook set over all files, skipping prettier (a node hook the pod doesn't ship). The hooks land in the pool clone's common git dir, so every session worktree inherits them without any agent action, and the entrypoint reinstalls them idempotently at every pod start. prek resolves through `mise exec` at run time — nothing new is baked into the image — and `git commit/push --no-verify` remains the escape hatch. Agent PR checks sit pending until a human approval click, so catching lint failures at push time instead of in CI saves a review round; this complements #582's manual task, which stays as the on-demand form of the same gate.
+- Add `talos` to the agents repo pool (`access: write`, `pool: canonical`),
+  granting the `agents` bot collaborator write on `eblume/talos` and checking
+  the repo out in agent workspaces. Talos is entering active agent-driven
+  development (web-UI features land as branch + PR like the other canonical
+  repos); without a pool entry the reconciler denies the bot access, so pushes
+  from the talos pod are rejected.
+- talos pod: wire the base pi subagent assets into `~/.pi/agent/` at pod
+  start — symlink `agents` and `extensions` from the agents repo's new `pi/`
+  directory (pool checkout stays the source of truth), ship a `pi` CLI wrapper
+  at `~/.pi/agent/bin/pi`, and export `PI_BIN` for the extension's child
+  processes. This is what lets talos sessions delegate bounded work to cheaper
+  models (eblume/agents#13, eblume/talos#8). Image bumped to v0.2.9, pinning
+  talos main at 65d9727 (includes the subagent tools allowlist). Toolchain
+  gains `diffutils`, `gawk` and `hostname`.
+- The talos pod `tea` wrapper now auto-assigns `eblume` on `tea pr create` (unless the caller specifies assignees), so agent-opened PRs surface in the assigned-to-me queue. Chosen over a per-repo Forgejo Actions workflow (eblume/hephaestus#43, closed). Takes effect on the next image rebuild + deploy.
+- CI secrets migrated to job-time `op read` of `blumeops-ci` vault items
+  ([[blumeops-ci-item-migration]]): `argocd-deploy`, `build-container`,
+  `deploy-fly`, `build-blumeops` and `cv-deploy` now fetch their credentials
+  with `BLUMEOPS_CI_OP_TOKEN` at runtime instead of per-secret Actions
+  secrets, `_1password-cli` joins both ringtail runner sandboxes, and the
+  `forgejo_actions_secrets` role stops syncing the migrated secrets (talos
+  and horkos release CI get `BLUMEOPS_CI_OP_TOKEN` instead of the raw zot
+  key, per the one-CI-trust-tier decision).
+- Made the deploy-fly workflow's post-deploy health check fatal (with cold-start retries). With `strategy=immediate` a machine that fails to boot is a live outage, but the run still reported success — as happened 2026-08-15 when an expired `TS_AUTHKEY` crash-looped the new machine (run 957). Also documented the immediate-strategy downtime window in `fly/start.sh` and added a recurring 75-day heph task to rotate the 90-day Tailscale auth key before it expires.
+- Horkos (né Warrant) cutover, additive half: ArgoCD Application (**manual sync** — the approval gate no longer redeploys itself on merge, which also ends the auto-sync/dispatch race), `argocd/manifests/horkos/` (namespace, PVC, external-secrets reusing the existing warrant vault items), Authentik `horkos` OIDC client, and the `horkos.ops.eblu.me` Caddy route. Warrant keeps running untouched until the decommission PR.
+- Horkos cutover, decommission half: `containers/warrant/` and the warrant manifests/Application are removed (the service now lives in eblume/horkos), `request-run`/`verify-runs` point at `horkos.ops.eblu.me`, the Authentik `Warrant` provider and Caddy route retire, `warrant-test` becomes `horkos-test` (client tooling only — the service suite moved with the service), and the service card is now [[horkos]]. Kept on purpose: `warrant-policy.yaml`, `warrant-bot`, and the `Warrant request: #N` PR stamp — the minted artifact is still a warrant.
+- Add `horkos` to `repos.json` so agent pods get a workspace checkout of it — as `access: read, pool: fork` (authors via `agents/horkos`, PRs to canonical), matching blumeops. horkos is pinned into the reconciler's `PINNED_READ_ONLY` set: it's the approval gate itself and its CI carries release secrets, so a write-capable bot could dispatch `release.yaml` from a doctored branch and exfiltrate them. The `agents/horkos` fork was created alongside.
+- repos.json moved to `argocd/manifests/talos/` and delivered to the talos pod as a kustomize-generated ConfigMap: the hash-suffixed name changes the pod template on every policy merge, so a repos.json change now deploys itself (merge → ArgoCD sync → pod rolls) instead of waiting for someone to remember a restart. The talos app gains `prune: true` to garbage-collect superseded hashed ConfigMaps; the agent-repo-access reconciler and its workflow triggers follow the file.
+- Talos agent pods can now inspect deployment state directly: new `agents-readonly` ArgoCD local account (apiKey, get-only on applications/projects — no sync, no logs, no exec, Secret values masked server-side), token in the agents 1Password vault read at runtime via the pod's `op` service account, and a proxied `argocd` CLI wrapper in the pod image. The kubectl leg was deliberately skipped: the tag:agent ACL denies the k8s API, and ArgoCD's resource tree covers health inspection.
+- Talos releases are automated: the image derivation moved into the eblume/talos repo (built from its own checkout — no more rev+srcHash pinning here), and every merge to talos main now builds, pushes `vX.Y.Z-<sha>-nix`, and opens a pin-bump PR against blumeops. `containers/talos/` is retired; the repo pool policy (`repos.json`) is fetched by the pod at start instead of baked into the image.
+- Deploy agent-ws 0.18.0 — `project-template` now lands in the agent workspace's
+  checkout pool, so sessions get a worktree of it instead of cloning by hand.
+- Tooling dependency cycle: bumped mise tool pins (ansible-core, borgmatic, prek,
+  pulumi, dagger, ty, flyctl), the fly proxy's tailscale image, and warrant-test's
+  unit-test dependencies to their latest stable releases; synced service-versions.yaml
+  and stamped today's ansible-core service review. Closes heph 01KT5Q9HFG8TF8TSXDQP36CF3R.
+- Monthly tooling dependency refresh: ruff v0.16.3, prettier v3.9.6, ansible-lint 26.8.0 / `ansible-core` 2.21.3, `actions/checkout` v7.0.1, `typer==0.27.1` across mise tasks, fly proxy alloy v1.18.1 and anubis v1.27.0. ruff's lint `select` is now pinned in `pyproject.toml` — 0.16 widened its implicit default from 60 rules to 414, so the enforced set no longer moves with a version bump.
+- Forgejo upgraded 15.0.3 → 16.0.2, and `mise run runner-logs` moved onto the
+  Actions job-log REST API that arrived with it. Private-repo CI logs were
+  unreadable outside a browser: the only log route Forgejo 15 has is a **web**
+  route, and Forgejo does not accept API-token auth on web routes at all — token,
+  `Bearer`, basic and `?token=` all leave the request anonymous, which is enough
+  for public `blumeops` and a 404 for every private repo. v16's
+  `/repos/{owner}/{repo}/actions/jobs/{job_id}/logs` honours the token, so
+  `runner-logs` prefers it, keeps the web route as a pre-upgrade fallback, and now
+  says which of the two failed and why instead of "no log available".
+- Ollama is re-enabled on ringtail (`replicas: 1`) and `qwen3.8:27b` is added to the synced model set, to evaluate local inference as a provider for talos.
+- Pin the talos image to `v0.4.1-0444de5-nix` (built by warrant run 1173), deploying the `tea` wrapper auto-assign from #598. talos is an auto-sync app, so the argocd sync on merge is the deploy — no explicit argocd-deploy run needed.
+- Pin the talos image to `v0.4.2-1b31ea6-nix` (built from the #605 bump by a warrant build-container run), deploying the tool/subagent transcript UI from eblume/talos#15. talos is an auto-sync app, so the argocd sync on merge is the deploy — no explicit argocd-deploy run needed.
+- Pin the talos image to `v0.4.3-828dee6-nix`: archive/rename chat actions,
+  auto session titles, and the stale-client auto-reload fix.
+- Pin the talos image to `v0.4.4-b685cfc-nix`: programmatic API —
+  non-interactive, token-authenticated runs via `POST /api/run` (eblume/talos#19).
+- Release talos image v0.4.1: same upstream talos (rev unchanged) but the baked toolchain gained the `tea` wrapper auto-assign from #598, which needs a rebuilt image and a deploy to take effect.
+- Bump talos image to 0.4.2 (talos `66448e8`): the chat UI now shows full
+  tool/subagent transcripts in collapsed blocks, and tool activity survives
+  session reloads (eblume/talos#15).
+- Bump talos image to 0.4.3 (talos `56b430a`): per-session Archive/Restore
+  and Rename actions in the chat header (eblume/talos#16), auto-generated
+  session titles (eblume/talos#17), and stale-client auto-reload after a
+  deploy — the fix for the broken transcript rendering seen after v0.4.2
+  (eblume/talos#18).
+- Bump talos image to 0.4.4 (talos `eaedc74`): programmatic API —
+  `POST /api/run` for non-interactive, token-authenticated runs
+  (eblume/talos#19).
+- Bump talos image to 0.4.5 (talos `7b2d64c`): cron sessions —
+  scheduled headless runs as a third session kind (eblume/talos#21).
+- Pin the talos image to v0.2.10-b9c2cb3-nix (build run 1075). The v0.2.10
+  image registers the image's own store paths into the pod's nix DB at
+  startup and creates /nix/var/nix — the two fixes from PR #581. Merge
+  auto-syncs the talos app and restarts the pod. Post-deploy smoke test:
+  nix-build hello must succeed in a fresh pod with no manual setup.
+- Pinned the talos image to `v0.2.11-8fe10b5-nix`, built from the #584 merge commit. v0.2.11 makes the lint gate hard: the pod's entrypoint installs prek pre-commit/pre-push hooks into pool clones carrying a `prek.toml`, so agent commits and pushes of blumeops run the CI hook set before leaving the pod — no agent action needed, `--no-verify` to bypass deliberately. `service-versions.yaml` already moved to v0.2.11 in #584 itself, so this pin only moves the kustomization tag; merge auto-syncs talos and restarts the pod.
+- Bumped talos to v0.2.12: upstream bump to talos `9dfb7f1` (eblume/talos PR #10), which adds structured request logging to the talos server — one `[talos]` line per login, session create, prompt, tool call, assistant turn, abort, and dictation with the acting user and model, never message content or costs. Transcribe failures, previously invisible, now log the OpenRouter error plus provider detail and surface it in the 502 body. Only `src/server.ts` changed upstream, so `npmDepsHash` is unchanged.
+- Pinned the talos image to `v0.2.12-9e31cce-nix`, built by warrant run #40 from the #586 merge. v0.2.12 is the structured-logging release of the talos server ([eblume/talos PR #10](https://forge.eblu.me/eblume/talos/pulls/10)): one `[talos]` log line per login, session create, prompt, tool call, assistant turn, abort, and dictation, plus real error detail from OpenRouter/provider failures in the transcribe path — the gap that made a dictation failure undiagnosable in Loki. `service-versions.yaml` already moved to v0.2.12 in #586, so this pin only moves the kustomization tag; merge auto-syncs talos and restarts the pod.
+- Deploy Warrant 0.4.0 — the supersede API, so an obsoleted request stops
+  looking live in the approval queue.
+- Deploy agent-ws `v0.17.0-5418120-nix`, the image built from the
+  `CLAUDE_CODE_OAUTH_TOKEN` revert. The cluster had stayed pinned to the broken
+  `v0.16.0` image — which crash-loops, since Remote Control refuses an
+  inference-only token — because the revert changed `containers/agent-ws/` without
+  bumping `kustomization.yaml`.
+- Upgraded heph to v1.9.0 across the fleet (hub `heph_version` + ringtail spoke `hephTag`): seq-based sync cursors with deferred out-of-order ops and chunked pushes, fixing the HLC-cursor drop and FK-wedge failure classes behind the 2026 pod spoke outages.
+- horkos v0.5.1: auto-release from eblume/horkos `8b6b1b1` — image pin bumped to `v0.5.1-8b6b1b1-nix`.
+- Pin talos `v0.4.6-c904e38-nix` (agents-m2m API bearer auth) in its ArgoCD
+  kustomization.
+- Pin warrant `v0.4.1-fbd37ad-nix` (request-run `--repo` support, pr_repo on
+  requests) and talos `v0.4.5-fbd37ad-nix` (cron sessions) in their ArgoCD
+  kustomizations.
+- Bump the talos image to v0.4.6 (talos#22 — trusts the `agents-m2m` machine
+  identity for bearer auth, so scripts/services can drive the API).
+- Talos main model switched from `qwen/qwen3.8-max` to `qwen/qwen3.8-27b` (now on OpenRouter): ~4.4x cheaper input, ~2x cheaper output, addressing the ~$5-per-cycle run cost.
+- talos v0.4.11: auto-release from eblume/talos `0f6388e` — image pin bumped to `v0.4.11-0f6388e-nix`.
+- talos v0.4.7: auto-release from eblume/talos `ed6337f` — image pin bumped to `v0.4.7-ed6337f-nix`.
+- talos v0.4.8: auto-release from eblume/talos `ea2791d` — image pin bumped to `v0.4.8-ea2791d-nix`.
+- talos v0.4.9: auto-release from eblume/talos `cc88c5e` — image pin bumped to `v0.4.9-cc88c5e-nix`.
+- Pin upstream talos 0a95bf1 (v0.2.5): markdown rendering in chat,
+  stop/steer agent controls, dictation-review input, and the dictation
+  status gutter (talos PRs #4–#5). The lockfile gained a direct `marked`
+  dep, so `npmDepsHash` changes with this bump. `srcHash` computed
+  in-pod via `builtins.fetchGit` (eval-only nix, [[agent-containerization]]).
+- talos image v0.2.5 → v0.2.6: pin upstream talos `81011bb` (eblume/talos#6 —
+  sessions now start with the `agents` repo's `AGENTS.md` preloaded into the
+  system prompt via pi's `agentsFilesOverride`, restoring the base context
+  agent-ws sessions got from waking up inside the `agents` checkout).
+  `npmDepsHash` unchanged (lockfile untouched); `srcHash` recomputed in-pod
+  with the eval-only nix (`git archive` + `nix hash path`).
+- talos image v0.2.6 → v0.2.7: pin upstream talos `cde7f25` (eblume/talos#7 —
+  per-session git worktree isolation: each session works in its own
+  `~/sessions/<id>/` worktrees of the pool repos instead of sharing the pool
+  checkouts; a startup reaper prunes stale sessions with agent-ws semantics).
+  `npmDepsHash` unchanged (lockfile untouched); `srcHash` recomputed in-pod
+  (`git archive` + `nix hash path`).
+- talos image v0.2.7 → v0.2.8: pin upstream talos `3995a5a` (eblume/talos#9 —
+  fix: sessions whose working directory is a per-session worktree vanished from
+  the sidebar, because the session list filtered on the shared pool path;
+  the filter now matches on the session's own worktree).
+  `npmDepsHash` unchanged (lockfile untouched); `srcHash` recomputed in-pod
+  (`git archive` + `nix hash path`) and verified with a real `fetchgit` eval.
+- talos image v0.2.8 → v0.2.9: subagent base assets wired into the pod
+  (#575 — `agents/pi` symlinked into `~/.pi/agent/`, `pi` CLI wrapper,
+  `PI_BIN` exported) and the pod's nix upgraded from eval-only to real
+  builds (#579 — canonical `/nix/store` chowned to the container user,
+  `cache.nixos.org` substitution, `max-jobs = 2`, ephemeral-storage cap).
+  Toolchain gains `diffutils`, `gawk`, `hostname`. Talos source pinned at
+  `65d9727` (includes eblume/talos#8, the subagent tools allowlist);
+  `npmDepsHash` unchanged, `srcHash` recomputed in-pod.
+- Talos v0.3.0: settings panel for main/subagent model and reasoning-effort selection (eblume/talos#11), persisted on the PVC and applied to live sessions; reasoning effort defaults to low.
+- Talos image pinned to v0.3.0-b28e7ad-nix — the settings-panel release goes live.
+- Talos v0.3.1: SSE stream reliability — server heartbeat + client resync
+  close the "new messages don't appear until re-entry" gap (talos PR #12),
+  with the reconnect path hardened in review (tracked EventSource, resync
+  on manual reconnect, backoff, stale-resync guard).
+- Pin the talos image to v0.3.1-4bf1f40-nix (SSE stream reliability).
+- Talos v0.3.2: curated model pickers — the settings panel's primary and
+  subagent selectors are now fixed shortlists (primary: Qwen 3.8 27B / GPT-5 /
+  Qwen 3.8 Max / Claude Opus 5 / Claude Fable 5; subagent: Qwen 3.8 27B / Claude
+  Sonnet 5 / Claude Haiku 4.5 / GPT-5 Mini / Gemini 2.5 Flash), each option
+  showing live $/M pricing (talos PR #13).
+- Bump ollama to 0.32.14 — 0.31.2 returned HTTP 412 pulling qwen3.8:27b (model requires ≥0.32.12).
+- Bump the talos entry in service-versions.yaml to v0.4.0 — the v0.4.0 release PR updated containers/talos/default.nix without it, so container-version-check failed every PR's lint gate.
+- Deploy hephd v1.8.1 (OIDC refresh-rotation race fix, hephaestus #45) to the indri hub and both ringtail spokes.
+- Scale ollama back to zero replicas — qwen3.8:27b doesn't fit the RTX 4080 (16GiB VRAM vs ~18GB model), spilling to CPU at ~3 tok/s.
+- Skagit CCE ceramics watch now runs every 5 minutes (was hourly), with jitter and timer accuracy tightened to match.
+- Talos deploy follow-ups: npm-deps fetcher v2 for the container build
+  (v1 cache layout drops nested duplicate entries, breaking offline npm
+  install in CI) and the image tag pin.
+- Talos v0.4.0: dashboard-first UI. The primary view is now a session
+  lifecycle dashboard (filter by running/idle/archived, workflow-kind
+  registry with chat as the first kind, regex transcript search, per-session
+  cost, stop/rename/archive actions, live updates over a global SSE
+  channel); chat moved behind each session's row. Also picks up the v0.3.2
+  curated model pickers, which were built but never pinned.
+
+### Documentation
+
+- Reviewed the zot container-versioning doc: corrected the sync-check exemption
+  list (kubectl and agent-ws) and clarified that the version assertion guards only
+  some derivations; stamped last-reviewed 2026-08-18. Closes heph 01KT5Q9H78VYR0M0M8P05YZDHB.
+- Doc review: `runbook-postgres-unhealthy` rewritten against the deployed state — the alert covers two CNPG clusters, `pg_isready` pointed at the retired `pg.ops.eblu.me:5432` route, Immich was listed under the wrong cluster, and the NoData case was undocumented. `PostgresClusterUnhealthy`'s summary now names the cluster via `instance` instead of the repo-wide `cluster` label.
+- Reviewed the zot harden-zot-registry doc against the role's current config
+  template: added the previously omitted `defaultPolicy: ["read"]` line of the
+  accessControl policy and stamped last-reviewed 2026-08-21. All other claims
+  (OIDC + API-key auth, external URL, group policies, anonymous metrics
+  scraping, zot-ci key) verified accurate.
+- Reviewed docs/how-to/zot/register-zot-oidc-client.md: corrected the blueprint entry list (two group policy bindings, zot-ci is a member of artifact-workloads, not a binding target) and stamped last-reviewed.
+- The post-upgrade `doctor check` in [[upgrade-forgejo]] now runs. It was written
+  as `cd ~/forgejo && forgejo doctor …`, but Forgejo derives its work path from the
+  binary's own directory rather than the shell's, so it looked for `app.ini` under
+  `~/code/3rd/forgejo` and exited with "Unable to load config file for a installed
+  Forgejo instance". It needs `-w` and `-c` before the subcommand, the same two
+  flags the LaunchAgent passes. Found while verifying the v16.0.2 upgrade.
+- Document why an agent PR's checks sit `pending` until a human clicks *Approve
+  and run*, and why that click is kept. It is not only friction: it decides which
+  workflow files execute — the target branch's for an untrusted author, the pull
+  request's own once that author is trusted — so permanently trusting the agents
+  bot would let an agent PR run its own workflow definitions on the `indri`
+  runner before anyone read the diff. Records that `pull_request_target` is the
+  tempting way to skip the click and should not be used here, since it is the one
+  trigger that receives secrets and a write-capable token.
+- docs/how-to/knowledgebase/review-documentation.md: the "From a Remote-Agent Session" section is updated — remote-agent pods now have a read-only argocd client (agents-readonly account), so the ArgoCD sync/health check can be run live; kubectl/ansible/pulumi still fall back to repo state.
+- Correct the agent-ws Claude login rotation cadence from 5 days to 21. The
+  refresh token's window was measured at **~29 days**, not the ~7 previously
+  documented — that figure came from mistaking the PVC's creation date for the
+  login date, when the credential had actually been carried onto the PVC from the
+  pre-container host login 22 days earlier. The runbook now reads the real
+  `refreshTokenExpiresAt` off the credential at each rotation instead of trusting
+  the cadence, and records two things learned doing it live: the code paste-back
+  echoes nothing over `kubectl exec`, and a login performed *after* expiry needs
+  the container to cycle before Remote Control comes back.
+- Sweep the last current-tense `minikube-indri` references out of the docs: troubleshooting, prowler, docs-deploy, tutorials, service reference cards, the infra-health agent brief, and the live 1password-connect bootstrap README now all point at `k3s-ringtail` (minikube was retired 2026-06; historical runbooks and provenance comments are left as history).
+- Design doc for Talos, a first-party pi-based agent workflow service:
+  owned session layer (browser-resumable from any tailnet device via
+  Authentik), OpenRouter model freedom, agent-ws-parity access model, and a
+  planned forge-driven issue→PR driver sharing the same runner. Supersedes
+  the Open WebUI approach (PR #562, closed).
+
+### Miscellaneous
+
+- Agent lint gate: new `mise run agent-lint` runs the PR prek job's hook set
+  locally (everything except prettier, which needs node) — agent PR checks sit
+  pending until a human approves the run, so lint failures were discovered
+  late. `actionlint` joins `mise.toml` so the actionlint-system hook runs in
+  the pod. Origin: the container-version-check failure on PR #581.
+- `github-mirror-pat` is now `forge-ci-github-pat`. Mirroring is one consumer of
+  that credential, not the only one — it is indri's general-purpose credential for
+  reading public GitHub, and CI tool resolution is the next consumer lined up, to
+  stop mise 401ing when it resolves a tool from the GitHub API.
+
+  Renaming rather than minting a second token, because the capability is already
+  right: it is a fine-grained PAT with **no permissions**, granting read-only
+  access to public repositories and nothing else. A second token with identical
+  reach would buy only another 20-day rotation chore. The rotation runbook grows a
+  note to keep it scopeless, which matters more once CI jobs can read it.
+
+  `mise-tasks/mirror-update-pats` keeps its name. It updates the PAT on mirror
+  repos, which is still exactly what it does.
+
+  **This requires a matching 1Password field rename, and the two must be
+  sequenced.** Add the new field to the Forgejo Secrets item with the same value
+  first, leaving the old one in place; merge this; then delete the old field. Both
+  consumers (`mirror-create`, `mirror-update-pats`) are `[human]` tasks that only
+  run around a rotation, so the window is forgiving — but additive-then-remove
+  leaves no window at all.
+- `prek run --all-files` is clean again. Five Python files had drifted out of
+  `ruff-format` shape — `containers/warrant/app/main.py`, two warrant tests and two
+  `tests/` modules — so the hook rewrote them on every invocation and any run that
+  touched them reported a failure. Formatting only, no behaviour change. Nothing
+  caught it because blumeops CI runs Docs Checks rather than prek, so the hooks are
+  enforced only by whoever happens to run them locally.
+- Remove `heph-cli-gilbert` from service-versions.yaml: gilbert is a dev laptop, deliberately outside IaC and often unreachable, so it doesn't belong in the automated review queue. The 2026-08-22 spot-check that prompted this found it healthy anyway — heph 1.9.0 (61bf2eea7) matching upstream v1.9.0, spoke fully synced (heph task 01M0K0HC0CYVFRH5MVGADXBY43). Also serves as the changelog fragment for the #635 prek stamp, which shipped without one.
+
+
 ## [v1.19.0] - 2026-08-06
 
 ### Features

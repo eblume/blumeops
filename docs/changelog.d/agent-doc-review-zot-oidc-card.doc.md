@@ -1,1 +1,0 @@
-Reviewed docs/how-to/zot/register-zot-oidc-client.md: corrected the blueprint entry list (two group policy bindings, zot-ci is a member of artifact-workloads, not a binding target) and stamped last-reviewed.

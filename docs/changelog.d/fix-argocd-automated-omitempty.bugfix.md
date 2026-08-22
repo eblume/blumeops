@@ -1,1 +1,0 @@
-Stop spelling `prune: false` / `selfHeal: false` in Application manifests: the controller strips explicit-false fields (Go omitempty) on every automated sync, leaving a field-level diff that flapped the `apps` root OutOfSync (2026-08-18 ntfy alert; recurring since automated sync landed).
