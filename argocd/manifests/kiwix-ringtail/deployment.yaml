@@ -75,6 +75,16 @@ spec:
               value: "9091"
             - name: TORRENT_LIST
               value: "/config/torrents.txt"
+            - name: TRANSMISSION_RPC_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: transmission-rpc
+                  key: username
+            - name: TRANSMISSION_RPC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: transmission-rpc
+                  key: password
           volumeMounts:
             - name: zim-torrents-config
               mountPath: /config/torrents.txt
