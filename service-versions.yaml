@@ -684,10 +684,11 @@ services:
 
   - name: pulumi-cli
     type: mise
-    last-reviewed: 2026-04-12
-    current-version: "3.258.0"
+    last-reviewed: 2026-08-23
+    current-version: "3.259.0"
     upstream-source: https://github.com/pulumi/pulumi/releases
-    notes: IaC CLI for tailscale and gandi stacks
+    notes: >-
+      IaC CLI for tailscale and gandi stacks. 2026-08-23 review: upstream v3.259.0 (2026-08-19) is one minor ahead; release notes are CLI features (PULUMI_DEFAULT_ORGANIZATION, pulumi new prompt consolidation) plus bug fixes, no breaking changes. Bumped pin in mise.toml.
 
   - name: ty
     type: mise
