@@ -1,6 +1,6 @@
 ---
 title: Mise Tasks
-modified: 2026-08-13
+modified: 2026-08-22
 tags:
   - reference
   - tools
@@ -56,7 +56,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | Task | Description |
 |------|-------------|
 | `branch-cleanup` | Delete merged branches (local and remote) |
-| `pr-comments` | List unresolved PR comments |
+| `pr-comments` | Read all PR comments, reviews, and review threads with line metadata; resolved collapsed by default (`--resolved`, `--repo`, `--json`) |
 | `runner-logs` | List Forgejo Actions runs and fetch job logs (supports `--repo`, `--limit`) |
 
 ## Operations & Monitoring

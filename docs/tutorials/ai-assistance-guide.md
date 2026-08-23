@@ -1,7 +1,7 @@
 ---
 title: AI Assistance Guide
-modified: 2026-07-19
-last-reviewed: 2026-07-19
+modified: 2026-08-22
+last-reviewed: 2026-08-22
 tags:
   - tutorials
   - ai
@@ -96,7 +96,7 @@ BlumeOps operations are driven by mise tasks. Run `mise tasks` to list all avail
 | `ai-sources` | Deep context - all non-doc source files (~270K tokens). Ask user before running; useful for problems with a large surface area (see [[mise-tasks]]) |
 | `provision-indri` | Deploy changes to [[indri]]-hosted services via Ansible |
 | `services-check` | After deployments - verify all services are healthy |
-| `pr-comments` | Check unresolved PR comments during review |
+| `pr-comments` | Poll a PR for unaddressed review feedback — all comments, reviews, and threads, with file/commit/line metadata (see [[mise-tasks]]) |
 | `container-list` | View available container images and tags |
 | `container-build-and-release` | Trigger container build workflows |
 | `dns-preview` | Preview DNS changes before applying |
