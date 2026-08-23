@@ -142,9 +142,11 @@ nothing and says so).
   `01KZ0G21KZ…`).
 - **Secret leasing** — deliberately never built; CI reading its own secrets
   from `blumeops-ci` may make it unnecessary.
-- **Stale Authentik leftovers** — the old `Warrant` provider/app linger in
-  Authentik after the blueprint removal (blueprints don't prune); delete them
-  in the Authentik UI when convenient.
+- ~~**Stale Authentik leftovers**~~ — done 2026-08-23: the old `Warrant`
+  provider/app (left behind because blueprints don't prune) were deleted via
+  the Authentik API, alongside the orphaned `warrant` namespace/PVC and the
+  ghost dashboard tile. The pre-migration `warrant.db` is parked at
+  `ringtail:/root/warrant.db.pre-namespace-delete-2026-08-23`.
 
 ## Related
 
