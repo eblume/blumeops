@@ -3,45 +3,319 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.1"]
 # ///
-#MISE description="List unresolved comments on a PR"
+#MISE description="Read all comments, reviews and review threads on a PR"
 #USAGE arg "<pr_number>" help="Pull request number"
-"""Fetch and display unresolved review comments on a pull request.
+#USAGE flag "--repo <repo>" help="Forge repo (owner/name), default: eblume/blumeops"
+#USAGE flag "--resolved" help="Also show the full text of resolved threads (default: pointer only)"
+#USAGE flag "--json" help="Machine-readable JSON output"
+"""Fetch and display every comment, review, and review-comment thread on a PR.
 
-This script queries the Forge (Gitea) API to find all review comments that
-have not been resolved on a given PR. A comment is considered unresolved
-if its 'resolver' field is null.
+Shows the PR's conversation comments, every review (with its state and body),
+and every review comment grouped into threads per diff location, including
+follow-up posts. Each comment carries the metadata that pins it to a commit
+and diff line: repo path, commit_id, diff position, original position, and
+the diff hunk it sits in.
 
-Usage: mise run pr-comments <pr_number>
+By default, threads whose comments are all resolved are shown as one-line
+pointers (location, count, resolver, link) instead of their full text — pass
+--resolved to expand them. The output is meant for agents polling a PR for
+unaddressed review feedback.
+
+Usage:
+    mise run pr-comments 645                     # eblume/blumeops, unresolved in full
+    mise run pr-comments 645 --resolved          # also expand resolved threads
+    mise run pr-comments 20 --repo eblume/talos  # another repo
+    mise run pr-comments 645 --json              # machine-readable
 """
 
+import json
+import os
+import sys
 from typing import Annotated
 
 import httpx
 import typer
 from rich.console import Console
-from rich.text import Text
+from rich.markup import escape
 
+# Public host, as request-run and verify-runs use: reachable directly from an
+# agent pod, unlike the tailnet name forge.ops.eblu.me.
 FORGE_API_BASE = "https://forge.eblu.me/api/v1"
-REPO_OWNER = "eblume"
-REPO_NAME = "blumeops"
+DEFAULT_REPO = "eblume/blumeops"
+PAGE_SIZE = 50
 
 
-def get_reviews(client: httpx.Client, pr_number: int) -> list[dict]:
-    """Get all reviews for a pull request."""
-    response = client.get(
-        f"{FORGE_API_BASE}/repos/{REPO_OWNER}/{REPO_NAME}/pulls/{pr_number}/reviews"
+def api_client() -> httpx.Client:
+    headers = {"User-Agent": "blumeops-pr-comments"}
+    token = os.environ.get("FORGEJO_TOKEN")
+    if token:
+        headers["Authorization"] = f"token {token}"
+    return httpx.Client(base_url=FORGE_API_BASE, headers=headers, timeout=30.0)
+
+
+def get_all(client: httpx.Client, path: str) -> list[dict]:
+    """GET a list endpoint, following pagination."""
+    items: list[dict] = []
+    page = 1
+    while True:
+        resp = client.get(path, params={"limit": PAGE_SIZE, "page": page})
+        resp.raise_for_status()
+        batch = resp.json()
+        if not isinstance(batch, list):
+            raise SystemExit(f"Unexpected API response for {path}: {batch!r}")
+        items.extend(batch)
+        if len(batch) < PAGE_SIZE:
+            return items
+        page += 1
+
+
+def short_commit(commit_id: str) -> str:
+    return commit_id[:8] if commit_id else "?"
+
+
+def is_suggestion(body: str) -> bool:
+    return "```suggestion" in body
+
+
+def fetch_pr(client: httpx.Client, repo: str, pr_number: int) -> dict:
+    base = f"/repos/{repo}/pulls/{pr_number}"
+    pr = client.get(base).json()
+    conversation = get_all(client, f"/repos/{repo}/issues/{pr_number}/comments")
+    reviews = get_all(client, f"{base}/reviews")
+    review_comments: list[dict] = []
+    for review in reviews:
+        if review.get("comments_count", 0) > 0:
+            review_comments.extend(
+                get_all(client, f"{base}/reviews/{review['id']}/comments")
+            )
+    return {
+        "pr": pr,
+        "conversation_comments": conversation,
+        "reviews": reviews,
+        "review_comments": review_comments,
+    }
+
+
+def build_threads(comments: list[dict]) -> list[list[dict]]:
+    """Group review comments into threads per diff location.
+
+    The API has no reply link between review comments, so a thread is the set
+    of comments anchored at the same path and diff position, oldest first.
+    """
+    threads: dict[tuple[str, int], list[dict]] = {}
+    for comment in sorted(comments, key=lambda c: (c["created_at"], c["id"])):
+        threads.setdefault(
+            (comment.get("path", ""), comment.get("position", 0)), []
+        ).append(comment)
+    return list(threads.values())
+
+
+def thread_resolved(thread: list[dict]) -> tuple[bool, list[str]]:
+    all_resolved = all(c.get("resolver") is not None for c in thread)
+    if not all_resolved:
+        return False, []
+    return True, sorted(
+        {(c["resolver"] or {}).get("login", "?") for c in thread}
     )
-    response.raise_for_status()
-    return response.json()
 
 
-def get_review_comments(client: httpx.Client, pr_number: int, review_id: int) -> list[dict]:
-    """Get all comments for a specific review."""
-    response = client.get(
-        f"{FORGE_API_BASE}/repos/{REPO_OWNER}/{REPO_NAME}/pulls/{pr_number}/reviews/{review_id}/comments"
+def json_view(data: dict, threads: list[list[dict]], repo: str) -> dict:
+    def slim_comment(c: dict) -> dict:
+        return {
+            "id": c["id"],
+            "user": (c.get("user") or {}).get("login"),
+            "review_id": c.get("pull_request_review_id"),
+            "body": c.get("body", ""),
+            "path": c.get("path"),
+            "commit_id": c.get("commit_id"),
+            "original_commit_id": c.get("original_commit_id") or None,
+            "position": c.get("position"),
+            "original_position": c.get("original_position") or None,
+            "diff_hunk": c.get("diff_hunk"),
+            "suggestion": is_suggestion(c.get("body", "")),
+            "resolved": c.get("resolver") is not None,
+            "resolver": (c.get("resolver") or {}).get("login"),
+            "created_at": c.get("created_at"),
+            "updated_at": c.get("updated_at"),
+            "html_url": c.get("html_url"),
+        }
+
+    thread_objs = []
+    for thread in threads:
+        resolved, resolvers = thread_resolved(thread)
+        root = thread[0]
+        thread_objs.append(
+            {
+                "path": root.get("path"),
+                "position": root.get("position"),
+                "resolved": resolved,
+                "resolvers": resolvers,
+                "html_url": root.get("html_url"),
+                "comments": [slim_comment(c) for c in thread],
+            }
+        )
+
+    pr = data["pr"]
+    unresolved = [t for t in thread_objs if not t["resolved"]]
+    return {
+        "repo": repo,
+        "pr": {
+            "number": pr.get("number"),
+            "title": pr.get("title"),
+            "state": pr.get("state"),
+            "merged": pr.get("merged"),
+            "user": (pr.get("user") or {}).get("login"),
+            "html_url": pr.get("html_url"),
+        },
+        "conversation_comments": [
+            {
+                "id": c["id"],
+                "user": (c.get("user") or {}).get("login"),
+                "body": c.get("body", ""),
+                "created_at": c.get("created_at"),
+                "html_url": c.get("html_url"),
+            }
+            for c in data["conversation_comments"]
+        ],
+        "reviews": [
+            {
+                "id": r["id"],
+                "user": (r.get("user") or {}).get("login"),
+                "state": r.get("state"),
+                "body": r.get("body", ""),
+                "commit_id": r.get("commit_id"),
+                "dismissed": r.get("dismissed"),
+                "stale": r.get("stale"),
+                "submitted_at": r.get("submitted_at"),
+                "html_url": r.get("html_url"),
+            }
+            for r in sorted(
+                data["reviews"], key=lambda r: (r.get("submitted_at") or "", r["id"])
+            )
+        ],
+        "threads": thread_objs,
+        "summary": {
+            "conversation_comments": len(data["conversation_comments"]),
+            "reviews": len(data["reviews"]),
+            "threads": len(thread_objs),
+            "unresolved_threads": len(unresolved),
+            "unresolved_comments": sum(len(t["comments"]) for t in unresolved),
+            "resolved_threads": len(thread_objs) - len(unresolved),
+            "resolved_comments": sum(
+                len(t["comments"]) for t in thread_objs if t["resolved"]
+            ),
+        },
+    }
+
+
+def print_view(console: Console, view: dict, show_resolved: bool) -> None:
+    pr = view["pr"]
+    state = "merged" if pr["merged"] else pr["state"]
+    console.print(
+        f"[bold]PR #{pr['number']}[/bold] — {escape(pr['title'] or '')} "
+        f"({state} · by {pr['user']})"
     )
-    response.raise_for_status()
-    return response.json()
+    console.print(pr["html_url"])
+    console.print()
+
+    conv = view["conversation_comments"]
+    console.print(f"[bold]Conversation comments ({len(conv)})[/bold]")
+    if not conv:
+        console.print("  (none)")
+    for c in conv:
+        console.print(f"  [cyan]{c['user']}[/cyan] @ {c['created_at']}")
+        for line in (c["body"] or "").strip().splitlines() or ["(empty)"]:
+            console.print(f"    {escape(line)}")
+        console.print(f"    [dim]{c['html_url']}[/dim]")
+    console.print()
+
+    reviews = view["reviews"]
+    console.print(f"[bold]Reviews ({len(reviews)})[/bold]")
+    if not reviews:
+        console.print("  (none)")
+    for r in reviews:
+        flags = [f for f, on in (("dismissed", r["dismissed"]), ("stale", r["stale"])) if on]
+        flag_str = f" [yellow]({', '.join(flags)})[/yellow]" if flags else ""
+        console.print(
+            f"  [dim]#{r['id']}[/dim] [magenta]{r['state']}[/magenta] "
+            f"by [cyan]{r['user']}[/cyan] @ {r['submitted_at']} "
+            f"on {short_commit(r['commit_id'] or '')}{flag_str}"
+        )
+        for line in (r["body"] or "").strip().splitlines():
+            console.print(f"    {escape(line)}")
+        console.print(f"    [dim]{r['html_url']}[/dim]")
+    console.print()
+
+    threads = view["threads"]
+    unresolved = [t for t in threads if not t["resolved"]]
+    resolved = [t for t in threads if t["resolved"]]
+    console.print(
+        f"[bold]Review comment threads "
+        f"({len(unresolved)} unresolved, {len(resolved)} resolved)[/bold]"
+    )
+    if not threads:
+        console.print("  (none)")
+
+    def thread_location(t: dict) -> str:
+        root = t["comments"][0]
+        hunk = (root["diff_hunk"] or "").strip().splitlines()
+        hunk_str = f"  {escape(hunk[0])}" if hunk else ""
+        return (
+            f"{escape(root['path'] or '?')} @ {short_commit(root['commit_id'] or '')} "
+            f"· diff pos {root['position'] or 0}{hunk_str}"
+        )
+
+    for t in unresolved:
+        console.print(f"  [red]●[/red] {thread_location(t)}")
+        for i, c in enumerate(t["comments"]):
+            kind = "follow-up" if i else "comment"
+            extra = " [magenta][suggestion][/magenta]" if c["suggestion"] else ""
+            console.print(
+                f"    [{kind}] [cyan]{c['user']}[/cyan] @ {c['created_at']} "
+                f"(review #{c['review_id']}){extra}"
+            )
+            for line in (c["body"] or "").strip().splitlines() or ["(empty)"]:
+                console.print(f"      {escape(line)}")
+            console.print(f"      [dim]{c['html_url']}[/dim]")
+
+    if resolved:
+        heading = (
+            f"Resolved ({len(resolved)} threads, {view['summary']['resolved_comments']} comments)"
+            + ("" if show_resolved else " — pointer only, pass --resolved for full text")
+        )
+        console.print(f"  [green]── {heading} ──[/green]")
+        for t in resolved:
+            if not show_resolved:
+                root = t["comments"][0]
+                console.print(
+                    f"  [green]✓[/green] {escape(root['path'] or '?')} "
+                    f"@ {short_commit(root['commit_id'] or '')} · "
+                    f"diff pos {root['position'] or 0} · "
+                    f"{len(t['comments'])} comment(s), resolved by "
+                    f"{', '.join(t['resolvers'])}"
+                )
+                console.print(f"    [dim]{root['html_url']}[/dim]")
+                continue
+            console.print(f"  [green]✓[/green] {thread_location(t)}")
+            for i, c in enumerate(t["comments"]):
+                resolver = c["resolver"] or "?"
+                kind = "follow-up" if i else "comment"
+                console.print(
+                    f"    [{kind}] [cyan]{c['user']}[/cyan] @ {c['created_at']} "
+                    f"(resolved by {resolver})"
+                )
+                for line in (c["body"] or "").strip().splitlines() or ["(empty)"]:
+                    console.print(f"      {escape(line)}")
+                console.print(f"      [dim]{c['html_url']}[/dim]")
+
+    s = view["summary"]
+    console.print()
+    console.print(
+        f"[bold]Summary:[/bold] {s['conversation_comments']} conversation comment(s) · "
+        f"{s['reviews']} review(s) · {s['unresolved_threads']} unresolved thread(s) "
+        f"({s['unresolved_comments']} comment(s)) · {s['resolved_threads']} resolved "
+        f"thread(s) ({s['resolved_comments']} comment(s))"
+    )
 
 
 app = typer.Typer()
@@ -50,62 +324,39 @@ app = typer.Typer()
 @app.command()
 def main(
     pr_number: Annotated[int, typer.Argument(help="Pull request number")],
+    repo: Annotated[
+        str, typer.Option("--repo", help="Forge repo (owner/name)")
+    ] = DEFAULT_REPO,
+    resolved: Annotated[
+        bool, typer.Option("--resolved", help="Show full text of resolved threads")
+    ] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
 ) -> None:
     console = Console()
-
-    unresolved_comments: list[tuple[dict, dict]] = []  # (review, comment) pairs
-
-    with httpx.Client() as client:
-        # Get all reviews
+    with api_client() as client:
         try:
-            reviews = get_reviews(client, pr_number)
+            data = fetch_pr(client, repo, pr_number)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                console.print(f"[red]Error:[/red] PR #{pr_number} not found")
+                console.print(
+                    f"[red]Error:[/red] PR #{pr_number} not found in {repo}"
+                )
             else:
-                console.print(f"[red]Error:[/red] API request failed: {e}")
+                console.print(
+                    f"[red]Error:[/red] API request failed for {repo}: {e}"
+                )
+            raise SystemExit(1)
+        except httpx.HTTPError as e:
+            console.print(f"[red]Error:[/red] could not reach the forge: {e}")
             raise SystemExit(1)
 
-        # For each review, get comments and filter to unresolved
-        for review in reviews:
-            try:
-                comments = get_review_comments(client, pr_number, review["id"])
-            except httpx.HTTPStatusError:
-                continue  # Skip reviews we can't fetch comments for
-
-            for comment in comments:
-                if comment.get("resolver") is None:
-                    unresolved_comments.append((review, comment))
-
-    if not unresolved_comments:
-        console.print(f"[green]No unresolved comments on PR #{pr_number}[/green]")
-        raise SystemExit(0)
-
-    # Display unresolved comments
-    console.print(f"[bold]Unresolved Comments on PR #{pr_number}[/bold] ({len(unresolved_comments)} comments)")
-    console.print("=" * 60)
-    console.print()
-
-    for review, comment in unresolved_comments:
-        # Header with file path and reviewer
-        header = Text()
-        path = comment.get("path", "unknown file")
-        reviewer = review.get("user", {}).get("login", "unknown")
-        header.append(f"{path}", style="bold cyan")
-        header.append(f" (by {reviewer})")
-        console.print(header)
-
-        # Comment body
-        body = comment.get("body", "").strip()
-        for line in body.split("\n"):
-            console.print(f"  {line}")
-
-        # Link to comment
-        html_url = comment.get("html_url", "")
-        if html_url:
-            console.print(f"  [dim]{html_url}[/dim]")
-
-        console.print()
+    threads = build_threads(data["review_comments"])
+    view = json_view(data, threads, repo)
+    if as_json:
+        json.dump(view, sys.stdout, indent=2)
+        print()
+    else:
+        print_view(console, view, show_resolved=resolved)
 
 
 if __name__ == "__main__":
