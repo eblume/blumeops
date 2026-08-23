@@ -16,13 +16,24 @@ let
 
   # start.sh equivalent: default settings.json on first boot, then exec
   # the daemon. /config is an emptyDir — settings are ephemeral by design.
+  #
+  # RPC auth turns on when TRANSMISSION_RPC_USERNAME/_PASSWORD are both set
+  # (wired from external-secrets in the deployment). The password goes into
+  # settings.json rather than daemon flags so it never shows in the process
+  # cmdline; transmission rewrites it as a salted hash on startup. Missing
+  # credentials fall back to open RPC so the kiwix torrent-sync sidecar
+  # (which runs this image without them) keeps working.
   transmission-run = pkgs.writeShellScriptBin "transmission-run" ''
     set -e
     mkdir -p /config /downloads/complete /downloads/incomplete
     CONFIG_FILE=/config/settings.json
+    AUTH_ENABLED=false
+    if [ -n "''${TRANSMISSION_RPC_USERNAME:-}" ] && [ -n "''${TRANSMISSION_RPC_PASSWORD:-}" ]; then
+      AUTH_ENABLED=true
+    fi
     if [ ! -f "$CONFIG_FILE" ]; then
-      echo "Creating default configuration..."
-      cat > "$CONFIG_FILE" << 'EOF'
+      echo "Creating default configuration (rpc auth: $AUTH_ENABLED)..."
+      cat > "$CONFIG_FILE" << EOF
     {
         "download-dir": "/downloads/complete",
         "incomplete-dir": "/downloads/incomplete",
@@ -30,6 +41,9 @@ let
         "rpc-enabled": true,
         "rpc-bind-address": "0.0.0.0",
         "rpc-port": 9091,
+        "rpc-authentication-required": $AUTH_ENABLED,
+        "rpc-username": "''${TRANSMISSION_RPC_USERNAME:-}",
+        "rpc-password": "''${TRANSMISSION_RPC_PASSWORD:-}",
         "rpc-whitelist-enabled": false,
         "rpc-host-whitelist-enabled": false,
         "peer-port": 51413,
