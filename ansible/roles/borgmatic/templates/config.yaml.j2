@@ -65,9 +65,9 @@ commands:
 {% for db in borgmatic_k8s_file_dumps %}
           - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-file-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} '{{ db.glob }}' {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db
 {% endfor %}
-        {% for db in borgmatic_k8s_tar_dumps %}
-                - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-tar-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.tar
-        {% endfor %}
+{% for db in borgmatic_k8s_tar_dumps %}
+          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-tar-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.tar
+{% endfor %}
 {% endif %}
 
 ssh_command: ssh -o IdentitiesOnly=yes -i {{ borgmatic_borgbase_ssh_key_path }}
