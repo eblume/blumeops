@@ -13,7 +13,7 @@ images:
   - name: registry.ops.eblu.me/blumeops/kiwix-serve
     newTag: v3.8.2-f386e2e-nix
   - name: registry.ops.eblu.me/blumeops/transmission
-    newTag: v4.1.1-f386e2e-nix
+    newTag: v4.1.2-1040096-nix
   - name: registry.ops.eblu.me/blumeops/kubectl
     newTag: v1.34.3-f386e2e-nix
 
