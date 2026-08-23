@@ -96,6 +96,14 @@ spec:
                 secretKeyRef:
                   name: talos-secrets
                   key: openrouter-api-key
+            # HMAC key for the Forgejo PR-label webhook (POST
+            # /api/webhooks/forge). Must equal the secret on the forge
+            # hook; empty means the endpoint is disabled (404).
+            - name: TALOS_FORGE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: talos-secrets
+                  key: forge-webhook-secret
           envFrom:
             - secretRef:
                 name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN
