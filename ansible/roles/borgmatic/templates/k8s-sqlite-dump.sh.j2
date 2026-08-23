@@ -32,14 +32,19 @@ dump_target=${6:?missing dump target}
 # minimal nix images (e.g. mealie) have no /tmp.
 pod_tmp="$(dirname "$db_path")/.borgmatic-backup-${name}.db"
 
+# Everything in the pod runs through python3 — it's already required for the
+# sqlite backup, and the most minimal nix images (e.g. horkos) ship no
+# coreutils at all, so cat/rm are not safe to assume.
 python_backup='import sqlite3; sqlite3.connect("'"$db_path"'").backup(sqlite3.connect("'"$pod_tmp"'"))'
+python_read='import sys, shutil; shutil.copyfileobj(open("'"$pod_tmp"'", "rb"), sys.stdout.buffer)'
+python_rm='import os; os.unlink("'"$pod_tmp"'")'
 
 mode=${target%%:*}
 ref=${target#*:}
 
 case "$mode" in
     local)
-        # Pulls dump bytes out via "kubectl exec -- cat" rather than
+        # Pulls dump bytes out via "kubectl exec -- python3" rather than
         # "kubectl cp", which would otherwise need tar inside the pod
         # (nix-built images like shower don't bundle tar).
         context=$ref
@@ -47,8 +52,8 @@ case "$mode" in
         pod=$($kubectl get pod -l "$selector" \
             -o jsonpath='{.items[0].metadata.name}')
         $kubectl exec "$pod" -- python3 -c "$python_backup"
-        $kubectl exec "$pod" -- cat "$pod_tmp" > "$dump_target"
-        $kubectl exec "$pod" -- rm -f "$pod_tmp"
+        $kubectl exec "$pod" -- python3 -c "$python_read" > "$dump_target"
+        $kubectl exec "$pod" -- python3 -c "$python_rm"
         ;;
     ssh)
         host=$ref
@@ -65,8 +70,8 @@ case "$mode" in
 set -euo pipefail
 pod=\$(sudo k3s kubectl -n "$namespace" get pod -l "$selector" -o jsonpath='{.items[0].metadata.name}')
 sudo k3s kubectl -n "$namespace" exec "\$pod" -- python3 -c '$python_backup' 1>&2
-sudo k3s kubectl -n "$namespace" exec "\$pod" -- cat "$pod_tmp"
-sudo k3s kubectl -n "$namespace" exec "\$pod" -- rm -f "$pod_tmp" 1>&2
+sudo k3s kubectl -n "$namespace" exec "\$pod" -- python3 -c '$python_read'
+sudo k3s kubectl -n "$namespace" exec "\$pod" -- python3 -c '$python_rm' 1>&2
 EOF
         ;;
     *)
