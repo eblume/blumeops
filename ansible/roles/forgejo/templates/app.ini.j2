@@ -103,3 +103,8 @@ ENABLED_ISSUE_BY_REPOSITORY = false
 [actions]
 ENABLED = {{ forgejo_actions_enabled | lower }}
 DEFAULT_ACTIONS_URL = {{ forgejo_actions_default_url }}
+
+[webhook]
+# Default is `external` only, which denies tailnet targets — the talos
+# PR-label webhook delivers to talos.ops.eblu.me (100.x behind Caddy).
+ALLOWED_HOST_LIST = external, *.ops.eblu.me
