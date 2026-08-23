@@ -1,6 +1,7 @@
 ---
 title: "Runbook: Service Probe Failure"
-modified: 2026-06-21
+modified: 2026-08-23
+last-reviewed: 2026-08-23
 tags:
   - how-to
   - alerting
@@ -76,9 +77,9 @@ config — no new alert rule is needed, the single `label_replace` rule covers a
    ssh ringtail 'systemctl status k3s'
    ```
 
-5. **Check NFS mounts** (kiwix, transmission depend on sifaka NFS, mounted into
-   pods via NFS PVs — see [[sifaka-nfs-from-ringtail]]). A lost mount shows up as
-   pod mount errors:
+5. **Check NFS mounts** (frigate, immich, kiwix, navidrome, paperless, shower,
+   and transmission depend on sifaka NFS, mounted into pods via NFS PVs — see
+   [[sifaka-nfs-from-ringtail]]). A lost mount shows up as pod mount errors:
    ```fish
    kubectl describe pod -n <namespace> <pod-name> --context=k3s-ringtail
    ```
@@ -87,7 +88,11 @@ config — no new alert rule is needed, the single `label_replace` rule covers a
 
 - **Pod crashed** — check logs, restart with `kubectl delete pod`
 - **NFS mount lost** — sifaka offline or its NFS export unreachable. Check pod events for mount errors; see [[sifaka-nfs-from-ringtail]]
-- **Resource exhaustion** — check `kubectl top pods -n <namespace>` for memory/CPU pressure
+- **Resource exhaustion** — look for `OOMKilled` in the pod events (step 2).
+  `kubectl top` does not work here: ringtail's k3s runs with
+  `--disable=metrics-server`, so the Metrics API does not exist. For node-level
+  numbers see [[runbook-pod-not-ready]] (Prometheus queries, `kubectl
+  describe node`)
 - **k3s down** — `ssh ringtail 'systemctl status k3s'`, restart if needed
 
 ## Silencing
@@ -100,5 +105,7 @@ For planned maintenance, silence this alert in Grafana:
 
 ## Related
 
+- [[runbook-pod-not-ready]] — Sibling runbook; has the working Prometheus
+  resource-pressure queries
 - [[deploy-infra-alerting]] — Alerting pipeline overview
 - [[configure-grafana-alerting-pipeline]] — Pipeline configuration
