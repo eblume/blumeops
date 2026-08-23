@@ -598,22 +598,19 @@ services:
 
   - name: flyio-tailscale
     type: fly
-    last-reviewed: "2026-07-18"
-    current-version: "v1.94.2"
+    last-reviewed: "2026-08-23"
+    current-version: "v1.102.3"
     upstream-source: https://github.com/tailscale/tailscale/releases
     notes: >-
-      Pinned after v1.96.5 broke MagicDNS in containers. Stay on the 1.94 train
-      (currently v1.94.2). 2026-07-18: tested v1.98.8 live on this Fly proxy —
-      still SERVFAILs tailnet DNS in the Firecracker container and blacked out
-      all public routing (HTTP 000); rolled back to v1.94.2. The 1.98 train is
-      clean in k3s pods but NOT in the Fly no-DNS-manager container. Do not bump
-      past 1.94 until the resolv.conf/DNS-manager path is fixed and re-tested in
-      the container. COPY --from digest in fly/Dockerfile. See heph task /
-      lesson_tailscale_196_magicdns.
+      Was pinned at v1.94.2 after v1.96.5 broke MagicDNS in the Fly container
+      (lesson_tailscale_196_magicdns); the 1.102 train tested clean and
+      deployed 2026-08-18 (PR #601). 2026-08-23: bumped v1.102.2 -> v1.102.3
+      (patch, digest-pinned COPY --from in fly/Dockerfile, digest verified
+      against the v1.102.3 tag).
 
   - name: flyio-nginx
     type: fly
-    last-reviewed: "2026-07-19"
+    last-reviewed: "2026-08-23"
     current-version: "1.30.4-alpine"
     upstream-source: https://hub.docker.com/_/nginx
     notes: >-
@@ -622,6 +619,8 @@ services:
       CVE-2026-60005, CVE-2026-56434). Tracking file had lagged at 1.29.6;
       the 2026-06-22 deps refresh (PR #403) had already moved the pin to the
       1.30.x stable train. Mainline is 1.31.x; staying on stable.
+      2026-08-23: 1.30.4 is still the latest on the stable train (mainline is
+      now 1.31.4) — no bump.
 
   - name: flyio-alloy
     type: fly
@@ -692,16 +691,21 @@ services:
 
   - name: ty
     type: mise
-    last-reviewed: 2026-04-12
-    current-version: "0.0.72"
+    last-reviewed: 2026-08-23
+    current-version: "0.0.74"
     upstream-source: https://github.com/astral-sh/ty/releases
-    notes: Astral Python typechecker (beta); prek hook
+    notes: >-
+      Astral Python typechecker (beta); prek hook. 2026-08-23: bumped
+      0.0.72 -> 0.0.74 — both releases are type-inference improvements and
+      bug fixes, no CLI or diagnostic-default changes.
 
   - name: flyctl
     type: mise
-    last-reviewed: "2026-07-19"
-    current-version: "0.4.84"
+    last-reviewed: "2026-08-23"
+    current-version: "0.4.87"
     upstream-source: https://github.com/superfly/flyctl/releases
     notes: >-
       Fly.io CLI for fly-deploy. Pinned in mise.toml 2026-07-19 so deploys
-      work from ringtail too (previously gilbert-only via brew).
+      work from ringtail too (previously gilbert-only via brew). 2026-08-23:
+      bumped 0.4.84 -> 0.4.87 (deploy-retry and nil-panic fixes, dependency
+      updates; no CLI changes).
