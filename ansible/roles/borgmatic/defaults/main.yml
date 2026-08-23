@@ -71,6 +71,13 @@ borgmatic_k8s_sqlite_dumps:
     # ringtail kubeconfig on indri. k3s.yaml on ringtail is
     # world-readable (mode 644), so no sudo required.
     target: ssh:eblume@ringtail
+  - name: horkos
+    namespace: horkos
+    label_selector: app=horkos
+    db_path: /data/horkos.db
+    target: ssh:eblume@ringtail
+    # horkos (approval-queue dispatch) DB — only copy of queue state;
+    # Python image ships python3 so the helper's in-pod sqlite3 .backup works as-is.
 
 # K8s services that produce their own consistent SQLite backup files on a
 # PVC (rather than us running an online dump via kubectl exec). Each entry's
@@ -89,6 +96,21 @@ borgmatic_k8s_file_dumps:
     label_selector: app=navidrome
     dir: /data/backup
     glob: 'navidrome_backup_*.db'
+    target: ssh:eblume@ringtail
+
+# K8s pods whose data dir is tarred in-pod and streamed back — no
+# sqlite3 or python3 needed, just tar. Each entry's `dir` is tarred to
+# borgmatic_k8s_dump_dir/<name>.tar. Uses the same `target` modes as
+# borgmatic_k8s_sqlite_dumps. See ~/bin/borgmatic-k8s-tar-dump.
+borgmatic_k8s_tar_dumps:
+  # talos agent-service state: all session transcripts
+  # (data/sessions/<timestamp>_<sessionId>.jsonl) plus meta.json,
+  # crons.json, settings.json. No sqlite — pure JSON/JSONL. Every
+  # session is stored forever (heph 01M0GA6JPGQF96AM5JZKA37YSV).
+  - name: talos-data
+    namespace: talos
+    label_selector: app=talos
+    dir: /home/talos/data
     target: ssh:eblume@ringtail
 
 # Local (on-indri) SQLite databases captured in a before-backup hook via the

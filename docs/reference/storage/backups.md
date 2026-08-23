@@ -40,7 +40,14 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | heph | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
 | mealie | — (SQLite) | k8s pod | kubectl exec sqlite3 .backup |
 | shower | — (SQLite) | k8s pod (ringtail) | kubectl exec sqlite3 .backup |
+| horkos | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
 | navidrome | — (SQLite) | k8s pod (ringtail) | navidrome `ND_BACKUP_*` snapshot, newest ferried off PVC |
+
+## K8s Pod Data Directories
+
+| Pod | Data | Method |
+|-----|------|--------|
+| talos | All session transcripts + service state (meta.json, crons.json, settings.json) | in-pod tar, streamed back |
 
 ## Immich Photo Library (Offsite Only)
 
