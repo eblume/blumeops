@@ -50,6 +50,8 @@ spec:
           image: registry.ops.eblu.me/blumeops/talos:kustomized
           ports:
             - containerPort: 3000
+            - containerPort: 9464
+              name: metrics
           env:
             - name: HOME
               value: /home/talos

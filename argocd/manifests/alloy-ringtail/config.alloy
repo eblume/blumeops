@@ -62,6 +62,15 @@ prometheus.scrape "unpoller" {
   forward_to      = [prometheus.remote_write.prometheus.receiver]
 }
 
+// Talos agent service: app-level metrics (sessions, model calls, tokens,
+// spend). Cluster-only port, not behind the Tailscale ingress.
+prometheus.scrape "talos" {
+  targets         = [{"__address__" = "talos.talos.svc.cluster.local:9464", "job" = "talos"}]
+  metrics_path    = "/metrics"
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.prometheus.receiver]
+}
+
 // ============== SERVICE HEALTH PROBES ==============
 
 // Blackbox-style HTTP probes for in-cluster services on ringtail.
