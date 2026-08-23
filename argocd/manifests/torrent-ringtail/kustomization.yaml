@@ -8,6 +8,7 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress-tailscale.yaml
+  - external-secret.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/transmission
     newTag: v4.1.1-f386e2e-nix

@@ -33,6 +33,16 @@ spec:
               value: "1000"
             - name: TZ
               value: "America/Los_Angeles"
+            - name: TRANSMISSION_RPC_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: transmission-rpc
+                  key: username
+            - name: TRANSMISSION_RPC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: transmission-rpc
+                  key: password
           ports:
             - containerPort: 9091
               name: web
@@ -52,23 +62,36 @@ spec:
               cpu: "100m"
             limits:
               memory: "512Mi"
+          # tcpSocket rather than httpGet: with RPC auth on, every HTTP path
+          # (including /transmission/web/) answers 401, which httpGet counts
+          # as probe failure.
           livenessProbe:
-            httpGet:
-              path: /transmission/web/
+            tcpSocket:
               port: 9091
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /transmission/web/
+            tcpSocket:
               port: 9091
             initialDelaySeconds: 10
             periodSeconds: 10
         - name: transmission-exporter
           image: registry.ops.eblu.me/blumeops/transmission-exporter:kustomized
           env:
+            # exporter.py parses user:pass out of the ADDR URL; $(VAR) is
+            # kubelet env interpolation of the two secret-sourced vars above.
+            - name: TRANSMISSION_RPC_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: transmission-rpc
+                  key: username
+            - name: TRANSMISSION_RPC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: transmission-rpc
+                  key: password
             - name: TRANSMISSION_ADDR
-              value: "http://localhost:9091"
+              value: "http://$(TRANSMISSION_RPC_USERNAME):$(TRANSMISSION_RPC_PASSWORD)@localhost:9091"
           ports:
             - containerPort: 19091
               name: metrics

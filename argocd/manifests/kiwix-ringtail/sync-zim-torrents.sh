@@ -7,14 +7,22 @@ TORRENT_LIST="${TORRENT_LIST:-/config/torrents.txt}"
 TRANSMISSION_HOST="${TRANSMISSION_HOST:-transmission.torrent.svc.cluster.local}"
 TRANSMISSION_PORT="${TRANSMISSION_PORT:-9091}"
 
+# RPC auth (optional): both vars set -> transmission-remote gets -n user:pass
+AUTH_ARGS=()
+if [[ -n "${TRANSMISSION_RPC_USERNAME:-}" && -n "${TRANSMISSION_RPC_PASSWORD:-}" ]]; then
+    AUTH_ARGS=(-n "${TRANSMISSION_RPC_USERNAME}:${TRANSMISSION_RPC_PASSWORD}")
+fi
+
 echo "Syncing ZIM torrents to transmission at ${TRANSMISSION_HOST}:${TRANSMISSION_PORT}"
 
 # Wait for transmission to be ready
-# Transmission RPC returns 409 on first request (to provide session ID), which is fine
+# Transmission RPC returns 409 on first request (to provide session ID), which
+# is fine; 401 means it's up but wants auth — also fine, the credentialed
+# transmission-remote calls below handle that.
 echo "Waiting for Transmission RPC..."
 max_attempts=30
 attempt=0
-until curl -s -o /dev/null -w "%{http_code}" "http://${TRANSMISSION_HOST}:${TRANSMISSION_PORT}/transmission/rpc" | grep -qE "^(200|409)$"; do
+until curl -s -o /dev/null -w "%{http_code}" "http://${TRANSMISSION_HOST}:${TRANSMISSION_PORT}/transmission/rpc" | grep -qE "^(200|401|409)$"; do
     attempt=$((attempt + 1))
     if [[ $attempt -ge $max_attempts ]]; then
         echo "Transmission not ready after ${max_attempts} attempts, will retry next cycle"
@@ -26,7 +34,7 @@ echo "Transmission is ready"
 
 # Get current torrents from transmission
 # transmission-remote returns header + data + footer, extract just torrent names
-current=$(transmission-remote "${TRANSMISSION_HOST}:${TRANSMISSION_PORT}" -l 2>/dev/null | \
+current=$(transmission-remote "${TRANSMISSION_HOST}:${TRANSMISSION_PORT}" "${AUTH_ARGS[@]}" -l 2>/dev/null | \
           tail -n +2 | head -n -1 | awk '{print $NF}' || true)
 
 added=0
@@ -48,7 +56,7 @@ while IFS= read -r url || [[ -n "$url" ]]; do
     if echo "$current" | grep -qF "$basename_no_zim"; then
         ((skipped++)) || true
     else
-        if transmission-remote "${TRANSMISSION_HOST}:${TRANSMISSION_PORT}" -a "$url" 2>/dev/null; then
+        if transmission-remote "${TRANSMISSION_HOST}:${TRANSMISSION_PORT}" "${AUTH_ARGS[@]}" -a "$url" 2>/dev/null; then
             echo "Added: $basename"
             ((added++)) || true
         else

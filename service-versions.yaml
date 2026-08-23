@@ -308,8 +308,8 @@ services:
 
   - name: transmission
     type: argocd
-    last-reviewed: 2026-04-15
-    current-version: "4.1.1"
+    last-reviewed: 2026-08-23
+    current-version: "4.1.2"
     upstream-source: https://github.com/transmission/transmission/releases
 
   - name: transmission-exporter

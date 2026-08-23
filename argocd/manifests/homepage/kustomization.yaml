@@ -14,6 +14,7 @@ resources:
   - external-secret-grafana.yaml
   - external-secret-miniflux.yaml
   - external-secret-navidrome.yaml
+  - external-secret-transmission.yaml
 
 images:
   - name: registry.ops.eblu.me/blumeops/homepage

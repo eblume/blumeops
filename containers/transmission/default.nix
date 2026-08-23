@@ -11,7 +11,7 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "4.1.1";
+  version = "4.1.2";
   app = pkgs.transmission_4;
 
   # start.sh equivalent: default settings.json on first boot, then exec

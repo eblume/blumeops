@@ -83,6 +83,17 @@ spec:
                 secretKeyRef:
                   name: homepage-navidrome
                   key: token
+            # Transmission widget
+            - name: HOMEPAGE_VAR_TRANSMISSION_USER
+              valueFrom:
+                secretKeyRef:
+                  name: homepage-transmission
+                  key: username
+            - name: HOMEPAGE_VAR_TRANSMISSION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: homepage-transmission
+                  key: password
           volumeMounts:
             - name: config
               mountPath: /app/config/bookmarks.yaml
