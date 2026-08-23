@@ -5,7 +5,7 @@
 jellyfin_port: 8096
 
 # Data directory (standard macOS location)
-jellyfin_data_dir: "{{ ansible_env.HOME }}/Library/Application Support/jellyfin"
+jellyfin_data_dir: "{{ ansible_facts.ansible_env.HOME }}/Library/Application Support/jellyfin"
 
 # Media path (NFS mount from sifaka)
 jellyfin_media_path: /Volumes/allisonflix
@@ -20,7 +20,7 @@ jellyfin_binary: "{{ jellyfin_cask_app_path }}/Contents/MacOS/jellyfin"
 jellyfin_webdir: "{{ jellyfin_cask_app_path }}/Contents/Resources/jellyfin-web"
 
 # Log directory
-jellyfin_log_dir: "{{ ansible_env.HOME }}/Library/Logs"
+jellyfin_log_dir: "{{ ansible_facts.ansible_env.HOME }}/Library/Logs"
 
 # SSO plugin configuration
 jellyfin_sso_plugin_version: "4.0.0.3"
