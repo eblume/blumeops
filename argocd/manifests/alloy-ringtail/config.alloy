@@ -81,7 +81,7 @@ prometheus.scrape "talos" {
 // NOTE: `ollama` is intentionally omitted — it is scaled to zero unless needed,
 // so probing it would fire ServiceProbeFailure permanently.
 prometheus.exporter.blackbox "services" {
-  config = "{ modules: { http_2xx: { prober: http, timeout: 5s }, http_2xx_shower: { prober: http, timeout: 5s, http: { headers: { Host: shower.ops.eblu.me, X-Forwarded-Proto: https } } } } }"
+  config = "{ modules: { http_2xx: { prober: http, timeout: 5s }, http_2xx_shower: { prober: http, timeout: 5s, http: { headers: { Host: shower.ops.eblu.me, X-Forwarded-Proto: https } } }, http_401: { prober: http, timeout: 5s, http: { valid_status_codes: [401] } } } }"
 
   target {
     name    = "argocd"
@@ -171,7 +171,9 @@ prometheus.exporter.blackbox "services" {
   target {
     name    = "transmission"
     address = "http://transmission.torrent.svc.cluster.local:9091/transmission/web/"
-    module  = "http_2xx"
+    // 401 is the healthy answer since RPC auth went on (PR #661) — this
+    // module also alerts if auth is ever accidentally disabled (a 200 fails).
+    module  = "http_401"
   }
 }
 
