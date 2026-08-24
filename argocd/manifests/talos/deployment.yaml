@@ -110,7 +110,7 @@ spec:
             # empty no one could release (fail closed). See heph
             # 01M0RB6W2N2GZE2FH16EQC21QG.
             - name: TALOS_ADMINS
-              value: "eblume@eblu.me"
+              value: "blume.erich@gmail.com"
           envFrom:
             - secretRef:
                 name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN
