@@ -163,14 +163,7 @@ services:
     last-reviewed: "2026-08-24"
     current-version: "2.10.1"
     upstream-source: https://github.com/kiwigrid/k8s-sidecar/releases
-    notes: >-
-      Dashboard ConfigMap watcher sidecar in grafana deployment.
-      2026-08-24 review: bumped 2.6.0 -> 2.10.1. Upstream since 2.6.0 is
-      health-server IPv4 fallback + HEALTH_HOST, per-namespace LIST diff
-      scoping, and REQ_USERNAME_FILE/REQ_PASSWORD_FILE env vars; none
-      change WATCH/LIST ConfigMap behaviour. Nix build verified in the
-      talos pod (full build, not just hash); Build Container CI dispatch
-      and deploy are human-side per the PR.
+    notes: Dashboard ConfigMap watcher sidecar in grafana deployment
 
   - name: cloudnative-pg
     type: argocd
