@@ -1,8 +1,71 @@
 ---
-- name: Install Jellyfin via Homebrew cask
+# Pinned release install: Homebrew is not involved, so the version only
+# moves when this repo's defaults change.
+- name: Check if pinned Jellyfin release is installed
+  ansible.builtin.stat:
+    path: "{{ jellyfin_binary }}"
+  register: jellyfin_binary_stat
+
+- name: Ensure install parent directory exists
+  ansible.builtin.file:
+    path: "{{ jellyfin_install_dir | dirname }}"
+    state: directory
+    mode: '0755'
+
+- name: Download pinned Jellyfin release DMG
+  ansible.builtin.get_url:
+    url: "{{ jellyfin_release_dmg }}"
+    dest: "/tmp/jellyfin_{{ jellyfin_version }}-{{ jellyfin_macos_arch }}.dmg"
+    mode: '0644'
+    checksum: "sha256:{{ jellyfin_release_sha256 }}"
+  when: not jellyfin_binary_stat.exists
+
+- name: Mount Jellyfin DMG
+  ansible.builtin.command: hdiutil attach -nobrowse -noverify -noautoopen -quiet /tmp/jellyfin_{{ jellyfin_version }}-{{ jellyfin_macos_arch }}.dmg
+  register: jellyfin_dmg_mount
+  changed_when: true
+  when: not jellyfin_binary_stat.exists
+
+- name: Remove any partially deployed app bundle
+  ansible.builtin.file:
+    path: "{{ jellyfin_app_path }}"
+    state: absent
+  when: not jellyfin_binary_stat.exists
+
+- name: Copy Jellyfin.app from DMG
+  # cp -Rp: preserves bundle permissions and symlinks exactly
+  ansible.builtin.command: cp -Rp "{{ jellyfin_dmg_mount.stdout }}/Jellyfin.app" "{{ jellyfin_install_dir }}/"
+  changed_when: true
+  when: not jellyfin_binary_stat.exists
+
+- name: Unmount Jellyfin DMG
+  ansible.builtin.command: hdiutil detach "{{ jellyfin_dmg_mount.stdout }}"
+  register: jellyfin_dmg_detach
+  changed_when: true
+  when: not jellyfin_binary_stat.exists
+
+- name: Fail if DMG did not unmount
+  ansible.builtin.assert:
+    that: jellyfin_dmg_detach.rc == 0
+    quiet: true
+  when: not jellyfin_binary_stat.exists
+
+- name: Strip quarantine xattr so Gatekeeper does not hold first launch
+  ansible.builtin.command: xattr -dr com.apple.quarantine "{{ jellyfin_app_path }}"
+  changed_when: false
+  failed_when: false
+  when: not jellyfin_binary_stat.exists
+
+- name: Remove DMG from /tmp
+  ansible.builtin.file:
+    path: "/tmp/jellyfin_{{ jellyfin_version }}-{{ jellyfin_macos_arch }}.dmg"
+    state: absent
+  when: not jellyfin_binary_stat.exists
+
+- name: Uninstall Homebrew cask (the role now owns the binary)
   community.general.homebrew_cask:
     name: jellyfin
-    state: present
+    state: absent
 
 - name: Ensure Jellyfin data directory exists
   ansible.builtin.file:
