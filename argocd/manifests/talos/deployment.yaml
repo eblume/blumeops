@@ -104,6 +104,13 @@ spec:
                 secretKeyRef:
                   name: talos-secrets
                   key: forge-webhook-secret
+            # Identities (Authentik sub or email, comma-separated) allowed to
+            # RELEASE the emergency stop (eblume/talos#38) — arm is open to any
+            # signed-in user, release is admin-gated, and with OIDC on and this
+            # empty no one could release (fail closed). See heph
+            # 01M0RB6W2N2GZE2FH16EQC21QG.
+            - name: TALOS_ADMINS
+              value: "eblume@eblu.me"
           envFrom:
             - secretRef:
                 name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN
