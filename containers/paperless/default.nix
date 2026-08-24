@@ -56,6 +56,7 @@ pkgs.dockerTools.buildLayeredImage {
     paperless-web
     pkgs.bashInteractive
     pkgs.coreutils
+    pkgs.gnutar
     pkgs.cacert
     pkgs.tzdata
   ];

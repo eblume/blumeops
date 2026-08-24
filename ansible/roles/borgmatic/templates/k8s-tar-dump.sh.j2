@@ -6,7 +6,7 @@
 # pulling all the quoting out of YAML.
 #
 # Usage:
-#   borgmatic-k8s-tar-dump <target> <namespace> <selector> <dir> <name> <dump_target>
+#   borgmatic-k8s-tar-dump <target> <namespace> <selector> <dir> <name> <dump_target> [container]
 #
 # <target> is one of:
 #   local:<context>   - run local kubectl with --context=<context>
@@ -18,6 +18,9 @@
 # <dir>            - absolute path inside the pod to tar (should be a directory)
 # <name>           - short name used for the dump filename
 # <dump_target>    - file on this host to receive the tar
+# [container]      - optional container name; kubectl exec without -c refuses
+#                    multi-container pods, so name one for those (empty for
+#                    single-container pods)
 set -euo pipefail
 
 target=${1:?missing target}
@@ -26,6 +29,7 @@ selector=${3:?missing selector}
 dir=${4:?missing dir}
 name=${5:?missing name}
 dump_target=${6:?missing dump target}
+container=${7:-}
 
 mode=${target%%:*}
 ref=${target#*:}
@@ -38,7 +42,11 @@ case "$mode" in
         kubectl="/opt/homebrew/bin/kubectl --context=$context -n $namespace"
         pod=$($kubectl get pod -l "$selector" \
             -o jsonpath='{.items[0].metadata.name}')
-        $kubectl exec "$pod" -- tar cf - -C "$(dirname "$dir")" "$(basename "$dir")" > "$dump_target"
+        container_arg=
+        if [[ -n "$container" ]]; then
+          container_arg="-c $container"
+        fi
+        $kubectl exec $container_arg "$pod" -- tar cf - -C "$(dirname "$dir")" "$(basename "$dir")" > "$dump_target"
         ;;
     ssh)
         host=$ref
@@ -54,7 +62,11 @@ case "$mode" in
         ssh "$host" bash <<EOF > "$dump_target"
 set -euo pipefail
 pod=\$(sudo k3s kubectl -n "$namespace" get pod -l "$selector" -o jsonpath='{.items[0].metadata.name}')
-sudo k3s kubectl -n "$namespace" exec "\$pod" -- tar cf - -C "$(dirname "$dir")" "$(basename "$dir")"
+container_arg=
+if [[ -n "$container" ]]; then
+  container_arg="-c $container"
+fi
+sudo k3s kubectl -n "$namespace" exec $container_arg "\$pod" -- tar cf - -C "$(dirname "$dir")" "$(basename "$dir")"
 EOF
         ;;
     *)

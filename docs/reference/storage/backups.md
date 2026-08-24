@@ -1,6 +1,6 @@
 ---
 title: Backups
-modified: 2026-08-10
+modified: 2026-08-24
 tags:
   - storage
   - backup
@@ -48,6 +48,7 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | Pod | Data | Method |
 |-----|------|--------|
 | talos | All session transcripts + service state (meta.json, crons.json, settings.json) | in-pod tar, streamed back |
+| paperless | Document library — originals, archived, thumbnails (NFS media PVC on [[sifaka]]) | in-pod tar, streamed back |
 
 ## Immich Photo Library (Offsite Only)
 
@@ -65,7 +66,7 @@ Uses the same encryption passphrase and SSH key as the main borgmatic config.
 
 ## Sifaka-Native Data
 
-Bulk media lives directly on [[sifaka]] (music files served by [[navidrome]], video via [[jellyfin]]). See [[sifaka]] for data protection details. Note this covers only the *media files* — [[navidrome]]'s own database (users, play counts, playlists) lives on a ringtail PVC and is backed up separately via the Databases table above.
+Bulk media lives directly on [[sifaka]] (music files served by [[navidrome]], video via [[jellyfin]]). See [[sifaka]] for data protection details. Note this covers only the *media files* — [[navidrome]]'s own database (users, play counts, playlists) lives on a ringtail PVC and is backed up separately via the Databases table above. The paperless document library (/volume1/paperless) is additionally backed up offsite via the in-pod tar dump above, so it is not only RAID-5-protected.
 
 ## What Is NOT Backed Up
 

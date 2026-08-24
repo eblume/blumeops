@@ -1,6 +1,6 @@
 ---
 title: Borgmatic
-modified: 2026-07-01
+modified: 2026-08-24
 tags:
   - service
   - backup
@@ -44,6 +44,10 @@ Daily backup system using Borg backup, running on indri.
 
 **K8s service-produced backup files (newest ferried off the PVC):**
 - [[navidrome]] - music DB: users, play counts, playlists (navidrome's own `ND_BACKUP_*` snapshot in `/data/backup`)
+
+**K8s pod data directories (in-pod tar, streamed back):**
+- talos — session transcripts + service state (`/home/talos/data`)
+- paperless-ngx — document library: originals, archived, thumbnails (NFS media PVC on [[sifaka]]); multi-container pod, tarred in the `web` container
 
 The SQLite snapshots and ferried backup files above are staged into
 `~/.local/share/borgmatic/k8s-dumps/` (itself a source directory) by a
