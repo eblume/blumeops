@@ -112,6 +112,17 @@ borgmatic_k8s_tar_dumps:
     label_selector: app=talos
     dir: /home/talos/data
     target: ssh:eblume@ringtail
+  # paperless-ngx document library — originals, archived, thumbnails — on
+  # the sifaka NFS media PVC (sifaka's only protection is RAID-5, so this
+  # is the offsite copy; see [[backups]]). Multi-container pod, so the
+  # container is named explicitly. The DB side is already covered by
+  # borgmatic_postgresql_databases (name: paperless).
+  - name: paperless-media
+    namespace: paperless
+    label_selector: app=paperless
+    dir: /usr/src/paperless/media
+    container: web
+    target: ssh:eblume@ringtail
 
 # Local (on-indri) SQLite databases captured in a before-backup hook via the
 # sqlite3 online .backup API. We deliberately avoid borgmatic's native

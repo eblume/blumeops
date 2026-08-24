@@ -1,0 +1,1 @@
+borgmatic now backs up the paperless-ngx document library (the sifaka NFS media PVC — originals, archived, thumbnails) via in-pod tar. The paperless image gains gnutar for the in-pod tar, and the k8s tar dump helper accepts an optional container for multi-container pods. The paperless PostgreSQL database was already covered by the pg_dump stream.
