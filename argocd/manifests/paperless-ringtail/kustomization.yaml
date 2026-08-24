@@ -13,7 +13,7 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/paperless
-    newTag: v2.20.15-fcac8e5-nix
+    newTag: v2.20.15-737b7ae-nix
   # amd64 valkey built via nix (the v8.1.7-ecded30 tag without -nix is the
   # arm64 Alpine build for indri and fails on ringtail with exec format error)
   - name: docker.io/library/redis
