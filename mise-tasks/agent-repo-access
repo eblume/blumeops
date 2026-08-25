@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.1"]
 # ///
-#MISE description="[human] Reconcile the agents bot's forge collaborations and talos webhooks against repos.json"
+#MISE description="[human] Reconcile the agents bot's forge collaborations, talos webhooks, and engagement labels against repos.json"
 #MISE alias="ara"
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
@@ -27,6 +27,28 @@ hook is identified by its delivery URL; events and active-state are
 reconciled in place (the shared signing secret is only needed at creation —
 resolved from $TALOS_FORGE_WEBHOOK_SECRET or 1Password, so a CI apply that
 must CREATE a hook fails loudly and asks for a local run from gilbert).
+
+The label half: every pool repo also gets the `agents` engagement label
+(named after the collaborator — talos' FORGE_BOT_LABEL defaults to the bot
+login). It exists because Forgejo's assignee dropdown only offers write
+collaborators, so on the read-only repos (blumeops, agents, horkos) the bot
+cannot be assigned from the UI — applying the label is the way a human
+engages talos on an issue there. A hook without the label is a trap: the
+delivery pipeline works but no click in the UI can fire it (how horkos#4
+sat inert, 2026-08-25). Labels are create-if-missing, matched by name, and
+never deleted: deleting a label strips it from every issue including closed
+ones (history damage), and a stray label on an off-pool repo is inert
+without a hook — so this one part of the reconcile is deliberately not
+authoritative.
+
+Labels sit in Forgejo's *issue* scope category, which the narrow CI PAT
+(write:repository,read:user) does not carry — it 403s even on label READS
+(verified 2026-08-25). So the label half tries the primary token first (in
+case the PAT is ever broadened) and falls back to $FORGE_ISSUE_TOKEN or the
+blumeops-vault api-token via `op` (the same item mise-tasks/forge-api uses).
+In CI neither fallback exists, so the label half is SKIPPED with a loud
+yellow warning rather than failing --check forever — label drift is caught
+by local runs from gilbert, like hook creation.
 
 RECONCILE IS AUTHORITATIVE. A repo absent from repos.json (or listed with
 access "none") has its `agents` collaboration REMOVED, and a talos hook on a
@@ -115,6 +137,14 @@ TALOS_HOOK_READ_EVENTS = frozenset(
 # Item id, not the title: `op read` cannot parse titles containing parens
 # ("talos forge webhook (blumeops)").
 OP_WEBHOOK_SECRET_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/unrui7ten3ntx4ka6ze2zuknhe/credential"
+
+# The engagement label (see the label half in the module docstring). Color
+# matches the hand-created original on blumeops; cosmetic, set only at
+# creation.
+ENGAGE_LABEL_COLOR = "7c3aed"
+ENGAGE_LABEL_DESCRIPTION = "Engage the talos agent on this issue"
+# Issue-scoped fallback for the label half — the item forge-api uses.
+OP_ISSUE_TOKEN_REF = "op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
 
 # Repos whose read-only-on-canonical status is a security boundary, not a
 # preference: the bot must not be able to push to them or run their CI.
@@ -254,6 +284,46 @@ def talos_hooks(client: httpx.Client, owner: str, repo: str) -> list[dict] | Non
     return [h for h in hooks if h.get("config", {}).get("url") == TALOS_HOOK_URL]
 
 
+def resolve_issue_token() -> str | None:
+    """An issue-scoped token for the label half, or None (CI: skip labels).
+
+    $FORGE_ISSUE_TOKEN first (an escape hatch, like TALOS_FORGE_WEBHOOK_SECRET),
+    then 1Password. Non-fatal on failure by design — see the module docstring.
+    """
+    if token := os.environ.get("FORGE_ISSUE_TOKEN"):
+        return token
+    console.print("[dim]Reading an issue-scoped token from 1Password for the label half…[/dim]")
+    try:
+        result = subprocess.run(
+            ["op", "read", OP_ISSUE_TOKEN_REF],
+            capture_output=True,
+            text=True,
+            check=True,
+            stdin=subprocess.DEVNULL,  # op misparses non-TTY stdin
+            timeout=30,
+        )
+    except (
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        FileNotFoundError,
+    ):
+        return None
+    return result.stdout.strip()
+
+
+def has_engage_label(client: httpx.Client, owner: str, repo: str, name: str) -> bool | None:
+    """Whether the engagement label exists on this repo, or None if the label
+    list is unreadable (unlike hooks, reading labels only needs read access,
+    so None here means the token cannot see the repo at all)."""
+    try:
+        labels = paged(client, f"/api/v1/repos/{owner}/{repo}/labels")
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (403, 404):
+            return None
+        raise
+    return any(label.get("name", "").lower() == name.lower() for label in labels)
+
+
 def paged(client: httpx.Client, path: str, **params) -> list[dict]:
     out: list[dict] = []
     page = 1
@@ -366,7 +436,7 @@ def main(
         table.add_column("Desired")
         table.add_column("Action")
 
-        hook_table = Table(title=f"talos webhooks on {owner}/*")
+        hook_table = Table(title=f"talos webhooks + `{who}` label on {owner}/*")
         hook_table.add_column("Repo")
         hook_table.add_column("Current")
         hook_table.add_column("Desired")
@@ -376,6 +446,9 @@ def main(
         # (repo, verb, hook_id) — verb in create|update|remove; remove also
         # covers extra duplicates on a repo that keeps its first hook.
         hook_actions: list[tuple[str, str, int | None]] = []
+        label_actions: list[str] = []  # repos needing the engagement label created
+        label_client: httpx.Client | None = None  # issue-scoped fallback, resolved lazily
+        label_skipped = False  # no issue-capable token: warn once, check nothing
         blocked: list[str] = []
         for repo in sorted(all_repos):
             want = desired.get(repo, "none")
@@ -451,6 +524,35 @@ def main(
                     f"[{hook_style}]{hook_verb}[/{hook_style}]",
                 )
 
+            # Label half: pool repos get the engagement label; elsewhere an
+            # existing one is left alone (see the module docstring for why
+            # this is create-only, and why there is a fallback token).
+            if want_hook and not label_skipped:
+                labeled = has_engage_label(client, owner, repo, who)
+                if labeled is None and label_client is None:
+                    issue_token = resolve_issue_token()
+                    if issue_token is None:
+                        label_skipped = True
+                        console.print(
+                            "[yellow]SKIPPED the label half: this token lacks the issue "
+                            "scope and no fallback is available (set FORGE_ISSUE_TOKEN, "
+                            "or run locally from gilbert for `op`). Label drift is NOT "
+                            "being checked.[/yellow]"
+                        )
+                        continue
+                    label_client = httpx.Client(
+                        base_url=FORGE_URL,
+                        headers={"Authorization": f"token {issue_token}"},
+                        timeout=30.0,
+                    )
+                if labeled is None:
+                    labeled = has_engage_label(label_client, owner, repo, who)
+                if labeled is None:
+                    blocked.append(repo)
+                elif not labeled:
+                    label_actions.append(repo)
+                    hook_table.add_row(repo, "no label", "label", "[green]create label[/green]")
+
         console.print(table)
         console.print(hook_table)
 
@@ -465,17 +567,19 @@ def main(
             )
             raise typer.Exit(1)
 
-        if not actions and not hook_actions:
+        if not actions and not hook_actions and not label_actions:
             console.print("[green]In sync.[/green]")
             return
 
         if preview:
-            pending = len(actions) + len(hook_actions)
+            pending = len(actions) + len(hook_actions) + len(label_actions)
             console.print(f"\n[bold]{pending} change(s) pending.[/bold]")
             for repo, verb, perm in actions:
                 console.print(f"  {verb} {owner}/{repo}" + (f" → {perm}" if perm != "none" else ""))
             for repo, verb, _ in hook_actions:
                 console.print(f"  {verb} talos hook on {owner}/{repo}")
+            for repo in label_actions:
+                console.print(f"  create `{who}` label on {owner}/{repo}")
             if check:
                 console.print("\n[red]Out of sync (--check).[/red]")
                 raise typer.Exit(1)
@@ -525,7 +629,28 @@ def main(
                 raise typer.Exit(1) from exc
             console.print(f"[green]{verb}[/green] talos hook on {owner}/{repo}")
 
-        console.print(f"\n[green]Applied {len(actions) + len(hook_actions)} change(s).[/green]")
+        for repo in label_actions:
+            try:
+                (label_client or client).post(
+                    f"/api/v1/repos/{owner}/{repo}/labels",
+                    json={
+                        "name": who,
+                        "color": f"#{ENGAGE_LABEL_COLOR}",
+                        "description": ENGAGE_LABEL_DESCRIPTION,
+                    },
+                ).raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                console.print(
+                    f"[red]create `{who}` label on {owner}/{repo} failed: {exc}[/red]\n"
+                    "Label management sits in Forgejo's issue scope — if this was a 403 "
+                    "under the CI token (write:repository only), run this task locally "
+                    "from gilbert."
+                )
+                raise typer.Exit(1) from exc
+            console.print(f"[green]create[/green] `{who}` label on {owner}/{repo}")
+
+        applied = len(actions) + len(hook_actions) + len(label_actions)
+        console.print(f"\n[green]Applied {applied} change(s).[/green]")
 
 
 if __name__ == "__main__":
