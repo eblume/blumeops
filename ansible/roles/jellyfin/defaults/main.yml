@@ -20,8 +20,8 @@ jellyfin_macos_arch: arm64
 jellyfin_release_dmg: "https://repo.jellyfin.org/files/server/macos/stable/v{{ jellyfin_version }}/{{ jellyfin_macos_arch }}/jellyfin_{{ jellyfin_version }}-{{ jellyfin_macos_arch }}.dmg"
 jellyfin_release_sha256: f345914f10b988f56fd453b07128faa23dfcd561405216ffd04e32a47e9f6c9c
 
-# DMG mount point, pinned because hdiutil runs with -quiet and prints nothing;
-# the location must not be parsed from attach output.
+# DMG mount point, pinned so the copy and unmount tasks address a fixed
+# path rather than being parsed from attach output.
 jellyfin_dmg_mountpoint: "/tmp/jellyfin-{{ jellyfin_version }}-{{ jellyfin_macos_arch }}-dmg"
 
 # Install location; versioned so a bump lands side-by-side with the old one.
