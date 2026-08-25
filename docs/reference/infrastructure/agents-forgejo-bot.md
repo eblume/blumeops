@@ -1,6 +1,6 @@
 ---
 title: Agents Forgejo Bot
-modified: 2026-07-21
+modified: 2026-08-25
 last-reviewed: 2026-07-21
 tags:
   - reference
@@ -77,6 +77,18 @@ workspace checkout — are declared in **one** file:
   talos entrypoint (default.nix in the eblume/talos repo) fetches this file
   from blumeops `main` at pod start — a pool change reaches pods on restart,
   no image rebuild needed.
+- Every pool repo also gets the forge → talos **webhook** and the **`agents`
+  engagement label**, reconciled by the same task. The label is how a human
+  engages talos on an issue from the UI: Forgejo's assignee dropdown only
+  offers *write* collaborators, so on the read-only repos (`blumeops`,
+  `agents`, `horkos`) the bot cannot be assigned — applying the `agents`
+  label is the trigger instead (talos' `FORGE_BOT_LABEL` defaults to the bot
+  login). A pool repo with the hook but without the label looks wired-up yet
+  cannot be engaged from the UI — that gap is how `horkos#4` sat inert until
+  2026-08-25. Labels are create-if-missing and never deleted (deleting a
+  label strips it from closed issues), and label API calls need the *issue*
+  scope the CI PAT lacks, so in CI the label half skips with a warning and
+  is applied by a local run from gilbert — same follow-up as hook creation.
 
 So adding a repo is: edit the file, open a PR, merge. No clicking in the forge
 UI — and nothing to forget, which is the point. See [[agent-containerization]]
@@ -87,8 +99,8 @@ UI — and nothing to forget, which is the point. See [[agent-containerization]]
 > revocation shows up in review before the merge that applies it. Grants made
 > by hand in the forge UI will be reverted on the next run.
 
-> **Two repos are pinned read-only in code, not data.** `blumeops` and `agents`
-> cannot be granted `write` no matter what `repos.json` says — the reconciler
+> **Three repos are pinned read-only in code, not data.** `blumeops`, `agents`,
+> and `horkos` cannot be granted `write` no matter what `repos.json` says — the reconciler
 > refuses and exits non-zero (`PINNED_READ_ONLY` in `mise-tasks/agent-repo-access`).
 > Their read-only-on-canonical status is what keeps blumeops CI, and its
 > deploy-credentialed Actions secrets, out of agent reach; that fence should not
