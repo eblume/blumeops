@@ -6,9 +6,9 @@
     path: "{{ jellyfin_binary }}"
   register: jellyfin_binary_stat
 
-- name: Ensure install parent directory exists
+- name: Ensure versioned install directory exists
   ansible.builtin.file:
-    path: "{{ jellyfin_install_dir | dirname }}"
+    path: "{{ jellyfin_install_dir }}"
     state: directory
     mode: '0755'
 
@@ -20,9 +20,17 @@
     checksum: "sha256:{{ jellyfin_release_sha256 }}"
   when: not jellyfin_binary_stat.stat.exists
 
+- name: Detach any stale Jellyfin DMG mounts from interrupted runs
+  ansible.builtin.command: "hdiutil detach {{ item }}"
+  loop:
+    - "/Volumes/Jellyfin"
+    - "{{ jellyfin_dmg_mountpoint }}"
+  changed_when: false
+  failed_when: false
+  when: not jellyfin_binary_stat.stat.exists
+
 - name: Mount Jellyfin DMG
-  ansible.builtin.command: hdiutil attach -nobrowse -noverify -noautoopen -quiet /tmp/jellyfin_{{ jellyfin_version }}-{{ jellyfin_macos_arch }}.dmg
-  register: jellyfin_dmg_mount
+  ansible.builtin.command: "hdiutil attach -nobrowse -noverify -noautoopen -quiet -mountpoint {{ jellyfin_dmg_mountpoint }} /tmp/jellyfin_{{ jellyfin_version }}-{{ jellyfin_macos_arch }}.dmg"
   changed_when: true
   when: not jellyfin_binary_stat.stat.exists
 
@@ -34,12 +42,12 @@
 
 - name: Copy Jellyfin.app from DMG
   # cp -Rp: preserves bundle permissions and symlinks exactly
-  ansible.builtin.command: cp -Rp "{{ jellyfin_dmg_mount.stdout }}/Jellyfin.app" "{{ jellyfin_install_dir }}/"
+  ansible.builtin.command: cp -Rp "{{ jellyfin_dmg_mountpoint }}/Jellyfin.app" "{{ jellyfin_install_dir }}/"
   changed_when: true
   when: not jellyfin_binary_stat.stat.exists
 
 - name: Unmount Jellyfin DMG
-  ansible.builtin.command: hdiutil detach "{{ jellyfin_dmg_mount.stdout }}"
+  ansible.builtin.command: hdiutil detach "{{ jellyfin_dmg_mountpoint }}"
   register: jellyfin_dmg_detach
   changed_when: true
   when: not jellyfin_binary_stat.stat.exists
