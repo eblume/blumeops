@@ -20,18 +20,46 @@
     checksum: "sha256:{{ jellyfin_release_sha256 }}"
   when: not jellyfin_binary_stat.stat.exists
 
-- name: Detach any stale Jellyfin DMG mounts from interrupted runs
-  ansible.builtin.command: "hdiutil detach {{ item }}"
-  loop:
-    - "/Volumes/Jellyfin"
-    - "{{ jellyfin_dmg_mountpoint }}"
-  changed_when: false
+- name: Detach any mounts of the pinned DMG left by interrupted runs
+  # Detach by image path: finds every mount of this image wherever it
+  # landed (/Volumes/Jellyfin, "Jellyfin 1", the pinned point); a loop over
+  # guessed mountpoints misses re-attached copies.
+  ansible.builtin.command: hdiutil detach "/tmp/jellyfin_{{ jellyfin_version }}-{{ jellyfin_macos_arch }}.dmg"
+  register: jellyfin_stray_detach
   failed_when: false
+  changed_when: jellyfin_stray_detach.rc == 0
   when: not jellyfin_binary_stat.stat.exists
 
-- name: Mount Jellyfin DMG
-  ansible.builtin.command: "hdiutil attach -nobrowse -noverify -noautoopen -quiet -mountpoint {{ jellyfin_dmg_mountpoint }} /tmp/jellyfin_{{ jellyfin_version }}-{{ jellyfin_macos_arch }}.dmg"
+- name: Remove a stale mountpoint directory left by an interrupted run
+  # hdiutil normally removes the directory on detach; a leftover one makes
+  # attach fail. Safe to delete: this role always attaches read-only.
+  ansible.builtin.file:
+    path: "{{ jellyfin_dmg_mountpoint }}"
+    state: absent
+  when: not jellyfin_binary_stat.stat.exists
+
+- name: Mount Jellyfin DMG at the pinned mountpoint
+  # No -quiet: it suppresses hdiutil's error messages, so a failing attach
+  # leaves the play log without a reason.
+  ansible.builtin.command: hdiutil attach -nobrowse -noverify -noautoopen -mountpoint "{{ jellyfin_dmg_mountpoint }}" "/tmp/jellyfin_{{ jellyfin_version }}-{{ jellyfin_macos_arch }}.dmg"
   changed_when: true
+  when: not jellyfin_binary_stat.stat.exists
+
+- name: Verify Jellyfin.app is visible at the pinned mountpoint
+  ansible.builtin.stat:
+    path: "{{ jellyfin_dmg_mountpoint }}/Jellyfin.app"
+  register: jellyfin_mountpoint_app_stat
+  when: not jellyfin_binary_stat.stat.exists
+
+- name: Assert the DMG mounted at the pinned point
+  ansible.builtin.assert:
+    that:
+      - jellyfin_mountpoint_app_stat.stat.exists
+    fail_msg: >-
+      hdiutil attach returned success but
+      {{ jellyfin_dmg_mountpoint }}/Jellyfin.app is missing; the image may
+      have mounted elsewhere - run `hdiutil info` on indri.
+    success_msg: "mounted at {{ jellyfin_dmg_mountpoint }}"
   when: not jellyfin_binary_stat.stat.exists
 
 - name: Remove any partially deployed app bundle
