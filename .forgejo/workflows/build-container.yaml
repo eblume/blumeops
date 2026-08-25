@@ -200,7 +200,12 @@ jobs:
           IMAGE="registry.ops.eblu.me/blumeops/$CONTAINER:${VERSION}-${SHORT_SHA}-nix"
 
           echo "Pushing to $IMAGE"
-          skopeo copy \
+          # The runner's sandbox (DynamicUser implies PrivateTmp) mounts
+          # /tmp and /var/tmp as a small tmpfs (~3.2G); skopeo unpacks the
+          # whole docker-archive into its tmpdir, so large images die there
+          # with 'short write' (run 1659). Use the disk-backed workspace.
+          mkdir -p .skopeo-tmp
+          skopeo --tmpdir "$PWD/.skopeo-tmp" copy \
             --dest-creds="zot-ci:$ZOT_CI_API_KEY" \
             "docker-archive:result" \
             "docker://$IMAGE"
