@@ -1,0 +1,1 @@
+Reviewed docs/reference/tools/dagger.md (was never reviewed): updated engine version to v0.21.8 to match dagger.json and mise.toml, and replaced the stale release-docs secrets example — no current Dagger function takes a Secret.

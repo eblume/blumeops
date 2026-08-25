@@ -1,6 +1,7 @@
 ---
 title: Dagger
-modified: 2026-08-13
+modified: 2026-08-25
+last-reviewed: 2026-08-25
 tags:
   - reference
   - ci-cd
@@ -16,10 +17,10 @@ Build engine for BlumeOps CI/CD pipelines. Replaces shell-based build scripts wi
 | Property | Value |
 |----------|-------|
 | **Module** | `blumeops` |
-| **Engine Version** | v0.20.6 |
+| **Engine Version** | v0.21.8 |
 | **SDK** | Python |
 | **Source** | `src/blumeops/main.py` |
-| **Config** | `dagger.json` (source: `.`) |
+| **Config** | `dagger.json` (engineVersion v0.21.8, Python SDK) |
 
 ## Functions
 
@@ -66,20 +67,13 @@ dagger call flake-update --src=. --flake-path=nixos/ringtail \
 
 ## Secrets
 
-Dagger has a first-class `Secret` type — values are never logged or cached. Pass secrets from environment variables using the `env:VAR` syntax:
+Dagger has a first-class `Secret` type — values are never logged or cached. When a function accepts a secret, pass a value from an environment variable using the `env:VAR` syntax (e.g. `--token=env:FORGEJO_TOKEN`).
 
-```bash
-dagger call release-docs \
-  --src=. --version=v1.6.0 \
-  --forgejo-token=env:FORGEJO_TOKEN \
-  --argocd-token=env:ARGOCD_TOKEN
-```
-
-In [[forgejo]] Actions, secrets are injected as env vars. Locally, mise tasks call `op read` to populate them.
+None of the current functions take a secret. For example, `build-docs` only runs the Quartz build; the Forgejo token that publishes the release is passed to the runner job as an env var in [[forgejo]] Actions (`.forgejo/workflows/build-blumeops.yaml`), not through Dagger. Locally, mise tasks call `op read` to populate secrets they need.
 
 ## Caveats
 
-- **Pre-1.0 API** — Current version is v0.20.x. Pin the CLI version and test upgrades on a branch before adopting. See [[upgrade-dagger]] for the upgrade procedure.
+- **Pre-1.0 API** — Current version is v0.21.x. Pin the CLI version and test upgrades on a branch before adopting. See [[upgrade-dagger]] for the upgrade procedure.
 - **Privileged container** — The Dagger engine requires privileged container access. The Forgejo runner's DinD sidecar provides this.
 
 ## Related
