@@ -1,7 +1,7 @@
 ---
 title: Jellyfin
-modified: 2026-06-08
-last-reviewed: 2026-06-08
+modified: 2026-08-24
+last-reviewed: 2026-08-24
 tags:
   - service
   - media
@@ -43,21 +43,19 @@ Dashboard > Playback:
 
 ## Upgrades
 
-Installed via Homebrew cask (`state: present`, unpinned), so the Ansible role
-won't bump an already-installed cask. To upgrade, run on indri:
+Pinned in `ansible/roles/jellyfin/defaults/main.yml` (`jellyfin_version` +
+`jellyfin_release_sha256`). The role downloads the official release DMG from
+repo.jellyfin.org into `~/opt/jellyfin-<version>/` and uninstalls the Homebrew
+cask, so `brew upgrade` no longer touches Jellyfin and the Gatekeeper
+re-quarantine gotcha does not apply (quarantine is stripped at deploy time,
+in the home directory where SSH is not TCC-blocked).
 
-```bash
-brew upgrade --cask jellyfin
-```
+To upgrade:
 
-**Gatekeeper gotcha:** a cask upgrade replaces `/Applications/Jellyfin.app` and
-re-applies the `com.apple.quarantine` xattr. When launchd respawns the service,
-the new binary hangs silently — process alive but ~0 CPU, no logs, no listening
-socket — because Gatekeeper is holding the first launch pending approval.
-Removing the xattr over SSH fails (`xattr -dr com.apple.quarantine ...` →
-"Operation not permitted", blocked by macOS TCC). Approve the first-launch
-dialog on indri's GUI console (or run the `xattr` removal from a local Terminal
-with Full Disk Access), then reload the LaunchAgent.
+1. Bump `jellyfin_version` and `jellyfin_release_sha256` in a blumeops PR
+   (the sha256 is the one Homebrew's cask formula publishes for the same DMG).
+2. On merge: `mise run provision-indri -- --tags jellyfin` from a machine
+   with indri SSH and 1Password access.
 
 ## Observability
 

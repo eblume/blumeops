@@ -274,14 +274,18 @@ SOCKS_FALLBACK = "socks5://localhost:1055"  # agent pod's tailscale sidecar
 
 
 def _ops_client() -> httpx.Client:
-    """Client for *.ops.eblu.me: direct on gilbert, SOCKS fallback in-pod."""
-    c = httpx.Client(timeout=15.0, proxy=os.environ.get("ALL_PROXY"))
+    """Client for *.ops.eblu.me: direct on gilbert, SOCKS fallback in-pod.
+
+    The probe uses a throwaway client: any request on the returned client
+    would implicitly open it, and the caller's `with` would then raise
+    "Cannot open a client instance more than once" on __enter__."""
+    proxy = os.environ.get("ALL_PROXY")
     try:
-        c.get(f"{HORKOS_URL}/healthz", timeout=5.0)
-        return c
+        with httpx.Client(timeout=5.0, proxy=proxy) as probe:
+            probe.get(f"{HORKOS_URL}/healthz")
     except httpx.TransportError:
-        c.close()
-        return httpx.Client(timeout=15.0, proxy=SOCKS_FALLBACK)
+        proxy = SOCKS_FALLBACK
+    return httpx.Client(timeout=15.0, proxy=proxy)
 
 
 WARRANT_ERRORS = (
