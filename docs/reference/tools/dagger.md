@@ -65,12 +65,6 @@ dagger call flake-update --src=. --flake-path=nixos/ringtail \
     export --path=nixos/ringtail/flake.lock
 ```
 
-## Secrets
-
-Dagger has a first-class `Secret` type — values are never logged or cached. When a function accepts a secret, pass a value from an environment variable using the `env:VAR` syntax (e.g. `--token=env:FORGEJO_TOKEN`).
-
-None of the current functions take a secret. For example, `build-docs` only runs the Quartz build; the Forgejo token that publishes the release is passed to the runner job as an env var in [[forgejo]] Actions (`.forgejo/workflows/build-blumeops.yaml`), not through Dagger. Locally, mise tasks call `op read` to populate secrets they need.
-
 ## Caveats
 
 - **Pre-1.0 API** — Current version is v0.21.x. Pin the CLI version and test upgrades on a branch before adopting. See [[upgrade-dagger]] for the upgrade procedure.
