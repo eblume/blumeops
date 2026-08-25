@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.1"]
 # ///
-#MISE description="[human] Reconcile the agents bot's forge collaborations against repos.json"
+#MISE description="[human] Reconcile the agents bot's forge collaborations and talos webhooks against repos.json"
 #MISE alias="ara"
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
@@ -12,15 +12,25 @@
 """Reconcile which of eblume's repos the `agents` bot may touch.
 
 `argocd/manifests/talos/repos.json` is the single source of truth: it drives
-the forge collaborator grants (this script) and the talos pod's clone loop
+the forge collaborator grants (this script), the talos pod's clone loop
 (delivered there as a kustomize-generated ConfigMap whose hashed name rolls
-the pod on every policy merge). Before it existed those were two
+the pod on every policy merge), and — since the issue-driven work cycles —
+the per-repo talos webhook (this script again). Before it existed those were
 independent manual steps, and a missing grant was invisible — Forgejo answers
 404, not 403, for a private repo the caller cannot see, so a repo the bot lacked
 access to looked exactly like a typo.
 
+The webhook half: every repo in the pool (pool != "none") gets the forge →
+talos hook (issue_assign / issue_label / issue_comment + the PR-review
+events), so "share a repo with the agent" also wires up its triggers. The
+hook is identified by its delivery URL; events and active-state are
+reconciled in place (the shared signing secret is only needed at creation —
+resolved from $TALOS_FORGE_WEBHOOK_SECRET or 1Password, so a CI apply that
+must CREATE a hook fails loudly and asks for a local run from gilbert).
+
 RECONCILE IS AUTHORITATIVE. A repo absent from repos.json (or listed with
-access "none") has its `agents` collaboration REMOVED. Run --dry-run first.
+access "none") has its `agents` collaboration REMOVED, and a talos hook on a
+repo outside the pool is removed too. Run --dry-run first.
 
 Two repos are pinned read-only by an invariant this script will not let
 repos.json override — see PINNED_READ_ONLY.
@@ -63,6 +73,48 @@ from rich.table import Table
 FORGE_URL = "https://forge.ops.eblu.me"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
 POLICY_PATH = Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
+
+# The forge → talos webhook ([[talos]] §Programmatic API): one hook per pool
+# repo, all sharing one delivery URL and one signing secret (talos verifies a
+# single FORGE_WEBHOOK_SECRET). Identified by URL — never by id — so a
+# hand-created hook with the right URL is adopted, not duplicated.
+TALOS_HOOK_URL = "https://talos.ops.eblu.me/api/webhooks/forge"
+# issue_assign + issue_comment drive the issue work cycles, issue_label is the
+# UI-friendly engagement edge (the assignee dropdown refuses read-only
+# collaborators like `agents`; labels have no such fence), and the review +
+# pull_request_comment events drive PR feedback runs.
+#
+# Two vocabularies because Forgejo's hook API is asymmetric: the WRITE parser
+# accepts `pull_request_review` (one flag covering the approved/rejected/
+# review-comment trio) and silently drops the expanded names, while GET
+# reports the trio expanded (routers/api/v1/utils/hook.go pullHook vs
+# models/webhook EventCheckers — where `pull_request_review_comment` is
+# additionally reported off the pull_request_comment flag). Reconcile
+# compares against READ, sends SEND; using one set for both either flaps
+# forever or silently drops the review events.
+TALOS_HOOK_SEND_EVENTS = frozenset(
+    {
+        "issue_assign",
+        "issue_label",
+        "issue_comment",
+        "pull_request_comment",
+        "pull_request_review",
+    }
+)
+TALOS_HOOK_READ_EVENTS = frozenset(
+    {
+        "issue_assign",
+        "issue_label",
+        "issue_comment",
+        "pull_request_comment",
+        "pull_request_review_approved",
+        "pull_request_review_rejected",
+        "pull_request_review_comment",
+    }
+)
+# Item id, not the title: `op read` cannot parse titles containing parens
+# ("talos forge webhook (blumeops)").
+OP_WEBHOOK_SECRET_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/unrui7ten3ntx4ka6ze2zuknhe/credential"
 
 # Repos whose read-only-on-canonical status is a security boundary, not a
 # preference: the bot must not be able to push to them or run their CI.
@@ -129,10 +181,11 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
     return result.stdout.strip()
 
 
-def load_policy() -> tuple[str, str, dict[str, str]]:
-    """Return (owner, collaborator, {repo: desired_access}) from repos.json."""
+def load_policy() -> tuple[str, str, dict[str, str], dict[str, str]]:
+    """Return (owner, collaborator, {repo: access}, {repo: pool}) from repos.json."""
     policy = json.loads(POLICY_PATH.read_text())
     desired: dict[str, str] = {}
+    pools: dict[str, str] = {}
     for entry in policy["repos"]:
         name, access = entry["name"], entry["access"]
         if access not in VALID_ACCESS:
@@ -151,7 +204,54 @@ def load_policy() -> tuple[str, str, dict[str, str]]:
             )
             raise typer.Exit(1)
         desired[name] = access
-    return policy["owner"], policy["collaborator"], desired
+        pools[name] = entry.get("pool", "none")
+    return policy["owner"], policy["collaborator"], desired, pools
+
+
+def resolve_webhook_secret() -> str:
+    """The shared talos webhook signing secret, needed only to CREATE a hook.
+
+    $TALOS_FORGE_WEBHOOK_SECRET first (nothing provisions it today — it is an
+    escape hatch), then 1Password. CI carries neither, so an apply that needs
+    to create a hook fails here with instructions rather than creating a hook
+    that talos will reject every delivery from.
+    """
+    if secret := os.environ.get("TALOS_FORGE_WEBHOOK_SECRET"):
+        return secret
+    console.print("[dim]Reading the talos webhook secret from 1Password…[/dim]")
+    try:
+        result = subprocess.run(
+            ["op", "read", OP_WEBHOOK_SECRET_REF],
+            capture_output=True,
+            text=True,
+            check=True,
+            stdin=subprocess.DEVNULL,  # op misparses non-TTY stdin
+            timeout=30,
+        )
+    except (
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        FileNotFoundError,
+    ) as exc:
+        console.print(
+            f"[red]Could not read the webhook secret from 1Password: {exc}[/red]\n"
+            "Creating a hook needs the shared signing secret. Run this from "
+            "gilbert (biometric `op`), or set TALOS_FORGE_WEBHOOK_SECRET."
+        )
+        raise typer.Exit(1) from exc
+    return result.stdout.strip()
+
+
+def talos_hooks(client: httpx.Client, owner: str, repo: str) -> list[dict] | None:
+    """This repo's hooks pointing at the talos delivery URL, or None if the
+    hook list is unreadable (hook management is repo-admin, like collaborators)."""
+    try:
+        hooks = paged(client, f"/api/v1/repos/{owner}/{repo}/hooks")
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (403, 404):
+            return None
+        raise
+    return [h for h in hooks if h.get("config", {}).get("url") == TALOS_HOOK_URL]
 
 
 def paged(client: httpx.Client, path: str, **params) -> list[dict]:
@@ -225,7 +325,7 @@ def main(
     token: Annotated[str | None, typer.Option("--token")] = None,
     skip_if_no_token: Annotated[bool, typer.Option("--skip-if-no-token")] = False,
 ) -> None:
-    owner, who, desired = load_policy()
+    owner, who, desired, pools = load_policy()
     preview = dry_run or check
 
     resolved = resolve_token(token, skip_if_no_token)
@@ -266,7 +366,16 @@ def main(
         table.add_column("Desired")
         table.add_column("Action")
 
+        hook_table = Table(title=f"talos webhooks on {owner}/*")
+        hook_table.add_column("Repo")
+        hook_table.add_column("Current")
+        hook_table.add_column("Desired")
+        hook_table.add_column("Action")
+
         actions: list[tuple[str, str, str]] = []  # (repo, verb, permission)
+        # (repo, verb, hook_id) — verb in create|update|remove; remove also
+        # covers extra duplicates on a repo that keeps its first hook.
+        hook_actions: list[tuple[str, str, int | None]] = []
         blocked: list[str] = []
         for repo in sorted(all_repos):
             want = desired.get(repo, "none")
@@ -297,7 +406,53 @@ def main(
             if verb != "ok" or want != "none":
                 table.add_row(repo, have, want, f"[{style}]{verb}[/{style}]")
 
+            # Webhook half. Desired = one talos hook, exact event set, active,
+            # on every pool repo; none anywhere else. Same admin-visibility
+            # rules as collaborators, and the same fatal-if-listed logic —
+            # collaborator readability was already checked above, so reaching
+            # here means the hook list is readable too (both are repo-admin).
+            want_hook = pools.get(repo, "none") != "none"
+            hooks = talos_hooks(client, owner, repo)
+            if hooks is None:
+                if repo in desired:
+                    blocked.append(repo)
+                continue
+
+            if not hooks:
+                hook_have = "none"
+                if want_hook:
+                    hook_verb, hook_style = "create", "green"
+                    hook_actions.append((repo, "create", None))
+                else:
+                    hook_verb, hook_style = "ok", "dim"
+            else:
+                keeper, extras = hooks[0], hooks[1:]
+                in_sync = (
+                    set(keeper.get("events") or []) == TALOS_HOOK_READ_EVENTS
+                    and keeper.get("active")
+                    and not extras
+                )
+                hook_have = "hook" if in_sync else "drifted"
+                if not want_hook:
+                    hook_verb, hook_style = "remove", "red"
+                    hook_actions.extend((repo, "remove", h["id"]) for h in hooks)
+                elif in_sync:
+                    hook_verb, hook_style = "ok", "dim"
+                else:
+                    hook_verb, hook_style = "update", "yellow"
+                    hook_actions.append((repo, "update", keeper["id"]))
+                    hook_actions.extend((repo, "remove", h["id"]) for h in extras)
+
+            if hook_verb != "ok" or want_hook:
+                hook_table.add_row(
+                    repo,
+                    hook_have,
+                    "hook" if want_hook else "none",
+                    f"[{hook_style}]{hook_verb}[/{hook_style}]",
+                )
+
         console.print(table)
+        console.print(hook_table)
 
         if blocked:
             console.print(
@@ -310,14 +465,17 @@ def main(
             )
             raise typer.Exit(1)
 
-        if not actions:
+        if not actions and not hook_actions:
             console.print("[green]In sync.[/green]")
             return
 
         if preview:
-            console.print(f"\n[bold]{len(actions)} change(s) pending.[/bold]")
+            pending = len(actions) + len(hook_actions)
+            console.print(f"\n[bold]{pending} change(s) pending.[/bold]")
             for repo, verb, perm in actions:
                 console.print(f"  {verb} {owner}/{repo}" + (f" → {perm}" if perm != "none" else ""))
+            for repo, verb, _ in hook_actions:
+                console.print(f"  {verb} talos hook on {owner}/{repo}")
             if check:
                 console.print("\n[red]Out of sync (--check).[/red]")
                 raise typer.Exit(1)
@@ -335,7 +493,39 @@ def main(
                 raise typer.Exit(1) from exc
             console.print(f"[green]{verb}[/green] {owner}/{repo}" + (f" → {perm}" if perm != "none" else ""))
 
-        console.print(f"\n[green]Applied {len(actions)} change(s).[/green]")
+        # The signing secret is fetched once, and only if a create is pending —
+        # updates and removals never touch it, so the routine CI applies
+        # (events drift, repo leaves the pool) need no secret at all.
+        secret = resolve_webhook_secret() if any(v == "create" for _, v, _ in hook_actions) else None
+        for repo, verb, hook_id in hook_actions:
+            try:
+                if verb == "create":
+                    client.post(
+                        f"/api/v1/repos/{owner}/{repo}/hooks",
+                        json={
+                            "type": "forgejo",
+                            "active": True,
+                            "events": sorted(TALOS_HOOK_SEND_EVENTS),
+                            "config": {
+                                "url": TALOS_HOOK_URL,
+                                "content_type": "json",
+                                "secret": secret,
+                            },
+                        },
+                    ).raise_for_status()
+                elif verb == "update":
+                    client.patch(
+                        f"/api/v1/repos/{owner}/{repo}/hooks/{hook_id}",
+                        json={"events": sorted(TALOS_HOOK_SEND_EVENTS), "active": True},
+                    ).raise_for_status()
+                else:
+                    client.delete(f"/api/v1/repos/{owner}/{repo}/hooks/{hook_id}").raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                console.print(f"[red]{verb} talos hook on {owner}/{repo} failed: {exc}[/red]")
+                raise typer.Exit(1) from exc
+            console.print(f"[green]{verb}[/green] talos hook on {owner}/{repo}")
+
+        console.print(f"\n[green]Applied {len(actions) + len(hook_actions)} change(s).[/green]")
 
 
 if __name__ == "__main__":
