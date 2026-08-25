@@ -20,14 +20,20 @@
     checksum: "sha256:{{ jellyfin_release_sha256 }}"
   when: not jellyfin_binary_stat.stat.exists
 
-- name: Detach any mounts of the pinned DMG left by interrupted runs
-  # Detach by image path: finds every mount of this image wherever it
-  # landed (/Volumes/Jellyfin, "Jellyfin 1", the pinned point); a loop over
-  # guessed mountpoints misses re-attached copies.
-  ansible.builtin.command: hdiutil detach "/tmp/jellyfin_{{ jellyfin_version }}-{{ jellyfin_macos_arch }}.dmg"
+- name: Detach any attachment of the pinned DMG left by interrupted runs
+  # hdiutil detach takes a device node or a mount point - handing it the
+  # image path fails with "No such file or directory", which is how a stray
+  # attachment survived cleanup and made attach fail with "Resource busy".
+  # The helper resolves the image's device nodes from `hdiutil info -plist`,
+  # so it finds the image wherever it landed (the pinned point,
+  # /Volumes/Jellyfin Server, a re-attached second copy).
+  ansible.builtin.script: >-
+    detach-dmg.py
+    "/tmp/jellyfin_{{ jellyfin_version }}-{{ jellyfin_macos_arch }}.dmg"
+  args:
+    executable: /usr/bin/python3
   register: jellyfin_stray_detach
-  failed_when: false
-  changed_when: jellyfin_stray_detach.rc == 0
+  changed_when: jellyfin_stray_detach.stdout | trim | length > 0
   when: not jellyfin_binary_stat.stat.exists
 
 - name: Remove a stale mountpoint directory left by an interrupted run
@@ -75,14 +81,25 @@
   when: not jellyfin_binary_stat.stat.exists
 
 - name: Unmount Jellyfin DMG
-  ansible.builtin.command: hdiutil detach "{{ jellyfin_dmg_mountpoint }}"
+  # Same helper as the stray cleanup: one code path, and its -force detach
+  # rides out a Spotlight indexer still holding the volume after the copy.
+  ansible.builtin.script: >-
+    detach-dmg.py
+    "/tmp/jellyfin_{{ jellyfin_version }}-{{ jellyfin_macos_arch }}.dmg"
+  args:
+    executable: /usr/bin/python3
   register: jellyfin_dmg_detach
   changed_when: true
   when: not jellyfin_binary_stat.stat.exists
 
 - name: Fail if DMG did not unmount
+  # The helper exits 0 having done nothing when the image is not attached,
+  # so check that it actually detached something rather than just its rc.
   ansible.builtin.assert:
-    that: jellyfin_dmg_detach.rc == 0
+    that: "'detached' in jellyfin_dmg_detach.stdout"
+    fail_msg: >-
+      the DMG was mounted for the copy but hdiutil reports no attachment to
+      detach - run `hdiutil info` on indri.
     quiet: true
   when: not jellyfin_binary_stat.stat.exists
 
