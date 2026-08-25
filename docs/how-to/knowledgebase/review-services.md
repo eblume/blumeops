@@ -1,6 +1,6 @@
 ---
 title: Review Services
-modified: 2026-07-30
+modified: 2026-08-25
 last-reviewed: 2026-04-12
 tags:
   - how-to
@@ -139,15 +139,27 @@ needs nix or a builder:
    (`https://pypi.org/pypi/<pkg>/json`).
 3. Upstream-image services: bump the image tag in the manifest directly.
    Nix-built containers: bump the version/rev pins, set changed fetch/FOD
-   hashes to `pkgs.lib.fakeHash`, and ask the human to dispatch the
-   **Build Container** workflow on the branch — each failed build reveals
-   the next real hash (TOFU), patch it in and re-dispatch. After a green
-   build, point the manifest `newTag` at the pushed
+   hashes to `pkgs.lib.fakeHash`, and **file the build request yourself** —
+   do not tell the human to dispatch it (see [[request-a-privileged-run]]):
+
+   ```fish
+   mise run request-run build-container.yaml <full-head-sha> --pr <N> \
+       -i container=<name> -i ref=<full-head-sha> --why "…"
+   ```
+
+   PR-branch SHAs are dispatchable pre-merge: Forgejo serves fork PR heads
+   from the canonical repo, so the runner's checkout finds them. Each failed
+   build reveals the next real hash (TOFU); patch it in, push, and file a
+   new request with `--supersedes <id>` since the head SHA moved. After a
+   green build, point the manifest `newTag` at the pushed
    `v<version>-<sha7>-nix` tag.
 4. Stamp `last-reviewed`, update `current-version`, and record findings in
    `notes` (date-prefixed, e.g. `2026-07-17 review: …`).
-5. Deploy-testing and `argocd app sync` stay human-side, from the PR branch
-   or after merge.
+5. Deploys need nothing from you or the human in the common case: auto-sync
+   apps deploy themselves on merge. Only the four manual apps or a
+   revision pin warrant a `mise run request-run argocd-deploy.yaml …` —
+   file that yourself too. Pre-merge deploy-testing from the PR branch
+   stays human-side.
 
 ## Marking a Service as Reviewed
 
