@@ -458,14 +458,15 @@ services:
 
   - name: prowler
     type: argocd
-    last-reviewed: 2026-04-14
-    # Stepped back 5.23.0 -> 5.12.3 at the ringtail migration: nixpkgs
-    # lags and 5.23 cannot build there (unpackaged alibaba/oci SDKs,
-    # eagerly imported). Same cis_1.11_kubernetes framework. Re-bump
-    # via service-review when nixpkgs catches up.
-    current-version: "5.12.3"
+    last-reviewed: 2026-08-25
+    current-version: "5.39.1"
     upstream-source: https://github.com/prowler-cloud/prowler/releases
-    notes: CIS Kubernetes Benchmark scanner; weekly CronJob on ringtail
+    notes: >-
+      CIS Kubernetes Benchmark scanner; weekly CronJob on ringtail.
+      2026-08-25 review: 5.12.3 -> 5.39.1 — nixpkgs caught up with
+      upstream. Verified in-pod: image builds from nixpkgs master,
+      cis_1.11_kubernetes resolves (82 checks), cronjob flags and all
+      muted check names still present.
 
   - name: forgejo
     type: ansible
