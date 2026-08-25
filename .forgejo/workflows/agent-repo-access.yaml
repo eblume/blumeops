@@ -1,10 +1,18 @@
-# Reconcile the agents bot's forge collaborations against
-# argocd/manifests/talos/repos.json — the same file the talos pod mounts to
-# build its clone loop, so "share a repo with the agent" is one edit, not two.
+# Reconcile the agents bot's forge collaborations AND the forge->talos
+# webhooks against argocd/manifests/talos/repos.json — the same file the talos
+# pod mounts to build its clone loop, so "share a repo with the agent" is one
+# edit, not two.
 #
 # RECONCILE IS AUTHORITATIVE: a repo absent from repos.json has its `agents`
-# collaboration removed. The PR job runs --check so the revocations are visible
-# in review *before* the merge that applies them.
+# collaboration removed (and its talos hook, if the repo left the pool). The
+# PR job runs --check so the revocations are visible in review *before* the
+# merge that applies them.
+#
+# Hook events/active-state reconcile with the same token; only hook CREATION
+# needs the shared signing secret, which CI does not carry — that apply fails
+# loudly and asks for a local `mise run agent-repo-access` from gilbert
+# (biometric op). Adding a brand-new repo to the pool is already a human PR,
+# so the human follow-up run is the same gate as the rest of provisioning.
 #
 # Needs FORGE_REPO_WRITE_TOKEN — an eblume PAT scoped to
 # write:repository,read:user

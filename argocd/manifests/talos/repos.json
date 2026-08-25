@@ -9,6 +9,8 @@
     "  pool   -> read by the agent pods' clone loops: the talos entrypoint",
     "            (default.nix in eblume/talos) fetches this file from blumeops",
     "            main at pod start, so changes apply on pod restart",
+    "            ALSO: every pool repo gets the forge->talos webhook (issue +",
+    "            PR-review triggers), reconciled by the same task",
     "",
     "Before this file existed those were two independent steps and a missed grant",
     "looked exactly like a typo (Forgejo 404s rather than 403s for a private repo",
