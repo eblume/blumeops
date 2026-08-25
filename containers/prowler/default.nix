@@ -7,9 +7,20 @@
 #
 # python3+pyyaml is included for the cronjob's merge-mutelist
 # initContainer (python3 -c "import yaml...").
-{ pkgs ? import <nixpkgs> { } }:
-
+#
+# Version note: the build host resolves <nixpkgs> to ringtail's system
+# flake pin (nixos-25.11), which is frozen at prowler 5.12.3 — and
+# nixos-26.05 stable is too. 5.39.1 only exists on nixos-unstable, so
+# this self-pins an unstable rev instead (miniflux/mealie/navidrome
+# precedent; those pin 241313f4, which only carries 5.33.1, hence the
+# newer rev here).
 let
+  nixpkgs = fetchTarball {
+    url = "https://github.com/NixOS/nixpkgs/archive/ac6b2166e7a9375683b8e98f860f273222337b16.tar.gz";
+    sha256 = "0k6m5apwzg36qkm3wil1pf4q0lv1hp7r2imx4nfz9bfssnk9gj5w";
+  };
+  pkgs = import nixpkgs { system = "x86_64-linux"; };
+
   version = "5.39.1";
   app = pkgs.prowler;
 
