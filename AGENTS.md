@@ -114,6 +114,15 @@ it as a PR comment, a heph task, and an entry in the approval queue. A human
 approves in Horkos (né Warrant), which dispatches the workflow. Requestable today:
 `argocd-deploy.yaml`, `build-container.yaml`, `deploy-fly.yaml`.
 
+**File it, don't recommend it.** `request-run` works from the agent pod, and
+PR-branch SHAs are dispatchable pre-merge (Forgejo serves fork PR heads from
+the canonical repo, so the runner's checkout finds them). Never end a session
+by telling the human to run `request-run` — or worse, a `[human]` mise task —
+for a requestable workflow: file the request yourself and link it in the PR.
+"Remaining steps (human)" sections should only contain acts that genuinely
+need a human: approving the request in Horkos, merging, and pre-merge
+deploy-testing.
+
 `mise run verify-runs` closes the loop afterwards; `mise run agent-health`
 checks the fleet without cluster access. Adding a new privileged workflow
 means adding its `warrant-policy.yaml` entry **in the same PR** — capability

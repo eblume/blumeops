@@ -1,0 +1,1 @@
+Jellyfin on indri no longer comes from the Homebrew cask. The Ansible role pins the official v10.11.11 release DMG (sha256-verified) from repo.jellyfin.org, deploys it to ~/opt/jellyfin-<version>/, strips quarantine, and uninstalls the cask — version bumps are now blumeops PRs followed by a provision run, so brew can no longer sneak updates in.

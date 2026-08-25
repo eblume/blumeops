@@ -458,14 +458,15 @@ services:
 
   - name: prowler
     type: argocd
-    last-reviewed: 2026-04-14
-    # Stepped back 5.23.0 -> 5.12.3 at the ringtail migration: nixpkgs
-    # lags and 5.23 cannot build there (unpackaged alibaba/oci SDKs,
-    # eagerly imported). Same cis_1.11_kubernetes framework. Re-bump
-    # via service-review when nixpkgs catches up.
-    current-version: "5.12.3"
+    last-reviewed: 2026-08-25
+    current-version: "5.39.1"
     upstream-source: https://github.com/prowler-cloud/prowler/releases
-    notes: CIS Kubernetes Benchmark scanner; weekly CronJob on ringtail
+    notes: >-
+      CIS Kubernetes Benchmark scanner; weekly CronJob on ringtail.
+      2026-08-25 review: 5.12.3 -> 5.39.1 — nixpkgs caught up with
+      upstream. Verified in-pod: image builds from nixpkgs master,
+      cis_1.11_kubernetes resolves (82 checks), cronjob flags and all
+      muted check names still present.
 
   - name: forgejo
     type: ansible
@@ -579,15 +580,15 @@ services:
 
   - name: jellyfin
     type: ansible
-    last-reviewed: 2026-06-08
+    last-reviewed: 2026-08-24
     current-version: "10.11.11"
     upstream-source: https://github.com/jellyfin/jellyfin/releases
     notes: >-
-      Homebrew cask (state: present, unpinned). Upgrade with
-      `brew upgrade --cask jellyfin` on indri. After upgrade the .app is
-      re-quarantined; launchd-spawned launch hangs silently until the
-      Gatekeeper first-launch dialog is approved on indri's GUI console
-      (xattr removal over SSH is blocked by TCC).
+      Pinned official release DMG deployed by the Ansible role to
+      ~/opt/jellyfin-<version> (Homebrew cask uninstalled; brew no longer
+      manages it). Upgrade by bumping jellyfin_version + sha256 in
+      ansible/roles/jellyfin/defaults/main.yml, then
+      `mise run provision-indri -- --tags jellyfin`.
 
   - name: automounter
     type: ansible
