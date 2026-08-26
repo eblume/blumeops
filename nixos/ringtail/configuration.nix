@@ -244,6 +244,39 @@ in
       [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.nvidia.options]
         BinaryName = "/etc/nvidia-container-runtime/nvidia-runtime-cdi-wrapper"
     '';
+
+    # In-cluster DNS alias: forge.eblu.me resolves like forge.ops.eblu.me.
+    #
+    # ArgoCD's git webhook decides which apps a push affects by building a
+    # regex from the payload's `repository.html_url` and matching it against
+    # each Application's `spec.source.repoURL` (util/webhook/webhook.go,
+    # GetWebURLRegex). The hostname is regexp.QuoteMeta'd, so it must be
+    # EQUAL — the only host prefix the regex tolerates is `(alt)?ssh.`.
+    # Forgejo builds html_url from ROOT_URL, which is the public
+    # https://forge.eblu.me/, so the Applications have to name that host too
+    # or a push webhook matches nothing at all. This rewrite is what keeps
+    # that name honest inside the cluster: it resolves to indri over the
+    # tailnet, exactly as forge.ops.eblu.me does, and never out to the Fly
+    # proxy (which does not even publish :2222, and fronts forge.eblu.me with
+    # Anubis). See docs/reference/services/argocd.md.
+    #
+    # This lives in the NixOS config rather than an ArgoCD app on purpose:
+    # ArgoCD needs the alias in order to fetch the repo, so shipping it from
+    # that repo would deadlock a rebuilt cluster. k3s applies it at startup,
+    # before ArgoCD exists.
+    manifests.coredns-custom.content = {
+      apiVersion = "v1";
+      kind = "ConfigMap";
+      metadata = {
+        name = "coredns-custom";
+        namespace = "kube-system";
+      };
+      # k3s' Corefile carries `import /etc/coredns/custom/*.override` inside
+      # the default server block; *.override files are appended to it.
+      data."forge.override" = ''
+        rewrite name exact forge.eblu.me forge.ops.eblu.me
+      '';
+    };
   };
 
   # Raise memlock rlimit for k3s so eBPF workloads (Beyla/Alloy tracing) can
