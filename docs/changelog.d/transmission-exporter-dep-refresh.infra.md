@@ -1,0 +1,1 @@
+Rebuilt `blumeops/transmission-exporter` on current nixpkgs (python 3.14.7, prometheus-client 0.25.0, transmission-rpc 7.0.11) during the recurring service review; exporter source is unchanged since v1.0.1 and the new image tag is pinned in the `torrent-ringtail` manifest.

@@ -13,4 +13,4 @@ images:
   - name: registry.ops.eblu.me/blumeops/transmission
     newTag: v4.1.2-1040096-nix
   - name: registry.ops.eblu.me/blumeops/transmission-exporter
-    newTag: v1.0.1-f386e2e-nix
+    newTag: v1.0.1-e1743f8-nix
