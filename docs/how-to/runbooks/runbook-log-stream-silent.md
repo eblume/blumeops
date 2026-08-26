@@ -1,6 +1,7 @@
 ---
 title: "Runbook: Log Stream Silent"
-modified: 2026-08-13
+modified: 2026-08-26
+last-reviewed: 2026-08-26
 tags:
   - how-to
   - alerting
@@ -45,13 +46,15 @@ The other declared files are deliberately unwatched: `alloy.out`,
 `borgmatic.out`, `forgejo-runner.out` and `forgejo.err` no longer receive
 writes (each service currently logs to its other fd), and `jellyfin.{out,err}`,
 `alloy.err` and `borgmatic.err` write too sparsely to alert on. borgmatic
-freshness has its own alert (`BorgmaticStale`). **Known exception:**
-`zot.err` is actively written but its lines do not reach Loki — a broken
-tail under investigation (heph `01KZKPRWGHH301688YP32Z7BC0`); it should get
-a rule once fixed. It is also the worked example for step 2 below: once the
-alloy self-scrape is live, `loki_source_file_read_lines_total` either has a
-`zot.err` path (tail matched, push failing) or does not (tail never
-matched).
+freshness has its own alert (`BorgmaticStale`). `zot.err` is the one
+actively-written stream without a rule: zot's daily Trivy DB update writes
+a CR-animated progress bar that launchd flattens into a multi-MB line, and
+alloy's `loki.process` guard drops any line over 255KB
+(`loki_process_dropped_lines_total{reason="line_too_long"}`) so one poison
+line cannot 400 the whole push batch. It is also the worked example for
+step 2 below: its path is declared and tail-matched, so
+`loki_source_file_read_lines_total` carries a `zot.err` series once the
+file logs anything — a missing path means the tail never matched.
 
 ## Single alert: is it the source or the shipping?
 
