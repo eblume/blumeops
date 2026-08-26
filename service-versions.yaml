@@ -314,10 +314,18 @@ services:
 
   - name: transmission-exporter
     type: argocd
-    last-reviewed: 2026-04-15
+    last-reviewed: 2026-08-26
     current-version: "1.0.1"
     upstream-source: null
-    notes: Homegrown Python exporter, no upstream
+    notes: >-
+      Homegrown Python exporter, no upstream. 2026-08-26 review: exporter.py
+      unchanged since the v1.0.1-f386e2e-nix build (verified against git
+      history); deps were unpinned, so rebuilt on current nixpkgs — python
+      3.14.7, prometheus-client 0.25.0, transmission-rpc 7.0.11 (latest 7.x;
+      8.0.0 is pre-release upstream). Verified in-pod: exporter.py smoke-tested
+      against a stub RPC server with the nix-built env, all metric families
+      emit; image nix-builds clean. New tag pinned in the torrent-ringtail
+      manifest.
 
   - name: kiwix
     type: argocd
