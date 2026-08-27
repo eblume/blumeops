@@ -7,8 +7,11 @@
         icon: forgejo
         description: Git forge
         widget:
+          # href is for the human's browser; this one the pod fetches itself,
+          # so it must be the tailnet name — forge.eblu.me resolves in-cluster
+          # to Caddy, which serves no cert for it (see horkos/deployment.yaml).
           type: gitea
-          url: https://forge.eblu.me
+          url: https://forge.ops.eblu.me
           key: "{{HOMEPAGE_VAR_FORGEJO_API_KEY}}"
           fields: ["notifications", "pulls"]
     - Registry:
