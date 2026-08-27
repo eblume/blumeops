@@ -144,10 +144,18 @@ a deploy.** It is not merely redundant: you are racing the auto-sync your own
 merge started, and `argocd app set` loses that race with `another operation is
 already in progress`.
 
-Four applications are **manual** by design, each with its reason stated in its
+Five applications are **manual** by design, each with its reason stated in its
 manifest: `apps`, `argocd`, `cloudnative-pg-ringtail`,
-`external-secrets-crds-ringtail`. Those are the ones that do need an explicit
-deploy after merge.
+`external-secrets-crds-ringtail`, `horkos`. Those are the ones that do need an
+explicit deploy after merge.
+
+`horkos` is the one that bites, because it is the approval gate itself: a
+merged manifest change sits undeployed until someone syncs it, and the
+ordinary route for that — `request-run argocd-deploy.yaml` — runs *through*
+horkos. **A change that breaks horkos's dispatch therefore cannot be deployed
+through the warrant path at all.** The escape hatch is `argocd app sync
+horkos` from gilbert, and it is the intended one; see
+[[warrant-approval-gated-runs#Deploying horkos]].
 
 **PR workflow:**
 1. Create branch, modify `argocd/manifests/<service>/`
