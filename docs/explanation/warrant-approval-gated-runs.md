@@ -551,13 +551,26 @@ the blumeops checkout SHA it actually ran. One run record per warrant; the
 report authenticates with the dispatch token as Bearer. The report finds its
 warrant by the forge run number Horkos stamps on dispatch.
 
-The blumeops-ci vault carries `horkos-dispatch` (field `token`), a value copy
-of `op://blumeops/warrant-dispatch-token/token` (the warrant-bot PAT). That is
+The blumeops-ci vault carries `horkos-dispatch` (field `token`), a mirror of
+`op://blumeops/warrant-dispatch-token/token` (the warrant-bot PAT). That is
 per the one-CI-trust-tier decision above: the tier already includes push to
 blumeops main via `forge-main-push`, so the token adds no new tier — and it
-lets CI do the one thing its jobs must do, prove the run to Horkos. Creating
-the item in 1Password is a human step; until it exists, a run-script run
-executes but its report step fails loudly.
+lets CI do the one thing its jobs must do, prove the run to Horkos.
+
+One credential has to exist in two vaults because its two readers sit on
+opposite sides of a fence: 1Password Connect (external-secrets, feeding the
+pod) is provisioned `--vaults blumeops`, and the CI service account can read
+only `blumeops-ci`. Neither can be widened without handing one side the
+other's whole vault. So the mirror is written by `mise run
+warrant-bot-provision` — the same ceremony that mints the PAT — on every run,
+not just on `--rotate`, which makes that task the drift check as well. A
+hand-copied mirror survives exactly until the first rotation, and it fails as
+a 401 in a release job that points nowhere near the vault.
+
+The same PAT was also, until eblume/talos#55 and eblume/horkos#9, a
+`RELEASE_FORGE_TOKEN` Actions secret in both of those repos — a third and
+fourth copy, each rotating independently. Their release workflows now read the
+mirror at job time.
 
 ## Related
 
