@@ -35,6 +35,17 @@ spec:
             # credential stays in place but is ignored.
             - name: HORKOS_DISPATCH_ENABLED
               value: "1"
+            # The tailnet name, NOT the public forge.eblu.me. Since the
+            # CoreDNS rewrite shipped ([[argocd#Why the Applications say
+            # forge.eblu.me]]), forge.eblu.me resolves to indri in-cluster —
+            # which is right for ArgoCD's ssh://…:2222 traffic, but breaks
+            # every HTTPS client: the connection lands on Caddy while the
+            # client still presents SNI forge.eblu.me, and Caddy holds no
+            # cert for that name. The handshake fails with a TLS alert, so
+            # the policy re-check before dispatch fails and approving a
+            # request quietly does nothing.
+            - name: HORKOS_FORGE_API
+              value: https://forge.ops.eblu.me/api/v1
           envFrom:
             - secretRef:
                 name: horkos-oidc
