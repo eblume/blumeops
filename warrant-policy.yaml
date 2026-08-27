@@ -72,6 +72,23 @@ actions:
         required: true
         pattern: "^(main|[0-9a-f]{40})$"
 
+  # One-off script execution (heph eblume/horkos#6): the script body travels
+  # in the request inputs as (script, script_sha256), horkos binds the pair
+  # at filing and freezes it in the warrant, and the executor workflow
+  # verifies the hash before running and reports the full run back to horkos.
+  run-script.yaml:
+    class: warrant
+    binds_sha: revision
+    inputs:
+      revision:
+        required: true
+        pattern: "^(main|[0-9a-f]{40})$"
+      script:
+        required: true
+      script_sha256:
+        required: true
+        pattern: "^[0-9a-f]{64}$"
+
   # Gated until the blumeops-ci vault split and priv-runner hardening land
   # (Phase 2) — the largest-blast-radius scripts in the repo.
   provision-indri.yaml:

@@ -12,6 +12,7 @@
 #USAGE flag "--why <why>" help="One-line justification"
 #USAGE flag "--supersedes <supersedes>" help="Warrant request id this replaces; retires it so it stops looking live"
 #USAGE flag "--notify" help="Also push to ntfy (heph is the system of record either way)"
+#USAGE flag "--script <script>" help="One-off script body: a file path, or '-' for stdin (run-script.yaml only)"
 """Request an approval-gated privileged run.
 
 Implements Phase 1 of [[warrant-approval-gated-runs]]: an agent (or a human)
@@ -34,7 +35,7 @@ approved), the old PR comment gets a note, and its tracking task closes.
 
 Usage:
   mise run request-run <workflow> <full-sha> [--pr N] [--repo owner/name] \
-      [--input k=v]... [--why TEXT] [--supersedes ID] [--notify]
+      [--input k=v]... [--why TEXT] [--supersedes ID] [--notify] [--script <script>]
 
 Every flag typer accepts must also be declared in the #USAGE block above: mise
 validates argv against that spec before this script runs and rejects anything
@@ -50,10 +51,12 @@ when editing it, both found the hard way:
     spec parses again.
 """
 
+import hashlib
 import json
 import os
 import re
 import subprocess
+import sys
 from typing import Annotated
 
 import httpx
@@ -487,6 +490,44 @@ def file_heph_task(title: str, body: str) -> str | None:
     return node_id
 
 
+def load_script(script: str, workflow: str, inputs: list[str]) -> list[str]:
+    """One-off script mode: the body travels in the request inputs as the
+    (script, script_sha256) pair - horkos binds the pair at filing time (the
+    hash must match the body) and the warrant freezes both, so what the
+    approver reads is exactly what the executor runs.
+
+    The body comes from a file path, or stdin with '-'. Returns the two input
+    strings for the request. Refuses what would make the pair ambiguous:
+    another workflow (where the pair means nothing), an empty or non-UTF-8
+    body, or a body already supplied via -i (two sources of truth)."""
+    if workflow != "run-script.yaml":
+        err.print(
+            f"--script is only supported with the run-script.yaml workflow (got {workflow})"
+        )
+        raise typer.Exit(1)
+    if any(
+        pair.startswith("script=") or pair.startswith("script_sha256=") for pair in inputs
+    ):
+        err.print(
+            "--script cannot be combined with -i script=.../script_sha256=... - one source of truth"
+        )
+        raise typer.Exit(1)
+    try:
+        if script == "-":
+            body = sys.stdin.read()
+        else:
+            with open(script, encoding="utf-8") as f:
+                body = f.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        err.print(f"could not read the script body from {script!r}: {exc}")
+        raise typer.Exit(1) from exc
+    if not body:
+        err.print("the script body is empty - nothing to approve")
+        raise typer.Exit(1)
+    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    return [f"script={body}", f"script_sha256={digest}"]
+
+
 def main(
     workflow: Annotated[str, typer.Argument(help="Workflow file, e.g. build-container.yaml")],
     sha: Annotated[str, typer.Argument(help="FULL 40-char commit SHA")],
@@ -511,6 +552,10 @@ def main(
         bool,
         typer.Option("--notify", help="Also push to ntfy (optional; heph is the system of record)"),
     ] = False,
+    script: Annotated[
+        str | None,
+        typer.Option("--script", help="One-off script body: a file path, or '-' for stdin (run-script.yaml only)"),
+    ] = None,
 ) -> None:
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         err.print(f"'{sha}' is not a full 40-char lowercase SHA (short SHAs break dispatch checkouts).")
@@ -542,6 +587,8 @@ def main(
             )
             raise typer.Exit(1)
 
+        if script is not None:
+            inputs += load_script(script, workflow, inputs)
         input_map = dict(p.split("=", 1) for p in inputs)
         enforce_policy(client, workflow, input_map, sha)
 
@@ -562,9 +609,26 @@ def main(
 
         sha7 = sha[:7]
         dispatch_url = f"{REPO_WEB}/actions?workflow={workflow}"
-        input_lines = "\n".join(f"| `{p.split('=', 1)[0]}` | `{p.split('=', 1)[1]}` |" for p in inputs)
+        # The script body gets its own section below - a multi-line body in a
+        # table cell would split the row and mangle the comment.
+        input_pairs = [p.split("=", 1) for p in inputs]
+        input_lines = "\n".join(
+            f"| `{key}` | `{value}` |" for key, value in input_pairs if key != "script"
+        )
         input_table = (
-            "| input | value |\n|---|---|\n" + input_lines if inputs else "_(no inputs)_"
+            "| input | value |\n|---|---|\n" + input_lines
+            if input_pairs
+            else "_(no inputs)_"
+        )
+        script_body = input_map.get("script")
+        # A triple-backtick sequence in the body would break the fence; the
+        # horkos confirm page is the canonical rendering, this is the copy-out aid.
+        script_section = (
+            f"\n**Script** - `{input_map['script_sha256']}`, {len(script_body)} bytes "
+            "(body bound in the Horkos request, rendered in full on the confirm page):\n\n"
+            f"```\n{script_body}```\n"
+            if script_body is not None
+            else ""
         )
         workflow_warning = (
             "\n> ⚠️ **This PR changes workflow definitions** ("
@@ -627,13 +691,14 @@ def main(
 | **SHA** | `{sha}` |
 | **Diff** | {pr_web}/pulls/{number}/files |
 {warrant_row}{supersedes_row}
-{input_table}
+{input_table}{script_section}
 {why_line}{workflow_warning}
 {approve_line}
 
 Requested via `mise run request-run` — see [[warrant-approval-gated-runs]].
 This request grants nothing: dispatch remains write-gated to humans.
 """
+
 
         resp = client.post(
             f"{pr_api}/issues/{number}/comments", json={"body": comment_body}
@@ -647,15 +712,22 @@ This request grants nothing: dispatch remains write-gated to humans.
             annotate_superseded_comment(client, superseded, supersedes, warrant_id, sha)
 
     pr_ref = f"PR #{number}" + (f" ({pr_repo})" if pr_repo != DEFAULT_PR_REPO else "")
+    # A script body in the task context is noise - the PR comment carries it.
+    input_display = [
+        p if not p.startswith("script=")
+        else f"script=<{input_map['script_sha256']}, {len(input_map['script'])} bytes>"
+        for p in inputs
+    ]
     heph_body = (
         f"Privileged run request: {workflow} @ {sha} ({pr_ref}).\n"
         f"Request comment: {comment_url}\n"
         + (f"Warrant: {HORKOS_URL}/ (request #{warrant_id})\n" if warrant_id else "")
         + f"Dispatch page: {dispatch_url}\n"
-        f"Inputs: {' '.join(inputs) if inputs else '(none)'}\n"
+        f"Inputs: {' '.join(input_display) if input_display else '(none)'}\n"
         f"Why: {why or '(not given)'}\n"
         "Close this task when the run is dispatched+verified (approve) or denied."
     )
+
     task_id = file_heph_task(tracking_task_title(workflow, sha, number, pr_repo), heph_body)
 
     if superseded:

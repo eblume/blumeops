@@ -1,7 +1,7 @@
 ---
 title: Request a Privileged Run
-modified: 2026-08-20
-last-reviewed: 2026-08-20
+modified: 2026-08-26
+last-reviewed: 2026-08-26
 tags:
   - how-to
   - operations
@@ -18,7 +18,7 @@ Phase 1 of [[warrant-approval-gated-runs]].
 
 ```fish
 mise run request-run <workflow> <full-sha> [--pr N] [--repo owner/name] [-i key=value]... \
-    [--why TEXT] [--supersedes ID] [--notify]
+    [--why TEXT] [--supersedes ID] [--notify] [--script <file|->]
 ```
 
 Example — request a container build at a merged commit:
@@ -59,6 +59,25 @@ mise run request-run build-container.yaml <full-blumeops-sha> \
 and Horkos's queue and approve page all name `eblume/talos` PR #12 instead of
 blumeops PR #12, which would be a different change entirely. The workflow
 validation, the bound SHA, and the dispatch stay blumeops.
+
+### One-off scripts
+
+Instead of a named workflow, request that *a specific script* run: the body is
+read from a file (or stdin with `-`), hashed, and filed as the bound pair —
+the approver reads the full body on Horkos's confirm page, and the warrant
+authorizes exactly one execution of exactly that body.
+
+```fish
+mise run request-run run-script.yaml <blumeops-main-sha> --pr N \
+    --script ./scripts/do-the-thing.sh \
+    --why "rotate the zot ci key: the run below, nothing else"
+```
+
+The bound SHA is where the executor checks out blumeops (policy and runner
+assets the script may lean on) — normally the current main tip. After
+approval, the run executes on the priv runner with `op` access to
+`blumeops-ci`, and its full output is durable on the Horkos warrant detail
+page, not only in the forge run log.
 
 What it does:
 

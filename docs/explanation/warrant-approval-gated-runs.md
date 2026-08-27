@@ -1,7 +1,7 @@
 ---
 title: "Warrant: Approval-Gated Privileged Runs"
-modified: 2026-08-06
-last-reviewed: 2026-08-02
+modified: 2026-08-26
+last-reviewed: 2026-08-26
 tags:
   - explanation
   - ai
@@ -531,6 +531,33 @@ in the UI, and put it in the PR comment. It still bound nothing.
 - Authentik: client-credentials for the agent SA (heph `01KXREAB…`), and the
   WebAuthn stage's user-verification + attestation-restriction options for
   the hardware-key flow.
+
+## One-off scripts (eblume/horkos#6)
+
+The largest-blast-radius class of action — *run this arbitrary script* — gets
+its own warrant class rather than an exception to the model: `run-script.yaml`.
+
+The artifact being approved is the script itself. It travels in the request
+inputs as the `(script, script_sha256)` pair; Horkos binds the pair at filing
+time (the hash must match the body — a 422 otherwise) and freezes both in the
+warrant, so what the approver reads on the confirm page is exactly what the
+executor will run. The executor workflow re-verifies the hash before running,
+as defense in depth: a body/hash mismatch mid-flight is a hard abort, not a
+silent divergence.
+
+The executor reports the full run back into Horkos (durable, on the warrant
+detail page): exit code, complete stdout and stderr, start/finish epochs, and
+the blumeops checkout SHA it actually ran. One run record per warrant; the
+report authenticates with the dispatch token as Bearer. The report finds its
+warrant by the forge run number Horkos stamps on dispatch.
+
+The blumeops-ci vault carries `horkos-dispatch` (field `token`), a value copy
+of `op://blumeops/warrant-dispatch-token/token` (the warrant-bot PAT). That is
+per the one-CI-trust-tier decision above: the tier already includes push to
+blumeops main via `forge-main-push`, so the token adds no new tier — and it
+lets CI do the one thing its jobs must do, prove the run to Horkos. Creating
+the item in 1Password is a human step; until it exists, a run-script run
+executes but its report step fails loudly.
 
 ## Related
 
