@@ -60,6 +60,15 @@ ADMIN_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/ap
 VAULT = "blumeops"
 VAULT_ITEM = "warrant-dispatch-token"
 
+# ...and CI needs the same PAT, from the other side of that fence. Connect
+# cannot see blumeops-ci and the CI service account cannot see blumeops, so
+# one credential has to exist in both vaults. That mirror is written HERE, by
+# the ceremony that mints the PAT, rather than by hand: a hand-copy survives
+# exactly until the first `--rotate`, and its failure mode is a 401 in a
+# release job that points nowhere near this task.
+CI_VAULT = "blumeops-ci"
+CI_ITEM = "horkos-dispatch"
+
 console = Console()
 err = Console(stderr=True, style="bold red")
 
@@ -96,6 +105,28 @@ op://blumeops/warrant-dispatch-token as field `login-password`, and
 re-run this task — it will grant the collaboration and mint the PAT as
 warrant-bot itself.
 """
+
+
+def mirror_to_ci(pat: str) -> None:
+    """Reconcile op://blumeops-ci/horkos-dispatch/token with the canonical PAT.
+
+    Consumers: run-script.yaml's report step (proving a run to horkos), and
+    the pin-bump PR step in the talos and horkos release workflows. Runs on
+    every invocation, not just on --rotate, so this task doubles as the drift
+    check for the mirror.
+    """
+    current = op("read", f"op://{CI_VAULT}/{CI_ITEM}/token", check=False)
+    if current.returncode == 0 and current.stdout.strip() == pat:
+        console.print(f"mirror op://{CI_VAULT}/{CI_ITEM}/token: [green]in step[/green]")
+        return
+    field = f"token[password]={pat}"
+    if current.returncode == 0:
+        op("item", "edit", CI_ITEM, "--vault", CI_VAULT, field)
+        console.print(f"[yellow]mirror updated[/yellow] op://{CI_VAULT}/{CI_ITEM}/token")
+    else:
+        op("item", "create", "--vault", CI_VAULT, "--title", CI_ITEM,
+           "--category", "API Credential", field)
+        console.print(f"[green]mirror created[/green] op://{CI_VAULT}/{CI_ITEM}/token")
 
 
 def admin_token(explicit: str | None) -> str:
@@ -177,6 +208,8 @@ def main(
         console.print(f"stored PAT in {VAULT}: {'present' if stored else 'absent'}")
         if stored and not rotate:
             console.print("nothing to mint (use --rotate to replace)")
+            if not dry_run:
+                mirror_to_ci(op("read", f"op://{VAULT}/{VAULT_ITEM}/token").stdout.strip())
         elif not dry_run:
             if password is None:
                 password = op("read", f"op://{VAULT}/{VAULT_ITEM}/login-password", check=False)
@@ -205,10 +238,12 @@ def main(
                 op("item", "create", "--vault", VAULT, "--title", VAULT_ITEM,
                    "--category", "API Credential", *fields)
             console.print(f"[green]stored[/green] op://{VAULT}/{VAULT_ITEM}/token")
+            mirror_to_ci(pat)
 
     console.print(
-        "\nNext: the warrant deployment reads this via ExternalSecret; "
-        "dispatch stays disabled until WARRANT_DISPATCH_ENABLED is set."
+        "\nNext: the horkos deployment reads this via ExternalSecret. A rotation "
+        "does NOT reach the running pod on its own — env is read at pod start, so "
+        "restart horkos after --rotate."
     )
 
 
