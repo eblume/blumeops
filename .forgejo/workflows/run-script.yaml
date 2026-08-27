@@ -57,21 +57,47 @@ jobs:
           SCRIPT: ${{ inputs.script }}
         run: |
           # -e off: the script's exit code is data, not a step abort - the
-          # report step (always) must run even for a failed script.
+          # report step (always) must run even for a failed script. The `set
+          # +e` is load-bearing and must stay: the runner invokes `run:`
+          # blocks as `bash -e {0}`, and `set -uo pipefail` does NOT clear
+          # that inherited -e. Run 1749 proved it - the script failed, the
+          # step aborted on the spot, .run/exit was never written, and the
+          # report step below had nothing to file. A failed script is exactly
+          # the case this audit trail exists for.
           set -uo pipefail
+          set +e
           cd "$GITHUB_WORKSPACE"
           mkdir -p .run
-          echo "$(date +%s)" > .run/started
+          date +%s > .run/started
           printf '%s' "$SCRIPT" > .run/script
-          chmod +x .run/script
-          if [[ "$(head -n1 .run/script)" =~ ^#! ]]; then
-            ./.run/script > .run/stdout 2> .run/stderr
+          touch .run/stdout .run/stderr
+          # Invoke the interpreter explicitly instead of relying on the exec
+          # bit. Run 1749 died with 126 (cannot execute) on ./.run/script and
+          # the reason was unrecoverable — bash writes "Permission denied" /
+          # "bad interpreter" to stderr, which is redirected to a file here,
+          # so nothing reached the log. Naming the interpreter sidesteps the
+          # exec bit entirely, and resolving it through PATH rather than the
+          # shebang's absolute path is what NixOS wants anyway.
+          SHEBANG=$(head -n1 .run/script)
+          if [[ "$SHEBANG" =~ ^#! ]]; then
+            read -r -a INTERP <<< "${SHEBANG#\#!}"
+            # `#!/usr/bin/env bash` — drop the env indirection, keep the rest.
+            if [ "${#INTERP[@]}" -gt 0 ] && [ "$(basename "${INTERP[0]}")" = "env" ]; then
+              INTERP=("${INTERP[@]:1}")
+            fi
+            if [ "${#INTERP[@]}" -eq 0 ]; then
+              INTERP=(bash)
+            else
+              INTERP[0]=$(basename "${INTERP[0]}")
+            fi
           else
             # No shebang: run as bash.
-            bash .run/script > .run/stdout 2> .run/stderr
+            INTERP=(bash)
           fi
+          echo "---- interpreter: ${INTERP[*]} ----"
+          "${INTERP[@]}" .run/script > .run/stdout 2> .run/stderr
           EXIT_CODE=$?
-          echo "$(date +%s)" > .run/finished
+          date +%s > .run/finished
           echo "$EXIT_CODE" > .run/exit
           # Replay to the run log: the CI log is the fallback view, horkos
           # holds the canonical record.
@@ -104,12 +130,20 @@ jobs:
             echo "no warrant matches run $GITHUB_RUN_NUMBER (manual dispatch or dispatch attribution failed) - skipping run report"
             exit 0
           fi
+          # Defaults, not `cat` straight into --argjson: if the execute step
+          # died before writing these, jq exits non-zero on empty input and
+          # the whole record is lost (run 1749). A partial record beats none,
+          # and exit_code -1 reads as "never completed".
+          touch .run/stdout .run/stderr
+          EC=$(cat .run/exit 2>/dev/null || true); [ -n "$EC" ] || EC=-1
+          ST=$(cat .run/started 2>/dev/null || true); [ -n "$ST" ] || ST=0
+          FIN=$(cat .run/finished 2>/dev/null || true); [ -n "$FIN" ] || FIN=$ST
           # The body is unbounded (full stdout/stderr) - build it as a file,
           # not a shell variable.
           jq -n \
-            --argjson ec "$(cat .run/exit)" \
-            --argjson st "$(cat .run/started)" \
-            --argjson fin "$(cat .run/finished)" \
+            --argjson ec "$EC" \
+            --argjson st "$ST" \
+            --argjson fin "$FIN" \
             --rawfile out .run/stdout \
             --rawfile err .run/stderr \
             --arg sha "$(git rev-parse HEAD)" \
