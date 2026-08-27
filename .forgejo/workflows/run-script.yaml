@@ -1,0 +1,130 @@
+# One-off script executor per [[warrant-approval-gated-runs]]
+# The script is bound at filing time (body + sha256 in the request inputs);
+# approval in horkos freezes it; this workflow runs it exactly once on the priv
+# runner and reports the full run back to horkos.
+name: Run One-off Script
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'FULL 40-char commit SHA to check out blumeops at (or "main" for manual dispatch)'
+        required: true
+        type: string
+      script:
+        description: 'The approved script body (warrant-frozen; manual dispatch without it aborts)'
+        required: false
+        type: string
+      script_sha256:
+        description: 'sha256 hex of the script body'
+        required: false
+        type: string
+
+jobs:
+  run:
+    runs-on: priv
+    env:
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
+    steps:
+      - name: Validate inputs
+        env:
+          REV: ${{ inputs.revision }}
+          SCRIPT: ${{ inputs.script }}
+          SCRIPT_SHA256: ${{ inputs.script_sha256 }}
+        run: |
+          set -euo pipefail
+          if [ "$REV" != "main" ] && ! echo "$REV" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "::error::revision must be 'main' or a FULL 40-char SHA (got: $REV) — approvals bind to immutable SHAs"
+            exit 1
+          fi
+          if [ -z "${SCRIPT:-}" ] || [ -z "${SCRIPT_SHA256:-}" ]; then
+            echo "::error::no script — use a horkos request (mise run request-run run-script.yaml ...); manual dispatch without the frozen pair is not supported"
+            exit 1
+          fi
+          ACTUAL_SHA256=$(printf '%s' "$SCRIPT" | sha256sum | cut -d' ' -f1)
+          if [ "$ACTUAL_SHA256" != "$SCRIPT_SHA256" ]; then
+            echo "::error::script body hash mismatch — horkos froze a different script than the one in this dispatch"
+            exit 1
+          fi
+
+      - name: Checkout approved revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.revision }}
+
+      - name: Execute approved script
+        env:
+          SCRIPT: ${{ inputs.script }}
+        run: |
+          # -e off: the script's exit code is data, not a step abort - the
+          # report step (always) must run even for a failed script.
+          set -uo pipefail
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p .run
+          echo "$(date +%s)" > .run/started
+          printf '%s' "$SCRIPT" > .run/script
+          chmod +x .run/script
+          if [[ "$(head -n1 .run/script)" =~ ^#! ]]; then
+            ./.run/script > .run/stdout 2> .run/stderr
+          else
+            # No shebang: run as bash.
+            bash .run/script > .run/stdout 2> .run/stderr
+          fi
+          EXIT_CODE=$?
+          echo "$(date +%s)" > .run/finished
+          echo "$EXIT_CODE" > .run/exit
+          # Replay to the run log: the CI log is the fallback view, horkos
+          # holds the canonical record.
+          echo "---- script stdout ----"
+          cat .run/stdout
+          echo "---- script stderr ----"
+          cat .run/stderr
+          echo "---- exit code: $EXIT_CODE ----"
+          exit "$EXIT_CODE"
+      - name: Report execution to horkos
+        if: always()
+        run: |
+          set -uo pipefail
+          cd "$GITHUB_WORKSPACE"
+          if [ ! -f .run/started ]; then
+            echo "script never executed (failed pre-exec) - no run record to file"
+            exit 0
+          fi
+          TOKEN=$(op read 'op://blumeops-ci/horkos-dispatch/token')
+          # horkos stamps the warrant with the run number right after
+          # dispatching; give it a moment, then find OUR warrant.
+          WARRANT_ID=""
+          for _ in $(seq 1 12); do
+            WARRANT_ID=$(curl -sf "https://horkos.ops.eblu.me/api/warrants?limit=500" \
+              | jq -r --argjson n "$GITHUB_RUN_NUMBER" '.[] | select(.run_number == $n) | .id' | head -1)
+            [ -n "$WARRANT_ID" ] && break
+            sleep 5
+          done
+          if [ -z "$WARRANT_ID" ]; then
+            echo "no warrant matches run $GITHUB_RUN_NUMBER (manual dispatch or dispatch attribution failed) - skipping run report"
+            exit 0
+          fi
+          # The body is unbounded (full stdout/stderr) - build it as a file,
+          # not a shell variable.
+          jq -n \
+            --argjson ec "$(cat .run/exit)" \
+            --argjson st "$(cat .run/started)" \
+            --argjson fin "$(cat .run/finished)" \
+            --rawfile out .run/stdout \
+            --rawfile err .run/stderr \
+            --arg sha "$(git rev-parse HEAD)" \
+            '{exit_code: $ec, stdout: $out, stderr: $err, started_at: $st, finished_at: $fin, executor_blumeops_sha: $sha}' \
+            > .run/report.json
+          HTTP_CODE=$(curl -s -o .run/report-response.txt -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data-binary @.run/report.json \
+            "https://horkos.ops.eblu.me/api/warrants/$WARRANT_ID/run")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "run record filed for warrant $WARRANT_ID"
+          elif [ "$HTTP_CODE" = "409" ]; then
+            echo "run record already exists for warrant $WARRANT_ID"
+          else
+            echo "::error::failed to report run to horkos (HTTP $HTTP_CODE): $(cat .run/report-response.txt)"
+            exit 1
+          fi
