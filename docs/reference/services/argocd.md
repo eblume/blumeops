@@ -1,6 +1,6 @@
 ---
 title: ArgoCD
-modified: 2026-08-18
+modified: 2026-08-26
 last-reviewed: 2026-06-09
 tags:
   - service
@@ -18,7 +18,7 @@ GitOps continuous delivery platform for the [[cluster|Kubernetes cluster]].
 | **URL** | https://argocd.ops.eblu.me |
 | **Tailscale URL** | https://argocd.tail8d86e.ts.net |
 | **Namespace** | `argocd` |
-| **Git Source** | `ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git` |
+| **Git Source** | `ssh://forgejo@forge.eblu.me:2222/eblume/blumeops.git` (not a typo — see below) |
 | **Manifests Path** | `argocd/apps/` (Applications), `argocd/manifests/` (workloads) |
 
 ## Clusters
@@ -27,9 +27,32 @@ One ArgoCD instance on [[ringtail]]'s k3s, managing that cluster in-place — ev
 
 ## Sync Policy
 
-**Workload applications sync automatically** (`automated`, `selfHeal: false`): a merge to `main` reaches the cluster on its own, within ArgoCD's reconciliation interval. The human gate is the PR review and merge — both behind [[authentik]] SSO with TOTP, the same factor that gates a privileged dispatch — so the second confirmation a manual sync used to provide was a repeat of a decision already made, not an independent check.
+**Workload applications sync automatically** (`automated`, `selfHeal: false`): a merge to `main` reaches the cluster on its own. The human gate is the PR review and merge — both behind [[authentik]] SSO with TOTP, the same factor that gates a privileged dispatch — so the second confirmation a manual sync used to provide was a repeat of a decision already made, not an independent check.
 
-`selfHeal` is **off** everywhere: hand-applied drift is not reverted, and several resources are manual by design (`repo-creds-forge`, the `immich-db` Secret).
+A **Forgejo push webhook** makes that happen in seconds rather than minutes. `eblume/blumeops` posts every push to `https://argocd.ops.eblu.me/api/webhook`; ArgoCD refreshes each Application whose source matches the pushed repo and revision, and an automated app then syncs immediately. Without it the floor is `timeout.reconciliation` — upstream default `120s` plus `60s` jitter, so up to ~3 minutes. The webhook is an accelerator, not a dependency: if a delivery is missed the ordinary reconciliation loop still picks the change up.
+
+Deliveries and their responses are visible under **Settings -> Webhooks** on the repo. A `400 Unknown webhook event` means the payload reached ArgoCD but carried no recognised event header; a `200` with nothing syncing almost always means the URL match failed — see below.
+
+### Why the Applications say `forge.eblu.me`
+
+Every Application tracking blumeops uses `ssh://forgejo@forge.eblu.me:2222/…`, while the `mirrors/*` apps still use `forge.ops.eblu.me`. That asymmetry is load-bearing, not an oversight.
+
+ArgoCD decides which apps a push affects by building a regex from the payload's `repository.html_url` and matching it against each `spec.source.repoURL` (`util/webhook/webhook.go`, `GetWebURLRegex` / `sourceUsesURL`). The hostname is `regexp.QuoteMeta`'d, so it has to be **equal** — the only host prefix the regex tolerates is `(alt)?ssh.`. Forgejo builds `html_url` from `ROOT_URL`, which is the public `https://forge.eblu.me/`. An Application that said `forge.ops.eblu.me` would therefore be matched by nothing, and the webhook would verify, parse, and quietly refresh zero apps.
+
+So the Applications name the host the payload names. Inside the cluster that name is made honest by a CoreDNS rewrite shipped with the node in `nixos/ringtail/configuration.nix`:
+
+```
+rewrite name exact forge.eblu.me forge.ops.eblu.me
+```
+
+`forge.eblu.me` therefore resolves to indri over the tailnet, exactly as `forge.ops.eblu.me` does. **Git traffic does not go out to the Fly proxy** — which does not publish `:2222` at all, and fronts `forge.eblu.me` with Anubis proof-of-work. Two consequences worth knowing:
+
+- The rewrite lives in the NixOS config rather than an ArgoCD app **on purpose**. ArgoCD needs the alias to fetch blumeops, so shipping it from blumeops would deadlock a rebuilt cluster. k3s applies it at startup, before ArgoCD exists.
+- If the rewrite is ever lost, every blumeops app fails to fetch with a connection error — loudly, not silently. Check it with `kubectl -n kube-system get cm coredns-custom`.
+
+`webhook.gogs.secret` in `argocd-secret` is the shared signing secret (`argocd-webhook-secret` in the `blumeops` vault, merged in by `external-secret-webhook.yaml`). Gogs, not GitHub: Forgejo sends `X-Gogs-*`, `X-Gitea-*`, `X-Forgejo-*` and `X-Hub-*` headers carrying the same digest, and ArgoCD checks the Gogs headers first — upstream's comment reads "Gogs needs to be checked before GitHub since it carries both Gogs and (incompatible) GitHub headers". Rotating means changing both the vault item and the hook's secret in Forgejo. No rollout is needed on the ArgoCD side: the parser is built once at handler construction, but `argocd-server` watches the setting and restarts itself when it changes (`"gogs secret modified. restarting"` in the server log).
+
+`selfHeal` is **off** everywhere: hand-applied drift is not reverted, and several resources are manual by design (the `immich-db` Secret).
 
 `prune` is **on for the thirteen generator-backed apps below and off everywhere else**. Where it is off, removing a resource from git does not delete it from the cluster, and deletions stay a deliberate `argocd app sync --prune` — run from gilbert or through the `prune` input on the [[request-a-privileged-run|ArgoCD Deploy]] workflow.
 

@@ -28,16 +28,27 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 argocd login argocd.tail8d86e.ts.net --username admin
 argocd account update-password
 
-# 6. Apply repo-creds-forge credential template for SSH access to all forge repos
+# 6. Apply the repo-creds credential templates for SSH access to all forge repos.
+#    Two entries, one per spelling of the same host: the mirrors/* repos use
+#    forge.ops.eblu.me, while everything tracking eblume/blumeops uses
+#    forge.eblu.me so ArgoCD's push webhook can match it (see
+#    docs/reference/services/argocd.md). ArgoCD picks creds by longest URL
+#    prefix. The forge.eblu.me spelling only resolves in-cluster because of the
+#    CoreDNS rewrite that ships with the node in
+#    nixos/ringtail/configuration.nix — if git fetches fail here with a DNS or
+#    connection-refused error, that manifest did not land.
 PRIV_KEY=$(op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/csjncynh6htjvnh2l2da65y32q/private key?ssh-format=openssh")$'\n' && \
-KNOWN_HOSTS=$(ssh-keyscan -p 2222 forge.ops.eblu.me 2>/dev/null | grep ssh-rsa) && \
-kubectl create secret generic repo-creds-forge -n argocd \
-  --from-literal=type=git \
-  --from-literal=url='ssh://forgejo@forge.ops.eblu.me:2222/' \
-  --from-literal=insecure=false \
-  --from-literal=sshPrivateKey="$PRIV_KEY" \
-  --from-literal=sshKnownHosts="$KNOWN_HOSTS" && \
-kubectl label secret repo-creds-forge -n argocd argocd.argoproj.io/secret-type=repo-creds
+HOST_KEY=$(ssh-keyscan -p 2222 forge.ops.eblu.me 2>/dev/null | grep ssh-rsa | cut -d' ' -f2-) && \
+for spelling in ops.eblu.me:forge eblu.me:forge-alias; do
+  host="forge.${spelling%%:*}"; name="repo-creds-${spelling##*:}"
+  kubectl create secret generic "$name" -n argocd \
+    --from-literal=type=git \
+    --from-literal=url="ssh://forgejo@${host}:2222/" \
+    --from-literal=insecure=false \
+    --from-literal=sshPrivateKey="$PRIV_KEY" \
+    --from-literal=sshKnownHosts="[${host}]:2222 $HOST_KEY" && \
+  kubectl label secret "$name" -n argocd argocd.argoproj.io/secret-type=repo-creds
+done
 
 # 7. Apply ArgoCD Applications (self-management + app-of-apps)
 kubectl apply -f argocd/apps/argocd.yaml
@@ -89,7 +100,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    repoURL: ssh://forgejo@forge.eblu.me:2222/eblume/blumeops.git
     targetRevision: main
     path: argocd/manifests/my-app
   destination:
@@ -108,15 +119,23 @@ spec:
 | File | Description |
 |------|-------------|
 | `kustomization.yaml` | References upstream install.yaml + local customizations |
-| `service-tailscale.yaml` | Tailscale Ingress for external access with Let's Encrypt TLS |
+| `ingress-tailscale.yaml` | Tailscale Ingress for external access with Let's Encrypt TLS |
 | `argocd-cmd-params-cm.yaml` | Patch to disable HTTPS redirect (TLS terminates at Ingress) |
-| `repo-forge-secret.yaml.tpl` | Template for forge SSH credential template (manual) |
+| `argocd-cm-patch.yaml` | Server URL, accounts, resource exclusions |
+| `argocd-rbac-cm-patch.yaml` | Role bindings for the Authentik groups and bot accounts |
+| `argocd-resources-patch.yaml` | Resource requests/limits for the ArgoCD components |
+| `argocd-ssh-known-hosts-cm.yaml` | Upstream host keys plus forge's, under both spellings |
+| `external-secret-repo-forge.yaml` | repo-creds for `forge.ops.eblu.me` (the `mirrors/*` repos) |
+| `external-secret-repo-forge-alias.yaml` | repo-creds for `forge.eblu.me` (everything tracking blumeops) |
+| `external-secret-webhook.yaml` | Merges `webhook.gogs.secret` into `argocd-secret` for the push webhook |
 | `README.md` | This file |
 
 ## Notes
 
-- **TODO:** Secrets (`repo-creds-forge`) are not managed by ArgoCD and must be applied manually.
-  Future improvement: integrate with a secrets operator (e.g., External Secrets).
-- The credential template (`repo-creds`) uses a URL prefix to match all repos on forge.
+- Secrets are managed by External Secrets from the `blumeops` 1Password vault; the
+  manual `kubectl create secret` steps above are bootstrap-only, for a cluster that
+  does not yet have the operator.
+- The credential templates (`repo-creds`) use a URL prefix to match all repos on forge,
+  and ArgoCD selects the longest matching prefix.
 - ArgoCD uses Tailscale Ingress with Let's Encrypt for TLS termination.
 - After Authentik is up, prefer `argocd login argocd.ops.eblu.me --sso` over the admin password login above; admin is only needed during bootstrap or as break-glass.
