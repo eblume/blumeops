@@ -581,10 +581,17 @@ services:
 
   - name: borgmatic
     type: ansible
-    last-reviewed: 2026-04-15
+    last-reviewed: 2026-08-27
     current-version: "2.1.7"
     upstream-source: https://github.com/borgmatic-collective/borgmatic/releases
-    notes: Installed via mise (pipx); version pinned in ansible/roles/borgmatic/defaults/main.yml and mise.toml
+    notes: >-
+      Installed via mise (pipx); version pinned in
+      ansible/roles/borgmatic/defaults/main.yml and mise.toml. 2026-08-27
+      review: role pin had drifted to 2.1.4 while mise.toml was at 2.1.7, so
+      indri was actually running 2.1.4; bumped the role to 2.1.7 (upstream
+      latest). Changelog 2.1.5-2.1.7 reviewed: only breaking change is Cronhub
+      hook removal, which indri's config does not use. Deploy is the [human]
+      provision-indri playbook.
 
   - name: jellyfin
     type: ansible

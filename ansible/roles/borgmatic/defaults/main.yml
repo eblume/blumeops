@@ -8,7 +8,7 @@ borgmatic_local_path: /opt/homebrew/bin/borg
 
 # Borgmatic version — keep in sync with mise.toml in the repo root.
 # Ansible installs this via `mise install` so indri doesn't need the repo cloned.
-borgmatic_version: "2.1.4"
+borgmatic_version: "2.1.7"
 
 # Full path to borgmatic binary — called directly by LaunchAgents to avoid
 # routing through mise, which triggers macOS TCC permission dialogs for
