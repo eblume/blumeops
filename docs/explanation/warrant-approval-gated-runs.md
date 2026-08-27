@@ -572,6 +572,39 @@ The same PAT was also, until eblume/talos#55 and eblume/horkos#9, a
 fourth copy, each rotating independently. Their release workflows now read the
 mirror at job time.
 
+## Deploying horkos
+
+`horkos` is a **manual-sync** ArgoCD application ([[argocd#Sync Policy]]) — one
+of five, and the only one that is manual because of what it *is* rather than
+what it tracks. Its manifest states the reason: the approval gate for
+privileged runs must not redeploy itself from a merge alone. So merging a
+change to `argocd/manifests/horkos/` is not the deploy; someone must sync it.
+
+**The deadlock.** The documented way to sync a manual app is `mise run
+request-run argocd-deploy.yaml …`, which horkos must *dispatch*. When the
+merged change is the one that repairs dispatch, that route cannot run: the
+request files, a human approves it, and `consume_and_dispatch` fails for the
+same reason it was failing before. Approval succeeds and nothing happens.
+
+**The escape hatch, which is intended rather than a workaround:**
+
+```fish
+argocd login argocd.ops.eblu.me --sso     # your own identity, not admin
+argocd app sync horkos
+```
+
+This does not weaken the gate. Syncing an ArgoCD app from gilbert is already a
+human act behind [[authentik]] SSO, and the change being deployed already
+passed PR review and merge. The warrant path exists to gate *agent-initiated*
+privileged runs, and an agent has no path to either command.
+
+Encountered for real on 2026-08-26: the CoreDNS rewrite broke horkos's
+in-cluster HTTPS calls to the forge (eblume/blumeops#708), which made every
+approval a silent no-op — including any approval that would have deployed the
+fix. Two related failure modes worth knowing, both filed against horkos: a
+dispatch that fails *before* `_dispatch` persists nothing and shows the
+approver nothing, and a denial records no `decided_by` at all.
+
 ## Related
 
 - [[agent-containerization]] — the isolation substrate this builds on
