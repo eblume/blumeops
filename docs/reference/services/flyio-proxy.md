@@ -1,6 +1,7 @@
 ---
 title: Fly.io Proxy
-modified: 2026-04-18
+modified: 2026-08-28
+last-reviewed: 2026-08-28
 tags:
   - service
   - networking
@@ -115,17 +116,6 @@ Release downloads are cached at the proxy layer (7-day TTL, keyed by URI) to abs
 
 To expose an additional service through the proxy, add a Caddy route for it and an nginx `server` block. See [[expose-service-publicly]] for the full workflow.
 
-## Spider Trap Mitigation
-
-The SPA fallback (`try_files ... /index.html`) serves `index.html` with a 200 for *any* URI, including non-existent paths. Quartz's relative links (`../path`) compound when resolved from phantom URLs, creating an infinite tree of unique URIs that crawlers follow indefinitely. In March 2026, Meta's crawler (`meta-externalagent/1.1`) hit ~49,000 unique URIs over 7 hours this way.
-
-Two nginx `location` guards in `containers/quartz/default.conf` mitigate the trap:
-
-1. **`/tags/` depth limit** — `/tags/<name>` is always flat; anything deeper returns 404.
-2. **Global depth-5 cutoff** — real content never exceeds depth 4; paths with 5+ segments return 404.
-
-These are applied in the Quartz container's nginx config, not the Fly.io proxy. The proper fix is switching Quartz to root-absolute links (planned for the fork).
-
 ## Secrets
 
 | Secret | Source | Description |
@@ -138,5 +128,6 @@ These are applied in the Quartz container's nginx config, not the Fly.io proxy. 
 - [[expose-service-publicly]] - Setup guide for adding new public services
 - [[manage-flyio-proxy]] - Operational tasks (deploy, shutoff, troubleshoot)
 - [[caddy]] - Private reverse proxy for `*.ops.eblu.me` (separate system)
+- [[docs-on-indri]] - Where `docs.eblu.me` is served today (static site on indri)
 - [[tailscale]] - WireGuard mesh network
 - [[gandi]] - DNS hosting
