@@ -329,9 +329,15 @@ services:
 
   - name: kiwix
     type: argocd
-    last-reviewed: 2026-04-17
+    last-reviewed: 2026-08-28
     current-version: "3.8.2"
     upstream-source: https://github.com/kiwix/kiwix-tools/releases
+    notes: >-
+      2026-08-28 review: deployed v3.8.2-f386e2e-nix (kiwix-ringtail
+      manifest) matches the upstream stable latest (3.8.2, 2026-03-02);
+      no newer tag exists on the kiwix-tools repo, so no bump. ArgoCD app
+      kiwix-ringtail synced and healthy. nixpkgs kiwix-tools still lags,
+      which is why containers/kiwix-serve fetches the official binary.
 
   - name: devpi
     type: ansible
