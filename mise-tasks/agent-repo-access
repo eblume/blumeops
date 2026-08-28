@@ -21,25 +21,28 @@ independent manual steps, and a missing grant was invisible — Forgejo answers
 access to looked exactly like a typo.
 
 The webhook half: every repo in the pool (pool != "none") gets the forge →
-talos hook (issue_assign / issue_label / issue_comment + the PR-review
-events), so "share a repo with the agent" also wires up its triggers. The
-hook is identified by its delivery URL; events and active-state are
-reconciled in place (the shared signing secret is only needed at creation —
-resolved from $TALOS_FORGE_WEBHOOK_SECRET or 1Password, so a CI apply that
-must CREATE a hook fails loudly and asks for a local run from gilbert).
+talos hook (the `issues` umbrella event — issue creation, assign, label,
+milestone and comment deliveries — + the PR-review events), so "share a repo
+with the agent" also wires up its triggers. The hook is identified by its
+delivery URL; events and active-state are reconciled in place (the shared
+signing secret is only needed at creation — resolved from
+$TALOS_FORGE_WEBHOOK_SECRET or 1Password, so a CI apply that must CREATE a
+hook fails loudly and asks for a local run from gilbert).
 
 The label half: every pool repo also gets the `agents` engagement label
 (named after the collaborator — talos' FORGE_BOT_LABEL defaults to the bot
-login). It exists because Forgejo's assignee dropdown only offers write
-collaborators, so on the read-only repos (blumeops, agents, horkos) the bot
-cannot be assigned from the UI — applying the label is the way a human
-engages talos on an issue there. A hook without the label is a trap: the
-delivery pipeline works but no click in the UI can fire it (how horkos#4
-sat inert, 2026-08-25). Labels are create-if-missing, matched by name, and
-never deleted: deleting a label strips it from every issue including closed
-ones (history damage), and a stray label on an off-pool repo is inert
-without a hook — so this one part of the reconcile is deliberately not
-authoritative.
+login). It is joined by the `no-agents` suppression label: while present on
+an issue, talos spawns no issue cycles on it (checked on every delivery, so
+removing it re-engages). It exists because Forgejo's assignee dropdown only
+offers write collaborators, so on the read-only repos (blumeops, agents,
+horkos) the bot cannot be assigned from the UI — applying the label is the
+way a human engages talos on an issue there. A hook without the label is a
+trap: the delivery pipeline works but no click in the UI can fire it (how
+horkos#4 sat inert, 2026-08-25). Labels are create-if-missing, matched by
+name, and never deleted: deleting a label strips it from every issue
+including closed ones (history damage), and a stray label on an off-pool
+repo is inert without a hook — so this one part of the reconcile is
+deliberately not authoritative.
 
 Labels sit in Forgejo's *issue* scope category, which the narrow CI PAT
 (write:repository,read:user) does not carry — it 403s even on label READS
@@ -101,32 +104,33 @@ POLICY_PATH = Path(__file__).resolve().parent.parent / "argocd" / "manifests" / 
 # single FORGE_WEBHOOK_SECRET). Identified by URL — never by id — so a
 # hand-created hook with the right URL is adopted, not duplicated.
 TALOS_HOOK_URL = "https://talos.ops.eblu.me/api/webhooks/forge"
-# issue_assign + issue_comment drive the issue work cycles, issue_label is the
-# UI-friendly engagement edge (the assignee dropdown refuses read-only
-# collaborators like `agents`; labels have no such fence), and the review +
-# pull_request_comment events drive PR feedback runs.
+# The `issues` umbrella covers the whole issue family: Forgejo's write parser
+# gates every fine-grained issue flag on "that name OR the literal `issues`
+# string" (routers/api/v1/utils/hook.go issuesHook), so one name receives
+# issue creation (the auto-engage edge, eblume/blumeops#725), assign, label,
+# milestone and comment deliveries; the PR-review events drive PR feedback
+# runs.
 #
-# Two vocabularies because Forgejo's hook API is asymmetric: the WRITE parser
-# accepts `pull_request_review` (one flag covering the approved/rejected/
-# review-comment trio) and silently drops the expanded names, while GET
-# reports the trio expanded (routers/api/v1/utils/hook.go pullHook vs
-# models/webhook EventCheckers — where `pull_request_review_comment` is
-# additionally reported off the pull_request_comment flag). Reconcile
-# compares against READ, sends SEND; using one set for both either flaps
-# forever or silently drops the review events.
+# Two vocabularies because the GET read-back expands the flag set back into
+# names (models/webhook/webhook.go EventsArray) — and `pull_request_review` is
+# one flag covering the approved/rejected/review-comment trio, reported
+# expanded, with `pull_request_review_comment` additionally reported off the
+# pull_request_comment flag. Reconcile compares against READ, sends SEND;
+# using one set for both either flaps forever or silently drops the review
+# events.
 TALOS_HOOK_SEND_EVENTS = frozenset(
     {
-        "issue_assign",
-        "issue_label",
-        "issue_comment",
+        "issues",
         "pull_request_comment",
         "pull_request_review",
     }
 )
 TALOS_HOOK_READ_EVENTS = frozenset(
     {
+        "issues",
         "issue_assign",
         "issue_label",
+        "issue_milestone",
         "issue_comment",
         "pull_request_comment",
         "pull_request_review_approved",
@@ -143,6 +147,12 @@ OP_WEBHOOK_SECRET_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/unrui7ten3ntx4ka6ze2zuk
 # creation.
 ENGAGE_LABEL_COLOR = "7c3aed"
 ENGAGE_LABEL_DESCRIPTION = "Engage the talos agent on this issue"
+# The suppression label (eblume/blumeops#725): while present on an issue,
+# talos spawns no issue cycles on it; checked on every delivery, so removing
+# it re-engages.
+NO_AGENTS_LABEL_NAME = "no-agents"
+NO_AGENTS_LABEL_COLOR = "d04a47"
+NO_AGENTS_LABEL_DESCRIPTION = "Suppress talos agent cycles on this issue"
 # Issue-scoped fallback for the label half — the item forge-api uses.
 OP_ISSUE_TOKEN_REF = "op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
 
@@ -446,7 +456,7 @@ def main(
         # (repo, verb, hook_id) — verb in create|update|remove; remove also
         # covers extra duplicates on a repo that keeps its first hook.
         hook_actions: list[tuple[str, str, int | None]] = []
-        label_actions: list[str] = []  # repos needing the engagement label created
+        label_actions: list[tuple[str, str, str, str]] = []  # (repo, name, color, description)
         label_client: httpx.Client | None = None  # issue-scoped fallback, resolved lazily
         label_skipped = False  # no issue-capable token: warn once, check nothing
         blocked: list[str] = []
@@ -524,33 +534,43 @@ def main(
                     f"[{hook_style}]{hook_verb}[/{hook_style}]",
                 )
 
-            # Label half: pool repos get the engagement label; elsewhere an
-            # existing one is left alone (see the module docstring for why
+            # Label half: pool repos get both issue-scope labels (the `agents`
+            # engagement edge and the `no-agents` suppression edge); elsewhere
+            # an existing one is left alone (see the module docstring for why
             # this is create-only, and why there is a fallback token).
             if want_hook and not label_skipped:
-                labeled = has_engage_label(client, owner, repo, who)
-                if labeled is None and label_client is None:
-                    issue_token = resolve_issue_token()
-                    if issue_token is None:
-                        label_skipped = True
-                        console.print(
-                            "[yellow]SKIPPED the label half: this token lacks the issue "
-                            "scope and no fallback is available (set FORGE_ISSUE_TOKEN, "
-                            "or run locally from gilbert for `op`). Label drift is NOT "
-                            "being checked.[/yellow]"
+                label_specs = (
+                    (who, f"#{ENGAGE_LABEL_COLOR}", ENGAGE_LABEL_DESCRIPTION),
+                    (NO_AGENTS_LABEL_NAME, f"#{NO_AGENTS_LABEL_COLOR}", NO_AGENTS_LABEL_DESCRIPTION),
+                )
+                missing = []
+                for name, color, description in label_specs:
+                    labeled = has_engage_label(client, owner, repo, name)
+                    if labeled is None and label_client is None:
+                        issue_token = resolve_issue_token()
+                        if issue_token is None:
+                            label_skipped = True
+                            console.print(
+                                "[yellow]SKIPPED the label half: this token lacks the issue "
+                                "scope and no fallback is available (set FORGE_ISSUE_TOKEN, "
+                                "or run locally from gilbert for `op`). Label drift is NOT "
+                                "being checked.[/yellow]"
+                            )
+                            break
+                        label_client = httpx.Client(
+                            base_url=FORGE_URL,
+                            headers={"Authorization": f"token {issue_token}"},
+                            timeout=30.0,
                         )
-                        continue
-                    label_client = httpx.Client(
-                        base_url=FORGE_URL,
-                        headers={"Authorization": f"token {issue_token}"},
-                        timeout=30.0,
-                    )
-                if labeled is None:
-                    labeled = has_engage_label(label_client, owner, repo, who)
-                if labeled is None:
-                    blocked.append(repo)
-                elif not labeled:
-                    label_actions.append(repo)
+                    if labeled is None:
+                        labeled = has_engage_label(label_client, owner, repo, name)
+                    if labeled is None:
+                        blocked.append(repo)
+                        break
+                    if not labeled:
+                        missing.append((name, color, description))
+                for name, color, description in missing:
+                    label_actions.append((repo, name, color, description))
                     hook_table.add_row(repo, "no label", "label", "[green]create label[/green]")
 
         console.print(table)
@@ -578,8 +598,8 @@ def main(
                 console.print(f"  {verb} {owner}/{repo}" + (f" → {perm}" if perm != "none" else ""))
             for repo, verb, _ in hook_actions:
                 console.print(f"  {verb} talos hook on {owner}/{repo}")
-            for repo in label_actions:
-                console.print(f"  create `{who}` label on {owner}/{repo}")
+            for repo, name, _color, _description in label_actions:
+                console.print(f"  create `{name}` label on {owner}/{repo}")
             if check:
                 console.print("\n[red]Out of sync (--check).[/red]")
                 raise typer.Exit(1)
@@ -629,25 +649,25 @@ def main(
                 raise typer.Exit(1) from exc
             console.print(f"[green]{verb}[/green] talos hook on {owner}/{repo}")
 
-        for repo in label_actions:
+        for repo, name, color, description in label_actions:
             try:
                 (label_client or client).post(
                     f"/api/v1/repos/{owner}/{repo}/labels",
                     json={
-                        "name": who,
-                        "color": f"#{ENGAGE_LABEL_COLOR}",
-                        "description": ENGAGE_LABEL_DESCRIPTION,
+                        "name": name,
+                        "color": color,
+                        "description": description,
                     },
                 ).raise_for_status()
             except httpx.HTTPStatusError as exc:
                 console.print(
-                    f"[red]create `{who}` label on {owner}/{repo} failed: {exc}[/red]\n"
+                    f"[red]create `{name}` label on {owner}/{repo} failed: {exc}[/red]\n"
                     "Label management sits in Forgejo's issue scope — if this was a 403 "
                     "under the CI token (write:repository only), run this task locally "
                     "from gilbert."
                 )
                 raise typer.Exit(1) from exc
-            console.print(f"[green]create[/green] `{who}` label on {owner}/{repo}")
+            console.print(f"[green]create[/green] `{name}` label on {owner}/{repo}")
 
         applied = len(actions) + len(hook_actions) + len(label_actions)
         console.print(f"\n[green]Applied {applied} change(s).[/green]")

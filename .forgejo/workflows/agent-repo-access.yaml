@@ -14,8 +14,8 @@
 # (biometric op). Adding a brand-new repo to the pool is already a human PR,
 # so the human follow-up run is the same gate as the rest of provisioning.
 #
-# The `agents` engagement label (the UI edge for talos issue cycles) is a
-# third reconciled half, but labels sit in Forgejo's issue scope, which this
+# The issue-scope labels (the `agents` engagement edge and the `no-agents`
+# suppression edge for talos issue cycles) are a third reconciled half, but
 # PAT does not carry — in CI the label half SKIPS with a loud yellow warning
 # and is covered by the same local-run-from-gilbert follow-up as hook
 # creation. See the module docstring in mise-tasks/agent-repo-access.
