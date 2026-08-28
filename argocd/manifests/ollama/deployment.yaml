@@ -5,12 +5,13 @@ metadata:
   name: ollama
   namespace: ollama
 spec:
-  # Scaled to zero 2026-08-19: qwen3.8:27b (smallest official quant ~18GB)
-  # exceeds the RTX 4080's 16GiB VRAM, so it partially offloads to CPU at
-  # ~3 tok/s. Not worth serving until a bigger GPU or a usable quant exists.
-  # When re-enabling: shares the GPU (time-sliced) with gaming and other ML
-  # workloads; the 24Gi memory limit stays generous for a 27B model on a
-  # 32GB-RAM host.
+  # Scaled to zero by default: the service shares the RTX 4080 with gaming,
+  # so it is an on-demand workload. The 12GB UD-IQ3_S quant of Qwen3.8-27B
+  # runs fully GPU-resident at 128K context (q4_0 KV, ~36 tok/s decode);
+  # the official ~18GB quant does not fit - eblume/talos#64. Scale up for
+  # an evaluation window with `mise run ollama-up` (human task), down with
+  # `mise run ollama-down`. The 24Gi memory limit stays generous: with
+  # mmap + full GPU residency, the 32GB host RAM is the real hazard.
   replicas: 0
   strategy:
     type: Recreate
@@ -43,6 +44,8 @@ spec:
               value: "1"
             - name: OLLAMA_FLASH_ATTENTION
               value: "1"
+            - name: OLLAMA_KV_CACHE_TYPE
+              value: "q4_0"
           volumeMounts:
             - name: models
               mountPath: /models
