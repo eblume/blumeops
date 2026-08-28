@@ -262,14 +262,14 @@ services:
 
   - name: ollama
     type: argocd
-    last-reviewed: 2026-07-13
-    current-version: "0.31.2"
+    last-reviewed: 2026-08-28
+    current-version: "0.32.14"
     upstream-source: https://github.com/ollama/ollama/releases
     notes: >-
       LLM inference server on ringtail (GPU); upstream container image.
-      2026-07-13: bumped 0.20.4 → 0.31.2 (straight upstream image-tag bump,
-      ~12 minors of GPU/flash-attention and model-loading fixes, no called-out
-      breaking changes) and deploy-tested on the GPU node.
+      0.32.14 carries the llama.cpp needed for the qwen3.8 architecture.
+      Scaled to 0 by default; the 12GB Qwen3.8-27B UD-IQ3_S quant is the
+      GPU-resident 128K-context evaluation model (eblume/talos#64).
 
   - name: navidrome
     type: argocd

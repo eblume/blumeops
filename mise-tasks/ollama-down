@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#MISE description="[human] Scale the ollama inference service down (replicas 1 -> 0) to free the RTX 4080"
+
+set -euo pipefail
+
+"$(dirname "$0")/_require" kubectl
+
+CONTEXT="k3s-ringtail"
+NS="ollama"
+
+echo "Scaling ollama down..."
+kubectl --context="$CONTEXT" -n "$NS" scale deployment ollama --replicas=0
+
+echo "ollama is down; the RTX 4080 is free for gaming."
