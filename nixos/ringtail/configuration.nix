@@ -1,7 +1,7 @@
 { config, pkgs, lib, ... }:
 
 let
-  # Libraries needed by mise-compiled runtimes (python-build, etc.)
+  # Libraries exposed to prebuilt mise runtimes through nix-ld.
   buildDeps = with pkgs; [ zlib readline bzip2 xz libffi ncurses sqlite openssl ];
 
   # Erich's heph toolchain (installed by heph-eblume.nix). Imported here too so
@@ -409,11 +409,16 @@ in
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = buildDeps ++ [ pkgs.icu ];
 
-  # Compile-time flags for mise python-build and similar source builds
+  # mise runtimes: prebuilt (python-build-standalone etc.) via nix-ld, not
+  # compiled. mise defaults to compiling on NixOS; compiled binaries bake
+  # /nix/store RUNPATHs that GC removes (`ImportError: libz.so.1`, PR #735).
+  # Flavor pin: mise 2025.x otherwise picks the freethreaded asset for 3.14.
   environment.sessionVariables = {
-    PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" (map lib.getDev buildDeps);
-    CFLAGS = lib.concatMapStringsSep " " (p: "-I${lib.getDev p}/include") buildDeps;
-    LDFLAGS = lib.concatMapStringsSep " " (p: "-L${lib.getLib p}/lib") buildDeps;
+    MISE_ALL_COMPILE = "false";
+    MISE_PYTHON_COMPILE = "false";
+    MISE_PYTHON_PRECOMPILED_FLAVOR = "install_only_stripped";
+    # Prebuilt python bundles OpenSSL and cannot find NixOS's CA bundle alone.
+    SSL_CERT_FILE = "/etc/ssl/certs/ca-bundle.crt";
   };
 
   # Fonts
