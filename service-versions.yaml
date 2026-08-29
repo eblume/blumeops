@@ -368,23 +368,17 @@ services:
 
   - name: forgejo-runner
     type: argocd
-    last-reviewed: 2026-04-20
-    current-version: "12.8.2"
+    last-reviewed: 2026-08-29
+    current-version: "12.13.2"
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
     notes: >-
-      Runner daemon version (code.forgejo.org/forgejo/runner). Host-mode
-      jobs since [[retire-minikube]] phase 6 — no job image; the dagger
-      CLI is mise-pinned on indri (see the forgejo_runner role).
-      REVIEW ALSO: `forgejo_runner_host_tools` in
-      ansible/roles/forgejo_runner/defaults/main.yml. Host-mode means the
-      runner's whole CI toolchain is that variable, but every entry there is a
-      *mirror* of a pin held elsewhere (dagger.json, mise.toml, this file, the
-      prek.toml hook revs) — so nothing bumps it when its source moves, and it
-      silently goes stale. Reviewing this entry means diffing that list against
-      each source and realigning; it is not an independent upgrade decision.
-      Found drifted 2026-08-09: flyctl sat at 0.4.59 against a mise.toml pin
-      moved to 0.4.71 on 2026-07-19.
-
+      Runner daemon version (code.forgejo.org/forgejo/runner); host-mode
+      jobs run on the mise-pinned toolchain in the forgejo_runner role —
+      REVIEW ALSO `forgejo_runner_host_tools` there: it mirrors pins held
+      elsewhere (dagger.json, mise.toml, prek.toml), so diff it against
+      those sources and realign; not an independent upgrade decision.
+      Heads-up: v13.0.0 (2026-08-03) carries breaking changes; the 13.x
+      upgrade is a separate heph task.
   - name: nix-container-builder
     type: nixos
     last-reviewed: 2026-06-30
