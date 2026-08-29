@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#MISE description="[human] Scale the ollama inference service up (replicas 0 -> 1) for an evaluation window"
+
+set -euo pipefail
+
+"$(dirname "$0")/_require" kubectl
+
+CONTEXT="k3s-ringtail"
+NS="ollama"
+
+echo "Scaling ollama up..."
+kubectl --context="$CONTEXT" -n "$NS" scale deployment ollama --replicas=1
+
+echo "Waiting for rollout..."
+kubectl --context="$CONTEXT" -n "$NS" rollout status deployment/ollama --timeout=600s
+
+echo ""
+echo "ollama is up. The model-sync sidecar pulls any missing models on"
+echo "startup; the Qwen3.8-27B UD-IQ3_S quant (~12GB) is already on the PV."
+echo "First request after a cold load pays a one-off Vulkan/llama.cpp"
+echo "shader-compile stall (~60s) per new batch shape."
+echo "Scale down when done: mise run ollama-down"

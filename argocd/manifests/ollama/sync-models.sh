@@ -27,8 +27,8 @@ while true; do
     done
     echo "Ollama is ready"
 
-    # Get list of currently pulled models
-    current=$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' || true)
+    # Get list of currently pulled models (ollama stores names lowercased)
+    current=$(ollama list 2>/dev/null | tail -n +2 | awk '{print tolower($1)}' || true)
 
     pulled=0
     skipped=0
@@ -40,8 +40,10 @@ while true; do
         model=$(echo "$model" | xargs)
         [[ -z "$model" ]] && continue
 
-        # Check if model is already pulled (ollama list shows name:tag)
-        if echo "$current" | grep -qF "$model"; then
+        # Check if model is already pulled (match lowercase: ollama
+        # lowercases stored names, which matters for hf.co refs)
+        model_lc=$(echo "$model" | tr '[:upper:]' '[:lower:]')
+        if echo "$current" | grep -qF "$model_lc"; then
             echo "Already present: $model"
             ((skipped++)) || true
         else
