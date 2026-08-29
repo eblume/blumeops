@@ -417,6 +417,8 @@ in
     MISE_ALL_COMPILE = "false";
     MISE_PYTHON_COMPILE = "false";
     MISE_PYTHON_PRECOMPILED_FLAVOR = "install_only_stripped";
+    # Prebuilt python bundles OpenSSL and cannot find NixOS's CA bundle alone.
+    SSL_CERT_FILE = "/etc/ssl/certs/ca-bundle.crt";
   };
 
   # Fonts
