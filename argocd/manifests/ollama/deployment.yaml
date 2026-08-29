@@ -5,13 +5,9 @@ metadata:
   name: ollama
   namespace: ollama
 spec:
-  # Scaled to zero by default: the service shares the RTX 4080 with gaming,
-  # so it is an on-demand workload. The 128K-context local-model evaluation
-  # was shelved 2026-08-28: on this 16GiB card ollama silently caps the
-  # effective context at 4K tokens (eblume/talos#64); the local execution
-  # choice is moving to a dedicated host (Mac Studio M5 Ultra). Scale up
-  # for an evaluation window with `mise run ollama-up` (human task), down
-  # with `mise run ollama-down`.
+  # On-demand workload: it shares the RTX 4080 with gaming, so it stays
+  # scaled to zero. Scale up with `mise run ollama-up`, down with
+  # `mise run ollama-down`.
   replicas: 0
   strategy:
     type: Recreate
