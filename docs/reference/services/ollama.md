@@ -65,9 +65,6 @@ Declared in `argocd/manifests/ollama/models.txt`. The model-sync sidecar pulls m
 | `qwen3.5:9b` | 9B |
 | `qwen3.5:27b` | 27B |
 | `qwen3.8:27b` | 27B |
-| `hf.co/unsloth/Qwen3.8-27B-GGUF:UD-IQ3_S` | 27B, 12GB, ~3.4 bpw |
-
-The 12GB UD-IQ3_S quant is the only 27B config that runs fully GPU-resident on the RTX 4080 at 128K context (the official ~18GB quant cannot fit — [eblume/talos#64](https://forge.eblu.me/eblume/talos/issues/64)). It is served with the 128K-oriented settings below; clients must request `num_ctx: 131072` (there is no global `OLLAMA_NUM_CTX`).
 
 ## GPU
 
@@ -78,10 +75,7 @@ Shares [[ringtail]]'s RTX 4080 with [[frigate]] via NVIDIA device plugin time-sl
 | `OLLAMA_MAX_LOADED_MODELS` | 1 |
 | `OLLAMA_NUM_PARALLEL` | 1 |
 | `OLLAMA_FLASH_ATTENTION` | 1 |
-| `OLLAMA_KV_CACHE_TYPE` | q4_0 |
 | GPU limit | `nvidia.com/gpu: "1"` (time-sliced) |
-
-The q4_0 KV cache is what makes 128K context fit: ~2.3GB of KV at 131072 tokens versus ~5GB at f16. Host RAM is the hazard, not VRAM — the model loads mmap'd and stays GPU-resident, so the pod's 24Gi memory limit stays generous.
 
 ## Storage
 
