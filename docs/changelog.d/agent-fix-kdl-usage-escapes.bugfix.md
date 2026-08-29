@@ -1,0 +1,1 @@
+Fixed `mise run agent-repo-access` (and `warrant-bot-drift`) failing to parse: the `#USAGE` flag help strings contained a `\$` escape, which KDL quoted strings don't allow, so mise warned and dropped the flag definitions. The help text now references `$FORGE_REPO_WRITE_TOKEN` plainly (eblume/blumeops#725).

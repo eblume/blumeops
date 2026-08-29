@@ -5,7 +5,7 @@
 # ///
 #MISE description="[human] Assert warrant-bot still holds exactly write on blumeops and nothing more (read-only)"
 #USAGE flag "--token <token>" help="Forgejo API token; the caller must be admin on eblume/blumeops (default: 1Password)"
-#USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when \$FORGE_REPO_WRITE_TOKEN is unset (CI bootstrap)"
+#USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when $FORGE_REPO_WRITE_TOKEN is unset (CI bootstrap)"
 """Verify the blast radius of `warrant-bot` — the identity Warrant dispatches as.
 
 Reads only. Changes nothing, ever. `warrant-bot-provision` is the human

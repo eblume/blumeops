@@ -8,7 +8,7 @@
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
 #USAGE flag "--token <token>" help="Forgejo API token; the caller must be admin on the target repos (default: 1Password)"
-#USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when \$FORGE_REPO_WRITE_TOKEN is unset (CI bootstrap)"
+#USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when $FORGE_REPO_WRITE_TOKEN is unset (CI bootstrap)"
 """Reconcile which of eblume's repos the `agents` bot may touch.
 
 `argocd/manifests/talos/repos.json` is the single source of truth: it drives
