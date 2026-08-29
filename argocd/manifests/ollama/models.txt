@@ -7,6 +7,3 @@ gemma3:12b
 qwen3.5:9b
 qwen3.5:27b
 qwen3.8:27b
-# 12GB unsloth quant: fully GPU-resident at 128K context on the RTX 4080
-# (eblume/talos#64). Ollama stores the name lowercased.
-hf.co/unsloth/Qwen3.8-27B-GGUF:UD-IQ3_S
