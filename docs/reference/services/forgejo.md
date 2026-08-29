@@ -1,6 +1,7 @@
 ---
 title: Forgejo
-modified: 2026-06-17
+modified: 2026-08-29
+last-reviewed: 2026-08-29
 tags:
   - service
   - git
@@ -53,11 +54,14 @@ Build tags (`forgejo_build_tags`): `bindata` (embed assets), `timetzdata` (embed
 
 ## Repositories
 
-| Repo | Description |
-|------|-------------|
-| `eblume/blumeops` | Infrastructure as code (primary) |
-| `eblume/alloy` | Grafana Alloy fork (CGO build) |
-| `eblume/tesla_auth` | Tesla OAuth helper |
+The forge has three namespaces:
+
+- `eblume/` — first-party repos (blumeops, talos, hephaestus, myeve,
+  gamedev, …). The forge is the primary source of truth for blumeops.
+- `agents/` — the [[agents-forgejo-bot]]'s forks (blumeops, agents,
+  horkos); the push target for repos where the human gate is the point.
+- `mirrors/` — pull mirrors of external repos (alloy, tesla_auth, …)
+  for supply chain control; see [[manage-forgejo-mirrors]].
 
 ## CI/CD (Forgejo Actions)
 
@@ -65,44 +69,69 @@ Build tags (`forgejo_build_tags`): `bindata` (embed assets), `timetzdata` (embed
 
 | Runner | Host | Labels | Purpose |
 |--------|------|--------|---------|
-| `indri-runner` | [[indri]] (native, host-mode) | `indri` | Lightweight jobs; Dagger CLI talks to the Docker Desktop engine |
-| `nix-container-builder` | [[ringtail]] (NixOS) | `nix-container-builder` | Nix container builds via `nix-build` + `skopeo` |
+| `indri-runner` | [[indri]] (native, host-mode) | `indri` | Default jobs; Dagger CLI talks to the Docker Desktop engine |
+| `ringtail-nix-builder` | [[ringtail]] (NixOS) | `nix-container-builder` | Nix container builds via `nix-build` + `skopeo` |
+| `ringtail-priv-runner` | [[ringtail]] (NixOS, sandboxed DynamicUser) | `priv` | Warrant-gated, dispatch-only privileged jobs ([[warrant-approval-gated-runs]]) |
 
-**Workflows:** `.forgejo/workflows/`
-- `build-container.yaml` - Nix container builds (manual dispatch; classify on `indri`, build on `nix-container-builder`)
-- `build-blumeops.yaml` - Documentation builds and releases
+**Workflows** in `.forgejo/workflows/`:
 
-`build-container.yaml` is manual-dispatch only and nix-only: it builds `containers/<name>/default.nix` on the `nix-container-builder` runner. See [[build-container-image]]. (Until [[retire-minikube]] the `k8s` runner was a minikube DinD pod that also built Dockerfile/Dagger containers; that path was retired.)
+| Workflow | Trigger | Runner | Purpose |
+|----------|---------|--------|---------|
+| `agent-repo-access` | push/PR/dispatch | `indri` | Reconcile the `agents` bot's collaborations + labels against repos.json |
+| `argocd-deploy` | dispatch | `priv` | Warrant-gated ArgoCD deploy of a single app |
+| `branch-cleanup` | cron/dispatch | `indri` | Delete stale branches |
+| `build-blumeops` | dispatch | `indri` | Docs build + release |
+| `build-container` | dispatch | `indri` → `nix-container-builder` | Nix container image builds; classify on indri, build on the nix builder ([[build-container-image]]) |
+| `cv-deploy` | dispatch | `indri` | Deploy the CV package |
+| `deploy-fly` | dispatch | `priv` | Warrant-gated deploy of the Fly.io proxy ([[flyio-proxy]]) |
+| `docs-checks` | PR/push | `indri` | Docs + changelog validation |
+| `flake-update` | dispatch | `indri` | Ringtail flake nixpkgs update |
+| `lint` | PR/push | `indri` | Repo lint (prek hooks) |
+| `run-script` | dispatch | `priv` | Warrant-gated one-off script run |
+| `warrant-bot-drift` | cron/push/dispatch | `indri` | Weekly drift check on the warrant-bot's grants |
+
+(Until [[retire-minikube]] a `k8s` runner was a minikube DinD pod that also built Dockerfile/Dagger containers; that path is retired.)
 
 ## Secrets (Forgejo Config)
 
-Server configuration secrets managed via 1Password → Ansible:
-- `lfs-jwt-secret`, `internal-token`, `oauth2-jwt-secret` - Forgejo server tokens
-- `runner_reg` - Runner registration token (also in k8s via [[external-secrets]])
-- `runner_k8s_uuid`, `runner_k8s_token` - Static credentials for the k8s runner `server.connections` flow
+Server configuration secrets managed via 1Password → Ansible (fetched in
+the indri playbook `pre_tasks`):
+
+- `lfs-jwt-secret`, `internal-token`, `oauth2-jwt-secret` — Forgejo server tokens (rendered into `app.ini`)
+- `runner_reg` — instance-global runner registration token, written to `/etc/forgejo-runner/token.env` for the two ringtail runners
+
+Per-runner identity and job-credential secrets live on the runner card ([[forgejo-runner#Credentials]]).
 
 ## Forgejo Actions Secrets
 
-Repository-level secrets for CI/CD workflows, synced from 1Password via Ansible.
-
-| Secret | 1Password Field | Used By | Purpose |
-|--------|-----------------|---------|---------|
-| `ARGOCD_AUTH_TOKEN` | `argocd_token` | `build-blumeops.yaml` | Sync docs app after release |
-
-These secrets are injected as `${{ secrets.SECRET_NAME }}` in workflow files.
-
-**IaC:** The `forgejo_actions_secrets` Ansible role syncs these secrets from 1Password to Forgejo via the Forgejo API. Run with:
+Repository-level Actions secrets are synced from 1Password to Forgejo by
+the `forgejo_actions_secrets` Ansible role (human-run from gilbert under
+biometric `op` — the role authenticates with the admin PAT and the step
+never leaves a human):
 
 ```bash
 mise run provision-indri -- --tags forgejo_actions_secrets
 ```
+
+| Repo | Secrets | Purpose |
+|------|---------|---------|
+| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `agent-repo-access` reconcile + `warrant-bot-drift` reads (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
+| `eblume/talos`, `eblume/horkos` | `BLUMEOPS_CI_OP_TOKEN`, `RELEASE_FORGE_TOKEN` | Auto-release CI: job-time zot push key; warrant-bot PAT pushes the pin-bump branch + opens the PR on blumeops |
+| `eblume/cv` | `FORGE_TOKEN` | CV deploy workflow |
+
+The per-purpose secrets the role used to sync (argocd token, fly deploy
+token, zot CI key, main-push PAT) are no longer Forgejo secrets: workflows
+`op read` the blumeops-ci items at job time with `BLUMEOPS_CI_OP_TOKEN` —
+see [[blumeops-ci-item-migration]].
+
+These secrets are injected as `${{ secrets.SECRET_NAME }}` in workflow files.
 
 ### API Token Setup (Manual, One-Time)
 
 The Ansible role authenticates to the Forgejo API using a Personal Access Token (PAT). This PAT must be created manually:
 
 1. Go to https://forge.eblu.me/user/settings/applications
-2. Create a new token with `write:repository` scope
+2. Create a new all-scopes admin token (this role is the only consumer of the admin PAT; CI uses the scoped `FORGE_REPO_WRITE_TOKEN` instead)
 3. Store it in 1Password → "Forgejo Secrets" item → `api-token` field
 
 This is a bootstrapping requirement - the PAT enables IaC for all other secrets.
@@ -174,7 +203,8 @@ Forgejo hosts pull mirrors of external repositories (GitHub, etc.) for supply ch
 ## Related
 
 - [[upgrade-forgejo]] - Version upgrade procedure (DB backup, breaking changes, rollback)
-- [[forgejo-runner]] - CI/CD runner (launchd-native on indri)
+- [[forgejo-runner]] - CI/CD runners (indri + ringtail instances, credentials)
+- [[agents-forgejo-bot]] - The bot identity behind the agents/ namespace
 - [[argocd]] - Uses Forgejo as git source
 - [[authentik]] - OIDC identity provider
 - [[zot]] - Container registry for built images
