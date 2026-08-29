@@ -1,7 +1,7 @@
 { config, pkgs, lib, ... }:
 
 let
-  # Libraries needed by mise-compiled runtimes (python-build, etc.)
+  # Libraries exposed to prebuilt mise runtimes through nix-ld.
   buildDeps = with pkgs; [ zlib readline bzip2 xz libffi ncurses sqlite openssl ];
 
   # Erich's heph toolchain (installed by heph-eblume.nix). Imported here too so
@@ -409,34 +409,15 @@ in
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = buildDeps ++ [ pkgs.icu ];
 
-  # Compile-time flags for mise python-build and similar source builds
-  # (mise defaults to `all_compile = true` on NixOS).
-  #
-  # Runtime linkage deliberately goes through nix-ld's stable paths rather
-  # than the /nix/store paths the wrapped gcc would otherwise bake in: the
-  # store paths of these libraries change on every nixpkgs bump and the old
-  # ones get garbage-collected, after which a mise-compiled python fails with
-  # `ImportError: libz.so.1: cannot open shared object file` (2026-08-29).
-  # Ordering matters — RUNPATH entries resolve first-wins, so the nix-ld
-  # directory (refreshed on every rebuild) must precede the store paths the
-  # ld-wrapper appends. The dynamic-linker override routes the interpreter
-  # through nix-ld too, so the glibc store path is not load-bearing either.
-  environment.sessionVariables =
-    let
-      nixLdLib = "/run/current-system/sw/share/nix-ld/lib";
-    in
-    {
-      PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" (map lib.getDev buildDeps);
-      CFLAGS = lib.concatMapStringsSep " " (p: "-I${lib.getDev p}/include") buildDeps;
-      LDFLAGS = lib.concatStringsSep " " (
-        [
-          "-Wl,--dynamic-linker=/lib64/ld-linux-x86-64.so.2"
-          "-Wl,-rpath,${nixLdLib}"
-          "-L${nixLdLib}"
-        ]
-        ++ map (p: "-L${lib.getLib p}/lib") buildDeps
-      );
-    };
+  # mise runtimes: prebuilt (python-build-standalone etc.) via nix-ld, not
+  # compiled. mise defaults to compiling on NixOS; compiled binaries bake
+  # /nix/store RUNPATHs that GC removes (`ImportError: libz.so.1`, PR #735).
+  # Flavor pin: mise 2025.x otherwise picks the freethreaded asset for 3.14.
+  environment.sessionVariables = {
+    MISE_ALL_COMPILE = "false";
+    MISE_PYTHON_COMPILE = "false";
+    MISE_PYTHON_PRECOMPILED_FLAVOR = "install_only_stripped";
+  };
 
   # Fonts
   fonts.packages = with pkgs; [
