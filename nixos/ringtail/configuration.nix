@@ -410,11 +410,33 @@ in
   programs.nix-ld.libraries = buildDeps ++ [ pkgs.icu ];
 
   # Compile-time flags for mise python-build and similar source builds
-  environment.sessionVariables = {
-    PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" (map lib.getDev buildDeps);
-    CFLAGS = lib.concatMapStringsSep " " (p: "-I${lib.getDev p}/include") buildDeps;
-    LDFLAGS = lib.concatMapStringsSep " " (p: "-L${lib.getLib p}/lib") buildDeps;
-  };
+  # (mise defaults to `all_compile = true` on NixOS).
+  #
+  # Runtime linkage deliberately goes through nix-ld's stable paths rather
+  # than the /nix/store paths the wrapped gcc would otherwise bake in: the
+  # store paths of these libraries change on every nixpkgs bump and the old
+  # ones get garbage-collected, after which a mise-compiled python fails with
+  # `ImportError: libz.so.1: cannot open shared object file` (2026-08-29).
+  # Ordering matters — RUNPATH entries resolve first-wins, so the nix-ld
+  # directory (refreshed on every rebuild) must precede the store paths the
+  # ld-wrapper appends. The dynamic-linker override routes the interpreter
+  # through nix-ld too, so the glibc store path is not load-bearing either.
+  environment.sessionVariables =
+    let
+      nixLdLib = "/run/current-system/sw/share/nix-ld/lib";
+    in
+    {
+      PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" (map lib.getDev buildDeps);
+      CFLAGS = lib.concatMapStringsSep " " (p: "-I${lib.getDev p}/include") buildDeps;
+      LDFLAGS = lib.concatStringsSep " " (
+        [
+          "-Wl,--dynamic-linker=/lib64/ld-linux-x86-64.so.2"
+          "-Wl,-rpath,${nixLdLib}"
+          "-L${nixLdLib}"
+        ]
+        ++ map (p: "-L${lib.getLib p}/lib") buildDeps
+      );
+    };
 
   # Fonts
   fonts.packages = with pkgs; [

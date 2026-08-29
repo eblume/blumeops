@@ -1,0 +1,1 @@
+ringtail: link mise-compiled runtimes (python-build) against nix-ld's stable `/run/current-system/sw/share/nix-ld/lib` and interpreter instead of bare `/nix/store` paths, so a nixpkgs bump + GC no longer breaks the installed python (`ImportError: libz.so.1`). Existing installs need a one-off `mise install -f python@<ver>`.
