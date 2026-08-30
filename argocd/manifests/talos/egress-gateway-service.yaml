@@ -1,0 +1,420 @@
+# Fixed cluster IP: the agent pod's proxy env and EGRESS_GATEWAY_URL point
+# at this address (stage 2), and with dnsPolicy: None the pod has no other
+# way to find the gateway. Must stay stable for the lifetime of the
+# deployment; moving it means editing the agent pod's env in the same PR.
+apiVersion: v1
+kind: Service
+metadata:
+  name: egress-gateway
+  namespace: talos
+  labels:
+    app: egress-gateway
+spec:
+  clusterIP: 10.43.254.1
+  selector:
+    app: egress-gateway
+  ports:
+    - name: base
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+    - name: port-8081
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+    - name: port-8082
+      port: 8082
+      targetPort: 8082
+      protocol: TCP
+    - name: port-8083
+      port: 8083
+      targetPort: 8083
+      protocol: TCP
+    - name: port-8084
+      port: 8084
+      targetPort: 8084
+      protocol: TCP
+    - name: port-8085
+      port: 8085
+      targetPort: 8085
+      protocol: TCP
+    - name: port-8086
+      port: 8086
+      targetPort: 8086
+      protocol: TCP
+    - name: port-8087
+      port: 8087
+      targetPort: 8087
+      protocol: TCP
+    - name: port-8088
+      port: 8088
+      targetPort: 8088
+      protocol: TCP
+    - name: port-8089
+      port: 8089
+      targetPort: 8089
+      protocol: TCP
+    - name: port-8090
+      port: 8090
+      targetPort: 8090
+      protocol: TCP
+    - name: port-8091
+      port: 8091
+      targetPort: 8091
+      protocol: TCP
+    - name: port-8092
+      port: 8092
+      targetPort: 8092
+      protocol: TCP
+    - name: port-8093
+      port: 8093
+      targetPort: 8093
+      protocol: TCP
+    - name: port-8094
+      port: 8094
+      targetPort: 8094
+      protocol: TCP
+    - name: port-8095
+      port: 8095
+      targetPort: 8095
+      protocol: TCP
+    - name: port-8096
+      port: 8096
+      targetPort: 8096
+      protocol: TCP
+    - name: port-8097
+      port: 8097
+      targetPort: 8097
+      protocol: TCP
+    - name: port-8098
+      port: 8098
+      targetPort: 8098
+      protocol: TCP
+    - name: port-8099
+      port: 8099
+      targetPort: 8099
+      protocol: TCP
+    - name: port-8100
+      port: 8100
+      targetPort: 8100
+      protocol: TCP
+    - name: port-8101
+      port: 8101
+      targetPort: 8101
+      protocol: TCP
+    - name: port-8102
+      port: 8102
+      targetPort: 8102
+      protocol: TCP
+    - name: port-8103
+      port: 8103
+      targetPort: 8103
+      protocol: TCP
+    - name: port-8104
+      port: 8104
+      targetPort: 8104
+      protocol: TCP
+    - name: port-8105
+      port: 8105
+      targetPort: 8105
+      protocol: TCP
+    - name: port-8106
+      port: 8106
+      targetPort: 8106
+      protocol: TCP
+    - name: port-8107
+      port: 8107
+      targetPort: 8107
+      protocol: TCP
+    - name: port-8108
+      port: 8108
+      targetPort: 8108
+      protocol: TCP
+    - name: port-8109
+      port: 8109
+      targetPort: 8109
+      protocol: TCP
+    - name: port-8110
+      port: 8110
+      targetPort: 8110
+      protocol: TCP
+    - name: port-8111
+      port: 8111
+      targetPort: 8111
+      protocol: TCP
+    - name: port-8112
+      port: 8112
+      targetPort: 8112
+      protocol: TCP
+    - name: port-8113
+      port: 8113
+      targetPort: 8113
+      protocol: TCP
+    - name: port-8114
+      port: 8114
+      targetPort: 8114
+      protocol: TCP
+    - name: port-8115
+      port: 8115
+      targetPort: 8115
+      protocol: TCP
+    - name: port-8116
+      port: 8116
+      targetPort: 8116
+      protocol: TCP
+    - name: port-8117
+      port: 8117
+      targetPort: 8117
+      protocol: TCP
+    - name: port-8118
+      port: 8118
+      targetPort: 8118
+      protocol: TCP
+    - name: port-8119
+      port: 8119
+      targetPort: 8119
+      protocol: TCP
+    - name: port-8120
+      port: 8120
+      targetPort: 8120
+      protocol: TCP
+    - name: port-8121
+      port: 8121
+      targetPort: 8121
+      protocol: TCP
+    - name: port-8122
+      port: 8122
+      targetPort: 8122
+      protocol: TCP
+    - name: port-8123
+      port: 8123
+      targetPort: 8123
+      protocol: TCP
+    - name: port-8124
+      port: 8124
+      targetPort: 8124
+      protocol: TCP
+    - name: port-8125
+      port: 8125
+      targetPort: 8125
+      protocol: TCP
+    - name: port-8126
+      port: 8126
+      targetPort: 8126
+      protocol: TCP
+    - name: port-8127
+      port: 8127
+      targetPort: 8127
+      protocol: TCP
+    - name: port-8128
+      port: 8128
+      targetPort: 8128
+      protocol: TCP
+    - name: port-8129
+      port: 8129
+      targetPort: 8129
+      protocol: TCP
+    - name: port-8130
+      port: 8130
+      targetPort: 8130
+      protocol: TCP
+    - name: port-8131
+      port: 8131
+      targetPort: 8131
+      protocol: TCP
+    - name: port-8132
+      port: 8132
+      targetPort: 8132
+      protocol: TCP
+    - name: port-8133
+      port: 8133
+      targetPort: 8133
+      protocol: TCP
+    - name: port-8134
+      port: 8134
+      targetPort: 8134
+      protocol: TCP
+    - name: port-8135
+      port: 8135
+      targetPort: 8135
+      protocol: TCP
+    - name: port-8136
+      port: 8136
+      targetPort: 8136
+      protocol: TCP
+    - name: port-8137
+      port: 8137
+      targetPort: 8137
+      protocol: TCP
+    - name: port-8138
+      port: 8138
+      targetPort: 8138
+      protocol: TCP
+    - name: port-8139
+      port: 8139
+      targetPort: 8139
+      protocol: TCP
+    - name: port-8140
+      port: 8140
+      targetPort: 8140
+      protocol: TCP
+    - name: port-8141
+      port: 8141
+      targetPort: 8141
+      protocol: TCP
+    - name: port-8142
+      port: 8142
+      targetPort: 8142
+      protocol: TCP
+    - name: port-8143
+      port: 8143
+      targetPort: 8143
+      protocol: TCP
+    - name: port-8144
+      port: 8144
+      targetPort: 8144
+      protocol: TCP
+    - name: port-8145
+      port: 8145
+      targetPort: 8145
+      protocol: TCP
+    - name: port-8146
+      port: 8146
+      targetPort: 8146
+      protocol: TCP
+    - name: port-8147
+      port: 8147
+      targetPort: 8147
+      protocol: TCP
+    - name: port-8148
+      port: 8148
+      targetPort: 8148
+      protocol: TCP
+    - name: port-8149
+      port: 8149
+      targetPort: 8149
+      protocol: TCP
+    - name: port-8150
+      port: 8150
+      targetPort: 8150
+      protocol: TCP
+    - name: port-8151
+      port: 8151
+      targetPort: 8151
+      protocol: TCP
+    - name: port-8152
+      port: 8152
+      targetPort: 8152
+      protocol: TCP
+    - name: port-8153
+      port: 8153
+      targetPort: 8153
+      protocol: TCP
+    - name: port-8154
+      port: 8154
+      targetPort: 8154
+      protocol: TCP
+    - name: port-8155
+      port: 8155
+      targetPort: 8155
+      protocol: TCP
+    - name: port-8156
+      port: 8156
+      targetPort: 8156
+      protocol: TCP
+    - name: port-8157
+      port: 8157
+      targetPort: 8157
+      protocol: TCP
+    - name: port-8158
+      port: 8158
+      targetPort: 8158
+      protocol: TCP
+    - name: port-8159
+      port: 8159
+      targetPort: 8159
+      protocol: TCP
+    - name: port-8160
+      port: 8160
+      targetPort: 8160
+      protocol: TCP
+    - name: port-8161
+      port: 8161
+      targetPort: 8161
+      protocol: TCP
+    - name: port-8162
+      port: 8162
+      targetPort: 8162
+      protocol: TCP
+    - name: port-8163
+      port: 8163
+      targetPort: 8163
+      protocol: TCP
+    - name: port-8164
+      port: 8164
+      targetPort: 8164
+      protocol: TCP
+    - name: port-8165
+      port: 8165
+      targetPort: 8165
+      protocol: TCP
+    - name: port-8166
+      port: 8166
+      targetPort: 8166
+      protocol: TCP
+    - name: port-8167
+      port: 8167
+      targetPort: 8167
+      protocol: TCP
+    - name: port-8168
+      port: 8168
+      targetPort: 8168
+      protocol: TCP
+    - name: port-8169
+      port: 8169
+      targetPort: 8169
+      protocol: TCP
+    - name: port-8170
+      port: 8170
+      targetPort: 8170
+      protocol: TCP
+    - name: port-8171
+      port: 8171
+      targetPort: 8171
+      protocol: TCP
+    - name: port-8172
+      port: 8172
+      targetPort: 8172
+      protocol: TCP
+    - name: port-8173
+      port: 8173
+      targetPort: 8173
+      protocol: TCP
+    - name: port-8174
+      port: 8174
+      targetPort: 8174
+      protocol: TCP
+    - name: port-8175
+      port: 8175
+      targetPort: 8175
+      protocol: TCP
+    - name: port-8176
+      port: 8176
+      targetPort: 8176
+      protocol: TCP
+    - name: port-8177
+      port: 8177
+      targetPort: 8177
+      protocol: TCP
+    - name: port-8178
+      port: 8178
+      targetPort: 8178
+      protocol: TCP
+    - name: port-8179
+      port: 8179
+      targetPort: 8179
+      protocol: TCP
+    - name: port-8180
+      port: 8180
+      targetPort: 8180
+      protocol: TCP

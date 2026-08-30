@@ -10,6 +10,9 @@ resources:
   - external-secret-ts-authkey.yaml
   - pvc.yaml
   - networkpolicy.yaml
+  - egress-gateway-deployment.yaml
+  - egress-gateway-service.yaml
+  - egress-gateway-networkpolicy.yaml
   - deployment.yaml
   - service.yaml
   - ingress-tailscale.yaml

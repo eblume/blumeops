@@ -415,7 +415,7 @@ services:
 
   - name: talos
     type: argocd
-    last-reviewed: "2026-08-21"
+    last-reviewed: "2026-08-30"
     current-version: "v0.4.43"
     upstream-source: https://forge.eblu.me/eblume/talos
     notes: >-

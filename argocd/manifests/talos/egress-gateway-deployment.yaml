@@ -1,0 +1,106 @@
+# Egress gateway (design: eblume/talos docs/design/egress-gateway.md,
+# eblume/talos#69): the talos pod's single legal egress point. Runs the
+# talos image with the gateway command (Bun forward proxy, base port 8080
+# + 100 per-session ports) instead of the entrypoint, plus the Tailscale
+# userspace sidecar that holds the tag:agent tailnet identity. The agent
+# pod's deny-by-default egress fence (networkpolicy.yaml, flipped in a
+# later PR) makes this the pod's only egress once it lands.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: egress-gateway
+  namespace: talos
+  labels:
+    app: egress-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: egress-gateway
+  template:
+    metadata:
+      labels:
+        app: egress-gateway
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      containers:
+        - name: gateway
+          image: registry.ops.eblu.me/blumeops/talos:kustomized
+          # The image's default Cmd is the agent entrypoint (git bootstrap,
+          # repo pool, server) — the gateway pod runs only the proxy, so
+          # override it. The port count is pinned here to match the
+          # Service's port list and the agent pod's EGRESS_GATEWAY_URL
+          # contract.
+          command: ["/bin/bash", "-c"]
+          args: ["exec bun run /app/src/egress-gateway.ts"]
+          env:
+            - name: EGRESS_GATEWAY_BASE_PORT
+              value: "8080"
+            - name: EGRESS_GATEWAY_SESSIONS
+              value: "100"
+            # The ts sidecar's local SOCKS5 (same pod, loopback) — the
+            # gateway's only path to the tailnet (MagicDNS + CGNAT dials).
+            - name: EGRESS_SOCKS_UPSTREAM
+              value: "127.0.0.1:1055"
+          ports:
+            - containerPort: 8080
+              name: base
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1500
+            runAsGroup: 1500
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          # The base port serves the proxy and the control API from
+          # process start — a TCP probe catches a wedged relay process.
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+        # The tag:agent egress identity moves here from the agent pod:
+        # tailnet traffic transits the gateway and presents tag:agent.
+        # (During the staging window the talos pod still runs its own
+        # sidecar with the same hostname — stage 2 drops it.)
+        - name: ts
+          image: registry.ops.eblu.me/blumeops/tailscale:v1.98.5-623e89a-nix
+          env:
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: ts-agent-authkey
+                  key: TS_AUTHKEY
+            - name: TS_USERSPACE
+              value: "true"
+            - name: TS_SOCKS5_SERVER
+              value: "localhost:1055"
+            - name: TS_STATE_DIR
+              value: "/tmp/ts"
+            - name: TS_KUBE_SECRET
+              value: ""
+            - name: TS_HOSTNAME
+              value: "talos-agent"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: ts-tmp
+              mountPath: /tmp
+      volumes:
+        - name: ts-tmp
+          emptyDir: {}

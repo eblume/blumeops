@@ -1,0 +1,20 @@
+# Ingress fence for the egress gateway: only the talos agent pod may reach
+# it. Without this the gateway would be an open forward proxy (and an
+# unauthenticated session-tag control API) for every pod in the cluster.
+# All ports from the agent pod are admitted — the gateway pod binds exactly
+# the proxy listener range, so nothing else is reachable.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: egress-gateway-ingress
+  namespace: talos
+spec:
+  podSelector:
+    matchLabels:
+      app: egress-gateway
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: talos
