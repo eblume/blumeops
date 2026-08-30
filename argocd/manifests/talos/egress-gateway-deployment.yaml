@@ -43,6 +43,15 @@ spec:
             # gateway's only path to the tailnet (MagicDNS + CGNAT dials).
             - name: EGRESS_SOCKS_UPSTREAM
               value: "127.0.0.1:1055"
+            # Explicit even though they match the code defaults: v0.4.43's
+            # env plumbing lets an unset var clobber the default with
+            # undefined, which made `443 !== cfg.connectPort` true and
+            # blocked ALL egress (talos#69). Pinning them here both works
+            # around that and makes the allowed-port contract auditable.
+            - name: EGRESS_FORWARD_PORT
+              value: "80"
+            - name: EGRESS_CONNECT_PORT
+              value: "443"
           ports:
             - containerPort: 8080
               name: base
