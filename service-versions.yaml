@@ -664,10 +664,15 @@ services:
 
   - name: dagger
     type: mise
-    last-reviewed: 2026-04-21
-    current-version: "0.21.8"
+    last-reviewed: 2026-08-30
+    current-version: "0.21.9"
     upstream-source: https://github.com/dagger/dagger/releases
-    notes: Dagger CI/CD engine; pinned in mise.toml
+    notes: >-
+      Dagger CI/CD engine; pinned in mise.toml (mirrored in dagger.json
+      engineVersion, forgejo_runner_host_tools, and the tool card).
+      2026-08-30 review: bumped 0.21.8 -> 0.21.9 (patch; SSHFS-backed
+      volumes added, six fixes, no breaking changes); verified 0.21.9
+      installs+runs in the pod.
 
   - name: ansible-core
     type: mise

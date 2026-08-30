@@ -57,7 +57,7 @@ forgejo_runner_labels:
 #
 # So the review order is: bump the source of truth first, then realign here.
 forgejo_runner_host_tools:
-  - dagger@0.21.8
+  - dagger@0.21.9
   - prek@0.4.14
   - flyctl@0.4.87
   # argocd stays as a mise-x fallback for any argocd job that lands on this
