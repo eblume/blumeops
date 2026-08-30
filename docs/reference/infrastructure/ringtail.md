@@ -18,6 +18,7 @@ Service host and gaming PC. Custom-built PC running NixOS.
 | **CPU** | AMD Ryzen 7 1700X (8-core/16-thread, 3.4 GHz) |
 | **RAM** | 32 GB DDR4 (4x8 GB Corsair Vengeance CMK16GX4M2B3200C16, 3200 MT/s DOCP) |
 | **GPU** | NVIDIA GeForce RTX 4080 (AD103, 16 GB VRAM) |
+| **PSU** | EVGA SuperNOVA 850 G3 (850 W, 80+ Gold, fully modular; 4080 fed via the 8-pin→12VHPWR adapter) |
 | **Monitor** | HP OMEN 27i IPS (2560x1440, 165 Hz, DisplayPort) |
 | **Storage (boot)** | Samsung 970 PRO 1TB NVMe |
 | **Storage (SATA)** | Samsung 850 EVO 1TB (`/mnt/games`), 850 EVO 500GB (`/mnt/storage1`), 840 PRO 120GB (`/mnt/storage2`) |
