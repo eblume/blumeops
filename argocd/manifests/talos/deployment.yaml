@@ -130,6 +130,17 @@ spec:
             # literal, so it resolves under dnsPolicy: None without a lookup.
             - name: EGRESS_GATEWAY_URL
               value: "http://10.43.254.1:8080"
+            # Cluster-internal destinations are not egress: without this the
+            # server's ambient proxy env routed the OIDC discovery fetch
+            # (TALOS_OIDC_INTERNAL_URL) into the gateway, which rightly
+            # blocked it (private address, port 9000) and the server
+            # crash-looped at startup. The server appends its own loopback +
+            # gateway entries to this list. Stage 3 note: the deny-by-default
+            # fence must carry a matching egress rule to authentik's
+            # namespace (and cluster DNS) or this fetch dies at the kernel
+            # instead (eblume/talos#69).
+            - name: no_proxy
+              value: ".cluster.local,authentik.authentik.svc.cluster.local"
           envFrom:
             - secretRef:
                 name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN
