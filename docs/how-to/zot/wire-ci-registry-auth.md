@@ -1,7 +1,7 @@
 ---
 title: Wire CI Registry Auth
 modified: 2026-06-18
-last-reviewed: 2026-08-29
+last-reviewed: 2026-08-30
 tags:
   - how-to
   - zot
