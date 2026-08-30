@@ -1,1 +1,0 @@
-Monthly deps refresh: ruff 0.16.3 -> 0.16.4 (prek hook), Fly proxy tailscale v1.102.2 -> v1.102.3 (digest-pinned), ty 0.0.72 -> 0.0.74 and flyctl 0.4.84 -> 0.4.87 (mise pins). nginx stays at 1.30.4-alpine (latest on the 1.30 stable train; house policy tracks stable, not mainline 1.31.x). All other hook revs, PEP 723 pins and actions/checkout v7.0.1 already current.

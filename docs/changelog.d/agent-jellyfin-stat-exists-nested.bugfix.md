@@ -1,1 +1,0 @@
-The jellyfin role checked `jellyfin_binary_stat.exists`, but recent ansible-core releases no longer expose the stat module's flattened top-level result keys, so `provision-indri` failed with "object of type 'dict' has no attribute 'exists'". The role now uses the nested `jellyfin_binary_stat.stat.exists` form, matching the other roles.
