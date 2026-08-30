@@ -17,10 +17,10 @@ Build engine for BlumeOps CI/CD pipelines. Replaces shell-based build scripts wi
 | Property | Value |
 |----------|-------|
 | **Module** | `blumeops` |
-| **Engine Version** | v0.21.8 |
+| **Engine Version** | v0.21.9 |
 | **SDK** | Python |
 | **Source** | `src/blumeops/main.py` |
-| **Config** | `dagger.json` (engineVersion v0.21.8, Python SDK) |
+| **Config** | `dagger.json` (engineVersion v0.21.9, Python SDK) |
 
 ## Functions
 
