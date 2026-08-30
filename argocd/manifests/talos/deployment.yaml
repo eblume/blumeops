@@ -1,7 +1,8 @@
-# Talos: browser-driven pi agent sessions. Two containers:
-#   talos — Bun server (sessions, SSE, OIDC, /api/transcribe) + pi runtime
-#   ts    — userspace Tailscale sidecar; the pod's OWN tag:agent identity and
-#           the only path to the tailnet (enforced by the egress NetworkPolicy)
+# Talos: browser-driven pi agent sessions.
+#   talos — Bun server (sessions, SSE, OIDC, /api/transcribe) + pi runtime.
+#           Tailnet egress routes through the egress-gateway pod (which holds
+#           the tag:agent identity) via EGRESS_GATEWAY_URL; the gateway
+#           resolves proxied hostnames itself, so the pod runs dnsPolicy: None.
 #
 # RWO PVC → Recreate strategy.
 apiVersion: apps/v1
@@ -26,6 +27,19 @@ spec:
       # The service is named 'talos', so k8s service links would inject
       # TALOS_PORT=tcp://... — colliding with the app's own env contract.
       enableServiceLinks: false
+      # The egress gateway resolves every proxied hostname, and the pod's
+      # few direct egresses (op → 1Password) use FQDNs — cluster DNS plus the
+      # standard search paths covers the rest. If verification finds a client
+      # that genuinely needs more, the fallback is ClusterFirst
+      # (eblume/talos#69 stage 2).
+      dnsPolicy: None
+      dnsConfig:
+        nameservers:
+          - "10.43.0.10"
+        searches:
+          - "talos.svc.cluster.local"
+          - "svc.cluster.local"
+          - "cluster.local"
       securityContext:
         fsGroup: 1500
       initContainers:
@@ -111,6 +125,11 @@ spec:
             # 01M0RB6W2N2GZE2FH16EQC21QG.
             - name: TALOS_ADMINS
               value: "blume.erich@gmail.com"
+            # The egress-gateway Service's fixed clusterIP (scheme+host[:port]
+            # is the contract the entrypoint, wrappers, and server parse). IP
+            # literal, so it resolves under dnsPolicy: None without a lookup.
+            - name: EGRESS_GATEWAY_URL
+              value: "http://10.43.254.1:8080"
           envFrom:
             - secretRef:
                 name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN
@@ -158,44 +177,10 @@ spec:
             - name: repos-policy
               mountPath: /etc/talos
               readOnly: true
-        # ── userspace Tailscale sidecar (tag:agent) ──────────────────────
-        # TS_HOSTNAME deliberately differs from the ingress MagicDNS name
-        # ("talos", owned by the ProxyGroup) — this is the pod's egress
-        # identity, not its ingress address.
-        - name: ts
-          image: registry.ops.eblu.me/blumeops/tailscale:v1.98.5-623e89a-nix
-          env:
-            - name: TS_AUTHKEY
-              valueFrom:
-                secretKeyRef:
-                  name: ts-agent-authkey
-                  key: TS_AUTHKEY
-            - name: TS_USERSPACE
-              value: "true"
-            - name: TS_SOCKS5_SERVER
-              value: "localhost:1055"
-            - name: TS_STATE_DIR
-              value: "/tmp/ts"
-            - name: TS_KUBE_SECRET
-              value: ""
-            - name: TS_HOSTNAME
-              value: "talos-agent"
-          resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 500m
-              memory: 256Mi
-          volumeMounts:
-            - name: ts-tmp
-              mountPath: /tmp
       volumes:
         - name: home
           persistentVolumeClaim:
             claimName: talos-home
-        - name: ts-tmp
-          emptyDir: {}
         - name: heph-socket
           hostPath:
             path: /home/agent/.local/share/heph
