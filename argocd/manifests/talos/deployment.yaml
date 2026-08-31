@@ -153,20 +153,28 @@ spec:
               drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
-          # /auth/login answers 302 in both OIDC and open modes — a liveness
-          # signal that needs no cookie.
+          # /healthz on the metrics server (:9464, same Bun process and event
+          # loop as the main server — a wedged process fails both) is the cheap
+          # dedicated probe target; there is no /healthz on :3000, and
+          # /auth/login there redirects (kubelet logged a ProbeWarning on every
+          # check) and renders a page. With the default 1s timeout, 90s of a
+          # busy event loop under multi-session load was enough to
+          # liveness-kill the pod and every session in it (2026-08-31). 5s
+          # tolerates load spikes; a truly hung server still dies in ~3 periods.
           livenessProbe:
             httpGet:
-              path: /auth/login
-              port: 3000
+              path: /healthz
+              port: 9464
             initialDelaySeconds: 30
             periodSeconds: 30
+            timeoutSeconds: 5
           readinessProbe:
             httpGet:
-              path: /auth/login
-              port: 3000
+              path: /healthz
+              port: 9464
             initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 5
           resources:
             requests:
               cpu: 250m
