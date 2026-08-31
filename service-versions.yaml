@@ -345,13 +345,8 @@ services:
     current-version: "6.20.3"
     upstream-source: https://github.com/devpi/devpi/releases
     notes: >-
-      2026-08-31 review: devpi-server 6.19.3 → 6.20.3 and devpi-web 5.0.2 →
-      5.1.1 (upstream latest stable on both; 7.0.0b4 is prerelease-only, not
-      taken). Changelog 6.20.0-6.20.3 is bug fixes incl. a replication-auth
-      security fix (6.20.2), no breaking changes; web 5.1.x is backward
-      compatible with server 6.20.x. Pod-verified: uv resolves/installs both
-      pins cleanly (dry-run, 55 packages, CPython 3.14.6 x86_64-linux — the
-      pod has no 3.12 interpreter, so this is a proxy for indri's 3.12).
+      Installed via uv into a venv on indri; devpi-server and devpi-web
+      version pins live in ansible/roles/devpi/defaults/main.yml.
 
   - name: cv
     type: ansible
