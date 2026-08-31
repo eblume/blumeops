@@ -12,6 +12,7 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: alloy
+  # PSA exempt: shares the `alloy` namespace with alloy-tracing-ringtail (privileged + hostPID)
   syncPolicy:
     automated:
       # This app renders config through a kustomize configMapGenerator, so

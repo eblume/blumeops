@@ -22,6 +22,7 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: cnpg-system
+  # PSA deferred: operator-created pods (CNPG) have no repo manifest; judged with kubectl before labeling
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
