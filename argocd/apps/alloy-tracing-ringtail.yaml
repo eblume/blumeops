@@ -12,6 +12,7 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: alloy
+  # PSA exempt: privileged + hostPID (Beyla eBPF needs both)
   syncPolicy:
     automated:
       # This app renders config through a kustomize configMapGenerator, so

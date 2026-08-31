@@ -13,6 +13,7 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: nvidia-device-plugin
+  # PSA exempt: privileged + hostPath (NVIDIA GPU device plugin)
   syncPolicy:
     automated: {}
     syncOptions:

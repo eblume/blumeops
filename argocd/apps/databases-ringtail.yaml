@@ -21,6 +21,7 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: databases
+  # PSA deferred: CNPG database pods are operator-created; judged with kubectl before labeling
   syncPolicy:
     automated: {}
     syncOptions:

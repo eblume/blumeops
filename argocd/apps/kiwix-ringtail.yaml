@@ -25,6 +25,10 @@ spec:
       prune: true
     syncOptions:
       - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/warn: restricted
+        pod-security.kubernetes.io/audit: restricted
   # Ignore zim-hash annotation - updated dynamically by zim-watcher CronJob
   ignoreDifferences:
     - group: apps

@@ -19,6 +19,7 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: prowler
+  # PSA exempt: hostPID + hostPath (the scanner itself reads the node it audits)
   syncPolicy:
     automated:
       # This app renders config through a kustomize configMapGenerator, so
