@@ -1,10 +1,29 @@
-# Egress fence: block the tailnet CGNAT range so the pod
-# cannot reach tailnet hosts via node NAT (which would present ringtail's
-# tag:homelab identity). All tailnet access goes through the sidecar's own
-# WireGuard as tag:agent. Direct egress to the internet (OpenRouter,
-# Authentik via its public route) is unaffected. Ingress (ProxyGroup →
-# talos service) is not restricted by this policy — policyTypes is
-# Egress-only.
+# Egress fence, deny-by-default (eblume/talos#69 stage 3): the legal egress
+# for the talos agent pod is exactly three things.
+#
+#   1. the egress-gateway pod — every real egress connection (public and
+#      tailnet) transits it, SNI-logged with a session tag. Traffic aimed at
+#      the gateway Service's fixed clusterIP (10.43.254.1) DNATs to a
+#      gateway pod before policy evaluation, so one podSelector covers both.
+#      The CGNAT range the pod used to be carved out from (100.64.0.0/10) is
+#      now denied by default — the tailnet is only reachable through the
+#      gateway, which holds the tag:agent identity.
+#   2. cluster DNS (kube-dns in kube-system, 53 UDP+TCP) — the pod runs
+#      dnsPolicy: None with nameservers pinned at 10.43.0.10; the gateway
+#      resolves proxied hostnames, but direct clients (op, in-cluster OIDC
+#      discovery) resolve themselves. CoreDNS forwarding arbitrary external
+#      names upstream is an accepted exfiltration surface (talos
+#      docs/design/egress-gateway.md, Risks).
+#   3. authentik (9000 TCP) — the in-cluster OIDC issuer fetch
+#      (TALOS_OIDC_INTERNAL_URL). It is exempt from the pod's proxy env by
+#      no_proxy, which is exactly why the fence must admit it: in-cluster
+#      service traffic is not egress and is admitted direct instead of
+#      tunneled.
+#
+# Everything else is refused by the kernel. Merging this file is the
+# cutover — egress becomes mandatory at the kernel — so it belongs in a
+# human change window; recovery from a misconfiguration is a single
+# `git revert` of this file.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -17,7 +36,22 @@ spec:
   policyTypes: [Egress]
   egress:
     - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0
-            except:
-              - 100.64.0.0/10
+        - podSelector:
+            matchLabels:
+              app: egress-gateway
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: authentik
+      ports:
+        - { protocol: TCP, port: 9000 }
