@@ -9,7 +9,9 @@
 #   last-reviewed   - date (YYYY-MM-DD) or null
 #   current-version - deployed version string or null
 #   upstream-source - URL to upstream releases/changelog
-#   notes           - optional context
+#   notes           - optional deployment context (how the service is deployed);
+#                     not a per-review log — put review findings in the changelog
+#                     fragment / heph instead
 
 services:
   - name: prometheus

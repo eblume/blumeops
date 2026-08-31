@@ -125,7 +125,7 @@ The recurring review task covers the **single most-stale service** — the one
 rest in the queue for future runs. If the upgrade is genuinely out of scope
 for one sitting (e.g. a major train jump with migrations), do the largest
 safe step now (such as the latest patch on the current train) and file the
-rest as its own heph task, noting why in `notes`.
+rest as its own heph task, noting why in the task body.
 
 ## Remote-Agent Reviews
 
@@ -153,8 +153,11 @@ needs nix or a builder:
    new request with `--supersedes <id>` since the head SHA moved. After a
    green build, point the manifest `newTag` at the pushed
    `v<version>-<sha7>-nix` tag.
-4. Stamp `last-reviewed`, update `current-version`, and record findings in
-   `notes` (date-prefixed, e.g. `2026-07-17 review: …`).
+4. Stamp `last-reviewed` and update `current-version`. Record what changed
+   and why in the changelog fragment (see AGENTS.md) and the heph log doc —
+   do not write review findings into `notes`. `notes` describes how the
+   service is deployed at all, not a per-review log; only touch it if the
+   deployment relationship itself changed.
 5. Deploys need nothing from you or the human in the common case: auto-sync
    apps deploy themselves on merge. Only the four manual apps or a
    revision pin warrant a `mise run request-run argocd-deploy.yaml …` —
