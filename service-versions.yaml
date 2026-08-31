@@ -341,10 +341,12 @@ services:
 
   - name: devpi
     type: ansible
-    last-reviewed: 2026-04-29
-    current-version: "6.19.3"
+    last-reviewed: 2026-08-31
+    current-version: "6.20.3"
     upstream-source: https://github.com/devpi/devpi/releases
-    notes: Installed via uv into a venv on indri; version pinned in ansible/roles/devpi/defaults/main.yml
+    notes: >-
+      Installed via uv into a venv on indri; devpi-server and devpi-web
+      version pins live in ansible/roles/devpi/defaults/main.yml.
 
   - name: cv
     type: ansible

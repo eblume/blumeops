@@ -8,8 +8,8 @@ devpi_binary: "{{ devpi_venv }}/bin/devpi-server"
 devpi_init_binary: "{{ devpi_venv }}/bin/devpi-init"
 
 devpi_python_version: "3.12"
-devpi_server_version: "6.19.3"
-devpi_web_version: "5.0.2"
+devpi_server_version: "6.20.3"
+devpi_web_version: "5.1.1"
 
 devpi_host: 127.0.0.1
 devpi_port: 3141
