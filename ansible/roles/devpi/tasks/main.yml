@@ -33,7 +33,8 @@
       devpi-server=={{ devpi_server_version }}
       devpi-web=={{ devpi_web_version }}
   register: devpi_pip_install
-  changed_when: "'Installed' in devpi_pip_install.stdout or 'Uninstalled' in devpi_pip_install.stdout"
+  # uv writes its progress ("Installed N packages") to stderr, not stdout.
+  changed_when: "'Installed' in devpi_pip_install.stderr or 'Uninstalled' in devpi_pip_install.stderr"
   notify: Restart devpi
 
 - name: Check if devpi server-dir is initialized
