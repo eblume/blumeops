@@ -303,38 +303,37 @@ in
   # Only swap under genuine pressure — keep the game's hot working set resident.
   boot.kernel.sysctl."vm.swappiness" = 10;
 
-  # systemd-oomd swap-kill. The zram valve above stops the *kernel* OOM-killer
-  # from firing on a host memory spike, but adds no real capacity — a game spike
-  # (CK3, Diablo 4) can still fill zram to ~95% and thrash the whole host into a
-  # multi-minute memory-pressure stall (everything frozen, sshd included). oomd
-  # was running but monitored nothing.
+  # systemd-oomd pressure-kill, scoped to user.slice. The zram valve above stops
+  # the *kernel* OOM-killer from firing on a host memory spike, but adds no real
+  # capacity — a game spike (CK3, Diablo 4) can still fill zram and thrash the
+  # whole host into a multi-minute memory-pressure stall (everything frozen,
+  # sshd included).
   #
-  # Goal: when the host exhausts swap, NON-k3s processes die first. Pods are
-  # pinned to no-swap (fail-swap-on=false + NoSwap policy above), so the only
-  # cgroups holding swap are host/user procs — chiefly the gaming session
-  # (user.slice ~15G swap vs k3s.service ~47M, kubepods ~0). ManagedOOMSwap=kill
-  # on the root slice makes oomd kill the heaviest-swap cgroup when swap crosses
-  # SwapUsedLimit, which is therefore always a non-k3s process. Pod OOM remains
-  # the job of each pod's memory limit + the kernel cgroup OOM-killer, untouched.
+  # Goal: when the host genuinely thrashes, the gaming/desktop session dies
+  # first and k3s pods are never candidates. enableUserSlices puts
+  # ManagedOOMMemoryPressure=kill on user.slice, so oomd watches that slice's
+  # PSI and only ever kills its *descendants* (session scopes, user@ services)
+  # — kubepods and k3s.service are structurally out of scope. Pod OOM remains
+  # the job of each pod's memory limit + the kernel cgroup OOM-killer. We still
+  # avoid enableRootSlice: root-slice pressure-kill picks victims across ALL
+  # descendants, including pods.
   #
-  # We deliberately avoid systemd.oomd.enableRootSlice: it enrolls the root slice
-  # for *pressure*-based killing, which picks a victim by memory footprint across
-  # all descendants and could reap a big pod (immich) before the game — the
-  # opposite of "non-k3s first".
-  systemd.slices."-".sliceConfig.ManagedOOMSwap = "kill";
+  # History: 2026-06→08 this was ManagedOOMSwap=kill on the root slice with
+  # SwapUsedLimit=80%. That trigger ratchets: swap-slot accounting goes stale
+  # (at 111d uptime the counter read 12.6G "used" while zram held ~1.6G of real
+  # data), the counter never recrosses the threshold, and the kills themselves
+  # can't reclaim the stale slots that armed them — so every RAM spike executed
+  # the sway session even with no game running. PSI is measured, not bookkept,
+  # so it cannot go stale.
+  systemd.oomd.enableUserSlices = true;
 
-  # Act before zram is fully saturated — at 90% of a 15G zram the host is already
-  # thrashing. 80% gives oomd room to kill while reclaim still works.
-  environment.etc."systemd/oomd.conf.d/ringtail.conf".text = ''
-    [OOM]
-    SwapUsedLimit=80%
-  '';
-
-  # oomd reads oomd.conf only at startup and NixOS won't restart it for a drop-in
-  # change; restart oomd when our SwapUsedLimit override changes.
-  systemd.services.systemd-oomd.restartTriggers = [
-    config.environment.etc."systemd/oomd.conf.d/ringtail.conf".source
-  ];
+  # Module default is 80% avg10 full-pressure — near-total stall; the June
+  # freezes showed ~30% *system-wide* while the host was already unusable for
+  # minutes. 50% sustained for the default 30s inside user.slice means the
+  # session is thrashing hard, well before the whole host wedges. Verify with
+  # `oomctl`: user.slice under "Memory Pressure Monitored CGroups", and no
+  # swap-monitored cgroups anymore.
+  systemd.slices."user".sliceConfig.ManagedOOMMemoryPressureLimit = "50%";
 
   # K3s containerd registry mirrors (pull through Zot on indri)
   environment.etc."rancher/k3s/registries.yaml".source = ./k3s-registries.yaml;
