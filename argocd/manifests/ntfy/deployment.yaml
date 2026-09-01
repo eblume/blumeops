@@ -15,11 +15,17 @@ spec:
         app: ntfy
     spec:
       securityContext:
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: ntfy
           image: registry.ops.eblu.me/blumeops/ntfy:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           args: ["serve", "--config", "/etc/ntfy/server.yml"]
           ports:
             - containerPort: 80

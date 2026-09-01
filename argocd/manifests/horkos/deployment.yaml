@@ -17,6 +17,7 @@ spec:
         app: horkos
     spec:
       securityContext:
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
         fsGroup: 1500

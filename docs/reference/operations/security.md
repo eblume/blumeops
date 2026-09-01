@@ -1,6 +1,6 @@
 ---
 title: Security
-modified: 2026-08-30
+modified: 2026-09-01
 last-reviewed: 2026-08-30
 tags:
   - operations
@@ -36,9 +36,17 @@ Rollout (heph `01KVQX81703HDE77ED88XDPSR2`):
 2. Read the warnings and fix the near-miss workloads field by field.
 3. Switch on `enforce` per namespace as each goes quiet; exemptions last.
 
-Current state: step 1 landed — `warn` + `audit` labels on every app namespace
-(no `enforce` yet). Enforcement follows in per-namespace PRs once warnings
-are read.
+Current state: step 2 is landing — the four restricted-required fields
+(`runAsNonRoot` + `seccompProfile: RuntimeDefault` at pod level,
+`allowPrivilegeEscalation: false` + `capabilities drop ALL` at container
+level) are being added to the near-miss workloads under eblume/blumeops#753
+(no `enforce` yet). Two known residual warning sources remain, both
+documented exceptions that block their own namespace's `enforce` flip:
+grafana's `init-chown-data` init container runs as root with CHOWN (needs a
+non-root chown pattern), and birdnet-go (added after this rollout's label
+pass, #765) runs its whole container as root (upstream image has no USER;
+needs a non-root image or uid+PVC-ownership work). Enforcement follows in
+per-namespace PRs once warnings are quiet.
 
 | Namespace(s) | Target | Notes |
 |---|---|---|

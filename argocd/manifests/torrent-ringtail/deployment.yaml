@@ -15,6 +15,7 @@ spec:
         app: transmission
     spec:
       securityContext:
+        runAsNonRoot: true
         # The Nix image has a fixed uid-1000 user (no PUID/su-exec dance);
         # fsGroup makes the /config emptyDir writable for it. Matches the
         # ownership of the existing NFS download dirs.
@@ -26,6 +27,11 @@ spec:
       containers:
         - name: transmission
           image: registry.ops.eblu.me/blumeops/transmission:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: PUID
               value: "1000"
@@ -77,6 +83,11 @@ spec:
             periodSeconds: 10
         - name: transmission-exporter
           image: registry.ops.eblu.me/blumeops/transmission-exporter:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           env:
             # exporter.py parses user:pass out of the ADDR URL; $(VAR) is
             # kubelet env interpolation of the two secret-sourced vars above.

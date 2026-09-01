@@ -17,12 +17,18 @@ spec:
         component: worker
     spec:
       securityContext:
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: worker
           image: registry.ops.eblu.me/blumeops/authentik:kustomized
           args: ["worker"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: AUTHENTIK_SECRET_KEY
               valueFrom:

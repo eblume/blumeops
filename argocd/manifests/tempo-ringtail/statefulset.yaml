@@ -23,6 +23,11 @@ spec:
       containers:
         - name: tempo
           image: grafana/tempo:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           args:
             - -config.file=/etc/tempo/tempo.yaml
           ports:
