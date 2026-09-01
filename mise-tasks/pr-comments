@@ -38,9 +38,11 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 
-# Public host, as request-run and verify-runs use: reachable directly from an
-# agent pod, unlike the tailnet name forge.ops.eblu.me.
-FORGE_API_BASE = "https://forge.eblu.me/api/v1"
+# Tailnet name, as request-run and verify-runs use: in-cluster DNS rewrites
+# forge.eblu.me to indri, whose Caddy holds no cert for that name, so HTTPS
+# to the public name dies in the TLS handshake from a pod
+# (docs/reference/services/argocd.md).
+FORGE_API_BASE = "https://forge.ops.eblu.me/api/v1"
 DEFAULT_REPO = "eblume/blumeops"
 PAGE_SIZE = 50
 

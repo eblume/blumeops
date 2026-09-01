@@ -42,7 +42,9 @@ import httpx
 import typer
 from rich.console import Console
 
-FORGE_API_BASE = "https://forge.eblu.me/api/v1"
+# Tailnet name — the public forge.eblu.me is HTTPS-poison in-cluster
+# (docs/reference/services/argocd.md).
+FORGE_API_BASE = "https://forge.ops.eblu.me/api/v1"
 REPO = "eblume/blumeops"
 TITLE_RE = re.compile(r"^Approve: (?P<workflow>\S+) @ (?P<sha7>[0-9a-f]{7}) \(PR #(?P<pr>\d+)\)$")
 

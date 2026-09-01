@@ -63,8 +63,12 @@ import httpx
 import typer
 from rich.console import Console
 
+# FORGE_BASE is for human-facing links only. API calls use the tailnet name:
+# in-cluster DNS rewrites forge.eblu.me to indri, whose Caddy holds no cert
+# for that name, so HTTPS to the public name dies in the TLS handshake
+# (docs/reference/services/argocd.md: "safe for SSH and poison for HTTPS").
 FORGE_BASE = "https://forge.eblu.me"
-FORGE_API_BASE = f"{FORGE_BASE}/api/v1"
+FORGE_API_BASE = "https://forge.ops.eblu.me/api/v1"
 REPO_OWNER = "eblume"
 REPO_NAME = "blumeops"
 REPO_API = f"{FORGE_API_BASE}/repos/{REPO_OWNER}/{REPO_NAME}"

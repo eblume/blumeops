@@ -46,7 +46,9 @@ import httpx
 import typer
 from rich.console import Console
 
-FORGE_API = "https://forge.eblu.me/api/v1"
+# Tailnet name — the public forge.eblu.me is HTTPS-poison in-cluster
+# (docs/reference/services/argocd.md).
+FORGE_API = "https://forge.ops.eblu.me/api/v1"
 BOT_USER = "warrant-bot"
 BOT_EMAIL = "warrant-bot@eblu.me"
 TARGET_REPO = ("eblume", "blumeops")

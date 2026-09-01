@@ -34,12 +34,13 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-# The public host, as request-run and verify-runs use. forge.ops.eblu.me is the
-# tailnet name and is reachable from an agent pod only through the SOCKS proxy,
-# which plain httpx cannot speak — the symptom was a bare "Connection refused"
-# that reads like the forge is down.
+# FORGE_URL is for human-facing links only. API calls use the tailnet name:
+# reachable from an agent pod since the stage-2 egress gateway (an HTTP proxy
+# plain httpx speaks), while the public forge.eblu.me is HTTPS-poison
+# in-cluster — DNS-rewritten to indri, whose Caddy holds no cert for it
+# (docs/reference/services/argocd.md).
 FORGE_URL = "https://forge.eblu.me"
-FORGE_API = f"{FORGE_URL}/api/v1"
+FORGE_API = "https://forge.ops.eblu.me/api/v1"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
 
 # Workflows using the ringtail nix-container-builder runner; everything else
