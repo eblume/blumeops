@@ -30,6 +30,7 @@ spec:
         app: paperless
     spec:
       securityContext:
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       initContainers:
@@ -39,6 +40,11 @@ spec:
         - name: redis
           image: docker.io/library/redis:kustomized
           restartPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 6379
           volumeMounts:
@@ -52,6 +58,11 @@ spec:
               memory: "128Mi"
         - name: migrate
           image: registry.ops.eblu.me/blumeops/paperless:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           command: ["paperless-ngx", "migrate", "--no-input"]
           env: &paperless-env
             - name: PAPERLESS_URL
@@ -143,6 +154,11 @@ spec:
       containers:
         - name: web
           image: registry.ops.eblu.me/blumeops/paperless:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 8000
               name: http
@@ -170,6 +186,11 @@ spec:
 
         - name: worker
           image: registry.ops.eblu.me/blumeops/paperless:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           command: ["celery", "--app", "paperless", "worker", "--loglevel", "INFO"]
           env: *paperless-env
           volumeMounts: *paperless-mounts
@@ -187,6 +208,11 @@ spec:
 
         - name: beat
           image: registry.ops.eblu.me/blumeops/paperless:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           command: ["celery", "--app", "paperless", "beat", "--loglevel", "INFO"]
           env: *paperless-env
           volumeMounts: *paperless-mounts
@@ -199,6 +225,11 @@ spec:
 
         - name: consumer
           image: registry.ops.eblu.me/blumeops/paperless:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           command: ["paperless-ngx", "document_consumer"]
           env: *paperless-env
           volumeMounts: *paperless-mounts

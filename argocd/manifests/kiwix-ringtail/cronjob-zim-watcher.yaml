@@ -14,11 +14,17 @@ spec:
         spec:
           serviceAccountName: zim-watcher
           securityContext:
+            runAsNonRoot: true
             seccompProfile:
               type: RuntimeDefault
           containers:
             - name: watcher
               image: registry.ops.eblu.me/blumeops/kubectl:kustomized
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
               command: ["/bin/bash", "-c"]
               args:
                 - |

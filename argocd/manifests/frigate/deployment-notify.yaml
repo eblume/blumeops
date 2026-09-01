@@ -15,11 +15,17 @@ spec:
         app: frigate-notify
     spec:
       securityContext:
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: frigate-notify
           image: registry.ops.eblu.me/blumeops/frigate-notify:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: TZ
               value: America/Los_Angeles

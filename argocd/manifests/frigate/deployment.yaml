@@ -18,12 +18,18 @@ spec:
     spec:
       runtimeClassName: nvidia
       securityContext:
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       initContainers:
         - name: copy-config
           image: busybox:kustomized
           command: ["cp", "/config-ro/config.yml", "/config/config.yml"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           volumeMounts:
             - name: config-ro
               mountPath: /config-ro
@@ -32,6 +38,11 @@ spec:
       containers:
         - name: frigate
           image: ghcr.io/blakeblackshear/frigate:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 5000
               name: http

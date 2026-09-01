@@ -20,11 +20,17 @@ spec:
         app: unpoller
     spec:
       securityContext:
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: unpoller
           image: registry.ops.eblu.me/blumeops/unpoller:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 9130
               name: metrics

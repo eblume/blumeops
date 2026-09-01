@@ -18,3 +18,4 @@ patches:
   - path: argocd-cm-patch.yaml
   - path: argocd-rbac-cm-patch.yaml
   - path: argocd-resources-patch.yaml
+  - path: argocd-security-patch.yaml
