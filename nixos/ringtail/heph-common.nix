@@ -4,7 +4,7 @@
 # not a module.
 { pkgs, lib }:
 rec {
-  hephTag = "v1.9.0";
+  hephTag = "v1.10.0";
   rustChannel = "stable"; # mise-resolved — nixpkgs rustc lags heph's floor
   hubUrl = "http://indri.tail8d86e.ts.net:8787";
   issuer = "https://authentik.ops.eblu.me/application/o/heph/";
