@@ -1,6 +1,7 @@
 ---
 title: Borgmatic
-modified: 2026-08-24
+modified: 2026-09-01
+last-reviewed: 2026-09-01
 tags:
   - service
   - backup
@@ -30,6 +31,7 @@ Daily backup system using Borg backup, running on indri.
 - `~/.config/borgmatic` - Borgmatic config
 - `~/Documents` - Personal documents
 - `~/.local/share/borgmatic/k8s-dumps/` - SQLite dumps from k8s pods
+- `/Volumes/shower` - [[shower-app]] prize-photo uploads (sifaka SMB mount)
 
 **PostgreSQL databases:**
 - `miniflux`, `teslamate`, `authentik`, `paperless` on [[postgresql]] (blumeops-pg)
@@ -37,10 +39,12 @@ Daily backup system using Borg backup, running on indri.
 
 **Local SQLite databases** (before-backup `sqlite3 .backup` online snapshot — WAL-safe, fails loud):
 - [[hephaestus|heph]] hub - `~/.local/share/heph/heph.db` (canonical task/context store)
+- [[forgejo]] - `~/forgejo/data/forgejo.db` (the live WAL-mode DB excluded from the `~/forgejo` source dir above; the git repos come from the directory)
 
 **K8s SQLite databases (pre-backup dump via kubectl exec):**
 - [[mealie]] - Recipe manager (`/app/data/mealie.db`)
 - `shower` - prize app (`/app/data/db.sqlite3`, on ringtail)
+- [[horkos]] - approval-queue dispatch (`/data/horkos.db`, on ringtail)
 
 **K8s service-produced backup files (newest ferried off the PVC):**
 - [[navidrome]] - music DB: users, play counts, playlists (navidrome's own `ND_BACKUP_*` snapshot in `/data/backup`)
@@ -56,7 +60,7 @@ run** rather than once per repository. A non-zero exit from any hook aborts the
 whole run — a failed snapshot is never silently skipped.
 
 **Immich photo library** (separate config, BorgBase offsite only):
-- `/Volumes/photos` (sifaka SMB mount, ~128 GB)
+- `/Volumes/photos/library` and `/Volumes/photos/upload` (sifaka SMB mount, ~128 GB); excludes `encoded-video/`, `thumbs/`, `backups/` — regenerable from originals
 
 **Not backed up (by design):**
 - ZIM archives (re-downloadable)
@@ -95,7 +99,7 @@ The per-source size breakdown (`borgmatic_source_size_bytes`) is collected for
 locally but a heavy hourly transfer for a remote (ssh://) repo, so it is skipped
 there. Remote repos still get the lightweight metrics above every hour.
 
-Dashboard: "Borgmatic Backups" in [[grafana]]
+Dashboard: "Borg Backups" in [[grafana]]
 
 **Alert:** `BorgmaticStale` (Grafana, ntfy-infra) fires when any repo's newest
 archive is older than 30h (for 1h) — roughly 7h after a missed nightly run,
