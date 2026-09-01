@@ -369,8 +369,8 @@ services:
 
   - name: docs
     type: ansible
-    last-reviewed: 2026-04-29
-    current-version: "v1.16.0"
+    last-reviewed: 2026-09-01
+    current-version: "v1.20.1"
     upstream-source: https://forge.eblu.me/eblume/blumeops/releases
     notes: >-
       Quartz-built tarball downloaded by ansible/roles/docs into ~/blumeops/docs/content
