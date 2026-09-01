@@ -50,23 +50,11 @@ webserver:
   port: "8080"
 
 security:
-  # Public hostname behind the reverse proxy — used for URLs in push
-  # notifications. TLS is handled by Caddy/Tailscale, not autotls.
+  # Public hostname behind the reverse proxy. TLS is handled by
+  # Caddy/Tailscale, not autotls.
   host: birds.ops.eblu.me
 
 output:
   sqlite:
     enabled: true
     path: /data/birdnet.db
-
-notification:
-  push:
-    enabled: true
-    providers:
-      - type: shoutrrr
-        enabled: true
-        name: ntfy-detections
-        urls:
-          - "ntfy://ntfy.ntfy.svc.cluster.local:80/birdnet-alerts?scheme=http"
-        filter:
-          types: ["detection"]

@@ -9,7 +9,7 @@ tags:
 
 # BirdNET-Go
 
-Local, cloud-free bird-song identification: 24/7 BirdNET inference on the GableCam's audio, with a dashboard, detection clips, and ntfy alerts.
+Local, cloud-free bird-song identification: 24/7 BirdNET inference on the GableCam's audio, with a dashboard and detection clips.
 
 ## Quick Reference
 
@@ -34,12 +34,12 @@ Frigate pod — go2rtc restream (:8554, cluster-local, unauthenticated)
 BirdNET-Go pod (ringtail k3s, CPU-only TFLite)
     ├── :8080  dashboard (Tailscale Ingress "birds")
     ├── :8090  Prometheus /metrics (prometheus-ringtail scrapes it)
-    ├── /data  SQLite + detection clips (local-path PVC, 5Gi)
-    └── ntfy   → topic birdnet-alerts → mobile
+    └── /data  SQLite + detection clips (local-path PVC, 5Gi)
 ```
 
 - **Source:** consumes Frigate's go2rtc restream with the `?audio` track selector — audio only, no second RTSP session to the camera, no credentials.
 - **Config:** the repo (`birdnet-go-config.yml`) is the source of truth. The web UI writes settings into an emptyDir, so UI edits do not survive a pod restart.
+- **Notifications:** push notifications (ntfy) are deliberately disabled in the MVP; the shoutrrr provider block can be re-added to `birdnet-go-config.yml` later.
 - **Routing:** Tailscale Ingress `birds` → Caddy on indri maps `birds.ops.eblu.me` (`caddy_services` in `ansible/roles/caddy/defaults/main.yml`, applied by `provision-indri`).
 
 ## Known limitation

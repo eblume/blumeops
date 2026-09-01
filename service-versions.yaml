@@ -93,12 +93,7 @@ services:
     last-reviewed: "2026-09-01"
     current-version: "20260823"
     upstream-source: https://github.com/tphakala/birdnet-go/releases
-    notes: >-
-      Bird species identification on GableCam audio (birds.ops.eblu.me);
-      consumes Frigate's go2rtc restream audio-only. MVP deployment pinned
-      to the upstream ghcr.io/tphakala/birdnet-go image by digest
-      (release 20260823); localization to a nix-built registry.ops.eblu.me
-      image is a deliberate follow-up heph task.
+    notes: Upstream ghcr.io/tphakala/birdnet-go image pinned by digest (release 20260823); nix localization deferred to a follow-up heph task
 
   - name: tempo
     type: argocd
