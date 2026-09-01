@@ -32,8 +32,10 @@ import httpx
 import typer
 from rich.console import Console
 
-FORGE_URL = "https://forge.eblu.me"
-FORGE_API = f"{FORGE_URL}/api/v1"
+FORGE_URL = "https://forge.eblu.me"  # human-facing links + runner-side URLs
+# Tailnet name for API calls — the public forge.eblu.me is HTTPS-poison
+# in-cluster (docs/reference/services/argocd.md).
+FORGE_API = "https://forge.ops.eblu.me/api/v1"
 FORGE_SSH = "ssh://forgejo@forge.ops.eblu.me:2222"
 MIRROR_ORG = "mirrors"
 OWNER = "eblume"

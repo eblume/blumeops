@@ -55,10 +55,10 @@ import httpx
 import typer
 from rich.console import Console
 
-# The public host, as warrant-bot-provision uses: it egresses directly from an
-# agent pod as well as from indri, so this check is runnable wherever the token
-# is. (forge.ops.eblu.me is tailnet-only and needs a SOCKS proxy from a pod.)
-FORGE_URL = "https://forge.eblu.me"
+# Tailnet name, as warrant-bot-provision uses: runnable wherever the token is
+# — gilbert, indri, or an agent pod (via the egress gateway). The public
+# forge.eblu.me is HTTPS-poison in-cluster (docs/reference/services/argocd.md).
+FORGE_URL = "https://forge.ops.eblu.me"
 BOT_USER = "warrant-bot"
 OWNER, REPO = "eblume", "blumeops"
 PROTECTED_BRANCH = "main"

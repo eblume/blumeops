@@ -21,8 +21,10 @@ import httpx
 import typer
 
 REGISTRY = "registry.ops.eblu.me"
-FORGE_URL = "https://forge.eblu.me"
-FORGE_API = f"{FORGE_URL}/api/v1"
+FORGE_URL = "https://forge.eblu.me"  # human-facing links only
+# Tailnet name for API calls — the public forge.eblu.me is HTTPS-poison
+# in-cluster (docs/reference/services/argocd.md).
+FORGE_API = "https://forge.ops.eblu.me/api/v1"
 REPO = "eblume/blumeops"
 FORGE_ACTIONS = f"{FORGE_URL}/{REPO}/actions"
 

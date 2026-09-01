@@ -200,6 +200,12 @@ mise run provision-indri -- --check --diff  # dry run
 
 Check tailscale serve: `ssh indri 'tailscale serve status --json'`
 
+**Forge over HTTPS: always `forge.ops.eblu.me` for API calls.** Inside the
+cluster, DNS rewrites `forge.eblu.me` to indri (for ArgoCD's `ssh://…:2222`
+fetches), and indri's Caddy holds no cert for that name — HTTPS to the public
+name dies in the TLS handshake from any pod. Keep `forge.eblu.me` only for
+human-facing links. See [[argocd#Why the Applications say forge.eblu.me]].
+
 ## Container Releases
 
 ```fish
