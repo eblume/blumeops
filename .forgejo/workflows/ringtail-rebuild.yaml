@@ -1,0 +1,40 @@
+# ringtail-rebuild — apply a bound blumeops SHA to ringtail (nixos-rebuild switch).
+#
+# Request via `mise run request-run ringtail-rebuild.yaml <full-sha> -i revision=<sha>`.
+# The job runs on the priv runner (ringtail itself); its only root path is
+# one sudoers rule for /etc/ringtail-apply/apply, installed by nixos/ringtail/
+# configuration.nix. The wrapper checks out the bound SHA in /etc/blumeops and
+# drives the detached blumeops-nixos-rebuild unit, the same pattern as
+# ansible/playbooks/ringtail.yml. Full provision-ringtail stays class: deny.
+# If the applied commit restarts the priv runner unit itself, this job is
+# killed mid-rebuild; the rebuild continues detached — re-run to confirm the outcome.
+#
+# Docs: docs/explanation/warrant-approval-gated-runs.md
+name: ringtail-rebuild
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'Full 40-char blumeops commit to apply to ringtail'
+        required: true
+        type: string
+
+jobs:
+  rebuild:
+    runs-on: priv
+    steps:
+      - name: Check out the bound revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.revision }}
+
+      - name: Apply to ringtail
+        env:
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::revision must be a full 40-char sha"; exit 1; }
+          git -C "$GITHUB_WORKSPACE" rev-parse --verify "$REVISION^{commit}" >/dev/null
+          # setuid wrapper — the nix store sudo binary is built non-setuid
+          /run/wrappers/bin/sudo /etc/ringtail-apply/apply "$REVISION"

@@ -72,6 +72,19 @@ actions:
         required: true
         pattern: "^(main|[0-9a-f]{40})$"
 
+  ringtail-rebuild.yaml:
+    class: warrant
+    note: >-
+      Apply a bound blumeops SHA to ringtail: nixos-rebuild switch through the
+      narrow /etc/ringtail-apply/apply sudo grant on the priv runner. First
+      decomposition step toward provision-ringtail (which stays deny: its
+      ansible pre_tasks read the blumeops vault).
+    binds_sha: revision
+    inputs:
+      revision:
+        required: true
+        pattern: "^[0-9a-f]{40}$"
+
   # One-off script execution (heph eblume/horkos#6): the script body travels
   # in the request inputs as (script, script_sha256), horkos binds the pair
   # at filing and freezes it in the warrant, and the executor workflow

@@ -82,7 +82,11 @@ reference-card section with a pointer to this doc.
 Host side (one-time, after the merge): `mise run provision-ringtail` (from
 gilbert) syncs blumeops to ringtail's `/etc/blumeops` and runs
 `nixos-rebuild switch --flake /etc/blumeops/nixos/ringtail#ringtail`; the
-activation prunes `skagit-cce-watch.{service,timer}`. Verify
+activation prunes `skagit-cce-watch.{service,timer}`. Once the
+`ringtail-rebuild` warrant has merged and this one manual `provision-ringtail`
+has activated its sudo grant, later rebuilds of that shape can instead be
+requested: `mise run request-run ringtail-rebuild.yaml <sha> -i revision=<sha>
+--why "apply the skagit-cce-watch retirement"`. Verify
 `systemctl --user list-timers | grep skagit` (as eblume) comes back empty.
 Optional: `rm -rf ~/.local/state/skagit-cce-watch` (baseline state file).
 ntfy: nothing server-side (the topic was client-side only); remove the
