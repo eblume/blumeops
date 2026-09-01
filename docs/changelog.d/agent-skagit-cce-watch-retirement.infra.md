@@ -1,1 +1,1 @@
-Retire the Skagit CCE ceramics watch on ringtail (`skagit-cce-watch` user timer + script) after it did its job — it caught the 2026-09-01 ceramics class listing. AAR and historical record: docs/how-to/ringtail/retire-skagit-cce-watch.md (eblume/blumeops#779).
+Retire the Skagit CCE ceramics watch on ringtail (`skagit-cce-watch` user timer + script) after it did its job — it caught the 2026-09-01 ceramics class listing. AAR and historical record: docs/explanation/skagit-cce-ceramics-watch.md (eblume/blumeops#779).

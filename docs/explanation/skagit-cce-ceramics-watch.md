@@ -1,29 +1,31 @@
 ---
-title: Retire the Skagit CCE ceramics watch
+title: Skagit CCE ceramics watch
 modified: 2026-09-01
 last-reviewed: 2026-09-01
 tags:
-  - how-to
-  - operations
+  - explanation
   - ringtail
   - decommission
 ---
 
-# Retire the Skagit CCE ceramics watch
+# Skagit CCE ceramics watch
 
-**COMPLETE 2026-09-01** — the watch did its job: on 2026-09-01 it caught a new
-ceramics class (Item Number 38826) the day the college listed it, filed the red
-heph task, pushed the ntfy alert, and Erich acted on it. Retired per
+A short-lived NixOS **user** timer on ringtail that watched the Skagit
+Community & Continuing Education course catalog for a new ceramics class.
+Introduced 2026-08-11, retired 2026-09-01 after it succeeded: on
+2026-09-01 it caught a new ceramics class (Item Number 38826) the day the
+college listed it, filed the red heph task, pushed the ntfy alert, and Erich
+acted on it. Decommissioned per
 [eblume/blumeops#779](https://forge.eblu.me/eblume/blumeops/issues/779). This
-card is the execution record and the AAR.
+doc is the persistent record of what it was and the AAR.
 
 ## What it was
 
-A systemd **user** timer on ringtail (`skagit-cce-watch`, every 5 minutes)
-running a stdlib-only Python script:
+A systemd **user** timer (`skagit-cce-watch`, every 5 minutes) running a
+stdlib-only Python script:
 
-- scrapes the Skagit Community & Continuing Education course catalog category
-  page (public ASPX, campusce.net)
+- scrapes the Skagit CCE course catalog category page (public ASPX,
+  campusce.net)
 - diffs catalog Item Numbers against a baseline state file
 - on a new ceramics-sounding title: files a **red** heph task under the
   Ceramics project (course link in the task's context) plus a best-effort ntfy
@@ -63,25 +65,26 @@ title-match → file a red heph task (+ best-effort ntfy push). The building
 blocks: a systemd **user** timer/oneshot (user scope so `heph` can reach
 eblume's spoke over `XDG_RUNTIME_DIR`), stdlib-only Python, a baseline state
 file, silent first run, fail-loud-on-empty-parse, and a loose regex net for
-the title match. The watch code itself is in git history (`nixos/ringtail/
-skagit-cce-watch.{nix,py}`, PR #593) and is a usable starting point.
+the title match. The watch code itself is in git history
+(`nixos/ringtail/skagit-cce-watch.{nix,py}`, PR #593) and is a usable starting
+point.
 
-## Retirement (this PR)
+## Decommission
 
-Repo side:
+No ArgoCD involvement: this was a NixOS *user* unit, and ArgoCD only manages
+ringtail's k8s workloads — the host's NixOS is provisioned out-of-band by the
+ansible playbook.
 
-- deleted `nixos/ringtail/skagit-cce-watch.nix` and `skagit-cce-watch.py`
-- removed the import from `nixos/ringtail/configuration.nix`
-- removed the "Skagit CCE Watch" section from the ringtail reference card
-- changelog fragment
+Repo side (this PR): deleted `nixos/ringtail/skagit-cce-watch.{nix,py}`,
+removed the import from `nixos/ringtail/configuration.nix`, replaced the
+reference-card section with a pointer to this doc.
 
-After the deploy lands on ringtail (host-side, one-time):
-
-- the next NixOS rebuild prunes `skagit-cce-watch.{service,timer}` from the
-  user manager — verify `systemctl --user list-timers | grep skagit` comes
-  back empty
-- optional: `rm -rf ~/.local/state/skagit-cce-watch` (baseline state file)
-- ntfy: nothing server-side to change (the topic was client-side only);
-  remove the `ceramics` subscription on any phone if desired
-- heph: the Ceramics project and the success task
-  01M1EWASKR5M3CDG0HZD2V3J2J stay as the record
+Host side (one-time, after the merge): `mise run provision-ringtail` (from
+gilbert) syncs blumeops to ringtail's `/etc/blumeops` and runs
+`nixos-rebuild switch --flake /etc/blumeops/nixos/ringtail#ringtail`; the
+activation prunes `skagit-cce-watch.{service,timer}`. Verify
+`systemctl --user list-timers | grep skagit` (as eblume) comes back empty.
+Optional: `rm -rf ~/.local/state/skagit-cce-watch` (baseline state file).
+ntfy: nothing server-side (the topic was client-side only); remove the
+`ceramics` subscription on any phone if desired. heph: the Ceramics project
+and the success task 01M1EWASKR5M3CDG0HZD2V3J2J stay as the record.

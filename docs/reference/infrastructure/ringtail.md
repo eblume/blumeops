@@ -220,7 +220,7 @@ again.
 
 The Skagit CCE ceramics watch (a user timer that filed a red heph task when a new
 ceramics class appeared in the catalog) was retired 2026-09-01 after it caught its
-first class. See [[retire-skagit-cce-watch]] for the record and the AAR.
+first class. See [[skagit-cce-ceramics-watch]] for the record and the AAR.
 
 ## Pinned Service Versions
 
