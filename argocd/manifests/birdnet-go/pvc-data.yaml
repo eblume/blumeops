@@ -1,0 +1,13 @@
+---
+# SQLite database + detection clips (3-second WAVs) — small local-path volume.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: birdnet-go-data
+  namespace: birdnet-go
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

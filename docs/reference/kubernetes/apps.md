@@ -37,6 +37,7 @@ cluster (see [[retire-minikube]]); newer apps use bare names.
 | `alloy-tracing-ringtail` | alloy | `argocd/manifests/alloy-tracing-ringtail/` | [[alloy|Alloy]] (eBPF tracing) |
 | `immich-ringtail` | immich | `argocd/manifests/immich-ringtail/` | [[immich]] |
 | `frigate` | frigate | `argocd/manifests/frigate/` | [[frigate]] |
+| `birdnet-go` | birdnet-go | `argocd/manifests/birdnet-go/` | [[birdnet-go]] |
 | `miniflux-ringtail` | miniflux | `argocd/manifests/miniflux-ringtail/` | [[miniflux]] |
 | `kiwix-ringtail` | kiwix | `argocd/manifests/kiwix-ringtail/` | [[kiwix]] |
 | `torrent-ringtail` | torrent | `argocd/manifests/torrent-ringtail/` | [[transmission]] |
