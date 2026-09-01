@@ -1,0 +1,27 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: birdnet-go
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/birdnet-go
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: birdnet-go
+  syncPolicy:
+    automated:
+      # configMapGenerator hashes the config file into the ConfigMap name, so
+      # every content edit supersedes the old one; prune removes it. Without
+      # prune the app reads OutOfSync forever and trips ArgoCDAppOutOfSync.
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/warn: restricted
+        pod-security.kubernetes.io/audit: restricted

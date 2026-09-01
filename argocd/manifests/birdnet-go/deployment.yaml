@@ -1,0 +1,81 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: birdnet-go
+  namespace: birdnet-go
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: birdnet-go
+  template:
+    metadata:
+      labels:
+        app: birdnet-go
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # BirdNET-Go's web UI writes settings back into /config/config.yaml,
+        # so config lives in an emptyDir, not the read-only ConfigMap.
+        # Consequence: settings changed in the UI do NOT survive a pod
+        # restart — this repo's config file is the source of truth.
+        - name: copy-config
+          image: busybox:kustomized
+          command: ["cp", "/config-ro/config.yml", "/config/config.yaml"]
+          volumeMounts:
+            - name: config-ro
+              mountPath: /config-ro
+            - name: config
+              mountPath: /config
+      containers:
+        - name: birdnet-go
+          image: ghcr.io/tphakala/birdnet-go:20260823
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8090
+              name: telemetry
+          env:
+            - name: TZ
+              value: America/Los_Angeles
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+      volumes:
+        - name: config-ro
+          configMap:
+            name: birdnet-go-config
+        - name: config
+          emptyDir: {}
+        - name: data
+          persistentVolumeClaim:
+            claimName: birdnet-go-data

@@ -88,6 +88,9 @@ caddy_services:
   - name: nvr
     host: "nvr.{{ caddy_domain }}"
     backend: "https://nvr.tail8d86e.ts.net"
+  - name: birds
+    host: "birds.{{ caddy_domain }}"
+    backend: "https://birds.tail8d86e.ts.net"
   - name: authentik
     host: "authentik.{{ caddy_domain }}"
     backend: "https://authentik.tail8d86e.ts.net"

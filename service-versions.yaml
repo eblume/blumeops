@@ -88,6 +88,13 @@ services:
     current-version: "v0.5.4"
     upstream-source: https://github.com/0x2142/frigate-notify/releases
 
+  - name: birdnet-go
+    type: argocd
+    last-reviewed: "2026-09-01"
+    current-version: "20260823"
+    upstream-source: https://github.com/tphakala/birdnet-go/releases
+    notes: Upstream ghcr.io/tphakala/birdnet-go image pinned by digest (release 20260823); nix localization deferred to a follow-up heph task
+
   - name: tempo
     type: argocd
     last-reviewed: 2026-07-07

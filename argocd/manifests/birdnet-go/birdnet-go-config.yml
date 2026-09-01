@@ -1,0 +1,60 @@
+# BirdNET-Go settings. The repo is the source of truth: the web UI writes
+# settings changes into /config/config.yaml (an emptyDir, see the
+# Deployment), so UI edits are lost on pod restart — edit this file instead.
+main:
+  name: Camano GableCam
+  timeas24h: true
+
+birdnet:
+  sensitivity: 1.0
+  threshold: 0.7
+  overlap: 1.5
+  # One thread: the pod is CPU-limited (1 core); the Go runtime would
+  # otherwise see every host core and oversubscribe the cgroup.
+  threads: 1
+  locale: en-us
+  # Home coordinates — same values already published in homepage's weather
+  # widget (argocd/manifests/homepage/widgets.yaml), no new disclosure.
+  latitude: 48.18235
+  longitude: -122.52590
+  rangefilter:
+    model: latest
+    threshold: 0.01
+
+realtime:
+  interval: 15
+  audio:
+    export:
+      enabled: true
+      path: /data/clips/
+      type: wav
+      retention:
+        policy: usage
+        maxusage: 80%
+        minclips: 10
+  rtsp:
+    # Audio-only restream of GableCam from Frigate's embedded go2rtc
+    # (?audio selects the audio track): no H.265 decode, no second
+    # connection to the camera, and no RTSP credentials needed.
+    streams:
+      - name: GableCam
+        url: rtsp://frigate.frigate.svc.cluster.local:8554/gablecam?audio
+        type: rtsp
+        transport: tcp
+  telemetry:
+    enabled: true
+    listen: "0.0.0.0:8090"
+
+webserver:
+  enabled: true
+  port: "8080"
+
+security:
+  # Public hostname behind the reverse proxy. TLS is handled by
+  # Caddy/Tailscale, not autotls.
+  host: birds.ops.eblu.me
+
+output:
+  sqlite:
+    enabled: true
+    path: /data/birdnet.db
