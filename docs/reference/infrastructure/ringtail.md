@@ -218,46 +218,9 @@ blue is still `outstanding`, so the reconciler leaves it alone. Marking it `done
 while ESI still reports the obligation just invites the next tick to file it
 again.
 
-### Skagit CCE Watch
-
-An hourly timer (`nixos/ringtail/skagit-cce-watch.nix`) that watches the Skagit
-Community & Continuing Education course catalog (a public ASPX category page)
-for a new ceramics class. Each listed class carries an "Item Number" — the
-canonical CCE class id — and the watch files a **red** heph task under the
-**Ceramics** project the first time a class whose title looks like ceramics
-appears, so it surfaces in Erich's agenda the moment the college lists it.
-
-| Property | Value |
-|----------|-------|
-| **Units** | `skagit-cce-watch.service` / `.timer` (**user** scope) |
-| **Schedule** | `OnCalendar=hourly`, `RandomizedDelaySec=10m`, `Persistent=true` |
-| **Watch logic** | `nixos/ringtail/skagit-cce-watch.py` (stdlib-only, read via `builtins.readFile` and packaged by the module) |
-| **State** | `~/.local/state/skagit-cce-watch/state.json` — the set of known item numbers; a real dir under eblume's home so it survives rebuilds |
-| **Alert** | `heph task … --project Ceramics --attention red --do-date today` (+ source link in the task's context doc), **and** a best-effort ntfy push to `https://ntfy.ops.eblu.me/ceramics` (tapping the notification opens the course page) |
-| **Status / logs** | `systemctl --user status skagit-cce-watch.timer`, `journalctl --user -u skagit-cce-watch` |
-
-User scope for the same reason as the MyEVE sync above: it shells out to `heph`,
-which needs `XDG_RUNTIME_DIR` to find `hephd.sock`. It targets eblume's own
-spoke, not the agent's, so the alert lands in Erich's primary agenda.
-
-The unit skips cleanly when the `heph` CLI or the spoke socket is not up, and
-fails loudly (leaving state untouched) if the page parses to zero courses — a
-page or parse regression then goes red in the journal rather than wiping the
-baseline or flooding alerts. First run establishes a baseline and files nothing,
-so an already-listed course does not wake Erich; a new non-ceramics class is
-recorded (so it is never alerted on) but files nothing. The ceramics match is a
-loose term net in the script (`CERAMICS`) — extend it there if the college
-starts using a name it does not cover.
-
-On a new ceramics class it also fires a **best-effort** ntfy push to the
-self-hosted ntfy (`ntfy.ops.eblu.me`, topic `ceramics`) so the alert reaches
-Erich's phone; the push carries `X-Click` so tapping it opens the course page.
-A push failure never fails the tick — the red task is the primary alert.
-Subscribing is client-side only: in the ntfy app add a subscription with
-server `https://ntfy.ops.eblu.me`, topic `ceramics` (nothing is configured
-server-side; a topic needs no backend setup). Knobs: `SKAGIT_CCE_NTFY_URL`,
-`SKAGIT_CCE_NTFY_TOPIC`, and optional `SKAGIT_CCE_NTFY_TOKEN` (sent as a Bearer
-token) if/when the ntfy gains auth.
+The Skagit CCE ceramics watch (a user timer that filed a red heph task when a new
+ceramics class appeared in the catalog) was retired 2026-09-01 after it caught its
+first class. See [[retire-skagit-cce-watch]] for the record and the AAR.
 
 ## Pinned Service Versions
 
