@@ -241,7 +241,9 @@ for two dual-rank DIMMs and Memtest86+ threw errors within minutes at 3200
 (68 and climbing, test 2). At 2400 it ran clean through test 6. Do not put the
 frequency back on Auto after a BIOS reset without re-running memtest. The
 previous 4x8 GB single-rank Corsair kit ran 3200 via DOCP 1 (BIOS 8902+). Full
-overnight Memtest86+ burn-in at 2400 still pending (heph task).
+overnight Memtest86+ burn-in at 2400 still pending (heph task). Plan: a Zen 3
+CPU upgrade (this BIOS supports Ryzen 5000) should let the kit run its 3200
+JEDEC table — set Memory Frequency back to Auto and re-memtest then.
 
 ## Related
 
