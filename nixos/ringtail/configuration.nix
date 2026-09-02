@@ -830,6 +830,18 @@ in
     };
   };
 
+  # Warrant path for agent-requestable ringtail rebuilds (ringtail-rebuild.yaml):
+  # the priv runner user may run exactly this wrapper as root; it checks out
+  # the bound SHA in /etc/blumeops and drives the detached blumeops-nixos-rebuild
+  # unit. See docs/explanation/warrant-approval-gated-runs.md.
+  environment.etc."ringtail-apply/apply".source = ./ringtail-apply.sh;
+  security.sudo.extraRules = [
+    {
+      users = [ "gitea-runner" ];
+      commands = [ { command = "/etc/ringtail-apply/apply"; options = [ "NOPASSWD" ]; } ];
+    }
+  ];
+
   # Enable nix flakes
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
