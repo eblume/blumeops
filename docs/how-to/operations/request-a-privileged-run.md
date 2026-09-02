@@ -45,11 +45,11 @@ than reporting green having pruned nothing. See [[argocd#Sync Policy]] for why
 orphans accumulate in the first place.
 
 Example — apply a merged blumeops commit to ringtail as a NixOS rebuild. The
-bound SHA is checked out on the priv runner on ringtail and applied through
-the /etc/ringtail-apply/apply sudo grant. On success the run log shows only
-the checkout plus the wrapper's one-line verdict naming the `/etc/blumeops`
-commit ringtail now runs; on failure the rebuild's journal tail is dumped
-into the run log.
+bound SHA is applied on ringtail by the root `ringtail-apply@<sha>` unit,
+which the priv runner is allowed (by polkit) to start. On success the run log
+shows the checkout plus the wrapper's log ending in a one-line verdict naming
+the `/etc/blumeops` commit ringtail now runs; on failure the rebuild's journal
+tail is in that log.
 
 ```fish
 mise run request-run ringtail-rebuild.yaml <full-sha> -i revision=<full-sha> \
