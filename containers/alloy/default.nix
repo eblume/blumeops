@@ -1,17 +1,17 @@
 # Nix-built Grafana Alloy telemetry collector
-# Builds v1.16.0 from forge mirror with embedded web UI
+# Builds v1.16.3 from forge mirror with embedded web UI
 # Uses stdenv + make (not buildGoModule) due to multi-module workspace
 # with local replace directives (collector/ -> ../, ../syntax, ../extension)
 # Built with dockerTools.buildLayeredImage for efficient layer caching
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "1.16.0";
+  version = "1.16.3";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/alloy.git";
     rev = "v${version}";
-    hash = "sha256-q5R2noxBZ3OPyZqmB+bx3iJKWFxC2WIprcgh9RwjLzk=";
+    hash = "sha256-ERmI8+7SFERF5X/ExXco6j/0fFZXelcDRzdtNIw4SiY=";
   };
 
   ui = pkgs.buildNpmPackage {
