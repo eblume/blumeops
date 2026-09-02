@@ -1,6 +1,6 @@
 ---
 title: Ringtail
-modified: 2026-08-07
+modified: 2026-09-02
 tags:
   - infrastructure
   - host
@@ -16,7 +16,7 @@ Service host and gaming PC. Custom-built PC running NixOS.
 |----------|-------|
 | **Motherboard** | ASUS ROG Crosshair VI Hero (Wi-Fi AC) |
 | **CPU** | AMD Ryzen 7 1700X (8-core/16-thread, 3.4 GHz) |
-| **RAM** | 32 GB DDR4 (4x8 GB Corsair Vengeance CMK16GX4M2B3200C16, 3200 MT/s DOCP) |
+| **RAM** | 64 GB DDR4 (2x32 GB Crucial CT2K32G4DFD832A in DIMM_A2/B2, dual-rank, JEDEC 3200 MT/s CL22 1.2 V; swapped 2026-09-02, see [[restart-ringtail#RAM-swap checklist]]) |
 | **GPU** | NVIDIA GeForce RTX 4080 (AD103, 16 GB VRAM) |
 | **PSU** | EVGA SuperNOVA 850 G3 (850 W, 80+ Gold, fully modular; 4080 fed via the 8-pin→12VHPWR adapter) |
 | **Monitor** | HP OMEN 27i IPS (2560x1440, 165 Hz, DisplayPort) |
@@ -234,7 +234,12 @@ Versioned services (forgejo-runner, snowflake, k3s) are pinned via a `nixpkgs-se
 
 **No TPM:** `systemd.tpm2.enable = false` prevents 90s boot delay.
 
-**RAM speed:** Running at 3200 MT/s via DOCP 1 (BIOS 8902+).
+**RAM speed:** 3200 MT/s from the Crucial kit's JEDEC table (Ai Overclock Tuner
+= Default; the kit has no XMP profile so the D.O.C.P. option does not appear).
+The 1700X memory controller is only rated 2400 for two dual-rank DIMMs, so this
+is a bonus, not a guarantee across BIOS updates. The previous 4x8 GB Corsair
+kit ran 3200 via DOCP 1 (BIOS 8902+). Full Memtest86+ burn-in still pending
+(heph task); only a partial same-day run was done at swap time.
 
 ## Related
 

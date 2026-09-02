@@ -211,20 +211,37 @@ CL22 1.2 V, dual-rank). Adjust for whatever the next kit is.
 3. Two sticks go in **DIMM_A2 and DIMM_B2** — the grey pair, second and
    fourth slots counting from the CPU. That is ASUS's dual-channel
    recommendation for this board and the slot names match what the BIOS
-   reports in DMI. Clips fully latched; the stick seats with a firm click on
-   both ends.
+   reports in DMI.
+
+   The slots are ASUS **Q-DIMM**: one moving latch at the top, a fixed hook
+   at the bottom (the end away from the latch). A stick is only seated when
+   it has snapped into the fixed hook too — there is a distinct second
+   detent click at the bottom end, separate from the latch closing at the
+   top. Press straight down on **both** ends. On the 2026-09-02 swap, A2
+   (the slot nearer the CPU cooler) went in with the top latch closed but the
+   bottom end unseated, and the BIOS reported 32768 MB; **Tool → ASUS SPD
+   Information** in the BIOS shows which slot is empty, and a reseat fixed
+   it. Both sticks should sit at identical height with no gold showing.
 4. Old sticks: bag them with the part number. DDR4 resale is worth it.
 
 **First boot**
 
-5. Enter the BIOS (Del at POST). Under Ai Tweaker, set **D.O.C.P. to
-   Disabled** (or Auto). The Crucial kit has no XMP profile; its JEDEC table
-   is already 3200 CL22 1.2 V. Leaving a stale DOCP profile selected is the
-   most likely cause of a failed POST. The Crosshair VI Hero has a **MemOK!**
-   button and a Q-code display if it will not train at all.
+5. Enter the BIOS (Del at POST; F7 for Advanced Mode). On the **Extreme
+   Tweaker** tab (ROG's name for Ai Tweaker), set **Ai Overclock Tuner** from
+   D.O.C.P. to **Auto** — that is the DOCP switch; the D.O.C.P. profile row
+   disappears when it is off. Check Total Memory reads the full new capacity
+   (65536 MB for 2x32) before saving; 32768 means a stick is not seated.
+   The Crucial kit has no XMP profile; its JEDEC table is already 3200 CL22
+   1.2 V. Leaving a stale DOCP profile selected is the most likely cause of a
+   failed POST. The Crosshair VI Hero has a **MemOK!** button and a Q-code
+   display if it will not train at all.
 6. Save, reboot, pick **Memtest86+** in the boot menu, and let it run
    overnight (at least 4 full passes). Zero errors or the kit goes back —
-   do this inside the retailer's return window.
+   do this inside the retailer's return window. One pass over 64 GB takes
+   roughly 2–3 hours on the 1700X. If the box is needed the same day, run
+   it for as long as you can (the first hour covers the tests that catch
+   dead cells and address faults), Esc out with zero errors, and file the
+   full overnight run as a heph task dated inside the return window.
 7. Boot NixOS. Verify capacity, slots and trained speed:
    ```fish
    free -g
