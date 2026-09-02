@@ -246,7 +246,7 @@ tailscale ping ringtail
 ssh ringtail
 ```
 
-If ringtail is unreachable, it may need a physical power cycle. See [[ringtail]] for details.
+If ringtail is unreachable, it may need a physical power cycle. See [[restart-ringtail]] for the procedure and what to verify afterwards.
 
 ## Related
 
@@ -254,4 +254,5 @@ If ringtail is unreachable, it may need a physical power cycle. See [[ringtail]]
 - [[argocd]] - GitOps platform
 - [[cluster]] - Kubernetes cluster
 - [[routing]] - Service routing
-- [[restart-indri]] - Shutdown/startup procedure and CNI conflict fix
+- [[restart-indri]] - Indri shutdown/startup procedure
+- [[restart-ringtail]] - Ringtail shutdown/startup procedure

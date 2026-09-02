@@ -1,0 +1,1 @@
+Add the [[restart-ringtail]] runbook: what goes dark when ringtail shuts down (the whole k3s cluster including ArgoCD, horkos and the alerting stack), pre-checks, the poweroff/startup sequence, and a RAM-swap checklist (DIMM_A2/B2, DOCP off, dmidecode verify, memtest86+ burn-in).

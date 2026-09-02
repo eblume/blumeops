@@ -36,4 +36,5 @@ AC Grid (120V) → Anker SOLIX F2000 → CyberPower CP1000PFCLCD → Homelab
 ## Related
 
 - [[hosts]] - Device inventory
-- [[restart-indri]] - Shutdown and startup procedure
+- [[restart-indri]] - Indri shutdown and startup procedure
+- [[restart-ringtail]] - Ringtail shutdown and startup procedure

@@ -24,6 +24,9 @@ in
   # Bootloader
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+  # Memtest86+ entry in the boot menu, for burn-in after a RAM change
+  # (see the restart-ringtail runbook). Free software, ~1 MB on the ESP.
+  boot.loader.systemd-boot.memtest86.enable = true;
 
   # No TPM module on this board
   systemd.tpm2.enable = false;

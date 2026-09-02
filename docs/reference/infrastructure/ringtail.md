@@ -238,5 +238,6 @@ Versioned services (forgejo-runner, snowflake, k3s) are pinned via a `nixpkgs-se
 
 ## Related
 
+- [[restart-ringtail]] - Shutdown and startup procedure (what goes dark, RAM-swap checklist)
 - [[hosts]] - Device inventory
 - [[tailscale]] - Network configuration

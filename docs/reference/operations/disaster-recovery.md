@@ -15,6 +15,7 @@ Recovery procedures for BlumeOps infrastructure.
 | Scenario | Guide |
 |----------|-------|
 | Indri reboot/power loss | [[restart-indri]] |
+| Ringtail reboot/power loss/hardware swap | [[restart-ringtail]] |
 | Ringtail/k3s rebuild | [[ringtail]] provisioning (`mise run provision-ringtail`) + ArgoCD bootstrap per [[retire-minikube]] phase 4 |
 | Lost 1Password access | [[restore-1password-backup]] |
 
