@@ -18,7 +18,7 @@ let
     inherit version;
     pname = "alloy-ui";
     src = "${src}/internal/web/ui";
-    npmDepsHash = "sha256-vResNUT4auDsK9ngnJYfMUUOYr/ikPhrvakqCjGq2Q8=";
+    npmDepsHash = "sha256-L9kq8CcdWEukxa/U10/CrAGllNBdLpI09TKxx8sfmbE=";
 
     buildPhase = ''
       runHook preBuild
@@ -57,7 +57,7 @@ let
     '';
 
     outputHashMode = "recursive";
-    outputHash = "sha256-9/v85HyDInJB+9qHauKVuDol6Yf5mkXfMWgCr7RdRTk=";
+    outputHash = "sha256-S5tHLliIKCBSxbVzQHbkKPGnE7rduwXPOFLuUo+p66M=";
     outputHashAlgo = "sha256";
   };
 
