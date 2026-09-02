@@ -6,6 +6,16 @@
 # configuration.nix. The wrapper checks out the bound SHA in /etc/blumeops and
 # drives the detached blumeops-nixos-rebuild unit, the same pattern as
 # ansible/playbooks/ringtail.yml. Full provision-ringtail stays class: deny.
+#
+# Injection posture: the dispatch input is only ever read through `env:` —
+# never into a checkout ref or shell text. The validate step is the first
+# place it is interpreted and fails closed; the checkout is of main
+# (reviewed state), never of the bound revision; and the apply wrapper
+# re-validates as the root-side authority.
+#
+# The contract is "apply a commit merged to main": the workflow pre-flights it
+# unprivileged, and the wrapper enforces it as the authority (ancestry of
+# origin/main after its fetch).
 # If the applied commit restarts the priv runner unit itself, this job is
 # killed mid-rebuild; the rebuild continues detached — re-run to confirm the outcome.
 #
@@ -24,17 +34,60 @@ jobs:
   rebuild:
     runs-on: priv
     steps:
-      - name: Check out the bound revision
+      # The raw dispatch input reaches this job only as an environment
+      # variable. This step is the single fail-closed shape gate: a value
+      # that is not exactly 40 lowercase hex chars stops the job before
+      # anything privileged or networked runs. The error names the input
+      # length, not the value — the value is untrusted text and must not
+      # reach the run log.
+      - name: Validate revision input
+        env:
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          # Length and whole-line content together close the newline hole a
+          # bare line-based regex leaves: a value shorter or longer than 40
+          # chars, or split across lines, cannot pass both.
+          if [ "${#REVISION}" -ne 40 ] || ! printf '%s' "$REVISION" | grep -qxE '^[0-9a-f]{40}$'; then
+            echo "::error::revision must be a full 40-char lowercase sha (input length: ${#REVISION})"
+            echo "::error::approvals bind to immutable SHAs — see docs/how-to/operations/request-a-privileged-run.md"
+            exit 1
+          fi
+
+      # The bound revision never reaches a git ref: the checkout is of main.
+      # Full history — the ancestry pre-flight below needs main's line, and a
+      # depth-1 fetch would make it pass only for main's live tip.
+      - name: Check out main (reviewed state)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.revision }}
+          ref: main
+          fetch-depth: 0
+
+      # Fail fast, unprivileged, before ringtail is touched: the SHA must be
+      # an ancestor of main. Not the authority — the wrapper re-checks
+      # origin/main in /etc/blumeops as root, and that checkout is what the
+      # rebuild actually runs.
+      - name: Verify bound revision is on main
+        env:
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          if ! git -C "$GITHUB_WORKSPACE" merge-base --is-ancestor "$REVISION^{commit}" origin/main; then
+            echo "::error::$REVISION is not a commit merged to main"
+            echo "::error::the approved SHA must be merged to main before it can be applied"
+            exit 1
+          fi
 
       - name: Apply to ringtail
         env:
           REVISION: ${{ inputs.revision }}
         run: |
           set -euo pipefail
-          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::revision must be a full 40-char sha"; exit 1; }
-          git -C "$GITHUB_WORKSPACE" rev-parse --verify "$REVISION^{commit}" >/dev/null
+          # Re-validate at the privileged boundary; the wrapper validates
+          # again as the root-side authority.
+          if [ "${#REVISION}" -ne 40 ] || ! printf '%s' "$REVISION" | grep -qxE '^[0-9a-f]{40}$'; then
+            echo "::error::revision failed re-validation"
+            exit 1
+          fi
           # setuid wrapper — the nix store sudo binary is built non-setuid
           /run/wrappers/bin/sudo /etc/ringtail-apply/apply "$REVISION"

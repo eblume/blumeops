@@ -8,13 +8,29 @@
 set -euo pipefail
 
 sha="${1:-}"
-[[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "ringtail-apply: expected a 40-hex sha, got: ${sha:-<none>}" >&2; exit 2; }
+[[ "$sha" =~ ^[0-9a-f]{40}$ ]] || {
+  echo "ringtail-apply: expected a 40-hex sha, got: ${sha:-<none>}" >&2
+  exit 2
+}
 
-[ -d /etc/blumeops/.git ] || { echo "ringtail-apply: /etc/blumeops is not a git checkout; run provision-ringtail once from gilbert first" >&2; exit 3; }
+[ -d /etc/blumeops/.git ] || {
+  echo "ringtail-apply: /etc/blumeops is not a git checkout; run provision-ringtail once from gilbert first" >&2
+  exit 3
+}
 
 cd /etc/blumeops
 git fetch origin
-git cat-file -e "${sha}^{commit}" || { echo "ringtail-apply: ${sha} not found on origin" >&2; exit 3; }
+git cat-file -e "${sha}^{commit}" || {
+  echo "ringtail-apply: ${sha} not found on origin" >&2
+  exit 3
+}
+# The warrant contract is "apply a commit merged to main". Enforce it here,
+# where the result is authoritative: the workflow pre-flights it, but the
+# checkout nixos-rebuild actually runs is this one.
+git merge-base --is-ancestor "${sha}^{commit}" origin/main || {
+  echo "ringtail-apply: ${sha} is not on origin/main; only merged commits can be applied" >&2
+  exit 3
+}
 git checkout --detach --quiet "$sha"
 
 unit=blumeops-nixos-rebuild
@@ -28,11 +44,11 @@ systemd-run --unit="$unit" --service-type=oneshot --property=TimeoutStartSec=330
 
 # Keep the wrapper's own deadline inside the job's 1-hour runner timeout (the
 # priv instance sets timeout = "1h").
-deadline=$(( $(date +%s) + 3480 ))
+deadline=$(($(date +%s) + 3480))
 while :; do
   state=$(systemctl show -p ActiveState --value "$unit" 2>/dev/null || echo unknown)
   case "$state" in
-    inactive|failed) break ;;
+    inactive | failed) break ;;
   esac
   now=$(date +%s)
   if [ "$now" -ge "$deadline" ]; then

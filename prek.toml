@@ -83,10 +83,23 @@ hooks = [
 ]
 
 # Shell scripts - shellcheck and shfmt
+#
+# The generic shellcheck hook runs at warning severity. nixos/ringtail/ holds
+# ringtail-apply.sh, the sudo target of the ringtail-rebuild warrant — the one
+# script in this repo that runs as root on ringtail — so it is linted at the
+# strictest severity to keep the bar visible and pinned there. See
+# [[warrant-approval-gated-runs]].
 [[repos]]
 repo = "https://github.com/shellcheck-py/shellcheck-py"
-rev = "745eface02aef23e168a8afb6b5737818efbea95"               # v0.11.0.1
-hooks = [{ id = "shellcheck", args = ["--severity=warning"] }]
+rev = "745eface02aef23e168a8afb6b5737818efbea95" # v0.11.0.1
+hooks = [
+  { id = "shellcheck", args = [
+    "--severity=warning",
+  ] },
+  { id = "shellcheck", alias = "shellcheck-ringtail", name = "shellcheck (ringtail, style)", args = [
+    "--severity=style",
+  ], files = '^nixos/ringtail/.*\.sh$' },
+]
 
 [[repos]]
 repo = "https://github.com/scop/pre-commit-shfmt"
