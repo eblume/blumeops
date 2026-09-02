@@ -1,9 +1,12 @@
 #!/run/current-system/sw/bin/bash
-# Root-side half of the ringtail-rebuild warrant workflow. Invoked only via
-# the sudoers rule for gitea-runner (the priv runner); the SHA argument is
-# the blumeops commit a human approved in Horkos. Checks out the bound SHA
-# in /etc/blumeops and drives the detached blumeops-nixos-rebuild unit, the
-# same pattern as ansible/playbooks/ringtail.yml.
+# Root-side half of the ringtail-rebuild warrant workflow. Runs as the root
+# template unit ringtail-apply@<sha>.service (nixos/ringtail/configuration.nix),
+# which polkit lets the priv runner's gitea-runner user start — the runner is
+# a DynamicUser service with NoNewPrivileges, so sudo is not an option there.
+# The instance name is the blumeops commit a human approved in Horkos. Checks
+# out the bound SHA in /etc/blumeops and drives the detached
+# blumeops-nixos-rebuild unit, the same pattern as ansible/playbooks/ringtail.yml.
+# stdout/stderr are appended to /var/log/ringtail-apply/<sha>.log by the unit.
 
 set -euo pipefail
 
@@ -12,6 +15,8 @@ sha="${1:-}"
   echo "ringtail-apply: expected a 40-hex sha, got: ${sha:-<none>}" >&2
   exit 2
 }
+
+echo "=== ringtail-apply $(date -Is) sha=$sha"
 
 [ -d /etc/blumeops/.git ] || {
   echo "ringtail-apply: /etc/blumeops is not a git checkout; run provision-ringtail once from gilbert first" >&2

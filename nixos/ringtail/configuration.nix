@@ -830,17 +830,45 @@ in
     };
   };
 
-  # Warrant path for agent-requestable ringtail rebuilds (ringtail-rebuild.yaml):
-  # the priv runner user may run exactly this wrapper as root; it checks out
-  # the bound SHA in /etc/blumeops and drives the detached blumeops-nixos-rebuild
-  # unit. See docs/explanation/warrant-approval-gated-runs.md.
+  # Warrant path for agent-requestable ringtail rebuilds (ringtail-rebuild.yaml).
+  # The priv runner is a systemd DynamicUser service, and DynamicUser implies
+  # NoNewPrivileges=yes (not overridable) — so no setuid path, sudo included,
+  # can ever escalate from a job. Instead the job asks systemd to *start* the
+  # root template unit ringtail-apply@<sha>.service, and polkit permits exactly
+  # that: user gitea-runner, verb start, an instance name that is a 40-hex sha.
+  # The unit runs the wrapper, which checks out the bound SHA in /etc/blumeops
+  # and drives the detached blumeops-nixos-rebuild unit; its output lands in
+  # /var/log/ringtail-apply/<sha>.log, readable by the (unprivileged) job so
+  # the run log can carry the verdict. See
+  # docs/explanation/warrant-approval-gated-runs.md.
   environment.etc."ringtail-apply/apply".source = ./ringtail-apply.sh;
-  security.sudo.extraRules = [
-    {
-      users = [ "gitea-runner" ];
-      commands = [ { command = "/etc/ringtail-apply/apply"; options = [ "NOPASSWD" ]; } ];
-    }
-  ];
+  systemd.services."ringtail-apply@" = {
+    description = "Apply blumeops %i to ringtail (ringtail-rebuild warrant)";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "/etc/ringtail-apply/apply %i";
+      # Same explicit environment the wrapper hands its inner systemd-run.
+      Environment = [ "PATH=/run/current-system/sw/bin:/usr/bin:/bin" "HOME=/root" ];
+      LogsDirectory = "ringtail-apply";
+      LogsDirectoryMode = "0755";
+      StandardOutput = "append:/var/log/ringtail-apply/%i.log";
+      StandardError = "inherit";
+      # Inner unit gets 3300s; the wrapper's own poll deadline is 3480s.
+      TimeoutStartSec = 3600;
+    };
+  };
+  security.polkit.extraConfig = ''
+    // ringtail-rebuild warrant: the priv runner may start ringtail-apply@<sha>
+    // and nothing else (no stop/restart/reload, no other unit).
+    polkit.addRule(function(action, subject) {
+      if (action.id == "org.freedesktop.systemd1.manage-units" &&
+          action.lookup("verb") == "start" &&
+          /^ringtail-apply@[0-9a-f]{40}\.service$/.test(action.lookup("unit")) &&
+          subject.user == "gitea-runner") {
+        return polkit.Result.YES;
+      }
+    });
+  '';
 
   # Enable nix flakes
   nix.settings.experimental-features = [ "nix-command" "flakes" ];

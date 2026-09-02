@@ -248,13 +248,16 @@ The smallest thing that closes the loop end-to-end:
      ringtail — likely the ringtail-side priv runner itself, and it must
      survive the network-restart hang (heph `01KTKW8VD3…`). The ringtail
      side decomposes: `ringtail-rebuild.yaml` lands first, a narrow
-     rebuild-only warrant on the priv runner with exactly one root path (a
-     NOPASSWD rule for `/etc/ringtail-apply/apply`); the full ansible play
-     stays `deny`.
+     rebuild-only warrant on the priv runner with exactly one root path: a
+     polkit rule letting `gitea-runner` *start* the root template unit
+     `ringtail-apply@<sha>.service` (which runs `/etc/ringtail-apply/apply`).
+     Not sudo — the runner is a systemd `DynamicUser` service, which implies
+     `NoNewPrivileges=yes` and cannot be talked out of it, so no setuid path
+     works from a job. The full ansible play stays `deny`.
    - `ringtail-rebuild.yaml` — the ringtail-facing half of provision-ringtail
      decomposed out to land first: apply a bound blumeops SHA to ringtail
-     through the single `/etc/ringtail-apply/apply` sudo rule on the priv
-     runner. provision-ringtail itself stays `deny`.
+     by starting the root `ringtail-apply@<sha>` unit from the priv runner
+     (polkit-gated). provision-ringtail itself stays `deny`.
 4. **A third vault tier** *(the only new credential)*. The two existing
    vaults have clear meanings; the gap between them is exactly where
    privileged execution contexts live:

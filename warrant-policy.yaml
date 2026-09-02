@@ -75,8 +75,8 @@ actions:
   ringtail-rebuild.yaml:
     class: warrant
     note: >-
-      Apply a bound blumeops SHA to ringtail: nixos-rebuild switch through the
-      narrow /etc/ringtail-apply/apply sudo grant on the priv runner. First
+      Apply a bound blumeops SHA to ringtail: nixos-rebuild switch via the root
+      ringtail-apply@<sha> unit the priv runner may start (polkit). First
       decomposition step toward provision-ringtail (which stays deny: its
       ansible pre_tasks read the blumeops vault).
     binds_sha: revision

@@ -2,10 +2,13 @@
 #
 # Request via `mise run request-run ringtail-rebuild.yaml <full-sha> -i revision=<sha>`.
 # The job runs on the priv runner (ringtail itself); its only root path is
-# one sudoers rule for /etc/ringtail-apply/apply, installed by nixos/ringtail/
-# configuration.nix. The wrapper checks out the bound SHA in /etc/blumeops and
-# drives the detached blumeops-nixos-rebuild unit, the same pattern as
-# ansible/playbooks/ringtail.yml. Full provision-ringtail stays class: deny.
+# starting the root template unit ringtail-apply@<sha>.service, which a polkit
+# rule in nixos/ringtail/configuration.nix permits for exactly that unit shape
+# (the runner is a DynamicUser service — NoNewPrivileges is implied, so sudo
+# cannot work from a job). The unit runs /etc/ringtail-apply/apply, which
+# checks out the bound SHA in /etc/blumeops and drives the detached
+# blumeops-nixos-rebuild unit, the same pattern as ansible/playbooks/ringtail.yml.
+# Full provision-ringtail stays class: deny.
 #
 # Injection posture: the dispatch input is only ever read through `env:` —
 # never into a checkout ref or shell text. The validate step is the first
@@ -89,5 +92,24 @@ jobs:
             echo "::error::revision failed re-validation"
             exit 1
           fi
-          # setuid wrapper — the nix store sudo binary is built non-setuid
-          /run/wrappers/bin/sudo /etc/ringtail-apply/apply "$REVISION"
+          systemctl=/run/current-system/sw/bin/systemctl
+          unit="ringtail-apply@${REVISION}.service"
+          log="/var/log/ringtail-apply/${REVISION}.log"
+          # The log appends across runs of the same sha; remember where this
+          # run's output starts so only it is echoed below.
+          before=$(stat -c %s "$log" 2>/dev/null || echo 0)
+          # Root boundary: polkit lets gitea-runner *start* this instance and
+          # nothing else. --wait blocks until the oneshot finishes and exits
+          # non-zero if it failed; a denial ("interactive authentication
+          # required") fails here too, before any verdict is read.
+          rc=0
+          "$systemctl" start --wait "$unit" || rc=$?
+          if [ -r "$log" ]; then
+            echo "--- $log"
+            tail -c +"$((before + 1))" "$log"
+          fi
+          result=$("$systemctl" show -p Result --value "$unit")
+          if [ "$rc" -ne 0 ] || [ "$result" != "success" ]; then
+            echo "::error::$unit did not succeed (systemctl rc=$rc, Result=$result)"
+            exit 1
+          fi
