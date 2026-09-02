@@ -1,6 +1,7 @@
 ---
 title: Backups
-modified: 2026-08-24
+modified: 2026-09-02
+last-reviewed: 2026-09-02
 tags:
   - storage
   - backup
@@ -26,6 +27,8 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | `~/forgejo` | Git forge data — repositories, LFS, `custom/conf`. The live `forgejo.db` is excluded here and dumped separately below | Critical |
 | `~/.config/borgmatic` | Backup config | High |
 | `~/Documents` | Personal documents (includes [[1password]] encrypted export) | High |
+| `~/.local/share/borgmatic/k8s-dumps` | Staging for k8s SQLite/file dumps before each backup (see Databases table) | Medium |
+| `/Volumes/shower` | Shower app prize-photo uploads (sifaka SMB mount) | High |
 
 ### Databases
 
@@ -38,8 +41,8 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | immich | immich-pg | [[postgresql|pg.ops.eblu.me:5433]] | pg_dump stream |
 | forgejo | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
 | heph | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
-| mealie | — (SQLite) | k8s pod | kubectl exec sqlite3 .backup |
-| shower | — (SQLite) | k8s pod (ringtail) | kubectl exec sqlite3 .backup |
+| mealie | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
+| shower | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
 | horkos | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
 | navidrome | — (SQLite) | k8s pod (ringtail) | navidrome `ND_BACKUP_*` snapshot, newest ferried off PVC |
 
@@ -58,7 +61,7 @@ The [[immich]] photo library lives on [[sifaka]] at `/volume1/photos` (SMB-mount
 |----------|-------|
 | **Config** | `~/.config/borgmatic/photos.yaml` |
 | **Schedule** | Daily at 4:00 AM (offset from main backup) |
-| **Source** | `/Volumes/photos` (sifaka SMB mount) |
+| **Source** | `/Volumes/photos/library` + `/Volumes/photos/upload` (sifaka SMB mount) |
 | **Target** | BorgBase `borgbase-immich-photos` repo |
 | **Size** | ~128 GB |
 
@@ -100,7 +103,7 @@ Metrics exposed to [[prometheus]]:
 - `borgmatic_last_archive_timestamp` - Last backup time
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
 
-Dashboard: "Borgmatic Backups" in [[grafana]]
+Dashboard: "Borg Backups" in [[grafana]]
 
 ## Related
 
