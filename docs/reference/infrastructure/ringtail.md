@@ -16,7 +16,7 @@ Service host and gaming PC. Custom-built PC running NixOS.
 |----------|-------|
 | **Motherboard** | ASUS ROG Crosshair VI Hero (Wi-Fi AC) |
 | **CPU** | AMD Ryzen 7 1700X (8-core/16-thread, 3.4 GHz) |
-| **RAM** | 64 GB DDR4 (2x32 GB Crucial CT2K32G4DFD832A in DIMM_A2/B2, dual-rank, JEDEC 3200 MT/s CL22 1.2 V; swapped 2026-09-02, see [[restart-ringtail#RAM-swap checklist]]) |
+| **RAM** | 64 GB DDR4 (2x32 GB Crucial CT2K32G4DFD832A in DIMM_A2/B2, Micron dual-rank, JEDEC 3200 CL22 1.2 V, **run at 2400 MT/s**; swapped 2026-09-02, see [[restart-ringtail#RAM-swap checklist]]) |
 | **GPU** | NVIDIA GeForce RTX 4080 (AD103, 16 GB VRAM) |
 | **PSU** | EVGA SuperNOVA 850 G3 (850 W, 80+ Gold, fully modular; 4080 fed via the 8-pin→12VHPWR adapter) |
 | **Monitor** | HP OMEN 27i IPS (2560x1440, 165 Hz, DisplayPort) |
@@ -234,12 +234,14 @@ Versioned services (forgejo-runner, snowflake, k3s) are pinned via a `nixpkgs-se
 
 **No TPM:** `systemd.tpm2.enable = false` prevents 90s boot delay.
 
-**RAM speed:** 3200 MT/s from the Crucial kit's JEDEC table (Ai Overclock Tuner
-= Default; the kit has no XMP profile so the D.O.C.P. option does not appear).
-The 1700X memory controller is only rated 2400 for two dual-rank DIMMs, so this
-is a bonus, not a guarantee across BIOS updates. The previous 4x8 GB Corsair
-kit ran 3200 via DOCP 1 (BIOS 8902+). Full Memtest86+ burn-in still pending
-(heph task); only a partial same-day run was done at swap time.
+**RAM speed:** **2400 MT/s, set manually** (Extreme Tweaker → Memory Frequency
+= DDR4-2400; Ai Overclock Tuner = Default). The BIOS trains the Crucial kit to
+its 3200 JEDEC table on Auto, but the Ryzen 1700X controller is only rated 2400
+for two dual-rank DIMMs and Memtest86+ threw errors within minutes at 3200
+(68 and climbing, test 2). At 2400 it ran clean through test 6. Do not put the
+frequency back on Auto after a BIOS reset without re-running memtest. The
+previous 4x8 GB single-rank Corsair kit ran 3200 via DOCP 1 (BIOS 8902+). Full
+overnight Memtest86+ burn-in at 2400 still pending (heph task).
 
 ## Related
 

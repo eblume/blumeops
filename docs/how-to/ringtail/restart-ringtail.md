@@ -242,16 +242,26 @@ CL22 1.2 V, dual-rank). Adjust for whatever the next kit is.
    it for as long as you can (the first hour covers the tests that catch
    dead cells and address faults), Esc out with zero errors, and file the
    full overnight run as a heph task dated inside the return window.
+   **If errors appear**, look at the address pattern before blaming the kit:
+   scattered addresses climbing steadily point at the memory controller
+   running faster than it can hold — drop Memory Frequency one step and
+   re-test — while a tight cluster points at a stick. Isolate a stick by
+   testing each alone in A2.
 7. Boot NixOS. Verify capacity, slots and trained speed:
    ```fish
    free -g
    ssh ringtail 'sudo "$(nix build --no-link --print-out-paths nixpkgs#dmidecode)/bin/dmidecode" -t 17 | grep -E "Locator|Size|Part Number|Configured Memory Speed"'
    ```
    Expect 32 GB in `DIMM_A2` and `DIMM_B2`, `No Module Installed` in A1/B1,
-   part number `CT32G4DFD832A`. Any configured speed of 2666, 2933 or 3200 is
-   fine: the Ryzen 7 1700X memory controller is officially rated 2400 for
-   two dual-rank DIMMs, so whatever it trains to is a bonus. Capacity is the
-   goal.
+   part number `CT32G4DFD832A.M16FF` (Micron), Rank 2. **Expect 2400 MT/s.**
+   On Auto the BIOS trains this kit to its 3200 JEDEC table and it *looks*
+   fine, but the Ryzen 7 1700X memory controller is only rated 2400 for two
+   dual-rank DIMMs. On 2026-09-02 Memtest86+ at 3200 hit 68 errors within
+   minutes (test 2, scattered addresses = controller, not cells); at
+   **Extreme Tweaker → Memory Frequency = DDR4-2400** it ran clean through
+   test 6. Capacity was the goal; 2400 is where this CPU lives with 64 GB.
+   If a BIOS reset puts the frequency back on Auto, re-run memtest before
+   trusting the box.
 8. Update the RAM row and the "RAM speed" maintenance note in [[ringtail]].
 9. Run the startup verification above. Then watch swap over the following
    days — the whole point was to stop living in zram (12.7 GB in use the day
