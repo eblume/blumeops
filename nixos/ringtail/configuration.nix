@@ -733,6 +733,8 @@ in
     "d /mnt/games 0755 eblume users -"
     "d /mnt/storage1 0755 eblume users -"
     "d /mnt/storage2 0755 eblume users -"
+    # ringtail-apply@<sha>.service appends its log here (see below).
+    "d /var/log/ringtail-apply 0755 root root -"
   ];
 
   # Container config for skopeo (used by the forgejo runner to push images)
@@ -849,8 +851,10 @@ in
       ExecStart = "/etc/ringtail-apply/apply %i";
       # Same explicit environment the wrapper hands its inner systemd-run.
       Environment = [ "PATH=/run/current-system/sw/bin:/usr/bin:/bin" "HOME=/root" ];
-      LogsDirectory = "ringtail-apply";
-      LogsDirectoryMode = "0755";
+      # Not LogsDirectory=: systemd opens stdio before it creates the exec
+      # directories, so append: into a LogsDirectory fails on first use with
+      # status 209/STDOUT. A tmpfiles rule (with the /mnt ones above) makes
+      # the dir at boot and at every activation instead.
       StandardOutput = "append:/var/log/ringtail-apply/%i.log";
       StandardError = "inherit";
       # Inner unit gets 3300s; the wrapper's own poll deadline is 3480s.
