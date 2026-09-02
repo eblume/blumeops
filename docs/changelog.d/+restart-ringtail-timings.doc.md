@@ -1,0 +1,1 @@
+Record the 2026-09-02 dry-run reboot timings and settle sequence in [[restart-ringtail]]; add the "reboot once with old RAM first" step, the kubectl fallback for an expired argocd CLI token, and the stale-pod-corpse caveat.

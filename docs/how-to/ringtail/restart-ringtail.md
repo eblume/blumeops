@@ -58,6 +58,18 @@ argocd app list | grep -v Synced     # nothing mid-sync (pin/unpin later if so)
 ssh ringtail 'sudo k3s kubectl get pods -A | grep -v -E "Running|Completed"'
 ```
 
+If the `argocd` CLI token has expired (`invalid session`), the same answer
+without an SSO round-trip:
+
+```fish
+ssh ringtail 'sudo k3s kubectl -n argocd get applications -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status'
+```
+
+Expect a few `Error` / `UnexpectedAdmissionError` pods with **0 restarts and an
+old age** — corpses from earlier ReplicaSets that Kubernetes never
+garbage-collects. Ignore them (or `kubectl delete pod` them so the post-boot
+check is cleaner); a pod that is *restarting* is the thing to look at.
+
 If an agent session is active (a `heph` task in progress, a PR being built),
 let it finish or accept that it dies.
 
@@ -81,6 +93,21 @@ RAM-backed; nothing to persist).
 
 Shutdown takes about a minute. The last two clean shutdowns (April and May
 2026) were each down ~5 minutes wall-clock including the boot.
+
+**Observed 2026-09-02** (plain `sudo reboot` after 113 days up, gen 100,
+kernel 6.12.87 → 6.12.93, done as a dry run before the RAM swap):
+
+| Mark | Time after `reboot` | What |
+|------|--------------------:|------|
+| SSH drops | ~0:40 | systemd has stopped k3s and sshd |
+| Boot menu | | Generation list plus Memtest86+ entry, confirmed on the console. (The pause to look at it is the only reason the next row is not ~1:30.) |
+| SSH back, greetd up | ~5:00 | `k3s.service` starts within ~10 s of the graphical target |
+| GPU pods rescheduled | k3s + ~1:00 | `nvidia-device-plugin` restarts twice, then Frigate and Immich ML land fresh `Running` pods; the old ones stay behind as `UnexpectedAdmissionError` corpses |
+| Everything settled | k3s + ~3:30 | All workloads `Running`, every ArgoCD app `Synced`/`Healthy`, CNPG clusters healthy, `systemctl --failed` empty |
+| Alerts quiet | k3s + ~5–10 min | `LogStreamSilent*` and `ServiceProbeFailure` sit **Pending** while Prometheus and Loki refill their windows. Pending is expected; **Firing** after ten minutes is not. |
+
+Swap was 11 GB of zram before the reboot and starts empty after; the memory
+comparison in the RAM-swap checklist is against the pre-reboot figure.
 
 ### 3. Hardware work (if any)
 
@@ -112,6 +139,18 @@ Linger is enabled, so they start without a graphical login too, but the
 1Password desktop app (needed for `op` on this host) does not. Start it from
 the launcher if you will need `op`.
 
+To check the user units from another host (a plain `systemctl --user` over
+SSH has no session bus):
+
+```fish
+ssh ringtail 'sudo systemctl --machine=eblume@.host --user list-units "*heph*"'
+```
+
+Note that `op` on **gilbert** is also unavailable while nobody is at gilbert
+to approve the biometric prompt, and `mise run agent-health` needs `op`. If
+you walk away from both machines mid-verification, the alert check waits
+until you are back.
+
 ### 3. Verify
 
 k3s comes up on its own and ArgoCD reconciles the auto-sync apps. Give it a
@@ -140,14 +179,23 @@ Things that commonly need a nudge:
 
 ## RAM-swap checklist
 
+**Reboot once with the old RAM first.** A host that has been up for months
+has several generations and probably a kernel bump queued behind the next
+boot. Doing a plain `sudo reboot` before opening the case separates "does the
+current generation boot and bring k3s up" from "does the new kit train", and
+proves the Memtest86+ entry actually appears in the menu before you depend on
+it overnight. It costs ~5 minutes; the 2026-09-02 dry run above is what that
+looks like when it goes well.
+
+
 Written for the 2026-09 upgrade from 4x8 GB Corsair CMK16GX4M2B3200C16
 (XMP/DOCP 3200 CL16 1.35 V) to 2x32 GB Crucial CT2K32G4DFD832A (JEDEC 3200
 CL22 1.2 V, dual-rank). Adjust for whatever the next kit is.
 
 **Before shutdown**
 
-1. Make sure the Memtest86+ boot entry is present (`ls /boot/EFI` or check
-   the boot menu on the next reboot). It is declared in
+1. Make sure the Memtest86+ boot entry is present (`sudo ls /boot/EFI` —
+   `/boot` is root-only — or check the boot menu on the next reboot). It is declared in
    `nixos/ringtail/configuration.nix`; if it is missing, `mise run
    provision-ringtail` first — you cannot add a boot entry once the box is
    down.
