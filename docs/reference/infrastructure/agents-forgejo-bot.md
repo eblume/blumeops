@@ -40,6 +40,12 @@ gate before anything deploys.
   `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`, `MAIN_PUSH_TOKEN`) — see
   [[agent-workspaces]] §Isolation. `main` is additionally branch-protected
   (push + merge whitelisted to `eblume`).
+  **The same recipe applies to every `pool: fork` repo** — today `agents` and
+  `horkos` as well. Each has an `agents/<repo>` fork on the forge, and the pod's
+  pool checkout already has `origin` = the fork and `upstream` = canonical, so
+  read-only-on-canonical is never a reason to hand a change back to a human:
+  branch off `upstream/main`, push to `origin`, then
+  `tea pr create --repo eblume/<repo> --base main --head agents:<branch>`.
 - **Not an admin.** No org/settings/runner access. No deploy credentials.
 
 ## Credentials
