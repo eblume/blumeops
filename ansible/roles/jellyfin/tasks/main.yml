@@ -163,6 +163,7 @@
     src: "/tmp/sso-authentication_{{ jellyfin_sso_plugin_version }}.zip"
     dest: "{{ jellyfin_plugins_dir }}/SSO-Auth_{{ jellyfin_sso_plugin_version }}"
     remote_src: true
+    creates: "{{ jellyfin_plugins_dir }}/SSO-Auth_{{ jellyfin_sso_plugin_version }}/SSO-Auth.dll"
   notify: Reload jellyfin
 
 - name: Ensure plugin configurations directory exists
