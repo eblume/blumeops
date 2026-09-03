@@ -26,8 +26,12 @@
 # engine; the runner's own binary does the same validation in milliseconds)
 # and `secret-scan` (the old trufflehog hook was pinned to an incremental
 # range that scanned nothing in CI; gitleaks covers the full history).
-# The one capability still missing everywhere is `ty-check`, blocked on the
-# gitignored dagger SDK at `sdk/src` (heph 01KZP4MRGSTEM63V0TQFDP7BRF).
+# `ty-check` is one of the prek hooks: it type-checks the whole repo,
+# including the extensionless uv scripts in mise-tasks/ that ruff also covers.
+# It runs in a clean checkout because it types the dagger module against the
+# published dagger-io (pinned to dagger.json's engineVersion) in a dedicated
+# venv, rather than the gitignored, ungenerated SDK at sdk/src
+# (heph 01KZP4MRGSTEM63V0TQFDP7BRF).
 #
 # On an agent PR this sits `pending` with no run until a human clicks
 # "Approve and run" — the agents bot is read-only on canonical, so its PRs are

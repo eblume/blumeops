@@ -326,12 +326,14 @@ def main(
 
         # Apply cutoff filter
         local_to_delete = [
-            b for b in local_to_delete
-            if branch_ages.get(b) is not None and branch_ages[b] >= cutoff  # type: ignore[operator]
+            b
+            for b in local_to_delete
+            if (age := branch_ages.get(b)) is not None and age >= cutoff
         ]
         remote_to_delete = [
-            b for b in remote_to_delete
-            if branch_ages.get(b) is not None and branch_ages[b] >= cutoff  # type: ignore[operator]
+            b
+            for b in remote_to_delete
+            if (age := branch_ages.get(b)) is not None and age >= cutoff
         ]
 
         filtered_candidates = sorted(set(local_to_delete) | set(remote_to_delete))

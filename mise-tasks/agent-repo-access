@@ -562,7 +562,7 @@ def main(
                             headers={"Authorization": f"token {issue_token}"},
                             timeout=30.0,
                         )
-                    if labeled is None:
+                    if labeled is None and label_client is not None:
                         labeled = has_engage_label(label_client, owner, repo, name)
                     if labeled is None:
                         blocked.append(repo)

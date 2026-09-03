@@ -31,7 +31,7 @@ Usage:
 import json
 import os
 import sys
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
 import typer
@@ -142,7 +142,7 @@ def json_view(data: dict, threads: list[list[dict]], repo: str) -> dict:
             "html_url": c.get("html_url"),
         }
 
-    thread_objs = []
+    thread_objs: list[dict[str, Any]] = []
     for thread in threads:
         resolved, resolvers = thread_resolved(thread)
         root = thread[0]

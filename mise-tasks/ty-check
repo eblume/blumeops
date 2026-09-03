@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+#MISE description="Type-check the repo with ty (project + mise-tasks uv scripts)"
+#
+# Type-checks the whole repo with ty: the .py project (src/blumeops, tests/)
+# plus the extensionless uv scripts in mise-tasks/, which ty's file walk does
+# not discover on its own (they carry no .py suffix), so they are enumerated
+# and passed explicitly.
+#
+# ty resolves imports against a dedicated venv (.ty-env/) rather than the
+# project's own .venv, for two reasons:
+#   - the project's uv env is unbuildable in a fresh checkout (dagger-io is a
+#     path dep on the gitignored, ungenerated sdk/), and
+#   - the dagger module type-checks against the published dagger-io pinned to
+#     the engineVersion in dagger.json, which is the correct source of truth
+#     when the generated SDK is absent.
+# The venv's third-party deps mirror the versions the mise-tasks uv scripts
+# pin inline; keep them in lockstep when those pins move.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+TY_ENV=".ty-env"
+# Keep in sync with the inline `dependencies = [...]` pins in mise-tasks/*.
+DEPS=(
+  "ty==0.0.74"
+  "dagger-io==0.21.9"
+  "rich==15.0.0"
+  "typer==0.27.1"
+  "httpx==0.28.1"
+  "pyyaml==6.0.3"
+  "pytest==9.1.1"
+)
+
+if [ ! -x "$TY_ENV/bin/python" ]; then
+  uv venv "$TY_ENV" --python 3.13
+fi
+uv pip install -p "$TY_ENV" --quiet "${DEPS[@]}"
+
+# Extensionless uv scripts: identified by their uv shebang, not their name.
+uv_scripts=()
+while IFS= read -r f; do
+  [ -n "$f" ] && uv_scripts+=("$f")
+done < <(find mise-tasks -type f -exec grep -l '^#!/usr/bin/env -S uv run --script' {} + 2>/dev/null | sort)
+
+exec "$TY_ENV/bin/ty" check --python "$TY_ENV" . "${uv_scripts[@]}"

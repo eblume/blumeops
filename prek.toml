@@ -131,7 +131,7 @@ hooks = [
 
 # Custom local hooks
 #
-# The four hooks below run their script directly rather than through
+# The hooks below run their script directly rather than through
 # `mise run <task>`. `mise run` installs the whole `[tools]` block before it
 # executes anything, so every one of these paid for pulumi, ansible-core,
 # borgmatic and ty — and on a Forgejo runner that install is not merely slow,
@@ -196,4 +196,26 @@ name = "docs-check-frontmatter"
 entry = "./mise-tasks/docs-check-frontmatter"
 language = "system"
 files = '^docs/.*\.md$'
+pass_filenames = false
+
+# Type-checking with ty
+#
+# ty's own file walk only discovers *.py / *.pyi, so the extensionless
+# uv scripts in mise-tasks/ would go untyped. The script enumerates them by
+# their uv shebang and passes them to `ty check` explicitly, on top of the
+# .py project walk. It builds a dedicated .ty-env (uv venv + pinned deps)
+# rather than using the project's env, which is unbuildable in a fresh
+# checkout (dagger-io is a path dep on the gitignored, ungenerated sdk/).
+# `--python .ty-env` points ty's import resolution there; the dagger module
+# then types against the published dagger-io pinned to dagger.json's
+# engineVersion instead of the absent generated SDK.
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "ty-check"
+name = "ty-check"
+entry = "./mise-tasks/ty-check"
+language = "system"
+files = '(\.py$|^mise-tasks/)'
 pass_filenames = false

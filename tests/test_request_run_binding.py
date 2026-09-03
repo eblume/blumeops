@@ -34,6 +34,8 @@ def _load_request_run():
         "request_run", str(ROOT / "mise-tasks" / "request-run")
     )
     spec = importlib.util.spec_from_loader("request_run", loader)
+    if spec is None:
+        raise RuntimeError("could not build an import spec")
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
     return module
