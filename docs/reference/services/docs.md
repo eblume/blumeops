@@ -32,8 +32,7 @@ Migrated from minikube to indri-native on 2026-04-29 (see [[docs-on-indri]]).
 
 ## Configuration
 
-- **Quartz config**: `quartz.config.ts`
-- **Layout**: `quartz.layout.ts`
+- **Quartz config**: `quartz.config.yaml` (v5 — single file for config, plugins, and layout)
 - **Ansible role**: `ansible/roles/docs/`
 - **Caddy entry**: `ansible/roles/caddy/defaults/main.yml` (`kind: static`, `try_html: true`)
 
