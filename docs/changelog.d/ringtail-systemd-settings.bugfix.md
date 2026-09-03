@@ -1,0 +1,1 @@
+Fix ringtail NixOS evaluation on nixos-26.05: `systemd.sleep.extraConfig` and `systemd.coredump.extraConfig` were removed upstream, so the first `provision-ringtail` after the 26.05 migration failed its assertions. Both are now expressed via `systemd.sleep.settings.Sleep` and `systemd.coredump.settings.Coredump` with the same values.
