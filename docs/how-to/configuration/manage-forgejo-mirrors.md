@@ -1,7 +1,7 @@
 ---
 title: Manage Forgejo Mirrors
-modified: 2026-08-12
-last-reviewed: 2026-02-26
+modified: 2026-09-03
+last-reviewed: 2026-09-03
 tags:
   - how-to
   - forgejo
@@ -18,7 +18,7 @@ BlumeOps mirrors upstream repositories (mostly from GitHub) into the `mirrors/` 
 
 ### Why Authenticate
 
-GitHub rate-limits unauthenticated git fetch/clone over HTTPS. As of May 2025, these limits were tightened significantly. All mirrors should use an authenticated `clone_addr` (via a GitHub fine-grained PAT) to avoid throttling.
+GitHub rate-limits unauthenticated git fetch/clone over HTTPS. As of May 2025, these limits were tightened significantly. All mirrors should use an authenticated `clone_addr` (via a zero-scope GitHub PAT) to avoid throttling.
 
 The GitHub PAT is stored in 1Password:
 
@@ -34,7 +34,7 @@ of it, not the only one: it is indri's general-purpose credential for reading
 public GitHub. CI tool resolution is the other consumer — the runner injects it
 into every job as `MISE_GITHUB_TOKEN` (see [[forgejo-runner]]), so it is
 readable by CI jobs. What the token *is* stays narrow — a PAT with **no
-permissions** (fine-grained or classic zero-scope), which grants read-only
+permissions** (a zero-scope classic token), which grants read-only
 access to public repositories and nothing else. Keep it that way. Anything
 needing a scope needs its own token.
 
@@ -108,33 +108,33 @@ The Forgejo API has no endpoint for updating pull mirror credentials, so the scr
 
 ## Rotate the GitHub PAT
 
-The GitHub fine-grained PAT has a 30-day expiry. Set a recurring reminder (every 20 days) to rotate it before it expires.
+The GitHub PAT is a zero-scope classic token with a 30-day expiry. A recurring Forgejo issue fires on the 1st and 21st of each month to drive the rotation.
 
 ### 1. Create a New PAT on GitHub
 
-Go to [GitHub fine-grained token settings](https://github.com/settings/personal-access-tokens/new) and create a new token:
+Use the **classic** form — create a token at [token settings](https://github.com/settings/tokens/new):
 
 - **Name:** `forge-ci-github` (or similar, include the date for tracking)
 - **Expiration:** 30 days
-- **Repository access:** Public repositories (read-only)
-- **Permissions:** None required — fine-grained PATs automatically include read-only access to all public repos
+- **Permissions:** **nothing checked** (zero scopes)
 
 > **Grant no permissions, ever.** "None" is not merely the minimum that works
 > here, it is the property that makes this token safe to spread. Consumers
 > beyond mirroring read it, so a scope added for one caller is a scope every
 > caller gets. A task needing more needs its own token.
 
-**A classic token with zero scopes is an accepted alternative.** Create one at
-[token settings](https://github.com/settings/tokens/new) with the same name and
-expiry and **nothing checked**. The capability is the same — the token exists
-only to make the clones authenticated, so GitHub applies the 5000/hr limit
-instead of 60/hr, and no scopes means public read and nothing else.
+**Why classic rather than fine-grained:** the fine-grained form has a
+resource-owner/org-approval step, and it fails. On 2026-08-10 it silently
+redirected to the token list on submit — no token, no approval request, no
+validation error — with `eblume` as resource owner and the default expiry.
+Private window and repeated attempts made no difference. The classic form has
+no resource-owner or org-approval step.
 
-Use it when the fine-grained form fails. On 2026-08-10 it silently redirected to
-the token list on submit: no token, no approval request, no validation error,
-with `eblume` as resource owner and the default expiry. Private window and
-repeated attempts made no difference. The classic form has no resource-owner or
-org-approval step, which is the part that fails.
+Either form does the job — the token exists only to make the clones
+authenticated, so GitHub applies the 5000/hr limit instead of 60/hr, and
+zero scopes means public read and nothing else. The fine-grained form, if
+used, is [fine-grained token settings](https://github.com/settings/personal-access-tokens/new)
+with "Public repositories" access and no permissions.
 
 Copy the new PAT to your clipboard.
 
@@ -150,7 +150,7 @@ Verify the update:
 
 ```fish
 op read "op://blumeops/w3663ffnvkewbftncqxtcpeavy/forge-ci-github-pat" | head -c 12
-# Should print the first 12 chars of the new PAT (github_pat_...)
+# Should print the first 12 chars of the new PAT (ghp_...)
 ```
 
 ### 3. Push the PAT to All Mirrors
@@ -161,10 +161,10 @@ mise run mirror-update-pats
 
 ### 4. Delete the Old PAT on GitHub
 
-Return to [GitHub token settings](https://github.com/settings/tokens?type=beta) and delete the previous token.
+Return to [GitHub token settings](https://github.com/settings/tokens) and delete the previous token.
 
 > [!note] "Never used" is expected
-> The old token may show **"Last used: never"** in the GitHub UI even after weeks of active syncing. Fine-grained PAT last-used tracking is unreliable for **git-over-HTTPS** operations (it records API calls, but frequently never registers plain `git fetch`/`clone`), which is all the mirrors do. This is not a sign the PAT was unused — verify auth properly in step 5 instead.
+> The old token may show **"Last used: never"** in the GitHub UI even after weeks of active syncing. GitHub PAT last-used tracking is unreliable for **git-over-HTTPS** operations (it records API calls, but frequently never registers plain `git fetch`/`clone`), which is all the mirrors do. This is not a sign the PAT was unused — verify auth properly in step 5 instead.
 
 ### 5. Verify
 
