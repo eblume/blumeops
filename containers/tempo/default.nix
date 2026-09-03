@@ -6,16 +6,17 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "2.10.7";
+  version = "3.0.3";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/tempo.git";
     rev = "v${version}";
-    hash = "sha256-Y7zAeGtLvB19MpxeCIxeEOKXCQS+ws8/xs/rmvYHcLY=";
+    hash = "sha256-hwbLHB0DnZ4PufIGsa7PYy+AgO4JKFWfJbPXeiYEtro=";
   };
 
-  # Tempo v2.10.6+ requires Go 1.26 (go.mod floor); nixpkgs default Go is
-  # older, so override to avoid a GOTOOLCHAIN=local build failure.
+  # Tempo v3.0.3's go.mod requires Go 1.26.5, above the channel's
+  # default Go, so pin go_1_26 (1.26.6) to avoid a GOTOOLCHAIN=local
+  # build failure.
   tempo = (pkgs.buildGoModule.override { go = pkgs.go_1_26; }) {
     inherit src version;
     pname = "tempo";
