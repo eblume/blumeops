@@ -42,10 +42,7 @@ spec:
           - "cluster.local"
       securityContext:
         fsGroup: 1500
-        # Without this, k8s recursively chgrps the whole PVC to fsGroup on
-        # every mount (1.8M files, ~2 min of PodNotReady per start). The
-        # fix-home-ownership init container owns actual file ownership, so
-        # the group check only needs the volume root.
+        # see fix-home-ownership init container; avoids a full-PVC chgrp on mount
         fsGroupChangePolicy: OnRootMismatch
       initContainers:
         # local-path PV root is created root-owned; fsGroup fixes group but
