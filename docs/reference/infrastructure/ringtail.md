@@ -1,6 +1,7 @@
 ---
 title: Ringtail
-modified: 2026-09-02
+modified: 2026-09-03
+last-reviewed: 2026-09-03
 tags:
   - infrastructure
   - host
@@ -66,10 +67,10 @@ The practical consequence: **losing your connection no longer aborts the switch.
 
 ## K3s Cluster
 
-Ringtail runs a single-node k3s cluster for native amd64 workloads, registered in [[argocd|ArgoCD]] on indri as `k3s-ringtail`.
+Ringtail runs a single-node k3s cluster for native amd64 workloads. [[argocd|ArgoCD]] runs in-cluster on this k3s and manages it in-place — every Application targets the in-cluster `https://kubernetes.default.svc`.
 
 - **Disabled components:** Traefik, ServiceLB, metrics-server (minimal footprint)
-- **TLS SAN:** `ringtail.tail8d86e.ts.net` (ArgoCD connects via Tailscale)
+- **TLS SAN:** `ringtail.tail8d86e.ts.net` — set in k3s `extraFlags` so the API server is reachable over the tailnet at `https://ringtail.tail8d86e.ts.net:6443`
 - **Registry mirrors:** Containerd pulls through Zot on indri (`registry.ops.eblu.me`)
 - **Token:** `/etc/k3s/token` (generated on first provision)
 - **Kubeconfig:** `/etc/rancher/k3s/k3s.yaml`, root-only via `--write-kubeconfig-mode=600`. ringtail is a multi-user host — the `agent` uid is a co-tenant — so a readable admin kubeconfig is a cluster-admin grant to every local account. See [[agent-workspaces]] §Isolation.
@@ -78,9 +79,9 @@ Ringtail runs a single-node k3s cluster for native amd64 workloads, registered i
 
 1Password Connect + External Secrets Operator syncs secrets from 1Password to k8s, matching the [[1password|indri pattern]]. Bootstrap credentials (`op-credentials`, `onepassword-token`) are provisioned by Ansible; ArgoCD manages the operator stack.
 
-Sync order: `1password-connect-ringtail` -> `external-secrets-crds-ringtail` -> `external-secrets-ringtail` -> `external-secrets-config-ringtail`
+Sync order: `1password-connect-ringtail` -> `external-secrets-crds-ringtail` -> `external-secrets-ringtail`. The `ClusterSecretStore` is a resource of the `external-secrets-ringtail` app (`argocd/manifests/external-secrets/cluster-secret-store.yaml`).
 
-### Workloads
+### Notable workloads
 
 | Workload | Namespace | Notes |
 |----------|-----------|-------|
@@ -91,17 +92,7 @@ Sync order: `1password-connect-ringtail` -> `external-secrets-crds-ringtail` -> 
 | [[ollama]] | `ollama` | LLM inference with GPU (RTX 4080) |
 | nvidia-device-plugin | `nvidia-device-plugin` | Exposes GPU to pods via CDI + nvidia RuntimeClass |
 
-### Manual Cluster Registration
-
-After first provision, register the cluster in ArgoCD:
-
-```fish
-ssh ringtail 'sudo cat /etc/rancher/k3s/k3s.yaml' | \
-  sed 's|127.0.0.1|ringtail.tail8d86e.ts.net|' > /tmp/k3s-ringtail.yaml
-set -x KUBECONFIG /tmp/k3s-ringtail.yaml
-kubectl get nodes  # verify access
-argocd cluster add default --name k3s-ringtail
-```
+This is a subset — the full inventory is the 36 ArgoCD Applications in `argocd/apps/`.
 
 ## Systemd Services
 
@@ -112,7 +103,7 @@ A Tor [[snowflake-proxy]] that helps censored users reach the Tor network. Runs 
 | Property | Value |
 |----------|-------|
 | **Service unit** | `snowflake-proxy.service` |
-| **Metrics** | `localhost:9999/metrics` (Prometheus) |
+| **Metrics** | `0.0.0.0:9999` (Prometheus, scraped by the `alloy-ringtail` app) |
 
 ### Forgejo Actions Runner
 
@@ -127,9 +118,11 @@ A native Forgejo Actions runner (`ringtail-nix-builder`) runs as a systemd servi
 
 The runner resolves `<nixpkgs>` from the flake registry at build time. Container trust policy (`/etc/containers/policy.json`) and registry search order (`/etc/containers/registries.conf`) are configured minimally in `configuration.nix` for skopeo — no full `virtualisation.containers` module needed.
 
+A second runner, `ringtail-priv-runner` (label `priv:host`), hosts the dispatch-only privileged workflow jobs — a sandboxed systemd DynamicUser service, so a compromised job touches the sandbox rather than the forge owner's account. See [[warrant-approval-gated-runs]].
+
 ### Factorio Server
 
-A private Factorio dedicated server (`services.factorio`, `nixos/ringtail/factorio.nix`) — BlumeOps' first externally-shared service. It listens on UDP 34197 with `openFirewall = false`: the port is reachable only over the already-trusted `tailscale0` interface, never the LAN or internet. Named `factorio.ops.eblu.me` via an exact A record (in `pulumi/gandi`) that overrides the `*.ops → indri` wildcard, since the game is UDP and bypasses Caddy.
+A private Factorio dedicated server (`services.factorio`, `nixos/ringtail/factorio.nix`) — BlumeOps' first externally-shared service. It listens on UDP 34197 with `openFirewall = false`: the port is reachable only over the already-trusted `tailscale0` interface, never the LAN or internet. Named `factorio.ops.eblu.me` via an exact CNAME (in `pulumi/gandi`) to ringtail's MagicDNS name, which beats the `*.ops` wildcard. Deliberately *not* an A record: the game is UDP and bypasses Caddy, so DNS must land on ringtail directly, and a shared node gets a different `100.x` address in each guest's tailnet — a pinned A record would publish one owner-tailnet IP that guests can't route.
 
 | Property | Value |
 |----------|-------|
