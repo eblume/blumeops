@@ -1,0 +1,1 @@
+Talos pod sized for tens of concurrent sessions: cpu 250m→2 request / 2→8 limit, memory 512Mi→4Gi request / 4Gi→16Gi limit, and a more patient liveness probe (15s timeout, 6 failures) after the 2-cpu limit throttled 80% of CFS periods at 10 sessions and the kubelet killed every session in the pod.
