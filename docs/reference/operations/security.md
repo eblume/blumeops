@@ -1,6 +1,6 @@
 ---
 title: Security
-modified: 2026-09-01
+modified: 2026-09-02
 last-reviewed: 2026-08-30
 tags:
   - operations
@@ -36,23 +36,49 @@ Rollout (heph `01KVQX81703HDE77ED88XDPSR2`):
 2. Read the warnings and fix the near-miss workloads field by field.
 3. Switch on `enforce` per namespace as each goes quiet; exemptions last.
 
-Current state: step 2 is landing — the four restricted-required fields
-(`runAsNonRoot` + `seccompProfile: RuntimeDefault` at pod level,
-`allowPrivilegeEscalation: false` + `capabilities drop ALL` at container
-level) are being added to the near-miss workloads under eblume/blumeops#753
-(no `enforce` yet). Two known residual warning sources remain, both
-documented exceptions that block their own namespace's `enforce` flip:
-grafana's `init-chown-data` init container runs as root with CHOWN (needs a
-non-root chown pattern), and birdnet-go (added after this rollout's label
-pass, #765) runs its whole container as root (upstream image has no USER;
-needs a non-root image or uid+PVC-ownership work). Enforcement follows in
-per-namespace PRs once warnings are quiet.
+Current state: step 2 is landed (#772, 2026-09-01) — the four
+restricted-required fields (`runAsNonRoot` + `seccompProfile: RuntimeDefault`
+at pod level, `allowPrivilegeEscalation: false` + `capabilities drop ALL` at
+container level) are on the near-miss workloads under eblume/blumeops#753
+(no `enforce` yet). Eight workloads whose images run as root wedged in
+`CreateContainerConfigError` and were rolled back on all four fields
+(ed4c0667); per-workload decisions for them are below (eblume/blumeops#797)
+and each one still blocks its namespace's `enforce` flip until acted on.
+
+Three workloads remain documented exceptions that block their own
+namespace's `enforce` flip: grafana's `init-chown-data` init container runs
+as root with CHOWN (needs a non-root chown pattern), birdnet-go (added after
+this rollout's label pass, #765) runs its whole container as root (upstream
+image has no USER; needs a non-root image or uid+PVC-ownership work), and
+frigate (upstream image with an s6-overlay root entrypoint and no supported
+non-root path — see decision table). Enforcement follows in per-namespace
+PRs once warnings are quiet.
+
+### Non-root decisions — the eight rolled-back workloads
+
+Recommended per the eblume/blumeops#797 thread; pending Erich's sign-off.
+House pattern for the local nix images: `User` in the `dockerTools` config +
+matching pod `securityContext` (navidrome precedent). NFS-backed volumes
+(sifaka) are **pre-chowned on the NAS once** instead of using `fsGroup` —
+kubelet would chown the whole share recursively at every mount.
+
+| Workload (namespace) | Image (source) | Decision | Work needed |
+|---|---|---|---|
+| authentik-redis (authentik) | local `blumeops/authentik-redis` (nix, redis 8.6.3) | non-root image | `User` in `containers/authentik-redis/`; no volumes, so no fsGroup |
+| immich-valkey (immich) | local `blumeops/valkey` (nix, 8.1.7) | non-root image | `User` in `containers/valkey/`; fsGroup 1000 on the `/data` emptyDir. Same image serves paperless's redis sidecar (emptyDir there too) |
+| mealie (mealie) | local `blumeops/mealie` (nix, 3.20.1) | non-root image | `User` in `containers/mealie/`; fsGroup 1000 on the local-path data PVC (`init_db` writes `/app/data` at start) |
+| paperless (paperless) | local `blumeops/paperless` (nix, 2.20.15) | non-root image | `User` in `containers/paperless/`; fsGroup on the emptyDir data volumes; media PVC is NFS (sifaka:/volume1/paperless) → one-time pre-chown to uid/gid 1000, no fsGroup there |
+| teslamate (teslamate) | local `blumeops/teslamate` (nix, mix release 3.0.0) | non-root image | `User` in `containers/teslamate/` + a writable uid-owned `/opt/app` created in the image so HOME and SRTM_CACHE point at a directory that exists; stateless otherwise |
+| frigate (frigate) | upstream `ghcr.io/blakeblackshear/frigate:0.17.1-tensorrt` | **PSA exception** | s6-overlay root entrypoint; PUID/PGID unimplemented upstream (frigate GH #3434, discussion #22837); /dev/shm log dirs and root-owned /config plus the NFS /media share break non-root. Revisit if upstream ships a non-root path |
+| immich-server (immich) | upstream `ghcr.io/immich-app/immich-server:v3.0.2` | non-root via manifest | upstream's blessed rootless pattern is `user: 1000:1000` (immich's `docker-compose.rootless.yml`); runAsUser/runAsGroup 1000 + the four fields. Library PVC is NFS (sifaka:/volume1/photos, 2Ti) → one-time pre-chown to uid/gid 1000, deliberately **no fsGroup** on it |
+| immich-machine-learning (immich) | upstream `ghcr.io/immich-app/immich-machine-learning:v3.0.2-cuda` | non-root via manifest | same rootless pattern; runAsUser 1000 + fsGroup 1000 on the cache PVC + the four fields |
 
 | Namespace(s) | Target | Notes |
 |---|---|---|
-| 1password, argocd, authentik, external-secrets, frigate, homepage, horkos, immich, kiwix, mealie, miniflux, monitoring, navidrome, ntfy, paperless, shower, teslamate, torrent | `restricted` | near-misses fixed in step 2 |
+| 1password, argocd, authentik, external-secrets, homepage, horkos, immich, kiwix, mealie, miniflux, monitoring, navidrome, ntfy, paperless, shower, teslamate, torrent | `restricted` | near-misses fixed in step 2; the eight root-image workloads follow the decision table above |
 | ollama, talos | `baseline` | hostPath use |
 | alloy | exempt | alloy-tracing-ringtail needs privileged + hostPID (Beyla eBPF) |
+| frigate | exempt | root s6-overlay entrypoint, no supported non-root path (decision table above) |
 | nvidia-device-plugin | exempt | privileged + hostPath |
 | prowler | exempt | hostPID + hostPath (the scanner reads the node it audits) |
 | cnpg-system, databases, tailscale | deferred | operator-created pods have no repo manifest; judged with kubectl before labeling |
