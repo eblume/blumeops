@@ -14,7 +14,7 @@ Custom Nix derivation that builds authentik from source, replacing the `pkgs.aut
 
 ## Motivation
 
-The nix-container-builder runner on ringtail resolves `nixpkgs` via the NixOS nix registry, which pins to `nixos-25.11`. That channel lags behind upstream authentik releases. Building from source lets us target any release by updating `sources.nix`.
+The nix-container-builder runner on ringtail resolves `nixpkgs` via the NixOS nix registry, which pins to `nixos-26.05`. That channel lags behind upstream authentik releases. Building from source lets us target any release by updating `sources.nix`.
 
 ## Architecture
 

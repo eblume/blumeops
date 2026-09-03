@@ -577,18 +577,6 @@ services:
     last-reviewed: 2026-07-10
     current-version: "2.0.77"
     upstream-source: https://forums.factorio.com/viewforum.php?f=3
-    notes: >-
-      Headless dedicated server on ringtail (nixos/ringtail/factorio.nix,
-      services.factorio). TEMPORARY VERSION PIN: nixos-25.11 ships
-      factorio-headless 2.0.76, but Factorio refuses cross-build multiplayer
-      joins and the Steam client auto-updates. factorio.nix carries a small
-      overlay that overrides the derivation's `versionsJson` with the 2.0.77
-      headless tarball (sha256 verified; binary reports build 84539). This
-      floats us to whatever the client is on — a bump means updating the URL +
-      sha256 in that overlay (nix-prefetch-url the get-download headless link,
-      convert to base16). REMOVE the overlay entirely once nixpkgs 25.11 ships
-      2.0.77+, otherwise it freezes the server at 2.0.77 forever. current-version
-      is a hard local override, not a channel version.
 
   - name: borgmatic
     type: ansible
