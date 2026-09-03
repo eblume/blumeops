@@ -170,29 +170,42 @@ spec:
           # check) and renders a page. With the default 1s timeout, 90s of a
           # busy event loop under multi-session load was enough to
           # liveness-kill the pod and every session in it (2026-08-31). 5s
-          # tolerates load spikes; a truly hung server still dies in ~3 periods.
+          # was still not enough at 10 concurrent sessions under the old 2-cpu
+          # limit (2026-09-03: 80% of CFS periods throttled, then a kill that
+          # took every session down). One replica means a liveness kill is the
+          # worst outcome short of data loss, so the probe errs on patience: a
+          # truly hung server still dies, in ~4 minutes instead of ~90s.
           livenessProbe:
             httpGet:
               path: /healthz
               port: 9464
             initialDelaySeconds: 30
             periodSeconds: 30
-            timeoutSeconds: 5
+            timeoutSeconds: 15
+            failureThreshold: 6
           readinessProbe:
             httpGet:
               path: /healthz
               port: 9464
             initialDelaySeconds: 5
             periodSeconds: 10
-            timeoutSeconds: 5
+            timeoutSeconds: 15
+          # Sized for tens of concurrent sessions, not a handful. Every session's
+          # tool processes (bash, cargo, nix, subagent pi) share this cgroup
+          # with the single Bun event loop, so a CPU limit that binds starves
+          # the server itself: at cpu:2 with 10 sessions, 1136 of 1427 CFS
+          # periods were throttled and the pod was liveness-killed
+          # (2026-09-03). ringtail has 16 cores / 64Gi; talos is the workload
+          # they are for. Memory sat at 2.7Gi of the old 4Gi limit at 10
+          # sessions, so 16Gi leaves room for ~30.
           resources:
             requests:
-              cpu: 250m
-              memory: 512Mi
-              ephemeral-storage: 2Gi
-            limits:
               cpu: "2"
               memory: 4Gi
+              ephemeral-storage: 2Gi
+            limits:
+              cpu: "8"
+              memory: 16Gi
               # nix builds write to the container's writable layer (the
               # canonical /nix/store is uid-1500-writable in the image);
               # this caps how far a build spree can eat the node's disk.
