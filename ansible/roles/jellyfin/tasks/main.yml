@@ -156,6 +156,7 @@
   ansible.builtin.get_url:
     url: "https://github.com/9p4/jellyfin-plugin-sso/releases/download/v{{ jellyfin_sso_plugin_version }}/sso-authentication_{{ jellyfin_sso_plugin_version }}.zip"
     dest: "/tmp/sso-authentication_{{ jellyfin_sso_plugin_version }}.zip"
+    checksum: "sha256:de0951255bec4ed646037641e7e0aa1210b3a00a141406548087bed994cb9bdd"
     mode: '0644'
 
 - name: Extract SSO-Auth plugin
