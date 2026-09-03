@@ -12,6 +12,7 @@ metadata:
   namespace: talos
 spec:
   replicas: 1
+  revisionHistoryLimit: 3
   strategy:
     type: Recreate
   selector:

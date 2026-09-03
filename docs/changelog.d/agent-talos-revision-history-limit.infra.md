@@ -1,0 +1,1 @@
+Set `revisionHistoryLimit: 3` on the talos and egress-gateway Deployments so Kubernetes stops accumulating 10–12 stale ReplicaSets (and the Error/UnexpectedAdmissionError corpse pods they left behind) for each of the two workloads (eblume/blumeops#800).
