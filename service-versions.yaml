@@ -577,14 +577,6 @@ services:
     last-reviewed: 2026-07-10
     current-version: "2.0.77"
     upstream-source: https://forums.factorio.com/viewforum.php?f=3
-    notes: >-
-      Headless dedicated server on ringtail (nixos/ringtail/factorio.nix,
-      services.factorio). The version follows the nixos-26.05 channel
-      (currently 2.0.77). Factorio refuses cross-build multiplayer joins and
-      the Steam client auto-updates, so if the client runs a newer build than
-      the channel ships, add a temporary versionsJson overlay in factorio.nix
-      (nix-prefetch-url the get-download headless link, convert to base16) and
-      remove it again once the channel catches up.
 
   - name: borgmatic
     type: ansible
