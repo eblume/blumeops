@@ -21,10 +21,20 @@ open ones, matches each to its workflow run on the forge, and:
 Attribution prefers the RECORD over inference: warrant stores the run number
 the forge named in its dispatch response (`return_run_info`), and request-run
 stamps the warrant request id into the heph task, so a task closes against
-the exact run its approval caused. The forge-side heuristic (newest dispatch
-of that workflow after the request was filed) remains only as a fallback —
-for UI-dispatched runs, pre-stamp tasks, or a warrant outage — and closures
-it produces are marked as inferred in the audit log.
+the exact run its approval caused. A warrant record with no run number is
+reported, never guessed: request status "dispatched" means the dispatch ran
+but the forge never named the run (pre-`return_run_info` forge / 204 answer)
+— "dispatched-norun", left for a human to link or re-dispatch; status
+"dispatch_failed" means the dispatch attempt failed (the reason is on the
+warrant note); any other run-less status (approved, denied, superseded, …)
+was never dispatched — "never dispatched", with the warrant note's
+"not dispatched: {reason}" surfaced when horkos recorded one
+(eblume/horkos#13). Inference is refused for all three: eblume/horkos#12
+audited run 1754 being guessed for an approved-but-undispatched request. The
+forge-side heuristic (newest dispatch of that workflow after the request was
+filed) is reserved for approvals with no warrant record at all — pre-stamp
+tasks or a warrant outage — and closures it produces are marked as inferred
+in the audit log.
 
 Run it from any agent session (`mise run verify-runs`) — it needs heph and
 the bot's forge token, nothing privileged. Idempotent; safe to run anytime.
@@ -41,6 +51,7 @@ from typing import Annotated
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 # Tailnet name — the public forge.eblu.me is HTTPS-poison in-cluster
 # (docs/reference/services/argocd.md).
@@ -144,7 +155,7 @@ def warrant_requests() -> dict[int, dict]:
             tok.raise_for_status()
             resp = c.get(
                 f"{HORKOS_URL}/api/requests",
-                params={"limit": 100},
+                params={"limit": 500},
                 headers={"Authorization": f"Bearer {tok.json()['access_token']}"},
             )
             resp.raise_for_status()
@@ -245,6 +256,96 @@ def match_run(task: dict, runs: list[dict]) -> dict | None:
     return max(pool, key=lambda r: r["run_number"]) if pool else None
 
 
+def _note_detail(note: str | None, prefix: str) -> str | None:
+    """The most recent `prefix: …` segment horkos appended to a warrant note.
+
+    horkos appends one segment per pre-dispatch no-op (" | not dispatched:
+    …") or failed dispatch (" | dispatch FAILED: …"), so a note can carry
+    several; the appended-most is the operative one. Limitation: a detail
+    containing a literal `|` is truncated at the first internal pipe — the
+    separator is horkos's format, so the extraction degrades gracefully."""
+    if not note:
+        return None
+    for segment in reversed(re.split(r"\s*\|\s*", note)):
+        m = re.match(re.escape(prefix) + r":\s*(.+)", segment, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
+def not_dispatched_reason(note: str | None) -> str | None:
+    """Why a dispatch never ran: the reason in the warrant note's trailing
+    " | not dispatched: {reason}" segment (eblume/horkos#13), or None when
+    the note records none (pre-#13 records, or a note the API did not fold)."""
+    return _note_detail(note, "not dispatched")
+
+
+def dispatch_failed_detail(note: str | None) -> str | None:
+    """Why a dispatch attempt failed: the detail in the warrant note's
+    trailing " | dispatch FAILED: {detail}" segment, or None."""
+    return _note_detail(note, "dispatch FAILED")
+
+
+def attribution(
+    task: dict, wid: int | None, wrec: dict | None, runs: list[dict]
+) -> tuple[dict | None, str | None, str]:
+    """Decide run attribution for one open Approve task.
+
+    The warrant record — when one exists — is authoritative: a request may
+    close only against the run number the forge named in its own dispatch
+    response (persisted as the warrant's `run_number`). Forge-side inference
+    (`match_run`) is reserved for approvals with NO warrant record at all —
+    pre-stamp tasks or a warrant outage.
+
+    A run-less warrant record is never guessed at. Three shapes exist, and
+    the sweep distinguishes them: request status "dispatched" means the
+    dispatch DID run but the forge answered without naming one (pre-
+    `return_run_info` forge / 204) — "dispatched-norun", a human links or
+    re-dispatches; "dispatch_failed" means the dispatch attempt failed (the
+    reason is on the warrant note); anything else (approved / denied /
+    superseded / …) was never dispatched. Inferring a run for any of them is
+    exactly the misattribution audit eblume/horkos#12 caught (run 1754
+    guessed for an approved-but-undispatched request), so all three refuse
+    the heuristic outright.
+
+    Returns (run, via, state):
+      - "recorded": warrant names `run_number`; `run` is that run, or None
+        when it sits outside the recent-run window.
+      - "pending":  warrant exists and awaits a decision.
+      - "dispatched-norun": status "dispatched", no `run_number` — the run
+        ran but was never recorded; a human links or re-dispatches.
+      - "dispatch_failed": status "dispatch_failed" — the dispatch attempt
+        failed, terminally; the warrant note carries the reason.
+      - "never":    any other run-less record — never dispatched.
+      - "inferred": no warrant record; `run` from the forge-side heuristic
+        (None when nothing matches).
+    """
+    if wrec and wrec.get("run_number"):
+        via = f"recorded: warrant #{wid}"
+        run = next(
+            (r for r in runs if r.get("run_number") == wrec["run_number"]), None
+        )
+        return run, via, "recorded"
+    if wrec and wrec.get("status") == "pending":
+        return None, None, "pending"
+    if wrec:
+        # Recorded but run-less. Three shapes — two of them NOT "never
+        # dispatched": status "dispatched" means the dispatch ran and the
+        # forge just never named a run (pre-return_run_info forge / 204);
+        # status "dispatch_failed" means the dispatch attempt failed (the
+        # warrant note carries the reason). Everything else (approved /
+        # denied / superseded / …) was never dispatched. Guessing a run for
+        # any of them would reopen the eblume/horkos#12 misattribution, so
+        # all three report and stay open; main() surfaces the note's
+        # "not dispatched: {reason}" when horkos recorded one.
+        if wrec.get("status") == "dispatched":
+            return None, None, "dispatched-norun"
+        if wrec.get("status") == "dispatch_failed":
+            return None, None, "dispatch_failed"
+        return None, None, "never"
+    return match_run(task, runs), "inferred: newest dispatch after filing", "inferred"
+
+
 def _epoch(iso: str) -> float:
     from datetime import datetime
 
@@ -268,32 +369,67 @@ def main(
         bindings = sha_policy(client)
     warrants = warrant_requests()
 
-    closed = failed = pending = mismatched = 0
+    closed = failed = pending = mismatched = never_dispatched = 0
     for task in tasks:
         node_id = task["node_id"]
         label = f"{task['workflow']} @ {task['sha7']} (PR #{task['pr']})"
 
-        run, via = None, "inferred: newest dispatch after filing"
         wid = warrant_id_for(task)
         wrec = warrants.get(wid) if wid else None
-        if wrec and wrec.get("run_number"):
-            via = f"recorded: warrant #{wid}"
-            run = next(
-                (r for r in runs if r.get("run_number") == wrec["run_number"]), None
+        run, via, state = attribution(task, wid, wrec, runs)
+        if state == "inferred" and wid is not None:
+            # Stamped but missing: the (successful) fetch of the horkos
+            # requests returned no record for this warrant id — it sits
+            # outside the limit window, or the request vanished. The sweep
+            # still infers (behavior unchanged), but say so: a genuinely
+            # approved task is being attributed by guesswork, which is
+            # exactly the #12 misattribution, and it must not pass silently.
+            console.print(
+                f"[yellow]warn[/yellow]   {label} — warrant #{wid} not among the "
+                "500 newest horkos requests; treating as unrecorded (inference "
+                "may misattribute)"
             )
-            if run is None:
-                console.print(
-                    f"[yellow]pending[/yellow]  {label} — warrant #{wid} names run "
-                    f"{wrec['run_number']}, which is outside the recent-run window"
-                )
-                pending += 1
-                continue
-        elif wrec and wrec.get("status") == "pending":
+        if state == "recorded" and run is None:
+            # attribution returns "recorded" only when the warrant names a run number
+            assert wrec is not None
+            console.print(
+                f"[yellow]pending[/yellow]  {label} — warrant #{wid} names run "
+                f"{wrec['run_number']}, which is outside the recent-run window"
+            )
+            pending += 1
+            continue
+        if state == "pending":
             console.print(f"[yellow]pending[/yellow]  {label} — warrant #{wid} awaits decision")
             pending += 1
             continue
-        else:
-            run = match_run(task, runs)
+        if state == "dispatched-norun":
+            console.print(
+                f"[yellow]dispatched-norun[/yellow]  {label} — warrant #{wid} WAS "
+                "dispatched but the forge named no run (pre-return_run_info "
+                "answer / deaf forge); a human must link or re-dispatch — "
+                "inference refused (task left open)"
+            )
+            pending += 1  # open: awaits that human follow-up
+            continue
+        if state == "dispatch_failed":
+            detail = dispatch_failed_detail(wrec.get("note") if wrec else None)
+            suffix = f": {escape(detail)}" if detail else ""
+            console.print(
+                f"[red]dispatch FAILED[/red]  {label} — warrant #{wid} dispatch failed"
+                f"{suffix} (see the warrant note for the reason; task left open)"
+            )
+            failed += 1
+            continue
+        if state == "never":
+            reason = not_dispatched_reason(wrec.get("note") if wrec else None)
+            reason_text = f" — not dispatched: {escape(reason)}" if reason else ""
+            console.print(
+                f"[yellow]never dispatched[/yellow]  {label} — warrant #{wid} records no "
+                f"run number{reason_text}; inference refused, so no run is "
+                "guessed (task left open)"
+            )
+            never_dispatched += 1
+            continue
 
         if run is None:
             console.print(f"[yellow]pending[/yellow]  {label} — not dispatched yet")
@@ -335,6 +471,8 @@ def main(
             pending += 1
 
     summary = f"\n{closed} closed, {failed} failed (open), {pending} pending/running"
+    if never_dispatched:
+        summary += f", [yellow]{never_dispatched} never dispatched[/yellow] (open)"
     if mismatched:
         summary += f", [red]{mismatched} SHA-binding mismatch[/red] (open)"
     console.print(summary)
