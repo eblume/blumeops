@@ -73,6 +73,14 @@ spec:
               value: /home/talos/data
             - name: TALOS_WORKSPACE
               value: /home/talos/workspace
+            # One shared incremental tree on the PVC for every Rust build in
+            # every session (hephaestus is the only Rust repo in the pool):
+            # without it each worktree builds cold and leaves a 5-20 GB
+            # target/ behind (eblume/blumeops#813). On the PVC, so the tree
+            # is warm across pod replacement; cargo's directory lock
+            # serializes concurrent builds.
+            - name: CARGO_TARGET_DIR
+              value: /home/talos/.cache/cargo-target
             - name: TALOS_PUBLIC_URL
               value: "https://talos.ops.eblu.me"
             - name: TALOS_MODEL
