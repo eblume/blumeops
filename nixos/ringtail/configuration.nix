@@ -884,12 +884,12 @@ in
   nix.settings.trusted-users = [ "gitea-runner" ];
 
   # Prevent machine from sleeping (workstation should stay on)
-  systemd.sleep.extraConfig = ''
-    AllowSuspend=no
-    AllowHibernation=no
-    AllowHybridSleep=no
-    AllowSuspendThenHibernate=no
-  '';
+  systemd.sleep.settings.Sleep = {
+    AllowSuspend = "no";
+    AllowHibernation = "no";
+    AllowHybridSleep = "no";
+    AllowSuspendThenHibernate = "no";
+  };
 
   # Cap systemd-coredump. Wine/Proton games (Diablo IV, etc.) segfault
   # regularly and dump multi-GB cores; with the stock (effectively unbounded)
@@ -901,11 +901,11 @@ in
   # cores get logged-but-skipped (the kernel stops dumping once we stop reading)
   # while real service cores (well under 1G) are still captured. MaxUse bounds
   # the on-disk store so frequent game crashes can't accumulate (was at 8.6G).
-  systemd.coredump.extraConfig = ''
-    ProcessSizeMax=1G
-    ExternalSizeMax=1G
-    MaxUse=2G
-  '';
+  systemd.coredump.settings.Coredump = {
+    ProcessSizeMax = "1G";
+    ExternalSizeMax = "1G";
+    MaxUse = "2G";
+  };
 
   # NixOS release
   system.stateVersion = "26.05";
