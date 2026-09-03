@@ -210,7 +210,7 @@ human-facing links. See [[argocd#Why the Applications say forge.eblu.me]].
 
 ```fish
 mise run container-list                       # show images/tags
-mise run container-release <name> <version>   # tag and build
+mise run container-build-and-release <name> <version>   # [human] tag and build via CI
 ```
 `container-list` reads `registry.ops.eblu.me`, which is tailnet-only. From an
 agent pod, route it through the sidecar — `ALL_PROXY=socks5://localhost:1055
