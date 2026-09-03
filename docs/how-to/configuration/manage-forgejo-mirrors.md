@@ -183,6 +183,23 @@ Optionally, trigger a manual sync on one mirror to confirm end-to-end:
 2. In the "Mirror settings" section, click "Synchronize now"
 3. Confirm the sync completes without errors
 
+## Check Mirror Health
+
+The repo detail endpoint exposes the last sync directly, so mirror health doesn't have to be guessed from ref activity:
+
+```fish
+curl -s -H "Authorization: token $FORGE_TOKEN" \
+  https://forge.eblu.me/api/v1/repos/mirrors/<name> \
+  | jq '{updated_at, mirror_updated, mirror_interval}'
+```
+
+`$FORGE_TOKEN` is a Forgejo API token (Forgejo → Settings → Applications → generate token) — distinct from the GitHub PAT above.
+
+- `mirror_updated` — the last successful sync; it advances even when no new refs arrive.
+- `updated_at` — for pull mirrors, normally moves only when a sync delivers new refs. Quiet upstreams look stale here even when the mirror is healthy.
+
+A mirror is healthy while `mirror_updated` stays within roughly one `mirror_interval` of now (all current mirrors run at 8h).
+
 ## Related
 
 - [[forgejo]] — Forgejo service reference
