@@ -23,7 +23,7 @@ Service host and gaming PC. Custom-built PC running NixOS.
 | **Storage (boot)** | Samsung 970 PRO 1TB NVMe |
 | **Storage (SATA)** | Samsung 850 EVO 1TB (`/mnt/games`), 850 EVO 500GB (`/mnt/storage1`), 840 PRO 120GB (`/mnt/storage2`) |
 | **Peripherals** | Das Keyboard 4, Logitech MX Master 3, 8BitDo Ultimate 2 controller |
-| **OS** | NixOS 25.11 (Sway/Wayland) |
+| **OS** | NixOS 26.05 (Sway/Wayland) |
 | **Tailscale hostname** | `ringtail.tail8d86e.ts.net` |
 
 ## Networking

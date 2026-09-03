@@ -431,7 +431,7 @@ in
   home-manager.useGlobalPkgs = true;
   home-manager.useUserPackages = true;
   home-manager.users.eblume = {
-    home.stateVersion = "25.11";
+    home.stateVersion = "26.05";
 
     # `heph`/`heph-tui`/`heph-quickadd` shims. The real binaries are in
     # ~/.cargo/bin, which is on no session PATH here — sway comes up under
@@ -908,5 +908,5 @@ in
   '';
 
   # NixOS release
-  system.stateVersion = "25.11";
+  system.stateVersion = "26.05";
 }
