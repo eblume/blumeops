@@ -21,10 +21,6 @@ class Blumeops:
                     "git",
                     "clone",
                     "--depth=1",
-                    # Pin to last v4 release. v5.0.0 restructured config
-                    # layout (.quartz/plugins, ../quartz imports) and breaks
-                    # our quartz.config.ts/quartz.layout.ts. See changelog.
-                    "--branch=v4.5.2",
                     "https://github.com/jackyzha0/quartz.git",
                     "/tmp/quartz",
                 ]
@@ -34,12 +30,16 @@ class Blumeops:
                     "sh",
                     "-c",
                     "cp -r /tmp/quartz/quartz /tmp/quartz/package*.json "
-                    "/tmp/quartz/tsconfig.json .",
+                    "/tmp/quartz/tsconfig.json /tmp/quartz/quartz.ts "
+                    "/tmp/quartz/.npmrc .",
                 ]
             )
-            .with_exec(["npm", "ci"])
-            .with_exec(["cp", "docs/quartz.config.ts", "."])
-            .with_exec(["cp", "docs/quartz.layout.ts", "."])
+            # npm install (not ci): we track the default branch and the
+            # upstream package-lock is not always in sync with package.json,
+            # so a strict ci install would fail. The staged .npmrc sets
+            # legacy-peer-deps, which the install needs.
+            .with_exec(["npm", "install"])
+            .with_exec(["cp", "docs/quartz.config.yaml", "."])
             .with_exec(["cp", "CHANGELOG.md", "docs/"])
             .with_exec(["npx", "quartz", "build", "-d", "docs"])
             .with_exec(

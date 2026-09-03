@@ -82,9 +82,8 @@ by the host-mode [[forgejo]]-runner on [[indri]] ([[configure-launchd-runner]]):
 - Graph view of document connections
 - Full-text search
 
-**Configuration files** (in `docs/`):
-- `quartz.config.ts` - Site metadata, plugins, theme
-- `quartz.layout.ts` - Page layout components
+**Configuration file** (in `docs/`):
+- `quartz.config.yaml` - Site metadata, plugins, theme, and page layout (v5, single file)
 
 Quartz is cloned fresh during each build (not vendored) to use the latest version.
 
