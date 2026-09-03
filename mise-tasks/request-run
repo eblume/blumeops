@@ -712,7 +712,7 @@ This request grants nothing: dispatch remains write-gated to humans.
             raise typer.Exit(1)
         comment_url = resp.json().get("html_url", f"{pr_web}/pulls/{number}")
 
-        if superseded:
+        if superseded and supersedes is not None and warrant_id is not None:
             annotate_superseded_comment(client, superseded, supersedes, warrant_id, sha)
 
     pr_ref = f"PR #{number}" + (f" ({pr_repo})" if pr_repo != DEFAULT_PR_REPO else "")
@@ -734,7 +734,7 @@ This request grants nothing: dispatch remains write-gated to humans.
 
     task_id = file_heph_task(tracking_task_title(workflow, sha, number, pr_repo), heph_body)
 
-    if superseded:
+    if superseded and supersedes is not None and warrant_id is not None:
         close_tracking_task(superseded, supersedes, warrant_id)
 
     if warrant_id and task_id:

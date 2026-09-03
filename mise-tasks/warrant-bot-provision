@@ -214,8 +214,8 @@ def main(
                 mirror_to_ci(op("read", f"op://{VAULT}/{VAULT_ITEM}/token").stdout.strip())
         elif not dry_run:
             if password is None:
-                password = op("read", f"op://{VAULT}/{VAULT_ITEM}/login-password", check=False)
-                password = password.stdout.strip() if password.returncode == 0 else None
+                op_result = op("read", f"op://{VAULT}/{VAULT_ITEM}/login-password", check=False)
+                password = op_result.stdout.strip() if op_result.returncode == 0 else None
             if not password:
                 err.print(
                     f"The bot exists but no login password is available. Store it at "
