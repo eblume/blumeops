@@ -70,7 +70,7 @@ The practical consequence: **losing your connection no longer aborts the switch.
 Ringtail runs a single-node k3s cluster for native amd64 workloads. [[argocd|ArgoCD]] runs in-cluster on this k3s and manages it in-place — every Application targets the in-cluster `https://kubernetes.default.svc`.
 
 - **Disabled components:** Traefik, ServiceLB, metrics-server (minimal footprint)
-- **TLS SAN:** `ringtail.tail8d86e.ts.net` (set in k3s `extraFlags`)
+- **TLS SAN:** `ringtail.tail8d86e.ts.net` — set in k3s `extraFlags` so the API server is reachable over the tailnet at `https://ringtail.tail8d86e.ts.net:6443`
 - **Registry mirrors:** Containerd pulls through Zot on indri (`registry.ops.eblu.me`)
 - **Token:** `/etc/k3s/token` (generated on first provision)
 - **Kubeconfig:** `/etc/rancher/k3s/k3s.yaml`, root-only via `--write-kubeconfig-mode=600`. ringtail is a multi-user host — the `agent` uid is a co-tenant — so a readable admin kubeconfig is a cluster-admin grant to every local account. See [[agent-workspaces]] §Isolation.
