@@ -1,0 +1,1 @@
+talos: session Rust builds now share one incremental `CARGO_TARGET_DIR` on the `talos-home` PVC (`/home/talos/.cache/cargo-target`, deployment env), instead of each session worktree rebuilding cold and leaving a 5–20 GB `target/` behind (blumeops#813).
