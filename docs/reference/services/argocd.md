@@ -73,7 +73,7 @@ Tracking is label-based (`app.kubernetes.io/instance`; no `resourceTrackingMetho
 
 The [[request-a-privileged-run|ArgoCD Deploy]] `prune` input remains the route for the apps that keep `prune: false`.
 
-Five applications remain **manual**, each for a stated reason in its manifest:
+Four applications remain **manual**, each for a stated reason in its manifest:
 
 | Application | Why |
 |-------------|-----|
@@ -81,7 +81,12 @@ Five applications remain **manual**, each for a stated reason in its manifest:
 | `argocd` | Self-management: a manifest that breaks argocd-server breaks the reconciler that would repair it. |
 | `cloudnative-pg-ringtail` | Tracks a mutable tag on a mirror, not blumeops `main` — "the revision moved" is not "a human merged". |
 | `external-secrets-crds-ringtail` | Same, plus CRD churn under a live operator. |
-| `horkos` | The approval gate must not redeploy itself from a merge alone. Note the deadlock this creates — [[warrant-approval-gated-runs#Deploying horkos]]. |
+
+`horkos` was a fifth until 2026-09-04. It is automated now, for the reason the
+`cloudnative-pg-ringtail` row gives in reverse: it tracks blumeops `main`, so
+"the revision moved" *does* mean "a human merged a reviewed pin PR" — and a
+second human act after that guarded nothing. See
+[[warrant-approval-gated-runs#Deploying horkos]].
 
 To pick up newly added Application manifests, sync `apps` explicitly:
 

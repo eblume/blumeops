@@ -31,7 +31,7 @@ stamp keep their names.
 | **Namespace** | `horkos` |
 | **Source** | https://forge.eblu.me/eblume/horkos (own repo; auto-releases on merge to its main) |
 | **Image** | `registry.ops.eblu.me/blumeops/horkos` (locally built Nix, `default.nix` in the horkos repo) |
-| **Manifests** | `argocd/manifests/horkos/` — ArgoCD app is **manual sync** (the gate must not redeploy itself) |
+| **Manifests** | `argocd/manifests/horkos/` — ArgoCD app **auto-syncs** (the reviewed pin-PR merge is the gate; manual until 2026-09-04) |
 | **Storage** | 1Gi PVC (SQLite at `/data/horkos.db` — migrated from warrant's DB, schema unchanged) |
 | **Agent auth** | Authentik `agents-m2m` client-credentials JWT (JWKS-verified) |
 | **Human auth** | Authentik OIDC code flow (`horkos` client), `admins` group, MFA per the authentik flow |
@@ -70,9 +70,10 @@ never change in a single PR.
 
 ## Operating it
 
-- **Deploy**: merge the auto-opened `horkos-release-vX.Y.Z` pin PR, then
-  `argocd app sync horkos`. Manual sync is the point — see the Application
-  manifest for the reason.
+- **Deploy**: merge the auto-opened `horkos-release-vX.Y.Z` pin PR. That is
+  the whole deploy — the app auto-syncs, like talos. Confirm with
+  `curl -s https://horkos.ops.eblu.me/healthz` (`version` field) once ArgoCD's
+  reconciliation interval has passed.
 - **Disarm**: set `HORKOS_DISPATCH_ENABLED: "0"` in the deployment and sync.
   The credential stays in place, ignored; decisions still record, and
   dispatch falls back to a human in the forge UI.

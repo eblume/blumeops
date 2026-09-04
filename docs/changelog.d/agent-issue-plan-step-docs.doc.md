@@ -1,0 +1,1 @@
+Document the plan-first issue cycle in the agent change process and on the talos design card: the first cycle on a non-trivial issue posts a plan and waits for a go, and a `plan: skip` line in the issue body opts trivial issues out of planning.

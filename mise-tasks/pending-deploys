@@ -1,0 +1,422 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "pyyaml==6.0.3"]
+# ///
+#MISE description="Report first-party image releases not yet pinned/deployed on main, plus open pin-bump PRs"
+#USAGE flag "--all" help="Print every first-party image checked (pinned, latest, status), not just pending ones"
+"""Report first-party container images that are released but not yet deployed.
+
+Answers "what have I released but not deployed?" in one command. For each
+first-party image pinned under argocd/manifests/ we compare the newest built
+tag in the registry against the pinned tag, and also list any open
+pin-bump PRs on the forge for that service.
+
+  - First-party pins are collected without any network: entries under
+    `images:` in each kustomization.yaml whose `name` starts with
+    `registry.ops.eblu.me/blumeops/`, plus hardcoded `img:tag` refs in
+    any *.yaml under argocd/manifests/ (catching strategic-merge-patch
+    pins like `tailscale-operator-ringtail` that kustomize's `images:`
+    directive cannot rewrite).
+  - The registry's newest `vX.Y.Z-<sha7>-nix` tag is compared
+    version-sorted (numeric, not lexicographic) against each pin.
+  - Tags are annotated [main]/[branch]/[?] like container-list does.
+  - Open forge pin PRs (branches matching `<service>-release-v<X>`) are
+    matched to a service by numeric version prefix.
+  - Only the numeric version (X.Y.Z) is compared, so a rebuild of the same
+    version under a new build sha is not flagged — the version is the unit
+    of deployment; the sha in a tag identifies the build.
+
+By default only services with a gap or an open pin PR are printed.
+Run `--all` for the full table of every first-party image checked.
+
+Exit codes:
+  0  nothing pending (every pin is at the registry newest, no open pin PR)
+  1  pending found (a released-but-undeployed image and/or an open pin PR)
+  2  hard failure (no forge token AND registry unreachable - zero signal)
+
+The registry endpoint can be overridden with PENDING_DEPLOYS_REGISTRY
+(default https://registry.ops.eblu.me).
+
+Usage:
+    mise run pending-deploys                # only services with a gap or open pin PR
+    mise run pending-deploys --all          # full table of every first-party image
+"""
+
+import argparse
+import os
+import re
+import subprocess
+from pathlib import Path
+
+import httpx
+import yaml
+from rich.console import Console
+from rich.table import Table
+
+REG_PREFIX = "registry.ops.eblu.me/blumeops/"
+MANIFESTS = Path("argocd/manifests")
+FORGE_API_BASE = "https://forge.ops.eblu.me/api/v1"
+REPO = "eblume/blumeops"
+
+console = Console(width=160)
+
+
+class TokenError(Exception):
+    """No forge token available."""
+
+
+def git(*args: str) -> str:
+    result = subprocess.run(
+        ["git", *args], capture_output=True, text=True, check=True
+    )
+    return result.stdout.strip()
+
+
+def main_ref() -> str:
+    """Use upstream/main when that remote exists, else origin/main."""
+    remotes = (
+        subprocess.run(
+            ["git", "remote"], capture_output=True, text=True, check=True
+        ).stdout.split()
+    )
+    return "upstream/main" if "upstream" in remotes else "origin/main"
+
+
+def vkey(tag: str) -> tuple[int, ...]:
+    """Numeric version key from the leading X.Y.Z of a vX.Y.Z-<sha7>-nix tag.
+
+    Numeric, not lexicographic, so v0.4.10 sorts above v0.4.9."""
+    m = re.match(r"^v([0-9]+)\.([0-9]+)\.([0-9]+)", tag or "")
+    if not m:
+        return (0, 0, 0)
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
+
+def version_num(tag: str) -> str | None:
+    """Leading numeric version portion ('X.Y.Z') of a tag, or None."""
+    m = re.match(r"^v([0-9]+(?:\.[0-9]+){0,2})", tag or "")
+    return m.group(1) if m else None
+
+
+def sha_hint(tag: str, mainref: str) -> str:
+    """Annotate a tag [main]/[branch]/[?] like container-list does."""
+    match = re.search(r"[0-9a-f]{7}", tag or "")
+    if not match:
+        return ""
+    sha = match.group()
+    try:
+        full_sha = git("rev-parse", "--verify", sha)
+    except subprocess.CalledProcessError:
+        return "[dim]\\[?][/dim]"
+    try:
+        git("merge-base", "--is-ancestor", full_sha, mainref)
+        return "[green]\\[main][/green]"
+    except subprocess.CalledProcessError:
+        return "[yellow]\\[branch][/yellow]"
+
+
+def collect_pins() -> dict[str, list[dict]]:
+    """First-party image pins keyed by image name (no network).
+
+    Each value is a list of {service, tag, path, source} — one per distinct
+    (service, tag) pin of that image.
+    """
+    pins: dict[str, list[dict]] = {}
+
+    # Rule 1: kustomization `images:` entries whose name is first-party.
+    for kf in sorted(MANIFESTS.glob("*/kustomization.yaml")):
+        svc = kf.parent.name
+        try:
+            data = yaml.safe_load(kf.read_text())
+        except yaml.YAMLError:
+            continue
+        for entry in (data or {}).get("images") or []:
+            name = entry.get("name") or ""
+            if not name.startswith(REG_PREFIX):
+                continue
+            tag = entry.get("newTag")
+            if not tag:
+                continue
+            pins.setdefault(name[len(REG_PREFIX):], []).append({
+                "service": svc,
+                "tag": str(tag),
+                "path": str(kf),
+                "source": "kustomization",
+            })
+
+    # Rule 2: hardcoded `img:tag` refs in any manifest yaml (catches
+    # strategic-merge-patch pins kustomize's `images:` cannot rewrite).
+    ref_re = re.compile(
+        r"registry\.ops\.eblu\.me/blumeops/([A-Za-z0-9._-]+):([^:\s]+)"
+    )
+    for yf in sorted(MANIFESTS.rglob("*.yaml")):
+        svc = yf.relative_to(MANIFESTS).parts[0]
+        try:
+            text = yf.read_text()
+        except OSError:
+            continue
+        for m in ref_re.finditer(text):
+            image, tag = m.group(1), m.group(2)
+            if tag == "kustomized":
+                continue
+            pins.setdefault(image, []).append({
+                "service": svc,
+                "tag": tag,
+                "path": str(yf),
+                "source": "hardcoded",
+            })
+
+    # Dedupe per image on (service, tag, source), keeping the first path.
+    for image, items in pins.items():
+        seen, out = set(), []
+        for it in sorted(items, key=lambda x: (x["service"], x["tag"], x["source"])):
+            key = (it["service"], it["tag"], it["source"])
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(it)
+        pins[image] = out
+    return pins
+
+
+def collect_warnings(pins: dict[str, list[dict]]) -> list[str]:
+    """Flag hardcoded tags that differ from the kustomization newTag for the
+    same image (a smell worth surfacing as an extra warning line)."""
+    warnings = []
+    for image, items in sorted(pins.items()):
+        kustags = {it["tag"] for it in items if it["source"] == "kustomization"}
+        hardtags = {it["tag"] for it in items if it["source"] == "hardcoded"}
+        if kustags and hardtags and kustags != hardtags:
+            warnings.append(
+                f"[yellow]warn[/yellow]  {image}: hardcoded tag(s) "
+                f"{', '.join(sorted(hardtags))} differ from kustomization "
+                f"newTag(s) {', '.join(sorted(kustags))}"
+            )
+    return warnings
+
+
+def registry_tags(client: httpx.Client, registry: str, image: str) -> list[str]:
+    """Version tags for `image`; raises TransportError if the registry is
+    unreachable. A 404 means no such repository -> []."""
+    resp = client.get(f"{registry}/v2/{image}/tags/list", timeout=15.0)
+    if resp.status_code == 404:
+        return []
+    resp.raise_for_status()
+    return [t for t in resp.json().get("tags", []) if t.startswith("v") and re.match(r"^v[0-9]", t)]
+
+
+def forge_token() -> str:
+    if token := os.environ.get("FORGEJO_TOKEN"):
+        return token.strip()
+    try:
+        result = subprocess.run(
+            ["op", "read", "op://agents/agents-forgejo-token/api-token"],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        raise TokenError(str(exc)) from exc
+    if result.returncode != 0:
+        raise TokenError(result.stderr.strip())
+    return result.stdout.strip()
+
+
+def fetch_open_prs(client: httpx.Client) -> dict[str, list[dict]]:
+    """Open pin PRs keyed by service. Forge branch heads are
+    `<service>-release-v<X.Y.Z>` (optionally `owner:`-prefixed)."""
+    resp = client.get(
+        f"{FORGE_API_BASE}/repos/{REPO}/pulls",
+        params={"state": "open", "limit": 50},
+    )
+    resp.raise_for_status()
+    prs: dict[str, list[dict]] = {}
+    for pr in resp.json():
+        ref = (pr.get("head") or {}).get("ref") or ""
+        if ":" in ref:
+            ref = ref.split(":", 1)[1]
+        m = re.match(r"^(.+)-release-v([0-9]+(?:\.[0-9]+)*)$", ref)
+        if not m:
+            continue
+        svc, ver = m.group(1), m.group(2)
+        prs.setdefault(svc, []).append({
+            "number": pr.get("number"),
+            "version": ver,
+            "prefix": ver.split(".")[0],
+        })
+    return prs
+
+
+def row_prs(r: dict, prs_by_service: dict) -> list[dict]:
+    """Matching open pin PRs for this row.
+
+    When a released version is known, only PRs whose numeric version prefix
+    matches that release are considered; otherwise (degraded registry mode)
+    any open release PR for the service applies."""
+    lst = prs_by_service.get(r["service"]) or []
+    if not lst:
+        return []
+    version = version_num(r["latest"]) if r["latest"] else None
+    if version:
+        prefix = version.split(".")[0]
+        return [p for p in lst if p["prefix"] == prefix]
+    return lst
+
+
+def build_rows(pins: dict, latest_by_image: dict[str, str]) -> list[dict]:
+    rows = []
+    for image in sorted(pins):
+        for pin in sorted(pins[image], key=lambda p: (p["service"], p["source"])):
+            latest = latest_by_image.get(image)
+            gap = bool(latest) and vkey(latest) > vkey(pin["tag"])
+            rows.append({
+                "service": pin["service"],
+                "image": image,
+                "pinned": pin["tag"],
+                "latest": latest,
+                "gap": gap,
+                "prs": [],
+            })
+    return rows
+
+
+def render_pending(rows: list[dict], mainref: str) -> None:
+    for r in rows:
+        prs = r["prs"]
+        if r["gap"]:
+            parts = [
+                f"[bold]{r['service']}[/bold]: released {r['latest']} "
+                f"{sha_hint(r['latest'], mainref)}",
+                f"main pins {r['pinned']}",
+            ]
+            if prs:
+                parts.append(
+                    "PR #" + ", PR #".join(str(p["number"]) for p in prs) + " open"
+                )
+            console.print(", ".join(parts))
+        elif prs:
+            ver = version_num(r["latest"]) or prs[0]["version"]
+            console.print(
+                f"[bold]{r['service']}[/bold]: open pin PR #"
+                + ", PR #".join(str(p["number"]) for p in prs)
+                + f" (v{ver})"
+            )
+
+
+def render_all(rows: list[dict], mainref: str) -> None:
+    table = Table(title="First-party images")
+    table.add_column("service")
+    table.add_column("image")
+    table.add_column("pinned")
+    table.add_column("latest")
+    table.add_column("status")
+    for r in rows:
+        latest = r["latest"] or "(none)"
+        if r["latest"]:
+            latest = f"{r['latest']} {sha_hint(r['latest'], mainref)}"
+        table.add_row(
+            r["service"],
+            r["image"],
+            r["pinned"],
+            latest,
+            "[red]pending[/red]" if r["gap"] else "OK",
+        )
+    console.print(table)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Report first-party images released but not yet deployed."
+    )
+    parser.add_argument(
+        "--all", action="store_true",
+        help="Print every first-party image checked, not just pending ones",
+    )
+    args = parser.parse_args()
+
+    registry = os.environ.get(
+        "PENDING_DEPLOYS_REGISTRY", "https://registry.ops.eblu.me"
+    )
+
+    pins = collect_pins()
+    mainref = main_ref()
+    warnings = collect_warnings(pins)
+
+    # Registry (per-image, reachability degrades to forge-only mode).
+    latest_by_image: dict[str, str] = {}
+    registry_ok = True
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            for image in sorted(pins):
+                tags = registry_tags(client, registry, f"blumeops/{image}")
+                if tags:
+                    latest_by_image[image] = max(tags, key=lambda t: (vkey(t), t))
+    except (httpx.HTTPError, ValueError):
+        registry_ok = False
+
+    # Forge (open pin PRs).
+    token: str | None = None
+    try:
+        token = forge_token()
+    except TokenError:
+        token = None
+
+    prs_by_service: dict[str, list[dict]] = {}
+    forge_ok = False
+    if token:
+        try:
+            with httpx.Client(
+                headers={"Authorization": f"token {token}"}, timeout=30.0
+            ) as client:
+                prs_by_service = fetch_open_prs(client)
+            forge_ok = True
+        except (httpx.HTTPError, ValueError):
+            prs_by_service = {}
+
+    # Hard failure: zero signal.
+    if not registry_ok and not forge_ok:
+        console.print(
+            "[yellow]registry unreachable and forge open-PR list unavailable — "
+            "no signal at all; nothing reported.[/yellow]"
+        )
+        raise SystemExit(2)
+
+    if not registry_ok:
+        console.print(
+            "[yellow]registry unreachable[/yellow] — running in forge-only "
+            "mode (release-vs-pin gap checks skipped)"
+        )
+    elif not forge_ok:
+        reason = "no forge token" if token is None else "forge unreachable"
+        console.print(
+            f"[yellow]open pin-PR list unavailable ({reason})[/yellow] — "
+            "release-vs-pin gap checks only"
+        )
+
+    for w in warnings:
+        console.print(w)
+
+    rows = build_rows(pins, latest_by_image)
+    for r in rows:
+        r["prs"] = row_prs(r, prs_by_service)
+
+    if args.all:
+        render_all(rows, mainref)
+    else:
+        render_pending(rows, mainref)
+
+    pending_services = sorted({r["service"] for r in rows if r["gap"] or r["prs"]})
+    if pending_services:
+        console.print(
+            f"[bold]{len(pending_services)} service(s) with "
+            "released-but-undeployed images[/bold]"
+        )
+        raise SystemExit(1)
+    console.print("no pending deploys")
+    raise SystemExit(0)
+
+
+if __name__ == "__main__":
+    main()

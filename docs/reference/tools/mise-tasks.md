@@ -51,6 +51,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `ollama-down` | [human] Scale the ollama inference service down (replicas 1 -> 0) to free the RTX 4080 |
 | `ollama-up` | [human] Scale the ollama inference service up (replicas 0 -> 1) for an evaluation window |
 | `op-backup` | [human] Encrypt a 1Password .1pux export and send to indri for borgmatic |
+| `pending-deploys` | Report first-party image releases not yet pinned/deployed on main, plus open pin-bump PRs |
 | `pr-comments` | Read all comments, reviews and review threads on a PR |
 | `provision-indri` | [human] Run ansible playbook to provision indri |
 | `provision-ringtail` | [human] Run ansible playbook to provision ringtail (NixOS) |
