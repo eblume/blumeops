@@ -1,6 +1,6 @@
 ---
 title: Fly.io Proxy
-modified: 2026-08-28
+modified: 2026-09-04
 last-reviewed: 2026-08-28
 tags:
   - service
@@ -30,6 +30,7 @@ Public reverse proxy on [Fly.io](https://fly.io) that exposes selected BlumeOps 
 | `docs.eblu.me` | `docs.ops.eblu.me` | [[docs]] |
 | `cv.eblu.me` | `cv.ops.eblu.me` | [[cv]] |
 | `forge.eblu.me` | `forge.ops.eblu.me` | [[forgejo]] |
+| `photos.eblu.me` | `photos.ops.eblu.me` | [[immich]] (shared links only) |
 
 The apex landing page is the one service **not** tunneled to indri: it's a
 single static "under construction" splash served straight from nginx (files

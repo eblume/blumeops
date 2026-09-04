@@ -1,6 +1,6 @@
 ---
 title: Routing
-modified: 2026-08-27
+modified: 2026-09-04
 last-reviewed: 2026-08-27
 tags:
   - infrastructure
@@ -75,6 +75,7 @@ DNS CNAMEs point to `blumeops-proxy.fly.dev`. TLS via Fly.io-managed Let's Encry
 | [[docs]] | https://docs.eblu.me | Documentation site |
 | [[cv]] | https://cv.eblu.me | CV / resume |
 | [[forgejo]] | https://forge.eblu.me | Git hosting (public) |
+| [[immich]] | https://photos.eblu.me | Immich shared albums — shared-link surface only; login/auth/admin/user API 403 at the edge |
 | Shower | https://shower.eblu.me | Baby shower guest registry (going to be archived soon) — guest surface only; `/host/` and `/admin/` 403 with a pointer to shower.ops.eblu.me |
 
 The apex landing page is the one exception to the "tunnel back to Caddy on
