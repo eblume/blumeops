@@ -173,7 +173,7 @@ Things that commonly need a nudge:
 - **ArgoCD `Unknown` health on everything** — ArgoCD itself is still starting.
   Not an error.
 - **Manual apps** (`apps`, `argocd`, `cloudnative-pg-ringtail`,
-  `external-secrets-crds-ringtail`, `horkos`) do not sync on boot — they were
+  `external-secrets-crds-ringtail`) do not sync on boot — they were
   not meant to, and a reboot does not need them to. Only sync if their
   manifests changed while ringtail was down.
 
