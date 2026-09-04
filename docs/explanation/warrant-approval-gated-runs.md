@@ -588,36 +588,46 @@ mirror at job time.
 
 ## Deploying horkos
 
-`horkos` is a **manual-sync** ArgoCD application ([[argocd#Sync Policy]]) — one
-of five, and the only one that is manual because of what it *is* rather than
-what it tracks. Its manifest states the reason: the approval gate for
-privileged runs must not redeploy itself from a merge alone. So merging a
-change to `argocd/manifests/horkos/` is not the deploy; someone must sync it.
+`horkos` is an **automated-sync** ArgoCD application ([[argocd#Sync Policy]])
+since 2026-09-04. Merging its `horkos-release-vX.Y.Z` pin PR — auto-opened by
+the horkos release workflow on every merge to horkos `main` — is the deploy.
+There is no step after it.
 
-**The deadlock.** The documented way to sync a manual app is `mise run
-request-run argocd-deploy.yaml …`, which horkos must *dispatch*. When the
-merged change is the one that repairs dispatch, that route cannot run: the
-request files, a human approves it, and `consume_and_dispatch` fails for the
-same reason it was failing before. Approval succeeds and nothing happens.
+**It was manual before, and that was a mistake worth recording.** The
+original reasoning was that the approval gate for privileged runs must not
+redeploy itself from a merge alone, so deploying it took two human acts:
+merge the pin PR, then `argocd app sync horkos` from gilbert. Three things
+argued against that in practice:
 
-**The escape hatch, which is intended rather than a workaround:**
+- **The second act guarded nothing.** The pin PR review and merge is the same
+  gate every workload app relies on, `talos` included — an image only reaches
+  the manifest through a reviewed merge. Anyone able to run the sync could
+  already have merged the PR.
+- **It created a deadlock.** The documented way to sync a manual app is `mise
+  run request-run argocd-deploy.yaml …`, which horkos must *dispatch*. When
+  the merged change was the one that repaired dispatch, that route could not
+  run: the request filed, a human approved it, and `consume_and_dispatch`
+  failed for the same reason it was already failing. Encountered for real on
+  2026-08-26, when the CoreDNS rewrite broke horkos's in-cluster HTTPS calls
+  to the forge (eblume/blumeops#708) and every approval became a silent
+  no-op — including any that would have deployed the fix. The escape hatch
+  was a gilbert sync. With auto-sync the repairing merge deploys itself and
+  the deadlock never forms.
+- **It relied on memory.** The only reminder to sync lived in the pin PR body,
+  which is read once and merged past. v0.5.12 sat undeployed on 2026-09-04
+  with the cluster on v0.5.11 and only an `ArgoCDAppOutOfSync` alert to say
+  so; the three pins before it were synced only because an agent happened to
+  verify its own deploy.
 
-```fish
-argocd login argocd.ops.eblu.me --sso     # your own identity, not admin
-argocd app sync horkos
-```
+The one concern auto-sync does not address is a pin PR that deploys something
+*wrong* — but a manual sync never addressed that either; review does. Nor can
+the old warrant app's auto-sync/`argocd-deploy` race recur (heph
+`01KZBPDB2WH9QK`): with auto-sync nobody dispatches `argocd-deploy` for horkos
+at all.
 
-This does not weaken the gate. Syncing an ArgoCD app from gilbert is already a
-human act behind [[authentik]] SSO, and the change being deployed already
-passed PR review and merge. The warrant path exists to gate *agent-initiated*
-privileged runs, and an agent has no path to either command.
-
-Encountered for real on 2026-08-26: the CoreDNS rewrite broke horkos's
-in-cluster HTTPS calls to the forge (eblume/blumeops#708), which made every
-approval a silent no-op — including any approval that would have deployed the
-fix. Two related failure modes worth knowing, both filed against horkos: a
-dispatch that fails *before* `_dispatch` persists nothing and shows the
-approver nothing, and a denial records no `decided_by` at all.
+`argocd app sync horkos` from gilbert still works and is still harmless — it
+is the same thing the controller does on its own — but nothing depends on it
+any more.
 
 ## Related
 

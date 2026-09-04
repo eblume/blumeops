@@ -13,12 +13,20 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: horkos
-  # MANUAL sync, deliberately (unlike the warrant app it replaces, whose
-  # auto-sync also raced argocd-deploy dispatches — heph 01KZBPDB2WH9QK):
-  # horkos is the approval gate for privileged runs, and the gate must not
-  # redeploy itself from a merge alone. Deploying it = merge the release
-  # pin PR, then `argocd app sync horkos` — two human acts.
+  # Automated sync, like talos and every other first-party release-pinned
+  # app. The gate on a horkos deploy is the reviewed merge of its pin-bump
+  # PR — the same gate every workload app relies on — and a second human act
+  # (`argocd app sync horkos`) guarded nothing while costing a sync that was
+  # forgotten as often as not (v0.5.12 sat undeployed behind an
+  # ArgoCDAppOutOfSync alert on 2026-09-04). Auto-sync also dissolves the
+  # documented deadlock: a merge that repairs dispatch now deploys itself
+  # instead of needing the warrant path it just broke. The old warrant app's
+  # auto-sync/argocd-deploy race (heph 01KZBPDB2WH9QK) cannot recur — with
+  # auto-sync nobody dispatches argocd-deploy for horkos at all.
+  # No configMapGenerator here, so no prune (never spell the defaults —
+  # [[argocd#Sync Policy]]).
   syncPolicy:
+    automated: {}
     syncOptions:
       - CreateNamespace=true
     managedNamespaceMetadata:
