@@ -97,14 +97,15 @@ services:
 
   - name: tempo
     type: argocd
-    last-reviewed: 2026-07-07
-    current-version: "2.10.7"
+    last-reviewed: 2026-09-03
+    current-version: "3.0.3"
     upstream-source: https://github.com/grafana/tempo/releases
     notes: >-
-      Home-built container from forge mirror. Upgraded 2.10.3 -> 2.10.7
-      (x/net + x/crypto security fixes; needs Go 1.26 override). Upstream
-      3.0.x is a major with breaking config/write-path changes — deferred to
-      a separate task.
+      Home-built container from forge mirror; upgraded 2.10.7 -> 3.0.3
+      (major: legacy ingester write path, compactor module, and local-blocks
+      processor removed — config migrated; block retention moved to
+      backend_worker.compaction; vParquet4 default block format unchanged so
+      existing blocks stay readable).
 
   - name: alloy-tracing-ringtail
     type: argocd

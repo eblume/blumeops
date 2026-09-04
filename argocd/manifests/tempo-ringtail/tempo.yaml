@@ -21,7 +21,7 @@ storage:
     local:
       path: /var/tempo/blocks
 
-compactor:
+backend_worker:
   compaction:
     block_retention: 168h  # 7 days
 
@@ -34,8 +34,6 @@ metrics_generator:
     remote_write:
       - url: http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write
         send_exemplars: true
-  traces_storage:
-    path: /var/tempo/generator/traces
   processor:
     span_metrics:
       dimensions:
@@ -46,8 +44,6 @@ metrics_generator:
     service_graphs:
       dimensions:
         - service.name
-    local_blocks:
-      flush_to_storage: false
 
 overrides:
   defaults:
@@ -55,4 +51,3 @@ overrides:
       processors:
         - span-metrics
         - service-graphs
-        - local-blocks

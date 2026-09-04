@@ -1,7 +1,7 @@
 ---
 title: Tempo
-modified: 2026-06-04
-last-reviewed: 2026-06-04
+modified: 2026-09-03
+last-reviewed: 2026-09-03
 tags:
   - service
   - observability
@@ -19,7 +19,7 @@ Distributed tracing backend for BlumeOps infrastructure. Receives traces via OTL
 | **Tailscale URL** | https://tempo.tail8d86e.ts.net |
 | **OTLP Endpoint** | https://tempo-otlp.tail8d86e.ts.net |
 | **Namespace** | `monitoring` |
-| **Image** | `registry.ops.eblu.me/blumeops/tempo:v2.10.3-75f9ba4` (locally built) |
+| **Image** | `registry.ops.eblu.me/blumeops/tempo` (locally built — tag pinned in argocd/manifests/tempo-ringtail/kustomization.yaml) |
 | **Storage** | 10Gi PVC (local filesystem) |
 | **Retention** | 7 days |
 
