@@ -94,6 +94,18 @@ pkgs.dockerTools.buildLayeredImage {
     pkgs.tzdata
   ];
 
+  # /opt/app (HOME, SRTM_CACHE) and /tmp must be writable by the runtime
+  # uid 1000; the build user can't chown, so ownership is set in
+  # fakeRootCommands (fakeroot records it into the layer tar).
+  extraCommands = ''
+    mkdir -p opt/app/.srtm_cache tmp
+    chmod 1777 tmp
+  '';
+  fakeRootCommands = ''
+    chown -R 1000:1000 opt/app
+  '';
+  enableFakechroot = true;
+
   config = {
     # Mirror entrypoint.sh: wait for postgres, run migrations, then start.
     Entrypoint = [
@@ -118,5 +130,7 @@ pkgs.dockerTools.buildLayeredImage {
     ExposedPorts = {
       "4000/tcp" = { };
     };
+    # Run as uid 1000 per the PSA non-root decision (docs/reference/operations/security.md).
+    User = "1000";
   };
 }

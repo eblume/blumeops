@@ -56,7 +56,7 @@ PRs once warnings are quiet.
 
 ### Non-root decisions — the eight rolled-back workloads
 
-Recommended per the eblume/blumeops#797 thread; pending Erich's sign-off.
+Signed off per the eblume/blumeops#797 thread (2026-09-04).
 House pattern for the local nix images: `User` in the `dockerTools` config +
 matching pod `securityContext` (navidrome precedent). NFS-backed volumes
 (sifaka) are **pre-chowned on the NAS once** instead of using `fsGroup` —

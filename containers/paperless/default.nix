@@ -74,5 +74,7 @@ pkgs.dockerTools.buildLayeredImage {
     ExposedPorts = {
       "8000/tcp" = { };
     };
+    # Run as uid 1000 per the PSA non-root decision (docs/reference/operations/security.md).
+    User = "1000";
   };
 }
