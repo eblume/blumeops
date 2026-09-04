@@ -17,11 +17,17 @@ spec:
         component: redis
     spec:
       securityContext:
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: redis
           image: docker.io/library/redis:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: redis
               containerPort: 6379

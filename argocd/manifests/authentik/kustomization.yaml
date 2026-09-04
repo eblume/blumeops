@@ -16,4 +16,4 @@ images:
     newTag: v2026.2.6-5eff607-nix
   - name: docker.io/library/redis
     newName: registry.ops.eblu.me/blumeops/authentik-redis
-    newTag: v8.6.3-3ed9b9a-nix
+    newTag: v8.6.3-f403fce-nix
