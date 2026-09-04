@@ -11,7 +11,7 @@ let
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/tempo.git";
     rev = "v${version}";
-    hash = "sha256-hwbLHB0DnZ4PufIGsa7PYy+AgO4JKFWfJbPXeiYEtro=";
+    hash = "sha256-DZ/tUlZyNFNk66h38kuarU4o5P1tPuVVk5pYZ+4gRSo=";
   };
 
   # Tempo v3.0.3's go.mod requires Go 1.26.5, above the channel's
