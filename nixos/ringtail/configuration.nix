@@ -407,6 +407,11 @@ in
     # back to raw API calls. Authenticate once with `tea login add` (token from
     # 1Password); the config lands in ~/.config/tea/config.yml.
     tea
+    # ArgoCD CLI for the interactive "sync from gilbert" steps — it previously
+    # lived only in instances.priv's hostPackages, so a human at a ringtail
+    # shell could not run `argocd app sync`. Same package as the priv runner;
+    # re-check CLI/server skew against service-versions.yaml on flake bumps.
+    argocd
   ];
 
   # Allow running dynamically linked binaries (mise-installed runtimes, etc.)

@@ -1,6 +1,6 @@
 ---
 title: ArgoCD CLI
-modified: 2026-02-12
+modified: 2026-09-04
 last-reviewed: 2026-04-01
 tags:
   - reference
@@ -37,6 +37,13 @@ argocd login argocd.ops.eblu.me \
   --username admin \
   --password "$(op read 'op://vg6xf6vvfmoh5hqjjhlhbeoaie/srogeebssulhtb6tnqd7ls6qey/password')"
 ```
+
+## Availability
+
+The CLI is installed on both gilbert and ringtail. On ringtail it comes from
+the NixOS flake (`environment.systemPackages`, next to `tea`); the same
+package backs the priv runner's `hostPackages`, so re-check CLI/server skew
+against `service-versions.yaml` on each flake bump.
 
 ## Branch-Testing Workflow
 
