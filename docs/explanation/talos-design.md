@@ -1,6 +1,6 @@
 ---
 title: Talos — self-hosted agent workflow service (design)
-modified: 2026-08-14
+modified: 2026-09-04
 last-reviewed: 2026-08-14
 tags:
   - explanation
@@ -65,10 +65,19 @@ lease model (exclusive for the driver, shared for observers) and
 authoritative snapshots give reconnect semantics for free — the exact thing
 the Anthropic relay lacks from our side.
 
-**Driver 2 (forge loop, later):** a Forgejo workflow/webhook consumer that
-runs the same runner headless from a labeled issue or PR comment and outputs
-a PR, iterating on review comments. Shares the session store, so headless
-runs get browsable transcripts in the web UI. This is the
+**Driver 2 (forge loop, live):** a Forgejo webhook consumer that runs the
+same runner headless from a labeled issue or PR comment. One cycle per
+trigger opens or advances the cycle's PR (none on a plan cycle) and ends
+with exactly one progress comment on the thread; the comment trail is the
+record the next cycle reads. The issue cycle is plan-first — the [[agent-change-process|change
+process]]'s "plan first" rule in headless form: the first cycle on a
+non-trivial issue posts a plan comment (brief as understood, scope in/out,
+ordered steps mapped to their PRs, verification, open questions) as its
+terminal comment and waits for a go; a revising reply revises the plan, an
+approving reply starts the first PR. A `plan: skip` line anywhere in the
+issue body opts trivial issues out of planning. PR review comments drive
+their own cycle. Shares the session store, so headless runs get browsable
+transcripts in the web UI. This is the
 [[agent-change-process|change-process]]-native mode and the long-term
 payoff; the interactive driver doubles as its debugging console.
 

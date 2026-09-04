@@ -1,6 +1,6 @@
 ---
 title: Agent Change Process
-modified: 2026-08-07
+modified: 2026-09-04
 last-reviewed: 2026-02-23
 tags:
   - explanation
@@ -39,19 +39,20 @@ The default route for anything non-trivial, and the only route available to remo
 1. Find and read the docs relevant to the change area
 2. **Search related docs** — read existing documentation and reference cards related to the change area
 3. **Create a feature branch** and open a PR early (draft is fine)
-4. **Documentation first** — commit doc changes reflecting the desired end state before writing code. This helps the reviewer understand intent and catches design issues early
-5. **Implement** — commit code changes, pushing as you go. The PR gets updated along the way and the user can review and comment at any point
-6. **Add changelog fragment** — `docs/changelog.d/<branch>.<type>.md` for any user-visible or noteworthy changes
-7. **If the PR changed `containers/`:** build from the final branch head with `mise run container-build-and-release <name>`, then commit the resulting tag into `argocd/manifests/<service>/kustomization.yaml` **in this same PR**. No post-merge rebuild — see [[build-container-image#Container tags and merge strategy]]
-8. **Deploy from the branch** — do not wait for merge:
+4. **Plan first (issue-driven cycles)** — on a non-trivial issue, the agent's first cycle posts a plan comment instead of a PR: the brief as understood, scope in and explicitly out, ordered steps each mapped to the PR that will land them, verification per step, and open questions. It is the cycle's terminal comment, and the cycle stops at "waiting for a go on this plan". The human's reply is the verdict: a revision revises the plan and stops; an approval proceeds to the plan's first step. A `plan: skip` line anywhere in the issue body opts trivial issues out of planning. It is the headless form of the rule below — the first externally visible artifact should be cheap to argue about, not a diff
+5. **Documentation first** — commit doc changes reflecting the desired end state before writing code. This helps the reviewer understand intent and catches design issues early
+6. **Implement** — commit code changes, pushing as you go. The PR gets updated along the way and the user can review and comment at any point
+7. **Add changelog fragment** — `docs/changelog.d/<branch>.<type>.md` for any user-visible or noteworthy changes
+8. **If the PR changed `containers/`:** build from the final branch head with `mise run container-build-and-release <name>`, then commit the resulting tag into `argocd/manifests/<service>/kustomization.yaml` **in this same PR**. No post-merge rebuild — see [[build-container-image#Container tags and merge strategy]]
+9. **Deploy from the branch** — do not wait for merge:
    - **ArgoCD:** `argocd app set <service> --revision <full-40-char-sha> && argocd app sync <service>`. Pass a **SHA, never a branch name**: workload apps sync automatically, so a branch revision would make every later push to that branch deploy itself unreviewed. The `ArgoCD Deploy` workflow enforces SHA-or-`main`; hand-run commands should match it (see [[argocd#Deploying from a branch]])
    - **Ansible:** run playbooks directly from the branch checkout
    - **Workflows:** point workflow triggers at the branch if needed
-9. **Approve the CI checks.** An agent PR's checks sit `pending` with no run
+10. **Approve the CI checks.** An agent PR's checks sit `pending` with no run
    until a human clicks *Approve and run* in the forge. This is deliberate —
    see [§Why agent PRs need an approval click](#why-agent-prs-need-an-approval-click)
-10. After user review and successful deployment, the user merges the PR
-11. **After merge:** reset any overridden revision with `argocd app set <service> --revision main`. Apps still tracking `main` need nothing — the merge deploys itself
+11. After user review and successful deployment, the user merges the PR
+12. **After merge:** reset any overridden revision with `argocd app set <service> --revision main`. Apps still tracking `main` need nothing — the merge deploys itself
 
 ### How the PR reaches a human
 
