@@ -149,10 +149,10 @@ hooks = [
 # the invocation started in.
 #
 # One tool does move out from under mise: `container-version-check` shells to
-# `dagger` for containers that track an unmodified nixpkgs package. The runner
-# has it globally (`forgejo_runner_host_tools`), and an activated mise shell on
-# gilbert has it from `[tools]`. Neither is silent if it is missing — the script
-# reports the container as failing to resolve a version, and the hook fails.
+# `docker` for containers that track an unmodified nixpkgs package. The runner
+# has it via host-mode Docker Desktop, and gilbert has it natively. Neither is
+# silent if it is missing — the script reports the container as failing to
+# resolve a version, and the hook fails.
 
 # Container version consistency
 [[repos]]

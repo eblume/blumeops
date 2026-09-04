@@ -90,48 +90,6 @@ class Blumeops:
         )
 
     @function
-    async def nix_version(self, package: str) -> str:
-        """Extract the version of a nixpkgs package. Returns version string."""
-        return await (
-            dag.container()
-            .from_(NIX_IMAGE)
-            .with_exec(
-                [
-                    "nix",
-                    "--extra-experimental-features",
-                    "nix-command flakes",
-                    "eval",
-                    "--raw",
-                    f"nixpkgs#{package}.version",
-                ]
-            )
-            .stdout()
-        )
-
-    @function
-    async def flake_lock(
-        self, src: dagger.Directory, flake_path: str = "nixos/ringtail"
-    ) -> dagger.File:
-        """Resolve flake inputs and return updated flake.lock."""
-        return await (
-            dag.container()
-            .from_(NIX_IMAGE)
-            .with_directory("/workspace", src)
-            .with_workdir(f"/workspace/{flake_path}")
-            .with_exec(
-                [
-                    "nix",
-                    "--extra-experimental-features",
-                    "nix-command flakes",
-                    "flake",
-                    "lock",
-                    "--accept-flake-config",
-                ]
-            )
-            .file(f"/workspace/{flake_path}/flake.lock")
-        )
-
-    @function
     async def export_yolov9(
         self,
         model_size: str = "c",
@@ -210,67 +168,4 @@ class Blumeops:
             .with_file("/yolov9/weights.pt", dag.http(weights_url))
             .with_exec(["sh", "-c", patch_and_export])
             .file(f"/output/{output_file}")
-        )
-
-    @function
-    async def flake_update(
-        self,
-        src: dagger.Directory,
-        flake_path: str = "nixos/ringtail",
-        skip_inputs: str = "nixpkgs-services",
-    ) -> dagger.File:
-        """Update rolling flake inputs to latest and return updated flake.lock.
-
-        Dynamically discovers all flake inputs, filters out skip_inputs
-        (comma-separated), and passes the rest as positional args to
-        `nix flake update`. This avoids hardcoding input names.
-
-        Args:
-            src: Source directory containing the flake.
-            flake_path: Path to the flake within src.
-            skip_inputs: Comma-separated input names to exclude from update.
-        """
-        # nix has no --exclude flag; instead we enumerate inputs via
-        # `nix flake metadata --json` and pass the ones we want as
-        # positional args.
-        update_script = (
-            "set -e; "
-            # Double quotes: single quotes would keep $SKIP_INPUTS literal and
-            # silently disable the skip filter (letting `nix flake update`
-            # bump the deliberately-pinned nixpkgs-services input).
-            'SKIP="$SKIP_INPUTS"; '
-            # Land the metadata in a real file: nix-instantiate cannot
-            # readFile a pipe (/dev/stdin canonicalizes to
-            # /proc/<pid>/fd/pipe:[...] and readFile fails), which made
-            # discovery silently empty for as long as this pipeline existed.
-            # No stderr suppression — metadata failures should be visible.
-            "nix --extra-experimental-features 'nix-command flakes' "
-            "flake metadata --json > /tmp/flake-meta.json; "
-            "ALL=$(nix-instantiate --eval -E "
-            '"builtins.concatStringsSep \\" \\" '
-            "(builtins.attrNames "
-            "(builtins.fromJSON (builtins.readFile /tmp/flake-meta.json))"
-            '.locks.nodes.root.inputs)" '
-            "| tr -d '\"'); "
-            "INPUTS=''; "
-            "for i in $ALL; do "
-            '  case ",$SKIP," in *",$i,"*) continue ;; esac; '
-            '  INPUTS="$INPUTS $i"; '
-            "done; "
-            'echo "Updating inputs:$INPUTS"; '
-            'echo "Skipping: $SKIP"; '
-            # Empty INPUTS would make `nix flake update` update *all* inputs,
-            # including the ones we meant to skip — fail loudly instead.
-            '[ -n "$INPUTS" ] || { echo "no inputs discovered; refusing bare flake update" >&2; exit 1; }; '
-            "nix --extra-experimental-features 'nix-command flakes' "
-            "flake update $INPUTS --accept-flake-config"
-        )
-        return await (
-            dag.container()
-            .from_(NIX_IMAGE)
-            .with_directory("/workspace", src)
-            .with_workdir(f"/workspace/{flake_path}")
-            .with_env_variable("SKIP_INPUTS", skip_inputs)
-            .with_exec(["sh", "-c", update_script])
-            .file(f"/workspace/{flake_path}/flake.lock")
         )

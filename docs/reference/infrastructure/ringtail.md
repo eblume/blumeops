@@ -217,7 +217,7 @@ first class. See [[skagit-cce-ceramics-watch]] for the record and the AAR.
 
 ## Pinned Service Versions
 
-Versioned services (forgejo-runner, snowflake, k3s) are pinned via a `nixpkgs-services` overlay in `flake.nix`, separate from the rolling `nixpkgs` input. This prevents `nix flake update` from silently upgrading them. The Dagger `flake-update` pipeline excludes `nixpkgs-services` automatically. See [[review-services]] for the upgrade procedure.
+Versioned services (forgejo-runner, snowflake, k3s) are pinned via a `nixpkgs-services` overlay in `flake.nix`, separate from the rolling `nixpkgs` input. This prevents `nix flake update` from silently upgrading them. The Ringtail Flake Update workflow's script excludes `nixpkgs-services` automatically (`SKIP_INPUTS`). See [[review-services]] for the upgrade procedure.
 
 ## Maintenance Notes
 
