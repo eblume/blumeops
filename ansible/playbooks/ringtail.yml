@@ -138,8 +138,16 @@
         # Absolute path and an explicit PATH: a transient unit gets systemd's
         # default environment, which on NixOS has neither nixos-rebuild nor the
         # nix/systemctl it shells out to.
+        #
+        # --no-block matters: without it systemd-run sits on the D-Bus job
+        # until the oneshot finishes, so the task is tied to the session and
+        # the bus after all. The 26.05 switch restarted dbus-broker
+        # mid-activation and the wait died with "D-Bus connection terminated
+        # while waiting for jobs" — ansible failed while the unit ran on to
+        # a successful switch. Return as soon as the unit is queued and let
+        # the reconnect + poll below do the waiting they were written for.
         cmd: >-
-          systemd-run --unit={{ _rebuild_unit }} --service-type=oneshot
+          systemd-run --no-block --unit={{ _rebuild_unit }} --service-type=oneshot
           --property=TimeoutStartSec={{ _rebuild_timeout }}
           --setenv=PATH=/run/current-system/sw/bin:/usr/bin:/bin
           --setenv=HOME=/root
