@@ -46,7 +46,7 @@ class TransmissionCollector:
             client = Client(**self._client_kwargs)
             session = client.session_stats()
             torrents = client.get_torrents()
-        except Exception as e:
+        except Exception as e:  # ruff: ignore[BLE001]  # best-effort scrape; any client error yields empty metrics instead of crashing the exporter
             print(f"Error collecting metrics: {e}", file=sys.stderr)
             return
 

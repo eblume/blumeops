@@ -14,8 +14,9 @@ Authentication:
 import os
 import socket
 
-import pulumi
 import pulumiverse_gandi as gandi
+
+import pulumi
 
 # Get configuration
 config = pulumi.Config()

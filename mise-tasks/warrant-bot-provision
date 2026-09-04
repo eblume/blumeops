@@ -78,7 +78,7 @@ err = Console(stderr=True, style="bold red")
 def op(*args: str, check: bool = True) -> subprocess.CompletedProcess:
     # op misparses non-TTY stdin as an item template — always /dev/null it.
     result = subprocess.run(
-        ["op", *args], capture_output=True, text=True, stdin=subprocess.DEVNULL
+        ["op", *args], capture_output=True, text=True, stdin=subprocess.DEVNULL, check=False
     )
     if check and result.returncode != 0:
         # Surface op's own message: a bare CalledProcessError hides the one

@@ -13,10 +13,11 @@ Devices are tagged based on their role:
 """
 
 import hashlib
+from pathlib import Path
+
+import pulumi_tailscale as tailscale
 
 import pulumi
-import pulumi_tailscale as tailscale
-from pathlib import Path
 
 # Read the HuJSON policy file
 policy_path = Path(__file__).parent / "policy.hujson"
