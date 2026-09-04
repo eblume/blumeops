@@ -27,6 +27,9 @@ in
   # Memtest86+ entry in the boot menu, for burn-in after a RAM change
   # (see the restart-ringtail runbook). Free software, ~1 MB on the ESP.
   boot.loader.systemd-boot.memtest86.enable = true;
+  # Cap the boot menu at the same generation count the manual
+  # `mise run prune-ringtail-generations` task keeps.
+  boot.loader.systemd-boot.configurationLimit = 5;
 
   # No TPM module on this board
   systemd.tpm2.enable = false;
@@ -882,6 +885,15 @@ in
 
   # Allow the runner's dynamic user to access the nix daemon
   nix.settings.trusted-users = [ "gitea-runner" ];
+  # Weekly store GC: `--delete-older-than` prunes profile generations
+  # (system + per-user) older than 30d, keeping the current generation
+  # and the newest within the window. Complements, not replaces, the
+  # manual `mise run prune-ringtail-generations` task.
+  nix.gc.automatic = true;
+  nix.gc.dates = "weekly";
+  nix.gc.options = "--delete-older-than 30d";
+  nix.optimise.automatic = true;
+  nix.optimise.dates = "weekly";
 
   # Prevent machine from sleeping (workstation should stay on)
   systemd.sleep.settings.Sleep = {
