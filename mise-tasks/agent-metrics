@@ -65,6 +65,7 @@ def op_read(ref: str) -> str:
             text=True,
             stdin=subprocess.DEVNULL,
             timeout=30,
+            check=False,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
         err.print(f"op read {ref} failed: {exc}")

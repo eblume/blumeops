@@ -21,7 +21,7 @@ Usage: mise run docs-review [-- --limit 10]
 """
 
 import subprocess
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -85,7 +85,7 @@ def main(
     limit: Annotated[int, typer.Option(help="Number of docs to show in the table")] = 15,
 ) -> None:
     console = Console()
-    today = date.today()
+    today = date.today()  # ruff: ignore[DTZ011]  # staleness is measured in local calendar days
 
     entries: list[tuple[str, date | None, datetime | None, Path]] = []
 
@@ -104,7 +104,7 @@ def main(
     entries.sort(key=lambda e: (
         e[1] is not None,
         e[1] or date.min,
-        e[2] or datetime.min.replace(tzinfo=timezone.utc),
+        e[2] or datetime.min.replace(tzinfo=UTC),
     ))
 
     never_reviewed = sum(1 for e in entries if e[1] is None)

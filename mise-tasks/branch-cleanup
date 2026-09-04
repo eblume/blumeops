@@ -35,7 +35,7 @@ Usage:
 
 import os
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 import httpx
@@ -104,7 +104,7 @@ def branch_head_age_days(ref: str) -> int | None:
         if not date_str:
             return None
         commit_date = datetime.fromisoformat(date_str)
-        return (datetime.now(timezone.utc) - commit_date).days
+        return (datetime.now(UTC) - commit_date).days
     except subprocess.CalledProcessError:
         return None
 
@@ -113,7 +113,7 @@ def api_branch_age_days(commit_date_str: str) -> int | None:
     """Compute age in days from an ISO date string."""
     try:
         commit_date = datetime.fromisoformat(commit_date_str)
-        return (datetime.now(timezone.utc) - commit_date).days
+        return (datetime.now(UTC) - commit_date).days
     except (ValueError, TypeError):
         return None
 

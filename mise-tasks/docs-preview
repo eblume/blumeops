@@ -50,7 +50,7 @@ def main(
 
     # Same guard the bash tasks use, shelled out to so the message and the
     # exit code live in one place.
-    if rc := subprocess.run([Path(__file__).parent / "_require", "docker"]).returncode:
+    if rc := subprocess.run([Path(__file__).parent / "_require", "docker"], check=False).returncode:
         raise typer.Exit(code=rc)
 
     # Normalize: accept with or without .md suffix
@@ -74,6 +74,7 @@ def main(
     subprocess.run(
         ["docker", "rm", "-f", CONTAINER_NAME],
         capture_output=True,
+        check=False,
     )
     docroot = Path(tempfile.gettempdir()) / "docs-preview"
     if docroot.exists():

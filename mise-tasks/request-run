@@ -95,6 +95,7 @@ def forge_token() -> str:
             text=True,
             stdin=subprocess.DEVNULL,
             timeout=30,
+            check=False,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
         err.print(f"No FORGEJO_TOKEN and `op read` failed: {exc}")
@@ -387,7 +388,7 @@ def tracking_task_title(workflow: str, sha: str, pr: int, pr_repo: str | None = 
 
 def heph_context(node_id: str) -> str:
     result = subprocess.run(
-        ["heph", "context", node_id], capture_output=True, text=True
+        ["heph", "context", node_id], capture_output=True, text=True, check=False
     )
     return result.stdout if result.returncode == 0 else ""
 
@@ -427,11 +428,13 @@ def close_tracking_task(old: dict, old_id: int, new_id: int) -> str | None:
     node_id = matches[0]
     subprocess.run(
         ["heph", "log", node_id,
-         f"Superseded by warrant request #{new_id}; retired in Warrant and "
-         "closed by request-run --supersedes. No decision was made on this one."],
-        capture_output=True, text=True,
+         (
+             f"Superseded by warrant request #{new_id}; retired in Warrant and "
+             "closed by request-run --supersedes. No decision was made on this one."
+         )],
+        capture_output=True, text=True, check=False,
     )
-    result = subprocess.run(["heph", "done", node_id], capture_output=True, text=True)
+    result = subprocess.run(["heph", "done", node_id], capture_output=True, text=True, check=False)
     if result.returncode != 0:
         err.print(f"heph done {node_id} failed: {result.stderr.strip()}")
         return None
@@ -490,6 +493,7 @@ def file_heph_task(title: str, body: str) -> str | None:
         ["heph", "context", node_id, "--append", body],
         capture_output=True,
         text=True,
+        check=False,
     )
     return node_id
 
@@ -510,7 +514,7 @@ def load_script(script: str, workflow: str, inputs: list[str]) -> list[str]:
         )
         raise typer.Exit(1)
     if any(
-        pair.startswith("script=") or pair.startswith("script_sha256=") for pair in inputs
+        pair.startswith(("script=", "script_sha256=")) for pair in inputs
     ):
         err.print(
             "--script cannot be combined with -i script=.../script_sha256=... - one source of truth"
@@ -744,6 +748,7 @@ This request grants nothing: dispatch remains write-gated to humans.
             ["heph", "context", task_id, "--append", f"Warrant request: #{warrant_id}"],
             capture_output=True,
             text=True,
+            check=False,
         )
 
     if notify:

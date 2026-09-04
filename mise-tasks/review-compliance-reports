@@ -52,6 +52,7 @@ def scp(remote: str, local: str) -> bool:
         capture_output=True,
         text=True,
         timeout=30,
+        check=False,
     )
     return result.returncode == 0
 
@@ -59,11 +60,14 @@ def scp(remote: str, local: str) -> bool:
 def list_reports(base: str) -> list[str]:
     """List Prowler CSV reports under `base` on sifaka, sorted by timestamp."""
     result = subprocess.run(
-        ["ssh", "sifaka", f"find {base}/ -name '*.csv' "
-         "-not -path '*/compliance/*' -not -name '@*'"],
+        ["ssh", "sifaka", (
+            f"find {base}/ -name '*.csv' "
+            "-not -path '*/compliance/*' -not -name '@*'"
+        )],
         capture_output=True,
         text=True,
         timeout=15,
+        check=False,
     )
     if result.returncode != 0:
         console.print(f"[bold red]Failed to list reports under {base}[/bold red]")

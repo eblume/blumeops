@@ -79,6 +79,7 @@ def forge_token() -> str:
             text=True,
             stdin=subprocess.DEVNULL,
             timeout=30,
+            check=False,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
         err.print(f"No FORGEJO_TOKEN and `op read` failed: {exc}")
@@ -90,7 +91,7 @@ def forge_token() -> str:
 
 
 def heph(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["heph", *args], capture_output=True, text=True)
+    return subprocess.run(["heph", *args], capture_output=True, text=True, check=False)
 
 
 def open_approve_tasks() -> list[dict]:

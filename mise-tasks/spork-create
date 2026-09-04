@@ -26,7 +26,7 @@ See docs/explanation/spork-strategy.md for the full strategy.
 import subprocess
 import textwrap
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import httpx
 import typer
@@ -246,8 +246,8 @@ def get_upstream_url(client: httpx.Client, token: str, name: str) -> str | None:
 @app.command()
 def main(
     repo_name: Annotated[str, typer.Argument(help="Repository name in mirrors/ org")],
-    description: Annotated[Optional[str], typer.Option(help="Description override")] = None,
-    main_branch: Annotated[Optional[str], typer.Option("--main-branch", help="Upstream main branch name")] = None,
+    description: Annotated[str | None, typer.Option(help="Description override")] = None,
+    main_branch: Annotated[str | None, typer.Option("--main-branch", help="Upstream main branch name")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview without creating")] = False,
     no_clone: Annotated[bool, typer.Option("--no-clone", help="Skip local clone")] = False,
 ) -> None:

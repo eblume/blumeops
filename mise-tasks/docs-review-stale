@@ -17,7 +17,7 @@ Usage: mise run docs-review-stale [-- --threshold 90]
 """
 
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -54,7 +54,7 @@ def main(
     console.print(f"Threshold: {threshold_days} days")
     console.print()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     entries: list[tuple[str, datetime, int, bool]] = []
 
     for md_file in sorted(DOCS_DIR.rglob("*.md")):

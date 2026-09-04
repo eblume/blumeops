@@ -69,6 +69,7 @@ def changed_containers() -> set[str] | None:
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
+        check=False,
     )
     if result.returncode != 0:
         return None
@@ -110,6 +111,7 @@ def get_nix_version(container_name: str, nix_file: Path) -> str | None:
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
+        check=False,
     )
     if result.returncode != 0:
         return None

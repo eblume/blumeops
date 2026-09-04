@@ -57,7 +57,7 @@ def main(
     type: Annotated[str | None, typer.Option(help="Filter by service type (argocd, ansible, nixos)")] = None,
 ) -> None:
     console = Console()
-    today = date.today()
+    today = date.today()  # ruff: ignore[DTZ011]  # staleness is measured in local calendar days
 
     if not VERSIONS_FILE.exists():
         console.print(f"[bold red]Tracking file not found:[/bold red] {VERSIONS_FILE}")

@@ -184,7 +184,7 @@ def test_recorded_run_outside_window_is_pending():
     window): stay pending, and never substitute a guessed run."""
     task = task_row()
     wrec = {"status": "approved", "run_number": 2}
-    run, via, state = verify_runs.attribution(task, 54, wrec, [run_row(1754)])
+    run, _, state = verify_runs.attribution(task, 54, wrec, [run_row(1754)])
     assert state == "recorded"
     assert run is None
 
@@ -219,7 +219,7 @@ def test_denied_without_run_number_is_never_dispatched_too():
     a denied request must not close against some unrelated run either."""
     task = task_row()
     wrec = {"status": "denied", "run_number": None}
-    run, via, state = verify_runs.attribution(task, 54, wrec, [run_row(1754)])
+    run, _, state = verify_runs.attribution(task, 54, wrec, [run_row(1754)])
     assert state == "never"
     assert run is None
 
@@ -260,7 +260,7 @@ def test_never_dispatched_surfaces_noop_reason_from_note():
         "run_number": None,
         "note": "Approved — go | not dispatched: no forge dispatch token configured",
     }
-    run, via, state = verify_runs.attribution(task, 54, wrec, [run_row(1754)])
+    run, _, state = verify_runs.attribution(task, 54, wrec, [run_row(1754)])
     assert state == "never"
     assert run is None
     assert (
@@ -274,7 +274,7 @@ def test_never_dispatched_without_reason_stays_plain():
     still reports 'never' — with no reason to surface."""
     task = task_row()
     wrec = {"status": "approved", "run_number": None, "note": ""}
-    run, via, state = verify_runs.attribution(task, 54, wrec, [run_row(1754)])
+    run, _, state = verify_runs.attribution(task, 54, wrec, [run_row(1754)])
     assert state == "never"
     assert run is None
     assert verify_runs.not_dispatched_reason(wrec["note"]) is None
@@ -426,7 +426,7 @@ def test_stamped_warrant_missing_from_fetch_warns_but_still_infers(monkeypatch):
         lambda client: [{**run_row(1754), "status": "success"}],
     )
     monkeypatch.setattr(verify_runs, "sha_policy", lambda client: {})
-    monkeypatch.setattr(verify_runs, "warrant_requests", lambda: {})
+    monkeypatch.setattr(verify_runs, "warrant_requests", dict)
     monkeypatch.setattr(verify_runs, "warrant_id_for", lambda node_id: 54)
     recorder = _Recorder()
     monkeypatch.setattr(verify_runs, "console", recorder)

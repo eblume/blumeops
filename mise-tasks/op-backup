@@ -135,6 +135,7 @@ def _op_field(field: str) -> str | None:
         ],
         capture_output=True,
         text=True,
+        check=False,
     )
     if result.returncode != 0:
         return None
@@ -156,6 +157,7 @@ def encrypt(export_path: Path, passphrase: str, tmpdir: Path) -> tuple[Path, Pat
         ["age-keygen", "-o", str(key_path)],
         capture_output=True,
         text=True,
+        check=False,
     )
     if result.returncode != 0:
         console.print("[red]ERROR:[/red] age-keygen failed")
@@ -179,6 +181,7 @@ def encrypt(export_path: Path, passphrase: str, tmpdir: Path) -> tuple[Path, Pat
             ["age", "-e", "-r", pubkey, "--armor"],
             stdin=src,
             stdout=dst,
+            check=False,
         )
     if result.returncode != 0 or encrypted_export.stat().st_size == 0:
         console.print("[red]ERROR:[/red] age encryption failed")
@@ -200,6 +203,7 @@ def encrypt(export_path: Path, passphrase: str, tmpdir: Path) -> tuple[Path, Pat
             stdin=src,
             stdout=dst,
             pass_fds=(pass_read_fd,),
+            check=False,
         )
     os.close(pass_read_fd)
 
@@ -224,6 +228,7 @@ def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: st
     subprocess.run(
         ["ssh", "indri", f"mkdir -p {REMOTE_DIR}"],
         capture_output=True,
+        check=False,
     )
 
     # Transfer both files
@@ -233,6 +238,7 @@ def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: st
             str(encrypted_export), f"indri:{remote_export}",
         ],
         capture_output=True,
+        check=False,
     )
     if result.returncode != 0:
         console.print("[red]ERROR:[/red] SCP of encrypted export failed")
@@ -245,6 +251,7 @@ def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: st
             str(encrypted_key), f"indri:{remote_key}",
         ],
         capture_output=True,
+        check=False,
     )
     if result.returncode != 0:
         console.print("[red]ERROR:[/red] SCP of encrypted key failed")
@@ -255,18 +262,24 @@ def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: st
     subprocess.run(
         [
             "ssh", "indri",
-            f"ls -t {REMOTE_DIR}/1password-export-*.age 2>/dev/null"
-            f" | tail -n +{KEEP_RECENT + 1} | xargs rm -f 2>/dev/null",
+            (
+                f"ls -t {REMOTE_DIR}/1password-export-*.age 2>/dev/null"
+                f" | tail -n +{KEEP_RECENT + 1} | xargs rm -f 2>/dev/null"
+            ),
         ],
         capture_output=True,
+        check=False,
     )
     subprocess.run(
         [
             "ssh", "indri",
-            f"ls -t {REMOTE_DIR}/1password-export-*.key.enc 2>/dev/null"
-            f" | tail -n +{KEEP_RECENT + 1} | xargs rm -f 2>/dev/null",
+            (
+                f"ls -t {REMOTE_DIR}/1password-export-*.key.enc 2>/dev/null"
+                f" | tail -n +{KEEP_RECENT + 1} | xargs rm -f 2>/dev/null"
+            ),
         ],
         capture_output=True,
+        check=False,
     )
 
     # Report size
@@ -274,6 +287,7 @@ def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: st
         ["ssh", "indri", f"du -h '{remote_export}'"],
         capture_output=True,
         text=True,
+        check=False,
     )
     size = size_result.stdout.split()[0] if size_result.returncode == 0 else "?"
 
@@ -318,7 +332,7 @@ def main(
         export_path.unlink()
         console.print(f"Deleted plaintext export: {export_path}")
 
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")  # ruff: ignore[DTZ005]  # local timestamp for the backup filename
         if not transfer_to_indri(encrypted_export, encrypted_key, timestamp):
             raise SystemExit(1)
 

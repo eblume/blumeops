@@ -70,6 +70,7 @@ def op_read(ref: str, what: str) -> str:
             text=True,
             timeout=30,
             stdin=subprocess.DEVNULL,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         err.print(f"[red]op read timed out after 30s reading {what}.[/red]")
@@ -90,6 +91,7 @@ def ssh_indri(command: str) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         stdin=subprocess.DEVNULL,
+        check=False,
     )
 
 

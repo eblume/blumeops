@@ -1,7 +1,7 @@
 ---
 title: Update Tooling Dependencies
-modified: 2026-02-23
-last-reviewed: 2026-02-23
+modified: 2026-09-04
+last-reviewed: 2026-09-04
 tags:
   - how-to
   - configuration
@@ -89,5 +89,5 @@ Create a single PR with all dependency bumps. The changelog fragment type is `in
 ## Notes
 
 - **Alloy version gaps**: Grafana Alloy releases frequently. Large version jumps (e.g., v1.5 to v1.13) are normal and generally safe — check the [changelog](https://github.com/grafana/alloy/releases) for breaking changes in the Alloy River config syntax.
-- **Ruff minor bumps**: Ruff adds new lint rules in minor versions. A bump may surface new warnings. Run `prek run ruff --all-files` to check before committing.
+- **Ruff minor bumps**: The enforced rule set is frozen as an explicit `select` in `pyproject.toml`, so a bump cannot silently add rules to the gate; adopting new rules is a separate edit to that list in its own PR. A bump may still change rule behavior and fixes, so run `prek run ruff --all-files` to check before committing.
 - **shellcheck bumps**: New shellcheck versions may flag previously-ignored patterns. Review any new failures before updating.

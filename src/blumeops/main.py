@@ -29,9 +29,11 @@ class Blumeops:
                 [
                     "sh",
                     "-c",
-                    "cp -r /tmp/quartz/quartz /tmp/quartz/package*.json "
-                    "/tmp/quartz/tsconfig.json /tmp/quartz/quartz.ts "
-                    "/tmp/quartz/.npmrc .",
+                    (
+                        "cp -r /tmp/quartz/quartz /tmp/quartz/package*.json "
+                        "/tmp/quartz/tsconfig.json /tmp/quartz/quartz.ts "
+                        "/tmp/quartz/.npmrc ."
+                    ),
                 ]
             )
             # npm install (not ci): we track the default branch and the
