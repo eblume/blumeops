@@ -1,7 +1,7 @@
 ---
 title: Architecture
-modified: 2026-02-19
-last-reviewed: 2026-02-09
+modified: 2026-09-04
+last-reviewed: 2026-09-04
 tags:
   - explanation
   - architecture
@@ -101,21 +101,30 @@ Services run across two compute targets:
 
 ## Observability
 
+The stack is Grafana + Prometheus (metrics), Loki (logs), and Tempo (traces),
+with Alloy collecting all three signals.
+
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │   Alloy     │────▶│ Prometheus  │────▶│   Grafana   │
-│ (collector) │     │  (metrics)  │     │ (dashboards)│
-└─────────────┘     └─────────────┘     └─────────────┘
-       │                                       ▲
-       │            ┌─────────────┐            │
-       └───────────▶│    Loki     │────────────┘
-                    │   (logs)    │
-                    └─────────────┘
+│ (metrics)   │     │  (metrics)  │     │ (dashboards)│
+└─────────────┘     └─────────────┘     ▲             │
+       │                                 │             │
+       ├──────────▶┌─────────────┐       │             │
+       │           │    Loki     │───────┘             │
+       │           │   (logs)    │                     │
+       │           └─────────────┘                     │
+       │                                                │
+       └──────────▶┌─────────────┐                     │
+                   │    Tempo    │─────────────────────┘
+                   │   (traces)  │
+                   └─────────────┘
 ```
 
-[[alloy]] runs in three places:
-- On indri: collects host metrics and logs
-- In k8s: collects pod logs and service probes
+[[alloy]] collects all three signals:
+- On [[indri]] (Ansible): collects host metrics and logs
+- In k8s as `alloy-ringtail`: pod logs and service metrics → Prometheus + Loki
+- In k8s as `alloy-tracing-ringtail`: traces → Tempo over OTLP
 - On [[flyio-proxy]]: tails nginx access logs and derives request metrics
 
 See [[observability]] for details.
