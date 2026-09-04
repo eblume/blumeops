@@ -1,6 +1,6 @@
 ---
 title: Immich
-modified: 2026-07-14
+modified: 2026-09-04
 last-reviewed: 2026-03-23
 tags:
   - service
@@ -16,6 +16,7 @@ Self-hosted photo and video management.
 | Property | Value |
 |----------|-------|
 | **URL** | https://photos.ops.eblu.me |
+| **Public URL** | https://photos.eblu.me (shared-link surface only — [[photos-public-sharing]]) |
 | **Namespace** | `immich` |
 | **Version** | v3.0.2 (upgraded from v2.6.3 on 2026-07-14) |
 | **Deployment** | Kustomize (k8s) — `argocd/manifests/immich-ringtail/` |
@@ -44,6 +45,7 @@ guard blocks startup.
 
 ## Related
 
+- [[photos-public-sharing]] - Public family album sharing over the shared-link surface only
 - [[postgresql]] - Database backend
 - [[sifaka|Sifaka]] - Photo storage
 - [[jellyfin]] - Video streaming (separate service)

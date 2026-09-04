@@ -21,9 +21,9 @@ until nslookup forge.tail8d86e.ts.net 100.100.100.100 > /dev/null 2>&1; do
 done
 echo "MagicDNS ready"
 
-# Ensure fail2ban deny file exists before nginx starts
-# (the geo directive's `include` fails if the file is missing).
-touch /etc/nginx/forge-deny.conf
+# Ensure fail2ban deny files exist before nginx starts
+# (the geo directives' `include`s fail if the files are missing).
+touch /etc/nginx/forge-deny.conf /etc/nginx/photos-deny.conf
 
 # Start Anubis — proof-of-work gateway for forge.eblu.me. Sits between the
 # public forge server block (:8080) and the internal forge backend vhost
