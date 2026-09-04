@@ -40,6 +40,7 @@
     { "name": "agents", "access": "read", "pool": "fork" },
     { "name": "blumeops", "access": "read", "pool": "fork" },
     { "name": "horkos", "access": "read", "pool": "fork" },
+    { "name": "cv", "access": "read", "pool": "none" },
     { "name": "hephaestus", "access": "write", "pool": "canonical" },
     { "name": "hephaestus.nvim", "access": "write", "pool": "canonical" },
     { "name": "research", "access": "write", "pool": "canonical" },
