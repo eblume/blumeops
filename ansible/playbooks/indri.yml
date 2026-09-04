@@ -317,6 +317,8 @@
       tags: jellyfin_metrics
     - role: forgejo_metrics
       tags: forgejo_metrics
+    - role: logrotate
+      tags: logrotate
     - role: cv
       tags: cv
     - role: docs

@@ -1,0 +1,7 @@
+---
+logrotate_log_dir: /Users/erichblume/Library/Logs
+logrotate_pattern: 'mcquack.*.log'
+logrotate_threshold_mb: 256
+logrotate_keep: 3
+logrotate_interval: 3600  # seconds between rotation checks
+logrotate_script: /Users/erichblume/.local/bin/mcquack-logrotate
