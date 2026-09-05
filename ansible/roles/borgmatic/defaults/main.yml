@@ -23,8 +23,9 @@ borgmatic_schedule_minute: 0
 # Source directories to back up
 borgmatic_source_directories:
   - /Users/erichblume/code/personal/zk
-  # Forgejo lives here since the brew->source migration (was
-  # /opt/homebrew/var/forgejo, now a dead husk). Captures git repositories,
+  # Forgejo lives here since the brew->source migration (the Homebrew-era
+  # /opt/homebrew/var/forgejo tree was deleted 2026-09-05, #798). Captures git
+  # repositories,
   # LFS, and custom/conf. The live forgejo.db is WAL-mode and excluded below —
   # it's snapshotted WAL-safe via borgmatic_local_sqlite_dumps instead.
   - /Users/erichblume/forgejo

@@ -27,7 +27,7 @@ Daily backup system using Borg backup, running on indri.
 
 **Directories:**
 - `~/code/personal/zk` - Zettelkasten (migrating into heph docs; see [hephaestus](https://github.com/eblume/hephaestus))
-- `~/forgejo` - Git forge data (repos, LFS, `custom/conf`; live WAL `forgejo.db` is excluded here and snapshotted separately below). The old `/opt/homebrew/var/forgejo` brew path is a dead husk since the source-build migration.
+- `~/forgejo` - Git forge data (repos, LFS, `custom/conf`; live WAL `forgejo.db` is excluded here and snapshotted separately below). The old `/opt/homebrew/var/forgejo` brew path was a dead husk after the source-build migration and was deleted on 2026-09-05 (blumeops #798); the one unique thing it held, the `eblume/hermes` repo, is archived under `~/Documents/hermes-forge-archive-2026-09-05/`.
 - `~/.config/borgmatic` - Borgmatic config
 - `~/Documents` - Personal documents
 - `~/.local/share/borgmatic/k8s-dumps/` - SQLite dumps from k8s pods
