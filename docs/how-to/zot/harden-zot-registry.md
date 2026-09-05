@@ -25,7 +25,10 @@ with tag immutability enforced server-side via `accessControl`. Configured in
    - `artifact-workloads` group: `["read", "create"]` — CI pushes new tags but
      cannot overwrite or delete (see [[enforce-tag-immutability]])
    - `admins` group: `["read", "create", "update", "delete"]` — break-glass
-5. **`accessControl.metrics.users: [""]`** — anonymous Prometheus/Alloy scraping
+5. **`accessControl.metrics.anonymousPolicy: ["read"]`** — anonymous Prometheus/Alloy
+   scraping. Since zot v2.1.18 (#4110/#4131) the metrics ACL is explicit: the
+   old `users: [""]` trick no longer grants anonymous access and `/metrics`
+   answers 401.
 
 OIDC issuer and external-URL variables live in `ansible/roles/zot/defaults/main.yml`;
 client credentials render via `ansible/roles/zot/templates/oidc-credentials.json.j2`.
