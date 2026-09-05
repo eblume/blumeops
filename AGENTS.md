@@ -231,7 +231,7 @@ mise run runner-logs <run#>                   # see jobs in the run
 mise run runner-logs <run#> -j <N>            # fetch logs on failure
 ```
 
-This also works for other forge repos (`--repo eblume/hermes`).
+This also works for other forge repos (`--repo eblume/talos`).
 
 ## Third-Party Projects
 
