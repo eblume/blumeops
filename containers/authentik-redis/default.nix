@@ -8,7 +8,7 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "8.6.3";
+  version = "8.8.2";
 in
 
 assert pkgs.redis.version == version;
