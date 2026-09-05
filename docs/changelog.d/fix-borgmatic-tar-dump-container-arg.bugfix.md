@@ -1,0 +1,2 @@
+Fix the nightly borgmatic run, broken since the paperless media tar hook landed (#3288423a):
+`borgmatic-k8s-tar-dump` now resolves `container_arg` before the ssh heredoc (the unquoted heredoc expands it on indri, where it was unset, and `set -u` aborted every ssh-mode dump), and the config template no longer ends the tar-dump line in a `{% endif %}`, whose trimmed newline glued the paperless hook onto the talos one. Part of #798's backup hygiene.
