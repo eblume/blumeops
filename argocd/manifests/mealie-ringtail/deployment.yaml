@@ -84,17 +84,11 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /app/data
-            # ingredient-parser-nlp downloads its NLTK tagger at import into
-            # $HOME/nltk_data; uid 1000 has no passwd entry so HOME is / and
-            # the target is /nltk_data, which only root could create (the
-            # non-root rollout in #872 crash-looped on exactly that). An
-            # emptyDir there is 0777 and restores the old behaviour: fetched
-            # on every pod start, gone with the pod.
-            - name: nltk-data
-              mountPath: /nltk_data
-            # The nix image ships no /tmp; gunicorn's worker heartbeat file
-            # (workertmp) needs one, and as root it used to be created on
-            # the fly. Same fix as teslamate, applied at the manifest.
+            # gunicorn's worker heartbeat needs a temp dir. The image now
+            # ships a 1777 /tmp too; the emptyDir keeps scratch off the
+            # image's overlay. (The NLTK tagger is baked into the image at
+            # /usr/share/nltk_data since v3.20.1-0ff99a6, so the /nltk_data
+            # emptyDir from #888 is gone.)
             - name: tmp
               mountPath: /tmp
           resources:
@@ -120,7 +114,5 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: mealie-data
-        - name: nltk-data
-          emptyDir: {}
         - name: tmp
           emptyDir: {}
