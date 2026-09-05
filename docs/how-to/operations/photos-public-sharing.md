@@ -1,7 +1,7 @@
 ---
 title: Public Family Album Sharing (photos.eblu.me)
-modified: 2026-09-04
-last-reviewed: 2026-09-04
+modified: 2026-09-05
+last-reviewed: 2026-09-05
 tags:
   - how-to
   - operations
@@ -125,7 +125,7 @@ curl -sI https://photos.eblu.me/auth/login                        # 403
 curl -sI https://photos.eblu.me/api/users/me                      # 403
 curl -sI https://photos.eblu.me/api/shared-links                  # 403 (list endpoint, not /me)
 curl -sI https://photos.eblu.me/api/server/version                # 200
-curl -sI https://photos.eblu.me/share/bogus                       # 200 HTML (app shows "invalid link")
+curl -sI https://photos.eblu.me/share/bogus                       # 404 from Immich's own not-found shell (the route reaches the app; nginx denies with 403 + tailnet pointer)
 curl -s  'https://photos.eblu.me/api/shared-links/me?key=bogus'   # 401 from immich
 curl -sI https://photos.eblu.me/robots.txt                        # 200, Disallow: /
 ```
