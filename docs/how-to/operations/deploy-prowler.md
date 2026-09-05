@@ -1,6 +1,6 @@
 ---
 title: Deploy Prowler CIS Scanner
-modified: 2026-06-08
+modified: 2026-09-05
 last-reviewed: 2026-03-24
 tags:
   - how-to
@@ -24,7 +24,7 @@ Both were pure toil with no realized value:
 
 The K8s CIS scan, by contrast, is fully mutelisted and runs clean (0 unmuted findings week over week), so it stays. The guiding principle matches [[ai-scraper-mitigation]]: don't keep generating a firehose of output that has no audience. If image-CVE signal is wanted later, the right shape is critical-severity-only, currently-deployed-tags-only, alert-on-new — a rebuild, not a revival (tracked as the "Trivy for image/IaC scanning" task).
 
-The scan originally targeted minikube-indri; with [[retire-minikube]] (2026-06) prowler moved to ringtail and now scans k3s, where only ~22 of 70 checks produce results (no static control-plane pods). The mutelist still carries minikube-shaped entries — inert on k3s, pending a rework pass.
+The scan originally targeted minikube-indri; with [[retire-minikube]] (2026-06) prowler moved to ringtail and now scans k3s, where only ~22 of 70 checks produce results (no static control-plane pods). The mutelist was reworked for the k3s profile (2026-06), keeping only entries that match live k3s resources.
 
 ## What it checks
 
@@ -42,9 +42,7 @@ Prowler's Kubernetes provider runs ~70 checks from the CIS Kubernetes Benchmark 
 | **Kubelet** | 16 | Reads kubelet-config ConfigMap + node file permissions (file checks need hostPID) |
 | **Scheduler** | 2 | Inspects `kube-scheduler` pod args |
 
-**Minikube relevance (historical):** most checks worked because minikube ran the control plane as static pods. Kubelet file permission checks return MANUAL unless Prowler runs on the node (we mount host paths to enable this).
-
-**k3s note:** k3s embeds the control plane in a single binary — no static pods exist. Only core + RBAC checks (~22 of 70) produce results. Consider `kube-bench` for k3s control plane checks.
+**k3s reality:** k3s embeds the control plane in a single binary — no static control-plane pods exist — so only the core + RBAC checks (~22 of 70) produce results. The weekly profile emits no MANUAL findings: the node-level conditions the in-cluster scanner cannot fully evaluate (file permissions, kubelet config, etcd CA separation, cluster-admin bindings) are verified separately by `review-compliance-reports` over `ssh ringtail`. Consider `kube-bench` for a deeper k3s control-plane check.
 
 ## Reports
 

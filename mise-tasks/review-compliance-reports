@@ -10,6 +10,9 @@
 
 Covers:
   - Prowler K8s CIS (in-cluster): per-finding detail
+  - k3s/ringtail node verification (file ownership/perms, kubelet config,
+    etcd CA separation, RBAC cluster-admin bindings) after the report
+    summary
 
 The Prowler container-image CVE scan and IaC scan were retired in 2026-06
 (see docs/how-to/operations/deploy-prowler.md) — they produced tens of
@@ -55,6 +58,31 @@ def scp(remote: str, local: str) -> bool:
         check=False,
     )
     return result.returncode == 0
+
+
+def _ssh_ringtail(cmd: str, timeout: int = 20) -> subprocess.CompletedProcess:
+    """Run a command on the ringtail k3s node over SSH.
+
+    BatchMode keeps a missing key or an unexpected prompt from hanging the
+    review; a timeout degrades to a failed CompletedProcess, which the checks
+    surface as FAIL rather than a traceback.
+    """
+    try:
+        return subprocess.run(
+            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
+             "ringtail", cmd],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as e:
+        return subprocess.CompletedProcess(
+            args=e.args,
+            returncode=124,
+            stdout=e.stdout or "",
+            stderr=f"ssh timed out after {timeout}s",
+        )
 
 
 def list_reports(base: str) -> list[str]:
@@ -356,6 +384,240 @@ def _print_findings_detail(unmuted: list[dict]) -> None:
     console.print()
 
 
+def run_node_verification(console: Console) -> None:
+    """Verify k3s node-level conditions that the Prowler k3s profile cannot fully evaluate.
+
+    Runs over `ssh ringtail` + kubectl with the k3s-ringtail context.
+    Fails loudly on any deviation.
+    """
+    checks: list[tuple[str, str, bool]] = []  # (name, detail, passed)
+
+    # --- File ownership and permissions ---
+    # stat -Lc: dereference symlinks (on NixOS the k3s.service unit is a
+    # symlink). Perms "600-or-more" = no group/other bits (CIS "600 or more
+    # restrictive"): int(perm, 8) & 0o077 == 0.
+    file_expectations = [
+        ("k3s.yaml (admin kubeconfig)", "/etc/rancher/k3s/k3s.yaml", "600-more"),
+        ("admin.kubeconfig", "/var/lib/rancher/k3s/server/cred/admin.kubeconfig", "600-more"),
+        ("kubelet.kubeconfig", "/var/lib/rancher/k3s/agent/kubelet.kubeconfig", "600-more"),
+        ("k3s.service unit", "/etc/systemd/system/k3s.service", "644"),
+    ]
+
+    for name, path, perm_mode in file_expectations:
+        result = _ssh_ringtail(f"sudo sh -c 'stat -Lc \"%U:%G %a\" {path}'")
+        if result.returncode != 0:
+            checks.append((name, f"could not stat {path}", False))
+        else:
+            owner, perms = result.stdout.strip().split()
+            if perm_mode == "600-more":
+                perms_ok = (int(perms, 8) & 0o077) == 0
+                expected = "root:root, 600-or-more"
+            else:
+                perms_ok = perms == perm_mode
+                expected = f"root:root, {perm_mode}"
+            passed = owner == "root:root" and perms_ok
+            checks.append((name, f"{owner} {perms} (expected {expected})", passed))
+
+    # --- Kubelet config files (drop-ins) ---
+    # Modern k3s (>=1.24) writes its KubeletConfiguration as drop-ins under
+    # kubelet.conf.d/; older k3s used a single kubelet.conf.
+    discover_result = _ssh_ringtail(
+        "sudo sh -c 'for f in /var/lib/rancher/k3s/agent/etc/kubelet.conf "
+        "/var/lib/rancher/k3s/agent/etc/kubelet.conf.d/*.conf; do "
+        "[ -e \"$f\" ] && stat -Lc \"%n %U:%G %a\" \"$f\"; done'"
+    )
+
+    kubelet_files: list[str] = []
+    if discover_result.returncode != 0:
+        checks.append(("kubelet config", "could not list kubelet config files", False))
+    else:
+        for line in discover_result.stdout.strip().splitlines():
+            parts = line.split()
+            if len(parts) == 3:
+                path, owner, perms = parts
+                kubelet_files.append(path)
+                perms_ok = (int(perms, 8) & 0o077) == 0
+                passed = owner == "root:root" and perms_ok
+                checks.append((
+                    f"kubelet config {Path(path).name}",
+                    f"{owner} {perms} (expected root:root, 600-or-more)",
+                    passed,
+                ))
+        if not kubelet_files:
+            checks.append((
+                "kubelet config",
+                "no kubelet config found under /var/lib/rancher/k3s/agent/etc/",
+                False,
+            ))
+
+    # --- Kubelet config arguments (merged across drop-ins, later wins) ---
+    import yaml as _yaml
+
+    merged: dict = {}
+    for path in sorted(kubelet_files):
+        content = _ssh_ringtail(f"sudo sh -c 'cat {path}'")
+        if content.returncode != 0:
+            checks.append((f"kubelet config {Path(path).name}", "could not read file", False))
+            continue
+        try:
+            parsed = _yaml.safe_load(content.stdout) or {}
+        except (_yaml.YAMLError, RecursionError):
+            parsed = None
+        if not isinstance(parsed, dict):
+            checks.append((f"kubelet config {Path(path).name}", "failed to parse YAML", False))
+            continue
+        merged.update(parsed)
+
+    # readOnlyPort: absent or 0 is safe
+    rop = merged.get("readOnlyPort")
+    checks.append((
+        "readOnlyPort",
+        f"{rop!r} (absent or 0 is safe)",
+        rop is None or rop == 0,
+    ))
+
+    # makeIPTablesUtilChains: absent (defaults true) or true
+    miu = merged.get("makeIPTablesUtilChains")
+    checks.append((
+        "makeIPTablesUtilChains",
+        f"{miu!r} (absent or true is safe)",
+        miu is None or miu is True,
+    ))
+
+    # eventRecordQPS: absent (defaults 5) or > 0
+    erq = merged.get("eventRecordQPS")
+    checks.append((
+        "eventRecordQPS",
+        f"{erq!r} (absent or > 0 is safe)",
+        erq is None or (isinstance(erq, (int, float)) and erq > 0),
+    ))
+
+    # tlsCipherSuites: absent uses Go defaults (acceptable); explicit fine
+    tcs = merged.get("tlsCipherSuites")
+    checks.append((
+        "tlsCipherSuites",
+        "Go defaults (safe)" if tcs is None else f"{tcs!r}",
+        True,
+    ))
+
+    # --- Etcd CA separation ---
+    etcd_fp = _ssh_ringtail(
+        "sudo sh -c 'openssl x509 -in /var/lib/rancher/k3s/server/tls/etcd-ca.crt "
+        "-noout -fingerprint -sha256'"
+    )
+    cluster_fp = _ssh_ringtail(
+        "sudo sh -c 'openssl x509 -in /var/lib/rancher/k3s/server/tls/ca.crt "
+        "-noout -fingerprint -sha256'"
+    )
+    if etcd_fp.returncode != 0 or cluster_fp.returncode != 0:
+        checks.append(("etcd CA separation", "could not read certificates", False))
+    else:
+        etcd_hash = etcd_fp.stdout.strip()
+        cluster_hash = cluster_fp.stdout.strip()
+        different = etcd_hash != cluster_hash
+        checks.append((
+            "etcd CA separation",
+            "different CAs" if different else "SAME CA (unexpected)",
+            different,
+        ))
+
+    # --- RBAC cluster-admin bindings ---
+    expected_bindings = {"cluster-admin"}
+    rb_result: subprocess.CompletedProcess | None = None
+    try:
+        rb_result = subprocess.run(
+            [
+                "kubectl", "--context=k3s-ringtail",
+                "get", "clusterrolebindings",
+                "-o", "jsonpath={range .items[*]}{.metadata.name}{'\\t'}{.roleRef.name}{'\\n'}{end}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        pass
+    if rb_result is None:
+        checks.append(("cluster-admin bindings", "kubectl timed out", False))
+    elif rb_result.returncode != 0:
+        checks.append(("cluster-admin bindings", "kubectl failed (context k3s-ringtail?)", False))
+    else:
+        admin_bindings: set[str] = set()
+        malformed = False
+        for line in rb_result.stdout.strip().splitlines():
+            if "\t" in line:
+                name, role = line.split("\t", 1)
+                if role == "cluster-admin":
+                    admin_bindings.add(name)
+            elif line:
+                malformed = True
+
+        if malformed:
+            checks.append((
+                "cluster-admin bindings",
+                "unexpected kubectl output (line without tab)",
+                False,
+            ))
+        elif admin_bindings != expected_bindings:
+            missing = sorted(expected_bindings - admin_bindings)
+            unexpected = sorted(admin_bindings - expected_bindings)
+            parts = (
+                [f"missing: {', '.join(missing)}"] if missing else []
+                + [f"unexpected: {', '.join(unexpected)}"] if unexpected else []
+            )
+            checks.append((
+                "cluster-admin bindings",
+                "; ".join(parts),
+                False,
+            ))
+        else:
+            checks.append((
+                "cluster-admin bindings",
+                "only expected: cluster-admin",
+                True,
+            ))
+
+    # --- Display results ---
+    all_passed = all(passed for _, _, passed in checks)
+    table = Table(
+        show_header=True,
+        header_style="bold",
+        title="Node Verification (k3s/ringtail)",
+    )
+    table.add_column("Check")
+    table.add_column("Detail")
+    table.add_column("Result", justify="center")
+
+    for name, detail, passed in checks:
+        status = "[green]PASS[/green]" if passed else "[bold red]FAIL[/bold red]"
+        table.add_row(name, detail, status)
+
+    console.print(table)
+    console.print()
+
+    if all_passed:
+        console.print(
+            Panel(
+                "[bold green]All node-level checks passed.[/bold green] "
+                "k3s node configuration matches the expected state.",
+                title="Node Verification Verdict",
+                border_style="green",
+            )
+        )
+    else:
+        failed = [(n, d) for n, d, p in checks if not p]
+        console.print(
+            Panel(
+                f"[bold red]{len(failed)} node-level check(s) FAILED.[/bold red]\n"
+                "Review the failures above — k3s node configuration has drifted.",
+                title="Node Verification Verdict",
+                border_style="red",
+            )
+        )
+    console.print()
+
+
 def main(
     full: Annotated[
         bool, typer.Option(help="(reserved) currently a no-op; all unmuted failures already shown")
@@ -375,13 +637,8 @@ def main(
                 show_muted=show_muted,
             )
 
-    # --- Node-level MANUAL check verification ---
-    # These checks verify conditions Prowler reports as MANUAL because it
-    # runs inside a pod and cannot evaluate them directly.
-    # Node-level verification of Prowler MANUAL findings (kubelet file
-    # perms, etcd CA separation, RBAC bindings) was minikube-specific and
-    # retired with the cluster ([[retire-minikube]] phase 5). A
-    # k3s/ringtail-shaped equivalent is tracked in heph.
+    # --- Node-level verification of k3s node config (ssh ringtail) ---
+    run_node_verification(console)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 ---
 title: Security
-modified: 2026-09-02
+modified: 2026-09-05
 last-reviewed: 2026-08-30
 tags:
   - operations
@@ -17,7 +17,7 @@ Security posture and periodic scanning for BlumeOps infrastructure.
 
 - [[prowler]] — CIS Kubernetes Benchmark scanner (weekly CronJob on ringtail). The container-image CVE scan and IaC scan were retired in 2026-06 (un-actioned noise — see [[deploy-prowler#Why only the K8s CIS scan]]); only the K8s CIS scan remains.
   - [[deploy-prowler]] — deployment and ad-hoc scan how-to
-  - [[read-compliance-reports]] — accessing and interpreting reports
+  - [[read-compliance-reports]] — accessing and interpreting reports; the weekly review also runs k3s node-level verification over `ssh ringtail`
 - Secret detection — [TruffleHog](https://github.com/trufflesecurity/trufflehog) runs as a prek hook on every commit/push.
 
 ## Pod Security Admission (PSA)
