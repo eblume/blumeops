@@ -5,10 +5,9 @@
   count-based so nothing depends on the path existing. It did hold one thing
   that existed nowhere else: the `eblume/hermes` repo (the task tracker
   hephaestus replaced; unrelated to the 2020 GitHub repo of the same name) with
-  two tagged releases and their four assets. Those are archived as a git bundle
-  plus assets and a DB metadata export under
-  `~/Documents/hermes-forge-archive-2026-09-05/` on indri (borgmatic-covered)
-  before the `rm`. Also fixed: the husk's mirror `config` files still embedded a
+  two tagged releases and their four assets. It was a three-day template
+  scaffold with a hello-world route, so after review it was deliberately
+  discarded rather than archived. Also fixed: the husk's mirror `config` files still embedded a
   GitHub PAT in their remote URLs, so the delete removes a plaintext credential
   copy; and the stale `--repo eblume/hermes` example in AGENTS.md now names
   `eblume/talos`.
