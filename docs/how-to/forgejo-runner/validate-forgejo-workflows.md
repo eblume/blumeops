@@ -1,7 +1,7 @@
 ---
 title: Validate Forgejo Workflows
-modified: 2026-08-13
-last-reviewed: 2026-08-13
+modified: 2026-09-04
+last-reviewed: 2026-09-04
 tags:
   - how-to
   - forgejo-runner
@@ -37,7 +37,7 @@ binary — match the version to `forgejo_runner_version` in
 
 ```fish
 docker run --rm -v (pwd):/workspace -w /workspace \
-    code.forgejo.org/forgejo/runner:12.8.2 \
+    code.forgejo.org/forgejo/runner:13.1.0 \
     forgejo-runner validate --directory .
 ```
 
