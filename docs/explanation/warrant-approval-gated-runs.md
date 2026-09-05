@@ -625,9 +625,9 @@ the old warrant app's auto-sync/`argocd-deploy` race recur (heph
 `01KZBPDB2WH9QK`): with auto-sync nobody dispatches `argocd-deploy` for horkos
 at all.
 
-`argocd app sync horkos` from gilbert still works and is still harmless — it
-is the same thing the controller does on its own — but nothing depends on it
-any more.
+`argocd app sync horkos` from a host with the CLI (gilbert or ringtail)
+still works and is still harmless — it is the same thing the controller does
+on its own — but nothing depends on it any more.
 
 ## Related
 

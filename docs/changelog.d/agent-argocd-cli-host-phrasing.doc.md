@@ -1,0 +1,1 @@
+Loosen the "run from gilbert" phrasing in the argocd and warrant docs now that the argocd CLI is also installed on ringtail (#856, #866): the two present-tense, CLI-availability claims now say "from a host with the CLI (gilbert or ringtail)". Historical mentions (the pre-auto-sync horkos process) are left as recorded. No code change.
