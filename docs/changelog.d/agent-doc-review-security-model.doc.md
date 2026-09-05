@@ -1,0 +1,1 @@
+docs(security-model): daily review — correct the fly.io public surface, tailscale-operator RBAC, K8s/agent tailnet rows, vault split, secret scanning (Gitleaks), and rewrite the AI/automation access section for talos.
