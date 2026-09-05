@@ -22,11 +22,18 @@ spec:
         app: mealie
     spec:
       securityContext:
+        runAsNonRoot: true
+        fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: mealie
           image: registry.ops.eblu.me/blumeops/mealie:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 9000
           env:
@@ -77,6 +84,14 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /app/data
+            # ingredient-parser-nlp downloads its NLTK tagger at import into
+            # $HOME/nltk_data; uid 1000 has no passwd entry so HOME is / and
+            # the target is /nltk_data, which only root could create (the
+            # non-root rollout in #872 crash-looped on exactly that). An
+            # emptyDir there is 0777 and restores the old behaviour: fetched
+            # on every pod start, gone with the pod.
+            - name: nltk-data
+              mountPath: /nltk_data
           resources:
             requests:
               memory: "128Mi"
@@ -100,3 +115,5 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: mealie-data
+        - name: nltk-data
+          emptyDir: {}

@@ -21,11 +21,17 @@ spec:
         app: teslamate
     spec:
       securityContext:
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: teslamate
           image: registry.ops.eblu.me/blumeops/teslamate:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 4000
           env:
