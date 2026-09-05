@@ -1,0 +1,1 @@
+Install the ArgoCD CLI for eblume on ringtail via the NixOS flake (`environment.systemPackages`, next to `tea`); it previously existed only in the priv runner's `hostPackages`, so the "sync from gilbert" steps in the docs were gilbert-only in practice. No server or workflow change; the same package as the priv runner (nixpkgs 3.3.6, same minor as the live server).

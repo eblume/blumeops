@@ -200,16 +200,18 @@ services:
 
   - name: valkey
     type: argocd
-    last-reviewed: 2026-05-28
-    current-version: "8.1.7"
+    last-reviewed: 2026-09-05
+    current-version: "9.1.1"
     upstream-source: https://github.com/valkey-io/valkey/releases
     notes: >-
-      Dual-build valkey image: container.py builds Alpine 3.22 + apk valkey
-      (arm64, indri) for paperless; default.nix builds via nixpkgs (amd64,
-      ringtail) for immich-ringtail. Both track upstream valkey 8.1.x; Alpine
-      3.22 currently ships 8.1.7-r0 and nixpkgs valkey is 8.1.7. Alpine 3.23
-      jumps to 9.0. Distinct from authentik-redis (nix-built Redis
-      8.x) which has its own entry.
+      Nix-built valkey (amd64, ringtail) serving immich-ringtail and
+      paperless-ringtail; the old Alpine container.py build is gone. Tracks
+      whatever nixpkgs ships (the version assertion in default.nix fails the
+      build when nixpkgs moves — bump here and there together). 8.1.7 -> 9.1.1
+      on 2026-09-05 as part of the PSA non-root rebuilds (#797); immich
+      upstream's docker-compose pins valkey:9. Both consumers use emptyDir
+      /data, so no RDB migration concern. Distinct from authentik-redis
+      (nix-built Redis 8.x) which has its own entry.
 
   - name: external-secrets
     type: argocd
@@ -263,12 +265,14 @@ services:
   - name: authentik-redis
     type: argocd
     parent: authentik
-    last-reviewed: "2026-06-20"
-    current-version: "8.6.3"
+    last-reviewed: "2026-09-05"
+    current-version: "8.8.2"
     upstream-source: https://github.com/redis/redis/releases
     notes: >-
       Attached service: Redis cache/broker for Authentik (sessions, Celery task
-      queue, caching). Nix-built container from nixpkgs with version assertion.
+      queue, caching). Nix-built container from nixpkgs with version assertion;
+      8.6.3 -> 8.8.2 on 2026-09-05 when the builder's nixpkgs moved (PSA
+      non-root rebuild, #797). No persistence, so version bumps are free.
 
   - name: ollama
     type: argocd
@@ -428,7 +432,7 @@ services:
   - name: talos
     type: argocd
     last-reviewed: "2026-08-30"
-    current-version: "v0.4.74"
+    current-version: "v0.4.78"
     upstream-source: https://forge.eblu.me/eblume/talos
     notes: >-
       First-party agent workflow service ([[talos-design]]): pi runtime +
