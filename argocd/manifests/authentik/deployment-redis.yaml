@@ -23,6 +23,15 @@ spec:
       containers:
         - name: redis
           image: docker.io/library/redis:kustomized
+          # Overrides the image Cmd (--protected-mode no), so repeat it.
+          # --save "" disables RDB snapshots: redis-server's built-in default
+          # is `save 3600 1 300 100 60 10000` with
+          # stop-writes-on-bgsave-error=yes, and as uid 1000 with no writable
+          # dir the first BGSAVE to / would fail and flip the server read-only
+          # (MISCONF) — an authentik outage. This redis is a stateless
+          # cache/broker per docs/reference/operations/security.md, so a
+          # snapshot buys nothing anyway.
+          args: ["--protected-mode", "no", "--save", ""]
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

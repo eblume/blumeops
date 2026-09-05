@@ -18,4 +18,4 @@ images:
   # arm64 Alpine build for indri and fails on ringtail with exec format error)
   - name: docker.io/library/redis
     newName: registry.ops.eblu.me/blumeops/valkey
-    newTag: v8.1.7-f403fce-nix
+    newTag: v9.1.1-7eeb358-nix
