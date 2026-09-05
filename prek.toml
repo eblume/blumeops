@@ -130,29 +130,8 @@ hooks = [
 ]
 
 # Custom local hooks
-#
-# The hooks below run their script directly rather than through
-# `mise run <task>`. `mise run` installs the whole `[tools]` block before it
-# executes anything, so every one of these paid for pulumi, ansible-core,
-# borgmatic and ty — and on a Forgejo runner that install is not merely slow,
-# it fails: mise reads GITHUB_TOKEN, Forgejo Actions sets it to the forge job
-# token, and api.github.com answers 401. These scripts need bash and uv, both
-# already present, so taking mise out of the path removes the failure instead
-# of authenticating around it. `.forgejo/workflows/docs-checks.yaml` has
-# invoked three of them this way since it landed, which is why it never hit
-# the 401 that the prek copies of the same checks did.
-#
-# The shebangs are what make the bare path work, and they are the same ones
-# `mise run` honours. Nothing here reads a `usage_*` variable, so the `#USAGE`
-# directive that mise would have parsed costs nothing when it is skipped.
-# prek runs hooks from the repo root, so `./` resolves there whatever directory
-# the invocation started in.
-#
-# One tool does move out from under mise: `container-version-check` shells to
-# `dagger` for containers that track an unmodified nixpkgs package. The runner
-# has it globally (`forgejo_runner_host_tools`), and an activated mise shell on
-# gilbert has it from `[tools]`. Neither is silent if it is missing — the script
-# reports the container as failing to resolve a version, and the hook fails.
+# Local checks don't use `mise run` to avoid installing tools that aren't
+# needed in the CI context.
 
 # Container version consistency
 [[repos]]

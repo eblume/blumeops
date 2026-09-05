@@ -27,10 +27,7 @@ Build engine for BlumeOps CI/CD pipelines. Replaces shell-based build scripts wi
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `build_nix` | `(src, container_name) → File` | Build a nix container from `containers/<name>/default.nix`, return docker-archive tarball |
-| `nix_version` | `(package) → str` | Extract the version of a nixpkgs package |
 | `build_docs` | `(src, version) → File` | Build Quartz docs site, return docs tarball |
-| `flake_lock` | `(src, flake_path?) → File` | Resolve flake inputs, return updated `flake.lock` |
-| `flake_update` | `(src, flake_path?, skip_inputs?) → File` | Update rolling flake inputs to latest, return `flake.lock` |
 | `export_yolov9` | `(model_size?, input_size?) → File` | Export YOLOv9 weights to ONNX for [[frigate|Frigate]] |
 
 ## Container Build Types
@@ -51,18 +48,12 @@ to [[zot]] (amd64, `:vX.Y.Z-<sha>-nix` tags). See [[build-container-image]].
 # Build a nix container locally (no local nix required)
 dagger call build-nix --src=. --container-name=ntfy export --path=./ntfy.tar.gz
 
-# Check a nixpkgs package version
-dagger call nix-version --package=authentik
-
 # Build docs tarball locally
 dagger call build-docs --src=. --version=dev export --path=./docs-dev.tar.gz
 
 # Debug a docs build failure
 dagger call --interactive build-docs --src=. --version=dev
 
-# Update all ringtail flake inputs
-dagger call flake-update --src=. --flake-path=nixos/ringtail \
-    export --path=nixos/ringtail/flake.lock
 ```
 
 ## Caveats
