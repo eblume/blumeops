@@ -1,1 +1,1 @@
-Retire dagger flake-lock/flake-update/nix-version pipelines; call nixos/nix directly.
+Retire dagger flake-lock/flake-update/nix-version pipelines: the Ringtail Flake Update workflow now runs nix natively on the ringtail nix runner, and the remaining call sites use the nixos/nix container directly.

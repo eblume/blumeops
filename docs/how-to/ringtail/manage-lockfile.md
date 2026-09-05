@@ -17,7 +17,9 @@ Two flows update the ringtail NixOS flake lockfile (`nixos/ringtail/flake.lock`)
 To pull the latest versions of all flake inputs (equivalent to `nix flake update`):
 
 ```bash
-# 1. Update flake.lock (same script as the Ringtail Flake Update workflow)
+# 1. Update flake.lock. Local equivalent of the Ringtail Flake Update
+#    workflow's script, run in a nixos/nix container because gilbert has no
+#    nix (the workflow itself runs nix natively on the ringtail nix runner).
 docker run --rm -i -v "$PWD":/workspace -w /workspace/nixos/ringtail \
     -e SKIP_INPUTS=nixpkgs-services nixos/nix:2.34.4 sh -s <<'SH'
 set -e;
@@ -61,8 +63,8 @@ After deploying, continue with [post-deploy maintenance](#post-deploy-maintenanc
 Remote-agent sessions have no nix, docker, or deploy access, so the update
 runs in CI instead: the agent opens a branch/PR, then a human dispatches the
 **Ringtail Flake Update** workflow (Actions > Ringtail Flake Update > Run
-workflow, selecting the PR branch). The workflow runs `nix flake update` in a
-nixos/nix container on the runner and pushes the refreshed `flake.lock`
+workflow, selecting the PR branch). The workflow runs `nix flake update`
+directly on ringtail's nix runner and pushes the refreshed `flake.lock`
 as a commit on that branch for review. After merge, a human deploys with
 `mise run provision-ringtail` from gilbert and continues with
 [post-deploy maintenance](#post-deploy-maintenance).
