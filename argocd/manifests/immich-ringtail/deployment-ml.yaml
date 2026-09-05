@@ -17,7 +17,13 @@ spec:
         component: machine-learning
     spec:
       runtimeClassName: nvidia
+      # Non-root via manifest (same rootless 1000:1000 pattern as the server).
+      # fsGroup is fine here: /cache is a local-path PVC, not NFS.
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -27,6 +33,11 @@ spec:
           # device plugin. Time-slicing is configured for 4 replicas
           # so frigate + ollama + this pod can share.
           image: ghcr.io/immich-app/immich-machine-learning:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: http
               containerPort: 3003
@@ -42,6 +53,13 @@ spec:
           volumeMounts:
             - name: cache
               mountPath: /cache
+            # uid 1000 has no passwd entry, so HOME resolves to / and the
+            # upstream FAQ lists /.config and /.cache as paths that must be
+            # writable when running rootless.
+            - name: home-config
+              mountPath: /.config
+            - name: home-cache
+              mountPath: /.cache
           livenessProbe:
             httpGet:
               path: /ping
@@ -67,3 +85,7 @@ spec:
         - name: cache
           persistentVolumeClaim:
             claimName: immich-ml-cache
+        - name: home-config
+          emptyDir: {}
+        - name: home-cache
+          emptyDir: {}
