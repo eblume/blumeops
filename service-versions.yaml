@@ -393,9 +393,6 @@ services:
       REVIEW ALSO `forgejo_runner_host_tools` there: it mirrors pins held
       elsewhere (dagger.json, mise.toml, prek.toml), so diff it against
       those sources and realign; not an independent upgrade decision.
-      v13.0.0 (2026-08-03) is a breaking release; the upgrade (pin bump,
-      config audit, indri binary rebuild + provision) is tracked in
-      eblume/blumeops#865.
   - name: nix-container-builder
     type: nixos
     last-reviewed: 2026-06-30
@@ -512,10 +509,7 @@ services:
     last-reviewed: 2026-09-04
     current-version: "v1.16.3"
     upstream-source: https://github.com/grafana/alloy/releases
-    notes: >-
-      Built from source on indri. Config audited clean against the v1.18/v1.19
-      breaking changes (eblume/blumeops#865); binary rebuild to v1.19.x is a
-      human step in the same window.
+    notes: Built from source on indri
 
   - name: zot
     type: ansible
