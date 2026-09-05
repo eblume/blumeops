@@ -27,12 +27,14 @@
     "collaboration REMOVED. Adding a repo means adding it here, not clicking in",
     "the forge UI. See docs/reference/infrastructure/agents-forgejo-bot.md.",
     "",
-    "`agents`, `blumeops`, and `horkos` are pinned to read by an invariant in",
+    "`agents`, `blumeops`, `horkos`, and `talos` are pinned to read by an invariant in",
     "the reconciler that this file cannot override -- their read-only-on-canonical",
     "status is what keeps their CI (and its deploy/release secrets) out of agent",
-    "reach. horkos is the approval gate itself and carries release secrets",
-    "(ZOT_CI_API_KEY, RELEASE_FORGE_TOKEN); a write bot could dispatch release.yaml",
-    "from a branch with a doctored step and exfiltrate them, so it authors via fork."
+    "reach. horkos (the approval gate; ZOT_CI_API_KEY, RELEASE_FORGE_TOKEN) and",
+    "talos (BLUMEOPS_CI_OP_TOKEN, i.e. read of the whole blumeops-ci vault) both",
+    "run a workflow_dispatch-able release.yaml, so a write bot could dispatch it",
+    "from a branch with a doctored step and exfiltrate those secrets -- both",
+    "author via fork."
   ],
   "owner": "eblume",
   "collaborator": "agents",
@@ -40,6 +42,7 @@
     { "name": "agents", "access": "read", "pool": "fork" },
     { "name": "blumeops", "access": "read", "pool": "fork" },
     { "name": "horkos", "access": "read", "pool": "fork" },
+    { "name": "talos", "access": "read", "pool": "fork" },
     { "name": "cv", "access": "read", "pool": "none" },
     { "name": "hephaestus", "access": "write", "pool": "canonical" },
     { "name": "hephaestus.nvim", "access": "write", "pool": "canonical" },
@@ -47,7 +50,6 @@
     { "name": "myeve", "access": "write", "pool": "canonical" },
     { "name": "timberborn-parsimony", "access": "write", "pool": "canonical" },
     { "name": "gamedev", "access": "write", "pool": "canonical" },
-    { "name": "project-template", "access": "write", "pool": "canonical" },
-    { "name": "talos", "access": "write", "pool": "canonical" }
+    { "name": "project-template", "access": "write", "pool": "canonical" }
   ]
 }
