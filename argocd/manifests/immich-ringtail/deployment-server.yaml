@@ -16,12 +16,25 @@ spec:
         app: immich
         component: server
     spec:
+      # Non-root via manifest: upstream's rootless pattern is `user: 1000:1000`
+      # (immich docker-compose.rootless.yml / FAQ). No fsGroup — the library
+      # is the 2Ti sifaka:/volume1/photos NFS share and kubelet would chown
+      # it recursively at every mount; see the decision table in
+      # docs/reference/operations/security.md.
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: server
           image: ghcr.io/immich-app/immich-server:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: http
               containerPort: 2283

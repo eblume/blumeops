@@ -59,8 +59,14 @@ PRs once warnings are quiet.
 Signed off per the eblume/blumeops#797 thread (2026-09-04).
 House pattern for the local nix images: `User` in the `dockerTools` config +
 matching pod `securityContext` (navidrome precedent). NFS-backed volumes
-(sifaka) are **pre-chowned on the NAS once** instead of using `fsGroup` —
-kubelet would chown the whole share recursively at every mount.
+(sifaka) never get `fsGroup` — kubelet would chown the whole share
+recursively at every mount. The plan called for a one-time pre-chown to
+uid/gid 1000 on the NAS instead, but checking sifaka directly (2026-09-05)
+showed it is unnecessary: both shares (`/volume1/paperless`,
+`/volume1/photos`) export with `Squash=No mapping` and every object is mode
+0777 under the Synology ACL (owner `admin:users`), so uid 1000 can already
+create, modify and delete there. Ownership stays `admin:users` so File
+Station keeps working; new files land as 1000:1000, which is fine.
 
 | Workload (namespace) | Image (source) | Decision | Work needed |
 |---|---|---|---|
@@ -70,8 +76,8 @@ kubelet would chown the whole share recursively at every mount.
 | paperless (paperless) | local `blumeops/paperless` (nix, 2.20.15) | non-root image | `User` in `containers/paperless/`; fsGroup on the emptyDir data volumes; media PVC is NFS (sifaka:/volume1/paperless) → one-time pre-chown to uid/gid 1000, no fsGroup there |
 | teslamate (teslamate) | local `blumeops/teslamate` (nix, mix release 3.0.0) | non-root image | `User` in `containers/teslamate/` + a writable uid-owned `/opt/app` created in the image so HOME and SRTM_CACHE point at a directory that exists; stateless otherwise |
 | frigate (frigate) | upstream `ghcr.io/blakeblackshear/frigate:0.17.1-tensorrt` | **PSA exception** | s6-overlay root entrypoint; PUID/PGID unimplemented upstream (frigate GH #3434, discussion #22837); /dev/shm log dirs and root-owned /config plus the NFS /media share break non-root. Revisit if upstream ships a non-root path |
-| immich-server (immich) | upstream `ghcr.io/immich-app/immich-server:v3.0.2` | non-root via manifest | upstream's blessed rootless pattern is `user: 1000:1000` (immich's `docker-compose.rootless.yml`); runAsUser/runAsGroup 1000 + the four fields. Library PVC is NFS (sifaka:/volume1/photos, 2Ti) → one-time pre-chown to uid/gid 1000, deliberately **no fsGroup** on it |
-| immich-machine-learning (immich) | upstream `ghcr.io/immich-app/immich-machine-learning:v3.0.2-cuda` | non-root via manifest | same rootless pattern; runAsUser 1000 + fsGroup 1000 on the cache PVC + the four fields |
+| immich-server (immich) | upstream `ghcr.io/immich-app/immich-server:v3.0.2` | non-root via manifest | upstream's blessed rootless pattern is `user: 1000:1000` (immich's `docker-compose.rootless.yml`); runAsUser/runAsGroup 1000 + the four fields. Library PVC is NFS (sifaka:/volume1/photos, 2Ti) → deliberately **no fsGroup**; no pre-chown needed either (share is 0777, see above) |
+| immich-machine-learning (immich) | upstream `ghcr.io/immich-app/immich-machine-learning:v3.0.2-cuda` | non-root via manifest | same rootless pattern; runAsUser 1000 + fsGroup 1000 on the cache PVC + the four fields; emptyDirs at `/.config` and `/.cache` (uid 1000 has no passwd entry, HOME is `/`; upstream FAQ lists both as required writable paths) |
 
 | Namespace(s) | Target | Notes |
 |---|---|---|
