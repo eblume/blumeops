@@ -34,6 +34,13 @@ container=${7:-}
 mode=${target%%:*}
 ref=${target#*:}
 
+# Resolved once, here, for both modes: the ssh branch's heredoc is unquoted so
+# it expands on THIS host, and an unset name there is fatal under set -u.
+container_arg=
+if [[ -n "$container" ]]; then
+    container_arg="-c $container"
+fi
+
 case "$mode" in
     local)
         # Streams the tar over kubectl exec stdout — no staging file in the
@@ -42,10 +49,6 @@ case "$mode" in
         kubectl="/opt/homebrew/bin/kubectl --context=$context -n $namespace"
         pod=$($kubectl get pod -l "$selector" \
             -o jsonpath='{.items[0].metadata.name}')
-        container_arg=
-        if [[ -n "$container" ]]; then
-          container_arg="-c $container"
-        fi
         $kubectl exec $container_arg "$pod" -- tar cf - -C "$(dirname "$dir")" "$(basename "$dir")" > "$dump_target"
         ;;
     ssh)
@@ -62,10 +65,6 @@ case "$mode" in
         ssh "$host" bash <<EOF > "$dump_target"
 set -euo pipefail
 pod=\$(sudo k3s kubectl -n "$namespace" get pod -l "$selector" -o jsonpath='{.items[0].metadata.name}')
-container_arg=
-if [[ -n "$container" ]]; then
-  container_arg="-c $container"
-fi
 sudo k3s kubectl -n "$namespace" exec $container_arg "\$pod" -- tar cf - -C "$(dirname "$dir")" "$(basename "$dir")"
 EOF
         ;;
