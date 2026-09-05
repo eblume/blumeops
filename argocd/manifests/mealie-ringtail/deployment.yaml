@@ -92,6 +92,11 @@ spec:
             # on every pod start, gone with the pod.
             - name: nltk-data
               mountPath: /nltk_data
+            # The nix image ships no /tmp; gunicorn's worker heartbeat file
+            # (workertmp) needs one, and as root it used to be created on
+            # the fly. Same fix as teslamate, applied at the manifest.
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               memory: "128Mi"
@@ -116,4 +121,6 @@ spec:
           persistentVolumeClaim:
             claimName: mealie-data
         - name: nltk-data
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}
