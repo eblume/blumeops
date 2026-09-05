@@ -432,7 +432,7 @@ services:
   - name: talos
     type: argocd
     last-reviewed: "2026-08-30"
-    current-version: "v0.4.78"
+    current-version: "v0.4.79"
     upstream-source: https://forge.eblu.me/eblume/talos
     notes: >-
       First-party agent workflow service ([[talos-design]]): pi runtime +
