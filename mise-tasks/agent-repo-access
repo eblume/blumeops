@@ -171,11 +171,18 @@ OP_ISSUE_TOKEN_REF = "op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
 #   and runs the definition from the dispatched ref, so a write bot could dispatch
 #   it from a branch with a doctored step and exfiltrate those secrets. Read-only
 #   closes that path (and a compromised gate is the worst thing to hand an agent).
+# talos  — its release.yaml carries BLUMEOPS_CI_OP_TOKEN (read of the whole
+#   blumeops-ci vault: forge-main-push, horkos-dispatch, zot-ci,
+#   argocd-workflow-bot, fly-deploy) and borrows horkos-dispatch to open blumeops
+#   pin PRs. release.yaml is workflow_dispatch-able and runs the definition from
+#   the dispatched ref, so a write bot could dispatch it from a branch with a
+#   doctored step and exfiltrate those secrets. Read-only + fork closes it, the
+#   same shape horkos received on 2026-08-20.
 #
-# All three work via the fork model (origin = agents/<repo>, PRs to canonical),
+# All four work via the fork model (origin = agents/<repo>, PRs to canonical),
 # so read costs them nothing. This lives in code, NOT in repos.json, on purpose:
 # a one-line data edit in a routine-looking PR must not be able to flip a fence.
-PINNED_READ_ONLY = frozenset({"blumeops", "agents", "horkos"})
+PINNED_READ_ONLY = frozenset({"blumeops", "agents", "horkos", "talos"})
 
 VALID_ACCESS = frozenset({"write", "read", "none"})
 

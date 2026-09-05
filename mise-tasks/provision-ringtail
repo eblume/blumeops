@@ -5,10 +5,11 @@ set -euo pipefail
 
 export MISE_TASK_OUTPUT=interleave
 
-# Update flake.lock via Dagger before deploying
+# Update flake.lock via `nix flake lock` in a nixos/nix container before deploying
 echo "Updating nixos/ringtail/flake.lock..."
-dagger call --progress=plain flake-lock --src=. --flake-path=nixos/ringtail \
-    export --path=nixos/ringtail/flake.lock
+docker run --rm -v "$PWD":/workspace -w /workspace/nixos/ringtail \
+    nixos/nix:2.34.4 nix --extra-experimental-features 'nix-command flakes' \
+    flake lock --accept-flake-config
 
 if ! git diff --quiet nixos/ringtail/flake.lock; then
     git add nixos/ringtail/flake.lock

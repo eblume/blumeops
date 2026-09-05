@@ -19,11 +19,18 @@ spec:
         component: valkey
     spec:
       securityContext:
+        runAsNonRoot: true
+        fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: valkey
           image: docker.io/valkey/valkey:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: redis
               containerPort: 6379

@@ -65,7 +65,7 @@ Either produces a docker-archive tarball you can `docker load` or push with `sko
 ## 3. Release
 
 Container builds are triggered manually. Shared Dagger helpers (`src/blumeops/`)
-affect docs and flake-lock pipelines, so path-based auto-triggers are unreliable.
+also feed the docs pipeline, so path-based auto-triggers are unreliable.
 
 To trigger a build:
 

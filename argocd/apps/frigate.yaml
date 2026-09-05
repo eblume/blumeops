@@ -22,7 +22,13 @@ spec:
       prune: true
     syncOptions:
       - CreateNamespace=true
+    # No pod-security labels: frigate is a documented PSA exception
+    # (docs/reference/operations/security.md decision table) - the upstream
+    # tensorrt image has an s6-overlay root entrypoint and no supported
+    # non-root path, so warn/audit at restricted would only emit noise on
+    # every sync. Revisit if upstream ships a non-root image.
+    # Kept as an empty map rather than deleting the block: ArgoCD only
+    # removes labels it previously set while managedNamespaceMetadata is
+    # still present, so this is what strips them from the live namespace.
     managedNamespaceMetadata:
-      labels:
-        pod-security.kubernetes.io/warn: restricted
-        pod-security.kubernetes.io/audit: restricted
+      labels: {}

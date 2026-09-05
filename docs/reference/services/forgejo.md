@@ -85,7 +85,7 @@ The forge has three namespaces:
 | `cv-deploy` | dispatch | `indri` | Deploy the CV package |
 | `deploy-fly` | dispatch | `priv` | Warrant-gated deploy of the Fly.io proxy ([[flyio-proxy]]) |
 | `docs-checks` | PR/push | `indri` | Docs + changelog validation |
-| `flake-update` | dispatch | `indri` | Ringtail flake nixpkgs update |
+| `flake-update` | dispatch | `nix-container-builder` | Ringtail flake input update (native nix on the ringtail nix runner) |
 | `lint` | PR/push | `indri` | Repo lint (prek hooks) |
 | `run-script` | dispatch | `priv` | Warrant-gated one-off script run |
 | `warrant-bot-drift` | cron/push/dispatch | `indri` | Weekly drift check on the warrant-bot's grants |

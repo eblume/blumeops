@@ -1,10 +1,14 @@
 # Ringtail Flake Update
 #
-# Runs the existing dagger `flake-update` pipeline (see [[manage-lockfile]])
-# on the runner and pushes the refreshed nixos/ringtail/flake.lock back to
-# the branch the workflow was dispatched on.
+# Runs `nix flake update` directly on ringtail's nix runner (label
+# nix-container-builder, see [[manage-lockfile]]) and pushes the refreshed
+# nixos/ringtail/flake.lock back to the branch the workflow was dispatched on.
 #
-# This exists so remote-agent sessions (which have no nix, dagger, or deploy
+# The runner runs on ringtail itself, so the nix that performs the lock is the
+# same nix that consumes the flake — no nixos/nix container in between, and a
+# warm store to evaluate against.
+#
+# This exists so remote-agent sessions (which have no nix, docker, or deploy
 # access) can author a flake update by PR: the agent opens a branch/PR, a
 # human dispatches this workflow on that branch, and the lockfile bump lands
 # as a commit on the PR for review. Deployment stays human-only:
@@ -22,16 +26,35 @@ on:
 
 jobs:
   flake-update:
-    runs-on: indri
+    runs-on: nix-container-builder
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Update flake.lock via dagger
+      - name: Update flake.lock (native nix)
         run: |
-          echo "Updating nixos/ringtail/flake.lock (all inputs)..."
-          dagger call flake-update --src=. --flake-path=nixos/ringtail \
-            export --path=nixos/ringtail/flake.lock
+          set -eo pipefail
+          cd nixos/ringtail
+          echo "Updating nixos/ringtail/flake.lock (all inputs except nixpkgs-services)..."
+          SKIP=nixpkgs-services
+          # Land the metadata in a real file: nix-instantiate cannot
+          # readFile a pipe (/dev/stdin canonicalizes to
+          # /proc/<pid>/fd/pipe:[...] and readFile fails), which would
+          # make discovery silently empty. No stderr suppression —
+          # metadata failures should be visible.
+          nix flake metadata --json > /tmp/flake-meta.json
+          ALL=$(nix-instantiate --eval -E "builtins.concatStringsSep \" \" (builtins.attrNames (builtins.fromJSON (builtins.readFile /tmp/flake-meta.json)).locks.nodes.root.inputs)" | tr -d '"')
+          INPUTS=''
+          for i in $ALL; do
+            case ",$SKIP," in *",$i,"*) continue ;; esac;
+            INPUTS="$INPUTS $i"
+          done
+          echo "Updating inputs:$INPUTS"
+          echo "Skipping: $SKIP"
+          # Empty INPUTS would make `nix flake update` update *all* inputs,
+          # including the ones we meant to skip — fail loudly instead.
+          [ -n "$INPUTS" ] || { echo "no inputs discovered; refusing bare flake update" >&2; exit 1; }
+          nix flake update $INPUTS --accept-flake-config
 
       - name: Commit and push lockfile
         env:

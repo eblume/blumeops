@@ -51,18 +51,15 @@ in
   networking.nameservers = [ "192.168.1.1" "1.1.1.1" ];
 
   # Pin sifaka (Synology NAS) to its LAN IP so NFS mounts resolve over the LAN
-  # rather than via tailscale MagicDNS. This keeps NFS traffic off the tailnet
-  # and makes it immune to tailscale node-key churn: on 2026-06-26 sifaka's
-  # tailscale node key expired, MagicDNS kept resolving `sifaka` to the dead
-  # node, and every NFS mount hung. /etc/hosts (nsswitch `files`) wins over
-  # MagicDNS, so this is authoritative. sifaka's NFS export already permits
-  # 192.168.1.0/24. NOTE: assumes sifaka stays at .203 — keep a DHCP reservation.
+  # rather than via tailscale MagicDNS — kept off the tailnet and immune to
+  # node-key churn. /etc/hosts (nsswitch `files`) wins over MagicDNS, so this
+  # is authoritative; sifaka's NFS export permits 192.168.1.0/24. Assumes
+  # sifaka keeps .203 — keep a DHCP reservation.
   networking.hosts."192.168.1.203" = [ "sifaka" "sifaka.tail8d86e.ts.net" ];
 
   # K3s pod networking and Tailscale tunnel routing require IP forwarding.
-  # NixOS leaves this off by default; previously it was being enabled
-  # implicitly by NM/scripted-DHCP setup, but with static networking we
-  # have to set it explicitly.
+  # NixOS leaves it off by default and static networking doesn't enable it,
+  # so set it explicitly.
   boot.kernel.sysctl."net.ipv4.ip_forward" = 1;
 
   # Time zone
@@ -168,41 +165,21 @@ in
     };
   };
 
-  # Run Firefox on XWayland instead of natively on Wayland.
-  #
-  # NVIDIA's Wayland EGL explicit-sync path can leave a DRM timeline fence
-  # unsignaled inside eglSwapBuffers, which deadlocks the whole browser:
-  #   Renderer   GLContextEGL::SwapBuffers -> libnvidia-egl-wayland
-  #              -> drmSyncobjTimelineWait -> ioctl() [never returns]
-  #   Compositor RecvFlushRendering -> WaitUntilPresentationFlushed [blocked]
-  #   main       nsMenuPopupFrame::PaintWindow -> SendFlushRendering [blocked]
-  # Painting any popup (permission doorhanger, menu, dropdown) can trigger it,
-  # and the UI thread waits on the compositor synchronously, so the window
-  # freezes at 0% CPU until killed.
-  #
-  # There is no Firefox pref or wlroots/sway toggle for this path, and nixpkgs
-  # production/latest/beta were all pinned to the affected 580.142 driver when
-  # this was diagnosed, so XWayland is the only lever available. The nixpkgs
-  # firefox wrapper uses `--set-default MOZ_ENABLE_WAYLAND 1`, so setting it
-  # here wins. Revisit (and drop this) once a newer NVIDIA driver ships.
-  #
-  # Note: this is set via environment.variables rather than
-  # programs.sway.extraSessionCommands, because the running sway comes from
-  # home-manager's wayland.windowManager.sway and never executes the NixOS
-  # module's session wrapper.
+  # Run Firefox on XWayland instead of natively on Wayland. NVIDIA's Wayland
+  # EGL explicit-sync path can leave a DRM timeline fence unsignaled in
+  # eglSwapBuffers, which deadlocks the browser whenever a popup is painted
+  # (the UI thread waits on the compositor synchronously). No Firefox pref or
+  # wlroots toggle reaches this path, so XWayland is the only lever; the
+  # nixpkgs firefox wrapper uses `--set-default MOZ_ENABLE_WAYLAND 1`, so
+  # setting it here wins.
   environment.variables.MOZ_ENABLE_WAYLAND = "0";
 
   # Software cursors under the NVIDIA proprietary driver: wlroots' hardware
-  # cursor path corrupts or drops the pointer there.
-  #
-  # wlroots reads this as it creates each output, from the compositor's own
-  # environment, so it has to be set before sway execs — being set somewhere
-  # inside the session is not enough. environment.variables reaches it because
-  # greetd runs the session as `/bin/sh -c '. /etc/profile; exec sway'` (its
-  # source_profile default), and /etc/profile sources /etc/set-environment.
-  #
-  # Verify after a rebuild + fresh login:
-  #   tr '\0' '\n' < /proc/$(pgrep -x sway)/environ | grep WLR_
+  # cursor path corrupts or drops the pointer there. wlroots reads this from
+  # the compositor's own environment at output creation, so it must be set
+  # before sway execs; environment.variables reaches it because greetd's
+  # source_profile default runs `. /etc/profile; exec sway`, and /etc/profile
+  # sources /etc/set-environment.
   environment.variables.WLR_NO_HARDWARE_CURSORS = "1";
 
   # 1Password (modules handle CLI group/setgid and polkit for GUI integration)
@@ -221,7 +198,7 @@ in
       "--disable=traefik"
       "--disable=servicelb"
       "--disable=metrics-server"
-      # 0600, NOT 0644: ringtail is multi-user now (the unprivileged `agent`
+      # 0600, NOT 0644: ringtail is multi-user (the unprivileged `agent`
       # user runs the agent workspaces). A world-readable admin kubeconfig would
       # hand `agent` cluster-admin — and via the argocd-* secrets, a deploy path
       # — bypassing the vault gate that is supposed to keep agents author-only.
@@ -232,8 +209,8 @@ in
       # Kubelet refuses to start when swap is present unless told otherwise.
       # We run zram swap (below) as an OOM pressure valve since this is a
       # gaming+homelab host. Default swapBehavior is NoSwap, so pod cgroups
-      # still get memory.swap.max=0 (RAM-bound, OOM at limit as before) — only
-      # host processes (the game, system.slice) may use the zram swap.
+      # still get memory.swap.max=0 (RAM-bound, OOM at limit) — only host
+      # processes (the game, system.slice) may use the zram swap.
       "--kubelet-arg=fail-swap-on=false"
     ];
     containerdConfigTemplate = ''
@@ -293,12 +270,10 @@ in
   # BPF for processes with CAP_BPF/CAP_SYS_ADMIN in any namespace.
   boot.kernel.sysctl."kernel.unprivileged_bpf_disabled" = 1;
 
-  # Compressed RAM-backed swap as an OOM pressure valve. This box is a
-  # gaming + ~25-service homelab on 32G with no headroom; a game spike (e.g.
-  # Diablo 4) previously pushed the host over the top and the kernel OOM-killed
-  # k3s pods (no swap to fall back on). zram lets cold anonymous pages (idle
-  # services, the game's untouched pages) compress into RAM instead of
-  # triggering kills — no disk thrash, no SSD wear. zstd ~3:1 on such pages.
+  # Compressed RAM-backed swap as an OOM pressure valve: this box is a gaming
+  # + ~25-service homelab on 32G with no headroom, and zram lets cold anonymous
+  # pages compress into RAM when a spike hits instead of triggering OOM-kills —
+  # no disk thrash, no SSD wear. zstd ~3:1 on such pages.
   zramSwap = {
     enable = true;
     algorithm = "zstd";
@@ -308,36 +283,26 @@ in
   # Only swap under genuine pressure — keep the game's hot working set resident.
   boot.kernel.sysctl."vm.swappiness" = 10;
 
-  # systemd-oomd pressure-kill, scoped to user.slice. The zram valve above stops
-  # the *kernel* OOM-killer from firing on a host memory spike, but adds no real
-  # capacity — a game spike (CK3, Diablo 4) can still fill zram and thrash the
-  # whole host into a multi-minute memory-pressure stall (everything frozen,
-  # sshd included).
+  # systemd-oomd pressure-kill, scoped to user.slice. The zram valve above
+  # stops the *kernel* OOM-killer from firing on a host memory spike, but adds
+  # no real capacity — a game spike can still fill zram and thrash the whole
+  # host into a multi-minute memory-pressure stall (everything frozen, sshd
+  # included).
   #
   # Goal: when the host genuinely thrashes, the gaming/desktop session dies
   # first and k3s pods are never candidates. enableUserSlices puts
-  # ManagedOOMMemoryPressure=kill on user.slice, so oomd watches that slice's
-  # PSI and only ever kills its *descendants* (session scopes, user@ services)
-  # — kubepods and k3s.service are structurally out of scope. Pod OOM remains
-  # the job of each pod's memory limit + the kernel cgroup OOM-killer. We still
-  # avoid enableRootSlice: root-slice pressure-kill picks victims across ALL
-  # descendants, including pods.
-  #
-  # History: 2026-06→08 this was ManagedOOMSwap=kill on the root slice with
-  # SwapUsedLimit=80%. That trigger ratchets: swap-slot accounting goes stale
-  # (at 111d uptime the counter read 12.6G "used" while zram held ~1.6G of real
-  # data), the counter never recrosses the threshold, and the kills themselves
-  # can't reclaim the stale slots that armed them — so every RAM spike executed
-  # the sway session even with no game running. PSI is measured, not bookkept,
-  # so it cannot go stale.
+  # ManagedOOMMemoryPressure=kill on user.slice, so oomd only kills that
+  # slice's *descendants* (session scopes, user@ services) — kubepods and
+  # k3s.service are structurally out of scope. Pod OOM remains the job of each
+  # pod's memory limit + the kernel cgroup OOM-killer. Avoid enableRootSlice:
+  # root-slice pressure-kill picks victims across ALL descendants, including
+  # pods. PSI is measured, not bookkept, so unlike a swap-based trigger it
+  # cannot go stale.
   systemd.oomd.enableUserSlices = true;
 
-  # Module default is 80% avg10 full-pressure — near-total stall; the June
-  # freezes showed ~30% *system-wide* while the host was already unusable for
-  # minutes. 50% sustained for the default 30s inside user.slice means the
-  # session is thrashing hard, well before the whole host wedges. Verify with
-  # `oomctl`: user.slice under "Memory Pressure Monitored CGroups", and no
-  # swap-monitored cgroups anymore.
+  # Module default is 80% avg10 full-pressure — near-total stall; 50% sustained
+  # for the default 30s inside user.slice means the session is thrashing hard,
+  # well before the whole host wedges.
   systemd.slices."user".sliceConfig.ManagedOOMMemoryPressureLimit = "50%";
 
   # K3s containerd registry mirrors (pull through Zot on indri)
@@ -402,11 +367,10 @@ in
     unzip
     fuzzel
     pulseaudio
-    # Forgejo CLI — `tea pr create` is the documented way to open PRs here, but
-    # it was never installed on ringtail, so sessions on this host had to fall
-    # back to raw API calls. Authenticate once with `tea login add` (token from
+    # Forgejo CLI; authenticate once with `tea login add` (token from
     # 1Password); the config lands in ~/.config/tea/config.yml.
     tea
+    argocd
   ];
 
   # Allow running dynamically linked binaries (mise-installed runtimes, etc.)
@@ -415,7 +379,7 @@ in
 
   # mise runtimes: prebuilt (python-build-standalone etc.) via nix-ld, not
   # compiled. mise defaults to compiling on NixOS; compiled binaries bake
-  # /nix/store RUNPATHs that GC removes (`ImportError: libz.so.1`, PR #735).
+  # /nix/store RUNPATHs that GC removes.
   # Flavor pin: mise 2025.x otherwise picks the freethreaded asset for 3.14.
   environment.sessionVariables = {
     MISE_ALL_COMPILE = "false";
@@ -442,11 +406,8 @@ in
     # opened from the desktop can't find heph at all.
     home.packages = [ hephShims ];
 
-    # External-IP helper, managed declaratively so it can't drift again. Renamed
-    # from `ip`: the old stray ~/.config/fish/functions/ip.fish shadowed
-    # iproute2's real `ip`, so `ip addr`/`ip route` silently curled ipinfo.io.
-    # The stray ip.fish (and a broken prettyping-less ping.fish) are removed at
-    # deploy; this keeps the helper available as `myip`.
+    # External-IP helper as `myip` rather than `ip`, which would shadow
+    # iproute2's real `ip`. Managed declaratively so it can't drift.
     xdg.configFile."fish/functions/myip.fish".text = ''
       function myip --description 'Show public IP (no arg) or look up an IP via ipinfo.io'
           if count $argv >/dev/null
@@ -903,16 +864,15 @@ in
     AllowSuspendThenHibernate = "no";
   };
 
-  # Cap systemd-coredump. Wine/Proton games (Diablo IV, etc.) segfault
-  # regularly and dump multi-GB cores; with the stock (effectively unbounded)
-  # limits, systemd-coredump then spends minutes streaming and compressing the
-  # dump to disk — e.g. a single D4 crash produced a 4.6G core, read 13.7G and
-  # wrote 17.4G, pinning the CPU and locking up the desktop for ~3.5 minutes.
-  # Those cores are useless anyway: Nix .so files carry no build-id, so no
-  # backtrace can be generated. Capping uncompressed size at 1G makes oversized
-  # cores get logged-but-skipped (the kernel stops dumping once we stop reading)
-  # while real service cores (well under 1G) are still captured. MaxUse bounds
-  # the on-disk store so frequent game crashes can't accumulate (was at 8.6G).
+  # Cap systemd-coredump. Wine/Proton games (Diablo IV, etc.) segfault regularly
+  # and dump multi-GB cores; with the stock (effectively unbounded) limits,
+  # systemd-coredump spends minutes streaming and compressing each one to disk,
+  # pinning the CPU and locking up the desktop. Those cores are useless anyway:
+  # Nix .so files carry no build-id, so no backtrace can be generated. Capping
+  # uncompressed size at 1G makes oversized cores get logged-but-skipped (the
+  # kernel stops dumping once we stop reading) while real service cores (well
+  # under 1G) are still captured. MaxUse bounds the on-disk store so frequent
+  # game crashes can't accumulate.
   systemd.coredump.settings.Coredump = {
     ProcessSizeMax = "1G";
     ExternalSizeMax = "1G";

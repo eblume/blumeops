@@ -182,7 +182,7 @@ def main(
         checklist_parts += [
             "\n[bold]NixOS Deployment:[/bold]\n",
             "• Version tracks nixpkgs via flake.lock\n",
-            "• Update: dagger call flake-update --src=. export --path=nixos/ringtail/flake.lock\n",
+            "• Update: dispatch the Ringtail Flake Update workflow (`nix flake update`, skipping nixpkgs-services)\n",
             "• Deploy: mise run provision-ringtail\n",
         ]
     elif svc_type == "mise":

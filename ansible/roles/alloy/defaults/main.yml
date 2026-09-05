@@ -108,6 +108,30 @@ alloy_mcquack_logs:
   - path: /Users/erichblume/Library/Logs/mcquack.forgejo-runner.err.log
     service: forgejo-runner
     stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.caddy.out.log
+    service: caddy
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.caddy.err.log
+    service: caddy
+    stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.heph.out.log
+    service: heph
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.heph.err.log
+    service: heph
+    stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.devpi.out.log
+    service: devpi
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.devpi.err.log
+    service: devpi
+    stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.borgmatic-photos.out.log
+    service: borgmatic-photos
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.borgmatic-photos.err.log
+    service: borgmatic-photos
+    stream: stderr
 
 # Enable log collection (requires Loki to be running)
 alloy_collect_logs: true

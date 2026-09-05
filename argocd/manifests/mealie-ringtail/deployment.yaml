@@ -22,11 +22,18 @@ spec:
         app: mealie
     spec:
       securityContext:
+        runAsNonRoot: true
+        fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: mealie
           image: registry.ops.eblu.me/blumeops/mealie:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 9000
           env:
@@ -77,6 +84,13 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /app/data
+            # gunicorn's worker heartbeat needs a temp dir. The image now
+            # ships a 1777 /tmp too; the emptyDir keeps scratch off the
+            # image's overlay. (The NLTK tagger is baked into the image at
+            # /usr/share/nltk_data since v3.20.1-0ff99a6, so the /nltk_data
+            # emptyDir from #888 is gone.)
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               memory: "128Mi"
@@ -100,3 +114,5 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: mealie-data
+        - name: tmp
+          emptyDir: {}

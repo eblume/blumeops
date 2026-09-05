@@ -1,6 +1,6 @@
 ---
 title: Agents Forgejo Bot
-modified: 2026-08-25
+modified: 2026-09-04
 last-reviewed: 2026-07-21
 tags:
   - reference
@@ -30,7 +30,7 @@ gate before anything deploys.
 
 - **Write** (push branches, open PRs) to the repos agents work in:
   `hephaestus`, `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`,
-  `gamedev`, `talos`. Access is per-repo **collaborator** grants, not an org-wide role —
+  `gamedev`. Access is per-repo **collaborator** grants, not an org-wide role —
   the bot sees nothing it was not explicitly added to.
 - **`blumeops`: read-only, author via fork.** The bot has **read** on the
   canonical `eblume/blumeops` and pushes to its own fork **`agents/blumeops`**,
@@ -40,8 +40,8 @@ gate before anything deploys.
   `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`, `MAIN_PUSH_TOKEN`) — see
   [[agent-workspaces]] §Isolation. `main` is additionally branch-protected
   (push + merge whitelisted to `eblume`).
-  **The same recipe applies to every `pool: fork` repo** — today `agents` and
-  `horkos` as well. Each has an `agents/<repo>` fork on the forge, and the pod's
+  **The same recipe applies to every `pool: fork` repo** — today `agents`, `horkos`,
+  and `talos` as well. Each has an `agents/<repo>` fork on the forge, and the pod's
   pool checkout already has `origin` = the fork and `upstream` = canonical, so
   read-only-on-canonical is never a reason to hand a change back to a human:
   branch off `upstream/main`, push to `origin`, then
@@ -86,8 +86,8 @@ workspace checkout — are declared in **one** file:
 - Every pool repo also gets the forge → talos **webhook** and the **`agents`
   engagement label**, reconciled by the same task. The label is how a human
   engages talos on an issue from the UI: Forgejo's assignee dropdown only
-  offers *write* collaborators, so on the read-only repos (`blumeops`,
-  `agents`, `horkos`) the bot cannot be assigned — applying the `agents`
+  offers *write* collaborators, so on the read-only repos (`blumeops`, `agents`,
+  `horkos`, `talos`) the bot cannot be assigned — applying the `agents`
   label is the trigger instead (talos' `FORGE_BOT_LABEL` defaults to the bot
   login). A pool repo with the hook but without the label looks wired-up yet
   cannot be engaged from the UI — that gap is how `horkos#4` sat inert until
@@ -105,8 +105,8 @@ UI — and nothing to forget, which is the point. See [[agent-containerization]]
 > revocation shows up in review before the merge that applies it. Grants made
 > by hand in the forge UI will be reverted on the next run.
 
-> **Three repos are pinned read-only in code, not data.** `blumeops`, `agents`,
-> and `horkos` cannot be granted `write` no matter what `repos.json` says — the reconciler
+> **Four repos are pinned read-only in code, not data.** `blumeops`, `agents`,
+> `horkos`, and `talos` cannot be granted `write` no matter what `repos.json` says — the reconciler
 > refuses and exits non-zero (`PINNED_READ_ONLY` in `mise-tasks/agent-repo-access`).
 > Their read-only-on-canonical status is what keeps blumeops CI, and its
 > deploy-credentialed Actions secrets, out of agent reach; that fence should not

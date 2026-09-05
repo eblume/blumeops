@@ -29,7 +29,7 @@ what the sync check reads.
 `mise run container-version-check` validates, per container under `containers/`:
 
 1. a `default.nix` exists and yields a version (parsed from `version = "..."`,
-   or via `dagger call nix-version` for unmodified nixpkgs packages), and
+   or via a nixos/nix container `nix eval` for unmodified nixpkgs packages), and
 2. a matching `service-versions.yaml` entry exists with a non-null
    `current-version` that agrees (leading `v` ignored).
 
@@ -61,12 +61,12 @@ Build or inspect a nix container without going through CI:
 
 ```fish
 dagger call build-nix --src=. --container-name=ntfy export --path=./ntfy.tar
-dagger call nix-version --package=ntfy-sh
+docker run --rm nixos/nix:2.34.4 nix --extra-experimental-features 'nix-command flakes' eval --raw nixpkgs#ntfy-sh.version
 ```
 
 `build-nix` produces a docker-archive tarball (`docker load`-able);
-`nix-version` is also the fallback the sync check uses for unmodified nixpkgs
-packages.
+the same `nix eval` in a nixos/nix container is what the sync check falls
+back to for unmodified nixpkgs packages.
 
 ## Related
 
