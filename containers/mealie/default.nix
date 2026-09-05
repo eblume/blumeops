@@ -38,6 +38,23 @@ let
 
   app = pkgs.mealie;
 
+  # ingredient-parser-nlp calls nltk.download("averaged_perceptron_tagger_eng")
+  # at import unless nltk.data.find() already locates the tagger. Bake it
+  # into the image (NLTK_DATA below) so startup neither reaches out to
+  # GitHub nor needs a writable $HOME - as uid 1000 the fallback target
+  # was /nltk_data, which crash-looped the first non-root rollout (#888).
+  nltk-tagger = pkgs.runCommand "nltk-averaged-perceptron-tagger-eng" {
+    src = pkgs.fetchurl {
+      url = "https://raw.githubusercontent.com/nltk/nltk_data/gh-pages/packages/taggers/averaged_perceptron_tagger_eng.zip";
+      sha256 = "02wgf70r4yl8x61h62h3msdygd2pndblgm27cmywcda3c8qga9b0";
+    };
+    nativeBuildInputs = [ pkgs.unzip ];
+  } ''
+    mkdir -p $out/usr/share/nltk_data/taggers
+    unzip -q $src -d $out/usr/share/nltk_data/taggers
+    test -f $out/usr/share/nltk_data/taggers/averaged_perceptron_tagger_eng/averaged_perceptron_tagger_eng.weights.json
+  '';
+
   # Mirror the NixOS module's mealie service: init_db (Alembic) then
   # gunicorn bound to the app port. DATA_DIR/env come from the image +
   # k8s manifest.
@@ -64,12 +81,22 @@ pkgs.dockerTools.buildLayeredImage {
     # which runs `python3 -c "...sqlite3...backup..."` inside the pod.
     # Same nixpkgs python mealie is built against, so ~no added closure.
     pkgs.python3
+    nltk-tagger
   ];
+
+  # gunicorn's worker heartbeat needs a usable temp dir and the image
+  # otherwise has none; as root it appeared on the fly, as uid 1000 it
+  # cannot (#889). Same shape as teslamate.
+  extraCommands = ''
+    mkdir -p tmp
+    chmod 1777 tmp
+  '';
 
   config = {
     Cmd = [ "${mealie-run}/bin/mealie-run" ];
     Env = [
       "DATA_DIR=/app/data"
+      "NLTK_DATA=/usr/share/nltk_data"
       "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
       "PYTHONUNBUFFERED=1"
       "PRODUCTION=true"
