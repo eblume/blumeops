@@ -10,8 +10,11 @@ useDefault = true
 # Locally-built image tags follow `<name>:v<version>-<git-hash>-nix`
 # (containers/README: nix dockerTools builds pushed to registry.ops.eblu.me).
 # The 7-hex-char hash segment trips generic-api-key on every image bump, in
-# manifests and in changelog prose quoting them.
+# manifests and in changelog prose quoting them. Match the bare tag as the
+# captured secret rather than `name:tag` in the surrounding text: prose like
+# "valkey, v3.20.1-f403fce-nix" has no colon, and a comma after a keyword
+# ("valkey", "authentik-redis") is enough for generic-api-key to fire.
 [[allowlists]]
-description = "nix-built container image tags (name:vX.Y.Z-<hash>-nix)"
-regexTarget = "match"
-regexes = ['''[\w./-]+:v[\w.]+-[0-9a-f]{5,40}-nix''']
+description = "nix-built container image tags (vX.Y.Z-<hash>-nix)"
+regexTarget = "secret"
+regexes = ['''^v[\w.]+-[0-9a-f]{5,40}-nix$''']
