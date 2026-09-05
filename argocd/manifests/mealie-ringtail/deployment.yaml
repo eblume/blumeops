@@ -22,11 +22,18 @@ spec:
         app: mealie
     spec:
       securityContext:
+        runAsNonRoot: true
+        fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: mealie
           image: registry.ops.eblu.me/blumeops/mealie:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 9000
           env:
