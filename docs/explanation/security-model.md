@@ -1,7 +1,7 @@
 ---
 title: Security Model
-modified: 2026-02-11
-last-reviewed: 2026-02-11
+modified: 2026-09-05
+last-reviewed: 2026-09-05
 tags:
   - explanation
   - security
@@ -19,7 +19,7 @@ The foundational security decision is using [[tailscale]] as the network layer.
 
 ### Zero Trust Networking
 
-BlumeOps infrastructure has no public IP addresses or port forwarding. Most services are only accessible via Tailscale:
+The homelab hosts have no public IP addresses or port forwarding — most services are only accessible via Tailscale (the sole forwarded port is the Fly.io proxy's own WireGuard listener, UDP 41641).
 
 - **Encrypted by default** - WireGuard encryption for all traffic
 - **Identity-based access** - ACLs based on user/device identity, not IP addresses
@@ -27,14 +27,14 @@ BlumeOps infrastructure has no public IP addresses or port forwarding. Most serv
 
 ### Public Access via Fly.io
 
-A small number of services are exposed to the internet through a reverse proxy on Fly.io that tunnels back to the homelab over Tailscale. The proxy uses restricted ACLs (`tag:flyio-target`) so it can only reach explicitly tagged endpoints — a compromised proxy cannot route to arbitrary services on the tailnet. See [[flyio-proxy]] for details and [[expose-service-publicly]] for the security considerations.
+A small number of services are exposed to the internet through a reverse proxy on Fly.io that tunnels back to the homelab over Tailscale. The proxy uses restricted ACLs (`tag:flyio-target`) so it can only reach explicitly tagged endpoints — a compromised proxy cannot route to arbitrary services on the tailnet. The forge frontend sits behind Anubis proof-of-work. Observability (Grafana, Loki, Prometheus) is tailnet-only and never public. See [[flyio-proxy]] for the exposed-services list and [[expose-service-publicly]] for the security considerations.
 
 ### Defense in Depth
 
 Even within the tailnet, access is restricted:
 
 ```
-Internet ──▶ Fly.io proxy ──▶ tag:flyio-target only (docs, observability)
+Internet ──▶ Fly.io proxy ──▶ tag:flyio-target only (docs, cv, forge, shower, photos)
 
 Tailnet:
   Admin ────────▶ All services
@@ -46,7 +46,7 @@ See [[tailscale]] for the full ACL matrix.
 
 ### Tailscale Operator Privileges
 
-The [[tailscale-operator]] bridges Kubernetes and the Tailscale control plane. Its Kubernetes RBAC is namespaced to `tailscale` — it can't read secrets or create pods in other namespaces. On the Tailscale side, its OAuth client can create devices, generate auth keys, and assign `tag:k8s` or `tag:flyio-target`. In practice this means anyone who can write Ingress resources to the cluster can expose a service to the tailnet (or publicly, via `tag:flyio-target`), and Tailscale admins can reconfigure how those services are routed. Both are expected parts of normal operations — but be careful about granting write access to either Kubernetes or the Tailscale admin console, since both can change what's exposed.
+The [[tailscale-operator]] bridges Kubernetes and the Tailscale control plane. Its in-namespace `Role` covers secrets, service accounts, configmaps, and pod status in the `tailscale` namespace only; it additionally holds a `ClusterRole` over cluster-wide Services and Ingresses, which the ProxyGroup tailnet-VIP model needs. On the Tailscale side, its tag-owner identity may assign `tag:k8s`, `tag:flyio-target`, and `tag:agent`. In practice this means anyone who can write Ingress resources to the cluster can expose a service to the tailnet (or publicly, via `tag:flyio-target`), and Tailscale admins can reconfigure how those services are routed. Both are expected parts of normal operations — but be careful about granting write access to either Kubernetes or the Tailscale admin console, since both can change what's exposed.
 
 ## Secrets Management
 
@@ -54,10 +54,12 @@ Secrets follow a hierarchy:
 
 ### Source of Truth: 1Password
 
-All secrets originate in 1Password's `blumeops` vault:
-- API keys, tokens, passwords
-- SSH keys and certificates
-- OAuth credentials
+All secrets originate in 1Password, split across three vaults:
+- `blumeops` — infrastructure secrets (API keys, tokens, SSH keys, OAuth credentials), served to Kubernetes via Connect and read by ansible
+- `blumeops-ci` — Forgejo CI job credentials, read at run time by workflows
+- `agents` — talos pod credentials (service-account token, Forgejo bot token, read-only ArgoCD credential)
+
+1Password Connect is provisioned `--vaults blumeops` and the CI service account reads only `blumeops-ci` — neither scope can be widened from its consumer, so a compromised pod or CI job can't reach the others.
 
 ### Kubernetes: External Secrets Operator
 
@@ -86,7 +88,7 @@ Always use `op read` — never `op item get --fields`, which corrupts multi-line
 
 The repository is public. Secrets must never be committed:
 - `.gitignore` excludes sensitive patterns
-- Pre-commit hooks scan for potential secrets (TruffleHog)
+- Gitleaks scans the full git history as a CI job on every PR; prek hooks additionally run `detect-private-key` locally
 - All config files use references to secrets, not values
 
 ## Access Control Philosophy
@@ -100,7 +102,8 @@ Services and devices get minimum necessary access:
 | Admin users | Everything |
 | Member users | User-facing services only |
 | Homelab servers | Only what they need (NAS for backups) |
-| K8s pods | No Tailscale access (use Caddy proxy) |
+| K8s services | Tailnet VIP via `tag:k8s` Ingress pods (ProxyGroup) |
+| Agent (talos) pods | No direct tailnet access — egress only via the egress-gateway pod |
 
 ### Tagged Devices vs User Devices
 
@@ -109,6 +112,8 @@ Important Tailscale concept:
 - **Tagged devices** (like indri with `tag:homelab`) lose user identity
 
 Don't tag user devices - it breaks user-based access rules.
+
+The talos agent pods sit behind a deny-by-default NetworkPolicy: their only egress path is the egress-gateway pod, which joins the tailnet as `tag:agent` — granted a small fixed set of indri ports, nothing more. See [[agent-containerization]].
 
 ## Authentication Patterns
 
@@ -126,10 +131,11 @@ Users authenticate via:
 
 ### AI/Automation Access
 
-Claude Code and automation use:
-- SSH keys for git operations
-- ArgoCD tokens for deployments
-- 1Password CLI for secret retrieval (requires user approval)
+The talos agent service ([[agent-containerization]]) runs pi sessions with deliberately scoped access:
+- Git — commits and pushes as the `agents` Forgejo bot, which is read-only on canonical repos; agent-authored changes go out as cross-repo PRs from its fork
+- Deployments — no ArgoCD tokens in the pod; the `argocd` CLI is a read-only account. Any deploy is a warrant request-run that a human approves ([[warrant-approval-gated-runs]])
+- 1Password — a service-account token scoped to the `agents` vault only, injected into the pod; no interactive approval, and the `blumeops`/`blumeops-ci` vaults are unreachable
+- Network — all egress transits the egress-gateway pod, which is per-connection logged; the pod itself is fenced by deny-by-default policy
 
 ## What's Not Protected
 
