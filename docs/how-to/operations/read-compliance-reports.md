@@ -1,6 +1,6 @@
 ---
 title: Read Compliance Reports
-modified: 2026-06-08
+modified: 2026-09-05
 last-reviewed: 2026-04-06
 tags:
   - how-to
@@ -75,11 +75,10 @@ Findings are categorized as **critical**, **high**, **medium**, or **low**. Focu
 
 ### Expected failures
 
-Not all failures require action. Common expected failures in our minikube cluster:
+Not all failures require action. Common expected failures in our k3s cluster on ringtail:
 
-- **Core/pod security (high):** System pods (ArgoCD, external-secrets, tailscale-operator) legitimately need elevated privileges. These can be mutelisted.
-- **Apiserver (medium):** Audit logging, profiling, and some admission plugins are not configured in minikube defaults. Low risk for a homelab.
-- **Kubelet (high):** Anonymous auth or read-only port settings from minikube defaults.
+- **Core/pod security (high):** k3s system pods (coredns, local-path-provisioner), Tailscale operator-managed pods (ts-*, ingress-*), and node agents (alloy-tracing, nvidia-device-plugin) legitimately need elevated privileges — the Prowler scanner itself runs with hostPID to read node files. These are mutelisted per-resource under `argocd/manifests/prowler-ringtail/mutelist/`.
+- **RBAC (high/medium):** built-in Kubernetes roles (cluster-admin, system:*), k3s built-in components, and the SSO-gated ArgoCD role require broad permissions by design.
 
 ### Acting on findings
 
@@ -87,6 +86,12 @@ Not all failures require action. Common expected failures in our minikube cluste
 2. **Remediate** — fix what you can (pod security contexts, RBAC tightening)
 3. **Mutelist** — suppress expected/accepted failures by adding a Resource entry under the matching Check in `argocd/manifests/prowler-ringtail/mutelist/*.yaml` with a free-form `Description` explaining why
 4. **Track** — compare reports over time to spot regressions
+
+## Node verification
+
+The weekly review also verifies k3s node-level conditions that the scan cannot fully evaluate: k3s/kubelet file ownership and permissions (k3s.yaml, admin.kubeconfig, kubelet.kubeconfig, k3s.service), the kubelet config drop-ins under `/var/lib/rancher/k3s/agent/etc/`, etcd CA separation (etcd-ca.crt vs ca.crt), and RBAC cluster-admin bindings. It runs over `ssh ringtail` (needs passwordless sudo) and `kubectl --context=k3s-ringtail` (set up with `mise run ensure-k3s-ringtail-kubectl-config`), and fails loudly on any drift.
+
+The k3s Prowler profile currently emits no MANUAL findings, so this is a drift safety net over node configuration rather than a check of reported findings.
 
 ## Related
 
