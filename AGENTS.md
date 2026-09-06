@@ -77,7 +77,7 @@ need to confirm through biometric approval.
 ```
 ./docs/                 # documentation (Diataxis, Quartz)
 ./docs/changelog.d/     # towncrier fragments
-./.dagger/              # dagger pipelines
+./src/blumeops/         # dagger module (Frigate model export)
 ./.forgejo/             # forgejo-runner actions and workflows
 ./mise-tasks/           # scripts via `mise run`
 ./ansible/playbooks/    # ansible (indri.yml primary)

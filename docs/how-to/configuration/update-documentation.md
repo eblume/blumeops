@@ -1,7 +1,7 @@
 ---
 title: Update Documentation
-modified: 2026-02-19
-last-reviewed: 2026-02-19
+modified: 2026-09-05
+last-reviewed: 2026-09-05
 tags:
   - how-to
   - documentation
@@ -28,7 +28,7 @@ The `build-blumeops` workflow (`.forgejo/workflows/build-blumeops.yaml`):
 
 1. **Resolves version** — Uses input or auto-increments from latest release
 2. **Builds changelog** — Runs towncrier on the runner to update `CHANGELOG.md`
-3. **Builds docs** — Calls `dagger call build-docs` (Quartz build in a container)
+3. **Builds docs** — Runs `mise run docs-build-tarball` (Quartz build in a node:22-slim container)
 4. **Creates release** — Uploads `docs-<version>.tar.gz` to Forgejo releases
 
 The workflow ends at the release. Deploying is a manual step (docs are served
@@ -71,8 +71,8 @@ The workflow runs on the `indri` label, served since [[retire-minikube]] phase 6
 by the host-mode [[forgejo]]-runner on [[indri]] ([[configure-launchd-runner]]):
 
 - **Runner**: native LaunchAgent on indri, managed by the `forgejo_runner` ansible role (no Kubernetes, no job container)
-- **Toolchain**: jobs run directly with indri's mise toolchain (Node.js, uv/Python, [[dagger]], …); the `k8s` compat label was dropped once workflows repo-wide moved to `runs-on: indri`
-- **Build engine**: the [[dagger]] CLI (mise-pinned in the `forgejo_runner` role) drives the Dagger engine container in indri's Docker Desktop
+- **Toolchain**: jobs run directly with indri's mise toolchain (Node.js, uv/Python, …); the `k8s` compat label was dropped once workflows repo-wide moved to `runs-on: indri`
+- **Build engine**: the docs build runs a node:22-slim container via the `docs-build-tarball` task in indri's Docker Desktop; [[dagger]] remains only for the Frigate model export
 
 ## Quartz Static Site Generator
 
@@ -93,13 +93,25 @@ To test docs locally without triggering a release:
 
 ```bash
 # Build docs tarball (identical to CI)
-dagger call build-docs --src=. --version=dev export --path=./docs-dev.tar.gz
+mise run docs-build-tarball ./docs-dev.tar.gz
 
 # Inspect the output
 tar tf docs-dev.tar.gz | head -20
 
-# Debug a Quartz build failure interactively
-dagger call --interactive build-docs --src=. --version=dev
+# Debug a Quartz build failure interactively: same setup as the task, then stay in
+docker run --rm -it -v "$PWD":/workspace:ro node:22-slim sh -c '
+  set -e
+  apt-get update -qq && apt-get install -y -qq git
+  mkdir -p /build && cd /build
+  cp -r /workspace/docs . && cp /workspace/CHANGELOG.md docs/
+  git clone --depth=1 https://github.com/jackyzha0/quartz.git /tmp/quartz
+  cp -r /tmp/quartz/quartz /tmp/quartz/package*.json /tmp/quartz/tsconfig.json /tmp/quartz/quartz.ts /tmp/quartz/.npmrc .
+  npm install
+  cp docs/quartz.config.yaml .
+  npx quartz build -d docs
+  echo "Build done — inspect /build/public"
+  exec sh
+'
 ```
 
 ## Troubleshooting
@@ -121,6 +133,6 @@ dagger call --interactive build-docs --src=. --version=dev
 ## Related
 
 - [[docs]] - Documentation service reference
-- [[dagger]] - Build engine reference
+- [[dagger]] - Dagger reference (Frigate model export)
 - [[forgejo]] - Git forge and CI/CD
 - [[argocd]] - GitOps deployment

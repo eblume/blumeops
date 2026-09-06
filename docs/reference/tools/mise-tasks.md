@@ -1,7 +1,7 @@
 ---
 title: Mise Tasks
-modified: 2026-08-31
-last-reviewed: 2026-08-31
+modified: 2026-09-05
+last-reviewed: 2026-09-05
 tags:
   - reference
   - tools
@@ -34,7 +34,8 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `dns-up` | [human] Apply DNS changes to eblu.me with Pulumi |
 | `docs-check-frontmatter` | Check that all docs have required frontmatter fields |
 | `docs-check-links` | Validate all wiki-links point to existing doc files |
-| `docs-preview` | [human] Build docs with Dagger and serve locally, opening to a specific card |
+| `docs-build-tarball` | Build the Quartz docs site in a node:22-slim container and package it as a tarball |
+| `docs-preview` | [human] Build docs and serve locally, opening to a specific card |
 | `docs-review` | Review the most stale documentation card by last-reviewed date |
 | `docs-review-stale` | Report docs by git-last-modified date, highlighting stale ones |
 | `docs-review-tags` | Print frontmatter tag inventory across all docs |
@@ -71,7 +72,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 
 ## Related
 
-- [[dagger]] — CI/CD build engine (containers, docs)
+- [[dagger]] — CI/CD build engine (containers, Frigate model export)
 - [[ansible]] — Configuration management
 - [[argocd-cli]] — ArgoCD deployment workflows
 - [[pulumi]] — DNS and Tailscale IaC
