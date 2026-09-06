@@ -7,57 +7,6 @@ NIX_IMAGE = "nixos/nix:2.34.4"
 @object_type
 class Blumeops:
     @function
-    async def build_docs(self, src: dagger.Directory, version: str) -> dagger.File:
-        """Build Quartz docs site. Returns docs tarball."""
-        return await (
-            dag.container()
-            .from_("node:22-slim")
-            .with_exec(["apt-get", "update", "-qq"])
-            .with_exec(["apt-get", "install", "-y", "-qq", "git"])
-            .with_directory("/workspace", src)
-            .with_workdir("/workspace")
-            .with_exec(
-                [
-                    "git",
-                    "clone",
-                    "--depth=1",
-                    "https://github.com/jackyzha0/quartz.git",
-                    "/tmp/quartz",
-                ]
-            )
-            .with_exec(
-                [
-                    "sh",
-                    "-c",
-                    (
-                        "cp -r /tmp/quartz/quartz /tmp/quartz/package*.json "
-                        "/tmp/quartz/tsconfig.json /tmp/quartz/quartz.ts "
-                        "/tmp/quartz/.npmrc ."
-                    ),
-                ]
-            )
-            # npm install (not ci): we track the default branch and the
-            # upstream package-lock is not always in sync with package.json,
-            # so a strict ci install would fail. The staged .npmrc sets
-            # legacy-peer-deps, which the install needs.
-            .with_exec(["npm", "install"])
-            .with_exec(["cp", "docs/quartz.config.yaml", "."])
-            .with_exec(["cp", "CHANGELOG.md", "docs/"])
-            .with_exec(["npx", "quartz", "build", "-d", "docs"])
-            .with_exec(
-                [
-                    "tar",
-                    "-czf",
-                    f"/docs-{version}.tar.gz",
-                    "-C",
-                    "public",
-                    ".",
-                ]
-            )
-            .file(f"/docs-{version}.tar.gz")
-        )
-
-    @function
     async def build_nix(
         self, src: dagger.Directory, container_name: str
     ) -> dagger.File:
