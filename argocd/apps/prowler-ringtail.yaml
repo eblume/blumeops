@@ -2,9 +2,9 @@
 #
 # [[retire-minikube]] phase 1 (final service) — this also flips the scan
 # target: prowler scans the cluster it runs in, so weekly CIS reports now
-# cover ringtail instead of minikube. The mutelist still carries
-# minikube-shaped entries (inert on k3s — no static control-plane pods);
-# expect a mutelist rework pass after the first k3s scan.
+# cover ringtail instead of minikube. The mutelist was reworked for the
+# k3s profile (2026-06), keeping only entries that match live k3s
+# resources.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

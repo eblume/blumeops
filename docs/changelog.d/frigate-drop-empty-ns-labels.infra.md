@@ -1,0 +1,1 @@
+Drop the empty `managedNamespaceMetadata.labels` map from the frigate Application now that the one-time sync has stripped the PSA labels: Kubernetes discards the empty map on storage, so keeping it left `apps` permanently OutOfSync and ArgoCDAppOutOfSync firing.

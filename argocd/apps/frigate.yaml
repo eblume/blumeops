@@ -27,8 +27,7 @@ spec:
     # tensorrt image has an s6-overlay root entrypoint and no supported
     # non-root path, so warn/audit at restricted would only emit noise on
     # every sync. Revisit if upstream ships a non-root image.
-    # Kept as an empty map rather than deleting the block: ArgoCD only
-    # removes labels it previously set while managedNamespaceMetadata is
-    # still present, so this is what strips them from the live namespace.
-    managedNamespaceMetadata:
-      labels: {}
+    # The labels were stripped from the live namespace by a one-time sync
+    # with `managedNamespaceMetadata: {labels: {}}` (2026-09-05). That block
+    # is gone now: the API server drops the empty map on storage, so keeping
+    # it left the apps Application permanently OutOfSync.

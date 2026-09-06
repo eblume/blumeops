@@ -7,12 +7,17 @@
 #    ssh indri 'git clone http://localhost:3001/eblume/zot.git ~/code/3rd/zot'
 #
 # 2. Set up Go via mise:
-#    ssh indri 'cd ~/code/3rd/zot && mise use go@1.25'
+#    ssh indri 'cd ~/code/3rd/zot && mise use go@1.26'
 #
 # 3. Build (creates bin/zot-darwin-arm64):
 #    ssh indri 'cd ~/code/3rd/zot && mise x -- make binary'
 #
 # 4. Run ansible to deploy config and LaunchAgent
+#
+# UPGRADE: `git fetch --tags && git checkout vX.Y.Z` in the clone (bump the
+# mise go pin if go.mod moved), `mise x -- make binary`, then
+# `launchctl kickstart -k gui/$(id -u)/mcquack.eblume.zot` — ansible only
+# restarts the LaunchAgent when the rendered config changes.
 
 - name: Verify zot binary exists
   ansible.builtin.stat:
