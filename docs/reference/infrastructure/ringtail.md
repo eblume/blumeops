@@ -231,10 +231,11 @@ Versioned services (forgejo-runner, snowflake, k3s) are pinned via a `nixpkgs-se
 = DDR4-2400; Ai Overclock Tuner = Default). The BIOS trains the Crucial kit to
 its 3200 JEDEC table on Auto, but the Ryzen 1700X controller is only rated 2400
 for two dual-rank DIMMs and Memtest86+ threw errors within minutes at 3200
-(68 and climbing, test 2). At 2400 it ran clean through test 6. Do not put the
-frequency back on Auto after a BIOS reset without re-running memtest. The
-previous 4x8 GB single-rank Corsair kit ran 3200 via DOCP 1 (BIOS 8902+). Full
-overnight Memtest86+ burn-in at 2400 still pending (heph task). Plan: a Zen 3
+(68 and climbing, test 2). At 2400 it is clean: the full overnight Memtest86+
+burn-in on 2026-09-05→06 passed (PASS banner, 0 errors, several passes; the kit
+is keepers). Do not put the frequency back on Auto after a BIOS reset without
+re-running memtest. The previous 4x8 GB single-rank Corsair kit ran 3200 via
+DOCP 1 (BIOS 8902+). Plan: a Zen 3
 CPU upgrade (this BIOS supports Ryzen 5000) should let the kit run its 3200
 JEDEC table — set Memory Frequency back to Auto and re-memtest then.
 
