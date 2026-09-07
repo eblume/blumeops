@@ -328,6 +328,14 @@ in
     };
   };
 
+  # Tailscale SSH passes the local username through; indri's user is
+  # erichblume, not eblume, so map it system-wide (interactive shell, mise
+  # tasks, and agent sessions alike).
+  programs.ssh.extraConfig = ''
+    Host indri
+      User erichblume
+  '';
+
   # User account
   users.users.eblume = {
     isNormalUser = true;
