@@ -38,7 +38,7 @@ build source), `codeberg` → `https://codeberg.org/forgejo/forgejo.git`
 with the forge; the mirror was later promoted to `origin`.
 
 **Version is declared in the Ansible role**, not built ad-hoc. `forgejo_version`
-(plus `forgejo_go_version`/`forgejo_node_version`/`forgejo_build_tags`) in
+(plus `forgejo_node_version`/`forgejo_build_tags`) in
 `ansible/roles/forgejo/defaults/main.yml` pins the deployed tag. On
 `provision-indri --tags forgejo` the role fetches from the mirror, checks out the
 tag, rebuilds **only when the running binary doesn't match**, links `./forgejo`,
@@ -50,7 +50,7 @@ backup, breaking changes, verification, rollback).
 
 Build tags (`forgejo_build_tags`): `bindata` (embed assets), `timetzdata` (embed timezone data), `sqlite sqlite_unlock_notify` (SQLite support).
 
-> The repo's local `mise.toml` (`mise run build`) is untracked and pins go 1.25.8 — it fails on v15+. The role builds with `mise x go@{{ forgejo_go_version }}` instead; use that form for manual builds too.
+> go comes from the indri global mise baseline (`indri_go_version` in the indri play) — `GOTOOLCHAIN=auto` switches per go.mod and the play turns off mise's `GOROOT` export, so a plain `make build` works at any tag ([[upgrade-forgejo]] §Go toolchain). The role removes the checkout's untracked `mise.toml`, which used to pin a stale go.
 
 ## Repositories
 
