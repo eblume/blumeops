@@ -395,12 +395,14 @@ def run_node_verification(console: Console) -> None:
     # --- File ownership and permissions ---
     # stat -Lc: dereference symlinks (on NixOS the k3s.service unit is a
     # symlink). Perms "600-or-more" = no group/other bits (CIS "600 or more
-    # restrictive"): int(perm, 8) & 0o077 == 0.
+    # restrictive"): int(perm, 8) & 0o077 == 0. Perms "644-or-more" = no user
+    # execute and no group/other write or execute (CIS "644 or more
+    # restrictive"): int(perm, 8) & 0o133 == 0.
     file_expectations = [
         ("k3s.yaml (admin kubeconfig)", "/etc/rancher/k3s/k3s.yaml", "600-more"),
         ("admin.kubeconfig", "/var/lib/rancher/k3s/server/cred/admin.kubeconfig", "600-more"),
         ("kubelet.kubeconfig", "/var/lib/rancher/k3s/agent/kubelet.kubeconfig", "600-more"),
-        ("k3s.service unit", "/etc/systemd/system/k3s.service", "644"),
+        ("k3s.service unit", "/etc/systemd/system/k3s.service", "644-more"),
     ]
 
     for name, path, perm_mode in file_expectations:
@@ -412,6 +414,9 @@ def run_node_verification(console: Console) -> None:
             if perm_mode == "600-more":
                 perms_ok = (int(perms, 8) & 0o077) == 0
                 expected = "root:root, 600-or-more"
+            elif perm_mode == "644-more":
+                perms_ok = (int(perms, 8) & 0o133) == 0
+                expected = "root:root, 644-or-more"
             else:
                 perms_ok = perms == perm_mode
                 expected = f"root:root, {perm_mode}"
@@ -501,25 +506,52 @@ def run_node_verification(console: Console) -> None:
     ))
 
     # --- Etcd CA separation ---
-    etcd_fp = _ssh_ringtail(
-        "sudo sh -c 'openssl x509 -in /var/lib/rancher/k3s/server/tls/etcd-ca.crt "
-        "-noout -fingerprint -sha256'"
-    )
-    cluster_fp = _ssh_ringtail(
-        "sudo sh -c 'openssl x509 -in /var/lib/rancher/k3s/server/tls/ca.crt "
-        "-noout -fingerprint -sha256'"
-    )
-    if etcd_fp.returncode != 0 or cluster_fp.returncode != 0:
-        checks.append(("etcd CA separation", "could not read certificates", False))
-    else:
-        etcd_hash = etcd_fp.stdout.strip()
-        cluster_hash = cluster_fp.stdout.strip()
-        different = etcd_hash != cluster_hash
+    # k3s keeps the cluster CA at server-ca.crt and the etcd CAs under
+    # etcd/ (server-ca.crt and peer-ca.crt). All three must be pairwise
+    # distinct so an etcd CA cannot mint cluster certs (or vice
+    # versa).
+    ca_paths = [
+        ("cluster", "/var/lib/rancher/k3s/server/tls/server-ca.crt"),
+        ("etcd-server", "/var/lib/rancher/k3s/server/tls/etcd/server-ca.crt"),
+        ("etcd-peer", "/var/lib/rancher/k3s/server/tls/etcd/peer-ca.crt"),
+    ]
+    fingerprints: dict[str, str] = {}
+    unreadable: list[str] = []
+    for label, path in ca_paths:
+        result = _ssh_ringtail(
+            f"sudo sh -c 'openssl x509 -in {path} -noout -fingerprint -sha256'"
+        )
+        if result.returncode != 0:
+            unreadable.append(path)
+        else:
+            fingerprints[label] = result.stdout.strip()
+    if unreadable:
         checks.append((
             "etcd CA separation",
-            "different CAs" if different else "SAME CA (unexpected)",
-            different,
+            "could not read certificates: " + ", ".join(unreadable),
+            False,
         ))
+    else:
+        labels = [label for label, _ in ca_paths]
+        identical = [
+            (a, b)
+            for i, a in enumerate(labels)
+            for b in labels[i + 1:]
+            if fingerprints[a] == fingerprints[b]
+        ]
+        if not identical:
+            checks.append((
+                "etcd CA separation",
+                "3 distinct CAs (cluster, etcd-server, etcd-peer)",
+                True,
+            ))
+        else:
+            a, b = identical[0]
+            checks.append((
+                "etcd CA separation",
+                f"{a} and {b}: SAME CA (unexpected)",
+                False,
+            ))
 
     # --- RBAC cluster-admin bindings ---
     expected_bindings = {"cluster-admin"}

@@ -89,9 +89,9 @@ Not all failures require action. Common expected failures in our k3s cluster on 
 
 ## Node verification
 
-The weekly review also verifies k3s node-level conditions that the scan cannot fully evaluate: k3s/kubelet file ownership and permissions (k3s.yaml, admin.kubeconfig, kubelet.kubeconfig, k3s.service), the kubelet config drop-ins under `/var/lib/rancher/k3s/agent/etc/`, etcd CA separation (etcd-ca.crt vs ca.crt), and RBAC cluster-admin bindings. It runs over `ssh ringtail` (needs passwordless sudo) and `kubectl --context=k3s-ringtail` (set up with `mise run ensure-k3s-ringtail-kubectl-config`), and fails loudly on any drift.
+The weekly review also verifies k3s node-level conditions that the scan cannot fully evaluate: k3s/kubelet file ownership and permissions (k3s.yaml, admin.kubeconfig, kubelet.kubeconfig, k3s.service), the kubelet config drop-ins under `/var/lib/rancher/k3s/agent/etc/`, etcd CA separation (the cluster's `server-ca.crt` vs `etcd/server-ca.crt` and `etcd/peer-ca.crt` under `/var/lib/rancher/k3s/server/tls/` — all three must be distinct), and RBAC cluster-admin bindings. It runs over `ssh ringtail` (needs passwordless sudo) and `kubectl --context=k3s-ringtail` (set up with `mise run ensure-k3s-ringtail-kubectl-config`), and fails loudly on any drift.
 
-The k3s Prowler profile currently emits no MANUAL findings, so this is a drift safety net over node configuration rather than a check of reported findings.
+The profile's MANUAL rows are exactly the kubelet node-file ownership/permissions checks (see [[deploy-prowler#Kubernetes CIS benchmarks (Sunday 3am)]]); the six kubelet rows are muted because this section covers them — so this is a drift safety net over node configuration rather than a check of reported findings.
 
 ## Related
 

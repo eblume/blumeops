@@ -22,9 +22,9 @@ Both were pure toil with no realized value:
 - **Image scan** produced ~20,000 unmuted findings per run and growing, none ever triaged or muted. They were overwhelmingly CVEs in *upstream* base images we don't control and can't patch, and the job re-scanned every historical tag still in the registry, multiplying the count.
 - **IaC scan** produced ~650 Trivy KSV findings (`runAsNonRoot`, `readOnlyRootFilesystem`, drop-capabilities, …) against our own manifests — real but systemic, homelab-acceptable, and likewise never muted, so the weekly review re-surfaced all of them indefinitely.
 
-The K8s CIS scan, by contrast, is fully mutelisted and runs clean (0 unmuted findings week over week), so it stays. The guiding principle matches [[ai-scraper-mitigation]]: don't keep generating a firehose of output that has no audience. If image-CVE signal is wanted later, the right shape is critical-severity-only, currently-deployed-tags-only, alert-on-new — a rebuild, not a revival (tracked as the "Trivy for image/IaC scanning" task).
+The K8s CIS scan, by contrast, is mutelisted and runs effectively clean (20 long-standing unmuted FAILs accepted as a tripwire for new deltas, see *Kubernetes CIS benchmarks* below), so it stays. The guiding principle matches [[ai-scraper-mitigation]]: don't keep generating a firehose of output that has no audience. If image-CVE signal is wanted later, the right shape is critical-severity-only, currently-deployed-tags-only, alert-on-new — a rebuild, not a revival (tracked as the "Trivy for image/IaC scanning" task).
 
-The scan originally targeted minikube-indri; with [[retire-minikube]] (2026-06) prowler moved to ringtail and now scans k3s, where only ~22 of 70 checks produce results (no static control-plane pods). The mutelist was reworked for the k3s profile (2026-06), keeping only entries that match live k3s resources.
+The scan originally targeted minikube-indri; with [[retire-minikube]] (2026-06) prowler moved to ringtail and now scans k3s, where only the core, RBAC and kubelet categories produce results (no static control-plane pods). The mutelist was reworked for the k3s profile (2026-06), keeping only entries that match live k3s resources.
 
 ## What it checks
 
@@ -42,7 +42,9 @@ Prowler's Kubernetes provider runs ~70 checks from the CIS Kubernetes Benchmark 
 | **Kubelet** | 16 | Reads kubelet-config ConfigMap + node file permissions (file checks need hostPID) |
 | **Scheduler** | 2 | Inspects `kube-scheduler` pod args |
 
-**k3s reality:** k3s embeds the control plane in a single binary — no static control-plane pods exist — so only the core + RBAC checks (~22 of 70) produce results. The weekly profile emits no MANUAL findings: the node-level conditions the in-cluster scanner cannot fully evaluate (file permissions, kubelet config, etcd CA separation, cluster-admin bindings) are verified separately by `review-compliance-reports` over `ssh ringtail`. Consider `kube-bench` for a deeper k3s control-plane check.
+**k3s reality:** k3s embeds the control plane in a single binary — no static control-plane pods exist — so only the core, RBAC and kubelet categories produce results. The node-level conditions the in-cluster scanner cannot fully evaluate (file permissions, kubelet config, etcd CA separation, cluster-admin bindings) are verified separately by `review-compliance-reports` over `ssh ringtail`.
+
+Its six MANUAL rows — the kubelet node-file ownership/permissions checks (kubelet.conf, config.yaml, service drop-in) — are files the scanner cannot read from a pod; they are muted because the node verifier covers them. Since the Prowler bump to v5.39.1 (2026-08-25) the steady-state report also carries 20 unmuted FAILs week over week — 19 RBAC rows (newer checks such as `rbac_minimize_secret_access`, plus built-in resources like `Group:system:masters` that the mutelist predates) and one seccomp row for the egress-gateway pod. Accepted as-is: the scan runs as a tripwire for new deltas, no action is taken on those rows. Consider `kube-bench` for a deeper k3s control-plane check.
 
 ## Reports
 
