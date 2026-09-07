@@ -43,18 +43,18 @@ jobs:
           # make discovery silently empty. No stderr suppression —
           # metadata failures should be visible.
           nix flake metadata --json > /tmp/flake-meta.json
-          ALL=$(nix-instantiate --eval -E "builtins.concatStringsSep \" \" (builtins.attrNames (builtins.fromJSON (builtins.readFile /tmp/flake-meta.json)).locks.nodes.root.inputs)" | tr -d '"')
-          INPUTS=''
-          for i in $ALL; do
+          read -r -a ALL < <(nix-instantiate --eval -E "builtins.concatStringsSep \" \" (builtins.attrNames (builtins.fromJSON (builtins.readFile /tmp/flake-meta.json)).locks.nodes.root.inputs)" | tr -d '"')
+          INPUTS=()
+          for i in "${ALL[@]}"; do
             case ",$SKIP," in *",$i,"*) continue ;; esac;
-            INPUTS="$INPUTS $i"
+            INPUTS+=("$i")
           done
-          echo "Updating inputs:$INPUTS"
+          echo "Updating inputs: ${INPUTS[*]}"
           echo "Skipping: $SKIP"
           # Empty INPUTS would make `nix flake update` update *all* inputs,
           # including the ones we meant to skip — fail loudly instead.
-          [ -n "$INPUTS" ] || { echo "no inputs discovered; refusing bare flake update" >&2; exit 1; }
-          nix flake update $INPUTS --accept-flake-config
+          [ ${#INPUTS[@]} -gt 0 ] || { echo "no inputs discovered; refusing bare flake update" >&2; exit 1; }
+          nix flake update "${INPUTS[@]}" --accept-flake-config
 
       - name: Commit and push lockfile
         env:
