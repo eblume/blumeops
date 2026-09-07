@@ -1,7 +1,7 @@
 ---
 title: Configure the launchd Forgejo Runner on indri
-modified: 2026-06-10
-last-reviewed: 2026-06-10
+modified: 2026-09-04
+last-reviewed: 2026-09-04
 tags:
   - how-to
   - forgejo-runner
@@ -47,7 +47,7 @@ phase 6 then dropped the per-job container entirely.
 ### 1. Build the binary
 
 ```fish
-ssh indri 'cd ~/code/3rd/forgejo-runner && git fetch --tags && git checkout v12.8.2 && make build'
+ssh indri 'cd ~/code/3rd/forgejo-runner && git fetch --tags && git checkout v13.1.0 && make build'
 ```
 
 The role verifies the binary exists and that `--version` matches its

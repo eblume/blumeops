@@ -377,9 +377,9 @@ services:
       tracks the blumeops docs release tag.
 
   - name: forgejo-runner
-    type: argocd
-    last-reviewed: 2026-08-29
-    current-version: "12.13.2"
+    type: ansible
+    last-reviewed: 2026-09-04
+    current-version: "13.1.0"
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
     notes: >-
       Runner daemon version (code.forgejo.org/forgejo/runner); host-mode
@@ -387,8 +387,6 @@ services:
       REVIEW ALSO `forgejo_runner_host_tools` there: it mirrors pins held
       elsewhere (dagger.json, mise.toml, prek.toml), so diff it against
       those sources and realign; not an independent upgrade decision.
-      Heads-up: v13.0.0 (2026-08-03) carries breaking changes; the 13.x
-      upgrade is a separate heph task.
   - name: nix-container-builder
     type: nixos
     last-reviewed: 2026-06-30
