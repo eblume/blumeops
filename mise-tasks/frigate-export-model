@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
-#MISE description="[human] Export YOLOv9 model weights to ONNX for Frigate NVR via Dagger"
+#MISE description="[human] Export YOLOv9 model weights to ONNX for Frigate NVR via docker run"
 #USAGE flag "--model-size <size>" default="c" help="Model variant: s (small), c (compact), e (extra-large)"
 #USAGE flag "--input-size <pixels>" default="640" help="Input resolution (width=height)"
 #USAGE flag "--deploy" help="Copy exported model to sifaka NAS frigate share"
+
+# Reproduces the retired dagger `export_yolov9` module function (old
+# src/blumeops/main.py) as a plain docker run: same python:3.11-slim
+# container, same apt/pip setup, same torch.load patch and export.py
+# invocation. The pretrained weights are downloaded on the host with curl
+# (what dag.http did) and bind-mounted in; the ONNX result lands in the
+# same bind mount and is moved to the working directory.
 
 set -euo pipefail
 
@@ -12,14 +19,41 @@ MODEL_SIZE="${usage_model_size:-c}"
 INPUT_SIZE="${usage_input_size:-640}"
 DEPLOY="${usage_deploy:-false}"
 OUTPUT_FILE="yolov9-${MODEL_SIZE}-${INPUT_SIZE}.onnx"
+WEIGHTS_URL="https://github.com/WongKinYiu/yolov9/releases/download/v0.1/yolov9-${MODEL_SIZE}-converted.pt"
 
-echo "Exporting YOLOv9-${MODEL_SIZE} (${INPUT_SIZE}x${INPUT_SIZE}) via Dagger..."
+# Temp dir for the downloaded weights and the exported ONNX, bind-mounted
+# into the container at /export.
+EXPORT_DIR="$(mktemp -d)"
+trap 'rm -rf "$EXPORT_DIR"' EXIT
+
+echo "Exporting YOLOv9-${MODEL_SIZE} (${INPUT_SIZE}x${INPUT_SIZE}) via docker run..."
 echo ""
 
-dagger call --progress=plain export-yolov-9 \
-    --model-size="$MODEL_SIZE" \
-    --input-size="$INPUT_SIZE" \
-    export --path="$OUTPUT_FILE"
+echo "Downloading weights: ${WEIGHTS_URL}"
+curl -fSL "$WEIGHTS_URL" -o "$EXPORT_DIR/weights.pt"
+
+docker run -i --rm --platform linux/amd64 \
+    -e INPUT_SIZE="$INPUT_SIZE" \
+    -e OUTPUT_FILE="$OUTPUT_FILE" \
+    -v "$EXPORT_DIR":/export \
+    python:3.11-slim \
+    sh <<'SH'
+set -e
+apt-get update -qq
+apt-get install -y -qq git libgl1 libglib2.0-0 cmake build-essential
+git clone --depth=1 https://github.com/WongKinYiu/yolov9.git /yolov9
+pip install --quiet -r /yolov9/requirements.txt "numpy<2" "onnx>=1.18.0" onnxruntime "onnx-simplifier>=0.4.1" onnxscript
+
+cp /export/weights.pt /yolov9/weights.pt
+cd /yolov9
+# Patch torch.load to allow weights_only=False (required for YOLOv9
+# checkpoints that contain non-tensor objects).
+sed -i "s/ckpt = torch.load(attempt_download(w), map_location='cpu')/ckpt = torch.load(attempt_download(w), map_location='cpu', weights_only=False)/g" models/experimental.py
+python3 export.py --weights ./weights.pt --imgsz "$INPUT_SIZE" --simplify --include onnx
+mv ./weights.onnx "/export/${OUTPUT_FILE}"
+SH
+
+mv "$EXPORT_DIR/$OUTPUT_FILE" "$OUTPUT_FILE"
 
 SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
 echo ""

@@ -182,12 +182,9 @@ pass_filenames = false
 # ty's own file walk only discovers *.py / *.pyi, so the extensionless
 # uv scripts in mise-tasks/ would go untyped. The script enumerates them by
 # their uv shebang and passes them to `ty check` explicitly, on top of the
-# .py project walk. It builds a dedicated .ty-env (uv venv + pinned deps)
-# rather than using the project's env, which is unbuildable in a fresh
-# checkout (dagger-io is a path dep on the gitignored, ungenerated sdk/).
-# `--python .ty-env` points ty's import resolution there; the dagger module
-# then types against the published dagger-io pinned to dagger.json's
-# engineVersion instead of the absent generated SDK.
+# .py project walk. It runs `uv run --group dev ty check` — the project env
+# carries the `dev` dependency group (pyproject.toml) that mirrors the uv
+# scripts' inline pins, so it works in a fresh checkout with no .ty-env.
 [[repos]]
 repo = "local"
 

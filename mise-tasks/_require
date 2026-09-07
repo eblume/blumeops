@@ -14,7 +14,7 @@
 # actually costs a debugging session. A description is also invisible at the
 # moment of failure; this is not.
 #
-# Guard on what mise cannot supply. `mise.toml` installs dagger, pulumi,
+# Guard on what mise cannot supply. `mise.toml` installs pulumi,
 # ansible-core and flyctl into `~/.local/share/mise`, so inside `mise run`
 # those are on PATH even in the agent pod — guarding them would be a guard
 # that never fires. What is genuinely absent there is the image's business:

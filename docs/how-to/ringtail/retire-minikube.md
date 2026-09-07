@@ -361,7 +361,7 @@ builds are all nix-on-ringtail now). What actually shipped:
   `indri:host`, jobs run directly as `erichblume` with indri's
   mise-managed toolchain (PATH gets mise shims in the launchd plist).
   `runner-job-image` is deleted; dagger pipelines work unchanged —
-  the CLI (mise-pinned `dagger@0.20.6`, matching `dagger.json`) talks
+  the CLI (mise-pinned `dagger@0.20.6`) talks
   to the engine in Docker Desktop. `prek@0.3.4` joins the host
   toolchain, fixing the standing template-`validate` issue. flyctl is
   self-installed by `deploy-fly`; nothing in CI needs argocd.

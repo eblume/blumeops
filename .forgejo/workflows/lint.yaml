@@ -28,9 +28,9 @@
 # range that scanned nothing in CI; gitleaks covers the full history).
 # `ty-check` is one of the prek hooks: it type-checks the whole repo,
 # including the extensionless uv scripts in mise-tasks/ that ruff also covers.
-# It runs in a clean checkout because it types the dagger module against the
-# published dagger-io (pinned to dagger.json's engineVersion) in a dedicated
-# venv, rather than the gitignored, ungenerated SDK at sdk/src
+# It runs in a clean checkout because it must work where the project env has
+# never been built — `uv run --group dev` boots the env and resolves the
+# `dev` group (pyproject.toml) that mirrors the scripts' inline pins.
 # (heph 01KZP4MRGSTEM63V0TQFDP7BRF).
 #
 # On an agent PR this sits `pending` with no run until a human clicks
