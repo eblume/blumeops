@@ -1,3 +1,5 @@
+# NFS workloads can stall ringtail reboots while their mount unmounts; if that
+# happens here, apply the transmission fix — eblume/blumeops#906.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
