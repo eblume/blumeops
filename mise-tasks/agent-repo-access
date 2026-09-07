@@ -33,11 +33,17 @@ The label half: every pool repo also gets the `agents` engagement label
 (named after the collaborator — talos' FORGE_BOT_LABEL defaults to the bot
 login). It is joined by the `no-agents` suppression label: while present on
 an issue, talos spawns no issue cycles on it (checked on every delivery, so
-removing it re-engages). It exists because Forgejo's assignee dropdown only
-offers write collaborators, so on the read-only repos (blumeops, agents,
-horkos) the bot cannot be assigned from the UI — applying the label is the
-way a human engages talos on an issue there. A hook without the label is a
-trap: the delivery pipeline works but no click in the UI can fire it (how
+removing it re-engages). The label is the secondary engagement path: an
+issue opened by an allowlisted creator (Erich — talos'
+ISSUE_CREATOR_ALLOWLIST — or the bot itself, for cron-filed briefs) starts a
+cycle on creation with no label or assignment, and a comment by anyone but
+the bot re-triggers an engaged or allowlisted-created issue. So the label is
+for issues not opened by an allowlisted creator and for re-engaging — and on
+the read-only repos (blumeops, agents, horkos, talos) it is the only UI
+engagement edge, because Forgejo's assignee dropdown only offers write
+collaborators and assignment to the bot works only where the bot has write.
+A hook without the label is a trap: the delivery pipeline works but no
+click in the UI can fire it for anyone but an allowlisted creator (how
 horkos#4 sat inert, 2026-08-25). Labels are create-if-missing, matched by
 name, and never deleted: deleting a label strips it from every issue
 including closed ones (history damage), and a stray label on an off-pool
@@ -57,7 +63,7 @@ RECONCILE IS AUTHORITATIVE. A repo absent from repos.json (or listed with
 access "none") has its `agents` collaboration REMOVED, and a talos hook on a
 repo outside the pool is removed too. Run --dry-run first.
 
-Two repos are pinned read-only by an invariant this script will not let
+Four repos are pinned read-only by an invariant this script will not let
 repos.json override — see PINNED_READ_ONLY.
 
 The token is resolved:
