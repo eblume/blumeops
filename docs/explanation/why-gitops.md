@@ -1,7 +1,7 @@
 ---
 title: Why GitOps
 modified: 2026-02-13
-last-reviewed: 2026-02-13
+last-reviewed: 2026-09-07
 tags:
   - explanation
   - philosophy
@@ -46,14 +46,14 @@ BlumeOps uses layered GitOps:
 
 | Layer | Tool | What it manages |
 |-------|------|-----------------|
-| **Network** | [[pulumi]] | Tailscale ACLs, tags; Gandi DNS |
-| **Host config** | [[ansible]] | Services on [[indri]] |
+| **Network** | [[pulumi]] | Tailscale ACLs, tags, auth keys; Gandi DNS |
+| **Host config** | [[ansible]] | Services on [[indri]]; ringtail's NixOS build; sifaka exporters |
 | **Kubernetes** | [[argocd]] | Containerized workloads |
 
 Each layer has its own reconciliation loop:
 - Pulumi applies on `mise run tailnet-up`
 - Ansible applies on `mise run provision-indri`
-- ArgoCD watches Git and syncs manually or automatically
+- ArgoCD watches Git; most apps sync automatically, a few meta-apps (ArgoCD itself, the app-of-apps root) are deliberately manual
 
 ## Trade-offs
 
