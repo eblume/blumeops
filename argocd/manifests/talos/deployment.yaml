@@ -152,6 +152,15 @@ spec:
             # instead (eblume/talos#69).
             - name: no_proxy
               value: ".cluster.local,authentik.authentik.svc.cluster.local"
+            # The heph CLI (eblume/hephaestus#66) offers an interactive
+            # device-flow re-login when hub sync auth goes stale. These
+            # sessions run with a pty, so a stale spoke would block every
+            # agent `heph` call on that y/N prompt until the device code
+            # expires; an unattended pod must print the stale warning instead.
+            # Set in the pod env (inherited by every session process), not in
+            # the image, so the interactive flow stays available on hosts.
+            - name: HEPH_NO_AUTO_RELOGIN
+              value: "1"
           envFrom:
             - secretRef:
                 name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN
