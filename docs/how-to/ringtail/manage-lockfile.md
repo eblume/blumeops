@@ -113,4 +113,3 @@ The task keeps the 5 most recent generations plus the most recent generation who
 ## Related
 
 - [[ringtail]] — Host reference
-- [[dagger]] — Build engine

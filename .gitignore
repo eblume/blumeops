@@ -7,10 +7,6 @@ __pycache__/
 *.py[cod]
 *.pyo
 .venv/
-.ty-env/
-
-# Dagger (auto-generated SDK)
-/sdk/
 
 # OS
 .DS_Store

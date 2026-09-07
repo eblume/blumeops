@@ -47,7 +47,6 @@ fly/                Fly.io public proxy configuration
 mise-tasks/         Operational scripts run via mise
 nixos/              NixOS configuration for ringtail
 pulumi/             Pulumi IaC (Tailscale ACLs, Gandi DNS)
-.dagger/            Dagger CI pipelines
 .forgejo/           Forgejo Actions CI/CD workflows
 ```
 
@@ -57,7 +56,7 @@ You'll need [Homebrew](https://brew.sh) and [mise](https://mise.jdx.dev):
 
 ```bash
 brew bundle                    # install CLI tools (argocd, tea, flyctl, etc.)
-mise install                   # install managed toolchains (ansible, pulumi, dagger, etc.)
+mise install                   # install managed toolchains (ansible, pulumi, etc.)
 prek install                    # set up git hooks
 ```
 

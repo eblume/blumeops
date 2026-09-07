@@ -53,9 +53,9 @@ forgejo_runner_labels:
 # never the source of truth, and bumping an entry on its own is drift, not an
 # upgrade. What each one has to match:
 #
-#   dagger      dagger.json engineVersion (a client/engine mismatch fails the
-#               job; the engine runs as a container in the right-sized Docker
-#               Desktop, 2cpu/4GiB)
+#   dagger      the runner's own dagger CLI/engine pin (kept for the
+#               hephaestus/cv CI pipelines this forge hosts; the engine runs
+#               as a container in the right-sized Docker Desktop, 2cpu/4GiB)
 #   prek        mise.toml
 #   flyctl      mise.toml — used by the deploy-fly workflow
 #   argocd      service-versions.yaml `argocd`

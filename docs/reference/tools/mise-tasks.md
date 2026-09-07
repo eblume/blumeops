@@ -45,7 +45,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `fly-setup` | [human] One-time setup: configure Fly.io secrets and certs (idempotent) |
 | `fly-shutoff` | [human] Emergency shutoff: stop all Fly.io proxy machines |
 | `forge-api` | Authenticated Forgejo API call against forge.ops.eblu.me (api-token from the blumeops vault) |
-| `frigate-export-model` | [human] Export YOLOv9 model weights to ONNX for Frigate NVR via Dagger |
+| `frigate-export-model` | [human] Export YOLOv9 model weights to ONNX for Frigate NVR via docker run |
 | `horkos-test` | Run the horkos client-tooling unit tests — request-run and verify-runs (no network, no cluster) |
 | `mirror-create` | [human] Create a new upstream mirror in the mirrors/ Forgejo org |
 | `mirror-update-pats` | [human] Push the current GitHub PAT onto every forge pull mirror on indri |
@@ -72,7 +72,6 @@ Run `mise tasks --sort name` for the live list with descriptions.
 
 ## Related
 
-- [[dagger]] — CI/CD build engine (containers, Frigate model export)
 - [[ansible]] — Configuration management
 - [[argocd-cli]] — ArgoCD deployment workflows
 - [[pulumi]] — DNS and Tailscale IaC

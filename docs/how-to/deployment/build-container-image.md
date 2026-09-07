@@ -21,7 +21,7 @@ minikube cluster.)
 ## Prerequisites
 
 - A `containers/<name>/default.nix` for the service
-- For local builds: either the [Dagger CLI](https://docs.dagger.io/install) (no local nix required) or `nix` (e.g. on [[ringtail]])
+- For local builds: `nix` (e.g. on [[ringtail]]) or a `nixos/nix` container (no local nix required)
 
 ## 1. Create the container directory
 
@@ -48,24 +48,23 @@ evaluate to a docker-archive image — in practice
 
 ## 2. Build locally
 
-**With Dagger** (no local nix required):
-
-```bash
-dagger call build-nix --src=. --container-name=<name> export --path=./<name>.tar.gz
-```
-
 **With nix-build directly** (requires nix, e.g. on [[ringtail]]):
 
 ```bash
 nix-build containers/<name>/default.nix -o result
 ```
 
+**In a `nixos/nix` container** (no local nix required, e.g. on a macOS dev box):
+
+```bash
+docker run --rm -v "$PWD":/workspace -w /workspace nixos/nix:2.34.4 nix-build containers/<name>/default.nix -o result
+```
+
 Either produces a docker-archive tarball you can `docker load` or push with `skopeo`.
 
 ## 3. Release
 
-Container builds are triggered manually. Shared Dagger helpers (`src/blumeops/`)
-also feed the docs pipeline, so path-based auto-triggers are unreliable.
+Container builds are triggered manually.
 
 To trigger a build:
 
@@ -159,4 +158,3 @@ Existing `default.nix` files demonstrate the common patterns:
 
 - [[deploy-k8s-service]] — Deploying the service that uses the image
 - [[create-release-artifact-workflow]] — Alternative: release non-container artifacts
-- [[dagger]] — Dagger CI reference
