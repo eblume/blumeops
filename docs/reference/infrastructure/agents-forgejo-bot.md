@@ -1,6 +1,6 @@
 ---
 title: Agents Forgejo Bot
-modified: 2026-09-04
+modified: 2026-09-07
 last-reviewed: 2026-07-21
 tags:
   - reference
@@ -84,17 +84,26 @@ workspace checkout — are declared in **one** file:
   from blumeops `main` at pod start — a pool change reaches pods on restart,
   no image rebuild needed.
 - Every pool repo also gets the forge → talos **webhook** and the **`agents`
-  engagement label**, reconciled by the same task. The label is how a human
-  engages talos on an issue from the UI: Forgejo's assignee dropdown only
-  offers *write* collaborators, so on the read-only repos (`blumeops`, `agents`,
-  `horkos`, `talos`) the bot cannot be assigned — applying the `agents`
-  label is the trigger instead (talos' `FORGE_BOT_LABEL` defaults to the bot
-  login). A pool repo with the hook but without the label looks wired-up yet
-  cannot be engaged from the UI — that gap is how `horkos#4` sat inert until
-  2026-08-25. Labels are create-if-missing and never deleted (deleting a
-  label strips it from closed issues), and label API calls need the *issue*
-  scope the CI PAT lacks, so in CI the label half skips with a warning and
-  is applied by a local run from gilbert — same follow-up as hook creation.
+  engagement label**, reconciled by the same task. The label is the *secondary*
+  engagement edge: an issue **opened by an allowlisted creator** — Erich
+  (talos' `ISSUE_CREATOR_ALLOWLIST`) or the bot itself, for cron-filed briefs —
+  starts a cycle on its own, no label or assignment (verified on talos main,
+  2026-09-06). The **`agents` label present + a label update** engages any
+  other issue and re-engages an engaged one; on the read-only repos
+  (`blumeops`, `agents`, `horkos`, `talos`) it is the only UI engagement
+  path, because Forgejo's assignee dropdown only offers *write*
+  collaborators and **assignment** to the bot works only where the bot has
+  write (talos' `FORGE_BOT_LABEL` defaults to the bot login). A **comment**
+  by anyone but the bot re-triggers a cycle on an engaged or
+  allowlisted-created issue — reopening alone spawns nothing, the next
+  comment does. The `no-agents` label suppresses every edge while present,
+  and closed issues spawn nothing. A pool repo with the hook but without the
+  label looks wired-up yet cannot be engaged from the UI by anyone but an
+  allowlisted creator — that gap is how `horkos#4` sat inert until 2026-08-25.
+  Labels are create-if-missing and never deleted (deleting a label strips it
+  from closed issues), and label API calls need the *issue* scope the CI PAT
+  lacks, so in CI the label half skips with a warning and is applied by a
+  local run from gilbert — same follow-up as hook creation.
 
 So adding a repo is: edit the file, open a PR, merge. No clicking in the forge
 UI — and nothing to forget, which is the point. See [[agent-containerization]]
