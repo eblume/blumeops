@@ -6,8 +6,17 @@
 
 # Source build paths — same mirror-checkout pattern as the forgejo role.
 # Version pin governs the verification check; build by hand:
-#   ssh indri 'cd ~/code/3rd/forgejo-runner && git fetch --tags && git checkout v13.1.0 && make build'
+#   ssh indri 'cd ~/code/3rd/forgejo-runner && git fetch --tags && git checkout v13.1.0 && mise x go@1.26.5 -- env GOTOOLCHAIN=local make build'
+# then restart the LaunchAgent (a version-only bump changes no template, so
+# the role's restart handler does not fire — the old binary keeps running):
+#   ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist; launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist'
 forgejo_runner_version: v13.1.0
+# Go toolchain for the source build — must satisfy the tag's go.mod `go`
+# directive (v13 requires 1.26). Same trap as the forgejo role: the checkout's
+# untracked mise.toml pins an older go, and mise hard-sets GOROOT, so a plain
+# `make build` under GOTOOLCHAIN=auto dies with `compile: version "goX" does
+# not match go tool version "goY"`. See [[upgrade-forgejo]] §Go toolchain pin.
+forgejo_runner_go_version: "1.26.5"
 forgejo_runner_repo_dir: /Users/erichblume/code/3rd/forgejo-runner
 forgejo_runner_binary: "{{ forgejo_runner_repo_dir }}/forgejo-runner"
 
