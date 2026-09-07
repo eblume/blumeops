@@ -23,6 +23,11 @@
     "                    edits land via cross-repo PR (a human gate)",
     "        none      = access is granted, but no checkout in the pod",
     "",
+    "release_hook: true  -> this repo also gets the forge->horkos release webhook",
+    "               (push + tag-create events), reconciled by the same task; the",
+    "               secret is the 'horkos forge webhook' item in the blumeops vault,",
+    "               ESO-mounted on the horkos pod. See eblume/horkos#17.",
+    "",
     "RECONCILE IS AUTHORITATIVE: a repo absent from this list has its `agents`",
     "collaboration REMOVED. Adding a repo means adding it here, not clicking in",
     "the forge UI. See docs/reference/infrastructure/agents-forgejo-bot.md.",
@@ -40,10 +45,20 @@
   "collaborator": "agents",
   "repos": [
     { "name": "agents", "access": "read", "pool": "fork" },
-    { "name": "blumeops", "access": "read", "pool": "fork" },
-    { "name": "horkos", "access": "read", "pool": "fork" },
-    { "name": "talos", "access": "read", "pool": "fork" },
-    { "name": "cv", "access": "read", "pool": "none" },
+    {
+      "name": "blumeops",
+      "access": "read",
+      "pool": "fork",
+      "release_hook": true
+    },
+    {
+      "name": "horkos",
+      "access": "read",
+      "pool": "fork",
+      "release_hook": true
+    },
+    { "name": "talos", "access": "read", "pool": "fork", "release_hook": true },
+    { "name": "cv", "access": "read", "pool": "none", "release_hook": true },
     { "name": "hephaestus", "access": "write", "pool": "canonical" },
     { "name": "hephaestus.nvim", "access": "write", "pool": "canonical" },
     { "name": "research", "access": "write", "pool": "canonical" },

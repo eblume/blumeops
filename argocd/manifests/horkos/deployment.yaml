@@ -54,6 +54,9 @@ spec:
             - secretRef:
                 name: horkos-dispatch
                 optional: true  # dispatch stays inert without the token
+            - secretRef:
+                name: horkos-forge-hook
+                optional: true  # release webhook stays inert (route 404s) until the secret is provisioned
           securityContext:
             runAsNonRoot: true
             runAsUser: 1500
