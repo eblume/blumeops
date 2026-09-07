@@ -41,6 +41,7 @@ from typing import Annotated
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 PROTECTED_BRANCHES = {"main", "master"}
@@ -92,7 +93,7 @@ def resolve_token(explicit_token: str | None, console: Console) -> str:
         subprocess.TimeoutExpired,
         FileNotFoundError,
     ) as e:
-        console.print(f"[red]Failed to read token from 1Password:[/red] {e}")
+        console.print(f"[red]Failed to read token from 1Password:[/red] {escape(str(e))}")
         console.print("[dim]Pass --token explicitly or ensure op CLI is available[/dim]")
         raise typer.Exit(1)
 
@@ -212,7 +213,7 @@ def get_merged_pr_branches(client: httpx.Client, console: Console) -> set[str]:
                         merged_branches.add(ref)
             page += 1
     except httpx.HTTPError as e:
-        console.print(f"[yellow]Warning:[/yellow] Failed to query merged PRs: {e}")
+        console.print(f"[yellow]Warning:[/yellow] Failed to query merged PRs: {escape(str(e))}")
     return merged_branches
 
 
@@ -283,7 +284,7 @@ def main(
         try:
             run_git("fetch", "--prune", "origin")
         except subprocess.CalledProcessError as e:
-            console.print(f"[yellow]Warning:[/yellow] git fetch failed: {e.stderr}")
+            console.print(f"[yellow]Warning:[/yellow] git fetch failed: {escape(e.stderr)}")
 
     # Gather merge info
     console.print("[dim]Checking Forgejo for squash-merged PRs...[/dim]")
@@ -361,7 +362,7 @@ def main(
                 method_str = "+".join(methods)
 
                 table.add_row(
-                    branch,
+                    escape(branch),
                     age_str,
                     method_str,
                     "[yellow]delete[/yellow]" if has_local else "[dim]-[/dim]",
@@ -402,7 +403,7 @@ def main(
                 warn_table.add_column("Branch")
                 warn_table.add_column("Age (days)", justify="right")
                 for name, age in stale_unmerged:
-                    warn_table.add_row(f"[yellow]{name}[/yellow]", str(age))
+                    warn_table.add_row(f"[yellow]{escape(name)}[/yellow]", str(age))
                 console.print(warn_table)
                 console.print(
                     f"[dim]These {len(stale_unmerged)} branches have no merged PR on "
@@ -429,9 +430,9 @@ def main(
             for branch in remote_to_delete:
                 ok, msg = delete_remote_branch_api(client, branch)
                 if ok:
-                    console.print(f"  [green]✓[/green] origin/{branch}")
+                    console.print(f"  [green]✓[/green] origin/{escape(branch)}")
                 else:
-                    console.print(f"  [red]✗[/red] origin/{branch}: {msg}")
+                    console.print(f"  [red]✗[/red] origin/{escape(branch)}: {escape(msg)}")
 
     # Delete local branches (outside httpx client context)
     if local_to_delete:
@@ -439,9 +440,9 @@ def main(
         for branch in local_to_delete:
             ok, msg = delete_local_branch(branch)
             if ok:
-                console.print(f"  [green]✓[/green] {branch}")
+                console.print(f"  [green]✓[/green] {escape(branch)}")
             else:
-                console.print(f"  [red]✗[/red] {branch}: {msg}")
+                console.print(f"  [red]✗[/red] {escape(branch)}: {escape(msg)}")
 
     console.print("\n[green]Done.[/green]")
 

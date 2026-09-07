@@ -29,6 +29,7 @@ from typing import Annotated, Any
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 AUTHENTIK_TOKEN_URL = "https://authentik.ops.eblu.me/application/o/token/"
@@ -159,7 +160,7 @@ def main(
         table.add_column("state")
         for r in rules:
             style = {"firing": "bold red", "pending": "yellow"}.get(r["state"], "green")
-            table.add_row(r["name"], r["group"], f"[{style}]{r['state']}[/{style}]")
+            table.add_row(escape(r["name"]), escape(r["group"]), f"[{style}]{escape(r['state'])}[/{style}]")
         console.print(table)
         console.print(
             f"{len(rules)} rules: {len(firing)} firing, {len(pending)} pending, "
@@ -171,8 +172,8 @@ def main(
         for r in firing + pending:
             for inst in r["instances"]:
                 console.print(
-                    f"  [bold]{r['name']}[/bold] [{inst['state']}] {inst['identity']}"
-                    + (f" since {inst['activeAt']}" if inst["activeAt"] else "")
+                    f"  [bold]{escape(r['name'])}[/bold] [{escape(inst['state'])}] {escape(inst['identity'])}"
+                    + (f" since {escape(inst['activeAt'])}" if inst["activeAt"] else "")
                 )
 
     if firing:

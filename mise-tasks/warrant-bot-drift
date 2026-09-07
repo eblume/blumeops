@@ -54,6 +54,7 @@ from typing import Annotated
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 # Tailnet name, as warrant-bot-provision uses: runnable wherever the token is
 # — gilbert, indri, or an agent pod (via the egress gateway). The public
@@ -98,7 +99,7 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
         subprocess.TimeoutExpired,
         FileNotFoundError,
     ) as exc:
-        err.print(f"Could not read the token from 1Password: {exc}")
+        err.print(f"Could not read the token from 1Password: {escape(str(exc))}")
         err.print("Pass --token, or set FORGE_REPO_WRITE_TOKEN.")
         raise typer.Exit(1) from exc
     return result.stdout.strip()
@@ -112,16 +113,16 @@ class Report:
         self.failures: list[str] = []
 
     def ok(self, what: str, detail: str = "") -> None:
-        console.print(f"[green]ok[/green]       {what}" + (f" [dim]({detail})[/dim]" if detail else ""))
+        console.print(f"[green]ok[/green]       {escape(what)}" + (f" [dim]({escape(detail)})[/dim]" if detail else ""))
 
     def fail(self, what: str, detail: str) -> None:
-        console.print(f"[red]DRIFT[/red]    {what} — {detail}")
+        console.print(f"[red]DRIFT[/red]    {escape(what)} — {escape(detail)}")
         self.failures.append(f"{what}: {detail}")
 
     def unknown(self, what: str, detail: str) -> None:
         """Unreadable is a failure, not a pass. A check that cannot see is
         indistinguishable from one that sees nothing wrong."""
-        console.print(f"[red]UNKNOWN[/red]  {what} — {detail}")
+        console.print(f"[red]UNKNOWN[/red]  {escape(what)} — {escape(detail)}")
         self.failures.append(f"{what}: could not verify ({detail})")
 
 
@@ -292,7 +293,7 @@ def main(
     if report.failures:
         err.print(f"\n{len(report.failures)} finding(s) — warrant-bot's blast radius has drifted:")
         for finding in report.failures:
-            err.print(f"  · {finding}")
+            err.print(f"  · {escape(finding)}")
         err.print(
             "\nReconcile with `mise run warrant-bot-provision --dry-run` (gilbert), or "
             "fix the branch protection in the forge UI. If a change was intended, update "

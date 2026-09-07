@@ -37,6 +37,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -181,16 +182,16 @@ def summarize_report(
     latest_remote = csvs[-1]
     latest_local = Path(tmpdir) / f"{safe}_latest.csv"
 
-    console.print(f"[dim]Fetching {latest_remote}...[/dim]")
+    console.print(f"[dim]Fetching {escape(latest_remote)}...[/dim]")
     if not scp(f"sifaka:{latest_remote}", str(latest_local)):
-        console.print(f"[bold red]Failed to copy {latest_remote}[/bold red]")
+        console.print(f"[bold red]Failed to copy {escape(latest_remote)}[/bold red]")
         return
 
     prev_local: Path | None = None
     if len(csvs) >= 2:
         prev_remote = csvs[-2]
         prev_path = Path(tmpdir) / f"{safe}_prev.csv"
-        console.print(f"[dim]Fetching {prev_remote}...[/dim]")
+        console.print(f"[dim]Fetching {escape(prev_remote)}...[/dim]")
         if scp(f"sifaka:{prev_remote}", str(prev_path)):
             prev_local = prev_path
 
@@ -200,7 +201,7 @@ def summarize_report(
 
     # --- Overall status ---
     status_table = Table(
-        show_header=True, header_style="bold", title=f"Report: {report_name}"
+        show_header=True, header_style="bold", title=f"Report: {escape(report_name)}"
     )
     status_table.add_column("Status")
     status_table.add_column("Count", justify="right")
@@ -245,7 +246,7 @@ def summarize_report(
         ):
             style = _sev_style(sev)
             sev_table.add_row(
-                f"[{style}]{sev}[/{style}]" if style else sev,
+                f"[{style}]{escape(sev)}[/{style}]" if style else escape(sev),
                 f"[{style}]{count}[/{style}]" if style else str(count),
             )
 
@@ -264,7 +265,7 @@ def summarize_report(
 
         prev_name = Path(csvs[-2]).stem
         delta_lines = [
-            f"Compared against: [dim]{prev_name}[/dim]",
+            f"Compared against: [dim]{escape(prev_name)}[/dim]",
             "",
             f"Previous unmuted FAILs: {len(prev['unmuted'])}",
             f"Current unmuted FAILs:  {len(latest['unmuted'])}",
@@ -288,8 +289,8 @@ def summarize_report(
             for k in sorted(new_keys):
                 r = curr_keys[k]
                 console.print(
-                    f"  [{r['SEVERITY']}] {r['CHECK_ID']}: "
-                    f"{r['STATUS_EXTENDED'][:120]}"
+                    f"  [{escape(r['SEVERITY'])}] {escape(r['CHECK_ID'])}: "
+                    f"{escape(r['STATUS_EXTENDED'][:120])}"
                 )
             console.print()
 
@@ -298,8 +299,8 @@ def summarize_report(
             for k in sorted(resolved_keys):
                 r = prev_keys[k]
                 console.print(
-                    f"  [dim][{r['SEVERITY']}] {r['CHECK_ID']}: "
-                    f"{r['STATUS_EXTENDED'][:120]}[/dim]"
+                    f"  [dim][{escape(r['SEVERITY'])}] {r['CHECK_ID']}: "
+                    f"{escape(r['STATUS_EXTENDED'][:120])}[/dim]"
                 )
             console.print()
 
@@ -327,8 +328,8 @@ def summarize_report(
             key=lambda x: severity_sort({"SEVERITY": x[0][0]}),
         ):
             muted_table.add_row(
-                f"[dim]{sev}[/dim]",
-                f"[dim]{check}[/dim]",
+                f"[dim]{escape(sev)}[/dim]",
+                f"[dim]{escape(check)}[/dim]",
                 f"[dim]{count}[/dim]",
             )
 
@@ -374,10 +375,10 @@ def _print_findings_detail(unmuted: list[dict]) -> None:
         sev = r["SEVERITY"]
         style = _sev_style(sev)
         detail_table.add_row(
-            f"[{style}]{sev}[/{style}]" if style else sev,
-            r["CHECK_ID"],
-            r.get("RESOURCE_NAME", ""),
-            r["STATUS_EXTENDED"][:60],
+            f"[{style}]{escape(sev)}[/{style}]" if style else escape(sev),
+            escape(r["CHECK_ID"]),
+            escape(r.get("RESOURCE_NAME", "")),
+            escape(r["STATUS_EXTENDED"][:60]),
         )
 
     console.print(detail_table)
@@ -623,7 +624,7 @@ def run_node_verification(console: Console) -> None:
 
     for name, detail, passed in checks:
         status = "[green]PASS[/green]" if passed else "[bold red]FAIL[/bold red]"
-        table.add_row(name, detail, status)
+        table.add_row(escape(name), escape(detail), status)
 
     console.print(table)
     console.print()

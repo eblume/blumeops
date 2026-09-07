@@ -32,6 +32,7 @@ from typing import Annotated
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 # FORGE_URL is for human-facing links only. API calls use the tailnet name:
@@ -79,7 +80,7 @@ def resolve_token(explicit_token: str | None, console: Console) -> str:
         raise typer.Exit(1) from None
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
         detail = getattr(exc, "stderr", "") or str(exc)
-        console.print(f"[red]Could not read the token from 1Password: {detail.strip()}[/red]")
+        console.print(f"[red]Could not read the token from 1Password: {escape(detail.strip())}[/red]")
         console.print("Pass --token, or set FORGEJO_TOKEN.")
         raise typer.Exit(1) from exc
     return result.stdout.strip()
@@ -195,7 +196,7 @@ def list_runs(runner: str, repo: str, limit: int, token: str, console: Console) 
         rn = t["run_number"]
         runs.setdefault(rn, []).append(t)
 
-    table = Table(title=f"Recent runs — {repo} (filter: {runner})")
+    table = Table(title=f"Recent runs — {escape(repo)} (filter: {escape(runner)})")
     table.add_column("Run #", style="cyan", no_wrap=True)
     table.add_column("Status")
     table.add_column("Runner")
@@ -231,11 +232,11 @@ def list_runs(runner: str, repo: str, limit: int, token: str, console: Console) 
 
         table.add_row(
             str(rn),
-            f"[{style}]{status}[/{style}]",
-            host,
-            job_names,
-            title,
-            event,
+            f"[{style}]{escape(status)}[/{style}]",
+            escape(host),
+            escape(job_names),
+            escape(title),
+            escape(event),
         )
         shown += 1
 
@@ -262,7 +263,7 @@ def show_jobs(run_number: int, repo: str, token: str, console: Console) -> None:
         raise typer.Exit(1)
 
     jobs = list_run_jobs(repo, run_id, token)
-    table = Table(title=f"Jobs in run #{run_number} — {repo}")
+    table = Table(title=f"Jobs in run #{run_number} — {escape(repo)}")
     table.add_column("Job #", style="cyan", no_wrap=True)
     table.add_column("Status")
     table.add_column("Name")
@@ -274,10 +275,10 @@ def show_jobs(run_number: int, repo: str, token: str, console: Console) -> None:
             status = job.get("status", "")
             table.add_row(
                 str(i),
-                f"[{status_style(status)}]{status}[/{status_style(status)}]",
-                job.get("name", ""),
+                f"[{status_style(status)}]{escape(status)}[/{status_style(status)}]",
+                escape(job.get("name", "")),
                 str(job.get("attempt", "")),
-                ", ".join(job.get("runs_on") or []),
+                escape(", ".join(job.get("runs_on") or [])),
             )
     else:
         table.add_column("Created")
@@ -292,9 +293,9 @@ def show_jobs(run_number: int, repo: str, token: str, console: Console) -> None:
             status = task.get("status", "")
             table.add_row(
                 str(i),
-                f"[{status_style(status)}]{status}[/{status_style(status)}]",
-                task.get("name", ""),
-                task.get("created_at", ""),
+                f"[{status_style(status)}]{escape(status)}[/{status_style(status)}]",
+                escape(task.get("name", "")),
+                escape(task.get("created_at", "")),
             )
 
     console.print(table)
@@ -459,7 +460,7 @@ def main(
                 err=True,
             )
             raise typer.Exit(1)
-        console.print(f"[dim]Detected repo: {repo}[/dim]")
+        console.print(f"[dim]Detected repo: {escape(repo)}[/dim]")
 
     resolved_token = resolve_token(token, console)
 

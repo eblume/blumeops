@@ -28,6 +28,7 @@ from typing import Annotated
 import typer
 import yaml
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -131,7 +132,7 @@ def main(
         if last_reviewed is None:
             table.add_row(
                 str(i),
-                f"[red]{rel_path}[/red]",
+                f"[red]{escape(rel_path)}[/red]",
                 "[red]never[/red]",
                 "[red]—[/red]",
                 updated_str,
@@ -140,7 +141,7 @@ def main(
             age = (today - last_reviewed).days
             style = "yellow" if age > 90 else ""
             age_str = f"[{style}]{age}[/{style}]" if style else str(age)
-            path_str = f"[{style}]{rel_path}[/{style}]" if style else rel_path
+            path_str = f"[{style}]{escape(rel_path)}[/{style}]" if style else escape(rel_path)
             date_str = f"[{style}]{last_reviewed}[/{style}]" if style else str(last_reviewed)
             table.add_row(str(i), path_str, date_str, age_str, updated_str)
 
@@ -158,14 +159,14 @@ def main(
 
     top_path, top_reviewed, _, top_file = entries[0]
     console.print(Panel(
-        f"[bold cyan]{top_path}[/bold cyan]\n"
+        f"[bold cyan]{escape(top_path)}[/bold cyan]\n"
         + (f"[dim]Last reviewed: {top_reviewed}[/dim]" if top_reviewed else "[dim red]Never reviewed[/dim red]"),
         title="[bold]Up For Review[/bold]",
         border_style="green",
     ))
     console.print()
 
-    console.print(f"[bold]Read the file:[/bold] {top_file.resolve()}")
+    console.print(f"[bold]Read the file:[/bold] {escape(str(top_file.resolve()))}")
     console.print()
 
     console.print()
