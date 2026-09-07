@@ -1,0 +1,1 @@
+Retire the dagger `build_docs` pipeline: the `Build BlumeOps` release workflow and the `docs-preview` task now build the Quartz docs with a direct node:22-slim container run via the new `docs-build-tarball` mise task (repo mounted read-only, output tarball bind-mounted). Dagger remains only for the Frigate model export until it is retired.

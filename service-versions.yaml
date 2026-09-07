@@ -109,23 +109,17 @@ services:
 
   - name: alloy-tracing-ringtail
     type: argocd
-    last-reviewed: 2026-09-02
-    current-version: "v1.16.3"
+    last-reviewed: 2026-09-06
+    current-version: "v1.19.2"
     upstream-source: https://github.com/grafana/alloy/releases
     notes: Privileged DaemonSet with Beyla eBPF for HTTP tracing on ringtail
 
   - name: alloy-ringtail
     type: argocd
-    last-reviewed: 2026-04-30
-    current-version: "v1.16.0"
+    last-reviewed: 2026-09-06
+    current-version: "v1.19.2"
     upstream-source: https://github.com/grafana/alloy/releases
     notes: DaemonSet on ringtail for host metrics and pod logs
-
-  - name: alloy-k8s
-    type: argocd
-    last-reviewed: 2026-04-30
-    current-version: "v1.16.0"
-    upstream-source: https://github.com/grafana/alloy/releases
 
   - name: tailscale-operator
     type: argocd
@@ -430,7 +424,7 @@ services:
   - name: talos
     type: argocd
     last-reviewed: "2026-08-30"
-    current-version: "v0.4.79"
+    current-version: "v0.4.84"
     upstream-source: https://forge.eblu.me/eblume/talos
     notes: >-
       First-party agent workflow service ([[talos-design]]): pi runtime +
@@ -506,7 +500,7 @@ services:
 
   - name: alloy
     type: ansible
-    last-reviewed: 2026-04-30
+    last-reviewed: 2026-09-06
     current-version: "v1.19.2"
     upstream-source: https://github.com/grafana/alloy/releases
     notes: Built from source on indri

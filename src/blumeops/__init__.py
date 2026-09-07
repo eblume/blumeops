@@ -1,3 +1,3 @@
-"""BlumeOps — Dagger build functions for container images and CI."""
+"""BlumeOps — Dagger build functions."""
 
 from .main import Blumeops as Blumeops

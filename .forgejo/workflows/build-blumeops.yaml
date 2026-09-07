@@ -149,12 +149,11 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TARBALL="docs-${VERSION}.tar.gz"
-          echo "Building docs via Dagger..."
+          echo "Building docs in a node:22-slim container..."
           # Towncrier already ran on the runner above, so the working tree
-          # has an up-to-date CHANGELOG.md. build-docs now only runs the
-          # Quartz static site build (no towncrier).
-          dagger call build-docs --src=. --version="$VERSION" \
-            export --path="./$TARBALL"
+          # has an up-to-date CHANGELOG.md. The task only runs the Quartz
+          # static site build (no towncrier).
+          mise run docs-build-tarball "./$TARBALL"
           echo "Build complete!"
           ls -lh "$TARBALL"
 
