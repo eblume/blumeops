@@ -125,8 +125,10 @@ TALOS_HOOK_URL = "https://talos.ops.eblu.me/api/webhooks/forge"
 # delivery never spawns a PR session, and today spawns no cycle at all;
 # eblume/talos#151 adds the issue-side merge edge.
 #
-# Two vocabularies because the GET read-back expands the flag set back into
-# names (models/webhook/webhook.go EventsArray) — and `pull_request_review` is
+# Two vocabularies because the GET read-back expands the umbrella flags back
+# into names (models/webhook/webhook.go EventsArray): `issues` into the
+# issue_* family, and `pull_request` into the pull_request_assign/label/
+# milestone/review_request/sync family — plus `pull_request_review` is
 # one flag covering the approved/rejected/review-comment trio, reported
 # expanded, with `pull_request_review_comment` additionally reported off the
 # pull_request_comment flag. Reconcile compares against READ, sends SEND;
@@ -148,10 +150,15 @@ TALOS_HOOK_READ_EVENTS = frozenset(
         "issue_milestone",
         "issue_comment",
         "pull_request",
+        "pull_request_assign",
         "pull_request_comment",
+        "pull_request_label",
+        "pull_request_milestone",
         "pull_request_review_approved",
         "pull_request_review_rejected",
         "pull_request_review_comment",
+        "pull_request_review_request",
+        "pull_request_sync",
     }
 )
 # Item id, not the title: `op read` cannot parse titles containing parens
