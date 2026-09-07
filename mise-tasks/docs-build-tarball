@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#MISE description="Build the Quartz docs site in a node:22-slim container and package it as a tarball"
+#USAGE arg "<tarball>" help="Output path for the docs tarball (e.g. ./docs-dev.tar.gz)"
+
+# Build the Quartz v5 docs site and package the site root as a tarball.
+#
+# The container copies docs/ and CHANGELOG.md into a writable /build dir,
+# stages the Quartz v5 scaffolding from a fresh clone of the default
+# branch, and runs the build there. The repo is mounted read-only, so the
+# working tree is never touched. The output tarball is bind-mounted at a
+# single path and written there.
+#
+#   mise run docs-build-tarball ./docs-dev.tar.gz
+set -euo pipefail
+
+"$(dirname "$0")/_require" docker
+
+TARBALL="${1:?usage: mise run docs-build-tarball <tarball>}"
+
+# The tarball is bind-mounted at a single path; docker creates a missing
+# mount target as a directory, so pre-create it as a file.
+touch "$TARBALL"
+
+docker run --rm \
+    -v "$PWD":/workspace:ro \
+    -v "$TARBALL":/output/docs.tar.gz \
+    node:22-slim \
+    sh -c '
+      set -e
+      apt-get update -qq
+      apt-get install -y -qq git
+      mkdir -p /build && cd /build
+      cp -r /workspace/docs .
+      cp /workspace/CHANGELOG.md docs/
+      git clone --depth=1 https://github.com/jackyzha0/quartz.git /tmp/quartz
+      cp -r /tmp/quartz/quartz /tmp/quartz/package*.json /tmp/quartz/tsconfig.json /tmp/quartz/quartz.ts /tmp/quartz/.npmrc .
+      # npm install (not ci): we track the default branch and the
+      # upstream package-lock is not always in sync with package.json,
+      # so a strict ci install would fail. The staged .npmrc sets
+      # legacy-peer-deps, which the install needs.
+      npm install
+      cp docs/quartz.config.yaml .
+      npx quartz build -d docs
+      tar -czf /output/docs.tar.gz -C public .
+    '

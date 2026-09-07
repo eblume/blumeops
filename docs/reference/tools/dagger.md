@@ -1,7 +1,7 @@
 ---
 title: Dagger
-modified: 2026-08-25
-last-reviewed: 2026-08-25
+modified: 2026-09-05
+last-reviewed: 2026-09-05
 tags:
   - reference
   - ci-cd
@@ -10,7 +10,10 @@ tags:
 
 # Dagger
 
-Build engine for BlumeOps CI/CD pipelines. Replaces shell-based build scripts with Python functions that run identically locally and in CI.
+Build engine for the container builds that still need it. Docs and nix-built
+images no longer use it: the docs build is a direct node:22-slim run (the
+`docs-build-tarball` task), and container images are built with nix on the
+`nix-container-builder` runner.
 
 ## Quick Reference
 
@@ -27,7 +30,6 @@ Build engine for BlumeOps CI/CD pipelines. Replaces shell-based build scripts wi
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `build_nix` | `(src, container_name) → File` | Build a nix container from `containers/<name>/default.nix`, return docker-archive tarball |
-| `build_docs` | `(src, version) → File` | Build Quartz docs site, return docs tarball |
 | `export_yolov9` | `(model_size?, input_size?) → File` | Export YOLOv9 weights to ONNX for [[frigate|Frigate]] |
 
 ## Container Build Types
@@ -48,18 +50,12 @@ to [[zot]] (amd64, `:vX.Y.Z-<sha>-nix` tags). See [[build-container-image]].
 # Build a nix container locally (no local nix required)
 dagger call build-nix --src=. --container-name=ntfy export --path=./ntfy.tar.gz
 
-# Build docs tarball locally
-dagger call build-docs --src=. --version=dev export --path=./docs-dev.tar.gz
-
-# Debug a docs build failure
-dagger call --interactive build-docs --src=. --version=dev
-
 ```
 
 ## Caveats
 
 - **Pre-1.0 API** — Current version is v0.21.x. Pin the CLI version and test upgrades on a branch before adopting. See [[upgrade-dagger]] for the upgrade procedure.
-- **Privileged container** — The Dagger engine requires privileged container access. The Forgejo runner's DinD sidecar provides this.
+- **Engine** — The Dagger engine runs as a container inside indri's Docker Desktop (2cpu/4GiB), driven by the mise-pinned CLI on the host-mode runner.
 
 ## Related
 

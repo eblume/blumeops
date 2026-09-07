@@ -1,7 +1,7 @@
 ---
 title: Upgrade Dagger
-modified: 2026-06-18
-last-reviewed: 2026-06-18
+modified: 2026-09-05
+last-reviewed: 2026-09-05
 tags:
   - how-to
   - dagger
@@ -17,9 +17,11 @@ reaches CI.
 
 ## Where Dagger is pinned
 
-Dagger plays a small CI role since [[retire-minikube]] phase 6: container images
-are nix-built (no Dagger), and the only remaining `dagger call` is `build-docs`
-in the `Build BlumeOps` workflow. The CI runner is host-mode on [[indri]]
+Dagger plays a small role since [[retire-minikube]] phase 6: container images are
+nix-built (no Dagger), the docs build is a direct node:22-slim container run
+(the `docs-build-tarball` task), and the only remaining `dagger call` is
+`export-yolov-9` (Frigate model export, from the `frigate-export-model` task on
+gilbert). The CI runner is host-mode on [[indri]]
 ([[configure-launchd-runner]]) — jobs run directly with indri's mise toolchain,
 so the runner's Dagger CLI is just a mise pin, not a container image. The engine
 runs as a container inside indri's right-sized Docker Desktop (2cpu/4GiB).
@@ -73,8 +75,7 @@ The version is pinned in four places that must agree:
 7. Commit and push, and open a PR. Once merged, the next CI run uses
    the new `engineVersion` against the already-upgraded host CLI.
 
-8. Test CI — manual-dispatch `Build BlumeOps` and confirm the `build-docs` step
-   succeeds.
+8. Test — run any `dagger call` (e.g. `mise run frigate-export-model` on gilbert) with the new CLI and confirm the module loads against the new `engineVersion`.
 
 ## Why the order matters
 
@@ -84,7 +85,7 @@ upgraded:
 
 1. CI checks out the new commit (new `engineVersion` in `dagger.json`)
 2. The host-mode runner still has the old Dagger CLI on its mise toolchain
-3. `dagger call build-docs` exits with a version-mismatch error
+3. `dagger call export-yolov-9` exits with a version-mismatch error
 
 Provisioning the runner host (step 5) installs the new CLI on indri *before* the
 bump reaches CI, so the CLI is always ≥ the engine version. There is no
