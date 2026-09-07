@@ -18,7 +18,7 @@ let
     inherit version;
     pname = "alloy-ui";
     src = "${src}/internal/web/ui";
-    npmDepsHash = pkgs.lib.fakeHash;
+    npmDepsHash = "sha256-vrJUH76B0Zzuqh7Ri7B2K9YoX30xO//G0/opfYC/GTE=";
 
     buildPhase = ''
       runHook preBuild
