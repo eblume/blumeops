@@ -12,19 +12,30 @@
 # 1. Clone from forge mirror:
 #    git clone ssh://forgejo@forge.ops.eblu.me:2222/mirrors/alloy.git ~/code/3rd/alloy
 #
-# 2. Set up build tools via mise:
-#    cd ~/code/3rd/alloy && mise use go@1.25.7 node yarn
+# 2. Check out the release tag; its mise.toml pins the toolchain the tag
+#    needs (v1.19.2: go 1.26.7, node 24.16.0 — go.mod's floor and the UI's
+#    engines field). Install just those two:
+#    cd ~/code/3rd/alloy && git fetch --tags origin && git checkout v1.19.2
+#    mise install go node
 #
-# 3. Build with CGO enabled (default in Makefile):
-#    cd ~/code/3rd/alloy && mise x -- make alloy
+# 3. Build with CGO enabled (default in Makefile). SKIP_CODE_GENERATION=1:
+#    the release tag ships its generated sources, and the generators need
+#    tools the build does not otherwise pull in. Needs ~10 GB free for the
+#    Go build cache (2026-09-06: the build died on a full disk once).
+#    cd ~/code/3rd/alloy && mise x go node -- make alloy SKIP_CODE_GENERATION=1
 #
-# 4. Copy binary to indri:
-#    scp ~/code/3rd/alloy/build/alloy indri:~/.local/bin/alloy
+# 4. Copy binary to indri beside the running one, then swap it in — writing
+#    over a running Mach-O in place can kill the process mid-write:
+#    scp -O ~/code/3rd/alloy/build/alloy indri:.local/bin/alloy.new
+#    ssh indri 'cd ~/.local/bin && mv alloy alloy.<oldver> && mv alloy.new alloy'
 #
-# 5. Ad-hoc codesign on indri (SCP'd binaries get quarantined by macOS):
-#    ssh indri 'codesign --sign - --force ~/.local/bin/alloy'
+# 5. Ad-hoc codesign on indri (SCP'd binaries get quarantined by macOS), then
+#    restart the LaunchAgent and check /-/ready:
+#    ssh indri 'codesign --sign - --force ~/.local/bin/alloy && launchctl kickstart -k gui/$(id -u)/mcquack.eblume.alloy'
+#    ssh indri 'curl -s -o /dev/null -w "%{http_code}\n" http://localhost:12345/-/ready'
 #
-# 6. Run ansible to deploy config and LaunchAgent
+# 6. Run ansible to deploy config and LaunchAgent (a no-op if neither changed —
+#    the role verifies the binary exists; it does not install or version it)
 
 # Binary and paths
 alloy_binary: /Users/erichblume/.local/bin/alloy

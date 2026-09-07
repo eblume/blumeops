@@ -121,12 +121,6 @@ services:
     upstream-source: https://github.com/grafana/alloy/releases
     notes: DaemonSet on ringtail for host metrics and pod logs
 
-  - name: alloy-k8s
-    type: argocd
-    last-reviewed: 2026-04-30
-    current-version: "v1.16.0"
-    upstream-source: https://github.com/grafana/alloy/releases
-
   - name: tailscale-operator
     type: argocd
     last-reviewed: 2026-06-16
@@ -508,7 +502,7 @@ services:
 
   - name: alloy
     type: ansible
-    last-reviewed: 2026-04-30
+    last-reviewed: 2026-09-06
     current-version: "v1.19.2"
     upstream-source: https://github.com/grafana/alloy/releases
     notes: Built from source on indri
