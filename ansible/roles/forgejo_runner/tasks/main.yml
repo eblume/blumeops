@@ -13,7 +13,7 @@
     msg: |
       forgejo-runner binary not found at {{ forgejo_runner_binary }}.
       Build from source first:
-        ssh indri 'cd {{ forgejo_runner_repo_dir }} && git fetch --tags && git checkout {{ forgejo_runner_version }} && make build'
+        ssh indri 'cd {{ forgejo_runner_repo_dir }} && git fetch --tags && git checkout {{ forgejo_runner_version }} && mise x go@{{ forgejo_runner_go_version }} -- env GOTOOLCHAIN=local make build'
   when: not forgejo_runner_binary_stat.stat.exists
 
 - name: Check forgejo-runner binary version
@@ -28,7 +28,9 @@
     msg: |
       Binary reports "{{ forgejo_runner_version_check.stdout }}" but the
       role pins {{ forgejo_runner_version }}. Rebuild at the pinned tag:
-        ssh indri 'cd {{ forgejo_runner_repo_dir }} && git fetch --tags && git checkout {{ forgejo_runner_version }} && make build'
+        ssh indri 'cd {{ forgejo_runner_repo_dir }} && git fetch --tags && git checkout {{ forgejo_runner_version }} && mise x go@{{ forgejo_runner_go_version }} -- env GOTOOLCHAIN=local make build'
+      then restart the LaunchAgent (the role only restarts on config/plist changes):
+        ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist; launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist'
   when: forgejo_runner_version not in forgejo_runner_version_check.stdout
 
 - name: Ensure forgejo-runner home directory exists
