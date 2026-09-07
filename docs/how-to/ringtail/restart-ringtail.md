@@ -1,7 +1,7 @@
 ---
 title: Restart Ringtail
-modified: 2026-09-02
-last-reviewed: 2026-09-02
+modified: 2026-09-07
+last-reviewed: 2026-09-07
 tags:
   - how-to
   - operations
@@ -77,7 +77,25 @@ If you are doing this for a **kernel update** (see [[manage-lockfile]]), the
 pending generation is already activated and a plain reboot is all that is
 needed.
 
-### 2. Power off
+### 2. Drain transmission (recommended)
+
+Since the 10 s `terminationGracePeriodSeconds` cap (eblume/blumeops#906) the
+plain reboot path is no longer held up by transmission, but the drain is the
+fastest path and leaves the NFS download mount with nothing in flight when
+the power drops.
+
+`torrent-ringtail` runs `syncPolicy.automated: {}` with no selfHeal: a bare
+`kubectl scale` is undone by ArgoCD within seconds, so suspend the sync first.
+
+```fish
+ssh ringtail 'sudo k3s kubectl -n argocd patch application torrent-ringtail --type merge -p "{\"spec\":{\"syncPolicy\":null}}"'
+ssh ringtail 'sudo k3s kubectl -n torrent scale deploy/transmission --replicas=0'
+ssh ringtail 'sudo k3s kubectl -n torrent get pods'   # wait: no transmission pods left
+```
+
+Restore the sync policy on boot — Startup, step 3.
+
+### 3. Power off
 
 ```fish
 ssh ringtail 'sudo systemctl poweroff'
@@ -94,6 +112,12 @@ RAM-backed; nothing to persist).
 Shutdown takes about a minute. The last two clean shutdowns (April and May
 2026) were each down ~5 minutes wall-clock including the boot.
 
+**Observed 2026-09-06:** an undrained reboot was held ~10 minutes while the
+transmission pod terminated against its NFS download mount; the
+`terminationGracePeriodSeconds: 10` cap (eblume/blumeops#906) fixes that.
+The drained reboot the same night was down ~2.5 minutes to SSH-back. The
+next undrained reboot is the test of the cap.
+
 **Observed 2026-09-02** (plain `sudo reboot` after 113 days up, gen 100,
 kernel 6.12.87 → 6.12.93, done as a dry run before the RAM swap):
 
@@ -109,7 +133,7 @@ kernel 6.12.87 → 6.12.93, done as a dry run before the RAM swap):
 Swap was 11 GB of zram before the reboot and starts empty after; the memory
 comparison in the RAM-swap checklist is against the pre-reboot figure.
 
-### 3. Hardware work (if any)
+### 4. Hardware work (if any)
 
 Unplug the PSU mains cable and wait for the motherboard's standby LED to go
 out before touching anything. Ground yourself. See the RAM-swap checklist
@@ -161,6 +185,14 @@ ssh ringtail 'systemctl --failed'                                     # expect: 
 ssh ringtail 'sudo k3s kubectl get pods -A | grep -v -E "Running|Completed"'
 mise run agent-health                                                 # Grafana alert state
 mise run services-check                                               # fuller check (gilbert)
+```
+
+If you **drained transmission** before the power-off, restore the suspended
+sync policy once k3s is up; ArgoCD then brings the pod back on its own:
+
+```fish
+ssh ringtail 'sudo k3s kubectl -n argocd patch application torrent-ringtail --type merge -p "{\"spec\":{\"syncPolicy\":{\"automated\":{}}}}"'
+argocd app get torrent-ringtail   # expect Synced/Healthy
 ```
 
 Things that commonly need a nudge:
