@@ -22,12 +22,17 @@ access to looked exactly like a typo.
 
 The webhook half: every repo in the pool (pool != "none") gets the forge →
 talos hook (the `issues` umbrella event — issue creation, assign, label,
-milestone and comment deliveries — + the PR-review events), so "share a repo
-with the agent" also wires up its triggers. The hook is identified by its
-delivery URL; events and active-state are reconciled in place (the shared
-signing secret is only needed at creation — resolved from
-$TALOS_FORGE_WEBHOOK_SECRET or 1Password, so a CI apply that must CREATE a
-hook fails loudly and asks for a local run from gilbert).
+milestone and comment deliveries — the PR-review events, and the `pull_request`
+open/close/merge/reopen deliveries), so "share a repo with the agent" also
+wires up its triggers. The `pull_request` deliveries exist so talos can
+invalidate its issues queue when a PR merges — a merge changes the issue list,
+so keeping the queue fresh matters even though a `pull_request` delivery never
+spawns a PR session, and today spawns no cycle at all; eblume/talos#151 adds
+the issue-side merge edge. The hook is identified by its delivery URL; events
+and active-state are reconciled in place (the shared signing secret is only
+needed at creation — resolved from $TALOS_FORGE_WEBHOOK_SECRET or 1Password,
+so a CI apply that must CREATE a hook fails loudly and asks for a local run
+from gilbert).
 
 The label half: every pool repo also gets the `agents` engagement label
 (named after the collaborator — talos' FORGE_BOT_LABEL defaults to the bot
@@ -115,7 +120,10 @@ TALOS_HOOK_URL = "https://talos.ops.eblu.me/api/webhooks/forge"
 # string" (routers/api/v1/utils/hook.go issuesHook), so one name receives
 # issue creation (the auto-engage edge, eblume/blumeops#725), assign, label,
 # milestone and comment deliveries; the PR-review events drive PR feedback
-# runs.
+# runs; `pull_request` covers the open/close/merge/reopen deliveries, which
+# talos consumes to invalidate its issues queue on merges — a `pull_request`
+# delivery never spawns a PR session, and today spawns no cycle at all;
+# eblume/talos#151 adds the issue-side merge edge.
 #
 # Two vocabularies because the GET read-back expands the flag set back into
 # names (models/webhook/webhook.go EventsArray) — and `pull_request_review` is
@@ -127,6 +135,7 @@ TALOS_HOOK_URL = "https://talos.ops.eblu.me/api/webhooks/forge"
 TALOS_HOOK_SEND_EVENTS = frozenset(
     {
         "issues",
+        "pull_request",
         "pull_request_comment",
         "pull_request_review",
     }
@@ -138,6 +147,7 @@ TALOS_HOOK_READ_EVENTS = frozenset(
         "issue_label",
         "issue_milestone",
         "issue_comment",
+        "pull_request",
         "pull_request_comment",
         "pull_request_review_approved",
         "pull_request_review_rejected",
