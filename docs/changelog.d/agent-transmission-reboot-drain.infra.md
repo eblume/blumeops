@@ -1,0 +1,1 @@
+# Cap the torrent-ringtail transmission pod's terminationGracePeriodSeconds at 10s and stop in-flight transfers in a preStop, so ringtail reboots can't be held up by the NFS download mount (eblume/blumeops#906). One-line pointers to the same fix were added to the other sifaka-NFS workload manifests.
