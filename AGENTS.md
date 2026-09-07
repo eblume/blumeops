@@ -41,7 +41,7 @@ need to confirm through biometric approval.
    Where the blocker is a **missing binary**, guard it at the point of use with
    `"$(dirname "$0")/_require" docker kubectl` under `set -euo pipefail`, so the
    task refuses with an explanation instead of half-running. Guard only what
-   mise itself cannot supply — `mise.toml` installs dagger, pulumi,
+   mise itself cannot supply — `mise.toml` installs pulumi,
    ansible-core and flyctl into the pod, so those are present inside
    `mise run`. Vault- and route-blocked tasks need no guard: `op` and `ssh`
    already fail legibly on their own.
@@ -77,7 +77,6 @@ need to confirm through biometric approval.
 ```
 ./docs/                 # documentation (Diataxis, Quartz)
 ./docs/changelog.d/     # towncrier fragments
-./src/blumeops/         # dagger module (Frigate model export)
 ./.forgejo/             # forgejo-runner actions and workflows
 ./mise-tasks/           # scripts via `mise run`
 ./ansible/playbooks/    # ansible (indri.yml primary)
@@ -289,8 +288,9 @@ the Blumeops project. When completing a recurring chore (e.g. "BlumeOps doc
 review"), `heph log` a short note of what was done, then `heph done` it.
 
 Most operational scripts are stored in `./mise-tasks/`. For scripts with any logic or
-complexity, use uv run --script 's with explicit dependencies. Complex
-workflows with artifacts should become dagger pipelines. Mise tasks are for
+complexity, use uv run --script 's with explicit dependencies. CI workflows are plain
+YAML steps; heavy container work is nix builds or docker runs, not dagger
+pipelines. Mise tasks are for
 development processes and operations - tools for the user or the agent.
 
 ## Credentials

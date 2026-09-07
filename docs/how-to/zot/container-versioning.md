@@ -60,12 +60,12 @@ an existing tag is rejected server-side (see [[enforce-tag-immutability]]).
 Build or inspect a nix container without going through CI:
 
 ```fish
-dagger call build-nix --src=. --container-name=ntfy export --path=./ntfy.tar
+docker run --rm -v "$PWD":/workspace -w /workspace nixos/nix:2.34.4 nix-build containers/ntfy/default.nix -o result
 docker run --rm nixos/nix:2.34.4 nix --extra-experimental-features 'nix-command flakes' eval --raw nixpkgs#ntfy-sh.version
 ```
 
-`build-nix` produces a docker-archive tarball (`docker load`-able);
-the same `nix eval` in a nixos/nix container is what the sync check falls
+The `nix-build` in a nixos/nix container produces a docker-archive tarball
+(`docker load`-able); the same `nix eval` in a nixos/nix container is what the sync check falls
 back to for unmodified nixpkgs packages.
 
 ## Related
@@ -73,4 +73,3 @@ back to for unmodified nixpkgs packages.
 - [[build-container-image]] — Full container creation workflow
 - [[harden-zot-registry]] — Registry auth + access control
 - [[enforce-tag-immutability]] — Why tags can't be overwritten
-- [[dagger]] — Dagger reference

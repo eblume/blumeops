@@ -13,7 +13,7 @@ tags:
 Run the Forgejo Actions runner as a native macOS LaunchAgent on
 [[indri]], managed by the `forgejo_runner` ansible role. Jobs run
 directly on the host with indri's mise toolchain (host-mode); Docker
-Desktop stays only as the [[dagger]] engine host. This replaced the
+Desktop stays only as the dagger engine host (the runner keeps dagger for the hephaestus/cv CI it hosts). This replaced the
 minikube-hosted runner as phase 0 of [[retire-minikube]], so source
 builds no longer compete with the LGTM stack inside the minikube VM;
 phase 6 then dropped the per-job container entirely.
