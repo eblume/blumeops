@@ -18,7 +18,7 @@ let
     inherit version;
     pname = "alloy-ui";
     src = "${src}/internal/web/ui";
-    npmDepsHash = pkgs.lib.fakeHash;
+    npmDepsHash = "sha256-vrJUH76B0Zzuqh7Ri7B2K9YoX30xO//G0/opfYC/GTE=";
 
     buildPhase = ''
       runHook preBuild
@@ -62,7 +62,9 @@ let
     pname = "beyla-binaries";
     version = beyla-version;
     nativeBuildInputs = [ pkgs.gnutar pkgs.gzip ];
-    src = null;
+    # No source: the inputs are the two fetchurl tarballs. Without this the
+    # default unpackPhase aborts on "$src or $srcs should point to the source".
+    dontUnpack = true;
 
     buildPhase = ''
       runHook preBuild
@@ -97,7 +99,7 @@ let
     '';
 
     outputHashMode = "recursive";
-    outputHash = pkgs.lib.fakeHash;
+    outputHash = "sha256-+8CEVQ+eiJIvTRz3Y1RrKP3J38THYWTMKLjZYRqhKig=";
     outputHashAlgo = "sha256";
   };
 
