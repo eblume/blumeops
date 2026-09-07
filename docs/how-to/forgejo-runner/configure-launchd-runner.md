@@ -47,22 +47,21 @@ phase 6 then dropped the per-job container entirely.
 ### 1. Build the binary
 
 ```fish
-ssh indri 'cd ~/code/3rd/forgejo-runner && git fetch --tags && git checkout v13.1.0 && mise x go@1.26.5 -- env GOTOOLCHAIN=local make build'
+ssh indri 'cd ~/code/3rd/forgejo-runner && git fetch --tags && git checkout v13.1.0 && make build'
 ```
 
-> **Use the explicit `mise x go@…` form.** The checkout's untracked
-> `mise.toml` pins whatever go it was created with, and mise hard-sets
-> `GOROOT`, which defeats `GOTOOLCHAIN=auto`: when the tag's `go.mod` asks
-> for a newer toolchain, a plain `make build` dies with
-> `compile: version "goX" does not match go tool version "goY"` (bit us on
-> the v12 → v13 bump, which raised the floor to go 1.26). Same mechanism as
-> [[upgrade-forgejo#Go toolchain pin]]; the version comes from the role's
-> `forgejo_runner_go_version`, bump it whenever a tag raises its floor.
+> **A plain `make build` works at any tag.** go comes from the indri global
+> mise baseline (`indri_go_version` in the indri play) and `GOTOOLCHAIN=auto`
+> switches per `go.mod` — the play turns off mise's `GOROOT` export
+> (`go.set_goroot false`), which used to break the auto-switch (bit us on the
+> v12 → v13 bump, which raised the floor to go 1.26). The role also removes
+> the checkout's untracked `mise.toml`, which used to pin a stale go.
+> Mechanism: [[upgrade-forgejo]] §Go toolchain.
 
 The role verifies the binary exists and that `--version` matches its
 pinned `forgejo_runner_version`, and fails with these instructions
 otherwise. Version bumps = check out the new tag, rebuild, bump the
-role default (and `forgejo_runner_go_version` if the floor moved), then
+role default, then
 **restart the LaunchAgent by hand** — a version-only bump changes no
 template, so `provision-indri` verifies the new binary but its restart
 handler never fires and the old daemon keeps running:

@@ -41,13 +41,21 @@
   ansible.builtin.set_fact:
     forgejo_needs_build: "{{ (forgejo_version | regex_replace('^v', '')) + '+' not in (forgejo_installed.stdout | default('')) }}"
 
+- name: Remove untracked local mise pin
+  # A per-checkout mise.toml shadows the indri global go baseline and goes
+  # stale as tags raise their go.mod floor; the indri play is the single
+  # source of truth for the toolchain. Runs before the build so a stale pin
+  # never reaches the compiler.
+  ansible.builtin.file:
+    path: "{{ forgejo_repo_dir }}/mise.toml"
+    state: absent
+
 - name: Build and deploy forgejo at the pinned version
   when: forgejo_needs_build | bool
   block:
     - name: Check out the pinned forgejo version from the mirror
       # force discards modified *tracked* files only; untracked build outputs
-      # (gitea/forgejo binaries, local mise.toml) and the codeberg remote are
-      # left in place.
+      # (gitea/forgejo binaries) and the codeberg remote are left in place.
       ansible.builtin.git:
         repo: "{{ forgejo_mirror_url }}"
         dest: "{{ forgejo_repo_dir }}"
@@ -55,14 +63,13 @@
         force: true
 
     - name: Build forgejo from source
-      # GOTOOLCHAIN=local + an explicit go matching go.mod's `toolchain` directive
-      # avoids the mise-GOROOT vs auto-switch conflict (see [[upgrade-forgejo]]).
-      # make build is invoked directly rather than via the untracked local
-      # mise.toml so the build is fully reproducible from this role.
+      # go comes from the indri global mise baseline; GOTOOLCHAIN=auto
+      # switches per go.mod when a tag raises its floor ([[upgrade-forgejo]]
+      # §Go toolchain). node stays role-pinned.
       ansible.builtin.command:
         cmd: >-
-          {{ forgejo_mise_bin }} x go@{{ forgejo_go_version }} node@{{ forgejo_node_version }}
-          -- env GOTOOLCHAIN=local TAGS="{{ forgejo_build_tags }}" make build
+          {{ forgejo_mise_bin }} x node@{{ forgejo_node_version }}
+          -- env TAGS="{{ forgejo_build_tags }}" make build
         chdir: "{{ forgejo_repo_dir }}"
       changed_when: true
 
