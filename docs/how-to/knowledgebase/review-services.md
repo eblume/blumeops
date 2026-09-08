@@ -125,7 +125,7 @@ The recurring review task covers the **single most-stale service** — the one
 rest in the queue for future runs. If the upgrade is genuinely out of scope
 for one sitting (e.g. a major train jump with migrations), do the largest
 safe step now (such as the latest patch on the current train) and file the
-rest as its own heph task, noting why in the task body.
+rest as a follow-up forge issue/PR, noting why in the description.
 
 ## Remote-Agent Reviews
 
@@ -154,7 +154,7 @@ needs nix or a builder:
    green build, point the manifest `newTag` at the pushed
    `v<version>-<sha7>-nix` tag.
 4. Stamp `last-reviewed` and update `current-version`. Record what changed
-   and why in the changelog fragment (see AGENTS.md) and the heph log doc —
+   and why in the changelog fragment (see AGENTS.md) and the PR description —
    do not write review findings into `notes`. `notes` describes how the
    service is deployed at all, not a per-review log; only touch it if the
    deployment relationship itself changed.
