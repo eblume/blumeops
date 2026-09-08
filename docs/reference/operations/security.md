@@ -1,6 +1,6 @@
 ---
 title: Security
-modified: 2026-09-05
+modified: 2026-09-07
 last-reviewed: 2026-08-30
 tags:
   - operations
@@ -39,11 +39,13 @@ Rollout (heph `01KVQX81703HDE77ED88XDPSR2`):
 Current state: step 2 is landed (#772, 2026-09-01) — the four
 restricted-required fields (`runAsNonRoot` + `seccompProfile: RuntimeDefault`
 at pod level, `allowPrivilegeEscalation: false` + `capabilities drop ALL` at
-container level) are on the near-miss workloads under eblume/blumeops#753
-(no `enforce` yet). Eight workloads whose images run as root wedged in
+container level) are on the near-miss workloads under eblume/blumeops#753.
+Eight workloads whose images run as root wedged in
 `CreateContainerConfigError` and were rolled back on all four fields
-(ed4c0667); per-workload decisions for them are below (eblume/blumeops#797)
-and each one still blocks its namespace's `enforce` flip until acted on.
+(ed4c0667); per-workload decisions for them are below (eblume/blumeops#797).
+Step 3 is in: the non-root fixes landed (#872, #885, #890) and warnings are
+quiet, so authentik, immich, mealie, paperless, and teslamate flipped to
+`enforce: restricted` (2026-09-07) — the first `enforce` labels in the fleet.
 
 Three workloads remain documented exceptions that block their own
 namespace's `enforce` flip: grafana's `init-chown-data` init container runs
@@ -51,8 +53,9 @@ as root with CHOWN (needs a non-root chown pattern), birdnet-go (added after
 this rollout's label pass, #765) runs its whole container as root (upstream
 image has no USER; needs a non-root image or uid+PVC-ownership work), and
 frigate (upstream image with an s6-overlay root entrypoint and no supported
-non-root path — see decision table). Enforcement follows in per-namespace
-PRs once warnings are quiet.
+non-root path — see decision table). Enforcement follows in per-namespace PRs
+as the remaining namespaces go quiet; the exceptions above hold their
+namespaces off `enforce`.
 
 ### Non-root decisions — the eight rolled-back workloads
 
@@ -81,7 +84,7 @@ Station keeps working; new files land as 1000:1000, which is fine.
 
 | Namespace(s) | Target | Notes |
 |---|---|---|
-| 1password, argocd, authentik, external-secrets, homepage, horkos, immich, kiwix, mealie, miniflux, monitoring, navidrome, ntfy, paperless, shower, teslamate, torrent | `restricted` | near-misses fixed in step 2; the eight root-image workloads follow the decision table above |
+| 1password, argocd, authentik, external-secrets, homepage, horkos, immich, kiwix, mealie, miniflux, monitoring, navidrome, ntfy, paperless, shower, teslamate, torrent | `restricted` | near-misses fixed in step 2; the eight root-image workloads handled per the decision table above |
 | ollama, talos | `baseline` | hostPath use |
 | alloy | exempt | alloy-tracing-ringtail needs privileged + hostPID (Beyla eBPF) |
 | frigate | exempt | root s6-overlay entrypoint, no supported non-root path (decision table above) |
