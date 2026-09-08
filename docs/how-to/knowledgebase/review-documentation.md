@@ -110,7 +110,7 @@ After reviewing and editing a card, visually verify the rendered output. This st
 mise run docs-preview how-to/knowledgebase/review-documentation
 ```
 
-This builds the docs with Dagger, serves them on `localhost:8484`, and opens the browser to the specified card. Press Ctrl-C to stop. Accepts paths with or without the `.md` suffix.
+This builds the docs with the `docs-build-tarball` task (a node:22-slim docker run), serves them on `localhost:8484`, and opens the browser to the specified card. Press Ctrl-C to stop. Accepts paths with or without the `.md` suffix.
 
 ## Making Changes
 

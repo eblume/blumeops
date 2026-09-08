@@ -14,6 +14,8 @@ spec:
       labels:
         app: transmission
     spec:
+      # Cap the termination window for ringtail reboots — eblume/blumeops#906.
+      terminationGracePeriodSeconds: 10
       securityContext:
         runAsNonRoot: true
         # The Nix image has a fixed uid-1000 user (no PUID/su-exec dance);
@@ -49,6 +51,28 @@ spec:
                 secretKeyRef:
                   name: transmission-rpc
                   key: password
+          # Stop in-flight transfers on shutdown so the daemon flushes NFS
+          # with nothing in flight — eblume/blumeops#906.
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    # Session-id handshake (409 header), then transmission.control
+                    # stop: halts transfers without pausing, so the queue resumes
+                    # on next boot.
+                    sid=$(curl -s --max-time 2 -o /dev/null -D - \
+                          -u "${TRANSMISSION_RPC_USERNAME}:${TRANSMISSION_RPC_PASSWORD}" \
+                          http://localhost:9091/transmission/rpc | tr -d '\r' | \
+                          awk 'tolower($1) == "x-transmission-session-id:" { print $2 }')
+                    [ -n "$sid" ] && curl -s --max-time 3 -o /dev/null \
+                          -u "${TRANSMISSION_RPC_USERNAME}:${TRANSMISSION_RPC_PASSWORD}" \
+                          -H "X-Transmission-Session-Id: $sid" \
+                          -d '{"method":"transmission.control","arguments":["stop"]}' \
+                          http://localhost:9091/transmission/rpc
+                    sleep 2
           ports:
             - containerPort: 9091
               name: web

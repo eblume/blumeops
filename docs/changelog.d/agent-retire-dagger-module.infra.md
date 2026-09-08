@@ -1,0 +1,1 @@
+Retire Dagger from blumeops: `frigate-export-model` is a plain docker run (python:3.11-slim) in place of a `dagger call`, and the dagger module (`src/blumeops/`), `dagger.json`, the `dagger-io` dependency, and the `/sdk/` gitignore entry are all deleted — the ty-check `.ty-env` carve-out for dagger-io dissolves with them.

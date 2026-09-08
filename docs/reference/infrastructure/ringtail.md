@@ -59,7 +59,7 @@ Managed declaratively via `nixos/ringtail/configuration.nix`. Home-manager handl
 mise run provision-ringtail
 ```
 
-This locks new flake inputs via Dagger, verifies the current commit is pushed to forge, then deploys the exact commit via ansible. If the lockfile changed, it stages the file and exits so you can commit and re-run. To update all inputs to latest versions, see [[manage-lockfile]].
+This runs `nix flake lock` in a nixos/nix container to resolve any newly added inputs, verifies the current commit is pushed to forge, then deploys the exact commit via ansible. If the lockfile changed, it stages the file and exits so you can commit and re-run. To update all inputs to latest versions, see [[manage-lockfile]].
 
 Activation runs **detached from the SSH session**, as a transient systemd unit named `blumeops-nixos-rebuild`. A switch restarts `sshd`, `tailscaled` and the network stack, so as a child of the session it could be killed partway through by the teardown it caused. The play starts the unit, reconnects, polls it to completion, and reports systemd's `Result` alongside the unit's journal on failure.
 

@@ -382,10 +382,12 @@ services:
     current-version: "13.1.0"
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
     notes: >-
-      Runner daemon version (code.forgejo.org/forgejo/runner); host-mode
-      jobs run on the mise-pinned toolchain in the forgejo_runner role —
+      Runner daemon version (code.forgejo.org/forgejo/runner), built from
+      source with go from the shared indri baseline (indri_go_version in the
+      indri play); host-mode jobs run on the mise-pinned toolchain in the
+      forgejo_runner role —
       REVIEW ALSO `forgejo_runner_host_tools` there: it mirrors pins held
-      elsewhere (dagger.json, mise.toml, prek.toml), so diff it against
+      elsewhere (mise.toml, prek.toml), so diff it against
       those sources and realign; not an independent upgrade decision.
   - name: nix-container-builder
     type: nixos
@@ -493,7 +495,8 @@ services:
       Built from source on indri (~/code/3rd/forgejo), origin remote = forge
       mirror (forge.ops.eblu.me/mirrors/forgejo), codeberg = upstream. Off
       Homebrew — custom LaunchAgent (mcquack.eblume.forgejo.plist), mise
-      toolchain. v16 major upgrade, see [[upgrade-forgejo]].
+      toolchain, go from the shared indri baseline (indri_go_version). v16
+      major upgrade, see [[upgrade-forgejo]].
       REVIEW ALSO: the Actions job-log REST API arrived in v16.0.0 and
       `mise run runner-logs` now depends on it — a downgrade below 16 silently
       costs private-repo log access (the pre-16 web route is anonymous-only).
@@ -657,18 +660,6 @@ services:
       (`techaro.lol-anubis-auth-<hash>`), so a settings change no longer needs a
       manual COOKIE_PREFIX bump. Clients holding a v1.25 cookie re-challenge
       once after deploy; nothing in fly/ reads the cookie by name.
-
-  - name: dagger
-    type: mise
-    last-reviewed: 2026-08-30
-    current-version: "0.21.9"
-    upstream-source: https://github.com/dagger/dagger/releases
-    notes: >-
-      Dagger CI/CD engine; pinned in mise.toml (mirrored in dagger.json
-      engineVersion, forgejo_runner_host_tools, and the tool card).
-      2026-08-30 review: bumped 0.21.8 -> 0.21.9 (patch; SSHFS-backed
-      volumes added, six fixes, no breaking changes); verified 0.21.9
-      installs+runs in the pod.
 
   - name: ansible-core
     type: mise

@@ -17,6 +17,7 @@ configMapGenerator:
       disableNameSuffixHash: true
     files:
       - mutelist/core-pod-security.yaml
+      - mutelist/kubelet-node-files.yaml
       - mutelist/rbac.yaml
 
 images:

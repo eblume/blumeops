@@ -69,7 +69,7 @@ Versioned NixOS services (forgejo-runner, snowflake, k3s) are pinned via a `nixp
 
 ### Mise Tools (`type: mise`)
 
-Development tools managed via `mise.toml` with pinned versions. These are local CLI tools (dagger, pulumi, prek, ty, ansible-core) rather than deployed services.
+Development tools managed via `mise.toml` with pinned versions. These are local CLI tools (pulumi, prek, ty, ansible-core) rather than deployed services.
 
 1. Check the upstream releases page for new versions
 2. Review the changelog for breaking changes
@@ -189,4 +189,5 @@ BlumeOps uses kustomize manifests for all services. Helm charts should not be in
 - [[deploy-k8s-service]] - Deploy changes to Kubernetes services
 - [[build-container-image]] - Build and release custom container images
 - [[add-ansible-role]] - Add or modify Ansible roles
+- [[update-tooling-dependencies]] - Full procedure for updating pinned tool versions
 - [[service-versions]] - Version tracking file reference

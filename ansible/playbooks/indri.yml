@@ -2,10 +2,61 @@
 - name: Configure indri
   hosts: indri
 
+  # Baseline Go for every source build on indri (forgejo, forgejo-runner,
+  # zot), pinned globally via mise in the pre_tasks below. GOTOOLCHAIN=auto
+  # switches per go.mod, so this is a starting point, not a floor to chase —
+  # bump it only when it can no longer run the toolchain switcher.
+  # See [[upgrade-forgejo]] §Go toolchain.
+  vars:
+    indri_go_version: "1.26.7"
+
   # Fetch 1Password credentials upfront to minimize prompts
   # Each role also fetches its own credentials (with 'when: <var> is not defined')
   # so they still work when running with --tags
   pre_tasks:
+    # Global mise baseline for the source builds: mise exports GOROOT by
+    # default (go.set_goroot), and an exported GOROOT breaks Go's
+    # GOTOOLCHAIN=auto switching — the auto-switched driver resolves
+    # `compile` from the pinned GOROOT and dies with `compile: version "goX"
+    # does not match go tool version "goY"`. Tagged for each consumer so
+    # `--tags forgejo` (etc.) still applies it. See [[upgrade-forgejo]]
+    # §Go toolchain.
+    - name: Check mise go.set_goroot setting
+      ansible.builtin.command: mise settings get go.set_goroot
+      register: mise_set_goroot
+      changed_when: false
+      check_mode: false
+      environment:
+        PATH: "/Users/erichblume/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      tags: [mise, forgejo, forgejo_runner, zot]
+
+    - name: Disable mise GOROOT export
+      ansible.builtin.command: mise settings set go.set_goroot false
+      when: mise_set_goroot.stdout | default('') != 'false'
+      changed_when: true
+      environment:
+        PATH: "/Users/erichblume/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      tags: [mise, forgejo, forgejo_runner, zot]
+
+    - name: Check current global go baseline
+      ansible.builtin.command: mise ls --global go --json
+      register: mise_go_baseline_current
+      changed_when: false
+      check_mode: false
+      environment:
+        PATH: "/Users/erichblume/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      tags: [mise, forgejo, forgejo_runner, zot]
+
+    - name: Set global go baseline
+      ansible.builtin.command: "mise use --global go@{{ indri_go_version }}"
+      when: >-
+        (mise_go_baseline_current.stdout | default('[]', true) | trim | from_json
+         | map(attribute='version') | list) != [indri_go_version]
+      changed_when: true
+      environment:
+        PATH: "/Users/erichblume/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      tags: [mise, forgejo, forgejo_runner, zot]
+
     - name: Fetch borgmatic database password
       ansible.builtin.command:
         cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/mw2bv5we7woicjza7hc6s44yvy/db-password"

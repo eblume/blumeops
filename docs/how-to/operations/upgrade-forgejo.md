@@ -52,34 +52,35 @@ ssh indri 'cp ~/forgejo/data/forgejo.db ~/forgejo/data/forgejo.db.bak-(date +%Y%
 
 # 2. Bump the pinned version in the role defaults (this is the PR change):
 #      forgejo_version: "v16.0.2"
-#    For a MAJOR bump, also set forgejo_go_version to match the target tag's
-#    go.mod `toolchain` directive (check: git show <tag>:go.mod | head).
-#    v16 requires go1.26.5.
+#    No toolchain work needed: GOTOOLCHAIN=auto switches per go.mod — see
+#    the note below.
 
-# 3. Deploy — fetches, checks out, builds with the pinned toolchain, restarts.
+# 3. Deploy — fetches, checks out, builds, restarts.
 mise run provision-indri -- --tags forgejo
 ```
 
-> **Go toolchain pin (major bumps).** A source build needs a Go that satisfies
-> the tag's `go.mod` `toolchain` directive. mise hard-sets `GOROOT`, which
-> defeats `GOTOOLCHAIN=auto` (the auto-switched driver then resolves `compile`
-> from the wrong `GOROOT` and fails with `compile: version "goX" does not match
-> go tool version "goY"`). The role sidesteps this by building with
-> `mise x go@{{ forgejo_go_version }} … env GOTOOLCHAIN=local make build`, so
-> **`forgejo_go_version` must be bumped alongside `forgejo_version`** whenever the
-> target tag raises its toolchain floor.
+> **Go toolchain (why `go.set_goroot` is off on indri).** mise exports
+> `GOROOT` by default (`go.set_goroot`, on), which breaks Go's
+> `GOTOOLCHAIN=auto` switching: the auto-switched driver then resolves
+> `compile` from the pinned `GOROOT` and dies with `compile: version "goX"
+> does not match go tool version "goY"`. The indri play therefore sets
+> `mise settings set go.set_goroot false` and pins one global go baseline
+> (`indri_go_version` in the play vars). A plain `make build` now works at any
+> tag — Go reads the `go`/`toolchain` lines of go.mod and downloads the
+> needed toolchain itself. `indri_go_version` is a starting point, not a
+> floor to chase.
 
 ### Manual build (fallback / debugging)
 
 ```fish
 ssh indri 'cd ~/code/3rd/forgejo && git fetch --tags origin && git checkout v16.0.2'
-ssh indri 'cd ~/code/3rd/forgejo && mise x go@1.26.5 node@24 -- env GOTOOLCHAIN=local TAGS="bindata timetzdata sqlite sqlite_unlock_notify" make build && ln -f gitea forgejo'
+ssh indri 'cd ~/code/3rd/forgejo && mise x node@24 -- env TAGS="bindata timetzdata sqlite sqlite_unlock_notify" make build && ln -f gitea forgejo'
 mise run provision-indri -- --tags forgejo   # restart
 ```
 
-Note: the repo's local `mise.toml` (`mise run build`) is **untracked** and pins
-go 1.25.8, so it fails on v15 — prefer the explicit `mise x go@…` form above for
-manual builds.
+The role removes the checkout's untracked `mise.toml` (it pinned an older go
+and shadowed the indri global baseline); the manual build above uses the
+global one.
 
 ## Post-upgrade verification
 

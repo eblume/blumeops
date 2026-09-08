@@ -43,9 +43,11 @@ jobs:
           # make discovery silently empty. No stderr suppression —
           # metadata failures should be visible.
           nix flake metadata --json > /tmp/flake-meta.json
-          read -r -a ALL < <(nix-instantiate --eval -E "builtins.concatStringsSep \" \" (builtins.attrNames (builtins.fromJSON (builtins.readFile /tmp/flake-meta.json)).locks.nodes.root.inputs)" | tr -d '"')
+          ALL=$(nix-instantiate --eval -E "builtins.concatStringsSep \" \" (builtins.attrNames (builtins.fromJSON (builtins.readFile /tmp/flake-meta.json)).locks.nodes.root.inputs)" | tr -d '"')
           INPUTS=()
-          for i in "${ALL[@]}"; do
+          # Input names are safe identifiers; iterate as an array for shellcheck.
+          read -r -a ALL_INPUTS <<<"$ALL"
+          for i in "${ALL_INPUTS[@]}"; do
             case ",$SKIP," in *",$i,"*) continue ;; esac;
             INPUTS+=("$i")
           done

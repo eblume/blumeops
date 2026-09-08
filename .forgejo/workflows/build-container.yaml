@@ -1,7 +1,5 @@
 # Container build workflow (nix-only)
 # Manual dispatch only — use `mise run container-build-and-release <name>`.
-# Shared Dagger helpers (src/blumeops/) make path-based auto-triggers unreliable,
-# so all container builds are triggered explicitly.
 # A lightweight classify job runs on indri, then the container's
 # default.nix is built on nix-container-builder (ringtail) via nix-build + skopeo.
 name: Build Container

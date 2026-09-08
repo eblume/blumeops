@@ -6,17 +6,14 @@
 
 # Source build paths — same mirror-checkout pattern as the forgejo role.
 # Version pin governs the verification check; build by hand:
-#   ssh indri 'cd ~/code/3rd/forgejo-runner && git fetch --tags && git checkout v13.1.0 && mise x go@1.26.5 -- env GOTOOLCHAIN=local make build'
+#   ssh indri 'cd ~/code/3rd/forgejo-runner && git fetch --tags && git checkout v13.1.0 && make build'
+# (go comes from the indri global mise baseline; GOTOOLCHAIN=auto switches
+# per go.mod — the indri play turns off mise's GOROOT export, see
+# [[upgrade-forgejo]] §Go toolchain.)
 # then restart the LaunchAgent (a version-only bump changes no template, so
 # the role's restart handler does not fire — the old binary keeps running):
 #   ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist; launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist'
 forgejo_runner_version: v13.1.0
-# Go toolchain for the source build — must satisfy the tag's go.mod `go`
-# directive (v13 requires 1.26). Same trap as the forgejo role: the checkout's
-# untracked mise.toml pins an older go, and mise hard-sets GOROOT, so a plain
-# `make build` under GOTOOLCHAIN=auto dies with `compile: version "goX" does
-# not match go tool version "goY"`. See [[upgrade-forgejo]] §Go toolchain pin.
-forgejo_runner_go_version: "1.26.5"
 forgejo_runner_repo_dir: /Users/erichblume/code/3rd/forgejo-runner
 forgejo_runner_binary: "{{ forgejo_runner_repo_dir }}/forgejo-runner"
 
@@ -53,9 +50,9 @@ forgejo_runner_labels:
 # never the source of truth, and bumping an entry on its own is drift, not an
 # upgrade. What each one has to match:
 #
-#   dagger      dagger.json engineVersion (a client/engine mismatch fails the
-#               job; the engine runs as a container in the right-sized Docker
-#               Desktop, 2cpu/4GiB)
+#   dagger      the runner's own dagger CLI/engine pin (kept for the
+#               hephaestus/cv CI pipelines this forge hosts; the engine runs
+#               as a container in the right-sized Docker Desktop, 2cpu/4GiB)
 #   prek        mise.toml
 #   flyctl      mise.toml — used by the deploy-fly workflow
 #   argocd      service-versions.yaml `argocd`

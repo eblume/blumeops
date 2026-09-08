@@ -72,7 +72,7 @@ by the host-mode [[forgejo]]-runner on [[indri]] ([[configure-launchd-runner]]):
 
 - **Runner**: native LaunchAgent on indri, managed by the `forgejo_runner` ansible role (no Kubernetes, no job container)
 - **Toolchain**: jobs run directly with indri's mise toolchain (Node.js, uv/Python, …); the `k8s` compat label was dropped once workflows repo-wide moved to `runs-on: indri`
-- **Build engine**: the docs build runs a node:22-slim container via the `docs-build-tarball` task in indri's Docker Desktop; [[dagger]] remains only for the Frigate model export
+- **Build engine**: the docs build runs a node:22-slim container via the `docs-build-tarball` task in indri's Docker Desktop (no Dagger)
 
 ## Quartz Static Site Generator
 
@@ -133,6 +133,5 @@ docker run --rm -it -v "$PWD":/workspace:ro node:22-slim sh -c '
 ## Related
 
 - [[docs]] - Documentation service reference
-- [[dagger]] - Dagger reference (Frigate model export)
 - [[forgejo]] - Git forge and CI/CD
 - [[argocd]] - GitOps deployment
