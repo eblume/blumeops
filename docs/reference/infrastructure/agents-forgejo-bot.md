@@ -104,6 +104,16 @@ workspace checkout — are declared in **one** file:
   from closed issues), and label API calls need the *issue* scope the CI PAT
   lacks, so in CI the label half skips with a warning and is applied by a
   local run from gilbert — same follow-up as hook creation.
+- `release_hook` (`true` | absent): release repos (`talos`, `horkos`,
+  `blumeops`, `cv`) additionally get the forge → horkos **release webhook**
+  (push + tag-create events) at `https://horkos.ops.eblu.me/api/webhooks/forge`,
+  reconciled by the same task — the horkos publisher acts on tag creation
+  today, push deliveries are accepted but inert (eblume/horkos#17 step 2).
+  All release repos share **one** signing secret, the `horkos forge webhook`
+  item in the blumeops vault: resolved from 1Password at creation (or
+  `$HORKOS_FORGE_HOOK_SECRET`), and ESO-mounted on the horkos pod
+  (`argocd/manifests/horkos/external-secret-forge-hook.yaml`). Hook creation
+  is a local run from gilbert, like the talos hooks.
 
 So adding a repo is: edit the file, open a PR, merge. No clicking in the forge
 UI — and nothing to forget, which is the point. See [[agent-containerization]]
