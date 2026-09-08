@@ -1,0 +1,52 @@
+# Kubelet node-file checks — ownership/permissions of the node-local
+# kubelet.conf, kubelet config.yaml, and the kubeadm service drop-in. The
+# in-cluster scanner can only verify these files when it runs on the node
+# itself, so a remote scan reports MANUAL for them. The node verifier in
+# review-compliance-reports checks the real k3s kubelet config over
+# ssh ringtail, so these rows are muted rather than triaged weekly.
+Mutelist:
+  Accounts:
+    "*":
+      Checks:
+        "kubelet_conf_file_ownership":
+          Regions: ["*"]
+          Resources:
+            - "^ringtail$"
+          Description: >-
+            Node-local file the scanner cannot read from a pod; verified by
+            the node section of review-compliance-reports over ssh ringtail.
+        "kubelet_conf_file_permissions":
+          Regions: ["*"]
+          Resources:
+            - "^ringtail$"
+          Description: >-
+            Node-local file the scanner cannot read from a pod; verified by
+            the node section of review-compliance-reports over ssh ringtail.
+        "kubelet_config_yaml_ownership":
+          Regions: ["*"]
+          Resources:
+            - "^ringtail$"
+          Description: >-
+            Node-local file the scanner cannot read from a pod; verified by
+            the node section of review-compliance-reports over ssh ringtail.
+        "kubelet_config_yaml_permissions":
+          Regions: ["*"]
+          Resources:
+            - "^ringtail$"
+          Description: >-
+            Node-local file the scanner cannot read from a pod; verified by
+            the node section of review-compliance-reports over ssh ringtail.
+        "kubelet_service_file_ownership_root":
+          Regions: ["*"]
+          Resources:
+            - "^ringtail$"
+          Description: >-
+            Node-local file the scanner cannot read from a pod; verified by
+            the node section of review-compliance-reports over ssh ringtail.
+        "kubelet_service_file_permissions":
+          Regions: ["*"]
+          Resources:
+            - "^ringtail$"
+          Description: >-
+            Node-local file the scanner cannot read from a pod; verified by
+            the node section of review-compliance-reports over ssh ringtail.
