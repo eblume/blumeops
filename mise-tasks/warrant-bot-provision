@@ -45,6 +45,7 @@ from typing import Annotated
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 # Tailnet name — the public forge.eblu.me is HTTPS-poison in-cluster
 # (docs/reference/services/argocd.md).
@@ -83,7 +84,7 @@ def op(*args: str, check: bool = True) -> subprocess.CompletedProcess:
     if check and result.returncode != 0:
         # Surface op's own message: a bare CalledProcessError hides the one
         # line that says what went wrong.
-        err.print(f"op {' '.join(args[:2])} failed: {result.stderr.strip()}")
+        err.print(f"op {' '.join(args[:2])} failed: {escape(result.stderr.strip())}")
         raise typer.Exit(1)
     return result
 
@@ -181,25 +182,25 @@ def main(
                 },
             )
             if resp.status_code == 403:
-                err.print(f"user creation refused (403): {resp.json().get('message', '')}")
+                err.print(f"user creation refused (403): {escape(str(resp.json().get('message', '')))}")
                 console.print(SCOPE_HELP)
                 raise typer.Exit(1)
             if resp.status_code not in (201, 200):
-                err.print(f"user creation failed ({resp.status_code}): {resp.text[:300]}")
+                err.print(f"user creation failed ({resp.status_code}): {escape(resp.text[:300])}")
                 raise typer.Exit(1)
             console.print(f"[green]created[/green] {BOT_USER}")
 
         # 2. collaborator grant (write — what workflow_dispatch needs)
         perm = c.get(f"{FORGE_API}/repos/{owner}/{repo}/collaborators/{BOT_USER}/permission")
         current = perm.json().get("permission") if perm.status_code == 200 else "none"
-        console.print(f"collaborator on {owner}/{repo}: {current}")
+        console.print(f"collaborator on {owner}/{repo}: {escape(current)}")
         if current != "write" and not dry_run:
             resp = c.put(
                 f"{FORGE_API}/repos/{owner}/{repo}/collaborators/{BOT_USER}",
                 json={"permission": "write"},
             )
             if resp.status_code not in (204, 201, 200):
-                err.print(f"collaborator grant failed ({resp.status_code}): {resp.text[:300]}")
+                err.print(f"collaborator grant failed ({resp.status_code}): {escape(resp.text[:300])}")
                 raise typer.Exit(1)
             console.print("[green]granted[/green] write")
 
@@ -230,7 +231,7 @@ def main(
                 timeout=30.0,
             )
             if resp.status_code not in (201, 200):
-                err.print(f"token mint failed ({resp.status_code}): {resp.text[:300]}")
+                err.print(f"token mint failed ({resp.status_code}): {escape(resp.text[:300])}")
                 raise typer.Exit(1)
             pat = resp.json()["sha1"]
             fields = [f"token[password]={pat}", f"login-password[password]={password}"]

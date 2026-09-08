@@ -62,6 +62,7 @@ from typing import Annotated
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 # FORGE_BASE is for human-facing links only. API calls use the tailnet name:
 # in-cluster DNS rewrites forge.eblu.me to indri, whose Caddy holds no cert
@@ -98,11 +99,11 @@ def forge_token() -> str:
             check=False,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-        err.print(f"No FORGEJO_TOKEN and `op read` failed: {exc}")
+        err.print(f"No FORGEJO_TOKEN and `op read` failed: {escape(str(exc))}")
         raise typer.Exit(1) from exc
     if result.returncode != 0:
         err.print("No FORGEJO_TOKEN and `op read` failed:")
-        err.print(result.stderr.strip())
+        err.print(escape(result.stderr.strip()))
         raise typer.Exit(1)
     return result.stdout.strip()
 
@@ -139,38 +140,38 @@ def enforce_policy(
     entry = (policy.get("actions") or {}).get(workflow)
     if entry is None:
         err.print(
-            f"'{workflow}' has no warrant-policy.yaml entry — unknown actions are "
+            f"'{escape(workflow)}' has no warrant-policy.yaml entry — unknown actions are "
             "deny-by-default. Add a policy entry (reviewed PR) to make it requestable."
         )
         raise typer.Exit(1)
     if entry.get("class") == "deny":
-        err.print(f"'{workflow}' is class DENY: {entry.get('note', 'not requestable')}")
+        err.print(f"'{escape(workflow)}' is class DENY: {escape(entry.get('note', 'not requestable'))}")
         raise typer.Exit(1)
 
     spec = entry.get("inputs") or {}
     for name, rules in spec.items():
         if rules.get("required") and name not in inputs:
-            err.print(f"policy: input '{name}' is required for {workflow}")
+            err.print(f"policy: input '{escape(name)}' is required for {escape(workflow)}")
             raise typer.Exit(1)
     for name, value in inputs.items():
         rules = spec.get(name)
         if rules is None:
-            err.print(f"policy: '{name}' is not a declared input of {workflow}")
+            err.print(f"policy: '{escape(name)}' is not a declared input of {escape(workflow)}")
             raise typer.Exit(1)
         if (pattern := rules.get("pattern")) and not re.fullmatch(pattern, value):
-            err.print(f"policy: input '{name}'='{value}' does not match {pattern}")
+            err.print(f"policy: input '{escape(name)}'='{escape(value)}' does not match {escape(pattern)}")
             raise typer.Exit(1)
         match rules.get("validate"):
             case "argocd-app":
                 if not main_file_exists(client, f"argocd/apps/{value}.yaml"):
                     err.print(
-                        f"policy: '{value}' is not a declared ArgoCD Application "
+                        f"policy: '{escape(value)}' is not a declared ArgoCD Application "
                         "(most carry a -ringtail suffix)"
                     )
                     raise typer.Exit(1)
             case "container-dir":
                 if not main_file_exists(client, f"containers/{value}/default.nix"):
-                    err.print(f"policy: containers/{value}/default.nix does not exist on main")
+                    err.print(f"policy: containers/{escape(value)}/default.nix does not exist on main")
                     raise typer.Exit(1)
             case None:
                 pass
@@ -206,7 +207,7 @@ def enforce_sha_binding(
     value = inputs.get(binding)
     if value is None:
         err.print(
-            f"policy: '{workflow}' binds its approved SHA through the '{binding}' input, "
+            f"policy: '{escape(workflow)}' binds its approved SHA through the '{escape(binding)}' input, "
             f"which you did not pass — the run would build main, not {sha[:7]}.\n"
             f"  Re-run with: -i {binding}={sha}"
         )
@@ -218,15 +219,15 @@ def enforce_sha_binding(
         # the policy pattern still admits it — but it resolves at dispatch
         # time, which is the moving target an approval exists to pin down.
         err.print(
-            f"policy: '{binding}={value}' is not an immutable commit, so this request "
-            f"would bind {sha[:7]} and dispatch whatever '{value}' points at when it "
+            f"policy: '{escape(binding)}={escape(value)}' is not an immutable commit, so this request "
+            f"would bind {sha[:7]} and dispatch whatever '{escape(value)}' points at when it "
             "runs.\n"
             f"  Pass -i {binding}={sha}, or if you really mean that ref's current tip, "
             "resolve it to a SHA and bind the request to that."
         )
         raise typer.Exit(1)
     err.print(
-        f"policy: '{binding}={value}' does not match the SHA this request binds "
+        f"policy: '{escape(binding)}={escape(value)}' does not match the SHA this request binds "
         f"({sha}). An approval that names one commit and dispatches another is "
         "the failure this check exists to stop.\n"
         f"  Bind the request to {value[:7]}… instead, or pass -i {binding}={sha}."
@@ -351,7 +352,7 @@ def mirror_to_warrant(
             resp.raise_for_status()
             return resp.json().get("id")
     except WARRANT_ERRORS as exc:
-        err.print(f"warrant mirror failed (request still filed via PR+heph): {exc}")
+        err.print(f"warrant mirror failed (request still filed via PR+heph): {escape(str(exc))}")
         return None
 
 
@@ -374,7 +375,7 @@ def supersede_in_warrant(old_id: int, new_id: int) -> dict | None:
             return resp.json()
     except WARRANT_ERRORS as exc:
         detail = getattr(getattr(exc, "response", None), "text", "")
-        err.print(f"could not supersede request #{old_id} — it is still pending: {exc} {detail[:200]}")
+        err.print(f"could not supersede request #{old_id} — it is still pending: {escape(str(exc))} {escape(detail[:200])}")
         return None
 
 
@@ -420,7 +421,7 @@ def close_tracking_task(old: dict, old_id: int, new_id: int) -> str | None:
     ]
     if len(matches) != 1:
         err.print(
-            f"{len(matches)} open tasks match '{title}' carrying '{stamp}' — "
+            f"{len(matches)} open tasks match '{escape(title)}' carrying '{escape(stamp)}' — "
             "close the superseded one by hand (`heph done <id>`)."
         )
         return None
@@ -436,7 +437,7 @@ def close_tracking_task(old: dict, old_id: int, new_id: int) -> str | None:
     )
     result = subprocess.run(["heph", "done", node_id], capture_output=True, text=True, check=False)
     if result.returncode != 0:
-        err.print(f"heph done {node_id} failed: {result.stderr.strip()}")
+        err.print(f"heph done {escape(node_id)} failed: {escape(result.stderr.strip())}")
         return None
     return node_id
 
@@ -482,11 +483,11 @@ def file_heph_task(title: str, body: str) -> str | None:
             check=True,
         )
     except (OSError, subprocess.CalledProcessError) as exc:
-        err.print(f"heph task creation FAILED (request is PR-comment-only!): {exc}")
+        err.print(f"heph task creation FAILED (request is PR-comment-only!): {escape(str(exc))}")
         return None
     match = re.search(r"01[A-Z0-9]{24}", result.stdout)
     if match is None:
-        err.print(f"could not parse task id from heph output: {result.stdout!r}")
+        err.print(f"could not parse task id from heph output: {escape(repr(result.stdout))}")
         return None
     node_id = match.group(0)
     subprocess.run(
@@ -768,7 +769,7 @@ This request grants nothing: dispatch remains write-gated to humans.
         except httpx.HTTPError as exc:
             err.print(f"ntfy push failed (request still filed): {exc}")
 
-    console.print(f"[green]Request filed.[/green] PR comment: {comment_url}")
+    console.print(f"[green]Request filed.[/green] PR comment: {escape(comment_url)}")
     if warrant_id:
         console.print(f"warrant: {HORKOS_URL}/ (request #{warrant_id})")
     if task_id:

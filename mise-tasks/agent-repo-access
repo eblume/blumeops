@@ -109,6 +109,7 @@ from typing import Annotated
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 FORGE_URL = "https://forge.ops.eblu.me"
@@ -271,7 +272,7 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
         subprocess.TimeoutExpired,
         FileNotFoundError,
     ) as exc:
-        console.print(f"[red]Could not read the token from 1Password: {exc}[/red]")
+        console.print(f"[red]Could not read the token from 1Password: {escape(str(exc))}[/red]")
         console.print("Pass --token, or set FORGE_REPO_WRITE_TOKEN.")
         raise typer.Exit(1) from exc
     return result.stdout.strip()
@@ -288,7 +289,7 @@ def load_policy() -> tuple[str, str, dict[str, str], dict[str, str], set[str]]:
         name, access = entry["name"], entry["access"]
         if access not in VALID_ACCESS:
             console.print(
-                f"[red]{POLICY_PATH.name}: {name} has invalid access {access!r} "
+                f"[red]{POLICY_PATH.name}: {escape(name)} has invalid access {escape(repr(access))} "
                 f"(expected one of {sorted(VALID_ACCESS)})[/red]"
             )
             raise typer.Exit(1)
@@ -296,7 +297,7 @@ def load_policy() -> tuple[str, str, dict[str, str], dict[str, str], set[str]]:
             # Refuse rather than silently downgrade: someone asked for a fence
             # to be flipped and should get told no, loudly.
             console.print(
-                f"[red]{POLICY_PATH.name} asks for write on {name!r}, which is "
+                f"[red]{POLICY_PATH.name} asks for write on {escape(repr(name))}, which is "
                 f"pinned read-only.[/red] That grant is a security boundary — see "
                 f"PINNED_READ_ONLY in {Path(__file__).name}. Refusing."
             )
@@ -304,8 +305,8 @@ def load_policy() -> tuple[str, str, dict[str, str], dict[str, str], set[str]]:
         release_hook = entry.get("release_hook", False)
         if not isinstance(release_hook, bool):
             console.print(
-                f"[red]{POLICY_PATH.name}: {name} has invalid release_hook "
-                f"{release_hook!r} (expected a boolean)[/red]"
+                f"[red]{POLICY_PATH.name}: {escape(name)} has invalid release_hook "
+                f"{escape(repr(release_hook))} (expected a boolean)[/red]"
             )
             raise typer.Exit(1)
         if release_hook:
@@ -341,7 +342,7 @@ def resolve_webhook_secret() -> str:
         FileNotFoundError,
     ) as exc:
         console.print(
-            f"[red]Could not read the webhook secret from 1Password: {exc}[/red]\n"
+            f"[red]Could not read the webhook secret from 1Password: {escape(str(exc))}[/red]\n"
             "Creating a hook needs the shared signing secret. Run this from "
             "gilbert (biometric `op`), or set TALOS_FORGE_WEBHOOK_SECRET."
         )
@@ -378,7 +379,7 @@ def resolve_horkos_hook_secret() -> str:
         FileNotFoundError,
     ) as exc:
         console.print(
-            f"[red]Could not read the webhook secret from 1Password: {exc}[/red]\n"
+            f"[red]Could not read the webhook secret from 1Password: {escape(str(exc))}[/red]\n"
             "Creating a hook needs the shared signing secret. Run this from "
             "gilbert (biometric `op`), or set HORKOS_FORGE_HOOK_SECRET."
         )
@@ -579,24 +580,24 @@ def main(
         try:
             all_repos = owner_repos(client, owner)
         except httpx.HTTPStatusError as exc:
-            console.print(f"[red]Could not list {owner}'s repos: {exc}[/red]")
+            console.print(f"[red]Could not list {escape(owner)}'s repos: {escape(str(exc))}[/red]")
             raise typer.Exit(1) from exc
 
         unknown = sorted(set(desired) - set(all_repos))
         if unknown:
             console.print(
-                f"[red]repos.json lists repos that do not exist under {owner!r} "
-                f"(or the token cannot see them): {', '.join(unknown)}[/red]"
+                f"[red]repos.json lists repos that do not exist under {escape(repr(owner))} "
+                f"(or the token cannot see them): {escape(', '.join(unknown))}[/red]"
             )
             raise typer.Exit(1)
 
-        table = Table(title=f"`{who}` collaborations on {owner}/*")
+        table = Table(title=f"`{escape(who)}` collaborations on {escape(owner)}/*")
         table.add_column("Repo")
         table.add_column("Current")
         table.add_column("Desired")
         table.add_column("Action")
 
-        hook_table = Table(title=f"talos + horkos webhooks and `{who}` label on {owner}/*")
+        hook_table = Table(title=f"talos + horkos webhooks and `{escape(who)}` label on {escape(owner)}/*")
         hook_table.add_column("Kind")
         hook_table.add_column("Repo")
         hook_table.add_column("Current")
@@ -623,7 +624,7 @@ def main(
                 if repo in desired:
                     blocked.append(repo)
                 else:
-                    console.print(f"[dim]{owner}/{repo}: not readable, not listed — ignoring[/dim]")
+                    console.print(f"[dim]{escape(owner)}/{escape(repo)}: not readable, not listed — ignoring[/dim]")
                 continue
 
             if have == want:
@@ -639,7 +640,7 @@ def main(
                 actions.append((repo, "update", want))
 
             if verb != "ok" or want != "none":
-                table.add_row(repo, have, want, f"[{style}]{verb}[/{style}]")
+                table.add_row(escape(repo), escape(have), escape(want), f"[{style}]{verb}[/{style}]")
 
             # Webhook half. Two kinds, both identified by their own delivery
             # URL — never by id, so a hand-created hook with the right URL is
@@ -679,16 +680,16 @@ def main(
             if hook_verb != "ok" or want_hook:
                 hook_table.add_row(
                     "talos",
-                    repo,
-                    hook_have,
+                    escape(repo),
+                    escape(hook_have),
                     "hook" if want_hook else "none",
                     f"[{hook_style}]{hook_verb}[/{hook_style}]",
                 )
             if release_verb != "ok" or want_release_hook:
                 hook_table.add_row(
                     "horkos",
-                    repo,
-                    release_have,
+                    escape(repo),
+                    escape(release_have),
                     "hook" if want_release_hook else "none",
                     f"[{release_style}]{release_verb}[/{release_style}]",
                 )
@@ -730,7 +731,7 @@ def main(
                         missing.append((name, color, description))
                 for name, color, description in missing:
                     label_actions.append((repo, name, color, description))
-                    hook_table.add_row("label", repo, "no label", "label", "[green]create label[/green]")
+                    hook_table.add_row("label", escape(repo), "no label", "label", "[green]create label[/green]")
 
         console.print(table)
         console.print(hook_table)
@@ -738,7 +739,7 @@ def main(
         if blocked:
             console.print(
                 f"\n[red]Cannot read collaborators on {len(blocked)} listed repo(s): "
-                f"{', '.join(blocked)}[/red]\n"
+                f"{escape(', '.join(blocked))}[/red]\n"
                 f"Collaborator management needs repo-admin permission — this token's user "
                 f"is not an admin on them (Forgejo 404s rather than 403s when it cannot see a private "
                 f"repo at all, so 'wrong token' and 'no such repo' look identical). "
@@ -754,12 +755,12 @@ def main(
             pending = len(actions) + len(hook_actions) + len(label_actions)
             console.print(f"\n[bold]{pending} change(s) pending.[/bold]")
             for repo, verb, perm in actions:
-                console.print(f"  {verb} {owner}/{repo}" + (f" → {perm}" if perm != "none" else ""))
+                console.print(f"  {verb} {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
             for repo, verb, _hook_id, kind in hook_actions:
                 name = "talos hook" if kind == "talos" else "horkos release hook"
-                console.print(f"  {verb} {name} on {owner}/{repo}")
+                console.print(f"  {verb} {name} on {escape(owner)}/{escape(repo)}")
             for repo, name, _color, _description in label_actions:
-                console.print(f"  create `{name}` label on {owner}/{repo}")
+                console.print(f"  create `{escape(name)}` label on {escape(owner)}/{escape(repo)}")
             if check:
                 console.print("\n[red]Out of sync (--check).[/red]")
                 raise typer.Exit(1)
@@ -773,9 +774,9 @@ def main(
                 else:
                     client.put(path, json={"permission": perm}).raise_for_status()
             except httpx.HTTPStatusError as exc:
-                console.print(f"[red]{verb} {owner}/{repo} failed: {exc}[/red]")
+                console.print(f"[red]{verb} {escape(owner)}/{escape(repo)} failed: {escape(str(exc))}[/red]")
                 raise typer.Exit(1) from exc
-            console.print(f"[green]{verb}[/green] {owner}/{repo}" + (f" → {perm}" if perm != "none" else ""))
+            console.print(f"[green]{verb}[/green] {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
 
         # Each kind's signing secret is fetched independently, and only if a
         # create of that kind is pending — updates and removals never touch
@@ -819,9 +820,9 @@ def main(
                 else:
                     client.delete(f"/api/v1/repos/{owner}/{repo}/hooks/{hook_id}").raise_for_status()
             except httpx.HTTPStatusError as exc:
-                console.print(f"[red]{verb} {name} on {owner}/{repo} failed: {exc}[/red]")
+                console.print(f"[red]{verb} {name} on {escape(owner)}/{escape(repo)} failed: {escape(str(exc))}[/red]")
                 raise typer.Exit(1) from exc
-            console.print(f"[green]{verb}[/green] {name} on {owner}/{repo}")
+            console.print(f"[green]{verb}[/green] {name} on {escape(owner)}/{escape(repo)}")
 
         for repo, name, color, description in label_actions:
             try:
@@ -835,13 +836,13 @@ def main(
                 ).raise_for_status()
             except httpx.HTTPStatusError as exc:
                 console.print(
-                    f"[red]create `{name}` label on {owner}/{repo} failed: {exc}[/red]\n"
+                    f"[red]create `{escape(name)}` label on {escape(owner)}/{escape(repo)} failed: {escape(str(exc))}[/red]\n"
                     "Label management sits in Forgejo's issue scope — if this was a 403 "
                     "under the CI token (write:repository only), run this task locally "
                     "from gilbert."
                 )
                 raise typer.Exit(1) from exc
-            console.print(f"[green]create[/green] `{name}` label on {owner}/{repo}")
+            console.print(f"[green]create[/green] `{escape(name)}` label on {escape(owner)}/{escape(repo)}")
 
         applied = len(actions) + len(hook_actions) + len(label_actions)
         console.print(f"\n[green]Applied {applied} change(s).[/green]")

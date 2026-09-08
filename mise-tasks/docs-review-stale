@@ -23,6 +23,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 DOCS_DIR = Path(__file__).parent.parent / "docs"
@@ -85,13 +86,13 @@ def main(
         date_str = last_modified.strftime("%Y-%m-%d")
         if is_stale:
             table.add_row(
-                f"[red]{rel_path}[/red]",
+                f"[red]{escape(rel_path)}[/red]",
                 f"[red]{date_str}[/red]",
                 f"[red]{age_days}[/red]",
                 "[red]STALE[/red]",
             )
         else:
-            table.add_row(rel_path, date_str, str(age_days), "[green]OK[/green]")
+            table.add_row(escape(rel_path), date_str, str(age_days), "[green]OK[/green]")
 
     console.print(table)
     console.print()

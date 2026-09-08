@@ -1,0 +1,1 @@
+talos: set `HEPH_NO_AUTO_RELOGIN=1` on the deployment so the heph CLI in agent sessions never offers the interactive device-flow re-login — an unattended pod must print the stale-sync warning instead of blocking on a y/N prompt.

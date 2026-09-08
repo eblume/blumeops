@@ -31,6 +31,7 @@ from typing import Annotated
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 FORGE_URL = "https://forge.eblu.me"  # human-facing links + runner-side URLs
 # Tailnet name for API calls — the public forge.eblu.me is HTTPS-poison
@@ -62,7 +63,7 @@ def op_read(ref: str) -> str:
         subprocess.TimeoutExpired,
         FileNotFoundError,
     ) as exc:
-        console.print(f"[red]Could not read {ref} from 1Password: {exc}[/red]")
+        console.print(f"[red]Could not read {ref} from 1Password: {escape(str(exc))}[/red]")
         raise typer.Exit(1) from exc
     return result.stdout.strip()
 
@@ -88,7 +89,7 @@ def get_mirror_info(client: httpx.Client, token: str, name: str) -> dict:
     resp = forge_api(client, "GET", f"/repos/{MIRROR_ORG}/{name}", token)
     if resp.status_code == 404:
         console.print(
-            f"[red]Error:[/red] Mirror [bold]{MIRROR_ORG}/{name}[/bold] not found on forge."
+            f"[red]Error:[/red] Mirror [bold]{MIRROR_ORG}/{escape(name)}[/bold] not found on forge."
         )
         console.print("Create it first: [dim]mise run mirror-create <upstream-url>[/dim]")
         raise SystemExit(1)
@@ -118,7 +119,7 @@ def fork_mirror(client: httpx.Client, token: str, name: str) -> dict:
         json_data={"name": name},
     )
     if resp.status_code == 409:
-        console.print(f"[yellow]Fork already exists:[/yellow] {OWNER}/{name}")
+        console.print(f"[yellow]Fork already exists:[/yellow] {OWNER}/{escape(name)}")
         return forge_api(client, "GET", f"/repos/{OWNER}/{name}", token).json()
     resp.raise_for_status()
     return resp.json()
@@ -252,14 +253,14 @@ def main(
     no_clone: Annotated[bool, typer.Option("--no-clone", help="Skip local clone")] = False,
 ) -> None:
     """Create a spork of a mirrored upstream project."""
-    console.print(f"[bold]Sporking[/bold] {MIRROR_ORG}/{repo_name}")
+    console.print(f"[bold]Sporking[/bold] {MIRROR_ORG}/{escape(repo_name)}")
     console.print()
 
     # --- Preflight checks (fail fast before any mutations) ---
     local_path = LOCAL_BASE / repo_name
     if not no_clone and local_path.exists():
         console.print(
-            f"[red]Error:[/red] Local directory already exists: [bold]{local_path}[/bold]"
+            f"[red]Error:[/red] Local directory already exists: [bold]{escape(str(local_path))}[/bold]"
         )
         console.print(
             "Remove it first or use [dim]--no-clone[/dim] to skip local setup."
@@ -278,7 +279,7 @@ def main(
         # Verify fork doesn't already exist
         if repo_exists(client, token, OWNER, repo_name):
             console.print(
-                f"[red]Error:[/red] Fork already exists: [bold]{OWNER}/{repo_name}[/bold]"
+                f"[red]Error:[/red] Fork already exists: [bold]{OWNER}/{escape(repo_name)}[/bold]"
             )
             console.print(
                 "If re-sporking, delete the fork on forge first."
@@ -300,29 +301,29 @@ def main(
                 )
                 raise SystemExit(1)
 
-        console.print(f"  Mirror:       {MIRROR_ORG}/{repo_name}")
-        console.print(f"  Upstream:     {upstream_url}")
-        console.print(f"  Main branch:  {detected_main}")
-        console.print(f"  Description:  {desc}")
-        console.print(f"  Fork target:  {OWNER}/{repo_name}")
+        console.print(f"  Mirror:       {MIRROR_ORG}/{escape(repo_name)}")
+        console.print(f"  Upstream:     {escape(upstream_url)}")
+        console.print(f"  Main branch:  {escape(detected_main)}")
+        console.print(f"  Description:  {escape(desc)}")
+        console.print(f"  Fork target:  {OWNER}/{escape(repo_name)}")
         if not no_clone:
-            console.print(f"  Local clone:  {local_path}")
+            console.print(f"  Local clone:  {escape(str(local_path))}")
         console.print()
 
         if dry_run:
             console.print("[dim][dry-run] Would perform the following:[/dim]")
-            console.print(f"  1. Fork {MIRROR_ORG}/{repo_name} → {OWNER}/{repo_name}")
-            console.print(f"  2. Create 'blumeops' branch from '{detected_main}'")
+            console.print(f"  1. Fork {MIRROR_ORG}/{escape(repo_name)} → {OWNER}/{escape(repo_name)}")
+            console.print(f"  2. Create 'blumeops' branch from '{escape(detected_main)}'")
             console.print("  3. Add .forgejo/workflows/mirror-sync.yaml")
             console.print("  4. Set 'blumeops' as default branch")
             if not no_clone:
-                console.print(f"  5. Clone to {local_path} with 3 remotes")
+                console.print(f"  5. Clone to {escape(str(local_path))} with 3 remotes")
             return
 
         # --- All checks passed, start mutating ---
         console.print("Forking mirror...")
         fork_mirror(client, token, repo_name)
-        console.print(f"[green]Created fork:[/green] {OWNER}/{repo_name}")
+        console.print(f"[green]Created fork:[/green] {OWNER}/{escape(repo_name)}")
 
         # Enable Actions (forks from mirrors have it disabled by default)
         console.print("Enabling Actions...")
@@ -411,7 +412,7 @@ def main(
     if no_clone:
         console.print("[dim]Skipping local clone (--no-clone)[/dim]")
     else:
-        console.print(f"Cloning to {local_path}...")
+        console.print(f"Cloning to {escape(str(local_path))}...")
         clone_url = f"{FORGE_SSH}/{OWNER}/{repo_name}.git"
         subprocess.run(
             ["git", "clone", clone_url, str(local_path)],
@@ -439,24 +440,24 @@ def main(
             check=True,
             capture_output=True,
         )
-        console.print(f"[green]Local clone ready at {local_path}[/green]")
+        console.print(f"[green]Local clone ready at {escape(str(local_path))}[/green]")
 
     # Summary
     console.print()
     console.print("[bold green]Spork complete![/bold green]")
     console.print()
     console.print("  Remotes:")
-    console.print(f"    origin   → {FORGE_URL}/{OWNER}/{repo_name}")
-    console.print(f"    mirror   → {FORGE_URL}/{MIRROR_ORG}/{repo_name}")
-    console.print(f"    upstream → {upstream_url}")
+    console.print(f"    origin   → {FORGE_URL}/{OWNER}/{escape(repo_name)}")
+    console.print(f"    mirror   → {FORGE_URL}/{MIRROR_ORG}/{escape(repo_name)}")
+    console.print(f"    upstream → {escape(upstream_url)}")
     console.print()
     console.print("  Branches:")
-    console.print(f"    {detected_main:<12} — clean upstream tracking (never commit here)")
+    console.print(f"    {escape(detected_main):<12} — clean upstream tracking (never commit here)")
     console.print("    blumeops     — local infra + workflows (default branch)")
     console.print()
     console.print("  Next steps:")
     console.print("    • Create feature branches:")
-    console.print(f"      git checkout -b feature/upstream/my-change {detected_main}")
+    console.print(f"      git checkout -b feature/upstream/my-change {escape(detected_main)}")
     console.print("      git checkout -b feature/local/my-change blumeops")
     console.print("    • Mirror-sync runs daily at 05:00 UTC")
     console.print("    • See: docs/explanation/spork-strategy.md")

@@ -1,0 +1,1 @@
+Documented the drain-transmission pre-step (suspend the torrent-ringtail ArgoCD syncPolicy, scale to 0, restore on boot) and the 2026-09-06 shutdown-timing observations in the restart-ringtail runbook (eblume/blumeops#906).

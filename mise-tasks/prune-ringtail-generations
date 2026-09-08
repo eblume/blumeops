@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 console = Console()
@@ -84,7 +85,7 @@ def main(
     console.print("[bold]Scanning ringtail NixOS generations...[/bold]")
 
     booted_kernel = ssh("readlink /run/booted-system/kernel")
-    console.print(f"Booted kernel: [cyan]{booted_kernel}[/cyan]")
+    console.print(f"Booted kernel: [cyan]{escape(booted_kernel)}[/cyan]")
 
     generations = get_generations()
     if not generations:

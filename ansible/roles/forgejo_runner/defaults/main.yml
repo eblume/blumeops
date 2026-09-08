@@ -60,6 +60,10 @@ forgejo_runner_labels:
 #   stylua      run these hooks — blumeops for actionlint, hephaestus.nvim for
 #               both (a *-system hook runs the host binary, so one host version
 #               has to satisfy every repo the runner builds)
+#   shellcheck  the shellcheck binary the `shellcheck-py` hook in prek.toml
+#               wraps (its rev comment says v0.11.0.1, which wraps shellcheck
+#               0.11.0) — actionlint's built-in shellcheck pass reads it off
+#               PATH
 #
 # So the review order is: bump the source of truth first, then realign here.
 forgejo_runner_host_tools:
@@ -77,6 +81,13 @@ forgejo_runner_host_tools:
   # workflow error and hephaestus.nvim's prek step is stubbed out with an echo.
   - actionlint@1.7.12
   - stylua@2.4.1
+  # shellcheck is a host tool for a different reason: its prek hook is not a
+  # `*-system` hook, yet the host's actionlint runs its built-in shellcheck
+  # pass against whatever shellcheck binary is on PATH, and silently skips
+  # that pass when there is none — so without this entry, CI never lints
+  # workflow shell and the talos pod's pre-push hook (which has shellcheck) is
+  # stricter than the gate. eblume/blumeops#931 is the miss that motivated it.
+  - shellcheck@0.11.0
 
 # Zot pull-through cache for docker.io pulls, merged into Docker
 # Desktop's daemon.json. host.docker.internal resolves to indri from
