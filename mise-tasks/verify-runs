@@ -386,7 +386,7 @@ def main(
             # approved task is being attributed by guesswork, which is
             # exactly the #12 misattribution, and it must not pass silently.
             console.print(
-                f"[yellow]warn[/yellow]   {label} — warrant #{wid} not among the "
+                f"[yellow]warn[/yellow]   {escape(label)} — warrant #{wid} not among the "
                 "500 newest horkos requests; treating as unrecorded (inference "
                 "may misattribute)"
             )
@@ -394,18 +394,18 @@ def main(
             # attribution returns "recorded" only when the warrant names a run number
             assert wrec is not None
             console.print(
-                f"[yellow]pending[/yellow]  {label} — warrant #{wid} names run "
+                f"[yellow]pending[/yellow]  {escape(label)} — warrant #{wid} names run "
                 f"{wrec['run_number']}, which is outside the recent-run window"
             )
             pending += 1
             continue
         if state == "pending":
-            console.print(f"[yellow]pending[/yellow]  {label} — warrant #{wid} awaits decision")
+            console.print(f"[yellow]pending[/yellow]  {escape(label)} — warrant #{wid} awaits decision")
             pending += 1
             continue
         if state == "dispatched-norun":
             console.print(
-                f"[yellow]dispatched-norun[/yellow]  {label} — warrant #{wid} WAS "
+                f"[yellow]dispatched-norun[/yellow]  {escape(label)} — warrant #{wid} WAS "
                 "dispatched but the forge named no run (pre-return_run_info "
                 "answer / deaf forge); a human must link or re-dispatch — "
                 "inference refused (task left open)"
@@ -416,7 +416,7 @@ def main(
             detail = dispatch_failed_detail(wrec.get("note") if wrec else None)
             suffix = f": {escape(detail)}" if detail else ""
             console.print(
-                f"[red]dispatch FAILED[/red]  {label} — warrant #{wid} dispatch failed"
+                f"[red]dispatch FAILED[/red]  {escape(label)} — warrant #{wid} dispatch failed"
                 f"{suffix} (see the warrant note for the reason; task left open)"
             )
             failed += 1
@@ -425,7 +425,7 @@ def main(
             reason = not_dispatched_reason(wrec.get("note") if wrec else None)
             reason_text = f" — not dispatched: {escape(reason)}" if reason else ""
             console.print(
-                f"[yellow]never dispatched[/yellow]  {label} — warrant #{wid} records no "
+                f"[yellow]never dispatched[/yellow]  {escape(label)} — warrant #{wid} records no "
                 f"run number{reason_text}; inference refused, so no run is "
                 "guessed (task left open)"
             )
@@ -433,7 +433,7 @@ def main(
             continue
 
         if run is None:
-            console.print(f"[yellow]pending[/yellow]  {label} — not dispatched yet")
+            console.print(f"[yellow]pending[/yellow]  {escape(label)} — not dispatched yet")
             pending += 1
             continue
         url = f"https://forge.eblu.me/{REPO}/actions/runs/{run['run_number']}"
@@ -450,7 +450,7 @@ def main(
                     "Re-request with the SHA bound to the workflow's payload input.",
                 )
             console.print(
-                f"[red]MISMATCH[/red] {label} — run {run['run_number']} {why} "
+                f"[red]MISMATCH[/red] {escape(label)} — run {run['run_number']} {escape(why)} "
                 "(task left open)"
             )
             mismatched += 1
@@ -460,15 +460,15 @@ def main(
             if not dry_run:
                 heph("log", node_id, f"AUDIT: run {run['run_number']} succeeded — {url} ({via}). Auto-closed by verify-runs.")
                 heph("done", node_id)
-            console.print(f"[green]closed[/green]   {label} — run {run['run_number']} succeeded ({via})")
+            console.print(f"[green]closed[/green]   {escape(label)} — run {run['run_number']} succeeded ({via})")
             closed += 1
         elif status in ("failure", "cancelled"):
             if not dry_run:
                 heph("log", node_id, f"AUDIT: run {run['run_number']} {status} — {url} ({via}). Left open for follow-up.")
-            console.print(f"[red]failed[/red]   {label} — run {run['run_number']} {status} ({via}; task left open)")
+            console.print(f"[red]failed[/red]   {escape(label)} — run {run['run_number']} {escape(status)} ({via}; task left open)")
             failed += 1
         else:
-            console.print(f"[yellow]running[/yellow]  {label} — run {run['run_number']} {status}")
+            console.print(f"[yellow]running[/yellow]  {escape(label)} — run {run['run_number']} {escape(str(status))}")
             pending += 1
 
     summary = f"\n{closed} closed, {failed} failed (open), {pending} pending/running"

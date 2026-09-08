@@ -29,6 +29,7 @@ from pathlib import Path
 import typer
 import yaml
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -220,8 +221,8 @@ def main(
             status = "[red]FAIL[/red]" if has_error else "[green]OK[/green]"
 
             table.add_row(
-                name,
-                ", ".join(ver_parts) or "—",
+                escape(name),
+                escape(", ".join(ver_parts)) or "—",
                 status,
             )
 
@@ -231,7 +232,7 @@ def main(
     if errors:
         console.print(f"[bold red]{len(errors)} error(s):[/bold red]")
         for name, msg in errors:
-            console.print(f"  {name}: {msg}")
+            console.print(f"  {escape(name)}: {escape(msg)}")
         console.print()
         raise typer.Exit(code=1)
 

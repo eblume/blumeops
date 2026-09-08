@@ -44,6 +44,7 @@ from typing import Annotated
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 FORGE_API = "https://forge.ops.eblu.me/api/v1"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
@@ -73,14 +74,14 @@ def op_read(ref: str, what: str) -> str:
             check=False,
         )
     except subprocess.TimeoutExpired:
-        err.print(f"[red]op read timed out after 30s reading {what}.[/red]")
+        err.print(f"[red]op read timed out after 30s reading {escape(what)}.[/red]")
         raise typer.Exit(1) from None
     if result.returncode != 0:
-        err.print(f"[red]op read failed for {what}:[/red] {result.stderr.strip()}")
+        err.print(f"[red]op read failed for {escape(what)}:[/red] {escape(result.stderr.strip())}")
         raise typer.Exit(1)
     value = result.stdout.strip()
     if not value:
-        err.print(f"[red]{what} is empty at {ref}.[/red]")
+        err.print(f"[red]{escape(what)} is empty at {escape(ref)}.[/red]")
         raise typer.Exit(1)
     return value
 
@@ -99,7 +100,7 @@ def db_mirror_count() -> int:
     """How many pull mirrors Forgejo itself knows about."""
     result = ssh_indri(f"sqlite3 -readonly '{DB_PATH}' 'SELECT COUNT(*) FROM mirror'")
     if result.returncode != 0:
-        err.print(f"[red]Could not count mirrors on indri:[/red] {result.stderr.strip()}")
+        err.print(f"[red]Could not count mirrors on indri:[/red] {escape(result.stderr.strip())}")
         err.print("Check forgejo_work_path in ansible/roles/forgejo/defaults/main.yml.")
         raise typer.Exit(1)
     return int(result.stdout.strip())
@@ -158,7 +159,7 @@ def main(
     if only:
         targets = [m for m in targets if m["full_name"] == only]
         if not targets:
-            err.print(f"[red]No GitHub mirror named {only}.[/red]")
+            err.print(f"[red]No GitHub mirror named {escape(only)}.[/red]")
             raise typer.Exit(1)
 
     if not targets:
@@ -177,7 +178,7 @@ def main(
         auth_url = f"https://{GITHUB_USER}:{pat}@{upstream.split('://', 1)[1]}"
 
         if dry_run:
-            console.print(f"  [dim][dry-run][/dim] {full_name}: would re-auth {upstream}")
+            console.print(f"  [dim][dry-run][/dim] {escape(full_name)}: would re-auth {escape(upstream)}")
             updated += 1
             continue
 
@@ -190,7 +191,7 @@ def main(
             f'WHERE repo_id = {int(repo["id"])}"'
         )
         if result.returncode != 0:
-            err.print(f"  [red]{full_name}: {result.stderr.strip()}[/red]")
+            err.print(f"  [red]{escape(full_name)}: {escape(result.stderr.strip())}[/red]")
             failed += 1
             continue
 
@@ -205,11 +206,11 @@ def main(
             )
             resp.raise_for_status()
         except httpx.HTTPError as exc:
-            err.print(f"  [yellow]{full_name}: re-auth written, sync not triggered ({exc})[/yellow]")
+            err.print(f"  [yellow]{escape(full_name)}: re-auth written, sync not triggered ({escape(str(exc))})[/yellow]")
             updated += 1
             continue
 
-        console.print(f"  {full_name}: updated")
+        console.print(f"  {escape(full_name)}: updated")
         updated += 1
 
     console.print(f"\nDone. Updated: {updated}, Failed: {failed}")

@@ -21,6 +21,7 @@ from pathlib import Path
 
 import yaml
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 DOCS_DIR = Path(__file__).parent.parent / "docs"
@@ -76,7 +77,7 @@ def main() -> int:
     table.add_column("Files")
 
     for tag, files in sorted_tags:
-        table.add_row(tag, str(len(files)), "\n".join(files))
+        table.add_row(escape(tag), str(len(files)), escape("\n".join(files)))
 
     console.print(table)
     console.print()

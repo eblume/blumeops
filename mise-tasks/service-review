@@ -28,6 +28,7 @@ from typing import Annotated
 import typer
 import yaml
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -68,7 +69,7 @@ def main(
     if type:
         services = [s for s in services if s.get("type") == type]
         if not services:
-            console.print(f"[bold red]No services found with type '{type}'[/bold red]")
+            console.print(f"[bold red]No services found with type '{escape(type)}'[/bold red]")
             raise typer.Exit(code=1)
 
     # Parse dates and build sortable entries
@@ -81,7 +82,7 @@ def main(
     entries.sort(key=lambda e: (e[1] is not None, e[1] or date.min))
 
     never_reviewed = sum(1 for _, r in entries if r is None)
-    type_label = f" ({type})" if type else ""
+    type_label = f" ({escape(type)})" if type else ""
 
     # --- Summary panel ---
     console.print()
@@ -110,19 +111,19 @@ def main(
         if reviewed is None:
             table.add_row(
                 str(i),
-                f"[red]{name}[/red]",
-                svc_type,
-                f"[dim]{version}[/dim]",
+                f"[red]{escape(name)}[/red]",
+                escape(svc_type),
+                f"[dim]{escape(version)}[/dim]",
                 "[red]never[/red]",
                 "[red]—[/red]",
             )
         else:
             age = (today - reviewed).days
             style = "yellow" if age > 90 else ""
-            name_str = f"[{style}]{name}[/{style}]" if style else name
+            name_str = f"[{style}]{escape(name)}[/{style}]" if style else escape(name)
             date_str = f"[{style}]{reviewed}[/{style}]" if style else str(reviewed)
             age_str = f"[{style}]{age}[/{style}]" if style else str(age)
-            table.add_row(str(i), name_str, svc_type, version, date_str, age_str)
+            table.add_row(str(i), name_str, escape(svc_type), escape(version), date_str, age_str)
 
     remaining = len(entries) - limit
     if remaining > 0:
@@ -141,13 +142,13 @@ def main(
     notes = top_svc.get("notes") or ""
 
     detail_lines = [
-        f"[bold cyan]{top_svc['name']}[/bold cyan]  [dim]({top_svc.get('type', '?')})[/dim]",
+        f"[bold cyan]{escape(top_svc['name'])}[/bold cyan]  [dim]({escape(top_svc.get('type', '?'))})[/dim]",
         f"[dim]Last reviewed: {top_reviewed or 'never'}[/dim]",
-        f"[dim]Current version: {top_svc.get('current-version') or 'unknown'}[/dim]",
-        f"[dim]Upstream: {upstream}[/dim]",
+        f"[dim]Current version: {escape(top_svc.get('current-version') or 'unknown')}[/dim]",
+        f"[dim]Upstream: {escape(upstream)}[/dim]",
     ]
     if notes:
-        detail_lines.append(f"[dim]Notes: {notes}[/dim]")
+        detail_lines.append(f"[dim]Notes: {escape(notes)}[/dim]")
 
     console.print(Panel(
         "\n".join(detail_lines),
@@ -159,7 +160,7 @@ def main(
     # --- Review checklist ---
     checklist_parts = [
         "[bold]Version Check:[/bold]\n",
-        f"• Check upstream releases: {upstream}\n",
+        f"• Check upstream releases: {escape(upstream)}\n",
         "• Compare upstream latest to current deployed version\n",
         "• Review changelog for breaking changes or security fixes\n",
     ]
@@ -170,13 +171,13 @@ def main(
         checklist_parts += [
             "\n[bold]ArgoCD Deployment:[/bold]\n",
             "• Update image tag in argocd/manifests/<service>/kustomization.yaml\n",
-            f"• Verify sync status: argocd app get {top_svc['name']}\n",
+            f"• Verify sync status: argocd app get {escape(top_svc['name'])}\n",
         ]
     elif svc_type == "ansible":
         checklist_parts += [
             "\n[bold]Ansible Deployment:[/bold]\n",
-            f"• Check role vars for version pins: ansible/roles/{top_svc['name']}/\n",
-            f"• Dry run: mise run provision-indri -- --tags {top_svc['name']} --check --diff\n",
+            f"• Check role vars for version pins: ansible/roles/{escape(top_svc['name'])}/\n",
+            f"• Dry run: mise run provision-indri -- --tags {escape(top_svc['name'])} --check --diff\n",
         ]
     elif svc_type == "nixos":
         checklist_parts += [

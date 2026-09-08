@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 DOCS_DIR = Path(__file__).parent.parent / "docs"
@@ -85,7 +86,7 @@ def main() -> int:
         table.add_column("Missing Fields")
 
         for rel_path, missing in missing_issues:
-            table.add_row(rel_path, ", ".join(sorted(missing)))
+            table.add_row(escape(rel_path), escape(", ".join(sorted(missing))))
 
         console.print(table)
         console.print()
@@ -99,7 +100,7 @@ def main() -> int:
         table.add_column("Disallowed Fields")
 
         for rel_path, misplaced in misplaced_issues:
-            table.add_row(rel_path, ", ".join(sorted(misplaced)))
+            table.add_row(escape(rel_path), escape(", ".join(sorted(misplaced))))
 
         console.print(table)
         console.print()

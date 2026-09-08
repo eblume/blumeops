@@ -52,6 +52,7 @@ from pathlib import Path
 import httpx
 import yaml
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 REG_PREFIX = "registry.ops.eblu.me/blumeops/"
@@ -189,9 +190,9 @@ def collect_warnings(pins: dict[str, list[dict]]) -> list[str]:
         hardtags = {it["tag"] for it in items if it["source"] == "hardcoded"}
         if kustags and hardtags and kustags != hardtags:
             warnings.append(
-                f"[yellow]warn[/yellow]  {image}: hardcoded tag(s) "
-                f"{', '.join(sorted(hardtags))} differ from kustomization "
-                f"newTag(s) {', '.join(sorted(kustags))}"
+                f"[yellow]warn[/yellow]  {escape(image)}: hardcoded tag(s) "
+                f"{escape(', '.join(sorted(hardtags)))} differ from kustomization "
+                f"newTag(s) {escape(', '.join(sorted(kustags)))}"
             )
     return warnings
 
@@ -289,10 +290,10 @@ def render_pending(rows: list[dict], mainref: str) -> None:
         if r["gap"]:
             parts = [
                 (
-                    f"[bold]{r['service']}[/bold]: released {r['latest']} "
+                    f"[bold]{escape(r['service'])}[/bold]: released {escape(r['latest'])} "
                     f"{sha_hint(r['latest'], mainref)}"
                 ),
-                f"main pins {r['pinned']}",
+                f"main pins {escape(r['pinned'])}",
             ]
             if prs:
                 parts.append(
@@ -302,9 +303,9 @@ def render_pending(rows: list[dict], mainref: str) -> None:
         elif prs:
             ver = version_num(r["latest"]) or prs[0]["version"]
             console.print(
-                f"[bold]{r['service']}[/bold]: open pin PR #"
+                f"[bold]{escape(r['service'])}[/bold]: open pin PR #"
                 + ", PR #".join(str(p["number"]) for p in prs)
-                + f" (v{ver})"
+                + f" (v{escape(ver)})"
             )
 
 
@@ -318,11 +319,11 @@ def render_all(rows: list[dict], mainref: str) -> None:
     for r in rows:
         latest = r["latest"] or "(none)"
         if r["latest"]:
-            latest = f"{r['latest']} {sha_hint(r['latest'], mainref)}"
+            latest = f"{escape(r['latest'])} {sha_hint(r['latest'], mainref)}"
         table.add_row(
-            r["service"],
-            r["image"],
-            r["pinned"],
+            escape(r["service"]),
+            escape(r["image"]),
+            escape(r["pinned"]),
             latest,
             "[red]pending[/red]" if r["gap"] else "OK",
         )

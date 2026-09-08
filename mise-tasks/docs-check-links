@@ -166,7 +166,7 @@ def main() -> int:
         table.add_column("Target")
 
         for file_path, line_num, target in spaced_links:
-            table.add_row(file_path, str(line_num), escape(f"[[{target}]]"))
+            table.add_row(escape(file_path), str(line_num), escape(f"[[{target}]]"))
 
         console.print(table)
         console.print()
@@ -184,7 +184,7 @@ def main() -> int:
         table.add_column("Possible Paths")
 
         for file_path, line_num, target, paths in ambiguous_links:
-            table.add_row(file_path, str(line_num), escape(f"[[{target}]]"), "\n".join(paths))
+            table.add_row(escape(file_path), str(line_num), escape(f"[[{target}]]"), escape("\n".join(paths)))
 
         console.print(table)
         console.print()
@@ -198,7 +198,7 @@ def main() -> int:
         table.add_column("Target")
 
         for file_path, line_num, target in broken_links:
-            table.add_row(file_path, str(line_num), escape(f"[[{target}]]"))
+            table.add_row(escape(file_path), str(line_num), escape(f"[[{target}]]"))
 
         console.print(table)
         console.print()
@@ -220,7 +220,7 @@ def main() -> int:
         for stem in orphan_stems:
             paths = stem_to_paths[stem]
             for path in paths:
-                table.add_row(f"{path}.md", stem)
+                table.add_row(escape(f"{path}.md"), escape(stem))
 
         console.print(table)
         console.print()

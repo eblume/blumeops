@@ -23,6 +23,7 @@ from typing import Annotated
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 DOMAIN = "eblu.me"
@@ -51,7 +52,7 @@ def resolve_token(console: Console) -> str:
         subprocess.TimeoutExpired,
         FileNotFoundError,
     ) as e:
-        console.print(f"[red]Failed to read PAT from 1Password:[/red] {e}")
+        console.print(f"[red]Failed to read PAT from 1Password:[/red] {escape(str(e))}")
         raise typer.Exit(1)
 
 
@@ -92,7 +93,7 @@ def main(
         table.add_column("#", justify="right")
         table.add_column("Value")
         for i, v in enumerate(values, 1):
-            table.add_row(str(i), v)
+            table.add_row(str(i), escape(v))
         console.print(table)
         console.print(f"\n[bold]{len(values)}[/bold] orphan(s).")
 
@@ -109,7 +110,7 @@ def main(
         else:
             console.print(
                 f"[red]Delete failed: HTTP {del_resp.status_code}[/red]\n"
-                f"{del_resp.text[:300]}"
+                f"{escape(del_resp.text[:300])}"
             )
             raise typer.Exit(1)
 

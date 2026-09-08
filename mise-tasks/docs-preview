@@ -28,6 +28,7 @@ from typing import Annotated
 import typer
 import yaml
 from rich.console import Console
+from rich.markup import escape
 
 REPO_ROOT = Path(__file__).parent.parent
 CONTAINER_NAME = "docs-preview"
@@ -64,12 +65,12 @@ def main(
     if exact_file.exists() and card_stem.startswith("docs/"):
         card_stem = card_stem.removeprefix("docs/")
     elif not docs_file.exists():
-        console.print(f"[bold red]Card not found:[/bold red] {docs_file}")
+        console.print(f"[bold red]Card not found:[/bold red] {escape(str(docs_file))}")
         raise typer.Exit(code=1)
 
     url_path = "/" + card_stem
     image = get_quartz_image()
-    console.print(f"[dim]Using image: {image}[/dim]")
+    console.print(f"[dim]Using image: {escape(image)}[/dim]")
 
     # Clean up any previous preview container and its docroot
     subprocess.run(
@@ -116,7 +117,7 @@ def main(
 
     url = f"http://localhost:{port}{url_path}"
     console.print(f"\n[bold green]Preview running at http://localhost:{port}[/bold green]")
-    console.print(f"[bold cyan]Opening {url}[/bold cyan]\n")
+    console.print(f"[bold cyan]Opening {escape(url)}[/bold cyan]\n")
     webbrowser.open(url)
 
     console.print("[yellow]Container will auto-stop in 1 hour.[/yellow]")

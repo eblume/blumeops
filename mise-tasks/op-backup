@@ -36,6 +36,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 REMOTE_DIR = "/Users/erichblume/Documents/1password-backup"
 EXPORT_DIR = Path.home() / "Documents"
@@ -76,11 +77,11 @@ def get_export_path(argv_path: str | None) -> Path | None:
         candidates = _find_1pux_files()
         if len(candidates) == 1:
             path = candidates[0]
-            console.print(f"Found export: [cyan]{path.name}[/cyan]")
+            console.print(f"Found export: [cyan]{escape(str(path.name))}[/cyan]")
         elif len(candidates) > 1:
             console.print("[red]ERROR:[/red] Multiple .1pux files found in ~/Documents:")
             for c in candidates:
-                console.print(f"  {c.name}")
+                console.print(f"  {escape(str(c.name))}")
             console.print("Delete the extras and try again, or pass the path explicitly.")
             return None
         else:
@@ -96,11 +97,11 @@ def get_export_path(argv_path: str | None) -> Path | None:
             path = Path(raw).expanduser()
 
     if not path.is_file():
-        console.print(f"[red]ERROR:[/red] File not found: {path}")
+        console.print(f"[red]ERROR:[/red] File not found: {escape(str(path))}")
         return None
 
     if path.suffix != ".1pux":
-        console.print(f"[yellow]WARNING:[/yellow] File does not have .1pux extension: {path}")
+        console.print(f"[yellow]WARNING:[/yellow] File does not have .1pux extension: {escape(str(path))}")
         confirm = console.input("Continue anyway? [y/N]: ").strip().lower()
         if confirm != "y":
             return None
@@ -292,7 +293,7 @@ def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: st
     size = size_result.stdout.split()[0] if size_result.returncode == 0 else "?"
 
     console.print()
-    console.print(f"[green]Backup complete:[/green] indri:{remote_export} ({size})")
+    console.print(f"[green]Backup complete:[/green] indri:{escape(remote_export)} ({escape(size)})")
     return True
 
 

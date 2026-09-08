@@ -24,6 +24,7 @@ from pathlib import Path
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 REGISTRY = "registry.ops.eblu.me"
 CONTAINER_DIR = Path("containers")
@@ -100,7 +101,7 @@ def main(
     if name:
         containers = [c for c in containers if c["name"] == name]
         if not containers:
-            console.print(f"[red]No container found matching '{name}'.[/red]")
+            console.print(f"[red]No container found matching '{escape(name)}'.[/red]")
             console.print("Run without arguments to see all containers.")
             raise typer.Exit(1)
 
@@ -111,9 +112,9 @@ def main(
         image = f"blumeops/{c['name']}"
         tags = get_tags(image)
 
-        console.print(f"[bold]{c['name']}[/bold]")
-        console.print(f"   Image: {REGISTRY}/{image}")
-        console.print(f"   Path:  {c['path']}")
+        console.print(f"[bold]{escape(c['name'])}[/bold]")
+        console.print(f"   Image: {REGISTRY}/{escape(image)}")
+        console.print(f"   Path:  {escape(c['path'])}")
 
         if tags is None:
             unreachable += 1
@@ -121,7 +122,7 @@ def main(
         elif tags:
             console.print("   Recent tags:")
             for tag in tags[-tag_count:]:
-                console.print(f"     - {tag} {sha_hint(tag)}")
+                console.print(f"     - {escape(tag)} {sha_hint(tag)}")
         else:
             console.print("   Recent tags: [dim](none)[/dim]")
         console.print()
