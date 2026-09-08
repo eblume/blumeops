@@ -152,6 +152,9 @@ spec:
             # instead (eblume/talos#69).
             - name: no_proxy
               value: ".cluster.local,authentik.authentik.svc.cluster.local"
+            # Unattended pod: the heph CLI must print the stale-sync warning, not block on its interactive re-login prompt (eblume/hephaestus#66).
+            - name: HEPH_NO_AUTO_RELOGIN
+              value: "1"
           envFrom:
             - secretRef:
                 name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN
