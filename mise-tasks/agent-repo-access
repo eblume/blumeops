@@ -42,7 +42,10 @@ The label half: every pool repo also gets the `agents` engagement label
 (named after the collaborator — talos' FORGE_BOT_LABEL defaults to the bot
 login). It is joined by the `no-agents` suppression label: while present on
 an issue, talos spawns no issue cycles on it (checked on every delivery, so
-removing it re-engages). The label is the secondary engagement path: an
+removing it re-engages). A third label, `needs-proper-review`
+(eblume/talos#158), flags an issue or PR that needs a dedicated human
+review; talos clears it when a review lands. The `agents` label is the
+secondary engagement path: an
 issue opened by an allowlisted creator (Erich — talos'
 ISSUE_CREATOR_ALLOWLIST — or the bot itself, for cron-filed briefs) starts a
 cycle on creation with no label or assignment, and a comment by anyone but
@@ -203,6 +206,11 @@ ENGAGE_LABEL_DESCRIPTION = "Engage the talos agent on this issue"
 NO_AGENTS_LABEL_NAME = "no-agents"
 NO_AGENTS_LABEL_COLOR = "d04a47"
 NO_AGENTS_LABEL_DESCRIPTION = "Suppress talos agent cycles on this issue"
+# The proper-review label (eblume/talos#158): a human flags an issue or PR
+# that needs a dedicated human review; talos clears it when a review lands.
+NEEDS_REVIEW_LABEL_NAME = "needs-proper-review"
+NEEDS_REVIEW_LABEL_COLOR = "e67700"
+NEEDS_REVIEW_LABEL_DESCRIPTION = "Needs a dedicated human review"
 # Issue-scoped fallback for the label half — the item forge-api uses.
 OP_ISSUE_TOKEN_REF = "op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
 
@@ -694,14 +702,16 @@ def main(
                     f"[{release_style}]{release_verb}[/{release_style}]",
                 )
 
-            # Label half: pool repos get both issue-scope labels (the `agents`
-            # engagement edge and the `no-agents` suppression edge); elsewhere
-            # an existing one is left alone (see the module docstring for why
-            # this is create-only, and why there is a fallback token).
+            # Label half: pool repos get all three issue-scope labels (the
+            # `agents` engagement edge, the `no-agents` suppression edge, and
+            # the `needs-proper-review` review edge); elsewhere an existing
+            # one is left alone (see the module docstring for why this is
+            # create-only, and why there is a fallback token).
             if want_hook and not label_skipped:
                 label_specs = (
                     (who, f"#{ENGAGE_LABEL_COLOR}", ENGAGE_LABEL_DESCRIPTION),
                     (NO_AGENTS_LABEL_NAME, f"#{NO_AGENTS_LABEL_COLOR}", NO_AGENTS_LABEL_DESCRIPTION),
+                    (NEEDS_REVIEW_LABEL_NAME, f"#{NEEDS_REVIEW_LABEL_COLOR}", NEEDS_REVIEW_LABEL_DESCRIPTION),
                 )
                 missing = []
                 for name, color, description in label_specs:
