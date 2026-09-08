@@ -46,15 +46,21 @@ need to confirm through biometric approval.
    `mise run`. Vault- and route-blocked tasks need no guard: `op` and `ssh`
    already fail legibly on their own.
 4. **The lint gate runs automatically.** The pod's entrypoint installs
-   prek git hooks (pre-commit + pre-push) into every pool clone that carries
-   a `prek.toml`, and session worktrees inherit them — so commits and pushes
-   of blumeops already run the PR prek job's hook set (everything except
-   prettier — a node hook, and the agent pod ships no node) before anything
-   leaves the pod. Bypass deliberately with `git commit/push --no-verify`.
-   `mise run agent-lint` is the same gate on demand. Agent PR checks sit
-   pending until a human clicks approve-and-run, so a lint failure caught
-   late costs a review round; `container-version-check` mismatches in
-   particular are cheap to catch locally.
+   prek git hooks (pre-commit + pre-push) into every pool clone whose
+   canonical `main` carries a `prek.toml`, and session worktrees inherit
+   them — so commits and pushes of blumeops already run the PR prek job's
+   hook set (everything except prettier — a node hook, and the agent pod
+   ships no node) before anything leaves the pod. Bypass deliberately with
+   `git commit/push --no-verify`. `mise run agent-lint` is the same gate on
+   demand. **Tools resolve in layers:** prek itself is baked into the pod
+   image as the default; a repo that needs a particular prek, or any other
+   binary its hooks call (`actionlint`, `stylua`), pins it in its own
+   `mise.toml`, which the entrypoint preinstalls at boot. `mise use -g` in
+   a session lasts only until the next pod roll — the global mise config is
+   rewritten from the image every boot, so declare tools in the repo.
+   Agent PR checks sit pending until a human clicks approve-and-run, so a
+   lint failure caught late costs a review round; `container-version-check`
+   mismatches in particular are cheap to catch locally.
 5. **Add changelog fragments (all change levels)** - `docs/changelog.d/<name>.<type>.md`
     Types: `feature`, `bugfix`, `infra`, `doc`, `ai`, `misc`
     - **Feature branch/PR** Use branch name: `<branch>.<type>.md`
