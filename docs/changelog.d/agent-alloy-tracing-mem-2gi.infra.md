@@ -1,0 +1,1 @@
+alloy-tracing-ringtail (ringtail DaemonSet): memory limit 1Gi → 2Gi (request 256Mi → 512Mi) plus a GOMEMLIMIT=1600MiB env, to end the OOMKill crash loop the Alloy v1.19.2 pin introduced when beyla became a subprocess sharing the pod's cgroup (#957).
