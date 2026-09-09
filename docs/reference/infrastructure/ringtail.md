@@ -1,6 +1,6 @@
 ---
 title: Ringtail
-modified: 2026-09-03
+modified: 2026-09-08
 last-reviewed: 2026-09-03
 tags:
   - infrastructure
@@ -71,6 +71,7 @@ Ringtail runs a single-node k3s cluster for native amd64 workloads. [[argocd|Arg
 
 - **Disabled components:** Traefik, ServiceLB, metrics-server (minimal footprint)
 - **TLS SAN:** `ringtail.tail8d86e.ts.net` — set in k3s `extraFlags` so the API server is reachable over the tailnet at `https://ringtail.tail8d86e.ts.net:6443`
+- **Graceful Node Shutdown:** kubelet drains the pods on host reboot/poweroff (`shutdownGracePeriod: 60s`, logind `InhibitDelayMaxSec: 60s`) — the 2026-09-08 fix for the ~10-min reboot holds, see [[restart-ringtail]] and eblume/blumeops#906.
 - **Registry mirrors:** Containerd pulls through Zot on indri (`registry.ops.eblu.me`)
 - **Token:** `/etc/k3s/token` (generated on first provision)
 - **Kubeconfig:** `/etc/rancher/k3s/k3s.yaml`, root-only via `--write-kubeconfig-mode=600`. ringtail is a multi-user host — the `agent` uid is a co-tenant — so a readable admin kubeconfig is a cluster-admin grant to every local account. See [[agent-workspaces]] §Isolation.
