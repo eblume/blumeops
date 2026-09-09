@@ -218,7 +218,21 @@ def encrypt(export_path: Path, passphrase: str, tmpdir: Path) -> tuple[Path, Pat
     return encrypted_export, encrypted_key
 
 
-def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: str) -> bool:
+def _preserve_on_failure(encrypted_export: Path, encrypted_key: Path, export_path: Path) -> None:
+    """Copy the ciphertexts out of the temp dir, next to the source export.
+
+    The encrypted files live in a temporary directory that is destroyed when
+    the run exits, so on transfer failure they are copied to ~/Documents
+    (named after the export stem) and the paths are printed.
+    """
+    for f in (encrypted_export, encrypted_key):
+        ext = ".age" if f.name == "export.age" else ".key.enc"
+        dest = EXPORT_DIR / f"{export_path.stem}{ext}"
+        shutil.copy2(f, dest)
+        console.print(f"Preserved: {escape(str(dest))}")
+
+
+def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: str, export_path: Path) -> bool:
     """SCP both encrypted files to indri and clean up old exports."""
     console.print("Transferring to indri...")
 
@@ -245,7 +259,7 @@ def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: st
     )
     if result.returncode != 0:
         console.print("[red]ERROR:[/red] SCP of encrypted export failed")
-        console.print(f"Encrypted files preserved in: {encrypted_export.parent}")
+        _preserve_on_failure(encrypted_export, encrypted_key, export_path)
         return False
 
     result = subprocess.run(
@@ -258,7 +272,7 @@ def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: st
     )
     if result.returncode != 0:
         console.print("[red]ERROR:[/red] SCP of encrypted key failed")
-        console.print(f"Encrypted files preserved in: {encrypted_export.parent}")
+        _preserve_on_failure(encrypted_export, encrypted_key, export_path)
         return False
 
     # scp inherits indri's umask (022) — tighten the landed files to owner-only.
@@ -340,13 +354,13 @@ def main(
 
         encrypted_export, encrypted_key = result
 
-        # Delete plaintext .1pux
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")  # ruff: ignore[DTZ005]  # local timestamp for the backup filename
+        if not transfer_to_indri(encrypted_export, encrypted_key, timestamp, export_path):
+            raise SystemExit(1)
+
+        # Delete plaintext .1pux only after the encrypted set has landed on indri
         export_path.unlink()
         console.print(f"Deleted plaintext export: {export_path}")
-
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")  # ruff: ignore[DTZ005]  # local timestamp for the backup filename
-        if not transfer_to_indri(encrypted_export, encrypted_key, timestamp):
-            raise SystemExit(1)
 
     console.print()
     console.print("[bold]DISASTER RECOVERY:[/bold]")
