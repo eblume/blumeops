@@ -213,6 +213,18 @@ in
       # processes (the game, system.slice) may use the zram swap.
       "--kubelet-arg=fail-swap-on=false"
     ];
+    # Graceful Node Shutdown: on host reboot/poweroff the kubelet holds the
+    # shutdown via a logind delay lock and terminates the pods (grace
+    # periods and preStop included) while the network is still up — instead
+    # of systemd-shutdown killing the containers after NetworkManager
+    # stops. 60s covers transmission's 10s termination cap plus preStop;
+    # the InhibitDelayMaxSec below keeps logind from capping that lock.
+    # eblume/blumeops#906 — journal analysis of every retained reboot.
+    gracefulNodeShutdown = {
+      enable = true;
+      shutdownGracePeriod = "60s";
+      shutdownGracePeriodCriticalPods = "15s";
+    };
     containerdConfigTemplate = ''
       {{ template "base" . }}
 
@@ -264,6 +276,11 @@ in
   # Raise memlock rlimit for k3s so eBPF workloads (Beyla/Alloy tracing) can
   # call setrlimit(RLIMIT_MEMLOCK, unlimited) inside privileged containers.
   systemd.services.k3s.serviceConfig.LimitMEMLOCK = "infinity";
+
+  # The kubelet's Graceful Node Shutdown delay lock (above) is capped by
+  # logind's InhibitDelayMaxSec; set to the grace period so the kubelet does
+  # not write its own /etc/systemd/logind.conf.d drop-in and poke logind.
+  services.logind.settings.Login.InhibitDelayMaxSec = "60s";
 
   # Allow BPF in privileged containers (Beyla eBPF tracing). NixOS defaults
   # to 2 (block BPF outside init namespace even with CAP_BPF). Value 1 allows

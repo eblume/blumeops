@@ -1,7 +1,7 @@
 ---
 title: Restart Ringtail
-modified: 2026-09-07
-last-reviewed: 2026-09-07
+modified: 2026-09-08
+last-reviewed: 2026-09-08
 tags:
   - how-to
   - operations
@@ -14,9 +14,9 @@ How to safely shut down, work on, and restart [[ringtail]] — the NixOS host
 that runs the entire k3s cluster and doubles as the gaming PC.
 
 Ringtail is a single node with no failover, so a shutdown is a full
-Kubernetes outage. The procedure itself is short (systemd does the graceful
-part); the value of this page is knowing **what goes dark**, what to check
-first, and what to verify afterwards.
+Kubernetes outage. The procedure itself is short (kubelet drains the
+pods, systemd does the rest); the value of this page is knowing **what
+goes dark**, what to check first, and what to verify afterwards.
 
 ## What goes dark
 
@@ -79,10 +79,11 @@ needed.
 
 ### 2. Drain transmission (recommended)
 
-Since the 10 s `terminationGracePeriodSeconds` cap (eblume/blumeops#906) the
-plain reboot path is no longer held up by transmission, but the drain is the
-fastest path and leaves the NFS download mount with nothing in flight when
-the power drops.
+Kubelet Graceful Node Shutdown (eblume/blumeops#906) now terminates the pod
+on a host reboot — 10 s cap and preStop included — for a normal
+`systemctl reboot`/`poweroff`; a hard power cut still kills it mid-write. The
+drain is the fastest path and leaves the NFS download mount with nothing in
+flight.
 
 `torrent-ringtail` runs `syncPolicy.automated: {}` with no selfHeal: a bare
 `kubectl scale` is undone by ArgoCD within seconds, so suspend the sync first.
@@ -104,19 +105,33 @@ ssh ringtail 'sudo systemctl poweroff'
 Or `sudo reboot` if there is no hardware work to do. From the console, the
 same commands in a terminal — Sway has no power menu configured.
 
-This is the whole graceful shutdown: systemd stops `k3s.service`, containerd
-sends SIGTERM to every container (Postgres, Frigate, etc. shut down cleanly),
-the heph spokes and runner stop, and the zram swap is discarded (it is
-RAM-backed; nothing to persist).
+This is the whole graceful shutdown: the kubelet detects the shutdown through
+a logind delay lock and terminates the pods (grace periods, preStop included)
+while the network is up, then systemd stops `k3s.service` and the heph spokes
+and runner, and the zram swap is discarded (it is RAM-backed; nothing to
+persist).
 
-Shutdown takes about a minute. The last two clean shutdowns (April and May
-2026) were each down ~5 minutes wall-clock including the boot.
+Shutdown takes about a minute, plus the kubelet's drain window (up to the
+60 s `shutdownGracePeriod`) before service teardown. The last two clean
+shutdowns (April and May 2026) were each down ~5 minutes wall-clock including
+the boot (pre-Graceful-Node-Shutdown).
 
 **Observed 2026-09-06:** an undrained reboot was held ~10 minutes while the
-transmission pod terminated against its NFS download mount; the
-`terminationGracePeriodSeconds: 10` cap (eblume/blumeops#906) fixes that.
-The drained reboot the same night was down ~2.5 minutes to SSH-back. The
-next undrained reboot is the test of the cap.
+transmission pod terminated against its NFS download mount. The drained reboot
+the same night was down ~2.5 minutes to SSH-back.
+
+**Observed 2026-09-08** (journal analysis, eblume/blumeops#906): every
+retained reboot since May, timed — the ~10-min hold lives *after* `Journal
+stopped`, inside `systemd-shutdown`, where nothing is logged. k3s itself
+stopped in 2–3 s and all seven NFS mounts unmounted in under a second in
+every boot — the only slow one was the 09-02 reboot, started while sifaka
+was already unreachable. And the kubelet never terminated any pod on a host
+reboot: k3s sets no `shutdownGracePeriod`, so the kubelet ran its built-in
+0 s default, and the `terminationGracePeriodSeconds: 10` cap and the preStop
+never ran on the reboot path at all. The Graceful Node Shutdown
+setting added to `nixos/ringtail/configuration.nix` changes that: the next
+undrained reboot exercises kubelet's drain path, and kernel-to-kernel should
+stay ~2 min like the 09-03 and 09-06 reboots.
 
 **Observed 2026-09-02** (plain `sudo reboot` after 113 days up, gen 100,
 kernel 6.12.87 → 6.12.93, done as a dry run before the RAM swap):
