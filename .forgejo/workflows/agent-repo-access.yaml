@@ -1,37 +1,14 @@
-# Reconcile the agents bot's forge collaborations AND the forge->talos
-# webhooks against argocd/manifests/talos/repos.json — the same file the talos
-# pod mounts to build its clone loop, so "share a repo with the agent" is one
-# edit, not two.
-#
-# RECONCILE IS AUTHORITATIVE: a repo absent from repos.json has its `agents`
-# collaboration removed (and its talos hook, if the repo left the pool). The
-# PR job runs --check so the revocations are visible in review *before* the
+# Reconcile the `agents` bot's forge access — collaborator grants, talos
+# webhooks, issue-scope labels — against argocd/manifests/talos/repos.json,
+# the file the talos pod's clone loop reads; a repo absent from repos.json is
+# revoked. PRs run --check so revocations are visible in review before the
 # merge that applies them.
 #
-# Hook events/active-state reconcile with the same token; only hook CREATION
-# needs the shared signing secret, which CI does not carry — that apply fails
-# loudly and asks for a local `mise run agent-repo-access` from gilbert
-# (biometric op). Adding a brand-new repo to the pool is already a human PR,
-# so the human follow-up run is the same gate as the rest of provisioning.
-#
-# The issue-scope labels (the `agents` engagement edge, the `no-agents`
-# suppression edge for talos issue cycles, and the `needs-proper-review`
-# review edge) are a third reconciled half, but PAT does not carry — in CI
-# the label half SKIPS with a loud yellow warning and is covered by the same
-# local-run-from-gilbert follow-up as hook creation. See the module docstring
-# in mise-tasks/agent-repo-access.
-#
-# Needs FORGE_REPO_WRITE_TOKEN — an eblume PAT scoped to
-# write:repository,read:user
-# (collaborator management needs repo-admin *permission*, which eblume has as
-# owner; the token *scope* only needs the repository category — verified
-# 2026-08-22, replacing the admin PAT that sat here before). Provisioned the
-# same way as every other blumeops CI secret: declared in the
-# `forgejo_actions_secrets` ansible role and pushed by a human from gilbert with
-#   mise run provision-indri -- --tags forgejo_actions_secrets
-# That human step IS the gate — CI gets a curated subset of the blumeops vault,
-# never the vault itself. Locally the task falls back to `op read` on the same
-# 1Password item.
+# Hook creation and the label half need secrets CI does not carry, so they
+# skip loudly in CI and a human follows up from gilbert with
+# `mise run agent-repo-access`. FORGE_REPO_WRITE_TOKEN is an eblume PAT
+# (write:repository,read:user) provisioned by the forgejo_actions_secrets
+# ansible role. Details: the script docstring in mise-tasks/agent-repo-access.
 name: Agent Repo Access
 
 on:
