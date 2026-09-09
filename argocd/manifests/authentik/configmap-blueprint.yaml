@@ -170,6 +170,22 @@ data:
         attrs:
           name: artifact-workloads
 
+      # talos-artifacts group (zot push-only identity for eblume/talos release CI)
+      - model: authentik_core.group
+        id: talos-artifacts-group
+        identifiers:
+          name: talos-artifacts
+        attrs:
+          name: talos-artifacts
+
+      # horkos-artifacts group (zot push-only identity for eblume/horkos release CI)
+      - model: authentik_core.group
+        id: horkos-artifacts-group
+        identifiers:
+          name: horkos-artifacts
+        attrs:
+          name: horkos-artifacts
+
       # Service account for CI push (admin sets password via UI after deploy)
       - model: authentik_core.user
         id: zot-ci-user
@@ -182,6 +198,32 @@ data:
           is_active: true
           groups:
             - !KeyOf artifact-workloads-group
+
+      # Service account for talos release CI push (admin sets password via UI after deploy)
+      - model: authentik_core.user
+        id: zot-talos-user
+        identifiers:
+          username: zot-talos
+        attrs:
+          username: zot-talos
+          name: Zot Talos Service Account
+          type: service_account
+          is_active: true
+          groups:
+            - !KeyOf talos-artifacts-group
+
+      # Service account for horkos release CI push (admin sets password via UI after deploy)
+      - model: authentik_core.user
+        id: zot-horkos-user
+        identifiers:
+          username: zot-horkos
+        attrs:
+          username: zot-horkos
+          name: Zot Horkos Service Account
+          type: service_account
+          is_active: true
+          groups:
+            - !KeyOf horkos-artifacts-group
 
       # OAuth2 provider for Zot
       - model: authentik_providers_oauth2.oauth2provider
@@ -242,6 +284,34 @@ data:
           target: !KeyOf zot-app
           group: !KeyOf artifact-workloads-group
           order: 1
+          enabled: true
+          negate: false
+          timeout: 30
+
+      # Policy binding — let talos-artifacts sign in via OIDC to mint a zot API key at /user/apikey
+      - model: authentik_policies.policybinding
+        identifiers:
+          order: 2
+          target: !KeyOf zot-app
+          group: !KeyOf talos-artifacts-group
+        attrs:
+          target: !KeyOf zot-app
+          group: !KeyOf talos-artifacts-group
+          order: 2
+          enabled: true
+          negate: false
+          timeout: 30
+
+      # Policy binding — let horkos-artifacts sign in via OIDC to mint a zot API key at /user/apikey
+      - model: authentik_policies.policybinding
+        identifiers:
+          order: 3
+          target: !KeyOf zot-app
+          group: !KeyOf horkos-artifacts-group
+        attrs:
+          target: !KeyOf zot-app
+          group: !KeyOf horkos-artifacts-group
+          order: 3
           enabled: true
           negate: false
           timeout: 30

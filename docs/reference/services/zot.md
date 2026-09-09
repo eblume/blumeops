@@ -1,7 +1,7 @@
 ---
 title: Zot
-modified: 2026-07-18
-last-reviewed: 2026-07-18
+modified: 2026-09-09
+last-reviewed: 2026-09-09
 tags:
   - service
   - registry
@@ -36,19 +36,22 @@ When the [[cluster|k3s cluster]] pulls an image, containerd checks zot first. If
 
 ## Security Model
 
-OIDC authentication via [[authentik]], with API key support for CI. Three-tier access control:
+OIDC authentication via [[authentik]], with API key support for CI.
 
 | Role | Permissions | Use case |
 |------|------------|----------|
 | Anonymous | read | Pull images without auth |
 | `artifact-workloads` group | read, create | CI push (new tags only, no overwrite/delete) |
 | `admins` group | read, create, update, delete | Break-glass admin access |
+| `zot-talos`, `zot-horkos` | create, update on their own image path only | per-repo release-CI push key (horkos#17 step 3) |
 
 CI authenticates with a zot API key generated from the `zot-ci` service account's OIDC session. The key is stored in the `Forgejo Secrets` 1Password item (field `zot-ci-api`) and synced to Forgejo Actions secrets via ansible.
 
+The per-repo identities exist because a repo's Forgejo Actions secrets are readable by anyone who can push to that repo, so each release CI's key is scoped by zot accessControl to create+update on its own image path only. zot's accessControl uses longest-match, so the per-path `blumeops/talos` and `blumeops/horkos` entries restate the base `**` policies verbatim rather than inheriting them.
+
 ## API Key Rotation
 
-The `zot-ci` API key expires every **90 days**. To rotate:
+The `zot-ci` API key expires every **90 days**. `zot-talos` and `zot-horkos` rotate the same way (impersonate each user, /user/apikey); their keys live in the `Forgejo Secrets` item as `zot-talos-api` / `zot-horkos-api`. To rotate:
 
 1. In Authentik admin UI, impersonate the `zot-ci` user
 2. Visit `https://registry.ops.eblu.me` — you'll land on the login page
