@@ -225,9 +225,11 @@ def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: st
     remote_export = f"{REMOTE_DIR}/1password-export-{timestamp}.age"
     remote_key = f"{REMOTE_DIR}/1password-export-{timestamp}.key.enc"
 
-    # Ensure remote directory exists
+    # Ensure remote directory exists and is private to erichblume: indri's
+    # ~/Documents is iCloud-synced (Desktop & Documents) and shared with the
+    # forgejo service user's host, so keep the ciphertext out of "other".
     subprocess.run(
-        ["ssh", "indri", f"mkdir -p {REMOTE_DIR}"],
+        ["ssh", "indri", f"mkdir -p {REMOTE_DIR} && chmod 700 {REMOTE_DIR}"],
         capture_output=True,
         check=False,
     )
@@ -258,6 +260,15 @@ def transfer_to_indri(encrypted_export: Path, encrypted_key: Path, timestamp: st
         console.print("[red]ERROR:[/red] SCP of encrypted key failed")
         console.print(f"Encrypted files preserved in: {encrypted_export.parent}")
         return False
+
+    # scp inherits indri's umask (022) — tighten the landed files to owner-only.
+    result = subprocess.run(
+        ["ssh", "indri", f"chmod 600 '{remote_export}' '{remote_key}'"],
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        console.print("[yellow]WARNING:[/yellow] chmod 600 on indri failed; files landed but are mode 644")
 
     # Clean up old exports (keep last N sets — each set is a .age + .key.enc)
     subprocess.run(
