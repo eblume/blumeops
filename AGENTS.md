@@ -289,9 +289,14 @@ heph task "Title" --project Blumeops --do-date fri --attention white  # create a
 Date forms: `today|tomorrow|+3d|fri|YYYY-MM-DD`. Recurrence: presets
 (`daily|weekly|monthly|yearly|weekdays`) or natural language (`"every 3 days"`).
 
-Conventions: don't save TODOs to agent memory — file them as heph tasks under
-the Blumeops project. When completing a recurring chore (e.g. "BlumeOps doc
-review"), `heph log` a short note of what was done, then `heph done` it.
+Conventions: don't save TODOs to agent memory. Code-work progress lives in
+the forge thread — don't file heph tasks to track or remind about code work
+in talos-managed repos; file new work as a forge issue/PR instead. File a
+heph task under the Blumeops project only for human actions needed *entirely*
+outside of talos/blumeops — chores, projects, ideas, shopping lists, stuff
+like that (e.g. if Erich asks to research good gifts, file "buy a gift for
+X"). When completing a recurring chore Erich himself filed (e.g. "BlumeOps
+doc review"), `heph log` a short note of what was done, then `heph done` it.
 
 Most operational scripts are stored in `./mise-tasks/`. For scripts with any logic or
 complexity, use uv run --script 's with explicit dependencies. CI workflows are plain
