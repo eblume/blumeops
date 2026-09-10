@@ -51,19 +51,43 @@ The per-repo identities exist because a repo's Forgejo Actions secrets are reada
 
 ## API Key Rotation
 
-The `zot-ci` API key expires every **90 days**. `zot-talos` and `zot-horkos` rotate the same way (impersonate each user, /user/apikey); their keys live in the `Forgejo Secrets` item as `zot-talos-api` / `zot-horkos-api`. To rotate:
+Every CI key expires after **90 days**. Rotation is a command, not a browser
+session:
 
-1. In Authentik admin UI, impersonate the `zot-ci` user
-2. Visit `https://registry.ops.eblu.me` — you'll land on the login page
-3. Click "SIGN IN WITH OIDC" to authenticate as zot-ci
-4. Navigate to `https://registry.ops.eblu.me/user/apikey`
-5. Generate a new API key, copy it to clipboard
-6. Update 1Password:
+```fish
+mise run zot-apikey-rotate zot-ci        # or zot-talos, zot-horkos
+mise run zot-apikey-rotate zot-ci --dry-run   # just prove the current key still works
+```
+
+zot's key-management endpoints accept an API key as basic-auth credentials,
+so a live key mints its own successor. The task reads the current key from the
+`Forgejo Secrets` item (blumeops vault; fields `zot-ci-api`, `zot-talos-api`,
+`zot-horkos-api`), mints a new one, proves the new key authenticates, writes
+the master copy back, writes the consumer copy — `blumeops-ci/zot-ci`
+(`api-key`) for `zot-ci`, the `ZOT_PUSH_API_KEY` Actions secret on
+`eblume/talos` / `eblume/horkos` for the per-repo identities — and then
+revokes every other key the identity holds (`--keep-others` to skip). Any
+failure before the writes leaves the old key valid and its consumer untouched.
+Key material never touches argv or the terminal.
+
+Rotate before expiry, not after: an expired key cannot mint, and the chain
+has to be re-seeded in the browser.
+
+### Bootstrap (first key, or a broken chain)
+
+Needed once per new identity, or when a key expired before anyone rotated it:
+
+1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `zot-talos`
+   or `zot-horkos`)
+2. Visit `https://registry.ops.eblu.me` and click "SIGN IN WITH OIDC"
+3. Navigate to `https://registry.ops.eblu.me/user/apikey`, generate a key
+   (any expiry — it is about to be retired), copy it
+4. Stop impersonating, then hand the key to the task from the clipboard:
    ```fish
-   set -l NEWKEY (pbpaste); op item edit "Forgejo Secrets" --vault blumeops "zot-ci-api[password]=$NEWKEY"; set -e NEWKEY
+   pbpaste | mise run zot-apikey-rotate zot-talos --key-stdin
    ```
-   The value is briefly visible to other `ps`-readers on this machine (single-user mac, acceptable tradeoff). The older `pbpaste | op item edit ... "field[password]=-"` stdin syntax was rejected by op 2.34 as "invalid JSON" — recent op versions treat piped input as a full JSON template.
-7. Sync to Forgejo: `mise run provision-indri -- --tags forgejo_actions_secrets`
+   That verifies the pasted key, mints the real one, stores it, syncs the
+   consumer and revokes the pasted bootstrap key in one step.
 
 ## Related
 

@@ -1,0 +1,282 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx==0.28.1", "typer==0.27.1"]
+# ///
+#MISE description="[human] Rotate a zot CI API key (zot-ci|zot-talos|zot-horkos) from its current key: mint, store in 1Password, sync to its consumer, revoke the rest"
+#USAGE arg "<identity>" help="zot-ci, zot-talos or zot-horkos"
+#USAGE flag "--days <n>" help="Lifetime of the new key in days (default 90)"
+#USAGE flag "--key-stdin" help="Read the current key from stdin instead of 1Password (bootstrap: paste a browser-minted key)"
+#USAGE flag "--dry-run" help="Verify the current key and list the identity's keys; mint nothing"
+#USAGE flag "--keep-others" help="Do not revoke the identity's other keys once the new one is verified"
+"""Rotate a zot API key without a browser.
+
+zot's key-management endpoints (`/zot/auth/apikey`) sit behind the same
+authn middleware as everything else, and that middleware accepts an API key
+as basic-auth credentials (`pkg/api/authn.go`, `basicAuthn`, "last try API
+keys"). So a live key can mint its own successor: no Authentik impersonation,
+no OIDC login, no clipboard. The only thing a browser is still needed for is
+the very first key of a new identity, and `--key-stdin` takes that one so the
+bootstrap key is retired the moment the chain starts.
+
+Order of operations is chosen so that a failure anywhere leaves the old key
+valid and its consumer untouched:
+
+1. read the current key (1Password master copy, or stdin) and prove it
+   authenticates (GET the key list);
+2. mint the new key with an expiry `--days` out;
+3. prove the NEW key authenticates;
+4. write the master copy (`Forgejo Secrets` item, blumeops vault);
+5. write the consumer copy — the blumeops-ci vault item for `zot-ci`
+   (workflows `op read` it at job time), or the `ZOT_PUSH_API_KEY` Actions
+   secret on the release repo for `zot-talos` / `zot-horkos`;
+6. revoke every other key the identity holds (one live key per CI identity
+   is the invariant; `--keep-others` opts out).
+
+Key material never goes through argv (`op` edits use a template file in a
+0700 tempdir; HTTP auth goes through httpx), and is never printed.
+
+If the chain is broken — the current key expired before anyone rotated it —
+step 1 fails with 401 and the fix is the browser bootstrap in
+[[zot#API Key Rotation]] followed by `--key-stdin`.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import tempfile
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Annotated
+
+import httpx
+import typer
+
+ZOT_URL = "https://registry.ops.eblu.me"
+FORGE_API = "https://forge.ops.eblu.me/api/v1"
+MASTER_VAULT = "blumeops"
+MASTER_ITEM = "Forgejo Secrets"
+FORGE_TOKEN_REF = f"op://{MASTER_VAULT}/{MASTER_ITEM}/api-token"
+OP_TIMEOUT = 120  # biometric prompt
+
+
+@dataclass(frozen=True)
+class OpFieldSink:
+    vault: str
+    item: str
+    field: str
+
+    def describe(self) -> str:
+        return f"op://{self.vault}/{self.item}/{self.field}"
+
+
+@dataclass(frozen=True)
+class ForgeSecretSink:
+    repo: str
+    name: str
+
+    def describe(self) -> str:
+        return f"Forgejo Actions secret {self.name} on {self.repo}"
+
+
+@dataclass(frozen=True)
+class Identity:
+    master_field: str
+    sink: OpFieldSink | ForgeSecretSink
+
+
+IDENTITIES: dict[str, Identity] = {
+    "zot-ci": Identity(
+        master_field="zot-ci-api",
+        sink=OpFieldSink(vault="blumeops-ci", item="zot-ci", field="api-key"),
+    ),
+    "zot-talos": Identity(
+        master_field="zot-talos-api",
+        sink=ForgeSecretSink(repo="eblume/talos", name="ZOT_PUSH_API_KEY"),
+    ),
+    "zot-horkos": Identity(
+        master_field="zot-horkos-api",
+        sink=ForgeSecretSink(repo="eblume/horkos", name="ZOT_PUSH_API_KEY"),
+    ),
+}
+
+
+def say(msg: str) -> None:
+    print(msg, file=sys.stderr)
+
+
+def die(msg: str, code: int = 1) -> None:
+    say(f"error: {msg}")
+    raise typer.Exit(code)
+
+
+# --- 1Password ----------------------------------------------------------------
+
+
+def op(*args: str, stdin: str | None = None) -> str:
+    result = subprocess.run(
+        ["op", *args],
+        input=stdin,
+        capture_output=True,
+        text=True,
+        timeout=OP_TIMEOUT,
+        stdin=None if stdin is not None else subprocess.DEVNULL,  # op misparses non-TTY stdin
+        check=False,
+    )
+    if result.returncode != 0:
+        die(f"op {' '.join(args[:3])} … failed: {result.stderr.strip()}")
+    return result.stdout
+
+
+def op_read(ref: str) -> str:
+    value = op("read", ref).strip()
+    if not value:
+        die(f"{ref} is empty")
+    return value
+
+
+def op_set_field(vault: str, item: str, field: str, value: str) -> None:
+    """Set (or add) one concealed field on an item via a template file.
+
+    `op item edit ITEM 'field[password]=VALUE'` puts the secret in argv;
+    `--template` keeps it in a file only we can read. Mirrors
+    mise-tasks/agent-authkey-sync.
+    """
+    doc = json.loads(op("item", "get", item, "--vault", vault, "--format", "json"))
+    for f in doc["fields"]:
+        if f.get("label") == field:
+            f["value"] = value
+            break
+    else:
+        doc["fields"].append({"label": field, "type": "CONCEALED", "value": value})
+    with tempfile.TemporaryDirectory() as d:
+        Path(d).chmod(0o700)
+        tmpl = Path(d) / "item.json"
+        tmpl.write_text(json.dumps(doc))
+        tmpl.chmod(0o600)
+        op("item", "edit", item, "--vault", vault, "--template", str(tmpl))
+
+
+# --- zot ---------------------------------------------------------------------
+
+
+def zot_client(identity: str, key: str) -> httpx.Client:
+    return httpx.Client(base_url=ZOT_URL, auth=(identity, key), timeout=30)
+
+
+def list_keys(client: httpx.Client) -> list[dict]:
+    r = client.get("/zot/auth/apikey")
+    if r.status_code == 401:
+        die(
+            "the current key does not authenticate (expired or revoked?). "
+            "Bootstrap a fresh one in the browser and re-run with --key-stdin."
+        )
+    r.raise_for_status()
+    return r.json().get("apiKeys") or []
+
+
+def mint_key(client: httpx.Client, label: str, expires: datetime) -> tuple[str, str]:
+    payload = {
+        "label": label,
+        "scopes": [],
+        # zot parses this with time.RFC3339 (pkg/api/constants: APIKeyTimeFormat)
+        "expirationDate": expires.isoformat(timespec="seconds"),
+    }
+    r = client.post("/zot/auth/apikey", json=payload)
+    if r.status_code != 201:
+        die(f"mint failed: HTTP {r.status_code} {r.text[:200]}")
+    body = r.json()
+    return body["apiKey"], body["uuid"]
+
+
+def revoke_key(client: httpx.Client, uuid: str) -> None:
+    r = client.delete("/zot/auth/apikey", params={"id": uuid})
+    if r.status_code != 200:
+        die(f"revoke of {uuid} failed: HTTP {r.status_code} {r.text[:200]}")
+
+
+# --- sinks -------------------------------------------------------------------
+
+
+def write_sink(sink: OpFieldSink | ForgeSecretSink, key: str) -> None:
+    match sink:
+        case OpFieldSink(vault, item, field):
+            op_set_field(vault, item, field, key)
+        case ForgeSecretSink(repo, name):
+            token = op_read(FORGE_TOKEN_REF)
+            r = httpx.put(
+                f"{FORGE_API}/repos/{repo}/actions/secrets/{name}",
+                headers={"Authorization": f"token {token}"},
+                json={"data": key},
+                timeout=30,
+            )
+            if r.status_code not in (201, 204):
+                die(f"forge PUT {name} on {repo} failed: HTTP {r.status_code} {r.text[:200]}")
+
+
+# --- main --------------------------------------------------------------------
+
+
+def main(
+    identity: Annotated[str, typer.Argument(help="zot-ci, zot-talos or zot-horkos")],
+    days: Annotated[int, typer.Option(help="Lifetime of the new key in days")] = 90,
+    key_stdin: Annotated[bool, typer.Option("--key-stdin", help="Read the current key from stdin")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Verify and list; mint nothing")] = False,
+    keep_others: Annotated[bool, typer.Option("--keep-others", help="Leave the identity's other keys alone")] = False,
+) -> None:
+    if identity not in IDENTITIES:
+        die(f"unknown identity {identity!r}; one of {', '.join(IDENTITIES)}")
+    ident = IDENTITIES[identity]
+    master_ref = f"op://{MASTER_VAULT}/{MASTER_ITEM}/{ident.master_field}"
+
+    if key_stdin:
+        current = sys.stdin.read().strip()
+        if not current:
+            die("--key-stdin given but stdin was empty")
+        say(f"{identity}: using the key from stdin as the current key")
+    else:
+        current = op_read(master_ref)
+        say(f"{identity}: read the current key from {master_ref}")
+
+    with zot_client(identity, current) as old:
+        existing = list_keys(old)
+        say(f"{identity}: current key authenticates; {len(existing)} key(s) on record:")
+        for k in existing:
+            say(f"  - {k.get('label')!r} uuid={k['uuid']} expires={k.get('expirationDate')} expired={k.get('isExpired')}")
+        if dry_run:
+            say("dry run: nothing minted")
+            return
+
+        now = datetime.now().astimezone()
+        expires = now + timedelta(days=days)
+        label = f"{identity} rotated {now:%Y-%m-%d} by mise zot-apikey-rotate"
+        new_key, new_uuid = mint_key(old, label, expires)
+        say(f"{identity}: minted uuid={new_uuid} expires={expires:%Y-%m-%d}")
+
+    with zot_client(identity, new_key) as new:
+        list_keys(new)  # 401 here would die before we touch any store
+        say(f"{identity}: new key authenticates")
+
+        op_set_field(MASTER_VAULT, MASTER_ITEM, ident.master_field, new_key)
+        say(f"{identity}: master copy written to {master_ref}")
+
+        write_sink(ident.sink, new_key)
+        say(f"{identity}: consumer copy written to {ident.sink.describe()}")
+
+        if keep_others:
+            say(f"{identity}: --keep-others, leaving {len(existing)} older key(s) in place")
+        else:
+            for k in existing:
+                if k["uuid"] == new_uuid:
+                    continue
+                revoke_key(new, k["uuid"])
+                say(f"{identity}: revoked {k.get('label')!r} uuid={k['uuid']}")
+
+    say(f"{identity}: rotated; next rotation due before {expires:%Y-%m-%d}")
+
+
+if __name__ == "__main__":
+    typer.run(main)
