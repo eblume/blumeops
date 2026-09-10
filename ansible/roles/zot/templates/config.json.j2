@@ -43,6 +43,43 @@
           ],
           "anonymousPolicy": ["read"],
           "defaultPolicy": ["read"]
+        },
+        {# zot accessControl is longest-match: a specific key replaces, not augments, "**" policies #}
+        "blumeops/talos": {
+          "policies": [
+            {
+              "groups": ["talos-artifacts"],
+              "actions": ["create", "update"]
+            },
+            {
+              "groups": ["artifact-workloads"],
+              "actions": ["read", "create"]
+            },
+            {
+              "groups": ["admins"],
+              "actions": ["read", "create", "update", "delete"]
+            }
+          ],
+          "anonymousPolicy": ["read"],
+          "defaultPolicy": ["read"]
+        },
+        "blumeops/horkos": {
+          "policies": [
+            {
+              "groups": ["horkos-artifacts"],
+              "actions": ["create", "update"]
+            },
+            {
+              "groups": ["artifact-workloads"],
+              "actions": ["read", "create"]
+            },
+            {
+              "groups": ["admins"],
+              "actions": ["read", "create", "update", "delete"]
+            }
+          ],
+          "anonymousPolicy": ["read"],
+          "defaultPolicy": ["read"]
         }
       }
     }
