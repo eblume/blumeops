@@ -1,0 +1,1 @@
+Fix the LaunchAgent plist naming in the add-ansible-role how-to to the real convention (mcquack.eblume.<service>.plist, per the zot/forgejo/alloy roles) and drop the trailing slash from the node_exporter textfile path to match role defaults; stamp last-reviewed 2026-09-10.

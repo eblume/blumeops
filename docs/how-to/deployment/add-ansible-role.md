@@ -1,7 +1,7 @@
 ---
 title: Add Ansible Role
-modified: 2026-02-13
-last-reviewed: 2026-02-13
+modified: 2026-09-10
+last-reviewed: 2026-09-10
 tags:
   - how-to
   - ansible
@@ -50,7 +50,7 @@ role_port: 8080
 - name: Deploy LaunchAgent plist
   ansible.builtin.template:
     src: launchagent.plist.j2
-    dest: ~/Library/LaunchAgents/mcquack.<service>.plist
+    dest: ~/Library/LaunchAgents/mcquack.eblume.<service>.plist
     mode: '0644'
   notify: Restart <service>
 ```
@@ -60,8 +60,8 @@ role_port: 8080
 ---
 - name: Restart <service>
   ansible.builtin.shell: |
-    launchctl unload ~/Library/LaunchAgents/mcquack.<service>.plist 2>/dev/null || true
-    launchctl load ~/Library/LaunchAgents/mcquack.<service>.plist
+    launchctl unload ~/Library/LaunchAgents/mcquack.eblume.<service>.plist 2>/dev/null || true
+    launchctl load ~/Library/LaunchAgents/mcquack.eblume.<service>.plist
   changed_when: true
 ```
 
@@ -131,7 +131,7 @@ ssh indri 'launchctl list | grep <service>'
 ## Add Observability (optional)
 
 For metrics collection, create a companion `<role>_metrics` role that:
-1. Writes metrics to `/opt/homebrew/var/node_exporter/textfile/`
+1. Writes metrics to `/opt/homebrew/var/node_exporter/textfile`
 2. Runs via a LaunchAgent (cronjob-style)
 
 See [[alloy]] for how metrics are collected from textfiles.
