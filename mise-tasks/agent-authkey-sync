@@ -18,12 +18,31 @@ cd "$(dirname "$0")/../pulumi/tailscale"
 KEY="$(pulumi stack output --show-secrets agent_authkey)"
 [ -n "$KEY" ] || { echo "empty agent_authkey from pulumi output" >&2; exit 1; }
 
-tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
-if op item get "$ITEM" --vault "$VAULT" --format json >/dev/null 2>&1; then
-  op item get "$ITEM" --vault "$VAULT" --format json \
-    | jq --arg k "$KEY" '(.fields |= map(if .label=="authkey" then .value=$k else . end))' > "$tmp"
-  op item edit "$ITEM" --vault "$VAULT" --template "$tmp" >/dev/null
+tmp="$(mktemp)"; trap 'rm -f "$tmp" "$tmp.err" "$tmp.new"' EXIT
+if op item get "$ITEM" --vault "$VAULT" --format json > "$tmp" 2> "$tmp.err"; then
+  # The probe output IS the item — no second get.
+  jq --arg k "$KEY" '(.fields |= map(if .label=="authkey" then .value=$k else . end))' "$tmp" > "$tmp.new"
+  op item edit "$ITEM" --vault "$VAULT" --template "$tmp.new" >/dev/null
 else
+  # A get failure means "missing" only when op says so. Any other error must
+  # fail loudly rather than create (eblume/blumeops#963).
+  if ! grep -q "isn't an item in the" "$tmp.err"; then
+    cat "$tmp.err" >&2
+    exit 1
+  fi
+  # Belt and suspenders: never create when a same-titled item already exists.
+  matches=$(op item list --vault "$VAULT" --format json \
+    | jq --arg t "$ITEM" '[.[] | select(.title == $t)] | length')
+  case "$matches" in
+    ''|*[!0-9]*)
+      echo "agent-authkey-sync: no usable match count from op item list — refusing to create (eblume/blumeops#963)" >&2
+      exit 1
+      ;;
+  esac
+  if [ "$matches" -ne 0 ]; then
+    echo "agent-authkey-sync: $matches item(s) titled '$ITEM' exist but get failed — refusing to create (eblume/blumeops#963)" >&2
+    exit 1
+  fi
   jq -n --arg t "$ITEM" --arg k "$KEY" \
     '{title:$t, category:"API_CREDENTIAL", fields:[{label:"authkey", type:"CONCEALED", value:$k}]}' > "$tmp"
   op item create --vault "$VAULT" --template "$tmp" >/dev/null

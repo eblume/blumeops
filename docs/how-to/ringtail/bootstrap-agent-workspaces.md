@@ -218,7 +218,17 @@ than they look; read the gotchas.**
    ```
 
    Approve the printed URL in the **incognito `heph-agents` session**. On success
-   `heph-token-save` writes the token to `op://agents/heph-spoke-token/token`.
+   `heph-token-save` writes the token to the `heph-spoke-token` item in the
+   **agents** vault, addressed by the id pinned as `hephTokenItemId` in
+   `nixos/ringtail/agent-heph-spoke.nix`. If that id is absent (fresh vault,
+   deleted item), the save **creates** the item — record the new id in the
+   module afterwards (`op item list --vault agents --format json
+   | jq '.[] | select(.title == "heph-spoke-token") | .id'`; eblume/blumeops#963).
+
+   > **If you see duplicate `heph-spoke-token` items** in the agents vault, stop:
+   > every title lookup against the item fails while duplicates exist, and the
+   > save refuses to write until it is resolved by hand (keep one, delete the
+   > rest, record the kept id in the module). eblume/blumeops#963.
 
    > **THE trap:** the device flow authorizes as whoever the browser is logged
    > into. If you open the URL in your normal browser (logged in as *you*), it
@@ -234,7 +244,8 @@ than they look; read the gotchas.**
 
    ```fish
    # as the agent; base64URL needs padding — python is more reliable than `base64 -d`
-   op read op://agents/heph-spoke-token/token \
+   # <item-id> = hephTokenItemId in nixos/ringtail/agent-heph-spoke.nix
+   op read op://agents/<item-id>/token \
      | python3 -c 'import sys,json,base64; t=json.load(sys.stdin)["access_token"].split(".")[1]; t+="="*(-len(t)%4); print(json.loads(base64.urlsafe_b64decode(t))["sub"])'
    op item create --vault blumeops --category "API Credential" \
      --title heph-agents-sub "sub[text]=<the-sub>"
