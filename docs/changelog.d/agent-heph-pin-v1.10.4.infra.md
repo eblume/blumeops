@@ -1,0 +1,1 @@
+Pin the heph release to v1.10.4 in both places: the hub (`heph_version`, indri ansible role) and the ringtail spokes (`hephTag`). v1.10.4 ships heph-pwa tag rendering and the talos-watch notice/Unwatch action ([eblume/hephaestus#78](https://forge.eblu.me/eblume/hephaestus/issues/78)).
