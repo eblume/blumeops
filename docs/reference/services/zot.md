@@ -75,7 +75,13 @@ has to be re-seeded in the browser.
 
 ### Bootstrap (first key, or a broken chain)
 
-Needed once per new identity, or when a key expired before anyone rotated it:
+Needed once per new identity, or when a key expired before anyone rotated it.
+This is the one step that stays in the browser: Authentik's OIDC authorize
+view requires a login event on the session, and a session created through
+API-token impersonation (`POST /api/v3/core/users/<pk>/impersonate/`) has
+none, so it bounces to the login flow. Browser impersonation works because it
+rides on your own logged-in session.
+
 
 1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `zot-talos`
    or `zot-horkos`)
