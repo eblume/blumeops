@@ -1,0 +1,1 @@
+Talos Grafana alerting: new talos-workspaces alert group — TalosWorktreeDangling fires when a pool clone in the talos pod has a worktree registration whose worktree path no longer exists (the eblume/talos#140 failure signature) for an hour.
