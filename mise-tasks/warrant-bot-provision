@@ -36,6 +36,7 @@ accepted floor because Forgejo has no dispatch-only permission.
 Usage: mise run warrant-bot-provision [--dry-run] [--rotate] [--token <t>]
 """
 
+import json
 import secrets
 import subprocess
 import sys
@@ -110,6 +111,40 @@ warrant-bot itself.
 """
 
 
+def item_state(vault: str, title: str) -> str:
+    """'ok' | 'missing' — anything else exits non-zero.
+
+    A bare `op read` return code cannot tell a transient auth/network failure
+    from a missing item; creating on either is the duplicate cascade
+    (eblume/blumeops#963). So the probe is `op item get` by title, and 'missing'
+    is reported only when op says so AND the title has zero matches in the
+    vault.
+    """
+    get = op("item", "get", title, "--vault", vault, "--format", "json", check=False)
+    if get.returncode == 0:
+        return "ok"
+    if "isn't an item in the" in get.stderr:
+        lst = op("item", "list", "--vault", vault, "--format", "json", check=False)
+        if lst.returncode != 0:
+            err.print(f"op item list in vault {vault!r} failed:")
+            err.print(escape(lst.stderr.strip()))
+            raise typer.Exit(1)
+        n = sum(
+            1 for i in json.loads(lst.stdout) if i.get("title") == title
+        )
+        if n == 0:
+            return "missing"
+        err.print(
+            f"op item get {title!r} in vault {vault!r}: not found by title, but "
+            f"{n} item(s) titled {title!r} still exist — refusing to write "
+            "(eblume/blumeops#963)."
+        )
+        raise typer.Exit(1)
+    err.print(f"op item get {title} in vault {vault!r} failed without a definite not-found:")
+    err.print(escape(get.stderr.strip()))
+    raise typer.Exit(1)
+
+
 def mirror_to_ci(pat: str) -> None:
     """Reconcile op://blumeops-ci/horkos-dispatch/token with the canonical PAT.
 
@@ -118,17 +153,16 @@ def mirror_to_ci(pat: str) -> None:
     every invocation, not just on --rotate, so this task doubles as the drift
     check for the mirror.
     """
-    current = op("read", f"op://{CI_VAULT}/{CI_ITEM}/token", check=False)
-    if current.returncode == 0 and current.stdout.strip() == pat:
-        console.print(f"mirror op://{CI_VAULT}/{CI_ITEM}/token: [green]in step[/green]")
-        return
-    field = f"token[password]={pat}"
-    if current.returncode == 0:
-        op("item", "edit", CI_ITEM, "--vault", CI_VAULT, field)
+    if item_state(CI_VAULT, CI_ITEM) == "ok":
+        current = op("read", f"op://{CI_VAULT}/{CI_ITEM}/token").stdout.strip()
+        if current == pat:
+            console.print(f"mirror op://{CI_VAULT}/{CI_ITEM}/token: [green]in step[/green]")
+            return
+        op("item", "edit", CI_ITEM, "--vault", CI_VAULT, f"token[password]={pat}")
         console.print(f"[yellow]mirror updated[/yellow] op://{CI_VAULT}/{CI_ITEM}/token")
     else:
         op("item", "create", "--vault", CI_VAULT, "--title", CI_ITEM,
-           "--category", "API Credential", field)
+           "--category", "API Credential", f"token[password]={pat}")
         console.print(f"[green]mirror created[/green] op://{CI_VAULT}/{CI_ITEM}/token")
 
 
@@ -207,7 +241,7 @@ def main(
         # 3 + 4. PAT → vault. Minted AS warrant-bot over basic auth, not via
         # the admin API: a bot minting its own token needs no admin scope, and
         # the resulting PAT is unambiguously the bot's own credential.
-        stored = op("read", f"op://{VAULT}/{VAULT_ITEM}/token", check=False).returncode == 0
+        stored = item_state(VAULT, VAULT_ITEM) == "ok"
         console.print(f"stored PAT in {VAULT}: {'present' if stored else 'absent'}")
         if stored and not rotate:
             console.print("nothing to mint (use --rotate to replace)")

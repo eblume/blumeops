@@ -262,12 +262,15 @@ Spokes):**
   version-checks and only recompiles on a tag bump.
 - `agent-heph-spoke.service` — runs `hephd --mode local --hub-url
   http://indri…:8787` (spoke sync is HTTP-only) authenticating via OIDC.
-- The spoke's token lives in the **agents vault** (`op://agents/heph-spoke-token`),
-  not a file, via hephd's **command token store** (`--token-load-cmd 'op read …'`
-  / `--token-save-cmd heph-token-save`) — no plaintext token at rest. The
-  `heph-token-save` wrapper writes refreshes back to the vault **without ever
-  putting the token in argv** (`/proc/<pid>/cmdline` is world-readable) using op
-  template files + `jq --rawfile`.
+- The spoke's token lives in the **agents vault**, item `heph-spoke-token`
+  addressed by id (`hephTokenItemId` in `nixos/ringtail/agent-heph-spoke.nix`)
+  rather than title — a title match is ambiguous once duplicates exist
+  (eblume/blumeops#963). It is not a file: hephd's **command token store**
+  (`--token-load-cmd 'op read …'` / `--token-save-cmd heph-token-save`) — no
+  plaintext token at rest. The `heph-token-save` wrapper writes refreshes back
+  to the vault **without ever putting the token in argv**
+  (`/proc/<pid>/cmdline` is world-readable) using op template files +
+  `jq --rawfile`, and creates the item only on a definite not-found.
 
 **Identity & revocation.** The spoke authenticates as a dedicated
 **`heph-agents`** Authentik user in a heph-scoped group (*not* `admins` — that

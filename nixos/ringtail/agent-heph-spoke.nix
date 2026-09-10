@@ -36,24 +36,50 @@ let
   # heph-eblume.nix builds Erich's own spoke from the same file, so the two
   # spokes can't drift apart on the heph version.
   heph = import ./heph-common.nix { inherit pkgs lib; };
-  hephTokenRef = "op://agents/heph-spoke-token/token"; # in the agents vault
+  # The token item is addressed by id: a title lookup becomes ambiguous once
+  # a second item carries the same title, and an ambiguous get must never
+  # fall through to create (eblume/blumeops#963).
+  hephTokenItemId = "pvg3m3ivej2rycl4neuq3rqv5a";
+  hephTokenRef = "op://agents/${hephTokenItemId}/token"; # agents vault
 
   # Persist the spoke's OIDC token in the agents 1Password vault (no plaintext at
   # rest). Reads the token JSON on stdin (from hephd `--token-save-cmd`) and
   # writes it to a CONCEALED field — NEVER via argv (`/proc/<pid>/cmdline` is
   # world-readable), using op template files + `jq --rawfile`.
   hephTokenSave = pkgs.writeShellScriptBin "heph-token-save" ''
-    set -eu
+    set -euo pipefail
     umask 077
     d="$(${pkgs.coreutils}/bin/mktemp -d)"
     trap '${pkgs.coreutils}/bin/rm -rf "$d"' EXIT
     ${pkgs.coreutils}/bin/cat > "$d/token" # token JSON on stdin
-    if ${opShim}/bin/op item get heph-spoke-token --vault agents --format json </dev/null > "$d/item.json" 2>/dev/null; then
+    if ${opShim}/bin/op item get "${hephTokenItemId}" --vault agents --format json </dev/null > "$d/item.json" 2>"$d/err"; then
       ${pkgs.jq}/bin/jq --rawfile t "$d/token" \
         '(.fields |= map(if .label == "token" then .value = $t else . end))' \
         "$d/item.json" > "$d/new.json"
-      ${opShim}/bin/op item edit heph-spoke-token --vault agents --template "$d/new.json" </dev/null >/dev/null
+      ${opShim}/bin/op item edit "${hephTokenItemId}" --vault agents --template "$d/new.json" </dev/null >/dev/null
     else
+      # Only a definite not-found may fall through to create; any other
+      # failure (auth, timeout, network) exits non-zero and writes nothing.
+      if ! ${pkgs.gnugrep}/bin/grep -q "isn't an item in the" "$d/err"; then
+        ${pkgs.coreutils}/bin/cat "$d/err" >&2
+        exit 1
+      fi
+      # An item with the same title but another id means the vault is in the
+      # duplicated state — refuse to write rather than add a third item.
+      matches=$(${opShim}/bin/op item list --vault agents --format json </dev/null \
+        | ${pkgs.jq}/bin/jq '[.[] | select(.title == "heph-spoke-token")] | length')
+      # ''' is the nix string escape for the shell empty-string pattern; with
+      # *[!0-9] the case refuses a non-numeric or empty match count
+      case "$matches" in
+        '''|*[!0-9]*)
+          echo "heph-token-save: no usable match count from op item list — refusing to write (eblume/blumeops#963)" >&2
+          exit 1
+          ;;
+      esac
+      if [ "$matches" -ne 0 ]; then
+        echo "heph-token-save: $matches item(s) titled heph-spoke-token exist but ${hephTokenItemId} is missing — refusing to write (eblume/blumeops#963)" >&2
+        exit 1
+      fi
       ${pkgs.jq}/bin/jq -n --rawfile t "$d/token" \
         '{title: "heph-spoke-token", category: "API_CREDENTIAL", fields: [{label: "token", type: "CONCEALED", value: $t}]}' \
         > "$d/new.json"

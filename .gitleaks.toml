@@ -18,3 +18,12 @@ useDefault = true
 description = "nix-built container image tags (vX.Y.Z-<hash>-nix)"
 regexTarget = "secret"
 regexes = ['''^v[\w.]+-[0-9a-f]{5,40}-nix$''']
+
+# 1Password item ids are 26 lowercase-alphanumeric characters — a stable
+# identifier, not a credential. Pinned ids (e.g. hephTokenItemId in
+# nixos/ringtail/agent-heph-spoke.nix) trip generic-api-key when a keyword
+# like "Token" precedes the quoted id.
+[[allowlists]]
+description = "1Password item ids (26-char lowercase alphanumeric)"
+regexTarget = "secret"
+regexes = ['^[a-z0-9]{26}$']
