@@ -184,16 +184,16 @@ prometheus.scrape "blackbox" {
   forward_to      = [prometheus.remote_write.prometheus.receiver]
 }
 
-// Push metrics to indri Prometheus
+// Push metrics to Prometheus in-cluster. Not the tailscale ingress name:
+// after a ringtail reboot CoreDNS can capture the host resolvers before
+// tailscaled installs MagicDNS, and then *.ts.net is NXDOMAIN from pods
+// (2026-09-10: metrics and logs silently dropped until coredns was restarted).
+// The cluster-local Service depends on neither.
 prometheus.remote_write "prometheus" {
   external_labels = { cluster = "ringtail" }
 
   endpoint {
-    url = "https://prometheus.tail8d86e.ts.net/api/v1/write"
-
-    tls_config {
-      insecure_skip_verify = true
-    }
+    url = "http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
   }
 }
 
@@ -314,13 +314,9 @@ loki.process "pods" {
   }
 }
 
-// Write logs to indri Loki
+// Write logs to Loki in-cluster (same reasoning as the remote_write above).
 loki.write "loki" {
   endpoint {
-    url = "https://loki.tail8d86e.ts.net/loki/api/v1/push"
-
-    tls_config {
-      insecure_skip_verify = true
-    }
+    url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
   }
 }

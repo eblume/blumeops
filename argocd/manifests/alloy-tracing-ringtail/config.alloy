@@ -10,10 +10,36 @@ beyla.ebpf "http_services" {
       open_ports = "80-9999"
     }
 
+    // Exclude by executable FIRST. Kubernetes-metadata exclusions below race
+    // against process start: a new pid gets uprobed before its pod metadata
+    // resolves (beyla logs "instrumenting process cmd=/coredns" despite the
+    // kube-system exclusion). On 2026-09-10 that raced onto a fresh
+    // tailscaled (talos/egress-gateway sidecar, rolled by a talos deploy) and
+    // the obi_protocol_tcp BPF program NULL-dereferenced in the kernel —
+    // panic_on_oops=1, ringtail hard-rebooted, every pod bounced. exe_path is
+    // evaluated on the process itself, so it holds at attach time.
+    exclude_instrument {
+      exe_path = "tailscaled"
+    }
+    exclude_instrument {
+      exe_path = "containerboot"
+    }
+    exclude_instrument {
+      exe_path = "coredns"
+    }
+    exclude_instrument {
+      exe_path = "/pause$"
+    }
+
     // Exclude infrastructure pods
     exclude_instrument {
       kubernetes {
         namespace = "kube-system"
+      }
+    }
+    exclude_instrument {
+      kubernetes {
+        namespace = "talos"
       }
     }
     exclude_instrument {
