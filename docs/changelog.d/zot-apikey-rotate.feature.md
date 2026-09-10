@@ -1,0 +1,1 @@
+`mise run zot-apikey-rotate <identity>` rotates a zot CI API key (`zot-ci`, `zot-talos`, `zot-horkos`) from its current key — mint, verify, store in 1Password, sync to the consumer (CI vault item or `ZOT_PUSH_API_KEY` Actions secret), revoke the rest — with no Authentik impersonation or browser session. `--key-stdin` seeds the chain from a browser-minted bootstrap key.
