@@ -32,13 +32,17 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            # ~80% of the 2Gi limit; caps the Go allocator in the beyla
+            # subprocess before the cgroup OOMs it (grafana/beyla#1354).
+            - name: GOMEMLIMIT
+              value: "1600MiB"
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi
+              memory: 512Mi
             limits:
               cpu: "1"
-              memory: 1Gi
+              memory: 2Gi
           volumeMounts:
             - name: config
               mountPath: /etc/alloy
