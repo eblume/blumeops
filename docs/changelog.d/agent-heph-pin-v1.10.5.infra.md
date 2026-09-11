@@ -1,0 +1,1 @@
+Bumped the heph hub pin (`heph_version`, indri ansible role) to v1.10.5. The PWA shell now ships a deploy-stamped `pwa-version.js` derived from this pin and displays it in the PWA settings menu, so a phone user can see whether a PWA update has landed (eblume/hephaestus#85).
