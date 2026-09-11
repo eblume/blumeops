@@ -106,6 +106,22 @@ def raw_device(device: str) -> str:
     return device.replace("/dev/disk", "/dev/rdisk")
 
 
+def eject(device: str) -> None:
+    """Eject through diskutil, force-unmounting first.
+
+    macOS mounts the audio CD as cddafs under /Volumes and a plain
+    `drutil eject` is refused while anything (Finder, loginwindow's "disk in
+    use" sheet after an interrupted rip) holds that volume. Force-unmounting
+    is safe: the volume is read-only and we have our own copy of the audio.
+    """
+    subprocess.run(["diskutil", "unmount", "force", device], capture_output=True, check=False)
+    result = subprocess.run(["diskutil", "eject", device], capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        subprocess.run(["drutil", "eject"], check=False)
+    if "No Media Inserted" not in run("drutil", "status"):
+        console.print("[yellow]The disc did not eject; press the drive's button.[/yellow]")
+
+
 def read_disc(device: str) -> dict:
     """TOC and CD-TEXT via cd-info. LSNs are converted to LBA."""
     out = run("cd-info", "--no-cddb", "--no-device-info", "-C", raw_device(device))
@@ -424,7 +440,7 @@ def main(
 
     extract(device, staging, tracks, skip_rip, hidden)
     if not skip_rip and not no_eject:
-        subprocess.run(["drutil", "eject"], check=False)
+        eject(device)
 
     disc_tag = f"  disc {metadata['disc_number']}/{metadata['disc_total']}" if metadata.get("disc_total") else ""
     table = Table(title=f"{metadata['artist'] or '?'} — {metadata['album'] or '?'}{disc_tag}  (source: {metadata['_source']})")
