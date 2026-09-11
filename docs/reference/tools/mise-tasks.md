@@ -1,7 +1,7 @@
 ---
 title: Mise Tasks
-modified: 2026-09-05
-last-reviewed: 2026-09-05
+modified: 2026-09-11
+last-reviewed: 2026-09-11
 tags:
   - reference
   - tools
@@ -59,6 +59,10 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `provision-sifaka` | [human] Run ansible playbook to provision sifaka |
 | `prune-ringtail-generations` | [human] Prune old NixOS generations on ringtail, preserving rollback safety |
 | `request-run` | Request a privileged workflow run (approval-gated; see warrant-approval-gated-runs) |
+| `rip-cd` | [human] Rip an audio CD to FLAC in a staging dir with disc IDs, CD-TEXT and MusicBrainz candidates (indri's Pioneer drive) |
+| `rip-cd-finish` | [human] Tag a rip-cd staging dir from its metadata.json and file it into the music library (indri) |
+| `rip-video` | [human] Rip a DVD or Blu-ray with makemkvcon into a staging dir with a title inventory for labeling (indri's Pioneer drive) |
+| `rip-video-finish` | [human] File a rip-video staging dir into the Jellyfin library per its metadata.json (indri) |
 | `review-compliance-reports` | Summarize the latest Prowler security-scan reports from sifaka |
 | `runner-logs` | List recent Forgejo Actions runs or fetch logs for a specific job |
 | `service-review` | Review the most stale service for version freshness |

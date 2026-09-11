@@ -1,0 +1,258 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["rich==15.0.0", "typer==0.27.1"]
+# ///
+#MISE description="[human] Rip a DVD or Blu-ray with makemkvcon into a staging dir with a title inventory for labeling (indri's Pioneer drive)"
+#USAGE flag "--disc <n>" help="MakeMKV disc index (default: first drive with a disc loaded)"
+#USAGE flag "--staging <dir>" help="Staging root (default: ~/rips/video)"
+#USAGE flag "--min-length <secs>" help="Skip titles shorter than this (default: 600)"
+#USAGE flag "--titles <ids>" help="Comma-separated title ids to rip (default: all above --min-length)"
+#USAGE flag "--no-eject" help="Leave the disc in the drive afterwards"
+#USAGE flag "--skip-rip" help="Only write rip.json and the metadata.json draft; do not rip"
+"""First half of the video pipeline ([[rip-a-disc]]): disc → MKVs + title inventory.
+
+makemkvcon does the decrypting and demuxing; this script wraps it so the
+result lands in a predictable staging dir with `rip.json` (every title's
+duration, chapter count, size, and output file) and a `metadata.json` draft
+that says what the disc *is* (movie or TV season) and which file maps to
+which feature or episode. Deciding that mapping is the labeling step — by
+hand or by an agent, using the durations and chapter counts here, the disc
+label, and whatever the web knows about the release — and
+`mise run rip-video-finish <dir>` files the result for Jellyfin.
+
+Staging layout (`~/rips/video/<label>-<timestamp>/`):
+
+    title_t00.mkv …     makemkv output, one per title
+    makemkv.log         makemkvcon's messages
+    rip.json            title inventory
+    metadata.json       the draft to review
+"""
+
+import json
+import re
+import subprocess
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Annotated
+
+import typer
+from rich.console import Console
+from rich.markup import escape
+from rich.table import Table
+
+console = Console()
+app = typer.Typer(add_completion=False)
+
+# makemkvcon -r attribute ids (apdefs.h)
+AP_NAME, AP_CHAPTERS, AP_DURATION, AP_SIZE_BYTES, AP_SOURCE, AP_SEGMENTS, AP_OUTPUT = 2, 8, 9, 11, 16, 26, 27
+DRIVE_LOADED = 2
+DEFAULT_STAGING = Path("~/rips/video")
+
+
+def require(*tools: str) -> None:
+    guard = Path(__file__).resolve().parent / "_require"
+    result = subprocess.run([str(guard), *tools], check=False)
+    if result.returncode != 0:
+        raise typer.Exit(result.returncode)
+
+
+def unquote(field: str) -> str:
+    return field.strip().strip('"').replace('\\"', '"')
+
+
+def split_fields(rest: str) -> list[str]:
+    """Split a makemkvcon -r record on commas outside quotes."""
+    return [unquote(f) for f in re.findall(r'"(?:[^"\\]|\\.)*"|[^,]+', rest)]
+
+
+def parse_info(output: str) -> tuple[list[dict], dict, dict[int, dict]]:
+    drives: list[dict] = []
+    disc: dict = {}
+    titles: dict[int, dict] = {}
+    for line in output.splitlines():
+        if line.startswith("DRV:"):
+            f = split_fields(line[4:])
+            drives.append({"index": int(f[0]), "state": int(f[1]), "name": f[4], "label": f[5], "device": f[6] if len(f) > 6 else ""})
+        elif line.startswith("CINFO:"):
+            f = split_fields(line[6:])
+            disc[int(f[0])] = f[2]
+        elif line.startswith("TINFO:"):
+            f = split_fields(line[6:])
+            titles.setdefault(int(f[0]), {})[int(f[1])] = f[3]
+    return drives, disc, titles
+
+
+def duration_seconds(text: str) -> int:
+    parts = [int(p) for p in text.split(":")]
+    secs = 0
+    for p in parts:
+        secs = secs * 60 + p
+    return secs
+
+
+def makemkv_info(disc_index: int | None) -> tuple[int, str, list[dict], str]:
+    """Title inventory for the disc. Returns (disc index, label, titles, raw log)."""
+    probe = subprocess.run(
+        ["makemkvcon", "-r", "--cache=1", "info", f"disc:{disc_index if disc_index is not None else 9999}"],
+        capture_output=True, text=True, check=False,
+    )
+    drives, _, _ = parse_info(probe.stdout)
+    if disc_index is None:
+        loaded = [d for d in drives if d["state"] == DRIVE_LOADED]
+        if not loaded:
+            console.print("[red]makemkvcon sees no loaded disc.[/red]")
+            console.print(escape(probe.stdout[-2000:]))
+            raise typer.Exit(1)
+        disc_index = loaded[0]["index"]
+        info = subprocess.run(
+            ["makemkvcon", "-r", "--cache=1", "info", f"disc:{disc_index}"],
+            capture_output=True, text=True, check=False,
+        )
+    else:
+        info = probe
+    drives, disc, raw_titles = parse_info(info.stdout)
+    if not raw_titles:
+        console.print("[red]makemkvcon found no titles. Its messages:[/red]")
+        for line in info.stdout.splitlines():
+            if line.startswith("MSG:"):
+                console.print("  " + escape(split_fields(line[4:])[3]))
+        raise typer.Exit(1)
+    label = disc.get(AP_NAME) or next((d["label"] for d in drives if d["index"] == disc_index), "disc")
+    titles = [
+        {
+            "id": tid,
+            "name": attrs.get(AP_NAME, ""),
+            "duration": attrs.get(AP_DURATION, "0:00:00"),
+            "seconds": duration_seconds(attrs.get(AP_DURATION, "0")),
+            "chapters": int(attrs.get(AP_CHAPTERS, "0") or 0),
+            "size_bytes": int(attrs.get(AP_SIZE_BYTES, "0") or 0),
+            "source": attrs.get(AP_SOURCE, ""),
+            "segments": attrs.get(AP_SEGMENTS, ""),
+            "file": attrs.get(AP_OUTPUT, f"title_t{tid:02d}.mkv"),
+        }
+        for tid, attrs in sorted(raw_titles.items())
+    ]
+    return disc_index, label, titles, info.stdout
+
+
+def slugify(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:40] or "disc"
+
+
+def draft_metadata(label: str, titles: list[dict]) -> dict:
+    longest = max(titles, key=lambda t: t["seconds"], default=None)
+    return {
+        "_help": (
+            "Set kind to 'movie' or 'tv'. movie: title, year; each file's target is "
+            "'feature', 'extra:<Name>', or null to skip. tv: show, season, optional "
+            "season_dir; each file's target is 'E<n>' or 'E<n>:<Episode Title>' "
+            "(double episodes: 'E1-2'), or null to skip. Then "
+            "`mise run rip-video-finish <this dir>`. Keys starting with _ are ignored."
+        ),
+        "_disc_label": label,
+        "kind": "movie",
+        "title": "",
+        "year": None,
+        "show": None,
+        "season": None,
+        "season_dir": None,
+        "files": [
+            {
+                "source": t["file"],
+                "_duration": t["duration"],
+                "_chapters": t["chapters"],
+                "_size_gb": round(t["size_bytes"] / 1e9, 2),
+                "target": "feature" if t is longest else None,
+            }
+            for t in titles
+        ],
+    }
+
+
+def rip(disc_index: int, staging: Path, min_length: int, title_ids: list[int] | None) -> int:
+    """Run makemkvcon mkv, relaying its messages; returns its exit code."""
+    targets = [str(t) for t in title_ids] if title_ids else ["all"]
+    log = (staging / "makemkv.log").open("a")
+    code = 0
+    for target in targets:
+        cmd = ["makemkvcon", "-r", "--progress=-stdout", f"--minlength={min_length}", "mkv", f"disc:{disc_index}", target, str(staging)]
+        console.print(f"[bold]{escape(' '.join(cmd))}[/bold]")
+        with subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, bufsize=1) as proc:
+            last_pct = -1
+            for line in proc.stdout or []:
+                log.write(line)
+                if line.startswith("MSG:"):
+                    console.print("  " + escape(split_fields(line[4:])[3]))
+                elif line.startswith("PRGT:"):
+                    console.print("  → " + escape(split_fields(line[5:])[2]))
+                elif line.startswith("PRGV:"):
+                    cur, _, total = (int(x) for x in split_fields(line[5:]))
+                    pct = cur * 100 // total if total else 0
+                    if pct >= last_pct + 10:
+                        last_pct = pct
+                        console.print(f"    {pct}%")
+            code = proc.wait() or code
+    log.close()
+    return code
+
+
+@app.command()
+def main(
+    disc: Annotated[int | None, typer.Option("--disc", help="MakeMKV disc index")] = None,
+    staging_root: Annotated[Path, typer.Option("--staging", help="Staging root")] = DEFAULT_STAGING,
+    min_length: Annotated[int, typer.Option("--min-length", help="Skip titles shorter than this many seconds")] = 600,
+    titles_opt: Annotated[str, typer.Option("--titles", help="Comma-separated title ids to rip")] = "",
+    no_eject: Annotated[bool, typer.Option("--no-eject", help="Leave the disc in the drive")] = False,
+    skip_rip: Annotated[bool, typer.Option("--skip-rip", help="Inventory only, no rip")] = False,
+) -> None:
+    """Rip a DVD or Blu-ray to a staging dir for labeling."""
+    require("makemkvcon", "drutil")
+    disc_index, label, titles, raw = makemkv_info(disc)
+    wanted = [int(t) for t in titles_opt.split(",") if t.strip()] or None
+    kept = [t for t in titles if (wanted and t["id"] in wanted) or (not wanted and t["seconds"] >= min_length)]
+    if not kept:
+        console.print(f"[red]No titles ≥ {min_length}s (longest is {max(t['seconds'] for t in titles)}s). Lower --min-length.[/red]")
+        raise typer.Exit(1)
+
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M")
+    staging = (staging_root.expanduser() / f"{slugify(label)}-{stamp}").resolve()
+    staging.mkdir(parents=True, exist_ok=True)
+    (staging / "makemkv.log").write_text(raw)
+
+    table = Table(title=f"{label} — {len(titles)} titles, ripping {len(kept)}")
+    for col in ("id", "duration", "chapters", "size", "source", "file", "rip?"):
+        table.add_column(col)
+    for t in titles:
+        table.add_row(str(t["id"]), t["duration"], str(t["chapters"]), f"{t['size_bytes'] / 1e9:.1f} GB", escape(t["source"]), escape(t["file"]), "yes" if t in kept else "")
+    console.print(table)
+
+    rip_json = {
+        "ripped_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "disc_index": disc_index,
+        "label": label,
+        "min_length": min_length,
+        "titles": [{**t, "selected": t in kept} for t in titles],
+    }
+    (staging / "rip.json").write_text(json.dumps(rip_json, indent=2, ensure_ascii=False) + "\n")
+    draft = staging / "metadata.json"
+    if not draft.exists():
+        draft.write_text(json.dumps(draft_metadata(label, kept), indent=2, ensure_ascii=False) + "\n")
+
+    if not skip_rip:
+        code = rip(disc_index, staging, min_length, wanted)
+        if code != 0:
+            console.print(f"[red]makemkvcon exited {code}; see {escape(str(staging / 'makemkv.log'))}[/red]")
+            raise typer.Exit(code)
+        if not no_eject:
+            subprocess.run(["drutil", "eject"], check=False)
+    console.print(f"\nNext: review [bold]{escape(str(draft))}[/bold], then\n  mise run rip-video-finish {escape(str(staging))}")
+
+
+if __name__ == "__main__":
+    try:
+        app()
+    except subprocess.CalledProcessError as exc:
+        console.print(f"[red]{escape(' '.join(exc.cmd))} failed:[/red]\n{escape(exc.stderr or '')}")
+        sys.exit(exc.returncode)

@@ -1,0 +1,378 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.1"]
+# ///
+#MISE description="[human] Rip an audio CD to FLAC in a staging dir with disc IDs, CD-TEXT and MusicBrainz candidates (indri's Pioneer drive)"
+#USAGE flag "--device <dev>" help="Optical device, e.g. /dev/disk4 (default: whatever drutil reports)"
+#USAGE flag "--staging <dir>" help="Staging root (default: ~/rips/cd)"
+#USAGE flag "--no-eject" help="Leave the disc in the drive afterwards"
+#USAGE flag "--skip-rip" help="Do not run cd-paranoia; still encodes WAVs already in the staging dir and rewrites rip.json"
+"""Rip an audio CD into a staging directory, ready for labeling.
+
+This is the first half of the CD pipeline described in [[rip-a-disc]]. It
+does everything that does *not* need judgement: secure extraction with
+cd-paranoia, FLAC encoding, and gathering every identity hint the disc
+offers — the table of contents, the MusicBrainz and freedb disc IDs, CD-TEXT
+if the pressing carries it, and MusicBrainz release candidates for the disc
+ID. It writes those into `rip.json` and a pre-filled `metadata.json` draft.
+
+The judgement — is that MusicBrainz candidate really this pressing, fix the
+apostrophes CD-TEXT dropped, name the obscure local-band disc nobody has
+catalogued — happens by editing `metadata.json`, by hand or by an agent.
+`mise run rip-cd-finish <dir>` then tags and files the result.
+
+Staging layout (`~/rips/cd/<slug>-<discid8>/`):
+
+    01.flac … NN.flac   encoded tracks, untagged
+    paranoia.log        cd-paranoia's per-track result summary
+    rip.json            machine-readable facts about the disc
+    metadata.json       the draft to review
+
+Re-running against an existing staging dir resumes: tracks that already have
+a FLAC are skipped.
+"""
+
+import base64
+import hashlib
+import json
+import re
+import subprocess
+import sys
+import time
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Annotated
+
+import httpx
+import typer
+from rich.console import Console
+from rich.markup import escape
+from rich.table import Table
+
+console = Console()
+app = typer.Typer(add_completion=False)
+
+USER_AGENT = "blumeops-rip-cd/0.1 (https://github.com/eblume/blumeops)"
+MB_API = "https://musicbrainz.org/ws/2"
+SECTORS_PER_SECOND = 75
+DEFAULT_STAGING = Path("~/rips/cd")
+PREGAP_SECTORS = 150  # cd-info reports LSN; MusicBrainz wants LBA = LSN + 150
+
+
+def require(*tools: str) -> None:
+    """Refuse to start without the binaries this host must supply."""
+    guard = Path(__file__).resolve().parent / "_require"
+    result = subprocess.run([str(guard), *tools], check=False)
+    if result.returncode != 0:
+        raise typer.Exit(result.returncode)
+
+
+def run(*args: str) -> str:
+    return subprocess.run(list(args), capture_output=True, text=True, check=True).stdout
+
+
+def find_device() -> str:
+    """The optical device drutil reports as holding a CD-ROM."""
+    status = run("drutil", "status")
+    if "No Media Inserted" in status:
+        console.print("[red]No disc in the drive.[/red]")
+        raise typer.Exit(1)
+    match = re.search(r"Type:\s+(\S+).*?Name:\s+(/dev/disk\d+)", status, re.DOTALL)
+    if not match:
+        console.print("[red]drutil status did not name a device:[/red]")
+        console.print(escape(status))
+        raise typer.Exit(1)
+    kind, device = match.groups()
+    if kind != "CD-ROM":
+        console.print(f"[red]Disc is {escape(kind)}, not an audio CD. For video use rip-video.[/red]")
+        raise typer.Exit(1)
+    return device
+
+
+def drive_name() -> str:
+    """Vendor and product of the first drive drutil lists, e.g. 'PIONEER BD-RW BDR-S13U'."""
+    for line in run("drutil", "list").splitlines():
+        m = re.match(r"\s*\d+\s+(\S+)\s+(.+?)\s+\S+\s+\S+\s+\S+\s*$", line)
+        if m:
+            return f"{m.group(1)} {' '.join(m.group(2).split())}"
+    return ""
+
+
+def raw_device(device: str) -> str:
+    return device.replace("/dev/disk", "/dev/rdisk")
+
+
+def read_disc(device: str) -> dict:
+    """TOC and CD-TEXT via cd-info. LSNs are converted to LBA."""
+    out = run("cd-info", "--no-cddb", "--no-device-info", "-C", raw_device(device))
+    tracks: list[dict] = []
+    leadout = None
+    for line in out.splitlines():
+        m = re.match(r"\s*(\d+):\s+\d\d:\d\d:\d\d\s+(\d+)\s+(\w+)", line)
+        if not m:
+            continue
+        num, lsn, kind = int(m.group(1)), int(m.group(2)), m.group(3)
+        if kind == "leadout":
+            leadout = lsn + PREGAP_SECTORS
+        elif kind == "audio":
+            tracks.append({"number": num, "lba": lsn + PREGAP_SECTORS})
+    if not tracks or leadout is None:
+        console.print("[red]Could not parse a TOC from cd-info output:[/red]")
+        console.print(escape(out))
+        raise typer.Exit(1)
+    for i, t in enumerate(tracks):
+        end = tracks[i + 1]["lba"] if i + 1 < len(tracks) else leadout
+        t["seconds"] = round((end - t["lba"]) / SECTORS_PER_SECOND, 1)
+
+    cdtext: dict = {"disc": {}, "tracks": {}}
+    section: dict | None = None
+    for line in out.splitlines():
+        if line.startswith("CD-TEXT for Disc"):
+            section = cdtext["disc"]
+        elif m := re.match(r"CD-TEXT for Track\s+(\d+)", line):
+            section = cdtext["tracks"].setdefault(int(m.group(1)), {})
+        elif section is not None and (m := re.match(r"\s+(\w+):\s*(.*)", line)):
+            section[m.group(1).lower()] = m.group(2).strip()
+        elif not line.startswith(("\t", " ")):
+            section = None
+    return {"tracks": tracks, "leadout": leadout, "cdtext": cdtext}
+
+
+def musicbrainz_discid(first: int, last: int, leadout: int, offsets: dict[int, int]) -> str:
+    h = hashlib.sha1()
+    h.update(f"{first:02X}".encode())
+    h.update(f"{last:02X}".encode())
+    h.update(f"{leadout:08X}".encode())
+    for i in range(1, 100):
+        h.update(f"{offsets.get(i, 0):08X}".encode())
+    digest = base64.b64encode(h.digest()).decode()
+    return digest.replace("+", ".").replace("/", "_").replace("=", "-")
+
+
+def freedb_discid(first: int, last: int, leadout: int, offsets: dict[int, int]) -> str:
+    def digit_sum(n: int) -> int:
+        return sum(int(c) for c in str(n))
+
+    checksum = sum(digit_sum(offsets[i] // SECTORS_PER_SECOND) for i in range(first, last + 1))
+    length = leadout // SECTORS_PER_SECOND - offsets[first] // SECTORS_PER_SECOND
+    return f"{((checksum % 0xFF) << 24) | (length << 8) | (last - first + 1):08x}"
+
+
+def lookup_musicbrainz(discid: str, toc: str, track_count: int) -> dict:
+    """Releases MusicBrainz knows for this disc ID (exact, then TOC-fuzzy).
+
+    MusicBrainz answers 503 under load; one retry, then the error is recorded
+    in rip.json rather than failing the rip — the disc is the thing we cannot
+    re-fetch later, the lookup is.
+    """
+    url = f"{MB_API}/discid/{discid}"
+    params = {"toc": toc, "inc": "artist-credits+recordings", "fmt": "json", "cdstubs": "no"}
+    headers = {"User-Agent": USER_AGENT}
+    data = None
+    for attempt in range(2):
+        try:
+            resp = httpx.get(url, params=params, headers=headers, timeout=30, follow_redirects=True)
+            resp.raise_for_status()
+            data = resp.json()
+            break
+        except (httpx.HTTPError, ValueError) as exc:
+            error = str(exc)
+            if attempt == 0:
+                time.sleep(2)
+    if data is None:
+        return {"error": error, "candidates": []}
+
+    candidates = []
+    for rel in data.get("releases", []):
+        artist = "".join(
+            f"{ac['name']}{ac.get('joinphrase', '')}" for ac in rel.get("artist-credit", [])
+        )
+        titles: list[str] = []
+        for medium in rel.get("media", []):
+            if medium.get("track-count") == track_count:
+                titles = [t.get("title", "") for t in medium.get("tracks", [])]
+                break
+        candidates.append({
+            "release_id": rel.get("id"),
+            "title": rel.get("title"),
+            "artist": artist,
+            "date": rel.get("date"),
+            "country": rel.get("country"),
+            "exact_discid": any(
+                d.get("id") == discid for m in rel.get("media", []) for d in m.get("discs", [])
+            ),
+            "tracks": titles,
+        })
+    return {"error": None, "candidates": candidates}
+
+
+def slugify(text: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return slug[:40] or "disc"
+
+
+def draft_metadata(disc: dict, mb: dict) -> dict:
+    """Best-guess metadata.json: one exact MusicBrainz hit wins, then CD-TEXT."""
+    n = len(disc["tracks"])
+    exact = [c for c in mb["candidates"] if c["exact_discid"]]
+    chosen = exact[0] if len(exact) == 1 and len(exact[0]["tracks"]) == n else None
+    cdtext = disc["cdtext"]
+    if chosen:
+        source = "musicbrainz"
+        artist, album, date = chosen["artist"], chosen["title"], chosen["date"]
+        release_id = chosen["release_id"]
+        titles = chosen["tracks"]
+    else:
+        source = "cdtext" if cdtext["disc"] or cdtext["tracks"] else "none"
+        performers = {t.get("performer") for t in cdtext["tracks"].values()} - {None, ""}
+        artist = cdtext["disc"].get("performer") or (performers.pop() if len(performers) == 1 else "")
+        album = cdtext["disc"].get("title", "")
+        date, release_id = None, None
+        titles = [cdtext["tracks"].get(t["number"], {}).get("title", "") for t in disc["tracks"]]
+    return {
+        "_help": (
+            "Edit, then `mise run rip-cd-finish <this dir>`. Required: artist, album, "
+            "every track title. album_artist and artist_sort default to artist; "
+            "artist_sort names the library folder ('Bowie, David'). cover is a file "
+            "path or URL; with none, musicbrainz_release_id fetches Cover Art Archive. "
+            "Per-track artist overrides the album artist. Keys starting with _ are ignored."
+        ),
+        "_source": source,
+        "artist": artist,
+        "album": album,
+        "album_artist": None,
+        "artist_sort": None,
+        "date": date,
+        "genre": None,
+        "compilation": False,
+        "musicbrainz_release_id": release_id,
+        "cover": None,
+        "tracks": [
+            {"number": t["number"], "title": titles[i] if i < len(titles) else "", "artist": None}
+            for i, t in enumerate(disc["tracks"])
+        ],
+    }
+
+
+def extract(device: str, staging: Path, tracks: list[dict], skip_rip: bool) -> None:
+    """cd-paranoia batch mode, then ffmpeg to FLAC.
+
+    Resumes: when every track already has a FLAC or a WAV in the staging dir,
+    cd-paranoia is not run again and only the encode happens.
+    """
+    have_all = all(
+        (staging / f"{t['number']:02d}.flac").exists() or (staging / f"track{t['number']:02d}.cdda.wav").exists()
+        for t in tracks
+    )
+    if have_all:
+        console.print("[dim]Every track is already extracted; skipping cd-paranoia.[/dim]")
+    elif skip_rip:
+        console.print("[yellow]--skip-rip: tracks are missing and were not extracted.[/yellow]")
+    else:
+        console.print(f"[bold]Extracting with cd-paranoia[/bold] from {escape(device)} → {escape(str(staging))}")
+        result = subprocess.run(
+            ["cd-paranoia", "-d", raw_device(device), "-B", "--log-summary=paranoia.log"],
+            cwd=staging,
+            check=False,
+        )
+        if result.returncode != 0:
+            console.print(f"[red]cd-paranoia exited {result.returncode}; staging dir kept for inspection.[/red]")
+            raise typer.Exit(result.returncode)
+    encode(staging)
+
+
+def encode(staging: Path) -> None:
+    wavs = sorted(staging.glob("track*.cdda.wav"))
+    if not wavs:
+        return
+    console.print(f"[bold]Encoding {len(wavs)} tracks to FLAC[/bold]")
+    for wav in wavs:
+        num = int(wav.name.removeprefix("track").split(".")[0])
+        flac = staging / f"{num:02d}.flac"
+        subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav),
+             "-compression_level", "8", str(flac)],
+            check=True,
+        )
+        wav.unlink()
+    for stray in staging.glob("*.wav"):
+        stray.unlink()
+
+
+@app.command()
+def main(
+    device: Annotated[str, typer.Option("--device", help="Optical device, e.g. /dev/disk4")] = "",
+    staging_root: Annotated[Path, typer.Option("--staging", help="Staging root")] = DEFAULT_STAGING,
+    no_eject: Annotated[bool, typer.Option("--no-eject", help="Leave the disc in the drive")] = False,
+    skip_rip: Annotated[bool, typer.Option("--skip-rip", help="Do not run cd-paranoia")] = False,
+) -> None:
+    """Rip an audio CD to a staging dir for labeling."""
+    require("cd-paranoia", "cd-info", "ffmpeg", "drutil")
+    device = device or find_device()
+    disc = read_disc(device)
+    tracks = disc["tracks"]
+    first, last = tracks[0]["number"], tracks[-1]["number"]
+    offsets = {t["number"]: t["lba"] for t in tracks}
+    discid = musicbrainz_discid(first, last, disc["leadout"], offsets)
+    freedb = freedb_discid(first, last, disc["leadout"], offsets)
+    toc = "+".join(str(x) for x in (first, last, disc["leadout"], *(offsets[i] for i in range(first, last + 1))))
+
+    console.print(f"[bold]{len(tracks)} audio tracks[/bold], MusicBrainz disc ID [cyan]{discid}[/cyan]")
+    mb = lookup_musicbrainz(discid, toc, len(tracks))
+    if mb["error"]:
+        console.print(f"[yellow]MusicBrainz lookup failed ({escape(mb['error'])}); continuing without it.[/yellow]")
+    metadata = draft_metadata(disc, mb)
+
+    slug = slugify(metadata["album"] or metadata["artist"] or "")
+    staging = (staging_root.expanduser() / f"{slug}-{discid[:8]}").resolve()
+    staging.mkdir(parents=True, exist_ok=True)
+
+    rip = {
+        "ripped_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "host": run("hostname").strip(),
+        "device": device,
+        "drive": drive_name(),
+        "musicbrainz_discid": discid,
+        "freedb_discid": freedb,
+        "toc": toc,
+        "submit_url": f"https://musicbrainz.org/cdtoc/attach?id={discid}&tracks={len(tracks)}&toc={toc}",
+        "tracks": tracks,
+        "cdtext": {"disc": disc["cdtext"]["disc"],
+                   "tracks": {str(k): v for k, v in disc["cdtext"]["tracks"].items()}},
+        "musicbrainz": mb,
+    }
+    (staging / "rip.json").write_text(json.dumps(rip, indent=2, ensure_ascii=False) + "\n")
+    draft = staging / "metadata.json"
+    if draft.exists() and not skip_rip:
+        console.print(f"[yellow]{escape(str(draft))} exists; not overwriting your edits.[/yellow]")
+    else:
+        draft.write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + "\n")
+
+    extract(device, staging, tracks, skip_rip)
+    if not skip_rip and not no_eject:
+        subprocess.run(["drutil", "eject"], check=False)
+
+    table = Table(title=f"{metadata['artist'] or '?'} — {metadata['album'] or '?'}  (source: {metadata['_source']})")
+    table.add_column("#", justify="right")
+    table.add_column("Title")
+    table.add_column("Length", justify="right")
+    for t, m in zip(tracks, metadata["tracks"], strict=True):
+        table.add_row(str(t["number"]), escape(m["title"] or "[dim]?[/dim]"), f"{int(t['seconds']) // 60}:{int(t['seconds']) % 60:02d}")
+    console.print(table)
+    if mb["candidates"]:
+        console.print(f"MusicBrainz candidates: {len(mb['candidates'])} (see rip.json)")
+        for c in mb["candidates"][:5]:
+            tag = "exact" if c["exact_discid"] else "toc-match"
+            console.print(f"  - {escape(c['artist'])} — {escape(c['title'])} ({c['date']}, {c['country']}) [{tag}] {c['release_id']}")
+    else:
+        console.print("MusicBrainz: no release for this disc. Once labeled, add it: " + escape(rip["submit_url"]))
+    console.print(f"\nNext: review [bold]{escape(str(draft))}[/bold], then\n  mise run rip-cd-finish {escape(str(staging))}")
+
+
+if __name__ == "__main__":
+    try:
+        app()
+    except subprocess.CalledProcessError as exc:
+        console.print(f"[red]{escape(' '.join(exc.cmd))} failed:[/red]\n{escape(exc.stderr or '')}")
+        sys.exit(exc.returncode)
