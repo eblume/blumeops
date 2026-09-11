@@ -24,6 +24,8 @@
 # The job streams the per-sha log into the run log in real time, so a killed run's
 # log ends in the rebuild's own output, and /var/log/ringtail-apply/<sha>.log on
 # ringtail holds the killed run's full rebuild record regardless.
+# A same-sha re-run prints the tail of the prior slice before streaming, so
+# the killed run's record reaches the forge log as well.
 #
 # Docs: docs/explanation/warrant-approval-gated-runs.md
 name: ringtail-rebuild
@@ -101,6 +103,14 @@ jobs:
           # The log appends across runs of the same sha; remember where this
           # run's output starts so only it is streamed below.
           before=$(stat -c %s "$log" 2>/dev/null || echo 0)
+          # A same-sha re-run appends below the prior run's slice; print its
+          # tail first so the killed run's output is visible, not hidden by
+          # the byte offset.
+          if [ "$before" -gt 0 ]; then
+            echo "--- $log already holds $before bytes from prior run(s); tail:"
+            tail -n 100 "$log"
+            echo
+          fi
           # Stream this run's log slice into the run log in real time. If the
           # applied commit restarts the runner, the job dies mid-stream and the
           # run log ends in the rebuild's own output, not checkout noise.
