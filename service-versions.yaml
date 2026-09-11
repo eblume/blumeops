@@ -506,7 +506,7 @@ services:
     last-reviewed: 2026-09-06
     current-version: "v1.19.2"
     upstream-source: https://github.com/grafana/alloy/releases
-    notes: Built from source on indri
+    notes: Built from source on indri; embeds the Beyla v3.33.0 eBPF binary (alloy itself stays v1.19.2)
 
   - name: zot
     type: ansible
