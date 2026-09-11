@@ -255,6 +255,12 @@ Create `argocd/manifests/alloy-tracing/` with a DaemonSet, RBAC, and a
 - pipes spans through `otelcol.processor.batch` and an `attributes` processor
   that stamps the cluster name
 - exports via `otelcol.exporter.otlphttp` to Tempo's OTLP endpoint
+- exclude by `exe_path` for anything you must never uprobe. Kubernetes
+  metadata exclusions race against process start (a new pid is attached
+  before its pod metadata resolves); on 2026-09-10 that put a probe on a
+  freshly started tailscaled and the `obi_protocol_tcp` BPF program
+  NULL-dereferenced in the kernel, which with `panic_on_oops=1` rebooted
+  ringtail. `exe_path` is evaluated on the process, so it holds at attach.
 
 Start the exclude list broad and narrow it. Every excluded service is a blind
 spot, but an over-eager Beyla on a busy node is a real CPU cost.

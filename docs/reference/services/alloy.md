@@ -37,6 +37,7 @@ Unified observability collector for metrics and logs with three deployments:
 ### From Kubernetes
 - All pod logs via `loki.source.kubernetes`
 - Service health probes: miniflux, kiwix, transmission, devpi, argocd
+- The ringtail agent pushes to Prometheus and Loki by their cluster-local Service names, not the `*.tail8d86e.ts.net` ingress names: after a node reboot CoreDNS can capture the host resolvers before tailscaled installs MagicDNS, and `*.ts.net` is then NXDOMAIN from pods until CoreDNS restarts (2026-09-10).
 
 ### From Fly.io Proxy
 - `flyio_nginx_http_requests_total` — request rate by status/method/host
