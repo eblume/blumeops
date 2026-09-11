@@ -3,89 +3,99 @@
 
 // ============== BEYLA eBPF AUTO-INSTRUMENTATION ==============
 
-beyla.ebpf "http_services" {
-  discovery {
-    // Instrument HTTP services on common ports
-    instrument {
-      open_ports = "80-9999"
-    }
-
-    // Exclude by executable FIRST. Kubernetes-metadata exclusions below race
-    // against process start: a new pid gets uprobed before its pod metadata
-    // resolves (beyla logs "instrumenting process cmd=/coredns" despite the
-    // kube-system exclusion). On 2026-09-10 that raced onto a fresh
-    // tailscaled (talos/egress-gateway sidecar, rolled by a talos deploy) and
-    // the obi_protocol_tcp BPF program NULL-dereferenced in the kernel —
-    // panic_on_oops=1, ringtail hard-rebooted, every pod bounced. exe_path is
-    // evaluated on the process itself, so it holds at attach time. It is a
-    // GLOB, not a regex (bare "tailscaled" matched nothing: the host binary
-    // is /nix/store/…/bin/.tailscaled-wrapped, and beyla attached to it).
-    exclude_instrument {
-      exe_path = "*tailscaled*"
-    }
-    exclude_instrument {
-      exe_path = "*containerboot*"
-    }
-    exclude_instrument {
-      exe_path = "*coredns*"
-    }
-    exclude_instrument {
-      exe_path = "*/pause"
-    }
-
-    // Exclude infrastructure pods
-    exclude_instrument {
-      kubernetes {
-        namespace = "kube-system"
-      }
-    }
-    exclude_instrument {
-      kubernetes {
-        namespace = "talos"
-      }
-    }
-    exclude_instrument {
-      kubernetes {
-        namespace = "tailscale"
-      }
-    }
-    exclude_instrument {
-      kubernetes {
-        pod_labels = { app = "alloy" }
-      }
-    }
-    exclude_instrument {
-      kubernetes {
-        pod_labels = { app = "alloy-tracing" }
-      }
-    }
-    exclude_instrument {
-      kubernetes {
-        pod_labels = { app = "kube-state-metrics" }
-      }
-    }
-    exclude_instrument {
-      kubernetes {
-        pod_labels = { "app.kubernetes.io/name" = "nvidia-device-plugin" }
-      }
-    }
-  }
-
-  attributes {
-    kubernetes {
-      enable       = "true"
-      cluster_name = "ringtail"
-    }
-  }
-
-  traces {
-    instrumentations = ["http"]
-  }
-
-  output {
-    traces = [otelcol.processor.batch.default.input]
-  }
-}
+// DISABLED 2026-09-10 — see the blumeops issue 'alloy-tracing: beyla
+// exclusions ineffective on alloy 1.19.2; kernel panic on tailscaled'.
+// The obi_protocol_tcp BPF program NULL-dereferenced in the kernel while
+// uprobing a freshly started tailscaled (talos/egress-gateway sidecar),
+// panic_on_oops=1 hard-rebooted ringtail. Neither the kubernetes-metadata
+// exclusions (kube-system's coredns got attached) nor exe_path globs
+// ("*tailscaled*" — the host tailscaled got attached) took effect on this
+// build, and every talos release rolls a new tailscaled sidecar. Until the
+// exclusion path is understood, no eBPF instrumentation. The OTel pipeline
+// below stays wired so re-enabling is uncommenting this block.
+// beyla.ebpf "http_services" {
+//   discovery {
+//     // Instrument HTTP services on common ports
+//     instrument {
+//       open_ports = "80-9999"
+//     }
+//
+//     // Exclude by executable FIRST. Kubernetes-metadata exclusions below race
+//     // against process start: a new pid gets uprobed before its pod metadata
+//     // resolves (beyla logs "instrumenting process cmd=/coredns" despite the
+//     // kube-system exclusion). On 2026-09-10 that raced onto a fresh
+//     // tailscaled (talos/egress-gateway sidecar, rolled by a talos deploy) and
+//     // the obi_protocol_tcp BPF program NULL-dereferenced in the kernel —
+//     // panic_on_oops=1, ringtail hard-rebooted, every pod bounced. exe_path is
+//     // evaluated on the process itself, so it holds at attach time. It is a
+//     // GLOB, not a regex (bare "tailscaled" matched nothing: the host binary
+//     // is /nix/store/…/bin/.tailscaled-wrapped, and beyla attached to it).
+//     exclude_instrument {
+//       exe_path = "*tailscaled*"
+//     }
+//     exclude_instrument {
+//       exe_path = "*containerboot*"
+//     }
+//     exclude_instrument {
+//       exe_path = "*coredns*"
+//     }
+//     exclude_instrument {
+//       exe_path = "*/pause"
+//     }
+//
+//     // Exclude infrastructure pods
+//     exclude_instrument {
+//       kubernetes {
+//         namespace = "kube-system"
+//       }
+//     }
+//     exclude_instrument {
+//       kubernetes {
+//         namespace = "talos"
+//       }
+//     }
+//     exclude_instrument {
+//       kubernetes {
+//         namespace = "tailscale"
+//       }
+//     }
+//     exclude_instrument {
+//       kubernetes {
+//         pod_labels = { app = "alloy" }
+//       }
+//     }
+//     exclude_instrument {
+//       kubernetes {
+//         pod_labels = { app = "alloy-tracing" }
+//       }
+//     }
+//     exclude_instrument {
+//       kubernetes {
+//         pod_labels = { app = "kube-state-metrics" }
+//       }
+//     }
+//     exclude_instrument {
+//       kubernetes {
+//         pod_labels = { "app.kubernetes.io/name" = "nvidia-device-plugin" }
+//       }
+//     }
+//   }
+//
+//   attributes {
+//     kubernetes {
+//       enable       = "true"
+//       cluster_name = "ringtail"
+//     }
+//   }
+//
+//   traces {
+//     instrumentations = ["http"]
+//   }
+//
+//   output {
+//     traces = [otelcol.processor.batch.default.input]
+//   }
+// }
 
 // ============== OTEL TRACE PIPELINE ==============
 
