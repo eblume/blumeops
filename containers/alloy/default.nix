@@ -35,24 +35,29 @@ let
     '';
   };
 
-  # Beyla eBPF binaries (v3.28.0), pinned by the alloy source's in-tree
+  # Beyla eBPF binaries (v3.33.0). The alloy source's in-tree
   # internal/component/beyla/ebpf/internal/config/gen/beyla/beyla_version.yaml
-  # (sha256s verified against the grafana/beyla release tarballs). The
-  # Makefile's `beyla` prerequisite (a dependency of `alloy` since v1.19.0)
-  # downloads these into internal/component/beyla/ebpf/binaries/<arch>/beyla
-  # for go:embed into the alloy binary. Pre-placing the binaries and the
-  # version stamp makes that download a no-op, so the build needs no
-  # network for beyla.
-  beyla-version = "v3.28.0";
+  # pins v3.28.0, whose vendored OBI predates the uprobe-preemption guard
+  # (OBI #3059, fixed in OBI v0.12.1) that stopped the 2026-09-10 ringtail
+  # kernel panic; v3.33.0's OBI pin carries the fix. The Makefile's `beyla`
+  # prerequisite (a dependency of `alloy` since v1.19.0) downloads the
+  # version named in that file into
+  # internal/component/beyla/ebpf/binaries/<arch>/beyla for go:embed into
+  # the alloy binary. Pre-placing these binaries plus the version stamp,
+  # and re-pinning the in-tree file to match (below), makes the download a
+  # no-op, so the build needs no network for beyla.
+  beyla-version = "v3.33.0";
+  beyla-amd64-sha = "a6ae6a18774633a941e8f636d41a1836c8edd4f10fe9f4620b8a4bcbb3a5ed2f";
+  beyla-arm64-sha = "4f5b56a521d01f59ae38f06dec196d05be2c1441ded20d957349ab5ad5dfa3a7";
 
   beyla-amd64 = pkgs.fetchurl {
     url = "https://github.com/grafana/beyla/releases/download/${beyla-version}/beyla-linux-amd64-${beyla-version}.tar.gz";
-    sha256 = "ea4c1dac9fe8fd2261f021efe37adbed41307bfb5da0e48f5ee80d6d9b6e620e";
+    sha256 = beyla-amd64-sha;
   };
 
   beyla-arm64 = pkgs.fetchurl {
     url = "https://github.com/grafana/beyla/releases/download/${beyla-version}/beyla-linux-arm64-${beyla-version}.tar.gz";
-    sha256 = "227cd13304c264c5c00df720df6afc70b396ee3471df8e1140b8903cc87787e9";
+    sha256 = beyla-arm64-sha;
   };
 
   # Extracts the beyla binary from each tarball (root member "beyla") and
@@ -135,6 +140,13 @@ let
       # download-beyla step sees them as up to date (no build-time download)
       cp -a ${beyla-binaries}/binaries/. internal/component/beyla/ebpf/binaries/
       cp -a ${beyla-binaries}/.beyla-binary-version internal/component/beyla/ebpf/
+
+      # Re-pin the in-tree beyla_version.yaml to the shipped version: the
+      # Makefile's download.go reads that file as its trust anchor and would
+      # otherwise re-download (overwriting) the version it names.
+      printf '# Beyla release pinned by Alloy. Regenerate with: make update-beyla TAG=<beyla-version>\nversion: %s\nchecksums:\n  amd64: %s\n  arm64: %s\n' \
+        "${beyla-version}" "${beyla-amd64-sha}" "${beyla-arm64-sha}" \
+        > internal/component/beyla/ebpf/internal/config/gen/beyla/beyla_version.yaml
 
       # Build using upstream Makefile
       # promtail_journal_enabled omitted: requires systemd headers
