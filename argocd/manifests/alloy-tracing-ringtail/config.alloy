@@ -17,18 +17,20 @@ beyla.ebpf "http_services" {
     // tailscaled (talos/egress-gateway sidecar, rolled by a talos deploy) and
     // the obi_protocol_tcp BPF program NULL-dereferenced in the kernel —
     // panic_on_oops=1, ringtail hard-rebooted, every pod bounced. exe_path is
-    // evaluated on the process itself, so it holds at attach time.
+    // evaluated on the process itself, so it holds at attach time. It is a
+    // GLOB, not a regex (bare "tailscaled" matched nothing: the host binary
+    // is /nix/store/…/bin/.tailscaled-wrapped, and beyla attached to it).
     exclude_instrument {
-      exe_path = "tailscaled"
+      exe_path = "*tailscaled*"
     }
     exclude_instrument {
-      exe_path = "containerboot"
+      exe_path = "*containerboot*"
     }
     exclude_instrument {
-      exe_path = "coredns"
+      exe_path = "*coredns*"
     }
     exclude_instrument {
-      exe_path = "/pause$"
+      exe_path = "*/pause"
     }
 
     // Exclude infrastructure pods
