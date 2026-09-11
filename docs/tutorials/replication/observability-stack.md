@@ -260,7 +260,8 @@ Create `argocd/manifests/alloy-tracing/` with a DaemonSet, RBAC, and a
   before its pod metadata resolves); on 2026-09-10 that put a probe on a
   freshly started tailscaled and the `obi_protocol_tcp` BPF program
   NULL-dereferenced in the kernel, which with `panic_on_oops=1` rebooted
-  ringtail. `exe_path` is evaluated on the process, so it holds at attach.
+  ringtail. `exe_path` is evaluated on the process, so it holds at attach,
+  and it is a glob (`*tailscaled*`), not a regex.
 
 Start the exclude list broad and narrow it. Every excluded service is a blind
 spot, but an over-eager Beyla on a busy node is a real CPU cost.

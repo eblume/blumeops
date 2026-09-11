@@ -1,0 +1,1 @@
+alloy-tracing: the Beyla `exe_path` exclusions are globs, not regexes; `tailscaled` matched nothing and Beyla re-attached to the host tailscaled. Now `*tailscaled*`, `*containerboot*`, `*coredns*`, `*/pause`.
