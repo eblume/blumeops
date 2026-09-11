@@ -1,0 +1,1 @@
+Fix the connect-to-postgres how-to for the retired 5432 route: connect with -p 5434 (blumeops-pg), and note the per-cluster tailnet ports (5433 immich-pg, 5434 blumeops-pg); stamp modified and last-reviewed 2026-09-11.
