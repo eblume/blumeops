@@ -94,6 +94,12 @@
     single_branch: true
     force: true
 
+- name: Stamp deployed PWA version at {{ heph_web_root }}
+  ansible.builtin.copy:
+    content: "export const PWA_VERSION = \"{{ heph_version }}\";\n"
+    dest: "{{ heph_web_root }}/pwa-version.js"
+    mode: '0644'
+
 - name: Deploy heph LaunchAgent plist
   ansible.builtin.template:
     src: heph.plist.j2
