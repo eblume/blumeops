@@ -21,7 +21,7 @@ Unified observability collector for metrics and logs with three deployments:
 | **Indri Binary** | `~/.local/bin/alloy` |
 | **Indri Config** | `~/.config/grafana-alloy/config.alloy` |
 | **K8s Namespace** | `alloy` |
-| **K8s Image** | `registry.ops.eblu.me/blumeops/alloy:v1.19.2-ed1df80-nix` (locally built; also alloy-tracing-ringtail) |
+| **K8s Image** | `registry.ops.eblu.me/blumeops/alloy:v1.19.2-45387b3-nix` (locally built; also alloy-tracing-ringtail) |
 | **ArgoCD App** | `alloy-ringtail` |
 | **Fly.io Config** | `fly/alloy.river` |
 | **Fly.io Image** | `grafana/alloy:v1.16.1` (binary copied into nginx container, sha-pinned) |
