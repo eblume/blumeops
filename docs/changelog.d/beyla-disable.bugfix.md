@@ -1,0 +1,1 @@
+alloy-tracing: Beyla eBPF instrumentation disabled. Its exclusions (namespace and `exe_path` glob) do not take effect on alloy 1.19.2 — it attached to kube-system's coredns and the host tailscaled — and the 2026-09-10 kernel panic was its probe on a freshly rolled tailscaled sidecar, which every talos release repeats. Re-enable once the exclusion path is understood.
