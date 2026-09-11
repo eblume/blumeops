@@ -9,6 +9,7 @@ requires-python = ">=3.13"
 # can resolve them from one project env; keep them in lockstep.
 dev = [
   "httpx[socks]==0.28.1",
+  "mutagen==1.48.1",
   "pytest==9.1.1",
   "pyyaml==6.0.3",
   "rich==15.0.0",

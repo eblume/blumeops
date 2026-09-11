@@ -1,6 +1,6 @@
 ---
 title: Indri
-modified: 2026-05-27
+modified: 2026-09-11
 last-reviewed: 2026-05-27
 tags:
   - infrastructure
@@ -36,6 +36,9 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 - [[hephaestus]] - heph task/context sync hub (LaunchAgent, self-updating)
 - [[cv]] - Static CV site, served by Caddy
 - [[docs]] - Quartz-built docs site, served by Caddy
+
+**Attached hardware:**
+- Pioneer BDR-S13U USB Blu-ray drive — disc archiving via `mise run rip-cd` / `rip-video` ([[rip-a-disc]])
 
 **Kubernetes:** none — indri's minikube cluster was retired 2026-06 ([[retire-minikube]]); all k8s workloads run on [[ringtail]]'s k3s.
 

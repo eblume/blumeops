@@ -1,0 +1,201 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["httpx[socks]==0.28.1", "mutagen==1.48.1", "rich==15.0.0", "typer==0.27.1"]
+# ///
+#MISE description="[human] Tag a rip-cd staging dir from its metadata.json and file it into the music library (indri)"
+#USAGE arg "<staging>" help="Staging dir written by rip-cd"
+#USAGE flag "--library <dir>" help="Music library root (default: /Volumes/music)"
+#USAGE flag "--dry-run" help="Show what would be tagged and where it would go"
+#USAGE flag "--clean" help="Remove the staging dir after filing"
+"""Second half of the CD pipeline ([[rip-a-disc]]): metadata.json → tagged, filed FLACs.
+
+Reads the reviewed `metadata.json` next to the FLACs that `rip-cd` produced,
+writes Vorbis comments (plus MusicBrainz IDs from `rip.json` when known),
+embeds cover art, and moves the tracks to
+
+    <library>/<artist_sort>/<album>/NN - Title.flac
+
+with `cover.jpg` and `<album>.rip.log` (the cd-paranoia summary) alongside.
+Navidrome's hourly scan picks the album up from there. Refuses to overwrite
+anything already in the library.
+"""
+
+import json
+import re
+import shutil
+import sys
+from pathlib import Path
+from typing import Annotated
+
+import httpx
+import typer
+from mutagen.flac import FLAC, Picture
+from rich.console import Console
+from rich.markup import escape
+from rich.table import Table
+
+console = Console()
+app = typer.Typer(add_completion=False)
+
+USER_AGENT = "blumeops-rip-cd/0.1 (https://github.com/eblume/blumeops)"
+DEFAULT_LIBRARY = Path("/Volumes/music")
+COVER_ART_ARCHIVE = "https://coverartarchive.org/release/{release_id}/front-500"
+
+# Same substitutions XLD used, so new folders sort beside the old ones.
+PATH_CHARS = str.maketrans({"/": "／", ":": "：", "\0": ""})
+
+
+def safe_component(text: str) -> str:
+    text = text.translate(PATH_CHARS).strip().lstrip(".")
+    return re.sub(r"\s+", " ", text) or "_"
+
+
+def load_metadata(staging: Path) -> tuple[dict, dict]:
+    meta_path = staging / "metadata.json"
+    if not meta_path.exists():
+        console.print(f"[red]{escape(str(meta_path))} not found — is this a rip-cd staging dir?[/red]")
+        raise typer.Exit(1)
+    meta = json.loads(meta_path.read_text())
+    rip_path = staging / "rip.json"
+    rip = json.loads(rip_path.read_text()) if rip_path.exists() else {}
+    problems = []
+    if not meta.get("artist"):
+        problems.append("artist is empty")
+    if not meta.get("album"):
+        problems.append("album is empty")
+    flacs = sorted(staging.glob("[0-9][0-9].flac"))
+    tracks = meta.get("tracks", [])
+    if len(tracks) != len(flacs):
+        problems.append(f"{len(tracks)} tracks in metadata.json but {len(flacs)} FLACs in the dir")
+    for t in tracks:
+        if not t.get("title"):
+            problems.append(f"track {t.get('number')} has no title")
+    if problems:
+        console.print("[red]metadata.json is not ready:[/red]")
+        for p in problems:
+            console.print(f"  - {escape(p)}")
+        raise typer.Exit(1)
+    return meta, rip
+
+
+def fetch_cover(meta: dict) -> tuple[bytes, str] | None:
+    """Cover bytes and MIME type from `cover` (path or URL) or Cover Art Archive."""
+    source = meta.get("cover")
+    release_id = meta.get("musicbrainz_release_id")
+    if not source and release_id:
+        source = COVER_ART_ARCHIVE.format(release_id=release_id)
+    if not source:
+        return None
+    if re.match(r"https?://", source):
+        try:
+            resp = httpx.get(source, headers={"User-Agent": USER_AGENT}, timeout=30, follow_redirects=True)
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            console.print(f"[yellow]Cover fetch failed ({escape(str(exc))}); filing without art.[/yellow]")
+            return None
+        data = resp.content
+    else:
+        data = Path(source).expanduser().read_bytes()
+    if data[:3] == b"\xff\xd8\xff":
+        return data, "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return data, "image/png"
+    console.print("[yellow]Cover is neither JPEG nor PNG; filing without art.[/yellow]")
+    return None
+
+
+def tag(flac_path: Path, meta: dict, track: dict, total: int, rip: dict, cover: tuple[bytes, str] | None) -> None:
+    audio = FLAC(str(flac_path))
+    audio.delete()
+    audio.clear_pictures()
+    album_artist = meta.get("album_artist") or meta["artist"]
+    tags: dict[str, str | None] = {
+        "TITLE": track["title"],
+        "ARTIST": track.get("artist") or meta["artist"],
+        "ALBUM": meta["album"],
+        "ALBUMARTIST": album_artist,
+        "ALBUMARTISTSORT": meta.get("artist_sort"),
+        "DATE": meta.get("date"),
+        "GENRE": meta.get("genre"),
+        "TRACKNUMBER": str(track["number"]),
+        "TRACKTOTAL": str(total),
+        "DISCNUMBER": str(meta["disc_number"]) if meta.get("disc_number") else None,
+        "DISCTOTAL": str(meta["disc_total"]) if meta.get("disc_total") else None,
+        "COMPILATION": "1" if meta.get("compilation") else None,
+        "MUSICBRAINZ_ALBUMID": meta.get("musicbrainz_release_id"),
+        "MUSICBRAINZ_DISCID": rip.get("musicbrainz_discid"),
+    }
+    for key, value in tags.items():
+        if value:
+            audio[key] = str(value)
+    if cover:
+        pic = Picture()
+        pic.data, pic.mime = cover
+        pic.type = 3  # front cover
+        audio.add_picture(pic)
+    audio.save()
+
+
+@app.command()
+def main(
+    staging: Annotated[Path, typer.Argument(help="Staging dir written by rip-cd")],
+    library: Annotated[Path, typer.Option("--library", help="Music library root")] = DEFAULT_LIBRARY,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show the plan only")] = False,
+    clean: Annotated[bool, typer.Option("--clean", help="Remove the staging dir after filing")] = False,
+) -> None:
+    """Tag and file a ripped CD."""
+    staging = staging.expanduser().resolve()
+    meta, rip = load_metadata(staging)
+    if not library.is_dir():
+        console.print(f"[red]{escape(str(library))} is not mounted (AutoMounter?).[/red]")
+        raise typer.Exit(1)
+
+    folder = meta.get("artist_sort") or meta.get("album_artist") or meta["artist"]
+    dest = library / safe_component(folder) / safe_component(meta["album"])
+    flacs = sorted(staging.glob("[0-9][0-9].flac"))
+    tracks = sorted(meta["tracks"], key=lambda t: t["number"])
+    plan = [
+        (flac, dest / f"{t['number']:02d} - {safe_component(t['title'])}.flac")
+        for flac, t in zip(flacs, tracks, strict=True)
+    ]
+
+    table = Table(title=f"{meta['artist']} — {meta['album']} → {dest}")
+    table.add_column("Staged")
+    table.add_column("Filed as")
+    for src, dst in plan:
+        table.add_row(src.name, escape(dst.name))
+    console.print(table)
+
+    clashes = [dst for _, dst in plan if dst.exists()]
+    if clashes:
+        console.print(f"[red]Refusing to overwrite {len(clashes)} existing file(s) in {escape(str(dest))}.[/red]")
+        raise typer.Exit(1)
+    if dry_run:
+        return
+
+    cover = fetch_cover(meta)
+    for (src, _), t in zip(plan, tracks, strict=True):
+        tag(src, meta, t, len(tracks), rip, cover)
+    dest.mkdir(parents=True, exist_ok=True)
+    for src, dst in plan:
+        shutil.move(str(src), str(dst))
+    if cover and not (dest / "cover.jpg").exists() and cover[1] == "image/jpeg":
+        (dest / "cover.jpg").write_bytes(cover[0])
+    log = staging / "paranoia.log"
+    if log.exists():
+        header = json.dumps({k: rip.get(k) for k in ("ripped_at", "host", "drive", "musicbrainz_discid", "freedb_discid", "toc")}, indent=2)
+        (dest / f"{safe_component(meta['album'])}.rip.log").write_text(header + "\n\n" + log.read_text())
+    (staging / ".filed").write_text(str(dest) + "\n")
+    console.print(f"[green]Filed {len(plan)} tracks to {escape(str(dest))}[/green]")
+    if clean:
+        shutil.rmtree(staging)
+        console.print(f"Removed {escape(str(staging))}")
+
+
+if __name__ == "__main__":
+    try:
+        app()
+    except OSError as exc:
+        console.print(f"[red]{escape(str(exc))}[/red]")
+        sys.exit(1)
