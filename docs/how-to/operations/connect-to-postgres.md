@@ -1,7 +1,7 @@
 ---
 title: Connect to Postgres
-modified: 2026-02-15
-last-reviewed: 2026-02-15
+modified: 2026-09-11
+last-reviewed: 2026-09-11
 tags:
   - how-to
   - database
@@ -20,10 +20,10 @@ How to connect to the [[postgresql]] cluster as a superuser using `psql`.
 ## Connect
 
 ```bash
-PGPASSWORD=$(op read "op://blumeops/postgres/password") psql -h pg.ops.eblu.me -U eblume -d postgres
+PGPASSWORD=$(op read "op://blumeops/postgres/password") psql -h pg.ops.eblu.me -p 5434 -U eblume -d postgres
 ```
 
-This connects as the `eblume` superuser. To connect to a specific database, replace `postgres` with the database name (e.g. `miniflux`, `teslamate`).
+Each cluster gets its own Caddy L4 port on the tailnet — `pg.ops.eblu.me:5434` is `blumeops-pg`, `:5433` is `immich-pg`. The old `:5432` route retired with the minikube cluster ([[retire-minikube]] phase 5). This connects as the `eblume` superuser; to connect to a specific database, replace `postgres` with the database name (e.g. `miniflux`, `teslamate`).
 
 ## Useful Queries
 
