@@ -43,7 +43,9 @@ hephd --mode server --http-addr 0.0.0.0:8787 --db ~/.local/share/heph/heph.db
   reconcile their op-log against.
 - **PWA** (`--web-root`) serves the [heph-pwa] mobile shell; Caddy terminates TLS
   at `heph.ops.eblu.me` so the PWA runs in a secure context (service worker,
-  install-to-home-screen, voice capture).
+  install-to-home-screen, voice capture). On every provision the role also
+  stamps the `heph_version` tag as `pwa-version.js` in the web root, which the
+  PWA settings menu displays as its active version.
 
 > **No `--self-update`.** hephd's opt-in self-updater is deliberately **off**
 > everywhere (hub and spokes). Versions are pinned in IaC and converged by the
