@@ -21,6 +21,9 @@
 # origin/main after its fetch).
 # If the applied commit restarts the priv runner unit itself, this job is
 # killed mid-rebuild; the rebuild continues detached — re-run to confirm the outcome.
+# The job streams the per-sha log into the run log in real time, so a killed run's
+# log ends in the rebuild's own output, and /var/log/ringtail-apply/<sha>.log on
+# ringtail holds the killed run's full rebuild record regardless.
 #
 # Docs: docs/explanation/warrant-approval-gated-runs.md
 name: ringtail-rebuild
@@ -96,18 +99,24 @@ jobs:
           unit="ringtail-apply@${REVISION}.service"
           log="/var/log/ringtail-apply/${REVISION}.log"
           # The log appends across runs of the same sha; remember where this
-          # run's output starts so only it is echoed below.
+          # run's output starts so only it is streamed below.
           before=$(stat -c %s "$log" 2>/dev/null || echo 0)
+          # Stream this run's log slice into the run log in real time. If the
+          # applied commit restarts the runner, the job dies mid-stream and the
+          # run log ends in the rebuild's own output, not checkout noise.
+          # --retry makes tail poll until the file exists, so starting it
+          # pre-log is safe (the unit creates the file as it starts).
+          echo "--- streaming $log (from byte $before)"
+          tail -c +"$((before + 1))" --retry -f "$log" 2>/dev/null &
+          tail_pid=$!
           # Root boundary: polkit lets gitea-runner *start* this instance and
           # nothing else. --wait blocks until the oneshot finishes and exits
           # non-zero if it failed; a denial ("interactive authentication
           # required") fails here too, before any verdict is read.
           rc=0
           "$systemctl" start --wait "$unit" || rc=$?
-          if [ -r "$log" ]; then
-            echo "--- $log"
-            tail -c +"$((before + 1))" "$log"
-          fi
+          kill "$tail_pid" 2>/dev/null || true
+          wait "$tail_pid" 2>/dev/null || true
           result=$("$systemctl" show -p Result --value "$unit")
           if [ "$rc" -ne 0 ] || [ "$result" != "success" ]; then
             echo "::error::$unit did not succeed (systemctl rc=$rc, Result=$result)"

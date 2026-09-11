@@ -6,7 +6,10 @@
 # The instance name is the blumeops commit a human approved in Horkos. Checks
 # out the bound SHA in /etc/blumeops and drives the detached
 # blumeops-nixos-rebuild unit, the same pattern as ansible/playbooks/ringtail.yml.
-# stdout/stderr are appended to /var/log/ringtail-apply/<sha>.log by the unit.
+# stdout/stderr are appended to /var/log/ringtail-apply/<sha>.log by the unit;
+# the rebuild unit's journal is streamed into the same log while the job runs,
+# so the log carries the rebuild's full output on every outcome, including one
+# where the runner is killed mid-rebuild and nothing else writes.
 
 set -euo pipefail
 
@@ -42,10 +45,22 @@ unit=blumeops-nixos-rebuild
 since=$(date +%s)
 # Transient units linger once they have run; reset any leftover failed state.
 systemctl reset-failed "$unit" 2>/dev/null || true
-systemd-run --unit="$unit" --service-type=oneshot --property=TimeoutStartSec=3300 \
+# --no-block: without it systemd-run waits on the D-Bus job, and a mid-activation
+# restart of dbus-broker kills the wait and aborts the wrapper while the rebuild
+# runs on (the same incident ansible/playbooks/ringtail.yml documents).
+systemd-run --no-block --unit="$unit" --service-type=oneshot --property=TimeoutStartSec=3300 \
   --setenv=PATH=/run/current-system/sw/bin:/usr/bin:/bin \
   --setenv=HOME=/root \
   /run/current-system/sw/bin/nixos-rebuild switch --flake /etc/blumeops/nixos/ringtail#ringtail
+
+# Stream the rebuild unit's journal into the per-sha log as it happens: the log
+# must stay complete when the runner dies mid-rebuild, and the journal is where
+# the rebuild's output goes. stdbuf -oL keeps the follower line-buffered so the
+# last lines reach the log before the trap kills it.
+stdbuf -oL journalctl --no-pager --output=cat --follow --unit="$unit" --since "@$since" \
+  >> /var/log/ringtail-apply/"${sha}.log" &
+journal_pid=$!
+trap 'kill "$journal_pid" 2>/dev/null || true' EXIT
 
 # Keep the wrapper's own deadline inside the job's 1-hour runner timeout (the
 # priv instance sets timeout = "1h").
