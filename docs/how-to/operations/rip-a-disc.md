@@ -45,13 +45,28 @@ writes:
 - `paranoia.log` — cd-paranoia's per-track summary; a blank bar is a clean read
 - `rip.json` — disc IDs, TOC, CD-TEXT, MusicBrainz candidates, and a
   `submit_url` for adding an unknown disc ID to MusicBrainz
-- `metadata.json` — the draft: a single exact MusicBrainz match fills it in,
+- `metadata.json` — the draft: an exact MusicBrainz match fills it in,
   otherwise CD-TEXT does, otherwise it is blank
 
 Review `metadata.json`. `artist`, `album` and every track `title` are
 required; `artist_sort` names the library folder (`Bowie, David`);
 `musicbrainz_release_id` fetches cover art from the Cover Art Archive when
-`cover` (path or URL) is unset. Then:
+`cover` (path or URL) is unset. Things the draft flags for you:
+
+- **Several exact matches** (`_source` says so, `_candidates` lists them) —
+  the same album pressed in several countries or packagings. The first one
+  filled the draft; swap `musicbrainz_release_id` if another is the disc in
+  your hand, since that decides which cover art is fetched.
+- **A disc of a set** — `disc_number`/`disc_total` come from MusicBrainz
+  when the release has more than one medium; set them by hand otherwise.
+  The finish task files every disc of a set into the same album folder as
+  `<disc>-NN - Title.flac`, so the discs can be ripped in any order.
+- **A hidden track** — audio of 2 s or more before track 1 is ripped as
+  `00.flac` and the draft carries a track `0` for it; title it, or delete
+  both. Shorter pregap audio (common, and silent) is dropped without comment
+  beyond a log line.
+
+Then:
 
 ```fish
 mise run rip-cd-finish ~/rips/cd/<dir> --dry-run   # show the plan
@@ -59,14 +74,17 @@ mise run rip-cd-finish ~/rips/cd/<dir> --clean     # tag, move, remove staging
 ```
 
 Tracks land in `/Volumes/music/<artist_sort>/<album>/NN - Title.flac` with
-`cover.jpg` and `<album>.rip.log` beside them, and [[navidrome]] finds them
+`cover.jpg` and `<album>.rip.log` (`<album>.disc<N>.rip.log` for a set)
+beside them, and [[navidrome]] finds them
 on its hourly scan (its NFS mount is the same sifaka share). Older albums in
 the library sit directly under the artist folder — that was XLD's layout —
 and Navidrome does not care about the difference.
 
 Re-running `rip-cd` on a disc whose staging dir exists resumes: tracks with a
 FLAC are not re-extracted, and an edited `metadata.json` is never
-overwritten. `--skip-rip` refreshes `rip.json` without running cd-paranoia.
+overwritten (a regenerated draft goes to `metadata.draft.json` beside it).
+`--skip-rip` refreshes `rip.json` without running cd-paranoia; it still
+needs the disc in the drive, since the disc IDs come from the TOC.
 
 ## DVD / Blu-ray
 

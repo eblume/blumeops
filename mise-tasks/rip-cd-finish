@@ -155,8 +155,11 @@ def main(
     dest = library / safe_component(folder) / safe_component(meta["album"])
     flacs = sorted(staging.glob("[0-9][0-9].flac"))
     tracks = sorted(meta["tracks"], key=lambda t: t["number"])
+    # Discs of a set share the album folder; the disc number prefixes the file
+    # name so the discs interleave correctly and never collide on track 01.
+    disc_prefix = f"{meta['disc_number']}-" if (meta.get("disc_total") or 0) > 1 or meta.get("disc_number") else ""
     plan = [
-        (flac, dest / f"{t['number']:02d} - {safe_component(t['title'])}.flac")
+        (flac, dest / f"{disc_prefix}{t['number']:02d} - {safe_component(t['title'])}.flac")
         for flac, t in zip(flacs, tracks, strict=True)
     ]
 
@@ -185,7 +188,8 @@ def main(
     log = staging / "paranoia.log"
     if log.exists():
         header = json.dumps({k: rip.get(k) for k in ("ripped_at", "host", "drive", "musicbrainz_discid", "freedb_discid", "toc")}, indent=2)
-        (dest / f"{safe_component(meta['album'])}.rip.log").write_text(header + "\n\n" + log.read_text())
+        log_name = safe_component(meta["album"]) + (f".disc{meta['disc_number']}" if disc_prefix else "") + ".rip.log"
+        (dest / log_name).write_text(header + "\n\n" + log.read_text())
     (staging / ".filed").write_text(str(dest) + "\n")
     console.print(f"[green]Filed {len(plan)} tracks to {escape(str(dest))}[/green]")
     if clean:

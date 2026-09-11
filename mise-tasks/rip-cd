@@ -7,7 +7,7 @@
 #USAGE flag "--device <dev>" help="Optical device, e.g. /dev/disk4 (default: whatever drutil reports)"
 #USAGE flag "--staging <dir>" help="Staging root (default: ~/rips/cd)"
 #USAGE flag "--no-eject" help="Leave the disc in the drive afterwards"
-#USAGE flag "--skip-rip" help="Do not run cd-paranoia; still encodes WAVs already in the staging dir and rewrites rip.json"
+#USAGE flag "--skip-rip" help="Do not run cd-paranoia; still encodes WAVs already in the staging dir and rewrites rip.json (an existing metadata.json is kept; the fresh draft goes to metadata.draft.json)"
 """Rip an audio CD into a staging directory, ready for labeling.
 
 This is the first half of the CD pipeline described in [[rip-a-disc]]. It
@@ -58,6 +58,7 @@ MB_API = "https://musicbrainz.org/ws/2"
 SECTORS_PER_SECOND = 75
 DEFAULT_STAGING = Path("~/rips/cd")
 PREGAP_SECTORS = 150  # cd-info reports LSN; MusicBrainz wants LBA = LSN + 150
+HIDDEN_TRACK_MIN_SECONDS = 2.0  # shorter pre-track-1 audio is mastering slop, not a hidden track
 
 
 def require(*tools: str) -> None:
@@ -124,6 +125,10 @@ def read_disc(device: str) -> dict:
     for i, t in enumerate(tracks):
         end = tracks[i + 1]["lba"] if i + 1 < len(tracks) else leadout
         t["seconds"] = round((end - t["lba"]) / SECTORS_PER_SECOND, 1)
+    # Audio before track 1 (beyond the standard 2 s pregap). cd-paranoia -B rips
+    # it as "track 0". Usually a fraction of a second of mastering slop; on a
+    # few discs it is a real hidden track (HTOA).
+    pregap_seconds = round((tracks[0]["lba"] - PREGAP_SECTORS) / SECTORS_PER_SECOND, 1)
 
     cdtext: dict = {"disc": {}, "tracks": {}}
     section: dict | None = None
@@ -136,7 +141,7 @@ def read_disc(device: str) -> dict:
             section[m.group(1).lower()] = m.group(2).strip()
         elif not line.startswith(("\t", " ")):
             section = None
-    return {"tracks": tracks, "leadout": leadout, "cdtext": cdtext}
+    return {"tracks": tracks, "leadout": leadout, "pregap_seconds": pregap_seconds, "cdtext": cdtext}
 
 
 def musicbrainz_discid(first: int, last: int, leadout: int, offsets: dict[int, int]) -> str:
@@ -188,21 +193,27 @@ def lookup_musicbrainz(discid: str, toc: str, track_count: int) -> dict:
         artist = "".join(
             f"{ac['name']}{ac.get('joinphrase', '')}" for ac in rel.get("artist-credit", [])
         )
-        titles: list[str] = []
-        for medium in rel.get("media", []):
-            if medium.get("track-count") == track_count:
-                titles = [t.get("title", "") for t in medium.get("tracks", [])]
-                break
+        # The medium this disc is: the one carrying our disc ID, else the first
+        # with the right track count (a TOC-fuzzy match has no disc ID to carry).
+        media = rel.get("media", [])
+        medium = next(
+            (m for m in media if any(d.get("id") == discid for d in m.get("discs", []))),
+            next((m for m in media if m.get("track-count") == track_count), None),
+        ) or {}
         candidates.append({
             "release_id": rel.get("id"),
             "title": rel.get("title"),
             "artist": artist,
             "date": rel.get("date"),
             "country": rel.get("country"),
+            "disambiguation": rel.get("disambiguation") or None,
             "exact_discid": any(
-                d.get("id") == discid for m in rel.get("media", []) for d in m.get("discs", [])
+                d.get("id") == discid for m in media for d in m.get("discs", [])
             ),
-            "tracks": titles,
+            "disc_number": medium.get("position"),
+            "disc_total": len(media) or None,
+            "medium_title": medium.get("title") or None,
+            "tracks": [t.get("title", "") for t in medium.get("tracks", [])],
         })
     return {"error": None, "candidates": candidates}
 
@@ -212,14 +223,28 @@ def slugify(text: str) -> str:
     return slug[:40] or "disc"
 
 
+def candidate_line(c: dict) -> str:
+    """One-line summary of a MusicBrainz candidate for the draft and the console."""
+    tag = "exact" if c["exact_discid"] else "toc-match"
+    disc = f", disc {c['disc_number']}/{c['disc_total']}" if (c.get("disc_total") or 0) > 1 else ""
+    extra = f" — {c['disambiguation']}" if c.get("disambiguation") else ""
+    return f"{c['artist']} — {c['title']} ({c['date']}, {c['country']}{disc}) [{tag}] {c['release_id']}{extra}"
+
+
 def draft_metadata(disc: dict, mb: dict) -> dict:
-    """Best-guess metadata.json: one exact MusicBrainz hit wins, then CD-TEXT."""
+    """Best-guess metadata.json: an exact MusicBrainz hit wins, then CD-TEXT.
+
+    Several exact hits are usually the same album pressed in several
+    countries or packagings; the first fills the draft and `_candidates`
+    lists the rest so the reviewer can swap the release ID (which decides
+    which cover art is fetched) without opening rip.json.
+    """
     n = len(disc["tracks"])
-    exact = [c for c in mb["candidates"] if c["exact_discid"]]
-    chosen = exact[0] if len(exact) == 1 and len(exact[0]["tracks"]) == n else None
+    exact = [c for c in mb["candidates"] if c["exact_discid"] and len(c["tracks"]) == n]
+    chosen = exact[0] if exact else None
     cdtext = disc["cdtext"]
     if chosen:
-        source = "musicbrainz"
+        source = "musicbrainz" if len(exact) == 1 else f"musicbrainz — {len(exact)} exact matches, first taken; confirm musicbrainz_release_id"
         artist, album, date = chosen["artist"], chosen["title"], chosen["date"]
         release_id = chosen["release_id"]
         titles = chosen["tracks"]
@@ -230,13 +255,26 @@ def draft_metadata(disc: dict, mb: dict) -> dict:
         album = cdtext["disc"].get("title", "")
         date, release_id = None, None
         titles = [cdtext["tracks"].get(t["number"], {}).get("title", "") for t in disc["tracks"]]
-    return {
+    tracks = [
+        {"number": t["number"], "title": titles[i] if i < len(titles) else "", "artist": None}
+        for i, t in enumerate(disc["tracks"])
+    ]
+    if disc["pregap_seconds"] >= HIDDEN_TRACK_MIN_SECONDS:
+        tracks.insert(0, {
+            "number": 0,
+            "title": "",
+            "artist": None,
+            "_note": f"{disc['pregap_seconds']}s of audio before track 1 (hidden track), ripped as 00.flac. Name it, or delete this entry and 00.flac.",
+        })
+    draft = {
         "_help": (
             "Edit, then `mise run rip-cd-finish <this dir>`. Required: artist, album, "
             "every track title. album_artist and artist_sort default to artist; "
             "artist_sort names the library folder ('Bowie, David'). cover is a file "
             "path or URL; with none, musicbrainz_release_id fetches Cover Art Archive. "
-            "Per-track artist overrides the album artist. Keys starting with _ are ignored."
+            "disc_number/disc_total > 1 files tracks as '<disc>-NN - Title.flac' in the "
+            "shared album folder. Per-track artist overrides the album artist. Keys "
+            "starting with _ are ignored."
         ),
         "_source": source,
         "artist": artist,
@@ -246,16 +284,18 @@ def draft_metadata(disc: dict, mb: dict) -> dict:
         "date": date,
         "genre": None,
         "compilation": False,
+        "disc_number": chosen["disc_number"] if chosen and (chosen.get("disc_total") or 0) > 1 else None,
+        "disc_total": chosen["disc_total"] if chosen and (chosen.get("disc_total") or 0) > 1 else None,
         "musicbrainz_release_id": release_id,
         "cover": None,
-        "tracks": [
-            {"number": t["number"], "title": titles[i] if i < len(titles) else "", "artist": None}
-            for i, t in enumerate(disc["tracks"])
-        ],
+        "tracks": tracks,
     }
+    if len(exact) > 1:
+        draft["_candidates"] = [candidate_line(c) for c in exact]
+    return draft
 
 
-def extract(device: str, staging: Path, tracks: list[dict], skip_rip: bool) -> None:
+def extract(device: str, staging: Path, tracks: list[dict], skip_rip: bool, keep_hidden: bool) -> None:
     """cd-paranoia batch mode, then ffmpeg to FLAC.
 
     Resumes: when every track already has a FLAC or a WAV in the staging dir,
@@ -279,16 +319,23 @@ def extract(device: str, staging: Path, tracks: list[dict], skip_rip: bool) -> N
         if result.returncode != 0:
             console.print(f"[red]cd-paranoia exited {result.returncode}; staging dir kept for inspection.[/red]")
             raise typer.Exit(result.returncode)
-    encode(staging)
+    encode(staging, keep_hidden)
 
 
-def encode(staging: Path) -> None:
+def encode(staging: Path, keep_hidden: bool) -> None:
+    """WAVs to FLAC. cd-paranoia's track 0 (audio before track 1) is dropped
+    unless it is long enough to be a hidden track, in which case it becomes
+    00.flac and the draft carries a track 0 entry for it."""
     wavs = sorted(staging.glob("track*.cdda.wav"))
     if not wavs:
         return
     console.print(f"[bold]Encoding {len(wavs)} tracks to FLAC[/bold]")
     for wav in wavs:
         num = int(wav.name.removeprefix("track").split(".")[0])
+        if num == 0 and not keep_hidden:
+            console.print("[dim]Dropping track 0 (sub-2s pregap audio, not a hidden track).[/dim]")
+            wav.unlink()
+            continue
         flac = staging / f"{num:02d}.flac"
         subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav),
@@ -318,7 +365,10 @@ def main(
     freedb = freedb_discid(first, last, disc["leadout"], offsets)
     toc = "+".join(str(x) for x in (first, last, disc["leadout"], *(offsets[i] for i in range(first, last + 1))))
 
+    hidden = disc["pregap_seconds"] >= HIDDEN_TRACK_MIN_SECONDS
     console.print(f"[bold]{len(tracks)} audio tracks[/bold], MusicBrainz disc ID [cyan]{discid}[/cyan]")
+    if hidden:
+        console.print(f"[yellow]{disc['pregap_seconds']}s of audio before track 1 — a hidden track; it will be 00.flac.[/yellow]")
     mb = lookup_musicbrainz(discid, toc, len(tracks))
     if mb["error"]:
         console.print(f"[yellow]MusicBrainz lookup failed ({escape(mb['error'])}); continuing without it.[/yellow]")
@@ -337,6 +387,7 @@ def main(
         "freedb_discid": freedb,
         "toc": toc,
         "submit_url": f"https://musicbrainz.org/cdtoc/attach?id={discid}&tracks={len(tracks)}&toc={toc}",
+        "pregap_seconds": disc["pregap_seconds"],
         "tracks": tracks,
         "cdtext": {"disc": disc["cdtext"]["disc"],
                    "tracks": {str(k): v for k, v in disc["cdtext"]["tracks"].items()}},
@@ -344,27 +395,31 @@ def main(
     }
     (staging / "rip.json").write_text(json.dumps(rip, indent=2, ensure_ascii=False) + "\n")
     draft = staging / "metadata.json"
-    if draft.exists() and not skip_rip:
-        console.print(f"[yellow]{escape(str(draft))} exists; not overwriting your edits.[/yellow]")
+    if draft.exists():
+        fresh = staging / "metadata.draft.json"
+        fresh.write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + "\n")
+        console.print(f"[yellow]{escape(str(draft))} exists; not overwriting your edits. Fresh draft: {escape(fresh.name)}[/yellow]")
     else:
         draft.write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + "\n")
 
-    extract(device, staging, tracks, skip_rip)
+    extract(device, staging, tracks, skip_rip, hidden)
     if not skip_rip and not no_eject:
         subprocess.run(["drutil", "eject"], check=False)
 
-    table = Table(title=f"{metadata['artist'] or '?'} — {metadata['album'] or '?'}  (source: {metadata['_source']})")
+    disc_tag = f"  disc {metadata['disc_number']}/{metadata['disc_total']}" if metadata.get("disc_total") else ""
+    table = Table(title=f"{metadata['artist'] or '?'} — {metadata['album'] or '?'}{disc_tag}  (source: {metadata['_source']})")
     table.add_column("#", justify="right")
     table.add_column("Title")
     table.add_column("Length", justify="right")
-    for t, m in zip(tracks, metadata["tracks"], strict=True):
-        table.add_row(str(t["number"]), escape(m["title"] or "[dim]?[/dim]"), f"{int(t['seconds']) // 60}:{int(t['seconds']) % 60:02d}")
+    lengths = {t["number"]: t["seconds"] for t in tracks} | {0: disc["pregap_seconds"]}
+    for m in metadata["tracks"]:
+        secs = int(lengths.get(m["number"], 0))
+        table.add_row(str(m["number"]), escape(m["title"] or "[dim]?[/dim]"), f"{secs // 60}:{secs % 60:02d}")
     console.print(table)
     if mb["candidates"]:
         console.print(f"MusicBrainz candidates: {len(mb['candidates'])} (see rip.json)")
         for c in mb["candidates"][:5]:
-            tag = "exact" if c["exact_discid"] else "toc-match"
-            console.print(f"  - {escape(c['artist'])} — {escape(c['title'])} ({c['date']}, {c['country']}) [{tag}] {c['release_id']}")
+            console.print("  - " + escape(candidate_line(c)))
     else:
         console.print("MusicBrainz: no release for this disc. Once labeled, add it: " + escape(rip["submit_url"]))
     console.print(f"\nNext: review [bold]{escape(str(draft))}[/bold], then\n  mise run rip-cd-finish {escape(str(staging))}")
