@@ -219,6 +219,7 @@ mise run container-build-and-release <name> <version>   # [human] tag and build 
 agent pod, route it through the sidecar — `ALL_PROXY=socks5://localhost:1055
 mise run container-list`. Without it the task now fails loudly rather than
 reporting every container as untagged.
+The Image Pins PR check resolves kustomization pins under registry.ops.eblu.me against the registry, so a pin PR sits red until its build has pushed the tag — that red is the intended order, not a failure to work around.
 **New services should use locally built containers** (Nix `dockerTools`,
 pulled from `registry.ops.eblu.me` with source mirrored on
 forge.ops.eblu.me) for supply-chain control. This is guidance for new work,

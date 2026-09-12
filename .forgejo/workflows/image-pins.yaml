@@ -1,0 +1,49 @@
+# New PR gate for kustomization image pins, plus the same sweep on push.
+#
+# This workflow deliberately leaves the "no network" carve-out that Docs
+# Checks and Lint keep. The check resolves each kustomization's image pin
+# under `registry.ops.eblu.me` with anonymous, read-only HEAD requests against
+# our own zot at a constant host — no credentials anywhere.
+#
+# That fork-PR-safety invariant is *no credentials*, not no network:
+# GITHUB_TOKEN is blanked, no vault, no cluster. PR-controlled values (image
+# name, tag, digest) are validated against the distribution grammar before
+# they can reach a URL path, so a fork cannot point the request anywhere or
+# smuggle anything into the URL.
+#
+# On an agent PR this sits `pending` with no run until a human clicks
+# "Approve and run" — the agents bot is read-only on canonical, so its PRs are
+# outside contributions. Do not switch to `pull_request_target` to skip it:
+# that trigger gets secrets and a write token.
+# See [[agent-change-process#Why agent PRs need an approval click]].
+name: Image Pins
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: indri
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Image Pins
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          if [ -n "$GITHUB_BASE_REF" ]; then
+            # pull_request: only the pins this PR changes
+            ./mise-tasks/container-pin-check
+          else
+            # push: main and workflow_dispatch: sweep every pin — the only
+            # mode that catches a tag later pruned by zot retention
+            ./mise-tasks/container-pin-check --all-files
+          fi
+
+      - name: Tests
+        if: always()
+        run: mise run horkos-test
