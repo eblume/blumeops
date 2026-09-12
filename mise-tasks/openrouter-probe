@@ -1,0 +1,325 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.1"]
+# ///
+#MISE description="Per-provider OpenRouter probe: effort sensitivity, empty-completion, error/429 rates (agent-usable)"
+#USAGE arg "<model>" help="OpenRouter model slug, e.g. deepseek/deepseek-v4-flash-0731"
+#USAGE flag "--reps <reps>" help="Calls per provider and effort level (default: 3)"
+#USAGE flag "--concurrency <concurrency>" help="Calls in flight (default: 3)"
+#USAGE flag "--effort <effort>" help="Reasoning effort for --empty-check mode (default: low)"
+#USAGE flag "--empty-check" help="Fixed-effort mode: empty-completion/error/latency rates only"
+#USAGE flag "--json" help="Stream JSONL records to stdout instead of writing a .jsonl file"
+"""Probe, per OpenRouter provider serving a model, what the caller actually gets.
+
+For every provider that serves `model` we fire chat completions pinned to that
+provider alone and record whether `reasoning.effort` moves reasoning-token
+counts (low/high/max sweep by default), how often a completion comes back empty
+(HTTP 200, no content, no tool call), p50/p95 latency, and error/429 rates.
+
+Meant to be run *from a talos session* so egress is the pod's (providers
+rate-limit by IP); the banner prints the proxy and source IP so a result is
+never misattributed. Key comes from OPENROUTER_API_KEY, else the blumeops vault
+(`op item get "openrouter (blumeops)"`) — `op read` cannot parse the item's
+parenthesized name.
+
+Usage:
+    mise run openrouter-probe deepseek/deepseek-v4-flash-0731
+    mise run openrouter-probe deepseek/deepseek-v4-flash-0731 --empty-check --effort high
+    mise run openrouter-probe deepseek/deepseek-v4-flash-0731 --reps 2 --json
+"""
+
+import asyncio
+import json
+import os
+import statistics
+import subprocess
+import time
+import urllib.parse
+from datetime import UTC, datetime
+from typing import Any
+
+import httpx
+import typer
+from rich.console import Console
+from rich.markup import escape
+from rich.table import Table
+
+API = "https://openrouter.ai/api/v1"
+PROMPT = "Count from 1 to 20, one number per line. Nothing else."
+EFFORTS = ("low", "high", "max")
+MAX_TOKENS = 6000
+CALL_TIMEOUT = 300.0  # 5-min abort per request
+
+err = Console(stderr=True)
+app = typer.Typer(add_completion=False)
+
+
+def refuse(reason: str) -> None:
+    err.print(f"[red]No OpenRouter API key:[/red] {escape(reason)}")
+    raise typer.Exit(1)
+
+
+def resolve_key() -> tuple[str, str]:
+    """Key + source label; clean one-paragraph refusal, never print the key."""
+    key = os.environ.get("OPENROUTER_API_KEY")
+    if key:
+        return key.strip(), "env"
+    op_cmd = ["op", "item", "get", "openrouter (blumeops)", "--vault", "blumeops",
+              "--reveal", "--fields=credential"]
+    try:
+        result = subprocess.run(op_cmd, capture_output=True, text=True,
+                                stdin=subprocess.DEVNULL, timeout=30, check=False)
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        refuse(f"OPENROUTER_API_KEY is unset and the 1Password fallback is unavailable "
+               f"({type(exc).__name__}). Set OPENROUTER_API_KEY in the environment, or run "
+               f"from a host with the blumeops vault (e.g. gilbert).")
+    if result.returncode != 0:
+        refuse('OPENROUTER_API_KEY is unset and `op item get "openrouter (blumeops)" '
+               '--vault blumeops --fields=credential` failed '
+               f"({result.stderr.strip() or f'exit {result.returncode}'}). Set "
+               f"OPENROUTER_API_KEY in the environment, or run from a host with the "
+               f"blumeops vault (e.g. gilbert).")
+    key = result.stdout.strip()
+    if not key:
+        refuse("OPENROUTER_API_KEY is unset and the 1Password fallback returned an empty "
+               "credential. Set OPENROUTER_API_KEY in the environment, or run from a host "
+               "with the blumeops vault (e.g. gilbert).")
+    return key, "op"
+
+
+def proxy_label() -> str | None:
+    raw = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY") \
+        or os.environ.get("all_proxy") or os.environ.get("ALL_PROXY") \
+        or os.environ.get("EGRESS_GATEWAY_URL")
+    if not raw:
+        return None
+    parts = urllib.parse.urlsplit(raw)
+    scheme = parts.scheme or "proxy"
+    port = parts.port or (443 if scheme == "https" else 80)
+    return f"{scheme} proxy :{port}"  # host masked: the route matters, not the address
+
+
+def source_ip() -> str | None:
+    try:
+        resp = httpx.get("https://ifconfig.co/json", timeout=5)
+        resp.raise_for_status()
+        return resp.json().get("ip")
+    except (httpx.HTTPError, ValueError):
+        return None
+
+
+def egress_banner(key_source: str) -> None:
+    err.print(f"egress: [bold]{escape(proxy_label() or 'direct')}[/bold] — source IP "
+              f"[bold]{escape(source_ip() or 'proxy detected, source IP unknown')}[/bold]")
+    err.print(f"api key: from {escape(key_source)}")
+
+
+def enumerate_providers(client: httpx.Client, slug: str) -> list[dict[str, Any]]:
+    """Unique provider tags from the endpoints list. `name` is "<Provider> | <model>",
+    so the order slug is the part before the separator; `provider_name` is the display name."""
+    resp = client.get(f"{API}/models/{slug}/endpoints")
+    if resp.status_code != 200:
+        try:
+            msg = (resp.json().get("error") or {}).get("message")
+        except ValueError:
+            msg = None
+        err.print(f"[red]endpoint lookup failed ({resp.status_code})[/red]: "
+                  f"{escape(msg or resp.text[:200])}")
+        raise typer.Exit(1)
+    seen: dict[str, dict[str, Any]] = {}
+    for ep in resp.json().get("data", {}).get("endpoints") or []:
+        tag = (ep.get("name") or "").split(" | ")[0]
+        if not tag or tag in seen:
+            continue
+        pricing = ep.get("pricing") or {}
+
+        def _price(v: Any) -> float | None:
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return None
+
+        seen[tag] = {
+            "tag": tag,
+            "provider": ep.get("provider_name") or tag,
+            "prompt_price": _price(pricing.get("prompt")),
+            "completion_price": _price(pricing.get("completion")),
+        }
+    return list(seen.values())
+
+
+def print_estimate(providers: list[dict], efforts: list[str], reps: int, concurrency: int) -> None:
+    n = len(providers) * len(efforts) * reps
+    err.print(f"plan: {len(providers)} providers × {len(efforts)} efforts × {reps} reps = "
+              f"[bold]{n}[/bold] calls, concurrency {concurrency}")
+    total = 0.0
+    priced = 0
+    for p in providers:
+        if p["prompt_price"] is None or p["completion_price"] is None:
+            continue
+        priced += 1
+        total += (p["prompt_price"] * 100 + p["completion_price"] * 3000) * len(efforts) * reps
+    if priced:
+        err.print(f"estimated spend (~100 prompt + ~3000 completion tokens/call): "
+                  f"[bold]${total:.4f}[/bold]")
+    else:
+        err.print(f"pricing unknown — {n} calls")
+
+
+async def probe_one(client: httpx.AsyncClient, sem: asyncio.Semaphore, model: str,
+                    prov: dict, effort: str, rep: int) -> dict:
+    async with sem:
+        t0 = time.monotonic()
+        record = {
+            "slug": model, "tag": prov["tag"], "provider": prov["provider"],
+            "effort": effort, "rep": rep, "http": None, "ms": None,
+            "prompt_tokens": None, "completion_tokens": None, "reasoning_tokens": 0,
+            "finish": None, "native_finish": None, "content_len": 0,
+            "reasoning_len": 0, "tool_calls": 0, "error": None,
+        }
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": PROMPT}],
+            "provider": {"order": [prov["tag"]], "allow_fallbacks": False},
+            "reasoning": {"effort": effort},
+            "max_tokens": MAX_TOKENS,
+        }
+        try:
+            resp = await client.post(f"{API}/chat/completions", json=payload)
+        except httpx.HTTPError as exc:
+            record["ms"] = int((time.monotonic() - t0) * 1000)
+            record["error"] = f"transport: {type(exc).__name__}"
+            return record
+        record["ms"] = int((time.monotonic() - t0) * 1000)
+        record["http"] = resp.status_code
+        try:
+            data = resp.json()
+        except ValueError:
+            record["error"] = "non-JSON response"
+            return record
+        if resp.status_code != 200:
+            err_payload = data.get("error")
+            if isinstance(err_payload, dict):
+                msg = err_payload.get("message")
+            elif isinstance(err_payload, str):
+                msg = err_payload
+            else:
+                msg = None
+            record["error"] = msg or f"HTTP {resp.status_code}"
+            return record
+        choice = (data.get("choices") or [None])[0] or {}
+        message = choice.get("message") or {}
+        usage = data.get("usage") or {}
+        details = usage.get("completion_tokens_details") or {}
+        record.update({
+            "provider": data.get("provider") or prov["provider"],
+            "prompt_tokens": usage.get("prompt_tokens"),
+            "completion_tokens": usage.get("completion_tokens"),
+            "reasoning_tokens": details.get("reasoning_tokens") or 0,
+            "finish": choice.get("finish_reason"),
+            "native_finish": choice.get("native_finish_reason"),
+            "content_len": len(message.get("content") or ""),
+            "reasoning_len": len(message.get("reasoning") or ""),
+            "tool_calls": len(message.get("tool_calls") or []),
+        })
+        return record
+
+
+async def sweep(model: str, providers: list[dict], efforts: list[str], reps: int,
+                concurrency: int, key: str) -> list[dict]:
+    sem = asyncio.Semaphore(concurrency)
+    async with httpx.AsyncClient(headers={"Authorization": f"Bearer {key}"},
+                                 timeout=CALL_TIMEOUT) as client:
+        tasks = [probe_one(client, sem, model, p, effort, rep)
+                 for p in providers for effort in efforts for rep in range(1, reps + 1)]
+        return await asyncio.gather(*tasks)
+
+
+def emit(records: list[dict], model: str, json_out: bool) -> None:
+    records.sort(key=lambda r: (r["tag"],
+                                EFFORTS.index(r["effort"]) if r["effort"] in EFFORTS else 99,
+                                r["rep"]))
+    if json_out:
+        for r in records:
+            print(json.dumps(r))
+        return
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    path = f"openrouter-probe-{model.replace('/', '-')}-{stamp}.jsonl"
+    with open(path, "w") as f:
+        for r in records:
+            f.write(json.dumps(r) + "\n")
+    err.print(f"[green]wrote {escape(path)}[/green]")
+
+
+def pct(values: list[int], p: float) -> int | None:
+    s = sorted(values)
+    if not s:
+        return None
+    k = (len(s) - 1) * p / 100
+    lo = int(k)
+    hi = min(lo + 1, len(s) - 1)
+    return round(s[lo] + (s[hi] - s[lo]) * (k - lo))
+
+
+def summarize(records: list[dict], empty_check: bool) -> None:
+    by_tag: dict[str, list[dict]] = {}
+    for r in records:
+        by_tag.setdefault(r["tag"], []).append(r)
+    table = Table(title=f"openrouter-probe ({'empty-check' if empty_check else 'effort sweep'})")
+    table.add_column("tag")
+    for e in EFFORTS:
+        table.add_column(f"re {e}")
+    for col in ("err", "429", "p50 ms", "p95 ms", "empty"):
+        table.add_column(col)
+    for tag in sorted(by_tag):
+        rs = by_tag[tag]
+        row = [escape(tag)]
+        for e in EFFORTS:  # blank in empty-check mode (no low/high/max sweep)
+            if empty_check:
+                row.append("")
+                continue
+            meds = [r["reasoning_tokens"] for r in rs
+                    if r["effort"] == e and r["error"] is None]
+            row.append(escape(str(round(statistics.median(meds)))) if meds else "")
+        errors = sum(1 for r in rs if r["error"])
+        rate429 = sum(1 for r in rs if r["http"] == 429)
+        lat = [r["ms"] for r in rs if r["ms"] is not None]
+        ok = [r for r in rs if r["http"] == 200 and not r["error"]]
+        empty = sum(1 for r in ok if r["content_len"] == 0 and r["tool_calls"] == 0)
+        p50, p95 = pct(lat, 50), pct(lat, 95)
+        empty_cell = f"{empty}/{len(ok)} ({empty * 100 // max(len(ok), 1)}%)" if ok else "—"
+        row += [str(errors), str(rate429),
+                escape(str(p50)) if p50 is not None else "",
+                escape(str(p95)) if p95 is not None else "",
+                empty_cell]
+        table.add_row(*row)
+    err.print(table)
+
+
+@app.command()
+def main(
+    model: str = typer.Argument(..., help="OpenRouter model slug, e.g. deepseek/deepseek-v4-flash-0731"),
+    reps: int = typer.Option(3, "--reps", min=1, help="Calls per provider and effort level (default: 3)"),
+    concurrency: int = typer.Option(3, "--concurrency", min=1, help="Calls in flight (default: 3)"),
+    effort: str = typer.Option("low", "--effort", help="Reasoning effort for --empty-check mode (default: low)"),
+    empty_check: bool = typer.Option(False, "--empty-check", help="Fixed-effort mode: empty-completion/error/latency rates only"),
+    json_out: bool = typer.Option(False, "--json", help="Stream JSONL records to stdout instead of writing a .jsonl file"),
+) -> None:
+    """Probe, per OpenRouter provider serving a model, what the caller actually gets."""
+    key, key_source = resolve_key()
+    egress_banner(key_source)
+    with httpx.Client(headers={"Authorization": f"Bearer {key}"}, timeout=30) as client:
+        providers = enumerate_providers(client, model)
+    if not providers:
+        err.print(f"[red]no providers serve {escape(model)}[/red]")
+        raise typer.Exit(1)
+    efforts = [effort] if empty_check else list(EFFORTS)
+    print_estimate(providers, efforts, reps, concurrency)
+    records = asyncio.run(sweep(model, providers, efforts, reps, concurrency, key))
+    emit(records, model, json_out)
+    summarize(records, empty_check)
+
+
+if __name__ == "__main__":
+    app()
