@@ -234,6 +234,38 @@ Things that commonly need a nudge:
   not meant to, and a reboot does not need them to. Only sync if their
   manifests changed while ringtail was down.
 
+## After an unclean reboot
+
+If ringtail came back on its own — nobody ran `reboot`, and the boot log
+shows fsck journal recovery on every disk plus journald "was not properly
+shut down" — **read the pstore first.** `kernel.panic_on_oops=1` and
+`kernel.panic=10` mean a kernel oops reboots the host ten seconds later
+instead of hanging, and the panic's dmesg tail is written to EFI variables
+and archived by `systemd-pstore` on the next boot:
+
+```fish
+ssh ringtail 'journalctl --list-boots | tail -3'                     # when each boot ended
+ssh ringtail 'sudo ls -la /var/lib/systemd/pstore/'                  # one numbered dir per panic
+ssh ringtail 'sudo grep -h -A12 "BUG:\|Kernel panic" /var/lib/systemd/pstore/*/*/dmesg*'
+```
+
+The pstore record names the panicking task (`Comm:`), the faulting function
+(`RIP:`) and the call trace — that is the cause, and it is usually the whole
+investigation. An empty `/var/lib/systemd/pstore/` (and `/sys/fs/pstore/`)
+after an unclean boot points the other way: power loss or a hardware reset,
+which no log will explain — check the UPS ([[power]]) and the PSU.
+
+Only then look at the previous boot's journal tail for what was running
+(`journalctl -b -1 -n 200`), OOM-killer lines (`journalctl -b -1 -k | grep -i
+oom`), and whether a ringtail-rebuild was mid-switch (`mise run verify-runs`;
+an interrupted switch needs a re-run — the run's warrant will show failed).
+
+This is the procedure that closed the 2026-09-10 double reset in ten
+minutes: both pstore records showed the same beyla BPF uprobe fault
+(`obi_protocol_tcp`, once on a fresh tailscaled sidecar, once on a postgres
+backend). The record is in [[ringtail#Maintenance Notes]]; the beyla
+re-enable and its canary are eblume/blumeops#983.
+
 ## RAM-swap checklist
 
 **Reboot once with the old RAM first.** A host that has been up for months
