@@ -9,10 +9,10 @@
 registry does not have yet.
 
 Each local image pin (an effective name under `registry.ops.eblu.me/` with a
-`newTag` or `digest`) is resolved with an anonymous, read-only HEAD against our
-own zot. A pin whose tag/digest is absent stays red until its `build-container`
-run pushes the tag — that red is the intended order, not a failure to work
-around.
+`newTag`, `digest`, or combined `tag@digest`) is resolved with an anonymous,
+read-only HEAD against our own zot. A pin whose tag/digest is absent stays
+red until its `build-container` run pushes the tag — that red is the intended
+order, not a failure to work around.
 
 Upstream registries are deliberately not checked. The image name, tag and
 digest are validated against the distribution grammars before any URL is built,
@@ -196,6 +196,11 @@ def collect_pins(files: list[Path]) -> tuple[list[Pin], list[tuple[str, str]]]:
             new_tag = entry.get("newTag")
             if new_tag is not None:
                 if not TAG_RE.match(str(new_tag)):
+                    # combined `tag@digest` pins verify the digest, which is what the pull uses
+                    tag_part, sep, digest_part = str(new_tag).partition("@")
+                    if sep and TAG_RE.match(tag_part) and DIGEST_RE.match(digest_part):
+                        pins.append(Pin(effective, path, digest_part, "digest", str(file)))
+                        continue
                     issues.append((effective, f"invalid tag '{new_tag}'"))
                     continue
                 pins.append(Pin(effective, path, str(new_tag), "tag", str(file)))
