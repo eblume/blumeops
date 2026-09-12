@@ -256,6 +256,9 @@ def test_git_failure_falls_back_to_all_files(repo, run_main, monkeypatch):
             "  - name: registry.ops.eblu.me/blumeops/alloy\n    newTag: v1.0.0\n"
         ),
     )
+    # these exercise the main-diff path; CI runners set GITHUB_BASE_REF for
+    # PR events, which would route scope_files through changed_vs_base
+    monkeypatch.delenv("GITHUB_BASE_REF", raising=False)
     monkeypatch.setattr(pin_check, "git_changed_files", lambda args: None)
     reg = FakeRegistry()
     reg.install(monkeypatch)
@@ -271,6 +274,8 @@ def test_git_empty_changed_set_no_http(repo, run_main, monkeypatch):
             "  - name: registry.ops.eblu.me/blumeops/alloy\n    newTag: v1.0.0\n"
         ),
     )
+    # as above: these test the main-diff path, not the PR base-ref path
+    monkeypatch.delenv("GITHUB_BASE_REF", raising=False)
     monkeypatch.setattr(pin_check, "git_changed_files", lambda args: [])
     reg = FakeRegistry()
     reg.install(monkeypatch)
