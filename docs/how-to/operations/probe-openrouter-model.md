@@ -1,6 +1,6 @@
 ---
 title: Probe an OpenRouter Model's Providers
-modified: 2026-09-11
+modified: 2026-09-12
 tags:
   - how-to
   - operations
@@ -54,3 +54,7 @@ providers are routed.
 
 Records land in `./openrouter-probe-<model>-<timestamp>.jsonl`, or stream to
 stdout with `--json` (the summary table goes to stderr either way).
+
+## Previous runs
+
+Results banked from talos sessions: [[openrouter-provider-probes]] (one section per model, newest run on top).
