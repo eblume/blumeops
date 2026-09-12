@@ -39,14 +39,16 @@
   when: cv_installed_version != cv_version
 
 - name: Download and extract cv release tarball
-  ansible.builtin.shell: |
-    set -euo pipefail
-    manifest=$(curl -fsSL -H "Accept: application/vnd.oci.image.manifest.v1+json" \
-      "https://{{ cv_registry }}/v2/{{ cv_image }}/manifests/{{ cv_version }}")
-    digest=$(printf '%s' "$manifest" | jq -r '.layers[0].digest')
-    curl -fsSL "https://{{ cv_registry }}/v2/{{ cv_image }}/blobs/$digest" -o {{ cv_home }}/cv.tar.gz
-    tar -xzf {{ cv_home }}/cv.tar.gz -C {{ cv_content_dir }}
-    rm -f {{ cv_home }}/cv.tar.gz
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      manifest=$(curl -fsSL -H "Accept: application/vnd.oci.image.manifest.v1+json" \
+        "https://{{ cv_registry }}/v2/{{ cv_image }}/manifests/{{ cv_version }}")
+      digest=$(printf '%s' "$manifest" | jq -r '.layers[0].digest')
+      curl -fsSL "https://{{ cv_registry }}/v2/{{ cv_image }}/blobs/$digest" -o {{ cv_home }}/cv.tar.gz
+      tar -xzf {{ cv_home }}/cv.tar.gz -C {{ cv_content_dir }}
+      rm -f {{ cv_home }}/cv.tar.gz
+    executable: /bin/bash
   when: cv_installed_version != cv_version
   changed_when: true
 

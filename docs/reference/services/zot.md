@@ -48,7 +48,7 @@ OIDC authentication via [[authentik]], with API key support for CI.
 
 CI authenticates with a zot API key generated from the `zot-ci` service account's OIDC session. The key is stored in the `Forgejo Secrets` 1Password item (field `zot-ci-api`) and synced to Forgejo Actions secrets via ansible.
 
-The per-repo identities exist because a repo's Forgejo Actions secrets are readable by anyone who can push to that repo, so each release CI's key is scoped by zot accessControl to create+update on its own image path only. zot's accessControl uses longest-match, so the per-path `blumeops/talos` and `blumeops/horkos` entries restate the base `**` policies verbatim rather than inheriting them.
+The per-repo identities exist because a repo's Forgejo Actions secrets are readable by anyone who can push to that repo, so each release CI's key is scoped by zot accessControl to create+update on its own image path only. zot's accessControl uses longest-match, so the per-path `blumeops/talos`, `blumeops/horkos` and `blumeops/cv` entries restate the base `**` policies verbatim rather than inheriting them.
 
 ## API Key Rotation
 
@@ -89,8 +89,7 @@ none, so it bounces to the login flow. Browser impersonation works because it
 rides on your own logged-in session.
 
 
-1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `zot-talos`
-   `zot-horkos` or `zot-cv`)
+1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `zot-talos`, `zot-horkos` or `zot-cv`)
 2. Visit `https://registry.ops.eblu.me` and click "SIGN IN WITH OIDC"
 3. Navigate to `https://registry.ops.eblu.me/user/apikey`, generate a key
    (any expiry — it is about to be retired), copy it

@@ -82,7 +82,6 @@ The forge has three namespaces:
 | `branch-cleanup` | cron/dispatch | `indri` | Delete stale branches |
 | `build-blumeops` | dispatch | `indri` | Docs build + release |
 | `build-container` | dispatch | `indri` → `nix-container-builder` | Nix container image builds; classify on indri, build on the nix builder ([[build-container-image]]) |
-| `cv-deploy` | dispatch | `indri` | Deploy the CV package |
 | `deploy-fly` | dispatch | `priv` | Warrant-gated deploy of the Fly.io proxy ([[flyio-proxy]]) |
 | `docs-checks` | PR/push | `indri` | Docs + changelog validation |
 | `flake-update` | dispatch | `nix-container-builder` | Ringtail flake input update (native nix on the ringtail nix runner) |
