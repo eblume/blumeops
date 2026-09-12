@@ -1,7 +1,7 @@
 ---
 title: Talos
-modified: 2026-08-14
-last-reviewed: 2026-08-14
+modified: 2026-09-12
+last-reviewed: 2026-09-12
 tags:
   - service
   - ai
@@ -50,7 +50,10 @@ the way `agent-health` does, then call talos. The credential is in the
 blumeops vault (`agents-m2m-app-password`); it is also in the agents vault, so
 this path is reachable from an agent session too. Warrant + human approval
 remains the gate on every privileged action, so an agent creating a session or
-cron job never escalates — it only spawns more equally-unprivileged work.
+cron job never escalates — it only spawns more equally-unprivileged work. One
+exception: the heph-task watcher kind (below) has a session-facing wrapper,
+`mise run talos-wait-for-task`, because a session registers a watcher as its
+"waiting on a human" primitive and the wrapper keeps that to one command.
 
 ```sh
 TOKEN=$(curl -s https://authentik.ops.eblu.me/application/o/token/ \
@@ -65,6 +68,50 @@ curl -s -X POST https://talos.ops.eblu.me/api/crons \
   -d '{"name":"BlumeOps doc review","schedule":{"expr":"0 7 * * *","timezone":"UTC"},"prompt":"…"}'
 
 curl -s https://talos.ops.eblu.me/api/crons -H "Authorization: Bearer $TOKEN"   # list
+```
+
+**heph-task watcher (one-shot continuation).** A job whose
+`schedule.kind` is `"heph-task"` fires a new session when the watched heph
+task reaches a state in `on` (`"done"` and/or `"dropped"`):
+
+```json
+{
+  "name": "ringtail rebuild follow-up (blumeops#800)",
+  "prompt": "The burn-in task is done: verify the GC config and close out #800.",
+  "schedule": { "kind": "heph-task", "nodeId": "01M1J1PRRQGYJNTFFZQSZJARMB", "on": ["done"], "expiresAt": "2026-09-13T08:00:00Z" },
+  "origin": { "repo": "eblume/blumeops", "issue": 800 }
+}
+```
+
+- **One-shot semantics.** The job is consumed *before* firing — patched
+  `enabled: false` plus `firedReason` in one step — so a failed fire never
+  re-fires; the job then stays listed as disabled. Re-arm is an explicit
+  `PATCH /api/crons/:id` (re-arm clears `firedReason`); cancel is
+  `DELETE /api/crons/:id`. `firedReason` is `condition`, `expired`, or
+  `disarmed`.
+- **The `talos-watch` tag.** On arm (create or re-arm) talos adds the
+  `talos-watch` tag to the watched heph task and exposes `tagApplied: true`
+  on the job; the tag is removed on consume, delete, or disable. If the tag
+  is gone at poll time, the job is consumed with `firedReason: "disarmed"` —
+  removing the tag in heph (the PWA's Unwatch action) is the human-side
+  cancel, and it is where the human sees the watcher (not the talos
+  dashboard).
+- **`expiresAt`** (future ISO timestamp): when it passes, the job fires with
+  `firedReason: "expired"` instead of waiting forever.
+- **`origin`** (`{repo, issue}`) anchors the spawned session to the origin
+  issue; `GET /api/crons` adds the derived `originUrl`.
+
+From an agent pod the wrapper mints the token and routes through the sidecar
+itself:
+
+```sh
+# register (the prompt comes from a file — the API takes an inline prompt only)
+mise run talos-wait-for-task create 01M1J1PRRQGYJNTFFZQSZJARMB \
+  --on done --prompt-file ./prompt.md --origin eblume/blumeops#800 \
+  --expires 2026-09-13T08:00:00Z
+mise run talos-wait-for-task list
+mise run talos-wait-for-task show <job-id>
+mise run talos-wait-for-task cancel <job-id>
 ```
 
 From the tailnet-fenced agent pod, route through the sidecar with

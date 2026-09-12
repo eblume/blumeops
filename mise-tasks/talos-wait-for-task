@@ -1,0 +1,275 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.1"]
+# ///
+#MISE description="Register/list/show/cancel talos heph-task watcher jobs, using the agents-m2m JWT (agent-usable)"
+"""Register one-shot talos watcher jobs against https://talos.ops.eblu.me/api/crons
+with the `agents-m2m` machine identity (agents vault — works from the agent
+pod via the SOCKS sidecar, no browser session).
+
+A watcher is a crons entry whose `schedule.kind` is "heph-task": it fires a
+new session when the watched heph task reaches a state in `on` (done and/or
+dropped). It is consumed *before* firing (patched `enabled: false` +
+`firedReason` in one step), so a failed fire never re-fires; re-arm is an
+explicit PATCH and cancel is DELETE /api/crons/:id (docs/reference/
+services/talos.md, "heph-task watcher" section).
+
+Exit codes: 0 ok · 1 API/validation failure · 3 credential failure (op read /
+authentik grant).
+"""
+
+import json
+import os
+import re
+import subprocess
+from pathlib import Path
+from typing import Annotated, Any
+
+import httpx
+import typer
+from rich.console import Console
+from rich.markup import escape
+from rich.table import Table
+
+TALOS_URL = "https://talos.ops.eblu.me"
+AUTHENTIK_TOKEN_URL = "https://authentik.ops.eblu.me/application/o/token/"
+SOCKS_FALLBACK = "socks5://localhost:1055"  # agent pod's tailscale sidecar
+HELP = "Manage talos heph-task watcher jobs (one-shot continuations on a heph task's done/dropped)."
+ULID_RE = re.compile(r"^[0-7][0-9A-HJKMNP-TV-Z]{25}$")
+ORIGIN_RE = re.compile(r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#([0-9]+)$")
+
+console = Console()
+err = Console(stderr=True, style="bold red")
+
+
+def op_read(ref: str) -> str:
+    # op parses non-TTY stdin as JSON — always feed it /dev/null.
+    try:
+        result = subprocess.run(
+            ["op", "read", ref],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=30,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        err.print(f"op read {ref} failed: {exc}")
+        raise typer.Exit(3) from exc
+    if result.returncode != 0:
+        err.print(f"op read {ref} failed: {result.stderr.strip()}")
+        raise typer.Exit(3)
+    return result.stdout.strip()
+
+
+def client_for(url: str) -> httpx.Client:
+    """Direct first; SOCKS fallback for the pod (its tailnet path is the
+    sidecar proxy). Honors ALL_PROXY if the caller sets one.
+
+    The probe is a throwaway module-level request: callers enter the returned
+    client as a context manager, and httpx refuses to enter a client that has
+    already sent a request, so the client returned here must be unused."""
+    proxy = os.environ.get("ALL_PROXY")
+    base = url.split("/api/")[0] + "/"
+    try:
+        httpx.get(base, timeout=5.0, proxy=proxy)
+        return httpx.Client(timeout=30.0, proxy=proxy)
+    except httpx.TransportError:
+        return httpx.Client(timeout=30.0, proxy=SOCKS_FALLBACK)
+
+
+def mint_token() -> str:
+    app_pw = op_read("op://agents/agents-authentik-sa/app-password")
+    with client_for(AUTHENTIK_TOKEN_URL) as c:
+        resp = c.post(
+            AUTHENTIK_TOKEN_URL,
+            data={
+                "grant_type": "client_credentials",
+                "client_id": "agents-m2m",
+                "username": "agent-ringtail",
+                "password": app_pw,
+                "scope": "openid profile",
+            },
+        )
+    if resp.status_code != 200:
+        err.print(f"authentik token grant failed ({resp.status_code}): {resp.text[:200]}")
+        raise typer.Exit(3)
+    return resp.json()["access_token"]
+
+
+def api(method: str, path: str, json_body: dict | None = None) -> httpx.Response:
+    token = mint_token()
+    with client_for(TALOS_URL) as c:
+        return c.request(
+            method,
+            f"{TALOS_URL}{path}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json=json_body,
+        )
+
+
+def resolve_job(job_id: str, jobs: list[dict]) -> dict:
+    exact = [j for j in jobs if j.get("id") == job_id]
+    if exact:
+        return exact[0]
+    if len(job_id) < 4:
+        err.print(f"'{job_id}' is neither a full job id nor a unique prefix (prefixes need >=4 chars)")
+        raise typer.Exit(1)
+    candidates = [j for j in jobs if str(j.get("id", "")).startswith(job_id)]
+    if len(candidates) == 1:
+        return candidates[0]
+    if not candidates:
+        err.print(f"no job matches '{job_id}'")
+    else:
+        err.print(f"'{job_id}' matches {len(candidates)} jobs: " + ", ".join(str(j["id"]) for j in candidates))
+    raise typer.Exit(1)
+
+
+def fetch_jobs() -> list[dict]:
+    resp = api("GET", "/api/crons")
+    if resp.status_code != 200:
+        err.print(f"list failed ({resp.status_code}): {resp.text[:300]}")
+        raise typer.Exit(1)
+    jobs = resp.json()
+    if not isinstance(jobs, list):
+        err.print(f"unexpected response shape: {resp.text[:300]}")
+        raise typer.Exit(1)
+    return jobs
+
+
+app = typer.Typer(help=HELP)
+
+
+@app.command("create")
+def create(
+    node_id: Annotated[
+        str,
+        typer.Argument(metavar="node_id", help="The heph node id (Crockford ULID) to watch"),
+    ],
+    on: Annotated[
+        str,
+        typer.Option(help="States to fire on, comma-separated, subset of done,dropped"),
+    ] = "done",
+    prompt_file: Annotated[
+        Path | None,
+        typer.Option(help="File whose contents become the job's inline prompt (required)"),
+    ] = None,
+    origin: Annotated[
+        str | None,
+        typer.Option(help="Origin issue owner/repo#N — anchors the spawned session to it"),
+    ] = None,
+    expires: Annotated[
+        str | None,
+        typer.Option(help="Future ISO timestamp; the job fires with firedReason=expired once it passes"),
+    ] = None,
+    name: Annotated[
+        str | None,
+        typer.Option(help="Job name (default: heph-task wait: <node_id>)"),
+    ] = None,
+) -> None:
+    """Register a watcher job on a heph task (the create path)."""
+    if not ULID_RE.fullmatch(node_id):
+        err.print(f"'{node_id}' is not a Crockford ULID (expected e.g. 01M1J1PRRGQYJNTFFZQSZJARMB)")
+        raise typer.Exit(1)
+    on_list = [s.strip() for s in on.split(",")]
+    if not on_list or any(s not in ("done", "dropped") for s in on_list):
+        err.print("--on must be a non-empty comma list drawn from: done,dropped")
+        raise typer.Exit(1)
+    if prompt_file is None:
+        err.print("--prompt-file is required (the API takes an inline prompt only)")
+        raise typer.Exit(1)
+    try:
+        prompt = prompt_file.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        err.print(f"could not read the prompt from {str(prompt_file)!r}: {exc}")
+        raise typer.Exit(1) from exc
+    if not prompt.strip():
+        err.print(f"the prompt file {str(prompt_file)!r} is empty — the watcher would fire with nothing to do")
+        raise typer.Exit(1)
+
+    body: dict[str, Any] = {
+        "name": name if name is not None else f"heph-task wait: {node_id}",
+        "prompt": prompt,
+        "schedule": {"kind": "heph-task", "nodeId": node_id, "on": on_list},
+        "enabled": True,
+    }
+    if expires is not None:
+        body["schedule"]["expiresAt"] = expires
+    if origin is not None:
+        m = ORIGIN_RE.fullmatch(origin)
+        if m is None:
+            err.print(f"'{origin}' should be owner/repo#N, e.g. eblume/blumeops#800")
+            raise typer.Exit(1)
+        body["origin"] = {"repo": m.group(1), "issue": int(m.group(2))}
+
+    resp = api("POST", "/api/crons", body)
+    if resp.status_code != 201:
+        err.print(f"create failed ({resp.status_code}): {resp.text}")
+        raise typer.Exit(1)
+    job = resp.json()
+    console.print(f"[green]watcher job created.[/green] id: {escape(str(job.get('id')))}")
+    console.print(f"name: {escape(str(job.get('name', '')))}")
+    console.print(f"schedule: {job.get('schedule')}")
+    if "tagApplied" in job:
+        console.print(f"tagApplied: {job['tagApplied']}")
+    if job.get("originUrl"):
+        console.print(f"originUrl: {escape(job['originUrl'])}")
+
+
+@app.command("list")
+def list_jobs() -> None:
+    """List all talos cron jobs (watcher and cron kinds)."""
+    jobs = fetch_jobs()
+    table = Table(title="talos cron jobs")
+    table.add_column("id")
+    table.add_column("name")
+    table.add_column("kind")
+    table.add_column("on / expr")
+    table.add_column("enabled")
+    table.add_column("firedReason")
+    table.add_column("state")
+    for job in jobs:
+        schedule = job.get("schedule") or {}
+        kind = schedule.get("kind", "")
+        if kind == "heph-task":
+            on_val = ", ".join(schedule.get("on") or [])
+        else:
+            on_val = schedule.get("expr", "")
+        flags = [f for f in ("running", "held") if job.get(f)]
+        table.add_row(
+            str(job.get("id", ""))[:8],
+            escape(str(job.get("name", ""))),
+            escape(str(kind)),
+            escape(str(on_val)),
+            str(job.get("enabled", "")),
+            escape(str(job.get("firedReason") or "—")),
+            escape(" ".join(flags)),
+        )
+    console.print(table)
+
+
+@app.command("show")
+def show(job_id: Annotated[str, typer.Argument(help="Full job id, or a unique id prefix (>=4 chars)")]) -> None:
+    """Print one job's full record as pretty JSON."""
+    job = resolve_job(job_id, fetch_jobs())
+    console.print(json.dumps(job, indent=2))
+
+
+@app.command("cancel")
+def cancel(job_id: Annotated[str, typer.Argument(help="Full job id, or a unique id prefix (>=4 chars)")]) -> None:
+    """Delete a watcher job; talos removes the talos-watch tag."""
+    job = resolve_job(job_id, fetch_jobs())
+    resp = api("DELETE", f"/api/crons/{job['id']}")
+    body = resp.json() if resp.content else {}
+    if resp.status_code != 200 or body.get("ok") is not True:
+        err.print(f"cancel failed ({resp.status_code}): {resp.text[:300]}")
+        raise typer.Exit(1)
+    console.print(f"cancelled watcher job {escape(job['id'])} ({escape(str(job.get('name', '')))})")
+
+
+if __name__ == "__main__":
+    app()

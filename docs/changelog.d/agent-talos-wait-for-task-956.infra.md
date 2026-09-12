@@ -1,0 +1,1 @@
+New `mise run talos-wait-for-task` task: register, list, show, and cancel talos heph-task watcher jobs (one-shot continuations on a heph task's done/dropped) against the /api/crons API, authenticated with the agents-m2m credential.
