@@ -38,7 +38,9 @@ spec:
               value: "1600MiB"
             # Diagnostic rollout only — logs per-pid exclusion decisions;
             # drop after the allowlist is confirmed (eblume/blumeops#983).
-            - name: OTEL_EBPF_LOG_LEVEL
+            # BEYLA_LOG_LEVEL is the env beyla v3.33 reads (config.go
+            # log_level); OTEL_EBPF_LOG_LEVEL is ignored by the vendored OBI.
+            - name: BEYLA_LOG_LEVEL
               value: "debug"
           resources:
             requests:
