@@ -42,7 +42,7 @@ services:
   - name: horkos
     type: argocd
     last-reviewed: 2026-08-20
-    current-version: "v0.5.16"
+    current-version: "v0.5.18"
     upstream-source: https://forge.eblu.me/eblume/horkos
     notes: >-
       First-party approval broker ([[warrant-approval-gated-runs]]), né
@@ -426,7 +426,7 @@ services:
   - name: talos
     type: argocd
     last-reviewed: "2026-08-30"
-    current-version: "v0.4.118"
+    current-version: "v0.4.119"
     upstream-source: https://forge.eblu.me/eblume/talos
     notes: >-
       First-party agent workflow service ([[talos-design]]): pi runtime +

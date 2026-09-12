@@ -1,6 +1,7 @@
 ---
 title: Probe an OpenRouter Model's Providers
 modified: 2026-09-12
+last-reviewed: 2026-09-12
 tags:
   - how-to
   - operations
@@ -13,7 +14,7 @@ tags:
 serving a model and reports, per provider: whether `reasoning.effort` moves
 reasoning-token counts (low/high/max sweep), how often a completion comes back
 empty (HTTP 200 with no content and no tool call), p50/p95 latency, and
-error/429 rates.
+error/429 counts.
 
 ## When to run it
 
@@ -47,10 +48,9 @@ share is the point.
 
 The `tag` column is the provider string to put on a per-model provider
 `ignore` list in [[talos]] — see
-[eblume/talos#183](https://forge.ops.eblu.me/eblume/talos/issues/183) for that
-list and [eblume/talos#181](https://forge.ops.eblu.me/eblume/talos/issues/181)
-for the provider label it compares against. See [[talos-design]] for how
-providers are routed.
+[eblume/talos#183](https://forge.eblu.me/eblume/talos/issues/183) for that
+list and [eblume/talos#181](https://forge.eblu.me/eblume/talos/issues/181)
+for the provider label it compares against.
 
 Records land in `./openrouter-probe-<model>-<timestamp>.jsonl`, or stream to
 stdout with `--json` (the summary table goes to stderr either way).

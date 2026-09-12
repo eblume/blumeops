@@ -1,0 +1,297 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx[socks]==0.28.1", "pyyaml==6.0.3", "rich==15.0.0", "typer==0.27.1"]
+# ///
+#MISE description="Check that kustomization image pins under registry.ops.eblu.me exist in the registry"
+#USAGE flag "--all-files" help="Check every kustomization, not just changed ones"
+"""Fail a PR when a kustomization pins an image under our own registry that the
+registry does not have yet.
+
+Each local image pin (an effective name under `registry.ops.eblu.me/` with a
+`newTag` or `digest`) is resolved with an anonymous, read-only HEAD against our
+own zot. A pin whose tag/digest is absent stays red until its `build-container`
+run pushes the tag — that red is the intended order, not a failure to work
+around.
+
+Upstream registries are deliberately not checked. The image name, tag and
+digest are validated against the distribution grammars before any URL is built,
+so a PR-controlled value can never reach a URL path unvalidated.
+
+By default only pins in kustomizations that changed vs main are checked; pass
+--all-files to sweep every kustomization. Any git failure falls back to
+checking everything — fail closed, never check nothing.
+
+Usage:
+  mise run container-pin-check              # changed kustomizations only
+  mise run container-pin-check --all-files  # every kustomization
+"""
+
+import os
+import re
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
+import httpx
+import typer
+import yaml
+from rich.console import Console
+from rich.markup import escape
+from rich.table import Table
+
+REGISTRY = "registry.ops.eblu.me"
+REGISTRY_URL = f"https://{REGISTRY}"
+ACCEPT = (
+    "application/vnd.oci.image.manifest.v1+json, "
+    "application/vnd.docker.distribution.manifest.v2+json, "
+    "application/vnd.docker.distribution.manifest.list.v2+json"
+)
+
+# Distribution grammars, applied before any URL is constructed.
+IMAGE_PATH_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$")
+TAG_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$")
+DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+BASE_REF_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+app = typer.Typer()
+console = Console()
+
+
+@dataclass
+class Pin:
+    """A local image pin with a validated image path and ref."""
+
+    image: str  # full effective name, e.g. registry.ops.eblu.me/blumeops/alloy
+    path: str  # image path after the host
+    ref: str  # tag or digest
+    ref_kind: str  # "tag" | "digest"
+    file: str
+
+
+def all_kustomizations() -> list[Path]:
+    return sorted(REPO_ROOT.glob("argocd/manifests/**/kustomization.yaml"))
+
+
+def git_changed_files(args: list[str]) -> list[str] | None:
+    """Lines of `git <args>` from REPO_ROOT, or None on git failure."""
+    result = subprocess.run(
+        ["git", *args],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.splitlines()
+
+
+def local_main_ref() -> str:
+    """'main' when a local main exists, else 'origin/main'."""
+    ok = subprocess.run(
+        ["git", "rev-parse", "--verify", "main"],
+        capture_output=True,
+        cwd=REPO_ROOT,
+        check=False,
+    ).returncode == 0
+    return "main" if ok else "origin/main"
+
+
+def changed_vs_base(base: str) -> list[str] | None:
+    """Files changed vs the base tip. The merge ref includes main's content at
+    the fork point, so a two-dot diff may include main's own moves since the
+    fork — over-checking is the safe direction."""
+    fetch = subprocess.run(
+        ["git", "fetch", "--depth=1", "origin", f"{base}:refs/remotes/origin/{base}"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    if fetch.returncode != 0:
+        return None
+    return git_changed_files(["diff", "--name-only", f"origin/{base}", "HEAD"])
+
+
+def changed_vs_main() -> list[str] | None:
+    base = local_main_ref()
+    return git_changed_files(["diff", "--name-only", f"{base}...HEAD"])
+
+
+def filter_kustomizations(lines: list[str]) -> list[Path]:
+    files: list[Path] = []
+    for line in lines:
+        if line.startswith("argocd/manifests/") and line.endswith("/kustomization.yaml"):
+            path = REPO_ROOT / line
+            if path.exists():
+                files.append(path)
+    return files
+
+
+def scope_files(all_files: bool) -> tuple[list[Path], str, str | None]:
+    """In-scope kustomizations + a Scope label + optional fallback warning."""
+    if all_files:
+        return all_kustomizations(), "all files", None
+
+    base = os.environ.get("GITHUB_BASE_REF")
+    if base and BASE_REF_RE.match(base):
+        changed = changed_vs_base(base)
+        if changed is None:
+            return (
+                all_kustomizations(),
+                "all files",
+                f"could not fetch/diff origin/{base}; checking all files",
+            )
+        files = filter_kustomizations(changed)
+        return files, f"{len(files)} changed file(s) vs {base}", None
+
+    changed = changed_vs_main()
+    if changed is None:
+        return (
+            all_kustomizations(),
+            "all files",
+            "git diff against main failed; checking all files",
+        )
+    files = filter_kustomizations(changed)
+    return files, f"{len(files)} changed file(s) vs {local_main_ref()}", None
+
+
+def collect_pins(files: list[Path]) -> tuple[list[Pin], list[tuple[str, str]]]:
+    """Parse files into validated local pins + (label, reason) issue rows.
+
+    Issues are malformed files and pins whose image path or ref fails the
+    distribution grammar — they fail without any registry call.
+    """
+    pins: list[Pin] = []
+    issues: list[tuple[str, str]] = []
+    for file in files:
+        try:
+            data = yaml.safe_load(file.read_text())
+        except (yaml.YAMLError, OSError) as exc:
+            issues.append((str(file), f"malformed kustomization: {exc}"))
+            continue
+        if not isinstance(data, dict):
+            continue
+        images = data.get("images")
+        if not isinstance(images, list):
+            continue
+        for entry in images:
+            if not isinstance(entry, dict):
+                continue
+            effective = entry.get("newName") or entry.get("name")
+            if not effective:
+                continue  # no effective name — nothing to check
+            if not isinstance(effective, str):
+                issues.append((str(file), f"invalid image name: {effective!r} (not a string)"))
+                continue
+            if not effective.startswith(f"{REGISTRY}/"):
+                continue  # upstream registries are intentionally unchecked
+            path = effective[len(f"{REGISTRY}/"):]
+            if not IMAGE_PATH_RE.match(path):
+                issues.append((effective, f"invalid image path '{path}'"))
+                continue
+            new_tag = entry.get("newTag")
+            if new_tag is not None:
+                if not TAG_RE.match(str(new_tag)):
+                    issues.append((effective, f"invalid tag '{new_tag}'"))
+                    continue
+                pins.append(Pin(effective, path, str(new_tag), "tag", str(file)))
+                continue
+            digest = entry.get("digest")
+            if digest is not None:
+                if not DIGEST_RE.match(str(digest)):
+                    issues.append((effective, f"invalid digest '{digest}'"))
+                    continue
+                pins.append(Pin(effective, path, str(digest), "digest", str(file)))
+                continue
+            # no newTag/digest — no pin, skip
+    return pins, issues
+
+
+def check_pin(client: httpx.Client, pin: Pin) -> tuple[bool, str]:
+    """HEAD the manifest for a pin; return (ok, detail)."""
+    url = f"{REGISTRY_URL}/v2/{pin.path}/manifests/{pin.ref}"
+    try:
+        resp = client.head(url, headers={"Accept": ACCEPT})
+    except httpx.HTTPError as exc:
+        return False, f"could not verify (network: {exc})"
+    if resp.status_code == 200:
+        return True, "OK"
+    if resp.status_code == 404:
+        return False, "not in registry"
+    return False, f"could not verify (HTTP {resp.status_code})"
+
+
+@app.command()
+def main(
+    all_files: bool = typer.Option(False, "--all-files", help="Check every kustomization, not just changed ones"),
+) -> None:
+    """Check that kustomization image pins under registry.ops.eblu.me exist."""
+    files, scope_label, warning = scope_files(all_files)
+    pins, issues = collect_pins(files)
+
+    console.print("[bold]Image Pin Check[/bold]")
+    console.print(f"Scope: {escape(scope_label)}")
+    if warning:
+        console.print(f"[yellow]{escape(warning)}[/yellow]")
+    console.print()
+
+    if not pins and not issues:
+        console.print("No local image pins in scope.")
+        return
+
+    client = httpx.Client(trust_env=True, timeout=10)
+    rows: list[tuple[str, str, str]] = []  # image, ref, status markup
+    errors: list[tuple[str, str]] = []
+    hints: list[str] = []
+
+    for pin in pins:
+        ok, detail = check_pin(client, pin)
+        if ok:
+            rows.append((pin.image, pin.ref, "[green]OK[/green]"))
+        else:
+            label = f"{pin.image}:{pin.ref}"
+            rows.append((pin.image, pin.ref, "[red]FAIL[/red]"))
+            errors.append((label, detail))
+            if detail == "not in registry":
+                hints.append(
+                    f"{label}: is the build-container request for this SHA "
+                    f"approved and finished? (mise run runner-logs)"
+                )
+            elif detail.startswith("could not verify (network"):
+                hints.append(
+                    f"{label}: {REGISTRY} is tailnet-only. From an agent pod, "
+                    f"route through the sidecar: "
+                    f"ALL_PROXY=socks5://localhost:1055 mise run container-pin-check"
+                )
+
+    for label, msg in issues:
+        rows.append((label, "—", "[red]FAIL[/red]"))
+        errors.append((label, msg))
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Image")
+    table.add_column("Pin")
+    table.add_column("Status")
+    for image, ref, status in rows:
+        table.add_row(escape(image), escape(ref), status)
+    console.print(table)
+    console.print()
+
+    if errors:
+        console.print(f"[bold red]{len(errors)} error(s):[/bold red]")
+        for label, msg in errors:
+            console.print(f"  {escape(label)}: {escape(msg)}")
+        for hint in hints:
+            console.print(f"  [dim]{escape(hint)}[/dim]")
+        console.print()
+        raise typer.Exit(1)
+
+    console.print("[bold green]All image pins exist in the registry.[/bold green]")
+
+
+if __name__ == "__main__":
+    app()
