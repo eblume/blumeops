@@ -244,6 +244,43 @@ DOCP 1 (BIOS 8902+). Plan: a Zen 3
 CPU upgrade (this BIOS supports Ryzen 5000) should let the kit run its 3200
 JEDEC table — set Memory Frequency back to Auto and re-memtest then.
 
+**Unclean resets 2026-09-10 (beyla BPF kernel panic):** two hard resets in one
+day, both the same kernel panic — a NULL-pointer dereference at address
+`0x21` inside `bpf_prog_…_obi_protocol_tcp+0x5aae`, reached through
+`uprobe_notify_resume` → `uprobe_dispatcher` → `__uprobe_perf_func`. That is
+[Beyla](https://github.com/grafana/beyla)'s eBPF uprobe in `alloy-tracing`
+firing on a process it had hooked; `kernel.panic_on_oops=1` and
+`kernel.panic=10` turn the oops into a reboot rather than a hang. Each panic
+left an EFI pstore archive under `/var/lib/systemd/pstore/`, which is how the
+cause was found in minutes (see [[restart-ringtail#After an unclean reboot]]).
+
+| Reset | Panicking task | pstore | What ran just before |
+|-------|----------------|--------|----------------------|
+| 11:43:12 PDT | `tailscaled`, PID 3401628 (the talos v0.4.106 sidecar, started 11:42:44) | `1789065801` | Talos image roll — a *fresh* process attached before its pod metadata resolved |
+| 15:40:37 PDT | `postgres`, UID 26 (a CloudNativePG backend) | `1789080043` | Nothing: the v0.4.109 pods had been up 15 minutes and k3s logged no pod start since. A forked child of an already-probed executable is enough |
+
+Ruled out: no OOM-killer activity in either boot, no systemd shutdown
+markers, kernel 6.18.49 on both sides, no flake or nixpkgs change in the
+window, and the box is on the UPS ([[power]]). A byte-identical BPF fault
+signature twice is software, so the PSU and thermals were never opened.
+
+The 15:40 reset landed eleven minutes into the ringtail-rebuild for the heph
+v1.10.4 pin (run 3023, `7bc03399`) while `eblume-heph-install` was compiling
+(`Compiling chrono v0.4.44` is the last journal line). The compile was a
+bystander — it did not cause the panic — but it is why the switch was left
+unfinished and needed re-run 3024. eblume/blumeops#1014 took the cargo
+install off the activation path for good (Heph Spokes above); the first
+switch after it (run 3187, 29 s, no cargo) left both install services
+`active (exited)` from the pre-change instance with the timers showing no
+next elapse — a one-time `systemctl stop` + `start` of the two services, or
+the next boot, clears that.
+
+Beyla was disabled the same evening (eblume/blumeops#984, 18:56 PDT) and
+re-enabled on 2026-09-11 at 12:07 PDT under eblume/blumeops#999: beyla
+v3.33.0, which carries the upstream uprobe-preemption fix, behind a
+16-namespace allowlist. The re-enable canary and its criteria live in
+eblume/blumeops#983; the full incident thread is eblume/blumeops#1003.
+
 ## Related
 
 - [[restart-ringtail]] - Shutdown and startup procedure (what goes dark, RAM-swap checklist)
