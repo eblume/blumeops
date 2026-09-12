@@ -172,12 +172,21 @@ def draft_metadata(label: str, titles: list[dict]) -> dict:
 
 
 def rip(disc_index: int, staging: Path, min_length: int, title_ids: list[int] | None) -> int:
-    """Run makemkvcon mkv, relaying its messages; returns its exit code."""
+    """Run makemkvcon mkv, relaying its messages; returns its exit code.
+
+    Title ids are assigned by makemkvcon at scan time *after* its minimum
+    length filter, so `mkv all --minlength=600` renumbers the survivors
+    (the inventory's t06 comes out as t01). Explicit ids therefore run
+    without --minlength, one title per pass, so they mean what the inventory
+    said; the `all` pass keeps --minlength for a single read of the disc and
+    `reconcile_outputs` renames its files back to the inventory's names.
+    """
     targets = [str(t) for t in title_ids] if title_ids else ["all"]
     log = (staging / "makemkv.log").open("a")
     code = 0
     for target in targets:
-        cmd = ["makemkvcon", "-r", "--progress=-stdout", f"--minlength={min_length}", "mkv", f"disc:{disc_index}", target, str(staging)]
+        length_opt = [] if title_ids else [f"--minlength={min_length}"]
+        cmd = ["makemkvcon", "-r", "--progress=-stdout", *length_opt, "mkv", f"disc:{disc_index}", target, str(staging)]
         console.print(f"[bold]{escape(' '.join(cmd))}[/bold]")
         with subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, bufsize=1) as proc:
             last_pct = -1
@@ -196,6 +205,42 @@ def rip(disc_index: int, staging: Path, min_length: int, title_ids: list[int] | 
             code = proc.wait() or code
     log.close()
     return code
+
+
+def reconcile_outputs(staging: Path, kept: list[dict]) -> None:
+    """Rename makemkvcon's renumbered `all` outputs to the names rip.json and
+    metadata.json predicted. makemkvcon keeps title order, so the n-th file
+    is the n-th kept title. Highest index first, so no rename lands on a
+    file that has not moved yet."""
+    actual = sorted(staging.glob("*_t[0-9][0-9].mkv"), key=lambda p: int(p.stem[-2:]))
+    expected = [staging / t["file"] for t in kept]
+    if [p.name for p in actual] == [p.name for p in expected]:
+        return
+    if len(actual) != len(expected):
+        console.print(
+            f"[yellow]makemkvcon wrote {len(actual)} files but {len(expected)} titles were selected; "
+            "fix the `source` names in metadata.json by hand.[/yellow]"
+        )
+        return
+    for src, dst in reversed(list(zip(actual, expected, strict=True))):
+        if src != dst:
+            src.rename(dst)
+    console.print("[dim]Renamed makemkvcon's renumbered outputs to match the inventory.[/dim]")
+
+
+def eject() -> None:
+    """Force-unmount the disc's volume, then eject via diskutil (drutil as fallback).
+
+    macOS mounts the DVD/BD under /Volumes and refuses a plain eject while
+    Finder or loginwindow holds it; the volume is read-only, so forcing is safe.
+    """
+    status = subprocess.run(["drutil", "status"], capture_output=True, text=True, check=False).stdout
+    m = re.search(r"Name:\s+(/dev/disk\d+)", status)
+    if m:
+        subprocess.run(["diskutil", "unmount", "force", m.group(1)], capture_output=True, check=False)
+        if subprocess.run(["diskutil", "eject", m.group(1)], capture_output=True, check=False).returncode == 0:
+            return
+    subprocess.run(["drutil", "eject"], check=False)
 
 
 @app.command()
@@ -245,8 +290,10 @@ def main(
         if code != 0:
             console.print(f"[red]makemkvcon exited {code}; see {escape(str(staging / 'makemkv.log'))}[/red]")
             raise typer.Exit(code)
+        if not wanted:
+            reconcile_outputs(staging, kept)
         if not no_eject:
-            subprocess.run(["drutil", "eject"], check=False)
+            eject()
     console.print(f"\nNext: review [bold]{escape(str(draft))}[/bold], then\n  mise run rip-video-finish {escape(str(staging))}")
 
 

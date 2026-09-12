@@ -99,6 +99,13 @@ explicitly), and ejects. `rip.json` lists each title's duration, chapter
 count, size and source playlist; `metadata.json` is the draft, with the
 longest title pre-marked as the feature.
 
+The inventory is makemkvcon's own numbering (it hides titles under two
+minutes itself), and the staged files carry those ids — `DD1_t06.mkv` is
+title 6 — even though makemkvcon renumbers internally when it rips with a
+minimum length; the task renames its outputs back. A DVD's play-all
+featurette usually appears once as a long title and again as its segments,
+each a few minutes; keep the long one.
+
 Set `kind`:
 
 - **movie** — `title`, `year`; each file's `target` is `"feature"`,
