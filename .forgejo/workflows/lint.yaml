@@ -14,8 +14,9 @@
 #
 # The three jobs are required status contexts on `main` — `Lint / prek`,
 # `Lint / workflows-validate`, `Lint / secret-scan` (pull_request contexts,
-# #1013). The context string is the job name, so renaming a job silently
-# un-requires it: update the branch protection and the list in
+# #1013). The context string is `workflow name / job name (event)`, so
+# renaming a job silently un-requires it: update the branch protection and
+# the list in
 # docs/explanation/agent-change-process.md ("The residual problem").
 #
 # The runner already carries everything this needs. `prek`, `actionlint` and
