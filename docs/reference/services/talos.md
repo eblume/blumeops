@@ -30,7 +30,7 @@ Bun server embedding the pi runtime (`pi-coding-agent` SDK): sessions are append
 
 **Access model = the [[agent-containerization|containerized agent]] model**: userspace Tailscale sidecar (`talos-agent`, tag:agent) as the only tailnet path, CGNAT egress fence NetworkPolicy, no cluster API, op agents-vault service-account token as the one bootstrap secret, shared hephd spoke socket. Ingress arrives separately via the ProxyGroup (`talos` MagicDNS name) + Caddy.
 
-Models are env-pinned (`TALOS_MODEL`, currently `qwen/qwen3.8-max`); models newer than pi's catalog are synthesized from OpenRouter's live listing with real pricing so cost tracking stays correct.
+Models are env-pinned (`TALOS_MODEL`, currently `qwen/qwen3.8-27b`); models newer than pi's catalog are synthesized from OpenRouter's live listing with real pricing so cost tracking stays correct.
 
 The image bakes an **eval-only nix** (following the [[agent-containerization]] §"Nix in the pod" precedent): `$HOME`-relocated store on the PVC, `max-jobs = 0`, swept on size by the entrypoint. It lets the pod compute `fetchgit` hash values for the image's pinned dependencies (heph, npm deps) instead of burning CI rounds on hash-mismatch errors. (The image's own source needs no hash since the auto-release move — the talos repo's `default.nix` builds from the checkout itself, and every merge to talos main releases automatically.)
 Rust builds (hephaestus is the only Rust repo in the pool) use a shared `CARGO_TARGET_DIR=/home/talos/.cache/cargo-target` on the PVC, set in the deployment env: one incremental tree for every session and warm across pod replacement, instead of a cold rebuild per worktree leaving a multi-GB `target/` behind (blumeops#813).

@@ -54,3 +54,7 @@ for the provider label it compares against.
 
 Records land in `./openrouter-probe-<model>-<timestamp>.jsonl`, or stream to
 stdout with `--json` (the summary table goes to stderr either way).
+
+## Previous runs
+
+Results banked from talos sessions: [[openrouter-provider-probes]] (one section per model, newest run on top).
