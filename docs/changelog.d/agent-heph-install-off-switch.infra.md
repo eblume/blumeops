@@ -1,0 +1,1 @@
+heph install oneshots (eblume-heph-install, agent-heph-install): restartIfChanged = false, no RemainAfterExit, and an OnUnitActiveSec=5min timer re-check, so a hephTag bump no longer runs the ~11-min cold cargo compile inside switch-to-configuration — the timer installs it in the background within minutes of the switch (eblume/blumeops#1003).

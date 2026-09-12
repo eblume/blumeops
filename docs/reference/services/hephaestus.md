@@ -1,7 +1,7 @@
 ---
 title: Hephaestus
-modified: 2026-07-21
-last-reviewed: 2026-07-21
+modified: 2026-09-12
+last-reviewed: 2026-09-12
 tags:
   - service
   - hephaestus
@@ -69,8 +69,8 @@ upstream release, then bump the pin and re-provision.
 | Device | Managed by | Pin | Converged by |
 |--------|-----------|-----|--------------|
 | **indri** (hub) | `ansible/roles/heph` | `heph_version` (`defaults/main.yml`) | `mise run provision-indri -- --tags heph` — installs/upgrades `hephd` to the pinned tag on every run |
-| **ringtail-agent** (spoke) | `nixos/ringtail/agent-workspaces.nix` | `hephTag` (`heph-common.nix`) | the `agent-heph-install` unit (idempotent `cargo install --tag`) on nixos rebuild |
-| **ringtail-eblume** (desktop spoke) | `nixos/ringtail/heph-eblume.nix` | `hephTag` (`heph-common.nix`) | the `eblume-heph-install` unit, same mechanism — see [Desktop surfaces](#desktop-surfaces-on-ringtail) |
+| **ringtail-agent** (spoke) | `nixos/ringtail/agent-workspaces.nix` | `hephTag` (`heph-common.nix`) | the `agent-heph-install` oneshot's timer re-check, in the background after the nixos rebuild (never inside the switch) |
+| **ringtail-eblume** (desktop spoke) | `nixos/ringtail/heph-eblume.nix` | `hephTag` (`heph-common.nix`) | the `eblume-heph-install` oneshot, same mechanism — see [Desktop surfaces](#desktop-surfaces-on-ringtail) |
 | **gilbert** (spoke) | manual (not yet IaC) | — | hand `cargo install --tag`; see [Connecting a spoke](#connecting-a-spoke-eg-gilbert) |
 
 Both ringtail spokes share one pin: `hephTag` in `nixos/ringtail/heph-common.nix`.
@@ -91,8 +91,16 @@ fall back to rustup's *default* toolchain, which can lag behind heph's
    (agent-workspaces.nix). Open a PR as usual.
 3. After review, converge each device:
    - indri: `mise run provision-indri -- --tags heph`
-   - ringtail-agent: nixos rebuild (the install unit picks up the new `hephTag`)
+   - ringtail: nixos rebuild (the switch itself does not install; the
+     `*-heph-install` oneshots pick up the new `hephTag` from their ~5-min
+     timer re-check in the background, ~11 min cold per spoke)
    - gilbert: run the `cargo install --tag vX.Y.Z` step below.
+4. Confirm the ringtail spokes installed the new tag (a green rebuild no
+   longer proves the binaries are current): a few minutes after the switch,
+   `systemctl status eblume-heph-install agent-heph-install` on ringtail,
+   then each spoke's version —
+   `/home/eblume/.cargo/bin/hephd --version` and
+   `sudo runuser -u agent -- /home/agent/.cargo/bin/hephd --version`.
 
 ## Backups
 

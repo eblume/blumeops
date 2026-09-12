@@ -1,7 +1,7 @@
 ---
 title: Restart Ringtail
-modified: 2026-09-08
-last-reviewed: 2026-09-08
+modified: 2026-09-12
+last-reviewed: 2026-09-12
 tags:
   - how-to
   - operations
@@ -200,6 +200,16 @@ ssh ringtail 'systemctl --failed'                                     # expect: 
 ssh ringtail 'sudo k3s kubectl get pods -A | grep -v -E "Running|Completed"'
 mise run agent-health                                                 # Grafana alert state
 mise run services-check                                               # fuller check (gilbert)
+```
+
+If the last rebuild bumped the heph pin, the `*-heph-install` oneshots
+compile it in the background after boot (~11 min cold per spoke — the install
+runs from their timers, never inside the switch). A few minutes in, confirm
+both finished and the versions match:
+
+```fish
+ssh ringtail 'systemctl status eblume-heph-install agent-heph-install'
+ssh ringtail '/home/eblume/.cargo/bin/hephd --version; sudo runuser -u agent -- /home/agent/.cargo/bin/hephd --version'
 ```
 
 If you **drained transmission** before the power-off, restore the suspended

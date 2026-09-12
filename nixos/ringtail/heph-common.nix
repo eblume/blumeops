@@ -64,8 +64,12 @@ rec {
     '');
 
   # <prefix>-install oneshot + timer: `cargo install`s `bins` at hephTag via a
-  # mise-resolved rust toolchain, off the activation path; the version + bin-set
-  # check makes re-runs no-ops.
+  # mise-resolved rust toolchain; the version + bin-set check makes re-runs
+  # no-ops. The install stays off the activation path structurally:
+  # `restartIfChanged = false` keeps a tag-bump switch from restarting the
+  # oneshot (a tag change rewrites its ExecStart script), and the timer's
+  # OnUnitActiveSec re-check (~5 min) installs a bumped tag in the background
+  # instead of inside switch-to-configuration.
   #
   # `restartSpoke`: one shell command (wrap a list in `{ …; }`) run
   # best-effort after a successful install, so the spoke picks up the new
@@ -119,9 +123,13 @@ rec {
         description = "Install heph+hephd for ${who} (mise rust + cargo install)";
         after = [ "network-online.target" ];
         wants = [ "network-online.target" ];
+        # A tag bump rewrites the ExecStart script; let the timer's re-check
+        # start the install, never the switch.
+        restartIfChanged = false;
         serviceConfig = {
           Type = "oneshot";
-          RemainAfterExit = true;
+          # No RemainAfterExit: the unit is dead after each run, so every
+          # timer trigger re-runs the gate (an exited oneshot would no-op).
           ExecStart = install;
           # Cold-cache first build takes tens of minutes.
           TimeoutStartSec = "45min";
@@ -135,6 +143,9 @@ rec {
         wantedBy = [ "timers.target" ];
         timerConfig = {
           OnBootSec = "2min";
+          # Re-check ~5 min after each run: installs a bumped hephTag in
+          # the background; one hephd --version call when already current.
+          OnUnitActiveSec = "5min";
           Persistent = true;
         };
       };
