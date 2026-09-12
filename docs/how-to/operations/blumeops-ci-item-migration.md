@@ -17,7 +17,7 @@ moves in* and — more importantly — what never does.
 
 **Status (2026-08-22): executed.** All four migration steps landed in one
 PR. Later the same day, `FORGE_ADMIN_TOKEN` was retired (heph `01KZ5ESS2G…`):
-`warrant-bot-drift` and `agent-repo-access` now use `FORGE_REPO_WRITE_TOKEN`,
+`horkos-forge-drift` and `agent-repo-access` now use `FORGE_REPO_WRITE_TOKEN`,
 an eblume PAT scoped to `write:repository,read:user` (item
 `forge-repo-write-token`) — collaborator ops turned out to need only
 repo-admin *permission* plus the repository token *scope* (plus `read:user`
@@ -35,8 +35,8 @@ release CI now consume `ZOT_CI_API_KEY` and `RELEASE_FORGE_TOKEN` too.
 | `build-container`; talos + horkos `release.yaml` | `ZOT_CI_API_KEY` | `w3663ffn…/zot-ci-api` | **migrated** → `blumeops-ci/zot-ci` |
 | `deploy-fly` | `FLY_DEPLOY_TOKEN` | `on5slfay…/deploy-token` | **migrated** → `blumeops-ci/fly-deploy` |
 | `build-blumeops`, `cv-deploy` | `MAIN_PUSH_TOKEN` | `blumeops-main-push-token/token` (eblume PAT, write:repository) | **migrated, eyes open** — it pushes protected `main` → `blumeops-ci/forge-main-push` |
-| talos + horkos `release.yaml` | `RELEASE_FORGE_TOKEN` | `warrant-dispatch-token/token` (warrant-bot PAT, write on blumeops — branch push + PR open, cannot merge or dispatch) | **migrated 2026-08-26** → `blumeops-ci/horkos-dispatch` (eblume/talos#55, eblume/horkos#9). The rotation friction showed up: the run-script executor needed the same PAT CI-readable, which would have made three independently-rotating copies. Now two, reconciled by `warrant-bot-provision`. |
-| `agent-repo-access`, `warrant-bot-drift` | `FORGE_REPO_WRITE_TOKEN` (was `FORGE_ADMIN_TOKEN`) | `forge-repo-write-token/token` (eblume PAT, `write:repository,read:user`; was `w3663ffn…/api-token`, the admin PAT) | **narrowed 2026-08-22** — no longer the admin PAT; migration into `blumeops-ci` can now proceed as a follow-up |
+| talos + horkos `release.yaml` | `RELEASE_FORGE_TOKEN` | `horkos-forge-token/token` (horkos-forge PAT, write on blumeops — branch push + PR open, cannot merge or dispatch) | **migrated 2026-08-26** → `blumeops-ci/horkos-dispatch` (eblume/talos#55, eblume/horkos#9). The rotation friction showed up: the run-script executor needed the same PAT CI-readable, which would have made three independently-rotating copies. Now two, reconciled by `horkos-forge-provision`. |
+| `agent-repo-access`, `horkos-forge-drift` | `FORGE_REPO_WRITE_TOKEN` (was `FORGE_ADMIN_TOKEN`) | `forge-repo-write-token/token` (eblume PAT, `write:repository,read:user`; was `w3663ffn…/api-token`, the admin PAT) | **narrowed 2026-08-22** — no longer the admin PAT; migration into `blumeops-ci` can now proceed as a follow-up |
 | all | `GITHUB_TOKEN` | forge-injected | n/a |
 
 ## The one-CI-trust-tier decision (2026-08-21)

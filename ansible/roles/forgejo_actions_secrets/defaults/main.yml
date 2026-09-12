@@ -20,7 +20,7 @@ forgejo_actions_secrets_repos:
       # workflows are verified.
       #
       # Lets the Agent Repo Access workflow reconcile the `agents` bot's
-      # collaborations against repos.json, and warrant-bot-drift read
+      # collaborations against repos.json, and horkos-forge-drift read
       # collaborator perms + branch protections. An eblume PAT scoped to
       # write:repository,read:user (item forge-repo-write-token) —
       # collaborator ops need repo-admin *permission* (eblume owns the repos)
@@ -57,7 +57,7 @@ forgejo_actions_secrets_repos:
   # BLUMEOPS_CI_OP_TOKEN — sharing that token with talos/horkos release CI
   # is the one-CI-trust-tier decision (2026-08-21, logged on heph
   # 01KZ5ESS0W…): all eblume/* CI is one tier. RELEASE_FORGE_TOKEN is
-  # warrant-bot's PAT (write on blumeops only — branch push + PR open, can
+  # horkos-forge's PAT (write on blumeops only — branch push + PR open, can
   # never merge or dispatch).
   - repo: talos
     secrets:

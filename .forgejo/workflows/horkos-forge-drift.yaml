@@ -1,8 +1,8 @@
-# Assert that warrant-bot — the identity Warrant dispatches approved runs as —
+# Assert that horkos-forge — the identity Horkos dispatches approved runs as —
 # still holds exactly write on eblume/blumeops and nothing more.
 #
 # Read-only. This job changes nothing; it only fails. Minting the credential
-# stays a human ceremony on gilbert (`mise run warrant-bot-provision`, see that
+# stays a human ceremony on gilbert (`mise run horkos-forge-provision`, see that
 # script for why automating it would defeat the point). Noticing that the
 # ceremony's result has since drifted is the part a machine should do.
 #
@@ -13,7 +13,7 @@
 # Needs FORGE_REPO_WRITE_TOKEN: collaborator permissions and branch protections
 # are repo-admin-level reads (eblume is admin as owner; the token scopes are
 # just write:repository,read:user — the latter for the site-admin check on
-# /users/warrant-bot). Same secret and same provisioning path as Agent Repo Access.
+# /users/horkos-forge). Same secret and same provisioning path as Agent Repo Access.
 #
 # That credential is also why there is no `pull_request` trigger. Fork PRs get
 # no secrets, every agent PR is a fork PR, and the token is what this job needs
@@ -22,7 +22,7 @@
 # nothing is worse than no check. Editing the script is covered by the `push`
 # run on main, which is the first run with a real token, plus the weekly
 # schedule; both fail loudly and neither can pass by abstaining.
-name: Warrant Bot Drift
+name: Horkos Forge Drift
 
 on:
   schedule:
@@ -32,9 +32,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'mise-tasks/warrant-bot-drift'
-      - 'mise-tasks/warrant-bot-provision'
-      - '.forgejo/workflows/warrant-bot-drift.yaml'
+      - 'mise-tasks/horkos-forge-drift'
+      - 'mise-tasks/horkos-forge-provision'
+      - '.forgejo/workflows/horkos-forge-drift.yaml'
   workflow_dispatch:
 
 jobs:
@@ -49,7 +49,7 @@ jobs:
       # insufficient token is a different case and DOES fail: the script reports
       # every unreadable check as UNKNOWN and exits 1, because a check that
       # cannot see is not a check that passed.
-      - name: Check warrant-bot scope
+      - name: Check horkos-forge scope
         env:
           FORGE_REPO_WRITE_TOKEN: ${{ secrets.FORGE_REPO_WRITE_TOKEN }}
-        run: uv run --script mise-tasks/warrant-bot-drift --skip-if-no-token
+        run: uv run --script mise-tasks/horkos-forge-drift --skip-if-no-token

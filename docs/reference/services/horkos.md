@@ -15,13 +15,14 @@ tags:
 The approval broker for agent-requested privileged runs — Phase 3 of
 [[warrant-approval-gated-runs]]. Agents file requests; Erich approves in the
 UI; Horkos consumes the resulting warrant and dispatches the workflow as
-`warrant-bot`. A first-party FastAPI + SQLite service.
+`horkos-forge`. A first-party FastAPI + SQLite service.
 
 **Né Warrant** (renamed + extracted to its own repo 2026-08; Ὅρκος is the
 Greek daimon of oaths). The minted approval artifact is still called a
 **warrant** — Horkos is the service that mints and consumes them — which is
-why `warrant-policy.yaml`, `warrant-bot`, and the `Warrant request: #N` PR
-stamp keep their names.
+why `warrant-policy.yaml` and the `Warrant request: #N` PR stamp keep their
+names, while the dispatch identity has moved from the grandfathered
+`warrant-bot` to `horkos-forge` (blumeops#1039).
 
 ## Quick Reference
 
@@ -35,7 +36,7 @@ stamp keep their names.
 | **Storage** | 1Gi PVC (SQLite at `/data/horkos.db` — migrated from warrant's DB, schema unchanged) |
 | **Agent auth** | Authentik `agents-m2m` client-credentials JWT (JWKS-verified) |
 | **Human auth** | Authentik OIDC code flow (`horkos` client), `admins` group, MFA per the authentik flow |
-| **Dispatch identity** | `warrant-bot` PAT (`write:repository` on blumeops), `op://blumeops/warrant-dispatch-token` |
+| **Dispatch identity** | `horkos-forge` PAT (`write:repository` on blumeops), `op://blumeops/horkos-forge-token` |
 
 ## The flow
 
@@ -46,7 +47,7 @@ agent: mise run request-run <workflow> <sha> …
 human: horkos.ops.eblu.me → sign in → read the diff → approve…
    → confirm page (full inputs, commit/PR/diff links)
    → warrant minted: single-use, TTL'd, {action, sha, inputs} frozen
-   → consumed → workflow_dispatch as warrant-bot → run recorded on the warrant
+   → consumed → workflow_dispatch as horkos-forge → run recorded on the warrant
 ```
 
 Denials close the request. Anything already executed should be **denied with
@@ -80,7 +81,7 @@ never change in a single PR.
 - **Check the power is real**: `curl -s https://horkos.ops.eblu.me/healthz` —
   `armed-no-token` means the ExternalSecret isn't resolving (the failure that
   once looked exactly like "disabled").
-- **Rotate the dispatch PAT**: `mise run warrant-bot-provision -- --rotate`
+- **Rotate the dispatch PAT**: `mise run horkos-forge-provision -- --rotate`
   (gilbert; needs an ephemeral `write:admin` token, see the script).
 - **Scope**: only actions with `class: warrant` in `warrant-policy.yaml` are
   requestable — today `argocd-deploy.yaml`, `build-container.yaml`,

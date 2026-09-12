@@ -3,8 +3,8 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.1"]
 # ///
-#MISE description="[human] Provision the warrant-bot forge identity + dispatch PAT (gilbert, human-run)"
-"""Provision `warrant-bot`: the identity Warrant uses to dispatch approved runs.
+#MISE description="[human] Provision the horkos-forge forge identity + dispatch PAT (gilbert, human-run)"
+"""Provision `horkos-forge`: the identity Horkos dispatches approved runs as.
 
 **Human-run on gilbert, by design.** This script is deliberately NOT a
 workflow. Minting the dispatch credential from CI would (a) need a
@@ -20,10 +20,11 @@ meant to be an **ephemeral** one (`--token`, never stored). Steps 2-4 work
 with the stored forge token and the bot's own credentials.
 
 What it does (idempotent, --dry-run supported):
-  1. creates the `warrant-bot` forge user if absent (admin API, write:admin)
+  1. creates the `horkos-forge` forge user if absent (or renames the
+     grandfathered `warrant-bot` — admin API, write:admin)
   2. grants it **write** on eblume/blumeops — the permission
      `workflow_dispatch` requires — and nothing else
-  3. mints a `write:repository` PAT **as warrant-bot itself** (basic auth —
+  3. mints a `write:repository` PAT **as horkos-forge itself** (basic auth —
      no admin scope needed for this step)
   4. stores the PAT (and the bot's login password) in ONE blumeops item
 
@@ -33,7 +34,7 @@ eblume, so it cannot touch main or merge PRs; branch pushes are visible and
 revert-able, and the credential is revocable in one click. That is the
 accepted floor because Forgejo has no dispatch-only permission.
 
-Usage: mise run warrant-bot-provision [--dry-run] [--rotate] [--token <t>]
+Usage: mise run horkos-forge-provision [--dry-run] [--rotate] [--token <t>]
 """
 
 import json
@@ -51,10 +52,12 @@ from rich.markup import escape
 # Tailnet name — the public forge.eblu.me is HTTPS-poison in-cluster
 # (docs/reference/services/argocd.md).
 FORGE_API = "https://forge.ops.eblu.me/api/v1"
-BOT_USER = "warrant-bot"
-BOT_EMAIL = "warrant-bot@eblu.me"
+BOT_USER = "horkos-forge"
+BOT_EMAIL = "horkos-forge@eblu.me"
+# Grandfathered name, retired by the rename leg below (blumeops#1039, step 1).
+LEGACY_USER = "warrant-bot"
 TARGET_REPO = ("eblume", "blumeops")
-TOKEN_NAME = "warrant-dispatch"
+TOKEN_NAME = "horkos-forge"
 TOKEN_SCOPES = ["write:repository"]
 ADMIN_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
 # The blumeops vault, not blumeops-ci: this credential is consumed by a k8s
@@ -62,7 +65,10 @@ ADMIN_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/ap
 # --vaults blumeops. blumeops-ci is for CI job-time `op read`, a different
 # consumer with a different reader.
 VAULT = "blumeops"
-VAULT_ITEM = "warrant-dispatch-token"
+VAULT_ITEM = "horkos-forge-token"
+# Grandfathered item title; the human renames the item in the 1Password UI.
+# Refused (not recreated) if it is still present when the new title is absent.
+LEGACY_VAULT_ITEM = "warrant-dispatch-token"
 
 # ...and CI needs the same PAT, from the other side of that fence. Connect
 # cannot see blumeops-ci and the CI service account cannot see blumeops, so
@@ -97,17 +103,17 @@ work — see agent-repo-access). Do NOT widen the stored token: mint an
 **ephemeral** one instead, use it here, then revoke it.
 
   forge → Settings → Applications → Generate New Token
-      name:   warrant-bot-provision (temporary)
+      name:   horkos-forge-provision (temporary)
       scopes: write:admin
-  mise run warrant-bot-provision -- --token <paste>
+  mise run horkos-forge-provision -- --token <paste>
   # then delete that token in the same UI
 
 Alternative, no token at all: create the user in
 forge → Site Administration → Identity & Access → Users → Create User
-(username warrant-bot), store its password at
-op://blumeops/warrant-dispatch-token as field `login-password`, and
+(username horkos-forge), store its password at
+op://blumeops/horkos-forge-token as field `login-password`, and
 re-run this task — it will grant the collaboration and mint the PAT as
-warrant-bot itself.
+horkos-forge itself.
 """
 
 
@@ -197,10 +203,34 @@ def main(
     owner, repo = TARGET_REPO
     password: str | None = None
     with httpx.Client(headers={"Authorization": f"token {token}"}, timeout=30.0) as c:
-        # 1. user
-        exists = c.get(f"{FORGE_API}/users/{BOT_USER}").status_code == 200
-        console.print(f"user {BOT_USER}: {'present' if exists else 'MISSING'}")
-        if not exists and not dry_run:
+        # 1. user — create, or rename the grandfathered warrant-bot (blumeops#1039)
+        new_present = c.get(f"{FORGE_API}/users/{BOT_USER}").status_code == 200
+        legacy_present = c.get(f"{FORGE_API}/users/{LEGACY_USER}").status_code == 200
+        console.print(f"user {BOT_USER}: {'present' if new_present else 'absent'}")
+        if legacy_present and new_present:
+            console.print(
+                f"[yellow]user {LEGACY_USER} also still exists — remove it in the "
+                "forge UI if it is not supposed to be there[/yellow]"
+            )
+        if new_present:
+            pass
+        elif legacy_present:
+            if dry_run:
+                console.print(f"[dim]would rename {LEGACY_USER} → {BOT_USER} (admin API)[/dim]")
+            else:
+                resp = c.post(
+                    f"{FORGE_API}/admin/users/{LEGACY_USER}/rename",
+                    json={"new_username": BOT_USER},
+                )
+                if resp.status_code == 403:
+                    err.print(f"user rename refused (403): {escape(str(resp.json().get('message', '')))}")
+                    console.print(SCOPE_HELP)
+                    raise typer.Exit(1)
+                if resp.status_code not in (200, 201):
+                    err.print(f"user rename failed ({resp.status_code}): {escape(resp.text[:300])}")
+                    raise typer.Exit(1)
+                console.print(f"[green]renamed[/green] {LEGACY_USER} → {BOT_USER}")
+        elif not dry_run:
             # Forgejo requires a password at creation; the bot then
             # authenticates by PAT. Generated here and held in memory for the
             # token mint below, then stored beside the PAT in one item — no
@@ -223,6 +253,8 @@ def main(
                 err.print(f"user creation failed ({resp.status_code}): {escape(resp.text[:300])}")
                 raise typer.Exit(1)
             console.print(f"[green]created[/green] {BOT_USER}")
+        else:
+            console.print(f"[dim]would create {BOT_USER} (admin API)[/dim]")
 
         # 2. collaborator grant (write — what workflow_dispatch needs)
         perm = c.get(f"{FORGE_API}/repos/{owner}/{repo}/collaborators/{BOT_USER}/permission")
@@ -238,16 +270,25 @@ def main(
                 raise typer.Exit(1)
             console.print("[green]granted[/green] write")
 
-        # 3 + 4. PAT → vault. Minted AS warrant-bot over basic auth, not via
+        # 3 + 4. PAT → vault. Minted AS horkos-forge over basic auth, not via
         # the admin API: a bot minting its own token needs no admin scope, and
         # the resulting PAT is unambiguously the bot's own credential.
         stored = item_state(VAULT, VAULT_ITEM) == "ok"
+        legacy_item_present = item_state(VAULT, LEGACY_VAULT_ITEM) == "ok"
         console.print(f"stored PAT in {VAULT}: {'present' if stored else 'absent'}")
         if stored and not rotate:
             console.print("nothing to mint (use --rotate to replace)")
             if not dry_run:
                 mirror_to_ci(op("read", f"op://{VAULT}/{VAULT_ITEM}/token").stdout.strip())
         elif not dry_run:
+            if not stored and legacy_item_present:
+                err.print(
+                    f"op://{VAULT}/{VAULT_ITEM} is absent, but the grandfathered "
+                    f"op://{VAULT}/{LEGACY_VAULT_ITEM} is still present — rename the "
+                    "item in 1Password first; creating a second item would orphan "
+                    "the PAT (eblume/blumeops#963)."
+                )
+                raise typer.Exit(1)
             if password is None:
                 op_result = op("read", f"op://{VAULT}/{VAULT_ITEM}/login-password", check=False)
                 password = op_result.stdout.strip() if op_result.returncode == 0 else None
