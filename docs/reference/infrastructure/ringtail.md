@@ -1,7 +1,7 @@
 ---
 title: Ringtail
-modified: 2026-09-08
-last-reviewed: 2026-09-03
+modified: 2026-09-12
+last-reviewed: 2026-09-12
 tags:
   - infrastructure
   - host
@@ -159,11 +159,15 @@ manager (status/logs: `systemctl --user status eblume-heph-spoke`,
 
 Both adopt the same hub owner id, so they operate on the same nodes. Each user
 gets its own `heph`/`hephd` at `~/.cargo/bin` via a `*-heph-install` oneshot
-(timer-fired, off the activation path; the spoke starts via a path unit the
-moment the binary lands — see `heph-common.nix` for the quartet). When the
-pin moves, the oneshot restarts the matching spoke after the install so the
-daemon never lags the installed binary (the agent's oneshot runs as root for
-that one step, dropping to `agent` via `runuser` for the cargo work).
+(timer-fired; the spoke starts via a path unit the moment the binary lands —
+see `heph-common.nix` for the quartet). The install stays off the activation
+path structurally: a tag bump rewrites the oneshot's ExecStart script, so the
+service sets `restartIfChanged = false` and the timer's 5-min re-check
+installs the new pin in the background (~11 min cold) instead of the switch
+running a cold cargo compile inside `switch-to-configuration`. When the pin
+moves, the oneshot restarts the matching spoke after the install so the daemon
+never lags the installed binary (the agent's oneshot runs as root for that one
+step, dropping to `agent` via `runuser` for the cargo work).
 
 **One-time seed for the eblume spoke** (interactive, as eblume on ringtail;
 approve in the browser as yourself — no hub-side change needed, you are already
