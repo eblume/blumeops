@@ -186,6 +186,14 @@ data:
         attrs:
           name: horkos-artifacts
 
+      # cv-artifacts group (zot push-only identity for the horkos publisher's cv tarball push)
+      - model: authentik_core.group
+        id: cv-artifacts-group
+        identifiers:
+          name: cv-artifacts
+        attrs:
+          name: cv-artifacts
+
       # Service account for CI push (admin sets password via UI after deploy)
       - model: authentik_core.user
         id: zot-ci-user
@@ -224,6 +232,19 @@ data:
           is_active: true
           groups:
             - !KeyOf horkos-artifacts-group
+
+      # Service account for the horkos publisher's cv tarball push (admin sets password via UI after deploy)
+      - model: authentik_core.user
+        id: zot-cv-user
+        identifiers:
+          username: zot-cv
+        attrs:
+          username: zot-cv
+          name: Zot CV Service Account
+          type: service_account
+          is_active: true
+          groups:
+            - !KeyOf cv-artifacts-group
 
       # OAuth2 provider for Zot
       - model: authentik_providers_oauth2.oauth2provider
@@ -312,6 +333,20 @@ data:
           target: !KeyOf zot-app
           group: !KeyOf horkos-artifacts-group
           order: 3
+          enabled: true
+          negate: false
+          timeout: 30
+
+      # Policy binding — let cv-artifacts sign in via OIDC to mint a zot API key at /user/apikey
+      - model: authentik_policies.policybinding
+        identifiers:
+          order: 4
+          target: !KeyOf zot-app
+          group: !KeyOf cv-artifacts-group
+        attrs:
+          target: !KeyOf zot-app
+          group: !KeyOf cv-artifacts-group
+          order: 4
           enabled: true
           negate: false
           timeout: 30

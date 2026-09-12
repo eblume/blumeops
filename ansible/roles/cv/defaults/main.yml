@@ -1,10 +1,15 @@
 ---
 # CV / resume static site (native, replaces minikube Deployment)
 # Caddy serves cv_content_dir directly via the static-kind service block.
+#
+# The tarball is published by the horkos release publisher as an OCI
+# artifact at registry.ops.eblu.me/blumeops/cv:<cv_version>
+# (eblume/horkos#17); the pin PR that bumps cv_version comes from the same
+# publisher.
 
 cv_version: "v1.0.3"
-cv_release_url: "https://forge.ops.eblu.me/api/packages/eblume/generic/cv/{{ cv_version }}/cv-{{ cv_version }}.tar.gz"
-
+cv_registry: "registry.ops.eblu.me"
+cv_image: "blumeops/cv"
 cv_home: /Users/erichblume/blumeops/cv
 cv_content_dir: "{{ cv_home }}/content"
 cv_version_sentinel: "{{ cv_home }}/.installed-version"

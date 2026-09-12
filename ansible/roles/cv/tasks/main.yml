@@ -5,9 +5,9 @@
 # Idempotency: a sentinel file records the installed cv_version. The
 # download/extract steps only run when the sentinel doesn't match cv_version.
 #
-# We use curl rather than ansible.builtin.get_url because the forge generic-
-# packages endpoint returns 405 on HEAD requests, which get_url issues before
-# downloading.
+# The tarball is the single layer of the OCI artifact
+# registry.ops.eblu.me/blumeops/cv:<cv_version>; jq reads the layer digest
+# from the manifest.
 
 - name: Ensure cv home exists
   ansible.builtin.file:
@@ -39,13 +39,14 @@
   when: cv_installed_version != cv_version
 
 - name: Download and extract cv release tarball
-  ansible.builtin.shell:
-    cmd: >-
-      set -euo pipefail;
-      curl -fsSL {{ cv_release_url | quote }} -o {{ cv_home }}/cv.tar.gz &&
-      tar -xzf {{ cv_home }}/cv.tar.gz -C {{ cv_content_dir }} &&
-      rm -f {{ cv_home }}/cv.tar.gz
-    executable: /bin/bash
+  ansible.builtin.shell: |
+    set -euo pipefail
+    manifest=$(curl -fsSL -H "Accept: application/vnd.oci.image.manifest.v1+json" \
+      "https://{{ cv_registry }}/v2/{{ cv_image }}/manifests/{{ cv_version }}")
+    digest=$(printf '%s' "$manifest" | jq -r '.layers[0].digest')
+    curl -fsSL "https://{{ cv_registry }}/v2/{{ cv_image }}/blobs/$digest" -o {{ cv_home }}/cv.tar.gz
+    tar -xzf {{ cv_home }}/cv.tar.gz -C {{ cv_content_dir }}
+    rm -f {{ cv_home }}/cv.tar.gz
   when: cv_installed_version != cv_version
   changed_when: true
 

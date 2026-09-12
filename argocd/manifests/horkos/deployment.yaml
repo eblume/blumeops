@@ -47,6 +47,11 @@ spec:
             # request quietly does nothing.
             - name: HORKOS_FORGE_API
               value: https://forge.ops.eblu.me/api/v1
+            # Push identity for cv release tarballs (blumeops/cv:<version>,
+            # eblume/horkos#17). The name is public; the key is ESO-mounted
+            # from the blumeops vault (Forgejo Secrets / zot-cv-api).
+            - name: HORKOS_ZOT_USER
+              value: zot-cv
           envFrom:
             - secretRef:
                 name: horkos-oidc
@@ -57,6 +62,12 @@ spec:
             - secretRef:
                 name: horkos-forge-hook
                 optional: true  # release webhook stays inert (route 404s) until the secret is provisioned
+            - secretRef:
+                name: horkos-forge-read
+                optional: true  # cv release-asset fetch stays inert without the token
+            - secretRef:
+                name: horkos-zot
+                optional: true  # cv artifact push stays inert without the key
           securityContext:
             runAsNonRoot: true
             runAsUser: 1500
