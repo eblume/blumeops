@@ -65,6 +65,7 @@
     { "name": "myeve", "access": "write", "pool": "canonical" },
     { "name": "timberborn-parsimony", "access": "write", "pool": "canonical" },
     { "name": "gamedev", "access": "write", "pool": "canonical" },
-    { "name": "project-template", "access": "write", "pool": "canonical" }
+    { "name": "project-template", "access": "write", "pool": "canonical" },
+    { "name": "RexWorks", "access": "write", "pool": "canonical" }
   ]
 }
