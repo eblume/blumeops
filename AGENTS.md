@@ -69,6 +69,11 @@ need to confirm through biometric approval.
       never `agent/foo.<type>.md`. Towncrier reads flat files only and skips
       subdirectories silently, so a nested fragment is simply lost.
       `mise run changelog-check` catches it, and **Docs Checks** runs on every PR.
+    - **Brief and declarative**: the fragment is a scannable summary of
+      *what* changed, not a narrative of *how* it was verified. Try to
+      keep it under 3 sentences (prefer one). Verification detail,
+      investigation findings, and caveats belong in the PR description
+      or commit messages, not the fragment.
 6. Create, use, and modify forgejo workflows to enforce PR validity.
 7. **Verify deployments** - `mise run agent-health` (Grafana alert state; works
    from anywhere). For anything alerts don't answer — restart counts, pod ages,
