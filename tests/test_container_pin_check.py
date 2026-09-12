@@ -239,6 +239,72 @@ def test_digest_pin_heads_digest_path(repo, run_main, monkeypatch):
     assert url.endswith(f"/v2/blumeops/svc/manifests/{digest}")
 
 
+def test_newtag_tag_at_digest_heads_digest_path(repo, run_main, monkeypatch):
+    digest = "sha256:" + "a" * 64
+    repo(
+        "svc",
+        _kustomization(
+            f"  - name: registry.ops.eblu.me/blumeops/svc\n"
+            f"    newTag: v1.0.0-abc1234-nix@{digest}\n"
+        ),
+    )
+    reg = FakeRegistry()
+    reg.install(monkeypatch)
+    code, _ = run_main(all_files=True)
+    assert code == 0
+    assert len(reg.requests) == 1
+    method, url = reg.requests[0]
+    assert method == "HEAD"
+    assert url.endswith(f"/v2/blumeops/svc/manifests/{digest}")
+    assert "v1.0.0-abc1234-nix" not in url  # the tag half never reaches the registry
+
+
+def test_newtag_tag_at_digest_404_fails(repo, run_main, monkeypatch):
+    digest = "sha256:" + "a" * 64
+    repo(
+        "svc",
+        _kustomization(
+            f"  - name: registry.ops.eblu.me/blumeops/svc\n"
+            f"    newTag: v1.0.0-abc1234-nix@{digest}\n"
+        ),
+    )
+    reg = FakeRegistry()
+    reg.status = 404
+    reg.install(monkeypatch)
+    code, out = run_main(all_files=True)
+    assert code == 1
+    assert "not in registry" in out
+    assert "FAIL" in out
+
+
+@pytest.mark.parametrize(
+    "bad_newtag",
+    [
+        "v1.0.0@sha256:not-a-digest",
+        "v1.0.0@sha256:" + "a" * 63,  # digest grammar needs exactly 64 hex
+        "v1.0!@sha256:" + "a" * 64,
+        "v1.0.0@",
+        "v1.0.0@sha256:" + "A" * 64,  # digest hex is lowercase
+        "v1.0.0@sha256:abc@def",
+    ],
+)
+def test_newtag_bad_combined_form_fails_without_http(
+    repo, run_main, monkeypatch, bad_newtag
+):
+    repo(
+        "svc",
+        _kustomization(
+            f"  - name: registry.ops.eblu.me/blumeops/svc\n    newTag: {bad_newtag}\n"
+        ),
+    )
+    reg = FakeRegistry()
+    reg.install(monkeypatch)
+    code, out = run_main(all_files=True)
+    assert code == 1
+    assert "invalid tag" in out
+    assert reg.requests == []
+
+
 def test_malformed_yaml_fails_without_http(repo, run_main, monkeypatch):
     repo("svc", "images: [unclosed")
     reg = FakeRegistry()
