@@ -141,9 +141,23 @@ decision than its diff will look.
 ### The residual problem
 
 A PR where nobody clicked shows *no* check rather than a failing one, which
-reads the same as "nothing to validate". The fix is to make the Docs Checks
-status **required in branch protection on `main`**, so an unrun check blocks the
+reads the same as "nothing to validate". The fix is to make the gate statuses
+**required in branch protection on `main`**, so an unrun check blocks the
 merge instead of looking neutral — not to remove the gate.
+
+Required status contexts on `main` (verified against the
+`branch_protections` API on 2026-09-11, #1013):
+
+- `Docs Checks / checks (pull_request)`
+- `Lint / prek (pull_request)`
+- `Lint / workflows-validate (pull_request)`
+- `Lint / secret-scan (pull_request)`
+
+A context string is `workflow name / job name (event)`, so **renaming a job
+silently un-requires it**: update the branch protection whenever a job in
+`docs-checks.yaml` or `lint.yaml` is renamed. Push-event, path-filtered
+(Agent Repo Access) and drift contexts are deliberately left optional — a
+required context that does not exist on a PR head blocks the merge.
 
 ## Git discipline
 

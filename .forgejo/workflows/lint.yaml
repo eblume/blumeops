@@ -12,6 +12,13 @@
 # safe on every PR including from a fork. Keep it that way — a check needing a
 # secret belongs in a different workflow.
 #
+# The three jobs are required status contexts on `main` — `Lint / prek`,
+# `Lint / workflows-validate`, `Lint / secret-scan` (pull_request contexts,
+# #1013). The context string is `workflow name / job name (event)`, so
+# renaming a job silently un-requires it: update the branch protection and
+# the list in
+# docs/explanation/agent-change-process.md ("The residual problem").
+#
 # The runner already carries everything this needs. `prek`, `actionlint` and
 # `dagger` are in `forgejo_runner_host_tools` (ansible/roles/forgejo_runner),
 # installed globally with mise; `uv` runs the extensionless mise-tasks. Note
