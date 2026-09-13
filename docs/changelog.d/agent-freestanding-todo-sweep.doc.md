@@ -1,0 +1,1 @@
+Add a post-cut TODO-sweep step to the [[add-a-freestanding-repo]] how-to, listing the template TODO locations a fresh cut leaves behind; also update step 5's auto-release note to the template's current push-to-main auto-release.
