@@ -1,0 +1,1 @@
+Nightly launchd sweep (mcquack.eblume.runner-cache-sweep, default 5:30 AM) on indri that deletes uv script environments older than 4h from `~/.cache/uv/environments-v2` and runs `prek cache gc`; `uv cache prune` is deliberately not used because it also removes live environments. Installed by the forgejo_runner role; its log ships to Loki via the alloy role.

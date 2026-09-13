@@ -30,6 +30,7 @@ Docker-in-Docker sidecar — replaced in phase 0 of
 | **Binary** | source-built at `~/code/3rd/forgejo-runner/forgejo-runner` (version pinned in role defaults) |
 | **Config** | `~/forgejo-runner/config.yaml` (indri) |
 | **Logs** | `~/Library/Logs/mcquack.forgejo-runner.{out,err}.log` → Loki via [[alloy]] |
+| **Cache maintenance** | Nightly sweep at 5:30 AM; monthly prune day 1 at 3:30 AM |
 
 ## Architecture
 
@@ -76,21 +77,39 @@ never installed. Anything else a job needs comes from the repo's own
 
 ## Cache Maintenance
 
-Host-mode jobs install their toolchains into the uv cache
-(`~/.cache/uv` on indri), and as dependency pins move the orphaned
-wheel archives pile up (`archive-v0` reached 16G over 18 months).
-The planned nightly sweep
-([eblume/blumeops#1063](https://forge.ops.eblu.me/eblume/blumeops/issues/1063))
-will reclaim the leaked per-job script environments but deliberately
-not prune archives — prune also removes live script environments, so
-the prune runs in its own monthly window with the runner stopped:
+Host-mode jobs run `uv run --script` with the global cache, and uv keys
+per-script environments on the script's **absolute path** — and the
+runner gives every job a fresh `~/.cache/act/<random8>/` scratch path —
+so every job's `mise-tasks/*` scripts get a fresh environment that never
+gets reused. The environments accumulated until `~/.cache/uv` reached
+66G at ~2G/day (2026-09); wheels stay shared in the archive cache, so
+only the per-script venv scaffolding leaks. As dependency pins move,
+orphaned wheel archives pile up too (`archive-v0` reached 16G over
+18 months).
 
+`uv cache prune` is deliberately not used for the scheduled sweep:
+tested, it removes *every* script environment, including ones whose
+script still exists and ones with a Python process currently running in
+it — an idle-runner operation, so it runs in its own monthly window
+with the runner stopped. Two LaunchAgents (this role) handle the
+recurrence:
+
+- **Nightly sweep** — `mcquack.eblume.runner-cache-sweep` (default
+  5:30, clear of borgmatic's 2:00 and 4:00 runs):
+  - Deletes `~/.cache/uv/environments-v2` entries not modified in
+    240 minutes. The threshold deliberately exceeds the runner's
+    3-hour job timeout, so a live job's environment (created when its
+    job starts) is never touched.
+  - Runs `prek cache gc`.
+  - Logs before/after `du -sm` of both caches to
+    `~/Library/Logs/mcquack.runner-cache-sweep.{out,err}.log`, shipped
+    to [[loki]] by the [[alloy]] role.
 - **Monthly `uv cache prune`** — `mcquack.eblume.runner-cache-prune`
-  (this role; day 1, 03:30, clear of borgmatic at 02:00). The script
-  boots the runner LaunchAgent out (its `shutdown_timeout` of 3h lets
-  in-flight jobs finish), waits for the process to exit, prunes, and
-  bootstraps the runner back — a `trap` restores the runner even if the
-  prune fails, and a runner that fails to drain aborts the prune. Jobs
+  (day 1, 03:30, clear of borgmatic at 02:00). The script boots the
+  runner LaunchAgent out (its `shutdown_timeout` of 3h lets in-flight
+  jobs finish), waits for the process to exit, prunes, and bootstraps
+  the runner back — a `trap` restores the runner even if the prune
+  fails, and a runner that fails to drain aborts the prune. Jobs
   queued during the window simply wait on forge. Log:
   `~/Library/Logs/mcquack.runner-cache-prune.{out,err}.log`.
 
