@@ -19,8 +19,8 @@ Discovered while attempting [[deploy-authentik]]: the deployment references `reg
 
 1. Verify `containers/authentik/default.nix` builds — locally with `nix-build containers/authentik/default.nix -o result` (or in a `nixos/nix` container if you have no local nix) or on ringtail (the CI nix builder runs there)
 2. The `ak` entrypoint needs bash (included via `bashInteractive`) and orchestrates both `server` and `worker` subcommands
-3. Trigger build: `mise run container-build-and-release authentik`
-4. Verify the `-nix` tagged image appears in the registry
+3. Merge the PR — the merge triggers the build on ringtail's `nix-container-builder` runner and pushes the `-nix` image to the registry (the PR got the build as a check first; PR runs never push)
+4. Verify the `-nix` tagged image appears in the registry (its tag SHA is the merge commit); the horkos publisher opens the kustomization pin PR for it
 
 ## What We Learned
 

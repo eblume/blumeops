@@ -84,8 +84,7 @@ never change in a single PR.
 - **Rotate the dispatch PAT**: `mise run horkos-forge-provision -- --rotate`
   (gilbert; needs an ephemeral `write:admin` token, see the script).
 - **Scope**: only actions with `class: warrant` in `warrant-policy.yaml` are
-  requestable — today `argocd-deploy.yaml`, `build-container.yaml`,
-  `deploy-fly.yaml`.
+  requestable — today `argocd-deploy.yaml`, `deploy-fly.yaml`.
   `provision-*` is `class: deny` (see [[blumeops-ci-item-migration]]).
 - **Test it**: the service suite lives in the horkos repo (`scripts/test`
   there, and its CI). `mise run horkos-test` here covers the blumeops-side

@@ -141,15 +141,14 @@ def main(
 
     console.print("[dim]---[/dim]")
     console.print(
-        "Tags marked [green]\\[main][/green] were built from a commit on main."
+        "Tags marked [green]\\[main][/green] were built from a commit on main — "
+        "builds run on merge to main, and PRs touching containers/ get the build "
+        "as a check (never the registry push)."
     )
     console.print(
-        "Tags marked [yellow]\\[branch][/yellow] were built from a PR branch — "
-        "use \\[main] tags in production manifests."
+        "After a merge, the horkos release publisher opens the kustomization "
+        "pin PR from the push webhook — merge it to deploy."
     )
-    console.print()
-    console.print("To trigger a build:")
-    console.print("  mise run container-build-and-release <container>")
 
 
 if __name__ == "__main__":

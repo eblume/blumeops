@@ -9,7 +9,7 @@
 # - 1Password blumeops vault: "openrouter (blumeops)" item and the
 #   talos-client-secret field on "Authentik (blumeops)"
 # - authentik blueprint client `talos` (configmap-blueprint.yaml)
-# - blumeops/talos image in the registry (build-container workflow)
+# - blumeops/talos image in the registry (merge-triggered build-container build)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

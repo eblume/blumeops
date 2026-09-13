@@ -49,21 +49,6 @@ actions:
         required: false
         pattern: "^(true|false)$"
 
-  build-container.yaml:
-    class: warrant
-    binds_sha: ref
-    inputs:
-      container:
-        required: true
-        # validated against containers/<name>/default.nix on main
-        validate: container-dir
-      ref:
-        # required: false here matches the workflow, where an omitted ref
-        # means "current HEAD" for a manual UI dispatch. binds_sha makes it
-        # mandatory for a *request*, which is bound to a specific commit.
-        required: false
-        pattern: "^[0-9a-f]{40}$"
-
   deploy-fly.yaml:
     class: warrant
     binds_sha: revision

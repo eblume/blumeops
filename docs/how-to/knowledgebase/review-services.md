@@ -139,20 +139,12 @@ needs nix or a builder:
    (`https://pypi.org/pypi/<pkg>/json`).
 3. Upstream-image services: bump the image tag in the manifest directly.
    Nix-built containers: bump the version/rev pins, set changed fetch/FOD
-   hashes to `pkgs.lib.fakeHash`, and **file the build request yourself** —
-   do not tell the human to dispatch it (see [[request-a-privileged-run]]):
-
-   ```fish
-   mise run request-run build-container.yaml <full-head-sha> --pr <N> \
-       -i container=<name> -i ref=<full-head-sha> --why "…"
-   ```
-
-   PR-branch SHAs are dispatchable pre-merge: Forgejo serves fork PR heads
-   from the canonical repo, so the runner's checkout finds them. Each failed
-   build reveals the next real hash (TOFU); patch it in, push, and file a
-   new request with `--supersedes <id>` since the head SHA moved. After a
-   green build, point the manifest `newTag` at the pushed
-   `v<version>-<sha7>-nix` tag.
+   hashes to `pkgs.lib.fakeHash` and push — the **PR build check** does the
+   TOFU rounds for you, commenting the real hashes on the PR on failure
+   (no request needed; see [[build-container-image]]). After a green check,
+   merge: the push to main builds and pushes the `v<version>-<sha7>-nix`
+   tag, and horkos opens the kustomization pin PR against
+   `argocd/manifests/<service>/kustomization.yaml` — merge that to deploy.
 4. Stamp `last-reviewed` and update `current-version`. Record what changed
    and why in the changelog fragment (see AGENTS.md) and the PR description —
    do not write review findings into `notes`. `notes` describes how the

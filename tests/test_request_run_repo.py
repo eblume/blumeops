@@ -16,8 +16,8 @@ import pytest
 SHA = "8c05eb4c9e2f0a1b3d5e7f9012345678abcdef01"
 BLUMEOPS = "eblume/blumeops"
 TALOS = "eblume/talos"
-TITLE_DEFAULT = "Approve: build-container.yaml @ 8c05eb4 (PR #525)"
-TITLE_REPO = "Approve: build-container.yaml @ 8c05eb4 (PR #12 (eblume/talos))"
+TITLE_DEFAULT = "Approve: deploy-fly.yaml @ 8c05eb4 (PR #525)"
+TITLE_REPO = "Approve: deploy-fly.yaml @ 8c05eb4 (PR #12 (eblume/talos))"
 
 
 class FakeHeph:
@@ -58,25 +58,21 @@ def heph(request_run, monkeypatch):
 
 
 def test_title_is_unchanged_for_blumeops(request_run):
+    assert request_run.tracking_task_title("deploy-fly.yaml", SHA, 525) == TITLE_DEFAULT
     assert (
-        request_run.tracking_task_title("build-container.yaml", SHA, 525)
-        == TITLE_DEFAULT
-    )
-    assert (
-        request_run.tracking_task_title("build-container.yaml", SHA, 525, BLUMEOPS)
+        request_run.tracking_task_title("deploy-fly.yaml", SHA, 525, BLUMEOPS)
         == TITLE_DEFAULT
     )
 
 
 def test_title_names_the_repo_when_it_is_not_blumeops(request_run):
     assert (
-        request_run.tracking_task_title("build-container.yaml", SHA, 12, TALOS)
-        == TITLE_REPO
+        request_run.tracking_task_title("deploy-fly.yaml", SHA, 12, TALOS) == TITLE_REPO
     )
 
 
 def test_closes_the_task_for_a_cross_repo_request(request_run, heph):
-    old = {"action": "build-container.yaml", "sha": SHA, "pr": 12, "pr_repo": TALOS}
+    old = {"action": "deploy-fly.yaml", "sha": SHA, "pr": 12, "pr_repo": TALOS}
     fake = heph(
         [{"node_id": "01A", "title": TITLE_REPO}],
         {"01A": "Privileged run request…\nWarrant request: #21"},
@@ -88,12 +84,12 @@ def test_closes_the_task_for_a_cross_repo_request(request_run, heph):
 def test_cross_repo_request_does_not_close_a_blumeops_task(request_run, heph):
     """Same #12 in a different repo is a different PR — the title suffix is
     what tells them apart, and the stamp confirms it."""
-    old = {"action": "build-container.yaml", "sha": SHA, "pr": 12, "pr_repo": TALOS}
+    old = {"action": "deploy-fly.yaml", "sha": SHA, "pr": 12, "pr_repo": TALOS}
     fake = heph(
         [
             {
                 "node_id": "01A",
-                "title": "Approve: build-container.yaml @ 8c05eb4 (PR #12)",
+                "title": "Approve: deploy-fly.yaml @ 8c05eb4 (PR #12)",
             }
         ],
         {"01A": "Warrant request: #21"},

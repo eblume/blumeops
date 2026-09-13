@@ -161,15 +161,10 @@ pip-at-runtime. To bump the version, change `version` in
 `containers/shower/default.nix` and update `wheelHash` (or set it to
 `pkgs.lib.fakeHash` and let the next build print the correct one).
 
-Trigger with:
-
-```fish
-mise run container-build-and-release shower
-```
-
-After the workflow finishes, update `images[].newTag` in
-`argocd/manifests/shower/kustomization.yaml` to the resulting
-`vX.Y.Z-<sha>-nix` tag, then commit.
+Merge triggers the build: a push to main touching `containers/shower/`
+builds the image and pushes it to zot. The horkos release publisher then
+opens the kustomization pin PR carrying the resulting `vX.Y.Z-<sha>-nix`
+tag; merging that deploys.
 
 ### 4. DNS
 
@@ -219,12 +214,12 @@ can be created from `/admin/auth/user/` once you're signed in.
 1. Bump the wheel version in the app repo (`adelaide-baby-shower-app`)
    and release it to Forgejo PyPI.
 2. Bump `appVersion` in `containers/shower/default.nix` to match.
-3. `mise run container-build-and-release shower`. Verify the build
+3. Merge. The merge-time build runs and pushes the image; verify
    with `mise run runner-logs`.
-4. Update the `newTag` in `argocd/manifests/shower/kustomization.yaml`
-   to the tag the build produced, in the same PR
+4. Merge the kustomization pin PR horkos opens with the new
+   `vX.Y.Z-<sha>-nix` tag
    (see [[build-container-image#Container tags and merge strategy]]).
-5. Merge. `shower` syncs itself — see [[argocd#Sync Policy]].
+   `shower` syncs itself — see [[argocd#Sync Policy]].
 
 ## Verifying after a deploy
 

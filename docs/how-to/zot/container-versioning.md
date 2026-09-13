@@ -40,9 +40,10 @@ maps the dir name to its service name.
 
 ## Build and tag
 
-`mise run container-build-and-release <name>` dispatches the
+A push to main touching `containers/<name>/` runs the
 `build-container.yaml` workflow, which builds `default.nix` with `nix-build` and
 pushes via `skopeo copy` on the `nix-container-builder` runner ([[ringtail]]).
+Container PRs get the build as a check — no registry push until the merge.
 Images are tagged:
 
 ```

@@ -1,20 +1,24 @@
-# Container build workflow (nix-only)
-# Manual dispatch only — use `mise run container-build-and-release <name>`.
-# A lightweight classify job runs on indri, then the container's
-# default.nix is built on nix-container-builder (ringtail) via nix-build + skopeo.
+# Container build + release workflow (nix-only).
+#
+# Merge is the release: a push to main touching containers/<name>/ builds the
+# container and pushes the image to zot. The horkos release publisher (push
+# webhook) opens the kustomization pin PR — no warrant, no dispatch
+# (eblume/horkos#17 step 5).
+#
+# PRs touching containers/ run the build as a check (never the registry push —
+# fork runs carry no secrets) so the nix hash-TOFU round stays readable from
+# the PR alone.
+
 name: Build Container
 
 on:
-  workflow_dispatch:
-    inputs:
-      container:
-        description: 'Container name (directory under containers/)'
-        required: true
-        type: string
-      ref:
-        description: 'FULL 40-char commit SHA to build (defaults to current HEAD; short SHAs fail — checkout treats them as branch names)'
-        required: false
-        type: string
+  push:
+    branches: [main]
+    paths:
+      - 'containers/**'
+  pull_request:
+    paths:
+      - 'containers/**'
 
 jobs:
   detect:
@@ -22,42 +26,42 @@ jobs:
     outputs:
       nix: ${{ steps.classify.outputs.nix }}
     steps:
-      # Fail fast on short SHAs: actions/checkout only fetches by commit for
-      # full 40-hex SHAs; anything else is fetched as refs/heads/<ref>*, which
-      # silently matches nothing for a short SHA (see run #665). The mise task
-      # container-build-and-release expands short SHAs before dispatching —
-      # this guards manual UI dispatches.
-      - name: Validate ref input
-        run: |
-          REF="${{ inputs.ref }}"
-          if [ -n "$REF" ] && echo "$REF" | grep -qE '^[0-9a-f]{4,39}$'; then
-            echo "::error::'ref' looks like a SHORT commit SHA ($REF). Pass the full 40-char SHA (or a branch name) — actions/checkout treats short SHAs as branch names and the fetch fails."
-            exit 1
-          fi
-
+      # Full history: the diff below needs the pre-merge (push) or base (PR)
+      # tree, both reachable from the checkout.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.sha }}
-          fetch-depth: 2
+          fetch-depth: 0
 
-      - name: Classify container build type
+      - name: Classify changed containers
         id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          CHANGED='["${{ inputs.container }}"]'
-          echo "Building container: $CHANGED"
-
-          # Nix-only since [[retire-minikube]] phase 6 — the dagger/arm64
-          # build path retired with the minikube cluster.
+          set -euo pipefail
+          if [ "$EVENT" = "push" ]; then
+            OLD="$BEFORE"
+            # First push to the repo has no prior head to diff against.
+            if ! echo "$OLD" | grep -qE '^[0-9a-f]{40}$'; then
+              echo "No prior head to diff against — building nothing"
+              echo "nix=[]" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          else
+            OLD="$BASE"
+          fi
+          CHANGED=$(git diff --name-only "$OLD" HEAD -- containers/ \
+            | awk -F/ 'NF >= 3 { print $2 }' | sort -u)
           NIX='[]'
-          for name in $(echo "$CHANGED" | jq -r '.[]'); do
+          for name in $CHANGED; do
             if [ -f "containers/$name/default.nix" ]; then
               NIX=$(echo "$NIX" | jq -c --arg n "$name" '. + [$n]')
             else
               echo "Warning: $name has no default.nix — skipping"
             fi
           done
-
           echo "nix=$NIX" >> "$GITHUB_OUTPUT"
           echo "Nix builds: $NIX"
 
@@ -72,7 +76,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.sha }}
+          ref: ${{ github.sha }}
+          fetch-depth: 1
 
       - name: Extract version and SHA
         id: meta
@@ -89,13 +94,7 @@ jobs:
             exit 1
           fi
 
-          REF="${{ inputs.ref }}"
-          if [ -z "$REF" ]; then
-            REF="${GITHUB_SHA}"
-            RESOLVED_FROM="defaulted to the dispatch ref — no 'ref' input was given"
-          else
-            RESOLVED_FROM="from the 'ref' input"
-          fi
+          REF="${GITHUB_SHA}"
           SHORT_SHA=$(echo "$REF" | head -c 7)
 
           # Ensure version starts with 'v'
@@ -108,18 +107,13 @@ jobs:
           echo "sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
           echo "Version: $VERSION, SHA: $SHORT_SHA"
 
-          # State the commit actually built where an approver will see it.
-          # An approval binds a SHA, but `ref` is optional and defaults to the
-          # dispatch ref, so a request can name one commit while the run builds
-          # another (run 742). request-run refuses that now; this makes it
-          # legible for UI dispatches, which have no such check.
+          # State the commit actually built where a reviewer will see it.
           {
             echo "### Built \`$CONTAINER\` $VERSION"
             echo ""
             echo "| | |"
             echo "|---|---|"
             echo "| **Commit built** | \`$REF\` |"
-            echo "| **Resolved** | $RESOLVED_FROM |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Resolve nixpkgs
@@ -142,29 +136,21 @@ jobs:
           echo "Build complete: $(readlink result)"
 
       - name: Report build failure to PR
-        if: failure()
+        if: failure() && github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # Post the tail of the nix build log as a comment on the open PR for
-          # this branch (if any). This makes hash-TOFU rounds readable without
-          # runner-log access — remote-agent sessions drive rebuilds from the
-          # PR comment alone (nix prints 'specified:'/'got:' hash mismatches).
+          # Post the tail of the nix build log as a comment on the PR. This
+          # makes hash-TOFU rounds readable without runner-log access —
+          # remote-agent sessions drive rebuilds from the PR comment alone
+          # (nix prints 'specified:'/'got:' hash mismatches).
           [ -f /tmp/nix-build.log ] || { echo "no build log captured"; exit 0; }
-          BRANCH="${GITHUB_REF_NAME}"
           API="${GITHUB_SERVER_URL:-https://forge.eblu.me}/api/v1"
           REPO="${{ github.repository }}"
 
-          PR_INDEX=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "$API/repos/$REPO/pulls?state=open&limit=50" \
-            | jq -r --arg ref "$BRANCH" '.[] | select(.head.ref == $ref) | .number' | head -1)
-          if [ -z "$PR_INDEX" ]; then
-            echo "No open PR for branch $BRANCH; skipping comment"
-            exit 0
-          fi
-
           {
-            echo "**Build Container failed** — \`${{ matrix.container }}\` on \`$BRANCH\` (run ${GITHUB_RUN_NUMBER})"
+            echo "**Build Container failed** — \`${{ matrix.container }}\` on PR #$PR_NUMBER (run ${GITHUB_RUN_NUMBER})"
             echo ""
             echo '```'
             grep -E "hash mismatch|specified:|got:|error:" /tmp/nix-build.log | tail -20
@@ -176,13 +162,15 @@ jobs:
           jq -n --rawfile body /tmp/pr-comment.md '{body: $body}' \
             | curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
                 -H "Content-Type: application/json" -d @- \
-                "$API/repos/$REPO/issues/$PR_INDEX/comments" \
+                "$API/repos/$REPO/issues/$PR_NUMBER/comments" \
             | jq -r '"Commented: " + (.html_url // .message)'
 
       # The zot push key is read from the blumeops-ci vault at job time
       # ([[blumeops-ci-item-migration]]); BLUMEOPS_CI_OP_TOKEN is the one
-      # Actions secret this job needs.
+      # Actions secret this job needs. Push runs on main only — fork PR runs
+      # never see it.
       - name: Push to registry
+        if: success() && github.event_name == 'push'
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
         run: |

@@ -21,12 +21,12 @@ mise run request-run <workflow> <full-sha> [--pr N] [--repo owner/name] [-i key=
     [--why TEXT] [--supersedes ID] [--notify] [--script <file|->]
 ```
 
-Example — request a container build at a merged commit:
+Example — redeploy the Fly.io proxy at a merged commit:
 
 ```fish
-mise run request-run build-container.yaml 892eeacbca29ee5e64fb6dae90ccc64a77ee69b7 \
-    --pr 440 -i container=mealie -i ref=892eeacbca29ee5e64fb6dae90ccc64a77ee69b7 \
-    --why "post-squash-merge rebuild for the #440 mealie bump"
+mise run request-run deploy-fly.yaml 892eeacbca29ee5e64fb6dae90ccc64a77ee69b7 \
+    --pr 440 -i revision=892eeacbca29ee5e64fb6dae90ccc64a77ee69b7 \
+    --why "deploy the #440 fly proxy change"
 ```
 
 Example — clear the orphan ConfigMaps holding an app `OutOfSync`. `prune` is the
@@ -56,15 +56,15 @@ mise run request-run ringtail-rebuild.yaml <full-sha> -i revision=<full-sha> \
     --why "apply #NN: <what the commit changes>"
 ```
 
-Example — the attached PR lives in another repo. A change in `eblume/talos`
-that needs the talos image rebuilt is bound to a *blumeops* commit (the
-definition lives here), but the review the approver wants to read is the
-talos PR:
+Example — the attached PR lives in another repo. A change in `eblume/horkos`
+that ships a new horkos image lands its pin as a *blumeops* commit (the
+deploy definition lives here), but the review the approver wants to read is
+the horkos release PR:
 
 ```fish
-mise run request-run build-container.yaml <full-blumeops-sha> \
-    --pr 12 --repo eblume/talos -i container=talos -i ref=<full-blumeops-sha> \
-    --why "rebuild the talos image for the eblume/talos change"
+mise run request-run argocd-deploy.yaml <full-blumeops-sha> \
+    --pr 12 --repo eblume/horkos -i app=horkos -i revision=<full-blumeops-sha> \
+    --why "deploy the horkos release"
 ```
 
 `--repo` moves only the attachment: the request comment, the heph task title,
@@ -122,9 +122,9 @@ the request that was filed against the old head can no longer be approved into
 anything useful. File the replacement and retire the old one in one step:
 
 ```fish
-mise run request-run build-container.yaml <new-full-sha> \
-    --pr 525 -i container=talos -i ref=<new-full-sha> \
-    --supersedes 21 --why "rebuild after review feedback"
+mise run request-run argocd-deploy.yaml <new-full-sha> \
+    --pr 525 -i app=grafana-ringtail -i revision=<new-full-sha> \
+    --supersedes 21 --why "deploy after review feedback"
 ```
 
 `--supersedes` marks request 21 `superseded` in Horkos (it stops being
@@ -177,4 +177,4 @@ entry in the same PR that adds the workflow.
 
 - [[warrant-approval-gated-runs]] — the design this implements
 - [[agents-forgejo-bot]] — the requesting identity and its fences
-- [[build-container-image]] — the most common privileged run
+- [[argocd]] — the app sync a deploy request drives

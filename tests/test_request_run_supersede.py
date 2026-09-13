@@ -19,8 +19,8 @@ import subprocess
 import pytest
 
 SHA = "8c05eb4c9e2f0a1b3d5e7f9012345678abcdef01"
-OLD = {"action": "build-container.yaml", "sha": SHA, "pr": 525}
-TITLE = "Approve: build-container.yaml @ 8c05eb4 (PR #525)"
+OLD = {"action": "deploy-fly.yaml", "sha": SHA, "pr": 525}
+TITLE = "Approve: deploy-fly.yaml @ 8c05eb4 (PR #525)"
 
 
 class FakeHeph:
@@ -61,7 +61,7 @@ def heph(request_run, monkeypatch):
 
 
 def test_title_is_derived_from_the_requests_own_coordinates(request_run):
-    assert request_run.tracking_task_title("build-container.yaml", SHA, 525) == TITLE
+    assert request_run.tracking_task_title("deploy-fly.yaml", SHA, 525) == TITLE
 
 
 def test_closes_the_task_whose_context_names_the_retired_request(request_run, heph):
@@ -90,7 +90,12 @@ def test_same_title_different_request_is_left_alone(request_run, heph):
 
 def test_no_match_closes_nothing(request_run, heph):
     fake = heph(
-        [{"node_id": "01A", "title": "Approve: deploy-fly.yaml @ 8c05eb4 (PR #525)"}],
+        [
+            {
+                "node_id": "01A",
+                "title": "Approve: argocd-deploy.yaml @ 8c05eb4 (PR #525)",
+            }
+        ],
         {"01A": "Warrant request: #21"},
     )
     assert request_run.close_tracking_task(OLD, 21, 22) is None

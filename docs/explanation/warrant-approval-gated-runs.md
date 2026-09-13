@@ -89,8 +89,10 @@ it is convenient.
    *execution context*, not the agent.
 2. **Execution binds to an immutable SHA.** Approvals name a full 40-char
    commit, never a branch (branches move after review — TOCTOU). The
-   `build-container` short-SHA guard is the precedent. *Corollary: canonical
-   must stop squash-merging* — squash rewrites every approved SHA into a new
+   full-40-hex patterns on binding inputs in `warrant-policy.yaml` are the
+   precedent (the `build-container` short-SHA guard that originally set
+   this is retired with the merge-triggered container flow). *Corollary:
+   canonical must stop squash-merging* — squash rewrites every approved SHA into a new
    commit, so nothing a human approved ever lands on `main` as itself, forcing
    perpetual follow-up-PR churn. Switch the repo to merge-commit (or
    fast-forward) merges; this also dissolves the squash-merge container-tag
@@ -138,7 +140,9 @@ invariant 4 with nothing new built. Canonical CI already holds privileged
 Actions secrets (`ARGOCD_AUTH_TOKEN`, `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`,
 `MAIN_PUSH_TOKEN`, `FORGE_REPO_WRITE_TOKEN`) that agents provably cannot reach
 (fence verified from in-pod 2026-07-31), and the runner executes them on human
-dispatch. `mise run container-build-and-release` is exactly this shape.
+dispatch. `mise run request-run deploy-fly.yaml <full-sha> -i revision=<full-sha> --why "…"` is
+exactly this shape. (The container flow that used to be the example is
+merge-triggered now — see [[build-container-image]].)
 
 Two clarifications on that secret surface. Those named Actions secrets are the
 **only** blumeops-vault material CI can see — the rest of the vault never
@@ -492,8 +496,8 @@ and the approved SHA is a **payload input** — what to check out, build, or syn
 Warrant froze that SHA into every record. Nothing made it reach the run.
 
 The two halves lived in different fields and never met. `request-run` sends
-`{action, sha, inputs}`; the workflow reads only `inputs`. `build-container.yaml`
-declares `ref` as *optional*, defaulting to the dispatch ref, because a human
+`{action, sha, inputs}`; the workflow read only `inputs`. `build-container.yaml`
+declared `ref` as *optional*, defaulting to the dispatch ref, because a human
 dispatching from the UI reasonably means "current HEAD". So a request could
 name one commit and dispatch another, and did:
 
@@ -515,6 +519,12 @@ accept and the policy pattern still admits, but which resolves at dispatch time
 and so is exactly the moving target an approval exists to pin down. A
 warrant-class action with no `binds_sha` at all is refused too, so the hole
 cannot reopen by omission when the next privileged workflow lands.
+
+**Since the merge-triggered container flow (eblume/horkos#17 step 5),**
+`build-container` is no longer a warrant workflow at all: a push to main
+builds the changed containers and pushes them, container PRs get the build as
+a check, and there is no `ref` input to bind. The lesson — and the
+`binds_sha` mechanism — lives on in the surviving warrant actions.
 
 `verify-runs` audits the same property after the fact, and it compares the
 **record against itself** — the bound `sha` versus the `inputs` actually

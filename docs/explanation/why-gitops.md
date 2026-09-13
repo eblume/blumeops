@@ -61,7 +61,7 @@ GitOps isn't just how BlumeOps deploys workloads — it underpins the design of 
 
 - **The k3s fleet** — every containerized service (the SSO, the databases, the observability stack, and the agent services) is declared in `argocd/manifests/` and reconciled by [[argocd]] from this repo.
 - **First-party container releases** — an image release is a PR in this repo that bumps the pin tag (`v<version>-<short-sha>-nix`) and `service-versions.yaml` together, so every running build is traceable to a commit.
-- **CI itself** — the `.forgejo/workflows/` that build and test everything live in this repo, as do the warrant-gated privileged workflows (such as `build-container`, `argocd-deploy`, `deploy-fly`), whose definitions execute from `main` only.
+- **CI itself** — the `.forgejo/workflows/` that build and test everything live in this repo, as do the warrant-gated privileged workflows (such as `argocd-deploy`, `deploy-fly`), whose definitions execute from `main` only.
 - **Host configuration** — [[indri]] services via [[ansible]], ringtail's NixOS build (its flake lives in this repo), and the sifaka exporters.
 - **The tailnet** — Tailscale ACLs, tags, and auth keys, plus Gandi DNS, applied by [[pulumi]] from repo state.
 - **The docs** — this site is built from the repo and shipped as versioned releases.
