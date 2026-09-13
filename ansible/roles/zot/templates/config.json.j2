@@ -80,6 +80,24 @@
           ],
           "anonymousPolicy": ["read"],
           "defaultPolicy": ["read"]
+        },
+        "blumeops/cv": {
+          "policies": [
+            {
+              "groups": ["cv-artifacts"],
+              "actions": ["create", "update"]
+            },
+            {
+              "groups": ["artifact-workloads"],
+              "actions": ["read", "create"]
+            },
+            {
+              "groups": ["admins"],
+              "actions": ["read", "create", "update", "delete"]
+            }
+          ],
+          "anonymousPolicy": ["read"],
+          "defaultPolicy": ["read"]
         }
       }
     }

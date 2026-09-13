@@ -34,12 +34,11 @@ Two paths:
 
 **From a release workflow** (most common):
 
-1. Run the `Release CV` workflow in the cv repo → produces a new generic package
-2. Run the blumeops `Deploy CV` workflow → bumps `cv_version` in `ansible/roles/cv/defaults/main.yml` and pushes to main
-3. From gilbert: `mise run provision-indri -- --tags cv`
-4. From gilbert: `fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"` to purge the public-edge cache
+1. Run the `Release CV` workflow in the cv repo → produces a new release asset
+2. The pin is the horkos publisher's PR — merging it bumps `cv_version` in `ansible/roles/cv/defaults/main.yml`, and `mise run provision-indri -- --tags cv` deploys (see the horkos#17 release flow)
+3. From gilbert: `fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"` to purge the public-edge cache
 
-**Manual** (e.g., reverting): edit `cv_version` in the role defaults yourself, then steps 3–4.
+**Manual** (e.g., reverting): edit `cv_version` in the role defaults yourself, then steps 2–3.
 
 ## Verify
 

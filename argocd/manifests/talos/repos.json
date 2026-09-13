@@ -58,7 +58,7 @@
       "release_hook": true
     },
     { "name": "talos", "access": "read", "pool": "fork", "release_hook": true },
-    { "name": "cv", "access": "read", "pool": "none", "release_hook": true },
+    { "name": "cv", "access": "read", "pool": "fork", "release_hook": true },
     { "name": "hephaestus", "access": "write", "pool": "canonical" },
     { "name": "hephaestus.nvim", "access": "write", "pool": "canonical" },
     { "name": "research", "access": "write", "pool": "canonical" },

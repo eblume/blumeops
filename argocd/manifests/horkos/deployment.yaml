@@ -57,6 +57,12 @@ spec:
             - secretRef:
                 name: horkos-forge-hook
                 optional: true  # release webhook stays inert (route 404s) until the secret is provisioned
+            - secretRef:
+                name: horkos-forge-read
+                optional: true  # cv release-asset fetch stays inert without the token
+            - secretRef:
+                name: horkos-zot
+                optional: true  # cv artifact push stays inert; user and key land atomically
           securityContext:
             runAsNonRoot: true
             runAsUser: 1500

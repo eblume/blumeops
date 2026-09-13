@@ -3,8 +3,8 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "typer==0.27.1"]
 # ///
-#MISE description="[human] Rotate a zot CI API key (zot-ci|zot-talos|zot-horkos) from its current key: mint, store in 1Password, sync to its consumer, revoke the rest"
-#USAGE arg "<identity>" help="zot-ci, zot-talos or zot-horkos"
+#MISE description="[human] Rotate a zot CI API key (zot-ci|zot-talos|zot-horkos|zot-cv) from its current key: mint, store in 1Password, sync to its consumer, revoke the rest"
+#USAGE arg "<identity>" help="zot-ci, zot-talos, zot-horkos or zot-cv"
 #USAGE flag "--days <n>" help="Lifetime of the new key in days (default 90)"
 #USAGE flag "--key-stdin" help="Read the current key from stdin instead of 1Password (bootstrap: paste a browser-minted key)"
 #USAGE flag "--dry-run" help="Verify the current key and list the identity's keys; mint nothing"
@@ -29,7 +29,10 @@ valid and its consumer untouched:
 4. write the master copy (`Forgejo Secrets` item, blumeops vault);
 5. write the consumer copy — the blumeops-ci vault item for `zot-ci`
    (workflows `op read` it at job time), or the `ZOT_PUSH_API_KEY` Actions
-   secret on the release repo for `zot-talos` / `zot-horkos`;
+   secret on the release repo for `zot-talos` / `zot-horkos`. For `zot-cv`
+   the consumer IS the master field (Forgejo Secrets / zot-cv-api, read
+   directly by the horkos deployment's ESO), so there is nothing separate
+   to sync;
 6. revoke every other key the identity holds (one live key per CI identity
    is the invariant; `--keep-others` opts out).
 
@@ -100,6 +103,10 @@ IDENTITIES: dict[str, Identity] = {
     "zot-horkos": Identity(
         master_field="zot-horkos-api",
         sink=ForgeSecretSink(repo="eblume/horkos", name="ZOT_PUSH_API_KEY"),
+    ),
+    "zot-cv": Identity(
+        master_field="zot-cv-api",
+        sink=OpFieldSink(vault="blumeops", item="Forgejo Secrets", field="zot-cv-api"),
     ),
 }
 
@@ -221,7 +228,7 @@ def write_sink(sink: OpFieldSink | ForgeSecretSink, key: str) -> None:
 
 
 def main(
-    identity: Annotated[str, typer.Argument(help="zot-ci, zot-talos or zot-horkos")],
+    identity: Annotated[str, typer.Argument(help="zot-ci, zot-talos, zot-horkos or zot-cv")],
     days: Annotated[int, typer.Option(help="Lifetime of the new key in days")] = 90,
     key_stdin: Annotated[bool, typer.Option("--key-stdin", help="Read the current key from stdin")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Verify and list; mint nothing")] = False,
@@ -263,8 +270,18 @@ def main(
         op_set_field(MASTER_VAULT, MASTER_ITEM, ident.master_field, new_key)
         say(f"{identity}: master copy written to {master_ref}")
 
-        write_sink(ident.sink, new_key)
-        say(f"{identity}: consumer copy written to {ident.sink.describe()}")
+        # zot-cv's consumer IS the master field (the horkos deployment's ESO
+        # reads Forgejo Secrets / zot-cv-api directly), so the sink write is
+        # a redundant same-field write — skip it.
+        if isinstance(ident.sink, OpFieldSink) and (
+            ident.sink.vault,
+            ident.sink.item,
+            ident.sink.field,
+        ) == (MASTER_VAULT, MASTER_ITEM, ident.master_field):
+            say(f"{identity}: consumer is the master field — nothing separate to sync")
+        else:
+            write_sink(ident.sink, new_key)
+            say(f"{identity}: consumer copy written to {ident.sink.describe()}")
 
         if keep_others:
             say(f"{identity}: --keep-others, leaving {len(existing)} older key(s) in place")

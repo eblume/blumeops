@@ -12,6 +12,8 @@ tags:
 
 How to set up a Forgejo Actions workflow that builds an artifact and publishes it to Forgejo generic packages. Uses the CV repo (`forge.ops.eblu.me/eblume/cv`) workflow as the reference implementation.
 
+> **Deprecated:** this `FORGE_TOKEN` generic-package publish pattern is retired. The cv package now goes through the horkos publisher → zot (see eblume/horkos#17); this doc is kept for the historical shape.
+
 ## Prerequisites
 
 - A Forgejo repo with a build pipeline (Dagger, script, etc.)
@@ -67,12 +69,12 @@ Once linked, the package shows up in the repo's **Packages** tab and the repo li
 
 ## 4. Create a deploy workflow (optional)
 
-If the artifact is consumed by a k8s deployment, create a separate deploy workflow in blumeops (see `cv-deploy.yaml`). This keeps the build/release concern in the source repo and the deploy concern in blumeops.
+If the artifact is consumed by a k8s deployment, create a separate deploy workflow in blumeops. This keeps the build/release concern in the source repo and the deploy concern in blumeops (for the retired version of this pattern, see `cv-deploy.yaml` in git history; the current flow goes through the horkos publisher → zot, eblume/horkos#17).
 
 ## Pushing a commit back to a protected `main`
 
 Some release flows commit back to `main` (e.g. `build-blumeops.yaml` bumps
-`docs_version` + builds the changelog; `cv-deploy.yaml` bumps `cv_version`).
+`docs_version` + builds the changelog; the horkos publisher's PR bumps the `cv_version` pin — see eblume/horkos#17).
 `main` on blumeops is branch-protected with a push whitelist limited to
 `eblume`, and **the automatic Forgejo Actions token cannot be push-whitelisted**
 (Forgejo [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)) — so a

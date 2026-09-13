@@ -362,8 +362,11 @@ services:
     current-version: "1.0.3"
     upstream-source: https://forge.eblu.me/eblume/cv
     notes: >-
-      Static tarball downloaded by ansible/roles/cv into ~/blumeops/cv/content on indri;
-      served directly by Caddy (kind=static). Migrated from minikube 2026-04-29.
+      Tarball published as the OCI artifact registry.ops.eblu.me/blumeops/cv:<version>
+      by the horkos release publisher (eblume/horkos#17); the pin PR that
+      bumps cv_version comes from the same publisher. Deploy via
+      `mise run provision-indri -- --tags cv`; served directly by Caddy
+      (kind=static). Migrated from minikube 2026-04-29.
       Review build deps (WeasyPrint, Jinja2) in source repo on upstream review.
 
   - name: docs

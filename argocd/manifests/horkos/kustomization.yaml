@@ -10,6 +10,8 @@ resources:
   - external-secret-oidc.yaml
   - external-secret-dispatch.yaml
   - external-secret-forge-hook.yaml
+  - external-secret-forge-read.yaml
+  - external-secret-zot.yaml
 # First-party Nix image, built from eblume/horkos (default.nix there). Every
 # merge to horkos main auto-releases and opens a pin-bump PR against this
 # tag; merging that PR is the deploy (the app auto-syncs, like talos —
