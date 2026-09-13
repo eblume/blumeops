@@ -472,8 +472,8 @@ services:
 
   - name: unpoller
     type: argocd
-    last-reviewed: 2026-05-28
-    current-version: "v3.2.0"
+    last-reviewed: 2026-09-13
+    current-version: "v5.2.5"
     upstream-source: https://github.com/unpoller/unpoller/releases
     notes: UniFi metrics exporter for Prometheus
 
