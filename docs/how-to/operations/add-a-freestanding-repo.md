@@ -1,7 +1,7 @@
 ---
 title: Add a Freestanding Repo to the Pool
-modified: 2026-09-10
-last-reviewed: 2026-09-10
+modified: 2026-09-13
+last-reviewed: 2026-09-13
 tags:
   - how-to
   - operations
@@ -37,10 +37,27 @@ what the class is, see [[freestanding-repos]]. Each step names its actor.
    this step the webhook and label halves are missing and issue activity in
    the new repo will not engage talos.
 5. **(talos)** Work in the new repo: CI is cut from `project-template` — as
-   of 2026-09-10 the template's release workflow is `workflow_dispatch`
-   only, and auto-release-on-merge is being added as part of
-   [eblume/blumeops#978](https://forge.eblu.me/eblume/blumeops/issues/978) —
+   of 2026-09-13 the template's release workflow auto-fires on push to
+   main ([eblume/project-template#5](https://forge.eblu.me/eblume/project-template/pulls/5)) —
    plus any repo-local mise install task for local installation.
+6. **(talos)** Sweep the template TODOs the cut leaves behind, and land
+   the sweep as the new repo's first commit. A fresh cut keeps the
+   template's own markers — before any other work, `rg` the repo for
+   `TODO`, `FIXME` and `CHANGEME`. Known locations as of 2026-09-13
+   (drifts with the template; re-check against the template head):
+
+   - `README.md` — license TODO; delete the "Forking This Template"
+     section once resolved (it says to).
+   - `AGENTS.md` — delete the "First-Time Setup" section once its items
+     are resolved (it instructs its own deletion).
+   - `docs/quartz.config.ts` — `baseUrl: "CHANGEME.example.com"`.
+   - `docs/reference/reference.md` — "TODO After Templating" section.
+   - `docs/tutorials/ai-assistance-guide.md` — dagger-rename TODO bullet.
+   - `docs/explanation/explanation.md` — explanation-entries TODO comment.
+   - `.dagger/src/project_template_ci/` — rename the module directory and
+     the exported class to match the new repo. This one is a real code
+     change with CI impact: a cut that keeps `project_template_ci` fails
+     its first auto-release (dagger looks for `src/<repo>_ci/__init__.py`).
 
 ## Failure modes
 
