@@ -145,3 +145,57 @@
     - forgejo_runner_cache_prune_launchctl_check.rc != 0
   changed_when: true
   failed_when: false
+# --- Nightly CI cache sweep (eblume/blumeops#1063) ---
+
+- name: Ensure runner cache sweep script directory exists
+  ansible.builtin.file:
+    path: "{{ forgejo_runner_home }}/bin"
+    state: directory
+    mode: '0755'
+  when: forgejo_runner_sweep_enabled
+
+- name: Deploy runner cache sweep script
+  ansible.builtin.template:
+    src: runner-cache-sweep.sh.j2
+    dest: "{{ forgejo_runner_sweep_script }}"
+    mode: '0755'
+  when: forgejo_runner_sweep_enabled
+
+- name: Deploy runner cache sweep LaunchAgent plist
+  ansible.builtin.template:
+    src: runner-cache-sweep.plist.j2
+    dest: "{{ forgejo_runner_sweep_plist }}"
+    mode: '0644'
+  notify: Reload runner-cache-sweep
+  when: forgejo_runner_sweep_enabled
+
+- name: Check if runner cache sweep LaunchAgent is loaded
+  ansible.builtin.command: launchctl list {{ forgejo_runner_sweep_label }}
+  register: forgejo_runner_sweep_launchctl_check
+  changed_when: false
+  failed_when: false
+  when: forgejo_runner_sweep_enabled
+
+- name: Load runner cache sweep LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load {{ forgejo_runner_sweep_plist }}
+  when: forgejo_runner_sweep_enabled and forgejo_runner_sweep_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false
+
+- name: Unload runner cache sweep LaunchAgent if disabled
+  ansible.builtin.command: launchctl unload {{ forgejo_runner_sweep_plist }}
+  when: not forgejo_runner_sweep_enabled
+  failed_when: false
+  changed_when: true
+
+- name: Remove runner cache sweep LaunchAgent plist if disabled
+  ansible.builtin.file:
+    path: "{{ forgejo_runner_sweep_plist }}"
+    state: absent
+  when: not forgejo_runner_sweep_enabled
+
+- name: Remove runner cache sweep script if disabled
+  ansible.builtin.file:
+    path: "{{ forgejo_runner_sweep_script }}"
+    state: absent
+  when: not forgejo_runner_sweep_enabled

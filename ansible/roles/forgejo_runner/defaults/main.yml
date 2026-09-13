@@ -29,7 +29,7 @@ forgejo_runner_launch_agent_plist: ~/Library/LaunchAgents/mcquack.eblume.forgejo
 
 forgejo_runner_forge_url: https://forge.ops.eblu.me/
 forgejo_runner_capacity: 2
-forgejo_runner_timeout: 3h
+forgejo_runner_timeout: 3h  # must stay below forgejo_runner_sweep_age_minutes
 
 # Zero-permission GitHub PAT (public read only) injected into every job as
 # MISE_GITHUB_TOKEN so mise tool resolution runs authenticated. Fetched from
@@ -116,7 +116,24 @@ forgejo_runner_cache_prune_minute: 30
 forgejo_runner_cache_prune_drain_max_s: 10800  # mirrors shutdown_timeout (3h)
 forgejo_runner_cache_prune_script: /Users/erichblume/.local/bin/mcquack-runner-cache-prune
 forgejo_runner_cache_prune_plist: ~/Library/LaunchAgents/mcquack.eblume.runner-cache-prune.plist
-# The uv cache the prune targets. Exported into the agent environment so
-# launchd's `uv` prunes the same dir interactive shells use (uv's macOS
-# default would be ~/Library/Caches/uv).
+# The uv cache both maintenance agents target. Exported into the agent
+# environment so launchd's `uv` operates on the same dir interactive
+# shells use (uv's macOS default would be ~/Library/Caches/uv).
 forgejo_runner_uv_cache_dir: /Users/erichblume/.cache/uv
+
+# Nightly launchd sweep of leaked per-script uv environments (eblume/
+# blumeops#1063; "Cache Maintenance" in docs/reference/services/
+# forgejo-runner.md). The age threshold must stay larger than the
+# runner's 3h job timeout: a live job's env is created when its job
+# starts, so 4h guarantees a live env is never swept.
+forgejo_runner_sweep_enabled: true
+forgejo_runner_sweep_label: mcquack.eblume.runner-cache-sweep
+forgejo_runner_sweep_script: "{{ forgejo_runner_home }}/bin/runner-cache-sweep.sh"
+forgejo_runner_sweep_plist: ~/Library/LaunchAgents/mcquack.eblume.runner-cache-sweep.plist
+forgejo_runner_sweep_hour: 5
+forgejo_runner_sweep_minute: 30
+forgejo_runner_sweep_age_minutes: 240
+# Host-mode jobs run as erichblume (HOME=/Users/erichblume), so the caches
+# leak under the user home, not the daemon home above; the uv cache is
+# forgejo_runner_uv_cache_dir.
+forgejo_runner_sweep_prek_cache_dir: /Users/erichblume/.cache/prek

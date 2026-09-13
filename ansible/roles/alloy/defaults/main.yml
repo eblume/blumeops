@@ -119,6 +119,12 @@ alloy_mcquack_logs:
   - path: /Users/erichblume/Library/Logs/mcquack.forgejo-runner.err.log
     service: forgejo-runner
     stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.runner-cache-sweep.out.log
+    service: runner-cache-sweep
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.runner-cache-sweep.err.log
+    service: runner-cache-sweep
+    stream: stderr
   - path: /Users/erichblume/Library/Logs/mcquack.caddy.out.log
     service: caddy
     stream: stdout
