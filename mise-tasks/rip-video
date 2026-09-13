@@ -92,10 +92,10 @@ def duration_seconds(text: str) -> int:
     return secs
 
 
-def makemkv_info(disc_index: int | None) -> tuple[int, str, list[dict], str]:
+def makemkv_info(disc_index: int | None, min_length: int) -> tuple[int, str, list[dict], str]:
     """Title inventory for the disc. Returns (disc index, label, titles, raw log)."""
     probe = subprocess.run(
-        ["makemkvcon", "-r", "--cache=1", "info", f"disc:{disc_index if disc_index is not None else 9999}"],
+        ["makemkvcon", "-r", "--cache=1", f"--minlength={min_length}", "info", f"disc:{disc_index if disc_index is not None else 9999}"],
         capture_output=True, text=True, check=False,
     )
     drives, _, _ = parse_info(probe.stdout)
@@ -107,7 +107,7 @@ def makemkv_info(disc_index: int | None) -> tuple[int, str, list[dict], str]:
             raise typer.Exit(1)
         disc_index = loaded[0]["index"]
         info = subprocess.run(
-            ["makemkvcon", "-r", "--cache=1", "info", f"disc:{disc_index}"],
+            ["makemkvcon", "-r", "--cache=1", f"--minlength={min_length}", "info", f"disc:{disc_index}"],
             capture_output=True, text=True, check=False,
         )
     else:
@@ -175,18 +175,18 @@ def rip(disc_index: int, staging: Path, min_length: int, title_ids: list[int] | 
     """Run makemkvcon mkv, relaying its messages; returns its exit code.
 
     Title ids are assigned by makemkvcon at scan time *after* its minimum
-    length filter, so `mkv all --minlength=600` renumbers the survivors
-    (the inventory's t06 comes out as t01). Explicit ids therefore run
-    without --minlength, one title per pass, so they mean what the inventory
-    said; the `all` pass keeps --minlength for a single read of the disc and
-    `reconcile_outputs` renames its files back to the inventory's names.
+    length filter, so the inventory scan and the rip must use the same
+    --minlength or the ids and output names drift (a 600 s rip of an
+    inventory scanned at makemkvcon's 120 s default renumbered t06 to t01;
+    a 60 s rip of the same inventory produced 29 files for 13 titles).
+    Every makemkvcon call here passes the task's --min-length, and
+    `reconcile_outputs` is the safety net if they still differ.
     """
     targets = [str(t) for t in title_ids] if title_ids else ["all"]
     log = (staging / "makemkv.log").open("a")
     code = 0
     for target in targets:
-        length_opt = [] if title_ids else [f"--minlength={min_length}"]
-        cmd = ["makemkvcon", "-r", "--progress=-stdout", *length_opt, "mkv", f"disc:{disc_index}", target, str(staging)]
+        cmd = ["makemkvcon", "-r", "--progress=-stdout", f"--minlength={min_length}", "mkv", f"disc:{disc_index}", target, str(staging)]
         console.print(f"[bold]{escape(' '.join(cmd))}[/bold]")
         with subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, bufsize=1) as proc:
             last_pct = -1
@@ -254,7 +254,7 @@ def main(
 ) -> None:
     """Rip a DVD or Blu-ray to a staging dir for labeling."""
     require("makemkvcon", "drutil")
-    disc_index, label, titles, raw = makemkv_info(disc)
+    disc_index, label, titles, raw = makemkv_info(disc, min_length)
     wanted = [int(t) for t in titles_opt.split(",") if t.strip()] or None
     kept = [t for t in titles if (wanted and t["id"] in wanted) or (not wanted and t["seconds"] >= min_length)]
     if not kept:
