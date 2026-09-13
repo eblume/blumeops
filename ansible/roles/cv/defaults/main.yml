@@ -7,7 +7,7 @@
 # (eblume/horkos#17); the pin PR that bumps cv_version comes from the same
 # publisher.
 
-cv_version: "v1.0.3"
+cv_version: "v1.0.4"
 cv_registry: "registry.ops.eblu.me"
 cv_image: "blumeops/cv"
 cv_home: /Users/erichblume/blumeops/cv

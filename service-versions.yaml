@@ -359,7 +359,7 @@ services:
   - name: cv
     type: ansible
     last-reviewed: 2026-09-08
-    current-version: "1.0.3"
+    current-version: "v1.0.4"
     upstream-source: https://forge.eblu.me/eblume/cv
     notes: >-
       Tarball published as the OCI artifact registry.ops.eblu.me/blumeops/cv:<version>
