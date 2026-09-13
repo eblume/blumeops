@@ -114,6 +114,12 @@ Set `kind`:
   `"E3:Episode Title"`, `"E3-4"` for a double episode, or `null`.
   `season_dir` overrides the `Season NN` folder name for shows already
   filed with another convention.
+  Bonus-disc material takes `"extra:<Name>"` (filed under the season's
+  `extras/`) or `"extra:<kind>/<Name>"` with a Jellyfin extras folder name —
+  `featurettes`, `deleted scenes`, `behind the scenes`, `interviews`,
+  `trailers` — and shows up under that season's Extras in Jellyfin with no
+  sidecar metadata. Rip a bonus disc with `--min-length 60`, since most of
+  its titles are shorter than the default cutoff.
 
 ```fish
 mise run rip-video-finish ~/rips/video/<dir> --dry-run

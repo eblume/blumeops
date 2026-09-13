@@ -8,3 +8,6 @@ force-unmounts the disc volume first (as `rip-cd` now does). Found on The
 Prestige. See [[rip-a-disc]].
 The how-to also gains a section on discs that will not read: the drive
 wedge, and imaging with ddrescue before ripping from the image.
+`rip-video-finish` also accepts `extra:<Name>` and `extra:<kind>/<Name>`
+targets for TV, filing bonus-disc material into the season's Jellyfin
+extras folders.
