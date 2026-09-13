@@ -1,0 +1,1 @@
+zot: retire the grandfathered zot-talos / zot-horkos identities (blueprint users + zot-apikey-rotate entries); both release-CI identities are cut over and verified as talos-zot / horkos-zot (eblume/blumeops#1039 step 2)
