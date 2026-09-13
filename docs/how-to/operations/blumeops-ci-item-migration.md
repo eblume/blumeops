@@ -34,7 +34,7 @@ release CI now consume `ZOT_CI_API_KEY` and `RELEASE_FORGE_TOKEN` too.
 | `argocd-deploy` | `ARGOCD_AUTH_TOKEN` | `w3663ffn…/argocd_token` (workflow-bot, get/sync/update) | **migrated** (pilot) → `blumeops-ci/argocd-workflow-bot` |
 | `build-container`; talos + horkos `release.yaml` | `ZOT_CI_API_KEY` | `w3663ffn…/zot-ci-api` | **migrated** → `blumeops-ci/zot-ci` |
 | `deploy-fly` | `FLY_DEPLOY_TOKEN` | `on5slfay…/deploy-token` | **migrated** → `blumeops-ci/fly-deploy` |
-| `build-blumeops`, `cv-deploy` | `MAIN_PUSH_TOKEN` | `blumeops-main-push-token/token` (eblume PAT, write:repository) | **migrated, eyes open** — it pushes protected `main` → `blumeops-ci/forge-main-push` |
+| `build-blumeops` | `MAIN_PUSH_TOKEN` | `blumeops-main-push-token/token` (eblume PAT, write:repository) | **migrated, eyes open** — it pushes protected `main` → `blumeops-ci/forge-main-push` |
 | talos + horkos `release.yaml` | `RELEASE_FORGE_TOKEN` | `horkos-forge-token/token` (horkos-forge PAT, write on blumeops — branch push + PR open, cannot merge or dispatch) | **migrated 2026-08-26** → `blumeops-ci/horkos-dispatch` (eblume/talos#55, eblume/horkos#9). The rotation friction showed up: the run-script executor needed the same PAT CI-readable, which would have made three independently-rotating copies. Now two, reconciled by `horkos-forge-provision`. |
 | `agent-repo-access`, `horkos-forge-drift` | `FORGE_REPO_WRITE_TOKEN` (was `FORGE_ADMIN_TOKEN`) | `forge-repo-write-token/token` (eblume PAT, `write:repository,read:user`; was `w3663ffn…/api-token`, the admin PAT) | **narrowed 2026-08-22** — no longer the admin PAT; migration into `blumeops-ci` can now proceed as a follow-up |
 | all | `GITHUB_TOKEN` | forge-injected | n/a |
@@ -105,7 +105,7 @@ follow-up now that it needs no provisioning):
 | `argocd-workflow-bot` | `token` | `w3663ffn…/argocd_token` | `argocd-deploy.yaml` |
 | `zot-ci` | `api-key` | `w3663ffn…/zot-ci-api` | `build-container.yaml`; talos + horkos `release.yaml` |
 | `fly-deploy` | `token` | `on5slfay…/deploy-token` | `deploy-fly.yaml` |
-| `forge-main-push` | `token` | `blumeops-main-push-token/token` | `build-blumeops.yaml`, `cv-deploy.yaml` |
+| `forge-main-push` | `token` | `blumeops-main-push-token/token` | `build-blumeops.yaml` |
 
 `FORGE_REPO_WRITE_TOKEN`: **not yet migrated to `blumeops-ci`** — but the
 prerequisite is done (heph `01KZ5ESS2G…`, 2026-08-22): it is now the

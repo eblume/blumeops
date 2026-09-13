@@ -57,7 +57,7 @@ Migrated from minikube to indri-native on 2026-04-29 (see [[cv-on-indri]]).
 
 ## Release flow
 
-1. Release a new package from the cv repo (`Release CV` workflow)
+1. Run the `Release CV` workflow in the cv repo → produces a new release asset
 2. The pin is the horkos publisher's PR — merging it bumps the pin, and `mise run provision-indri -- --tags cv` deploys (see the horkos#17 release flow)
 3. Purge the Fly.io proxy cache so the new content is fetched
 
