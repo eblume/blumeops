@@ -9,11 +9,40 @@
   # See [[upgrade-forgejo]] §Go toolchain.
   vars:
     indri_go_version: "1.26.7"
+    # Floor for the nix-darwin-provided mise binary (indri's mise is not
+    # managed by this play). Must be >= 2025.8.11, where prek entered the
+    # mise registry (the global mise config and `mise prune` need it), and
+    # comfortably above the 17-month-stale 2025.4.11 it caught. See
+    # [[indri]] §Toolchain.
+    indri_mise_min_version: "2025.11.0"
 
   # Fetch 1Password credentials upfront to minimize prompts
   # Each role also fetches its own credentials (with 'when: <var> is not defined')
   # so they still work when running with --tags
   pre_tasks:
+    # The mise binary itself comes from a nix-darwin pin outside this repo;
+    # a stale one breaks everything below (go.set_goroot silently rejected,
+    # prek missing from the registry, `mise prune` erroring). Fail at the
+    # top instead of deep in a role. See [[indri]] §Toolchain.
+    - name: Check mise version
+      ansible.builtin.command: mise --version
+      register: mise_version
+      changed_when: false
+      check_mode: false
+      environment:
+        PATH: "/Users/erichblume/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      tags: [mise, forgejo, forgejo_runner, zot]
+
+    - name: Fail if mise is older than the required floor
+      ansible.builtin.fail:
+        msg: >-
+          mise {{ mise_version.stdout.split(' ')[0] }} is older than the
+          required floor {{ indri_mise_min_version }} — the nix-darwin pin
+          is stale. Bump it and run `darwin-rebuild switch`, see [[indri]]
+          §Toolchain.
+      when: mise_version.stdout.split(' ')[0] is version(indri_mise_min_version, '<')
+      tags: [mise, forgejo, forgejo_runner, zot]
+
     # Global mise baseline for the source builds: mise exports GOROOT by
     # default (go.set_goroot), and an exported GOROOT breaks Go's
     # GOTOOLCHAIN=auto switching — the auto-switched driver resolves
