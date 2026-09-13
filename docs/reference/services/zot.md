@@ -95,6 +95,8 @@ API-token impersonation (`POST /api/v3/core/users/<pk>/impersonate/`) has
 none, so it bounces to the login flow. Browser impersonation works because it
 rides on your own logged-in session.
 
+The identity's user must exist first — the blueprint worker creates it on ArgoCD sync. Check for it in the Authentik admin UI, not with `--dry-run`: for a fresh identity the master field in 1Password does not exist until the first rotation, so `--dry-run` fails on a missing field and says nothing about whether the user exists.
+
 
 1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `talos-zot`, `horkos-zot` or `zot-cv`)
 2. Visit `https://registry.ops.eblu.me` and click "SIGN IN WITH OIDC"
@@ -104,6 +106,7 @@ rides on your own logged-in session.
    ```fish
    pbpaste | mise run zot-apikey-rotate talos-zot --key-stdin
    ```
+   `pbpaste` is macOS (gilbert). On ringtail the equivalent is `nix shell nixpkgs#wl-clipboard -c wl-paste -n | mise run zot-apikey-rotate <identity> --key-stdin`.
    That verifies the pasted key, mints the real one, stores it, syncs the
    consumer and revokes the pasted bootstrap key in one step.
 
