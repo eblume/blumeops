@@ -207,32 +207,6 @@ data:
           groups:
             - !KeyOf artifact-workloads-group
 
-      # Service account for talos release CI push (admin sets password via UI after deploy)
-      - model: authentik_core.user
-        id: zot-talos-user
-        identifiers:
-          username: zot-talos
-        attrs:
-          username: zot-talos
-          name: Zot Talos Service Account
-          type: service_account
-          is_active: true
-          groups:
-            - !KeyOf talos-artifacts-group
-
-      # Service account for horkos release CI push (admin sets password via UI after deploy)
-      - model: authentik_core.user
-        id: zot-horkos-user
-        identifiers:
-          username: zot-horkos
-        attrs:
-          username: zot-horkos
-          name: Zot Horkos Service Account
-          type: service_account
-          is_active: true
-          groups:
-            - !KeyOf horkos-artifacts-group
-
       # Service account for the horkos publisher's cv tarball push (admin sets password via UI after deploy)
       - model: authentik_core.user
         id: zot-cv-user
@@ -246,10 +220,7 @@ data:
           groups:
             - !KeyOf cv-artifacts-group
 
-      # Tier-first (eblume/blumeops#1039 step 2) zot push identities. The blueprint
-      # identifies users by username, so these are created alongside the grandfathered
-      # zot-talos / zot-horkos rather than renamed in place; the old users are retired
-      # once the release-CI keys are re-minted for the new identities.
+      # Tier-first (eblume/blumeops#1039 step 2) zot push identities.
       - model: authentik_core.user
         id: talos-zot-user
         identifiers:

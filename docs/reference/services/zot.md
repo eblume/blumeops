@@ -44,7 +44,6 @@ OIDC authentication via [[authentik]], with API key support for CI.
 | `artifact-workloads` group | read, create | CI push (new tags only, no overwrite/delete) |
 | `admins` group | read, create, update, delete | Break-glass admin access |
 | `talos-zot`, `horkos-zot` | create, update on their own image path only | per-repo release-CI push key (horkos#17 step 3) |
-| `zot-talos`, `zot-horkos` | create, update on their own image path only | grandfathered per-repo release-CI push keys, retired in the tier-first rename (eblume/blumeops#1039 step 2) |
 | `zot-cv` | create, update on its own path only | the horkos publisher's push identity for cv tarballs (horkos#17 step 4), consumed by the horkos deployment via ESO, not by any repo CI |
 
 CI authenticates with a zot API key generated from the `zot-ci` service account's OIDC session. The key is stored in the `Forgejo Secrets` 1Password item (field `zot-ci-api`) and synced to Forgejo Actions secrets via ansible.
@@ -57,30 +56,24 @@ Every CI key expires after **90 days**. Rotation is a command, not a browser
 session:
 
 ```fish
-mise run zot-apikey-rotate zot-ci        # or zot-talos, zot-horkos, talos-zot, horkos-zot, zot-cv
+mise run zot-apikey-rotate zot-ci        # or talos-zot, horkos-zot, zot-cv
 mise run zot-apikey-rotate zot-ci --dry-run   # just prove the current key still works
 ```
 
 zot's key-management endpoints accept an API key as basic-auth credentials,
 so a live key mints its own successor.
 
-**Tier-first rename (in progress).** The per-repo push identities are being
-renamed to the tier-first scheme of eblume/blumeops#1039 (`zot-talos` →
-`talos-zot`, `zot-horkos` → `horkos-zot`). The Authentik blueprint identifies
-users by username, so the new users are created alongside the old ones and
-each identity's key is re-minted for the new user at the cutover; the old
-users are deleted only after the release-CI `--dest-creds` username on
-`eblume/talos` / `eblume/horkos` is flipped and a release push is verified.
-Until then the old names and keys keep working unchanged.
+**Tier-first rename (complete).** The per-repo push identities were
+renamed to the tier-first scheme of eblume/blumeops#1039 (`talos-zot` /
+`horkos-zot`). Both cut overs are done — a release push was verified
+under each new identity — and the grandfathered identities are retired.
 
 The task reads the current key from the `Forgejo Secrets` item (blumeops
-vault; fields `zot-ci-api`, `zot-talos-api`, `zot-horkos-api`,
-`talos-zot-api`, `horkos-zot-api`, `zot-cv-api`), mints a new one, proves the
+vault; fields `zot-ci-api`, `talos-zot-api`, `horkos-zot-api`, `zot-cv-api`), mints a new one, proves the
 new key authenticates, writes the master copy back, writes the consumer copy
 — `blumeops-ci/zot-ci` (`api-key`) for `zot-ci`, the `ZOT_PUSH_API_KEY`
 Actions secret on `eblume/talos` / `eblume/horkos` for the per-repo
-identities (tier-first `talos-zot` / `horkos-zot` share the same consumer
-secret as the grandfathered `zot-talos` / `zot-horkos`) — and then revokes
+push identities (`talos-zot` / `horkos-zot`) — and then revokes
 every other key the identity holds (`--keep-others` to skip). Any failure
 before the writes leaves the old key valid and its consumer untouched. Key
 material never touches argv or the terminal.
@@ -102,15 +95,18 @@ API-token impersonation (`POST /api/v3/core/users/<pk>/impersonate/`) has
 none, so it bounces to the login flow. Browser impersonation works because it
 rides on your own logged-in session.
 
+The identity's user must exist first — the blueprint worker creates it on ArgoCD sync. Check for it in the Authentik admin UI, not with `--dry-run`: for a fresh identity the master field in 1Password does not exist until the first rotation, so `--dry-run` fails on a missing field and says nothing about whether the user exists.
 
-1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `zot-talos`, `zot-horkos`, `talos-zot`, `horkos-zot` or `zot-cv`)
+
+1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `talos-zot`, `horkos-zot` or `zot-cv`)
 2. Visit `https://registry.ops.eblu.me` and click "SIGN IN WITH OIDC"
 3. Navigate to `https://registry.ops.eblu.me/user/apikey`, generate a key
    (any expiry — it is about to be retired), copy it
 4. Stop impersonating, then hand the key to the task from the clipboard:
    ```fish
-   pbpaste | mise run zot-apikey-rotate zot-talos --key-stdin
+   pbpaste | mise run zot-apikey-rotate talos-zot --key-stdin
    ```
+   `pbpaste` is macOS (gilbert). On ringtail the equivalent is `nix shell nixpkgs#wl-clipboard -c wl-paste -n | mise run zot-apikey-rotate <identity> --key-stdin`.
    That verifies the pasted key, mints the real one, stores it, syncs the
    consumer and revokes the pasted bootstrap key in one step.
 
