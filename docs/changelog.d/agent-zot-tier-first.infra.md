@@ -1,0 +1,1 @@
+zot: create the tier-first release-CI identities `talos-zot` / `horkos-zot` (Authentik blueprint + `zot-apikey-rotate`) alongside the grandfathered `zot-talos` / `zot-horkos` (eblume/blumeops#1039 step 2); the old users are retired after the release-CI keys are re-minted and cut over
