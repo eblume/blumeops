@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-08-29
+modified: 2026-09-13
 last-reviewed: 2026-08-29
 tags:
   - service
@@ -194,6 +194,44 @@ Request latency is measured at the Fly.io proxy layer via the `flyio_nginx_upstr
 ### Archive Cleanup
 
 The `[cron.archive_cleanup]` section is enabled with `OLDER_THAN = 2h` and `RUN_AT_START = true`. This prevents the `repo-archive/` directory from growing unboundedly when crawlers or users trigger archive downloads. Without this, the directory grew to 54GB in 2 days during a crawler incident in April 2026.
+
+### Database hygiene
+
+The SQLite database (`data/forgejo.db`) does not shrink on its own: deletes
+only mark pages reusable. Two crons bound the tables that grow unbounded:
+
+- `[cron.delete_old_system_notices]` — weekly (`@every 168h`,
+  `RUN_AT_START = true`), drops system notices older than
+  `forgejo_old_notices_retention` (default `720h`, 30 days). The `notice`
+  table had grown to 146k rows of pure history (mirror-sync failures,
+  closed-pipe webhooks) before this.
+- `[cron.delete_old_actions]` — weekly, drops activity-feed (`action`
+  table) entries older than `forgejo_old_actions_retention` (default
+  `2160h`, 90 days). **Caveat:** this deletes the *whole* feed older than
+  the cutoff — dashboard timeline and profile heatmap included, not just
+  the mirror-sync rows — and Forgejo has no per-org switch for mirror-sync
+  feed entries. The `mirrors` user's sync events dominated the table
+  (~40M/month of full commit lists). 90 days was chosen because the feed is
+  rarely consulted and git history is the record; raise the retention if a
+  longer feed is wanted.
+
+Neither cron shrinks the file. To reclaim space, stop Forgejo and run
+`sqlite3 ~/forgejo/data/forgejo.db 'VACUUM;'` during a quiet window (same
+window shape as [[upgrade-forgejo]]). Upgrade-time `forgejo.db.bak-*`
+copies are deleted once the upgrade proves out; borgmatic already holds
+nightly DB dumps.
+
+`[cron.git_gc_repos]` is deliberately left disabled (Forgejo default).
+`eblume/blumeops.git` had 47 packs / 1,209 loose objects at the time of
+writing — moderate, and git's own auto-gc bounds it. If the loose-object
+count keeps climbing, enable it:
+
+```ini
+[cron.git_gc_repos]
+ENABLED = true
+RUN_AT_START = true
+SCHEDULE = @every 168h
+```
 
 ## Mirrors
 
