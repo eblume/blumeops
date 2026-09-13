@@ -32,7 +32,7 @@ spec:
               value: /data/horkos.db
             # Armed from day one — horkos inherits warrant's armed state
             # (warrant armed 2026-08-03). Approving a request dispatches its
-            # workflow as warrant-bot. To disarm, set "0" and sync — the
+            # workflow as horkos-forge. To disarm, set "0" and sync — the
             # credential stays in place but is ignored.
             - name: HORKOS_DISPATCH_ENABLED
               value: "1"

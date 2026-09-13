@@ -14,14 +14,16 @@ tags:
 > **The broker is now [[horkos]]** (2026-08-20): the Warrant *service* was
 > renamed Horkos (Ὅρκος, the oath daimon) and extracted to its own repo,
 > `eblume/horkos`, with auto-release on merge. The *program* documented here,
-> the minted **warrant** artifact, `warrant-policy.yaml`, and `warrant-bot`
-> all keep their names — a warrant is still what Horkos mints. Historical
+> the minted **warrant** artifact, and `warrant-policy.yaml` keep their names
+> — a warrant is still what Horkos mints — while the dispatch identity has
+> moved from the grandfathered `warrant-bot` to `horkos-forge`
+> (blumeops#1039). Historical
 > prose below says "Warrant" where it meant the service; read it as Horkos.
 
 > **Status: BUILT AND RUNNING** (2026-08-04). Proposed 2026-08-01, accepted
 > after review (PR #455), and delivered across phases 0-4 in the days that
 > followed. Agents now request privileged actions with
-> `mise run request-run`; Erich approves in [[horkos]]; `warrant-bot`
+> `mise run request-run`; Erich approves in [[horkos]]; `horkos-forge`
 > dispatches. First self-dispatched run: 713 (`argocd-deploy` on ntfy,
 > 2026-08-03). This doc remains the program's north star and its record of
 > *why*; per-phase state is below.
@@ -332,11 +334,11 @@ to mirror into heph wholesale.
   SHA, dispatcher, outcome) as a `heph log` entry on a standing
   "Privileged runs" heph task, via the hub on indri:8787. Also a weekly ntfy
   digest of runs + pending requests, so nothing silently rots.
-- **Drift verification for the dispatch identity** (done). `warrant-bot` is
+- **Drift verification for the dispatch identity** (done). `horkos-forge` is
   minted by a human on gilbert precisely so that granting a persistent
   privileged identity stays a ceremony — but a ceremony's *result* can be
   undone in the forge UI in five seconds, and none of it is version-controlled
-  here, so no diff would ever show it. `mise run warrant-bot-drift` asserts the
+  here, so no diff would ever show it. `mise run horkos-forge-drift` asserts the
   four facts that bound the blast radius (exactly write, blumeops only, not a
   site admin, not on `main`'s whitelist) and runs weekly. Read-only by
   construction: creating the credential and checking it are opposite kinds of
@@ -566,7 +568,7 @@ report authenticates with the dispatch token as Bearer. The report finds its
 warrant by the forge run number Horkos stamps on dispatch.
 
 The blumeops-ci vault carries `horkos-dispatch` (field `token`), a mirror of
-`op://blumeops/warrant-dispatch-token/token` (the warrant-bot PAT). That is
+`op://blumeops/horkos-forge-token/token` (the horkos-forge PAT). That is
 per the one-CI-trust-tier decision above: the tier already includes push to
 blumeops main via `forge-main-push`, so the token adds no new tier — and it
 lets CI do the one thing its jobs must do, prove the run to Horkos.
@@ -576,7 +578,7 @@ opposite sides of a fence: 1Password Connect (external-secrets, feeding the
 pod) is provisioned `--vaults blumeops`, and the CI service account can read
 only `blumeops-ci`. Neither can be widened without handing one side the
 other's whole vault. So the mirror is written by `mise run
-warrant-bot-provision` — the same ceremony that mints the PAT — on every run,
+horkos-forge-provision` — the same ceremony that mints the PAT — on every run,
 not just on `--rotate`, which makes that task the drift check as well. A
 hand-copied mirror survives exactly until the first rotation, and it fails as
 a 401 in a release job that points nowhere near the vault.

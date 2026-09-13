@@ -88,7 +88,7 @@ The forge has three namespaces:
 | `flake-update` | dispatch | `nix-container-builder` | Ringtail flake input update (native nix on the ringtail nix runner) |
 | `lint` | PR/push | `indri` | Repo lint (prek hooks) |
 | `run-script` | dispatch | `priv` | Warrant-gated one-off script run |
-| `warrant-bot-drift` | cron/push/dispatch | `indri` | Weekly drift check on the warrant-bot's grants |
+| `horkos-forge-drift` | cron/push/dispatch | `indri` | Weekly drift check on horkos-forge's grants |
 
 (Until [[retire-minikube]] a `k8s` runner was a minikube DinD pod that also built Dockerfile/Dagger containers; that path is retired.)
 
@@ -115,8 +115,8 @@ mise run provision-indri -- --tags forgejo_actions_secrets
 
 | Repo | Secrets | Purpose |
 |------|---------|---------|
-| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `agent-repo-access` reconcile + `warrant-bot-drift` reads (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
-| `eblume/talos`, `eblume/horkos` | `BLUMEOPS_CI_OP_TOKEN`, `RELEASE_FORGE_TOKEN` | Auto-release CI: job-time zot push key; warrant-bot PAT pushes the pin-bump branch + opens the PR on blumeops |
+| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `agent-repo-access` reconcile + `horkos-forge-drift` reads (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
+| `eblume/talos`, `eblume/horkos` | `BLUMEOPS_CI_OP_TOKEN`, `RELEASE_FORGE_TOKEN` | Auto-release CI: job-time zot push key; horkos-forge PAT pushes the pin-bump branch + opens the PR on blumeops |
 | `eblume/cv` | `FORGE_TOKEN` | CV deploy workflow |
 
 The per-purpose secrets the role used to sync (argocd token, fly deploy

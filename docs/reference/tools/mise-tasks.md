@@ -73,8 +73,8 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `tailnet-preview` | [human] Preview tailnet changes with Pulumi |
 | `tailnet-up` | [human] Apply tailnet changes with Pulumi |
 | `verify-runs` | Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit) |
-| `warrant-bot-drift` | [human] Assert warrant-bot still holds exactly write on blumeops and nothing more (read-only) |
-| `warrant-bot-provision` | [human] Provision the warrant-bot forge identity + dispatch PAT (gilbert, human-run) |
+| `horkos-forge-drift` | [human] Assert horkos-forge still holds exactly write on blumeops and nothing more (read-only) |
+| `horkos-forge-provision` | [human] Provision the horkos-forge forge identity + dispatch PAT (gilbert, human-run) |
 
 ## Related
 

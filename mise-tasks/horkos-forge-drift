@@ -3,12 +3,12 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.1"]
 # ///
-#MISE description="[human] Assert warrant-bot still holds exactly write on blumeops and nothing more (read-only)"
+#MISE description="[human] Assert horkos-forge still holds exactly write on blumeops and nothing more (read-only)"
 #USAGE flag "--token <token>" help="Forgejo API token; the caller must be admin on eblume/blumeops (default: 1Password)"
 #USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when $FORGE_REPO_WRITE_TOKEN is unset (CI bootstrap)"
-"""Verify the blast radius of `warrant-bot` — the identity Warrant dispatches as.
+"""Verify the blast radius of `horkos-forge` — the identity Horkos dispatches approved runs as.
 
-Reads only. Changes nothing, ever. `warrant-bot-provision` is the human
+Reads only. Changes nothing, ever. `horkos-forge-provision` is the human
 ceremony that *creates* this identity and is deliberately not a workflow;
 verifying it hasn't drifted since is the half that belongs in CI, and this is
 that half.
@@ -30,21 +30,21 @@ this repo, so nothing else would notice. That is exactly the shape of drift
 worth a CI job.
 
 Deliberately NOT checked: the PAT's own scopes. Reading another user's tokens
-needs that user's basic auth, and stashing warrant-bot's password anywhere
+needs that user's basic auth, and stashing horkos-forge's password anywhere
 this job can reach would create a worse hole than the one it audits. Scope is
-pinned at mint time in `warrant-bot-provision`; rotation goes through the same
+pinned at mint time in `horkos-forge-provision`; rotation goes through the same
 script.
 
 Needs a token whose *user* is admin on eblume/blumeops (collaborator
 permissions and branch protections are repo-admin-level reads); the token
 *scopes* only need `write:repository,read:user` (the latter for the
-site-admin check on /users/warrant-bot) — the CI secret is a narrowly-scoped
+site-admin check on /users/horkos-forge) — the CI secret is a narrowly-scoped
 eblume PAT, not the admin PAT. Resolution order matches `agent-repo-access` —
 see resolve_token there for why it is deliberately narrow.
 
 Usage:
-    mise run warrant-bot-drift               # exit 1 on drift
-    mise run warrant-bot-drift -- --token X  # explicit credential
+    mise run horkos-forge-drift               # exit 1 on drift
+    mise run horkos-forge-drift -- --token X  # explicit credential
 """
 
 import os
@@ -56,15 +56,15 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 
-# Tailnet name, as warrant-bot-provision uses: runnable wherever the token is
+# Tailnet name, as horkos-forge-provision uses: runnable wherever the token is
 # — gilbert, indri, or an agent pod (via the egress gateway). The public
 # forge.eblu.me is HTTPS-poison in-cluster (docs/reference/services/argocd.md).
 FORGE_URL = "https://forge.ops.eblu.me"
-BOT_USER = "warrant-bot"
+BOT_USER = "horkos-forge"
 OWNER, REPO = "eblume", "blumeops"
 PROTECTED_BRANCH = "main"
 EXPECTED_ACCESS = "write"
-# Who may push to / merge into main. warrant-bot appearing here would turn its
+# Who may push to / merge into main. horkos-forge appearing here would turn its
 # dispatch grant into a path to production without review.
 EXPECTED_MAIN_WHITELIST = {"eblume"}
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
@@ -291,11 +291,11 @@ def main(
         check_main_protection(client, report)
 
     if report.failures:
-        err.print(f"\n{len(report.failures)} finding(s) — warrant-bot's blast radius has drifted:")
+        err.print(f"\n{len(report.failures)} finding(s) — horkos-forge's blast radius has drifted:")
         for finding in report.failures:
             err.print(f"  · {escape(finding)}")
         err.print(
-            "\nReconcile with `mise run warrant-bot-provision --dry-run` (gilbert), or "
+            "\nReconcile with `mise run horkos-forge-provision --dry-run` (gilbert), or "
             "fix the branch protection in the forge UI. If a change was intended, update "
             "the expectations at the top of this script in the same PR."
         )

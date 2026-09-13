@@ -145,7 +145,7 @@ Approvals happen in [[horkos]] — https://horkos.ops.eblu.me:
 2. **Read the change**: the row links the PR, its diff, and the commit.
 3. `approve…` → the confirm page shows the full input set and states the
    effect → approve. Horkos mints a single-use warrant and dispatches the
-   workflow as `warrant-bot`; the run is linked on the warrant.
+   workflow as `horkos-forge`; the run is linked on the warrant.
 4. **deny** is inline on the row (with a note). Deny anything already
    executed — the queue records intent, not history.
 
