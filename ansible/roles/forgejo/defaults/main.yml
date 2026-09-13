@@ -75,3 +75,10 @@ forgejo_log_level: info
 # Actions (Forgejo CI)
 forgejo_actions_enabled: true
 forgejo_actions_default_url: https://code.forgejo.org
+
+# Retention for the delete_old_system_notices / delete_old_actions crons.
+# The actions one deletes the whole activity feed (dashboard timeline,
+# profile heatmap), not just the mirror-sync rows — raise, not lower, if a
+# longer feed is wanted (mirror rows are ~40M/month).
+forgejo_old_notices_retention: "720h"
+forgejo_old_actions_retention: "2160h"

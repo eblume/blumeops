@@ -1,0 +1,1 @@
+Enable `[cron.delete_old_system_notices]` and `[cron.delete_old_actions]` on Forgejo (30d / 90d retention) to bound `forgejo.db` growth on indri, and document the vacuum/bak procedure on the forgejo card. Part of [eblume/blumeops#1064](https://forge.eblu.me/eblume/blumeops/issues/1064).
