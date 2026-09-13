@@ -126,6 +126,36 @@ Files go to `/Volumes/allisonflix/Movies/<Title (Year)>/<Title (Year)>.mkv`
 which [[jellyfin]] parses without any sidecar metadata. Nothing in the
 library is ever overwritten; a clash aborts the whole move.
 
+## A disc that will not read
+
+Counterfeit pressings (shrink-wrapped, InterActual files and all) show up
+as `MEDIUM ERROR: L-EC UNCORRECTABLE ERROR` in makemkvcon's messages, then
+`Failed to save title N`. Cleaning rarely helps; the sectors are bad in the
+plastic. Two things to know:
+
+- **The drive wedges.** On these sectors the Pioneer retries inside its
+  firmware for minutes, the reading process sits in an uninterruptible
+  wait at zero CPU, and afterwards `drutil status` and `diskutil eject`
+  hang too. Kill the reader, then press the drive's eject button or
+  replug its USB cable. Nothing software-side clears it.
+- **Image it, then rip the image.** `brew install ddrescue`, unmount the
+  volume (`diskutil unmount force /Volumes/<label>`), and run
+
+  ```fish
+  ddrescue -b 2048 -s <bytes from diskutil info> -n /dev/rdiskN disc.iso disc.map
+  ```
+
+  It copies everything readable in one pass and skips the rest, so a
+  disc makemkvcon gives up on comes out 98% intact. Skip the retry and
+  scrape passes (`-r`, no `-n`): each unreadable sector costs the drive
+  10–30 s, so recovering a few more kilobytes takes hours. Then
+  `makemkvcon -r mkv iso:disc.iso <title> <dir>` extracts titles from the
+  image with no drive involved, and a hand-written `metadata.json`
+  (same schema as the draft) lets `rip-video-finish` file them. Decode-check
+  the result (`ffmpeg -v error -i f.mkv -map 0:v:0 -f null -`, ignoring the
+  null muxer's `non monotonically increasing dts` noise, which every DVD rip
+  produces) and note where the glitches fall before filing.
+
 ## What this replaced
 
 Until 2026-09 the drive was driven by GUI apps: XLD auto-started secure rips
