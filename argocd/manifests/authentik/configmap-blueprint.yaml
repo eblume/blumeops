@@ -246,6 +246,34 @@ data:
           groups:
             - !KeyOf cv-artifacts-group
 
+      # Tier-first (eblume/blumeops#1039 step 2) zot push identities. The blueprint
+      # identifies users by username, so these are created alongside the grandfathered
+      # zot-talos / zot-horkos rather than renamed in place; the old users are retired
+      # once the release-CI keys are re-minted for the new identities.
+      - model: authentik_core.user
+        id: talos-zot-user
+        identifiers:
+          username: talos-zot
+        attrs:
+          username: talos-zot
+          name: Talos Zot Service Account
+          type: service_account
+          is_active: true
+          groups:
+            - !KeyOf talos-artifacts-group
+
+      - model: authentik_core.user
+        id: horkos-zot-user
+        identifiers:
+          username: horkos-zot
+        attrs:
+          username: horkos-zot
+          name: Horkos Zot Service Account
+          type: service_account
+          is_active: true
+          groups:
+            - !KeyOf horkos-artifacts-group
+
       # OAuth2 provider for Zot
       - model: authentik_providers_oauth2.oauth2provider
         id: zot-provider
