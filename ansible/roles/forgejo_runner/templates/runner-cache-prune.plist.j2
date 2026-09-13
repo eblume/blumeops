@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>{{ forgejo_runner_cache_prune_label }}</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ forgejo_runner_cache_prune_script }}</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/Users/erichblume/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>HOME</key>
+		<string>/Users/erichblume</string>
+		<key>UV_CACHE_DIR</key>
+		<string>{{ forgejo_runner_uv_cache_dir }}</string>
+	</dict>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Day</key>
+		<integer>{{ forgejo_runner_cache_prune_day }}</integer>
+		<key>Hour</key>
+		<integer>{{ forgejo_runner_cache_prune_hour }}</integer>
+		<key>Minute</key>
+		<integer>{{ forgejo_runner_cache_prune_minute }}</integer>
+	</dict>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardOutPath</key>
+	<string>{{ forgejo_runner_log_dir }}/mcquack.runner-cache-prune.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>{{ forgejo_runner_log_dir }}/mcquack.runner-cache-prune.err.log</string>
+</dict>
+</plist>
