@@ -1,0 +1,1 @@
+Reviewed the Deploy K8s Service how-to: fixed the Application template's repoURL to the webhook-matched `forge.eblu.me` host, replaced the never-spell-out syncPolicy defaults with `automated: {}`, added the now-standard PSA namespace labels, corrected the homepage group list, and noted the ingress backend port and `kustomization.yaml` in the manifest layout.

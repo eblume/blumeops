@@ -1,7 +1,7 @@
 ---
 title: Deploy K8s Service
-modified: 2026-02-15
-last-reviewed: 2026-02-15
+modified: 2026-09-13
+last-reviewed: 2026-09-13
 tags:
   - how-to
   - kubernetes
@@ -16,6 +16,7 @@ Quick reference for deploying a new service to BlumeOps Kubernetes via ArgoCD. S
 
 ```
 argocd/manifests/<service>/
+├── kustomization.yaml
 ├── deployment.yaml
 ├── service.yaml
 └── ingress-tailscale.yaml
@@ -35,24 +36,41 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+    repoURL: ssh://forgejo@forge.eblu.me:2222/eblume/blumeops.git
     targetRevision: main
     path: argocd/manifests/<service>
   destination:
     server: https://kubernetes.default.svc
     namespace: <service>
   syncPolicy:
-    automated:
-      prune: false
-      selfHeal: false
+    automated: {}
     syncOptions:
     - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/warn: restricted
+        pod-security.kubernetes.io/audit: restricted
 ```
 
-`automated` is the default posture for a workload application — without it the
-new service becomes a fifth manual-sync app with no reason stated for being
-one. `prune` and `selfHeal` stay off fleet-wide; see [[argocd#Sync Policy]] for
-what each of the three settings buys.
+- **`repoURL` names `forge.eblu.me`, not `forge.ops.eblu.me`.** The Forgejo
+  webhook that triggers syncs matches the payload's `html_url` (the public
+  `forge.eblu.me` host) against each app's `repoURL`; the CoreDNS rewrite in
+  `nixos/ringtail/configuration.nix` makes the name fetch over the tailnet.
+  See the "Why the Applications say `forge.eblu.me`" section of [[argocd]].
+- **`automated: {}`, nothing else spelled out.** `automated` is the default
+  posture for a workload application — without it the new service becomes a
+  fifth manual-sync app with no reason stated for being one. Never write
+  `prune: false` / `selfHeal: false` explicitly: the controller round-trips
+  the spec through `omitempty` structs, so explicit falses vanish from the
+  live CR and the `apps` root app flaps `OutOfSync`. `selfHeal` is off
+  fleet-wide; add `prune: true` only when the kustomization uses a
+  `configMapGenerator` (superseded hash-suffixed ConfigMaps would otherwise
+  accumulate and the app would read `OutOfSync` forever). See
+  [[argocd#Sync Policy]] for what each setting buys.
+- **The PSA labels** put the new namespace under Pod Security Admission at
+  `restricted`; use `baseline` instead if the workload needs hostPath
+  (ollama and talos do). Exemptions and deferrals are documented in
+  [[security]].
 
 ## Configure Ingress
 
@@ -86,10 +104,11 @@ spec:
 ```
 
 Key points:
+- **`defaultBackend` port** must match the port of the Service in `service.yaml`
 - **`proxy-group: "ingress"`** routes through the shared ProxyGroup instead of spawning a per-ingress proxy
 - **Do not use `rules:` with `host:`** — the ProxyGroup proxy receives the FQDN as Host header (e.g. `<service>.tail8d86e.ts.net`), so a short `host: <service>` won't match. Use `defaultBackend` instead.
 - **`tls.hosts`** sets the MagicDNS hostname (becomes `<service>.tail8d86e.ts.net`)
-- **`gethomepage.dev/group`** — use one of the existing groups: "Services", "Content", or "Infrastructure"
+- **`gethomepage.dev/group`** — use one of the existing groups: "Host Services", "Home", "Content", "Infrastructure", or "Services" (the layouts in `argocd/manifests/homepage/settings.yaml`)
 - **`tailscale.com/tags`** is not needed in the default case — the ProxyGroup already applies `tag:k8s`. Only add this annotation when the service needs public internet access via the [[flyio-proxy]]. When you do, you must include both tags (setting tags overrides the ProxyGroup default):
   ```yaml
   tailscale.com/tags: "tag:k8s,tag:flyio-target"
@@ -136,6 +155,7 @@ argocd app set <service> --revision main
 
 - [ ] Manifests in `argocd/manifests/<service>/`
 - [ ] Application in `argocd/apps/<service>.yaml`
+- [ ] PSA namespace labels on the Application (restricted, or baseline if hostPath is needed)
 - [ ] Tailscale Ingress via ProxyGroup with Homepage annotations
 - [ ] Caddy route (if pod-to-service access needed)
 - [ ] Tested on feature branch
