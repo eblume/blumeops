@@ -1,0 +1,1 @@
+agent-repo-access: the Actions-secrets list is now parsed as the bare JSON array Forgejo actually serves (it does not wrap it GitHub-style), and a non-list body raises loudly instead of reading as empty — fixing the post-merge reconcile crash that #1080 introduced.

@@ -534,7 +534,19 @@ def actions_secrets(client: httpx.Client, owner: str, repo: str) -> list[str] | 
         if exc.response.status_code in (403, 404):
             return None
         raise
-    return [s["name"] for s in resp.json().get("secrets", []) if isinstance(s, dict) and "name" in s]
+    # Forgejo serves a bare JSON array here, not GitHub's wrapped shape; a
+    # non-list body would read as empty and silently disarm the invariant.
+    try:
+        body = resp.json()
+    except json.JSONDecodeError:
+        raise TypeError(
+            f"unexpected /actions/secrets body for {owner}/{repo}: invalid JSON"
+        ) from None
+    if not isinstance(body, list):
+        raise TypeError(
+            f"unexpected /actions/secrets body for {owner}/{repo}: {type(body).__name__}"
+        )
+    return [s["name"] for s in body if isinstance(s, dict) and "name" in s]
 
 
 def current_access(client: httpx.Client, owner: str, repo: str, who: str) -> str:
