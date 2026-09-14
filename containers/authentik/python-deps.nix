@@ -10,6 +10,10 @@
 # The venv's bin/ and pyvenv.cfg also reference the python store path, so we
 # replace them with placeholders that the main derivation restores.
 #
+# Compiled .so files also carry DWARF debug info embedding uv's random
+# per-build sdist path, so we strip it (strip --strip-debug) to keep the
+# FOD output — and its outputHash — deterministic.
+#
 # When uv.lock changes, reset outputHash to pkgs.lib.fakeHash, build to
 # get the correct hash from the error message, then update.
 { pkgs ? import <nixpkgs> { }, sources ? import ./sources.nix { inherit pkgs; } }:
@@ -30,6 +34,7 @@ pkgs.stdenv.mkDerivation {
     # Build tools on PATH for sdist compilation
     postgresql.pg_config  # pg_config for psycopg-c
     krb5                  # krb5-config for gssapi
+    binutils              # strip for .so debug info
   ];
 
   # System libraries for packages that must build from sdist:
@@ -73,6 +78,16 @@ pkgs.stdenv.mkDerivation {
     runHook preInstall
     mv .venv $out
 
+    # Strip DWARF from compiled extensions: their debug info embeds
+    # uv's random per-build sdist path (nondeterministic FOD output).
+    find $out -type f -name '*.so*' -exec strip --strip-debug {} +
+
+    # Fail loudly if a uv sdist build path leaked into the output.
+    if grep -Rqas 'sdists-v' $out; then
+      echo "ERROR: uv sdist build path leaked into FOD output"
+      exit 1
+    fi
+
     # --- Strip Nix store references (FODs must be self-contained) ---
     # autoPatchelfHook in authentik-django.nix restores correct RPATHs.
 
@@ -106,12 +121,13 @@ pkgs.stdenv.mkDerivation {
       find $out -type f -exec remove-references-to $refs_args {} + 2>/dev/null || true
     fi
 
-    # Verify — report any remaining references
-    remaining=$({ find $out -type f -print0 | xargs -0 grep -cl '/nix/store/' 2>/dev/null || true; } | wc -l)
+    # Verify — report any remaining references (nix base32 store-path hash, which
+    # has no 'e', so remove-references-to's eeeee... padding is not counted)
+    remaining=$({ find $out -type f -print0 | xargs -0 grep -lcE '/nix/store/[0-9a-df-np-sv-z]{32}-' 2>/dev/null || true; } | wc -l)
     echo "Files with remaining store references: $remaining"
     if [ "$remaining" -gt 0 ]; then
       echo "WARNING: Files still containing store references:"
-      { find $out -type f -print0 | xargs -0 grep -l '/nix/store/' 2>/dev/null || true; }
+      { find $out -type f -print0 | xargs -0 grep -lE '/nix/store/[0-9a-df-np-sv-z]{32}-' 2>/dev/null || true; }
     fi
 
     runHook postInstall
@@ -119,7 +135,7 @@ pkgs.stdenv.mkDerivation {
 
   outputHashMode = "recursive";
   outputHashAlgo = "sha256";
-  outputHash = "sha256-kZRaBZxV6clgTTuvGqk244R5AD1Xasc1O49X2VLxqdE=";
+  outputHash = "sha256-h8zdsh5PEzjXxqcMj08ZutRA3+78FIAGv9kdwIJjlzI=";
 
   dontFixup = true;
 }
