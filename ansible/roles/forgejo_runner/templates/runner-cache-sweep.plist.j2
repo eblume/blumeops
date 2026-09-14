@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<false/>
+	<key>Label</key>
+	<string>{{ forgejo_runner_sweep_label }}</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/Users/erichblume/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>HOME</key>
+		<string>/Users/erichblume</string>
+	</dict>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>{{ forgejo_runner_sweep_script }}</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>{{ forgejo_runner_log_dir }}/mcquack.runner-cache-sweep.err.log</string>
+	<key>StandardOutPath</key>
+	<string>{{ forgejo_runner_log_dir }}/mcquack.runner-cache-sweep.out.log</string>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>{{ forgejo_runner_sweep_hour }}</integer>
+		<key>Minute</key>
+		<integer>{{ forgejo_runner_sweep_minute }}</integer>
+	</dict>
+</dict>
+</plist>

@@ -1,0 +1,41 @@
+#!/bin/bash
+# Nightly sweep of indri's forgejo-runner CI caches.
+#
+# uv keys --script environments on the script's absolute path, and the
+# runner gives every job a fresh ~/.cache/act/<random8>/ scratch path, so
+# each job's mise-tasks/* scripts get a fresh environment that never gets
+# reused and the venvs accumulate in ~/.cache/uv/environments-v2. Delete
+# only envs not modified in {{ forgejo_runner_sweep_age_minutes }} minutes —
+# longer than the runner's 3h job timeout, so a live job's env (created
+# when its job starts) can never be swept.
+# Never call `uv cache prune` here: tested, it removes every script env,
+# including ones whose script still exists and ones with a Python process
+# currently running in it.
+
+set -euo pipefail
+
+uv_cache_dir="{{ forgejo_runner_uv_cache_dir }}"
+prek_cache_dir="{{ forgejo_runner_sweep_prek_cache_dir }}"
+
+size_mb() {
+  du -sm "$1" 2>/dev/null | awk '{print $1}' || echo 0
+}
+
+count_dirs() {
+  { find "$1" -mindepth 1 -maxdepth 1 2>/dev/null || true; } | wc -l | tr -d ' '
+}
+
+envs_dir="$uv_cache_dir/environments-v2"
+before_envs=$(count_dirs "$envs_dir")
+before_envs_mb=$(size_mb "$envs_dir")
+before_prek_mb=$(size_mb "$prek_cache_dir")
+
+{ find "$envs_dir" -mindepth 1 -maxdepth 1 -mmin +{{ forgejo_runner_sweep_age_minutes }} -exec rm -rf {} + 2>/dev/null || true; }
+
+prek cache gc --no-progress
+
+after_envs=$(count_dirs "$envs_dir")
+after_envs_mb=$(size_mb "$envs_dir")
+after_prek_mb=$(size_mb "$prek_cache_dir")
+
+echo "runner-cache-sweep: uv script envs ${before_envs} -> ${after_envs} (${before_envs_mb}MB -> ${after_envs_mb}MB); prek cache ${before_prek_mb}MB -> ${after_prek_mb}MB"
