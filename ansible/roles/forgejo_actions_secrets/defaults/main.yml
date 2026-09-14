@@ -57,8 +57,10 @@ forgejo_actions_secrets_repos:
   # BLUMEOPS_CI_OP_TOKEN — sharing that token with talos/horkos release CI
   # is the one-CI-trust-tier decision (2026-08-21, logged on heph
   # 01KZ5ESS0W…): all eblume/* CI is one tier. RELEASE_FORGE_TOKEN is
-  # horkos-forge's PAT (write on blumeops only — branch push + PR open, can
-  # never merge or dispatch).
+  # horkos-forge's PAT — granted write on eblume/blumeops (the permission
+  # workflow_dispatch requires: push non-protected branches, open PRs,
+  # dispatch workflows); cannot merge — main is push+merge whitelisted to
+  # eblume.
   - repo: talos
     secrets:
       - name: BLUMEOPS_CI_OP_TOKEN
