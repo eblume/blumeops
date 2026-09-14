@@ -1,7 +1,7 @@
 ---
 title: Create Release Artifact Workflow
-modified: 2026-07-21
-last-reviewed: 2026-02-15
+modified: 2026-09-14
+last-reviewed: 2026-09-14
 tags:
   - how-to
   - forgejo
@@ -81,26 +81,30 @@ Some release flows commit back to `main` (e.g. `build-blumeops.yaml` bumps
 plain `git push origin HEAD:main` is rejected with `pre-receive hook declined`.
 
 The fix is to authenticate the push as a whitelisted user via a PAT, not the
-automatic token:
+automatic token. The PAT is no longer an Actions secret: per-purpose CI
+secrets were retired in favor of job-time `op read` of the `blumeops-ci`
+vault ([[blumeops-ci-item-migration]]), so `build-blumeops.yaml` reads the
+`eblume`-owned main-push PAT (item `blumeops-ci/forge-main-push/token`,
+scope `write:repository`) at push time with the `BLUMEOPS_CI_OP_TOKEN`
+service account, and pushes with it directly — checkout runs with
+`persist-credentials: false`, so no credential sits in the worktree:
 
-1. Provision `MAIN_PUSH_TOKEN` (an `eblume`-owned PAT, scope `write:repository`)
-   as an Actions secret — it is in `forgejo_actions_secrets` alongside the repo's
-   other secrets. The value lives in the blumeops 1Password vault
-   (`blumeops-main-push-token`).
-2. Pass it to `actions/checkout` so it becomes the persisted git credential:
+```yaml
+- name: Commit release changes
+  env:
+    OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
+  run: |
+    MAIN_PUSH_TOKEN=$(op read 'op://blumeops-ci/forge-main-push/token')
+    echo "::add-mask::$MAIN_PUSH_TOKEN"
+    git -c credential.helper= push \
+      "https://eblume:${MAIN_PUSH_TOKEN}@forge.eblu.me/eblume/blumeops.git" \
+      HEAD:main
+```
 
-   ```yaml
-   - name: Checkout
-     uses: actions/checkout@… # pinned
-     with:
-       fetch-depth: 0
-       token: ${{ secrets.MAIN_PUSH_TOKEN }}
-   ```
-
-   Subsequent `git push origin HEAD:main` then authenticates as `eblume` and
-   passes branch protection. The release-creation API call can keep using the
-   automatic `GITHUB_TOKEN` (API actions aren't gated by the push whitelist);
-   only the git push needs the PAT.
+The push then authenticates as `eblume` and passes branch protection. The
+release-creation API call can keep using the automatic `GITHUB_TOKEN`
+(API actions aren't gated by the push whitelist); only the git push needs
+the PAT.
 
 > The commit author can stay `Forgejo Actions` — branch protection checks the
 > **pusher** (the PAT owner), not the commit author.
@@ -110,3 +114,4 @@ automatic token:
 - [[deploy-k8s-service]] - Deploying the service that consumes the artifact
 - [[add-ansible-role]] - Adding Ansible roles
 - [[agents-forgejo-bot]] - the bot identity and the `main` branch-protection model
+- [[blumeops-ci-item-migration]] - the per-purpose CI secrets that moved to job-time `op read`
