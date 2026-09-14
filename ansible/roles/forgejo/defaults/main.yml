@@ -27,7 +27,10 @@ forgejo_binary: "{{ forgejo_repo_dir }}/forgejo"
 forgejo_version: "v16.0.2"
 forgejo_node_version: "24"
 forgejo_build_tags: "bindata timetzdata sqlite sqlite_unlock_notify"
-forgejo_mise_bin: /etc/profiles/per-user/erichblume/bin/mise
+# The Homebrew mise the indri play installs and version-checks
+# (indri_mise_bin). Used to be the nix-darwin per-user profile path, which is
+# retired and 17 months stale — see [[indri]] §Toolchain.
+forgejo_mise_bin: "{{ indri_mise_bin | default('/opt/homebrew/bin/mise') }}"
 # Build source = the forge mirror (origin); codeberg remains as a manual
 # upstream remote and is left untouched by the role.
 forgejo_mirror_url: https://forge.ops.eblu.me/mirrors/forgejo.git
