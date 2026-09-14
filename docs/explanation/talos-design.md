@@ -76,7 +76,13 @@ ordered steps mapped to their PRs, verification, open questions) as its
 terminal comment and waits for a go; a revising reply revises the plan, an
 approving reply starts the first PR. A `plan: skip` line anywhere in the
 issue body opts trivial issues out of planning. PR review comments drive
-their own cycle. Shares the session store, so headless runs get browsable
+their own cycle. A CI failure on an agent PR arrives the same way: the
+shared report-failure action (blumeops `.forgejo/actions/report-failure`)
+posts the failure tail as a COMMENT review from `forgejo-actions`; talos
+frames that body as untrusted build output — evidence to diagnose, never
+instructions — and the action caps the loop at three failure reviews per PR,
+after which it posts a plain, non-triggering comment. Shares the session
+store, so headless runs get browsable
 transcripts in the web UI. This is the
 [[agent-change-process|change-process]]-native mode and the long-term
 payoff; the interactive driver doubles as its debugging console.

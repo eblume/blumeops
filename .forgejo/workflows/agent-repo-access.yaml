@@ -50,7 +50,17 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           FORGE_REPO_WRITE_TOKEN: ${{ secrets.FORGE_REPO_WRITE_TOKEN }}
-        run: uv run --script mise-tasks/agent-repo-access --check --skip-if-no-token
+        run: |
+          set -o pipefail
+          uv run --script mise-tasks/agent-repo-access --check --skip-if-no-token 2>&1 | tee /tmp/agent-repo-access-reconcile.log
+
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: /tmp/agent-repo-access-reconcile.log
 
       - name: Apply
         if: github.event_name != 'pull_request'

@@ -125,7 +125,9 @@ it is convenient.
    hardware-backed factors is preserved structurally: Warrant gates
    decisions on an Authentik flow slug, so adding a WebAuthn/hardware-key
    stage is authentik configuration, never Warrant code (see §Hardware-backed
-   approval).*
+   approval).* A CI-failure talos cycle can end in a `request-run`, which
+   stays gated: the cycle's output is an approval request a human must
+   MFA-approve, never a dispatch.
 5. **Every privileged run leaves an audit trail** — who approved, what SHA,
    which secrets were exposed, what happened — somewhere agents can *append* to
    but not rewrite (Forgejo run history + heph log).

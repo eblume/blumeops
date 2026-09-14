@@ -159,6 +159,27 @@ silently un-requires it**: update the branch protection whenever a job in
 (Agent Repo Access) and drift contexts are deliberately left optional — a
 required context that does not exist on a PR head blocks the merge.
 
+### CI failure notices
+
+A PR where a check ran and failed still hides its *reason* behind runner
+logs, which agent sessions cannot read (action logs are private to the forge
+UI). Every `pull_request`-triggered job therefore ends with the shared
+`.forgejo/actions/report-failure` step: on failure it posts the tail of the
+job's own teed log to the PR as `forgejo-actions`, with the run number and a
+copy-paste `mise run runner-logs <run> -j <N>` pointer (matrix jobs omit the
+pointer — the jobs API cannot disambiguate legs). One notice per (workflow,
+job, matrix leg, head SHA) — a re-run of the same head does not double-post.
+
+On a PR authored by `agents`, the notice is a **review** (event `COMMENT`),
+which the talos forge loop picks up like any review and starts a fix cycle
+with no human in the loop. The review body is filtered build output — text
+produced by third-party dependencies — and talos is prompted to treat it as
+*evidence of a failure to diagnose*, not instructions to follow. The loop is
+capped at three failure reviews per PR: the next failure then posts one
+plain, non-triggering "a human should look" comment, and later failures stay
+silent. PRs by anyone else get a plain comment — visible, but never
+triggering a cycle.
+
 ## Git discipline
 
 - **Direct to main:** interactive human sessions only, small fix-forward-safe changes

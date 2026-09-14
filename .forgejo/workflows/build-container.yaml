@@ -7,7 +7,7 @@
 #
 # PRs touching containers/ run the build as a check (never the registry push —
 # fork runs carry no secrets) so the nix hash-TOFU round stays readable from
-# the PR alone.
+# the PR alone (the shared report-failure action posts the build log tail).
 
 name: Build Container
 
@@ -130,40 +130,21 @@ jobs:
           echo "Building containers/${{ matrix.container }}/default.nix"
           echo "NIX_PATH=$NIX_PATH"
           # Tee the build output so the failure-report step below can read it.
+          # Per-leg file: concurrent matrix legs must not clobber each other.
           set -o pipefail
           nix-build "containers/${{ matrix.container }}/default.nix" -o result 2>&1 \
-            | tee /tmp/nix-build.log
+            | tee /tmp/nix-build-${{ matrix.container }}.log
           echo "Build complete: $(readlink result)"
 
-      - name: Report build failure to PR
+      - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          # Post the tail of the nix build log as a comment on the PR. This
-          # makes hash-TOFU rounds readable without runner-log access —
-          # remote-agent sessions drive rebuilds from the PR comment alone
-          # (nix prints 'specified:'/'got:' hash mismatches).
-          [ -f /tmp/nix-build.log ] || { echo "no build log captured"; exit 0; }
-          API="${GITHUB_SERVER_URL:-https://forge.eblu.me}/api/v1"
-          REPO="${{ github.repository }}"
-
-          {
-            echo "**Build Container failed** — \`${{ matrix.container }}\` on PR #$PR_NUMBER (run ${GITHUB_RUN_NUMBER})"
-            echo ""
-            echo '```'
-            grep -E "hash mismatch|specified:|got:|error:" /tmp/nix-build.log | tail -20
-            echo '---'
-            tail -30 /tmp/nix-build.log
-            echo '```'
-          } > /tmp/pr-comment.md
-
-          jq -n --rawfile body /tmp/pr-comment.md '{body: $body}' \
-            | curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
-                -H "Content-Type: application/json" -d @- \
-                "$API/repos/$REPO/issues/$PR_NUMBER/comments" \
-            | jq -r '"Commented: " + (.html_url // .message)'
+        with:
+          log-file: /tmp/nix-build-${{ matrix.container }}.log
+          filter: 'hash mismatch|specified:|got:|error:'
+          matrix: ${{ matrix.container }}
 
       # The zot push key is read from the blumeops-ci vault at job time
       # ([[blumeops-ci-item-migration]]); BLUMEOPS_CI_OP_TOKEN is the one

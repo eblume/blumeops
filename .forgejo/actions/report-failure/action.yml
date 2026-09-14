@@ -1,0 +1,189 @@
+# Post a failed job's log tail to the PR as `forgejo-actions`, so a CI failure
+# stays legible without runner-log access (action logs are private to the
+# forge UI; see [[agent-change-process]]).
+#
+# Post mode, picked per PR:
+#   - PR author in `trigger-authors` (default `agents`): a review with event
+#     COMMENT — the talos forge loop picks it up like any review and starts a
+#     fix cycle. The body is filtered build output, i.e. untrusted text; talos
+#     is prompted to treat it as evidence of a failure to diagnose, not
+#     instructions to follow.
+#   - anyone else: a plain issue comment — visible, never triggers a cycle.
+#
+# Dedupe: one notice per (workflow, job, matrix, head SHA) — a re-run of the
+# same head does not double-post. The dedupe marker is an HTML comment in the
+# body, checked against both the PR's issue comments and its reviews (a
+# review body does not appear in the issue-comments list).
+#
+# Loop cap: once `max-reviews` (default 3) ci-report reviews have accumulated
+# on the PR, the next failure posts one plain, non-triggering "a human should
+# look" comment (deduped the same way); later failures stay silent.
+#
+# Uses only the automatic per-run token, which exists on fork PR runs, so
+# callers stay credential-free in the sense that matters: no *repo* secret.
+# The caller step must set `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}`.
+#
+# Callers tee their main output to `log-file` and gate this step with
+# `if: failure() && github.event_name == 'pull_request'`.
+
+name: Report CI failure to PR
+
+description: >-
+  Post the tail of a failed job's log to the PR as forgejo-actions — a
+  review that starts a talos fix cycle on agent-authored PRs, a plain
+  comment otherwise; deduped per (job, head SHA) and capped after N
+  failure reviews.
+
+inputs:
+  log-file:
+    description: Path of the job log teed by the job's main steps
+    required: true
+  filter:
+    description: 'grep -E regex for a highlighted tail (empty = raw tail only)'
+    required: false
+    default: ''
+  matrix:
+    description: Matrix value for this leg (empty for non-matrix jobs)
+    required: false
+    default: ''
+  trigger-authors:
+    description: 'Comma-separated PR author logins whose notice posts as a review (starts a talos cycle); others get a plain comment'
+    required: false
+    default: 'agents'
+  max-reviews:
+    description: 'ci-report reviews per PR before a single plain "a human should look" comment replaces further reviews'
+    required: false
+    default: '3'
+
+runs:
+  using: composite
+  steps:
+    - name: Report failure to PR
+      run: |
+        set -euo pipefail
+
+        # Single-quoted: the values may hold regex metacharacters ($, backtick).
+        log_file='${{ inputs.log-file }}'
+        filter='${{ inputs.filter }}'
+        matrix='${{ inputs.matrix }}'
+        trigger_authors='${{ inputs.trigger-authors }}'
+        max_reviews='${{ inputs.max-reviews }}'
+
+        API="${GITHUB_API_URL:-${GITHUB_SERVER_URL:-https://forge.eblu.me}/api/v1}"
+        REPO="$GITHUB_REPOSITORY"
+        AUTH="Authorization: token $GITHUB_TOKEN"
+        EVENT="$GITHUB_EVENT_PATH"
+        BOT="forgejo-actions"
+
+        PR="$(jq -r '.pull_request.number' "$EVENT")"
+        AUTHOR="$(jq -r '.pull_request.user.login' "$EVENT")"
+        SHA7="${GITHUB_SHA:0:7}"
+        RUN="$GITHUB_RUN_NUMBER"
+        WF="$GITHUB_WORKFLOW"
+        JOB="$GITHUB_JOB"
+
+        # `-->` cannot survive inside the HTML dedupe marker.
+        matrix_key="$(printf '%s' "$matrix" | tr -d '[>-]')"
+        key="$WF#$JOB"
+        if [ -n "$matrix_key" ]; then key="$key:$matrix_key"; fi
+        marker="ci-report v1:$key:$SHA7"
+        cap_marker="ci-report v1:capped"
+
+        # The marker may sit on any page of the PR's history — a first-page-only
+        # read would re-post after 50 comments.
+        all_pages() {
+          local path="$1" page=1 out='[]' resp next
+          while [ "$page" -le 20 ]; do
+            resp="$(curl -s -H "$AUTH" "$API/repos/$REPO$path?limit=50&page=$page" || echo '[]')"
+            next="$(jq -s '.[0] + .[1]' <(printf '%s' "$out") <(printf '%s' "$resp") 2>/dev/null || true)"
+            if [ -n "$next" ]; then out="$next"; fi
+            if [ "$(jq 'length' <<<"$resp" 2>/dev/null || echo 0)" -lt 50 ]; then break; fi
+            page=$((page + 1))
+          done
+          printf '%s' "$out"
+        }
+
+        comments_json="$(all_pages "/issues/$PR/comments")"
+        reviews_json="$(all_pages "/pulls/$PR/reviews")"
+
+        seen="$(jq --arg m "$marker" '[.[]? | select(((.body // "") | contains($m)))] | length' <<<"$comments_json" 2>/dev/null || echo 0)"
+        seen_r="$(jq --arg m "$marker" --arg b "$BOT" '[.[]? | select(.user.login == $b and ((.body // "") | contains($m)))] | length' <<<"$reviews_json" 2>/dev/null || echo 0)"
+        if [ "$seen" != "0" ] || [ "$seen_r" != "0" ]; then
+          echo "Already reported $key @ $SHA7 — skipping."
+          exit 0
+        fi
+
+        n_reviews="$(jq --arg b "$BOT" '[.[]? | select(.user.login == $b and ((.body // "") | contains("ci-report v1:")))] | length' <<<"$reviews_json" 2>/dev/null || echo 0)"
+        if [ "$n_reviews" -ge "$max_reviews" ]; then
+          capped="$(jq --arg m "$cap_marker" '[.[]? | select(((.body // "") | contains($m)))] | length' <<<"$comments_json" 2>/dev/null || echo 0)"
+          if [ "$capped" != "0" ]; then
+            echo "Loop already capped — staying silent."
+            exit 0
+          fi
+          {
+            echo "<!-- $cap_marker -->"
+            echo ""
+            echo "**CI has posted $n_reviews failure reviews on this PR — the automatic fix loop is capped; a human should look.**"
+            echo ""
+            echo "Last failure: \`$WF\` / \`$JOB\`${matrix:+ ($matrix)} — PR #$PR, run $RUN, head $SHA7"
+            echo ""
+            echo '```'
+            tail -30 "$log_file" 2>/dev/null || true
+            echo '```'
+          } > /tmp/ci-report-body.md
+          jq -n --rawfile body /tmp/ci-report-body.md '{body: $body}' \
+            | curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d @- \
+                "$API/repos/$REPO/issues/$PR/comments" \
+            | jq -r '"Cap comment posted: " + (.html_url // .message)'
+          exit 0
+        fi
+
+        # Job index for the copy-paste runner-logs pointer: 0-based position in
+        # the run's job list, the index `mise run runner-logs RUN -j N` takes.
+        # Matrix legs share a job name the API cannot disambiguate — no pointer.
+        job_index=""
+        if [ -z "$matrix" ]; then
+          jobs_json="$(curl -s -H "$AUTH" "$API/repos/$REPO/actions/runs/$GITHUB_RUN_ID/jobs" || echo '[]')"
+          job_index="$(jq --arg job "$JOB" '[to_entries[]? | select(.value.name == $job) | .key] | .[0] // empty' <<<"$jobs_json" 2>/dev/null || true)"
+        fi
+
+        {
+          echo "<!-- $marker -->"
+          echo ""
+          echo "**CI failed: \`$WF\` / \`$JOB\`${matrix:+ ($matrix)}** — PR #$PR, run $RUN, head $SHA7"
+          if [ -n "$job_index" ]; then
+            echo ""
+            echo "Full log: \`mise run runner-logs $RUN -j $job_index\`"
+          fi
+        } > /tmp/ci-report-body.md
+
+        if [ -f "$log_file" ]; then
+          filtered=""
+          if [ -n "$filter" ]; then
+            filtered="$(grep -E "$filter" "$log_file" | tail -20 || true)"
+          fi
+          {
+            echo ""
+            echo '```'
+            if [ -n "$filtered" ]; then
+              printf '%s\n' "$filtered"
+              echo '---'
+            fi
+            tail -30 "$log_file"
+            echo '```'
+          } >> /tmp/ci-report-body.md
+        else
+          { echo ""; echo "No log captured at \`$log_file\`."; } >> /tmp/ci-report-body.md
+        fi
+
+        if [[ ",$trigger_authors," == *",$AUTHOR,"* ]]; then
+          jq -n --rawfile body /tmp/ci-report-body.md '{event: "COMMENT", body: $body}' \
+            | curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d @- \
+                "$API/repos/$REPO/pulls/$PR/reviews" \
+            | jq -r '"Review posted: " + (.html_url // .message // "unknown")'
+        else
+          jq -n --rawfile body /tmp/ci-report-body.md '{body: $body}' \
+            | curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d @- \
+                "$API/repos/$REPO/issues/$PR/comments" \
+            | jq -r '"Comment posted: " + (.html_url // .message // "unknown")'
+        fi
