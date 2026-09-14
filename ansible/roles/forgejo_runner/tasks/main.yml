@@ -96,18 +96,52 @@
 - name: Deploy forgejo-runner LaunchAgent plist
   ansible.builtin.template:
     src: forgejo-runner.plist.j2
-    dest: ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist
+    dest: "{{ forgejo_runner_launch_agent_plist }}"
     mode: '0644'
   notify: Restart forgejo-runner
 
 - name: Check if forgejo-runner LaunchAgent is loaded
-  ansible.builtin.command: launchctl list mcquack.eblume.forgejo-runner
+  ansible.builtin.command: "launchctl list {{ forgejo_runner_launch_agent_label }}"
   register: forgejo_runner_launchctl_check
   changed_when: false
   failed_when: false
 
 - name: Load forgejo-runner LaunchAgent if not loaded
-  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist
+  ansible.builtin.command: "launchctl load {{ forgejo_runner_launch_agent_plist }}"
   when: forgejo_runner_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false
+
+# --- Monthly uv cache prune (eblume/blumeops#1065) ---
+# Prune removes per-script environments, so the script stops the runner
+# first; the trap in the script restores it even on failure.
+
+- name: Deploy runner cache prune script
+  ansible.builtin.template:
+    src: runner-cache-prune.sh.j2
+    dest: "{{ forgejo_runner_cache_prune_script }}"
+    mode: '0755'
+  when: forgejo_runner_cache_prune_enabled
+
+- name: Deploy runner cache prune LaunchAgent plist
+  ansible.builtin.template:
+    src: runner-cache-prune.plist.j2
+    dest: "{{ forgejo_runner_cache_prune_plist }}"
+    mode: '0644'
+  notify: Restart runner cache prune
+  when: forgejo_runner_cache_prune_enabled
+
+- name: Check if runner cache prune LaunchAgent is loaded
+  ansible.builtin.command: "launchctl list {{ forgejo_runner_cache_prune_label }}"
+  register: forgejo_runner_cache_prune_launchctl_check
+  changed_when: false
+  failed_when: false
+  when: forgejo_runner_cache_prune_enabled
+
+- name: Load runner cache prune LaunchAgent if not loaded
+  ansible.builtin.command: "launchctl load {{ forgejo_runner_cache_prune_plist }}"
+  when:
+    - forgejo_runner_cache_prune_enabled
+    - forgejo_runner_cache_prune_launchctl_check.rc != 0
   changed_when: true
   failed_when: false

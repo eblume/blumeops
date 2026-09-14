@@ -22,6 +22,11 @@ forgejo_runner_home: /Users/erichblume/forgejo-runner
 forgejo_runner_config_path: "{{ forgejo_runner_home }}/config.yaml"
 forgejo_runner_log_dir: /Users/erichblume/Library/Logs
 
+# Shared LaunchAgent identity for the runner so maintenance agents
+# reference the label/plist path instead of hardcoding it.
+forgejo_runner_launch_agent_label: mcquack.eblume.forgejo-runner
+forgejo_runner_launch_agent_plist: ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist
+
 forgejo_runner_forge_url: https://forge.ops.eblu.me/
 forgejo_runner_capacity: 2
 forgejo_runner_timeout: 3h
@@ -94,3 +99,24 @@ forgejo_runner_host_tools:
 # inside the Docker Desktop VM (replaces host.minikube.internal:5050).
 forgejo_runner_registry_mirror: http://host.docker.internal:5050
 forgejo_runner_docker_daemon_json: /Users/erichblume/.docker/daemon.json
+
+# --- Monthly uv cache prune (eblume/blumeops#1065) ---
+# Orphaned wheel archives (archive-v0) accumulate as dependency pins
+# move; `uv cache prune` reclaims them, but it also removes per-script
+# environments, so it must run with the runner stopped. The LaunchAgent
+# fires monthly (day 1, 03:30 — clear of borgmatic at 02:00); the script
+# boots the runner out, waits for it to drain, prunes, and bootstraps
+# the runner back (trap-guarded). Jobs queued during the window wait on
+# forge.
+forgejo_runner_cache_prune_enabled: true
+forgejo_runner_cache_prune_label: mcquack.eblume.runner-cache-prune
+forgejo_runner_cache_prune_day: 1
+forgejo_runner_cache_prune_hour: 3
+forgejo_runner_cache_prune_minute: 30
+forgejo_runner_cache_prune_drain_max_s: 10800  # mirrors shutdown_timeout (3h)
+forgejo_runner_cache_prune_script: /Users/erichblume/.local/bin/mcquack-runner-cache-prune
+forgejo_runner_cache_prune_plist: ~/Library/LaunchAgents/mcquack.eblume.runner-cache-prune.plist
+# The uv cache the prune targets. Exported into the agent environment so
+# launchd's `uv` prunes the same dir interactive shells use (uv's macOS
+# default would be ~/Library/Caches/uv).
+forgejo_runner_uv_cache_dir: /Users/erichblume/.cache/uv

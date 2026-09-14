@@ -1,0 +1,51 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Monthly prune of orphaned wheel archives in ~/.cache/uv. The runner is
+# booted out first: `uv cache prune` also removes per-script
+# environments, which an in-flight job may be using (eblume/blumeops#1065).
+set -euo pipefail
+
+RUNNER_LABEL="{{ forgejo_runner_launch_agent_label }}"
+RUNNER_PLIST="{{ forgejo_runner_launch_agent_plist }}"
+RUNNER_PLIST="${RUNNER_PLIST/#\~/$HOME}"
+UV_CACHE="${UV_CACHE_DIR:-${HOME}/.cache/uv}"
+DRAIN_MAX_S="{{ forgejo_runner_cache_prune_drain_max_s }}"
+POLL_S=30
+
+log() { printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"; }
+
+if ! bootout_out="$(launchctl bootout "gui/$(id -u)/${RUNNER_LABEL}" 2>&1)"; then
+  log "bootout: ${bootout_out}"
+fi
+
+restored=0
+restore_runner() {
+  if [ "${restored}" -eq 1 ]; then return; fi
+  log "bootstrapping ${RUNNER_LABEL}"
+  if launchctl bootstrap "gui/$(id -u)" "${RUNNER_PLIST}"; then
+    restored=1
+  else
+    log "ERROR: runner bootstrap failed — reload it manually"
+  fi
+}
+trap restore_runner EXIT
+
+# Wait for the runner process to actually exit before touching the cache.
+elapsed=0
+while pgrep -x forgejo-runner >/dev/null 2>&1; do
+  if [ "${elapsed}" -ge "${DRAIN_MAX_S}" ]; then
+    log "ERROR: runner still running after ${DRAIN_MAX_S}s; aborting prune"
+    exit 1
+  fi
+  sleep "${POLL_S}"
+  elapsed=$((elapsed + POLL_S))
+done
+
+du_uv() { du -sm "${UV_CACHE}" 2>/dev/null | cut -f1; }
+
+before="$(du_uv)"
+archive_before="$(du -sm "${UV_CACHE}/archive-v0" 2>/dev/null | cut -f1)"
+log "uv cache: ${before} MiB total, ${archive_before} MiB in archive-v0 — pruning"
+uv cache prune
+log "uv cache: ${before} MiB -> $(du_uv) MiB"
+log "done"

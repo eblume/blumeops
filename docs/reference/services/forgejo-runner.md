@@ -1,6 +1,6 @@
 ---
 title: Forgejo Runner
-modified: 2026-08-12
+modified: 2026-09-13
 last-reviewed: 2026-06-10
 tags:
   - service
@@ -73,6 +73,26 @@ never installed. Anything else a job needs comes from the repo's own
 `stylua` are the host's responsibility, and a missing one is reported as a
 *failed* hook, not a skipped one. Adding a `*-system` hook to any repo's
 `prek.toml` means adding its binary here.
+
+## Cache Maintenance
+
+Host-mode jobs install their toolchains into the uv cache
+(`~/.cache/uv` on indri), and as dependency pins move the orphaned
+wheel archives pile up (`archive-v0` reached 16G over 18 months).
+The planned nightly sweep
+([eblume/blumeops#1063](https://forge.ops.eblu.me/eblume/blumeops/issues/1063))
+will reclaim the leaked per-job script environments but deliberately
+not prune archives — prune also removes live script environments, so
+the prune runs in its own monthly window with the runner stopped:
+
+- **Monthly `uv cache prune`** — `mcquack.eblume.runner-cache-prune`
+  (this role; day 1, 03:30, clear of borgmatic at 02:00). The script
+  boots the runner LaunchAgent out (its `shutdown_timeout` of 3h lets
+  in-flight jobs finish), waits for the process to exit, prunes, and
+  bootstraps the runner back — a `trap` restores the runner even if the
+  prune fails, and a runner that fails to drain aborts the prune. Jobs
+  queued during the window simply wait on forge. Log:
+  `~/Library/Logs/mcquack.runner-cache-prune.{out,err}.log`.
 
 ## Credentials
 
