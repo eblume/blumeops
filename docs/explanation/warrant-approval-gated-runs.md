@@ -137,8 +137,10 @@ The read-only-bot fence has a flip side that is easy to miss: **because
 UI already *is* an approval gate.** And a multi-factor one: the forge sits
 behind [[authentik]] SSO with TOTP enforced, so that button satisfies
 invariant 4 with nothing new built. Canonical CI already holds privileged
-Actions secrets (`ARGOCD_AUTH_TOKEN`, `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`,
-`MAIN_PUSH_TOKEN`, `FORGE_REPO_WRITE_TOKEN`) that agents provably cannot reach
+Actions secrets — the deploy-credentialed ones are now job-time `op read`s
+of `blumeops-ci` items behind `BLUMEOPS_CI_OP_TOKEN`, with
+`FORGE_REPO_WRITE_TOKEN` the other repo-wide secret
+([[blumeops-ci-item-migration]]) — that agents provably cannot reach
 (fence verified from in-pod 2026-07-31), and the runner executes them on human
 dispatch. `mise run request-run deploy-fly.yaml <full-sha> -i revision=<full-sha> --why "…"` is
 exactly this shape. (The container flow that used to be the example is

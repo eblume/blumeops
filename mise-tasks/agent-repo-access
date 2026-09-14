@@ -77,7 +77,9 @@ repo outside the pool is removed too — a horkos release hook on a repo
 without release_hook: true, likewise. Run --dry-run first.
 
 Four repos are pinned read-only by an invariant this script will not let
-repos.json override — see PINNED_READ_ONLY.
+repos.json override — see PINNED_READ_ONLY. It also refuses write on any
+repo that carries Actions secrets: write on a repo is read of its secrets,
+since every run executes at the pushed ref and is handed them.
 
 The token is resolved:
   1. --token flag (explicit)
@@ -218,24 +220,21 @@ OP_ISSUE_TOKEN_REF = "op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
 # preference: the bot must not be able to push to them or run their CI.
 #
 # blumeops — workflow_dispatch is write-gated, so a read-only bot cannot trigger
-#   blumeops CI and therefore cannot reach the deploy-credentialed Actions
-#   secrets (ARGOCD_AUTH_TOKEN, FLY_DEPLOY_TOKEN, ZOT_CI_API_KEY,
-#   MAIN_PUSH_TOKEN) or, on a privileged runner, the blumeops vault.
+#   blumeops CI and therefore cannot reach its deploy credentials — the job-time
+#   `op read`s of the blumeops-ci vault behind BLUMEOPS_CI_OP_TOKEN — or, on a
+#   privileged runner, the blumeops vault itself.
 # agents  — the repo carrying the agent's own base instructions. Read-only means
 #   an agent cannot rewrite what the next session is told to do without a human
 #   merging the PR.
-# horkos  — the approval gate itself, and its CI carries release secrets
-#   (ZOT_CI_API_KEY, RELEASE_FORGE_TOKEN). release.yaml is workflow_dispatch-able
-#   and runs the definition from the dispatched ref, so a write bot could dispatch
-#   it from a branch with a doctored step and exfiltrate those secrets. Read-only
-#   closes that path (and a compromised gate is the worst thing to hand an agent).
-# talos  — its release.yaml carries BLUMEOPS_CI_OP_TOKEN (read of the whole
-#   blumeops-ci vault: forge-main-push, horkos-dispatch, zot-ci,
-#   argocd-workflow-bot, fly-deploy) and borrows horkos-dispatch to open blumeops
-#   pin PRs. release.yaml is workflow_dispatch-able and runs the definition from
-#   the dispatched ref, so a write bot could dispatch it from a branch with a
-#   doctored step and exfiltrate those secrets. Read-only + fork closes it, the
-#   same shape horkos received on 2026-08-20.
+# horkos  — the approval gate itself. Its release.yaml carries the scoped zot
+#   push key (ZOT_PUSH_API_KEY) and is workflow_dispatch-able, running the
+#   definition from the dispatched ref, so a write bot could dispatch it from a
+#   branch with a doctored step and exfiltrate the key. Read-only closes that
+#   path (and a compromised gate is the worst thing to hand an agent).
+# talos  — its release.yaml carries the scoped zot push key (ZOT_PUSH_API_KEY);
+#   its pin PRs now come from the horkos publisher. The dispatch-from-a-doctored-
+#   ref path above applies identically; read-only + fork closes it, the same
+#   shape horkos received on 2026-08-20.
 #
 # All four work via the fork model (origin = agents/<repo>, PRs to canonical),
 # so read costs them nothing. This lives in code, NOT in repos.json, on purpose:
@@ -520,6 +519,24 @@ def owner_repos(client: httpx.Client, owner: str) -> list[str]:
     return [r["name"] for r in found if r["owner"]["login"] == owner]
 
 
+def actions_secrets(client: httpx.Client, owner: str, repo: str) -> list[str] | None:
+    """Names of `repo`'s Actions secrets, or None if unreadable.
+
+    403/404 → None follows current_access' convention; other HTTP errors
+    re-raise. No pagination: the list is small, and truncation can only
+    hide names, never flip a non-empty verdict. Write on a repo is read of
+    its secrets — workflows execute at the pushed ref and every run receives
+    them — so a non-empty list under a write grant is a violation, not drift."""
+    try:
+        resp = client.get(f"/api/v1/repos/{owner}/{repo}/actions/secrets")
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (403, 404):
+            return None
+        raise
+    return [s["name"] for s in resp.json().get("secrets", []) if isinstance(s, dict) and "name" in s]
+
+
 def current_access(client: httpx.Client, owner: str, repo: str, who: str) -> str:
     """The collaborator grant on `repo`, or "none".
 
@@ -556,6 +573,17 @@ def current_access(client: httpx.Client, owner: str, repo: str, who: str) -> str
             return level
         case _:
             return "unreadable"
+
+
+def violation_line(owner: str, repo: str, secret_names: list[str]) -> str:
+    """One violation's message; shared by the --check pending block and the
+    apply-mode refusal so both report the same words."""
+    return (
+        f"actions-secrets: {owner}/{repo} declares write but carries "
+        f"{len(secret_names)} Actions secret(s) ({', '.join(secret_names)}) — "
+        "write on a repo means read of its Actions secrets; remove the "
+        "secret(s) or the write grant"
+    )
 
 
 def main(
@@ -621,6 +649,7 @@ def main(
         label_client: httpx.Client | None = None  # issue-scoped fallback, resolved lazily
         label_skipped = False  # no issue-capable token: warn once, check nothing
         blocked: list[str] = []
+        violations: list[tuple[str, list[str]]] = []  # (repo, secret names)
         for repo in sorted(all_repos):
             want = desired.get(repo, "none")
             have = current_access(client, owner, repo, who)
@@ -650,6 +679,15 @@ def main(
             if verb != "ok" or want != "none":
                 table.add_row(escape(repo), escape(have), escape(want), f"[{style}]{verb}[/{style}]")
 
+            # Actions-secrets invariant: write on a repo is read of its secrets
+            # (every run executes at the pushed ref), so a write grant on a
+            # secrets-carrying repo is refused — even where have == want.
+            if want == "write":
+                secrets = actions_secrets(client, owner, repo)
+                if secrets is None and repo not in blocked:
+                    blocked.append(repo)
+                elif secrets:
+                    violations.append((repo, secrets))
             # Webhook half. Two kinds, both identified by their own delivery
             # URL — never by id, so a hand-created hook with the right URL is
             # adopted, not duplicated: one talos hook (exact event set,
@@ -664,7 +702,7 @@ def main(
             want_release_hook = repo in release_hook_repos
             hooks = list_hooks(client, owner, repo)
             if hooks is None:
-                if repo in desired:
+                if repo in desired and repo not in blocked:
                     blocked.append(repo)
                 continue
 
@@ -735,7 +773,8 @@ def main(
                     if labeled is None and label_client is not None:
                         labeled = has_engage_label(label_client, owner, repo, name)
                     if labeled is None:
-                        blocked.append(repo)
+                        if repo not in blocked:
+                            blocked.append(repo)
                         break
                     if not labeled:
                         missing.append((name, color, description))
@@ -748,21 +787,34 @@ def main(
 
         if blocked:
             console.print(
-                f"\n[red]Cannot read collaborators on {len(blocked)} listed repo(s): "
+                f"\n[red]Cannot read collaborators or Actions secrets on {len(blocked)} listed repo(s): "
                 f"{escape(', '.join(blocked))}[/red]\n"
-                f"Collaborator management needs repo-admin permission — this token's user "
+                f"Both need repo-admin permission — this token's user "
                 f"is not an admin on them (Forgejo 404s rather than 403s when it cannot see a private "
                 f"repo at all, so 'wrong token' and 'no such repo' look identical). "
                 f"Refusing to apply a partial policy."
             )
             raise typer.Exit(1)
 
-        if not actions and not hook_actions and not label_actions:
+        if violations and not preview:
+            # Refuse the whole apply, not just one repo: granting write would
+            # hand the bot that repo's CI keys — there is no partial policy here.
+            console.print(
+                f"\n[red]Refusing to apply: {len(violations)} repo(s) declare write but carry "
+                f"Actions secret(s).[/red]"
+            )
+            for repo, secret_names in violations:
+                console.print(
+                    f"[red]  {violation_line(escape(owner), escape(repo), [escape(n) for n in secret_names])}[/red]"
+                )
+            raise typer.Exit(1)
+
+        if not actions and not hook_actions and not label_actions and not violations:
             console.print("[green]In sync.[/green]")
             return
 
         if preview:
-            pending = len(actions) + len(hook_actions) + len(label_actions)
+            pending = len(actions) + len(hook_actions) + len(label_actions) + len(violations)
             console.print(f"\n[bold]{pending} change(s) pending.[/bold]")
             for repo, verb, perm in actions:
                 console.print(f"  {verb} {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
@@ -771,6 +823,8 @@ def main(
                 console.print(f"  {verb} {name} on {escape(owner)}/{escape(repo)}")
             for repo, name, _color, _description in label_actions:
                 console.print(f"  create `{escape(name)}` label on {escape(owner)}/{escape(repo)}")
+            for repo, secret_names in violations:
+                console.print(f"  {violation_line(escape(owner), escape(repo), [escape(n) for n in secret_names])}")
             if check:
                 console.print("\n[red]Out of sync (--check).[/red]")
                 raise typer.Exit(1)

@@ -36,10 +36,11 @@ gate before anything deploys.
   canonical `eblume/blumeops` and pushes to its own fork **`agents/blumeops`**,
   opening cross-repo PRs. Read (not write) is load-bearing: `workflow_dispatch`
   is write-gated, so a read-only bot **cannot trigger blumeops' CI** and thus
-  cannot reach the deploy-credentialed Actions secrets (`ARGOCD_AUTH_TOKEN`,
-  `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`, `MAIN_PUSH_TOKEN`) — see
-  [[agent-workspaces]] §Isolation. `main` is additionally branch-protected
-  (push + merge whitelisted to `eblume`).
+  cannot reach its Actions secrets — the deploy-credentialed ones migrated to
+  job-time `op read`s of `blumeops-ci` items behind `BLUMEOPS_CI_OP_TOKEN`
+  ([[blumeops-ci-item-migration]]), with `FORGE_REPO_WRITE_TOKEN` the other
+  repo-wide secret — see [[agent-workspaces]] §Isolation. `main` is
+  additionally branch-protected (push + merge whitelisted to `eblume`).
   **The same recipe applies to every `pool: fork` repo** — today `agents`, `horkos`,
   `talos`, and `cv` as well. Each has an `agents/<repo>` fork on the forge, and the pod's
   pool checkout already has `origin` = the fork and `upstream` = canonical, so
@@ -130,6 +131,11 @@ UI — and nothing to forget, which is the point. See [[agent-containerization]]
 > Their read-only-on-canonical status is what keeps blumeops CI, and its
 > deploy-credentialed Actions secrets, out of agent reach; that fence should not
 > be flippable by a one-line edit to a data file in a routine-looking PR.
+>
+> **The reconciler also refuses write on any repo carrying Actions secrets**
+> (`access: write` on a repo with a non-empty `actions/secrets` list exits
+> non-zero in both `--check` and apply mode) — write on a repo means read of
+> its Actions secrets, so the grant would hand the bot that repo's CI keys.
 
 ### Why a missing grant is hard to diagnose
 

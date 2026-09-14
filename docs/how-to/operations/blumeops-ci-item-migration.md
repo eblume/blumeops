@@ -35,7 +35,7 @@ release CI now consume `ZOT_CI_API_KEY` and `RELEASE_FORGE_TOKEN` too.
 | `build-container`; talos + horkos `release.yaml` | `ZOT_CI_API_KEY` | `w3663ffn…/zot-ci-api` | **migrated** → `blumeops-ci/zot-ci` |
 | `deploy-fly` | `FLY_DEPLOY_TOKEN` | `on5slfay…/deploy-token` | **migrated** → `blumeops-ci/fly-deploy` |
 | `build-blumeops` | `MAIN_PUSH_TOKEN` | `blumeops-main-push-token/token` (eblume PAT, write:repository) | **migrated, eyes open** — it pushes protected `main` → `blumeops-ci/forge-main-push` |
-| talos + horkos `release.yaml` | `RELEASE_FORGE_TOKEN` | `horkos-forge-token/token` (horkos-forge PAT, write on blumeops — branch push + PR open, cannot merge or dispatch) | **migrated 2026-08-26** → `blumeops-ci/horkos-dispatch` (eblume/talos#55, eblume/horkos#9). The rotation friction showed up: the run-script executor needed the same PAT CI-readable, which would have made three independently-rotating copies. Now two, reconciled by `horkos-forge-provision`. |
+| talos + horkos `release.yaml` | `RELEASE_FORGE_TOKEN` | `horkos-forge-token/token` (horkos-forge PAT, write on blumeops only — push non-protected branches, open PRs, and dispatch workflows (the permission `workflow_dispatch` requires); cannot merge — `main` is push+merge whitelisted to `eblume`) | **migrated 2026-08-26** → `blumeops-ci/horkos-dispatch` (eblume/talos#55, eblume/horkos#9). The rotation friction showed up: the run-script executor needed the same PAT CI-readable, which would have made three independently-rotating copies. Now two, reconciled by `horkos-forge-provision`. |
 | `agent-repo-access`, `horkos-forge-drift` | `FORGE_REPO_WRITE_TOKEN` (was `FORGE_ADMIN_TOKEN`) | `forge-repo-write-token/token` (eblume PAT, `write:repository,read:user`; was `w3663ffn…/api-token`, the admin PAT) | **narrowed 2026-08-22** — no longer the admin PAT; migration into `blumeops-ci` can now proceed as a follow-up |
 | all | `GITHUB_TOKEN` | forge-injected | n/a |
 
@@ -45,7 +45,10 @@ All CI in `eblume/*` repos is **one trust tier** — no per-repo
 stratification. Sharing `BLUMEOPS_CI_OP_TOKEN` (full `blumeops-ci` vault
 read) with talos/horkos release CI is by-design: it is *CI* reading the
 vault, not the services themselves, and workflow definitions reach main
-only through a human merge (bots can't merge or dispatch). Consciously
+only through a human merge (bots can't merge). The rule is broader: write on
+a repo == read of its Actions secrets; cross-repo release writes happen via
+horkos on a merge boundary (webhook), and cross-system writes go through a
+warrant. Consciously
 accepted: the tier transitively includes push-to-blumeops-`main`
 (auto-sync deploys + policy/workflow edits); `forge-main-push` being an
 account-wide eblume PAT is a pre-existing narrowing task, not a blocker.

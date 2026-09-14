@@ -136,9 +136,12 @@ agent holds none of them.
   2026-07-10 — a hole that *did* hand the agent cluster-admin and an ArgoCD-admin
   deploy path; see [§Isolation](#isolation--security).)
 - **No deploy via CI.** blumeops' deploy workflows carry Actions secrets
-  (`ARGOCD_AUTH_TOKEN`, `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`, `MAIN_PUSH_TOKEN`).
-  `workflow_dispatch` is write-gated and the bot has only **read**, so it cannot
-  run a workflow — not even a modified one on a branch — to read those secrets.
+  (the deploy-credentialed ones migrated to job-time `op read`s of
+  `blumeops-ci` items behind `BLUMEOPS_CI_OP_TOKEN` —
+  [[blumeops-ci-item-migration]] — with `FORGE_REPO_WRITE_TOKEN` the other
+  repo-wide secret). `workflow_dispatch` is write-gated and the bot has only
+  **read**, so it cannot run a workflow — not even a modified one on a branch
+  — to read those secrets.
   Without this, write access would let the bot dispatch a branch workflow that
   exfiltrates the deploy tokens (Forgejo has no per-run approval gate for write
   users), which is exactly why the bot is read-only + fork here.
@@ -186,8 +189,9 @@ The boundaries, weakest-first:
    **read** on the canonical repo and pushes to its **fork** (`agents/blumeops`),
    opening cross-repo PRs. Read-not-write is deliberate — `workflow_dispatch` is
    write-gated, so a read-only bot **cannot run blumeops CI** and therefore
-   cannot reach the deploy-credentialed Actions secrets (`ARGOCD_AUTH_TOKEN`,
-   `FLY_DEPLOY_TOKEN`, `ZOT_CI_API_KEY`, `MAIN_PUSH_TOKEN`); `main` is also
+   cannot reach its Actions secrets (the deploy-credentialed ones are job-time
+   `op read`s of `blumeops-ci` items behind `BLUMEOPS_CI_OP_TOKEN`;
+   `FORGE_REPO_WRITE_TOKEN` is the other repo-wide secret); `main` is also
    push+merge-whitelisted to `eblume`. This is what actually keeps **deploy
    credentials out of agent reach** — layered over the fact that the bot holds
    neither the blumeops vault nor cluster access, so even a hypothetical `main`
