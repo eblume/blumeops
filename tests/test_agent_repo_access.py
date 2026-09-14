@@ -77,6 +77,7 @@ class FakeForge:
         self.secrets: (
             dict[str, list[str]] | None
         ) = {}  # repo -> names; None = endpoint 403s
+        self.secrets_body: dict | list | None = None  # raw-body override (shape test)
         self.hooks_status = 200  # non-200: the hooks list is unreadable
 
     def _page(self, request, data):
@@ -113,15 +114,15 @@ class FakeForge:
                     return httpx.Response(self.hooks_status, json={"message": "denied"})
                 return httpx.Response(200, json=self._page(request, []))
             if tail == ["actions", "secrets"]:
+                if self.secrets_body is not None:
+                    return httpx.Response(200, json=self.secrets_body)
                 names = None if self.secrets is None else self.secrets.get(repo)
                 if names is None:
                     return httpx.Response(
                         403, json={"message": "insufficient permission"}
                     )
-                return httpx.Response(
-                    200,
-                    json={"total": len(names), "secrets": [{"name": n} for n in names]},
-                )
+                # Forgejo serves a bare JSON array, not GitHub's wrapped shape.
+                return httpx.Response(200, json=[{"name": n} for n in names])
         return httpx.Response(404, json={"message": "unexpected path"})
 
     def install(self, monkeypatch):
@@ -227,6 +228,21 @@ def test_write_repo_unreadable_secrets_is_blocked(policy, run_main, monkeypatch)
     assert code == 1
     assert "Cannot read collaborators or Actions secrets" in out
     assert "svc" in out
+
+
+def test_wrapped_secrets_shape_fails_loud(policy, run_main, monkeypatch):
+    # Forgejo's list is a bare JSON array. If the body ever came back wrapped
+    # (GitHub's shape), reading it as empty would silently disarm the
+    # invariant — it must raise instead.
+    policy([_write_repo("svc")])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.secrets_body = {"secrets": [{"name": "DEPLOY_KEY"}], "total": 1}
+    forge.install(monkeypatch)
+
+    with pytest.raises(TypeError, match="/actions/secrets body for eblume/svc"):
+        run_main(check=True, token="t")
 
 
 def test_read_repo_never_calls_secrets_endpoint(policy, run_main, monkeypatch):
