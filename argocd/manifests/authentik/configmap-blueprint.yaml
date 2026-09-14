@@ -194,6 +194,22 @@ data:
         attrs:
           name: cv-artifacts
 
+      # ci-talos-artifacts group (ci-tier zot push-only identity for eblume/talos CI, eblume/blumeops#1039 step 2b)
+      - model: authentik_core.group
+        id: ci-talos-artifacts-group
+        identifiers:
+          name: ci-talos-artifacts
+        attrs:
+          name: ci-talos-artifacts
+
+      # ci-horkos-artifacts group (ci-tier zot push-only identity for eblume/horkos CI, eblume/blumeops#1039 step 2b)
+      - model: authentik_core.group
+        id: ci-horkos-artifacts-group
+        identifiers:
+          name: ci-horkos-artifacts
+        attrs:
+          name: ci-horkos-artifacts
+
       # Service account for CI push (admin sets password via UI after deploy)
       - model: authentik_core.user
         id: zot-ci-user
@@ -244,6 +260,33 @@ data:
           is_active: true
           groups:
             - !KeyOf horkos-artifacts-group
+
+      # CI tier (eblume/blumeops#1039 step 2b) zot push identities — additive for
+      # now; the release-CI cutover from talos-zot / horkos-zot follows in the
+      # flip PRs (keys re-minted under the ci-tier names, workflows cut over).
+      - model: authentik_core.user
+        id: ci-zot-talos-user
+        identifiers:
+          username: ci-zot-talos
+        attrs:
+          username: ci-zot-talos
+          name: CI Zot Talos Service Account
+          type: service_account
+          is_active: true
+          groups:
+            - !KeyOf ci-talos-artifacts-group
+
+      - model: authentik_core.user
+        id: ci-zot-horkos-user
+        identifiers:
+          username: ci-zot-horkos
+        attrs:
+          username: ci-zot-horkos
+          name: CI Zot Horkos Service Account
+          type: service_account
+          is_active: true
+          groups:
+            - !KeyOf ci-horkos-artifacts-group
 
       # OAuth2 provider for Zot
       - model: authentik_providers_oauth2.oauth2provider
@@ -346,6 +389,34 @@ data:
           target: !KeyOf zot-app
           group: !KeyOf cv-artifacts-group
           order: 4
+          enabled: true
+          negate: false
+          timeout: 30
+
+      # Policy binding — let ci-talos-artifacts sign in via OIDC to mint a zot API key at /user/apikey (eblume/blumeops#1039 step 2b)
+      - model: authentik_policies.policybinding
+        identifiers:
+          order: 5
+          target: !KeyOf zot-app
+          group: !KeyOf ci-talos-artifacts-group
+        attrs:
+          target: !KeyOf zot-app
+          group: !KeyOf ci-talos-artifacts-group
+          order: 5
+          enabled: true
+          negate: false
+          timeout: 30
+
+      # Policy binding — let ci-horkos-artifacts sign in via OIDC to mint a zot API key at /user/apikey (eblume/blumeops#1039 step 2b)
+      - model: authentik_policies.policybinding
+        identifiers:
+          order: 6
+          target: !KeyOf zot-app
+          group: !KeyOf ci-horkos-artifacts-group
+        attrs:
+          target: !KeyOf zot-app
+          group: !KeyOf ci-horkos-artifacts-group
+          order: 6
           enabled: true
           negate: false
           timeout: 30
