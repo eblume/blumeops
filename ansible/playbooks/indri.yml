@@ -9,11 +9,49 @@
   # See [[upgrade-forgejo]] §Go toolchain.
   vars:
     indri_go_version: "1.26.7"
+    # mise itself comes from Homebrew (ensured below). This is the one binary
+    # every mise call in the play and the roles goes through; it supersedes
+    # the retired nix-darwin per-user profile copy at
+    # /etc/profiles/per-user/erichblume/bin/mise (2025.4.11, still on disk,
+    # on no PATH the play uses). See [[indri]] §Toolchain.
+    indri_mise_bin: /opt/homebrew/bin/mise
+    # Floor for that binary. Must be >= 2025.8.11, where prek entered the
+    # mise registry (the global mise config and `mise prune` need it).
+    indri_mise_min_version: "2025.11.0"
 
   # Fetch 1Password credentials upfront to minimize prompts
   # Each role also fetches its own credentials (with 'when: <var> is not defined')
   # so they still work when running with --tags
   pre_tasks:
+    # mise comes from Homebrew, and this is the only place that says so.
+    # `state: present` installs it once and never upgrades it (that is
+    # `brew upgrade mise`, a human step); the floor check below is what
+    # catches it going stale, at the top of the play instead of as a mystery
+    # mise error deep in a role. See [[indri]] §Toolchain.
+    - name: Install mise via Homebrew
+      community.general.homebrew:
+        name: mise
+        state: present
+      environment:
+        PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      tags: [mise, forgejo, forgejo_runner, zot]
+
+    - name: Check mise version
+      ansible.builtin.command: "{{ indri_mise_bin }} --version"
+      register: mise_version
+      changed_when: false
+      check_mode: false
+      tags: [mise, forgejo, forgejo_runner, zot]
+
+    - name: Fail if mise is older than the required floor
+      ansible.builtin.fail:
+        msg: >-
+          {{ indri_mise_bin }} is {{ mise_version.stdout.split(' ')[0] }},
+          older than the required floor {{ indri_mise_min_version }}.
+          Run `brew upgrade mise` on indri, see [[indri]] §Toolchain.
+      when: mise_version.stdout.split(' ')[0] is version(indri_mise_min_version, '<')
+      tags: [mise, forgejo, forgejo_runner, zot]
+
     # Global mise baseline for the source builds: mise exports GOROOT by
     # default (go.set_goroot), and an exported GOROOT breaks Go's
     # GOTOOLCHAIN=auto switching — the auto-switched driver resolves
