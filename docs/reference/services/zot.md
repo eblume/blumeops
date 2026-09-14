@@ -1,7 +1,7 @@
 ---
 title: Zot
-modified: 2026-09-13
-last-reviewed: 2026-09-13
+modified: 2026-09-14
+last-reviewed: 2026-09-14
 tags:
   - service
   - registry
@@ -44,6 +44,7 @@ OIDC authentication via [[authentik]], with API key support for CI.
 | `artifact-workloads` group | read, create | CI push (new tags only, no overwrite/delete) |
 | `admins` group | read, create, update, delete | Break-glass admin access |
 | `talos-zot`, `horkos-zot` | create, update on their own image path only | per-repo release-CI push key (horkos#17 step 3) |
+| `ci-zot-talos`, `ci-zot-horkos` | create, update on their own image path only | ci-tier release-CI push keys — additive cutover names for the tier-first rename (eblume/blumeops#1039 step 2b); the flip PRs re-mint and move the release-CI workflows over |
 | `zot-cv` | create, update on its own path only | the horkos publisher's push identity for cv tarballs (horkos#17 step 4), consumed by the horkos deployment via ESO, not by any repo CI |
 
 CI authenticates with a zot API key generated from the `zot-ci` service account's OIDC session. The key is stored in the `Forgejo Secrets` 1Password item (field `zot-ci-api`) and synced to Forgejo Actions secrets via ansible.
@@ -56,7 +57,7 @@ Every CI key expires after **90 days**. Rotation is a command, not a browser
 session:
 
 ```fish
-mise run zot-apikey-rotate zot-ci        # or talos-zot, horkos-zot, zot-cv
+mise run zot-apikey-rotate zot-ci        # or talos-zot, ci-zot-talos, horkos-zot, ci-zot-horkos, zot-cv
 mise run zot-apikey-rotate zot-ci --dry-run   # just prove the current key still works
 ```
 
@@ -65,18 +66,29 @@ so a live key mints its own successor.
 
 **Tier-first rename (complete).** The per-repo push identities were
 renamed to the tier-first scheme of eblume/blumeops#1039 (`talos-zot` /
-`horkos-zot`). Both cut overs are done — a release push was verified
-under each new identity — and the grandfathered identities are retired.
+`horkos-zot`). Both cutovers are done — a release push was verified under
+each new identity — and the grandfathered identities are retired.
+
+**CI-tier cutover (in progress).** The release-CI identities are moving to
+the ci tier of the tier-first scheme (authorized by merging to main):
+`talos-zot` → `ci-zot-talos` and `horkos-zot` →
+`ci-zot-horkos`. The ci-tier groups (`ci-talos-artifacts` /
+`ci-horkos-artifacts`), users, zot accessControl grants, and
+`zot-apikey-rotate` entries were added additively alongside the existing
+identities — names only, no change to any existing principal's scope. The
+flip PRs re-mint each release-CI key under the ci-tier identity and cut the
+release workflows over, then `talos-zot` / `horkos-zot` retire.
 
 The task reads the current key from the `Forgejo Secrets` item (blumeops
-vault; fields `zot-ci-api`, `talos-zot-api`, `horkos-zot-api`, `zot-cv-api`), mints a new one, proves the
+vault; fields `zot-ci-api`, `talos-zot-api`, `horkos-zot-api`, `ci-zot-talos-api`, `ci-zot-horkos-api`, `zot-cv-api`), mints a new one, proves the
 new key authenticates, writes the master copy back, writes the consumer copy
 — `blumeops-ci/zot-ci` (`api-key`) for `zot-ci`, the `ZOT_PUSH_API_KEY`
-Actions secret on `eblume/talos` / `eblume/horkos` for the per-repo
-push identities (`talos-zot` / `horkos-zot`) — and then revokes
-every other key the identity holds (`--keep-others` to skip). Any failure
-before the writes leaves the old key valid and its consumer untouched. Key
-material never touches argv or the terminal.
+Actions secret on `eblume/talos` / `eblume/horkos` for the per-repo push
+identities (`talos-zot` / `ci-zot-talos` / `horkos-zot` /
+`ci-zot-horkos`) — and then revokes every other key the identity holds
+(`--keep-others` to skip). Any failure before the writes leaves the old key
+valid and its consumer untouched. Key material never touches argv or the
+terminal.
 
 For `zot-cv` the consumer is the master field itself: the horkos deployment
 reads Forgejo Secrets / `zot-cv-api` via ESO. Because the horkos deployment
@@ -98,7 +110,7 @@ rides on your own logged-in session.
 The identity's user must exist first — the blueprint worker creates it on ArgoCD sync. Check for it in the Authentik admin UI, not with `--dry-run`: for a fresh identity the master field in 1Password does not exist until the first rotation, so `--dry-run` fails on a missing field and says nothing about whether the user exists.
 
 
-1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `talos-zot`, `horkos-zot` or `zot-cv`)
+1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `talos-zot`, `ci-zot-talos`, `horkos-zot`, `ci-zot-horkos` or `zot-cv`)
 2. Visit `https://registry.ops.eblu.me` and click "SIGN IN WITH OIDC"
 3. Navigate to `https://registry.ops.eblu.me/user/apikey`, generate a key
    (any expiry — it is about to be retired), copy it

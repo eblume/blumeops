@@ -1,0 +1,1 @@
+zot: add the ci-tier release-CI identities `ci-zot-talos` / `ci-zot-horkos` (Authentik blueprint groups/users, zot accessControl grants, `zot-apikey-rotate` entries) alongside the current `talos-zot` / `horkos-zot` — names only, additive prep for the tier-first rename cutover; flip PRs re-mint the release-CI keys and move the workflows over (eblume/blumeops#1039 step 2b)
