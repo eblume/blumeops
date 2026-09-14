@@ -1,75 +1,65 @@
 ---
 # Forgejo Actions Secrets role configuration
 #
-# This role syncs repository-level Actions secrets from 1Password to Forgejo
-# via the Forgejo API.
+# Authoritative sync of repository-level Actions secrets from 1Password to
+# Forgejo: declared secrets are PUT (created/updated), undeclared live ones
+# are DELETEd, and `--check` reports name-level drift (values are write-only,
+# so value drift is invisible to the role).
 
 forgejo_actions_secrets_api_url: "https://forge.eblu.me/api/v1"
 forgejo_actions_secrets_owner: eblume
 
+# The fact this role authenticates with: an eblume PAT scoped to
+# write:repository,read:user (item forge-repo-write-token). Repo-admin
+# endpoints (collaborator/Actions-secret ops) work on it because eblume owns
+# the repos; the site-admin api-token is no longer used by this role.
+forgejo_actions_secrets_token_var: forgejo_secret_repo_write_token
+
 # Secrets to sync per repo.
 # Each entry: {repo: "name", secrets: [{name: "SECRET_NAME", value_var: "ansible_fact_name"}]}
+# NOT `FORGEJO_…`: Forgejo reserves the `FORGEJO_` prefix for the Actions
+# tokens it injects itself and rejects the create with HTTP 400.
 forgejo_actions_secrets_repos:
+  # The only two stored secrets any workflow reads (agent-repo-access,
+  # horkos-forge-drift, argocd-deploy, build-blumeops, build-container,
+  # deploy-fly, run-script).
   - repo: blumeops
     secrets:
-      # The per-purpose secrets that used to live here (ARGOCD_AUTH_TOKEN,
-      # FLY_DEPLOY_TOKEN, ZOT_CI_API_KEY, MAIN_PUSH_TOKEN) migrated to
-      # job-time `op read` of blumeops-ci items via BLUMEOPS_CI_OP_TOKEN
-      # ([[blumeops-ci-item-migration]]). This role no longer syncs them;
-      # delete the stale Actions secrets by hand once the migrated
-      # workflows are verified.
-      #
-      # Lets the Agent Repo Access workflow reconcile the `agents` bot's
-      # collaborations against repos.json, and horkos-forge-drift read
+      # FORGE_REPO_WRITE_TOKEN lets agent-repo-access reconcile the `agents`
+      # bot's collaborations against repos.json and horkos-forge-drift read
       # collaborator perms + branch protections. An eblume PAT scoped to
-      # write:repository,read:user (item forge-repo-write-token) —
-      # collaborator ops need repo-admin *permission* (eblume owns the repos)
-      # but only the repository token *scope*, plus read:user for the drift
-      # job's site-admin check, so CI no longer holds the all-scopes admin
-      # PAT (heph 01KZ5ESS2G, 2026-08-22). The role itself still
-      # authenticates its secret PUTs with forgejo_api_token, which never
-      # leaves the human-run provisioning step.
-      #
-      # This is the deliberate shape of "CI gets more than the agents vault":
-      # a human runs `mise run provision-indri -- --tags forgejo_actions_secrets`
-      # from gilbert, under biometric `op`, to push a curated subset of the
-      # blumeops vault into Forgejo. The vault itself stays out of CI's reach.
-      #
-      # NOT `FORGEJO_…`: Forgejo reserves the `FORGEJO_` prefix for the
-      # Actions tokens it injects itself and rejects the create with HTTP 400
-      # (the same reason the `cv` entry below is FORGE_TOKEN).
+      # write:repository,read:user — collaborator ops need repo-admin
+      # *permission* (eblume owns the repos) but only the repository token
+      # *scope*, plus read:user for the drift job's site-admin check, so CI
+      # holds no all-scopes admin PAT (heph 01KZ5ESS2G). A human runs
+      # `mise run provision-indri -- --tags forgejo_actions_secrets` from
+      # gilbert under biometric `op`; the vault stays out of CI's reach.
       - name: FORGE_REPO_WRITE_TOKEN
         value_var: forgejo_secret_repo_write_token
-      # Read-only op service account scoped to the blumeops-ci vault
-      # ([[warrant-approval-gated-runs]] Phase 2): privileged workflows
-      # `op read` runtime secrets with it at job time. The vault starts
-      # empty — items migrate in via the audited per-workflow review
-      # (heph 01KZ0G21JS), never wholesale.
+      # BLUMEOPS_CI_OP_TOKEN: read-only op service account scoped to the
+      # blumeops-ci vault ([[warrant-approval-gated-runs]] Phase 2) that
+      # privileged workflows `op read` runtime secrets with at job time.
       - name: BLUMEOPS_CI_OP_TOKEN
         value_var: forgejo_secret_blumeops_ci_op_token
+  # cv's release CI is stored-secret-free; the empty list makes provisioning
+  # authoritative here (the first run deletes the stale FORGE_TOKEN).
   - repo: cv
-    secrets:
-      - name: FORGE_TOKEN
-        value_var: forgejo_api_token
-  # Auto-release secrets ([[horkos]] extraction, 2026-08): merge to main in
-  # these repos builds + pushes the image and opens a pin-bump PR on
-  # blumeops. The zot push key is read from blumeops-ci at job time with
-  # BLUMEOPS_CI_OP_TOKEN — sharing that token with talos/horkos release CI
-  # is the one-CI-trust-tier decision (2026-08-21, logged on heph
-  # 01KZ5ESS0W…): all eblume/* CI is one tier. RELEASE_FORGE_TOKEN is
-  # horkos-forge's PAT — granted write on eblume/blumeops (the permission
-  # workflow_dispatch requires: push non-protected branches, open PRs,
-  # dispatch workflows); cannot merge — main is push+merge whitelisted to
-  # eblume.
+    secrets: []
+  # ZOT_PUSH_API_KEY is the stripped release CI's only stored secret: the
+  # per-repo push-only zot identity from the blumeops/talos accessControl;
+  # the master field is kept in sync by `mise run zot-apikey-rotate talos-zot`.
+  # When the #1039 step-2b flip moves release.yaml's --dest-creds to
+  # `ci-zot-talos`, point value_var (and the playbook's op read) at the
+  # `ci-zot-talos-api` master field in the same PR — a provisioning run
+  # that still declares the old field would push the old key back.
   - repo: talos
     secrets:
-      - name: BLUMEOPS_CI_OP_TOKEN
-        value_var: forgejo_secret_blumeops_ci_op_token
-      - name: RELEASE_FORGE_TOKEN
-        value_var: forgejo_secret_release_forge_token
+      - name: ZOT_PUSH_API_KEY
+        value_var: forgejo_secret_talos_zot_api
+  # Same shape as talos: the per-repo push-only zot identity from the
+  # blumeops/horkos accessControl; master field kept in sync by
+  # `mise run zot-apikey-rotate horkos-zot` (same flip note: `ci-zot-horkos-api`).
   - repo: horkos
     secrets:
-      - name: BLUMEOPS_CI_OP_TOKEN
-        value_var: forgejo_secret_blumeops_ci_op_token
-      - name: RELEASE_FORGE_TOKEN
-        value_var: forgejo_secret_release_forge_token
+      - name: ZOT_PUSH_API_KEY
+        value_var: forgejo_secret_horkos_zot_api
