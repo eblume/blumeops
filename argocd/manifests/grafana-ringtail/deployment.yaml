@@ -58,7 +58,7 @@ spec:
           args:
             - |
               set -e
-              TESLAMATE_VERSION="v3.0.0"
+              TESLAMATE_VERSION="v4.2.0"
               BASE_URL="https://forge.ops.eblu.me/mirrors/teslamate/raw/tag/${TESLAMATE_VERSION}/grafana/dashboards"
               DEST="/tmp/dashboards/TeslaMate"
               mkdir -p "$DEST"

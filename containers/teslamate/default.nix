@@ -5,12 +5,12 @@
 # mixRelease: an Elixir/Phoenix release with npm-built assets.
 #
 # Pinned to the same nixos-unstable rev as paperless/mealie for a
-# consistent toolchain. The BEAM combo is pinned to erlang_27 + elixir_1_18
-# (teslamate requires elixir ~> 1.17; upstream's image uses OTP 26, so we
-# stay off the default OTP 28 which elixir 1.18 does not target).
+# consistent toolchain. The BEAM combo is pinned to erlang_28 + elixir_1_19
+# (= 1.19.5), the build base of upstream's v4.0.0 line; mix.exs has
+# required elixir ~> 1.19 since v4.1.0.
 #
 # Source comes from the forge mirror (supply-chain control), pinned by the
-# v3.0.0 tag's commit so builtins.fetchGit needs no hash.
+# v4.2.0 tag's sha so builtins.fetchGit needs no hash.
 let
   nixpkgs = fetchTarball {
     url = "https://github.com/NixOS/nixpkgs/archive/331800de5053fcebacf6813adb5db9c9dca22a0c.tar.gz";
@@ -19,27 +19,15 @@ let
   pkgs = import nixpkgs { system = "x86_64-linux"; };
   lib = pkgs.lib;
 
-  version = "3.0.0";
+  version = "4.2.0";
 
-  beamPackages = pkgs.beam.packages.erlang_27;
-  elixir = beamPackages.elixir_1_18;
+  beamPackages = pkgs.beam.packages.erlang_28;
+  elixir = beamPackages.elixir_1_19;
 
   src = builtins.fetchGit {
     url = "https://forge.ops.eblu.me/mirrors/teslamate.git";
     ref = "refs/tags/v${version}";
-    rev = "3281154d42330786a182c1bbe094ecda0b1c5578";
-  };
-
-  # ex_cldr downloads locale JSON from GitHub at compile time, which the
-  # build sandbox blocks. teslamate's cldr.ex reads the data dir from the
-  # LOCALES env var; point it at the pre-fetched elixir-cldr data so no
-  # download is attempted (with SKIP_LOCALE_DOWNLOAD=true disabling the
-  # forced refresh). CLDR data version matches the compile-time errors.
-  cldrData = pkgs.fetchFromGitHub {
-    owner = "elixir-cldr";
-    repo = "cldr";
-    rev = "v2.46.0";
-    sha256 = "1iwzk9dc754l72vpf8vsisdjncnjx26pz509552b6vnm49xbxyji";
+    rev = "68ac64623fc53c3603ff168f8f865d16f61f023b";
   };
 
   teslamate = beamPackages.mixRelease {
@@ -55,7 +43,7 @@ let
     mixFodDeps = beamPackages.fetchMixDeps {
       pname = "mix-deps-teslamate";
       inherit src version elixir;
-      hash = "sha256-DDrREiM1BIMgD2qFPTK8QyjOYlnfE3XlnaH/jk7G2go=";
+      hash = pkgs.lib.fakeHash;
     };
 
     # Frontend assets. esbuild + sass are devDeps and the esbuild platform
@@ -68,13 +56,11 @@ let
     npmDeps = pkgs.fetchNpmDeps {
       name = "teslamate-npm-deps";
       src = src + "/assets";
-      hash = "sha256-XyiaUkT/c4rZnNxmxhVLb+vEXnc64A1hjOrnR5fhaEk=";
+      hash = pkgs.lib.fakeHash;
     };
     npmRoot = "assets";
 
     preBuild = ''
-      export SKIP_LOCALE_DOWNLOAD=true
-      export LOCALES=${cldrData}/priv/cldr
       ( cd assets && npm ci --include=dev --include=optional && node scripts/build.js )
       mix phx.digest --no-deps-check
     '';
@@ -107,11 +93,16 @@ pkgs.dockerTools.buildLayeredImage {
   enableFakechroot = true;
 
   config = {
-    # Mirror entrypoint.sh: wait for postgres, run migrations, then start.
+    # Mirror entrypoint.sh: cap the nofile limit, wait for postgres, run
+    # migrations, then start.
     Entrypoint = [
       "${pkgs.dash}/bin/dash"
       "-c"
       ''
+        : "''${ULIMIT_MAX_NOFILE:=65536}"
+        if test "''${ULIMIT_MAX_NOFILE}" != 0 && test "$(ulimit -n)" -gt "''${ULIMIT_MAX_NOFILE}"; then
+          ulimit -n "''${ULIMIT_MAX_NOFILE}"
+        fi
         : "''${DATABASE_HOST:=127.0.0.1}"
         : "''${DATABASE_PORT:=5432}"
         while ! ${pkgs.netcat-openbsd}/bin/nc -z "$DATABASE_HOST" "$DATABASE_PORT" 2>/dev/null; do
