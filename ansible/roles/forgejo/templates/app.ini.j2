@@ -67,6 +67,18 @@ RUN_AT_START = true
 SCHEDULE = @midnight
 OLDER_THAN = 2h
 
+[cron.delete_old_system_notices]
+ENABLED = true
+RUN_AT_START = true
+SCHEDULE = @every 168h
+OLDER_THAN = {{ forgejo_old_notices_retention }}
+
+[cron.delete_old_actions]
+ENABLED = true
+RUN_AT_START = true
+SCHEDULE = @every 168h
+OLDER_THAN = {{ forgejo_old_actions_retention }}
+
 [session]
 PROVIDER = {{ forgejo_session_provider }}
 
