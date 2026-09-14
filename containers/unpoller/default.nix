@@ -1,37 +1,29 @@
 # Nix-built UnPoller for ringtail (amd64), phase 1 of [[retire-minikube]].
 #
-# nixpkgs' unpoller lags badly (2.15.4 vs our v3.2.0), so this builds from
-# the forge mirror at the pinned tag — the ntfy pattern. Same ldflags as
-# the Dagger build (golift.io/version stamps).
+# nixpkgs' unpoller lags badly, so this builds from the forge mirror at the
+# pinned tag — the ntfy pattern.
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "3.2.0";
+  version = "5.2.5";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/unpoller.git";
     rev = "v${version}";
-    hash = "sha256-EbM+/7zlGGytygeKVgkhC5jC5QMWi/bKkq4tDtJmGHk=";
+    hash = "sha256-5mIvcxBNn3DdYgDXzUJ5Czn+iua0zV4hhzaVPAG5NrA=";
   };
 
-  unpoller = pkgs.buildGoModule {
+  # v5.2.5's go.mod requires go 1.26.0, above the channel's default Go, so
+  # pin go_1_26 (1.26.7) to avoid a GOTOOLCHAIN=local build failure.
+  unpoller = (pkgs.buildGoModule.override { go = pkgs.go_1_26; }) {
     inherit src version;
     pname = "unpoller";
-    vendorHash = "sha256-Xnu5T1M0fjWVz3LsIXXYjuAFeo/t8URJutH6QS3pQhk=";
+    vendorHash = "sha256-Op6Iz1weKQ8okkW7fR++PxiWLRDznLFqxWrEPNf1QeA=";
 
     doCheck = false;
     subPackages = [ "." ];
 
-    ldflags = [
-      "-s"
-      "-w"
-      "-X main.version=v${version}"
-      "-X main.builtBy=blumeops"
-      "-X golift.io/version.Version=v${version}"
-      "-X golift.io/version.Branch=HEAD"
-      "-X golift.io/version.BuildUser=blumeops"
-      "-X golift.io/version.Revision=blumeops-build"
-    ];
+    ldflags = [ "-s" "-w" ];
 
     meta.mainProgram = "unpoller";
   };
