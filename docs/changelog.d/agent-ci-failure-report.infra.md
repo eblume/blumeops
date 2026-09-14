@@ -1,0 +1,1 @@
+Every PR-triggered CI job now reports its failure to the PR through the shared `.forgejo/actions/report-failure` action: a filtered log tail plus run number and job name, deduped per (workflow, job, matrix leg, head SHA). Failures on agent-authored PRs post as a review, which talos picks up to start a fix cycle, capped at three failure reviews per PR.

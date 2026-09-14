@@ -9,6 +9,7 @@
 # That is what makes it safe to run on every PR including from a fork, and it
 # is the same property that lets an agent run all three locally before pushing.
 # Keep it that way: a check that needs a secret belongs in a different workflow.
+# The report-failure step is the one exception: failure-only, automatic per-run token (no repo secret).
 #
 # On an agent PR this sits `pending` with no run until a human clicks
 # "Approve and run" — the agents bot is read-only on canonical, so its PRs are
@@ -36,12 +37,26 @@ jobs:
       # reporting all three failures in one run beats making someone push a fix
       # to discover the next one.
       - name: Changelog fragments are flat files
-        run: ./mise-tasks/changelog-check
+        run: |
+          set -o pipefail
+          ./mise-tasks/changelog-check 2>&1 | tee /tmp/docs-checks-checks.log
 
       - name: Docs have required frontmatter
         if: always()
-        run: uv run --script mise-tasks/docs-check-frontmatter
+        run: |
+          set -o pipefail
+          uv run --script mise-tasks/docs-check-frontmatter 2>&1 | tee -a /tmp/docs-checks-checks.log
 
       - name: Wiki-links resolve
         if: always()
-        run: uv run --script mise-tasks/docs-check-links
+        run: |
+          set -o pipefail
+          uv run --script mise-tasks/docs-check-links 2>&1 | tee -a /tmp/docs-checks-checks.log
+
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: /tmp/docs-checks-checks.log

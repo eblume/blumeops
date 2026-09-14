@@ -11,6 +11,7 @@
 # cluster, no network beyond fetching hook environments. That is what makes it
 # safe on every PR including from a fork. Keep it that way — a check needing a
 # secret belongs in a different workflow.
+# The report-failure step is the one exception: failure-only, automatic per-run token (no repo secret).
 #
 # The three jobs are required status contexts on `main` — `Lint / prek`,
 # `Lint / workflows-validate`, `Lint / secret-scan` (pull_request contexts,
@@ -98,7 +99,17 @@ jobs:
       - name: prek run --all-files
         env:
           GITHUB_TOKEN: ""
-        run: prek run --all-files --show-diff-on-failure
+        run: |
+          set -o pipefail
+          prek run --all-files --show-diff-on-failure 2>&1 | tee /tmp/lint-prek.log
+
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: /tmp/lint-prek.log
 
   # Schema validation against the runner's own parser — the check actionlint
   # cannot do, since it validates against GitHub's schema and misses
@@ -122,16 +133,27 @@ jobs:
       # schema the workflows will run under.
       - name: forgejo-runner validate
         run: |
-          runner_bin="$HOME/code/3rd/forgejo-runner/forgejo-runner"
-          if [ ! -x "$runner_bin" ]; then
-            echo "::error::forgejo-runner not found at $runner_bin." >&2
-            echo "The path mirrors forgejo_runner_binary in" >&2
-            echo "ansible/roles/forgejo_runner/defaults/main.yml." >&2
-            echo "Re-run provision-indri --tags forgejo_runner." >&2
-            exit 1
-          fi
-          "$runner_bin" --version
-          "$runner_bin" validate --directory .
+          set -o pipefail
+          {
+            runner_bin="$HOME/code/3rd/forgejo-runner/forgejo-runner"
+            if [ ! -x "$runner_bin" ]; then
+              echo "::error::forgejo-runner not found at $runner_bin." >&2
+              echo "The path mirrors forgejo_runner_binary in" >&2
+              echo "ansible/roles/forgejo_runner/defaults/main.yml." >&2
+              echo "Re-run provision-indri --tags forgejo_runner." >&2
+              exit 1
+            fi
+            "$runner_bin" --version
+            "$runner_bin" validate --directory .
+          } 2>&1 | tee /tmp/lint-workflows-validate.log
+
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: /tmp/lint-workflows-validate.log
 
   # gitleaks over the FULL git history, not the PR range. This repo is public
   # and its first rule is never commit secrets, so a credential that landed
@@ -160,5 +182,14 @@ jobs:
         env:
           GITHUB_TOKEN: ""
         run: |
+          set -o pipefail
           mise x gitleaks@8.30.1 -- gitleaks git . \
-            --no-banner --redact --config .gitleaks.toml
+            --no-banner --redact --config .gitleaks.toml 2>&1 | tee /tmp/lint-secret-scan.log
+
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: /tmp/lint-secret-scan.log

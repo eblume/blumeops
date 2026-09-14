@@ -89,6 +89,12 @@ The forge has three namespaces:
 | `run-script` | dispatch | `priv` | Warrant-gated one-off script run |
 | `horkos-forge-drift` | cron/push/dispatch | `indri` | Weekly drift check on horkos-forge's grants |
 
+PR jobs additionally end with the shared `.forgejo/actions/report-failure`
+composite action: on failure it posts the job's teed log tail to the PR as
+`forgejo-actions` — a triggering COMMENT review on agent-authored PRs (the
+talos fix loop), a plain comment otherwise — deduped per (workflow, job, matrix leg, head SHA)
+and capped at three failure reviews per PR ([[agent-change-process#CI failure notices]]).
+
 (Until [[retire-minikube]] a `k8s` runner was a minikube DinD pod that also built Dockerfile/Dagger containers; that path is retired.)
 
 ## Secrets (Forgejo Config)

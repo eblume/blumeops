@@ -45,6 +45,12 @@ with the `agents-m2m` credential, no browser session and no talos-specific
 secret. A token for the wrong issuer fails `iss`/`aud`, so the second issuer
 never widens who the first accepts (talos `src/jwt.ts`, `verifyBearer`).
 
+A third trigger surface is the Forgejo webhook forge loop ([[talos-design]]
+Driver 2): it also starts cycles on CI-failure notices — COMMENT reviews
+posted by `forgejo-actions` via the blumeops shared report-failure action —
+framed as untrusted build output to diagnose, capped at three failure reviews
+per PR.
+
 **No wrapper task by design** — it's just the API. Mint the `agents-m2m` token
 the way `agent-health` does, then call talos. The credential is in the
 blumeops vault (`agents-m2m-app-password`); it is also in the agents vault, so
