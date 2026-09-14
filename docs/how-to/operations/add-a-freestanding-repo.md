@@ -1,6 +1,6 @@
 ---
 title: Add a Freestanding Repo to the Pool
-modified: 2026-09-13
+modified: 2026-09-14
 last-reviewed: 2026-09-13
 tags:
   - how-to
@@ -54,10 +54,17 @@ what the class is, see [[freestanding-repos]]. Each step names its actor.
    - `docs/reference/reference.md` — "TODO After Templating" section.
    - `docs/tutorials/ai-assistance-guide.md` — dagger-rename TODO bullet.
    - `docs/explanation/explanation.md` — explanation-entries TODO comment.
-   - `.dagger/src/project_template_ci/` — rename the module directory and
-     the exported class to match the new repo. This one is a real code
-     change with CI impact: a cut that keeps `project_template_ci` fails
-     its first auto-release (dagger looks for `src/<repo>_ci/__init__.py`).
+   - `.dagger/src/project_template_ci/` — rename the Dagger CI module to
+     match the new repo. The template pins the `module-name` and
+     `main_object` entry point in `.dagger/pyproject.toml`
+     ([eblume/project-template#6](https://forge.eblu.me/eblume/project-template/pulls/6)),
+     so an un-renamed cut still builds and loads; the rename is still the
+     first-time step, and it touches four linked names — the package
+     directory, the exported class (derived from the `dagger.json` module
+     name unless the entry point overrides it), the `module-name` pin, and
+     the `main_object` entry point. Follow the template's `AGENTS.md`
+     "First-Time Setup" step 2; a half-done rename is exactly what breaks
+     the first `dagger call`.
 
 ## Failure modes
 
