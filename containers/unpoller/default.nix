@@ -18,7 +18,7 @@ let
   unpoller = (pkgs.buildGoModule.override { go = pkgs.go_1_26; }) {
     inherit src version;
     pname = "unpoller";
-    vendorHash = pkgs.lib.fakeHash; # revealed by the first CI build round
+    vendorHash = "sha256-Op6Iz1weKQ8okkW7fR++PxiWLRDznLFqxWrEPNf1QeA=";
 
     doCheck = false;
     subPackages = [ "." ];
