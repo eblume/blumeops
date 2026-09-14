@@ -167,20 +167,12 @@
       tags: [forgejo]
 
     # Forgejo Actions secrets (synced to Forgejo via API)
-    - name: Fetch Forgejo API token
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
-      delegate_to: localhost
-      register: _forgejo_api_token
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo_actions_secrets]
-
     # eblume PAT scoped to write:repository,read:user — the
     # FORGE_REPO_WRITE_TOKEN CI secret for agent-repo-access +
-    # horkos-forge-drift, so CI no longer holds the all-scopes admin PAT above
-    # (heph 01KZ5ESS2G). Minted on indri with `forgejo admin user
+    # horkos-forge-drift, so CI no longer holds the all-scopes admin PAT
+    # (heph 01KZ5ESS2G). Also the token this role authenticates with
+    # (write:repository covers its repo-admin ops — eblume owns the repos).
+    # Minted on indri with `forgejo admin user
     # generate-access-token … --scopes write:repository,read:user`.
     - name: Fetch repo-write forge token for Forgejo Actions
       ansible.builtin.command:
@@ -211,16 +203,25 @@
       check_mode: false
       tags: [forgejo_actions_secrets]
 
-    # horkos-forge's write:repository PAT, reused by the talos/horkos release
-    # workflows to push their pin-bump branch and open the PR on blumeops.
-    # Same boundary the bot already has (write, cannot merge — main is
-    # protected and horkos-forge-drift asserts the grant set), so releasing
-    # reuses a drift-checked identity instead of minting a new one.
-    - name: Fetch release forge token (horkos-forge PAT) for Forgejo Actions
+    # The per-repo zot push identities (talos-zot / horkos-zot): master fields
+    # on the Forgejo Secrets item, kept in sync by `mise run
+    # zot-apikey-rotate`; declared as ZOT_PUSH_API_KEY on eblume/talos and
+    # eblume/horkos.
+    - name: Fetch talos zot API key for Forgejo Actions
       ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/horkos-forge-token/token"
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/talos-zot-api"
       delegate_to: localhost
-      register: _release_forge_token
+      register: _talos_zot_api
+      changed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo_actions_secrets]
+
+    - name: Fetch horkos zot API key for Forgejo Actions
+      ansible.builtin.command:
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/horkos-zot-api"
+      delegate_to: localhost
+      register: _horkos_zot_api
       changed_when: false
       no_log: true
       check_mode: false
@@ -228,10 +229,10 @@
 
     - name: Set Forgejo Actions secrets facts
       ansible.builtin.set_fact:
-        forgejo_api_token: "{{ _forgejo_api_token.stdout }}"
         forgejo_secret_repo_write_token: "{{ _forge_repo_write_token.stdout }}"
         forgejo_secret_blumeops_ci_op_token: "{{ _blumeops_ci_op_token.stdout }}"
-        forgejo_secret_release_forge_token: "{{ _release_forge_token.stdout }}"
+        forgejo_secret_talos_zot_api: "{{ _talos_zot_api.stdout }}"
+        forgejo_secret_horkos_zot_api: "{{ _horkos_zot_api.stdout }}"
       no_log: true
       tags: [forgejo_actions_secrets]
 

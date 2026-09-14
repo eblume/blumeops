@@ -105,8 +105,11 @@ Per-runner identity and job-credential secrets live on the runner card ([[forgej
 
 Repository-level Actions secrets are synced from 1Password to Forgejo by
 the `forgejo_actions_secrets` Ansible role (human-run from gilbert under
-biometric `op` — the role authenticates with the admin PAT and the step
-never leaves a human):
+biometric `op` — the role authenticates with the scoped eblume
+write:repository PAT and the step never leaves a human). The sync is
+authoritative: declared secrets are PUT (created/updated), undeclared live
+ones are DELETEd, and `--check` reports name-level drift — values are
+write-only, so value drift is invisible to the role):
 
 ```bash
 mise run provision-indri -- --tags forgejo_actions_secrets
@@ -115,8 +118,8 @@ mise run provision-indri -- --tags forgejo_actions_secrets
 | Repo | Secrets | Purpose |
 |------|---------|---------|
 | `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `agent-repo-access` reconcile + `horkos-forge-drift` reads (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
-| `eblume/talos`, `eblume/horkos` | `BLUMEOPS_CI_OP_TOKEN`, `RELEASE_FORGE_TOKEN` | Auto-release CI: job-time zot push key; horkos-forge PAT pushes the pin-bump branch + opens the PR on blumeops |
-| `eblume/cv` | `FORGE_TOKEN` | CV deploy workflow |
+| `eblume/talos`, `eblume/horkos` | `ZOT_PUSH_API_KEY` | Auto-release CI: per-repo push-only zot identity (`talos-zot` / `horkos-zot`), provisioned from the zot master fields by the role |
+| `eblume/cv` | — (none) | Release CI is stored-secret-free; the empty declaration makes provisioning authoritative here (first run deletes the stale `FORGE_TOKEN`) |
 
 The per-purpose secrets the role used to sync (argocd token, fly deploy
 token, zot CI key, main-push PAT) are no longer Forgejo secrets: workflows
@@ -125,21 +128,23 @@ see [[blumeops-ci-item-migration]].
 
 These secrets are injected as `${{ secrets.SECRET_NAME }}` in workflow files.
 
-### API Token Setup (Manual, One-Time)
+### API Tokens
 
-The Ansible role authenticates to the Forgejo API using a Personal Access Token (PAT). This PAT must be created manually:
+The role authenticates with an **eblume** PAT scoped to
+`write:repository,read:user` (1Password item `forge-repo-write-token` —
+the same token CI holds as `FORGE_REPO_WRITE_TOKEN`). Its repo-admin
+endpoints (collaborator / Actions-secret ops) work with that scope because
+eblume owns the repos; the site-admin token is never needed here. Mint it
+on indri with `forgejo admin user generate-access-token … --scopes
+write:repository,read:user` and store the value in 1Password →
+`forge-repo-write-token` → `token`.
 
-1. Go to https://forge.eblu.me/user/settings/applications
-2. Create a new all-scopes admin token (this role is the only consumer of the admin PAT; CI uses the scoped `FORGE_REPO_WRITE_TOKEN` instead)
-3. Store it in 1Password → "Forgejo Secrets" item → `api-token` field
+The site-admin PAT (`api-token` in the "Forgejo Secrets" item) is **not**
+used by this role anymore. Its remaining consumers:
 
-This is a bootstrapping requirement - the PAT enables IaC for all other secrets.
-
-**Consumers — update all of these when rotating the token:**
-
-- The Ansible role (reads from 1Password at provision time)
 - `mise run runner-logs` (reads from 1Password at run time)
 - The `tea` CLI (**copies the token** into `~/.config/tea/config.yml`; re-paste it there after rotation). tea switched to this PAT 2026-07-04 after its OAuth token expired and tea 0.14.2 broke httpsign auth ([tea#1046](https://gitea.com/gitea/tea/issues/1046) — fixed in go-sdk but unreleased; httpsign can be re-enabled in tea's config once 0.14.3 ships).
+- the `forgejo_metrics` role (fetched as `forgejo_metrics_api_key` in the playbook pre_tasks)
 
 ## Identity Provider
 

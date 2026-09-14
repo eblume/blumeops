@@ -1,32 +1,123 @@
 ---
 # Forgejo Actions Secrets role
 #
-# Syncs repository-level Actions secrets from 1Password to Forgejo via API.
+# Authoritative sync of repository-level Actions secrets: declared secrets
+# are PUT (created/updated), undeclared live ones are DELETEd, and --check
+# reports name-level drift instead of mutating.
 #
-# NOTE: This role runs on indri, which is also where Forgejo runs. The API
-# calls go from indri back to itself (via the public URL through Caddy).
-# This is intentional - it keeps the role simple and uses the same URL
-# that workflows use.
+# Runs on indri, which is also where Forgejo runs: the API calls go from
+# indri back to itself (via the public URL through Caddy). This is
+# intentional — it keeps the role simple and uses the same URL that
+# workflows use.
 #
-# Secrets (forgejo_api_token, forgejo_secret_*) are fetched from 1Password
-# in the playbook pre_tasks to minimize password prompts during provisioning.
+# Secrets (forgejo_secret_*) are fetched from 1Password in the playbook
+# pre_tasks to minimize password prompts during provisioning. The token is
+# the scoped eblume write:repository PAT (forgejo_secret_repo_write_token),
+# not the site-admin PAT.
 
-- name: Sync Actions secrets to Forgejo
+- name: List live Actions secrets for managed repos
+  ansible.builtin.command:
+    argv:
+      - curl
+      - -fsS
+      # -f makes a non-200 fail the task: a failed read must abort, never
+      # delete. uri is not used here because it is skipped in --check mode.
+      - -H
+      - "Authorization: token {{ lookup('vars', forgejo_actions_secrets_token_var) }}"
+      - "{{ forgejo_actions_secrets_api_url }}/repos/{{ forgejo_actions_secrets_owner }}/{{ item.repo }}/actions/secrets"
+  loop: "{{ forgejo_actions_secrets_repos }}"
+  loop_control:
+    label: "{{ item.repo }}"
+  register: forgejo_actions_secrets_live
+  changed_when: false
+  check_mode: false
+  # The registered result carries the curl argv, token included.
+  no_log: true
+
+# Peel the bodies off the registered results so later tasks can loop over
+# name-only data with visible failure messages (the results carry the token).
+- name: Collect live Actions secrets bodies per repo
+  ansible.builtin.set_fact:
+    forgejo_actions_secrets_live_bodies: "{{ forgejo_actions_secrets_live_bodies | default({}) | combine({item.item.repo: (item.stdout | from_json)}) }}"
+  loop: "{{ forgejo_actions_secrets_live.results }}"
+  no_log: true
+
+# Forgejo serves a bare JSON array here, not GitHub's wrapped shape; a
+# non-list body must fail the role before any DELETE runs. Jinja's
+# `is sequence` test also passes dicts and strings, so check the type.
+- name: Validate live Actions secrets list shape
+  ansible.builtin.assert:
+    that:
+      - item.value | type_debug == 'list'
+    fail_msg: >-
+      actions-secrets list for {{ item.key }} is not a JSON array
+      (got {{ item.value | type_debug }})
+    quiet: true
+  loop: "{{ forgejo_actions_secrets_live_bodies | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Set live Actions secrets names per repo
+  ansible.builtin.set_fact:
+    forgejo_actions_secrets_live_names: "{{ forgejo_actions_secrets_live_names | default({}) | combine({item.key: (item.value | map(attribute='name') | list)}) }}"
+  loop: "{{ forgejo_actions_secrets_live_bodies | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Compute Actions secrets drift
+  ansible.builtin.set_fact:
+    forgejo_actions_secrets_drift: "{{ forgejo_actions_secrets_drift | default([]) + [{'repo': item.repo, 'undeclared': (forgejo_actions_secrets_live_names[item.repo] | difference(item.secrets | map(attribute='name') | list)), 'missing': (item.secrets | map(attribute='name') | list | difference(forgejo_actions_secrets_live_names[item.repo]))}] }}"
+  loop: "{{ forgejo_actions_secrets_repos }}"
+  loop_control:
+    label: "{{ item.repo }}"
+
+- name: Report Actions secrets drift (check mode)
+  ansible.builtin.assert:
+    that: >-
+      forgejo_actions_secrets_drift | map(attribute='undeclared') | map('length') | sum == 0
+      and forgejo_actions_secrets_drift | map(attribute='missing') | map('length') | sum == 0
+    fail_msg: "Actions secret drift under --check (nothing was changed):{%- for d in forgejo_actions_secrets_drift %}{%- if d.undeclared %} undeclared on {{ d.repo }}: {{ d.undeclared | join(', ') }} (would be deleted);{% endif -%} {%- if d.missing %} missing on {{ d.repo }}: {{ d.missing | join(', ') }} (would be created);{% endif %}{%- endfor %}"
+    quiet: true
+  when: ansible_check_mode
+
+- name: Report Actions secrets in sync
+  ansible.builtin.debug:
+    msg: "actions secrets in sync for {{ forgejo_actions_secrets_repos | length }} repos"
+  when: >-
+    forgejo_actions_secrets_drift | map(attribute='undeclared') | map('length') | sum == 0
+    and forgejo_actions_secrets_drift | map(attribute='missing') | map('length') | sum == 0
+
+- name: Create or update declared Actions secrets
   ansible.builtin.uri:
     url: "{{ forgejo_actions_secrets_api_url }}/repos/{{ forgejo_actions_secrets_owner }}/{{ item.0.repo }}/actions/secrets/{{ item.1.name }}"
     method: PUT
     headers:
-      Authorization: "token {{ forgejo_api_token }}"
+      Authorization: "token {{ lookup('vars', forgejo_actions_secrets_token_var) }}"
       Content-Type: "application/json"
     body_format: json
     body:
       data: "{{ lookup('vars', item.1.value_var) }}"
     status_code: [201, 204]
   register: forgejo_actions_secrets_result
-  # API returns 201 for create, 204 for update. We can't check if value changed
-  # (secrets are write-only), so only report changed when creating new secrets.
+  # API returns 201 for create, 204 for update. We can't check if value
+  # changed (secrets are write-only), so only report changed when creating.
   changed_when: forgejo_actions_secrets_result.status == 201
   loop: "{{ forgejo_actions_secrets_repos | subelements('secrets') }}"
   loop_control:
     label: "{{ item.0.repo }}/{{ item.1.name }}"
   no_log: true
+  when: not ansible_check_mode
+
+- name: Delete undeclared Actions secrets
+  ansible.builtin.uri:
+    url: "{{ forgejo_actions_secrets_api_url }}/repos/{{ forgejo_actions_secrets_owner }}/{{ item.0.repo }}/actions/secrets/{{ item.1 }}"
+    method: DELETE
+    headers:
+      Authorization: "token {{ lookup('vars', forgejo_actions_secrets_token_var) }}"
+    status_code: [204]
+  changed_when: true
+  loop: "{{ forgejo_actions_secrets_drift | subelements('undeclared') }}"
+  loop_control:
+    label: "{{ item.0.repo }}/{{ item.1 }}"
+  no_log: true
+  when: not ansible_check_mode

@@ -47,7 +47,9 @@ OIDC authentication via [[authentik]], with API key support for CI.
 | `ci-zot-talos`, `ci-zot-horkos` | create, update on their own image path only | ci-tier release-CI push keys — additive cutover names for the tier-first rename (eblume/blumeops#1039 step 2b); the flip PRs re-mint and move the release-CI workflows over |
 | `zot-cv` | create, update on its own path only | the horkos publisher's push identity for cv tarballs (horkos#17 step 4), consumed by the horkos deployment via ESO, not by any repo CI |
 
-CI authenticates with a zot API key generated from the `zot-ci` service account's OIDC session. The key is stored in the `Forgejo Secrets` 1Password item (field `zot-ci-api`) and synced to Forgejo Actions secrets via ansible.
+CI authenticates with a zot API key generated from the `zot-ci` service account's OIDC session. The key is stored in the `Forgejo Secrets` 1Password item (field `zot-ci-api`) and mirrored to `blumeops-ci/zot-ci` (`api-key`); workflows `op read` it at job time with `BLUMEOPS_CI_OP_TOKEN` — it is not a Forgejo Actions secret.
+
+The per-repo `ZOT_PUSH_API_KEY` Actions secrets are declared in the `forgejo_actions_secrets` ansible role and provisioned from the same master fields, so after a `mise run zot-apikey-rotate` of a per-repo identity, the next `mise run provision-indri -- --tags forgejo_actions_secrets` re-syncs the secret the rotation already wrote (a no-op, not a second key).
 
 The per-repo identities exist because a repo's Forgejo Actions secrets are readable by anyone who can push to that repo, so each release CI's key is scoped by zot accessControl to create+update on its own image path only. zot's accessControl uses longest-match, so the per-path `blumeops/talos`, `blumeops/horkos` and `blumeops/cv` entries restate the base `**` policies verbatim rather than inheriting them.
 

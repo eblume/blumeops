@@ -1,0 +1,1 @@
+The `forgejo_actions_secrets` provisioning is now authoritative: it deletes undeclared Actions secrets, reports name-level drift under `--check`, authenticates with the scoped `write:repository` token instead of the site-admin PAT, and declares `ZOT_PUSH_API_KEY` (from the zot master fields) as the only stored secret on eblume/talos and eblume/horkos.
