@@ -1,0 +1,1 @@
+Updated the "pushing a commit back to a protected `main`" section of the Create Release Artifact Workflow how-to: the main-push PAT is no longer an Actions secret passed to `actions/checkout`; it is read at push time from the `blumeops-ci` vault (`forge-main-push/token`) via `op read` with `BLUMEOPS_CI_OP_TOKEN`. (Doc review, eblume/blumeops#1081.)
