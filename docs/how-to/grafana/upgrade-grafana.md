@@ -32,11 +32,9 @@ None affected us:
 
 To upgrade Grafana again in the future:
 
-1. Update `version = "..."` in `containers/grafana/default.nix` (see [[build-grafana-images]])
-2. Build and push via `mise run container-build-and-release grafana`
-3. Update the image tag in `argocd/manifests/grafana/kustomization.yaml` (under `images:`)
-4. Update `service-versions.yaml`
-5. Sync: `argocd app sync grafana`
+1. Update `version = "..."` in `containers/grafana/default.nix` (see [[build-grafana-images]]) and `service-versions.yaml` in the same PR
+2. Merge — the push to main builds at the merge commit and pushes the image to the registry (tag SHA = the merge commit)
+3. Merge the kustomization pin PR the horkos publisher opens with the new tag in `argocd/manifests/grafana-ringtail/kustomization.yaml` (under `images:`) — merging it deploys
 
 The SQLite PVC is disposable — dashboards come from ConfigMaps and datasources from config.
 

@@ -67,7 +67,7 @@ def test_reads_stdin_when_dash(monkeypatch):
 
 def test_refused_for_other_workflows():
     with pytest.raises(typer.Exit):
-        request_run.load_script("-x", "build-container.yaml", [])
+        request_run.load_script("-x", "deploy-fly.yaml", [])
 
 
 def test_refused_when_pair_already_given_as_inputs():

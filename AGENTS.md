@@ -122,7 +122,7 @@ It validates the request against `warrant-policy.yaml` **on main**
 (unknown or `class: deny` actions are refused at request time), then records
 it as a PR comment, a heph task, and an entry in the approval queue. A human
 approves in Horkos (né Warrant), which dispatches the workflow. Requestable today:
-`argocd-deploy.yaml`, `build-container.yaml`, `deploy-fly.yaml`.
+`argocd-deploy.yaml`, `deploy-fly.yaml`.
 
 **File it, don't recommend it.** `request-run` works from the agent pod, and
 PR-branch SHAs are dispatchable pre-merge (Forgejo serves fork PR heads from
@@ -218,13 +218,17 @@ human-facing links. See [[argocd#Why the Applications say forge.eblu.me]].
 
 ```fish
 mise run container-list                       # show images/tags
-mise run container-build-and-release <name> <version>   # [human] tag and build via CI
 ```
 `container-list` reads `registry.ops.eblu.me`, which is tailnet-only. From an
 agent pod, route it through the sidecar — `ALL_PROXY=socks5://localhost:1055
 mise run container-list`. Without it the task now fails loudly rather than
 reporting every container as untagged.
-The Image Pins PR check resolves kustomization pins under registry.ops.eblu.me against the registry, so a pin PR sits red until its build has pushed the tag — that red is the intended order, not a failure to work around.
+Container builds are merge-triggered: a push to main touching `containers/`
+builds the changed containers and pushes them to zot, container PRs get the
+build as a check, and horkos opens the kustomization pin PR on the push
+webhook — no warrant, no dispatch ([[build-container-image]],
+eblume/horkos#17 step 5).
+The Image Pins PR check resolves kustomization pins under registry.ops.eblu.me against the registry, so a pin PR sits red until the merge-time build has pushed the tag — that red is the intended order, not a failure to work around.
 **New services should use locally built containers** (Nix `dockerTools`,
 pulled from `registry.ops.eblu.me` with source mirrored on
 forge.ops.eblu.me) for supply-chain control. This is guidance for new work,
@@ -233,7 +237,7 @@ not a campaign to retroactively localize everything — some upstream images
 PostgreSQL operands) are impractical to rebuild and stay on their upstream
 registries.
 
-**After triggering a build** (manual dispatch or push to main), verify the
+**After a build run** (merge-triggered), verify the
 workflow succeeded before proceeding:
 
 ```fish

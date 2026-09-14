@@ -26,7 +26,6 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `ai-sources` | Concatenate all BlumeOps source files for AI context |
 | `branch-cleanup` | [human] Delete branches that have been merged into main (local and remote) |
 | `changelog-check` | Validate changelog fragments are flat files in docs/changelog.d/ |
-| `container-build-and-release` | [human] Trigger container build workflows via Forgejo API |
 | `container-list` | List available containers and their recent tags |
 | `container-pin-check` | Check that kustomization image pins under registry.ops.eblu.me exist in the registry |
 | `container-version-check` | Validate container version consistency across nix derivations and service-versions.yaml |

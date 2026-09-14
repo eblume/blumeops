@@ -1,0 +1,1 @@
+Container images now build on merge: a push to main touching `containers/` builds and pushes the changed containers to zot, and container PRs get the build as a check; the `build-container` warrant and dispatch flow is retired (horkos opens the pin PR on the push webhook).

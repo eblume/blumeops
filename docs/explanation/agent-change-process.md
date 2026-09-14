@@ -43,7 +43,7 @@ The default route for anything non-trivial, and the only route available to remo
 5. **Documentation first** — commit doc changes reflecting the desired end state before writing code. This helps the reviewer understand intent and catches design issues early
 6. **Implement** — commit code changes, pushing as you go. The PR gets updated along the way and the user can review and comment at any point
 7. **Add changelog fragment** — `docs/changelog.d/<branch>.<type>.md` for any user-visible or noteworthy changes
-8. **If the PR changed `containers/`:** build from the final branch head with `mise run container-build-and-release <name>`, then commit the resulting tag into `argocd/manifests/<service>/kustomization.yaml` **in this same PR**. No post-merge rebuild — see [[build-container-image#Container tags and merge strategy]]
+8. **If the PR changed `containers/`:** the PR's build check validates the nix build (hash-TOFU rounds run as the check and post failures as PR comments); on merge, CI rebuilds at the merge commit, pushes the image to zot, and the horkos publisher opens the kustomization pin PR — no post-merge manual rebuild — see [[build-container-image#Container tags and merge strategy]]
 9. **Deploy from the branch** — do not wait for merge:
    - **ArgoCD:** `argocd app set <service> --revision <full-40-char-sha> && argocd app sync <service>`. Pass a **SHA, never a branch name**: workload apps sync automatically, so a branch revision would make every later push to that branch deploy itself unreviewed. The `ArgoCD Deploy` workflow enforces SHA-or-`main`; hand-run commands should match it (see [[argocd#Deploying from a branch]])
    - **Ansible:** run playbooks directly from the branch checkout
@@ -67,10 +67,10 @@ The pattern is `.*`, not GitHub's `*`. Forgejo compiles each one as a Go regexp 
 Container images in the registry are independent of branch lifecycle — a branch reset or a rebase does not invalidate them:
 
 - **Registry images** are build outputs cached in zot — tagged with commit SHAs, so each build is unique and traceable
-- **Images built during PR development stay valid after merge.** Canonical merges with merge commits, so a branch-head SHA becomes an ancestor of main and its tag flips `[branch]` → `[main]` by itself. Build once from the final branch head and put the manifest tag bump in the same PR — no post-merge rebuild. Use `mise run container-list <name>` to check. See [[build-container-image#Container tags and merge strategy]]
-- **All builds are manual** — use `mise run container-build-and-release <name>` to dispatch
+- **The tag's SHA is the merge commit.** The post-merge build runs at main's new head, so the tag is deterministic from the merge itself — no branch-head dance, no `[branch]`/`[main]` flip to babysit. The horkos publisher pins the tag from the push webhook; `mise run container-list <name>` confirms it before the pin PR lands. The PR build check validates the nix expressions without producing the published image. See [[build-container-image#Container tags and merge strategy]]
+- **Builds run on merge** (plus the PR build check) — no dispatch, no warrant; the horkos publisher opens the kustomization pin PR from the push webhook
 - **If a build succeeds but deployment fails**, the image is fine; the problem is elsewhere. Document what you learned and try again
-- **If a build fails in CI**, no image is pushed. Fix the nix/dockerfile and re-merge or re-dispatch
+- **If a build fails in CI**, no image is pushed. Fix the nix/dockerfile and merge the fix — the push to main rebuilds and pushes
 
 
 ## Why agent PRs need an approval click

@@ -20,9 +20,8 @@ Home-built container images for Grafana and its dashboard sidecar, published to 
 Downloads the official Grafana OSS release tarball from `dl.grafana.com` (amd64), patches it with `autoPatchelfHook`, installs it into `/usr/share/grafana`, and layers it with `dockerTools.buildLayeredImage`.
 
 ```fish
-# Update version = "..." in containers/grafana/default.nix
-
-mise run container-build-and-release grafana
+# Update version = "..." in containers/grafana/default.nix and merge —
+# the push to main builds it and horkos opens the kustomization pin PR.
 ```
 
 **Gotchas:**
@@ -40,9 +39,8 @@ mise run container-build-and-release grafana
 Fetches the [kiwigrid/k8s-sidecar](https://github.com/kiwigrid/k8s-sidecar) source from the forge mirror, builds a `python3.withPackages` environment (dependency versions come from nixpkgs, not upstream's pins), and layers it with `buildLayeredImage`.
 
 ```fish
-# Update version = "..." in containers/grafana-sidecar/default.nix
-
-mise run container-build-and-release grafana-sidecar
+# Update version = "..." in containers/grafana-sidecar/default.nix and merge —
+# the push to main builds it and horkos opens the kustomization pin PR.
 ```
 
 **Gotchas:**

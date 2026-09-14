@@ -64,18 +64,17 @@ def test_every_warrant_action_binds_its_sha(workflow):
 
 
 def test_omitted_binding_input_is_refused():
-    """The original bug: no ref, so the dispatch silently built main."""
+    """The original bug (build-container's `ref`): no ref, so the dispatch
+    silently built main. Exercised here on deploy-fly's revision binding —
+    same shape: omit the bound input and the run would target main, not the
+    bound SHA."""
     with pytest.raises(typer.Exit):
-        check("build-container.yaml", {"container": "talos"})
-
-
-def test_matching_sha_is_allowed():
-    check("build-container.yaml", {"container": "talos", "ref": SHA})
+        check("deploy-fly.yaml", {})
 
 
 def test_different_sha_is_refused():
     with pytest.raises(typer.Exit):
-        check("build-container.yaml", {"container": "talos", "ref": OTHER})
+        check("deploy-fly.yaml", {"revision": OTHER})
 
 
 def test_mutable_ref_is_refused():

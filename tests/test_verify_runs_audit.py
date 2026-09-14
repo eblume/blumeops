@@ -19,7 +19,7 @@ import pathlib
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-BINDINGS = {"build-container.yaml": "ref", "deploy-fly.yaml": "revision"}
+BINDINGS = {"deploy-fly.yaml": "revision", "argocd-deploy.yaml": "revision"}
 SHA = "bcb2b55" + "0" * 33
 MAIN_TIP = "1cb0a61" + "0" * 33
 
@@ -46,18 +46,23 @@ def rec(action: str, sha: str, inputs: dict) -> dict:
 
 
 def test_the_bug_case_missing_binding_input():
-    """warrant #22 / run 742: no `ref`, so CI checked out main and succeeded."""
-    why = verify_runs.binding_mismatch(
-        rec("build-container.yaml", SHA, {"container": "talos"}), BINDINGS
-    )
+    """warrant #22 / run 742: no `ref`, so CI checked out main and succeeded.
+    build-container is retired; the same hole is exercised on deploy-fly's
+    revision binding — missing the bound input means it ran against main, not
+    the bound SHA."""
+    why = verify_runs.binding_mismatch(rec("deploy-fly.yaml", SHA, {}), BINDINGS)
     assert why is not None
-    assert "no 'ref' input" in why
+    assert "no 'revision' input" in why
 
 
 def test_matching_binding_is_clean():
     assert (
         verify_runs.binding_mismatch(
-            rec("build-container.yaml", SHA, {"container": "talos", "ref": SHA}),
+            rec(
+                "argocd-deploy.yaml",
+                SHA,
+                {"app": "grafana-ringtail", "revision": SHA},
+            ),
             BINDINGS,
         )
         is None
@@ -89,8 +94,8 @@ def test_action_with_no_declared_binding_is_clean():
 @pytest.mark.parametrize(
     "wrec",
     [
-        {"action": "build-container.yaml", "sha": SHA, "inputs": "not json"},
-        {"action": "build-container.yaml", "sha": SHA},  # no inputs at all
+        {"action": "deploy-fly.yaml", "sha": SHA, "inputs": "not json"},
+        {"action": "deploy-fly.yaml", "sha": SHA},  # no inputs at all
     ],
 )
 def test_unreadable_records_are_reported_not_waved_through(wrec):
@@ -105,12 +110,7 @@ def test_unreadable_records_are_reported_not_waved_through(wrec):
 def test_empty_policy_disables_the_audit():
     """An unreadable warrant-policy degrades to no audit, never to a false
     mismatch on every task."""
-    assert (
-        verify_runs.binding_mismatch(
-            rec("build-container.yaml", SHA, {"container": "talos"}), {}
-        )
-        is None
-    )
+    assert verify_runs.binding_mismatch(rec("deploy-fly.yaml", SHA, {}), {}) is None
 
 
 # --- run attribution: warrant record vs. forge-side inference ---------------
@@ -134,7 +134,7 @@ FILED_AT_MS = 1_799_107_200_000  # 2027-01-05T00:00:00Z; match_run divides by 10
 
 
 def task_row(
-    workflow: str = "build-container.yaml",
+    workflow: str = "deploy-fly.yaml",
     sha: str = SHA,
     pr: str = "707",
     created_at: int = FILED_AT_MS,
@@ -149,7 +149,7 @@ def task_row(
 
 def run_row(
     run_number: int,
-    workflow: str = "build-container.yaml",
+    workflow: str = "deploy-fly.yaml",
     head_sha: str = SHA,
     started: str = "2027-01-05T00:30:00+00:00",
 ) -> dict:
@@ -334,7 +334,7 @@ def test_no_warrant_record_still_uses_inference():
 def test_no_warrant_record_and_nothing_matching_is_pending():
     task = task_row(workflow="run-script.yaml", sha=SHA)
     run, via, state = verify_runs.attribution(
-        task, None, None, [run_row(1, workflow="build-container.yaml")]
+        task, None, None, [run_row(1, workflow="deploy-fly.yaml")]
     )
     assert state == "inferred"
     assert run is None

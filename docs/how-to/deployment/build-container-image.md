@@ -64,18 +64,23 @@ Either produces a docker-archive tarball you can `docker load` or push with `sko
 
 ## 3. Release
 
-Container builds are triggered manually.
+Merge is the release. A push to main touching `containers/<name>/` runs
+`build-container.yaml`: the `detect` job (on the `indri` runner,
+[[forgejo-runner]]) diffs the push against the previous head to find the
+changed containers, and the `build-nix` job (on the `nix-container-builder`
+runner, [[ringtail]]) builds `default.nix` with `nix-build` and pushes
+`registry.ops.eblu.me/blumeops/<name>:vX.Y.Z-<sha>-nix` to [[zot]]. There is no
+dispatch and no warrant — the retired `build-container` request path and its
+warrant entry are gone ([[warrant-approval-gated-runs]]).
 
-To trigger a build:
+Container PRs get the build as a check on the same path (never the registry
+push — fork runs carry no secrets), so hash-TOFU rounds happen against the PR
+itself: the workflow comments the failure on the PR with the relevant
+`specified:`/`got:` lines when a hash is wrong, and a green check is the
+pre-merge gate. After the PR merges, the push run builds the *merge commit*,
+so the tag's `<sha>` is that commit's short hash.
 
-```bash
-mise run container-build-and-release <name>
-mise run container-build-and-release <name> --ref <commit-sha>
-```
-
-Use `--dry-run` to preview without dispatching.
-
-After dispatching, verify the workflow succeeded with `runner-logs`:
+Verify a run with `runner-logs`:
 
 ```bash
 mise run runner-logs                    # find the new run number
@@ -87,9 +92,9 @@ mise run runner-logs <run#> -j <N>      # fetch full logs (e.g. on failure)
 |------------|----------|--------|--------------|
 | `default.nix` | `build-container.yaml` | `nix-container-builder` ([[ringtail]]) | `:vX.Y.Z-<sha>-nix` |
 
-The version (`X.Y.Z`) is extracted from `version = "..."` in `default.nix`. The SHA is the short (7-char) commit hash.
-
-Check available images and tags with:
+The version (`X.Y.Z`) is extracted from `version = "..."` in `default.nix`; the
+SHA is the short (7-char) hash of the commit built (the merge commit for push
+runs). Check available images and tags with:
 
 ```bash
 mise run container-list
@@ -97,8 +102,11 @@ mise run container-list
 
 ## 4. Update k8s manifests
 
-Update the `newTag` in `argocd/manifests/<service>/kustomization.yaml` (images
-are tagged `:kustomized` in `deployment.yaml` and rewritten by kustomize):
+You don't point the manifest yourself for a container bump anymore. Once the
+merge-time build pushes the tag, the horkos release publisher opens the
+kustomization pin PR that updates `newTag` in
+`argocd/manifests/<service>/kustomization.yaml` (images are tagged `:kustomized`
+in `deployment.yaml` and rewritten by kustomize):
 
 ```yaml
 images:
@@ -106,29 +114,24 @@ images:
     newTag: vX.Y.Z-abc1234-nix
 ```
 
-Make that edit **in the same PR as the commit you built from** — see the merge
-strategy below. For an auto-syncing application, merging *is* the deploy; there
-is no step after it. The four manual applications are the exception
-([[argocd#Sync Policy]]); [[deploy-k8s-service]] covers standing a service up
-for the first time.
+Merge the pin PR and the app is deployed: for an auto-syncing application,
+merging *is* the deploy; there is no step after it. The four manual
+applications are the exception ([[argocd#Sync Policy]]);
+[[deploy-k8s-service]] covers standing a service up for the first time.
 
 ### Container tags and merge strategy
 
-Container image tags include the git commit SHA they were built from (e.g. `v3.9.1-74029e1-nix`). The rule that matters is unchanged: **production manifests must reference an image whose commit is reachable from main.** What changed is how much work that takes.
+Container image tags include the git commit SHA they were built from (e.g. `v3.9.1-74029e1-nix`). The rule that matters is unchanged: **production manifests must reference an image whose commit is reachable from main.** What changed is that the build now happens *after* the merge, so the rule is satisfied by construction.
 
-`mise run container-list <name>` marks each tag `[main]` or `[branch]`, and the test it applies is `git merge-base --is-ancestor <sha> origin/main` — *reachable from* main, not *built from* main's tip.
-
-**Canonical uses merge commits, so a build from the PR branch head is already correct.** When the PR merges, that commit becomes a parent of the merge commit and is therefore an ancestor of main — the tag flips from `[branch]` to `[main]` on its own, with no rebuild. Deleting the branch afterwards changes nothing: a merged commit is reachable through the merge, not through the branch ref.
+The tag's SHA comes from the merge commit itself: the push run builds `GITHUB_SHA` of the push event, which is the merge commit on main. A tag pushed by the workflow is therefore a main commit by definition — `mise run container-list`'s `[main]`/`[branch]` annotation never has to decide, and there are no branch-built tags on the registry anymore.
 
 So the flow is:
 
-1. Build once from the branch head: `mise run container-build-and-release <name>`. Verify with `mise run runner-logs`
-2. Update `newTag` in `argocd/manifests/<service>/kustomization.yaml` to the tag it produced, **in the same PR**
-3. Merge. The app syncs itself (see [[argocd#Sync Policy]]) and the tag is now `[main]`
+1. Open a PR touching `containers/<name>/`. The PR check builds it (TOFU rounds read from the PR comment); fix hashes until it's green
+2. Merge. The push run builds the merge commit and pushes the `vX.Y.Z-<7sha>-nix` tag
+3. Merge the kustomization pin PR horkos opens with that tag. The app syncs itself (see [[argocd#Sync Policy]])
 
-**The one discipline this requires:** build from the *final* branch head. If you push further commits touching `containers/<name>/` after the build, the image no longer matches the tree being merged — rebuild and update the tag again. Commits elsewhere in the PR are harmless.
-
-> **Historical note.** This used to require a post-merge rebuild plus a second commit to re-point the manifest, because squash-merge replaced the branch commits with a new one and orphaned the SHA in the tag. Squash-merge was disabled on canonical as a corollary of invariant 2 in [[warrant-approval-gated-runs]] — approvals bind to immutable SHAs, and squashing rewrote every approved SHA — which dissolved the orphaning as a side effect. That doc predicted it; this is the prediction cashed in.
+> **Historical note.** The older flows needed manual care: pre-merge builds had to come from the *final* branch head (a later push touching `containers/` orphaned the image), and before that, a post-merge rebuild plus a second commit re-pointed the manifest because squash-merge replaced the branch commits and orphaned the SHA in the tag. Both dances are gone — the merge-time build is the release, and horkos pins the manifest. Squash-merge was disabled on canonical as a corollary of invariant 2 in [[warrant-approval-gated-runs]]: approvals bind to immutable SHAs, and squashing rewrote every approved SHA.
 
 ## Reference Examples
 

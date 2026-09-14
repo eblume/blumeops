@@ -46,7 +46,7 @@ OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-t
 
 # Workflows using the ringtail nix-container-builder runner; everything else
 # runs on the indri k8s runner.
-RINGTAIL_WORKFLOWS = {"build-container-nix.yaml"}
+RINGTAIL_WORKFLOWS = {"build-container.yaml"}
 
 app = typer.Typer(add_completion=False)
 

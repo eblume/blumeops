@@ -70,19 +70,14 @@ cargo update
 cp Cargo.lock ~/code/personal/blumeops/containers/kingfisher/Cargo.lock
 ```
 
-## Build and push
+## Build and release
 
-The build is triggered via the standard container build workflow on ringtail's `nix-container-builder` runner, or manually:
-
-```fish
-mise run container-build-and-release kingfisher
-```
+Merge is the release: merging a PR touching `containers/kingfisher/` runs `build-container.yaml` on ringtail's `nix-container-builder` runner, which builds `default.nix` at the merge commit and pushes `registry.ops.eblu.me/blumeops/kingfisher:v<version>-<7sha>-nix` to zot. The PR itself got the build as a check first (never the registry push — fork runs carry no secrets), so hash-TOFU rounds and nix errors surface on the PR before merge. No dispatch, no warrant.
 
 ## Update the deployment
 
-1. Update `argocd/manifests/kingfisher/kustomization.yaml` with the new tag
-2. Update `service-versions.yaml` if the upstream SHA changed
-3. Sync the ArgoCD app
+1. Update `service-versions.yaml` if the upstream SHA changed — in the same container PR
+2. The horkos release publisher opens the kustomization pin PR updating `argocd/manifests/kingfisher/kustomization.yaml` with the new tag — merging it deploys (auto-sync apps deploy themselves on merge; no `argocd app sync` needed)
 
 ## Note on `CONTAINER_APP_VERSION`
 

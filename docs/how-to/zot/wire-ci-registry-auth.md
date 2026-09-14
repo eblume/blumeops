@@ -20,7 +20,9 @@ the account's first OIDC login.
 
 `.forgejo/workflows/build-container.yaml` builds `containers/<name>/default.nix`
 with `nix-build` on the `nix-container-builder` runner, then pushes with
-`skopeo copy --dest-creds=zot-ci:$ZOT_CI_API_KEY`.
+`skopeo copy --dest-creds=zot-ci:$ZOT_CI_API_KEY`. The push leg runs only on
+push to main — PR runs build but never see the key (fork runs carry no
+secrets).
 
 ## Secret flow
 
