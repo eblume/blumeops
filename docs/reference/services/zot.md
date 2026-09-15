@@ -78,10 +78,13 @@ the repo here. The live Authentik users and group and the `talos-zot-api` /
 `horkos-zot-api` master fields are deleted by the ceremony after sync —
 the worker stops managing them, but the deletes themselves are UI acts. The
 `horkos-artifacts` group stays — it is the seat of the horkos publisher
-identity `horkos-zot`, added by this change: the blueprint user, the
+identity `horkos-zot`, added by this PR: the blueprint user, the
 `blumeops/cv` accessControl grant, the `zot-apikey-rotate` entry, and the
-horkos ESO re-point to the `horkos-zot-api` master field. The `zot-cv`
-identity is grandfathered until the publisher cutover retires it.
+horkos ESO re-point to the `horkos-zot-api` master field (re-created by the
+first rotation — until the ceremony mints it the ESO cannot refresh and the
+pod keeps its current `zot-cv` key, so the pod must not be recycled in that
+window). The `zot-cv` identity is grandfathered until the publisher
+cutover retires it.
 
 The task reads the current key from the `Forgejo Secrets` item (blumeops
 vault; fields `zot-ci-api`, `ci-zot-talos-api`, `ci-zot-horkos-api`,
@@ -96,8 +99,8 @@ valid and its consumer untouched. Key material never touches argv or the
 terminal.
 
 For `zot-cv` and `horkos-zot` the consumer is the master field itself: the
-horkos deployment reads Forgejo Secrets / `zot-cv-api` (until the cutover,
-then `horkos-zot-api`) via ESO. Because the horkos deployment has no
+horkos deployment's ESO reads Forgejo Secrets / `horkos-zot-api` as of this
+PR (it read `zot-cv-api` until now). Because the horkos deployment has no
 reloader, the pod must be recycled after a rotation to pick up the new key.
 
 Rotate before expiry, not after: an expired key cannot mint, and the chain
