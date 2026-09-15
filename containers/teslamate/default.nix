@@ -56,7 +56,7 @@ let
     npmDeps = pkgs.fetchNpmDeps {
       name = "teslamate-npm-deps";
       src = src + "/assets";
-      hash = pkgs.lib.fakeHash;
+      hash = "sha256-nUWdQMCrJZqhyb7KgDeAsIOlGMJOg5towtbZuBhv0Mg=";
     };
     npmRoot = "assets";
 
