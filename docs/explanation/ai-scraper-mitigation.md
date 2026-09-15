@@ -84,7 +84,7 @@ regex round.
 This is config, not bot-fighting — we simply stopped serving an infinite
 tarpit to the world. It removes ~71% of forge egress and a large share of the
 upstream timeouts, with zero impact on any human or tailnet consumer. It
-mirrors the existing tailnet-only blocks for `/api/packages/` and `/swagger`.
+mirrors the existing tailnet-only block for `/swagger`.
 
 The `403` is also a small act of public shaming. Blocked requests are served a
 "roll of dishonour" page (`fly/naughty.html`, status kept at `403` via
@@ -198,7 +198,7 @@ contexts in the same VM — the standard "nginx sandwich":
 ```
 WAN → Fly TLS → nginx :8080 (forge.eblu.me server block)
         cheap edge blocks first: fail2ban deny, rate limits, robots.txt,
-        /mirrors/ 403, packages/swagger 403, archive redirect
+        /mirrors/ 403, swagger 403, archive redirect
       → proxy_pass http://127.0.0.1:8923          (Anubis)
       → Anubis → TARGET http://127.0.0.1:8081      (internal-only nginx vhost)
       → existing static-caching + TLS/SNI proxy to indri Caddy → Forgejo

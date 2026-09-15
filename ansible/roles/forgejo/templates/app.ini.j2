@@ -30,10 +30,13 @@ LOG_SQL = false
 
 [repository]
 ROOT = {{ forgejo_repo_root }}
-DEFAULT_REPO_UNITS = repo.code,repo.issues,repo.pulls,repo.releases,repo.wiki,repo.projects,repo.packages,repo.actions
+DEFAULT_REPO_UNITS = repo.code,repo.issues,repo.pulls,repo.releases,repo.wiki,repo.projects,repo.actions
 
 [lfs]
 PATH = {{ forgejo_lfs_path }}
+
+[packages]
+ENABLED = false
 
 [mailer]
 ENABLED = false

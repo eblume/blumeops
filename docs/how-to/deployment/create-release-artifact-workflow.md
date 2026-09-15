@@ -12,7 +12,7 @@ tags:
 
 How to set up a Forgejo Actions workflow that builds an artifact and publishes it to Forgejo generic packages. Uses the CV repo (`forge.ops.eblu.me/eblume/cv`) workflow as the reference implementation.
 
-> **Deprecated:** this `FORGE_TOKEN` generic-package publish pattern is retired. The cv package now goes through the horkos publisher → zot (see eblume/horkos#17); this doc is kept for the historical shape.
+> **Deprecated:** this `FORGE_TOKEN` generic-package publish pattern is retired. The cv package now goes through the horkos publisher → zot (see eblume/horkos#17); this doc is kept for the historical shape. The Forgejo packages registry itself is now disabled on indri (`[packages] ENABLED = false`), so the `/api/packages/` calls in this doc return 404 everywhere, not just at the public edge.
 
 ## Prerequisites
 
