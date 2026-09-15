@@ -31,6 +31,7 @@ need to confirm through biometric approval.
    `tea pr create --repo eblume/blumeops --base main --head agents:<branch>`.
    `git fetch upstream` before working. The bot **cannot** push to
    `eblume/blumeops` or commit to `main` directly (that's a human, from gilbert).
+   Issue and comment posts that trigger talos cycles support pragmas (e.g. `!!plan: skip`, `!!noreply`) — the [talos README Pragmas section](https://forge.eblu.me/eblume/talos/blob/main/README.md#pragmas) is the authoritative list; the bare `plan: skip` form is retired.
 3. Create, use, and modify tooling via the `mise run` system to provide tooling
    for users and agents. **Tasks whose description starts with `[human]` cannot
    run from an agent pod** — they need the blumeops vault, a tool the talos
