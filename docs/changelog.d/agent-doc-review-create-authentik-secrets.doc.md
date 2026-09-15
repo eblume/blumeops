@@ -1,0 +1,1 @@
+Doc: delete the "Create Authentik Secrets" how-to card at the reviewer's request (article superseded by the Authentik service reference, which now documents the item's fields); fix its last inbound link and carry the deletion through the scheduled doc review.

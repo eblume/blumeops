@@ -67,7 +67,7 @@ Future clients: [[miniflux]]
 
 ## Secrets
 
-Injected via [[external-secrets]] from the "Authentik (blumeops)" 1Password item (see [[create-authentik-secrets]] for setup).
+Injected via [[external-secrets]] from the "Authentik (blumeops)" 1Password item.
 
 | 1Password Field | Purpose |
 |-----------------|---------|
@@ -86,6 +86,7 @@ Nix-built via `dockerTools.buildLayeredImage`. The entrypoint wrapper symlinks b
 - [[federated-login]] - How authentication works across BlumeOps
 - [[grafana]] - First OIDC client
 - [[deploy-authentik]] - Deployment how-to
+- [[provision-authentik-database]] - PostgreSQL database provisioning
 - [[migrate-grafana-to-authentik]] - Grafana SSO migration from Dex
 - [[build-authentik-from-source]] - Nix-based container build
 - [[mirror-authentik-build-deps]] - Supply chain mirrors for the build
