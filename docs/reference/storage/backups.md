@@ -28,6 +28,7 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | `~/.config/borgmatic` | Backup config | High |
 | `~/Documents` | Personal documents (includes [[1password]] encrypted export) | High |
 | `~/.local/share/borgmatic/k8s-dumps` | Staging for k8s SQLite/file dumps before each backup (see Databases table) | Medium |
+| `/Volumes/shower` | Archived shower service: prize photos + final DB snapshot (sifaka SMB mount) | High |
 
 ### Databases
 

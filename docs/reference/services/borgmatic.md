@@ -31,6 +31,7 @@ Daily backup system using Borg backup, running on indri.
 - `~/.config/borgmatic` - Borgmatic config
 - `~/Documents` - Personal documents
 - `~/.local/share/borgmatic/k8s-dumps/` - SQLite dumps from k8s pods
+- `/Volumes/shower` - Archived shower service: prize photos + final DB snapshot (sifaka SMB mount)
 
 **PostgreSQL databases:**
 - `miniflux`, `teslamate`, `authentik`, `paperless` on [[postgresql]] (blumeops-pg)

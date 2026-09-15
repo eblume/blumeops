@@ -153,6 +153,15 @@ forge_public = gandi.livedns.Record(
     values=["blumeops-proxy.fly.dev."],
 )
 
+shower_public = gandi.livedns.Record(
+    "shower-public",
+    zone=domain,
+    name="shower",
+    type="CNAME",
+    ttl=300,
+    values=["blumeops-proxy.fly.dev."],
+)
+
 photos_public = gandi.livedns.Record(
     "photos-public",
     zone=domain,
@@ -174,4 +183,5 @@ pulumi.export("www_public_fqdn", f"www.{domain}")
 pulumi.export("docs_public_fqdn", f"docs.{domain}")
 pulumi.export("cv_public_fqdn", f"cv.{domain}")
 pulumi.export("forge_public_fqdn", f"forge.{domain}")
+pulumi.export("shower_public_fqdn", f"shower.{domain}")
 pulumi.export("photos_public_fqdn", f"photos.{domain}")

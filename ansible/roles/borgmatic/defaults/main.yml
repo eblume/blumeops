@@ -32,6 +32,10 @@ borgmatic_source_directories:
   - /Users/erichblume/.config/borgmatic
   - /Users/erichblume/Documents
   - /Users/erichblume/.local/share/borgmatic/k8s-dumps
+  # Archived shower prize-photo uploads (sifaka SMB mount); kept so the
+  # photos + final DB snapshot ride in every future archive, including
+  # the yearlies.
+  - /Volumes/shower
 
 # Backup repositories
 borgmatic_repositories:
