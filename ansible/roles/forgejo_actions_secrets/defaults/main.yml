@@ -46,20 +46,19 @@ forgejo_actions_secrets_repos:
   - repo: cv
     secrets: []
   # ZOT_PUSH_API_KEY is the stripped release CI's only stored secret: the
-  # per-repo push-only zot identity from the blumeops/talos accessControl;
-  # the master field is kept in sync by `mise run zot-apikey-rotate talos-zot`.
-  # When the #1039 step-2b flip moves release.yaml's --dest-creds to
-  # `ci-zot-talos`, point value_var (and the playbook's op read) at the
-  # `ci-zot-talos-api` master field in the same PR — a provisioning run
-  # that still declares the old field would push the old key back.
+  # per-repo push-only zot identity (`ci-zot-talos`, ci tier of the #1039
+  # scheme) from the blumeops/talos accessControl; the master field is kept
+  # in sync by `mise run zot-apikey-rotate ci-zot-talos`. This must name the
+  # same identity as release.yaml's --dest-creds on the repo — a provisioning
+  # run that declares a different identity's field pushes the wrong key.
   - repo: talos
     secrets:
       - name: ZOT_PUSH_API_KEY
-        value_var: forgejo_secret_talos_zot_api
-  # Same shape as talos: the per-repo push-only zot identity from the
-  # blumeops/horkos accessControl; master field kept in sync by
-  # `mise run zot-apikey-rotate horkos-zot` (same flip note: `ci-zot-horkos-api`).
+        value_var: forgejo_secret_ci_zot_talos_api
+  # Same shape as talos: the per-repo push-only zot identity
+  # (`ci-zot-horkos`) from the blumeops/horkos accessControl; master field
+  # kept in sync by `mise run zot-apikey-rotate ci-zot-horkos`.
   - repo: horkos
     secrets:
       - name: ZOT_PUSH_API_KEY
-        value_var: forgejo_secret_horkos_zot_api
+        value_var: forgejo_secret_ci_zot_horkos_api
