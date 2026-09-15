@@ -203,25 +203,25 @@
       check_mode: false
       tags: [forgejo_actions_secrets]
 
-    # The per-repo zot push identities (talos-zot / horkos-zot): master fields
+    # The per-repo zot push identities (ci-zot-talos / ci-zot-horkos): master fields
     # on the Forgejo Secrets item, kept in sync by `mise run
     # zot-apikey-rotate`; declared as ZOT_PUSH_API_KEY on eblume/talos and
     # eblume/horkos.
-    - name: Fetch talos zot API key for Forgejo Actions
+    - name: Fetch ci-zot-talos API key for Forgejo Actions
       ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/talos-zot-api"
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/ci-zot-talos-api"
       delegate_to: localhost
-      register: _talos_zot_api
+      register: _ci_zot_talos_api
       changed_when: false
       no_log: true
       check_mode: false
       tags: [forgejo_actions_secrets]
 
-    - name: Fetch horkos zot API key for Forgejo Actions
+    - name: Fetch ci-zot-horkos API key for Forgejo Actions
       ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/horkos-zot-api"
+        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/ci-zot-horkos-api"
       delegate_to: localhost
-      register: _horkos_zot_api
+      register: _ci_zot_horkos_api
       changed_when: false
       no_log: true
       check_mode: false
@@ -231,8 +231,8 @@
       ansible.builtin.set_fact:
         forgejo_secret_repo_write_token: "{{ _forge_repo_write_token.stdout }}"
         forgejo_secret_blumeops_ci_op_token: "{{ _blumeops_ci_op_token.stdout }}"
-        forgejo_secret_talos_zot_api: "{{ _talos_zot_api.stdout }}"
-        forgejo_secret_horkos_zot_api: "{{ _horkos_zot_api.stdout }}"
+        forgejo_secret_ci_zot_talos_api: "{{ _ci_zot_talos_api.stdout }}"
+        forgejo_secret_ci_zot_horkos_api: "{{ _ci_zot_horkos_api.stdout }}"
       no_log: true
       tags: [forgejo_actions_secrets]
 

@@ -1,0 +1,1 @@
+`provision-indri` now feeds `ZOT_PUSH_API_KEY` on eblume/talos and eblume/horkos from the `ci-zot-talos-api` / `ci-zot-horkos-api` master fields, matching the #1039 step-2b flip of the release workflows' push identity (talos#224, horkos#32).
