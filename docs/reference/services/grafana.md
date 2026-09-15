@@ -50,7 +50,7 @@ Optional annotation: `grafana_folder: "FolderName"`
 
 ## Key Dashboards
 
-Provisioned dashboards live in `argocd/manifests/grafana-config/dashboards/` (one ConfigMap per dashboard). Coverage as of 2026-06: alerts, borgmatic, CV APM, devpi, docs APM, fly.io proxy, forgejo, frigate, jellyfin, kubernetes, loki, macOS (indri host), postgresql, ringtail, shower APM, sifaka disks, snowflake proxy, tempo, transmission, zot.
+Provisioned dashboards live in `argocd/manifests/grafana-config/dashboards/` (one ConfigMap per dashboard). Coverage as of 2026-06: alerts, borgmatic, CV APM, devpi, docs APM, fly.io proxy, forgejo, frigate, jellyfin, kubernetes, loki, macOS (indri host), postgresql, ringtail, sifaka disks, snowflake proxy, tempo, transmission, zot.
 
 TeslaMate's dashboards are not in the repo — an init container fetches them from the forge mirror at a pinned tag (`TESLAMATE_VERSION` in `argocd/manifests/grafana/deployment.yaml`).
 

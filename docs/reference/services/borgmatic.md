@@ -31,7 +31,6 @@ Daily backup system using Borg backup, running on indri.
 - `~/.config/borgmatic` - Borgmatic config
 - `~/Documents` - Personal documents
 - `~/.local/share/borgmatic/k8s-dumps/` - SQLite dumps from k8s pods
-- `/Volumes/shower` - [[shower-app]] prize-photo uploads (sifaka SMB mount)
 
 **PostgreSQL databases:**
 - `miniflux`, `teslamate`, `authentik`, `paperless` on [[postgresql]] (blumeops-pg)
@@ -43,7 +42,6 @@ Daily backup system using Borg backup, running on indri.
 
 **K8s SQLite databases (pre-backup dump via kubectl exec):**
 - [[mealie]] - Recipe manager (`/app/data/mealie.db`)
-- `shower` - prize app (`/app/data/db.sqlite3`, on ringtail)
 - [[horkos]] - approval-queue dispatch (`/data/horkos.db`, on ringtail)
 
 **K8s service-produced backup files (newest ferried off the PVC):**

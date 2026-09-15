@@ -9,7 +9,7 @@
 // later), so they stay as the attach-time backstop.
 beyla.ebpf "http_services" {
   discovery {
-    // 16 app namespaces; 1password intentionally left out.
+    // 15 app namespaces; 1password intentionally left out.
     instrument {
       containers_only = true
       kubernetes {
@@ -86,12 +86,6 @@ beyla.ebpf "http_services" {
       containers_only = true
       kubernetes {
         namespace = "paperless"
-      }
-    }
-    instrument {
-      containers_only = true
-      kubernetes {
-        namespace = "shower"
       }
     }
     instrument {

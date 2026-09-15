@@ -1,0 +1,1 @@
+Retire the shower service (2026-09-15): its app, ArgoCD app/manifests, blackbox probe and Beyla instrument entries, fly edge server block/cert, gandi `shower` CNAME, caddy route, and borgmatic backup jobs are removed. Retained data lives on in existing borg archives and the sifaka volume; human teardown steps are pending.

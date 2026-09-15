@@ -34,7 +34,7 @@ A small number of services are exposed to the internet through a reverse proxy o
 Even within the tailnet, access is restricted:
 
 ```
-Internet ──▶ Fly.io proxy ──▶ tag:flyio-target only (docs, cv, forge, shower, photos)
+Internet ──▶ Fly.io proxy ──▶ tag:flyio-target only (docs, cv, forge, photos)
 
 Tailnet:
   Admin ────────▶ All services

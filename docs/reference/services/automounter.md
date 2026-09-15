@@ -26,7 +26,6 @@ macOS app that automatically mounts [[sifaka]] SMB shares on [[indri]].
 |-------|-------------|-----------|
 | backups | `/Volumes/backups` | [[borgmatic]] (repository storage) |
 | photos | `/Volumes/photos` | [[borgmatic]] (backs up immich library/upload) |
-| shower | `/Volumes/shower` | [[borgmatic]] (backup source) |
 | allisonflix | `/Volumes/allisonflix` | [[jellyfin]]; `rip-video-finish` files ripped discs here ([[rip-a-disc]]) |
 | music | `/Volumes/music` | `rip-cd-finish` files ripped CDs here ([[rip-a-disc]]); [[navidrome]] reads the same share over NFS |
 | torrents | `/Volumes/torrents` | none — vestigial since [[retire-minikube]] |

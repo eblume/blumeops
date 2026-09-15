@@ -157,8 +157,7 @@ can read its files but not `git` it — dubious-ownership guard).
 > reasoning that author-only was too thin to bother standing up. Reinstated
 > 2026-07-10 as a pool-only clone: authoring blumeops from other workflows turned
 > out to be valuable context worth having, and the deploy gate holds without a
-> server. (`adelaide-baby-shower-app`, once cloned alongside, can be added the
-> same way if wanted — no vault dependency. `project-template` was added on
+> server. `project-template` was added on
 > 2026-08-07 as `write` + `canonical`.)
 
 ## Isolation & security

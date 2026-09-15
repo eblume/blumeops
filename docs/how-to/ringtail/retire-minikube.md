@@ -109,7 +109,7 @@ only): `miniflux`, `navidrome`, `kiwix-serve`, `kubectl`,
 
 Already ported (wave 1 and prior): alloy, authentik(+redis),
 external-secrets, homepage, kingfisher, kube-state-metrics, mealie,
-ntfy, paperless, shower, tailscale(+operator), teslamate, valkey.
+ntfy, paperless, tailscale(+operator), teslamate, valkey.
 ArgoCD itself uses pinned upstream multi-arch images — no port needed.
 
 Most ports should be thin wrappers over nixpkgs (miniflux, navidrome,
@@ -191,7 +191,7 @@ Service-specific notes:
 - **navidrome:** copy the 10Gi `navidrome-data` PVC via helper pods
   (wave-1 mealie technique); music stays read-only NFS from sifaka.
 - **torrent + kiwix:** share the sifaka `torrents` NFS export —
-  recreate the NFS PV/PVC pair on ringtail (shower/paperless pattern).
+  recreate the NFS PV/PVC pair on ringtail (paperless pattern).
   kiwix's zim-watcher CronJob runs `kubectl` against its own
   deployment: port the RBAC and the local `kubectl` image.
 - **prowler:** reports NFS PV remounts; scanning target becomes

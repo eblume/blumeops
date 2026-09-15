@@ -28,7 +28,6 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | `~/.config/borgmatic` | Backup config | High |
 | `~/Documents` | Personal documents (includes [[1password]] encrypted export) | High |
 | `~/.local/share/borgmatic/k8s-dumps` | Staging for k8s SQLite/file dumps before each backup (see Databases table) | Medium |
-| `/Volumes/shower` | Shower app prize-photo uploads (sifaka SMB mount) | High |
 
 ### Databases
 
@@ -42,7 +41,6 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | forgejo | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
 | heph | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
 | mealie | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
-| shower | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
 | horkos | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
 | navidrome | — (SQLite) | k8s pod (ringtail) | navidrome `ND_BACKUP_*` snapshot, newest ferried off PVC |
 

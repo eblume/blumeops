@@ -32,9 +32,6 @@ borgmatic_source_directories:
   - /Users/erichblume/.config/borgmatic
   - /Users/erichblume/Documents
   - /Users/erichblume/.local/share/borgmatic/k8s-dumps
-  # Shower app prize-photo uploads (sifaka SMB mount). Mounted manually
-  # on indri via Finder — see docs/how-to/operations/shower-app.md.
-  - /Volumes/shower
 
 # Backup repositories
 borgmatic_repositories:
@@ -62,15 +59,7 @@ borgmatic_k8s_sqlite_dumps:
     label_selector: app=mealie
     db_path: /app/data/mealie.db
     # migrated to ringtail (wave-1); ssh to ringtail and run k3s kubectl
-    # there, same as shower below.
-    target: ssh:eblume@ringtail
-  - name: shower
-    namespace: shower
-    label_selector: app=shower
-    db_path: /app/data/db.sqlite3
-    # ssh to ringtail and run k3s kubectl there — avoids needing a
-    # ringtail kubeconfig on indri. k3s.yaml on ringtail is
-    # world-readable (mode 644), so no sudo required.
+    # there.
     target: ssh:eblume@ringtail
   - name: horkos
     namespace: horkos

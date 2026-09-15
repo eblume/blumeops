@@ -188,8 +188,8 @@ the June incident flipped the call:
   git remotes, and agents are untouched, and only WAN traffic — where the
   scrapers are — pays the toll.
 - Only `forge.eblu.me` gets the gate. The static sites (docs, cv) are cached
-  at the proxy and shower's guest surface is rate-limited; neither serves an
-  infinite URL space.
+  at the proxy and the photos shared-link surface is rate-limited; neither
+  serves an infinite URL space.
 
 Anubis cannot rewrite the `Host` header, and indri's Caddy routes on
 `forge.ops.eblu.me` (Host *and* SNI), so Anubis sits between two nginx

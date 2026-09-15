@@ -47,8 +47,7 @@ Same plumbing as every other public service — see
 ## Why shared links only
 
 The public surface is deliberately tiny, and the threat model collapses
-the same way it does for the shower guest surface: there is no
-credential-accepting endpoint reachable from WAN.
+with it: there is no credential-accepting endpoint reachable from WAN.
 
 - **No registration** — a shared link *is* the credential. Guests never
   create an account, and nothing on WAN accepts a user credential.

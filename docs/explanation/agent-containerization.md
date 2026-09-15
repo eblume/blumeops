@@ -53,7 +53,7 @@ The obvious patch — delete the `tag:homelab → tag:homelab` SSH `accept` rule
 **does not work**, for two independent reasons:
 
 - **It's load-bearing.** Borgmatic on indri SSHes into `eblume@ringtail` to run
-  `sudo k3s kubectl` for the mealie/shower/navidrome pre-backup DB dumps
+  `sudo k3s kubectl` for the mealie/navidrome pre-backup DB dumps
   (`ansible/roles/borgmatic/templates/k8s-sqlite-dump.sh.j2`). Removing the rule
   breaks backups.
 
