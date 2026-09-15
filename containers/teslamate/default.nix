@@ -43,7 +43,7 @@ let
     mixFodDeps = beamPackages.fetchMixDeps {
       pname = "mix-deps-teslamate";
       inherit src version elixir;
-      hash = pkgs.lib.fakeHash;
+      hash = "sha256-/AVC3lmmkqptB4c523zkgDWrwJ9luXZitKK54fOLI5Q=";
     };
 
     # Frontend assets. esbuild + sass are devDeps and the esbuild platform
