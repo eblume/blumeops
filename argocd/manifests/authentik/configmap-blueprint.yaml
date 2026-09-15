@@ -170,15 +170,7 @@ data:
         attrs:
           name: artifact-workloads
 
-      # talos-artifacts group (zot push-only identity for eblume/talos release CI)
-      - model: authentik_core.group
-        id: talos-artifacts-group
-        identifiers:
-          name: talos-artifacts
-        attrs:
-          name: talos-artifacts
-
-      # horkos-artifacts group (zot push-only identity for eblume/horkos release CI)
+      # horkos-artifacts group (zot push group for the horkos publisher, eblume/blumeops#1039 step 2b)
       - model: authentik_core.group
         id: horkos-artifacts-group
         identifiers:
@@ -236,34 +228,7 @@ data:
           groups:
             - !KeyOf cv-artifacts-group
 
-      # Tier-first (eblume/blumeops#1039 step 2) zot push identities.
-      - model: authentik_core.user
-        id: talos-zot-user
-        identifiers:
-          username: talos-zot
-        attrs:
-          username: talos-zot
-          name: Talos Zot Service Account
-          type: service_account
-          is_active: true
-          groups:
-            - !KeyOf talos-artifacts-group
-
-      - model: authentik_core.user
-        id: horkos-zot-user
-        identifiers:
-          username: horkos-zot
-        attrs:
-          username: horkos-zot
-          name: Horkos Zot Service Account
-          type: service_account
-          is_active: true
-          groups:
-            - !KeyOf horkos-artifacts-group
-
-      # CI tier (eblume/blumeops#1039 step 2b) zot push identities — additive for
-      # now; the release-CI cutover from talos-zot / horkos-zot follows in the
-      # flip PRs (keys re-minted under the ci-tier names, workflows cut over).
+      # CI tier (eblume/blumeops#1039 step 2b) zot push identities for the release CI
       - model: authentik_core.user
         id: ci-zot-talos-user
         identifiers:
@@ -347,20 +312,6 @@ data:
           target: !KeyOf zot-app
           group: !KeyOf artifact-workloads-group
           order: 1
-          enabled: true
-          negate: false
-          timeout: 30
-
-      # Policy binding — let talos-artifacts sign in via OIDC to mint a zot API key at /user/apikey
-      - model: authentik_policies.policybinding
-        identifiers:
-          order: 2
-          target: !KeyOf zot-app
-          group: !KeyOf talos-artifacts-group
-        attrs:
-          target: !KeyOf zot-app
-          group: !KeyOf talos-artifacts-group
-          order: 2
           enabled: true
           negate: false
           timeout: 30
