@@ -26,7 +26,13 @@ What it does (idempotent, --dry-run supported):
      `workflow_dispatch` requires — and nothing else
   3. mints a `write:repository` PAT **as horkos-forge itself** (basic auth —
      no admin scope needed for this step)
-  4. stores the PAT (and the bot's login password) in ONE blumeops item
+  4. proves the new PAT **before any vault write or revoke**: `GET /user`
+     answers `horkos-forge` and a repo probe reads eblume/blumeops
+  5. stores the PAT (and the bot's login password) in ONE blumeops item,
+     then mirrors it to the CI vault
+  6. revokes the predecessors — every other token named `horkos-forge-*` or
+     `warrant-dispatch-*` — and re-lists to assert exactly one dispatch
+     token remains (`--keep-others` opts out)
 
 Residual capability, stated plainly: a write collaborator can also push
 non-protected branches on blumeops. `main` is push+merge whitelisted to
@@ -34,10 +40,11 @@ eblume, so it cannot touch main or merge PRs; branch pushes are visible and
 revert-able, and the credential is revocable in one click. That is the
 accepted floor because Forgejo has no dispatch-only permission.
 
-Usage: mise run horkos-forge-provision [--dry-run] [--rotate] [--token <t>]
+Usage: mise run horkos-forge-provision [--dry-run] [--rotate] [--keep-others] [--token <t>]
 """
 
 import json
+import os
 import secrets
 import subprocess
 import sys
@@ -50,8 +57,8 @@ from rich.console import Console
 from rich.markup import escape
 
 # Tailnet name — the public forge.eblu.me is HTTPS-poison in-cluster
-# (docs/reference/services/argocd.md).
-FORGE_API = "https://forge.ops.eblu.me/api/v1"
+# (docs/reference/services/argocd.md). $FORGE_API overrides for tests/stubs.
+FORGE_API = os.environ.get("FORGE_API", "https://forge.ops.eblu.me/api/v1")
 BOT_USER = "horkos-forge"
 BOT_EMAIL = "horkos-forge@eblu.me"
 # Grandfathered name, retired by the rename leg below (blumeops#1039, step 1).
@@ -59,6 +66,10 @@ LEGACY_USER = "warrant-bot"
 TARGET_REPO = ("eblume", "blumeops")
 TOKEN_NAME = "horkos-forge"
 TOKEN_SCOPES = ["write:repository"]
+# The one-live-key invariant (mirrors zot-apikey-rotate): after a mint, every
+# other token with a dispatch name is revoked. `warrant-dispatch-*` are the
+# grandfathered names minted before blumeops#1039 renamed warrant-bot.
+TOKEN_PREFIXES = ("horkos-forge-", "warrant-dispatch-")
 ADMIN_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
 # The blumeops vault, not blumeops-ci: this credential is consumed by a k8s
 # service through external-secrets, and 1Password Connect is provisioned
@@ -172,6 +183,45 @@ def mirror_to_ci(pat: str) -> None:
         console.print(f"[green]mirror created[/green] op://{CI_VAULT}/{CI_ITEM}/token")
 
 
+def list_dispatch_tokens(client: httpx.Client, check: bool = True) -> list[dict] | None:
+    """Every PAT held by BOT_USER, paginated at limit=50.
+
+    Forgejo's default page is 30, so a naive one-page read could hide a
+    predecessor from the re-list assertion behind a page boundary. Dies loud
+    on anything but 200 — an unreadable inventory is indistinguishable from a
+    misleading one — unless `check` is False (no-mint run), where a failure
+    returns None: by then no mint happens and the mirror has already run (or
+    been skipped by --dry-run), so the list feeds only the advisory drift
+    warning and a hard failure would buy nothing.
+    """
+    tokens: list[dict] = []
+    page = 1
+    while True:
+        resp = client.get(
+            f"{FORGE_API}/users/{BOT_USER}/tokens",
+            params={"page": page, "limit": 50},
+            timeout=30.0,
+        )
+        if resp.status_code == 401:
+            if not check:
+                return None
+            err.print(
+                f"token list denied (401) — the stored login-password no longer "
+                f"authenticates as {BOT_USER}; fix it before rotating"
+            )
+            raise typer.Exit(1)
+        if resp.status_code != 200:
+            if not check:
+                return None
+            err.print(f"token list failed ({resp.status_code}): {escape(resp.text[:300])}")
+            raise typer.Exit(1)
+        batch = resp.json()
+        if not batch:
+            return tokens
+        tokens.extend(batch)
+        page += 1
+
+
 def admin_token(explicit: str | None) -> str:
     """An ephemeral --token if given, else the stored forge token via
     biometric op. No env fallback: an inherited token in a CI-like shell
@@ -190,6 +240,7 @@ def admin_token(explicit: str | None) -> str:
 def main(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Report only; change nothing")] = False,
     rotate: Annotated[bool, typer.Option("--rotate", help="Mint a fresh PAT even if one is stored")] = False,
+    keep_others: Annotated[bool, typer.Option("--keep-others", help="Do not revoke the other dispatch PATs")] = False,
     token_opt: Annotated[
         str | None,
         typer.Option("--token", help="Ephemeral write:admin token (never stored) for user creation"),
@@ -270,17 +321,36 @@ def main(
                 raise typer.Exit(1)
             console.print("[green]granted[/green] write")
 
-        # 3 + 4. PAT → vault. Minted AS horkos-forge over basic auth, not via
-        # the admin API: a bot minting its own token needs no admin scope, and
-        # the resulting PAT is unambiguously the bot's own credential.
+        # 3. The mint. Minted AS horkos-forge over basic auth, not via the
+        # admin API: a bot minting its own token needs no admin scope, and the
+        # resulting PAT is unambiguously the bot's own credential.
         stored = item_state(VAULT, VAULT_ITEM) == "ok"
         legacy_item_present = item_state(VAULT, LEGACY_VAULT_ITEM) == "ok"
         console.print(f"stored PAT in {VAULT}: {'present' if stored else 'absent'}")
+
+        # The mint, the revoke leg and the drift warning all authenticate to the
+        # forge as horkos-forge over basic auth. Loading the login-password once
+        # hands the token inventory the same credential the mint proves.
+        if password is None:
+            op_result = op("read", f"op://{VAULT}/{VAULT_ITEM}/login-password", check=False)
+            password = op_result.stdout.strip() if op_result.returncode == 0 else None
+
+        mint_needed = rotate or not stored
+        minted = False
+        new_token_id: int | None = None
         if stored and not rotate:
             console.print("nothing to mint (use --rotate to replace)")
             if not dry_run:
                 mirror_to_ci(op("read", f"op://{VAULT}/{VAULT_ITEM}/token").stdout.strip())
-        elif not dry_run:
+        elif dry_run:
+            note = "nothing stored" if not stored else (
+                f"would replace the stored PAT at op://{VAULT}/{VAULT_ITEM}/token"
+            )
+            console.print(
+                f"[dim]would mint {TOKEN_NAME}-{int(time.time())} "
+                f"({', '.join(TOKEN_SCOPES)}) as {BOT_USER} — {note}[/dim]"
+            )
+        else:
             if not stored and legacy_item_present:
                 err.print(
                     f"op://{VAULT}/{VAULT_ITEM} is absent, but the grandfathered "
@@ -289,9 +359,6 @@ def main(
                     "the PAT (eblume/blumeops#963)."
                 )
                 raise typer.Exit(1)
-            if password is None:
-                op_result = op("read", f"op://{VAULT}/{VAULT_ITEM}/login-password", check=False)
-                password = op_result.stdout.strip() if op_result.returncode == 0 else None
             if not password:
                 err.print(
                     f"The bot exists but no login password is available. Store it at "
@@ -308,7 +375,40 @@ def main(
             if resp.status_code not in (201, 200):
                 err.print(f"token mint failed ({resp.status_code}): {escape(resp.text[:300])}")
                 raise typer.Exit(1)
-            pat = resp.json()["sha1"]
+            body = resp.json()
+            pat = body["sha1"]
+            new_token_id = body["id"]
+            minted = True
+
+            # 4. Prove the new PAT before any vault write or revoke: a 401 or a
+            # wrong login here dies with the predecessor still live and untouched.
+            me = c.get(f"{FORGE_API}/user", headers={"Authorization": f"token {pat}"})
+            if me.status_code != 200:
+                err.print(
+                    f"new PAT rejected ({me.status_code}) — aborting before any "
+                    "vault write or revoke; the previous token stays live"
+                )
+                raise typer.Exit(1)
+            if me.json().get("login") != BOT_USER:
+                err.print(
+                    f"new PAT authenticated as {me.json().get('login')!r}, expected "
+                    f"{BOT_USER!r} — aborting before any vault write or revoke"
+                )
+                raise typer.Exit(1)
+            repo_check = c.get(
+                f"{FORGE_API}/repos/{owner}/{repo}",
+                headers={"Authorization": f"token {pat}"},
+            )
+            if repo_check.status_code != 200:
+                err.print(
+                    f"new PAT cannot read {owner}/{repo} ({repo_check.status_code}) — "
+                    "the collaborator grant is not usable through it; aborting before "
+                    "any vault write or revoke"
+                )
+                raise typer.Exit(1)
+            console.print("[green]verified[/green] new PAT: /user is horkos-forge and reads eblume/blumeops")
+
+            # 5. Vault write + CI mirror — exactly as before the revoke leg.
             fields = [f"token[password]={pat}", f"login-password[password]={password}"]
             if stored:
                 op("item", "edit", VAULT_ITEM, "--vault", VAULT, *fields)
@@ -318,11 +418,95 @@ def main(
             console.print(f"[green]stored[/green] op://{VAULT}/{VAULT_ITEM}/token")
             mirror_to_ci(pat)
 
-    console.print(
-        "\nNext: the horkos deployment reads this via ExternalSecret. A rotation "
-        "does NOT reach the running pod on its own — env is read at pod start, so "
-        "restart horkos after --rotate."
-    )
+        # 6. Token inventory: the drift warning is printed on EVERY run; the
+        # predecessor sweep and its re-list assertion run after a mint. One list
+        # feeds both, so the re-list sees the same pagination the deletion
+        # choices came from.
+        if password is None:
+            console.print(
+                "[yellow]warning[/yellow] no login-password available — cannot list "
+                f"{BOT_USER}'s tokens; drift and revocation skipped"
+            )
+        else:
+            with httpx.Client(auth=(BOT_USER, password), timeout=30.0) as bc:
+                tokens = list_dispatch_tokens(bc, check=mint_needed)
+                if tokens is None:
+                    console.print(
+                        "[yellow]warning[/yellow] could not list "
+                        f"{BOT_USER}'s tokens — drift check skipped"
+                    )
+                else:
+                    drift = [t for t in tokens if not t["name"].startswith(TOKEN_PREFIXES)]
+                    if drift:
+                        console.print(
+                            "[yellow]warning[/yellow] token(s) not matching the dispatch "
+                            f"prefixes {escape(str(TOKEN_PREFIXES))}: "
+                            + ", ".join(f"{escape(t['name'])} (id={t['id']})" for t in drift)
+                        )
+                    if mint_needed:
+                        others = [
+                            t for t in tokens
+                            if t["name"].startswith(TOKEN_PREFIXES) and t["id"] != new_token_id
+                        ]
+                        if not others:
+                            console.print("no predecessor dispatch token(s) to revoke")
+                        elif dry_run and keep_others:
+                            for t in others:
+                                console.print(
+                                    f"[dim]would keep[/dim] {t['name']} (id={t['id']}) — --keep-others"
+                                )
+                        elif dry_run:
+                            for t in others:
+                                console.print(f"[dim]would revoke[/dim] {t['name']} (id={t['id']})")
+                        elif keep_others:
+                            for t in others:
+                                console.print(
+                                    f"[yellow]kept[/yellow] {t['name']} (id={t['id']}) — --keep-others"
+                                )
+                        else:
+                            for t in others:
+                                resp = bc.delete(f"{FORGE_API}/users/{BOT_USER}/tokens/{t['id']}")
+                                if resp.status_code not in (204, 200):
+                                    err.print(
+                                        f"revoke of {t['name']} (id={t['id']}) failed "
+                                        f"({resp.status_code}): {escape(resp.text[:300])}"
+                                    )
+                                    raise typer.Exit(1)
+                                console.print(f"[green]revoked[/green] {t['name']} (id={t['id']})")
+                            remaining = list_dispatch_tokens(bc)
+                            if remaining is None:
+                                err.print(
+                                    "post-revocation re-list failed — the one-live-key "
+                                    "invariant is not proven; investigate"
+                                )
+                                raise typer.Exit(1)
+                            live = [t for t in remaining if t["name"].startswith(TOKEN_PREFIXES)]
+                            if len(live) != 1 or live[0]["id"] != new_token_id:
+                                err.print(
+                                    f"post-revocation re-list: expected exactly the new token "
+                                    f"(id={new_token_id}); found "
+                                    + (", ".join(f"{t['name']} (id={t['id']})" for t in live) or "none")
+                                    + " — the one-live-key invariant is not proven; investigate"
+                                )
+                                raise typer.Exit(1)
+                            console.print(
+                                f"[green]verified[/green] exactly one dispatch token remains: "
+                                f"{live[0]['name']} (id={live[0]['id']})"
+                            )
+
+    if minted:
+        console.print(
+            "\nNext: push the new PAT to the cluster. The k8s Secret "
+            "horkos/horkos-dispatch still holds the predecessor until ESO's 1h "
+            "refresh, so a rollout restart before the sync would re-read a dead "
+            "token. Run these (this script prints, it does not execute):"
+        )
+        console.print(
+            "kubectl --context=k3s-ringtail -n horkos annotate externalsecret "
+            "horkos-dispatch force-sync=$(date +%s) --overwrite"
+        )
+        console.print("kubectl --context=k3s-ringtail -n horkos rollout restart deployment/horkos")
+        console.print("curl -s https://horkos.ops.eblu.me/healthz   # expect armed, not armed-no-token")
 
 
 if __name__ == "__main__":

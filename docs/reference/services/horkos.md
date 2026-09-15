@@ -82,7 +82,21 @@ never change in a single PR.
   `armed-no-token` means the ExternalSecret isn't resolving (the failure that
   once looked exactly like "disabled").
 - **Rotate the dispatch PAT**: `mise run horkos-forge-provision -- --rotate`
-  (gilbert; needs an ephemeral `write:admin` token, see the script).
+  (gilbert; needs an ephemeral `write:admin` token, see the script). One live
+  dispatch key is the invariant: the new PAT is minted as `horkos-forge` and
+  verified (`GET /user` + a read of `eblume/blumeops`) **before** anything is
+  stored, then every predecessor whose name matches `horkos-forge-*` or
+  `warrant-dispatch-*` is revoked and the token list is re-read to assert
+  exactly one dispatch token remains (`--keep-others` opts out). After a
+  rotation, force ESO to pick up the new value before restarting: the k8s
+  Secret `horkos/horkos-dispatch` holds the predecessor until ESO's 1h
+  refresh, and a rollout restart before that re-reads a dead token.
+
+  ```fish
+  kubectl --context=k3s-ringtail -n horkos annotate externalsecret horkos-dispatch force-sync=$(date +%s) --overwrite
+  kubectl --context=k3s-ringtail -n horkos rollout restart deployment/horkos
+  curl -s https://horkos.ops.eblu.me/healthz   # expect armed, not armed-no-token
+  ```
 - **Scope**: only actions with `class: warrant` in `warrant-policy.yaml` are
   requestable — today `argocd-deploy.yaml`, `deploy-fly.yaml`.
   `provision-*` is `class: deny` (see [[blumeops-ci-item-migration]]).
