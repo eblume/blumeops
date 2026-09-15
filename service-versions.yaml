@@ -302,17 +302,16 @@ services:
 
   - name: teslamate
     type: argocd
-    last-reviewed: "2026-06-03"
-    current-version: "v3.0.0"
+    last-reviewed: "2026-09-14"
+    current-version: "v4.2.0"
     upstream-source: https://github.com/teslamate-org/teslamate/releases
     notes: >-
       Tesla data logger. Container ported from Dagger (container.py) to Nix
       (containers/teslamate/default.nix) — a from-scratch beamPackages
       mixRelease (Elixir/Phoenix release with npm-built assets), since
-      teslamate is not in nixpkgs. Pins erlang_27 + elixir_1_18 from the
-      shared nixos-unstable rev; assets via in-release npm ci + esbuild;
-      ex_cldr locale data pre-fetched (LOCALES env) to avoid sandbox
-      downloads. Version unchanged (v3.0.0). Build verified on ringtail.
+      teslamate is not in nixpkgs. Pins erlang_28 + elixir_1_19 from the
+      shared nixos-unstable rev (v4.1.0+ requires elixir ~> 1.19); assets via
+      in-release npm ci + esbuild.
 
   - name: transmission
     type: argocd
