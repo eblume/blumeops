@@ -254,9 +254,10 @@ data:
             - !KeyOf ci-horkos-artifacts-group
 
       # Service account for the horkos publisher — the process that pushes
-      # blumeops/cv (horkos tier: its cv releases are warrant-dispatched acts,
-      # eblume/blumeops#1039 step 2b). The horkos-artifacts group entry and its
-      # zot-app policy binding (order 3) predate this user.
+      # blumeops/cv (horkos tier: the publisher is horkos, the
+      # warrant-dispatch service; eblume/blumeops#1039 step 2b). The
+      # horkos-artifacts group entry and its zot-app policy binding (order 3)
+      # predate this user.
       - model: authentik_core.user
         id: horkos-zot-user
         identifiers:
