@@ -123,8 +123,6 @@ file).
 
 - [[migrate-wave1-ringtail]] — the next chain in the indri-k8s
   decommission: paperless, teslamate, and mealie
-- [[shower-on-ringtail]] — a previous migration to ringtail (simpler:
-  no upstream cluster, SQLite, no GPU)
 - [[connect-to-postgres]] — getting a psql session against CNPG
 - [[ringtail]] — the target cluster
 - [[cnpg-on-ringtail]], [[immich-pg-on-ringtail]],

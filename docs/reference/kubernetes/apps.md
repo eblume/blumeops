@@ -50,7 +50,6 @@ cluster (see [[retire-minikube]]); newer apps use bare names.
 | `nvidia-device-plugin` | nvidia-device-plugin | `argocd/manifests/nvidia-device-plugin/` | [[nvidia-device-plugin]] |
 | `ntfy` | ntfy | `argocd/manifests/ntfy/` | [[ntfy]] |
 | `homepage` | homepage | `argocd/manifests/homepage/` | Homepage dashboard (no card yet) |
-| `shower` | shower | `argocd/manifests/shower/` | [[shower-app]] |
 | `prowler` | prowler | `argocd/manifests/prowler/` | [[prowler]] |
 
 No longer on Kubernetes: `cv` moved to indri (see [[cv]] and

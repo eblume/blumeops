@@ -21,7 +21,7 @@ indri mount during the transition.
 ## What to verify / do
 
 - Check `sifaka` DSM NFS rules for the `photos` share. Per
-  [[shower-on-ringtail#NFS + SMB share on sifaka]] convention, rules
+  [[sifaka#NFS Exports]] convention, rules
   use `192.168.1.0/24` + `100.64.0.0/10` with
   `all_squash`/`Map all users to admin`. The existing rule may
   already cover ringtail (it's on `192.168.1.21` per the recent

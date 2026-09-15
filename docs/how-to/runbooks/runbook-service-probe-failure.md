@@ -36,7 +36,6 @@ exporter on ringtail's k3s cluster. The probe targets are defined in
 | ntfy | `/v1/health` |
 | paperless | `/accounts/login/` |
 | prometheus | `/-/healthy` |
-| shower | `/` (sent with `Host: shower.ops.eblu.me`) |
 | teslamate | `/` |
 | tempo | `/ready` |
 | transmission | `/transmission/web/` |
@@ -77,7 +76,7 @@ config — no new alert rule is needed, the single `label_replace` rule covers a
    ssh ringtail 'systemctl status k3s'
    ```
 
-5. **Check NFS mounts** (frigate, immich, kiwix, navidrome, paperless, shower,
+5. **Check NFS mounts** (frigate, immich, kiwix, navidrome, paperless,
    and transmission depend on sifaka NFS, mounted into pods via NFS PVs — see
    [[sifaka-nfs-from-ringtail]]). A lost mount shows up as pod mount errors:
    ```fish

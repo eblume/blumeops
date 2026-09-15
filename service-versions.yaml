@@ -59,16 +59,6 @@ services:
     upstream-source: https://github.com/gethomepage/homepage/releases
     notes: Custom container, kustomize manifests
 
-  - name: shower
-    type: argocd
-    last-reviewed: 2026-09-12
-    current-version: "1.1.3"
-    upstream-source: https://forge.eblu.me/eblume/adelaide-baby-shower-app
-    notes: |
-      Django app for Adelaide / Heidi / Addie's baby shower. Wheel
-      published to Forgejo Packages PyPI; runs on ringtail k3s. Public
-      at shower.eblu.me (fly proxy), tailnet admin at shower.ops.eblu.me.
-
   - name: nvidia-device-plugin
     type: argocd
     last-reviewed: 2026-06-04

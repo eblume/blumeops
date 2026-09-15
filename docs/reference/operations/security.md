@@ -84,7 +84,7 @@ Station keeps working; new files land as 1000:1000, which is fine.
 
 | Namespace(s) | Target | Notes |
 |---|---|---|
-| 1password, argocd, authentik, external-secrets, homepage, horkos, immich, kiwix, mealie, miniflux, monitoring, navidrome, ntfy, paperless, shower, teslamate, torrent | `restricted` | near-misses fixed in step 2; the eight root-image workloads handled per the decision table above |
+| 1password, argocd, authentik, external-secrets, homepage, horkos, immich, kiwix, mealie, miniflux, monitoring, navidrome, ntfy, paperless, teslamate, torrent | `restricted` | near-misses fixed in step 2; the eight root-image workloads handled per the decision table above |
 | ollama, talos | `baseline` | hostPath use |
 | alloy | exempt | alloy-tracing-ringtail needs privileged + hostPID (Beyla eBPF) |
 | frigate | exempt | root s6-overlay entrypoint, no supported non-root path (decision table above) |

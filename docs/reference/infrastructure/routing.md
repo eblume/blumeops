@@ -58,7 +58,6 @@ stays on the tailnet either way. The table below tracks
 | [[ollama]] | https://ollama.ops.eblu.me | Local LLM runtime (k3s) |
 | [[mealie]] | https://meals.ops.eblu.me | Recipe manager (k3s) |
 | [[paperless]] | https://paperless.ops.eblu.me | Document management (k3s) |
-| Shower | https://shower.ops.eblu.me | Baby shower guest registry (going to be archived soon); staff console here, guest surface public (see below) |
 | [[talos]] | https://talos.ops.eblu.me | Agent workflow service (pi + OpenRouter, k3s) |
 | [[sifaka|Sifaka]] | https://nas.ops.eblu.me | NAS dashboard |
 
@@ -76,7 +75,7 @@ DNS CNAMEs point to `blumeops-proxy.fly.dev`. TLS via Fly.io-managed Let's Encry
 | [[cv]] | https://cv.eblu.me | CV / resume |
 | [[forgejo]] | https://forge.eblu.me | Git hosting (public) |
 | [[immich]] | https://photos.eblu.me | Immich shared albums — shared-link surface only; login/auth/admin/user API 403 at the edge |
-| Shower | https://shower.eblu.me | Baby shower guest registry (going to be archived soon) — guest surface only; `/host/` and `/admin/` 403 with a pointer to shower.ops.eblu.me |
+| Shower | https://shower.eblu.me | Archived — serves a 410 Gone tombstone at the fly edge (the event this site was for has taken place) |
 
 The apex landing page is the one exception to the "tunnel back to Caddy on
 indri" model: it's a single static splash served directly from nginx on the
