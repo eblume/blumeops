@@ -87,6 +87,30 @@ interrupted run is discarded, only the missing span is ripped, and an edited
 `--skip-rip` refreshes `rip.json` without running cd-paranoia; it still
 needs the disc in the drive, since the disc IDs come from the TOC.
 
+### Audiobooks
+
+An audiobook CD is ripped exactly like a music disc, but filed differently:
+set `"kind": "audiobook"` in `metadata.json` and the finish task writes
+[Audiobookshelf](https://www.audiobookshelf.org/)'s layout (blumeops issue #1120 deploys it) under the same share, one file per disc:
+
+```
+/Volumes/music/Audiobooks/<author>/[<series>/]<title>/Disc NN.opus
+```
+
+The metadata keys are `artist` (author), `album` (title), optional `series`,
+`series_part` and `narrator`, plus `disc_number`/`disc_total`. Track titles
+are not needed: audiobook CDs cut a track every few minutes as seek points
+for car players, not chapters, so the finish task concatenates the disc's
+tracks losslessly and encodes once. Each disc then shows up as one chapter
+in Audiobookshelf; real chapters, if wanted, are added there by hand. Opus
+at 48 kb/s is the default because it is speech (a 17-hour book is about
+400 MB rather than 5 GB); `--lossless` keeps FLAC.
+
+MusicBrainz rarely knows audiobook discs, so expect to fill the draft by
+hand. Rip the discs in any order; `disc_number` names the file. The
+`Audiobooks/` folder carries a `.ndignore` marker, so [[navidrome]] skips
+it and Audiobookshelf's library is pointed at that folder alone.
+
 ## DVD / Blu-ray
 
 ```fish
