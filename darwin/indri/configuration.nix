@@ -34,6 +34,29 @@
     "2c28f4fe3b4a958cd86b120e7eb799eee6976daa35b228c885f0630c55ef626c"
   ];
 
+  # /etc/shells: the retired 25.05 generation had replaced Apple's stock
+  # file with its own symlink, and the first 26.05 generation (which
+  # declares no environment.shells) removed it, leaving no /etc/shells at
+  # all. Restore the stock list plus the login shell actually in use.
+  environment.etc."shells".text = ''
+    /bin/bash
+    /bin/csh
+    /bin/dash
+    /bin/ksh
+    /bin/sh
+    /bin/tcsh
+    /bin/zsh
+    /opt/homebrew/bin/fish
+  '';
+
+  # Never sleep. indri is a server whose only sleep guard was Amphetamine,
+  # a GUI app; on 2026-09-16 it segfaulted after 280 h and `pmset sleep 1`
+  # put the box to sleep 4 minutes later (forge, registry and every
+  # *.ops.eblu.me route dark until someone touched it). This is the
+  # declarative `pmset -a sleep 0`; Amphetamine stays as the second layer.
+  # See [[indri]] §Maintenance Notes.
+  power.sleep.computer = "never";
+
   # --- launchd label convention for nix-managed services ---
   # Every nix-managed user agent sets serviceConfig.Label =
   # "mcquack.eblume.<svc>". Activation diffs the plist and, on change,
