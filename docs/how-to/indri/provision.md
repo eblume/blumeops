@@ -1,7 +1,7 @@
 ---
 title: Provision Indri
-modified: 2026-09-15
-last-reviewed: 2026-09-15
+modified: 2026-09-16
+last-reviewed: 2026-09-16
 tags:
   - how-to
   - indri
@@ -24,7 +24,9 @@ like ringtail's: two guards, then the play.
 2. Fail if HEAD is not pushed to origin.
 3. `ansible-playbook playbooks/indri.yml -e "indri_commit=<sha>"`:
    controller-side `op` reads, then the `rebuild` tasks (below), then the
-   service roles.
+   service roles. The rebuild tasks sit at the end of `pre_tasks` — ansible
+   runs `tasks:` *after* `roles:`, so that is the only place "before the
+   roles" is true.
 
 
 ## The rebuild tag (zero-prompt apply)
@@ -34,9 +36,12 @@ The checkout and rebuild tasks are tagged `rebuild`, so
 1Password prompts (a full run costs ~20, one per `op read`). The tasks
 checkout the bound SHA into a root-owned `/etc/blumeops` (HTTPS from the
 forge, forced) and run `darwin-rebuild switch --flake
-/etc/blumeops/darwin/indri#indri` detached via `nohup` — log at
+/etc/blumeops/darwin/indri#indri` detached via `sudo -H nohup` — log at
 `/var/log/indri-rebuild/<sha>.log` plus a `.status` sidecar — then wait
-(bounded, 60 min) and fail with the log embedded on non-zero exit.
+(bounded, 60 min) and fail with the log embedded on non-zero exit. `-H`
+matters: macOS `sudo` keeps `$HOME`, and root's `nix build` would otherwise
+leave root-owned files in `~erichblume/.cache/nix` that break the
+user-run flake check and the CI job on the indri runner.
 
 The play resolves `darwin-rebuild` from `/run/current-system`, falling back
 to the system profile (`/nix/var/nix/profiles/system/sw/bin`). Before the
@@ -68,6 +73,29 @@ cannot evaluate aarch64-darwin. The runner's PATH carries
 `/nix/var/nix/profiles/default/bin` for this (forgejo-runner.plist.j2);
 erichblume is not a trusted nix user, which is fine for a flake build.
 
+## Rehearsal: the activation checks, with no writes
+
+nix-darwin's activation runs its checks first and aborts before touching
+anything if one fails — the `/etc` known-hash check, the
+`/etc/profile` nix-daemon.sh check, `/etc/ssh/authorized_keys.d`,
+primary-user and build-user checks. `darwin-rebuild check` runs exactly
+that set and exits, so it is the dry run of a switch. The play has no
+check mode for the switch itself, so run it by hand on indri before a
+window, against the closure `indri-flake-check` just built:
+
+```fish
+ssh indri
+git clone --quiet https://forge.ops.eblu.me/eblume/blumeops.git /tmp/indri-rehearsal
+git -C /tmp/indri-rehearsal checkout --quiet <sha>
+nix build /tmp/indri-rehearsal/darwin/indri#darwinConfigurations.indri.system -o /tmp/gen-next
+sudo -H env checkActivation=1 /tmp/gen-next/activate     # must end with: ok
+rm -rf /tmp/indri-rehearsal /tmp/gen-next
+```
+
+Anything other than `ok` — "file exists, move it aside", "aborting
+activation" — is what the real switch would have died on. Re-run it after
+anything that rewrites `/etc` (the Determinate installer does).
+
 ## First switch (one-way)
 
 The first generation changes only the target of `/etc/static` (equivalent
@@ -87,7 +115,11 @@ with a `tar` of the `/etc/static` targets as insurance, then re-verify
 
 The window:
 
-1. `mise run provision-indri` (full run).
+1. `mise run provision-indri` (full run). The first switch is driven by
+   the *old* generation's `darwin-rebuild` (the fallback path), which still
+   calls `activate-user`; 26.05 ships that as a deprecated stub, so the log
+   shows a red `activate-user is deprecated` warning before `setting up
+   /etc...`. That is expected, not a failure — the `.status` file decides.
 2. Verify: `readlink /etc/static` points at the new generation; `scutil
    --dns` still shows `ts.net` → 100.100.100.100; `launchctl print gui/501`
    unchanged. The stale `/Library/LaunchDaemons/com.tailscale.tailscaled.plist`
@@ -120,6 +152,22 @@ One reboot in a window: confirms the new generation's activation loads at
 boot (why `org.nixos.activate-system` stopped loading on the old one is
 open) and that `/run/current-system` survives — which decides which
 `darwin-rebuild` path the play uses going forward (the fallback above).
+
+This is the only step that takes indri offline (forge, registry, every
+`*.ops.eblu.me` route and the Fly proxy behind them). Pick a moment with
+no talos session in flight and no CI run, and have Screen Sharing to
+indri open *before* starting — nothing in `gui/501` serves until someone
+logs in ([[restart-indri]]):
+
+1. `ssh indri 'sudo fdesetup authrestart'` — unlocks FileVault for this
+   one boot; without it the mini waits at the unlock screen for a
+   password typed at the console.
+2. ~2 min later the login window appears. Log in via Screen Sharing;
+   dismiss the tailscaled dialog the first Tailscale SSH connection pops;
+   start Amphetamine and AutoMounter.
+3. `ssh indri 'readlink /run/current-system; sudo launchctl print
+   system/org.nixos.activate-system | head -1'`, then the verification
+   list above and `mise run services-check`.
 
 ## Rolling back a service flip (PRs 2–8)
 

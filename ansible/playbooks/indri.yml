@@ -382,15 +382,18 @@
       no_log: true
       tags: [devpi]
 
-  # nix-darwin rebuild: checkout the bound blumeops commit as a root-owned
-  # /etc/blumeops and run darwin-rebuild switch detached from this SSH
-  # session (nohup): the switch is long and would outlive any tool-call
-  # timeout otherwise. Nothing nix-darwin activates touches sshd - Tailscale
-  # SSH is the one service nix-darwin does not own - so the session is not
-  # at risk from the switch itself. All of it is tagged `rebuild` so
-  # `mise run provision-indri -- --tags rebuild` is the zero-1Password-
-  # prompt apply path. See [[provision]].
-  tasks:
+    # nix-darwin rebuild: checkout the bound blumeops commit as a root-owned
+    # /etc/blumeops and run darwin-rebuild switch detached from this SSH
+    # session (nohup): the switch is long and would outlive any tool-call
+    # timeout otherwise. Nothing nix-darwin activates touches sshd - Tailscale
+    # SSH is the one service nix-darwin does not own - so the session is not
+    # at risk from the switch itself. All of it is tagged `rebuild` so
+    # `mise run provision-indri -- --tags rebuild` is the zero-1Password-
+    # prompt apply path. See [[provision]].
+    #
+    # These live at the end of pre_tasks, not under `tasks:`, because ansible
+    # runs `tasks:` after `roles:` - the generation must be current before the
+    # service roles run (the ordering PRs 2-8's service flips rely on).
     - name: Checkout the bound blumeops commit for the nix-darwin flake
       ansible.builtin.git:
         repo: "https://forge.ops.eblu.me/eblume/blumeops.git"
@@ -419,12 +422,16 @@
     # The detached shell writes <sha>.status (its exit code) last; the wait
     # below polls for it. A timeout here does not kill the rebuild - it
     # keeps running detached; read /var/log/indri-rebuild/<sha>.log.
+    #
+    # sudo -H: macOS sudo keeps $HOME (env_keep), so without it the nix build
+    # that root runs leaves root-owned files in ~erichblume/.cache/nix and
+    # breaks the user-run indri-flake-check and the CI job on the indri runner.
 
     - name: Start darwin-rebuild switch, detached from this SSH session
       ansible.builtin.shell: |
         set -euo pipefail
         sudo -n mkdir -p /var/log/indri-rebuild
-        sudo -n nohup sh -c '{{ indri_darwin_rebuild.stdout }} switch --flake /etc/blumeops/darwin/indri#indri > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.log 2>&1; echo $? > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp && mv /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status' </dev/null >/dev/null 2>&1 &
+        sudo -n -H nohup sh -c '{{ indri_darwin_rebuild.stdout }} switch --flake /etc/blumeops/darwin/indri#indri > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.log 2>&1; echo $? > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp && mv /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status' </dev/null >/dev/null 2>&1 &
         REBUILD_PID=$!
         # A backgrounded job that fails to launch dies before the wait below
         # could notice; ps is ownership-neutral, kill -0 is not.
