@@ -44,6 +44,7 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | mealie | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
 | horkos | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
 | navidrome | — (SQLite) | k8s pod (ringtail) | navidrome `ND_BACKUP_*` snapshot, newest ferried off PVC |
+| audiobookshelf | — (SQLite) | k8s pod (ringtail) | ABS built-in scheduled backup zips config+metadata, newest ferried off PVC |
 
 ## K8s Pod Data Directories
 

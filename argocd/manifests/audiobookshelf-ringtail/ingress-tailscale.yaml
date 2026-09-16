@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: audiobookshelf-tailscale
+  namespace: audiobookshelf
+  annotations:
+    tailscale.com/proxy-class: "default"
+    tailscale.com/proxy-group: "ingress"
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: "Audiobooks"
+    gethomepage.dev/group: "Home"
+    gethomepage.dev/icon: "mdi-book"
+    gethomepage.dev/description: "Audiobook streaming server"
+    gethomepage.dev/href: "https://books.ops.eblu.me"
+    gethomepage.dev/pod-selector: "app=audiobookshelf"
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: audiobookshelf
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - books

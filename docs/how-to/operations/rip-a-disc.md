@@ -91,7 +91,7 @@ needs the disc in the drive, since the disc IDs come from the TOC.
 
 An audiobook CD is ripped exactly like a music disc, but filed differently:
 set `"kind": "audiobook"` in `metadata.json` and the finish task writes
-[Audiobookshelf](https://www.audiobookshelf.org/)'s layout (blumeops issue #1120 deploys it) under the same share, one file per disc:
+[Audiobookshelf](https://www.audiobookshelf.org/)'s layout, served by [[audiobookshelf]], under the same share, one file per disc:
 
 ```
 /Volumes/music/Audiobooks/<author>/[<series>/]<title>/Disc NN.opus

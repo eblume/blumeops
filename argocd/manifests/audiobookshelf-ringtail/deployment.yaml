@@ -1,0 +1,87 @@
+---
+# NFS workloads can stall ringtail reboots while their mount unmounts; if that
+# happens here, apply the transmission fix — eblume/blumeops#906.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audiobookshelf
+  namespace: audiobookshelf
+spec:
+  replicas: 1
+  # SQLite single-writer: never leave the old pod holding the DB while the
+  # new pod runs startup migrations.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: audiobookshelf
+  template:
+    metadata:
+      labels:
+        app: audiobookshelf
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: audiobookshelf
+          image: registry.ops.eblu.me/blumeops/audiobookshelf:kustomized
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: TZ
+              value: "America/Los_Angeles"
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: metadata
+              mountPath: /metadata
+            - name: music
+              mountPath: /music
+              readOnly: true
+            # The Nix image ships no /tmp; SQLite needs a writable temp dir
+            # for statement journals. Same fix as paperless and navidrome.
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: audiobookshelf-data
+        - name: metadata
+          persistentVolumeClaim:
+            claimName: audiobookshelf-data
+        - name: music
+          persistentVolumeClaim:
+            claimName: audiobookshelf-music
+        - name: tmp
+          emptyDir: {}
