@@ -132,8 +132,9 @@ jobs:
           set -o pipefail
           # Derivations that accept a buildHash arg (e.g. authentik) get the
           # image-tag short sha so their build identifier changes per rebuild.
+          # Unanchored: the param sits mid-line in the function signature.
           NIX_ARGS=()
-          if grep -qE '^[[:space:]]*buildHash[[:space:]]*\?' "containers/${{ matrix.container }}/default.nix"; then
+          if grep -qE 'buildHash[[:space:]]*\?' "containers/${{ matrix.container }}/default.nix"; then
             NIX_ARGS=(--argstr buildHash "${{ steps.meta.outputs.sha }}")
           fi
           # Tee the build output so the failure-report step below can read it.
