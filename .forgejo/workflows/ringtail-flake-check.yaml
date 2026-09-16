@@ -1,0 +1,36 @@
+# Builds ringtail's NixOS configuration on the nix-container-builder runner
+# (ringtail itself), when the flake tree (or this workflow) changes.
+#
+# The check runs on the same nix that consumes the flake - the same nix the
+# ringtail-apply unit rebuilds with - so a build failure here means
+# ringtail-apply would fail too.
+#
+# As with the other workflows, on an agent PR this sits pending until a human
+# clicks "Approve and run" (the agents bot is read-only on canonical). See
+# [[agent-change-process]].
+name: Ringtail Flake Check
+
+on:
+  pull_request:
+    paths:
+      - 'nixos/ringtail/**'
+      - '.forgejo/workflows/ringtail-flake-check.yaml'
+  push:
+    branches: [main]
+    paths:
+      - 'nixos/ringtail/**'
+      - '.forgejo/workflows/ringtail-flake-check.yaml'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: nix-container-builder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build the nixos system
+        run: |
+          set -o pipefail
+          cd nixos/ringtail
+          nix build .#nixosConfigurations.ringtail.system

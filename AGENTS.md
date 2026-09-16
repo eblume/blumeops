@@ -190,14 +190,18 @@ because you just merged a manifest, stop — that deploy has already happened.
 
 **Login:** `argocd login argocd.ops.eblu.me --sso` (opens browser for Authentik SSO). Admin fallback for break-glass: `argocd login argocd.ops.eblu.me --username admin --password "$(op read 'op://vg6xf6vvfmoh5hqjjhlhbeoaie/srogeebssulhtb6tnqd7ls6qey/password')"`
 
-### Indri (Ansible)
+### Indri (nix-darwin + Ansible)
 
-Native services: Forgejo, Zot, Caddy, Borgmatic, Alloy
+Native services: Forgejo, Zot, Caddy, Borgmatic, Alloy. The system profile
+is the `darwin/indri` flake (nix-darwin, apply runbook [[provision]]); the
+play rebuilds it ahead of the service roles.
 
 ```fish
-mise run provision-indri                    # full
-mise run provision-indri -- --tags <role>   # specific
+mise run provision-indri                    # full (rebuild + roles)
+mise run provision-indri -- --tags <role>   # specific role only
+mise run provision-indri -- --tags rebuild  # generation only, zero op prompts
 mise run provision-indri -- --check --diff  # dry run
+mise run indri-flake-check                  # pre-apply build, on indri
 ```
 
 ### Routing

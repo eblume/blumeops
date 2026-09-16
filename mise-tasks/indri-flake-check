@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#MISE description="[human] Build indri's darwin configuration on indri (pre-apply check)"
+
+set -euo pipefail
+
+export MISE_TASK_OUTPUT=interleave
+
+# The configuration must be built on indri itself: no off-box host can
+# evaluate aarch64-darwin, so the check lives on indri's store - the same
+# store the rebuild uses. CI runs the same build on PRs touching
+# darwin/indri/; this is the human pre-apply run against the commit
+# provision-indri will deploy.
+# See [[provision]].
+COMMIT=$(git rev-parse HEAD)
+REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null | awk 'NR==1{print $1}')
+
+if [[ "$REMOTE_REF" != "$COMMIT" ]]; then
+    echo "ERROR: Current commit $COMMIT is not pushed to forge; indri cannot check out what it has not been given."
+    echo "Push your changes first: git push"
+    exit 1
+fi
+
+ssh indri "COMMIT='$COMMIT' bash -s" <<'REMOTE'
+set -euo pipefail
+DEST=/tmp/blumeops-indri-flake-check
+rm -rf "$DEST"
+git clone --quiet https://forge.ops.eblu.me/eblume/blumeops.git "$DEST"
+git -C "$DEST" checkout --quiet "$COMMIT"
+cd "$DEST/darwin/indri"
+nix build .#darwinConfigurations.indri.system
+rm -rf "$DEST"
+REMOTE
+echo "indri flake check: OK ($COMMIT)"

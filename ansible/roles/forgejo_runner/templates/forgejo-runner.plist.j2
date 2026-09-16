@@ -21,9 +21,11 @@
 	<key>EnvironmentVariables</key>
 	<dict>
 		<!-- mise shims first: host-mode jobs use indri's mise toolchain
-		     (node, uv, yq, jq, prek, dagger, ...) -->
+		     (node, uv, yq, jq, prek, dagger, ...); the nix default profile
+		     last so the indri flake check finds `nix` without shadowing
+		     anything above it ([[provision]] §CI coupling). -->
 		<key>PATH</key>
-		<string>/Users/erichblume/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<string>/Users/erichblume/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin</string>
 		<key>HOME</key>
 		<string>/Users/erichblume</string>
 	</dict>
