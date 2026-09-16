@@ -590,13 +590,14 @@ lets CI do the one thing its jobs must do, prove the run to Horkos.
 The vault also carries `k3s-run-script` (field `kubeconfig`): a bound,
 12-month-expiring token for the `run-script` ServiceAccount in the `horkos`
 namespace, with a loopback-only server URL. That is the only non-root k3s
-credential, and its only reader is a warrant-approved one-off script
-(orphan PV/PVC teardowns). The RBAC lives beside its consumer in the horkos
+credential, written for — and used only from — warrant-approved
+one-off scripts (orphan PV/PVC teardowns). The RBAC lives beside its consumer in the horkos
 app dir (`argocd/manifests/horkos/rbac.yaml`) so the capability and its
 boundary are reviewed together; the grant is `get`/`list`/`delete` on
 `persistentvolumes` plus `get`/`list` on `persistentvolumeclaims` — no
 secrets at any scope — and the `https://127.0.0.1:6443` server makes a
-kubeconfig that leaks into a run log useless from any other device.
+kubeconfig that leaks into a run log useless as-is from any other
+device.
 
 One credential has to exist in two vaults because its two readers sit on
 opposite sides of a fence: 1Password Connect (external-secrets, feeding the

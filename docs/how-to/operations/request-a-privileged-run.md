@@ -98,7 +98,7 @@ Its credential is a bound, expiring (12-month) token of the `horkos`/
 least-priv grant: `get`/`list`/`delete` on `persistentvolumes`, `get`/`list`
 on `persistentvolumeclaims`, nothing else (no secrets at any scope, no
 namespace or PVC writes). The kubeconfig's server URL is `https://127.0.0.1:6443`
-(loopback), so a kubeconfig that leaks into a run log is useless from any
+(loopback), so a kubeconfig that leaks into a run log is useless as-is from any
 other device. Canonical prologue for such a script:
 
 ```bash

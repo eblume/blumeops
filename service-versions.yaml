@@ -409,6 +409,8 @@ services:
     upstream-source: https://github.com/k3s-io/k3s/releases
     notes: >-
       Single-node k3s cluster on ringtail; pinned via nixpkgs-services overlay in flake.nix.
+      The same overlay pins kubectl (1.34.3 on this pin) for the host and the `priv`
+      runner, keeping the client inside the +/-1 skew window.
       Update nixpkgs-services rev during service reviews.
       2026-07-04: nixos-25.11 is frozen at 1.34.5+k3s1 (no k3s_1_35/1_36 attrs; unstable has
       1.35.6). Upstream 1.34 patch line is at 1.34.9 (klipper-helm CVE bump, containerd fixes
