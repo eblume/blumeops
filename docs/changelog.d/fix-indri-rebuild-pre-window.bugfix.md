@@ -1,0 +1,1 @@
+indri play: the nix-darwin rebuild runs before the service roles (it was under `tasks:`, which ansible runs after `roles:`) and as `sudo -H`, so root's nix build no longer leaves root-owned files in the user's nix cache. Runbook gains the no-write activation-check rehearsal, the expected `activate-user` deprecation warning, and the FileVault-aware reboot procedure.
