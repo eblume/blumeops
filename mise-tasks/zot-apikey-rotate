@@ -3,8 +3,8 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "typer==0.27.1"]
 # ///
-#MISE description="[human] Rotate a zot CI API key (zot-ci|ci-zot-talos|ci-zot-horkos|horkos-zot) from its current key: mint, store in 1Password, sync to its consumer, revoke the rest"
-#USAGE arg "<identity>" help="zot-ci, ci-zot-talos, ci-zot-horkos or horkos-zot"
+#MISE description="[human] Rotate a zot CI API key (zot-ci|ci-zot|ci-zot-talos|ci-zot-horkos|horkos-zot) from its current key: mint, store in 1Password, sync to its consumer, revoke the rest"
+#USAGE arg "<identity>" help="zot-ci, ci-zot, ci-zot-talos, ci-zot-horkos or horkos-zot"
 #USAGE flag "--days <n>" help="Lifetime of the new key in days (default 90)"
 #USAGE flag "--key-stdin" help="Read the current key from stdin instead of 1Password (bootstrap: paste a browser-minted key)"
 #USAGE flag "--dry-run" help="Verify the current key and list the identity's keys; mint nothing"
@@ -27,8 +27,9 @@ valid and its consumer untouched:
 2. mint the new key with an expiry `--days` out;
 3. prove the NEW key authenticates;
 4. write the master copy (`Forgejo Secrets` item, blumeops vault);
-5. write the consumer copy — the blumeops-ci vault item for `zot-ci`
-   (workflows `op read` it at job time), or the `ZOT_PUSH_API_KEY` Actions
+5. write the consumer copy — the blumeops-ci vault item for `zot-ci` and
+   `ci-zot` (workflows `op read` it at job time; the `ci-zot` item is what
+   `blumeops-ci/zot-ci` is renamed into by the flip ceremony), or the `ZOT_PUSH_API_KEY` Actions
    secret on the release repo for `ci-zot-talos` / `ci-zot-horkos`. For
    `horkos-zot` the consumer IS the master field (read directly by the
    horkos deployment's ESO), so there is nothing separate to sync;
@@ -94,6 +95,12 @@ IDENTITIES: dict[str, Identity] = {
     "zot-ci": Identity(
         master_field="zot-ci-api",
         sink=OpFieldSink(vault="blumeops-ci", item="zot-ci", field="api-key"),
+    ),
+    "ci-zot": Identity(
+        # sink is the post-rename blumeops-ci item — it exists once the flip
+        # ceremony renames blumeops-ci/zot-ci, before the first ci-zot rotation
+        master_field="ci-zot-api",
+        sink=OpFieldSink(vault="blumeops-ci", item="ci-zot", field="api-key"),
     ),
     "ci-zot-talos": Identity(
         master_field="ci-zot-talos-api",
@@ -227,7 +234,7 @@ def write_sink(sink: OpFieldSink | ForgeSecretSink, key: str) -> None:
 
 
 def main(
-    identity: Annotated[str, typer.Argument(help="zot-ci, ci-zot-talos, ci-zot-horkos or horkos-zot")],
+    identity: Annotated[str, typer.Argument(help="zot-ci, ci-zot, ci-zot-talos, ci-zot-horkos or horkos-zot")],
     days: Annotated[int, typer.Option(help="Lifetime of the new key in days")] = 90,
     key_stdin: Annotated[bool, typer.Option("--key-stdin", help="Read the current key from stdin")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Verify and list; mint nothing")] = False,

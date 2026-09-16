@@ -194,6 +194,14 @@ data:
         attrs:
           name: ci-horkos-artifacts
 
+      # ci-artifacts group (ci-tier zot base push identity, eblume/blumeops#1039 step 2b)
+      - model: authentik_core.group
+        id: ci-artifacts-group
+        identifiers:
+          name: ci-artifacts
+        attrs:
+          name: ci-artifacts
+
       # Service account for CI push (admin sets password via UI after deploy)
       - model: authentik_core.user
         id: zot-ci-user
@@ -206,6 +214,20 @@ data:
           is_active: true
           groups:
             - !KeyOf artifact-workloads-group
+
+      # ci-tier base push identity (build-container CI) — additive until the
+      # flip PR moves build-container.yaml over (eblume/blumeops#1039 step 2b)
+      - model: authentik_core.user
+        id: ci-zot-user
+        identifiers:
+          username: ci-zot
+        attrs:
+          username: ci-zot
+          name: CI Zot Service Account
+          type: service_account
+          is_active: true
+          groups:
+            - !KeyOf ci-artifacts-group
 
       # CI tier (eblume/blumeops#1039 step 2b) zot push identities for the release CI
       - model: authentik_core.user
@@ -350,6 +372,20 @@ data:
           target: !KeyOf zot-app
           group: !KeyOf ci-horkos-artifacts-group
           order: 6
+          enabled: true
+          negate: false
+          timeout: 30
+
+      # Policy binding — let ci-artifacts sign in via OIDC to mint a zot API key at /user/apikey (eblume/blumeops#1039 step 2b)
+      - model: authentik_policies.policybinding
+        identifiers:
+          order: 7
+          target: !KeyOf zot-app
+          group: !KeyOf ci-artifacts-group
+        attrs:
+          target: !KeyOf zot-app
+          group: !KeyOf ci-artifacts-group
+          order: 7
           enabled: true
           negate: false
           timeout: 30
