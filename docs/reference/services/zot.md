@@ -41,12 +41,13 @@ OIDC authentication via [[authentik]], with API key support for CI.
 | Role | Permissions | Use case |
 |------|------------|----------|
 | Anonymous | read | Pull images without auth |
-| `artifact-workloads` group | read, create | CI push (new tags only, no overwrite/delete) |
+| `artifact-workloads` group | read, create | CI push (new tags only, no overwrite/delete); grandfathered until the cleanup PR retires it |
+| `ci-artifacts` group (`ci-zot`) | read, create | CI push for `build-container` (new tags only, no overwrite/delete); ci tier of eblume/blumeops#1039 step 2b, additive until the cleanup PR retires `zot-ci` |
 | `admins` group | read, create, update, delete | Break-glass admin access |
 | `ci-zot-talos`, `ci-zot-horkos` | create, update on their own image path only | per-repo release-CI push keys (horkos#17 step 3; ci tier of eblume/blumeops#1039) |
 | `horkos-zot` | create, update on `blumeops/cv` only | the horkos publisher's push identity for cv tarballs (horkos#17 step 4; horkos tier of eblume/blumeops#1039 step 2b), consumed by the horkos deployment via ESO, not by any repo CI |
 
-CI authenticates with a zot API key generated from the `zot-ci` service account's OIDC session. The key is stored in the `Forgejo Secrets` 1Password item (field `zot-ci-api`) and mirrored to `blumeops-ci/zot-ci` (`api-key`); workflows `op read` it at job time with `BLUMEOPS_CI_OP_TOKEN` — it is not a Forgejo Actions secret.
+CI authenticates with a zot API key generated from the `zot-ci` service account's OIDC session. The key is stored in the `Forgejo Secrets` 1Password item (field `zot-ci-api`) and mirrored to `blumeops-ci/zot-ci` (`api-key`); workflows `op read` it at job time with `BLUMEOPS_CI_OP_TOKEN` — it is not a Forgejo Actions secret. The ci-tier successor `ci-zot` (group `ci-artifacts`) is additive: its key lives in the same places — `Forgejo Secrets` field `ci-zot-api` and the `blumeops-ci/ci-zot` item — and `build-container.yaml` moves to reading it when the flip PR merges.
 
 The per-repo `ZOT_PUSH_API_KEY` Actions secrets are declared in the `forgejo_actions_secrets` ansible role and provisioned from the same master fields, so after a `mise run zot-apikey-rotate` of a per-repo identity, the next `mise run provision-indri -- --tags forgejo_actions_secrets` re-syncs the secret the rotation already wrote (a no-op, not a second key).
 
@@ -58,7 +59,7 @@ Every CI key expires after **90 days**. Rotation is a command, not a browser
 session:
 
 ```fish
-mise run zot-apikey-rotate zot-ci        # or ci-zot-talos, ci-zot-horkos, horkos-zot
+mise run zot-apikey-rotate zot-ci        # or ci-zot, ci-zot-talos, ci-zot-horkos, horkos-zot
 mise run zot-apikey-rotate zot-ci --dry-run   # just prove the current key still works
 ```
 
@@ -90,11 +91,20 @@ user, group, and `zot-cv-api` master field are deleted by the ceremony
 after sync, with `zot-cv`'s zot API keys revoked first (see the new
 "Retiring an identity" section).
 
+**ci-zot cutover (in progress, 2026-09-16).** The base CI push identity
+`zot-ci` / `artifact-workloads` is being moved the same way: `ci-zot`
+(group `ci-artifacts`) is now additive in the blueprint, in the accessControl
+(`**` restated in every per-path block), and in the rotate table. The flip
+PR moves `build-container.yaml` to `ci-zot` (its ceremony renames
+`blumeops-ci/zot-ci` to `blumeops-ci/ci-zot`, bootstraps the identity, and
+rotates), and the following cleanup PR retires `zot-ci` and
+`artifact-workloads`.
+
 The task reads the current key from the `Forgejo Secrets` item (blumeops
-vault; fields `zot-ci-api`, `ci-zot-talos-api`, `ci-zot-horkos-api`,
+vault; fields `zot-ci-api`, `ci-zot-api`, `ci-zot-talos-api`, `ci-zot-horkos-api`,
 `horkos-zot-api`), mints a new one, proves the new key authenticates, writes the
 master copy back, writes the consumer copy — `blumeops-ci/zot-ci`
-(`api-key`) for `zot-ci`, the `ZOT_PUSH_API_KEY` Actions secret on
+(`api-key`) for `zot-ci` (and the renamed `blumeops-ci/ci-zot` item for `ci-zot`), the `ZOT_PUSH_API_KEY` Actions secret on
 `eblume/talos` / `eblume/horkos` for the per-repo push identities
 (`ci-zot-talos` / `ci-zot-horkos`) — and then revokes every other key the
 identity holds
@@ -122,7 +132,7 @@ rides on your own logged-in session.
 The identity's user must exist first — the blueprint worker creates it on ArgoCD sync. Check for it in the Authentik admin UI, not with `--dry-run`: for a fresh identity the master field in 1Password does not exist until the first rotation, so `--dry-run` fails on a missing field and says nothing about whether the user exists.
 
 
-1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `ci-zot-talos`, `ci-zot-horkos` or `horkos-zot`)
+1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `ci-zot`, `ci-zot-talos`, `ci-zot-horkos` or `horkos-zot`)
 2. Visit `https://registry.ops.eblu.me` and click "SIGN IN WITH OIDC"
 3. Navigate to `https://registry.ops.eblu.me/user/apikey`, generate a key
    (any expiry — it is about to be retired), copy it
@@ -140,11 +150,14 @@ keys in zot, and a new user with the same username re-attaches them (this
 surfaced 2026-09-15 when the new `horkos-zot` publisher inherited the
 deleted step-2 user's 2026-09-13 key, a live credential whose 1Password
 field was already gone). A retirement must therefore revoke the identity's
-zot API keys *before* deleting the Authentik user: `mise run
-zot-apikey-rotate <identity> --dry-run` lists them while the identity is
-still in the rotate table, and the registry's `/user/apikey` UI (or
-`DELETE /zot/auth/apikey`) removes them; any future reuse of a username
-must start with a key listing.
+zot API keys *before* deleting the Authentik user. Two ways to take the key
+listing: `mise run zot-apikey-rotate <identity> --dry-run`, but only *before*
+the retire PR merges — that PR is what removes the identity from the rotate
+table — or at any time against the raw endpoint with the stored key (`curl
+-su '<identity>:<key>' https://registry.ops.eblu.me/zot/auth/apikey`, then
+`DELETE .../zot/auth/apikey?id=<uuid>` per key; this is what the 2026-09-16
+`zot-cv` retirement used). Any future reuse of a username must start with a
+key listing.
 
 ## Related
 
