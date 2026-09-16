@@ -266,9 +266,12 @@ than they look; read the gotchas.**
    Expect your real Blumeops tasks. `heph sync --status` should show
    `auth_failure=false, last_error=null`.
 
-> **Revoke** by disabling the `heph-agents` Authentik user, or by removing the
-> `heph-agents-sub` vault item and re-provisioning indri (drops it from
-> `--authorized-sub`) — either cuts the spoke without touching your own logins.
+> **Revoke** by disabling the `heph-agents` Authentik user, or by setting
+> `heph_agents_sub_enabled: false` in `ansible/inventory/group_vars/all.yml` and
+> re-provisioning indri (drops the sub from `--authorized-sub`) — either cuts
+> the spoke without touching your own logins. Deleting the `heph-agents-sub`
+> vault item alone is no longer the way: the role's vault read is fail-closed,
+> so provisioning aborts instead of silently de-authorizing the spoke.
 
 **Other gotchas banked while bootstrapping this:**
 
