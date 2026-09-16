@@ -62,6 +62,5 @@ ssh ringtail "rm -rf $tmpdir"
 
 ## Related
 
-- [[build-authentik-container]] — Container build reference
 - [[deploy-authentik]] — Parent deployment goal
 - [[agent-change-process]] — how changes reach main
