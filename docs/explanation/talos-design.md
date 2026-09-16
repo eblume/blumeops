@@ -1,6 +1,6 @@
 ---
 title: Talos — self-hosted agent workflow service (design)
-modified: 2026-09-04
+modified: 2026-09-15
 last-reviewed: 2026-08-14
 tags:
   - explanation
@@ -74,8 +74,8 @@ process]]'s "plan first" rule in headless form: the first cycle on a
 non-trivial issue posts a plan comment (brief as understood, scope in/out,
 ordered steps mapped to their PRs, verification, open questions) as its
 terminal comment and waits for a go; a revising reply revises the plan, an
-approving reply starts the first PR. A `plan: skip` line anywhere in the
-issue body opts trivial issues out of planning. PR review comments drive
+approving reply starts the first PR. A `!!plan: skip` line anywhere in the
+issue body opts trivial issues out of planning; the bare `plan: skip` form is retired — do not use it in new posts. The [talos README Pragmas section](https://forge.eblu.me/eblume/talos/blob/main/README.md#pragmas) is authoritative for the full pragma list (including `!!noreply` / `!!bump`, which suppress a turn entirely). PR review comments drive
 their own cycle. A CI failure on an agent PR arrives the same way: the
 shared report-failure action (blumeops `.forgejo/actions/report-failure`)
 posts the failure tail as a COMMENT review from `forgejo-actions`; talos

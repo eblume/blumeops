@@ -1,6 +1,6 @@
 ---
 title: Agent Change Process
-modified: 2026-09-04
+modified: 2026-09-15
 last-reviewed: 2026-02-23
 tags:
   - explanation
@@ -39,7 +39,7 @@ The default route for anything non-trivial, and the only route available to remo
 1. Find and read the docs relevant to the change area
 2. **Search related docs** — read existing documentation and reference cards related to the change area
 3. **Create a feature branch** and open a PR early (draft is fine)
-4. **Plan first (issue-driven cycles)** — on a non-trivial issue, the agent's first cycle posts a plan comment instead of a PR: the brief as understood, scope in and explicitly out, ordered steps each mapped to the PR that will land them, verification per step, and open questions. It is the cycle's terminal comment, and the cycle stops at "waiting for a go on this plan". The human's reply is the verdict: a revision revises the plan and stops; an approval proceeds to the plan's first step. A `plan: skip` line anywhere in the issue body opts trivial issues out of planning. It is the headless form of the rule below — the first externally visible artifact should be cheap to argue about, not a diff
+4. **Plan first (issue-driven cycles)** — on a non-trivial issue, the agent's first cycle posts a plan comment instead of a PR: the brief as understood, scope in and explicitly out, ordered steps each mapped to the PR that will land them, verification per step, and open questions. It is the cycle's terminal comment, and the cycle stops at "waiting for a go on this plan". The human's reply is the verdict: a revision revises the plan and stops; an approval proceeds to the plan's first step. A `!!plan: skip` line anywhere in the issue body opts trivial issues out of planning; the bare `plan: skip` form is retired — do not use it in new posts. The [talos README Pragmas section](https://forge.eblu.me/eblume/talos/blob/main/README.md#pragmas) is authoritative for the full pragma list (including `!!noreply` / `!!bump`, which suppress a turn entirely). It is the headless form of the rule below — the first externally visible artifact should be cheap to argue about, not a diff
 5. **Documentation first** — commit doc changes reflecting the desired end state before writing code. This helps the reviewer understand intent and catches design issues early
 6. **Implement** — commit code changes, pushing as you go. The PR gets updated along the way and the user can review and comment at any point
 7. **Add changelog fragment** — `docs/changelog.d/<branch>.<type>.md` for any user-visible or noteworthy changes
