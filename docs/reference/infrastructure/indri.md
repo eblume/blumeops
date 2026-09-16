@@ -1,7 +1,7 @@
 ---
 title: Indri
-modified: 2026-09-15
-last-reviewed: 2026-09-15
+modified: 2026-09-16
+last-reviewed: 2026-09-16
 tags:
   - infrastructure
   - host
@@ -49,7 +49,15 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 
 ## Maintenance Notes
 
-**Sleep prevention:** Uses Amphetamine (App Store) to prevent sleep. If Amphetamine crashes after extended uptime, consider switching to `pmset` or `caffeinate` via ansible.
+**Sleep prevention:** two layers. The flake sets `power.sleep.computer =
+"never"` (`pmset -a sleep 0`), and Amphetamine (App Store) runs in the GUI
+session on top. Amphetamine alone was not enough: on 2026-09-16 it
+segfaulted after 280 h and, with `pmset sleep 1`, the mini entered
+Maintenance Sleep four minutes later — forge, registry and every
+`*.ops.eblu.me` route dark until someone touched it. The signature of a
+sleep (vs. a crash or a NIC fault): boot time unchanged, `pmset -g log`
+shows `Entering Sleep state`, tailscaled logs `LinkChange: major … network
+is down`, and `pmset -g assertions` holds no Amphetamine assertion.
 
 **Passwordless sudo:** Configured for `erichblume` user (`/etc/sudoers.d/erichblume`) to allow ansible `become: true` without prompts. Acceptable given Tailscale is the trust boundary.
 
@@ -72,6 +80,18 @@ apply runbook is [[provision]]:
   drop-ins — plus `/etc/resolver/ts.net`, the tailnet MagicDNS resolver,
   written explicitly rather than via `services.tailscale`, which would also
   emit a second tailscaled daemon beside the live Homebrew one.
+- **`/run/current-system` does not survive a reboot.** Background Task
+  Management refuses nix-darwin's `org.nixos.activate-system` daemon
+  (`sfltool dumpbtm`: `Name: sh, Parent: Unknown Developer, Disposition:
+  [enabled, disallowed, notified]`), so the symlink exists only between a
+  `darwin-rebuild` and the next reboot. The system profile
+  (`/nix/var/nix/profiles/system`) is the durable pointer; the play uses
+  it as the fallback. Open in [[provision]] §Reboot test.
+- **SSH host key.** Remote Login is off; all ssh is Tailscale SSH, which
+  serves `/etc/ssh/ssh_host_*_key` when those files exist. nix-darwin
+  activation generated them on 2026-09-16, so indri's fingerprint changed
+  to `SHA256:liWWi+4w4SbrZyITCkbVmIn+RsHES0hwxvOuWRS6cRA`; a
+  known_hosts warning from that date is this, not an intruder.
 - **The first switch (2026-09) was one-way.** The old generation
   (system-14, nix-darwin 25.05) aborts its own etc check post-Tahoe and
   would load a second tailscaled, so it was never re-activated; generations

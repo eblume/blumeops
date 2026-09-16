@@ -73,28 +73,16 @@ cannot evaluate aarch64-darwin. The runner's PATH carries
 `/nix/var/nix/profiles/default/bin` for this (forgejo-runner.plist.j2);
 erichblume is not a trusted nix user, which is fine for a flake build.
 
-## Rehearsal: the activation checks, with no writes
+## There is no dry run of a switch
 
-nix-darwin's activation runs its checks first and aborts before touching
-anything if one fails — the `/etc` known-hash check, the
-`/etc/profile` nix-daemon.sh check, `/etc/ssh/authorized_keys.d`,
-primary-user and build-user checks. `darwin-rebuild check` runs exactly
-that set and exits, so it is the dry run of a switch. The play has no
-check mode for the switch itself, so run it by hand on indri before a
-window, against the closure `indri-flake-check` just built:
-
-```fish
-ssh indri
-git clone --quiet https://forge.ops.eblu.me/eblume/blumeops.git /tmp/indri-rehearsal
-git -C /tmp/indri-rehearsal checkout --quiet <sha>
-nix build /tmp/indri-rehearsal/darwin/indri#darwinConfigurations.indri.system -o /tmp/gen-next
-sudo -H env checkActivation=1 /tmp/gen-next/activate     # must end with: ok
-rm -rf /tmp/indri-rehearsal /tmp/gen-next
-```
-
-Anything other than `ok` — "file exists, move it aside", "aborting
-activation" — is what the real switch would have died on. Re-run it after
-anything that rewrites `/etc` (the Determinate installer does).
+nix-darwin's `activate` script starts with `#!/usr/bin/env -i bash`, which
+discards the environment — including the `checkActivation=1` that
+`darwin-rebuild check` sets — so **any invocation of `activate` is a full
+activation as root**. (On 2026-09-16 a "no-write rehearsal" built on that
+flag activated the first generation outside the play; no damage, but see
+[[indri]] §Nix for the host-key consequence.) Rehearse with
+`indri-flake-check` (eval + build) and by reading the abort conditions in
+the built `activate` script; treat everything else as the real switch.
 
 ## First switch (one-way)
 
@@ -106,14 +94,30 @@ pre-Tahoe zsh hash list and aborts on the post-Tahoe `/etc/zshrc`, and it
 declares `services.tailscale`, which would load a second tailscaled beside
 the Homebrew root daemon.
 
-Step 0, before the window (human, on indri): the Determinate upgrade —
+Step 0, before the window (human, **at indri's console — a Terminal on
+the box, not over ssh**): the Determinate upgrade —
 `sudo installer -pkg Determinate.pkg -target /` from
 `https://install.determinate.systems/determinate-pkg/stable/Universal` —
-with a `tar` of the `/etc/static` targets as insurance, then re-verify
+with a `tar -h` of `/etc/static` as insurance, then re-verify
 `nix store info`, a trivial `nix build`, and
 `launchctl list | grep mcquack` unchanged.
 
-The window:
+Why the console: macOS Tahoe TCC-protects `/etc/fstab`, and the
+responsible process for a Tailscale SSH session is Homebrew `tailscaled`,
+which has no Full Disk Access — so over ssh the installer's
+`create_fstab_entry` step dies with `Operation not permitted` (root is
+irrelevant to TCC), after its uninstall phase 1 has already removed the
+`systems.determinate.nix-store` boot-mount plist. If that happens: do not
+reboot; park the partial receipt (`sudo mv /nix/receipt.json
+/nix/.partial-receipt.json`) and run the same install line from
+Terminal.app on indri — `sudo /nix/nix-installer install macos
+--no-confirm --encrypt true --ssl-cert-file /etc/nix/macos-keychain.crt
+--determinate`. Under `--no-confirm` a failed install never reverts (the
+volume is safe), but it copies itself to `/nix/nix-installer`, truncating
+that binary to zero bytes if it *was* that file — fetch the release binary
+again if so.
+
+The window (done 2026-09-16; kept as the record of what was verified):
 
 1. `mise run provision-indri` (full run). The first switch is driven by
    the *old* generation's `darwin-rebuild` (the fallback path), which still
@@ -123,10 +127,8 @@ The window:
 2. Verify: `readlink /etc/static` points at the new generation; `scutil
    --dns` still shows `ts.net` → 100.100.100.100; `launchctl print gui/501`
    unchanged. The stale `/Library/LaunchDaemons/com.tailscale.tailscaled.plist`
-   must be gone — nix-darwin's removal loop diffs against
-   `/run/current-system/Library/LaunchDaemons`, which did not exist before
-   the first switch, so activation never removes it: `sudo rm` it by hand
-   (it is not loaded).
+   must be gone (activation removed it itself on 2026-09-16; `sudo rm` it
+   by hand if it survives — it is not loaded).
 3. Forge API responds, a registry push works, `mise run agent-health`
    passes.
 4. Safety, immediately after `readlink /etc/static` has moved: delete
@@ -148,10 +150,25 @@ The machinery is proved without ever re-activating generation 14:
 
 ### Reboot test
 
-One reboot in a window: confirms the new generation's activation loads at
-boot (why `org.nixos.activate-system` stopped loading on the old one is
-open) and that `/run/current-system` survives — which decides which
-`darwin-rebuild` path the play uses going forward (the fallback above).
+Done 2026-09-16, and it answered the open question: **`org.nixos.
+activate-system` does not load at boot, and `/run/current-system` does
+not survive a reboot.** Background Task Management registers the daemon
+as `Name: sh, Parent: Unknown Developer, Disposition: [enabled,
+disallowed, notified]` (`sudo sfltool dumpbtm`) — an unsigned
+`/bin/sh -c …` legacy daemon macOS refuses — while Determinate's and
+Homebrew's daemons are `allowed`. Consequences are bounded: the play
+resolves `darwin-rebuild` from the system profile when
+`/run/current-system` is absent (the fallback above, now the normal
+post-reboot case), `/etc` is static symlinks, and nix-managed user agents
+live in `~/Library/LaunchAgents`, which launchd loads at login regardless.
+Candidates for a dedicated window: `sudo sfltool resetbtm` + reboot, or a
+plist shape BTM accepts.
+
+A reboot also pops "Enter a password to unlock the disk Nix Store" at
+login. **Cancel it** — the volume password is a random one in the System
+keychain and the `systems.determinate.nix-store` daemon mounts `/nix`
+with it moments later (verify with `mount | grep /nix`); the dialog is
+loginwindow racing the daemon.
 
 This is the only step that takes indri offline (forge, registry, every
 `*.ops.eblu.me` route and the Fly proxy behind them). Pick a moment with
