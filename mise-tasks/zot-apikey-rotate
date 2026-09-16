@@ -30,9 +30,8 @@ valid and its consumer untouched:
 5. write the consumer copy — the blumeops-ci vault item for `zot-ci`
    (workflows `op read` it at job time), or the `ZOT_PUSH_API_KEY` Actions
    secret on the release repo for `ci-zot-talos` / `ci-zot-horkos`. For
-   `horkos-zot` the consumer IS the
-   master field (read directly by the horkos deployment's ESO),
-   so there is nothing separate to sync;
+   `horkos-zot` the consumer IS the master field (read directly by the
+   horkos deployment's ESO), so there is nothing separate to sync;
 6. revoke every other key the identity holds (one live key per CI identity
    is the invariant; `--keep-others` opts out).
 

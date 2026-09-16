@@ -1,7 +1,7 @@
 ---
 title: Zot
-modified: 2026-09-15
-last-reviewed: 2026-09-15
+modified: 2026-09-16
+last-reviewed: 2026-09-16
 tags:
   - service
   - registry
