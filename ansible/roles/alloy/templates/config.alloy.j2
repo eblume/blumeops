@@ -134,9 +134,8 @@ loki.source.file "mcquack_logs" {
 }
 
 // Ringtail kernel crash capture (netconsole receiver, role `netconsole`)
-local.file "netconsole_ringtail" {
-  path       = "{{ alloy_netconsole_log_path }}"
-  labels     = { service = "netconsole", stream = "netconsole-ringtail" }
+loki.source.file "netconsole_ringtail" {
+  targets    = [{__path__ = "{{ alloy_netconsole_log_path }}", service = "netconsole", stream = "netconsole-ringtail"}]
   forward_to = [loki.relabel.add_host.receiver]
 }
 
