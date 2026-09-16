@@ -54,6 +54,10 @@ heph_oidc_audience: heph
 # hephd --authorized-sub). Used for the ringtail agent spoke's dedicated
 # `heph-agents` identity, kept distinct from the human login. The sub is a
 # hashed_user_id (discovered once at bootstrap) and lives in the blumeops vault
-# rather than this public repo; tasks/main.yml appends it when present. See
+# rather than this public repo; tasks/main.yml appends it when enabled. See
 # docs/reference/infrastructure/agent-workspaces.md.
 heph_authorized_subs: []
+# Whether tasks/main.yml reads the heph-agents sub from the vault above. Set
+# false in inventory/group_vars/all.yml to intentionally run the hub without
+# the spoke; a failing `op read` while this is true aborts the play.
+heph_agents_sub_enabled: true

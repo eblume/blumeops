@@ -71,17 +71,24 @@
 # settings (builder gc etc). The daemon only re-reads this on restart,
 # so we notify instead of restarting.
 
+# A missing daemon.json is the legitimate no-config state (start from {}); a
+# failed read is not and aborts the play.
+- name: Check for Docker Desktop daemon.json
+  ansible.builtin.stat:
+    path: "{{ forgejo_runner_docker_daemon_json }}"
+  register: forgejo_runner_daemon_json_stat
+
 - name: Read Docker Desktop daemon.json
   ansible.builtin.slurp:
     src: "{{ forgejo_runner_docker_daemon_json }}"
   register: forgejo_runner_daemon_json_raw
-  failed_when: false
+  when: forgejo_runner_daemon_json_stat.stat.exists
 
 - name: Merge registry mirror into daemon.json settings
   ansible.builtin.set_fact:
     forgejo_runner_daemon_json_merged: >-
-      {{ (forgejo_runner_daemon_json_raw.content is defined)
-         | ternary(forgejo_runner_daemon_json_raw.content | default('') | b64decode | from_json, {})
+      {{ ((forgejo_runner_daemon_json_raw.content | default('') | b64decode | from_json)
+          if forgejo_runner_daemon_json_stat.stat.exists else {})
          | combine({'registry-mirrors': [forgejo_runner_registry_mirror]}) }}
 
 - name: Write Docker Desktop daemon.json with registry mirror
