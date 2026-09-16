@@ -68,6 +68,8 @@ The task will:
 7. Clean up old backups on indri (keeps last 3 sets)
 8. **Delete the plaintext `.1pux` from Gilbert**
 
+If the transfer to indri fails, the run stops, copies the two encrypted files to `~/Documents/` (it prints where they went), and leaves the plaintext export in place so you can re-run. The plaintext `.1pux` is deleted only after the encrypted set has landed on indri.
+
 No cleanup needed — the script automatically deletes the plaintext `.1pux` from Gilbert and shreds the temporary encryption keys.
 
 ### 3. Verify
