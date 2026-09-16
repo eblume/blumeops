@@ -1,0 +1,1 @@
+`mise run horkos-forge-provision` now enforces a one-live-key invariant for the horkos dispatch PAT: after the freshly minted `horkos-forge-*` / `warrant-dispatch-*` token is verified (as `horkos-forge`, with the blumeops grant usable through it) and stored, every other matching token is revoked and the list is re-read to assert exactly one remains (`--keep-others` opts out).
