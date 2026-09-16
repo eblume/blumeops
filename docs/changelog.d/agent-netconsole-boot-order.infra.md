@@ -1,0 +1,1 @@
+Load ringtail's netconsole module from a systemd unit triggered by `sys-subsystem-net-devices-enp5s0.device` instead of `boot.kernelModules` — the boot-time module load was racing the NIC coldplug and the module came up with zero targets — and raise `boot.consoleLogLevel` to 7 so warn/info kernel lines reach netconsole outside an oops/panic (eblume/blumeops#1105).
