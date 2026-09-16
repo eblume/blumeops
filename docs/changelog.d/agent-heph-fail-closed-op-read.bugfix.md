@@ -1,0 +1,1 @@
+The heph role now fails closed when its `op read` of the `heph-agents-sub` vault item fails: provisioning aborts instead of silently rendering the hub without `--authorized-sub`. Intentional no-spoke runs opt out via `heph_agents_sub_enabled: false`, and the forgejo_runner role's Docker daemon.json slurp is gated on the file existing.
