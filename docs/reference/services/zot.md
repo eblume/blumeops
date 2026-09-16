@@ -1,7 +1,7 @@
 ---
 title: Zot
-modified: 2026-09-15
-last-reviewed: 2026-09-15
+modified: 2026-09-16
+last-reviewed: 2026-09-16
 tags:
   - service
   - registry
@@ -45,7 +45,6 @@ OIDC authentication via [[authentik]], with API key support for CI.
 | `admins` group | read, create, update, delete | Break-glass admin access |
 | `ci-zot-talos`, `ci-zot-horkos` | create, update on their own image path only | per-repo release-CI push keys (horkos#17 step 3; ci tier of eblume/blumeops#1039) |
 | `horkos-zot` | create, update on `blumeops/cv` only | the horkos publisher's push identity for cv tarballs (horkos#17 step 4; horkos tier of eblume/blumeops#1039 step 2b), consumed by the horkos deployment via ESO, not by any repo CI |
-| `zot-cv` | create, update on `blumeops/cv` only | grandfathered predecessor of `horkos-zot`, retired by the next step of eblume/blumeops#1039 step 2b |
 
 CI authenticates with a zot API key generated from the `zot-ci` service account's OIDC session. The key is stored in the `Forgejo Secrets` 1Password item (field `zot-ci-api`) and mirrored to `blumeops-ci/zot-ci` (`api-key`); workflows `op read` it at job time with `BLUMEOPS_CI_OP_TOKEN` — it is not a Forgejo Actions secret.
 
@@ -59,7 +58,7 @@ Every CI key expires after **90 days**. Rotation is a command, not a browser
 session:
 
 ```fish
-mise run zot-apikey-rotate zot-ci        # or ci-zot-talos, ci-zot-horkos, zot-cv, horkos-zot
+mise run zot-apikey-rotate zot-ci        # or ci-zot-talos, ci-zot-horkos, horkos-zot
 mise run zot-apikey-rotate zot-ci --dry-run   # just prove the current key still works
 ```
 
@@ -82,13 +81,18 @@ identity `horkos-zot`, added by this PR: the blueprint user, the
 `blumeops/cv` accessControl grant, the `zot-apikey-rotate` entry, and the
 horkos ESO re-point to the `horkos-zot-api` master field (re-created by the
 first rotation — until the ceremony mints it the ESO cannot refresh and the
-pod keeps its current `zot-cv` key, so the pod must not be recycled in that
-window). The `zot-cv` identity is grandfathered until the publisher
-cutover retires it.
+pod keeps the previously synced key, so the pod must not be recycled in
+that window). The `zot-cv` identity is retired by this change: its
+blueprint user, the `cv-artifacts` group entry and its order-4 zot-app
+policy binding, the `blumeops/cv` `cv-artifacts` accessControl grant, and
+the `zot-apikey-rotate` entry are gone from the repo here; the live
+user, group, and `zot-cv-api` master field are deleted by the ceremony
+after sync, with `zot-cv`'s zot API keys revoked first (see the new
+"Retiring an identity" section).
 
 The task reads the current key from the `Forgejo Secrets` item (blumeops
 vault; fields `zot-ci-api`, `ci-zot-talos-api`, `ci-zot-horkos-api`,
-`zot-cv-api`, `horkos-zot-api`), mints a new one, proves the new key authenticates, writes the
+`horkos-zot-api`), mints a new one, proves the new key authenticates, writes the
 master copy back, writes the consumer copy — `blumeops-ci/zot-ci`
 (`api-key`) for `zot-ci`, the `ZOT_PUSH_API_KEY` Actions secret on
 `eblume/talos` / `eblume/horkos` for the per-repo push identities
@@ -98,10 +102,10 @@ identity holds
 valid and its consumer untouched. Key material never touches argv or the
 terminal.
 
-For `zot-cv` and `horkos-zot` the consumer is the master field itself: the
-horkos deployment's ESO reads Forgejo Secrets / `horkos-zot-api` as of this
-PR (it read `zot-cv-api` until now). Because the horkos deployment has no
-reloader, the pod must be recycled after a rotation to pick up the new key.
+For `horkos-zot` the consumer is the master field itself: the horkos
+deployment's ESO reads Forgejo Secrets `horkos-zot-api` directly.
+Because the horkos deployment has no reloader, the pod must be recycled
+after a rotation to pick up the new key.
 
 Rotate before expiry, not after: an expired key cannot mint, and the chain
 has to be re-seeded in the browser.
@@ -118,7 +122,7 @@ rides on your own logged-in session.
 The identity's user must exist first — the blueprint worker creates it on ArgoCD sync. Check for it in the Authentik admin UI, not with `--dry-run`: for a fresh identity the master field in 1Password does not exist until the first rotation, so `--dry-run` fails on a missing field and says nothing about whether the user exists.
 
 
-1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `ci-zot-talos`, `ci-zot-horkos`, `zot-cv` or `horkos-zot`)
+1. In the Authentik admin UI, impersonate the identity (`zot-ci`, `ci-zot-talos`, `ci-zot-horkos` or `horkos-zot`)
 2. Visit `https://registry.ops.eblu.me` and click "SIGN IN WITH OIDC"
 3. Navigate to `https://registry.ops.eblu.me/user/apikey`, generate a key
    (any expiry — it is about to be retired), copy it
@@ -129,6 +133,18 @@ The identity's user must exist first — the blueprint worker creates it on Argo
    `pbpaste` is macOS (gilbert). On ringtail the equivalent is `nix shell nixpkgs#wl-clipboard -c wl-paste -n | mise run zot-apikey-rotate <identity> --key-stdin`.
    That verifies the pasted key, mints the real one, stores it, syncs the
    consumer and revokes the pasted bootstrap key in one step.
+
+**Retiring an identity.** zot keys its API-key table by the identity
+string, not by the IdP user: deleting the Authentik user leaves its minted
+keys in zot, and a new user with the same username re-attaches them (this
+surfaced 2026-09-15 when the new `horkos-zot` publisher inherited the
+deleted step-2 user's 2026-09-13 key, a live credential whose 1Password
+field was already gone). A retirement must therefore revoke the identity's
+zot API keys *before* deleting the Authentik user: `mise run
+zot-apikey-rotate <identity> --dry-run` lists them while the identity is
+still in the rotate table, and the registry's `/user/apikey` UI (or
+`DELETE /zot/auth/apikey`) removes them; any future reuse of a username
+must start with a key listing.
 
 ## Related
 
