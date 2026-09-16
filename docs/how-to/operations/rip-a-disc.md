@@ -99,6 +99,13 @@ explicitly), and ejects. `rip.json` lists each title's duration, chapter
 count, size and source playlist; `metadata.json` is the draft, with the
 longest title pre-marked as the feature.
 
+The inventory is makemkvcon's own numbering (it hides titles under two
+minutes itself), and the staged files carry those ids — `DD1_t06.mkv` is
+title 6 — even though makemkvcon renumbers internally when it rips with a
+minimum length; the task renames its outputs back. A DVD's play-all
+featurette usually appears once as a long title and again as its segments,
+each a few minutes; keep the long one.
+
 Set `kind`:
 
 - **movie** — `title`, `year`; each file's `target` is `"feature"`,
@@ -107,6 +114,12 @@ Set `kind`:
   `"E3:Episode Title"`, `"E3-4"` for a double episode, or `null`.
   `season_dir` overrides the `Season NN` folder name for shows already
   filed with another convention.
+  Bonus-disc material takes `"extra:<Name>"` (filed under the season's
+  `extras/`) or `"extra:<kind>/<Name>"` with a Jellyfin extras folder name —
+  `featurettes`, `deleted scenes`, `behind the scenes`, `interviews`,
+  `trailers` — and shows up under that season's Extras in Jellyfin with no
+  sidecar metadata. Rip a bonus disc with `--min-length 60`, since most of
+  its titles are shorter than the default cutoff.
 
 ```fish
 mise run rip-video-finish ~/rips/video/<dir> --dry-run
@@ -118,6 +131,36 @@ Files go to `/Volumes/allisonflix/Movies/<Title (Year)>/<Title (Year)>.mkv`
 `/Volumes/allisonflix/TV/<Show>/Season NN/<Show> - SNNENN - <Title>.mkv`,
 which [[jellyfin]] parses without any sidecar metadata. Nothing in the
 library is ever overwritten; a clash aborts the whole move.
+
+## A disc that will not read
+
+Counterfeit pressings (shrink-wrapped, InterActual files and all) show up
+as `MEDIUM ERROR: L-EC UNCORRECTABLE ERROR` in makemkvcon's messages, then
+`Failed to save title N`. Cleaning rarely helps; the sectors are bad in the
+plastic. Two things to know:
+
+- **The drive wedges.** On these sectors the Pioneer retries inside its
+  firmware for minutes, the reading process sits in an uninterruptible
+  wait at zero CPU, and afterwards `drutil status` and `diskutil eject`
+  hang too. Kill the reader, then press the drive's eject button or
+  replug its USB cable. Nothing software-side clears it.
+- **Image it, then rip the image.** `brew install ddrescue`, unmount the
+  volume (`diskutil unmount force /Volumes/<label>`), and run
+
+  ```fish
+  ddrescue -b 2048 -s <bytes from diskutil info> -n /dev/rdiskN disc.iso disc.map
+  ```
+
+  It copies everything readable in one pass and skips the rest, so a
+  disc makemkvcon gives up on comes out 98% intact. Skip the retry and
+  scrape passes (`-r`, no `-n`): each unreadable sector costs the drive
+  10–30 s, so recovering a few more kilobytes takes hours. Then
+  `makemkvcon -r mkv iso:disc.iso <title> <dir>` extracts titles from the
+  image with no drive involved, and a hand-written `metadata.json`
+  (same schema as the draft) lets `rip-video-finish` file them. Decode-check
+  the result (`ffmpeg -v error -i f.mkv -map 0:v:0 -f null -`, ignoring the
+  null muxer's `non monotonically increasing dts` noise, which every DVD rip
+  produces) and note where the glitches fall before filing.
 
 ## What this replaced
 

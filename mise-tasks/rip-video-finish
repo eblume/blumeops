@@ -34,6 +34,11 @@ console = Console()
 app = typer.Typer(add_completion=False)
 
 DEFAULT_LIBRARY = Path("/Volumes/allisonflix")
+# Subfolder names Jellyfin treats as extras inside a series or season folder.
+JELLYFIN_EXTRA_FOLDERS = {
+    "extras", "featurettes", "behind the scenes", "deleted scenes", "interviews",
+    "scenes", "samples", "shorts", "clips", "trailers",
+}
 PATH_CHARS = str.maketrans({"/": "／", ":": "：", "\0": ""})
 
 
@@ -76,9 +81,20 @@ def plan_tv(meta: dict, library: Path) -> list[tuple[str, Path]]:
         target = f.get("target")
         if not target:
             continue
+        if target.startswith("extra:"):
+            # Bonus-disc material. Jellyfin lists files from a recognised
+            # subfolder of the season folder under that season's Extras;
+            # 'extra:<Name>' goes to extras/, 'extra:<kind>/<Name>' to a
+            # typed folder (featurettes, deleted scenes, …).
+            kind, _, name = target[6:].rpartition("/")
+            kind = kind.strip().lower() or "extras"
+            if kind not in JELLYFIN_EXTRA_FOLDERS:
+                raise ValueError(f"{f['source']}: extra folder must be one of {sorted(JELLYFIN_EXTRA_FOLDERS)}, not {kind!r}")
+            plan.append((f["source"], folder / kind / f"{safe_component(name)}.mkv"))
+            continue
         m = re.fullmatch(r"E(\d+)(?:-(\d+))?(?::(.*))?", target)
         if not m:
-            raise ValueError(f"{f['source']}: tv target must look like 'E3', 'E3:Title' or 'E3-4', not {target!r}")
+            raise ValueError(f"{f['source']}: tv target must look like 'E3', 'E3:Title', 'E3-4' or 'extra:<Name>', not {target!r}")
         first, last, title = m.groups()
         code = f"S{season:02d}E{int(first):02d}" + (f"-E{int(last):02d}" if last else "")
         name = f"{show} - {code}" + (f" - {safe_component(title.strip())}" if title and title.strip() else "")
