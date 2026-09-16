@@ -1,0 +1,1 @@
+Ringtail Flake Check builds `nixosConfigurations.ringtail.config.system.build.toplevel` — the workflow shipped with the nix-darwin `.system` idiom, which does not exist for NixOS, so the check failed on every run with "does not provide attribute".
