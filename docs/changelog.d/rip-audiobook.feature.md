@@ -1,0 +1,1 @@
+`rip-cd-finish` gains an audiobook mode (`"kind": "audiobook"` in metadata.json): a disc's seek-point tracks are concatenated and encoded once to Opus (or FLAC with `--lossless`), tagged for Audiobookshelf (author, narrator, series, disc numbers), and filed as `Audiobooks/<author>/[<series>/]<title>/Disc NN.opus` on the music share, where a `.ndignore` keeps Navidrome out.

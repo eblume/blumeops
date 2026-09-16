@@ -8,6 +8,7 @@
 #USAGE flag "--library <dir>" help="Music library root (default: /Volumes/music)"
 #USAGE flag "--dry-run" help="Show what would be tagged and where it would go"
 #USAGE flag "--clean" help="Remove the staging dir after filing"
+#USAGE flag "--lossless" help="Audiobooks: keep each disc as FLAC instead of Opus"
 """Second half of the CD pipeline ([[rip-a-disc]]): metadata.json → tagged, filed FLACs.
 
 Reads the reviewed `metadata.json` next to the FLACs that `rip-cd` produced,
@@ -19,18 +20,32 @@ embeds cover art, and moves the tracks to
 with `cover.jpg` and `<album>.rip.log` (the cd-paranoia summary) alongside.
 Navidrome's hourly scan picks the album up from there. Refuses to overwrite
 anything already in the library.
+
+Audiobooks (`"kind": "audiobook"` in metadata.json) go to Audiobookshelf's
+layout instead, one file per disc:
+
+    <library>/Audiobooks/<author>/[<series>/]<title>/Disc NN.opus
+
+Audiobook CDs cut a track every few minutes as seek points, not chapters, so
+the disc's tracks are concatenated (losslessly, then encoded once) and each
+disc becomes one chapter in Audiobookshelf. Opus at 48 kb/s is the default
+because it is speech; `--lossless` keeps FLAC. The `Audiobooks/` folder
+carries a `.ndignore` so Navidrome never sees it.
 """
 
 import json
 import re
 import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Annotated
 
 import httpx
 import typer
 from mutagen.flac import FLAC, Picture
+from mutagen.oggopus import OggOpus
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
@@ -40,6 +55,8 @@ app = typer.Typer(add_completion=False)
 
 USER_AGENT = "blumeops-rip-cd/0.1 (https://github.com/eblume/blumeops)"
 DEFAULT_LIBRARY = Path("/Volumes/music")
+AUDIOBOOKS_DIR = "Audiobooks"
+OPUS_BITRATE = "48k"
 COVER_ART_ARCHIVE = "https://coverartarchive.org/release/{release_id}/front-500"
 
 # Same substitutions XLD used, so new folders sort beside the old ones.
@@ -68,9 +85,13 @@ def load_metadata(staging: Path) -> tuple[dict, dict]:
     tracks = meta.get("tracks", [])
     if len(tracks) != len(flacs):
         problems.append(f"{len(tracks)} tracks in metadata.json but {len(flacs)} FLACs in the dir")
-    for t in tracks:
-        if not t.get("title"):
-            problems.append(f"track {t.get('number')} has no title")
+    if meta.get("kind") == "audiobook":
+        if not meta.get("disc_number"):
+            problems.append("audiobook needs disc_number (and disc_total)")
+    else:
+        for t in tracks:
+            if not t.get("title"):
+                problems.append(f"track {t.get('number')} has no title")
     if problems:
         console.print("[red]metadata.json is not ready:[/red]")
         for p in problems:
@@ -137,12 +158,109 @@ def tag(flac_path: Path, meta: dict, track: dict, total: int, rip: dict, cover: 
     audio.save()
 
 
+def concat_encode(flacs: list[Path], out: Path, lossless: bool) -> None:
+    """Join a disc's tracks into one file. The concat demuxer stitches the
+    FLAC streams sample-exact; the single encode afterwards is the only lossy
+    step (none with --lossless)."""
+    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as lst:
+        for f in flacs:
+            quoted = str(f).replace("'", "'\\''")  # concat-demuxer quoting
+            lst.write(f"file '{quoted}'\n")
+        list_path = lst.name
+    codec = ["-c:a", "flac", "-compression_level", "8"] if lossless else \
+            ["-c:a", "libopus", "-b:a", OPUS_BITRATE, "-vbr", "on", "-application", "voip"]
+    try:
+        subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0",
+             "-i", list_path, "-map_metadata", "-1", *codec, str(out)],
+            check=True,
+        )
+    finally:
+        Path(list_path).unlink(missing_ok=True)
+
+
+def tag_audiobook(path: Path, meta: dict, cover: tuple[bytes, str] | None) -> None:
+    """Tags Audiobookshelf reads: album=title, artist=author, composer=narrator,
+    series/series-part, disc numbers. Same keys for FLAC and Opus."""
+    audio = FLAC(str(path)) if path.suffix == ".flac" else OggOpus(str(path))
+    author = meta.get("author") or meta["artist"]
+    title = meta.get("title") or meta["album"]
+    tags: dict[str, str | None] = {
+        "ALBUM": title,
+        "TITLE": f"Disc {meta['disc_number']:02d}",
+        "ARTIST": author,
+        "ALBUMARTIST": author,
+        "COMPOSER": meta.get("narrator"),
+        "NARRATOR": meta.get("narrator"),
+        "SERIES": meta.get("series"),
+        "SERIES-PART": str(meta["series_part"]) if meta.get("series_part") is not None else None,
+        "DATE": meta.get("date"),
+        "GENRE": meta.get("genre") or "Audiobook",
+        "DISCNUMBER": str(meta["disc_number"]),
+        "DISCTOTAL": str(meta["disc_total"]) if meta.get("disc_total") else None,
+        "TRACKNUMBER": str(meta["disc_number"]),
+        "TRACKTOTAL": str(meta["disc_total"]) if meta.get("disc_total") else None,
+    }
+    for key, value in tags.items():
+        if value:
+            audio[key] = str(value)
+    if cover and isinstance(audio, FLAC):
+        pic = Picture()
+        pic.data, pic.mime = cover
+        pic.type = 3
+        audio.add_picture(pic)
+    audio.save()
+
+
+def file_audiobook(staging: Path, meta: dict, rip: dict, library: Path, dry_run: bool, lossless: bool) -> Path:
+    author = meta.get("author") or meta["artist"]
+    title = meta.get("title") or meta["album"]
+    dest = library / AUDIOBOOKS_DIR / safe_component(author)
+    if meta.get("series"):
+        dest = dest / safe_component(meta["series"])
+    dest = dest / safe_component(title)
+    flacs = sorted(staging.glob("[0-9][0-9].flac"))
+    ext = "flac" if lossless else "opus"
+    out = dest / f"Disc {meta['disc_number']:02d}.{ext}"
+
+    table = Table(title=f"audiobook: {author} — {title} → {dest}")
+    table.add_column("Staged")
+    table.add_column("Filed as")
+    table.add_row(f"{flacs[0].name} … {flacs[-1].name} ({len(flacs)} tracks, concatenated)", escape(out.name))
+    console.print(table)
+    if out.exists():
+        console.print(f"[red]Refusing to overwrite {escape(str(out))}.[/red]")
+        raise typer.Exit(1)
+    if dry_run:
+        return dest
+
+    cover = fetch_cover(meta)
+    dest.mkdir(parents=True, exist_ok=True)
+    tmp = staging / out.name
+    console.print(f"[bold]Concatenating {len(flacs)} tracks → {escape(out.name)}[/bold]")
+    concat_encode(flacs, tmp, lossless)
+    tag_audiobook(tmp, meta, cover)
+    shutil.move(str(tmp), str(out))
+    if cover and not (dest / "cover.jpg").exists() and cover[1] == "image/jpeg":
+        (dest / "cover.jpg").write_bytes(cover[0])
+    log = staging / "paranoia.log"
+    if log.exists():
+        header = json.dumps({k: rip.get(k) for k in ("ripped_at", "host", "drive", "musicbrainz_discid", "freedb_discid", "toc")}, indent=2)
+        (dest / f"Disc {meta['disc_number']:02d}.rip.log").write_text(header + "\n\n" + log.read_text())
+    for f in flacs:
+        f.unlink()
+    (staging / ".filed").write_text(str(out) + "\n")
+    console.print(f"[green]Filed {escape(out.name)} to {escape(str(dest))}[/green]")
+    return dest
+
+
 @app.command()
 def main(
     staging: Annotated[Path, typer.Argument(help="Staging dir written by rip-cd")],
     library: Annotated[Path, typer.Option("--library", help="Music library root")] = DEFAULT_LIBRARY,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Show the plan only")] = False,
     clean: Annotated[bool, typer.Option("--clean", help="Remove the staging dir after filing")] = False,
+    lossless: Annotated[bool, typer.Option("--lossless", help="Audiobooks: keep FLAC instead of Opus")] = False,
 ) -> None:
     """Tag and file a ripped CD."""
     staging = staging.expanduser().resolve()
@@ -150,6 +268,12 @@ def main(
     if not library.is_dir():
         console.print(f"[red]{escape(str(library))} is not mounted (AutoMounter?).[/red]")
         raise typer.Exit(1)
+    if meta.get("kind") == "audiobook":
+        file_audiobook(staging, meta, rip, library, dry_run, lossless)
+        if clean and not dry_run:
+            shutil.rmtree(staging)
+            console.print(f"Removed {escape(str(staging))}")
+        return
 
     folder = meta.get("artist_sort") or meta.get("album_artist") or meta["artist"]
     dest = library / safe_component(folder) / safe_component(meta["album"])
