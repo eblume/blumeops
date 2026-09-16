@@ -814,9 +814,12 @@ in
       labels = [ "priv:host" ];
       # _1password-cli: job-time `op read` of blumeops-ci items with
       # OP_SERVICE_ACCOUNT_TOKEN ([[blumeops-ci-item-migration]]).
+      # kubectl: run-script's least-priv PV ops via the horkos/run-script
+      # ServiceAccount — the credential lives only in blumeops-ci
+      # ([[warrant-approval-gated-runs]]).
       hostPackages = with pkgs; [
         bash coreutils curl gawk gitMinimal gnused jq nodejs wget
-        argocd flyctl _1password-cli
+        argocd flyctl _1password-cli kubectl
       ];
       settings = {
         log.level = "info";

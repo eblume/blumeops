@@ -1,7 +1,7 @@
 ---
 title: "Warrant: Approval-Gated Privileged Runs"
-modified: 2026-08-26
-last-reviewed: 2026-08-26
+modified: 2026-09-16
+last-reviewed: 2026-09-16
 tags:
   - explanation
   - ai
@@ -275,7 +275,7 @@ The smallest thing that closes the loop end-to-end:
    | Vault | Meaning | Who reads it |
    |-------|---------|--------------|
    | `agents` | what a session needs to be a useful agent — including some deliberately-curated operational API tokens (invariant 1's nuance) | the harness, always |
-   | **`blumeops-ci`** *(new)* | what privileged **execution contexts** read at runtime: argocd token, fly token, zot key, main-push PAT | approved CI runs only, via a **read-only** SA token stored as one new Actions secret (`BLUMEOPS_CI_OP_TOKEN`) |
+   | **`blumeops-ci`** *(new)* | what privileged **execution contexts** read at runtime: argocd token, fly token, zot key, main-push PAT, k3s SA kubeconfig (`k3s-run-script`) | approved CI runs only, via a **read-only** SA token stored as one new Actions secret (`BLUMEOPS_CI_OP_TOKEN`) |
    | `blumeops` | the whole keys to the kingdom: break-glass admin, every ansible pre_task secret, backup/NAS keys | humans with biometric `op`, **forever** (class B) |
 
    Why a middle layer at all: CI-runtime items are too hot for `agents`
@@ -586,6 +586,17 @@ The blumeops-ci vault carries `horkos-dispatch` (field `token`), a mirror of
 per the one-CI-trust-tier decision above: the tier already includes push to
 blumeops main via `forge-main-push`, so the token adds no new tier — and it
 lets CI do the one thing its jobs must do, prove the run to Horkos.
+
+The vault also carries `k3s-run-script` (field `kubeconfig`): a bound,
+12-month-expiring token for the `run-script` ServiceAccount in the `horkos`
+namespace, with a loopback-only server URL. That is the only non-root k3s
+credential, and its only reader is a warrant-approved one-off script
+(orphan PV/PVC teardowns). The RBAC lives beside its consumer in the horkos
+app dir (`argocd/manifests/horkos/rbac.yaml`) so the capability and its
+boundary are reviewed together; the grant is `get`/`list`/`delete` on
+`persistentvolumes` plus `get`/`list` on `persistentvolumeclaims` — no
+secrets at any scope — and the `https://127.0.0.1:6443` server makes a
+kubeconfig that leaks into a run log useless from any other device.
 
 One credential has to exist in two vaults because its two readers sit on
 opposite sides of a fence: 1Password Connect (external-secrets, feeding the

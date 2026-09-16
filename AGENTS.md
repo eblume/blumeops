@@ -122,7 +122,8 @@ It validates the request against `warrant-policy.yaml` **on main**
 (unknown or `class: deny` actions are refused at request time), then records
 it as a PR comment, a heph task, and an entry in the approval queue. A human
 approves in Horkos (né Warrant), which dispatches the workflow. Requestable today:
-`argocd-deploy.yaml`, `deploy-fly.yaml`.
+`argocd-deploy.yaml`, `deploy-fly.yaml`, `ringtail-rebuild.yaml`,
+`run-script.yaml`.
 
 **File it, don't recommend it.** `request-run` works from the agent pod, and
 PR-branch SHAs are dispatchable pre-merge (Forgejo serves fork PR heads from

@@ -1,0 +1,38 @@
+# Least-priv k3s identity for warrant-approved `run-script` one-off scripts
+# running on the `priv` runner. Its bound, expiring token (12 months) is
+# stored in blumeops-ci as `k3s-run-script/kubeconfig` — reachable only from
+# the warrant-gated execution context ([[warrant-approval-gated-runs]]).
+# Deleting the ServiceAccount is the kill switch.
+# PV `delete` is the only write: a bound PV is finalizer-protected and every
+# NFS PV here is `Retain`, so deleting the object touches no data; PVC
+# `delete` is deliberately excluded (it destroys local-path data).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: run-script
+  namespace: horkos
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: run-script-pv-ops
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: run-script-pv-ops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: run-script-pv-ops
+subjects:
+  - kind: ServiceAccount
+    name: run-script
+    namespace: horkos

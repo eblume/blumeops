@@ -1,7 +1,7 @@
 ---
 title: Blumeops-CI Item Migration
-modified: 2026-08-22
-last-reviewed: 2026-08-22
+modified: 2026-09-16
+last-reviewed: 2026-09-16
 tags:
   - how-to
   - operations
@@ -109,6 +109,7 @@ follow-up now that it needs no provisioning):
 | `zot-ci` | `api-key` | `w3663ffn…/zot-ci-api` | `build-container.yaml`; talos + horkos `release.yaml` |
 | `fly-deploy` | `token` | `on5slfay…/deploy-token` | `deploy-fly.yaml` |
 | `forge-main-push` | `token` | `blumeops-main-push-token/token` | `build-blumeops.yaml` |
+| `k3s-run-script` | `kubeconfig` | — minted from the live cluster (bound 12-month token for the `horkos`/`run-script` ServiceAccount, loopback-only server; no blumeops source) | `run-script.yaml` cluster chores |
 
 `FORGE_REPO_WRITE_TOKEN`: **not yet migrated to `blumeops-ci`** — but the
 prerequisite is done (heph `01KZ5ESS2G…`, 2026-08-22): it is now the

@@ -38,6 +38,7 @@
               forgejo-runner = svcPkgs.forgejo-runner;
               snowflake = svcPkgs.snowflake;
               k3s = svcPkgs.k3s;
+              kubectl = svcPkgs.kubectl;
             })
           ];
         })

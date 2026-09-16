@@ -1,0 +1,1 @@
+Documented the `k3s-run-script` cluster credential (canonical kubectl prologue and review rules in the one-off-script run docs, the blumeops-ci item tables, the horkos scope) and fixed the stale 'requestable today' lists to include `run-script.yaml` and `ringtail-rebuild.yaml`.
