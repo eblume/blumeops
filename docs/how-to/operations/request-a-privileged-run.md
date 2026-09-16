@@ -1,7 +1,7 @@
 ---
 title: Request a Privileged Run
-modified: 2026-08-26
-last-reviewed: 2026-08-26
+modified: 2026-09-16
+last-reviewed: 2026-09-16
 tags:
   - how-to
   - operations
@@ -90,6 +90,24 @@ assets the script may lean on) — normally the current main tip. After
 approval, the run executes on the priv runner with `op` access to
 `blumeops-ci`, and its full output is durable on the Horkos warrant detail
 page, not only in the forge run log.
+
+The runner also has `kubectl` for cluster chores (orphan PV/PVC teardowns).
+Its credential is a bound, expiring (12-month) token of the `horkos`/
+`run-script` ServiceAccount, stored as the concealed `blumeops-ci` item
+`k3s-run-script` — reachable only from this warrant-gated context — with the
+least-priv grant: `get`/`list`/`delete` on `persistentvolumes`, `get`/`list`
+on `persistentvolumeclaims`, nothing else (no secrets at any scope, no
+namespace or PVC writes). The kubeconfig's server URL is `https://127.0.0.1:6443`
+(loopback), so a kubeconfig that leaks into a run log is useless as-is from any
+other device. Canonical prologue for such a script:
+
+```bash
+KUBECONFIG=$(mktemp); trap 'rm -f "$KUBECONFIG"' EXIT
+op read 'op://blumeops-ci/k3s-run-script/kubeconfig' > "$KUBECONFIG"; chmod 600 "$KUBECONFIG"; export KUBECONFIG
+```
+
+Reviewers reject any script that prints the file, runs `kubectl config view
+--raw`, or passes `-v>=6`.
 
 What it does:
 

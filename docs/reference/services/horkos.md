@@ -2,8 +2,8 @@
 title: Horkos
 aliases:
   - warrant
-modified: 2026-08-20
-last-reviewed: 2026-08-20
+modified: 2026-09-16
+last-reviewed: 2026-09-16
 tags:
   - service
   - ai
@@ -98,8 +98,17 @@ never change in a single PR.
   curl -s https://horkos.ops.eblu.me/healthz   # expect armed, not armed-no-token
   ```
 - **Scope**: only actions with `class: warrant` in `warrant-policy.yaml` are
-  requestable — today `argocd-deploy.yaml`, `deploy-fly.yaml`.
+  requestable — today `argocd-deploy.yaml`, `deploy-fly.yaml`,
+  `ringtail-rebuild.yaml`, and `run-script.yaml` (one-off scripts).
   `provision-*` is `class: deny` (see [[blumeops-ci-item-migration]]).
+- **Cluster credential for run-scripts**: the `run-script` ServiceAccount in
+  this namespace (ClusterRole `run-script-pv-ops`: `persistentvolumes`
+  `get`/`list`/`delete`, `persistentvolumeclaims` `get`/`list` — no secrets,
+  nothing else) backs `blumeops-ci/k3s-run-script`, the only non-root k3s
+  credential. Rotation is a human act on ringtail: re-mint
+  `kubectl create token run-script -n horkos --duration=8760h` as root,
+  `op item edit` the vault item, and file the rotation reminder a month
+  before expiry; deleting the ServiceAccount is the kill switch.
 - **Test it**: the service suite lives in the horkos repo (`scripts/test`
   there, and its CI). `mise run horkos-test` here covers the blumeops-side
   client tooling (`request-run`, `verify-runs`). Neither needs a forge token,
