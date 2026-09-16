@@ -12,7 +12,7 @@ metadata:
     gethomepage.dev/group: "Home"
     gethomepage.dev/icon: "mdi-book"
     gethomepage.dev/description: "Audiobook streaming server"
-    gethomepage.dev/href: "https://books.ops.eblu.me"
+    gethomepage.dev/href: "https://audiobooks.ops.eblu.me"
     gethomepage.dev/pod-selector: "app=audiobookshelf"
 spec:
   ingressClassName: tailscale
@@ -23,4 +23,4 @@ spec:
         number: 80
   tls:
     - hosts:
-        - books
+        - audiobooks

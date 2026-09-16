@@ -15,8 +15,8 @@ Self-hosted audiobook streaming server.
 
 | Property | Value |
 |----------|-------|
-| **URL** | https://books.ops.eblu.me |
-| **Tailscale URL** | https://books.tail8d86e.ts.net |
+| **URL** | https://audiobooks.ops.eblu.me |
+| **Tailscale URL** | https://audiobooks.tail8d86e.ts.net |
 | **ArgoCD app** | `audiobookshelf-ringtail` |
 | **Sync policy** | Automated |
 | **Namespace** | `audiobookshelf` |
@@ -25,7 +25,7 @@ Self-hosted audiobook streaming server.
 | **Tracked upstream version** | `v2.36.0` |
 
 Traffic reaches Audiobookshelf through a Tailscale Ingress at
-`books.tail8d86e.ts.net`, with [[caddy]] proxying `books.ops.eblu.me` to
+`audiobooks.tail8d86e.ts.net`, with [[caddy]] proxying `audiobooks.ops.eblu.me` to
 that tailnet endpoint. The first visit is the setup page, where the admin
 user is created.
 
@@ -81,7 +81,7 @@ none of those.
 ## Related
 
 - [[routing]] - URL and exposure model
-- [[caddy]] - Reverse proxy from `books.ops.eblu.me` to the tailnet ingress
+- [[caddy]] - Reverse proxy from `audiobooks.ops.eblu.me` to the tailnet ingress
 - [[sifaka|Sifaka]] - Music storage
 - [[navidrome]] - Music streaming sibling on the same share
 - [[rip-a-disc]] - How rips land in the library
