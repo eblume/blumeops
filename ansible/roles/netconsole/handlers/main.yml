@@ -1,0 +1,6 @@
+---
+- name: Restart netconsole
+  ansible.builtin.shell: |
+    launchctl unload {{ netconsole_plist }} 2>/dev/null || true
+    launchctl load {{ netconsole_plist }}
+  changed_when: true

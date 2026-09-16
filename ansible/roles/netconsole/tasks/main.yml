@@ -1,0 +1,38 @@
+---
+- name: Ensure netconsole log directory exists
+  ansible.builtin.file:
+    path: "{{ netconsole_log_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure netconsole script directory exists
+  ansible.builtin.file:
+    path: "{{ netconsole_script_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy netconsole receiver script
+  ansible.builtin.copy:
+    src: netconsole-receiver.py
+    dest: "{{ netconsole_script }}"
+    mode: '0755'
+  notify: Restart netconsole
+
+- name: Deploy netconsole LaunchAgent plist
+  ansible.builtin.template:
+    src: netconsole.plist.j2
+    dest: "{{ netconsole_plist }}"
+    mode: '0644'
+  notify: Restart netconsole
+
+- name: Check if netconsole LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.netconsole
+  register: netconsole_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load netconsole LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load {{ netconsole_plist }}
+  when: netconsole_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false

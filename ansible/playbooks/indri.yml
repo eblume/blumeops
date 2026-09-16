@@ -417,3 +417,5 @@
       tags: heph
     - role: caddy
       tags: caddy
+    - role: netconsole
+      tags: netconsole

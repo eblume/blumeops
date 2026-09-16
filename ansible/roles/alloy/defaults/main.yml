@@ -149,6 +149,15 @@ alloy_mcquack_logs:
   - path: /Users/erichblume/Library/Logs/mcquack.borgmatic-photos.err.log
     service: borgmatic-photos
     stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.netconsole.out.log
+    service: netconsole
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.netconsole.err.log
+    service: netconsole
+    stream: stderr
+
+# Must stay in sync with netconsole_log_file in the netconsole role (heph 01M2KSPXQKACVJB5QB1AMX86M7)
+alloy_netconsole_log_path: /Users/erichblume/Library/Logs/mcquack.netconsole-ringtail.log
 
 # Enable log collection (requires Loki to be running)
 alloy_collect_logs: true

@@ -516,6 +516,13 @@ services:
     upstream-source: https://github.com/caddyserver/caddy/releases
     notes: Built from source with Gandi DNS and Layer 4 plugins
 
+  - name: netconsole
+    type: ansible
+    last-reviewed: 2026-09-15
+    current-version: null
+    upstream-source: null
+    notes: Receiver half of the ringtail crash-capture path (in-repo Python UDP listener + Alloy tail); no upstream to review
+
   - name: heph
     type: ansible
     last-reviewed: 2026-06-05
