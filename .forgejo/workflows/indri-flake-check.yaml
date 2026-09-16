@@ -1,10 +1,9 @@
-# Builds indri's nix-darwin configuration on the indri runner, on every PR
-# and push to main.
+# Builds indri's nix-darwin configuration on the indri runner, when the
+# flake tree (or this workflow) changes.
 #
 # The flake must be evaluated and built on aarch64-darwin: ringtail (the nix
 # runner) cannot evaluate it, so the check is coupled to indri's own store -
-# the same store the darwin-rebuild uses. The build is cached there, so a PR
-# that does not touch the flake is fast.
+# the same store the darwin-rebuild uses.
 #
 # The runner's PATH carries /nix/var/nix/profiles/default/bin for this (see
 # forgejo-runner.plist.j2); erichblume is not a trusted nix user, which is
@@ -17,8 +16,14 @@ name: Indri Flake Check
 
 on:
   pull_request:
+    paths:
+      - 'darwin/indri/**'
+      - '.forgejo/workflows/indri-flake-check.yaml'
   push:
     branches: [main]
+    paths:
+      - 'darwin/indri/**'
+      - '.forgejo/workflows/indri-flake-check.yaml'
   workflow_dispatch:
 
 jobs:

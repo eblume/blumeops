@@ -61,12 +61,12 @@ Run it from any blumeops checkout before a window.
 ## CI coupling
 
 The Indri Flake Check workflow (`.forgejo/workflows/indri-flake-check.yaml`)
-runs the same build on the indri runner for every PR and push to main,
-against indri's own store — the check lives where the target platform is,
-because ringtail cannot evaluate aarch64-darwin. The runner's PATH carries
+runs the same build on the indri runner when a PR or a push to main
+touches `darwin/indri/` (or the workflow file itself), against indri's own
+store — the check lives where the target platform is, because ringtail
+cannot evaluate aarch64-darwin. The runner's PATH carries
 `/nix/var/nix/profiles/default/bin` for this (forgejo-runner.plist.j2);
-erichblume is not a trusted nix user, which is fine for a flake build. The
-cached store keeps flake-untouched PRs fast.
+erichblume is not a trusted nix user, which is fine for a flake build.
 
 ## First switch (one-way)
 

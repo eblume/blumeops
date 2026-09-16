@@ -382,13 +382,12 @@
       no_log: true
       tags: [devpi]
 
-  # nix-darwin rebuild, part of the indri re-foundation (#1125).
-  # Checkout the bound blumeops commit as a root-owned /etc/blumeops and
-  # run darwin-rebuild switch detached from this SSH session (nohup): the
-  # switch is long and would outlive any tool-call timeout otherwise.
-  # Nothing nix-darwin activates touches sshd - Tailscale SSH is the one
-  # service nix-darwin does not own - so the session is not at risk from
-  # the switch itself. All of it is tagged `rebuild` so
+  # nix-darwin rebuild: checkout the bound blumeops commit as a root-owned
+  # /etc/blumeops and run darwin-rebuild switch detached from this SSH
+  # session (nohup): the switch is long and would outlive any tool-call
+  # timeout otherwise. Nothing nix-darwin activates touches sshd - Tailscale
+  # SSH is the one service nix-darwin does not own - so the session is not
+  # at risk from the switch itself. All of it is tagged `rebuild` so
   # `mise run provision-indri -- --tags rebuild` is the zero-1Password-
   # prompt apply path. See [[provision]].
   tasks:
@@ -403,9 +402,8 @@
       tags: [rebuild]
 
     # /run/current-system is what nix-darwin's activation (re)creates, but it
-    # does not exist yet before the first switch, and its survival across
-    # reboots is what PR 1's reboot test answers. The system profile symlink
-    # always points at the current generation, so it is the fallback.
+    # does not exist yet before the first switch, so the system profile symlink -
+    # which always points at the current generation - is the fallback.
     - name: Resolve darwin-rebuild (current system, else the system profile)
       ansible.builtin.shell: >-
         test -x /run/current-system/sw/bin/darwin-rebuild

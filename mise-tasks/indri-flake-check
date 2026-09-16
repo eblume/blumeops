@@ -7,8 +7,9 @@ export MISE_TASK_OUTPUT=interleave
 
 # The configuration must be built on indri itself: no off-box host can
 # evaluate aarch64-darwin, so the check lives on indri's store - the same
-# store the rebuild uses. CI runs the same build on every PR; this is the
-# human pre-apply run against the commit provision-indri will deploy.
+# store the rebuild uses. CI runs the same build on PRs touching
+# darwin/indri/; this is the human pre-apply run against the commit
+# provision-indri will deploy.
 # See [[provision]].
 COMMIT=$(git rev-parse HEAD)
 REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null | awk 'NR==1{print $1}')
