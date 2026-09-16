@@ -15,6 +15,7 @@
 , sources ? import ./sources.nix { inherit pkgs; }
 , webui-deps ? import ./webui-deps.nix { inherit pkgs sources; }
 , client-ts ? import ./client-ts.nix { inherit pkgs sources; }
+, buildHash ? "nix"
 }:
 
 pkgs.stdenvNoCC.mkDerivation {
@@ -77,4 +78,7 @@ pkgs.stdenvNoCC.mkDerivation {
 
   NODE_ENV = "production";
   NODE_OPTIONS = "--openssl-legacy-provider";
+  # Entry bundles are named by build identifier and cached immutable, so it
+  # must change per container build; keep in sync with the image-tag short sha.
+  GIT_BUILD_HASH = "${buildHash}";
 }

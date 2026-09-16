@@ -15,7 +15,9 @@ pkgs.stdenvNoCC.mkDerivation {
   nativeBuildInputs = with pkgs; [
     nodejs
     openapi-generator-cli
-    typescript
+    # nixpkgs's `typescript` alias moved to the TS 7 (tsc-go) compiler,
+    # which rejects this schema's tsconfig (baseUrl). Pin the JS compiler.
+    typescript_5
   ];
 
   buildPhase = ''
