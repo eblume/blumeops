@@ -59,6 +59,8 @@ SECTORS_PER_SECOND = 75
 DEFAULT_STAGING = Path("~/rips/cd")
 PREGAP_SECTORS = 150  # cd-info reports LSN; MusicBrainz wants LBA = LSN + 150
 HIDDEN_TRACK_MIN_SECONDS = 2.0  # shorter pre-track-1 audio is mastering slop, not a hidden track
+BYTES_PER_SECTOR = 2352  # 16-bit stereo 44.1 kHz audio per CD sector
+WAV_HEADER_BYTES = 44
 
 
 def require(*tools: str) -> None:
@@ -104,6 +106,22 @@ def raw_device(device: str) -> str:
     return device.replace("/dev/disk", "/dev/rdisk")
 
 
+def eject(device: str) -> None:
+    """Eject through diskutil, force-unmounting first.
+
+    macOS mounts the audio CD as cddafs under /Volumes and a plain
+    `drutil eject` is refused while anything (Finder, loginwindow's "disk in
+    use" sheet after an interrupted rip) holds that volume. Force-unmounting
+    is safe: the volume is read-only and we have our own copy of the audio.
+    """
+    subprocess.run(["diskutil", "unmount", "force", device], capture_output=True, check=False)
+    result = subprocess.run(["diskutil", "eject", device], capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        subprocess.run(["drutil", "eject"], check=False)
+    if "No Media Inserted" not in run("drutil", "status"):
+        console.print("[yellow]The disc did not eject; press the drive's button.[/yellow]")
+
+
 def read_disc(device: str) -> dict:
     """TOC and CD-TEXT via cd-info. LSNs are converted to LBA."""
     out = run("cd-info", "--no-cddb", "--no-device-info", "-C", raw_device(device))
@@ -124,7 +142,8 @@ def read_disc(device: str) -> dict:
         raise typer.Exit(1)
     for i, t in enumerate(tracks):
         end = tracks[i + 1]["lba"] if i + 1 < len(tracks) else leadout
-        t["seconds"] = round((end - t["lba"]) / SECTORS_PER_SECOND, 1)
+        t["sectors"] = end - t["lba"]
+        t["seconds"] = round(t["sectors"] / SECTORS_PER_SECOND, 1)
     # Audio before track 1 (beyond the standard 2 s pregap). cd-paranoia -B rips
     # it as "track 0". Usually a fraction of a second of mastering slop; on a
     # few discs it is a real hidden track (HTOA).
@@ -298,24 +317,41 @@ def draft_metadata(disc: dict, mb: dict) -> dict:
 def extract(device: str, staging: Path, tracks: list[dict], skip_rip: bool, keep_hidden: bool) -> None:
     """cd-paranoia batch mode, then ffmpeg to FLAC.
 
-    Resumes: when every track already has a FLAC or a WAV in the staging dir,
-    cd-paranoia is not run again and only the encode happens.
+    Resumes: a track with a FLAC, or a WAV of exactly the size its sector
+    count predicts, is done. A WAV of any other size is the one a killed run
+    was writing and is discarded. Only the span from the first missing
+    track to the last is ripped, so a stall on track 3 of 10 costs track 3,
+    not the album.
     """
-    have_all = all(
-        (staging / f"{t['number']:02d}.flac").exists() or (staging / f"track{t['number']:02d}.cdda.wav").exists()
-        for t in tracks
-    )
-    if have_all:
+    missing = []
+    for t in tracks:
+        flac = staging / f"{t['number']:02d}.flac"
+        wav = staging / f"track{t['number']:02d}.cdda.wav"
+        if flac.exists():
+            continue
+        if wav.exists():
+            if wav.stat().st_size == t["sectors"] * BYTES_PER_SECTOR + WAV_HEADER_BYTES:
+                continue
+            console.print(f"[yellow]{escape(wav.name)} is incomplete (interrupted rip); re-extracting it.[/yellow]")
+            wav.unlink()
+        missing.append(t["number"])
+    if not missing:
         console.print("[dim]Every track is already extracted; skipping cd-paranoia.[/dim]")
     elif skip_rip:
-        console.print("[yellow]--skip-rip: tracks are missing and were not extracted.[/yellow]")
+        console.print(f"[yellow]--skip-rip: tracks {missing[0]}–{missing[-1]} are missing and were not extracted.[/yellow]")
     else:
-        console.print(f"[bold]Extracting with cd-paranoia[/bold] from {escape(device)} → {escape(str(staging))}")
+        span = f"{missing[0]}-{missing[-1]}"
+        resumed = len(missing) < len(tracks)
+        console.print(f"[bold]Extracting tracks {span} with cd-paranoia[/bold] from {escape(device)} → {escape(str(staging))}")
+        log = staging / "paranoia.log"
+        previous = log.read_text() if resumed and log.exists() else ""
         result = subprocess.run(
-            ["cd-paranoia", "-d", raw_device(device), "-B", "--log-summary=paranoia.log"],
+            ["cd-paranoia", "-d", raw_device(device), "-B", "--log-summary=paranoia.log", span],
             cwd=staging,
             check=False,
         )
+        if previous and log.exists():
+            log.write_text(previous + f"\n--- resumed at track {missing[0]} ---\n" + log.read_text())
         if result.returncode != 0:
             console.print(f"[red]cd-paranoia exited {result.returncode}; staging dir kept for inspection.[/red]")
             raise typer.Exit(result.returncode)
@@ -404,7 +440,7 @@ def main(
 
     extract(device, staging, tracks, skip_rip, hidden)
     if not skip_rip and not no_eject:
-        subprocess.run(["drutil", "eject"], check=False)
+        eject(device)
 
     disc_tag = f"  disc {metadata['disc_number']}/{metadata['disc_total']}" if metadata.get("disc_total") else ""
     table = Table(title=f"{metadata['artist'] or '?'} — {metadata['album'] or '?'}{disc_tag}  (source: {metadata['_source']})")

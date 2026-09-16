@@ -81,8 +81,9 @@ the library sit directly under the artist folder — that was XLD's layout —
 and Navidrome does not care about the difference.
 
 Re-running `rip-cd` on a disc whose staging dir exists resumes: tracks with a
-FLAC are not re-extracted, and an edited `metadata.json` is never
-overwritten (a regenerated draft goes to `metadata.draft.json` beside it).
+FLAC or a complete WAV are not re-extracted, a partial WAV from an
+interrupted run is discarded, only the missing span is ripped, and an edited
+`metadata.json` is never overwritten (a regenerated draft goes to `metadata.draft.json` beside it).
 `--skip-rip` refreshes `rip.json` without running cd-paranoia; it still
 needs the disc in the drive, since the disc IDs come from the TOC.
 
@@ -141,6 +142,13 @@ still gives the stronger guarantee.
 | `makemkvcon` | Homebrew cask `makemkv` (needs a current MakeMKV key) | `rip-video` |
 | `drutil` | macOS | both |
 | `/Volumes/music`, `/Volumes/allisonflix` | [[automounter]] | the finish tasks |
+
+**One process on the drive at a time.** A `makemkvcon info` probe while
+cd-paranoia is reading (or the MakeMKV GUI opening on insert) contends for
+the drive and can leave the rip stuck in an uninterruptible read with zero
+CPU and a WAV that stops growing. Kill it and rerun; the rip resumes. Disc
+auto-launch is off on indri (`defaults read com.apple.digihub` shows
+`action = 1` for music CDs and video DVDs); keep it that way.
 
 The tasks guard their binaries with `_require`, so running one from
 [[gilbert]] or an agent pod fails at the door with an explanation.
