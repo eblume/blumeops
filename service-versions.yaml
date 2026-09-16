@@ -275,9 +275,7 @@ services:
     current-version: "2.36.0"
     upstream-source: https://github.com/advplyr/audiobookshelf/releases
     notes: >-
-      Nix lift-and-shift self-pinned to nixos-unstable (navidrome precedent);
-      serves /volume1/music/Audiobooks off the sifaka music share, where a
-      .ndignore marker keeps navidrome's scanner out.
+      Nix lift-and-shift self-pinned to nixos-unstable (navidrome precedent).
 
   - name: navidrome
     type: argocd
