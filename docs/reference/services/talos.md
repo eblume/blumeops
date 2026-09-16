@@ -32,6 +32,8 @@ Bun server embedding the pi runtime (`pi-coding-agent` SDK): sessions are append
 
 Models are env-pinned (`TALOS_MODEL`, currently `qwen/qwen3.8-27b`); models newer than pi's catalog are synthesized from OpenRouter's live listing with real pricing so cost tracking stays correct.
 
+At boot, before the server starts, the entrypoint runs a per-clone pool repair (`pool-repair.sh`: zero-length objects, refs with missing targets, zeroed worktree indexes, commit-graph); a clone still unclean afterwards leaves a marker under `$HOME/data/pool-unhealthy/`. Pool health is exported as `talos_pool_unhealthy{repo,source}` (source="fetch" = runtime corrupt fetch → restart the pod; source="repair" = boot repair left it unclean → a restart will not fix it) plus the `talos_pool_fetch_failures_total{reason}` counter (eblume/talos#228).
+
 The image bakes an **eval-only nix** (following the [[agent-containerization]] §"Nix in the pod" precedent): `$HOME`-relocated store on the PVC, `max-jobs = 0`, swept on size by the entrypoint. It lets the pod compute `fetchgit` hash values for the image's pinned dependencies (heph, npm deps) instead of burning CI rounds on hash-mismatch errors. (The image's own source needs no hash since the auto-release move — the talos repo's `default.nix` builds from the checkout itself, and every merge to talos main releases automatically.)
 Rust builds (hephaestus is the only Rust repo in the pool) use a shared `CARGO_TARGET_DIR=/home/talos/.cache/cargo-target` on the PVC, set in the deployment env: one incremental tree for every session and warm across pod replacement, instead of a cold rebuild per worktree leaving a multi-GB `target/` behind (blumeops#813).
 

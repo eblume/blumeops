@@ -1,0 +1,1 @@
+grafana-ringtail: new `TalosPoolUnhealthy` alert (a talos pool clone stays flagged unhealthy — runtime corrupt fetch or boot-repair marker) and a Talos dashboard panel for pool fetch failures and the unhealthy gauge (eblume/talos#228).

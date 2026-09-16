@@ -813,6 +813,64 @@ groups:
                     type: and
               refId: C
 
+      - uid: talos-pool-unhealthy
+        title: TalosPoolUnhealthy
+        condition: C
+        # Fires when a pool clone stays flagged unhealthy. source="fetch"
+        # means a runtime fetch classified corrupt — restart the pod to run
+        # boot repair; source="repair" means the boot repair itself left the
+        # clone unclean — a restart will not fix it. noDataState: OK — a
+        # missing series means the talos pod is not exporting (covered by the
+        # pod-health group); only a positive value is the signal.
+        for: 10m
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            {{ index $labels "repo" }} pool clone is flagged unhealthy in the talos pod (source="fetch": runtime corrupt fetch — restart the pod to run boot repair; source="repair": boot repair left the clone unclean — a restart will not fix it)
+        labels:
+          severity: warning
+          service: talos
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              expr: >-
+                max by (repo) (talos_pool_unhealthy)
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+              refId: C
+
 templates:
   - orgId: 1
     name: ntfy-infra
