@@ -1,0 +1,1 @@
+alloy (indri): tail the netconsole capture with `loki.source.file` — the `local.file` block from #1130 has no `path` attribute and failed Alloy's initial config load, leaving indri's Alloy crash-looping (no indri metrics or logs) from the 2026-09-16 provision until this fix.
