@@ -1499,6 +1499,58 @@ data:
           ],
           "title": "Reaps per hour by outcome",
           "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Pool-clone fetch failures per hour by classification, plus the talos_pool_unhealthy gauge (source=\"fetch\" = restart the pod to run boot repair; source=\"repair\" = boot repair left the clone unclean). eblume/talos#228.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 70
+          },
+          "id": 23,
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (reason) (rate(talos_pool_fetch_failures_total[1h]) * 3600)",
+              "legendFormat": "{{reason}}",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "max by (repo, source) (talos_pool_unhealthy)",
+              "legendFormat": "{{repo}} ({{source}})",
+              "refId": "B"
+            }
+          ],
+          "title": "Pool fetch failures per hour & unhealthy flag",
+          "type": "timeseries"
         }
       ],
       "refresh": "30s",
