@@ -912,10 +912,22 @@ in
   };
 
   # Kernel crash capture: netconsole to indri, hardlockup -> panic, 30s journal sync (heph 01M2KSPXQKACVJB5QB1AMX86M7)
-  boot.kernelModules = [ "netconsole" ];
+  # loglevel 7, not NixOS's default 4: 4 filters warn/info out of netconsole
+  boot.consoleLogLevel = 7;
   boot.extraModprobeConfig = ''
     options netconsole netconsole=6665@${ringtailLanIp}/enp5s0,6666@${indriHostIp}/${indriEn0Mac}
   '';
+  # Device unit instead of boot.kernelModules: modules-load beat enp5s0's coldplug
+  # by ~0.9s, so netpoll setup failed and the module came up with zero targets
+  systemd.services.netconsole = {
+    description = "Load netconsole after the wired NIC exists";
+    after = [ "sys-subsystem-net-devices-enp5s0.device" ];
+    wantedBy = [ "sys-subsystem-net-devices-enp5s0.device" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.kmod}/bin/modprobe netconsole";
+    };
+  };
   boot.kernel.sysctl."kernel.hardlockup_panic" = 1;
   environment.etc."systemd/journald.conf.d/crash-capture.conf".text = ''
     [Journal]
