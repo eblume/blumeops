@@ -1,0 +1,11 @@
+---
+# Receiver half of the ringtail crash-capture path (sender: nixos/ringtail/configuration.nix).
+# Context: heph 01M2KSPXQKACVJB5QB1AMX86M7
+netconsole_port: 6666
+netconsole_log_file: /Users/erichblume/Library/Logs/mcquack.netconsole-ringtail.log
+netconsole_log_dir: /Users/erichblume/Library/Logs
+netconsole_max_bytes: 10485760
+netconsole_keep: 5
+netconsole_script: /Users/erichblume/.local/bin/netconsole-receiver.py
+netconsole_script_dir: /Users/erichblume/.local/bin
+netconsole_plist: /Users/erichblume/Library/LaunchAgents/mcquack.eblume.netconsole.plist

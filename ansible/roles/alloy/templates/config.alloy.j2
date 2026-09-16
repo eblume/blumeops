@@ -133,6 +133,13 @@ loki.source.file "mcquack_logs" {
   forward_to = [loki.relabel.add_host.receiver]
 }
 
+// Ringtail kernel crash capture (netconsole receiver, role `netconsole`)
+local.file "netconsole_ringtail" {
+  path       = "{{ alloy_netconsole_log_path }}"
+  labels     = { service = "netconsole", stream = "netconsole-ringtail" }
+  forward_to = [loki.relabel.add_host.receiver]
+}
+
 // Add host label to all logs
 loki.relabel "add_host" {
   forward_to = [loki.process.oversize_guard.receiver]

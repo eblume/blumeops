@@ -1,0 +1,1 @@
+Netconsole receiver on indri: a LaunchAgent (`mcquack.eblume.netconsole`) listens on UDP 6666 and appends ringtail's netconsole datagrams to a size-capped `~/Library/Logs/mcquack.netconsole-ringtail.log` (10 MiB × 5, in-script rotation), and Alloy tails the data file and the receiver's stderr into Loki so a kernel oops on ringtail lands in Grafana (eblume/blumeops#1105).
