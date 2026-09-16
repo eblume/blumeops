@@ -9,6 +9,10 @@ let
   heph = import ./heph-common.nix { inherit pkgs lib; };
   hephQuickadd = heph.mkQuickaddLauncher { home = "/home/eblume"; };
   hephShims = heph.mkShims { home = "/home/eblume"; bins = heph.desktopBins; };
+  # LAN + netconsole endpoints (context: heph 01M2KSPXQKACVJB5QB1AMX86M7)
+  indriHostIp = "192.168.1.99";
+  indriEn0Mac = "14:98:77:30:29:68";
+  ringtailLanIp = "192.168.1.21";
 in
 {
   imports = [
@@ -44,7 +48,7 @@ in
   };
   networking.useDHCP = false;
   networking.interfaces.enp5s0.ipv4.addresses = [{
-    address = "192.168.1.21";
+    address = "${ringtailLanIp}";
     prefixLength = 24;
   }];
   networking.defaultGateway = "192.168.1.1";
@@ -903,6 +907,17 @@ in
     ExternalSizeMax = "1G";
     MaxUse = "2G";
   };
+
+  # Kernel crash capture: netconsole to indri, hardlockup -> panic, 30s journal sync (heph 01M2KSPXQKACVJB5QB1AMX86M7)
+  boot.kernelModules = [ "netconsole" ];
+  boot.extraModprobeConfig = ''
+    options netconsole netconsole=6665@${ringtailLanIp}/enp5s0,6666@${indriHostIp}/${indriEn0Mac}
+  '';
+  boot.kernel.sysctl."kernel.hardlockup_panic" = 1;
+  environment.etc."systemd/journald.conf.d/crash-capture.conf".text = ''
+    [Journal]
+    SyncIntervalSec=30s
+  '';
 
   # NixOS release
   system.stateVersion = "26.05";
