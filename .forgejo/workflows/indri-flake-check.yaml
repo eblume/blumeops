@@ -1,0 +1,35 @@
+# Builds indri's nix-darwin configuration on the indri runner, on every PR
+# and push to main.
+#
+# The flake must be evaluated and built on aarch64-darwin: ringtail (the nix
+# runner) cannot evaluate it, so the check is coupled to indri's own store -
+# the same store the darwin-rebuild uses. The build is cached there, so a PR
+# that does not touch the flake is fast.
+#
+# The runner's PATH carries /nix/var/nix/profiles/default/bin for this (see
+# forgejo-runner.plist.j2); erichblume is not a trusted nix user, which is
+# fine for a flake build.
+#
+# As with the other workflows, on an agent PR this sits pending until a human
+# clicks "Approve and run" (the agents bot is read-only on canonical). See
+# [[agent-change-process]].
+name: Indri Flake Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: indri
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build the darwin system
+        run: |
+          set -o pipefail
+          cd darwin/indri
+          nix build .#darwinConfigurations.indri.system

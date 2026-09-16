@@ -1,9 +1,34 @@
 #!/usr/bin/env bash
-#MISE description="[human] Run ansible playbook to provision indri"
+#MISE description="[human] Run ansible playbook to provision indri (nix-darwin + ansible)"
 
 set -euo pipefail
 
 export MISE_TASK_OUTPUT=interleave
 
+# Update flake.lock via `nix flake lock` in a nixos/nix container before
+# deploying. `nix flake lock` only resolves inputs — it does not evaluate
+# darwinConfigurations — so this works from any controller. See [[provision]].
+echo "Updating darwin/indri/flake.lock..."
+docker run --rm -v "$PWD":/workspace -w /workspace/darwin/indri \
+    nixos/nix:2.34.4 nix --extra-experimental-features 'nix-command flakes' \
+    flake lock --accept-flake-config
+
+if ! git diff --quiet darwin/indri/flake.lock; then
+    git add darwin/indri/flake.lock
+    echo "flake.lock changed and staged. Commit, push, and re-run."
+    exit 1
+fi
+
+COMMIT=$(git rev-parse HEAD)
+REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null | awk 'NR==1{print $1}')
+
+if [[ "$REMOTE_REF" != "$COMMIT" ]]; then
+    echo "ERROR: Current commit $COMMIT is not pushed to forge."
+    echo "Push your changes first: git push"
+    exit 1
+fi
+
+echo "Deploying commit $COMMIT to indri..."
+
 cd ansible
-ansible-playbook playbooks/indri.yml "$@"
+ansible-playbook playbooks/indri.yml -e "indri_commit=$COMMIT" "$@"

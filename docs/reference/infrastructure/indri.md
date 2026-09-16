@@ -1,7 +1,7 @@
 ---
 title: Indri
-modified: 2026-09-13
-last-reviewed: 2026-05-27
+modified: 2026-09-15
+last-reviewed: 2026-09-15
 tags:
   - infrastructure
   - host
@@ -18,7 +18,7 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 | **Model** | Mac mini M1, 2020 (Macmini9,1) |
 | **CPU / RAM** | 8 cores / 16 GB |
 | **Storage** | 2TB internal SSD |
-| **macOS** | 15.7.3 (Sequoia) |
+| **macOS** | 26.5.2 (Tahoe) |
 | **Tailscale hostname** | `indri.tail8d86e.ts.net` |
 | **Tailscale Tag** | `tag:homelab` |
 | **Power** | [[power|Battery-backed UPS]] |
@@ -55,8 +55,32 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 
 **Log rotation:** mcquack LaunchAgent logs (~/Library/Logs/mcquack.*.log) are rotated hourly by the mcquack.eblume.logrotate LaunchAgent — any log over 256 MiB is copied to .1 (3 generations kept) and truncated in place; in place because launchd holds O_APPEND fds, so mv-based rotation would leave services writing into the renamed file.
 
-## Toolchain
+## Nix
 
+indri's system profile is nix-darwin (the `darwin/indri/` flake,
+nix-darwin-26.05 on nixos-26.05), applied on top of Determinate Nix — the
+apply runbook is [[provision]]:
+
+- **Determinate owns the nix parts.** The daemon, the `/nix` store and the
+  nix config (`/etc/nix/nix.custom.conf`) are Determinate's, and the flake
+  carries `nix.enable = false` because nix-darwin aborts activation when
+  `/usr/local/bin/determinate-nixd` is present. Keep Determinate current
+  with its own pkg (`sudo installer -pkg Determinate.pkg -target /`), not
+  through nix-darwin.
+- **The generation owns the `/etc/static` tree.** bashrc, shells, zshenv,
+  the fish files, `pam.d/sudo_local`, the CA bundle and the ssh config
+  drop-ins — plus `/etc/resolver/ts.net`, the tailnet MagicDNS resolver,
+  written explicitly rather than via `services.tailscale`, which would also
+  emit a second tailscaled daemon beside the live Homebrew one.
+- **The first switch (2026-09) was one-way.** The old generation
+  (system-14, nix-darwin 25.05) aborts its own etc check post-Tahoe and
+  would load a second tailscaled, so it was never re-activated; generations
+  3–14 were deleted as a safety action once `/etc/static` had moved. From
+  the first nix-darwin generation on, rollback is a plain
+  `darwin-rebuild --rollback`. The label convention and the fixed
+  rollback order for the service migrations live in [[provision]].
+
+## Toolchain
 **mise is the toolchain installer, and mise itself comes from Homebrew.**
 The indri play ensures `brew install mise` (`Install mise via Homebrew`,
 top of `pre_tasks`) and every mise call in the play and the roles goes
@@ -64,18 +88,17 @@ through `indri_mise_bin` (`/opt/homebrew/bin/mise`), including the forgejo
 source build (`forgejo_mise_bin`). `~/.config/mise/config.toml` (global
 tool pins such as `prek`, `go`) is chezmoi-managed, outside blumeops.
 
-**Retired: the nix-darwin copy.** indri once ran nix-darwin + home-manager,
-and that per-user profile still exists on disk —
-`/etc/profiles/per-user/erichblume/bin/mise` → a 2025.4.11 store path —
-but nix-darwin itself is gone (no `darwin-rebuild`, no
-`/run/current-system`), so it can never be updated in place. It is on no
-PATH the play, the shells or the LaunchAgents use; the forgejo role was the
-last thing that hardcoded it (until 2026-09-13), which is where the stale
-binary surfaced: `go.set_goroot` silently rejected as an unknown setting,
-`mise ls` / `mise prune` erroring on `prek` (registry entry landed in mise
-2025.8.11) — while the prek shim already existing on PATH kept CI green.
-Leave the profile alone: nix-darwin may come back or be removed later, and
-either way the Homebrew mise supersedes it rather than depending on it.
+**Retired: the old per-user nix-darwin profile.** Before the 2026-09
+re-foundation (see [[provision]]), indri ran nix-darwin + home-manager, and
+that per-user profile still exists on disk —
+`/etc/profiles/per-user/erichblume/bin/mise` → a 2025.4.11 store path.
+It is on no PATH the play, the shells or the LaunchAgents use; the forgejo
+role was the last thing that hardcoded it (until 2026-09-13), which is
+where the stale binary surfaced: `go.set_goroot` silently rejected as an
+unknown setting, `mise ls` / `mise prune` erroring on `prek` (registry
+entry landed in mise 2025.8.11) — while the prek shim already existing on
+PATH kept CI green. Leave the profile alone; the Homebrew mise supersedes
+it rather than depending on it.
 
 **Staleness guard:** the play fails at the top of `pre_tasks` if
 `indri_mise_bin --version` is below `indri_mise_min_version` (play vars in
@@ -109,4 +132,5 @@ if one appears the reason goes here.
 - [[routing]] - Port mappings
 - [[cluster]] - Minikube details
 - [[automounter]] - SMB share mounting
+- [[provision]] - Provisioning (nix-darwin + ansible)
 - [[restart-indri]] - Shutdown and startup procedure

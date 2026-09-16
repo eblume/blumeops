@@ -382,6 +382,98 @@
       no_log: true
       tags: [devpi]
 
+  # nix-darwin rebuild, part of the indri re-foundation (#1125).
+  # Checkout the bound blumeops commit as a root-owned /etc/blumeops and
+  # run darwin-rebuild switch detached from this SSH session (nohup): the
+  # switch is long and would outlive any tool-call timeout otherwise.
+  # Nothing nix-darwin activates touches sshd - Tailscale SSH is the one
+  # service nix-darwin does not own - so the session is not at risk from
+  # the switch itself. All of it is tagged `rebuild` so
+  # `mise run provision-indri -- --tags rebuild` is the zero-1Password-
+  # prompt apply path. See [[provision]].
+  tasks:
+    - name: Checkout the bound blumeops commit for the nix-darwin flake
+      ansible.builtin.git:
+        repo: "https://forge.ops.eblu.me/eblume/blumeops.git"
+        dest: /etc/blumeops
+        version: "{{ indri_commit | default('main') }}"
+        force: true
+      become: true
+      register: indri_blumeops_repo
+      tags: [rebuild]
+
+    # /run/current-system is what nix-darwin's activation (re)creates, but it
+    # does not exist yet before the first switch, and its survival across
+    # reboots is what PR 1's reboot test answers. The system profile symlink
+    # always points at the current generation, so it is the fallback.
+    - name: Resolve darwin-rebuild (current system, else the system profile)
+      ansible.builtin.shell: >-
+        test -x /run/current-system/sw/bin/darwin-rebuild
+        && echo /run/current-system/sw/bin/darwin-rebuild
+        || echo /nix/var/nix/profiles/system/sw/bin/darwin-rebuild
+      become: true
+      register: indri_darwin_rebuild
+      changed_when: false
+      check_mode: false
+      when: indri_blumeops_repo.changed
+      tags: [rebuild]
+
+    # The detached shell writes <sha>.status (its exit code) last; the wait
+    # below polls for it. A timeout here does not kill the rebuild - it
+    # keeps running detached; read /var/log/indri-rebuild/<sha>.log.
+
+    - name: Start darwin-rebuild switch, detached from this SSH session
+      ansible.builtin.shell: |
+        set -euo pipefail
+        sudo -n mkdir -p /var/log/indri-rebuild
+        sudo -n nohup sh -c '{{ indri_darwin_rebuild.stdout }} switch --flake /etc/blumeops/darwin/indri#indri > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.log 2>&1; echo $? > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp && mv /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status' </dev/null >/dev/null 2>&1 &
+        REBUILD_PID=$!
+        # A backgrounded job that fails to launch dies before the wait below
+        # could notice; ps is ownership-neutral, kill -0 is not.
+        sleep 2
+        ps -p "$REBUILD_PID" >/dev/null || { echo "darwin-rebuild failed to launch" >&2; exit 1; }
+      changed_when: true
+      check_mode: false
+      when: indri_blumeops_repo.changed and not ansible_check_mode
+      tags: [rebuild]
+
+    - name: Wait for the darwin-rebuild to finish
+      ansible.builtin.command: "test -f /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status"
+      register: indri_rebuild_done
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      until: indri_rebuild_done.rc == 0
+      retries: 120
+      delay: 30
+      when: indri_blumeops_repo.changed and not ansible_check_mode
+      tags: [rebuild]
+
+    - name: Read the darwin-rebuild log
+      ansible.builtin.command: "tail -c 4000 /var/log/indri-rebuild/{{ indri_commit | default('main') }}.log"
+      register: indri_rebuild_log
+      changed_when: false
+      check_mode: false
+      when: indri_blumeops_repo.changed and not ansible_check_mode
+      tags: [rebuild]
+
+    - name: Read the darwin-rebuild exit status
+      ansible.builtin.command: "cat /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status"
+      register: indri_rebuild_status
+      changed_when: false
+      check_mode: false
+      when: indri_blumeops_repo.changed and not ansible_check_mode
+      tags: [rebuild]
+
+    - name: Fail if the darwin-rebuild did not succeed
+      ansible.builtin.fail:
+        msg: |
+          darwin-rebuild switch exited {{ indri_rebuild_status.stdout }}
+          (log: /var/log/indri-rebuild/{{ indri_commit | default('main') }}.log):
+          {{ indri_rebuild_log.stdout | default('') }}
+      when: indri_rebuild_status.stdout is defined and indri_rebuild_status.stdout != '0'
+      tags: [rebuild]
+
   roles:
     - role: alloy
       tags: alloy
