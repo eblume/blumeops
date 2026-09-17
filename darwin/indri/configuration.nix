@@ -24,18 +24,24 @@ in
   # (their hashes are not in its known list). See [[provision]].
   programs.zsh.enable = false;
 
-  # MagicDNS for the tailnet. Written explicitly rather than via
-  # services.tailscale, which would also emit a second tailscaled
-  # LaunchDaemon beside the live Homebrew root daemon. See [[provision]].
-  # The knownSha256Hashes list is the etc check's (re)adoption clause: a live
-  # /etc file that is not a nix-darwin /etc/static symlink must match one, or
-  # activation aborts. The first is the hash of this file's text as writeText;
-  # the second, the upstream tailscale module's, for a file tailscaled itself wrote.
-  environment.etc."resolver/ts.net".text = "nameserver 100.100.100.100";
-  environment.etc."resolver/ts.net".knownSha256Hashes = [
-    "8ec2fad1fddce9b9fec9f558d3623ce783d1b630ba516f8e58672dda3edbc9eb"
-    "2c28f4fe3b4a958cd86b120e7eb799eee6976daa35b228c885f0630c55ef626c"
-  ];
+  # Rule: nothing that must work before the Nix Store mounts may live in
+  # /etc/static. Every environment.etc entry is a symlink into the store,
+  # dangling until Determinate's daemon mounts the volume (tens of seconds
+  # after boot). Two consumers do not tolerate a dangling link:
+
+  # - mDNSResponder's /etc/resolver scan skips one and never rescans, so
+  #   /etc/resolver/ts.net (tailnet MagicDNS, nameserver 100.100.100.100)
+  #   is a real file the indri play writes before the switch (its
+  #   tailnet-dns task), not declared here - and not via services.tailscale,
+  #   which would emit a second tailscaled daemon beside the live Homebrew
+  #   root daemon.
+  #
+  # - sshd's `Include /etc/ssh/sshd_config.d/*` exits 1 on a missing file,
+  #   refusing every ssh until the mount. So no sshd drop-in may be a
+  #   nix-darwin /etc/static link:
+  services.openssh.hostKeys = [];   # drops 099-host-keys.conf and its keygen script
+  environment.etc."ssh/sshd_config.d/100-nix-darwin.conf".enable = false;
+  environment.etc."ssh/sshd_config.d/101-authorized-keys.conf".enable = false;
 
   # /etc/shells: the retired 25.05 generation had replaced Apple's stock
   # file with its own symlink, and the first 26.05 generation (which

@@ -43,6 +43,12 @@ matters: macOS `sudo` keeps `$HOME`, and root's `nix build` would otherwise
 leave root-owned files in `~erichblume/.cache/nix` that break the
 user-run flake check and the CI job on the indri runner.
 
+The rebuild path also converges `/etc/resolver/ts.net` before the switch:
+its resolver-write pre_task is tagged `[rebuild, tailnet-dns]` and writes
+it as a real file — a store symlink would dangle in the pre-Nix-
+Store-mount window and mDNSResponder would never rescan it (see the
+Reboot test below).
+
 The play resolves `darwin-rebuild` from `/run/current-system`, falling back
 to the system profile (`/nix/var/nix/profiles/system/sw/bin`). Before the
 first switch there is no `/run/current-system` at all (it appears only after
@@ -185,6 +191,21 @@ logs in ([[restart-indri]]):
 3. `ssh indri 'readlink /run/current-system; sudo launchctl print
    system/org.nixos.activate-system | head -1'`, then the verification
    list above and `mise run services-check`.
+
+Since the /etc-static boot-race fix (#1150), the window before the Nix Store
+dialog is answered is the proof for the two consumers that do not tolerate
+a dangling `/etc/static` link:
+
+- `ssh indri` connects (a dangling sshd drop-in makes sshd's `Include`
+  exit 1 and refuse every connection until the mount; the generation now
+  declares no sshd drop-in).
+- `scutil --dns` shows `ts.net` → 100.100.100.100 before login (the
+  resolver is a real file the play writes, not a store symlink).
+
+One-time, right after the first apply of that fix (the switch that drops
+the old declarations): `ls -l /etc/resolver/ts.net` is a regular file,
+`ls /etc/ssh/sshd_config.d` shows only Apple's `100-macos.conf`, and
+`sudo sshd -t` passes.
 
 ## Rolling back a service flip (PRs 2–8)
 

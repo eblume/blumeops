@@ -76,10 +76,24 @@ apply runbook is [[provision]]:
   with its own pkg (`sudo installer -pkg Determinate.pkg -target /`), not
   through nix-darwin.
 - **The generation owns the `/etc/static` tree.** bashrc, shells, zshenv,
-  the fish files, `pam.d/sudo_local`, the CA bundle and the ssh config
-  drop-ins — plus `/etc/resolver/ts.net`, the tailnet MagicDNS resolver,
-  written explicitly rather than via `services.tailscale`, which would also
-  emit a second tailscaled daemon beside the live Homebrew one.
+  the fish files, `pam.d/sudo_local`, the CA bundle and the ssh client
+  config drop-in. `/etc/resolver/ts.net` (tailnet MagicDNS, `nameserver
+  100.100.100.100`) is the exception — a real file the indri play writes
+  before the switch, not an `environment.etc` entry (nor via
+  `services.tailscale`, which would also emit a second tailscaled daemon
+  beside the live Homebrew one).
+- **Nothing that must work before the Nix Store mounts may live in
+  `/etc/static`.** Every `environment.etc` entry is a symlink into the
+  store, dangling until Determinate's daemon mounts the volume (tens of
+  seconds after boot). Two consumers do not tolerate a dangling link:
+  mDNSResponder's `/etc/resolver` scan (skips one and never rescans —
+  hence the real resolver file) and sshd's `Include
+  /etc/ssh/sshd_config.d/*` (exits 1 on a missing file — every ssh refused
+  until the mount). The flake therefore carries
+  `services.openssh.hostKeys = []` plus two
+  `environment.etc."ssh/sshd_config.d/…".enable = false`
+  overrides: no sshd drop-in may be a nix-darwin link. See
+  [[provision]] §Reboot test.
 - **`/run/current-system` survives reboots.** The first reboot test
   (2026-09-16) found nix-darwin's `org.nixos.activate-system` daemon
   disallowed in Background Task Management, so the symlink was deleted at
