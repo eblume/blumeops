@@ -32,4 +32,4 @@ configMapGenerator:
 # merging that PR is the deploy gate.
 images:
   - name: registry.ops.eblu.me/blumeops/talos
-    newTag: v0.4.149-7f88067-nix@sha256:163db80025aae034b63961064902f7f8d9a5e0f24d3b1d342111857b548fe29c
+    newTag: v0.4.150-1c60c02-nix@sha256:3a4a170ea2406ef96442eeb2736f38d5627e2858a16cc1500be09600ecc6762e
