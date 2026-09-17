@@ -63,12 +63,13 @@ mise run provision-indri -- --tags forgejo
 > `GOROOT` by default (`go.set_goroot`, on), which breaks Go's
 > `GOTOOLCHAIN=auto` switching: the auto-switched driver then resolves
 > `compile` from the pinned `GOROOT` and dies with `compile: version "goX"
-> does not match go tool version "goY"`. The indri play therefore sets
-> `mise settings set go.set_goroot false` and pins one global go baseline
-> (`indri_go_version` in the play vars). A plain `make build` now works at any
-> tag — Go reads the `go`/`toolchain` lines of go.mod and downloads the
-> needed toolchain itself. `indri_go_version` is a starting point, not a
-> floor to chase.
+> does not match go tool version "goY"`. The setting and the global go
+> baseline now live in the indri flake's mise config
+> (`darwin/indri/configuration.nix`; the play's `mise settings set` /
+> `mise use --global go@…` tasks are deleted). A plain `make build` now
+> works at any tag — Go reads the `go`/`toolchain` lines of go.mod and
+> downloads the needed toolchain itself. The flake's go pin is a starting
+> point, not a floor to chase.
 
 ### Manual build (fallback / debugging)
 
@@ -79,8 +80,8 @@ mise run provision-indri -- --tags forgejo   # restart
 ```
 
 The role removes the checkout's untracked `mise.toml` (it pinned an older go
-and shadowed the indri global baseline); the manual build above uses the
-global one.
+and would shadow the indri flake's declarative global config); the manual
+build above uses that global config.
 
 ## Post-upgrade verification
 

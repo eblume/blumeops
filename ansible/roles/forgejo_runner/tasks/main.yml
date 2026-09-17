@@ -34,8 +34,9 @@
   when: forgejo_runner_version not in forgejo_runner_version_check.stdout
 
 - name: Remove untracked local mise pin
-  # A per-checkout mise.toml shadows the indri global go baseline; the indri
-  # play is the single source of truth for the toolchain.
+  # A per-checkout mise.toml shadows indri's global mise config, which is
+  # declared in the indri nix-darwin flake (the flake is the single source
+  # of truth for the toolchain).
   ansible.builtin.file:
     path: "{{ forgejo_runner_repo_dir }}/mise.toml"
     state: absent
@@ -52,17 +53,6 @@
     dest: "{{ forgejo_runner_config_path }}"
     mode: '0600'
   notify: Restart forgejo-runner
-
-# --- Host CI toolchain (host-mode jobs, [[retire-minikube]] phase 6) ---
-
-- name: Install host CI tools via mise
-  ansible.builtin.command:
-    cmd: "mise use --global {{ item }}"
-  loop: "{{ forgejo_runner_host_tools }}"
-  register: forgejo_runner_mise_tool
-  changed_when: "'installing' in forgejo_runner_mise_tool.stderr | default('') or 'installing' in forgejo_runner_mise_tool.stdout | default('')"
-  environment:
-    PATH: "/Users/erichblume/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
 # --- Docker Desktop registry mirror (zot pull-through cache) ---
 # Docker Desktop survives the docker-free plan as the dagger engine

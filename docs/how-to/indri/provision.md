@@ -62,6 +62,18 @@ only rebuilds when the checkout changes, so re-running the same commit
 reports clean and does not retry: read the status file before re-applying,
 and fix forward with a new commit if the switch failed.
 
+## Toolchain
+
+The generation owns the global mise config (`environment.etc."mise/config.toml"`
+in `darwin/indri/configuration.nix`, symlinked into the user home by the
+postActivation fragment — see [[indri]] §Toolchain). A toolchain-only PR (a
+pin bump) therefore applies with the usual `mise run provision-indri -- --tags
+rebuild`: no service-role tag, and no plist flips. Rollback is a plain
+`darwin-rebuild --rollback` — the fragment re-links the previous generation's
+config, and tool installs are additive, so rolling back never removes a tool.
+See [[provision]] §Rolling back a service flip for what `--rollback` does and
+does not do.
+
 ## Pre-apply check: indri-flake-check
 
 `mise run indri-flake-check` builds `.#darwinConfigurations.indri.system` on

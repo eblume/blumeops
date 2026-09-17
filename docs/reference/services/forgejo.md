@@ -50,7 +50,12 @@ backup, breaking changes, verification, rollback).
 
 Build tags (`forgejo_build_tags`): `bindata` (embed assets), `timetzdata` (embed timezone data), `sqlite sqlite_unlock_notify` (SQLite support).
 
-> go comes from the indri global mise baseline (`indri_go_version` in the indri play) — `GOTOOLCHAIN=auto` switches per go.mod and the play turns off mise's `GOROOT` export, so a plain `make build` works at any tag ([[upgrade-forgejo]] §Go toolchain). The role removes the checkout's untracked `mise.toml`, which used to pin a stale go.
+> go comes from the indri global mise baseline (declared in the indri flake's
+> mise config, `darwin/indri/configuration.nix`) — `GOTOOLCHAIN=auto`
+> switches per go.mod and that config keeps mise's `GOROOT` export off, so a
+> plain `make build` works at any tag ([[upgrade-forgejo]] §Go toolchain).
+> The role removes the checkout's untracked `mise.toml`, which used to pin a
+> stale go.
 
 ## Repositories
 

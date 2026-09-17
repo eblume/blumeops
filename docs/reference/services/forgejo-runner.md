@@ -63,11 +63,11 @@ unchanged: the CLI runs on the host and its engine runs as a container
 in Docker Desktop, which survives solely for this purpose (right-sized
 2cpu/4GiB). The old arm64 `runner-job-image` is retired.
 
-The toolchain the role installs is exactly `forgejo_runner_host_tools` in
-`ansible/roles/forgejo_runner/defaults/main.yml` — read it there rather than
-trusting a list here, which is how this card came to advertise a `jq` the role
-never installed. Anything else a job needs comes from the repo's own
-`mise.toml`, or from a Dagger container.
+The host toolchain is declared in the indri nix-darwin flake's global mise
+config (`darwin/indri/configuration.nix`, entry `[tools]`) — read it there
+rather than trusting a list here, which is how this card came to advertise a
+`jq` the role never installed. Anything else a job needs comes from the
+repo's own `mise.toml`, or from a Dagger container.
 
 **`prek` needs company.** prek downloads the environment for most hooks, but a
 `*-system` hook runs whatever is on `PATH` by definition — so `actionlint` and

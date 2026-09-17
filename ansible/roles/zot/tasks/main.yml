@@ -6,9 +6,9 @@
 # 1. Clone zot from forge mirror (use localhost:3001 - hairpinning doesn't work):
 #    ssh indri 'git clone http://localhost:3001/eblume/zot.git ~/code/3rd/zot'
 #
-# 2. Build (creates bin/zot-darwin-arm64) — go comes from the indri global
-#    mise baseline; GOTOOLCHAIN=auto switches per go.mod ([[upgrade-forgejo]]
-#    §Go toolchain):
+# 2. Build (creates bin/zot-darwin-arm64) — go comes from the indri
+#    declarative go pin (the nix-darwin flake's mise config); GOTOOLCHAIN=
+#    auto switches per go.mod ([[upgrade-forgejo]] §Go toolchain):
 #    ssh indri 'cd ~/code/3rd/zot && mise x -- make binary'
 #
 # 3. Run ansible to deploy config and LaunchAgent
@@ -18,8 +18,9 @@
 # — ansible only restarts the LaunchAgent when the rendered config changes.
 
 - name: Remove untracked local mise pin
-  # A per-checkout mise.toml shadows the indri global go baseline; the indri
-  # play is the single source of truth for the toolchain.
+  # A per-checkout mise.toml shadows indri's global mise config, which is
+  # declared in the indri nix-darwin flake (the flake is the single source
+  # of truth for the toolchain).
   ansible.builtin.file:
     path: "{{ zot_repo_dir }}/mise.toml"
     state: absent

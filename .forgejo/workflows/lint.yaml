@@ -21,11 +21,12 @@
 # docs/explanation/agent-change-process.md ("The residual problem").
 #
 # The runner already carries everything this needs. `prek`, `actionlint` and
-# `dagger` are in `forgejo_runner_host_tools` (ansible/roles/forgejo_runner),
-# installed globally with mise; `uv` runs the extensionless mise-tasks. Note
-# that a `*-system` hook runs whatever is on PATH, so if a host tool goes
-# missing the hook does not skip — prek reports it FAILED. The version pins
-# there mirror this repo's `prek.toml` revs and must be bumped together.
+# `dagger` are declared in the indri nix-darwin flake's global mise config
+# (`darwin/indri/configuration.nix`, entry `[tools]`), installed by mise on
+# first use; `uv` runs the extensionless mise-tasks. Note that a `*-system`
+# hook runs whatever is on PATH, so if a host tool goes missing the hook does
+# not skip — prek reports it FAILED. The version pins in the flake mirror this
+# repo's `prek.toml` revs and must be bumped together.
 #
 # The prek job is the enforcement point for the hook set, so `prek.toml`
 # holds only hooks that can run in a clean checkout. Two capabilities that
@@ -67,9 +68,9 @@ jobs:
         run: |
           if ! command -v prek >/dev/null 2>&1; then
             echo "::error::prek not found on the runner." >&2
-            echo "It is declared in forgejo_runner_host_tools" >&2
-            echo "(ansible/roles/forgejo_runner/defaults/main.yml) and installed" >&2
-            echo "by 'mise use --global'. Re-run provision-indri --tags forgejo_runner." >&2
+            echo "The host tools are declared in the indri nix-darwin flake's" >&2
+            echo "mise config (darwin/indri/configuration.nix), installed by" >&2
+            echo "mise on first use. Re-run provision-indri -- --tags rebuild." >&2
             exit 1
           fi
           prek --version
