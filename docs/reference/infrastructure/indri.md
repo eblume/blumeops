@@ -61,7 +61,7 @@ is down`, and `pmset -g assertions` holds no Amphetamine assertion.
 
 **Passwordless sudo:** Configured for `erichblume` user (`/etc/sudoers.d/erichblume`) to allow ansible `become: true` without prompts. Acceptable given Tailscale is the trust boundary.
 
-**Log rotation:** mcquack LaunchAgent logs (~/Library/Logs/mcquack.*.log) are rotated hourly by the mcquack.eblume.logrotate LaunchAgent — any log over 256 MiB is copied to .1 (3 generations kept) and truncated in place; in place because launchd holds O_APPEND fds, so mv-based rotation would leave services writing into the renamed file.
+**Log rotation:** mcquack LaunchAgent logs (~/Library/Logs/mcquack.*.log) are rotated hourly by the mcquack.eblume.logrotate LaunchAgent — any log over 256 MiB is copied to .1 (3 generations kept) and truncated in place; in place because launchd holds O_APPEND fds, so mv-based rotation would leave services writing into the renamed file. The unit and the script are nix-managed (the flake's `launchd.user.agents."mcquack.eblume.logrotate"`, script from the store) under the same label and plist path the ansible role used; the role stays in the play only as the [[provision]] rollback re-writer, skipped by default.
 
 ## Nix
 
@@ -80,13 +80,14 @@ apply runbook is [[provision]]:
   drop-ins — plus `/etc/resolver/ts.net`, the tailnet MagicDNS resolver,
   written explicitly rather than via `services.tailscale`, which would also
   emit a second tailscaled daemon beside the live Homebrew one.
-- **`/run/current-system` does not survive a reboot.** Background Task
-  Management refuses nix-darwin's `org.nixos.activate-system` daemon
-  (`sfltool dumpbtm`: `Name: sh, Parent: Unknown Developer, Disposition:
-  [enabled, disallowed, notified]`), so the symlink exists only between a
-  `darwin-rebuild` and the next reboot. The system profile
-  (`/nix/var/nix/profiles/system`) is the durable pointer; the play uses
-  it as the fallback. Open in [[provision]] §Reboot test.
+- **`/run/current-system` survives reboots.** The first reboot test
+  (2026-09-16) found nix-darwin's `org.nixos.activate-system` daemon
+  disallowed in Background Task Management, so the symlink was deleted at
+  reboot; the verdict was a stale BTM record, not the plist shape —
+  `sudo sfltool resetbtm` (run at a Terminal on the box) + reboot cleared it and
+  the daemon now runs at boot. The system profile (`/nix/var/nix/profiles/system`) remains the
+  durable pointer; the play uses it as the fallback (still needed before
+  the first switch). Full record in [[provision]] §Reboot test.
 - **SSH host key.** Remote Login is off; all ssh is Tailscale SSH, which
   serves `/etc/ssh/ssh_host_*_key` when those files exist. nix-darwin
   activation generated them on 2026-09-16, so indri's fingerprint changed

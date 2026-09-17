@@ -1,4 +1,7 @@
-{ ... }:
+{ pkgs, ... }:
+let
+  mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
+in
 {
   # Explicit target platform: indri is an M1 Mac mini, and pinning it
   # keeps the flake evaluable (and checkable) from off-box hosts.
@@ -66,7 +69,23 @@
   #
   # Rollback when a generation breaks a service's plist is in a fixed
   # order: darwin-rebuild --rollback first (nix-darwin unloads agents the
-  # target generation does not declare - the service is down), then
-  # `mise run provision-indri -- --tags <svc>` (ansible writes the plist
-  # back). Never ansible first. See [[provision]] §Rolling back a service flip.
+  # target generation does not declare - the service is down), then run the
+  # service's ansible role with its skip gate flipped, e.g. `mise run
+  # provision-indri -- --tags logrotate -e logrotate_ansible_managed=true`.
+  # Never ansible first. See [[provision]] §Rolling back a service flip.
+
+  # logrotate: first service moved to nix-darwin (PR 2 of the series). The
+  # Label fixes both the launchd identity and the plist filename, so the
+  # generation and the (skipped-by-default) ansible role own one path,
+  # ~/Library/LaunchAgents/mcquack.eblume.logrotate.plist, and swap in
+  # place; the role's only job left is the rollback re-write. The log
+  # paths stay the ones alloy tails and the script itself rotates.
+  launchd.user.agents."mcquack.eblume.logrotate".serviceConfig = {
+    Label = "mcquack.eblume.logrotate";
+    ProgramArguments = [ "${mcquackLogrotate}" ];
+    StartInterval = 3600;
+    RunAtLoad = true;
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.logrotate.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.logrotate.err.log";
+  };
 }
