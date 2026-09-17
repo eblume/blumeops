@@ -91,6 +91,16 @@ borgmatic_k8s_file_dumps:
     dir: /data/backup
     glob: 'navidrome_backup_*.db'
     target: ssh:eblume@ringtail
+  # audiobookshelf's built-in scheduled backup zips config+metadata to
+  # /metadata/backups (named <YYYY-MM-DD[T]HHmm>.audiobookshelf, fixed-width
+  # timestamp, so lexically sortable), so we ferry the newest one off.
+  # Requires coreutils in the image for the in-pod ls/cat.
+  - name: audiobookshelf
+    namespace: audiobookshelf
+    label_selector: app=audiobookshelf
+    dir: /metadata/backups
+    glob: '*.audiobookshelf'
+    target: ssh:eblume@ringtail
 
 # K8s pods whose data dir is tarred in-pod and streamed back — no
 # sqlite3 or python3 needed, just tar. Each entry's `dir` is tarred to

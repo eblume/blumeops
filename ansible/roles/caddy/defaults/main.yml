@@ -70,6 +70,9 @@ caddy_services:
   - name: navidrome
     host: "dj.{{ caddy_domain }}"
     backend: "https://dj.tail8d86e.ts.net"
+  - name: audiobookshelf
+    host: "audiobooks.{{ caddy_domain }}"
+    backend: "https://audiobooks.tail8d86e.ts.net"
   - name: homepage
     host: "go.{{ caddy_domain }}"
     backend: "https://go.tail8d86e.ts.net"

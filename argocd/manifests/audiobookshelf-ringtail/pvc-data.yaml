@@ -1,0 +1,13 @@
+# PersistentVolumeClaim for Audiobookshelf data (SQLite database, config)
+# Uses the cluster default storage class (k3s local-path) for local provisioning
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: audiobookshelf-data
+  namespace: audiobookshelf
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

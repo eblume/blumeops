@@ -1,0 +1,18 @@
+# NFS PersistentVolume for the Audiobookshelf library, mounted from
+# ringtail. sifaka exports /volume1/music read-only to the LAN + tailnet
+# CGNAT ranges; the library only reads the Audiobooks/ subtree of that
+# share (the same mount [[navidrome]] uses). See [[sifaka-nfs-from-ringtail]].
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: audiobookshelf-music-nfs-pv-ringtail
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: sifaka
+    path: /volume1/music

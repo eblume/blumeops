@@ -1,0 +1,14 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: audiobookshelf
+resources:
+  - pv-nfs.yaml
+  - pvc-music.yaml
+  - pvc-data.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress-tailscale.yaml
+images:
+  - name: registry.ops.eblu.me/blumeops/audiobookshelf
+    newTag: v2.36.0-0320197-nix
