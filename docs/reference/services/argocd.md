@@ -1,6 +1,6 @@
 ---
 title: ArgoCD
-modified: 2026-08-26
+modified: 2026-09-17
 last-reviewed: 2026-06-09
 tags:
   - service
@@ -93,6 +93,13 @@ To pick up newly added Application manifests, sync `apps` explicitly:
 ```bash
 argocd app sync apps
 ```
+
+Agents cannot run that command (the pod's `argocd` CLI is read-only). The
+agent route is the [[request-a-privileged-run|ArgoCD Sync Apps]] warrant: it
+pins the root to the bound SHA, syncs, waits healthy, and resets the root to
+tracking main — a plain SHA sync would leave it pinned, and a pinned root
+reads `Synced` against the pin and silently ignores later `argocd/apps/`
+merges.
 
 ### Deploying from a branch
 

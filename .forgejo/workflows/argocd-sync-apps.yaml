@@ -1,0 +1,96 @@
+# ArgoCD Sync Apps — approval-gated sync of the app-of-apps root (`apps`).
+#
+# argocd-deploy.yaml cannot do this job: it runs
+# `argocd app set "$APP" --revision "$REV"` unconditionally, so with
+# app=apps the root ends up pinned to the bound SHA. A pinned root compares
+# live against the pin and reads Synced forever, silently ignoring every
+# later argocd/apps/ merge — a loud ArgoCDAppOutOfSync traded for staleness
+# with no alert. This workflow pins to the bound SHA (so the approval names
+# an immutable payload), syncs, waits healthy, then resets the root to
+# tracking main, so the next drift stays loud.
+#
+# Agents request a run with:
+#   mise run request-run argocd-sync-apps.yaml <full-sha> --pr N \
+#       -i revision=<full-sha> [--why ...]
+#
+# runs-on: priv (invariant 3); definitions execute from main (invariant 3);
+# the revision input is the approved, immutable payload.
+
+name: ArgoCD Sync Apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'FULL 40-char commit SHA of main to sync apps from, or "main"'
+        required: true
+        type: string
+
+jobs:
+  sync-apps:
+    runs-on: priv
+    steps:
+      # Input passed through env, never interpolated into shell text —
+      # a crafted input cannot inject commands into a privileged job.
+      - name: Validate revision input
+        env:
+          REV: ${{ inputs.revision }}
+        run: |
+          if [ "$REV" != "main" ] && ! echo "$REV" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "::error::revision must be 'main' or a FULL 40-char SHA (got: $REV) — approvals bind to immutable SHAs"
+            exit 1
+          fi
+
+      # Pin to the bound SHA so the sync applies exactly the reviewed
+      # payload, then reset to tracking main — always, even on sync failure,
+      # because the pin above already applied. A reset failure is reported
+      # loud; leaving the root pinned is the failure this workflow exists
+      # to prevent.
+      - name: Pin, sync, wait, reset to main
+        env:
+          REV: ${{ inputs.revision }}
+          ARGOCD_SERVER: argocd.ops.eblu.me
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
+          ARGOCD_OPTS: --grpc-web
+        run: |
+          if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+            echo "::error::BLUMEOPS_CI_OP_TOKEN is not provisioned as an Actions secret — see [[blumeops-ci-item-migration]]"
+            exit 1
+          fi
+          ARGOCD_AUTH_TOKEN=$(op read 'op://blumeops-ci/argocd-workflow-bot/token')
+          echo "::add-mask::$ARGOCD_AUTH_TOKEN"
+          export ARGOCD_AUTH_TOKEN
+          # Forgejo injects GITHUB_TOKEN (a *forge* token); mise would send it
+          # to api.github.com and get a 401. Unset before any mise x call.
+          unset GITHUB_TOKEN GITHUB_API_TOKEN
+          acd() { if command -v argocd >/dev/null 2>&1; then argocd "$@"; else mise x argocd@3.3.12 -- argocd "$@"; fi; }
+
+          acd app set apps --revision "$REV"
+
+          ok=0
+          acd app sync apps --timeout 600 && acd app wait apps --health --timeout 600 && ok=1
+
+          if ! acd app set apps --revision main; then
+            echo "::error::failed to reset apps to tracking main — the root is still pinned at $REV; run 'argocd app set apps --revision main' from gilbert"
+            exit 1
+          fi
+
+          if [ "$ok" != 1 ]; then
+            echo "::error::apps sync or wait failed — Application resources were reconciled against $REV; check the run log and app state"
+            exit 1
+          fi
+
+      # Always show final state in the run log — the audit record.
+      - name: Report application state
+        if: always()
+        env:
+          ARGOCD_SERVER: argocd.ops.eblu.me
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
+          ARGOCD_OPTS: --grpc-web
+        run: |
+          ARGOCD_AUTH_TOKEN=$(op read 'op://blumeops-ci/argocd-workflow-bot/token')
+          echo "::add-mask::$ARGOCD_AUTH_TOKEN"
+          export ARGOCD_AUTH_TOKEN
+          unset GITHUB_TOKEN GITHUB_API_TOKEN
+          acd() { if command -v argocd >/dev/null 2>&1; then argocd "$@"; else mise x argocd@3.3.12 -- argocd "$@"; fi; }
+          acd app get apps || true

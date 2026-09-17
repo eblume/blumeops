@@ -23,4 +23,5 @@ spec:
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
-  # To pick up new apps: argocd app sync apps
+  # To pick up new apps: argocd app sync apps (human), or file the
+  # argocd-sync-apps.yaml warrant (agents; see warrant-policy.yaml)

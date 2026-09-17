@@ -1,6 +1,6 @@
 ---
 title: Request a Privileged Run
-modified: 2026-09-16
+modified: 2026-09-17
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -43,6 +43,19 @@ the run record names exactly what went. `prune=true` requires `sync=true` (the
 prune is an option on the sync) and the workflow refuses the combination rather
 than reporting green having pruned nothing. See [[argocd#Sync Policy]] for why
 orphans accumulate in the first place.
+
+Example — pick up newly added Application manifests: the one step of a
+merged service deploy that agents could not run, because the pod's `argocd`
+CLI is read-only. `argocd-deploy.yaml` with `app=apps` would leave the
+app-of-apps root pinned at the bound SHA — it would then read `Synced`
+against the pin and silently ignore every later `argocd/apps/` merge. This
+action pins, syncs, waits healthy, and resets the root to tracking main, so
+the next drift stays loud:
+
+```fish
+mise run request-run argocd-sync-apps.yaml <full-sha> --pr N \
+    -i revision=<full-sha> --why "create the <service>-ringtail Application"
+```
 
 Example — apply a merged blumeops commit to ringtail as a NixOS rebuild. The
 bound SHA is applied on ringtail by the root `ringtail-apply@<sha>` unit,

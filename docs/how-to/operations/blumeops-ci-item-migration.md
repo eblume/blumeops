@@ -1,6 +1,6 @@
 ---
 title: Blumeops-CI Item Migration
-modified: 2026-09-16
+modified: 2026-09-17
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -105,7 +105,7 @@ follow-up now that it needs no provisioning):
 
 | blumeops-ci item | field | copied from (blumeops) | consumed by |
 |------------------|-------|------------------------|-------------|
-| `argocd-workflow-bot` | `token` | `w3663ffn…/argocd_token` | `argocd-deploy.yaml` |
+| `argocd-workflow-bot` | `token` | `w3663ffn…/argocd_token` | `argocd-deploy.yaml`, `argocd-sync-apps.yaml` |
 | `zot-ci` | `api-key` | `w3663ffn…/zot-ci-api` | `build-container.yaml`; talos + horkos `release.yaml` |
 | `fly-deploy` | `token` | `on5slfay…/deploy-token` | `deploy-fly.yaml` |
 | `forge-main-push` | `token` | `blumeops-main-push-token/token` | `build-blumeops.yaml` |
