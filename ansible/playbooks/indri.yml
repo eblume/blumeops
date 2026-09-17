@@ -382,6 +382,42 @@
       no_log: true
       tags: [devpi]
 
+    # /etc/resolver/ts.net must be a real file on the system volume, not a
+    # nix-darwin /etc/static symlink: the Nix Store APFS volume mounts tens
+    # of seconds after boot, and if mDNSResponder scans /etc/resolver before
+    # the mount the dangling link is skipped and never rescanned - tailnet
+    # MagicDNS (*.ts.net) stays dark until a manual ln -sfn. Written before
+    # the rebuild block below so the file pre-exists the switch: the
+    # switch's etc script deletes the stale symlink once the nix-darwin
+    # declaration is gone, while a real (undeclared) file survives it.
+    # follow: false replaces the store symlink rather than writing through
+    # it. Tagged `rebuild` as well, so the zero-prompt `--tags rebuild`
+    # path converges it before the switch too. See [[provision]] §Reboot test.
+    - name: Write the tailnet MagicDNS resolver as a real file
+      ansible.builtin.copy:
+        content: "nameserver 100.100.100.100\n"
+        dest: /etc/resolver/ts.net
+        owner: root
+        group: wheel
+        mode: "0644"
+        follow: false
+      become: true
+      tags: [rebuild, tailnet-dns]
+
+    - name: Verify the resolver is a regular file, not a store symlink
+      ansible.builtin.stat:
+        path: /etc/resolver/ts.net
+      become: true
+      register: indri_tsnet_resolver
+      check_mode: false
+      tags: [rebuild, tailnet-dns]
+
+    - name: Fail if the resolver is not a real file
+      ansible.builtin.fail:
+        msg: "/etc/resolver/ts.net is not a regular file: {{ indri_tsnet_resolver.stat }}"
+      when: not ansible_check_mode and not (indri_tsnet_resolver.stat.exists and indri_tsnet_resolver.stat.regular)
+      tags: [rebuild, tailnet-dns]
+
     # nix-darwin rebuild: checkout the bound blumeops commit as a root-owned
     # /etc/blumeops and run darwin-rebuild switch detached from this SSH
     # session (nohup): the switch is long and would outlive any tool-call
