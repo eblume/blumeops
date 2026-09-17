@@ -166,8 +166,8 @@ jobs:
             echo "::error::BLUMEOPS_CI_OP_TOKEN is not provisioned as an Actions secret — see [[blumeops-ci-item-migration]]"
             exit 1
           fi
-          ZOT_CI_API_KEY=$(op read 'op://blumeops-ci/zot-ci/api-key')
-          echo "::add-mask::$ZOT_CI_API_KEY"
+          CI_ZOT_API_KEY=$(op read 'op://blumeops-ci/ci-zot/api-key')
+          echo "::add-mask::$CI_ZOT_API_KEY"
           CONTAINER="${{ matrix.container }}"
           VERSION="${{ steps.meta.outputs.version }}"
           SHORT_SHA="${{ steps.meta.outputs.sha }}"
@@ -180,7 +180,7 @@ jobs:
           # with 'short write' (run 1659). Use the disk-backed workspace.
           mkdir -p .skopeo-tmp
           skopeo --tmpdir "$PWD/.skopeo-tmp" copy \
-            --dest-creds="zot-ci:$ZOT_CI_API_KEY" \
+            --dest-creds="ci-zot:$CI_ZOT_API_KEY" \
             "docker-archive:result" \
             "docker://$IMAGE"
           echo "Push complete: $IMAGE"

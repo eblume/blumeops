@@ -1,0 +1,1 @@
+The `build-container` workflow now reads the registry push key from `blumeops-ci/ci-zot` (`api-key`) and pushes as the `ci-zot` identity, completing the #1039 step-2b flip of the base CI push identity from `zot-ci` (the cleanup PR retires `zot-ci` and `artifact-workloads` after the flip's ceremony).
