@@ -415,7 +415,7 @@
     - name: Fail if the resolver is not a real file
       ansible.builtin.fail:
         msg: "/etc/resolver/ts.net is not a regular file: {{ indri_tsnet_resolver.stat }}"
-      when: not ansible_check_mode and not (indri_tsnet_resolver.stat.exists and indri_tsnet_resolver.stat.regular)
+      when: not ansible_check_mode and not (indri_tsnet_resolver.stat.exists and indri_tsnet_resolver.stat.isreg)
       tags: [rebuild, tailnet-dns]
 
     # nix-darwin rebuild: checkout the bound blumeops commit as a root-owned

@@ -1,0 +1,1 @@
+indri: fix the tailnet-resolver guard from #1159 — the `stat` module reports `isreg`, not `regular`, so every real run of the indri play aborted after writing `/etc/resolver/ts.net` and before the rebuild.
