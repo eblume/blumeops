@@ -80,13 +80,14 @@ apply runbook is [[provision]]:
   drop-ins — plus `/etc/resolver/ts.net`, the tailnet MagicDNS resolver,
   written explicitly rather than via `services.tailscale`, which would also
   emit a second tailscaled daemon beside the live Homebrew one.
-- **`/run/current-system` does not survive a reboot.** Background Task
-  Management refuses nix-darwin's `org.nixos.activate-system` daemon
-  (`sfltool dumpbtm`: `Name: sh, Parent: Unknown Developer, Disposition:
-  [enabled, disallowed, notified]`), so the symlink exists only between a
-  `darwin-rebuild` and the next reboot. The system profile
-  (`/nix/var/nix/profiles/system`) is the durable pointer; the play uses
-  it as the fallback. Open in [[provision]] §Reboot test.
+- **`/run/current-system` survives reboots.** The first reboot test
+  (2026-09-16) found nix-darwin's `org.nixos.activate-system` daemon
+  disallowed in Background Task Management, so the symlink was deleted at
+  reboot; the verdict was a stale BTM record, not the plist shape —
+  `sudo sfltool resetbtm` (run at a Terminal on the box) + reboot cleared it and
+  the daemon now runs at boot. The system profile (`/nix/var/nix/profiles/system`) remains the
+  durable pointer; the play uses it as the fallback (still needed before
+  the first switch). Full record in [[provision]] §Reboot test.
 - **SSH host key.** Remote Login is off; all ssh is Tailscale SSH, which
   serves `/etc/ssh/ssh_host_*_key` when those files exist. nix-darwin
   activation generated them on 2026-09-16, so indri's fingerprint changed

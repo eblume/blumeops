@@ -46,8 +46,8 @@ user-run flake check and the CI job on the indri runner.
 The play resolves `darwin-rebuild` from `/run/current-system`, falling back
 to the system profile (`/nix/var/nix/profiles/system/sw/bin`). Before the
 first switch there is no `/run/current-system` at all (it appears only after
-an activation has run); whether the symlink survives a reboot is what the
-reboot test below answers.
+an activation has run); after that it survives reboots (the first reboot
+test initially found BTM disallowing the daemon; see below).
 
 If a run dies mid-rebuild (session drop, pod replacement, the wait
 timing out), the switch keeps running detached and will have left
@@ -150,19 +150,19 @@ The machinery is proved without ever re-activating generation 14:
 
 ### Reboot test
 
-Done 2026-09-16, and it answered the open question: **`org.nixos.
-activate-system` does not load at boot, and `/run/current-system` does
-not survive a reboot.** Background Task Management registers the daemon
-as `Name: sh, Parent: Unknown Developer, Disposition: [enabled,
-disallowed, notified]` (`sudo sfltool dumpbtm`) — an unsigned
-`/bin/sh -c …` legacy daemon macOS refuses — while Determinate's and
-Homebrew's daemons are `allowed`. Consequences are bounded: the play
-resolves `darwin-rebuild` from the system profile when
-`/run/current-system` is absent (the fallback above, now the normal
-post-reboot case), `/etc` is static symlinks, and nix-managed user agents
-live in `~/Library/LaunchAgents`, which launchd loads at login regardless.
-Candidates for a dedicated window: `sudo sfltool resetbtm` + reboot, or a
-plist shape BTM accepts.
+Done 2026-09-16. The first reboot found `org.nixos.activate-system` not
+loading at boot and `/run/current-system` deleted: Background Task
+Management had recorded the daemon as `Disposition: [enabled,
+disallowed, notified]` (`sudo sfltool dumpbtm`). The verdict was a
+**stale BTM record, not the plist shape**: `sudo sfltool resetbtm` (from
+a Terminal on indri — it needs the Authorization Services prompt and
+fails over ssh with `errAuthorizationInteractionNotAllowed`) followed by
+a reboot flipped the disposition to `[enabled, allowed, notified]`. The
+daemon now runs at boot (exit 0) and **`/run/current-system` survives
+reboots**; every other background item stayed `allowed` after the reset.
+The play's system-profile fallback stays in place — `/run/current-system`
+is still absent before the first switch, and nix-managed user agents live
+in `~/Library/LaunchAgents`, which launchd loads at login regardless.
 
 A reboot also pops "Enter a password to unlock the disk Nix Store" at
 login. **Cancel it** — the volume password is a random one in the System
