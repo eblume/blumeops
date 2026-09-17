@@ -163,6 +163,18 @@ def enforce_policy(
             raise typer.Exit(1)
         match rules.get("validate"):
             case "argocd-app":
+                # The app-of-apps root is a pointer, not an app: argocd-deploy
+                # pins it to the bound SHA and leaves it reading Synced against
+                # the pin, silently ignoring later argocd/apps/ merges. The
+                # guarded argocd-sync-apps.yaml is the only route to the root.
+                if value == "apps":
+                    err.print(
+                        f"policy: app 'apps' is the app-of-apps root — it is not "
+                        "deployable through "
+                        f"{workflow}. Sync it with argocd-sync-apps.yaml, which "
+                        "resets the root to tracking main afterwards"
+                    )
+                    raise typer.Exit(1)
                 if not main_file_exists(client, f"argocd/apps/{value}.yaml"):
                     err.print(
                         f"policy: '{escape(value)}' is not a declared ArgoCD Application "

@@ -49,6 +49,20 @@ actions:
         required: false
         pattern: "^(true|false)$"
 
+  argocd-sync-apps.yaml:
+    class: warrant
+    note: >-
+      Sync the app-of-apps root (apps) from a bound SHA: pin the root to the
+      SHA, sync, wait healthy, then reset the root to tracking main.
+      argocd-deploy.yaml cannot do this without leaving the root pinned — a
+      pinned root reads Synced against the pin and silently ignores later
+      argocd/apps/ merges.
+    binds_sha: revision
+    inputs:
+      revision:
+        required: true
+        pattern: "^(main|[0-9a-f]{40})$"
+
   deploy-fly.yaml:
     class: warrant
     binds_sha: revision

@@ -1,6 +1,6 @@
 ---
 title: Deploy K8s Service
-modified: 2026-09-13
+modified: 2026-09-17
 last-reviewed: 2026-09-13
 tags:
   - how-to
@@ -150,6 +150,11 @@ kubectl --context=k3s-ringtail -n <service> logs -f deployment/<service>
 # sync here — you would be racing the auto-sync your merge started.
 argocd app set <service> --revision main
 ```
+
+The first step is the one agents cannot run (read-only `argocd` in the pod):
+they file `argocd-sync-apps.yaml` via [[request-a-privileged-run]] instead,
+which pins the root to the bound SHA, syncs, and resets it to `main` — a
+plain SHA sync would pin the root and mask later `argocd/apps/` drift.
 
 ## Checklist
 

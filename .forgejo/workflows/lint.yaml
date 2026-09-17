@@ -193,3 +193,36 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           log-file: /tmp/lint-secret-scan.log
+
+  # Every Application under argocd/apps/ is a pointer ArgoCD tracks forever
+  # (automated sync + self-heal). Refuse any source the agents bot can move —
+  # its own fork on a branch — so a mutable pointer is caught at PR time,
+  # before the root is ever synced. Shares the validator with the
+  # argocd-sync-apps.yaml payload check, so the PR check and the run-time check
+  # cannot drift. Runs on every PR including from a fork: it reads only local
+  # files, no token, vault, or cluster.
+  argocd-apps-validate:
+    runs-on: indri
+    # Runs this job's validator from the PR checkout, so a fork PR could ship a
+    # neutered copy and pass this gate. The backstop is the argocd-sync-apps
+    # payload check, which runs MAIN's reviewed copy over the payload — main
+    # moves only via a human-merged PR. Making this a required context (see
+    # [[agent-change-process]]) closes most of the gap at PR time.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate Application sources
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -o pipefail
+          uv run --script mise-tasks/validate-argocd-apps 2>&1 | tee /tmp/lint-argocd-apps.log
+
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: /tmp/lint-argocd-apps.log

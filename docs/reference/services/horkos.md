@@ -2,7 +2,7 @@
 title: Horkos
 aliases:
   - warrant
-modified: 2026-09-16
+modified: 2026-09-17
 last-reviewed: 2026-09-16
 tags:
   - service
@@ -98,8 +98,9 @@ never change in a single PR.
   curl -s https://horkos.ops.eblu.me/healthz   # expect armed, not armed-no-token
   ```
 - **Scope**: only actions with `class: warrant` in `warrant-policy.yaml` are
-  requestable — today `argocd-deploy.yaml`, `deploy-fly.yaml`,
-  `ringtail-rebuild.yaml`, and `run-script.yaml` (one-off scripts).
+  requestable — today `argocd-deploy.yaml`, `argocd-sync-apps.yaml`,
+  `deploy-fly.yaml`, `ringtail-rebuild.yaml`, and `run-script.yaml`
+  (one-off scripts).
   `provision-*` is `class: deny` (see [[blumeops-ci-item-migration]]).
 - **Cluster credential for run-scripts**: the `run-script` ServiceAccount in
   this namespace (ClusterRole `run-script-pv-ops`: `persistentvolumes`

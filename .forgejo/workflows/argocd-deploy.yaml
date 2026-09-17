@@ -21,10 +21,12 @@
 # alongside `indri` (see forgejo_runner role defaults); the label split is
 # what matters now, the host split comes later.
 #
-# Revision reachability caveat: ArgoCD fetches from canonical, so a SHA that
-# only exists on the agents fork (pre-merge PR head) may not resolve until
-# we verify pull-ref fetching (refs/pull/N/head) on first use. Post-merge
-# SHAs and "main" always work — start there.
+# Revision reachability: a pre-merge PR head is exposed on canonical as
+# refs/pull/N/head and is git-fetchable by full SHA when it is the PR's
+# current head (verified — see docs/reference/services/argocd.md "SHA
+# reachability"). Whether the ArgoCD server's own go-git fetch path resolves a
+# raw full SHA that way is still unverified from a cluster with access; bind
+# to post-merge main SHAs or "main" by default, which always work.
 name: ArgoCD Deploy
 
 on:
@@ -86,6 +88,14 @@ jobs:
         env:
           APP: ${{ inputs.app }}
         run: |
+          # The app-of-apps root is a pointer, not an app: `argocd app set apps
+          # --revision <sha>` pins it and it reads Synced against the pin
+          # forever, silently ignoring later argocd/apps/ merges. The guarded
+          # argocd-sync-apps.yaml is the only route to the root.
+          if [ "$APP" = "apps" ]; then
+            echo "::error::'apps' is the app-of-apps root — sync it with argocd-sync-apps.yaml, not argocd-deploy (which would pin the root to a SHA and leave it silently stale)"
+            exit 1
+          fi
           if ! [ -f "argocd/apps/$APP.yaml" ]; then
             echo "::error::'$APP' is not a declared Application (argocd/apps/$APP.yaml missing on main). Note most apps carry a -ringtail suffix. Declared apps:"
             find argocd/apps -name '*.yaml' -exec basename {} .yaml \;

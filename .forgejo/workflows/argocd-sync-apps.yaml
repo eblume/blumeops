@@ -1,0 +1,133 @@
+# ArgoCD Sync Apps — approval-gated sync of the app-of-apps root (`apps`).
+#
+# argocd-deploy.yaml cannot do this job: it runs
+# `argocd app set "$APP" --revision "$REV"` unconditionally, so with
+# app=apps the root ends up pinned to the bound SHA. A pinned root compares
+# live against the pin and reads Synced forever, silently ignoring every
+# later argocd/apps/ merge — a loud ArgoCDAppOutOfSync traded for staleness
+# with no alert. This workflow pins to the bound SHA (so the approval names
+# an immutable payload), syncs, waits healthy, then resets the root to
+# tracking main, so the next drift stays loud.
+#
+# Agents request a run with:
+#   mise run request-run argocd-sync-apps.yaml <full-sha> --pr N \
+#       -i revision=<full-sha> [--why ...]
+#
+# runs-on: priv (invariant 3); definitions execute from main (invariant 3);
+# the revision input is the approved, immutable payload.
+#
+# Payload validation (invariant 2 at the root): before pinning, the workflow
+# checks out main and fetches the bound SHA's argocd/apps/ as data, then runs
+# main's reviewed mise-tasks/validate-argocd-apps over it. Every Application
+# the root would install must point at a source the agents bot cannot move
+# (eblume/blumeops.git @ main, or a read-only mirror). A pointer the bot CAN
+# move — its own fork on a branch — would let one approval install arbitrary
+# manifests into any namespace, which the check refuses.
+
+name: ArgoCD Sync Apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'FULL 40-char commit SHA of main to sync apps from, or "main"'
+        required: true
+        type: string
+
+jobs:
+  sync-apps:
+    runs-on: priv
+    steps:
+      # Input passed through env, never interpolated into shell text —
+      # a crafted input cannot inject commands into a privileged job.
+      - name: Validate revision input
+        env:
+          REV: ${{ inputs.revision }}
+        run: |
+          if [ "$REV" != "main" ] && ! echo "$REV" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "::error::revision must be 'main' or a FULL 40-char SHA (got: $REV) — approvals bind to immutable SHAs"
+            exit 1
+          fi
+
+      # Checkout MAIN (not the bound SHA) so the validator that runs below is
+      # the reviewed one — a payload PR could ship a neutered copy of it, and
+      # we must never execute the payload's own code. The payload itself is
+      # fetched as data only. (Same discipline as argocd-deploy's
+      # "Checkout main (app allowlist comes from reviewed state)".)
+      - name: Checkout main (reviewed validator)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The root sync turns the bound SHA's argocd/apps/*.yaml into live
+      # ArgoCD Applications, each tracked forever with automated sync and
+      # self-heal. Refuse — before pinning — if any of them points at a source
+      # the agents bot can move (its fork, on a branch it pushes). Forgejo
+      # advertises PR heads as refs/pull/N/head on canonical, so a bound SHA
+      # that is the PR's current head is git-fetchable (verified — see
+      # docs/reference/services/argocd.md "SHA reachability"); a bound SHA that
+      # is not an advertised ref tip fails the fetch below and the run is
+      # refused, which is the safe direction. A fetchable pre-merge head is a
+      # real, installable payload — which is why we validate it rather than
+      # trust it.
+      - name: Refuse a payload with a mutable pointer
+        env:
+          REV: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          git fetch --depth 1 origin "$REV"
+          payload_dir="$(mktemp -d)"
+          git archive FETCH_HEAD argocd/apps | tar -x -C "$payload_dir"
+          ./mise-tasks/validate-argocd-apps "$payload_dir/argocd/apps"
+
+      # Pin to the bound SHA so the sync applies exactly the reviewed
+      # payload, then reset to tracking main — always, even on sync failure,
+      # because the pin above already applied. A reset failure is reported
+      # loud; leaving the root pinned is the failure this workflow exists
+      # to prevent.
+      - name: Pin, sync, wait, reset to main
+        env:
+          REV: ${{ inputs.revision }}
+          ARGOCD_SERVER: argocd.ops.eblu.me
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
+          ARGOCD_OPTS: --grpc-web
+        run: |
+          if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+            echo "::error::BLUMEOPS_CI_OP_TOKEN is not provisioned as an Actions secret — see [[blumeops-ci-item-migration]]"
+            exit 1
+          fi
+          ARGOCD_AUTH_TOKEN=$(op read 'op://blumeops-ci/argocd-workflow-bot/token')
+          echo "::add-mask::$ARGOCD_AUTH_TOKEN"
+          export ARGOCD_AUTH_TOKEN
+          # Forgejo injects GITHUB_TOKEN (a *forge* token); mise would send it
+          # to api.github.com and get a 401. Unset before any mise x call.
+          unset GITHUB_TOKEN GITHUB_API_TOKEN
+          acd() { if command -v argocd >/dev/null 2>&1; then argocd "$@"; else mise x argocd@3.3.12 -- argocd "$@"; fi; }
+
+          acd app set apps --revision "$REV"
+
+          ok=0
+          acd app sync apps --timeout 600 && acd app wait apps --health --timeout 600 && ok=1
+
+          if ! acd app set apps --revision main; then
+            echo "::error::failed to reset apps to tracking main — the root is still pinned at $REV; run 'argocd app set apps --revision main' from gilbert"
+            exit 1
+          fi
+
+          if [ "$ok" != 1 ]; then
+            echo "::error::apps sync or wait failed — Application resources were reconciled against $REV; check the run log and app state"
+            exit 1
+          fi
+
+      # Always show final state in the run log — the audit record.
+      - name: Report application state
+        if: always()
+        env:
+          ARGOCD_SERVER: argocd.ops.eblu.me
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
+          ARGOCD_OPTS: --grpc-web
+        run: |
+          ARGOCD_AUTH_TOKEN=$(op read 'op://blumeops-ci/argocd-workflow-bot/token')
+          echo "::add-mask::$ARGOCD_AUTH_TOKEN"
+          export ARGOCD_AUTH_TOKEN
+          unset GITHUB_TOKEN GITHUB_API_TOKEN
+          acd() { if command -v argocd >/dev/null 2>&1; then argocd "$@"; else mise x argocd@3.3.12 -- argocd "$@"; fi; }
+          acd app get apps || true

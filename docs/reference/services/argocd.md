@@ -1,6 +1,6 @@
 ---
 title: ArgoCD
-modified: 2026-08-26
+modified: 2026-09-17
 last-reviewed: 2026-06-09
 tags:
   - service
@@ -94,9 +94,24 @@ To pick up newly added Application manifests, sync `apps` explicitly:
 argocd app sync apps
 ```
 
+Agents cannot run that command (the pod's `argocd` CLI is read-only). The
+agent route is the [[request-a-privileged-run|ArgoCD Sync Apps]] warrant: it
+pins the root to the bound SHA, syncs, waits healthy, and resets the root to
+tracking main — a plain SHA sync would leave it pinned, and a pinned root
+reads `Synced` against the pin and silently ignores later `argocd/apps/`
+merges.
+
 ### Deploying from a branch
 
 `argocd app set <app> --revision <ref>` still works for pre-merge testing, but on an automated app **always pass a full 40-char SHA, never a branch name**. A branch revision on an automated app means every subsequent push to that branch deploys itself unreviewed. The `ArgoCD Deploy` workflow enforces SHA-or-`main` for exactly this reason; hand-run commands should match it. Reset with `--revision main` when done.
+
+### SHA reachability (pre-merge PR heads)
+
+The `argocd-sync-apps` and `argocd-deploy` warrants bind a run to an immutable SHA and fetch it from canonical. The open question — recorded here because it was previously documented neither way — is whether a **pre-merge** PR head is reachable that way.
+
+**Verified from the pod (2026-09-17), in a fresh clone of canonical:** Forgejo advertises every PR head on the base (canonical) repo as `refs/pull/N/head`. A `git fetch origin <full-40-char-sha>` of that head succeeds — git resolves a full SHA by matching it against the tips of advertised refs — as does `git fetch origin refs/pull/N/head` by name (tested against the current head of open PR [eblume/blumeops#1155](https://forge.eblu.me/eblume/blumeops/pulls/1155), `1ddd0ff0`, from a fresh clone, with and without `--depth 1`). So the `argocd-sync-apps` payload check (which does `git fetch origin <bound-sha>` from a checkout of canonical) can fetch a pre-merge head **when the bound SHA is the PR's current head** (the tip of `refs/pull/N/head`). A bound SHA that is not the tip of any advertised ref — a stale or mid-PR commit — is not fetchable by SHA and fails the check: the run is refused before the pin, which is the safe direction. The fetchability of a current head is also exactly why the payload check exists: a bound pre-merge head is a real, installable payload, so the root must validate it rather than trust it.
+
+**Still unverified:** whether the ArgoCD *server's* own repo-creds identity and go-git fetch path resolve a raw full SHA the same way (by matching it to `refs/pull/N/head`). The pod's `argocd` CLI is read-only and cannot run a test sync to check. Before binding a warrant to a pre-merge PR head, verify once from gilbert (e.g. `argocd app set <app> --revision <pre-merge-sha> && argocd app sync <app>` on a scratch app, or confirm ArgoCD's repo-creds can read `refs/pull/*`). Post-merge `main` SHAs and the literal `main` always resolve — bind to those by default.
 
 ## Authentication
 

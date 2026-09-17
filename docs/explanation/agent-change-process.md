@@ -1,6 +1,6 @@
 ---
 title: Agent Change Process
-modified: 2026-09-15
+modified: 2026-09-17
 last-reviewed: 2026-02-23
 tags:
   - explanation
@@ -152,10 +152,16 @@ Required status contexts on `main` (verified against the
 - `Lint / prek (pull_request)`
 - `Lint / workflows-validate (pull_request)`
 - `Lint / secret-scan (pull_request)`
+- `Lint / argocd-apps-validate (pull_request)` — the Application-source
+  validator (refuses a mutable pointer the agents bot can move in
+  `argocd/apps/`). **Pending:** this job is new and the `branch_protections`
+  API must be updated by someone with write access to canonical to require it;
+  until then it is an advisory check, not a merge gate.
 
 A context string is `workflow name / job name (event)`, so **renaming a job
 silently un-requires it**: update the branch protection whenever a job in
-`docs-checks.yaml` or `lint.yaml` is renamed. Push-event, path-filtered
+`docs-checks.yaml` or `lint.yaml` is renamed (and whenever a job is *added*
+that should be required, as above). Push-event, path-filtered
 (Agent Repo Access) and drift contexts are deliberately left optional — a
 required context that does not exist on a PR head blocks the merge.
 

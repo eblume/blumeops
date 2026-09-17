@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-09-13
+modified: 2026-09-17
 last-reviewed: 2026-08-29
 tags:
   - service
@@ -79,6 +79,7 @@ The forge has three namespaces:
 |----------|---------|--------|---------|
 | `agent-repo-access` | push/PR/dispatch | `indri` | Reconcile the `agents` bot's collaborations + labels against repos.json |
 | `argocd-deploy` | dispatch | `priv` | Warrant-gated ArgoCD deploy of a single app |
+| `argocd-sync-apps` | dispatch | `priv` | Warrant-gated sync of the app-of-apps root (`apps`) |
 | `branch-cleanup` | cron/dispatch | `indri` | Delete stale branches |
 | `build-blumeops` | dispatch | `indri` | Docs build + release |
 | `build-container` | push (main)/PR | `indri` → `nix-container-builder` | Nix container image builds; classify on indri, build on the nix builder ([[build-container-image]]) |
