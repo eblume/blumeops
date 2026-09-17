@@ -110,6 +110,10 @@ in
     actionlint = "1.7.12"
     stylua = "2.4.1"
     shellcheck = "0.11.0"
+    # uv is resolved through the shim by the devpi role (venv build) and by
+    # the indri-label CI jobs (`uv run --script`); without a pin the shim
+    # falls through to Homebrew's uv, so the version would drift silently.
+    uv = "0.11.7"
   '';
 
   system.activationScripts.postActivation.text = lib.mkAfter ''

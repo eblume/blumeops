@@ -136,7 +136,9 @@ previous generation's config automatically. The config pins
 the global go baseline for the source builds (`go` 1.26.7), the host CI
 tools the forgejo runner's jobs resolve via the shims (`dagger` 0.21.9,
 `prek` 0.4.14, `flyctl` 0.4.87, `argocd` 3.3.12, `actionlint` 1.7.12,
-`stylua` 2.4.1, `shellcheck` 0.11.0) and `go.set_goroot = false` — an
+`stylua` 2.4.1, `shellcheck` 0.11.0), `uv` 0.11.7 (the devpi role builds
+its venv through the uv shim, and the indri-label CI jobs run `uv run
+--script` through it) and `go.set_goroot = false` — an
 exported GOROOT breaks Go's `GOTOOLCHAIN=auto` switching, the
 auto-switched driver then resolves `compile` from the pinned GOROOT and
 dies with `compile: version "goX" does not match go tool version "goY"`.
