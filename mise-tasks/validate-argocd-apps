@@ -1,0 +1,139 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml==6.0.3"]
+# ///
+#MISE description="Validate that every argocd/apps Application points at a source the agents bot cannot move"
+"""Validate the app-of-apps payload: no mutable agent-writable pointers.
+
+The `apps` root (argocd/apps/apps.yaml) copies every argocd/apps/*.yaml into
+the cluster as an ArgoCD Application. An Application's (repoURL, targetRevision)
+pair is a POINTER: once the root syncs, ArgoCD tracks that pointer with
+automated sync and self-heal, forever, with no further approval. A pointer the
+`agents` bot can move (its own fork, on a branch it pushes) is therefore a way
+to install arbitrary manifests into any namespace with one approval — the
+pointer problem the `argocd-sync-apps` warrant exists to close.
+
+So: refuse any Application whose source is not a reviewed, agent-NON-writable
+pointer. This is the payload half of invariant 2 (TOCTOU) at the root level.
+
+Enforced in two places, same code:
+  * the argocd-sync-apps.yaml workflow, against the bound SHA about to sync —
+    it runs MAIN's reviewed copy of this script over the payload's
+    argocd/apps/ (fetched as data), never the payload's own copy; and
+  * the Lint PR check, on every PR (catches it earlier and covers the
+    post-merge path, where any root sync — even a human one — installs it).
+    The lint job runs this script from the PR checkout; a fork PR could ship a
+    neutered copy and pass that gate. The backstop is the sync-time check,
+    which runs main's reviewed copy — main moves only via a human-merged PR.
+
+Allowed sources (a reviewed allowlist — extending it is a reviewed change):
+  * eblume/blumeops.git @ main — the canonical GitOps source of truth; main
+    moves only via a human-merged PR, which the agents bot cannot do (read-only
+    on canonical).
+  * mirrors/*.git @ any ref — read-only mirrors the agent cannot push; the ref
+    moves only via the human/CI mirror-update process.
+Refused: agents/* forks (agent-writable), and any host/org not in the list
+above (unknown = refuse; a new legitimate source needs a reviewed edit here).
+Each argocd/apps/*.yaml must be exactly one ArgoCD Application manifest.
+"""
+
+import re
+import sys
+from pathlib import Path
+
+import yaml
+
+# (url_pattern, required_target_revision_or_None). None means any ref is fine
+# (read-only mirror); "main" pins the canonical source to the reviewed branch.
+# The host is the forge under either the public or the tailnet name.
+_HOST = r"forge(?:\.ops)?\.eblu\.me"
+ALLOWED_SOURCES = [
+    (re.compile(rf"^ssh://[^@]+@{_HOST}:\d+/eblume/blumeops\.git$"), "main"),
+    (re.compile(rf"^ssh://[^@]+@{_HOST}:\d+/mirrors/[^/]+\.git$"), None),
+]
+
+
+def is_safe(repo_url: str, target_revision: str | None) -> tuple[bool, str]:
+    if not repo_url:
+        return False, "missing spec.source.repoURL"
+    for url_re, required_rev in ALLOWED_SOURCES:
+        if url_re.fullmatch(repo_url):
+            if required_rev is not None and target_revision != required_rev:
+                return False, (
+                    f"targetRevision must be `{required_rev}` for {repo_url} "
+                    f"(got {target_revision!r}) — a moving or off-branch ref "
+                    "on the canonical repo is not the reviewed source of truth"
+                )
+            return True, "ok"
+    return False, (
+        f"{repo_url} is not an allowed source — allowed: the canonical "
+        "eblume/blumeops.git @ main and read-only mirrors/*.git. agents/* "
+        "forks and any other repo are refused: an Application is a pointer "
+        "ArgoCD tracks forever, and a pointer the agent can move installs "
+        "arbitrary manifests with no further approval"
+    )
+
+
+def validate_file(path: Path) -> list[str]:
+    """Return a list of error strings for one Application file (empty = ok)."""
+    try:
+        docs = [d for d in yaml.safe_load_all(path.read_text()) if d is not None]
+    except yaml.YAMLError as exc:
+        return [f"{path.name}: YAML parse error: {exc}"]
+    if len(docs) != 1:
+        return [f"{path.name}: expected exactly one document, found {len(docs)}"]
+    doc = docs[0]
+    if not isinstance(doc, dict) or doc.get("kind") != "Application":
+        return [f"{path.name}: must be a single ArgoCD Application manifest (kind: Application)"]
+    spec = doc.get("spec")
+    if not isinstance(spec, dict):
+        return [f"{path.name}: missing or invalid spec (expected a mapping)"]
+    if "sources" in spec:
+        return [
+            (
+                f"{path.name}: multi-source Application (spec.sources) is not allowed — "
+                "each source would need validating; use a single spec.source"
+            )
+        ]
+    src = spec.get("source")
+    if not isinstance(src, dict):
+        return [f"{path.name}: missing or invalid spec.source (expected a mapping)"]
+    repo_url = src.get("repoURL")
+    target_revision = src.get("targetRevision")
+    if not isinstance(repo_url, str):
+        return [f"{path.name}: spec.source.repoURL must be a string"]
+    ok, reason = is_safe(repo_url, target_revision)
+    return [] if ok else [f"{path.name}: unsafe source: {reason}"]
+
+
+def main() -> int:
+    # Optional arg: the argocd/apps directory to validate. Defaults to the
+    # checkout's own argocd/apps. The sync-apps workflow passes a temp dir
+    # holding the BOUND SHA's argocd/apps, so it validates the payload with
+    # main's reviewed copy of this script (never the payload's own copy).
+    apps_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("argocd/apps")
+    if not apps_dir.is_dir():
+        print(f"::error::no {apps_dir}/ directory")
+        return 1
+
+    files = sorted(apps_dir.glob("*.yaml")) + sorted(apps_dir.glob("*.yml"))
+    if not files:
+        print(f"::error::no Application files found under {apps_dir}/")
+        return 1
+
+    errors: list[str] = []
+    for path in files:
+        errors.extend(validate_file(path))
+
+    if errors:
+        for e in errors:
+            print(f"::error::{e}")
+        print(f"::error::{len(errors)} problem(s) across {len(files)} Application file(s) — refusing")
+        return 1
+    print(f"validated {len(files)} Application file(s): all sources are reviewed, agent-non-writable pointers")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

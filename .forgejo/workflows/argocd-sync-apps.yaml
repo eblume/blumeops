@@ -15,6 +15,14 @@
 #
 # runs-on: priv (invariant 3); definitions execute from main (invariant 3);
 # the revision input is the approved, immutable payload.
+#
+# Payload validation (invariant 2 at the root): before pinning, the workflow
+# checks out main and fetches the bound SHA's argocd/apps/ as data, then runs
+# main's reviewed mise-tasks/validate-argocd-apps over it. Every Application
+# the root would install must point at a source the agents bot cannot move
+# (eblume/blumeops.git @ main, or a read-only mirror). A pointer the bot CAN
+# move — its own fork on a branch — would let one approval install arbitrary
+# manifests into any namespace, which the check refuses.
 
 name: ArgoCD Sync Apps
 
@@ -40,6 +48,35 @@ jobs:
             echo "::error::revision must be 'main' or a FULL 40-char SHA (got: $REV) — approvals bind to immutable SHAs"
             exit 1
           fi
+
+      # Checkout MAIN (not the bound SHA) so the validator that runs below is
+      # the reviewed one — a payload PR could ship a neutered copy of it, and
+      # we must never execute the payload's own code. The payload itself is
+      # fetched as data only. (Same discipline as argocd-deploy's
+      # "Checkout main (app allowlist comes from reviewed state)".)
+      - name: Checkout main (reviewed validator)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The root sync turns the bound SHA's argocd/apps/*.yaml into live
+      # ArgoCD Applications, each tracked forever with automated sync and
+      # self-heal. Refuse — before pinning — if any of them points at a source
+      # the agents bot can move (its fork, on a branch it pushes). Forgejo
+      # advertises PR heads as refs/pull/N/head on canonical, so a bound SHA
+      # that is the PR's current head is git-fetchable (verified — see
+      # docs/reference/services/argocd.md "SHA reachability"); a bound SHA that
+      # is not an advertised ref tip fails the fetch below and the run is
+      # refused, which is the safe direction. A fetchable pre-merge head is a
+      # real, installable payload — which is why we validate it rather than
+      # trust it.
+      - name: Refuse a payload with a mutable pointer
+        env:
+          REV: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          git fetch --depth 1 origin "$REV"
+          payload_dir="$(mktemp -d)"
+          git archive FETCH_HEAD argocd/apps | tar -x -C "$payload_dir"
+          ./mise-tasks/validate-argocd-apps "$payload_dir/argocd/apps"
 
       # Pin to the bound SHA so the sync applies exactly the reviewed
       # payload, then reset to tracking main — always, even on sync failure,
