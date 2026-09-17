@@ -43,10 +43,12 @@ spec:
             - name: TZ
               value: "America/Los_Angeles"
           volumeMounts:
-            - name: config
+            - name: data
               mountPath: /config
-            - name: metadata
+              subPath: config
+            - name: data
               mountPath: /metadata
+              subPath: metadata
             - name: music
               mountPath: /music
               readOnly: true
@@ -74,10 +76,10 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
       volumes:
-        - name: config
-          persistentVolumeClaim:
-            claimName: audiobookshelf-data
-        - name: metadata
+        # One volume, two subPath mounts: referencing the same PVC under two
+        # volume names deadlocks kubelet's volume manager (it keys by PVC), and
+        # the pod sits in ContainerCreating with "unmounted volumes=[config]".
+        - name: data
           persistentVolumeClaim:
             claimName: audiobookshelf-data
         - name: music
