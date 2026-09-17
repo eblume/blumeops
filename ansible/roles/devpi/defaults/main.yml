@@ -17,5 +17,6 @@ devpi_outside_url: "https://pypi.ops.eblu.me"
 
 devpi_log_dir: /Users/erichblume/Library/Logs
 
-# uv binary on indri — mise shim so version bumps via `mise upgrade uv` flow through transparently
+# uv binary on indri — mise shim; the version is the `uv` pin in the indri
+# nix-darwin flake (darwin/indri/configuration.nix), so bumps are a flake PR
 devpi_uv_binary: /Users/erichblume/.local/share/mise/shims/uv
