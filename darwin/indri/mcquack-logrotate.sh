@@ -1,0 +1,29 @@
+#!/bin/sh
+# Rotate mcquack launchd logs in place. launchd opens StandardOutPath once
+# with O_APPEND and holds the fd, so mv-based rotation leaves the service
+# writing into the renamed file; copy + in-place truncate keeps the fd valid.
+# alloy tails the same paths and treats size < position as truncation.
+
+set -eu
+
+log_dir='/Users/erichblume/Library/Logs'
+pattern='mcquack.*.log'
+threshold=$(( 256 * 1024 * 1024 ))
+keep=3
+
+for f in "$log_dir"/$pattern; do
+  [ -f "$f" ] || continue
+  size=$(wc -c < "$f")
+  [ "$size" -gt "$threshold" ] || continue
+  i=$keep
+  while [ "$i" -gt 1 ]; do
+    prev=$((i - 1))
+    if [ -f "$f.$prev" ]; then
+      mv "$f.$prev" "$f.$i"
+    fi
+    i=$prev
+  done
+  # cp needs 2x the file's size in transient space; on ENOSPC set -eu exits with $f intact and the next run retries
+  cp "$f" "$f.1"
+  : > "$f"
+done

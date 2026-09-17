@@ -1,4 +1,11 @@
 ---
+# logrotate on indri is nix-managed (darwin/indri, PR 2 of the nix-darwin
+# series): the generation owns the unit and the copy+truncate script, so a
+# normal provision must not touch it. Flip this to true only for the
+# rollback re-write (darwin-rebuild --rollback first, then
+# `mise run provision-indri -- --tags logrotate -e logrotate_ansible_managed=true`),
+# per docs/how-to/indri/provision.md §Rolling back a service flip.
+logrotate_ansible_managed: false
 logrotate_log_dir: /Users/erichblume/Library/Logs
 logrotate_pattern: 'mcquack.*.log'
 logrotate_threshold_mb: 256

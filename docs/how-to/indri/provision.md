@@ -190,12 +190,15 @@ logs in ([[restart-indri]]):
 
 Each service migration writes its plist at the same path ansible used,
 under the same `mcquack.eblume.*` label (logrotate's globs and alloy's log
-tails key on it). When a generation changes a service's plist, the rollback
-order is fixed: `sudo darwin-rebuild --rollback` **first** (nix-darwin
-unloads and deletes agents the target generation does not declare, whoever
-wrote the plist last — the service is down), then
-`mise run provision-indri -- --tags <svc>` (ansible writes the plist back).
-Never ansible first — that would leave the old plist loaded under the new
+tails key on it). Once a service is flipped, its ansible role is skipped by
+default (a role variable is off), so only the generation owns the plist.
+When a generation changes a service's plist, the rollback order is fixed:
+`sudo darwin-rebuild --rollback` **first** (nix-darwin unloads and deletes
+agents the target generation does not declare, whoever wrote the plist last
+— the service is down), then re-run the role with its gate flipped — for
+logrotate, `mise run provision-indri -- --tags logrotate -e
+logrotate_ansible_managed=true` — so ansible writes the plist back. Never
+ansible first — that would leave the old plist loaded under the new
 generation.
 
 ## Window hygiene
