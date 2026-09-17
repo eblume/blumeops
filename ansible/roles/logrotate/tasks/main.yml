@@ -7,14 +7,14 @@
     path: "{{ logrotate_script | dirname }}"
     state: directory
     mode: '0755'
-  when: logrotate_ansible_managed
+  when: logrotate_ansible_managed | bool
 
 - name: Deploy mcquack log rotation script
   ansible.builtin.template:
     src: mcquack-logrotate.sh.j2
     dest: "{{ logrotate_script }}"
     mode: '0755'
-  when: logrotate_ansible_managed
+  when: logrotate_ansible_managed | bool
 
 - name: Deploy mcquack log rotation LaunchAgent plist
   ansible.builtin.template:
@@ -22,19 +22,19 @@
     dest: ~/Library/LaunchAgents/mcquack.eblume.logrotate.plist
     mode: '0644'
   notify: Restart logrotate
-  when: logrotate_ansible_managed
+  when: logrotate_ansible_managed | bool
 
 - name: Check if logrotate LaunchAgent is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.logrotate
   register: logrotate_launchctl_check
   changed_when: false
   failed_when: false
-  when: logrotate_ansible_managed
+  when: logrotate_ansible_managed | bool
 
 - name: Load logrotate LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.logrotate.plist
   when:
-    - logrotate_ansible_managed
+    - logrotate_ansible_managed | bool
     - logrotate_launchctl_check.rc != 0
   changed_when: true
   failed_when: false

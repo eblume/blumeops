@@ -1,0 +1,1 @@
+indri: the logrotate rollback re-writer's gate now accepts `-e logrotate_ansible_managed=true` as documented (`| bool`; ansible-core 2.19 rejected the string), and the runbook records that nix-darwin's rollback only unloads dropped user agents when the target generation still declares one — both found by the PR 2 rollback drill.
