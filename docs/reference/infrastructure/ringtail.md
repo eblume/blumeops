@@ -1,7 +1,7 @@
 ---
 title: Ringtail
-modified: 2026-09-12
-last-reviewed: 2026-09-12
+modified: 2026-09-16
+last-reviewed: 2026-09-16
 tags:
   - infrastructure
   - host
@@ -280,6 +280,18 @@ re-enabled on 2026-09-11 at 12:07 PDT under eblume/blumeops#999: beyla
 v3.33.0, which carries the upstream uprobe-preemption fix, behind a
 16-namespace allowlist. The re-enable canary and its criteria live in
 eblume/blumeops#983; the full incident thread is eblume/blumeops#1003.
+
+**GPU husk reaper** (eblume/blumeops#1151): after a hard reboot, kubelet
+readmits the node's bound pods before the `nvidia-device-plugin` DaemonSet has
+re-registered `nvidia.com/gpu`, so each GPU workload (Frigate, Immich ML,
+ollama) fails allocation and leaves a permanent `UnexpectedAdmissionError`
+husk — the Deployment creates a `Running` replacement in ~100 s, but kubelet
+never reaps the Failed pod (upstream kubelet behaviour; the real fix —
+deferred admission — is not in k3s 1.34, no earlier than Kubernetes 1.37). A
+reaper CronJob in the `nvidia-device-plugin` app
+(`argocd/manifests/nvidia-device-plugin/cronjob-gpu-husk-reaper.yaml`) deletes
+Failed pods that request `nvidia.com/gpu` every 10 minutes, so the husks are
+gone ~10 min after boot with no manual `kubectl delete pod`.
 
 ## Related
 
