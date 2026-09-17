@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.1"]
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
 #MISE description="Per-provider OpenRouter probe: effort sensitivity, empty-completion, error/429 rates (agent-usable)"
 #USAGE arg "<model>" help="OpenRouter model slug, e.g. deepseek/deepseek-v4-flash-0731"

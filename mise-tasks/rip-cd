@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.13"
-# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.1"]
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
 #MISE description="[human] Rip an audio CD to FLAC in a staging dir with disc IDs, CD-TEXT and MusicBrainz candidates (indri's Pioneer drive)"
 #USAGE flag "--device <dev>" help="Optical device, e.g. /dev/disk4 (default: whatever drutil reports)"

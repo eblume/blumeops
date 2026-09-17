@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.13"
-# dependencies = ["httpx[socks]==0.28.1", "mutagen==1.48.1", "rich==15.0.0", "typer==0.27.1"]
+# dependencies = ["httpx[socks]==0.28.1", "mutagen==1.48.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
 #MISE description="[human] Tag a rip-cd staging dir from its metadata.json and file it into the music library (indri)"
 #USAGE arg "<staging>" help="Staging dir written by rip-cd"

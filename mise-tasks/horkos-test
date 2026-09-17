@@ -5,12 +5,12 @@
 #   "pytest==9.1.1",
 #   "fastapi==0.141.1",
 #   "httpx==0.28.1",
-#   "pyjwt==2.13.0",
-#   "cryptography==50.0.0",
+#   "pyjwt==2.14.0",
+#   "cryptography==50.0.1",
 #   "python-multipart==0.0.32",
 #   "pyyaml==6.0.3",
 #   # request-run's own imports, so tests/ can load it
-#   "typer==0.27.1",
+#   "typer==0.27.2",
 #   "rich==15.0.0",
 # ]
 # ///

@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx[socks]==0.28.1", "pyyaml==6.0.3", "rich==15.0.0", "typer==0.27.1"]
+# dependencies = ["httpx[socks]==0.28.1", "pyyaml==6.0.3", "rich==15.0.0", "typer==0.27.2"]
 # ///
 #MISE description="Check that kustomization image pins under registry.ops.eblu.me exist in the registry"
 #USAGE flag "--all-files" help="Check every kustomization, not just changed ones"

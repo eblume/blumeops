@@ -41,7 +41,7 @@ name = "ansible-lint"
 entry = "env ANSIBLE_ROLES_PATH=ansible/roles ansible-lint"
 language = "python"
 files = "^ansible/"
-additional_dependencies = ["ansible-lint==26.8.0", "ansible-core==2.21.3"]
+additional_dependencies = ["ansible-lint==26.8.0", "ansible-core==2.21.4"]
 
 # Python - ruff for linting and formatting
 #
@@ -65,7 +65,7 @@ additional_dependencies = ["ansible-lint==26.8.0", "ansible-core==2.21.3"]
 # `[human]` prefixes AGENTS.md keys the agent fence off, and breaks aliases.
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "aab412d509121cb5f7533134b7e67f9fab59c682" # v0.16.4
+rev = "2eeb5678de71a00c0902cbda7105d328432f72cb" # v0.16.8
 hooks = [
   { id = "ruff", args = [
     "--fix",
@@ -103,7 +103,7 @@ hooks = [
 
 [[repos]]
 repo = "https://github.com/scop/pre-commit-shfmt"
-rev = "05c1426671b9237fb5e1444dd63aa5731bec0dfb"             # v3.13.1-1
+rev = "479be5958357ba5ab65ce47172117348516860e9"             # v3.14.1-1
 hooks = [{ id = "shfmt", args = ["-i", "2", "-ci", "-bn"] }]
 
 # TOML - taplo
@@ -115,7 +115,7 @@ hooks = [{ id = "taplo-format" }, { id = "taplo-lint", args = ["--no-schema"] }]
 # JSON formatting (prettier for consistent style)
 [[repos]]
 repo = "https://github.com/rbubley/mirrors-prettier"
-rev = "0ee178619d696787ca73d210cc191d720868c631"                                # v3.9.6
+rev = "b40b4e02d5a0c977e64da51e8742e3240ef6372a"                                # v3.9.7
 hooks = [{ id = "prettier", types_or = ["json"], args = ["--tab-width", "2"] }]
 
 # GitHub/Forgejo Actions workflow linting
