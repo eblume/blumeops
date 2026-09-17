@@ -1,0 +1,84 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: gpu-husk-reaper
+  namespace: nvidia-device-plugin
+spec:
+  schedule: "*/10 * * * *"  # Husks are replaced in ~100 s; cost is muddied health signal only
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400  # Auto-delete after 1 day
+      template:
+        spec:
+          serviceAccountName: gpu-husk-reaper
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: reaper
+              image: registry.ops.eblu.me/blumeops/kubectl:kustomized
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+
+                  # After a host reboot, kubelet readmits GPU pods before the device
+                  # plugin re-registers nvidia.com/gpu; the allocation fails and the
+                  # pod stays Failed forever. Reaper scoped to GPU pods (issue #1151).
+                  pods=$(kubectl get pods --all-namespaces --field-selector status.phase=Failed \
+                    -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}')
+
+                  fail=0
+                  while IFS= read -r ns_name; do
+                    [ -n "$ns_name" ] || continue
+                    ns=${ns_name%%/*}; name=${ns_name##*/}
+                    # jsonpath emits the literal spaces between items even when both
+                    # fields are absent, so require a non-whitespace character.
+                    gpu=$(kubectl get pod -n "$ns" "$name" -o jsonpath='{range .spec.containers[*]}{.resources.limits."nvidia\.com/gpu"} {.resources.requests."nvidia\.com/gpu"} {end}' || echo)
+                    if grep -q '[^[:space:]]' <<<"$gpu"; then
+                      if kubectl delete pod -n "$ns" "$name"; then
+                        echo "reaped $ns/$name"
+                      else
+                        echo "delete failed for $ns/$name" >&2
+                        fail=1
+                      fi
+                    fi
+                  done <<<"$pods"
+                  exit $fail
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gpu-husk-reaper
+  namespace: nvidia-device-plugin
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gpu-husk-reaper
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gpu-husk-reaper
+subjects:
+  - kind: ServiceAccount
+    name: gpu-husk-reaper
+    namespace: nvidia-device-plugin
+roleRef:
+  kind: ClusterRole
+  name: gpu-husk-reaper
+  apiGroup: rbac.authorization.k8s.io

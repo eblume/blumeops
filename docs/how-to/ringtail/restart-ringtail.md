@@ -1,7 +1,7 @@
 ---
 title: Restart Ringtail
-modified: 2026-09-12
-last-reviewed: 2026-09-12
+modified: 2026-09-16
+last-reviewed: 2026-09-16
 tags:
   - how-to
   - operations
@@ -66,9 +66,10 @@ ssh ringtail 'sudo k3s kubectl -n argocd get applications -o custom-columns=NAME
 ```
 
 Expect a few `Error` / `UnexpectedAdmissionError` pods with **0 restarts and an
-old age** — corpses from earlier ReplicaSets that Kubernetes never
-garbage-collects. Ignore them (or `kubectl delete pod` them so the post-boot
-check is cleaner); a pod that is *restarting* is the thing to look at.
+old age** — GPU husks left behind by earlier hard reboots (kubelet readmission
+racing the device plugin; see [[ringtail#Maintenance Notes]]). A reaper
+CronJob in the `nvidia-device-plugin` app deletes them automatically ~10
+minutes after each boot; a pod that is *restarting* is the thing to look at.
 
 If an agent session is active (a `heph` task in progress, a PR being built),
 let it finish or accept that it dies.
@@ -141,7 +142,7 @@ kernel 6.12.87 → 6.12.93, done as a dry run before the RAM swap):
 | SSH drops | ~0:40 | systemd has stopped k3s and sshd |
 | Boot menu | | Generation list plus Memtest86+ entry, confirmed on the console. (The pause to look at it is the only reason the next row is not ~1:30.) |
 | SSH back, greetd up | ~5:00 | `k3s.service` starts within ~10 s of the graphical target |
-| GPU pods rescheduled | k3s + ~1:00 | `nvidia-device-plugin` restarts twice, then Frigate and Immich ML land fresh `Running` pods; the old ones stay behind as `UnexpectedAdmissionError` corpses |
+| GPU pods rescheduled | k3s + ~1:00 | `nvidia-device-plugin` restarts twice, then Frigate and Immich ML land fresh `Running` pods; the old ones stay behind as `UnexpectedAdmissionError` husks until the reaper CronJob deletes them (~10 min) |
 | Everything settled | k3s + ~3:30 | All workloads `Running`, every ArgoCD app `Synced`/`Healthy`, CNPG clusters healthy, `systemctl --failed` empty |
 | Alerts quiet | k3s + ~5–10 min | `LogStreamSilent*` and `ServiceProbeFailure` sit **Pending** while Prometheus and Loki refill their windows. Pending is expected; **Firing** after ten minutes is not. |
 
@@ -225,6 +226,10 @@ Things that commonly need a nudge:
 - **Pods stuck `ContainerCreating` on the GPU node** — the NVIDIA device
   plugin registers after the driver loads; wait, then check
   `nvidia-device-plugin`.
+- **GPU `UnexpectedAdmissionError` husks persisting** — the reaper CronJob in
+  the `nvidia-device-plugin` app clears them ~10 min after boot; if they are
+  still there past that, check the plugin DaemonSet and the reaper's Job logs
+  (`kubectl -n nvidia-device-plugin get jobs`).
 - **Frigate or Immich `CrashLoopBackOff`** — usually waiting on its CNPG
   cluster to finish recovery; watch `kubectl get cluster -A`.
 - **ArgoCD `Unknown` health on everything** — ArgoCD itself is still starting.

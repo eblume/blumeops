@@ -5,6 +5,7 @@ namespace: nvidia-device-plugin
 
 resources:
   - daemonset.yaml
+  - cronjob-gpu-husk-reaper.yaml
   - runtime-class.yaml
   - time-slicing-config.yaml
 
