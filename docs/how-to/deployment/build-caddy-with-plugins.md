@@ -25,6 +25,10 @@ Caddy is built from source using `xcaddy` with two plugins:
 cd ~/code/3rd/caddy && mise run build
 ```
 
+The checkout's local `mise.toml` is deliberate: its pins shadow indri's
+global mise config for this build (the play's per-checkout removal of stray
+mise.toml files skips caddy for exactly this reason — see [[caddy]]).
+
 ## Forge Mirrors
 
 - `mirrors/caddy`

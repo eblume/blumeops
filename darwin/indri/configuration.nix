@@ -1,6 +1,9 @@
-{ pkgs, ... }:
+{ config, lib, pkgs, ... }:
 let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
+  # Where activation links the generation-owned mise config; mise follows
+  # the symlink for reads and writes.
+  miseConfigHome = "${config.system.primaryUserHome}/.config/mise/config.toml";
 in
 {
   # Explicit target platform: indri is an M1 Mac mini, and pinning it
@@ -65,6 +68,63 @@ in
   # declarative `pmset -a sleep 0`; Amphetamine stays as the second layer.
   # See [[indri]] §Maintenance Notes.
   power.sleep.computer = "never";
+
+  # --- mise toolchain (declarative) ---
+  # indri's global mise config: the go baseline the source builds use, the
+  # CI host tools the forgejo runner needs, and the go.set_goroot setting the
+  # GOTOOLCHAIN=auto builds depend on. This used to be written imperatively
+  # by the indri play (`mise use --global`, `mise settings set`); the play
+  # now only keeps the Homebrew mise install + version floor. A pin change
+  # is a flake PR plus `mise run provision-indri -- --tags rebuild`; a
+  # newly-pinned version is installed on first shim use (mise auto_install)
+  # or by `mise install`.
+  #
+  # environment.etc lands it at /etc/static/mise/config.toml; the
+  # postActivation fragment below symlinks it as
+  # ${config.system.primaryUserHome}/.config/mise/config.toml. The file is
+  # generation-owned and read-only in practice: change pins here, not with
+  # `mise use --global` / `mise settings set`. The fragment runs under
+  # `set -e` as root; every path must end in a success, so it cannot fail
+  # the switch. The target store path differs per generation, so
+  # `darwin-rebuild --rollback` re-links the previous generation's config
+  # automatically.
+  environment.etc."mise/config.toml".text = ''
+    [settings.go]
+    # GOROOT export stays off: an exported GOROOT breaks Go's
+    # GOTOOLCHAIN=auto switching (the auto-switched driver resolves
+    # `compile` from the pinned GOROOT). See [[upgrade-forgejo]] §Go
+    # toolchain.
+    set_goroot = false
+
+    [tools]
+    # The global go baseline for the forgejo/zot source builds, plus the
+    # host CI tools the forgejo runner's jobs resolve via the shims.
+    # Every pin mirrors one that lives elsewhere (prek.toml,
+    # service-versions.yaml, the dagger CLI pin); this file is the single
+    # source of truth on indri.
+    go = "1.26.7"
+    dagger = "0.21.9"
+    prek = "0.4.14"
+    flyctl = "0.4.87"
+    argocd = "3.3.12"
+    actionlint = "1.7.12"
+    stylua = "2.4.1"
+    shellcheck = "0.11.0"
+  '';
+
+  system.activationScripts.postActivation.text = lib.mkAfter ''
+    if [[ -d ${lib.escapeShellArg config.system.primaryUserHome} ]]; then
+      {
+        mkdir -p ${lib.escapeShellArg "${config.system.primaryUserHome}/.config/mise"} &&
+        ln -sfn ${lib.escapeShellArg "/etc/static/mise/config.toml"} ${lib.escapeShellArg miseConfigHome} &&
+        chown -h erichblume:staff ${lib.escapeShellArg miseConfigHome}
+      } || printf >&2 'warning: indri mise config: could not link ${lib.escapeShellArg miseConfigHome}\n'
+      :
+    else
+      printf >&2 'warning: indri mise config: ${lib.escapeShellArg config.system.primaryUserHome} missing, skipped\n'
+      :
+    fi
+  '';
 
   # --- launchd label convention for nix-managed services ---
   # Every nix-managed user agent sets serviceConfig.Label =

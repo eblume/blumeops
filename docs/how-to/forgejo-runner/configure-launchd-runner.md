@@ -51,8 +51,9 @@ ssh indri 'cd ~/code/3rd/forgejo-runner && git fetch --tags && git checkout v13.
 ```
 
 > **A plain `make build` works at any tag.** go comes from the indri global
-> mise baseline (`indri_go_version` in the indri play) and `GOTOOLCHAIN=auto`
-> switches per `go.mod` — the play turns off mise's `GOROOT` export
+> mise baseline (declared in the indri flake's mise config,
+> `darwin/indri/configuration.nix`) and `GOTOOLCHAIN=auto` switches per
+> `go.mod` — that config keeps mise's `GOROOT` export off
 > (`go.set_goroot false`), which used to break the auto-switch (bit us on the
 > v12 → v13 bump, which raised the floor to go 1.26). The role also removes
 > the checkout's untracked `mise.toml`, which used to pin a stale go.

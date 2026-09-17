@@ -120,8 +120,32 @@ apply runbook is [[provision]]:
 The indri play ensures `brew install mise` (`Install mise via Homebrew`,
 top of `pre_tasks`) and every mise call in the play and the roles goes
 through `indri_mise_bin` (`/opt/homebrew/bin/mise`), including the forgejo
-source build (`forgejo_mise_bin`). `~/.config/mise/config.toml` (global
-tool pins such as `prek`, `go`) is chezmoi-managed, outside blumeops.
+source build (`forgejo_mise_bin`).
+
+**The global mise config is declarative.** Indri's global mise config
+(`~erichblume/.config/mise/config.toml`) is owned by the indri nix-darwin
+flake: `darwin/indri/configuration.nix` declares it as
+`environment.etc."mise/config.toml"` (a store symlink at
+`/etc/static/mise/config.toml`), and the generation's `postActivation`
+fragment symlinks it to `~erichblume/.config/mise/config.toml`
+(activation runs as root; the fragment is written so it can never fail the
+switch). The file is generation-owned and read-only in practice: change
+pins in the flake, not with `mise use` / `mise settings set`. The link
+target changes per generation, so `darwin-rebuild --rollback` re-links the
+previous generation's config automatically. The config pins
+the global go baseline for the source builds (`go` 1.26.7), the host CI
+tools the forgejo runner's jobs resolve via the shims (`dagger` 0.21.9,
+`prek` 0.4.14, `flyctl` 0.4.87, `argocd` 3.3.12, `actionlint` 1.7.12,
+`stylua` 2.4.1, `shellcheck` 0.11.0) and `go.set_goroot = false` — an
+exported GOROOT breaks Go's `GOTOOLCHAIN=auto` switching, the
+auto-switched driver then resolves `compile` from the pinned GOROOT and
+dies with `compile: version "goX" does not match go tool version "goY"`.
+A pin change is a flake PR; a newly-pinned version is installed on first
+shim use (mise auto_install) or by `mise install`. The old
+chezmoi-managed file is superseded — forget the dotfiles-side source
+(`chezmoi forget ~/.config/mise/config.toml`) so a later `chezmoi apply`
+does not replace the symlink with a plain file (that would silently revert
+ownership).
 
 **Retired: the old per-user nix-darwin profile.** Before the 2026-09
 re-foundation (see [[provision]]), indri ran nix-darwin + home-manager, and
