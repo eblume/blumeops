@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.1"]
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
 #MISE description="Register/list/show/cancel talos heph-task watcher jobs, using the agents-m2m JWT (agent-usable)"
 """Register one-shot talos watcher jobs against https://talos.ops.eblu.me/api/crons

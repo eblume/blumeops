@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.13"
-# dependencies = ["rich==15.0.0", "typer==0.27.1"]
+# dependencies = ["rich==15.0.0", "typer==0.27.2"]
 # ///
 #MISE description="[human] File a rip-video staging dir into the Jellyfin library per its metadata.json (indri)"
 #USAGE arg "<staging>" help="Staging dir written by rip-video"

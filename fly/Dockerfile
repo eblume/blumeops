@@ -1,5 +1,5 @@
-# nginx 1.30.4-alpine
-FROM nginx@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46
+# nginx 1.30.5-alpine
+FROM nginx@sha256:25820c39dba41369486df729ad6697de2fab631ca809e0503e1d1e0c73d9a232
 
 # Copy tailscale binaries from official image (v1.102.3)
 COPY --from=docker.io/tailscale/tailscale@sha256:8c42c4574ab066384fcb72f69e086a2ff1dd3652eb6f56856cee34bcf0d2f680 \
@@ -13,8 +13,8 @@ RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
     && apk add --no-cache fail2ban \
     && rm -f /etc/fail2ban/jail.d/alpine-ssh.conf
 
-# Copy Alloy binary from official image (v1.18.1, Ubuntu-based, needs libc6-compat)
-COPY --from=docker.io/grafana/alloy@sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33 \
+# Copy Alloy binary from official image (v1.19.2, Ubuntu-based, needs libc6-compat)
+COPY --from=docker.io/grafana/alloy@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839 \
     /bin/alloy /usr/local/bin/alloy
 
 # Copy Anubis binary from official image (v1.27.0, ko-built static binary

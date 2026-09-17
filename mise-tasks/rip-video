@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.13"
-# dependencies = ["rich==15.0.0", "typer==0.27.1"]
+# dependencies = ["rich==15.0.0", "typer==0.27.2"]
 # ///
 #MISE description="[human] Rip a DVD or Blu-ray with makemkvcon into a staging dir with a title inventory for labeling (indri's Pioneer drive)"
 #USAGE flag "--disc <n>" help="MakeMKV disc index (default: first drive with a disc loaded)"

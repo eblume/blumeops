@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx==0.28.1", "typer==0.27.1"]
+# dependencies = ["httpx==0.28.1", "typer==0.27.2"]
 # ///
 #MISE description="[human] Rotate a zot CI API key (zot-ci|ci-zot|ci-zot-talos|ci-zot-horkos|horkos-zot) from its current key: mint, store in 1Password, sync to its consumer, revoke the rest"
 #USAGE arg "<identity>" help="zot-ci, ci-zot, ci-zot-talos, ci-zot-horkos or horkos-zot"
