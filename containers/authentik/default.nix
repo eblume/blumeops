@@ -7,13 +7,13 @@
 #   4. ak wrapper      — sets PATH/VIRTUAL_ENV, delegates to lifecycle/ak
 #
 # Built with dockerTools.buildLayeredImage for efficient layer caching.
-{ pkgs ? import <nixpkgs> { } }:
+{ pkgs ? import <nixpkgs> { }, buildHash ? "nix" }:
 
 let
   sources = import ./sources.nix { inherit pkgs; };
   # Duplicated from sources.nix so build-container.yaml can grep it
   version = "2026.2.6";
-  webui = import ./webui.nix { inherit pkgs sources; };
+  webui = import ./webui.nix { inherit pkgs sources buildHash; };
   authentik-django = import ./authentik-django.nix { inherit pkgs sources webui; };
   authentik-server = import ./authentik-server.nix { inherit pkgs sources authentik-django webui; };
 
@@ -66,6 +66,9 @@ pkgs.dockerTools.buildLayeredImage {
       "TZDIR=${pkgs.tzdata}/share/zoneinfo"
       "TMPDIR=/tmp"
       "AUTHENTIK_BLUEPRINTS_DIR=/blueprints"
+      # Must match the web build so authentik_full_version() resolves the
+      # entry bundle filenames.
+      "GIT_BUILD_HASH=${buildHash}"
     ];
     ExposedPorts = {
       "9000/tcp" = { };

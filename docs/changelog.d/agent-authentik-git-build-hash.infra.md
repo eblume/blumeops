@@ -1,0 +1,1 @@
+The authentik container build now sets `GIT_BUILD_HASH` (the image-tag short sha) for both the web build and the runtime, so the immutable-cached entry bundles get a new name on every rebuild instead of 404ing behind a stale browser cache.
