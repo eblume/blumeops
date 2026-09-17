@@ -1,6 +1,6 @@
 ---
 title: Provision Indri
-modified: 2026-09-16
+modified: 2026-09-17
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -214,13 +214,33 @@ under the same `mcquack.eblume.*` label (logrotate's globs and alloy's log
 tails key on it). Once a service is flipped, its ansible role is skipped by
 default (a role variable is off), so only the generation owns the plist.
 When a generation changes a service's plist, the rollback order is fixed:
-`sudo darwin-rebuild --rollback` **first** (nix-darwin unloads and deletes
-agents the target generation does not declare, whoever wrote the plist last
-— the service is down), then re-run the role with its gate flipped — for
-logrotate, `mise run provision-indri -- --tags logrotate -e
-logrotate_ansible_managed=true` — so ansible writes the plist back. Never
-ansible first — that would leave the old plist loaded under the new
-generation.
+`sudo darwin-rebuild --rollback` **first**, then re-run the role with its
+gate flipped — for logrotate, `mise run provision-indri -- --tags logrotate
+-e logrotate_ansible_managed=true` — so ansible writes the plist back and
+its restart handler reloads the agent. Never ansible first — that would
+leave the old plist loaded under the new generation.
+
+What the rollback itself does depends on the target generation
+(nix-darwin `modules/system/launchd.nix`, unchanged on master as of
+2026-09-17): the user-launchd phase — including the loop that unloads and
+deletes agents the target does not declare — is emitted only when the
+target declares **at least one** user agent. Rolling back to a generation
+with none (gen 19 → 18, the PR 2 case) leaves the nix plist loaded and
+running the store script, which survives only as long as the newer
+generation is a GC root; the ansible step is what actually replaces it.
+Rolling back to a generation that keeps other agents (every flip after
+PR 2) unloads and deletes the dropped ones, and the service is down until
+ansible runs. Both cases were drilled on 2026-09-17 (blumeops#1125).
+
+The gate variable must arrive as a boolean: the role's conditionals apply
+`| bool`, so the `-e key=true` form above is fine; without the filter,
+ansible-core 2.19 rejects the string with "Conditionals must have a boolean
+result".
+
+Verifying an agent after a flip or a rollback: `launchctl print
+gui/501/mcquack.eblume.<name>` — `program =` names the owner (a
+`/nix/store/…` path or ansible's), `runs` climbs and `last exit code = 0`.
+The `StandardOutPath` log is not a signal; a quiet agent writes nothing.
 
 ## Window hygiene
 
