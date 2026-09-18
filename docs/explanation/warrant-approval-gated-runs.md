@@ -672,5 +672,5 @@ on its own — but nothing depends on it any more.
 - [[agent-workspaces]] — isolation model and history
 - [[security-model]] — vault and tailnet posture
 - heph: `01KXBNMYGHGDVSR5VTRWYXDRGN` (containerization), `01KXREABVH…`
-  (Authentik SA), `01KY57XB…` (SSH fence break), `01KT5Q9HDJ…` (zot-ci key
+  (Authentik SA), `01KY57XB…` (SSH fence break), `01KT5Q9HDJ…` (CI zot key
   cycling — subsumed by `blumeops-ci` vault rotation)

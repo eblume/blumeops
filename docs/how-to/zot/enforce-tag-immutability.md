@@ -17,7 +17,7 @@ Prevent accidental overwrite of version tags during CI push.
 Tag immutability is enforced server-side via `accessControl` policies in [[harden-zot-registry]], not by client-side push checks. The three-tier access model makes push-side enforcement unnecessary:
 
 - **Anonymous:** `["read"]` — pull only, no push at all
-- **`artifact-workloads` group (CI):** `["read", "create"]` — can push new tags but cannot overwrite or delete existing ones
+- **`ci-artifacts` group (CI):** `["read", "create"]` — can push new tags but cannot overwrite or delete existing ones
 - **Admins:** `["read", "create", "update", "delete"]` — break-glass for removing bad images
 
 Since CI only has `create` (not `update`), pushing an existing version tag is rejected by zot itself. Commit SHA tags are inherently unique and never collide.

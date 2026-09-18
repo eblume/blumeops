@@ -22,7 +22,7 @@ with tag immutability enforced server-side via `accessControl`. Configured in
 4. **`http.accessControl`** — layered pull/push policy:
    - `anonymousPolicy: ["read"]` — anyone can pull
    - `defaultPolicy: ["read"]` — authenticated users in no listed group
-   - `artifact-workloads` group: `["read", "create"]` — CI pushes new tags but
+   - `ci-artifacts` group: `["read", "create"]` — CI pushes new tags but
      cannot overwrite or delete (see [[enforce-tag-immutability]])
    - `admins` group: `["read", "create", "update", "delete"]` — break-glass
 5. **`accessControl.metrics.anonymousPolicy: ["read"]`** — anonymous Prometheus/Alloy
@@ -32,7 +32,7 @@ with tag immutability enforced server-side via `accessControl`. Configured in
 
 OIDC issuer and external-URL variables live in `ansible/roles/zot/defaults/main.yml`;
 client credentials render via `ansible/roles/zot/templates/oidc-credentials.json.j2`.
-CI authenticates with the `zot-ci` API key (see [[wire-ci-registry-auth]]).
+CI authenticates with the `ci-zot` API key (see [[wire-ci-registry-auth]]).
 
 ## Related
 

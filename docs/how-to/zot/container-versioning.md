@@ -52,7 +52,7 @@ registry.ops.eblu.me/blumeops/<name>:<version>-<short-sha>-nix
 
 e.g. `v2.17.0-abc1234-nix` — the bundled app version plus the 7-char source
 commit SHA, so every image is traceable to an exact tree. Tags are immutable:
-CI's `artifact-workloads` group has only `create` (not `update`), so re-pushing
+CI's `ci-artifacts` group has only `create` (not `update`), so re-pushing
 an existing tag is rejected server-side (see [[enforce-tag-immutability]]).
 `mise run container-list` shows recent tags, annotated `[main]` / `[branch]`.
 
