@@ -133,6 +133,26 @@ So the flow is:
 
 > **Historical note.** The older flows needed manual care: pre-merge builds had to come from the *final* branch head (a later push touching `containers/` orphaned the image), and before that, a post-merge rebuild plus a second commit re-pointed the manifest because squash-merge replaced the branch commits and orphaned the SHA in the tag. Both dances are gone — the merge-time build is the release, and horkos pins the manifest. Squash-merge was disabled on canonical as a corollary of invariant 2 in [[warrant-approval-gated-runs]]: approvals bind to immutable SHAs, and squashing rewrote every approved SHA.
 
+## Nixpkgs pin
+
+Container builds resolve `<nixpkgs>` from a rev pin in the repo —
+`containers/flake.nix` + `containers/flake.lock` — not from the build host's
+floating flake registry. A nixpkgs upgrade is therefore a reviewable blumeops
+change: bump the pin, review the `flake.lock` diff, and the build check leg of
+the workflow proves the containers still build against it. (Same spirit as the
+`nixpkgs-services` pin in the ringtail flake.)
+
+To upgrade, from the repo root:
+
+```sh
+cd containers
+nix flake update nixpkgs
+```
+
+then open a PR with the resulting `containers/flake.lock` diff. Updates are
+deliberate, per-PR only — there is no scheduled updater. Containers that
+self-pin a nixpkgs rev via `fetchTarball` are unaffected by the shared pin.
+
 ## Reference Examples
 
 Existing `default.nix` files demonstrate the common patterns:
