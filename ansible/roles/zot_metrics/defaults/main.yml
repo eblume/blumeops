@@ -1,4 +1,11 @@
 ---
+# zot-metrics on indri is nix-managed (darwin/indri, PR 4 of the
+# nix-darwin series): the generation owns the unit and the collector script,
+# so a normal provision must not touch it. Flip this to true only for the
+# rollback re-write (darwin-rebuild --rollback first, then
+# `mise run provision-indri -- --tags zot_metrics -e zot_metrics_ansible_managed=true`),
+# per docs/how-to/indri/provision.md §Rolling back a service flip.
+zot_metrics_ansible_managed: false
 zot_metrics_url: http://localhost:5050/v2/_catalog
 zot_metrics_dir: /opt/homebrew/var/node_exporter/textfile
 zot_metrics_script: /Users/erichblume/.local/bin/zot-metrics

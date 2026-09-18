@@ -1,6 +1,12 @@
 { config, lib, pkgs, ... }:
 let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
+  # The four *-metrics collectors feed alloy's node_exporter textfile dir;
+  # PR 4 of the series moved their units and scripts here.
+  mcquackBorgmaticMetrics = pkgs.writeScript "mcquack-borgmatic-metrics" (builtins.readFile ./mcquack-borgmatic-metrics.sh);
+  mcquackForgejoMetrics = pkgs.writeScript "mcquack-forgejo-metrics" (builtins.readFile ./mcquack-forgejo-metrics.sh);
+  mcquackJellyfinMetrics = pkgs.writeScript "mcquack-jellyfin-metrics" (builtins.readFile ./mcquack-jellyfin-metrics.sh);
+  mcquackZotMetrics = pkgs.writeScript "mcquack-zot-metrics" (builtins.readFile ./mcquack-zot-metrics.sh);
   # Where activation links the generation-owned mise config; mise follows
   # the symlink for reads and writes.
   miseConfigHome = "${config.system.primaryUserHome}/.config/mise/config.toml";
@@ -157,5 +163,56 @@ in
     RunAtLoad = true;
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.logrotate.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.logrotate.err.log";
+  };
+
+  # metrics collectors: the four *-metrics agents (borgmatic, forgejo,
+  # jellyfin, zot), PR 4 of the series. Same labels and plist paths the
+  # ansible roles used, so each plist swaps in place, one reload, never
+  # dual-loaded. Same .prom files in alloy's textfile dir and the same
+  # /opt/homebrew/var/log logs, so alloy and the TextfileStale alert are
+  # unaffected. The API key files (~/.forgejo-api-key, ~/.jellyfin-api-key)
+  # stay controller-side op placement: the roles' key-file tasks are not
+  # gated (they still write the same paths a rollback re-write keeps).
+  launchd.user.agents."mcquack.eblume.borgmatic-metrics".serviceConfig = {
+    Label = "mcquack.eblume.borgmatic-metrics";
+    ProgramArguments = [ "${mcquackBorgmaticMetrics}" ];
+    StartInterval = 3600;
+    RunAtLoad = true;
+    StandardOutPath = "/opt/homebrew/var/log/mcquack.borgmatic-metrics.out.log";
+    StandardErrorPath = "/opt/homebrew/var/log/mcquack.borgmatic-metrics.err.log";
+  };
+
+  launchd.user.agents."mcquack.eblume.forgejo-metrics".serviceConfig = {
+    Label = "mcquack.eblume.forgejo-metrics";
+    EnvironmentVariables = {
+      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+    };
+    ProgramArguments = [ "${mcquackForgejoMetrics}" ];
+    StartInterval = 60;
+    RunAtLoad = true;
+    StandardOutPath = "/opt/homebrew/var/log/mcquack.forgejo-metrics.out.log";
+    StandardErrorPath = "/opt/homebrew/var/log/mcquack.forgejo-metrics.err.log";
+  };
+
+  # jellyfin keeps the ansible role's log names (no mcquack. prefix).
+  launchd.user.agents."mcquack.eblume.jellyfin-metrics".serviceConfig = {
+    Label = "mcquack.eblume.jellyfin-metrics";
+    EnvironmentVariables = {
+      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+    };
+    ProgramArguments = [ "${mcquackJellyfinMetrics}" ];
+    StartInterval = 60;
+    RunAtLoad = true;
+    StandardOutPath = "/opt/homebrew/var/log/jellyfin-metrics.out.log";
+    StandardErrorPath = "/opt/homebrew/var/log/jellyfin-metrics.err.log";
+  };
+
+  launchd.user.agents."mcquack.eblume.zot-metrics".serviceConfig = {
+    Label = "mcquack.eblume.zot-metrics";
+    ProgramArguments = [ "${mcquackZotMetrics}" ];
+    StartInterval = 60;
+    RunAtLoad = true;
+    StandardOutPath = "/opt/homebrew/var/log/mcquack.zot-metrics.out.log";
+    StandardErrorPath = "/opt/homebrew/var/log/mcquack.zot-metrics.err.log";
   };
 }
