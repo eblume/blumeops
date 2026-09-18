@@ -538,6 +538,13 @@ every honest approval filed before main moved on. That distinction is the whole
 substance of the run-attribution fix in PR #523, and it is easy to lose, because
 "compare the run's SHA to the approved SHA" is the obvious wrong answer.
 
+One more run-less shape is settled rather than reported: a request `voided`
+because its bound PR closed unmerged, or because its workflow left
+`warrant-policy.yaml`, is terminal — its reason to exist went away — so the
+sweep closes the tracking task with the void reason
+([eblume/horkos#35](https://forge.eblu.me/eblume/horkos/issues/35)) instead
+of leaving it open as "never dispatched".
+
 The general shape, which recurs: **a value is not a constraint until something
 refuses on it.** Warrant recorded the SHA faithfully from day one, displayed it
 in the UI, and put it in the PR comment. It still bound nothing.

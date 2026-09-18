@@ -123,12 +123,14 @@ def test_empty_policy_disables_the_audit():
 # run that belonged to a different request — and reported it as a failure.
 #
 # run_number=null is not itself "never dispatched", though: horkos records
-# three run-less shapes, and the sweep must tell them apart — status
+# four run-less shapes, and the sweep must tell them apart — status
 # "dispatched" (the dispatch ran, the forge answered 204 without naming the
 # run: dispatched-norun), status "dispatch_failed" (the dispatch attempt
-# failed: the warrant note carries the reason), and every other status
-# (approved/denied/superseded: never dispatched, with the warrant note's
-# "not dispatched: {reason}" surfaced when horkos recorded one, eblume/horkos#13).
+# failed: the warrant note carries the reason), status "voided" (the
+# request's reason to exist went away — settled, closes with void_reason),
+# and every other status (approved/denied/superseded: never dispatched,
+# with the warrant note's "not dispatched: {reason}" surfaced when horkos
+# recorded one, eblume/horkos#13).
 
 FILED_AT_MS = 1_799_107_200_000  # 2027-01-05T00:00:00Z; match_run divides by 1000
 
@@ -278,6 +280,27 @@ def test_never_dispatched_without_reason_stays_plain():
     assert state == "never"
     assert run is None
     assert verify_runs.not_dispatched_reason(wrec["note"]) is None
+
+
+@pytest.mark.parametrize("reason", ["pr-closed", "policy-retired", None])
+def test_voided_without_run_number_is_voided(reason):
+    """A voided request is settled, not 'never dispatched' — its reason to
+    exist went away, so nothing was (or ever will be) dispatched, and
+    nothing should be inferred either. The void reason travels on the
+    record (eblume/horkos#35)."""
+    task = task_row()
+    wrec = {
+        "status": "voided",
+        "run_number": None,
+        "void_reason": reason,
+        "note": None,
+    }
+    runs = [run_row(1754)]
+    run, via, state = verify_runs.attribution(task, 54, wrec, runs)
+    assert state == "voided"
+    assert run is None and via is None
+    # prove the guess was real: the heuristic WOULD have produced run 1754
+    assert verify_runs.match_run(task, runs)["run_number"] == 1754
 
 
 @pytest.mark.parametrize(
@@ -439,3 +462,62 @@ def test_stamped_warrant_missing_from_fetch_warns_but_still_infers(monkeypatch):
     assert "500 newest horkos requests" in warnings[0]
     # behavior kept: the heuristic still matched run 1754 and closed the task
     assert any("closed" in m and "1754" in m for m in recorder.messages)
+
+
+class _HephRecorder:
+    """Stands in for the module's heph() so the voided close path's
+    log+done calls are observable."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, *args):
+        self.calls.append(args)
+
+
+@pytest.mark.parametrize(
+    ("reason", "displayed"),
+    [
+        ("pr-closed", "pr-closed"),
+        ("policy-retired", "policy-retired"),
+        (None, "unknown"),
+    ],
+)
+def test_voided_warrant_closes_task_with_the_void_reason(
+    monkeypatch, reason, displayed
+):
+    """A voided request is a settled outcome, not a 'never dispatched' no-op:
+    the sweep must log the void reason and close the tracking task — an
+    approval whose request was voided has nothing left to wait for
+    (eblume/horkos#35). A row missing its reason degrades to 'unknown'."""
+    task = task_row()
+    task["node_id"] = "n91"
+    monkeypatch.setattr(verify_runs, "open_approve_tasks", lambda: [task])
+    monkeypatch.setattr(verify_runs, "forge_token", lambda: "token")
+    monkeypatch.setattr(verify_runs, "recent_runs", lambda client: [])
+    monkeypatch.setattr(verify_runs, "sha_policy", lambda client: {})
+    monkeypatch.setattr(
+        verify_runs,
+        "warrant_requests",
+        lambda: {54: {"status": "voided", "void_reason": reason}},
+    )
+    monkeypatch.setattr(verify_runs, "warrant_id_for", lambda node_id: 54)
+    console_recorder = _Recorder()
+    monkeypatch.setattr(verify_runs, "console", console_recorder)
+    heph_recorder = _HephRecorder()
+    monkeypatch.setattr(verify_runs, "heph", heph_recorder)
+
+    verify_runs.main(dry_run=False)
+
+    logs = [c for c in heph_recorder.calls if c[0] == "log"]
+    dones = [c for c in heph_recorder.calls if c[0] == "done"]
+    assert len(logs) == 1 and len(dones) == 1
+    assert f"voided ({displayed})" in logs[0][2]
+    assert dones[0] == ("done", "n91")
+    # printed as voided-and-closed, never as never-dispatched-and-open
+    assert any(
+        "voided" in m and "task closed by verify-runs" in m
+        for m in console_recorder.messages
+    )
+    assert any("1 voided" in m and "(closed)" in m for m in console_recorder.messages)
+    assert not any("never dispatched" in m for m in console_recorder.messages)
