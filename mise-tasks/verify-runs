@@ -459,8 +459,8 @@ def main(
                 heph("done", node_id)
             console.print(
                 f"[green]voided[/green]  {escape(label)} — warrant #{wid} voided "
-                f"({reason}); its reason to exist went away and nothing was "
-                "dispatched; task closed by verify-runs"
+                f"({escape(reason)}); its reason to exist went away and "
+                "nothing was dispatched; task closed by verify-runs"
             )
             voided += 1
             continue

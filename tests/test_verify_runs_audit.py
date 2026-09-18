@@ -282,7 +282,7 @@ def test_never_dispatched_without_reason_stays_plain():
     assert verify_runs.not_dispatched_reason(wrec["note"]) is None
 
 
-@pytest.mark.parametrize("reason", ["pr-closed", "policy-retired"])
+@pytest.mark.parametrize("reason", ["pr-closed", "policy-retired", None])
 def test_voided_without_run_number_is_voided(reason):
     """A voided request is settled, not 'never dispatched' — its reason to
     exist went away, so nothing was (or ever will be) dispatched, and
@@ -475,11 +475,21 @@ class _HephRecorder:
         self.calls.append(args)
 
 
-def test_voided_warrant_closes_task_with_the_void_reason(monkeypatch):
+@pytest.mark.parametrize(
+    ("reason", "displayed"),
+    [
+        ("pr-closed", "pr-closed"),
+        ("policy-retired", "policy-retired"),
+        (None, "unknown"),
+    ],
+)
+def test_voided_warrant_closes_task_with_the_void_reason(
+    monkeypatch, reason, displayed
+):
     """A voided request is a settled outcome, not a 'never dispatched' no-op:
     the sweep must log the void reason and close the tracking task — an
     approval whose request was voided has nothing left to wait for
-    (eblume/horkos#35)."""
+    (eblume/horkos#35). A row missing its reason degrades to 'unknown'."""
     task = task_row()
     task["node_id"] = "n91"
     monkeypatch.setattr(verify_runs, "open_approve_tasks", lambda: [task])
@@ -489,7 +499,7 @@ def test_voided_warrant_closes_task_with_the_void_reason(monkeypatch):
     monkeypatch.setattr(
         verify_runs,
         "warrant_requests",
-        lambda: {54: {"status": "voided", "void_reason": "pr-closed"}},
+        lambda: {54: {"status": "voided", "void_reason": reason}},
     )
     monkeypatch.setattr(verify_runs, "warrant_id_for", lambda node_id: 54)
     console_recorder = _Recorder()
@@ -502,7 +512,7 @@ def test_voided_warrant_closes_task_with_the_void_reason(monkeypatch):
     logs = [c for c in heph_recorder.calls if c[0] == "log"]
     dones = [c for c in heph_recorder.calls if c[0] == "done"]
     assert len(logs) == 1 and len(dones) == 1
-    assert "voided (pr-closed)" in logs[0][2]
+    assert f"voided ({displayed})" in logs[0][2]
     assert dones[0] == ("done", "n91")
     # printed as voided-and-closed, never as never-dispatched-and-open
     assert any(
