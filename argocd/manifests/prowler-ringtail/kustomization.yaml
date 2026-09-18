@@ -22,4 +22,4 @@ configMapGenerator:
 
 images:
   - name: registry.ops.eblu.me/blumeops/prowler
-    newTag: v5.39.1-7abc5f7-nix
+    newTag: v5.39.1-dd1f467-nix@sha256:2faf2051b8911f3b53cfb37c519b3ebc3c8971c9bb69cf4894605e7b65cd9889
