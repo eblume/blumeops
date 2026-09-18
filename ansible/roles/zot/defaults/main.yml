@@ -1,4 +1,13 @@
 ---
+# zot on indri is nix-managed (darwin/indri, PR 5 of the nix-darwin
+# series): the generation owns the LaunchAgent plist, so a normal
+# provision must not re-deploy or reload it. Flip this to true only
+# for the rollback re-write (darwin-rebuild --rollback first, then
+# `mise run provision-indri -- --tags zot -e zot_ansible_managed=true`),
+# per docs/how-to/indri/provision.md §Rolling back a service flip.
+
+zot_ansible_managed: false
+
 zot_repo_dir: /Users/erichblume/code/3rd/zot
 zot_binary: "{{ zot_repo_dir }}/bin/zot-darwin-arm64"
 zot_data_dir: /Users/erichblume/zot

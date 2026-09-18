@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-modified: 2026-08-17
+modified: 2026-09-18
 last-reviewed: 2026-08-17
 tags:
   - how-to
@@ -138,7 +138,7 @@ ssh indri 'curl -s http://localhost:5050/v2/_catalog | jq'
 ssh indri 'lsof -nP -iTCP:5050 -sTCP:LISTEN'
 
 # Restart zot
-ssh indri 'launchctl kickstart -k gui/$(id -u)/mcquack.zot'
+ssh indri 'launchctl kickstart -k gui/$(id -u)/mcquack.eblume.zot'
 ```
 
 ## Network Issues

@@ -17,6 +17,12 @@
 # `mise x -- make binary`, then `launchctl kickstart -k gui/$(id -u)/mcquack.eblume.zot`
 # — ansible only restarts the LaunchAgent when the rendered config changes.
 
+# Skipped by default: the nix-darwin generation owns this service's
+# LaunchAgent plist (PR 5 of the indri series). The plist and load
+# tasks below remain the rollback re-write, run with
+# -e zot_ansible_managed=true only; config/credentials rendering and
+# the binary checks stay ansible-side. See defaults/main.yml.
+
 - name: Remove untracked local mise pin
   # A per-checkout mise.toml shadows indri's global mise config, which is
   # declared in the indri nix-darwin flake (the flake is the single source
@@ -76,6 +82,7 @@
     dest: ~/Library/LaunchAgents/mcquack.eblume.zot.plist
     mode: '0644'
   notify: Restart zot
+  when: zot_ansible_managed | bool
 
 # The wrapper keeps new progress-bar frames out of this log; this clears the
 # frames already accumulated (they are the bulk of the file by bytes, and Loki
@@ -96,9 +103,12 @@
   register: zot_launchctl_check
   changed_when: false
   failed_when: false
+  when: zot_ansible_managed | bool
 
 - name: Load zot LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.zot.plist
-  when: zot_launchctl_check.rc != 0
+  when:
+    - zot_ansible_managed | bool
+    - zot_launchctl_check.rc != 0
   changed_when: true
   failed_when: false

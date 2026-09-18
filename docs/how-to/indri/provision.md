@@ -87,6 +87,30 @@ never dual-loaded. The API key files (`~/.forgejo-api-key`,
 key-file tasks are not gated. Rollback per §Rolling back a service flip,
 with all four roles' gates flipped.
 
+An unload leaves the `.prom` files in place and node_exporter keeps
+serving them, so Prometheus never sees a gap: for these textfile
+collectors the outage signal is `node_textfile_mtime_seconds` aging
+(and the TextfileStale alert once it crosses threshold), not a scrape
+gap — a window's "no gaps in the tails" verification therefore means
+no gap *and* mtime fresh.
+
+## Zot registry
+
+The zot registry is the first real daemon the series moves (PR 5): a
+long-running process, not a collector. The unit is a nix-managed user
+agent (`mcquack.eblume.zot`) at the same label and plist path the
+ansible role used; the source-built binary stays at `~/code/3rd/zot`
+(out of nix's scope) and the `config.json` / `oidc-credentials.json`
+files stay role-rendered — the role's gate (`zot_ansible_managed`)
+covers only the plist + load tasks. Applying the flip is the usual
+`mise run provision-indri -- --tags rebuild` (no service-role tag):
+activation writes the plist in place and reloads the agent once. What
+changes the drill: with the unit unloaded, zot is down — the registry
+and every image pull/push behind it — until something reloads the
+unit, so the rollback drill below is planned around a real outage.
+Rollback per §Rolling back a service flip, with the role's gate
+flipped.
+
 ## Pre-apply check: indri-flake-check
 
 `mise run indri-flake-check` builds `.#darwinConfigurations.indri.system` on
@@ -247,6 +271,10 @@ all four roles the same way: `mise run provision-indri -- --tags
 borgmatic_metrics,forgejo_metrics,jellyfin_metrics,zot_metrics -e
 borgmatic_metrics_ansible_managed=true -e forgejo_metrics_ansible_managed=true
 -e jellyfin_metrics_ansible_managed=true -e zot_metrics_ansible_managed=true`.
+For the zot registry flip (PR 5), re-run `mise run provision-indri --
+--tags zot -e zot_ansible_managed=true`. Unlike the textfile
+collectors, zot is a real daemon: the registry is down between the
+rollback and the ansible re-write.
 Never ansible first — that would leave the old plist loaded under the new
 generation.
 
