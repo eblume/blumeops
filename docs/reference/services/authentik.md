@@ -10,7 +10,7 @@ tags:
 
 # Authentik
 
-OIDC identity provider for BlumeOps. Authentik is the **source of truth** for user identity — users are created and managed in Authentik, and services authenticate against it via OIDC.
+OIDC identity provider for BlumeOps. Authentik is the **source of truth** for user identity — users are created and managed in Authentik (not Forgejo-upstream like its predecessor Dex), and services authenticate against it via OIDC.
 
 ## Quick Reference
 

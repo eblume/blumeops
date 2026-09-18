@@ -18,7 +18,7 @@ Create a PostgreSQL database and user for Authentik on the existing CNPG cluster
 2. Created ExternalSecret `blumeops-pg-authentik` pulling password from 1Password item "Authentik (blumeops)" field `postgresql-password`
 3. Synced CNPG cluster — role reconciled with password set
 4. Created `authentik` database owned by `authentik` user
-5. Verified cross-cluster connectivity: ringtail pod → `pg.ops.eblu.me:5432` (Caddy L4)
+5. Verified cross-cluster connectivity: ringtail pod → `pg.ops.eblu.me:5432` (Caddy L4; pre-cutover route — current route is `pg.ops.eblu.me:5434`, see [[connect-to-postgres]])
 
 ## Resolved Questions
 
