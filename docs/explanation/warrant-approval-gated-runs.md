@@ -1,6 +1,6 @@
 ---
 title: "Warrant: Approval-Gated Privileged Runs"
-modified: 2026-09-16
+modified: 2026-09-18
 last-reviewed: 2026-09-16
 tags:
   - explanation
@@ -443,7 +443,9 @@ Once warrants exist, the approval *policy* moves into the repo as reviewed
 data: a `policy.yaml` mapping action classes to outcomes — `auto-approve`
 (docs build, ntfy test-post), `warrant` (deploys, container builds),
 `deny-always` (class B). Auto-approved runs still mint warrants (audit trail),
-and a periodic digest keeps post-hoc review honest. This is the payoff: the
+and a periodic digest keeps post-hoc review honest. The first candidate for
+the `auto` class is a read-only exploration action; see
+[[agent-interactive-access]] for why that beats an approved-session bastion. This is the payoff: the
 boundary between "agent may do" and "agent may request" becomes a diffable,
 PR-reviewed artifact instead of tribal knowledge — effectively the control
 plane of a "blumeops v2" without rewriting blumeops.
@@ -671,6 +673,8 @@ on its own — but nothing depends on it any more.
 - [[agents-forgejo-bot]] — the identity whose read-only fence is the gate
 - [[agent-workspaces]] — isolation model and history
 - [[security-model]] — vault and tailnet posture
+- [[agent-interactive-access]] — approved sessions vs read-only exploration,
+  analysed and deferred (2026-09-18)
 - heph: `01KXBNMYGHGDVSR5VTRWYXDRGN` (containerization), `01KXREABVH…`
   (Authentik SA), `01KY57XB…` (SSH fence break), `01KT5Q9HDJ…` (CI zot key
   cycling — subsumed by `blumeops-ci` vault rotation)

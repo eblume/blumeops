@@ -1,6 +1,6 @@
 ---
 title: Talos — self-hosted agent workflow service (design)
-modified: 2026-09-15
+modified: 2026-09-18
 last-reviewed: 2026-08-14
 tags:
   - explanation
@@ -153,3 +153,5 @@ nice-to-have, and it shapes the data model:
 - [[agent-workspaces]] — the Claude-based counterpart
 - [[agent-change-process]] — the process the forge driver automates
 - [[federated-login]] — Authentik SSO
+- [[agent-interactive-access]] — why the pod gets no interactive SSH/kubectl,
+  and the ranked options if that changes
