@@ -114,6 +114,12 @@ in
   programs.sway = {
     enable = true;
     wrapperFeatures.gtk = true;
+    # ReGreet shlex-runs the Exec of the wayland-sessions desktop file it
+    # finds via $XDG_DATA_DIRS: this module's session entry, whose stock
+    # `Exec=sway` resolves through PATH. Bake the proprietary-NVIDIA flag
+    # into the wrapper instead of the entry; the home-manager sway (which
+    # wins PATH at login) carries the same flag below.
+    extraOptions = [ "--unsupported-gpu" ];
     extraPackages = with pkgs; [
       swaylock
       swayidle
@@ -128,16 +134,10 @@ in
   security.pam.services.swaylock = {}; # Allow swaylock to authenticate
   security.sudo.wheelNeedsPassword = false;
 
-  # Enable greetd as display manager for sway
-  services.greetd = {
-    enable = true;
-    settings = {
-      default_session = {
-        command = "${pkgs.tuigreet}/bin/tuigreet --time --cmd 'sway --unsupported-gpu'";
-        user = "greeter";
-      };
-    };
-  };
+  # greetd greets via ReGreet on cage: the compositor holds the DRM master
+  # and suspends fbcon, so loglevel-7 kernel text (netconsole) stays off the screen.
+  services.greetd.enable = true;
+  programs.regreet.enable = true;
 
   # PipeWire for audio
   services.pipewire = {
@@ -181,9 +181,9 @@ in
   # Software cursors under the NVIDIA proprietary driver: wlroots' hardware
   # cursor path corrupts or drops the pointer there. wlroots reads this from
   # the compositor's own environment at output creation, so it must be set
-  # before sway execs; environment.variables reaches it because greetd's
-  # source_profile default runs `. /etc/profile; exec sway`, and /etc/profile
-  # sources /etc/set-environment.
+  # before sway execs. environment.variables reaches it set system-wide:
+  # greetd's source_profile runs `. /etc/profile; exec cage`, and both cage
+  # and ReGreet inherit /etc/profile → /etc/set-environment down to sway.
   environment.variables.WLR_NO_HARDWARE_CURSORS = "1";
 
   # 1Password (modules handle CLI group/setgid and polkit for GUI integration)
@@ -459,6 +459,9 @@ in
     wayland.windowManager.sway = {
       enable = true;
       checkConfig = false;
+      # Mirrors programs.sway.extraOptions: this wrapper is the `sway` that
+      # ReGreet's session entry (and a TTY `exec sway`) actually resolves to.
+      extraOptions = [ "--unsupported-gpu" ];
       config = {
         terminal = "wezterm";
         modifier = "Mod4";
