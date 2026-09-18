@@ -27,5 +27,5 @@ Create a PostgreSQL database and user for Authentik on the existing CNPG cluster
 
 ## Related
 
-- [[deploy-authentik]] — Parent goal
+- [[authentik]] — Authentik reference
 - [[postgresql]] — CNPG cluster reference

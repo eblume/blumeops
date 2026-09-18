@@ -45,5 +45,5 @@ The Nix-built container hardcoded `blueprints_dir` to its Nix store path, making
 
 ## Related
 
-- [[deploy-authentik]] — Parent goal
+- [[authentik]] — Authentik reference
 - [[grafana]] — Grafana reference

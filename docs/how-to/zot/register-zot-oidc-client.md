@@ -35,4 +35,4 @@ section); only the first key of an identity is a manual browser step.
 
 - [[harden-zot-registry]] — Parent goal
 - [[wire-ci-registry-auth]] — How CI uses the `ci-zot` service account
-- [[deploy-authentik]] — Authentik deployment
+- [[authentik]] — Authentik reference

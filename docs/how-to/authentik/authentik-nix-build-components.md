@@ -133,4 +133,4 @@ ssh ringtail "rm -rf $tmpdir"
 
 - [[build-authentik-from-source]] — Parent overview and version update workflow
 - [[mirror-authentik-build-deps]] — Supply chain mirrors for source repos
-- [[deploy-authentik]] — Deployment goal
+- [[authentik]] — Authentik reference

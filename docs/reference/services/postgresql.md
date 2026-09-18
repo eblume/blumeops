@@ -1,7 +1,7 @@
 ---
 title: PostgreSQL
-modified: 2026-04-07
-last-reviewed: 2026-04-07
+modified: 2026-09-18
+last-reviewed: 2026-09-18
 tags:
   - service
   - database
@@ -15,7 +15,7 @@ Database clusters via CloudNativePG operator.
 
 | Property | Value |
 |----------|-------|
-| **URL** | `tcp://pg.ops.eblu.me:5432` |
+| **URL** | `tcp://pg.ops.eblu.me:5434` (blumeops-pg), `:5433` (immich-pg) |
 | **Metrics** | `http://cnpg-metrics.tail8d86e.ts.net:9187/metrics` |
 | **Namespace** | `databases` |
 | **Clusters** | `blumeops-pg`, `immich-pg` |

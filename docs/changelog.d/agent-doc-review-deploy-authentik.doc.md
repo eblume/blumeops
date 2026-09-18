@@ -1,1 +1,1 @@
-Deploy Authentik doc review: corrected the database and cluster rows for the post-cutover topology (blumeops-pg on ringtail, in-cluster endpoint, pg.ops.eblu.me:5434 cross-host) and linked the provision-authentik-database and build-authentik-from-source cards.
+Retired the Deploy Authentik how-to card (one-shot Mikado-era plan): its post-cutover database topology and container-build notes moved into the [[authentik]] reference card, and the stale `pg.ops.eblu.me:5432` cross-host port was corrected to `:5434` in the [[postgresql]] reference card.
