@@ -5,7 +5,7 @@
 # ///
 #MISE description="Review the most stale service for version freshness"
 #USAGE flag "--limit <limit>" default="15" help="Number of services to show in the table"
-#USAGE flag "--type <type>" help="Filter by service type (argocd, ansible, nixos, fly, mise)"
+#USAGE flag "--type <type>" help="Filter by service type (argocd, ansible, nixos, fly, mise, container)"
 """Review the most stale service for version freshness.
 
 Reads ``service-versions.yaml`` (repo root) and sorts services
@@ -53,9 +53,87 @@ def parse_date(raw) -> date | None:
         return None
 
 
+def build_checklist(svc: dict, today: date) -> list[str]:
+    """Build the review-checklist parts for one service."""
+    upstream = svc.get("upstream-source") or "N/A"
+
+    if svc.get("release") == "self":
+        checklist_parts = [
+            "[bold]Release Pipeline Check:[/bold]\n",
+            "• Version is owned by this service's own release pipeline — do not check for an upstream bump\n",
+            f"• Confirm the last release actually published (source: {escape(upstream)})\n",
+            "• Confirm the pin/deploy it produced landed (pin PR merged, app synced)\n",
+            "• Confirm deployed version == the current-version above\n",
+            "• Review build-time deps in the source repo (uv script metadata, pyproject.toml, Cargo.toml, flake inputs, …) per \\[\\[review-services]]\n",
+        ]
+    else:
+        checklist_parts = [
+            "[bold]Version Check:[/bold]\n",
+            f"• Check upstream releases: {escape(upstream)}\n",
+            "• Compare upstream latest to current deployed version\n",
+            "• Review changelog for breaking changes or security fixes\n",
+        ]
+
+    svc_type = svc.get("type", "")
+
+    if svc_type == "argocd":
+        checklist_parts += [
+            "\n[bold]ArgoCD Deployment:[/bold]\n",
+            "• Update image tag in argocd/manifests/<service>/kustomization.yaml\n",
+            f"• Verify sync status: argocd app get {escape(svc['name'])}\n",
+        ]
+    elif svc_type == "ansible":
+        checklist_parts += [
+            "\n[bold]Ansible Deployment:[/bold]\n",
+            f"• Check role vars for version pins: ansible/roles/{escape(svc['name'])}/\n",
+            f"• Dry run: mise run provision-indri -- --tags {escape(svc['name'])} --check --diff\n",
+        ]
+    elif svc_type == "nixos":
+        checklist_parts += [
+            "\n[bold]NixOS Deployment:[/bold]\n",
+            "• Version tracks nixpkgs via flake.lock\n",
+            "• Update: dispatch the Ringtail Flake Update workflow (`nix flake update`, skipping nixpkgs-services)\n",
+            "• Deploy: mise run provision-ringtail\n",
+        ]
+    elif svc_type == "mise":
+        checklist_parts += [
+            "\n[bold]Mise Tool Update:[/bold]\n",
+            "• Update pinned version in mise.toml\n",
+            "• Run: mise install to verify\n",
+            "• Check for breaking changes in release notes\n",
+        ]
+    elif svc_type == "container":
+        checklist_parts += [
+            "\n[bold]Container Build:[/bold]\n",
+            "• Image is built from containers/<service>/default.nix\n",
+            "• To bump: update version pins in that file, push — the PR build check resolves hashes; merge to main triggers the registry push\n",
+            "• horkos opens the kustomization pin PR on push to main; merge it to deploy\n",
+            "• Verify the pin resolves: mise run container-version-check\n",
+        ]
+    elif svc_type == "fly":
+        checklist_parts += [
+            "\n[bold]Fly Proxy App:[/bold]\n",
+            "• Version pins live in fly/Dockerfile (digest-pinned FROM / COPY --from)\n",
+            "• To bump: update the tag and digest there, push\n",
+            "• Deploy: \\[human] mise run fly-deploy (needs the fly.io token); from an agent, request-run deploy-fly.yaml with the full SHA\n",
+        ]
+
+    checklist_parts += [
+        "\n[bold]Health Check:[/bold]\n",
+        "• Verify the service is running and healthy\n",
+        "• Check logs for errors or warnings\n",
+        "\n[bold]After Review:[/bold]\n",
+        "• Update the tracking file: [cyan]service-versions.yaml[/cyan] (repo root)\n",
+        f"• Set [cyan]last-reviewed: {today}[/cyan] and [cyan]current-version[/cyan]\n",
+        "• Commit the change (along with any upgrades)",
+    ]
+
+    return checklist_parts
+
+
 def main(
     limit: Annotated[int, typer.Option(help="Number of services to show in the table")] = 15,
-    type: Annotated[str | None, typer.Option(help="Filter by service type (argocd, ansible, nixos)")] = None,
+    type: Annotated[str | None, typer.Option(help="Filter by service type (argocd, ansible, nixos, fly, mise, container)")] = None,
 ) -> None:
     console = Console()
     today = date.today()  # ruff: ignore[DTZ011]  # staleness is measured in local calendar days
@@ -158,51 +236,7 @@ def main(
     console.print()
 
     # --- Review checklist ---
-    checklist_parts = [
-        "[bold]Version Check:[/bold]\n",
-        f"• Check upstream releases: {escape(upstream)}\n",
-        "• Compare upstream latest to current deployed version\n",
-        "• Review changelog for breaking changes or security fixes\n",
-    ]
-
-    svc_type = top_svc.get("type", "")
-
-    if svc_type == "argocd":
-        checklist_parts += [
-            "\n[bold]ArgoCD Deployment:[/bold]\n",
-            "• Update image tag in argocd/manifests/<service>/kustomization.yaml\n",
-            f"• Verify sync status: argocd app get {escape(top_svc['name'])}\n",
-        ]
-    elif svc_type == "ansible":
-        checklist_parts += [
-            "\n[bold]Ansible Deployment:[/bold]\n",
-            f"• Check role vars for version pins: ansible/roles/{escape(top_svc['name'])}/\n",
-            f"• Dry run: mise run provision-indri -- --tags {escape(top_svc['name'])} --check --diff\n",
-        ]
-    elif svc_type == "nixos":
-        checklist_parts += [
-            "\n[bold]NixOS Deployment:[/bold]\n",
-            "• Version tracks nixpkgs via flake.lock\n",
-            "• Update: dispatch the Ringtail Flake Update workflow (`nix flake update`, skipping nixpkgs-services)\n",
-            "• Deploy: mise run provision-ringtail\n",
-        ]
-    elif svc_type == "mise":
-        checklist_parts += [
-            "\n[bold]Mise Tool Update:[/bold]\n",
-            "• Update pinned version in mise.toml\n",
-            "• Run: mise install to verify\n",
-            "• Check for breaking changes in release notes\n",
-        ]
-
-    checklist_parts += [
-        "\n[bold]Health Check:[/bold]\n",
-        "• Verify the service is running and healthy\n",
-        "• Check logs for errors or warnings\n",
-        "\n[bold]After Review:[/bold]\n",
-        "• Update the tracking file: [cyan]service-versions.yaml[/cyan] (repo root)\n",
-        f"• Set [cyan]last-reviewed: {today}[/cyan] and [cyan]current-version[/cyan]\n",
-        "• Commit the change (along with any upgrades)",
-    ]
+    checklist_parts = build_checklist(top_svc, today)
 
     console.print(Panel(
         "".join(checklist_parts),

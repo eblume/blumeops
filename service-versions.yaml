@@ -5,7 +5,11 @@
 #
 # Fields:
 #   name            - kebab-case service identifier
-#   type            - argocd | ansible | nixos | fly | mise
+#   type            - argocd | ansible | nixos | fly | mise | container
+#   release         - optional; `self` = version advanced by the service's own
+#                     release pipeline (review pipeline health, not an upstream
+#                     bump); absent = upstream-tracked
+#   parent          - optional; the parent service entry for an attached service
 #   last-reviewed   - date (YYYY-MM-DD) or null
 #   current-version - deployed version string or null
 #   upstream-source - URL to upstream releases/changelog
@@ -41,6 +45,7 @@ services:
 
   - name: horkos
     type: argocd
+    release: self
     last-reviewed: 2026-08-20
     current-version: "v0.5.27"
     upstream-source: https://forge.eblu.me/eblume/horkos
@@ -355,6 +360,7 @@ services:
 
   - name: cv
     type: ansible
+    release: self
     last-reviewed: 2026-09-08
     current-version: "v1.0.4"
     upstream-source: https://forge.eblu.me/eblume/cv
@@ -368,6 +374,7 @@ services:
 
   - name: docs
     type: ansible
+    release: self
     last-reviewed: 2026-09-01
     current-version: "v1.20.1"
     upstream-source: https://forge.eblu.me/eblume/blumeops/releases
@@ -427,6 +434,7 @@ services:
 
   - name: talos
     type: argocd
+    release: self
     last-reviewed: "2026-08-30"
     current-version: "v0.4.155"
     upstream-source: https://forge.eblu.me/eblume/talos
@@ -533,6 +541,7 @@ services:
 
   - name: heph
     type: ansible
+    release: self
     last-reviewed: 2026-06-05
     current-version: "v1.2.1"
     upstream-source: https://forge.eblu.me/eblume/hephaestus/releases
@@ -550,6 +559,7 @@ services:
 
   - name: heph-agent-spoke
     type: nixos
+    release: self
     last-reviewed: 2026-07-09
     current-version: "v1.7.0"
     upstream-source: https://forge.eblu.me/eblume/hephaestus/releases
@@ -565,6 +575,7 @@ services:
 
   - name: heph-cli-ringtail
     type: nixos
+    release: self
     last-reviewed: 2026-07-30
     current-version: "v1.7.0"
     upstream-source: https://forge.eblu.me/eblume/hephaestus/releases
