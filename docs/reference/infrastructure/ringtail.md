@@ -1,6 +1,6 @@
 ---
 title: Ringtail
-modified: 2026-09-16
+modified: 2026-09-18
 last-reviewed: 2026-09-16
 tags:
   - infrastructure
@@ -228,7 +228,7 @@ Versioned services (forgejo-runner, snowflake, k3s) are pinned via a `nixpkgs-se
 
 **1Password:** Desktop app must be running for `op` CLI. Use `$mod+Shift+minus` to send to scratchpad.
 
-**NVIDIA:** Proprietary drivers. Sway launched with `--unsupported-gpu` via greetd.
+**NVIDIA:** Proprietary drivers. greetd greets via ReGreet under cage (a Wayland compositor): it holds the DRM master and suspends fbcon, so loglevel-7 kernel text for netconsole can't paint the login screen. Sway starts with `--unsupported-gpu` from its own wayland-sessions desktop file, published via the programs.sway session package with Exec patched to carry the flag.
 
 **No TPM:** `systemd.tpm2.enable = false` prevents 90s boot delay.
 
