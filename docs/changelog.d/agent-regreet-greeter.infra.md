@@ -1,1 +1,0 @@
-ringtail: replace tuigreet with the ReGreet greeter on cage (greetd): the Wayland compositor holds the DRM master and suspends fbcon, so kernel output at loglevel 7 (netconsole) no longer paints over the login screen; the sway session entry is published via the programs.sway session package with Exec patched to add --unsupported-gpu.

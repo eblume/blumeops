@@ -114,26 +114,6 @@ in
   programs.sway = {
     enable = true;
     wrapperFeatures.gtk = true;
-    # ReGreet shlex-runs the Exec of the wayland-sessions desktop file it
-    # finds via $XDG_DATA_DIRS; this module's session package publishes that
-    # entry, so the proprietary-NVIDIA flag has to live in it. patchPhase
-    # would never run (sway is a symlinkJoin whose buildCommand bypasses the
-    # stdenv phase loop), so append to buildCommand instead.
-    package = pkgs.sway.overrideDerivation (old: {
-      buildCommand = old.buildCommand + ''
-        # Replace the symlink into sway-unwrapped's entry (Exec=sway) with a
-        # flagged copy; keep the keys in sync with upstream sway.desktop.
-        rm -f $out/share/wayland-sessions/sway.desktop
-        cat > $out/share/wayland-sessions/sway.desktop <<'EOF'
-        [Desktop Entry]
-        Name=Sway
-        Comment=An i3-compatible Wayland compositor
-        Exec=sway --unsupported-gpu
-        Type=Application
-        DesktopNames=sway;wlroots
-        EOF
-      '';
-    });
     extraPackages = with pkgs; [
       swaylock
       swayidle
@@ -148,10 +128,16 @@ in
   security.pam.services.swaylock = {}; # Allow swaylock to authenticate
   security.sudo.wheelNeedsPassword = false;
 
-  # greetd greets via ReGreet on cage: the compositor holds the DRM master
-  # and suspends fbcon, so loglevel-7 kernel text (netconsole) stays off the screen.
-  services.greetd.enable = true;
-  programs.regreet.enable = true;
+  # Enable greetd as display manager for sway
+  services.greetd = {
+    enable = true;
+    settings = {
+      default_session = {
+        command = "${pkgs.tuigreet}/bin/tuigreet --time --cmd 'sway --unsupported-gpu'";
+        user = "greeter";
+      };
+    };
+  };
 
   # PipeWire for audio
   services.pipewire = {
@@ -195,9 +181,9 @@ in
   # Software cursors under the NVIDIA proprietary driver: wlroots' hardware
   # cursor path corrupts or drops the pointer there. wlroots reads this from
   # the compositor's own environment at output creation, so it must be set
-  # before sway execs. environment.variables reaches it set system-wide:
-  # greetd's source_profile runs `. /etc/profile; exec cage`, and both cage
-  # and ReGreet inherit /etc/profile → /etc/set-environment down to sway.
+  # before sway execs; environment.variables reaches it because greetd's
+  # source_profile default runs `. /etc/profile; exec sway`, and /etc/profile
+  # sources /etc/set-environment.
   environment.variables.WLR_NO_HARDWARE_CURSORS = "1";
 
   # 1Password (modules handle CLI group/setgid and polkit for GUI integration)
