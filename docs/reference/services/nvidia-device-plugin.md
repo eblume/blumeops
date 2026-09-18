@@ -1,7 +1,7 @@
 ---
 title: NVIDIA Device Plugin
-modified: 2026-06-30
-last-reviewed: 2026-06-30
+modified: 2026-09-18
+last-reviewed: 2026-09-18
 tags:
   - service
   - gpu
@@ -16,7 +16,7 @@ Kubernetes device plugin that exposes NVIDIA GPUs to pods on [[ringtail]]. Requi
 | Property | Value |
 |----------|-------|
 | **Namespace** | `nvidia-device-plugin` |
-| **Image** | `nvcr.io/nvidia/k8s-device-plugin:v0.19.2` |
+| **Image** | `nvcr.io/nvidia/k8s-device-plugin:v0.20.0` |
 | **Upstream** | https://github.com/NVIDIA/k8s-device-plugin |
 | **Manifests** | [argocd/manifests/nvidia-device-plugin/](https://forge.eblu.me/eblume/blumeops/src/branch/main/argocd/manifests/nvidia-device-plugin) |
 
