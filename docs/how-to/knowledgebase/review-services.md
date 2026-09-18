@@ -1,6 +1,6 @@
 ---
 title: Review Services
-modified: 2026-08-25
+modified: 2026-09-17
 last-reviewed: 2026-04-12
 tags:
   - how-to
@@ -33,7 +33,7 @@ To filter by service type:
 ```bash
 mise run service-review --type argocd
 mise run service-review --type ansible
-mise run service-review --type manual
+mise run service-review --type container
 ```
 
 See [[service-versions]] for the full list of types in use.
@@ -77,6 +77,39 @@ Development tools managed via `mise.toml` with pinned versions. These are local 
 4. Run `mise install` to verify the new version installs correctly
 5. Update `service-versions.yaml` with the new version
 
+### Container Images (`type: container`)
+
+The locally built images (`tailscale`, `tailscale-k8s-nameserver`) are built
+from the derivation in `containers/<service>/default.nix` and pushed to the
+registry on merge to main. `current-version` pins the upstream version, and
+the nix file declares it too (`version = "…"` plus the fetch rev/hash) — all
+declaration sites must agree.
+
+1. Check the version pins in `containers/<service>/default.nix` and confirm
+they match `service-versions.yaml` — `mise run container-version-check`
+verifies the consistency
+2. To bump: update the version pins in that file and push — the PR build
+check resolves the fetch/FOD hashes for you; merge to main triggers the
+registry push
+3. horkos then opens the kustomization pin-bump PR against
+`argocd/manifests/<service>/kustomization.yaml`; merge it to deploy (the app
+syncs itself)
+4. Confirm the deployed image tag matches what you expected
+
+### Fly Proxy Apps (`type: fly`)
+
+The Fly proxy is one Dockerfile (`fly/`) with its component versions
+digest-pinned on the `FROM` base image and the `COPY --from` stages
+(`nginx@sha256:…`, `tailscale/tailscale@sha256:…`, `grafana/alloy@sha256:…`,
+`techarohq/anubis@sha256:…`).
+
+1. The version pins live in `fly/Dockerfile` — bump the tag and digest there
+2. Deploy via `mise run fly-deploy` (a `[human]` task — it needs the fly.io
+API token); from an agent, file a request:
+`mise run request-run deploy-fly.yaml <sha> --pr N -i revision=<sha>`, and
+the warrant dispatches it after approval
+3. Confirm the deploy landed with the expected image digest
+
 ### Private Forge Repos (`upstream-source` under `forge.eblu.me/eblume/`)
 
 Some services are built from private repos on the forge rather than tracking an external upstream project. When `upstream-source` points to a `forge.eblu.me/eblume/` repo:
@@ -88,6 +121,22 @@ Some services are built from private repos on the forge rather than tracking an 
 5. Back in blumeops, update the container image or release artifact reference as needed
 
 This extends the service review into the source repo's build-time dependencies, which would otherwise be a blind spot — the blumeops-side review only covers the deployment manifest and container base image.
+
+### Self-Released Services (`release: self`)
+
+First-party services are not reviewed against an upstream — their version is
+advanced by their own release pipeline (release CI publishes; a pin PR bumps
+`current-version` in blumeops). A review of one means:
+
+1. Confirm the last release actually published (source repo's release page/tags)
+2. Confirm the pin/deploy it produced landed (pin PR merged, app synced)
+3. Confirm the deployed version matches `current-version` in `service-versions.yaml`
+4. Confirm the app is healthy
+5. Refresh build-time dependencies in the source repo, as in the Private Forge
+Repos steps above
+
+These services stay in the staleness queue — `last-reviewed` still measures
+human attention; only the checklist changes.
 
 ## Attached Services
 
