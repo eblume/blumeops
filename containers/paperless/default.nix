@@ -15,19 +15,17 @@
 # plus a redis/valkey sidecar. The PYTHONPATH/granian invocation mirrors
 # the nixpkgs paperless NixOS module's paperless-web service exactly.
 #
-# Self-pins nixos-unstable: stable nixpkgs lags at 2.19.6, while unstable
-# carries 2.20.15 — a same-minor forward patch bump from the previous
-# Dockerfile build (v2.20.13). The version assertion makes nix-build fail
-# if a pin bump changes the version, forcing an explicit acknowledgment
-# here and in service-versions.yaml (enforced by container-version-check).
+# Self-pins nixos-unstable; the version assertion below fails the build if a
+# pin bump moves the package, forcing an explicit acknowledgment here and in
+# service-versions.yaml (enforced by container-version-check).
 let
   nixpkgs = fetchTarball {
-    url = "https://github.com/NixOS/nixpkgs/archive/331800de5053fcebacf6813adb5db9c9dca22a0c.tar.gz";
-    sha256 = "1p54fm6dkbq62kpi55cr4wyx7b1nsajpsnjgs64cmp073fwi15f7";
+    url = "https://github.com/NixOS/nixpkgs/archive/ef34387ddd751e1ab8857adf4676492d32eb24ec.tar.gz";
+    sha256 = "0wfp59yxnxram68zv0g1jpy0bldls5fph1kxpm216fcrqbnhl8bs";
   };
   pkgs = import nixpkgs { system = "x86_64-linux"; };
 
-  version = "2.20.15";
+  version = "3.1.3";
 
   app = pkgs.paperless-ngx;
 

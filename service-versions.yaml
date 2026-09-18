@@ -459,8 +459,8 @@ services:
 
   - name: paperless
     type: argocd
-    last-reviewed: "2026-06-03"
-    current-version: "v2.20.15"
+    last-reviewed: "2026-09-16"
+    current-version: "v3.1.3"
     upstream-source: https://github.com/paperless-ngx/paperless-ngx/releases
     notes: >-
       Document management. Container ported from Dockerfile to Nix

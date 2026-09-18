@@ -1,7 +1,7 @@
 ---
 title: Paperless-ngx
-modified: 2026-07-21
-last-reviewed: 2026-07-21
+modified: 2026-09-16
+last-reviewed: 2026-09-16
 tags:
   - service
 ---
@@ -17,10 +17,10 @@ Self-hosted document management system with OCR, tagging, and full-text search.
 | **URL** | https://paperless.ops.eblu.me |
 | **Tailscale URL** | https://paperless.tail8d86e.ts.net |
 | **ArgoCD app** | `paperless-ringtail` |
-| **Sync policy** | Manual |
+| **Sync policy** | Automated |
 | **Namespace** | `paperless` |
 | **Image** | `registry.ops.eblu.me/blumeops/paperless` |
-| **Tracked upstream version** | `v2.20.15` |
+| **Tracked upstream version** | `v3.1.3` |
 | **Manifests** | `argocd/manifests/paperless-ringtail/` |
 | **Container source** | `containers/paperless/default.nix` (Nix image) |
 | **Upstream** | [paperless-ngx/paperless-ngx](https://github.com/paperless-ngx/paperless-ngx) |
