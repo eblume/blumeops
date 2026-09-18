@@ -1,6 +1,6 @@
 ---
 title: Provision Indri
-modified: 2026-09-17
+modified: 2026-09-18
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -21,12 +21,23 @@ like ringtail's: two guards, then the play.
    resolves inputs, so it works from any controller. If
    `darwin/indri/flake.lock` changes, the task stages it and exits: commit,
    push, re-run.
-2. Fail if HEAD is not pushed to origin.
+2. Fail if HEAD is not pushed to origin. An unreachable forge fails here
+   too, loudly, with git's own error.
 3. `ansible-playbook playbooks/indri.yml -e "indri_commit=<sha>"`:
    controller-side `op` reads, then the `rebuild` tasks (below), then the
    service roles. The rebuild tasks sit at the end of `pre_tasks` — ansible
    runs `tasks:` *after* `roles:`, so that is the only place "before the
    roles" is true.
+
+Steps 1–2 exist to bind `indri_commit` for the `rebuild` checkout, so a
+**role-only run** — `--tags <role>` without `rebuild`, or `--skip-tags
+rebuild` — skips both guards and says so. The pushed-HEAD guard reaches
+the forge through caddy on indri, and the caddy rollback re-write is
+itself a role-only run: the PR 6 window (2026-09-18) found the guard
+failing silently, with the forge unreachable, exactly when the re-write
+was the recovery (blumeops#1125). A rebuild cannot be the caddy recovery
+either — indri's checkout fetches `https://forge.ops.eblu.me`, also
+through caddy — so the guards lose nothing by stepping aside.
 
 
 ## The rebuild tag (zero-prompt apply)
@@ -129,8 +140,10 @@ unloaded, the forge API and ssh, the registry, and every image pull
 from the cluster are down, and indri's own runner cannot reach
 `forge.ops.eblu.me` — so no CI runs land during the drill either.
 Ansible itself is unaffected (it reaches indri over tailscale ssh, not
-through caddy) and `op` is unaffected. After the forward switch,
-verify every endpoint and the L4 routes, per the plan.
+through caddy) and `op` is unaffected; the `provision-indri` guards are
+skipped for the role-only re-write (see §What the task does), which is
+what lets it run while the forge is unreachable. After the forward
+switch, verify every endpoint and the L4 routes, per the plan.
 
 Rollback per §Rolling back a service flip, with the role's gate
 flipped.

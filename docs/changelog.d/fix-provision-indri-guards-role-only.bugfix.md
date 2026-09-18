@@ -1,0 +1,1 @@
+`provision-indri` skips its flake-lock and pushed-HEAD guards on role-only runs (`--tags <role>` without `rebuild`), so the caddy rollback re-write no longer needs the forge that caddy fronts; both `provision-indri` and `provision-ringtail` now fail loudly, with git's error, when origin is unreachable instead of exiting silently under `set -e`.

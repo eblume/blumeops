@@ -5,27 +5,62 @@ set -euo pipefail
 
 export MISE_TASK_OUTPUT=interleave
 
-# Update flake.lock via `nix flake lock` in a nixos/nix container before
-# deploying. `nix flake lock` only resolves inputs — it does not evaluate
-# darwinConfigurations — so this works from any controller. See [[provision]].
-echo "Updating darwin/indri/flake.lock..."
-docker run --rm -v "$PWD":/workspace -w /workspace/darwin/indri \
-    nixos/nix:2.34.4 nix --extra-experimental-features 'nix-command flakes' \
-    flake lock --accept-flake-config
-
-if ! git diff --quiet darwin/indri/flake.lock; then
-    git add darwin/indri/flake.lock
-    echo "flake.lock changed and staged. Commit, push, and re-run."
-    exit 1
+# Parse ansible's tag flags: the two guards below exist to bind indri_commit
+# for the `rebuild` checkout, so a role-only run (`--tags <role>` without
+# `rebuild`, or `--skip-tags rebuild`) never needs them. That matters for
+# recovery: the pushed-HEAD guard reaches the forge through caddy, and the
+# caddy rollback re-write is itself a role-only run (blumeops#1125, the PR 6
+# window) - gating it on a forge round-trip made the recovery fail while
+# the service it recovers was down. See [[provision]].
+tags=""
+skip_tags=""
+args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do
+    case "${args[i]}" in
+        --tags|-t) tags="${tags:+$tags,}${args[i + 1]:-}" ;;
+        --tags=*) tags="${tags:+$tags,}${args[i]#--tags=}" ;;
+        --skip-tags) skip_tags="${skip_tags:+$skip_tags,}${args[i + 1]:-}" ;;
+        --skip-tags=*) skip_tags="${skip_tags:+$skip_tags,}${args[i]#--skip-tags=}" ;;
+    esac
+done
+run_rebuild=true
+if [[ -n "$tags" && ",$tags," != *",rebuild,"* && ",$tags," != *",all,"* ]]; then
+    run_rebuild=false
+elif [[ ",$skip_tags," == *",rebuild,"* ]]; then
+    run_rebuild=false
 fi
 
 COMMIT=$(git rev-parse HEAD)
-REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null | awk 'NR==1{print $1}')
 
-if [[ "$REMOTE_REF" != "$COMMIT" ]]; then
-    echo "ERROR: Current commit $COMMIT is not pushed to forge."
-    echo "Push your changes first: git push"
-    exit 1
+if [[ "$run_rebuild" == true ]]; then
+    # Update flake.lock via `nix flake lock` in a nixos/nix container before
+    # deploying. `nix flake lock` only resolves inputs — it does not evaluate
+    # darwinConfigurations — so this works from any controller. See [[provision]].
+    echo "Updating darwin/indri/flake.lock..."
+    docker run --rm -v "$PWD":/workspace -w /workspace/darwin/indri \
+        nixos/nix:2.34.4 nix --extra-experimental-features 'nix-command flakes' \
+        flake lock --accept-flake-config
+
+    if ! git diff --quiet darwin/indri/flake.lock; then
+        git add darwin/indri/flake.lock
+        echo "flake.lock changed and staged. Commit, push, and re-run."
+        exit 1
+    fi
+
+    # `if !` keeps a failed ls-remote out of set -e's reach, so an unreachable
+    # forge fails here with git's own error instead of a silent exit.
+    if ! REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" | awk 'NR==1{print $1}'); then
+        echo "ERROR: cannot reach origin to verify $COMMIT is pushed (the forge is behind caddy on indri)."
+        exit 1
+    fi
+
+    if [[ "$REMOTE_REF" != "$COMMIT" ]]; then
+        echo "ERROR: Current commit $COMMIT is not pushed to forge."
+        echo "Push your changes first: git push"
+        exit 1
+    fi
+else
+    echo "Role-only run (tags: ${tags:-<none>}; skip-tags: ${skip_tags:-<none>}): skipping the flake-lock and pushed-HEAD guards."
 fi
 
 echo "Deploying commit $COMMIT to indri..."
