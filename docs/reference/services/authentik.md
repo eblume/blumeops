@@ -1,7 +1,7 @@
 ---
 title: Authentik
-modified: 2026-06-09
-last-reviewed: 2026-06-09
+modified: 2026-09-18
+last-reviewed: 2026-09-18
 tags:
   - service
   - security
@@ -10,7 +10,7 @@ tags:
 
 # Authentik
 
-OIDC identity provider for BlumeOps. Authentik is the **source of truth** for user identity — users are created and managed in Authentik, and services authenticate against it via OIDC.
+OIDC identity provider for BlumeOps. Authentik is the **source of truth** for user identity — users are created and managed in Authentik (not Forgejo-upstream like its predecessor Dex), and services authenticate against it via OIDC.
 
 ## Quick Reference
 
@@ -26,7 +26,7 @@ OIDC identity provider for BlumeOps. Authentik is the **source of truth** for us
 
 ## Architecture
 
-Authentik runs on [[ringtail]]'s k3s cluster alongside the other Kubernetes workloads. (It originally sat apart from indri's minikube so the IdP was independent of that cluster's lifecycle; minikube was retired 2026-06.)
+Authentik runs on [[ringtail]]'s k3s cluster alongside the other BlumeOps workloads, and shares that cluster's `blumeops-pg` database.
 
 Three deployments:
 - **server** — HTTP/HTTPS interface, handles OIDC flows
@@ -35,7 +35,7 @@ Three deployments:
 
 ## Database
 
-Uses the shared CNPG `blumeops-pg` cluster on [[indri]], accessed cross-cluster via `pg.ops.eblu.me:5432`. Database `authentik` with managed role.
+Uses the shared CNPG `blumeops-pg` cluster in the `databases` namespace on [[ringtail]]'s k3s — in-cluster at `blumeops-pg-rw.databases.svc.cluster.local`, cross-host via Caddy L4 `pg.ops.eblu.me:5434`. The cluster sat on indri's minikube before it was retired in 2026-06 ([[retire-minikube]]). Database `authentik` with managed role ([[provision-authentik-database]]).
 
 ## Blueprints
 
@@ -79,13 +79,12 @@ The item also holds an `api-token` field (Authentik API access for admin scripti
 
 ## Container Image
 
-Nix-built via `dockerTools.buildLayeredImage`. The entrypoint wrapper symlinks built-in blueprint directories from the Nix store into `/blueprints/` at runtime, allowing custom blueprints to coexist with defaults. `AUTHENTIK_BLUEPRINTS_DIR=/blueprints` overrides the hardcoded Nix store path.
+Nix-built via `dockerTools.buildLayeredImage`; the image needs `coreutils` and `bashInteractive` alongside the main package. The entrypoint wrapper symlinks built-in blueprint directories from the Nix store into `/blueprints/` at runtime, allowing custom blueprints to coexist with defaults. `AUTHENTIK_BLUEPRINTS_DIR=/blueprints` overrides the hardcoded Nix store path.
 
 ## Related
 
 - [[federated-login]] - How authentication works across BlumeOps
 - [[grafana]] - First OIDC client
-- [[deploy-authentik]] - Deployment how-to
 - [[provision-authentik-database]] - PostgreSQL database provisioning
 - [[migrate-grafana-to-authentik]] - Grafana SSO migration from Dex
 - [[build-authentik-from-source]] - Nix-based container build

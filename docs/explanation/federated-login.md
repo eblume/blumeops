@@ -87,4 +87,3 @@ Authentik enforces TOTP MFA on its default authentication flow (`not_configured_
 - [[grafana]] - First OIDC client
 - [[mealie]] - Recipe manager (public PKCE client)
 - [[security-model]] - Network security and access control
-- [[deploy-authentik]] - Deployment how-to
