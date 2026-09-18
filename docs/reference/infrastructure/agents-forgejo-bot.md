@@ -1,6 +1,6 @@
 ---
 title: Agents Forgejo Bot
-modified: 2026-09-07
+modified: 2026-09-18
 last-reviewed: 2026-07-21
 tags:
   - reference
@@ -107,9 +107,10 @@ workspace checkout — are declared in **one** file:
   local run from gilbert — same follow-up as hook creation.
 - `release_hook` (`true` | absent): release repos (`talos`, `horkos`,
   `blumeops`, `cv`) additionally get the forge → horkos **release webhook**
-  (push + tag-create events) at `https://horkos.ops.eblu.me/api/webhooks/forge`,
+  (push + tag-create + pull_request) at `https://horkos.ops.eblu.me/api/webhooks/forge`,
   reconciled by the same task — the horkos publisher acts on tag creation
-  today, push deliveries are accepted but inert (eblume/horkos#17 step 2).
+  today, push deliveries are accepted but inert, and pull_request deliveries
+  drive the void-on-unmerged-PR-close handler (eblume/horkos#17, eblume/horkos#35).
   All release repos share **one** signing secret, the `horkos forge webhook`
   item in the blumeops vault: resolved from 1Password at creation (or
   `$HORKOS_FORGE_HOOK_SECRET`), and ESO-mounted on the horkos pod

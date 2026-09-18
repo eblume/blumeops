@@ -34,7 +34,7 @@ needed at creation — resolved from $TALOS_FORGE_WEBHOOK_SECRET or 1Password,
 so a CI apply that must CREATE a hook fails loudly and asks for a local run
 from gilbert). Every repo with
 release_hook: true in repos.json additionally gets one forge → horkos release
-hook (push + create), identified by its own delivery URL and sharing one
+hook (push + create + pull_request), identified by its own delivery URL and sharing one
 signing secret — the 'horkos forge webhook' blumeops-vault item — resolved
 from $HORKOS_FORGE_HOOK_SECRET or 1Password, also needed only at creation.
 
@@ -186,13 +186,25 @@ OP_WEBHOOK_SECRET_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/unrui7ten3ntx4ka6ze2zuk
 # item in the blumeops vault is created as the named human step of
 # eblume/horkos#17.
 HORKOS_HOOK_URL = "https://horkos.ops.eblu.me/api/webhooks/forge"
-# push (default branch) + tag creation; the horkos publisher acts on tag
-# create today, push deliveries are accepted but inert until later steps of
-# eblume/horkos#17.
-HORKOS_HOOK_SEND_EVENTS = frozenset({"push", "create"})
-# No umbrella expansion for push/create (unlike the issues family): GET reads
-# back exactly these names, in a fixed order — compare as a set.
-HORKOS_HOOK_READ_EVENTS = frozenset({"push", "create"})
+# push (default branch) + tag creation + pull_request deliveries: the
+# publisher acts on tag create, push deliveries are accepted but inert, and
+# pull_request drives the void-on-unmerged-PR-close handler (eblume/horkos#35).
+HORKOS_HOOK_SEND_EVENTS = frozenset({"push", "create", "pull_request"})
+# push/create read back exactly as sent, but like the talos hook above, the
+# GET read-back reports `pull_request` expanded into its five fine-grained
+# names — the READ set carries the umbrella plus the expansion, compare as a set.
+HORKOS_HOOK_READ_EVENTS = frozenset(
+    {
+        "push",
+        "create",
+        "pull_request",
+        "pull_request_assign",
+        "pull_request_label",
+        "pull_request_milestone",
+        "pull_request_review_request",
+        "pull_request_sync",
+    }
+)
 # Title-based ref works because this item name carries no parens (unlike the
 # talos item).
 OP_HORKOS_WEBHOOK_SECRET_REF = "op://blumeops/horkos forge webhook/credential"
@@ -704,7 +716,8 @@ def main(
             # URL — never by id, so a hand-created hook with the right URL is
             # adopted, not duplicated: one talos hook (exact event set,
             # active) on every pool repo, and one horkos release hook (push +
-            # create) on every repo with release_hook: true; none anywhere
+            # create + pull_request) on every repo with release_hook: true;
+            # none anywhere
             # else. Same admin-visibility rules as collaborators, and the
             # same fatal-if-listed logic — collaborator readability was
             # already checked above, so reaching here means the hook list is
