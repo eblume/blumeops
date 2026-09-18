@@ -1,7 +1,7 @@
 ---
 title: Caddy
-modified: 2026-07-14
-last-reviewed: 2026-07-14
+modified: 2026-09-18
+last-reviewed: 2026-09-18
 tags:
   - service
   - networking
@@ -20,6 +20,7 @@ Reverse proxy for `*.ops.eblu.me` services with automatic TLS via ACME DNS-01.
 | **HTTPS Port** | 443 |
 | **Config** | `ansible/roles/caddy/templates/Caddyfile.j2` |
 | **Binary** | Custom build with Gandi DNS plugin |
+| **Unit** | nix-managed LaunchAgent `mcquack.eblume.caddy` ([[indri]] flake) |
 
 ## Why Caddy?
 
@@ -78,16 +79,24 @@ Some sites are served directly by Caddy from disk (`kind: static`, `file_server`
 
 ## Configuration
 
-Caddy is managed via the `caddy` Ansible role:
+The `Caddyfile`, wrapper script and Gandi token file are managed via the
+`caddy` Ansible role; the LaunchAgent unit is nix-managed
+(`launchd.user.agents."mcquack.eblume.caddy"` in the [[indri]] flake,
+PR 6 of the nix-darwin series), so config changes apply with the role
+tag while the plist flip applies with `--tags rebuild`. The role's
+plist + load tasks are skipped by default (`caddy_ansible_managed:
+false`) and remain the rollback re-write — see [[provision]] §Rolling
+back a service flip:
 
 ```bash
-# Deploy caddy changes
+# Deploy caddy config changes (Caddyfile, wrapper, token file)
 mise run provision-indri -- --tags caddy
 ```
 
 **Key files:**
 - `ansible/roles/caddy/defaults/main.yml` - Service definitions
 - `ansible/roles/caddy/templates/Caddyfile.j2` - Caddy config template
+- `darwin/indri/configuration.nix` - LaunchAgent unit
 
 ## Secrets
 

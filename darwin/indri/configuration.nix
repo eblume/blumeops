@@ -240,4 +240,29 @@ in
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.zot.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.zot.err.log";
   };
+
+  # caddy: the widest daemon the series moves (PR 6). It fronts every
+  # *.ops.eblu.me endpoint and the L4 routes (forge ssh 2222, postgres
+  # 5433/5434, the sifaka exporter ports): with the unit unloaded the
+  # forge API/ssh, the registry, every image pull from the cluster and
+  # indri's own runner reaching forge.ops.eblu.me - so no CI runs land
+  # either - go down until something reloads the unit. The unit stays a user LaunchAgent at the same
+  # label and plist path the ansible role used (logrotate's globs,
+  # alloy's log tails and services-check key on them). The binary stays
+  # the xcaddy build in ~/code/3rd/caddy (not yet nix-managed), and the
+  # Caddyfile, wrapper script and Gandi token file stay role-rendered:
+  # the role's gate covers only the plist + load tasks.
+  launchd.user.agents."mcquack.eblume.caddy".serviceConfig = {
+    Label = "mcquack.eblume.caddy";
+    ProgramArguments = [ "/Users/erichblume/.config/caddy/caddy-wrapper.sh" ];
+    WorkingDirectory = "/Users/erichblume/.local/share/caddy";
+    RunAtLoad = true;
+    KeepAlive = true;
+    EnvironmentVariables = {
+      XDG_DATA_HOME = "/Users/erichblume/.local/share";
+      XDG_CONFIG_HOME = "/Users/erichblume/.config";
+    };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.caddy.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.caddy.err.log";
+  };
 }

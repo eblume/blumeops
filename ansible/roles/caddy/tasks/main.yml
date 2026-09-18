@@ -7,6 +7,12 @@
 # shadow that config for the caddy build on purpose. See
 # [[build-caddy-with-plugins]].
 
+# Skipped by default: the nix-darwin generation owns this service's
+# LaunchAgent plist (PR 6 of the indri series). The plist and load
+# tasks below remain the rollback re-write, run with
+# -e caddy_ansible_managed=true only; Caddyfile / wrapper / token
+# rendering stays ansible-side. See defaults/main.yml.
+
 - name: Verify caddy binary exists
   ansible.builtin.stat:
     path: "{{ caddy_binary }}"
@@ -70,6 +76,7 @@
     dest: ~/Library/LaunchAgents/mcquack.eblume.caddy.plist
     mode: "0644"
   notify: Restart caddy
+  when: caddy_ansible_managed | bool
 
 - name: Check if caddy LaunchAgent is loaded
   ansible.builtin.command:
@@ -77,9 +84,12 @@
   register: caddy_launchctl
   changed_when: false
   failed_when: false
+  when: caddy_ansible_managed | bool
 
 - name: Load caddy LaunchAgent
   ansible.builtin.command:
     cmd: launchctl load ~/Library/LaunchAgents/mcquack.eblume.caddy.plist
-  when: caddy_launchctl.rc != 0
+  when:
+    - caddy_ansible_managed | bool
+    - caddy_launchctl.rc != 0
   changed_when: true

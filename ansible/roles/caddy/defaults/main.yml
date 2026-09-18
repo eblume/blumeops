@@ -2,6 +2,15 @@
 # Caddy reverse proxy configuration
 # Caddy is built from ~/code/3rd/caddy with Gandi DNS and Layer 4 plugins
 
+# caddy on indri is nix-managed (darwin/indri, PR 6 of the nix-darwin
+# series): the generation owns the LaunchAgent plist, so a normal
+# provision must not re-deploy or reload it. Flip this to true only
+# for the rollback re-write (darwin-rebuild --rollback first, then
+# `mise run provision-indri -- --tags caddy -e caddy_ansible_managed=true`),
+# per docs/how-to/indri/provision.md §Rolling back a service flip.
+
+caddy_ansible_managed: false
+
 caddy_repo_dir: /Users/erichblume/code/3rd/caddy
 caddy_binary: "{{ caddy_repo_dir }}/bin/caddy"
 caddy_config_dir: /Users/erichblume/.config/caddy
