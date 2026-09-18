@@ -67,6 +67,8 @@ is down`, and `pmset -g assertions` holds no Amphetamine assertion.
 
 **Registry (zot):** the zot registry LaunchAgent is nix-managed (the flake's `launchd.user.agents."mcquack.eblume.zot"`) under the same label and plist path the ansible role used; the source-built binary stays at `~/code/3rd/zot` and the config + OIDC credentials stay role-rendered — the role's gate (`zot_ansible_managed`) covers only the plist + load tasks, which stay as the [[provision]] rollback re-write, while the config/credentials rendering and the binary checks still run on every provision. The unit is a real daemon — with it unloaded the registry is down.
 
+**Caddy:** the caddy LaunchAgent is nix-managed (the flake's `launchd.user.agents."mcquack.eblume.caddy"`) under the same label and plist path the ansible role used; the xcaddy-built binary stays at `~/code/3rd/caddy` and the Caddyfile, wrapper script and Gandi token file stay role-rendered — the role's gate (`caddy_ansible_managed`) covers only the plist + load tasks, which stay as the [[provision]] rollback re-write. The unit is a real daemon — it fronts every `*.ops.eblu.me` endpoint and the L4 routes (2222/5433/5434 and the sifaka exporter ports), so with it unloaded all of those are down.
+
 ## Nix
 
 indri's system profile is nix-darwin (the `darwin/indri/` flake,

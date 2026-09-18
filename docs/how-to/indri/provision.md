@@ -111,6 +111,30 @@ unit, so the rollback drill below is planned around a real outage.
 Rollback per §Rolling back a service flip, with the role's gate
 flipped.
 
+## Caddy
+
+Caddy is the widest daemon the series moves (PR 6): it fronts every
+`*.ops.eblu.me` endpoint and the L4 routes (forge ssh 2222, postgres
+5433/5434, the sifaka exporter ports). The unit is a nix-managed user agent
+(`mcquack.eblume.caddy`) at the same label and plist path the ansible
+role used; the xcaddy-built binary stays at `~/code/3rd/caddy` (out of
+nix's scope) and the `Caddyfile`, wrapper script and Gandi token file
+stay role-rendered — the role's gate (`caddy_ansible_managed`) covers
+only the plist + load tasks. Applying the flip is the usual
+`mise run provision-indri -- --tags rebuild` (no service-role tag):
+activation writes the plist in place and reloads the agent once.
+
+The drill's blast radius is everything caddy fronts: with the unit
+unloaded, the forge API and ssh, the registry, and every image pull
+from the cluster are down, and indri's own runner cannot reach
+`forge.ops.eblu.me` — so no CI runs land during the drill either.
+Ansible itself is unaffected (it reaches indri over tailscale ssh, not
+through caddy) and `op` is unaffected. After the forward switch,
+verify every endpoint and the L4 routes, per the plan.
+
+Rollback per §Rolling back a service flip, with the role's gate
+flipped.
+
 ## Pre-apply check: indri-flake-check
 
 `mise run indri-flake-check` builds `.#darwinConfigurations.indri.system` on
@@ -274,7 +298,11 @@ borgmatic_metrics_ansible_managed=true -e forgejo_metrics_ansible_managed=true
 For the zot registry flip (PR 5), re-run `mise run provision-indri --
 --tags zot -e zot_ansible_managed=true`. Unlike the textfile
 collectors, zot is a real daemon: the registry is down between the
-rollback and the ansible re-write.
+rollback and the ansible re-write. For the caddy flip (PR 6), re-run
+`mise run provision-indri -- --tags caddy -e caddy_ansible_managed=true`
+— the widest outage: every `*.ops.eblu.me` endpoint and the L4 routes
+(2222/5433/5434 and the sifaka exporter ports) are down during the
+window, and no CI runs land while the forge is unreachable.
 Never ansible first — that would leave the old plist loaded under the new
 generation.
 
@@ -297,8 +325,13 @@ result".
 
 Verifying an agent after a flip or a rollback: `launchctl print
 gui/501/mcquack.eblume.<name>` — `program =` names the owner (a
-`/nix/store/…` path or ansible's), `runs` climbs and `last exit code = 0`.
-The `StandardOutPath` log is not a signal; a quiet agent writes nothing.
+`/nix/store/…` path or ansible's) and `last exit code = 0`. `runs` is
+the climbing signal for the collectors; for a daemon, activation's
+reload is an unload+load, so the new instance starts at `runs = 1` —
+the proof of the reload is the new pid, the rebuild log's
+`reloading user service` line, and the daemon's own `received signal
+15` log line at the switch timestamp. The `StandardOutPath` log is not
+a signal; a quiet agent writes nothing.
 
 ## Window hygiene
 
