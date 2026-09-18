@@ -29,7 +29,10 @@ but the forge never named the run (pre-`return_run_info` forge / 204 answer)
 warrant note); any other run-less status (approved, denied, superseded, …)
 was never dispatched — "never dispatched", with the warrant note's
 "not dispatched: {reason}" surfaced when horkos recorded one
-(eblume/horkos#13). Inference is refused for all three: eblume/horkos#12
+(eblume/horkos#13). A `voided` request is settled instead — its reason to
+exist went away (bound PR closed unmerged, or the workflow left the
+policy) — and the sweep closes the task with the record's `void_reason`
+(eblume/horkos#35). Inference is refused for every one of them: eblume/horkos#12
 audited run 1754 being guessed for an approved-but-undispatched request. The
 forge-side heuristic (newest dispatch of that workflow after the request was
 filed) is reserved for approvals with no warrant record at all — pre-stamp
@@ -298,16 +301,18 @@ def attribution(
     (`match_run`) is reserved for approvals with NO warrant record at all —
     pre-stamp tasks or a warrant outage.
 
-    A run-less warrant record is never guessed at. Three shapes exist, and
+    A run-less warrant record is never guessed at. Four shapes exist, and
     the sweep distinguishes them: request status "dispatched" means the
     dispatch DID run but the forge answered without naming one (pre-
     `return_run_info` forge / 204) — "dispatched-norun", a human links or
     re-dispatches; "dispatch_failed" means the dispatch attempt failed (the
-    reason is on the warrant note); anything else (approved / denied /
-    superseded / …) was never dispatched. Inferring a run for any of them is
+    reason is on the warrant note); "voided" means the request was voided —
+    its reason to exist went away (eblume/horkos#35), and the sweep closes
+    the task; anything else (approved / denied / superseded / …) was never
+    dispatched. Inferring a run for any of them is
     exactly the misattribution audit eblume/horkos#12 caught (run 1754
-    guessed for an approved-but-undispatched request), so all three refuse
-    the heuristic outright.
+    guessed for an approved-but-undispatched request), so every one of them
+    refuses the heuristic outright.
 
     Returns (run, via, state):
       - "recorded": warrant names `run_number`; `run` is that run, or None
@@ -317,6 +322,10 @@ def attribution(
         ran but was never recorded; a human links or re-dispatches.
       - "dispatch_failed": status "dispatch_failed" — the dispatch attempt
         failed, terminally; the warrant note carries the reason.
+      - "voided":   request was voided — its reason to exist went away
+        (bound PR closed unmerged, or the workflow left the policy);
+        settled, the sweep closes the task. The reason is on the record's
+        void_reason.
       - "never":    any other run-less record — never dispatched.
       - "inferred": no warrant record; `run` from the forge-side heuristic
         (None when nothing matches).
@@ -330,19 +339,24 @@ def attribution(
     if wrec and wrec.get("status") == "pending":
         return None, None, "pending"
     if wrec:
-        # Recorded but run-less. Three shapes — two of them NOT "never
+        # Recorded but run-less. Four shapes — three of them NOT "never
         # dispatched": status "dispatched" means the dispatch ran and the
         # forge just never named a run (pre-return_run_info forge / 204);
         # status "dispatch_failed" means the dispatch attempt failed (the
-        # warrant note carries the reason). Everything else (approved /
-        # denied / superseded / …) was never dispatched. Guessing a run for
-        # any of them would reopen the eblume/horkos#12 misattribution, so
-        # all three report and stay open; main() surfaces the note's
-        # "not dispatched: {reason}" when horkos recorded one.
+        # warrant note carries the reason); status "voided" means the
+        # request was voided — settled, the sweep closes the task (the
+        # reason is on the record's void_reason, eblume/horkos#35).
+        # Everything else (approved / denied / superseded / …) was never
+        # dispatched. Guessing a run for any of them would reopen the
+        # eblume/horkos#12 misattribution, so the open ones report and
+        # stay open; main() surfaces the note's "not dispatched: {reason}"
+        # when horkos recorded one.
         if wrec.get("status") == "dispatched":
             return None, None, "dispatched-norun"
         if wrec.get("status") == "dispatch_failed":
             return None, None, "dispatch_failed"
+        if wrec.get("status") == "voided":
+            return None, None, "voided"
         return None, None, "never"
     return match_run(task, runs), "inferred: newest dispatch after filing", "inferred"
 
@@ -370,7 +384,7 @@ def main(
         bindings = sha_policy(client)
     warrants = warrant_requests()
 
-    closed = failed = pending = mismatched = never_dispatched = 0
+    closed = failed = pending = mismatched = never_dispatched = voided = 0
     for task in tasks:
         node_id = task["node_id"]
         label = f"{task['workflow']} @ {task['sha7']} (PR #{task['pr']})"
@@ -431,6 +445,25 @@ def main(
             )
             never_dispatched += 1
             continue
+        if state == "voided":
+            # attribution returns "voided" only when the warrant record exists
+            assert wrec is not None
+            reason = wrec.get("void_reason") or "unknown"
+            if not dry_run:
+                heph(
+                    "log", node_id,
+                    f"AUDIT: warrant request #{wid} voided ({reason}) — its "
+                    "reason to exist went away; nothing was dispatched. "
+                    "Auto-closed by verify-runs.",
+                )
+                heph("done", node_id)
+            console.print(
+                f"[green]voided[/green]  {escape(label)} — warrant #{wid} voided "
+                f"({reason}); its reason to exist went away and nothing was "
+                "dispatched; task closed by verify-runs"
+            )
+            voided += 1
+            continue
 
         if run is None:
             console.print(f"[yellow]pending[/yellow]  {escape(label)} — not dispatched yet")
@@ -474,6 +507,8 @@ def main(
     summary = f"\n{closed} closed, {failed} failed (open), {pending} pending/running"
     if never_dispatched:
         summary += f", [yellow]{never_dispatched} never dispatched[/yellow] (open)"
+    if voided:
+        summary += f", [green]{voided} voided[/green] (closed)"
     if mismatched:
         summary += f", [red]{mismatched} SHA-binding mismatch[/red] (open)"
     console.print(summary)

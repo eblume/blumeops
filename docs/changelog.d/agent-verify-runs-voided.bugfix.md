@@ -1,0 +1,1 @@
+verify-runs settles horkos-voided warrant requests — a request voided because its bound PR closed unmerged or its workflow left warrant-policy now closes its Approve tracking task with the void reason instead of sitting as 'never dispatched' (eblume/horkos#35).

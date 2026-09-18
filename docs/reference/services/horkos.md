@@ -136,15 +136,19 @@ recorded link is consumable outside the database — `mise run verify-runs`
 uses it to close approval tasks against the exact run their approval caused.
 Forge-side inference remains only where there is NO recorded warrant link at
 all (pre-stamp tasks or a warrant outage). A warrant record without a
-`run_number` is reported, never guessed, in three ways: request status
+`run_number` is reported, never guessed, in four ways: request status
 `dispatched` means the dispatch ran but the forge never named the run (a
 pre-`return_run_info` forge / 204 answer) — **dispatched-norun**, left for a
 human to link or re-dispatch; request status `dispatch_failed` means the
 dispatch attempt failed — reported, its reason on the warrant note, left
-open; any other run-less status (approved / denied / superseded) was **never
+open; a `voided` request (void_reason `pr-closed` / `policy-retired`, from
+eblume/horkos#35's void handlers) is **settled** rather than never-
+dispatched — the sweep closes the tracking task with the void reason instead
+of leaving it open; any other run-less status (approved / denied /
+superseded) was **never
 dispatched**, and when the warrant note records the pre-dispatch no-op reason
 (` | not dispatched: …`), the sweep surfaces it (eblume/horkos#13). The run
-heuristic is refused for all three, never consulted (eblume/horkos#12).
+heuristic is refused for all four, never consulted (eblume/horkos#12).
 
 ## Superseding
 

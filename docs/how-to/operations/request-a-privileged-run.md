@@ -182,6 +182,11 @@ Approvals happen in [[horkos]] — https://horkos.ops.eblu.me:
 
 `mise run verify-runs` then closes the tracking task from the run's outcome.
 
+A request can also end **voided** instead of being decided: its bound PR
+closed unmerged, or its workflow left `warrant-policy.yaml`, so its reason to
+exist went away. Void is terminal — a re-request needs a fresh `request-run`
+— and `verify-runs` closes the tracking task with the void reason.
+
 **Fallback** (Horkos disarmed or down): dispatch from the forge UI using the
 SHA and inputs in the request comment — the request stays the record either
 way.
