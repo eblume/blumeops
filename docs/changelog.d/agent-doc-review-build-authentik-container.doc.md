@@ -1,0 +1,1 @@
+Doc: delete the "Build Authentik Container Image" how-to card at the reviewer's request (article redundant with the source build card, which covers the same territory); drop its last inbound link from the source build card.
