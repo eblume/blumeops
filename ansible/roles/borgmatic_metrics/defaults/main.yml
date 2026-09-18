@@ -1,4 +1,11 @@
 ---
+# borgmatic-metrics on indri is nix-managed (darwin/indri, PR 4 of the nix-darwin
+# series): the generation owns the unit and the collector script, so a
+# normal provision must not touch it. Flip this to true only for the
+# rollback re-write (darwin-rebuild --rollback first, then
+# `mise run provision-indri -- --tags borgmatic_metrics -e borgmatic_metrics_ansible_managed=true`),
+# per docs/how-to/indri/provision.md §Rolling back a service flip.
+borgmatic_metrics_ansible_managed: false
 # Borg repositories to collect metrics from
 # Each entry needs a path (local or ssh://) and a label for Prometheus metrics
 borgmatic_metrics_repos:

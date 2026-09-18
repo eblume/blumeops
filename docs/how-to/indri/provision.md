@@ -74,6 +74,19 @@ config, and tool installs are additive, so rolling back never removes a tool.
 See [[provision]] §Rolling back a service flip for what `--rollback` does and
 does not do.
 
+## Metrics agents
+
+The four `*-metrics` collectors (borgmatic, forgejo, jellyfin, zot) are
+nix-managed user agents (PR 4 of the series) at the same labels and plist
+paths the ansible roles used, writing the same `.prom` files into alloy's
+node_exporter textfile dir and the same `/opt/homebrew/var/log` logs.
+Applying the flip is the usual `mise run provision-indri -- --tags rebuild`
+(no service-role tag): activation swaps each plist in place — one reload,
+never dual-loaded. The API key files (`~/.forgejo-api-key`,
+`~/.jellyfin-api-key`) stay controller-side `op` placement: the roles'
+key-file tasks are not gated. Rollback per §Rolling back a service flip,
+with all four roles' gates flipped.
+
 ## Pre-apply check: indri-flake-check
 
 `mise run indri-flake-check` builds `.#darwinConfigurations.indri.system` on
@@ -229,8 +242,13 @@ When a generation changes a service's plist, the rollback order is fixed:
 `sudo darwin-rebuild --rollback` **first**, then re-run the role with its
 gate flipped — for logrotate, `mise run provision-indri -- --tags logrotate
 -e logrotate_ansible_managed=true` — so ansible writes the plist back and
-its restart handler reloads the agent. Never ansible first — that would
-leave the old plist loaded under the new generation.
+its restart handler reloads the agent. For the metrics flip (PR 4), re-run
+all four roles the same way: `mise run provision-indri -- --tags
+borgmatic_metrics,forgejo_metrics,jellyfin_metrics,zot_metrics -e
+borgmatic_metrics_ansible_managed=true -e forgejo_metrics_ansible_managed=true
+-e jellyfin_metrics_ansible_managed=true -e zot_metrics_ansible_managed=true`.
+Never ansible first — that would leave the old plist loaded under the new
+generation.
 
 What the rollback itself does depends on the target generation
 (nix-darwin `modules/system/launchd.nix`, unchanged on master as of

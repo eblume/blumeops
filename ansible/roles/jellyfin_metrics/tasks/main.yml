@@ -1,4 +1,7 @@
 ---
+# Skipped by default: the nix-darwin generation owns this service (PR 4 of
+# the indri series). The tasks below remain the rollback re-write, run
+# with -e jellyfin_metrics_ansible_managed=true only. See defaults/main.yml.
 - name: Fetch Jellyfin API key (when running with --tags jellyfin_metrics)
   ansible.builtin.command:
     cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/ceywxkcd3z7najsy2nmmbs2vke/credential"
@@ -15,6 +18,8 @@
   no_log: true
   when: jellyfin_metrics_api_key is not defined
 
+# Not gated on purpose: the key file stays ansible's (controller-side op);
+# the nix-managed agent reads the same path.
 - name: Write Jellyfin API key file
   ansible.builtin.copy:
     content: "{{ jellyfin_metrics_api_key }}"
@@ -27,6 +32,7 @@
     path: "{{ jellyfin_metrics_script | dirname }}"
     state: directory
     mode: '0755'
+  when: jellyfin_metrics_ansible_managed | bool
 
 - name: Deploy jellyfin metrics collection script
   ansible.builtin.template:
@@ -34,6 +40,7 @@
     dest: "{{ jellyfin_metrics_script }}"
     mode: '0755'
   notify: Reload jellyfin-metrics
+  when: jellyfin_metrics_ansible_managed | bool
 
 - name: Deploy jellyfin-metrics LaunchAgent plist
   ansible.builtin.template:
@@ -41,15 +48,19 @@
     dest: ~/Library/LaunchAgents/mcquack.eblume.jellyfin-metrics.plist
     mode: '0644'
   notify: Reload jellyfin-metrics
+  when: jellyfin_metrics_ansible_managed | bool
 
 - name: Check if jellyfin-metrics LaunchAgent is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.jellyfin-metrics
   register: jellyfin_metrics_launchctl_check
   changed_when: false
   failed_when: false
+  when: jellyfin_metrics_ansible_managed | bool
 
 - name: Load jellyfin-metrics LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.jellyfin-metrics.plist
-  when: jellyfin_metrics_launchctl_check.rc != 0
+  when:
+    - jellyfin_metrics_ansible_managed | bool
+    - jellyfin_metrics_launchctl_check.rc != 0
   changed_when: true
   failed_when: false

@@ -1,13 +1,12 @@
 #!/bin/bash
-# {{ ansible_managed }}
 # Collects borg backup metrics for node_exporter textfile collector
 # Supports multiple repositories with a repo label for Prometheus
 
 set -euo pipefail
 
-export BORG_PASSCOMMAND="{{ borgmatic_metrics_passcommand }}"
-export BORG_RSH="ssh -o IdentitiesOnly=yes -i {{ borgmatic_metrics_ssh_key }}"
-OUTPUT_FILE="{{ borgmatic_metrics_dir }}/borgmatic.prom"
+export BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml"
+export BORG_RSH="ssh -o IdentitiesOnly=yes -i /Users/erichblume/.ssh/borgbase_ed25519"
+OUTPUT_FILE="/opt/homebrew/var/node_exporter/textfile/borgmatic.prom"
 TEMP_FILE="${OUTPUT_FILE}.tmp"
 
 # Use absolute paths for LaunchAgent compatibility
@@ -150,9 +149,9 @@ EOF
 }
 
 # Collect metrics for each configured repository
-{% for repo in borgmatic_metrics_repos %}
-collect_repo_metrics "{{ repo.path }}" "{{ repo.label }}"
-{% endfor %}
+collect_repo_metrics "/Volumes/backups/borg/" "sifaka-local"
+collect_repo_metrics "ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo" "borgbase-offsite"
+collect_repo_metrics "ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo" "borgbase-immich-photos"
 
 # Atomic move
 mv "$TEMP_FILE" "$OUTPUT_FILE"

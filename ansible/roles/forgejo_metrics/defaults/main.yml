@@ -1,4 +1,14 @@
 ---
+# forgejo-metrics on indri is nix-managed (darwin/indri, PR 4 of the
+# nix-darwin series): the generation owns the unit and the collector script,
+# so a normal provision must not touch it. Flip this to true only for the
+# rollback re-write (darwin-rebuild --rollback first, then
+# `mise run provision-indri -- --tags forgejo_metrics -e forgejo_metrics_ansible_managed=true`),
+# per docs/how-to/indri/provision.md §Rolling back a service flip. The API
+# key file task is intentionally not gated: key placement stays
+# controller-side op.
+forgejo_metrics_ansible_managed: false
+
 # Forgejo metrics collection configuration
 
 # Forgejo server URL
