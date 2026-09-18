@@ -27,12 +27,12 @@ now; moving it into `blumeops-ci` is the open follow-up below.
 ## The audit: who consumes what (2026-08-22, from main)
 
 The 2026-08-03 audit predates the [[horkos]] extraction; talos and horkos
-release CI now consume `ZOT_CI_API_KEY` and `RELEASE_FORGE_TOKEN` too.
+release CI now consume `ZOT_PUSH_API_KEY` and `RELEASE_FORGE_TOKEN` too.
 
 | Workflow | Actions secret | Backing vault item (blumeops) | Verdict |
 |----------|----------------|-------------------------------|---------|
 | `argocd-deploy` | `ARGOCD_AUTH_TOKEN` | `w3663ffn…/argocd_token` (workflow-bot, get/sync/update) | **migrated** (pilot) → `blumeops-ci/argocd-workflow-bot` |
-| `build-container`; talos + horkos `release.yaml` | `ZOT_CI_API_KEY` | `w3663ffn…/zot-ci-api` | **migrated** → `blumeops-ci/zot-ci` |
+| `build-container` | the CI zot push key (originally an Actions secret; now a job-time `op read` of `blumeops-ci/ci-zot`) | `w3663ffn…` CI zot push key field | **migrated** → the `blumeops-ci` CI push key item, since renamed `ci-zot` ([eblume/blumeops#1039](https://forge.eblu.me/eblume/blumeops/issues/1039) series) |
 | `deploy-fly` | `FLY_DEPLOY_TOKEN` | `on5slfay…/deploy-token` | **migrated** → `blumeops-ci/fly-deploy` |
 | `build-blumeops` | `MAIN_PUSH_TOKEN` | `blumeops-main-push-token/token` (eblume PAT, write:repository) | **migrated, eyes open** — it pushes protected `main` → `blumeops-ci/forge-main-push` |
 | talos + horkos `release.yaml` | `RELEASE_FORGE_TOKEN` | `horkos-forge-token/token` (horkos-forge PAT, write on blumeops only — push non-protected branches, open PRs, and dispatch workflows (the permission `workflow_dispatch` requires); cannot merge — `main` is push+merge whitelisted to `eblume`) | **migrated 2026-08-26** → `blumeops-ci/horkos-dispatch` (eblume/talos#55, eblume/horkos#9). The rotation friction showed up: the run-script executor needed the same PAT CI-readable, which would have made three independently-rotating copies. Now two, reconciled by `horkos-forge-provision`. |
@@ -106,7 +106,7 @@ follow-up now that it needs no provisioning):
 | blumeops-ci item | field | copied from (blumeops) | consumed by |
 |------------------|-------|------------------------|-------------|
 | `argocd-workflow-bot` | `token` | `w3663ffn…/argocd_token` | `argocd-deploy.yaml`, `argocd-sync-apps.yaml` |
-| `zot-ci` | `api-key` | `w3663ffn…/zot-ci-api` | `build-container.yaml`; talos + horkos `release.yaml` |
+| `ci-zot` | `api-key` | `w3663ffn…` CI zot push key field | `build-container.yaml` (talos + horkos `release.yaml` moved to per-repo `ZOT_PUSH_API_KEY` keys, eblume/blumeops#1039 series) |
 | `fly-deploy` | `token` | `on5slfay…/deploy-token` | `deploy-fly.yaml` |
 | `forge-main-push` | `token` | `blumeops-main-push-token/token` | `build-blumeops.yaml` |
 | `k3s-run-script` | `kubeconfig` | — minted from the live cluster (bound 12-month token for the `horkos`/`run-script` ServiceAccount, loopback-only server; no blumeops source) | `run-script.yaml` cluster chores |

@@ -16,8 +16,9 @@ following the same pattern as Grafana and Forgejo.
 
 The `zot.yaml` section of `argocd/manifests/authentik/configmap-blueprint.yaml`
 defines an OAuth2Provider (`client_id: zot`), an Application, PolicyBindings
-to the `admins` group and the `artifact-workloads` group, and a `zot-ci`
-service account belonging to `artifact-workloads`.
+to the `admins` group and the artifact/CI groups, and the service accounts
+`ci-zot` (group `ci-artifacts`), `ci-zot-talos`, `ci-zot-horkos`, and
+`horkos-zot`.
 
 The client secret is stored in 1Password as field `zot-client-secret` on the
 "Authentik (blumeops)" item (referenced by item ID `oor7os5kapczgpbwv7obkca4y4`
@@ -26,11 +27,12 @@ Authentik worker Deployment as `AUTHENTIK_ZOT_CLIENT_SECRET`, which the blueprin
 consumes via `!Env`. On indri, the zot role renders `oidc-credentials.json.j2`
 (guarded by a `when`), with the secret fetched in an `indri.yml` pre_task.
 
-The `zot-ci` service-account password and its API keys are manual post-deploy
-steps — not automated in the blueprint.
+API keys are bootstrapped and rotated via `mise run zot-apikey-rotate
+<identity>` (see [[wire-ci-registry-auth]] and the [[zot]] API Key Rotation
+section); only the first key of an identity is a manual browser step.
 
 ## Related
 
 - [[harden-zot-registry]] — Parent goal
-- [[wire-ci-registry-auth]] — How CI uses the `zot-ci` service account
+- [[wire-ci-registry-auth]] — How CI uses the `ci-zot` service account
 - [[deploy-authentik]] — Authentik deployment
