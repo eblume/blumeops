@@ -5,5 +5,8 @@
   # `nix flake update nixpkgs` here, reviewed as a blumeops PR — never automatic.
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
-  outputs = { self, nixpkgs }: { };
+  outputs = { self, nixpkgs }: {
+    # Exposed so the build workflow can hand NIX_PATH the lock-pinned nixpkgs.
+    nixpkgsPath = nixpkgs.outPath;
+  };
 }

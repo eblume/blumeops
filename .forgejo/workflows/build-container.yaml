@@ -119,7 +119,20 @@ jobs:
       - name: Resolve nixpkgs
         id: nixpkgs
         run: |
-          NIXPKGS_PATH=$(nix flake metadata nixpkgs --json | jq -r '.path')
+          # <nixpkgs> resolves from the in-repo pin (containers/flake.lock),
+          # not the runner's floating flake registry — nixpkgs bumps are
+          # reviewed blumeops PRs (docs/how-to/deployment/build-container-image.md).
+          # Checked before nix runs: with no lock, nix eval would silently
+          # write a fresh one pinning the floating branch head.
+          if [ ! -f containers/flake.lock ]; then
+            echo "Error: containers/flake.lock is missing — the in-repo nixpkgs pin is gone"
+            exit 1
+          fi
+          NIXPKGS_PATH=$(nix eval --raw ./containers#nixpkgsPath || true)
+          if [ -z "$NIXPKGS_PATH" ] || [ ! -d "$NIXPKGS_PATH" ]; then
+            echo "Error: could not resolve the pinned nixpkgs from containers/flake.lock"
+            exit 1
+          fi
           echo "Resolved nixpkgs: $NIXPKGS_PATH"
           echo "path=$NIXPKGS_PATH" >> "$GITHUB_OUTPUT"
 

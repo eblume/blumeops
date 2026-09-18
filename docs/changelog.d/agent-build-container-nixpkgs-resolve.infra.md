@@ -1,0 +1,1 @@
+The Build Container workflow's "Resolve nixpkgs" step now resolves `<nixpkgs>` from the in-repo pin (`nix eval --raw ./containers#nixpkgsPath`, failing loudly if the pin is missing or broken) instead of the build host's floating flake registry — the wiring that makes the #1178 pin effective for all container builds.
