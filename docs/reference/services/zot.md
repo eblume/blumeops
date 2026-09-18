@@ -1,6 +1,6 @@
 ---
 title: Zot
-modified: 2026-09-16
+modified: 2026-09-18
 last-reviewed: 2026-09-16
 tags:
   - service
@@ -19,7 +19,7 @@ OCI-native container registry providing pull-through cache and private image sto
 | **Local Port** | 5050 |
 | **Data** | `~/zot` |
 | **Config** | `~/.config/zot/config.json` |
-| **LaunchAgent** | mcquack |
+| **LaunchAgent** | `mcquack.eblume.zot` (unit nix-managed — [[indri]] §Maintenance Notes) |
 
 ## Namespace Convention
 

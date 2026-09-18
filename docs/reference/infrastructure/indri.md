@@ -1,6 +1,6 @@
 ---
 title: Indri
-modified: 2026-09-16
+modified: 2026-09-18
 last-reviewed: 2026-09-16
 tags:
   - infrastructure
@@ -64,6 +64,8 @@ is down`, and `pmset -g assertions` holds no Amphetamine assertion.
 **Log rotation:** mcquack LaunchAgent logs (~/Library/Logs/mcquack.*.log) are rotated hourly by the mcquack.eblume.logrotate LaunchAgent — any log over 256 MiB is copied to .1 (3 generations kept) and truncated in place; in place because launchd holds O_APPEND fds, so mv-based rotation would leave services writing into the renamed file. The unit and the script are nix-managed (the flake's `launchd.user.agents."mcquack.eblume.logrotate"`, script from the store) under the same label and plist path the ansible role used; the role stays in the play only as the [[provision]] rollback re-writer, skipped by default.
 
 **Metrics collectors:** the four `*-metrics` LaunchAgents (borgmatic, forgejo, jellyfin, zot) that write alloy's node_exporter textfile `.prom` files are nix-managed (the flake's `launchd.user.agents."mcquack.eblume.<name>-metrics"`, scripts from the store) under the same labels and plist paths the ansible roles used; the roles stay in the play only as the [[provision]] rollback re-writers, skipped by default, while the API key files (`~/.forgejo-api-key`, `~/.jellyfin-api-key`) remain controller-side `op` placement.
+
+**Registry (zot):** the zot registry LaunchAgent is nix-managed (the flake's `launchd.user.agents."mcquack.eblume.zot"`) under the same label and plist path the ansible role used; the source-built binary stays at `~/code/3rd/zot` and the config + OIDC credentials stay role-rendered — the role's gate (`zot_ansible_managed`) covers only the plist + load tasks, which stay as the [[provision]] rollback re-write, while the config/credentials rendering and the binary checks still run on every provision. The unit is a real daemon — with it unloaded the registry is down.
 
 ## Nix
 

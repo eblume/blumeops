@@ -215,4 +215,29 @@ in
     StandardOutPath = "/opt/homebrew/var/log/mcquack.zot-metrics.out.log";
     StandardErrorPath = "/opt/homebrew/var/log/mcquack.zot-metrics.err.log";
   };
+
+  # zot registry: first real daemon the series moves (PR 5). It is a
+  # long-running process, not a collector: with the unit unloaded the
+  # registry — and every pull/push behind it — is down until something
+  # reloads the unit. The unit stays a user LaunchAgent at the same
+  # label and plist path the ansible role used (logrotate's globs,
+  # alloy's log tails and services-check key on them). The binary
+  # stays the source build in ~/code/3rd/zot (not yet nix-managed),
+  # and config.json / oidc-credentials.json stay role-rendered: the
+  # role's gate covers only the plist + load tasks.
+  launchd.user.agents."mcquack.eblume.zot".serviceConfig = {
+    Label = "mcquack.eblume.zot";
+    ProgramArguments = [
+      "/Users/erichblume/code/3rd/zot/bin/zot-darwin-arm64"
+      "serve"
+      "/Users/erichblume/.config/zot/config.json"
+    ];
+    RunAtLoad = true;
+    KeepAlive = true;
+    EnvironmentVariables = {
+      PATH = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+    };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.zot.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.zot.err.log";
+  };
 }
