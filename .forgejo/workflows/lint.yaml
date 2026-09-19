@@ -12,6 +12,9 @@
 # safe on every PR including from a fork. Keep it that way — a check needing a
 # secret belongs in a different workflow.
 # The report-failure step is the one exception: failure-only, automatic per-run token (no repo secret).
+# workflows-validate is the second: it nix-builds the runner from the PR's
+# own darwin/indri/flake.lock (a nixpkgs fetch) and executes it - the PR
+# controls that binary's source, the same trust as its `run:` blocks.
 #
 # The three jobs are required status contexts on `main` — `Lint / prek`,
 # `Lint / workflows-validate`, `Lint / secret-scan` (pull_request contexts,
@@ -32,7 +35,8 @@
 # holds only hooks that can run in a clean checkout. Two capabilities that
 # rule pushed out of prek run here as sibling jobs instead:
 # `workflows-validate` (as a prek hook it needed Docker Desktop and a dagger
-# engine; the runner's own binary does the same validation in milliseconds)
+# engine; the nixpkgs binary built from the indri flake does the same
+# validation in milliseconds)
 # and `secret-scan` (the old trufflehog hook was pinned to an incremental
 # range that scanned nothing in CI; gitleaks covers the full history).
 # `ty-check` is one of the prek hooks: it type-checks the whole repo,
@@ -125,25 +129,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Upstream ships no darwin release binaries, which is why indri's runner
-      # is a source build — and why this step runs that same binary rather
-      # than downloading one. The path mirrors `forgejo_runner_binary` in
-      # ansible/roles/forgejo_runner/defaults/main.yml, and the role verifies
-      # both its existence and its version pin on every provision. The daemon
-      # executing this job is that binary, so it validates against exactly the
-      # schema the workflows will run under.
+      # Upstream ships no darwin release binaries, so nixpkgs builds the
+      # runner (buildGoModule) and the indri flake pins that build through
+      # its nixpkgs input and exposes it as a package - this step builds
+      # the same binary the generation's unit runs, so validation and
+      # execution can never disagree on schema version.
       - name: forgejo-runner validate
         run: |
           set -o pipefail
           {
-            runner_bin="$HOME/code/3rd/forgejo-runner/forgejo-runner"
-            if [ ! -x "$runner_bin" ]; then
-              echo "::error::forgejo-runner not found at $runner_bin." >&2
-              echo "The path mirrors forgejo_runner_binary in" >&2
-              echo "ansible/roles/forgejo_runner/defaults/main.yml." >&2
-              echo "Re-run provision-indri --tags forgejo_runner." >&2
-              exit 1
-            fi
+            runner_bin="$(nix build --no-link ./darwin/indri#forgejo-runner --print-out-paths)/bin/forgejo-runner"
             "$runner_bin" --version
             "$runner_bin" validate --directory .
           } 2>&1 | tee /tmp/lint-workflows-validate.log

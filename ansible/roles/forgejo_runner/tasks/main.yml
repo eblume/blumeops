@@ -1,37 +1,35 @@
 ---
-# Forgejo runner role — source-built binary with LaunchAgent.
-# See [[configure-launchd-runner]] for one-time setup (binary build +
-# runner registration) and the cutover plan from the k8s runner.
+# Forgejo runner role — nix-darwin-owned LaunchAgent, role-rendered config.
+# See [[configure-launchd-runner]] for one-time setup (runner registration)
+# and the cutover plan from the k8s runner.
+#
+# Skipped by default (plist + load only): the nix-darwin generation owns
+# this service's LaunchAgent (PR 7 of the indri series), and its binary is
+# the nixpkgs package, not a source build - the role no longer builds or
+# version-checks the ~/code/3rd/forgejo-runner checkout, but still checks
+# that its binary exists, because the rollback re-write points at it. The
+# plist and load tasks below remain the rollback re-write, run with
+# `mise run provision-indri -- --tags forgejo_runner -e forgejo_runner_ansible_managed=true`
+# only; config rendering (the runner token) and the cache maintenance
+# agents stay ansible-side. See defaults/main.yml.
 
-- name: Verify forgejo-runner binary exists
+- name: Verify forgejo-runner checkout binary exists
+  # Guards the rollback re-write's target: a launchctl load of a missing
+  # program returns 0, then launchd crash-loops the KeepAlive job.
   ansible.builtin.stat:
     path: "{{ forgejo_runner_binary }}"
   register: forgejo_runner_binary_stat
 
-- name: Fail if forgejo-runner binary not found
+- name: Fail if forgejo-runner checkout binary missing
   ansible.builtin.fail:
     msg: |
       forgejo-runner binary not found at {{ forgejo_runner_binary }}.
-      Build from source first:
-        ssh indri 'cd {{ forgejo_runner_repo_dir }} && git fetch --tags && git checkout {{ forgejo_runner_version }} && make build'
+      It is the rollback re-write's target (the plist + load tasks, run
+      only with -e forgejo_runner_ansible_managed=true); a missing one
+      would leave the runner silently down after the re-write. Rebuild the
+      checkout at the tag the indri flake's nixpkgs input pins:
+        ssh indri 'cd ~/code/3rd/forgejo-runner && git fetch --tags && git checkout v13.1.0 && make build'
   when: not forgejo_runner_binary_stat.stat.exists
-
-- name: Check forgejo-runner binary version
-  ansible.builtin.command:
-    cmd: "{{ forgejo_runner_binary }} --version"
-  register: forgejo_runner_version_check
-  changed_when: false
-  check_mode: false
-
-- name: Fail if forgejo-runner binary version doesn't match the pin
-  ansible.builtin.fail:
-    msg: |
-      Binary reports "{{ forgejo_runner_version_check.stdout }}" but the
-      role pins {{ forgejo_runner_version }}. Rebuild at the pinned tag:
-        ssh indri 'cd {{ forgejo_runner_repo_dir }} && git fetch --tags && git checkout {{ forgejo_runner_version }} && make build'
-      then restart the LaunchAgent (the role only restarts on config/plist changes):
-        ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist; launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist'
-  when: forgejo_runner_version not in forgejo_runner_version_check.stdout
 
 - name: Remove untracked local mise pin
   # A per-checkout mise.toml shadows indri's global mise config, which is
@@ -96,16 +94,20 @@
     dest: "{{ forgejo_runner_launch_agent_plist }}"
     mode: '0644'
   notify: Restart forgejo-runner
+  when: forgejo_runner_ansible_managed | bool
 
 - name: Check if forgejo-runner LaunchAgent is loaded
   ansible.builtin.command: "launchctl list {{ forgejo_runner_launch_agent_label }}"
   register: forgejo_runner_launchctl_check
   changed_when: false
   failed_when: false
+  when: forgejo_runner_ansible_managed | bool
 
 - name: Load forgejo-runner LaunchAgent if not loaded
   ansible.builtin.command: "launchctl load {{ forgejo_runner_launch_agent_plist }}"
-  when: forgejo_runner_launchctl_check.rc != 0
+  when:
+    - forgejo_runner_ansible_managed | bool
+    - forgejo_runner_launchctl_check.rc != 0
   changed_when: true
   failed_when: false
 

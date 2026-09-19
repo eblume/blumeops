@@ -1,6 +1,6 @@
 ---
 title: Provision Indri
-modified: 2026-09-18
+modified: 2026-09-19
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -148,6 +148,29 @@ switch, verify every endpoint and the L4 routes, per the plan.
 Rollback per §Rolling back a service flip, with the role's gate
 flipped.
 
+## Forgejo runner
+
+The forgejo runner is the first unit the series moves whose binary comes
+from nixpkgs (PR 7): the generation runs the nixpkgs `forgejo-runner`
+(13.1.0, the rev the flake's nixpkgs input pins for everything else) at the
+same label and plist path the ansible role used
+(`mcquack.eblume.forgejo-runner`). The source checkout at
+`~/code/3rd/forgejo-runner` stays on disk only as the target of the ansible
+rollback re-write — the role no longer builds or version-checks it; the
+`config.yaml` (runner token), the runner home and the cache prune/sweep
+agents stay role-rendered, and the role's gate (`forgejo_runner_ansible_managed`)
+covers only the plist + load tasks. Applying the flip is the usual
+`mise run provision-indri -- --tags rebuild` (no service-role tag):
+activation writes the plist in place and reloads the agent once.
+
+The drill's blast radius is CI dispatch only: with the unit unloaded,
+`indri`-label jobs queue on forge until something reloads the unit, but
+forge, the registry and every `*.ops.eblu.me` endpoint stay up (unlike
+caddy). An in-flight job keeps running to completion under the old instance
+(the runner's 3h `shutdown_timeout` drains it), so plan the window for a
+quiet moment. Rollback per §Rolling back a service flip, with the role's
+gate flipped.
+
 ## Pre-apply check: indri-flake-check
 
 `mise run indri-flake-check` builds `.#darwinConfigurations.indri.system` on
@@ -162,8 +185,10 @@ runs the same build on the indri runner when a PR or a push to main
 touches `darwin/indri/` (or the workflow file itself), against indri's own
 store — the check lives where the target platform is, because ringtail
 cannot evaluate aarch64-darwin. The runner's PATH carries
-`/nix/var/nix/profiles/default/bin` for this (forgejo-runner.plist.j2);
-erichblume is not a trusted nix user, which is fine for a flake build.
+`/nix/var/nix/profiles/default/bin` for this (the flake's
+`mcquack.eblume.forgejo-runner` unit; the role's template carries the same
+PATH for the rollback re-write); erichblume is not a trusted nix user, which
+is fine for a flake build.
 
 ## There is no dry run of a switch
 
@@ -315,7 +340,12 @@ rollback and the ansible re-write. For the caddy flip (PR 6), re-run
 `mise run provision-indri -- --tags caddy -e caddy_ansible_managed=true`
 — the widest outage: every `*.ops.eblu.me` endpoint and the L4 routes
 (2222/5433/5434 and the sifaka exporter ports) are down during the
-window, and no CI runs land while the forge is unreachable.
+window, and no CI runs land while the forge is unreachable. For the
+forgejo runner flip (PR 7), re-run
+`mise run provision-indri -- --tags forgejo_runner -e forgejo_runner_ansible_managed=true`
+— only CI dispatch pauses: `indri`-label jobs queue while the runner is
+unloaded, but forge and every other endpoint stay up, and the re-write's
+plist points at the source checkout's binary rather than the store's.
 Never ansible first — that would leave the old plist loaded under the new
 generation.
 
