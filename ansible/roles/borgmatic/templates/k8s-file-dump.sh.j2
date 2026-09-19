@@ -44,7 +44,10 @@ ref=${target#*:}
 pick_and_stream_local() {
     local kubectl=$1
     local pod
-    pod=$($kubectl get pod -l "$selector" \
+    # Only a Running pod: an Evicted/Failed pod lingers as an object and sorts
+    # first by name, and `kubectl exec` into it aborts the whole backup
+    # (2026-09-18/19: two nights lost to a stale talos pod).
+    pod=$($kubectl get pod -l "$selector" --field-selector=status.phase=Running \
         -o jsonpath='{.items[0].metadata.name}')
     local newest=""
     local f
@@ -79,7 +82,7 @@ case "$mode" in
         # that file. The file stays locked away from the restricted agent user.
         ssh "$host" bash <<EOF > "$dump_target"
 set -euo pipefail
-pod=\$(sudo k3s kubectl -n "$namespace" get pod -l "$selector" -o jsonpath='{.items[0].metadata.name}')
+pod=\$(sudo k3s kubectl -n "$namespace" get pod -l "$selector" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
 newest=""
 while IFS= read -r f; do
     [[ -n "\$f" ]] || continue
