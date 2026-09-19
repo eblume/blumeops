@@ -4,18 +4,22 @@
 # Runner identity (uuid/token) is fetched from 1Password in the
 # playbook pre_tasks ("Forgejo Secrets" → runner_indri_uuid/token).
 
-# Source build paths — same mirror-checkout pattern as the forgejo role.
-# Version pin governs the verification check; build by hand:
-#   ssh indri 'cd ~/code/3rd/forgejo-runner && git fetch --tags && git checkout v13.1.0 && make build'
-# (go comes from indri's declarative go pin — the nix-darwin flake's global
-# mise config; GOTOOLCHAIN=auto switches per go.mod, see [[upgrade-forgejo]]
-# §Go toolchain.)
-# then restart the LaunchAgent (a version-only bump changes no template, so
-# the role's restart handler does not fire — the old binary keeps running):
-#   ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist; launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist'
-forgejo_runner_version: v13.1.0
+# Target of the (skipped-by-default) rollback re-write: the source checkout
+# in ~/code/3rd/forgejo-runner. The live unit runs the nixpkgs package
+# instead (the indri flake's pkgs, PR 7 of the series), which the role no
+# longer builds or version-checks; the checkout stays on disk only so a
+# re-written (ansible-owned) plist has a binary to point at.
 forgejo_runner_repo_dir: /Users/erichblume/code/3rd/forgejo-runner
 forgejo_runner_binary: "{{ forgejo_runner_repo_dir }}/forgejo-runner"
+
+# Skipped by default: the nix-darwin generation owns this service's
+# LaunchAgent plist (PR 7 of the indri series), so a normal provision must
+# not re-deploy or reload it. Flip this to true only for the rollback
+# re-write (darwin-rebuild --rollback first, then
+# `mise run provision-indri -- --tags forgejo_runner -e
+# forgejo_runner_ansible_managed=true`), per docs/how-to/indri/provision.md
+# §Rolling back a service flip.
+forgejo_runner_ansible_managed: false
 
 # Daemon home: config + job scratch space.
 forgejo_runner_home: /Users/erichblume/forgejo-runner

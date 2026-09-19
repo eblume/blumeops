@@ -1,6 +1,6 @@
 ---
 title: Validate Forgejo Workflows
-modified: 2026-09-04
+modified: 2026-09-19
 last-reviewed: 2026-09-04
 tags:
   - how-to
@@ -18,22 +18,23 @@ different keys.
 ## In CI (the enforcement point)
 
 The Lint workflow's `workflows-validate` job runs on every PR and push to
-main. It invokes indri's source-built runner binary directly — the same
-binary that executes the workflows, so validation and execution can never
-disagree on schema version. There is nothing to install and nothing to
-remember; a schema error fails the PR.
+main. It builds the nixpkgs runner from the [[indri]] flake's pinned nixpkgs
+input — the same package the generation's unit runs — and invokes it
+directly, so validation and execution can never disagree on schema
+version. There is nothing to install and nothing to remember; a schema
+error fails the PR.
 
 ## By hand
 
-On **indri**, use the runner's own build:
+On **indri**, build the same nixpkgs package the unit runs:
 
 ```fish
-ssh indri '~/code/3rd/forgejo-runner/forgejo-runner validate --directory ~/code/personal/blumeops'
+ssh indri 'runner_bin="$(nix build --no-link /etc/blumeops/darwin/indri#forgejo-runner --print-out-paths)/bin/forgejo-runner"; "$runner_bin" validate --directory ~/code/personal/blumeops'
 ```
 
 Anywhere with **docker** (gilbert), the upstream runner image carries the
-binary — match the version to `forgejo_runner_version` in
-`ansible/roles/forgejo_runner/defaults/main.yml`:
+binary — match the version to the [[indri]] flake's nixpkgs pin
+(13.1.0):
 
 ```fish
 docker run --rm -v (pwd):/workspace -w /workspace \

@@ -1,6 +1,6 @@
 ---
 title: Configure the launchd Forgejo Runner on indri
-modified: 2026-09-04
+modified: 2026-09-19
 last-reviewed: 2026-09-04
 tags:
   - how-to
@@ -11,7 +11,8 @@ tags:
 # Configure the launchd Forgejo Runner on indri
 
 Run the Forgejo Actions runner as a native macOS LaunchAgent on
-[[indri]], managed by the `forgejo_runner` ansible role. Jobs run
+[[indri]] — the unit is nix-managed (the [[indri]] flake) and the
+config is rendered by the `forgejo_runner` ansible role. Jobs run
 directly on the host with indri's mise toolchain (host-mode); Docker
 Desktop stays only as the dagger engine host (the runner keeps dagger for the hephaestus/cv CI it hosts). This replaced the
 minikube-hosted runner as phase 0 of [[retire-minikube]], so source
@@ -20,9 +21,11 @@ phase 6 then dropped the per-job container entirely.
 
 ## Architecture
 
-- **Daemon:** the `forgejo-runner` binary, source-built from the
-  mirror at `~/code/3rd/forgejo-runner`, runs as LaunchAgent
-  `mcquack.eblume.forgejo-runner` (same pattern as [[forgejo]]).
+- **Daemon:** the nixpkgs `forgejo-runner` binary (13.1.0, the [[indri]]
+  flake's nixpkgs pin) runs as the nix-managed LaunchAgent
+  `mcquack.eblume.forgejo-runner` (same pattern as [[forgejo]]); the
+  source checkout at `~/code/3rd/forgejo-runner` is the rollback
+  re-write's target only.
 - **Jobs:** run directly on the host as `erichblume` with indri's
   mise toolchain (labels are registered `:host`) — no per-job
   container and no `runner-job-image` (phase 6). Docker Desktop stays
@@ -44,33 +47,17 @@ phase 6 then dropped the per-job container entirely.
 
 ## One-time setup
 
-### 1. Build the binary
+### 1. The binary (nix-managed — no manual step)
 
-```fish
-ssh indri 'cd ~/code/3rd/forgejo-runner && git fetch --tags && git checkout v13.1.0 && make build'
-```
-
-> **A plain `make build` works at any tag.** go comes from the indri global
-> mise baseline (declared in the indri flake's mise config,
-> `darwin/indri/configuration.nix`) and `GOTOOLCHAIN=auto` switches per
-> `go.mod` — that config keeps mise's `GOROOT` export off
-> (`go.set_goroot false`), which used to break the auto-switch (bit us on the
-> v12 → v13 bump, which raised the floor to go 1.26). The role also removes
-> the checkout's untracked `mise.toml`, which used to pin a stale go.
-> Mechanism: [[upgrade-forgejo]] §Go toolchain.
-
-The role verifies the binary exists and that `--version` matches its
-pinned `forgejo_runner_version`, and fails with these instructions
-otherwise. Version bumps = check out the new tag, rebuild, bump the
-role default, then
-**restart the LaunchAgent by hand** — a version-only bump changes no
-template, so `provision-indri` verifies the new binary but its restart
-handler never fires and the old daemon keeps running:
-
-```fish
-ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist; launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist'
-ssh indri 'tail -3 ~/Library/Logs/mcquack.forgejo-runner.err.log'   # "with version: vX.Y.Z … declared successfully"
-```
+Since PR 7 of the indri nix-darwin series (2026-09), the runner binary
+is the nixpkgs `forgejo-runner` package (13.1.0, pinned by the [[indri]]
+flake's nixpkgs input), and the LaunchAgent unit is the flake's
+`launchd.user.agents."mcquack.eblume.forgejo-runner"`. Version bumps are
+flake PRs applied through the usual `mise run provision-indri --
+--tags rebuild`; activation swaps the plist in place and restarts the
+agent. The original source checkout at `~/code/3rd/forgejo-runner`
+stays on disk only as the ansible rollback re-write's target (see
+[[provision]] §Rolling back a service flip).
 
 ### 2. Register the runner identity
 

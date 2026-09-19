@@ -265,4 +265,37 @@ in
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.caddy.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.caddy.err.log";
   };
+
+  # forgejo-runner: the daemon that executes every `indri`-label CI job (PR 7),
+  # and the first unit the series moves whose binary comes from nixpkgs
+  # (13.1.0, the rev the flake's nixpkgs input pins for everything else).
+  # Upstream ships no darwin release binaries, which is why this was the
+  # source build in ~/code/3rd/forgejo-runner; that checkout stays on disk
+  # only as the ansible rollback re-write's target - the role no longer
+  # builds or checks it. config.yaml (the runner token), the runner home and
+  # the cache prune/sweep agents stay role-rendered: the role's gate
+  # (forgejo_runner_ansible_managed) covers only the plist + load tasks.
+  # With the unit unloaded, indri-label jobs queue on forge; forge, the
+  # registry and every *.ops.eblu.me endpoint stay up (unlike caddy).
+  launchd.user.agents."mcquack.eblume.forgejo-runner".serviceConfig = {
+    Label = "mcquack.eblume.forgejo-runner";
+    ProgramArguments = [
+      "${pkgs.forgejo-runner}/bin/forgejo-runner"
+      "daemon"
+      "--config"
+      "/Users/erichblume/forgejo-runner/config.yaml"
+    ];
+    WorkingDirectory = "/Users/erichblume/forgejo-runner";
+    RunAtLoad = true;
+    KeepAlive = true;
+    EnvironmentVariables = {
+      # mise shims first: host-mode jobs use indri's mise toolchain (node,
+      # uv, yq, jq, prek, dagger, ...); the nix default profile last so the
+      # flake check finds `nix` without shadowing anything above it.
+      PATH = "/Users/erichblume/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin";
+      HOME = "/Users/erichblume";
+    };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.forgejo-runner.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.forgejo-runner.err.log";
+  };
 }
