@@ -18,7 +18,12 @@ if ! git diff --quiet nixos/ringtail/flake.lock; then
 fi
 
 COMMIT=$(git rev-parse HEAD)
-REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null | awk 'NR==1{print $1}')
+# `if !` keeps a failed ls-remote out of set -e's reach, so an unreachable
+# forge fails here with git's own error instead of a silent exit.
+if ! REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" | awk 'NR==1{print $1}'); then
+    echo "ERROR: cannot reach origin to verify $COMMIT is pushed."
+    exit 1
+fi
 
 if [[ "$REMOTE_REF" != "$COMMIT" ]]; then
     echo "ERROR: Current commit $COMMIT is not pushed to forge."
