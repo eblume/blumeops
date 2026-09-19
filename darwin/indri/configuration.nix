@@ -298,4 +298,30 @@ in
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.forgejo-runner.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.forgejo-runner.err.log";
   };
+
+  # forgejo: the last unit the series moves (PR 8), and the most critical
+  # service: with the unit unloaded the whole forge is down - the forge
+  # API, the built-in git ssh (2222), every forge-bound git op from a
+  # talos session and every CI run; caddy stays up (502s, not connection
+  # failures) and the registry stays up (zot is a separate unit). The binary stays the source build in
+  # ~/code/3rd/forgejo - the mirror lineage nixpkgs cannot offer on
+  # aarch64-darwin; revisit the lineage at the next forgejo upgrade. The
+  # app.ini, the work path and the version build stay role-rendered: the
+  # role's gate (forgejo_ansible_managed) covers only the plist + load
+  # tasks.
+  launchd.user.agents."mcquack.eblume.forgejo".serviceConfig = {
+    Label = "mcquack.eblume.forgejo";
+    ProgramArguments = [
+      "/Users/erichblume/code/3rd/forgejo/forgejo"
+      "-w"
+      "/Users/erichblume/forgejo"
+      "-c"
+      "/Users/erichblume/forgejo/custom/conf/app.ini"
+      "web"
+    ];
+    RunAtLoad = true;
+    KeepAlive = true;
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.forgejo.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.forgejo.err.log";
+  };
 }

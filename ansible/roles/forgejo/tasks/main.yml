@@ -1,11 +1,19 @@
 ---
-# Forgejo role — source-built binary with LaunchAgent
+# Forgejo role — source-built binary, nix-darwin-owned LaunchAgent
 #
 # Forgejo is built from source at {{ forgejo_repo_dir }} (origin = forge mirror,
-# codeberg = upstream) and run via the mcquack LaunchAgent. The version is
-# declared by `forgejo_version` in defaults/main.yml: this role fetches, checks
-# out that tag, and rebuilds when the running binary doesn't match. Bumping
-# `forgejo_version` and re-provisioning IS the upgrade. See [[upgrade-forgejo]].
+# codeberg = upstream). The version is declared by `forgejo_version` in
+# defaults/main.yml: this role fetches, checks out that tag, and rebuilds when
+# the running binary doesn't match. Bumping `forgejo_version` and
+# re-provisioning IS the upgrade. See [[upgrade-forgejo]].
+#
+# Skipped by default (plist + load only): the nix-darwin generation owns this
+# service's LaunchAgent (PR 8 of the indri series), at the same label and
+# plist path — the plist and load tasks below remain the rollback re-write,
+# run with `mise run provision-indri -- --tags forgejo
+# -e forgejo_ansible_managed=true` only. The build, the app.ini and the work
+# path stay ansible-side; the `Restart forgejo` handler stays active, so a
+# config or binary change still reloads the (nix-owned) agent.
 #
 # ONE-TIME BOOTSTRAP (before ansible can manage it — avoids a circular
 # dependency on the forge mirror):
@@ -27,6 +35,27 @@
       Forgejo source repo not found at {{ forgejo_repo_dir }}.
       Run the one-time bootstrap clone (see this role's header comment).
   when: not forgejo_git_stat.stat.isdir is defined or not forgejo_git_stat.stat.exists
+
+- name: Verify forgejo checkout binary exists
+  # Guards the rollback re-write's target: a launchctl load of a missing
+  # program returns 0, then launchd crash-loops the KeepAlive job.
+  ansible.builtin.stat:
+    path: "{{ forgejo_binary }}"
+  register: forgejo_binary_stat
+
+- name: Fail if forgejo checkout binary missing
+  # Without the guard a missing binary looks like "needs build", and the
+  # rebuild then fails on the mirror fetch - which is itself down during
+  # the re-write (the forge is what is being recovered).
+  ansible.builtin.fail:
+    msg: |
+      forgejo binary not found at {{ forgejo_binary }}.
+      It is the rollback re-write's target (the plist + load tasks, run
+      only with -e forgejo_ansible_managed=true); a missing one would
+      leave the forge silently down after the re-write. Rebuild the
+      checkout at the pinned tag first:
+        ssh indri 'cd ~/code/3rd/forgejo && git fetch --tags && git checkout {{ forgejo_version }} && {{ forgejo_mise_bin }} x node@{{ forgejo_node_version }} -- env TAGS="{{ forgejo_build_tags }}" make build && ln -f gitea forgejo'
+  when: not forgejo_binary_stat.stat.exists
 
 - name: Get currently built forgejo version
   ansible.builtin.command: "{{ forgejo_binary }} --version"
@@ -99,15 +128,19 @@
     dest: ~/Library/LaunchAgents/mcquack.eblume.forgejo.plist
     mode: '0644'
   notify: Restart forgejo
+  when: forgejo_ansible_managed | bool
 
 - name: Check if forgejo LaunchAgent is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.forgejo
   register: forgejo_launchctl_check
   changed_when: false
   failed_when: false
+  when: forgejo_ansible_managed | bool
 
 - name: Load forgejo LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.forgejo.plist
-  when: forgejo_launchctl_check.rc != 0
+  when:
+    - forgejo_ansible_managed | bool
+    - forgejo_launchctl_check.rc != 0
   changed_when: true
   failed_when: false

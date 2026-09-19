@@ -171,6 +171,31 @@ caddy). An in-flight job keeps running to completion under the old instance
 quiet moment. Rollback per §Rolling back a service flip, with the role's
 gate flipped.
 
+## Forgejo
+
+Forgejo is the last unit the series moves (PR 8), and the most critical
+service: the generation runs the source-built binary
+(`~/code/3rd/forgejo/forgejo` — the mirror lineage; nixpkgs' forgejo is
+unavailable on aarch64-darwin, so there is no lineage choice, and it is
+revisited at the next forgejo upgrade) at the same label and plist path the
+ansible role used (`mcquack.eblume.forgejo`). The `app.ini`, the work path
+and the version build stay role-rendered — the role still does the
+source-build upgrade path ([[upgrade-forgejo]]); its gate
+(`forgejo_ansible_managed`) covers only the plist + load tasks. Applying
+the flip is the usual `mise run provision-indri -- --tags rebuild` (no
+service-role tag): activation writes the plist in place and reloads the
+agent once.
+
+The drill's blast radius is the whole forge: with the unit unloaded, the
+forge API and the built-in git ssh (2222) are down, as are every
+forge-bound git op from a talos session and every CI run; caddy stays up
+(502s, not connection failures) and the registry stays up (zot is a
+separate unit). Plan the window as for
+caddy, and for a quiet moment — no CI run or talos session in flight.
+After the forward switch, verify forge UI + API, a git push, ssh 2222, a
+registry push, and a live talos session surviving the flip end-to-end.
+Rollback per §Rolling back a service flip, with the role's gate flipped.
+
 ## Pre-apply check: indri-flake-check
 
 `mise run indri-flake-check` builds `.#darwinConfigurations.indri.system` on
@@ -345,8 +370,13 @@ forgejo runner flip (PR 7), re-run
 `mise run provision-indri -- --tags forgejo_runner -e forgejo_runner_ansible_managed=true`
 — only CI dispatch pauses: `indri`-label jobs queue while the runner is
 unloaded, but forge and every other endpoint stay up, and the re-write's
-plist points at the source checkout's binary rather than the store's.
-Never ansible first — that would leave the old plist loaded under the new
+plist points at the source checkout's binary rather than the store's. For
+the forgejo flip (PR 8), re-run `mise run provision-indri -- --tags forgejo
+-e forgejo_ansible_managed=true` — the whole forge is down during the
+window: the forge API and git ssh (2222), every forge-bound git op from a
+talos session and every CI run, while caddy stays up (502s) and the
+registry stays up. Never ansible first
+— that would leave the old plist loaded under the new
 generation.
 
 What the rollback itself does depends on the target generation
@@ -372,9 +402,12 @@ gui/501/mcquack.eblume.<name>` — `program =` names the owner (a
 the climbing signal for the collectors; for a daemon, activation's
 reload is an unload+load, so the new instance starts at `runs = 1` —
 the proof of the reload is the new pid, the rebuild log's
-`reloading user service` line, and the daemon's own `received signal
-15` log line at the switch timestamp. The `StandardOutPath` log is not
-a signal; a quiet agent writes nothing.
+`reloading user service` line, and the daemon's own shutdown log line
+at the switch timestamp. The wording is per-service — e.g. zot logs
+`received signal 15`, caddy a `shutting down apps, then terminating`
+line carrying `"signal":"SIGTERM"`, forgejo-runner `runner: received
+shutdown signal`. The `StandardOutPath` log is not a signal; a quiet
+agent writes nothing.
 
 ## Window hygiene
 

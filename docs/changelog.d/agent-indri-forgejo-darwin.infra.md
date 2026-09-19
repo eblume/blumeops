@@ -1,0 +1,1 @@
+Move indri's forgejo LaunchAgent (unit) to nix-darwin under the same label and plist path, keeping the mirror's source-built binary (nixpkgs' forgejo is unavailable on aarch64-darwin) — the role's gate now covers only the plist + load tasks (rollback re-write), and the runbook's daemon reload-proof wording becomes per-service. Part of eblume/blumeops#1125.
