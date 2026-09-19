@@ -6,19 +6,19 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "2.2.0";
+  version = "2.10.0";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/external-secrets.git";
     rev = "v${version}";
-    hash = "sha256-eAocOAp5s4CFRrpKfQr2lf3Ji+6nQQ1A5/eTw5B7v9U=";
+    hash = "sha256-kjJfn4KnIkqFCyjaukC4qJwmk1/NrOdVW5CmW5MaxOg=";
   };
 
-  # external-secrets v2.2.0 requires Go >= 1.26.1; nixpkgs default go is 1.25.x.
+  # external-secrets v2.10.0 requires Go >= 1.26.6; nixpkgs default go is 1.25.x.
   external-secrets = (pkgs.buildGoModule.override { go = pkgs.go_1_26; }) {
     inherit src version;
     pname = "external-secrets";
-    vendorHash = "sha256-0xuBK3fjAplPLAElHvKB6d+2lDz+De/s91fV4dPZwjE=";
+    vendorHash = "sha256-4ujM0b4nBtF+JGmipP2fi17xx0ORviCyhVoqY+RRjHs=";
 
     doCheck = false;
 
