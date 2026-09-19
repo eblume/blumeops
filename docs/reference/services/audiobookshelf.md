@@ -54,7 +54,11 @@ cohabitation contract between the two servers on the same share. See
 
 Audiobookshelf's built-in scheduled backup zips config + metadata to
 `/metadata/backups/<YYYY-MM-DD[T]HHmm>.audiobookshelf` (fixed-width
-timestamp, so lexically sortable). [[borgmatic]] on [[indri]] ferries the
+timestamp, so lexically sortable). **That scheduled backup is off by default
+and lives in the UI** (Settings → Backups: enable, keep the default 01:30 daily
+schedule so a file exists before borgmatic's 02:00 run). With it off the
+directory is empty and the borgmatic hook aborts the whole nightly archive
+(2026-09-19). [[borgmatic]] on [[indri]] ferries the
 newest snapshot off the PVC via its `borgmatic_k8s_file_dumps` hook (ssh to
 ringtail → `kubectl exec` `ls`/`cat` →
 `~/.local/share/borgmatic/k8s-dumps/audiobookshelf.db`), landing it in the
