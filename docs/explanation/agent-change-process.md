@@ -1,7 +1,7 @@
 ---
 title: Agent Change Process
-modified: 2026-09-17
-last-reviewed: 2026-02-23
+modified: 2026-09-19
+last-reviewed: 2026-09-19
 tags:
   - explanation
   - ai
@@ -26,7 +26,7 @@ Remote agents have no choice in the matter: the `agents` bot is read-only on can
 
 Multi-phase work that spans sessions is still one branch and one PR — sequence it however the work wants, and lean on the PR to carry state between sessions.
 
-**Context loading:** start by finding and reading the docs relevant to the change area — grep `docs/` and follow wiki-links. For problems with a very large surface area, `mise run ai-sources` concatenates all non-doc source files (~270K tokens); confirm with the user before loading it wholesale.
+**Context loading:** start by finding and reading the docs relevant to the change area — grep `docs/` and follow wiki-links. For problems with a very large surface area, `mise run ai-sources` concatenates all non-doc source files (~600K tokens); confirm with the user before loading it wholesale.
 
 > **Retired:** this document used to open with a C0/C1/C2 change *classification* assigned before work began, and devoted most of its length to the Mikado Branch Invariant — a commit-ordering discipline for C2 chains, enforced by a `commit-msg` hook. Both are gone: AGENTS.md replaced the classification with the two-route split above, and the Mikado apparatus (the hook, `mikado-branch-invariant-check`, `docs-mikado`, the `mikado-navigator` subagent, and the `C2(<chain>):` commit convention) was removed once no chain had used it in a long time. Old cards and commits referencing them are historical.
 
@@ -67,8 +67,8 @@ The pattern is `.*`, not GitHub's `*`. Forgejo compiles each one as a Go regexp 
 Container images in the registry are independent of branch lifecycle — a branch reset or a rebase does not invalidate them:
 
 - **Registry images** are build outputs cached in zot — tagged with commit SHAs, so each build is unique and traceable
-- **The tag's SHA is the merge commit.** The post-merge build runs at main's new head, so the tag is deterministic from the merge itself — no branch-head dance, no `[branch]`/`[main]` flip to babysit. The horkos publisher pins the tag from the push webhook; `mise run container-list <name>` confirms it before the pin PR lands. The PR build check validates the nix expressions without producing the published image. See [[build-container-image#Container tags and merge strategy]]
-- **Builds run on merge** (plus the PR build check) — no dispatch, no warrant; the horkos publisher opens the kustomization pin PR from the push webhook
+- **The tag's SHA is the merge commit.** The post-merge build runs at main's new head, so the tag is deterministic from the merge itself — no branch-head dance, no `[branch]`/`[main]` flip to babysit. The horkos publisher pins the tag when the merge run pushes it; `mise run container-list <name>` confirms it before the pin PR lands. The PR build check validates the nix expressions without producing the published image. See [[build-container-image#Container tags and merge strategy]]
+- **Builds run on merge** (plus the PR build check) — no dispatch, no warrant; the horkos publisher opens the kustomization pin PR when the merge run pushes the tag
 - **If a build succeeds but deployment fails**, the image is fine; the problem is elsewhere. Document what you learned and try again
 - **If a build fails in CI**, no image is pushed. Fix the nix/dockerfile and merge the fix — the push to main rebuilds and pushes
 
@@ -98,7 +98,7 @@ So trusting the bot permanently would mean an agent PR that adds a workflow with
 `on: pull_request` runs **that file**, on the `indri` runner, at PR-open time —
 before a human has read the diff. That is a path from "an agent wrote a file" to
 "code ran on a homelab host" with no human in between, and it undoes
-[[warrant-approval-gated-runs]] invariant 3 (*definitions run from `main` only*)
+[[warrant-approval-gated-runs]] invariant 3 (whose markers include *definitions run from `main` only*)
 one layer down, in forge settings rather than in the repo.
 
 *Approve always* was set for these workflows on 2026-08-07 and revoked the same
@@ -169,9 +169,10 @@ required context that does not exist on a PR head blocks the merge.
 
 A PR where a check ran and failed still hides its *reason* behind runner
 logs, which agent sessions cannot read (action logs are private to the forge
-UI). Every `pull_request`-triggered job therefore ends with the shared
-`.forgejo/actions/report-failure` step: on failure it posts the tail of the
-job's own teed log to the PR as `forgejo-actions`, with the run number and a
+UI). The PR-facing check jobs therefore end with the shared
+`.forgejo/actions/report-failure` step — `Lint`'s four jobs, `Docs Checks / checks`, `Image Pins / checks`, `Build Container`'s build job, and `Agent Repo Access`'s `reconcile` job; the only `pull_request` jobs without it are the path-filtered flake-check builds and `Build Container`'s trivial `detect` job.
+On failure it posts the tail of the job's own teed log to the PR as
+`forgejo-actions`, with the run number and a
 copy-paste `mise run runner-logs <run> -j <N>` pointer (matrix jobs omit the
 pointer — the jobs API cannot disambiguate legs). One notice per (workflow,
 job, matrix leg, head SHA) — a re-run of the same head does not double-post.
