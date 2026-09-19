@@ -1,0 +1,1 @@
+Add ArgoCD accounts `ci-argocd` (CI/CD deploys) and `talos-argocd-readonly` (talos pod read-only inspection) alongside `workflow-bot` and `agents-readonly` with byte-identical scopes. Additive leg of the principal-naming renames (eblume/blumeops#1163): consumers cut over next, then a cleanup PR deletes the old accounts.
