@@ -1,4 +1,13 @@
 ---
+# forgejo on indri is nix-managed (darwin/indri, PR 8 of the nix-darwin
+# series): the generation owns the LaunchAgent plist, so a normal
+# provision must not re-deploy or reload it. Flip this to true only
+# for the rollback re-write (darwin-rebuild --rollback first, then
+# `mise run provision-indri -- --tags forgejo -e forgejo_ansible_managed=true`),
+# per docs/how-to/indri/provision.md §Rolling back a service flip.
+
+forgejo_ansible_managed: false
+
 # Forgejo configuration
 # Secrets are fetched from 1Password in the playbook pre_tasks
 

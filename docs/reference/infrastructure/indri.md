@@ -1,6 +1,6 @@
 ---
 title: Indri
-modified: 2026-09-18
+modified: 2026-09-19
 last-reviewed: 2026-09-16
 tags:
   - infrastructure
@@ -70,6 +70,8 @@ is down`, and `pmset -g assertions` holds no Amphetamine assertion.
 **Caddy:** the caddy LaunchAgent is nix-managed (the flake's `launchd.user.agents."mcquack.eblume.caddy"`) under the same label and plist path the ansible role used; the xcaddy-built binary stays at `~/code/3rd/caddy` and the Caddyfile, wrapper script and Gandi token file stay role-rendered — the role's gate (`caddy_ansible_managed`) covers only the plist + load tasks, which stay as the [[provision]] rollback re-write. The unit is a real daemon — it fronts every `*.ops.eblu.me` endpoint and the L4 routes (2222/5433/5434 and the sifaka exporter ports), so with it unloaded all of those are down.
 
 **Forgejo runner:** the forgejo runner LaunchAgent is nix-managed (the flake's `launchd.user.agents."mcquack.eblume.forgejo-runner"`) under the same label and plist path the ansible role used — the first unit in the series whose binary comes from nixpkgs (13.1.0, the flake's pinned nixpkgs rev) instead of a source build; the `~/code/3rd/forgejo-runner` checkout stays on disk only as the [[provision]] rollback re-write's target, and the `config.yaml` (runner token) and the cache prune/sweep agents stay role-rendered — the role's gate (`forgejo_runner_ansible_managed`) covers only the plist + load tasks. The unit is a real daemon: with it unloaded the `indri`-label CI jobs queue, though forge and the other endpoints stay up.
+
+**Forgejo:** the forgejo LaunchAgent is nix-managed (the flake's `launchd.user.agents."mcquack.eblume.forgejo"`) under the same label and plist path the ansible role used; the source-built binary stays at `~/code/3rd/forgejo` (the mirror lineage — nixpkgs' forgejo is unavailable on aarch64-darwin, revisit at the next forgejo upgrade), and the `app.ini`, the work path and the version build stay role-rendered — the role's gate (`forgejo_ansible_managed`) covers only the plist + load tasks, which stay as the [[provision]] rollback re-write. The unit is a real daemon and the most critical service: with it unloaded the forge API, git ssh (2222), every forge-bound git op from a talos session and every CI run are down, while caddy stays up (502s) and the registry stays up.
 
 ## Nix
 

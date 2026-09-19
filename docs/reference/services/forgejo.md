@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-09-17
+modified: 2026-09-19
 last-reviewed: 2026-08-29
 tags:
   - service
@@ -12,7 +12,7 @@ tags:
 
 Git forge and CI/CD platform. **Primary source of truth for blumeops** (mirrored to GitHub).
 
-Built from source on indri, managed via Ansible + mcquack LaunchAgent. The build pulls from the forge mirror (`origin`); Codeberg is the upstream remote (`codeberg`). To upgrade, see [[upgrade-forgejo]].
+Built from source on indri. The LaunchAgent unit is nix-managed ([[indri]] flake, PR 8 of the nix-darwin series); the build, the `app.ini` and the version stay with the Ansible role. The build pulls from the forge mirror (`origin`); Codeberg is the upstream remote (`codeberg`). To upgrade, see [[upgrade-forgejo]].
 
 ## Quick Reference
 
@@ -25,7 +25,7 @@ Built from source on indri, managed via Ansible + mcquack LaunchAgent. The build
 | **Config** | `ansible/roles/forgejo/templates/app.ini.j2` |
 | **Binary** | `~/code/3rd/forgejo/forgejo` (source-built) |
 | **Data** | `~/forgejo` |
-| **LaunchAgent** | `mcquack.eblume.forgejo` |
+| **LaunchAgent** | `mcquack.eblume.forgejo` (unit nix-managed — [[indri]] §Maintenance Notes) |
 | **Source** | `~/code/3rd/forgejo` (`origin` = forge mirror, `codeberg` = upstream) |
 
 ## Building from Source
