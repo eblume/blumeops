@@ -47,7 +47,9 @@ case "$mode" in
         # pod. The pod image must ship tar (talos's does).
         context=$ref
         kubectl="/opt/homebrew/bin/kubectl --context=$context -n $namespace"
-        pod=$($kubectl get pod -l "$selector" \
+        # Only a Running pod: an Evicted/Failed pod lingers as an object and sorts
+        # first by name, and exec into it aborts the whole backup (2026-09-18/19).
+        pod=$($kubectl get pod -l "$selector" --field-selector=status.phase=Running \
             -o jsonpath='{.items[0].metadata.name}')
         $kubectl exec $container_arg "$pod" -- tar cf - -C "$(dirname "$dir")" "$(basename "$dir")" > "$dump_target"
         ;;
@@ -64,7 +66,7 @@ case "$mode" in
         # that file. The file stays locked away from the restricted agent user.
         ssh "$host" bash <<EOF > "$dump_target"
 set -euo pipefail
-pod=\$(sudo k3s kubectl -n "$namespace" get pod -l "$selector" -o jsonpath='{.items[0].metadata.name}')
+pod=\$(sudo k3s kubectl -n "$namespace" get pod -l "$selector" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
 sudo k3s kubectl -n "$namespace" exec $container_arg "\$pod" -- tar cf - -C "$(dirname "$dir")" "$(basename "$dir")"
 EOF
         ;;
