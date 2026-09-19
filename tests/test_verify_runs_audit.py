@@ -15,8 +15,10 @@ import importlib.machinery
 import importlib.util
 import json
 import pathlib
+import re
 
 import pytest
+import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BINDINGS = {"deploy-fly.yaml": "revision", "argocd-deploy.yaml": "revision"}
@@ -67,6 +69,46 @@ def test_matching_binding_is_clean():
         )
         is None
     )
+
+
+def test_declared_revision_record_is_clean():
+    """`revision=declared` binds the approval to the blumeops commit that
+    declares the revision, not a payload: nothing in the record to compare,
+    and the workflow's run-time guard is the check this audit cannot see."""
+    assert (
+        verify_runs.binding_mismatch(
+            rec(
+                "argocd-deploy.yaml",
+                SHA,
+                {"app": "external-secrets-crds-ringtail", "revision": "declared"},
+            ),
+            BINDINGS,
+        )
+        is None
+    )
+
+
+def test_declared_on_an_action_that_does_not_admit_it_is_reported():
+    why = verify_runs.binding_mismatch(
+        rec("deploy-fly.yaml", SHA, {"revision": "declared"}), BINDINGS
+    )
+    assert why is not None
+
+
+def test_declared_action_set_matches_the_policy():
+    """DECLARED_REVISION_ACTIONS must be exactly the actions whose binding
+    input's policy pattern admits the sentinel — the drift the constant's
+    comment warns about, caught here instead of at audit time."""
+    policy = yaml.safe_load((ROOT / "warrant-policy.yaml").read_text())["actions"]
+    admits = set()
+    for name, entry in policy.items():
+        binding = (entry or {}).get("binds_sha")
+        if not binding:
+            continue
+        pattern = ((entry or {}).get("inputs") or {}).get(binding, {}).get("pattern")
+        if pattern and re.fullmatch(pattern, "declared"):
+            admits.add(name)
+    assert verify_runs.DECLARED_REVISION_ACTIONS == admits
 
 
 def test_wrong_sha_in_binding_input():

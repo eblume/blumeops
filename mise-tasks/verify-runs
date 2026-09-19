@@ -205,6 +205,15 @@ def sha_policy(client: httpx.Client) -> dict[str, str]:
     }
 
 
+# Actions whose binding input may carry the `declared` sentinel instead of
+# the bound SHA: argocd-deploy's tag-tracking-app route. The policy pattern
+# is the gate at request time; the workflow's run-time guard (live spec vs
+# main's declaration) is the check this audit cannot see. Keep this in sync
+# with warrant-policy.yaml — an action added there without being added here
+# reports as a mismatch, which is the safe direction (reported, not closed).
+DECLARED_REVISION_ACTIONS = {"argocd-deploy.yaml"}
+
+
 def binding_mismatch(wrec: dict, bindings: dict[str, str]) -> str | None:
     """Did the dispatch actually carry the SHA the approval was bound to?
 
@@ -232,6 +241,10 @@ def binding_mismatch(wrec: dict, bindings: dict[str, str]) -> str | None:
         return "request record has unreadable dispatch inputs, so the SHA binding cannot be verified"
     bound, sent = wrec.get("sha"), inputs.get(binding)
     if sent == bound:
+        return None
+    if sent == "declared" and wrec.get("action", "") in DECLARED_REVISION_ACTIONS:
+        # The approval bound the blumeops commit that declares the revision,
+        # not a payload the record could be checked against.
         return None
     if sent is None:
         return f"dispatched with no '{binding}' input, so it ran against main, not {str(bound)[:7]}"

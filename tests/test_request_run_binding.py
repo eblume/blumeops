@@ -52,6 +52,56 @@ def check(workflow: str, inputs: dict[str, str]) -> None:
     request_run.enforce_sha_binding(workflow, ACTIONS[workflow], inputs, SHA)
 
 
+class _RawResponse:
+    def __init__(self, status_code: int, text: str) -> None:
+        self.status_code = status_code
+        self.text = text
+
+
+class PolicyClient:
+    """Canned responses for enforce_policy's raw fetches, keyed
+    (ref, path)."""
+
+    def __init__(self, files: dict):
+        self.files = files
+
+    def get(self, url: str):
+        suffix = url.split("/raw/", 1)[1]
+        ref, _, path = suffix.partition("/")
+        text = self.files.get((ref, path))
+        return _RawResponse(200 if text is not None else 404, text or "")
+
+
+APP_YAML = (
+    "apiVersion: argoproj.io/v1alpha1\n"
+    "kind: Application\n"
+    "spec:\n"
+    "  source:\n"
+    "    targetRevision: {tag}\n"
+)
+
+POLICY = (ROOT / "warrant-policy.yaml").read_text()
+
+
+def request_declared(tag_main: str, tag_bound: str | None) -> None:
+    files = {
+        ("main", "warrant-policy.yaml"): POLICY,
+        ("main", "argocd/apps/external-secrets-crds-ringtail.yaml"): APP_YAML.format(
+            tag=tag_main
+        ),
+    }
+    if tag_bound is not None:
+        files[(SHA, "argocd/apps/external-secrets-crds-ringtail.yaml")] = (
+            APP_YAML.format(tag=tag_bound)
+        )
+    request_run.enforce_policy(
+        PolicyClient(files),
+        "argocd-deploy.yaml",
+        {"app": "external-secrets-crds-ringtail", "revision": "declared"},
+        SHA,
+    )
+
+
 @pytest.mark.parametrize("workflow", WARRANT_ACTIONS)
 def test_every_warrant_action_binds_its_sha(workflow):
     """A requestable workflow free to ignore the approved SHA is precisely
@@ -89,6 +139,31 @@ def test_deploy_fly_and_argocd_bind_revision():
     check("argocd-deploy.yaml", {"app": "grafana-ringtail", "revision": SHA})
     with pytest.raises(typer.Exit):
         check("argocd-deploy.yaml", {"app": "grafana-ringtail"})
+
+
+def test_argocd_declared_revision_binds_the_declaring_commit():
+    """`declared` is admitted because argocd-deploy's policy pattern admits
+    it: the bound SHA is the commit declaring the revision, not the payload."""
+    check("argocd-deploy.yaml", {"app": "grafana-ringtail", "revision": "declared"})
+
+
+def test_declared_is_refused_where_the_pattern_does_not_admit_it():
+    with pytest.raises(typer.Exit):
+        check("deploy-fly.yaml", {"revision": "declared"})
+
+
+def test_declared_binds_the_commit_declaring_the_revision():
+    request_declared("helm-chart-2.10.0", "helm-chart-2.10.0")
+
+
+def test_declared_refuses_a_sha_declaring_a_different_revision():
+    with pytest.raises(typer.Exit):
+        request_declared("helm-chart-2.10.0", "helm-chart-2.9.0")
+
+
+def test_declared_refuses_a_sha_without_the_app():
+    with pytest.raises(typer.Exit):
+        request_declared("helm-chart-2.10.0", None)
 
 
 def test_non_warrant_action_without_binding_is_not_refused():
