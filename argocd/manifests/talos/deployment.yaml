@@ -211,12 +211,22 @@ spec:
               cpu: "8"
               memory: 16Gi
               # nix builds write to the container's writable layer (the
-              # canonical /nix/store is uid-1500-writable in the image);
-              # this caps how far a build spree can eat the node's disk.
-              ephemeral-storage: 10Gi
+              # canonical /nix/store is uid-1500-writable in the image); /tmp
+              # is off the layer (home subPath mount below). The actual bound
+              # is the watermark gc in the talos hourly sweep
+              # (eblume/talos#250); this is the backstop capping how far a
+              # build spree can eat the node's disk.
+              ephemeral-storage: 40Gi
           volumeMounts:
             - name: home
               mountPath: /home/talos
+            # /tmp off the writable layer: the same directory the entrypoint's
+            # TMPDIR=$HOME/.tmp names, wiped at boot (contents only — never the
+            # directory itself, or this mount pins a dead inode;
+            # eblume/talos#250 item 4).
+            - name: home
+              mountPath: /tmp
+              subPath: .tmp
             # Shared hephd spoke socket (uid 1500 == host agent user).
             - name: heph-socket
               mountPath: /home/talos/.local/share/heph
