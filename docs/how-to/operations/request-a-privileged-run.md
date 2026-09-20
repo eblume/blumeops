@@ -44,6 +44,22 @@ prune is an option on the sync) and the workflow refuses the combination rather
 than reporting green having pruned nothing. See [[argocd#Sync Policy]] for why
 orphans accumulate in the first place.
 
+Example — sync a **tag-tracking app** (one whose Application tracks a tag on
+a mirror rather than blumeops `main`, e.g. `external-secrets-crds-ringtail`).
+`revision=declared` syncs the app at the revision its Application on `main`
+already declares, without re-pointing it — `revision=main` would repoint the
+app at the mirror's `main`, and a mirror SHA would leave the spec pinned to
+a SHA. The bound SHA is the blumeops commit whose `argocd/apps/<app>.yaml`
+declares the revision, and the run fails if the live Application's
+`targetRevision` differs from that declaration (sync the apps root with
+`argocd-sync-apps.yaml` first):
+
+```fish
+mise run request-run argocd-deploy.yaml <full-blumeops-sha> --pr N \
+    -i app=external-secrets-crds-ringtail -i revision=declared \
+    --why "sync the CRDs at the tag main's manifest declares"
+```
+
 Example — pick up newly added Application manifests: the one step of a
 merged service deploy that agents could not run, because the pod's `argocd`
 CLI is read-only. `argocd-deploy.yaml` with `app=apps` would leave the

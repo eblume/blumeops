@@ -8,6 +8,14 @@
 #   mise run request-run argocd-deploy.yaml <full-sha> --pr N \
 #       -i app=<app> -i revision=<full-sha> [-i prune=true] [--why ...]
 #
+# Tag-tracking apps (external-secrets-crds-ringtail, cloudnative-pg-ringtail)
+# request -i revision=declared instead: the run syncs the app at the revision
+# its Application on main already declares and never touches the spec —
+# revision=main would repoint the app at the MIRROR's main. The bound SHA is
+# the blumeops commit whose argocd/apps/<app>.yaml declares the revision, and
+# the run fails if the live Application's targetRevision differs from it
+# (file an argocd-sync-apps.yaml warrant first so the root picks up the bump).
+#
 # prune is the one input here that DELETES. Apps sync with `prune: false`, so a
 # kustomize configMapGenerator — whose every content edit mints a new
 # hash-suffixed ConfigMap — leaves the old one behind, and ArgoCD counts that
@@ -37,7 +45,7 @@ on:
         required: true
         type: string
       revision:
-        description: 'FULL 40-char commit SHA to deploy from, or "main" to reset to tracking main'
+        description: 'FULL 40-char commit SHA to deploy from, "main" to reset to tracking main, or "declared" to sync at the revision the Application on main already declares (tag-tracking apps)'
         required: true
         type: string
       sync:
@@ -62,8 +70,8 @@ jobs:
         env:
           REV: ${{ inputs.revision }}
         run: |
-          if [ "$REV" != "main" ] && ! echo "$REV" | grep -qE '^[0-9a-f]{40}$'; then
-            echo "::error::revision must be 'main' or a FULL 40-char SHA (got: $REV) — approvals bind to immutable SHAs"
+          if [ "$REV" != "main" ] && [ "$REV" != "declared" ] && ! echo "$REV" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "::error::revision must be 'main', 'declared', or a FULL 40-char SHA (got: $REV)"
             exit 1
           fi
 
@@ -102,11 +110,49 @@ jobs:
             exit 1
           fi
 
+      # `declared` has no payload to bind, so the binding the approval names is
+      # different: the run syncs what the Application on main already declares.
+      # Guard the one case where that is not what was approved — a live spec
+      # that lags main's declaration (a merged tag bump the apps root has not
+      # synced yet) would otherwise deploy the stale revision silently. Fail,
+      # pointing at the warrant that fixes it.
+      - name: Verify declared revision matches main
+        if: ${{ inputs.revision == 'declared' }}
+        env:
+          APP: ${{ inputs.app }}
+          ARGOCD_SERVER: argocd.ops.eblu.me
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
+          ARGOCD_OPTS: --grpc-web
+        run: |
+          if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+            echo "::error::BLUMEOPS_CI_OP_TOKEN is not provisioned as an Actions secret — see [[blumeops-ci-item-migration]]"
+            exit 1
+          fi
+          ARGOCD_AUTH_TOKEN=$(op read 'op://blumeops-ci/argocd-workflow-bot/token')
+          echo "::add-mask::$ARGOCD_AUTH_TOKEN"
+          export ARGOCD_AUTH_TOKEN
+          unset GITHUB_TOKEN GITHUB_API_TOKEN
+          acd() { if command -v argocd >/dev/null 2>&1; then argocd "$@"; else mise x argocd@3.3.12 -- argocd "$@"; fi; }
+          LIVE_REV=$(acd app get "$APP" -o json | python3 -c "import json,sys; print(json.load(sys.stdin)['spec']['source']['targetRevision'])")
+          DECLARED_REV=$(sed -n 's/^[[:space:]]*targetRevision:[[:space:]]*//p' "argocd/apps/$APP.yaml" | head -n1)
+          echo "revision=declared: live targetRevision=$LIVE_REV; argocd/apps/$APP.yaml on main declares $DECLARED_REV"
+          if [ -z "$LIVE_REV" ] || [ -z "$DECLARED_REV" ]; then
+            echo "::error::could not resolve the declared targetRevision (live='$LIVE_REV', main='$DECLARED_REV') — refusing to sync blind"
+            exit 1
+          fi
+          if [ "$LIVE_REV" != "$DECLARED_REV" ]; then
+            echo "::error::live targetRevision $LIVE_REV != main's declaration $DECLARED_REV — file an argocd-sync-apps.yaml warrant so the root syncs the Application to its reviewed manifest first"
+            exit 1
+          fi
+
       # The ArgoCD token is read from the blumeops-ci vault at job time
       # ([[blumeops-ci-item-migration]]): BLUMEOPS_CI_OP_TOKEN is the one
       # Actions secret privileged jobs keep, and rotation is an `op item
       # edit` away — no provisioning round-trip.
+      # Gated off for `declared`: the Application on main is the source of
+      # truth there, and the step above verified the live spec agrees.
       - name: Set target revision
+        if: ${{ inputs.revision != 'declared' }}
         env:
           APP: ${{ inputs.app }}
           REV: ${{ inputs.revision }}

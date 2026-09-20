@@ -119,6 +119,18 @@ def main_file_exists(client: httpx.Client, path: str) -> bool:
     return client.get(f"{REPO_API}/raw/main/{path}").status_code == 200
 
 
+def _app_target_revision(client: httpx.Client, path: str, ref: str) -> str | None:
+    """The targetRevision declared by an argocd/apps/ Application manifest at
+    a ref; None when the file or ref is unreachable."""
+    import yaml
+
+    resp = client.get(f"{REPO_API}/raw/{ref}/{path}")
+    if resp.status_code != 200:
+        return None
+    doc = yaml.safe_load(resp.text)
+    return ((doc or {}).get("spec", {}).get("source", {})).get("targetRevision")
+
+
 def enforce_policy(
     client: httpx.Client, workflow: str, inputs: dict[str, str], sha: str
 ) -> None:
@@ -181,6 +193,21 @@ def enforce_policy(
                         "(most carry a -ringtail suffix)"
                     )
                     raise typer.Exit(1)
+                if inputs.get(entry.get("binds_sha")) == "declared":
+                    # `declared` syncs the revision the Application on main
+                    # already declares, so the bound SHA must be the commit
+                    # declaring it: binding an unrelated SHA would make the
+                    # approval read "deploy @X" for a sync of main's declaration.
+                    bound_rev = _app_target_revision(client, f"argocd/apps/{value}.yaml", sha)
+                    main_rev = _app_target_revision(client, f"argocd/apps/{value}.yaml", "main")
+                    if main_rev is None or bound_rev is None or bound_rev != main_rev:
+                        err.print(
+                            f"policy: revision=declared binds the request to the commit whose "
+                            f"argocd/apps/{escape(value)}.yaml declares the revision — {sha[:7]} "
+                            f"declares {escape(str(bound_rev))!r} while main declares {escape(str(main_rev))!r}."
+                            "\n  Bind to the merged commit declaring the revision that will be synced."
+                        )
+                        raise typer.Exit(1)
             case "container-dir":
                 if not main_file_exists(client, f"containers/{value}/default.nix"):
                     err.print(f"policy: containers/{escape(value)}/default.nix does not exist on main")
@@ -189,6 +216,14 @@ def enforce_policy(
                 pass
 
     enforce_sha_binding(workflow, entry, inputs, sha)
+
+
+def _policy_admits_declared(entry: dict, binding: str) -> bool:
+    """True when the binding input's policy pattern admits the `declared`
+    sentinel — the reviewed way for an action to opt into dispatching a
+    declared revision instead of the bound SHA."""
+    pattern = ((entry.get("inputs") or {}).get(binding) or {}).get("pattern")
+    return bool(pattern) and re.fullmatch(pattern, "declared") is not None
 
 
 def enforce_sha_binding(
@@ -225,6 +260,13 @@ def enforce_sha_binding(
         )
         raise typer.Exit(1)
     if value == sha:
+        return
+    if value == "declared" and _policy_admits_declared(entry, binding):
+        # The `declared` sentinel (argocd-deploy's route for tag-tracking
+        # apps): the run syncs what the Application on main already declares,
+        # so the bound SHA is the commit declaring the revision, not the
+        # payload — equality would be the wrong check. The workflow's own
+        # run-time guard compares the live spec to main's declaration.
         return
     if not re.fullmatch(r"[0-9a-f]{40}", value):
         # `main` is a legitimate dispatch value — the workflows accept it, and

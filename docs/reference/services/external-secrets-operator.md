@@ -24,7 +24,7 @@ Operator that syncs secrets from 1Password (via Connect) into Kubernetes Secrets
 
 - **Image**: built in blumeops — `containers/external-secrets/default.nix` compiles the forge mirror (`mirrors/external-secrets`) with the `all_providers` build tag. A merge to main touching `containers/**` builds and pushes the image; horkos opens the kustomization pin PR for the new tag.
 - **Manifests**: static kustomize rendered from the upstream Helm chart, in `argocd/manifests/external-secrets/` (base, kept in lockstep with the indri line) with the `external-secrets-ringtail` overlay.
-- **CRDs**: from `config/crds/bases` at the mirror's `helm-chart-X.Y.Z` tag, via the deliberately manual `external-secrets-crds-ringtail` app. It must sync **before** the operator app so the CRD schema leads the operator binary; the two are deployed as a matched pair.
+- **CRDs**: from `config/crds/bases` at the mirror's `helm-chart-X.Y.Z` tag, via the deliberately manual `external-secrets-crds-ringtail` app. It must sync **before** the operator app so the CRD schema leads the operator binary; the two are deployed as a matched pair. The CRDs half of an upgrade is a two-warrant sequence: `argocd-sync-apps.yaml` so the live Application picks up the new tag, then `argocd-deploy.yaml` with `-i app=external-secrets-crds-ringtail -i revision=declared`.
 - **Consumers**: services define `ExternalSecret` objects against the 1Password Connect `ClusterSecretStore`.
 
 ## Related

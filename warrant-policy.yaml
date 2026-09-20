@@ -38,7 +38,10 @@ actions:
         validate: argocd-app
       revision:
         required: true
-        pattern: "^(main|[0-9a-f]{40})$"
+        # `declared` syncs the app at the revision its Application on main
+        # already declares (tag-tracking apps): the bound SHA is then the
+        # blumeops commit declaring the revision, not a revision itself.
+        pattern: "^(main|declared|[0-9a-f]{40})$"
       sync:
         required: false
         pattern: "^(true|false)$"
