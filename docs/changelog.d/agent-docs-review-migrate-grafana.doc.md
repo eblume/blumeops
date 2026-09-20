@@ -1,0 +1,1 @@
+docs(grafana): fix the Grafana-to-Authentik card paths after the manifest rename — OIDC config lives in argocd/manifests/grafana-ringtail/grafana.ini (configMapGenerator, not configmap.yaml) and the external secret in grafana-config-ringtail; stamp last-reviewed 2026-09-20 (eblume/blumeops#1217).
