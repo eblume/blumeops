@@ -1,0 +1,1 @@
+Pin the gpu-husk-reaper CronJob's `blumeops/kubectl` image in the nvidia-device-plugin kustomization; it shipped with the `:kustomized` placeholder and had never pulled, so it was ImagePullBackOff instead of reaping.

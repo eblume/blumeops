@@ -12,3 +12,5 @@ resources:
 images:
   - name: nvcr.io/nvidia/k8s-device-plugin
     newTag: v0.20.0
+  - name: registry.ops.eblu.me/blumeops/kubectl
+    newTag: v1.34.3-f386e2e-nix
