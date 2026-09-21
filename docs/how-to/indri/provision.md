@@ -73,6 +73,27 @@ only rebuilds when the checkout changes, so re-running the same commit
 reports clean and does not retry: read the status file before re-applying,
 and fix forward with a new commit if the switch failed.
 
+## Warrant-gated apply
+
+The rebuild tag is also the apply path of the `provision-indri.yaml`
+workflow, so a generation flip is a warrant approval instead of a window.
+`mise run request-run provision-indri.yaml <full-sha> -i revision=<full-sha>
+--why "…"` files the request (PR comment, heph task, Horkos queue); the
+approval dispatches the workflow on the indri runner, which runs exactly
+this path headless — the task guards, the checkout, the detached switch,
+the bounded wait — and the run log ends with the generation identity, the
+system profile's store path before and after the switch. A
+content-identical SHA dedupes to the same store path under a new
+generation number; the no-op run is the warrant path's own drill.
+
+The warrant applies a generation, not a role: the dispatch is always
+`--tags rebuild`, so the job reads no vault and the full provision (roles,
+`op read`) stays a human window. The task's pushed-HEAD guard is
+detached-aware — on a detached checkout it verifies origin/main ancestry
+instead of branch-tip equality — so a non-tip merged SHA passes, and
+rolling back a flip's generation (re-apply the previous SHA, then
+re-run the gated role) starts with a window-free step.
+
 ## Toolchain
 
 The generation owns the global mise config (`environment.etc."mise/config.toml"`

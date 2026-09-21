@@ -85,6 +85,18 @@ mise run request-run ringtail-rebuild.yaml <full-sha> -i revision=<full-sha> \
     --why "apply #NN: <what the commit changes>"
 ```
 
+Example — apply a merged blumeops commit's nix-darwin generation to indri.
+The bound SHA is applied by the zero-prompt rebuild path (checkout plus
+detached `darwin-rebuild switch`, bounded wait) from the host-mode indri
+runner; the run log ends with the system profile's store path before and
+after the switch. The full provision (roles, `op read`) stays a human
+window.
+
+```fish
+mise run request-run provision-indri.yaml <full-sha> -i revision=<full-sha> \
+    --why "apply #NN: <what the commit changes>"
+```
+
 Example — the attached PR lives in another repo. A change in `eblume/horkos`
 that ships a new horkos image lands its pin as a *blumeops* commit (the
 deploy definition lives here), but the review the approver wants to read is

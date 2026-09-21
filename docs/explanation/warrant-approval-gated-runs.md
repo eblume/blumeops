@@ -249,12 +249,15 @@ The smallest thing that closes the loop end-to-end:
      agent-health / `auth.jwt` read path, heph `01KXREAB…`); the CI wrapper
      is the stopgap that makes it requestable today.
    - **`provision-indri.yaml` / `provision-ringtail.yaml`** — the high-value
-     targets, promoted from "later, maybe" to **first Phase-2 deliverables**:
-     they are also the largest-blast-radius scripts in the repo (every
-     ansible secret, root on both hosts), so they gate on the `blumeops-ci` vault
-     split *and* the `priv` runner, not the MVP. provision-indri can run on
-     the indri runner (host-mode `op` + SSH-to-self already work);
-     provision-ringtail needs a runner that can drive `nixos-rebuild` on
+     targets, promoted from "later, maybe" to **first Phase-2 deliverables**.
+     provision-indri has landed (eblume/blumeops#1220): the vault/priv-runner
+     gate that sat on it never applied to the generation flip — the
+     zero-prompt `--tags rebuild` path reads no vault, and the host-mode
+     indri runner (host-mode `op` + SSH-to-self already work) is the
+     documented, accepted runner story for the box — so the warrant applies
+     a bound SHA's nix-darwin generation and the full ansible provision
+     (roles, `op read`) stays a human window. provision-ringtail stays open:
+     it needs a runner that can drive `nixos-rebuild` on
      ringtail — likely the ringtail-side priv runner itself, and it must
      survive the network-restart hang (heph `01KTKW8VD3…`). The ringtail
      side decomposes: `ringtail-rebuild.yaml` lands first, a narrow
@@ -326,10 +329,12 @@ to mirror into heph wholesale.
 - **Vault tiering done properly.** Complete the three-tier taxonomy from
   Phase 1: audit which items each workflow actually reads and move *only
   those* into `blumeops-ci`; everything else stays in `blumeops`, human-only.
-  Then land `provision-indri.yaml` / `provision-ringtail.yaml` (promoted per
-  review — see Phase 1's workflow list for their runner constraints). The
-  ringtail-side decomposition starts with `ringtail-rebuild.yaml`: the
-  rebuild-only warrant lands on the priv runner first, and the full ansible
+  `provision-indri.yaml` landed as the narrow rebuild-only warrant (the
+  rebuild path reads no vault, so it never waited on this tier); only
+  `provision-ringtail.yaml` remains open here — see Phase 1's workflow list
+  for its runner constraints. The
+  ringtail-side decomposition started with `ringtail-rebuild.yaml`: the
+  rebuild-only warrant landed on the priv runner first; the full ansible
   play stays `deny` until this tier completes.
 - **Dedicated privileged runner.** Move privileged workflows off
   `erichblume@indri` host-mode onto a purpose-built runner (NixOS container or

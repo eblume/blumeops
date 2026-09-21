@@ -47,17 +47,35 @@ if [[ "$run_rebuild" == true ]]; then
         exit 1
     fi
 
-    # `if !` keeps a failed ls-remote out of set -e's reach, so an unreachable
-    # forge fails here with git's own error instead of a silent exit.
-    if ! REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" | awk 'NR==1{print $1}'); then
-        echo "ERROR: cannot reach origin to verify $COMMIT is pushed (the forge is behind caddy on indri)."
-        exit 1
-    fi
+    # `if !` keeps a failed fetch/ls-remote out of set -e's reach, so an
+    # unreachable forge fails here with git's own error instead of a silent
+    # exit. On a branch: the branch tip must equal HEAD. Detached (CI: the
+    # provision-indri warrant workflow checks the bound SHA out of a
+    # full-history main clone): the SHA must be an ancestor of origin/main —
+    # the workflow's pre-flight already proved it; re-check here as the
+    # task-side authority.
+    if [[ "$(git rev-parse --abbrev-ref HEAD)" == "HEAD" ]]; then
+        if ! git fetch -q origin main; then
+            echo "ERROR: cannot reach origin to verify $COMMIT is on main (the forge is behind caddy on indri)."
+            exit 1
+        fi
 
-    if [[ "$REMOTE_REF" != "$COMMIT" ]]; then
-        echo "ERROR: Current commit $COMMIT is not pushed to forge."
-        echo "Push your changes first: git push"
-        exit 1
+        if ! git merge-base --is-ancestor "$COMMIT" origin/main; then
+            echo "ERROR: detached HEAD $COMMIT is not an ancestor of origin/main."
+            echo "The approved SHA must be merged to main before it can be applied."
+            exit 1
+        fi
+    else
+        if ! REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" | awk 'NR==1{print $1}'); then
+            echo "ERROR: cannot reach origin to verify $COMMIT is pushed (the forge is behind caddy on indri)."
+            exit 1
+        fi
+
+        if [[ "$REMOTE_REF" != "$COMMIT" ]]; then
+            echo "ERROR: Current commit $COMMIT is not pushed to forge."
+            echo "Push your changes first: git push"
+            exit 1
+        fi
     fi
 else
     echo "Role-only run (tags: ${tags:-<none>}; skip-tags: ${skip_tags:-<none>}): skipping the flake-lock and pushed-HEAD guards."

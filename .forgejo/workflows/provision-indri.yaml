@@ -1,0 +1,115 @@
+# provision-indri — apply a bound blumeops SHA's nix-darwin generation to indri.
+#
+# Request via `mise run request-run provision-indri.yaml <full-sha> -i revision=<sha>`.
+# The job runs on indri's own runner (host-mode erichblume with NOPASSWD sudo —
+# the documented, accepted runner story for this box, so no polkit or
+# template-unit dance; contrast ringtail-rebuild) and drives the proven
+# zero-prompt path: `mise run provision-indri -- --tags rebuild`. That runs
+# the task-side guards (docker-pinned flake-lock check, pushed-HEAD/ancestry
+# guard) and the play's rebuild-tagged pre_tasks: checkout the bound SHA into
+# a root-owned /etc/blumeops, detached `sudo -n -H nohup darwin-rebuild
+# switch --flake /etc/blumeops/darwin/indri#indri`, bounded wait, fail with
+# the log embedded. The rebuild path reads no vault: every `op read` in the
+# play is role-tagged, so `--tags rebuild` runs none. The full ansible
+# provision (roles, secrets) stays a human window — the ringtail-rebuild-vs-
+# provision-ringtail decomposition, applied to indri.
+#
+# Injection posture: the dispatch input reaches this job only as an
+# environment variable — never into a checkout ref or shell text. The
+# validate step is the first place it is interpreted and fails closed; the
+# checkout is of main (reviewed state); the apply step re-validates, then
+# detaches onto the bound SHA (a main ancestor — its objects are already in
+# the object database).
+#
+# The contract is "apply a commit merged to main": the workflow pre-flights
+# it unprivileged, and the task's pushed-HEAD guard (detached-aware)
+# re-checks origin/main ancestry as the task-side authority.
+#
+# The run log ends with the generation identity — the system profile's store
+# path before and after the switch. A content-identical SHA (e.g. the
+# no-op drill) dedupes to the previous generation's store path under a new
+# generation number.
+#
+# Docs: docs/explanation/warrant-approval-gated-runs.md,
+# docs/how-to/indri/provision.md (warrant-gated apply).
+name: provision-indri
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'Full 40-char blumeops commit whose nix-darwin generation to apply to indri'
+        required: true
+        type: string
+
+jobs:
+  rebuild:
+    runs-on: indri
+    steps:
+      # The raw dispatch input reaches this job only as an environment
+      # variable. This step is the single fail-closed shape gate: a value
+      # that is not exactly 40 lowercase hex chars stops the job before
+      # anything privileged or networked runs. The error names the input
+      # length, not the value — the value is untrusted text and must not
+      # reach the run log.
+      - name: Validate revision input
+        env:
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          # Length and whole-line content together close the newline hole a
+          # bare line-based regex leaves: a value shorter or longer than 40
+          # chars, or split across lines, cannot pass both.
+          if [ "${#REVISION}" -ne 40 ] || ! printf '%s' "$REVISION" | grep -qxE '^[0-9a-f]{40}$'; then
+            echo "::error::revision must be a full 40-char lowercase sha (input length: ${#REVISION})"
+            echo "::error::approvals bind to immutable SHAs — see docs/how-to/operations/request-a-privileged-run.md"
+            exit 1
+          fi
+
+      # The bound revision never reaches a git ref: the checkout is of main.
+      # Full history — the ancestry pre-flight below needs main's line, and a
+      # depth-1 fetch would make it pass only for main's live tip.
+      - name: Check out main (reviewed state)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # Fail fast, unprivileged, before indri is touched: the SHA must be an
+      # ancestor of main. Not the authority — the task's guard re-checks
+      # origin/main from the detached checkout, and /etc/blumeops is what
+      # the rebuild actually runs.
+      - name: Verify bound revision is on main
+        env:
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          if ! git -C "$GITHUB_WORKSPACE" merge-base --is-ancestor "$REVISION^{commit}" origin/main; then
+            echo "::error::$REVISION is not a commit merged to main"
+            echo "::error::the approved SHA must be merged to main before it can be applied"
+            exit 1
+          fi
+
+      - name: Apply to indri
+        env:
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          # Re-validate at the privileged boundary; the task's guard
+          # re-checks the ancestry contract as the task-side authority.
+          if [ "${#REVISION}" -ne 40 ] || ! printf '%s' "$REVISION" | grep -qxE '^[0-9a-f]{40}$'; then
+            echo "::error::revision failed re-validation"
+            exit 1
+          fi
+          # Generation identity before the switch: the system profile is the
+          # durable pointer to the current generation (no /run/current-system
+          # assumptions — activation may recreate it).
+          before=$(readlink /nix/var/nix/profiles/system)
+          # Detach onto the bound SHA — a main ancestor, so its objects are
+          # in this full-history checkout. The task's guards and the play's
+          # indri_commit then bind to the approved commit, not main's tip.
+          git -C "$GITHUB_WORKSPACE" checkout --detach "$REVISION"
+          mise run provision-indri -- --tags rebuild
+          after=$(readlink /nix/var/nix/profiles/system)
+          echo "Generation before: $before"
+          echo "Generation after:  $after"
