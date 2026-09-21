@@ -94,7 +94,7 @@ jobs:
             echo "::error::BLUMEOPS_CI_OP_TOKEN is not provisioned as an Actions secret — see [[blumeops-ci-item-migration]]"
             exit 1
           fi
-          ARGOCD_AUTH_TOKEN=$(op read 'op://blumeops-ci/argocd-workflow-bot/token')
+          ARGOCD_AUTH_TOKEN=$(op read 'op://blumeops-ci/ci-argocd/token')
           echo "::add-mask::$ARGOCD_AUTH_TOKEN"
           export ARGOCD_AUTH_TOKEN
           # Forgejo injects GITHUB_TOKEN (a *forge* token); mise would send it
@@ -125,7 +125,7 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
           ARGOCD_OPTS: --grpc-web
         run: |
-          ARGOCD_AUTH_TOKEN=$(op read 'op://blumeops-ci/argocd-workflow-bot/token')
+          ARGOCD_AUTH_TOKEN=$(op read 'op://blumeops-ci/ci-argocd/token')
           echo "::add-mask::$ARGOCD_AUTH_TOKEN"
           export ARGOCD_AUTH_TOKEN
           unset GITHUB_TOKEN GITHUB_API_TOKEN
