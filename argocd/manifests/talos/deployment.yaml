@@ -155,6 +155,11 @@ spec:
             # Unattended pod: the heph CLI must print the stale-sync warning, not block on its interactive re-login prompt (eblume/hephaestus#66).
             - name: HEPH_NO_AUTO_RELOGIN
               value: "1"
+            # Downward API: the pod's own ephemeral-storage limit, consumed by the store-watermark gc (eblume/talos#250).
+            - name: TALOS_EPHEMERAL_LIMIT_BYTES
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.ephemeral-storage
           envFrom:
             - secretRef:
                 name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN
