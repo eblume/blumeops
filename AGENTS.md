@@ -124,7 +124,8 @@ It validates the request against `warrant-policy.yaml` **on main**
 it as a PR comment, a heph task, and an entry in the approval queue. A human
 approves in Horkos (né Warrant), which dispatches the workflow. Requestable today:
 `argocd-deploy.yaml`, `argocd-sync-apps.yaml`, `deploy-fly.yaml`,
-`ringtail-rebuild.yaml`, `run-script.yaml`. `argocd-deploy.yaml` also accepts
+`ringtail-rebuild.yaml`, `provision-indri.yaml`, `run-script.yaml`.
+`argocd-deploy.yaml` also accepts
 `revision=declared` for tag-tracking apps: sync the revision the Application on
 main already declares, without re-pointing it (the bound SHA is the commit
 declaring it).

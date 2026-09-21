@@ -104,11 +104,25 @@ actions:
         required: true
         pattern: "^[0-9a-f]{64}$"
 
-  # Gated until the blumeops-ci vault split and priv-runner hardening land
-  # (Phase 2) — the largest-blast-radius scripts in the repo.
   provision-indri.yaml:
-    class: deny
-    note: "Phase 2 gate: blumeops-ci vault + priv runner hardening first (heph 01KZ0G21JS)"
+    class: warrant
+    note: >-
+      Apply a bound blumeops SHA's nix-darwin generation to indri: darwin-rebuild
+      switch via the zero-prompt `--tags rebuild` path (task guards, checkout to
+      a root-owned /etc/blumeops, detached sudo -n -H darwin-rebuild, bounded
+      wait), from the host-mode indri runner (erichblume + NOPASSWD sudo). The
+      rebuild path reads no vault — every `op read` in the play is role-tagged
+      — so the old Phase-2 gate (blumeops-ci vault split + priv runner) never
+      applied to the generation flip; the full ansible provision (roles,
+      secrets) stays a human window.
+    binds_sha: revision
+    inputs:
+      revision:
+        required: true
+        pattern: "^[0-9a-f]{40}$"
+  # The full provision still reads the blumeops vault in its ansible pre_tasks,
+  # and its root paths beyond the rebuild unit are open (the narrow rebuild
+  # warrant is ringtail-rebuild.yaml).
   provision-ringtail.yaml:
     class: deny
-    note: "Phase 2 gate: same as provision-indri, plus the ringtail runner story"
+    note: "Full provision: its ansible pre_tasks read the blumeops vault, and the priv-runner decomposition beyond the rebuild unit is open"
