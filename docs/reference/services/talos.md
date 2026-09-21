@@ -1,6 +1,6 @@
 ---
 title: Talos
-modified: 2026-09-12
+modified: 2026-09-20
 last-reviewed: 2026-09-12
 tags:
   - service
@@ -34,7 +34,7 @@ Models are env-pinned (`TALOS_MODEL`, currently `qwen/qwen3.8-27b`); models newe
 
 At boot, before the server starts, the entrypoint runs a per-clone pool repair (`pool-repair.sh`: zero-length objects, refs with missing targets, zeroed worktree indexes, commit-graph); a clone still unclean afterwards leaves a marker under `$HOME/data/pool-unhealthy/`. Pool health is exported as `talos_pool_unhealthy{repo,source}` (source="fetch" = runtime corrupt fetch → restart the pod; source="repair" = boot repair left it unclean → a restart will not fix it) plus the `talos_pool_fetch_failures_total{reason}` counter (eblume/talos#228).
 
-The image bakes an **eval-only nix** (following the [[agent-containerization]] §"Nix in the pod" precedent): `$HOME`-relocated store on the PVC, `max-jobs = 0`, swept on size by the entrypoint. It lets the pod compute `fetchgit` hash values for the image's pinned dependencies (heph, npm deps) instead of burning CI rounds on hash-mismatch errors. (The image's own source needs no hash since the auto-release move — the talos repo's `default.nix` builds from the checkout itself, and every merge to talos main releases automatically.)
+The image bakes a **building nix** (following the [[agent-containerization]] §"Nix in the pod" precedent): a writable canonical `/nix/store` in the container's writable layer (`max-jobs = 2`), so `cache.nixos.org` substitutes and the pod can build, not just compute `fetchgit` hash values for the image's pinned dependencies (heph, npm deps). Growth is bounded by the watermark gc in the talos hourly sweep (eblume/talos#250: `nix store gc` below half the limit), with the Deployment's `ephemeral-storage: 40Gi` limit as backstop; `/tmp` is a mount of the `talos-home` PVC (`subPath: .tmp` — the same directory the entrypoint's `TMPDIR` names, wiped at boot) so throwaway writes never count against the limit. (The image's own source needs no hash since the auto-release move — the talos repo's `default.nix` builds from the checkout itself, and every merge to talos main releases automatically.)
 Rust builds (hephaestus is the only Rust repo in the pool) use a shared `CARGO_TARGET_DIR=/home/talos/.cache/cargo-target` on the PVC, set in the deployment env: one incremental tree for every session and warm across pod replacement, instead of a cold rebuild per worktree leaving a multi-GB `target/` behind (blumeops#813).
 
 ## Programmatic API
