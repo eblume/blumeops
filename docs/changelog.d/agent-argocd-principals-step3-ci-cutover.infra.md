@@ -1,0 +1,1 @@
+Point the `argocd-deploy` and `argocd-sync-apps` workflows' `op read` at `op://blumeops-ci/ci-argocd/token` (account `ci-argocd`, re-minted without expiry). CI cutover leg of the `workflow-bot` → `ci-argocd` rename (eblume/blumeops#1163, step 3): the old `blumeops-ci/argocd-workflow-bot` item is retired by the follow-up cleanup PR that deletes the old accounts.
