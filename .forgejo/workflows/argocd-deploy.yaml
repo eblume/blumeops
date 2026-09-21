@@ -133,7 +133,7 @@ jobs:
           export ARGOCD_AUTH_TOKEN
           unset GITHUB_TOKEN GITHUB_API_TOKEN
           acd() { if command -v argocd >/dev/null 2>&1; then argocd "$@"; else mise x argocd@3.3.12 -- argocd "$@"; fi; }
-          LIVE_REV=$(acd app get "$APP" -o json | python3 -c "import json,sys; print(json.load(sys.stdin)['spec']['source']['targetRevision'])")
+          LIVE_REV=$(acd app get "$APP" -o json | jq -r '.spec.source.targetRevision // empty')
           DECLARED_REV=$(sed -n 's/^[[:space:]]*targetRevision:[[:space:]]*//p' "argocd/apps/$APP.yaml" | head -n1)
           echo "revision=declared: live targetRevision=$LIVE_REV; argocd/apps/$APP.yaml on main declares $DECLARED_REV"
           if [ -z "$LIVE_REV" ] || [ -z "$DECLARED_REV" ]; then
