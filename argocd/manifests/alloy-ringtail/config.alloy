@@ -179,6 +179,60 @@ prometheus.scrape "blackbox" {
   forward_to      = [prometheus.remote_write.prometheus.receiver]
 }
 
+// Probes the indri-local Caddy-fronted surface (*.ops.eblu.me) from k3s,
+// so a Caddy or backend outage on indri leaves a Prometheus witness
+// (eblume/blumeops#1221). Names resolve via the public wildcard A record
+// to indri's tailnet IP, which ringtail routes directly.
+// Job labels follow the integrations/blackbox/<name> convention above, so
+// the existing ServiceProbeFailure alert covers these targets too.
+prometheus.exporter.blackbox "public" {
+  config = "{ modules: { http_2xx: { prober: http, timeout: 5s } } }"
+
+  target {
+    name    = "cv"
+    address = "https://cv.ops.eblu.me/"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "docs"
+    address = "https://docs.ops.eblu.me/"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "forge"
+    address = "https://forge.ops.eblu.me/"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "heph"
+    address = "https://heph.ops.eblu.me/"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "jellyfin"
+    address = "https://jellyfin.ops.eblu.me/"
+    // Root 302s to /web/ (200); the http prober follows redirects.
+    module  = "http_2xx"
+  }
+  target {
+    name    = "pypi"
+    address = "https://pypi.ops.eblu.me/"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "registry"
+    address = "https://registry.ops.eblu.me/"
+    module  = "http_2xx"
+  }
+}
+
+// Scrape blackbox probe results for the public surface
+prometheus.scrape "blackbox_public" {
+  targets         = prometheus.exporter.blackbox.public.targets
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.prometheus.receiver]
+}
+
 // Push metrics to Prometheus in-cluster. Not the tailscale ingress name:
 // after a ringtail reboot CoreDNS can capture the host resolvers before
 // tailscaled installs MagicDNS, and then *.ts.net is NXDOMAIN from pods
