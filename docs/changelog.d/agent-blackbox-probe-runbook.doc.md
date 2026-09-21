@@ -1,0 +1,1 @@
+Documented the seven public (indri-local, Caddy-fronted) blackbox probe targets in the ServiceProbeFailure runbook, including the 502-vs-connection-refused triage signature that separates a backend outage from a front outage.
