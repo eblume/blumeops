@@ -1,0 +1,1 @@
+`horkos-forge`'s forge write grant is now a per-repo `horkos_forge` flag in repos.json — set on every pool repo — reconciled by agent-repo-access and asserted exactly by horkos-forge-drift; the forge hook into horkos additionally subscribes to the terminal `action_run_success`/`failure`/`recover` events horkos settles runs from (eblume/horkos#40).

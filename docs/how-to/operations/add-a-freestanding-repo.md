@@ -23,7 +23,9 @@ what the class is, see [[freestanding-repos]]. Each step names its actor.
    ```
 
    No `release_hook`. talos authors via its fork (`agents/blumeops`) and
-   opens a cross-repo PR to `eblume/blumeops`.
+   opens a cross-repo PR to `eblume/blumeops`. If warrant requests may
+   attach to the new repo, carry `"horkos_forge": true` as well, so
+   horkos-forge can post the settlement comment on their issues.
 3. **(Erich)** Review and merge the blumeops PR. On merge, the Agent Repo
    Access CI reconciles the collaborator grant and the talos pods roll —
    the `repos.json` ConfigMap name is hash-suffixed, so a policy merge

@@ -3,8 +3,8 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
-#MISE description="[human] Assert horkos-forge still holds exactly write on blumeops and nothing more (read-only)"
-#USAGE flag "--token <token>" help="Forgejo API token; the caller must be admin on eblume/blumeops (default: 1Password)"
+#MISE description="[human] Assert horkos-forge holds write on exactly the repos.json horkos_forge set and nothing more (read-only)"
+#USAGE flag "--token <token>" help="Forgejo API token; the caller must be admin on the horkos_forge repos (default: 1Password)"
 #USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when $FORGE_REPO_WRITE_TOKEN is unset (CI bootstrap)"
 """Verify the blast radius of `horkos-forge` — the identity Horkos dispatches approved runs as.
 
@@ -13,16 +13,22 @@ ceremony that *creates* this identity and is deliberately not a workflow;
 verifying it hasn't drifted since is the half that belongs in CI, and this is
 that half.
 
-What we are defending. Warrant holds a `write:repository` PAT because
-`workflow_dispatch` requires write and Forgejo has no dispatch-only
-permission. Write on blumeops is therefore the accepted floor, and everything
-that keeps it a floor rather than a hole is *external* to Warrant:
+What we are defending. Horkos dispatches approved runs as this bot, and
+`workflow_dispatch` requires write while Forgejo has no dispatch-only
+permission — so the bot carries a `write:repository` PAT, and `repos.json`'s
+per-repo `horkos_forge` flag is where that write floor is accepted. The
+reconciler (`mise run agent-repo-access`) grants it; this job verifies the
+reconcile held. Everything that keeps the floor a floor rather than a hole
+is *external* to Horkos:
 
-  - write and no more — admin would let it edit protections and collaborators
-  - blumeops and no other repo — the grant was never meant to generalize
+  - write and no more on each flagged repo — admin would let it edit
+    protections and collaborators
+  - the flagged set and no other repo — the grant was never meant to
+    generalize
   - not a site admin — which would moot every other check here
   - `main` push/merge whitelisted to eblume alone — the reason "can push
-    branches" is not "can ship to production"
+    branches" is not "can ship to production" (checked on blumeops, the one
+    flagged repo where a shipped commit is production)
 
 Each of those is a thing a human could change in the forge UI in five
 seconds, from a different tab, for an unrelated reason. None of them live in
@@ -35,20 +41,23 @@ this job can reach would create a worse hole than the one it audits. Scope is
 pinned at mint time in `horkos-forge-provision`; rotation goes through the same
 script.
 
-Needs a token whose *user* is admin on eblume/blumeops (collaborator
-permissions and branch protections are repo-admin-level reads); the token
-*scopes* only need `write:repository,read:user` (the latter for the
-site-admin check on /users/horkos-forge) — the CI secret is a narrowly-scoped
-eblume PAT, not the admin PAT. Resolution order matches `agent-repo-access` —
-see resolve_token there for why it is deliberately narrow.
+Needs a token whose *user* is admin on the flagged repos — eblume owns them
+all, blumeops at minimum (collaborator permissions and branch protections are
+repo-admin-level reads); the token *scopes* only need
+`write:repository,read:user` (the latter for the site-admin check on
+/users/horkos-forge) — the CI secret is a narrowly-scoped eblume PAT, not the
+admin PAT. Resolution order matches `agent-repo-access` — see resolve_token
+there for why it is deliberately narrow.
 
 Usage:
     mise run horkos-forge-drift               # exit 1 on drift
     mise run horkos-forge-drift -- --token X  # explicit credential
 """
 
+import json
 import os
 import subprocess
+from pathlib import Path
 from typing import Annotated
 
 import httpx
@@ -61,6 +70,9 @@ from rich.markup import escape
 # forge.eblu.me is HTTPS-poison in-cluster (docs/reference/services/argocd.md).
 FORGE_URL = "https://forge.ops.eblu.me"
 BOT_USER = "horkos-forge"
+# The one repo where `main` must stay whitelisted to eblume alone: blumeops CI
+# ships. The other horkos_forge repos are freestanding — their branch
+# protections are the repo's own business, not horkos-forge's blast radius.
 OWNER, REPO = "eblume", "blumeops"
 PROTECTED_BRANCH = "main"
 EXPECTED_ACCESS = "write"
@@ -68,6 +80,10 @@ EXPECTED_ACCESS = "write"
 # dispatch grant into a path to production without review.
 EXPECTED_MAIN_WHITELIST = {"eblume"}
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
+# The policy: repos.json's per-repo `horkos_forge` flag — the exact set
+# agent-repo-access reconciles onto the forge, so this job verifies the
+# reconcile held and no stray grant was added by hand.
+POLICY_PATH = Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
 
 console = Console()
 err = Console(stderr=True, style="bold red")
@@ -103,6 +119,34 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
         err.print("Pass --token, or set FORGE_REPO_WRITE_TOKEN.")
         raise typer.Exit(1) from exc
     return result.stdout.strip()
+
+
+def load_policy() -> tuple[str, set[str]]:
+    """(owner, {repo names with `horkos_forge: true`}) from repos.json.
+
+    The exact set `agent-repo-access` reconciles — the two must never
+    disagree. Missing or unparseable is a hard failure, not a skipped check:
+    a check that cannot read its own policy cannot claim a clean blast
+    radius, and the file is checked into this repo, so 'missing' means a
+    broken checkout.
+    """
+    try:
+        policy = json.loads(POLICY_PATH.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        err.print(f"cannot read the horkos_forge policy at {POLICY_PATH}: {exc}")
+        raise typer.Exit(1) from exc
+    flagged: set[str] = set()
+    for entry in policy["repos"]:
+        flag = entry.get("horkos_forge", False)
+        if not isinstance(flag, bool):
+            err.print(
+                f"{POLICY_PATH.name}: {entry.get('name', '<unnamed>')} has an invalid "
+                f"horkos_forge {flag!r} (expected a boolean)"
+            )
+            raise typer.Exit(1)
+        if flag:
+            flagged.add(entry["name"])
+    return policy["owner"], flagged
 
 
 class Report:
@@ -184,33 +228,35 @@ def collaborator_access(client: httpx.Client, owner: str, repo: str, who: str) -
             return "unreadable"
 
 
-def check_repo_grant(client: httpx.Client, report: Report) -> None:
-    access = collaborator_access(client, OWNER, REPO, BOT_USER)
-    what = f"{BOT_USER} on {OWNER}/{REPO}"
-    if access == "unreadable":
-        report.unknown(what, "permissions not readable — is the token admin-scoped?")
-    elif access == EXPECTED_ACCESS:
-        report.ok(what, EXPECTED_ACCESS)
-    elif access == "none":
-        # Not a security failure, but Warrant's dispatch is broken and the
-        # symptom (403 at dispatch, long after approval) is far from the cause.
-        report.fail(what, "no grant at all — dispatch cannot work")
-    else:
-        report.fail(what, f"expected {EXPECTED_ACCESS}, found {access}")
+def check_repo_grant(client: httpx.Client, report: Report, owner: str, flagged: set[str]) -> None:
+    for repo in sorted(flagged):
+        access = collaborator_access(client, owner, repo, BOT_USER)
+        what = f"{BOT_USER} on {owner}/{repo}"
+        if access == "unreadable":
+            report.unknown(what, "permissions not readable — is the token admin-scoped?")
+        elif access == EXPECTED_ACCESS:
+            report.ok(what, EXPECTED_ACCESS)
+        elif access == "none":
+            # Not a security failure, but the settlement comment cannot be posted
+            # and dispatch is broken — the symptom (403 at dispatch, long after
+            # approval) is far from the cause.
+            report.fail(what, "no grant at all — dispatch and settlement cannot work")
+        else:
+            report.fail(what, f"expected {EXPECTED_ACCESS}, found {access}")
 
 
-def check_no_other_repos(client: httpx.Client, report: Report) -> None:
+def check_no_other_repos(client: httpx.Client, report: Report, owner: str, flagged: set[str]) -> None:
     try:
-        repos = [r for r in paged(client, "/api/v1/repos/search") if r["owner"]["login"] == OWNER]
+        repos = [r for r in paged(client, "/api/v1/repos/search") if r["owner"]["login"] == owner]
     except httpx.HTTPStatusError as exc:
-        report.unknown(f"{BOT_USER} elsewhere in {OWNER}/*", f"repo search failed: {exc}")
+        report.unknown(f"{BOT_USER} elsewhere in {owner}/*", f"repo search failed: {exc}")
         return
-    what = f"{BOT_USER} elsewhere in {OWNER}/*"
+    what = f"{BOT_USER} elsewhere in {owner}/*"
     strays, blind = [], []
     for repo in repos:
-        if repo["name"] == REPO:
+        if repo["name"] in flagged:
             continue
-        access = collaborator_access(client, OWNER, repo["name"], BOT_USER)
+        access = collaborator_access(client, owner, repo["name"], BOT_USER)
         if access == "unreadable":
             blind.append(repo["name"])
         elif access != "none":
@@ -222,7 +268,7 @@ def check_no_other_repos(client: httpx.Client, report: Report) -> None:
         # could actually see all N.
         report.unknown(what, f"{len(blind)} repo(s) unreadable: {', '.join(sorted(blind)[:5])}…")
     else:
-        report.ok(what, f"clean across {len(repos) - 1} other repos")
+        report.ok(what, f"clean across {len(repos) - len(flagged)} other repos")
 
 
 def check_not_site_admin(client: httpx.Client, report: Report) -> None:
@@ -274,6 +320,8 @@ def main(
     token: Annotated[str | None, typer.Option("--token")] = None,
     skip_if_no_token: Annotated[bool, typer.Option("--skip-if-no-token")] = False,
 ) -> None:
+    owner, flagged = load_policy()
+
     resolved = resolve_token(token, skip_if_no_token)
     if resolved is None:
         console.print("[yellow]SKIPPED: $FORGE_REPO_WRITE_TOKEN is unset.[/yellow]")
@@ -286,8 +334,8 @@ def main(
         timeout=30.0,
     ) as client:
         check_not_site_admin(client, report)
-        check_repo_grant(client, report)
-        check_no_other_repos(client, report)
+        check_repo_grant(client, report, owner, flagged)
+        check_no_other_repos(client, report, owner, flagged)
         check_main_protection(client, report)
 
     if report.failures:
@@ -295,9 +343,9 @@ def main(
         for finding in report.failures:
             err.print(f"  · {escape(finding)}")
         err.print(
-            "\nReconcile with `mise run horkos-forge-provision --dry-run` (gilbert), or "
-            "fix the branch protection in the forge UI. If a change was intended, update "
-            "the expectations at the top of this script in the same PR."
+            "\nReconcile grants with `mise run agent-repo-access --dry-run` from gilbert "
+            "(branch protection is fixed in the forge UI). If a change was intended, update "
+            "the `horkos_forge` flags in repos.json in the same PR."
         )
         raise typer.Exit(1)
     console.print(f"\n[green]{BOT_USER} is scoped as designed.[/green]")

@@ -300,6 +300,52 @@ def neutralize_refs(text: str) -> str:
     return re.sub(r"(?<![\w`])#(\d+)\b", r"`#\1`", text)
 
 
+_ISSUE_REF_KW = re.compile(
+    r"\b(?:part of|fix(?:es)?|closes?|resolves?|related to|refs?)\s*:?\s*"
+    r"(?:([A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+))?#(\d+)",
+    re.IGNORECASE,
+)
+_ISSUE_REF_LINK = re.compile(
+    r"https?://[^\s]*?([A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+)/issues/(\d+)",
+    re.IGNORECASE,
+)
+
+
+def extract_issue_refs(text: str) -> list[dict]:
+    """Issue references in `text`, first-match order by absolute position.
+
+    Keyword refs (`Part of owner/repo#N`, `fixes #N`, …) and issue URLs both
+    count; each entry is {"repo": "owner/repo"} plus {"number": N} (no
+    "repo" key when unprefixed). Ported from talos's extractIssueRefs."""
+    # `\b` blocks mid-word hits like the "fixes" inside "prefixes".
+    refs = []
+    for m in _ISSUE_REF_KW.finditer(text):
+        entry = {"number": int(m.group(2))}
+        if m.group(1) is not None:
+            entry["repo"] = m.group(1)
+        refs.append((m.start(), entry))
+    for m in _ISSUE_REF_LINK.finditer(text):
+        refs.append((m.start(), {"repo": m.group(1), "number": int(m.group(2))}))
+    refs.sort(key=lambda item: item[0])
+    return [entry for _, entry in refs]
+
+
+def resolve_origin_issue(pr: dict, pr_repo: str) -> str | None:
+    """The `origin_issue` a request is filed against: the PR's first issue
+    reference as `owner/repo#N`; None when the PR mentions no issue.
+
+    Explicit owner/repo prefixes win; unprefixed refs default to the PR's
+    base repo, then to the `--repo` argument."""
+    text = f"{pr.get('title') or ''}\n{pr.get('body') or ''}"
+    refs = extract_issue_refs(text)
+    if not refs:
+        return None
+    ref = refs[0]
+    base_repo = (pr.get("base") or {}).get("repo") or {}
+    repo = ref.get("repo") or base_repo.get("full_name") or pr_repo
+    return f"{repo}#{ref['number']}"
+
+
 def find_pr_for_sha(client: httpx.Client, sha: str, repo_api: str = REPO_API) -> dict | None:
     """The open PR whose head is the requested SHA, if any."""
     resp = client.get(f"{repo_api}/pulls", params={"state": "open", "limit": 50})
@@ -382,8 +428,35 @@ def _warrant_bearer(c: httpx.Client) -> str:
     return str(tok.json()["access_token"])
 
 
+def warrant_payload(
+    workflow: str,
+    sha: str,
+    inputs: dict[str, str],
+    why: str,
+    pr: int,
+    pr_repo: str,
+    origin_issue: str | None,
+) -> dict:
+    """The JSON body filed to horkos's POST /api/requests."""
+    return {
+        "action": workflow,
+        "sha": sha,
+        "inputs": inputs,
+        "why": why,
+        "pr": pr,
+        "pr_repo": pr_repo,
+        "origin_issue": origin_issue,
+    }
+
+
 def mirror_to_warrant(
-    workflow: str, sha: str, inputs: dict[str, str], why: str, pr: int, pr_repo: str
+    workflow: str,
+    sha: str,
+    inputs: dict[str, str],
+    why: str,
+    pr: int,
+    pr_repo: str,
+    origin_issue: str | None,
 ) -> int | None:
     """Mirror the request into the Warrant queue ([[warrant]]) with the
     agents-m2m identity. Best-effort by design: Warrant v0.1 is an
@@ -394,14 +467,7 @@ def mirror_to_warrant(
             resp = c.post(
                 f"{HORKOS_URL}/api/requests",
                 headers={"Authorization": f"Bearer {_warrant_bearer(c)}"},
-                json={
-                    "action": workflow,
-                    "sha": sha,
-                    "inputs": inputs,
-                    "why": why,
-                    "pr": pr,
-                    "pr_repo": pr_repo,
-                },
+                json=warrant_payload(workflow, sha, inputs, why, pr, pr_repo, origin_issue),
             )
             resp.raise_for_status()
             return resp.json().get("id")
@@ -667,6 +733,7 @@ def main(
         else:
             pr = get_pr(client, pr_number, pr_api)
         number = pr["number"]
+        origin_issue = resolve_origin_issue(pr, pr_repo)
 
         touched = pr_touches_workflows(client, number, pr_api)
 
@@ -706,7 +773,7 @@ def main(
         # Mirror BEFORE commenting so the comment can name the queue entry the
         # approver is meant to act on. Mirroring is best-effort and returns
         # None on failure, so the comment degrades to what it rendered before.
-        warrant_id = mirror_to_warrant(workflow, sha, input_map, why, number, pr_repo)
+        warrant_id = mirror_to_warrant(workflow, sha, input_map, why, number, pr_repo, origin_issue)
 
         # Retire the request this one replaces before commenting, so the
         # comment can state the outcome rather than the intent.

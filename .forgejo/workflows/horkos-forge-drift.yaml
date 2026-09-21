@@ -32,6 +32,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'argocd/manifests/talos/repos.json'
       - 'mise-tasks/horkos-forge-drift'
       - 'mise-tasks/horkos-forge-provision'
       - '.forgejo/workflows/horkos-forge-drift.yaml'

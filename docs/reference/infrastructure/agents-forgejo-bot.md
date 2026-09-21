@@ -116,6 +116,13 @@ workspace checkout — are declared in **one** file:
   `$HORKOS_FORGE_HOOK_SECRET`), and ESO-mounted on the horkos pod
   (`argocd/manifests/horkos/external-secret-forge-hook.yaml`). Hook creation
   is a local run from gilbert, like the talos hooks.
+- `horkos_forge` (`true` | absent): flagged repos also get the
+  **`horkos-forge`** bot as a **write** collaborator — the identity horkos
+  dispatches approved runs as needs write on the request's origin issue to
+  post the settlement comment (eblume/horkos#40). Reconciled by the same
+  task (and exempt from the `PINNED_READ_ONLY` fence above: write on
+  blumeops is the whole point), and the `horkos-forge-drift` check asserts
+  horkos-forge holds write on exactly the flagged set and nowhere else.
 
 So adding a repo is: edit the file, open a PR, merge. No clicking in the forge
 UI — and nothing to forget, which is the point. See [[agent-containerization]]

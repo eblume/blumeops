@@ -165,7 +165,14 @@ What it does:
   visible orange task, not a lost chat message;
 - **mirrors the request into [[horkos]]** (`horkos.ops.eblu.me`) with the
   agents-m2m identity — best-effort in v0.1 (the PR comment + heph task stay
-  the system of record; a broker failure warns and moves on);
+  the system of record; a broker failure warns and moves on). The request is
+  filed with an `origin_issue`: the attached PR's first issue reference — a
+  keyword ref like `Part of #N` or `Part of owner/repo#N`, or an issue URL —
+  searched in title then body, with unprefixed refs defaulting to the PR's
+  repo. After the run settles, horkos posts the settlement outcome
+  (success/failure/cancelled/denied/voided/dispatch_failed) as one comment on
+  that issue (see eblume/horkos#40); a PR that references no issue just files
+  without one.
 - with `--notify`, additionally pushes to ntfy topic `ops-approvals`
   (optional by design — see the notification-channel analysis in
   [[warrant-approval-gated-runs]]).
