@@ -1,0 +1,1 @@
+docs(authentik): delete the migrate-grafana-to-authentik card — redundant after the card refactor; its essential info (current grafana-ringtail/grafana-config-ringtail paths, blueprint `!Env` scalar gotcha) now lives in the [[grafana]] and [[authentik]] service reference cards (eblume/blumeops#1217).

@@ -1,7 +1,7 @@
 ---
 title: Authentik
-modified: 2026-09-18
-last-reviewed: 2026-09-18
+modified: 2026-09-20
+last-reviewed: 2026-09-20
 tags:
   - service
   - security
@@ -49,6 +49,8 @@ Group membership is included in the `profile` scope claim (Authentik built-in). 
 
 Blueprint file: `argocd/manifests/authentik/configmap-blueprint.yaml`
 
+YAML tag gotcha: `!Env` takes a bare scalar (`!Env AUTHENTIK_GRAFANA_CLIENT_SECRET`), not a sequence — `!Find` is the one that uses sequences.
+
 ## OIDC Clients
 
 | Client | Type |
@@ -79,14 +81,13 @@ The item also holds an `api-token` field (Authentik API access for admin scripti
 
 ## Container Image
 
-Nix-built via `dockerTools.buildLayeredImage`; the image needs `coreutils` and `bashInteractive` alongside the main package. The entrypoint wrapper symlinks built-in blueprint directories from the Nix store into `/blueprints/` at runtime, allowing custom blueprints to coexist with defaults. `AUTHENTIK_BLUEPRINTS_DIR=/blueprints` overrides the hardcoded Nix store path.
+Nix-built via `dockerTools.buildLayeredImage`; the image needs `coreutils` and `bashInteractive` alongside the main package. The entrypoint wrapper symlinks built-in blueprint directories from the Nix store into `/blueprints/` at runtime, allowing custom blueprints to coexist with defaults (`buildLayeredImage`'s `extraCommands` can't see store paths from `contents` — separate layers — so the symlinks are made at container start, not build time). `AUTHENTIK_BLUEPRINTS_DIR=/blueprints` overrides the hardcoded Nix store path.
 
 ## Related
 
 - [[federated-login]] - How authentication works across BlumeOps
 - [[grafana]] - First OIDC client
 - [[provision-authentik-database]] - PostgreSQL database provisioning
-- [[migrate-grafana-to-authentik]] - Grafana SSO migration from Dex
 - [[build-authentik-from-source]] - Nix-based container build
 - [[mirror-authentik-build-deps]] - Supply chain mirrors for the build
 - [[external-secrets]] - Secrets injection from 1Password
