@@ -596,21 +596,21 @@ def _settled_warrant(
 
 
 def _run_settled_sweep(
-    monkeypatch, node_id, wrec, runs=()
+    monkeypatch, node_id, wrec, runs=(), bindings=None, dry_run=False
 ) -> tuple[_HephRecorder, _Recorder]:
     task = task_row()
     task["node_id"] = node_id
     monkeypatch.setattr(verify_runs, "open_approve_tasks", lambda: [task])
     monkeypatch.setattr(verify_runs, "forge_token", lambda: "token")
     monkeypatch.setattr(verify_runs, "recent_runs", lambda client: runs)
-    monkeypatch.setattr(verify_runs, "sha_policy", lambda client: {})
+    monkeypatch.setattr(verify_runs, "sha_policy", lambda client: bindings or {})
     monkeypatch.setattr(verify_runs, "warrant_requests", lambda: {54: wrec})
     monkeypatch.setattr(verify_runs, "warrant_id_for", lambda node_id: 54)
     heph_recorder = _HephRecorder()
     monkeypatch.setattr(verify_runs, "heph", heph_recorder)
     console_recorder = _Recorder()
     monkeypatch.setattr(verify_runs, "console", console_recorder)
-    verify_runs.main(dry_run=False)
+    verify_runs.main(dry_run=dry_run)
     return heph_recorder, console_recorder
 
 
@@ -755,4 +755,84 @@ def test_settled_dispatch_failed_closes(monkeypatch):
     assert any(
         "dispatch_failed" in m and "task closed by verify-runs" in m
         for m in console_recorder.messages
+    )
+
+
+def test_settled_success_with_binding_mismatch_stays_open(monkeypatch):
+    """A settled success that built the wrong commit must not close its
+    approval: the SHA-binding audit applies to settled records exactly as on
+    the forge-status path (warrant #22's failure class) — AUDIT FAILURE
+    logged, task left open, counted as a mismatch."""
+    wrec = _settled_warrant(
+        "success",
+        run_number=1754,
+        run_url="https://forge.eblu.me/eblume/blumeops/actions/runs/1754",
+        action="deploy-fly.yaml",
+        sha=SHA,
+        inputs=json.dumps({"revision": MAIN_TIP}),
+    )
+    heph_recorder, console_recorder = _run_settled_sweep(
+        monkeypatch, "n108", wrec, bindings=BINDINGS
+    )
+
+    logs, dones = _log_done(heph_recorder)
+    assert len(dones) == 0
+    assert len(logs) == 1
+    assert "AUDIT FAILURE" in logs[0][2]
+    assert "settled by horkos" in logs[0][2]
+    assert "left open" in logs[0][2]
+    assert any(
+        "MISMATCH" in m and "task left open" in m for m in console_recorder.messages
+    )
+    assert not any(m.startswith("[green]closed") for m in console_recorder.messages)
+
+
+def test_settled_branch_dry_run_writes_nothing(monkeypatch):
+    """--dry-run must not log or close on the settled paths either: the
+    outcome is still reported on the console, but heph is never touched."""
+    wrec = _settled_warrant(
+        "success",
+        run_number=1754,
+        run_url="https://forge.eblu.me/eblume/blumeops/actions/runs/1754",
+    )
+    heph_recorder, console_recorder = _run_settled_sweep(
+        monkeypatch, "n109", wrec, dry_run=True
+    )
+
+    assert heph_recorder.calls == []
+    assert any(
+        "closed" in m and "settled by horkos" in m for m in console_recorder.messages
+    )
+
+
+def test_settled_outcome_null_flows_through_existing_paths(monkeypatch):
+    """Horkos serializes unsettled requests with settled_outcome: null (key
+    present, value null) — the sweep must treat that as unsettled and take
+    the existing status-based paths, not the settled ones."""
+    wrec = {
+        "status": "pending",
+        "settled_outcome": None,
+        "run_number": None,
+        "run_url": None,
+    }
+    heph_recorder, console_recorder = _run_settled_sweep(monkeypatch, "n110", wrec)
+
+    _, dones = _log_done(heph_recorder)
+    assert len(dones) == 0
+    assert not any("settled by horkos" in m for m in console_recorder.messages)
+    assert any("pending" in m for m in console_recorder.messages)
+
+
+def test_unrecognized_settled_outcome_falls_back(monkeypatch):
+    """A settled_outcome value the sweep does not recognize (a future horkos
+    value or schema drift) is not ours to decide: warn, then fall through to
+    the run-status paths so the task stays visible to a human — never a
+    silent close."""
+    wrec = _settled_warrant("exploded", status="approved", run_number=None)
+    heph_recorder, console_recorder = _run_settled_sweep(monkeypatch, "n111", wrec)
+
+    _, dones = _log_done(heph_recorder)
+    assert len(dones) == 0
+    assert any(
+        "unrecognized" in m and "exploded" in m for m in console_recorder.messages
     )

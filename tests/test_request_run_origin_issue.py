@@ -6,6 +6,10 @@ first-ref rule talos uses in matchMergeTrigger. Pure functions only: no
 network, no cli.
 """
 
+import re
+
+import pytest
+
 BLUMEOPS = "eblume/blumeops"
 TALOS = "eblume/talos"
 
@@ -109,3 +113,41 @@ def test_warrant_payload_origin_issue_may_be_none(request_run):
     )
     assert payload["origin_issue"] is None
     assert "origin_issue" in payload
+
+
+def test_resolve_tolerates_missing_or_none_title_and_body(request_run):
+    # Forge PRs always carry both, but the resolver must not crash on a
+    # partial record: missing keys and explicit None both mean "no text".
+    assert request_run.resolve_origin_issue({}, BLUMEOPS) is None
+    assert (
+        request_run.resolve_origin_issue({"title": None, "body": None}, BLUMEOPS)
+        is None
+    )
+    pr = {"body": "Part of eblume/talos#9"}  # no title key at all
+    assert request_run.resolve_origin_issue(pr, BLUMEOPS) == "eblume/talos#9"
+
+
+@pytest.mark.parametrize(
+    ("pr", "expected"),
+    [
+        ({"title": "t", "body": "Part of eblume/talos#91"}, "eblume/talos#91"),
+        (
+            {
+                "title": "Fixes #40",
+                "body": "",
+                "base": {"repo": {"full_name": "eblume/talos"}},
+            },
+            "eblume/talos#40",
+        ),
+        (
+            {"title": "t", "body": "see https://forge.eblu.me/eblume/cv/issues/7"},
+            "eblume/cv#7",
+        ),
+    ],
+)
+def test_resolved_values_match_horkos_origin_format(request_run, pr, expected):
+    """The value is exactly what horkos validates as owner/repo#N — pin the
+    cross-service contract so a resolution regression cannot 422 the filing."""
+    resolved = request_run.resolve_origin_issue(pr, BLUMEOPS)
+    assert resolved == expected
+    assert re.fullmatch(r"[\w.\-]+/[\w.\-]+#\d+", resolved)

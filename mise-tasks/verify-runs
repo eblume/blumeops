@@ -45,11 +45,14 @@ cancelled from the forge's run webhooks; denied / voided / dispatch_failed
 in-process) and the API serializes it on the record, so the sweep decides an
 outcome-bearing record from the record alone — the run number and URL it
 carries (valid even when the run has aged out of the recent-run window), or
-"no run" — and never consults the forge run's status. Success closes;
+"no run" — and never consults the forge run's status. Success closes, but
+only after the same SHA-binding audit the forge-status path applies — a
+green run that built the wrong commit never closes, settled or not;
 failure / cancelled log and stay open for a human; denied / voided /
-dispatch_failed close as nothing was (or ever will be) dispatched. Records
-with no `settled_outcome` take the existing status-based paths unchanged,
-as the backstop for runs that never settle.
+dispatch_failed close as nothing was (or ever will be) dispatched; an
+unrecognized outcome falls back to the status-based paths. Records with no
+`settled_outcome` take those paths unchanged, as the backstop for runs that
+never settle.
 
 Run it from any agent session (`mise run verify-runs`) — it needs heph and
 the bot's forge token, nothing privileged. Idempotent; safe to run anytime.
@@ -449,6 +452,24 @@ def main(
             tail = f" ({via}, {settled_by})" if via else f" ({settled_by})"
             url_ref = f" — {run_url}" if run_url else ""
             if settled == "success":
+                # A green run that built the wrong commit must never close its
+                # approval, settled or not — the record-internal audit applies
+                # here exactly as it does on the forge-status path.
+                if (why := binding_mismatch(wrec, bindings)):
+                    if not dry_run:
+                        heph(
+                            "log", node_id,
+                            f"AUDIT FAILURE: {where} {why}{url_ref} "
+                            f"({settled_by}). The approved change was not "
+                            "what ran; left open. Re-request with the SHA "
+                            "bound to the workflow's payload input.",
+                        )
+                    console.print(
+                        f"[red]MISMATCH[/red] {escape(label)} — {where} "
+                        f"{escape(why)} (task left open)"
+                    )
+                    mismatched += 1
+                    continue
                 if not dry_run:
                     heph(
                         "log", node_id,
@@ -460,6 +481,7 @@ def main(
                     f"[green]closed[/green]   {escape(label)} — {where} succeeded{tail}"
                 )
                 closed += 1
+                continue
             elif settled in ("failure", "cancelled"):
                 if not dry_run:
                     heph(
@@ -472,9 +494,10 @@ def main(
                     "task left open"
                 )
                 failed += 1
-            else:
-                # denied / voided / dispatch_failed — terminal: the request
-                # can never produce a run, whatever its status column says.
+                continue
+            elif settled in ("denied", "voided", "dispatch_failed"):
+                # Terminal: the request can never produce a run, whatever its
+                # status column says.
                 reason = (
                     f" ({wrec['void_reason']})"
                     if settled == "voided" and wrec.get("void_reason") else ""
@@ -492,7 +515,15 @@ def main(
                     "task closed by verify-runs"
                 )
                 closed += 1
-            continue
+                continue
+            # A settled_outcome we do not recognize (a future horkos value,
+            # schema drift): not ours to decide — fall through to the
+            # status-based paths so the task stays visible to a human.
+            console.print(
+                f"[yellow]warn[/yellow]  {escape(label)} — unrecognized "
+                f"settled_outcome {escape(repr(settled))}; falling back to the "
+                "run-status paths"
+            )
         if state == "recorded" and run is None:
             # attribution returns "recorded" only when the warrant names a run number
             assert wrec is not None
