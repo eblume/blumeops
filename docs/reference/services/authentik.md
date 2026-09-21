@@ -1,7 +1,7 @@
 ---
 title: Authentik
-modified: 2026-09-18
-last-reviewed: 2026-09-18
+modified: 2026-09-20
+last-reviewed: 2026-09-20
 tags:
   - service
   - security
@@ -49,6 +49,8 @@ Group membership is included in the `profile` scope claim (Authentik built-in). 
 
 Blueprint file: `argocd/manifests/authentik/configmap-blueprint.yaml`
 
+YAML tag gotcha: `!Env` takes a bare scalar (`!Env AUTHENTIK_GRAFANA_CLIENT_SECRET`), not a sequence — `!Find` is the one that uses sequences.
+
 ## OIDC Clients
 
 | Client | Type |
@@ -86,7 +88,6 @@ Nix-built via `dockerTools.buildLayeredImage`; the image needs `coreutils` and `
 - [[federated-login]] - How authentication works across BlumeOps
 - [[grafana]] - First OIDC client
 - [[provision-authentik-database]] - PostgreSQL database provisioning
-- [[migrate-grafana-to-authentik]] - Grafana SSO migration from Dex
 - [[build-authentik-from-source]] - Nix-based container build
 - [[mirror-authentik-build-deps]] - Supply chain mirrors for the build
 - [[external-secrets]] - Secrets injection from 1Password

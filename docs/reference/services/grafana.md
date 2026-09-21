@@ -1,7 +1,7 @@
 ---
 title: Grafana
-modified: 2026-06-09
-last-reviewed: 2026-06-09
+modified: 2026-09-20
+last-reviewed: 2026-09-20
 tags:
   - service
   - observability
@@ -18,7 +18,7 @@ Dashboards and visualization for BlumeOps observability.
 | **URL** | https://grafana.ops.eblu.me |
 | **Tailscale URL** | https://grafana.tail8d86e.ts.net |
 | **Namespace** | `monitoring` |
-| **Deployment** | Kustomize (`argocd/manifests/grafana/`) |
+| **Deployment** | Kustomize (`argocd/manifests/grafana-ringtail/`) |
 | **Image** | `registry.ops.eblu.me/blumeops/grafana` |
 | **Sidecar Image** | `registry.ops.eblu.me/blumeops/grafana-sidecar` |
 
@@ -29,7 +29,7 @@ Grafana supports two login methods:
 - **SSO via [[authentik]]** — OIDC login through Authentik (`auth.generic_oauth`). Members of the Authentik `admins` group get the Admin role; everyone else gets Viewer (`role_attribute_path` in `grafana.ini`).
 - **Local admin** — break-glass login using the password from 1Password ("Grafana (blumeops)"). Always available if Authentik is down.
 
-The OIDC client secret is injected via [[external-secrets]] (`grafana-authentik-oauth` secret in monitoring namespace).
+The OIDC endpoints live in the `[auth.generic_oauth]` section of `argocd/manifests/grafana-ringtail/grafana.ini` (fed to the `grafana` ConfigMap via `configMapGenerator`). The OIDC client secret is injected via [[external-secrets]] — `argocd/manifests/grafana-config-ringtail/external-secret-authentik-oauth.yaml` pulls `grafana-client-secret` from the 1Password "Authentik (blumeops)" item, surfacing it as the `grafana-authentik-oauth` secret in the monitoring namespace.
 
 ## Datasources
 
@@ -44,22 +44,21 @@ The OIDC client secret is injected via [[external-secrets]] (`grafana-authentik-
 
 Dashboards are ConfigMaps with label `grafana_dashboard: "1"`.
 
-Location: `argocd/manifests/grafana-config/dashboards/`
+Location: `argocd/manifests/grafana-config-ringtail/dashboards/`
 
 Optional annotation: `grafana_folder: "FolderName"`
 
 ## Key Dashboards
 
-Provisioned dashboards live in `argocd/manifests/grafana-config/dashboards/` (one ConfigMap per dashboard). Coverage as of 2026-06: alerts, borgmatic, CV APM, devpi, docs APM, fly.io proxy, forgejo, frigate, jellyfin, kubernetes, loki, macOS (indri host), postgresql, ringtail, sifaka disks, snowflake proxy, tempo, transmission, zot.
+Provisioned dashboards live in `argocd/manifests/grafana-config-ringtail/dashboards/` (one ConfigMap per dashboard). Coverage as of 2026-06: alerts, borgmatic, CV APM, devpi, docs APM, fly.io proxy, forgejo, frigate, jellyfin, kubernetes, loki, macOS (indri host), postgresql, ringtail, sifaka disks, snowflake proxy, tempo, transmission, zot.
 
-TeslaMate's dashboards are not in the repo — an init container fetches them from the forge mirror at a pinned tag (`TESLAMATE_VERSION` in `argocd/manifests/grafana/deployment.yaml`).
+TeslaMate's dashboards are not in the repo — an init container fetches them from the forge mirror at a pinned tag (`TESLAMATE_VERSION` in `argocd/manifests/grafana-ringtail/deployment.yaml`).
 
 ## Related
 
 - [[build-grafana-images]] - Home-built container images (Grafana + sidecar)
 - [[kustomize-grafana-deployment]] - Kustomize manifest structure
 - [[authentik]] - OIDC identity provider for SSO
-- [[migrate-grafana-to-authentik]] - How SSO was migrated from Dex to Authentik
 - [[prometheus]] - Metrics datasource
 - [[loki]] - Logs datasource
 - [[tempo]] - Traces datasource
