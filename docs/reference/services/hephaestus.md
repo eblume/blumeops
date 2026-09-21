@@ -88,7 +88,7 @@ fall back to rustup's *default* toolchain, which can lag behind heph's
 
 1. Cut the upstream release (new `vX.Y.Z` tag on the hephaestus repo).
 2. Bump the pins in blumeops: `heph_version` (ansible) and `hephTag`
-   (agent-workspaces.nix). Open a PR as usual.
+   (nixos/ringtail/heph-common.nix). Open a PR as usual.
 3. After review, converge each device:
    - indri: `mise run provision-indri -- --tags heph`
    - ringtail: nixos rebuild (the switch itself does not install; the
@@ -263,7 +263,7 @@ heph daemon stop        # or: launchctl unload ~/Library/LaunchAgents/<label>.pl
 
 # 4. Pin hephd to the network's current tag (matches heph_version in ansible).
 RUSTUP_TOOLCHAIN=stable ~/.cargo/bin/cargo install --locked \
-  --git https://forge.eblu.me/eblume/hephaestus.git --tag v1.7.0 heph hephd
+  --git https://forge.eblu.me/eblume/hephaestus.git --tag v1.10.5 heph hephd
 
 # 5. Reload via launchctl (NOT `heph daemon`, which would re-add self-update).
 launchctl unload ~/Library/LaunchAgents/<label>.plist 2>/dev/null || true

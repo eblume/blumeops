@@ -1,0 +1,1 @@
+- heph (indri hub): review reconciliation, no bump — the ansible pin was already at the latest release (v1.10.5); the stale service-versions.yaml entry (v1.2.1, self-update note) and the Indri doc label now describe the pin-and-provision design. Bumped the ringtail spokes' `hephTag` v1.10.4 → v1.10.5 to bring hub and spokes in step; spoke tracking entries follow the pin.
