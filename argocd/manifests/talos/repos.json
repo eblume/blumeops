@@ -29,6 +29,10 @@
     "               in the blumeops vault, ESO-mounted on the horkos pod.",
     "               See eblume/horkos#17.",
     "",
+    "horkos_forge: true -> the horkos-forge bot gets collaborator write on this",
+    "               repo so horkos can post the settlement comment on origin",
+    "               issues there; reconciled by the same task. See eblume/horkos#40.",
+    "",
     "RECONCILE IS AUTHORITATIVE: a repo absent from this list has its `agents`",
     "collaboration REMOVED. Adding a repo means adding it here, not clicking in",
     "the forge UI. See docs/reference/infrastructure/agents-forgejo-bot.md.",
@@ -45,28 +49,87 @@
   "owner": "eblume",
   "collaborator": "agents",
   "repos": [
-    { "name": "agents", "access": "read", "pool": "fork" },
+    {
+      "name": "agents",
+      "access": "read",
+      "pool": "fork",
+      "horkos_forge": true
+    },
     {
       "name": "blumeops",
       "access": "read",
       "pool": "fork",
-      "release_hook": true
+      "release_hook": true,
+      "horkos_forge": true
     },
     {
       "name": "horkos",
       "access": "read",
       "pool": "fork",
-      "release_hook": true
+      "release_hook": true,
+      "horkos_forge": true
     },
-    { "name": "talos", "access": "read", "pool": "fork", "release_hook": true },
-    { "name": "cv", "access": "read", "pool": "fork", "release_hook": true },
-    { "name": "hephaestus", "access": "write", "pool": "canonical" },
-    { "name": "hephaestus.nvim", "access": "write", "pool": "canonical" },
-    { "name": "research", "access": "write", "pool": "canonical" },
-    { "name": "myeve", "access": "write", "pool": "canonical" },
-    { "name": "timberborn-parsimony", "access": "write", "pool": "canonical" },
-    { "name": "gamedev", "access": "write", "pool": "canonical" },
-    { "name": "project-template", "access": "write", "pool": "canonical" },
-    { "name": "RexWorks", "access": "write", "pool": "canonical" }
+    {
+      "name": "talos",
+      "access": "read",
+      "pool": "fork",
+      "release_hook": true,
+      "horkos_forge": true
+    },
+    {
+      "name": "cv",
+      "access": "read",
+      "pool": "fork",
+      "release_hook": true,
+      "horkos_forge": true
+    },
+    {
+      "name": "hephaestus",
+      "access": "write",
+      "pool": "canonical",
+      "horkos_forge": true
+    },
+    {
+      "name": "hephaestus.nvim",
+      "access": "write",
+      "pool": "canonical",
+      "horkos_forge": true
+    },
+    {
+      "name": "research",
+      "access": "write",
+      "pool": "canonical",
+      "horkos_forge": true
+    },
+    {
+      "name": "myeve",
+      "access": "write",
+      "pool": "canonical",
+      "horkos_forge": true
+    },
+    {
+      "name": "timberborn-parsimony",
+      "access": "write",
+      "pool": "canonical",
+      "horkos_forge": true
+    },
+    {
+      "name": "gamedev",
+      "access": "write",
+      "pool": "canonical",
+      "horkos_forge": true
+    },
+    {
+      "name": "project-template",
+      "access": "write",
+      "pool": "canonical",
+      "horkos_forge": true
+    },
+    {
+      "name": "RexWorks",
+      "access": "write",
+      "pool": "canonical",
+      "horkos_forge": true
+    }
   ]
 }

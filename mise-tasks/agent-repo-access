@@ -3,13 +3,13 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
-#MISE description="[human] Reconcile the agents bot's forge collaborations, forge→talos and forge→horkos webhooks, and engagement labels against repos.json"
+#MISE description="[human] Reconcile the agents + horkos-forge bots' forge collaborations, forge→talos and forge→horkos webhooks, and engagement labels against repos.json"
 #MISE alias="ara"
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
 #USAGE flag "--token <token>" help="Forgejo API token; the caller must be admin on the target repos (default: 1Password)"
 #USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when $FORGE_REPO_WRITE_TOKEN is unset (CI bootstrap)"
-"""Reconcile which of eblume's repos the `agents` bot may touch.
+"""Reconcile which of eblume's repos the `agents` and `horkos-forge` bots may touch.
 
 `argocd/manifests/talos/repos.json` is the single source of truth: it drives
 the forge collaborator grants (this script), the talos pod's clone loop
@@ -74,12 +74,18 @@ by local runs from gilbert, like hook creation.
 RECONCILE IS AUTHORITATIVE. A repo absent from repos.json (or listed with
 access "none") has its `agents` collaboration REMOVED, and a talos hook on a
 repo outside the pool is removed too — a horkos release hook on a repo
-without release_hook: true, likewise. Run --dry-run first.
+without release_hook: true, likewise. A repo without `horkos_forge: true` —
+absent from the list or unflagged — has its `horkos-forge` collaboration
+removed the same way; the two bots' grants are reconciled in the same sweep
+but against independent policies. Run --dry-run first.
 
 Four repos are pinned read-only by an invariant this script will not let
-repos.json override — see PINNED_READ_ONLY. It also refuses write on any
-repo that carries Actions secrets: write on a repo is read of its secrets,
-since every run executes at the pushed ref and is handed them.
+repos.json override — see PINNED_READ_ONLY. The fence bounds the `agents`
+bot's desired access only; the `horkos-forge` bot is deliberately exempt
+(write on blumeops is its whole point — see HORKOS_FORGE_USER). It also
+refuses write on any repo that carries Actions secrets: write on a repo is
+read of its secrets, since every run executes at the pushed ref and is
+handed them.
 
 The token is resolved:
   1. --token flag (explicit)
@@ -189,7 +195,20 @@ HORKOS_HOOK_URL = "https://horkos.ops.eblu.me/api/webhooks/forge"
 # push (default branch) + tag creation + pull_request deliveries: the
 # publisher acts on tag create, push deliveries are accepted but inert, and
 # pull_request drives the void-on-unmerged-PR-close handler (eblume/horkos#35).
-HORKOS_HOOK_SEND_EVENTS = frozenset({"push", "create", "pull_request"})
+# The action_run_* trio are Forgejo's terminal action-run events: horkos
+# settles privileged runs from them (eblume/horkos#40). They are concrete
+# (non-umbrella) events — the GET read-back below reports their names
+# verbatim, so SEND and READ must carry the same three.
+HORKOS_HOOK_SEND_EVENTS = frozenset(
+    {
+        "push",
+        "create",
+        "pull_request",
+        "action_run_success",
+        "action_run_failure",
+        "action_run_recover",
+    }
+)
 # push/create read back exactly as sent, but like the talos hook above, the
 # GET read-back reports `pull_request` expanded into its five fine-grained
 # names — the READ set carries the umbrella plus the expansion, compare as a set.
@@ -203,11 +222,26 @@ HORKOS_HOOK_READ_EVENTS = frozenset(
         "pull_request_milestone",
         "pull_request_review_request",
         "pull_request_sync",
+        # Concrete terminal action-run events — reported verbatim on the GET
+        # read-back, so READ carries the same three names as SEND above.
+        "action_run_success",
+        "action_run_failure",
+        "action_run_recover",
     }
 )
 # Title-based ref works because this item name carries no parens (unlike the
 # talos item).
 OP_HORKOS_WEBHOOK_SECRET_REF = "op://blumeops/horkos forge webhook/credential"
+
+# The identity horkos dispatches runs as and settles privileged runs under
+# (eblume/horkos#40): it posts the settlement comment on a request's origin
+# issue, which takes collaborator write on that repo. repos.json's per-repo
+# `horkos_forge` flag declares where that grant belongs, and this half
+# reconciles it. Unlike the `agents` half it is exempt from PINNED_READ_ONLY
+# — write on blumeops is the whole point (workflow_dispatch requires write
+# and Forgejo has no dispatch-only permission), so the pinned fence stays
+# scoped to the `agents` bot's desired access.
+HORKOS_FORGE_USER = "horkos-forge"
 
 # The engagement label (see the label half in the module docstring). Color
 # matches the hand-created original on blumeops; cosmetic, set only at
@@ -251,6 +285,8 @@ OP_ISSUE_TOKEN_REF = "op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
 # All four work via the fork model (origin = agents/<repo>, PRs to canonical),
 # so read costs them nothing. This lives in code, NOT in repos.json, on purpose:
 # a one-line data edit in a routine-looking PR must not be able to flip a fence.
+# The fence bounds the `agents` bot's desired access only; HORKOS_FORGE_USER is
+# deliberately exempt — write on blumeops is its whole purpose.
 PINNED_READ_ONLY = frozenset({"blumeops", "agents", "horkos", "talos"})
 
 VALID_ACCESS = frozenset({"write", "read", "none"})
@@ -297,13 +333,14 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
     return result.stdout.strip()
 
 
-def load_policy() -> tuple[str, str, dict[str, str], dict[str, str], set[str]]:
+def load_policy() -> tuple[str, str, dict[str, str], dict[str, str], set[str], set[str]]:
     """Return (owner, collaborator, {repo: access}, {repo: pool}, release-hook
-    repos) from repos.json."""
+    repos, horkos-forge repos) from repos.json."""
     policy = json.loads(POLICY_PATH.read_text())
     desired: dict[str, str] = {}
     pools: dict[str, str] = {}
     release_hook_repos: set[str] = set()
+    horkos_forge_repos: set[str] = set()
     for entry in policy["repos"]:
         name, access = entry["name"], entry["access"]
         if access not in VALID_ACCESS:
@@ -330,9 +367,18 @@ def load_policy() -> tuple[str, str, dict[str, str], dict[str, str], set[str]]:
             raise typer.Exit(1)
         if release_hook:
             release_hook_repos.add(name)
+        horkos_forge = entry.get("horkos_forge", False)
+        if not isinstance(horkos_forge, bool):
+            console.print(
+                f"[red]{POLICY_PATH.name}: {escape(name)} has invalid horkos_forge "
+                f"{escape(repr(horkos_forge))} (expected a boolean)[/red]"
+            )
+            raise typer.Exit(1)
+        if horkos_forge:
+            horkos_forge_repos.add(name)
         desired[name] = access
         pools[name] = entry.get("pool", "none")
-    return policy["owner"], policy["collaborator"], desired, pools, release_hook_repos
+    return policy["owner"], policy["collaborator"], desired, pools, release_hook_repos, horkos_forge_repos
 
 
 def resolve_webhook_secret() -> str:
@@ -616,7 +662,7 @@ def main(
     token: Annotated[str | None, typer.Option("--token")] = None,
     skip_if_no_token: Annotated[bool, typer.Option("--skip-if-no-token")] = False,
 ) -> None:
-    owner, who, desired, pools, release_hook_repos = load_policy()
+    owner, who, desired, pools, release_hook_repos, horkos_forge_repos = load_policy()
     preview = dry_run or check
 
     resolved = resolve_token(token, skip_if_no_token)
@@ -664,7 +710,18 @@ def main(
         hook_table.add_column("Desired")
         hook_table.add_column("Action")
 
+        horkos_table = Table(title=f"`{escape(HORKOS_FORGE_USER)}` collaborations on {escape(owner)}/*")
+        horkos_table.add_column("Repo")
+        horkos_table.add_column("Current")
+        horkos_table.add_column("Desired")
+        horkos_table.add_column("Action")
+
         actions: list[tuple[str, str, str]] = []  # (repo, verb, permission)
+        # Same shape as `actions`, but for HORKOS_FORGE_USER and driven by
+        # repos.json's horkos_forge flag alone — a different collaborator and
+        # a different policy axis (exempt from PINNED_READ_ONLY), so its own
+        # list keeps the two reconciles disjoint.
+        horkos_actions: list[tuple[str, str, str]] = []  # (repo, verb, permission)
         # (repo, verb, hook_id, kind) — verb in create|update|remove (kind is
         # "talos" or "horkos"); remove also covers extra duplicates on a repo
         # that keeps its first hook.
@@ -677,7 +734,14 @@ def main(
         for repo in sorted(all_repos):
             want = desired.get(repo, "none")
             have = current_access(client, owner, repo, who)
-            if have == "unreadable":
+            # horkos-forge half: want follows repos.json's horkos_forge flag and
+            # is read against HORKOS_FORGE_USER, not `agents` — the two policies
+            # are independent, write on blumeops for horkos-forge is the point
+            # (see HORKOS_FORGE_USER), and PINNED_READ_ONLY is an `agents`-desired
+            # fence that deliberately does not apply here.
+            horkos_want = "write" if repo in horkos_forge_repos else "none"
+            horkos_have = current_access(client, owner, repo, HORKOS_FORGE_USER)
+            if have == "unreadable" or horkos_have == "unreadable":
                 # Reading collaborators needs repo-admin permission. On a repo we were TOLD to
                 # manage this is fatal: skipping would silently not apply policy
                 # while still reporting success. On an unlisted repo it only means
@@ -702,6 +766,27 @@ def main(
 
             if verb != "ok" or want != "none":
                 table.add_row(escape(repo), escape(have), escape(want), f"[{style}]{verb}[/{style}]")
+
+            # Same reconcile shape as the `agents` half, against HORKOS_FORGE_USER:
+            # want = "write" on horkos_forge-flagged repos, "none" everywhere else
+            # (including repos absent from repos.json — stale grants on a repo
+            # that left the set are revoked, not left for the drift check).
+            if horkos_have == horkos_want:
+                horkos_verb, horkos_style = "ok", "dim"
+            elif horkos_want == "none":
+                horkos_verb, horkos_style = "revoke", "red"
+                horkos_actions.append((repo, "revoke", horkos_want))
+            elif horkos_have == "none":
+                horkos_verb, horkos_style = "grant", "green"
+                horkos_actions.append((repo, "grant", horkos_want))
+            else:
+                horkos_verb, horkos_style = "update", "yellow"
+                horkos_actions.append((repo, "update", horkos_want))
+
+            if horkos_verb != "ok" or horkos_want != "none":
+                horkos_table.add_row(
+                    escape(repo), escape(horkos_have), escape(horkos_want), f"[{horkos_style}]{horkos_verb}[/{horkos_style}]"
+                )
 
             # Actions-secrets invariant: write on a repo is read of its secrets
             # (every run executes at the pushed ref), so a write grant on a
@@ -809,6 +894,7 @@ def main(
 
         console.print(table)
         console.print(hook_table)
+        console.print(horkos_table)
 
         if blocked:
             console.print(
@@ -834,15 +920,17 @@ def main(
                 )
             raise typer.Exit(1)
 
-        if not actions and not hook_actions and not label_actions and not violations:
+        if not actions and not horkos_actions and not hook_actions and not label_actions and not violations:
             console.print("[green]In sync.[/green]")
             return
 
         if preview:
-            pending = len(actions) + len(hook_actions) + len(label_actions) + len(violations)
+            pending = len(actions) + len(horkos_actions) + len(hook_actions) + len(label_actions) + len(violations)
             console.print(f"\n[bold]{pending} change(s) pending.[/bold]")
             for repo, verb, perm in actions:
                 console.print(f"  {verb} {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
+            for repo, verb, perm in horkos_actions:
+                console.print(f"  {verb} {escape(HORKOS_FORGE_USER)} on {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
             for repo, verb, _hook_id, kind in hook_actions:
                 name = "talos hook" if kind == "talos" else "horkos release hook"
                 console.print(f"  {verb} {name} on {escape(owner)}/{escape(repo)}")
@@ -866,6 +954,20 @@ def main(
                 console.print(f"[red]{verb} {escape(owner)}/{escape(repo)} failed: {escape(str(exc))}[/red]")
                 raise typer.Exit(1) from exc
             console.print(f"[green]{verb}[/green] {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
+
+        # The horkos-forge half applies exactly like the agents half: PUT a
+        # write grant / DELETE it, through the same mutation loop shape.
+        for repo, verb, perm in horkos_actions:
+            path = f"/api/v1/repos/{owner}/{repo}/collaborators/{HORKOS_FORGE_USER}"
+            try:
+                if verb == "revoke":
+                    client.delete(path).raise_for_status()
+                else:
+                    client.put(path, json={"permission": perm}).raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                console.print(f"[red]{verb} {escape(HORKOS_FORGE_USER)} on {escape(owner)}/{escape(repo)} failed: {escape(str(exc))}[/red]")
+                raise typer.Exit(1) from exc
+            console.print(f"[green]{verb}[/green] {escape(HORKOS_FORGE_USER)} on {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
 
         # Each kind's signing secret is fetched independently, and only if a
         # create of that kind is pending — updates and removals never touch
@@ -933,7 +1035,7 @@ def main(
                 raise typer.Exit(1) from exc
             console.print(f"[green]create[/green] `{escape(name)}` label on {escape(owner)}/{escape(repo)}")
 
-        applied = len(actions) + len(hook_actions) + len(label_actions)
+        applied = len(actions) + len(horkos_actions) + len(hook_actions) + len(label_actions)
         console.print(f"\n[green]Applied {applied} change(s).[/green]")
 
 

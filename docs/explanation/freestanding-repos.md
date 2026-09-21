@@ -36,6 +36,10 @@ No `release_hook`. `release_hook: true` adds the forge → horkos release
 webhook; it is for repos whose artifacts flow through horkos, and a
 freestanding repo never needs it.
 
+A freestanding repo whose issues warrant requests will attach to should
+carry `"horkos_forge": true`, so horkos-forge can post the settlement
+comment on them.
+
 ## Lifecycle
 
 [[add-a-freestanding-repo]] walks the end-to-end procedure. In outline:

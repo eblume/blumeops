@@ -39,6 +39,18 @@ filed) is reserved for approvals with no warrant record at all — pre-stamp
 tasks or a warrant outage — and closures it produces are marked as inferred
 in the audit log.
 
+Settled requests skip the run-status inference entirely: horkos settles each
+warrant request to a terminal `settled_outcome` (success / failure /
+cancelled from the forge's run webhooks; denied / voided / dispatch_failed
+in-process) and the API serializes it on the record, so the sweep decides an
+outcome-bearing record from the record alone — the run number and URL it
+carries (valid even when the run has aged out of the recent-run window), or
+"no run" — and never consults the forge run's status. Success closes;
+failure / cancelled log and stay open for a human; denied / voided /
+dispatch_failed close as nothing was (or ever will be) dispatched. Records
+with no `settled_outcome` take the existing status-based paths unchanged,
+as the backstop for runs that never settle.
+
 Run it from any agent session (`mise run verify-runs`) — it needs heph and
 the bot's forge token, nothing privileged. Idempotent; safe to run anytime.
 
@@ -417,6 +429,70 @@ def main(
                 "500 newest horkos requests; treating as unrecorded (inference "
                 "may misattribute)"
             )
+        if wrec and (settled := wrec.get("settled_outcome")):
+            # horkos settles every request to a terminal outcome — success /
+            # failure / cancelled from the forge's terminal run webhooks, and
+            # denied / voided / dispatch_failed in-process when nothing was
+            # ever dispatched. The record is self-sufficient: it carries the
+            # run number and URL the forge named in its dispatch response, so
+            # a settled request closes against the RECORD even when the run no
+            # longer sits in the forge's recent-run window. Unsettled records
+            # fall through to the existing logic unchanged — the backstop for
+            # runs that never settle.
+            run_number = wrec.get("run_number")
+            run_url = wrec.get("run_url") or (
+                f"https://forge.eblu.me/{REPO}/actions/runs/{run_number}"
+                if run_number else None
+            )
+            where = f"run {run_number}" if run_number else "no run"
+            settled_by = "settled by horkos"
+            tail = f" ({via}, {settled_by})" if via else f" ({settled_by})"
+            url_ref = f" — {run_url}" if run_url else ""
+            if settled == "success":
+                if not dry_run:
+                    heph(
+                        "log", node_id,
+                        f"AUDIT: {where} succeeded{url_ref} ({settled_by}). "
+                        "Auto-closed by verify-runs.",
+                    )
+                    heph("done", node_id)
+                console.print(
+                    f"[green]closed[/green]   {escape(label)} — {where} succeeded{tail}"
+                )
+                closed += 1
+            elif settled in ("failure", "cancelled"):
+                if not dry_run:
+                    heph(
+                        "log", node_id,
+                        f"AUDIT: {where} {settled}{url_ref} ({settled_by}). "
+                        "Left open for follow-up.",
+                    )
+                console.print(
+                    f"[red]failed[/red]   {escape(label)} — {where} {escape(settled)}{tail}; "
+                    "task left open"
+                )
+                failed += 1
+            else:
+                # denied / voided / dispatch_failed — terminal: the request
+                # can never produce a run, whatever its status column says.
+                reason = (
+                    f" ({wrec['void_reason']})"
+                    if settled == "voided" and wrec.get("void_reason") else ""
+                )
+                if not dry_run:
+                    heph(
+                        "log", node_id,
+                        f"AUDIT: warrant request #{wid} {settled}{reason} — nothing "
+                        "was dispatched. Auto-closed by verify-runs.",
+                    )
+                    heph("done", node_id)
+                console.print(
+                    f"[green]{settled}[/green] {escape(label)} — warrant #{wid} "
+                    f"{escape(settled)}{escape(reason)}; nothing was dispatched; "
+                    "task closed by verify-runs"
+                )
+                closed += 1
+            continue
         if state == "recorded" and run is None:
             # attribution returns "recorded" only when the warrant names a run number
             assert wrec is not None

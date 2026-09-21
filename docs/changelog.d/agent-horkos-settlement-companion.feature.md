@@ -1,0 +1,1 @@
+request-run now stamps the attached PR's first issue reference as `origin_issue` on the horkos request, so the settlement outcome (success/failure/cancelled/denied/voided/dispatch_failed) is posted as one comment on that issue; verify-runs closes the Approve tracking task from horkos's recorded `settled_outcome` instead of forge-side inference (eblume/horkos#40).

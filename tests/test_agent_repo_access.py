@@ -9,6 +9,10 @@ happen). An *unreadable* secrets list (403/404) on a listed write repo joins
 the `blocked` fatal path, the same convention as unreadable collaborators.
 PINNED_READ_ONLY (write on blumeops/agents/horkos/talos) stays refused at
 load_policy time.
+
+The same task also reconciles the `horkos-forge` bot's grants (repos.json's
+per-repo `horkos_forge` flag, exempt from PINNED_READ_ONLY), and the forge →
+horkos hook now carries Forgejo's terminal action-run events.
 """
 
 import importlib.machinery
@@ -74,6 +78,7 @@ class FakeForge:
         self.requests = []  # (method, url)
         self.repos = []  # visible repo names
         self.permission = {}  # repo -> agents permission
+        self.horkos_permission = {}  # repo -> horkos-forge permission
         self.secrets: (
             dict[str, list[str]] | None
         ) = {}  # repo -> names; None = endpoint 403s
@@ -101,13 +106,40 @@ class FakeForge:
         parts = path.strip("/").split("/")
         if len(parts) >= 5 and parts[:3] == ["api", "v1", "repos"]:
             _, _, _, _owner, repo, *tail = parts
+            # Grant mutations: agent-repo-access only PUTs collaborator grants
+            # and DELETEs them — fold the change into the served state so a
+            # follow-up read reflects it, and tests can assert on it.
+            if (
+                request.method in ("PUT", "DELETE")
+                and len(tail) == 2
+                and tail[0] == "collaborators"
+            ):
+                if request.method == "PUT":
+                    granted = json.loads(request.content)["permission"]
+                    if tail[1] == "horkos-forge":
+                        self.horkos_permission[repo] = granted
+                    else:
+                        self.permission[repo] = granted
+                else:
+                    if tail[1] == "horkos-forge":
+                        self.horkos_permission.pop(repo, None)
+                    else:
+                        self.permission.pop(repo, None)
+                return httpx.Response(204)
             if tail == ["collaborators"]:
-                return httpx.Response(
-                    200, json=self._page(request, [{"login": "agents"}])
-                )
+                users = []
+                if repo in self.permission:
+                    users.append({"login": "agents"})
+                if repo in self.horkos_permission:
+                    users.append({"login": "horkos-forge"})
+                return httpx.Response(200, json=self._page(request, users))
             if tail == ["collaborators", "agents", "permission"]:
                 return httpx.Response(
                     200, json={"permission": self.permission.get(repo, "none")}
+                )
+            if tail == ["collaborators", "horkos-forge", "permission"]:
+                return httpx.Response(
+                    200, json={"permission": self.horkos_permission.get(repo, "none")}
                 )
             if tail == ["hooks"]:
                 if self.hooks_status != 200:
@@ -335,3 +367,103 @@ def test_unreadable_secrets_and_hooks_listed_once(policy, run_main, monkeypatch)
     msg = [line for line in out.splitlines() if "Cannot read collaborators" in line]
     assert len(msg) == 1
     assert msg[0].count("svc") == 1
+
+
+def test_horkos_forge_flagged_repo_in_sync(policy, run_main, monkeypatch):
+    # Flagged repo where horkos-forge already holds write: no horkos-forge
+    # action at all (agents side is independently in sync too).
+    policy([_write_repo("svc", horkos_forge=True)])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.horkos_permission = {"svc": "write"}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0
+    assert "In sync." in out
+    assert not any(
+        m in ("PUT", "DELETE") and "/collaborators/" in u for m, u in forge.requests
+    )
+
+
+def test_horkos_forge_missing_grant_is_drift(policy, run_main, monkeypatch):
+    # Flagged repo with no horkos-forge grant: --check reports the pending
+    # grant and exits 1 (like the agents-bot drift tests); apply mode PUTs the
+    # write grant, folded into the served state.
+    policy([_write_repo("svc", horkos_forge=True)])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "Out of sync (--check)." in out
+    assert "grant horkos-forge on eblume/svc → write" in out
+
+    forge.requests.clear()
+    code, out = run_main(token="t")  # apply mode
+    assert code == 0
+    assert any(m == "PUT" and "horkos-forge" in u for m, u in forge.requests)
+    assert "grant horkos-forge on eblume/svc → write" in out
+    assert forge.horkos_permission == {"svc": "write"}
+
+
+def test_horkos_forge_unflagged_stale_grant_revoked(policy, run_main, monkeypatch):
+    # Repo in repos.json but not flagged, with a leftover horkos-forge grant:
+    # drift in --check, DELETE in apply mode.
+    policy([_write_repo("svc")])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.horkos_permission = {"svc": "write"}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "Out of sync (--check)." in out
+    assert "revoke horkos-forge on eblume/svc" in out
+
+    forge.requests.clear()
+    code, out = run_main(token="t")  # apply mode
+    assert code == 0
+    assert any(m == "DELETE" and "horkos-forge" in u for m, u in forge.requests)
+    assert forge.horkos_permission == {}
+
+
+def test_horkos_forge_stale_grant_on_unlisted_repo_revoked(
+    policy, run_main, monkeypatch
+):
+    # The agents sweep runs over ALL of the owner's repos (repos/search), and
+    # the horkos-forge half mirrors it: a grant on a repo absent from repos.json
+    # is stale and must be revoked, not left for the drift check.
+    policy([_write_repo("svc")])
+    forge = FakeForge()
+    forge.repos = ["svc", "orphan"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.horkos_permission = {"orphan": "write"}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "revoke horkos-forge on eblume/orphan" in out
+
+    forge.requests.clear()
+    code, out = run_main(token="t")  # apply mode
+    assert code == 0
+    assert any(m == "DELETE" and "horkos-forge" in u for m, u in forge.requests)
+
+
+def test_horkos_hook_events_include_terminal_action_runs():
+    # Forgejo's terminal action-run events are horkos' settlement feed
+    # (eblume/horkos#40). They are concrete (non-umbrella) events, so the GET
+    # read-back reports them verbatim — SEND and READ must carry the same three
+    # names, or the hook reconcile would flap forever.
+    terminal = {"action_run_success", "action_run_failure", "action_run_recover"}
+    assert terminal <= ara.HORKOS_HOOK_SEND_EVENTS
+    assert terminal <= ara.HORKOS_HOOK_READ_EVENTS
