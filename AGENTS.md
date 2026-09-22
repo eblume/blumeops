@@ -135,9 +135,15 @@ PR-branch SHAs are dispatchable pre-merge (Forgejo serves fork PR heads from
 the canonical repo, so the runner's checkout finds them). Never end a session
 by telling the human to run `request-run` — or worse, a `[human]` mise task —
 for a requestable workflow: file the request yourself and link it in the PR.
-"Remaining steps (human)" sections should only contain acts that genuinely
-need a human: approving the request in Horkos, merging, and pre-merge
-deploy-testing.
+
+**A PR body ends at the merge.** It describes the code in that PR and how to
+review or deploy-test it **before** merge — nothing after. Anything outside
+the diff takes one of three shapes: (1) automatic on merge (auto-sync apps,
+container builds); (2) a warrant the post-merge cycle files, where the human
+only approves; or (3) a `- [ ]` item in the linked issue's `## Human steps`
+comment, for acts the forge cannot see. A PR carrying shape 2 or 3 must
+reference an open issue, or the act has nowhere to live. The human list lives
+on the issue, never the PR.
 
 `mise run verify-runs` closes the loop afterwards; `mise run agent-health`
 checks the fleet without cluster access. Adding a new privileged workflow

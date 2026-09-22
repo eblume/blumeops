@@ -1,0 +1,1 @@
+AGENTS.md § Privileged actions: a PR body ends at the merge — anything outside the diff is automatic on merge, a warrant the post-merge cycle files, or a `- [ ]` item in the linked issue's `## Human steps` comment (replaces the "Remaining steps (human)" PR-section convention, eblume/blumeops#1233); pointer added to [[request-a-privileged-run]] Rules of the road.

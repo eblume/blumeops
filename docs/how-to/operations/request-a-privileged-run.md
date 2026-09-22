@@ -1,6 +1,6 @@
 ---
 title: Request a Privileged Run
-modified: 2026-09-17
+modified: 2026-09-21
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -243,6 +243,9 @@ entry in the same PR that adds the workflow.
 - Dispatch privileged workflows **from `main`'s definition** only.
 - Never paste secret values into requests, comments, or heph — requests
   reference *actions*, and secrets stay in the execution context.
+- Post-merge steps never go in the PR body: if it isn't automatic on merge,
+  it's a warrant the post-merge cycle files, or a `- [ ]` item in the linked
+  issue's `## Human steps` comment (AGENTS.md § Privileged actions).
 
 ## Related
 
