@@ -1,0 +1,1 @@
+Fix the restart-ringtail runbook: the transmission restore step now puts back the full `torrent-ringtail` sync policy (automated + CreateNamespace + managed namespace labels) and syncs once, instead of only re-enabling `automated`, which left the `apps` app OutOfSync after every drained reboot.
