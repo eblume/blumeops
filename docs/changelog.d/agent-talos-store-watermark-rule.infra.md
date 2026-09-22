@@ -1,0 +1,1 @@
+Add the downward-API `TALOS_EPHEMERAL_LIMIT_BYTES` env to the talos deployment so its store-watermark gc tracks the manifest limit, and a Grafana warning rule when store + /tmp stay above 85% of that limit for 30m (eblume/talos#250).
