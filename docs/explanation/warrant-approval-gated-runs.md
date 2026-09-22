@@ -253,7 +253,10 @@ The smallest thing that closes the loop end-to-end:
      provision-indri has landed (eblume/blumeops#1220): the vault/priv-runner
      gate that sat on it never applied to the generation flip — the
      zero-prompt `--tags rebuild` path reads no vault, and the host-mode
-     indri runner (host-mode `op` + SSH-to-self already work) is the
+     indri runner (host-mode `op` works; the play runs over a local
+     ansible connection, since SSH-to-self is impossible - Remote Login is
+     off and a connect to the node's own tailnet IP is delivered by the
+     local kernel, never reaching tailscaled's SSH server) is the
      documented, accepted runner story for the box — so the warrant applies
      a bound SHA's nix-darwin generation and the full ansible provision
      (roles, `op read`) stays a human window. provision-ringtail stays open:
