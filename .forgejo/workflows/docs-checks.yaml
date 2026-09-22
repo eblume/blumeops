@@ -61,7 +61,7 @@ jobs:
           set -o pipefail
           body="$(jq -r '.pull_request.body // empty' "$GITHUB_EVENT_PATH")"
           if printf '%s\n' "$body" | grep -inE '^#{1,6}[[:space:]]+(after merge|post-merge|remaining steps \(human\))' ; then
-            echo "::error::PR body carries an after-merge section heading (After merge / Post-merge / Remaining steps (human)). PR bodies end at the merge: after-merge steps belong in the linked issue's '## Human steps' comment (eblume/blumeops#1233). Move the section out of the body and re-run."
+            echo "::error::PR body carries an after-merge section heading (After merge / Post-merge / Remaining steps (human)). PR bodies end at the merge: after-merge steps belong in the linked issue's '## Human steps' comment (eblume/blumeops#1233). Move the section out of the body and re-run." | tee -a /tmp/docs-checks-checks.log
             exit 1
           fi
 
