@@ -1,6 +1,6 @@
 ---
 title: UniFi
-modified: 2026-07-27
+modified: 2026-09-22
 last-reviewed: 2026-07-27
 tags:
   - infrastructure
@@ -19,7 +19,7 @@ Home WiFi router and network controller, managed via the UX7 web UI.
 | **LAN IP** | `192.168.1.1` |
 | **Management URL** | `https://192.168.1.1` |
 | **Management** | Web UI only (no IaC) |
-| **Power** | Battery-backed via UPS (see [[power]]) |
+| **Power** | Anker battery station, not the UPS (see [[power]]); expect a brief drop on grid loss |
 
 ## What It Does
 
