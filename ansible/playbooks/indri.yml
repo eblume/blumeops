@@ -370,11 +370,12 @@
       tags: [rebuild, tailnet-dns]
 
     # nix-darwin rebuild: checkout the bound blumeops commit as a root-owned
-    # /etc/blumeops and run darwin-rebuild switch detached from this SSH
-    # session (nohup): the switch is long and would outlive any tool-call
-    # timeout otherwise. Nothing nix-darwin activates touches sshd - Tailscale
-    # SSH is the one service nix-darwin does not own - so the session is not
-    # at risk from the switch itself. All of it is tagged `rebuild` so
+    # /etc/blumeops and run darwin-rebuild switch detached from the
+    # controlling session (nohup): the switch is long and would outlive any
+    # tool-call timeout otherwise. Nothing nix-darwin activates touches sshd -
+    # Tailscale SSH is the one service nix-darwin does not own - so the
+    # controlling session is not at risk from the switch itself. All of it
+    # is tagged `rebuild` so
     # `mise run provision-indri -- --tags rebuild` is the zero-1Password-
     # prompt apply path. See [[provision]].
     #
@@ -414,7 +415,7 @@
     # that root runs leaves root-owned files in ~erichblume/.cache/nix and
     # breaks the user-run indri-flake-check and the CI job on the indri runner.
 
-    - name: Start darwin-rebuild switch, detached from this SSH session
+    - name: Start darwin-rebuild switch, detached from the controlling session
       ansible.builtin.shell: |
         set -euo pipefail
         sudo -n mkdir -p /var/log/indri-rebuild

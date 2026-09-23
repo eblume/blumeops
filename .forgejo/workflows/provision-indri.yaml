@@ -109,7 +109,14 @@ jobs:
           # in this full-history checkout. The task's guards and the play's
           # indri_commit then bind to the approved commit, not main's tip.
           git -C "$GITHUB_WORKSPACE" checkout --detach "$REVISION"
-          mise run provision-indri -- --tags rebuild
+          # The runner is erichblume on indri itself (host-mode, NOPASSWD
+          # sudo): run the play over a local connection. SSH-to-self is
+          # impossible here — a connect to the node's own tailnet IP is
+          # delivered by the local kernel and never reaches tailscaled's
+          # SSH server (Remote Login is off by design) — proven by the
+          # failed 4737 run. Human windows from other controllers keep
+          # the SSH inventory as-is.
+          mise run provision-indri -- --tags rebuild -e ansible_connection=local
           after=$(readlink /nix/var/nix/profiles/system)
           echo "Generation before: $before"
           echo "Generation after:  $after"
