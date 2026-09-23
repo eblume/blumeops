@@ -36,7 +36,7 @@ names, while the dispatch identity has moved from the grandfathered
 | **Storage** | 1Gi PVC (SQLite at `/data/horkos.db` — migrated from warrant's DB, schema unchanged) |
 | **Agent auth** | Authentik `agents-m2m` client-credentials JWT (JWKS-verified) |
 | **Human auth** | Authentik OIDC code flow (`horkos` client), `admins` group, MFA per the authentik flow |
-| **Dispatch identity** | `horkos-forge` PAT (`write:repository` on blumeops), `op://blumeops/horkos-forge-token` |
+| **Dispatch identity** | `horkos-forge` PAT (`write:repository,write:issue` on blumeops), `op://blumeops/horkos-forge-token` |
 
 ## The flow
 

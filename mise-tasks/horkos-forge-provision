@@ -24,7 +24,7 @@ What it does (idempotent, --dry-run supported):
      grandfathered `warrant-bot` — admin API, write:admin)
   2. grants it **write** on eblume/blumeops — the permission
      `workflow_dispatch` requires — and nothing else
-  3. mints a `write:repository` PAT **as horkos-forge itself** (basic auth —
+  3. mints a `write:repository,write:issue` PAT **as horkos-forge itself** (basic auth —
      no admin scope needed for this step)
   4. proves the new PAT **before any vault write or revoke**: `GET /user`
      answers `horkos-forge` and a repo probe reads eblume/blumeops
@@ -65,7 +65,9 @@ BOT_EMAIL = "horkos-forge@eblu.me"
 LEGACY_USER = "warrant-bot"
 TARGET_REPO = ("eblume", "blumeops")
 TOKEN_NAME = "horkos-forge"
-TOKEN_SCOPES = ["write:repository"]
+# write:issue: forge scopes the issue routes (incl. comments) to the issue
+# token category; write:repository alone 403s on the settlement comment.
+TOKEN_SCOPES = ["write:repository", "write:issue"]
 # The one-live-key invariant (mirrors zot-apikey-rotate): after a mint, every
 # other token with a dispatch name is revoked. `warrant-dispatch-*` are the
 # grandfathered names minted before blumeops#1039 renamed warrant-bot.
