@@ -848,6 +848,10 @@ in
   environment.etc."ringtail-apply/apply".source = ./ringtail-apply.sh;
   systemd.services."ringtail-apply@" = {
     description = "Apply blumeops %i to ringtail (ringtail-rebuild warrant)";
+    # NixOS rewrites this unit's Environment= on every nixpkgs roll; a switch
+    # restarting the in-flight instance would kill its own apply. The unit is
+    # idle between applies, so new definitions take effect on the next start.
+    restartIfChanged = false;
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "/etc/ringtail-apply/apply %i";
