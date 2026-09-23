@@ -187,10 +187,12 @@ activation writes the plist in place and reloads the agent once.
 The drill's blast radius is CI dispatch only: with the unit unloaded,
 `indri`-label jobs queue on forge until something reloads the unit, but
 forge, the registry and every `*.ops.eblu.me` endpoint stay up (unlike
-caddy). An in-flight job keeps running to completion under the old instance
-(the runner's 3h `shutdown_timeout` drains it), so plan the window for a
-quiet moment. Rollback per §Rolling back a service flip, with the role's
-gate flipped.
+caddy). An in-flight job keeps running to completion across the reload:
+the runner drains under its 3h `shutdown_timeout` (the plist's
+`ExitTimeOut` mirrors it), and if a drain is ever truncated,
+`AbandonProcessGroup` leaves the job and the detached darwin-rebuild
+running instead of killing them with the agent. Rollback per §Rolling
+back a service flip, with the role's gate flipped.
 
 ## Forgejo
 

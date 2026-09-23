@@ -116,7 +116,19 @@ jobs:
           # SSH server (Remote Login is off by design) — proven by the
           # failed 4737 run. Human windows from other controllers keep
           # the SSH inventory as-is.
-          mise run provision-indri -- --tags rebuild -e ansible_connection=local
+          # ansible discovers the module python from the runner's PATH —
+          # the mise shim first — and under a local connection the shim
+          # dies under sudo's env_reset (untrusted mise.toml in the act
+          # workspace; run 4874). Pin it to the uv-built venv python that
+          # uvx already runs ansible from: real path, not a shim.
+          #
+          # The override reaches ansible's *modules* only — a become step
+          # that calls a shimmed tool by bare name still fails. None do:
+          # git is Homebrew's, sh/nohup/tail/cat/readlink are system
+          # binaries, nix is its profile's, darwin-rebuild is called by
+          # full path. Keep it that way.
+          mise run provision-indri -- --tags rebuild -e ansible_connection=local \
+              -e "ansible_python_interpreter={{ ansible_playbook_python }}"
           after=$(readlink /nix/var/nix/profiles/system)
           echo "Generation before: $before"
           echo "Generation after:  $after"

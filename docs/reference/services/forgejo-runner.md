@@ -116,7 +116,8 @@ recurrence:
 - **Monthly `uv cache prune`** — `mcquack.eblume.runner-cache-prune`
   (day 1, 03:30, clear of borgmatic at 02:00). The script boots the
   runner LaunchAgent out (its `shutdown_timeout` of 3h lets in-flight
-  jobs finish), waits for the process to exit, prunes, and bootstraps
+  jobs finish; the plist's `ExitTimeOut` mirrors it so launchd does not
+  kill the drain), waits for the process to exit, prunes, and bootstraps
   the runner back — a `trap` restores the runner even if the prune
   fails, and a runner that fails to drain aborts the prune. Jobs
   queued during the window simply wait on forge. Log:
