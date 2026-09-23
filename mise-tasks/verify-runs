@@ -75,7 +75,9 @@ from rich.markup import escape
 # (docs/reference/services/argocd.md).
 FORGE_API_BASE = "https://forge.ops.eblu.me/api/v1"
 REPO = "eblume/blumeops"
-TITLE_RE = re.compile(r"^Approve: (?P<workflow>\S+) @ (?P<sha7>[0-9a-f]{7}) \(PR #(?P<pr>\d+)\)$")
+TITLE_RE = re.compile(
+    r"^Approve: (?P<workflow>\S+) @ (?P<sha7>[0-9a-f]{7}) \(PR #(?P<pr>\d+)(?: \((?P<pr_repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\))?\)$"
+)
 
 HORKOS_URL = "https://horkos.ops.eblu.me"
 AUTHENTIK_TOKEN_URL = "https://authentik.ops.eblu.me/application/o/token/"
@@ -415,7 +417,10 @@ def main(
     closed = failed = pending = mismatched = never_dispatched = voided = 0
     for task in tasks:
         node_id = task["node_id"]
-        label = f"{task['workflow']} @ {task['sha7']} (PR #{task['pr']})"
+        pr_ref = f"PR #{task['pr']}"
+        if repo := task.get("pr_repo"):
+            pr_ref += f" ({repo})"
+        label = f"{task['workflow']} @ {task['sha7']} ({pr_ref})"
 
         wid = warrant_id_for(task)
         wrec = warrants.get(wid) if wid else None

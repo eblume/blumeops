@@ -1,0 +1,1 @@
+`mise run verify-runs` now sweeps tracking tasks for warrants attached to PRs in other repos: the `(PR #N (owner/repo))` title suffix is matched onto the task and surfaced in the sweep's labels, where previously those tasks were invisible to the sweep.
