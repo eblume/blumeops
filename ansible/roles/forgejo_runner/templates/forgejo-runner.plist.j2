@@ -18,6 +18,12 @@
 	<true/>
 	<key>KeepAlive</key>
 	<true/>
+	<!-- A switch restarts the agent mid-job; rationale in the
+	     nix-darwin copy of this plist (darwin/indri/configuration.nix). -->
+	<key>ExitTimeOut</key>
+	<integer>10800</integer>
+	<key>AbandonProcessGroup</key>
+	<true/>
 	<key>EnvironmentVariables</key>
 	<dict>
 		<!-- mise shims first: host-mode jobs use indri's mise toolchain

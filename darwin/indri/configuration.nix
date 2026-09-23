@@ -288,6 +288,19 @@ in
     WorkingDirectory = "/Users/erichblume/forgejo-runner";
     RunAtLoad = true;
     KeepAlive = true;
+    # A generation switch rewrites this plist whenever the nixpkgs pin
+    # moves, so launchd restarts the runner mid-job — its own generation
+    # apply included. launchd's defaults let the restart kill the work:
+    # - ExitTimeOut defaults to 20 s, far shorter than the 3 h
+    #   shutdown_timeout that governs the runner's in-job drain;
+    # - unset AbandonProcessGroup makes launchd kill the agent's process
+    #   group on stop, which also takes the detached darwin-rebuild
+    #   (nohup, same group) down mid-activation.
+    # ExitTimeOut mirrors the runner's shutdown_timeout (3 h): the job's
+    # forge-side timeout is the outer bound. The role's rollback re-write
+    # (templates/forgejo-runner.plist.j2) carries the same keys.
+    ExitTimeOut = 10800;
+    AbandonProcessGroup = true;
     EnvironmentVariables = {
       # mise shims first: host-mode jobs use indri's mise toolchain (node,
       # uv, yq, jq, prek, dagger, ...); the nix default profile last so the
