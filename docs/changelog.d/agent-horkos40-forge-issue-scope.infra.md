@@ -1,0 +1,1 @@
+The `horkos-forge` dispatch PAT now carries `write:issue` alongside `write:repository` — forge scopes the issue routes (including the warrant settlement comment) to the issue token category, and the replay's deny-leg comment 403'd without it. Re-mint from gilbert: `mise run horkos-forge-provision --rotate` (eblume/horkos#40).

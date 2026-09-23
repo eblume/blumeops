@@ -15,7 +15,7 @@ that half.
 
 What we are defending. Horkos dispatches approved runs as this bot, and
 `workflow_dispatch` requires write while Forgejo has no dispatch-only
-permission — so the bot carries a `write:repository` PAT, and `repos.json`'s
+permission — so the bot carries a `write:repository,write:issue` PAT, and `repos.json`'s
 per-repo `horkos_forge` flag is where that write floor is accepted. The
 reconciler (`mise run agent-repo-access`) grants it; this job verifies the
 reconcile held. Everything that keeps the floor a floor rather than a hole
