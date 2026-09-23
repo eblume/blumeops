@@ -53,6 +53,18 @@ jobs:
           set -o pipefail
           uv run --script mise-tasks/docs-check-links 2>&1 | tee -a /tmp/docs-checks-checks.log
 
+      # A PR body ends at the merge: after-merge steps live in the linked issue's
+      # Human steps comment, not in the body (#1233).
+      - name: PR body has no after-merge section
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          set -o pipefail
+          body="$(jq -r '.pull_request.body // empty' "$GITHUB_EVENT_PATH")"
+          if printf '%s\n' "$body" | grep -inE '^#{1,6}[[:space:]]+(after merge|post-merge|remaining steps \(human\))' ; then
+            echo "::error::PR body carries an after-merge section heading (After merge / Post-merge / Remaining steps (human)). PR bodies end at the merge: after-merge steps belong in the linked issue's '## Human steps' comment (eblume/blumeops#1233). Move the section out of the body and re-run." | tee -a /tmp/docs-checks-checks.log
+            exit 1
+          fi
+
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
         uses: ./.forgejo/actions/report-failure
