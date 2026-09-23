@@ -269,8 +269,20 @@ which no log will explain — check the UPS ([[power]]) and the PSU.
 
 Only then look at the previous boot's journal tail for what was running
 (`journalctl -b -1 -n 200`), OOM-killer lines (`journalctl -b -1 -k | grep -i
-oom`), and whether a ringtail-rebuild was mid-switch (`mise run verify-runs`;
-an interrupted switch needs a re-run — the run's warrant will show failed).
+oom`), and whether a ringtail-rebuild was mid-switch (`mise run verify-runs`).
+A red or canceled ringtail-rebuild run does not mean the apply failed — every
+nixpkgs update rewrites the priv runner's unit file, so such an apply
+restarts the runner and kills its own job after the profile has applied.
+Before re-dispatching, check whether the switch finished:
+
+```fish
+ssh ringtail 'nixos-rebuild list-generations | head -3'    # newest generation
+ssh ringtail 'stat -c %y /etc/nixos'                       # when the profile link moved
+ssh ringtail 'sudo tail -25 /var/log/ringtail-apply/<sha>.log'   # the apply's own verdict
+```
+
+Genuinely interrupted switches (power loss, kernel panic) still need a
+re-run — the run's warrant will show failed.
 
 This is the procedure that closed the 2026-09-10 double reset in ten
 minutes: both pstore records showed the same beyla BPF uprobe fault

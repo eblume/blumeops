@@ -273,7 +273,13 @@ The smallest thing that closes the loop end-to-end:
    - `ringtail-rebuild.yaml` — the ringtail-facing half of provision-ringtail
      decomposed out to land first: apply a bound blumeops SHA to ringtail
      by starting the root `ringtail-apply@<sha>` unit from the priv runner
-     (polkit-gated). provision-ringtail itself stays `deny`.
+     (polkit-gated). provision-ringtail itself stays `deny`. A nixpkgs-update
+     apply still goes red: the switch restarts the priv runner unit, which
+     kills the job — but the `ringtail-apply@` wrapper survives the switch
+     (`restartIfChanged = false`), so a red run on a nixpkgs update is
+     expected; check `nixos-rebuild list-generations`, the `/etc/nixos`
+     profile link mtime, and `/var/log/ringtail-apply/<sha>.log` before
+     re-dispatching.
 4. **A third vault tier** *(the only new credential)*. The two existing
    vaults have clear meanings; the gap between them is exactly where
    privileged execution contexts live:

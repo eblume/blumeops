@@ -27,6 +27,15 @@
 # A same-sha re-run prints the tail of the prior slice before streaming, so
 # the killed run's record reaches the forge log as well.
 #
+# Every nixpkgs update rewrites the priv runner's unit file (NixOS-injected
+# Environment= lines), so a nixpkgs-update apply restarts the runner and this
+# job goes red even though the profile applies. The ringtail-apply@ wrapper
+# itself is no-restart (restartIfChanged = false), so the per-sha log holds
+# the true result. A red run on a nixpkgs update is expected: before
+# re-dispatching a fresh apply, check `nixos-rebuild list-generations`, the
+# /etc/nixos profile link mtime, and /var/log/ringtail-apply/<sha>.log for
+# the verdict.
+#
 # Docs: docs/explanation/warrant-approval-gated-runs.md
 name: ringtail-rebuild
 
