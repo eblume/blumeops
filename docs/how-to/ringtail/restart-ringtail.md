@@ -214,11 +214,18 @@ ssh ringtail '/home/eblume/.cargo/bin/hephd --version; sudo runuser -u agent -- 
 ```
 
 If you **drained transmission** before the power-off, restore the suspended
-sync policy once k3s is up; ArgoCD then brings the pod back on its own:
+sync policy once k3s is up; ArgoCD then brings the pod back on its own. The
+drain nulled the *whole* `syncPolicy`, so the restore has to put back
+everything `argocd/apps/torrent-ringtail.yaml` declares under it — the
+`automated` flag, the `CreateNamespace` option and the managed namespace
+labels. Restoring only `automated` leaves the live Application differing
+from its manifest, and the `apps` app (which owns it) sits OutOfSync with the
+`argocd-sync` alert firing until someone notices (2026-09-22):
 
 ```fish
-ssh ringtail 'sudo k3s kubectl -n argocd patch application torrent-ringtail --type merge -p "{\"spec\":{\"syncPolicy\":{\"automated\":{}}}}"'
-argocd app get torrent-ringtail   # expect Synced/Healthy
+ssh ringtail 'sudo k3s kubectl -n argocd patch application torrent-ringtail --type merge -p "{\"spec\":{\"syncPolicy\":{\"automated\":{},\"syncOptions\":[\"CreateNamespace=true\"],\"managedNamespaceMetadata\":{\"labels\":{\"pod-security.kubernetes.io/warn\":\"restricted\",\"pod-security.kubernetes.io/audit\":\"restricted\"}}}}}"'
+argocd app sync torrent-ringtail  # re-applies the namespace labels; auto-sync alone won't re-run on an unchanged revision
+argocd app get torrent-ringtail   # expect Synced/Healthy — and `argocd app get apps` should be Synced too
 ```
 
 Things that commonly need a nudge:
