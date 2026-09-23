@@ -92,6 +92,9 @@ ROOT_PATH = {{ forgejo_log_path }}
 
 [repository.pull-request]
 DEFAULT_MERGE_STYLE = merge
+# Instance-wide: closing an issue is a deliberate human act, not a PR-merge side effect (#1258).
+CLOSE_KEYWORDS =
+REOPEN_KEYWORDS =
 
 [repository.signing]
 DEFAULT_TRUST_MODEL = committer
