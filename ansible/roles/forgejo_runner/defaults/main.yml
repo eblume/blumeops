@@ -79,7 +79,7 @@ forgejo_runner_cache_prune_label: mcquack.eblume.runner-cache-prune
 forgejo_runner_cache_prune_day: 1
 forgejo_runner_cache_prune_hour: 3
 forgejo_runner_cache_prune_minute: 30
-forgejo_runner_cache_prune_drain_max_s: 10800  # mirrors shutdown_timeout (3h)
+forgejo_runner_cache_prune_drain_max_s: 10800  # poll window; the prune aborts if the runner is still alive past it
 forgejo_runner_cache_prune_script: /Users/erichblume/.local/bin/mcquack-runner-cache-prune
 forgejo_runner_cache_prune_plist: ~/Library/LaunchAgents/mcquack.eblume.runner-cache-prune.plist
 # The uv cache both maintenance agents target. Exported into the agent
