@@ -1,0 +1,1 @@
+External Secrets Operator CRDs moved to `helm-chart-2.11.0` (operator v2.11.0 to follow): the CRD set diff is additive only — a new Barbican `applicationCredential` auth type plus CEL validation rules on the SecretStore/ClusterSecretStore CRDs, no CRDs removed or renamed.
