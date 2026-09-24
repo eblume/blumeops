@@ -6,7 +6,9 @@
 #
 # Hook creation and the label half need secrets CI does not carry, so they
 # skip loudly in CI and a human follows up from gilbert with
-# `mise run agent-repo-access`. FORGE_REPO_WRITE_TOKEN is an eblume PAT
+# `mise run agent-repo-access`. So does a hook *recreate*: every hook edit
+# is read back, and one Forgejo's edit API silently ignored (v16.0.2 drops
+# action_run_* on PATCH) is replaced through the create API, secret and all. FORGE_REPO_WRITE_TOKEN is an eblume PAT
 # (write:repository,read:user) provisioned by the forgejo_actions_secrets
 # ansible role. Details: the script docstring in mise-tasks/agent-repo-access.
 name: Agent Repo Access

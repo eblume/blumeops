@@ -34,9 +34,17 @@ needed at creation — resolved from $TALOS_FORGE_WEBHOOK_SECRET or 1Password,
 so a CI apply that must CREATE a hook fails loudly and asks for a local run
 from gilbert). Every repo with
 release_hook: true in repos.json additionally gets one forge → horkos release
-hook (push + create + pull_request), identified by its own delivery URL and sharing one
-signing secret — the 'horkos forge webhook' blumeops-vault item — resolved
-from $HORKOS_FORGE_HOOK_SECRET or 1Password, also needed only at creation.
+hook (push + create + pull_request + the terminal action_run_* trio),
+identified by its own delivery URL and sharing one signing secret — the
+'horkos forge webhook' blumeops-vault item — resolved from
+$HORKOS_FORGE_HOOK_SECRET or 1Password, also needed only at creation.
+
+Every hook mutation is read back and checked, because Forgejo's hook edit
+API can answer 200 without applying: v16.0.2's editHook maps every event
+except action_run_success/failure/recover (its create path and web form do),
+so a PATCH adding them is a silent no-op. When the read-back disagrees, the
+hook is recreated through the create API — which needs the signing secret,
+so in CI that case fails loudly and asks for a local run, like a create.
 
 The label half: every pool repo also gets the `agents` engagement label
 (named after the collaborator — talos' FORGE_BOT_LABEL defaults to the bot
@@ -210,16 +218,24 @@ HORKOS_HOOK_SEND_EVENTS = frozenset(
     }
 )
 # push/create read back exactly as sent, but like the talos hook above, the
-# GET read-back reports `pull_request` expanded into its five fine-grained
-# names — the READ set carries the umbrella plus the expansion, compare as a set.
+# GET read-back reports `pull_request` expanded: the API's pullHook
+# (routers/api/v1/utils/hook.go) sets EVERY pull_request_* flag off the
+# umbrella — assign/label/milestone/review_request/sync, and also comment
+# and review, the latter reported as the approved/rejected/review-comment
+# trio — so the READ set carries the umbrella plus that whole family
+# (verified against the live hook, 2026-09-24). Compare as a set.
 HORKOS_HOOK_READ_EVENTS = frozenset(
     {
         "push",
         "create",
         "pull_request",
         "pull_request_assign",
+        "pull_request_comment",
         "pull_request_label",
         "pull_request_milestone",
+        "pull_request_review_approved",
+        "pull_request_review_comment",
+        "pull_request_review_rejected",
         "pull_request_review_request",
         "pull_request_sync",
         # Concrete terminal action-run events — reported verbatim on the GET
@@ -466,6 +482,14 @@ def list_hooks(client: httpx.Client, owner: str, repo: str) -> list[dict] | None
     return hooks
 
 
+def hook_in_sync(hook: dict, read_events: frozenset[str]) -> bool:
+    """One hook, as the API serves it, carries exactly this kind's event set
+    (compared as a set — GET read-back order can differ) and is active. Used
+    for planning and again as the apply-time read-back, because a Forgejo
+    hook edit can answer 200 without applying (see the apply loop)."""
+    return set(hook.get("events") or []) == set(read_events) and bool(hook.get("active"))
+
+
 def hook_kind_state(
     kind_hooks: list[dict],
     read_events: frozenset[str],
@@ -491,11 +515,7 @@ def hook_kind_state(
             verb = "ok"
     else:
         keeper, extras = kind_hooks[0], kind_hooks[1:]
-        in_sync = (
-            set(keeper.get("events") or []) == set(read_events)
-            and keeper.get("active")
-            and not extras
-        )
+        in_sync = hook_in_sync(keeper, read_events) and not extras
         have = "hook" if in_sync else "drifted"
         if not want:
             verb = "remove"
@@ -969,50 +989,99 @@ def main(
                 raise typer.Exit(1) from exc
             console.print(f"[green]{verb}[/green] {escape(HORKOS_FORGE_USER)} on {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
 
-        # Each kind's signing secret is fetched independently, and only if a
-        # create of that kind is pending — updates and removals never touch
-        # them, so the routine CI applies (events drift, repo leaves the pool
-        # / release set) need no secret at all.
-        talos_secret = (
-            resolve_webhook_secret()
-            if any(v == "create" and k == "talos" for _, v, _h, k in hook_actions)
-            else None
-        )
-        horkos_secret = (
-            resolve_horkos_hook_secret()
-            if any(v == "create" and k == "horkos" for _, v, _h, k in hook_actions)
-            else None
-        )
-        for repo, verb, hook_id, kind in hook_actions:
-            name = "talos hook" if kind == "talos" else "horkos release hook"
+        # Each kind's signing secret is fetched independently, and up front
+        # only if a create of that kind is pending — so a missing secret fails
+        # before any hook is touched. An update normally needs no secret (the
+        # routine CI applies: events drift, repo leaves the pool / release
+        # set), with one exception handled below: when the read-back shows
+        # Forgejo's edit path dropped events, the hook is recreated, and that
+        # resolves the secret lazily — in CI it fails loudly and asks for a
+        # local run, exactly like a create.
+        secrets_by_kind: dict[str, str] = {}
+        if any(v == "create" and k == "talos" for _, v, _h, k in hook_actions):
+            secrets_by_kind["talos"] = resolve_webhook_secret()
+        if any(v == "create" and k == "horkos" for _, v, _h, k in hook_actions):
+            secrets_by_kind["horkos"] = resolve_horkos_hook_secret()
+
+        def hook_secret(kind: str) -> str:
+            if kind not in secrets_by_kind:
+                secrets_by_kind[kind] = (
+                    resolve_webhook_secret() if kind == "talos" else resolve_horkos_hook_secret()
+                )
+            return secrets_by_kind[kind]
+
+        def create_hook(repo: str, kind: str) -> dict:
             hook_url = TALOS_HOOK_URL if kind == "talos" else HORKOS_HOOK_URL
             send_events = TALOS_HOOK_SEND_EVENTS if kind == "talos" else HORKOS_HOOK_SEND_EVENTS
-            secret = talos_secret if kind == "talos" else horkos_secret
+            response = client.post(
+                f"/api/v1/repos/{owner}/{repo}/hooks",
+                json={
+                    "type": "forgejo",
+                    "active": True,
+                    "events": sorted(send_events),
+                    "config": {
+                        "url": hook_url,
+                        "content_type": "json",
+                        "secret": hook_secret(kind),
+                    },
+                },
+            )
+            response.raise_for_status()
+            return response.json()
+
+        def read_hook(repo: str, hook_id: int) -> dict:
+            response = client.get(f"/api/v1/repos/{owner}/{repo}/hooks/{hook_id}")
+            response.raise_for_status()
+            return response.json()
+
+        for repo, verb, hook_id, kind in hook_actions:
+            name = "talos hook" if kind == "talos" else "horkos release hook"
+            send_events = TALOS_HOOK_SEND_EVENTS if kind == "talos" else HORKOS_HOOK_SEND_EVENTS
+            read_events = TALOS_HOOK_READ_EVENTS if kind == "talos" else HORKOS_HOOK_READ_EVENTS
             try:
                 if verb == "create":
-                    client.post(
-                        f"/api/v1/repos/{owner}/{repo}/hooks",
-                        json={
-                            "type": "forgejo",
-                            "active": True,
-                            "events": sorted(send_events),
-                            "config": {
-                                "url": hook_url,
-                                "content_type": "json",
-                                "secret": secret,
-                            },
-                        },
-                    ).raise_for_status()
+                    after = read_hook(repo, create_hook(repo, kind)["id"])
                 elif verb == "update":
+                    assert hook_id is not None  # the planner always names the keeper
                     client.patch(
                         f"/api/v1/repos/{owner}/{repo}/hooks/{hook_id}",
                         json={"events": sorted(send_events), "active": True},
                     ).raise_for_status()
+                    # Never trust the 200: Forgejo's API edit path (v16.0.2
+                    # routers/api/v1/utils/hook.go editHook) maps every event
+                    # EXCEPT the action_run_* trio, so a PATCH carrying them
+                    # succeeds and changes nothing — the four horkos hooks
+                    # sat "drifted → update" on every run for three days that
+                    # way (2026-09-21..24, eblume/horkos#40). The create path
+                    # does map them, so when the read-back disagrees, replace
+                    # the hook: create the new one first (no delivery gap),
+                    # then delete the old.
+                    after = read_hook(repo, hook_id)
+                    if not hook_in_sync(after, read_events):
+                        still_missing = sorted(set(read_events) - set(after.get("events") or []))
+                        console.print(
+                            f"[yellow]edit did not stick[/yellow] on {name} on {escape(owner)}/{escape(repo)} "
+                            f"(still missing {escape(', '.join(still_missing)) or 'nothing — inactive'}); "
+                            "recreating it through the create API"
+                        )
+                        created = create_hook(repo, kind)
+                        client.delete(f"/api/v1/repos/{owner}/{repo}/hooks/{hook_id}").raise_for_status()
+                        after = read_hook(repo, created["id"])
+                        verb = "recreate"
                 else:
+                    assert hook_id is not None  # likewise for a removal
                     client.delete(f"/api/v1/repos/{owner}/{repo}/hooks/{hook_id}").raise_for_status()
+                    after = None
             except httpx.HTTPStatusError as exc:
                 console.print(f"[red]{verb} {name} on {escape(owner)}/{escape(repo)} failed: {escape(str(exc))}[/red]")
                 raise typer.Exit(1) from exc
+            if after is not None and not hook_in_sync(after, read_events):
+                console.print(
+                    f"[red]{verb} {name} on {escape(owner)}/{escape(repo)} did not converge:[/red] "
+                    f"read-back events {escape(str(sorted(after.get('events') or [])))}, "
+                    f"active={after.get('active')}"
+                )
+                raise typer.Exit(1)
             console.print(f"[green]{verb}[/green] {name} on {escape(owner)}/{escape(repo)}")
 
         for repo, name, color, description in label_actions:
