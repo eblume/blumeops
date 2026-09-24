@@ -94,21 +94,27 @@ class FakeForge:
     # `pull_request` umbrella sets the whole pull_request_* family (API
     # pullHook), `issues` the issue_* family, and the review flag reads back
     # as the approved/rejected/review-comment trio (EventsArray).
-    PR_FAMILY = {
-        "pull_request_assign",
-        "pull_request_label",
-        "pull_request_milestone",
-        "pull_request_comment",
-        "pull_request_review",
-        "pull_request_review_request",
-        "pull_request_sync",
-    }
-    ISSUE_FAMILY = {"issue_assign", "issue_label", "issue_milestone", "issue_comment"}
-    REVIEW_TRIO = {
-        "pull_request_review_approved",
-        "pull_request_review_rejected",
-        "pull_request_review_comment",
-    }
+    PR_FAMILY = frozenset(
+        {
+            "pull_request_assign",
+            "pull_request_label",
+            "pull_request_milestone",
+            "pull_request_comment",
+            "pull_request_review",
+            "pull_request_review_request",
+            "pull_request_sync",
+        }
+    )
+    ISSUE_FAMILY = frozenset(
+        {"issue_assign", "issue_label", "issue_milestone", "issue_comment"}
+    )
+    REVIEW_TRIO = frozenset(
+        {
+            "pull_request_review_approved",
+            "pull_request_review_rejected",
+            "pull_request_review_comment",
+        }
+    )
 
     def _expand(self, events):
         flags = set(events)
