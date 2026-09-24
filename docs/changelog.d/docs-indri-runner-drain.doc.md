@@ -1,0 +1,1 @@
+docs(indri): the indri runner docs no longer claim a 3h plist drain window - launchd clamps ExitTimeOut to 60s in the per-user gui domain (measured on macOS 26); AbandonProcessGroup is what survives a plist-changing warrant apply, and the plist is generation system content, so a plist-only change is a new generation and a content-identical switch creates none (blumeops#1266).

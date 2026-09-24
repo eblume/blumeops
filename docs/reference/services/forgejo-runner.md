@@ -117,12 +117,13 @@ recurrence:
     to [[loki]] by the [[alloy]] role.
 - **Monthly `uv cache prune`** — `mcquack.eblume.runner-cache-prune`
   (day 1, 03:30, clear of borgmatic at 02:00). The script boots the
-  runner LaunchAgent out (its `shutdown_timeout` of 3h lets in-flight
-  jobs finish; the plist's `ExitTimeOut` mirrors it so launchd does not
-  kill the drain), waits for the process to exit, prunes, and bootstraps
-  the runner back — a `trap` restores the runner even if the prune
-  fails, and a runner that fails to drain aborts the prune. Jobs
-  queued during the window simply wait on forge. Log:
+  runner LaunchAgent out, then polls (bounded — the prune aborts if the
+  process is still alive past its window) for it to exit, prunes, and
+  bootstraps the runner back — a `trap` restores the runner even if the
+  prune fails. Note launchd clamps `ExitTimeOut` to 60 s in the per-user
+  gui domain, so the plist's declared value is not what bounds the
+  bootout; the script's own poll window is. Jobs queued during the
+  window simply wait on forge. Log:
   `~/Library/Logs/mcquack.runner-cache-prune.{out,err}.log`.
 
 ## Credentials

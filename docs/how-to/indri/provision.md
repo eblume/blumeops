@@ -83,8 +83,9 @@ approval dispatches the workflow on the indri runner, which runs exactly
 this path headless — the task guards, the checkout, the detached switch,
 the bounded wait — and the run log ends with the generation identity, the
 system profile's store path before and after the switch. A
-content-identical SHA dedupes to the same store path under a new
-generation number; the no-op run is the warrant path's own drill.
+content-identical SHA creates no new generation at all — nix dedupes to
+the existing store path and the profile never switches; the no-op run
+is the warrant path's own drill.
 
 The warrant applies a generation, not a role: the dispatch is always
 `--tags rebuild`, so the job reads no vault and the full provision (roles,
@@ -187,11 +188,17 @@ activation writes the plist in place and reloads the agent once.
 The drill's blast radius is CI dispatch only: with the unit unloaded,
 `indri`-label jobs queue on forge until something reloads the unit, but
 forge, the registry and every `*.ops.eblu.me` endpoint stay up (unlike
-caddy). An in-flight job keeps running to completion across the reload:
-the runner drains under its 3h `shutdown_timeout` (the plist's
-`ExitTimeOut` mirrors it), and if a drain is ever truncated,
-`AbandonProcessGroup` leaves the job and the detached darwin-rebuild
-running instead of killing them with the agent. Rollback per §Rolling
+caddy). A plist-changing switch reloads the agent and launchd kills the
+in-flight forge job within ~60 s of the reload: launchd clamps
+`ExitTimeOut` to 60 s in the per-user gui domain, so the plist's
+declared value is not a real drain window (measured on macOS 26 — the
+plist says 10800, `launchctl print` reports 60, and agents without the
+key report the 5 s default). What survives is `AbandonProcessGroup`:
+the detached darwin-rebuild (nohup, same process group) is not killed
+with the agent, so the box still converges and the failure is the forge
+run, not the switch. The apply path's shape is being fixed so a
+plist-changing apply reports the switch's true outcome — see
+eblume/blumeops#1266. Rollback per §Rolling
 back a service flip, with the role's gate flipped.
 
 ## Forgejo
@@ -371,7 +378,10 @@ the old declarations): `ls -l /etc/resolver/ts.net` is a regular file,
 Each service migration writes its plist at the same path ansible used,
 under the same `mcquack.eblume.*` label (logrotate's globs and alloy's log
 tails key on it). Once a service is flipped, its ansible role is skipped by
-default (a role variable is off), so only the generation owns the plist.
+default (a role variable is off), so only the generation owns the plist
+— the plist is generation system content: a plist-only change is a new
+store path and therefore a new generation, and applying it reloads the
+agent.
 When a generation changes a service's plist, the rollback order is fixed:
 `sudo darwin-rebuild --rollback` **first**, then re-run the role with its
 gate flipped — for logrotate, `mise run provision-indri -- --tags logrotate

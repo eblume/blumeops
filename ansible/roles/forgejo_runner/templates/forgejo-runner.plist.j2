@@ -18,8 +18,10 @@
 	<true/>
 	<key>KeepAlive</key>
 	<true/>
-	<!-- A switch restarts the agent mid-job; rationale in the
-	     nix-darwin copy of this plist (darwin/indri/configuration.nix). -->
+	<!-- launchd clamps ExitTimeOut to 60 s in the gui domain (it is
+	     intent, not a drain window); AbandonProcessGroup is the key
+	     that matters. Rationale: darwin/indri/configuration.nix,
+	     eblume/blumeops#1266. -->
 	<key>ExitTimeOut</key>
 	<integer>10800</integer>
 	<key>AbandonProcessGroup</key>
