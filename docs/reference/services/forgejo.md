@@ -76,7 +76,7 @@ The forge has three namespaces:
 |--------|------|--------|---------|
 | `indri-runner` | [[indri]] (native, host-mode) | `indri` | Default jobs; Dagger CLI talks to the Docker Desktop engine |
 | `ringtail-nix-builder` | [[ringtail]] (NixOS) | `nix-container-builder` | Nix container builds via `nix-build` + `skopeo` |
-| `ringtail-priv-runner` | [[ringtail]] (NixOS, sandboxed DynamicUser) | `priv` | Warrant-gated, dispatch-only privileged jobs ([[warrant-approval-gated-runs]]) |
+| `ringtail-priv-runner` | [[ringtail]] (NixOS, sandboxed `horkos-runner`) | `priv` | Warrant-gated, dispatch-only privileged jobs ([[warrant-approval-gated-runs]]) |
 
 **Workflows** in `.forgejo/workflows/`:
 

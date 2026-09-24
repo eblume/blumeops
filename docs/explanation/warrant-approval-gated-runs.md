@@ -265,11 +265,14 @@ The smallest thing that closes the loop end-to-end:
      survive the network-restart hang (heph `01KTKW8VD3…`). The ringtail
      side decomposes: `ringtail-rebuild.yaml` lands first, a narrow
      rebuild-only warrant on the priv runner with exactly one root path: a
-     polkit rule letting `gitea-runner` *start* the root template unit
+     polkit rule letting `horkos-runner` *start* the root template unit
      `ringtail-apply@<sha>.service` (which runs `/etc/ringtail-apply/apply`).
-     Not sudo — the runner is a systemd `DynamicUser` service, which implies
-     `NoNewPrivileges=yes` and cannot be talked out of it, so no setuid path
-     works from a job. The full ansible play stays `deny`.
+     Not sudo — the runner runs with `NoNewPrivileges=yes`, so no setuid path
+     works from a job. The full ansible play stays `deny`. The runner is a
+     static system user, not a systemd `DynamicUser`: polkitd sees a
+     DynamicUser only as its bare uid, so a rule keyed on the name never
+     matches (blumeops#1254), and the nix builder shares the module's
+     `gitea-runner` name.
    - `ringtail-rebuild.yaml` — the ringtail-facing half of provision-ringtail
      decomposed out to land first: apply a bound blumeops SHA to ringtail
      by starting the root `ringtail-apply@<sha>` unit from the priv runner

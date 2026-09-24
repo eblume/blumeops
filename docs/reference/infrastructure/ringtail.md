@@ -119,7 +119,7 @@ A native Forgejo Actions runner (`ringtail-nix-builder`) runs as a systemd servi
 
 The runner resolves `<nixpkgs>` from the flake registry at build time. Container trust policy (`/etc/containers/policy.json`) and registry search order (`/etc/containers/registries.conf`) are configured minimally in `configuration.nix` for skopeo — no full `virtualisation.containers` module needed.
 
-A second runner, `ringtail-priv-runner` (label `priv:host`), hosts the dispatch-only privileged workflow jobs — a sandboxed systemd DynamicUser service, so a compromised job touches the sandbox rather than the forge owner's account. See [[warrant-approval-gated-runs]].
+A second runner, `ringtail-priv-runner` (label `priv:host`), hosts the dispatch-only privileged workflow jobs — a sandboxed systemd service running as the static user `horkos-runner`, so a compromised job touches the sandbox rather than the forge owner's account. See [[warrant-approval-gated-runs]].
 
 ### Factorio Server
 
