@@ -1,0 +1,1 @@
+`agent-repo-access` reads every webhook back after it edits or creates it and recreates a hook whose edit Forgejo silently ignored: v16.0.2's hook edit API never maps the `action_run_*` events, so the four horkos release hooks had been "drifted → update" on every run with no terminal-run delivery ever sent (eblume/horkos#40).
