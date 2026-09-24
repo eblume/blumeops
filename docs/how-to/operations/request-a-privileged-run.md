@@ -108,8 +108,9 @@ mise run request-run argocd-deploy.yaml <full-blumeops-sha> \
     --why "deploy the horkos release"
 ```
 
-`--repo` moves only the attachment: the request comment, the heph task title,
-and Horkos's queue and approve page all name `eblume/talos` PR #12 instead of
+`--repo` moves only the attachment: the request comment, the heph task title
+(filed as `Approve: <workflow> @ <sha7> (PR #12 (eblume/horkos))`), and
+Horkos's queue and approve page all name `eblume/horkos` PR #12 instead of
 blumeops PR #12, which would be a different change entirely. The workflow
 validation, the bound SHA, and the dispatch stay blumeops.
 
@@ -215,7 +216,9 @@ Approvals happen in [[horkos]] — https://horkos.ops.eblu.me:
 4. **deny** is inline on the row (with a note). Deny anything already
    executed — the queue records intent, not history.
 
-`mise run verify-runs` then closes the tracking task from the run's outcome.
+`mise run verify-runs` then closes the tracking task from the run's outcome —
+including warrants attached to PRs in other repos, whose repo-qualified task
+titles the sweep matches as well.
 
 A request can also end **voided** instead of being decided: its bound PR
 closed unmerged, or its workflow left `warrant-policy.yaml`, so its reason to

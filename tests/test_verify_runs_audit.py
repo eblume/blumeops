@@ -39,6 +39,7 @@ def _load(name: str):
 
 
 verify_runs = _load("verify-runs")
+request_run = _load("request-run")
 
 
 def rec(action: str, sha: str, inputs: dict) -> dict:
@@ -206,6 +207,146 @@ def run_row(
         "head_sha": head_sha,
         "run_started_at": started,
     }
+
+
+# --- title matching: the sweep's gate --------------------------------------
+#
+# request-run files one tracking task per request via `tracking_task_title`; TITLE_RE
+# is the gate that makes a task visible to the sweep at all, so it must accept both
+# shapes and carry the repo onto the matched task. The accepted titles below are not
+# copies — they are produced by calling tracking_task_title itself, so the test pins
+# the join between the producer and the gate. The reject list stays hand-written on
+# purpose: those are the shapes the producer would never emit.
+
+REQUEST_SHA = "a168059" + "0" * 33
+
+
+@pytest.mark.parametrize(
+    ("title", "groups"),
+    [
+        (
+            request_run.tracking_task_title("run-script.yaml", REQUEST_SHA, 1234),
+            {
+                "workflow": "run-script.yaml",
+                "sha7": "a168059",
+                "pr": "1234",
+                "pr_repo": None,
+            },
+        ),
+        (
+            request_run.tracking_task_title(
+                "run-script.yaml", REQUEST_SHA, 1234, "eblume/horkos"
+            ),
+            {
+                "workflow": "run-script.yaml",
+                "sha7": "a168059",
+                "pr": "1234",
+                "pr_repo": "eblume/horkos",
+            },
+        ),
+    ],
+)
+def test_title_re_matches_blumeops_and_cross_repo_titles(title, groups):
+    m = verify_runs.TITLE_RE.match(title)
+    assert m is not None
+    assert m.groupdict() == groups
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "x Approve: run-script.yaml @ a168059 (PR #1234)",  # leading garbage: ^ anchor
+        "Approve: run-script.yaml @ a168059 (PR #1234) trailing garbage",
+        "Approve: run-script.yaml @ a168059 (PR #1234 (eblume-horkos))",  # not owner/name
+        "Approve: run-script.yaml @ a168059 (PR #1234 (eblume/horkos)))",  # double parens
+        "Approve: run-script.yaml @ a168059 ((PR #1234 (eblume/horkos)))",  # doubled open
+        "Approve: run-script.yaml @ a168059 (PR #1234 (eblume/horkos) extra)",
+    ],
+)
+def test_title_re_rejects_near_misses(title):
+    assert verify_runs.TITLE_RE.match(title) is None
+
+
+class _FakeListProc:
+    def __init__(self, stdout):
+        self.stdout = stdout
+        self.stderr = ""
+        self.returncode = 0
+
+
+def test_open_approve_tasks_carries_repo_onto_matched_tasks(monkeypatch):
+    """The gate end to end: cross-repo titles enter the sweep with pr_repo on
+    the task, blumeops ones with it None, and near-misses never enter."""
+    rows = [
+        {
+            "state": "outstanding",
+            "tombstoned": False,
+            "title": "Approve: run-script.yaml @ a168059 (PR #1234)",
+        },
+        {
+            "state": "outstanding",
+            "tombstoned": False,
+            "title": "Approve: run-script.yaml @ a168059 (PR #1234 (eblume/horkos))",
+        },
+        {
+            "state": "outstanding",
+            "tombstoned": False,
+            "title": "Approve: run-script.yaml @ a168059 (PR #1234) noise",
+        },
+    ]
+    monkeypatch.setattr(
+        verify_runs, "heph", lambda *args: _FakeListProc(json.dumps(rows))
+    )
+
+    tasks = verify_runs.open_approve_tasks()
+
+    assert [t["pr_repo"] for t in tasks] == [None, "eblume/horkos"]
+    assert [t["pr"] for t in tasks] == ["1234", "1234"]
+
+
+class _TitleRecorder:
+    def __init__(self):
+        self.messages = []
+
+    def print(self, *objects, **kwargs):
+        self.messages.append(" ".join(str(o) for o in objects))
+
+
+def _title_sweep(monkeypatch, task, runs=()):
+    """One task through main(): no warrant record and no matching run, so it
+    reports pending — only the console label is under test."""
+    monkeypatch.setattr(verify_runs, "open_approve_tasks", lambda: [task])
+    monkeypatch.setattr(verify_runs, "forge_token", lambda: "token")
+    monkeypatch.setattr(verify_runs, "recent_runs", lambda client: list(runs))
+    monkeypatch.setattr(verify_runs, "sha_policy", lambda client: {})
+    monkeypatch.setattr(verify_runs, "warrant_requests", dict)
+    monkeypatch.setattr(verify_runs, "warrant_id_for", lambda *args: None)
+    recorder = _TitleRecorder()
+    monkeypatch.setattr(verify_runs, "console", recorder)
+
+    verify_runs.main(dry_run=True)
+    return recorder
+
+
+def test_main_labels_cross_repo_task_with_its_repo(monkeypatch):
+    """A tracking task for a non-blumeops PR is labelled with its repo, so the
+    PR number stays unambiguous to a human reading the sweep output."""
+    task = task_row()
+    task["node_id"] = "n-xrepo"
+    task["pr_repo"] = "eblume/horkos"
+    recorder = _title_sweep(monkeypatch, task)
+
+    assert any("(PR #707 (eblume/horkos))" in m for m in recorder.messages)
+
+
+def test_main_labels_blumeops_task_unchanged(monkeypatch):
+    task = task_row()
+    task["node_id"] = "n-blumeops"
+    task["pr_repo"] = None
+    recorder = _title_sweep(monkeypatch, task)
+
+    assert any("(PR #707)" in m for m in recorder.messages)
+    assert not any("(PR #707 (" in m for m in recorder.messages)
 
 
 def test_recorded_run_number_wins_over_any_heuristic():
