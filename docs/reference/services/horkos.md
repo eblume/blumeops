@@ -84,7 +84,8 @@ never change in a single PR.
 - **Rotate the dispatch PAT**: `mise run horkos-forge-provision -- --rotate`
   (gilbert; needs an ephemeral `write:admin` token, see the script). One live
   dispatch key is the invariant: the new PAT is minted as `horkos-forge` and
-  verified (`GET /user` + a read of `eblume/blumeops`) **before** anything is
+  verified (its id in horkos-forge's token list + a push-reporting read of
+  `eblume/blumeops`) **before** anything is
   stored, then every predecessor whose name matches `horkos-forge-*` or
   `warrant-dispatch-*` is revoked and the token list is re-read to assert
   exactly one dispatch token remains (`--keep-others` opts out). After a

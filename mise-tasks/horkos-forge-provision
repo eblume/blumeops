@@ -26,8 +26,8 @@ What it does (idempotent, --dry-run supported):
      `workflow_dispatch` requires — and nothing else
   3. mints a `write:repository,write:issue` PAT **as horkos-forge itself** (basic auth —
      no admin scope needed for this step)
-  4. proves the new PAT **before any vault write or revoke**: `GET /user`
-     answers `horkos-forge` and a repo probe reads eblume/blumeops
+  4. proves the new PAT **before any vault write or revoke**: its id is in
+     horkos-forge's own token list, and a repo read through it reports push
   5. stores the PAT (and the bot's login password) in ONE blumeops item,
      then mirrors it to the CI vault
   6. revokes the predecessors — every other token named `horkos-forge-*` or
@@ -224,6 +224,29 @@ def list_dispatch_tokens(client: httpx.Client, check: bool = True) -> list[dict]
         page += 1
 
 
+def verify_new_pat(
+    client: httpx.Client, basic: httpx.Client, pat: str, token_id: int, owner: str, repo: str
+) -> str | None:
+    """Prove a freshly minted PAT; return why it fails, or None.
+
+    Not `GET /user`: forge scopes that route to `read:user`, which the PAT
+    deliberately lacks, so it can only ever 403 (it did, on the first rotate
+    after the check was added). Ownership comes from the bot's own basic
+    auth instead — the new id must be in horkos-forge's token list — and
+    usability from a repo read *through the PAT* that reports push, the
+    permission `workflow_dispatch` needs.
+    """
+    owned = list_dispatch_tokens(basic)
+    if token_id not in {t.get("id") for t in owned or []}:
+        return f"new PAT (id={token_id}) is not in {BOT_USER}'s token list"
+    resp = client.get(f"{FORGE_API}/repos/{owner}/{repo}", headers={"Authorization": f"token {pat}"})
+    if resp.status_code != 200:
+        return f"new PAT cannot read {owner}/{repo} ({resp.status_code})"
+    if not resp.json().get("permissions", {}).get("push"):
+        return f"new PAT reads {owner}/{repo} without push — the collaborator grant is not usable through it"
+    return None
+
+
 def admin_token(explicit: str | None) -> str:
     """An ephemeral --token if given, else the stored forge token via
     biometric op. No env fallback: an inherited token in a CI-like shell
@@ -382,33 +405,16 @@ def main(
             new_token_id = body["id"]
             minted = True
 
-            # 4. Prove the new PAT before any vault write or revoke: a 401 or a
-            # wrong login here dies with the predecessor still live and untouched.
-            me = c.get(f"{FORGE_API}/user", headers={"Authorization": f"token {pat}"})
-            if me.status_code != 200:
-                err.print(
-                    f"new PAT rejected ({me.status_code}) — aborting before any "
-                    "vault write or revoke; the previous token stays live"
-                )
+            # 4. Prove the new PAT before any vault write or revoke: a failure
+            # here dies with the predecessor still live and untouched.
+            with httpx.Client(auth=(BOT_USER, password), timeout=30.0) as proof_bc:
+                problem = verify_new_pat(c, proof_bc, pat, new_token_id, owner, repo)
+            if problem:
+                err.print(f"{problem} — aborting before any vault write or revoke; the previous token stays live")
                 raise typer.Exit(1)
-            if me.json().get("login") != BOT_USER:
-                err.print(
-                    f"new PAT authenticated as {me.json().get('login')!r}, expected "
-                    f"{BOT_USER!r} — aborting before any vault write or revoke"
-                )
-                raise typer.Exit(1)
-            repo_check = c.get(
-                f"{FORGE_API}/repos/{owner}/{repo}",
-                headers={"Authorization": f"token {pat}"},
+            console.print(
+                f"[green]verified[/green] new PAT: owned by {BOT_USER} and holds push on {owner}/{repo}"
             )
-            if repo_check.status_code != 200:
-                err.print(
-                    f"new PAT cannot read {owner}/{repo} ({repo_check.status_code}) — "
-                    "the collaborator grant is not usable through it; aborting before "
-                    "any vault write or revoke"
-                )
-                raise typer.Exit(1)
-            console.print("[green]verified[/green] new PAT: /user is horkos-forge and reads eblume/blumeops")
 
             # 5. Vault write + CI mirror — exactly as before the revoke leg.
             fields = [f"token[password]={pat}", f"login-password[password]={password}"]
