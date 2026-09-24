@@ -1,0 +1,1 @@
+provision-indri's apply job is fire-and-forget: it launches the detached darwin-rebuild and exits green, dispatching the new provision-indri-verify workflow which polls the .status sidecar and is the true verdict (eblume/blumeops#1266); verify-runs now closes the tracking task from that verify run.

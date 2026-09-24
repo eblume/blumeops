@@ -18,6 +18,15 @@ open ones, matches each to its workflow run on the forge, and:
                    worst of the four outcomes, because nothing else reports it.
 - no run yet / still running → leave untouched
 
+Provision-indri override: the apply run is fire-and-forget (#1266) — its
+green means only "switch launched, verify dispatched". For those tasks the
+sweep attributes to the provision-indri-verify.yaml run the apply job
+dispatched (located by timing around the recorded apply run, because a
+dispatch run's head_sha is main's tip, not the bound SHA); that run's
+status — not the apply run's — closes or opens the task. A task with no
+verify run yet (dispatch pending, or a pre-#1266 apply that settled)
+falls back to the record's settlement as before.
+
 Attribution prefers the RECORD over inference: warrant stores the run number
 the forge named in its dispatch response (`return_run_info`), and request-run
 stamps the warrant request id into the heph task, so a task closes against
@@ -84,6 +93,13 @@ AUTHENTIK_TOKEN_URL = "https://authentik.ops.eblu.me/application/o/token/"
 SOCKS_FALLBACK = "socks5://localhost:1055"  # agent pod's tailscale sidecar
 # request-run appends this line to each Approve task's context doc.
 WARRANT_ID_RE = re.compile(r"Warrant request: #(\d+)")
+# provision-indri's apply run is fire-and-forget (#1266): the true verdict
+# lives in the provision-indri-verify run that carries the same bound SHA.
+VERIFY_RUN_WORKFLOWS = {"provision-indri.yaml": "provision-indri-verify.yaml"}
+# The verify run is dispatched by the apply job as its last act, so it
+# starts within this window of the apply run finishing (30 min is generous for
+# the apply to end and the dispatch to queue and start on the serial runner).
+VERIFY_RUN_GRACE_S = 1800
 
 console = Console()
 err = Console(stderr=True, style="bold red")
@@ -290,6 +306,42 @@ def match_run(task: dict, runs: list[dict]) -> dict | None:
     return max(pool, key=lambda r: r["run_number"]) if pool else None
 
 
+def verify_run_for(
+    task: dict, runs: list[dict], apply_run: dict | None
+) -> dict | None:
+    """The provision-indri-verify run that takes the true verdict.
+
+    The apply run is fire-and-forget (#1266): its green means "switch
+    launched, verify dispatched", and the warrant is closed from the
+    verify run — a failed switch is a failed verify run, never a
+    silently-green apply.
+
+    Attribution is TEMPORAL, not by SHA: a workflow_dispatch run's
+    head_sha is the resolved dispatch ref (main's tip), not the bound
+    SHA, so a head_sha match can never identify the right run. The
+    apply job dispatches the verify run as its last act, so the verify
+    run that is ours is the newest provision-indri-verify dispatch
+    that started between the apply run starting and VERIFY_RUN_GRACE_S
+    after it finished. Warrant approval serializes applies (one human
+    approval, one serial indri runner), so that window holds at most
+    one. Returns None when the apply run is unknown — there is then no
+    anchor, and the sweep falls back to the record's settlement."""
+    verify_wf = VERIFY_RUN_WORKFLOWS.get(task["workflow"])
+    if not verify_wf or apply_run is None:
+        return None
+    lo = _epoch(apply_run.get("run_started_at") or apply_run.get("created_at") or "")
+    hi = _epoch(apply_run.get("updated_at") or "") + VERIFY_RUN_GRACE_S
+    if lo == 0.0:
+        return None
+    matches = [
+        r
+        for r in runs
+        if r.get("workflow_id") == verify_wf
+        and lo <= _epoch(r.get("run_started_at") or r.get("created_at") or "") <= hi
+    ]
+    return max(matches, key=lambda r: r["run_number"]) if matches else None
+
+
 def _note_detail(note: str | None, prefix: str) -> str | None:
     """The most recent `prefix: …` segment horkos appended to a warrant note.
 
@@ -437,7 +489,29 @@ def main(
                 "500 newest horkos requests; treating as unrecorded (inference "
                 "may misattribute)"
             )
-        if wrec and (settled := wrec.get("settled_outcome")):
+        # The apply run (recorded by the warrant, before any override) is the
+        # anchor for locating its verify run; None when the record is absent
+        # or the apply has aged out of the recent-run window.
+        apply_run_for_verify = run
+        verify_run = verify_run_for(task, runs, apply_run_for_verify)
+        if verify_run is not None:
+            # The verify run overrides the (fire-and-forget) apply run:
+            # it carries the switch's true verdict (#1266).
+            run = verify_run
+            via = (
+                f"verify run {verify_run['run_number']} (true verdict; "
+                f"the apply run is fire-and-forget)"
+            )
+            state = "verify"
+        if wrec and (settled := wrec.get("settled_outcome")) and verify_run is None:
+            # provision-indri: a settled record comes from the APPLY run's
+            # terminal webhook, but the apply is fire-and-forget — its green
+            # means "switch launched, verify dispatched" only, so it must not
+            # close the task. When a verify run exists, the record's
+            # settlement does not decide; the verify run's status does (the
+            # forge-status path below). With no verify run yet (dispatch
+            # pending, or a pre-#1266 apply that settled), keep the old
+            # behavior — a settled success may still close, as before.
             # horkos settles every request to a terminal outcome — success /
             # failure / cancelled from the forge's terminal run webhooks, and
             # denied / voided / dispatch_failed in-process when nothing was

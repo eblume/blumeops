@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-09-19
+modified: 2026-09-24
 last-reviewed: 2026-08-29
 tags:
   - service
@@ -92,6 +92,8 @@ The forge has three namespaces:
 | `docs-checks` | PR/push | `indri` | Docs + changelog validation |
 | `flake-update` | dispatch | `nix-container-builder` | Ringtail flake input update (native nix on the ringtail nix runner) |
 | `lint` | PR/push | `indri` | Repo lint (prek hooks) |
+| `provision-indri` | dispatch | `indri` | Warrant-gated, fire-and-forget apply of a bound SHA's nix-darwin generation; dispatches `provision-indri-verify` for the true verdict ([[warrant-approval-gated-runs]]) |
+| `provision-indri-verify` | dispatch | `indri` | True verdict for a provision-indri apply: polls the switch's `.status` sidecar, green/red is the switch's own outcome |
 | `run-script` | dispatch | `priv` | Warrant-gated one-off script run |
 | `horkos-forge-drift` | cron/push/dispatch | `indri` | Weekly drift check on horkos-forge's grants |
 

@@ -1,6 +1,6 @@
 ---
 title: Request a Privileged Run
-modified: 2026-09-21
+modified: 2026-09-24
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -87,10 +87,11 @@ mise run request-run ringtail-rebuild.yaml <full-sha> -i revision=<full-sha> \
 
 Example — apply a merged blumeops commit's nix-darwin generation to indri.
 The bound SHA is applied by the zero-prompt rebuild path (checkout plus
-detached `darwin-rebuild switch`, bounded wait) from the host-mode indri
-runner; the run log ends with the system profile's store path before and
-after the switch. The full provision (roles, `op read`) stays a human
-window.
+detached `darwin-rebuild switch`) from the host-mode indri runner; the
+apply run is fire-and-forget — it exits once the launch is verified and
+dispatches `provision-indri-verify`, whose polling of the switch's
+`.status` sidecar is the true verdict. The full provision (roles,
+`op read`) stays a human window.
 
 ```fish
 mise run request-run provision-indri.yaml <full-sha> -i revision=<full-sha> \

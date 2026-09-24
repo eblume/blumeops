@@ -7,28 +7,45 @@
 # zero-prompt path: `mise run provision-indri -- --tags rebuild`. That runs
 # the task-side guards (docker-pinned flake-lock check, pushed-HEAD/ancestry
 # guard) and the play's rebuild-tagged pre_tasks: checkout the bound SHA into
-# a root-owned /etc/blumeops, detached `sudo -n -H nohup darwin-rebuild
-# switch --flake /etc/blumeops/darwin/indri#indri`, bounded wait, fail with
-# the log embedded. The rebuild path reads no vault: every `op read` in the
-# play is role-tagged, so `--tags rebuild` runs none. The full ansible
-# provision (roles, secrets) stays a human window — the ringtail-rebuild-vs-
-# provision-ringtail decomposition, applied to indri.
+# a root-owned /etc/blumeops, then detached `sudo -n -H nohup darwin-rebuild
+# switch --flake /etc/blumeops/darwin/indri#indri`. The rebuild path reads no
+# vault: every `op read` in the play is role-tagged, so `--tags rebuild` runs
+# none. The full ansible provision (roles, secrets) stays a human window — the
+# ringtail-rebuild-vs-provision-ringtail decomposition, applied to indri.
 #
-# Injection posture: the dispatch input reaches this job only as an
-# environment variable — never into a checkout ref or shell text. The
-# validate step is the first place it is interpreted and fails closed; the
-# checkout is of main (reviewed state); the apply step re-validates, then
-# detaches onto the bound SHA (a main ancestor — its objects are already in
-# the object database).
+# The job is FIRE-AND-FORGET (eblume/blumeops#1266): the play no longer waits
+# on the switch — it exits green once the launch is verified, and this job
+# dispatches provision-indri-verify.yaml, a FRESH job that takes the true
+# verdict off /var/log/indri-rebuild/<sha>.status. Why: a plist-changing
+# apply reloads the forgejo-runner LaunchAgent, and launchd clamps
+# ExitTimeOut to 60 s in the per-user gui domain — any job waiting on the
+# switch is SIGKILLed with the agent ~60 s after the reload, so the old
+# in-play wait reported failure for a switch that actually succeeded. The
+# detached switch (AbandonProcessGroup) survives the agent; the verify job,
+# started after the reload, does too, and polls. verify-runs closes the
+# warrant's tracking task from the VERIFY run — a red switch is a red verify
+# run, never a lost verdict.
 #
-# The contract is "apply a commit merged to main": the workflow pre-flights
-# it unprivileged, and the task's pushed-HEAD guard (detached-aware)
-# re-checks origin/main ancestry as the task-side authority.
+# Injection posture: the dispatch inputs reach this job only as environment
+# variables — never into a checkout ref or shell text. The validate step is
+# the first place revision is interpreted and fails closed; the checkout is
+# of main (reviewed state); the apply step re-validates, then detaches onto
+# the bound SHA (a main ancestor — its objects are already in the object
+# database); the dispatch step re-validates again before the verify job is
+# told the SHA.
+#
+# The contract is "apply a commit merged to main": this job pre-flights it
+# unprivileged, the task's pushed-HEAD guard (detached-aware) re-checks
+# origin/main ancestry as the task-side authority, and verify-runs
+# attributes the true verdict to the verify run this job dispatches
+# (located by timing around this apply run). The `pr` input names the
+# origin PR/issue the verify run breadcrumbs while the switch is still
+# running.
 #
 # The run log ends with the generation identity — the system profile's store
 # path before and after the switch. A content-identical SHA (e.g. the
 # no-op drill) dedupes to the previous generation's store path under a new
-# generation number.
+# generation number; the verify run still confirms exit 0.
 #
 # Docs: docs/explanation/warrant-approval-gated-runs.md,
 # docs/how-to/indri/provision.md (warrant-gated apply).
@@ -40,6 +57,10 @@ on:
       revision:
         description: 'Full 40-char blumeops commit whose nix-darwin generation to apply to indri'
         required: true
+        type: string
+      pr:
+        description: 'PR or issue number in eblume/blumeops to post the verify breadcrumb to (set by request-run; manual dispatch may omit)'
+        required: false
         type: string
 
 jobs:
@@ -132,3 +153,40 @@ jobs:
           after=$(readlink /nix/var/nix/profiles/system)
           echo "Generation before: $before"
           echo "Generation after:  $after"
+
+      # Dispatch the verify run: unprivileged in the sense that it only
+      # launches a read-only verifier bound to the same already-approved
+      # main-ancestor SHA — the verify run cannot change anything. The
+      # GITHUB_TOKEN here is the per-run token, same shape as
+      # .forgejo/actions/report-failure uses for issue comments.
+      - name: Dispatch provision-indri-verify
+        env:
+          REVISION: ${{ inputs.revision }}
+          PR: ${{ inputs.pr }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Re-validate the bound SHA, with the same shape gate as the apply
+          # step: it is the exact value the verify job re-checks, and as an
+          # input it reached this job only as an env var — never interpreted
+          # before, so validate before it leaves.
+          if [ "${#REVISION}" -ne 40 ] || ! printf '%s' "$REVISION" | grep -qxE '^[0-9a-f]{40}$'; then
+            echo "::error::revision failed dispatch re-validation"
+            exit 1
+          fi
+          API="${GITHUB_API_URL:-${GITHUB_SERVER_URL:-https://forge.eblu.me}}/api/v1"
+          INPUTS=$(jq -n --arg rev "$REVISION" --arg pr "${PR:-}" '{revision: $rev, pr: $pr}')
+          BODY=$(jq -n --argjson inputs "$INPUTS" '{ref: "main", inputs: $inputs}')
+          printf '%s' "$BODY" > inputs.json
+          HTTP_CODE=$(curl -s -o dispatch-response.txt -w '%{http_code}' \
+            -X POST -H "Authorization: token $GITHUB_TOKEN" -H 'Content-Type: application/json' \
+            -d @inputs.json \
+            "$API/repos/$GITHUB_REPOSITORY/actions/workflows/provision-indri-verify.yaml/dispatches")
+          if [ "$HTTP_CODE" != "204" ] && [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::dispatch of provision-indri-verify failed (HTTP $HTTP_CODE): $(cat dispatch-response.txt)"
+            exit 1
+          fi
+          # The switch is running detached; the verify run is the true
+          # verdict, not this (green fire-and-forget) apply job. The verify
+          # run will appear on the actions page (https://forge.eblu.me/eblume/blumeops/actions).
+          echo "provision-indri-verify dispatched for $REVISION"
