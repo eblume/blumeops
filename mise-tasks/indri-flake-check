@@ -12,12 +12,32 @@ export MISE_TASK_OUTPUT=interleave
 # provision-indri will deploy.
 # See [[provision]].
 COMMIT=$(git rev-parse HEAD)
-REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null | awk 'NR==1{print $1}')
 
-if [[ "$REMOTE_REF" != "$COMMIT" ]]; then
-    echo "ERROR: Current commit $COMMIT is not pushed to forge; indri cannot check out what it has not been given."
-    echo "Push your changes first: git push"
-    exit 1
+# On a branch: the branch tip must equal HEAD. Detached (the B4 rollback
+# case: a merged non-tip SHA): the SHA must be an ancestor of origin/main
+# - indri cannot check out what forge has not been given (same guard
+# shape as provision-indri).
+if [[ "$(git rev-parse --abbrev-ref HEAD)" == "HEAD" ]]; then
+    if ! git fetch -q origin main; then
+        echo "ERROR: cannot reach origin to verify $COMMIT is on main."
+        exit 1
+    fi
+
+    if ! git merge-base --is-ancestor "$COMMIT" origin/main; then
+        echo "ERROR: detached HEAD $COMMIT is not an ancestor of origin/main; indri cannot check out what it has not been given."
+        exit 1
+    fi
+else
+    if ! REMOTE_REF=$(git ls-remote origin "$(git rev-parse --abbrev-ref HEAD)" | awk 'NR==1{print $1}'); then
+        echo "ERROR: cannot reach origin to verify $COMMIT is pushed."
+        exit 1
+    fi
+
+    if [[ "$REMOTE_REF" != "$COMMIT" ]]; then
+        echo "ERROR: Current commit $COMMIT is not pushed to forge; indri cannot check out what it has not been given."
+        echo "Push your changes first: git push"
+        exit 1
+    fi
 fi
 
 ssh indri "COMMIT='$COMMIT' bash -s" <<'REMOTE'
