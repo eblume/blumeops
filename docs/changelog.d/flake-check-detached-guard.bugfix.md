@@ -1,0 +1,1 @@
+fix(indri): indri-flake-check's pushed-HEAD guard is now detached-aware - a detached checkout at a merged non-tip SHA (the B4 rollback case) passes via origin/main ancestry instead of spuriously failing on ls-remote origin HEAD inequality (blumeops#1266).
