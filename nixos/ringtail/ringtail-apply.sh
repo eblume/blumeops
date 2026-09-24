@@ -1,8 +1,8 @@
 #!/run/current-system/sw/bin/bash
 # Root-side half of the ringtail-rebuild warrant workflow. Runs as the root
 # template unit ringtail-apply@<sha>.service (nixos/ringtail/configuration.nix),
-# which polkit lets the priv runner's gitea-runner user start — the runner is
-# a DynamicUser service with NoNewPrivileges, so sudo is not an option there.
+# which polkit lets the priv runner's horkos-runner user start — the runner
+# runs with NoNewPrivileges, so sudo is not an option there.
 # The instance name is the blumeops commit a human approved in Horkos. Checks
 # out the bound SHA in /etc/blumeops and drives the detached
 # blumeops-nixos-rebuild unit, the same pattern as ansible/playbooks/ringtail.yml.

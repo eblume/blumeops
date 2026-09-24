@@ -4,8 +4,8 @@
 # The job runs on the priv runner (ringtail itself); its only root path is
 # starting the root template unit ringtail-apply@<sha>.service, which a polkit
 # rule in nixos/ringtail/configuration.nix permits for exactly that unit shape
-# (the runner is a DynamicUser service — NoNewPrivileges is implied, so sudo
-# cannot work from a job). The unit runs /etc/ringtail-apply/apply, which
+# (the runner runs as the static user horkos-runner with NoNewPrivileges, so
+# sudo cannot work from a job). The unit runs /etc/ringtail-apply/apply, which
 # checks out the bound SHA in /etc/blumeops and drives the detached
 # blumeops-nixos-rebuild unit, the same pattern as ansible/playbooks/ringtail.yml.
 # Full provision-ringtail stays class: deny.
@@ -128,7 +128,7 @@ jobs:
           echo "--- streaming $log (from byte $before)"
           tail -c +"$((before + 1))" --retry -f "$log" 2>/dev/null &
           tail_pid=$!
-          # Root boundary: polkit lets gitea-runner *start* this instance and
+          # Root boundary: polkit lets horkos-runner *start* this instance and
           # nothing else. --wait blocks until the oneshot finishes and exits
           # non-zero if it failed; a denial ("interactive authentication
           # required") fails here too, before any verdict is read.

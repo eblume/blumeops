@@ -53,16 +53,18 @@ back a service flip.
 
 There are also two independent NixOS runners on [[ringtail]]
 (`services.gitea-actions-runner` in `nixos/ringtail/configuration.nix`,
-both sandboxed systemd DynamicUsers sharing the instance-global
-registration token):
+both sandboxed systemd services sharing the instance-global registration
+token):
 
 - `ringtail-nix-builder` (`nix-container-builder` label) — the
-  `build-container.yaml` nix build job.
+  `build-container.yaml` nix build job, as the module's DynamicUser
+  `gitea-runner`.
 - `ringtail-priv-runner` (`priv` label) — privileged dispatch-only
   workflows ([[warrant-approval-gated-runs]] Phase 2): argocd-deploy
   today, `provision-*` later. Deliberately NOT host-mode-as-erichblume:
-  a hostile privileged job compromises a DynamicUser sandbox, not the
-  forge owner's account.
+  a hostile privileged job compromises a sandbox, not the forge owner's
+  account. Runs as the static system user `horkos-runner`, which the
+  ringtail-rebuild polkit rule names ([[warrant-approval-gated-runs]]).
 
 ## Job Execution
 

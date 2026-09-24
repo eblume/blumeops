@@ -802,10 +802,10 @@ in
 
     # Privileged-workflow runner ([[warrant-approval-gated-runs]] Phase 2).
     # Dispatch-only privileged jobs (argocd-deploy, deploy-fly, provision-*
-    # later) run here as a sandboxed systemd DynamicUser instead of host-mode
-    # as erichblume on indri — a hostile job compromises this sandbox, not the
-    # forge owner's account. Same instance-global registration token as the
-    # nix builder. argocd comes from nixpkgs (verify CLI/server skew against
+    # later) run here as the sandboxed static user horkos-runner (see the
+    # gitea-runner-priv override below) instead of host-mode as erichblume on
+    # indri — a hostile job compromises this sandbox, not the forge owner's
+    # account. Same instance-global registration token as the nix builder. argocd comes from nixpkgs (verify CLI/server skew against
     # service-versions.yaml on upgrade; the workflow falls back to mise x on
     # runners that lack a system argocd). flyctl (deploy-fly) builds via
     # Fly.io's remote builders, so it needs no docker in the sandbox.
@@ -834,12 +834,59 @@ in
     };
   };
 
+  # The priv runner gets its own static system user instead of the module's
+  # DynamicUser `gitea-runner`, for two reasons: (1) polkitd can't resolve a
+  # DynamicUser's name — since the gen-134 nixpkgs roll, subject.user for the
+  # runner came through as the bare uid string, so the ringtail-apply rule
+  # below stopped matching (blumeops#1254); (2) the nix builder instance is
+  # also `gitea-runner`, so a rule keyed on that name let PR build jobs start
+  # ringtail-apply@ too. The sandbox DynamicUser implied is spelled out here.
+  users.users.horkos-runner = {
+    isSystemUser = true;
+    group = "horkos-runner";
+    home = "/var/lib/horkos-runner";
+  };
+  users.groups.horkos-runner = { };
+  systemd.services.gitea-runner-priv = {
+    environment.HOME = lib.mkForce "/var/lib/horkos-runner/priv";
+    serviceConfig = {
+      DynamicUser = lib.mkForce false;
+      User = lib.mkForce "horkos-runner";
+      Group = "horkos-runner";
+      StateDirectory = lib.mkForce "horkos-runner";
+      WorkingDirectory = lib.mkForce "-/var/lib/horkos-runner/priv";
+      # What DynamicUser=yes implied.
+      NoNewPrivileges = true;
+      ProtectSystem = "strict";
+      ProtectHome = "read-only";
+      PrivateTmp = true;
+      RemoveIPC = true;
+      RestrictSUIDSGID = true;
+      # One-time carry-over of the forge registration from the DynamicUser
+      # state dir, so the runner keeps its identity instead of registering a
+      # second ringtail-priv-runner. Runs as root ("+"), before the module's
+      # registration script; a no-op once .runner exists.
+      ExecStartPre = lib.mkBefore [
+        "+${pkgs.writeShellScript "horkos-runner-migrate-state" ''
+          new=/var/lib/horkos-runner/priv
+          old=/var/lib/private/gitea-runner/priv
+          if [ ! -e "$new/.runner" ] && [ -e "$old/.runner" ]; then
+            install -d -o horkos-runner -g horkos-runner -m 0755 "$new"
+            for f in .runner .labels .token-hash; do
+              install -o horkos-runner -g horkos-runner -m 0600 "$old/$f" "$new/$f"
+            done
+          fi
+        ''}"
+      ];
+    };
+  };
+
   # Warrant path for agent-requestable ringtail rebuilds (ringtail-rebuild.yaml).
-  # The priv runner is a systemd DynamicUser service, and DynamicUser implies
-  # NoNewPrivileges=yes (not overridable) — so no setuid path, sudo included,
-  # can ever escalate from a job. Instead the job asks systemd to *start* the
-  # root template unit ringtail-apply@<sha>.service, and polkit permits exactly
-  # that: user gitea-runner, verb start, an instance name that is a 40-hex sha.
+  # The priv runner runs with NoNewPrivileges=yes — so no setuid path, sudo
+  # included, can ever escalate from a job. Instead the job asks systemd to
+  # *start* the root template unit ringtail-apply@<sha>.service, and polkit
+  # permits exactly that: user horkos-runner, verb start, an instance name that
+  # is a 40-hex sha.
   # The unit runs the wrapper, which checks out the bound SHA in /etc/blumeops
   # and drives the detached blumeops-nixos-rebuild unit; its output lands in
   # /var/log/ringtail-apply/<sha>.log, readable by the (unprivileged) job so
@@ -874,7 +921,7 @@ in
       if (action.id == "org.freedesktop.systemd1.manage-units" &&
           action.lookup("verb") == "start" &&
           /^ringtail-apply@[0-9a-f]{40}\.service$/.test(action.lookup("unit")) &&
-          subject.user == "gitea-runner") {
+          subject.user == "horkos-runner") {
         return polkit.Result.YES;
       }
     });
