@@ -411,6 +411,14 @@
     # below polls for it. A timeout here does not kill the rebuild - it
     # keeps running detached; read /var/log/indri-rebuild/<sha>.log.
     #
+    # indri_rebuild_wait=false (the provision-indri workflow) skips the wait:
+    # the play launches the switch and exits. A switch that reloads the
+    # forgejo-runner agent kills any job still waiting on it (launchd clamps
+    # ExitTimeOut to 60 s in the gui domain), so the forge job reports
+    # "launched", not the outcome - the .status/.log sidecars are the
+    # verdict (#1266). Human runs keep the default wait: the service roles
+    # below need the generation current before they run.
+    #
     # sudo -H: macOS sudo keeps $HOME (env_keep), so without it the nix build
     # that root runs leaves root-owned files in ~erichblume/.cache/nix and
     # breaks the user-run indri-flake-check and the CI job on the indri runner.
@@ -419,6 +427,9 @@
       ansible.builtin.shell: |
         set -euo pipefail
         sudo -n mkdir -p /var/log/indri-rebuild
+        # A leftover sidecar from an earlier switch of this SHA would read as
+        # the verdict of this switch.
+        sudo -n rm -f /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status
         sudo -n -H nohup sh -c '{{ indri_darwin_rebuild.stdout }} switch --flake /etc/blumeops/darwin/indri#indri > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.log 2>&1; echo $? > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp && mv /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status' </dev/null >/dev/null 2>&1 &
         REBUILD_PID=$!
         # A backgrounded job that fails to launch dies before the wait below
@@ -430,6 +441,15 @@
       when: indri_blumeops_repo.changed and not ansible_check_mode
       tags: [rebuild]
 
+    - name: Report the launched switch (not waiting for it)
+      ansible.builtin.debug:
+        msg: >-
+          darwin-rebuild switch launched detached for {{ indri_commit | default('main') }};
+          not waiting. Outcome: /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status
+          (exit code, written when the switch ends) and .log on indri.
+      when: indri_blumeops_repo.changed and not ansible_check_mode and not (indri_rebuild_wait | default(true) | bool)
+      tags: [rebuild]
+
     - name: Wait for the darwin-rebuild to finish
       ansible.builtin.command: "test -f /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status"
       register: indri_rebuild_done
@@ -439,7 +459,7 @@
       until: indri_rebuild_done.rc == 0
       retries: 120
       delay: 30
-      when: indri_blumeops_repo.changed and not ansible_check_mode
+      when: indri_blumeops_repo.changed and not ansible_check_mode and (indri_rebuild_wait | default(true) | bool)
       tags: [rebuild]
 
     - name: Read the darwin-rebuild log
@@ -447,7 +467,7 @@
       register: indri_rebuild_log
       changed_when: false
       check_mode: false
-      when: indri_blumeops_repo.changed and not ansible_check_mode
+      when: indri_blumeops_repo.changed and not ansible_check_mode and (indri_rebuild_wait | default(true) | bool)
       tags: [rebuild]
 
     - name: Read the darwin-rebuild exit status
@@ -455,7 +475,7 @@
       register: indri_rebuild_status
       changed_when: false
       check_mode: false
-      when: indri_blumeops_repo.changed and not ansible_check_mode
+      when: indri_blumeops_repo.changed and not ansible_check_mode and (indri_rebuild_wait | default(true) | bool)
       tags: [rebuild]
 
     - name: Fail if the darwin-rebuild did not succeed

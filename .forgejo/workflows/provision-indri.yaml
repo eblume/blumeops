@@ -8,11 +8,11 @@
 # the task-side guards (docker-pinned flake-lock check, pushed-HEAD/ancestry
 # guard) and the play's rebuild-tagged pre_tasks: checkout the bound SHA into
 # a root-owned /etc/blumeops, detached `sudo -n -H nohup darwin-rebuild
-# switch --flake /etc/blumeops/darwin/indri#indri`, bounded wait, fail with
-# the log embedded. The rebuild path reads no vault: every `op read` in the
-# play is role-tagged, so `--tags rebuild` runs none. The full ansible
-# provision (roles, secrets) stays a human window — the ringtail-rebuild-vs-
-# provision-ringtail decomposition, applied to indri.
+# switch --flake /etc/blumeops/darwin/indri#indri`. The rebuild path reads
+# no vault: every `op read` in the play is role-tagged, so `--tags rebuild`
+# runs none. The full ansible provision (roles, secrets) stays a human
+# window — the ringtail-rebuild-vs-provision-ringtail decomposition, applied
+# to indri.
 #
 # Injection posture: the dispatch input reaches this job only as an
 # environment variable — never into a checkout ref or shell text. The
@@ -25,10 +25,13 @@
 # it unprivileged, and the task's pushed-HEAD guard (detached-aware)
 # re-checks origin/main ancestry as the task-side authority.
 #
-# The run log ends with the generation identity — the system profile's store
-# path before and after the switch. A content-identical SHA (e.g. the
-# no-op drill) dedupes to the previous generation's store path under a new
-# generation number.
+# FIRE-AND-FORGET (#1266): the job passes indri_rebuild_wait=false, so the
+# play launches the switch and exits. Green means "switch launched", not
+# "switch succeeded". Waiting is not an option: a switch that changes the
+# forgejo-runner agent reloads it, and launchd kills any job still running
+# ~60 s later. The outcome lives on indri — /var/log/indri-rebuild/<sha>.status
+# (exit code, written when the switch ends) and <sha>.log; read them if a
+# change does not show up. See docs/how-to/indri/provision.md.
 #
 # Docs: docs/explanation/warrant-approval-gated-runs.md,
 # docs/how-to/indri/provision.md (warrant-gated apply).
@@ -101,10 +104,9 @@ jobs:
             echo "::error::revision failed re-validation"
             exit 1
           fi
-          # Generation identity before the switch: the system profile is the
-          # durable pointer to the current generation (no /run/current-system
-          # assumptions — activation may recreate it).
-          before=$(readlink /nix/var/nix/profiles/system)
+          # The generation the switch starts from — the system profile is the
+          # durable pointer to it (no /run/current-system assumptions).
+          echo "Generation before: $(readlink /nix/var/nix/profiles/system)"
           # Detach onto the bound SHA — a main ancestor, so its objects are
           # in this full-history checkout. The task's guards and the play's
           # indri_commit then bind to the approved commit, not main's tip.
@@ -127,8 +129,9 @@ jobs:
           # git is Homebrew's, sh/nohup/tail/cat/readlink are system
           # binaries, nix is its profile's, darwin-rebuild is called by
           # full path. Keep it that way.
+          #
+          # indri_rebuild_wait=false: launch and exit (see the header).
           mise run provision-indri -- --tags rebuild -e ansible_connection=local \
-              -e "ansible_python_interpreter={{ ansible_playbook_python }}"
-          after=$(readlink /nix/var/nix/profiles/system)
-          echo "Generation before: $before"
-          echo "Generation after:  $after"
+              -e "ansible_python_interpreter={{ ansible_playbook_python }}" \
+              -e indri_rebuild_wait=false
+          echo "Switch launched for $REVISION; outcome: /var/log/indri-rebuild/$REVISION.status on indri"

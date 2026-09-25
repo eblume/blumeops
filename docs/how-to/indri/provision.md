@@ -1,6 +1,6 @@
 ---
 title: Provision Indri
-modified: 2026-09-19
+modified: 2026-09-25
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -48,8 +48,11 @@ The checkout and rebuild tasks are tagged `rebuild`, so
 checkout the bound SHA into a root-owned `/etc/blumeops` (HTTPS from the
 forge, forced) and run `darwin-rebuild switch --flake
 /etc/blumeops/darwin/indri#indri` detached via `sudo -H nohup` — log at
-`/var/log/indri-rebuild/<sha>.log` plus a `.status` sidecar — then wait
-(bounded, 60 min) and fail with the log embedded on non-zero exit. `-H`
+`/var/log/indri-rebuild/<sha>.log` plus a `.status` sidecar (the exit
+code, written when the switch ends) — then wait (bounded, 60 min) and fail
+with the log embedded on non-zero exit. `-e indri_rebuild_wait=false`
+skips the wait (the warrant apply uses it, below); human runs keep it,
+because the service roles need the new generation before they run. `-H`
 matters: macOS `sudo` keeps `$HOME`, and root's `nix build` would otherwise
 leave root-owned files in `~erichblume/.cache/nix` that break the
 user-run flake check and the CI job on the indri runner.
@@ -80,12 +83,25 @@ workflow, so a generation flip is a warrant approval instead of a window.
 `mise run request-run provision-indri.yaml <full-sha> -i revision=<full-sha>
 --why "…"` files the request (PR comment, heph task, Horkos queue); the
 approval dispatches the workflow on the indri runner, which runs exactly
-this path headless — the task guards, the checkout, the detached switch,
-the bounded wait — and the run log ends with the generation identity, the
-system profile's store path before and after the switch. A
-content-identical SHA creates no new generation at all — nix dedupes to
-the existing store path and the profile never switches; the no-op run
-is the warrant path's own drill.
+this path headless — the task guards, the checkout, the detached switch —
+with `indri_rebuild_wait=false`: the run launches the switch and exits.
+**A green run means the switch launched, not that it succeeded.** The job
+cannot wait: a switch that changes the forgejo-runner agent reloads it,
+and launchd kills the running job ~60 s later (see §Forgejo runner
+below). A content-identical SHA creates no new generation at all — nix
+dedupes to the existing store path and the profile never switches; the
+no-op run is the warrant path's own drill.
+
+If an applied change does not show up, check the switch's outcome on
+indri:
+
+```fish
+ssh indri cat /var/log/indri-rebuild/<sha>.status    # 0 = success
+ssh indri tail -100 /var/log/indri-rebuild/<sha>.log
+```
+
+No `.status` yet means the switch is still running. A non-zero status
+leaves indri on its previous generation; fix forward with a new commit.
 
 The warrant applies a generation, not a role: the dispatch is always
 `--tags rebuild`, so the job reads no vault and the full provision (roles,
@@ -206,10 +222,11 @@ declared value is not a real drain window (measured on macOS 26 — the
 plist says 10800, `launchctl print` reports 60, and agents without the
 key report the 5 s default). What survives is `AbandonProcessGroup`:
 the detached darwin-rebuild (nohup, same process group) is not killed
-with the agent, so the box still converges and the failure is the forge
-run, not the switch. The apply path's shape is being fixed so a
-plist-changing apply reports the switch's true outcome — see
-eblume/blumeops#1266. Rollback per §Rolling
+with the agent, so the box still converges. The warrant apply is
+therefore fire-and-forget (eblume/blumeops#1266): its run ends before the
+reload, and the outcome is read from the `.status` sidecar (§Warrant-gated
+apply). A human `--tags rebuild` run from gilbert waits over SSH and is
+unaffected. Rollback per §Rolling
 back a service flip, with the role's gate flipped.
 
 ## Forgejo

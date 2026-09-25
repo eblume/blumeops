@@ -1,0 +1,1 @@
+provision-indri's warrant apply is fire-and-forget: it launches the detached darwin-rebuild and exits, so a switch that reloads the runner no longer reports a false failure; the outcome is the `.status` sidecar on indri.
