@@ -121,10 +121,11 @@ role-rendered wrapper execs it through the system profile's
 `/nix/var/nix/profiles/system/sw/bin/caddy` — the profile path, so it follows
 every switch and `--rollback` — and the LaunchAgent plist's
 `ProgramArguments[0]` stays the on-disk wrapper (a store path there would die
-`EX_CONFIG` in the pre-`/nix` boot window). The prior `xcaddy` checkout build
-at `~/code/3rd/caddy` is kept only as the rollback target until the post-flip
-cleanup; a rollback re-run repoints the wrapper at it. See
-[[build-caddy-with-plugins]] for the old checkout's build details.
+`EX_CONFIG` in the pre-`/nix` boot window). The prior `xcaddy` checkout build at
+`~/code/3rd/caddy` was retired with the flip (blumeops#1275); the checkout
+and its forge mirrors (`mirrors/caddy`, `mirrors/caddy-gandi`,
+`mirrors/xcaddy`, `mirrors/caddy-l4`) are pruned as the post-flip cleanup
+step, so a lineage rollback is `darwin-rebuild --rollback` alone.
 
 ## Related
 

@@ -423,12 +423,11 @@ For the zot registry flip (PR 5), re-run `mise run provision-indri --
 --tags zot -e zot_ansible_managed=true`. Unlike the textfile
 collectors, zot is a real daemon: the registry is down between the
 rollback and the ansible re-write. For the caddy flip, re-run
-`mise run provision-indri -- --tags caddy -e caddy_ansible_managed=true
--e caddy_binary={{ caddy_checkout_binary }}` — the second `-e` repoints
-the wrapper at the `~/code/3rd/caddy` checkout build, which stays on disk
-until the post-flip cleanup (blumeops#1275). (The gate and `caddy_binary`
-are both needed: the gate re-deploys the rollback plist, the variable
-re-renders the wrapper's exec target.) — the widest outage: every `*.ops.eblu.me` endpoint and the L4 routes
+`mise run provision-indri -- --tags caddy -e caddy_ansible_managed=true`
+— the gate re-deploys the rollback plist and the restart handler reloads
+the agent; the wrapper's exec target follows the rolled-back generation's
+profile, so no `-e` override is needed (the `~/code/3rd/caddy` checkout
+build was retired post-flip, blumeops#1275). — the widest outage: every `*.ops.eblu.me` endpoint and the L4 routes
 (2222/5433/5434 and the sifaka exporter ports) are down during the
 window, and no CI runs land while the forge is unreachable. For the
 forgejo runner flip (PR 7), re-run

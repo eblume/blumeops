@@ -1,12 +1,7 @@
 ---
 # Caddy reverse proxy deployment
-# Binary is built manually - see ~/code/3rd/caddy/mise.toml (kept on
-# purpose: it is the build input for `mise run build`). Unlike the other
-# checkouts in this play, whose stray mise.toml files are removed because
-# they shadow indri's declarative global mise config, caddy's local pins
-# shadow that config for the caddy build on purpose. See
-# [[build-caddy-with-plugins]].
-
+# The binary is the generation's caddy (see defaults/main.yml); the
+# Caddyfile, wrapper and token stay ansible-rendered.
 # Skipped by default: the nix-darwin generation owns this service's
 # LaunchAgent plist (PR 6 of the indri series). The plist and load
 # tasks below remain the rollback re-write, run with
