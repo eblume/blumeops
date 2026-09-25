@@ -823,9 +823,7 @@ in
       hostPackages = with pkgs; [
         bash coreutils curl gawk gitMinimal gnused jq nodejs wget
         argocd flyctl _1password-cli kubectl
-        # argocd-sync-apps payload validation: gnutar unpacks the git-archive
-        # payload; uv + python3 run the PEP 723 mise-tasks/validate-argocd-apps.
-        gnutar uv python3
+        gnutar uv
       ];
       settings = {
         log.level = "info";
