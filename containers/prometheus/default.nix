@@ -1,12 +1,11 @@
 # Nix-built Prometheus for ringtail (amd64), phase 3 of [[retire-minikube]].
 #
 # Lift-and-shift of the Dockerfile build (v3.14.0 from the forge mirror,
-# same ldflags), using nixpkgs' two-derivation technique for the web UI:
-# buildNpmPackage compiles the mantine UI workspaces (the legacy React
-# app is disabled with nixpkgs' patch — it depends on the deprecated
-# create-react-app and isn't served by Prometheus 3.x), the assets are
-# gzipped, and the Go build embeds them via a generated embed.go with
-# the builtinassets tag (the compress_assets.sh equivalent).
+# same ldflags). The web UI is a pnpm workspace (prometheus migrated from npm
+# at v3.13.0): fetchPnpmDeps pins the dependency store, the legacy React app
+# is disabled with nixpkgs' patch (it isn't served by Prometheus 3.x), the
+# Go build embeds the gzipped assets via a generated embed.go with the
+# builtinassets tag (the compress_assets.sh equivalent).
 { pkgs ? import <nixpkgs> { } }:
 
 let
@@ -18,7 +17,7 @@ let
     hash = "sha256-7PSfh+KWUpmL3BZ7INa1DOZ/ysaXXdWG9n/F+H0cGYo=";
   };
 
-  assets = pkgs.buildNpmPackage {
+  assets = pkgs.stdenv.mkDerivation (finalAttrs: {
     pname = "prometheus-assets";
     inherit version;
 
@@ -26,23 +25,49 @@ let
 
     patches = [ ./disable-react-app.diff ];
 
-    npmDepsHash = pkgs.lib.fakeHash;
+    nativeBuildInputs = [
+      pkgs.gzip
+      pkgs.nodejs_22
+      pkgs.pnpm_10
+      pkgs.pnpmConfigHook
+    ];
+
+    pnpmDeps = pkgs.fetchPnpmDeps {
+      inherit (finalAttrs) pname version;
+      src = "${src}/web/ui";
+      pnpm = pkgs.pnpm_10;
+      pnpmWorkspaces = [
+        "@prometheus-io/mantine-ui"
+        "@prometheus-io/codemirror-promql"
+        "@prometheus-io/lezer-promql"
+      ];
+      # TOFU: filled from the pod build (fakeHash round).
+      hash = "sha256-5ywjd7Vck5oqogXxn4/wOtwtgM7dulvxedXjvF29uCk=";
+      fetcherVersion = 3;
+    };
 
     env.CI = true;
     doCheck = false;
 
-    postInstall = ''
-      mkdir -p $out/static
-      cp -r $out/lib/node_modules/prometheus-io/static/* $out/static
-      find $out/static -type f -exec gzip -f9 {} \;
-      rm -rf $out/lib
+    buildPhase = ''
+      runHook preBuild
+      bash ./build_ui.sh --all
+      runHook postBuild
     '';
-  };
+
+    installPhase = ''
+      runHook preInstall
+      mkdir -p $out/static
+      cp -r ./static/* $out/static/
+      find $out/static -type f -exec gzip -f9 {} \;
+      runHook postInstall
+    '';
+  });
 
   prometheus = pkgs.buildGoModule {
     inherit src version;
     pname = "prometheus";
-    vendorHash = pkgs.lib.fakeHash;
+    vendorHash = "sha256-sCgxO2/w3Bi6Ncs/Q+JVZVtQC448FEx3llYxe/UxWEE=";
     proxyVendor = true;
 
     doCheck = false;
