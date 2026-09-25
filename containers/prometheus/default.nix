@@ -1,6 +1,6 @@
 # Nix-built Prometheus for ringtail (amd64), phase 3 of [[retire-minikube]].
 #
-# Lift-and-shift of the Dockerfile build (v3.12.0 from the forge mirror,
+# Lift-and-shift of the Dockerfile build (v3.14.0 from the forge mirror,
 # same ldflags), using nixpkgs' two-derivation technique for the web UI:
 # buildNpmPackage compiles the mantine UI workspaces (the legacy React
 # app is disabled with nixpkgs' patch — it depends on the deprecated
@@ -10,12 +10,12 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "3.12.0";
+  version = "3.14.0";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/prometheus.git";
     rev = "v${version}";
-    hash = "sha256-xeENUVmG9tbIF+7i2u9zuvo7RXI9iNWFVDNUfNpF6/4=";
+    hash = "sha256-7PSfh+KWUpmL3BZ7INa1DOZ/ysaXXdWG9n/F+H0cGYo=";
   };
 
   assets = pkgs.buildNpmPackage {
@@ -26,7 +26,7 @@ let
 
     patches = [ ./disable-react-app.diff ];
 
-    npmDepsHash = "sha256-cHMI5DqSRpIanrgk/H3aFUHLrGXH1v796PH1qDrCnbE=";
+    npmDepsHash = pkgs.lib.fakeHash;
 
     env.CI = true;
     doCheck = false;
@@ -42,7 +42,7 @@ let
   prometheus = pkgs.buildGoModule {
     inherit src version;
     pname = "prometheus";
-    vendorHash = "sha256-caSI9uzbH93j06sJus9jSqo6qHKbP8D9DuDkiAlnfF4=";
+    vendorHash = pkgs.lib.fakeHash;
     proxyVendor = true;
 
     doCheck = false;
