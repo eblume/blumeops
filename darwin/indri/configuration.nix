@@ -13,9 +13,7 @@ let
 
   # Caddy the mcquack.eblume.caddy unit runs: nixpkgs caddy with the two
   # plugins the Caddyfile actually uses (gandi = ACME DNS-01, l4 = the
-  # TCP routes) - the lineage successor to the xcaddy checkout build in
-  # ~/code/3rd/caddy, which stays as the rollback target until the flip
-  # is proven (eblume/blumeops#1275). It must be in systemPackages: the
+  # TCP routes). It must be in systemPackages: the
   # role-rendered wrapper execs it through the system profile's sw/bin,
   # and a raw store path in that wrapper is not GC-rooted. The vendor
   # hash is the TOFU'd output of the same derivation at the pinned

@@ -1,6 +1,7 @@
 ---
 # Caddy reverse proxy configuration
-# Caddy is built from ~/code/3rd/caddy with Gandi DNS and Layer 4 plugins
+# Caddy is the nixpkgs caddy.withPlugins build (Gandi DNS + Layer 4
+# plugins) from the indri generation's systemPackages.
 
 # caddy on indri is nix-managed (darwin/indri, PR 6 of the nix-darwin
 # series): the generation owns the LaunchAgent plist, so a normal
@@ -11,19 +12,12 @@
 
 caddy_ansible_managed: false
 
-caddy_repo_dir: /Users/erichblume/code/3rd/caddy
-caddy_checkout_binary: "{{ caddy_repo_dir }}/bin/caddy"
-
-# The wrapper's exec target. Nix lineage since the flip (eblume/blumeops#1275):
-# the generation's caddy, reached through the system profile's sw bin
-# (the profile path, not /run/current-system and not a raw store path -
-# the plist points at this on-disk wrapper, and a store path there would
-# die EX_CONFIG in the pre-/nix boot window, eblume/blumeops#1225). The
-# profile moves with every switch and with --rollback. The checkout
-# build stays the rollback target until the post-flip cleanup: a
-# rollback re-run repoints the wrapper with
-# -e caddy_binary={{ caddy_checkout_binary }} (see provision.md
-# §Rolling back a service flip).
+# The wrapper's exec target: the generation's caddy, reached through the
+# system profile's sw bin (the profile path, not /run/current-system and
+# not a raw store path - the plist points at this on-disk wrapper, and a
+# store path there would die EX_CONFIG in the pre-/nix boot window,
+# eblume/blumeops#1225). The profile moves with every switch and with
+# --rollback, so a rollback re-run needs no -e override.
 caddy_binary: /nix/var/nix/profiles/system/sw/bin/caddy
 caddy_config_dir: /Users/erichblume/.config/caddy
 caddy_data_dir: /Users/erichblume/.local/share/caddy
