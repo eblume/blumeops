@@ -124,8 +124,8 @@ every switch and `--rollback` — and the LaunchAgent plist's
 `EX_CONFIG` in the pre-`/nix` boot window). The prior `xcaddy` checkout build at
 `~/code/3rd/caddy` was retired with the flip (blumeops#1275); the checkout
 and its forge mirrors (`mirrors/caddy`, `mirrors/caddy-gandi`,
-`mirrors/xcaddy`, `mirrors/caddy-l4`) are pruned as the post-flip cleanup
-step, so a lineage rollback is `darwin-rebuild --rollback` alone.
+`mirrors/xcaddy`, `mirrors/caddy-l4`) are deleted, so a lineage rollback is
+`darwin-rebuild --rollback` alone.
 
 ## Related
 
