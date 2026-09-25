@@ -22,7 +22,7 @@ How to modify Tailscale access control policies for the tailnet.
 
 The ACL policy lives in `pulumi/tailscale/policy.hujson` (HuJSON, so
 comments are allowed). Its top-level sections are `groups`, `grants`
-(L4/L3 firewall rules), `ssh`, `sshTests` (SSH access rules),
+(L4 firewall rules), `ssh`, `sshTests` (SSH access rules),
 `autoApprovers`, `tagOwners`, and `tests`. The policy uses the modern
 `grants` schema — **not** the legacy top-level `acls` key.
 
@@ -77,7 +77,7 @@ A new tag must be claimable by someone, so add it to `tagOwners` too
 
 The `tests` and `sshTests` sections encode the invariants that make this
 policy safe to apply blindly — e.g. the agent pod reaching nothing except
-forge and the heph hub, and admin SSH to homelab. When you change a grant
+forge and the heph hub, and homelab→homelab SSH for ansible. When you change a grant
 or SSH rule, **add or update the matching test entry** so a future
 regression fails the preview instead of the tailnet.
 

@@ -1,1 +1,7 @@
-Fix drift in the [[update-tailscale-acls]] card from doc review: the policy uses the modern `grants` schema (the legacy top-level `acls` key the examples showed is absent from the policy), grant examples now use `ip` port lists, `pulumi` is a mise-managed tool rather than a brew install, the `tests`/`sshTests` invariants section is documented, and the troubleshooting section drops the stale Pulumi re-auth advice.
+Fix drift in the [[update-tailscale-acls]] card from doc review. The
+examples still used the legacy top-level `acls` key with `*:*` port
+syntax; the policy actually uses the modern `grants` schema with `ip`
+port lists, so the examples, prerequisites (pulumi is mise-managed, not a
+brew install), and the stale credential-expiry advice are corrected.
+Notes the `tests`/`sshTests` invariant sections and the
+full-overwrite semantics of `tailscale.Acl`.
