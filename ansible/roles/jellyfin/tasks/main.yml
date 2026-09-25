@@ -126,22 +126,34 @@
     state: directory
     mode: '0755'
 
+# Skipped by default: the nix-darwin generation owns this service's
+# LaunchAgent plist (PR 9 of the indri series). The plist and load
+# tasks below remain the rollback re-write, run with
+# -e jellyfin_ansible_managed=true only (and on a DMG version bump,
+# which moves the install directory the plist points at); the DMG
+# install, the SSO-Auth plugin and the branding stay ansible-side.
+# See defaults/main.yml.
+
 - name: Deploy Jellyfin LaunchAgent plist
   ansible.builtin.template:
     src: mcquack.jellyfin.plist.j2
     dest: ~/Library/LaunchAgents/mcquack.jellyfin.plist
     mode: '0644'
   notify: Reload jellyfin
+  when: jellyfin_ansible_managed | bool
 
 - name: Check if Jellyfin LaunchAgent is loaded
   ansible.builtin.command: launchctl list mcquack.jellyfin
   register: jellyfin_launchctl_check
   changed_when: false
   failed_when: false
+  when: jellyfin_ansible_managed | bool
 
 - name: Load Jellyfin LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.jellyfin.plist
-  when: jellyfin_launchctl_check.rc != 0
+  when:
+    - jellyfin_ansible_managed | bool
+    - jellyfin_launchctl_check.rc != 0
   changed_when: true
   failed_when: false
 

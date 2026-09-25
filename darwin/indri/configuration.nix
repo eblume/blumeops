@@ -158,7 +158,8 @@ in
 
   # --- launchd label convention for nix-managed services ---
   # Every nix-managed user agent sets serviceConfig.Label =
-  # "mcquack.eblume.<svc>". Activation diffs the plist and, on change,
+  # "mcquack.eblume.<svc>" (jellyfin alone keeps the role's historical
+  # mcquack.jellyfin label — see its unit). Activation diffs the plist and, on change,
   # unloads, replaces and reloads it (one restart, never dual-loaded). The
   # label is what logrotate's globs and alloy's log tails key on, so it
   # must not change.
@@ -360,5 +361,41 @@ in
     KeepAlive = true;
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.forgejo.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.forgejo.err.log";
+  };
+
+  # jellyfin: the first unit the series moves whose Label does not carry
+  # the .eblume. segment (the role always rendered mcquack.jellyfin, and
+  # the in-place swap — same label, same plist path - forbids renaming
+  # it; alloy's log tails, logrotate's globs and the restart runbook all
+  # key on the name and the log filenames). PR 9 of the series, part of
+  # eblume/blumeops#1291. The binary stays the DMG-installed app at
+  # ~/opt/jellyfin-<version> (nixpkgs' jellyfin is a server package, not
+  # the app bundle the unit execs; the nixpkgs version tracked the
+  # pinned 10.11.11 anyway); a version bump edits this versioned path in
+  # the same PR as the role's jellyfin_version/jellyfin_release_sha256
+  # and moves the directory, so the generation flip re-takes the plist
+  # with the new path (the agent is in a KeepAlive retry loop until the
+  # role's gated DMG install lands) — the role's gate (jellyfin_ansible_managed)
+  # then re-writes it; plist + load tasks only, as every flip. The DMG
+  # install itself, the SSO-Auth plugin and the branding files stay
+  # role-rendered.
+  launchd.user.agents."mcquack.jellyfin".serviceConfig = {
+    Label = "mcquack.jellyfin";
+    ProgramArguments = [
+      "/Users/erichblume/opt/jellyfin-10.11.11/Jellyfin.app/Contents/MacOS/jellyfin"
+      "--service"
+      "--datadir"
+      "/Users/erichblume/Library/Application Support/jellyfin"
+      "--webdir"
+      "/Users/erichblume/opt/jellyfin-10.11.11/Jellyfin.app/Contents/Resources/jellyfin-web"
+    ];
+    WorkingDirectory = "/Users/erichblume/Library/Application Support/jellyfin";
+    RunAtLoad = true;
+    KeepAlive = true;
+    EnvironmentVariables = {
+      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+    };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.jellyfin.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.jellyfin.err.log";
   };
 }
