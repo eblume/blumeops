@@ -1,0 +1,1 @@
+external-secrets operator v2.11.0: mirror build bumped in `containers/external-secrets/default.nix` (Go floor 1.26.6, pinned go_1_26 1.26.7 — no nixpkgs pin change); CRDs already at `helm-chart-2.11.0` since eblume/blumeops#1271.
