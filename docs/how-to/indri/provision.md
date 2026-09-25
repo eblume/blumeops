@@ -150,12 +150,23 @@ Caddy is the widest daemon the series moves (PR 6): it fronts every
 `*.ops.eblu.me` endpoint and the L4 routes (forge ssh 2222, postgres
 5433/5434, the sifaka exporter ports). The unit is a nix-managed user agent
 (`mcquack.eblume.caddy`) at the same label and plist path the ansible
-role used; the xcaddy-built binary stays at `~/code/3rd/caddy` (out of
-nix's scope) and the `Caddyfile`, wrapper script and Gandi token file
-stay role-rendered — the role's gate (`caddy_ansible_managed`) covers
-only the plist + load tasks. Applying the flip is the usual
-`mise run provision-indri -- --tags rebuild` (no service-role tag):
-activation writes the plist in place and reloads the agent once.
+role used. The binary is a nixpkgs `caddy.withPlugins` build in the
+generation's `environment.systemPackages`; the `Caddyfile`, wrapper script
+and Gandi token file stay role-rendered, and the role's gate
+(`caddy_ansible_managed`) covers only the plist + load tasks.
+
+The binary flip (blumeops#1275) is two steps, in order: (1) the usual
+warrant apply `mise run provision-indri -- --tags rebuild` at the merge
+SHA — the package lands in the generation's closure, but the plist did
+not change, so **zero unit reloads are expected**; (2) one role-only
+`mise run provision-indri -- --tags caddy` from gilbert (it reads the
+Gandi PAT from 1Password) — it re-renders the wrapper, which now execs
+`/nix/var/nix/profiles/system/sw/bin/caddy`, and the role's restart
+handler reloads the agent. That restart **is** the flip. Because the
+switch is plist-unchanged, the pre-/nix boot race (blumeops#1225) never
+triggers EX_CONFIG here: `ProgramArguments[0]` is the on-disk wrapper,
+not a store path — bash starts at boot, the exec fails 127 during the
+window, and KeepAlive respawns until `/nix` mounts.
 
 The drill's blast radius is everything caddy fronts: with the unit
 unloaded, the forge API and ssh, the registry, and every image pull
@@ -394,9 +405,13 @@ borgmatic_metrics_ansible_managed=true -e forgejo_metrics_ansible_managed=true
 For the zot registry flip (PR 5), re-run `mise run provision-indri --
 --tags zot -e zot_ansible_managed=true`. Unlike the textfile
 collectors, zot is a real daemon: the registry is down between the
-rollback and the ansible re-write. For the caddy flip (PR 6), re-run
-`mise run provision-indri -- --tags caddy -e caddy_ansible_managed=true`
-— the widest outage: every `*.ops.eblu.me` endpoint and the L4 routes
+rollback and the ansible re-write. For the caddy flip, re-run
+`mise run provision-indri -- --tags caddy -e caddy_ansible_managed=true
+-e caddy_binary={{ caddy_checkout_binary }}` — the second `-e` repoints
+the wrapper at the `~/code/3rd/caddy` checkout build, which stays on disk
+until the post-flip cleanup (blumeops#1275). (The gate and `caddy_binary`
+are both needed: the gate re-deploys the rollback plist, the variable
+re-renders the wrapper's exec target.) — the widest outage: every `*.ops.eblu.me` endpoint and the L4 routes
 (2222/5433/5434 and the sifaka exporter ports) are down during the
 window, and no CI runs land while the forge is unreachable. For the
 forgejo runner flip (PR 7), re-run

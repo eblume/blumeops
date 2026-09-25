@@ -10,11 +10,33 @@ let
   # Where activation links the generation-owned mise config; mise follows
   # the symlink for reads and writes.
   miseConfigHome = "${config.system.primaryUserHome}/.config/mise/config.toml";
+
+  # Caddy the mcquack.eblume.caddy unit runs: nixpkgs caddy with the two
+  # plugins the Caddyfile actually uses (gandi = ACME DNS-01, l4 = the
+  # TCP routes) - the lineage successor to the xcaddy checkout build in
+  # ~/code/3rd/caddy, which stays as the rollback target until the flip
+  # is proven (eblume/blumeops#1275). It must be in systemPackages: the
+  # role-rendered wrapper execs it through the system profile's sw/bin,
+  # and a raw store path in that wrapper is not GC-rooted. The vendor
+  # hash is the TOFU'd output of the same derivation at the pinned
+  # nixpkgs rev (the go mod vendor output is platform-independent);
+  # indri's CI confirms it.
+  caddyWithPlugins = pkgs.caddy.withPlugins {
+    plugins = [
+      "github.com/caddy-dns/gandi@v1.1.0"
+      "github.com/mholt/caddy-l4@v0.1.2"
+    ];
+    hash = "sha256-aEoxvsD7aYwZdORc3iLO7TQ9vzj3bpKWqJ8eIBD/bzY=";
+  };
 in
 {
   # Explicit target platform: indri is an M1 Mac mini, and pinning it
   # keeps the flake evaluable (and checkable) from off-box hosts.
   nixpkgs.hostPlatform = "aarch64-darwin";
+
+  # The caddy unit's binary, rooted in the generation's closure (see
+  # caddyWithPlugins above). eblume/blumeops#1275.
+  environment.systemPackages = [ caddyWithPlugins ];
 
   # Determinate Nix owns the daemon, the /nix store, and the nix config
   # (/etc/nix/nix.custom.conf). nix-darwin aborts activation if
@@ -246,12 +268,18 @@ in
   # 5433/5434, the sifaka exporter ports): with the unit unloaded the
   # forge API/ssh, the registry, every image pull from the cluster and
   # indri's own runner reaching forge.ops.eblu.me - so no CI runs land
-  # either - go down until something reloads the unit. The unit stays a user LaunchAgent at the same
-  # label and plist path the ansible role used (logrotate's globs,
-  # alloy's log tails and services-check key on them). The binary stays
-  # the xcaddy build in ~/code/3rd/caddy (not yet nix-managed), and the
-  # Caddyfile, wrapper script and Gandi token file stay role-rendered:
-  # the role's gate covers only the plist + load tasks.
+  # either - go down until something reloads the unit. The unit stays a
+  # user LaunchAgent at the same label and plist path the ansible role
+  # used (logrotate's globs, alloy's log tails and services-check key on
+  # them). The binary is caddyWithPlugins from systemPackages, and the
+  # role-rendered wrapper execs it through the system profile's sw/bin
+  # (see the wrapper template), so it follows every switch and
+  # --rollback. ProgramArguments[0] stays the on-disk wrapper, not a
+  # store path: a store path there dies EX_CONFIG in the pre-/nix boot
+  # window (eblume/blumeops#1225), whereas bash-at-boot just fails the
+  # exec (127) and KeepAlive respawns it until /nix mounts. The
+  # Caddyfile, wrapper and Gandi token file stay role-rendered: the
+  # role's gate covers only the plist + load tasks.
   launchd.user.agents."mcquack.eblume.caddy".serviceConfig = {
     Label = "mcquack.eblume.caddy";
     ProgramArguments = [ "/Users/erichblume/.config/caddy/caddy-wrapper.sh" ];
