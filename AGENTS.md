@@ -187,7 +187,7 @@ must not depend on the warrant path to reach the cluster; see
 **Commands:** `argocd app list|get|diff|sync <app>`
 
 **From an agent session** the `argocd` CLI works, but *read-only*: the pod
-image wraps it with the `agents-readonly` account (get on applications and
+image wraps it with the `talos-argocd-readonly` account (get on applications and
 projects, nothing else — no sync, no logs, no exec, and Secret values are
 masked server-side). Use it to *inspect* — `argocd app list`, `argocd app
 get/diff <app>` — to confirm deployed reality instead of inferring it from

@@ -1,0 +1,1 @@
+Delete the retired ArgoCD accounts `workflow-bot` and `agents-readonly` (and their roles) from the ArgoCD ConfigMap and RBAC patches: consumers are cut over to `ci-argocd` (CI deploys) and `talos-argocd-readonly` (talos pod read-only inspection), so the old accounts and their 1Password tokens are dead weight. Cleanup leg of the principal-naming renames (eblume/blumeops#1163).

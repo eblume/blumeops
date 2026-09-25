@@ -95,7 +95,7 @@ If changes are pending, investigate whether docs or infrastructure is stale.
 ### From a Remote-Agent Session
 
 Remote-agent sessions can run the **ArgoCD** check: the pod's `argocd` is
-a read-only client (the `agents-readonly` account — `app list`/`get`/
+a read-only client (the `talos-argocd-readonly` account — `app list`/`get`/
 `diff` against `argocd.ops.eblu.me`, every write denied, Secret values
 masked server-side). What it cannot run: `kubectl`, ansible, and pulumi.
 Verify those claims against **repo state** — roles under `ansible/`,
