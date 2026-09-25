@@ -1,0 +1,1 @@
+The privileged Forgejo runner sandbox (`ringtail-priv-runner`, `instances.priv.hostPackages`) now carries `gnutar` and `uv`, so the `argocd-sync-apps` workflow's payload validation step (`git archive | tar -x` plus the PEP 723 `validate-argocd-apps` script) can actually run — its first real dispatch (2026-09-24) failed exit 127 on the missing `tar`.

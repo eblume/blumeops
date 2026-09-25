@@ -823,6 +823,7 @@ in
       hostPackages = with pkgs; [
         bash coreutils curl gawk gitMinimal gnused jq nodejs wget
         argocd flyctl _1password-cli kubectl
+        gnutar uv
       ];
       settings = {
         log.level = "info";
