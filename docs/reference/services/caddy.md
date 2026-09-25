@@ -19,7 +19,7 @@ Reverse proxy for `*.ops.eblu.me` services with automatic TLS via ACME DNS-01.
 | **Domain** | `*.ops.eblu.me` |
 | **HTTPS Port** | 443 |
 | **Config** | `ansible/roles/caddy/templates/Caddyfile.j2` |
-| **Binary** | Custom build with Gandi DNS plugin |
+| **Binary** | nixpkgs `caddy.withPlugins` (Gandi DNS + L4) in the generation; the role-rendered wrapper execs it via `/nix/var/nix/profiles/system/sw/bin/caddy` |
 | **Unit** | nix-managed LaunchAgent `mcquack.eblume.caddy` ([[indri]] flake) |
 
 ## Why Caddy?
@@ -112,9 +112,19 @@ Caddy has no authentication layer — it is a plain reverse proxy. Access contro
 
 The [[flyio-proxy]] routes all public traffic through Caddy. This is the path for `*.eblu.me` requests from the public internet. Caddy sees these as requests from the Fly VM with `Host: *.ops.eblu.me` headers — the same routes used by tailnet clients.
 
-## Custom Build
+## Binary Lineage
 
-Custom `xcaddy` build with Gandi DNS and L4 plugins. See [[build-caddy-with-plugins]] for build instructions and forge mirror details.
+The binary is a nixpkgs `caddy.withPlugins` build (Gandi DNS for ACME DNS-01
+and L4 for the TCP routes), declared in the [[indri]] flake's
+`environment.systemPackages` so it is in the generation's closure. The
+role-rendered wrapper execs it through the system profile's
+`/nix/var/nix/profiles/system/sw/bin/caddy` — the profile path, so it follows
+every switch and `--rollback` — and the LaunchAgent plist's
+`ProgramArguments[0]` stays the on-disk wrapper (a store path there would die
+`EX_CONFIG` in the pre-`/nix` boot window). The prior `xcaddy` checkout build
+at `~/code/3rd/caddy` is kept only as the rollback target until the post-flip
+cleanup; a rollback re-run repoints the wrapper at it. See
+[[build-caddy-with-plugins]] for the old checkout's build details.
 
 ## Related
 

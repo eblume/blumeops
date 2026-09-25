@@ -18,5 +18,21 @@
       # nixpkgs rev) instead of a checkout on disk.
       packages."aarch64-darwin".forgejo-runner =
         nixpkgs.legacyPackages."aarch64-darwin".forgejo-runner;
+
+      # Caddy the mcquack.eblume.caddy unit runs: nixpkgs caddy built with
+      # the two plugins the Caddyfile actually uses (gandi = ACME DNS-01,
+      # l4 = the TCP routes) - the lineage successor to the xcaddy build
+      # in ~/code/3rd/caddy, whose checkout stays as the rollback target
+      # until the flip is proven (eblume/blumeops#1275). The vendor hash
+      # TOFU'd in a pod build at this same nixpkgs rev (the vendored go
+      # module output is platform-independent); indri's CI confirms it.
+      packages."aarch64-darwin".caddy =
+        nixpkgs.legacyPackages."aarch64-darwin".caddy.withPlugins {
+          plugins = [
+            "github.com/caddy-dns/gandi@v1.1.0"
+            "github.com/mholt/caddy-l4@v0.1.2"
+          ];
+          hash = "sha256-aEoxvsD7aYwZdORc3iLO7TQ9vzj3bpKWqJ8eIBD/bzY=";
+        };
     };
 }
