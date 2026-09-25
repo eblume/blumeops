@@ -734,12 +734,6 @@ def main(
             pr = get_pr(client, pr_number, pr_api)
         number = pr["number"]
         origin_issue = resolve_origin_issue(pr, pr_repo)
-        if workflow == "provision-indri.yaml" and "pr" not in input_map:
-            # The verify job breadcrumbs the true verdict to the origin PR; the
-            # warrant request names it here so the apply dispatch carries it as
-            # the pr input (#1266).
-            input_map["pr"] = str(number)
-            inputs.append(f"pr={number}")
 
         touched = pr_touches_workflows(client, number, pr_api)
 

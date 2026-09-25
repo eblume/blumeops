@@ -1,6 +1,6 @@
 ---
 title: "Warrant: Approval-Gated Privileged Runs"
-modified: 2026-09-24
+modified: 2026-09-18
 last-reviewed: 2026-09-16
 tags:
   - explanation
@@ -259,11 +259,7 @@ The smallest thing that closes the loop end-to-end:
      local kernel, never reaching tailscaled's SSH server) is the
      documented, accepted runner story for the box — so the warrant applies
      a bound SHA's nix-darwin generation and the full ansible provision
-     (roles, `op read`) stays a human window. The apply is fire-and-forget:
-     it launches the detached switch and exits, and the dispatched
-     `provision-indri-verify` run polls the switch's `.status` sidecar as
-     the true verdict, which is what verify-runs closes the tracking task
-     from (eblume/blumeops#1266). provision-ringtail stays open:
+     (roles, `op read`) stays a human window. provision-ringtail stays open:
      it needs a runner that can drive `nixos-rebuild` on
      ringtail — likely the ringtail-side priv runner itself, and it must
      survive the network-restart hang (heph `01KTKW8VD3…`). The ringtail

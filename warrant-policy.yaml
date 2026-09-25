@@ -110,22 +110,18 @@ actions:
       Apply a bound blumeops SHA's nix-darwin generation to indri: darwin-rebuild
       switch via the zero-prompt `--tags rebuild` path (task guards, checkout to
       a root-owned /etc/blumeops, detached sudo -n -H darwin-rebuild), from the
-      host-mode indri runner (erichblume + NOPASSWD sudo). The job is
-      fire-and-forget (#1266): it launches the detached switch, exits green, and
-      dispatches provision-indri-verify.yaml, which polls the .status sidecar
-      and is the true verdict — verify-runs closes the tracking task from that
-      verify run, never the apply run. The rebuild path reads no vault — every
-      `op read` in the play is role-tagged — so the old Phase-2 gate
-      (blumeops-ci vault split + priv runner) never applied to the generation
-      flip; the full ansible provision (roles, secrets) stays a human window.
+      host-mode indri runner (erichblume + NOPASSWD sudo). Fire-and-forget
+      (#1266): a green run means the switch launched; its outcome is the
+      /var/log/indri-rebuild/<sha>.status sidecar on indri. The
+      rebuild path reads no vault — every `op read` in the play is role-tagged
+      — so the old Phase-2 gate (blumeops-ci vault split + priv runner) never
+      applied to the generation flip; the full ansible provision (roles,
+      secrets) stays a human window.
     binds_sha: revision
     inputs:
       revision:
         required: true
         pattern: "^[0-9a-f]{40}$"
-      pr:
-        required: false
-        pattern: "^[0-9]+$"
   # The full provision still reads the blumeops vault in its ansible pre_tasks,
   # and its root paths beyond the rebuild unit are open (the narrow rebuild
   # warrant is ringtail-rebuild.yaml).

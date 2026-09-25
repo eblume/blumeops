@@ -1,6 +1,6 @@
 ---
 title: Provision Indri
-modified: 2026-09-24
+modified: 2026-09-25
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -48,8 +48,11 @@ The checkout and rebuild tasks are tagged `rebuild`, so
 checkout the bound SHA into a root-owned `/etc/blumeops` (HTTPS from the
 forge, forced) and run `darwin-rebuild switch --flake
 /etc/blumeops/darwin/indri#indri` detached via `sudo -H nohup` — log at
-`/var/log/indri-rebuild/<sha>.log` plus a `.status` sidecar — and the play
-exits once the launch is verified; nothing waits in the play. `-H`
+`/var/log/indri-rebuild/<sha>.log` plus a `.status` sidecar (the exit
+code, written when the switch ends) — then wait (bounded, 60 min) and fail
+with the log embedded on non-zero exit. `-e indri_rebuild_wait=false`
+skips the wait (the warrant apply uses it, below); human runs keep it,
+because the service roles need the new generation before they run. `-H`
 matters: macOS `sudo` keeps `$HOME`, and root's `nix build` would otherwise
 leave root-owned files in `~erichblume/.cache/nix` that break the
 user-run flake check and the CI job on the indri runner.
@@ -66,16 +69,12 @@ first switch there is no `/run/current-system` at all (it appears only after
 an activation has run); after that it survives reboots (the first reboot
 test initially found BTM disallowing the daemon; see below).
 
-If the apply job dies mid-rebuild (pod replacement, the runner reloading —
-e.g. a plist-changing switch re-bootstraps the forgejo-runner agent and
-launchd SIGKILLs in-flight jobs ~60 s later, `ExitTimeOut` clamped in the
-gui domain), the switch keeps running detached and will have left
+If a run dies mid-rebuild (session drop, pod replacement, the wait
+timing out), the switch keeps running detached and will have left
 `/var/log/indri-rebuild/<sha>.status` (the exit code) and `.log`. The play
 only rebuilds when the checkout changes, so re-running the same commit
 reports clean and does not retry: read the status file before re-applying,
-and fix forward with a new commit if the switch failed. The
-`provision-indri-verify` workflow re-collects the verdict from the same
-sidecar.
+and fix forward with a new commit if the switch failed.
 
 ## Warrant-gated apply
 
@@ -85,18 +84,24 @@ workflow, so a generation flip is a warrant approval instead of a window.
 --why "…"` files the request (PR comment, heph task, Horkos queue); the
 approval dispatches the workflow on the indri runner, which runs exactly
 this path headless — the task guards, the checkout, the detached switch —
-and EXITS GREEN once the launch is verified: fire-and-forget, so a runner
-reload from a plist-changing apply kills nothing that matters. The apply
-job then dispatches `provision-indri-verify.yaml` — a fresh job that
-survives the reload — with the bound SHA and the origin PR; the verify job
-polls `/var/log/indri-rebuild/<sha>.status` and is the TRUE verdict —
-green on exit 0, red with the log tail otherwise — and while the switch is
-still running it breadcrumbs the origin PR. `verify-runs` closes the
-tracking task from the verify run, never the apply run. The run log ends
-with the generation identity — the system profile's store path before and
-after the switch. A content-identical SHA creates no new generation at all
-— nix dedupes to the existing store path and the profile never switches;
-the no-op run is the warrant path's own drill.
+with `indri_rebuild_wait=false`: the run launches the switch and exits.
+**A green run means the switch launched, not that it succeeded.** The job
+cannot wait: a switch that changes the forgejo-runner agent reloads it,
+and launchd kills the running job ~60 s later (see §Forgejo runner
+below). A content-identical SHA creates no new generation at all — nix
+dedupes to the existing store path and the profile never switches; the
+no-op run is the warrant path's own drill.
+
+If an applied change does not show up, check the switch's outcome on
+indri:
+
+```fish
+ssh indri cat /var/log/indri-rebuild/<sha>.status    # 0 = success
+ssh indri tail -100 /var/log/indri-rebuild/<sha>.log
+```
+
+No `.status` yet means the switch is still running. A non-zero status
+leaves indri on its previous generation; fix forward with a new commit.
 
 The warrant applies a generation, not a role: the dispatch is always
 `--tags rebuild`, so the job reads no vault and the full provision (roles,
@@ -217,11 +222,11 @@ declared value is not a real drain window (measured on macOS 26 — the
 plist says 10800, `launchctl print` reports 60, and agents without the
 key report the 5 s default). What survives is `AbandonProcessGroup`:
 the detached darwin-rebuild (nohup, same process group) is not killed
-with the agent, so the box still converges and the failure is the forge
-run, not the switch. The apply path's shape is now fire-and-forget: the
-apply run exits green once the switch is launched, and the verify run — a
-fresh job that survives the reload — reports the switch's true outcome
-(eblume/blumeops#1266). Rollback per §Rolling
+with the agent, so the box still converges. The warrant apply is
+therefore fire-and-forget (eblume/blumeops#1266): its run ends before the
+reload, and the outcome is read from the `.status` sidecar (§Warrant-gated
+apply). A human `--tags rebuild` run from gilbert waits over SSH and is
+unaffected. Rollback per §Rolling
 back a service flip, with the role's gate flipped.
 
 ## Forgejo
