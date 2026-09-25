@@ -15,7 +15,7 @@ let
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/prometheus.git";
     rev = "v${version}";
-    hash = "sha256-pmX3dU2dfZfmjFeipzcs8g5gx2Xlg4m9ee39+YFnHxs=";
+    hash = "sha256-7PSfh+KWUpmL3BZ7INa1DOZ/ysaXXdWG9n/F+H0cGYo=";
   };
 
   assets = pkgs.buildNpmPackage {
