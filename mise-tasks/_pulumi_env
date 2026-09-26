@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#MISE hide=true
+# Log a task into Pulumi Cloud from 1Password without leaving a token on disk.
+#
+#     source "$(dirname "$0")/_pulumi_env"
+#
+# Source it (don't run it) under `set -euo pipefail`, before the first pulumi
+# call. The stacks live in Pulumi Cloud, so every pulumi command needs a
+# token. It comes from op://blumeops/Pulumi/access-token; a PULUMI_ACCESS_TOKEN
+# already in the environment (e.g. CI) wins.
+#
+# Pulumi writes any token it validates into credentials.json, env-supplied or
+# not (pkg/backend/httpstate/backend.go, Current → storeUserAccount), and no
+# flag turns that off. PULUMI_CREDENTIALS_PATH moves just that file (plugins
+# stay in ~/.pulumi), so point it at a temp dir that the EXIT trap removes.
+# Setting it also stops pulumi's AI-agent fallback from signing up a throwaway
+# Pulumi account when no token is set. A task with its own EXIT trap must
+# include `rm -rf "$PULUMI_CREDENTIALS_PATH"` in it, since a later trap
+# replaces this one.
+PULUMI_ACCESS_TOKEN=${PULUMI_ACCESS_TOKEN:-$(op read "op://blumeops/Pulumi/access-token")}
+export PULUMI_ACCESS_TOKEN
+PULUMI_CREDENTIALS_PATH="$(mktemp -d)"
+export PULUMI_CREDENTIALS_PATH
+trap 'rm -rf "$PULUMI_CREDENTIALS_PATH"' EXIT

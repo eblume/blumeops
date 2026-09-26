@@ -1,6 +1,6 @@
 ---
 title: Expose a Service Publicly
-modified: 2026-04-18
+modified: 2026-09-26
 last-reviewed: 2026-04-18
 tags:
   - tutorials
@@ -187,6 +187,7 @@ mise run fly-setup
 Manual equivalent for reference:
 
 ```bash
+export PULUMI_ACCESS_TOKEN="$(op read 'op://blumeops/Pulumi/access-token')"
 cd pulumi/tailscale && pulumi stack output flyio_authkey --show-secrets
 # then in fly/:
 fly secrets set TS_AUTHKEY="tskey-auth-..." -a blumeops-proxy --stage
