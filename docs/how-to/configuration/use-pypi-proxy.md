@@ -1,7 +1,7 @@
 ---
 title: Use PyPI Proxy
-modified: 2026-02-07
-last-reviewed: 2026-02-25
+modified: 2026-09-26
+last-reviewed: 2026-09-26
 tags:
   - how-to
   - python
