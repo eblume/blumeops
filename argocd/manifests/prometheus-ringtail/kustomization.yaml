@@ -10,7 +10,7 @@ resources:
 
 images:
   - name: registry.ops.eblu.me/blumeops/prometheus
-    newTag: v3.12.0-8b1f89e-nix
+    newTag: v3.14.0-bc9bb92-nix@sha256:2069f69e8afcef147e3d34b0c7246a84a38b32b09eaa4b3ede2e9e6e80aeefae
 
 configMapGenerator:
   - name: prometheus-config
