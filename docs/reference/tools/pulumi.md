@@ -46,9 +46,12 @@ mise run tailnet-up      # Apply ACL/tag changes
 - **Gandi**: `GANDI_PERSONAL_ACCESS_TOKEN` (fetched from 1Password by the mise task)
 - **Tailscale**: `TAILSCALE_OAUTH_CLIENT_ID` + `TAILSCALE_OAUTH_CLIENT_SECRET` (fetched from 1Password by the mise task)
 - **Pulumi state**: Pulumi Cloud (app.pulumi.com), which also encrypts stack secrets. Every
-  task exports `PULUMI_ACCESS_TOKEN` from `op://blumeops/Pulumi/access-token` (unless it is
-  already set), so no host needs a stored `pulumi login`. Running `pulumi` by hand outside
-  the tasks needs the same variable, or a one-time `pulumi login`.
+  task sources `mise-tasks/_pulumi_env`, which exports `PULUMI_ACCESS_TOKEN` from
+  `op://blumeops/Pulumi/access-token` (unless it is already set) and points
+  `PULUMI_CREDENTIALS_PATH` at a temp dir removed on exit, since pulumi writes any token it
+  uses to `credentials.json`. No host needs a stored `pulumi login`, and none keeps the token.
+  Running `pulumi` by hand outside the tasks stores the token in `~/.pulumi/credentials.json`
+  unless you set `PULUMI_CREDENTIALS_PATH` the same way.
 
 ## Related
 

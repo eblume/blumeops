@@ -3,10 +3,7 @@
 
 set -euo pipefail
 
-# Pulumi Cloud holds the stack state; the token comes from 1Password so no
-# host needs a stored `pulumi login`. An already-set token (e.g. CI) wins.
-PULUMI_ACCESS_TOKEN=${PULUMI_ACCESS_TOKEN:-$(op read "op://blumeops/Pulumi/access-token")}
-export PULUMI_ACCESS_TOKEN
+source "$(dirname "$0")/_pulumi_env"
 
 GANDI_PERSONAL_ACCESS_TOKEN=$(op read "op://blumeops/gandi - blumeops/pat")
 export GANDI_PERSONAL_ACCESS_TOKEN

@@ -14,16 +14,13 @@ set -euo pipefail
 VAULT="blumeops"
 ITEM="agent Tailscale Auth Key"
 
-# Pulumi Cloud holds the stack state; the token comes from 1Password so no
-# host needs a stored `pulumi login`. An already-set token (e.g. CI) wins.
-PULUMI_ACCESS_TOKEN=${PULUMI_ACCESS_TOKEN:-$(op read "op://blumeops/Pulumi/access-token")}
-export PULUMI_ACCESS_TOKEN
+source "$(dirname "$0")/_pulumi_env"
 
 cd "$(dirname "$0")/../pulumi/tailscale"
 KEY="$(pulumi stack output --show-secrets agent_authkey)"
 [ -n "$KEY" ] || { echo "empty agent_authkey from pulumi output" >&2; exit 1; }
 
-tmp="$(mktemp)"; trap 'rm -f "$tmp" "$tmp.err" "$tmp.new"' EXIT
+tmp="$(mktemp)"; trap 'rm -f "$tmp" "$tmp.err" "$tmp.new"; rm -rf "$PULUMI_CREDENTIALS_PATH"' EXIT
 if op item get "$ITEM" --vault "$VAULT" --format json > "$tmp" 2> "$tmp.err"; then
   # The probe output IS the item — no second get.
   jq --arg k "$KEY" '(.fields |= map(if .label=="authkey" then .value=$k else . end))' "$tmp" > "$tmp.new"

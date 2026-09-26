@@ -5,10 +5,7 @@ set -euo pipefail
 
 APP="blumeops-proxy"
 
-# Pulumi Cloud holds the stack state; the token comes from 1Password so no
-# host needs a stored `pulumi login`. An already-set token (e.g. CI) wins.
-PULUMI_ACCESS_TOKEN=${PULUMI_ACCESS_TOKEN:-$(op read "op://blumeops/Pulumi/access-token")}
-export PULUMI_ACCESS_TOKEN
+source "$(dirname "$0")/_pulumi_env"
 
 # Fetch Tailscale auth key from Pulumi state
 echo "Fetching Tailscale auth key from Pulumi..."
