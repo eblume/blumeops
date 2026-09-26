@@ -31,3 +31,21 @@ protocol = "udp"
 
 [[services.ports]]
 port = 41641
+
+# --- Static forge mirror (fly/git-mirror/README.md, Part of eblume/blumeops#1208) ---
+# Holds the pushed bare repos + generated stagit site under
+# /volume/git-mirror. Sized for the seven allowlisted repos (~1 GB today)
+# with headroom; created idempotently by `mise run fly-setup`. On
+# machine replacement the volume reattaches and the post-start
+# init (start.sh) recreates the site from the repos.
+#
+# The tailscale node key is also persisted here (/volume/tailscale,
+# bind-mounted over /var/lib/tailscale in start.sh): with a durable node
+# identity the fly node keeps its `flyio-proxy` MagicDNS name and CGNAT IP
+# across restarts, which is what makes the mirror's SSH push endpoint
+# (sshd :22, forced git-shell only, tailnet-reachable via WireGuard)
+# addressable over a stable name. This retires the documented node-name
+# drift — see [[manage-flyio-proxy#Tailscale Node Name Drift]].
+[[mounts]]
+source = "git-mirror"
+destination = "/volume"

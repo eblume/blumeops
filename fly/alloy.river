@@ -129,6 +129,14 @@ prometheus.scrape "anubis" {
   scrape_interval = "15s"
 }
 
+// Static mirror Anubis instance (start.sh, 127.0.0.1:9092) — its
+// challenge/deny metrics land under the same instance label.
+prometheus.scrape "anubis-mirror" {
+  targets         = [{"__address__" = "127.0.0.1:9092"}]
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "15s"
+}
+
 // Strip the "loki_process_custom_" prefix that Alloy adds to stage.metrics,
 // then add instance label. This keeps dashboard queries clean.
 prometheus.relabel "instance" {

@@ -11,7 +11,16 @@ RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
     && apk add --no-cache iptables ip6tables \
     && apk add --no-cache libc6-compat \
     && apk add --no-cache fail2ban \
-    && rm -f /etc/fail2ban/jail.d/alpine-ssh.conf
+    && rm -f /etc/fail2ban/jail.d/alpine-ssh.conf \
+    # Static forge mirror (staging vhost blumeops-proxy.fly.dev, see
+    # fly/git-mirror/README.md): git for bare mirror repos + dumb HTTP
+    # (update-server-info), openssh-server for the forced git-shell
+    # `mirror` user that receives Forgejo push-mirror pushes, stagit to
+    # generate the browsable HTML (Alpine community stagit is the C
+    # version; the single-shell stagit fork it was modeled on is gone).
+    # None of the allowlisted repos carries LFS (no .gitattributes,
+    # verified 2026-09-25), so no git-lfs.
+    && apk add --no-cache git=2.54.0-r0 openssh-server=10.3_p1-r1 stagit=1.2-r8
 
 # Copy Alloy binary from official image (v1.19.2, Ubuntu-based, needs libc6-compat)
 COPY --from=docker.io/grafana/alloy@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839 \
@@ -38,6 +47,24 @@ COPY tombstone.html /usr/share/nginx/html/tombstone.html
 COPY naughty.html /usr/share/nginx/html/naughty.html
 COPY landing/ /usr/share/nginx/html/landing/
 COPY alloy.river /etc/alloy/config.alloy
+COPY git-mirror/post-receive /usr/local/share/git-mirror/post-receive
+COPY git-mirror/gen-index.sh /usr/local/share/git-mirror/gen-index.sh
+COPY git-mirror/create-mirror.sh /usr/local/bin/create-mirror.sh
+COPY git-mirror/repos /usr/share/git-mirror/repos
+COPY git-mirror/authorized_keys /home/mirror/.ssh/authorized_keys
+COPY git-mirror/assets/ /usr/share/git-mirror/assets/
+
+# Mirror user: forced git-shell commands only, no login shell, so the
+# authorized keys can run pushes but nothing else (see git-mirror/README.md).
+# sshd runs with hardening via -o flags in start.sh (no password, no root).
+RUN mkdir -p /home/mirror/.ssh \
+    && chmod 700 /home/mirror/.ssh \
+    && chmod 600 /home/mirror/.ssh/authorized_keys \
+    && chmod 755 /usr/local/share/git-mirror/post-receive /usr/local/share/git-mirror/gen-index.sh /usr/local/bin/create-mirror.sh \
+    && useradd -r -d /home/mirror -s /usr/bin/git-shell mirror \
+    && chown -R mirror:mirror /home/mirror \
+    && mkdir -p /run/sshd
+
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 

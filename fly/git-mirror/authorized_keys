@@ -1,0 +1,3 @@
+# Authorized public keys for the forced git-shell `mirror` user.
+# The push-mirror wiring PR commits the keys Forgejo auto-generates for the
+# push mirrors. Public keys only — never a private key here.

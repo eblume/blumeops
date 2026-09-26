@@ -1,7 +1,7 @@
 ---
 title: Manage Fly.io Proxy
-modified: 2026-08-06
-last-reviewed: 2026-04-18
+modified: 2026-09-25
+last-reviewed: 2026-09-25
 tags:
   - how-to
   - fly-io
@@ -47,7 +47,7 @@ mise run fly-shutoff
 All public services go offline immediately. Tailscale tunnel drops. Zero traffic reaches indri. Restore with `fly scale count 1 -a blumeops-proxy`.
 
 **Level 2 — Revoke Tailscale access (seconds):**
-Remove the `flyio-proxy` node (or its current suffixed variant, e.g. `flyio-proxy-2` — see [Tailscale Node Name Drift](#tailscale-node-name-drift)) in the Tailscale admin console. Even if the container is running, it cannot reach the tailnet. Use this if the container itself may be compromised.
+Remove the `flyio-proxy` node in the Tailscale admin console. Even if the container is running, it cannot reach the tailnet. Use this if the container itself may be compromised.
 
 **Level 3 — Remove DNS (minutes to hours):**
 Delete the CNAME records at Gandi. Takes time for DNS propagation but is the permanent shutoff.
@@ -82,32 +82,44 @@ The auth key expires every 90 days. To rotate:
 
 See [[rotate-fly-deploy-token]] for the full rotation procedure (75-day cadence, `org`-scoped).
 
-## Tailscale Node Name Drift
+## Static Forge Mirror
 
-The proxy's Tailscale node name drifts on each machine restart — it appears as
-`flyio-proxy`, then `flyio-proxy-1`, `flyio-proxy-2`, and so on. **This is
-expected and benign; no action is needed.**
+The app also serves a read-only mirror of the allowlisted public forge
+repos — stagit HTML + git dumb HTTP — at `blumeops-proxy.fly.dev`
+(staging; `forge.eblu.me` flips to it in the cutover). The mirror's bare
+repos and generated site live on the `git-mirror` Fly volume. Full
+design, layout and verification: `fly/git-mirror/README.md`.
 
-**Why it happens:** `tailscaled --statedir=/var/lib/tailscale` (`fly/start.sh`)
-persists the node identity (node key), but `fly.toml` has no `[[mounts]]` block,
-so that directory lives on the Firecracker microVM's ephemeral rootfs and is
-wiped on every restart/redeploy. Each boot, `tailscale up --hostname=flyio-proxy`
-registers a brand-new node. If the prior node has not yet been garbage-collected,
-Tailscale resolves the name collision by appending an incrementing suffix.
+- **First deploy of a mirror image:** `mise run fly-setup` (creates the
+  volume idempotently) **before** the `deploy-fly` run — a machine
+  declared with a `[[mounts]]` block that has no volume fails to start,
+  and the deploy workflow's health check fails fatally.
+- **Machine replacement:** nothing to do. The volume reattaches and
+  `start.sh` regenerates the site from the repos.
+- **Growth:** the volume is 5 GB (seven repos ≈ 1 GB today).
+  `fly volumes resize` if it ever fills.
 
-The auth key is `ephemeral=True` (`pulumi/tailscale/__main__.py`), so offline
-nodes auto-GC within minutes — orphans do not accumulate. Routing and ACLs are
-tag-based (`tag:flyio-proxy`), not name-based, so the suffix has no functional
+## Tailscale Node Identity (was: Node Name Drift)
+
+The node keeps a **stable** identity: `tailscaled --statedir=/var/lib/tailscale`
+is backed by the `git-mirror` volume via a bind mount in `fly/start.sh`
+(`/volume/tailscale`), so the node key — and with it the `flyio-proxy`
+name and CGNAT IP — survive machine
+replacement. This is the fix that was reviewed and declined on 2026-06-25
+when the app was stateless; the static mirror needs the volume for its
+repos anyway, and the stable address is what makes the mirror's SSH push
+endpoint addressable. The volume-anchors-the-machine tradeoff is
+accepted: the mirror repos are state that must outlive machine
+replacement regardless, and Fly reschedules on the volume's host only if
+that host fails.
+
+**Pre-2026-09-25 behaviour** (for orientation in old notes): without the
+mount, `/var/lib/tailscale` lived on the ephemeral rootfs, each boot
+registered a new node, and the name drifted `flyio-proxy` →
+`flyio-proxy-1` → … The auth key is `ephemeral=True`
+(`pulumi/tailscale/__main__.py`), so orphans auto-GC; routing and ACLs
+are tag-based (`tag:flyio-proxy`), so the suffix never had a functional
 impact.
-
-**The fix we chose not to apply:** Mounting a Fly volume at `/var/lib/tailscale`
-(`fly volumes create … ` + a `[[mounts]]` block) would persist the node key
-across restarts, so the node reconnects with stable identity and keeps the
-canonical `flyio-proxy` name. We deliberately don't do this: a Fly volume is
-pinned to a single physical host, which anchors the otherwise stateless proxy
-and hurts Fly's freedom to reschedule the machine on host failure. For a
-stateless edge proxy, statelessness is worth more than a stable node name.
-(Reviewed and closed 2026-06-25.)
 
 ## Troubleshooting
 
