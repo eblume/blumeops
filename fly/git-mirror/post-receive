@@ -14,7 +14,7 @@ branch=""
 while read -r _ new ref; do
     case "$ref" in
         refs/heads/*)
-            if [ "$new" = "000000000000000000000000000000000000" ]; then
+            if [ "$new" = "0000000000000000000000000000000000000000" ]; then
                 continue
             fi
             b=${ref#refs/heads/}
@@ -41,6 +41,10 @@ cd "$sitedir/$o/$n"
 # rebuild.
 rm -f .htmlcache
 rm -rf commit file
+# Re-pack after each push: loose objects multiply the dumb-HTTP
+# requests a clone makes (one per object) until git's auto-repack
+# threshold; at these repo sizes a full repack is cheap.
+git --git-dir="$reposdir/$o/$n.git" repack -a -d
 stagit -c .htmlcache -u "$baseurl" "$reposdir/$o/$n.git" >/dev/null
 ln -sf log.html index.html
 ln -sf ../../style.css style.css

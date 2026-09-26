@@ -94,24 +94,32 @@ design, layout and verification: `fly/git-mirror/README.md`.
   volume idempotently) **before** the `deploy-fly` run — a machine
   declared with a `[[mounts]]` block that has no volume fails to start,
   and the deploy workflow's health check fails fatally.
-- **Machine replacement:** nothing to do. The volume reattaches and
-  `start.sh` regenerates the site from the repos.
+- **Machine replacement:** nothing to do unless the node was offline
+  long enough for Tailscale to reclaim its ephemeral key — then the name
+  re-auths on boot (see below). The volume reattaches and `start.sh`
+  regenerates the site from the repos.
 - **Growth:** the volume is 5 GB (seven repos ≈ 1 GB today).
   `fly volumes resize` if it ever fills.
 
 ## Tailscale Node Identity (was: Node Name Drift)
 
-The node keeps a **stable** identity: `tailscaled --statedir=/var/lib/tailscale`
+The volume persists the node key: `tailscaled --statedir=/var/lib/tailscale`
 is backed by the `git-mirror` volume via a bind mount in `fly/start.sh`
-(`/volume/tailscale`), so the node key — and with it the `flyio-proxy`
-name and CGNAT IP — survive machine
-replacement. This is the fix that was reviewed and declined on 2026-06-25
+(`/volume/tailscale`), so a boot reconnects with the existing identity —
+the `flyio-proxy` name and CGNAT IP — and skips the auth key, which also
+covers boots during an auth-key expiry gap. This is the fix that was
+reviewed and declined on 2026-06-25
 when the app was stateless; the static mirror needs the volume for its
-repos anyway, and the stable address is what makes the mirror's SSH push
-endpoint addressable. The volume-anchors-the-machine tradeoff is
-accepted: the mirror repos are state that must outlive machine
-replacement regardless, and Fly reschedules on the volume's host only if
-that host fails.
+repos anyway, and the reconnecting identity is what keeps the mirror's
+SSH push endpoint addressable. It is not indefinitely stable: the auth
+key is `ephemeral=True` (`pulumi/tailscale/__main__.py`) — Tailscale
+reclaims offline ephemeral nodes, so after a long offline period the
+name drifts again until the next re-auth. A non-ephemeral key would
+make it truly stable; that goes in the push-wiring PR.
+
+The volume-anchors-the-machine tradeoff is accepted: the mirror repos
+are state that must outlive machine replacement regardless, and Fly
+reschedules on the volume's host only if that host fails.
 
 **Pre-2026-09-25 behaviour** (for orientation in old notes): without the
 mount, `/var/lib/tailscale` lived on the ephemeral rootfs, each boot

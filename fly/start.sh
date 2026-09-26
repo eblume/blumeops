@@ -8,19 +8,38 @@ set -e
 # completes. Fly.io runs Firecracker microVMs that support TUN devices
 # natively — no need for --tun=userspace-networking.
 # Tailscale state (node key + serve config) lives on the Fly volume via a
-# bind mount, so the node keeps its identity (name + CGNAT IP) across
-# machine replacement — the mirror's SSH endpoint is addressed by the
-# stable MagicDNS name (fly.toml). A fresh volume simply gets a fresh
-# identity, as before.
+# bind mount: a persisted node key reconnects with its existing identity
+# instead of re-authing with the auth key on every boot. The key is
+# ephemeral (pulumi/tailscale), so a long-offline node is reclaimed and
+# its boot re-auths — the name is stable for the node's lifetime, not
+# guaranteed forever (see docs/how-to/operations/manage-flyio-proxy.md).
 mkdir -p /volume/tailscale
-mount --bind /volume/tailscale /var/lib/tailscale 2>/dev/null || true
+mount --bind /volume/tailscale /var/lib/tailscale || echo "WARNING: tailscale state bind mount failed — node identity will not persist"
 tailscaled --statedir=/var/lib/tailscale --port=41641 &
 sleep 2
-# A persisted node key (volume) reconnects with its existing identity —
-# no auth key needed, so a boot during an auth-key expiry gap still works.
-# A fresh volume logs in with the key. (whoami, not status: status exits
-# 0 in the transient "Starting" state even when not logged in.)
-if ! tailscale whoami > /dev/null 2>&1; then
+# A persisted node key (volume) that is still registered reconnects
+# without any auth key, so a boot during an auth-key expiry gap still
+# works. BackendState (not `whoami`, which is not a tailscale
+# subcommand, and not plain `status`, which exits 0 while
+# reconnecting): "Running" means already connected. Anything else —
+# fresh volume (NoState), key deleted server-side (NeedsLogin) — logs
+# in with the key. The key is ephemeral (pulumi/tailscale), so an
+# offline node is eventually reclaimed and its boot re-auths.
+# Poll until the state settles: a persisted-key reconnect is
+# "Starting" for a moment, and a boot that re-auths in that window
+# wastes the auth key (and fails if it has expired). Settled means
+# Running (connected) or a stable logged-out state.
+state=""
+n=15
+while [ "$n" -gt 0 ]; do
+    # status can still be erroring while tailscaled starts: an empty
+    # parse (not a settled state) just loops on.
+    state=$(tailscale status --json 2>/dev/null | jq -r '.BackendState // "NoState"' 2>/dev/null || true)
+    case "$state" in Running|NoState|NeedsLogin) break ;; esac
+    sleep 1
+    n=$((n-1))
+done
+if [ "$state" != "Running" ]; then
     tailscale up --authkey="${TS_AUTHKEY}" --hostname=flyio-proxy
 fi
 until tailscale status > /dev/null 2>&1; do sleep 1; done
@@ -66,15 +85,43 @@ COOKIE_DYNAMIC_DOMAIN=1 \
 anubis &
 echo "Anubis (mirror) started"
 
-# Start sshd — the mirror's git-shell push endpoint. WireGuard delivers
-# tailnet traffic to the node's CGNAT IP directly (no `tailscale serve`
-# — the tailnet has no autoAppCaps policy), so :22 is never public; the
-# only client allowed on it is the private forge (tag:forge ->
-# tag:flyio-proxy:22 ACL grant), and only as forced git commands (mirror
-# user, no shell). -o overrides harden regardless of distro config drift.
-ssh-keygen -A
-mkdir -p /run/sshd
-/usr/sbin/sshd -D -e -o PasswordAuthentication=no -o PermitRootLogin=no -o X11Forwarding=no &
+# Start sshd — the mirror's git-shell push endpoint. The tailnet
+# (WireGuard) reaches the node's Tailscale IP directly (no `tailscale
+# serve` — the tailnet has no autoAppCaps policy), and the only client
+# allowed on it will be the private forge (tag:forge ->
+# tag:flyio-proxy:22 ACL grant, push-wiring PR), forced git commands
+# only (mirror user, no shell).
+#
+# Host keys live on the volume: Forgejo push mirrors use
+# StrictHostKeyChecking=accept-new (TOFU) against a per-instance
+# known_hosts, so keys regenerated on each deploy would break every
+# mirror after its first sync. Copied into /etc/ssh (not symlinked:
+# sshd checks private-key permissions, and symlinks report 777).
+#
+# Listens on loopback only until the push-wiring PR adds the :22 ACL
+# grant; the tailnet ListenAddress is commented out with the switch.
+# Bind happens when sshd starts, so the tailnet IP must be up first —
+# a missing address makes sshd refuse the listen socket and exit.
+mkdir -p /volume/ssh /etc/ssh /run/sshd
+if [ ! -f /volume/ssh/ssh_host_ed25519_key ]; then
+    ssh-keygen -A -f /volume/ssh || echo "WARNING: ssh host key generation failed"
+fi
+cp -p /volume/ssh/ssh_host_* /etc/ssh/ || echo "WARNING: ssh host key copy failed"
+
+# Unquoted on purpose — space-separated -o flags sshd must see as words.
+listen_addresses="-o ListenAddress=127.0.0.1"
+# wait for the Tailscale interface IP, then:
+# for i in $(seq 1 15); do
+#     tscidr=$(ip -4 -o addr show tailscale0 2>/dev/null | awk '{print $4}')
+#     [ -n "$tscidr" ] && break
+#     sleep 1
+# done
+# if [ -n "$tscidr" ]; then
+#     listen_addresses="$listen_addresses -o ListenAddress=${tscidr%%/*}"
+# else
+#     echo "WARNING: tailscale0 address never appeared — sshd stays on loopback"
+# fi
+/usr/sbin/sshd -D -e $listen_addresses -o PasswordAuthentication=no -o PermitRootLogin=no -o X11Forwarding=no -o AllowUsers=mirror &
 SSHD_PID=$!
 if ! kill -0 "$SSHD_PID" 2>/dev/null; then
     echo "WARNING: sshd failed to start (mirror push will not work)"
@@ -101,14 +148,14 @@ alloy run /etc/alloy/config.alloy \
 echo "Alloy started"
 
 # Static mirror init (fly/git-mirror/README.md). Post-start, on a best
-# effort basis: it only touches the volume (no tailnet needed), and a
-# first deploy where fly-setup has not yet created the volume is a
-# valid state — the staging vhost 302s to forge.ops.eblu.me until then.
-if [ -d /volume/git-mirror ]; then
+# effort basis: it only touches the volume (no tailnet needed). Gate on
+# the volume mount, not a subdirectory — a fresh volume is empty, and
+# create-mirror.sh creates /volume/git-mirror itself (mkdir -p).
+if mountpoint -q /volume; then
     /usr/local/bin/create-mirror.sh || \
         echo "WARNING: git-mirror init failed (staging vhost will 302 until fixed)"
 else
-    echo "git-mirror init skipped — /volume/git-mirror not present (run mise run fly-setup)"
+    echo "git-mirror init skipped — no volume attached (run mise run fly-setup)"
 fi
 
 # Block on nginx — container exits if nginx stops

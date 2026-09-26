@@ -40,12 +40,12 @@ port = 41641
 # init (start.sh) recreates the site from the repos.
 #
 # The tailscale node key is also persisted here (/volume/tailscale,
-# bind-mounted over /var/lib/tailscale in start.sh): with a durable node
-# identity the fly node keeps its `flyio-proxy` MagicDNS name and CGNAT IP
-# across restarts, which is what makes the mirror's SSH push endpoint
-# (sshd :22, forced git-shell only, tailnet-reachable via WireGuard)
-# addressable over a stable name. This retires the documented node-name
-# drift — see [[manage-flyio-proxy#Tailscale Node Name Drift]].
+# bind-mounted over /var/lib/tailscale in start.sh): a reboot reconnects
+# with the existing identity without the auth key, so the mirror's SSH
+# push endpoint (sshd :22, forced git-shell only, tailnet-reachable via
+# WireGuard) stays addressable across restarts. The key is still
+# ephemeral (pulumi/tailscale), so a long-offline node is reclaimed and
+# its next boot re-auths with the key.
 [[mounts]]
 source = "git-mirror"
 destination = "/volume"

@@ -50,6 +50,10 @@ while IFS= read -r entry; do
     cp /usr/local/share/git-mirror/post-receive "$repo/hooks/post-receive"
     chmod +x "$repo/hooks/post-receive"
     fix_head "$repo"
+    # See post-receive: keep clones on packs; skip empty repos — repacking those fails.
+    if git --git-dir="$repo" rev-parse -q --verify HEAD >/dev/null 2>&1; then
+        git --git-dir="$repo" repack -a -d
+    fi
     n=$((n+1))
 done < /usr/share/git-mirror/repos
 

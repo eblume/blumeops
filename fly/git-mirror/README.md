@@ -28,15 +28,18 @@ The private forge's push-mirror sync pushes over SSH to:
 git@flyio-proxy.tail8d86e.ts.net:/volume/git-mirror/repos/eblume/<name>.git
 ```
 
-- **Stable address:** the fly node's tailscale identity (node key) is
+- **Reconnecting address:** the fly node's tailscale node key is
   persisted on the volume (`/volume/tailscale`, bind-mounted over
-  `/var/lib/tailscale` in `fly/start.sh`), so the `flyio-proxy` MagicDNS
-  name and CGNAT IP survive machine replacement.
-  This retires the previously documented node-name drift — see
-  [[manage-flyio-proxy#Tailscale Node Name Drift]].
-- **Reachable, not public:** the in-VM `sshd` listens on :22 and is
-  delivered by WireGuard directly to the node's Tailscale IP — the public
-  internet has no route to it at all (no public `:22` service). (No
+  `/var/lib/tailscale` in `fly/start.sh`), so a boot reconnects with
+  the existing identity — no re-auth with the auth key. The key is
+  minted ephemeral (`pulumi/tailscale`), so a long-offline node is
+  reclaimed by Tailscale and its boot re-auths with the key; a
+  non-ephemeral key, if we want a truly stable name, goes in the
+  push-wiring PR.
+- **Reachable, not public:** the in-VM `sshd` is delivered by WireGuard
+  directly to the node's Tailscale IP — the public internet has no route
+  to it at all (no public `:22` service). Until the push-wiring PR adds
+  the tailnet ListenAddress + ACL grant, sshd listens on loopback only. (No
   `tailscale serve`: the tailnet has no autoAppCaps policy, and the
   `tag:flyio-proxy` node receives tailnet traffic on its CGNAT IP natively.)
 - **Credentials:** the private side holds the push-mirror **private**
@@ -56,6 +59,7 @@ git@flyio-proxy.tail8d86e.ts.net:/volume/git-mirror/repos/eblume/<name>.git
 ```
 /volume/
   tailscale/            # node key (bind-mounted over /var/lib/tailscale)
+  ssh/                  # ssh host keys (copied into /etc/ssh, start.sh)
   git-mirror/
     repos/eblume/<name>.git   # bare repos (push targets)
     site/                   # stagit output (served)
@@ -69,9 +73,9 @@ Adding or dropping a repo = edit that file + add/remove the forge push
 mirror; the next deploy regenerates the site from whatever is in
 `repos/`.
 
-## Operations
+## Cutover note
 
-**Cutover note:** the `baseurl` in `create-mirror.sh` and
+The `baseurl` in `create-mirror.sh` and
 `post-receive` (the clone URL stagit prints and the atom feed links)
 is the staging hostname. When `forge.eblu.me` flips to this site,
 rewrite it to `https://forge.eblu.me`, update each repo's `url` file,
@@ -79,8 +83,8 @@ and regenerate.
 
 ## Operations
 
-1. **First deploy:** `mise run fly-setup` (creates the `git-mirror`
-   volume, idempotent) **before** the deploy (`deploy-fly` warrant) —
+1. **First deploy:** `mise run fly-setup` (provisions the empty
+   `git-mirror` volume; idempotent) **before** the deploy (`deploy-fly` warrant) —
    a machine declared with a `[[mounts]]` block that has no volume
    fails to start. On boot, `fly/start.sh` runs
    `fly/git-mirror/create-mirror.sh`, which creates the bare repos,
