@@ -1,6 +1,6 @@
 ---
 title: Update Tailscale ACLs
-modified: 2026-09-25
+modified: 2026-09-26
 last-reviewed: 2026-09-25
 tags:
   - how-to
@@ -91,7 +91,8 @@ mise run tailnet-preview
 mise run tailnet-up
 ```
 
-Both tasks read the OAuth credentials from 1Password and select the
+Both tasks read the OAuth credentials and the Pulumi access token from
+1Password and select the
 `tail8d86e` stack before running `pulumi preview` / `pulumi up`.
 
 ## Verify

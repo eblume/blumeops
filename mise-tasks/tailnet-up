@@ -3,6 +3,11 @@
 
 set -euo pipefail
 
+# Pulumi Cloud holds the stack state; the token comes from 1Password so no
+# host needs a stored `pulumi login`. An already-set token (e.g. CI) wins.
+PULUMI_ACCESS_TOKEN=${PULUMI_ACCESS_TOKEN:-$(op read "op://blumeops/Pulumi/access-token")}
+export PULUMI_ACCESS_TOKEN
+
 TAILSCALE_OAUTH_CLIENT_ID=$(op read "op://blumeops/tailscale - blumeops/client_id")
 export TAILSCALE_OAUTH_CLIENT_ID
 TAILSCALE_OAUTH_CLIENT_SECRET=$(op read "op://blumeops/tailscale - blumeops/client_secret")

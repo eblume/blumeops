@@ -1,6 +1,6 @@
 ---
 title: Pulumi
-modified: 2026-04-02
+modified: 2026-09-26
 last-reviewed: 2026-04-02
 tags:
   - reference
@@ -45,7 +45,10 @@ mise run tailnet-up      # Apply ACL/tag changes
 
 - **Gandi**: `GANDI_PERSONAL_ACCESS_TOKEN` (fetched from 1Password by the mise task)
 - **Tailscale**: `TAILSCALE_OAUTH_CLIENT_ID` + `TAILSCALE_OAUTH_CLIENT_SECRET` (fetched from 1Password by the mise task)
-- **Pulumi state**: Local backend (no Pulumi Cloud)
+- **Pulumi state**: Pulumi Cloud (app.pulumi.com), which also encrypts stack secrets. Every
+  task exports `PULUMI_ACCESS_TOKEN` from `op://blumeops/Pulumi/access-token` (unless it is
+  already set), so no host needs a stored `pulumi login`. Running `pulumi` by hand outside
+  the tasks needs the same variable, or a one-time `pulumi login`.
 
 ## Related
 
