@@ -1,7 +1,7 @@
 ---
 title: Rotate the Gandi PAT
-modified: 2026-04-27
-last-reviewed: 2026-04-27
+modified: 2026-09-27
+last-reviewed: 2026-09-27
 tags:
   - how-to
   - dns
@@ -10,7 +10,7 @@ tags:
 
 # Rotate the Gandi PAT
 
-How to rotate the Gandi Personal Access Token. **One PAT** is shared by [[caddy]] (TLS via ACME DNS-01) and Pulumi (DNS records). It lives in 1Password at `op://blumeops/gandi - blumeops/pat`.
+How to rotate the Gandi Personal Access Token. **One PAT** is shared by [[caddy]] (TLS via ACME DNS-01) and Pulumi (DNS records). It lives in 1Password at `op://pulumi-esc/gandi - blumeops/pat`.
 
 ## When to rotate
 
@@ -23,7 +23,7 @@ Gandi caps PAT lifetime at 90 days; rotating at 60 leaves a 30-day buffer.
 ## Prerequisites
 
 - Access to the [Gandi PAT admin console](https://admin.gandi.net/organizations/1db8d76a-f729-11ed-b8d1-00163e94b645/account/pat)
-- 1Password (`blumeops` vault)
+- 1Password (`pulumi-esc` vault)
 - Ability to run `mise run provision-indri` (ssh to [[indri]] + 1Password biometric)
 
 ## Procedure
@@ -45,7 +45,7 @@ Copy the new PAT to your clipboard.
 ### 2. Update 1Password
 
 ```bash
-op item edit mco6ka3dc3rmw7zkg2dhia5d2m pat="$(pbpaste)" --vault vg6xf6vvfmoh5hqjjhlhbeoaie
+op item edit nji2aezc6zgm3dcl35ouqx2p54 pat="$(pbpaste)" --vault pulumi-esc
 ```
 
 ### 3. Push to indri
@@ -102,7 +102,7 @@ Check that the value on indri matches 1Password:
 
 ```bash
 diff <(ssh indri 'cat ~/.config/caddy/gandi-token') \
-     <(op read 'op://blumeops/gandi - blumeops/pat')
+     <(op read 'op://pulumi-esc/gandi - blumeops/pat')
 ```
 
 If they differ, `mise run provision-indri --tags caddy` was skipped or failed.
@@ -111,7 +111,7 @@ Confirm the new PAT works against Gandi directly:
 
 ```bash
 curl -s -o /dev/null -w "HTTP %{http_code}\n" \
-  -H "Authorization: Bearer $(op read 'op://blumeops/gandi - blumeops/pat')" \
+  -H "Authorization: Bearer $(op read 'op://pulumi-esc/gandi - blumeops/pat')" \
   https://api.gandi.net/v5/livedns/domains/eblu.me
 ```
 

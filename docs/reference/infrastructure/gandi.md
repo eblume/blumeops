@@ -1,7 +1,7 @@
 ---
 title: Gandi
-modified: 2026-04-27
-last-reviewed: 2026-04-27
+modified: 2026-09-27
+last-reviewed: 2026-09-27
 tags:
   - infrastructure
   - networking
@@ -20,7 +20,7 @@ DNS hosting provider for the `eblu.me` domain, managed via Pulumi IaC.
 | **Provider** | Gandi LiveDNS |
 | **IaC** | `pulumi/gandi/` |
 | **Stack** | `eblu-me` |
-| **PAT** | `op://blumeops/gandi - blumeops/pat` |
+| **PAT** | `op://pulumi-esc/gandi - blumeops/pat` |
 
 ## What It Does
 

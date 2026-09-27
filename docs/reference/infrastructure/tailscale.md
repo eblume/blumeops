@@ -1,7 +1,7 @@
 ---
 title: Tailscale
-modified: 2026-06-21
-last-reviewed: 2026-06-21
+modified: 2026-09-27
+last-reviewed: 2026-09-27
 tags:
   - infrastructure
   - networking
@@ -75,7 +75,7 @@ ProxyGroup pods (`tag:k8s`) can auto-approve their own VIP Services. This is req
 
 ## OAuth Credentials
 
-Pulumi uses OAuth client from 1Password (blumeops vault):
+Pulumi uses OAuth client from 1Password (pulumi-esc vault):
 - Scopes: acl, dns, devices, services
 - Auto-applies `tag:blumeops` to IaC-managed resources
 

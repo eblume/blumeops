@@ -1,7 +1,7 @@
 ---
 title: Manage eblu.me DNS Records
-modified: 2026-04-27
-last-reviewed: 2026-04-27
+modified: 2026-09-27
+last-reviewed: 2026-09-27
 tags:
   - how-to
   - dns
@@ -15,7 +15,7 @@ How to add, change, and apply DNS records for `eblu.me` via [[pulumi]].
 ## Prerequisites
 
 - Pulumi CLI installed (`brew install pulumi`)
-- 1Password access (`blumeops` vault) — Pulumi reads the Gandi PAT from there
+- 1Password access (`pulumi-esc` vault) — Pulumi reads the Gandi PAT from there
 - On the tailnet — Pulumi resolves [[indri]]'s IP via MagicDNS at apply time
 
 ## Preview and apply

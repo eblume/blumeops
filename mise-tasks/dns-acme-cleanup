@@ -29,7 +29,7 @@ from rich.table import Table
 DOMAIN = "eblu.me"
 RRSET = "_acme-challenge.ops"
 GANDI_API = "https://api.gandi.net/v5/livedns"
-OP_PAT_REF = "op://blumeops/gandi - blumeops/pat"
+OP_PAT_REF = "op://pulumi-esc/gandi - blumeops/pat"
 
 
 def resolve_token(console: Console) -> str:

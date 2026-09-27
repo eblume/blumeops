@@ -1,7 +1,7 @@
 ---
 title: Update Tailscale ACLs
-modified: 2026-09-26
-last-reviewed: 2026-09-25
+modified: 2026-09-27
+last-reviewed: 2026-09-27
 tags:
   - how-to
   - tailscale
@@ -15,7 +15,7 @@ How to modify Tailscale access control policies for the tailnet.
 ## Prerequisites
 
 - Pulumi (installed and pinned by `mise` — see `mise.toml`)
-- Access to 1Password blumeops vault (the tasks read the Tailscale OAuth
+- Access to 1Password pulumi-esc vault (the tasks read the Tailscale OAuth
   client credentials from it)
 
 ## Edit the Policy

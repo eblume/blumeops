@@ -251,7 +251,7 @@
     # Caddy Gandi token for ACME DNS-01 challenges
     - name: Fetch Gandi PAT for Caddy
       ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/mco6ka3dc3rmw7zkg2dhia5d2m/pat"
+        cmd: op read "op://ih6djacnpiqzb3byv3v4rafmfe/nji2aezc6zgm3dcl35ouqx2p54/pat"
       delegate_to: localhost
       register: _caddy_gandi_token
       changed_when: false
