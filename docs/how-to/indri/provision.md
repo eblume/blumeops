@@ -254,6 +254,33 @@ After the forward switch, verify forge UI + API, a git push, ssh 2222, a
 registry push, and a live talos session surviving the flip end-to-end.
 Rollback per §Rolling back a service flip, with the role's gate flipped.
 
+## Jellyfin
+
+Jellyfin is PR 9 of the series (part of eblume/blumeops#1291), and the
+first flip whose Label lacks the `.eblume.` segment: the role always
+rendered `mcquack.jellyfin`, and the in-place swap keeps it verbatim
+(alloy's log tails, logrotate's globs and [[restart-indri]] key on the
+name and the `mcquack.jellyfin.{out,err}.log` filenames).
+
+The generation runs the DMG-installed binary through the stable symlink
+`~/opt/jellyfin-current` (kept by the role's ungated tasks — nixpkgs'
+jellyfin is a server package, not the app bundle the unit execs).
+Installs are versioned and side by side, so a bump is role-only:
+`mise run provision-indri -- --tags jellyfin` installs next to the old
+version, repoints the symlink and restarts once via the handler — the
+nix unit never changes and the gate never flips. First-flip ordering:
+on the live box the generation flip must come only after
+`~/opt/jellyfin-current` exists — that is why the flip's `## Human
+steps` (issue eblume/blumeops#1291) runs the role first
+(`mise run provision-indri -- --tags jellyfin`) before the rebuild warrant.
+
+Applying the flip is the usual `mise run provision-indri -- --tags
+rebuild` (no service-role tag): activation writes the plist in place
+and reloads the agent once. The dedicated blackbox probe
+(eblume/blumeops#1230) is the canary; a dead agent also shows in the
+probe gap, unlike a quiet daemon. Rollback per §Rolling back a service
+flip, with the role's gate flipped.
+
 ## Pre-apply check: indri-flake-check
 
 `mise run indri-flake-check` builds `.#darwinConfigurations.indri.system` on
@@ -401,11 +428,12 @@ the old declarations): `ls -l /etc/resolver/ts.net` is a regular file,
 `ls /etc/ssh/sshd_config.d` shows only Apple's `100-macos.conf`, and
 `sudo sshd -t` passes.
 
-## Rolling back a service flip (PRs 2–8)
+## Rolling back a service flip (PRs 2–9)
 
 Each service migration writes its plist at the same path ansible used,
-under the same `mcquack.eblume.*` label (logrotate's globs and alloy's log
-tails key on it). Once a service is flipped, its ansible role is skipped by
+under the same label (logrotate's globs and alloy's log tails key on it
+— `mcquack.eblume.*` for every service, and the role's historical
+`mcquack.jellyfin` for jellyfin, which PR 9 keeps verbatim). Once a service is flipped, its ansible role is skipped by
 default (a role variable is off), so only the generation owns the plist
 — the plist is generation system content: a plist-only change is a new
 store path and therefore a new generation, and applying it reloads the
@@ -439,9 +467,13 @@ the forgejo flip (PR 8), re-run `mise run provision-indri -- --tags forgejo
 -e forgejo_ansible_managed=true` — the whole forge is down during the
 window: the forge API and git ssh (2222), every forge-bound git op from a
 talos session and every CI run, while caddy stays up (502s) and the
-registry stays up. Never ansible first
-— that would leave the old plist loaded under the new
-generation.
+registry stays up. For the jellyfin flip (PR 9), re-run
+`mise run provision-indri -- --tags jellyfin -e jellyfin_ansible_managed=true`
+— the media endpoints (`jellyfin.ops.eblu.me`) are down during the
+window; forge, the registry and every other endpoint stay up, and the
+dedicated blackbox probe witnesses both the flip and any regression.
+Never ansible first — that would leave the old plist loaded under the
+new generation.
 
 What the rollback itself does depends on the target generation
 (nix-darwin `modules/system/launchd.nix`, unchanged on master as of
@@ -461,7 +493,8 @@ ansible-core 2.19 rejects the string with "Conditionals must have a boolean
 result".
 
 Verifying an agent after a flip or a rollback: `launchctl print
-gui/501/mcquack.eblume.<name>` — `program =` names the owner (a
+"gui/$(id -u)/<label>"` (the launchd Label, not the service name —
+mcquack.jellyfin for jellyfin) — `program =` names the owner (a
 `/nix/store/…` path or ansible's) and `last exit code = 0`. `runs` is
 the climbing signal for the collectors; for a daemon, activation's
 reload is an unload+load, so the new instance starts at `runs = 1` —

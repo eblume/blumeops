@@ -1,6 +1,9 @@
 ---
 - name: Reload jellyfin
   ansible.builtin.shell: |
+    # The plist is generation-owned (PR 9); on a role-first run before the
+    # flip lands it does not exist yet, so there is nothing to load.
+    test -f ~/Library/LaunchAgents/mcquack.jellyfin.plist || exit 0
     launchctl unload ~/Library/LaunchAgents/mcquack.jellyfin.plist 2>/dev/null || true
     launchctl load ~/Library/LaunchAgents/mcquack.jellyfin.plist
   changed_when: true
