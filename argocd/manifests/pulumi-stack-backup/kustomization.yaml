@@ -7,7 +7,7 @@ resources:
   - cronjob.yaml
 # First-party Nix image, built from containers/pulumi-stack-backup (build
 # container: pulumi-stack-backup). The placeholder below keeps the app
-# inert until the first warrant build pushes the real tag and the pin PR
+# inert until the first build pushes the real tag and the pin PR
 # replaces it — nothing pulls or runs before that.
 images:
   - name: registry.ops.eblu.me/blumeops/pulumi-stack-backup

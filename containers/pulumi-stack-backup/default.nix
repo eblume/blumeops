@@ -39,7 +39,7 @@ pkgs.dockerTools.buildLayeredImage {
     pulumi
     pkgs.bashInteractive
     pkgs.coreutils
-    pkgs.tar
+    pkgs.gnutar
     pkgs.curl
     pkgs.cacert
   ];
