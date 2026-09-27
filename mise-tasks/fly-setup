@@ -19,14 +19,20 @@ echo "Tailscale auth key staged (will take effect on next deploy)"
 # Shared IPv4 is free and sufficient for HTTP/HTTPS services.
 # Use 'fly ips allocate-v4' (no --shared) for dedicated IPv4 ($2/mo)
 # if the service needs non-HTTP protocols.
+# allocate-v6 does not fail when one exists — it allocates another — so
+# check first (every earlier run leaked a dedicated v6).
 fly ips allocate-v4 --shared -a "$APP" 2>/dev/null || true
-fly ips allocate-v6 -a "$APP" 2>/dev/null || true
+if ! fly ips list -a "$APP" --json | grep -q '"Type": *"v6"'; then
+    fly ips allocate-v6 -a "$APP"
+fi
 echo "IPs allocated"
 
 # Static forge mirror volume (fly/git-mirror/README.md). Must exist before
 # the first deploy of an image with the [[mounts]] block; idempotent.
-if ! fly volumes list -a "$APP" --json 2>/dev/null | grep -q '"name": *"git-mirror"' ; then
-    fly volumes create git-mirror --size 5 -a "$APP"
+# Fly volume names allow only [a-z0-9_]; the region must match the
+# machine's (fly.toml primary_region), since a volume attaches only there.
+if ! fly volumes list -a "$APP" --json 2>/dev/null | grep -q '"name": *"git_mirror"' ; then
+    fly volumes create git_mirror --size 5 --region sjc -a "$APP" --yes
 fi
 echo "Mirror volume ready"
 
