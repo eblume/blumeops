@@ -1,7 +1,7 @@
 ---
 title: Fly.io Proxy
-modified: 2026-09-04
-last-reviewed: 2026-08-28
+modified: 2026-09-25
+last-reviewed: 2026-09-25
 tags:
   - service
   - networking
@@ -31,12 +31,24 @@ Public reverse proxy on [Fly.io](https://fly.io) that exposes selected BlumeOps 
 | `cv.eblu.me` | `cv.ops.eblu.me` | [[cv]] |
 | `forge.eblu.me` | `forge.ops.eblu.me` | [[forgejo]] |
 | `photos.eblu.me` | `photos.ops.eblu.me` | [[immich]] (shared links only) |
+| `blumeops-proxy.fly.dev` | *(served at the edge — Fly volume)* | [[#Static forge mirror]] |
 
 The apex landing page is the one service **not** tunneled to indri: it's a
 single static "under construction" splash served straight from nginx (files
 under `fly/landing/`, baked into the image), so it survives an indri or tunnel
 outage. Because a `CNAME` is illegal at the zone apex, `eblu.me` uses `A`/`AAAA`
 records to Fly's ingress IPs rather than the `CNAME` the subdomains use.
+
+## Static forge mirror
+
+Read-only mirror of the allowlisted public forge repos, served at the edge
+from a Fly volume (stagit HTML + git dumb HTTP, pushed by the private
+forge's push mirrors over tailnet SSH). Currently at the staging hostname
+`blumeops-proxy.fly.dev`; `forge.eblu.me` flips to it in the cutover PR
+([eblume/blumeops#1208](https://forge.eblu.me/eblume/blumeops/issues/1208)).
+Every path the static site does not serve 302s to `forge.ops.eblu.me`.
+Design and operations: `fly/git-mirror/README.md`,
+[[manage-flyio-proxy#Static Forge Mirror]].
 
 ## Architecture
 
@@ -67,6 +79,7 @@ If direct peering fails (observable via `tailscale ping indri` showing "via DERP
 | `pulumi/tailscale/__main__.py` | Auth key (`tag:flyio-proxy`) |
 | `pulumi/tailscale/policy.hujson` | ACL grants for proxy |
 | `pulumi/gandi/__main__.py` | DNS: subdomain CNAMEs + apex `A`/`AAAA` |
+| `fly/git-mirror/` | Static forge mirror: allowlist, push hooks, scripts |
 
 ## Networking
 

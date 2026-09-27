@@ -2,6 +2,8 @@
 #MISE description="[human] One-time setup: configure Fly.io secrets and certs (idempotent)"
 
 set -euo pipefail
+export FLY_API_TOKEN
+FLY_API_TOKEN="$(op read 'op://blumeops/fly.io admin/add more/deploy-token')"
 
 APP="blumeops-proxy"
 
@@ -20,6 +22,13 @@ echo "Tailscale auth key staged (will take effect on next deploy)"
 fly ips allocate-v4 --shared -a "$APP" 2>/dev/null || true
 fly ips allocate-v6 -a "$APP" 2>/dev/null || true
 echo "IPs allocated"
+
+# Static forge mirror volume (fly/git-mirror/README.md). Must exist before
+# the first deploy of an image with the [[mounts]] block; idempotent.
+if ! fly volumes list -a "$APP" --json 2>/dev/null | grep -q '"name": *"git-mirror"' ; then
+    fly volumes create git-mirror --size 5 -a "$APP"
+fi
+echo "Mirror volume ready"
 
 # Add certs for all public domains (idempotent — fly ignores duplicates)
 fly certs add eblu.me -a "$APP" 2>/dev/null || true

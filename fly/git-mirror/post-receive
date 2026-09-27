@@ -1,0 +1,59 @@
+#!/bin/sh
+# git post-receive hook: regenerate the static mirror after a push.
+# Runs as the `mirror` user, cwd = the pushed bare repo
+# (/volume/git-mirror/repos/<owner>/<name>.git).
+set -eu
+
+reposdir="/volume/git-mirror/repos"
+sitedir="/volume/git-mirror/site"
+baseurl="https://blumeops-proxy.fly.dev"
+
+# Pick a branch to point HEAD at while the repo has none (first push):
+# prefer main, else the first pushed branch.
+branch=""
+while read -r _ new ref; do
+    case "$ref" in
+        refs/heads/*)
+            if [ "$new" = "0000000000000000000000000000000000000000" ]; then
+                continue
+            fi
+            b=${ref#refs/heads/}
+            if [ "$b" = "main" ]; then
+                branch="main"
+            elif [ -z "$branch" ]; then
+                branch="$b"
+            fi
+            ;;
+    esac
+done
+if [ -n "$branch" ] && ! git rev-parse --verify -q HEAD >/dev/null 2>&1; then
+    git symbolic-ref HEAD "refs/heads/$branch"
+fi
+
+d=$(basename "$(pwd)")
+o=$(basename "$(dirname "$(pwd)")")
+n=${d%.git}
+mkdir -p "$sitedir/$o/$n"
+cd "$sitedir/$o/$n"
+
+# Regenerate everything from scratch. On a force push the old commit pages
+# are stale and the cache would append a wrong log, so drop both and
+# rebuild.
+rm -f .htmlcache
+rm -rf commit file
+# Re-pack after each push: loose objects multiply the dumb-HTTP
+# requests a clone makes (one per object) until git's auto-repack
+# threshold; at these repo sizes a full repack is cheap.
+git --git-dir="$reposdir/$o/$n.git" repack -a -d
+stagit -c .htmlcache -u "$baseurl" "$reposdir/$o/$n.git" >/dev/null
+ln -sf log.html index.html
+ln -sf ../../style.css style.css
+ln -sf ../../logo.png logo.png
+ln -sf ../../favicon.png favicon.png
+
+# Rebuild the root repo index across all mirrored repos.
+sh /usr/local/share/git-mirror/gen-index.sh "$reposdir" "$sitedir"
+
+# Dumb HTTP: refresh info/refs + objects/info/packs (cwd is the site
+# dir now, so name the repo explicitly).
+git --git-dir="$reposdir/$o/$n.git" update-server-info

@@ -690,6 +690,40 @@ services:
       manual COOKIE_PREFIX bump. Clients holding a v1.25 cookie re-challenge
       once after deploy; nothing in fly/ reads the cookie by name.
 
+  - name: flyio-git
+    type: fly
+    parent: flyio-nginx
+    last-reviewed: "2026-09-25"
+    current-version: "2.54.0-r0"
+    upstream-source: https://pkgs.alpinelinux.org/package/v3.24/main/x86_64/git
+    notes: >-
+      Static forge mirror (fly/git-mirror/): bare mirror repos + dumb HTTP
+      (git update-server-info) for the public read-only clone path.
+      apk-pinned in fly/Dockerfile (Alpine 3.24 main).
+
+  - name: flyio-openssh
+    type: fly
+    parent: flyio-nginx
+    last-reviewed: "2026-09-25"
+    current-version: "10.3_p1-r1"
+    upstream-source: https://pkgs.alpinelinux.org/package/v3.24/main/x86_64/openssh-server
+    notes: >-
+      Static forge mirror push endpoint: forced git-shell `mirror` user,
+      reachable tailnet-only (WireGuard delivers to the node's CGNAT IP;
+      no public :22). apk-pinned in fly/Dockerfile (Alpine 3.24 main).
+
+  - name: flyio-stagit
+    type: fly
+    parent: flyio-nginx
+    last-reviewed: "2026-09-25"
+    current-version: "1.2-r8"
+    upstream-source: https://pkgs.alpinelinux.org/package/v3.24/community/x86_64/stagit
+    notes: >-
+      Static forge mirror HTML generator (Alpine community stagit — the
+      C version; anarcat's single-shell fork it was modeled on is no
+      longer published). Regenerates per-repo pages from the bare
+      mirror repos on every push. apk-pinned in fly/Dockerfile.
+
   - name: ansible-core
     type: mise
     last-reviewed: 2026-09-17
