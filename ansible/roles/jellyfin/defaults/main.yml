@@ -1,17 +1,14 @@
 ---
 # Jellyfin media server configuration
 
-# Jellyfin on indri is nix-managed (darwin/indri, PR 9 of the nix-darwin
-# series): the generation owns the LaunchAgent plist, so a normal
-# provision must not re-deploy or reload it. Flip this to true only
-# for the rollback re-write (darwin-rebuild --rollback first, then
-# `mise run provision-indri -- --tags jellyfin -e jellyfin_ansible_managed=true`),
+# Jellyfin on indri is nix-managed (darwin/indri, PR 9): the generation
+# owns the LaunchAgent plist, so a normal provision must not re-deploy
+# or reload it.
+# Gate true only for the rollback re-write (darwin-rebuild --rollback
+# first): `mise run provision-indri -- --tags jellyfin -e jellyfin_ansible_managed=true`,
 # per docs/how-to/indri/provision.md §Rolling back a service flip.
-# A DMG version bump (jellyfin_version) moves the install directory the
-# plist points at, so the bump PR must also update the versioned path in
-# the nix unit (darwin/indri/configuration.nix); the generation flip
-# re-takes the plist with the new path, then a gated run re-writes it
-# from the template after the DMG install lands.
+# A DMG version bump is role-only: side-by-side install + jellyfin-current
+# symlink repoint + handler restart; the nix unit never changes.
 
 jellyfin_ansible_managed: false
 
@@ -41,6 +38,10 @@ jellyfin_dmg_mountpoint: "/tmp/jellyfin-{{ jellyfin_version }}-{{ jellyfin_macos
 # Install location; versioned so a bump lands side-by-side with the old one.
 # Replaces the Homebrew cask's /Applications/Jellyfin.app.
 jellyfin_install_dir: "{{ ansible_facts.env.HOME }}/opt/jellyfin-{{ jellyfin_version }}"
+
+# Stable path the nix-darwin unit and the symlink below point at; the role's
+# only symlink.
+jellyfin_current_dir: "{{ ansible_facts.env.HOME }}/opt/jellyfin-current"
 jellyfin_app_path: "{{ jellyfin_install_dir }}/Jellyfin.app"
 jellyfin_binary: "{{ jellyfin_app_path }}/Contents/MacOS/jellyfin"
 

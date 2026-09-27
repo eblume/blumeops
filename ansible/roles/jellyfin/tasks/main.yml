@@ -80,6 +80,19 @@
   changed_when: true
   when: not jellyfin_binary_stat.stat.exists
 
+# The nix-darwin unit execs through this stable link; a bump or a rollback
+# repoints it. Runs after the copy lands and unguarded (a rollback re-points
+# at a version that is already installed, so it must not follow the DMG
+# install's skip condition); an unchanged link reports no change, so a
+# steady-state run does not reload.
+- name: Point the jellyfin-current symlink at the pinned version
+  ansible.builtin.file:
+    path: "{{ jellyfin_current_dir }}"
+    state: link
+    force: true
+    src: "{{ jellyfin_install_dir }}"
+  notify: Reload jellyfin
+
 - name: Unmount Jellyfin DMG
   # Same helper as the stray cleanup: one code path, and its -force detach
   # rides out a Spotlight indexer still holding the volume after the copy.
@@ -127,11 +140,9 @@
     mode: '0755'
 
 # Skipped by default: the nix-darwin generation owns this service's
-# LaunchAgent plist (PR 9 of the indri series). The plist and load
-# tasks below remain the rollback re-write, run with
-# -e jellyfin_ansible_managed=true only (and on a DMG version bump,
-# which moves the install directory the plist points at); the DMG
-# install, the SSO-Auth plugin and the branding stay ansible-side.
+# LaunchAgent plist (PR 9 of the indri series). These tasks are only the
+# rollback re-write, run with -e jellyfin_ansible_managed=true; the DMG
+# install, the jellyfin-current symlink, SSO-Auth and branding stay ungated.
 # See defaults/main.yml.
 
 - name: Deploy Jellyfin LaunchAgent plist

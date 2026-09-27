@@ -262,20 +262,20 @@ in
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.forgejo.err.log";
   };
 
-  # jellyfin (PR 9, part of eblume/blumeops#1291): first unit whose Label lacks the
-  # .eblume. segment - the in-place swap forbids renaming the role's historical
-  # mcquack.jellyfin (globs, tails and the restart runbook key on it). Binary stays the
-  # DMG-installed app, not nixpkgs' jellyfin (a server package); a version bump must
-  # edit this versioned path in the same PR. See provision.md §Jellyfin.
+  # jellyfin (PR 9, part of eblume/blumeops#1291): first unit without the .eblume. label - the
+  # in-place swap forbids renaming mcquack.jellyfin (logrotate globs, alloy tails and the
+  # restart runbook key on it). The binary stays the DMG app at the role-maintained stable
+  # symlink ~/opt/jellyfin-current, so a version bump is role-only and never touches this unit.
+  # See provision.md §Jellyfin.
   launchd.user.agents."mcquack.jellyfin".serviceConfig = {
     Label = "mcquack.jellyfin";
     ProgramArguments = [
-      "/Users/erichblume/opt/jellyfin-10.11.11/Jellyfin.app/Contents/MacOS/jellyfin"
+      "/Users/erichblume/opt/jellyfin-current/Jellyfin.app/Contents/MacOS/jellyfin"
       "--service"
       "--datadir"
       "/Users/erichblume/Library/Application Support/jellyfin"
       "--webdir"
-      "/Users/erichblume/opt/jellyfin-10.11.11/Jellyfin.app/Contents/Resources/jellyfin-web"
+      "/Users/erichblume/opt/jellyfin-current/Jellyfin.app/Contents/Resources/jellyfin-web"
     ];
     WorkingDirectory = "/Users/erichblume/Library/Application Support/jellyfin";
     RunAtLoad = true;

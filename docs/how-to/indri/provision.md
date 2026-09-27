@@ -257,24 +257,29 @@ Rollback per §Rolling back a service flip, with the role's gate flipped.
 ## Jellyfin
 
 Jellyfin is PR 9 of the series (part of eblume/blumeops#1291), and the
-first flip whose Label does not carry the `.eblume.` segment: the role
-always rendered `mcquack.jellyfin`, and the in-place swap keeps it
-verbatim (alloy's log tails, logrotate's globs and [[restart-indri]] key
-on the name and the `mcquack.jellyfin.{out,err}.log` filenames). The
-generation runs the DMG-installed binary
-(`~/opt/jellyfin-<version>/Jellyfin.app/Contents/MacOS/jellyfin` —
-nixpkgs' jellyfin is a server package, not the app bundle the unit
-execs) at the same label and plist path the ansible role used. The DMG
-install itself, the SSO-Auth plugin and the branding stay
-role-rendered — the role's gate (`jellyfin_ansible_managed`) covers
-only the plist + load tasks. A version bump moves the install
-directory the plist points at, so a bump also runs the role with the
-gate flipped to re-write the plist. Applying the flip is the usual
-`mise run provision-indri -- --tags rebuild` (no service-role tag):
-activation writes the plist in place and reloads the agent once. The
-dedicated blackbox probe (eblume/blumeops#1230) is the canary; a dead
-agent also shows in the probe gap, unlike a quiet daemon. Rollback per
-§Rolling back a service flip, with the role's gate flipped.
+first flip whose Label lacks the `.eblume.` segment: the role always
+rendered `mcquack.jellyfin`, and the in-place swap keeps it verbatim
+(alloy's log tails, logrotate's globs and [[restart-indri]] key on the
+name and the `mcquack.jellyfin.{out,err}.log` filenames).
+
+The generation runs the DMG-installed binary through the stable symlink
+`~/opt/jellyfin-current` (kept by the role's ungated tasks — nixpkgs'
+jellyfin is a server package, not the app bundle the unit execs).
+Installs are versioned and side by side, so a bump is role-only:
+`mise run provision-indri -- --tags jellyfin` installs next to the old
+version, repoints the symlink and restarts once via the handler — the
+nix unit never changes and the gate never flips. First-flip ordering:
+on the live box the generation flip must come only after
+`~/opt/jellyfin-current` exists — that is why the flip's `## Human
+steps` (issue eblume/blumeops#1291) runs the role first
+(`mise run provision-indri -- --tags jellyfin`) before the rebuild warrant.
+
+Applying the flip is the usual `mise run provision-indri -- --tags
+rebuild` (no service-role tag): activation writes the plist in place
+and reloads the agent once. The dedicated blackbox probe
+(eblume/blumeops#1230) is the canary; a dead agent also shows in the
+probe gap, unlike a quiet daemon. Rollback per §Rolling back a service
+flip, with the role's gate flipped.
 
 ## Pre-apply check: indri-flake-check
 
@@ -467,9 +472,8 @@ registry stays up. For the jellyfin flip (PR 9), re-run
 — the media endpoints (`jellyfin.ops.eblu.me`) are down during the
 window; forge, the registry and every other endpoint stay up, and the
 dedicated blackbox probe witnesses both the flip and any regression.
-Never ansible first
-— that would leave the old plist loaded under the new
-generation.
+Never ansible first — that would leave the old plist loaded under the
+new generation.
 
 What the rollback itself does depends on the target generation
 (nix-darwin `modules/system/launchd.nix`, unchanged on master as of
