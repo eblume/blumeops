@@ -36,8 +36,8 @@ REPO_ROOT = Path(__file__).parent.parent
 CONTAINERS_DIR = REPO_ROOT / "containers"
 SERVICE_VERSIONS_FILE = REPO_ROOT / "service-versions.yaml"
 
-# Containers that are utility/test images, not tracked services
-BLACKLIST = {"kubectl"}
+# Containers that are utility images, not tracked services
+BLACKLIST = {"kubectl", "pulumi-stack-backup"}
 
 # Container dir name → service-versions.yaml name (when they differ)
 CONTAINER_TO_SERVICE = {

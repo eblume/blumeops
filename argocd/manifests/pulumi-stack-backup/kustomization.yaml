@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: pulumi-stack-backup
+resources:
+  - pvc.yaml
+  - external-secret.yaml
+  - cronjob.yaml
+# First-party Nix image, built from containers/pulumi-stack-backup (build
+# container: pulumi-stack-backup). The placeholder below keeps the app
+# inert until the first warrant build pushes the real tag and the pin PR
+# replaces it — nothing pulls or runs before that.
+images:
+  - name: registry.ops.eblu.me/blumeops/pulumi-stack-backup
+    newTag: v0.1.0-unbuilt-nix

@@ -1,0 +1,96 @@
+# Daily `pulumi stack export --show-secrets` + `pulumi config --show-secrets`
+# for the two Pulumi Cloud stacks, exported into the PVC. borgmatic on indri
+# ferries the newest export per stack before its 02:00 run, so this runs at
+# 01:10. The access token arrives as an env var (ExternalSecret, refreshed
+# hourly — the 30-day Pulumi token rotation stays out of this job);
+# PULUMI_CREDENTIALS_PATH is an emptyDir so no token ever touches the PVC.
+# The exports contain plaintext secret values (Tailscale auth keys, Gandi
+# PAT): the borg repository encryption is the only compensating control.
+# See docs/how-to/pulumi/restore-pulumi-state.md.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pulumi-stack-backup
+  namespace: pulumi-stack-backup
+spec:
+  schedule: "10 1 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 1209600 # Auto-delete after 14 days
+      template:
+        metadata:
+          labels:
+            # Selected by the borgmatic ferry (label_selector: app=pulumi-stack-backup)
+            app: pulumi-stack-backup
+        spec:
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: export
+              image: registry.ops.eblu.me/blumeops/pulumi-stack-backup:kustomized
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              env:
+                - name: PULUMI_ACCESS_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: pulumi-access-token
+                      key: token
+                - name: PULUMI_CREDENTIALS_PATH
+                  value: /var/empty
+                - name: PULUMI_CONFIG_PASSPHRASE
+                  value: ""
+                - name: PULUMI_SKIP_UPDATE_CHECK
+                  value: "1"
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+
+                  [[ -n "${PULUMI_ACCESS_TOKEN:-}" ]] || {
+                    echo "pulumi-stack-backup: PULUMI_ACCESS_TOKEN missing" >&2
+                    exit 1
+                  }
+
+                  export PULUMI_ORGANIZATION=eblume
+
+                  ts=$(date -u +%Y%m%dT%H%M%SZ)
+                  for stack in blumeops-tailnet/tail8d86e blumeops-dns/eblu-me; do
+                    name=${stack#*/}
+                    dir=/exports/${name}
+                    mkdir -p "$dir"
+
+                    f="$dir/stack_${ts}.json"
+                    pulumi stack export --show-secrets --file "$f" --stack "$stack"
+                    [[ -s "$f" ]] || { echo "empty export $f" >&2; exit 1; }
+
+                    # Config secrets (e.g. the Gandi PAT the program requires)
+                    # are not part of the state export; they must ride along
+                    # or a restore would need them re-collected by hand.
+                    c="$dir/config_${ts}.txt"
+                    pulumi config --show-secrets --stack "$stack" > "$c"
+
+                    # Bounds the PVC: exports are a few KB, 1000 keep ~a month
+                    # of headroom beyond borg's retention.
+                    ls -1 "$dir" | sort | head -n -1000 | \
+                      while IFS= read -r old; do rm -f "$dir/$old"; done
+                    echo "exported $stack -> $dir (ts=$ts)"
+                  done
+              volumeMounts:
+                - name: exports
+                  mountPath: /exports
+                - name: scratch
+                  mountPath: /var/empty
+          volumes:
+            - name: exports
+              persistentVolumeClaim:
+                claimName: pulumi-stack-backup
+            - name: scratch
+              emptyDir: {}
+          restartPolicy: OnFailure

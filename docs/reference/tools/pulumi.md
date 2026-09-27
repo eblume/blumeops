@@ -53,6 +53,14 @@ mise run tailnet-up      # Apply ACL/tag changes
   Running `pulumi` by hand outside the tasks stores the token in `~/.pulumi/credentials.json`
   unless you set `PULUMI_CREDENTIALS_PATH` the same way.
 
+### Stack state backup
+
+A daily CronJob (`pulumi-stack-backup` on ringtail) exports both stacks' state
+(`pulumi stack export --show-secrets`) and config (`pulumi config --show-secrets`)
+to a PVC, which borgmatic ferries off and archives nightly (see [[borgmatic]]).
+The exports contain plaintext secret values; the encrypted borg repositories
+are the compensating control. Restore procedure: [[restore-pulumi-state]].
+
 ## Related
 
 - [[manage-eblu-me-dns]] — DNS records workflow
@@ -61,3 +69,4 @@ mise run tailnet-up      # Apply ACL/tag changes
 - [[gandi]] — DNS hosting
 - [[tailscale]] — Tailnet configuration
 - [[routing]] — How DNS records map to services
+- [[restore-pulumi-state]] — Restore Pulumi stack state from the borg backups

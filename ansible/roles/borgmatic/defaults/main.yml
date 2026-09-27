@@ -101,6 +101,37 @@ borgmatic_k8s_file_dumps:
     dir: /metadata/backups
     glob: '*.audiobookshelf'
     target: ssh:eblume@ringtail
+  # pulumi-stack-backup CronJob exports both Pulumi Cloud stacks daily
+  # (state + config, --show-secrets) to a PVC, named *_<YYYYmmddTHHMMSSZ>.json
+  # / .txt (fixed-width UTC timestamp, lexically sortable). One entry per
+  # stack and artifact: four ferries, staged as k8s-dumps/pulumi-<stack>-{state,config}.db
+  # (the ferry names every file-dump target .db regardless of content).
+  # The files contain plaintext secret values (Tailscale auth keys, Gandi PAT)
+  # — the borg repository encryption is the compensating control.
+  - name: pulumi-tail8d86e-state
+    namespace: pulumi-stack-backup
+    label_selector: app=pulumi-stack-backup
+    dir: /exports/tail8d86e
+    glob: 'stack_*.json'
+    target: ssh:eblume@ringtail
+  - name: pulumi-tail8d86e-config
+    namespace: pulumi-stack-backup
+    label_selector: app=pulumi-stack-backup
+    dir: /exports/tail8d86e
+    glob: 'config_*.txt'
+    target: ssh:eblume@ringtail
+  - name: pulumi-eblu-me-state
+    namespace: pulumi-stack-backup
+    label_selector: app=pulumi-stack-backup
+    dir: /exports/eblu-me
+    glob: 'stack_*.json'
+    target: ssh:eblume@ringtail
+  - name: pulumi-eblu-me-config
+    namespace: pulumi-stack-backup
+    label_selector: app=pulumi-stack-backup
+    dir: /exports/eblu-me
+    glob: 'config_*.txt'
+    target: ssh:eblume@ringtail
 
 # K8s pods whose data dir is tarred in-pod and streamed back — no
 # sqlite3 or python3 needed, just tar. Each entry's `dir` is tarred to

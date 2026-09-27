@@ -1,0 +1,30 @@
+# Pulumi Cloud stack state backup (eblume/blumeops#1300).
+#
+# Daily CronJob in the pulumi-stack-backup namespace exporting both Pulumi
+# Cloud stacks (state + config, --show-secrets) to a PVC; borgmatic ferries
+# the newest exports off the PVC before its 02:00 run and they ride in both
+# borg repositories. The placeholder image tag in the kustomization keeps
+# the app inert until the first build-container warrant pushes the real
+# tag and the pin PR replaces it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pulumi-stack-backup
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ssh://forgejo@forge.eblu.me:2222/eblume/blumeops.git
+    targetRevision: main
+    path: argocd/manifests/pulumi-stack-backup
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pulumi-stack-backup
+  syncPolicy:
+    automated: {}
+    syncOptions:
+      - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/warn: restricted
+        pod-security.kubernetes.io/audit: restricted
