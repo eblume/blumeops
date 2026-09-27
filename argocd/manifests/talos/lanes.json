@@ -1,0 +1,25 @@
+{
+  "enabled": true,
+  "preferred": "local",
+  "policy": {
+    "spillWaitSec": 120,
+    "coldPromptTokens": 120000
+  },
+  "lanes": {
+    "local": {
+      "backend": { "kind": "virtual", "holdForServiceTime": true },
+      "estimator": {
+        "kind": "parametric",
+        "prefillTps": 370,
+        "decodeTps": 45,
+        "slots": 6,
+        "chunkedPrefill": true,
+        "residency": 6
+      }
+    },
+    "api": {
+      "backend": { "kind": "openrouter" },
+      "estimator": { "kind": "infinite" }
+    }
+  }
+}
