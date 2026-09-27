@@ -18,10 +18,12 @@ RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
     # `mirror` user that receives Forgejo push-mirror pushes, stagit to
     # generate the browsable HTML (Alpine community stagit is the C
     # version; the single-shell stagit fork it was modeled on is gone).
+    # shadow provides useradd for the `mirror` user created below (the
+    # nginx:alpine base ships no account tools).
     # None of the allowlisted repos carries LFS (no .gitattributes,
     # verified 2026-09-25), so no git-lfs. util-linux (mountpoint) and
     # jq (tailscale status --json parse) are used by start.sh.
-    && apk add --no-cache git=2.54.0-r0 openssh-server=10.3_p1-r1 stagit=1.2-r8 util-linux jq
+    && apk add --no-cache git=2.54.0-r0 openssh-server=10.3_p1-r1 stagit=1.2-r8 util-linux jq shadow=4.18.0-r1
 
 # Copy Alloy binary from official image (v1.19.2, Ubuntu-based, needs libc6-compat)
 COPY --from=docker.io/grafana/alloy@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839 \
