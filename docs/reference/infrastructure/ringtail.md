@@ -47,7 +47,7 @@ Managed declaratively via `nixos/ringtail/configuration.nix`. Home-manager handl
 - **Desktop:** Sway (Wayland, Catppuccin Macchiato theme) with waybar and wezterm
 - **Browser:** LibreWolf
 - **Gaming:** Steam (library on `/mnt/games`), 8BitDo controller via Steam Input
-- **Audio:** Edifier R1280DBs (Bluetooth), PipeWire
+- **Audio:** Edifier R1700BTs (Bluetooth), PipeWire — `nixos/ringtail/audio.nix`. The speakers are physically wired left/right swapped, so a WirePlumber smart filter crosses the channels in front of their sink; the `edifier-autoconnect` user unit reconnects them every 30 s while disconnected (`systemctl --user stop edifier-autoconnect` to pair them elsewhere)
 - **Secrets:** 1Password CLI + GUI (NixOS modules for polkit/setgid integration)
 - **Runtimes:** mise manages Node, Python, Rust, .NET; nix-ld enables dynamically linked binaries
 - **Dotfiles:** `chezmoi init eblume && chezmoi apply`

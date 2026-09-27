@@ -17,6 +17,7 @@ in
 {
   imports = [
     ./agent-heph-spoke.nix
+    ./audio.nix
     ./factorio.nix
     ./heph-eblume.nix
     ./myeve-heph-sync.nix
@@ -138,20 +139,6 @@ in
   # and suspends fbcon, so loglevel-7 kernel text (netconsole) stays off the screen.
   services.greetd.enable = true;
   programs.regreet.enable = true;
-
-  # PipeWire for audio
-  services.pipewire = {
-    enable = true;
-    alsa.enable = true;
-    pulse.enable = true;
-  };
-
-  # Bluetooth
-  hardware.bluetooth = {
-    enable = true;
-    powerOnBoot = true;
-  };
-  services.blueman.enable = true;
 
   # Fish shell
   programs.fish.enable = true;
