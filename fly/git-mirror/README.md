@@ -84,7 +84,7 @@ and regenerate.
 ## Operations
 
 1. **First deploy:** `mise run fly-setup` (provisions the empty
-   `git-mirror` volume; idempotent) **before** the deploy (`deploy-fly` warrant) —
+   `git_mirror` volume; idempotent) **before** the deploy (`deploy-fly` warrant) —
    a machine declared with a `[[mounts]]` block that has no volume
    fails to start. On boot, `fly/start.sh` runs
    `fly/git-mirror/create-mirror.sh`, which creates the bare repos,

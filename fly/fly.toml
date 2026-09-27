@@ -47,5 +47,5 @@ port = 41641
 # ephemeral (pulumi/tailscale), so a long-offline node is reclaimed and
 # its next boot re-auths with the key.
 [[mounts]]
-source = "git-mirror"
+source = "git_mirror"   # Fly volume names: [a-z0-9_] only, no hyphens
 destination = "/volume"
