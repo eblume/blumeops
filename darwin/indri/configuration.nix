@@ -286,4 +286,31 @@ in
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.jellyfin.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.jellyfin.err.log";
   };
+
+  # devpi (PR 10, part of eblume/blumeops#1291): unit-in-nix, venv-stays-role-rendered — the
+  # uv-managed venv at /Users/erichblume/devpi (devpi-server 6.20.3 / devpi-web 5.1.1) is the
+  # zot/forgejo source-path precedent: binary outside /nix, so the unit stays in the #1225
+  # safe class (binaries outside the store). The venv build and devpi-init seeding stay
+  # role-owned; only the plist + load move here. See provision.md §Devpi.
+  launchd.user.agents."mcquack.eblume.devpi".serviceConfig = {
+    Label = "mcquack.eblume.devpi";
+    ProgramArguments = [
+      "/Users/erichblume/devpi/venv/bin/devpi-server"
+      "--serverdir"
+      "/Users/erichblume/devpi/server-dir"
+      "--host"
+      "127.0.0.1"
+      "--port"
+      "3141"
+      "--outside-url"
+      "https://pypi.ops.eblu.me"
+    ];
+    RunAtLoad = true;
+    KeepAlive = true;
+    EnvironmentVariables = {
+      PATH = "/Users/erichblume/devpi/venv/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+    };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.devpi.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.devpi.err.log";
+  };
 }

@@ -281,6 +281,28 @@ and reloads the agent once. The dedicated blackbox probe
 probe gap, unlike a quiet daemon. Rollback per §Rolling back a service
 flip, with the role's gate flipped.
 
+## Devpi
+
+Devpi is PR 10 of the series (part of eblume/blumeops#1291), unit-in-nix,
+venv-stays-role-rendered: the generation runs the uv-managed venv's
+`devpi-server` at `/Users/erichblume/devpi/venv` (the zot/forgejo
+source-path precedent — nixpkgs' devpi 6.19.2 is older than the role's
+6.20.3 + devpi-web, so a store flip would be a downgrade, the same shape
+as the plan's package eval) at the same label and plist path the role
+used (`mcquack.eblume.devpi`). The venv build (uv), the pip install, the
+server-dir and the devpi-init seeding stay role-rendered — the role's
+gate (`devpi_ansible_managed`) covers only the plist + load tasks.
+Applying the flip is the usual `mise run provision-indri -- --tags
+rebuild` (no service-role tag): activation writes the plist in place and
+reloads the agent once.
+
+The drill's blast radius is the PyPI proxy: with the unit unloaded,
+package installs routed through `pypi.ops.eblu.me` fail — while forge,
+the registry and every other endpoint stay up. After the forward switch,
+verify that `devpi-server` answers on 127.0.0.1:3141 (e.g. `curl -s
+http://127.0.0.1:3141/` or the `+simple` index). Rollback per §Rolling
+back a service flip, with the role's gate flipped.
+
 ## Pre-apply check: indri-flake-check
 
 `mise run indri-flake-check` builds `.#darwinConfigurations.indri.system` on
@@ -428,7 +450,7 @@ the old declarations): `ls -l /etc/resolver/ts.net` is a regular file,
 `ls /etc/ssh/sshd_config.d` shows only Apple's `100-macos.conf`, and
 `sudo sshd -t` passes.
 
-## Rolling back a service flip (PRs 2–9)
+## Rolling back a service flip (PRs 2–10)
 
 Each service migration writes its plist at the same path ansible used,
 under the same label (logrotate's globs and alloy's log tails key on it
@@ -467,7 +489,10 @@ the forgejo flip (PR 8), re-run `mise run provision-indri -- --tags forgejo
 -e forgejo_ansible_managed=true` — the whole forge is down during the
 window: the forge API and git ssh (2222), every forge-bound git op from a
 talos session and every CI run, while caddy stays up (502s) and the
-registry stays up. For the jellyfin flip (PR 9), re-run
+registry stays up. For the devpi flip (PR 10), re-run
+`mise run provision-indri -- --tags devpi -e devpi_ansible_managed=true`
+— the PyPI proxy (`pypi.ops.eblu.me`) is down during the window; forge,
+the registry and every other endpoint stay up. For the jellyfin flip (PR 9), re-run
 `mise run provision-indri -- --tags jellyfin -e jellyfin_ansible_managed=true`
 — the media endpoints (`jellyfin.ops.eblu.me`) are down during the
 window; forge, the registry and every other endpoint stay up, and the
@@ -503,7 +528,10 @@ the proof of the reload is the new pid, the rebuild log's
 at the switch timestamp. The wording is per-service — e.g. zot logs
 `received signal 15`, caddy a `shutting down apps, then terminating`
 line carrying `"signal":"SIGTERM"`, forgejo-runner `runner: received
-shutdown signal`. The `StandardOutPath` log is not a signal; a quiet
+shutdown signal`, and devpi the server's own restart log line in
+`mcquack.devpi.out.log` — the new pid and the rebuild log's `reloading
+user service mcquack.eblume.devpi` line complete the set. The
+`StandardOutPath` log is not a signal; a quiet
 agent writes nothing.
 
 ## Window hygiene
