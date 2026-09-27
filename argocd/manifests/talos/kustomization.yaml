@@ -17,8 +17,8 @@ resources:
   - service.yaml
   - ingress-tailscale.yaml
 
-# Repo-pool policy ([[agents-forgejo-bot]]): repos.json lives HERE so
-# kustomize can generate it into a ConfigMap. The hash-suffixed name changes
+# Repo-pool policy ([[agents-forgejo-bot]]): repos.json and lanes.json live HERE so
+# kustomize can generate them into a ConfigMap. The hash-suffixed name changes
 # the Deployment's volume ref on every edit, so a merged policy change rolls
 # the pod by itself — the merge IS the deploy, no restart to remember. Also
 # consumed in place by the agent-repo-access reconciler (CI + mise task).
@@ -26,6 +26,7 @@ configMapGenerator:
   - name: talos-repos
     files:
       - repos.json
+      - lanes.json
 
 # First-party Nix image, built from eblume/talos (default.nix there). Every
 # merge to talos main auto-releases and opens a pin-bump PR against this tag;

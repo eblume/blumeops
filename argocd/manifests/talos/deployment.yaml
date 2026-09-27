@@ -105,6 +105,11 @@ spec:
             # raw path only when this env/mount is absent.
             - name: TALOS_REPOS_FILE
               value: /etc/talos/repos.json
+            # Lane-shaping policy (eblume/talos#252) — same ConfigMap/mount
+            # as repos.json; the server reads it at boot and hot-swaps via
+            # the admin-gated PUT /api/lanes.
+            - name: TALOS_LANES
+              value: /etc/talos/lanes.json
             # Trust the fleet's shared agents-m2m machine identity for bearer
             # auth, so agents drive the API (e.g. cron jobs) with the same
             # credential agent-health uses — no browser session, no new secret.
