@@ -18,13 +18,13 @@ let
     inherit version;
     src = pkgs.fetchurl {
       url = "https://get.pulumi.com/releases/sdk/pulumi-v${version}-linux-x64.tar.gz";
-      sha256 = "0z50j7zzd22qcizmd6w3j2vzap0hp3k48w218lqrga0lvmkfw5ls";
+      sha256 = "cmToFA0n7GPKegwtvhOWvLU7u3hQd3M3z1auC8zT6EA=";
     };
     unpackCmd = "tar xzf $curSrc";
     buildPhase = "true";
     installPhase = ''
       mkdir -p $out/bin
-      cp pulumi/pulumi $out/bin/pulumi
+      cp pulumi $out/bin/pulumi
     '';
     dontStrip = true;
   };
