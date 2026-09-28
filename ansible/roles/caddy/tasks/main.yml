@@ -29,7 +29,7 @@
 
 - name: Fetch Gandi PAT (when running with --tags caddy)
   ansible.builtin.command:
-    cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/mco6ka3dc3rmw7zkg2dhia5d2m/pat"
+    cmd: op read "op://ih6djacnpiqzb3byv3v4rafmfe/nji2aezc6zgm3dcl35ouqx2p54/pat"
   delegate_to: localhost
   register: _caddy_gandi_token_fallback
   changed_when: false

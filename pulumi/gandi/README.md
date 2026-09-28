@@ -39,7 +39,7 @@ mise run dns-up        # Preview and apply
 Or manually:
 
 ```bash
-export GANDI_PERSONAL_ACCESS_TOKEN=$(op read "op://blumeops/gandi - blumeops/pat")
+export GANDI_PERSONAL_ACCESS_TOKEN=$(op read "op://pulumi-esc/gandi - blumeops/pat")
 pulumi up
 ```
 

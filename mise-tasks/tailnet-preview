@@ -5,9 +5,9 @@ set -euo pipefail
 
 source "$(dirname "$0")/_pulumi_env"
 
-TAILSCALE_OAUTH_CLIENT_ID=$(op read "op://blumeops/tailscale - blumeops/client_id")
+TAILSCALE_OAUTH_CLIENT_ID=$(op read "op://pulumi-esc/tailscale - blumeops/client_id")
 export TAILSCALE_OAUTH_CLIENT_ID
-TAILSCALE_OAUTH_CLIENT_SECRET=$(op read "op://blumeops/tailscale - blumeops/client_secret")
+TAILSCALE_OAUTH_CLIENT_SECRET=$(op read "op://pulumi-esc/tailscale - blumeops/client_secret")
 export TAILSCALE_OAUTH_CLIENT_SECRET
 export TAILSCALE_TAILNET="tail8d86e.ts.net"
 
