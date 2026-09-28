@@ -1,6 +1,6 @@
 ---
 title: Update Tailscale ACLs
-modified: 2026-09-27
+modified: 2026-09-28
 last-reviewed: 2026-09-27
 tags:
   - how-to
@@ -15,8 +15,9 @@ How to modify Tailscale access control policies for the tailnet.
 ## Prerequisites
 
 - Pulumi (installed and pinned by `mise` — see `mise.toml`)
-- Access to 1Password pulumi-esc vault (the tasks read the Tailscale OAuth
-  client credentials from it)
+- Pulumi ESC: the tasks run against stack `tail8d86e`, whose `blumeops/tailnet`
+  environment fetches the Tailscale OAuth credentials from the `pulumi-esc` 1Password
+  vault at run time (see `pulumi/esc/`)
 
 ## Edit the Policy
 
@@ -91,9 +92,10 @@ mise run tailnet-preview
 mise run tailnet-up
 ```
 
-Both tasks read the OAuth credentials and the Pulumi access token from
-1Password and select the
-`tail8d86e` stack before running `pulumi preview` / `pulumi up`.
+Both tasks read the Pulumi access token from 1Password and select the
+`tail8d86e` stack before running `pulumi preview` / `pulumi up`; the OAuth
+credentials arrive via the stack's Pulumi ESC environment, which fetches them
+from 1Password at run time.
 
 ## Verify
 

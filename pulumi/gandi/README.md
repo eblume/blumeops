@@ -36,10 +36,9 @@ mise run dns-preview   # Preview only
 mise run dns-up        # Preview and apply
 ```
 
-Or manually:
+Or manually — from the project directory, with the Pulumi access token set up the same way the tasks do (see `mise-tasks/_pulumi_env`) — the PAT arrives via the stack's Pulumi ESC environment (`blumeops/dns`), so the `op read` export is gone:
 
 ```bash
-export GANDI_PERSONAL_ACCESS_TOKEN=$(op read "op://pulumi-esc/gandi - blumeops/pat")
 pulumi up
 ```
 

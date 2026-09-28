@@ -1,0 +1,7 @@
+# Environment eblume/blumeops/dns — provider config for stack eblu-me.
+# Managed by `mise run pulumi-esc-sync`.
+imports:
+  - blumeops/op
+values:
+  pulumiConfig:
+    gandi:personalAccessToken: ${1password.secrets.gandi_pat}

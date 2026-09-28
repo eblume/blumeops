@@ -5,12 +5,6 @@ set -euo pipefail
 
 source "$(dirname "$0")/_pulumi_env"
 
-TAILSCALE_OAUTH_CLIENT_ID=$(op read "op://pulumi-esc/tailscale - blumeops/client_id")
-export TAILSCALE_OAUTH_CLIENT_ID
-TAILSCALE_OAUTH_CLIENT_SECRET=$(op read "op://pulumi-esc/tailscale - blumeops/client_secret")
-export TAILSCALE_OAUTH_CLIENT_SECRET
-export TAILSCALE_TAILNET="tail8d86e.ts.net"
-
 cd "$(dirname "$0")/../pulumi/tailscale"
 uv sync --quiet || { echo "uv sync failed — if devpi is down, run 'devpi off' and retry"; exit 1; }
 pulumi stack select tail8d86e

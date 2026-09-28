@@ -1,0 +1,21 @@
+# Environment eblume/blumeops/op — 1Password login plus the secrets the
+# Pulumi stacks need, fetched from 1Password at open time.
+# Managed by `mise run pulumi-esc-sync` (pulumi env init/edit from this file);
+# the checked-in copy carries no secret values.
+imports:
+  - blumeops/onepassword
+values:
+  1password:
+    secrets:
+      fn::open::1password-secrets:
+        login:
+          # From eblume/blumeops/onepassword: the service-account token, set
+          # by pulumi-esc-sync from op://blumeops/pulumi-esc service account/token.
+          serviceAccountToken: "${serviceAccountToken}"
+        get:
+          tailscale_client_id:
+            ref: "op://pulumi-esc/tailscale - blumeops/client_id"
+          tailscale_client_secret:
+            ref: "op://pulumi-esc/tailscale - blumeops/client_secret"
+          gandi_pat:
+            ref: "op://pulumi-esc/gandi - blumeops/pat"
