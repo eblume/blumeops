@@ -8,15 +8,18 @@ set -euo pipefail
 FORGE_API="https://forge.ops.eblu.me/api/v1"
 OP_TOKEN_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
 REPOS_FILE="$(dirname "$0")/../fly/git-mirror/repos"
-# git-shell push endpoint on the fly node — resolved by indri's
-# Tailscale MagicDNS. The tailnet IP is CGNAT (private), so the
+# The mirror's push endpoint on the fly node, as Forgejo stores it: the
+# URL form, user `mirror` (the fly sshd's AllowUsers), resolved by
+# indri's Tailscale MagicDNS. The tailnet IP is CGNAT (private), so the
 # provision-indri run that applies ALLOW_LOCALNETWORKS (see
-# ansible/roles/forgejo/templates/app.ini.j2) must precede the first sync.
-REMOTE="git@flyio-proxy.tail8d86e.ts.net:/volume/git-mirror/repos/"
+# ansible/roles/forgejo/templates/app.ini.j2) must precede mirror
+# creation — the create API runs the same allowlist check as each sync.
+REMOTE="ssh://mirror@flyio-proxy.tail8d86e.ts.net/volume/git-mirror/repos/"
 INTERVAL="2h"
 
 echo "Reading repos: $REPOS_FILE"
-repos=$(grep -v '^\s*$' "$REPOS_FILE")
+repos=$(awk 'NF' "$REPOS_FILE")
+[ -n "$repos" ] || { echo "no repos in $REPOS_FILE — nothing to do"; exit 0; }
 
 if [[ "${usage_dry_run:-}" == "true" ]]; then
     while IFS= read -r entry; do
@@ -59,7 +62,7 @@ while IFS= read -r entry; do
         }")
     code=${body##*$'\n'}
     resp=${body%$'\n'*}
-    if [[ "$code" != 201 ]]; then
+    if [[ "$code" != 200 ]]; then
         echo "ERROR (HTTP $code) creating push mirror for $entry:"
         echo "$resp"
         exit 1

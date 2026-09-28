@@ -251,7 +251,7 @@
 		{
 			"src":    "tag:forge",
 			"accept": ["tag:flyio-proxy:22"],
-			"deny":   ["tag:flyio-proxy:443", "tag:k8s:443", "tag:homelab:22"],
+			"deny":   ["tag:flyio-proxy:443", "tag:k8s:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
 		},
 	],
 

@@ -115,7 +115,7 @@ listen_addresses="-o ListenAddress=127.0.0.1"
 # retry until a boot has the interface.
 n=15
 while [ "$n" -gt 0 ]; do
-    tscidr=$(ip -4 -o addr show tailscale0 2>/dev/null | awk '{print $4}')
+    tscidr=$(tailscale ip -4 2>/dev/null)
     [ -n "$tscidr" ] && break
     sleep 1
     n=$((n-1))
