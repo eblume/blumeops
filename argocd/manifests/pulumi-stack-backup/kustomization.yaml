@@ -11,4 +11,4 @@ resources:
 # replaces it — nothing pulls or runs before that.
 images:
   - name: registry.ops.eblu.me/blumeops/pulumi-stack-backup
-    newTag: v0.1.0-unbuilt-nix
+    newTag: v3.237.0-21f26d6-nix@sha256:9cbaf7f19de79cbda4400d7cf3beb024e21060236d0d6f14e603cef0cd4d0466
