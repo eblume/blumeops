@@ -16,7 +16,7 @@ cluster.
 > This run (2026-02-20) happened on the minikube `blumeops-pg` cluster. The
 > [[retire-minikube]] series phase 2 (2026-06-11) moved the authentik DB to
 > ringtail's `blumeops-pg` and relocated the manifests below to
-> `argocd/manifests/databases-ringtail/`; see "Current state" after the steps.
+> `argocd/manifests/databases-ringtail/`; see "Current State" after the steps.
 
 ## What Was Done
 
