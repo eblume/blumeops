@@ -30,7 +30,10 @@ expire in 90 days and are re-minted by the next `pulumi up` anyway.
 ## Getting the dumps
 
 Exports are ferried to indri at `~/.local/share/borgmatic/k8s-dumps/` each
-night before the 02:00 backup and ride in both borg repositories:
+night before the 02:00 backup and ride in both borg repositories. A missing or
+empty export on a given night is skipped by its ferry (the `pv:` ferry mode is
+self-contained) rather than aborting the whole nightly, so the staged file then
+holds the previous night's export:
 
 | File (staged name) | Content |
 |--------------------|---------|
@@ -43,15 +46,22 @@ night before the 02:00 backup and ride in both borg repositories:
 state files are JSON, the config files plain text.)
 
 ```bash
-borg list /Volumes/backups/borg/repo            # find a recent archive
-mkdir -p /tmp/pulumi-restore
-borg extract /Volumes/backups/borg/repo:<archive> <staged-path-prefix> \
-  -o /tmp/pulumi-restore
-ls /tmp/pulumi-restore   # the four pulumi-* files (or extract single files)
+ssh indri 'BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
+  /opt/homebrew/bin/borg list /Volumes/backups/borg | tail -30'   # find a recent archive
+
+mkdir -p ~/tmp/pulumi-restore && cd ~/tmp/pulumi-restore
+ssh indri 'cd ~/tmp/pulumi-restore && BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
+  /opt/homebrew/bin/borg extract /Volumes/backups/borg::<archive> \
+  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-tail8d86e-state.db \
+  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-tail8d86e-config.db \
+  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-eblu-me-state.db \
+  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-eblu-me-config.db'
+ls ~/tmp/pulumi-restore/Users/erichblume/.local/share/borgmatic/k8s-dumps/
 ```
 
-The staged path prefix is `.local/share/borgmatic/k8s-dumps/` inside the
-archive — check the real paths with `borg list`.
+The staged files live under `Users/erichblume/.local/share/borgmatic/k8s-dumps/`
+in the archive (relative to the archive root — no leading slash; `borg list`
+shows the same relative paths). Extract a single file by naming just that path.
 
 ## Restoring into a new (or same) account
 

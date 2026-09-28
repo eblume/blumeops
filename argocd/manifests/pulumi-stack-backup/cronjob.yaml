@@ -1,8 +1,11 @@
 # Daily `pulumi stack export --show-secrets` + `pulumi config --show-secrets`
-# for the two Pulumi Cloud stacks, exported into the PVC. borgmatic on indri
-# ferries the newest export per stack before its 02:00 run, so this runs at
-# 01:10. The access token arrives as an env var (ExternalSecret, refreshed
-# hourly — the 30-day Pulumi token rotation stays out of this job);
+# for the two Pulumi Cloud stacks, exported into the PVC. The k8s CronJob
+# schedule runs in the cluster's local time (ringtail = America/Los_Angeles)
+# and borgmatic on indri ferries the newest export per stack at 02:00 in the
+# same (indri-local, also Pacific) time, so 01:10 lands 50 min before the
+# ferry. The access token arrives as an env var (ExternalSecret, refreshed
+# hourly; the token rotates every 20 days — its expiry is 30 days — which
+# stays out of this job);
 # PULUMI_CREDENTIALS_PATH is an emptyDir so no token ever touches the PVC.
 # The exports contain plaintext secret values (Tailscale auth keys, Gandi
 # PAT): the borg repository encryption is the only compensating control.
@@ -26,6 +29,13 @@ spec:
         spec:
           securityContext:
             runAsNonRoot: true
+            # The export container runs as uid 65534 (nobody, see image User).
+            # The local-path PV root is created root-owned; fsGroup makes the
+            # mount group-writable so nobody can write the exports.
+            fsGroup: 65534
+            # Avoids re-chgrp'ing the whole PVC on every mount (talos does the
+            # same).
+            fsGroupChangePolicy: OnRootMismatch
             seccompProfile:
               type: RuntimeDefault
           containers:
@@ -61,25 +71,55 @@ spec:
                   export PULUMI_ORGANIZATION=eblume
 
                   ts=$(date -u +%Y%m%dT%H%M%SZ)
+                  # Per-stack Pulumi project dir baked into the image; `pulumi
+                  # config` needs a Pulumi.yaml in the working tree, so point it
+                  # at the project (name matches the --stack project segment).
+                  projdir() {
+                    case "$1" in
+                      blumeops-tailnet/tail8d86e) echo /projects/tailscale ;;
+                      blumeops-dns/eblu-me)       echo /projects/gandi ;;
+                      *) echo "unknown stack $1" >&2; exit 1 ;;
+                    esac
+                  }
                   for stack in blumeops-tailnet/tail8d86e blumeops-dns/eblu-me; do
                     name=${stack#*/}
                     dir=/exports/${name}
                     mkdir -p "$dir"
+                    # Clear any .partial left by a crashed run (never matches
+                    # the ferry globs, but shouldn't accumulate on the PVC).
+                    rm -f "$dir"/*.partial
 
+                    # Write to .partial and mv into place on success: an
+                    # interrupted export would otherwise leave a partial file
+                    # that the ferry (which only checks non-empty) would ship.
                     f="$dir/stack_${ts}.json"
-                    pulumi stack export --show-secrets --file "$f" --stack "$stack"
-                    [[ -s "$f" ]] || { echo "empty export $f" >&2; exit 1; }
+                    pulumi stack export --show-secrets --file "$f.partial" --stack "$stack"
+                    [[ -s "$f.partial" ]] || { echo "empty export $f" >&2; exit 1; }
+                    mv -f "$f.partial" "$f"
 
                     # Config secrets (e.g. the Gandi PAT the program requires)
                     # are not part of the state export; they must ride along
                     # or a restore would need them re-collected by hand.
                     c="$dir/config_${ts}.txt"
-                    pulumi config --show-secrets --stack "$stack" > "$c"
+                    pulumi config --show-secrets --cwd "$(projdir "$stack")" \
+                      --stack "$stack" > "$c.partial"
+                    [[ -s "$c.partial" ]] || { echo "empty config $c" >&2; exit 1; }
+                    mv -f "$c.partial" "$c"
 
-                    # Bounds the PVC: exports are a few KB, 1000 keep ~a month
-                    # of headroom beyond borg's retention.
-                    ls -1 "$dir" | sort | head -n -1000 | \
-                      while IFS= read -r old; do rm -f "$dir/$old"; done
+                    # Bounds the PVC. Prune stack_* and config_* separately so
+                    # one kind can't eat the other's retention (config_ sorts
+                    # before stack_, so a single combined listing would delete
+                    # every config file before touching a stack file). Coreutils
+                    # only — the image has no grep.
+                    shopt -s nullglob
+                    for prefix in stack_ config_; do
+                      files=( "$dir/${prefix}"* )
+                      (( ${#files[@]} > 1000 )) || continue
+                      printf '%s\n' "${files[@]}" | sort | \
+                        head -n $(( ${#files[@]} - 1000 )) | \
+                        while IFS= read -r old; do rm -f "$old"; done
+                    done
+                    shopt -u nullglob
                     echo "exported $stack -> $dir (ts=$ts)"
                   done
               volumeMounts:

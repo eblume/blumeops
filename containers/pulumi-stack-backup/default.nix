@@ -28,6 +28,25 @@ let
     '';
     dontStrip = true;
   };
+
+  # Each Pulumi project's Pulumi.yaml, baked to /projects/<projdir>/Pulumi.yaml.
+  # `pulumi config` (unlike `stack export`) refuses to run without a Pulumi.yaml
+  # in the working tree, so the cronjob calls it with --cwd /projects/<projdir>;
+  # the project name inside must match the --stack project segment
+  # (blumeops-tailnet / blumeops-dns). One derivation per project — stdenv's
+  # multi-src unpack trips on a top-level dir, and a bare `cp Pulumi.yaml`
+  # (basename) is what resolves once the single src root is unpacked.
+  projFile = pname: srcdir: pkgs.stdenv.mkDerivation {
+    pname = "pulumi-project-${pname}";
+    version = "unstable";
+    src = srcdir;
+    installPhase = ''
+      mkdir -p $out/projects/${pname}
+      cp Pulumi.yaml $out/projects/${pname}/Pulumi.yaml
+    '';
+  };
+  projTailscale = projFile "tailscale" ../../pulumi/tailscale;
+  projGandi = projFile "gandi" ../../pulumi/gandi;
 in
 
 assert pkgs.pulumi-bin.version == version;
@@ -37,6 +56,8 @@ pkgs.dockerTools.buildLayeredImage {
 
   contents = [
     pulumi
+    projTailscale
+    projGandi
     pkgs.bashInteractive
     pkgs.coreutils
     pkgs.gnutar
