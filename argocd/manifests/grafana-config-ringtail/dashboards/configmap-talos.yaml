@@ -851,7 +851,7 @@ data:
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "description": "Admit-to-grant wait for a lane slot (talos_lane_wait_seconds). Excludes the modeled per-request prefill holds, which are not exported yet.",
+          "description": "Admit-to-grant wait for a lane slot (talos_lane_wait_seconds). Excludes the modeled prefill holds — see the hold panels below.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1147,12 +1147,218 @@ data:
           "type": "timeseries"
         },
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Prefill hold actually waited, by lane and kind (talos_lane_hold_seconds): kind=initial is the run's first request, kind=request are follow-up model requests.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 61
+          },
+          "id": 29,
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.5, sum by (le, lane, kind) (rate(talos_lane_hold_seconds_bucket[30m])))",
+              "legendFormat": "p50 {{lane}} {{kind}}",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.9, sum by (le, lane, kind) (rate(talos_lane_hold_seconds_bucket[30m])))",
+              "legendFormat": "p90 {{lane}} {{kind}}",
+              "refId": "B"
+            }
+          ],
+          "title": "Hold time per request (p50 / p90)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Sum of all prefill holds for one run, observed once when the run settles (talos_lane_run_hold_seconds) — how much one issue's cycle got stretched.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 61
+          },
+          "id": 30,
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.5, sum by (le, lane) (rate(talos_lane_run_hold_seconds_bucket[30m])))",
+              "legendFormat": "p50 {{lane}}",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.9, sum by (le, lane) (rate(talos_lane_run_hold_seconds_bucket[30m])))",
+              "legendFormat": "p90 {{lane}}",
+              "refId": "B"
+            }
+          ],
+          "title": "Total hold per run (p50 / p90)",
+          "type": "timeseries"
+        },
+        {
           "collapsed": false,
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 61
+            "y": 69
           },
           "id": 13,
           "title": "Server",
@@ -1218,7 +1424,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 62
+            "y": 70
           },
           "id": 14,
           "options": {
@@ -1279,7 +1485,7 @@ data:
             "h": 8,
             "w": 6,
             "x": 12,
-            "y": 62
+            "y": 70
           },
           "id": 15,
           "options": {
@@ -1338,7 +1544,7 @@ data:
             "h": 8,
             "w": 6,
             "x": 18,
-            "y": 62
+            "y": 70
           },
           "id": 16,
           "options": {
@@ -1429,7 +1635,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 70
+            "y": 78
           },
           "id": 17,
           "options": {
@@ -1541,7 +1747,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 70
+            "y": 78
           },
           "id": 18,
           "options": {
@@ -1589,7 +1795,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 78
+            "y": 86
           },
           "id": 19,
           "title": "Workspaces",
@@ -1656,7 +1862,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 79
+            "y": 87
           },
           "id": 20,
           "options": {
@@ -1770,7 +1976,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 79
+            "y": 87
           },
           "id": 21,
           "options": {
@@ -1873,7 +2079,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 87
+            "y": 95
           },
           "id": 22,
           "options": {
@@ -1916,7 +2122,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 87
+            "y": 95
           },
           "id": 23,
           "options": {
