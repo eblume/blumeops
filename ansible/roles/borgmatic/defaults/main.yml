@@ -101,6 +101,49 @@ borgmatic_k8s_file_dumps:
     dir: /metadata/backups
     glob: '*.audiobookshelf'
     target: ssh:eblume@ringtail
+  # pulumi-stack-backup CronJob exports both Pulumi Cloud stacks daily
+  # (state + config, --show-secrets) to a PVC, named *_<YYYYmmddTHHMMSSZ>.json
+  # / .txt (fixed-width UTC timestamp, lexically sortable). One entry per
+  # stack and artifact: four ferries, staged as k8s-dumps/pulumi-<stack>-{state,config}.db
+  # (the ferry names every file-dump target .db regardless of content).
+  # The files contain plaintext secret values (Tailscale auth keys, Gandi PAT)
+  # — the borg repository encryption is the compensating control.
+  #
+  # The CronJob pod is Succeeded (short-lived) by ferry time, so these ferries
+  # use `pv:` mode: ringtail reads the local-path PV's host path directly (no
+  # pod exec — see ~/bin/borgmatic-k8s-file-dump). `pvc_name` is the PVC the
+  # PV is bound to. `pv:` mode is self-contained: a missing or empty export
+  # keeps the previous staged export and exits 0 (so a dead export can't abort
+  # the nightly), while a genuine infra error (PVC/PV unresolvable, ssh/k3s
+  # down) still exits non-zero and aborts.
+  - name: pulumi-tail8d86e-state
+    namespace: pulumi-stack-backup
+    label_selector: app=pulumi-stack-backup
+    dir: /tail8d86e
+    glob: 'stack_*.json'
+    target: pv:eblume@ringtail
+    pvc_name: pulumi-stack-backup
+  - name: pulumi-tail8d86e-config
+    namespace: pulumi-stack-backup
+    label_selector: app=pulumi-stack-backup
+    dir: /tail8d86e
+    glob: 'config_*.txt'
+    target: pv:eblume@ringtail
+    pvc_name: pulumi-stack-backup
+  - name: pulumi-eblu-me-state
+    namespace: pulumi-stack-backup
+    label_selector: app=pulumi-stack-backup
+    dir: /eblu-me
+    glob: 'stack_*.json'
+    target: pv:eblume@ringtail
+    pvc_name: pulumi-stack-backup
+  - name: pulumi-eblu-me-config
+    namespace: pulumi-stack-backup
+    label_selector: app=pulumi-stack-backup
+    dir: /eblu-me
+    glob: 'config_*.txt'
+    target: pv:eblume@ringtail
+    pvc_name: pulumi-stack-backup
 
 # K8s pods whose data dir is tarred in-pod and streamed back — no
 # sqlite3 or python3 needed, just tar. Each entry's `dir` is tarred to

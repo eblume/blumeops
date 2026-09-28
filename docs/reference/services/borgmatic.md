@@ -47,6 +47,7 @@ Daily backup system using Borg backup, running on indri.
 
 **K8s service-produced backup files (newest ferried off the PVC):**
 - [[navidrome]] - music DB: users, play counts, playlists (navidrome's own `ND_BACKUP_*` snapshot in `/data/backup`)
+- pulumi-stack-backup — Pulumi Cloud stack state + config, all four ferries for the two stacks `tail8d86e` and `eblu-me` (`pulumi stack export --show-secrets` / `pulumi config --show-secrets`; exports contain plaintext secret values — borg repo encryption is the control; restore: [[restore-pulumi-state]])
 
 **K8s pod data directories (in-pod tar, streamed back):**
 - talos — session transcripts + service state (`/home/talos/data`)
