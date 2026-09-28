@@ -59,6 +59,17 @@
 			"ip":  ["tcp:443"],
 		},
 
+		// --- Forgejo push mirror ---
+		// The private forge (indri) syncs allowlisted public repos to the
+		// fly static mirror over SSH. Inbound to the fly node is this
+		// grant plus nothing else: the sshd there is a forced git-shell
+		// account (no login).
+		{
+			"src": ["tag:forge"],
+			"dst": ["tag:flyio-proxy"],
+			"ip":  ["tcp:22"],
+		},
+
 		// --- CI Gateway ---
 		// Ephemeral CI containers can push images to registry
 		{
@@ -234,6 +245,13 @@
 			"src":    "tag:flyio-proxy",
 			"accept": ["tag:flyio-target:443"],
 			"deny":   ["tag:k8s:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
+		},
+		// Forgejo (tag:forge) can reach the fly mirror push endpoint and
+		// nothing else there — the grant is tcp:22 only.
+		{
+			"src":    "tag:forge",
+			"accept": ["tag:flyio-proxy:22"],
+			"deny":   ["tag:flyio-proxy:443", "tag:k8s:443", "tag:homelab:22"],
 		},
 	],
 

@@ -704,13 +704,15 @@ services:
   - name: flyio-openssh
     type: fly
     parent: flyio-nginx
-    last-reviewed: "2026-09-25"
+    last-reviewed: "2026-09-28"
     current-version: "10.3_p1-r1"
     upstream-source: https://pkgs.alpinelinux.org/package/v3.24/main/x86_64/openssh-server
     notes: >-
       Static forge mirror push endpoint: forced git-shell `mirror` user,
       reachable tailnet-only (WireGuard delivers to the node's CGNAT IP;
-      no public :22). apk-pinned in fly/Dockerfile (Alpine 3.24 main).
+      no public :22); the only inbound ACL grant is tag:forge on tcp:22
+      (forge push-mirror sync). apk-pinned in fly/Dockerfile (Alpine 3.24
+      main).
 
   - name: flyio-stagit
     type: fly

@@ -1,7 +1,7 @@
 ---
 title: Tailscale
-modified: 2026-09-27
-last-reviewed: 2026-09-27
+modified: 2026-09-28
+last-reviewed: 2026-09-28
 tags:
   - infrastructure
   - networking
@@ -54,6 +54,7 @@ ACLs managed via Pulumi in `pulumi/tailscale/policy.hujson`.
 
 Additional grants not shown in the matrix:
 - `tag:flyio-proxy` → `tag:flyio-target` on tcp:443 only
+- `tag:forge` → `tag:flyio-proxy` on tcp:22 (forge push-mirror sync into the fly static mirror)
 - `tag:ci-gateway` → `tag:registry` on tcp:443
 - `tag:k8s` → `tag:registry` on tcp:443
 - `tag:homelab` → `tag:k8s` on tcp:443, tcp:5432, tcp:9187

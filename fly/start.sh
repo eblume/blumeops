@@ -89,7 +89,7 @@ echo "Anubis (mirror) started"
 # (WireGuard) reaches the node's Tailscale IP directly (no `tailscale
 # serve` — the tailnet has no autoAppCaps policy), and the only client
 # allowed on it will be the private forge (tag:forge ->
-# tag:flyio-proxy:22 ACL grant, push-wiring PR), forced git commands
+# tag:flyio-proxy:22 ACL grant), forced git commands
 # only (mirror user, no shell).
 #
 # Host keys live on the volume: Forgejo push mirrors use
@@ -110,17 +110,22 @@ cp -p /volume/ssh/ssh_host_* /etc/ssh/ || echo "WARNING: ssh host key copy faile
 
 # Unquoted on purpose — space-separated -o flags sshd must see as words.
 listen_addresses="-o ListenAddress=127.0.0.1"
-# wait for the Tailscale interface IP, then:
-# for i in $(seq 1 15); do
-#     tscidr=$(ip -4 -o addr show tailscale0 2>/dev/null | awk '{print $4}')
-#     [ -n "$tscidr" ] && break
-#     sleep 1
-# done
-# if [ -n "$tscidr" ]; then
-#     listen_addresses="$listen_addresses -o ListenAddress=${tscidr%%/*}"
-# else
-#     echo "WARNING: tailscale0 address never appeared — sshd stays on loopback"
-# fi
+# The push endpoint binds the Tailscale IP in addition to loopback; the
+# ACL grant (tag:forge -> tag:flyio-proxy tcp:22) is the only inbound
+# path. If the address is not up yet, sshd must fall back to loopback
+# (it exits on a missing listen address), and the first mirror syncs
+# retry until a boot has the interface.
+# shellcheck disable=SC2034  # loop variable; this is a bounded poll for tailscale0
+for i in $(seq 1 15); do
+    tscidr=$(ip -4 -o addr show tailscale0 2>/dev/null | awk '{print $4}')
+    [ -n "$tscidr" ] && break
+    sleep 1
+done
+if [ -n "$tscidr" ]; then
+    listen_addresses="$listen_addresses -o ListenAddress=${tscidr%%/*}"
+else
+    echo "WARNING: tailscale0 address never appeared — sshd stays on loopback; mirror pushes will fail until a restart"
+fi
 /usr/sbin/sshd -D -e $listen_addresses -o PasswordAuthentication=no -o PermitRootLogin=no -o X11Forwarding=no -o AllowUsers=mirror &
 SSHD_PID=$!
 if ! kill -0 "$SSHD_PID" 2>/dev/null; then
