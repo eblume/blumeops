@@ -98,8 +98,6 @@ echo "Anubis (mirror) started"
 # mirror after its first sync. Copied into /etc/ssh (not symlinked:
 # sshd checks private-key permissions, and symlinks report 777).
 #
-# Listens on loopback only until the push-wiring PR adds the :22 ACL
-# grant; the tailnet ListenAddress is commented out with the switch.
 # Bind happens when sshd starts, so the tailnet IP must be up first —
 # a missing address makes sshd refuse the listen socket and exit.
 mkdir -p /volume/ssh /etc/ssh /run/sshd
@@ -115,11 +113,12 @@ listen_addresses="-o ListenAddress=127.0.0.1"
 # path. If the address is not up yet, sshd must fall back to loopback
 # (it exits on a missing listen address), and the first mirror syncs
 # retry until a boot has the interface.
-# shellcheck disable=SC2034  # loop variable; this is a bounded poll for tailscale0
-for i in $(seq 1 15); do
+n=15
+while [ "$n" -gt 0 ]; do
     tscidr=$(ip -4 -o addr show tailscale0 2>/dev/null | awk '{print $4}')
     [ -n "$tscidr" ] && break
     sleep 1
+    n=$((n-1))
 done
 if [ -n "$tscidr" ]; then
     listen_addresses="$listen_addresses -o ListenAddress=${tscidr%%/*}"
