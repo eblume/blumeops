@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+#MISE description="[human] Create the forge push mirrors for the fly static mirror (prints the public keys to commit)"
+#USAGE flag "--dry-run" help="Show what would be created without touching the forge"
+set -euo pipefail
+
+# Tailnet name — the public forge.eblu.me is HTTPS-poison in-cluster
+# (docs/reference/services/argocd.md).
+FORGE_API="https://forge.ops.eblu.me/api/v1"
+OP_TOKEN_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
+REPOS_FILE="$(dirname "$0")/../fly/git-mirror/repos"
+# The mirror's push endpoint on the fly node, as Forgejo stores it: the
+# URL form, user `mirror` (the fly sshd's AllowUsers), resolved by
+# indri's Tailscale MagicDNS. The tailnet IP is CGNAT (private), so the
+# provision-indri run that applies ALLOW_LOCALNETWORKS (see
+# ansible/roles/forgejo/templates/app.ini.j2) must precede mirror
+# creation — the create API runs the same allowlist check as each sync.
+REMOTE="ssh://mirror@flyio-proxy.tail8d86e.ts.net/volume/git-mirror/repos/"
+INTERVAL="2h"
+
+echo "Reading repos: $REPOS_FILE"
+repos=$(awk 'NF' "$REPOS_FILE")
+[ -n "$repos" ] || { echo "no repos in $REPOS_FILE — nothing to do"; exit 0; }
+
+if [[ "${usage_dry_run:-}" == "true" ]]; then
+    while IFS= read -r entry; do
+        echo "[dry-run] would create push mirror for $entry -> ${REMOTE}${entry}.git"
+    done <<< "$repos"
+    echo "[dry-run] no API calls made"
+    exit 0
+fi
+
+token="$(op read "$OP_TOKEN_REF")"
+
+echo "Public keys to commit into fly/git-mirror/authorized_keys:"
+echo "-----------------------------------------------------------"
+while IFS= read -r entry; do
+    body=$(curl -s -w '\n%{http_code}' "${FORGE_API}/repos/${entry}/push_mirrors" \
+        -H "Authorization: token ${token}")
+    code=${body##*$'\n'}
+    existing=${body%$'\n'*}
+    if [[ "$code" != 200 ]]; then
+        echo "ERROR (HTTP $code) listing push mirrors for $entry:"
+        echo "$existing"
+        exit 1
+    fi
+    match=$(echo "$existing" | jq -r --arg addr "${REMOTE}${entry}.git" \
+        '[.[] | select(.remote_address == $addr)] | length')
+    if [[ "$match" -gt 0 ]]; then
+        key=$(echo "$existing" | jq -r --arg addr "${REMOTE}${entry}.git" \
+            '[.[] | select(.remote_address == $addr)][0].public_key')
+        echo "$entry (exists) $key"
+        continue
+    fi
+    body=$(curl -s -w '\n%{http_code}' -X POST "${FORGE_API}/repos/${entry}/push_mirrors" \
+        -H "Authorization: token ${token}" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"remote_address\": \"${REMOTE}${entry}.git\",
+            \"use_ssh\": true,
+            \"sync_on_commit\": true,
+            \"interval\": \"${INTERVAL}\"
+        }")
+    code=${body##*$'\n'}
+    resp=${body%$'\n'*}
+    if [[ "$code" != 200 ]]; then
+        echo "ERROR (HTTP $code) creating push mirror for $entry:"
+        echo "$resp"
+        exit 1
+    fi
+    key=$(echo "$resp" | jq -r '.public_key')
+    [[ -n "$key" && "$key" != "null" ]] || {
+        echo "ERROR: no public_key in response for $entry:"; echo "$resp"; exit 1
+    }
+    echo "$entry $key"
+done <<< "$repos"
+echo "-----------------------------------------------------------"
+echo "Commit those keys into fly/git-mirror/authorized_keys and redeploy"
+echo "(deploy-fly) — until then the mirrors' syncs fail with an SSH"
+echo "authentication error (visible in each mirror's last_error)."

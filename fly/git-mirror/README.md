@@ -25,21 +25,28 @@ Forgejo **push mirrors** on the private forge push into bare repos here.
 The private forge's push-mirror sync pushes over SSH to:
 
 ```
-git@flyio-proxy.tail8d86e.ts.net:/volume/git-mirror/repos/eblume/<name>.git
+ssh://mirror@flyio-proxy.tail8d86e.ts.net/volume/git-mirror/repos/eblume/<name>.git
 ```
+
+That is the form Forgejo stores it in (URL form, user `mirror` — the fly
+sshd's `AllowUsers`; the scp form `git@host:path` would arrive as user
+`git` and be refused by sshd).
 
 - **Reconnecting address:** the fly node's tailscale node key is
   persisted on the volume (`/volume/tailscale`, bind-mounted over
   `/var/lib/tailscale` in `fly/start.sh`), so a boot reconnects with
-  the existing identity — no re-auth with the auth key. The key is
-  minted ephemeral (`pulumi/tailscale`), so a long-offline node is
-  reclaimed by Tailscale and its boot re-auths with the key; a
-  non-ephemeral key, if we want a truly stable name, goes in the
-  push-wiring PR.
+  the existing identity — no re-auth with the auth key — and the push
+  endpoint keeps its `flyio-proxy` MagicDNS name. The key is minted
+  ephemeral (`pulumi/tailscale`), so a long-offline node is reclaimed
+  by Tailscale and its boot re-auths with the key; until then a new
+  node (name `flyio-proxy` if free) takes over and the push endpoint
+  resolves to the new IP, which is why the mirrors address it by name
+  rather than IP.
 - **Reachable, not public:** the in-VM `sshd` is delivered by WireGuard
   directly to the node's Tailscale IP — the public internet has no route
-  to it at all (no public `:22` service). Until the push-wiring PR adds
-  the tailnet ListenAddress + ACL grant, sshd listens on loopback only. (No
+  to it at all (no public `:22` service). The sshd binds the Tailscale IP
+  on top of loopback (`start.sh`); if the interface is not up at boot it
+  stays on loopback and a restart recovers. (No
   `tailscale serve`: the tailnet has no autoAppCaps policy, and the
   `tag:flyio-proxy` node receives tailnet traffic on its CGNAT IP natively.)
 - **Credentials:** the private side holds the push-mirror **private**
@@ -49,8 +56,14 @@ git@flyio-proxy.tail8d86e.ts.net:/volume/git-mirror/repos/eblume/<name>.git
   secret). Nothing credential-bearing reaches the fly machine, and the fly
   machine has no read path to the private forge: the push direction is
   forge → fly only.
-- **ACL:** `src tag:forge → dst tag:flyio-proxy, tcp:22` (added by the
-  push-wiring PR, with its ACL test block). The git-shell account is
+- **The forge must allow the endpoint:** every push-mirror sync
+  re-checks its remote against the migration allow/block lists; with no
+  list, only *external* (non-private) addresses pass, and the fly node's
+  tailnet IP is CGNAT (100.64.0.0/10 — classed private). So the forge's
+  `app.ini` carries `[migrations] ALLOW_LOCALNETWORKS = true`
+  (`ansible/roles/forgejo/templates/app.ini.j2`), applied by the
+  `provision-indri` run.
+- **ACL:** `src tag:forge → dst tag:flyio-proxy, tcp:22` (`pulumi/tailscale/policy.hujson`, applied with `mise run tailnet-up`; a test entry pins that the grant is tcp:22-only). The git-shell account is
   `mirror` with a forced `git-shell` command — authorized keys can run
   git push only, no login, no shell.
 
@@ -89,12 +102,25 @@ and regenerate.
    fails to start. On boot, `fly/start.sh` runs
    `fly/git-mirror/create-mirror.sh`, which creates the bare repos,
    installs the `post-receive` hook, and generates the initial (empty)
-   site. Until the push-wiring PR lands, the repos are empty — the
-   site shows an index with no rows and clones return an empty repo.
-2. **After push wiring:** commit the public keys into
-   `fly/git-mirror/authorized_keys`, deploy, create the push mirrors
-   (the `mise` task in that PR), push a throwaway branch, and verify
-   stagit output + `git ls-remote` over the public URL.
+   site. Until the push mirrors exist (step 2 below), the repos are
+   empty — the site shows an index with no rows and clones return an
+   empty repo.
+2. **Wiring the push (one-time, after this image is deployed):**
+   1. From gilbert: `mise run provision-indri -- --tags forgejo` (applies
+      `ALLOW_LOCALNETWORKS`; see the note under "Push path" — the first
+      syncs fail with a URL-permission error until this lands).
+   2. From gilbert: `mise run tailnet-up` (applies the
+      `tag:forge` → `tag:flyio-proxy:22` ACL grant).
+   3. From gilbert: `mise run mirror-push-wire` — creates one push mirror
+      per repo in `repos` (idempotent; re-running lists what exists) and
+      prints the generated public keys. Syncs fail until step 4 lands.
+   4. Commit the printed keys into `authorized_keys` and redeploy
+      (deploy-fly). Then verify: a throwaway branch pushed to one repo
+      lands (`git ls-remote` over the public URL shows it), then deleted
+      (the `--mirror` push removes it on the next sync), tags are
+      mirrored, and stagit HTML regenerated (the repo page shows
+      commits). A mirror's `last_error` (visible on the forge) is empty
+      once the first sync succeeds.
 3. **Machine replacement:** the volume reattaches; init re-runs; the
    tailscale identity persists. Nothing to do.
 

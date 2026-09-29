@@ -61,6 +61,14 @@ ENABLE_OPENID_SIGNUP = false
 DEFAULT_INTERVAL = 8h
 MIN_INTERVAL = 10m
 
+[migrations]
+# Push-mirror syncs re-check their remote URL against the migration
+# allow/block lists on every sync. With no list, only *external*
+# addresses pass — and the fly mirror endpoint's tailnet IP is CGNAT
+# (100.64.0.0/10, classed private), so push mirrors to it fail without
+# this (eblume/blumeops#1208).
+ALLOW_LOCALNETWORKS = true
+
 [cron.update_checker]
 ENABLED = false
 

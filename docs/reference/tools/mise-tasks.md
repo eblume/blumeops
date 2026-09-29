@@ -48,6 +48,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `frigate-export-model` | [human] Export YOLOv9 model weights to ONNX for Frigate NVR via docker run |
 | `horkos-test` | Run the horkos client-tooling unit tests — request-run and verify-runs (no network, no cluster) |
 | `mirror-create` | [human] Create a new upstream mirror in the mirrors/ Forgejo org |
+| `mirror-push-wire` | [human] Create the forge push mirrors for the fly static mirror (prints the public keys to commit) |
 | `mirror-update-pats` | [human] Push the current GitHub PAT onto every forge pull mirror on indri |
 | `ollama-down` | [human] Scale the ollama inference service down (replicas 1 -> 0) to free the RTX 4080 |
 | `ollama-up` | [human] Scale the ollama inference service up (replicas 0 -> 1) for an evaluation window |

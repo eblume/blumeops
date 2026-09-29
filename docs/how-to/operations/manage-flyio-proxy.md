@@ -1,7 +1,7 @@
 ---
 title: Manage Fly.io Proxy
-modified: 2026-09-25
-last-reviewed: 2026-09-25
+modified: 2026-09-28
+last-reviewed: 2026-09-28
 tags:
   - how-to
   - fly-io
@@ -114,8 +114,10 @@ repos anyway, and the reconnecting identity is what keeps the mirror's
 SSH push endpoint addressable. It is not indefinitely stable: the auth
 key is `ephemeral=True` (`pulumi/tailscale/__main__.py`) — Tailscale
 reclaims offline ephemeral nodes, so after a long offline period the
-name drifts again until the next re-auth. A non-ephemeral key would
-make it truly stable; that goes in the push-wiring PR.
+name comes back on a new node after its re-auth; the push endpoint is
+addressed by MagicDNS name, which follows the identity, so the mirrors
+track it. A non-ephemeral key would make the identity itself
+indisputably stable.
 
 The volume-anchors-the-machine tradeoff is accepted: the mirror repos
 are state that must outlive machine replacement regardless, and Fly
