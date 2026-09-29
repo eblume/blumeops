@@ -1,7 +1,7 @@
 ---
 title: Manage Ringtail Lockfile
-modified: 2026-07-17
-last-reviewed: 2026-07-17
+modified: 2026-09-28
+last-reviewed: 2026-09-28
 tags:
   - how-to
   - ringtail
@@ -10,64 +10,101 @@ tags:
 
 # Manage Ringtail Lockfile
 
-Two flows update the ringtail NixOS flake lockfile (`nixos/ringtail/flake.lock`) for different purposes.
+# Managing the Ringtail lockfile
 
-## Update All Inputs
+The ringtail NixOS flake lockfile (`nixos/ringtail/flake.lock`) is rolled by the
+**Ringtail Flake Update** workflow on a weekly schedule. The workflow performs
+the checks no human can do from a diff and posts them against the exact SHA it
+verified. My role is to read that table, merge on green, and handle the
+exceptions the workflow escalates.
 
-To pull the latest versions of all flake inputs (equivalent to `nix flake update`):
+## The scheduled update
 
-```bash
-# 1. Update flake.lock. Local equivalent of the Ringtail Flake Update
-#    workflow's script, run in a nixos/nix container because gilbert has no
-#    nix (the workflow itself runs nix natively on the ringtail nix runner).
-docker run --rm -i -v "$PWD":/workspace -w /workspace/nixos/ringtail \
-    -e SKIP_INPUTS=nixpkgs-services nixos/nix:2.34.4 sh -s <<'SH'
-set -e;
-# Double quotes: single quotes would keep $SKIP_INPUTS literal and
-# silently disable the skip filter (letting `nix flake update`
-# bump the deliberately-pinned nixpkgs-services input).
-SKIP="$SKIP_INPUTS";
-# Land the metadata in a real file: nix-instantiate cannot
-# readFile a pipe (/dev/stdin canonicalizes to
-# /proc/<pid>/fd/pipe:[...] and readFile fails), which made
-# discovery silently empty for as long as this pipeline existed.
-# No stderr suppression — metadata failures should be visible.
-nix --extra-experimental-features 'nix-command flakes' \
-  flake metadata --json > /tmp/flake-meta.json;
-ALL=$(nix-instantiate --eval -E "builtins.concatStringsSep \" \" (builtins.attrNames (builtins.fromJSON (builtins.readFile /tmp/flake-meta.json)).locks.nodes.root.inputs)" | tr -d '"');
-INPUTS='';
-for i in $ALL; do
-  case ",$SKIP," in *",$i,"*) continue ;; esac;
-  INPUTS="$INPUTS $i";
-done;
-echo "Updating inputs:$INPUTS";
-echo "Skipping: $SKIP";
-# Empty INPUTS would make `nix flake update` update *all* inputs,
-# including the ones we meant to skip — fail loudly instead.
-[ -n "$INPUTS" ] || { echo "no inputs discovered; refusing bare flake update" >&2; exit 1; };
-nix --extra-experimental-features 'nix-command flakes' \
-  flake update $INPUTS --accept-flake-config
-SH
+The workflow (`.forgejo/workflows/flake-update.yaml`, also manually
+dispatchable) runs every **Sunday 05:00 UTC** on the `nix-container-builder`
+runner. Each run:
 
-# 2. Commit, push, then deploy
-git add nixos/ringtail/flake.lock
-git commit -m "Update ringtail flake inputs"
-git push
-mise run provision-ringtail
-```
+1. creates a fresh `auto-update/ringtail-flake-<date>` branch from `main` — the
+   workflow never writes to any other branch;
+2. updates all root inputs — `nixpkgs`, `home-manager`, `disko` — via native
+   `nix flake update`, skipping `nixpkgs-services`, which is deliberately
+   pinned by rev (see [[review-services]]);
+3. records each tracked branch's head via `git ls-remote` at update time, so a
+   branch that moves mid-run cannot cause a false exception;
+4. builds the system and extracts the kernel version.
 
-After deploying, continue with [post-deploy maintenance](#post-deploy-maintenance).
+It then runs the check battery (below) read-only against the candidate
+lockfile and opens a PR whose diff is **exactly** `nixos/ringtail/flake.lock`,
+pinned to the head SHA the battery verified.
 
-### From a Remote-Agent Session
+## The check battery
 
-Remote-agent sessions have no nix, docker, or deploy access, so the update
-runs in CI instead: the agent opens a branch/PR, then a human dispatches the
-**Ringtail Flake Update** workflow (Actions > Ringtail Flake Update > Run
-workflow, selecting the PR branch). The workflow runs `nix flake update`
-directly on ringtail's nix runner and pushes the refreshed `flake.lock`
-as a commit on that branch for review. After merge, a human deploys with
-`mise run provision-ringtail` from gilbert and continues with
-[post-deploy maintenance](#post-deploy-maintenance).
+The battery is the hard gate. Every row must pass for the PR to be green:
+
+| # | Check | Catches |
+|---|-------|---------|
+| 1 | **Scope** — only the expected root inputs (`nixpkgs`, `home-manager`, `disko`) moved; every other node, lock, and `original` field is byte-identical to the parent lock (lock v7, parsed). | Unrelated nodes touched, extra inputs, structural tampering. |
+| 2 | **Root-input immutability** — `nixpkgs-services`'s `original.rev` is unchanged, and every root input's `original` (type, owner, repo, ref) is unchanged. | Redirecting an input to a different source, or silently moving the pinned `nixpkgs-services` rev. |
+| 3 | **Fast-forward only** — for each moved input, the new rev equals the *recorded* head of its tracked branch, and the old rev is an **ancestor** of the new rev (`merge-base --is-ancestor`). | Force-reset branches, side-branch revs, and revs that are not actually the upstream head — the check no human can do from a diff. |
+| 4 | **narHash** — the lock's `narHash` matches a fresh fetch of the new rev. | Fetch divergence and corruption. **Not a provenance claim**: it is self-referential (same nix, same runner as the update) and documents that limit honestly. |
+| 5 | **System build** — `.#nixosConfigurations.ringtail…toplevel` builds on the same nix `ringtail-apply` rebuilds with (the same build as the `Ringtail Flake Check` job on PRs). | Locks that do not evaluate or build. |
+| 6 | **Kernel unchanged** — the built system's kernel version matches what is currently booted on ringtail. A bump is **flagged, never a failure**: the PR says "kernel bump — plan a reboot" (see [Post-deploy maintenance](#post-deploy-maintenance)). | Silent kernel changes under a lockfile roll. |
+
+The battery posts its results as a PR comment **naming the exact head SHA it
+verified**, so a merge means "a workflow defined on `main` vouched for this
+SHA" — not "I certified these opaque hashes".
+
+## Merging on green
+
+When the table is all green, I merge the PR. The merge stays human: `main`
+protection allows only my account to merge, and the Actions token is not
+granted merge rights (a bot entry would be path-unlimited, and a broader
+credential would sit in Actions secrets readable by every workflow).
+
+After the merge lands on `main`:
+
+1. **horkos** detects the push that touched `nixos/ringtail/flake.lock` and
+   files a `ringtail-rebuild.yaml` **warrant request** bound to the merged SHA
+   — request only; nothing dispatches automatically
+   ([eblume/horkos#48](https://forge.eblu.me/eblume/horkos/issues/48)).
+2. I approve the request in Warrant; `warrant-bot` dispatches
+   `ringtail-rebuild` at the merged SHA.
+3. I continue with [Post-deploy maintenance](#post-deploy-maintenance).
+
+## Exceptions
+
+If any check fails, the workflow does **not** produce a green PR: the PR is
+left open, an issue is filed naming each failing check with its evidence, and
+the issue is linked from the PR. That issue is the entry point — I (or a
+talos session) work it there. A PR with a red row is not merged, and a human
+click never substitutes for a failed check.
+
+The optional future: an inline LLM classifier may triage fuzzy cases (e.g.
+whether an upstream changelog is noteworthy) by escalating to a human. The
+deterministic battery stays the hard gate; a classifier can escalate, never
+approve.
+
+## Why the gate moved
+
+The previous flow ended in a human "review + merge" of a lockfile-only PR.
+That review could not actually happen: confirming that a new rev is the real
+upstream branch head is not doable by reading a diff of opaque hashes, and
+when the lock was generated inside the agent pod no trusted party vouched for
+the revs at all. A human gate that only certifies hashes is worse than no
+gate — it trains the reviewer to rubber-stamp exactly the diff shape a
+malicious change would disguise itself as.
+
+The verification therefore moved into a workflow on a trusted runner, and the
+human decision became one a human can actually make: read the check table,
+merge. Two constraints shape the design:
+
+- **No secrets in the nix-evaluating job.** Nix evaluation can read
+  environment variables (`builtins.getEnv`) and fetch URLs, so the
+  update/build job holds no secrets at all. The only job that holds the
+  default token runs no nix — it runs the battery and posts results.
+- **The PR is pinned.** The diff must be exactly the lockfile, and the posted
+  result must name the SHA it verified, so the verified head and the merged
+  head cannot diverge.
 
 ## Lock New Inputs Only
 
@@ -76,11 +113,14 @@ nixos/nix container before deploying. This resolves any newly added inputs
 without upgrading existing ones. If the lockfile changes, the task stages the
 file and exits — commit, push, and re-run.
 
-This is the right behavior for provisioning: configuration changes that add a new input get locked, but existing inputs stay pinned until explicitly updated.
+This is the right behavior for provisioning: configuration changes that add a
+new input get locked, but existing inputs stay pinned until explicitly
+updated.
 
-## Post-Deploy Maintenance
+## Post-deploy Maintenance
 
-After `provision-ringtail` completes (whether from a full update or a config change), perform these steps.
+After `ringtail-rebuild` applies the merged SHA (or `provision-ringtail`
+completes for a config change), perform these steps.
 
 ### Check for Kernel Update
 
@@ -90,17 +130,21 @@ Compare the booted kernel against the one in the current system profile:
 ssh ringtail 'echo "Booted:  $(uname -r)"; echo "Staged:  $(readlink /run/current-system/kernel | grep -oP "linux-\K[^/]+")"'
 ```
 
-If they differ, a reboot is needed for the new kernel to take effect. Reboot at a convenient time:
+If they differ, a reboot is needed for the new kernel to take effect. Reboot
+at a convenient time:
 
 ```fish
 ssh ringtail 'sudo reboot'
 ```
 
-> **AI agents:** Do not reboot automatically. Inform the user that a kernel update is pending and suggest they reboot when convenient.
+> **AI agents:** Do not reboot automatically. Inform the user that a kernel
+> update is pending and suggest they reboot when convenient.
 
 ### Prune Old Generations and Garbage Collect
 
-Old NixOS system generations accumulate over time. The `prune-ringtail-generations` task handles pruning and garbage collection together:
+Old NixOS system generations accumulate over time. The
+`prune-ringtail-generations` task handles pruning and garbage collection
+together:
 
 ```fish
 mise run prune-ringtail-generations            # keep 5 most recent + kernel-safe gen
@@ -108,8 +152,13 @@ mise run prune-ringtail-generations --dry-run  # preview only
 mise run prune-ringtail-generations --keep 3   # keep fewer generations
 ```
 
-The task keeps the 5 most recent generations plus the most recent generation whose kernel matches the currently **booted** kernel — this preserves a rollback target that won't require a reboot. After pruning, it runs `nix-collect-garbage` to free unreferenced store paths.
+The task keeps the 5 most recent generations plus the most recent generation
+whose kernel matches the currently **booted** kernel — this preserves a
+rollback target that won't require a reboot. After pruning, it runs
+`nix-collect-garbage` to free unreferenced store paths.
 
 ## Related
 
 - [[ringtail]] — Host reference
+- [[review-services]] — the deliberately pinned `nixpkgs-services` rev
+- [eblume/horkos#48](https://forge.eblu.me/eblume/horkos/issues/48) — horkos files the rebuild request on the merge webhook
