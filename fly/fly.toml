@@ -34,7 +34,7 @@ port = 41641
 
 # --- Static forge mirror (fly/git-mirror/README.md, Part of eblume/blumeops#1208) ---
 # Holds the pushed bare repos + generated stagit site under
-# /volume/git-mirror. Sized for the seven allowlisted repos (~1 GB today)
+# /volume/git-mirror. Sized for the six allowlisted repos (~1 GB today)
 # with headroom; created idempotently by `mise run fly-setup`. On
 # machine replacement the volume reattaches and the post-start
 # init (start.sh) recreates the site from the repos.

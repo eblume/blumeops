@@ -1,3 +1,10 @@
-# Authorized public keys for the forced git-shell `mirror` user.
-# The push-mirror wiring PR commits the keys Forgejo auto-generates for the
-# push mirrors. Public keys only — never a private key here.
+# Public keys Forgejo auto-generates for the push mirrors into this
+# endpoint — one per repo in `repos`, printed by `mise run
+# mirror-push-wire`. Trailing words are sshd comments (the repo).
+# Public keys only — never a private key here.
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOIkOjzKOkLxr+LHVZBEUuUARmzSdvHMJfxelvw+AdRO eblume/blumeops
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINjR/mFhZxvkR8SSKOlLdqiLJIAe4U2GbOOvLWj5dhm0 eblume/hephaestus
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP76Q1nqkE1m5PWZjuyzfKXZmCr90YEaan4EkZESN96+ eblume/talos
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGSK/tbbziysJFnc6OExWBeqLugB5DW/1Q+tTy/w9r1t eblume/horkos
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJtiUnN+fnZx/tHPkdxF2R41l6vwo4edMFupltPsaGhE eblume/project-template
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMqLeZHzi6Qf/jSobiT5OZD+7SpnddoNw4eVpQFt2UM1 eblume/RexWorks

@@ -34,6 +34,19 @@ fix_head() {
     fi
 }
 
+# Prune bare repos that dropped out of the allowlist: a drop is a file
+# edit + redeploy, and the site/info-refs loops below iterate the volume
+# dir, so a stale repo would otherwise keep being served.
+for repo in "$reposdir"/*/*.git; do
+    [ -d "$repo" ] || continue
+    rel="${repo#"$reposdir"/}"; rel="${rel%.git}"
+    [ -n "$rel" ] || continue
+    if ! grep -qxF "$rel" /usr/share/git-mirror/repos; then
+        rm -rf "$repo" "$sitedir/${rel:?}"
+        echo "pruned dropped repo: $rel"
+    fi
+done
+
 n=0
 while IFS= read -r entry; do
     [ -n "$entry" ] || continue
