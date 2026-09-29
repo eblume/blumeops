@@ -54,9 +54,12 @@ retried at the next interval, not retried within a run.
 ### Missing Keychain entry
 
 Shows up as `sifaka_share_mounted{share=...} 0` (alert through the existing
-Alloy → Prometheus path), NOT as a prompt. Seeding: on an interactive
-session run one manual `osascript -e 'mount volume "smb://eblume@sifaka._smb._tcp.local/backups"'`
-and tick "Remember in Keychain" — never `security add-internet-password`.
+Alloy → Prometheus path), NOT as a prompt. The `eblume` credential is
+verified to resolve from the Keychain non-interactively (checked on indri
+2026-09-29); no seeding step is needed. If an entry is ever missing, seed
+it on an interactive session with one manual `osascript -e 'mount volume
+"smb://eblume@sifaka._smb._tcp.local/backups"'` and tick "Remember in
+Keychain" — never `security add-internet-password`.
 
 ### #1225 note
 
