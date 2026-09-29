@@ -26,8 +26,8 @@ services:
 
   - name: loki
     type: argocd
-    last-reviewed: 2026-06-12
-    current-version: "3.7.2"
+    last-reviewed: 2026-09-28
+    current-version: "3.7.8"
     upstream-source: https://github.com/grafana/loki/releases
 
   - name: kube-state-metrics
