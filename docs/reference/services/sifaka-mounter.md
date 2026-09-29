@@ -45,7 +45,7 @@ unattended at 02:00).
 
 `osascript -e 'mount volume "smb://…"'` (NetFS path, same as Finder — creates
 `/Volumes/<share>`, reads the login Keychain; no credential in repo/argv).
-A run takes a flock lockfile so runs never overlap; each `mount volume` is
+launchd never overlaps a one-shot job with itself, so at most one run is in progress; each `mount volume` is
 killed after 30 s (perl SIGALRM; macOS has no coreutils timeout), so a
 missing Keychain entry can never leave a GUI credential dialog behind —
 indri dialogs block services. A failed mount is reported in the metric and
