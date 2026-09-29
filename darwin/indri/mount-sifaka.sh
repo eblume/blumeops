@@ -47,8 +47,9 @@ run_with_timeout() {
 }
 
 # mount(8) prints "device on /mountpoint (type, ...)" - the mount point is
-# column 3.
-is_mounted() { mount | awk -v v="$1" '$3 == v { found = 1 } END { exit found ? 0 : 1 }'; }
+# column 3. Absolute path: mount lives in /sbin, which the agent's PATH
+# doesn't carry.
+is_mounted() { /sbin/mount | awk -v v="$1" '$3 == v { found = 1 } END { exit found ? 0 : 1 }'; }
 
 # execvp can't reach a shell function, so osascript's argv goes straight
 # through run_with_timeout; the URL is quoted for the AppleScript string.
