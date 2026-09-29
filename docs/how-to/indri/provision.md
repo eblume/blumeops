@@ -1,6 +1,6 @@
 ---
 title: Provision Indri
-modified: 2026-09-25
+modified: 2026-09-29
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -430,7 +430,8 @@ logs in ([[restart-indri]]):
    password typed at the console.
 2. ~2 min later the login window appears. Log in via Screen Sharing;
    dismiss the tailscaled dialog the first Tailscale SSH connection pops;
-   start Amphetamine and AutoMounter.
+   start Amphetamine (the sifaka shares are mounted by the nix-managed
+   `mcquack.eblume.sifaka-mounter` agent, no manual step).
 3. `ssh indri 'readlink /run/current-system; sudo launchctl print
    system/org.nixos.activate-system | head -1'`, then the verification
    list above and `mise run services-check`.
