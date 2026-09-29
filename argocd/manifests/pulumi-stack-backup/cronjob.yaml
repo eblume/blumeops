@@ -71,19 +71,17 @@ spec:
                   export PULUMI_ORGANIZATION=eblume
 
                   ts=$(date -u +%Y%m%dT%H%M%SZ)
-                  # Per-stack Pulumi project dir baked into the image; `pulumi
-                  # config` needs a Pulumi.yaml in the working tree, so point it
-                  # at the project (name matches the --stack project segment).
-                  projdir() {
-                    case "$1" in
-                      blumeops-tailnet/tail8d86e) echo /projects/tailscale ;;
-                      blumeops-dns/eblu-me)       echo /projects/gandi ;;
-                      *) echo "unknown stack $1" >&2; exit 1 ;;
-                    esac
-                  }
-                  for stack in blumeops-tailnet/tail8d86e blumeops-dns/eblu-me; do
-                    name=${stack#*/}
-                    dir=/exports/${name}
+                  # `pulumi stack export` runs with no project in the working
+                  # dir (the baked Pulumi.yaml dirs are for `pulumi config`
+                  # only), so --stack must be fully qualified: org/project/stack.
+                  for qstack in eblume/blumeops-tailnet/tail8d86e eblume/blumeops-dns/eblu-me; do
+                    stack=${qstack##*/}; proj=${qstack%/*}; proj=${proj##*/}
+                    projdir=$(case "$proj" in
+                      blumeops-tailnet) echo /projects/tailscale ;;
+                      blumeops-dns)     echo /projects/gandi ;;
+                      *) echo "unknown project $proj" >&2; exit 1 ;;
+                    esac)
+                    dir=/exports/${stack}
                     mkdir -p "$dir"
                     # Clear any .partial left by a crashed run (never matches
                     # the ferry globs, but shouldn't accumulate on the PVC).
@@ -93,7 +91,7 @@ spec:
                     # interrupted export would otherwise leave a partial file
                     # that the ferry (which only checks non-empty) would ship.
                     f="$dir/stack_${ts}.json"
-                    pulumi stack export --show-secrets --file "$f.partial" --stack "$stack"
+                    pulumi stack export --show-secrets --file "$f.partial" --stack "$qstack"
                     [[ -s "$f.partial" ]] || { echo "empty export $f" >&2; exit 1; }
                     mv -f "$f.partial" "$f"
 
@@ -101,8 +99,8 @@ spec:
                     # are not part of the state export; they must ride along
                     # or a restore would need them re-collected by hand.
                     c="$dir/config_${ts}.txt"
-                    pulumi config --show-secrets --cwd "$(projdir "$stack")" \
-                      --stack "$stack" > "$c.partial"
+                    pulumi config --show-secrets --cwd "$projdir" \
+                      --stack "$qstack" > "$c.partial"
                     [[ -s "$c.partial" ]] || { echo "empty config $c" >&2; exit 1; }
                     mv -f "$c.partial" "$c"
 
