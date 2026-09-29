@@ -1,0 +1,498 @@
+#!/usr/bin/env bash
+## flake-lock-check — deterministic lock battery for the ringtail flake-update
+## workflow (eblume/blumeops#1318): checks a human cannot do on a lockfile diff.
+## Subcommands: check OLD NEW [--heads FILE] [--json] | record-heads NEW [--out FILE]
+##              | kernel-version TOPLEVEL.
+## Exit: 0 all pass; 1 a check failed; 2 usage/parse/maintenance error.
+## ff-ancestor and nar-hash are fail-closed: a network or nix failure is FAIL.
+
+set -euo pipefail
+
+# Inputs that may move between two lock revisions. `nixpkgs-services` is
+# pinned by rev and is deliberately absent.
+ALLOWED_INPUTS=(nixpkgs home-manager disko)
+: "${FLAKELOCK_CURL:=curl}"
+: "${FLAKELOCK_NIX:=nix}"
+: "${FLAKELOCK_GIT:=git}"
+
+# Tests and dry-runs override every tool call via env vars.
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+reportdir="$tmpdir/checks"
+
+die() {
+  printf '%s\n' "$1" >&2
+  exit "${2:-1}"
+}
+
+usage() {
+  cat >&2 <<'EOF'
+flake-lock-check: verify nixos/ringtail/flake.lock candidates (see
+docs/how-to/ringtail/manage-lockfile.md, eblume/blumeops#1318).
+
+usage:
+  flake-lock-check check OLD_LOCK NEW_LOCK [--heads FILE] [--json]
+  flake-lock-check record-heads NEW_LOCK [--out FILE]
+  flake-lock-check kernel-version TOPLEVEL
+
+exit: 0 all pass; 1 a check failed; 2 usage/parse/unrecoverable.
+EOF
+  exit 2
+}
+
+# Record a check result: name, 0/1, then one detail line per input/finding.
+record() {
+  local name="$1"
+  local ok="$2"
+  shift 2
+  printf '%s\n' "$ok" >"$reportdir/$name.ok"
+  if (($# > 0)); then
+    printf '%s\n' "$@" >"$reportdir/$name.txt"
+  else
+    : >"$reportdir/$name.txt"
+  fi
+}
+
+# Inputs whose NEW locked.rev differs from OLD, one per line.
+moved_inputs() {
+  local old="$1"
+  local new="$2"
+  local node old_rev new_rev
+  for node in "${ALLOWED_INPUTS[@]}"; do
+    old_rev="$(jq -r --arg n "$node" '.nodes[$n]?.locked?.rev // ""' "$old")"
+    new_rev="$(jq -r --arg n "$node" '.nodes[$n]?.locked?.rev // ""' "$new")"
+    if [[ -n "$old_rev" && "$old_rev" != "$new_rev" ]]; then
+      printf '%s\n' "$node"
+    fi
+  done
+}
+
+check_scope() {
+  local old="$1"
+  local new="$2"
+  local ok=1
+  local -a lines=()
+  local old_keys new_keys node old_rev new_rev
+
+  old_keys="$(jq -r '.nodes | keys | sort | join(" ")' "$old")"
+  new_keys="$(jq -r '.nodes | keys | sort | join(" ")' "$new")"
+  if [[ "$old_keys" != "$new_keys" ]]; then
+    ok=0
+    lines+=("node set differs: old=[$old_keys] new=[$new_keys]")
+  fi
+
+  if ! jq -ne --slurpfile o "$old" --slurpfile n "$new" '$o[0].nodes.root == $n[0].nodes.root' >/dev/null 2>&1; then
+    ok=0
+    lines+=("root: node object not identical")
+  fi
+
+  # A non-root node without an object locked is not a lock node.
+  for node in $new_keys; do
+    [[ "$node" == "root" ]] && continue
+    if ! jq -e --arg node "$node" '(.nodes[$node]?.locked | type) == "object"' "$new" >/dev/null 2>&1; then
+      ok=0
+      lines+=("$node: locked is not an object")
+    fi
+  done
+
+  # Non-allowed nodes (root, nixpkgs-services): the entire object is frozen.
+  for node in $new_keys; do
+    case " $node " in
+      " nixpkgs " | " home-manager " | " disko " | " root ") ;;
+      *)
+        if ! jq -ne --slurpfile o "$old" --slurpfile n "$new" --arg node "$node" '$o[0].nodes[$node] == $n[0].nodes[$node]' >/dev/null 2>&1; then
+          ok=0
+          lines+=("$node: node object not identical")
+        fi
+        ;;
+    esac
+  done
+
+  # Allowed nodes: original frozen; locked frozen unless rev moved, in which
+  # case only rev/narHash/lastModified may differ.
+  for node in "${ALLOWED_INPUTS[@]}"; do
+    if ! jq -ne --slurpfile o "$old" --slurpfile n "$new" --arg node "$node" '$o[0].nodes[$node].original == $n[0].nodes[$node].original' >/dev/null 2>&1; then
+      ok=0
+      lines+=("$node: original not identical")
+    fi
+    old_rev="$(jq -r --arg node "$node" '.nodes[$node]?.locked?.rev // ""' "$old")"
+    new_rev="$(jq -r --arg node "$node" '.nodes[$node]?.locked?.rev // ""' "$new")"
+    if [[ "$old_rev" == "$new_rev" ]]; then
+      if ! jq -ne --slurpfile o "$old" --slurpfile n "$new" --arg node "$node" '$o[0].nodes[$node].locked == $n[0].nodes[$node].locked' >/dev/null 2>&1; then
+        ok=0
+        lines+=("$node: locked not identical (rev unchanged)")
+      fi
+    else
+      if ! jq -ne --slurpfile o "$old" --slurpfile n "$new" --arg node "$node" '
+          ($o[0].nodes[$node].locked | del(.rev, .narHash, .lastModified)) ==
+          ($n[0].nodes[$node].locked | del(.rev, .narHash, .lastModified))
+        ' >/dev/null 2>&1; then
+        ok=0
+        lines+=("$node: locked differs beyond rev/narHash/lastModified")
+      fi
+    fi
+  done
+
+  record scope "$ok" "${lines[@]}"
+}
+
+check_originals() {
+  local old="$1"
+  local new="$2"
+  local ok=1
+  local -a lines=()
+  local root_inputs input field old_v new_v
+
+  root_inputs="$(jq -r '.nodes.root.inputs | keys | sort | join(" ")' "$new")"
+  for input in $root_inputs; do
+    for field in type owner repo ref; do
+      old_v="$(jq -r --arg i "$input" --arg f "$field" '(.nodes[$i].original[$f] // "<absent>")' "$old")"
+      new_v="$(jq -r --arg i "$input" --arg f "$field" '(.nodes[$i].original[$f] // "<absent>")' "$new")"
+      if [[ "$old_v" != "$new_v" ]]; then
+        ok=0
+        lines+=("$input: original.$field changed ($old_v -> $new_v)")
+      fi
+    done
+    if [[ "$input" == "nixpkgs-services" ]]; then
+      old_v="$(jq -r --arg i "$input" '.nodes[$i].original.rev // ""' "$old")"
+      new_v="$(jq -r --arg i "$input" '.nodes[$i].original.rev // ""' "$new")"
+      if [[ "$old_v" != "$new_v" ]]; then
+        ok=0
+        lines+=("nixpkgs-services: original.rev changed ($old_v -> $new_v)")
+      fi
+    fi
+  done
+
+  record originals "$ok" "${lines[@]}"
+}
+
+check_ff_head() {
+  local old="$1"
+  local new="$2"
+  local heads="$3"
+  local ok=1
+  local -a lines=()
+  local -a moved=()
+  mapfile -t moved < <(moved_inputs "$old" "$new")
+
+  if ((${#moved[@]} > 0)); then
+    if [[ -z "$heads" ]]; then
+      ok=0
+      lines+=("no --heads file: cannot verify recorded branch heads (fail-closed)")
+    elif ! jq -e . "$heads" >/dev/null 2>&1; then
+      ok=0
+      lines+=("--heads file is not valid JSON: $heads")
+    else
+      local input expected recorded
+      for input in "${moved[@]}"; do
+        expected="$(jq -r --arg i "$input" '.nodes[$i]?.locked?.rev // ""' "$new")"
+        recorded="$(jq -r --arg i "$input" '.[$i]?.head // ""' "$heads")"
+        if [[ -z "$recorded" ]]; then
+          ok=0
+          lines+=("$input: no recorded head (missing entry)")
+        elif [[ "$recorded" != "$expected" ]]; then
+          ok=0
+          lines+=("$input: recorded head $recorded != new rev $expected")
+        fi
+      done
+    fi
+  fi
+
+  record ff-head "$ok" "${lines[@]}"
+}
+
+check_ff_ancestor() {
+  local old="$1"
+  local new="$2"
+  local ok=1
+  local -a lines=()
+  local -a moved=()
+  mapfile -t moved < <(moved_inputs "$old" "$new")
+  local input owner repo old_rev new_rev url tmp code status ahead behind
+
+  for input in "${moved[@]}"; do
+    owner="$(jq -r --arg i "$input" '.nodes[$i]?.original?.owner // ""' "$new")"
+    repo="$(jq -r --arg i "$input" '.nodes[$i]?.original?.repo // ""' "$new")"
+    old_rev="$(jq -r --arg i "$input" '.nodes[$i]?.locked?.rev // ""' "$old")"
+    new_rev="$(jq -r --arg i "$input" '.nodes[$i]?.locked?.rev // ""' "$new")"
+    tmp="$tmpdir/compare-$input"
+    url="https://api.github.com/repos/$owner/$repo/compare/$old_rev...$new_rev"
+
+    if ! code="$("$FLAKELOCK_CURL" -sS -m 60 -o "$tmp" -w '%{http_code}' "$url")"; then
+      ok=0
+      lines+=("$input: compare API unreachable ($url)")
+      continue
+    fi
+    if [[ "$code" != "200" ]]; then
+      ok=0
+      lines+=("$input: compare API HTTP $code ($url)")
+      continue
+    fi
+    status="$(jq -r '.status // ""' "$tmp" 2>/dev/null)"
+    ahead="$(jq -r '.ahead_by // 0' "$tmp" 2>/dev/null)"
+    behind="$(jq -r '.behind_by // 0' "$tmp" 2>/dev/null)"
+    if [[ "$status" != "ahead" || ! "$ahead" =~ ^-?[0-9]+$ || ! "$behind" =~ ^-?[0-9]+$ || "$ahead" -lt 1 || "$behind" -ne 0 ]]; then
+      ok=0
+      lines+=("$input: not a strict fast-forward (status=$status ahead_by=$ahead behind_by=$behind)")
+    fi
+  done
+
+  record ff-ancestor "$ok" "${lines[@]}"
+}
+
+check_nar_hash() {
+  local old="$1"
+  local new="$2"
+  local ok=1
+  local -a lines=()
+  local -a moved=()
+  mapfile -t moved < <(moved_inputs "$old" "$new")
+  local input owner repo rev expected out path got
+
+  for input in "${moved[@]}"; do
+    owner="$(jq -r --arg i "$input" '.nodes[$i]?.original?.owner // ""' "$new")"
+    repo="$(jq -r --arg i "$input" '.nodes[$i]?.original?.repo // ""' "$new")"
+    rev="$(jq -r --arg i "$input" '.nodes[$i]?.locked?.rev // ""' "$new")"
+    expected="$(jq -r --arg i "$input" '.nodes[$i]?.locked?.narHash // ""' "$new")"
+    out="$tmpdir/metadata-$input"
+
+    if ! "$FLAKELOCK_NIX" flake metadata --json "github:$owner/$repo/$rev" >"$out" 2>/dev/null; then
+      ok=0
+      lines+=("$input: nix flake metadata failed for $owner/$repo@$rev")
+      continue
+    fi
+    if ! path="$(jq -er '.path' "$out")"; then
+      ok=0
+      lines+=("$input: flake metadata has no .path")
+      continue
+    fi
+    if ! got="$("$FLAKELOCK_NIX" hash path --sri "$path")"; then
+      ok=0
+      lines+=("$input: nix hash path failed for $path")
+      continue
+    fi
+    if [[ "$got" != "$expected" ]]; then
+      ok=0
+      lines+=("$input: narHash $expected != fetched $got")
+    fi
+  done
+
+  record nar-hash "$ok" "${lines[@]}"
+}
+
+emit_report() {
+  local json_mode="$1"
+  local report_dir="$2"
+  local -a names=(scope originals ff-head ff-ancestor nar-hash)
+  local -a lines=()
+  local -a fails=()
+  local name ok check_status detail line result csv code
+  local checks_file="$report_dir/checks.jsonl"
+  : >"$checks_file"
+
+  for name in "${names[@]}"; do
+    ok="$(<"$report_dir/$name.ok")"
+    mapfile -t lines <"$report_dir/$name.txt"
+    if [[ "$ok" == "1" ]]; then
+      check_status="PASS"
+      detail=""
+      line="PASS $name"
+    else
+      fails+=("$name")
+      check_status="FAIL"
+      if ((${#lines[@]} > 0)); then
+        detail="$(printf '%s\n' "${lines[@]}")"
+        detail="${detail%$'\n'}"
+        line="FAIL $name ${lines[0]}"
+      else
+        detail=""
+        line="FAIL $name"
+      fi
+    fi
+    if [[ "$json_mode" == "1" ]]; then
+      jq -cn --arg name "$name" --arg status "$check_status" --arg detail "$detail" \
+        '{name: $name, status: $status, detail: $detail}' >>"$checks_file"
+      printf '%s\n' "$line" >&2
+    else
+      printf '%s\n' "$line"
+    fi
+    local i
+    for ((i = 1; i < ${#lines[@]}; i++)); do
+      if [[ "$json_mode" == "1" ]]; then
+        printf '  %s\n' "${lines[$i]}" >&2
+      else
+        printf '  %s\n' "${lines[$i]}"
+      fi
+    done
+  done
+
+  if [[ "$json_mode" == "1" ]]; then
+    jq -s '{checks: .}' "$checks_file"
+  fi
+  if ((${#fails[@]} == 0)); then
+    result="RESULT: PASS (5/5 checks)"
+    code=0
+  else
+    csv="$(
+      IFS=','
+      printf '%s' "${fails[*]}"
+    )"
+    result="RESULT: FAIL (${#fails[@]} failed: $csv)"
+    code=1
+  fi
+  if [[ "$json_mode" == "1" ]]; then
+    printf '%s\n' "$result" >&2
+  else
+    printf '%s\n' "$result"
+  fi
+  exit "$code"
+}
+
+cmd_check() {
+  local json_mode=0
+  local heads_file=""
+  local old_lock new_lock
+  local -a positional=()
+  while (($# > 0)); do
+    case "$1" in
+      --json)
+        json_mode=1
+        shift
+        ;;
+      --heads)
+        [[ $# -ge 2 ]] || die "check: --heads needs a file" 2
+        heads_file="$2"
+        shift 2
+        ;;
+      --heads=*)
+        heads_file="${1#--heads=}"
+        shift
+        ;;
+      -*) die "check: unknown option $1" 2 ;;
+      *)
+        positional+=("$1")
+        shift
+        ;;
+    esac
+  done
+  ((${#positional[@]} == 2)) || die "check: expected OLD_LOCK NEW_LOCK" 2
+  old_lock="${positional[0]}"
+  new_lock="${positional[1]}"
+
+  for lock in "$old_lock" "$new_lock"; do
+    jq -e '.version == 7' "$lock" >/dev/null 2>&1 \
+      || die "check: $lock is not a flake.lock (v7 JSON)" 2
+  done
+
+  mkdir -p "$reportdir"
+  check_scope "$old_lock" "$new_lock"
+  check_originals "$old_lock" "$new_lock"
+  check_ff_head "$old_lock" "$new_lock" "$heads_file"
+  check_ff_ancestor "$old_lock" "$new_lock"
+  check_nar_hash "$old_lock" "$new_lock"
+  emit_report "$json_mode" "$reportdir"
+}
+
+cmd_record_heads() {
+  local out_file=""
+  local lock_file
+  local -a positional=()
+  while (($# > 0)); do
+    case "$1" in
+      --out)
+        [[ $# -ge 2 ]] || die "record-heads: --out needs a file" 2
+        out_file="$2"
+        shift 2
+        ;;
+      --out=*)
+        out_file="${1#--out=}"
+        shift
+        ;;
+      -*) die "record-heads: unknown option $1" 2 ;;
+      *)
+        positional+=("$1")
+        shift
+        ;;
+    esac
+  done
+  ((${#positional[@]} == 1)) || die "record-heads: expected NEW_LOCK" 2
+  lock_file="${positional[0]}"
+  jq -e '.version == 7' "$lock_file" >/dev/null 2>&1 \
+    || die "record-heads: $lock_file is not a flake.lock (v7 JSON)" 2
+
+  local now input owner repo type ref refspec branch out firstline rev
+  local -a parts=()
+  now="$(date +%s)"
+  for input in "${ALLOWED_INPUTS[@]}"; do
+    owner="$(jq -r --arg i "$input" '.nodes[$i]?.original?.owner // ""' "$lock_file")"
+    repo="$(jq -r --arg i "$input" '.nodes[$i]?.original?.repo // ""' "$lock_file")"
+    type="$(jq -r --arg i "$input" '.nodes[$i]?.original?.type // ""' "$lock_file")"
+    if [[ -z "$owner" || -z "$repo" || "$type" != "github" ]]; then
+      printf 'record-heads: %s: not a github input (owner=%s repo=%s type=%s)\n' "$input" "$owner" "$repo" "$type" >&2
+      exit 2
+    fi
+    ref="$(jq -r --arg i "$input" '.nodes[$i]?.original?.ref // ""' "$lock_file")"
+    if [[ -z "$ref" ]]; then
+      refspec="HEAD"
+      branch="HEAD"
+    else
+      refspec="refs/heads/$ref"
+      branch="$ref"
+    fi
+    if ! out="$("$FLAKELOCK_GIT" ls-remote "https://github.com/$owner/$repo" "$refspec" 2>/dev/null)"; then
+      printf 'record-heads: ls-remote failed for %s (%s)\n' "$input" "$refspec" >&2
+      exit 2
+    fi
+    firstline="${out%%$'\n'*}"
+    rev="${firstline%%$'\t'*}"
+    rev="${rev%$'\r'}"
+    if [[ ! "$rev" =~ ^[0-9a-f]{40}$ ]]; then
+      printf 'record-heads: %s: no 40-hex rev from ls-remote (%s)\n' "$input" "$rev" >&2
+      exit 2
+    fi
+    parts+=("$(jq -cn --arg name "$input" --arg owner "$owner" --arg repo "$repo" \
+      --arg branch "$branch" --arg head "$rev" --argjson now "$now" \
+      '{($name): {owner: $owner, repo: $repo, branch: $branch, head: $head, recorded_at: $now}}')")
+  done
+
+  # All ls-remote calls succeeded or we exited: emit one atom.
+  if [[ -n "$out_file" ]]; then
+    jq -s 'add' <<<"$(printf '%s\n' "${parts[@]}")" >"$out_file"
+  else
+    jq -s 'add' <<<"$(printf '%s\n' "${parts[@]}")"
+  fi
+}
+
+cmd_kernel_version() {
+  (($# == 1)) || die "kernel-version: expected TOPLEVEL" 2
+  local top="$1"
+  local link="$top/kernel"
+  local target version
+
+  if [[ ! -L "$link" ]]; then
+    printf 'kernel-version: %s is not a symlink\n' "$link" >&2
+    exit 2
+  fi
+  target="$(readlink "$link")" || exit 2
+  if [[ "$target" != *"linux-"* ]]; then
+    printf 'kernel-version: %s target has no linux- prefix: %s\n' "$link" "$target" >&2
+    exit 2
+  fi
+  version="${target##*linux-}"
+  version="${version%-*}"
+  printf '%s\n' "$version"
+}
+
+main() {
+  (($# >= 1)) || usage
+  local cmd="$1"
+  shift
+  case "$cmd" in
+    check) cmd_check "$@" ;;
+    record-heads) cmd_record_heads "$@" ;;
+    kernel-version) cmd_kernel_version "$@" ;;
+    *) usage ;;
+  esac
+}
+
+main "$@"
