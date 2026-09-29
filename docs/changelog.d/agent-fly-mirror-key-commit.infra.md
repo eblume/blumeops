@@ -1,0 +1,1 @@
+fly mirror: commit the six push-mirror public keys (dropped eblume/kingfisher from the allowlist — the repo is archived, and Forgejo refuses push mirrors on it), and prune allowlist-dropped bare repos at boot so a drop actually leaves the public site.

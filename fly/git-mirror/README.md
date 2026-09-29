@@ -84,7 +84,9 @@ sshd's `AllowUsers`; the scp form `git@host:path` would arrive as user
 no comments — the Dockerfile COPYs it verbatim into the image).
 Adding or dropping a repo = edit that file + add/remove the forge push
 mirror; the next deploy regenerates the site from whatever is in
-`repos/`.
+`repos/` (a dropped repo's bare repo and site dir are pruned by
+`create-mirror.sh` at boot, since the site and info/refs loops iterate
+the volume dir, not the allowlist).
 
 ## Cutover note
 
