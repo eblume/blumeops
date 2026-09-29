@@ -17,7 +17,7 @@ Building authentik from source requires fetching code from two GitHub repositori
 
 - **`goauthentik/client-go`** — Go API client bindings, versioned in lockstep with authentik (e.g. `v3.2026.2.0` matches `version/2026.2.0`). Used by the Go server build.
 
-Previously, `goauthentik/django-rest-framework` (authentik's DRF fork) was also required. Since authentik PR #16594 (2025-10-21) it is dropped in favor of standard `djangorestframework` 3.16.1 from PyPI, so no forge mirror of the fork was ever created (verified 2026-09-29 — no such repo in the `mirrors/` org; the upstream fork itself is now archived).
+Previously, `goauthentik/django-rest-framework` (authentik's DRF fork) was also required. Since authentik [PR 16594](https://github.com/goauthentik/authentik/pull/16594) (2025-10-21) it is dropped in favor of standard `djangorestframework` 3.16.1 from PyPI, so no forge mirror of the fork was ever created (verified 2026-09-29 — no such repo in the `mirrors/` org; the upstream fork itself is now archived).
 
 ## What to Do
 
