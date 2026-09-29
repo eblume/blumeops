@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#MISE description="[human] Create or update the Pulumi ESC environments from pulumi/esc/"
+#
+# Creates or updates the four environments under project blumeops: onepassword
+# (generated here so the service-account token never lands in git or argv),
+# op, tailnet, dns. Re-run when pulumi/esc/ changes; rotated 1Password
+# credentials need no re-run — the provider re-reads them on the next open.
+
+set -euo pipefail
+
+source "$(dirname "$0")/_pulumi_env"
+
+TOKEN="$(op read "op://blumeops/pulumi-esc service account/token")"
+ESC_DIR="$(cd "$(dirname "$0")/../pulumi/esc" && pwd)"
+
+# upsert <env> <def-file-or-->: edit replaces the whole definition; init
+# creates the environment when it does not exist yet.
+upsert() {
+    local env="$1" def="$2"
+    local tmp
+    tmp="$(mktemp)"; chmod 600 "$tmp"
+    if [ "$def" = "-" ]; then
+        printf 'values:\n  serviceAccountToken:\n    fn::secret: %s\n' "$TOKEN" > "$tmp"
+    else
+        cat "$def" > "$tmp"
+    fi
+    if ! pulumi env edit "$env" -f "$tmp" 2>"$tmp.err"; then
+        if grep -qiE 'not (found|exist)|no such' "$tmp.err"; then
+            pulumi env init "$env" -f "$tmp"
+        else
+            cat "$tmp.err" >&2
+            rm -f "$tmp" "$tmp.err"
+            exit 1
+        fi
+    fi
+    rm -f "$tmp" "$tmp.err"
+    echo "synced $env"
+}
+
+upsert eblume/blumeops/onepassword -
+upsert eblume/blumeops/op "$ESC_DIR/op.yaml"
+upsert eblume/blumeops/tailnet "$ESC_DIR/tailnet.yaml"
+upsert eblume/blumeops/dns "$ESC_DIR/dns.yaml"
+
+# A successful open proves the definition parses and the 1Password fetch
+# works; output is discarded so no secret value reaches the transcript.
+for env in onepassword op tailnet dns; do
+    pulumi env open "eblume/blumeops/$env" >/dev/null
+    echo "opens: eblume/blumeops/$env"
+done
+echo "Pulumi ESC environments synced and opening."

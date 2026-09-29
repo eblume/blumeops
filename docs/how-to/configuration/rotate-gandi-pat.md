@@ -1,6 +1,6 @@
 ---
 title: Rotate the Gandi PAT
-modified: 2026-09-27
+modified: 2026-09-28
 last-reviewed: 2026-09-27
 tags:
   - how-to
@@ -85,6 +85,8 @@ Each successful Caddy renewal leaves orphan `_acme-challenge.ops` TXT records in
 mise run dns-acme-cleanup --dry-run
 mise run dns-acme-cleanup
 ```
+
+After rotation the Pulumi ESC `op` environment picks up the new PAT on the next environment open — no ESC sync step is needed.
 
 ## Debugging
 

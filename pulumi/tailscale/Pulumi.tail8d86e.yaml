@@ -1,3 +1,5 @@
 ---
 config:
   tailscale:tailnet: tail8d86e.ts.net
+environment:
+  - blumeops/tailnet

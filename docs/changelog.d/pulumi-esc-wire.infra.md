@@ -1,0 +1,1 @@
+Provider credentials for the Pulumi DNS and Tailnet stacks are now served through Pulumi ESC environments (`pulumi/esc/`, `mise run pulumi-esc-sync`): the tasks no longer read the Gandi PAT or Tailscale OAuth client themselves, and 1Password stays the only place those credentials live.

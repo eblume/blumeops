@@ -1,0 +1,9 @@
+# Environment eblume/blumeops/tailnet — provider config for stack tail8d86e.
+# Managed by `mise run pulumi-esc-sync`.
+imports:
+  - blumeops/op
+values:
+  pulumiConfig:
+    tailscale:oauthClientId: ${1password.secrets.tailscale_client_id}
+    tailscale:oauthClientSecret: ${1password.secrets.tailscale_client_secret}
+    tailscale:tailnet: tail8d86e.ts.net

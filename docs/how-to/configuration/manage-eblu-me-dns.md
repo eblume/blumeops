@@ -1,6 +1,6 @@
 ---
 title: Manage eblu.me DNS Records
-modified: 2026-09-27
+modified: 2026-09-28
 last-reviewed: 2026-09-27
 tags:
   - how-to
@@ -15,7 +15,9 @@ How to add, change, and apply DNS records for `eblu.me` via [[pulumi]].
 ## Prerequisites
 
 - Pulumi CLI installed (`brew install pulumi`)
-- 1Password access (`pulumi-esc` vault) — Pulumi reads the Gandi PAT from there
+- Pulumi ESC: stack `eblu-me` imports the `blumeops/dns` environment, which
+  fetches the Gandi PAT from the `pulumi-esc` 1Password vault at run time
+  (see `pulumi/esc/`)
 - On the tailnet — Pulumi resolves [[indri]]'s IP via MagicDNS at apply time
 
 ## Preview and apply
@@ -25,7 +27,8 @@ mise run dns-preview     # always do this first
 mise run dns-up          # apply
 ```
 
-Both fetch the PAT from 1Password automatically. The Pulumi program is in `pulumi/gandi/`; stack is `eblu-me`.
+The tasks only need the Pulumi access token; the Gandi PAT is fetched from
+1Password automatically by the stack's Pulumi ESC environment. The Pulumi program is in `pulumi/gandi/`; stack is `eblu-me`.
 
 ## Adding a record
 

@@ -1,6 +1,6 @@
 ---
 title: Pulumi
-modified: 2026-09-26
+modified: 2026-09-28
 last-reviewed: 2026-04-02
 tags:
   - reference
@@ -43,8 +43,6 @@ mise run tailnet-up      # Apply ACL/tag changes
 
 ## Authentication
 
-- **Gandi**: `GANDI_PERSONAL_ACCESS_TOKEN` (fetched from 1Password by the mise task)
-- **Tailscale**: `TAILSCALE_OAUTH_CLIENT_ID` + `TAILSCALE_OAUTH_CLIENT_SECRET` (fetched from 1Password by the mise task)
 - **Pulumi state**: Pulumi Cloud (app.pulumi.com), which also encrypts stack secrets. Every
   task sources `mise-tasks/_pulumi_env`, which exports `PULUMI_ACCESS_TOKEN` from
   `op://blumeops/Pulumi/access-token` (unless it is already set) and points
@@ -52,6 +50,16 @@ mise run tailnet-up      # Apply ACL/tag changes
   uses to `credentials.json`. No host needs a stored `pulumi login`, and none keeps the token.
   Running `pulumi` by hand outside the tasks stores the token in `~/.pulumi/credentials.json`
   unless you set `PULUMI_CREDENTIALS_PATH` the same way.
+- **Provider credentials**: The Tailscale OAuth client and the Gandi PAT no longer go through
+  the mise tasks. The stacks import Pulumi ESC environments (`eblume/blumeops/tailnet`,
+  `eblume/blumeops/dns`), which fetch them from the `pulumi-esc` 1Password vault at open time
+  via the `pulumi-esc` service account (read-only on that vault). Rotating a credential in
+  1Password takes effect on the next run; no sync step.
+- **Pulumi ESC**: Definitions live in `pulumi/esc/`; `mise run pulumi-esc-sync` creates/updates
+  the environments and sets the service-account token (read from
+  `op://blumeops/pulumi-esc service account/token`) as a secret in `eblume/blumeops/onepassword`.
+  If Pulumi Cloud's ESC is down, the stacks don't run anyway (state lives there); if ever lost,
+  the environments are re-creatable from `pulumi/esc/`.
 
 ### Stack state backup
 

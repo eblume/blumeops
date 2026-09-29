@@ -5,9 +5,6 @@ set -euo pipefail
 
 source "$(dirname "$0")/_pulumi_env"
 
-GANDI_PERSONAL_ACCESS_TOKEN=$(op read "op://pulumi-esc/gandi - blumeops/pat")
-export GANDI_PERSONAL_ACCESS_TOKEN
-
 cd "$(dirname "$0")/../pulumi/gandi"
 uv sync --quiet || { echo "uv sync failed — if devpi is down, run 'devpi off' and retry"; exit 1; }
 pulumi stack select eblu-me
