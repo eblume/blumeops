@@ -10,8 +10,6 @@ tags:
 
 # Manage Ringtail Lockfile
 
-# Managing the Ringtail lockfile
-
 The ringtail NixOS flake lockfile (`nixos/ringtail/flake.lock`) is rolled by the
 **Ringtail Flake Update** workflow on a weekly schedule. The workflow performs
 the checks no human can do from a diff and posts them against the exact SHA it
@@ -37,9 +35,12 @@ It then runs the check battery (below) read-only against the candidate
 lockfile and opens a PR whose diff is **exactly** `nixos/ringtail/flake.lock`,
 pinned to the head SHA the battery verified.
 
+The rework of the workflow file to this design lands in a follow-up PR (tracked in #1318); until then the workflow still runs in its dispatch-only form, and the
+scheduled flow above is the target this doc describes.
+
 ## The check battery
 
-The battery is the hard gate. Every row must pass for the PR to be green:
+The battery is the hard gate. No check may fail for the PR to be green; check 6 can only flag:
 
 | # | Check | Catches |
 |---|-------|---------|
@@ -47,7 +48,7 @@ The battery is the hard gate. Every row must pass for the PR to be green:
 | 2 | **Root-input immutability** — `nixpkgs-services`'s `original.rev` is unchanged, and every root input's `original` (type, owner, repo, ref) is unchanged. | Redirecting an input to a different source, or silently moving the pinned `nixpkgs-services` rev. |
 | 3 | **Fast-forward only** — for each moved input, the new rev equals the *recorded* head of its tracked branch, and the old rev is an **ancestor** of the new rev (`merge-base --is-ancestor`). | Force-reset branches, side-branch revs, and revs that are not actually the upstream head — the check no human can do from a diff. |
 | 4 | **narHash** — the lock's `narHash` matches a fresh fetch of the new rev. | Fetch divergence and corruption. **Not a provenance claim**: it is self-referential (same nix, same runner as the update) and documents that limit honestly. |
-| 5 | **System build** — `.#nixosConfigurations.ringtail…toplevel` builds on the same nix `ringtail-apply` rebuilds with (the same build as the `Ringtail Flake Check` job on PRs). | Locks that do not evaluate or build. |
+| 5 | **System build** — `.#nixosConfigurations.ringtail.config.system.build.toplevel` builds on the same nix `ringtail-apply` rebuilds with (the same build as the `Ringtail Flake Check` job on PRs). | Locks that do not evaluate or build. |
 | 6 | **Kernel unchanged** — the built system's kernel version matches what is currently booted on ringtail. A bump is **flagged, never a failure**: the PR says "kernel bump — plan a reboot" (see [Post-deploy maintenance](#post-deploy-maintenance)). | Silent kernel changes under a lockfile roll. |
 
 The battery posts its results as a PR comment **naming the exact head SHA it
