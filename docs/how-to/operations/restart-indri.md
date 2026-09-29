@@ -1,6 +1,6 @@
 ---
 title: Restart Indri
-modified: 2026-06-11
+modified: 2026-09-29
 last-reviewed: 2026-06-11
 tags:
   - how-to
@@ -45,7 +45,6 @@ These apps don't autostart and should be quit cleanly before reboot:
 
 - **Docker Desktop** - Quit from menubar or: `ssh indri 'osascript -e "quit app \"Docker\""'` (backs the forgejo-runner's job containers until phase 6 of [[retire-minikube]])
 - **Amphetamine** - Quit from menubar (prevents sleep; will need restart)
-- **AutoMounter** - Quit from menubar (mounts sifaka SMB shares)
 
 ### 3. Reboot
 
@@ -61,7 +60,7 @@ After indri boots, most services recover automatically.
 
 **What autostarts:** Docker Desktop and all mcquack LaunchAgent services (Forgejo, Caddy, Zot, Jellyfin, Alloy, Borgmatic, forgejo-runner, metrics collectors).
 
-**What needs manual action:** Amphetamine and AutoMounter.
+**What needs manual action:** Amphetamine. (The sifaka shares are mounted automatically by the `mcquack.eblume.sifaka-mounter` LaunchAgent.)
 
 ### 0. Dismiss macOS Permission Dialogs
 
@@ -74,21 +73,20 @@ Log in to indri (via Screen Sharing or physically) and launch:
 | App | Purpose | Launch Method |
 |-----|---------|---------------|
 | **Amphetamine** | Prevents sleep | Spotlight or App Store apps |
-| **AutoMounter** | Mounts sifaka SMB shares to `/Volumes/` | Spotlight or App Store apps |
 
 Docker Desktop autostarts on login. Wait for it to finish starting (whale icon in menubar stops animating) before proceeding.
 
 ### 2. Verify Sifaka Mounts
 
-AutoMounter should automatically mount the sifaka shares. Verify:
+The `mcquack.eblume.sifaka-mounter` LaunchAgent mounts the sifaka shares within a minute of login, no manual step. Verify:
 
 ```bash
 ssh indri 'ls /Volumes/'
 ```
 
-You should see: `allisonflix`, `backups`, `music`, `photos`, `torrents` (or similar).
+You should see: `allisonflix`, `backups`, `music`, `photos`, `shower`.
 
-If mounts are missing, open AutoMounter and trigger a reconnect.
+If a mount is missing, check `/opt/homebrew/var/log/mcquack.sifaka-mounter.err.log` and the `sifaka_share_mounted` metric ([[sifaka-mounter]]) instead of launching anything by hand.
 
 ### 3. Run Health Check
 

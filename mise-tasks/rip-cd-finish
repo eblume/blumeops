@@ -266,7 +266,7 @@ def main(
     staging = staging.expanduser().resolve()
     meta, rip = load_metadata(staging)
     if not library.is_dir():
-        console.print(f"[red]{escape(str(library))} is not mounted (AutoMounter?).[/red]")
+        console.print(f"[red]{escape(str(library))} is not mounted (sifaka-mounter agent?).[/red]")
         raise typer.Exit(1)
     if meta.get("kind") == "audiobook":
         file_audiobook(staging, meta, rip, library, dry_run, lossless)

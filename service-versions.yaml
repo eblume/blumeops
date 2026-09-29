@@ -627,13 +627,6 @@ services:
       ansible/roles/jellyfin/defaults/main.yml, then
       `mise run provision-indri -- --tags jellyfin`.
 
-  - name: automounter
-    type: ansible
-    last-reviewed: 2026-09-28
-    current-version: "1.14.1"
-    upstream-source: https://www.pixeleyes.co.nz/automounter/
-    notes: Mac App Store app, no Ansible role. Updates via App Store.
-
   - name: flyio-tailscale
     type: fly
     last-reviewed: "2026-08-23"

@@ -1,6 +1,6 @@
 ---
 title: Rip a Disc
-modified: 2026-09-11
+modified: 2026-09-29
 last-reviewed: 2026-09-11
 tags:
   - how-to
@@ -208,7 +208,7 @@ still gives the stronger guarantee.
 | `ffmpeg` | Homebrew | `rip-cd` |
 | `makemkvcon` | Homebrew cask `makemkv` (needs a current MakeMKV key) | `rip-video` |
 | `drutil` | macOS | both |
-| `/Volumes/music`, `/Volumes/allisonflix` | [[automounter]] | the finish tasks |
+| `/Volumes/music`, `/Volumes/allisonflix` | [[sifaka-mounter]] | the finish tasks |
 
 **One process on the drive at a time.** A `makemkvcon info` probe while
 cd-paranoia is reading (or the MakeMKV GUI opening on insert) contends for
@@ -224,5 +224,5 @@ The tasks guard their binaries with `_require`, so running one from
 
 - [[navidrome]] — where CDs end up
 - [[jellyfin]] — where video ends up
-- [[automounter]] — the SMB mounts the finish tasks write through
+- [[sifaka-mounter]] — the SMB mounts the finish tasks write through
 - [[mise-tasks]] — the full task list

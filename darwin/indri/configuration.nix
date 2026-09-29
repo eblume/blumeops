@@ -6,6 +6,7 @@ let
   mcquackForgejoMetrics = pkgs.writeScript "mcquack-forgejo-metrics" (builtins.readFile ./mcquack-forgejo-metrics.sh);
   mcquackJellyfinMetrics = pkgs.writeScript "mcquack-jellyfin-metrics" (builtins.readFile ./mcquack-jellyfin-metrics.sh);
   mcquackZotMetrics = pkgs.writeScript "mcquack-zot-metrics" (builtins.readFile ./mcquack-zot-metrics.sh);
+  sifakaMounter = pkgs.writeScript "mount-sifaka" (builtins.readFile ./mount-sifaka.sh);
   # Where activation links the generation-owned mise config; mise follows
   # the symlink for reads and writes.
   miseConfigHome = "${config.system.primaryUserHome}/.config/mise/config.toml";
@@ -124,6 +125,27 @@ in
     RunAtLoad = true;
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.logrotate.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.logrotate.err.log";
+  };
+
+  # sifaka-mounter (eblume/blumeops#1323): replaces the AutoMounter app - the only
+  # thing that kept the sifaka SMB shares mounted. argv[0] is a store writeScript
+  # whose first line is #!/bin/sh, the same class as the *-metrics collectors: no
+  # boot-criticality, and in the pre-/nix window (eblume/blumeops#1225) the run
+  # fails 127 and the next interval retries. Credentials stay in the login
+  # Keychain; a missing entry shows up as sifaka_share_mounted == 0, never a GUI
+  # dialog (the script times out and kills the osascript prompt).
+  launchd.user.agents."mcquack.eblume.sifaka-mounter".serviceConfig = {
+    Label = "mcquack.eblume.sifaka-mounter";
+    ProgramArguments = [ "${sifakaMounter}" ];
+    RunAtLoad = true;
+    StartInterval = 60;
+    # Borgmatic runs unattended at 02:00; guarantee one fresh pass just before it.
+    StartCalendarInterval = [ { Hour = 1; Minute = 45; } ];
+    EnvironmentVariables = {
+      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+    };
+    StandardOutPath = "/opt/homebrew/var/log/mcquack.sifaka-mounter.out.log";
+    StandardErrorPath = "/opt/homebrew/var/log/mcquack.sifaka-mounter.err.log";
   };
 
   # The four *-metrics collectors (PR 4): same labels, plist paths, .prom files and logs
