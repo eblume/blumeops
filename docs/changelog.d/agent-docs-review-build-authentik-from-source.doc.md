@@ -1,0 +1,1 @@
+Corrected the authentik-from-source build card: nixpkgs now resolves from the in-repo `containers/flake.lock` pin (not the floating nix registry), the source mirror URLs use `forge.ops.eblu.me`, and the component assembly list matches `containers/authentik/default.nix` (clients are transitive, and the GitHub-fetched `opencontainers` dep is called out).
