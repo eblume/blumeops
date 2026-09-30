@@ -133,7 +133,7 @@ check_scope() {
     fi
   done
 
-  record scope "$ok" "${lines[@]}"
+  record scope "$ok" ${lines[@]+"${lines[@]}"}
 }
 
 check_originals() {
@@ -163,7 +163,7 @@ check_originals() {
     fi
   done
 
-  record originals "$ok" "${lines[@]}"
+  record originals "$ok" ${lines[@]+"${lines[@]}"}
 }
 
 check_ff_head() {
@@ -173,7 +173,8 @@ check_ff_head() {
   local ok=1
   local -a lines=()
   local -a moved=()
-  mapfile -t moved < <(moved_inputs "$old" "$new")
+  local _l
+  while IFS= read -r _l; do moved+=("$_l"); done < <(moved_inputs "$old" "$new")
 
   if ((${#moved[@]} > 0)); then
     if [[ -z "$heads" ]]; then
@@ -198,7 +199,7 @@ check_ff_head() {
     fi
   fi
 
-  record ff-head "$ok" "${lines[@]}"
+  record ff-head "$ok" ${lines[@]+"${lines[@]}"}
 }
 
 check_ff_ancestor() {
@@ -207,10 +208,10 @@ check_ff_ancestor() {
   local ok=1
   local -a lines=()
   local -a moved=()
-  mapfile -t moved < <(moved_inputs "$old" "$new")
-  local input owner repo old_rev new_rev url tmp code status ahead behind
+  while IFS= read -r _l; do moved+=("$_l"); done < <(moved_inputs "$old" "$new")
+  local input owner repo old_rev new_rev url tmp code status ahead behind _l
 
-  for input in "${moved[@]}"; do
+  for input in ${moved[@]+"${moved[@]}"}; do
     owner="$(jq -r --arg i "$input" '.nodes[$i]?.original?.owner // ""' "$new")"
     repo="$(jq -r --arg i "$input" '.nodes[$i]?.original?.repo // ""' "$new")"
     old_rev="$(jq -r --arg i "$input" '.nodes[$i]?.locked?.rev // ""' "$old")"
@@ -237,7 +238,7 @@ check_ff_ancestor() {
     fi
   done
 
-  record ff-ancestor "$ok" "${lines[@]}"
+  record ff-ancestor "$ok" ${lines[@]+"${lines[@]}"}
 }
 
 check_nar_hash() {
@@ -246,10 +247,10 @@ check_nar_hash() {
   local ok=1
   local -a lines=()
   local -a moved=()
-  mapfile -t moved < <(moved_inputs "$old" "$new")
-  local input owner repo rev expected out path got
+  while IFS= read -r _l; do moved+=("$_l"); done < <(moved_inputs "$old" "$new")
+  local input owner repo rev expected out path got _l
 
-  for input in "${moved[@]}"; do
+  for input in ${moved[@]+"${moved[@]}"}; do
     owner="$(jq -r --arg i "$input" '.nodes[$i]?.original?.owner // ""' "$new")"
     repo="$(jq -r --arg i "$input" '.nodes[$i]?.original?.repo // ""' "$new")"
     rev="$(jq -r --arg i "$input" '.nodes[$i]?.locked?.rev // ""' "$new")"
@@ -277,7 +278,7 @@ check_nar_hash() {
     fi
   done
 
-  record nar-hash "$ok" "${lines[@]}"
+  record nar-hash "$ok" ${lines[@]+"${lines[@]}"}
 }
 
 emit_report() {
@@ -286,13 +287,14 @@ emit_report() {
   local -a names=(scope originals ff-head ff-ancestor nar-hash)
   local -a lines=()
   local -a fails=()
-  local name ok check_status detail line result csv code
+  local name ok check_status detail line result csv code _l
   local checks_file="$report_dir/checks.jsonl"
   : >"$checks_file"
 
   for name in "${names[@]}"; do
     ok="$(<"$report_dir/$name.ok")"
-    mapfile -t lines <"$report_dir/$name.txt"
+    lines=()
+    while IFS= read -r _l; do lines+=("$_l"); done <"$report_dir/$name.txt"
     if [[ "$ok" == "1" ]]; then
       check_status="PASS"
       detail=""
@@ -301,7 +303,7 @@ emit_report() {
       fails+=("$name")
       check_status="FAIL"
       if ((${#lines[@]} > 0)); then
-        detail="$(printf '%s\n' "${lines[@]}")"
+        detail="$(printf '%s\n' ${lines[@]+"${lines[@]}"})"
         detail="${detail%$'\n'}"
         line="FAIL $name ${lines[0]}"
       else
@@ -457,9 +459,9 @@ cmd_record_heads() {
 
   # All ls-remote calls succeeded or we exited: emit one atom.
   if [[ -n "$out_file" ]]; then
-    jq -s 'add' <<<"$(printf '%s\n' "${parts[@]}")" >"$out_file"
+    jq -s 'add' <<<"$(printf '%s\n' ${parts[@]+"${parts[@]}"})" >"$out_file"
   else
-    jq -s 'add' <<<"$(printf '%s\n' "${parts[@]}")"
+    jq -s 'add' <<<"$(printf '%s\n' ${parts[@]+"${parts[@]}"})"
   fi
 }
 
