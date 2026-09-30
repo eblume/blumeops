@@ -65,8 +65,16 @@ RUN mkdir -p /home/mirror/.ssh \
     && chmod 600 /home/mirror/.ssh/authorized_keys \
     && chmod 755 /usr/local/share/git-mirror/post-receive /usr/local/share/git-mirror/gen-index.sh /usr/local/bin/create-mirror.sh \
     && useradd -r -d /home/mirror -s /usr/bin/git-shell mirror \
+    # useradd leaves the password field "!" (locked), and sshd without PAM
+    # refuses a locked account even for key auth ("account is locked").
+    # "*" means no usable password without locking the account.
+    && usermod -p '*' mirror \
     && chown -R mirror:mirror /home/mirror \
-    && mkdir -p /run/sshd
+    && mkdir -p /run/sshd \
+    # create-mirror.sh runs as root on every boot but the repos are owned
+    # by `mirror` after the first one, so git (and stagit's libgit2) refuse
+    # them as dubious ownership. Single-purpose image: trust them all.
+    && git config --system --add safe.directory '*'
 
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
