@@ -1,6 +1,6 @@
 ---
 title: Pulumi
-modified: 2026-09-28
+modified: 2026-09-30
 last-reviewed: 2026-04-02
 tags:
   - reference
@@ -64,10 +64,9 @@ mise run tailnet-up      # Apply ACL/tag changes
 ### Stack state backup
 
 A daily CronJob (`pulumi-stack-backup` on ringtail) exports both stacks' state
-(`pulumi stack export --show-secrets`) and config (`pulumi config --show-secrets`)
-to a PVC, which borgmatic ferries off and archives nightly (see [[borgmatic]]).
-The exports contain plaintext secret values; the encrypted borg repositories
-are the compensating control. Restore procedure: [[restore-pulumi-state]].
+(`pulumi stack export --show-secrets`) to a PVC, which borgmatic ferries off and archives nightly (see [[borgmatic]]).
+Config isn't exported: it's in git and ESC. The exports contain plaintext
+secret values; the encrypted borg repositories are the compensating control. Restore procedure: [[restore-pulumi-state]].
 
 ## Related
 
