@@ -1,5 +1,6 @@
-# Daily `pulumi stack export --show-secrets` + `pulumi config --show-secrets`
-# for the two Pulumi Cloud stacks, exported into the PVC. The k8s CronJob
+# Daily `pulumi stack export --show-secrets` for the two Pulumi Cloud stacks,
+# exported into the PVC. Stack config is not exported: its secrets come from
+# Pulumi ESC (1Password-backed) and the rest is in git. The k8s CronJob
 # schedule runs in the cluster's local time (ringtail = America/Los_Angeles)
 # and borgmatic on indri ferries the newest export per stack at 02:00 in the
 # same (indri-local, also Pacific) time, so 01:10 lands 50 min before the
@@ -7,8 +8,7 @@
 # hourly; the token rotates every 20 days — its expiry is 30 days — which
 # stays out of this job);
 # PULUMI_CREDENTIALS_PATH is an emptyDir so no token ever touches the PVC.
-# The exports contain plaintext secret values (Tailscale auth keys, Gandi
-# PAT): the borg repository encryption is the only compensating control.
+# The exports contain plaintext secret values (Tailscale auth keys): the borg repository encryption is the only compensating control.
 # See docs/how-to/pulumi/restore-pulumi-state.md.
 apiVersion: batch/v1
 kind: CronJob
@@ -72,15 +72,9 @@ spec:
 
                   ts=$(date -u +%Y%m%dT%H%M%SZ)
                   # `pulumi stack export` runs with no project in the working
-                  # dir (the baked Pulumi.yaml dirs are for `pulumi config`
-                  # only), so --stack must be fully qualified: org/project/stack.
+                  # dir, so --stack must be fully qualified: org/project/stack.
                   for qstack in eblume/blumeops-tailnet/tail8d86e eblume/blumeops-dns/eblu-me; do
-                    stack=${qstack##*/}; proj=${qstack%/*}; proj=${proj##*/}
-                    projdir=$(case "$proj" in
-                      blumeops-tailnet) echo /projects/tailscale ;;
-                      blumeops-dns)     echo /projects/gandi ;;
-                      *) echo "unknown project $proj" >&2; exit 1 ;;
-                    esac)
+                    stack=${qstack##*/}
                     dir=/exports/${stack}
                     mkdir -p "$dir"
                     # Clear any .partial left by a crashed run (never matches
@@ -95,28 +89,16 @@ spec:
                     [[ -s "$f.partial" ]] || { echo "empty export $f" >&2; exit 1; }
                     mv -f "$f.partial" "$f"
 
-                    # Config secrets (e.g. the Gandi PAT the program requires)
-                    # are not part of the state export; they must ride along
-                    # or a restore would need them re-collected by hand.
-                    c="$dir/config_${ts}.txt"
-                    pulumi config --show-secrets --cwd "$projdir" \
-                      --stack "$qstack" > "$c.partial"
-                    [[ -s "$c.partial" ]] || { echo "empty config $c" >&2; exit 1; }
-                    mv -f "$c.partial" "$c"
-
-                    # Bounds the PVC. Prune stack_* and config_* separately so
-                    # one kind can't eat the other's retention (config_ sorts
-                    # before stack_, so a single combined listing would delete
-                    # every config file before touching a stack file). Coreutils
-                    # only — the image has no grep.
+                    # Bounds the PVC. Coreutils only — the image has no grep.
+                    # (Also sweeps the config_* files earlier runs wrote.)
                     shopt -s nullglob
-                    for prefix in stack_ config_; do
-                      files=( "$dir/${prefix}"* )
-                      (( ${#files[@]} > 1000 )) || continue
+                    rm -f "$dir"/config_*
+                    files=( "$dir"/stack_* )
+                    if (( ${#files[@]} > 1000 )); then
                       printf '%s\n' "${files[@]}" | sort | \
                         head -n $(( ${#files[@]} - 1000 )) | \
                         while IFS= read -r old; do rm -f "$old"; done
-                    done
+                    fi
                     shopt -u nullglob
                     echo "exported $stack -> $dir (ts=$ts)"
                   done

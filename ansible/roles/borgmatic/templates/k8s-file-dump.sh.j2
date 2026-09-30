@@ -133,26 +133,28 @@ pv_name=\$(sudo k3s kubectl -n "$namespace" get pvc "$pvc_name" -o jsonpath='{.s
 [[ -n "\$pv_name" ]] || { echo "borgmatic-k8s-file-dump: PVC $pvc_name not bound in $namespace ($name)" >&2; exit 1; }
 pv_path=\$(sudo k3s kubectl get pv "\$pv_name" -o jsonpath='{.spec.local.path}')
 [[ -n "\$pv_path" ]] || { echo "borgmatic-k8s-file-dump: PV \$pv_name has no local.path ($name)" >&2; exit 1; }
-[[ -d "\$pv_path" ]] || { echo "borgmatic-k8s-file-dump: PV dir \$pv_path missing on host ($name)" >&2; exit 1; }
+# The local-path storage root is 0700 root, so every read of the PV dir goes
+# through sudo (same passwordless sudo as the kubectl calls above).
+sudo test -d "\$pv_path" || { echo "borgmatic-k8s-file-dump: PV dir \$pv_path missing on host ($name)" >&2; exit 1; }
 newest=""
-if [[ -d "\$pv_path$dir" ]]; then
+if sudo test -d "\$pv_path$dir"; then
     while IFS= read -r f; do
         [[ -n "\$f" ]] || continue
         [[ "\$f" == $glob ]] || continue
         [[ "\$f" > "\$newest" ]] && newest="\$f"
-    done < <(ls -1 "\$pv_path$dir")
+    done < <(sudo ls -1 "\$pv_path$dir")
 fi
 if [[ -z "\$newest" ]]; then
     echo "borgmatic-k8s-file-dump: no $glob in \$pv_path$dir yet ($name); keeping previous staged export" >&2
     exit 0
 fi
 src="\$pv_path$dir/\$newest"
-if [[ ! -s "\$src" ]]; then
+if ! sudo test -s "\$src"; then
     echo "borgmatic-k8s-file-dump: newest $glob (\$newest) is empty ($name); keeping previous staged export" >&2
     exit 0
 fi
 echo "borgmatic-k8s-file-dump: $name -> \$newest (pv:\$pv_path)" >&2
-cat "\$src"
+sudo cat "\$src"
 EOF
         if [[ $rc -ne 0 ]]; then
             rm -f "$tmp"

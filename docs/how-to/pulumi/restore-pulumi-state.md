@@ -1,6 +1,6 @@
 ---
 title: Restore Pulumi State
-modified: 2026-09-27
+modified: 2026-09-30
 last-reviewed: 2026-09-27
 tags:
   - how-to
@@ -10,7 +10,7 @@ tags:
 
 # Restore Pulumi State
 
-Restore a Pulumi Cloud stack (state + config) from the nightly borg backups.
+Restore a Pulumi Cloud stack's state from the nightly borg backups.
 Use this when a stack is deleted or corrupted, or when the Pulumi Cloud
 account itself is lost.
 
@@ -20,9 +20,7 @@ Pulumi Cloud encrypts stack secrets with a per-stack service key it controls.
 A plain `pulumi stack export` therefore stays encrypted to the *source*
 account: after losing it, the ciphertext cannot be decrypted, and
 `pulumi stack import` fails on it. So the backups export with
-`--show-secrets` (state) and `pulumi config --show-secrets` (config secrets,
-which are not part of state at all) and rely on the borg repository
-encryption — repokey, local [[sifaka]] + BorgBase offsite — as the
+`--show-secrets` and rely on the borg repository encryption — repokey, local [[sifaka]] + BorgBase offsite — as the
 compensating control. The values also have bounded lifetimes: the Pulumi
 access token rotates every 20 days, the Tailscale auth keys it can contain
 expire in 90 days and are re-minted by the next `pulumi up` anyway.
@@ -38,12 +36,15 @@ holds the previous night's export:
 | File (staged name) | Content |
 |--------------------|---------|
 | `pulumi-tail8d86e-state.db` | `pulumi stack export --show-secrets` of `blumeops-tailnet/tail8d86e` |
-| `pulumi-tail8d86e-config.db` | `pulumi config --show-secrets` of the same |
 | `pulumi-eblu-me-state.db` | state of `blumeops-dns/eblu-me` |
-| `pulumi-eblu-me-config.db` | config of the same |
 
-(The ferry names every file-dump target `.db` regardless of content — the
-state files are JSON, the config files plain text.)
+(The ferry names every file-dump target `.db` regardless of content — these
+are JSON.)
+
+Stack config is not backed up here, because nothing in it is only in Pulumi
+Cloud: plain values are in `pulumi/<project>/Pulumi.<stack>.yaml` in git, and
+the provider secrets come from the Pulumi ESC environments named there, whose
+definitions are in `pulumi/esc/` and whose values are in 1Password.
 
 ```bash
 ssh indri 'BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
@@ -53,9 +54,7 @@ mkdir -p ~/tmp/pulumi-restore && cd ~/tmp/pulumi-restore
 ssh indri 'cd ~/tmp/pulumi-restore && BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
   /opt/homebrew/bin/borg extract /Volumes/backups/borg::<archive> \
   Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-tail8d86e-state.db \
-  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-tail8d86e-config.db \
-  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-eblu-me-state.db \
-  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-eblu-me-config.db'
+  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-eblu-me-state.db'
 ls ~/tmp/pulumi-restore/Users/erichblume/.local/share/borgmatic/k8s-dumps/
 ```
 
@@ -76,19 +75,13 @@ pulumi stack init <name> --secrets-provider passphrase
 pulumi stack import --file <state.json>
 ```
 
-Then re-add the stack config (re-encrypts under the new stack's provider):
-
-```bash
-pulumi config set --secret tailscale:apiKey <value>   # tailnet stack
-pulumi config set blumeops-dns:domain eblu.me         # dns stack (plaintext values)
-```
-
-The config dumps are `pulumi config --show-secrets` output; re-add the
-`secret`-marked values with `pulumi config set --secret`.
+The stack config comes back with the repo: `Pulumi.<stack>.yaml` holds the
+plain values and the `environment:` import of the ESC environment that serves
+the provider secrets. In a new account, recreate those environments first with
+`mise run pulumi-esc-sync` (see [[pulumi]]'s Authentication section).
 
 Then run `pulumi up --refresh` from the project directory
-(`pulumi/tailscale/`, `pulumi/gandi/`) with the provider credentials
-exported — see [[pulumi]]'s Authentication section.
+(`pulumi/tailscale/`, `pulumi/gandi/`).
 
 ## What re-mints, what doesn't
 
@@ -97,9 +90,9 @@ exported — see [[pulumi]]'s Authentication section.
   **not** re-mint them; the next `pulumi up` does. Old keys expire after 90
   days, and an expired key in state is not itself a problem — the resource
   recreates on drift. If a key was consumed before restore, just `up`.
-- **Gandi PAT / Tailscale OAuth client** live in 1Password and are fed as
-  *config*, not state — unaffected by the account loss; just re-export them
-  into the environment when running `pulumi up`.
+- **Gandi PAT / Tailscale OAuth client** live in 1Password and reach the
+  stacks through ESC as *config*, not state — unaffected by the account loss
+  once `pulumi-esc-sync` has recreated the environments.
 - **Tailscale ACL + device tags, DNS records**: pure state; imported intact
   and reconciled by `up`.
 
