@@ -102,7 +102,11 @@ echo "Anubis (mirror) started"
 # a missing address makes sshd refuse the listen socket and exit.
 mkdir -p /volume/ssh /etc/ssh /run/sshd
 if [ ! -f /volume/ssh/ssh_host_ed25519_key ]; then
-    ssh-keygen -A -f /volume/ssh || echo "WARNING: ssh host key generation failed"
+    # Not `ssh-keygen -A -f /volume/ssh`: with -A, -f is a path *prefix*, so
+    # it writes to /volume/ssh/etc/ssh/ (absent) and fails — the 09-29 boot
+    # came up with no host keys and sshd exited (eblume/blumeops#1208).
+    ssh-keygen -q -t ed25519 -N '' -f /volume/ssh/ssh_host_ed25519_key \
+        || echo "WARNING: ssh host key generation failed"
 fi
 cp -p /volume/ssh/ssh_host_* /etc/ssh/ || echo "WARNING: ssh host key copy failed"
 
@@ -125,12 +129,15 @@ if [ -n "$tscidr" ]; then
 else
     echo "WARNING: tailscale0 address never appeared — sshd stays on loopback; mirror pushes will fail until a restart"
 fi
-/usr/sbin/sshd -D -e $listen_addresses -o PasswordAuthentication=no -o PermitRootLogin=no -o X11Forwarding=no -o AllowUsers=mirror &
-SSHD_PID=$!
-if ! kill -0 "$SSHD_PID" 2>/dev/null; then
-    echo "WARNING: sshd failed to start (mirror push will not work)"
+sshd_opts="$listen_addresses -o PasswordAuthentication=no -o PermitRootLogin=no -o X11Forwarding=no -o AllowUsers=mirror"
+# `sshd -t` catches config and host-key errors up front: sshd exits on
+# them only after the fork, so a kill -0 right after `&` still passes.
+if /usr/sbin/sshd -t $sshd_opts; then
+    /usr/sbin/sshd -D -e $sshd_opts &
+    echo "sshd started"
+else
+    echo "WARNING: sshd config test failed — sshd not started, mirror pushes will fail"
 fi
-echo "sshd started"
 
 # Start nginx — MagicDNS is available, upstreams resolved.
 nginx -g "daemon off;" &

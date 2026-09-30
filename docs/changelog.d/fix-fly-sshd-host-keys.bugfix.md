@@ -1,0 +1,1 @@
+Fly proxy: generate the push-mirror sshd host key at the right path (`ssh-keygen -A -f` treats `-f` as a prefix and was failing), and test the sshd config before starting it so a dead sshd is reported.
