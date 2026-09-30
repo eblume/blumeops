@@ -1,87 +1,386 @@
 # Ringtail Flake Update
 #
-# Runs `nix flake update` directly on ringtail's nix runner (label
-# nix-container-builder, see [[manage-lockfile]]) and pushes the refreshed
-# nixos/ringtail/flake.lock back to the branch the workflow was dispatched on.
+# Weekly roll of nixos/ringtail/flake.lock (eblume/blumeops#1318).
+# Scheduled Sunday 05:00 UTC (branch-cleanup takes 06:00) or manually
+# dispatched, on the nix-container-builder runner: ringtail in host mode, so
+# this is the same nix that consumes the flake, and `uname -r` is the booted
+# kernel.
 #
-# The runner runs on ringtail itself, so the nix that performs the lock is the
-# same nix that consumes the flake — no nixos/nix container in between, and a
-# warm store to evaluate against.
+# Two-job split (security review in the issue thread): nix evaluation can
+# read the environment (builtins.getEnv) and fetch URLs, so
+#   * update-and-build holds no credentials - the auto-injected
+#     GITHUB_TOKEN is blanked on every nix step and no repo secret is
+#     referenced - and does all the nix work: flake update, head recording,
+#     toplevel build, and the full flake-lock-check battery (including the
+#     nar-hash nix fetch). Its output is one artifact.
+#   * checks-and-post is the only job with the token, and it runs no nix:
+#     it pins the artifact byte-for-byte (SHA-256) to what the battery
+#     verified, verifies main has not moved, pushes a fresh
+#     auto-update/ringtail-flake-<date> branch from main, opens the PR (diff
+#     exactly the lockfile) and posts the check table naming the exact head
+#     SHA. It never merges.
 #
-# This exists so remote-agent sessions (which have no nix, docker, or deploy
-# access) can author a flake update by PR: the agent opens a branch/PR, a
-# human dispatches this workflow on that branch, and the lockfile bump lands
-# as a commit on the PR for review. Deployment stays human-only:
-# `mise run provision-ringtail` from gilbert after merge.
+# Green -> a human merges; horkos then files the ringtail-rebuild request
+# (eblume/horkos#48). Red -> PR left open, exception issue filed with
+# evidence, linked from the PR. A hard failure of the zero-credential job is
+# escalated by report-hard-failure.
 #
-# Usage:
-#   1. Go to Actions > Ringtail Flake Update > Run workflow
-#   2. Select the branch to update (e.g. the open PR branch)
-#   3. Review the resulting lockfile commit on the branch
+# Design and check table: docs/how-to/ringtail/manage-lockfile.md.
 
 name: Ringtail Flake Update
 
 on:
+  schedule:
+    - cron: '0 5 * * 0' # Sunday 05:00 UTC
   workflow_dispatch:
 
+concurrency:
+  group: ringtail-flake-update
+  cancel-in-progress: false
+
 jobs:
-  flake-update:
+  update-and-build:
     runs-on: nix-container-builder
+    outputs:
+      changed: ${{ steps.changed.outputs.changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          # Job 1 never pushes; keep the token out of .git/config as well as
+          # the environment for every nix step below.
+          persist-credentials: false
 
-      - name: Update flake.lock (native nix)
+      - name: Snapshot main lock
+        run: |
+          set -eo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/flake-update"
+          cp nixos/ringtail/flake.lock "$GITHUB_WORKSPACE/flake-update/old.lock"
+
+      # Every step from here on has the auto-injected GITHUB_TOKEN blanked:
+      # no credential may sit in the environment while nix evaluates
+      # upstream-controlled code. No repo secret is referenced in this job at
+      # all.
+
+      - name: Update flake.lock
+        env:
+          GITHUB_TOKEN: ""
         run: |
           set -eo pipefail
           cd nixos/ringtail
           echo "Updating nixos/ringtail/flake.lock (all inputs except nixpkgs-services)..."
           SKIP=nixpkgs-services
           # Land the metadata in a real file: nix-instantiate cannot
-          # readFile a pipe (/dev/stdin canonicalizes to
-          # /proc/<pid>/fd/pipe:[...] and readFile fails), which would
-          # make discovery silently empty. No stderr suppression —
-          # metadata failures should be visible.
-          nix flake metadata --json > /tmp/flake-meta.json
-          ALL=$(nix-instantiate --eval -E "builtins.concatStringsSep \" \" (builtins.attrNames (builtins.fromJSON (builtins.readFile /tmp/flake-meta.json)).locks.nodes.root.inputs)" | tr -d '"')
+          # readFile a pipe, which would make discovery silently empty.
+          nix flake metadata --json > "$GITHUB_WORKSPACE/flake-update/meta.json"
+          ALL=$(nix-instantiate --eval -E "builtins.concatStringsSep \" \" (builtins.attrNames (builtins.fromJSON (builtins.readFile \"$GITHUB_WORKSPACE/flake-update/meta.json\")).locks.nodes.root.inputs)" | tr -d '"')
+          read -r -a ALL_INPUTS <<<"$ALL"
           INPUTS=()
           # Input names are safe identifiers; iterate as an array for shellcheck.
-          read -r -a ALL_INPUTS <<<"$ALL"
           for i in "${ALL_INPUTS[@]}"; do
-            case ",$SKIP," in *",$i,"*) continue ;; esac;
+            case ",$SKIP," in *",$i,"*) continue ;; esac
             INPUTS+=("$i")
           done
-          echo "Updating inputs: ${INPUTS[*]}"
-          echo "Skipping: $SKIP"
+          echo "Updating inputs: ${INPUTS[*]} (skipping: $SKIP)"
           # Empty INPUTS would make `nix flake update` update *all* inputs,
           # including the ones we meant to skip — fail loudly instead.
           [ ${#INPUTS[@]} -gt 0 ] || { echo "no inputs discovered; refusing bare flake update" >&2; exit 1; }
           nix flake update "${INPUTS[@]}" --accept-flake-config
 
-      - name: Commit and push lockfile
+      - name: Changed?
+        id: changed
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -eo pipefail
+          if git diff --quiet nixos/ringtail/flake.lock; then
+            echo "flake.lock unchanged - nothing to roll this run"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Record tracked branch heads
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -eo pipefail
+          nixos/ringtail/flake-lock-check record-heads \
+            nixos/ringtail/flake.lock \
+            --out "$GITHUB_WORKSPACE/flake-update/heads.json"
+          cat "$GITHUB_WORKSPACE/flake-update/heads.json"
+
+      - name: Build toplevel + extract kernel
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -eo pipefail
+          cd nixos/ringtail
+          nix build .#nixosConfigurations.ringtail.config.system.build.toplevel \
+            --json > "$GITHUB_WORKSPACE/flake-update/toplevel.json"
+          top="$(jq -er '.path' "$GITHUB_WORKSPACE/flake-update/toplevel.json")"
+          nixos/ringtail/flake-lock-check kernel-version "$top" \
+            > "$GITHUB_WORKSPACE/flake-update/kernel.txt"
+          echo "built kernel: $(cat "$GITHUB_WORKSPACE/flake-update/kernel.txt")"
+
+      - name: Run check battery
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -o pipefail
+          # Exit 1 = battery red: carried by the artifact, the posting job
+          # files the exception. Exit 2 = maintenance error: hard fail.
+          rc=0
+          nixos/ringtail/flake-lock-check check \
+            "$GITHUB_WORKSPACE/flake-update/old.lock" nixos/ringtail/flake.lock \
+            --heads "$GITHUB_WORKSPACE/flake-update/heads.json" --json \
+            > "$GITHUB_WORKSPACE/flake-update/checks.json" || rc=$?
+          if [ "$rc" -gt 1 ]; then
+            echo "battery maintenance error (exit $rc):" >&2
+            cat "$GITHUB_WORKSPACE/flake-update/checks.json" >&2 || true
+            exit "$rc"
+          fi
+          if [ "$rc" = "1" ]; then
+            echo "battery red - the verdict ships with the artifact"
+          fi
+          cat "$GITHUB_WORKSPACE/flake-update/checks.json"
+
+      - name: Assemble result
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -eo pipefail
+          cp nixos/ringtail/flake.lock "$GITHUB_WORKSPACE/flake-update/new.lock"
+          jq -n \
+            --arg new_sha "$(sha256sum "$GITHUB_WORKSPACE/flake-update/new.lock" | awk '{print $1}')" \
+            --arg old_sha "$(sha256sum "$GITHUB_WORKSPACE/flake-update/old.lock" | awk '{print $1}')" \
+            --arg kernel "$(cat "$GITHUB_WORKSPACE/flake-update/kernel.txt")" \
+            --slurpfile checks "$GITHUB_WORKSPACE/flake-update/checks.json" \
+            --slurpfile old "$GITHUB_WORKSPACE/flake-update/old.lock" \
+            --slurpfile new "$GITHUB_WORKSPACE/flake-update/new.lock" \
+            '{
+              lock_sha256: $new_sha,
+              old_lock_sha256: $old_sha,
+              kernel: $kernel,
+              checks: $checks[0].checks,
+              inputs: {
+                nixpkgs: {old: $old[0].nodes["nixpkgs"].locked.rev,
+                          new: $new[0].nodes["nixpkgs"].locked.rev},
+                "home-manager": {old: $old[0].nodes["home-manager"].locked.rev,
+                                 new: $new[0].nodes["home-manager"].locked.rev},
+                disko: {old: $old[0].nodes["disko"].locked.rev,
+                        new: $new[0].nodes["disko"].locked.rev}
+              }
+            }' > "$GITHUB_WORKSPACE/flake-update/result.json"
+          cat "$GITHUB_WORKSPACE/flake-update/result.json"
+
+      - name: Upload result artifact
+        if: steps.changed.outputs.changed == 'true'
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3
+        with:
+          name: flake-update-result
+          path: |
+            flake-update/result.json
+            flake-update/new.lock
+            flake-update/heads.json
+
+  checks-and-post:
+    needs: [update-and-build]
+    if: needs.update-and-build.outputs.changed == 'true'
+    runs-on: nix-container-builder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Download result artifact
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3
+        with:
+          name: flake-update-result
+          path: flake-update
+
+      # Runs no nix (plain jq + sha256sum + uname): this is the only step in
+      # the token job that touches the artifact's bytes before they are
+      # committed.
+      - name: Verdict (artifact pin + kernel flag)
+        id: verdict
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if git diff --quiet nixos/ringtail/flake.lock; then
-            echo "flake.lock is already up to date; nothing to push"
-            exit 0
+          set -o pipefail
+          date_u="$(date -u +%F)"
+          rc=0
+          nixos/ringtail/flake-update-verify verdict \
+            --result flake-update/result.json \
+            --main-lock nixos/ringtail/flake.lock \
+            --new-lock flake-update/new.lock \
+            --booted "$(uname -r)" \
+            > flake-update/verdict.json || rc=$?
+          cat flake-update/verdict.json
+          case "$rc" in
+            0) echo "verdict=green" >> "$GITHUB_OUTPUT" ;;
+            1) echo "verdict=red" >> "$GITHUB_OUTPUT" ;;
+            *)
+              reason="$(jq -r '.error // "no verdict emitted"' flake-update/verdict.json 2>/dev/null)"
+              reason="${reason:-no verdict emitted}"
+              echo "artifact pin failed: $reason" >&2
+              data="$(jq -cn --arg d "$date_u" --arg r "$reason" '{title: ("Ringtail flake update " + $d + ": artifact pin failed - no PR opened"), body: ("The result artifact of the scheduled `Ringtail Flake Update` run of " + $d + " does not match what the check battery verified - the posting job refused to open a PR.\n\nreason: " + $r + "\n\nInspect the run in Forgejo Actions (nix-container-builder). Part of eblume/blumeops#1318")}')"
+              issue_resp="$(curl -s -m 60 -X POST -H "Authorization: token $GITHUB_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "$data" \
+                "https://forge.eblu.me/api/v1/repos/eblume/blumeops/issues")"
+              if [ "$(printf '%s' "$issue_resp" | jq -r '.id // empty' 2>/dev/null)" = "" ]; then
+                echo "exception issue creation failed: $issue_resp" >&2
+              fi
+              exit "$rc"
+              ;;
+          esac
+
+      - name: Push candidate branch + open PR
+        id: pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          date_u="$(date -u +%F)"
+          branch="auto-update/ringtail-flake-${date_u}"
+          api="https://forge.eblu.me/api/v1/repos/eblume/blumeops"
+
+          push_force=0
+          if git ls-remote --heads origin "$branch" | grep -q .; then
+            existing="$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$api/pulls?state=open" \
+              | jq -r --arg b "$branch" '[.[] | select(.head.ref == $b and .head.repo.full_name == "eblume/blumeops")] | .[0].number // empty')"
+            if [ -n "$existing" ]; then
+              if [ "${{ steps.verdict.outputs.verdict }}" = "red" ]; then
+                echo "branch $branch has open PR #$existing, but this run's verdict is red - leaving the run red" >&2
+                exit 1
+              fi
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "branch $branch already has open PR #$existing - nothing to do"
+              exit 0
+            fi
+            echo "branch $branch exists without an open PR (earlier partial run) - force-pushing"
+            push_force=1
           fi
 
+          cp flake-update/new.lock nixos/ringtail/flake.lock
+          diff_names="$(git diff --name-only)"
+          if [ "$diff_names" != "nixos/ringtail/flake.lock" ]; then
+            echo "working tree diff is not exactly the lockfile: $diff_names" >&2
+            exit 1
+          fi
           git config user.name "Forgejo Actions"
           git config user.email "actions@forge.ops.eblu.me"
           git add nixos/ringtail/flake.lock
-          git commit -m "Update ringtail flake inputs (flake-update workflow)"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-          echo "Pushed lockfile update to ${GITHUB_REF_NAME}"
+          git commit -m "Update ringtail flake inputs (${date_u}, scheduled flake-update)"
+          head_sha="$(git rev-parse HEAD)"
+          if [ "$push_force" = 1 ]; then
+            git push origin "+HEAD:$branch"
+          else
+            git push origin "HEAD:$branch"
+          fi
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Summary
+          body="$(printf '%s\n' \
+            "Part of eblume/blumeops#1318" \
+            "" \
+            "Scheduled \`Ringtail Flake Update\` run of ${date_u}, from \`main\`." \
+            "" \
+            "- The diff is exactly \`nixos/ringtail/flake.lock\`; head SHA \`${head_sha}\`." \
+            "- The check battery ran in the zero-credential job against these exact bytes (SHA-256 pinned by this posting job); the table is posted as a comment against this SHA." \
+            "- Merge on green per docs/how-to/ringtail/manage-lockfile.md. After the merge, horkos files the ringtail-rebuild request (eblume/horkos#48).")"
+          data="$(jq -n --arg base main --arg head "$branch" \
+            --arg title "Update ringtail flake inputs (${date_u})" \
+            --arg body "$body" \
+            '{base: $base, head: $head, title: $title, body: $body}')"
+          resp="$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" -d "$data" "$api/pulls")"
+          pr_num="$(printf '%s' "$resp" | jq -r '.number // empty')"
+          if [ -z "$pr_num" ]; then
+            echo "PR creation failed: $resp" >&2
+            exit 1
+          fi
+          echo "pr_number=$pr_num" >> "$GITHUB_OUTPUT"
+          echo "PR eblume/blumeops#$pr_num opened ($branch, head $head_sha)"
+
+      - name: Post check table (+ exception issue on red)
+        if: steps.pr.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "================================================"
-          echo "Ringtail flake update on branch: ${GITHUB_REF_NAME}"
-          echo "================================================"
-          echo ""
-          git --no-pager log -1 --stat -- nixos/ringtail/flake.lock || true
-          echo ""
-          echo "Next steps (human, from gilbert, after merge):"
-          echo "  mise run provision-ringtail"
-          echo "Then check for a pending kernel update (see manage-lockfile docs)."
+          set -eo pipefail
+          date_u="$(date -u +%F)"
+          branch="auto-update/ringtail-flake-${date_u}"
+          api="https://forge.eblu.me/api/v1/repos/eblume/blumeops"
+          head_sha="${{ steps.pr.outputs.head_sha }}"
+          pr_num="${{ steps.pr.outputs.pr_number }}"
+          verdict="${{ steps.verdict.outputs.verdict }}"
+
+          table="$(nixos/ringtail/flake-update-verify table \
+            --result flake-update/verdict.json \
+            --head-sha "$head_sha" --branch "$branch" \
+            --inputs-file flake-update/result.json)"
+          resp="$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg b "$table" '{body: $b}')" \
+            "$api/issues/$pr_num/comments")"
+          if [ "$(printf '%s' "$resp" | jq -r '.id // empty' 2>/dev/null)" = "" ]; then
+            echo "table comment failed: $resp" >&2
+            exit 1
+          fi
+
+          if [ "$verdict" = "red" ]; then
+            failing="$(jq -r '[.checks[] | select(.status != "PASS") | .name] | join(", ")' flake-update/verdict.json)"
+            title="Ringtail flake update ${date_u}: lock battery FAILED (${failing}) - PR eblume/blumeops#$pr_num left open"
+            issue_body="$(nixos/ringtail/flake-update-verify issue \
+              --result flake-update/verdict.json \
+              --branch "$branch" --head-sha "$head_sha" \
+              --pr-url "https://forge.eblu.me/eblume/blumeops/pulls/$pr_num" \
+              --run-date "$date_u")"
+            resp="$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n --arg t "$title" --arg b "$issue_body" '{title: $t, body: $b}')" \
+              "$api/issues")"
+            issue_num="$(printf '%s' "$resp" | jq -r '.number // empty')"
+            if [ -z "$issue_num" ]; then
+              echo "exception issue creation failed: $resp" >&2
+              exit 1
+            fi
+            resp="$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n --arg b "Battery FAILED - do not merge. Exception issue: eblume/blumeops#$issue_num" '{body: $b}')" \
+              "$api/issues/$pr_num/comments")"
+            if [ "$(printf '%s' "$resp" | jq -r '.id // empty' 2>/dev/null)" = "" ]; then
+              echo "PR link comment failed: $resp" >&2
+              exit 1
+            fi
+            echo "exception issue eblume/blumeops#$issue_num filed; leaving the run red"
+            exit 1
+          fi
+          echo "battery green - PR eblume/blumeops#$pr_num awaits the human merge"
+
+  report-hard-failure:
+    needs: [update-and-build, checks-and-post]
+    if: failure() && needs.update-and-build.result == 'failure'
+    runs-on: nix-container-builder
+    steps:
+      - name: File exception issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          date_u="$(date -u +%F)"
+          data="$(jq -cn --arg d "$date_u" '{title: ("Ringtail flake update " + $d + ": update/build job failed - no PR opened"), body: ("The zero-credential `update-and-build` job of the scheduled `Ringtail Flake Update` run of " + $d + " failed, so no lockfile was verified and no PR was opened. Inspect the `Ringtail Flake Update` run in Forgejo Actions (nix-container-builder); failing candidates are the flake update, the head recording, the toplevel build, the check battery and the artifact upload. Part of eblume/blumeops#1318")}')"
+          resp="$(curl -s -m 60 -X POST -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" -d "$data" \
+            "https://forge.eblu.me/api/v1/repos/eblume/blumeops/issues")"
+          if [ "$(printf '%s' "$resp" | jq -r '.id // empty' 2>/dev/null)" = "" ]; then
+            echo "exception issue creation failed: $resp" >&2
+            exit 1
+          fi
