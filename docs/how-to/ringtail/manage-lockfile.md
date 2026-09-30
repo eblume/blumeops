@@ -1,6 +1,6 @@
 ---
 title: Manage Ringtail Lockfile
-modified: 2026-09-29
+modified: 2026-09-30
 last-reviewed: 2026-09-28
 tags:
   - how-to
@@ -35,12 +35,11 @@ It then runs the check battery (below) read-only against the candidate
 lockfile and opens a PR whose diff is **exactly** `nixos/ringtail/flake.lock`,
 pinned to the head SHA the battery verified.
 
-The rework of the workflow file to this design lands in a follow-up PR (tracked in #1318); until then the workflow still runs in its dispatch-only form, and the
-scheduled flow above is the target this doc describes.
-
 ## The check battery
 
 The battery is implemented by `nixos/ringtail/flake-lock-check` (checks 1-4 read the lock read-only; the system build and kernel checks are composed by the workflow). It is the hard gate: no check may fail for the PR to be green; check 6 can only flag.
+
+The battery runs in the zero-credential job: its narHash check fetches upstream flakes with nix, and nix can read the process environment, so no credential may coexist with it. The posting job holds the token, runs no nix, and pins the artifact byte-for-byte (SHA-256) to what the battery verified before it names the head SHA.
 
 | # | Check | Catches |
 |---|-------|---------|

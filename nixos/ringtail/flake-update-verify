@@ -1,0 +1,245 @@
+#!/usr/bin/env bash
+## flake-update-verify — artifact pin, verdict and rendering for the
+## flake-update posting job (eblume/blumeops#1318). Runs no nix: the posting
+## job may hold the token, so this is plain jq + sha256sum.
+## Subcommands:
+##   verdict --result FILE --main-lock FILE --new-lock FILE --booted KERNEL
+##     Pins the artifact to the battery's inputs and decides green/red.
+##     Always emits a verdict JSON on stdout (even on error):
+##       {"green":bool,"error":str,"kernel":{"built","booted","bump"},
+##        "checks":[{"name","status","detail"}]}
+##     Exit: 0 green; 1 red (a battery check FAILED); 2 artifact/maintenance
+##     error (the JSON carries the reason in .error).
+##   table --verdict FILE --head-sha SHA --branch NAME [--inputs-file FILE]
+##     Markdown check table for the PR comment.
+##   issue --verdict FILE --branch NAME --head-sha SHA --pr-url URL
+##          --run-date DATE [--inputs-file FILE]
+##     Markdown body for the exception issue.
+
+set -euo pipefail
+
+EXPECTED_CHECKS=(ff-ancestor ff-head nar-hash originals scope)
+
+# Usage/maintenance error: stderr + exit 2, no JSON.
+die() {
+  printf 'flake-update-verify: %s\n' "$1" >&2
+  exit 2
+}
+
+# Verdict error: emit an error verdict on stdout + exit 2, so the workflow
+# always has a machine-readable reason.
+verdict_die() {
+  jq -cn --arg e "${1:?}" \
+    '{green: false, error: $e,
+      kernel: {built: "", booted: "", bump: false}, checks: []}'
+  exit 2
+}
+
+parse_args() {
+  # Sets RESULT, MAIN_LOCK, NEW_LOCK, BOOTED, HEAD_SHA, BRANCH, PR_URL,
+  # RUN_DATE, INPUTS_FILE from the command's flags.
+  RESULT="" MAIN_LOCK="" NEW_LOCK="" BOOTED="" HEAD_SHA="" BRANCH=""
+  PR_URL="" RUN_DATE="" INPUTS_FILE=""
+  while (($# > 0)); do
+    case "$1" in
+      --result)       RESULT="${2:?--result needs a file}"; shift 2 ;;
+      --main-lock)    MAIN_LOCK="${2:?--main-lock needs a file}"; shift 2 ;;
+      --new-lock)     NEW_LOCK="${2:?--new-lock needs a file}"; shift 2 ;;
+      --booted)       BOOTED="${2:-}"; shift 2 ;;
+      --head-sha)     HEAD_SHA="${2:?--head-sha needs a value}"; shift 2 ;;
+      --branch)       BRANCH="${2:?--branch needs a value}"; shift 2 ;;
+      --pr-url)       PR_URL="${2:?--pr-url needs a value}"; shift 2 ;;
+      --run-date)     RUN_DATE="${2:?--run-date needs a value}"; shift 2 ;;
+      --inputs-file)  INPUTS_FILE="${2:-}"; shift 2 ;;
+      -*) die "unknown option $1" ;;
+      *) die "unexpected argument $1" ;;
+    esac
+  done
+}
+
+sha256_of() {
+  sha256sum "$1" | awk '{print $1}'
+}
+
+cmd_verdict() {
+  parse_args "$@"
+  [ -n "$RESULT" ] && [ -n "$MAIN_LOCK" ] && [ -n "$NEW_LOCK" ] \
+    || verdict_die "verdict: --result --main-lock --new-lock are required"
+  [ -f "$RESULT" ] || verdict_die "verdict: result file missing: $RESULT"
+  [ -f "$MAIN_LOCK" ] || verdict_die "verdict: main lock missing: $MAIN_LOCK"
+  [ -f "$NEW_LOCK" ] || verdict_die "verdict: new lock missing: $NEW_LOCK"
+
+  jq -e . "$RESULT" >/dev/null 2>&1 \
+    || verdict_die "verdict: result file is not JSON: $RESULT"
+  jq -e '.version == 7' "$MAIN_LOCK" >/dev/null 2>&1 \
+    || verdict_die "verdict: main lock is not a v7 lock"
+  jq -e '.version == 7' "$NEW_LOCK" >/dev/null 2>&1 \
+    || verdict_die "verdict: new lock is not a v7 lock"
+
+  local result_new_sha result_old_sha built
+  result_new_sha="$(jq -r '.lock_sha256 // ""' "$RESULT")"
+  result_old_sha="$(jq -r '.old_lock_sha256 // ""' "$RESULT")"
+  built="$(jq -r '.kernel // ""' "$RESULT")"
+  [[ "$result_new_sha" =~ ^[0-9a-f]{64}$ ]] \
+    || verdict_die "verdict: result.lock_sha256 missing or not 64-hex"
+  [[ "$result_old_sha" =~ ^[0-9a-f]{64}$ ]] \
+    || verdict_die "verdict: result.old_lock_sha256 missing or not 64-hex"
+  [ -n "$built" ] \
+    || verdict_die "verdict: result.kernel missing or empty"
+
+  jq -e '.checks | type == "array"' "$RESULT" >/dev/null 2>&1 \
+    || verdict_die "verdict: result.checks is not an array"
+
+  # Exactly the five battery checks, each with a PASS/FAIL status: a drifted
+  # battery must fail closed here, not read as "all named checks pass".
+  local got_names expected_names
+  got_names="$(jq -r '[.checks[].name] | sort | join(" ")' "$RESULT")"
+  expected_names="$(printf '%s\n' "${EXPECTED_CHECKS[@]}" | sort | tr '\n' ' ' | sed 's/ $//')"
+  [ "$got_names" = "$expected_names" ] \
+    || verdict_die "verdict: battery check set drifted: [$got_names] != [$expected_names]"
+  jq -e '[.checks[] | (.status == "PASS" or .status == "FAIL")] | all' \
+    "$RESULT" >/dev/null 2>&1 \
+    || verdict_die "verdict: a check has no PASS/FAIL status"
+
+  # The pin: the bytes this job commits must be the bytes the battery
+  # verified, against a main that has not moved since the run.
+  local got_new got_main
+  got_new="$(sha256_of "$NEW_LOCK")"
+  got_main="$(sha256_of "$MAIN_LOCK")"
+  [ "$got_new" = "$result_new_sha" ] \
+    || verdict_die "verdict: new-lock sha256 mismatch - artifact is not the bytes the battery verified ($got_new != $result_new_sha)"
+  [ "$got_main" = "$result_old_sha" ] \
+    || verdict_die "verdict: main moved since the run recorded the old lock ($got_main != $result_old_sha)"
+
+  local booted_ver="${BOOTED%%-*}"
+  [ -n "$booted_ver" ] \
+    || verdict_die "verdict: --booted empty or unusable: '$BOOTED'"
+
+  # Kernel: a bump flags, never fails.
+  local bump=false
+  [ "$built" = "$booted_ver" ] || bump=true
+
+  local green=true
+  jq -e '[.checks[].status] | all(. == "PASS")' "$RESULT" >/dev/null 2>&1 \
+    || green=false
+
+  jq -cn \
+    --argjson green "$green" \
+    --arg built "$built" --arg booted "$booted_ver" --argjson bump "$bump" \
+    --slurpfile checks "$RESULT" \
+    '{green: $green, error: "",
+      kernel: {built: $built, booted: $booted, bump: $bump},
+      checks: $checks[0].checks}'
+  if [ "$green" = "true" ]; then exit 0; else exit 1; fi
+}
+
+battery_rows() {
+  # $1 = verdict file. Markdown table rows for the five battery checks.
+  jq -r '.checks[] | "| `\(.name)` | \(if .status == "PASS" then "PASS" else "FAIL" end) | \(.detail // "") |"' "$1"
+}
+
+moved_inputs() {
+  # $1 = inputs file (result.json). "name `old7` -> `new7`" for inputs whose
+  # rev moved; "" (no output, exit 0) when the file is absent or unparsable -
+  # this is a cosmetic line, never a gate.
+  [ -n "$1" ] && [ -f "$1" ] || return 0
+  jq -r '[.inputs // {} | to_entries[]
+    | select(.value.old != .value.new)
+    | "\(.key) `\(.value.old[0:7])` -> `\(.value.new[0:7])`"]
+    | join("; ")' "$1" 2>/dev/null || return 0
+}
+
+cmd_table() {
+  parse_args "$@"
+  [ -n "$RESULT" ] || die "table: --result (the verdict file) is required"
+  [ -n "$HEAD_SHA" ] && [ -n "$BRANCH" ] \
+    || die "table: --head-sha and --branch are required"
+  [ -f "$RESULT" ] || die "table: verdict file missing: $RESULT"
+  jq -e . "$RESULT" >/dev/null 2>&1 || die "table: verdict file is not JSON"
+
+  local green bump built booted rows moved
+  green="$(jq -r '.green' "$RESULT")"
+  bump="$(jq -r '.kernel.bump' "$RESULT")"
+  built="$(jq -r '.kernel.built' "$RESULT")"
+  booted="$(jq -r '.kernel.booted' "$RESULT")"
+  rows="$(battery_rows "$RESULT")"
+  moved="$(moved_inputs "$INPUTS_FILE")"
+
+  {
+    printf '## Lock battery - head `%s`\n\n' "$HEAD_SHA"
+    printf 'Branch `%s`; the PR diff is exactly `nixos/ringtail/flake.lock`. The zero-credential update job computed these results against these exact bytes (SHA-256 pinned by this posting job) - a merge certifies "a workflow defined on `main` vouched for this SHA", not the hashes.\n\n' "$BRANCH"
+    printf '| Check | Result | Detail |\n|---|---|---|\n'
+    printf '%s\n' "$rows"
+    printf '| toplevel build | PASS | built in the zero-credential job |\n'
+    if [ "$bump" = "true" ]; then
+      printf '| kernel | FLAG | kernel bump %s -> %s - plan a reboot after the rebuild |\n' "$built" "$booted"
+    else
+      printf '| kernel | PASS | built %s == booted %s |\n' "$built" "$booted"
+    fi
+    if [ -n "$moved" ]; then
+      printf '\nMoved: %s\n\n' "$moved"
+    else
+      printf '\n'
+    fi
+    if [ "$green" = "true" ]; then
+      printf '**All checks green.** Merge is your call; after the merge horkos files the `ringtail-rebuild` request ([eblume/horkos#48](https://forge.eblu.me/eblume/horkos/issues/48)).\n'
+    else
+      printf '**DO NOT MERGE** - a check failed; the exception issue is filed and linked from this PR.\n'
+    fi
+  }
+}
+
+cmd_issue() {
+  parse_args "$@"
+  [ -n "$RESULT" ] || die "issue: --result (the verdict file) is required"
+  [ -n "$HEAD_SHA" ] && [ -n "$BRANCH" ] && [ -n "$PR_URL" ] && [ -n "$RUN_DATE" ] \
+    || die "issue: --head-sha --branch --pr-url --run-date are required"
+  [ -f "$RESULT" ] || die "issue: verdict file missing: $RESULT"
+  jq -e . "$RESULT" >/dev/null 2>&1 || die "issue: verdict file is not JSON"
+
+  local failing
+  failing="$(jq -r '[.checks[] | select(.status != "PASS")
+    | "- `\(.name)`: \(.detail // "(no detail)")"] | join("\n")' "$RESULT")"
+
+  {
+    printf 'The scheduled `Ringtail Flake Update` run of %s FAILED the lock battery. The PR is left open, its diff pinned to head `%s` - **do not merge**.\n\n' "$RUN_DATE" "$HEAD_SHA"
+    printf 'Failed checks:\n\n%s\n\n' "$failing"
+    printf 'Context:\n\n- Branch: `%s`\n- Head SHA: `%s`\n- PR: %s\n- Kernel (built): %s (booted: %s)\n- Battery: `nixos/ringtail/flake-lock-check` (see docs/how-to/ringtail/manage-lockfile.md)\n\n' \
+      "$BRANCH" "$HEAD_SHA" "$PR_URL" \
+      "$(jq -r '.kernel.built' "$RESULT")" "$(jq -r '.kernel.booted' "$RESULT")"
+    printf 'Part of eblume/blumeops#1318\n'
+  }
+}
+
+usage() {
+  cat >&2 <<'USAGE'
+flake-update-verify: artifact pin, verdict and rendering for the
+flake-update posting job (eblume/blumeops#1318). Runs no nix.
+
+usage:
+  flake-update-verify verdict --result FILE --main-lock FILE
+                        --new-lock FILE --booted KERNEL
+  flake-update-verify table --result FILE --head-sha SHA --branch NAME
+                            [--inputs-file FILE]
+  flake-update-verify issue --result FILE --branch NAME --head-sha SHA
+                            --pr-url URL --run-date DATE
+                            [--inputs-file FILE]
+
+exit: 0 green; 1 red (a battery check FAILED); 2 usage/maintenance error.
+USAGE
+  exit 2
+}
+
+main() {
+  (($# >= 1)) || usage
+  local cmd="$1"
+  shift
+  case "$cmd" in
+    verdict) cmd_verdict "$@" ;;
+    table) cmd_table "$@" ;;
+    issue) cmd_issue "$@" ;;
+    *) usage ;;
+  esac
+}
+
+main "$@"
