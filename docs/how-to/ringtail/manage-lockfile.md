@@ -1,6 +1,6 @@
 ---
 title: Manage Ringtail Lockfile
-modified: 2026-09-28
+modified: 2026-09-29
 last-reviewed: 2026-09-28
 tags:
   - how-to
@@ -40,7 +40,7 @@ scheduled flow above is the target this doc describes.
 
 ## The check battery
 
-The battery is the hard gate. No check may fail for the PR to be green; check 6 can only flag:
+The battery is implemented by `nixos/ringtail/flake-lock-check` (checks 1-4 read the lock read-only; the system build and kernel checks are composed by the workflow). It is the hard gate: no check may fail for the PR to be green; check 6 can only flag.
 
 | # | Check | Catches |
 |---|-------|---------|

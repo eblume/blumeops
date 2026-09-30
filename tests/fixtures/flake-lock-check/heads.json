@@ -1,0 +1,4 @@
+{
+  "nixpkgs": { "head": "cf5e76507c6e23b59f7e0ffcc7baa2a39ddd8442" },
+  "home-manager": { "head": "a6631107a83ceab5872f298a2ea710859c80c4cb" }
+}
