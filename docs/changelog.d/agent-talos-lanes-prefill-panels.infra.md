@@ -1,0 +1,1 @@
+Added modeled-box utilization and prefill-backlog panels to the Lanes (shaping) row of the Grafana Talos dashboard, and removed the mislabeled reqps unit from the token-rate panels, whose values are already tokens/sec (eblume/talos#273).

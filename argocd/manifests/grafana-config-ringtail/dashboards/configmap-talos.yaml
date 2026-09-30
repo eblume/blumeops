@@ -501,7 +501,7 @@ data:
                   }
                 ]
               },
-              "unit": "reqps"
+              "unit": "none"
             },
             "overrides": []
           },
@@ -594,7 +594,7 @@ data:
                   }
                 ]
               },
-              "unit": "reqps"
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1353,12 +1353,231 @@ data:
           "type": "timeseries"
         },
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Tokens charged to the lane's modeled prefill box per second (talos_lane_prefill_tokens_total), its modeled drain rate (talos_lane_prefill_tps), and the API-side input rate for comparison. This is the number that drives spills.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 69
+          },
+          "id": 31,
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (lane) (rate(talos_lane_prefill_tokens_total[5m]))",
+              "legendFormat": "charged {{lane}}",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (lane) (talos_lane_prefill_tps)",
+              "legendFormat": "drain {{lane}}",
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(rate(talos_tokens_total{token=\"input\"}[5m]))",
+              "legendFormat": "API input",
+              "refId": "C"
+            }
+          ],
+          "title": "Modeled box utilization (tok/s)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Seconds of prefill backlog in the lane's modeled box (backlog tokens / drain rate). The dispatcher spills a run to the API when the projected prefill wait reaches policy.spillWaitSec (120 s reference line).",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 120
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 69
+          },
+          "id": 32,
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (lane) (talos_lane_prefill_backlog_tokens) / sum by (lane) (talos_lane_prefill_tps)",
+              "legendFormat": "{{lane}}",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "vector(120)",
+              "legendFormat": "policy.spillWaitSec",
+              "refId": "B"
+            }
+          ],
+          "title": "Modeled prefill backlog (s)",
+          "type": "timeseries"
+        },
+        {
           "collapsed": false,
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 69
+            "y": 77
           },
           "id": 13,
           "title": "Server",
@@ -1424,7 +1643,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 70
+            "y": 78
           },
           "id": 14,
           "options": {
@@ -1485,7 +1704,7 @@ data:
             "h": 8,
             "w": 6,
             "x": 12,
-            "y": 70
+            "y": 78
           },
           "id": 15,
           "options": {
@@ -1544,7 +1763,7 @@ data:
             "h": 8,
             "w": 6,
             "x": 18,
-            "y": 70
+            "y": 78
           },
           "id": 16,
           "options": {
@@ -1635,7 +1854,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 78
+            "y": 86
           },
           "id": 17,
           "options": {
@@ -1747,7 +1966,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 78
+            "y": 86
           },
           "id": 18,
           "options": {
@@ -1795,7 +2014,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 86
+            "y": 94
           },
           "id": 19,
           "title": "Workspaces",
@@ -1862,7 +2081,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 87
+            "y": 95
           },
           "id": 20,
           "options": {
@@ -1976,7 +2195,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 87
+            "y": 95
           },
           "id": 21,
           "options": {
@@ -2079,7 +2298,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 95
+            "y": 103
           },
           "id": 22,
           "options": {
@@ -2122,7 +2341,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 95
+            "y": 103
           },
           "id": 23,
           "options": {
@@ -2181,6 +2400,6 @@ data:
       "timezone": "",
       "title": "Talos",
       "uid": "talos",
-      "version": 1,
+      "version": 2,
       "weekStart": ""
     }
