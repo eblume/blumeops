@@ -977,3 +977,122 @@ def test_unrecognized_settled_outcome_falls_back(monkeypatch):
     assert any(
         "unrecognized" in m and "exploded" in m for m in console_recorder.messages
     )
+
+
+# --- self-filed requests (requester "horkos", no heph task) -----------------
+
+NOW = 1_800_000_000.0
+
+
+def self_rec(rid: int, **kw) -> dict:
+    row = {
+        "id": rid,
+        "requester": "horkos",
+        "action": "ringtail-rebuild.yaml",
+        "sha": SHA,
+        "inputs": json.dumps({"revision": SHA}),
+        "status": "dispatched",
+        "created_at": NOW,
+        "origin_issue": "eblume/blumeops#1400",
+    }
+    return {**row, **kw}
+
+
+RINGTAIL_BINDINGS = {"ringtail-rebuild.yaml": "revision"}
+
+
+def test_self_filed_filters_requester_and_window():
+    """Only horkos-filed records inside the window are reported; agent-filed
+    records are the task sweep's, and old ones age out."""
+    warrants = {
+        1: self_rec(1),
+        2: self_rec(2, requester="agent-ringtail"),
+        3: self_rec(3, created_at=NOW - 30 * 86400),
+        4: self_rec(4, created_at=NOW - 86400),
+    }
+    got = verify_runs.self_filed_requests(warrants, NOW - 14 * 86400)
+    assert [r["id"] for r in got] == [1, 4]
+
+
+def test_self_filed_success_verified():
+    bucket, detail = verify_runs.audit_self_filed(
+        self_rec(1, settled_outcome="success", run_number=77), RINGTAIL_BINDINGS
+    )
+    assert (bucket, detail) == ("ok", "run 77 succeeded")
+
+
+def test_self_filed_success_with_wrong_binding_is_a_mismatch():
+    """A green run that did not carry the bound SHA is reported, not ok —
+    the same audit the task sweep applies."""
+    bucket, detail = verify_runs.audit_self_filed(
+        self_rec(1, settled_outcome="success", run_number=77, inputs=json.dumps({})),
+        RINGTAIL_BINDINGS,
+    )
+    assert bucket == "mismatch"
+    assert "no 'revision' input" in detail
+
+
+@pytest.mark.parametrize(
+    ("kw", "bucket"),
+    [
+        ({"settled_outcome": "failure", "run_number": 9}, "failed"),
+        ({"settled_outcome": "cancelled", "run_number": 9}, "failed"),
+        ({"settled_outcome": "denied", "status": "denied"}, "closed"),
+        ({"settled_outcome": "voided", "void_reason": "PR closed"}, "closed"),
+        ({"status": "pending"}, "pending"),
+        ({"status": "superseded", "superseded_by": 5}, "closed"),
+        ({"status": "dispatched", "run_number": 9}, "pending"),
+    ],
+)
+def test_self_filed_buckets(kw, bucket):
+    assert (
+        verify_runs.audit_self_filed(self_rec(1, **kw), RINGTAIL_BINDINGS)[0] == bucket
+    )
+
+
+def test_main_reports_self_filed_with_no_open_tasks(monkeypatch):
+    """No Approve tasks no longer short-circuits: the queue pass still runs,
+    and never touches heph for a self-filed record."""
+    monkeypatch.setattr(verify_runs, "open_approve_tasks", list)
+    monkeypatch.setattr(verify_runs, "forge_token", lambda: "token")
+    monkeypatch.setattr(verify_runs, "sha_policy", lambda client: RINGTAIL_BINDINGS)
+    monkeypatch.setattr(
+        verify_runs,
+        "warrant_requests",
+        lambda: {7: self_rec(7, created_at=verify_runs.time.time(), status="pending")},
+    )
+
+    def no_heph(*args):
+        raise AssertionError(f"heph called for a self-filed record: {args}")
+
+    monkeypatch.setattr(verify_runs, "heph", no_heph)
+    recorder = _TitleRecorder()
+    monkeypatch.setattr(verify_runs, "console", recorder)
+
+    verify_runs.main(dry_run=False)
+
+    assert any(
+        "#7 ringtail-rebuild.yaml" in m and "awaits decision" in m
+        for m in recorder.messages
+    )
+    assert any("eblume/blumeops#1400" in m for m in recorder.messages)
+
+
+def test_main_clean_queue_skips_forge_token(monkeypatch):
+    """No open tasks and no self-filed records in the window: nothing to
+    audit, so the forge token is never fetched."""
+    monkeypatch.setattr(verify_runs, "open_approve_tasks", list)
+    monkeypatch.setattr(
+        verify_runs, "warrant_requests", lambda: {3: self_rec(3, created_at=0)}
+    )
+
+    def no_token():
+        raise AssertionError("forge token fetched for a clean queue")
+
+    monkeypatch.setattr(verify_runs, "forge_token", no_token)
+    recorder = _TitleRecorder()
+    monkeypatch.setattr(verify_runs, "console", recorder)
+
+    verify_runs.main(dry_run=True)
+
+    assert any("queue is clean" in m for m in recorder.messages)
