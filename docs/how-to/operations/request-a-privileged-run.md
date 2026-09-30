@@ -1,6 +1,6 @@
 ---
 title: Request a Privileged Run
-modified: 2026-09-25
+modified: 2026-09-30
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -224,6 +224,13 @@ A request can also end **voided** instead of being decided: its bound PR
 closed unmerged, or its workflow left `warrant-policy.yaml`, so its reason to
 exist went away. Void is terminal — a re-request needs a fresh `request-run`
 — and `verify-runs` closes the tracking task with the void reason.
+
+Horkos also **files some requests itself**: a merge to `main` that touches
+`nixos/ringtail/flake.lock` files a `ringtail-rebuild.yaml` request with
+`requester` `horkos` (eblume/horkos#48). Those have no tracking task. The
+signal is the queue row plus the comment on the merged PR, and `verify-runs`
+lists them in a separate report-only section, covering the last
+`--since-days` days (default 14), with the same SHA-binding audit on success.
 
 **Fallback** (Horkos disarmed or down): dispatch from the forge UI using the
 SHA and inputs in the request comment — the request stays the record either

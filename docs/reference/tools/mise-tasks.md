@@ -72,7 +72,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `spork-create` | [human] Create a spork (floating-branch soft-fork) of a mirrored upstream project |
 | `tailnet-preview` | [human] Preview tailnet changes with Pulumi |
 | `tailnet-up` | [human] Apply tailnet changes with Pulumi |
-| `verify-runs` | Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit) |
+| `verify-runs` | Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit); report horkos self-filed requests from the queue |
 | `horkos-forge-drift` | [human] Assert horkos-forge still holds exactly write on blumeops and nothing more (read-only) |
 | `horkos-forge-provision` | [human] Provision the horkos-forge forge identity + dispatch PAT (gilbert, human-run) |
 

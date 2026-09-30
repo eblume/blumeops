@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.2", "pyyaml==6.0.3"]
 # ///
-#MISE description="Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit)"
+#MISE description="Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit); report horkos self-filed requests"
 """Close the request→approve→run loop: the audit sweep.
 
 Phase 2 of [[warrant-approval-gated-runs]]. `request-run` files an
@@ -54,16 +54,24 @@ unrecognized outcome falls back to the status-based paths. Records with no
 `settled_outcome` take those paths unchanged, as the backstop for runs that
 never settle.
 
+Requests horkos files itself (`requester` "horkos", e.g. the ringtail
+rebuild it auto-files when a merge touches the flake lock, eblume/horkos#48)
+carry no heph task, so there is nothing to close. A second, report-only pass
+reads them straight from the queue: every self-filed request from the last
+`--since-days` days is listed with its outcome, and a settled success still
+gets the SHA-binding audit. The queue record is the whole signal.
+
 Run it from any agent session (`mise run verify-runs`) — it needs heph and
 the bot's forge token, nothing privileged. Idempotent; safe to run anytime.
 
-Usage: mise run verify-runs [--dry-run]
+Usage: mise run verify-runs [--dry-run] [--since-days N]
 """
 
 import json
 import os
 import re
 import subprocess
+import time
 from typing import Annotated
 
 import httpx
@@ -84,6 +92,8 @@ AUTHENTIK_TOKEN_URL = "https://authentik.ops.eblu.me/application/o/token/"
 SOCKS_FALLBACK = "socks5://localhost:1055"  # agent pod's tailscale sidecar
 # request-run appends this line to each Approve task's context doc.
 WARRANT_ID_RE = re.compile(r"Warrant request: #(\d+)")
+# The requester horkos records on requests it files in-process (no heph task).
+SELF_FILED_REQUESTER = "horkos"
 
 console = Console()
 err = Console(stderr=True, style="bold red")
@@ -391,6 +401,53 @@ def attribution(
     return match_run(task, runs), "inferred: newest dispatch after filing", "inferred"
 
 
+def self_filed_requests(warrants: dict[int, dict], since: float) -> list[dict]:
+    """Queue records horkos filed itself, created at or after `since` (epoch
+    s), oldest first. `created_at` is epoch seconds on the record."""
+    return sorted(
+        (
+            r for r in warrants.values()
+            if r.get("requester") == SELF_FILED_REQUESTER
+            and (r.get("created_at") or 0) >= since
+        ),
+        key=lambda r: r["id"],
+    )
+
+
+def audit_self_filed(wrec: dict, bindings: dict[str, str]) -> tuple[str, str]:
+    """Classify one self-filed request from its record alone.
+
+    Returns (bucket, detail); bucket is one of ok / pending / failed /
+    mismatch / closed. Report-only: there is no task to log to or close, and
+    no forge run is consulted, so an unsettled dispatch reads as pending
+    until horkos settles it."""
+    settled = wrec.get("settled_outcome")
+    run_number = wrec.get("run_number")
+    where = f"run {run_number}" if run_number else "no run"
+    if settled == "success":
+        if why := binding_mismatch(wrec, bindings):
+            return "mismatch", f"{where} {why}"
+        return "ok", f"{where} succeeded"
+    if settled in ("failure", "cancelled"):
+        return "failed", f"{where} {settled}"
+    if settled in ("denied", "voided", "dispatch_failed"):
+        reason = wrec.get("void_reason") if settled == "voided" else None
+        return "closed", settled + (f" ({reason})" if reason else "")
+    status = wrec.get("status") or "unknown"
+    if status == "pending":
+        return "pending", "awaits decision"
+    if status == "superseded":
+        by = wrec.get("superseded_by")
+        return "closed", f"superseded by #{by}" if by else "superseded"
+    return "pending", f"{status}, not settled yet ({where})"
+
+
+SELF_FILED_STYLE = {
+    "ok": "green", "closed": "green", "pending": "yellow",
+    "failed": "red", "mismatch": "red",
+}
+
+
 def _epoch(iso: str) -> float:
     from datetime import datetime
 
@@ -402,17 +459,54 @@ def _epoch(iso: str) -> float:
 
 def main(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Report only; change nothing")] = False,
+    since_days: Annotated[
+        int, typer.Option("--since-days", help="Window for the self-filed request report")
+    ] = 14,
 ) -> None:
     tasks = open_approve_tasks()
-    if not tasks:
+    warrants = warrant_requests()
+    self_filed = self_filed_requests(warrants, time.time() - since_days * 86400)
+    if not tasks and not self_filed:
         console.print("No open Approve tasks — the queue is clean.")
         return
 
     token = forge_token()
     with httpx.Client(headers={"Authorization": f"token {token}"}, timeout=30.0) as client:
-        runs = recent_runs(client)
+        runs = recent_runs(client) if tasks else []
         bindings = sha_policy(client)
-    warrants = warrant_requests()
+
+    if tasks:
+        sweep_tasks(tasks, runs, bindings, warrants, dry_run)
+    else:
+        console.print("No open Approve tasks.")
+    report_self_filed(self_filed, bindings, since_days)
+
+
+def report_self_filed(records: list[dict], bindings: dict[str, str], since_days: int) -> None:
+    if not records:
+        return
+    console.print(f"\nSelf-filed by horkos (last {since_days}d; no task, report only):")
+    counts: dict[str, int] = {}
+    for wrec in records:
+        bucket, detail = audit_self_filed(wrec, bindings)
+        counts[bucket] = counts.get(bucket, 0) + 1
+        style = SELF_FILED_STYLE[bucket]
+        origin = f" ({wrec['origin_issue']})" if wrec.get("origin_issue") else ""
+        console.print(
+            f"[{style}]{bucket}[/{style}]  #{wrec['id']} "
+            f"{escape(str(wrec.get('action')))} @ {str(wrec.get('sha'))[:7]}"
+            f"{escape(origin)} — {escape(detail)}"
+        )
+    console.print(", ".join(f"{n} {b}" for b, n in sorted(counts.items())))
+
+
+def sweep_tasks(
+    tasks: list[dict],
+    runs: list[dict],
+    bindings: dict[str, str],
+    warrants: dict[int, dict],
+    dry_run: bool,
+) -> None:
 
     closed = failed = pending = mismatched = never_dispatched = voided = 0
     for task in tasks:
