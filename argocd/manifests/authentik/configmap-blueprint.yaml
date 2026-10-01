@@ -140,7 +140,7 @@ data:
           name: Forgejo
           slug: forgejo
           provider: !KeyOf forgejo-provider
-          meta_launch_url: https://forge.ops.eblu.me
+          meta_launch_url: https://forge.eblu.me
           policy_engine_mode: any
 
       # Policy binding — restrict Forgejo to admins group

@@ -47,7 +47,7 @@ jobs:
           # and this step's job is to verify the flip afterward. Re-arm as a
           # hard failure in the flip PR.
           echo "GITHUB_SERVER_URL=${GITHUB_SERVER_URL:-unset}"
-          if [ "${GITHUB_SERVER_URL%/:-}" != "https://forge.ops.eblu.me" ]; then
+          if [ "${GITHUB_SERVER_URL%/}" != "https://forge.ops.eblu.me" ]; then
             echo "::warning::GITHUB_SERVER_URL is not https://forge.ops.eblu.me — expected before the ROOT_URL flip (eblume/blumeops#1208); this check is warn-only until the flip PR re-arms it."
           fi
 
