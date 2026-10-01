@@ -66,6 +66,45 @@ token):
   account. Runs as the static system user `horkos-runner`, which the
   ringtail-rebuild polkit rule names ([[warrant-approval-gated-runs]]).
 
+## Second runner: indri-build (unprivileged)
+
+`indri-build` is a dedicated unprivileged macOS user on [[indri]] (uid 502,
+no sudo, home `/Users/indri-build` 0700) running the instance's second
+forgejo runner (label `indri-build`, eblume/blumeops#1357). It exists
+because host-mode jobs as `erichblume` can reach anything erichblume can,
+which is everything; the build user is the scoped-down alternative for
+workloads that do not need that reach, until #1358 gives it per-repo
+isolation.
+
+| Property | Value |
+|----------|-------|
+| **User** | `indri-build` (uid 502, no sudo, home 0700) |
+| **Runner name** | `indri-build` |
+| **Label** | `indri-build` (host-mode) |
+| **Daemons** | `mcquack.eblume.colima-build` + `mcquack.eblume.forgejo-runner-build` (system launchd domain, nix-managed) |
+| **Engine** | colima (flake input, `abiosoft/colima` v0.10.3), profile `~indri-build/.colima/indri-build/` |
+| **Socket** | `~indri-build/.colima/indri-build/docker.sock` (mode 0660, owned by `indri-build` - not world-reachable, not under /Users/Shared) |
+| **Config** | `/Users/indri-build/forgejo-runner/config.yaml` (role-rendered, gated on registration) |
+| **Logs** | `~indri-build/Library/Logs/mcquack.colima-build.{out,err}.log`, `mcquack.forgejo-runner-build.{out,err}.log` |
+
+### Isolation
+
+- The homes are 0700 **both ways**: `indri-build` cannot read
+  `/Users/erichblume` and erichblume cannot read `/Users/indri-build`.
+- The colima profile mounts **only** `/Users/indri-build` into the VM: a job
+  step cannot `-v` another user's home (the explicit `mounts:` list is the
+  control, and the socket is mode 0660 rather than world-reachable).
+
+### Known gaps (accepted for now, scoped by #1358)
+
+- **Cross-repo cache persistence**: the runner's home - mise shims and the
+  cargo/dagger/uv caches - is shared across ALL repos' jobs on this
+  instance-wide runner. A job from one repo can poison another repo's
+  toolchain or cache until #1358 scopes the runner per repo.
+- **Localhost/tailnet reach**: the build user can reach indri's localhost
+  services (for example the registry mirror, the forge itself) and carries
+  a tailnet identity. Accepted, and on the #1358 scope-down list.
+
 ## Job Execution
 
 Host-mode ([[retire-minikube]] phase 6): workflow steps run directly as

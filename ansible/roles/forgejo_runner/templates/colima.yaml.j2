@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+# Colima profile for the build runner's VM (eblume/blumeops#1357). The profile
+# name is the file's directory (~/.colima/indri-build/), not a key in this
+# file - `colima start --profile indri-build` reads exactly this config.
+# The explicit mounts list IS the isolation control: only /Users/indri-build
+# is visible inside the VM, so a job step cannot `-v` another user's home.
+# cpu/disk/memory are in GiB. colima v0.10.3 has no zfs option - disks are
+# plain; no vmType pinned (qemu default; it is the macOS 13+ default mount
+# path, see the colima source's mountType handling in yaml.go).
+cpu: 4
+disk: 4
+memory: 4
+mountType: virtiofs
+mounts:
+  - location: /Users/indri-build
+    writable: true

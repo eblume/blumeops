@@ -136,6 +136,18 @@ check_service "zot-metrics" "ssh erichblume@indri 'launchctl list mcquack.eblume
 check_service "jellyfin-metrics" "ssh erichblume@indri 'launchctl list mcquack.eblume.jellyfin-metrics | grep -v \"^-\"'"
 check_service "forgejo-runner (indri)" "ssh erichblume@indri 'launchctl list mcquack.eblume.forgejo-runner | grep -v \"^-\"'"
 
+# indri-build runner: a system-domain launchd daemon under the indri-build
+# user. Skip (pass) until the human registers the runner (see
+# docs/how-to/forgejo-runner/configure-launchd-runner.md §indri-build
+# runner): before that the user and the daemon do not exist. The check is
+# "not fatal-errored": a loaded job passes even while colima provisions.
+if ssh erichblume@indri 'id indri-build >/dev/null 2>&1'; then
+    check_service "forgejo-runner-build" "ssh erichblume@indri 'sudo -n launchctl print system/mcquack.eblume.forgejo-runner-build >/dev/null 2>&1'"
+else
+    printf "%-24s " "forgejo-runner-build..."
+    echo -e "${YELLOW}SKIP${NC} (indri-build not registered yet)"
+fi
+
 echo ""
 echo "Metrics textfiles (via alerting):"
 check_alert "textfile-freshness" "TextfileStale"

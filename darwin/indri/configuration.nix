@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, inputs, ... }:
 let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
   # The four *-metrics collectors feeding alloy's node_exporter textfile dir (PR 4 moved them here).
@@ -7,6 +7,31 @@ let
   mcquackJellyfinMetrics = pkgs.writeScript "mcquack-jellyfin-metrics" (builtins.readFile ./mcquack-jellyfin-metrics.sh);
   mcquackZotMetrics = pkgs.writeScript "mcquack-zot-metrics" (builtins.readFile ./mcquack-zot-metrics.sh);
   sifakaMounter = pkgs.writeScript "mount-sifaka" (builtins.readFile ./mount-sifaka.sh);
+  # The build runner's colima engine host daemon (eblume/blumeops#1357):
+  # colima with lima and qemu wrapped into its PATH by the colima flake's
+  # packages.default. Not in nixpkgs; pinned as a flake input (see flake.nix).
+  mcquackColimaBuild = pkgs.writeScript "mcquack-colima-build" (builtins.readFile ./mcquack-colima-build.sh);
+  # The colima package the colima-build daemon runs: the colima flake input's
+  # packages.default (colima + lima + qemu, see flake.nix).
+  colimaBuild = inputs.colima.packages."aarch64-darwin".default;
+  # WaitForPaths emulation for the runner daemon: the pinned nix-darwin has no
+  # WaitForPaths option in serviceConfig, so the wait for "/nix/store" and the
+  # colima socket lives here instead. On a fresh boot with an empty VM disk
+  # (first start takes minutes) the runner idles until colima exposes the
+  # socket - correct, not a fault. The daemon then runs with PATH/HOME as
+  # launchd set them.
+  forgejoRunnerBuildWaiter = pkgs.writeScript "forgejo-runner-build-waiter" ''
+    #!/bin/sh
+    i=0
+    while [ "$i" -lt 600 ]; do
+      [ -e "/nix/store" ] && [ -e "/Users/indri-build/.colima/indri-build/docker.sock" ] && break
+      i=$((i + 1))
+      sleep 1
+    done
+    [ -e "/Users/indri-build/.colima/indri-build/docker.sock" ] || \
+      echo "forgejo-runner-build: docker.sock absent after 600s, starting anyway" >&2
+    exec "${pkgs.forgejo-runner}/bin/forgejo-runner" daemon --config /Users/indri-build/forgejo-runner/config.yaml
+  '';
   # Where activation links the generation-owned mise config; mise follows
   # the symlink for reads and writes.
   miseConfigHome = "${config.system.primaryUserHome}/.config/mise/config.toml";
@@ -67,6 +92,25 @@ in
   # *.ops.eblu.me; Amphetamine stays as the second layer. See [[indri]] §Maintenance Notes.
   power.sleep.computer = "never";
 
+  # --- unprivileged build runner user (eblume/blumeops#1357) ---
+  # Second forgejo-runner, unprivileged by construction: created like every
+  # nix-darwin user (sysadminctl), never in the admin group, so no sudo. The
+  # home is 0700 both ways - erichblume cannot read the runner's persistent
+  # state and the runner cannot read erichblume's home (issue acceptance); the
+  # postActivation fragment makes the 0700 a hard error. The home is the
+  # runner's persistent state (mise shims, caches), shared across every repo's
+  # jobs until #1358 scopes it per-repo.
+  users.knownUsers = [ "indri-build" ];
+  users.users."indri-build" = {
+    uid = 502;
+    home = "/Users/indri-build";
+    createHome = true;
+    isHidden = true;
+    # The module warns on `pkgs.bash` (no readline); the user never gets a
+    # GUI session anyway - launchd jobs spawn bash.
+    shell = pkgs.bashInteractive;
+  };
+
   # --- mise toolchain (declarative) ---
   # indri's global mise config (was imperative in the indri play); change pins here, a
   # flake PR + `mise run provision-indri -- --tags rebuild`, never `mise use --global`.
@@ -94,6 +138,26 @@ in
     uv = "0.11.7"
   '';
 
+  # The build runner user's own global mise config (eblume/blumeops#1357):
+  # identical [tools] pins to the erichblume config above minus [settings.go]
+  # (GOROOT handling is erichblume-only, for the forgejo/zot source builds).
+  # The postActivation fragment links it into ~indri-build/.config/mise;
+  # --rollback re-links the previous generation's.
+  environment.etc."mise/config-build-user.toml".text = ''
+    [tools]
+    # CI host tools the build runner's job steps resolve via shims; same
+    # pins as the erichblume global config, the single source of truth.
+    go = "1.26.7"
+    dagger = "0.21.9"
+    prek = "0.4.14"
+    flyctl = "0.4.87"
+    argocd = "3.3.12"
+    actionlint = "1.7.12"
+    stylua = "2.4.1"
+    shellcheck = "0.11.0"
+    uv = "0.11.7"
+  '';
+
   system.activationScripts.postActivation.text = lib.mkAfter ''
     if [[ -d ${lib.escapeShellArg config.system.primaryUserHome} ]]; then
       {
@@ -104,6 +168,26 @@ in
       :
     else
       printf >&2 'warning: indri mise config: ${lib.escapeShellArg config.system.primaryUserHome} missing, skipped\n'
+      :
+    fi
+
+    # indri-build runner (eblume/blumeops#1357): link the build user's own
+    # mise config (identical [tools] pins, no [settings.go]) and lock the home
+    # to 0700 (createHome's createhomedir template is 0755; a readable home
+    # breaks the acceptance guarantee both ways). The user may not exist on a
+    # --rollback, so everything is guarded; the chmod is a hard error (0700 is
+    # the acceptance gate, not a nicety).
+    if id indri-build >/dev/null 2>&1; then
+      {
+        mkdir -p /Users/indri-build/.config/mise &&
+        ln -sfn /etc/static/mise/config-build-user.toml /Users/indri-build/.config/mise/config.toml &&
+        chown -h indri-build:staff /Users/indri-build/.config/mise/config.toml
+      } || printf >&2 'warning: indri-build mise config: could not link /Users/indri-build/.config/mise/config.toml\n'
+      :
+      chmod 0700 /Users/indri-build || {
+        printf >&2 'error: could not chmod 0700 /Users/indri-build\n'
+        exit 1
+      }
       :
     fi
   '';
@@ -334,5 +418,66 @@ in
     };
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.devpi.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.devpi.err.log";
+  };
+
+  # --- build runner daemons (eblume/blumeops#1357) ---
+  # The `indri-build` label runner's daemons live in the *system* launchd
+  # domain (launchd.daemons, /Library/LaunchDaemons), not per-user: the VM
+  # must host the engine before anyone logs the build user in, and the daemon
+  # domain owns the boot guard. Both run as the unprivileged `indri-build`
+  # user (UserName); with either unloaded, `indri-build`-label jobs queue on
+  # forge - nothing else is affected.
+
+  # colima: the build runner's container-engine host. The socket jobs use is
+  # at ~indri-build/.colima/indri-build/docker.sock (the profile dir), owned
+  # by indri-build - not world-reachable, not under /Users/Shared. With colima
+  # down, every job that needs docker fails.
+  launchd.daemons."mcquack.eblume.colima-build".serviceConfig = {
+    Label = "mcquack.eblume.colima-build";
+    ProgramArguments = [ "${mcquackColimaBuild}" ];
+    UserName = "indri-build";
+    RunAtLoad = true;
+    KeepAlive = true;
+    ThrottleInterval = 10;
+    ExitTimeOut = 300;
+    EnvironmentVariables = {
+      HOME = "/Users/indri-build";
+      # The colima flake's packages.default wraps colima with its lima and
+      # qemu bin dirs prefixed into PATH itself, so only colima's bin dir
+      # (plus the usual macOS/nix dirs) is needed here.
+      PATH = "${colimaBuild}/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin";
+    };
+    StandardOutPath = "/Users/indri-build/Library/Logs/mcquack.colima-build.out.log";
+    StandardErrorPath = "/Users/indri-build/Library/Logs/mcquack.colima-build.err.log";
+  };
+
+  # forgejo-runner-build: the second runner daemon. The wrapper (not the
+  # plist) waits for the colima socket - WaitForPaths is not expressible in
+  # the pinned nix-darwin - so on a fresh boot with an empty VM disk (first
+  # start takes minutes) the runner idles until colima exposes the socket:
+  # correct, not a fault. With the unit unloaded, indri-build jobs queue on forge.
+  launchd.daemons."mcquack.eblume.forgejo-runner-build".serviceConfig = {
+    Label = "mcquack.eblume.forgejo-runner-build";
+    ProgramArguments = [ "${forgejoRunnerBuildWaiter}" ];
+    WorkingDirectory = "/Users/indri-build/forgejo-runner";
+    UserName = "indri-build";
+    RunAtLoad = true;
+    KeepAlive = true;
+    # launchd clamps ExitTimeOut to 60 s in the per-user gui domain (measured
+    # on macOS 26) - this mirrors the erichblume runner's unit, it is not a
+    # drain window. AbandonProcessGroup is what matters: without it a stop
+    # kills the process group and takes a detached darwin-rebuild
+    # mid-activation.
+    ExitTimeOut = 10800;
+    AbandonProcessGroup = true;
+    EnvironmentVariables = {
+      # mise shims first (job steps resolve tools via indri-build's own mise
+      # config, config-build-user.toml). The colima flake ships no docker
+      # client: jobs get the docker CLI from Homebrew (/opt/homebrew/bin).
+      PATH = "/Users/indri-build/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin";
+      HOME = "/Users/indri-build";
+    };
+    StandardOutPath = "/Users/indri-build/Library/Logs/mcquack.forgejo-runner-build.out.log";
+    StandardErrorPath = "/Users/indri-build/Library/Logs/mcquack.forgejo-runner-build.err.log";
   };
 }

@@ -231,6 +231,42 @@
       no_log: true
       tags: [forgejo_runner]
 
+    # Build runner identity (eblume/blumeops#1357) - the second, unprivileged
+    # forgejo runner (label `indri-build`). Registration is a future human
+    # step ([[configure-launchd-runner]] §indri-build runner): until then the
+    # "Forgejo Secrets" item carries no runner_indri_build_* fields, so the
+    # fetch is failure-tolerant and the facts below default to "" - which
+    # gates every render in the role. One `op item get` for all three fields;
+    # the `|| echo '[]'` keeps stdout valid JSON (ansible's from_json filter
+    # would raise on the empty stdout of a failed op call).
+    - name: Fetch forgejo build runner identity
+      ansible.builtin.shell:
+        cmd: op item get "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy" --format json --fields label=runner_indri_build_uuid,label=runner_indri_build_token,label=indri-build-github-pat 2>/dev/null || echo '[]'
+      delegate_to: localhost
+      register: _forgejo_build_runner_identity
+      changed_when: false
+      failed_when: false
+      no_log: true
+      check_mode: false
+      tags: [forgejo_runner]
+
+    - name: Set forgejo build runner identity facts
+      ansible.builtin.set_fact:
+        forgejo_runner_build_uuid: >-
+          {{ (_forgejo_build_runner_identity.stdout | default('[]') | from_json
+             | selectattr('label', 'equalto', 'runner_indri_build_uuid')
+             | map(attribute='value') | list | first) | default('') }}
+        forgejo_runner_build_token: >-
+          {{ (_forgejo_build_runner_identity.stdout | default('[]') | from_json
+             | selectattr('label', 'equalto', 'runner_indri_build_token')
+             | map(attribute='value') | list | first) | default('') }}
+        forgejo_runner_build_mise_github_token: >-
+          {{ (_forgejo_build_runner_identity.stdout | default('[]') | from_json
+             | selectattr('label', 'equalto', 'indri-build-github-pat')
+             | map(attribute='value') | list | first) | default('') }}
+      no_log: true
+      tags: [forgejo_runner]
+
     # Zot OIDC client secret
     - name: Fetch zot OIDC client secret
       ansible.builtin.command:

@@ -88,6 +88,38 @@ If the role changed Docker Desktop's `daemon.json` (registry mirror),
 it does **not** restart Docker Desktop. Restart Docker Desktop
 manually at a quiet moment; until then the mirror simply isn't active.
 
+## indri-build runner (second, unprivileged)
+
+The second runner (label `indri-build`, eblume/blumeops#1357) is a
+dedicated macOS user (no sudo, home 0700) whose jobs reach containers
+through a colima VM. The user, the system launchd daemons
+(`mcquack.eblume.colima-build` + `mcquack.eblume.forgejo-runner-build`)
+and the build user's mise config are nix-managed; the runner config, the
+colima profile and the home dirs are role-rendered (gated on registration).
+
+0. **One-time host prerequisite**: `brew install docker` on indri. The
+   colima flake ships no docker client, and `colima start` itself runs
+   `docker context use colima-indri-build` - without the CLI the engine
+   daemon cannot come up.
+1. Register the runner, exactly like the original (no `--scope`):
+
+   ```fish
+   ssh indri 'cd ~/code/3rd/forgejo && ./forgejo forgejo-cli actions register \
+     --name indri-build \
+     --secret "$(openssl rand -hex 20)" \
+     --config ~/forgejo/custom/conf/app.ini --work-path ~/forgejo'
+   ```
+
+   This prints the runner UUID; the generated secret is the token.
+2. **The UUID + token go STRAIGHT into the "Forgejo Secrets" 1Password
+   item** as `runner_indri_build_uuid` / `runner_indri_build_token` -
+   never into any forge issue or PR thread. Create the
+   `indri-build-github-pat` field the same way: a fresh zero-permission
+   public-read GitHub PAT for the build runner's own mise resolution (do
+   not reuse `forge-ci-github-pat`).
+3. Re-dispatch `mise run provision-indri` (full run) - the playbook
+   `pre_tasks` fetch the fields and the role renders the configs.
+
 ## Verification
 
 - `mise run services-check` — the `forgejo-runner (indri)` launchd

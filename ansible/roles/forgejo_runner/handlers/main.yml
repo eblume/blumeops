@@ -23,3 +23,11 @@
       daemon.json changed: restart Docker Desktop on indri to activate
       the registry mirror. While minikube still exists, a Docker
       restart takes the cluster down — pick a quiet moment.
+
+- name: Restart forgejo-runner-build
+  # System-domain daemon: needs sudo (the runner daemon runs as the
+  # unprivileged indri-build user), and kickstart restarts the loaded job in
+  # place. The guard keeps a not-yet-loaded job from failing the handler.
+  ansible.builtin.shell: |
+    sudo -n launchctl kickstart -k system/{{ forgejo_runner_build_label }} 2>/dev/null || true
+  changed_when: true
