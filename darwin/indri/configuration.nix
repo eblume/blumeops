@@ -7,6 +7,10 @@ let
   mcquackJellyfinMetrics = pkgs.writeScript "mcquack-jellyfin-metrics" (builtins.readFile ./mcquack-jellyfin-metrics.sh);
   mcquackZotMetrics = pkgs.writeScript "mcquack-zot-metrics" (builtins.readFile ./mcquack-zot-metrics.sh);
   sifakaMounter = pkgs.writeScript "mount-sifaka" (builtins.readFile ./mount-sifaka.sh);
+
+  # argv0 of the pre-/nix wrapper (eblume/blumeops#1225): a stable non-store path that
+  # blocks until /nix mounts, then execs the store path passed through by the agents.
+  nixWait = "${config.system.primaryUserHome}/.local/bin/mcquack.nix-wait";
   # Where activation links the generation-owned mise config; mise follows
   # the symlink for reads and writes.
   miseConfigHome = "${config.system.primaryUserHome}/.config/mise/config.toml";
@@ -94,6 +98,41 @@ in
     uv = "0.11.7"
   '';
 
+  # Write the pre-/nix wrapper (eblume/blumeops#1225) before launchd reloads the user
+  # agents (nix-darwin runs userLaunchd activation before postActivation) - a re-pointed
+  # agent re-loads in the same switch and would otherwise hit a missing wrapper once.
+  # mv (not a direct write) so a planted symlink cannot redirect the root write; the
+  # heredoc terminator must stay at column 0 (nix strips the indented string to its
+  # least-indented line) - do not re-indent the body.
+  system.activationScripts.preActivation.text = lib.mkAfter ''
+    if [[ -d ${lib.escapeShellArg config.system.primaryUserHome} ]]; then
+      {
+        mkdir -p ${lib.escapeShellArg "${config.system.primaryUserHome}/.local/bin"} &&
+        cat > ${lib.escapeShellArg "${nixWait}.tmp"} <<'MCQUACK_NIX_WAIT'
+#!/bin/bash
+# Blocks until the /nix store volume is mounted, then execs "$@" - a stable
+# non-store argv0 so the /nix-backed user agents survive the pre-/nix login
+# window. Owned by nix-darwin activation; do not edit.
+# See blumeops darwin/indri/configuration.nix and docs/how-to/indri/provision.md.
+t=0
+while [ ! -d /nix/store ]; do
+  t=$((t + 1))
+  [ $((t % 120)) -eq 0 ] && printf 'nix-wait: /nix/store still not mounted after %ss\n' "$t" >&2
+  sleep 0.5
+done
+exec "$@"
+MCQUACK_NIX_WAIT
+        chmod 0755 ${lib.escapeShellArg "${nixWait}.tmp"} &&
+        chown ${config.system.primaryUser}:staff ${lib.escapeShellArg "${nixWait}.tmp"} &&
+        mv -f ${lib.escapeShellArg "${nixWait}.tmp"} ${lib.escapeShellArg nixWait}
+      } || printf >&2 'warning: indri nix-wait wrapper: could not install ${lib.escapeShellArg nixWait}\n'
+      :
+    else
+      printf >&2 'warning: indri nix-wait wrapper: ${lib.escapeShellArg config.system.primaryUserHome} missing, skipped\n'
+      :
+    fi
+  '';
+
   system.activationScripts.postActivation.text = lib.mkAfter ''
     if [[ -d ${lib.escapeShellArg config.system.primaryUserHome} ]]; then
       {
@@ -120,7 +159,7 @@ in
   # plist and swap in place - the role's only job left is the rollback re-write.
   launchd.user.agents."mcquack.eblume.logrotate".serviceConfig = {
     Label = "mcquack.eblume.logrotate";
-    ProgramArguments = [ "${mcquackLogrotate}" ];
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${mcquackLogrotate}" ];
     StartInterval = 3600;
     RunAtLoad = true;
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.logrotate.out.log";
@@ -128,15 +167,15 @@ in
   };
 
   # sifaka-mounter (eblume/blumeops#1323): replaces the AutoMounter app - the only
-  # thing that kept the sifaka SMB shares mounted. argv[0] is a store writeScript
-  # whose first line is #!/bin/sh, the same class as the *-metrics collectors: no
-  # boot-criticality, and in the pre-/nix window (eblume/blumeops#1225) the run
-  # fails 127 and the next interval retries. Credentials stay in the login
+  # thing that kept the sifaka SMB shares mounted. argv[0] is the pre-/nix wrapper
+  # (eblume/blumeops#1225) - a store argv0 fails EX_CONFIG once and launchd never
+  # retries it (no KeepAlive/interval retry); the wrapper blocks until /nix mounts
+  # instead. Credentials stay in the login
   # Keychain; a missing entry shows up as sifaka_share_mounted == 0, never a GUI
   # dialog (the script times out and kills the osascript prompt).
   launchd.user.agents."mcquack.eblume.sifaka-mounter".serviceConfig = {
     Label = "mcquack.eblume.sifaka-mounter";
-    ProgramArguments = [ "${sifakaMounter}" ];
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${sifakaMounter}" ];
     RunAtLoad = true;
     StartInterval = 60;
     # Borgmatic runs unattended at 02:00; guarantee one fresh pass just before it.
@@ -153,7 +192,7 @@ in
   # stay controller-side op placement (the roles' key-file tasks are ungated).
   launchd.user.agents."mcquack.eblume.borgmatic-metrics".serviceConfig = {
     Label = "mcquack.eblume.borgmatic-metrics";
-    ProgramArguments = [ "${mcquackBorgmaticMetrics}" ];
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${mcquackBorgmaticMetrics}" ];
     StartInterval = 3600;
     RunAtLoad = true;
     StandardOutPath = "/opt/homebrew/var/log/mcquack.borgmatic-metrics.out.log";
@@ -165,7 +204,7 @@ in
     EnvironmentVariables = {
       PATH = "/opt/homebrew/bin:/usr/bin:/bin";
     };
-    ProgramArguments = [ "${mcquackForgejoMetrics}" ];
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${mcquackForgejoMetrics}" ];
     StartInterval = 60;
     RunAtLoad = true;
     StandardOutPath = "/opt/homebrew/var/log/mcquack.forgejo-metrics.out.log";
@@ -178,7 +217,7 @@ in
     EnvironmentVariables = {
       PATH = "/opt/homebrew/bin:/usr/bin:/bin";
     };
-    ProgramArguments = [ "${mcquackJellyfinMetrics}" ];
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${mcquackJellyfinMetrics}" ];
     StartInterval = 60;
     RunAtLoad = true;
     StandardOutPath = "/opt/homebrew/var/log/jellyfin-metrics.out.log";
@@ -187,7 +226,7 @@ in
 
   launchd.user.agents."mcquack.eblume.zot-metrics".serviceConfig = {
     Label = "mcquack.eblume.zot-metrics";
-    ProgramArguments = [ "${mcquackZotMetrics}" ];
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${mcquackZotMetrics}" ];
     StartInterval = 60;
     RunAtLoad = true;
     StandardOutPath = "/opt/homebrew/var/log/mcquack.zot-metrics.out.log";
@@ -238,7 +277,7 @@ in
   # role-rendered (the gate covers the plist + load only). See provision.md §Forgejo runner.
   launchd.user.agents."mcquack.eblume.forgejo-runner".serviceConfig = {
     Label = "mcquack.eblume.forgejo-runner";
-    ProgramArguments = [
+    ProgramArguments = [ "${nixWait}" ] ++ [
       "${pkgs.forgejo-runner}/bin/forgejo-runner"
       "daemon"
       "--config"
