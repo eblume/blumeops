@@ -1,7 +1,7 @@
 ---
 title: Mirror Authentik Build Dependencies
-modified: 2026-09-29
-last-reviewed: 2026-09-29
+modified: 2026-10-01
+last-reviewed: 2026-10-01
 tags:
   - how-to
   - authentik
@@ -13,7 +13,7 @@ Mirror the external repositories needed to build authentik from source onto the 
 
 ## Context
 
-Building authentik from source requires fetching code from two GitHub repositories. The main `goauthentik/authentik` repo is already mirrored, but one companion repo needed mirroring:
+Building authentik from source fetches two GitHub repos — `goauthentik/authentik` and `goauthentik/client-go` — from forge mirrors via `pkgs.fetchgit` with SRI hashes (URLs centralized in `containers/authentik/sources.nix`), for supply chain control. The main repo was already mirrored; one companion repo needed mirroring:
 
 - **`goauthentik/client-go`** — Go API client bindings, versioned in lockstep with authentik (e.g. `v3.2026.2.0` matches `version/2026.2.0`). Used by the Go server build.
 
@@ -34,6 +34,6 @@ Done as of 2026-09-29: the mirror is live and `containers/authentik/sources.nix`
 
 ## Related
 
-- [[build-authentik-from-source]] — Parent goal
+- [[authentik]] — Authentik reference
 - [[authentik-nix-build-components]] — Consumes client-go mirror
 - [[manage-forgejo-mirrors]] — Mirror creation, PAT rotation

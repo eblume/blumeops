@@ -88,6 +88,6 @@ Nix-built via `dockerTools.buildLayeredImage`; the image needs `coreutils` and `
 - [[federated-login]] - How authentication works across BlumeOps
 - [[grafana]] - First OIDC client
 - [[provision-authentik-database]] - PostgreSQL database provisioning
-- [[build-authentik-from-source]] - Nix-based container build
+- [[authentik-nix-build-components]] - Nix-based container build components
 - [[mirror-authentik-build-deps]] - Supply chain mirrors for the build
 - [[external-secrets]] - Secrets injection from 1Password
