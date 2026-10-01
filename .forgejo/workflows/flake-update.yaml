@@ -251,8 +251,22 @@ jobs:
         id: pr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Fail instead of waiting on an interactive credential prompt:
+          # the host executor gives the job a pty, so a git auth miss
+          # otherwise hangs the job until its timeout.
+          GIT_TERMINAL_PROMPT: "0"
         run: |
           set -eo pipefail
+          # Authenticate git explicitly. checkout v7 wires its credentials
+          # through `includeIf "gitdir:<workspace>/.git"` using the
+          # /var/lib/gitea-runner symlink path, but the job's PWD is the
+          # DynamicUser real path (/var/lib/private/...), so the include
+          # never matches and push had no credentials. GIT_CONFIG_* keeps
+          # the header out of argv and out of .git/config.
+          git_auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0="http.https://forge.ops.eblu.me/.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $git_auth"
           date_u="$(date -u +%F)"
           branch="auto-update/ringtail-flake-${date_u}"
           api="https://forge.eblu.me/api/v1/repos/eblume/blumeops"
