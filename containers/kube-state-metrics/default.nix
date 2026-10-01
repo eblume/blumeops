@@ -9,13 +9,13 @@ let
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/kube-state-metrics.git";
     rev = "v${version}";
-    hash = pkgs.lib.fakeHash;
+    hash = "sha256-tgPbb7N/ZrIJqJF50kpJ5VOADSHnJ7dprxvL+J81Tjk=";
   };
 
   kube-state-metrics = pkgs.buildGoModule {
     inherit src version;
     pname = "kube-state-metrics";
-    vendorHash = pkgs.lib.fakeHash;
+    vendorHash = "sha256-RuX/E/kfVLP+8hk0ixhAZQQuj2+ZXNpquyNNduB8CAA=";
 
     doCheck = false;
 
