@@ -18,7 +18,7 @@ exceptions the workflow escalates.
 
 ## The scheduled update
 
-The workflow (`.forgejo/workflows/flake-update.yaml`, also manually
+The workflow (`.forgejo/workflows/ringtail-flake-update.yaml`, also manually
 dispatchable) runs every **Sunday 05:00 UTC** on the `nix-container-builder`
 runner. Each run:
 
