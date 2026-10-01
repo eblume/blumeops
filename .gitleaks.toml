@@ -27,3 +27,12 @@ regexes = ['''^v[\w.]+-[0-9a-f]{5,40}-nix$''']
 description = "1Password item ids (26-char lowercase alphanumeric)"
 regexTarget = "secret"
 regexes = ['^[a-z0-9]{26}$']
+
+# Pulumi marks every secret in a state export with this fixed 32-hex
+# signature constant (pulumi/pulumi `SpecialSigKey` — a static string, not
+# key-derived). `SECRETTAG=…` in mise-tasks/pulumi-restore-check matches the
+# keyword + hex shape; the value itself is public in Pulumi's docs.
+[[allowlists]]
+description = "pulumi SpecialSigKey constant (state export secret marker)"
+regexTarget = "secret"
+regexes = ['^4dabf18193072939515e22adb298388d$']
