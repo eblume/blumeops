@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+#MISE description="[human] Verify the pulumi stack backup is restorable (extract from the newest borg archive, import into scratch file:// backends, shred)"
+#
+# Proves the nightly Pulumi exports are actually restorable in the account-loss
+# case, without touching the live org or needing a Pulumi Cloud token. For each
+# stack it streams the newest export out of indri's local borg archive
+# (`borg extract --stdout`), imports it into a throwaway file:// backend with
+# the secrets_providers rewrite (see docs/how-to/pulumi/restore-pulumi-state.md),
+# and checks that the resource and secret counts round-trip. Shreds the
+# extracted files and scratch backends on exit.
+#
+# Runs on a host with an ssh route to indri (gilbert or ringtail) and the
+# mise-pinned pulumi CLI — i.e. from the blumeops checkout, not the agent pod.
+# Optional arg: an archive name (as in `borg list`) to check a specific
+# archive instead of the newest.
+
+set -euo pipefail
+"$(dirname "$0")/_require" ssh jq pulumi
+
+# shred is GNU-only; darwin has rm -P, and as a last resort plain rm.
+# The extracted exports hold plaintext secrets, so this gets its own name.
+destroy() {
+    [ -e "$1" ] || return 0
+    if command -v shred >/dev/null; then shred -u -z "$1"
+    elif rm --help 2>&1 | grep -q -- " -P"; then rm -P "$1"
+    else rm -f "$1"; fi
+}
+
+INDRI=indri
+BORG_REMOTE() {
+  # Run `borg <args>` on indri against the local archive. BORG_PASSCOMMAND is
+  # the password path the borgmatic role installs; the repo is the sifaka-local
+  # one the nightly writes to.
+  ssh "$INDRI" "BORG_PASSCOMMAND='cat /Users/erichblume/.borg/config.yaml' /opt/homebrew/bin/borg $*"
+}
+DUMPS=Users/erichblume/.local/share/borgmatic/k8s-dumps
+SECRETTAG=4dabf18193072939515e22adb298388d   # pulumi's JSON marker for a secret
+
+WORK="$(mktemp -d)"
+trap 'destroy "$WORK"/pulumi-tail8d86e-state.json; destroy "$WORK"/pulumi-eblu-me-state.json; destroy "$WORK"/pulumi-tail8d86e.import.json; destroy "$WORK"/pulumi-eblu-me.import.json; rm -rf "$WORK"' EXIT
+PASS="$(head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+export PULUMI_CONFIG_PASSPHRASE="$PASS"
+
+ARCHIVE="${1:-$(BORG_REMOTE 'list /Volumes/backups/borg --last 1 --format {archive}{nl}')}"
+[ -n "$ARCHIVE" ] || { echo "no archive found on $INDRI" >&2; exit 1; }
+echo "checking archive: $ARCHIVE"
+
+rc=0
+for pair in "tail8d86e blumeops-tailnet" "eblu-me blumeops-dns"; do
+    set -- $pair; stack=$1; project=$2
+    src="$WORK/pulumi-$stack-state.json"
+    BORG_REMOTE "extract --stdout /Volumes/backups/borg::$ARCHIVE $DUMPS/pulumi-$stack-state.db" > "$src"
+    jq -e '.version == 3 and (.deployment.resources|length > 0)' "$src" >/dev/null \
+        || { echo "FAIL $stack: export is not a valid v3 deployment with resources" >&2; rc=1; continue; }
+
+    mkdir -p "$WORK/backend-$stack" "$WORK/proj-$stack"
+    (
+        cd "$WORK/proj-$stack"
+        printf 'name: %s\n' "$project" > Pulumi.yaml
+        pulumi login "file://$WORK/backend-$stack" >/dev/null
+        pulumi stack init "$stack" --secrets-provider passphrase >/dev/null
+        salt=$(sed -nE 's/^encryptionsalt: *(.*)$/\1/p' "Pulumi.$stack.yaml")
+        [ -n "$salt" ] || { echo "no encryptionsalt in Pulumi.$stack.yaml" >&2; exit 1; }
+        jq --arg s "$salt" '.deployment.secrets_providers={type:"passphrase",state:{salt:$s}}' \
+            "$src" > "$WORK/pulumi-$stack.import.json"
+        pulumi stack import --stack "$stack" --file "$WORK/pulumi-$stack.import.json" >/dev/null
+    ) || { echo "FAIL $stack: import into scratch backend failed" >&2; rc=1; continue; }
+
+    src_res=$(jq '.deployment.resources|length' "$src")
+    src_sec=$( { grep -o "$SECRETTAG" "$src" || true; } | wc -l | tr -d ' ')
+    dst_res=$(pulumi -C "$WORK/proj-$stack" stack export | jq '.deployment.resources|length')
+    dst_sec=$(pulumi -C "$WORK/proj-$stack" stack export | { grep -o "$SECRETTAG" || true; } | wc -l | tr -d ' ')
+    dec_sec=$(pulumi -C "$WORK/proj-$stack" stack export --show-secrets | { grep -o '"plaintext"' || true; } | wc -l | tr -d ' ')
+    echo "$stack: resources $src_res -> $dst_res | secrets $src_sec -> $dst_sec (decrypt $dec_sec)"
+
+    { [ "$src_res" = "$dst_res" ] && [ "$src_sec" = "$dst_sec" ] && [ "$src_sec" = "$dec_sec" ]; } \
+        && echo "OK   $stack: restore is faithful" \
+        || { echo "FAIL $stack: count mismatch (src $src_res/$src_sec, dst $dst_res/$dst_sec, decrypt $dec_sec)" >&2; rc=1; }
+done
+
+[ "$rc" = 0 ] && echo "all stacks restored faithfully" || echo "one or more stacks failed" >&2
+exit "$rc"
