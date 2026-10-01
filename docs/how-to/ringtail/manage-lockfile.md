@@ -56,7 +56,13 @@ SHA" — not "I certified these opaque hashes".
 
 ## Merging on green
 
-When the table is all green, I merge the PR. The merge stays human: `main`
+The workflow opens the PR with the Actions token, and Forgejo starts no
+workflows for events made with that token, so `main`'s required checks have
+not run when the PR appears. First **close and reopen the PR** as myself: the
+reopen runs the required checks on the same head SHA the table names. The
+table's green verdict carries a callout for this.
+
+When the table and the required checks are all green, I merge the PR. The merge stays human: `main`
 protection allows only my account to merge, and the Actions token is not
 granted merge rights (a bot entry would be path-unlimited, and a broader
 credential would sit in Actions secrets readable by every workflow).
