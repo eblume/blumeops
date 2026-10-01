@@ -107,7 +107,10 @@ jobs:
           GITHUB_TOKEN: ""
         run: |
           set -eo pipefail
-          nixos/ringtail/flake-lock-check record-heads \
+          # Every repo script runs via `bash <path>`: the runner's state dir
+          # (the job workspace) is mounted noexec in its systemd namespace,
+          # so executing the file directly fails with Permission denied.
+          bash nixos/ringtail/flake-lock-check record-heads \
             nixos/ringtail/flake.lock \
             --out "$GITHUB_WORKSPACE/flake-update/heads.json"
           cat "$GITHUB_WORKSPACE/flake-update/heads.json"
@@ -122,7 +125,7 @@ jobs:
           nix build .#nixosConfigurations.ringtail.config.system.build.toplevel \
             --json > "$GITHUB_WORKSPACE/flake-update/toplevel.json"
           top="$(jq -er '.path' "$GITHUB_WORKSPACE/flake-update/toplevel.json")"
-          nixos/ringtail/flake-lock-check kernel-version "$top" \
+          bash nixos/ringtail/flake-lock-check kernel-version "$top" \
             > "$GITHUB_WORKSPACE/flake-update/kernel.txt"
           echo "built kernel: $(cat "$GITHUB_WORKSPACE/flake-update/kernel.txt")"
 
@@ -135,7 +138,7 @@ jobs:
           # Exit 1 = battery red: carried by the artifact, the posting job
           # files the exception. Exit 2 = maintenance error: hard fail.
           rc=0
-          nixos/ringtail/flake-lock-check check \
+          bash nixos/ringtail/flake-lock-check check \
             "$GITHUB_WORKSPACE/flake-update/old.lock" nixos/ringtail/flake.lock \
             --heads "$GITHUB_WORKSPACE/flake-update/heads.json" --json \
             > "$GITHUB_WORKSPACE/flake-update/checks.json" || rc=$?
@@ -216,7 +219,7 @@ jobs:
           set -o pipefail
           date_u="$(date -u +%F)"
           rc=0
-          nixos/ringtail/flake-update-verify verdict \
+          bash nixos/ringtail/flake-update-verify verdict \
             --result flake-update/result.json \
             --main-lock nixos/ringtail/flake.lock \
             --new-lock flake-update/new.lock \
@@ -322,7 +325,7 @@ jobs:
           pr_num="${{ steps.pr.outputs.pr_number }}"
           verdict="${{ steps.verdict.outputs.verdict }}"
 
-          table="$(nixos/ringtail/flake-update-verify table \
+          table="$(bash nixos/ringtail/flake-update-verify table \
             --result flake-update/verdict.json \
             --head-sha "$head_sha" --branch "$branch" \
             --inputs-file flake-update/result.json)"
@@ -338,7 +341,7 @@ jobs:
           if [ "$verdict" = "red" ]; then
             failing="$(jq -r '[.checks[] | select(.status != "PASS") | .name] | join(", ")' flake-update/verdict.json)"
             title="Ringtail flake update ${date_u}: lock battery FAILED (${failing}) - PR eblume/blumeops#$pr_num left open"
-            issue_body="$(nixos/ringtail/flake-update-verify issue \
+            issue_body="$(bash nixos/ringtail/flake-update-verify issue \
               --result flake-update/verdict.json \
               --branch "$branch" --head-sha "$head_sha" \
               --pr-url "https://forge.eblu.me/eblume/blumeops/pulls/$pr_num" \
