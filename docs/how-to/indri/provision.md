@@ -544,11 +544,14 @@ the profile dir) hosts the jobs' docker. The user, the two system launchd
 daemons (`mcquack.eblume.colima-build`, `mcquack.eblume.forgejo-runner-build`),
 the build user's mise config and the home dir layout are nix-managed; the
 runner config and the colima profile are role-rendered by the
-`forgejo_runner` role, the config gated on the runner being registered
+`forgejo_runner` role, gated on the runner being registered
 (uuid/token in 1Password).
-Registration comes first ([[configure-launchd-runner]] §indri-build runner),
-then `mise run provision-indri`; before registration the role renders no
-runner config and the daemons idle.
+Registration comes first ([[configure-launchd-runner]] §indri-build
+runner). The warrant `provision-indri` dispatch runs `--tags rebuild` only
+(the nix switch), so it deploys the user and daemons but **not** the
+role-rendered config: after registration, a full local
+`mise run provision-indri` (no tag restriction) renders the config. Before
+registration the role renders nothing and the daemons idle.
 
 Acceptance checks (run on indri as the named users after the deploy window):
 

@@ -249,7 +249,11 @@
     - forgejo_runner_build_mise_github_token | length > 0
   tags: [forgejo_build_runner]
 
-- name: Deploy build runner colima profile (not secret)
+- name: Deploy build runner colima profile (not secret, gated on registration)
+  # Rendered when the runner is registered (uuid present), not before: keeps
+  # the pre-registration state "nothing build-related is active". The colima
+  # daemon idles on its own wait loop until this file exists, then starts the
+  # VM. Gated on the uuid alone (not the token/PAT) - it carries no secret.
   ansible.builtin.template:
     src: colima.yaml.j2
     dest: "{{ forgejo_runner_build_colima_yaml }}"
@@ -257,6 +261,7 @@
     owner: indri-build
     group: staff
     become: true
+  when: forgejo_runner_build_uuid | length > 0
   tags: [forgejo_build_runner]
 
 # --- Build runner LaunchDaemon (rollback re-write only) ---

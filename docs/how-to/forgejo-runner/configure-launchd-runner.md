@@ -118,8 +118,11 @@ role-rendered.
    `indri-build-github-pat` field the same way: a fresh zero-permission
    public-read GitHub PAT for the build runner's own mise resolution (do
    not reuse `forge-ci-github-pat`).
-3. Re-dispatch `mise run provision-indri` (full run) - the playbook
-   `pre_tasks` fetch the fields and the role renders the configs.
+3. Run `mise run provision-indri` locally (full run, no tag restriction) -
+   the playbook `pre_tasks` fetch the fields and the role renders the
+   configs. The warrant `provision-indri` dispatch is `--tags rebuild`
+   only (the nix switch), so it deploys the user and daemons but not the
+   role-rendered config; this step is what activates the runner.
 
 ## Verification
 
