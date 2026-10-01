@@ -172,7 +172,7 @@ cmd_table() {
     printf '%s\n' "$rows"
     printf '| toplevel build | PASS | built in the zero-credential job |\n'
     if [ "$bump" = "true" ]; then
-      printf '| kernel | FLAG | kernel bump %s -> %s - plan a reboot after the rebuild |\n' "$built" "$booted"
+      printf '| kernel | FLAG | kernel bump %s -> %s - plan a reboot after the rebuild |\n' "$booted" "$built"
     else
       printf '| kernel | PASS | built %s == booted %s |\n' "$built" "$booted"
     fi

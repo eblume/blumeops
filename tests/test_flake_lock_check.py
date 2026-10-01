@@ -462,6 +462,21 @@ def test_kernel_version(stubs, tmp_path):
     assert r.stdout == "6.12.44\n"
 
 
+def test_kernel_version_real_toplevel_layout(stubs, tmp_path):
+    """A NixOS toplevel's kernel link points at the image file inside the
+    kernel's store dir: <hash>-linux-X.Y.Z/bzImage."""
+    top = tmp_path / "toplevel"
+    top.mkdir()
+    kdir = tmp_path / "k0hdg2xzag606bm9mygmws3m73b7caxy-linux-6.18.54"
+    kdir.mkdir()
+    (kdir / "bzImage").write_text("x", encoding="utf-8")
+    (top / "kernel").symlink_to(kdir / "bzImage")
+
+    r = stubs.run("kernel-version", str(top))
+    assert r.returncode == 0
+    assert r.stdout == "6.18.54\n"
+
+
 def test_kernel_version_missing(stubs, tmp_path):
     empty = tmp_path / "empty"
     empty.mkdir()
