@@ -1,7 +1,7 @@
 ---
 title: Restore Pulumi State
-modified: 2026-09-30
-last-reviewed: 2026-09-27
+modified: 2026-10-01
+last-reviewed: 2026-10-01
 tags:
   - how-to
   - pulumi
@@ -46,34 +46,66 @@ Cloud: plain values are in `pulumi/<project>/Pulumi.<stack>.yaml` in git, and
 the provider secrets come from the Pulumi ESC environments named there, whose
 definitions are in `pulumi/esc/` and whose values are in 1Password.
 
+Stream the files straight out of the archive with `borg extract --stdout`:
+the extract runs *on indri*, so without `--stdout` the files would land in
+indri's working directory rather than on the host you are restoring from.
+
 ```bash
 ssh indri 'BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
-  /opt/homebrew/bin/borg list /Volumes/backups/borg | tail -30'   # find a recent archive
+  /opt/homebrew/bin/borg list /Volumes/backups/borg --last 1'   # newest archive
 
-mkdir -p ~/tmp/pulumi-restore && cd ~/tmp/pulumi-restore
-ssh indri 'cd ~/tmp/pulumi-restore && BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
-  /opt/homebrew/bin/borg extract /Volumes/backups/borg::<archive> \
-  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-tail8d86e-state.db \
-  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-eblu-me-state.db'
-ls ~/tmp/pulumi-restore/Users/erichblume/.local/share/borgmatic/k8s-dumps/
+ssh indri 'BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
+  /opt/homebrew/bin/borg extract --stdout /Volumes/backups/borg::<archive> \
+  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-tail8d86e-state.db' \
+  > pulumi-tail8d86e-state.json
+ssh indri 'BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
+  /opt/homebrew/bin/borg extract --stdout /Volumes/backups/borg::<archive> \
+  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-eblu-me-state.db' \
+  > pulumi-eblu-me-state.json
 ```
 
-The staged files live under `Users/erichblume/.local/share/borgmatic/k8s-dumps/`
-in the archive (relative to the archive root — no leading slash; `borg list`
-shows the same relative paths). Extract a single file by naming just that path.
+(The staged paths are relative to the archive root — no leading slash;
+`borg list` shows the same paths. Extract a single file by naming just it.
+The same one-liner works against the BorgBase offsite repository instead of
+`/Volumes/backups/borg`.)
 
 ## Restoring into a new (or same) account
 
 `pulumi stack import` re-encrypts the decrypted secrets under the *target*
-stack's secrets provider, so the destination decides the scheme. The
-provider cannot be set on import — it is fixed at stack creation:
+stack's secrets provider, so the destination decides the scheme, and the
+provider cannot be set on import — it is fixed at stack creation. But the
+export JSON still carries the *source* stack's `deployment.secrets_providers`
+field, and `import` trusts it: as-is, it tries to build the Pulumi Cloud
+service secrets manager and dies without an account token
+(`could not find access token for https://api.pulumi.com`), and simply
+deleting the field is not enough — with secrets present and no provider the
+CLI panics on `attempt to encrypt value`. (A secret-free export imports fine
+with the field deleted.) The fix is to replace the field with the *target*
+stack's provider before importing.
+
+Scratch or real, the recipe is the same — a fresh backend, a stack created
+with the passphrase provider, and the rewrite to that provider's salt:
 
 ```bash
 export PULUMI_CONFIG_PASSPHRASE='...'   # your choice; keep it in 1Password
-pulumi login                            # Pulumi Cloud, or a local backend
-pulumi stack init <name> --secrets-provider passphrase
-pulumi stack import --file <state.json>
+mkdir pulumi-restore && cd pulumi-restore
+echo 'name: <project>' > Pulumi.yaml    # blumeops-tailnet or blumeops-dns
+pulumi login file://$PWD/backend        # or Pulumi Cloud
+pulumi stack init <stack> --secrets-provider passphrase
+# stack init writes the salt to Pulumi.<stack>.yaml:
+salt=$(sed -nE 's/^encryptionsalt: *(.*)$/\1/p' Pulumi.<stack>.yaml)
+jq --arg s "$salt" '.deployment.secrets_providers={type:"passphrase",state:{salt:$s}}' \
+  pulumi-tail8d86e-state.json > pulumi-tail8d86e-state.import.json
+pulumi stack import --stack <stack> --file pulumi-tail8d86e-state.import.json
+pulumi stack export --show-secrets   # sanity: resources + secrets decrypt
 ```
+
+The backup files hold plaintext secrets, so the rewrite (not the source
+passphrase) is what makes them importable; afterwards they are ciphertext
+under the target's provider. Restoring *into* Pulumi Cloud works the same
+shape — point the field at the new stack's provider — but that path is
+untested; the passphrase path was exercised end to end on 2026-10-01 (both
+stacks imported, all secrets decrypting).
 
 The stack config comes back with the repo: `Pulumi.<stack>.yaml` holds the
 plain values and the `environment:` import of the ESC environment that serves
@@ -96,6 +128,18 @@ Then run `pulumi up --refresh` from the project directory
 - **Tailscale ACL + device tags, DNS records**: pure state; imported intact
   and reconciled by `up`.
 
+## Verifying the restore path
+
+To prove the backups are restorable without touching the live org, restore
+into a scratch `file://` backend exactly as above — a fresh `Pulumi.yaml`
+with only `name: <project>`, `stack init <stack> --secrets-provider
+passphrase`, the `secrets_providers` rewrite, then the import. Verify the
+resource count matches the export and that `export --show-secrets` decrypts
+the secrets. `mise run pulumi-restore-check` (see [[mise-tasks]]) automates
+this against the newest borg archive — it streams both exports out of indri,
+imports them into throwaway `file://` backends, reports resource and secret
+counts, and shreds the extracted files.
+
 ## Caveats
 
 - Import with a CLI ≥ the one that wrote the checkpoint (3.237.0 in the
@@ -104,10 +148,12 @@ Then run `pulumi up --refresh` from the project directory
   drift — the tailnet ACL resource is a full overwrite, so a stale local
   `policy.hujson` rewrites the live ACL. Restore from a fresh blumeops
   checkout at the matching commit.
-- The exported state names the original stack's URNs; importing into a
-  differently *named* stack is fine (URNs embed the stack name the same way
-  on both sides), but keep the project name unchanged or URNs will not
-  match.
+- Restore into a stack with the **same project and stack name**: URNs embed
+  both, and import refuses anything else
+  (`resource '…' is from a different stack (tail8d86e != restore-tail8d86e)`).
+  The `--force` override exists; do not use it. A scratch verification
+  therefore needs a separate backend (a `file://` directory), not a renamed
+  stack in the live org.
 
 ## Related
 

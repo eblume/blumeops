@@ -1,7 +1,7 @@
 ---
 title: Mise Tasks
-modified: 2026-09-11
-last-reviewed: 2026-09-11
+modified: 2026-10-01
+last-reviewed: 2026-10-01
 tags:
   - reference
   - tools
@@ -59,6 +59,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `provision-indri` | [human] Run ansible playbook to provision indri |
 | `provision-ringtail` | [human] Run ansible playbook to provision ringtail (NixOS) |
 | `provision-sifaka` | [human] Run ansible playbook to provision sifaka |
+| `pulumi-restore-check` | [human] Verify the pulumi stack backup is restorable (extract from the newest borg archive, import into scratch file:// backends, shred) |
 | `prune-ringtail-generations` | [human] Prune old NixOS generations on ringtail, preserving rollback safety |
 | `request-run` | Request a privileged workflow run (approval-gated; see warrant-approval-gated-runs) |
 | `rip-cd` | [human] Rip an audio CD to FLAC in a staging dir with disc IDs, CD-TEXT and MusicBrainz candidates (indri's Pioneer drive) |
