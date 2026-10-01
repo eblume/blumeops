@@ -351,6 +351,8 @@ def test_table_kernel_flag(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert "FLAG" in r.stdout
     assert "plan a reboot" in r.stdout
+    # booted -> built: the rebuild moves the running kernel forward.
+    assert "kernel bump 6.15.5 -> 6.16.0" in r.stdout
 
 
 def test_table_moved_inputs(tmp_path):

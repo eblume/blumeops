@@ -480,7 +480,9 @@ cmd_kernel_version() {
     printf 'kernel-version: %s target has no linux- prefix: %s\n' "$link" "$target" >&2
     exit 2
   fi
+  # A real toplevel links <hash>-linux-X.Y.Z/bzImage: drop the image name.
   version="${target##*linux-}"
+  version="${version%%/*}"
   version="${version%-*}"
   printf '%s\n' "$version"
 }

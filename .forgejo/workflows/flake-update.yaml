@@ -124,8 +124,10 @@ jobs:
           cd nixos/ringtail
           nix build .#nixosConfigurations.ringtail.config.system.build.toplevel \
             --json > "$GITHUB_WORKSPACE/flake-update/toplevel.json"
-          top="$(jq -er '.path' "$GITHUB_WORKSPACE/flake-update/toplevel.json")"
-          bash nixos/ringtail/flake-lock-check kernel-version "$top" \
+          # `nix build --json` prints an array of {drvPath, outputs}.
+          top="$(jq -er '.[0].outputs.out' "$GITHUB_WORKSPACE/flake-update/toplevel.json")"
+          # cwd is nixos/ringtail here, so address the script from the root.
+          bash "$GITHUB_WORKSPACE/nixos/ringtail/flake-lock-check" kernel-version "$top" \
             > "$GITHUB_WORKSPACE/flake-update/kernel.txt"
           echo "built kernel: $(cat "$GITHUB_WORKSPACE/flake-update/kernel.txt")"
 
