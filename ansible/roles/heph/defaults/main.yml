@@ -13,7 +13,7 @@ heph_version: v1.10.5
 
 # Anonymous public HTTPS clone — used for the ansible-driven `cargo install`
 # and the PWA source checkout, so provisioning needs no ssh-agent.
-heph_repo_url: https://forge.eblu.me/eblume/hephaestus.git
+heph_repo_url: https://forge.ops.eblu.me/eblume/hephaestus.git
 
 heph_bin_dir: /Users/erichblume/.cargo/bin
 heph_binary: "{{ heph_bin_dir }}/hephd"

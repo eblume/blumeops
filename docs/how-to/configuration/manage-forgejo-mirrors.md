@@ -189,7 +189,7 @@ The repo detail endpoint exposes the last sync directly, so mirror health doesn'
 
 ```fish
 curl -s -H "Authorization: token $FORGE_TOKEN" \
-  https://forge.eblu.me/api/v1/repos/mirrors/<name> \
+  https://forge.ops.eblu.me/api/v1/repos/mirrors/<name> \
   | jq '{updated_at, mirror_updated, mirror_interval}'
 ```
 

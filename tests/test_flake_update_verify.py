@@ -31,7 +31,7 @@ KERNEL = "6.15.5"
 BOOTED = "6.15.5-1-arch"  # script strips the trailing -1-arch -> "6.15.5"
 HEAD_SHA = "0123456789abcdef"
 BRANCH = "ringtail-flake-update"
-PR_URL = "https://forge.eblu.me/eblume/blumeops/pulls/1338"
+PR_URL = "https://forge.ops.eblu.me/eblume/blumeops/pulls/1338"
 RUN_DATE = "2026-09-01"
 
 _seq = itertools.count()

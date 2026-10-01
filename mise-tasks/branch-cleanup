@@ -46,7 +46,7 @@ from rich.table import Table
 
 PROTECTED_BRANCHES = {"main", "master"}
 PROTECTED_PREFIXES = ("preserve/",)
-# Tailnet name — the public forge.eblu.me is HTTPS-poison in-cluster
+# Tailnet name — the public forge.eblu.me has no in-cluster HTTPS route
 # (docs/reference/services/argocd.md).
 FORGE_API = "https://forge.ops.eblu.me/api/v1"
 REPO_OWNER = "eblume"

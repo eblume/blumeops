@@ -110,9 +110,9 @@ API token); from an agent, file a request:
 the warrant dispatches it after approval
 3. Confirm the deploy landed with the expected image digest
 
-### Private Forge Repos (`upstream-source` under `forge.eblu.me/eblume/`)
+### Private Forge Repos (`upstream-source` under `forge.ops.eblu.me/eblume/`)
 
-Some services are built from private repos on the forge rather than tracking an external upstream project. When `upstream-source` points to a `forge.eblu.me/eblume/` repo:
+Some services are built from private repos on the forge rather than tracking an external upstream project. When `upstream-source` points to a `forge.ops.eblu.me/eblume/` repo:
 
 1. Clone the repo to `~/code/personal/` if not already checked out
 2. Review the repo's dependency pins — uv script metadata, `pyproject.toml`, `package.json`, `flake.nix` inputs, etc.

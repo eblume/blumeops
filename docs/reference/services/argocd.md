@@ -18,7 +18,7 @@ GitOps continuous delivery platform for the [[cluster|Kubernetes cluster]].
 | **URL** | https://argocd.ops.eblu.me |
 | **Tailscale URL** | https://argocd.tail8d86e.ts.net |
 | **Namespace** | `argocd` |
-| **Git Source** | `ssh://forgejo@forge.eblu.me:2222/eblume/blumeops.git` (not a typo — see below) |
+| **Git Source** | `ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git` (the tailnet name; the push-webhook story below) |
 | **Manifests Path** | `argocd/apps/` (Applications), `argocd/manifests/` (workloads) |
 
 ## Clusters
@@ -33,23 +33,15 @@ A **Forgejo push webhook** makes that happen in seconds rather than minutes. `eb
 
 Deliveries and their responses are visible under **Settings -> Webhooks** on the repo. A `400 Unknown webhook event` means the payload reached ArgoCD but carried no recognised event header; a `200` with nothing syncing almost always means the URL match failed — see below.
 
-### Why the Applications say `forge.eblu.me`
+### Why the Applications say `forge.ops.eblu.me`
 
-Every Application tracking blumeops uses `ssh://forgejo@forge.eblu.me:2222/…`, while the `mirrors/*` apps still use `forge.ops.eblu.me`. That asymmetry is load-bearing, not an oversight.
+Every Application tracking blumeops uses `ssh://forgejo@forge.ops.eblu.me:2222/…` — the host Forgejo itself reports for the repo.
 
-ArgoCD decides which apps a push affects by building a regex from the payload's `repository.html_url` and matching it against each `spec.source.repoURL` (`util/webhook/webhook.go`, `GetWebURLRegex` / `sourceUsesURL`). The hostname is `regexp.QuoteMeta`'d, so it has to be **equal** — the only host prefix the regex tolerates is `(alt)?ssh.`. Forgejo builds `html_url` from `ROOT_URL`, which is the public `https://forge.eblu.me/`. An Application that said `forge.ops.eblu.me` would therefore be matched by nothing, and the webhook would verify, parse, and quietly refresh zero apps.
+ArgoCD decides which apps a push affects by building a regex from the payload's `repository.html_url` and matching it against each `spec.source.repoURL` (`util/webhook/webhook.go`, `GetWebURLRegex` / `sourceUsesURL`). The hostname is `regexp.QuoteMeta`'d, so it has to be **equal** — the only host prefix the regex tolerates is `(alt)?ssh.`. Forgejo builds `html_url` from its `ROOT_URL`, so the Applications must name whatever host `ROOT_URL` names.
 
-So the Applications name the host the payload names. Inside the cluster that name is made honest by a CoreDNS rewrite shipped with the node in `nixos/ringtail/configuration.nix`:
+The forge's public/private split (eblume/blumeops#1208) moves `ROOT_URL` to `https://forge.ops.eblu.me/`, and every Application names that same host — matching is direct, no DNS alias involved. In the transition window between the app re-point and the `ROOT_URL` flip, the webhook matches nothing and quietly refreshes zero apps; the `timeout.reconciliation` loop (up to ~3 minutes) covers delivery in the meantime.
 
-```
-rewrite name exact forge.eblu.me forge.ops.eblu.me
-```
-
-`forge.eblu.me` therefore resolves to indri over the tailnet, exactly as `forge.ops.eblu.me` does. **Git traffic does not go out to the Fly proxy** — which does not publish `:2222` at all, and fronts `forge.eblu.me` with Anubis proof-of-work. Three consequences worth knowing:
-
-- The rewrite lives in the NixOS config rather than an ArgoCD app **on purpose**. ArgoCD needs the alias to fetch blumeops, so shipping it from blumeops would deadlock a rebuilt cluster. k3s applies it at startup, before ArgoCD exists.
-- If the rewrite is ever lost, every blumeops app fails to fetch with a connection error — loudly, not silently. Check it with `kubectl -n kube-system get cm coredns-custom`.
-- **The rewrite is safe for SSH and poison for HTTPS.** ArgoCD's `ssh://…:2222` traffic carries no SNI, so redirecting the name is exactly right. An in-cluster *HTTPS* client, though, still sends `Host`/SNI `forge.eblu.me` — and it now lands on indri's Caddy, which holds a cert only for `*.ops.eblu.me`. The handshake dies with `tlsv1 alert internal error`; it never reaches a 404 or a redirect you might notice. **Anything in a pod that talks to the forge over HTTPS must name `forge.ops.eblu.me` explicitly.** This bit horkos (silent no-dispatch on approval, 2026-08-26), the homepage Forgejo widget, and the mise-tasks forge clients (`request-run` and friends — found 2026-08-31 when it blocked the issue #753 warrants); all now set the tailnet name for API calls, keeping `forge.eblu.me` for human-facing links. Reproduce with `curl --resolve forge.eblu.me:443:$(dig +short forge.ops.eblu.me) https://forge.eblu.me/api/v1/version`.
+**In-cluster HTTPS clients must name `forge.ops.eblu.me`.** It resolves to indri over the tailnet, and indri's Caddy holds a cert for it. The public name, by contrast, held no cert there — an in-cluster HTTPS request for it died in the TLS handshake with `tlsv1 alert internal error`, never reaching a 404 or redirect you might notice — and once the ringtail rebuild retires the CoreDNS alias it won't even resolve in-cluster. This bit horkos (silent no-dispatch on approval, 2026-08-26), the homepage Forgejo widget, and the mise-tasks forge clients (`request-run` and friends — found 2026-08-31 when it blocked the issue #753 warrants); all set the tailnet name for API calls, keeping `forge.eblu.me` for human-facing links. Reproduce with `curl --resolve forge.eblu.me:443:$(dig +short forge.ops.eblu.me) https://forge.eblu.me/api/v1/version`.
 
 `webhook.gogs.secret` in `argocd-secret` is the shared signing secret (`argocd-webhook-secret` in the `blumeops` vault, merged in by `external-secret-webhook.yaml`). Gogs, not GitHub: Forgejo sends `X-Gogs-*`, `X-Gitea-*`, `X-Forgejo-*` and `X-Hub-*` headers carrying the same digest, and ArgoCD checks the Gogs headers first — upstream's comment reads "Gogs needs to be checked before GitHub since it carries both Gogs and (incompatible) GitHub headers". Rotating means changing both the vault item and the hook's secret in Forgejo. No rollout is needed on the ArgoCD side: the parser is built once at handler construction, but `argocd-server` watches the setting and restarts itself when it changes (`"gogs secret modified. restarting"` in the server log).
 

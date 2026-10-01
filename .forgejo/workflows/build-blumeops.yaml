@@ -11,7 +11,7 @@
 #   3. The workflow creates a release with attached artifacts
 #
 # Documentation asset URL:
-#   https://forge.eblu.me/eblume/blumeops/releases/download/<tag>/docs-<version>.tar.gz
+#   https://forge.ops.eblu.me/eblume/blumeops/releases/download/<tag>/docs-<version>.tar.gz
 
 name: Build BlumeOps
 
@@ -38,6 +38,19 @@ jobs:
   build:
     runs-on: indri
     steps:
+      - name: Verify forge server URL
+        run: |
+          # The runner serves GITHUB_SERVER_URL from the forge's ROOT_URL, and
+          # this workflow's runner-side API calls hard-code forge.ops.eblu.me.
+          # Warn-only until the ROOT_URL flip lands (eblume/blumeops#1208):
+          # during the transition the public name is correct for the runner,
+          # and this step's job is to verify the flip afterward. Re-arm as a
+          # hard failure in the flip PR.
+          echo "GITHUB_SERVER_URL=${GITHUB_SERVER_URL:-unset}"
+          if [ "${GITHUB_SERVER_URL%/:-}" != "https://forge.ops.eblu.me" ]; then
+            echo "::warning::GITHUB_SERVER_URL is not https://forge.ops.eblu.me — expected before the ROOT_URL flip (eblume/blumeops#1208); this check is warn-only until the flip PR re-arms it."
+          fi
+
       - name: Resolve version
         id: version
         run: |
@@ -46,7 +59,7 @@ jobs:
 
           # Fetch latest release
           echo "Fetching latest release..."
-          LATEST=$(curl -s "https://forge.eblu.me/api/v1/repos/eblume/blumeops/releases/latest" | jq -r '.tag_name // empty' || true)
+          LATEST=$(curl -s "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/latest" | jq -r '.tag_name // empty' || true)
 
           if [ -z "$LATEST" ]; then
             LATEST="v0.0.0"
@@ -94,9 +107,9 @@ jobs:
           esac
 
           # Check if this version already exists
-          if curl -sf "https://forge.eblu.me/api/v1/repos/eblume/blumeops/releases/tags/$VERSION" > /dev/null 2>&1; then
+          if curl -sf "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/tags/$VERSION" > /dev/null 2>&1; then
             echo "Error: Release $VERSION already exists"
-            echo "See: https://forge.eblu.me/eblume/blumeops/releases/tag/$VERSION"
+            echo "See: https://forge.ops.eblu.me/eblume/blumeops/releases/tag/$VERSION"
             exit 1
           fi
 
@@ -201,7 +214,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Authorization: token $GITHUB_TOKEN" \
             -d "$RELEASE_DATA" \
-            "https://forge.eblu.me/api/v1/repos/eblume/blumeops/releases")
+            "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases")
 
           echo "API Response: $RELEASE_RESPONSE"
 
@@ -221,7 +234,7 @@ jobs:
             -H "Content-Type: application/gzip" \
             -H "Authorization: token $GITHUB_TOKEN" \
             --data-binary "@$TARBALL" \
-            "https://forge.eblu.me/api/v1/repos/eblume/blumeops/releases/$RELEASE_ID/assets?name=$TARBALL")
+            "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/$RELEASE_ID/assets?name=$TARBALL")
 
           echo "Upload Response: $UPLOAD_RESPONSE"
           echo ""
@@ -274,7 +287,7 @@ jobs:
             MAIN_PUSH_TOKEN=$(op read 'op://blumeops-ci/forge-main-push/token')
             echo "::add-mask::$MAIN_PUSH_TOKEN"
             git -c credential.helper= push \
-              "https://eblume:${MAIN_PUSH_TOKEN}@forge.eblu.me/eblume/blumeops.git" \
+              "https://eblume:${MAIN_PUSH_TOKEN}@forge.ops.eblu.me/eblume/blumeops.git" \
               HEAD:main
             echo "Changes committed and pushed"
           fi
@@ -288,10 +301,10 @@ jobs:
           echo "================================================"
           echo ""
           echo "Release URL:"
-          echo "  https://forge.eblu.me/eblume/blumeops/releases/tag/$VERSION"
+          echo "  https://forge.ops.eblu.me/eblume/blumeops/releases/tag/$VERSION"
           echo ""
           echo "Asset URL:"
-          echo "  https://forge.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL"
+          echo "  https://forge.ops.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL"
           echo ""
           echo "To deploy on indri, run from gilbert:"
           echo "  mise run provision-indri -- --tags docs"
