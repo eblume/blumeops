@@ -93,14 +93,15 @@ manually at a quiet moment; until then the mirror simply isn't active.
 The second runner (label `indri-build`, eblume/blumeops#1357) is a
 dedicated macOS user (no sudo, home 0700) whose jobs reach containers
 through a colima VM. The user, the system launchd daemons
-(`mcquack.eblume.colima-build` + `mcquack.eblume.forgejo-runner-build`)
-and the build user's mise config are nix-managed; the runner config, the
-colima profile and the home dirs are role-rendered (gated on registration).
+(`mcquack.eblume.colima-build` + `mcquack.eblume.forgejo-runner-build`),
+the build user's mise config and the home dir layout are nix-managed; the
+runner config (gated on registration) and the colima profile are
+role-rendered.
 
 0. **One-time host prerequisite**: `brew install docker` on indri. The
-   colima flake ships no docker client, and `colima start` itself runs
-   `docker context use colima-indri-build` - without the CLI the engine
-   daemon cannot come up.
+   colima flake ships no docker client, so job steps that need docker get
+   the CLI from Homebrew (`/opt/homebrew/bin` is on the runner daemon's
+   PATH, see the flake unit); the socket path is the colima profile's.
 1. Register the runner, exactly like the original (no `--scope`):
 
    ```fish

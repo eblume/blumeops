@@ -9,30 +9,21 @@
 # long-lived process and launchd does not respawn us.
 #
 # WaitForPaths (a real boot guard in the daemon domain) is not expressible in
-# the pinned nix-darwin's serviceConfig options, so it is emulated here:
-# /nix/store must be mounted (this script is a store path) and the colima
-# profile must exist (rendered by the forgejo_runner role). Bounded, so a
-# wedged role never hangs the daemon forever.
+# the pinned nix-darwin's serviceConfig options, so the wait for the colima
+# profile (rendered by the forgejo_runner role after the human registers the
+# runner) is emulated here: idle until it exists. /nix/store needs no wait -
+# this script is a store path, so nix is mounted whenever it runs.
 
-wait_for_paths() {
-    i=0
-    while [ "$i" -lt 600 ]; do
-        [ -e "/nix/store" ] && [ -e "/Users/indri-build/.colima/indri-build/colima.yaml" ] && return 0
-        i=$((i + 1))
-        sleep 1
-    done
-    echo "mcquack.colima-build: /nix/store or colima.yaml absent after 600s, starting anyway" >&2
-    return 0
-}
+profile=/Users/indri-build/.colima/indri-build/colima.yaml
+while [ ! -e "$profile" ]; do
+    sleep 30
+done
 
-# PATH and HOME come from the launchd EnvironmentVariables.
-wait_for_paths
+# A failed start exits nonzero: KeepAlive + ThrottleInterval retry in ~10s.
+colima start --profile indri-build || exit 1
 
-colima start --profile indri-build
-
-rc=$?
-echo "mcquack.colima-build: colima start exited $rc, holding the KeepAlive job" >&2
-
+# colima start returned 0 and the VM is running; hold the KeepAlive job so
+# launchd does not respawn us.
 while true; do
     sleep 30
 done

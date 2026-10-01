@@ -541,12 +541,14 @@ The second forgejo runner (label `indri-build`) is unprivileged by
 construction: the dedicated macOS user `indri-build` (uid 502, no sudo, home
 0700) runs the daemon and a colima VM (`~indri-build/.colima/indri-build/`,
 the profile dir) hosts the jobs' docker. The user, the two system launchd
-daemons (`mcquack.eblume.colima-build`, `mcquack.eblume.forgejo-runner-build`)
-and the build user's mise config are nix-managed; the runner config, the
-colima profile and the home subdirs are role-rendered by the `forgejo_runner`
-role, gated on the runner being registered (uuid/token in 1Password).
+daemons (`mcquack.eblume.colima-build`, `mcquack.eblume.forgejo-runner-build`),
+the build user's mise config and the home dir layout are nix-managed; the
+runner config and the colima profile are role-rendered by the
+`forgejo_runner` role, the config gated on the runner being registered
+(uuid/token in 1Password).
 Registration comes first ([[configure-launchd-runner]] §indri-build runner),
-then `mise run provision-indri`; before registration the role renders nothing.
+then `mise run provision-indri`; before registration the role renders no
+runner config and the daemons idle.
 
 Acceptance checks (run on indri as the named users after the deploy window):
 

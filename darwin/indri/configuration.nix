@@ -14,23 +14,22 @@ let
   # The colima package the colima-build daemon runs: the colima flake input's
   # packages.default (colima + lima + qemu, see flake.nix).
   colimaBuild = inputs.colima.packages."aarch64-darwin".default;
-  # WaitForPaths emulation for the runner daemon: the pinned nix-darwin has no
-  # WaitForPaths option in serviceConfig, so the wait for "/nix/store" and the
-  # colima socket lives here instead. On a fresh boot with an empty VM disk
-  # (first start takes minutes) the runner idles until colima exposes the
-  # socket - correct, not a fault. The daemon then runs with PATH/HOME as
-  # launchd set them.
+  # The runner daemon's waiter: the pinned nix-darwin has no WaitForPaths
+  # option, so the wait lives here. It idles until the role renders the runner
+  # config (a human registers the runner first, so it is absent until then)
+  # AND colima exposes the docker socket - so pre-registration the daemon is
+  # loaded but does nothing, and a fresh-boot empty VM disk (first start takes
+  # minutes) merely delays the first job. Both correct, not faults. This script
+  # is a store path, so /nix is mounted whenever it runs: the pre-/nix window
+  # is launchd's own load retry, not ours.
   forgejoRunnerBuildWaiter = pkgs.writeScript "forgejo-runner-build-waiter" ''
     #!/bin/sh
-    i=0
-    while [ "$i" -lt 600 ]; do
-      [ -e "/nix/store" ] && [ -e "/Users/indri-build/.colima/indri-build/docker.sock" ] && break
-      i=$((i + 1))
-      sleep 1
+    config=/Users/indri-build/forgejo-runner/config.yaml
+    sock=/Users/indri-build/.colima/indri-build/docker.sock
+    while [ ! -e "$config" ] || [ ! -e "$sock" ]; do
+      sleep 30
     done
-    [ -e "/Users/indri-build/.colima/indri-build/docker.sock" ] || \
-      echo "forgejo-runner-build: docker.sock absent after 600s, starting anyway" >&2
-    exec "${pkgs.forgejo-runner}/bin/forgejo-runner" daemon --config /Users/indri-build/forgejo-runner/config.yaml
+    exec "${pkgs.forgejo-runner}/bin/forgejo-runner" daemon --config "$config"
   '';
   # Where activation links the generation-owned mise config; mise follows
   # the symlink for reads and writes.
@@ -178,16 +177,29 @@ in
     # --rollback, so everything is guarded; the chmod is a hard error (0700 is
     # the acceptance gate, not a nicety).
     if id indri-build >/dev/null 2>&1; then
+      # The daemons' log dir and the runner's working dir + colima profile dir
+      # must exist for launchd to start the jobs. Create them here (the user
+      # exists now); the role only renders the secret files into them.
+      mkdir -p /Users/indri-build/Library/Logs \
+               /Users/indri-build/forgejo-runner \
+               /Users/indri-build/.colima/indri-build &&
+      chown -R indri-build:staff /Users/indri-build/Library/Logs \
+                            /Users/indri-build/forgejo-runner \
+                            /Users/indri-build/.colima
+      # Lock the home to 0700: createhomedir's template is 0755, and a readable
+      # home breaks the acceptance guarantee both ways. Hard error - 0700 is
+      # the gate, not a nicety.
+      chmod 0700 /Users/indri-build || {
+        printf >&2 'error: could not chmod 0700 /Users/indri-build\n'
+        exit 1
+      }
+      # The build user's own mise config (identical [tools] pins, no
+      # [settings.go]); --rollback re-links the previous generation's.
       {
         mkdir -p /Users/indri-build/.config/mise &&
         ln -sfn /etc/static/mise/config-build-user.toml /Users/indri-build/.config/mise/config.toml &&
         chown -h indri-build:staff /Users/indri-build/.config/mise/config.toml
       } || printf >&2 'warning: indri-build mise config: could not link /Users/indri-build/.config/mise/config.toml\n'
-      :
-      chmod 0700 /Users/indri-build || {
-        printf >&2 'error: could not chmod 0700 /Users/indri-build\n'
-        exit 1
-      }
       :
     fi
   '';

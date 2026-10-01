@@ -146,9 +146,11 @@ forgejo_runner_build_labels:
 
 # Runner identity - empty until the human registers the runner (see
 # docs/how-to/forgejo-runner/configure-launchd-runner.md §indri-build runner)
-# and adds the fields to the "Forgejo Secrets" 1Password item. Every render
-# below is gated on the uuid being non-empty, so the role never fails on the
-# pre-registration pass.
+# and adds the fields to the "Forgejo Secrets" 1Password item. The config
+# render is gated on all three being non-empty (uuid, token, PAT), so the
+# role never fails on the pre-registration pass and never renders a config
+# whose MISE_GITHUB_TOKEN would fall back to the forge-injected
+# GITHUB_TOKEN - the hazard the original config's comment warns about.
 forgejo_runner_build_uuid: ""
 forgejo_runner_build_token: ""
 

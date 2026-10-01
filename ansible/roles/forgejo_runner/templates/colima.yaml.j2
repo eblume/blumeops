@@ -5,8 +5,9 @@
 # The explicit mounts list IS the isolation control: only /Users/indri-build
 # is visible inside the VM, so a job step cannot `-v` another user's home.
 # cpu/disk/memory are in GiB. colima v0.10.3 has no zfs option - disks are
-# plain; no vmType pinned (qemu default; it is the macOS 13+ default mount
-# path, see the colima source's mountType handling in yaml.go).
+# plain. vmType defaults to vz on macOS 13+ (colima's DefaultVMType), for
+# which virtiofs is the real mount type; on a VM that defaults to qemu the
+# same config falls back to 9p - both stay inside the mounts list above.
 cpu: 4
 disk: 4
 memory: 4
