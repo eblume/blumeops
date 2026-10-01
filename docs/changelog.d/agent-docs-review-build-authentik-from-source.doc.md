@@ -1,0 +1,1 @@
+Retired the build-authentik-from-source how-to card (reviewer: card duplicated the reference cards). Its unique content moved: the version-update workflow and the `ak` wrapper / `opencontainers` GitHub-fetch details into [[authentik-nix-build-components]], the fetchgit/SRI mirror URLs into [[mirror-authentik-build-deps]], and inbound wikilinks were repointed.

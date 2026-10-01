@@ -1,7 +1,7 @@
 ---
 title: Authentik Nix Build Components
-modified: 2026-03-15
-last-reviewed: 2026-03-15
+modified: 2026-10-01
+last-reviewed: 2026-10-01
 tags:
   - how-to
   - authentik
@@ -10,7 +10,7 @@ tags:
 
 # Authentik Nix Build Components
 
-Detailed reference for the four Nix derivations that make up the authentik from-source build. See [[build-authentik-from-source]] for the parent overview and version update workflow.
+Detailed reference for the Nix derivations that make up the custom authentik from-source build, which replaces the `pkgs.authentik` nixpkgs dependency so releases can be targeted directly instead of waiting on the nixpkgs cycle. `containers/authentik/default.nix` assembles the image from the components below plus an `ak` wrapper script (sets `PATH`/`VIRTUAL_ENV`, delegates to upstream `lifecycle/ak`, which dispatches `server` to the Go binary and everything else to Python/Django).
 
 ## API Client Generation
 
@@ -58,6 +58,7 @@ Nix builds are sandboxed with no network access. The pattern is:
 - PyPI provides: all Python packages (via pre-built `cp314` wheels where available, sdist builds otherwise)
 - The FOD hash must be recomputed when `uv.lock` changes
 - The 4 in-tree packages are installed from monorepo source, not PyPI
+- The one exception to PyPI-sourced deps is `opencontainers` — an upstream `uv` git dependency fetched from GitHub (see [[mirror-authentik-build-deps]])
 - Standard `djangorestframework` 3.16.1 from PyPI (no longer forked as of 2026.2.0)
 
 ### Lessons Learned
@@ -117,6 +118,16 @@ The Go HTTP server binary (`cmd/server`) that serves the web UI, REST API, and s
 - The `vendorHash` must be computed with the vendor replacement hook excluded (`overrideModAttrs`)
 - Outpost binaries (`cmd/ldap`, `cmd/proxy`, `cmd/radius`) are separate and not needed for basic deployment
 
+## Updating to a New Version
+
+1. Update `version` in `sources.nix` and `default.nix`
+2. Update the `src` and `client-go-src` hashes in `sources.nix` (`nix-prefetch-git` on ringtail)
+3. Recompute the `python-deps.nix` FOD hash — changes when `uv.lock` changes
+4. Recompute the `webui-deps.nix` FOD hash — changes when `package-lock.json` or platform-specific npm binaries change
+5. Recompute `vendorHash` in `authentik-server.nix` if Go dependencies changed
+6. Test on ringtail (below)
+7. Build and push the container via CI ([[build-container-image]])
+
 ## Testing on Ringtail
 
 The `test-build.nix` harness in `containers/authentik/` supports individual component builds:
@@ -131,6 +142,6 @@ ssh ringtail "rm -rf $tmpdir"
 
 ## Related
 
-- [[build-authentik-from-source]] — Parent overview and version update workflow
+- [[build-container-image]] — Container build and release pipeline
 - [[mirror-authentik-build-deps]] — Supply chain mirrors for source repos
 - [[authentik]] — Authentik reference
