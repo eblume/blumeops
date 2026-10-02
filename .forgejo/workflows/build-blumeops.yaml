@@ -42,13 +42,12 @@ jobs:
         run: |
           # The runner serves GITHUB_SERVER_URL from the forge's ROOT_URL, and
           # this workflow's runner-side API calls hard-code forge.ops.eblu.me.
-          # Warn-only until the ROOT_URL flip lands (eblume/blumeops#1208):
-          # during the transition the public name is correct for the runner,
-          # and this step's job is to verify the flip afterward. Re-arm as a
-          # hard failure in the flip PR.
+          # The ROOT_URL flip (eblume/blumeops#1208) made the ops name the
+          # canonical one, so a mismatch is a real regression: hard-fail.
           echo "GITHUB_SERVER_URL=${GITHUB_SERVER_URL:-unset}"
           if [ "${GITHUB_SERVER_URL%/}" != "https://forge.ops.eblu.me" ]; then
-            echo "::warning::GITHUB_SERVER_URL is not https://forge.ops.eblu.me — expected before the ROOT_URL flip (eblume/blumeops#1208); this check is warn-only until the flip PR re-arms it."
+            echo "::error::GITHUB_SERVER_URL is not https://forge.ops.eblu.me — the forge's ROOT_URL has drifted from the tailnet name (eblume/blumeops#1208)."
+            exit 1
           fi
 
       - name: Resolve version

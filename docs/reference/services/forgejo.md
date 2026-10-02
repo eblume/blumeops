@@ -18,8 +18,8 @@ Built from source on indri. The LaunchAgent unit is nix-managed ([[indri]] flake
 
 | Property | Value |
 |----------|-------|
-| **URL (public)** | https://forge.eblu.me |
-| **URL (internal)** | https://forge.ops.eblu.me |
+| **URL (primary, `ROOT_URL`)** | https://forge.ops.eblu.me |
+| **URL (public relay, pre-cutover)** | https://forge.eblu.me |
 | **SSH** | `ssh://forgejo@forge.ops.eblu.me:2222` |
 | **Local Ports** | 3001 (HTTP), 2200 (SSH) |
 | **Config** | `ansible/roles/forgejo/templates/app.ini.j2` |
@@ -176,17 +176,21 @@ used by this role anymore. Its remaining consumers:
 
 **Break-glass:** Local password login always works (with local MFA). Authentik SSO is additive — if Authentik is down, log in with local credentials.
 
-## Public Access
+## Access
 
-Forgejo is publicly accessible at `https://forge.eblu.me` via [[flyio-proxy]]. This is the first dynamic, authenticated service exposed publicly.
+The instance's canonical name is `https://forge.ops.eblu.me` (`DOMAIN`/`ROOT_URL`,
+tailnet-reachable). It is also relayed publicly at `https://forge.eblu.me` via
+[[flyio-proxy]] — the first dynamic, authenticated service exposed publicly —
+until the cutover stage of the public/private split (eblume/blumeops#1208)
+swaps that name to the read-only static mirror.
 
 | Access Method | URL | Reachable From |
 |---------------|-----|----------------|
-| **HTTPS (public)** | https://forge.eblu.me | Public internet |
-| **HTTPS (internal)** | https://forge.ops.eblu.me | Tailnet only |
+| **HTTPS (primary)** | https://forge.ops.eblu.me | Tailnet |
+| **HTTPS (public relay)** | https://forge.eblu.me | Public internet (pre-cutover) |
 | **SSH** | `ssh://forgejo@forge.ops.eblu.me:2222` | Tailnet only |
 
-The UI shows `forge.eblu.me` for HTTPS clone URLs and `forge.ops.eblu.me` for SSH clone URLs.
+The UI shows `forge.ops.eblu.me` for both HTTPS and SSH clone URLs.
 
 ### Security Controls
 

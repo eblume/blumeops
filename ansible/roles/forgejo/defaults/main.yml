@@ -56,7 +56,7 @@ forgejo_log_dir: /Users/erichblume/Library/Logs
 # Server settings
 forgejo_http_addr: 0.0.0.0
 forgejo_http_port: 3001
-forgejo_domain: forge.eblu.me
+forgejo_domain: forge.ops.eblu.me
 forgejo_ssh_domain: forge.ops.eblu.me
 forgejo_root_url: "https://{{ forgejo_domain }}/"
 forgejo_offline_mode: true
