@@ -101,14 +101,17 @@ in
   # Write the pre-/nix wrapper (eblume/blumeops#1225) before launchd reloads the user
   # agents (nix-darwin runs userLaunchd activation before postActivation) - a re-pointed
   # agent re-loads in the same switch and would otherwise hit a missing wrapper once.
-  # mv (not a direct write) so a planted symlink cannot redirect the root write; the
-  # heredoc terminator must stay at column 0 (nix strips the indented string to its
-  # least-indented line) - do not re-indent the body.
+  # mktemp picks a name guaranteed absent and the mv protects the final name, so a
+  # planted symlink cannot redirect the root write; the wrapper stays root-owned
+  # (0755) so a user process cannot re-point the agents' argv0. The heredoc
+  # terminator must stay at column 0 (nix strips the indented string to its least-
+  # indented line) - do not re-indent the body.
   system.activationScripts.preActivation.text = lib.mkAfter ''
     if [[ -d ${lib.escapeShellArg config.system.primaryUserHome} ]]; then
       {
         mkdir -p ${lib.escapeShellArg "${config.system.primaryUserHome}/.local/bin"} &&
-        cat > ${lib.escapeShellArg "${nixWait}.tmp"} <<'MCQUACK_NIX_WAIT'
+        tmp=$(mktemp ${lib.escapeShellArg "${nixWait}.XXXXXX"}) &&
+        cat > "$tmp" <<'MCQUACK_NIX_WAIT'
 #!/bin/bash
 # Blocks until the /nix store volume is mounted, then execs "$@" - a stable
 # non-store argv0 so the /nix-backed user agents survive the pre-/nix login
@@ -122,9 +125,8 @@ while [ ! -d /nix/store ]; do
 done
 exec "$@"
 MCQUACK_NIX_WAIT
-        chmod 0755 ${lib.escapeShellArg "${nixWait}.tmp"} &&
-        chown ${config.system.primaryUser}:staff ${lib.escapeShellArg "${nixWait}.tmp"} &&
-        mv -f ${lib.escapeShellArg "${nixWait}.tmp"} ${lib.escapeShellArg nixWait}
+        chmod 0755 "$tmp" &&
+        mv -f "$tmp" ${lib.escapeShellArg nixWait}
       } || printf >&2 'warning: indri nix-wait wrapper: could not install ${lib.escapeShellArg nixWait}\n'
       :
     else
