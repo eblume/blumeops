@@ -446,6 +446,19 @@ a dangling `/etc/static` link:
 - `scutil --dns` shows `ts.net` → 100.100.100.100 before login (the
   resolver is a real file the play writes, not a store symlink).
 
+The same window is a **hard failure** for the seven user agents whose
+`ProgramArguments[0]` was a store path (`sifaka-mounter`, `forgejo-runner`,
+`logrotate` and the four `*-metrics`): `posix_spawn` on a missing store path
+returns `EX_CONFIG` (78), and launchd treats that as a configuration error -
+it does not apply `KeepAlive` or `StartInterval`, so one failed spawn at login
+meant a dead CI runner, no sifaka mounts and no indri-side metrics until a
+manual `launchctl bootout`/`bootstrap` (#1225). Their `ProgramArguments[0]`
+is now `~/.local/bin/mcquack.nix-wait`, a bash script the activation writes
+**before** the user agents reload (so a re-pointed agent re-loading in the
+same switch finds it) that blocks until `/nix/store` exists, then execs the
+store path. Rollback restores the store argv0 via `darwin-rebuild
+--rollback`; the wrapper is inert without a unit pointing at it.
+
 One-time, right after the first apply of that fix (the switch that drops
 the old declarations): `ls -l /etc/resolver/ts.net` is a regular file,
 `ls /etc/ssh/sshd_config.d` shows only Apple's `100-macos.conf`, and
