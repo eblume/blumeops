@@ -1,4 +1,4 @@
-{ config, lib, pkgs, inputs, ... }:
+{ config, lib, pkgs, ... }:
 let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
   # The four *-metrics collectors feeding alloy's node_exporter textfile dir (PR 4 moved them here).
@@ -8,12 +8,12 @@ let
   mcquackZotMetrics = pkgs.writeScript "mcquack-zot-metrics" (builtins.readFile ./mcquack-zot-metrics.sh);
   sifakaMounter = pkgs.writeScript "mount-sifaka" (builtins.readFile ./mount-sifaka.sh);
   # The build runner's colima engine host daemon (eblume/blumeops#1357):
-  # colima with lima and qemu wrapped into its PATH by the colima flake's
-  # packages.default. Not in nixpkgs; pinned as a flake input (see flake.nix).
+  # nixpkgs colima, which wraps lima and qemu into its PATH itself.
   mcquackColimaBuild = pkgs.writeScript "mcquack-colima-build" (builtins.readFile ./mcquack-colima-build.sh);
-  # The colima package the colima-build daemon runs: the colima flake input's
-  # packages.default (colima + lima + qemu, see flake.nix).
-  colimaBuild = inputs.colima.packages."aarch64-darwin".default;
+  # The colima package the colima-build daemon runs. nixpkgs, not upstream's
+  # flake: that flake hard-codes buildGo123Module, which cannot build current
+  # colima releases (go.mod requires go >= 1.25).
+  colimaBuild = pkgs.colima;
   # The runner daemon's waiter: the pinned nix-darwin has no WaitForPaths
   # option, so the wait lives here. It idles until the role renders the runner
   # config (a human registers the runner first, so it is absent until then)
@@ -569,8 +569,8 @@ MCQUACK_NIX_WAIT_SYSTEM
     ExitTimeOut = 300;
     EnvironmentVariables = {
       HOME = "/Users/indri-build";
-      # The colima flake's packages.default wraps colima with its lima and
-      # qemu bin dirs prefixed into PATH itself, so only colima's bin dir
+      # nixpkgs colima wraps itself with its lima and qemu bin dirs
+      # prefixed into PATH, so only colima's bin dir
       # (plus the usual macOS/nix dirs) is needed here.
       PATH = "${colimaBuild}/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin";
     };
@@ -600,7 +600,7 @@ MCQUACK_NIX_WAIT_SYSTEM
     AbandonProcessGroup = true;
     EnvironmentVariables = {
       # mise shims first (job steps resolve tools via indri-build's own mise
-      # config, config-build-user.toml). The colima flake ships no docker
+      # config, config-build-user.toml). nixpkgs colima ships no docker
       # client: jobs get the docker CLI from Homebrew (/opt/homebrew/bin).
       PATH = "/Users/indri-build/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin";
       HOME = "/Users/indri-build";
