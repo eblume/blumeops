@@ -98,31 +98,46 @@ the build user's mise config and the home dir layout are nix-managed; the
 runner config (gated on registration) and the colima profile are
 role-rendered.
 
-0. **One-time host prerequisite**: `brew install docker` on indri. The
-   colima package ships no docker client, so job steps that need docker get
-   the CLI from Homebrew (`/opt/homebrew/bin` is on the runner daemon's
-   PATH, see the flake unit); the socket path is the colima profile's.
-1. Register the runner, exactly like the original (no `--scope`):
+0. **One-time host prerequisites**:
+   - `brew install docker` on indri. The colima package ships no docker
+     client, so job steps that need docker get the CLI from Homebrew
+     (`/opt/homebrew/bin` is on the runner daemon's PATH, see the flake
+     unit); the socket path is the colima profile's. While Docker Desktop
+     is installed, its `/usr/local/bin/docker` comes earlier on that PATH
+     and is the client jobs actually run.
+   - **The first switch that creates the `indri-build` user must run in a
+     graphical session on indri** (console or Screen Sharing):
+     `sudo -H darwin-rebuild switch --flake /etc/blumeops/darwin/indri#indri`.
+     nix-darwin refuses to create users without Full Disk Access: over ssh
+     it aborts, and from the warrant runner it raises a TCC prompt no one
+     can answer. Later switches create no users and work from any path.
+1. Register the runner, exactly like the original (no `--scope`). Generate
+   the secret locally, because it *is* the runner token and you need to
+   keep it:
 
    ```fish
-   ssh indri 'cd ~/code/3rd/forgejo && ./forgejo forgejo-cli actions register \
-     --name indri-build \
-     --secret "$(openssl rand -hex 20)" \
-     --config ~/forgejo/custom/conf/app.ini --work-path ~/forgejo'
+   set -l secret (openssl rand -hex 20)
+   set -l uuid (ssh indri "cd ~/code/3rd/forgejo && ./forgejo forgejo-cli actions register --name indri-build --secret $secret --config ~/forgejo/custom/conf/app.ini --work-path ~/forgejo")
    ```
 
-   This prints the runner UUID; the generated secret is the token.
+   The command prints the runner UUID.
 2. **The UUID + token go STRAIGHT into the "Forgejo Secrets" 1Password
    item** as `runner_indri_build_uuid` / `runner_indri_build_token` -
-   never into any forge issue or PR thread. Create the
-   `indri-build-github-pat` field the same way: a fresh zero-permission
-   public-read GitHub PAT for the build runner's own mise resolution (do
-   not reuse `forge-ci-github-pat`).
-3. Run `mise run provision-indri` locally (full run, no tag restriction) -
-   the playbook `pre_tasks` fetch the fields and the role renders the
-   configs. The warrant `provision-indri` dispatch is `--tags rebuild`
-   only (the nix switch), so it deploys the user and daemons but not the
-   role-rendered config; this step is what activates the runner.
+   never into any forge issue or PR thread:
+
+   ```fish
+   op item edit w3663ffnvkewbftncqxtcpeavy --vault vg6xf6vvfmoh5hqjjhlhbeoaie \
+     "runner_indri_build_uuid[concealed]=$uuid" "runner_indri_build_token[concealed]=$secret" >/dev/null
+   ```
+
+   Job tool resolution uses the shared zero-scope `forge-ci-github-pat`
+   (see [[manage-forgejo-mirrors]]); there is no separate build-runner PAT.
+3. Render the config with `mise run provision-indri -- --tags
+   forgejo_runner`. The playbook `pre_tasks` fetch the fields and the role
+   renders the configs and kickstarts the runner daemon. The warrant
+   `provision-indri` dispatch is `--tags rebuild` only (the nix switch), so
+   it deploys the user and daemons but not the role-rendered config; this
+   step is what activates the runner.
 
 ## Verification
 
