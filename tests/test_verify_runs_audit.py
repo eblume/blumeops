@@ -772,7 +772,7 @@ def test_settled_success_closes_from_record_without_forge_row(monkeypatch):
     wrec = _settled_warrant(
         "success",
         run_number=1754,
-        run_url="https://forge.eblu.me/eblume/blumeops/actions/runs/1754",
+        run_url="https://forge.ops.eblu.me/eblume/blumeops/actions/runs/1754",
     )
     heph_recorder, console_recorder = _run_settled_sweep(
         monkeypatch,
@@ -802,7 +802,7 @@ def test_settled_success_wins_over_contradicting_forge_status(monkeypatch):
     wrec = _settled_warrant(
         "success",
         run_number=1754,
-        run_url="https://forge.eblu.me/eblume/blumeops/actions/runs/1754",
+        run_url="https://forge.ops.eblu.me/eblume/blumeops/actions/runs/1754",
     )
     heph_recorder, _ = _run_settled_sweep(
         monkeypatch,
@@ -825,7 +825,7 @@ def test_settled_run_failure_logs_and_leaves_open(monkeypatch, outcome):
     wrec = _settled_warrant(
         outcome,
         run_number=1754,
-        run_url="https://forge.eblu.me/eblume/blumeops/actions/runs/1754",
+        run_url="https://forge.ops.eblu.me/eblume/blumeops/actions/runs/1754",
     )
     heph_recorder, console_recorder = _run_settled_sweep(monkeypatch, "n103", wrec)
 
@@ -907,7 +907,7 @@ def test_settled_success_with_binding_mismatch_stays_open(monkeypatch):
     wrec = _settled_warrant(
         "success",
         run_number=1754,
-        run_url="https://forge.eblu.me/eblume/blumeops/actions/runs/1754",
+        run_url="https://forge.ops.eblu.me/eblume/blumeops/actions/runs/1754",
         action="deploy-fly.yaml",
         sha=SHA,
         inputs=json.dumps({"revision": MAIN_TIP}),
@@ -934,7 +934,7 @@ def test_settled_branch_dry_run_writes_nothing(monkeypatch):
     wrec = _settled_warrant(
         "success",
         run_number=1754,
-        run_url="https://forge.eblu.me/eblume/blumeops/actions/runs/1754",
+        run_url="https://forge.ops.eblu.me/eblume/blumeops/actions/runs/1754",
     )
     heph_recorder, console_recorder = _run_settled_sweep(
         monkeypatch, "n109", wrec, dry_run=True

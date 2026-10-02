@@ -28,18 +28,13 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 argocd login argocd.tail8d86e.ts.net --username admin
 argocd account update-password
 
-# 6. Apply the repo-creds credential templates for SSH access to all forge repos.
-#    Two entries, one per spelling of the same host: the mirrors/* repos use
-#    forge.ops.eblu.me, while everything tracking eblume/blumeops uses
-#    forge.eblu.me so ArgoCD's push webhook can match it (see
-#    docs/reference/services/argocd.md). ArgoCD picks creds by longest URL
-#    prefix. The forge.eblu.me spelling only resolves in-cluster because of the
-#    CoreDNS rewrite that ships with the node in
-#    nixos/ringtail/configuration.nix — if git fetches fail here with a DNS or
-#    connection-refused error, that manifest did not land.
+# 6. Apply the repo-creds credential template for SSH access to all forge repos —
+#    one entry for the tailnet name forge.ops.eblu.me, covering every forge repo
+#    (see docs/reference/services/argocd.md). ArgoCD picks creds by longest URL
+#    prefix.
 PRIV_KEY=$(op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/csjncynh6htjvnh2l2da65y32q/private key?ssh-format=openssh")$'\n' && \
 HOST_KEY=$(ssh-keyscan -p 2222 forge.ops.eblu.me 2>/dev/null | grep ssh-rsa | cut -d' ' -f2-) && \
-for spelling in ops.eblu.me:forge eblu.me:forge-alias; do
+for spelling in ops.eblu.me:forge; do
   host="forge.${spelling%%:*}"; name="repo-creds-${spelling##*:}"
   kubectl create secret generic "$name" -n argocd \
     --from-literal=type=git \
@@ -100,7 +95,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: ssh://forgejo@forge.eblu.me:2222/eblume/blumeops.git
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
     targetRevision: main
     path: argocd/manifests/my-app
   destination:
@@ -124,9 +119,8 @@ spec:
 | `argocd-cm-patch.yaml` | Server URL, accounts, resource exclusions |
 | `argocd-rbac-cm-patch.yaml` | Role bindings for the Authentik groups and bot accounts |
 | `argocd-resources-patch.yaml` | Resource requests/limits for the ArgoCD components |
-| `argocd-ssh-known-hosts-cm.yaml` | Upstream host keys plus forge's, under both spellings |
-| `external-secret-repo-forge.yaml` | repo-creds for `forge.ops.eblu.me` (the `mirrors/*` repos) |
-| `external-secret-repo-forge-alias.yaml` | repo-creds for `forge.eblu.me` (everything tracking blumeops) |
+| `argocd-ssh-known-hosts-cm.yaml` | Upstream host keys plus forge.ops.eblu.me:2222 |
+| `external-secret-repo-forge.yaml` | repo-creds for all forge repos over the tailnet name |
 | `external-secret-webhook.yaml` | Merges `webhook.gogs.secret` into `argocd-secret` for the push webhook |
 | `README.md` | This file |
 

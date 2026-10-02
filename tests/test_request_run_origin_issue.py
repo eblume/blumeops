@@ -32,7 +32,7 @@ def test_keyword_ref_blumeops(request_run):
 
 def test_issue_url_ref(request_run):
     assert request_run.extract_issue_refs(
-        "see https://forge.eblu.me/eblume/talos/issues/91"
+        "see https://forge.ops.eblu.me/eblume/talos/issues/91"
     ) == [{"repo": "eblume/talos", "number": 91}]
 
 
@@ -54,7 +54,7 @@ def test_digit_run_consumes_whole_number(request_run):
 
 def test_mixed_refs_in_first_match_order(request_run):
     assert request_run.extract_issue_refs(
-        "Part of eblume/talos#91, see https://forge.eblu.me/eblume/blumeops/issues/707, refs #12"
+        "Part of eblume/talos#91, see https://forge.ops.eblu.me/eblume/blumeops/issues/707, refs #12"
     ) == [
         {"repo": "eblume/talos", "number": 91},
         {"repo": "eblume/blumeops", "number": 707},
@@ -140,7 +140,7 @@ def test_resolve_tolerates_missing_or_none_title_and_body(request_run):
             "eblume/talos#40",
         ),
         (
-            {"title": "t", "body": "see https://forge.eblu.me/eblume/cv/issues/7"},
+            {"title": "t", "body": "see https://forge.ops.eblu.me/eblume/cv/issues/7"},
             "eblume/cv#7",
         ),
     ],

@@ -36,7 +36,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: ssh://forgejo@forge.eblu.me:2222/eblume/blumeops.git
+    repoURL: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
     targetRevision: main
     path: argocd/manifests/<service>
   destination:
@@ -52,11 +52,11 @@ spec:
         pod-security.kubernetes.io/audit: restricted
 ```
 
-- **`repoURL` names `forge.eblu.me`, not `forge.ops.eblu.me`.** The Forgejo
-  webhook that triggers syncs matches the payload's `html_url` (the public
-  `forge.eblu.me` host) against each app's `repoURL`; the CoreDNS rewrite in
-  `nixos/ringtail/configuration.nix` makes the name fetch over the tailnet.
-  See the "Why the Applications say `forge.eblu.me`" section of [[argocd]].
+- **`repoURL` names the tailnet host `forge.ops.eblu.me`.** The Forgejo push
+  webhook that triggers syncs matches the payload's `html_url` (derived from
+  the forge's ROOT_URL) host-against each app's `repoURL`; after the ROOT_URL
+  flip (eblume/blumeops#1208) both sides are the ops name. See the "Why the
+  Applications say `forge.ops.eblu.me`" section of [[argocd]].
 - **`automated: {}`, nothing else spelled out.** `automated` is the default
   posture for a workload application — without it the new service becomes a
   fifth manual-sync app with no reason stated for being one. Never write

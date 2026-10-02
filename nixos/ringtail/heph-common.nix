@@ -8,8 +8,8 @@ rec {
   rustChannel = "stable"; # mise-resolved — nixpkgs rustc lags heph's floor
   hubUrl = "http://indri.tail8d86e.ts.net:8787";
   issuer = "https://authentik.ops.eblu.me/application/o/heph/";
-  # HTTPS clone: the build (public repo) needs no SSH key.
-  repoHttps = "https://forge.eblu.me/eblume/hephaestus.git";
+  # HTTPS clone over the tailnet (the spoke builds run on ringtail); the repo is public so it needs no SSH key.
+  repoHttps = "https://forge.ops.eblu.me/eblume/hephaestus.git";
   # Adopted by every spoke so all spokes operate on the same nodes; only the
   # login identity varies. Not a secret (it appears in HLCs).
   ownerId = "01KT4MYCG6Q45N3MJ665V53AMM";
