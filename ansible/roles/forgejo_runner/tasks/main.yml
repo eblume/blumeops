@@ -208,13 +208,11 @@
 # forgejo-runner/configure-launchd-runner.md §indri-build runner), the
 # "Forgejo Secrets" 1Password item carries no runner_indri_build_* fields,
 # so the config render is gated on all three facts being present and a
-# pre-registration pass renders nothing and can never fail. The colima profile is not secret and is rendered
-# unconditionally (idempotent) so the colima daemon has its config as soon
-# as the activation created the profile dir. New tasks carry the
-# `forgejo_build_runner` tag (not `forgejo_runner`) so the existing
-# `--tags rebuild` and `--tags forgejo_runner` paths keep their exact
-# semantics. Home writes run AS indri-build (become_user - the home is
-# attacker-controlled; root would follow a planted symlink); the rollback
+# pre-registration pass renders nothing and can never fail; the colima
+# profile is gated on the uuid alone. New tasks carry the
+# `forgejo_build_runner` tag on top of the role's `forgejo_runner`, so
+# `--tags forgejo_runner` runs them (and the identity pre_tasks they need).
+# Home writes run AS indri-build (see the staging note below); the rollback
 # plist still writes to /Library/LaunchDaemons as root.
 
 - name: Skip build runner config until its 1Password identity exists
@@ -234,18 +232,49 @@
          and forgejo_runner_build_mise_github_token | length > 0)
   tags: [forgejo_build_runner]
 
-- name: Deploy build runner config (contains runner token)
-  # Rendered as indri-build (become_user, not become): the home is
-  # attacker-controlled and a root template write would follow a symlink
-  # planted at ~indri-build/forgejo-runner or config.yaml.
+# Home writes happen AS indri-build, never as root: the home is
+# attacker-controlled, and a root write would follow a symlink planted at
+# ~indri-build/forgejo-runner or config.yaml. Ansible's own become_user
+# cannot do that here: over Tailscale SSH every remote exit code reads 0, so
+# its `setfacl` hand-off of the module file to the unprivileged user
+# "succeeds" on macOS (which has no setfacl) and the macOS `chmod +a`
+# fallback never runs. Instead, root renders into a root-owned staging dir
+# outside the home (safe for root), and a plain `sudo -u indri-build install`
+# copies each file into place with the build user's own permissions.
+
+- name: Create build runner staging dir (root-owned, outside the build home)
+  ansible.builtin.file:
+    path: "{{ forgejo_runner_build_stage_dir }}"
+    state: directory
+    owner: root
+    group: indri-build
+    mode: '0750'
+  become: true
+  when: forgejo_runner_build_uuid | length > 0
+  tags: [forgejo_build_runner]
+
+- name: Stage build runner config (contains runner token)
   ansible.builtin.template:
     src: config-build.yaml.j2
-    dest: "{{ forgejo_runner_build_config_path }}"
-    mode: '0600'
-    owner: indri-build
+    dest: "{{ forgejo_runner_build_stage_dir }}/config.yaml"
+    owner: root
     group: indri-build
-    become: true
-    become_user: indri-build
+    mode: '0640'
+  become: true
+  when:
+    - forgejo_runner_build_uuid | length > 0
+    - forgejo_runner_build_token | length > 0
+    - forgejo_runner_build_mise_github_token | length > 0
+  tags: [forgejo_build_runner]
+
+- name: Install build runner config as indri-build
+  ansible.builtin.shell: >-
+    sudo -n -u indri-build /bin/sh -c
+    'cd / && cmp -s "$1" "$2" || { /usr/bin/install -m 0600 "$1" "$2" && echo installed; }'
+    _ {{ (forgejo_runner_build_stage_dir ~ '/config.yaml') | quote }}
+    {{ forgejo_runner_build_config_path | quote }}
+  register: forgejo_runner_build_config_install
+  changed_when: "'installed' in forgejo_runner_build_config_install.stdout"
   notify: Restart forgejo-runner-build
   when:
     - forgejo_runner_build_uuid | length > 0
@@ -253,21 +282,30 @@
     - forgejo_runner_build_mise_github_token | length > 0
   tags: [forgejo_build_runner]
 
-- name: Deploy build runner colima profile (not secret, gated on registration)
-  # Rendered when the runner is registered (uuid present), not before: keeps
-  # the pre-registration state "nothing build-related is active". The colima
-  # daemon idles on its own wait loop until this file exists, then starts the
-  # VM. Gated on the uuid alone (not the token/PAT) - it carries no secret.
-  # As indri-build for the same reason as the config template above: the
-  # colima profile dir is in the attacker-controlled home.
+# The colima profile is rendered when the runner is registered (uuid
+# present), not before: keeps the pre-registration state "nothing
+# build-related is active". The colima daemon idles on its own wait loop
+# until this file exists, then starts the VM. Gated on the uuid alone (not
+# the token/PAT) - it carries no secret.
+- name: Stage build runner colima profile
   ansible.builtin.template:
     src: colima.yaml.j2
-    dest: "{{ forgejo_runner_build_colima_yaml }}"
-    mode: '0600'
-    owner: indri-build
+    dest: "{{ forgejo_runner_build_stage_dir }}/colima.yaml"
+    owner: root
     group: indri-build
-    become: true
-    become_user: indri-build
+    mode: '0640'
+  become: true
+  when: forgejo_runner_build_uuid | length > 0
+  tags: [forgejo_build_runner]
+
+- name: Install build runner colima profile as indri-build
+  ansible.builtin.shell: >-
+    sudo -n -u indri-build /bin/sh -c
+    'cd / && cmp -s "$1" "$2" || { /usr/bin/install -m 0600 "$1" "$2" && echo installed; }'
+    _ {{ (forgejo_runner_build_stage_dir ~ '/colima.yaml') | quote }}
+    {{ forgejo_runner_build_colima_yaml | quote }}
+  register: forgejo_runner_build_colima_install
+  changed_when: "'installed' in forgejo_runner_build_colima_install.stdout"
   when: forgejo_runner_build_uuid | length > 0
   tags: [forgejo_build_runner]
 
@@ -294,7 +332,7 @@
     mode: '0755'
     owner: root
     group: wheel
-    become: true
+  become: true
   when: forgejo_runner_build_ansible_managed | bool
   tags: [forgejo_build_runner]
 
@@ -303,7 +341,7 @@
     src: forgejo-runner-build.plist.j2
     dest: "{{ forgejo_runner_build_plist }}"
     mode: '0644'
-    become: true
+  become: true
   notify: Restart forgejo-runner-build
   when: forgejo_runner_build_ansible_managed | bool
   tags: [forgejo_build_runner]

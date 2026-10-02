@@ -126,6 +126,9 @@ forgejo_runner_build_ansible_managed: false
 # Daemon home: config + job scratch space for the build runner.
 forgejo_runner_build_home: /Users/indri-build/forgejo-runner
 forgejo_runner_build_config_path: "{{ forgejo_runner_build_home }}/config.yaml"
+# Root-owned staging for the files the role installs into the build home
+# (see the build runner tasks): root renders here, indri-build copies in.
+forgejo_runner_build_stage_dir: /usr/local/etc/forgejo-runner-build
 
 # Shared daemon identity so maintenance agents reference the label and plist
 # path instead of hardcoding them. The flake owns the live plist; this plist
