@@ -1,0 +1,1 @@
+Fix the indri-build runner's config render: root stages the files outside the build home and `sudo -u indri-build install` copies them in, replacing a `become_user` that never applied (misindented) and cannot work over Tailscale SSH.
