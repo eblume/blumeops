@@ -1,0 +1,36 @@
+# {{ ansible_managed }}
+# Reviewed against the runner version the [[indri]] flake's nixpkgs input pins.
+#
+# Second, unprivileged runner (eblume/blumeops#1357): jobs run as the
+# dedicated `indri-build` macOS user (no sudo) and reach containers through
+# the colima VM at ~indri-build/.colima/indri-build/docker.sock. Tool
+# resolution uses indri-build's own mise config (the flake's
+# mise/config-build-user.toml) with its own zero-permission GitHub PAT
+# (indri-build-github-pat) - never the shared forge-ci-github-pat.
+log:
+  level: info
+
+runner:
+  capacity: {{ forgejo_runner_capacity }}
+  timeout: {{ forgejo_runner_timeout }}
+  shutdown_timeout: {{ forgejo_runner_timeout }}
+  # Env vars injected into all jobs
+  envs:
+    TZ: America/Los_Angeles
+{% if forgejo_runner_build_mise_github_token %}
+    # Zero-permission GitHub PAT (public read only) for the build runner's own
+    # mise resolution. Readable by every job this runner builds - nothing with
+    # a scope may ever land here.
+    MISE_GITHUB_TOKEN: {{ forgejo_runner_build_mise_github_token }}
+{% endif %}
+
+server:
+  connections:
+    forgejo:
+      url: {{ forgejo_runner_forge_url }}
+      uuid: {{ forgejo_runner_build_uuid }}
+      token: {{ forgejo_runner_build_token }}
+      labels:
+{% for label in forgejo_runner_build_labels %}
+        - {{ label }}:host
+{% endfor %}

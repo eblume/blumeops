@@ -1,0 +1,21 @@
+# {{ ansible_managed }}
+# Colima profile for the build runner's VM (eblume/blumeops#1357). The profile
+# name is the file's directory (~/.colima/indri-build/), not a key in this
+# file - `colima start --profile indri-build` reads exactly this config.
+# The explicit mounts list is the container boundary: only /Users/indri-build
+# can be mounted into a container, so a job step cannot `-v` another user's
+# home. Host-mode jobs do not enter the VM - their isolation is the 0700
+# homes and the build user's own primary group, not this file.
+# cpu/disk/memory are in GiB. colima v0.10.3 has no zfs option - disks are
+# plain. vmType is pinned to vz (indri is a 2026-era M-series Mac; vz is
+# colima's default there anyway) so the deploy-time acceptance check has an
+# explicit target: `colima status --profile indri-build` must report `vz`.
+# virtiofs is the vz mount type.
+cpu: 4
+disk: 4
+memory: 4
+vmType: vz
+mountType: virtiofs
+mounts:
+  - location: /Users/indri-build
+    writable: true

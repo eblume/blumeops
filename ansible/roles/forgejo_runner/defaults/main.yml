@@ -103,3 +103,68 @@ forgejo_runner_sweep_age_minutes: 240
 # leak under the user home, not the daemon home above; the uv cache is
 # forgejo_runner_uv_cache_dir.
 forgejo_runner_sweep_prek_cache_dir: /Users/erichblume/.cache/prek
+
+# --- Second runner: indri-build (eblume/blumeops#1357) ---
+# An unprivileged forgejo-runner daemon (label `indri-build`) running as the
+# dedicated macOS user `indri-build` (no sudo), with colima as its container
+# engine host (a root VM running as the build user). Identity (uuid/token) is
+# fetched in the playbook pre_tasks ("Forgejo Secrets" →
+# runner_indri_build_uuid / runner_indri_build_token / indri-build-github-pat)
+# and is empty until a human registers the runner - every config render below
+# is gated on `forgejo_runner_build_uuid | length > 0`, so the pre-registration
+# pass renders nothing and the role never fails on it.
+
+# Skipped by default: the nix-darwin generation owns this daemon's
+# /Library/LaunchDaemons plist (like the original runner's LaunchAgent), so a
+# normal provision must not re-deploy or reload it. Flip this to true only
+# for the rollback re-write (darwin-rebuild --rollback first, then
+# `mise run provision-indri -- --tags forgejo_runner,forgejo_build_runner -e
+# forgejo_runner_build_ansible_managed=true`). Same gate semantics as
+# forgejo_runner_ansible_managed above.
+forgejo_runner_build_ansible_managed: false
+
+# Daemon home: config + job scratch space for the build runner.
+forgejo_runner_build_home: /Users/indri-build/forgejo-runner
+forgejo_runner_build_config_path: "{{ forgejo_runner_build_home }}/config.yaml"
+
+# Shared daemon identity so maintenance agents reference the label and plist
+# path instead of hardcoding them. The flake owns the live plist; this plist
+# path is the role-rendered rollback re-write target, same pattern as
+# forgejo_runner_launch_agent_plist for the original runner.
+forgejo_runner_build_label: mcquack.eblume.forgejo-runner-build
+forgejo_runner_build_plist: /Library/LaunchDaemons/mcquack.eblume.forgejo-runner-build.plist
+
+# Rollback re-write binary: staged from the source checkout's build (the
+# role copies it here, the live source copy stays in erichblume's home,
+# which indri-build cannot read once it has its own primary group). Staged
+# in /usr/local/libexec, owned by root: the build user only execs it. The
+# live daemon runs the nixpkgs package via the flake's waiter script.
+forgejo_runner_build_binary: /usr/local/libexec/forgejo-runner-build
+
+# Labels advertised to forge. `indri-build` only: jobs run as the
+# unprivileged build user with docker via colima.
+forgejo_runner_build_labels:
+  - indri-build
+
+# Runner identity - empty until the human registers the runner (see
+# docs/how-to/forgejo-runner/configure-launchd-runner.md §indri-build runner)
+# and adds the fields to the "Forgejo Secrets" 1Password item. The config
+# render is gated on all three being non-empty (uuid, token, PAT), so the
+# role never fails on the pre-registration pass and never renders a config
+# whose MISE_GITHUB_TOKEN would fall back to the forge-injected
+# GITHUB_TOKEN - the hazard the original config's comment warns about.
+forgejo_runner_build_uuid: ""
+forgejo_runner_build_token: ""
+
+# Zero-permission GitHub PAT (public read only) for the BUILD runner's own
+# mise resolution - deliberately its own token (indri-build-github-pat),
+# never the forge-ci-github-pat shared with erichblume's runner. Fetched in
+# the playbook pre_tasks.
+forgejo_runner_build_mise_github_token: ""
+
+# Colima profile: rendered here so the profile exists before the daemon's
+# boot-wait loop lets colima start. The explicit mounts list in
+# colima.yaml.j2 bounds what a container job can mount - it is not an
+# isolation control for host-mode jobs (they never enter the VM).
+forgejo_runner_build_colima_profile_dir: /Users/indri-build/.colima/indri-build
+forgejo_runner_build_colima_yaml: "{{ forgejo_runner_build_colima_profile_dir }}/colima.yaml"

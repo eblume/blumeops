@@ -198,3 +198,133 @@
     path: "{{ forgejo_runner_sweep_script }}"
     state: absent
   when: not forgejo_runner_sweep_enabled
+
+# --- Build runner (indri-build, eblume/blumeops#1357) ---
+# Second, unprivileged forgejo runner (the `indri-build` label): the
+# dedicated macOS user runs the daemon and a colima VM hosts the jobs'
+# docker. The daemon's directory layout (home 0700, Library/Logs,
+# forgejo-runner workdir, colima profile dir) is created by the nix-darwin
+# activation, not here. Until the human registers the runner (docs/how-to/
+# forgejo-runner/configure-launchd-runner.md §indri-build runner), the
+# "Forgejo Secrets" 1Password item carries no runner_indri_build_* /
+# indri-build-github-pat fields, so the config render is gated on all three
+# facts being present and a pre-registration pass renders nothing and can
+# never fail. The colima profile is not secret and is rendered
+# unconditionally (idempotent) so the colima daemon has its config as soon
+# as the activation created the profile dir. New tasks carry the
+# `forgejo_build_runner` tag (not `forgejo_runner`) so the existing
+# `--tags rebuild` and `--tags forgejo_runner` paths keep their exact
+# semantics. Home writes run AS indri-build (become_user - the home is
+# attacker-controlled; root would follow a planted symlink); the rollback
+# plist still writes to /Library/LaunchDaemons as root.
+
+- name: Skip build runner config until its 1Password identity exists
+  ansible.builtin.debug:
+    msg: >-
+      forgejo_runner_build_uuid / forgejo_runner_build_token /
+      forgejo_runner_build_mise_github_token not all set: the build runner
+      is not registered yet. Register it (docs/how-to/forgejo-runner/
+      configure-launchd-runner.md §indri-build runner), add
+      runner_indri_build_uuid / runner_indri_build_token and
+      indri-build-github-pat to the "Forgejo Secrets" 1Password item, then
+      re-run provision-indri.
+  # Any one of the three missing: registration is partial, the config must
+  # not render.
+  when: >-
+    not (forgejo_runner_build_uuid | length > 0
+         and forgejo_runner_build_token | length > 0
+         and forgejo_runner_build_mise_github_token | length > 0)
+  tags: [forgejo_build_runner]
+
+- name: Deploy build runner config (contains runner token)
+  # Rendered as indri-build (become_user, not become): the home is
+  # attacker-controlled and a root template write would follow a symlink
+  # planted at ~indri-build/forgejo-runner or config.yaml.
+  ansible.builtin.template:
+    src: config-build.yaml.j2
+    dest: "{{ forgejo_runner_build_config_path }}"
+    mode: '0600'
+    owner: indri-build
+    group: indri-build
+    become: true
+    become_user: indri-build
+  notify: Restart forgejo-runner-build
+  when:
+    - forgejo_runner_build_uuid | length > 0
+    - forgejo_runner_build_token | length > 0
+    - forgejo_runner_build_mise_github_token | length > 0
+  tags: [forgejo_build_runner]
+
+- name: Deploy build runner colima profile (not secret, gated on registration)
+  # Rendered when the runner is registered (uuid present), not before: keeps
+  # the pre-registration state "nothing build-related is active". The colima
+  # daemon idles on its own wait loop until this file exists, then starts the
+  # VM. Gated on the uuid alone (not the token/PAT) - it carries no secret.
+  # As indri-build for the same reason as the config template above: the
+  # colima profile dir is in the attacker-controlled home.
+  ansible.builtin.template:
+    src: colima.yaml.j2
+    dest: "{{ forgejo_runner_build_colima_yaml }}"
+    mode: '0600'
+    owner: indri-build
+    group: indri-build
+    become: true
+    become_user: indri-build
+  when: forgejo_runner_build_uuid | length > 0
+  tags: [forgejo_build_runner]
+
+# --- Build runner LaunchDaemon (rollback re-write only) ---
+# The nix-darwin generation owns this daemon's live plist; these tasks are
+# the rollback re-write, run with
+# `mise run provision-indri -- --tags forgejo_runner,forgejo_build_runner -e
+# forgejo_runner_build_ansible_managed=true` - exactly like the original
+# runner's gate.
+#
+# Caveat: darwin-rebuild --rollback also unloads mcquack.eblume.colima-build
+# (the generation no longer defines it), and the role does not re-write the
+# colima daemon. A rolled-back indri therefore has a re-written runner with
+# no engine host until colima is re-provisioned.
+
+- name: Stage build runner binary for the rollback re-write
+  # A fresh copy on every re-write: the plist execs the staged path, not
+  # the source checkout (which sits in erichblume's 0750 home, unreadable
+  # to indri-build).
+  ansible.builtin.copy:
+    src: "{{ forgejo_runner_binary }}"
+    dest: "{{ forgejo_runner_build_binary }}"
+    remote_src: true
+    mode: '0755'
+    owner: root
+    group: wheel
+    become: true
+  when: forgejo_runner_build_ansible_managed | bool
+  tags: [forgejo_build_runner]
+
+- name: Deploy build runner LaunchDaemon plist
+  ansible.builtin.template:
+    src: forgejo-runner-build.plist.j2
+    dest: "{{ forgejo_runner_build_plist }}"
+    mode: '0644'
+    become: true
+  notify: Restart forgejo-runner-build
+  when: forgejo_runner_build_ansible_managed | bool
+  tags: [forgejo_build_runner]
+
+- name: Check if build runner LaunchDaemon is loaded
+  ansible.builtin.command: "launchctl print system/{{ forgejo_runner_build_label }}"
+  register: forgejo_runner_build_launchctl_check
+  changed_when: false
+  failed_when: false
+  become: true
+  when: forgejo_runner_build_ansible_managed | bool
+  tags: [forgejo_build_runner]
+
+- name: Load build runner LaunchDaemon if not loaded
+  ansible.builtin.command: "launchctl load -w {{ forgejo_runner_build_plist }}"
+  become: true
+  when:
+    - forgejo_runner_build_ansible_managed | bool
+    - forgejo_runner_build_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false
+  tags: [forgejo_build_runner]

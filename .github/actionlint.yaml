@@ -6,4 +6,5 @@ self-hosted-runner:
     - k8s
     - nix-container-builder
     - indri
+    - indri-build
     - priv

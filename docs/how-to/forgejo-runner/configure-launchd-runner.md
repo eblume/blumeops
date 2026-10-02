@@ -88,6 +88,42 @@ If the role changed Docker Desktop's `daemon.json` (registry mirror),
 it does **not** restart Docker Desktop. Restart Docker Desktop
 manually at a quiet moment; until then the mirror simply isn't active.
 
+## indri-build runner (second, unprivileged)
+
+The second runner (label `indri-build`, eblume/blumeops#1357) is a
+dedicated macOS user (no sudo, home 0700) whose jobs reach containers
+through a colima VM. The user, the system launchd daemons
+(`mcquack.eblume.colima-build` + `mcquack.eblume.forgejo-runner-build`),
+the build user's mise config and the home dir layout are nix-managed; the
+runner config (gated on registration) and the colima profile are
+role-rendered.
+
+0. **One-time host prerequisite**: `brew install docker` on indri. The
+   colima flake ships no docker client, so job steps that need docker get
+   the CLI from Homebrew (`/opt/homebrew/bin` is on the runner daemon's
+   PATH, see the flake unit); the socket path is the colima profile's.
+1. Register the runner, exactly like the original (no `--scope`):
+
+   ```fish
+   ssh indri 'cd ~/code/3rd/forgejo && ./forgejo forgejo-cli actions register \
+     --name indri-build \
+     --secret "$(openssl rand -hex 20)" \
+     --config ~/forgejo/custom/conf/app.ini --work-path ~/forgejo'
+   ```
+
+   This prints the runner UUID; the generated secret is the token.
+2. **The UUID + token go STRAIGHT into the "Forgejo Secrets" 1Password
+   item** as `runner_indri_build_uuid` / `runner_indri_build_token` -
+   never into any forge issue or PR thread. Create the
+   `indri-build-github-pat` field the same way: a fresh zero-permission
+   public-read GitHub PAT for the build runner's own mise resolution (do
+   not reuse `forge-ci-github-pat`).
+3. Run `mise run provision-indri` locally (full run, no tag restriction) -
+   the playbook `pre_tasks` fetch the fields and the role renders the
+   configs. The warrant `provision-indri` dispatch is `--tags rebuild`
+   only (the nix switch), so it deploys the user and daemons but not the
+   role-rendered config; this step is what activates the runner.
+
 ## Verification
 
 - `mise run services-check` — the `forgejo-runner (indri)` launchd

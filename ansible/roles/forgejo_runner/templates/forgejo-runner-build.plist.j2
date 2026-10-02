@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>{{ forgejo_runner_build_label }}</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ forgejo_runner_build_binary }}</string>
+		<string>daemon</string>
+		<string>--config</string>
+		<string>{{ forgejo_runner_build_config_path }}</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>{{ forgejo_runner_build_home }}</string>
+	<key>UserName</key>
+	<string>indri-build</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<!-- 60 s, deliberately: in the system domain launchd honors
+	     ExitTimeOut up to 3h, so a job-timeout value would stall every
+	     switch. AbandonProcessGroup is the key that matters. Rationale:
+	     darwin/indri/configuration.nix. -->
+	<key>ExitTimeOut</key>
+	<integer>60</integer>
+	<key>AbandonProcessGroup</key>
+	<true/>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<!-- mise shims first: job steps use indri-build's own mise config;
+		     the nix default profile last so the indri flake check finds
+		     `nix` without shadowing anything above it. The docker CLI
+		     comes from Homebrew (/opt/homebrew/bin). -->
+		<key>PATH</key>
+		<string>/Users/indri-build/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin</string>
+		<key>HOME</key>
+		<string>/Users/indri-build</string>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>/Users/indri-build/Library/Logs/mcquack.forgejo-runner-build.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/indri-build/Library/Logs/mcquack.forgejo-runner-build.err.log</string>
+</dict>
+</plist>
