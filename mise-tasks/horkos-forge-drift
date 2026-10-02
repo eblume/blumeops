@@ -344,8 +344,9 @@ def main(
             err.print(f"  · {escape(finding)}")
         err.print(
             "\nReconcile grants with `mise run agent-repo-access --dry-run` from gilbert "
-            "(branch protection is fixed in the forge UI). If a change was intended, update "
-            "the `horkos_forge` flags in repos.json in the same PR."
+            "— it also reconciles branch protection from forge/branch-protections.json. If a "
+            "change was intended, update the `horkos_forge` flags in repos.json (or the "
+            "protection file) in the same PR."
         )
         raise typer.Exit(1)
     console.print(f"\n[green]{BOT_USER} is scoped as designed.[/green]")

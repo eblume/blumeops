@@ -13,6 +13,10 @@ load_policy time.
 The same task also reconciles the `horkos-forge` bot's grants (repos.json's
 per-repo `horkos_forge` flag, exempt from PINNED_READ_ONLY), and the forge →
 horkos hook now carries Forgejo's terminal action-run events.
+
+And branch protections against forge/branch-protections.json: whole-rule
+declarations, set-compared lists, read-back after every write, a bot
+whitelist fence at load time, and no protection writes under the CI token.
 """
 
 import importlib.machinery
@@ -52,7 +56,10 @@ def _policy(repos):
 
 @pytest.fixture
 def policy(tmp_path, monkeypatch):
-    """Point POLICY_PATH at a scratch repos.json; return a setter(repos)."""
+    """Point POLICY_PATH at a scratch repos.json; return a setter(repos).
+
+    PROTECTIONS_PATH goes to a scratch file declaring no rules, so tests
+    that are not about branch protection never see the real policy."""
 
     def set_repos(repos):
         path = tmp_path / "repos.json"
@@ -60,6 +67,9 @@ def policy(tmp_path, monkeypatch):
         return path
 
     monkeypatch.setattr(ara, "POLICY_PATH", tmp_path / "repos.json")
+    protections = tmp_path / "branch-protections.json"
+    protections.write_text(json.dumps({"rules": []}), encoding="utf-8")
+    monkeypatch.setattr(ara, "PROTECTIONS_PATH", protections)
     return set_repos
 
 
@@ -89,6 +99,12 @@ class FakeForge:
         # (which never maps action_run_*); POST maps everything.
         self.patch_drops: set[str] = set()
         self.next_hook_id = 100
+        self.actions_off: set[str] = set()  # repos whose Actions unit is disabled
+        # Path suffix -> status served instead of the real answer.
+        self.status_overrides: dict[str, int] = {}
+        self.protections: dict[str, list[dict]] = {}  # repo -> served rules
+        # Fields a protection PATCH silently ignores (a 200 that changes nothing).
+        self.protection_patch_drops: set[str] = set()
 
     # Forgejo stores per-event flags and reads them back as names: the
     # `pull_request` umbrella sets the whole pull_request_* family (API
@@ -135,6 +151,9 @@ class FakeForge:
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append((request.method, str(request.url)))
         path = request.url.path
+        for suffix, status in self.status_overrides.items():
+            if path.endswith(suffix):
+                return httpx.Response(status, json={"message": "overridden"})
         if path == "/api/v1/repos/search":
             return httpx.Response(
                 200,
@@ -225,7 +244,42 @@ class FakeForge:
                     self.hooks[repo].remove(hook)
                     return httpx.Response(204)
                 return httpx.Response(200, json=hook)
+            if not tail:
+                return httpx.Response(
+                    200,
+                    json={"name": repo, "has_actions": repo not in self.actions_off},
+                )
+            if tail == ["branch_protections"]:
+                if request.method == "POST":
+                    rule = json.loads(request.content)
+                    self.protections.setdefault(repo, []).append(rule)
+                    return httpx.Response(201, json=rule)
+                return httpx.Response(200, json=self.protections.get(repo, []))
+            if len(tail) == 2 and tail[0] == "branch_protections":
+                rule = next(
+                    (
+                        r
+                        for r in self.protections.get(repo, [])
+                        if r["rule_name"] == tail[1]
+                    ),
+                    None,
+                )
+                if rule is None:
+                    return httpx.Response(404, json={"message": "no such rule"})
+                if request.method == "PATCH":
+                    body = json.loads(request.content)
+                    rule.update(
+                        {
+                            k: v
+                            for k, v in body.items()
+                            if k not in self.protection_patch_drops
+                        }
+                    )
+                return httpx.Response(200, json=rule)
             if tail == ["actions", "secrets"]:
+                if repo in self.actions_off:
+                    # Forgejo 404s the endpoint when the Actions unit is off.
+                    return httpx.Response(404, json={"message": "not found"})
                 if self.secrets_body is not None:
                     return httpx.Response(200, json=self.secrets_body)
                 names = None if self.secrets is None else self.secrets.get(repo)
@@ -660,3 +714,252 @@ def test_hook_create_reads_back_in_sync(policy, run_main, monkeypatch):
     methods = [m for m, u in forge.requests if "/hooks" in u]
     assert "PATCH" not in methods and "DELETE" not in methods
     assert set(forge.hooks["svc"][0]["events"]) == set(ara.HORKOS_HOOK_READ_EVENTS)
+
+
+def test_write_repo_with_actions_disabled_has_no_secrets(policy, run_main, monkeypatch):
+    policy([_write_repo("svc")])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.actions_off = {"svc"}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "In sync." in out
+
+
+def test_secrets_404_with_actions_enabled_is_blocked(policy, run_main, monkeypatch):
+    policy([_write_repo("svc")])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.status_overrides = {"/actions/secrets": 404}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "Refusing to apply a partial policy" in out
+
+
+# --- branch protections ---------------------------------------------------
+
+
+def _rule(**overrides):
+    """A complete rule declaration for eblume/svc:main."""
+    rule = {
+        "repo": "svc",
+        "rule_name": "main",
+        "enable_push": True,
+        "enable_push_whitelist": True,
+        "push_whitelist_usernames": ["eblume"],
+        "push_whitelist_teams": [],
+        "push_whitelist_deploy_keys": False,
+        "enable_merge_whitelist": True,
+        "merge_whitelist_usernames": ["eblume"],
+        "merge_whitelist_teams": [],
+        "enable_status_check": True,
+        "status_check_contexts": ["Lint / prek (pull_request)", "* (pull_request)"],
+        "required_approvals": 0,
+        "enable_approvals_whitelist": True,
+        "approvals_whitelist_username": ["eblume"],
+        "approvals_whitelist_teams": [],
+        "block_on_rejected_reviews": True,
+        "block_on_official_review_requests": False,
+        "block_on_outdated_branch": True,
+        "dismiss_stale_approvals": True,
+        "ignore_stale_approvals": False,
+        "require_signed_commits": False,
+        "protected_file_patterns": "*",
+        "unprotected_file_patterns": "",
+        "apply_to_admins": True,
+    }
+    rule.update(overrides)
+    return rule
+
+
+def _served(rule):
+    """The rule as the API serves it: no `repo`, plus read-only fields."""
+    served = {k: v for k, v in rule.items() if k != "repo"}
+    served.update(branch_name=rule["rule_name"], created_at="t", updated_at="t")
+    return served
+
+
+@pytest.fixture
+def protected(policy, monkeypatch):
+    """A read repo `svc` (no secrets endpoint involved) whose protections
+    are declared by the returned setter(rules) and served by the forge."""
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "read"}
+    forge.install(monkeypatch)
+
+    def declare(*rules):
+        ara.PROTECTIONS_PATH.write_text(
+            json.dumps({"rules": list(rules)}), encoding="utf-8"
+        )
+
+    return forge, declare
+
+
+def _mutations(forge):
+    return [
+        (m, u) for m, u in forge.requests if m in ("POST", "PATCH", "PUT", "DELETE")
+    ]
+
+
+def test_protection_in_sync_ignores_list_order(protected, run_main):
+    forge, declare = protected
+    declare(_rule())
+    served = _served(_rule())
+    served["status_check_contexts"] = list(reversed(served["status_check_contexts"]))
+    forge.protections = {"svc": [served]}
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "In sync." in out
+
+
+def test_protection_drift_fails_check_naming_field(protected, run_main):
+    forge, declare = protected
+    declare(_rule())
+    forge.protections = {
+        "svc": [_served(_rule(status_check_contexts=["Lint / prek (pull_request)"]))]
+    }
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "update branch protection eblume/svc:main (status_check_contexts)" in out
+    assert not _mutations(forge)
+
+
+def test_protection_update_patches_only_diff_and_reads_back(protected, run_main):
+    forge, declare = protected
+    declare(_rule())
+    forge.protections = {
+        "svc": [_served(_rule(status_check_contexts=["Lint / prek (pull_request)"]))]
+    }
+
+    code, out = run_main(token="t")
+    assert code == 0, out
+    patches = [u for m, u in _mutations(forge) if m == "PATCH"]
+    assert patches == [
+        "https://forge.ops.eblu.me/api/v1/repos/eblume/svc/branch_protections/main"
+    ]
+    assert (
+        forge.protections["svc"][0]["status_check_contexts"]
+        == _rule()["status_check_contexts"]
+    )
+    assert "update branch protection eblume/svc:main" in out
+
+
+def test_protection_missing_rule_is_created(protected, run_main):
+    forge, declare = protected
+    declare(_rule())
+
+    code, out = run_main(token="t")
+    assert code == 0, out
+    assert [m for m, _ in _mutations(forge)] == ["POST"]
+    assert forge.protections["svc"][0]["rule_name"] == "main"
+
+
+def test_protection_patch_that_does_not_stick_fails(protected, run_main):
+    forge, declare = protected
+    declare(_rule())
+    forge.protections = {"svc": [_served(_rule(status_check_contexts=[]))]}
+    forge.protection_patch_drops = {"status_check_contexts"}
+
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "did not converge" in out
+    assert "status_check_contexts" in out
+
+
+def test_protection_refused_under_ci_token(protected, run_main, monkeypatch):
+    forge, declare = protected
+    declare(_rule())
+    forge.protections = {"svc": [_served(_rule(status_check_contexts=[]))]}
+    monkeypatch.setenv("FORGE_REPO_WRITE_TOKEN", "ci")
+
+    code, out = run_main()
+    assert code == 1
+    assert "Refusing 1 branch protection change(s) under the CI token" in out
+    assert not _mutations(forge)
+
+
+def test_protection_ci_token_still_reports_drift(protected, run_main, monkeypatch):
+    forge, declare = protected
+    declare(_rule())
+    forge.protections = {"svc": [_served(_rule(status_check_contexts=[]))]}
+    monkeypatch.setenv("FORGE_REPO_WRITE_TOKEN", "ci")
+
+    code, out = run_main(check=True)
+    assert code == 1
+    assert "update branch protection eblume/svc:main" in out
+
+
+def test_protection_undeclared_live_rule_left_alone(protected, run_main):
+    forge, declare = protected
+    declare(_rule())
+    forge.protections = {
+        "svc": [_served(_rule()), _served(_rule(rule_name="release/*"))]
+    }
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "'release/*' not in" in out
+
+
+@pytest.mark.parametrize("bot", ["agents", "horkos-forge", "Horkos-Forge"])
+@pytest.mark.parametrize(
+    "field",
+    [
+        "push_whitelist_usernames",
+        "merge_whitelist_usernames",
+        "approvals_whitelist_username",
+    ],
+)
+def test_protection_bot_whitelist_refused_at_load(protected, run_main, bot, field):
+    forge, declare = protected
+    declare(_rule(**{field: ["eblume", bot]}))
+
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "BOT_WHITELIST_FENCE" in out
+    assert not forge.requests
+
+
+def test_protection_partial_rule_refused(protected, run_main):
+    _forge, declare = protected
+    rule = _rule()
+    del rule["apply_to_admins"]
+    declare(rule)
+
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "does not declare apply_to_admins" in out
+
+
+def test_protection_unknown_field_refused(protected, run_main):
+    _forge, declare = protected
+    declare(_rule(enable_force_push=True))
+
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "unknown field(s) enable_force_push" in out
+
+
+def test_protection_unreadable_is_blocked(protected, run_main, monkeypatch):
+    forge, declare = protected
+    declare(_rule())
+    forge.status_overrides = {"/branch_protections": 403}
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "Refusing to apply a partial policy" in out
+
+
+def test_real_protection_policy_loads():
+    """The checked-in forge/branch-protections.json passes its own fences."""
+    rules = ara.load_protections(("agents", "horkos-forge"))
+    assert {(r["repo"], r["rule_name"]) for r in rules} >= {("blumeops", "main")}

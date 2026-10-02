@@ -4,6 +4,11 @@
 # revoked. PRs run --check so revocations are visible in review before the
 # merge that applies them.
 #
+# Branch protections (forge/branch-protections.json) are checked here too,
+# but this workflow never applies them: the script refuses protection writes
+# under FORGE_REPO_WRITE_TOKEN, so a protection change fails the push run
+# loudly until a human runs `mise run agent-repo-access` from gilbert.
+#
 # Hook creation and the label half need secrets CI does not carry, so they
 # skip loudly in CI and a human follows up from gilbert with
 # `mise run agent-repo-access`. So does a hook *recreate*: every hook edit
@@ -18,11 +23,13 @@ on:
     branches: [main]
     paths:
       - 'argocd/manifests/talos/repos.json'
+      - 'forge/branch-protections.json'
       - 'mise-tasks/agent-repo-access'
       - '.forgejo/workflows/agent-repo-access.yaml'
   pull_request:
     paths:
       - 'argocd/manifests/talos/repos.json'
+      - 'forge/branch-protections.json'
       - 'mise-tasks/agent-repo-access'
       - '.forgejo/workflows/agent-repo-access.yaml'
   workflow_dispatch:

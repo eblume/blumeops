@@ -82,7 +82,7 @@ The forge has three namespaces:
 
 | Workflow | Trigger | Runner | Purpose |
 |----------|---------|--------|---------|
-| `agent-repo-access` | push/PR/dispatch | `indri` | Reconcile the `agents` bot's collaborations + labels against repos.json |
+| `agent-repo-access` | push/PR/dispatch | `indri` | Reconcile the `agents` bot's collaborations + labels against repos.json; check (never apply) branch protections against `forge/branch-protections.json` |
 | `argocd-deploy` | dispatch | `priv` | Warrant-gated ArgoCD deploy of a single app |
 | `argocd-sync-apps` | dispatch | `priv` | Warrant-gated sync of the app-of-apps root (`apps`) |
 | `branch-cleanup` | cron/dispatch | `indri` | Delete stale branches |
