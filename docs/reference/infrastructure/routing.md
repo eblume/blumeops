@@ -73,7 +73,7 @@ DNS CNAMEs point to `blumeops-proxy.fly.dev`. TLS via Fly.io-managed Let's Encry
 | Landing page | https://eblu.me, https://www.eblu.me | "Under construction" apex splash |
 | [[docs]] | https://docs.eblu.me | Documentation site |
 | [[cv]] | https://cv.eblu.me | CV / resume |
-| [[forgejo]] | https://forge.eblu.me | Git hosting (public) |
+| [[forgejo]] | https://forge.eblu.me | Git hosting (relays the private instance; flips to the read-only public mirror in the cutover, [[flyio-proxy#Static forge mirror]]) |
 | [[immich]] | https://photos.eblu.me | Immich shared albums — shared-link surface only; login/auth/admin/user API 403 at the edge |
 | Shower | https://shower.eblu.me | Archived — serves a 410 Gone tombstone at the fly edge (the event this site was for has taken place) |
 

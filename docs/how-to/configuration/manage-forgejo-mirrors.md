@@ -179,7 +179,7 @@ curl -s -H "Authorization: Bearer $(op read 'op://blumeops/w3663ffnvkewbftncqxtc
 
 Optionally, trigger a manual sync on one mirror to confirm end-to-end:
 
-1. Go to any mirror repo's settings page on forge (e.g., `https://forge.eblu.me/mirrors/cloudnative-pg/settings`)
+1. Go to any mirror repo's settings page on forge (e.g., `https://forge.ops.eblu.me/mirrors/cloudnative-pg/settings`)
 2. In the "Mirror settings" section, click "Synchronize now"
 3. Confirm the sync completes without errors
 

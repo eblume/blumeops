@@ -140,9 +140,7 @@ data:
           name: Forgejo
           slug: forgejo
           provider: !KeyOf forgejo-provider
-          # Pre-flip: Forgejo builds the OAuth redirect_uri from ROOT_URL (still the
-          # public name), so the launch URL moves to ops with the flip PR, not here.
-          meta_launch_url: https://forge.eblu.me
+          meta_launch_url: https://forge.ops.eblu.me
           policy_engine_mode: any
 
       # Policy binding — restrict Forgejo to admins group

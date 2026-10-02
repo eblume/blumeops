@@ -186,7 +186,7 @@ the ACL grants it **exactly** what an authoring agent needs and nothing else:
 | Forge push (git SSH via Caddy L4) | `forge.ops.eblu.me:2222` → indri | `tag:agent → tag:homelab tcp:2222` |
 | Forge / `tea` PRs (HTTPS via Caddy) | `forge.ops.eblu.me:443` → indri | `tag:agent → tag:homelab tcp:443` |
 | heph spoke sync | `indri:8787` (HTTP) | `tag:agent → tag:homelab tcp:8787` |
-| Claude relay, 1Password, `forge.eblu.me` | public internet | NetworkPolicy egress, not tailnet |
+| Claude relay, 1Password | public internet | NetworkPolicy egress, not tailnet |
 
 Everything else is default-deny: **no `tag:agent` SSH rule at all** (Tailscale
 SSH to any host is refused), no `:22`, no k8s API, no NAS, no registry, no other
