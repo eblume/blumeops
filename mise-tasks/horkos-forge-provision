@@ -56,7 +56,7 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 
-# Tailnet name — the public forge.eblu.me is HTTPS-poison in-cluster
+# Tailnet name — the public forge.eblu.me has no in-cluster HTTPS route
 # (docs/reference/services/argocd.md). $FORGE_API overrides for tests/stubs.
 FORGE_API = os.environ.get("FORGE_API", "https://forge.ops.eblu.me/api/v1")
 BOT_USER = "horkos-forge"

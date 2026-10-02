@@ -79,7 +79,7 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 
-# Tailnet name — the public forge.eblu.me is HTTPS-poison in-cluster
+# Tailnet name — the public forge.eblu.me has no in-cluster HTTPS route
 # (docs/reference/services/argocd.md).
 FORGE_API_BASE = "https://forge.ops.eblu.me/api/v1"
 REPO = "eblume/blumeops"
@@ -543,7 +543,7 @@ def sweep_tasks(
             # runs that never settle.
             run_number = wrec.get("run_number")
             run_url = wrec.get("run_url") or (
-                f"https://forge.eblu.me/{REPO}/actions/runs/{run_number}"
+                f"https://forge.ops.eblu.me/{REPO}/actions/runs/{run_number}"
                 if run_number else None
             )
             where = f"run {run_number}" if run_number else "no run"
@@ -688,7 +688,7 @@ def sweep_tasks(
             console.print(f"[yellow]pending[/yellow]  {escape(label)} — not dispatched yet")
             pending += 1
             continue
-        url = f"https://forge.eblu.me/{REPO}/actions/runs/{run['run_number']}"
+        url = f"https://forge.ops.eblu.me/{REPO}/actions/runs/{run['run_number']}"
         status = run.get("status")
 
         # A run that built the wrong commit must never close its approval,

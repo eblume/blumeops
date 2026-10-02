@@ -239,7 +239,7 @@ jobs:
               issue_resp="$(curl -s -m 60 -X POST -H "Authorization: token $GITHUB_TOKEN" \
                 -H "Content-Type: application/json" \
                 -d "$data" \
-                "https://forge.eblu.me/api/v1/repos/eblume/blumeops/issues")"
+                "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/issues")"
               if [ "$(printf '%s' "$issue_resp" | jq -r '.id // empty' 2>/dev/null)" = "" ]; then
                 echo "exception issue creation failed: $issue_resp" >&2
               fi
@@ -269,7 +269,7 @@ jobs:
           export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $git_auth"
           date_u="$(date -u +%F)"
           branch="auto-update/ringtail-flake-${date_u}"
-          api="https://forge.eblu.me/api/v1/repos/eblume/blumeops"
+          api="https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops"
 
           push_force=0
           if git ls-remote --heads origin "$branch" | grep -q .; then
@@ -336,7 +336,7 @@ jobs:
           set -eo pipefail
           date_u="$(date -u +%F)"
           branch="auto-update/ringtail-flake-${date_u}"
-          api="https://forge.eblu.me/api/v1/repos/eblume/blumeops"
+          api="https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops"
           head_sha="${{ steps.pr.outputs.head_sha }}"
           pr_num="${{ steps.pr.outputs.pr_number }}"
           verdict="${{ steps.verdict.outputs.verdict }}"
@@ -360,7 +360,7 @@ jobs:
             issue_body="$(bash nixos/ringtail/flake-update-verify issue \
               --result flake-update/verdict.json \
               --branch "$branch" --head-sha "$head_sha" \
-              --pr-url "https://forge.eblu.me/eblume/blumeops/pulls/$pr_num" \
+              --pr-url "https://forge.ops.eblu.me/eblume/blumeops/pulls/$pr_num" \
               --run-date "$date_u")"
             resp="$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
               -H "Content-Type: application/json" \
@@ -398,7 +398,7 @@ jobs:
           data="$(jq -cn --arg d "$date_u" '{title: ("Ringtail flake update " + $d + ": update/build job failed - no PR opened"), body: ("The zero-credential `update-and-build` job of the scheduled `Ringtail Flake Update` run of " + $d + " failed, so no lockfile was verified and no PR was opened. Inspect the `Ringtail Flake Update` run in Forgejo Actions (nix-container-builder); failing candidates are the flake update, the head recording, the toplevel build, the check battery and the artifact upload. Part of eblume/blumeops#1318")}')"
           resp="$(curl -s -m 60 -X POST -H "Authorization: token $GITHUB_TOKEN" \
             -H "Content-Type: application/json" -d "$data" \
-            "https://forge.eblu.me/api/v1/repos/eblume/blumeops/issues")"
+            "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/issues")"
           if [ "$(printf '%s' "$resp" | jq -r '.id // empty' 2>/dev/null)" = "" ]; then
             echo "exception issue creation failed: $resp" >&2
             exit 1

@@ -3,13 +3,13 @@
 # via gethomepage.dev/* Ingress annotations — do not duplicate those here.
 - Host Services:
     - Forgejo:
-        href: https://forge.eblu.me
+        href: https://forge.ops.eblu.me
         icon: forgejo
         description: Git forge
         widget:
-          # href is for the human's browser; this one the pod fetches itself,
-          # so it must be the tailnet name — forge.eblu.me resolves in-cluster
-          # to Caddy, which serves no cert for it (see horkos/deployment.yaml).
+          # The pod fetches this itself, so it must be the tailnet name —
+          # indri's Caddy serves no cert for the public name (see
+          # horkos/deployment.yaml).
           type: gitea
           url: https://forge.ops.eblu.me
           key: "{{HOMEPAGE_VAR_FORGEJO_API_KEY}}"

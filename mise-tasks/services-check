@@ -179,7 +179,7 @@ check_alert "Transmission" "ServiceProbeFailure" "service" "transmission"
 
 echo ""
 echo "Indri & public HTTP endpoints (direct probe — not in the ringtail cluster):"
-check_http "Forgejo" "https://forge.eblu.me/"
+check_http "Forge (ops)" "https://forge.ops.eblu.me/"
 check_http "Zot Registry" "https://registry.ops.eblu.me/v2/_catalog"
 check_http "Devpi" "https://pypi.ops.eblu.me/"
 check_http "CV" "https://cv.ops.eblu.me/"

@@ -33,9 +33,9 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 
-FORGE_URL = "https://forge.eblu.me"  # human-facing links + runner-side URLs
-# Tailnet name for API calls — the public forge.eblu.me is HTTPS-poison
-# in-cluster (docs/reference/services/argocd.md).
+FORGE_URL = "https://forge.ops.eblu.me"  # links + runner-side git remotes (tailnet name — see eblume/blumeops#1208)
+# Tailnet name for API calls — the public forge.eblu.me has no in-cluster
+# HTTPS route (docs/reference/services/argocd.md).
 FORGE_API = "https://forge.ops.eblu.me/api/v1"
 FORGE_SSH = "ssh://forgejo@forge.ops.eblu.me:2222"
 MIRROR_ORG = "mirrors"
@@ -156,7 +156,7 @@ def mirror_sync_workflow(main_branch: str, repo_name: str) -> str:
               - name: Configure git
                 run: |
                   git config user.name "Forgejo Actions"
-                  git config user.email "actions@forge.eblu.me"
+                  git config user.email "actions@forge.ops.eblu.me"
 
               - name: Add mirror remote
                 run: |

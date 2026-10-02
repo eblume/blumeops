@@ -1,21 +1,21 @@
 # Nix-built kube-state-metrics
-# Builds v2.19.1 from forge mirror
+# Builds v2.20.0 from forge mirror
 # Built with dockerTools.buildLayeredImage for efficient layer caching
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "2.19.1";
+  version = "2.20.0";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/kube-state-metrics.git";
     rev = "v${version}";
-    hash = "sha256-PZC3ZiVnChy7IdibZKB3IRv8+1AfmvAWY7RquwTcS1Y=";
+    hash = "sha256-tgPbb7N/ZrIJqJF50kpJ5VOADSHnJ7dprxvL+J81Tjk=";
   };
 
   kube-state-metrics = pkgs.buildGoModule {
     inherit src version;
     pname = "kube-state-metrics";
-    vendorHash = "sha256-vmmXEDzkv+ZQaKJ6++HpPHj2M9gaquonNjXG2DOlxwI=";
+    vendorHash = "sha256-RuX/E/kfVLP+8hk0ixhAZQQuj2+ZXNpquyNNduB8CAA=";
 
     doCheck = false;
 

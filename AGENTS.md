@@ -224,11 +224,16 @@ mise run indri-flake-check                  # pre-apply build, on indri
 
 Check tailscale serve: `ssh indri 'tailscale serve status --json'`
 
-**Forge over HTTPS: always `forge.ops.eblu.me` for API calls.** Inside the
-cluster, DNS rewrites `forge.eblu.me` to indri (for ArgoCD's `ssh://…:2222`
-fetches), and indri's Caddy holds no cert for that name — HTTPS to the public
-name dies in the TLS handshake from any pod. Keep `forge.eblu.me` only for
-human-facing links. See [[argocd#Why the Applications say forge.eblu.me]].
+**Forge: use `forge.ops.eblu.me` for all programmatic access.** The private
+forge's public/private split ([eblume/blumeops#1208](https://forge.eblu.me/eblume/blumeops/issues/1208))
+is moving its `ROOT_URL` from the public name to `forge.ops.eblu.me`;
+`forge.eblu.me` will then serve only the static read-only public mirror
+(code + tags, no API — non-git paths 302 to the private instance).
+In-cluster HTTPS to the public name never worked once the CoreDNS alias
+existed (indri's Caddy holds no cert for it) and dies outright after the
+alias is retired. Use `forge.eblu.me` URLs only for the exposed repos'
+public clone/browse and human-facing links. See
+[[argocd#Why the Applications say forge.ops.eblu.me]].
 
 ## Container Releases
 

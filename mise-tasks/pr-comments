@@ -38,10 +38,9 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 
-# Tailnet name, as request-run and verify-runs use: in-cluster DNS rewrites
-# forge.eblu.me to indri, whose Caddy holds no cert for that name, so HTTPS
-# to the public name dies in the TLS handshake from a pod
-# (docs/reference/services/argocd.md).
+# Tailnet name, as request-run and verify-runs use: indri's Caddy holds no
+# cert for the public forge.eblu.me, so HTTPS to it dies in the TLS
+# handshake from any in-cluster client (docs/reference/services/argocd.md).
 FORGE_API_BASE = "https://forge.ops.eblu.me/api/v1"
 DEFAULT_REPO = "eblume/blumeops"
 PAGE_SIZE = 50

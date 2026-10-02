@@ -32,8 +32,8 @@ services:
 
   - name: kube-state-metrics
     type: argocd
-    last-reviewed: 2026-06-15
-    current-version: "v2.19.1"
+    last-reviewed: 2026-10-01
+    current-version: "v2.20.0"
     upstream-source: https://github.com/kubernetes/kube-state-metrics/releases
 
 
@@ -48,7 +48,7 @@ services:
     release: self
     last-reviewed: 2026-08-20
     current-version: "v0.5.34"
-    upstream-source: https://forge.eblu.me/eblume/horkos
+    upstream-source: https://forge.ops.eblu.me/eblume/horkos
     notes: >-
       First-party approval broker ([[warrant-approval-gated-runs]]), né
       Warrant — extracted to its own repo and renamed 2026-08. Version is
@@ -365,7 +365,7 @@ services:
     release: self
     last-reviewed: 2026-09-08
     current-version: "v1.0.4"
-    upstream-source: https://forge.eblu.me/eblume/cv
+    upstream-source: https://forge.ops.eblu.me/eblume/cv
     notes: >-
       Tarball published as the OCI artifact registry.ops.eblu.me/blumeops/cv:<version>
       by the horkos release publisher (eblume/horkos#17); the pin PR that
@@ -379,7 +379,7 @@ services:
     release: self
     last-reviewed: 2026-09-01
     current-version: "v1.20.1"
-    upstream-source: https://forge.eblu.me/eblume/blumeops/releases
+    upstream-source: https://forge.ops.eblu.me/eblume/blumeops/releases
     notes: >-
       Quartz-built tarball downloaded by ansible/roles/docs into ~/blumeops/docs/content
       on indri; served directly by Caddy (kind=static, try_html). current-version
@@ -441,7 +441,7 @@ services:
     release: self
     last-reviewed: "2026-08-30"
     current-version: "v0.4.173"
-    upstream-source: https://forge.eblu.me/eblume/talos
+    upstream-source: https://forge.ops.eblu.me/eblume/talos
     notes: >-
       First-party agent workflow service ([[talos-design]]): pi runtime +
       Bun server, OpenRouter models, Authentik OIDC, sidecar-identity pod.
@@ -548,7 +548,7 @@ services:
     release: self
     last-reviewed: 2026-09-20
     current-version: "v1.10.5"
-    upstream-source: https://forge.eblu.me/eblume/hephaestus/releases
+    upstream-source: https://forge.ops.eblu.me/eblume/hephaestus/releases
     notes: >-
       hephaestus task/context sync hub on indri (server-mode launchagent,
       ansible/roles/heph; cargo-built from the forge). Pinned, no
@@ -564,7 +564,7 @@ services:
     release: self
     last-reviewed: 2026-07-09
     current-version: "v1.10.5"
-    upstream-source: https://forge.eblu.me/eblume/hephaestus/releases
+    upstream-source: https://forge.ops.eblu.me/eblume/hephaestus/releases
     notes: >-
       hephd spoke for the ringtail agent workspaces (nixos/ringtail/
       agent-workspaces.nix, `hephTag`). Unlike the indri hub, this is
@@ -580,7 +580,7 @@ services:
     release: self
     last-reviewed: 2026-07-30
     current-version: "v1.10.5"
-    upstream-source: https://forge.eblu.me/eblume/hephaestus/releases
+    upstream-source: https://forge.ops.eblu.me/eblume/hephaestus/releases
     notes: >-
       2026-07-30: Erich's own desktop spoke on ringtail — hephd plus the three
       user-facing surfaces (`heph`, `heph-tui`, `heph-quickadd`), installed by
