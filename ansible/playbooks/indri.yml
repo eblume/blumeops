@@ -236,12 +236,14 @@
     # step ([[configure-launchd-runner]] §indri-build runner): until then the
     # "Forgejo Secrets" item carries no runner_indri_build_* fields, so the
     # fetch is failure-tolerant and the facts below default to "" - which
-    # gates every render in the role. One `op item get` for all three fields;
+    # gates every render in the role. One `op item get` for both fields;
     # the `|| echo '[]'` keeps stdout valid JSON (ansible's from_json filter
-    # would raise on the empty stdout of a failed op call).
+    # would raise on the empty stdout of a failed op call). The item is named
+    # by id + --vault: `op item get` rejects an op:// reference, and the
+    # tolerance above would hide that as "not registered yet".
     - name: Fetch forgejo build runner identity
       ansible.builtin.shell:
-        cmd: op item get "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy" --format json --fields label=runner_indri_build_uuid,label=runner_indri_build_token,label=indri-build-github-pat 2>/dev/null || echo '[]'
+        cmd: op item get w3663ffnvkewbftncqxtcpeavy --vault vg6xf6vvfmoh5hqjjhlhbeoaie --format json --fields label=runner_indri_build_uuid,label=runner_indri_build_token 2>/dev/null || echo '[]'
       delegate_to: localhost
       register: _forgejo_build_runner_identity
       changed_when: false
@@ -260,10 +262,9 @@
           {{ (_forgejo_build_runner_identity.stdout | default('[]') | from_json
              | selectattr('label', 'equalto', 'runner_indri_build_token')
              | map(attribute='value') | list | first) | default('') }}
-        forgejo_runner_build_mise_github_token: >-
-          {{ (_forgejo_build_runner_identity.stdout | default('[]') | from_json
-             | selectattr('label', 'equalto', 'indri-build-github-pat')
-             | map(attribute='value') | list | first) | default('') }}
+        # The same zero-scope forge-ci-github-pat as the main runner: it can
+        # only read public GitHub, and one token is one rotation.
+        forgejo_runner_build_mise_github_token: "{{ _forge_ci_github_pat.stdout }}"
       no_log: true
       tags: [forgejo_runner]
 

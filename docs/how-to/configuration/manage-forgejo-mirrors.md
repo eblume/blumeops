@@ -31,16 +31,19 @@ The GitHub PAT is stored in 1Password:
 
 The name is `forge-ci-` rather than `mirror-` because mirroring is one consumer
 of it, not the only one: it is indri's general-purpose credential for reading
-public GitHub. CI tool resolution is the other consumer — the runner injects it
-into every job as `MISE_GITHUB_TOKEN` (see [[forgejo-runner]]), so it is
-readable by CI jobs. What the token *is* stays narrow — a PAT with **no
+public GitHub. CI tool resolution is the other consumer — both indri runners
+(`indri` and the unprivileged `indri-build`) inject it into every job as
+`MISE_GITHUB_TOKEN` (see [[forgejo-runner]]), so it is readable by CI jobs,
+including unreviewed builds in agent-writable repos. That is acceptable only
+because the token can do nothing; one shared token is also one rotation. What the token *is* stays narrow — a PAT with **no
 permissions** (a zero-scope classic token), which grants read-only
 access to public repositories and nothing else. Keep it that way. Anything
 needing a scope needs its own token.
 
 Rotation reaches the two consumers differently: `mise run mirror-update-pats`
 re-bakes the mirrors immediately, but the runner env only picks up the new
-value at the next `provision-indri`.
+value at the next `provision-indri -- --tags forgejo_runner` (which
+re-renders both runner configs).
 
 ### Sync Interval
 

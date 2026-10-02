@@ -1,0 +1,1 @@
+Fix the indri playbook's build-runner identity fetch (`op item get` rejects an `op://` reference, so the build runner config never rendered), and have the build runner reuse the zero-scope `forge-ci-github-pat` instead of a second PAT.

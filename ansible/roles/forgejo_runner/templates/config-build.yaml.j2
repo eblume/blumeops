@@ -5,8 +5,8 @@
 # dedicated `indri-build` macOS user (no sudo) and reach containers through
 # the colima VM at ~indri-build/.colima/indri-build/docker.sock. Tool
 # resolution uses indri-build's own mise config (the flake's
-# mise/config-build-user.toml) with its own zero-permission GitHub PAT
-# (indri-build-github-pat) - never the shared forge-ci-github-pat.
+# mise/config-build-user.toml) with the shared zero-permission
+# forge-ci-github-pat.
 log:
   level: info
 

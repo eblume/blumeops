@@ -206,10 +206,9 @@
 # forgejo-runner workdir, colima profile dir) is created by the nix-darwin
 # activation, not here. Until the human registers the runner (docs/how-to/
 # forgejo-runner/configure-launchd-runner.md §indri-build runner), the
-# "Forgejo Secrets" 1Password item carries no runner_indri_build_* /
-# indri-build-github-pat fields, so the config render is gated on all three
-# facts being present and a pre-registration pass renders nothing and can
-# never fail. The colima profile is not secret and is rendered
+# "Forgejo Secrets" 1Password item carries no runner_indri_build_* fields,
+# so the config render is gated on all three facts being present and a
+# pre-registration pass renders nothing and can never fail. The colima profile is not secret and is rendered
 # unconditionally (idempotent) so the colima daemon has its config as soon
 # as the activation created the profile dir. New tasks carry the
 # `forgejo_build_runner` tag (not `forgejo_runner`) so the existing
@@ -225,9 +224,8 @@
       forgejo_runner_build_mise_github_token not all set: the build runner
       is not registered yet. Register it (docs/how-to/forgejo-runner/
       configure-launchd-runner.md §indri-build runner), add
-      runner_indri_build_uuid / runner_indri_build_token and
-      indri-build-github-pat to the "Forgejo Secrets" 1Password item, then
-      re-run provision-indri.
+      runner_indri_build_uuid / runner_indri_build_token to the
+      "Forgejo Secrets" 1Password item, then re-run provision-indri.
   # Any one of the three missing: registration is partial, the config must
   # not render.
   when: >-

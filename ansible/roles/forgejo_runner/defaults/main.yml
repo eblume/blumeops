@@ -109,7 +109,7 @@ forgejo_runner_sweep_prek_cache_dir: /Users/erichblume/.cache/prek
 # dedicated macOS user `indri-build` (no sudo), with colima as its container
 # engine host (a root VM running as the build user). Identity (uuid/token) is
 # fetched in the playbook pre_tasks ("Forgejo Secrets" →
-# runner_indri_build_uuid / runner_indri_build_token / indri-build-github-pat)
+# runner_indri_build_uuid / runner_indri_build_token)
 # and is empty until a human registers the runner - every config render below
 # is gated on `forgejo_runner_build_uuid | length > 0`, so the pre-registration
 # pass renders nothing and the role never fails on it.
@@ -156,10 +156,11 @@ forgejo_runner_build_labels:
 forgejo_runner_build_uuid: ""
 forgejo_runner_build_token: ""
 
-# Zero-permission GitHub PAT (public read only) for the BUILD runner's own
-# mise resolution - deliberately its own token (indri-build-github-pat),
-# never the forge-ci-github-pat shared with erichblume's runner. Fetched in
-# the playbook pre_tasks.
+# Zero-permission GitHub PAT (public read only) for the BUILD runner's mise
+# resolution: the shared forge-ci-github-pat, the same token erichblume's
+# runner and the forge mirrors use. A separate token would only buy a
+# narrower revocation for a token that can do nothing, at the price of a
+# second manual rotation. Fetched in the playbook pre_tasks.
 forgejo_runner_build_mise_github_token: ""
 
 # Colima profile: rendered here so the profile exists before the daemon's
