@@ -134,10 +134,12 @@ forgejo_runner_build_config_path: "{{ forgejo_runner_build_home }}/config.yaml"
 forgejo_runner_build_label: mcquack.eblume.forgejo-runner-build
 forgejo_runner_build_plist: /Library/LaunchDaemons/mcquack.eblume.forgejo-runner-build.plist
 
-# Rollback re-write binary: the source checkout's build, like the original
-# runner's re-write (the role verifies it exists). The live daemon runs the
-# nixpkgs package via the flake's waiter script.
-forgejo_runner_build_binary: "{{ forgejo_runner_binary }}"
+# Rollback re-write binary: staged from the source checkout's build (the
+# role copies it here, the live source copy stays in erichblume's home,
+# which indri-build cannot read once it has its own primary group). Staged
+# in /usr/local/libexec, owned by root: the build user only execs it. The
+# live daemon runs the nixpkgs package via the flake's waiter script.
+forgejo_runner_build_binary: /usr/local/libexec/forgejo-runner-build
 
 # Labels advertised to forge. `indri-build` only: jobs run as the
 # unprivileged build user with docker via colima.
@@ -161,7 +163,8 @@ forgejo_runner_build_token: ""
 forgejo_runner_build_mise_github_token: ""
 
 # Colima profile: rendered here so the profile exists before the daemon's
-# WaitForPaths emulation lets colima start. The explicit mounts list in
-# colima.yaml.j2 is the isolation control.
+# boot-wait loop lets colima start. The explicit mounts list in
+# colima.yaml.j2 bounds what a container job can mount - it is not an
+# isolation control for host-mode jobs (they never enter the VM).
 forgejo_runner_build_colima_profile_dir: /Users/indri-build/.colima/indri-build
 forgejo_runner_build_colima_yaml: "{{ forgejo_runner_build_colima_profile_dir }}/colima.yaml"

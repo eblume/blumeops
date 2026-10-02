@@ -214,9 +214,9 @@
 # as the activation created the profile dir. New tasks carry the
 # `forgejo_build_runner` tag (not `forgejo_runner`) so the existing
 # `--tags rebuild` and `--tags forgejo_runner` paths keep their exact
-# semantics. The daemon home and /Library/LaunchDaemons are outside
-# erichblume's reach, so every write below escalates (erichblume's NOPASSWD
-# sudo, as in the indri play's rebuild tasks).
+# semantics. Home writes run AS indri-build (become_user - the home is
+# attacker-controlled; root would follow a planted symlink); the rollback
+# plist still writes to /Library/LaunchDaemons as root.
 
 - name: Skip build runner config until its 1Password identity exists
   ansible.builtin.debug:
@@ -228,20 +228,26 @@
       runner_indri_build_uuid / runner_indri_build_token and
       indri-build-github-pat to the "Forgejo Secrets" 1Password item, then
       re-run provision-indri.
-  when:
-    - forgejo_runner_build_uuid | length == 0
-    - forgejo_runner_build_token | length == 0
-    - forgejo_runner_build_mise_github_token | length == 0
+  # Any one of the three missing: registration is partial, the config must
+  # not render.
+  when: >-
+    not (forgejo_runner_build_uuid | length > 0
+         and forgejo_runner_build_token | length > 0
+         and forgejo_runner_build_mise_github_token | length > 0)
   tags: [forgejo_build_runner]
 
 - name: Deploy build runner config (contains runner token)
+  # Rendered as indri-build (become_user, not become): the home is
+  # attacker-controlled and a root template write would follow a symlink
+  # planted at ~indri-build/forgejo-runner or config.yaml.
   ansible.builtin.template:
     src: config-build.yaml.j2
     dest: "{{ forgejo_runner_build_config_path }}"
     mode: '0600'
     owner: indri-build
-    group: staff
+    group: indri-build
     become: true
+    become_user: indri-build
   notify: Restart forgejo-runner-build
   when:
     - forgejo_runner_build_uuid | length > 0
@@ -254,13 +260,16 @@
   # the pre-registration state "nothing build-related is active". The colima
   # daemon idles on its own wait loop until this file exists, then starts the
   # VM. Gated on the uuid alone (not the token/PAT) - it carries no secret.
+  # As indri-build for the same reason as the config template above: the
+  # colima profile dir is in the attacker-controlled home.
   ansible.builtin.template:
     src: colima.yaml.j2
     dest: "{{ forgejo_runner_build_colima_yaml }}"
     mode: '0600'
     owner: indri-build
-    group: staff
+    group: indri-build
     become: true
+    become_user: indri-build
   when: forgejo_runner_build_uuid | length > 0
   tags: [forgejo_build_runner]
 
@@ -275,6 +284,21 @@
 # (the generation no longer defines it), and the role does not re-write the
 # colima daemon. A rolled-back indri therefore has a re-written runner with
 # no engine host until colima is re-provisioned.
+
+- name: Stage build runner binary for the rollback re-write
+  # A fresh copy on every re-write: the plist execs the staged path, not
+  # the source checkout (which sits in erichblume's 0750 home, unreadable
+  # to indri-build).
+  ansible.builtin.copy:
+    src: "{{ forgejo_runner_binary }}"
+    dest: "{{ forgejo_runner_build_binary }}"
+    remote_src: true
+    mode: '0755'
+    owner: root
+    group: wheel
+    become: true
+  when: forgejo_runner_build_ansible_managed | bool
+  tags: [forgejo_build_runner]
 
 - name: Deploy build runner LaunchDaemon plist
   ansible.builtin.template:

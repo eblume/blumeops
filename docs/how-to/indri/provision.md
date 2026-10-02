@@ -538,9 +538,13 @@ agent writes nothing.
 ## indri-build runner (eblume/blumeops#1357)
 
 The second forgejo runner (label `indri-build`) is unprivileged by
-construction: the dedicated macOS user `indri-build` (uid 502, no sudo, home
-0700) runs the daemon and a colima VM (`~indri-build/.colima/indri-build/`,
-the profile dir) hosts the jobs' docker. The user, the two system launchd
+construction: the dedicated macOS user `indri-build` (uid 503 in its own
+primary group, no sudo, home 0700) runs the daemon and a colima VM
+(`~indri-build/.colima/indri-build/`, the profile dir) hosts the jobs'
+docker. The 503/503 pair is declared in `darwin/indri/configuration.nix`,
+where a pre-activation check refuses the switch if uid/gid 503 is already
+taken on the box (501 erichblume, 502 the forgejo account); re-check
+`dscl . -list /Users UniqueID` there before reapplying after any rebase. The user, the two system launchd
 daemons (`mcquack.eblume.colima-build`, `mcquack.eblume.forgejo-runner-build`),
 the build user's mise config and the home dir layout are nix-managed; the
 runner config and the colima profile are role-rendered by the
@@ -563,6 +567,12 @@ Acceptance checks (run on indri as the named users after the deploy window):
   `/Users/erichblume` is not present/unreadable - e.g.
   `docker run --rm -v /:/host busybox ls /host/Users` shows no erichblume
   home contents reachable (the profile mounts only `/Users/indri-build`).
+- Daemon boot proof (the #1357 acceptance for the colima half): from a
+  **rebooted** indri, *before anyone opens a GUI session*,
+  `sudo -u indri-build colima status --profile indri-build` reports
+  `vz` as the driver and the docker socket path - the VM came up as a
+  system daemon with no login session (the pre-/nix window is bridged by
+  `/usr/local/libexec/mcquack.nix-wait`, the unit argv0).
 
 ## Window hygiene
 

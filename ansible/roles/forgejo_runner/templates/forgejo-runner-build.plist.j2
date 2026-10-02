@@ -20,11 +20,12 @@
 	<true/>
 	<key>KeepAlive</key>
 	<true/>
-	<!-- launchd clamps ExitTimeOut to 60 s in the gui domain (it is
-	     intent, not a drain window); AbandonProcessGroup is the key
-	     that matters. Rationale: darwin/indri/configuration.nix. -->
+	<!-- 60 s, deliberately: in the system domain launchd honors
+	     ExitTimeOut up to 3h, so a job-timeout value would stall every
+	     switch. AbandonProcessGroup is the key that matters. Rationale:
+	     darwin/indri/configuration.nix. -->
 	<key>ExitTimeOut</key>
-	<integer>10800</integer>
+	<integer>60</integer>
 	<key>AbandonProcessGroup</key>
 	<true/>
 	<key>EnvironmentVariables</key>

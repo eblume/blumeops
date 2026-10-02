@@ -68,8 +68,10 @@ token):
 
 ## Second runner: indri-build (unprivileged)
 
-`indri-build` is a dedicated unprivileged macOS user on [[indri]] (uid 502,
-no sudo, home `/Users/indri-build` 0700) running the instance's second
+`indri-build` is a dedicated unprivileged macOS user on [[indri]] (uid 503
+in its own primary group - the nix-darwin default of `staff` would let it
+read erichblume's 0750 home - no sudo, home `/Users/indri-build` 0700)
+running the instance's second
 forgejo runner (label `indri-build`, eblume/blumeops#1357). It exists
 because host-mode jobs as `erichblume` can reach anything erichblume can,
 which is everything; the build user is the scoped-down alternative for
@@ -78,7 +80,7 @@ isolation.
 
 | Property | Value |
 |----------|-------|
-| **User** | `indri-build` (uid 502, no sudo, home 0700) |
+| **User** | `indri-build` (uid 503, own primary group, no sudo, home 0700) |
 | **Runner name** | `indri-build` |
 | **Label** | `indri-build` (host-mode) |
 | **Daemons** | `mcquack.eblume.colima-build` + `mcquack.eblume.forgejo-runner-build` (system launchd domain, nix-managed) |
@@ -91,9 +93,15 @@ isolation.
 
 - The homes are 0700 **both ways**: `indri-build` cannot read
   `/Users/erichblume` and erichblume cannot read `/Users/indri-build`.
-- The colima profile mounts **only** `/Users/indri-build` into the VM: a job
-  step cannot `-v` another user's home (the explicit `mounts:` list is the
-  control, and the socket is mode 0660 rather than world-reachable).
+- Host-mode jobs are isolated by the 0700 homes: `indri-build` is in its
+  own primary group (not `staff`), so it cannot even stat erichblume's
+  0750 home, and host-mode jobs never enter the VM at all.
+- For docker-mode jobs the colima profile's explicit `mounts:` list
+  (`/Users/indri-build` only) is the container boundary - a job step cannot
+  `-v` another user's home into a container - and the socket is mode 0660
+  rather than world-reachable. The `colima.yaml` itself lives in the build
+  user's home, so it is not an isolation control: jobs can rewrite it; what
+  is controlled is the VM's mounts and the socket's reach.
 
 ### Known gaps (accepted for now, scoped by #1358)
 
