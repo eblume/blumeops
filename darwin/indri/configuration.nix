@@ -193,6 +193,9 @@ in
     # per dscl on indri): refuse the switch rather than collide with an
     # account created since. sed (not a $var#prefix form): nix interpolates
     # $-braces inside this string, so the shell parameter expansion is avoided.
+    # Both lookups need their `|| x=""`: activation runs under set -e and
+    # pipefail, and dscl exits 56 for a missing record - which is every
+    # first deploy, the one this guard exists for.
     u=$(id -u indri-build 2> /dev/null) || u=""
     if [[ -n "$u" && "$u" -ne 503 ]]; then
       printf >&2 'error: indri-build exists with uid %s, expected 503 - update the pair in darwin/indri/configuration.nix\n' "$u"
@@ -202,7 +205,7 @@ in
       printf >&2 'error: uid 503 is already taken on indri - update the pair in darwin/indri/configuration.nix\n'
       exit 1
     fi
-    g=$(dscl . -read /Groups/indri-build PrimaryGroupID 2> /dev/null | sed 's/^PrimaryGroupID: //')
+    g=$(dscl . -read /Groups/indri-build PrimaryGroupID 2> /dev/null | sed 's/^PrimaryGroupID: //') || g=""
     if [[ -n "$g" && "$g" != 503 ]]; then
       printf >&2 'error: group indri-build exists with gid %s, expected 503 - update the pair in darwin/indri/configuration.nix\n' "$g"
       exit 1
