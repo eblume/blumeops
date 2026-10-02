@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
-#MISE description="[human] Reconcile the agents + horkos-forge bots' forge collaborations, forge→talos and forge→horkos webhooks, and engagement labels against repos.json"
+#MISE description="[human] Reconcile the agents + horkos-forge bots' forge collaborations, forge→talos and forge→horkos webhooks, and engagement labels against repos.json, and branch protections against forge/branch-protections.json"
 #MISE alias="ara"
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
@@ -109,6 +109,27 @@ that can't read collaborators on a *listed* repo is fatal rather than skipped �
 see `blocked` — because every call degrades quietly under the wrong credential,
 and a partial apply that reports success is worse than a clean failure.
 
+The branch-protection half reconciles forge/branch-protections.json — the
+rules guarding `main` are the outer edge of the agent boundary (who may
+push and merge, which checks gate a PR), and before this half they existed
+only as UI state. Each declared rule must name every field in
+PROTECTION_FIELDS, so the file is the whole rule, not a partial overlay;
+list fields compare as sets. A declared rule that is missing is created,
+a drifted one is PATCHed with the differing fields and then read back in
+full (the hook half's lesson: a 200 is not proof). A rule that exists on
+the forge but not in the file is reported and left alone — deleting a
+branch protection is not something a reconcile should do quietly. Like
+PINNED_READ_ONLY, one fence lives in code: no rule may whitelist either
+bot to push, merge or approve (BOT_WHITELIST_FENCE).
+
+Branch protection is APPLIED ONLY FROM A HUMAN RUN. Reads work under the
+CI token, so --check and --dry-run report protection drift anywhere; but an
+apply authenticated by $FORGE_REPO_WRITE_TOKEN (the CI path) refuses the
+protection half loudly after the other halves apply, like a hook create
+without its secret. This is policy, not a capability fence — the CI PAT can
+edit protections — so that a change to what gates `main` is applied by a
+person who saw the diff, not by the merge it gates.
+
 The secret is `FORGE_…`, not `FORGEJO_…`: Forgejo reserves the `FORGEJO_`
 prefix for the Actions tokens it injects itself, and rejects creation of a
 secret using it with HTTP 400.
@@ -124,6 +145,7 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import quote
 
 import httpx
 import typer
@@ -306,6 +328,47 @@ OP_ISSUE_TOKEN_REF = "op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"
 PINNED_READ_ONLY = frozenset({"blumeops", "agents", "horkos", "talos"})
 
 VALID_ACCESS = frozenset({"write", "read", "none"})
+
+# The branch-protection half's policy: one entry per rule, keyed by
+# (repo, rule_name), each repo under repos.json's owner.
+PROTECTIONS_PATH = Path(__file__).resolve().parent.parent / "forge" / "branch-protections.json"
+# Every editable field of a Forgejo v16 branch protection (the API's
+# BranchProtection minus branch_name — a deprecated alias of rule_name — and
+# the timestamps). A rule must declare all of them: an undeclared field would
+# be unmanaged state hiding inside a managed rule.
+PROTECTION_FIELDS = frozenset(
+    {
+        "enable_push",
+        "enable_push_whitelist",
+        "push_whitelist_usernames",
+        "push_whitelist_teams",
+        "push_whitelist_deploy_keys",
+        "enable_merge_whitelist",
+        "merge_whitelist_usernames",
+        "merge_whitelist_teams",
+        "enable_status_check",
+        "status_check_contexts",
+        "required_approvals",
+        "enable_approvals_whitelist",
+        "approvals_whitelist_username",
+        "approvals_whitelist_teams",
+        "block_on_rejected_reviews",
+        "block_on_official_review_requests",
+        "block_on_outdated_branch",
+        "dismiss_stale_approvals",
+        "ignore_stale_approvals",
+        "require_signed_commits",
+        "protected_file_patterns",
+        "unprotected_file_patterns",
+        "apply_to_admins",
+    }
+)
+# The user whitelists that let a bot past a rule. Neither bot may appear in
+# any of them, whatever the file says: `agents` on a merge whitelist would
+# let it ship its own PRs, and horkos-forge on one would turn its dispatch
+# grant into a path to production (horkos-forge-drift checks the same thing
+# on the live rule). In code for the same reason as PINNED_READ_ONLY.
+BOT_WHITELIST_FENCE = ("push_whitelist_usernames", "merge_whitelist_usernames", "approvals_whitelist_username")
 
 console = Console()
 
@@ -609,6 +672,12 @@ def actions_secrets(client: httpx.Client, owner: str, repo: str) -> list[str] | 
         resp = client.get(f"/api/v1/repos/{owner}/{repo}/actions/secrets")
         resp.raise_for_status()
     except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404 and actions_disabled(client, owner, repo):
+            # Forgejo 404s the secrets endpoint when the repo's Actions unit
+            # is off (myeve, research, timberborn-parsimony blocked every
+            # apply that way). No unit, no runs, so a write grant hands the
+            # bot no secrets; the next reconcile re-checks if it is turned on.
+            return []
         if exc.response.status_code in (403, 404):
             return None
         raise
@@ -625,6 +694,17 @@ def actions_secrets(client: httpx.Client, owner: str, repo: str) -> list[str] | 
             f"unexpected /actions/secrets body for {owner}/{repo}: {type(body).__name__}"
         )
     return [s["name"] for s in body if isinstance(s, dict) and "name" in s]
+
+
+def actions_disabled(client: httpx.Client, owner: str, repo: str) -> bool:
+    """True only when the repo is readable and reports has_actions: false —
+    an unreadable repo stays on the fatal `blocked` path."""
+    try:
+        resp = client.get(f"/api/v1/repos/{owner}/{repo}")
+        resp.raise_for_status()
+    except httpx.HTTPStatusError:
+        return False
+    return resp.json().get("has_actions") is False
 
 
 def current_access(client: httpx.Client, owner: str, repo: str, who: str) -> str:
@@ -676,6 +756,73 @@ def violation_line(owner: str, repo: str, secret_names: list[str]) -> str:
     )
 
 
+def load_protections(bots: tuple[str, ...]) -> list[dict]:
+    """The declared branch protection rules from PROTECTIONS_PATH.
+
+    Refuses (exit 1) a rule that omits or adds a field, repeats a
+    (repo, rule_name), or whitelists a bot — see BOT_WHITELIST_FENCE.
+    """
+    rules = json.loads(PROTECTIONS_PATH.read_text())["rules"]
+    seen: set[tuple[str, str]] = set()
+    for rule in rules:
+        where = f"{PROTECTIONS_PATH.name}: {rule.get('repo')}:{rule.get('rule_name')}"
+        fields = set(rule) - {"repo", "rule_name"}
+        if missing := sorted(PROTECTION_FIELDS - fields):
+            console.print(f"[red]{escape(where)} does not declare {escape(', '.join(missing))}[/red]")
+            raise typer.Exit(1)
+        if unknown := sorted(fields - PROTECTION_FIELDS):
+            console.print(f"[red]{escape(where)} has unknown field(s) {escape(', '.join(unknown))}[/red]")
+            raise typer.Exit(1)
+        key = (rule["repo"], rule["rule_name"])
+        if key in seen:
+            console.print(f"[red]{escape(where)} is declared twice[/red]")
+            raise typer.Exit(1)
+        seen.add(key)
+        for field in BOT_WHITELIST_FENCE:
+            if fenced := sorted({u.lower() for u in rule[field]} & {b.lower() for b in bots}):
+                console.print(
+                    f"[red]{escape(where)} puts {escape(', '.join(fenced))} on {field}.[/red] "
+                    f"A bot may never be whitelisted past a branch protection — see "
+                    f"BOT_WHITELIST_FENCE in {Path(__file__).name}. Refusing."
+                )
+                raise typer.Exit(1)
+    return rules
+
+
+def protection_diff(live: dict, rule: dict) -> dict[str, tuple[object, object]]:
+    """{field: (live value, declared value)} for every PROTECTION_FIELDS
+    field that differs. Lists compare as sets — the API does not promise to
+    read back whitelists or contexts in the order they were sent."""
+
+    def norm(value: object) -> object:
+        return sorted(value) if isinstance(value, list) else value
+
+    return {
+        field: (live.get(field), rule[field])
+        for field in sorted(PROTECTION_FIELDS)
+        if norm(live.get(field)) != norm(rule[field])
+    }
+
+
+def list_protections(client: httpx.Client, owner: str, repo: str) -> list[dict] | None:
+    """The repo's branch protection rules, or None if unreadable (repo-admin,
+    like hooks and collaborators — the same 403/404 → None convention). The
+    endpoint is unpaginated in Forgejo v16."""
+    try:
+        resp = client.get(f"/api/v1/repos/{owner}/{repo}/branch_protections")
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (403, 404):
+            return None
+        raise
+    return resp.json()
+
+
+def show(value: object) -> str:
+    """A protection field value for a table cell or a pending line."""
+    return ", ".join(value) if isinstance(value, list) else json.dumps(value)
+
+
 def main(
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
     check: Annotated[bool, typer.Option("--check")] = False,
@@ -683,7 +830,11 @@ def main(
     skip_if_no_token: Annotated[bool, typer.Option("--skip-if-no-token")] = False,
 ) -> None:
     owner, who, desired, pools, release_hook_repos, horkos_forge_repos = load_policy()
+    protections = load_protections((who, HORKOS_FORGE_USER))
     preview = dry_run or check
+    # The CI path: resolve_token takes $FORGE_REPO_WRITE_TOKEN only when no
+    # --token is given. Gates the protection half's apply (module docstring).
+    ci_token = token is None and bool(os.environ.get("FORGE_REPO_WRITE_TOKEN"))
 
     resolved = resolve_token(token, skip_if_no_token)
     if resolved is None:
@@ -912,9 +1063,57 @@ def main(
                     label_actions.append((repo, name, color, description))
                     hook_table.add_row("label", escape(repo), "no label", "label", "[green]create label[/green]")
 
+        # Branch-protection half: one rule list per declared repo, matched by
+        # rule_name. (repo, rule_name, verb, {field: (have, want)}) — verb is
+        # create (diff is every field, have None) or update.
+        protection_table = Table(title=f"branch protections on {escape(owner)}/*")
+        protection_table.add_column("Rule")
+        protection_table.add_column("Field")
+        protection_table.add_column("Current")
+        protection_table.add_column("Desired")
+        protection_table.add_column("Action")
+        protection_actions: list[tuple[str, str, str, dict[str, tuple[object, object]]]] = []
+        if missing_repos := sorted({r["repo"] for r in protections} - set(all_repos)):
+            console.print(
+                f"[red]{PROTECTIONS_PATH.name} names repos that do not exist under {escape(repr(owner))} "
+                f"(or the token cannot see them): {escape(', '.join(missing_repos))}[/red]"
+            )
+            raise typer.Exit(1)
+        for repo in sorted({r["repo"] for r in protections}):
+            live_rules = list_protections(client, owner, repo)
+            if live_rules is None:
+                if repo not in blocked:
+                    blocked.append(repo)
+                continue
+            live_by_name = {r["rule_name"]: r for r in live_rules}
+            declared = [r for r in protections if r["repo"] == repo]
+            for rule in declared:
+                name = f"{repo}:{rule['rule_name']}"
+                live = live_by_name.get(rule["rule_name"])
+                if live is None:
+                    diff = {f: (None, rule[f]) for f in sorted(PROTECTION_FIELDS)}
+                    protection_actions.append((repo, rule["rule_name"], "create", diff))
+                    protection_table.add_row(escape(name), "(rule)", "none", "rule", "[green]create[/green]")
+                    continue
+                diff = protection_diff(live, rule)
+                if not diff:
+                    protection_table.add_row(escape(name), "", "", "", "[dim]ok[/dim]")
+                    continue
+                protection_actions.append((repo, rule["rule_name"], "update", diff))
+                for field, (have, want) in diff.items():
+                    protection_table.add_row(
+                        escape(name), field, escape(show(have)), escape(show(want)), "[yellow]update[/yellow]"
+                    )
+            for extra in sorted(set(live_by_name) - {r["rule_name"] for r in declared}):
+                console.print(
+                    f"[yellow]{escape(owner)}/{escape(repo)} has branch protection {escape(repr(extra))} "
+                    f"not in {PROTECTIONS_PATH.name} — left alone (declare it to manage it)[/yellow]"
+                )
+
         console.print(table)
         console.print(hook_table)
         console.print(horkos_table)
+        console.print(protection_table)
 
         if blocked:
             console.print(
@@ -940,12 +1139,26 @@ def main(
                 )
             raise typer.Exit(1)
 
-        if not actions and not horkos_actions and not hook_actions and not label_actions and not violations:
+        if (
+            not actions
+            and not horkos_actions
+            and not hook_actions
+            and not label_actions
+            and not protection_actions
+            and not violations
+        ):
             console.print("[green]In sync.[/green]")
             return
 
         if preview:
-            pending = len(actions) + len(horkos_actions) + len(hook_actions) + len(label_actions) + len(violations)
+            pending = (
+                len(actions)
+                + len(horkos_actions)
+                + len(hook_actions)
+                + len(label_actions)
+                + len(protection_actions)
+                + len(violations)
+            )
             console.print(f"\n[bold]{pending} change(s) pending.[/bold]")
             for repo, verb, perm in actions:
                 console.print(f"  {verb} {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
@@ -956,6 +1169,9 @@ def main(
                 console.print(f"  {verb} {name} on {escape(owner)}/{escape(repo)}")
             for repo, name, _color, _description in label_actions:
                 console.print(f"  create `{escape(name)}` label on {escape(owner)}/{escape(repo)}")
+            for repo, rule_name, verb, diff in protection_actions:
+                fields = "all fields" if verb == "create" else ", ".join(diff)
+                console.print(f"  {verb} branch protection {escape(owner)}/{escape(repo)}:{escape(rule_name)} ({escape(fields)})")
             for repo, secret_names in violations:
                 console.print(f"  {violation_line(escape(owner), escape(repo), [escape(n) for n in secret_names])}")
             if check:
@@ -1104,7 +1320,45 @@ def main(
                 raise typer.Exit(1) from exc
             console.print(f"[green]create[/green] `{escape(name)}` label on {escape(owner)}/{escape(repo)}")
 
-        applied = len(actions) + len(horkos_actions) + len(hook_actions) + len(label_actions)
+        # Last, so a CI apply still lands the other halves before refusing
+        # this one (module docstring: protections apply from a human run).
+        if protection_actions and ci_token:
+            console.print(
+                f"\n[red]Refusing {len(protection_actions)} branch protection change(s) under the CI token.[/red] "
+                "Branch protection is applied only from a human run: `mise run agent-repo-access` "
+                "(1Password, biometric) after reviewing `--dry-run`."
+            )
+            raise typer.Exit(1)
+        for repo, rule_name, verb, diff in protection_actions:
+            label = f"branch protection {escape(owner)}/{escape(repo)}:{escape(rule_name)}"
+            rule = next(r for r in protections if r["repo"] == repo and r["rule_name"] == rule_name)
+            base = f"/api/v1/repos/{owner}/{repo}/branch_protections"
+            try:
+                if verb == "create":
+                    client.post(
+                        base, json={"rule_name": rule_name, **{f: rule[f] for f in PROTECTION_FIELDS}}
+                    ).raise_for_status()
+                else:
+                    client.patch(
+                        f"{base}/{quote(rule_name, safe='')}", json={f: rule[f] for f in diff}
+                    ).raise_for_status()
+                resp = client.get(f"{base}/{quote(rule_name, safe='')}")
+                resp.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                console.print(f"[red]{verb} {label} failed: {escape(str(exc))}[/red]")
+                raise typer.Exit(1) from exc
+            # Read back the whole rule, not just the fields sent: the hook
+            # half learned that a Forgejo edit can answer 200 and change nothing.
+            if left := protection_diff(resp.json(), rule):
+                console.print(
+                    f"[red]{verb} {label} did not converge:[/red] still differs on {escape(', '.join(left))}"
+                )
+                raise typer.Exit(1)
+            console.print(f"[green]{verb}[/green] {label}")
+
+        applied = (
+            len(actions) + len(horkos_actions) + len(hook_actions) + len(label_actions) + len(protection_actions)
+        )
         console.print(f"\n[green]Applied {applied} change(s).[/green]")
 
 

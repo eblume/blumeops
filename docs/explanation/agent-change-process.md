@@ -145,25 +145,22 @@ reads the same as "nothing to validate". The fix is to make the gate statuses
 **required in branch protection on `main`**, so an unrun check blocks the
 merge instead of looking neutral — not to remove the gate.
 
-Required status contexts on `main` (verified against the
-`branch_protections` API on 2026-09-11, #1013):
+Branch protection on `main` is declared in `forge/branch-protections.json`
+and reconciled by `mise run agent-repo-access` — CI checks it for drift,
+but only a human run applies it (see the script's docstring). It requires
+the gate contexts by name — Docs Checks, Image Pins, and the four `Lint`
+jobs — plus the glob `* (pull_request)`. Forgejo resolves a glob to the
+*worst* state among every context it matches, so the glob makes any PR
+check that actually ran blocking, path-filtered ones included (the flake
+checks, Agent Repo Access), while a path-filtered workflow that did not
+trigger posts no context and blocks nothing. The named contexts stay
+because the glob cannot tell "nothing ran yet" from "nothing to run": on an
+agent PR nobody has approved, they are what holds the merge.
 
-- `Docs Checks / checks (pull_request)`
-- `Lint / prek (pull_request)`
-- `Lint / workflows-validate (pull_request)`
-- `Lint / secret-scan (pull_request)`
-- `Lint / argocd-apps-validate (pull_request)` — the Application-source
-  validator (refuses a mutable pointer the agents bot can move in
-  `argocd/apps/`). **Pending:** this job is new and the `branch_protections`
-  API must be updated by someone with write access to canonical to require it;
-  until then it is an advisory check, not a merge gate.
-
-A context string is `workflow name / job name (event)`, so **renaming a job
-silently un-requires it**: update the branch protection whenever a job in
-`docs-checks.yaml` or `lint.yaml` is renamed (and whenever a job is *added*
-that should be required, as above). Push-event, path-filtered
-(Agent Repo Access) and drift contexts are deliberately left optional — a
-required context that does not exist on a PR head blocks the merge.
+A context string is `workflow name / job name (event)`, so **renaming a
+gate job silently un-requires it by name** (the glob still blocks on its
+failure, but no longer on its absence): update the protection file whenever
+a job in `docs-checks.yaml`, `image-pins.yaml` or `lint.yaml` is renamed.
 
 ### CI failure notices
 

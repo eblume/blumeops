@@ -1,0 +1,39 @@
+{
+  "rules": [
+    {
+      "repo": "blumeops",
+      "rule_name": "main",
+      "enable_push": true,
+      "enable_push_whitelist": true,
+      "push_whitelist_usernames": ["eblume"],
+      "push_whitelist_teams": [],
+      "push_whitelist_deploy_keys": false,
+      "enable_merge_whitelist": true,
+      "merge_whitelist_usernames": ["eblume"],
+      "merge_whitelist_teams": [],
+      "enable_status_check": true,
+      "status_check_contexts": [
+        "Docs Checks / checks (pull_request)",
+        "Lint / prek (pull_request)",
+        "Lint / workflows-validate (pull_request)",
+        "Lint / secret-scan (pull_request)",
+        "Lint / argocd-apps-validate (pull_request)",
+        "Image Pins / checks (pull_request)",
+        "* (pull_request)"
+      ],
+      "required_approvals": 0,
+      "enable_approvals_whitelist": true,
+      "approvals_whitelist_username": ["eblume"],
+      "approvals_whitelist_teams": [],
+      "block_on_rejected_reviews": true,
+      "block_on_official_review_requests": false,
+      "block_on_outdated_branch": true,
+      "dismiss_stale_approvals": true,
+      "ignore_stale_approvals": false,
+      "require_signed_commits": false,
+      "protected_file_patterns": "*",
+      "unprotected_file_patterns": "",
+      "apply_to_admins": true
+    }
+  ]
+}
