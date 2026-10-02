@@ -1,0 +1,1 @@
+Non-privileged CI jobs (lint prek/secret-scan/argocd-apps-validate, docs-checks, image-pins, build-container detect, branch-cleanup) now run on the unprivileged `indri-build` runner; `indri` is reserved for privileged jobs.

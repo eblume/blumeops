@@ -22,7 +22,7 @@ on:
 
 jobs:
   detect:
-    runs-on: indri
+    runs-on: indri-build
     outputs:
       nix: ${{ steps.classify.outputs.nix }}
     steps:

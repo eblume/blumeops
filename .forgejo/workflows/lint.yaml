@@ -61,7 +61,7 @@ on:
 
 jobs:
   prek:
-    runs-on: indri
+    runs-on: indri-build
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -160,7 +160,7 @@ jobs:
   # Replaces the removed trufflehog prek hook, whose `--since-commit HEAD`
   # range scanned nothing in CI (heph 01KZP8ADGMQ6TSXVAQ9YAWM2Z9).
   secret-scan:
-    runs-on: indri
+    runs-on: indri-build
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -198,7 +198,7 @@ jobs:
   # cannot drift. Runs on every PR including from a fork: it reads only local
   # files, no token, vault, or cluster.
   argocd-apps-validate:
-    runs-on: indri
+    runs-on: indri-build
     # Runs this job's validator from the PR checkout, so a fork PR could ship a
     # neutered copy and pass this gate. The backstop is the argocd-sync-apps
     # payload check, which runs MAIN's reviewed copy over the payload — main
