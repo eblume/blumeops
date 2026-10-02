@@ -99,7 +99,7 @@ runner config (gated on registration) and the colima profile are
 role-rendered.
 
 0. **One-time host prerequisite**: `brew install docker` on indri. The
-   colima flake ships no docker client, so job steps that need docker get
+   colima package ships no docker client, so job steps that need docker get
    the CLI from Homebrew (`/opt/homebrew/bin` is on the runner daemon's
    PATH, see the flake unit); the socket path is the colima profile's.
 1. Register the runner, exactly like the original (no `--scope`):
