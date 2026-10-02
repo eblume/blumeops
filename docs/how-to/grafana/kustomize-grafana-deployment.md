@@ -1,7 +1,7 @@
 ---
 title: Kustomize Grafana Deployment
-modified: 2026-03-03
-last-reviewed: 2026-03-03
+modified: 2026-10-02
+last-reviewed: 2026-10-02
 tags:
   - how-to
   - grafana
@@ -9,7 +9,11 @@ tags:
 
 # Kustomize Grafana Deployment
 
-Grafana is deployed via plain Kustomize manifests in `argocd/manifests/grafana/`, replacing the previous Helm chart.
+Grafana is deployed via plain Kustomize manifests in `argocd/manifests/grafana-ringtail/`,
+replacing the previous Helm chart. Dashboards, the Tailscale ingress, and the
+ExternalSecrets live in the companion `argocd/manifests/grafana-config-ringtail/`
+dir (the two dirs are separate ArgoCD apps: `grafana-ringtail` and
+`grafana-config-ringtail`).
 
 ## Manifest Structure
 
@@ -21,6 +25,7 @@ Grafana is deployed via plain Kustomize manifests in `argocd/manifests/grafana/`
 | `pvc.yaml` | 1Gi SQLite storage |
 | `grafana.ini` | Grafana server configuration (fed to configMapGenerator) |
 | `datasources.yaml` | Datasource provisioning (fed to configMapGenerator) |
+| `alerting.yaml` | Alerting config (fed to configMapGenerator) |
 | `provider.yaml` | Dashboard provider config (fed to configMapGenerator) |
 | `serviceaccount.yaml` | Service account |
 | `rbac.yaml` | ClusterRole/RoleBinding for sidecar ConfigMap access |
@@ -29,7 +34,7 @@ Grafana is deployed via plain Kustomize manifests in `argocd/manifests/grafana/`
 
 - **PVC name must remain `grafana`** — changing it would create a new volume and lose the SQLite DB
 - **Sidecar** watches ConfigMaps with label `grafana_dashboard=1` and reloads dashboards via the Grafana API
-- **Secrets** come from ExternalSecrets (`grafana-admin`, `grafana-authentik-oauth`, `grafana-teslamate-datasource`) managed by the `grafana-config` ArgoCD app
+- **Secrets** come from ExternalSecrets (`grafana-admin`, `grafana-authentik-oauth`, `grafana-teslamate-datasource`) managed by the `grafana-config-ringtail` ArgoCD app
 
 ## Related
 

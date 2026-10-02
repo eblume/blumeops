@@ -32,4 +32,4 @@ resources:
   - dashboards/configmap-talos.yaml
   # TeslaMate dashboards are fetched by the init-teslamate-dashboards init
   # container in the Grafana deployment, sourced from mirrors/teslamate on forge.
-  # See argocd/manifests/grafana/deployment.yaml for the version pin.
+  # See argocd/manifests/grafana-ringtail/deployment.yaml for the version pin.
