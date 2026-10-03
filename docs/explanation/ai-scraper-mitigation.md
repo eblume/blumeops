@@ -16,6 +16,15 @@ tags:
 
 How BlumeOps keeps AI crawlers from running up the [[expose-service-publicly|Fly.io proxy]] egress bill and DoS-ing [[forgejo|Forgejo]] on [[indri]].
 
+> **Status (public/private split, [eblume/blumeops#1208](https://forge.eblu.me/eblume/blumeops/issues/1208)):** the
+> `forge.eblu.me` relay to the private Forgejo is **retired** — the public name
+> now serves the read-only static mirror (source only, no `/mirrors/`, no
+> dynamic Forgejo), so the crawl target described below no longer exists at that
+> host. This article remains the record of the 2026-06 incident and how it was
+> then mitigated; the defenses below marked as *retired with the relay* are no
+> longer in `fly/nginx.conf`. The still-active edge defenses are the declared-bot
+> 403 and the Anubis proof-of-work in front of the mirror browse path.
+
 ## The incident
 
 A $29.60 Fly.io invoice arrived, nearly all of it a single line:
