@@ -28,8 +28,8 @@ on:
 jobs:
   checks:
     runs-on: indri-build
-    # Logs go to a per-job workspace dir, not /tmp: /tmp is shared with the
-    # privileged indri runner and holds stale files this user cannot write.
+    # Scratch goes to $RUNNER_TEMP, the runner's per-job dir, not /tmp — the two
+    # indri runners share the host /tmp, and a stale file there the other user cannot overwrite is a symlink-attack surface.
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -41,21 +41,21 @@ jobs:
           set -o pipefail
           if [ -n "$GITHUB_BASE_REF" ]; then
             # pull_request: only the pins this PR changes
-            mkdir -p .ci-tmp
-            ./mise-tasks/container-pin-check 2>&1 | tee "$GITHUB_WORKSPACE/.ci-tmp/image-pins-checks.log"
+            mkdir -p "$RUNNER_TEMP"
+            ./mise-tasks/container-pin-check 2>&1 | tee "$RUNNER_TEMP/image-pins-checks.log"
           else
             # push: main and workflow_dispatch: sweep every pin — the only
             # mode that catches a tag later pruned by zot retention
-            mkdir -p .ci-tmp
-            ./mise-tasks/container-pin-check --all-files 2>&1 | tee "$GITHUB_WORKSPACE/.ci-tmp/image-pins-checks.log"
+            mkdir -p "$RUNNER_TEMP"
+            ./mise-tasks/container-pin-check --all-files 2>&1 | tee "$RUNNER_TEMP/image-pins-checks.log"
           fi
 
       - name: Tests
         if: always()
         run: |
           set -o pipefail
-          mkdir -p .ci-tmp
-          mise run horkos-test 2>&1 | tee -a "$GITHUB_WORKSPACE/.ci-tmp/image-pins-checks.log"
+          mkdir -p "$RUNNER_TEMP"
+          mise run horkos-test 2>&1 | tee -a "$RUNNER_TEMP/image-pins-checks.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'

@@ -36,7 +36,7 @@ description: >-
 
 inputs:
   log-file:
-    description: Path of the job log teed by the job's main steps
+    description: "Bare filename of the job log teed by the job's main steps (resolved into the runner's per-job scratch dir $RUNNER_TEMP)"
     required: true
   filter:
     description: 'grep -E regex for a highlighted tail (empty = raw tail only)'
@@ -62,16 +62,14 @@ runs:
       run: |
         set -euo pipefail
 
-        # Scratch goes to the per-job workspace, not /tmp: /tmp is shared with
-        # the other runner's host directory and a stale file from the other
-        # user would make the write below fail.
-        ci_tmp="$GITHUB_WORKSPACE/.ci-tmp"
+        # Scratch goes to $RUNNER_TEMP, the runner's per-job scratch dir: /tmp
+        # is shared across the two runners' host directory.
+        ci_tmp="$RUNNER_TEMP"
         mkdir -p "$ci_tmp"
         ci_report="$ci_tmp/ci-report-body.md"
 
-        # log-file is a bare filename (not a shell-expanded $GITHUB_WORKSPACE,
-        # which a `with:` value would not resolve); resolve it into the same
-        # per-job scratch dir. An absolute path is honoured as-is.
+        # log-file is a bare filename (a `with:` value is template-, not
+        # shell-interpolated); resolve it into the per-job scratch dir.
         log_file_in='${{ inputs.log-file }}'
 
         # Single-quoted: the values may hold regex metacharacters ($, backtick).
@@ -80,10 +78,7 @@ runs:
         trigger_authors='${{ inputs.trigger-authors }}'
         max_reviews='${{ inputs.max-reviews }}'
 
-        case "$log_file_in" in
-          /*) log_file="$log_file_in" ;;
-          *)  log_file="$ci_tmp/$log_file_in" ;;
-        esac
+        log_file="$ci_tmp/$log_file_in"
 
         API="${GITHUB_API_URL:-${GITHUB_SERVER_URL:-https://forge.ops.eblu.me}/api/v1}"
         REPO="$GITHUB_REPOSITORY"

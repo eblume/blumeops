@@ -79,9 +79,6 @@ jobs:
           fi
           prek --version
 
-      # Scratch logs go to a per-job workspace dir, not /tmp: /tmp is shared
-      # with the privileged indri runner and holds stale files this user cannot
-      # write.
       # No SKIP list. Every hook in prek.toml runs here, so this job's result is
       # the whole of what the hook set checks — nothing is quietly excluded, and the
       # config cannot drift into holding hooks that no longer run anywhere.
@@ -109,8 +106,8 @@ jobs:
           GITHUB_TOKEN: ""
         run: |
           set -o pipefail
-          mkdir -p .ci-tmp
-          prek run --all-files --show-diff-on-failure 2>&1 | tee "$GITHUB_WORKSPACE/.ci-tmp/lint-prek.log"
+          mkdir -p "$RUNNER_TEMP"
+          prek run --all-files --show-diff-on-failure 2>&1 | tee "$RUNNER_TEMP/lint-prek.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -141,12 +138,12 @@ jobs:
       - name: forgejo-runner validate
         run: |
           set -o pipefail
-          mkdir -p .ci-tmp
+          mkdir -p "$RUNNER_TEMP"
           {
             runner_bin="$(nix build --no-link ./darwin/indri#forgejo-runner --print-out-paths)/bin/forgejo-runner"
             "$runner_bin" --version
             "$runner_bin" validate --directory .
-          } 2>&1 | tee "$GITHUB_WORKSPACE/.ci-tmp/lint-workflows-validate.log"
+          } 2>&1 | tee "$RUNNER_TEMP/lint-workflows-validate.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -184,9 +181,9 @@ jobs:
           GITHUB_TOKEN: ""
         run: |
           set -o pipefail
-          mkdir -p .ci-tmp
+          mkdir -p "$RUNNER_TEMP"
           mise x gitleaks@8.30.1 -- gitleaks git . \
-            --no-banner --redact --config .gitleaks.toml 2>&1 | tee "$GITHUB_WORKSPACE/.ci-tmp/lint-secret-scan.log"
+            --no-banner --redact --config .gitleaks.toml 2>&1 | tee "$RUNNER_TEMP/lint-secret-scan.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -219,8 +216,8 @@ jobs:
           GITHUB_TOKEN: ""
         run: |
           set -o pipefail
-          mkdir -p .ci-tmp
-          uv run --script mise-tasks/validate-argocd-apps 2>&1 | tee "$GITHUB_WORKSPACE/.ci-tmp/lint-argocd-apps.log"
+          mkdir -p "$RUNNER_TEMP"
+          uv run --script mise-tasks/validate-argocd-apps 2>&1 | tee "$RUNNER_TEMP/lint-argocd-apps.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'

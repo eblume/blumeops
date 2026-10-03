@@ -61,7 +61,8 @@ jobs:
           FORGE_REPO_WRITE_TOKEN: ${{ secrets.FORGE_REPO_WRITE_TOKEN }}
         run: |
           set -o pipefail
-          uv run --script mise-tasks/forge-reconcile --check --skip-if-no-token 2>&1 | tee /tmp/forge-reconcile-reconcile.log
+          mkdir -p "$RUNNER_TEMP"
+          uv run --script mise-tasks/forge-reconcile --check --skip-if-no-token 2>&1 | tee "$RUNNER_TEMP/forge-reconcile-reconcile.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -69,7 +70,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: /tmp/forge-reconcile-reconcile.log
+          log-file: forge-reconcile-reconcile.log
 
       - name: Apply
         if: github.event_name != 'pull_request'

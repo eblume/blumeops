@@ -143,6 +143,7 @@ jobs:
           echo "Building containers/${{ matrix.container }}/default.nix"
           echo "NIX_PATH=$NIX_PATH"
           set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
           # Derivations that accept a buildHash arg (e.g. authentik) get the
           # image-tag short sha so their build identifier changes per rebuild.
           # Unanchored: the param sits mid-line in the function signature.
@@ -153,7 +154,7 @@ jobs:
           # Tee the build output so the failure-report step below can read it.
           # Per-leg file: concurrent matrix legs must not clobber each other.
           nix-build "containers/${{ matrix.container }}/default.nix" -o result "${NIX_ARGS[@]}" 2>&1 \
-            | tee /tmp/nix-build-${{ matrix.container }}.log
+            | tee "$RUNNER_TEMP/nix-build-${{ matrix.container }}.log"
           echo "Build complete: $(readlink result)"
 
       - name: Report failure to PR
@@ -162,7 +163,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: /tmp/nix-build-${{ matrix.container }}.log
+          log-file: nix-build-${{ matrix.container }}.log
           filter: 'hash mismatch|specified:|got:|error:'
           matrix: ${{ matrix.container }}
 

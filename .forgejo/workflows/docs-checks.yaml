@@ -29,8 +29,8 @@ on:
 jobs:
   checks:
     runs-on: indri-build
-    # Logs go to a per-job workspace dir, not /tmp: /tmp is shared with the
-    # privileged indri runner and holds stale files this user cannot write.
+    # Scratch goes to $RUNNER_TEMP, the runner's per-job dir, not /tmp — the two
+    # indri runners share the host /tmp, and a stale file there the other user cannot overwrite is a symlink-attack surface.
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -41,22 +41,22 @@ jobs:
       - name: Changelog fragments are flat files
         run: |
           set -o pipefail
-          mkdir -p .ci-tmp
-          ./mise-tasks/changelog-check 2>&1 | tee "$GITHUB_WORKSPACE/.ci-tmp/docs-checks-checks.log"
+          mkdir -p "$RUNNER_TEMP"
+          ./mise-tasks/changelog-check 2>&1 | tee "$RUNNER_TEMP/docs-checks-checks.log"
 
       - name: Docs have required frontmatter
         if: always()
         run: |
           set -o pipefail
-          mkdir -p .ci-tmp
-          uv run --script mise-tasks/docs-check-frontmatter 2>&1 | tee -a "$GITHUB_WORKSPACE/.ci-tmp/docs-checks-checks.log"
+          mkdir -p "$RUNNER_TEMP"
+          uv run --script mise-tasks/docs-check-frontmatter 2>&1 | tee -a "$RUNNER_TEMP/docs-checks-checks.log"
 
       - name: Wiki-links resolve
         if: always()
         run: |
           set -o pipefail
-          mkdir -p .ci-tmp
-          uv run --script mise-tasks/docs-check-links 2>&1 | tee -a "$GITHUB_WORKSPACE/.ci-tmp/docs-checks-checks.log"
+          mkdir -p "$RUNNER_TEMP"
+          uv run --script mise-tasks/docs-check-links 2>&1 | tee -a "$RUNNER_TEMP/docs-checks-checks.log"
 
       # A PR body ends at the merge: after-merge steps live in the linked issue's
       # Human steps comment, not in the body (#1233).
@@ -64,10 +64,10 @@ jobs:
         if: always() && github.event_name == 'pull_request'
         run: |
           set -o pipefail
-          mkdir -p .ci-tmp
+          mkdir -p "$RUNNER_TEMP"
           body="$(jq -r '.pull_request.body // empty' "$GITHUB_EVENT_PATH")"
           if printf '%s\n' "$body" | grep -inE '^#{1,6}[[:space:]]+(after merge|post-merge|remaining steps \(human\))' ; then
-            echo "::error::PR body carries an after-merge section heading (After merge / Post-merge / Remaining steps (human)). PR bodies end at the merge: after-merge steps belong in the linked issue's '## Human steps' comment (eblume/blumeops#1233). Move the section out of the body and re-run." | tee -a "$GITHUB_WORKSPACE/.ci-tmp/docs-checks-checks.log"
+            echo "::error::PR body carries an after-merge section heading (After merge / Post-merge / Remaining steps (human)). PR bodies end at the merge: after-merge steps belong in the linked issue's '## Human steps' comment (eblume/blumeops#1233). Move the section out of the body and re-run." | tee -a "$RUNNER_TEMP/docs-checks-checks.log"
             exit 1
           fi
 
