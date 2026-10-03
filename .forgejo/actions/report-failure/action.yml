@@ -78,6 +78,11 @@ runs:
         trigger_authors='${{ inputs.trigger-authors }}'
         max_reviews='${{ inputs.max-reviews }}'
 
+        case "$log_file_in" in /*|*/*)
+          echo "log-file must be a bare filename (got: $log_file_in)" >&2
+          exit 1
+          ;;
+        esac
         log_file="$ci_tmp/$log_file_in"
 
         API="${GITHUB_API_URL:-${GITHUB_SERVER_URL:-https://forge.ops.eblu.me}/api/v1}"
