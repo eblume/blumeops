@@ -67,7 +67,7 @@ from rich.markup import escape
 
 # Tailnet name, as horkos-forge-provision uses: runnable wherever the token is
 # — gilbert, indri, or an agent pod (via the egress gateway). The public
-# forge.eblu.me has no in-cluster HTTPS route (docs/reference/services/argocd.md).
+# forge.eblu.me static mirror has no API (docs/reference/services/argocd.md).
 FORGE_URL = "https://forge.ops.eblu.me"
 BOT_USER = "horkos-forge"
 # The one repo where `main` must stay whitelisted to eblume alone: blumeops CI

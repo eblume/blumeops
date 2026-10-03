@@ -3,7 +3,7 @@
 #USAGE flag "--dry-run" help="Show what would be created without touching the forge"
 set -euo pipefail
 
-# Tailnet name — the public forge.eblu.me has no in-cluster HTTPS route
+# Tailnet name — the public forge.eblu.me static mirror has no API
 # (docs/reference/services/argocd.md).
 FORGE_API="https://forge.ops.eblu.me/api/v1"
 OP_TOKEN_REF="op://blumeops/w3663ffnvkewbftncqxtcpeavy/api-token"

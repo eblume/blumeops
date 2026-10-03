@@ -14,7 +14,7 @@ tags:
 
 > **Note:** This article was drafted by AI and reviewed by Erich. I plan to rewrite all explanatory content in my own words — these serve as placeholders to establish the documentation structure.
 
-How BlumeOps keeps AI crawlers from running up the [[expose-service-publicly|Fly.io proxy]] egress bill and DoS-ing [[forgejo|Forgejo]] on [[indri]].
+How BlumeOps keeps AI crawlers from running up the [[expose-service-publicly|Fly.io proxy]] egress bill — the 2026-06 incident against the [[forgejo|Forgejo]] relay on [[indri]], and the edge defenses that survive on today's static forge mirror.
 
 > **Status (public/private split, [eblume/blumeops#1208](https://forge.eblu.me/eblume/blumeops/issues/1208)):** the
 > `forge.eblu.me` relay to the private Forgejo is **retired** — the public name
@@ -22,8 +22,10 @@ How BlumeOps keeps AI crawlers from running up the [[expose-service-publicly|Fly
 > dynamic Forgejo), so the crawl target described below no longer exists at that
 > host. This article remains the record of the 2026-06 incident and how it was
 > then mitigated; the defenses below marked as *retired with the relay* are no
-> longer in `fly/nginx.conf`. The still-active edge defenses are the declared-bot
-> 403 and the Anubis proof-of-work in front of the mirror browse path.
+> longer in `fly/nginx.conf` (the forge-login fail2ban jail was retired with
+> the relay too). The still-active edge defenses on the static mirror vhost
+> are the declared-bot 403, rate limiting, robots.txt, and the Anubis
+> proof-of-work in front of the mirror browse path.
 
 ## The incident
 
@@ -70,6 +72,11 @@ paths — but **`meta-externalagent` and `GPTBot` ignore it.** For these agents,
 ## The tiered plan
 
 ### Tier 1 — Black-hole `/mirrors/*` (shipped)
+
+*(Retired with the relay: the mirror serves no `/mirrors/` tree at all, so
+this black-hole location is gone from `fly/nginx.conf` — every path the
+static site does not serve now 302s to the private forge. The section below
+is the incident record.)*
 
 The mirror repositories (`tailscale`, `prometheus`, `mealie`, `paperless-ngx`,
 …) are mirrors of *already-public upstreams*, kept for supply-chain control
@@ -153,7 +160,7 @@ map $http_user_agent $is_ai_bot {
     "~*Bytespider"         1;
     "~*SemrushBot"         1;
 }
-# in the forge.eblu.me server block:
+# in the forge.eblu.me server block (now the mirror vhost):
 if ($is_ai_bot) { return 403; }
 ```
 
@@ -196,34 +203,38 @@ the June incident flipped the call:
 - The tailnet path (`forge.ops.eblu.me`) stays completely unchallenged: CI,
   git remotes, and agents are untouched, and only WAN traffic — where the
   scrapers are — pays the toll.
-- Only `forge.eblu.me` gets the gate. The static sites (docs, cv) are cached
-  at the proxy and the photos shared-link surface is rate-limited; neither
-  serves an infinite URL space.
+- Only the static forge mirror gets the gate: the Anubis challenge fronts the
+  `forge.eblu.me` browse path. The static sites (docs, cv) are cached at the
+  proxy and the photos shared-link surface is rate-limited; neither serves an
+  infinite URL space.
 
-Anubis cannot rewrite the `Host` header, and indri's Caddy routes on
-`forge.ops.eblu.me` (Host *and* SNI), so Anubis sits between two nginx
-contexts in the same VM — the standard "nginx sandwich":
+Anubis sits between two nginx contexts in the same VM — the standard "nginx
+sandwich" — with the edge vhost terminating TLS at `:8080` and an
+internal-only host serving the mirror:
 
 ```
-WAN → Fly TLS → nginx :8080 (forge.eblu.me server block)
-        cheap edge blocks first: fail2ban deny, rate limits, robots.txt,
-        /mirrors/ 403, swagger 403, archive redirect
-      → proxy_pass http://127.0.0.1:8923          (Anubis)
-      → Anubis → TARGET http://127.0.0.1:8081      (internal-only nginx vhost)
-      → existing static-caching + TLS/SNI proxy to indri Caddy → Forgejo
+WAN → Fly TLS → nginx :8080 (forge.eblu.me — static mirror vhost)
+        cheap edge blocks first: rate limits, robots.txt, declared-bot 403
+      → proxy_pass http://127.0.0.1:8924          (Anubis B)
+      → Anubis → TARGET http://127.0.0.1:8925      (internal-only mirror backend)
+      → stagit static site from the /volume mount; anything unserved
+        302s to forge.ops.eblu.me (@mirror_fallback)
 ```
 
-The edge 403s stay in front so black-holed paths never even cost a
-challenge. The internal `:8081` vhost inherits the existing per-location
-config (static-asset caching, release-artifact caching, upstream SNI) — see
-`fly/nginx.conf`. Nothing changes on indri; Forgejo's trusted-proxy chain is
-untouched.
+The edge blocks stay in front so denied traffic never even costs a
+challenge. The internal mirror backend serves the stagit site with
+`access_log off` — the edge vhost already logs every client request, and
+logging both would double-count the Loki-derived metrics. Dumb-HTTP git
+clones never reach Anubis at all: the edge vhost's `/eblume/*.git` location
+serves them straight from the volume. See `fly/nginx.conf` for the current
+sandwich.
 
-Configuration is the stock v1.25.0 policy (no `POLICY_FNAME`), which divides
+Configuration is the stock v1.27.0 policy (no `POLICY_FNAME`), which divides
 traffic the way we want out of the box:
 
-- git clients and API callers (non-`Mozilla` UA) → weight 0 → pass through;
-  public `git clone` over HTTPS keeps working
+- git clients and API callers (non-`Mozilla` UA) → weight 0 → pass through
+  (on the mirror, dumb-HTTP clones hit `/eblume/*.git` and never reach
+  Anubis at all)
 - browsers → one JS proof-of-work interstitial, then a 7-day cookie
 - declared AI crawlers (GPTBot, meta-externalagent, Amazonbot, Bytespider …)
   → denied outright
@@ -268,8 +279,8 @@ So Tier 2a comes back from the dead — not as a security layer (it is still
 trivially evadable) but as a **cost optimization in front of Anubis**: a
 `map $http_user_agent $deny_bot` in nginx returns a bare ~60-byte 403 to the
 declared crawlers before the request ever reaches the Anubis proxy hop. No
-Go proxy round-trip, no 2.4 KB HTML page, no `/mirrors/` naughty page for
-bots (the roll of dishonour remains for human visitors). Anubis stays
+Go proxy round-trip, no 2.4 KB HTML page, no `/mirrors/` naughty page for bots
+(retried the relay's roll-of-dishonour page at the time; it was retired with the relay). Anubis stays
 exactly as configured — any bot that spoofs a browser UA to evade the map
 lands on the proof-of-work wall as before. Defense in depth, with the cheap
 check first.

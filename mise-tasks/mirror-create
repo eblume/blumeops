@@ -6,7 +6,7 @@
 #USAGE flag "--dry-run" help="Show what would be done without creating"
 set -euo pipefail
 
-# Tailnet name — the public forge.eblu.me has no in-cluster HTTPS route
+# Tailnet name — the public forge.eblu.me static mirror has no API
 # (docs/reference/services/argocd.md).
 FORGE_API="https://forge.ops.eblu.me/api/v1"
 ORG="mirrors"

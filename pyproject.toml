@@ -36,6 +36,9 @@ package = false
 #
 # To adopt new rules: add them here in a reviewed PR, fix the findings,
 # commit.
+[tool.ruff]
+exclude = ["mise-tasks/forge-name-lint.allowlist.yaml"]
+
 [tool.ruff.lint]
 select = [
   "ASYNC100",

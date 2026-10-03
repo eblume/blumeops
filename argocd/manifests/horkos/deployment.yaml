@@ -36,10 +36,8 @@ spec:
             # credential stays in place but is ignored.
             - name: HORKOS_DISPATCH_ENABLED
               value: "1"
-            # The tailnet name, not the public forge.eblu.me: indri's Caddy
-            # holds no cert for the public name, so an in-cluster HTTPS
-            # client gets a TLS alert, not a 404, and the policy re-check
-            # before dispatch would fail silently.
+            # Tailnet name — the public forge.eblu.me static mirror has no
+            # API, so an in-cluster dispatch would fail silently.
             - name: HORKOS_FORGE_API
               value: https://forge.ops.eblu.me/api/v1
           envFrom:

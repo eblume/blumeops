@@ -79,7 +79,7 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 
-# Tailnet name — the public forge.eblu.me has no in-cluster HTTPS route
+# Tailnet name — the public forge.eblu.me static mirror has no API
 # (docs/reference/services/argocd.md).
 FORGE_API_BASE = "https://forge.ops.eblu.me/api/v1"
 REPO = "eblume/blumeops"

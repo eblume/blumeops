@@ -1,0 +1,82 @@
+# Allowlist for the forge-name-lint hook.
+#
+# These files legitimately carry the public forge name (the public static
+# mirror). The lint fails when a file NOT listed here contains the name;
+# add a new file here only with a reason that survives review. Paths are
+# repo-relative (posix separators).
+- file: AGENTS.md
+  reason: cutover narrative and human-facing forge links (issue/README URLs)
+- file: argocd/manifests/grafana-config-ringtail/dashboards/configmap-forgejo.yaml
+  reason: dashboard queries keyed on the public mirror vhost's metrics/Loki labels
+- file: argocd/manifests/horkos/deployment.yaml
+  reason: comment contrasting the public mirror (no API) with the tailnet forge
+- file: argocd/manifests/tailscale-operator-base/kustomization.yaml
+  reason: comment — the public mirror serves no /mirrors/ tree
+- file: docs/explanation/ai-scraper-mitigation.md
+  reason: incident record — relay-era stats plus the current mirror defenses
+- file: docs/explanation/agent-change-process.md
+  reason: human-facing talos README link
+- file: docs/explanation/agent-interactive-access.md
+  reason: human-facing forge link
+- file: docs/explanation/freestanding-repos.md
+  reason: human-facing issue link
+- file: docs/explanation/skagit-cce-ceramics-watch.md
+  reason: human-facing issue link
+- file: docs/explanation/talos-design.md
+  reason: human-facing talos README link
+- file: docs/explanation/warrant-approval-gated-runs.md
+  reason: human-facing issue link
+- file: docs/how-to/operations/add-a-freestanding-repo.md
+  reason: human-facing issue/pull links
+- file: docs/how-to/operations/blumeops-ci-item-migration.md
+  reason: human-facing issue links
+- file: docs/how-to/operations/cv-on-indri.md
+  reason: human-facing package URL
+- file: docs/how-to/operations/manage-flyio-proxy.md
+  reason: static-mirror ops section (staging framing kept per sweep scope)
+- file: docs/how-to/operations/probe-openrouter-model.md
+  reason: human-facing issue links
+- file: docs/how-to/ringtail/manage-lockfile.md
+  reason: human-facing issue links
+- file: docs/reference/infrastructure/agent-workspaces.md
+  reason: human-facing repo link
+- file: docs/reference/infrastructure/gandi.md
+  reason: DNS table — the public CNAME record
+- file: docs/reference/infrastructure/routing.md
+  reason: service table — the public mirror row
+- file: docs/reference/services/argocd.md
+  reason: alias-retirement paragraph — the public mirror has no API
+- file: docs/reference/services/flyio-proxy.md
+  reason: static-mirror service section
+- file: docs/reference/services/forgejo.md
+  reason: quick-reference and access-table mirror rows
+- file: docs/reference/services/nvidia-device-plugin.md
+  reason: human-facing manifest link
+- file: mise-tasks/branch-cleanup
+  reason: comment — the public mirror has no API
+- file: mise-tasks/fly-setup
+  reason: TLS cert for the public name (fly certs add)
+- file: mise-tasks/horkos-forge-drift
+  reason: comment — the public mirror has no API
+- file: mise-tasks/horkos-forge-provision
+  reason: comment — the public mirror has no API
+- file: mise-tasks/mirror-create
+  reason: comment — the public mirror has no API
+- file: mise-tasks/mirror-push-wire
+  reason: comment — the public mirror has no API
+- file: mise-tasks/pr-comments
+  reason: comment — the public mirror has no API
+- file: mise-tasks/runner-logs
+  reason: legacy-remote match (accepts old and new forge remotes)
+- file: mise-tasks/services-check
+  reason: public health probe of the mirror
+- file: mise-tasks/spork-create
+  reason: comment — the public mirror has no API
+- file: mise-tasks/verify-runs
+  reason: comment — the public mirror has no API
+- file: nixos/ringtail/flake-update-verify
+  reason: human-facing issue link
+- file: pulumi/tailscale/policy.hujson
+  reason: ACL comment — the publicly reachable endpoint
+- file: service-versions.yaml
+  reason: flyio-anubis description (the public mirror's proof-of-work gateway)

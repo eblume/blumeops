@@ -19,7 +19,7 @@ Built from source on indri. The LaunchAgent unit is nix-managed ([[indri]] flake
 | Property | Value |
 |----------|-------|
 | **URL (primary, `ROOT_URL`)** | https://forge.ops.eblu.me |
-| **URL (public relay, pre-cutover)** | https://forge.eblu.me |
+| **URL (public static mirror)** | https://forge.eblu.me |
 | **SSH** | `ssh://forgejo@forge.ops.eblu.me:2222` |
 | **Local Ports** | 3001 (HTTP), 2200 (SSH) |
 | **Config** | `ansible/roles/forgejo/templates/app.ini.j2` |
@@ -179,15 +179,15 @@ used by this role anymore. Its remaining consumers:
 ## Access
 
 The instance's canonical name is `https://forge.ops.eblu.me` (`DOMAIN`/`ROOT_URL`,
-tailnet-reachable). It is also relayed publicly at `https://forge.eblu.me` via
-[[flyio-proxy]] — the first dynamic, authenticated service exposed publicly —
-until the cutover stage of the public/private split (eblume/blumeops#1208)
-swaps that name to the read-only static mirror.
+tailnet-reachable). The public name `https://forge.eblu.me` serves a read-only
+static mirror of the exposed repos (stagit HTML + git dumb-HTTP) on the Fly
+edge via [[flyio-proxy]]; every path the mirror does not serve 302s to the
+private forge (see [[flyio-proxy#Static forge mirror]]).
 
 | Access Method | URL | Reachable From |
 |---------------|-----|----------------|
 | **HTTPS (primary)** | https://forge.ops.eblu.me | Tailnet |
-| **HTTPS (public relay)** | https://forge.eblu.me | Public internet (pre-cutover) |
+| **HTTPS (public mirror)** | https://forge.eblu.me | Public internet (static mirror) |
 | **SSH** | `ssh://forgejo@forge.ops.eblu.me:2222` | Tailnet only |
 
 The UI shows `forge.ops.eblu.me` for both HTTPS and SSH clone URLs.
@@ -196,12 +196,7 @@ The UI shows `forge.ops.eblu.me` for both HTTPS and SSH clone URLs.
 
 - **Registration:** Local registration disabled; only [[authentik]] SSO login allowed (`ALLOW_ONLY_EXTERNAL_REGISTRATION = true`)
 - **Reverse proxy trust:** `REVERSE_PROXY_LIMIT = 2`, `REVERSE_PROXY_TRUSTED_PROXIES = *` — Forgejo logs the real client IP from `X-Real-IP` header, not the proxy's Tailscale IP
-- **Rate limiting:** nginx rate limits login/signup/forgot-password endpoints (3r/s per client IP via `Fly-Client-IP` header)
-- **fail2ban:** Runs in the Fly.io container; bans IPs after 5 failed logins in 10 minutes via nginx deny list (ephemeral across deploys)
-- **Swagger:** Blocked at the proxy (`/swagger` returns 403); use forge.ops.eblu.me for API access
-- **Archive redirect:** Archive endpoints (`/*/archive/*`) are 302-redirected to `forge.ops.eblu.me` — prevents unauthenticated crawlers from triggering unbounded git bundle generation (known DoS vector, see [[flyio-proxy#Crawler Mitigation]])
-- **robots.txt:** Blocks crawlers from `/mirrors/`, `/user/`, `/users/`, `/*/archive/`, `/*/releases/download/`
-- **OAuth dead-end:** "Sign in with Authentik" redirects to the (tailnet-only) Authentik URL — SSO only works from the tailnet
+- **Public surface:** the public name serves only the static mirror — no login, no API, no archive generation. The relay-era proxy defenses (login rate limiting, fail2ban, `/swagger` 403, archive redirect, relay `robots.txt`, the Authentik dead-end) were retired with it; the mirror vhost carries its own crawler defenses — rate limiting, `robots.txt` `Disallow: /`, declared-bot 403, and Anubis proof-of-work (see [[ai-scraper-mitigation]]).
 
 ### Break-glass
 
@@ -211,7 +206,7 @@ The UI shows `forge.ops.eblu.me` for both HTTPS and SSH clone URLs.
 
 Forgejo exposes a Prometheus `/metrics` endpoint (enabled via `[metrics]` in `app.ini`). Alloy on indri scrapes it at `localhost:3001/metrics`. Metrics are mostly Go runtime stats and repo counters (no per-request latency histogram).
 
-Request latency is measured at the Fly.io proxy layer via the `flyio_nginx_upstream_response_time_seconds` histogram, visible on the Forgejo Grafana dashboard under "Forgejo: Upstream Response Time".
+Request latency is measured at the Fly.io proxy layer via the `flyio_nginx_upstream_response_time_seconds` histogram, visible on the Forgejo Grafana dashboard under "Mirror: Upstream Response Time".
 
 ### Archive Cleanup
 

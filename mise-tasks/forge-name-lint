@@ -1,0 +1,142 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml==6.0.3", "rich==15.0.0"]
+# ///
+#MISE description="Fail on new hard-coded public forge names outside the allowlist"
+"""Fail when a file hard-codes the public forge name without approval.
+
+Scans the repo for the public forge name (forge.eblu.me) and fails if any
+hit lands in a file that is not allowlisted in forge-name-lint.allowlist.yaml.
+The public name is legitimate only in the allowed files: the mirror's own
+config, dashboards keyed on its metrics, docs that need the public URL, and
+comments that must contrast it with the tailnet forge.
+
+Excluded by policy (never checked): .git, *.lock, CHANGELOG.md,
+docs/changelog.d/, docs/quartz.config.yaml, docs/index.md, fly/, and the
+public-clone-URL docs docs/reference/services/{cv,horkos,talos,hephaestus}.md.
+
+Usage: mise run forge-name-lint
+"""
+
+import os
+import re
+import sys
+from pathlib import Path
+
+import yaml
+from rich.console import Console
+
+FORGE_PATTERN = re.compile(r"forge\.eblu\.me")
+
+# The gatekeeper and its allowlist carry the pattern in their own definition
+# (the regex and the reasons), so they are never scanned.
+SELF_PATHS = {
+    "mise-tasks/forge-name-lint",
+    "mise-tasks/forge-name-lint.allowlist.yaml",
+}
+
+# Whole trees / exact files that may legally carry the public name; checked
+# by exclusion, not by the allowlist.
+EXCLUDED_PREFIXES = ("docs/changelog.d/", "fly/")
+EXCLUDED_FILES = {
+    "CHANGELOG.md",
+    "docs/index.md",
+    "docs/quartz.config.yaml",
+}
+EXCLUDED_REFERENCE_DOCS = {
+    "docs/reference/services/cv.md",
+    "docs/reference/services/hephaestus.md",
+    "docs/reference/services/horkos.md",
+    "docs/reference/services/talos.md",
+}
+LOCK_SUFFIX = ".lock"
+
+
+def is_explicitly_allowed(rel_path: str) -> bool:
+    if rel_path in SELF_PATHS:
+        return True
+    if rel_path in EXCLUDED_FILES or rel_path in EXCLUDED_REFERENCE_DOCS:
+        return True
+    if rel_path.endswith(LOCK_SUFFIX):
+        return True
+    return any(rel_path.startswith(prefix) for prefix in EXCLUDED_PREFIXES)
+
+
+def find_hits(repo_root: Path) -> list[tuple[str, int, str]]:
+    hits: list[tuple[str, int, str]] = []
+    for dirpath, dirnames, filenames in os.walk(repo_root):
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+        for filename in sorted(filenames):
+            path = Path(dirpath) / filename
+            rel_path = path.relative_to(repo_root).as_posix()
+            if is_explicitly_allowed(rel_path):
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                if FORGE_PATTERN.search(line):
+                    hits.append((rel_path, lineno, line.strip()))
+    return hits
+
+
+def load_allowlist(path: Path) -> set[str]:
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        raise SystemExit(f"forge-name-lint: cannot read {path}: {exc}") from exc
+    if not isinstance(data, list):
+        raise SystemExit(
+            f"forge-name-lint: {path} must be a YAML list of {{file, reason}} maps"
+        )
+    allowed: set[str] = set()
+    for entry in data:
+        if not isinstance(entry, dict):
+            raise SystemExit(
+                f"forge-name-lint: {path} entries must be {{file, reason}} maps"
+            )
+        file = entry.get("file")
+        reason = entry.get("reason")
+        if not isinstance(file, str) or not isinstance(reason, str):
+            raise SystemExit(
+                f"forge-name-lint: {path} entries need string 'file' and 'reason'"
+            )
+        allowed.add(file)
+    return allowed
+
+
+def main() -> int:
+    console = Console()
+    repo_root = Path(__file__).resolve().parent.parent
+    allowlist = load_allowlist(repo_root / "mise-tasks" / "forge-name-lint.allowlist.yaml")
+    hits = find_hits(repo_root)
+
+    offenders = sorted(
+        (rel, lineno, line_text)
+        for rel, lineno, line_text in hits
+        if rel not in allowlist
+    )
+    if not offenders:
+        console.print(
+            "[bold green]forge-name-lint: no unallowlisted public-name hits[/bold green]"
+        )
+        return 0
+
+    console.print(
+        "[bold red]forge-name-lint: hard-coded public forge name in unallowlisted files:[/bold red]"
+    )
+    for rel, lineno, line_text in offenders:
+        console.print(f"  {rel}:{lineno}: {line_text}")
+    console.print()
+    console.print(
+        "Fix the reference (the public name is the static mirror; API calls must use "
+        "the tailnet forge), or add the file to mise-tasks/forge-name-lint.allowlist.yaml "
+        "with a reason."
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
