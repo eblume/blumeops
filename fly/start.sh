@@ -57,33 +57,21 @@ echo "MagicDNS ready"
 # (the geo directives' `include`s fail if the files are missing).
 touch /etc/nginx/forge-deny.conf /etc/nginx/photos-deny.conf
 
-# Start Anubis — proof-of-work gateway for forge.eblu.me. Sits between the
-# public forge server block (:8080) and the internal forge backend vhost
-# (:8081). Started before nginx so the first proxied request doesn't 502.
-# ANUBIS_ED25519_PRIVATE_KEY_HEX is a Fly secret; without it Anubis
-# generates an ephemeral signing key (challenge cookies reset each deploy).
+# Start Anubis — proof-of-work gateway in front of the static mirror
+# backend vhost (127.0.0.1:8925, nginx.conf). Started before nginx so the
+# first proxied request doesn't 502. ANUBIS_ED25519_PRIVATE_KEY_HEX is a
+# Fly secret; without it Anubis generates an ephemeral signing key
+# (challenge cookies reset each deploy). COOKIE_DYNAMIC_DOMAIN scopes the
+# challenge cookie to the request's hostname (forge.eblu.me / the staging
+# host), so git/API clients are unaffected. Alloy scrapes its metrics on 9092.
 if [ -n "${ANUBIS_ED25519_PRIVATE_KEY_HEX:-}" ]; then
     export ED25519_PRIVATE_KEY_HEX="$ANUBIS_ED25519_PRIVATE_KEY_HEX"
 fi
-BIND=127.0.0.1:8923 \
-TARGET=http://127.0.0.1:8081 \
-METRICS_BIND=127.0.0.1:9091 \
-COOKIE_DOMAIN=forge.eblu.me \
-anubis &
-echo "Anubis started"
-
-# Second Anubis instance in front of the static mirror backend vhost
-# (127.0.0.1:8925, nginx.conf). COOKIE_DYNAMIC_DOMAIN scopes its
-# challenge cookie to the request's hostname (blumeops-proxy.fly.dev
-# today, forge.eblu.me after the cutover) instead of a fixed domain, so
-# the forge.eblu.me challenge stays unaffected. Alloy scrapes its
-# metrics on 9092.
 BIND=127.0.0.1:8924 \
 TARGET=http://127.0.0.1:8925 \
 METRICS_BIND=127.0.0.1:9092 \
 COOKIE_DYNAMIC_DOMAIN=1 \
 anubis &
-echo "Anubis (mirror) started"
 
 # Start sshd — the mirror's git-shell push endpoint. The tailnet
 # (WireGuard) reaches the node's Tailscale IP directly (no `tailscale

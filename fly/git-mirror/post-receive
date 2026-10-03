@@ -6,7 +6,15 @@ set -eu
 
 reposdir="/volume/git-mirror/repos"
 sitedir="/volume/git-mirror/site"
-baseurl="https://blumeops-proxy.fly.dev"
+baseurl="https://forge.eblu.me"
+
+# The public mirror serves main and tags only (eblume/blumeops#1208):
+# the push mirrors still land any new upstream branch, so drop it here.
+# post-receive runs after the refs are written, and the repack + gc
+# below make the objects unreachable, so it is gone from dumb HTTP.
+while git for-each-ref --format='%(refname)' refs/heads/ | read -r ref; do
+    [ "$ref" = "refs/heads/main" ] || git update-ref -d "$ref"
+done
 
 # Pick a branch to point HEAD at while the repo has none (first push):
 # prefer main, else the first pushed branch.
@@ -43,9 +51,14 @@ rm -f .htmlcache
 rm -rf commit file
 # Re-pack after each push: loose objects multiply the dumb-HTTP
 # requests a clone makes (one per object) until git's auto-repack
-# threshold; at these repo sizes a full repack is cheap.
+# threshold; at these repo sizes a full repack is cheap. The
+# gc --prune=now right after is what actually drops the objects of a
+# just-deleted stray branch: a plain repack -a -d keeps them reachable
+# via loose objects.
 git --git-dir="$reposdir/$o/$n.git" repack -a -d
+git --git-dir="$reposdir/$o/$n.git" gc --prune=now --quiet
 stagit -c .htmlcache -u "$baseurl" "$reposdir/$o/$n.git" >/dev/null
+printf '%s\n' "$baseurl" > .baseurl
 ln -sf log.html index.html
 ln -sf ../../style.css style.css
 ln -sf ../../logo.png logo.png

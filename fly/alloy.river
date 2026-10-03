@@ -121,14 +121,6 @@ prometheus.scrape "self" {
   scrape_interval = "15s"
 }
 
-// Anubis proof-of-work gateway metrics (anubis_challenges_issued,
-// anubis_policy_results{action,rule}, ...)
-prometheus.scrape "anubis" {
-  targets         = [{"__address__" = "127.0.0.1:9091"}]
-  forward_to      = [prometheus.relabel.instance.receiver]
-  scrape_interval = "15s"
-}
-
 // Static mirror Anubis instance (start.sh, 127.0.0.1:9092) — its
 // challenge/deny metrics land under the same instance label.
 prometheus.scrape "anubis_mirror" {

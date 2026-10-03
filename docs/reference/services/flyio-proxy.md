@@ -29,9 +29,9 @@ Public reverse proxy on [Fly.io](https://fly.io) that exposes selected BlumeOps 
 | `eblu.me`, `www.eblu.me` | *(served at the edge)* | Apex landing page |
 | `docs.eblu.me` | `docs.ops.eblu.me` | [[docs]] |
 | `cv.eblu.me` | `cv.ops.eblu.me` | [[cv]] |
-| `forge.eblu.me` | `forge.ops.eblu.me` | [[forgejo]] |
+| `forge.eblu.me` | *(served at the edge — Fly volume)* | [[#Static forge mirror]] |
 | `photos.eblu.me` | `photos.ops.eblu.me` | [[immich]] (shared links only) |
-| `blumeops-proxy.fly.dev` | *(served at the edge — Fly volume)* | [[#Static forge mirror]] |
+| `blumeops-proxy.fly.dev` | *(served at the edge — Fly volume)* | [[#Static forge mirror]] (staging, same content) |
 
 The apex landing page is the one service **not** tunneled to indri: it's a
 single static "under construction" splash served straight from nginx (files
@@ -43,11 +43,13 @@ records to Fly's ingress IPs rather than the `CNAME` the subdomains use.
 
 Read-only mirror of the allowlisted public forge repos, served at the edge
 from a Fly volume (stagit HTML + git dumb HTTP, pushed by the private
-forge's push mirrors over tailnet SSH). Currently at the staging hostname
-`blumeops-proxy.fly.dev`; `forge.eblu.me` flips to it in the cutover PR
-([eblume/blumeops#1208](https://forge.eblu.me/eblume/blumeops/issues/1208)).
-Every path the static site does not serve 302s to `forge.ops.eblu.me`.
-Design and operations: `fly/git-mirror/README.md`,
+forge's push mirrors over tailnet SSH). Served at the public name
+`forge.eblu.me` — the CNAME points at the Fly app, so there is no relay to
+indri (the old dynamic Forgejo relay was retired in the public/private
+split, [eblume/blumeops#1208](https://forge.eblu.me/eblume/blumeops/issues/1208));
+`blumeops-proxy.fly.dev` (the app's free hostname) serves the same content
+as a staging surface. Every path the static site does not serve 302s to
+`forge.ops.eblu.me`. Design and operations: `fly/git-mirror/README.md`,
 [[manage-flyio-proxy#Static Forge Mirror]].
 
 ## Architecture
@@ -87,7 +89,7 @@ Fly.io runs Firecracker microVMs which support TUN devices natively. Tailscale r
 
 The `tailscaled` process is started with `--port=41641` to pin the WireGuard listener to a fixed port. This is critical for direct peering — without it, hole punching is unreliable. A `[[services]]` block in `fly.toml` exposes this port as UDP, though it is only active when a dedicated IPv4 is allocated.
 
-The Tailscale auth key is `preauthorized=True` to avoid device approval hangs on container restarts, and `ephemeral=True` so offline nodes auto-GC. Because no Fly volume persists `/var/lib/tailscale`, the node re-registers on every restart and its name drifts (`flyio-proxy`, `flyio-proxy-1`, …) — expected and benign. See [[manage-flyio-proxy#Tailscale Node Name Drift]].
+The Tailscale auth key is `preauthorized=True` to avoid device approval hangs on container restarts, and `ephemeral=True` so offline nodes auto-GC. The node key now persists on the `git_mirror` Fly volume (bind-mounted over `/var/lib/tailscale`), so a restart reconnects with the existing identity and the `flyio-proxy` name is stable; only a long-offline reclaim (the key is ephemeral) re-auths and may take the name back. See [[manage-flyio-proxy#Tailscale Node Name Drift]].
 
 ## Observability
 
@@ -116,17 +118,15 @@ The `tag:flyio-proxy` ACL grants outbound access only to `tag:flyio-target:443`.
 
 ### Crawler Mitigation
 
-The proxy serves a `robots.txt` blocking crawlers from expensive endpoints:
-
-- `/mirrors/` — large mirrored repos
-- `/user/` — auth endpoints (crawlers follow redirect loops)
-- `/users/` — user profile pages
-- `/*/archive/` — git bundle generation (DoS vector, see below)
-- `/*/releases/download/` — release artifacts
-
-Archive requests (`/<owner>/<repo>/archive/*`) are 302-redirected to `forge.ops.eblu.me` (tailnet-only), preventing unauthenticated archive generation. This mitigates a known Forgejo DoS vector where crawlers requesting unique commit SHAs trigger unbounded git bundle generation.
-
-Release downloads are cached at the proxy layer (7-day TTL, keyed by URI) to absorb repeated downloads of the same artifact.
+The `forge.eblu.me` static mirror serves a `robots.txt` disallowing the whole
+path (crawlers are not the audience; the clone endpoint is dumb-HTTP git, not
+a crawl target), and the edge rejects declared AI crawlers with a bare 403
+before the Anubis proof-of-work hop (see [[ai-scraper-mitigation]]). The old
+relay's per-endpoint defenses — the `/mirrors/` blackhole, the
+`/*/archive/` → tailnet 302, and the 7-day release-download cache — were
+retired with the relay, because the static mirror serves source only: there is
+no `/mirrors/` tree, no on-demand archive generation, and no release
+artifacts to cache.
 
 To expose an additional service through the proxy, add a Caddy route for it and an nginx `server` block. See [[expose-service-publicly]] for the full workflow.
 

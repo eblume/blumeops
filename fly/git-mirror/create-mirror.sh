@@ -10,7 +10,7 @@ set -eu
 
 reposdir="/volume/git-mirror/repos"
 sitedir="/volume/git-mirror/site"
-baseurl="https://blumeops-proxy.fly.dev"
+baseurl="https://forge.eblu.me"
 
 mkdir -p "$reposdir" "$sitedir"
 
@@ -45,6 +45,19 @@ for repo in "$reposdir"/*/*.git; do
         rm -rf "$repo" "$sitedir/${rel:?}"
         echo "pruned dropped repo: $rel"
     fi
+done
+
+# The public mirror carries main and tags only (eblume/blumeops#1208):
+# the push mirrors land every source ref, so drop the rest on every
+# boot. Idempotent; the repack below and the bottom update-server-info
+# loop keep the dropped refs out of what dumb HTTP can read.
+for repo in "$reposdir"/*/*.git; do
+    [ -d "$repo" ] || continue
+    git --git-dir="$repo" for-each-ref --format='%(refname)' refs/heads/ | while IFS= read -r ref; do
+        [ "$ref" = "refs/heads/main" ] || git --git-dir="$repo" update-ref -d "$ref"
+    done
+    git --git-dir="$repo" repack -a -d
+    git --git-dir="$repo" gc --prune=now --quiet
 done
 
 n=0
@@ -85,12 +98,18 @@ for repo in "$reposdir"/*/*.git; do
         cd "$sitedir/$o/$n2"
         head=$(git --git-dir="$repo" rev-parse -q --verify HEAD 2>/dev/null || true)
         cached=$(head -1 .htmlcache 2>/dev/null || true)
-        if [ -n "$head" ] && [ "$head" = "$cached" ] && [ -f log.html ]; then
+        # The .baseurl marker forces a one-time rebuild whenever the clone
+        # baseurl the HTML embeds changes (the cutover, staging ->
+        # forge.eblu.me): stagit only renders newer commits, so a HEAD match
+        # would skip it and the pages would keep the old hostname. post-receive
+        # regenerates the whole thing per push, so this only matters at boot.
+        if [ -n "$head" ] && [ "$head" = "$cached" ] && [ -f log.html ] && [ "$(cat .baseurl 2>/dev/null)" = "$baseurl" ]; then
             exit 0
         fi
         rm -f .htmlcache
         rm -rf commit file
         stagit -c .htmlcache -u "$baseurl" "$repo" >/dev/null
+        printf '%s\n' "$baseurl" > .baseurl
     )
     cd "$sitedir/$o/$n2"
     ln -sf log.html index.html

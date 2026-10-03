@@ -38,8 +38,6 @@ COPY --from=ghcr.io/techarohq/anubis@sha256:8828275668b7bc675679f100970f9714f731
 
 RUN mkdir -p /var/log/nginx /etc/alloy /tmp/alloy-data
 
-COPY fail2ban/filter.d/forge-login.conf /etc/fail2ban/filter.d/forge-login.conf
-COPY fail2ban/jail.d/forge.conf /etc/fail2ban/jail.d/forge.conf
 COPY fail2ban/filter.d/photos-share.conf /etc/fail2ban/filter.d/photos-share.conf
 COPY fail2ban/jail.d/photos.conf /etc/fail2ban/jail.d/photos.conf
 COPY fail2ban/action.d/nginx-deny.conf /etc/fail2ban/action.d/nginx-deny.conf
@@ -47,7 +45,6 @@ COPY fail2ban/action.d/nginx-deny.conf /etc/fail2ban/action.d/nginx-deny.conf
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY error.html /usr/share/nginx/html/error.html
 COPY tombstone.html /usr/share/nginx/html/tombstone.html
-COPY naughty.html /usr/share/nginx/html/naughty.html
 COPY landing/ /usr/share/nginx/html/landing/
 COPY alloy.river /etc/alloy/config.alloy
 COPY git-mirror/post-receive /usr/local/share/git-mirror/post-receive

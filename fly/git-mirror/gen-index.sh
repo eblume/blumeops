@@ -16,7 +16,7 @@ html_escape() {
 {
     echo '<!DOCTYPE html>'
     echo '<html><head><meta charset="utf-8">'
-    echo '<title>blumeops-proxy.fly.dev — public repositories</title>'
+    echo '<title>forge.eblu.me — public repositories</title>'
     echo '<link rel="icon" type="image/png" href="favicon.png" />'
     echo '<link rel="stylesheet" type="text/css" href="style.css" />'
     echo '</head><body>'
