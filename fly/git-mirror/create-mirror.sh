@@ -47,6 +47,19 @@ for repo in "$reposdir"/*/*.git; do
     fi
 done
 
+# The public mirror carries main and tags only (eblume/blumeops#1208):
+# the push mirrors land every source ref, so drop the rest on every
+# boot. Idempotent; the repack below and the bottom update-server-info
+# loop keep the dropped refs out of what dumb HTTP can read.
+for repo in "$reposdir"/*/*.git; do
+    [ -d "$repo" ] || continue
+    git --git-dir="$repo" for-each-ref --format='%(refname)' refs/heads/ | while IFS= read -r ref; do
+        [ "$ref" = "refs/heads/main" ] || git --git-dir="$repo" update-ref -d "$ref"
+    done
+    git --git-dir="$repo" repack -a -d
+    git --git-dir="$repo" gc --prune=now --quiet
+done
+
 n=0
 while IFS= read -r entry; do
     [ -n "$entry" ] || continue

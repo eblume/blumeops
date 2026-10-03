@@ -32,6 +32,13 @@ That is the form Forgejo stores it in (URL form, user `mirror` — the fly
 sshd's `AllowUsers`; the scp form `git@host:path` would arrive as user
 `git` and be refused by sshd).
 
+- **Refs:** the mirror carries `main` and tags only (eblume/blumeops#1208).
+  The push mirrors propagate every source ref, so `create-mirror.sh` prunes
+  non-`main` branches at boot and `post-receive` deletes any that land in
+  a push — both followed by a repack + `gc --prune=now`, and the
+  `update-server-info` refresh rebuilds `info/refs`, so stray branches
+  are never served over dumb HTTP.
+
 - **Reconnecting address:** the fly node's tailscale node key is
   persisted on the volume (`/volume/tailscale`, bind-mounted over
   `/var/lib/tailscale` in `fly/start.sh`), so a boot reconnects with
@@ -120,11 +127,12 @@ hostname in the pages.
       prints the generated public keys. Syncs fail until step 4 lands.
    4. Commit the printed keys into `authorized_keys` and redeploy
       (deploy-fly). Then verify: a throwaway branch pushed to one repo
-      lands (`git ls-remote` over the public URL shows it), then deleted
-      (the `--mirror` push removes it on the next sync), tags are
-      mirrored, and stagit HTML regenerated (the repo page shows
-      commits). A mirror's `last_error` (visible on the forge) is empty
-      once the first sync succeeds.
+      lands on the volume briefly but is dropped by the boot prune or
+      the next push's `post-receive` and never shows up over the
+      public URL (`git ls-remote`), tags are mirrored, and stagit
+      HTML regenerated (the repo page shows commits). A mirror's
+      `last_error` (visible on the forge) is empty once the first sync
+      succeeds.
 3. **Machine replacement:** the volume reattaches; init re-runs; the
    tailscale identity persists. Nothing to do.
 
