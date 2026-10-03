@@ -40,7 +40,16 @@ else
     fi
 fi
 
-ssh indri "COMMIT='$COMMIT' bash -s" <<'REMOTE'
+# Tailscale SSH on indri exits 0 no matter what the remote did (upstream
+# tailscale/tailscale#18256; the fix #20626 is still pending), so ssh's
+# rc is meaningless and a failed build would read as success. Verify
+# in-band instead: the remote prints a sentinel only after the build
+# completes under set -euo pipefail.
+OUT=$(mktemp)
+trap 'rm -f "$OUT"' EXIT
+
+ssh_rc=0
+ssh indri "COMMIT='$COMMIT' bash -s" <<'REMOTE' 2>&1 | tee "$OUT" || ssh_rc=$?
 set -euo pipefail
 DEST=/tmp/blumeops-indri-flake-check
 rm -rf "$DEST"
@@ -49,5 +58,16 @@ git -C "$DEST" checkout --quiet "$COMMIT"
 cd "$DEST/darwin/indri"
 nix build .#darwinConfigurations.indri.system
 rm -rf "$DEST"
+echo "FLAKE-CHECK-OK $COMMIT"
 REMOTE
+
+if ! grep -qxF "FLAKE-CHECK-OK $COMMIT" "$OUT"; then
+    if [[ $ssh_rc -ne 0 ]]; then
+        echo "indri flake check: FAILED - ssh reported rc $ssh_rc (transport failure, or a late disconnect)."
+    else
+        echo "indri flake check: FAILED - no success sentinel in the remote output for $COMMIT; the build did not complete."
+    fi
+    exit 1
+fi
+
 echo "indri flake check: OK ($COMMIT)"

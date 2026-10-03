@@ -1,0 +1,1 @@
+fix(indri): indri-flake-check now verifies the remote build in-band - the remote script prints a sentinel only after `nix build` succeeds, and the local side fails if it is absent, because Tailscale SSH on indri swallows remote exit codes so the old rc-based check printed OK for a failed build (blumeops#1379).
