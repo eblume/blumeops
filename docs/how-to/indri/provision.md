@@ -47,7 +47,7 @@ The checkout and rebuild tasks are tagged `rebuild`, so
 1Password prompts (a full run costs ~20, one per `op read`). The tasks
 checkout the bound SHA into a root-owned `/etc/blumeops` (HTTPS from the
 forge, forced) and run `darwin-rebuild switch --flake
-/etc/blumeops/darwin/indri#indri` detached via `sudo -H nohup` — log at
+/etc/blumeops/darwin/indri#indri` detached via `sudo -H nohup`, cwd pinned to `/` so the runner's per-job workdir cleanup can't take it out from under the build with `nix: cannot get cwd` — log at
 `/var/log/indri-rebuild/<sha>.log` plus a `.status` sidecar (the exit
 code, written when the switch ends) — then wait (bounded, 60 min) and fail
 with the log embedded on non-zero exit. `-e indri_rebuild_wait=false`

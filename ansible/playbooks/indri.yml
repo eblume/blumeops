@@ -467,7 +467,7 @@
         # A leftover sidecar from an earlier switch of this SHA would read as
         # the verdict of this switch.
         sudo -n rm -f /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status
-        sudo -n -H nohup sh -c '{{ indri_darwin_rebuild.stdout }} switch --flake /etc/blumeops/darwin/indri#indri > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.log 2>&1; echo $? > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp && mv /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status' </dev/null >/dev/null 2>&1 &
+        sudo -n -H nohup sh -c 'cd /; {{ indri_darwin_rebuild.stdout }} switch --flake /etc/blumeops/darwin/indri#indri > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.log 2>&1; echo $? > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp && mv /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status' </dev/null >/dev/null 2>&1 &
         REBUILD_PID=$!
         # A backgrounded job that fails to launch dies before the wait below
         # could notice; ps is ownership-neutral, kill -0 is not.

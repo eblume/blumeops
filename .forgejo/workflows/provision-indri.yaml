@@ -7,8 +7,9 @@
 # zero-prompt path: `mise run provision-indri -- --tags rebuild`. That runs
 # the task-side guards (docker-pinned flake-lock check, pushed-HEAD/ancestry
 # guard) and the play's rebuild-tagged pre_tasks: checkout the bound SHA into
-# a root-owned /etc/blumeops, detached `sudo -n -H nohup darwin-rebuild
-# switch --flake /etc/blumeops/darwin/indri#indri`. The rebuild path reads
+# a root-owned /etc/blumeops, detached `sudo -n -H nohup sh -c 'cd /;
+# darwin-rebuild switch --flake /etc/blumeops/darwin/indri#indri'`. The
+# rebuild path reads
 # no vault: every `op read` in the play is role-tagged, so `--tags rebuild`
 # runs none. The full ansible provision (roles, secrets) stays a human
 # window — the ringtail-rebuild-vs-provision-ringtail decomposition, applied
