@@ -33,8 +33,12 @@ caddy_domain: ops.eblu.me
 # HTTPS port (443 is standard)
 caddy_https_port: 443
 
+# Dedicated fly-facing listener: only services flagged fly_proxied below.
+# Reachable only by tag:flyio-proxy via the tailnet ACL (tcp:8443).
+caddy_fly_https_port: 8443
+
 # Services to proxy
-# Format: { name: "service", host: "hostname", backend: "url", deny_ips?: [] }
+# Format: { name: "service", host: "hostname", backend: "url", deny_ips?: [], fly_proxied?: bool }
 caddy_services:
   # Indri-local services
   - name: forge
@@ -84,6 +88,7 @@ caddy_services:
   - name: immich
     host: "photos.{{ caddy_domain }}"
     backend: "https://photos.tail8d86e.ts.net"
+    fly_proxied: true
   - name: navidrome
     host: "dj.{{ caddy_domain }}"
     backend: "https://dj.tail8d86e.ts.net"
@@ -98,6 +103,7 @@ caddy_services:
     kind: static
     root: "{{ docs_content_dir }}"
     try_html: true  # Quartz: path → path/ → path.html → 404.html
+    fly_proxied: true
   - name: cv
     host: "cv.{{ caddy_domain }}"
     kind: static
@@ -105,6 +111,7 @@ caddy_services:
     download_paths:
       - path: /resume.pdf
         filename: erich-blume-resume.pdf
+    fly_proxied: true
   - name: nvr
     host: "nvr.{{ caddy_domain }}"
     backend: "https://nvr.tail8d86e.ts.net"
@@ -151,3 +158,10 @@ caddy_tcp_services:
     backend: "sifaka:{{ sifaka_node_exporter_port }}"  # Sifaka node_exporter
   - port: "{{ sifaka_smartctl_exporter_port }}"
     backend: "sifaka:{{ sifaka_smartctl_exporter_port }}"  # Sifaka smartctl_exporter
+
+# Expected fly-facing services on :{{ caddy_fly_https_port }} — the set the
+# render check (mise-tasks/caddy-render-check) holds the per-service
+# fly_proxied flags to. To expose a service to the fly node, set
+# fly_proxied: true on its caddy_services entry AND list it here; unflagged
+# services are unreachable from fly by construction.
+caddy_fly_proxied_services: [docs, cv, immich]

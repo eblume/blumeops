@@ -1,0 +1,159 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["jinja2==3.1.6", "pyyaml==6.0.3"]
+# ///
+#MISE description="Render the indri Caddyfile and assert the :443/:8443 split (additive render gate; no network)"
+"""Render the Caddyfile template and assert the fly-listener split.
+
+Renders ansible/roles/caddy/templates/Caddyfile.j2 from the role defaults
+plus inventory facts (group_vars sifaka exporter ports, docs/cv role homes)
+and checks that the rendered file keeps the :443 wildcard site intact while
+the fly-only :8443 listener serves exactly the services flagged
+fly_proxied in caddy_fly_proxied_services.
+
+This is an additive render gate: it proves the :443 site still renders every
+service and that the fly split is exact, without needing ansible or a
+network. Runs in Docs Checks on every PR and locally via
+`mise run caddy-render-check`.
+"""
+
+import re
+import sys
+from pathlib import Path
+from typing import Any
+
+import yaml
+from jinja2 import Environment, FileSystemLoader
+
+ROOT = Path(__file__).resolve().parent.parent
+
+# Jinja expressions baked into the YAML defaults, e.g. service hosts
+# ("docs.{{ caddy_domain }}") and docs/cv roots ("{{ docs_home }}/content").
+EXPR_RE = re.compile(r"\{\{\s*(\w+)\s*\}\}")
+
+
+def load_yaml(rel_path: str) -> dict[str, Any]:
+    path = ROOT / rel_path
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise SystemExit(f"{rel_path}: expected a YAML mapping")
+    return data
+
+
+UNRESOLVED: set[str] = set()
+
+
+def resolve_expr(value: Any, space: dict[str, Any]) -> Any:
+    """Resolve `{{ var }}` expressions in a value against `space`.
+
+    Recurses through dicts/lists and re-resolves substitution results. A
+    name that is not statically resolvable gets a plausible literal so the
+    render stays valid (ports -> 9301-style int, paths -> ~/..., anything
+    else -> the bare name); such names are collected in UNRESOLVED and
+    surfaced at the end, so a var the gate cannot see is not silent.
+    """
+
+    def sub(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name in space:
+            return str(resolve_expr(space[name], space))
+        UNRESOLVED.add(name)
+        if "port" in name:
+            return "9301"
+        if "home" in name or "path" in name or "dir" in name:
+            return f"/Users/erichblume/{name}"
+        return name
+
+    if isinstance(value, dict):
+        return {k: resolve_expr(v, space) for k, v in value.items()}
+    if isinstance(value, list):
+        return [resolve_expr(v, space) for v in value]
+    if not isinstance(value, str) or not EXPR_RE.search(value):
+        return value
+    out = EXPR_RE.sub(sub, value)
+    return resolve_expr(out, space) if EXPR_RE.search(out) else out
+
+
+def main() -> int:
+    # Source of truth for {docs,cv}_home / sifaka exporter ports: the role
+    # defaults and inventory group_vars (plain YAML, no jinja).
+    group_vars = load_yaml("ansible/inventory/group_vars/all.yml")
+    docs_defaults = load_yaml("ansible/roles/docs/defaults/main.yml")
+    cv_defaults = load_yaml("ansible/roles/cv/defaults/main.yml")
+    caddy_defaults = load_yaml("ansible/roles/caddy/defaults/main.yml")
+
+    space: dict[str, Any] = {}
+    space.update(group_vars)
+    space.update(docs_defaults)
+    space.update(cv_defaults)
+    space.update(caddy_defaults)
+
+    context = resolve_expr(caddy_defaults, space)
+    context["caddy_domain"] = "ops.eblu.me"
+    context["caddy_https_port"] = 443
+    context["caddy_fly_https_port"] = 8443
+
+    env = Environment(
+        loader=FileSystemLoader(str(ROOT / "ansible/roles/caddy/templates")),
+        keep_trailing_newline=True,
+    )
+    output = env.get_template("Caddyfile.j2").render(context)
+    services = context["caddy_services"]
+    fly_proxied = list(context["caddy_fly_proxied_services"])
+
+    checks: list[bool] = []
+
+    def check(name: str, ok: bool) -> None:
+        checks.append(ok)
+        print(f"{'ok' if ok else 'FAIL'} — {name}")
+
+    check(":443 wildcard listener present", "*.ops.eblu.me:443 {" in output)
+    check(":8443 fly listener present", "*.ops.eblu.me:8443 {" in output)
+    check(
+        "layer4 global block occurs exactly once",
+        output.count("layer4 {") == 1,
+    )
+
+    main_start = output.find("*.ops.eblu.me:443 {")
+    fly_start = output.find("*.ops.eblu.me:8443 {")
+    base_start = output.find("# Base domain")
+    main_block = output[main_start:fly_start]
+    fly_block = output[fly_start:base_start]
+
+    split_ok = True
+    for svc in services:
+        host = f"host {svc['host']}"
+        in_main = host in main_block
+        in_fly = host in fly_block
+        want_fly = svc["name"] in fly_proxied
+        if not in_main or (in_fly != want_fly):
+            split_ok = False
+            print(
+                f"  {svc['name']} ({svc['host']}): main={in_main}, "
+                f"fly={in_fly}, expected fly={want_fly}"
+            )
+    check("every service host is in :443, fly members only in :8443", split_ok)
+
+    fairness_ok = (
+        "forge.ops.eblu.me" in main_block
+        and "forge.ops.eblu.me" not in fly_block
+        and all(h in fly_block for h in ("docs.ops.eblu.me", "cv.ops.eblu.me", "photos.ops.eblu.me"))
+    )
+    check("forge only on :443; docs, cv, photos on :8443", fairness_ok)
+
+    names = ", ".join(fly_proxied)
+    if UNRESOLVED:
+        print(f"warn — {len(UNRESOLVED)} names resolved to literals, not static facts: {', '.join(sorted(UNRESOLVED))}")
+    if all(checks):
+        print(
+            f"ok — Caddyfile renders; :443 serves {len(services)} services, "
+            f":8443 serves {len(fly_proxied)} ({names})"
+        )
+        return 0
+    print(f"FAIL — {len(checks) - sum(checks)}/{len(checks)} checks failed")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

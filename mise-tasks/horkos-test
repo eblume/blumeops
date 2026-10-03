@@ -9,6 +9,7 @@
 #   "cryptography==50.0.1",
 #   "python-multipart==0.0.32",
 #   "pyyaml==6.0.3",
+#   "jinja2==3.1.6",
 #   # request-run's own imports, so tests/ can load it
 #   "typer==0.27.2",
 #   "rich==15.0.0",
