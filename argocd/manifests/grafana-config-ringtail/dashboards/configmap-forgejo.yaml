@@ -901,7 +901,7 @@ data:
             { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.90, sum by (le) (rate(flyio_nginx_upstream_response_time_seconds_bucket{host=\"forge.eblu.me\"}[5m])))", "legendFormat": "upstream p90", "refId": "B" },
             { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.99, sum by (le) (rate(flyio_nginx_upstream_response_time_seconds_bucket{host=\"forge.eblu.me\"}[5m])))", "legendFormat": "upstream p99", "refId": "C" }
           ],
-          "title": "Forgejo: Upstream Response Time",
+          "title": "Mirror: Upstream Response Time",
           "type": "timeseries"
         },
         {

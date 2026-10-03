@@ -34,8 +34,8 @@ from rich.console import Console
 from rich.markup import escape
 
 FORGE_URL = "https://forge.ops.eblu.me"  # links + runner-side git remotes (tailnet name — see eblume/blumeops#1208)
-# Tailnet name for API calls — the public forge.eblu.me has no in-cluster
-# HTTPS route (docs/reference/services/argocd.md).
+# Tailnet name for API calls — the public forge.eblu.me static mirror has no
+# API (docs/reference/services/argocd.md).
 FORGE_API = "https://forge.ops.eblu.me/api/v1"
 FORGE_SSH = "ssh://forgejo@forge.ops.eblu.me:2222"
 MIRROR_ORG = "mirrors"

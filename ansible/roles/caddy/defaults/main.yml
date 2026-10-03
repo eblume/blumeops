@@ -34,12 +34,13 @@ caddy_domain: ops.eblu.me
 caddy_https_port: 443
 
 # Services to proxy
-# Format: { name: "service", host: "hostname", backend: "url" }
+# Format: { name: "service", host: "hostname", backend: "url", deny_ips?: [] }
 caddy_services:
   # Indri-local services
   - name: forge
     host: "forge.{{ caddy_domain }}"
     backend: "http://localhost:3001"
+    deny_ips: []  # tailnet peers that must not reach this site (the fly proxy)
   - name: registry
     host: "registry.{{ caddy_domain }}"
     backend: "http://localhost:5050"

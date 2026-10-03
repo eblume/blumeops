@@ -7,8 +7,8 @@ namespace: tailscale
 # Upstream Tailscale operator manifest from forge mirror.
 # To upgrade: update the ref in the URL AND the newTag below.
 # Must use the tailnet host forge.ops.eblu.me — the public forge.eblu.me
-# black-holes /mirrors/ at the Fly edge (AI-scraper mitigation), which the
-# in-cluster ArgoCD repo-server would otherwise hit and fail with a 403.
+# static mirror serves no /mirrors/ tree, so the in-cluster ArgoCD
+# repo-server fetches these manifests over the tailnet name.
 resources:
   - https://forge.ops.eblu.me/mirrors/tailscale/raw/tag/v1.98.5/cmd/k8s-operator/deploy/manifests/operator.yaml
   - proxyclass.yaml

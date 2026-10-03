@@ -58,6 +58,10 @@
 		@{{ service.name }}_html path /if/*
 		header @{{ service.name }}_html Cache-Control "no-cache"
 {% endif %}
+{%- for ip in service.deny_ips | default([]) %}
+		@{{ service.name }}_deny{{ loop.index }} remote_ip {{ ip }}
+		respond @{{ service.name }}_deny{{ loop.index }} 403
+{%- endfor %}
 {% if service.backend.startswith('https://') %}
 		reverse_proxy {{ service.backend }} {
 			# Caddy v2.11+ rewrites Host to upstream for HTTPS backends.

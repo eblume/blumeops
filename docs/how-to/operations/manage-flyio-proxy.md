@@ -85,10 +85,10 @@ See [[rotate-fly-deploy-token]] for the full rotation procedure (75-day cadence,
 ## Static Forge Mirror
 
 The app also serves a read-only mirror of the allowlisted public forge
-repos — stagit HTML + git dumb HTTP — at `blumeops-proxy.fly.dev`
-(staging; `forge.eblu.me` flips to it in the cutover). The mirror's bare
-repos and generated site live on the `git_mirror` Fly volume. Full
-design, layout and verification: `fly/git-mirror/README.md`.
+repos — stagit HTML + git dumb HTTP — at the public name `forge.eblu.me`
+(the `blumeops-proxy.fly.dev` staging vhost serves the same content).
+The mirror's bare repos and generated site live on the `git_mirror` Fly
+volume. Full design, layout and verification: `fly/git-mirror/README.md`.
 
 - **First deploy of a mirror image:** `mise run fly-setup` (creates the
   volume idempotently) **before** the `deploy-fly` run — a machine

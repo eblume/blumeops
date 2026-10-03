@@ -157,6 +157,19 @@ language = "system"
 files = '^docs/changelog\.d/'
 pass_filenames = false
 
+# Public forge name hard-coding check (whole repo; allowlist in
+# mise-tasks/forge-name-lint.allowlist.yaml)
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "forge-name-lint"
+name = "forge-name-lint"
+entry = "./mise-tasks/forge-name-lint"
+language = "system"
+files = '.*'
+pass_filenames = false
+
 # Documentation validation
 [[repos]]
 repo = "local"

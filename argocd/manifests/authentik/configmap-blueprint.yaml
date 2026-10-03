@@ -120,8 +120,6 @@ data:
           client_secret: !Env AUTHENTIK_FORGEJO_CLIENT_SECRET
           redirect_uris:
             - matching_mode: strict
-              url: https://forge.eblu.me/user/oauth2/authentik/callback
-            - matching_mode: strict
               url: https://forge.ops.eblu.me/user/oauth2/authentik/callback
           signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
           property_mappings:

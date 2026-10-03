@@ -99,7 +99,7 @@ The Tailscale auth key is `preauthorized=True` to avoid device approval hangs on
 - **Metrics**: Derived from access logs, pushed to [[prometheus|Prometheus]] via `remote_write`
   - `flyio_nginx_http_requests_total` — request rate by status/method/host
   - `flyio_nginx_http_request_duration_seconds` — total request latency histogram (includes proxy overhead)
-  - `flyio_nginx_upstream_response_time_seconds` — backend response time histogram (Forgejo processing only)
+  - `flyio_nginx_upstream_response_time_seconds` — backend response time histogram (for `forge.eblu.me` this is the Anubis mirror hop, not a Forgejo backend)
   - `flyio_nginx_http_response_bytes_total` — response bandwidth
   - `flyio_nginx_cache_requests_total` — cache HIT/MISS/EXPIRED counts
 

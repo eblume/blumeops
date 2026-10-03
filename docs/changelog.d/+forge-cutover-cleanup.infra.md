@@ -1,0 +1,1 @@
+Public/private forge split complete: the old forge.eblu.me relay is retired; this sweep drops the public redirect URI from the authentik blueprint, retitles the fly dashboards to the static mirror, adds a per-service Caddy deny hook on indri, and gates new public-name hard-coding with a lint.
