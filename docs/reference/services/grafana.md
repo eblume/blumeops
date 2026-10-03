@@ -1,6 +1,6 @@
 ---
 title: Grafana
-modified: 2026-09-20
+modified: 2026-10-03
 last-reviewed: 2026-09-20
 tags:
   - service
@@ -31,6 +31,16 @@ Grafana supports two login methods:
 
 The OIDC endpoints live in the `[auth.generic_oauth]` section of `argocd/manifests/grafana-ringtail/grafana.ini` (fed to the `grafana` ConfigMap via `configMapGenerator`). The OIDC client secret is injected via [[external-secrets]] — `argocd/manifests/grafana-config-ringtail/external-secret-authentik-oauth.yaml` pulls `grafana-client-secret` from the 1Password "Authentik (blumeops)" item, surfacing it as the `grafana-authentik-oauth` secret in the monitoring namespace.
 
+## Upgrading
+
+To upgrade Grafana:
+
+1. Update `version = "..."` in `containers/grafana/default.nix` (see [[build-grafana-images]]) and the `grafana` entry in `service-versions.yaml` in the same PR.
+2. Merge — the push to main builds the image at the merge commit and pushes it to the registry; the horkos publisher opens a pin PR with the new tag in `argocd/manifests/grafana-ringtail/kustomization.yaml` (under `images:`).
+3. Merge the pin PR — that deploys.
+
+The SQLite PVC is disposable — dashboards come from ConfigMaps and datasources from provisioning config.
+
 ## Datasources
 
 | Name | Type | Target |
@@ -53,7 +63,6 @@ Optional annotation: `grafana_folder: "FolderName"`
 Provisioned dashboards live in `argocd/manifests/grafana-config-ringtail/dashboards/` (one ConfigMap per dashboard). Coverage as of 2026-06: alerts, borgmatic, CV APM, devpi, docs APM, fly.io proxy, forgejo, frigate, jellyfin, kubernetes, loki, macOS (indri host), postgresql, ringtail, sifaka disks, snowflake proxy, tempo, transmission, zot.
 
 TeslaMate's dashboards are not in the repo — an init container fetches them from the forge mirror at a pinned tag (`TESLAMATE_VERSION` in `argocd/manifests/grafana-ringtail/deployment.yaml`).
-
 ## Related
 
 - [[build-grafana-images]] - Home-built container images (Grafana + sidecar)

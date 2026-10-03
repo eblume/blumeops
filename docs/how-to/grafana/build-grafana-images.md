@@ -20,8 +20,9 @@ Home-built container images for Grafana and its dashboard sidecar, published to 
 Downloads the official Grafana OSS release tarball from `dl.grafana.com` (amd64), patches it with `autoPatchelfHook`, installs it into `/usr/share/grafana`, and layers it with `dockerTools.buildLayeredImage`.
 
 ```fish
-# Update version = "..." in containers/grafana/default.nix and merge —
-# the push to main builds it and horkos opens the kustomization pin PR.
+# Update version = "..." in containers/grafana/default.nix (and service-versions.yaml
+# in the same PR), then merge — the push to main builds it and horkos opens the
+# kustomization pin PR.
 ```
 
 **Gotchas:**
@@ -52,6 +53,5 @@ Fetches the [kiwigrid/k8s-sidecar](https://github.com/kiwigrid/k8s-sidecar) sour
 ## Related
 
 - [[grafana]] — Service reference card
-- [[upgrade-grafana]] — Migration context and future upgrade steps
 - [[kustomize-grafana-deployment]] — Kustomize manifest structure
 - [[build-container-image]] — Standard container build workflow
