@@ -159,14 +159,16 @@ in
   '';
 
   # The build runner user's own global mise config (eblume/blumeops#1357):
-  # identical [tools] pins to the erichblume config above minus [settings.go]
-  # (GOROOT handling is erichblume-only, for the forgejo/zot source builds).
-  # The postActivation fragment links it into ~indri-build/.config/mise;
-  # --rollback re-links the previous generation's.
+  # the erichblume pins above (minus [settings.go], GOROOT handling is
+  # erichblume-only) plus rust — indri-build's jobs run the macOS-native
+  # cargo check directly on the host, and its home (0700) can't see
+  # erichblume's rustup install. The postActivation fragment links it into
+  # ~indri-build/.config/mise; --rollback re-links the previous generation's.
   environment.etc."mise/config-build-user.toml".text = ''
     [tools]
     # CI host tools the build runner's job steps resolve via shims; same
     # pins as the erichblume global config, the single source of truth.
+    rust = "stable"
     go = "1.26.7"
     dagger = "0.21.9"
     prek = "0.4.14"
