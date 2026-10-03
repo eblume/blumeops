@@ -1572,12 +1572,209 @@ data:
           "type": "timeseries"
         },
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Modeled hold time by kind per lane: kind=initial and kind=request are prefill holds, kind=decode is the modeled decode tail (eblume/talos#277). Stacked, the prefill vs decode share of the stretch is visible.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 77
+          },
+          "id": 33,
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (lane, kind) (rate(talos_lane_hold_seconds_sum[5m]))",
+              "legendFormat": "{{kind}} {{lane}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Hold time by kind",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Decoded tokens per second charged to the lane (talos_lane_decode_tokens_total) against the lane's modeled decode capacity (talos_lane_decode_aggregate_tps), so the decode share of the box's modeled capacity is visible (eblume/talos#277).",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 77
+          },
+          "id": 34,
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (lane) (rate(talos_lane_decode_tokens_total[5m]))",
+              "legendFormat": "decoded {{lane}}",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (lane) (talos_lane_decode_aggregate_tps)",
+              "legendFormat": "capacity {{lane}}",
+              "refId": "B"
+            }
+          ],
+          "title": "Modeled decode utilization (tok/s)",
+          "type": "timeseries"
+        },
+        {
           "collapsed": false,
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 77
+            "y": 85
           },
           "id": 13,
           "title": "Server",
@@ -1643,7 +1840,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 78
+            "y": 86
           },
           "id": 14,
           "options": {
@@ -1704,7 +1901,7 @@ data:
             "h": 8,
             "w": 6,
             "x": 12,
-            "y": 78
+            "y": 86
           },
           "id": 15,
           "options": {
@@ -1763,7 +1960,7 @@ data:
             "h": 8,
             "w": 6,
             "x": 18,
-            "y": 78
+            "y": 86
           },
           "id": 16,
           "options": {
@@ -1854,7 +2051,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 86
+            "y": 94
           },
           "id": 17,
           "options": {
@@ -1966,7 +2163,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 86
+            "y": 94
           },
           "id": 18,
           "options": {
@@ -2014,7 +2211,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 94
+            "y": 102
           },
           "id": 19,
           "title": "Workspaces",
@@ -2081,7 +2278,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 95
+            "y": 103
           },
           "id": 20,
           "options": {
@@ -2195,7 +2392,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 95
+            "y": 103
           },
           "id": 21,
           "options": {
@@ -2298,7 +2495,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 103
+            "y": 111
           },
           "id": 22,
           "options": {
@@ -2341,7 +2538,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 103
+            "y": 111
           },
           "id": 23,
           "options": {
