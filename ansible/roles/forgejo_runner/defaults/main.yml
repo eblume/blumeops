@@ -172,3 +172,6 @@ forgejo_runner_build_mise_github_token: ""
 # isolation control for host-mode jobs (they never enter the VM).
 forgejo_runner_build_colima_profile_dir: /Users/indri-build/.colima/indri-build
 forgejo_runner_build_colima_yaml: "{{ forgejo_runner_build_colima_profile_dir }}/colima.yaml"
+# The seed colima uses for a brand-new instance (see the build runner tasks).
+forgejo_runner_build_colima_template: /Users/indri-build/.colima/_templates/default.yaml
+forgejo_runner_build_colima_label: mcquack.eblume.colima-build
