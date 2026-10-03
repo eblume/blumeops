@@ -38,6 +38,5 @@ dir (the two dirs are separate ArgoCD apps: `grafana-ringtail` and
 
 ## Related
 
-- [[upgrade-grafana]] — Migration context
 - [[build-grafana-images]] — Home-built container images
 - [[grafana]] — Service reference card
