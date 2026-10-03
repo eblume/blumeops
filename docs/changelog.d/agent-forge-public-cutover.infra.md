@@ -1,0 +1,1 @@
+`forge.eblu.me` now serves the static public mirror (stagit browse + git dumb HTTP from the Fly volume) instead of relaying to the private Forgejo — the old relay (Anubis A, the internal `:8081` vhost, the `forge-login` fail2ban jail) is retired and every path the static site does not serve 302s to `forge.ops.eblu.me`. Part of the public/private split (eblume/blumeops#1208).

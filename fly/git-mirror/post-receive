@@ -6,7 +6,7 @@ set -eu
 
 reposdir="/volume/git-mirror/repos"
 sitedir="/volume/git-mirror/site"
-baseurl="https://blumeops-proxy.fly.dev"
+baseurl="https://forge.eblu.me"
 
 # Pick a branch to point HEAD at while the repo has none (first push):
 # prefer main, else the first pushed branch.
@@ -46,6 +46,7 @@ rm -rf commit file
 # threshold; at these repo sizes a full repack is cheap.
 git --git-dir="$reposdir/$o/$n.git" repack -a -d
 stagit -c .htmlcache -u "$baseurl" "$reposdir/$o/$n.git" >/dev/null
+printf '%s\n' "$baseurl" > .baseurl
 ln -sf log.html index.html
 ln -sf ../../style.css style.css
 ln -sf ../../logo.png logo.png
