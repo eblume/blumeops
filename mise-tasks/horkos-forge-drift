@@ -17,7 +17,7 @@ What we are defending. Horkos dispatches approved runs as this bot, and
 `workflow_dispatch` requires write while Forgejo has no dispatch-only
 permission — so the bot carries a `write:repository,write:issue` PAT, and `repos.json`'s
 per-repo `horkos_forge` flag is where that write floor is accepted. The
-reconciler (`mise run agent-repo-access`) grants it; this job verifies the
+reconciler (`mise run forge-reconcile`) grants it; this job verifies the
 reconcile held. Everything that keeps the floor a floor rather than a hole
 is *external* to Horkos:
 
@@ -46,7 +46,7 @@ all, blumeops at minimum (collaborator permissions and branch protections are
 repo-admin-level reads); the token *scopes* only need
 `write:repository,read:user` (the latter for the site-admin check on
 /users/horkos-forge) — the CI secret is a narrowly-scoped eblume PAT, not the
-admin PAT. Resolution order matches `agent-repo-access` — see resolve_token
+admin PAT. Resolution order matches `forge-reconcile` — see resolve_token
 there for why it is deliberately narrow.
 
 Usage:
@@ -81,7 +81,7 @@ EXPECTED_ACCESS = "write"
 EXPECTED_MAIN_WHITELIST = {"eblume"}
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
 # The policy: repos.json's per-repo `horkos_forge` flag — the exact set
-# agent-repo-access reconciles onto the forge, so this job verifies the
+# forge-reconcile reconciles onto the forge, so this job verifies the
 # reconcile held and no stray grant was added by hand.
 POLICY_PATH = Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
 
@@ -124,7 +124,7 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
 def load_policy() -> tuple[str, set[str]]:
     """(owner, {repo names with `horkos_forge: true`}) from repos.json.
 
-    The exact set `agent-repo-access` reconciles — the two must never
+    The exact set `forge-reconcile` reconciles — the two must never
     disagree. Missing or unparseable is a hard failure, not a skipped check:
     a check that cannot read its own policy cannot claim a clean blast
     radius, and the file is checked into this repo, so 'missing' means a
@@ -343,7 +343,7 @@ def main(
         for finding in report.failures:
             err.print(f"  · {escape(finding)}")
         err.print(
-            "\nReconcile grants with `mise run agent-repo-access --dry-run` from gilbert "
+            "\nReconcile grants with `mise run forge-reconcile --dry-run` from gilbert "
             "— it also reconciles branch protection from forge/branch-protections.json. If a "
             "change was intended, update the `horkos_forge` flags in repos.json (or the "
             "protection file) in the same PR."

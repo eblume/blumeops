@@ -7,16 +7,16 @@
 # Branch protections (forge/branch-protections.json) are checked here too,
 # but this workflow never applies them: the script refuses protection writes
 # under FORGE_REPO_WRITE_TOKEN, so a protection change fails the push run
-# loudly until a human runs `mise run agent-repo-access` from gilbert.
+# loudly until a human runs `mise run forge-reconcile` from gilbert.
 #
 # Hook creation and the label half need secrets CI does not carry, so they
 # skip loudly in CI and a human follows up from gilbert with
-# `mise run agent-repo-access`. So does a hook *recreate*: every hook edit
+# `mise run forge-reconcile`. So does a hook *recreate*: every hook edit
 # is read back, and one Forgejo's edit API silently ignored (v16.0.2 drops
 # action_run_* on PATCH) is replaced through the create API, secret and all. FORGE_REPO_WRITE_TOKEN is an eblume PAT
 # (write:repository,read:user) provisioned by the forgejo_actions_secrets
-# ansible role. Details: the script docstring in mise-tasks/agent-repo-access.
-name: Agent Repo Access
+# ansible role. Details: the script docstring in mise-tasks/forge-reconcile.
+name: Forge Reconcile
 
 on:
   push:
@@ -24,14 +24,14 @@ on:
     paths:
       - 'argocd/manifests/talos/repos.json'
       - 'forge/branch-protections.json'
-      - 'mise-tasks/agent-repo-access'
-      - '.forgejo/workflows/agent-repo-access.yaml'
+      - 'mise-tasks/forge-reconcile'
+      - '.forgejo/workflows/forge-reconcile.yaml'
   pull_request:
     paths:
       - 'argocd/manifests/talos/repos.json'
       - 'forge/branch-protections.json'
-      - 'mise-tasks/agent-repo-access'
-      - '.forgejo/workflows/agent-repo-access.yaml'
+      - 'mise-tasks/forge-reconcile'
+      - '.forgejo/workflows/forge-reconcile.yaml'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -61,7 +61,7 @@ jobs:
           FORGE_REPO_WRITE_TOKEN: ${{ secrets.FORGE_REPO_WRITE_TOKEN }}
         run: |
           set -o pipefail
-          uv run --script mise-tasks/agent-repo-access --check --skip-if-no-token 2>&1 | tee /tmp/agent-repo-access-reconcile.log
+          uv run --script mise-tasks/forge-reconcile --check --skip-if-no-token 2>&1 | tee /tmp/forge-reconcile-reconcile.log
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -69,7 +69,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: /tmp/agent-repo-access-reconcile.log
+          log-file: /tmp/forge-reconcile-reconcile.log
 
       - name: Apply
         if: github.event_name != 'pull_request'
@@ -77,7 +77,7 @@ jobs:
           FORGE_REPO_WRITE_TOKEN: ${{ secrets.FORGE_REPO_WRITE_TOKEN }}
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
-            uv run --script mise-tasks/agent-repo-access --dry-run --skip-if-no-token
+            uv run --script mise-tasks/forge-reconcile --dry-run --skip-if-no-token
           else
-            uv run --script mise-tasks/agent-repo-access --skip-if-no-token
+            uv run --script mise-tasks/forge-reconcile --skip-if-no-token
           fi

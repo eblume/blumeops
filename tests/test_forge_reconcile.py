@@ -1,6 +1,6 @@
-"""agent-repo-access: write on a repo == read of its Actions secrets.
+"""forge-reconcile: write on a repo == read of its Actions secrets.
 
-`agent-repo-access` reconciles the `agents` bot's forge collaborations. The
+`forge-reconcile` reconciles the `agents` bot's forge collaborations. The
 Actions-secrets invariant: workflows execute at the pushed ref and every run
 is handed the repo's secrets, so `access: write` on a repo whose
 `/actions/secrets` list is non-empty is a violation — it must fail `--check`
@@ -37,7 +37,7 @@ def _load():
     """mise tasks are extensionless, so spec_from_file_location can't infer a
     loader — name one. Importing is safe: typer.run() is under __main__."""
     loader = importlib.machinery.SourceFileLoader(
-        "agent_repo_access", str(ROOT / "mise-tasks" / "agent-repo-access")
+        "agent_repo_access", str(ROOT / "mise-tasks" / "forge-reconcile")
     )
     spec = importlib.util.spec_from_loader("agent_repo_access", loader)
     if spec is None:
@@ -168,7 +168,7 @@ class FakeForge:
         parts = path.strip("/").split("/")
         if len(parts) >= 5 and parts[:3] == ["api", "v1", "repos"]:
             _, _, _, _owner, repo, *tail = parts
-            # Grant mutations: agent-repo-access only PUTs collaborator grants
+            # Grant mutations: forge-reconcile only PUTs collaborator grants
             # and DELETEs them — fold the change into the served state so a
             # follow-up read reflects it, and tests can assert on it.
             if (

@@ -5,7 +5,7 @@
     "for both halves:",
     "",
     "  access -> reconciled onto the forge as collaborator grants by",
-    "            `mise run agent-repo-access` (.forgejo/workflows/agent-repo-access.yaml)",
+    "            `mise run forge-reconcile` (.forgejo/workflows/forge-reconcile.yaml)",
     "  pool   -> read by the agent pods' clone loops: the talos entrypoint",
     "            (default.nix in eblume/talos) fetches this file from blumeops",
     "            main at pod start, so changes apply on pod restart",

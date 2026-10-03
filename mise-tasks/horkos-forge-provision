@@ -112,7 +112,7 @@ def op(*args: str, check: bool = True) -> subprocess.CompletedProcess:
 SCOPE_HELP = """
 User creation needs a token with the **write:admin** scope, which the stored
 forge token deliberately lacks (it carries repo-admin scope for collaborator
-work — see agent-repo-access). Do NOT widen the stored token: mint an
+work — see forge-reconcile). Do NOT widen the stored token: mint an
 **ephemeral** one instead, use it here, then revoke it.
 
   forge → Settings → Applications → Generate New Token

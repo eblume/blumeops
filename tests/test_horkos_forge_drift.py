@@ -2,7 +2,7 @@
 
 `horkos-forge-drift` asserts, read-only, that the `horkos-forge` bot holds
 write on exactly the repos.json `horkos_forge` set — the set
-`agent-repo-access` reconciles — is not a site admin, and that blumeops `main`
+`forge-reconcile` reconciles — is not a site admin, and that blumeops `main`
 stays whitelisted to eblume alone. These tests stub the forge with a minimal
 httpx.MockTransport fake — no network, no vault.
 """

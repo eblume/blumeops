@@ -78,8 +78,8 @@ workspace checkout — are declared in **one** file:
 ```
 
 - `access` (`write` | `read` | `none`) is reconciled onto the forge as a
-  collaborator grant by `mise run agent-repo-access`, which the
-  **Agent Repo Access** workflow runs on merge to `main`.
+  collaborator grant by `mise run forge-reconcile`, which the
+  **Forge Reconcile** workflow runs on merge to `main`.
 - `pool` (`canonical` | `fork` | `none`) drives the pod's clone loop: the
   talos entrypoint (default.nix in the eblume/talos repo) fetches this file
   from blumeops `main` at pod start — a pool change reaches pods on restart,
@@ -135,7 +135,7 @@ UI — and nothing to forget, which is the point. See [[agent-containerization]]
 
 > **Four repos are pinned read-only in code, not data.** `blumeops`, `agents`,
 > `horkos`, and `talos` cannot be granted `write` no matter what `repos.json` says — the reconciler
-> refuses and exits non-zero (`PINNED_READ_ONLY` in `mise-tasks/agent-repo-access`).
+> refuses and exits non-zero (`PINNED_READ_ONLY` in `mise-tasks/forge-reconcile`).
 > Their read-only-on-canonical status is what keeps blumeops CI, and its
 > deploy-credentialed Actions secrets, out of agent reach; that fence should not
 > be flippable by a one-line edit to a data file in a routine-looking PR.

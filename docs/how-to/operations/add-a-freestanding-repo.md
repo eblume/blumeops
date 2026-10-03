@@ -32,7 +32,7 @@ what the class is, see [[freestanding-repos]]. Each step names its actor.
    replaces pods — and the next pod start clones the repo. The CI run
    itself is expected to go red (the webhook half cannot run in CI);
    that is not a regression — it clears once step 4 lands.
-4. **(Erich, from gilbert)** `mise run agent-repo-access` — creates the
+4. **(Erich, from gilbert)** `mise run forge-reconcile` — creates the
    forge → talos webhook (needs the shared signing secret from the blumeops
    1Password vault) and seeds the `agents` engagement label (needs a token
    with label write; the CI token 403s even on label reads). Without
