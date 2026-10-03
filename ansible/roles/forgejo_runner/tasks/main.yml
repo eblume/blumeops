@@ -298,6 +298,24 @@
   when: forgejo_runner_build_uuid | length > 0
   tags: [forgejo_build_runner]
 
+# colima reads ~/.colima/<profile>/colima.yaml only for an instance that
+# already exists: a brand-new instance is seeded from the user's colima
+# template (defaults - 2 CPU, 2 GiB, `mounts: []`) and colima then saves
+# that seed over the profile. So the same file is installed as the template
+# first (fresh instances, incl. a rebuilt VM) and as the profile second
+# (existing instances). The daemon wrapper waits on the profile, so the
+# template is in place before the first `colima start`.
+- name: Install build runner colima template as indri-build
+  ansible.builtin.shell: >-
+    sudo -n -u indri-build /bin/sh -c
+    'cd / && mkdir -p "$(dirname "$2")" && { cmp -s "$1" "$2" || { /usr/bin/install -m 0600 "$1" "$2" && echo installed; }; }'
+    _ {{ (forgejo_runner_build_stage_dir ~ '/colima.yaml') | quote }}
+    {{ forgejo_runner_build_colima_template | quote }}
+  register: forgejo_runner_build_colima_template_install
+  changed_when: "'installed' in forgejo_runner_build_colima_template_install.stdout"
+  when: forgejo_runner_build_uuid | length > 0
+  tags: [forgejo_build_runner]
+
 - name: Install build runner colima profile as indri-build
   ansible.builtin.shell: >-
     sudo -n -u indri-build /bin/sh -c
@@ -306,6 +324,7 @@
     {{ forgejo_runner_build_colima_yaml | quote }}
   register: forgejo_runner_build_colima_install
   changed_when: "'installed' in forgejo_runner_build_colima_install.stdout"
+  notify: Restart colima-build VM
   when: forgejo_runner_build_uuid | length > 0
   tags: [forgejo_build_runner]
 

@@ -31,3 +31,18 @@
   ansible.builtin.shell: |
     sudo -n launchctl kickstart -k system/{{ forgejo_runner_build_label }} 2>/dev/null || true
   changed_when: true
+
+- name: Restart colima-build VM
+  # cpu/memory/mounts apply only when the VM boots, so stop it: the colima
+  # daemon wrapper polls `colima status`, exits when the VM stops, and
+  # KeepAlive re-runs `colima start`, which reads the new profile. The
+  # colima binary is the one on the daemon's own PATH (a nix store path the
+  # role does not otherwise know). Jobs running at that moment lose their
+  # engine; profile changes are rare. A not-yet-created VM makes stop a
+  # no-op.
+  ansible.builtin.shell: |
+    set -eu
+    path=$(plutil -extract EnvironmentVariables.PATH raw -o - /Library/LaunchDaemons/{{ forgejo_runner_build_colima_label }}.plist)
+    cd /
+    sudo -n -H -u indri-build /usr/bin/env -u SSH_AUTH_SOCK PATH="$path" colima stop --profile indri-build
+  changed_when: true

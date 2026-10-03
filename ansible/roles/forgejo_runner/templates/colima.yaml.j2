@@ -6,13 +6,14 @@
 # can be mounted into a container, so a job step cannot `-v` another user's
 # home. Host-mode jobs do not enter the VM - their isolation is the 0700
 # homes and the build user's own primary group, not this file.
-# cpu/disk/memory are in GiB. colima v0.10.1 has no zfs option - disks are
-# plain. vmType is pinned to vz (indri is a 2026-era M-series Mac; vz is
+# cpu/disk/memory are in GiB. colima can grow a disk but never shrink it,
+# and the VM was created at colima's 100 GiB default, so disk stays 100.
+# colima v0.10.1 has no zfs option - disks are plain. vmType is pinned to vz (indri is a 2026-era M-series Mac; vz is
 # colima's default there anyway) so the deploy-time acceptance check has an
 # explicit target: `colima status --profile indri-build` must report `vz`.
 # virtiofs is the vz mount type.
 cpu: 4
-disk: 4
+disk: 100
 memory: 4
 vmType: vz
 mountType: virtiofs

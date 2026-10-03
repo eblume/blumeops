@@ -1,0 +1,1 @@
+Fix the indri-build colima VM ignoring its rendered profile: the role now also installs it as colima's new-instance template, sets disk to the 100 GiB the VM already has, and stops the VM on a profile change so colima restarts it with the new CPU/memory/mounts.
