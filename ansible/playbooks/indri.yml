@@ -119,7 +119,7 @@
 
     # Forgejo Actions secrets (synced to Forgejo via API)
     # eblume PAT scoped to write:repository,read:user — the
-    # FORGE_REPO_WRITE_TOKEN CI secret for agent-repo-access +
+    # FORGE_REPO_WRITE_TOKEN CI secret for forge-reconcile +
     # horkos-forge-drift, so CI no longer holds the all-scopes admin PAT
     # (heph 01KZ5ESS2G). Also the token this role authenticates with
     # (write:repository covers its repo-admin ops — eblume owns the repos).

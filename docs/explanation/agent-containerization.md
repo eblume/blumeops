@@ -90,7 +90,7 @@ k3s-ringtail cluster
 ### The repo pool
 
 `repos.json` (`argocd/manifests/talos/`, delivered to the pod as a kustomize-generated ConfigMap whose hash-suffixed name rolls the pod on every policy merge) is the source of truth for what lands in
-`~/code/personal` on the PVC — and, via `mise run agent-repo-access`, for the
+`~/code/personal` on the PVC — and, via `mise run forge-reconcile`, for the
 forge collaborator grants that make those clones possible at all. `default.nix`
 reads it with `builtins.fromJSON` to generate the entrypoint's clone loop:
 

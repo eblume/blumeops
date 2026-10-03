@@ -146,13 +146,13 @@ reads the same as "nothing to validate". The fix is to make the gate statuses
 merge instead of looking neutral — not to remove the gate.
 
 Branch protection on `main` is declared in `forge/branch-protections.json`
-and reconciled by `mise run agent-repo-access` — CI checks it for drift,
+and reconciled by `mise run forge-reconcile` — CI checks it for drift,
 but only a human run applies it (see the script's docstring). It requires
 the gate contexts by name — Docs Checks, Image Pins, and the four `Lint`
 jobs — plus the glob `* (pull_request)`. Forgejo resolves a glob to the
 *worst* state among every context it matches, so the glob makes any PR
 check that actually ran blocking, path-filtered ones included (the flake
-checks, Agent Repo Access), while a path-filtered workflow that did not
+checks, Forge Reconcile), while a path-filtered workflow that did not
 trigger posts no context and blocks nothing. The named contexts stay
 because the glob cannot tell "nothing ran yet" from "nothing to run": on an
 agent PR nobody has approved, they are what holds the merge.
@@ -167,7 +167,7 @@ a job in `docs-checks.yaml`, `image-pins.yaml` or `lint.yaml` is renamed.
 A PR where a check ran and failed still hides its *reason* behind runner
 logs, which agent sessions cannot read (action logs are private to the forge
 UI). The PR-facing check jobs therefore end with the shared
-`.forgejo/actions/report-failure` step — `Lint`'s four jobs, `Docs Checks / checks`, `Image Pins / checks`, `Build Container`'s build job, and `Agent Repo Access`'s `reconcile` job; the only `pull_request` jobs without it are the path-filtered flake-check builds and `Build Container`'s trivial `detect` job.
+`.forgejo/actions/report-failure` step — `Lint`'s four jobs, `Docs Checks / checks`, `Image Pins / checks`, `Build Container`'s build job, and `Forge Reconcile`'s `reconcile` job; the only `pull_request` jobs without it are the path-filtered flake-check builds and `Build Container`'s trivial `detect` job.
 On failure it posts the tail of the job's own teed log to the PR as
 `forgejo-actions`, with the run number and a
 copy-paste `mise run runner-logs <run> -j <N>` pointer (matrix jobs omit the

@@ -20,12 +20,12 @@ forgejo_actions_secrets_token_var: forgejo_secret_repo_write_token
 # NOT `FORGEJO_…`: Forgejo reserves the `FORGEJO_` prefix for the Actions
 # tokens it injects itself and rejects the create with HTTP 400.
 forgejo_actions_secrets_repos:
-  # The only two stored secrets any workflow reads (agent-repo-access,
+  # The only two stored secrets any workflow reads (forge-reconcile,
   # horkos-forge-drift, argocd-deploy, build-blumeops, build-container,
   # deploy-fly, run-script).
   - repo: blumeops
     secrets:
-      # FORGE_REPO_WRITE_TOKEN lets agent-repo-access reconcile the `agents`
+      # FORGE_REPO_WRITE_TOKEN lets forge-reconcile reconcile the `agents`
       # bot's collaborations against repos.json and horkos-forge-drift read
       # collaborator perms + branch protections. An eblume PAT scoped to
       # write:repository,read:user — collaborator ops need repo-admin

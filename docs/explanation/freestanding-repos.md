@@ -47,10 +47,10 @@ comment on them.
 1. The forge repo is created from `project-template` — a human action; the
    agents bot's token cannot create repos.
 2. The `repos.json` entry lands on blumeops `main` via PR.
-3. On merge, CI (the Agent Repo Access workflow) reconciles the agents bot's
+3. On merge, CI (the Forge Reconcile workflow) reconciles the agents bot's
    collaborator grant, and the talos pod rolls to pick the repo up in its
    clone loop.
-4. Manual follow-up from gilbert: `mise run agent-repo-access` creates the
+4. Manual follow-up from gilbert: `mise run forge-reconcile` creates the
    forge → talos webhook and seeds the `agents` engagement label. Those
    halves need secrets and tokens CI does not carry: the webhook signing
    secret comes from the blumeops 1Password vault, and the CI token 403s

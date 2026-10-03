@@ -4,7 +4,7 @@
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
 #MISE description="[human] Reconcile the agents + horkos-forge bots' forge collaborations, forge→talos and forge→horkos webhooks, and engagement labels against repos.json, and branch protections against forge/branch-protections.json"
-#MISE alias="ara"
+#MISE alias=["ara","agent-repo-access"]
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
 #USAGE flag "--token <token>" help="Forgejo API token; the caller must be admin on the target repos (default: 1Password)"
@@ -135,9 +135,9 @@ prefix for the Actions tokens it injects itself, and rejects creation of a
 secret using it with HTTP 400.
 
 Usage:
-    mise run agent-repo-access --dry-run    # preview (do this first)
-    mise run agent-repo-access              # apply
-    mise run agent-repo-access --check      # CI: exit 1 on drift
+    mise run forge-reconcile --dry-run    # preview (do this first)
+    mise run forge-reconcile              # apply
+    mise run forge-reconcile --check      # CI: exit 1 on drift
 """
 
 import json
@@ -1325,7 +1325,7 @@ def main(
         if protection_actions and ci_token:
             console.print(
                 f"\n[red]Refusing {len(protection_actions)} branch protection change(s) under the CI token.[/red] "
-                "Branch protection is applied only from a human run: `mise run agent-repo-access` "
+                "Branch protection is applied only from a human run: `mise run forge-reconcile` "
                 "(1Password, biometric) after reviewing `--dry-run`."
             )
             raise typer.Exit(1)

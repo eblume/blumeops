@@ -82,7 +82,7 @@ The forge has three namespaces:
 
 | Workflow | Trigger | Runner | Purpose |
 |----------|---------|--------|---------|
-| `agent-repo-access` | push/PR/dispatch | `indri` | Reconcile the `agents` bot's collaborations + labels against repos.json; check (never apply) branch protections against `forge/branch-protections.json` |
+| `forge-reconcile` | push/PR/dispatch | `indri` | Reconcile the `agents` bot's collaborations + labels against repos.json; check (never apply) branch protections against `forge/branch-protections.json` |
 | `argocd-deploy` | dispatch | `priv` | Warrant-gated ArgoCD deploy of a single app |
 | `argocd-sync-apps` | dispatch | `priv` | Warrant-gated sync of the app-of-apps root (`apps`) |
 | `branch-cleanup` | cron/dispatch | `indri` | Delete stale branches |
@@ -130,7 +130,7 @@ mise run provision-indri -- --tags forgejo_actions_secrets
 
 | Repo | Secrets | Purpose |
 |------|---------|---------|
-| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `agent-repo-access` reconcile + `horkos-forge-drift` reads (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
+| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `forge-reconcile` reconcile + `horkos-forge-drift` reads (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
 | `eblume/talos`, `eblume/horkos` | `ZOT_PUSH_API_KEY` | Auto-release CI: per-repo push-only zot identity (`ci-zot-talos` / `ci-zot-horkos`), provisioned from the zot master fields by the role |
 | `eblume/cv` | — (none) | Release CI is stored-secret-free; the empty declaration makes provisioning authoritative here (first run deletes the stale `FORGE_TOKEN`) |
 

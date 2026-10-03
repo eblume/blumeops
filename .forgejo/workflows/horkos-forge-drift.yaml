@@ -13,7 +13,7 @@
 # Needs FORGE_REPO_WRITE_TOKEN: collaborator permissions and branch protections
 # are repo-admin-level reads (eblume is admin as owner; the token scopes are
 # just write:repository,read:user — the latter for the site-admin check on
-# /users/horkos-forge). Same secret and same provisioning path as Agent Repo Access.
+# /users/horkos-forge). Same secret and same provisioning path as Forge Reconcile.
 #
 # That credential is also why there is no `pull_request` trigger. Fork PRs get
 # no secrets, every agent PR is a fork PR, and the token is what this job needs
@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # --skip-if-no-token logs a loud yellow SKIPPED and exits 0 rather than
-      # failing on a missing credential, matching Agent Repo Access. An
+      # failing on a missing credential, matching Forge Reconcile. An
       # insufficient token is a different case and DOES fail: the script reports
       # every unreadable check as UNKNOWN and exits 1, because a check that
       # cannot see is not a check that passed.
