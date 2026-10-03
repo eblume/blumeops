@@ -127,6 +127,7 @@ jobs:
       - name: Build changelog
         id: changelog
         run: |
+          mkdir -p "$RUNNER_TEMP"
           VERSION="${{ steps.version.outputs.version }}"
 
           # Run towncrier on the runner so that CHANGELOG.md updates and

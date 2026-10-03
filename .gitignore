@@ -16,4 +16,3 @@ __pycache__/
 # nix build output symlinks
 /**/result
 /**/result-*
-/**/.ci-tmp
