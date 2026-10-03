@@ -54,6 +54,7 @@ jobs:
         if: always()
         run: |
           set -o pipefail
+          mkdir -p .ci-tmp
           mise run horkos-test 2>&1 | tee -a "$GITHUB_WORKSPACE/.ci-tmp/image-pins-checks.log"
 
       - name: Report failure to PR
@@ -62,4 +63,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: $GITHUB_WORKSPACE/.ci-tmp/image-pins-checks.log
+          log-file: image-pins-checks.log

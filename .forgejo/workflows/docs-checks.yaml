@@ -48,12 +48,14 @@ jobs:
         if: always()
         run: |
           set -o pipefail
+          mkdir -p .ci-tmp
           uv run --script mise-tasks/docs-check-frontmatter 2>&1 | tee -a "$GITHUB_WORKSPACE/.ci-tmp/docs-checks-checks.log"
 
       - name: Wiki-links resolve
         if: always()
         run: |
           set -o pipefail
+          mkdir -p .ci-tmp
           uv run --script mise-tasks/docs-check-links 2>&1 | tee -a "$GITHUB_WORKSPACE/.ci-tmp/docs-checks-checks.log"
 
       # A PR body ends at the merge: after-merge steps live in the linked issue's
@@ -62,6 +64,7 @@ jobs:
         if: always() && github.event_name == 'pull_request'
         run: |
           set -o pipefail
+          mkdir -p .ci-tmp
           body="$(jq -r '.pull_request.body // empty' "$GITHUB_EVENT_PATH")"
           if printf '%s\n' "$body" | grep -inE '^#{1,6}[[:space:]]+(after merge|post-merge|remaining steps \(human\))' ; then
             echo "::error::PR body carries an after-merge section heading (After merge / Post-merge / Remaining steps (human)). PR bodies end at the merge: after-merge steps belong in the linked issue's '## Human steps' comment (eblume/blumeops#1233). Move the section out of the body and re-run." | tee -a "$GITHUB_WORKSPACE/.ci-tmp/docs-checks-checks.log"
@@ -74,4 +77,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: $GITHUB_WORKSPACE/.ci-tmp/docs-checks-checks.log
+          log-file: docs-checks-checks.log

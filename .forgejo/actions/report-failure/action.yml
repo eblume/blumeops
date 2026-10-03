@@ -69,12 +69,21 @@ runs:
         mkdir -p "$ci_tmp"
         ci_report="$ci_tmp/ci-report-body.md"
 
+        # log-file is a bare filename (not a shell-expanded $GITHUB_WORKSPACE,
+        # which a `with:` value would not resolve); resolve it into the same
+        # per-job scratch dir. An absolute path is honoured as-is.
+        log_file_in='${{ inputs.log-file }}'
+
         # Single-quoted: the values may hold regex metacharacters ($, backtick).
-        log_file='${{ inputs.log-file }}'
         filter='${{ inputs.filter }}'
         matrix='${{ inputs.matrix }}'
         trigger_authors='${{ inputs.trigger-authors }}'
         max_reviews='${{ inputs.max-reviews }}'
+
+        case "$log_file_in" in
+          /*) log_file="$log_file_in" ;;
+          *)  log_file="$ci_tmp/$log_file_in" ;;
+        esac
 
         API="${GITHUB_API_URL:-${GITHUB_SERVER_URL:-https://forge.ops.eblu.me}/api/v1}"
         REPO="$GITHUB_REPOSITORY"

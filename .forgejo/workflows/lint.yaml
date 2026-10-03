@@ -118,7 +118,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: $GITHUB_WORKSPACE/.ci-tmp/lint-prek.log
+          log-file: lint-prek.log
 
   # Schema validation against the runner's own parser — the check actionlint
   # cannot do, since it validates against GitHub's schema and misses
@@ -154,7 +154,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: $GITHUB_WORKSPACE/.ci-tmp/lint-workflows-validate.log
+          log-file: lint-workflows-validate.log
 
   # gitleaks over the FULL git history, not the PR range. This repo is public
   # and its first rule is never commit secrets, so a credential that landed
@@ -194,7 +194,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: $GITHUB_WORKSPACE/.ci-tmp/lint-secret-scan.log
+          log-file: lint-secret-scan.log
 
   # Every Application under argocd/apps/ is a pointer ArgoCD tracks forever
   # (automated sync + self-heal). Refuse any source the agents bot can move —
@@ -228,4 +228,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: $GITHUB_WORKSPACE/.ci-tmp/lint-argocd-apps.log
+          log-file: lint-argocd-apps.log
