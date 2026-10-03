@@ -10,14 +10,14 @@ namespace: tailscale
 # static mirror serves no /mirrors/ tree, so the in-cluster ArgoCD
 # repo-server fetches these manifests over the tailnet name.
 resources:
-  - https://forge.ops.eblu.me/mirrors/tailscale/raw/tag/v1.98.5/cmd/k8s-operator/deploy/manifests/operator.yaml
+  - https://forge.ops.eblu.me/mirrors/tailscale/raw/tag/v1.102.5/cmd/k8s-operator/deploy/manifests/operator.yaml
   - proxyclass.yaml
   - dnsconfig.yaml
 
 images:
   - name: tailscale/k8s-operator
     newName: docker.io/tailscale/k8s-operator
-    newTag: v1.98.5
+    newTag: v1.102.5
 
 # The upstream manifest includes a placeholder OAuth Secret with empty values.
 # We manage this secret via ExternalSecret, so drop the upstream copy.
