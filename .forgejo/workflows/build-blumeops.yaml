@@ -127,6 +127,7 @@ jobs:
       - name: Build changelog
         id: changelog
         run: |
+          mkdir -p "$RUNNER_TEMP"
           VERSION="${{ steps.version.outputs.version }}"
 
           # Run towncrier on the runner so that CHANGELOG.md updates and
@@ -149,12 +150,12 @@ jobs:
               found {print}
             ' CHANGELOG.md | tail -n +2)
 
-            echo "$RELEASE_NOTES" > /tmp/release_notes.md
+            echo "$RELEASE_NOTES" > "$RUNNER_TEMP/release_notes.md"
             echo "Release notes extracted for $VERSION"
           else
             echo "No changelog fragments found, skipping towncrier"
             echo "changelog_updated=false" >> "$GITHUB_OUTPUT"
-            echo "" > /tmp/release_notes.md
+            echo "" > "$RUNNER_TEMP/release_notes.md"
           fi
 
       - name: Build docs
@@ -173,6 +174,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          mkdir -p "$RUNNER_TEMP"
           VERSION="${{ steps.version.outputs.version }}"
           TARBALL="docs-${VERSION}.tar.gz"
           CHANGELOG_UPDATED="${{ steps.changelog.outputs.changelog_updated }}"
@@ -184,10 +186,10 @@ jobs:
             echo "BlumeOps release $VERSION"
             echo ""
 
-            if [ "$CHANGELOG_UPDATED" = "true" ] && [ -s /tmp/release_notes.md ]; then
+            if [ "$CHANGELOG_UPDATED" = "true" ] && [ -s "$RUNNER_TEMP/release_notes.md" ]; then
               echo "## What's Changed"
               echo ""
-              cat /tmp/release_notes.md
+              cat "$RUNNER_TEMP/release_notes.md"
               echo ""
             fi
 
@@ -199,13 +201,13 @@ jobs:
             echo "\`\`\`"
             echo "mise run provision-indri -- --tags docs"
             echo "\`\`\`"
-          } > /tmp/release_body.txt
+          } > "$RUNNER_TEMP/release_body.txt"
 
           # Use jq to properly escape the body for JSON
           RELEASE_DATA=$(jq -n \
             --arg tag "$VERSION" \
             --arg name "BlumeOps $VERSION" \
-            --rawfile body /tmp/release_body.txt \
+            --rawfile body "$RUNNER_TEMP/release_body.txt" \
             '{tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false}')
 
           RELEASE_RESPONSE=$(curl -s \

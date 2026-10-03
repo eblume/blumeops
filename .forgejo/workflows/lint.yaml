@@ -61,7 +61,7 @@ on:
 
 jobs:
   prek:
-    runs-on: indri
+    runs-on: indri-build
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -106,7 +106,8 @@ jobs:
           GITHUB_TOKEN: ""
         run: |
           set -o pipefail
-          prek run --all-files --show-diff-on-failure 2>&1 | tee /tmp/lint-prek.log
+          mkdir -p "$RUNNER_TEMP"
+          prek run --all-files --show-diff-on-failure 2>&1 | tee "$RUNNER_TEMP/lint-prek.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -114,7 +115,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: /tmp/lint-prek.log
+          log-file: lint-prek.log
 
   # Schema validation against the runner's own parser — the check actionlint
   # cannot do, since it validates against GitHub's schema and misses
@@ -137,11 +138,12 @@ jobs:
       - name: forgejo-runner validate
         run: |
           set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
           {
             runner_bin="$(nix build --no-link ./darwin/indri#forgejo-runner --print-out-paths)/bin/forgejo-runner"
             "$runner_bin" --version
             "$runner_bin" validate --directory .
-          } 2>&1 | tee /tmp/lint-workflows-validate.log
+          } 2>&1 | tee "$RUNNER_TEMP/lint-workflows-validate.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -149,7 +151,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: /tmp/lint-workflows-validate.log
+          log-file: lint-workflows-validate.log
 
   # gitleaks over the FULL git history, not the PR range. This repo is public
   # and its first rule is never commit secrets, so a credential that landed
@@ -160,7 +162,7 @@ jobs:
   # Replaces the removed trufflehog prek hook, whose `--since-commit HEAD`
   # range scanned nothing in CI (heph 01KZP8ADGMQ6TSXVAQ9YAWM2Z9).
   secret-scan:
-    runs-on: indri
+    runs-on: indri-build
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -179,8 +181,9 @@ jobs:
           GITHUB_TOKEN: ""
         run: |
           set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
           mise x gitleaks@8.30.1 -- gitleaks git . \
-            --no-banner --redact --config .gitleaks.toml 2>&1 | tee /tmp/lint-secret-scan.log
+            --no-banner --redact --config .gitleaks.toml 2>&1 | tee "$RUNNER_TEMP/lint-secret-scan.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -188,7 +191,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: /tmp/lint-secret-scan.log
+          log-file: lint-secret-scan.log
 
   # Every Application under argocd/apps/ is a pointer ArgoCD tracks forever
   # (automated sync + self-heal). Refuse any source the agents bot can move —
@@ -198,7 +201,7 @@ jobs:
   # cannot drift. Runs on every PR including from a fork: it reads only local
   # files, no token, vault, or cluster.
   argocd-apps-validate:
-    runs-on: indri
+    runs-on: indri-build
     # Runs this job's validator from the PR checkout, so a fork PR could ship a
     # neutered copy and pass this gate. The backstop is the argocd-sync-apps
     # payload check, which runs MAIN's reviewed copy over the payload — main
@@ -213,7 +216,8 @@ jobs:
           GITHUB_TOKEN: ""
         run: |
           set -o pipefail
-          uv run --script mise-tasks/validate-argocd-apps 2>&1 | tee /tmp/lint-argocd-apps.log
+          mkdir -p "$RUNNER_TEMP"
+          uv run --script mise-tasks/validate-argocd-apps 2>&1 | tee "$RUNNER_TEMP/lint-argocd-apps.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -221,4 +225,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: /tmp/lint-argocd-apps.log
+          log-file: lint-argocd-apps.log

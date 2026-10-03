@@ -36,7 +36,7 @@ description: >-
 
 inputs:
   log-file:
-    description: Path of the job log teed by the job's main steps
+    description: "Bare filename of the job log teed by the job's main steps (resolved into the runner's per-job scratch dir $RUNNER_TEMP)"
     required: true
   filter:
     description: 'grep -E regex for a highlighted tail (empty = raw tail only)'
@@ -62,12 +62,28 @@ runs:
       run: |
         set -euo pipefail
 
+        # Scratch goes to $RUNNER_TEMP, the runner's per-job scratch dir: /tmp
+        # is shared across the two runners' host directory.
+        ci_tmp="$RUNNER_TEMP"
+        mkdir -p "$ci_tmp"
+        ci_report="$ci_tmp/ci-report-body.md"
+
+        # log-file is a bare filename (a `with:` value is template-, not
+        # shell-interpolated); resolve it into the per-job scratch dir.
+        log_file_in='${{ inputs.log-file }}'
+
         # Single-quoted: the values may hold regex metacharacters ($, backtick).
-        log_file='${{ inputs.log-file }}'
         filter='${{ inputs.filter }}'
         matrix='${{ inputs.matrix }}'
         trigger_authors='${{ inputs.trigger-authors }}'
         max_reviews='${{ inputs.max-reviews }}'
+
+        case "$log_file_in" in /*|*/*)
+          echo "log-file must be a bare filename (got: $log_file_in)" >&2
+          exit 1
+          ;;
+        esac
+        log_file="$ci_tmp/$log_file_in"
 
         API="${GITHUB_API_URL:-${GITHUB_SERVER_URL:-https://forge.ops.eblu.me}/api/v1}"
         REPO="$GITHUB_REPOSITORY"
@@ -130,8 +146,8 @@ runs:
             echo '```'
             tail -30 "$log_file" 2>/dev/null || true
             echo '```'
-          } > /tmp/ci-report-body.md
-          jq -n --rawfile body /tmp/ci-report-body.md '{body: $body}' \
+          } > "$ci_report"
+          jq -n --rawfile body "$ci_report" '{body: $body}' \
             | curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d @- \
                 "$API/repos/$REPO/issues/$PR/comments" \
             | jq -r '"Cap comment posted: " + (.html_url // .message)'
@@ -155,7 +171,7 @@ runs:
             echo ""
             echo "Full log: \`mise run runner-logs $RUN -j $job_index\`"
           fi
-        } > /tmp/ci-report-body.md
+        } > "$ci_report"
 
         if [ -f "$log_file" ]; then
           filtered=""
@@ -171,18 +187,18 @@ runs:
             fi
             tail -30 "$log_file"
             echo '```'
-          } >> /tmp/ci-report-body.md
+          } >> "$ci_report"
         else
-          { echo ""; echo "No log captured at \`$log_file\`."; } >> /tmp/ci-report-body.md
+          { echo ""; echo "No log captured at \`$log_file\`."; } >> "$ci_report"
         fi
 
         if [[ ",$trigger_authors," == *",$AUTHOR,"* ]]; then
-          jq -n --rawfile body /tmp/ci-report-body.md '{event: "COMMENT", body: $body}' \
+          jq -n --rawfile body "$ci_report" '{event: "COMMENT", body: $body}' \
             | curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d @- \
                 "$API/repos/$REPO/pulls/$PR/reviews" \
             | jq -r '"Review posted: " + (.html_url // .message // "unknown")'
         else
-          jq -n --rawfile body /tmp/ci-report-body.md '{body: $body}' \
+          jq -n --rawfile body "$ci_report" '{body: $body}' \
             | curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d @- \
                 "$API/repos/$REPO/issues/$PR/comments" \
             | jq -r '"Comment posted: " + (.html_url // .message // "unknown")'
