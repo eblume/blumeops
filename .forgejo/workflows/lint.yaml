@@ -79,6 +79,9 @@ jobs:
           fi
           prek --version
 
+      # Scratch logs go to a per-job workspace dir, not /tmp: /tmp is shared
+      # with the privileged indri runner and holds stale files this user cannot
+      # write.
       # No SKIP list. Every hook in prek.toml runs here, so this job's result is
       # the whole of what the hook set checks — nothing is quietly excluded, and the
       # config cannot drift into holding hooks that no longer run anywhere.
@@ -106,7 +109,8 @@ jobs:
           GITHUB_TOKEN: ""
         run: |
           set -o pipefail
-          prek run --all-files --show-diff-on-failure 2>&1 | tee /tmp/lint-prek.log
+          mkdir -p .ci-tmp
+          prek run --all-files --show-diff-on-failure 2>&1 | tee "$GITHUB_WORKSPACE/.ci-tmp/lint-prek.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -114,7 +118,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: /tmp/lint-prek.log
+          log-file: $GITHUB_WORKSPACE/.ci-tmp/lint-prek.log
 
   # Schema validation against the runner's own parser — the check actionlint
   # cannot do, since it validates against GitHub's schema and misses
@@ -137,11 +141,12 @@ jobs:
       - name: forgejo-runner validate
         run: |
           set -o pipefail
+          mkdir -p .ci-tmp
           {
             runner_bin="$(nix build --no-link ./darwin/indri#forgejo-runner --print-out-paths)/bin/forgejo-runner"
             "$runner_bin" --version
             "$runner_bin" validate --directory .
-          } 2>&1 | tee /tmp/lint-workflows-validate.log
+          } 2>&1 | tee "$GITHUB_WORKSPACE/.ci-tmp/lint-workflows-validate.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -149,7 +154,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: /tmp/lint-workflows-validate.log
+          log-file: $GITHUB_WORKSPACE/.ci-tmp/lint-workflows-validate.log
 
   # gitleaks over the FULL git history, not the PR range. This repo is public
   # and its first rule is never commit secrets, so a credential that landed
@@ -179,8 +184,9 @@ jobs:
           GITHUB_TOKEN: ""
         run: |
           set -o pipefail
+          mkdir -p .ci-tmp
           mise x gitleaks@8.30.1 -- gitleaks git . \
-            --no-banner --redact --config .gitleaks.toml 2>&1 | tee /tmp/lint-secret-scan.log
+            --no-banner --redact --config .gitleaks.toml 2>&1 | tee "$GITHUB_WORKSPACE/.ci-tmp/lint-secret-scan.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -188,7 +194,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: /tmp/lint-secret-scan.log
+          log-file: $GITHUB_WORKSPACE/.ci-tmp/lint-secret-scan.log
 
   # Every Application under argocd/apps/ is a pointer ArgoCD tracks forever
   # (automated sync + self-heal). Refuse any source the agents bot can move —
@@ -213,7 +219,8 @@ jobs:
           GITHUB_TOKEN: ""
         run: |
           set -o pipefail
-          uv run --script mise-tasks/validate-argocd-apps 2>&1 | tee /tmp/lint-argocd-apps.log
+          mkdir -p .ci-tmp
+          uv run --script mise-tasks/validate-argocd-apps 2>&1 | tee "$GITHUB_WORKSPACE/.ci-tmp/lint-argocd-apps.log"
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -221,4 +228,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          log-file: /tmp/lint-argocd-apps.log
+          log-file: $GITHUB_WORKSPACE/.ci-tmp/lint-argocd-apps.log

@@ -62,6 +62,13 @@ runs:
       run: |
         set -euo pipefail
 
+        # Scratch goes to the per-job workspace, not /tmp: /tmp is shared with
+        # the other runner's host directory and a stale file from the other
+        # user would make the write below fail.
+        ci_tmp="$GITHUB_WORKSPACE/.ci-tmp"
+        mkdir -p "$ci_tmp"
+        ci_report="$ci_tmp/ci-report-body.md"
+
         # Single-quoted: the values may hold regex metacharacters ($, backtick).
         log_file='${{ inputs.log-file }}'
         filter='${{ inputs.filter }}'
@@ -130,8 +137,8 @@ runs:
             echo '```'
             tail -30 "$log_file" 2>/dev/null || true
             echo '```'
-          } > /tmp/ci-report-body.md
-          jq -n --rawfile body /tmp/ci-report-body.md '{body: $body}' \
+          } > "$ci_report"
+          jq -n --rawfile body "$ci_report" '{body: $body}' \
             | curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d @- \
                 "$API/repos/$REPO/issues/$PR/comments" \
             | jq -r '"Cap comment posted: " + (.html_url // .message)'
@@ -155,7 +162,7 @@ runs:
             echo ""
             echo "Full log: \`mise run runner-logs $RUN -j $job_index\`"
           fi
-        } > /tmp/ci-report-body.md
+        } > "$ci_report"
 
         if [ -f "$log_file" ]; then
           filtered=""
@@ -171,18 +178,18 @@ runs:
             fi
             tail -30 "$log_file"
             echo '```'
-          } >> /tmp/ci-report-body.md
+          } >> "$ci_report"
         else
-          { echo ""; echo "No log captured at \`$log_file\`."; } >> /tmp/ci-report-body.md
+          { echo ""; echo "No log captured at \`$log_file\`."; } >> "$ci_report"
         fi
 
         if [[ ",$trigger_authors," == *",$AUTHOR,"* ]]; then
-          jq -n --rawfile body /tmp/ci-report-body.md '{event: "COMMENT", body: $body}' \
+          jq -n --rawfile body "$ci_report" '{event: "COMMENT", body: $body}' \
             | curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d @- \
                 "$API/repos/$REPO/pulls/$PR/reviews" \
             | jq -r '"Review posted: " + (.html_url // .message // "unknown")'
         else
-          jq -n --rawfile body /tmp/ci-report-body.md '{body: $body}' \
+          jq -n --rawfile body "$ci_report" '{body: $body}' \
             | curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d @- \
                 "$API/repos/$REPO/issues/$PR/comments" \
             | jq -r '"Comment posted: " + (.html_url // .message // "unknown")'

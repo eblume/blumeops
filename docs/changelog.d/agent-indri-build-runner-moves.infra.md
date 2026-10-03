@@ -1,1 +1,1 @@
-Non-privileged CI jobs (lint prek/secret-scan/argocd-apps-validate, docs-checks, image-pins, build-container detect, branch-cleanup) now run on the unprivileged `indri-build` runner; `indri` is reserved for privileged jobs.
+Non-privileged CI jobs (lint prek/secret-scan/argocd-apps-validate, docs-checks, image-pins, build-container detect, branch-cleanup) now run on the unprivileged `indri-build` runner; `indri` is reserved for privileged jobs. CI scratch logs and the failure-report action use a per-job workspace dir instead of /tmp, which the two runners share on one host.
