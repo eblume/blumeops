@@ -1,7 +1,7 @@
 ---
 title: Grafana
 modified: 2026-10-03
-last-reviewed: 2026-09-20
+last-reviewed: 2026-10-03
 tags:
   - service
   - observability
