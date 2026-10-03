@@ -1,7 +1,7 @@
 ---
 title: Upgrade Grafana
-modified: 2026-03-04
-last-reviewed: 2026-03-04
+modified: 2026-10-03
+last-reviewed: 2026-10-03
 tags:
   - how-to
   - grafana
@@ -15,8 +15,8 @@ Upgraded Grafana from 11.4.0 (Helm chart) to 12.3.3, converting from Helm to Kus
 ## What Changed
 
 - **Image:** `docker.io/grafana/grafana:11.4.0` → `registry.ops.eblu.me/blumeops/grafana` (tagged via Kustomize `images:` overlay)
-- **Deployment:** Helm multi-source (chart + values) → single Kustomize directory
-- **ArgoCD app:** Simplified to one source pointing at `argocd/manifests/grafana/`
+- **Deployment:** Helm multi-source (chart + values) → plain Kustomize
+- **ArgoCD apps:** One per manifest dir — `grafana-ringtail` (core, `argocd/manifests/grafana-ringtail/`) and `grafana-config-ringtail` (dashboards, ingress, ExternalSecrets, `argocd/manifests/grafana-config-ringtail/`)
 
 All existing datasources ([[prometheus]], [[loki]], TeslaMate), dashboard ConfigMaps, and Authentik OIDC were preserved without changes.
 
