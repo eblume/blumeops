@@ -30,7 +30,11 @@ INDRI=indri
 BORG_REMOTE() {
   # Run `borg <args>` on indri against the local archive. BORG_PASSCOMMAND is
   # the password path the borgmatic role installs; the repo is the sifaka-local
-  # one the nightly writes to.
+  # one the nightly writes to. Tailscale SSH on indri swallows the remote exit
+  # code (upstream tailscale/tailscale#18256; fix #20626 pending), so this
+  # never trusts ssh's rc: the callers verify the streamed output in-band
+  # (the archive list is non-empty, each export passes `jq -e` for a v3
+  # deployment, and the resource/secret counts round-trip through pulumi).
   ssh "$INDRI" "BORG_PASSCOMMAND='cat /Users/erichblume/.borg/config.yaml' /opt/homebrew/bin/borg $*"
 }
 DUMPS=Users/erichblume/.local/share/borgmatic/k8s-dumps

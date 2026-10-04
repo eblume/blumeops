@@ -26,6 +26,44 @@ check_service() {
     fi
 }
 
+# Indri legs only. Tailscale SSH on indri exits 0 no matter what the remote
+# did (upstream tailscale/tailscale#18256; the fix #20626 is still pending),
+# so a check must verify in-band: the remote command prints a sentinel only
+# after it has run, and the local side greps for it. SSH's own rc is kept as
+# transport triage only.
+check_indri() {
+    local name="$1"
+    local label="$2"
+    # Remote command template; the label arrives as $1 of the remote sh -c
+    # (the _ after the template is sh -c's argv[0] placeholder). Only the
+    # final rc never reaches the local side, so the sentinel is gated on the
+    # PID column holding a number: launchctl exits 0 whether or not the job
+    # runs, a not-loaded label's error goes to stderr (discarded), and a
+    # stopped job's PID column is a dash — matching only a number (and not,
+    # say, `grep -v "^-"`, which the column header would defeat) leaves
+    # running as the sole pass condition.
+    local remote_cmd
+    if [[ -z "${3:-}" ]]; then
+        remote_cmd='sh -c '\''set -eu; launchctl list "$1" 2>/dev/null | grep -qE "^[[:space:]]*[0-9]+" && echo "INDRI-OK $1"'\'''
+    else
+        remote_cmd="$3"
+    fi
+
+    printf "%-24s " "$name..."
+    local out
+    if ! out=$(ssh erichblume@indri "$remote_cmd" _ "$label" 2>&1); then
+        echo -e "${RED}FAILED${NC} (ssh transport failure)"
+        FAILED=1
+        return 0
+    fi
+    if grep -qxF "INDRI-OK $label" <<<"$out"; then
+        echo -e "${GREEN}OK${NC}"
+    else
+        echo -e "${RED}FAILED${NC} (no success sentinel from indri)"
+        FAILED=1
+    fi
+}
+
 check_http() {
     local name="$1"
     local url="$2"
@@ -127,23 +165,23 @@ echo ""
 # (e.g. ringtail), tailscale SSH fails with "failed to look up local
 # user" since indri's account is erichblume, not the caller's username.
 echo "Local services on indri:"
-check_service "forgejo" "ssh erichblume@indri 'launchctl list mcquack.eblume.forgejo | grep -v \"^-\"'"
-check_service "alloy" "ssh erichblume@indri 'launchctl list mcquack.eblume.alloy | grep -v \"^-\"'"
-check_service "borgmatic" "ssh erichblume@indri 'launchctl list mcquack.eblume.borgmatic | grep -v \"^-\"'"
-check_service "borgmatic-metrics" "ssh erichblume@indri 'launchctl list mcquack.eblume.borgmatic-metrics | grep -v \"^-\"'"
-check_service "zot" "ssh erichblume@indri 'launchctl list mcquack.eblume.zot | grep -v \"^-\"'"
-check_service "zot-metrics" "ssh erichblume@indri 'launchctl list mcquack.eblume.zot-metrics | grep -v \"^-\"'"
-check_service "jellyfin-metrics" "ssh erichblume@indri 'launchctl list mcquack.eblume.jellyfin-metrics | grep -v \"^-\"'"
-check_service "forgejo-runner (indri)" "ssh erichblume@indri 'launchctl list mcquack.eblume.forgejo-runner | grep -v \"^-\"'"
+check_indri "forgejo" "mcquack.eblume.forgejo"
+check_indri "alloy" "mcquack.eblume.alloy"
+check_indri "borgmatic" "mcquack.eblume.borgmatic"
+check_indri "borgmatic-metrics" "mcquack.eblume.borgmatic-metrics"
+check_indri "zot" "mcquack.eblume.zot"
+check_indri "zot-metrics" "mcquack.eblume.zot-metrics"
+check_indri "jellyfin-metrics" "mcquack.eblume.jellyfin-metrics"
+check_indri "forgejo-runner (indri)" "mcquack.eblume.forgejo-runner"
 
 # indri-build runner: system-domain launchd daemons under the unprivileged
 # indri-build user (eblume/blumeops#1357). The user and both daemons are
 # created by the first deployment of that PR, so skip (pass) until the user
 # exists. "Not fatal-errored": a loaded job passes even while the runner
 # idles before the human registers it, and even while colima provisions.
-if ssh erichblume@indri 'id indri-build >/dev/null 2>&1'; then
-    check_service "forgejo-runner-build" "ssh erichblume@indri 'sudo -n launchctl print system/mcquack.eblume.forgejo-runner-build >/dev/null 2>&1'"
-    check_service "colima-build" "ssh erichblume@indri 'sudo -n launchctl print system/mcquack.eblume.colima-build >/dev/null 2>&1'"
+if out=$(ssh erichblume@indri "/usr/bin/id indri-build >/dev/null 2>&1 && echo 'INDRI-OK indri-build'" 2>&1) && grep -qxF "INDRI-OK indri-build" <<<"$out"; then
+    check_indri "forgejo-runner-build" "system/mcquack.eblume.forgejo-runner-build" "sh -c 'set -eu; sudo -n launchctl print system/mcquack.eblume.forgejo-runner-build >/dev/null && echo \"INDRI-OK \$1\"'"
+    check_indri "colima-build" "system/mcquack.eblume.colima-build" "sh -c 'set -eu; sudo -n launchctl print system/mcquack.eblume.colima-build >/dev/null && echo \"INDRI-OK \$1\"'"
 else
     printf "%-24s " "forgejo-runner-build..."
     echo -e "${YELLOW}SKIP${NC} (indri-build user not deployed yet)"
