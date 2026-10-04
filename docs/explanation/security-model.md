@@ -27,14 +27,14 @@ The homelab hosts have no public IP addresses or port forwarding — most servic
 
 ### Public Access via Fly.io
 
-A small number of services are exposed to the internet through a reverse proxy on Fly.io that tunnels back to the homelab over Tailscale. The proxy uses restricted ACLs (`tag:flyio-target`) so it can only reach explicitly tagged endpoints — a compromised proxy cannot route to arbitrary services on the tailnet. The forge frontend sits behind Anubis proof-of-work. Observability (Grafana, Loki, Prometheus) is tailnet-only and never public. See [[flyio-proxy]] for the exposed-services list and [[expose-service-publicly]] for the security considerations.
+A small number of services are exposed to the internet through a reverse proxy on Fly.io that tunnels back to the homelab over Tailscale. The proxy uses restricted ACLs (`tag:flyio-target` on 443, `tag:flyio-origin` on 8443) so it can only reach explicitly tagged endpoints — a compromised proxy cannot route to arbitrary services on the tailnet. The forge frontend sits behind Anubis proof-of-work. Observability (Grafana, Loki, Prometheus) is tailnet-only and never public. See [[flyio-proxy]] for the exposed-services list and [[expose-service-publicly]] for the security considerations.
 
 ### Defense in Depth
 
 Even within the tailnet, access is restricted:
 
 ```
-Internet ──▶ Fly.io proxy ──▶ tag:flyio-target only (docs, cv, forge, photos)
+Internet ──▶ Fly.io proxy ──▶ tag:flyio-target:443 / tag:flyio-origin:8443 only
 
 Tailnet:
   Admin ────────▶ All services
