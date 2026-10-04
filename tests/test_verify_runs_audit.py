@@ -1006,7 +1006,7 @@ def test_self_filed_filters_requester_and_window():
     records are the task sweep's, and old ones age out."""
     warrants = {
         1: self_rec(1),
-        2: self_rec(2, requester="agent-ringtail"),
+        2: self_rec(2, requester="talos-ringtail"),
         3: self_rec(3, created_at=NOW - 30 * 86400),
         4: self_rec(4, created_at=NOW - 86400),
     }

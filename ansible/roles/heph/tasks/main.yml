@@ -21,22 +21,22 @@
     state: directory
     mode: '0700'
 
-# Co-owner allowlist for the ringtail agent spoke's `heph-agents` identity. The
+# Co-owner allowlist for the ringtail agent spoke's `talos-heph` identity. The
 # sub (a hashed_user_id) is discovered once at bootstrap and stored in the
 # blumeops vault, so it stays out of this public repo. The read is fail-closed:
 # a failed `op read` (dismissed prompt, vault outage, wrong session) aborts the
 # play instead of silently rendering the plist without the sub. To intentionally
 # run the hub without the spoke, set heph_agents_sub_enabled=false.
-- name: Read the heph-agents authorized sub from the vault
+- name: Read the talos-heph authorized sub from the vault
   ansible.builtin.command:
-    cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/heph-agents-sub/sub"
+    cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/talos-heph-sub/sub"
   delegate_to: localhost
   register: heph_agents_sub
   changed_when: false
   no_log: true
   when: heph_agents_sub_enabled
 
-- name: Add the heph-agents sub to the authorized-subs allowlist
+- name: Add the talos-heph sub to the authorized-subs allowlist
   ansible.builtin.set_fact:
     heph_authorized_subs: "{{ heph_authorized_subs + [heph_agents_sub.stdout | trim] }}"
   when: heph_agents_sub_enabled and (heph_agents_sub.stdout | trim | length) > 0

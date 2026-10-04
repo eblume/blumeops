@@ -34,7 +34,7 @@ names, while the dispatch identity has moved from the grandfathered
 | **Image** | `registry.ops.eblu.me/blumeops/horkos` (locally built Nix, `default.nix` in the horkos repo) |
 | **Manifests** | `argocd/manifests/horkos/` — ArgoCD app **auto-syncs** (the reviewed pin-PR merge is the gate; manual until 2026-09-04) |
 | **Storage** | 1Gi PVC (SQLite at `/data/horkos.db` — migrated from warrant's DB, schema unchanged) |
-| **Agent auth** | Authentik `agents-m2m` client-credentials JWT (JWKS-verified) |
+| **Agent auth** | Authentik `talos-m2m` client-credentials JWT (JWKS-verified) |
 | **Human auth** | Authentik OIDC code flow (`horkos` client), `admins` group, MFA per the authentik flow |
 | **Dispatch identity** | `horkos-forge` PAT (`write:repository,write:issue` on blumeops), `op://blumeops/horkos-forge-token` |
 
@@ -43,7 +43,7 @@ names, while the dispatch identity has moved from the grandfathered
 ```
 agent: mise run request-run <workflow> <sha> …
    → policy check (warrant-policy.yaml on blumeops main) → PR comment + heph task
-   → POST /api/requests            (agents-m2m JWT)
+   → POST /api/requests            (talos-m2m JWT)
 human: horkos.ops.eblu.me → sign in → read the diff → approve…
    → confirm page (full inputs, commit/PR/diff links)
    → warrant minted: single-use, TTL'd, {action, sha, inputs} frozen
@@ -193,4 +193,4 @@ nothing and says so).
 - [[warrant-approval-gated-runs]] — the program, its invariants, and why
 - [[request-a-privileged-run]] — the request side, from an agent's seat
 - [[blumeops-ci-item-migration]] — the vault tier and what never moves
-- [[authentik]] — identity provider (`agents-m2m` and `horkos` blueprints)
+- [[authentik]] — identity provider (`talos-m2m` and `horkos` blueprints)

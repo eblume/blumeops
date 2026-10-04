@@ -195,16 +195,16 @@ The mechanical parts — `cargo install` via mise, the services, owner adoption
 are the irreducible secret/identity steps a human does once. **They are fiddlier
 than they look; read the gotchas.**
 
-1. **Give `heph-agents` a password + MFA — logged in AS `heph-agents`.** The
-   blueprint creates the `heph-agents` user (heph-scoped group, not `admins`). Set
+1. **Give `talos-heph` a password + MFA — logged in AS `talos-heph`.** The
+   blueprint creates the `talos-heph` user (heph-scoped group, not `admins`). Set
    its password (`ak shell` → `u.set_password(...)`, or the UI) and store it in the
-   **blumeops** vault (item `heph-agents-login`) — the human reads blumeops, not
+   **blumeops** vault (item `talos-heph-login`) — the human reads blumeops, not
    the agents vault. Then, **in a private/incognito window** (see the gotcha),
-   sign in to `https://authentik.ops.eblu.me` as `heph-agents` and complete the
+   sign in to `https://authentik.ops.eblu.me` as `talos-heph` and complete the
    forced **TOTP enrollment** (MFA is enforced on the default flow — appropriate,
-   this identity reaches your tasks). Save the TOTP secret into `heph-agents-login`.
+   this identity reaches your tasks). Save the TOTP secret into `talos-heph-login`.
 
-2. **Seed the token — approve the device code in that same `heph-agents` session.**
+2. **Seed the token — approve the device code in that same `talos-heph` session.**
    Confirm the build finished (`systemctl status agent-heph-install`), then:
 
    ```sh
@@ -217,7 +217,7 @@ than they look; read the gotchas.**
      --client-id heph --no-browser --token-save-cmd $SAVE"
    ```
 
-   Approve the printed URL in the **incognito `heph-agents` session**. On success
+   Approve the printed URL in the **incognito `talos-heph` session**. On success
    `heph-token-save` writes the token to the `heph-spoke-token` item in the
    **agents** vault, addressed by the id pinned as `hephTokenItemId` in
    `nixos/ringtail/agent-heph-spoke.nix`. If that id is absent (fresh vault,
@@ -234,13 +234,13 @@ than they look; read the gotchas.**
    > into. If you open the URL in your normal browser (logged in as *you*), it
    > silently binds **you** as the hub owner and puts *your* token in the agents
    > vault — not what you want. Always approve from a session logged in as
-   > `heph-agents`. Device codes also **expire in a few minutes**, so do the TOTP
+   > `talos-heph`. Device codes also **expire in a few minutes**, so do the TOTP
    > enrollment (step 1) *first*, then the approval is a single click. If they keep
    > expiring, pull the current code straight from Authentik:
    > `DeviceToken.objects.filter(provider__name="Heph").order_by("-pk").first().user_code`.
 
 3. **Record the authorized sub for the hub.** Decode the token's `sub` (a
-   `hashed_user_id`) and store it in the **blumeops** vault (`heph-agents-sub`/`sub`):
+   `hashed_user_id`) and store it in the **blumeops** vault (`talos-heph-sub`/`sub`):
 
    ```fish
    # as the agent; base64URL needs padding — python is more reliable than `base64 -d`
@@ -248,7 +248,7 @@ than they look; read the gotchas.**
    op read op://agents/<item-id>/token \
      | python3 -c 'import sys,json,base64; t=json.load(sys.stdin)["access_token"].split(".")[1]; t+="="*(-len(t)%4); print(json.loads(base64.urlsafe_b64decode(t))["sub"])'
    op item create --vault blumeops --category "API Credential" \
-     --title heph-agents-sub "sub[text]=<the-sub>"
+     --title talos-heph-sub "sub[text]=<the-sub>"
    ```
 
 4. **Authorize on the hub, then (re)start the spoke on a clean store.**
@@ -266,10 +266,10 @@ than they look; read the gotchas.**
    Expect your real Blumeops tasks. `heph sync --status` should show
    `auth_failure=false, last_error=null`.
 
-> **Revoke** by disabling the `heph-agents` Authentik user, or by setting
+> **Revoke** by disabling the `talos-heph` Authentik user, or by setting
 > `heph_agents_sub_enabled: false` in `ansible/inventory/group_vars/all.yml` and
 > re-provisioning indri (drops the sub from `--authorized-sub`) — either cuts
-> the spoke without touching your own logins. Deleting the `heph-agents-sub`
+> the spoke without touching your own logins. Deleting the `talos-heph-sub`
 > vault item alone is no longer the way: the role's vault read is fail-closed,
 > so provisioning aborts instead of silently de-authorizing the spoke.
 
@@ -279,7 +279,7 @@ than they look; read the gotchas.**
   biometric prompt**, not the network.
 - `nix build`/`nixos-rebuild --flake git+https://…?ref=main` **caches** the ref;
   use `--refresh` (or `?rev=<full-sha>`) to pick up a just-pushed commit.
-- Owner model: `heph-agents` is only the **login credential** (revocable). The hub
+- Owner model: `talos-heph` is only the **login credential** (revocable). The hub
   still has one owner — *you* — and the spoke **adopts** your `owner_id`
   (`--owner-id`) so the agent works your actual nodes. It is *not* a second owner.
 

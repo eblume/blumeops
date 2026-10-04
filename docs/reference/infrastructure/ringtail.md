@@ -145,7 +145,7 @@ Erich's access decoupled from the agent kill switches is the point:
 |----------|--------------------|---------------------|
 | **User** | `agent` | `eblume` |
 | **Config** | `agent-heph-spoke.nix` | `heph-eblume.nix` |
-| **Identity** | `heph-agents` (revocable) | Erich himself |
+| **Identity** | `talos-heph` (revocable) | Erich himself |
 | **Token store** | agents 1Password vault (op command store) | `~/.config/heph/hub-token.json` (0600, `--token-file`) |
 | **Unit scope** | system | **user** (`systemctl --user`, linger enabled) |
 

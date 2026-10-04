@@ -276,12 +276,12 @@ Spokes):**
   `jq --rawfile`, and creates the item only on a definite not-found.
 
 **Identity & revocation.** The spoke authenticates as a dedicated
-**`heph-agents`** Authentik user in a heph-scoped group (*not* `admins` — that
+**`talos-heph`** Authentik user in a heph-scoped group (*not* `admins` — that
 would grant every admin-gated app), so it is independently revocable from the
 human login. The hub admits it as a co-owner via `hephd --authorized-sub <sub>`
 (the sub is a `hashed_user_id`, kept in the blumeops vault and templated into the
 indri unit). Two independent kill switches, neither touching your own logins:
-disable the `heph-agents` Authentik user, or set `heph_agents_sub_enabled: false`
+disable the `talos-heph` Authentik user, or set `heph_agents_sub_enabled: false`
 in `ansible/inventory/group_vars/all.yml` and re-provision indri (the vault
 token goes inert even if unexpired).
 Bound the refresh-token lifetime on the Authentik provider as the third lever.

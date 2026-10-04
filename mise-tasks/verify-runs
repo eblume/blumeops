@@ -168,7 +168,7 @@ def warrant_requests() -> dict[int, dict]:
     heuristic rather than blocking it."""
     try:
         app_pw = subprocess.run(
-            ["op", "read", "op://agents/agents-authentik-sa/app-password"],
+            ["op", "read", "op://agents/talos-ringtail/app-password"],
             capture_output=True, text=True, stdin=subprocess.DEVNULL, check=True,
             timeout=30,
         ).stdout.strip()
@@ -177,8 +177,8 @@ def warrant_requests() -> dict[int, dict]:
                 AUTHENTIK_TOKEN_URL,
                 data={
                     "grant_type": "client_credentials",
-                    "client_id": "agents-m2m",
-                    "username": "agent-ringtail",
+                    "client_id": "talos-m2m",
+                    "username": "talos-ringtail",
                     "password": app_pw,
                     "scope": "openid profile",
                 },

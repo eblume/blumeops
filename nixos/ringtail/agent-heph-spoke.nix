@@ -89,7 +89,7 @@ let
 
   # The spoke daemon. Shares the default socket/db with the pod's `heph` CLI (the
   # pod mounts ~agent/.local/share/heph). The spoke ADOPTS the hub's owner id: the
-  # `heph-agents` credential is only the login identity (revocable), not a
+  # `talos-heph` credential is only the login identity (revocable), not a
   # separate data owner.
   hephSpoke = pkgs.writeShellScript "agent-heph-spoke" ''
     export HOME=${agentHome}

@@ -19,9 +19,9 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | Task | Description |
 |------|-------------|
 | `agent-authkey-sync` | Sync the Pulumi tag:agent Tailscale auth key into 1Password (for the agent-pod ExternalSecret) |
-| `agent-health` | Fleet health via Grafana alert rules, using the agents-m2m JWT (agent-usable) |
+| `agent-health` | Fleet health via Grafana alert rules, using the talos-m2m JWT (agent-usable) |
 | `agent-lint` | Run the CI lint gate (prek hookset) locally before pushing |
-| `agent-metrics` | Run a PromQL query against Prometheus via Grafana, as the agents-m2m identity |
+| `agent-metrics` | Run a PromQL query against Prometheus via Grafana, as the talos-m2m identity |
 | `forge-reconcile` | [human] Reconcile the agents bot's forge collaborations, talos webhooks, and engagement labels against repos.json, and branch protections against `forge/branch-protections.json` (protections apply only from a human run) |
 | `ai-sources` | Concatenate all BlumeOps source files for AI context |
 | `branch-cleanup` | [human] Delete branches that have been merged into main (local and remote) |
