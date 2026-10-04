@@ -40,8 +40,8 @@ spec:
             # API, so an in-cluster dispatch would fail silently.
             - name: HORKOS_FORGE_API
               value: https://forge.ops.eblu.me/api/v1
-            # Agent bearer issuer (step-4 flip); horkos defaults both to the
-            # retired agents-m2m names.
+            # Pinned explicitly: the app defaults both to the pre-rename agents-m2m
+            # principal; the fleet identity is talos-m2m (step 4).
             - name: HORKOS_ISSUER
               value: https://authentik.ops.eblu.me/application/o/talos-m2m/
             - name: HORKOS_CLIENT_ID
