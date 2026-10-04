@@ -32,6 +32,12 @@ acl = tailscale.Acl(
     acl=policy_content,
 )
 
+# Every tag-carrying resource applies after the ACL: a tag is only valid once
+# the policy's tagOwners defines it, and Pulumi would otherwise update both in
+# parallel — a PR adding a tag then fails its first apply with "requested tags
+# [...] are invalid or not permitted (400)".
+after_acl = pulumi.ResourceOptions(depends_on=[acl])
+
 # ============== Device Tags ==============
 # Manage tags for devices in the tailnet.
 # Tags control access via the ACL policy in policy.hujson.
@@ -52,6 +58,7 @@ indri_tags = tailscale.DeviceTags(
         "tag:flyio-target",  # Fly proxy routes through Caddy on indri
         "tag:flyio-origin",  # Caddy's fly-only :8443 listener (docs/cv/photos); grant is tcp:8443 only
     ],
+    opts=after_acl,
 )
 
 # NOTE: gilbert (MacBook Air M4) is NOT tagged via Pulumi
@@ -69,6 +76,7 @@ sifaka_tags = tailscale.DeviceTags(
         "tag:nas",  # NAS role - accessible by homelab and workstations
         "tag:blumeops",  # Managed by this IaC
     ],
+    opts=after_acl,
 )
 
 # ringtail - NixOS gaming/compute workstation
@@ -83,6 +91,7 @@ ringtail_tags = tailscale.DeviceTags(
         "tag:factorio",  # Hosts the shared Factorio server; lets autogroup:shared
         # guests reach udp:34197 here (and nothing else). See policy.hujson.
     ],
+    opts=after_acl,
 )
 
 # ============== Auth Keys ==============
@@ -95,6 +104,7 @@ flyio_key = tailscale.TailnetKey(
     preauthorized=True,
     tags=["tag:flyio-proxy"],
     expiry=7776000,  # 90 days
+    opts=after_acl,
 )
 
 # Auth key for the agent pod's (talos's) Tailscale sidecar.
@@ -110,6 +120,7 @@ agent_key = tailscale.TailnetKey(
     preauthorized=True,
     tags=["tag:agent"],
     expiry=7776000,  # 90 days
+    opts=after_acl,
 )
 
 # ============== Exports ==============
