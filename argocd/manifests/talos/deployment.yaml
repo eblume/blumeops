@@ -114,10 +114,9 @@ spec:
             # so agents drive the API (e.g. cron jobs) with the same credential
             # agent-health uses — no browser session, no new secret.
             # List-valued (step 4): each entry is a bare issuer URL (audience derived
-            # from the client id in the last path segment); the legacy agents-m2m
-            # entry lingers until leg D drops it. See talos README (Auth).
+            # from the client id in the last path segment). See talos README (Auth).
             - name: TALOS_OIDC_M2M_ISSUER
-              value: "https://authentik.ops.eblu.me/application/o/talos-m2m/,https://authentik.ops.eblu.me/application/o/agents-m2m/"
+              value: "https://authentik.ops.eblu.me/application/o/talos-m2m/"
             - name: TALOS_OIDC_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
