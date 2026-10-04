@@ -4,20 +4,20 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "1.98.5";
+  version = "1.102.5";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/tailscale.git";
     rev = "v${version}";
-    hash = "sha256-JaVCmMdZMaP/8RaNRmYpQOj+y/NfHuXdqp8qyWNYEqM=";
+    hash = "sha256-gm5NN4IqR7epks8WjncQBsPYaPsH+ooXporzpuCEac0=";
   };
 
-  # v1.98.5 go.mod floor is go >= 1.26.3; nixpkgs default Go (1.25.x) fails with
+  # go.mod floor is go >= 1.26.6; nixpkgs default Go (1.25.x) fails with
   # GOTOOLCHAIN=local, so pin go_1_26 explicitly (buildGoModule toolchain floor).
   tailscale = (pkgs.buildGoModule.override { go = pkgs.go_1_26; }) {
     inherit src version;
     pname = "tailscale";
-    vendorHash = "sha256-mbxLXR2TBgiwyVGfLmMR5xWk+0f66mPDas95Wla70Lk=";
+    vendorHash = "sha256-amKkUPszyhG4N5ZtrB01swBACYq76raSS+SQRneLmwc=";
 
     subPackages = [
       "cmd/tailscale"
