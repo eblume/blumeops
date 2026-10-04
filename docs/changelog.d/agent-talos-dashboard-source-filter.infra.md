@@ -1,0 +1,1 @@
+The talos dashboard "Modeled box utilization (tok/s)" panel scopes its "API input" series to source="session" now that talos_tokens_total / talos_spend_usd_total carry a source label (session / subagent) from eblume/talos#297, so subagent traffic keeps comparing like-for-like against the lane prefill charge.
