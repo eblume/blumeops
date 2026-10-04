@@ -114,7 +114,7 @@ Alloy listens on `127.0.0.1:12345` for self-scraping its `/metrics` endpoint. Al
 
 ## Security Considerations
 
-The `tag:flyio-proxy` ACL grants outbound access only to `tag:flyio-target:443`. Indri carries this tag (for Caddy), and the k8s Tailscale Ingress pods for Loki and Prometheus also carry it so [[alloy|Alloy]] can push logs and metrics directly. A compromised proxy cannot route to arbitrary services on the tailnet — only `tag:flyio-target` endpoints on port 443. The one inbound *service* grant to the proxy node is `tag:forge` → `tag:flyio-proxy` on tcp:22 (the forge's push-mirror sync into the static mirror's git-shell `mirror` account — forced git commands, no login); the admin wildcard grant still reaches every port.
+The proxy's nginx routes everything through Caddy's fly-only listener on indri (`indri.tail8d86e.ts.net:8443`), so its live tailnet path is `tag:flyio-origin` on tcp:8443 (the `tag:flyio-proxy` → `tag:flyio-origin` grant lands with [eblume/blumeops#1405](https://forge.ops.eblu.me/eblume/blumeops/pulls/1405); the `tag:flyio-target:443` grant is dropped once it lands). Indri carries both tags — `flyio-origin` for that listener (serving only the `fly_proxied` services, docs/cv/photos), `flyio-target` for the k8s Tailscale Ingress pods of Loki and Prometheus, whose [[alloy|Alloy]] pushes metrics and logs directly on 443. A compromised proxy cannot route to arbitrary services on the tailnet. The one inbound *service* grant to the proxy node is `tag:forge` → `tag:flyio-proxy` on tcp:22 (the forge's push-mirror sync into the static mirror's git-shell `mirror` account — forced git commands, no login); the admin wildcard grant still reaches every port.
 
 ### Crawler Mitigation
 

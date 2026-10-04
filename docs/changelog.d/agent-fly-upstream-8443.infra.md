@@ -1,0 +1,1 @@
+The Fly proxy's nginx now points its indri upstream at Caddy's fly-only `:8443` listener (`indri.tail8d86e.ts.net:8443`) instead of `:443` (eblume/blumeops#1396); live once #1405's `tag:flyio-origin` ACL grant is applied and the `deploy-fly` run deploys it.
