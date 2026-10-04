@@ -79,6 +79,25 @@ def _write_repo(name, **extra):
     return entry
 
 
+def _valid_user(is_admin=False, is_active=True):
+    return {"login": "horkos-forge", "is_admin": is_admin, "is_active": is_active}
+
+
+def _blumeops_main_rule(**overrides):
+    """A valid blumeops:main protection as the API serves it (whitelisted to
+    eblume alone) — the shape the blast-radius invariant expects."""
+    rule = {
+        "rule_name": "main",
+        "enable_push_whitelist": True,
+        "enable_merge_whitelist": True,
+        "push_whitelist_usernames": ["eblume"],
+        "merge_whitelist_usernames": ["eblume"],
+        "push_whitelist_deploy_keys": False,
+    }
+    rule.update(overrides)
+    return rule
+
+
 class FakeForge:
     """MockTransport-backed client; records every request, serves canned
     collaborators/hooks/secrets. List endpoints are page-aware because the
@@ -105,6 +124,8 @@ class FakeForge:
         self.protections: dict[str, list[dict]] = {}  # repo -> served rules
         # Fields a protection PATCH silently ignores (a 200 that changes nothing).
         self.protection_patch_drops: set[str] = set()
+        # The folded-in horkos-forge blast-radius invariants read these.
+        self.horkos_user: dict | None = None  # None -> 404 (site-admin check UNKNOWN)
 
     # Forgejo stores per-event flags and reads them back as names: the
     # `pull_request` umbrella sets the whole pull_request_* family (API
@@ -154,6 +175,10 @@ class FakeForge:
         for suffix, status in self.status_overrides.items():
             if path.endswith(suffix):
                 return httpx.Response(status, json={"message": "overridden"})
+        if path == "/api/v1/users/horkos-forge":
+            if self.horkos_user is None:
+                return httpx.Response(404, json={"message": "no such user"})
+            return httpx.Response(200, json=self.horkos_user)
         if path == "/api/v1/repos/search":
             return httpx.Response(
                 200,
@@ -963,3 +988,166 @@ def test_real_protection_policy_loads():
     """The checked-in forge/branch-protections.json passes its own fences."""
     rules = ara.load_protections(("agents", "horkos-forge"))
     assert {(r["repo"], r["rule_name"]) for r in rules} >= {("blumeops", "main")}
+
+
+# --- horkos-forge blast-radius invariants (folded in from horkos-forge-drift) --
+
+
+def _forge_client(forge, monkeypatch):
+    """A client backed by the fake, made through the module's (patched)
+    httpx.Client so absolute URLs work as in production."""
+    forge.install(monkeypatch)
+    return ara.httpx.Client(
+        base_url=ara.FORGE_URL, headers={"Authorization": "token t"}, timeout=30.0
+    )
+
+
+def test_invariant_horkos_is_site_admin(policy, monkeypatch):
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.horkos_user = _valid_user(is_admin=True)
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_site_admin(c, findings)
+    assert any("site admin" in f for f in findings.failures)
+
+
+def test_invariant_horkos_not_admin_is_ok(policy, monkeypatch):
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.horkos_user = _valid_user(is_admin=False)
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_site_admin(c, findings)
+    assert findings.failures == []
+
+
+def test_invariant_horkos_user_unreadable_fails(policy, monkeypatch):
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.horkos_user = None  # 404
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_site_admin(c, findings)
+    assert any("could not verify" in f for f in findings.failures)
+
+
+def test_invariant_main_whitelist_allows_non_eblume(policy, monkeypatch):
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc", "blumeops"]
+    forge.protections = {
+        "blumeops": [
+            _blumeops_main_rule(push_whitelist_usernames=["eblume", "mallory"])
+        ]
+    }
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_main_whitelist(c, "eblume", findings)
+    assert any("mallory" in f for f in findings.failures)
+
+
+def test_invariant_main_protection_missing_fails(policy, monkeypatch):
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc", "blumeops"]
+    forge.protections = {"blumeops": []}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_main_whitelist(c, "eblume", findings)
+    assert any("no branch protection" in f for f in findings.failures)
+
+
+def test_invariant_main_whitelist_valid_is_ok(policy, monkeypatch):
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc", "blumeops"]
+    forge.protections = {"blumeops": [_blumeops_main_rule()]}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_main_whitelist(c, "eblume", findings)
+    assert findings.failures == []
+
+
+# --- PR-check semantics (same-repo PRs only) ---------------------------------
+
+
+def _base_state(monkeypatch, repos, protections=()):
+    """Point the base-state readers the --pr-base-ref path uses at these."""
+    monkeypatch.setattr(
+        ara, "read_policies_at", lambda ref: ara._policies_dict({"repos": repos})
+    )
+    monkeypatch.setattr(ara, "read_protections_at", lambda ref: list(protections))
+
+
+def test_pr_check_intended_only_is_green(policy, run_main, monkeypatch, tmp_path):
+    # A repos.json access change (write→read) the PR intends: green, the
+    # intended line in the report file, no unexpected drift.
+    policy([{"name": "svc", "access": "read", "pool": "none"}])  # head declares read
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}  # live still write — the PR's read is pending
+    forge.secrets = {"svc": []}  # write repo, no secrets
+    forge.horkos_user = _valid_user(is_admin=False)
+    forge.protections = {"blumeops": [_blumeops_main_rule()]}
+    forge.install(monkeypatch)
+    _base_state(monkeypatch, [{"name": "svc", "access": "write", "pool": "none"}])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 0, out
+    assert "Unexpected drift" not in out
+    assert "intended drift only" in out
+    assert "`eblume/svc` agents access: write -> read" in report.read_text()
+
+
+def test_pr_check_unexpected_drift_fails(policy, run_main, monkeypatch, tmp_path):
+    # A protection on a repo the PR leaves unchanged (head == base declare it),
+    # missing on the live forge: base plans a create the PR did not intend ->
+    # unexpected -> fails.
+    policy([{"name": "svc", "access": "write", "pool": "none"}])
+    # HEAD's declared protections (PROTECTIONS_PATH) also carry other:main, so
+    # the PR does not touch that protection.
+    ara.PROTECTIONS_PATH.write_text(
+        __import__("json").dumps({"rules": [_rule(repo="other")]}), encoding="utf-8"
+    )
+    forge = FakeForge()
+    forge.repos = ["svc", "other", "blumeops"]
+    forge.secrets = {"svc": []}
+    forge.permission = {"svc": "write"}  # svc in sync
+    forge.horkos_user = _valid_user(is_admin=False)
+    forge.protections = {"blumeops": [_blumeops_main_rule()]}  # `other` has none live
+    forge.install(monkeypatch)
+    # BASE declares other:main too (same as head), and has the invariant state.
+    _base_state(
+        monkeypatch,
+        [{"name": "svc", "access": "write", "pool": "none"}],
+        [_rule(repo="other")],
+    )
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 1, out
+    assert "UNEXPECTED drift" in out
+    assert "other:main" in out
+    # A failing PR still posts its notice (even with nothing intended), so the
+    # red reason is read; it carries the [X] unexpected section.
+    assert report.exists()
+    assert "[X]" in report.read_text()
+
+
+def test_pr_check_fork_pr_skips(policy, run_main, monkeypatch):
+    # No token + --skip-if-no-token: the fork/agent-PR path exits 0 before any
+    # PR categorization (a green tick that checked nothing is worse than none).
+    policy([_write_repo("svc")])
+
+    code, out = run_main(check=True, skip_if_no_token=True, pr_base_ref="main")
+    assert code == 0
+    assert "SKIPPED" in out

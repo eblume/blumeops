@@ -3,12 +3,14 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
-#MISE description="[human] Reconcile the agents + horkos-forge bots' forge collaborations, forge→talos and forge→horkos webhooks, and engagement labels against repos.json, and branch protections against forge/branch-protections.json"
+#MISE description="[human] Reconcile eblume's forge desired state — the agents + horkos-forge bots' collaborations, webhooks, and labels (repos.json) and branch protections (forge/branch-protections.json); --check is the single forge drift check (weekly + same-repo PRs)"
 #MISE alias=["ara","agent-repo-access"]
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
 #USAGE flag "--token <token>" help="Forgejo API token; the caller must be admin on the target repos (default: 1Password)"
 #USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when $FORGE_REPO_WRITE_TOKEN is unset (CI bootstrap)"
+#USAGE flag "--pr-base-ref <ref>" help="PR mode: also report drift vs the base ref — intended drift warns, unexpected drift fails (CI on same-repo PRs)"
+#USAGE flag "--report-file <path>" help="Write the PR-check intended-drift report to this file (CI posts it as a PR comment)"
 """Reconcile which of eblume's repos the `agents` and `horkos-forge` bots may touch.
 
 `argocd/manifests/talos/repos.json` is the single source of truth: it drives
@@ -103,8 +105,7 @@ Its *user* must hold admin on the target repos (collaborator management is
 repo-admin-level; eblume owns them all), but the token *scope* only needs
 `write:repository` — verified empirically 2026-08-22, retiring the older note
 here that claimed such a token 403s. That is the whole point of the CI secret:
-a narrowly-scoped eblume PAT (write:repository,read:user — the user half is
-for horkos-forge-drift, not this script) instead of the all-scopes admin PAT. A token
+a narrowly-scoped eblume PAT (write:repository,read:user — the read:user half is for this script's site-admin check on /users/horkos-forge) instead of the all-scopes admin PAT. A token
 that can't read collaborators on a *listed* repo is fatal rather than skipped —
 see `blocked` — because every call degrades quietly under the wrong credential,
 and a partial apply that reports success is worse than a clean failure.
@@ -142,6 +143,7 @@ Usage:
 
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Annotated
@@ -366,8 +368,7 @@ PROTECTION_FIELDS = frozenset(
 # The user whitelists that let a bot past a rule. Neither bot may appear in
 # any of them, whatever the file says: `agents` on a merge whitelist would
 # let it ship its own PRs, and horkos-forge on one would turn its dispatch
-# grant into a path to production (horkos-forge-drift checks the same thing
-# on the live rule). In code for the same reason as PINNED_READ_ONLY.
+# grant into a path to production (this script checks the same thing on the live rule via its branch-protection --check). In code for the same reason as PINNED_READ_ONLY.
 BOT_WHITELIST_FENCE = ("push_whitelist_usernames", "merge_whitelist_usernames", "approvals_whitelist_username")
 
 console = Console()
@@ -823,11 +824,338 @@ def show(value: object) -> str:
     return ", ".join(value) if isinstance(value, list) else json.dumps(value)
 
 
+
+# Invariants folded in from the retired `horkos-forge-drift` tool. `--check` is
+# now the single forge drift check (weekly schedule + same-repo PRs), so the
+# blast-radius facts horkos-forge-drift asserted live here, checked against the
+# live forge on every check. Split two ways: the environment invariants
+# (site-admin, blumeops:main whitelist) hold regardless of repos.json, and the
+# horkos-forge *grant-set* invariant is keyed by the policy it is checked
+# against (head vs base on a PR) — so it is reported as drift, not as a hard
+# violation, when a PR is the thing moving the set.
+EXPECTED_MAIN_WHITELIST = frozenset({"eblume"})
+HORKOS_BLAST_REPO = "blumeops"
+HORKOS_BLAST_BRANCH = "main"
+
+
+class Findings:
+    """Accumulates ok/fail/unknown lines; a check that cannot see is a failure."""
+    def __init__(self):
+        self.failures: list[str] = []
+    def ok(self, what):
+        console.print(f"[green]ok[/green]       {escape(what)}")
+    def fail(self, what, detail):
+        console.print(f"[red]invariant[/red]  {escape(what)} — {escape(detail)}")
+        self.failures.append(f"{what}: {detail}")
+    def unknown(self, what, detail):
+        console.print(f"[red]UNKNOWN[/red]  {escape(what)} — {escape(detail)}")
+        self.failures.append(f"{what}: could not verify ({detail})")
+
+
+def check_site_admin(client, report):
+    """`horkos-forge` is not a site admin and is active. A check that cannot see
+    is a failure, not a pass — a partial picture of a permissions boundary
+    invites a second surprise."""
+    try:
+        resp = client.get(f"/api/v1/users/{HORKOS_FORGE_USER}")
+        resp.raise_for_status()
+        user = resp.json()
+    except httpx.HTTPStatusError as exc:
+        report.unknown("horkos-forge is not a site admin", f"user lookup failed: {exc}")
+        return
+    if user.get("is_admin"):
+        report.fail("horkos-forge is not a site admin", "IS a site admin — every other grant check here is moot")
+    elif not user.get("is_active", True):
+        report.fail("horkos-forge is not a site admin", "account is deactivated — dispatch cannot work")
+    else:
+        report.ok("horkos-forge is not a site admin")
+
+
+def check_main_whitelist(client, owner, report):
+    """blumeops:main stays whitelisted to eblume alone — the one repo where a
+    shipped commit is production, so "can push branches" must not become "can
+    ship to production". This is the live complement of BOT_WHITELIST_FENCE,
+    which guards the *declared* rule; here we verify the live rule held."""
+    what = f"blumeops:{HORKOS_BLAST_BRANCH} stays whitelisted to eblume alone"
+    try:
+        rules = list_protections(client, owner, HORKOS_BLAST_REPO)
+    except httpx.HTTPStatusError as exc:
+        report.unknown(what, f"branch protections not readable: {exc}")
+        return
+    if rules is None:
+        report.unknown(what, "branch protections not readable — is the token admin-scoped?")
+        return
+    rule = next((r for r in rules if r.get("rule_name") == HORKOS_BLAST_BRANCH), None)
+    if rule is None:
+        report.fail(what, f"no branch protection on {HORKOS_BLAST_BRANCH} at all")
+        return
+    problems = []
+    if not rule.get("enable_push_whitelist"):
+        problems.append("push whitelist disabled")
+    if not rule.get("enable_merge_whitelist"):
+        problems.append("merge whitelist disabled")
+    for field in ("push_whitelist_usernames", "merge_whitelist_usernames"):
+        extra = sorted({u for u in (rule.get(field) or [])} - EXPECTED_MAIN_WHITELIST)
+        if extra:
+            problems.append(f"{field} also allows {', '.join(extra)}")
+    if rule.get("push_whitelist_deploy_keys"):
+        problems.append("deploy keys may push")
+    if problems:
+        report.fail(what, "; ".join(problems))
+    else:
+        report.ok(what)
+
+
+def git_read_file(ref, relpath):
+    """Read a file at a git ref, or None when git is absent or the file is not
+    at that ref. Used by --pr-base-ref to read the PR base's declared state."""
+    if shutil.which("git") is None:
+        return None
+    r = subprocess.run(["git", "show", f"{ref}:{relpath}"], capture_output=True, check=False)
+    if r.returncode != 0:
+        return None
+    return r.stdout
+
+
+def _policies_dict(policy):
+    desired, pools = {}, {}
+    release_hook_repos, horkos_forge_repos = set(), set()
+    for entry in policy["repos"]:
+        desired[entry["name"]] = entry["access"]
+        pools[entry["name"]] = entry.get("pool", "none")
+        if entry.get("release_hook", False):
+            release_hook_repos.add(entry["name"])
+        if entry.get("horkos_forge", False):
+            horkos_forge_repos.add(entry["name"])
+    return {"desired": desired, "pools": pools,
+            "release_hook_repos": release_hook_repos,
+            "horkos_forge_repos": horkos_forge_repos}
+
+
+def read_policies_at(ref):
+    """The repos.json declared state at a git ref (None when unreadable)."""
+    raw = git_read_file(ref, "argocd/manifests/talos/repos.json")
+    if raw is None:
+        return None
+    try:
+        return _policies_dict(json.loads(raw))
+    except json.JSONDecodeError:
+        return None
+
+
+def read_protections_at(ref):
+    raw = git_read_file(ref, "forge/branch-protections.json")
+    if raw is None:
+        return []
+    try:
+        return json.loads(raw)["rules"]
+    except (json.JSONDecodeError, KeyError):
+        return []
+
+
+def plan_at(client, owner, who, policies, protections):
+    """Plan the drift of a (policy, protections) pair against the live forge —
+    the read-only core of main's planning, factored out so --pr-base-ref can
+    plan the PR base's state too. Returns {actions, horkos_actions,
+    hook_actions, protection_actions, violations, blocked}."""
+    desired = policies["desired"]
+    pools = policies["pools"]
+    release_hook_repos = policies["release_hook_repos"]
+    horkos_forge_repos = policies["horkos_forge_repos"]
+    all_repos = owner_repos(client, owner)
+    blocked, violations = [], []
+    actions, horkos_actions, hook_actions = [], [], []
+    for repo in sorted(all_repos):
+        want = desired.get(repo, "none")
+        have = current_access(client, owner, repo, who)
+        horkos_want = "write" if repo in horkos_forge_repos else "none"
+        horkos_have = current_access(client, owner, repo, HORKOS_FORGE_USER)
+        if have == "unreadable" or horkos_have == "unreadable":
+            if repo in desired:
+                blocked.append(repo)
+            continue
+        if have != want:
+            verb = "revoke" if want == "none" else ("grant" if have == "none" else "update")
+            actions.append((repo, verb, want))
+        if horkos_have != horkos_want:
+            horkos_actions.append(
+                (repo, "revoke" if horkos_want == "none" else ("grant" if horkos_have == "none" else "update"), horkos_want))
+        if want == "write":
+            secrets = actions_secrets(client, owner, repo)
+            if secrets is None and repo not in blocked:
+                blocked.append(repo)
+            elif secrets:
+                violations.append((repo, secrets))
+        want_hook = pools.get(repo, "none") != "none"
+        want_release_hook = repo in release_hook_repos
+        hooks = list_hooks(client, owner, repo)
+        if hooks is None:
+            if repo in desired and repo not in blocked:
+                blocked.append(repo)
+            continue
+        _, _, _ = hook_kind_state(
+            [h for h in hooks if h.get("config", {}).get("url") == TALOS_HOOK_URL],
+            TALOS_HOOK_READ_EVENTS, want_hook, repo, "talos", hook_actions)
+        _, _, _ = hook_kind_state(
+            [h for h in hooks if h.get("config", {}).get("url") == HORKOS_HOOK_URL],
+            HORKOS_HOOK_READ_EVENTS, want_release_hook, repo, "horkos", hook_actions)
+    protection_actions = []
+    for rule in protections:
+        repo = rule["repo"]
+        live_rules = list_protections(client, owner, repo)
+        if live_rules is None:
+            blocked.append(repo)
+            continue
+        live_by_name = {r["rule_name"]: r for r in live_rules}
+        live = live_by_name.get(rule["rule_name"])
+        if live is None:
+            protection_actions.append((repo, rule["rule_name"], "create",
+                                       {f: (None, rule[f]) for f in sorted(PROTECTION_FIELDS)}))
+        else:
+            diff = protection_diff(live, rule)
+            if diff:
+                protection_actions.append((repo, rule["rule_name"], "update", diff))
+    return {"actions": actions, "horkos_actions": horkos_actions, "hook_actions": hook_actions,
+            "protection_actions": protection_actions, "violations": violations, "blocked": blocked}
+
+
+def _changed_facts(base_state, head_state):
+    """The set of facts the PR's declared delta changes, keyed so a live-drift
+    action can be classified intended vs unexpected by (repo, fact):
+      - (repo, "access"), (repo, "horkos"), (repo, "talos-hook"),
+        (repo, "release-hook")
+      - (repo, "protect", rule_name)
+    A base-plan action is INTENDED iff its fact is in this set (the PR is
+    landing it), UNEXPECTED otherwise (the PR does not touch it).
+    """
+    b, h = base_state, head_state
+    changed: set[tuple] = set()
+    for repo in sorted(set(b["desired"]) | set(h["desired"])):
+        if b["desired"].get(repo, "none") != h["desired"].get(repo, "none"):
+            changed.add((repo, "access"))
+        if (repo in b["horkos_forge_repos"]) != (repo in h["horkos_forge_repos"]):
+            changed.add((repo, "horkos"))
+        if b["pools"].get(repo, "none") != h["pools"].get(repo, "none"):
+            changed.add((repo, "talos-hook"))
+        if (repo in b["release_hook_repos"]) != (repo in h["release_hook_repos"]):
+            changed.add((repo, "release-hook"))
+    for repo, rn in sorted({(r["repo"], r["rule_name"]) for r in b["protections"]}
+                           | {(r["repo"], r["rule_name"]) for r in h["protections"]}):
+        base_rule = next((r for r in b["protections"] if (r["repo"], r["rule_name"]) == (repo, rn)), None)
+        head_rule = next((r for r in h["protections"] if (r["repo"], r["rule_name"]) == (repo, rn)), None)
+        if base_rule != head_rule:
+            changed.add((repo, "protect", rn))
+    return changed
+
+
+def _intended_lines(owner, base_state, head_state):
+    """One line per fact the PR's declared delta changes (base -> head), for the
+    intended report, split into the auto-applies / hook / protection halves."""
+    b, h = base_state, head_state
+    auto, hook, prot = [], [], []
+    for repo in sorted(set(b["desired"]) | set(h["desired"])):
+        if b["desired"].get(repo, "none") != h["desired"].get(repo, "none"):
+            auto.append(f"`{owner}/{repo}` agents access: {b['desired'].get(repo,'none')} -> {h['desired'].get(repo,'none')}")
+        if (repo in b["horkos_forge_repos"]) != (repo in h["horkos_forge_repos"]):
+            auto.append(f"`{owner}/{repo}` horkos-forge write: {'on' if repo in b['horkos_forge_repos'] else 'off'} -> {'on' if repo in h['horkos_forge_repos'] else 'off'}")
+        if b["pools"].get(repo, "none") != h["pools"].get(repo, "none"):
+            (hook if b["pools"].get(repo, "none") == "none" else auto).append(
+                f"`{owner}/{repo}` talos hook pool: {b['pools'].get(repo,'none')} -> {h['pools'].get(repo,'none')}")
+        if (repo in b["release_hook_repos"]) != (repo in h["release_hook_repos"]):
+            (hook if repo not in b["release_hook_repos"] else auto).append(
+                f"`{owner}/{repo}` horkos release hook: {'on' if repo in b['release_hook_repos'] else 'off'} -> {'on' if repo in h['release_hook_repos'] else 'off'}")
+    for repo, rn in sorted({(r["repo"], r["rule_name"]) for r in b["protections"]}
+                           | {(r["repo"], r["rule_name"]) for r in h["protections"]}):
+        base_rule = next((r for r in b["protections"] if (r["repo"], r["rule_name"]) == (repo, rn)), None)
+        head_rule = next((r for r in h["protections"] if (r["repo"], r["rule_name"]) == (repo, rn)), None)
+        if base_rule != head_rule:
+            prot.append(f"`{owner}/{repo}` branch protection `{rn}` changed")
+    return sorted(set(auto)), sorted(set(hook)), sorted(set(prot))
+
+
+def report_pr_check(client, owner, who, head_state, base_state, base_plan, pr_base_ref, report_file):
+    """PR-check categorization (same-repo PRs only; fork/agent PRs skip to
+    --skip-if-no-token before reaching here).
+
+    INTENDED = the PR's declared delta (base -> head): warn only, split into
+    auto-applies-on-merge vs the hook/protection halves that need a human run
+    after merge. It never fails on its own.
+
+    UNEXPECTED = the live forge's drift vs the PR *base*'s declared state on a
+    fact the PR does NOT change (a merged change awaiting a human apply, or
+    genuine drift) -> fail. An Actions-secrets violation or an unreadable repo
+    also fails.
+
+    Writes the markdown report to report_file (the workflow posts it as a PR
+    comment) and fails iff unexpected drift is present.
+    """
+    changed = _changed_facts(base_state, head_state)
+    auto, hook, prot = _intended_lines(owner, base_state, head_state)
+
+    def changed_for(repo, fact, rn=None):
+        return ((repo, "protect", rn) if fact == "protect" else (repo, fact)) in changed
+
+    unexpected = []
+    for repo, verb, want in base_plan["actions"]:
+        if not changed_for(repo, "access"):
+            unexpected.append(f"{verb} {owner}/{repo} -> {want}" if want != "none" else f"{verb} {owner}/{repo}")
+    for repo, verb, want in base_plan["horkos_actions"]:
+        if not changed_for(repo, "horkos"):
+            unexpected.append(f"horkos-forge {verb} on {owner}/{repo} -> {want}" if want != "none" else f"horkos-forge {verb} on {owner}/{repo}")
+    for repo, verb, _id, kind in base_plan["hook_actions"]:
+        if not changed_for(repo, "talos-hook" if kind == "talos" else "release-hook"):
+            unexpected.append(f"{verb} {'talos hook' if kind == 'talos' else 'horkos release hook'} on {owner}/{repo}")
+    for repo, rn, verb, diff in base_plan["protection_actions"]:
+        if not changed_for(repo, "protect", rn):
+            unexpected.append(f"{verb} branch protection {owner}/{repo}:{rn} ({'all fields' if verb == 'create' else ', '.join(diff)})")
+    for repo, names in base_plan["violations"]:
+        unexpected.append(violation_line(owner, repo, names))
+    if base_plan["blocked"]:
+        unexpected.append(f"unreadable listed repo(s): {', '.join(base_plan['blocked'])}")
+
+    lines = ["**`forge-reconcile` PR check** - forge desired state vs the live forge.", ""]
+    if unexpected:
+        lines.append(f"### [X] Unexpected drift (live vs `{pr_base_ref}`-declared) - this PR does not intend it")
+        lines += [f"- {l}" for l in unexpected] + [""]
+        lines.append("_This red is not this PR breaking something: a merged change is awaiting a human apply, or the forge drifted._")
+        lines.append("")
+    else:
+        lines.append("[OK] **No unexpected drift** - the live forge matches main's declared state.")
+        lines.append("")
+    if auto:
+        lines.append("### Intended - auto-applies on merge via the push trigger")
+        lines += [f"- {l}" for l in auto] + [""]
+    if hook:
+        lines.append("### Intended - hook (a human runs `mise run forge-reconcile` from gilbert after merge; the CI token cannot create hooks)")
+        lines += [f"- {l}" for l in hook] + [""]
+    if prot:
+        lines.append("### Intended - branch protection (a human MUST run `mise run forge-reconcile` from gilbert after merge; the CI token cannot apply these)")
+        lines += [f"- {l}" for l in prot] + [""]
+
+    # Surface intended drift even when it does not fail the check: a warn-only
+    # result (notably a revocation) must still be read, so the workflow posts
+    # this file as a PR comment whenever it is written.
+    if report_file and (unexpected or auto or hook or prot):
+        Path(report_file).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    if unexpected:
+        console.print("\n[red]PR check: UNEXPECTED drift (this PR does not intend it) - failing.[/red]")
+        for l in unexpected:
+            console.print(f"  [red]{escape(l)}[/red]")
+        raise typer.Exit(1)
+    if auto or hook or prot:
+        console.print("\n[yellow]PR check: intended drift only - green; it applies on merge (hook/protection halves need the human run).[/yellow]")
+    else:
+        console.print("\n[green]PR check: in sync, nothing intended.[/green]")
+
+
 def main(
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
     check: Annotated[bool, typer.Option("--check")] = False,
     token: Annotated[str | None, typer.Option("--token")] = None,
     skip_if_no_token: Annotated[bool, typer.Option("--skip-if-no-token")] = False,
+    pr_base_ref: Annotated[str | None, typer.Option("--pr-base-ref")] = None,
+    report_file: Annotated[str | None, typer.Option("--report-file")] = None,
 ) -> None:
     owner, who, desired, pools, release_hook_repos, horkos_forge_repos = load_policy()
     protections = load_protections((who, HORKOS_FORGE_USER))
@@ -851,6 +1179,18 @@ def main(
     )
 
     with client:
+        # The blast-radius invariants folded in from horkos-forge-drift. They
+        # gate only the PR-check path (--pr-base-ref), where a full view of the
+        # forge is expected; the plain --check/--dry-run/apply paths keep their
+        # existing behavior and reporting.
+        env_findings: Findings | None = None
+        if pr_base_ref:
+            env_findings = Findings()
+            check_site_admin(client, env_findings)
+            check_main_whitelist(client, owner, env_findings)
+            if env_findings.failures:
+                raise typer.Exit(1)
+
         # Every repo the owner has, not just the listed ones — that is what makes
         # removal possible. A repo carrying a stale `agents` grant only shows up
         # here if we go looking for it.
@@ -1175,6 +1515,24 @@ def main(
             for repo, secret_names in violations:
                 console.print(f"  {violation_line(escape(owner), escape(repo), [escape(n) for n in secret_names])}")
             if check:
+                if pr_base_ref:
+                    base_state = read_policies_at(pr_base_ref)
+                    if base_state is None:
+                        console.print(
+                            f"\n[red]Cannot read {POLICY_PATH.name} at base {escape(pr_base_ref)} — "
+                            "refusing to categorize PR drift without the base's declared state.[/red]"
+                        )
+                        raise typer.Exit(1)
+                    base_state["protections"] = read_protections_at(pr_base_ref)
+                    base_plan = plan_at(client, owner, who, base_state, base_state["protections"])
+                    head_state = {"desired": desired, "pools": pools,
+                                  "release_hook_repos": release_hook_repos,
+                                  "horkos_forge_repos": horkos_forge_repos,
+                                  "protections": protections}
+                    report_pr_check(client, owner, who, head_state, base_state, base_plan,
+                                    pr_base_ref, report_file)
+                    return
+
                 console.print("\n[red]Out of sync (--check).[/red]")
                 raise typer.Exit(1)
             return

@@ -121,8 +121,10 @@ workspace checkout — are declared in **one** file:
   dispatches approved runs as needs write on the request's origin issue to
   post the settlement comment (eblume/horkos#40). Reconciled by the same
   task (and exempt from the `PINNED_READ_ONLY` fence above: write on
-  blumeops is the whole point), and the `horkos-forge-drift` check asserts
-  horkos-forge holds write on exactly the flagged set and nowhere else.
+  blumeops is the whole point), and `forge-reconcile --check` (run weekly
+  and on same-repo PRs) asserts horkos-forge holds write on exactly the
+  flagged set, is not a site admin, and keeps blumeops `main` whitelisted
+  to eblume alone.
 
 So adding a repo is: edit the file, open a PR, merge. No clicking in the forge
 UI — and nothing to forget, which is the point. See [[agent-containerization]]
@@ -175,7 +177,7 @@ management is repo-admin-level, which `eblume` holds as owner. The token
 older note here claimed such a token 403s, which is no longer true). In CI
 that arrives as the `FORGE_REPO_WRITE_TOKEN` Actions secret — an `eblume` PAT
 scoped to `write:repository,read:user` (the `read:user` half is for
-`horkos-forge-drift`'s site-admin check, not the reconciler; 1Password item
+`forge-reconcile`'s site-admin check; 1Password item
 `forge-repo-write-token`, replacing the all-scopes admin PAT that previously
 sat in CI) — declared in
 the `forgejo_actions_secrets` ansible role and pushed by a human:

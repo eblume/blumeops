@@ -82,7 +82,7 @@ The forge has three namespaces:
 
 | Workflow | Trigger | Runner | Purpose |
 |----------|---------|--------|---------|
-| `forge-reconcile` | push/PR/dispatch | `indri` | Reconcile the `agents` bot's collaborations + labels against repos.json; check (never apply) branch protections against `forge/branch-protections.json` |
+| `forge-reconcile` | push/PR/schedule/dispatch | `indri` | Reconcile the `agents` + `horkos-forge` bots' collaborations, webhooks, labels, and branch protections against repos.json + `forge/branch-protections.json`; the single forge drift check (weekly schedule + same-repo PRs; protections apply only from a human run) |
 | `argocd-deploy` | dispatch | `priv` | Warrant-gated ArgoCD deploy of a single app |
 | `argocd-sync-apps` | dispatch | `priv` | Warrant-gated sync of the app-of-apps root (`apps`) |
 | `branch-cleanup` | cron/dispatch | `indri` | Delete stale branches |
@@ -94,7 +94,6 @@ The forge has three namespaces:
 | `lint` | PR/push | `indri` | Repo lint (prek hooks) |
 | `provision-indri` | dispatch | `indri` | Warrant-gated apply of a bound SHA's nix-darwin generation; fire-and-forget — green means the switch launched ([[provision]]) |
 | `run-script` | dispatch | `priv` | Warrant-gated one-off script run |
-| `horkos-forge-drift` | cron/push/dispatch | `indri` | Weekly drift check on horkos-forge's grants |
 
 PR jobs additionally end with the shared `.forgejo/actions/report-failure`
 composite action: on failure it posts the job's teed log tail to the PR as
@@ -130,7 +129,7 @@ mise run provision-indri -- --tags forgejo_actions_secrets
 
 | Repo | Secrets | Purpose |
 |------|---------|---------|
-| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `forge-reconcile` reconcile + `horkos-forge-drift` reads (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
+| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `forge-reconcile` reconcile + drift check (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
 | `eblume/talos`, `eblume/horkos` | `ZOT_PUSH_API_KEY` | Auto-release CI: per-repo push-only zot identity (`ci-zot-talos` / `ci-zot-horkos`), provisioned from the zot master fields by the role |
 | `eblume/cv` | — (none) | Release CI is stored-secret-free; the empty declaration makes provisioning authoritative here (first run deletes the stale `FORGE_TOKEN`) |
 
