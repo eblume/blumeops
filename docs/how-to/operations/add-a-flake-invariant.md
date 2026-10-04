@@ -41,8 +41,8 @@ fails the same build that would have shipped the bad config.
 
 ## Message format
 
-Every entry's message carries four parts, so the build failure is its own
-postmortem:
+Entries follow a four-part format, so the build failure is its own
+postmortem (each part as the lesson allows):
 
 ```
 <host>: <what is forbidden or required> — <why/lesson>.
@@ -101,11 +101,13 @@ predicate.
 ## Verifying an invariant in the pod
 
 The talos pod can evaluate both flakes (indri is aarch64-darwin, but eval
-works; only the build is runner-bound):
+works; only the build is runner-bound). Each host flake is its own flake
+(dir with its own `flake.nix`), so run from there — matching the
+workflows:
 
 ```sh
-nix build .#nixosConfigurations.ringtail.config.system.build.toplevel   # the exact CI expression
-nix eval --impure .#darwinConfigurations.indri.system.drvPath
+cd nixos/ringtail && nix build .#nixosConfigurations.ringtail.config.system.build.toplevel  # the exact CI expression
+cd darwin/indri   && nix eval --impure .#darwinConfigurations.indri.system.drvPath
 ```
 
 Prove both halves: the positive (clean on main) and a negative — a scratch
