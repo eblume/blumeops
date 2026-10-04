@@ -66,6 +66,10 @@ Some sites are served directly by Caddy from disk (`kind: static`, `file_server`
 | `docs.ops.eblu.me` | `{{ docs_content_dir }}` | [[docs]] (Quartz; also public at `docs.eblu.me` via [[flyio-proxy]]) |
 | `cv.ops.eblu.me` | `{{ cv_content_dir }}` | [[cv]] (serves `resume.pdf` as an attachment download) |
 
+### Fly Proxy Listener (:8443)
+
+A second listener, `*.ops.eblu.me:8443`, serves only the services flagged `fly_proxied: true` (docs, cv, photos) — the [[flyio-proxy]] path. New services are unreachable from the fly node by default: to expose one, add `fly_proxied: true` to its `caddy_services` entry and its name to `caddy_fly_proxied_services` — `mise run caddy-render-check` fails if the two diverge.
+
 ### TCP Services (Layer 4)
 
 | Port | Backend | Service |
@@ -108,7 +112,7 @@ The token is written to `~/.config/caddy/gandi-token` (chmod 0600) and sourced b
 
 ## Security Considerations
 
-Caddy has no authentication layer — it is a plain reverse proxy. Access control relies entirely on Tailscale ACLs restricting which devices can reach indri on port 443. Currently `tag:homelab`, `autogroup:admin`, and `tag:flyio-proxy` (via `tag:flyio-target` on indri) can reach Caddy.
+Caddy has no authentication layer — it is a plain reverse proxy. Access control relies entirely on Tailscale ACLs restricting which devices can reach indri on port 443. Currently `tag:homelab`, `autogroup:admin`, and `tag:flyio-proxy` (via `tag:flyio-target` on indri) can reach Caddy. Once the fly ACL narrows to a dedicated tag and port (eblume/blumeops#1396), the fly node will reach Caddy only via :8443.
 
 The [[flyio-proxy]] routes all public traffic through Caddy. This is the path for `*.eblu.me` requests from the public internet. Caddy sees these as requests from the Fly VM with `Host: *.ops.eblu.me` headers — the same routes used by tailnet clients.
 

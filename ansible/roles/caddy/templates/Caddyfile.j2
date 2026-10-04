@@ -4,31 +4,7 @@
 # All *.{{ caddy_domain }} requests are proxied to backend services.
 # TLS certificates are obtained via ACME DNS-01 challenge using Gandi.
 
-{
-	# Global options
-	admin off
-
-{% if caddy_tcp_services %}
-	# Layer 4 (TCP) routing
-	layer4 {
-{% for tcp_svc in caddy_tcp_services %}
-		:{{ tcp_svc.port }} {
-			route {
-				proxy {{ tcp_svc.backend }}
-			}
-		}
-{% endfor %}
-	}
-{% endif %}
-}
-
-# Wildcard certificate for all services
-*.{{ caddy_domain }}:{{ caddy_https_port }} {
-	tls {
-		dns gandi {env.GANDI_BEARER_TOKEN}
-	}
-
-{% for service in caddy_services %}
+{% macro service_body(service) %}
 	@{{ service.name }} host {{ service.host }}
 	handle @{{ service.name }} {
 {% if service.kind | default('proxy') == 'static' %}
@@ -74,13 +50,53 @@
 {% endif %}
 	}
 
+{% endmacro -%}
+{
+	# Global options
+	admin off
+
+{% if caddy_tcp_services %}
+	# Layer 4 (TCP) routing
+	layer4 {
+{% for tcp_svc in caddy_tcp_services %}
+		:{{ tcp_svc.port }} {
+			route {
+				proxy {{ tcp_svc.backend }}
+			}
+		}
 {% endfor %}
+	}
+{% endif %}
+}
+
+# Wildcard certificate for all services
+*.{{ caddy_domain }}:{{ caddy_https_port }} {
+	tls {
+		dns gandi {env.GANDI_BEARER_TOKEN}
+	}
+
+{% for service in caddy_services %}{{ service_body(service) }}{% endfor %}
 	# Fallback for unknown hosts
 	handle {
 		respond "Unknown service" 404
 	}
 }
 
+# Fly-only listener: services flagged fly_proxied: true (expected set:
+# caddy_fly_proxied_services, enforced by the render check). Reachable only by tag:flyio-proxy (tcp:8443
+# ACL grant); every other *.{{ caddy_domain }} host is 404 here.
+{% if caddy_fly_proxied_services %}
+*.{{ caddy_domain }}:{{ caddy_fly_https_port }} {
+	tls {
+		dns gandi {env.GANDI_BEARER_TOKEN}
+	}
+
+{% for service in caddy_services if service.fly_proxied | default(false) %}{{ service_body(service) }}{% endfor %}
+	handle {
+		respond "Unknown service" 404
+	}
+}
+{% endif %}
 # Base domain (ops.eblu.me)
 {{ caddy_domain }}:{{ caddy_https_port }} {
 	tls {
