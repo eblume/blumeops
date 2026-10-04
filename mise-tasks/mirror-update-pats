@@ -99,11 +99,16 @@ def ssh_indri(command: str) -> subprocess.CompletedProcess:
 def db_mirror_count() -> int:
     """How many pull mirrors Forgejo itself knows about."""
     result = ssh_indri(f"sqlite3 -readonly '{DB_PATH}' 'SELECT COUNT(*) FROM mirror'")
-    if result.returncode != 0:
-        err.print(f"[red]Could not count mirrors on indri:[/red] {escape(result.stderr.strip())}")
+    # Tailscale SSH on indri swallows the remote exit code (upstream
+    # tailscale/tailscale#18256; fix #20626 pending), so the only truth is
+    # the output itself: exactly one non-negative integer.
+    out = result.stdout.strip()
+    if not (out.isascii() and out.isdigit()):
+        detail = result.stderr.strip() or "no integer on stdout"
+        err.print(f"[red]Could not count mirrors on indri:[/red] {escape(detail)}")
         err.print("Check forgejo_work_path in ansible/roles/forgejo/defaults/main.yml.")
         raise typer.Exit(1)
-    return int(result.stdout.strip())
+    return int(out)
 
 
 def fetch_mirrors(token: str) -> list[dict]:
@@ -183,15 +188,20 @@ def main(
             continue
 
         # set-url then clear, in one round trip, so the window where the database
-        # and the on-disk config disagree is as short as possible.
+        # and the on-disk config disagree is as short as possible. Tailscale
+        # SSH on indri swallows the remote exit code (upstream
+        # tailscale/tailscale#18256; fix #20626 pending), so the remote echoes
+        # a sentinel only after both writes succeed and that is the verdict.
+        sentinel = f"MIRROR-PAT-OK {full_name}"
         result = ssh_indri(
             f"git -C '{bare}' remote set-url origin '{auth_url}' && "
             f"sqlite3 -cmd '.timeout 5000' '{DB_PATH}' "
-            f'"UPDATE mirror SET encrypted_remote_address = NULL '
-            f'WHERE repo_id = {int(repo["id"])}"'
+            f"'UPDATE mirror SET encrypted_remote_address = NULL "
+            f"WHERE repo_id = {int(repo['id'])}' && "
+            f"echo '{sentinel}'"
         )
-        if result.returncode != 0:
-            err.print(f"  [red]{escape(full_name)}: {escape(result.stderr.strip())}[/red]")
+        if sentinel not in result.stdout:
+            err.print(f"  [red]{escape(full_name)}: {escape((result.stderr or result.stdout).strip() or 'no output from indri')}[/red]")
             failed += 1
             continue
 
