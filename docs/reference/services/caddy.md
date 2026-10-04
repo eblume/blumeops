@@ -112,7 +112,7 @@ The token is written to `~/.config/caddy/gandi-token` (chmod 0600) and sourced b
 
 ## Security Considerations
 
-Caddy has no authentication layer — it is a plain reverse proxy. Access control relies entirely on Tailscale ACLs restricting which devices can reach indri on port 443. Currently `tag:homelab`, `autogroup:admin`, and `tag:flyio-proxy` (via `tag:flyio-target` on indri) can reach Caddy. Once the fly ACL narrows to a dedicated tag and port (eblume/blumeops#1396), the fly node will reach Caddy only via :8443.
+Caddy has no authentication layer — it is a plain reverse proxy. Access control relies entirely on Tailscale ACLs restricting which devices can reach indri on port 443. Indri:443 is reached by `tag:homelab`/`autogroup:admin` tailnet clients as before. The fly node reaches Caddy only via the fly-only `:8443` listener (`tag:flyio-origin`, tcp:8443 only) — it has no path to indri:443 anymore (eblume/blumeops#1396).
 
 The [[flyio-proxy]] routes all public traffic through Caddy. This is the path for `*.eblu.me` requests from the public internet. Caddy sees these as requests from the Fly VM with `Host: *.ops.eblu.me` headers — the same routes used by tailnet clients.
 

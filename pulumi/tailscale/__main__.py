@@ -55,7 +55,6 @@ indri_tags = tailscale.DeviceTags(
         # Service tags for services still hosted directly on indri
         "tag:forge",
         "tag:registry",  # Zot container registry
-        "tag:flyio-target",  # Fly proxy routes through Caddy on indri
         "tag:flyio-origin",  # Caddy's fly-only :8443 listener (docs/cv/photos); grant is tcp:8443 only
     ],
     opts=after_acl,
