@@ -149,6 +149,12 @@ alloy_mcquack_logs:
   - path: /Users/erichblume/Library/Logs/mcquack.borgmatic-photos.err.log
     service: borgmatic-photos
     stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.borgmatic-verify-photos.out.log
+    service: borgmatic-verify-photos
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.borgmatic-verify-photos.err.log
+    service: borgmatic-verify-photos
+    stream: stderr
   - path: /Users/erichblume/Library/Logs/mcquack.netconsole.out.log
     service: netconsole
     stream: stdout

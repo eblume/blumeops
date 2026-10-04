@@ -43,6 +43,12 @@ cat > "$TEMP_FILE" << 'EOF'
 # TYPE borgmatic_last_archive_duration_seconds gauge
 # HELP borgmatic_source_size_bytes Size of each backup source directory in bytes
 # TYPE borgmatic_source_size_bytes gauge
+# HELP borgmatic_last_verified_timestamp Unix timestamp of the last successful borg check of the repo
+# TYPE borgmatic_last_verified_timestamp gauge
+# HELP borgmatic_last_verified_data_timestamp Unix timestamp of the last full-data (verify-data) check
+# TYPE borgmatic_last_verified_data_timestamp gauge
+# HELP borgmatic_last_test_restore_timestamp Unix timestamp of the last successful sampled test restore
+# TYPE borgmatic_last_test_restore_timestamp gauge
 EOF
 
 collect_repo_metrics() {
@@ -156,6 +162,18 @@ EOF
 collect_repo_metrics "/Volumes/backups/borg/" "sifaka-local" "indri-"
 collect_repo_metrics "ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo" "borgbase-offsite" "indri-"
 collect_repo_metrics "ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo" "borgbase-immich-photos" ""
+
+# Success markers written by the mcquack.eblume.borgmatic-verify-photos LaunchAgent.
+# Repo fixed to borgbase-immich-photos for now; generalize when more repos get verification.
+MARKER_DIR='/opt/homebrew/var/state/borgmatic-verification'
+for m in "check borgmatic_last_verified_timestamp" \
+        "check-data borgmatic_last_verified_data_timestamp" \
+        "test-restore borgmatic_last_test_restore_timestamp"; do
+    marker="${m%% *}"
+    metric="${m#* }"
+    v=$(cat "$MARKER_DIR/$marker" 2>/dev/null || true)
+    [ -n "$v" ] && echo "$metric{repo=\"borgbase-immich-photos\"} $v" >> "$TEMP_FILE"
+done
 
 # Atomic move
 mv "$TEMP_FILE" "$OUTPUT_FILE"

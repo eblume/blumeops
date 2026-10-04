@@ -229,6 +229,16 @@ borgmatic_photos_keep_daily: 7
 borgmatic_photos_keep_monthly: 12
 borgmatic_photos_keep_yearly: 1000
 
+# Verification: weekly repo+archives check, monthly full-data check, sampled
+# test-restore, via the mcquack.eblume.borgmatic-verify-photos LaunchAgent.
+borgmatic_verify_bin: /Users/erichblume/.local/bin/borgmatic-verify-photos
+borgmatic_verify_marker_dir: /opt/homebrew/var/state/borgmatic-verification
+# launchd calendar: Weekday 2 = Tuesday; Day 2 = 2nd of each month
+borgmatic_verify_schedule_days: [2]
+borgmatic_verify_schedule_month_days: [2]
+borgmatic_verify_schedule_hour: 6
+borgmatic_verify_schedule_minute: 0
+
 borgmatic_pg_dump_command: /opt/homebrew/opt/postgresql@18/bin/pg_dump
 borgmatic_postgresql_databases:
   # k8s PostgreSQL (CloudNativePG) via Caddy L4 proxy.

@@ -135,3 +135,36 @@
   when: borgmatic_photos_launchctl_check.rc != 0
   changed_when: true
   failed_when: false
+
+# --- Immich photo library verification (weekly check + test restore) ---
+
+- name: Ensure borgmatic verification marker directory exists
+  ansible.builtin.file:
+    path: "{{ borgmatic_verify_marker_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy borgmatic-verify-photos script
+  ansible.builtin.template:
+    src: borgmatic-verify-photos.sh.j2
+    dest: /Users/erichblume/.local/bin/borgmatic-verify-photos
+    mode: '0755'
+
+- name: Deploy borgmatic-verify-photos LaunchAgent plist
+  ansible.builtin.template:
+    src: borgmatic-verify-photos.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.borgmatic-verify-photos.plist
+    mode: '0644'
+  notify: Reload borgmatic-verify-photos
+
+- name: Check if borgmatic-verify-photos LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.borgmatic-verify-photos
+  register: borgmatic_verify_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load borgmatic-verify-photos LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic-verify-photos.plist
+  when: borgmatic_verify_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false

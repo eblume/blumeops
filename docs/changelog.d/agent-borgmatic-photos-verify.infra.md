@@ -1,0 +1,1 @@
+Scheduled verification for the BorgBase immich-photos repo: weekly borg check, monthly full-data check, and a sampled test-restore of random files checked against the live sifaka files, with a BorgmaticVerifyStale alert.

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- {{ ansible_managed }} -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<false/>
+	<key>Label</key>
+	<string>mcquack.eblume.borgmatic-verify-photos</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/bin:/bin</string>
+	</dict>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ borgmatic_verify_bin }}</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>{{ borgmatic_log_dir }}/mcquack.borgmatic-verify-photos.err.log</string>
+	<key>StandardOutPath</key>
+	<string>{{ borgmatic_log_dir }}/mcquack.borgmatic-verify-photos.out.log</string>
+	<key>StartCalendarInterval</key>
+	<array>
+{% for item in borgmatic_verify_schedule_days %}
+		<dict>
+			<key>Weekday</key>
+			<integer>{{ item }}</integer>
+			<key>Hour</key>
+			<integer>{{ borgmatic_verify_schedule_hour }}</integer>
+			<key>Minute</key>
+			<integer>{{ borgmatic_verify_schedule_minute }}</integer>
+		</dict>
+{% endfor %}
+{% for item in borgmatic_verify_schedule_month_days %}
+		<dict>
+			<key>Day</key>
+			<integer>{{ item }}</integer>
+			<key>Hour</key>
+			<integer>{{ borgmatic_verify_schedule_hour }}</integer>
+			<key>Minute</key>
+			<integer>{{ borgmatic_verify_schedule_minute }}</integer>
+		</dict>
+{% endfor %}
+	</array>
+</dict>
+</plist>
