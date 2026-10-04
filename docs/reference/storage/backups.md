@@ -50,8 +50,39 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 
 | Pod | Data | Method |
 |-----|------|--------|
-| talos | All session transcripts + service state (meta.json, crons.json, settings.json) | in-pod tar, streamed back |
+| talos | All session transcripts + service state (meta.json, crons.json, settings.json) | in-pod tar → own never-pruned config (see below) |
 | paperless | Document library — originals, archived, thumbnails (NFS media PVC on [[sifaka]]) | in-pod tar, streamed back |
+
+## Talos Session State (Never Pruned)
+
+Talos agent sessions (`/home/talos/data` — session transcripts, service state, `session-index.sqlite`) are backed up by a **separate borgmatic config** (`~/.config/borgmatic/talos-data.yaml`, run in the same 2:00 AM agent, main first) with its own `talos-data-*` archive prefix in the same two repos. Design intent: **every session is stored forever** (heph 01M0GA6JPGQF96AM5JZKA37YSV) — and this holds structurally, not by accident:
+
+- The talos-data config has **no `keep_*` keys**, so it never prunes.
+- The main config pins `archive_name_format: 'indri-{now…}'` + `match_archives: 'indri-*'`, so a prune enabled there (or anywhere else) can only ever reach `indri-*` archives.
+- Nothing prunes today at all — no `prune` run exists anywhere and both repos are `append_only` — but a future change can't reach talos-data without a deliberate, separate PR (see #1409).
+
+Tonight's tar is staged into `~/.local/share/borgmatic/k8s-dumps-talos/talos-data.tar` (deliberately *not* the main config's `k8s-dumps/` source directory) by a hook in the talos-data config; a failed dump aborts the run, so no archive without a fresh tar.
+
+### Restoring a Single Session
+
+```bash
+ssh indri
+export BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml"
+
+# Newest talos-data archive in the local repo:
+/opt/homebrew/bin/borg list /Volumes/backups/borg | grep talos-data-
+
+# Stream the tar out (don't leave a 3 GB file on disk) and find the session:
+/opt/homebrew/bin/borg extract --stdout /Volumes/backups/borg::<talos-data-archive> \
+  Users/erichblume/.local/share/borgmatic/k8s-dumps-talos/talos-data.tar > /tmp/talos-data.tar
+tar -tf /tmp/talos-data.tar | grep <session-id>
+
+# Extract just that session file:
+mkdir -p /tmp/restore
+tar -xf /tmp/talos-data.tar -C /tmp/restore <the-member-path-from-above>
+```
+
+Then copy the `.jsonl` into the live session pod's `~/data/sessions/` from ringtail (`sudo k3s kubectl cp ... talos-<pod>:/home/talos/data/sessions/`). The tar is uncompressed; `session-index.sqlite` is in the same tar if the index needs it. (Offsite equivalent: `ssh -i ~/.ssh/borgbase_ed25519 u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo`.)
 
 ## Immich Photo Library (Offsite Only)
 
@@ -93,6 +124,8 @@ Bulk media lives directly on [[sifaka]] (music files served by [[navidrome]], vi
 | Monthly | 12 backups |
 | Yearly | 1000 backups |
 
+Pruning is not currently enabled on any repo (append-only, no prune run); the table is the configured policy, not enforced behavior. Talos-data is the one prune-exempt source by design (above).
+
 ## Backup Targets
 
 | Repository | Location | Label | Backs up |
@@ -106,7 +139,10 @@ Bulk media lives directly on [[sifaka]] (music files served by [[navidrome]], vi
 Metrics exposed to [[prometheus]]:
 - `borgmatic_up` - Repository accessible
 - `borgmatic_last_archive_timestamp` - Last backup time
+- `borgmatic_talos_data_last_success_timestamp` - Newest never-pruned talos-data archive per repo
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
+
+Two alerts: `BorgmaticStale` when a repo's newest main archive is over 30h old, and `BorgmaticStaleTalosData` when the newest reported talos-data archive is over 30h old, or when no repo reports the gauge at all (before the first archive lands).
 
 Dashboard: "Borg Backups" in [[grafana]]
 

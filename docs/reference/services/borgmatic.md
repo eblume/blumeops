@@ -18,6 +18,7 @@ Daily backup system using Borg backup, running on indri.
 | **Install** | mise (pipx) |
 | **Main config** | `~/.config/borgmatic/config.yaml` |
 | **Photos config** | `~/.config/borgmatic/photos.yaml` |
+| **Talos-data config** | `~/.config/borgmatic/talos-data.yaml` (run with main at 2:00 AM) |
 | **Main schedule** | Daily at 2:00 AM |
 | **Photos schedule** | Daily at 4:00 AM |
 | **Main targets** | [[sifaka]] local + BorgBase offsite |
@@ -50,7 +51,6 @@ Daily backup system using Borg backup, running on indri.
 - pulumi-stack-backup — Pulumi Cloud stack state, one ferry each for the two stacks `tail8d86e` and `eblu-me` (`pulumi stack export --show-secrets`, read straight off the PV via `pv:` mode; exports contain plaintext secret values — borg repo encryption is the control; restore: [[restore-pulumi-state]])
 
 **K8s pod data directories (in-pod tar, streamed back):**
-- talos — session transcripts + service state (`/home/talos/data`)
 - paperless-ngx — document library: originals, archived, thumbnails (NFS media PVC on [[sifaka]]); multi-container pod, tarred in the `web` container
 
 The SQLite snapshots and ferried backup files above are staged into
@@ -61,6 +61,9 @@ whole run — a failed snapshot is never silently skipped.
 
 **Immich photo library** (separate config, BorgBase offsite only):
 - `/Volumes/photos/library` and `/Volumes/photos/upload` (sifaka SMB mount, ~128 GB); excludes `encoded-video/`, `thumbs/`, `backups/` — regenerable from originals
+
+**Talos session state** (separate config, never pruned):
+- `/home/talos/data` — every agent session ever (transcripts, service state, `session-index.sqlite`), in-pod tar → `~/.local/share/borgmatic/k8s-dumps-talos/talos-data.tar`, `talos-data-*` archives in the same two repos. The config has no `keep_*` keys by design, and the main config's `match_archives: 'indri-*'` keeps any future prune off the prefix (heph 01M0GA6JPGQF96AM5JZKA37YSV). Single-session restore: [[backups]] → "Restoring a Single Session".
 
 **Not backed up (by design):**
 - ZIM archives (re-downloadable)
@@ -74,6 +77,8 @@ whole run — a failed snapshot is never silently skipped.
 | Daily | 7 |
 | Monthly | 12 |
 | Yearly | 1000 |
+
+Not enforced: no prune has ever run and both main repos are append-only, so every archive produced so far is still present (264 in sifaka-local, 226 in borgbase-offsite as of 2026-10-04). The configured policy above is the policy a future prune would apply to `indri-*` archives only; talos-data is structurally exempt. See #1409.
 
 ## Verification
 
@@ -113,6 +118,7 @@ via `borg info`/`borg list` and writes textfile metrics to [[prometheus]], per
 repository (`sifaka-local`, `borgbase-offsite`, `borgbase-immich-photos`):
 - `borgmatic_up` - Repository accessibility
 - `borgmatic_last_archive_timestamp` - Last backup time
+- `borgmatic_talos_data_last_success_timestamp` - Newest never-pruned talos-data archive, per repo (per-source signal the talos session reaper checks)
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
 
 The per-source size breakdown (`borgmatic_source_size_bytes`) is collected for
@@ -122,11 +128,7 @@ there. Remote repos still get the lightweight metrics above every hour.
 
 Dashboard: "Borg Backups" in [[grafana]]
 
-**Alert:** `BorgmaticStale` (Grafana, ntfy-infra) fires when any repo's newest
-archive is older than 30h (for 1h) — roughly 7h after a missed nightly run,
-well before BorgBase's own 2-missed-runs email. The main offsite repo was
-previously unmonitored (only sifaka + photos were scraped), so a failed offsite
-run produced no metric and no alert; it is now collected explicitly.
+**Alert:** two Grafana rules (ntfy-infra): `BorgmaticStale` fires when any repo's newest main archive is older than 30h (for 1h) — missing series = OK; `BorgmaticStaleTalosData` fires when the newest reported talos-data archive is older than 30h, or when no repo reports the gauge at all (before the first archive lands). `BorgmaticStale` fires roughly 7h after a missed nightly run, well before BorgBase's own 2-missed-runs email. The main offsite repo was previously unmonitored (only sifaka + photos were scraped), so a failed offsite run produced no metric and no alert; it is now collected explicitly.
 
 ## Related
 
