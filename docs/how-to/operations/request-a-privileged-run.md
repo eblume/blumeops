@@ -165,7 +165,7 @@ What it does:
   for pending approvals. An unactioned request is a
   visible orange task, not a lost chat message;
 - **mirrors the request into [[horkos]]** (`horkos.ops.eblu.me`) with the
-  agents-m2m identity — best-effort in v0.1 (the PR comment + heph task stay
+  talos-m2m identity — best-effort in v0.1 (the PR comment + heph task stay
   the system of record; a broker failure warns and moves on). The request is
   filed with an `origin_issue`: the attached PR's first issue reference — a
   keyword ref like `Part of #N` or `Part of owner/repo#N`, or an issue URL —

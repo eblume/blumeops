@@ -404,10 +404,10 @@ WARRANT_ERRORS = (
 
 
 def _warrant_bearer(c: httpx.Client) -> str:
-    """A client_credentials token for the agents-m2m identity. Nothing
+    """A client_credentials token for the talos-m2m identity. Nothing
     privileged: it can file and retire requests, and decide none of them."""
     app_pw = subprocess.run(
-        ["op", "read", "op://agents/agents-authentik-sa/app-password"],
+        ["op", "read", "op://agents/talos-ringtail/app-password"],
         capture_output=True, text=True, stdin=subprocess.DEVNULL, check=True,
         timeout=30,
     ).stdout.strip()
@@ -415,8 +415,8 @@ def _warrant_bearer(c: httpx.Client) -> str:
         AUTHENTIK_TOKEN_URL,
         data={
             "grant_type": "client_credentials",
-            "client_id": "agents-m2m",
-            "username": "agent-ringtail",
+            "client_id": "talos-m2m",
+            "username": "talos-ringtail",
             "password": app_pw,
             "scope": "openid profile",
         },
@@ -456,7 +456,7 @@ def mirror_to_warrant(
     origin_issue: str | None,
 ) -> int | None:
     """Mirror the request into the Warrant queue ([[warrant]]) with the
-    agents-m2m identity. Best-effort by design: Warrant v0.1 is an
+    talos-m2m identity. Best-effort by design: Warrant v0.1 is an
     informational mirror — the PR comment + heph task remain the system of
     record, so any failure here warns and moves on."""
     try:

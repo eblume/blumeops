@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
-#MISE description="Run a PromQL query against Prometheus via Grafana, as the agents-m2m identity"
+#MISE description="Run a PromQL query against Prometheus via Grafana, as the talos-m2m identity"
 #USAGE arg "<query>" help="PromQL expression, e.g. 'up{job=\"frigate\"}'"
 #USAGE flag "--json" help="Machine-readable output"
 #USAGE flag "--datasource <uid>" help="Grafana datasource uid (default: prometheus)"
@@ -15,7 +15,7 @@ thing you changed last week actually changed anything.
 
 Goes through Grafana's datasource proxy rather than Prometheus directly:
 prometheus.monitoring.svc is in-cluster only, while Grafana is reachable over
-the tailnet and already federates the agents-m2m identity as a Viewer. Same
+the tailnet and already federates the talos-m2m identity as a Viewer. Same
 credential as agent-health (`agents` vault, no privileged access), same
 direct-then-SOCKS fallback, so it works from gilbert and the agent pod alike.
 
@@ -94,14 +94,14 @@ def client_for(url: str) -> httpx.Client:
 
 
 def mint_token() -> str:
-    app_pw = op_read("op://agents/agents-authentik-sa/app-password")
+    app_pw = op_read("op://agents/talos-ringtail/app-password")
     with client_for(AUTHENTIK_TOKEN_URL) as c:
         resp = c.post(
             AUTHENTIK_TOKEN_URL,
             data={
                 "grant_type": "client_credentials",
-                "client_id": "agents-m2m",
-                "username": "agent-ringtail",
+                "client_id": "talos-m2m",
+                "username": "talos-ringtail",
                 "password": app_pw,
                 # groups claim (-> Grafana Viewer) requires the profile scope
                 "scope": "openid profile",

@@ -5,7 +5,7 @@
 # Deliberately SEPARATE from the agent's spoke (agent-heph-spoke.nix): hephd
 # sockets/dbs are per-user, and the two spokes hold different login identities —
 # this one is Erich himself; the agent's is the independently revocable
-# `heph-agents` user. Sharing one daemon would couple Erich's own heph access
+# `talos-heph` user. Sharing one daemon would couple Erich's own heph access
 # to the agent kill switches. Both spokes adopt the same hub owner id, so they
 # operate on the same nodes.
 { config, pkgs, lib, ... }:

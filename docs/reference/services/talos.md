@@ -43,11 +43,14 @@ Lane shaping runs by default: `lanes.json` sits beside `repos.json` in the talos
 
 The API (`POST /api/run`, `/api/crons`, …) trusts two bearer issuers: the
 `talos` OIDC client (browser users, minted server-side) and — since
-`TALOS_OIDC_M2M_ISSUER` is set — the fleet's shared **`agents-m2m`** machine
+`TALOS_OIDC_M2M_ISSUER` is set — the fleet's shared **`talos-m2m`** machine
 identity that `agent-health` already uses. So a script or service drives talos
-with the `agents-m2m` credential, no browser session and no talos-specific
-secret. A token for the wrong issuer fails `iss`/`aud`, so the second issuer
-never widens who the first accepts (talos `src/jwt.ts`, `verifyBearer`).
+with the `talos-m2m` credential, no browser session and no talos-specific
+secret. `TALOS_OIDC_M2M_ISSUER` is list-valued (step 4): it carries both the
+`talos-m2m` issuer and, until leg D, the legacy `agents-m2m` one, so laggard
+checkouts minting the old name keep working. A token for the wrong issuer
+fails `iss`/`aud`, so a second issuer never widens who the first accepts
+(talos `src/jwt.ts`, `verifyBearer`).
 
 A third trigger surface is the Forgejo webhook forge loop ([[talos-design]]
 Driver 2): it also starts cycles on CI-failure notices — COMMENT reviews
@@ -55,9 +58,9 @@ posted by `forgejo-actions` via the blumeops shared report-failure action —
 framed as untrusted build output to diagnose, capped at three failure reviews
 per PR.
 
-**No wrapper task by design** — it's just the API. Mint the `agents-m2m` token
+**No wrapper task by design** — it's just the API. Mint the `talos-m2m` token
 the way `agent-health` does, then call talos. The credential is in the
-blumeops vault (`agents-m2m-app-password`); it is also in the agents vault, so
+blumeops vault (`talos-m2m-app-password`); it is also in the agents vault, so
 this path is reachable from an agent session too. Warrant + human approval
 remains the gate on every privileged action, so an agent creating a session or
 cron job never escalates — it only spawns more equally-unprivileged work. One
@@ -67,9 +70,9 @@ exception: the heph-task watcher kind (below) has a session-facing wrapper,
 
 ```sh
 TOKEN=$(curl -s https://authentik.ops.eblu.me/application/o/token/ \
-  -d grant_type=client_credentials -d client_id=agents-m2m \
-  -d username=agent-ringtail \
-  --data-urlencode "password=$(op read op://blumeops/oor7os5kapczgpbwv7obkca4y4/agents-m2m-app-password)" \
+  -d grant_type=client_credentials -d client_id=talos-m2m \
+  -d username=talos-ringtail \
+  --data-urlencode "password=$(op read op://blumeops/oor7os5kapczgpbwv7obkca4y4/talos-m2m-app-password)" \
   -d 'scope=openid profile' | jq -r .access_token)
 
 # create the daily doc-review cron (talos#21 — scheduled headless runs)

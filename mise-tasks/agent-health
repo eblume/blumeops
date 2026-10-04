@@ -3,15 +3,15 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
-#MISE description="Fleet health via Grafana alert rules, using the agents-m2m JWT (agent-usable)"
+#MISE description="Fleet health via Grafana alert rules, using the talos-m2m JWT (agent-usable)"
 """Agent-usable fleet health check ([[warrant-approval-gated-runs]] / heph
-01KZ2XGW): query Grafana's alert-rule states as the `agent-ringtail`
+01KZ2XGW): query Grafana's alert-rule states as the `talos-ringtail`
 machine identity and exit nonzero if anything is firing.
 
 This is the Grafana-native replacement for the parts of `services-check`
 an agent can't run (kubectl/ssh legs). Works from gilbert (direct) and
 from the agent pod (SOCKS fallback via the tailscale sidecar). Credentials:
-the `agents` vault only (`agents-authentik-sa` item) — no privileged access,
+the `agents` vault only (`talos-ringtail` item) — no privileged access,
 Grafana sees a Viewer.
 
 Anything firing or pending is listed a second time with the labels that say
@@ -76,14 +76,14 @@ def client_for(url: str) -> httpx.Client:
 
 
 def mint_token() -> str:
-    app_pw = op_read("op://agents/agents-authentik-sa/app-password")
+    app_pw = op_read("op://agents/talos-ringtail/app-password")
     with client_for(AUTHENTIK_TOKEN_URL) as c:
         resp = c.post(
             AUTHENTIK_TOKEN_URL,
             data={
                 "grant_type": "client_credentials",
-                "client_id": "agents-m2m",
-                "username": "agent-ringtail",
+                "client_id": "talos-m2m",
+                "username": "talos-ringtail",
                 "password": app_pw,
                 # groups claim (-> Grafana Viewer) requires the profile scope
                 "scope": "openid profile",
@@ -154,7 +154,7 @@ def main(
 
         print(json.dumps({"rules": rules, "firing": len(firing), "pending": len(pending)}))
     else:
-        table = Table(title="Grafana alert rules (as agent-ringtail)")
+        table = Table(title="Grafana alert rules (as talos-ringtail)")
         table.add_column("rule")
         table.add_column("group")
         table.add_column("state")

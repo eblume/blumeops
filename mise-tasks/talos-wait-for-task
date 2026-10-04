@@ -3,9 +3,9 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
-#MISE description="Register/list/show/cancel talos heph-task watcher jobs, using the agents-m2m JWT (agent-usable)"
+#MISE description="Register/list/show/cancel talos heph-task watcher jobs, using the talos-m2m JWT (agent-usable)"
 """Register one-shot talos watcher jobs against https://talos.ops.eblu.me/api/crons
-with the `agents-m2m` machine identity (agents vault — works from the agent
+with the `talos-m2m` machine identity (agents vault — works from the agent
 pod via the SOCKS sidecar, no browser session).
 
 A watcher is a crons entry whose `schedule.kind` is "heph-task": it fires a
@@ -80,14 +80,14 @@ def client_for(url: str) -> httpx.Client:
 
 
 def mint_token() -> str:
-    app_pw = op_read("op://agents/agents-authentik-sa/app-password")
+    app_pw = op_read("op://agents/talos-ringtail/app-password")
     with client_for(AUTHENTIK_TOKEN_URL) as c:
         resp = c.post(
             AUTHENTIK_TOKEN_URL,
             data={
                 "grant_type": "client_credentials",
-                "client_id": "agents-m2m",
-                "username": "agent-ringtail",
+                "client_id": "talos-m2m",
+                "username": "talos-ringtail",
                 "password": app_pw,
                 "scope": "openid profile",
             },
