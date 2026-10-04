@@ -1,0 +1,1 @@
+The authentik blueprint gains a parallel `talos-m2m` machine identity (`talos-m2m` provider + app, `talos-sa` group, `talos-ringtail` service account + app-password token) alongside the untouched `agents-*` entries — the additive leg of the step-4 principal rename; nothing consumes it yet.
