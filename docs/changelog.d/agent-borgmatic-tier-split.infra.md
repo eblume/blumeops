@@ -1,0 +1,3 @@
+Borgmatic tier split: the main config drops to a pure archive tier, backing up only `~/code/personal/zk` and `~/Documents` into the never-pruned `indri-*` archives — no DB dumps and no `keep_*` keys. Forgejo (pull mirrors excluded, live WAL DB snapshotted via hook), the borgmatic config, k8s dumps, all DB dumps and `/Volumes/shower` move to a new never-mixed operational config with its own local sifaka repo (`sifaka-operational`, `operational-*` prefix, `compression: auto,zstd`, retention declared). Nothing prunes or compacts yet — that lands in a later PR.
+
+Part of eblume/blumeops#1417.

@@ -11,13 +11,21 @@ borgmatic_metrics_ansible_managed: false
 borgmatic_metrics_repos:
   - path: /Volumes/backups/borg/
     label: sifaka-local
+    prefix: 'indri-'
   # Main offsite repo (the daily config's BorgBase target). Previously
   # unmonitored — a failed offsite run (e.g. the 2026-06-30 broken-pipe) left
   # no metric and thus no alert, so BorgBase's own email was the only signal.
   - path: ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo
     label: borgbase-offsite
+    prefix: 'indri-'
+  # Tier B (operational) local repo — fresh repo, created by the first
+  # operational create run.
+  - path: /Volumes/backups/borg/operational/
+    label: sifaka-operational
+    prefix: operational-
   - path: ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo
     label: borgbase-immich-photos
+    prefix: ''
 
 borgmatic_metrics_passcommand: cat /Users/erichblume/.borg/config.yaml
 borgmatic_metrics_ssh_key: /Users/erichblume/.ssh/borgbase_ed25519

@@ -109,6 +109,42 @@
   changed_when: true
   failed_when: false
 
+# --- Tier B (operational) backups: rotating tier (forgejo, config, dumps) ---
+
+# k8s-dumps-op is a source_directories entry in operational.yaml with
+# source_directories_must_exist: true, so it must exist before the first
+# operational create (the hook's mkdir runs later, during the run).
+- name: Ensure operational dump staging directory
+  ansible.builtin.file:
+    path: "{{ borgmatic_operational_dump_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: Deploy borgmatic operational configuration
+  ansible.builtin.template:
+    src: operational.yaml.j2
+    dest: "{{ borgmatic_operational_config }}"
+    mode: '0600'
+
+- name: Deploy borgmatic-ops LaunchAgent plist
+  ansible.builtin.template:
+    src: borgmatic-ops.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.borgmatic-ops.plist
+    mode: '0644'
+  notify: Reload borgmatic-ops
+
+- name: Check if borgmatic-ops LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.borgmatic-ops
+  register: borgmatic_ops_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load borgmatic-ops LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic-ops.plist
+  when: borgmatic_ops_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false
+
 # --- Immich photo library backup (BorgBase offsite only) ---
 
 - name: Deploy borgmatic photos configuration

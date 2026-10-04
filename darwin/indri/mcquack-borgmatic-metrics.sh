@@ -76,8 +76,9 @@ collect_repo_metrics() {
     unique_csize=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.unique_csize')
     total_chunks=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_chunks')
     unique_chunks=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_unique_chunks')
-    # Main-config repos carry both indri-* (main) and talos-data-* archives;
-    # scope to the main prefix so a fresh talos archive can't mask a failed main backup.
+    # Repos carry archives from multiple configs (indri-* main, talos-data-*,
+    # operational-*); scope to the repo's prefix so a fresh archive from
+    # another config can't mask a failed backup.
     filtered_archives=$(echo "$archives_json" | $JQ_CMD -c '.archives | if length > 0 then . else [] end | if $p == "" then . else map(select(.name | startswith($p))) end' --arg p "$archive_prefix")
     archive_count=$(echo "$filtered_archives" | $JQ_CMD 'length')
 
@@ -141,6 +142,7 @@ EOF
         else if (path ~ /^Users\/[^\/]+\/devpi/) { source = "devpi" }
         else if (path ~ /^Users\/[^\/]+\/code\/personal\/zk/) { source = "Zettelkasten" }
         else if (path ~ /^Users\/[^\/]+\/.config\/borgmatic/) { source = "borgmatic_config" }
+        else if (path ~ /^Users\/[^\/]+\/.local\/share\/borgmatic\/k8s-dumps-op/) { source = "k8s_dumps_op" }
         else if (path ~ /^Users\/[^\/]+\/.local\/share\/borgmatic/) { source = "k8s_dumps" }
         else if (path ~ /^Users\/[^\/]+\/forgejo/) { source = "Forgejo" }
         else if (path ~ /^opt\/homebrew\/var\/loki/) { source = "Loki" }
@@ -161,6 +163,7 @@ EOF
 # Collect metrics for each configured repository
 collect_repo_metrics "/Volumes/backups/borg/" "sifaka-local" "indri-"
 collect_repo_metrics "ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo" "borgbase-offsite" "indri-"
+collect_repo_metrics "/Volumes/backups/borg/operational/" "sifaka-operational" "operational-"
 collect_repo_metrics "ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo" "borgbase-immich-photos" ""
 
 # Success markers written by the mcquack.eblume.borgmatic-verify-photos LaunchAgent.

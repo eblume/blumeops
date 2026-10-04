@@ -15,20 +15,45 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 
 | Time | Frequency | System |
 |------|-----------|--------|
-| 2:00 AM | Daily | [[borgmatic]] |
+| 2:00 AM | Daily | [[borgmatic]] main config (archive tier) |
+| 3:00 AM | Daily | [[borgmatic]] operational config (operational tier) |
+
+## Tiers
+
+| Tier | Config | Schedule | Sources | Repos | Retention |
+|------|---------|----------|---------|-------|-----------|
+| Archive (never pruned) | `~/.config/borgmatic/config.yaml` | 02:00 | `~/code/personal/zk`, `~/Documents` | `sifaka-borg-backups` (`/Volumes/backups/borg/`), `borgbase-offsite` | none — never pruned (no `keep_*` keys, no prune action) |
+| Operational (rotating) | `~/.config/borgmatic/operational.yaml` | 03:00 | `~/forgejo` (minus mirrors + live WAL DB), `~/.config/borgmatic`, `k8s-dumps-op/`, `/Volumes/shower`, + all pre-backup dumps | `sifaka-operational` (`/Volumes/backups/borg/operational/`) — local-only for now | 7 daily / 4 weekly / 12 monthly / yearly -1 — declared but inert until prune lands (eblume/blumeops#1417) |
+
+The operational tier is local-only for now: an offsite tier-B copy is deferred
+(needs a BorgBase dashboard-created key). The main config no longer writes DB
+dumps to the BorgBase offsite repo — that was the biggest driver of offsite
+churn, and stopping it is part of the point of the split.
 
 ## What Gets Backed Up
 
 ### Directories
 
+**Archive tier (main config, 02:00)** — the only sources are:
+
 | Path | Description | Priority |
 |------|-------------|----------|
 | `~/code/personal/zk` | Zettelkasten notes (migrating into heph docs) | Critical |
-| `~/forgejo` | Git forge data — repositories, LFS, `custom/conf`. The live `forgejo.db` is excluded here and dumped separately below | Critical |
-| `~/.config/borgmatic` | Backup config | High |
 | `~/Documents` | Personal documents (includes [[1password]] encrypted export) | High |
-| `~/.local/share/borgmatic/k8s-dumps` | Staging for k8s SQLite/file dumps before each backup (see Databases table) | Medium |
-| `/Volumes/shower` | Archived shower service: prize photos + final DB snapshot (sifaka SMB mount) | High |
+
+**Operational tier (operational config, 03:00)** — everything rotating:
+
+| Path | Description |
+|------|-------------|
+| `~/forgejo` | Git forge data, minus the pull mirrors and the live WAL DB (both excluded per [[borgmatic]]) |
+| `~/.config/borgmatic` | The borgmatic configs themselves |
+| `~/.local/share/borgmatic/k8s-dumps-op` | Staging for the pre-backup dumps (see Databases table) |
+| `/Volumes/shower` | Archived shower service: prize photos + final DB snapshot (sifaka SMB mount) |
+
+All the pre-backup dumps (local sqlite, k8s, postgres) run in the operational
+tier only, staged into `k8s-dumps-op/`. `keep_yearly: -1` means each year's
+final operational archive is kept forever, so the shower archive record (photos
++ final DB snapshot) still survives in the yearlies.
 
 ### Databases
 
@@ -45,6 +70,12 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | horkos | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
 | navidrome | — (SQLite) | k8s pod (ringtail) | navidrome `ND_BACKUP_*` snapshot, newest ferried off PVC |
 | audiobookshelf | — (SQLite) | k8s pod (ringtail) | ABS built-in scheduled backup zips config+metadata, newest ferried off PVC |
+
+All dumps below run in the operational config (03:00) only, staged via a
+`commands:` before-hook into `~/.local/share/borgmatic/k8s-dumps-op/` (a source
+of that config). The main archive-tier config carries no dump hooks, so nightly
+data never lands in the never-pruned `indri-*` archives — and no DB dumps are
+written to the BorgBase offsite repo anymore, which stops the offsite churn.
 
 ## K8s Pod Data Directories
 
@@ -84,14 +115,22 @@ Bulk media lives directly on [[sifaka]] (music files served by [[navidrome]], vi
 | Prometheus metrics | Ephemeral, in k8s PVC |
 | Loki logs | Ephemeral, in k8s PVC |
 | devpi cache (`~/devpi/server-dir/` on indri) | Re-fetchable from PyPI on first request |
+| Forgejo pull mirrors (`~/forgejo/data/forgejo-repositories/mirrors`, 29 repos, ~7.7 GB) | Re-fetchable from upstream |
 
 ## Retention Policy
 
-| Period | Retention |
-|--------|-----------|
-| Daily | 7 backups |
-| Monthly | 12 backups |
-| Yearly | 1000 backups |
+| Tier | Daily | Weekly | Monthly | Yearly |
+|------|-------|--------|---------|--------|
+| Archive (main, 02:00) | — | — | — | — |
+| Operational (03:00) | 7 | 4 | 12 | -1 (unlimited) |
+| Immich photos (04:00) | 7 | — | 12 | 1000 |
+
+The main config is the never-pruned archive tier (no `keep_*` keys, no prune
+action). Operational retention is declared but inert until a separate PR
+enables prune (eblume/blumeops#1417). `keep_yearly: -1` keeps each year's final
+operational archive forever, so the `/Volumes/shower` archive record (photos +
+final DB snapshot) survives in the yearlies even though it moved to the
+rotating tier.
 
 ## Backup Targets
 
@@ -99,6 +138,7 @@ Bulk media lives directly on [[sifaka]] (music files served by [[navidrome]], vi
 |------------|----------|-------|----------|
 | `/Volumes/backups/borg/` | [[sifaka]] (local NAS) | `sifaka-borg-backups` | indri data |
 | `ssh://u3ugi1x1@...repo.borgbase.com/./repo` | BorgBase (offsite) | `borgbase-offsite` | indri data |
+| `/Volumes/backups/borg/operational/` | [[sifaka]] (local NAS) | `sifaka-operational` | operational tier (`operational-*`) only — the main config no longer targets this repo |
 | `ssh://xcrtl5tg@...repo.borgbase.com/./repo` | BorgBase (offsite) | `borgbase-immich-photos` | immich photos |
 
 ## Monitoring

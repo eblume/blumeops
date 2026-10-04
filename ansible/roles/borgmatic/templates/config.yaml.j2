@@ -22,13 +22,6 @@ repositories:
 {% endif %}
 {% endfor %}
 
-{% if borgmatic_exclude_patterns %}
-exclude_patterns:
-{% for pattern in borgmatic_exclude_patterns %}
-    - {{ pattern }}
-{% endfor %}
-{% endif %}
-
 encryption_passcommand: {{ borgmatic_encryption_passcommand }}
 
 # Pin the archive-name format explicitly (borg's default) and scope
@@ -37,45 +30,7 @@ encryption_passcommand: {{ borgmatic_encryption_passcommand }}
 archive_name_format: 'indri-{now:%Y-%m-%dT%H:%M:%S.%f}'
 match_archives: 'indri-*'
 
-{% if borgmatic_k8s_sqlite_dumps or borgmatic_k8s_file_dumps or borgmatic_k8s_tar_dumps or borgmatic_local_sqlite_dumps %}
-# Pre-backup: stage database snapshots into the dump dir (which is in
-# source_directories, so the snapshots land in the archive). A non-zero exit
-# from any hook aborts the whole backup, so a failed snapshot is never silent.
-#
-# Uses the `commands:` hook syntax (the legacy `before_backup:` key is
-# deprecated as of borgmatic 2.x). `before: configuration` runs these once per
-# borgmatic run rather than once per repository — staging the snapshots a
-# single time even though both the sifaka and BorgBase repos consume them.
-# `when: [create]` scopes the hooks to backup runs only.
-#
-# Quoting/escaping for the k8s hooks is delegated to the helper scripts
-# deployed by the borgmatic ansible role. Each k8s entry's `target` is either:
-#   - local:<context>  -> local kubectl with --context (mealie etc.)
-#   - ssh:<user@host>  -> ssh + k3s kubectl on the cluster host,
-#                         used for ringtail since indri's kubeconfig
-#                         deliberately doesn't carry that context.
-commands:
-    - before: configuration
-      when: [create]
-      run:
-          - mkdir -p {{ borgmatic_k8s_dump_dir }}
-{% for db in borgmatic_local_sqlite_dumps %}
-          # test -f guards the sqlite3 footgun: a missing source path is
-          # silently auto-created as an empty DB (exit 0), which would back up
-          # nothing. The guard makes a missing source abort the run instead.
-          - test -f "{{ db.path }}" && sqlite3 "{{ db.path }}" ".backup '{{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db'"
-{% endfor %}
-{% for db in borgmatic_k8s_sqlite_dumps %}
-          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-sqlite-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.db_path }} {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db
-{% endfor %}
-{% for db in borgmatic_k8s_file_dumps %}
-          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-file-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} '{{ db.glob }}' {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db{{ ' ' ~ db.pvc_name if db.pvc_name is defined else '' }}
-{% endfor %}
-{% for db in borgmatic_k8s_tar_dumps | rejectattr('name', 'equalto', 'talos-data') %}
-          # talos-data is excluded: its own config (talos-data.yaml) owns its dump and archive.
-          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-tar-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.tar{{ ' ' ~ db.container if db.container is defined else '' }}
-{% endfor %}
-{% endif %}
+# DB dumps (local sqlite, k8s, postgres) run in the operational config — nightly data must not live in the never-pruned archives.
 
 ssh_command: ssh -o IdentitiesOnly=yes -i {{ borgmatic_borgbase_ssh_key_path }}
 
@@ -88,21 +43,5 @@ ssh_command: ssh -o IdentitiesOnly=yes -i {{ borgmatic_borgbase_ssh_key_path }}
 retries: {{ borgmatic_retries }}
 retry_wait: {{ borgmatic_retry_wait }}
 
-# Retention policy
-keep_daily: {{ borgmatic_keep_daily }}
-keep_monthly: {{ borgmatic_keep_monthly }}
-keep_yearly: {{ borgmatic_keep_yearly }}
-
-{% if borgmatic_postgresql_databases %}
-# PostgreSQL database backups (streamed via pg_dump)
-postgresql_databases:
-{% for db in borgmatic_postgresql_databases %}
-    - name: {{ db.name }}
-      hostname: {{ db.hostname | default('localhost') }}
-      port: {{ db.port | default(5432) }}
-      username: {{ db.username }}
-{% if borgmatic_pg_dump_command is defined %}
-      pg_dump_command: {{ borgmatic_pg_dump_command }}
-{% endif %}
-{% endfor %}
-{% endif %}
+# The main config is the never-pruned archive tier (zk, Documents) — no
+# retention keys and no prune action. Tier B retention lives in operational.yaml.

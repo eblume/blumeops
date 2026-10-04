@@ -20,24 +20,13 @@ borgmatic_bin: /Users/erichblume/.local/share/mise/installs/pipx-borgmatic/lates
 borgmatic_schedule_hour: 2
 borgmatic_schedule_minute: 0
 
-# Source directories to back up
+# Archive tier — kept forever in the never-pruned indri-* archives. Operational sources (forgejo, DB dumps, service state, /Volumes/shower) moved to operational.yaml.
 borgmatic_source_directories:
   - /Users/erichblume/code/personal/zk
-  # Forgejo lives here since the brew->source migration (the Homebrew-era
-  # /opt/homebrew/var/forgejo tree was deleted 2026-09-05, #798). Captures git
-  # repositories,
-  # LFS, and custom/conf. The live forgejo.db is WAL-mode and excluded below —
-  # it's snapshotted WAL-safe via borgmatic_local_sqlite_dumps instead.
-  - /Users/erichblume/forgejo
-  - /Users/erichblume/.config/borgmatic
   - /Users/erichblume/Documents
-  - /Users/erichblume/.local/share/borgmatic/k8s-dumps
-  # Archived shower prize-photo uploads (sifaka SMB mount); kept so the
-  # photos + final DB snapshot ride in every future archive, including
-  # the yearlies.
-  - /Volumes/shower
 
-# Backup repositories
+# Archive-tier repos (never pruned): the historical mixed archives plus the
+# new indri-* and talos-data-* archives live here.
 borgmatic_repositories:
   - path: /Volumes/backups/borg/
     label: sifaka-borg-backups
@@ -178,20 +167,10 @@ borgmatic_local_sqlite_dumps:
   - name: forgejo
     path: /Users/erichblume/forgejo/data/forgejo.db
 
-# Exclude patterns
-borgmatic_exclude_patterns:
-  # The live WAL-mode forgejo DB is captured WAL-safe via
-  # borgmatic_local_sqlite_dumps; exclude the raw db/-wal/-shm files from the
-  # /Users/erichblume/forgejo source dir so we never archive a torn copy.
-  - /Users/erichblume/forgejo/data/forgejo.db*
-
 # Encryption passcommand (reads borg passphrase)
 borgmatic_encryption_passcommand: cat /Users/erichblume/.borg/config.yaml
 
-# Retention policy
-borgmatic_keep_daily: 7
-borgmatic_keep_monthly: 12
-borgmatic_keep_yearly: 1000
+# The main config is the never-pruned archive tier (zk, Documents) — no retention keys and no prune action. Tier B retention lives in operational.yaml.
 
 # Retry a failing repository action (e.g. a broken SSH pipe mid-upload to the
 # BorgBase offsite repo) instead of losing the whole night. borg checkpoints an
@@ -211,6 +190,43 @@ borgmatic_talos_data_config: /Users/erichblume/.config/borgmatic/talos-data.yaml
 # it up, so its source sets stay disjoint (k8s-dumps/ is a main
 # source_directory).
 borgmatic_talos_data_dump_dir: /Users/erichblume/.local/share/borgmatic/k8s-dumps-talos
+
+# Tier B (operational) backups — rotating tier, scheduled 03:00. Never
+# mixed into the archive-tier `indri-*` archives: own config, own
+# `operational-*` prefix, own local repo. Retention keys here are inert
+# until a separate PR adds prune+compact to the operational agent (see
+# eblume/blumeops#1417).
+borgmatic_operational_config: /Users/erichblume/.config/borgmatic/operational.yaml
+borgmatic_operational_schedule_hour: 3
+borgmatic_operational_schedule_minute: 0
+
+# Tier B (operational) repo — local sifaka only for now; a BorgBase copy
+# needs a dashboard-created key, so that's a separate deliberate step.
+borgmatic_operational_repositories:
+  - path: /Volumes/backups/borg/operational/
+    label: sifaka-operational
+    encryption: repokey
+    append_only: true
+borgmatic_operational_source_directories:
+  # ~/forgejo minus the live WAL DB (snapshotted in the before-hook below)
+  # and the pull mirrors (re-fetchable from upstream, excluded below).
+  - /Users/erichblume/forgejo
+  - /Users/erichblume/.config/borgmatic
+  - /Users/erichblume/.local/share/borgmatic/k8s-dumps-op
+  - /Volumes/shower
+borgmatic_operational_exclude_patterns:
+  - /Users/erichblume/forgejo/data/forgejo.db*
+  # Pull mirrors under the `mirrors` org (29 repos, ~7.7 GB) re-fetch from
+  # upstream; keeping them out of every archive saves ~93% of the forgejo
+  # source's nightly churn.
+  - /Users/erichblume/forgejo/data/forgejo-repositories/mirrors
+borgmatic_operational_dump_dir: /Users/erichblume/.local/share/borgmatic/k8s-dumps-op
+# Retention — inert until prune is enabled (separate PR). keep_yearly: -1
+# means unlimited, so each year's final archive is kept forever.
+borgmatic_operational_keep_daily: 7
+borgmatic_operational_keep_weekly: 4
+borgmatic_operational_keep_monthly: 12
+borgmatic_operational_keep_yearly: -1
 
 # PostgreSQL databases to backup (streamed via pg_dump)
 # Password is read from ~/.pgpass (managed by this role)
