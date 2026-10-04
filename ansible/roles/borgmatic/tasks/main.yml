@@ -84,6 +84,12 @@
     dest: "{{ borgmatic_config }}"
     mode: '0600'
 
+- name: Deploy borgmatic talos-data configuration
+  ansible.builtin.template:
+    src: talos-data.yaml.j2
+    dest: "{{ borgmatic_talos_data_config }}"
+    mode: '0600'
+
 - name: Deploy borgmatic LaunchAgent plist
   ansible.builtin.template:
     src: borgmatic.plist.j2

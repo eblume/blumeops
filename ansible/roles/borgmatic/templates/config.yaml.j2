@@ -31,6 +31,12 @@ exclude_patterns:
 
 encryption_passcommand: {{ borgmatic_encryption_passcommand }}
 
+# Pin the archive-name format explicitly (borg's default) and scope
+# any future prune to it: `talos-data-*` archives share these repos
+# and must stay out of reach.
+archive_name_format: 'indri-{now:%Y-%m-%dT%H:%M:%S.%f}'
+match_archives: 'indri-*'
+
 {% if borgmatic_k8s_sqlite_dumps or borgmatic_k8s_file_dumps or borgmatic_k8s_tar_dumps or borgmatic_local_sqlite_dumps %}
 # Pre-backup: stage database snapshots into the dump dir (which is in
 # source_directories, so the snapshots land in the archive). A non-zero exit
@@ -65,7 +71,8 @@ commands:
 {% for db in borgmatic_k8s_file_dumps %}
           - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-file-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} '{{ db.glob }}' {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.db{{ ' ' ~ db.pvc_name if db.pvc_name is defined else '' }}
 {% endfor %}
-{% for db in borgmatic_k8s_tar_dumps %}
+{% for db in borgmatic_k8s_tar_dumps | rejectattr('name', 'equalto', 'talos-data') %}
+          # talos-data is excluded: its own config (talos-data.yaml) owns its dump and archive.
           - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-tar-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} {{ db.name }} {{ borgmatic_k8s_dump_dir }}/{{ db.name }}.tar{{ ' ' ~ db.container if db.container is defined else '' }}
 {% endfor %}
 {% endif %}

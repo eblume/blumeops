@@ -1,0 +1,54 @@
+# {{ ansible_managed }}
+#
+# Borgmatic config for talos agent session state (k8s tar dump).
+# Never pruned by design: this file deliberately has no keep_* keys.
+# If a future tier split wants to prune talos-data, that is a separate,
+# deliberate PR (see eblume/blumeops#1409).
+
+local_path: {{ borgmatic_local_path }}
+
+# The dump hook below stages tonight's tar here (not in the main
+# config's k8s-dumps/, which is a main source_directory).
+source_directories:
+    - {{ borgmatic_talos_data_dump_dir }}/talos-data.tar
+
+source_directories_must_exist: true
+
+# Same two repos as the main config. match_archives is pinned so a
+# future prune in EITHER config can only ever reach its own prefix.
+repositories:
+{% for repo in borgmatic_repositories %}
+    - path: {{ repo.path }}
+      label: {{ repo.label }}
+{% if repo.encryption is defined %}
+      encryption: {{ repo.encryption }}
+{% endif %}
+{% if repo.append_only is defined %}
+      append_only: {{ repo.append_only | lower }}
+{% endif %}
+{% endfor %}
+
+archive_name_format: 'talos-data-{now:%Y-%m-%dT%H:%M:%S.%f}'
+match_archives: 'talos-data-*'
+
+encryption_passcommand: {{ borgmatic_encryption_passcommand }}
+
+# Stage tonight's dump before the create runs. A non-zero exit aborts
+# the whole run, so a failed dump is never a silent, stale archive.
+commands:
+    - before: configuration
+      when: [create]
+      run:
+          - mkdir -p {{ borgmatic_talos_data_dump_dir }}
+{% for db in borgmatic_k8s_tar_dumps | selectattr('name', 'equalto', 'talos-data') %}
+          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-tar-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} {{ db.name }} {{ borgmatic_talos_data_dump_dir }}/{{ db.name }}.tar{{ ' ' ~ db.container if db.container is defined else '' }}
+{% endfor %}
+
+ssh_command: ssh -o IdentitiesOnly=yes -i {{ borgmatic_borgbase_ssh_key_path }}
+
+# Save checkpoints every 10 minutes so an interrupted offsite upload doesn't
+# lose all progress.
+checkpoint_interval: 600
+
+retries: {{ borgmatic_retries }}
+retry_wait: {{ borgmatic_retry_wait }}
