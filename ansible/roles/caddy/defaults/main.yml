@@ -40,7 +40,8 @@ caddy_services:
   - name: forge
     host: "forge.{{ caddy_domain }}"
     backend: "http://localhost:3001"
-    deny_ips: []  # tailnet peers that must not reach this site (the fly proxy)
+    deny_ips:  # tailnet peers that must not reach this site
+      - 100.124.208.36  # flyio-proxy (#1208); re-check if the node is ever reclaimed (#1396)
   - name: registry
     host: "registry.{{ caddy_domain }}"
     backend: "http://localhost:5050"
