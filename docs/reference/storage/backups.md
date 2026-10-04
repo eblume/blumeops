@@ -84,6 +84,8 @@ tar -xf /tmp/talos-data.tar -C /tmp/restore <the-member-path-from-above>
 
 Then copy the `.jsonl` into the live session pod's `~/data/sessions/` from ringtail (`sudo k3s kubectl cp ... talos-<pod>:/home/talos/data/sessions/`). The tar is uncompressed; `session-index.sqlite` is in the same tar if the index needs it. (Offsite equivalent: `ssh -i ~/.ssh/borgbase_ed25519 u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo`.)
 
+Restore talos sessions from a `talos-data-*` archive only — older `indri-*` main archives carry a stale `k8s-dumps/talos-data.tar` (removed from the live staging dir by the next provision; it disappears from new main archives at the next run).
+
 ## Immich Photo Library (Offsite Only)
 
 The [[immich]] photo library lives on [[sifaka]] at `/volume1/photos` (SMB-mounted on [[indri]] as `/Volumes/photos`). Since sifaka is already the local backup target, photos are backed up to BorgBase offsite only — not back to sifaka.
