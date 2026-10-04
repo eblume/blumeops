@@ -121,11 +121,23 @@ class FakeForge:
         self.actions_off: set[str] = set()  # repos whose Actions unit is disabled
         # Path suffix -> status served instead of the real answer.
         self.status_overrides: dict[str, int] = {}
-        self.protections: dict[str, list[dict]] = {}  # repo -> served rules
+        # The blumeops:main rule is seeded as a valid live default (whitelisted
+        # to eblume) — it is the environment fact the blast-radius invariant
+        # asserts, present on the live forge like any other repo's protections.
+        # Tests that exercise it override the whole protections dict.
+        self.protections: dict[str, list[dict]] = {"blumeops": [_blumeops_main_rule()]}
         # Fields a protection PATCH silently ignores (a 200 that changes nothing).
         self.protection_patch_drops: set[str] = set()
-        # The folded-in horkos-forge blast-radius invariants read these.
-        self.horkos_user: dict | None = None  # None -> 404 (site-admin check UNKNOWN)
+        # The folded-in horkos-forge blast-radius invariants read these. A fresh
+        # forge defaults to a valid (active, non-admin) bot user and a valid
+        # blumeops:main rule whitelisted to eblume — the passing invariant state,
+        # so a test that exercises the --check drift path does not also fail the
+        # blast-radius invariants; the invariant tests override either.
+        self.horkos_user: dict | None = {
+            "is_admin": False,
+            "active": True,
+            "deactivated": False,
+        }
 
     # Forgejo stores per-event flags and reads them back as names: the
     # `pull_request` umbrella sets the whole pull_request_* family (API
@@ -839,7 +851,7 @@ def test_protection_in_sync_ignores_list_order(protected, run_main):
     declare(_rule())
     served = _served(_rule())
     served["status_check_contexts"] = list(reversed(served["status_check_contexts"]))
-    forge.protections = {"svc": [served]}
+    forge.protections.update({"svc": [served]})
 
     code, out = run_main(check=True, token="t")
     assert code == 0, out
@@ -849,9 +861,9 @@ def test_protection_in_sync_ignores_list_order(protected, run_main):
 def test_protection_drift_fails_check_naming_field(protected, run_main):
     forge, declare = protected
     declare(_rule())
-    forge.protections = {
-        "svc": [_served(_rule(status_check_contexts=["Lint / prek (pull_request)"]))]
-    }
+    forge.protections.update(
+        {"svc": [_served(_rule(status_check_contexts=["Lint / prek (pull_request)"]))]}
+    )
 
     code, out = run_main(check=True, token="t")
     assert code == 1
@@ -916,7 +928,7 @@ def test_protection_refused_under_ci_token(protected, run_main, monkeypatch):
 def test_protection_ci_token_still_reports_drift(protected, run_main, monkeypatch):
     forge, declare = protected
     declare(_rule())
-    forge.protections = {"svc": [_served(_rule(status_check_contexts=[]))]}
+    forge.protections.update({"svc": [_served(_rule(status_check_contexts=[]))]})
     monkeypatch.setenv("FORGE_REPO_WRITE_TOKEN", "ci")
 
     code, out = run_main(check=True)
@@ -927,9 +939,9 @@ def test_protection_ci_token_still_reports_drift(protected, run_main, monkeypatc
 def test_protection_undeclared_live_rule_left_alone(protected, run_main):
     forge, declare = protected
     declare(_rule())
-    forge.protections = {
-        "svc": [_served(_rule()), _served(_rule(rule_name="release/*"))]
-    }
+    forge.protections.update(
+        {"svc": [_served(_rule()), _served(_rule(rule_name="release/*"))]}
+    )
 
     code, out = run_main(check=True, token="t")
     assert code == 0, out
@@ -978,7 +990,7 @@ def test_protection_unknown_field_refused(protected, run_main):
 def test_protection_unreadable_is_blocked(protected, run_main, monkeypatch):
     forge, declare = protected
     declare(_rule())
-    forge.status_overrides = {"/branch_protections": 403}
+    forge.status_overrides = {"/eblume/svc/branch_protections": 403}
     code, out = run_main(check=True, token="t")
     assert code == 1
     assert "Refusing to apply a partial policy" in out
@@ -1137,10 +1149,71 @@ def test_pr_check_unexpected_drift_fails(policy, run_main, monkeypatch, tmp_path
     assert code == 1, out
     assert "UNEXPECTED drift" in out
     assert "other:main" in out
-    # A failing PR still posts its notice (even with nothing intended), so the
-    # red reason is read; it carries the [X] unexpected section.
+    # The script still writes the report on a failing PR (so a local `--check`
+    # reader gets the red reason), carrying the [X] unexpected section. In CI the
+    # notice step is success()-gated, so a failing PR's red reason reaches the
+    # thread via the teed log (report-failure), not the notice.
     assert report.exists()
     assert "[X]" in report.read_text()
+
+
+def test_pr_check_rule_removal_posts_notice(policy, run_main, monkeypatch, tmp_path):
+    # A PR whose only effect is removing a branch protection (head plan is
+    # empty — the live rule is "extra, left alone", not a planned action) must
+    # still run the categorization and post a notice that the protection is
+    # now unmanaged, instead of silently passing as "in sync".
+    policy([{"name": "svc", "access": "write", "pool": "none"}])
+    # Head declares no protections (PROTECTIONS_PATH empty); base declares svc:main.
+    ara.PROTECTIONS_PATH.write_text('{"rules": []}', encoding="utf-8")
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.protections.update(
+        {"svc": [_served(_rule())]}
+    )  # svc:main live, now unmanaged
+    forge.install(monkeypatch)
+    _base_state(
+        monkeypatch,
+        [{"name": "svc", "access": "write", "pool": "none"}],
+        [_rule(repo="svc")],
+    )
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 0, out
+    assert report.exists()
+    assert "branch protection" in report.read_text()
+
+
+def test_pr_check_head_plan_violation_forbidden(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # A PR that grants write on a repo carrying Actions secrets: its *target*
+    # state violates the Actions-secrets fence. The check fails FORBIDDEN — the
+    # human reads that before merging, rather than discovering it on the merge
+    # push.
+    policy([{"name": "svc", "access": "write", "pool": "none"}])
+    ara.PROTECTIONS_PATH.write_text('{"rules": []}', encoding="utf-8")
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}  # head grants write (pending on the live forge)
+    forge.secrets = {"svc": ["DEPLOY_KEY"]}  # write + secrets = violation
+    forge.install(monkeypatch)
+    _base_state(monkeypatch, [{"name": "svc", "access": "none", "pool": "none"}])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 1, out
+    assert "FORBIDDEN" in out
+    assert "Actions secret" in out
+    assert report.exists()
+    assert "Forbidden" in report.read_text()
+    assert "actions-secrets: eblume/svc" in report.read_text()
 
 
 def test_pr_check_fork_pr_skips(policy, run_main, monkeypatch):

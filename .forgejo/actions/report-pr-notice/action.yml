@@ -52,7 +52,12 @@ runs:
         WF="$GITHUB_WORKFLOW"
 
         PR="$(jq -r '.pull_request.number' "$EVENT")"
-        marker="forge-reconcile-notice v1:$WF:$SHA7"
+        # v2 adds the base ref: the intended list is computed against the base
+        # tip at run time, so a re-run of an unchanged head after main moved has
+        # different content and must re-post (v1 keyed on head SHA only went
+        # stale).
+        BASE="${GITHUB_BASE_REF:-}"
+        marker="forge-reconcile-notice v2:$WF:$SHA7:$BASE"
 
         all_pages() {
           local path="$1" page=1 out='[]' resp next
@@ -83,7 +88,13 @@ runs:
           cat "$notice"
         } > "$body"
 
-        jq -n --rawfile body "$body" '{body: $body}' \
-          | curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d @- \
-              "$API/repos/$REPO/issues/$PR/comments" \
-          | jq -r '"Notice posted: " + (.html_url // .message // "unknown")'
+        jq -n --rawfile body "$body" '{body: $body}' > "$RUNNER_TEMP/notice-body.json"
+        RESP="$RUNNER_TEMP/notice-post-resp"
+        if ! curl -fsS --fail-with-body -X POST -H "$AUTH" -H "Content-Type: application/json" \
+            -d @"$RUNNER_TEMP/notice-body.json" \
+            "$API/repos/$REPO/issues/$PR/comments" > "$RESP"; then
+          cat "$RESP" >&2
+          echo "Failed to post forge-reconcile notice to PR #$PR" >&2
+          exit 1
+        fi
+        jq -r '"Notice posted: " + (.html_url // .message // "unknown")'

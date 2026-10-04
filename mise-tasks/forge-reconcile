@@ -143,6 +143,7 @@ Usage:
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -906,12 +907,29 @@ def check_main_whitelist(client, owner, report):
         report.ok(what)
 
 
+# --pr-base-ref reads the PR base's declared state from git. The CI checkout
+# is shallow (PR merge ref only), so the base ref is not a local branch — fetch
+# it shallow to origin/<ref> first, then read that. The ref is validated against
+# this (it is interpolated into a git command) and the fetch is memoized so the
+# two read_*_at calls fetch once.
+BASE_REF_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
+_FETCHED_BASES: set[str] = set()
+
+
 def git_read_file(ref, relpath):
-    """Read a file at a git ref, or None when git is absent or the file is not
-    at that ref. Used by --pr-base-ref to read the PR base's declared state."""
-    if shutil.which("git") is None:
+    """Read a file at a git ref, or None when git is absent, the ref is invalid
+    or unfetchable, or the file is not at that ref. Used by --pr-base-ref."""
+    if shutil.which("git") is None or not BASE_REF_RE.fullmatch(ref or ""):
         return None
-    r = subprocess.run(["git", "show", f"{ref}:{relpath}"], capture_output=True, check=False)
+    if ref not in _FETCHED_BASES:
+        f = subprocess.run(
+            ["git", "fetch", "--depth=1", "origin", f"{ref}:refs/remotes/origin/{ref}"],
+            capture_output=True, check=False,
+        )
+        if f.returncode != 0:
+            return None
+        _FETCHED_BASES.add(ref)
+    r = subprocess.run(["git", "show", f"origin/{ref}:{relpath}"], capture_output=True, check=False)
     if r.returncode != 0:
         return None
     return r.stdout
@@ -944,13 +962,16 @@ def read_policies_at(ref):
 
 
 def read_protections_at(ref):
+    """The branch-protections rules at a git ref (None when unreadable, so a
+    partial base read — repos.json OK, protections not — fails loudly rather
+    than planning against an empty protection set)."""
     raw = git_read_file(ref, "forge/branch-protections.json")
     if raw is None:
-        return []
+        return None
     try:
         return json.loads(raw)["rules"]
     except (json.JSONDecodeError, KeyError):
-        return []
+        return None
 
 
 def plan_at(client, owner, who, policies, protections):
@@ -1073,7 +1094,7 @@ def _intended_lines(owner, base_state, head_state):
     return sorted(set(auto)), sorted(set(hook)), sorted(set(prot))
 
 
-def report_pr_check(client, owner, who, head_state, base_state, base_plan, pr_base_ref, report_file):
+def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_plan, pr_base_ref, report_file):
     """PR-check categorization (same-repo PRs only; fork/agent PRs skip to
     --skip-if-no-token before reaching here).
 
@@ -1095,6 +1116,13 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, pr_ba
     def changed_for(repo, fact, rn=None):
         return ((repo, "protect", rn) if fact == "protect" else (repo, fact)) in changed
 
+    # A PR whose *target* state violates the Actions-secrets fence (it grants
+    # write on a repo carrying CI keys) must fail — the merge push refuses the
+    # apply, but the check is where the human reads that before merging. Keyed
+    # to the head plan (live vs head-declared), so a PR that REMOVES a
+    # violation is not penalized for the pre-existing state.
+    forbidden = [violation_line(owner, repo, names) for repo, names in head_plan["violations"]]
+
     unexpected = []
     for repo, verb, want in base_plan["actions"]:
         if not changed_for(repo, "access"):
@@ -1109,7 +1137,8 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, pr_ba
         if not changed_for(repo, "protect", rn):
             unexpected.append(f"{verb} branch protection {owner}/{repo}:{rn} ({'all fields' if verb == 'create' else ', '.join(diff)})")
     for repo, names in base_plan["violations"]:
-        unexpected.append(violation_line(owner, repo, names))
+        if not changed_for(repo, "access"):
+            unexpected.append(violation_line(owner, repo, names))
     if base_plan["blocked"]:
         unexpected.append(f"unreadable listed repo(s): {', '.join(base_plan['blocked'])}")
 
@@ -1121,6 +1150,11 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, pr_ba
         lines.append("")
     else:
         lines.append("[OK] **No unexpected drift** - the live forge matches main's declared state.")
+        lines.append("")
+    if forbidden:
+        lines.append("### [X] Forbidden - this PR's target state breaks the Actions-secrets fence")
+        lines += [f"- {l}" for l in forbidden] + [""]
+        lines.append("_A repo granted `write` carries its CI keys to the bot; the merge push refuses this, so it cannot land as declared._")
         lines.append("")
     if auto:
         lines.append("### Intended - auto-applies on merge via the push trigger")
@@ -1135,9 +1169,14 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, pr_ba
     # Surface intended drift even when it does not fail the check: a warn-only
     # result (notably a revocation) must still be read, so the workflow posts
     # this file as a PR comment whenever it is written.
-    if report_file and (unexpected or auto or hook or prot):
+    if report_file and (forbidden or unexpected or auto or hook or prot):
         Path(report_file).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
+    if forbidden:
+        console.print("\n[red]PR check: FORBIDDEN - this PR's target state breaks the Actions-secrets fence - failing.[/red]")
+        for l in forbidden:
+            console.print(f"  [red]{escape(l)}[/red]")
+        raise typer.Exit(1)
     if unexpected:
         console.print("\n[red]PR check: UNEXPECTED drift (this PR does not intend it) - failing.[/red]")
         for l in unexpected:
@@ -1179,12 +1218,16 @@ def main(
     )
 
     with client:
-        # The blast-radius invariants folded in from horkos-forge-drift. They
-        # gate only the PR-check path (--pr-base-ref), where a full view of the
-        # forge is expected; the plain --check/--dry-run/apply paths keep their
-        # existing behavior and reporting.
-        env_findings: Findings | None = None
-        if pr_base_ref:
+        # The blast-radius invariants folded in from horkos-forge-drift: the
+        # horkos-forge bot is not a site admin, and blumeops:main stays
+        # whitelisted to eblume alone. They are facts a forge-UI change leaves
+        # no diff for, so they run on every --check — the weekly schedule and
+        # the PR check alike — not just when a PR is in flight. Both need only
+        # the check client (the repo-write token can look up the bot user and
+        # read blumeops' protections), so no extra secret is required. They are
+        # a hard stop before the drift plan: a security-boundary failure is
+        # more urgent than the grant-set delta it would otherwise precede.
+        if check:
             env_findings = Findings()
             check_site_admin(client, env_findings)
             check_main_whitelist(client, owner, env_findings)
@@ -1479,16 +1522,20 @@ def main(
                 )
             raise typer.Exit(1)
 
-        if (
-            not actions
-            and not horkos_actions
-            and not hook_actions
-            and not label_actions
-            and not protection_actions
-            and not violations
-        ):
+        in_sync = not (
+            actions
+            or horkos_actions
+            or hook_actions
+            or label_actions
+            or protection_actions
+            or violations
+        )
+        if in_sync and not (check and pr_base_ref):
             console.print("[green]In sync.[/green]")
             return
+        # A PR whose head plan is empty (e.g. one that only removes a branch
+        # protection) must still run the intended/unexpected categorization, so
+        # in PR-check mode we fall through to the preview/check branch below.
 
         if preview:
             pending = (
@@ -1524,13 +1571,20 @@ def main(
                         )
                         raise typer.Exit(1)
                     base_state["protections"] = read_protections_at(pr_base_ref)
+                    if base_state["protections"] is None:
+                        console.print(
+                            f"\n[red]Cannot read {PROTECTIONS_PATH.name} at base {escape(pr_base_ref)} - "
+                            "refusing to categorize PR drift against an empty protection set.[/red]"
+                        )
+                        raise typer.Exit(1)
                     base_plan = plan_at(client, owner, who, base_state, base_state["protections"])
                     head_state = {"desired": desired, "pools": pools,
                                   "release_hook_repos": release_hook_repos,
                                   "horkos_forge_repos": horkos_forge_repos,
                                   "protections": protections}
+                    head_plan = {"violations": violations, "blocked": blocked}
                     report_pr_check(client, owner, who, head_state, base_state, base_plan,
-                                    pr_base_ref, report_file)
+                                    head_plan, pr_base_ref, report_file)
                     return
 
                 console.print("\n[red]Out of sync (--check).[/red]")
