@@ -48,7 +48,8 @@ jobs:
         if: always()
         run: |
           set -o pipefail
-          ./mise-tasks/caddy-render-check 2>&1 | tee -a /tmp/docs-checks-checks.log
+          mkdir -p "$RUNNER_TEMP"
+          ./mise-tasks/caddy-render-check 2>&1 | tee -a "$RUNNER_TEMP/docs-checks-checks.log"
 
       - name: Docs have required frontmatter
         if: always()
