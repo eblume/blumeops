@@ -1,0 +1,1 @@
+Ringtail's flake now carries `invariants.nix`: evaluation-time assertions that keep `services.k3s.manifests` and `autoDeployCharts` empty (cluster resources stay ArgoCD-owned — k3s manifest symlinks outlive deletion, #1408) and that k3s keeps `--write-kubeconfig-mode=600` (the admin kubeconfig must not be readable by the unprivileged `agent` user).

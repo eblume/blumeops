@@ -21,6 +21,7 @@ in
     ./factorio.nix
     ./heph-eblume.nix
     ./myeve-heph-sync.nix
+    ./invariants.nix
   ];
 
   # Allow unfree packages (NVIDIA drivers, Steam)
