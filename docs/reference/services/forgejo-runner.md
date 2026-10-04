@@ -103,6 +103,16 @@ isolation.
   user's home, so it is not an isolation control: jobs can rewrite it; what
   is controlled is the VM's mounts and the socket's reach.
 
+### Toolchain
+
+Host-mode steps resolve tools through `~indri-build/.local/share/mise/shims`
+(the runner daemon's PATH), so the build user's mise global config
+(`environment.etc."mise/config-build-user.toml"` in the flake) is what every
+indri-build job sees: the erichblume pins plus `rust` - its jobs run the
+macOS-native cargo check on the host, and its 0700 home can't reach
+erichblume's rustup install. A first run of a newly pinned version
+auto-installs through the shims (or `mise install` as indri-build, once).
+
 ### Known gaps (accepted for now, scoped by #1358)
 
 - **Cross-repo cache persistence**: the runner's home - mise shims and the
