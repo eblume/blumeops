@@ -27,13 +27,17 @@ let
     exec "${authentik-django}/lifecycle/ak" "$@"
   '';
 
-  # Container entrypoint: symlink built-in blueprints then run ak.
+  # Container entrypoint: copy built-in blueprints into /blueprints, then run ak.
   # buildLayeredImage's extraCommands can't access store paths from contents
-  # (they're in separate layers), so we create the symlinks at container start.
+  # (they're in separate layers), so the copy happens at container start.
+  # Copy, never symlink: authentik's retrieve_file resolve()s each blueprint
+  # path and rejects anything outside blueprints_dir ("Invalid blueprint
+  # path"), so a symlink into /nix/store makes every default/, system/ and
+  # migrations/ blueprint fail to apply.
   entrypoint = pkgs.writeShellScript "authentik-entrypoint" ''
     for item in ${authentik-django}/blueprints/*/; do
       name=$(basename "$item")
-      [ ! -e "/blueprints/$name" ] && ln -s "$item" "/blueprints/$name" 2>/dev/null || true
+      [ ! -e "/blueprints/$name" ] && cp -R "$item" "/blueprints/$name" 2>/dev/null || true
     done
     exec ${ak}/bin/ak "$@"
   '';
