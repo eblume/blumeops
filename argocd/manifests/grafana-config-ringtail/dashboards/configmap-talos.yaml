@@ -1456,7 +1456,7 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "sum(rate(talos_tokens_total{token=\"input\"}[5m]))",
+              "expr": "sum(rate(talos_tokens_total{token=\"input\",source=\"session\"}[5m]))",
               "legendFormat": "API input",
               "refId": "C"
             }
