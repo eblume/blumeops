@@ -57,6 +57,10 @@ let
   };
 in
 {
+  imports = [
+    ./invariants.nix
+  ];
+
   # indri is an M1 Mac mini; pinning keeps the flake evaluable from off-box hosts.
   nixpkgs.hostPlatform = "aarch64-darwin";
 
