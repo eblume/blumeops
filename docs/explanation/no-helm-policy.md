@@ -46,3 +46,4 @@ Services previously deployed via Helm that have been migrated to kustomize:
 
 - [[review-services]] — Service review process
 - [[architecture]] — Overall infrastructure design
+- [[add-a-flake-invariant]] — turning such ownership boundaries into CI-enforced flake assertions
