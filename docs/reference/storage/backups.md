@@ -1,7 +1,7 @@
 ---
 title: Backups
-modified: 2026-09-02
-last-reviewed: 2026-09-02
+modified: 2026-10-04
+last-reviewed: 2026-10-04
 tags:
   - storage
   - backup
@@ -66,6 +66,11 @@ The [[immich]] photo library lives on [[sifaka]] at `/volume1/photos` (SMB-mount
 | **Size** | ~128 GB |
 
 Uses the same encryption passphrase and SSH key as the main borgmatic config.
+
+The `borgbase-immich-photos` repo is verified on a schedule (weekly
+`borgmatic check`, monthly full-data check, and a weekly sampled
+test-restore against the live sifaka files — see [[borgmatic]]); the age of
+the last successful check is alerted via `BorgmaticVerifyStale` (10 days).
 
 ## Sifaka-Native Data
 

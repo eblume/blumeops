@@ -31,6 +31,10 @@ ssh_command: ssh -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveC
 # Save checkpoints every 10 minutes so interrupted backups don't lose all progress
 checkpoint_interval: 600
 
+# Wait for the repo lock instead of failing fast: the 06:00 verification job
+# runs while the 04:00 create's checkpoints can still hold the lock.
+lock_wait: 300
+
 # Retention policy — photos are precious, keep more history
 keep_daily: {{ borgmatic_photos_keep_daily }}
 keep_monthly: {{ borgmatic_photos_keep_monthly }}

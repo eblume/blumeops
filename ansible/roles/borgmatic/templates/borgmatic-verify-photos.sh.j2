@@ -1,0 +1,108 @@
+#!/bin/bash
+# {{ ansible_managed }}
+#
+# Scheduled verification for the borgbase-immich-photos repo (photos borgmatic
+# config; sources: {{ borgmatic_photos_source_directories | join(', ') }}).
+# Cadence (StartCalendarInterval in the LaunchAgent): every Tuesday 06:00 and
+# the 2nd of each month at 06:00. Each run:
+#   - repo + archive-metadata check (borgmatic check --only repository
+#     --only archives) always; its success marker is written right after.
+#   - full-data check (--only data, borg's --verify-data) only when the
+#     previous data-check marker is missing or older than 40 days.
+#   - sampled test-restore (5 random >1MB files from the newest archive) only
+#     when /Volumes/photos (sifaka SMB mount) is mounted.
+
+set -euo pipefail
+
+# Full paths: launchd PATH is /opt/homebrew/bin:/usr/bin:/bin
+BORG="{{ borgmatic_local_path }}"
+BORGMATIC="{{ borgmatic_bin }}"
+JQ=/opt/homebrew/bin/jq
+REPO="{{ borgmatic_photos_borgbase_repo }}"
+MARKER_DIR="{{ borgmatic_verify_marker_dir }}"
+
+export BORG_PASSCOMMAND="{{ borgmatic_encryption_passcommand }}"
+export BORG_RSH="ssh -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=5 -i {{ borgmatic_borgbase_ssh_key_path }}"
+# borg config/security/cache live in the default ~/.config/borg (same as the
+# daily creates)
+
+# Default mounted; the grep in this pipeline must not kill the script (pipefail)
+MOUNTED=1
+/sbin/mount | grep -q ' /Volumes/photos ' || MOUNTED=0
+
+# Newest archive in the repo (empty only for an empty repo: restore is then
+# skipped, the checks still run)
+LAST_ARCHIVE=$("$BORG" list --json "$REPO" | "$JQ" -r '.archives[-1].name // empty')
+
+# Weekly consistency check (repo + archive metadata). A failure exits here, so
+# the check marker is not written for a repo that fails its checks.
+"$BORGMATIC" --config "{{ borgmatic_photos_config }}" check \
+    --repository "{{ borgmatic_photos_borgbase_repo }}" \
+    --only repository --only archives --force
+echo "$(date +%s)" > "$MARKER_DIR/check"
+
+# Monthly full-data check (borg --verify-data, valid only alongside the archive
+# check); only when never run or stale (a corrupt marker just re-runs it).
+DATA_STATE=skipped
+if [ ! -f "$MARKER_DIR/check-data" ]; then DATA_STATE=ran
+else
+    STAMP=$(cat "$MARKER_DIR/check-data" 2>/dev/null)
+    case "$STAMP" in ''|*[!0-9]*) DATA_STATE=ran ;;
+        *) [ $(( $(date +%s) - STAMP )) -gt $((40*24*3600)) ] && DATA_STATE=ran ;;
+    esac
+fi
+if [ "$DATA_STATE" = ran ]; then
+    "$BORGMATIC" --config "{{ borgmatic_photos_config }}" check \
+        --repository "{{ borgmatic_photos_borgbase_repo }}" \
+        --only archives --only data --force
+    echo "$(date +%s)" > "$MARKER_DIR/check-data"
+fi
+
+# Sampled test-restore: extract random >1MB files from the newest archive and
+# sha256-compare against the live files under the SMB mount.
+RESTORE_STATE=skipped
+if [ "$MOUNTED" = 1 ] && [ -n "$LAST_ARCHIVE" ]; then
+    RESTORE_STATE=ran
+    WORK="$HOME/.config/borg-verify-photos-work"
+    rm -rf "$WORK"
+    mkdir -p "$WORK"
+    trap 'rm -rf "$WORK"' EXIT
+    COMPARED=0
+
+    # macOS ships no GNU coreutils shuf, so sample with an awk reservoir
+    # (paths arrive TAB-separated; dirs end in / and are skipped).
+    SAMPLES=$("$BORG" list "$REPO::${LAST_ARCHIVE}" --format '{path}{TAB}{size}{NL}' | awk -F'\t' '
+        BEGIN { srand(); n = 5 }
+        $1 !~ /\/$/ && $2 > 1000000 {
+            c++
+            if (c <= n) { s[c] = $1 }
+            else { j = int(rand() * c) + 1; if (j <= n) s[j] = $1 }
+        }
+        END { for (i = 1; i <= c && i <= n; i++) print s[i] }
+    ')
+
+    while read -r path; do
+        [ -z "$path" ] && continue
+        # archive paths are relative to the create cwd (/Users/erichblume);
+        # live files sit under /Volumes/photos, so strip that known prefix
+        archive_path="${path#/}"
+        rel="${archive_path#Volumes/photos/}"
+        live="/Volumes/photos/$rel"
+        [ -f "$live" ] || continue  # deleted on sifaka since the backup; not an error
+        "$BORG" extract --stdout "$REPO::${LAST_ARCHIVE}" "$archive_path" > "$WORK/probe"
+        COMPARED=1
+        probe_hash=$(shasum -a 256 "$WORK/probe" | awk '{print $1}')
+        live_hash=$(shasum -a 256 "$live" | awk '{print $1}')
+        if [ "$probe_hash" != "$live_hash" ]; then
+            echo "TEST-RESTORE MISMATCH: $path (archive vs live under /Volumes/photos; benign if the file changed since the last 04:00 backup, else investigate)" >&2
+            exit 1
+        fi
+        echo "test-restore ok: $path"
+    done <<< "$SAMPLES"
+    # a marker means at least one file was actually compared
+    if [ "$COMPARED" = 1 ]; then
+        echo "$(date +%s)" > "$MARKER_DIR/test-restore"
+    fi
+fi
+
+echo "verification ok: repo+archives check ran; data check $DATA_STATE; test-restore $RESTORE_STATE"

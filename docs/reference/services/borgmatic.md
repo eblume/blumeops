@@ -1,7 +1,7 @@
 ---
 title: Borgmatic
-modified: 2026-09-30
-last-reviewed: 2026-09-01
+modified: 2026-10-04
+last-reviewed: 2026-10-04
 tags:
   - service
   - backup
@@ -74,6 +74,27 @@ whole run — a failed snapshot is never silently skipped.
 | Daily | 7 |
 | Monthly | 12 |
 | Yearly | 1000 |
+
+## Verification
+
+A LaunchAgent `mcquack.eblume.borgmatic-verify-photos` on [[indri]] verifies the
+`borgbase-immich-photos` repo every Tuesday at 06:00, plus the 2nd of each
+month (also 06:00). Each run performs:
+
+- **Repo + archive-metadata check** — `borgmatic check --repository ... --only repository --only archives --force` — on every run. A stale `check` marker means the last run's check failed or the job itself did not run.
+- **Full-data check** — `borgmatic check --only archives --only data --force` (borg `--verify-data`, valid only alongside the archive check) — only when the previous data-check marker is missing or older than 40 days.
+- **Sampled test-restore** — when `/Volumes/photos` (the [[sifaka]] SMB mount) is mounted: 5 random regular files >1 MB from the newest archive are extracted via `borg extract --stdout` and sha256-compared against the live files under `/Volumes/photos` (a mismatch fails the run; benign when the live file changed after the last 04:00 backup). Files deleted from sifaka since the backup are skipped; the marker is written only when at least one file was compared.
+
+Every result lands in the Loki-tailed logs
+(`mcquack.borgmatic-verify-photos.{out,err}.log`). Success markers are written
+to `/opt/homebrew/var/state/borgmatic-verification/` (`check`, `check-data`,
+`test-restore`) and exposed by the hourly collector as
+`borgmatic_last_verified_timestamp{repo="borgbase-immich-photos"}`,
+`borgmatic_last_verified_data_timestamp{repo="borgbase-immich-photos"}`, and
+`borgmatic_last_test_restore_timestamp{repo="borgbase-immich-photos"}`. The
+`BorgmaticVerifyStale` Grafana alert fires when no check succeeds for 10 days.
+
+**Verification proves the archives can be read and restored — it does NOT prove immutability.** The photos repo's BorgBase key is (pending dashboard confirmation) append-only on the server side, which protects the offsite copy from a compromised indri; but the sifaka-local mount `/Volumes/backups/borg` is an SMB share, not a `borg serve` endpoint, so its client-side `append_only` flag protects nothing against indri itself.
 
 ## Resilience
 

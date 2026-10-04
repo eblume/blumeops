@@ -21,6 +21,8 @@ borgmatic_metrics_repos:
 
 borgmatic_metrics_passcommand: cat /Users/erichblume/.borg/config.yaml
 borgmatic_metrics_ssh_key: /Users/erichblume/.ssh/borgbase_ed25519
+# Marker dir written by the mcquack.eblume.borgmatic-verify-photos LaunchAgent
+borgmatic_metrics_verify_marker_dir: /opt/homebrew/var/state/borgmatic-verification
 borgmatic_metrics_dir: /opt/homebrew/var/node_exporter/textfile
 borgmatic_metrics_script: /Users/erichblume/.local/bin/borgmatic-metrics
 borgmatic_metrics_interval: 3600  # seconds between metric collection (hourly)
