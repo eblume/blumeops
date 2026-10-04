@@ -1,0 +1,1 @@
+Indri's flake now carries `invariants.nix`: an evaluation-time assertion that no launchd agent or daemon runs a `/nix/store` argv0 (such a job dies EX_CONFIG before /nix mounts and is never respawned, #1225/#1363) and a warning for any gui-domain `ExitTimeOut` > 60 s without `AbandonProcessGroup` (launchd clamps the timeout to 60 s there, #1266/#1269).
