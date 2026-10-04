@@ -121,7 +121,7 @@ The Fly.io container includes [[alloy]] baked in (`fly/alloy.river`). Alloy tail
 - Forwards log lines to [[loki]] via the Tailscale Ingress endpoint
 - Derives Prometheus metrics (`flyio_nginx_http_requests_total`, `flyio_nginx_http_request_duration_seconds`, `flyio_nginx_cache_requests_total`, etc.) and remote-writes them to [[prometheus]]
 
-Both Loki and Prometheus are reached directly via their `*.tail8d86e.ts.net` Tailscale Ingress endpoints (not via [[caddy]]), since the proxy's ACLs only allow `tag:flyio-target`.
+Both Loki and Prometheus are reached directly via their `*.tail8d86e.ts.net` Tailscale Ingress endpoints (not via [[caddy]]), since the proxy's ACLs only allow `tag:flyio-target` (and `tag:flyio-origin` on 8443, the Caddy fly-only listener).
 
 ### Step 3: Tailscale auth key and ACLs (Pulumi)
 

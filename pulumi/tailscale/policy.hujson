@@ -247,11 +247,12 @@
 			"accept": ["tag:homelab:443", "tag:homelab:2222", "tag:homelab:8787"],
 			"deny":   ["tag:homelab:22", "tag:k8s:443", "tag:k8s:5432", "tag:nas:445", "tag:registry:443"],
 		},
-		// Fly.io proxy can only reach flyio-target tagged endpoints, nothing else.
-		// indri has tag:flyio-target (Caddy) so tag:homelab:443 is reachable on
-		// indri specifically but not other homelab devices. The fly-only :8443
-		// listener is reached via tag:flyio-origin — tcp:8443 only, and that tag
-		// is absent from the k8s Ingress pods, so 443 there is not opened.
+		// Fly.io proxy can only reach tag:flyio-target:443 and
+		// tag:flyio-origin:8443, nothing else. indri has tag:flyio-target
+		// (Caddy) so tag:homelab:443 is reachable on indri specifically but
+		// not other homelab devices. tag:flyio-origin (Caddy's fly-only :8443
+		// listener) is tcp:8443 only, and that tag opens 443 nowhere — it is
+		// carried only by indri, never the k8s Ingress pods.
 		{
 			"src":    "tag:flyio-proxy",
 			"accept": ["tag:flyio-target:443", "tag:flyio-origin:8443"],
