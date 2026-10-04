@@ -35,6 +35,7 @@ ACLs managed via Pulumi in `pulumi/tailscale/policy.hujson`.
 | `tag:ci-gateway` | (ephemeral CI containers) | CI containers pushing images to registry |
 | `tag:flyio-proxy` | (Fly.io proxy container) | Public reverse proxy |
 | `tag:flyio-target` | indri, designated Ingress endpoints | Endpoints reachable by the Fly.io proxy (indri for Caddy routing, Ingress pods for Alloy metrics/logs) |
+| `tag:flyio-origin` | indri | Caddy's fly-only `:8443` listener (docs/cv/photos) — the proxy reaches it on tcp:8443 only |
 
 **Important:** Don't tag user-owned devices (like gilbert) via Pulumi. Tagging converts them to "tagged devices" which lose user identity and break user-based SSH rules. Gilbert is referenced as `tag:workstation` in tagOwners for ownership purposes but remains user-owned so `blume.erich@gmail.com` identity is preserved.
 
@@ -54,6 +55,7 @@ ACLs managed via Pulumi in `pulumi/tailscale/policy.hujson`.
 
 Additional grants not shown in the matrix:
 - `tag:flyio-proxy` → `tag:flyio-target` on tcp:443 only
+- `tag:flyio-proxy` → `tag:flyio-origin` on tcp:8443 only (Caddy's fly-only listener on indri)
 - `tag:forge` → `tag:flyio-proxy` on tcp:22 (forge push-mirror sync into the fly static mirror)
 - `tag:ci-gateway` → `tag:registry` on tcp:443
 - `tag:k8s` → `tag:registry` on tcp:443

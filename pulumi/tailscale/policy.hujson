@@ -58,6 +58,14 @@
 			"dst": ["tag:flyio-target"],
 			"ip":  ["tcp:443"],
 		},
+		// Caddy's fly-only :8443 listener on indri serves only the
+		// fly_proxied services (docs/cv/photos); tcp:8443 to the origin
+		// tag is what makes that split enforceable.
+		{
+			"src": ["tag:flyio-proxy"],
+			"dst": ["tag:flyio-origin"],
+			"ip":  ["tcp:8443"],
+		},
 
 		// --- Forgejo push mirror ---
 		// The private forge (indri) syncs allowlisted public repos to the
@@ -193,6 +201,7 @@
 		"tag:ci-gateway": ["autogroup:admin", "tag:blumeops"],
 		"tag:flyio-proxy": ["autogroup:admin", "tag:blumeops"],
 		"tag:flyio-target": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
+		"tag:flyio-origin": ["autogroup:admin", "tag:blumeops"],
 		// Applied to ringtail so shared guests can reach only the Factorio port.
 		"tag:factorio": ["autogroup:admin", "tag:blumeops"],
 		// Containerized ringtail-agent pod's tailscale sidecar. Provisioned by
@@ -238,13 +247,16 @@
 			"accept": ["tag:homelab:443", "tag:homelab:2222", "tag:homelab:8787"],
 			"deny":   ["tag:homelab:22", "tag:k8s:443", "tag:k8s:5432", "tag:nas:445", "tag:registry:443"],
 		},
-		// Fly.io proxy can only reach flyio-target tagged endpoints, nothing else.
-		// indri has tag:flyio-target (Caddy) so tag:homelab:443 is reachable on
-		// indri specifically but not other homelab devices.
+		// Fly.io proxy can only reach tag:flyio-target:443 and
+		// tag:flyio-origin:8443, nothing else. indri has tag:flyio-target
+		// (Caddy) so tag:homelab:443 is reachable on indri specifically but
+		// not other homelab devices. tag:flyio-origin (Caddy's fly-only :8443
+		// listener) is tcp:8443 only, and that tag opens 443 nowhere — it is
+		// carried only by indri, never the k8s Ingress pods.
 		{
 			"src":    "tag:flyio-proxy",
-			"accept": ["tag:flyio-target:443"],
-			"deny":   ["tag:k8s:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
+			"accept": ["tag:flyio-target:443", "tag:flyio-origin:8443"],
+			"deny":   ["tag:k8s:443", "tag:flyio-origin:443", "tag:homelab:22", "tag:nas:445", "tag:registry:443"],
 		},
 		// Forgejo (tag:forge) can reach the fly mirror push endpoint and
 		// nothing else there — the grant is tcp:22 only.
