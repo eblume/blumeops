@@ -232,6 +232,26 @@ in
 
   };
 
+  # NixOS k3s manifests linger after removal: the module links them into
+  # /var/lib/rancher/k3s/server/manifests/ and never unlinks them, so k3s
+  # keeps re-applying a manifest dropped from this config. Cluster resources
+  # go through ArgoCD instead. Lifting this guard is a deliberate decision —
+  # see docs/reference/kubernetes/cluster.md.
+  assertions = [
+    {
+      assertion = config.services.k3s.manifests == { };
+      message = "services.k3s.manifests is not allowed on ringtail: cluster resources go through ArgoCD (argocd/manifests/). Removing a manifest from nixos/ringtail does not remove it from the cluster — see docs/reference/kubernetes/cluster.md before lifting this guard.";
+    }
+    {
+      assertion = config.services.k3s.autoDeployCharts == { };
+      message = "services.k3s.autoDeployCharts is not allowed on ringtail: cluster resources go through ArgoCD (argocd/manifests/). Charts are not pruned on removal — see docs/reference/kubernetes/cluster.md before lifting this guard.";
+    }
+    {
+      assertion = config.services.k3s.charts == { };
+      message = "services.k3s.charts is not allowed on ringtail: cluster resources go through ArgoCD (argocd/manifests/). Charts are not pruned on removal — see docs/reference/kubernetes/cluster.md before lifting this guard.";
+    }
+  ];
+
   # Raise memlock rlimit for k3s so eBPF workloads (Beyla/Alloy tracing) can
   # call setrlimit(RLIMIT_MEMLOCK, unlimited) inside privileged containers.
   systemd.services.k3s.serviceConfig.LimitMEMLOCK = "infinity";
