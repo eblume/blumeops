@@ -48,6 +48,7 @@ EOF
 collect_repo_metrics() {
     local repo_path="$1"
     local repo_label="$2"
+    local archive_prefix="$3"
 
     # Get repository info
     repo_json=$($BORG_CMD info --json "$repo_path" 2>/dev/null) || {
@@ -69,7 +70,10 @@ collect_repo_metrics() {
     unique_csize=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.unique_csize')
     total_chunks=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_chunks')
     unique_chunks=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_unique_chunks')
-    archive_count=$(echo "$archives_json" | $JQ_CMD -r '.archives | length')
+    # Main-config repos carry both indri-* (main) and talos-data-* archives;
+    # scope to the main prefix so a fresh talos archive can't mask a failed main backup.
+    filtered_archives=$(echo "$archives_json" | $JQ_CMD -c '.archives | if length > 0 then . else [] end | if $p == "" then . else map(select(.name | startswith($p))) end' --arg p "$archive_prefix")
+    archive_count=$(echo "$filtered_archives" | $JQ_CMD 'length')
 
     cat >> "$TEMP_FILE" << EOF
 borgmatic_up{repo="$repo_label"} 1
@@ -82,7 +86,7 @@ borgmatic_archive_count{repo="$repo_label"} $archive_count
 EOF
 
     # Get last archive info
-    last_archive_name=$(echo "$archives_json" | $JQ_CMD -r '.archives[-1].name // empty')
+    last_archive_name=$(echo "$filtered_archives" | $JQ_CMD -r 'if length > 0 then .[-1].name else empty end')
 
     if [ -z "$last_archive_name" ]; then
         return
@@ -149,9 +153,9 @@ EOF
 }
 
 # Collect metrics for each configured repository
-collect_repo_metrics "/Volumes/backups/borg/" "sifaka-local"
-collect_repo_metrics "ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo" "borgbase-offsite"
-collect_repo_metrics "ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo" "borgbase-immich-photos"
+collect_repo_metrics "/Volumes/backups/borg/" "sifaka-local" "indri-"
+collect_repo_metrics "ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo" "borgbase-offsite" "indri-"
+collect_repo_metrics "ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo" "borgbase-immich-photos" ""
 
 # Atomic move
 mv "$TEMP_FILE" "$OUTPUT_FILE"

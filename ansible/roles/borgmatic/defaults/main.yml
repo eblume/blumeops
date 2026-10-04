@@ -139,8 +139,8 @@ borgmatic_k8s_file_dumps:
 borgmatic_k8s_tar_dumps:
   # talos agent-service state: all session transcripts
   # (data/sessions/<timestamp>_<sessionId>.jsonl) plus meta.json,
-  # crons.json, settings.json. No sqlite — pure JSON/JSONL. Every
-  # session is stored forever (heph 01M0GA6JPGQF96AM5JZKA37YSV).
+  # crons.json, settings.json. session-index.sqlite rides in the tar.
+  # Every session is stored forever (heph 01M0GA6JPGQF96AM5JZKA37YSV).
   - name: talos-data
     namespace: talos
     label_selector: app=talos
@@ -200,6 +200,17 @@ borgmatic_keep_yearly: 1000
 # well inside the 2h gap before the 4:00 AM photos backup. See [[borgmatic]].
 borgmatic_retries: 3
 borgmatic_retry_wait: 300
+
+# talos-data (agent session transcripts) — kept forever, never pruned
+# (heph 01M0GA6JPGQF96AM5JZKA37YSV). Separate config so the main
+# config's prune can't reach its `talos-data-*` archives, and so a
+# failed main run can't be masked by a fresh talos archive. A future
+# tier split that wants to prune it is a deliberate PR on its own.
+borgmatic_talos_data_config: /Users/erichblume/.config/borgmatic/talos-data.yaml
+# Dump staging dir for talos-data ONLY; the main config does not back
+# it up, so its source sets stay disjoint (k8s-dumps/ is a main
+# source_directory).
+borgmatic_talos_data_dump_dir: /Users/erichblume/.local/share/borgmatic/k8s-dumps-talos
 
 # PostgreSQL databases to backup (streamed via pg_dump)
 # Password is read from ~/.pgpass (managed by this role)
