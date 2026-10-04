@@ -15,7 +15,7 @@ resources:
 images:
   - name: docker.io/tailscale/k8s-operator
     newName: registry.ops.eblu.me/blumeops/tailscale-operator
-    newTag: v1.98.5-623e89a-nix
+    newTag: v1.102.5-7f39ab6-nix@sha256:b0d9052f9d1cef85279d87d0baef96dc747da2496801730e69dcae1aff0a57ad
 
 # Rewrite the proxyclass and DNSConfig nameserver images to our local nix-built
 # mirrors. A strategic merge patch is used instead of kustomize's `images:`
