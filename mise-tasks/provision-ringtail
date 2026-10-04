@@ -5,11 +5,14 @@ set -euo pipefail
 
 export MISE_TASK_OUTPUT=interleave
 
-# Update flake.lock via `nix flake lock` in a nixos/nix container before deploying
+# Native `nix flake lock` — resolves inputs only, never evaluates, so any
+# controller with nix can run it.
 echo "Updating nixos/ringtail/flake.lock..."
-docker run --rm -v "$PWD":/workspace -w /workspace/nixos/ringtail \
-    nixos/nix:2.34.4 nix --extra-experimental-features 'nix-command flakes' \
-    flake lock --accept-flake-config
+(
+    cd nixos/ringtail
+    nix --extra-experimental-features 'nix-command flakes' \
+        flake lock --accept-flake-config
+)
 
 if ! git diff --quiet nixos/ringtail/flake.lock; then
     git add nixos/ringtail/flake.lock

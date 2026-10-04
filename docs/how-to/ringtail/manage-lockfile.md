@@ -1,7 +1,7 @@
 ---
 title: Manage Ringtail Lockfile
-modified: 2026-09-30
-last-reviewed: 2026-09-28
+modified: 2026-10-04
+last-reviewed: 2026-10-04
 tags:
   - how-to
   - ringtail
@@ -108,10 +108,10 @@ merge. Two constraints shape the design:
 
 ## Lock New Inputs Only
 
-`mise run provision-ringtail` automatically runs `nix flake lock` in a
-nixos/nix container before deploying. This resolves any newly added inputs
-without upgrading existing ones. If the lockfile changes, the task stages the
-file and exits — commit, push, and re-run.
+`mise run provision-ringtail` automatically runs a native `nix flake lock`
+before deploying, which resolves any newly added inputs without upgrading
+existing ones. If the lockfile changes, the task stages the file and exits —
+commit, push, and re-run.
 
 This is the right behavior for provisioning: configuration changes that add a
 new input get locked, but existing inputs stay pinned until explicitly
