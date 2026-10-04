@@ -84,6 +84,16 @@ spec:
                 secretKeyRef:
                   name: authentik-config
                   key: agents-m2m-app-password
+            - name: AUTHENTIK_TALOS_M2M_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-config
+                  key: talos-m2m-client-secret
+            - name: AUTHENTIK_TALOS_M2M_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-config
+                  key: talos-m2m-app-password
             # The vault field and secret key keep their warrant-* names
             # (same secret material; horkos is warrant renamed).
             - name: AUTHENTIK_HORKOS_CLIENT_SECRET
