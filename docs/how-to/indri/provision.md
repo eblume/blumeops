@@ -1,7 +1,7 @@
 ---
 title: Provision Indri
-modified: 2026-09-29
-last-reviewed: 2026-09-16
+modified: 2026-10-03
+last-reviewed: 2026-10-03
 tags:
   - how-to
   - indri
@@ -309,6 +309,12 @@ back a service flip, with the role's gate flipped.
 indri itself, at the local HEAD — the exact commit `provision-indri` would
 deploy. It must run on the box: no off-box host can evaluate aarch64-darwin.
 Run it from any blumeops checkout before a window.
+
+It does not trust ssh's rc: the remote script prints
+`FLAKE-CHECK-OK <commit>` only after the build and cleanup succeed, and
+the local side fails the check if that exact line is absent from the
+captured output, because Tailscale SSH on indri exits 0 for any remote
+failure ([[indri]] §Nix).
 
 ## CI coupling
 

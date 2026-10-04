@@ -1,7 +1,7 @@
 ---
 title: Mise Tasks
-modified: 2026-10-01
-last-reviewed: 2026-10-01
+modified: 2026-10-03
+last-reviewed: 2026-10-03
 tags:
   - reference
   - tools
@@ -46,6 +46,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `fly-shutoff` | [human] Emergency shutoff: stop all Fly.io proxy machines |
 | `forge-api` | Authenticated Forgejo API call against forge.ops.eblu.me (api-token from the blumeops vault) |
 | `frigate-export-model` | [human] Export YOLOv9 model weights to ONNX for Frigate NVR via docker run |
+| `indri-flake-check` | [human] Build indri's darwin configuration on indri (pre-apply check) |
 | `horkos-test` | Run the horkos client-tooling unit tests — request-run and verify-runs (no network, no cluster) |
 | `mirror-create` | [human] Create a new upstream mirror in the mirrors/ Forgejo org |
 | `mirror-push-wire` | [human] Create the forge push mirrors for the fly static mirror (prints the public keys to commit) |
@@ -76,6 +77,15 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `verify-runs` | Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit); report horkos self-filed requests from the queue |
 | `horkos-forge-drift` | [human] Assert horkos-forge still holds exactly write on blumeops and nothing more (read-only) |
 | `horkos-forge-provision` | [human] Provision the horkos-forge forge identity + dispatch PAT (gilbert, human-run) |
+
+## Indri ssh legs: verify in-band
+
+Tailscale SSH on indri exits 0 for any remote failure (upstream
+tailscale/tailscale#18256; the fix #20626 is still open), so the indri
+legs of `indri-flake-check`, `services-check`, `mirror-update-pats` and
+`pulumi-restore-check` never trust ssh's rc: each remote command prints a
+success sentinel (or validated output) only after it has actually run,
+and the local side requires it. See [[indri]] §Nix. (blumeops#1379)
 
 ## Related
 
