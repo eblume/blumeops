@@ -1,7 +1,7 @@
 ---
 title: Indri
-modified: 2026-09-29
-last-reviewed: 2026-09-16
+modified: 2026-10-03
+last-reviewed: 2026-10-03
 tags:
   - infrastructure
   - host
@@ -118,6 +118,24 @@ apply runbook is [[provision]]:
   activation generated them on 2026-09-16, so indri's fingerprint changed
   to `SHA256:liWWi+4w4SbrZyITCkbVmIn+RsHES0hwxvOuWRS6cRA`; a
   known_hosts warning from that date is this, not an intruder.
+- **Tailscale SSH drops remote exit codes.** Every ssh to indri is
+  Tailscale SSH (Remote Login is off), and its remote command runner
+  exits 0 no matter what the remote command did, so a bare
+  `ssh indri '…' && …` reads success for any failure, for any user
+  (including `ssh erichblume@indri`). Upstream:
+  tailscale/tailscale#18256, still reproducible as of 2026-10; the fix,
+  tailscale/tailscale#20626 (skip `/usr/bin/login` for non-interactive
+  commands), is still open. Until it ships, every rc-dependent check that
+  reaches indri verifies in-band instead: the remote command prints a
+  sentinel line as its last action, after the real check succeeds, and
+  the local side requires that line verbatim (`grep -qxF` in the bash
+  legs; a substring match in `mirror-update-pats`); ssh's own rc is
+  transport triage only. The convention is documented in the task
+  scripts: `indri-flake-check` (`FLAKE-CHECK-OK <commit>`),
+  `services-check` (`INDRI-OK <label>`), `mirror-update-pats`
+  (`MIRROR-PAT-OK <repo>`, plus integer validation of the mirror
+  count), while `pulumi-restore-check` stays audit-only on its
+  pre-existing output validation (blumeops#1379).
 - **The first switch (2026-09) was one-way.** The old generation
   (system-14, nix-darwin 25.05) aborts its own etc check post-Tahoe and
   would load a second tailscaled, so it was never re-activated; generations
