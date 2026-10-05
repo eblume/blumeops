@@ -108,7 +108,8 @@ merge. Two constraints shape the design:
 
 ## Lock New Inputs Only
 
-`mise run provision-ringtail` automatically runs a native `nix flake lock`
+`mise run provision-ringtail` automatically runs `nix flake lock` (native nix,
+or the `nixos/nix` container on a controller without nix, such as gilbert)
 before deploying, which resolves any newly added inputs without upgrading
 existing ones. If the lockfile changes, the task stages the file and exits —
 commit, push, and re-run.

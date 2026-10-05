@@ -5,14 +5,9 @@ set -euo pipefail
 
 export MISE_TASK_OUTPUT=interleave
 
-# Native `nix flake lock` — resolves inputs only, never evaluates, so any
-# controller with nix can run it.
+# Native nix, or the nixos/nix container on a nixless controller (gilbert).
 echo "Updating nixos/ringtail/flake.lock..."
-(
-    cd nixos/ringtail
-    nix --extra-experimental-features 'nix-command flakes' \
-        flake lock --accept-flake-config
-)
+"$(dirname "$0")/_flake_lock" nixos/ringtail
 
 if ! git diff --quiet nixos/ringtail/flake.lock; then
     git add nixos/ringtail/flake.lock
