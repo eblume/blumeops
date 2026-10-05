@@ -50,10 +50,11 @@
     mode: '0700'
   when: (borgmatic_k8s_sqlite_dumps | length > 0) or (borgmatic_k8s_file_dumps | length > 0) or (borgmatic_k8s_tar_dumps | length > 0) or (borgmatic_local_sqlite_dumps | length > 0)
 
-# k8s-dumps/ is a main source_directory; the talos tar is staged in the
-# separate k8s-dumps-talos/ now, so any leftover here is stale and must
-# not ride into main archives.
-- name: Remove stale talos-data tar from main dump dir
+# Pre-tier-split runs staged the talos tar here (k8s-dumps/ was a source
+# of the main config); the talos-data config stages into
+# k8s-dumps-talos/ now, so any leftover is stale and must not ride into
+# archives.
+- name: Remove stale talos-data tar from k8s-dumps dir
   ansible.builtin.file:
     path: "{{ borgmatic_k8s_dump_dir }}/talos-data.tar"
     state: absent

@@ -153,7 +153,7 @@ borgmatic_k8s_tar_dumps:
 # silent-failure mode on WAL databases (exit code stays 0 on a torn read —
 # borgmatic #295 / SQLite forum). The .backup API is WAL-safe and returns a
 # real exit code, so a failed snapshot aborts the whole borgmatic run loudly.
-# Snapshots land in borgmatic_k8s_dump_dir (already in source_directories).
+# Snapshots land in borgmatic_operational_dump_dir (an operational source).
 borgmatic_local_sqlite_dumps:
   # heph hub canonical store — the only copy of all task/context data once
   # spokes are pure replicas (see [[hephaestus]]). WAL mode, continuously
