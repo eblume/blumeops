@@ -1,6 +1,6 @@
 ---
 title: Borgmatic
-modified: 2026-10-04
+modified: 2026-10-05
 last-reviewed: 2026-10-04
 tags:
   - service
@@ -106,8 +106,8 @@ the archive-tier config no longer targets any dump dir.
 **Immich photo library** (separate config, BorgBase offsite only):
 - `/Volumes/photos/library` and `/Volumes/photos/upload` (sifaka SMB mount, ~128 GB); excludes `encoded-video/`, `thumbs/`, `backups/` — regenerable from originals
 
-**Talos session state** (separate config, never pruned):
-- `/home/talos/data` — every agent session ever (transcripts, service state, `session-index.sqlite`), in-pod tar → `~/.local/share/borgmatic/k8s-dumps-talos/talos-data.tar`, `talos-data-*` archives in the same two repos. The config has no `keep_*` keys by design, and the main config's `match_archives: 'indri-*'` keeps any future prune off the prefix (heph 01M0GA6JPGQF96AM5JZKA37YSV). Single-session restore: [[backups]] → "Restoring a Single Session".
+**Talos session state** (separate config, never pruned — confirmed tier, eblume/blumeops#1417):
+- `/home/talos/data` — every agent session ever (transcripts, service state, `session-index.sqlite`), in-pod tar → `~/.local/share/borgmatic/k8s-dumps-talos/talos-data.tar`, `talos-data-*` archives in the same two repos. The config has no `keep_*` keys by design, and the main config's `match_archives: 'indri-*'` keeps any future prune off the prefix (heph 01M0GA6JPGQF96AM5JZKA37YSV). Measured cost (eblume/blumeops#1409, 2026-10-05): 79.6 MB/night deduplicated, ~2.4 GB/month per repo (~25% of nightly growth) — decision: stays never-pruned, with `compression: auto,zstd` on the config (new chunks only). Single-session restore: [[backups]] → "Restoring a Single Session".
 
 **Not backed up (by design):**
 - Forgejo pull mirrors (`~/forgejo/data/forgejo-repositories/mirrors`) — re-fetchable from upstream
@@ -120,6 +120,7 @@ the archive-tier config no longer targets any dump dir.
 | Config | Daily | Weekly | Monthly | Yearly |
 |--------|-------|--------|---------|--------|
 | Archive (main, 02:00) | — | — | — | — |
+| Talos-data (02:00, same agent) | — | — | — | — |
 | Operational (03:00) | 7 | 4 | 12 | -1 (unlimited) |
 | Photos (04:00) | 7 | — | 12 | 1000 |
 

@@ -1,6 +1,6 @@
 ---
 title: Backups
-modified: 2026-10-04
+modified: 2026-10-05
 last-reviewed: 2026-10-04
 tags:
   - storage
@@ -23,6 +23,7 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 | Tier | Config | Schedule | Sources | Repos | Retention |
 |------|---------|----------|---------|-------|-----------|
 | Archive (never pruned) | `~/.config/borgmatic/config.yaml` | 02:00 | `~/code/personal/zk`, `~/Documents` | `sifaka-borg-backups` (`/Volumes/backups/borg/`), `borgbase-offsite` | none — never pruned (no `keep_*` keys, no prune action) |
+| Archive (never pruned) — talos-data | `~/.config/borgmatic/talos-data.yaml` (own config, same 02:00 agent, main first) | 02:00 | talos pod `/home/talos/data` (in-pod tar) | `sifaka-borg-backups`, `borgbase-offsite` | none — never pruned; tier confirmed 2026-10-05 (eblume/blumeops#1417) |
 | Operational (rotating) | `~/.config/borgmatic/operational.yaml` | 03:00 | `~/forgejo` (minus mirrors + live WAL DB), `~/.config/borgmatic`, `k8s-dumps-op/`, `/Volumes/shower`, + all pre-backup dumps | `sifaka-operational` (`/Volumes/backups/borg/operational/`) — local-only for now | 7 daily / 4 weekly / 12 monthly / yearly -1 — declared but inert until prune lands (eblume/blumeops#1417) |
 
 The operational tier is local-only for now: an offsite tier-B copy is deferred
@@ -92,6 +93,8 @@ Talos agent sessions (`/home/talos/data` — session transcripts, service state,
 - The main config pins `archive_name_format: 'indri-{now…}'` + `match_archives: 'indri-*'`, so a prune enabled there (or anywhere else) can only ever reach `indri-*` archives.
 - Nothing prunes today at all — no `prune` run exists anywhere and both repos are `append_only` — but a future change can't reach talos-data without a deliberate, separate PR (see #1409).
 
+Measured cost (eblume/blumeops#1409, 2026-10-05): 79.6 MB/night deduplicated, ~2.4 GB/month per repo, ~25% of nightly growth — decision: talos-data stays never-pruned. The tier split adds `compression: auto,zstd` to this config (new chunks only), which slows that growth going forward.
+
 Tonight's tar is staged into `~/.local/share/borgmatic/k8s-dumps-talos/talos-data.tar` (deliberately *not* the main config's `k8s-dumps/` source directory) by a hook in the talos-data config; a failed dump aborts the run, so no archive without a fresh tar.
 
 ### Restoring a Single Session
@@ -155,6 +158,7 @@ Bulk media lives directly on [[sifaka]] (music files served by [[navidrome]], vi
 | Tier | Daily | Weekly | Monthly | Yearly |
 |------|-------|--------|---------|--------|
 | Archive (main, 02:00) | — | — | — | — |
+| Talos-data (02:00, same agent) | — | — | — | — |
 | Operational (03:00) | 7 | 4 | 12 | -1 (unlimited) |
 | Immich photos (04:00) | 7 | — | 12 | 1000 |
 
@@ -165,7 +169,7 @@ operational archive forever, so the `/Volumes/shower` archive record (photos +
 final DB snapshot) survives in the yearlies even though it moved to the
 rotating tier.
 
-Pruning is not currently enabled on any repo (append-only, no prune run); the table is the configured policy, not enforced behavior. Talos-data is the one prune-exempt source by design (above).
+Pruning is not currently enabled on any repo (append-only, no prune run); the table is the configured policy, not enforced behavior. Talos-data is prune-exempt by design, alongside the archive tier (above).
 
 ## Backup Targets
 
