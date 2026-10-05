@@ -887,3 +887,62 @@ data:
           enabled: true
           negate: false
           timeout: 30
+
+  ci-authentik-blueprints.yaml: |
+    version: 1
+    metadata:
+      name: BlumeOps Authentik Blueprint Reader
+      labels:
+        blueprints.goauthentik.io/description: "Read-only blueprint reader for the authentik-blueprint-exporter (eblume/blumeops#1444): group + service account + non-expiring api token, bound to a role carrying only authentik_blueprints.view_blueprintinstance"
+    entries:
+      # View-only role — the exporter must not see (or be able to
+      # change) anything but blueprint instances. Declared first so the
+      # group below can !KeyOf it.
+      - model: authentik_rbac.role
+        id: ci-authentik-blueprints-role
+        identifiers:
+          name: ci-authentik-blueprints
+        attrs:
+          name: ci-authentik-blueprints
+          permissions:
+            - authentik_blueprints.view_blueprintinstance
+
+      # ci-authentik-blueprints group — the principal tier for the
+      # blueprint exporter's service account. Only the
+      # view_blueprintinstance role binds to it; nothing else.
+      - model: authentik_core.group
+        id: ci-authentik-blueprints-group
+        identifiers:
+          name: ci-authentik-blueprints
+        attrs:
+          name: ci-authentik-blueprints
+          roles:
+            - !KeyOf ci-authentik-blueprints-role
+
+      # Service account for the authentik-blueprint-exporter — machine
+      # auth only (api token), never a human login.
+      - model: authentik_core.user
+        id: ci-authentik-blueprints-user
+        identifiers:
+          username: ci-authentik-blueprints
+        attrs:
+          username: ci-authentik-blueprints
+          name: Authentik Blueprint Exporter
+          type: service_account
+          is_active: true
+          groups:
+            - !KeyOf ci-authentik-blueprints-group
+
+      # Non-expiring api token; its key is vault-fed (1Password
+      # "Authentik (blumeops)" field ci-authentik-blueprints-token) so it
+      # is not stored in this repo.
+      - model: authentik_core.token
+        id: ci-authentik-blueprints-token
+        identifiers:
+          identifier: ci-authentik-blueprints
+        attrs:
+          user: !KeyOf ci-authentik-blueprints-user
+          intent: api
+          key: !Env AUTHENTIK_CI_AUTHENTIK_BLUEPRINTS_TOKEN
+          expiring: false
+          description: "api token for the authentik-blueprint-exporter (vault-fed)"

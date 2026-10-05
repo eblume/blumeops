@@ -116,6 +116,11 @@ spec:
                 secretKeyRef:
                   name: authentik-config
                   key: talos-client-secret
+            - name: AUTHENTIK_CI_AUTHENTIK_BLUEPRINTS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-config
+                  key: ci-authentik-blueprints-token
           volumeMounts:
             - name: blueprints
               mountPath: /blueprints/custom
