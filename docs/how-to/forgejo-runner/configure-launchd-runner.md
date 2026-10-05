@@ -1,6 +1,6 @@
 ---
 title: Configure the launchd Forgejo Runner on indri
-modified: 2026-09-19
+modified: 2026-10-05
 last-reviewed: 2026-09-04
 tags:
   - how-to
@@ -28,22 +28,22 @@ phase 6 then dropped the per-job container entirely.
   re-write's target only.
 - **Jobs:** run directly on the host as `erichblume` with indri's
   mise toolchain (labels are registered `:host`) — no per-job
-  container and no `runner-job-image` (phase 6). Docker Desktop stays
-  (right-sized 2cpu/4GiB) solely as the Dagger engine host; the host
-  `dagger`/`docker` CLIs reach its daemon at the default
-  `/var/run/docker.sock` — the role the privileged DinD sidecar used
-  to play.
+  container and no `runner-job-image` (phase 6), and no container
+  engine at all: dagger work runs on indri-build's colima VM
+  (eblume/blumeops#1357) and Docker Desktop is retired
+  (eblume/blumeops#1382).
 - **Labels:** advertises `indri` (the honest name) only. Originally
   also advertised `k8s` for compatibility with existing workflows;
   once blumeops workflows migrated to `runs-on: indri` the `k8s`
   label was dropped from `forgejo_runner_labels` (see
   [[forgejo-runner]]). Other forge repos still on `runs-on: k8s`
   will need to migrate before the label can be dropped there too.
-- **Registry mirror:** Docker Desktop's `daemon.json` gets
-  `registry-mirrors: ["http://host.docker.internal:5050"]` ([[zot]]
-  pull-through cache, replacing the DinD config's
-  `host.minikube.internal:5050`). Mirrors only affect docker.io
-  pulls (base images during builds).
+- **Registry mirror:** the indri-build colima profile gets
+  `docker.registry-mirrors: ["http://host.lima.internal:5050"]`
+  ([[zot]] pull-through cache — the replacement for the old Docker
+  Desktop `daemon.json` mirror, itself a replacement for the DinD
+  config's `host.minikube.internal:5050`). Mirrors only affect
+  docker.io pulls (base images during builds).
 
 ## One-time setup
 
@@ -84,9 +84,10 @@ both on the "Forgejo Secrets" 1Password item as `runner_indri_uuid` /
 mise run provision-indri -- --tags forgejo_runner
 ```
 
-If the role changed Docker Desktop's `daemon.json` (registry mirror),
-it does **not** restart Docker Desktop. Restart Docker Desktop
-manually at a quiet moment; until then the mirror simply isn't active.
+If the role changed the colima profile (hardware or registry mirror),
+the `Restart colima-build VM` handler stops the VM and its launchd
+wrapper restarts it with the new profile; jobs running at that moment
+lose their engine, which is why profile changes stay rare.
 
 ## indri-build runner (second, unprivileged)
 
@@ -102,9 +103,7 @@ role-rendered.
    - `brew install docker` on indri. The colima package ships no docker
      client, so job steps that need docker get the CLI from Homebrew
      (`/opt/homebrew/bin` is on the runner daemon's PATH, see the flake
-     unit); the socket path is the colima profile's. While Docker Desktop
-     is installed, its `/usr/local/bin/docker` comes earlier on that PATH
-     and is the client jobs actually run.
+     unit); the socket path is the colima profile's.
    - **The first switch that creates the `indri-build` user must run in a
      graphical session on indri** (console or Screen Sharing):
      `sudo -H darwin-rebuild switch --flake /etc/blumeops/darwin/indri#indri`.

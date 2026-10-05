@@ -20,3 +20,13 @@ mountType: virtiofs
 mounts:
   - location: /Users/indri-build
     writable: true
+docker:
+  # [[zot]] pull-through cache for docker.io pulls (base images, dagger
+  # engine bootstrap) — the replacement for the mirror the role used to
+  # manage in Docker Desktop's ~/.docker/daemon.json (eblume/blumeops#1382).
+  # host.lima.internal is how the colima VM names the host; zot serves
+  # plain http on 5050, hence the insecure-registries entry.
+  registry-mirrors:
+    - http://host.lima.internal:5050
+  insecure-registries:
+    - host.lima.internal:5050
