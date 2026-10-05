@@ -85,13 +85,13 @@ The forge has three namespaces:
 | `forge-reconcile` | push/PR/schedule/dispatch | `indri` | Reconcile the `agents` + `horkos-forge` bots' collaborations, webhooks, labels, and branch protections against repos.json + `forge/branch-protections.json`; the single forge drift check (weekly schedule + same-repo PRs; protections apply only from a human run) |
 | `argocd-deploy` | dispatch | `priv` | Warrant-gated ArgoCD deploy of a single app |
 | `argocd-sync-apps` | dispatch | `priv` | Warrant-gated sync of the app-of-apps root (`apps`) |
-| `branch-cleanup` | cron/dispatch | `indri` | Delete stale branches |
-| `build-blumeops` | dispatch | `indri` | Docs build + release |
-| `build-container` | push (main)/PR | `indri` → `nix-container-builder` | Nix container image builds; classify on indri, build on the nix builder ([[build-container-image]]) |
+| `branch-cleanup` | cron/dispatch | `indri-build` | Delete stale branches |
+| `build-blumeops` | dispatch | `indri-build` → `indri` | Changelog + docs build on the unprivileged runner; release + push on indri |
+| `build-container` | push (main)/PR | `indri-build` → `nix-container-builder` | Nix container image builds; classify on the unprivileged runner, build on the nix builder ([[build-container-image]]) |
 | `deploy-fly` | dispatch | `priv` | Warrant-gated deploy of the Fly.io proxy ([[flyio-proxy]]) |
-| `docs-checks` | PR/push | `indri` | Docs + changelog validation |
+| `docs-checks` | PR/push | `indri-build` | Docs + changelog validation |
 | `flake-update` | dispatch | `nix-container-builder` | Ringtail flake input update (native nix on the ringtail nix runner) |
-| `lint` | PR/push | `indri` | Repo lint (prek hooks) |
+| `lint` | PR/push | `indri-build` | Repo lint (prek hooks) |
 | `provision-indri` | dispatch | `indri` | Warrant-gated apply of a bound SHA's nix-darwin generation; fire-and-forget — green means the switch launched ([[provision]]) |
 | `run-script` | dispatch | `priv` | Warrant-gated one-off script run |
 
