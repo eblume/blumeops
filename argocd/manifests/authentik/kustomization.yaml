@@ -13,7 +13,7 @@ resources:
   - ingress-tailscale.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/authentik
-    newTag: v2026.2.6-24eb566-nix@sha256:fdaa7956834b916f5440586b1e3faaea3306505a71ab244be59b87500756a145
+    newTag: v2026.2.6-6a6c45d-nix@sha256:62582140feb4db1006dbe3b02c17d4cb93ed29da7b38f50445cc307865621e40
   - name: docker.io/library/redis
     newName: registry.ops.eblu.me/blumeops/authentik-redis
     newTag: v8.8.2-7eeb358-nix
