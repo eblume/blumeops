@@ -1,36 +1,48 @@
-# Reconcile the `agents` bot's forge access — collaborator grants, talos
-# webhooks, issue-scope labels — against argocd/manifests/talos/repos.json,
-# the file the talos pod's clone loop reads; a repo absent from repos.json is
-# revoked. PRs run --check so revocations are visible in review before the
-# merge that applies them.
+# Reconcile the `agents` + `horkos-forge` bots' forge desired state —
+# collaborator grants, talos/horkos webhooks, engagement labels, and branch
+# protections — against repos.json + forge/branch-protections.json, and
+# assert the blast-radius invariants the retired horkos-forge-drift tool used
+# to check (horkos-forge is not a site admin, holds write on exactly the
+# horkos_forge set and nowhere else, and blumeops:main stays whitelisted to
+# eblume alone). `--check` is the single forge drift check: it runs weekly
+# (schedule) and on same-repo PRs; fork/agent PRs have no secret and skip.
 #
-# Branch protections (forge/branch-protections.json) are checked here too,
-# but this workflow never applies them: the script refuses protection writes
-# under FORGE_REPO_WRITE_TOKEN, so a protection change fails the push run
-# loudly until a human runs `mise run forge-reconcile` from gilbert.
+# Branch protections (forge/branch-protections.json) are checked here, but this
+# workflow never applies them: the script refuses protection writes under
+# FORGE_REPO_WRITE_TOKEN, so a protection change needs a human `mise run
+# forge-reconcile` from gilbert. A PR that only changes declared state is
+# green — its intended drift is posted as a PR comment and (for the non-
+# protection halves) auto-applies on merge via the push trigger; the check
+# fails only on drift this PR does not intend, an invariant violation, or an
+# unreadable repo.
 #
 # Hook creation and the label half need secrets CI does not carry, so they
 # skip loudly in CI and a human follows up from gilbert with
-# `mise run forge-reconcile`. So does a hook *recreate*: every hook edit
-# is read back, and one Forgejo's edit API silently ignored (v16.0.2 drops
-# action_run_* on PATCH) is replaced through the create API, secret and all. FORGE_REPO_WRITE_TOKEN is an eblume PAT
+# `mise run forge-reconcile`. FORGE_REPO_WRITE_TOKEN is an eblume PAT
 # (write:repository,read:user) provisioned by the forgejo_actions_secrets
 # ansible role. Details: the script docstring in mise-tasks/forge-reconcile.
 name: Forge Reconcile
 
 on:
+  schedule:
+    # Weekly, Monday 07:00 UTC — carried over from horkos-forge-drift, shortly
+    # after the 06:00 branch-cleanup slot so the two scheduled jobs don't
+    # contend for the runner.
+    - cron: '0 7 * * 1'
   push:
     branches: [main]
     paths:
       - 'argocd/manifests/talos/repos.json'
       - 'forge/branch-protections.json'
       - 'mise-tasks/forge-reconcile'
+      - 'mise-tasks/horkos-forge-provision'
       - '.forgejo/workflows/forge-reconcile.yaml'
   pull_request:
     paths:
       - 'argocd/manifests/talos/repos.json'
       - 'forge/branch-protections.json'
       - 'mise-tasks/forge-reconcile'
+      - 'mise-tasks/horkos-forge-provision'
       - '.forgejo/workflows/forge-reconcile.yaml'
   workflow_dispatch:
     inputs:
@@ -47,14 +59,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # --skip-if-no-token is the bootstrap allowance: the secret is provisioned
-      # by the ansible role in this same change, so it cannot exist until after
-      # the first merge. Both steps log a loud yellow SKIPPED when it's unset.
-      # Once provisioned they behave normally; do the first real reconcile with a
-      # manual dispatch after `provision-indri`.
+      # --skip-if-no-token is the bootstrap allowance: the secret is
+      # provisioned by the ansible role in this same change, so it cannot
+      # exist until after the first merge. Both steps log a loud yellow
+      # SKIPPED when it's unset. Once provisioned they behave normally; do
+      # the first real reconcile with a manual dispatch after
+      # `provision-indri`.
 
-      # On a PR: report drift and fail, so the diff's real-world effect (notably
-      # any revocation) is on screen before anyone merges it. Never mutates.
+      # Same-repo PRs only: a fork/agent PR has no FORGE_REPO_WRITE_TOKEN, so
+      # --skip-if-no-token exits 0 and the check verifies nothing (a green tick
+      # that checked nothing is worse than no check) — the same reason
+      # horkos-forge-drift had no pull_request trigger. On a same-repo PR the
+      # check reports intended drift (warn, posted as a PR comment) without
+      # failing, and fails only on drift the PR does not intend, an invariant
+      # violation, or an unreadable repo. Never mutates.
       - name: Check (pull request)
         if: github.event_name == 'pull_request'
         env:
@@ -62,7 +80,22 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP"
-          uv run --script mise-tasks/forge-reconcile --check --skip-if-no-token 2>&1 | tee "$RUNNER_TEMP/forge-reconcile-reconcile.log"
+          uv run --script mise-tasks/forge-reconcile --check --skip-if-no-token \
+            --pr-base-ref "${GITHUB_BASE_REF:-}" \
+            --report-file "$RUNNER_TEMP/forge-reconcile-pr.md" \
+            2>&1 | tee "$RUNNER_TEMP/forge-reconcile-reconcile.log"
+
+      - name: Report intended drift to PR
+        # Runs only when the Check step passed (default success()) on a
+        # same-repo PR; the action self-no-ops when the notice file is absent
+        # (an in-sync PR or a fork PR that skipped) and posts a plain comment,
+        # so a posting hiccup does not fail a green check.
+        if: github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-pr-notice
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          file: forge-reconcile-pr.md
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
@@ -72,8 +105,21 @@ jobs:
         with:
           log-file: forge-reconcile-reconcile.log
 
+      # Schedule: check only, never apply. The non-PR Apply below would
+      # otherwise fire on a schedule run (event_name != 'pull_request'), so it
+      # is narrowed to push/dispatch.
+      - name: Check (schedule)
+        if: github.event_name == 'schedule'
+        env:
+          FORGE_REPO_WRITE_TOKEN: ${{ secrets.FORGE_REPO_WRITE_TOKEN }}
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
+          uv run --script mise-tasks/forge-reconcile --check --skip-if-no-token \
+            2>&1 | tee "$RUNNER_TEMP/forge-reconcile-reconcile.log"
+
       - name: Apply
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.event_name != 'schedule'
         env:
           FORGE_REPO_WRITE_TOKEN: ${{ secrets.FORGE_REPO_WRITE_TOKEN }}
         run: |

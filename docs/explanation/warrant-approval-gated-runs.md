@@ -363,9 +363,10 @@ to mirror into heph wholesale.
   minted by a human on gilbert precisely so that granting a persistent
   privileged identity stays a ceremony — but a ceremony's *result* can be
   undone in the forge UI in five seconds, and none of it is version-controlled
-  here, so no diff would ever show it. `mise run horkos-forge-drift` asserts the
-  four facts that bound the blast radius (exactly write, blumeops only, not a
-  site admin, not on `main`'s whitelist) and runs weekly. Read-only by
+  here, so no diff would ever show it. `forge-reconcile --check` asserts the
+  facts that bound the blast radius (exactly write on the flagged set and
+  nowhere else, not a site admin, not on `main`'s whitelist) and runs weekly,
+  as the single forge drift check. Read-only by
   construction: creating the credential and checking it are opposite kinds of
   operation and should not share a credential, let alone a job.
 
