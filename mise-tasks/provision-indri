@@ -33,13 +33,10 @@ fi
 COMMIT=$(git rev-parse HEAD)
 
 if [[ "$run_rebuild" == true ]]; then
-    # Update flake.lock via `nix flake lock` in a nixos/nix container before
-    # deploying. `nix flake lock` only resolves inputs — it does not evaluate
-    # darwinConfigurations — so this works from any controller. See [[provision]].
+    # Native nix, or the nixos/nix container on a nixless controller (gilbert).
+    # See [[provision]].
     echo "Updating darwin/indri/flake.lock..."
-    docker run --rm -v "$PWD":/workspace -w /workspace/darwin/indri \
-        nixos/nix:2.34.4 nix --extra-experimental-features 'nix-command flakes' \
-        flake lock --accept-flake-config
+    "$(dirname "$0")/_flake_lock" darwin/indri
 
     if ! git diff --quiet darwin/indri/flake.lock; then
         git add darwin/indri/flake.lock

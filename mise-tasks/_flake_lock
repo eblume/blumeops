@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#MISE hide=true
+# Lock newly added inputs of the flake in <dir> (`nix flake lock` resolves
+# inputs only, never evaluates, so it runs on any controller):
+#
+#     "$(dirname "$0")/_flake_lock" darwin/indri
+#
+# Native nix where present (indri, ringtail, the agent pod); otherwise the
+# pinned nixos/nix container, for controllers without nix (gilbert).
+set -euo pipefail
+
+dir="$1"
+if command -v nix >/dev/null 2>&1; then
+    cd "$dir"
+    exec nix --extra-experimental-features 'nix-command flakes' \
+        flake lock --accept-flake-config
+fi
+
+"$(dirname "$0")/_require" docker
+exec docker run --rm -v "$PWD":/workspace -w "/workspace/$dir" \
+    nixos/nix:2.34.4 nix --extra-experimental-features 'nix-command flakes' \
+    flake lock --accept-flake-config
