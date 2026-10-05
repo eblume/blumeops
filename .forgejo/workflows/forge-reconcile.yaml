@@ -3,8 +3,10 @@
 # protections — against repos.json + forge/branch-protections.json, and
 # assert the blast-radius invariants the retired horkos-forge-drift tool used
 # to check (horkos-forge is not a site admin, holds write on exactly the
-# horkos_forge set and nowhere else, and blumeops:main stays whitelisted to
-# eblume alone). `--check` is the single forge drift check: it runs weekly
+# horkos_forge set and nowhere else, blumeops:main stays whitelisted to
+# eblume alone, and the Actions-secret names declared by the
+# forgejo_actions_secrets role match the live forge). `--check` is the single
+# forge drift check: it runs weekly
 # (schedule) and on same-repo PRs; fork/agent PRs have no secret and skip.
 #
 # Branch protections (forge/branch-protections.json) are checked here, but this
@@ -36,6 +38,7 @@ on:
       - 'forge/branch-protections.json'
       - 'mise-tasks/forge-reconcile'
       - 'mise-tasks/horkos-forge-provision'
+      - 'ansible/roles/forgejo_actions_secrets/'
       - '.forgejo/workflows/forge-reconcile.yaml'
   pull_request:
     paths:
@@ -43,6 +46,7 @@ on:
       - 'forge/branch-protections.json'
       - 'mise-tasks/forge-reconcile'
       - 'mise-tasks/horkos-forge-provision'
+      - 'ansible/roles/forgejo_actions_secrets/'
       - '.forgejo/workflows/forge-reconcile.yaml'
   workflow_dispatch:
     inputs:

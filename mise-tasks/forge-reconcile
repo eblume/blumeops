@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.2"]
+# dependencies = ["httpx==0.28.1", "pyyaml==6.0.3", "rich==15.0.0", "typer==0.27.2"]
 # ///
 #MISE description="[human] Reconcile eblume's forge desired state — the agents + horkos-forge bots' collaborations, webhooks, and labels (repos.json) and branch protections (forge/branch-protections.json); --check is the single forge drift check (weekly + same-repo PRs)"
 #MISE alias=["ara","agent-repo-access"]
@@ -135,6 +135,14 @@ The secret is `FORGE_…`, not `FORGEJO_…`: Forgejo reserves the `FORGEJO_`
 prefix for the Actions tokens it injects itself, and rejects creation of a
 secret using it with HTTP 400.
 
+`--check` also drift-checks the *names* of the repo Actions secrets declared
+in the `forgejo_actions_secrets` ansible role, which owns the values (1Password
+and the PUT/DELETE) and would otherwise check name-level drift only when a
+human ran `provision-indri --check`. So a missing or extra live name now
+fails the weekly schedule and the same-repo PR check without a human in the
+loop; the names are read from the role (it stays the single source) and no
+value is ever touched here.
+
 Usage:
     mise run forge-reconcile --dry-run    # preview (do this first)
     mise run forge-reconcile              # apply
@@ -152,6 +160,7 @@ from urllib.parse import quote
 
 import httpx
 import typer
+import yaml
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
@@ -335,6 +344,20 @@ VALID_ACCESS = frozenset({"write", "read", "none"})
 # The branch-protection half's policy: one entry per rule, keyed by
 # (repo, rule_name), each repo under repos.json's owner.
 PROTECTIONS_PATH = Path(__file__).resolve().parent.parent / "forge" / "branch-protections.json"
+
+# The Actions-secret *name* declarations live in the ansible role, which
+# owns the values — we read names from here so the role stays the single
+# source and nothing is duplicated. Shape: {"forgejo_actions_secrets_repos":
+#   [{"repo": "name", "secrets": [{"name": "SECRET", ...}]}]}; value_var is
+# ignored (values stay with the role / 1Password).
+ACTIONS_SECRETS_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "ansible"
+    / "roles"
+    / "forgejo_actions_secrets"
+    / "defaults"
+    / "main.yml"
+)
 # Every editable field of a Forgejo v16 branch protection (the API's
 # BranchProtection minus branch_name — a deprecated alias of rule_name — and
 # the timestamps). A rule must declare all of them: an undeclared field would
@@ -907,6 +930,73 @@ def check_main_whitelist(client, owner, report):
         report.ok(what)
 
 
+def declared_actions_secret_names() -> dict[str, list[str]]:
+    """Per-repo Actions-secret names declared in the ansible role.
+
+    Read straight from ACTIONS_SECRETS_PATH so the role stays the only source
+    of the names — it owns the values (1Password) and the PUT/DELETE; we read
+    names to drift-check them, and value_var is ignored. A malformed read is a
+    loud failure, not an empty dict: an empty read would look like "nothing
+    declared" and pass against a live forge that carries secrets."""
+    try:
+        data = yaml.safe_load(ACTIONS_SECRETS_PATH.read_text())
+    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        console.print(f"[red]Cannot read declared Actions secrets from {ACTIONS_SECRETS_PATH.name}: {escape(str(exc))}[/red]")
+        raise typer.Exit(1) from exc
+    if not isinstance(data, dict):
+        console.print(f"[red]{ACTIONS_SECRETS_PATH.name}: expected a mapping, got {type(data).__name__}[/red]")
+        raise typer.Exit(1)
+    repos = data.get("forgejo_actions_secrets_repos")
+    if not isinstance(repos, list):
+        console.print(f"[red]{ACTIONS_SECRETS_PATH.name}: missing or non-list `forgejo_actions_secrets_repos`[/red]")
+        raise typer.Exit(1)
+    out: dict[str, list[str]] = {}
+    for entry in repos:
+        if not isinstance(entry, dict) or not isinstance(entry.get("repo"), str):
+            console.print(f"[red]{ACTIONS_SECRETS_PATH.name}: a repo entry is not a mapping with a `repo` name: {escape(str(entry))}[/red]")
+            raise typer.Exit(1)
+        secrets = entry.get("secrets", [])
+        if not isinstance(secrets, list):
+            console.print(f"[red]{ACTIONS_SECRETS_PATH.name}: {entry['repo']} `secrets` is not a list[/red]")
+            raise typer.Exit(1)
+        for sec in secrets:
+            if not isinstance(sec, dict) or not isinstance(sec.get("name"), str):
+                console.print(f"[red]{ACTIONS_SECRETS_PATH.name}: {entry['repo']} has a secret without a string `name`: {escape(str(sec))}[/red]")
+                raise typer.Exit(1)
+        out[entry["repo"]] = [sec["name"] for sec in secrets]
+    return out
+
+
+def check_actions_secret_names(client, owner, report):
+    """Live Actions-secret names on the role's declared repos match the
+    role's declarations — the name-level drift the role's --check reports but
+    that only ran when a human ran it. A missing name (declared, not live) or
+    an extra one (live, not declared) is drift; a check that cannot read a
+    repo's secrets is a failure, like every check that cannot see. Repos the
+    role does not declare are out of scope: the role is authoritative for its
+    own list, and we do not assert secret-freedom on repos it never manages.
+    """
+    declared = declared_actions_secret_names()
+    for repo in sorted(declared):
+        what = f"Actions secret names on {owner}/{repo} match the role"
+        live = actions_secrets(client, owner, repo)
+        if live is None:
+            report.unknown(what, "could not read the repo's Actions secrets")
+            continue
+        want = set(declared[repo])
+        have = set(live)
+        missing, extra = sorted(want - have), sorted(have - want)
+        if missing or extra:
+            parts = []
+            if missing:
+                parts.append(f"missing: {', '.join(missing)}")
+            if extra:
+                parts.append(f"undeclared live: {', '.join(extra)}")
+            report.fail(what, "; ".join(parts))
+        else:
+            report.ok(what)
+
+
 # --pr-base-ref reads the PR base's declared state from git. The CI checkout
 # is shallow (PR merge ref only), so the base ref is not a local branch — fetch
 # it shallow to origin/<ref> first, then read that. The ref is validated against
@@ -1231,6 +1321,7 @@ def main(
             env_findings = Findings()
             check_site_admin(client, env_findings)
             check_main_whitelist(client, owner, env_findings)
+            check_actions_secret_names(client, owner, env_findings)
             if env_findings.failures:
                 raise typer.Exit(1)
 

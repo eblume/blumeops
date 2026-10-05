@@ -69,6 +69,10 @@ def policy(tmp_path, monkeypatch):
     monkeypatch.setattr(ara, "POLICY_PATH", tmp_path / "repos.json")
     protections = tmp_path / "branch-protections.json"
     protections.write_text(json.dumps({"rules": []}), encoding="utf-8")
+    # No declared Actions-secret names by default: the name-drift check (on
+    # every --check) iterates the role's declared repos, and a test that is
+    # not about Actions secrets should not also see the real role's list.
+    monkeypatch.setattr(ara, "declared_actions_secret_names", dict)
     monkeypatch.setattr(ara, "PROTECTIONS_PATH", protections)
     return set_repos
 
@@ -109,8 +113,8 @@ class FakeForge:
         self.permission = {}  # repo -> agents permission
         self.horkos_permission = {}  # repo -> horkos-forge permission
         self.secrets: (
-            dict[str, list[str]] | None
-        ) = {}  # repo -> names; None = endpoint 403s
+            dict[str, list[str] | None] | None
+        ) = {}  # repo -> names; a whole-None value or a per-repo None = 403s
         self.secrets_body: dict | list | None = None  # raw-body override (shape test)
         self.hooks_status = 200  # non-200: the hooks list is unreadable
         self.hooks: dict[str, list[dict]] = {}  # repo -> served hook objects
@@ -1082,6 +1086,150 @@ def test_invariant_main_whitelist_valid_is_ok(policy, monkeypatch):
         findings = ara.Findings()
         ara.check_main_whitelist(c, "eblume", findings)
     assert findings.failures == []
+
+
+# --- Actions-secret name drift (names read from the ansible role) -------------
+
+
+def _declared(monkeypatch, mapping):
+    monkeypatch.setattr(ara, "declared_actions_secret_names", lambda: dict(mapping))
+
+
+def test_actions_secret_names_in_sync(policy, monkeypatch):
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": ["A", "B"]}
+    _declared(monkeypatch, {"svc": ["A", "B"]})
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_actions_secret_names(c, "eblume", findings)
+    assert findings.failures == []
+
+
+def test_actions_secret_names_missing_fails(policy, monkeypatch):
+    # Declared but not live: the role PUTs it, so a missing name is drift.
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": ["A"]}
+    _declared(monkeypatch, {"svc": ["A", "B"]})
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_actions_secret_names(c, "eblume", findings)
+    assert any("missing: B" in f for f in findings.failures)
+
+
+def test_actions_secret_names_extra_fails(policy, monkeypatch):
+    # Live but not declared: the role DELETEs it, so an extra name is drift
+    # (the cv `secrets: []` case, where any live name is undeclared).
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": ["A", "STALE"]}
+    _declared(monkeypatch, {"svc": ["A"]})
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_actions_secret_names(c, "eblume", findings)
+    assert any("STALE" in f and "undeclared" in f for f in findings.failures)
+
+
+def test_actions_secret_names_empty_declaration_in_sync(policy, monkeypatch):
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": []}
+    _declared(monkeypatch, {"svc": []})
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_actions_secret_names(c, "eblume", findings)
+    assert findings.failures == []
+
+
+def test_actions_secret_names_unreadable_fails(policy, monkeypatch):
+    # `secrets` keyed with repo -> None makes the endpoint 403: a check that
+    # cannot see is a failure, not a pass.
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": None}
+    _declared(monkeypatch, {"svc": ["A"]})
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_actions_secret_names(c, "eblume", findings)
+    assert any("could not read" in f for f in findings.failures)
+
+
+def test_declared_actions_secret_names_parses_role(tmp_path, monkeypatch):
+    # The real role shape, read straight from YAML: value_var ignored, empty
+    # repo lists kept (they are the authoritative-delete case).
+    path = tmp_path / "main.yml"
+    path.write_text(
+        "forgejo_actions_secrets_repos:\n"
+        "  - repo: blumeops\n"
+        "    secrets:\n"
+        "      - name: FORGE_REPO_WRITE_TOKEN\n"
+        "        value_var: forgejo_secret_repo_write_token\n"
+        "      - name: BLUMEOPS_CI_OP_TOKEN\n"
+        "        value_var: forgejo_secret_blumeops_ci_op_token\n"
+        "  - repo: cv\n"
+        "    secrets: []\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(ara, "ACTIONS_SECRETS_PATH", path)
+    names = ara.declared_actions_secret_names()
+    assert names["blumeops"] == ["FORGE_REPO_WRITE_TOKEN", "BLUMEOPS_CI_OP_TOKEN"]
+    assert names["cv"] == []
+
+
+def test_declared_actions_secret_names_malformed_fails(tmp_path, monkeypatch):
+    # A broken read must fail loudly (the real file can only fail the check),
+    # never parse to an empty dict that would pass against a secret-carrying
+    # live forge.
+    path = tmp_path / "main.yml"
+    path.write_text(
+        "forgejo_actions_secrets_repos: {not: a: list: here\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(ara, "ACTIONS_SECRETS_PATH", path)
+    with pytest.raises(typer.Exit):
+        ara.declared_actions_secret_names()
+
+
+def test_check_flags_actions_secret_name_drift(policy, run_main, monkeypatch):
+    # End-to-end: grants in sync, but a live name the role no longer declares
+    # fails --check — the name drift that previously only a human's
+    # provision-indri --check would have caught.
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": ["STALE"]}
+    forge.horkos_user = _valid_user(is_admin=False)
+    forge.protections = {"blumeops": [_blumeops_main_rule()]}
+    forge.install(monkeypatch)
+    _declared(monkeypatch, {"svc": []})
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1, out
+    assert "Actions secret names" in out
+    assert "STALE" in out
+
+
+def test_check_actions_secret_names_in_sync_is_green(policy, run_main, monkeypatch):
+    # The positive end-to-end: grants in sync and the live names matching the
+    # role's declarations pass the whole --check (the baseline the first real
+    # weekly run should report).
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": ["A", "B"]}
+    forge.horkos_user = _valid_user(is_admin=False)
+    forge.protections = {"blumeops": [_blumeops_main_rule()]}
+    forge.install(monkeypatch)
+    _declared(monkeypatch, {"svc": ["A", "B"]})
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "In sync." in out
 
 
 # --- PR-check semantics (same-repo PRs only) ---------------------------------

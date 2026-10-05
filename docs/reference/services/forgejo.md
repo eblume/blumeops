@@ -127,6 +127,13 @@ write-only, so value drift is invisible to the role):
 mise run provision-indri -- --tags forgejo_actions_secrets
 ```
 
+`forge-reconcile --check` reads the *names* of these declared secrets from the
+role (the role stays the only source; values are never touched) and fails the
+weekly schedule and same-repo PR check on a missing or undeclared live name —
+so name-level drift is caught on a schedule, not only on a human's
+`provision-indri --check`. The role's PUT/DELETE remains the authoritative
+write path; this is the check half of the same drift.
+
 | Repo | Secrets | Purpose |
 |------|---------|---------|
 | `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `forge-reconcile` reconcile + drift check (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
