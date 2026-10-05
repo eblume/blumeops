@@ -1,0 +1,1 @@
+Drop the retired agents-m2m identity from the authentik blueprint, worker env and ExternalSecret; the talos M2M issuer list collapses to talos-m2m (step 4 leg D; live-object deactivation is the post-merge ceremony).

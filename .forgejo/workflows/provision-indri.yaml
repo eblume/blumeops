@@ -5,7 +5,7 @@
 # the documented, accepted runner story for this box, so no polkit or
 # template-unit dance; contrast ringtail-rebuild) and drives the proven
 # zero-prompt path: `mise run provision-indri -- --tags rebuild`. That runs
-# the task-side guards (docker-pinned flake-lock check, pushed-HEAD/ancestry
+# the task-side guards (flake-lock check, pushed-HEAD/ancestry
 # guard) and the play's rebuild-tagged pre_tasks: checkout the bound SHA into
 # a root-owned /etc/blumeops, detached `sudo -n -H nohup sh -c 'cd /;
 # darwin-rebuild switch --flake /etc/blumeops/darwin/indri#indri'`. The

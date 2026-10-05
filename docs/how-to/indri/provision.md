@@ -1,7 +1,7 @@
 ---
 title: Provision Indri
-modified: 2026-10-03
-last-reviewed: 2026-10-03
+modified: 2026-10-04
+last-reviewed: 2026-10-04
 tags:
   - how-to
   - indri
@@ -17,8 +17,9 @@ like ringtail's: two guards, then the play.
 
 ## What the task does
 
-1. `nix flake lock` in a nixos/nix container — `nix flake lock` only
-   resolves inputs, so it works from any controller. If
+1. `nix flake lock` — it only resolves inputs (never evaluates
+   darwinConfigurations), so it works from any controller: native nix where
+   present, the `nixos/nix` container on gilbert, which has no nix. If
    `darwin/indri/flake.lock` changes, the task stages it and exits: commit,
    push, re-run.
 2. Fail if HEAD is not pushed to origin. An unreachable forge fails here

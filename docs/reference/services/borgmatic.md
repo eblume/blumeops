@@ -19,6 +19,7 @@ Daily backup system using Borg backup, running on indri.
 | **Main config** | `~/.config/borgmatic/config.yaml` |
 | **Operational config** | `~/.config/borgmatic/operational.yaml` |
 | **Photos config** | `~/.config/borgmatic/photos.yaml` |
+| **Talos-data config** | `~/.config/borgmatic/talos-data.yaml` (run with main at 2:00 AM) |
 | **Main schedule** | Daily at 2:00 AM |
 | **Operational schedule** | Daily at 3:00 AM |
 | **Photos schedule** | Daily at 4:00 AM |
@@ -105,6 +106,9 @@ the archive-tier config no longer targets any dump dir.
 **Immich photo library** (separate config, BorgBase offsite only):
 - `/Volumes/photos/library` and `/Volumes/photos/upload` (sifaka SMB mount, ~128 GB); excludes `encoded-video/`, `thumbs/`, `backups/` — regenerable from originals
 
+**Talos session state** (separate config, never pruned):
+- `/home/talos/data` — every agent session ever (transcripts, service state, `session-index.sqlite`), in-pod tar → `~/.local/share/borgmatic/k8s-dumps-talos/talos-data.tar`, `talos-data-*` archives in the same two repos. The config has no `keep_*` keys by design, and the main config's `match_archives: 'indri-*'` keeps any future prune off the prefix (heph 01M0GA6JPGQF96AM5JZKA37YSV). Single-session restore: [[backups]] → "Restoring a Single Session".
+
 **Not backed up (by design):**
 - Forgejo pull mirrors (`~/forgejo/data/forgejo-repositories/mirrors`) — re-fetchable from upstream
 - ZIM archives (re-downloadable)
@@ -126,6 +130,8 @@ separate prune PR, eblume/blumeops#1417). `/Volumes/shower` lives in the
 operational tier; with `keep_yearly: -1`, each year's final archive is kept
 forever, so the shower archive record (prize photos + final DB snapshot) still
 survives in the yearlies.
+
+Not enforced: no prune has ever run and both main repos are append-only, so every archive produced so far is still present (264 in sifaka-local, 226 in borgbase-offsite as of 2026-10-04). The configured policy above is the policy a future prune would apply to `indri-*` archives only; talos-data is structurally exempt. See #1409.
 
 ## Verification
 
@@ -166,6 +172,7 @@ repository (`sifaka-local`, `borgbase-offsite`, `sifaka-operational`,
 `borgbase-immich-photos`):
 - `borgmatic_up` - Repository accessibility
 - `borgmatic_last_archive_timestamp` - Last backup time
+- `borgmatic_talos_data_last_success_timestamp` - Newest never-pruned talos-data archive, per repo (per-source signal the talos session reaper checks)
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
 
 The per-source size breakdown (`borgmatic_source_size_bytes`) is collected for
@@ -179,11 +186,7 @@ The operational repo's metrics are scoped to the `operational-*` prefix. The
 main config no longer targets that repo, so a fresh `operational-*` archive
 there means the operational run itself succeeded.
 
-**Alert:** `BorgmaticStale` (Grafana, ntfy-infra) fires when any repo's newest
-archive is older than 30h (for 1h) — roughly 7h after a missed nightly run,
-well before BorgBase's own 2-missed-runs email. The main offsite repo was
-previously unmonitored (only sifaka + photos were scraped), so a failed offsite
-run produced no metric and no alert; it is now collected explicitly.
+**Alert:** two Grafana rules (ntfy-infra): `BorgmaticStale` fires when any repo's newest main archive is older than 30h (for 1h) — missing series = OK; `BorgmaticStaleTalosData` fires when the newest reported talos-data archive is older than 30h, or when no repo reports the gauge at all (before the first archive lands). `BorgmaticStale` fires roughly 7h after a missed nightly run, well before BorgBase's own 2-missed-runs email. The main offsite repo was previously unmonitored (only sifaka + photos were scraped), so a failed offsite run produced no metric and no alert; it is now collected explicitly.
 
 ## Related
 

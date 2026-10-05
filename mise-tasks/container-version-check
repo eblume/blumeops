@@ -8,8 +8,7 @@
 """Validate that container versions are consistent across all declaration sites.
 
 For each container directory under containers/, checks:
-1. A default.nix must exist and produce a version (declared locally, or via
-   `nix eval` in a nixos/nix container for unmodified nixpkgs packages)
+1. A default.nix must exist and declare a version in `version = "..."`
 2. A matching entry in service-versions.yaml must exist with non-null current-version
 3. The resolved versions from (1) and (2) must agree
 
@@ -22,7 +21,6 @@ Usage:
 """
 
 import re
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -44,10 +42,7 @@ CONTAINER_TO_SERVICE = {
     "kiwix-serve": "kiwix",
 }
 
-# Container dir name → nixpkgs package name for nixpkgs version lookups.
-# Used for containers that use an unmodified nixpkgs package (version matches upstream).
-# Containers with local overrides (e.g. ntfy) declare version in default.nix
-# and are detected automatically via NIX_VERSION_PATTERN.
+# Containers whose version must be declared in default.nix (a member without one fails the check).
 NIX_PACKAGE_MAP = {
     "authentik": "authentik",
 }
@@ -93,43 +88,13 @@ def changed_containers() -> set[str] | None:
 
 
 def get_nix_version(container_name: str, nix_file: Path) -> str | None:
-    """Extract nix package version. Tries local nix file first, then a nixos/nix container."""
-    # Try extracting version declared directly in the nix file (local overrides)
+    """Extract the version declared in the container's default.nix."""
+    # Version must be declared directly in the nix file.
     match = NIX_VERSION_PATTERN.search(nix_file.read_text())
     if match:
         return match.group(1)
 
-    # Fall back to a nixos/nix container eval for unmodified nixpkgs packages
-    pkg = NIX_PACKAGE_MAP.get(container_name)
-    if pkg is None:
-        return None
-
-    if not shutil.which("docker"):
-        return None
-
-    # Image pin kept in sync with the nixos/nix pin in provision-ringtail.
-    result = subprocess.run(
-        [
-            "docker",
-            "run",
-            "--rm",
-            "nixos/nix:2.34.4",
-            "nix",
-            "--extra-experimental-features",
-            "nix-command flakes",
-            "eval",
-            "--raw",
-            f"nixpkgs#{pkg}.version",
-        ],
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-        check=False,
-    )
-    if result.returncode != 0:
-        return None
-
-    return result.stdout.strip().splitlines()[-1].strip()
+    return None
 
 
 @app.command()

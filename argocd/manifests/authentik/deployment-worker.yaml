@@ -74,16 +74,6 @@ spec:
                 secretKeyRef:
                   name: authentik-config
                   key: forgejo-client-secret
-            - name: AUTHENTIK_AGENTS_M2M_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: authentik-config
-                  key: agents-m2m-client-secret
-            - name: AUTHENTIK_AGENTS_M2M_APP_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: authentik-config
-                  key: agents-m2m-app-password
             - name: AUTHENTIK_TALOS_M2M_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:

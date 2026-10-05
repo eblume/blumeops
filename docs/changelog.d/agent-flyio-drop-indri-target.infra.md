@@ -1,0 +1,1 @@
+Drop `tag:flyio-target` from indri: the Fly.io proxy reaches Caddy only via the fly-only `:8443` listener (`tag:flyio-origin`), so indri's public `:443` site is no longer reachable from the proxy. The `tag:flyio-target:443` grant remains for the Loki and Prometheus Tailscale Ingress pods' Alloy pushes.

@@ -46,10 +46,8 @@ The API (`POST /api/run`, `/api/crons`, …) trusts two bearer issuers: the
 `TALOS_OIDC_M2M_ISSUER` is set — the fleet's shared **`talos-m2m`** machine
 identity that `agent-health` already uses. So a script or service drives talos
 with the `talos-m2m` credential, no browser session and no talos-specific
-secret. `TALOS_OIDC_M2M_ISSUER` is list-valued (step 4): it carries both the
-`talos-m2m` issuer and, until leg D, the legacy `agents-m2m` one, so laggard
-checkouts minting the old name keep working. A token for the wrong issuer
-fails `iss`/`aud`, so a second issuer never widens who the first accepts
+secret. `TALOS_OIDC_M2M_ISSUER` is list-valued (step 4) and carries the
+fleet's `talos-m2m` issuer. A token for any other issuer fails `iss`/`aud`
 (talos `src/jwt.ts`, `verifyBearer`).
 
 A third trigger surface is the Forgejo webhook forge loop ([[talos-design]]

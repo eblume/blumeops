@@ -1,7 +1,7 @@
 ---
 title: Container Versioning and Tags
-modified: 2026-08-18
-last-reviewed: 2026-08-18
+modified: 2026-10-04
+last-reviewed: 2026-10-04
 tags:
   - how-to
   - containers
@@ -28,8 +28,7 @@ what the sync check reads.
 
 `mise run container-version-check` validates, per container under `containers/`:
 
-1. a `default.nix` exists and yields a version (parsed from `version = "..."`,
-   or via a nixos/nix container `nix eval` for unmodified nixpkgs packages), and
+1. a `default.nix` exists and yields a version (parsed from `version = "..."`), and
 2. a matching `service-versions.yaml` entry exists with a non-null
    `current-version` that agrees (leading `v` ignored).
 
@@ -66,8 +65,7 @@ docker run --rm nixos/nix:2.34.4 nix --extra-experimental-features 'nix-command 
 ```
 
 The `nix-build` in a nixos/nix container produces a docker-archive tarball
-(`docker load`-able); the same `nix eval` in a nixos/nix container is what the sync check falls
-back to for unmodified nixpkgs packages.
+(`docker load`-able).
 
 ## Related
 

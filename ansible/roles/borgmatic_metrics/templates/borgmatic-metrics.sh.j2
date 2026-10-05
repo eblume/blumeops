@@ -42,6 +42,8 @@ cat > "$TEMP_FILE" << 'EOF'
 # TYPE borgmatic_last_archive_timestamp gauge
 # HELP borgmatic_last_archive_duration_seconds Duration of the last backup in seconds
 # TYPE borgmatic_last_archive_duration_seconds gauge
+# HELP borgmatic_talos_data_last_success_timestamp Unix timestamp of the newest talos-data-* (non-checkpoint) archive
+# TYPE borgmatic_talos_data_last_success_timestamp gauge
 # HELP borgmatic_source_size_bytes Size of each backup source directory in bytes
 # TYPE borgmatic_source_size_bytes gauge
 # HELP borgmatic_last_verified_timestamp Unix timestamp of the last successful borg check of the repo
@@ -82,6 +84,18 @@ collect_repo_metrics() {
     # another config can't mask a failed backup.
     filtered_archives=$(echo "$archives_json" | $JQ_CMD -c '.archives | if length > 0 then . else [] end | if $p == "" then . else map(select(.name | startswith($p))) end' --arg p "$archive_prefix")
     archive_count=$(echo "$filtered_archives" | $JQ_CMD 'length')
+
+    # Per-source success signal for the never-pruned talos-data archives: a
+    # missing series means this repo never produced one. borg 1.x `list`
+    # omits .checkpoint archives by default; the endswith guard is
+    # belt-and-braces (see eblume/blumeops#1409).
+    talos_archive=$(echo "$archives_json" | $JQ_CMD -r '(.archives // []) | map(select((.name | startswith("talos-data-")) and (.name | endswith(".checkpoint") | not))) | sort_by(.start) | if length > 0 then .[-1].start else empty end')
+    if [ -n "$talos_archive" ]; then
+        talos_timestamp=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${talos_archive%.*}" "+%s" 2>/dev/null || echo "")
+        if [ -n "$talos_timestamp" ] && [ "$talos_timestamp" != "0" ]; then
+            echo "borgmatic_talos_data_last_success_timestamp{repo=\"$repo_label\"} $talos_timestamp" >> "$TEMP_FILE"
+        fi
+    fi
 
     cat >> "$TEMP_FILE" << EOF
 borgmatic_up{repo="$repo_label"} 1

@@ -61,7 +61,7 @@ Three layers of reverse proxying expose services at different scopes:
 
 **[[caddy]]** runs natively on [[indri]] and provides a unified `*.ops.eblu.me` wildcard with TLS (Let's Encrypt via DNS-01/Gandi). It proxies to both local services (Forgejo, Zot, Jellyfin) and Kubernetes services (via their Tailscale Ingress endpoints). Caddy serves both tailnet clients and public traffic (via the Fly proxy).
 
-**[[flyio-proxy]]** runs on Fly.io for select services that need public internet access. Traffic hits Fly.io's Anycast edge, terminates TLS, and tunnels back to Caddy on indri over a direct Tailscale WireGuard connection. The proxy uses `tag:flyio-target` ACLs — indri carries this tag so the proxy can reach Caddy, but cannot route to arbitrary services on the tailnet.
+**[[flyio-proxy]]** runs on Fly.io for select services that need public internet access. Traffic hits Fly.io's Anycast edge, terminates TLS, and tunnels back to Caddy on indri over a direct Tailscale WireGuard connection. The proxy reaches Caddy via `tag:flyio-origin` on 8443 (Caddy's fly-only listener), and its other outbound grant — `tag:flyio-target` on 443 — covers only the k8s Ingress endpoints for the Alloy metrics/logs pushes. It cannot route to arbitrary services on the tailnet.
 
 See [[routing]] for the full service URL table and port map.
 
