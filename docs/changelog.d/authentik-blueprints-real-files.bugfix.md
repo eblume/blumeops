@@ -1,0 +1,1 @@
+authentik: the image now ships its built-in blueprints as real files and the build fails on any symlink under `/blueprints`, so the default, system and migration blueprints actually apply (#1443 changed an entrypoint loop that never ran).

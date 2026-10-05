@@ -27,27 +27,18 @@ let
     exec "${authentik-django}/lifecycle/ak" "$@"
   '';
 
-  # Container entrypoint: copy built-in blueprints into /blueprints, then run ak.
-  # buildLayeredImage's extraCommands can't access store paths from contents
-  # (they're in separate layers), so the copy happens at container start.
-  # Copy, never symlink: authentik's retrieve_file resolve()s each blueprint
-  # path and rejects anything outside blueprints_dir ("Invalid blueprint
-  # path"), so a symlink into /nix/store makes every default/, system/ and
-  # migrations/ blueprint fail to apply.
-  entrypoint = pkgs.writeShellScript "authentik-entrypoint" ''
-    for item in ${authentik-django}/blueprints/*/; do
-      name=$(basename "$item")
-      [ ! -e "/blueprints/$name" ] && cp -R "$item" "/blueprints/$name" 2>/dev/null || true
-    done
-    exec ${ak}/bin/ak "$@"
-  '';
 in
 
 pkgs.dockerTools.buildLayeredImage {
   name = "blumeops/authentik";
+  # authentik-django is deliberately NOT in contents: contents get linked into
+  # the image root, which put a /blueprints tree of symlinks into /nix/store
+  # there. authentik's retrieve_file resolve()s each blueprint path and rejects
+  # anything outside blueprints_dir ("Invalid blueprint path"), so every
+  # built-in blueprint failed. It still ships in the image as a dependency of
+  # ak, which references it by store path.
   contents = [
     ak
-    authentik-django
     authentik-server
     pkgs.bashInteractive
     pkgs.coreutils
@@ -55,16 +46,24 @@ pkgs.dockerTools.buildLayeredImage {
     pkgs.tzdata
   ];
 
-  # Create /blueprints as world-writable so user 65534 can create symlinks at runtime.
-  # authentik-django hardcodes blueprints_dir to $out/blueprints; the AUTHENTIK_BLUEPRINTS_DIR
-  # env var overrides it to /blueprints, where custom blueprints are mounted by k8s ConfigMap.
+  # /blueprints holds the built-in blueprints as real files (AUTHENTIK_BLUEPRINTS_DIR
+  # points here; custom/ is the k8s ConfigMap mount). Copy dereferenced (-L) and
+  # fail the build if any symlink survives: a symlink into /nix/store resolves
+  # outside blueprints_dir and authentik silently refuses to apply it.
   extraCommands = ''
     mkdir -p blueprints tmp
+    cp -rL ${authentik-django}/blueprints/. blueprints/
+    chmod -R u+w blueprints
+    if [ -n "$(find blueprints -type l)" ]; then
+      echo "error: symlinks under /blueprints; authentik will reject them:" >&2
+      find blueprints -type l >&2
+      exit 1
+    fi
     chmod 777 blueprints tmp
   '';
 
   config = {
-    Entrypoint = [ "${entrypoint}" ];
+    Entrypoint = [ "${ak}/bin/ak" ];
     Env = [
       "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
       "TZDIR=${pkgs.tzdata}/share/zoneinfo"
