@@ -172,7 +172,7 @@ ACL test:
 },
 ```
 
-Indri carries `tag:flyio-target` so the Fly proxy can reach Caddy. No per-service tagging is needed — Caddy handles routing to all services.
+Caddy serves the proxy from its fly-only `:8443` listener (`tag:flyio-origin`) — flag the service `fly_proxied` in the caddy role so it is served there. No per-service Tailscale tagging is needed — Caddy handles routing to all services.
 
 Deploy: `mise run tailnet-preview` then `mise run tailnet-up`.
 
