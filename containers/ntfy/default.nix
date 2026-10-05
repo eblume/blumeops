@@ -1,21 +1,21 @@
 # Nix-built ntfy push notification server
-# Builds v2.24.0 from forge mirror
+# Builds v2.28.0 from forge mirror
 # Built with dockerTools.buildLayeredImage for efficient layer caching
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "2.24.0";
+  version = "2.28.0";
 
   src = pkgs.fetchgit {
     url = "https://forge.ops.eblu.me/mirrors/ntfy.git";
     rev = "v${version}";
-    hash = "sha256-ca04r8kMSAqWiEN6F36n75hy46Alb21UUtQ1/mwpQcY=";
+    hash = "sha256-Xlo0iuVd122kPpxK7aL4RBnR9gHLIpGj2nQSlBmMjYc=";
   };
 
   ui = pkgs.buildNpmPackage {
     inherit src version;
     pname = "ntfy-sh-ui";
-    npmDepsHash = "sha256-ASh88vfDrR+uf4IFOjj/SK2Hb+gwSNuKQwTGYBTogXo=";
+    npmDepsHash = pkgs.lib.fakeHash;
 
     prePatch = ''
       cd web/
@@ -34,7 +34,7 @@ let
   ntfy = pkgs.buildGoModule {
     inherit src version;
     pname = "ntfy-sh";
-    vendorHash = "sha256-9xrqa/eDpyzeLBMM31Q8CsRhdATB2DYkOoE/CxycgzY=";
+    vendorHash = pkgs.lib.fakeHash;
 
     doCheck = false;
 
