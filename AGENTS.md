@@ -83,6 +83,10 @@ need to confirm through biometric approval.
    `increase(metric[30d])` covers "how much over the last month" in one query.
    `mise run services-check` is the fuller `[human]` check — it needs kubectl
    and ssh, so it is a gilbert job.
+8. **Incident lesson, config-shape in origin?** After fixing an incident
+   that was a config shape that only failed at runtime, check
+   [[add-a-flake-invariant]] for whether it warrants a flake invariant
+   (`invariants.nix` guard) so the reintroduction fails CI.
 
 ## Project Structure
 
