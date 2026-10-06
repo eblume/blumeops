@@ -1,1 +1,0 @@
-Fix the `pulumi-stack-backup` CronJob crash-looping on every run: `pulumi stack export` ran with no project in the working directory, so the unqualified `--stack` names were rejected (`no current project found, pass the fully qualified stack name`). Names are now org-qualified (`eblume/<project>/<stack>`); the PVC directory layout is unchanged.

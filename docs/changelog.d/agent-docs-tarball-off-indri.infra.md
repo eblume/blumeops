@@ -1,1 +1,0 @@
-The Build BlumeOps docs tarball now builds on the unprivileged `indri-build` runner (colima) and is handed to the release job via a same-run artifact, removing the last Docker Desktop build workload from the privileged `indri` runner.

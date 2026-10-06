@@ -1,1 +1,0 @@
-Docs review: stamp the [[grafana]] service reference card last-reviewed 2026-10-03 — the 2026-10-03 doc review landed its new "Upgrading" section there (from #1385), so its card date should reflect that review.

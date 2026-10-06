@@ -1,1 +1,0 @@
-authentik: copy the built-in blueprints into `/blueprints` at container start instead of symlinking them, so the default, system and migration blueprints apply again (all 28 were failing with "Invalid blueprint path").

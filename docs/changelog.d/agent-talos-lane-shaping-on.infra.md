@@ -1,1 +1,0 @@
-Enable lane shaping on the talos deployment: `lanes.json` (virtual local lane, 370 prefill tps, 6 slots, 120 s spill wait) delivered via the `talos-repos` ConfigMap with the `TALOS_LANES` env pointing at it (eblume/talos#252).

@@ -1,1 +1,0 @@
-Added hold-time panels (per-request p50/p90 and per-run total p50/p90) to the Lanes row of the Grafana Talos dashboard, and updated the admission-wait panel's description now that holds are exported (eblume/talos#271).

@@ -1,1 +1,0 @@
-First banked openrouter-probe runs for the three models talos uses (qwen3.8-27b, deepseek-v4-flash-0731, gemini-2.5-flash), from pod egress; new reference card [[openrouter-provider-probes]] linked from the probe how-to.

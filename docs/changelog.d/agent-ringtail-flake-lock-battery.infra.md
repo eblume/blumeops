@@ -1,1 +1,0 @@
-Adds `nixos/ringtail/flake-lock-check`, the deterministic check battery for ringtail flake-lock PRs (scope, originals, ff-head, ff-ancestor, nar-hash) with hermetic tests, ahead of the flake-update workflow rework (eblume/blumeops#1318).

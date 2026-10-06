@@ -12,6 +12,1089 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.20.2] - 2026-10-06
+
+### Features
+
+- Add Audiobookshelf (v2.36.0) as a nix-built container in `containers/audiobookshelf`, self-pinned to nixos-unstable, to serve audiobooks from the sifaka music share on ringtail (#1120).
+- Deploy Audiobookshelf (v2.36.0) on ringtail at `audiobooks.ops.eblu.me`, serving the Audiobooks/ subtree of the sifaka music share (#1120).
+- New service: BirdNET-Go — local bird-song identification on the GableCam audio (via Frigate's go2rtc restream), exposed at `birds.ops.eblu.me` once Caddy on indri is re-provisioned.
+- `mise run horkos-forge-provision` now enforces a one-live-key invariant for the horkos dispatch PAT: after the freshly minted `horkos-forge-*` / `warrant-dispatch-*` token is verified (as `horkos-forge`, with the blumeops grant usable through it) and stored, every other matching token is revoked and the list is re-read to assert exactly one remains (`--keep-others` opts out).
+- request-run now stamps the attached PR's first issue reference as `origin_issue` on the horkos request, so the settlement outcome (success/failure/cancelled/denied/voided/dispatch_failed) is posted as one comment on that issue; verify-runs closes the Approve tracking task from horkos's recorded `settled_outcome` instead of forge-side inference (eblume/horkos#40).
+- New mise task `openrouter-probe`: per-provider OpenRouter probe — effort
+  sensitivity, empty-completion and error/429 rates for a model, run from a talos
+  session. See [[probe-openrouter-model]].
+- Add `mise run pending-deploys` — report first-party images that are released but not yet pinned/deployed on main, plus open pin-bump PRs.
+- New public hostname `photos.eblu.me` — Immich family album sharing over the shared-link surface only (deny-by-default edge allowlist, per-IP rate limits, fail2ban on the password check), through the Fly.io proxy.
+- Image Pin Check now accepts `newTag` pins of the combined `tag@digest` form and verifies the digest half, which is what kustomize/ArgoCD pull by.
+- service-review gains a `release: self` axis: first-party services (horkos, cv, docs, talos, heph*) are reviewed for release-pipeline health instead of upstream version bumps. Adds the missing `container` and `fly` checklist branches and reconciles the `--type` help strings and header type list with the six types in use.
+- `verify-runs` reports requests horkos files itself (no tracking task) straight from the queue, with the same SHA-binding audit.
+- `rip-cd-finish` gains an audiobook mode (`"kind": "audiobook"` in metadata.json): a disc's seek-point tracks are concatenated and encoded once to Opus (or FLAC with `--lossless`), tagged for Audiobookshelf (author, narrator, series, disc numbers), and filed as `Audiobooks/<author>/[<series>/]<title>/Disc NN.opus` on the music share, where a `.ndignore` keeps Navidrome out.
+- Disc archiving on indri is now four mise tasks instead of a chain of GUI apps:
+  `rip-cd`/`rip-cd-finish` (cd-paranoia → FLAC → tagged into `/Volumes/music`)
+  and `rip-video`/`rip-video-finish` (makemkvcon → Jellyfin layout in
+  `/Volumes/allisonflix`), split around an editable `metadata.json` so the
+  labeling step can be done by hand or by an agent. Replaces XLD + Picard +
+  MakeMKV GUI + FileBot (license lapsed). See [[rip-a-disc]].
+- `rip-cd` now handles what the second disc of a box set threw at it: several
+  exact MusicBrainz matches prefill the draft (with `_candidates` to pick
+  from) instead of leaving it blank, `disc_number`/`disc_total` are filled
+  from the release and `rip-cd-finish` files a set's discs into one album
+  folder as `<disc>-NN - Title.flac`, and cd-paranoia's "track 0" (audio
+  before track 1) is dropped when it is sub-2-second slop or kept as a
+  hidden track when it is not — previously it produced a stray `00.flac`
+  that made the finish task refuse. `--skip-rip` no longer overwrites an
+  edited `metadata.json`. See [[rip-a-disc]].
+- `mise run zot-apikey-rotate <identity>` rotates a zot CI API key (`zot-ci`, `zot-talos`, `zot-horkos`) from its current key — mint, verify, store in 1Password, sync to the consumer (CI vault item or `ZOT_PUSH_API_KEY` Actions secret), revoke the rest — with no Authentik impersonation or browser session. `--key-stdin` seeds the chain from a browser-minted bootstrap key.
+
+### Bug Fixes
+
+- agent-repo-access: the Actions-secrets list is now parsed as the bare JSON array Forgejo actually serves (it does not wrap it GitHub-style), and a non-list body raises loudly instead of reading as empty — fixing the post-merge reconcile crash that #1080 introduced.
+- `op-backup` previously deleted the plaintext export before transferring the encrypted files, and its failure message claimed the encrypted files were preserved in a temporary directory that was destroyed immediately after. The plaintext `.1pux` is now deleted only after the encrypted set has landed on indri, and a failed transfer preserves the encrypted files in `~/Documents/` (paths printed) so the run can be retried.
+- The privileged Forgejo runner sandbox (`ringtail-priv-runner`, `instances.priv.hostPackages`) now carries `gnutar` and `uv`, so the `argocd-sync-apps` workflow's payload validation step (`git archive | tar -x` plus the PEP 723 `validate-argocd-apps` script) can actually run — its first real dispatch (2026-09-24) failed exit 127 on the missing `tar`.
+- Pin the detached darwin-rebuild's cwd to `/` in the indri rebuild launch so runner job-workdir cleanup can't kill the switch with `nix: cannot get cwd`.
+- Install Alpine `shadow` (pinned `shadow=4.18.0-r1`) in the fly image so the Dockerfile's `useradd` for the forced git-shell `mirror` user exists at build time.
+- The heph role now fails closed when its `op read` of the `heph-agents-sub` vault item fails: provisioning aborts instead of silently rendering the hub without `--authorized-sub`. Intentional no-spoke runs opt out via `heph_agents_sub_enabled: false`, and the forgejo_runner role's Docker daemon.json slurp is gated on the file existing.
+- indri: `/etc/resolver/ts.net` is now a real file the indri play writes before the nix-darwin switch (tagged `[rebuild, tailnet-dns]`) instead of a nix-darwin `/etc/static` symlink, so tailnet MagicDNS survives the pre-Nix-Store boot window; the nix-darwin sshd drop-ins are disabled (`services.openssh.hostKeys = []` plus two `environment.etc` overrides) because a dangling one under sshd's `Include` refuses every ssh connection until the store mounts.
+- fix(indri): indri-flake-check now verifies the remote build in-band - the remote script prints a sentinel only after `nix build` succeeds, and the local side fails if it is absent, because Tailscale SSH on indri swallows remote exit codes so the old rc-based check printed OK for a failed build (blumeops#1379).
+- indri: the seven /nix-backed user LaunchAgents (sifaka-mounter, forgejo-runner, logrotate, borgmatic/forgejo/jellyfin/zot metrics) now exec through a stable non-store wrapper written at activation that blocks until /nix mounts - launchd treats a store-path EX_CONFIG as fatal and never respawns them, so every reboot lost the CI runner, the sifaka mounts and all indri-side metrics until a manual launchctl recovery.
+- fix(indri): services-check, mirror-update-pats and pulumi-restore-check now verify indri ssh legs in-band instead of trusting the remote exit code — Tailscale SSH on indri swallows remote exit codes (upstream tailscale/tailscale#18256; fix #20626 pending), so a stopped or not-loaded launchd job, a failed mirror credential write, or a failed borg extract previously read as success; services-check now requires a per-service success sentinel, mirror-update-pats validates the mirror count and a per-repo write sentinel, and pulumi-restore-check's existing in-band output validation is documented as the accepted check (blumeops#1379).
+- `ssh indri` from ringtail (and `mise run services-check`, which shells out to it) failed with `tailscale: failed to look up local user "eblume"` because Tailscale SSH passes the local username through and indri has no `eblume` user. ringtail now maps `Host indri -> User erichblume` in system-wide `/etc/ssh/ssh_config` via `programs.ssh.extraConfig`, and the Ansible inventory gains `ansible_user: erichblume` for `indri`, so provision runs no longer depend on the invoking host's local user.
+- Give the jellyfin role's SSO-Auth plugin download a pinned sha256 checksum.
+  The unchecksummed `get_url` re-downloaded the GitHub release zip on every
+  provision-indri run and reported changed (GitHub release assets do not honor
+  If-Modified-Since, and the /tmp dest is purged at boot). With the checksum,
+  the task is ok while the pinned file exists and only re-downloads after a
+  version bump or a cleared /tmp.
+- Give the jellyfin role's SSO-Auth extraction task a `creates:` guard on the
+  versioned plugin dir's `SSO-Auth.dll`. The `remote_src` unarchive always
+  reported changed, so every provision-indri run fired the "Reload jellyfin"
+  handler and restarted the service for no reason. A version bump moves the
+  dest dir, so the guard re-arms itself and the handler fires on the update
+  as intended.
+- Fix the `pulumi-stack-backup` CronJob crash-looping on every run: `pulumi stack export` ran with no project in the working directory, so the unqualified `--stack` names were rejected (`no current project found, pass the fully qualified stack name`). Names are now org-qualified (`eblume/<project>/<stack>`); the PVC directory layout is unchanged.
+- mise-tasks: stop interpolating untrusted data into rich markup, so bracket-bearing
+  values can't crash or garble output. `service-review` (and every other rich-based
+  task) now runs every data-derived value (notes, names, types, versions, upstreams,
+  paths, tags, API/CLI output) through `rich.markup.escape` before it reaches a
+  `Console.print`/`Panel`/`Table`. Previously a `notes` value like `see [[hephaestus]]`
+  was silently stripped and any `[/...]` sequence raised `rich.errors.MarkupError`,
+  killing the whole task; bracketed strings now render literally everywhere.
+- `ringtail-apply@` now sets `restartIfChanged = false`, so a switch no longer
+  restarts the in-flight ringtail-rebuild apply (a nixpkgs roll rewrites the
+  unit's NixOS-injected `Environment=` lines, so the old switch killed the
+  apply's own job and reported a successful apply red). A nixpkgs-update apply
+  still goes red because the switch restarts the priv runner unit; the docs now
+  say that directly and list what to check before re-dispatching:
+  `nixos-rebuild list-generations`, the `/etc/nixos` profile link mtime, and
+  `/var/log/ringtail-apply/<sha>.log` (eblume/blumeops#1254).
+- `mise run verify-runs` now sweeps tracking tasks for warrants attached to PRs in other repos: the `(PR #N (owner/repo))` title suffix is matched onto the task and surfaced in the sweep's labels, where previously those tasks were invisible to the sweep.
+- `mise run verify-runs` no longer guesses a run for a warrant record that
+  carries no `run_number` — it reports, and refuses inference for, three
+  states: request status `dispatched` without a run number means the dispatch
+  ran but the forge never named a run (pre-`return_run_info` forge / 204) —
+  reported **dispatched-norun** and left for a human to link or re-dispatch;
+  request status `dispatch_failed` means the dispatch attempt failed (the
+  warrant note carries the reason) — reported and left open; any other run-less
+  status (approved / denied / superseded) was **never dispatched**, with the
+  warrant note's `not dispatched: {reason}` surfaced when horkos recorded one
+  (eblume/horkos#13). The forge-side run heuristic stays reserved for approvals
+  with no warrant record at all — pre-stamp tasks or a warrant outage. Fixes
+  the eblume/horkos#12 misattribution, where request #54 — approved, never
+  dispatched (warrant `consumed=0`, `run_number=null`) — was closed against
+  run 1754, which belonged to a different request.
+- verify-runs settles horkos-voided warrant requests — a request voided because its bound PR closed unmerged or its workflow left warrant-policy now closes its Approve tracking task with the void reason instead of sitting as 'never dispatched' (eblume/horkos#35).
+- authentik: the image now ships its built-in blueprints as real files and the build fails on any symlink under `/blueprints`, so the default, system and migration blueprints actually apply (#1443 changed an entrypoint loop that never ran). The python-deps fixed-output derivation is now deterministic: pip RECORD hashes are recomputed after stripping, and a stray `docs/` tree that two wheels both install is dropped.
+- authentik: copy the built-in blueprints into `/blueprints` at container start instead of symlinking them, so the default, system and migration blueprints apply again (all 28 were failing with "Invalid blueprint path").
+- alloy-tracing: Beyla eBPF instrumentation disabled. Its exclusions (namespace and `exe_path` glob) do not take effect on alloy 1.19.2 — it attached to kube-system's coredns and the host tailscaled — and the 2026-09-10 kernel panic was its probe on a freshly rolled tailscaled sidecar, which every talos release repeats. Re-enable once the exclusion path is understood.
+- alloy-tracing: Beyla now excludes `tailscaled`, `containerboot`, `coredns` and `pause` by `exe_path` (plus the `talos` namespace). Kubernetes-metadata exclusions race against process start; on 2026-09-10 a probe landed on a freshly rolled tailscaled and the `obi_protocol_tcp` BPF program panicked the kernel (ringtail hard reboot). ringtail's alloy also pushes metrics and logs to the cluster-local Prometheus and Loki Services instead of `*.tail8d86e.ts.net`, which is NXDOMAIN from pods when CoreDNS starts before MagicDNS after a reboot.
+- alloy-tracing: the Beyla `exe_path` exclusions are globs, not regexes; `tailscaled` matched nothing and Beyla re-attached to the host tailscaled. Now `*tailscaled*`, `*containerboot*`, `*coredns*`, `*/pause`.
+- Pin `EGRESS_FORWARD_PORT`/`EGRESS_CONNECT_PORT` explicitly on the egress-gateway
+  Deployment: v0.4.43's env plumbing lets unset vars clobber the code defaults
+  with `undefined`, so the freshly deployed gateway 403'd every CONNECT/forward
+  (`443 !== undefined`). Explicit values restore egress and make the allowed-port
+  contract auditable in the manifest; the code fix lands in talos separately.
+- alloy (indri): tail the netconsole capture with `loki.source.file` — the `local.file` block from #1130 has no `path` attribute and failed Alloy's initial config load, leaving indri's Alloy crash-looping (no indri metrics or logs) from the 2026-09-16 provision until this fix.
+- argocd-deploy `revision=declared` resolves the live targetRevision with `jq` instead of `python3`, which the priv runner does not carry (warrant #103 failed with `python3: command not found`).
+- audiobookshelf: mount the data PVC once with `subPath` for `/config` and `/metadata` — referencing one PVC under two volume names left the pod stuck in ContainerCreating.
+- Fix the nightly borgmatic run, broken since the paperless media tar hook landed (#3288423a):
+  `borgmatic-k8s-tar-dump` now resolves `container_arg` before the ssh heredoc (the unquoted heredoc expands it on indri, where it was unset, and `set -u` aborted every ssh-mode dump), and the config template no longer ends the tar-dump line in a `{% endif %}`, whose trimmed newline glued the paperless hook onto the talos one. Part of #798's backup hygiene.
+- Fix devpi role change detection: `uv pip install` reports to stderr, so version
+  bumps installed silently without triggering the restart handler — the 6.20.3
+  upgrade sat installed-but-not-running until a manual restart.
+- Ringtail flake update: run the check scripts via `bash`, since the runner workspace is mounted noexec.
+- Ringtail flake update: authenticate the branch push explicitly and disable git terminal prompts; checkout v7 credentials never applied on the runner (symlinked workspace path), so the push hung on a credential prompt.
+- Ringtail flake update: the green PR comment tells the reviewer to close and reopen the PR so the required checks run (Actions-token PRs start no workflows).
+- Ringtail flake update: read the built toplevel path from `nix build --json` correctly, and address the kernel-version helper from the workspace root.
+  Ringtail flake update: kernel-version strips the image name from a real toplevel kernel link, and the PR table prints the kernel bump as booted -> built.
+- Fly proxy: unlock the `mirror` account so sshd accepts push-mirror keys, trust the mirror repos for the root-run boot script, and fix the Alloy block label that kept Alloy from starting.
+- Fly proxy: generate the push-mirror sshd host key at the right path (`ssh-keygen -A -f` treats `-f` as a prefix and was failing), and test the sshd config before starting it so a dead sshd is reported.
+- Forgejo issue auto-close is now actually disabled: `CLOSE_KEYWORDS`/`REOPEN_KEYWORDS` use a `-` placeholder, since go-ini silently keeps the defaults for an empty value.
+- forgejo_runner (indri): the documented `make build` broke on the v13.1.0 bump — the tag raised the go floor to 1.26 while the checkout's untracked mise.toml pinned 1.25, and mise's hard-set GOROOT defeats GOTOOLCHAIN=auto (`compile: version "go1.25.14" does not match go tool version "go1.26.7"`). Build with `mise x go@{{ forgejo_runner_go_version }} -- env GOTOOLCHAIN=local make build` (new role default, same pattern as the forgejo role) and restart the LaunchAgent by hand after a version-only bump, since the role's restart handler only fires on template changes. Docs and the role's fail messages updated; indri rebuilt at v13.1.0 and restarted.
+- Pin the gpu-husk-reaper CronJob's `blumeops/kubectl` image in the nvidia-device-plugin kustomization; it shipped with the `:kustomized` placeholder and had never pulled, so it was ImagePullBackOff instead of reaping.
+- `agent-repo-access` reads every webhook back after it edits or creates it and recreates a hook whose edit Forgejo silently ignored: v16.0.2's hook edit API never maps the `action_run_*` events, so the four horkos release hooks had been "drifted → update" on every run with no terminal-run delivery ever sent (eblume/horkos#40).
+- Fix `horkos-forge-provision --rotate` aborting on its own new-PAT check: prove ownership via the bot's token list and usability via push on blumeops, not `GET /user` (which needs `read:user`).
+- Fix the indri-build colima VM ignoring its rendered profile: the role now also installs it as colima's new-instance template, sets disk to the 100 GiB the VM already has, and stops the VM on a profile change so colima restarts it with the new CPU/memory/mounts.
+- Fix indri's indri-build preActivation guard aborting the first switch: a missing group made `dscl` exit 56 under `set -e`.
+- Fix the indri playbook's build-runner identity fetch (`op item get` rejects an `op://` reference, so the build runner config never rendered), and have the build runner reuse the zero-scope `forge-ci-github-pat` instead of a second PAT.
+- Fix the indri-build runner's config render: root stages the files outside the build home and `sudo -u indri-build install` copies them in, replacing a `become_user` that never applied (misindented) and cannot work over Tailscale SSH.
+- indri's build-runner colima now comes from nixpkgs instead of the upstream flake, whose Go 1.23 builder could not build v0.10.3 and broke the indri system build.
+- indri: the logrotate rollback re-writer's gate now accepts `-e logrotate_ansible_managed=true` as documented (`| bool`; ansible-core 2.19 rejected the string), and the runbook records that nix-darwin's rollback only unloads dropped user agents when the target generation still declares one — both found by the PR 2 rollback drill.
+- indri play: the nix-darwin rebuild runs before the service roles (it was under `tasks:`, which ansible runs after `roles:`) and as `sudo -H`, so root's nix build no longer leaves root-owned files in the user's nix cache. Runbook gains the no-write activation-check rehearsal, the expected `activate-user` deprecation warning, and the FileVault-aware reboot procedure.
+- indri: fix the tailnet-resolver guard from #1159 — the `stat` module reports `isreg`, not `regular`, so every real run of the indri play aborted after writing `/etc/resolver/ts.net` and before the rebuild.
+- services-check: the borgmatic-metrics and zot-metrics checks used launchctl
+  labels missing the `.eblume` segment; `launchctl list` is exact-match, so
+  they never matched the real agents. Both checks now use the full
+  `mcquack.eblume.*` labels.
+- mealie crash-looped after the non-root rollout (#872): ingredient-parser-nlp
+  downloads its NLTK tagger into `/nltk_data` at import, which uid 1000 cannot
+  create. An emptyDir at that path restores startup.
+- mealie (non-root) also needed a writable `/tmp` — the nix image ships none and
+  gunicorn's worker heartbeat file requires one. emptyDir added at `/tmp`.
+- mise-tasks forge clients (`request-run`, `verify-runs`, `pr-comments`, `runner-logs`, `branch-cleanup`, `warrant-bot-provision`, `warrant-bot-drift`, `mirror-create`, `spork-create`, `container-build-and-release`) now call the forge API at `forge.ops.eblu.me`. In-cluster DNS rewrites the public `forge.eblu.me` to indri, whose Caddy holds no cert for that name, so HTTPS to it dies in the TLS handshake — which blocked `request-run` from the agent pod (issue #753, cycle 3). Human-facing links stay on `forge.eblu.me`.
+- Ringtail's priv runner now runs as the static system user `horkos-runner` instead of a DynamicUser, so the ringtail-rebuild polkit rule matches again and no longer also admits the nix builder.
+- `provision-indri` skips its flake-lock and pushed-HEAD guards on role-only runs (`--tags <role>` without `rebuild`), so the caddy rollback re-write no longer needs the forge that caddy fronts; both `provision-indri` and `provision-ringtail` now fail loudly, with git's error, when origin is unreachable instead of exiting silently under `set -e`.
+- Pulumi stack backup: the `pv:` borgmatic ferry now reads the root-only local-path PV through sudo, and the empty config export (config now lives in git and ESC) is dropped.
+- Ringtail Flake Check builds `nixosConfigurations.ringtail.config.system.build.toplevel` — the workflow shipped with the nix-darwin `.system` idiom, which does not exist for NixOS, so the check failed on every run with "does not provide attribute".
+- sifaka-mounter: call `/sbin/mount` by absolute path — the agent's PATH has no `/sbin`, so every mount check failed and all five shares reported `sifaka_share_mounted 0`.
+- Tailnet device tags and auth keys now apply after the ACL, so a PR adding a new tag no longer fails its first `tailnet-up` with "requested tags are invalid or not permitted".
+- fix(indri): indri-flake-check's pushed-HEAD guard is now detached-aware - a detached checkout at a merged non-tip SHA (the B4 rollback case) passes via origin/main ancestry instead of spuriously failing on ls-remote origin HEAD inequality (blumeops#1266).
+- Rename the static forge mirror's Fly volume to `git_mirror` (Fly rejects hyphens in volume names), and make `fly-setup` create it non-interactively and stop leaking a dedicated IPv6 on every run.
+- `provision-ringtail`: start the detached `nixos-rebuild` unit with `systemd-run --no-block`. Without it the start task blocked on the D-Bus job until the switch finished, so a dbus-broker restart during activation (as in the 26.05 upgrade) killed the wait and failed the play even though the rebuild completed. The reconnect and poll tasks that follow were already written for the non-blocking case.
+- `ringtail-rebuild` warrant: replace the NOPASSWD sudo grant, which could never
+  work (the priv runner is a systemd `DynamicUser` service, so `NoNewPrivileges`
+  is implied and sudo refuses), with a root `ringtail-apply@<sha>.service`
+  template unit that polkit lets `gitea-runner` start — and nothing else. The
+  runner's sandbox stays intact; the job reads the verdict from
+  `/var/log/ringtail-apply/<sha>.log`.
+- Fix ringtail NixOS evaluation on nixos-26.05: `systemd.sleep.extraConfig` and `systemd.coredump.extraConfig` were removed upstream, so the first `provision-ringtail` after the 26.05 migration failed its assertions. Both are now expressed via `systemd.sleep.settings.Sleep` and `systemd.coredump.settings.Coredump` with the same values.
+- `rip-cd` resumes an interrupted extraction from the first missing track
+  instead of re-ripping the whole disc: complete WAVs (size matches the
+  track's sector count) are kept, the partial one a killed cd-paranoia was
+  writing is discarded, and only the missing span is extracted. Found when a
+  `makemkvcon info` probe contended for the drive mid-rip and wedged
+  cd-paranoia in an uninterruptible read. See [[rip-a-disc]].
+  Ejecting now force-unmounts the cddafs volume first, since `drutil eject`
+  is refused while Finder or loginwindow holds it.
+- `rip-video` no longer mislabels its output: makemkvcon renumbers the
+  titles that survive `--minlength`, so the inventory's `DD1_t06.mkv` came
+  out of the rip as `DD1_t01.mkv` and `metadata.json` pointed at a file that
+  did not exist. The `all` pass now renames its outputs back to the
+  inventory's names, explicit `--titles` rip one title per pass without
+  `--minlength` so the ids mean what the inventory said, and ejecting
+  force-unmounts the disc volume first (as `rip-cd` now does). Found on The
+  Prestige. See [[rip-a-disc]].
+  The how-to also gains a section on discs that will not read: the drive
+  wedge, and imaging with ddrescue before ripping from the image.
+  `rip-video-finish` also accepts `extra:<Name>` and `extra:<kind>/<Name>`
+  targets for TV, filing bonus-disc material into the season's Jellyfin
+  extras folders.
+  Every makemkvcon call in `rip-video` (inventory scan, `all` rip, explicit
+  titles) now passes the same `--min-length`, since makemkvcon numbers titles
+  after that filter; a bonus disc scanned at the default and ripped at 60 s
+  had produced 29 files for a 13-title inventory.
+- The ringtail agent heph spoke's token store now addresses its 1Password item by
+  id and refuses to create on any save error other than a definite not-found,
+  stopping the duplicate-item cascade (eblume/blumeops#963). The same-class
+  get-then-create cascades in `agent-authkey-sync` and `warrant-bot-provision`
+  get the same not-found gating and the loud abort on duplicates.
+- Exempt cluster-internal destinations from the talos pod's egress proxy
+  (`no_proxy=.cluster.local,…`): the stage-2 cutover routed the server's OIDC
+  discovery fetch (TALOS_OIDC_INTERNAL_URL, authentik in-cluster service) into
+  the egress gateway, which rightly blocked the private destination — the
+  server crash-looped at startup. In-cluster service traffic is not egress;
+  the stage-3 fence needs a matching egress rule (eblume/talos#69).
+- Rolled back the PSA step 2 restricted fields on the eight workloads whose
+  images run as root (authentik-redis, frigate, immich server/ml/valkey, mealie,
+  paperless, teslamate). `runAsNonRoot: true` wedged their pods in
+  `CreateContainerConfigError` ("image will run as root"), taking mealie,
+  frigate, paperless and immich-valkey fully offline. The remaining #772
+  hardening stays in place; a follow-up decides non-root images vs documented
+  exceptions for these eight.
+- The caddy role now parse-checks the rendered Caddyfile before replacing it, and the `deny_ips` loop no longer joins its last directive onto the `reverse_proxy` line.
+- borgmatic: all three k8s dump hooks (file, tar, sqlite) now select only Running pods, so a lingering Evicted pod (talos, 2026-09-18) can no longer abort the nightly backup.
+
+### Infrastructure
+
+- agent-repo-access now refuses `access: write` on any repo whose Actions secrets list is non-empty, in `--check` and apply mode alike — write on a repo means read of its secrets (eblume/horkos#17 step 6). Docs corrected to the real CI-credentials rule: the dispatch identity (`horkos-forge`) can dispatch, and blumeops' deploy credentials live behind `BLUMEOPS_CI_OP_TOKEN` job-time `op read`s, not the retired per-secret Actions secrets.
+- Added Alloy blackbox probes of the indri-local Caddy-fronted surface (forge, registry, heph, jellyfin, pypi, docs, cv), so a Caddy or backend outage on indri now leaves a Prometheus witness.
+  Part of eblume/blumeops#1221.
+- Add caddy, heph, devpi, and borgmatic-photos streams (out and err each) to alloy_mcquack_logs so those four mcquack LaunchAgent log pairs reach Loki alongside the existing six services.
+  Part of eblume/blumeops#798.
+- Add `revision=declared` to the `argocd-deploy.yaml` warrant: sync a tag-tracking app (e.g. `external-secrets-crds-ringtail`) at the revision its Application on main already declares, without re-pointing the spec. The bound SHA must be the commit declaring that revision (request-run refuses one whose manifest declares something else); the run fails if the live `targetRevision` differs from main's declaration (file an `argocd-sync-apps.yaml` warrant first).
+- Add the `argocd-sync-apps` warrant action: sync the app-of-apps root (`apps`)
+  from a bound SHA — pin the root to the SHA, sync, wait healthy, then reset it
+  to tracking `main`. `argocd-deploy.yaml` with `app=apps` cannot do this
+  without leaving the root pinned, which reads `Synced` against the pin and
+  silently ignores later `argocd/apps/` merges; `argocd-deploy` (its allowlist
+  and the `argocd-app` validator) now refuses `app=apps` outright, so
+  `argocd-sync-apps` is the only route to the root.
+
+  The root sync turns each `argocd/apps/*.yaml` into a live ArgoCD Application
+  (a pointer tracked forever with automated sync), so `argocd-sync-apps` and a
+  new Lint PR check both run `mise-tasks/validate-argocd-apps` to refuse any
+  Application whose source the agents bot can move (its fork, on a branch) —
+  only the canonical `eblume/blumeops.git @ main` and read-only mirrors are
+  allowed. AGENTS.md, [[argocd]], [[horkos]], [[request-a-privileged-run]],
+  [[agent-change-process]] and the deploy-k8s-service how-to updated.
+- Adds a ci-authentik-blueprints authentik principal (group + service account + non-expiring api token bound to a view_blueprintinstance-only role) and its vault-fed worker env for the blueprint exporter in eblume/blumeops#1444.
+- The authentik container build now sets `GIT_BUILD_HASH` (the image-tag short sha) for both the web build and the runtime, so the immutable-cached entry bundles get a new name on every rebuild instead of 404ing behind a stale browser cache.
+- Make the authentik python-deps FOD deterministic: sdist-built extension modules embedded uv's random per-build sdist path in DWARF debug info, so the outputHash changed on every build. installPhase now strips that debug info from all .so files and fails the build if a uv sdist build path survives. The store-reference verification check now matches nix's base32 store-path hash alphabet instead of the literal /nix/store/ prefix, which had been counting remove-references-to's e-padding.
+- Reworks `.forgejo/workflows/flake-update.yaml` into the scheduled self-verifying roll of `nixos/ringtail/flake.lock` (Sunday 05:00 UTC cron, manual dispatch, `nix-container-builder` runner): the zero-credential update-and-build job does the update, head recording, toplevel build and the full lock battery, and the token-only posting job pins its artifact by SHA-256, pushes a fresh `auto-update/ringtail-flake-<date>` branch from `main`, opens a lockfile-only PR and posts the check table against the exact head SHA; red verdicts file an exception issue, and a hard failure of the update job files one too. Adds `nixos/ringtail/flake-update-verify` (artifact pin, verdict, PR-comment and issue rendering) with hermetic tests (eblume/blumeops#1318).
+- alloy-tracing-ringtail: re-enable Beyla eBPF instrumentation after the
+  beyla v3.33.0 bump (OBI uprobe-preemption fix). The old `open_ports =
+  "80-9999"` catch-all is replaced by a namespace allowlist (the 16 app
+  namespaces, containers_only; 1password intentionally excluded), with the
+  attach-time exe_path glob backstops kept. OTEL_EBPF_LOG_LEVEL=debug is set
+  for the diagnostic rollout to log per-pid exclusion decisions; it is
+  dropped once the allowlist is confirmed.
+- alloy-tracing-ringtail: drop the BEYLA_LOG_LEVEL=debug diagnostic
+  env. The per-pid exclusion walk-through for #983 is done and the 7-day
+  canary window runs at normal log volume.
+- alloy-tracing-ringtail: the diagnostic-roll log-level env was
+  OTEL_EBPF_LOG_LEVEL, which beyla v3.33 does not read — the binary takes its
+  level from BEYLA_LOG_LEVEL (yaml log_level). Rename the env so the
+  per-pid exclusion decisions actually land in the logs.
+- Scheduled verification for the BorgBase immich-photos repo: weekly borg check, monthly full-data check, and a sampled test-restore of random files checked against the live sifaka files, with a BorgmaticVerifyStale alert.
+- Remove the stale pre-#1428 `k8s-dumps/talos-data.tar` from indri's
+  staging dir on provision so it stops riding into main `indri-*`
+  archives, and note in the backup docs that talos sessions are restored
+  from `talos-data-*` archives only.
+
+  Part of eblume/blumeops#1409.
+- talos-data session state now has its own never-pruned borgmatic config
+  (`talos-data-*` prefix, no keep_* keys) run alongside the main config; the
+  main config's prune is scoped to `indri-*`; collector gauges scoped to the
+  main prefix so talos archives can't mask a failed main backup.
+
+  Part of eblume/blumeops#1409.
+- Per-source `borgmatic_talos_data_last_success_timestamp{repo}` gauge plus
+  `BorgmaticStaleTalosData` alert and dashboard panel for the never-pruned
+  talos-data archives, and a single-session restore runbook in the backup docs.
+
+  Part of eblume/blumeops#1409.
+- Borgmatic tier split: the main config drops to a pure archive tier, backing up only `~/code/personal/zk` and `~/Documents` into the never-pruned `indri-*` archives — no DB dumps and no `keep_*` keys. Forgejo (pull mirrors excluded, live WAL DB snapshotted via hook), the borgmatic config, k8s dumps, all DB dumps and `/Volumes/shower` move to a new never-mixed operational config with its own local sifaka repo (`sifaka-operational`, `operational-*` prefix, `compression: auto,zstd`, retention declared). Nothing prunes or compacts yet — that lands in a later PR. The talos-data config gains `compression: auto,zstd` (new chunks only); talos-data is confirmed a never-pruned archive-tier source (~2.4 GB/month per repo, measured in eblume/blumeops#1409). The operational repo lives at `/Volumes/backups/borg-operational/` — a sibling of the archive-tier root, because borg 1.x refuses to create a repository inside an existing one — and the role creates it with an idempotent `repo-create` task. A new `BorgmaticOpsStale` rule (NoData alerting) covers the tier from its first deploy, and the ops agent's logs are tailed into Loki.
+
+  Part of eblume/blumeops#1417.
+- The Build Container workflow's "Resolve nixpkgs" step now resolves `<nixpkgs>` from the in-repo pin (`nix eval --raw ./containers#nixpkgsPath`, failing loudly if the pin is missing or broken) instead of the build host's floating flake registry — the wiring that makes the #1178 pin effective for all container builds.
+- Retired indri's caddy xcaddy checkout build inputs: the role's
+  `caddy_repo_dir`/`caddy_checkout_binary` vars and the mise.toml-kept
+  special-case comment are gone, `docs/how-to/deployment/build-caddy-with-plugins.md`
+  is deleted, and the rollback re-run is now gate-only
+  (`-e caddy_ansible_managed=true` — the wrapper follows the rolled-back
+  generation's profile). No runtime behavior change. Part of
+  eblume/blumeops#1275 / eblume/blumeops#1213.
+- talos: session Rust builds now share one incremental `CARGO_TARGET_DIR` on the `talos-home` PVC (`/home/talos/.cache/cargo-target`, deployment env), instead of each session worktree rebuilding cold and leaving a 5–20 GB `target/` behind (blumeops#813).
+- Every PR-triggered CI job now reports its failure to the PR through the shared `.forgejo/actions/report-failure` action: a filtered log tail plus run number and job name, deduped per (workflow, job, matrix leg, head SHA). Failures on agent-authored PRs post as a review, which talos picks up to start a fix cycle, capped at three failure reviews per PR.
+- CI: new Image Pins check fails a PR when a kustomization pins an image under registry.ops.eblu.me whose tag or digest does not exist in the registry yet.
+- Grant the `agents` bot read access to the private `eblume/cv` repo (the
+  `cv` service at cv.eblu.me) by adding it to repos.json, so the recurring
+  service review can finally review it from the pod. cv had been the most
+  stale service (last reviewed 2026-04-29) and was skipped every run because
+  the bot had no forge grant — Forgejo 404s the private repo, exposing only
+  the unauthenticated deployed-tarball endpoint, not the source or release
+  list. `pool: none`: the review flow clones the source on demand, so no
+  persistent checkout or webhook is needed; the release flow (dagger rebuild
+  + Forgejo release) stays human-side, so read (not write) is all the bot
+  needs.
+- cv's release pipeline moves off the Forgejo packages registry: the horkos
+  publisher fetches the cv release-asset tarball, pushes it as the zot OCI
+  artifact `blumeops/cv:<version>` on a dedicated push-only `zot-cv` identity,
+  and opens the ansible pin PR; the cv role now pulls the layer from zot,
+  cv-deploy.yaml is deleted, and cv joins the fork pool (eblume/horkos#17).
+- The Build BlumeOps docs tarball now builds on the unprivileged `indri-build` runner (colima) and is handed to the release job via a same-run artifact, removing the last Docker Desktop build workload from the privileged `indri` runner.
+- Deploy the talos egress gateway pod (egress-gateway Deployment + fixed-IP
+  Service + talos-pods-only ingress NetworkPolicy) and pin the talos image to
+  v0.4.43-da8d73d-nix (folds the v0.4.43 pin bump from #743). Stage 1 of the
+  egress-gateway rollout (eblume/talos#69): the gateway holds the tag:agent
+  Tailscale identity; the agent pod cutover and the deny-by-default fence
+  flip follow as separate PRs.
+- fly mirror: commit the six push-mirror public keys (dropped eblume/kingfisher from the allowlist — the repo is archived, and Forgejo refuses push mirrors on it), and prune allowlist-dropped bare repos at boot so a drop actually leaves the public site.
+- Wire the static forge mirror's push path: the fly sshd binds the Tailscale IP (forced git-shell `mirror` user, the only inbound grant `tag:forge` → `tag:flyio-proxy` tcp:22 with an ACL test), a `[migrations]` `ALLOW_LOCALNETWORKS` on the forge (requires the provision-indri run), and a `[human]` task `mirror-push-wire` that creates the per-repo push mirrors and prints the public keys to commit. Part of #1208.
+- fly.io proxy: build the static forge mirror (staging vhost on
+  blumeops-proxy.fly.dev — stagit HTML + git dumb HTTP on a Fly volume,
+  Anubis-fronted, 302 to forge.ops.eblu.me for non-static paths) and
+  persist the tailscale node key on the volume so reboots reuse the
+  existing node identity. Part of #1208.
+- Drop `tag:flyio-target` from indri: the Fly.io proxy reaches Caddy only via the fly-only `:8443` listener (`tag:flyio-origin`), so indri's public `:443` site is no longer reachable from the proxy. The `tag:flyio-target:443` grant remains for the Loki and Prometheus Tailscale Ingress pods' Alloy pushes.
+- Re-pointed every machine consumer of the forge to the tailnet name forge.ops.eblu.me ahead of the private instance's ROOT_URL flip (eblume/blumeops#1208).
+- `forge.eblu.me` now serves the static public mirror (stagit browse + git dumb HTTP from the Fly volume) instead of relaying to the private Forgejo — the mirror carries `main` and tags only (other branches are pruned, never served), the old relay (Anubis A, the internal `:8081` vhost, the `forge-login` fail2ban jail) is retired and every path the static site does not serve 302s to `forge.ops.eblu.me`. Part of the public/private split (eblume/blumeops#1208).
+- `forge-reconcile --check` now also drift-checks the *names* of the repo
+  Actions secrets declared by the `forgejo_actions_secrets` ansible role — read
+  straight from the role (it stays the only source, values untouched) and
+  compared against the live forge. A missing or undeclared live name now fails
+  the weekly schedule and same-repo PR check, so name-level drift is caught on
+  a schedule instead of only on a human-run `provision-indri --check`; the
+  role's PUT/DELETE remains the authoritative write path.
+- Renamed the agent-repo-access mise task and workflow to forge-reconcile (forge desired-state reconciler); agent-repo-access and ara kept as aliases.
+- Flipped the private forge's identity to the tailnet name: `forgejo_domain` (and
+  therefore `DOMAIN`/`ROOT_URL`) is now `forge.ops.eblu.me`, so the instance's
+  canonical URL — and the OAuth callback it advertises to Authentik — is the ops
+  name. The public `forge.eblu.me` relay keeps working in the meantime (verified
+  against the v16.0.2 source that nothing rejects a `Host: forge.eblu.me`
+  request) and swaps to the read-only static mirror at the later cutover stage of
+  the public/private split. The `build-blumeops` `GITHUB_SERVER_URL` check is
+  re-armed as a hard failure — it reads the *live* `ROOT_URL`, so the first
+  manual release dispatch after merge must wait for the `provision-indri
+  -- --tags forgejo` run to re-render it, or it fails. The Authentik launch URL
+  moves to ops, and the machine-facing forge links in the docs follow the flip.
+  (eblume/blumeops#1208.)
+- Enable `[cron.delete_old_system_notices]` and `[cron.delete_old_actions]` on Forgejo (30d / 90d retention) to bound `forgejo.db` growth on indri, and document the vacuum/bak procedure on the forgejo card. Part of [eblume/blumeops#1064](https://forge.eblu.me/eblume/blumeops/issues/1064).
+- Forgejo no longer auto-closes issues when a merged PR references them (empty `CLOSE_KEYWORDS`/`REOPEN_KEYWORDS`); closing an issue is now a deliberate human act.
+- The Forgejo packages registry is retired on indri: `[packages] ENABLED = false` in the forgejo app.ini, `repo.packages` out of DEFAULT_REPO_UNITS, and the fly edge's `/api/packages/` and `/api/v1/packages` 403 blocks deleted (the endpoints now 404 at Forgejo). The last consumer is the shower app container, whose build fetches two pinned artifacts from the packages API — it must be archived or its artifacts rehosted before the provision-indri apply (eblume/horkos#17 step 8).
+- Monthly `uv cache prune` LaunchAgent for the indri forgejo runner: boots
+  the runner out, prunes orphaned wheel archives from `~/.cache/uv`, and
+  restores the runner. Tracked in eblume/blumeops#1065.
+- Add a GPU husk reaper CronJob to the nvidia-device-plugin app: after a hard
+  reboot, kubelet readmits GPU pods before the device plugin re-registers
+  `nvidia.com/gpu`, leaving permanent `UnexpectedAdmissionError` husks. The
+  CronJob (every 10 min, scoped to Failed pods requesting the GPU) deletes
+  them. Restart-ringtail runbook and ringtail reference updated.
+- heph install oneshots (eblume-heph-install, agent-heph-install): restartIfChanged = false, no RemainAfterExit, and an OnUnitActiveSec=5min timer re-check, so a hephTag bump no longer runs the ~11-min cold cargo compile inside switch-to-configuration — the timer installs it in the background within minutes of the switch (eblume/blumeops#1003).
+- talos: set `HEPH_NO_AUTO_RELOGIN=1` on the deployment so the heph CLI in agent sessions never offers the interactive device-flow re-login — an unattended pod must print the stale-sync warning instead of blocking on a y/N prompt.
+- heph role stamps `pwa-version.js` into the PWA web root at deploy time, so the PWA settings menu shows the deployed tag.
+- The forge → horkos release webhook on every release repo now also subscribes to `pull_request` deliveries, so horkos can void pending/approved warrant requests when their bound PR closes unmerged (eblume/horkos#35, plan step 3 — the horkos handler landed in eblume/horkos#37). `HORKOS_HOOK_SEND_EVENTS` gains `pull_request`; `HORKOS_HOOK_READ_EVENTS` gains it plus the five fine-grained names Forgejo reports on the GET read-back (the same expansion the talos hook needed, blumeops#930), so the `--check` drift comparison stays clean.
+- agent-repo-access now also reconciles the forge→horkos release webhook:
+  repos with `release_hook` in repos.json get a push+tag-create hook at
+  horkos.ops.eblu.me, and the horkos pod gains an ExternalSecret for the
+  shared signing secret (eblume/horkos#17 step 2).
+- `horkos-forge`'s forge write grant is now a per-repo `horkos_forge` flag in repos.json — set on every pool repo — reconciled by agent-repo-access and asserted exactly by horkos-forge-drift; the forge hook into horkos additionally subscribes to the terminal `action_run_success`/`failure`/`recover` events horkos settles runs from (eblume/horkos#40).
+- provision-indri's warrant apply is fire-and-forget: it launches the detached darwin-rebuild and exits, so a switch that reloads the runner no longer reports a false failure; the outcome is the `.status` sidecar on indri.
+- Move indri's four borgmatic LaunchAgents (main, ops, photos, verify-photos)
+  to nix-darwin at the roles' labels and plist paths, with the units execing
+  the mise pipx `latest` borgmatic binary — the main unit runs both archive-tier
+  configs (config.yaml + talos-data.yaml) — while configs, keys, dump helpers
+  and the mise install stay role-rendered and the role's gate covers only the
+  plist + load tasks. Part of eblume/blumeops#1291.
+- Non-privileged CI jobs (lint prek/secret-scan/argocd-apps-validate, docs-checks, image-pins, build-container detect, branch-cleanup) now run on the unprivileged indri-build runner; indri is reserved for privileged jobs. All CI scratch files (job logs, failure-report bodies, release bodies) moved off the shared host /tmp onto the runner's per-job $RUNNER_TEMP dir — /tmp is shared across the two indri runners and a stale file there is both a Permission-denied source and a symlink-attack surface.
+- indri-build: pin rust in the build user's mise config — its host-mode jobs run the macOS-native cargo check directly, and its home can't see erichblume's rustup install.
+- Move indri's caddy LaunchAgent (unit) to nix-darwin under the same
+  label and plist path; the xcaddy-built binary stays at ~/code/3rd/caddy
+  and the Caddyfile / wrapper / Gandi token file stay ansible-rendered, so
+  the ansible role's gate now covers only the plist + load tasks
+  (rollback re-write). Part of eblume/blumeops#1125.
+- indri's caddy binary moves to a nixpkgs `caddy.withPlugins` build (Gandi
+  DNS + L4) in the generation's closure; the role-rendered wrapper execs it
+  via the system profile's `sw/bin`, the plist is unchanged, and the
+  xcaddy checkout stays on disk as the rollback target. Part of
+  eblume/blumeops#1275.
+- Move indri's devpi LaunchAgent to nix-darwin at the role's label and
+  plist path (mcquack.eblume.devpi), with the unit executing the
+  uv-managed venv's devpi-server at /Users/erichblume/devpi/venv — the
+  venv build, the pip install and the devpi-init seeding stay
+  role-rendered, so a version bump is role-only and the nix unit never
+  changes; the role's gate covers only the plist + load tasks (rollback
+  re-write). Part of eblume/blumeops#1291.
+- Indri's flake now carries `invariants.nix`: an evaluation-time assertion that no launchd agent or daemon runs a `/nix/store` argv0 (such a job dies EX_CONFIG before /nix mounts and is never respawned, #1225/#1363) and a warning for any gui-domain `ExitTimeOut` > 60 s without `AbandonProcessGroup` (launchd clamps the timeout to 60 s there, #1266/#1269).
+- Move indri's forgejo LaunchAgent (unit) to nix-darwin under the same label and plist path, keeping the mirror's source-built binary (nixpkgs' forgejo is unavailable on aarch64-darwin) — the role's gate now covers only the plist + load tasks (rollback re-write), and the runbook's daemon reload-proof wording becomes per-service. Part of eblume/blumeops#1125.
+- Move indri's forgejo-runner LaunchAgent (unit) to nix-darwin under the same label and plist path, and take the binary from nixpkgs (13.1.0, the flake's pinned nixpkgs rev) instead of the source build at ~/code/3rd/forgejo-runner — the role no longer builds or version-checks it, its gate now covers only the plist + load tasks (rollback re-write), and the indri workflows-validate CI step builds the runner from the same flake pin. Part of eblume/blumeops#1125.
+- indri: one Go baseline for all source builds. The indri play now sets `mise settings go.set_goroot false` (a mise-exported `GOROOT` defeats Go's `GOTOOLCHAIN=auto` switching) and pins a single global `indri_go_version`, replacing the per-role `forgejo_go_version` / `forgejo_runner_go_version` pins; the roles' per-checkout untracked `mise.toml` files are removed by ansible, and the forgejo/forgejo-runner/zot builds drop `GOTOOLCHAIN=local` in favor of plain `make build`. Tracked in eblume/blumeops#913.
+- Move indri's jellyfin LaunchAgent (unit) to nix-darwin under the role's
+  historical mcquack.jellyfin label and plist path (in-place swap forbids
+  renaming), with the unit executing the DMG-installed app through the
+  stable ~/opt/jellyfin-current symlink the role's ungated tasks maintain
+  — the DMG stays pinned in the role, so a version bump is role-only and
+  the nix unit never changes; the role's gate covers only the plist +
+  load tasks (rollback re-write). Part of eblume/blumeops#1291.
+- Move indri's mcquack.eblume.logrotate LaunchAgent (unit + copy+truncate script) to nix-darwin under the same label and plist path; the ansible role now skips by default and serves only the rollback re-write. Part of eblume/blumeops#1125.
+- Add an hourly mcquack.eblume.logrotate LaunchAgent to indri that copy+truncates every ~/Library/Logs/mcquack.*.log over 256 MiB (3 generations kept).
+  The in-place truncate is because launchd holds O_APPEND fds, so mv-based rotation would leave services writing into the renamed file. Bounds the unbounded launchd log growth (forgejo logs hit 5.2 GB).
+  Part of eblume/blumeops#798.
+- Move indri's four *-metrics LaunchAgents (borgmatic, forgejo, jellyfin, zot
+  — units + collector scripts) to nix-darwin under the same labels and plist
+  paths; the ansible roles now skip deployment by default and serve only the
+  rollback re-write, while the API key files stay controller-side op
+  placement. Part of eblume/blumeops#1125.
+- indri: mise now comes from Homebrew, ensured by the indri play (`indri_mise_bin`, with a version floor `indri_mise_min_version` checked at the top of `pre_tasks`), superseding the retired nix-darwin per-user profile copy (2025.4.11) that the forgejo role still hardcoded. The [[indri]] card documents the toolchain source, the retired nix path, and why `mise prune` must not run blindly (borgmatic). Tracked in eblume/blumeops#1066.
+- The indri play's imperative mise toolchain provisioning (go baseline,
+  `go.set_goroot`, the forgejo runner's host CI tools) is now declarative:
+  the indri nix-darwin flake owns the global mise config, which activation
+  symlinks into `~/.config/mise/config.toml`. The play keeps only the
+  Homebrew mise install and version floor.
+- indri re-founded under nix-darwin: the `darwin/indri` flake (foundation
+  generation, nix-darwin-26.05 on nixos-26.05), `provision-indri` at
+  ringtail parity (flake-lock and pushed-commit guards, detached
+  `darwin-rebuild switch` under the `rebuild` tag), Indri and Ringtail Flake
+  Check CI jobs (on the indri and nix-container-builder runners), and the
+  apply runbook ([[provision]]).
+- `provision-indri` and `provision-ringtail` run `nix flake lock` natively where nix is present, falling back to the nixos/nix container only on nixless controllers (gilbert).
+- indri: install `shellcheck@0.11.0` as a forgejo-runner host tool. The runner already had `actionlint`, but actionlint's built-in shellcheck pass only runs when a `shellcheck` binary is on PATH — so CI never linted workflow shell while the talos pod's pre-push hook did, and the pod was stricter than the gate. The pin mirrors the shellcheck-py hook in `prek.toml` (rev v0.11.0.1 wraps shellcheck 0.11.0), the same version the talos image carries. Tracked in eblume/blumeops#931.
+- Replace AutoMounter on indri with the nix-darwin `mcquack.eblume.sifaka-mounter` LaunchAgent, which mounts the five sifaka SMB shares with consumers onto the same /Volumes/ paths (dropping the vestigial torrents and frigate); the password stays in the login Keychain, a failed mount is visible as sifaka_share_mounted == 0 instead of a GUI prompt, and the automounter service-versions entry is removed. Part of eblume/blumeops#1323.
+- Move indri's zot registry LaunchAgent (unit) to nix-darwin under the same label and plist path; the source-built binary stays at ~/code/3rd/zot and the config + OIDC credentials stay ansible-rendered, so the ansible role's gate now covers only the plist + load tasks (rollback re-write). Part of eblume/blumeops#1125.
+- Step-4 principal rename, leg C: the M2M flip — talos deployment `TALOS_OIDC_M2M_ISSUER` (now list-valued), Grafana `[auth.jwt]`, horkos `HORKOS_ISSUER`/`HORKOS_CLIENT_ID`, the mise-task mints, and the in-place `heph-agents` → `talos-heph` blueprint identifier flip all point at the `talos-*` identities; the legacy `agents-m2m` issuer entry lingers until leg D.
+- Drop the retired agents-m2m identity from the authentik blueprint, worker env and ExternalSecret; the talos M2M issuer list collapses to talos-m2m (step 4 leg D; live-object deactivation is the post-merge ceremony).
+- Reconcile a new `needs-proper-review` label onto every pool repo via the
+  `agent-repo-access` label half (create-if-missing, alongside the `agents`
+  and `no-agents` labels). A human uses it to flag an issue or PR that needs
+  a dedicated human review; talos's `pull_request_review` webhook clears it
+  once any review lands (eblume/talos#158).
+- Load ringtail's netconsole module from a systemd unit triggered by `sys-subsystem-net-devices-enp5s0.device` instead of `boot.kernelModules` — the boot-time module load was racing the NIC coldplug and the module came up with zero targets — and raise `boot.consoleLogLevel` to 7 so warn/info kernel lines reach netconsole outside an oops/panic (eblume/blumeops#1105).
+- Netconsole receiver on indri: a LaunchAgent (`mcquack.eblume.netconsole`) listens on UDP 6666 and appends ringtail's netconsole datagrams to a size-capped `~/Library/Logs/mcquack.netconsole-ringtail.log` (10 MiB × 5, in-script rotation), and Alloy tails the data file and the receiver's stderr into Loki so a kernel oops on ringtail lands in Grafana (eblume/blumeops#1105).
+- Ringtail transmits kernel printk output over netconsole UDP to indri during a panic (sender on enp5s0, target pinned to indri's en0 MAC to skip ARP), converts hard lockups to panics via kernel.hardlockup_panic=1 so a wedged CPU is printed and captured instead of hanging silently, and syncs the journal every 30s so a crash loses at most 30s of userspace context instead of up to 5min (eblume/blumeops#1105).
+- Container builds get a reviewable nixpkgs pin: `containers/` now carries a flake (`containers/flake.nix` + `containers/flake.lock`) locking nixpkgs to the nixos-26.05 rev the ringtail flake uses, and the Build Container workflow resolves `<nixpkgs>` from that pin instead of the build host's floating registry, so a nixpkgs upgrade is a deliberate, reviewed blumeops PR instead of a silent build-time resolution (the typescript TS7 flip that broke the authentik client build in #1134).
+- Docs Checks rejects PR bodies carrying an after-merge section heading (`After merge`, `Post-merge`, `Remaining steps (human)`); the steps belong in the linked issue's Human steps comment (#1233).
+- Least-priv k3s access for warrant-approved `run-script` one-off scripts: `kubectl` on the `priv` runner and the host (both from the pinned `nixpkgs-services` overlay, so the client moves with the k3s pin) and a `run-script` ServiceAccount in the `horkos` namespace with ClusterRole `run-script-pv-ops` (PV `get`/`list`/`delete`, PVC `get`/`list`) — the credential is a bound 12-month token in a loopback-only kubeconfig, stored only in `blumeops-ci` as `k3s-run-script`.
+- Prometheus's web UI moved from npm to pnpm upstream at v3.13.0, which broke
+  the Nix-built v3.14.0 image build (no package-lock.json). The container
+  derivation now fetches the pnpm workspace with fetchPnpmDeps/pnpmConfigHook
+  (pnpm 10, nodejs 22) and builds the assets via the repo's own build_ui.sh, so
+  the v3.14.0 image builds again.
+- provision-indri's CI apply pins the ansible module interpreter to the
+  uvx venv python (the mise shim on the runner's PATH dies under sudo's
+  env_reset), and the forgejo-runner plist (nix-darwin copy and the role's
+  rollback re-write) gains `ExitTimeOut`/`AbandonProcessGroup` so a
+  generation switch that reloads the runner mid-job cannot kill the
+  in-flight job or the detached darwin-rebuild.
+- provision-indri's CI apply now runs the play with `ansible_connection=local`
+  (the host-mode runner is already on the box; SSH-to-self is impossible
+  with Remote Login off).
+- Add the `provision-indri` warrant action: apply a bound blumeops SHA's
+  nix-darwin generation to indri (`darwin-rebuild switch`) via the zero-prompt
+  `--tags rebuild` path from the host-mode indri runner — the phase-1 enabler
+  that turns later box flips from provisioning windows into warrant approvals.
+  The `provision-indri` task's pushed-HEAD guard is now detached-aware (verifies
+  origin/main ancestry instead of branch-tip equality), so a non-tip merged
+  SHA can be applied without a human window. Part of eblume/blumeops#1220.
+- Switch on `pod-security.kubernetes.io/enforce: restricted` for the
+  authentik, immich, mealie, paperless, and teslamate namespaces — step 3 of
+  the PSA rollout (heph `01KVQX81703HDE77ED88XDPSR2`), the first `enforce`
+  labels in the fleet. Warnings were verified quiet after the non-root rollout
+  (#872, #885, #890). The grafana, birdnet-go, and frigate exceptions stand;
+  `apps` is manual-sync, so the labels apply on the next `argocd app sync apps`.
+- Set `User 1000` on the five local nix container images whose root defaults
+  wedged the PSA step 2 restricted fields (authentik-redis, valkey, mealie,
+  paperless, teslamate), per the signed-off decision table in
+  docs/reference/operations/security.md. Teslamate additionally gets a
+  writable uid-owned /opt/app (HOME, SRTM_CACHE). No manifest or
+  kustomization change yet: the securityContext flip and the newTag pins
+  land together in a follow-up PR after the build-container rebuilds, so
+  each workload gets image and fields atomically.
+- Pin the five local nix images rebuilt with non-root `User 1000` (v8.8.2-7eeb358-nix
+  authentik-redis, v9.1.1-7eeb358-nix valkey, v3.20.1-f403fce-nix mealie,
+  v2.20.15-f403fce-nix paperless, v3.0.0-f403fce-nix teslamate) and restore the PSA
+  restricted fields (runAsNonRoot, allowPrivilegeEscalation:false, capabilities drop
+  ALL; fsGroup 1000 on immich-valkey and mealie) on those five workloads per the
+  non-root decision table in docs/reference/operations/security.md.
+- Add Pod Security Admission (PSA) `warn` + `audit` labels at each app
+  namespace's target level (`restricted` for most, `baseline` for
+  hostPath-using ollama/talos), with no `enforce` yet — step 1 of the rollout
+  in heph `01KVQX81703HDE77ED88XDPSR2`. Exemptions (alloy, nvidia-device-plugin,
+  prowler) and deferrals (cnpg-system, databases, tailscale) are documented in
+  `docs/reference/operations/security.md`.
+- Daily Pulumi Cloud stack state + config exports (both stacks, `--show-secrets`) via a ringtail CronJob into the borg backups, plus a restore runbook.
+- Retire the dagger `build_docs` pipeline: the `Build BlumeOps` release workflow and the `docs-preview` task now build the Quartz docs with a direct node:22-slim container run via the new `docs-build-tarball` mise task (repo mounted read-only, output tarball bind-mounted). Dagger remains only for the Frigate model export until it is retired.
+- Retire Dagger from blumeops: `frigate-export-model` is a plain docker run (python:3.11-slim) in place of a `dagger call`, and the dagger module (`src/blumeops/`), `dagger.json`, the `dagger-io` dependency, and the `/sdk/` gitignore entry are all deleted — the ty-check `.ty-env` carve-out for dagger-io dissolves with them.
+- Retire dagger flake-lock/flake-update/nix-version pipelines: the Ringtail Flake Update workflow now runs nix natively on the ringtail nix runner, and the remaining call sites use the nixos/nix container directly.
+
+  Widen the gitleaks allowlist to bare `vX.Y.Z-<hash>-nix` image tags: changelog prose listing them after "valkey," or "authentik-redis," tripped generic-api-key and turned secret-scan red on main and every PR.
+- The `forgejo_runner` role no longer manages Docker Desktop's `daemon.json` (the mirror tasks, the `forgejo_runner_registry_mirror` / `forgejo_runner_docker_daemon_json` defaults, and the restart-note handler are gone): the zot pull-through mirror now lives in indri-build's colima profile (`docker.registry-mirrors` in `colima.yaml`), and Docker Desktop's mentions come out of the runner config and the six docs that named it.
+- Add eblume/RexWorks (a RimWorld mod, C#) to argocd/manifests/talos/repos.json with access: write, pool: canonical — the first freestanding-class repo (eblume/blumeops#995). Grants the agents bot push on the canonical repo and adds it to the talos pod checkout pool; no release_hook, since releases run in-repo via the template release.yaml rather than horkos. Merging rolls the talos pods via the talos-repos ConfigMap; the forge→talos webhook and engagement label are seeded separately via mise run agent-repo-access from gilbert.
+- Install the ArgoCD CLI for eblume on ringtail via the NixOS flake (`environment.systemPackages`, next to `tea`); it previously existed only in the priv runner's `hostPackages`, so the "sync from gilbert" steps in the docs were gilbert-only in practice. No server or workflow change; the same package as the priv runner (nixpkgs 3.3.6, same minor as the live server).
+- Adds `nixos/ringtail/flake-lock-check`, the deterministic check battery for ringtail flake-lock PRs (scope, originals, ff-head, ff-ancestor, nar-hash) with hermetic tests, ahead of the flake-update workflow rework (eblume/blumeops#1318).
+- Enable kubelet Graceful Node Shutdown on ringtail's k3s (`shutdownGracePeriod: 60s`, `shutdownGracePeriodCriticalPods: 15s`) and raise logind `InhibitDelayMaxSec` to 60s to match. On host reboot/poweroff the kubelet now terminates the pods — grace periods and preStop included — while the network is still up, instead of systemd-shutdown killing the containers after the network goes down. This is what makes the transmission 10 s termination cap from #906 apply to host reboots: the journal analysis of every retained boot showed the ~10-min holds lived in the unlogged post-`Journal stopped` phase, and the kubelet never terminated pods on a host reboot (k3s sets no `shutdownGracePeriod`, so the kubelet's built-in 0 s default applied).
+- Enable automatic Nix store GC (weekly, --delete-older-than 30d) and store optimisation on ringtail, so generations and store space self-heal between manual prunes.
+- ringtail-rebuild: capture nixos-rebuild output in the per-sha apply log (journal
+  follow in the wrapper) and stream it live into the forge run log, plus --no-block
+  on the wrapper's systemd-run — a run self-killed by the rebuild it applies now
+  leaves a diagnostic record (#980).
+- ringtail-rebuild: on a same-sha re-run, print the tail of the prior log slice
+  before streaming, so a killed run's output is visible in the confirming run's
+  log (#980).
+- Add the `ringtail-rebuild` warrant action: apply a bound blumeops SHA to
+  ringtail (`nixos-rebuild switch`) through a single root path from the priv
+  runner — starting the `ringtail-apply@<sha>` unit, polkit-gated — in the
+  warrant-approval-gated-runs decomposition. First step toward
+  `provision-ringtail`, which stays `deny` (its ansible pre_tasks read the
+  blumeops vault).
+- Nightly launchd sweep (mcquack.eblume.runner-cache-sweep, default 5:30 AM) on indri that deletes uv script environments older than 4h from `~/.cache/uv/environments-v2` and runs `prek cache gc`; `uv cache prune` is deliberately not used because it also removes live environments. Installed by the forgejo_runner role; its log ships to Loki via the alloy role.
+- Retire the shower service (2026-09-15): its app, ArgoCD app/manifests, blackbox probe and Beyla instrument entries, caddy route, and k8s SQLite dump job are removed. shower.eblu.me keeps resolving and now serves a 410 Gone tombstone at the fly edge. The sifaka:/volume1/shower tree (prize photos + a one-off final DB snapshot taken before the namespace delete) stays in borgmatic's daily archives, including the yearlies; human teardown steps are pending.
+- Retire the Skagit CCE ceramics watch on ringtail (`skagit-cce-watch` user timer + script) after it did its job — it caught the 2026-09-01 ceramics class listing. AAR and historical record: docs/explanation/skagit-cce-ceramics-watch.md (eblume/blumeops#779).
+- The talos dashboard "Modeled box utilization (tok/s)" panel scopes its "API input" series to source="session" now that talos_tokens_total / talos_spend_usd_total carry a source label (session / subagent) from eblume/talos#297, so subagent traffic keeps comparing like-for-like against the lane prefill charge.
+- Talos Grafana dashboard: add event-loop lag (p50/p99) panel backed by the new `talos_event_loop_lag_seconds` histogram.
+- Talos pod: set `fsGroupChangePolicy: OnRootMismatch` so the PVC is not recursively chgrped on every mount; pod starts without the ~2 min VolumePermissionChange walk (eblume/blumeops#800).
+- The forge → talos webhook on every pool repo now subscribes to `pull_request` (open/close/merge/reopen) deliveries, so talos can invalidate its issues queue when a PR merges — a merge changes the issue list, so keeping the queue fresh matters even though a `pull_request` delivery never spawns a PR session, and today spawns no cycle at all; eblume/talos#151 adds the issue-side merge edge. `TALOS_HOOK_SEND_EVENTS`/`TALOS_HOOK_READ_EVENTS` in `mise-tasks/agent-repo-access` move together so the `--check` drift comparison stays consistent.
+- The `agent-repo-access` reconcile's `TALOS_HOOK_READ_EVENTS` now lists the five fine-grained names Forgejo reports when it expands the `pull_request` flag on the GET read-back (`pull_request_assign`, `pull_request_label`, `pull_request_milestone`, `pull_request_review_request`, `pull_request_sync`), so post-`#930` hooks read back clean instead of reporting every pool repo as drifted and re-PUTting the same events on every run. The SEND set is unchanged.
+- Enable lane shaping on the talos deployment: `lanes.json` (virtual local lane, 370 prefill tps, 6 slots, 120 s spill wait) delivered via the `talos-repos` ConfigMap with the `TALOS_LANES` env pointing at it (eblume/talos#252).
+- Added hold-time-by-kind (stacked prefill/decode) and modeled decode utilization panels to the Lanes (shaping) row of the Grafana Talos dashboard (eblume/talos#277).
+- Added hold-time panels (per-request p50/p90 and per-run total p50/p90) to the Lanes row of the Grafana Talos dashboard, and updated the admission-wait panel's description now that holds are exported (eblume/talos#271).
+- Added modeled-box utilization and prefill-backlog panels to the Lanes (shaping) row of the Grafana Talos dashboard, and removed the mislabeled reqps unit from the token-rate panels, whose values are already tokens/sec (eblume/talos#273).
+- Pin `talos` to read-only on canonical in the agent repo pool (`argocd/manifests/talos/repos.json`: `access: read, pool: fork`) and add it to `PINNED_READ_ONLY` in `mise-tasks/agent-repo-access`. Closes the gap where the `agents` bot was a write collaborator on a repo whose `release.yaml` carries `BLUMEOPS_CI_OP_TOKEN` (read of the whole `blumeops-ci` vault). The `agents/talos` fork now exists; the pod's clone loop re-points the checkout to it, and the bot authors via cross-repo PRs.
+- grafana-ringtail: new `TalosPoolUnhealthy` alert (a talos pool clone stays flagged unhealthy — runtime corrupt fetch or boot-repair marker) and a Talos dashboard panel for pool fetch failures and the unhealthy gauge (eblume/talos#228).
+- Set `revisionHistoryLimit: 3` on the talos and egress-gateway Deployments so Kubernetes stops accumulating 10–12 stale ReplicaSets (and the Error/UnexpectedAdmissionError corpse pods they left behind) for each of the two workloads (eblume/blumeops#800).
+- Add the downward-API `TALOS_EPHEMERAL_LIMIT_BYTES` env to the talos deployment so its store-watermark gc tracks the manifest limit, and a Grafana warning rule when store + /tmp stay above 85% of that limit for 30m (eblume/talos#250).
+- # Cap the torrent-ringtail transmission pod's terminationGracePeriodSeconds at 10s and stop in-flight transfers in a preStop, so ringtail reboots can't be held up by the NFS download mount (eblume/blumeops#906). One-line pointers to the same fix were added to the other sifaka-NFS workload manifests.
+- Add a `ty-check` prek hook that type-checks the repo with ty — including the extensionless uv scripts in `mise-tasks/` that no checker previously read. It runs in a fresh checkout by typing the dagger module against the published `dagger-io` (pinned to `dagger.json`'s engineVersion) in a dedicated venv instead of the gitignored, ungenerated SDK at `sdk/src`, and triages the 18 findings the first run surfaced (missing `None` guards, untyped dicts).
+- Renamed the Horkos dispatch identity `warrant-bot` to `horkos-forge` (principal-naming series blumeops#1039, step 1): `mise run horkos-forge-{provision,drift}` (provision gains an idempotent forge-user rename leg), the `horkos-forge-drift` workflow, the horkos ExternalSecret re-pointed at `op://blumeops/horkos-forge-token`, the indri `RELEASE_FORGE_TOKEN` feed, and the referencing docs. The Forgejo user and 1Password item are renamed by a post-merge human ceremony on gilbert (see the PR); `warrant-policy.yaml` and the `Warrant request: #N` stamp keep their names, and no permissions changed.
+- Talos Grafana alerting: new talos-workspaces alert group — TalosWorktreeDangling fires when a pool clone in the talos pod has a worktree registration whose worktree path no longer exists (the eblume/talos#140 failure signature) for an hour.
+- Talos Grafana dashboard: add Workspaces row — session dirs by keep reason (stacked), worktree registrations per pool clone with a prominent dangling series, and reaps per hour by outcome.
+- zot: add the ci-tier release-CI identities `ci-zot-talos` / `ci-zot-horkos` (Authentik blueprint groups/users, zot accessControl grants, `zot-apikey-rotate` entries) alongside the current `talos-zot` / `horkos-zot` — names only, additive prep for the tier-first rename cutover; flip PRs re-mint the release-CI keys and move the workflows over (eblume/blumeops#1039 step 2b)
+- zot: add the ci-tier base push identity `ci-zot` (Authentik blueprint user in the `ci-artifacts` group with its order-7 zot-app policy binding, the `ci-artifacts` accessControl grant on `**` restated in the per-path blocks, and a `zot-apikey-rotate` entry whose sink is the `blumeops-ci/ci-zot` item the flip ceremony renames `zot-ci` into) — additive prep for the `build-container` flip onto `ci-zot`; the following cleanup PR retires `zot-ci` / `artifact-workloads` (eblume/blumeops#1039 step 2b); the "Retiring an identity" section in zot.md now records that the key listing must be taken before the retire PR merges or via the raw apikey endpoint.
+- zot: add the horkos publisher identity `horkos-zot` (Authentik blueprint user in the `horkos-artifacts` group, `blumeops/cv` accessControl grant, `zot-apikey-rotate` entry, horkos ESO re-point to the `horkos-zot-api` master field) — the publisher's tier-correct name per the principal naming scheme; the grandfathered `zot-cv` identity is retired by the following step (eblume/blumeops#1039 step 2b)
+- zot: per-repo push-only identities (zot-talos, zot-horkos) scoping release-CI registry keys (eblume/horkos#17 step 3)
+- Retired the old Zot CI push identity (`zot-ci` user, `artifact-workloads` group and its zot-app policy binding, the `artifact-workloads` accessControl grants, the `zot-apikey-rotate` entry, and doc references) — `ci-zot` is now the sole base CI push identity; live identity deletion is the post-merge ceremony step (eblume/blumeops#1039 step 2b: flip PR #1156, this is the cleanup PR).
+- zot: retire the grandfathered zot-talos / zot-horkos identities (blueprint users + zot-apikey-rotate entries); both release-CI identities are cut over and verified as talos-zot / horkos-zot (eblume/blumeops#1039 step 2)
+- zot: retire the grandfathered `zot-cv` identity and `cv-artifacts` group (eblume/blumeops#1039 step 2b): blueprint user, group and order-4 zot-app binding, the `blumeops/cv` `cv-artifacts` accessControl grant, and the `zot-apikey-rotate` entry are removed; the `horkos-zot` publisher is now the sole push identity for `blumeops/cv`, and zot.md documents revoking an identity's zot API keys before deleting its Authentik user.
+- zot: create the tier-first release-CI identities `talos-zot` / `horkos-zot` (Authentik blueprint + `zot-apikey-rotate`) alongside the grandfathered `zot-talos` / `zot-horkos` (eblume/blumeops#1039 step 2); the old users are retired after the release-CI keys are re-minted and cut over
+- The `forgejo_actions_secrets` provisioning is now authoritative: it deletes undeclared Actions secrets, reports name-level drift under `--check`, authenticates with the scoped `write:repository` token instead of the site-admin PAT, and declares `ZOT_PUSH_API_KEY` (from the zot master fields) as the only stored secret on eblume/talos and eblume/horkos.
+- The `build-container` workflow now reads the registry push key from `blumeops-ci/ci-zot` (`api-key`) and pushes as the `ci-zot` identity, completing the #1039 step-2b flip of the base CI push identity from `zot-ci` (the cleanup PR retires `zot-ci` and `artifact-workloads` after the flip's ceremony).
+- indri: the flake now sets `power.sleep.computer = "never"` and restores `/etc/shells`; the provision runbook drops the "no-write rehearsal" (nix-darwin's `activate` ignores `checkActivation` — every call is a real activation), moves Determinate's step 0 to the console (Tahoe TCC-protects `/etc/fstab` against ssh sessions), and records the reboot test's answer: the first reboot found `org.nixos.activate-system` disallowed by Background Task Management (so `/run/current-system` was deleted at reboot), and `sfltool resetbtm` + reboot cleared the stale record — the daemon now runs at boot and the symlink survives reboots.
+- Replaced ringtail's swap-based systemd-oomd kill (root slice, `SwapUsedLimit=80%`)
+  with a PSI pressure-triggered kill scoped to `user.slice`
+  (`systemd.oomd.enableUserSlices`, 50% avg10 full-pressure for 30s). The swap
+  counter ratchets — stale slot accounting (12.6G "used" vs ~1.6G real zram data
+  at 111d uptime) kept the kill condition permanently armed, executing the desktop
+  session on every RAM spike, and the kills could never reclaim the stale slots
+  that armed them. Pressure is measured, not bookkept, and k3s pods are
+  structurally outside `user.slice`, so pods remain non-candidates by construction.
+- Talos Grafana dashboard: add a "CPU: main thread vs process" panel next to the event-loop-lag one, backed by the new `talos_main_thread_cpu_seconds_total` / `talos_process_cpu_seconds_total` counters (eblume/talos#131). Together with the lag sampler fix in that PR, the panel pair is the honest read on eblume/talos#113: the lag p99 it showed until now was dominated by phantom 2s samples from an early-firing timer, not by the event loop.
+- Repointed the talos pod's liveness/readiness probes from `:3000/auth/login`
+  (redirects — a ProbeWarning on every check — and renders a page) to the
+  dedicated `:9464/healthz`, and raised the probe timeout from the 1s default
+  to 5s. Under 5+ concurrent sessions the single Bun event loop couldn't answer
+  within 1s for 90s and the kubelet liveness-killed the pod, ending every
+  session at once (2026-08-31).
+- Branch protection on `main` is now declared in `forge/branch-protections.json` and reconciled by `mise run agent-repo-access` (applied only from a human run), adding the `* (pull_request)` required-check glob and `Lint / argocd-apps-validate`.
+- - Deleted the dead Homebrew-era Forgejo tree (`/opt/homebrew/var/forgejo`, 6.4 GB,
+    frozen since 2026-04-06) from indri — the last item of #798. Pre-delete checks:
+    the tree shared no inodes, symlinks, or open files with the live `~/forgejo`,
+    no LaunchAgent or borgmatic config referenced it, and borgmatic retention is
+    count-based so nothing depends on the path existing. It did hold one thing
+    that existed nowhere else: the `eblume/hermes` repo (the task tracker
+    hephaestus replaced; unrelated to the 2020 GitHub repo of the same name) with
+    two tagged releases and their four assets. It was a three-day template
+    scaffold with a hello-world route, so after review it was deliberately
+    discarded rather than archived. Also fixed: the husk's mirror `config` files still embedded a
+    GitHub PAT in their remote URLs, so the delete removes a plaintext credential
+    copy; and the stale `--repo eblume/hermes` example in AGENTS.md now names
+    `eblume/talos`.
+- Drop the empty `managedNamespaceMetadata.labels` map from the frigate Application now that the one-time sync has stripped the PSA labels: Kubernetes discards the empty map on storage, so keeping it left `apps` permanently OutOfSync and ArgoCDAppOutOfSync firing.
+- `horkos` is now an automated-sync ArgoCD application, like `talos` and every other first-party release-pinned app; merging its `horkos-release-vX.Y.Z` pin PR is the whole deploy. The manual sync it required before guarded nothing beyond the reviewed pin-PR merge, created the documented deadlock where a merge repairing horkos's dispatch could not be deployed through horkos, and depended on a reminder that lived only in the PR body — v0.5.12 sat undeployed behind an `ArgoCDAppOutOfSync` alert on 2026-09-04. Four applications remain manual (`apps`, `argocd`, `cloudnative-pg-ringtail`, `external-secrets-crds-ringtail`); AGENTS.md, [[argocd]], [[horkos]], [[warrant-approval-gated-runs]] and the restart runbook updated. Deploying this change itself needs one `argocd app sync apps` (the Application definition changed), after which horkos picks up the pending v0.5.12 pin on its own.
+- Add a second, unprivileged Forgejo Actions runner on indri: the dedicated
+  `indri-build` macOS user (no sudo, home 0700) runs a colima-backed runner
+  daemon (label `indri-build`), with the runner identity and colima profile
+  role-rendered and gated on registration. Moving workflows to the new label
+  follows in eblume/blumeops#1358.
+- Pin `uv` in indri's declarative mise config: the devpi role and the indri-label CI jobs resolve it through the mise shim, and without a pin the shim falls through to Homebrew's uv.
+- mealie image bakes the NLTK `averaged_perceptron_tagger_eng` into
+  `/usr/share/nltk_data` and ships a 1777 `/tmp`, so the non-root container no
+  longer fetches from GitHub at startup or needs the `/nltk_data` emptyDir
+  hotfix (#888); pinned as `v3.20.1-0ff99a6-nix`.
+- The frigate namespace drops its PSA warn/audit labels: frigate is a documented
+  exception (root s6-overlay entrypoint, no upstream non-root path), so the
+  `restricted` warnings on every sync were noise with no action behind them.
+- immich-server and immich-machine-learning now run as uid/gid 1000 with the
+  PSA restricted fields (runAsNonRoot, allowPrivilegeEscalation:false,
+  capabilities drop ALL) — upstream's rootless `user: 1000:1000` pattern via the
+  manifest, since both are upstream images. ML gets fsGroup 1000 on its cache PVC
+  plus emptyDirs at `/.config` and `/.cache`; the server's NFS library gets no
+  fsGroup and, on inspection, needs no pre-chown either (the sifaka share is
+  0777 throughout). Increment of the #797 decision table.
+- Bump authentik-redis 8.6.3 → 8.8.2 and valkey 8.1.7 → 9.1.1 to match the
+  nix-container-builder's current nixpkgs. Two of the five PSA non-root
+  rebuilds (#797, pinned by #872) failed on the `default.nix` version
+  assertions because nixpkgs had moved since the versions were last declared;
+  mealie, paperless and teslamate built fine. immich upstream pins valkey 9,
+  and both valkey consumers use emptyDir, so the major bump carries no data
+  migration.
+- Pointed the Caddy, DNS and Tailscale-mise-task references at the moved 1Password items: the Gandi PAT and Tailscale OAuth client now live in vault `pulumi-esc` (item IDs and `op://` refs updated).
+- Provider credentials for the Pulumi DNS and Tailnet stacks are now served through Pulumi ESC environments (`pulumi/esc/`, `mise run pulumi-esc-sync`): the tasks no longer read the Gandi PAT or Tailscale OAuth client themselves, and 1Password stays the only place those credentials live.
+- Pulumi mise tasks read `PULUMI_ACCESS_TOKEN` from 1Password instead of relying on a per-host `pulumi login`.
+- ringtail: replace tuigreet with the ReGreet greeter on cage (greetd): the Wayland compositor holds the DRM master and suspends fbcon, so kernel output at loglevel 7 (netconsole) no longer paints over the login screen; `--unsupported-gpu` is baked into both sway wrappers via `extraOptions` so ReGreet's stock session entry launches sway correctly.
+- Ringtail's Edifier R1700BTs get a left/right channel swap (WirePlumber smart filter) and a user unit that auto-reconnects them.
+- Added a "Lanes (shaping)" row to the Grafana Talos dashboard: turns by lane and decision, admission wait, lane load, and shadow spend.
+- Talos pod sized for tens of concurrent sessions: cpu 250m→2 request / 2→8 limit, memory 512Mi→4Gi request / 4Gi→16Gi limit, and a more patient liveness probe (15s timeout, 6 failures) after the 2-cpu limit throttled 80% of CFS periods at 10 sessions and the kubelet killed every session in the pod.
+- `provision-indri` now feeds `ZOT_PUSH_API_KEY` on eblume/talos and eblume/horkos from the `ci-zot-talos-api` / `ci-zot-horkos-api` master fields, matching the #1039 step-2b flip of the release workflows' push identity (talos#224, horkos#32).
+- Retire the tier-first zot push identities `talos-zot` / `horkos-zot` (step 2b of #1039): their Authentik blueprint users, the `talos-artifacts` group and its zot-app OIDC policy binding, the zot accessControl grants on `blumeops/talos` / `blumeops/horkos`, and the `zot-apikey-rotate` entries. The release-CI workflows now push as `ci-zot-talos` / `ci-zot-horkos` (verified by release pushes); the `horkos-artifacts` group survives as the seat of the horkos publisher identity.
+- Bump the Nix-built Grafana Alloy image (containers/alloy) from v1.16.0 to
+  v1.16.3, the latest patch on the 1.16 train. Pulls in v1.16.2's security
+  fixes (pgx v5.9.2, x/crypto + x/net CVE updates) and the v1.16.3
+  cluster-TLS join fix. The alloy-tracing-ringtail manifest newTag lands in
+  a follow-up commit once the build-container warrant build is green; the
+  full v1.19.2 upgrade is deferred to heph task 01M1GJW5H9T8EXNPH94QW4PNK9
+  (v1.18/v1.19 carry breaking changes the other alloy configs are not
+  reviewed against yet).
+- Bump the Nix-built Grafana Alloy image (containers/alloy) from v1.16.3 to
+  v1.19.2, the latest upstream release (2026-08-26): v1.17.1, v1.18.1 (Go CVE
+  backports GO-2026-6061/GO-2026-5970), and v1.19.2. None of the breaking
+  changes in that range (v1.18.0's otelcol kafka/splunkhec removals, v1.19.0's
+  prometheus.write.queue) touch any of our configs. The v1.19 Makefile embeds
+  Beyla v3.28.0 eBPF binaries into the alloy binary; the recipe now pre-fetches
+  those tarballs (pinned by the in-tree beyla_version.yaml sha256s) and builds
+  with SKIP_CODE_GENERATION, so the build stays offline. The goModules and
+  npmDepsHash fixed-output hashes are TOFU (fakeHash), pinned from the
+  build-container run(s) that report them, per the #790 precedent. The alloy-ringtail
+  DaemonSet newTag pin lands in a follow-up PR once the build is green;
+  alloy-tracing-ringtail stays on v1.16.3 until its own review.
+- Pin the alloy image to v1.19.2-45387b3-nix in both alloy-ringtail and
+  alloy-tracing-ringtail: the first build of the image carrying the embedded
+  Beyla v3.33.0 eBPF binary (beyla v3.33.0's vendored OBI carries the
+  uprobe-preemption guard that fixed the 2026-09-10 ringtail kernel panic).
+  Beyla stays disabled in alloy-tracing-ringtail until the allowlist
+  re-enable PR lands.
+- alloy-tracing-ringtail (ringtail DaemonSet): memory limit 1Gi → 2Gi (request 256Mi → 512Mi) plus a GOMEMLIMIT=1600MiB env, to end the OOMKill crash loop the Alloy v1.19.2 pin introduced when beyla became a subprocess sharing the pod's cgroup (#957).
+- Add ArgoCD accounts `ci-argocd` (CI/CD deploys) and `talos-argocd-readonly` (talos pod read-only inspection) alongside `workflow-bot` and `agents-readonly` with byte-identical scopes. Additive leg of the principal-naming renames (eblume/blumeops#1163): consumers cut over next, then a cleanup PR deletes the old accounts.
+- Point the `argocd-deploy` and `argocd-sync-apps` workflows' `op read` at `op://blumeops-ci/ci-argocd/token` (account `ci-argocd`, re-minted without expiry). CI cutover leg of the `workflow-bot` → `ci-argocd` rename (eblume/blumeops#1163, step 3): the old `blumeops-ci/argocd-workflow-bot` item is retired by the follow-up cleanup PR that deletes the old accounts.
+- Delete the retired ArgoCD accounts `workflow-bot` and `agents-readonly` (and their roles) from the ArgoCD ConfigMap and RBAC patches: consumers are cut over to `ci-argocd` (CI deploys) and `talos-argocd-readonly` (talos pod read-only inspection), so the old accounts and their 1Password tokens are dead weight. Cleanup leg of the principal-naming renames (eblume/blumeops#1163).
+- - automounter (indri): service review 2026-09-28 — App Store is current at 1.14.1 (released 2026-09-16, iTunes lookup id 1160435653); tracked 1.13.0 since the 2026-06-09 review. 1.14.1 updates were applied on indri (App Store → Updates); tracked version and review date stamped. Part of #1305.
+- Alloy image: bump the embedded Beyla eBPF binary from v3.28.0 to v3.33.0.
+  v3.28.0's vendored OBI predates the uprobe-preemption guard (OBI #3059,
+  fixed in OBI v0.12.1) that stopped the 2026-09-10 ringtail kernel panic —
+  a NULL deref in obi_protocol_tcp while uprobing a freshly rolled
+  tailscaled sidecar. v3.33.0's OBI pin carries the fix (verified 10 commits
+  ahead of the fix merge). Alloy itself stays v1.19.2; the build now
+  re-pins the alloy source's in-tree beyla_version.yaml to the shipped
+  binaries so the Makefile download step stays a no-op. Beyla stays
+  disabled in alloy-tracing-ringtail (see the beyla-disable fragment) until
+  the re-enable PR; the image pin PR follows the build-container run.
+- External Secrets Operator CRDs moved to `helm-chart-2.11.0` (operator v2.11.0 to follow): the CRD set diff is additive only — a new Barbican `applicationCredential` auth type plus CEL validation rules on the SecretStore/ClusterSecretStore CRDs, no CRDs removed or renamed.
+- Caddy on indri gains a second listener, \*.ops.eblu.me:8443, serving only services flagged `fly_proxied` (docs, cv, photos); the fly proxy's ACL grant will be narrowed to that port (eblume/blumeops#1396). A render check now validates the Caddyfile split in CI.
+- The Fly proxy's nginx now points its indri upstream at Caddy's fly-only `:8443` listener (`indri.tail8d86e.ts.net:8443`) instead of `:443` (eblume/blumeops#1396); live once #1405's `tag:flyio-origin` ACL grant is applied and the `deploy-fly` run deploys it.
+- Add a `tag:flyio-origin` tag to indri and a `tag:flyio-proxy` → `tag:flyio-origin` tcp:8443 ACL grant so the Fly proxy can reach Caddy's fly-only `:8443` listener (docs/cv/photos) on that port only.
+- `forge-reconcile` is now the single forge drift check: it folds in the retired
+  `horkos-forge-drift` tool's blast-radius invariants (horkos-forge not a site
+  admin, write on exactly the `horkos_forge` set, blumeops `main` whitelisted to
+  eblume), takes over its weekly schedule, and reports same-repo PR drift as
+  intended (warn + PR comment, auto-applies on merge) vs unexpected (fail) —
+  fork/agent PRs skip.
+- Bump the indri forgejo-runner pin from v12.13.2 to v13.1.0 (the 13.x
+  release line). The v13 breaking changes (removed GITEA_ env vars, removed
+  container network_mode, removed secret-based registry auth) were audited
+  against the indri runner config template and all pooled repo workflows:
+  none are used, and the template's config keys all survive v13.1.0's
+  schema (checked against its config.example.yaml). The source-built
+  binary on indri is rebuilt at the new tag in a human provision window;
+  until then provision-indri will fail its version check by design.
+  Tracked in eblume/blumeops#865.
+- Pin the heph release to v1.10.4 in both places: the hub (`heph_version`, indri ansible role) and the ringtail spokes (`hephTag`). v1.10.4 ships heph-pwa tag rendering and the talos-watch notice/Unwatch action ([eblume/hephaestus#78](https://forge.eblu.me/eblume/hephaestus/issues/78)).
+- Bumped the heph hub pin (`heph_version`, indri ansible role) to v1.10.5. The PWA shell now ships a deploy-stamped `pwa-version.js` derived from this pin and displays it in the PWA settings menu, so a phone user can see whether a PWA update has landed (eblume/hephaestus#85).
+- The `horkos-forge` dispatch PAT now carries `write:issue` alongside `write:repository` — forge scopes the issue routes (including the warrant settlement comment) to the issue token category, and the replay's deny-leg comment 403'd without it. Re-mint from gilbert: `mise run horkos-forge-provision --rotate` (eblume/horkos#40).
+- The authentik blueprint gains a parallel `talos-m2m` machine identity (`talos-m2m` provider + app, `talos-sa` group, `talos-ringtail` service account + app-password token) alongside the untouched `agents-*` entries — the additive leg of the step-4 principal rename; nothing consumes it yet.
+- Restore the node-level verification of Prowler findings for the k3s/ringtail cluster that was retired with minikube ([[retire-minikube]] phase 5): `review-compliance-reports` now verifies over `ssh ringtail` — k3s/kubelet file ownership and permissions (k3s.yaml, admin.kubeconfig, kubelet.kubeconfig, k3s.service), the kubelet config drop-ins under /var/lib/rancher/k3s/agent/etc/, etcd CA separation (etcd-ca.crt vs ca.crt), and that the only cluster-admin ClusterRoleBinding is the built-in one — plus the four kubelet config property checks (readOnlyPort, makeIPTablesUtilChains, eventRecordQPS, tlsCipherSuites). The current k3s Prowler profile emits no MANUAL findings (mutelist already reworked for k3s in June), so no mutelist changes; the verifier is a drift safety net. Part of eblume/blumeops#797.
+- Fix the two verifier bugs from the first live run of the k3s node verification (blumeops#797): the k3s.service unit check now accepts "644 or more restrictive" (`perm & 0o133 == 0`) so NixOS /nix/store units at 444 pass, and etcd CA separation fingerprints the real k3s CA locations (server-ca.crt, etcd/server-ca.crt, etcd/peer-ca.crt — all three must be pairwise distinct). Mute the six kubelet node-file MANUAL rows (kubelet.conf/config.yaml/service drop-in ownership + permissions), which the node verifier covers, and correct the stale "no MANUAL findings" claims in the Prowler docs: since the bump to v5.39.1 the profile emits those MANUAL rows plus 20 steady unmuted FAILs (19 RBAC rows, one seccomp row for the egress-gateway pod) that are accepted as-is — the scan keeps running as a tripwire for new deltas.
+- Add the four PSA restricted-required fields (`runAsNonRoot`, `seccompProfile`
+  at pod level; `allowPrivilegeEscalation: false`, `capabilities: drop ALL` at
+  container level) to the near-miss workloads in restricted-labeled app
+  namespaces — step 2 of the PSA rollout in heph
+  `01KVQX81703HDE77ED88XDPSR2`. The pinned upstream ArgoCD chart gets its five
+  pod-level gaps via a kustomize strategic-merge patch
+  (`argocd-security-patch.yaml`). Excludes grafana's root `init-chown-data`
+  container (needs a non-root chown pattern, follow-up), birdnet-go (added in
+  #765 after the label pass; its upstream image runs as root, so a field
+  addition would not start), and the baseline/exempt namespaces. Part of
+  eblume/blumeops#753.
+- Ringtail's flake now carries `invariants.nix`: evaluation-time assertions that keep `services.k3s.manifests` and `autoDeployCharts` empty (cluster resources stay ArgoCD-owned — k3s manifest symlinks outlive deletion, #1408) and that k3s keeps `--write-kubeconfig-mode=600` (the admin kubeconfig must not be readable by the unprivileged `agent` user).
+- Added an assertion in `nixos/ringtail` forbidding `services.k3s.manifests`, `autoDeployCharts` and `charts`: k3s keeps re-applying a manifest dropped from the NixOS config, so cluster resources go through ArgoCD. Documented the manual cleanup procedure in `docs/reference/kubernetes/cluster.md`.
+- Migrate ringtail to the nixos-26.05 channel (nixos-25.11 is EOL and its flake inputs were frozen since 2026-06-30): bump the ringtail flake's nixpkgs and home-manager inputs to 26.05, refresh flake.lock, bump system/home stateVersions to "26.05", and drop the temporary factorio-headless version pin now that nixpkgs ships 2.0.77 natively. The nixpkgs-services overlay pin is untouched — forgejo-runner, snowflake, and k3s each keep their deliberate service-review bumps. Deployment is a human-supervised `provision-ringtail` from gilbert (major-channel upgrade, expect a kernel update + reboot).
+- Ruff's lint `select` now explicitly adopts ruff's widened 0.16-era default rule set as a frozen per-rule list (413 rules, matching the version rev'd in `prek.toml`), so a future ruff release cannot silently change what the Lint gate enforces; adopting new rules is a deliberate edit to the list. The resulting findings are fixed across `mise-tasks/`, `pulumi/`, `src/`, `tests/` and `containers/` — mostly `check=False` annotations on `subprocess.run` calls whose exit codes are already handled, `datetime.UTC` and `X | None` modernization, and import sorting.
+- Container images now build on merge: a push to main touching `containers/` builds and pushes the changed containers to zot, and container PRs get the build as a check; the `build-container` warrant and dispatch flow is retired (horkos opens the pin PR on the push webhook).
+- Cut the talos agent pod over to the egress gateway (eblume/talos#69 stage 2):
+  the in-pod Tailscale sidecar is dropped (the tag:agent identity lives in the
+  egress-gateway pod now), EGRESS_GATEWAY_URL points at the gateway's fixed
+  clusterIP, and the pod runs dnsPolicy: None (the gateway resolves proxied
+  hostnames; the CGNAT fence in networkpolicy.yaml is untouched — the
+  deny-by-default flip is stage 3, its own PR).
+- Flip the talos agent pod's egress fence to deny-by-default (eblume/talos#69
+  stage 3). The pod's legal egress is now exactly: the egress-gateway pod
+  (all real egress transits it, session-tagged logs), cluster DNS (kube-dns,
+  53 UDP+TCP — the pod resolves direct clients itself), and authentik (9000
+  TCP, the in-cluster OIDC issuer fetch exempted from the proxy by no_proxy).
+  Merging this PR is the cutover — egress becomes mandatory at the kernel —
+  and it belongs in a human change window; recovery is a single `git revert`.
+- Raise the talos pod's `ephemeral-storage` limit from 10Gi to 40Gi — the watermark gc in eblume/talos#250 is the actual bound, the limit is the backstop — and mount `/tmp` from the `talos-home` PVC (`subPath: .tmp`) so throwaway writes leave the writable layer.
+  Corrects the stale eval-only nix description in `docs/reference/services/talos.md`.
+- New `mise run talos-wait-for-task` task: register, list, show, and cancel talos heph-task watcher jobs (one-shot continuations on a heph task's done/dropped) against the /api/crons API, authenticated with the agents-m2m credential.
+- Upgrade the home-built Tempo container from 2.10.7 to 3.0.3, the 3.0 major. Tempo 3.0 removes the legacy ingester-based write path, the standalone compactor module, v2 block encoding, and the local-blocks metrics-generator processor. The tempo-ringtail config is migrated to match: block retention moves from compactor.compaction to backend_worker.compaction (the single binary runs compaction in-process), and metrics_generator.traces_storage and the local-blocks processor entries are dropped. The vParquet4 default block format is unchanged, so existing blocks on the PVC stay readable without migration. The tempo-ringtail kustomization newTag lands in a follow-up commit once the build-container warrant build is green; the deploy itself is a stop-the-world swap (traces are retained 7 days, so a brief gap during the pod restart is expected).
+- Finish the Nix-built Grafana Alloy v1.16.3 bump (#790, #787): pin the real
+  fixed-output hashes for the alloy-ui npm deps and the Go module cache
+  (computed on ringtail, the same nix-container-builder CI uses), build the
+  image from the branch head, and point alloy-tracing-ringtail at the new
+  `v1.16.3-<sha>-nix` tag. #790 merged with the hashes intentionally stale for
+  CI TOFU, so `main` briefly carried an unbuildable containers/alloy.
+- Alloy 1.19.2 finish-out, done from gilbert rather than by talos (closes #818; the Alloy half of #865). Both ringtail DaemonSets (alloy-ringtail from v1.16.0, alloy-tracing-ringtail from v1.16.3) pin `v1.19.2-ed1df80-nix`; the indri native binary is rebuilt at v1.19.2 (go 1.26.7, node 24.16) and running. The container needed three fixes on top of #875: the real npmDepsHash and goModules hash (TOFU round via CI run 2662 + a `--keep-going` build on ringtail), `dontUnpack` on the beyla-binaries derivation (src = null with the default unpackPhase never built), and the ringtail flake update (#904) so the nix-container-builder's Go met the 1.26.7 floor. Ledger: alloy, alloy-ringtail, alloy-tracing-ringtail stamped; the orphan alloy-k8s entry (manifests retired with minikube) removed; the alloy role's build header rewritten to the working recipe.
+- authentik v2026.2.6: auto-pin from eblume/blumeops `6a6c45d` — image pin bumped to `v2026.2.6-6a6c45d-nix`.
+- cv v1.0.4: auto-release from eblume/cv `f7dd509` — tarball published to `registry.ops.eblu.me/blumeops/cv:v1.0.4`, ansible pin bumped.
+- cv v1.0.5: auto-release from eblume/cv `6fac383` — tarball published to `registry.ops.eblu.me/blumeops/cv:v1.0.5`, ansible pin bumped.
+- external-secrets operator v2.11.0: mirror build bumped in `containers/external-secrets/default.nix` (Go floor 1.26.6, pinned go_1_26 1.26.7 — no nixpkgs pin change); CRDs already at `helm-chart-2.11.0` since eblume/blumeops#1271.
+- external-secrets v2.10.0: auto-pin from eblume/blumeops `55edd40` — image pin bumped to `v2.10.0-55edd40-nix`.
+- external-secrets v2.11.0: auto-pin from eblume/blumeops `5c8cdcc` — image pin bumped to `v2.11.0-5c8cdcc-nix`.
+- Ringtail flake update (nixpkgs nixos-26.05 a311611 → 6713828, home-manager 65258d5 → fd0956c; nixpkgs-services untouched). Motivation: the nix-container-builder's Go moves 1.26.6 → 1.26.7, the floor Alloy v1.19.2's go.mod declares, which was failing the alloy build-container run at the go-modules step. Kernel 6.18.48 → 6.18.49 rides along (reboot to pick it up). The flake-update workflow computed the same revs but its push step hung on the runner; the lockfile was regenerated on ringtail directly and committed from gilbert.
+- Bumped the heph hub pin on indri to v1.10.0 (kubeconfig-style `heph auth
+  login` contexts, node-id prefix reads, FTS5 hyphen fix), matching the
+  ringtail spoke pin bumped in #770.
+- Bumped both ringtail heph spokes (eblume + agent) to v1.10.0, picking up the
+  config-defaults feature (`~/.config/heph/config.toml` driving `heph auth
+  login`) among others.
+- horkos v0.5.10: auto-release from eblume/horkos `8323ee5` — image pin bumped to `v0.5.10-8323ee5-nix`.
+- horkos v0.5.11: auto-release from eblume/horkos `b8b97ce` — image pin bumped to `v0.5.11-b8b97ce-nix`.
+- horkos v0.5.12: auto-release from eblume/horkos `281c0b9` — image pin bumped to `v0.5.12-281c0b9-nix`.
+- horkos v0.5.13: auto-release from eblume/horkos `2d189db` — image pin bumped to `v0.5.13-2d189db-nix`.
+- horkos v0.5.14: auto-release from eblume/horkos `1a5ce47` — image pin bumped to `v0.5.14-1a5ce47-nix`.
+- horkos v0.5.15: auto-release from eblume/horkos `780452e` — image pin bumped to `v0.5.15-780452e-nix`.
+- horkos v0.5.16: auto-release from eblume/horkos `2bd4311` — image pin bumped to `v0.5.16-2bd4311-nix`.
+- horkos v0.5.18: auto-release from eblume/horkos `dbd83cc` — image pin bumped to `v0.5.18-dbd83cc-nix`.
+- horkos v0.5.19: auto-release from eblume/horkos `d45fcf8` — image pin bumped to `v0.5.19-d45fcf8-nix`.
+- horkos v0.5.20: auto-release from eblume/horkos `1fd0076` — image pin bumped to `v0.5.20-1fd0076-nix`.
+- horkos v0.5.21: auto-release from eblume/horkos `0b5fecb` — image pin bumped to `v0.5.21-0b5fecb-nix`.
+- horkos v0.5.22: auto-release from eblume/horkos `afc2ed4` — image pin bumped to `v0.5.22-afc2ed4-nix`.
+- horkos v0.5.23: auto-release from eblume/horkos `65822e5` — image pin bumped to `v0.5.23-65822e5-nix`.
+- horkos v0.5.24: auto-release from eblume/horkos `807f7eb` — image pin bumped to `v0.5.24-807f7eb-nix`.
+- horkos v0.5.25: auto-release from eblume/horkos `8c3755d` — image pin bumped to `v0.5.25-8c3755d-nix`.
+- horkos v0.5.26: auto-release from eblume/horkos `5a1c40c` — image pin bumped to `v0.5.26-5a1c40c-nix`.
+- horkos v0.5.27: auto-release from eblume/horkos `cf015cd` — image pin bumped to `v0.5.27-cf015cd-nix`.
+- horkos v0.5.28: auto-release from eblume/horkos `ee1c5a1` — image pin bumped to `v0.5.28-ee1c5a1-nix`.
+- horkos v0.5.29: auto-release from eblume/horkos `b68cac5` — image pin bumped to `v0.5.29-b68cac5-nix`.
+- horkos v0.5.31: auto-release from eblume/horkos `a168059` — image pin bumped to `v0.5.31-a168059-nix`.
+- horkos v0.5.32: auto-release from eblume/horkos `03f949a` — image pin bumped to `v0.5.32-03f949a-nix`.
+- horkos v0.5.33: auto-release from eblume/horkos `97fc867` — image pin bumped to `v0.5.33-97fc867-nix`.
+- horkos v0.5.34: auto-release from eblume/horkos `78e2e64` — image pin bumped to `v0.5.34-78e2e64-nix`.
+- horkos v0.5.35: auto-release from eblume/horkos `b7e91f3` — image pin bumped to `v0.5.35-b7e91f3-nix`.
+- horkos v0.5.9: auto-release from eblume/horkos `9272df5` — image pin bumped to `v0.5.9-9272df5-nix`.
+- kube-state-metrics v2.19.1 → v2.20.0 (daily service review, #1341): one minor release, the latest upstream. Additive for us — new CRD-family metrics and a bugfix sweep (client-go 0.36 compat, panic guards), plus upstream's Go/CVE bumps. The one marked change, `kube_pod_status_reason`'s row semantics, is not consumed in blumeops (only `kube_pod_status_ready` is used). fetchgit hash and vendorHash are pinned to real values (verified by a full `nix-build` of the container derivation).
+- kube-state-metrics v2.20.0: auto-pin from eblume/blumeops `6e4341a` — image pin bumped to `v2.20.0-6e4341a-nix`.
+- loki v3.7.8: auto-pin from eblume/blumeops `69f4612` — image pin bumped to `v3.7.8-69f4612-nix`.
+- ntfy v2.28.0: auto-pin from eblume/blumeops `2288d19` — image pin bumped to `v2.28.0-2288d19-nix`.
+- Bump the nvidia-device-plugin image from v0.19.2 to v0.20.0, the latest
+  upstream release (release notes clean for the stock DaemonSet deployment;
+  detail in the commit message). Version stamped across kustomization,
+  service-versions.yaml, and the service reference doc.
+- prometheus v3.14.0: auto-pin from eblume/blumeops `bc9bb92` — image pin bumped to `v3.14.0-bc9bb92-nix`.
+- prowler v5.39.1: auto-pin from eblume/blumeops `dd1f467` — image pin bumped to `v5.39.1-dd1f467-nix`.
+- pulumi-stack-backup v3.237.0: auto-pin from eblume/blumeops `21f26d6` — image pin bumped to `v3.237.0-21f26d6-nix`.
+- Bump devpi-server 6.19.3 → 6.20.3 and devpi-web 5.0.2 → 5.1.1.
+- Daily service review: cv (ansible, last reviewed 2026-04-29). Deployed
+  v1.0.3 is still the newest published package: v1.0.4 is parked on
+  [eblume/horkos#17](https://forge.eblu.me/eblume/horkos/issues/17) step 4, the
+  cv release-path rewrite, and the source repo's build deps were already
+  refreshed by [eblume/cv#3](https://forge.eblu.me/eblume/cv/pulls/3) (alpine
+  3.23, Dagger v0.21.9, WeasyPrint pinned 69.0, merged 2026-09-05). Per the
+  reviewer on [eblume/blumeops#941](https://forge.eblu.me/eblume/blumeops/issues/941)
+  the version is left as-is this cycle since the deploy story is changing
+  soon; the revamp is filed as its own issue. The bot token still lacks the
+  `read:package` scope, so published package versions cannot be enumerated
+  from the pod — noted in the revamp issue. Stamped last-reviewed in
+  service-versions.yaml; no version bump.
+- Caddy on indri: source rebuild v2.11.2 → v2.11.4 (xcaddy with Gandi DNS + Layer 4 plugins, LaunchAgent restarted) — 2026-09-11 daily review (#991). v2.11.3/v2.11.4 are patch-level with no breaking changes for this deployment (no fastcgi, no caddy-dns/caddy-l4 changes). No version pin exists in blumeops: the caddy role only stats the binary built at ~/code/3rd/caddy; the ledger stamp records eblume's post-rebuild `bin/caddy version` output (no anonymous version endpoint to probe from the pod).
+- Shower (argocd): daily service review — deployed v1.1.3 is current upstream; stamped last-reviewed, no version bump.
+- Daily service review: unpoller (argocd, last reviewed 2026-05-28). Bumped the
+  Nix build from v3.2.0 to v5.2.5 (latest stable, 2026-09-12) — the full train
+  jump eblume asked for on [eblume/blumeops#1048](https://forge.eblu.me/eblume/blumeops/issues/1048),
+  not just the latest v3 patch. Changelog v3.3.0→v5.2.5 reviewed release by
+  release: additive metrics/labels and dependency bumps throughout; the only
+  schema change in the span is v4.0.0's UNAS flag refactor, and UNAS is opt-in
+  and never configured here (stateless exporter, single up.conf, API key via
+  ExternalSecret), so no config changes are needed. v5.0.0's GitHub release
+  body is gone upstream (release deleted; the git tag survives in our mirror) —
+  small residual uncertainty, acceptable for a non-critical diagnostic plane.
+  Two build changes: v5.2.5's go.mod floor is go 1.26.0, so buildGoModule is
+  pinned to go_1_26 (same pattern as tempo/tailscale); v5's main.go no longer
+  declares the golift.io/version symbols, so the dead -X ldflags are trimmed.
+  The fetchgit hash for v5.2.5 was verified in-pod against the forge mirror
+  (the method reproduces the committed v3.2.0 hash exactly); vendorHash is left
+  as fakeHash for the CI TOFU round (the pod's build seccomp filter blocks the
+  in-pod go module download). The kustomization newTag lands in a follow-up
+  commit once the build-container warrant build is green; the app is
+  Automated (Prune), so the deploy is the merge itself.
+- Daily service review: teslamate (argocd, last reviewed 2026-06-03). Bumped
+  the Nix build from v3.0.0 to v4.2.0 (latest release, 2026-08-23) — a full
+  train jump, eblume-approved on [eblume/blumeops#1083](https://forge.eblu.me/eblume/blumeops/issues/1083):
+  changelog v3.1.0→v4.2.0 reviewed release by release, no breaking change in
+  the span applies to this deployment. Build moves erlang_27/elixir_1_18 →
+  erlang_28/elixir_1_19 (v4.1.0+ requires elixir ~> 1.19) and drops the
+  ex_cldr locale pre-fetch (replaced upstream by localize in v4.2.0); the
+  Grafana dashboard fetch pin moves v3.0.0 → v4.2.0.
+- paperless-ngx v2.20.15 -> v3.1.3 as part of the recurring service review (eblume/blumeops#1132); the nixpkgs pin moves to `ef34387ddd751` (shared with audiobookshelf).
+  3.0.0 breaking changes triaged against our deployment — none apply (no API v1/<9 usage, no removed OCR/thumbnail-encryption/DB settings in the k8s env).
+- Monthly deps refresh: ruff-pre-commit v0.16.4 -> v0.16.8, pre-commit-shfmt v3.13.1-1 -> v3.14.1-1 and mirrors-prettier v3.9.6 -> v3.9.7 (prek hook revs); ansible-core 2.21.3 -> 2.21.4 (prek hook pin), prek 0.4.14 -> 0.5.3, pulumi 3.259.0 -> 3.263.0, ty 0.0.74 -> 0.0.81 and flyctl 0.4.87 -> 0.4.104 (mise pins, service-versions.yaml synced); typer==0.27.1 -> 0.27.2 across all 31 uv scripts, pyjwt==2.13.0 -> 2.14.0 and cryptography==50.0.0 -> 50.0.1 in horkos-test; Fly proxy nginx 1.30.4-alpine -> 1.30.5-alpine and grafana/alloy v1.18.1 -> v1.19.2 (digest-pinned). prek 0.5.0's breaking changes (@-groups, PREK_MAX_CONCURRENCY, `prek auto-update`, `prek init-template-dir`) verified unused in this repo. tailscale v1.102.3, anubis v1.27.0 and actions/checkout verified current — not bumped.
+- External Secrets Operator v2.2.0 -> v2.10.0 as part of the recurring service review ([eblume/blumeops#1204](https://forge.eblu.me/eblume/blumeops/issues/1204)): the nix build in `containers/external-secrets` moves to the v2.10.0 mirror tag (Go floor 1.26.6; `go_1_26` in the pinned nixpkgs is 1.26.7) and the CRDs app `external-secrets-crds-ringtail` now tracks `helm-chart-2.10.0`. Release notes v2.3-v2.10 show no breaking changes to our CRD, webhook, or 1Password Connect usage, and the CRD set diff is additive (two new generator CRDs, none removed). v2.11.0 is deferred until upstream tags `helm-chart-2.11.0` so the operator and CRDs stay a matched pair.
+- - heph (indri hub): review reconciliation, no bump — the ansible pin was already at the latest release (v1.10.5); the stale service-versions.yaml entry (v1.2.1, self-update note) and the Indri doc label now describe the pin-and-provision design. Bumped the ringtail spokes' `hephTag` v1.10.4 → v1.10.5 to bring hub and spokes in step; spoke tracking entries follow the pin.
+- Bump the Nix-built Prometheus image (containers/prometheus) from v3.12.0 to
+  v3.14.0, the latest upstream release (2026-08-17). v3.13.x carried fixes
+  including GO-2026-5841/GO-2026-6303 dependency security fixes. No v3.13/v3.14
+  `[CHANGE]` item is breaking for a stock single-instance scrape/remote_write
+  deployment (stats query-param deprecation is a warning only until the next
+  major; Hetzner SD label drop and default PromQL duration expressions are
+  behavior-neutral here), so no prometheus.yml change is needed. The
+  v3.14.0 fetchgit path hash is pinned in-tree; npmDepsHash and vendorHash are
+  TOFU (fakeHash), pinned from the Build Container check that reports them.
+  The prometheus-ringtail image tag pin lands in a follow-up PR (opened by
+  horkos) once the build is green. Part of #1282.
+- Daily service review: loki (argocd, last reviewed 2026-06-12). Bumped the
+  Nix-built Loki image (containers/loki) from v3.7.2 to v3.7.8, the latest
+  release on the 3.7 train. The v3.7.3-v3.7.8 span is patch releases:
+  dependency/security bumps (notably grpc HIGH advisories in v3.7.8) plus a
+  v3.7.5 ingester flush-race fix and v3.7.6 queryrange sketch fix; the only
+  marked breaking change is v3.7.3's OpenShift stream-labels default, which
+  does not apply to this deployment. The v3.7.8 fetchgit hash was verified
+  in-pod against the forge mirror; the kustomization newTag lands in a
+  follow-up PR opened by horkos once the merge-triggered build is green.
+- tailscale-operator + tailscale + tailscale-k8s-nameserver bumped v1.98.5 →
+  v1.102.5 (service review [eblume/blumeops#1386](https://forge.eblu.me/eblume/blumeops/issues/1386)). Release
+  analysis found no breaking changes: additive PeerRelay CRD + RBAC, no
+  config/CRD migrations, image names unchanged. The window carries security
+  fixes TS-2026-004/005/006/007/008/009/011 and the large-tailnet container
+  resilience fix in 1.102.5.
+- Daily service review: ntfy (argocd, last reviewed 2026-06-17). Bumped the
+  Nix-built ntfy image (containers/ntfy) from v2.24.0 to v2.28.0, the latest
+  upstream release (2026-08-27). The v2.25.0-v2.28.0 span is hardening and
+  feature work only: template DoS hardening and unsafe-protocol stripping
+  (v2.26.0), opt-in abuse ban-feed (v2.26.3), template size caps plus
+  email-as-username login and de-experimentalized Postgres (v2.27.0), and
+  request-shape limits on title/tags/cache-replay (v2.28.0). None of it
+  touches our 6-line server.yml config, and the single producer
+  (frigate-notify camera alerts) does not approach the new caps. The
+  fetchgit hash was verified in-pod against the forge mirror with a full
+  nix build; npmDepsHash/vendorHash ride the PR build check's TOFU round.
+  The kustomization newTag lands in the follow-up PR horkos opens once the
+  merge-triggered build is green.
+- tailscale-operator v1.102.5: auto-pin from eblume/blumeops `7f39ab6` — image pin bumped to `v1.102.5-7f39ab6-nix`.
+- talos v0.4.100: auto-release from eblume/talos `e730469` — image pin bumped to `v0.4.100-e730469-nix`.
+- talos v0.4.106: auto-release from eblume/talos `9e84933` — image pin bumped to `v0.4.106-9e84933-nix`.
+- talos v0.4.109: auto-release from eblume/talos `b4ec3ca` — image pin bumped to `v0.4.109-b4ec3ca-nix`.
+- talos v0.4.111: auto-release from eblume/talos `7adae1d` — image pin bumped to `v0.4.111-7adae1d-nix`.
+- talos v0.4.112: auto-release from eblume/talos `d619965` — image pin bumped to `v0.4.112-d619965-nix`.
+- talos v0.4.116: auto-release from eblume/talos `6bab017` — image pin bumped to `v0.4.116-6bab017-nix`.
+- talos v0.4.118: auto-release from eblume/talos `7c903f8` — image pin bumped to `v0.4.118-7c903f8-nix`.
+- talos v0.4.119: auto-release from eblume/talos `25b3c75` — image pin bumped to `v0.4.119-25b3c75-nix`.
+- talos v0.4.121: auto-release from eblume/talos `92abf40` — image pin bumped to `v0.4.121-92abf40-nix`.
+- talos v0.4.122: auto-release from eblume/talos `1bc9e20` — image pin bumped to `v0.4.122-1bc9e20-nix`.
+- talos v0.4.123: auto-release from eblume/talos `6728660` — image pin bumped to `v0.4.123-6728660-nix`.
+- talos v0.4.124: auto-release from eblume/talos `9223ea1` — image pin bumped to `v0.4.124-9223ea1-nix`.
+- talos v0.4.125: auto-release from eblume/talos `0dcaa6d` — image pin bumped to `v0.4.125-0dcaa6d-nix`.
+- talos v0.4.126: auto-release from eblume/talos `be2ea1f` — image pin bumped to `v0.4.126-be2ea1f-nix`.
+- talos v0.4.129: auto-release from eblume/talos `2ee455d` — image pin bumped to `v0.4.129-2ee455d-nix`.
+- talos v0.4.132: auto-release from eblume/talos `97bba6c` — image pin bumped to `v0.4.132-97bba6c-nix`.
+- talos v0.4.136: auto-release from eblume/talos `caeadd2` — image pin bumped to `v0.4.136-caeadd2-nix`.
+- talos v0.4.138: auto-release from eblume/talos `ba84853` — image pin bumped to `v0.4.138-ba84853-nix`.
+- talos v0.4.140: auto-release from eblume/talos `e5f9f71` — image pin bumped to `v0.4.140-e5f9f71-nix`.
+- talos v0.4.143: auto-release from eblume/talos `d6d095e` — image pin bumped to `v0.4.143-d6d095e-nix`.
+- talos v0.4.144: auto-release from eblume/talos `11a8952` — image pin bumped to `v0.4.144-11a8952-nix`.
+- talos v0.4.147: auto-release from eblume/talos `7bc7147` — image pin bumped to `v0.4.147-7bc7147-nix`.
+- talos v0.4.148: auto-release from eblume/talos `6a8aa26` — image pin bumped to `v0.4.148-6a8aa26-nix`.
+- talos v0.4.149: auto-release from eblume/talos `7f88067` — image pin bumped to `v0.4.149-7f88067-nix`.
+- talos v0.4.150: auto-release from eblume/talos `1c60c02` — image pin bumped to `v0.4.150-1c60c02-nix`.
+- talos v0.4.151: auto-release from eblume/talos `bc4256c` — image pin bumped to `v0.4.151-bc4256c-nix`.
+- talos v0.4.152: auto-release from eblume/talos `08e0787` — image pin bumped to `v0.4.152-08e0787-nix`.
+- talos v0.4.153: auto-release from eblume/talos `5872295` — image pin bumped to `v0.4.153-5872295-nix`.
+- talos v0.4.154: auto-release from eblume/talos `a4b4ac0` — image pin bumped to `v0.4.154-a4b4ac0-nix`.
+- talos v0.4.155: auto-release from eblume/talos `814ca5d` — image pin bumped to `v0.4.155-814ca5d-nix`.
+- talos v0.4.156: auto-release from eblume/talos `8dbdb26` — image pin bumped to `v0.4.156-8dbdb26-nix`.
+- talos v0.4.159: auto-release from eblume/talos `28e4fbd` — image pin bumped to `v0.4.159-28e4fbd-nix`.
+- talos v0.4.161: auto-release from eblume/talos `f198bbe` — image pin bumped to `v0.4.161-f198bbe-nix`.
+- talos v0.4.163: auto-release from eblume/talos `00e59a7` — image pin bumped to `v0.4.163-00e59a7-nix`.
+- talos v0.4.164: auto-release from eblume/talos `794851b` — image pin bumped to `v0.4.164-794851b-nix`.
+- talos v0.4.167: auto-release from eblume/talos `1c72f4b` — image pin bumped to `v0.4.167-1c72f4b-nix`.
+- talos v0.4.168: auto-release from eblume/talos `31df4d7` — image pin bumped to `v0.4.168-31df4d7-nix`.
+- talos v0.4.169: auto-release from eblume/talos `d2723eb` — image pin bumped to `v0.4.169-d2723eb-nix`.
+- talos v0.4.170: auto-release from eblume/talos `9ae66ed` — image pin bumped to `v0.4.170-9ae66ed-nix`.
+- talos v0.4.171: auto-release from eblume/talos `396c242` — image pin bumped to `v0.4.171-396c242-nix`.
+- talos v0.4.172: auto-release from eblume/talos `f9e9771` — image pin bumped to `v0.4.172-f9e9771-nix`.
+- talos v0.4.173: auto-release from eblume/talos `b7f101b` — image pin bumped to `v0.4.173-b7f101b-nix`.
+- talos v0.4.179: auto-release from eblume/talos `c3993f3` — image pin bumped to `v0.4.179-c3993f3-nix`.
+- talos v0.4.181: auto-release from eblume/talos `9437f50` — image pin bumped to `v0.4.181-9437f50-nix`.
+- talos v0.4.183: auto-release from eblume/talos `a3f7c91` — image pin bumped to `v0.4.183-a3f7c91-nix`.
+- talos v0.4.185: auto-release from eblume/talos `188c9f6` — image pin bumped to `v0.4.185-188c9f6-nix`.
+- talos v0.4.187: auto-release from eblume/talos `a6008e5` — image pin bumped to `v0.4.187-a6008e5-nix`.
+- talos v0.4.189: auto-release from eblume/talos `5b5d992` — image pin bumped to `v0.4.189-5b5d992-nix`.
+- talos v0.4.192: auto-release from eblume/talos `8c883a0` — image pin bumped to `v0.4.192-8c883a0-nix`.
+- talos v0.4.43: auto-release from eblume/talos `da8d73d` — image pin bumped to `v0.4.43-da8d73d-nix`.
+- talos v0.4.44: auto-release from eblume/talos `6aff647` — image pin bumped to `v0.4.44-6aff647-nix`.
+- talos v0.4.46: auto-release from eblume/talos `d9a4426` — image pin bumped to `v0.4.46-d9a4426-nix`.
+- talos v0.4.47: auto-release from eblume/talos `295bdd6` — image pin bumped to `v0.4.47-295bdd6-nix`.
+- talos v0.4.49: auto-release from eblume/talos `7658798` — image pin bumped to `v0.4.49-7658798-nix`.
+- talos v0.4.52: auto-release from eblume/talos `79b6160` — image pin bumped to `v0.4.52-79b6160-nix`.
+- talos v0.4.53: auto-release from eblume/talos `4fa92d9` — image pin bumped to `v0.4.53-4fa92d9-nix`.
+- talos v0.4.54: auto-release from eblume/talos `020ec7d` — image pin bumped to `v0.4.54-020ec7d-nix`.
+- talos v0.4.55: auto-release from eblume/talos `1d30172` — image pin bumped to `v0.4.55-1d30172-nix`.
+- talos v0.4.58: auto-release from eblume/talos `f2e08db` — image pin bumped to `v0.4.58-f2e08db-nix`.
+- talos v0.4.59: auto-release from eblume/talos `243a72c` — image pin bumped to `v0.4.59-243a72c-nix`.
+- talos v0.4.60: auto-release from eblume/talos `256ed43` — image pin bumped to `v0.4.60-256ed43-nix`.
+- talos v0.4.61: auto-release from eblume/talos `92be18a` — image pin bumped to `v0.4.61-92be18a-nix`.
+- talos v0.4.62: auto-release from eblume/talos `75523ff` — image pin bumped to `v0.4.62-75523ff-nix`.
+- talos v0.4.63: auto-release from eblume/talos `5fd1e48` — image pin bumped to `v0.4.63-5fd1e48-nix`.
+- talos v0.4.65: auto-release from eblume/talos `0797a8c` — image pin bumped to `v0.4.65-0797a8c-nix`.
+- talos v0.4.67: auto-release from eblume/talos `c1a8fcb` — image pin bumped to `v0.4.67-c1a8fcb-nix`.
+- talos v0.4.68: auto-release from eblume/talos `04e0fa7` — image pin bumped to `v0.4.68-04e0fa7-nix`.
+- talos v0.4.69: auto-release from eblume/talos `faee8f1` — image pin bumped to `v0.4.69-faee8f1-nix`.
+- talos v0.4.70: auto-release from eblume/talos `23e1eb8` — image pin bumped to `v0.4.70-23e1eb8-nix`.
+- talos v0.4.71: auto-release from eblume/talos `4d939b6` — image pin bumped to `v0.4.71-4d939b6-nix`.
+- talos v0.4.72: auto-release from eblume/talos `1e54651` — image pin bumped to `v0.4.72-1e54651-nix`.
+- talos v0.4.73: auto-release from eblume/talos `0af9af9` — image pin bumped to `v0.4.73-0af9af9-nix`.
+- talos v0.4.74: auto-release from eblume/talos `fd45b3b` — image pin bumped to `v0.4.74-fd45b3b-nix`.
+- talos v0.4.77: auto-release from eblume/talos `49613b7` — image pin bumped to `v0.4.77-49613b7-nix`.
+- talos v0.4.78: auto-release from eblume/talos `5430f90` — image pin bumped to `v0.4.78-5430f90-nix`.
+- talos v0.4.79: auto-release from eblume/talos `a01ffcd` — image pin bumped to `v0.4.79-a01ffcd-nix`.
+- talos v0.4.83: auto-release from eblume/talos `572ce08` — image pin bumped to `v0.4.83-572ce08-nix`.
+- talos v0.4.84: auto-release from eblume/talos `5793faf` — image pin bumped to `v0.4.84-5793faf-nix`.
+- talos v0.4.86: auto-release from eblume/talos `3f16e22` — image pin bumped to `v0.4.86-3f16e22-nix`.
+- talos v0.4.88: auto-release from eblume/talos `9e5d042` — image pin bumped to `v0.4.88-9e5d042-nix`.
+- talos v0.4.89: auto-release from eblume/talos `d62b9fe` — image pin bumped to `v0.4.89-d62b9fe-nix`.
+- talos v0.4.91: auto-release from eblume/talos `022fcb6` — image pin bumped to `v0.4.91-022fcb6-nix`.
+- talos v0.4.94: auto-release from eblume/talos `54d5b31` — image pin bumped to `v0.4.94-54d5b31-nix`.
+- talos v0.4.96: auto-release from eblume/talos `128b395` — image pin bumped to `v0.4.96-128b395-nix`.
+- teslamate v4.2.0: auto-pin from eblume/blumeops `ca01fce` — image pin bumped to `v4.2.0-ca01fce-nix`.
+- Zot on indri rebuilt from source v2.1.16 → v2.1.20 (Go 1.25 → 1.26.5; closes #878). The v2.1.18 metrics-authz change (zot #4110/#4131) made the metrics ACL explicit, so the old anonymous-scrape trick `accessControl.metrics.users: [""]` now yields 401 — the config switches to `accessControl.metrics.anonymousPolicy: ["read"]` so Alloy's scrape keeps working. Role comments document the upgrade path (checkout tag, bump go pin, `make binary`, kickstart the LaunchAgent — ansible only restarts on config change).
+- Add a Memtest86+ entry to ringtail's systemd-boot menu (`boot.loader.systemd-boot.memtest86.enable`) so RAM burn-in after a hardware change needs no USB stick.
+- Public/private forge split complete: the old forge.eblu.me relay is retired; this sweep drops the public redirect URI from the authentik blueprint, retitles the fly dashboards to the static mirror, adds a per-service Caddy deny hook on indri, and gates new public-name hard-coding with a lint.
+- The private forge site on indri now denies the fly proxy node (403), so the public mirror host cannot reach forge.ops.eblu.me.
+- `op-backup` now leaves `~/Documents/1password-backup` on indri at mode 700/600 instead of umask-default 644. The runbook gains two guards: check that Gilbert's export folder is not iCloud-synced (`readlink`, not `stat`), and never delete the folder from the iCloud Drive view — on indri that folder *is* `~/Documents`, and a delete from any Mac wiped the unarchived sets on 2026-09-09 (#958).
+- talos pod: pool clones now track canonical `main` (detached) instead of the fork's default branch, so the talos pool clone finally gets its prek hooks and the `~/.pi` subagent assets follow agents `main`; prek is baked into the image as the environment default, repo `mise.toml` pins are preinstalled at boot, and the PVC's global mise config is rewritten from the image every boot (talos default.nix). AGENTS.md rule 4 documents the layered tool model.
+
+### Documentation
+
+- Reviewed the architecture overview (`docs/explanation/architecture.md`):
+  updated the Observability section for the current LGTM+ stack — Alloy
+  now runs twice in k8s (`alloy-ringtail` for metrics/logs,
+  `alloy-tracing-ringtail` for traces to Tempo over OTLP) — and stamped
+  `last-reviewed: 2026-09-04`.
+- Loosen the "run from gilbert" phrasing in the argocd and warrant docs now that the argocd CLI is also installed on ringtail (#856, #866): the two present-tense, CLI-availability claims now say "from a host with the CLI (gilbert or ringtail)". Historical mentions (the pre-auto-sync horkos process) are left as recorded. No code change.
+- docs(ringtail): rewrite the lockfile how-to for the scheduled, self-verifying flake-update workflow — check battery, human merge on green, exception flow, and why the gate moved.
+- Reviewed the storage backups reference (`docs/reference/storage/backups.md`):
+  added the missing backup sources `~/.local/share/borgmatic/k8s-dumps` and
+  `/Volumes/shower`, corrected the Immich photos sources to the `library/` +
+  `upload/` subdirs, fixed the k8s dump method for mealie/shower to the in-pod
+  python3 sqlite3 helper and noted mealie's ringtail host, and fixed the Grafana
+  dashboard name to "Borg Backups". Stamped `last-reviewed`.
+- Documented the seven public (indri-local, Caddy-fronted) blackbox probe targets in the ServiceProbeFailure runbook, including the 502-vs-connection-refused triage signature that separates a backend outage from a front outage.
+- Reviewed the Borgmatic service card (`docs/reference/services/borgmatic.md`):
+  added missing backup sources — `/Volumes/shower` (SMB mount), the local
+  Forgejo SQLite dump, and the horkos k8s dump — corrected the Immich photos
+  sources to the `library/` + `upload/` subdirs with their excludes, and fixed
+  the Grafana dashboard name to "Borg Backups". Stamped `last-reviewed`.
+- Post-cleanup doc fix for the caddy lineage note: the retired `~/code/3rd/caddy`
+  checkout and its four forge mirrors are deleted, so `darwin-rebuild
+  --rollback` alone is the lineage rollback. Part of eblume/blumeops#1275 /
+  eblume/blumeops#1213.
+- Adds a "brief and declarative, under 3 sentences" content rule for changelog fragments to the agent instructions.
+- Corrected [[agent-change-process]] (2026-09-19 doc review): `mise run ai-sources` is ~600K tokens (2.47MB measured), not ~270K; the horkos publisher opens the kustomization pin PR when the merge run pushes the tag (tag creation, not the push webhook); the `report-failure` step covers the PR-facing check jobs (Lint, Docs Checks, Image Pins, Build Container build job, Agent Repo Access reconcile job) — the path-filtered flake-check builds and `detect` are the exceptions; the warrant invariant 3 note now names one of its three markers.
+- Fix the LaunchAgent plist naming in the add-ansible-role how-to to the real convention (mcquack.eblume.<service>.plist, per the zot/forgejo/alloy roles) and drop the trailing slash from the node_exporter textfile path to match role defaults; stamp last-reviewed 2026-09-10.
+- Doc: delete the "Build Authentik Container Image" how-to card at the reviewer's request (article redundant with the source build card, which covers the same territory); drop its last inbound link from the source build card.
+- Fix the connect-to-postgres how-to for the retired 5432 route: connect with -p 5434 (blumeops-pg), and note the per-cluster tailnet ports (5433 immich-pg, 5434 blumeops-pg); stamp modified and last-reviewed 2026-09-11.
+- Doc: delete the "Create Authentik Secrets" how-to card at the reviewer's request (article superseded by the Authentik service reference, which now documents the item's fields); fix its last inbound link and carry the deletion through the scheduled doc review.
+- Retired the Deploy Authentik how-to card (one-shot Mikado-era plan): its post-cutover database topology and container-build notes moved into the [[authentik]] reference card, and the stale `pg.ops.eblu.me:5432` cross-host port was corrected to `:5434` in the [[postgresql]] reference card; its inbound wikilinks were repointed to the reference card.
+- docs(security-model): daily review — correct the fly.io public surface, tailscale-operator RBAC, K8s/agent tailnet rows, vault split, secret scanning (Gitleaks), and rewrite the AI/automation access section for talos.
+- Reviewed the "Use PyPI Proxy" how-to card (daily docs review). All claims verified against repo state; updated review stamp.
+- The agents-forgejo-bot docs now describe the post-#725 issue-engagement
+  model instead of the stale "apply the `agents` label" one: an issue opened
+  by an allowlisted creator (Erich, or the bot for cron-filed briefs) starts a
+  cycle on its own, the `agents` label is the secondary engagement edge (and
+  the only UI path on the read-only repos), assignment works only where the
+  bot has write, and a human comment re-triggers an engaged or allowlisted-created issue. Updated
+  `docs/reference/infrastructure/agents-forgejo-bot.md` and the
+  `agent-repo-access` module docstring, which also carried a stale pinned
+  read-only repo count ("two" → the actual four).
+- Retired the build-authentik-from-source how-to card (reviewer: card duplicated the reference cards). Its unique content moved: the version-update workflow and the `ak` wrapper / `opencontainers` GitHub-fetch details into [[authentik-nix-build-components]], the fetchgit/SRI mirror URLs into [[mirror-authentik-build-deps]], and inbound wikilinks were repointed.
+- Docs review: stamp the [[grafana]] service reference card last-reviewed 2026-10-03 — the 2026-10-03 doc review landed its new "Upgrading" section there (from #1385), so its card date should reflect that review.
+- Docs review: verified `how-to/grafana/kustomize-grafana-deployment.md` against repo state and ArgoCD (both apps Synced/Healthy at c1015780). Corrected the post-[[retire-minikube]] paths and app names: manifests live in `argocd/manifests/grafana-ringtail/` + `argocd/manifests/grafana-config-ringtail/` (the old `argocd/manifests/grafana/` no longer exists), the secrets app is `grafana-config-ringtail`, and the file table gains `alerting.yaml` (it is in the configMapGenerator).
+- docs(authentik): delete the migrate-grafana-to-authentik card — redundant after the card refactor; its essential info (current grafana-ringtail/grafana-config-ringtail paths, blueprint `!Env` scalar gotcha) now lives in the [[grafana]] and [[authentik]] service reference cards (eblume/blumeops#1217).
+- Docs: delete `how-to/grafana/upgrade-grafana.md` per review — it is a one-off
+  migration record (Helm → Kustomize, 11.4.0 → 12.3.3). The one general bit, the
+  version-bump → build → pin-PR upgrade flow, moved into the [[grafana]] service
+  reference card as an "Upgrading" section; dead [[upgrade-grafana]] links in
+  [[build-grafana-images]] and [[kustomize-grafana-deployment]] removed.
+- Reviewed the GitOps explanation (`docs/explanation/why-gitops.md`): corrected the layered-tools table (the ansible layer also manages ringtail's NixOS rebuild and sifaka exporters; the pulumi layer manages tailnet auth keys) and the ArgoCD sync detail, and expanded the card to reflect the current posture — GitOps as the central pillar underpinning the k3s fleet, first-party releases, CI, hosts, tailnet, docs, and the agent services; the pantheon of GitOps-driven automation (Forge, Talos, Horkos, Hephaestus) that turns Forge issues into code changes in blumeops itself; SHA-driven determinism; and the deliberate response to the Lethal Trifecta. Stamped `last-reviewed: 2026-09-07`.
+- Document `!!plan: skip` as the current issue-body pragma in the agent change process and talos design cards, and name the talos README Pragmas section as authoritative for the full list (the bare `plan: skip` form is retired).
+- docs(pulumi): correct the restore runbook to the procedure actually exercised in 2026-10-01 — extract with `borg extract --stdout` (the remote extract used to land files on indri), rewrite `deployment.secrets_providers` to the target stack's passphrase provider before import (as-is import needs the lost account, and deleting the field panics with secrets present), and restore into the same project+stack name on a scratch `file://` backend (`--force` rejected). Adds `mise run pulumi-restore-check` to make the one-time restore check repeatable.
+- How-to card for adding a flake invariant (incident lesson encoded as an
+  `invariants.nix` assertion/warning, enforced by the host flake-check CI),
+  plus the AGENTS.md pointer that sends config-shape incident fixes to it
+  (#1414).
+- Add docs for the freestanding-repo class and the add-a-repo-to-the-pool how-to.
+- Add a post-cut TODO-sweep step to the [[add-a-freestanding-repo]] how-to, listing the template TODO locations a fresh cut leaves behind; also update step 5's auto-release note to the template's current push-to-main auto-release.
+- Reframe the heph conventions in AGENTS.md: don't file heph tasks to track or remind about code work in talos-managed repos — the forge issue/PR thread is the record; reserve heph task creation for human actions entirely outside of talos/blumeops (chores, projects, ideas, shopping lists), and `heph log`/`done` against chores Erich himself filed. Part of [eblume/agents#38](https://forge.eblu.me/eblume/agents/issues/38).
+- review-services.md reworded to the new heph standard: the rest of a
+  multi-sitting upgrade is filed as a follow-up forge issue/PR instead of a
+  heph task, and remote-agent review findings are recorded in the PR
+  description instead of the heph log doc. Part of
+  [eblume/agents#38](https://forge.eblu.me/eblume/agents/issues/38).
+- Docs: record why indri's ssh exit codes are untrustworthy — Tailscale SSH exits 0 for any remote failure (upstream tailscale/tailscale#18256, fix #20626 still open) — and the sentinel in-band verification convention the indri legs now use, plus the missing indri-flake-check row in the mise-tasks reference (blumeops#1379).
+- Document the plan-first issue cycle in the agent change process and on the talos design card: the first cycle on a non-trivial issue posts a plan and waits for a go, and a `plan: skip` line in the issue body opts trivial issues out of planning.
+- Flipped the Forgejo mirror runbook's PAT rotation to classic-first: the 2026-08-10 fine-grained form failure is now the stated reason for leading with a zero-scope classic token, with the fine-grained form demoted to a note. Also fixed the verify comment's token prefix (ghp_), the old-token deletion link (classic token list), and the rotation reminder (recurring Forgejo issue) in `docs/how-to/configuration/manage-forgejo-mirrors.md`.
+- Mirror runbook: check mirror health via `mirror_updated` (last sync) from the repo detail API instead of guessing from `updated_at`.
+- Refresh the Mise Tasks reference card to the live `mise tasks --sort name` list and stamp last-reviewed.
+- First banked openrouter-probe runs for the three models talos uses (qwen3.8-27b, deepseek-v4-flash-0731, gemini-2.5-flash), from pod egress; new reference card [[openrouter-provider-probes]] linked from the probe how-to.
+- ---
+  name: docs: correct /share/bogus expectation in the photos.eblu.me verification matrix
+  ---
+
+  The matrix said the bogus share id returns the app with a 200 "invalid link" page; immich v3.0.2 answers with its own 404 shell. The row now records the observed behavior and how to tell it apart from the nginx 403 deny.
+- AGENTS.md § Privileged actions: a PR body ends at the merge — anything outside the diff is automatic on merge, a warrant the post-merge cycle files, or a `- [ ]` item in the linked issue's `## Human steps` comment (replaces the "Remaining steps (human)" PR-section convention, eblume/blumeops#1233); pointer added to [[request-a-privileged-run]] Rules of the road.
+- Documented the `k3s-run-script` cluster credential (canonical kubectl prologue and review rules in the one-off-script run docs, the blumeops-ci item tables, the horkos scope) and fixed the stale 'requestable today' lists to include `run-script.yaml` and `ringtail-rebuild.yaml`.
+- Reviewed the OpenRouter probe card (`docs/how-to/operations/probe-openrouter-model.md`) against the live mise task: corrected the intro to call the `err`/`429` columns counts rather than rates, switched the two eblume/talos issue links from the agent-pod API host `forge.ops.eblu.me` to the human-facing `forge.eblu.me`, and dropped the stale pointer to [[talos-design]] (it does not cover provider routing; eblume/talos#183 does). Stamped `last-reviewed`.
+- Document the per-workload non-root decisions for the eight PSA-rolled-back workloads in the security PSA section (seven to non-root images or manifests, frigate as a documented PSA exception).
+- Document the required-status-checks invariant on `main` (eblume/blumeops#1013):
+  the four required pull_request contexts (Docs Checks / checks plus the three
+  Lint jobs) are listed in docs/explanation/agent-change-process.md under "The
+  residual problem", and the lint.yaml header now warns that renaming a job
+  silently un-requires it, since the context string is the job name.
+- Documented the drain-transmission pre-step (suspend the torrent-ringtail ArgoCD syncPolicy, scale to 0, restore on boot) and the 2026-09-06 shutdown-timing observations in the restart-ringtail runbook (eblume/blumeops#906).
+- The freestanding-repo how-to now records that the template pins the dagger module name and main object, so an un-renamed cut still builds, and that the module rename covers four linked names.
+- Clarify that the `notes` field in `service-versions.yaml` records how a
+  service is deployed, not a per-review log; review findings go in the
+  changelog fragment and heph log instead.
+- docs/reference/services/talos.md: note the boot-time pool-repair phase and the `talos_pool_unhealthy` / `talos_pool_fetch_failures_total` metrics.
+- New explanation card [[agent-interactive-access]]: Warpgate evaluated against the run-script warrant model; approved sessions and read-only exploration analysed, ranked, and deferred.
+- docs(agents-forgejo-bot): the fork PR recipe applies to every `pool: fork` repo (`agents`, `horkos`), not just blumeops — read-only canonical is not a blocker.
+- docs(indri): the indri runner docs no longer claim a 3h plist drain window - launchd clamps ExitTimeOut to 60s in the per-user gui domain (measured on macOS 26); AbandonProcessGroup is what survives a plist-changing warrant apply, and the plist is generation system content, so a plist-only change is a new generation and a content-identical switch creates none (blumeops#1266).
+- Fix the restart-ringtail runbook: the transmission restore step now puts back the full `torrent-ringtail` sync policy (automated + CreateNamespace + managed namespace labels) and syncs once, instead of only re-enabling `automated`, which left the `apps` app OutOfSync after every drained reboot.
+- Update the ringtail reference: the NVIDIA/greetd bullet now describes the ReGreet-on-cage greeter stack and why (loglevel 7 kernel text must not paint the login screen).
+- Fix drift in the [[ringtail]] card from doc review: ArgoCD now runs in-cluster
+  (the indri cluster-registration era is gone, including the manual `argocd
+  cluster add` section), secrets sync is 3 apps (the `ClusterSecretStore` moved
+  into `external-secrets-ringtail` with the ESO kustomize migration), snowflake
+  metrics bind `0.0.0.0:9999`, factorio uses an exact CNAME (not an A record),
+  the workloads table is a labeled subset of the 36 ArgoCD apps, and the
+  `ringtail-priv-runner` warrant sandbox is documented.
+- Document ringtail's PSU (EVGA SuperNOVA 850 G3) in the hardware table; it cannot be read from the OS.
+- AGENTS.md §Container Releases names the real task, `container-build-and-release` (the `container-release` name it cited was renamed in August).
+- Fix drift in the [[update-tailscale-acls]] card from doc review. The
+  examples still used the legacy top-level `acls` key with `*:*` port
+  syntax; the policy actually uses the modern `grants` schema with `ip`
+  port lists, so the examples, prerequisites (pulumi is mise-managed, not a
+  brew install), and the stale credential-expiry advice are corrected.
+  Notes the `tests`/`sshTests` invariant sections and the
+  full-overwrite semantics of `tailscale.Acl`.
+- Updated the "pushing a commit back to a protected `main`" section of the Create Release Artifact Workflow how-to: the main-push PAT is no longer an Actions secret passed to `actions/checkout`; it is read at push time from the `blumeops-ci` vault (`forge-main-push/token`) via `op read` with `BLUMEOPS_CI_OP_TOKEN`. (Doc review, eblume/blumeops#1081.)
+- Docs review: verified `how-to/operations/restore-1password-backup.md`
+  against repo state (op-backup task, borg role defaults, borgmatic on indri,
+  sifaka repo, wiki-links, backup/restore flow parity). No content
+  drift found; stamped last-reviewed.
+- Reviewed the Deploy K8s Service how-to: fixed the Application template's repoURL to the webhook-matched `forge.eblu.me` host, replaced the never-spell-out syncPolicy defaults with `automated: {}`, added the now-standard PSA namespace labels, corrected the homepage group list, and noted the ingress backend port and `kustomization.yaml` in the manifest layout.
+- docs: re-review `provision-authentik-database` — post-retire-minikube paths, `createdb` drop, and the 5432→5434 route cutover
+- Stamp the `docs` service-versions.yaml entry: live site verified byte-identical
+  to upstream release v1.20.1 (2026-09-01 review); the release workflow had
+  bumped the role pin but never the tracking file.
+- Sync the forgejo-runner how-to docs (configure-launchd-runner.md,
+  validate-forgejo-workflows.md) to the v13.1.0 build/validate tags; they
+  had drifted at v12.8.2 since the 12.x bump.
+- Migrate the Quartz docs build from v4 to v5. The docs build now tracks the Quartz default branch (v5) instead of being pinned to v4.5.2; docs/quartz.config.ts and docs/quartz.layout.ts are replaced by a single docs/quartz.config.yaml in the v5 format (plugins and layout positions declared per plugin). The Dagger build_docs pipeline stages the v5 root quartz.ts and .npmrc and installs dependencies with npm install (not ci), since the upstream v5 lockfile is not always in sync with its package.json.
+- talos.md service card gains the heph-task watcher recipe — job shape, one-shot semantics, the talos-watch tag contract, expiresAt, origin, and wrapper usage.
+- docs(power): record the 2026-09 rewiring: only indri, ringtail and their switch stay on the UPS; sifaka, the router and Starlink move to the Anker battery station.
+- Incident record for the two unclean ringtail resets on 2026-09-10: both were the same beyla BPF uprobe kernel panic (`obi_protocol_tcp`, once on a freshly rolled tailscaled sidecar, once on a CloudNativePG postgres backend), found from the EFI pstore archives; the heph cargo compile in flight at 15:40 was a bystander that only left the switch unfinished. [[ringtail]] gets the record (pstore ids, what was ruled out, beyla back on under #999's allowlist with the canary in #983) and [[restart-ringtail]] gets an "After an unclean reboot" section: read `/var/lib/systemd/pstore/` first, then the previous boot's journal (eblume/blumeops#1003).
+- Add the [[restart-ringtail]] runbook: what goes dark when ringtail shuts down (the whole k3s cluster including ArgoCD, horkos and the alerting stack), pre-checks, the poweroff/startup sequence, and a RAM-swap checklist (DIMM_A2/B2, DOCP off, dmidecode verify, memtest86+ burn-in).
+- Corrected the argocd reference: the in-cluster `forge.eblu.me` CoreDNS rewrite outlived the 2026-10-02 rebuild through a stale k3s manifest symlink and was removed by hand on 2026-10-03.
+- Docs review: verified `how-to/authentik/mirror-authentik-build-deps.md`
+  against forge and repo state. The DRF fork upstream is
+  `goauthentik/django-rest-framework` (now archived), not
+  `authentik-community/`, and no forge mirror of it was ever created.
+  Noted the mirror is live and consumed by `containers/authentik/sources.nix`,
+  and linked `[[manage-forgejo-mirrors]]`.
+- Docs review: verified `how-to/knowledgebase/review-documentation.md`
+  against repo state (mise task names, argocd app layout, agent-change-process
+  classification retirement, wiki-links, docs-preview port). No content
+  drift found; stamped last-reviewed.
+- Docs sweep: routing, forgejo, ai-scraper-mitigation, argocd, and flyio-proxy references updated to post-cutover reality (the public name is the static mirror; the relay is retired).
+- Record the 2026-09-02 dry-run reboot timings and RAM swap in [[restart-ringtail]]: settle sequence, "reboot once with old RAM first", kubectl fallback for an expired argocd CLI token, stale-pod-corpse caveat, correct BIOS menu names (Extreme Tweaker / Ai Overclock Tuner), the Q-DIMM two-click seating gotcha, the same-day partial memtest fallback, and the finding that the 1700X cannot hold this kit at its 3200 JEDEC table (memtest errors; run at 2400). [[ringtail]] RAM row and speed note updated for the 2x32 GB Crucial kit at 2400 MT/s.
+- Record the 2026-09-05→06 overnight Memtest86+ burn-in result (PASS, 0 errors at DDR4-2400) in the ringtail card; the RAM-swap follow-up is closed (blumeops#800).
+- docs(audiobookshelf): the built-in scheduled backup must be enabled in the UI before the borgmatic hook can ferry it; with it off the nightly archive aborts.
+
+### Miscellaneous
+
+- docs(lint): allowlist Pulumi's SpecialSigKey constant in gitleaks (generic-api-key false positive on the pulumi-restore-check task's marker variable).
+- Rename the ringtail flake-update workflow file to `ringtail-flake-update.yaml`.
+- Stamp alloy-tracing-ringtail last-reviewed 2026-09-02 in service-versions.yaml
+  (missed in #792; the v1.16.3 bump was that day's review).
+
+
 ## [v1.20.1] - 2026-08-30
 
 ### Features

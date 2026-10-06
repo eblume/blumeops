@@ -1,1 +1,0 @@
-Branch protection on `main` is now declared in `forge/branch-protections.json` and reconciled by `mise run agent-repo-access` (applied only from a human run), adding the `* (pull_request)` required-check glob and `Lint / argocd-apps-validate`.

@@ -1,1 +1,0 @@
-Docs: record why indri's ssh exit codes are untrustworthy — Tailscale SSH exits 0 for any remote failure (upstream tailscale/tailscale#18256, fix #20626 still open) — and the sentinel in-band verification convention the indri legs now use, plus the missing indri-flake-check row in the mise-tasks reference (blumeops#1379).

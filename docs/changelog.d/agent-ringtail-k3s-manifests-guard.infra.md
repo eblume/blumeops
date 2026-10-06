@@ -1,1 +1,0 @@
-Added an assertion in `nixos/ringtail` forbidding `services.k3s.manifests`, `autoDeployCharts` and `charts`: k3s keeps re-applying a manifest dropped from the NixOS config, so cluster resources go through ArgoCD. Documented the manual cleanup procedure in `docs/reference/kubernetes/cluster.md`.

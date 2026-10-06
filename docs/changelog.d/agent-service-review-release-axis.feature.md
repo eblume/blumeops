@@ -1,1 +1,0 @@
-service-review gains a `release: self` axis: first-party services (horkos, cv, docs, talos, heph*) are reviewed for release-pipeline health instead of upstream version bumps. Adds the missing `container` and `fly` checklist branches and reconciles the `--type` help strings and header type list with the six types in use.

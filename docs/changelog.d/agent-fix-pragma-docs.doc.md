@@ -1,1 +1,0 @@
-Document `!!plan: skip` as the current issue-body pragma in the agent change process and talos design cards, and name the talos README Pragmas section as authoritative for the full list (the bare `plan: skip` form is retired).

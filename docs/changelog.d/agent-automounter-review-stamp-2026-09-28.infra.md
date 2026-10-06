@@ -1,1 +1,0 @@
-- automounter (indri): service review 2026-09-28 — App Store is current at 1.14.1 (released 2026-09-16, iTunes lookup id 1160435653); tracked 1.13.0 since the 2026-06-09 review. 1.14.1 updates were applied on indri (App Store → Updates); tracked version and review date stamped. Part of #1305.

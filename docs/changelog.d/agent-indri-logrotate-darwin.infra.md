@@ -1,1 +1,0 @@
-Move indri's mcquack.eblume.logrotate LaunchAgent (unit + copy+truncate script) to nix-darwin under the same label and plist path; the ansible role now skips by default and serves only the rollback re-write. Part of eblume/blumeops#1125.

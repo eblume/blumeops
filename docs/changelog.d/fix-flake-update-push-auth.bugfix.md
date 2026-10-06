@@ -1,1 +1,0 @@
-Ringtail flake update: authenticate the branch push explicitly and disable git terminal prompts; checkout v7 credentials never applied on the runner (symlinked workspace path), so the push hung on a credential prompt.

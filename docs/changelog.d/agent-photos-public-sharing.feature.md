@@ -1,1 +1,0 @@
-New public hostname `photos.eblu.me` — Immich family album sharing over the shared-link surface only (deny-by-default edge allowlist, per-IP rate limits, fail2ban on the password check), through the Fly.io proxy.

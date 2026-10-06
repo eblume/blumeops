@@ -1,1 +1,0 @@
-Step-4 principal rename, leg C: the M2M flip — talos deployment `TALOS_OIDC_M2M_ISSUER` (now list-valued), Grafana `[auth.jwt]`, horkos `HORKOS_ISSUER`/`HORKOS_CLIENT_ID`, the mise-task mints, and the in-place `heph-agents` → `talos-heph` blueprint identifier flip all point at the `talos-*` identities; the legacy `agents-m2m` issuer entry lingers until leg D.

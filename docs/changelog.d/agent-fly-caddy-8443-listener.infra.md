@@ -1,1 +1,0 @@
-Caddy on indri gains a second listener, \*.ops.eblu.me:8443, serving only services flagged `fly_proxied` (docs, cv, photos); the fly proxy's ACL grant will be narrowed to that port (eblume/blumeops#1396). A render check now validates the Caddyfile split in CI.
