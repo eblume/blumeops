@@ -1,6 +1,6 @@
 ---
 title: Navidrome
-modified: 2026-07-21
+modified: 2026-10-06
 last-reviewed: 2026-04-18
 tags:
   - service
@@ -59,7 +59,7 @@ Navidrome's [native backup](https://www.navidrome.org/docs/usage/admin/backup/)
 `/data/backup/navidrome_backup_<YYYY.MM.DD_HH.MM.SS>.db` daily at 01:00, keeping the newest 7.
 [[borgmatic]] on [[indri]] then ferries the **newest** snapshot off the PVC at
 02:00 via its `borgmatic_k8s_file_dumps` hook (ssh to ringtail → `kubectl exec`
-`ls`/`cat` → `~/.local/share/borgmatic/k8s-dumps/navidrome.db`), so the DB lands
+`ls`/`cat` → `~/.local/share/borgmatic/k8s-dumps-op/navidrome.db`), so the DB lands
 in the daily Borg archive. This requires `coreutils` in the nix image (for the
 in-pod `ls`/`cat`) — see `containers/navidrome/default.nix`.
 

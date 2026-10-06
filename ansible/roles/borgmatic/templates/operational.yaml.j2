@@ -1,0 +1,112 @@
+# {{ ansible_managed }}
+#
+# Tier B (operational) borgmatic config — rotating tier. See eblume/blumeops#1417.
+# zstd applies to new chunks only; the repo is local sifaka, no BorgBase
+# offsite yet (needs a dashboard-created key, a separate deliberate step).
+
+local_path: {{ borgmatic_local_path }}
+
+source_directories:
+{% for dir in borgmatic_operational_source_directories %}
+    - {{ dir }}
+{% endfor %}
+
+source_directories_must_exist: true
+
+repositories:
+{% for repo in borgmatic_operational_repositories %}
+    - path: {{ repo.path }}
+      label: {{ repo.label }}
+{% if repo.encryption is defined %}
+      encryption: {{ repo.encryption }}
+{% endif %}
+{% if repo.append_only is defined %}
+      append_only: {{ repo.append_only | lower }}
+{% endif %}
+{% endfor %}
+
+{% if borgmatic_operational_exclude_patterns %}
+exclude_patterns:
+{% for pattern in borgmatic_operational_exclude_patterns %}
+    - {{ pattern }}
+{% endfor %}
+{% endif %}
+
+# zstd for new chunks; repo-wide ratio improves as archives rotate.
+compression: auto,zstd
+
+encryption_passcommand: {{ borgmatic_encryption_passcommand }}
+
+# Pin the archive-name format; any future prune is scoped here and
+# can't reach the `indri-*` or `talos-data-*` archives sharing these repos.
+archive_name_format: 'operational-{now:%Y-%m-%dT%H:%M:%S.%f}'
+match_archives: 'operational-*'
+
+{% if borgmatic_k8s_sqlite_dumps or borgmatic_k8s_file_dumps or borgmatic_k8s_tar_dumps or borgmatic_local_sqlite_dumps %}
+# Pre-backup: stage database snapshots into the dump dir (which is in
+# source_directories, so the snapshots land in the archive). A non-zero exit
+# from any hook aborts the whole backup, so a failed snapshot is never silent.
+#
+# Uses the `commands:` hook syntax (the legacy `before_backup:` key is
+# deprecated as of borgmatic 2.x). `before: configuration` runs these once per
+# borgmatic run: snapshots are staged a single time and consumed by the
+# operational repo(s). `when: [create]` scopes the hooks to backup runs only.
+#
+# Quoting/escaping for the k8s hooks is delegated to the helper scripts
+# deployed by the borgmatic ansible role. Each k8s entry's `target` is either:
+#   - local:<context>  -> local kubectl with --context (mealie etc.)
+#   - ssh:<user@host>  -> ssh + k3s kubectl on the cluster host,
+#                         used for ringtail since indri's kubeconfig
+#                         deliberately doesn't carry that context.
+commands:
+    - before: configuration
+      when: [create]
+      run:
+          - mkdir -p {{ borgmatic_operational_dump_dir }}
+{% for db in borgmatic_local_sqlite_dumps %}
+          # test -f guards the sqlite3 footgun: a missing source path is
+          # silently auto-created as an empty DB (exit 0), which would back up
+          # nothing. The guard makes a missing source abort the run instead.
+          - test -f "{{ db.path }}" && sqlite3 "{{ db.path }}" ".backup '{{ borgmatic_operational_dump_dir }}/{{ db.name }}.db'"
+{% endfor %}
+{% for db in borgmatic_k8s_sqlite_dumps %}
+          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-sqlite-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.db_path }} {{ db.name }} {{ borgmatic_operational_dump_dir }}/{{ db.name }}.db
+{% endfor %}
+{% for db in borgmatic_k8s_file_dumps %}
+          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-file-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} '{{ db.glob }}' {{ db.name }} {{ borgmatic_operational_dump_dir }}/{{ db.name }}.db{{ ' ' ~ db.pvc_name if db.pvc_name is defined else '' }}
+{% endfor %}
+{% for db in borgmatic_k8s_tar_dumps | rejectattr('name', 'equalto', 'talos-data') %}
+          # talos-data is excluded: its own config (talos-data.yaml) owns its dump and archive.
+          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-tar-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} {{ db.name }} {{ borgmatic_operational_dump_dir }}/{{ db.name }}.tar{{ ' ' ~ db.container if db.container is defined else '' }}
+{% endfor %}
+{% endif %}
+
+ssh_command: ssh -o IdentitiesOnly=yes -i {{ borgmatic_borgbase_ssh_key_path }}
+
+# Retry a failing repository action instead of losing the whole night.
+retries: {{ borgmatic_retries }}
+retry_wait: {{ borgmatic_retry_wait }}
+
+# Same rationale as photos.yaml — slow runs must not wedge neighboring agents.
+checkpoint_interval: 600
+lock_wait: 300
+
+# Inert until a separate PR adds prune to this agent (eblume/blumeops#1417).
+keep_daily: {{ borgmatic_operational_keep_daily }}
+keep_weekly: {{ borgmatic_operational_keep_weekly }}
+keep_monthly: {{ borgmatic_operational_keep_monthly }}
+keep_yearly: {{ borgmatic_operational_keep_yearly }}
+
+{% if borgmatic_postgresql_databases %}
+# PostgreSQL database backups (streamed via pg_dump)
+postgresql_databases:
+{% for db in borgmatic_postgresql_databases %}
+    - name: {{ db.name }}
+      hostname: {{ db.hostname | default('localhost') }}
+      port: {{ db.port | default(5432) }}
+      username: {{ db.username }}
+{% if borgmatic_pg_dump_command is defined %}
+      pg_dump_command: {{ borgmatic_pg_dump_command }}
+{% endif %}
+{% endfor %}
+{% endif %}

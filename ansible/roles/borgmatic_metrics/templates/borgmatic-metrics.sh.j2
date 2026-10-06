@@ -79,8 +79,9 @@ collect_repo_metrics() {
     unique_csize=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.unique_csize')
     total_chunks=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_chunks')
     unique_chunks=$(echo "$repo_json" | $JQ_CMD -r '.cache.stats.total_unique_chunks')
-    # Main-config repos carry both indri-* (main) and talos-data-* archives;
-    # scope to the main prefix so a fresh talos archive can't mask a failed main backup.
+    # Repos carry archives from multiple configs (indri-* main, talos-data-*,
+    # operational-*); scope to the repo's prefix so a fresh archive from
+    # another config can't mask a failed backup.
     filtered_archives=$(echo "$archives_json" | $JQ_CMD -c '.archives | if length > 0 then . else [] end | if $p == "" then . else map(select(.name | startswith($p))) end' --arg p "$archive_prefix")
     archive_count=$(echo "$filtered_archives" | $JQ_CMD 'length')
 
@@ -156,6 +157,7 @@ EOF
         else if (path ~ /^Users\/[^\/]+\/devpi/) { source = "devpi" }
         else if (path ~ /^Users\/[^\/]+\/code\/personal\/zk/) { source = "Zettelkasten" }
         else if (path ~ /^Users\/[^\/]+\/.config\/borgmatic/) { source = "borgmatic_config" }
+        else if (path ~ /^Users\/[^\/]+\/.local\/share\/borgmatic\/k8s-dumps-op/) { source = "k8s_dumps_op" }
         else if (path ~ /^Users\/[^\/]+\/.local\/share\/borgmatic/) { source = "k8s_dumps" }
         else if (path ~ /^Users\/[^\/]+\/forgejo/) { source = "Forgejo" }
         else if (path ~ /^opt\/homebrew\/var\/loki/) { source = "Loki" }
@@ -175,7 +177,7 @@ EOF
 
 # Collect metrics for each configured repository
 {% for repo in borgmatic_metrics_repos %}
-collect_repo_metrics "{{ repo.path }}" "{{ repo.label }}" "{{ 'indri-' if repo.label != 'borgbase-immich-photos' else '' }}"
+collect_repo_metrics "{{ repo.path }}" "{{ repo.label }}" "{{ repo.prefix | default('') }}"
 {% endfor %}
 
 # Success markers written by the mcquack.eblume.borgmatic-verify-photos LaunchAgent.

@@ -1,6 +1,6 @@
 ---
 title: Restore Mealie from Borg
-modified: 2026-04-24
+modified: 2026-10-06
 last-reviewed: 2026-04-24
 tags:
   - how-to
@@ -26,15 +26,26 @@ List archives and pick one before the incident:
 
 ```bash
 ssh indri 'BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
-  /opt/homebrew/bin/borg list /Volumes/backups/borg | tail -30'
+  /opt/homebrew/bin/borg list /Volumes/backups/borg-operational | tail -30'
 ```
 
-Compare dump sizes across archives if you're unsure when the loss happened — the daily borgmatic run captures `/Users/erichblume/.local/share/borgmatic/k8s-dumps/mealie.db`. A sudden drop in size signals the wipe:
+The mealie dump rides in the operational tier post-split, in `sifaka-operational`; pre-split archives (and the old `k8s-dumps/` member path) live in `/Volumes/backups/borg` instead. Set the variables below to match the era of the archive you picked, then use them in the steps that follow:
+
+```bash
+# post-split (operational tier):
+REPO=/Volumes/backups/borg-operational
+DUMP=Users/erichblume/.local/share/borgmatic/k8s-dumps-op/mealie.db
+# pre-split:
+# REPO=/Volumes/backups/borg
+# DUMP=Users/erichblume/.local/share/borgmatic/k8s-dumps/mealie.db
+```
+
+Compare dump sizes across archives if you're unsure when the loss happened — the daily borgmatic run captures `/Users/erichblume/.local/share/borgmatic/k8s-dumps-op/mealie.db`. A sudden drop in size signals the wipe:
 
 ```bash
 ssh indri 'bash -c "BORG_PASSCOMMAND=\"cat /Users/erichblume/.borg/config.yaml\" \
-  /opt/homebrew/bin/borg list /Volumes/backups/borg::<archive-name> \
-  --pattern=+Users/erichblume/.local/share/borgmatic/k8s-dumps/mealie.db"'
+  /opt/homebrew/bin/borg list $REPO::<archive-name> \
+  --pattern=+${DUMP}"'
 ```
 
 ### 2. Extract the Pre-Loss Dump
@@ -42,16 +53,16 @@ ssh indri 'bash -c "BORG_PASSCOMMAND=\"cat /Users/erichblume/.borg/config.yaml\"
 ```bash
 ssh indri 'mkdir -p ~/tmp/mealie-restore && cd ~/tmp/mealie-restore && \
   BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
-  /opt/homebrew/bin/borg extract /Volumes/backups/borg::<archive-name> \
-  Users/erichblume/.local/share/borgmatic/k8s-dumps/mealie.db'
+  /opt/homebrew/bin/borg extract $REPO::<archive-name> \
+  ${DUMP}'
 ```
 
-The file lands at `~/tmp/mealie-restore/Users/erichblume/.local/share/borgmatic/k8s-dumps/mealie.db` (borg preserves the full path).
+The file lands at `~/tmp/mealie-restore/${DUMP}` (borg preserves the full path).
 
 ### 3. Verify the Extracted DB
 
 ```bash
-ssh indri 'sqlite3 ~/tmp/mealie-restore/Users/erichblume/.local/share/borgmatic/k8s-dumps/mealie.db \
+ssh indri 'sqlite3 ~/tmp/mealie-restore/${DUMP} \
   "PRAGMA integrity_check; SELECT COUNT(*) FROM recipes; SELECT COUNT(*) FROM users;"'
 ```
 
@@ -108,7 +119,7 @@ kubectl --context=minikube apply -f /tmp/mealie-helper.yaml && \
 
 ```bash
 ssh indri 'bash -c "kubectl --context=minikube cp \
-  /Users/erichblume/tmp/mealie-restore/Users/erichblume/.local/share/borgmatic/k8s-dumps/mealie.db \
+  /Users/erichblume/tmp/mealie-restore/${DUMP} \
   mealie/mealie-restore:/data/mealie.db.restored && \
   kubectl --context=minikube -n mealie exec mealie-restore -- sh -c \
   \"mv /data/mealie.db /data/mealie.db.wiped && mv /data/mealie.db.restored /data/mealie.db && chown 911:911 /data/mealie.db\""'

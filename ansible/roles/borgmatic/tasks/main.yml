@@ -43,19 +43,12 @@
     - u3ugi1x1.repo.borgbase.com
     - xcrtl5tg.repo.borgbase.com
 
-- name: Ensure dump staging directory exists
+# Pre-split dumps staged here, incl. pulumi exports with plaintext
+# Tailscale keys; nothing writes it anymore, so it's a stale plaintext
+# secret on indri. Archives are immutable — this only touches the dir.
+- name: Purge pre-split dump staging directory
   ansible.builtin.file:
-    path: "{{ borgmatic_k8s_dump_dir }}"
-    state: directory
-    mode: '0700'
-  when: (borgmatic_k8s_sqlite_dumps | length > 0) or (borgmatic_k8s_file_dumps | length > 0) or (borgmatic_k8s_tar_dumps | length > 0) or (borgmatic_local_sqlite_dumps | length > 0)
-
-# k8s-dumps/ is a main source_directory; the talos tar is staged in the
-# separate k8s-dumps-talos/ now, so any leftover here is stale and must
-# not ride into main archives.
-- name: Remove stale talos-data tar from main dump dir
-  ansible.builtin.file:
-    path: "{{ borgmatic_k8s_dump_dir }}/talos-data.tar"
+    path: /Users/erichblume/.local/share/borgmatic/k8s-dumps
     state: absent
 
 - name: Ensure ~/bin exists
@@ -114,6 +107,56 @@
 - name: Load borgmatic LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic.plist
   when: borgmatic_launchctl_check.rc != 0
+  changed_when: true
+  failed_when: false
+
+# --- Tier B (operational) backups: rotating tier (forgejo, config, dumps) ---
+
+# k8s-dumps-op is a source_directories entry in operational.yaml with
+# source_directories_must_exist: true, so it must exist before the first
+# operational create (the hook's mkdir runs later, during the run).
+- name: Ensure operational dump staging directory
+  ansible.builtin.file:
+    path: "{{ borgmatic_operational_dump_dir }}"
+    state: directory
+    mode: '0700'
+
+- name: Deploy borgmatic operational configuration
+  ansible.builtin.template:
+    src: operational.yaml.j2
+    dest: "{{ borgmatic_operational_config }}"
+    mode: '0600'
+
+# repo-create skips an existing repo, so reruns are no-ops and the deploy
+# can't half-land between config and first 03:00 create. The path must
+# stay a sibling of the archive-tier root (see
+# borgmatic_operational_repositories).
+- name: Ensure the operational borg repository exists
+  ansible.builtin.command:
+    cmd: >-
+      {{ borgmatic_bin }} --config {{ borgmatic_operational_config }}
+      repo-create
+    creates: "{{ item.path }}/README"
+  loop: "{{ borgmatic_operational_repositories }}"
+  loop_control:
+    label: "{{ item.label }}"
+
+- name: Deploy borgmatic-ops LaunchAgent plist
+  ansible.builtin.template:
+    src: borgmatic-ops.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.borgmatic-ops.plist
+    mode: '0644'
+  notify: Reload borgmatic-ops
+
+- name: Check if borgmatic-ops LaunchAgent is loaded
+  ansible.builtin.command: launchctl list mcquack.eblume.borgmatic-ops
+  register: borgmatic_ops_launchctl_check
+  changed_when: false
+  failed_when: false
+
+- name: Load borgmatic-ops LaunchAgent if not loaded
+  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic-ops.plist
+  when: borgmatic_ops_launchctl_check.rc != 0
   changed_when: true
   failed_when: false
 

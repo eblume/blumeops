@@ -1,14 +1,14 @@
 # {{ ansible_managed }}
 #
 # Borgmatic config for talos agent session state (k8s tar dump).
-# Never pruned by design: this file deliberately has no keep_* keys.
-# If a future tier split wants to prune talos-data, that is a separate,
-# deliberate PR (see eblume/blumeops#1409).
+# Never pruned by design (talos-data is confirmed never-pruned,
+# eblume/blumeops#1417): no keep_* keys here, and the main config's
+# match_archives: 'indri-*' keeps its prune off this prefix.
 
 local_path: {{ borgmatic_local_path }}
 
-# The dump hook below stages tonight's tar here (not in the main
-# config's k8s-dumps/, which is a main source_directory).
+# The dump hook below stages tonight's tar here (not in the operational
+# config's k8s-dumps-op/ staging).
 source_directories:
     - {{ borgmatic_talos_data_dump_dir }}/talos-data.tar
 
@@ -30,6 +30,9 @@ repositories:
 
 archive_name_format: 'talos-data-{now:%Y-%m-%dT%H:%M:%S.%f}'
 match_archives: 'talos-data-*'
+
+# zstd for new chunks only; the repo-wide ratio improves as archives accumulate.
+compression: auto,zstd
 
 encryption_passcommand: {{ borgmatic_encryption_passcommand }}
 

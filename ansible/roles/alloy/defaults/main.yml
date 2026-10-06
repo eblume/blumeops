@@ -101,6 +101,12 @@ alloy_mcquack_logs:
   - path: /Users/erichblume/Library/Logs/mcquack.borgmatic.err.log
     service: borgmatic
     stream: stderr
+  - path: /Users/erichblume/Library/Logs/mcquack.borgmatic-ops.out.log
+    service: borgmatic-ops
+    stream: stdout
+  - path: /Users/erichblume/Library/Logs/mcquack.borgmatic-ops.err.log
+    service: borgmatic-ops
+    stream: stderr
   - path: /Users/erichblume/Library/Logs/mcquack.zot.out.log
     service: zot
     stream: stdout

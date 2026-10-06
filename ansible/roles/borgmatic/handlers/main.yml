@@ -5,6 +5,12 @@
     launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic.plist
   changed_when: true
 
+- name: Reload borgmatic-ops
+  ansible.builtin.shell: |
+    launchctl unload ~/Library/LaunchAgents/mcquack.eblume.borgmatic-ops.plist 2>/dev/null || true
+    launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic-ops.plist
+  changed_when: true
+
 - name: Reload borgmatic-photos
   ansible.builtin.shell: |
     launchctl unload ~/Library/LaunchAgents/mcquack.eblume.borgmatic-photos.plist 2>/dev/null || true
