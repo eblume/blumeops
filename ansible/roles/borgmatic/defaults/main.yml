@@ -40,12 +40,9 @@ borgmatic_repositories:
 # BorgBase SSH key (fetched from 1Password in playbook pre_tasks)
 borgmatic_borgbase_ssh_key_path: /Users/erichblume/.ssh/borgbase_ed25519
 
-# Directory for pre-backup database dumps from k8s pods
-borgmatic_k8s_dump_dir: /Users/erichblume/.local/share/borgmatic/k8s-dumps
-
 # K8s SQLite databases to dump before backup via kubectl exec
 # Each entry runs: kubectl exec <pod-selector> -- sqlite3 <path> ".backup /tmp/backup.db"
-# then copies the dump to borgmatic_k8s_dump_dir/<name>.db
+# then copies the dump to borgmatic_operational_dump_dir/<name>.db
 borgmatic_k8s_sqlite_dumps:
   - name: mealie
     namespace: mealie
@@ -65,7 +62,7 @@ borgmatic_k8s_sqlite_dumps:
 # K8s services that produce their own consistent SQLite backup files on a
 # PVC (rather than us running an online dump via kubectl exec). Each entry's
 # `dir` is scanned for the newest backup file, which is streamed back and
-# stored at borgmatic_k8s_dump_dir/<name>.db. Uses the same `target` modes as
+# stored at borgmatic_operational_dump_dir/<name>.db. Uses the same `target` modes as
 # borgmatic_k8s_sqlite_dumps. See ~/bin/borgmatic-k8s-file-dump.
 borgmatic_k8s_file_dumps:
   # navidrome writes its own WAL-safe DB backups (users, play counts,
@@ -93,7 +90,7 @@ borgmatic_k8s_file_dumps:
   # pulumi-stack-backup CronJob exports both Pulumi Cloud stacks' state daily
   # (--show-secrets) to a PVC, named stack_<YYYYmmddTHHMMSSZ>.json (fixed-width
   # UTC timestamp, lexically sortable). One ferry per stack, staged as
-  # k8s-dumps/pulumi-<stack>-state.db (the ferry names every file-dump target
+  # k8s-dumps-op/pulumi-<stack>-state.db (the ferry names every file-dump target
   # .db regardless of content). Stack config is not exported: its secrets come
   # from Pulumi ESC (backed by 1Password) and the rest is in git.
   # The files contain plaintext secret values (Tailscale auth keys) — the borg
@@ -123,7 +120,7 @@ borgmatic_k8s_file_dumps:
 
 # K8s pods whose data dir is tarred in-pod and streamed back — no
 # sqlite3 or python3 needed, just tar. Each entry's `dir` is tarred to
-# borgmatic_k8s_dump_dir/<name>.tar. Uses the same `target` modes as
+# borgmatic_operational_dump_dir/<name>.tar. Uses the same `target` modes as
 # borgmatic_k8s_sqlite_dumps. See ~/bin/borgmatic-k8s-tar-dump.
 borgmatic_k8s_tar_dumps:
   # talos agent-service state: all session transcripts
@@ -187,8 +184,8 @@ borgmatic_retry_wait: 300
 # tier split that wants to prune it is a deliberate PR on its own.
 borgmatic_talos_data_config: /Users/erichblume/.config/borgmatic/talos-data.yaml
 # Dump staging dir for talos-data ONLY; the main config does not back
-# it up, so its source sets stay disjoint (k8s-dumps/ is a main
-# source_directory).
+# it up, so its source sets stay disjoint from the operational
+# k8s-dumps-op/ staging.
 borgmatic_talos_data_dump_dir: /Users/erichblume/.local/share/borgmatic/k8s-dumps-talos
 
 # Tier B (operational) backups — rotating tier, scheduled 03:00. Never
@@ -202,8 +199,11 @@ borgmatic_operational_schedule_minute: 0
 
 # Tier B (operational) repo — local sifaka only for now; a BorgBase copy
 # needs a dashboard-created key, so that's a separate deliberate step.
+# Sibling of the archive-tier root: borg 1.x refuses to create a
+# repository inside an existing one. The role creates it (repo-create,
+# idempotent — see tasks/main.yml).
 borgmatic_operational_repositories:
-  - path: /Volumes/backups/borg/operational/
+  - path: /Volumes/backups/borg-operational/
     label: sifaka-operational
     encryption: repokey
     append_only: true

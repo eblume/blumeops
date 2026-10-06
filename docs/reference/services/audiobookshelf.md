@@ -1,6 +1,6 @@
 ---
 title: Audiobookshelf
-modified: 2026-09-16
+modified: 2026-10-06
 last-reviewed: 2026-09-16
 tags:
   - service
@@ -61,7 +61,7 @@ directory is empty and the borgmatic hook aborts the whole nightly archive
 (2026-09-19). [[borgmatic]] on [[indri]] ferries the
 newest snapshot off the PVC via its `borgmatic_k8s_file_dumps` hook (ssh to
 ringtail → `kubectl exec` `ls`/`cat` →
-`~/.local/share/borgmatic/k8s-dumps/audiobookshelf.db`), landing it in the
+`~/.local/share/borgmatic/k8s-dumps-op/audiobookshelf.db`), landing it in the
 daily Borg archive — see the [[backups]] Databases table.
 
 The audio *files* themselves are not backed up: they live on [[sifaka]]

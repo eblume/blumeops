@@ -1,6 +1,6 @@
 ---
 title: Borgmatic
-modified: 2026-10-05
+modified: 2026-10-06
 last-reviewed: 2026-10-04
 tags:
   - service
@@ -24,7 +24,7 @@ Daily backup system using Borg backup, running on indri.
 | **Operational schedule** | Daily at 3:00 AM |
 | **Photos schedule** | Daily at 4:00 AM |
 | **Main targets** | [[sifaka]] local + BorgBase offsite |
-| **Operational target** | sifaka local only (`/Volumes/backups/borg/operational/`) |
+| **Operational target** | sifaka local only (`/Volumes/backups/borg-operational/`, sibling of the archive-tier root) |
 | **Photos target** | BorgBase offsite only |
 
 ## Tiers
@@ -47,11 +47,14 @@ forgejo (minus pull mirrors and the live WAL DB), `~/.config/borgmatic`,
 `k8s-dumps-op` (its own snapshot staging), `/Volumes/shower`, plus **all** the
 pre-backup dumps the main config used to run — now staged into
 `k8s-dumps-op/` instead of `k8s-dumps/`. Own local repo
-`/Volumes/backups/borg/operational/` (label `sifaka-operational`), own
+`/Volumes/backups/borg-operational/` (label `sifaka-operational`, sibling of the archive-tier root — borg 1.x refuses to create a repo inside an existing one; the role creates it with `repo-create`, idempotent), own
 `operational-*` prefix, `compression: auto,zstd`, retention 7 daily / 4
 weekly / 12 monthly / yearly -1 — **declared but inert** until a separate PR
-enables prune (eblume/blumeops#1417). The offsite tier-B copy is deferred: it
-needs a BorgBase dashboard-created key, so it is a separate deliberate step.
+enables prune (eblume/blumeops#1417). The operational tier is local-only:
+there is no offsite copy of the heph hub store, forgejo, or any database
+newer than the cutover — losing indri and sifaka together loses them; the
+offsite tier-B repo is a tracked follow-up on eblume/blumeops#1417 (needs a
+BorgBase dashboard-created key).
 The sifaka copy's immutability is client-side only — `/Volumes/backups` is an
 SMB mount, not a `borg serve` endpoint, so local `append_only` protects
 nothing against indri itself.
@@ -110,7 +113,7 @@ the archive-tier config no longer targets any dump dir.
 - `/home/talos/data` — every agent session ever (transcripts, service state, `session-index.sqlite`), in-pod tar → `~/.local/share/borgmatic/k8s-dumps-talos/talos-data.tar`, `talos-data-*` archives in the same two repos. The config has no `keep_*` keys by design, and the main config's `match_archives: 'indri-*'` keeps any future prune off the prefix (heph 01M0GA6JPGQF96AM5JZKA37YSV). Measured cost (eblume/blumeops#1409, 2026-10-05): 79.6 MB/night deduplicated, ~2.4 GB/month per repo (~25% of nightly growth) — decision: stays never-pruned, with `compression: auto,zstd` on the config (new chunks only). Single-session restore: [[backups]] → "Restoring a Single Session".
 
 **Not backed up (by design):**
-- Forgejo pull mirrors (`~/forgejo/data/forgejo-repositories/mirrors`) — re-fetchable from upstream
+- Forgejo pull mirrors (`~/forgejo/data/forgejo-repositories/mirrors`) — re-fetchable from upstream. After a forgejo restore, re-sync or recreate the mirrors — their DB rows survive in the forgejo.db snapshot but their git dirs are in no archive.
 - ZIM archives (re-downloadable)
 - Prometheus metrics (ephemeral)
 - Loki logs (ephemeral)
@@ -187,7 +190,7 @@ The operational repo's metrics are scoped to the `operational-*` prefix. The
 main config no longer targets that repo, so a fresh `operational-*` archive
 there means the operational run itself succeeded.
 
-**Alert:** two Grafana rules (ntfy-infra): `BorgmaticStale` fires when any repo's newest main archive is older than 30h (for 1h) — missing series = OK; `BorgmaticStaleTalosData` fires when the newest reported talos-data archive is older than 30h, or when no repo reports the gauge at all (before the first archive lands). `BorgmaticStale` fires roughly 7h after a missed nightly run, well before BorgBase's own 2-missed-runs email. The main offsite repo was previously unmonitored (only sifaka + photos were scraped), so a failed offsite run produced no metric and no alert; it is now collected explicitly.
+**Alert:** three Grafana rules (ntfy-infra): `BorgmaticStale` fires when any repo's newest main archive is older than 30h (for 1h) — missing series = OK; `BorgmaticStaleTalosData` fires when the newest reported talos-data archive is older than 30h, or when no repo reports the gauge at all (before the first archive lands). `BorgmaticStale` fires roughly 7h after a missed nightly run, well before BorgBase's own 2-missed-runs email. The main offsite repo was previously unmonitored (only sifaka + photos were scraped), so a failed offsite run produced no metric and no alert; it is now collected explicitly. `BorgmaticOpsStale` fires when `sifaka-operational` has no archive at all, or no new one in over 30h — NoData alerting, so the tier's first deploy (repo not yet created) and any later repo loss can't fail silently.
 
 ## Related
 

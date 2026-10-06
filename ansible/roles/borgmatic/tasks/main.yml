@@ -43,20 +43,12 @@
     - u3ugi1x1.repo.borgbase.com
     - xcrtl5tg.repo.borgbase.com
 
-- name: Ensure dump staging directory exists
+# Pre-split dumps staged here, incl. pulumi exports with plaintext
+# Tailscale keys; nothing writes it anymore, so it's a stale plaintext
+# secret on indri. Archives are immutable — this only touches the dir.
+- name: Purge pre-split dump staging directory
   ansible.builtin.file:
-    path: "{{ borgmatic_k8s_dump_dir }}"
-    state: directory
-    mode: '0700'
-  when: (borgmatic_k8s_sqlite_dumps | length > 0) or (borgmatic_k8s_file_dumps | length > 0) or (borgmatic_k8s_tar_dumps | length > 0) or (borgmatic_local_sqlite_dumps | length > 0)
-
-# Pre-tier-split runs staged the talos tar here (k8s-dumps/ was a source
-# of the main config); the talos-data config stages into
-# k8s-dumps-talos/ now, so any leftover is stale and must not ride into
-# archives.
-- name: Remove stale talos-data tar from k8s-dumps dir
-  ansible.builtin.file:
-    path: "{{ borgmatic_k8s_dump_dir }}/talos-data.tar"
+    path: /Users/erichblume/.local/share/borgmatic/k8s-dumps
     state: absent
 
 - name: Ensure ~/bin exists
@@ -134,6 +126,20 @@
     src: operational.yaml.j2
     dest: "{{ borgmatic_operational_config }}"
     mode: '0600'
+
+# repo-create skips an existing repo, so reruns are no-ops and the deploy
+# can't half-land between config and first 03:00 create. The path must
+# stay a sibling of the archive-tier root (see
+# borgmatic_operational_repositories).
+- name: Ensure the operational borg repository exists
+  ansible.builtin.command:
+    cmd: >-
+      {{ borgmatic_bin }} --config {{ borgmatic_operational_config }}
+      repo-create
+    creates: "{{ item.path }}/README"
+  loop: "{{ borgmatic_operational_repositories }}"
+  loop_control:
+    label: "{{ item.label }}"
 
 - name: Deploy borgmatic-ops LaunchAgent plist
   ansible.builtin.template:

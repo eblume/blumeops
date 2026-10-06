@@ -177,7 +177,7 @@ EOF
 # Collect metrics for each configured repository
 collect_repo_metrics "/Volumes/backups/borg/" "sifaka-local" "indri-"
 collect_repo_metrics "ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo" "borgbase-offsite" "indri-"
-collect_repo_metrics "/Volumes/backups/borg/operational/" "sifaka-operational" "operational-"
+collect_repo_metrics "/Volumes/backups/borg-operational/" "sifaka-operational" "operational-"
 collect_repo_metrics "ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo" "borgbase-immich-photos" ""
 
 # Success markers written by the mcquack.eblume.borgmatic-verify-photos LaunchAgent.

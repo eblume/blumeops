@@ -18,9 +18,9 @@ borgmatic_metrics_repos:
   - path: ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo
     label: borgbase-offsite
     prefix: 'indri-'
-  # Tier B (operational) local repo — fresh repo, created by the first
-  # operational create run.
-  - path: /Volumes/backups/borg/operational/
+  # Tier B (operational) local repo — sibling of the archive-tier root
+  # (created by the borgmatic role; see ansible/roles/borgmatic/tasks/main.yml).
+  - path: /Volumes/backups/borg-operational/
     label: sifaka-operational
     prefix: operational-
   - path: ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo

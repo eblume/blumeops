@@ -1,6 +1,6 @@
 ---
 title: Backups
-modified: 2026-10-05
+modified: 2026-10-06
 last-reviewed: 2026-10-04
 tags:
   - storage
@@ -24,12 +24,17 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 |------|---------|----------|---------|-------|-----------|
 | Archive (never pruned) | `~/.config/borgmatic/config.yaml` | 02:00 | `~/code/personal/zk`, `~/Documents` | `sifaka-borg-backups` (`/Volumes/backups/borg/`), `borgbase-offsite` | none — never pruned (no `keep_*` keys, no prune action) |
 | Archive (never pruned) — talos-data | `~/.config/borgmatic/talos-data.yaml` (own config, same 02:00 agent, main first) | 02:00 | talos pod `/home/talos/data` (in-pod tar) | `sifaka-borg-backups`, `borgbase-offsite` | none — never pruned; tier confirmed 2026-10-05 (eblume/blumeops#1417) |
-| Operational (rotating) | `~/.config/borgmatic/operational.yaml` | 03:00 | `~/forgejo` (minus mirrors + live WAL DB), `~/.config/borgmatic`, `k8s-dumps-op/`, `/Volumes/shower`, + all pre-backup dumps | `sifaka-operational` (`/Volumes/backups/borg/operational/`) — local-only for now | 7 daily / 4 weekly / 12 monthly / yearly -1 — declared but inert until prune lands (eblume/blumeops#1417) |
+| Operational (rotating) | `~/.config/borgmatic/operational.yaml` | 03:00 | `~/forgejo` (minus mirrors + live WAL DB), `~/.config/borgmatic`, `k8s-dumps-op/`, `/Volumes/shower`, + all pre-backup dumps | `sifaka-operational` (`/Volumes/backups/borg-operational/`) — local-only for now | 7 daily / 4 weekly / 12 monthly / yearly -1 — declared but inert until prune lands (eblume/blumeops#1417) |
 
-The operational tier is local-only for now: an offsite tier-B copy is deferred
-(needs a BorgBase dashboard-created key). The main config no longer writes DB
-dumps to the BorgBase offsite repo — that was the biggest driver of offsite
-churn, and stopping it is part of the point of the split.
+The operational tier is **local-only** — there is no offsite copy of any of it.
+From the night this provisions, the heph hub store (documented as the only
+copy of all task/context data), forgejo, and every database above have no
+offsite copy newer than the cutover: losing indri and sifaka together (fire,
+theft, or ransomware over the SMB mount) loses them. An offsite tier-B repo is
+a tracked follow-up on eblume/blumeops#1417 (needs a BorgBase
+dashboard-created key). The main config no longer writes DB dumps to the
+BorgBase offsite repo — that was the biggest driver of offsite churn, and
+stopping it is part of the point of the split.
 
 ## What Gets Backed Up
 
@@ -153,6 +158,15 @@ Bulk media lives directly on [[sifaka]] (music files served by [[navidrome]], vi
 | devpi cache (`~/devpi/server-dir/` on indri) | Re-fetchable from PyPI on first request |
 | Forgejo pull mirrors (`~/forgejo/data/forgejo-repositories/mirrors`, 29 repos, ~7.7 GB) | Re-fetchable from upstream |
 
+## Restore notes
+
+Forgejo restores from an `operational-*` archive bring back the DB snapshot —
+including the rows for the 29 pull mirrors — but the mirrors' git dirs are
+excluded from every archive, so re-sync or recreate the mirrors (clone from
+upstream) after restoring. Operational DB dumps and forgejo state live in the
+newest `operational-*` archive under `k8s-dumps-op/`; `indri-*` archives
+predate the split and carry the old `k8s-dumps/` layout.
+
 ## Retention Policy
 
 | Tier | Daily | Weekly | Monthly | Yearly |
@@ -177,7 +191,7 @@ Pruning is not currently enabled on any repo (append-only, no prune run); the ta
 |------------|----------|-------|----------|
 | `/Volumes/backups/borg/` | [[sifaka]] (local NAS) | `sifaka-borg-backups` | indri data |
 | `ssh://u3ugi1x1@...repo.borgbase.com/./repo` | BorgBase (offsite) | `borgbase-offsite` | indri data |
-| `/Volumes/backups/borg/operational/` | [[sifaka]] (local NAS) | `sifaka-operational` | operational tier (`operational-*`) only — the main config no longer targets this repo |
+| `/Volumes/backups/borg-operational/` | [[sifaka]] (local NAS) | `sifaka-operational` | operational tier (`operational-*`) only — the main config no longer targets this repo |
 | `ssh://xcrtl5tg@...repo.borgbase.com/./repo` | BorgBase (offsite) | `borgbase-immich-photos` | immich photos |
 
 ## Monitoring
@@ -188,7 +202,7 @@ Metrics exposed to [[prometheus]]:
 - `borgmatic_talos_data_last_success_timestamp` - Newest never-pruned talos-data archive per repo
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
 
-Two alerts: `BorgmaticStale` when a repo's newest main archive is over 30h old, and `BorgmaticStaleTalosData` when the newest reported talos-data archive is over 30h old, or when no repo reports the gauge at all (before the first archive lands).
+Three alerts: `BorgmaticStale` when a repo's newest main archive is over 30h old, `BorgmaticStaleTalosData` when the newest reported talos-data archive is over 30h old or no repo reports the gauge at all (before the first archive lands), and `BorgmaticOpsStale` (NoData alerting) when `sifaka-operational` has no archive at all, or no new one in over 30h.
 
 Dashboard: "Borg Backups" in [[grafana]]
 

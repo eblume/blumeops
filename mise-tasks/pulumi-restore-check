@@ -30,14 +30,14 @@ INDRI=indri
 BORG_REMOTE() {
   # Run `borg <args>` on indri against the local archive. BORG_PASSCOMMAND is
   # the password path the borgmatic role installs; the repo is the sifaka-local
-  # one the nightly writes to. Tailscale SSH on indri swallows the remote exit
+  # operational one the 03:00 nightly writes to. Tailscale SSH on indri swallows the remote exit
   # code (upstream tailscale/tailscale#18256; fix #20626 pending), so this
   # never trusts ssh's rc: the callers verify the streamed output in-band
   # (the archive list is non-empty, each export passes `jq -e` for a v3
   # deployment, and the resource/secret counts round-trip through pulumi).
   ssh "$INDRI" "BORG_PASSCOMMAND='cat /Users/erichblume/.borg/config.yaml' /opt/homebrew/bin/borg $*"
 }
-DUMPS=Users/erichblume/.local/share/borgmatic/k8s-dumps
+DUMPS=Users/erichblume/.local/share/borgmatic/k8s-dumps-op
 SECRETTAG=4dabf18193072939515e22adb298388d   # pulumi's JSON marker for a secret
 
 WORK="$(mktemp -d)"
@@ -45,7 +45,7 @@ trap 'destroy "$WORK"/pulumi-tail8d86e-state.json; destroy "$WORK"/pulumi-eblu-m
 PASS="$(head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 export PULUMI_CONFIG_PASSPHRASE="$PASS"
 
-ARCHIVE="${1:-$(BORG_REMOTE 'list /Volumes/backups/borg --last 1 --format {archive}{nl}')}"
+ARCHIVE="${1:-$(BORG_REMOTE 'list /Volumes/backups/borg-operational --last 1 --format {archive}{nl}')}"
 [ -n "$ARCHIVE" ] || { echo "no archive found on $INDRI" >&2; exit 1; }
 echo "checking archive: $ARCHIVE"
 
@@ -53,7 +53,7 @@ rc=0
 for pair in "tail8d86e blumeops-tailnet" "eblu-me blumeops-dns"; do
     set -- $pair; stack=$1; project=$2
     src="$WORK/pulumi-$stack-state.json"
-    BORG_REMOTE "extract --stdout /Volumes/backups/borg::$ARCHIVE $DUMPS/pulumi-$stack-state.db" > "$src"
+    BORG_REMOTE "extract --stdout /Volumes/backups/borg-operational::$ARCHIVE $DUMPS/pulumi-$stack-state.db" > "$src"
     jq -e '.version == 3 and (.deployment.resources|length > 0)' "$src" >/dev/null \
         || { echo "FAIL $stack: export is not a valid v3 deployment with resources" >&2; rc=1; continue; }
 

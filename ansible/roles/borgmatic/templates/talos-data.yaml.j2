@@ -7,8 +7,8 @@
 
 local_path: {{ borgmatic_local_path }}
 
-# The dump hook below stages tonight's tar here (not in the main
-# config's k8s-dumps/, which is a main source_directory).
+# The dump hook below stages tonight's tar here (not in the operational
+# config's k8s-dumps-op/ staging).
 source_directories:
     - {{ borgmatic_talos_data_dump_dir }}/talos-data.tar
 

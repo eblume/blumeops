@@ -1,6 +1,6 @@
 ---
 title: Restore Pulumi State
-modified: 2026-10-01
+modified: 2026-10-06
 last-reviewed: 2026-10-01
 tags:
   - how-to
@@ -20,15 +20,14 @@ Pulumi Cloud encrypts stack secrets with a per-stack service key it controls.
 A plain `pulumi stack export` therefore stays encrypted to the *source*
 account: after losing it, the ciphertext cannot be decrypted, and
 `pulumi stack import` fails on it. So the backups export with
-`--show-secrets` and rely on the borg repository encryption — repokey, local [[sifaka]] + BorgBase offsite — as the
-compensating control. The values also have bounded lifetimes: the Pulumi
+`--show-secrets` and rely on the borg repository encryption — repokey, the local [[sifaka]] operational repo (offsite copies exist only in pre-split archives) — as the compensating control. The values also have bounded lifetimes: the Pulumi
 access token rotates every 20 days, the Tailscale auth keys it can contain
 expire in 90 days and are re-minted by the next `pulumi up` anyway.
 
 ## Getting the dumps
 
-Exports are ferried to indri at `~/.local/share/borgmatic/k8s-dumps/` each
-night before the 02:00 backup and ride in both borg repositories. A missing or
+Exports are ferried to indri at `~/.local/share/borgmatic/k8s-dumps-op/` each
+night before the 03:00 operational backup and ride in the `sifaka-operational` repo (`/Volumes/backups/borg-operational`). A missing or
 empty export on a given night is skipped by its ferry (the `pv:` ferry mode is
 self-contained) rather than aborting the whole nightly, so the staged file then
 holds the previous night's export:
@@ -52,22 +51,23 @@ indri's working directory rather than on the host you are restoring from.
 
 ```bash
 ssh indri 'BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
-  /opt/homebrew/bin/borg list /Volumes/backups/borg --last 1'   # newest archive
+  /opt/homebrew/bin/borg list /Volumes/backups/borg-operational --last 1'   # newest operational archive
 
 ssh indri 'BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
-  /opt/homebrew/bin/borg extract --stdout /Volumes/backups/borg::<archive> \
-  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-tail8d86e-state.db' \
+  /opt/homebrew/bin/borg extract --stdout /Volumes/backups/borg-operational::<archive> \
+  Users/erichblume/.local/share/borgmatic/k8s-dumps-op/pulumi-tail8d86e-state.db' \
   > pulumi-tail8d86e-state.json
 ssh indri 'BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml" \
-  /opt/homebrew/bin/borg extract --stdout /Volumes/backups/borg::<archive> \
-  Users/erichblume/.local/share/borgmatic/k8s-dumps/pulumi-eblu-me-state.db' \
+  /opt/homebrew/bin/borg extract --stdout /Volumes/backups/borg-operational::<archive> \
+  Users/erichblume/.local/share/borgmatic/k8s-dumps-op/pulumi-eblu-me-state.db' \
   > pulumi-eblu-me-state.json
 ```
 
 (The staged paths are relative to the archive root — no leading slash;
 `borg list` shows the same paths. Extract a single file by naming just it.
-The same one-liner works against the BorgBase offsite repository instead of
-`/Volumes/backups/borg`.)
+Pre-split archives in `/Volumes/backups/borg` (and its BorgBase offsite copy)
+stage under `k8s-dumps/` instead — for older dumps, point the same one-liner
+there.)
 
 ## Restoring into a new (or same) account
 
