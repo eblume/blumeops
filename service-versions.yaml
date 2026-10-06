@@ -39,8 +39,8 @@ services:
 
   - name: ntfy
     type: argocd
-    last-reviewed: 2026-06-17
-    current-version: "v2.24.0"
+    last-reviewed: 2026-10-05
+    current-version: "v2.28.0"
     upstream-source: https://github.com/binwiederhier/ntfy/releases
 
   - name: horkos
