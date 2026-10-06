@@ -1,11 +1,22 @@
 ---
 # Borgmatic is installed via mise (pipx) and called directly by LaunchAgents.
-# This role manages installation, config, and the scheduled LaunchAgents.
+# This role manages installation, config, and the scheduled LaunchAgents; the
+# LaunchAgent plists are nix-managed now (darwin/indri, PR 11 of the
+# nix-darwin series), so the plist + load tasks below are the rollback
+# re-write, gated on borgmatic_ansible_managed.
+
+# The unit execs the `latest` symlink directly, so gate on that binary's
+# version (missing or different -> install).
+- name: Check installed borgmatic version
+  ansible.builtin.command: "{{ borgmatic_bin }} --version"
+  register: borgmatic_version_check
+  changed_when: false
+  failed_when: false
 
 - name: Install borgmatic via mise
   ansible.builtin.command: mise install pipx:borgmatic@{{ borgmatic_version }}
-  register: borgmatic_install
-  changed_when: "'installed' in borgmatic_install.stderr"
+  when: (borgmatic_version_check.stdout | default('') | regex_search('\d+\.\d+\.\d+') or 'missing') != borgmatic_version
+  changed_when: true
 
 - name: Ensure borgmatic config directory exists
   ansible.builtin.file:
@@ -91,22 +102,33 @@
     dest: "{{ borgmatic_talos_data_config }}"
     mode: '0600'
 
+# Skipped by default: the nix-darwin generation owns all four of this role's
+# LaunchAgent plists — borgmatic (archive tier + talos-data), borgmatic-ops
+# (operational tier), borgmatic-photos and borgmatic-verify-photos (PR 11 of
+# the indri series). The plist and load tasks below remain the rollback
+# re-write, run with -e borgmatic_ansible_managed=true only; the config, keys,
+# dump helpers and the mise install stay ansible-side. See defaults/main.yml.
+
 - name: Deploy borgmatic LaunchAgent plist
   ansible.builtin.template:
     src: borgmatic.plist.j2
     dest: ~/Library/LaunchAgents/mcquack.eblume.borgmatic.plist
     mode: '0644'
   notify: Reload borgmatic
+  when: borgmatic_ansible_managed | bool
 
 - name: Check if borgmatic LaunchAgent is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.borgmatic
   register: borgmatic_launchctl_check
   changed_when: false
   failed_when: false
+  when: borgmatic_ansible_managed | bool
 
 - name: Load borgmatic LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic.plist
-  when: borgmatic_launchctl_check.rc != 0
+  when:
+    - borgmatic_ansible_managed | bool
+    - borgmatic_launchctl_check.rc != 0
   changed_when: true
   failed_when: false
 
@@ -147,16 +169,20 @@
     dest: ~/Library/LaunchAgents/mcquack.eblume.borgmatic-ops.plist
     mode: '0644'
   notify: Reload borgmatic-ops
+  when: borgmatic_ansible_managed | bool
 
 - name: Check if borgmatic-ops LaunchAgent is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.borgmatic-ops
   register: borgmatic_ops_launchctl_check
   changed_when: false
   failed_when: false
+  when: borgmatic_ansible_managed | bool
 
 - name: Load borgmatic-ops LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic-ops.plist
-  when: borgmatic_ops_launchctl_check.rc != 0
+  when:
+    - borgmatic_ansible_managed | bool
+    - borgmatic_ops_launchctl_check.rc != 0
   changed_when: true
   failed_when: false
 
@@ -174,16 +200,20 @@
     dest: ~/Library/LaunchAgents/mcquack.eblume.borgmatic-photos.plist
     mode: '0644'
   notify: Reload borgmatic-photos
+  when: borgmatic_ansible_managed | bool
 
 - name: Check if borgmatic-photos LaunchAgent is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.borgmatic-photos
   register: borgmatic_photos_launchctl_check
   changed_when: false
   failed_when: false
+  when: borgmatic_ansible_managed | bool
 
 - name: Load borgmatic-photos LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic-photos.plist
-  when: borgmatic_photos_launchctl_check.rc != 0
+  when:
+    - borgmatic_ansible_managed | bool
+    - borgmatic_photos_launchctl_check.rc != 0
   changed_when: true
   failed_when: false
 
@@ -207,15 +237,19 @@
     dest: ~/Library/LaunchAgents/mcquack.eblume.borgmatic-verify-photos.plist
     mode: '0644'
   notify: Reload borgmatic-verify-photos
+  when: borgmatic_ansible_managed | bool
 
 - name: Check if borgmatic-verify-photos LaunchAgent is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.borgmatic-verify-photos
   register: borgmatic_verify_launchctl_check
   changed_when: false
   failed_when: false
+  when: borgmatic_ansible_managed | bool
 
 - name: Load borgmatic-verify-photos LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic-verify-photos.plist
-  when: borgmatic_verify_launchctl_check.rc != 0
+  when:
+    - borgmatic_ansible_managed | bool
+    - borgmatic_verify_launchctl_check.rc != 0
   changed_when: true
   failed_when: false

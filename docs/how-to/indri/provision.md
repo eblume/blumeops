@@ -304,6 +304,38 @@ verify that `devpi-server` answers on 127.0.0.1:3141 (e.g. `curl -s
 http://127.0.0.1:3141/` or the `+simple` index). Rollback per §Rolling
 back a service flip, with the role's gate flipped.
 
+## Borgmatic
+
+Borgmatic is PR 11 of the series (part of eblume/blumeops#1291): all four backup
+LaunchAgents move to the generation at the role's labels and plist paths —
+`mcquack.eblume.borgmatic` (daily 02:00, archive tier: zk + Documents via
+config.yaml plus the talos-data config), `mcquack.eblume.borgmatic-ops`
+(daily 03:00, operational tier), `mcquack.eblume.borgmatic-photos` (daily
+04:00) and `mcquack.eblume.borgmatic-verify-photos` (weekly Tuesday +
+2nd-of-month verification) — the last two being agents upstream added after
+this PR's base. The backup units exec the mise pipx `latest` symlink
+(borgmatic 2.1.7; nixpkgs 26.05 has 2.1.5 — a store flip would be a
+downgrade, per the plan-cycle eval), so the binary stays role-side and the
+units stay in the #1225 safe class, the same shape as devpi's venv;
+verify-photos execs the role's verification script instead. Config
+yamls, .pgpass, BorgBase key, k8s dump helpers and the mise install stay
+role-rendered — the role's gate (`borgmatic_ansible_managed`) covers only the
+plist + load tasks. Applying the flip is the usual `mise run provision-indri
+-- --tags rebuild` (no service-role tag): activation writes each plist in
+place and reloads once.
+
+The drill's blast radius is the box's BACKUP windows (sifaka-local + BorgBase
+offsite, plus the Immich photo library offsite): a broken flip means missed
+backup windows, and nothing in the standing checks watches backup freshness,
+so the post-apply witness includes one real or deliberately triggered
+`borgmatic create` completing (e.g. `launchctl kickstart
+gui/$(id -u)/mcquack.eblume.borgmatic` and confirm a fresh archive / fresh
+`borgmatic.prom`). The main unit mirrors the role's plist key-for-key,
+including both `--config` args (config.yaml and the never-pruned
+talos-data.yaml tier, per the #1441 tier split); a witness should confirm a
+fresh talos-data archive alongside the sifaka-local one. Rollback per
+§Rolling back a service flip, with the role's gate flipped.
+
 ## Pre-apply check: indri-flake-check
 
 `mise run indri-flake-check` builds `.#darwinConfigurations.indri.system` on
@@ -471,7 +503,7 @@ the old declarations): `ls -l /etc/resolver/ts.net` is a regular file,
 `ls /etc/ssh/sshd_config.d` shows only Apple's `100-macos.conf`, and
 `sudo sshd -t` passes.
 
-## Rolling back a service flip (PRs 2–10)
+## Rolling back a service flip (PRs 2–11)
 
 Each service migration writes its plist at the same path ansible used,
 under the same label (logrotate's globs and alloy's log tails key on it
@@ -513,7 +545,10 @@ talos session and every CI run, while caddy stays up (502s) and the
 registry stays up. For the devpi flip (PR 10), re-run
 `mise run provision-indri -- --tags devpi -e devpi_ansible_managed=true`
 — the PyPI proxy (`pypi.ops.eblu.me`) is down during the window; forge,
-the registry and every other endpoint stay up. For the jellyfin flip (PR 9), re-run
+the registry and every other endpoint stay up. For the borgmatic flip (PR 11), re-run
+`mise run provision-indri -- --tags borgmatic -e borgmatic_ansible_managed=true`
+— the backup windows (sifaka-local + BorgBase offsite + photo library)
+are lost during the window; no front-facing service is affected. For the jellyfin flip (PR 9), re-run
 `mise run provision-indri -- --tags jellyfin -e jellyfin_ansible_managed=true`
 — the media endpoints (`jellyfin.ops.eblu.me`) are down during the
 window; forge, the registry and every other endpoint stay up, and the

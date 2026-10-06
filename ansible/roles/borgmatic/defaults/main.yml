@@ -1,4 +1,14 @@
 ---
+# borgmatic on indri is nix-managed (darwin/indri, PR 11 of the nix-darwin
+# series): the generation owns this role's LaunchAgent plists (borgmatic,
+# borgmatic-ops, borgmatic-photos, borgmatic-verify-photos), so a normal
+# provision must not re-deploy or reload them. Flip this to true only
+# for the rollback re-write (darwin-rebuild --rollback first, then
+# `mise run provision-indri -- --tags borgmatic -e borgmatic_ansible_managed=true`),
+# per docs/how-to/indri/provision.md §Rolling back a service flip.
+
+borgmatic_ansible_managed: false
+
 borgmatic_config: /Users/erichblume/.config/borgmatic/config.yaml
 borgmatic_config_dir: /Users/erichblume/.config/borgmatic
 borgmatic_log_dir: /Users/erichblume/Library/Logs
