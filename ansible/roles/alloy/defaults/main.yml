@@ -37,6 +37,16 @@
 # 6. Run ansible to deploy config and LaunchAgent (a no-op if neither changed —
 #    the role verifies the binary exists; it does not install or version it)
 
+# Indri's alloy LaunchAgent and the macos-power-metrics LaunchDaemon are
+# nix-managed (darwin/indri, PR 12): the generation owns both plists, so a
+# normal provision must not re-deploy or reload them.
+# Gate true only for the rollback re-write (darwin-rebuild --rollback first):
+# `mise run provision-indri -- --tags alloy -e alloy_ansible_managed=true`,
+# per docs/how-to/indri/provision.md §Rolling back a service flip.
+# config.alloy, the textfile dir, the macos-power-metrics script and the
+# retired-collector tombstone stay ungated.
+alloy_ansible_managed: false
+
 # Binary and paths
 alloy_binary: /Users/erichblume/.local/bin/alloy
 alloy_config_dir: /Users/erichblume/.config/grafana-alloy

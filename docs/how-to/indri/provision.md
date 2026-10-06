@@ -336,6 +336,34 @@ talos-data.yaml tier, per the #1441 tier split); a witness should confirm a
 fresh talos-data archive alongside the sifaka-local one. Rollback per
 §Rolling back a service flip, with the role's gate flipped.
 
+## Alloy
+
+Alloy is PR 12 of the series (part of eblume/blumeops#1291): the
+`mcquack.eblume.alloy` LaunchAgent and the root
+`mcquack.eblume.macos-power-metrics` LaunchDaemon move to the generation at
+the role's labels and plist paths, key-for-key identical to the role's
+renders. The agent execs the source-built CGO binary at `~/.local/bin/alloy`
+(nixpkgs' bottle is CGO_ENABLED=0 — breaks Tailscale MagicDNS — and older,
+v1.16 vs the box's v1.19.2; a store flip is both a downgrade and a resolver
+regression, so the binary stays role-side, devpi-venv precedent,
+#1225-safe). config.alloy, the storage dir, the textfile dir, the log tails,
+the retired-collector tombstone and the `macos-power-metrics.sh` script stay
+role-rendered — the gate (`alloy_ansible_managed`) covers only the plist +
+load tasks, for both units. Applying the flip is the usual
+`mise run provision-indri -- --tags rebuild` (no service-role tag):
+activation writes each plist in place and reloads once.
+
+Blast radius is the box's metrics flow itself: a broken flip silently blinds
+indri (the blackbox probes witness the fronts, not the telemetry), so the
+post-apply witness is metrics continuing to flow to prometheus (scrape +
+Loki push + log tails). The daemon's boot gap: with the generation owning
+the plist, a reboot leaves `mcquack.eblume.macos-power-metrics` unregistered
+until the next switch — lost power samples only (the 30 s StartInterval
+resumes; the script path is role-rendered outside /nix, so no
+EX_CONFIG-never-retried class, unlike #1225's store-backed agents); approved
+acceptable in the #1291 plan cycle. Rollback per §Rolling back a service
+flip, with the role's gate flipped.
+
 ## Pre-apply check: indri-flake-check
 
 `mise run indri-flake-check` builds `.#darwinConfigurations.indri.system` on
@@ -503,7 +531,7 @@ the old declarations): `ls -l /etc/resolver/ts.net` is a regular file,
 `ls /etc/ssh/sshd_config.d` shows only Apple's `100-macos.conf`, and
 `sudo sshd -t` passes.
 
-## Rolling back a service flip (PRs 2–11)
+## Rolling back a service flip (PRs 2–12)
 
 Each service migration writes its plist at the same path ansible used,
 under the same label (logrotate's globs and alloy's log tails key on it
@@ -548,7 +576,11 @@ registry stays up. For the devpi flip (PR 10), re-run
 the registry and every other endpoint stay up. For the borgmatic flip (PR 11), re-run
 `mise run provision-indri -- --tags borgmatic -e borgmatic_ansible_managed=true`
 — the backup windows (sifaka-local + BorgBase offsite + photo library)
-are lost during the window; no front-facing service is affected. For the jellyfin flip (PR 9), re-run
+are lost during the window; no front-facing service is affected. For the alloy flip (PR 12), re-run
+`mise run provision-indri -- --tags alloy -e alloy_ansible_managed=true`
+— the box's metrics flow (prometheus scrape + Loki push + log tails) is
+blind during the window, and the macos-power-metrics daemon goes with it;
+every front-facing endpoint stays up. For the jellyfin flip (PR 9), re-run
 `mise run provision-indri -- --tags jellyfin -e jellyfin_ansible_managed=true`
 — the media endpoints (`jellyfin.ops.eblu.me`) are down during the
 window; forge, the registry and every other endpoint stay up, and the

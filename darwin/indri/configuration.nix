@@ -640,6 +640,29 @@ MCQUACK_NIX_WAIT_SYSTEM
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.devpi.err.log";
   };
 
+  # alloy: the box's metrics flow (scrape + Loki push) and log tailing. The binary
+  # stays the role's source-built CGO Mach-O (the nixpkgs bottle is CGO_ENABLED=0,
+  # which breaks Tailscale MagicDNS, and 1.16.0 vs the box's v1.19.2 — a store flip
+  # would be both a downgrade and a resolver regression); outside /nix, the
+  # devpi-venv precedent, so #1225-safe. The unit execs with no --server.http
+  # flag, so the config's self-scrape (127.0.0.1:12345) and the /-/ready check
+  # keep their default address. config.alloy, the storage dir, the textfile dir
+  # and the tails stay role-rendered; the role's gate covers only plist + load.
+  # Rollback per §Rolling back a service flip.
+  launchd.user.agents."mcquack.eblume.alloy".serviceConfig = {
+    Label = "mcquack.eblume.alloy";
+    ProgramArguments = [
+      "/Users/erichblume/.local/bin/alloy"
+      "run"
+      "/Users/erichblume/.config/grafana-alloy/config.alloy"
+      "--storage.path=/Users/erichblume/.local/share/grafana-alloy"
+    ];
+    RunAtLoad = true;
+    KeepAlive = true;
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.alloy.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.alloy.err.log";
+  };
+
   # --- build runner daemons (eblume/blumeops#1357) ---
   # The `indri-build` label runner's daemons live in the *system* launchd
   # domain (launchd.daemons, /Library/LaunchDaemons), not per-user: the VM
@@ -707,5 +730,21 @@ MCQUACK_NIX_WAIT_SYSTEM
     };
     StandardOutPath = "/Users/indri-build/Library/Logs/mcquack.forgejo-runner-build.out.log";
     StandardErrorPath = "/Users/indri-build/Library/Logs/mcquack.forgejo-runner-build.err.log";
+  };
+
+  # macos-power-metrics: the first nix-owned daemon outside the indri-build
+  # pair. Runs as root (no UserName) — powermetrics needs it — writing
+  # macos_power.prom into alloy's node_exporter textfile dir every 30 s. The
+  # script itself stays role-rendered at /usr/local/bin (outside /nix), so the
+  # pre-/nix boot window costs only lost samples until the next switch
+  # re-registers it, not an EX_CONFIG-never-retried failure (#1225): launchd
+  # re-fires the StartInterval cadence, and the script path exists from boot.
+  launchd.daemons."mcquack.eblume.macos-power-metrics".serviceConfig = {
+    Label = "mcquack.eblume.macos-power-metrics";
+    ProgramArguments = [ "/usr/local/bin/macos-power-metrics" ];
+    RunAtLoad = true;
+    StartInterval = 30;
+    StandardOutPath = "/var/log/mcquack.macos-power-metrics.out.log";
+    StandardErrorPath = "/var/log/mcquack.macos-power-metrics.err.log";
   };
 }
