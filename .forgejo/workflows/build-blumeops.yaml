@@ -5,6 +5,10 @@
 #   - Documentation site (Quartz static build)
 #   - Changelog (built from towncrier fragments)
 #
+# The docs build runs credential-free on the unprivileged `indri-build`
+# runner (colima), and the release job stays on `indri` because it holds
+# the op token and the main-push PAT.
+#
 # Usage:
 #   1. Go to Actions > Build BlumeOps > Run workflow
 #   2. Select version bump type (patch/minor/major) or choose specific version
@@ -35,8 +39,11 @@ on:
         type: string
 
 jobs:
-  build:
-    runs-on: indri
+  version:
+    runs-on: indri-build
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release_date: ${{ steps.version.outputs.release_date }}
     steps:
       - name: Verify forge server URL
         run: |
@@ -113,8 +120,62 @@ jobs:
           fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Resolve the changelog header date here, once: the docs-build and
+          # release jobs both build towncrier with it, so a run straddling
+          # midnight cannot leave the docs page and the committed CHANGELOG.md
+          # with different dates.
+          echo "release_date=$(date +%F)" >> "$GITHUB_OUTPUT"
           echo "Building BlumeOps release: $VERSION"
 
+  docs-build:
+    needs: [version]
+    runs-on: indri-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build changelog
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+
+          # Changelog is built here so the Quartz docs contain this release's
+          # notes; the release job re-runs it for the commit (both runs are on
+          # the same tree and version, so byte-identical).
+          # Check if there are any changelog fragments
+          FRAGMENTS=$(find docs/changelog.d -name "*.md" -not -name ".gitkeep" 2>/dev/null | wc -l)
+
+          if [ "$FRAGMENTS" -gt 0 ]; then
+            echo "Found $FRAGMENTS changelog fragments, building changelog..."
+            uvx --from towncrier==26.9.0 towncrier build --version "$VERSION" --date "${{ needs.version.outputs.release_date }}" --yes
+          else
+            echo "No changelog fragments found, skipping towncrier"
+          fi
+
+      - name: Build docs
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          TARBALL="docs-${VERSION}.tar.gz"
+          echo "Building docs in a node:22-slim container..."
+          # Towncrier ran in the previous step of this job, so the working tree
+          # has an up-to-date CHANGELOG.md. The task only runs the Quartz
+          # static site build (no towncrier).
+          mise run docs-build-tarball "./$TARBALL"
+          echo "Build complete!"
+          ls -lh "$TARBALL"
+
+      - name: Upload docs tarball
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3
+        with:
+          name: docs-tarball
+          path: docs-${{ needs.version.outputs.version }}.tar.gz
+
+  release:
+    needs: [version, docs-build]
+    runs-on: indri
+    steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -128,17 +189,18 @@ jobs:
         id: changelog
         run: |
           mkdir -p "$RUNNER_TEMP"
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ needs.version.outputs.version }}"
 
           # Run towncrier on the runner so that CHANGELOG.md updates and
-          # fragment deletions appear in the working tree for both the Quartz
-          # build (next step) and the git commit step.
+          # fragment deletions appear in the working tree for the git commit
+          # step (the Quartz build ran this same step in the docs-build job,
+          # so the docs already contain these notes).
           # Check if there are any changelog fragments
           FRAGMENTS=$(find docs/changelog.d -name "*.md" -not -name ".gitkeep" 2>/dev/null | wc -l)
 
           if [ "$FRAGMENTS" -gt 0 ]; then
             echo "Found $FRAGMENTS changelog fragments, building changelog..."
-            uvx towncrier build --version "$VERSION" --yes
+            uvx --from towncrier==26.9.0 towncrier build --version "$VERSION" --date "${{ needs.version.outputs.release_date }}" --yes
             echo "changelog_updated=true" >> "$GITHUB_OUTPUT"
 
             # Extract the changelog section for this release to include in release body
@@ -158,24 +220,17 @@ jobs:
             echo "" > "$RUNNER_TEMP/release_notes.md"
           fi
 
-      - name: Build docs
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TARBALL="docs-${VERSION}.tar.gz"
-          echo "Building docs in a node:22-slim container..."
-          # Towncrier already ran on the runner above, so the working tree
-          # has an up-to-date CHANGELOG.md. The task only runs the Quartz
-          # static site build (no towncrier).
-          mise run docs-build-tarball "./$TARBALL"
-          echo "Build complete!"
-          ls -lh "$TARBALL"
+      - name: Download docs artifact
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3
+        with:
+          name: docs-tarball
 
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p "$RUNNER_TEMP"
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ needs.version.outputs.version }}"
           TARBALL="docs-${VERSION}.tar.gz"
           CHANGELOG_UPDATED="${{ steps.changelog.outputs.changelog_updated }}"
 
@@ -243,7 +298,7 @@ jobs:
 
       - name: Bump docs_version in ansible role
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ needs.version.outputs.version }}"
           DEFAULTS_FILE="ansible/roles/docs/defaults/main.yml"
 
           echo "Bumping docs_version in $DEFAULTS_FILE to ${VERSION}..."
@@ -256,7 +311,7 @@ jobs:
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ needs.version.outputs.version }}"
           CHANGELOG_UPDATED="${{ steps.changelog.outputs.changelog_updated }}"
 
           # Configure git
@@ -295,7 +350,7 @@ jobs:
 
       - name: Summary
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ needs.version.outputs.version }}"
           TARBALL="docs-${VERSION}.tar.gz"
           echo "================================================"
           echo "BlumeOps Release: $VERSION"

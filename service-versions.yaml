@@ -39,8 +39,8 @@ services:
 
   - name: ntfy
     type: argocd
-    last-reviewed: 2026-06-17
-    current-version: "v2.24.0"
+    last-reviewed: 2026-10-05
+    current-version: "v2.28.0"
     upstream-source: https://github.com/binwiederhier/ntfy/releases
 
   - name: horkos
@@ -440,7 +440,7 @@ services:
     type: argocd
     release: self
     last-reviewed: "2026-08-30"
-    current-version: "v0.4.189"
+    current-version: "v0.4.192"
     upstream-source: https://forge.ops.eblu.me/eblume/talos
     notes: >-
       First-party agent workflow service ([[talos-design]]): pi runtime +

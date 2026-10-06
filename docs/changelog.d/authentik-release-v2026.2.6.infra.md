@@ -1,1 +1,1 @@
-authentik v2026.2.6: auto-pin from eblume/blumeops `9466b59` — image pin bumped to `v2026.2.6-9466b59-nix`.
+authentik v2026.2.6: auto-pin from eblume/blumeops `6a6c45d` — image pin bumped to `v2026.2.6-6a6c45d-nix`.

@@ -130,12 +130,58 @@ pkgs.stdenv.mkDerivation {
       { find $out -type f -print0 | xargs -0 grep -lE '/nix/store/[0-9a-df-np-sv-z]{32}-' 2>/dev/null || true; }
     fi
 
+    # Recompute every dist-info RECORD last. Their sha256 lines were written by
+    # uv before the strip and reference rewrites above, so for sdist-built
+    # extensions they hash the *pre-strip* .so, whose debug info embeds uv's
+    # random sdist path: the stripped files are identical across builds but
+    # RECORD was not, so the FOD hash drifted every fresh build (I6tw / ZKob /
+    # mhVOD from one input set). Rewriting RECORD from the shipped bytes makes
+    # it both deterministic and accurate.
+    #
+    # Two wheels (django-tenants, pyrad) both ship a stray top-level docs/ tree,
+    # so docs/Makefile is whichever uv's parallel install wrote last: a second
+    # source of drift. It is Sphinx source, never imported; drop it. The script
+    # then fails the build if any shipped file is still claimed by two packages.
+    rm -rf $out/lib/python3.14/site-packages/docs
+    python3 - "$out" <<'PY'
+import base64, collections, csv, hashlib, io, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+owners = collections.defaultdict(list)
+for record in sorted(root.rglob("*.dist-info/RECORD")):
+    if record.is_symlink():
+        continue
+    for row in csv.reader(io.StringIO(record.read_text())):
+        if row and (record.parent.parent / row[0]).is_file():
+            owners[(record.parent.parent, row[0])].append(record.parent.name)
+clashes = {k: v for k, v in owners.items() if len(v) > 1}
+if clashes:
+    for (site, path), pkgs in sorted(clashes.items()):
+        print(f"ERROR: {path} is installed by several packages: {pkgs}", file=sys.stderr)
+    sys.exit("file collisions make the FOD output depend on uv's install order")
+for record in sorted(root.rglob("*.dist-info/RECORD")):
+    if record.is_symlink():
+        continue
+    site = record.parent.parent
+    rows = list(csv.reader(io.StringIO(record.read_text())))
+    out = io.StringIO()
+    w = csv.writer(out, lineterminator="\n")
+    for row in rows:
+        if len(row) >= 3 and row[1]:
+            p = site / row[0]
+            if p.is_file() and not p.is_symlink():
+                data = p.read_bytes()
+                digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
+                row = [row[0], "sha256=" + digest, str(len(data))]
+        w.writerow(row)
+    record.write_text(out.getvalue())
+PY
+
     runHook postInstall
   '';
 
   outputHashMode = "recursive";
   outputHashAlgo = "sha256";
-  outputHash = "sha256-I6twnAmHf5RUcV+EBthHAs7DeAmDG/pqvU+BOm/VnTA=";
+  outputHash = "sha256-U0LzkP/9XJXhUhOdpf0C9z4T+cQrB8L/WeeTrMcImjA=";
 
   dontFixup = true;
 }

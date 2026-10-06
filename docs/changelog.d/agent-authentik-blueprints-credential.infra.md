@@ -1,0 +1,1 @@
+Adds a ci-authentik-blueprints authentik principal (group + service account + non-expiring api token bound to a view_blueprintinstance-only role) and its vault-fed worker env for the blueprint exporter in eblume/blumeops#1444.

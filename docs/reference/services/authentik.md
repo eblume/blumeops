@@ -81,7 +81,7 @@ The item also holds an `api-token` field (Authentik API access for admin scripti
 
 ## Container Image
 
-Nix-built via `dockerTools.buildLayeredImage`; the image needs `coreutils` and `bashInteractive` alongside the main package. The entrypoint wrapper symlinks built-in blueprint directories from the Nix store into `/blueprints/` at runtime, allowing custom blueprints to coexist with defaults (`buildLayeredImage`'s `extraCommands` can't see store paths from `contents` — separate layers — so the symlinks are made at container start, not build time). `AUTHENTIK_BLUEPRINTS_DIR=/blueprints` overrides the hardcoded Nix store path.
+Nix-built via `dockerTools.buildLayeredImage`; the image needs `coreutils` and `bashInteractive` alongside the main package. The built-in blueprints (`default/`, `system/`, `migrations/`, …) are copied into `/blueprints/` as **real files** at image build time (`extraCommands`), next to the `custom/` ConfigMap mount. `AUTHENTIK_BLUEPRINTS_DIR=/blueprints` overrides the hardcoded Nix store path. They must not be symlinks: authentik's `retrieve_file` resolves each path and rejects anything outside `blueprints_dir` ("Invalid blueprint path"), and a scheduled `clear_failed_blueprints` then deletes the instance, so the failure is silent. For the same reason `authentik-django` is kept out of the image's `contents` (which would link its store tree into `/`), and the build fails if any symlink is left under `/blueprints`.
 
 ## Related
 

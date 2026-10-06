@@ -318,6 +318,9 @@ def test_table_green(tmp_path):
     assert "| toplevel build | PASS |" in r.stdout
     assert "kernel" in r.stdout
     assert "All checks green" in r.stdout
+    # Actions-token PRs start no workflows: the human reopen is the trigger.
+    assert "close and reopen this PR yourself" in r.stdout
+    assert f"same head `{HEAD_SHA}`" in r.stdout
 
 
 def test_table_red(tmp_path):
@@ -333,6 +336,7 @@ def test_table_red(tmp_path):
     )
     assert r.returncode == 0, r.stdout + r.stderr
     assert "DO NOT MERGE" in r.stdout
+    assert "close and reopen" not in r.stdout
 
 
 def test_table_kernel_flag(tmp_path):

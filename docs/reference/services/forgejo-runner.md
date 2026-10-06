@@ -1,6 +1,6 @@
 ---
 title: Forgejo Runner
-modified: 2026-09-19
+modified: 2026-10-05
 last-reviewed: 2026-06-10
 tags:
   - service
@@ -12,7 +12,7 @@ tags:
 Forgejo Actions runner daemon for CI/CD job execution. Runs as a
 native macOS LaunchAgent on [[indri]] — the unit is nix-managed, and
 the `forgejo_runner` ansible role renders the config; jobs run
-host-mode, with Docker Desktop as the Dagger engine host. (Previously
+host-mode with no container engine. (Previously
 a minikube pod with a Docker-in-Docker sidecar — replaced in phase 0 of
 [[retire-minikube]].)
 
@@ -35,10 +35,11 @@ a minikube pod with a Docker-in-Docker sidecar — replaced in phase 0 of
 ## Architecture
 
 The daemon polls forge for jobs and launches each job step host-mode
-as `erichblume` — see Job Execution below. Docker Desktop survives
-solely as the Dagger engine host (right-sized 2cpu/4GiB), and its
-`daemon.json` carries the [[zot]] registry mirror
-(`http://host.docker.internal:5050`) for docker.io pulls.
+as `erichblume` — see Job Execution below. The runner has no container
+engine (Docker Desktop was retired in eblume/blumeops#1382); the [[zot]]
+registry mirror for docker.io pulls lives in the indri-build colima
+profile's `docker:` block (`host.lima.internal:5050`), where the pulls
+now happen.
 
 The `config.yaml` (including the runner token) and the two
 cache-maintenance agents are managed by the `forgejo_runner` ansible
@@ -126,10 +127,11 @@ auto-installs through the shims (or `mise install` as indri-build, once).
 ## Job Execution
 
 Host-mode ([[retire-minikube]] phase 6): workflow steps run directly as
-`erichblume` on indri with the mise-managed toolchain. Dagger pipelines work
-unchanged: the CLI runs on the host and its engine runs as a container
-in Docker Desktop, which survives solely for this purpose (right-sized
-2cpu/4GiB). The old arm64 `runner-job-image` is retired.
+`erichblume` on indri with the mise-managed toolchain. The dagger
+pipelines that once ran here now run on indri-build, whose engine is a
+container in the colima VM (eblume/blumeops#1357); Docker Desktop's
+engine role is retired (eblume/blumeops#1382). The old arm64
+`runner-job-image` is retired.
 
 The host toolchain is declared in the indri nix-darwin flake's global mise
 config (`darwin/indri/configuration.nix`, entry `[tools]`) — read it there

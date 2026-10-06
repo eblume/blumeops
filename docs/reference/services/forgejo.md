@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-09-25
+modified: 2026-10-05
 last-reviewed: 2026-08-29
 tags:
   - service
@@ -74,7 +74,7 @@ The forge has three namespaces:
 
 | Runner | Host | Labels | Purpose |
 |--------|------|--------|---------|
-| `indri-runner` | [[indri]] (native, host-mode) | `indri` | Default jobs; Dagger CLI talks to the Docker Desktop engine |
+| `indri-runner` | [[indri]] (native, host-mode) | `indri` | Default jobs (host-mode, no container engine) |
 | `ringtail-nix-builder` | [[ringtail]] (NixOS) | `nix-container-builder` | Nix container builds via `nix-build` + `skopeo` |
 | `ringtail-priv-runner` | [[ringtail]] (NixOS, sandboxed `horkos-runner`) | `priv` | Warrant-gated, dispatch-only privileged jobs ([[warrant-approval-gated-runs]]) |
 
@@ -82,19 +82,18 @@ The forge has three namespaces:
 
 | Workflow | Trigger | Runner | Purpose |
 |----------|---------|--------|---------|
-| `forge-reconcile` | push/PR/dispatch | `indri` | Reconcile the `agents` bot's collaborations + labels against repos.json; check (never apply) branch protections against `forge/branch-protections.json` |
+| `forge-reconcile` | push/PR/schedule/dispatch | `indri` | Reconcile the `agents` + `horkos-forge` bots' collaborations, webhooks, labels, and branch protections against repos.json + `forge/branch-protections.json`; the single forge drift check (weekly schedule + same-repo PRs; protections apply only from a human run) |
 | `argocd-deploy` | dispatch | `priv` | Warrant-gated ArgoCD deploy of a single app |
 | `argocd-sync-apps` | dispatch | `priv` | Warrant-gated sync of the app-of-apps root (`apps`) |
-| `branch-cleanup` | cron/dispatch | `indri` | Delete stale branches |
-| `build-blumeops` | dispatch | `indri` | Docs build + release |
-| `build-container` | push (main)/PR | `indri` → `nix-container-builder` | Nix container image builds; classify on indri, build on the nix builder ([[build-container-image]]) |
+| `branch-cleanup` | cron/dispatch | `indri-build` | Delete stale branches |
+| `build-blumeops` | dispatch | `indri-build` → `indri` | Changelog + docs build on the unprivileged runner; release + push on indri |
+| `build-container` | push (main)/PR | `indri-build` → `nix-container-builder` | Nix container image builds; classify on the unprivileged runner, build on the nix builder ([[build-container-image]]) |
 | `deploy-fly` | dispatch | `priv` | Warrant-gated deploy of the Fly.io proxy ([[flyio-proxy]]) |
-| `docs-checks` | PR/push | `indri` | Docs + changelog validation |
+| `docs-checks` | PR/push | `indri-build` | Docs + changelog validation |
 | `flake-update` | dispatch | `nix-container-builder` | Ringtail flake input update (native nix on the ringtail nix runner) |
-| `lint` | PR/push | `indri` | Repo lint (prek hooks) |
+| `lint` | PR/push | `indri-build` | Repo lint (prek hooks) |
 | `provision-indri` | dispatch | `indri` | Warrant-gated apply of a bound SHA's nix-darwin generation; fire-and-forget — green means the switch launched ([[provision]]) |
 | `run-script` | dispatch | `priv` | Warrant-gated one-off script run |
-| `horkos-forge-drift` | cron/push/dispatch | `indri` | Weekly drift check on horkos-forge's grants |
 
 PR jobs additionally end with the shared `.forgejo/actions/report-failure`
 composite action: on failure it posts the job's teed log tail to the PR as
@@ -128,9 +127,16 @@ write-only, so value drift is invisible to the role):
 mise run provision-indri -- --tags forgejo_actions_secrets
 ```
 
+`forge-reconcile --check` reads the *names* of these declared secrets from the
+role (the role stays the only source; values are never touched) and fails the
+weekly schedule and same-repo PR check on a missing or undeclared live name —
+so name-level drift is caught on a schedule, not only on a human's
+`provision-indri --check`. The role's PUT/DELETE remains the authoritative
+write path; this is the check half of the same drift.
+
 | Repo | Secrets | Purpose |
 |------|---------|---------|
-| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `forge-reconcile` reconcile + `horkos-forge-drift` reads (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
+| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `forge-reconcile` reconcile + drift check (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
 | `eblume/talos`, `eblume/horkos` | `ZOT_PUSH_API_KEY` | Auto-release CI: per-repo push-only zot identity (`ci-zot-talos` / `ci-zot-horkos`), provisioned from the zot master fields by the role |
 | `eblume/cv` | — (none) | Release CI is stored-secret-free; the empty declaration makes provisioning authoritative here (first run deletes the stale `FORGE_TOKEN`) |
 

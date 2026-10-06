@@ -22,7 +22,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `agent-health` | Fleet health via Grafana alert rules, using the talos-m2m JWT (agent-usable) |
 | `agent-lint` | Run the CI lint gate (prek hookset) locally before pushing |
 | `agent-metrics` | Run a PromQL query against Prometheus via Grafana, as the talos-m2m identity |
-| `forge-reconcile` | [human] Reconcile the agents bot's forge collaborations, talos webhooks, and engagement labels against repos.json, and branch protections against `forge/branch-protections.json` (protections apply only from a human run) |
+| `forge-reconcile` | [human] Reconcile eblume's forge desired state — the agents + horkos-forge bots' collaborations, webhooks, and labels (repos.json) and branch protections (protections apply only from a human run); `--check` is the single forge drift check (weekly + same-repo PRs) |
 | `ai-sources` | Concatenate all BlumeOps source files for AI context |
 | `branch-cleanup` | [human] Delete branches that have been merged into main (local and remote) |
 | `changelog-check` | Validate changelog fragments are flat files in docs/changelog.d/ |
@@ -75,7 +75,6 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `tailnet-preview` | [human] Preview tailnet changes with Pulumi |
 | `tailnet-up` | [human] Apply tailnet changes with Pulumi |
 | `verify-runs` | Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit); report horkos self-filed requests from the queue |
-| `horkos-forge-drift` | [human] Assert horkos-forge still holds exactly write on blumeops and nothing more (read-only) |
 | `horkos-forge-provision` | [human] Provision the horkos-forge forge identity + dispatch PAT (gilbert, human-run) |
 
 ## Indri ssh legs: verify in-band

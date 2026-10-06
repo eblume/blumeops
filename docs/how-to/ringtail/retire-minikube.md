@@ -1,6 +1,6 @@
 ---
 title: Retire minikube on indri
-modified: 2026-06-11
+modified: 2026-10-05
 last-reviewed: 2026-06-10
 tags:
   - how-to
@@ -16,6 +16,15 @@ minikube is deleted, every Kubernetes workload (including ArgoCD) runs
 on `k3s-ringtail`, and the forgejo-runner serves host-mode jobs as a
 native launchd service on indri. This card is retained as the
 historical plan and execution record.
+
+**Docker Desktop resolution (2026-10):** the phase 6 scope revision
+below (Docker Desktop *stays* for dagger) is superseded. After the
+dagger workloads moved to indri-build's colima VM (eblume/blumeops#1357)
+and the docs tarball left the privileged runner (eblume/blumeops#1450),
+Docker Desktop was retired (eblume/blumeops#1382): its `daemon.json`
+management left the `forgejo_runner` role, the zot mirror moved to the
+colima profile's `docker:` block, and the app itself is a human
+follow-up step.
 
 Move every remaining Kubernetes workload off `minikube-indri` onto
 `k3s-ringtail`, convert the forgejo-runner into a native macOS launchd

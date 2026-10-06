@@ -182,7 +182,10 @@ cmd_table() {
       printf '\n'
     fi
     if [ "$green" = "true" ]; then
-      printf '**All checks green.** Merge is your call; after the merge horkos files the `ringtail-rebuild` request ([eblume/horkos#48](https://forge.eblu.me/eblume/horkos/issues/48)).\n'
+      printf '**All checks green.** Merge is your call; after the merge horkos files the `ringtail-rebuild` request ([eblume/horkos#48](https://forge.eblu.me/eblume/horkos/issues/48)).\n\n'
+      # Forgejo starts no workflows for events made with the Actions token,
+      # so this PR opens with none of main's required checks run.
+      printf '> **Before merging: close and reopen this PR yourself.** It was opened with the Actions token, which Forgejo does not let trigger workflows, so the required checks have not run. A human reopen runs them on this same head `%s`; merge once they are green.\n' "$HEAD_SHA"
     else
       printf '**DO NOT MERGE** - a check failed; the exception issue is filed and linked from this PR.\n'
     fi

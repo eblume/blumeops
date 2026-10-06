@@ -1,0 +1,100 @@
+# Post a forge-reconcile PR-check *notice* to the PR: the intended-drift report
+# (what this PR will change, and what needs a human apply after merge), posted
+# on the warn-only path so a non-failing result — notably a revocation — is
+# still read.
+#
+# Unlike report-failure this is a plain, non-triggering issue comment on every
+# author (never a review — intended drift is not a failure to fix), and it
+# runs on success(), not failure(). If the notice file is absent (an in-sync
+# PR, or a fork PR that skipped) it no-ops.
+#
+# Dedupe: one notice per (workflow, head SHA) — a re-run of the same head does
+# not double-post. Uses only the automatic per-run token; the caller must set
+# GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}.
+
+name: Report forge-reconcile notice to PR
+
+description: >-
+  Post the forge-reconcile intended-drift report to the PR as a plain,
+  non-triggering issue comment; no-ops when the report file is absent;
+  deduped per (workflow, head SHA).
+
+inputs:
+  file:
+    description: "Bare filename of the report written by the check step (resolved into $RUNNER_TEMP)"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Report notice to PR
+      run: |
+        set -euo pipefail
+
+        file_in='${{ inputs.file }}'
+        case "$file_in" in /*|*/*)
+          echo "file must be a bare filename (got: $file_in)" >&2
+          exit 1
+          ;;
+        esac
+        notice="$RUNNER_TEMP/$file_in"
+        if [ ! -f "$notice" ]; then
+          echo "No notice at $notice — nothing to post (in sync, or a fork PR that skipped)."
+          exit 0
+        fi
+
+        API="${GITHUB_API_URL:-${GITHUB_SERVER_URL:-https://forge.ops.eblu.me}/api/v1}"
+        REPO="$GITHUB_REPOSITORY"
+        AUTH="Authorization: token $GITHUB_TOKEN"
+        EVENT="$GITHUB_EVENT_PATH"
+        SHA7="${GITHUB_SHA:0:7}"
+        RUN="$GITHUB_RUN_NUMBER"
+        WF="$GITHUB_WORKFLOW"
+
+        PR="$(jq -r '.pull_request.number' "$EVENT")"
+        # v2 adds the base ref: the intended list is computed against the base
+        # tip at run time, so a re-run of an unchanged head after main moved has
+        # different content and must re-post (v1 keyed on head SHA only went
+        # stale).
+        BASE="${GITHUB_BASE_REF:-}"
+        marker="forge-reconcile-notice v2:$WF:$SHA7:$BASE"
+
+        all_pages() {
+          local path="$1" page=1 out='[]' resp next
+          while [ "$page" -le 20 ]; do
+            resp="$(curl -s -H "$AUTH" "$API/repos/$REPO$path?limit=50&page=$page" || echo '[]')"
+            next="$(jq -s '.[0] + .[1]' <(printf '%s' "$out") <(printf '%s' "$resp") 2>/dev/null || true)"
+            if [ -n "$next" ]; then out="$next"; fi
+            if [ "$(jq 'length' <<<"$resp" 2>/dev/null || echo 0)" -lt 50 ]; then break; fi
+            page=$((page + 1))
+          done
+          printf '%s' "$out"
+        }
+        comments_json="$(all_pages "/issues/$PR/comments")"
+        seen="$(jq --arg m "$marker" '[.[]? | select(((.body // "") | contains($m)))] | length' <<<"$comments_json" 2>/dev/null || echo 0)"
+        if [ "$seen" != "0" ]; then
+          echo "Already posted $WF notice @ $SHA7 — skipping."
+          exit 0
+        fi
+
+        body="$RUNNER_TEMP/notice-body.md"
+        {
+          echo "<!-- $marker -->"
+          echo ""
+          echo "## Forge Reconcile — intended changes in this PR"
+          echo ""
+          echo "_`forge-reconcile` PR check, PR #$PR, run $RUN, head $SHA7. This result did not fail the check._"
+          echo ""
+          cat "$notice"
+        } > "$body"
+
+        jq -n --rawfile body "$body" '{body: $body}' > "$RUNNER_TEMP/notice-body.json"
+        RESP="$RUNNER_TEMP/notice-post-resp"
+        if ! curl -fsS --fail-with-body -X POST -H "$AUTH" -H "Content-Type: application/json" \
+            -d @"$RUNNER_TEMP/notice-body.json" \
+            "$API/repos/$REPO/issues/$PR/comments" > "$RESP"; then
+          cat "$RESP" >&2
+          echo "Failed to post forge-reconcile notice to PR #$PR" >&2
+          exit 1
+        fi
+        jq -r '"Notice posted: " + (.html_url // .message // "unknown")'

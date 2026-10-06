@@ -18,18 +18,18 @@ After merging documentation changes to main:
 
 1. Go to **Actions** > **Build BlumeOps** > **Run workflow**
 2. Select version bump type (patch/minor/major) or enter a specific version
-3. The workflow builds, releases, and deploys automatically
+3. The workflow builds the docs and creates the release; deploying the new
+   version is a manual step (see below)
 
 Direct link: https://forge.ops.eblu.me/eblume/blumeops/actions?workflow=build-blumeops.yaml
 
 ## What the Workflow Does
 
-The `build-blumeops` workflow (`.forgejo/workflows/build-blumeops.yaml`):
+The `build-blumeops` workflow (`.forgejo/workflows/build-blumeops.yaml`) splits across three jobs:
 
-1. **Resolves version** — Uses input or auto-increments from latest release
-2. **Builds changelog** — Runs towncrier on the runner to update `CHANGELOG.md`
-3. **Builds docs** — Runs `mise run docs-build-tarball` (Quartz build in a node:22-slim container)
-4. **Creates release** — Uploads `docs-<version>.tar.gz` to Forgejo releases
+1. **`version`** (on the unprivileged `indri-build` runner) — Resolves the version: uses the input or auto-increments from the latest release
+2. **`docs-build`** (on the unprivileged `indri-build` runner) — Runs towncrier to update `CHANGELOG.md`, then builds the docs with `mise run docs-build-tarball` (Quartz build in a node:22-slim container via colima); hands the tarball to the release job as a same-run artifact
+3. **`release`** (on `indri`) — Re-runs towncrier for the commit, downloads the tarball, creates the Forgejo release (`docs-<version>.tar.gz`), bumps `docs_version`, commits
 
 The workflow ends at the release. Deploying is a manual step (docs are served
 natively by Caddy on indri since [[retire-minikube]] — no ArgoCD app): bump
@@ -67,12 +67,15 @@ Fragments are automatically collected into `CHANGELOG.md` (at repo root) during 
 
 ## Runner Environment
 
-The workflow runs on the `indri` label, served since [[retire-minikube]] phase 6
-by the host-mode [[forgejo]]-runner on [[indri]] ([[configure-launchd-runner]]):
+The workflow's jobs split across the two launchd [[forgejo]]-runners on [[indri]]
+([[configure-launchd-runner]]) — the `version` and `docs-build` jobs on the
+unprivileged `indri-build` runner (colima container engine), the `release` job
+on the privileged `indri` host-mode runner because it holds the op token and
+the main-push PAT:
 
-- **Runner**: native LaunchAgent on indri, managed by the `forgejo_runner` ansible role (no Kubernetes, no job container)
-- **Toolchain**: jobs run directly with indri's mise toolchain (Node.js, uv/Python, …); the `k8s` compat label was dropped once workflows repo-wide moved to `runs-on: indri`
-- **Build engine**: the docs build runs a node:22-slim container via the `docs-build-tarball` task in indri's Docker Desktop (no Dagger)
+- **Runner**: launchd services on indri (the `indri` user LaunchAgent; the `indri-build` LaunchDaemon plus its colima VM), managed by the `forgejo_runner` ansible role (no Kubernetes, no job container)
+- **Toolchain**: the docs job uses indri-build's mise toolchain (Node.js, uv/Python, …); the release job runs with indri's
+- **Build engine**: the docs build runs a node:22-slim container via the `docs-build-tarball` task in indri-build's colima — not Docker Desktop (no Dagger)
 
 ## Quartz Static Site Generator
 

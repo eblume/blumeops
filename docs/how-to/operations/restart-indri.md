@@ -1,6 +1,6 @@
 ---
 title: Restart Indri
-modified: 2026-09-29
+modified: 2026-10-05
 last-reviewed: 2026-06-11
 tags:
   - how-to
@@ -43,7 +43,6 @@ ssh indri 'launchctl unload ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner
 
 These apps don't autostart and should be quit cleanly before reboot:
 
-- **Docker Desktop** - Quit from menubar or: `ssh indri 'osascript -e "quit app \"Docker\""'` (backs the forgejo-runner's job containers until phase 6 of [[retire-minikube]])
 - **Amphetamine** - Quit from menubar (prevents sleep; will need restart)
 
 ### 3. Reboot
@@ -58,7 +57,7 @@ Or if you're at the console, use the Apple menu.
 
 After indri boots, most services recover automatically.
 
-**What autostarts:** Docker Desktop and all mcquack LaunchAgent services (Forgejo, Caddy, Zot, Jellyfin, Alloy, Borgmatic, forgejo-runner, metrics collectors).
+**What autostarts:** all mcquack LaunchAgent services (Forgejo, Caddy, Zot, Jellyfin, Alloy, Borgmatic, forgejo-runner, metrics collectors).
 
 **What needs manual action:** Amphetamine. (The sifaka shares are mounted automatically by the `mcquack.eblume.sifaka-mounter` LaunchAgent.)
 
@@ -73,8 +72,6 @@ Log in to indri (via Screen Sharing or physically) and launch:
 | App | Purpose | Launch Method |
 |-----|---------|---------------|
 | **Amphetamine** | Prevents sleep | Spotlight or App Store apps |
-
-Docker Desktop autostarts on login. Wait for it to finish starting (whale icon in menubar stops animating) before proceeding.
 
 ### 2. Verify Sifaka Mounts
 

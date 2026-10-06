@@ -162,6 +162,44 @@ gate job silently un-requires it by name** (the glob still blocks on its
 failure, but no longer on its absence): update the protection file whenever
 a job in `docs-checks.yaml`, `image-pins.yaml` or `lint.yaml` is renamed.
 
+### Forge Reconcile's PR check: intended vs unexpected drift
+
+`Forge Reconcile` is the only workflow that both **reads and writes** desired
+state, and the one whose PR check can be *wrong* in a subtle way: it reconciles
+against `repos.json` / `forge/branch-protections.json`, so a PR that edits those
+files is itself the pending drift. A naive `--check` that fails on *any* drift
+would sit red until a human applies the change from the branch — and since #1370
+made every PR check blocking, that is a merge-blocker for the very PR that made
+the change.
+
+So on a **same-repo** (eblume-owned) PR the check compares the live forge
+against *both* the PR's declared state and **main's** declared state, and reports
+in four categories:
+
+1. **Intended — auto-applies on merge** (a `repos.json` grant/hook/label delta
+   the CI token *can* apply) → warn only, posted as a PR comment. Goes live via
+   the merge push. No apply-before-merge step.
+2. **Intended — needs a human apply** (protection / hook-create deltas the CI
+   token *can't* apply) → warn + comment: *run `mise run forge-reconcile` from
+   gilbert after merge.*
+3. **Unexpected live drift** (live forge vs **main**-declared, on state this PR
+   does *not* change) → **fail**, named as "a merged change awaiting a human
+   apply, or the forge drifted." This is the one that turns an *unrelated*
+   same-repo PR red while a merged protection/hook change waits on a human
+   apply — a known, documented trade-off, surfaced as its own category so the
+   red reads as *pending apply*, not *this PR broke something.*
+4. **Invariant violations and unreadable repos** (site-admin, `PINNED_READ_ONLY`,
+   the bot-whitelist fence, a malformed policy, a repo the token cannot read)
+   → **always fail.**
+
+**Fork / agent PRs skip.** They carry no `FORGE_REPO_WRITE_TOKEN`, so the check
+falls through to `--skip-if-no-token` and exits 0 (a green tick that verified
+nothing is worse than no check — the same reason `horkos-forge-drift` had no
+`pull_request` trigger). The new semantics therefore run only on same-repo PRs.
+The intended-drift report is posted as a **plain, non-triggering** PR comment
+(never a fix-cycle review), so a warn-only result — notably a revocation — is
+still read. See `mise-tasks/forge-reconcile` (--pr-base-ref) and the workflow.
+
 ### CI failure notices
 
 A PR where a check ran and failed still hides its *reason* behind runner
@@ -173,6 +211,10 @@ On failure it posts the tail of the job's own teed log to the PR as
 copy-paste `mise run runner-logs <run> -j <N>` pointer (matrix jobs omit the
 pointer — the jobs API cannot disambiguate legs). One notice per (workflow,
 job, matrix leg, head SHA) — a re-run of the same head does not double-post.
+`Forge Reconcile` additionally posts, on the *warn-only* PR-check path, a plain
+intended-drift notice (`.forgejo/actions/report-pr-notice`) so a green
+same-repo PR whose changes land on merge is still read — see
+[Forge Reconcile's PR check](#forge-reconciles-pr-check-intended-vs-unexpected-drift).
 
 On a PR authored by `agents`, the notice is a **review** (event `COMMENT`),
 which the talos forge loop picks up like any review and starts a fix cycle

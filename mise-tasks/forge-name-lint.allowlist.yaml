@@ -56,8 +56,6 @@
   reason: comment — the public mirror has no API
 - file: mise-tasks/fly-setup
   reason: TLS cert for the public name (fly certs add)
-- file: mise-tasks/horkos-forge-drift
-  reason: comment — the public mirror has no API
 - file: mise-tasks/horkos-forge-provision
   reason: comment — the public mirror has no API
 - file: mise-tasks/mirror-create
