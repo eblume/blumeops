@@ -1,6 +1,6 @@
 ---
 title: Indri
-modified: 2026-10-03
+modified: 2026-10-05
 last-reviewed: 2026-10-03
 tags:
   - infrastructure
@@ -43,7 +43,6 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 **Kubernetes:** none — indri's minikube cluster was retired 2026-06 ([[retire-minikube]]); all k8s workloads run on [[ringtail]]'s k3s.
 
 **GUI Applications (manual start required):**
-- Docker Desktop - Container runtime for the forgejo-runner's job containers (retires in [[retire-minikube]] phase 6)
 - Amphetamine - Prevents sleep
 
 ## Maintenance Notes

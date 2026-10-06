@@ -60,12 +60,6 @@ forgejo_runner_labels:
 # for flyctl, the dagger CLI pin), and bumping the source of truth is what
 # changes the host tool, not this role.
 
-# Zot pull-through cache for docker.io pulls, merged into Docker
-# Desktop's daemon.json. host.docker.internal resolves to indri from
-# inside the Docker Desktop VM (replaces host.minikube.internal:5050).
-forgejo_runner_registry_mirror: http://host.docker.internal:5050
-forgejo_runner_docker_daemon_json: /Users/erichblume/.docker/daemon.json
-
 # --- Monthly uv cache prune (eblume/blumeops#1065) ---
 # Orphaned wheel archives (archive-v0) accumulate as dependency pins
 # move; `uv cache prune` reclaims them, but it also removes per-script

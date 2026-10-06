@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-09-25
+modified: 2026-10-05
 last-reviewed: 2026-08-29
 tags:
   - service
@@ -74,7 +74,7 @@ The forge has three namespaces:
 
 | Runner | Host | Labels | Purpose |
 |--------|------|--------|---------|
-| `indri-runner` | [[indri]] (native, host-mode) | `indri` | Default jobs; Dagger CLI talks to the Docker Desktop engine |
+| `indri-runner` | [[indri]] (native, host-mode) | `indri` | Default jobs (host-mode, no container engine) |
 | `ringtail-nix-builder` | [[ringtail]] (NixOS) | `nix-container-builder` | Nix container builds via `nix-build` + `skopeo` |
 | `ringtail-priv-runner` | [[ringtail]] (NixOS, sandboxed `horkos-runner`) | `priv` | Warrant-gated, dispatch-only privileged jobs ([[warrant-approval-gated-runs]]) |
 

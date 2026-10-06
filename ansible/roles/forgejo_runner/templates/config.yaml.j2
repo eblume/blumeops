@@ -3,9 +3,9 @@
 #
 # Host-mode jobs ([[retire-minikube]] phase 6): jobs run directly as
 # erichblume with indri's mise-managed toolchain — no job container,
-# no runner-job-image. Docker Desktop stays (right-sized 2cpu/4GiB)
-# solely as the dagger engine host; the dagger CLI on the host finds
-# its socket at the default /var/run/docker.sock.
+# no runner-job-image, no container engine on this runner (the dagger
+# workloads moved to indri-build's colima VM in eblume/blumeops#1357;
+# Docker Desktop was retired in eblume/blumeops#1382).
 log:
   level: info
 
