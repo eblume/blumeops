@@ -343,10 +343,10 @@ Alloy is PR 12 of the series (part of eblume/blumeops#1291): the
 `mcquack.eblume.macos-power-metrics` LaunchDaemon move to the generation at
 the role's labels and plist paths, key-for-key identical to the role's
 renders. The agent execs the source-built CGO binary at `~/.local/bin/alloy`
-(nixpkgs' bottle is CGO_ENABLED=0 — breaks Tailscale MagicDNS — and older,
-v1.16 vs the box's v1.19.2; a store flip is both a downgrade and a resolver
-regression, so the binary stays role-side, devpi-venv precedent,
-#1225-safe). config.alloy, the storage dir, the textfile dir, the log tails,
+(nixpkgs' grafana-alloy builds with the netgo tag — pure-Go DNS, which
+breaks Tailscale MagicDNS — and is older, v1.16 vs the box's v1.19.2; a
+store flip is both a downgrade and a resolver regression, so the binary
+stays role-side, devpi-venv precedent, #1225-safe). config.alloy, the storage dir, the textfile dir, the log tails,
 the retired-collector tombstone and the `macos-power-metrics.sh` script stay
 role-rendered — the gate (`alloy_ansible_managed`) covers only the plist +
 load tasks, for both units. Applying the flip is the usual
@@ -356,13 +356,15 @@ activation writes each plist in place and reloads once.
 Blast radius is the box's metrics flow itself: a broken flip silently blinds
 indri (the blackbox probes witness the fronts, not the telemetry), so the
 post-apply witness is metrics continuing to flow to prometheus (scrape +
-Loki push + log tails). The daemon's boot gap: with the generation owning
-the plist, a reboot leaves `mcquack.eblume.macos-power-metrics` unregistered
-until the next switch — lost power samples only (the 30 s StartInterval
-resumes; the script path is role-rendered outside /nix, so no
-EX_CONFIG-never-retried class, unlike #1225's store-backed agents); approved
-acceptable in the #1291 plan cycle. Rollback per §Rolling back a service
-flip, with the role's gate flipped.
+Loki push + log tails). The daemon has no post-reboot gap: nix-darwin
+activation writes the plist as a real file into /Library/LaunchDaemons and
+launchd re-registers it at every boot (a #1225 EX_CONFIG-never-retried
+failure needs a store argv0, and the script is role-rendered outside /nix),
+so the plan cycle's boot-gap concern resolves to nothing. The one
+lost-samples window is the rollback drill: the rolled-back generation stops
+declaring the daemon, and the system launchd phase unloads + deletes it
+until the gated role re-run rewrites and loads the ansible plist.
+Rollback per §Rolling back a service flip, with the role's gate flipped.
 
 ## Pre-apply check: indri-flake-check
 

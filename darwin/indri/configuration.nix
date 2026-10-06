@@ -641,9 +641,10 @@ MCQUACK_NIX_WAIT_SYSTEM
   };
 
   # alloy: the box's metrics flow (scrape + Loki push) and log tailing. The binary
-  # stays the role's source-built CGO Mach-O (the nixpkgs bottle is CGO_ENABLED=0,
-  # which breaks Tailscale MagicDNS, and 1.16.0 vs the box's v1.19.2 — a store flip
-  # would be both a downgrade and a resolver regression); outside /nix, the
+  # stays the role's source-built CGO Mach-O (nixpkgs' grafana-alloy builds with the
+  # netgo tag — pure-Go DNS, which breaks Tailscale MagicDNS — and is 1.16.0 vs the
+  # box's v1.19.2, so a store flip would be a downgrade and a resolver regression);
+  # outside /nix, the
   # devpi-venv precedent, so #1225-safe. The unit execs with no --server.http
   # flag, so the config's self-scrape (127.0.0.1:12345) and the /-/ready check
   # keep their default address. config.alloy, the storage dir, the textfile dir
@@ -735,10 +736,13 @@ MCQUACK_NIX_WAIT_SYSTEM
   # macos-power-metrics: the first nix-owned daemon outside the indri-build
   # pair. Runs as root (no UserName) — powermetrics needs it — writing
   # macos_power.prom into alloy's node_exporter textfile dir every 30 s. The
-  # script itself stays role-rendered at /usr/local/bin (outside /nix), so the
-  # pre-/nix boot window costs only lost samples until the next switch
-  # re-registers it, not an EX_CONFIG-never-retried failure (#1225): launchd
-  # re-fires the StartInterval cadence, and the script path exists from boot.
+  # script stays role-rendered at /usr/local/bin (outside /nix), so there is no
+  # post-reboot gap: nix-darwin activation writes the plist as a real file into
+  # /Library/LaunchDaemons and launchd re-registers it at every boot (a #1225
+  # EX_CONFIG-never-retried failure needs a store argv0, this is not one). The
+  # one lost-samples window is the rollback drill: a rolled-back generation stops
+  # declaring the daemon, and the system phase unloads + deletes it until the
+  # gated role re-run rewrites and loads the ansible plist.
   launchd.daemons."mcquack.eblume.macos-power-metrics".serviceConfig = {
     Label = "mcquack.eblume.macos-power-metrics";
     ProgramArguments = [ "/usr/local/bin/macos-power-metrics" ];
