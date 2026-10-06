@@ -522,6 +522,97 @@ MCQUACK_NIX_WAIT_SYSTEM
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.jellyfin.err.log";
   };
 
+  # borgmatic (PR 11, part of eblume/blumeops#1291): all four backup LaunchAgents move
+  # here at the role's labels and plist paths — each with its cron-style backup
+  # window. The main agent backs up the archive tier (zk + Documents) and the
+  # talos-data config, so it carries both --config args (config.yaml +
+  # talos-data.yaml), key-for-key with the role's plist after the #1441 tier split;
+  # the ops agent backs up the operational tier (03:00), photos the Immich library
+  # (04:00), and verify-photos runs the weekly/2nd-of-month verification. The binary
+  # stays the mise pipx `latest` symlink (borgmatic 2.1.7) — outside
+  # /nix, so the unit stays in the #1225 safe class, the same zot/forgejo absolute-path
+  # precedent as devpi's venv (verify-photos execs the role's verification script).
+  # Config yamls, .pgpass, BorgBase key, k8s dump helpers and
+  # the mise install stay role-rendered; only the plist + load move here. No
+  # KeepAlive/RunAtLoad: calendar-triggered only — a failed run retries at the next
+  # window, there is no supervisor. See provision.md §Borgmatic.
+  launchd.user.agents."mcquack.eblume.borgmatic".serviceConfig = {
+    Label = "mcquack.eblume.borgmatic";
+    ProgramArguments = [
+      "/Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/bin/borgmatic"
+      "--config"
+      "/Users/erichblume/.config/borgmatic/config.yaml"
+      "--config"
+      "/Users/erichblume/.config/borgmatic/talos-data.yaml"
+      "create"
+    ];
+    RunAtLoad = false;
+    KeepAlive = false;
+    EnvironmentVariables = {
+      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+    };
+    StartCalendarInterval = { Hour = 2; Minute = 0; };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.borgmatic.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.borgmatic.err.log";
+  };
+  launchd.user.agents."mcquack.eblume.borgmatic-photos".serviceConfig = {
+    Label = "mcquack.eblume.borgmatic-photos";
+    ProgramArguments = [
+      "/Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/bin/borgmatic"
+      "--config"
+      "/Users/erichblume/.config/borgmatic/photos.yaml"
+      "create"
+    ];
+    RunAtLoad = false;
+    KeepAlive = false;
+    EnvironmentVariables = {
+      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+    };
+    StartCalendarInterval = { Hour = 4; Minute = 0; };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.borgmatic-photos.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.borgmatic-photos.err.log";
+  };
+
+  # borgmatic-ops: the operational tier (forgejo, config, dumps, /Volumes/shower),
+  # daily 03:00 — key-for-key with the role's borgmatic-ops.plist.j2.
+  launchd.user.agents."mcquack.eblume.borgmatic-ops".serviceConfig = {
+    Label = "mcquack.eblume.borgmatic-ops";
+    ProgramArguments = [
+      "/Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/bin/borgmatic"
+      "--config"
+      "/Users/erichblume/.config/borgmatic/operational.yaml"
+      "create"
+    ];
+    RunAtLoad = false;
+    KeepAlive = false;
+    EnvironmentVariables = {
+      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+    };
+    StartCalendarInterval = { Hour = 3; Minute = 0; };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.borgmatic-ops.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.borgmatic-ops.err.log";
+  };
+
+  # borgmatic-verify-photos: weekly (Tuesday) + 2nd-of-month verification, 06:00 —
+  # key-for-key with the role's borgmatic-verify-photos.plist.j2.
+  launchd.user.agents."mcquack.eblume.borgmatic-verify-photos".serviceConfig = {
+    Label = "mcquack.eblume.borgmatic-verify-photos";
+    ProgramArguments = [
+      "/Users/erichblume/.local/bin/borgmatic-verify-photos"
+    ];
+    RunAtLoad = false;
+    KeepAlive = false;
+    EnvironmentVariables = {
+      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+    };
+    StartCalendarInterval = [
+      { Weekday = 2; Hour = 6; Minute = 0; }
+      { Day = 2; Hour = 6; Minute = 0; }
+    ];
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.borgmatic-verify-photos.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.borgmatic-verify-photos.err.log";
+  };
+
   # devpi (PR 10, part of eblume/blumeops#1291): unit-in-nix, venv-stays-role-rendered — the
   # uv-managed venv at /Users/erichblume/devpi (devpi-server 6.20.3 / devpi-web 5.1.1) is the
   # zot/forgejo source-path precedent: binary outside /nix, so the unit stays in the #1225
