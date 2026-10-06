@@ -15,7 +15,7 @@ let
   ui = pkgs.buildNpmPackage {
     inherit src version;
     pname = "ntfy-sh-ui";
-    npmDepsHash = pkgs.lib.fakeHash;
+    npmDepsHash = "sha256-zRlNgBXtOXoXF7URoDQlKWNMwqeGhW9hx/EcKRKBD/0=";
 
     prePatch = ''
       cd web/
@@ -34,7 +34,7 @@ let
   ntfy = pkgs.buildGoModule {
     inherit src version;
     pname = "ntfy-sh";
-    vendorHash = pkgs.lib.fakeHash;
+    vendorHash = "sha256-+o1H3ok2B3zB0MxB5Vc7t69j2LOccyBHLVJSLcR9qFM=";
 
     doCheck = false;
 
