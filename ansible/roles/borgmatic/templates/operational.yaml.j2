@@ -91,7 +91,8 @@ retry_wait: {{ borgmatic_retry_wait }}
 checkpoint_interval: 600
 lock_wait: 300
 
-# Inert until a separate PR adds prune to this agent (eblume/blumeops#1417).
+# Enforced by the ops agent's `create prune compact` action; `keep_yearly: -1`
+# keeps each year's final archive forever, so the /Volumes/shower record survives.
 keep_daily: {{ borgmatic_operational_keep_daily }}
 keep_weekly: {{ borgmatic_operational_keep_weekly }}
 keep_monthly: {{ borgmatic_operational_keep_monthly }}

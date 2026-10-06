@@ -31,7 +31,7 @@ Daily backup system using Borg backup, running on indri.
 
 The main and operational configs are independent agents (own configs, own
 archive-name prefixes, own repos), so the archive tier is never mixed into the
-rotating tier's archives and a future prune in either config cannot reach the
+rotating tier's archives and a prune in either config cannot reach the
 other's archives.
 
 **Archive tier (never pruned) — main config (`config.yaml`, 02:00):**
@@ -49,8 +49,9 @@ pre-backup dumps the main config used to run — now staged into
 `k8s-dumps-op/` instead of `k8s-dumps/`. Own local repo
 `/Volumes/backups/borg-operational/` (label `sifaka-operational`, sibling of the archive-tier root — borg 1.x refuses to create a repo inside an existing one; the role creates it with `repo-create`, idempotent), own
 `operational-*` prefix, `compression: auto,zstd`, retention 7 daily / 4
-weekly / 12 monthly / yearly -1 — **declared but inert** until a separate PR
-enables prune (eblume/blumeops#1417). The operational tier is local-only:
+weekly / 12 monthly / yearly -1 (unlimited), enforced by the ops agent's
+daily `create prune compact` run matched to `operational-*` only; compact
+reclaims space on the local repo. The operational tier is local-only:
 there is no offsite copy of the heph hub store, forgejo, or any database
 newer than the cutover — losing indri and sifaka together loses them; the
 offsite tier-B repo is a tracked follow-up on eblume/blumeops#1417 (needs a
@@ -128,14 +129,16 @@ the archive-tier config no longer targets any dump dir.
 | Photos (04:00) | 7 | — | 12 | 1000 |
 
 The main config is the **never-pruned archive tier**: it carries no `keep_*`
-keys and no prune action runs anywhere yet — every config's retention is
-currently inert (operational's keys are declared now and go live with a
-separate prune PR, eblume/blumeops#1417). `/Volumes/shower` lives in the
-operational tier; with `keep_yearly: -1`, each year's final archive is kept
+keys and no prune action, so its `indri-*` archives are kept forever. The
+operational config's retention (7 daily / 4 weekly / 12 monthly / yearly -1,
+unlimited) is enforced by the ops agent's `create prune compact` run, matched
+to `operational-*` archives only. `/Volumes/shower` lives in the operational
+tier; with `keep_yearly: -1`, each year's final archive is kept
 forever, so the shower archive record (prize photos + final DB snapshot) still
 survives in the yearlies.
 
-Not enforced: no prune has ever run and both main repos are append-only, so every archive produced so far is still present (264 in sifaka-local, 226 in borgbase-offsite as of 2026-10-04). The configured policy above is the policy a future prune would apply to `indri-*` archives only; talos-data is structurally exempt. See #1409.
+Not enforced on the archive tier: no prune has ever run on those repos
+and both are append-only, so every archive produced so far is still present (264 in sifaka-local, 226 in borgbase-offsite as of 2026-10-04). The configured policy above is the policy a future prune would apply to `indri-*` archives only; talos-data is structurally exempt. See #1409.
 
 ## Verification
 

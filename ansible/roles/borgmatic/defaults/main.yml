@@ -200,9 +200,9 @@ borgmatic_talos_data_dump_dir: /Users/erichblume/.local/share/borgmatic/k8s-dump
 
 # Tier B (operational) backups — rotating tier, scheduled 03:00. Never
 # mixed into the archive-tier `indri-*` archives: own config, own
-# `operational-*` prefix, own local repo. Retention keys here are inert
-# until a separate PR adds prune+compact to the operational agent (see
-# eblume/blumeops#1417).
+# `operational-*` prefix, own local repo. The retention keys are enforced
+# by the ops agent's `create prune compact` action, matched to the
+# `operational-*` prefix (see eblume/blumeops#1417).
 borgmatic_operational_config: /Users/erichblume/.config/borgmatic/operational.yaml
 borgmatic_operational_schedule_hour: 3
 borgmatic_operational_schedule_minute: 0
@@ -231,7 +231,7 @@ borgmatic_operational_exclude_patterns:
   # source's nightly churn.
   - /Users/erichblume/forgejo/data/forgejo-repositories/mirrors
 borgmatic_operational_dump_dir: /Users/erichblume/.local/share/borgmatic/k8s-dumps-op
-# Retention — inert until prune is enabled (separate PR). keep_yearly: -1
+# Retention — enforced by the ops agent's prune action. keep_yearly: -1
 # means unlimited, so each year's final archive is kept forever.
 borgmatic_operational_keep_daily: 7
 borgmatic_operational_keep_weekly: 4

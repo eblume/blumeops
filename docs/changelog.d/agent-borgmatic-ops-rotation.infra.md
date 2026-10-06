@@ -1,0 +1,1 @@
+Enable rotation on indri's operational (Tier B) borgmatic backups: the ops agent now runs `create prune compact` with the 7/4/12 retention (yearly unlimited), matched to `operational-*` archives only. Part of eblume/blumeops#1417.
