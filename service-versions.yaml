@@ -73,8 +73,8 @@ services:
 
   - name: frigate
     type: argocd
-    last-reviewed: 2026-06-18
-    current-version: "0.17.1"
+    last-reviewed: 2026-10-07
+    current-version: "0.18.0"
     upstream-source: https://github.com/blakeblackshear/frigate/releases
 
   - name: frigate-notify
