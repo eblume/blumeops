@@ -117,22 +117,31 @@
   notify: Restart alloy
   no_log: true
 
+# Skipped by default: the nix-darwin generation owns this service's plists
+# (PR 12 of the indri series). These tasks are only the rollback re-write,
+# run with -e alloy_ansible_managed=true; config, the power-metrics script
+# and the tails stay ungated. See defaults/main.yml.
+
 - name: Deploy alloy LaunchAgent plist
   ansible.builtin.template:
     src: alloy.plist.j2
     dest: ~/Library/LaunchAgents/mcquack.eblume.alloy.plist
     mode: '0644'
   notify: Restart alloy
+  when: alloy_ansible_managed | bool
 
 - name: Check if alloy LaunchAgent is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.alloy
   register: alloy_launchctl_check
   changed_when: false
   failed_when: false
+  when: alloy_ansible_managed | bool
 
 - name: Load alloy LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.alloy.plist
-  when: alloy_launchctl_check.rc != 0
+  when:
+    - alloy_ansible_managed | bool
+    - alloy_launchctl_check.rc != 0
   changed_when: true
   failed_when: false
 
@@ -154,7 +163,9 @@
     mode: '0644'
   become: true
   notify: Reload macos-power-metrics
-  when: alloy_collect_power_metrics | default(false)
+  when:
+    - alloy_ansible_managed | bool
+    - alloy_collect_power_metrics | default(false)
 
 - name: Check if macos-power-metrics LaunchDaemon is loaded
   ansible.builtin.command: launchctl list mcquack.eblume.macos-power-metrics
@@ -162,12 +173,15 @@
   register: alloy_power_metrics_launchctl_check
   changed_when: false
   failed_when: false
-  when: alloy_collect_power_metrics | default(false)
+  when:
+    - alloy_ansible_managed | bool
+    - alloy_collect_power_metrics | default(false)
 
 - name: Load macos-power-metrics LaunchDaemon if not loaded
   ansible.builtin.command: launchctl load /Library/LaunchDaemons/mcquack.eblume.macos-power-metrics.plist
   become: true
   when:
+    - alloy_ansible_managed | bool
     - alloy_collect_power_metrics | default(false)
     - alloy_power_metrics_launchctl_check.rc != 0
   changed_when: true
