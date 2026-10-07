@@ -1,7 +1,7 @@
 ---
 title: "Runbook: Pod Not Ready"
-modified: 2026-08-06
-last-reviewed: 2026-08-06
+modified: 2026-10-07
+last-reviewed: 2026-10-07
 tags:
   - how-to
   - alerting
@@ -67,6 +67,16 @@ A Kubernetes pod has been in a not-ready state for 5+ minutes.
 - **Pending** — insufficient resources (CPU/memory), or PVC not bound
 - **Readiness probe failing** — service is running but not healthy
 - **NFS mount issue** — services depending on sifaka (kiwix, transmission, navidrome, jellyfin) will fail if NFS is down
+- **Leftover finished pods after a ringtail reboot** — when the node shuts
+  down, the kubelet marks the pre-shutdown pods `Failed` (shown as `Error` or
+  `Completed`) and keeps them. The ReplicaSets start replacements but never
+  delete the old pods, so each reboot leaves ~15–20 such pods behind. This is
+  **not an outage**: every one has a newer replacement `Running`, so nothing
+  is actually down. `PodNotReady` no longer fires for pods in a terminal
+  phase (`Failed`/`Succeeded`). To clear the accumulated leftovers:
+  ```fish
+  kubectl delete pod -A --field-selector=status.phase=Failed --context=k3s-ringtail
+  ```
 
 ## Silencing
 
