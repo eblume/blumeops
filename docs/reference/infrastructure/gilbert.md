@@ -15,7 +15,7 @@ Primary development workstation.
 
 | Property | Value |
 |----------|-------|
-| **Model** | MacBook Air M4, 2025 |
+| **Model** | 13" MacBook Air M4, 2025 |
 | **User** | eblume |
 | **Role** | Development workstation |
 
