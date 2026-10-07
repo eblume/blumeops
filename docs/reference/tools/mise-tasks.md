@@ -74,6 +74,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `spork-create` | [human] Create a spork (floating-branch soft-fork) of a mirrored upstream project |
 | `tailnet-preview` | [human] Preview tailnet changes with Pulumi |
 | `tailnet-up` | [human] Apply tailnet changes with Pulumi |
+| `talos-authkey-sync` | Sync the Pulumi tag:talos Tailscale auth key into 1Password (for the talos-pod ExternalSecret) |
 | `verify-runs` | Sweep open Approve tasks: match to workflow runs, close settled ones (warrant Phase 2 audit); report horkos self-filed requests from the queue |
 | `horkos-forge-provision` | [human] Provision the horkos-forge forge identity + dispatch PAT (gilbert, human-run) |
 
