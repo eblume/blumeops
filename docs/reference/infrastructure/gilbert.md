@@ -1,7 +1,7 @@
 ---
 title: Gilbert
-modified: 2026-02-07
-last-reviewed: 2026-03-17
+modified: 2026-10-07
+last-reviewed: 2026-10-07
 tags:
   - infrastructure
   - host
@@ -21,7 +21,9 @@ Primary development workstation.
 
 ## Development Tools
 
-Managed via `Brewfile` and `mise.toml` in the blumeops repo.
+Managed outside blumeops — the repo has no gilbert configuration. The repo-root
+`Brewfile` and `mise.toml` are blumeops management tooling, not gilbert's dev
+toolchain.
 
 ## Related
 
