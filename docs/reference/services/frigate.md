@@ -1,7 +1,7 @@
 ---
 title: Frigate
-modified: 2026-02-22
-last-reviewed: 2026-06-29
+modified: 2026-10-07
+last-reviewed: 2026-10-07
 tags:
   - service
   - surveillance
@@ -18,7 +18,7 @@ Open-source network video recorder (NVR) with object detection. Runs cloud-free 
 | **URL** | https://nvr.ops.eblu.me |
 | **Tailscale URL** | https://nvr.tail8d86e.ts.net |
 | **Namespace** | `frigate` |
-| **Image** | `ghcr.io/blakeblackshear/frigate:0.17.1-tensorrt` |
+| **Image** | `ghcr.io/blakeblackshear/frigate:0.18.0-tensorrt` |
 | **Upstream** | https://github.com/blakeblackshear/frigate |
 | **Manifests** | `argocd/manifests/frigate/` |
 
@@ -45,6 +45,8 @@ Frigate pod (ringtail k3s)
 | GableCam | `192.168.1.159` | Front gable | person, car, dog, cat, bird |
 
 Camera credentials are stored in 1Password and synced via [[external-secrets]] to the `frigate-camera` Secret.
+
+The 0.18 Settings UI writes to the copied config in the pod's emptyDir — those edits do **not** persist across restarts, since the config is GitOps (this file → ConfigMap → emptyDir on every start). Edit `argocd/manifests/frigate/frigate-config.yml` instead.
 
 ## Detection
 
