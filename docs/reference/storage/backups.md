@@ -1,6 +1,6 @@
 ---
 title: Backups
-modified: 2026-10-06
+modified: 2026-10-07
 last-reviewed: 2026-10-04
 tags:
   - storage
@@ -124,6 +124,20 @@ tar -xf /tmp/talos-data.tar -C /tmp/restore <the-member-path-from-above>
 Then copy the `.jsonl` into the live session pod's `~/data/sessions/` from ringtail (`sudo k3s kubectl cp ... talos-<pod>:/home/talos/data/sessions/`). The tar is uncompressed; `session-index.sqlite` is in the same tar if the index needs it. (Offsite equivalent: `ssh -i ~/.ssh/borgbase_ed25519 u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo`.)
 
 Restore talos sessions from a `talos-data-*` archive only — older `indri-*` main archives carry a stale `k8s-dumps/talos-data.tar` (removed from the live staging dir by the next provision; it disappears from new main archives at the next run).
+
+### Restoring a Reaped (Tombstoned) Session
+
+The session reaper (eblume/talos#295) deletes transcripts idle `TALOS_SESSION_REAPER_DAYS` (default 30) days to keep the PVC small. Deletion is interlocked on the never-pruned `talos-data-*` archives above — a file is deleted only once both repos' last backup strictly post-dates it — so a reaped transcript is always recoverable. A reaped session keeps a tombstone in `~/data/tombstones.json` (id, name, origin, timestamps, cost) and renders as "archived, restore from borg" in the Issues view and session list.
+
+Restoring one is the single-session restore above, plus one thing the reaper adds: **open the session after copying it back.** The reaper's idle clock is the transcript's *content* last-activity (rescanned into `session-index.sqlite` on every sync, not the file's mtime), so a restored-but-untouched file is still idle and the next sweep re-reaps it. A **live** session is exempt: once the session is opened and connected, the sweep skips it (`isLive`). Restore → open → (use or re-archived once it goes idle again).
+
+```bash
+# Same as above: copy the extracted .jsonl into the live pod's session dir,
+sudo k3s kubectl cp ... talos-<pod>:/home/talos/data/sessions/
+# then open the session in the talos UI — a live session is exempt from the reaper.
+```
+
+The restored row reappears in `GET /api/sessions` (and the transcript endpoint stops returning 410) as soon as the file is present and the index rescans it; its tombstone stays in `tombstones.json` as the historical record.
 
 ## Immich Photo Library (Offsite Only)
 

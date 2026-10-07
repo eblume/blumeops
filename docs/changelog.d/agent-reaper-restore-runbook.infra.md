@@ -1,0 +1,1 @@
+Document restoring a reaped (tombstoned) talos session next to the single-session borgmatic runbook, and set the session-reaper env (`TALOS_SESSION_REAPER_DAYS`, `TALOS_SESSION_REAPER_DRY_RUN`, dry-run on) in the talos deployment. Part of eblume/talos#295.
