@@ -129,13 +129,11 @@ Restore talos sessions from a `talos-data-*` archive only — older `indri-*` ma
 
 The session reaper (eblume/talos#295) deletes transcripts idle `TALOS_SESSION_REAPER_DAYS` (default 30) days to keep the PVC small. Deletion is interlocked on the never-pruned `talos-data-*` archives above — a file is deleted only once both repos' last backup strictly post-dates it — so a reaped transcript is always recoverable. A reaped session keeps a tombstone in `~/data/tombstones.json` (id, name, origin, timestamps, cost) and renders as "archived, restore from borg" in the Issues view and session list.
 
-Restoring one is the single-session restore above, plus one thing the reaper adds: **open the session after copying it back.** The reaper's idle clock is the transcript's *content* last-activity (rescanned into `session-index.sqlite` on every sync, not the file's mtime), so a restored-but-untouched file is still idle and the next sweep re-reaps it. A **live** session is exempt: once the session is opened and connected, the sweep skips it (`isLive`). Restore → open → (use or re-archived once it goes idle again).
+Restoring one is the single-session restore above, with the catch that the reaper's idle clock is the transcript's *content* last-activity (rescanned into `session-index.sqlite` on every sync, not the file's mtime) — a restored file carries its old last-activity, so it is still idle and passes the backup interlock straight away (both `borg extract` and `kubectl cp` restore the original mtime).
 
-```bash
-# Same as above: copy the extracted .jsonl into the live pod's session dir,
-sudo k3s kubectl cp ... talos-<pod>:/home/talos/data/sessions/
-# then open the session in the talos UI — a live session is exempt from the reaper.
-```
+- **Open the session after copying it back.** A live session (in the pod's in-memory session map, `isLive`) is exempt from the sweep — but only until the next talos pod restart. Restarts are frequent (every talos pin merge, often several a day), and the reaper sweeps once at boot, so an opened-but-untouched restored session is reaped again on the first sweep after the next restart, possibly the same day.
+- **To keep it for another `TALOS_SESSION_REAPER_DAYS` days, post a turn in it.** That bumps the content last-activity and starts a fresh idle period.
+- **Otherwise, expect it to be reaped again.** Harmless — the never-pruned `talos-data-*` archives still have it, and the tombstone is retained, so a re-restore is the same runbook again.
 
 The restored row reappears in `GET /api/sessions` (and the transcript endpoint stops returning 410) as soon as the file is present and the index rescans it; its tombstone stays in `tombstones.json` as the historical record.
 
