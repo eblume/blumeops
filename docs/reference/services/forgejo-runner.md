@@ -114,6 +114,14 @@ macOS-native cargo check on the host, and its 0700 home can't reach
 erichblume's rustup install. A first run of a newly pinned version
 auto-installs through the shims (or `mise install` as indri-build, once).
 
+**Nix:** host-mode steps also resolve `nix` (the default profile's bin dir,
+last on the daemon's PATH) and build through the Determinate multi-user
+daemon as the untrusted `indri-build` user. The #1358 trigger
+split moves the two nix-building PR jobs onto indri-build, so it has to hold. **`indri-build` is never a trusted Nix
+user**: its access is the stock multi-user default (sandboxed builds), and
+widening it is a deliberate change to Determinate's host-side
+`/etc/nix/nix.custom.conf`, never the flake.
+
 ### Known gaps (accepted for now, scoped by #1358)
 
 - **Cross-repo cache persistence**: the runner's home - mise shims and the
