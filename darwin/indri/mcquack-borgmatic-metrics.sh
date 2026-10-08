@@ -51,6 +51,8 @@ cat > "$TEMP_FILE" << 'EOF'
 # TYPE borgmatic_last_verified_data_timestamp gauge
 # HELP borgmatic_last_test_restore_timestamp Unix timestamp of the last successful sampled test restore
 # TYPE borgmatic_last_test_restore_timestamp gauge
+# HELP borgmatic_recycle_size_bytes Size of the sifaka backups share's SMB #recycle bin in bytes (0 = bin absent)
+# TYPE borgmatic_recycle_size_bytes gauge
 EOF
 
 collect_repo_metrics() {
@@ -179,6 +181,19 @@ collect_repo_metrics "/Volumes/backups/borg/" "sifaka-local" "indri-"
 collect_repo_metrics "ssh://u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo" "borgbase-offsite" "indri-"
 collect_repo_metrics "/Volumes/backups/borg-operational/" "sifaka-operational" "operational-"
 collect_repo_metrics "ssh://xcrtl5tg@xcrtl5tg.repo.borgbase.com/./repo" "borgbase-immich-photos" ""
+
+# The backups share's SMB recycle bin must stay disabled on sifaka: a
+# re-enabled bin would capture every file a compact or prune deletes over
+# SMB, so rotation would reclaim nothing (8.7 GB had accumulated by
+# 2026-10-06). Absent bin = 0; a non-zero value means it is present and
+# capturing deletions.
+RECYCLE_DIR="/Volumes/backups/#recycle"
+if [ -d "$RECYCLE_DIR" ]; then
+  recycle_size=$(du -sk "$RECYCLE_DIR" 2>/dev/null | awk '{print $1 * 1024}') || recycle_size=0
+else
+  recycle_size=0
+fi
+echo "borgmatic_recycle_size_bytes ${recycle_size:-0}" >> "$TEMP_FILE"
 
 # Success markers written by the mcquack.eblume.borgmatic-verify-photos LaunchAgent.
 # Repo fixed to borgbase-immich-photos for now; generalize when more repos get verification.

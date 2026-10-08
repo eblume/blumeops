@@ -582,6 +582,8 @@ MCQUACK_NIX_WAIT_SYSTEM
       "--config"
       "/Users/erichblume/.config/borgmatic/operational.yaml"
       "create"
+      "prune"
+      "compact"
     ];
     RunAtLoad = false;
     KeepAlive = false;

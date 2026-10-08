@@ -24,7 +24,7 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 |------|---------|----------|---------|-------|-----------|
 | Archive (never pruned) | `~/.config/borgmatic/config.yaml` | 02:00 | `~/code/personal/zk`, `~/Documents` | `sifaka-borg-backups` (`/Volumes/backups/borg/`), `borgbase-offsite` | none — never pruned (no `keep_*` keys, no prune action) |
 | Archive (never pruned) — talos-data | `~/.config/borgmatic/talos-data.yaml` (own config, same 02:00 agent, main first) | 02:00 | talos pod `/home/talos/data` (in-pod tar) | `sifaka-borg-backups`, `borgbase-offsite` | none — never pruned; tier confirmed 2026-10-05 (eblume/blumeops#1417) |
-| Operational (rotating) | `~/.config/borgmatic/operational.yaml` | 03:00 | `~/forgejo` (minus mirrors + live WAL DB), `~/.config/borgmatic`, `k8s-dumps-op/`, `/Volumes/shower`, + all pre-backup dumps | `sifaka-operational` (`/Volumes/backups/borg-operational/`) — local-only for now | 7 daily / 4 weekly / 12 monthly / yearly -1 — declared but inert until prune lands (eblume/blumeops#1417) |
+| Operational (rotating) | `~/.config/borgmatic/operational.yaml` | 03:00 | `~/forgejo` (minus mirrors + live WAL DB), `~/.config/borgmatic`, `k8s-dumps-op/`, `/Volumes/shower`, + all pre-backup dumps | `sifaka-operational` (`/Volumes/backups/borg-operational/`) — local-only for now | 7 daily / 4 weekly / 12 monthly / yearly -1 (unlimited) — enforced by the ops agent's daily `create prune compact` (eblume/blumeops#1417) |
 
 The operational tier is **local-only** — there is no offsite copy of any of it.
 From the night this provisions, the heph hub store (documented as the only
@@ -96,7 +96,7 @@ Talos agent sessions (`/home/talos/data` — session transcripts, service state,
 
 - The talos-data config has **no `keep_*` keys**, so it never prunes.
 - The main config pins `archive_name_format: 'indri-{now…}'` + `match_archives: 'indri-*'`, so a prune enabled there (or anywhere else) can only ever reach `indri-*` archives.
-- Nothing prunes today at all — no `prune` run exists anywhere and both repos are `append_only` — but a future change can't reach talos-data without a deliberate, separate PR (see #1409).
+- Nothing prunes the archive repos today — the main and talos-data configs have no `prune` action and both repos are `append_only` — but a future change can't reach talos-data without a deliberate, separate PR (see #1409).
 
 Measured cost (eblume/blumeops#1409, 2026-10-05): 79.6 MB/night deduplicated, ~2.4 GB/month per repo, ~25% of nightly growth — decision: talos-data stays never-pruned. The tier split adds `compression: auto,zstd` to this config (new chunks only), which slows that growth going forward.
 
@@ -177,13 +177,18 @@ predate the split and carry the old `k8s-dumps/` layout.
 | Immich photos (04:00) | 7 | — | 12 | 1000 |
 
 The main config is the never-pruned archive tier (no `keep_*` keys, no prune
-action). Operational retention is declared but inert until a separate PR
-enables prune (eblume/blumeops#1417). `keep_yearly: -1` keeps each year's final
-operational archive forever, so the `/Volumes/shower` archive record (photos +
-final DB snapshot) survives in the yearlies even though it moved to the
-rotating tier.
+action). Operational retention (7 daily / 4 weekly / 12 monthly / yearly -1,
+unlimited) is enforced by the ops agent's daily `create prune compact` run,
+matched to `operational-*` archives only. `keep_yearly: -1` keeps each year's
+final operational archive forever, so the `/Volumes/shower` archive record
+(photos + final DB snapshot) survives in the yearlies even though it moved to
+the rotating tier.
 
-Pruning is not currently enabled on any repo (append-only, no prune run); the table is the configured policy, not enforced behavior. Talos-data is prune-exempt by design, alongside the archive tier (above).
+Pruning is enabled on the operational repo only — the main and talos-data
+repos stay append-only with no prune action — so the retention table above is
+enforced behavior on the operational tier and configured policy on the
+never-pruned tiers. Talos-data is prune-exempt by design, alongside the
+archive tier (above).
 
 ## Backup Targets
 
@@ -194,6 +199,11 @@ Pruning is not currently enabled on any repo (append-only, no prune run); the ta
 | `/Volumes/backups/borg-operational/` | [[sifaka]] (local NAS) | `sifaka-operational` | operational tier (`operational-*`) only — the main config no longer targets this repo |
 | `ssh://xcrtl5tg@...repo.borgbase.com/./repo` | BorgBase (offsite) | `borgbase-immich-photos` | immich photos |
 
+The `backups` share's SMB recycle bin must stay **disabled** (verified
+`enable recycle bin=no` in DSM on 2026-10-06): it captures the files a
+`compact` or `prune` deletes, so rotation would reclaim nothing — 8.7 GB of
+superseded borg index/lock files had accumulated before the discovery.
+
 ## Monitoring
 
 Metrics exposed to [[prometheus]]:
@@ -201,8 +211,15 @@ Metrics exposed to [[prometheus]]:
 - `borgmatic_last_archive_timestamp` - Last backup time
 - `borgmatic_talos_data_last_success_timestamp` - Newest never-pruned talos-data archive per repo
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
+- `borgmatic_recycle_size_bytes` - sifaka backups share recycle-bin size (0 = bin absent, the required state)
 
-Three alerts: `BorgmaticStale` when a repo's newest main archive is over 30h old, `BorgmaticStaleTalosData` when the newest reported talos-data archive is over 30h old or no repo reports the gauge at all (before the first archive lands), and `BorgmaticOpsStale` (NoData alerting) when `sifaka-operational` has no archive at all, or no new one in over 30h.
+Three alerts: `BorgmaticStale` when a repo's newest main archive is over
+30h old (`sifaka-operational` excluded — `BorgmaticOpsStale` is its sole
+alert, so a missed 03:00 run fires one rule, not two),
+`BorgmaticStaleTalosData` when the newest reported talos-data archive is
+over 30h old or no repo reports the gauge at all (before the first archive
+lands), and `BorgmaticOpsStale` (NoData alerting) when `sifaka-operational`
+has no archive at all, or no new one in over 30h.
 
 Dashboard: "Borg Backups" in [[grafana]]
 

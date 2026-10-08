@@ -149,6 +149,17 @@
     dest: "{{ borgmatic_operational_config }}"
     mode: '0600'
 
+# Mount guard: if /Volumes/backups were a leftover local directory instead
+# of the sifaka SMB mount, repo-create would quietly create the ops repo on
+# indri's own disk, and `creates:` would then skip it forever. The
+# archive-tier repo's README (present on the NAS since 2026-01) proves the
+# mount is up.
+- name: Assert the backups share is the sifaka mount
+  ansible.builtin.stat:
+    path: /Volumes/backups/borg/README
+  register: borgmatic_sifaka_backups_mount
+  failed_when: not borgmatic_sifaka_backups_mount.stat.exists
+
 # repo-create skips an existing repo, so reruns are no-ops and the deploy
 # can't half-land between config and first 03:00 create. The path must
 # stay a sibling of the archive-tier root (see
@@ -157,11 +168,37 @@
   ansible.builtin.command:
     cmd: >-
       {{ borgmatic_bin }} --config {{ borgmatic_operational_config }}
-      repo-create
+      repo-create --repository {{ item.path }}
     creates: "{{ item.path }}/README"
   loop: "{{ borgmatic_operational_repositories }}"
   loop_control:
     label: "{{ item.label }}"
+
+# #1441's repo-create made this repo append-only (borgmatic passes
+# --append-only from the config's append_only key). On borg 1.4 that makes
+# `compact` a silent no-op, so the rotation's pruned segments would never
+# be reclaimed. Client-side append_only on the SMB mount protects nothing
+# against indri, so flip it off once.
+- name: Record append_only of each operational repo
+  ansible.builtin.command:
+    cmd: "{{ borgmatic_borg_bin }} config {{ item.path }} append_only"
+  register: borgmatic_ops_append_only
+  changed_when: false
+  loop: "{{ borgmatic_operational_repositories }}"
+  loop_control:
+    label: "{{ item.label }}"
+
+- name: Disable append_only on operational repos so compact reclaims
+  ansible.builtin.command:
+    cmd: "{{ borgmatic_borg_bin }} config {{ item.item.path }} append_only 0"
+  changed_when: true
+  loop: "{{ borgmatic_ops_append_only.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.label }}"
+  when:
+    - item.rc is defined
+    - item.rc == 0
+    - item.stdout | trim | int == 1
 
 - name: Deploy borgmatic-ops LaunchAgent plist
   ansible.builtin.template:
