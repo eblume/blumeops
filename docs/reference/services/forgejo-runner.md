@@ -117,9 +117,12 @@ auto-installs through the shims (or `mise install` as indri-build, once).
 **Nix:** host-mode steps also resolve `nix` (the default profile's bin dir,
 last on the daemon's PATH) and build through the Determinate multi-user
 daemon as the untrusted `indri-build` user. The #1358 trigger
-split moves the two nix-building PR jobs onto indri-build, so it has to hold. **`indri-build` is never a trusted Nix
-user**: its access is the stock multi-user default (sandboxed builds), and
-widening it is a deliberate change to Determinate's host-side
+split moves the two nix-building PR jobs onto indri-build, so it has to hold. **`indri-build` is never a trusted
+Nix user**: the daemon's `allowed-users = *` lets it submit builds, which
+then run **unsandboxed, with network access, as the shared `nixbld` build
+user** (indri's daemon config read as root 2026-10-08: `sandbox = false`,
+`sandbox-fallback = true`, `trusted-users = root`, `allowed-users = *`).
+Widening its trust is a deliberate change to Determinate's host-side
 `/etc/nix/nix.custom.conf`, never the flake.
 
 ### Known gaps (accepted for now, scoped by #1358)

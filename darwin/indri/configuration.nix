@@ -126,9 +126,12 @@ in
   users.knownUsers = [ "indri-build" ];
   # Hard constraint (eblume/blumeops#1358, decision 1): indri-build must never
   # be a trusted Nix user. Its Nix access is the multi-user Determinate daemon
-  # (erichblume builds as an untrusted user already); the flake neither adds it
-  # to any nix group nor sets trusted-users. To widen: a deliberate PR changing
-  # Determinate's /etc/nix/nix.custom.conf on the host, never this flake.
+  # (erichblume builds as an untrusted user already); builds run unsandboxed,
+  # with network access, as the shared nixbld build user (daemon config read as
+  # root 2026-10-08: sandbox = false, sandbox-fallback = true, trusted-users =
+  # root, allowed-users = *). The flake neither adds it to any nix group nor
+  # sets trusted-users. To widen: a deliberate PR changing Determinate's
+  # /etc/nix/nix.custom.conf on the host, never this flake.
   users.users."indri-build" = {
     uid = 503;
     gid = 503;
