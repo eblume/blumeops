@@ -1,6 +1,6 @@
 ---
 title: Talos
-modified: 2026-09-20
+modified: 2026-10-08
 last-reviewed: 2026-09-12
 tags:
   - service
@@ -37,7 +37,7 @@ At boot, before the server starts, the entrypoint runs a per-clone pool repair (
 The image bakes a **building nix** (following the [[agent-containerization]] §"Nix in the pod" precedent): a writable canonical `/nix/store` in the container's writable layer (`max-jobs = 2`), so `cache.nixos.org` substitutes and the pod can build, not just compute `fetchgit` hash values for the image's pinned dependencies (heph, npm deps). Growth is bounded by the watermark gc in the talos hourly sweep (eblume/talos#250: `nix store gc` below half the limit), with the Deployment's `ephemeral-storage: 40Gi` limit as backstop; `/tmp` is a mount of the `talos-home` PVC (`subPath: .tmp` — the same directory the entrypoint's `TMPDIR` names, wiped at boot) so throwaway writes never count against the limit. (The image's own source needs no hash since the auto-release move — the talos repo's `default.nix` builds from the checkout itself, and every merge to talos main releases automatically.)
 Rust builds (hephaestus is the only Rust repo in the pool) use a shared `CARGO_TARGET_DIR=/home/talos/.cache/cargo-target` on the PVC, set in the deployment env: one incremental tree for every session and warm across pod replacement, instead of a cold rebuild per worktree leaving a multi-GB `target/` behind (blumeops#813).
 
-Lane shaping runs by default: `lanes.json` sits beside `repos.json` in the talos kustomization's `talos-repos` ConfigMap, mounted at `/etc/talos` and selected by the `TALOS_LANES` env, so the virtual local lane and the infinite OpenRouter lane follow the serving params in that file. The file is the source of truth — `enabled: false` is the off switch — and `PUT /api/lanes` (admin-gated) hot-swaps the policy at runtime without a restart (eblume/talos#252). The Grafana **Talos** dashboard's *Lanes (shaping)* row charts the dispatch decisions, admission wait, lane load and shadow spend from the `talos_lane_*` metrics.
+Lane shaping is **off** (`enabled: false`) since 2026-10-08: it existed to size a local-inference hardware purchase, and that decision is made (eblume/talos#282). While on, a virtual lane holds every turn it serves to the modeled box's prefill and decode rates, so it adds real latency. `lanes.json` sits beside `repos.json` in the talos kustomization's `talos-repos` ConfigMap, mounted at `/etc/talos` and selected by the `TALOS_LANES` env, so the virtual local lane and the infinite OpenRouter lane follow the serving params in that file. The file is the source of truth — `enabled: false` is the off switch — and `PUT /api/lanes` (admin-gated) hot-swaps the policy at runtime without a restart (eblume/talos#252). The Grafana **Talos** dashboard's *Lanes (shaping)* row charts the dispatch decisions, admission wait, lane load and shadow spend from the `talos_lane_*` metrics.
 
 ## Programmatic API
 
