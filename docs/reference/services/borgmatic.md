@@ -47,11 +47,15 @@ forgejo (minus pull mirrors and the live WAL DB), `~/.config/borgmatic`,
 `k8s-dumps-op` (its own snapshot staging), `/Volumes/shower`, plus **all** the
 pre-backup dumps the main config used to run — now staged into
 `k8s-dumps-op/` instead of `k8s-dumps/`. Own local repo
-`/Volumes/backups/borg-operational/` (label `sifaka-operational`, sibling of the archive-tier root — borg 1.x refuses to create a repo inside an existing one; the role creates it with `repo-create`, idempotent), own
-`operational-*` prefix, `compression: auto,zstd`, retention 7 daily / 4
-weekly / 12 monthly / yearly -1 (unlimited), enforced by the ops agent's
-daily `create prune compact` run matched to `operational-*` only; compact
-reclaims space on the local repo. The operational tier is local-only:
+`/Volumes/backups/borg-operational/` (label `sifaka-operational`, sibling of
+the archive-tier root — borg 1.x refuses to create a repo inside an existing
+one; the role creates it with `repo-create`, idempotent, and flips it off
+append-only once — on borg 1.4 that flag makes `compact` a silent no-op, so
+the rotation would cap archive counts while the repo grows unbounded on
+disk), own `operational-*` prefix, `compression: auto,zstd`, retention
+7 daily / 4 weekly / 12 monthly / yearly -1 (unlimited), enforced by the
+ops agent's daily `create prune compact` run matched to `operational-*`
+only; compact reclaims space on the local repo. The operational tier is local-only:
 there is no offsite copy of the heph hub store, forgejo, or any database
 newer than the cutover — losing indri and sifaka together loses them; the
 offsite tier-B repo is a tracked follow-up on eblume/blumeops#1417 (needs a
@@ -63,7 +67,8 @@ nothing against indri itself.
 The backups share's SMB recycle bin must also stay disabled: a re-enabled
 bin would capture every file the rotation's `compact` deletes, so nothing
 would ever be reclaimed (8.7 GB had accumulated before the 2026-10-06
-discovery; `borgmatic_recycle_size_bytes` goes non-zero if it is re-enabled).
+discovery; `borgmatic_recycle_size_bytes` goes non-zero once a re-enabled
+bin has captured deletions — it reads 0 while present but empty).
 
 ## What Gets Backed Up
 

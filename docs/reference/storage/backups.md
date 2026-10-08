@@ -213,7 +213,13 @@ Metrics exposed to [[prometheus]]:
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
 - `borgmatic_recycle_size_bytes` - sifaka backups share recycle-bin size (0 = bin absent, the required state)
 
-Three alerts: `BorgmaticStale` when a repo's newest main archive is over 30h old, `BorgmaticStaleTalosData` when the newest reported talos-data archive is over 30h old or no repo reports the gauge at all (before the first archive lands), and `BorgmaticOpsStale` (NoData alerting) when `sifaka-operational` has no archive at all, or no new one in over 30h.
+Three alerts: `BorgmaticStale` when a repo's newest main archive is over
+30h old (`sifaka-operational` excluded — `BorgmaticOpsStale` is its sole
+alert, so a missed 03:00 run fires one rule, not two),
+`BorgmaticStaleTalosData` when the newest reported talos-data archive is
+over 30h old or no repo reports the gauge at all (before the first archive
+lands), and `BorgmaticOpsStale` (NoData alerting) when `sifaka-operational`
+has no archive at all, or no new one in over 30h.
 
 Dashboard: "Borg Backups" in [[grafana]]
 
