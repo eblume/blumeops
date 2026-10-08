@@ -92,6 +92,10 @@ apply runbook is [[provision]]:
   before the switch, not an `environment.etc` entry (nor via
   `services.tailscale`, which would also emit a second tailscaled daemon
   beside the live Homebrew one).
+- **`indri-build` stays untrusted in Nix.** The CI build runner
+  (eblume/blumeops#1357) uses the daemon as a regular multi-user client;
+  it must never be a trusted Nix user - a hard constraint from
+  eblume/blumeops#1358, written into the flake at the user definition.
 - **Nothing that must work before the Nix Store mounts may live in
   `/etc/static`.** Every `environment.etc` entry is a symlink into the
   store, dangling until Determinate's daemon mounts the volume (tens of

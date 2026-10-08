@@ -124,6 +124,14 @@ in
   users.knownGroups = [ "indri-build" ];
   users.groups."indri-build" = { gid = 503; };
   users.knownUsers = [ "indri-build" ];
+  # Hard constraint (eblume/blumeops#1358, decision 1): indri-build must never
+  # be a trusted Nix user. Its Nix access is the multi-user Determinate daemon
+  # (erichblume builds as an untrusted user already); builds run unsandboxed,
+  # with network access, as the shared nixbld build user (daemon config read as
+  # root 2026-10-08: sandbox = false, sandbox-fallback = true, trusted-users =
+  # root, allowed-users = *). The flake neither adds it to any nix group nor
+  # sets trusted-users. To widen: a deliberate PR changing Determinate's
+  # /etc/nix/nix.custom.conf on the host, never this flake.
   users.users."indri-build" = {
     uid = 503;
     gid = 503;
@@ -727,7 +735,10 @@ MCQUACK_NIX_WAIT_SYSTEM
     EnvironmentVariables = {
       # mise shims first (job steps resolve tools via indri-build's own mise
       # config, config-build-user.toml). nixpkgs colima ships no docker
-      # client: jobs get the docker CLI from Homebrew (/opt/homebrew/bin).
+      # client: jobs get the docker CLI from Homebrew (/opt/homebrew/bin). The
+      # nix default profile last: host-mode jobs reach `nix` for multi-user
+      # daemon builds as the untrusted indri-build user (eblume/blumeops#1358),
+      # without shadowing anything above it.
       PATH = "/Users/indri-build/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin";
       HOME = "/Users/indri-build";
     };
