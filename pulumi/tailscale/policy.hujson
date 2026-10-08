@@ -126,6 +126,13 @@
 			"dst": ["tag:homelab"],
 			"ip":  ["tcp:443", "tcp:2222", "tcp:8787"],
 		},
+		// Talos egress-gateway pod's tailnet identity (tag:talos): same fence —
+		// forge HTTPS + git SSH and the heph hub on indri, nothing else, no ssh.
+		{
+			"src": ["tag:talos"],
+			"dst": ["tag:homelab"],
+			"ip":  ["tcp:443", "tcp:2222", "tcp:8787"],
+		},
 
 		// --- Shared guests: Factorio only ---
 		// External users we *share* ringtail with (autogroup:shared, NOT members)
@@ -207,6 +214,7 @@
 		// Containerized ringtail-agent pod's tailscale sidecar. Provisioned by
 		// the k8s operator, same as tag:k8s. See [[agent-containerization]].
 		"tag:agent": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
+		"tag:talos": ["autogroup:admin", "tag:blumeops", "tag:k8s-operator"],
 	},
 
 	// ============== ACL Tests ==============
@@ -247,6 +255,12 @@
 			"accept": ["tag:homelab:443", "tag:homelab:2222", "tag:homelab:8787"],
 			"deny":   ["tag:homelab:22", "tag:k8s:443", "tag:k8s:5432", "tag:nas:445", "tag:registry:443"],
 		},
+		// Talos pod: same fence as the agent-pod test — forge and heph hub only.
+		{
+			"src":    "tag:talos",
+			"accept": ["tag:homelab:443", "tag:homelab:2222", "tag:homelab:8787"],
+			"deny":   ["tag:homelab:22", "tag:k8s:443", "tag:k8s:5432", "tag:nas:445", "tag:registry:443"],
+		},
 		// Fly.io proxy can only reach tag:flyio-target:443 and
 		// tag:flyio-origin:8443, nothing else. tag:flyio-target is now carried
 		// only by the k8s Tailscale Ingress pods (Loki and Prometheus), for the
@@ -277,6 +291,12 @@
 		// cutover; this test keeps any future ssh rule from re-opening it.
 		{
 			"src":  "tag:agent",
+			"dst":  ["tag:homelab", "tag:nas"],
+			"deny": ["erichblume", "eblume", "root"],
+		},
+		// Talos pod: no Tailscale SSH anywhere, either.
+		{
+			"src":  "tag:talos",
 			"dst":  ["tag:homelab", "tag:nas"],
 			"deny": ["erichblume", "eblume", "root"],
 		},

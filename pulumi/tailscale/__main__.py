@@ -122,11 +122,24 @@ agent_key = tailscale.TailnetKey(
     opts=after_acl,
 )
 
+# Auth key for the talos pod's Tailscale sidecar — joins the tailnet as its own
+# device (tag:talos) so the ACL can fence the egress gateway by tag.
+talos_key = tailscale.TailnetKey(
+    "talos-key",
+    reusable=True,  # a Deployment pod re-auths on restart
+    ephemeral=True,  # node is removed when the pod goes away
+    preauthorized=True,
+    tags=["tag:talos"],
+    expiry=7776000,  # 90 days
+    opts=after_acl,
+)
+
 # ============== Exports ==============
 pulumi.export("acl_id", acl.id)
 pulumi.export("policy_hash", policy_hash)
 pulumi.export("flyio_authkey", flyio_key.key)
 pulumi.export("agent_authkey", agent_key.key)
+pulumi.export("talos_authkey", talos_key.key)
 
 pulumi.export("indri_device_id", indri.node_id)
 pulumi.export("indri_tags", indri_tags.tags)
