@@ -33,7 +33,7 @@ stays on the tailnet either way. The table below tracks
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| Homepage | https://go.ops.eblu.me | Service dashboard (k3s) |
+| [[homepage]] | https://go.ops.eblu.me | Service dashboard (k3s) |
 | [[forgejo]] | https://forge.ops.eblu.me | Git hosting (SSH: 2222) |
 | [[zot]] | https://registry.ops.eblu.me | Container registry |
 | [[jellyfin]] | https://jellyfin.ops.eblu.me | Media server |
