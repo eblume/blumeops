@@ -184,7 +184,6 @@
     cmd: "{{ borgmatic_borg_bin }} config {{ item.path }} append_only"
   register: borgmatic_ops_append_only
   changed_when: false
-  failed_when: false
   loop: "{{ borgmatic_operational_repositories }}"
   loop_control:
     label: "{{ item.label }}"
@@ -197,6 +196,7 @@
   loop_control:
     label: "{{ item.item.label }}"
   when:
+    - item.rc is defined
     - item.rc == 0
     - item.stdout | trim | int == 1
 
