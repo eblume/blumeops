@@ -1,0 +1,1 @@
+Dropped the retired `tag:agent` Tailscale principal: the ACL grant, tagOwners entry, and both tests, the `agent-key` mint and `agent_authkey` export, and the `agent-authkey-sync` task — the `tag:talos` twins carry the fence. Stale doc references to the old name updated. Part of eblume/blumeops#1165.

@@ -18,7 +18,6 @@ Run `mise tasks --sort name` for the live list with descriptions.
 
 | Task | Description |
 |------|-------------|
-| `agent-authkey-sync` | Sync the Pulumi tag:agent Tailscale auth key into 1Password (for the agent-pod ExternalSecret) |
 | `agent-health` | Fleet health via Grafana alert rules, using the talos-m2m JWT (agent-usable) |
 | `agent-lint` | Run the CI lint gate (prek hookset) locally before pushing |
 | `agent-metrics` | Run a PromQL query against Prometheus via Grafana, as the talos-m2m identity |

@@ -106,22 +106,6 @@ flyio_key = tailscale.TailnetKey(
     opts=after_acl,
 )
 
-# Auth key for the agent pod's (talos's) Tailscale sidecar.
-# The sidecar joins the tailnet as its OWN device (tag:agent) so the agent pod's
-# egress to indri (forge push, heph sync) is gated by the tag:agent ACL grant —
-# distinct from ringtail's tag:homelab node identity, which a shared-host agent
-# would otherwise inherit. This is the credential that makes device isolation
-# real. See docs/explanation/agent-containerization.md.
-agent_key = tailscale.TailnetKey(
-    "agent-key",
-    reusable=True,  # a Deployment pod re-auths on restart
-    ephemeral=True,  # node is removed when the pod goes away
-    preauthorized=True,
-    tags=["tag:agent"],
-    expiry=7776000,  # 90 days
-    opts=after_acl,
-)
-
 # Auth key for the talos pod's Tailscale sidecar — joins the tailnet as its own
 # device (tag:talos) so the ACL can fence the egress gateway by tag.
 talos_key = tailscale.TailnetKey(
@@ -138,7 +122,6 @@ talos_key = tailscale.TailnetKey(
 pulumi.export("acl_id", acl.id)
 pulumi.export("policy_hash", policy_hash)
 pulumi.export("flyio_authkey", flyio_key.key)
-pulumi.export("agent_authkey", agent_key.key)
 pulumi.export("talos_authkey", talos_key.key)
 
 pulumi.export("indri_device_id", indri.node_id)

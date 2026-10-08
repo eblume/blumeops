@@ -203,7 +203,7 @@ The boundaries, weakest-first:
    reach: because Tailscale ACL identity is per-**device**, the `agent` user
    inherits ringtail's `tag:homelab` trust and can reach indri directly
    (`ssh erichblume@indri`). The [[agent-containerization|containerized phase]]
-   gives the pod its own `tag:agent` tailnet identity behind an egress allowlist
+   gives the pod its own `tag:talos` tailnet identity behind an egress allowlist
    (Claude relay, 1Password, `forge.ops.eblu.me`, the heph hub), which is the
    only thing that lets the ACL fence the agent apart from the host — the
    identity foundation for that has landed in `pulumi/tailscale/policy.hujson`.
