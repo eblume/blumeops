@@ -127,7 +127,7 @@ Restore talos sessions from a `talos-data-*` archive only — older `indri-*` ma
 
 ### Restoring a Reaped (Tombstoned) Session
 
-The session reaper (eblume/talos#295) deletes transcripts idle `TALOS_SESSION_REAPER_DAYS` (default 30) days to keep the PVC small. Deletion is interlocked on the never-pruned `talos-data-*` archives above — a file is deleted only once both repos' last backup strictly post-dates it — so a reaped transcript is always recoverable. A reaped session keeps a tombstone in `~/data/tombstones.json` (id, name, origin, timestamps, cost) and renders as "archived, restore from borg" in the Issues view and session list.
+The session reaper (eblume/talos#295) deletes transcripts idle for `TALOS_SESSION_REAPER_DAYS` (default 30) days to keep the PVC small. Deletion is interlocked on the never-pruned `talos-data-*` archives above — a file is deleted only once both repos' last backup strictly post-dates it — so a reaped transcript is always recoverable. A reaped session keeps a tombstone in `~/data/tombstones.json` (id, name, origin, timestamps, cost) and renders as "archived, restore from borg" in the Issues view and session list.
 
 Restoring one is the single-session restore above, with the catch that the reaper's idle clock is the transcript's *content* last-activity (rescanned into `session-index.sqlite` on every sync, not the file's mtime) — a restored file carries its old last-activity, so it is still idle and passes the backup interlock straight away (both `borg extract` and `kubectl cp` restore the original mtime).
 
