@@ -2,7 +2,7 @@
 # eblume/talos#69): the talos pod's single legal egress point. Runs the
 # talos image with the gateway command (Bun forward proxy, base port 8080
 # + 100 per-session ports) instead of the entrypoint, plus the Tailscale
-# userspace sidecar that holds the tag:agent tailnet identity. The agent
+# userspace sidecar that holds the tag:talos tailnet identity. The agent
 # pod's deny-by-default egress fence (networkpolicy.yaml, flipped in a
 # later PR) makes this the pod's only egress once it lands.
 apiVersion: apps/v1
@@ -79,17 +79,15 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
-        # The tag:agent egress identity moves here from the agent pod:
-        # tailnet traffic transits the gateway and presents tag:agent.
-        # (During the staging window the talos pod still runs its own
-        # sidecar with the same hostname — stage 2 drops it.)
+        # The tag:talos egress identity moves here from the agent pod:
+        # tailnet traffic transits the gateway and presents tag:talos.
         - name: ts
           image: registry.ops.eblu.me/blumeops/tailscale:v1.98.5-623e89a-nix
           env:
             - name: TS_AUTHKEY
               valueFrom:
                 secretKeyRef:
-                  name: ts-agent-authkey
+                  name: ts-talos-authkey
                   key: TS_AUTHKEY
             - name: TS_USERSPACE
               value: "true"

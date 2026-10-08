@@ -14,8 +14,8 @@ tags:
 > **Superseded (2026-08-19): the `agent-ws` pod is retired — talos replaces it.**
 > The `agent-ws` image, k8s manifests, and ArgoCD app described here have been
 > removed; [[talos-design|talos]] supersedes the pod. The fences and rationale in
-> this doc — the `tag:agent` Tailscale identity, the egress allowlist, and the
-> vault/bot boundaries — still apply to talos unchanged.
+> this doc — the Tailscale identity fence (now `tag:talos`), the egress
+> allowlist, and the vault/bot boundaries — still apply to talos unchanged.
 
 Why the `ringtail-agent` workspace is moving from a **shared-host OS user** to a
 **pod with its own Tailscale identity** — and why that migration is the *only*

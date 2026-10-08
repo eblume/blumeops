@@ -113,7 +113,7 @@ Important Tailscale concept:
 
 Don't tag user devices - it breaks user-based access rules.
 
-The talos agent pods sit behind a deny-by-default NetworkPolicy: their only egress path is the egress-gateway pod, which joins the tailnet as `tag:agent` — granted a small fixed set of indri ports, nothing more. See [[agent-containerization]].
+The talos agent pods sit behind a deny-by-default NetworkPolicy: their only egress path is the egress-gateway pod, which joins the tailnet as `tag:talos` — granted a small fixed set of indri ports, nothing more. See [[agent-containerization]].
 
 ## Authentication Patterns
 

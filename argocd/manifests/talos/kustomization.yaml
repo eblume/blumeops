@@ -7,7 +7,7 @@ resources:
   - serviceaccount.yaml
   - external-secret.yaml
   - external-secret-op-token.yaml
-  - external-secret-ts-authkey.yaml
+  - external-secret-ts-talos-authkey.yaml
   - pvc.yaml
   - networkpolicy.yaml
   - egress-gateway-deployment.yaml

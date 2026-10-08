@@ -7,7 +7,7 @@
 #      gateway pod before policy evaluation, so one podSelector covers both.
 #      The CGNAT range the pod used to be carved out from (100.64.0.0/10) is
 #      now denied by default — the tailnet is only reachable through the
-#      gateway, which holds the tag:agent identity.
+#      gateway, which holds the tag:talos identity.
 #   2. cluster DNS (kube-dns in kube-system, 53 UDP+TCP) — the pod runs
 #      dnsPolicy: None with nameservers pinned at 10.43.0.10; the gateway
 #      resolves proxied hostnames, but direct clients (op, in-cluster OIDC
