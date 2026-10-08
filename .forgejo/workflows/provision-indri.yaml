@@ -34,6 +34,11 @@
 # (exit code, written when the switch ends) and <sha>.log; read them if a
 # change does not show up. See docs/how-to/indri/provision.md.
 #
+# The privileged-label invariant (#1358) holds by construction: the sole
+# trigger is workflow_dispatch, which no workflow can start on its own -
+# only a write collaborator (eblume, or horkos-forge under a warrant),
+# dispatching main's reviewed definition.
+#
 # Docs: docs/explanation/warrant-approval-gated-runs.md,
 # docs/how-to/indri/provision.md (warrant-gated apply).
 name: provision-indri

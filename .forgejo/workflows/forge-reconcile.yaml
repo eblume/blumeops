@@ -23,6 +23,17 @@
 # `mise run forge-reconcile`. FORGE_REPO_WRITE_TOKEN is an eblume PAT
 # (write:repository,read:user) provisioned by the forgejo_actions_secrets
 # ansible role. Details: the script docstring in mise-tasks/forge-reconcile.
+#
+# Runs-on split (#1358): pull_request runs execute from the PR's own
+# checkout, so they go to the unprivileged indri-build runner - where this
+# check is a no-op anyway, since fork PRs get no FORGE_REPO_WRITE_TOKEN.
+# Every other trigger (schedule, push-to-main, dispatch) stays on the
+# privileged indri runner. The invariant: nothing pull_request-triggerable
+# runs on indri; its other starts are a main push, a schedule, or a dispatch
+# by a write collaborator (eblume, or horkos-forge under a warrant).
+# Forgejo evaluates the runs-on expression server-side at trigger time (the
+# job parser gets the run's github context; verified against runner v13.2.0);
+# actionlint 1.7.12 accepts it.
 name: Forge Reconcile
 
 on:
@@ -58,7 +69,7 @@ on:
 
 jobs:
   reconcile:
-    runs-on: indri
+    runs-on: ${{ github.event_name == 'pull_request' && 'indri-build' || 'indri' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
