@@ -1,0 +1,1 @@
+Turn the talos session reaper live (TALOS_SESSION_REAPER_DRY_RUN 1→0): after the dry-run report reviewed clean, the daily sweep deletes transcripts idle 30+ days, gated by the borg backup interlock. Part of eblume/talos#295.
