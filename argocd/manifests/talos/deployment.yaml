@@ -166,6 +166,12 @@ spec:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.ephemeral-storage
+            # Session reaper (eblume/talos#295): daily sweep, dry-run until the first report is reviewed.
+            - name: TALOS_SESSION_REAPER_DAYS
+              value: "30"
+            # Flip to "0" after the first dry-run sweep report is reviewed (eblume/talos#295) — the flip PR removes this comment.
+            - name: TALOS_SESSION_REAPER_DRY_RUN
+              value: "1"
           envFrom:
             - secretRef:
                 name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN
