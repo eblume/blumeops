@@ -40,7 +40,7 @@ tags:
 
 The agent-isolation program ([[agent-workspaces]], [[agent-containerization]],
 [[agents-forgejo-bot]]) has landed a working fence: agents author blumeops
-changes from a pod with its own `tag:agent` identity, push to a fork, and open
+changes from a pod with its own `tag:talos` identity, push to a fork, and open
 PRs; the bot is read-only on canonical, so it cannot dispatch CI or reach the
 deploy-credentialed Actions secrets; the blumeops 1Password vault is
 unreachable by construction.

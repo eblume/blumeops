@@ -33,6 +33,7 @@ ACLs managed via Pulumi in `pulumi/tailscale/policy.hujson`.
 | `tag:k8s-operator` | (operator pod) | Tailscale operator for k8s — see [[tailscale-operator]] |
 | `tag:k8s` | (Ingress proxy pods) | Kubernetes Tailscale Ingress nodes; each also carries a per-service tag (`tag:grafana`, `tag:kiwix`, `tag:feed`, `tag:pg`) |
 | `tag:ci-gateway` | (ephemeral CI containers) | CI containers pushing images to registry |
+| `tag:talos` | (egress-gateway pod) | Talos egress-gateway tailnet identity — indri forge/heph only, no SSH |
 | `tag:flyio-proxy` | (Fly.io proxy container) | Public reverse proxy |
 | `tag:flyio-target` | designated Ingress endpoints | Endpoints reachable by the Fly.io proxy on 443 — Loki and Prometheus Ingress pods for Alloy metrics/logs |
 | `tag:flyio-origin` | indri | Caddy's fly-only `:8443` listener (docs/cv/photos) — the proxy reaches it on tcp:8443 only |

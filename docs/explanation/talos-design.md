@@ -51,7 +51,7 @@ Runner/driver separation. The **runner** is reusable; drivers are thin.
  │    ├─ pi-server + pi-coding-agent runtime                 │
  │    │    └─ models via pi-ai → OpenRouter (+ollama later)  │
  │    └─ SQLite session store (PVC) — durable transcripts    │
- │  ts sidecar (userspace, tag:agent, SOCKS 1055)            │
+ │  ts sidecar (userspace, tag:talos, SOCKS 1055)            │
  │  egress netpol blocks 100.64.0.0/10 (sidecar-only tailnet)│
  │  workspace PVC: author-only blumeops clone + scratch      │
  │  op service-account token → agents vault (runtime creds)  │
@@ -90,7 +90,7 @@ payoff; the interactive driver doubles as its debugging console.
 ## Access model
 
 Deliberately mirrors the [[agent-containerization|containerized agent]] model:
-same tailnet identity class (`tag:agent` via userspace sidecar), same egress
+same tailnet identity class (`tag:talos` via userspace sidecar), same egress
 netpol, no cluster API, one bootstrap secret (op service-account token for the
 agents vault), author-only fork/PR git posture with the `agents` bot. Talos
 adds *ingress* the pure-egress agent pod lacked, via the standard ProxyGroup +

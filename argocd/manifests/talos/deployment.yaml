@@ -1,7 +1,7 @@
 # Talos: browser-driven pi agent sessions.
 #   talos — Bun server (sessions, SSE, OIDC, /api/transcribe) + pi runtime.
 #           Tailnet egress routes through the egress-gateway pod (which holds
-#           the tag:agent identity) via EGRESS_GATEWAY_URL; the gateway
+#           the tag:talos identity) via EGRESS_GATEWAY_URL; the gateway
 #           resolves proxied hostnames itself, so the pod runs dnsPolicy: None.
 #
 # RWO PVC → Recreate strategy.
