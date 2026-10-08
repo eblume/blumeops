@@ -46,7 +46,7 @@ See [[tailscale]] for the full ACL matrix.
 
 ### Tailscale Operator Privileges
 
-The [[tailscale-operator]] bridges Kubernetes and the Tailscale control plane. Its in-namespace `Role` covers secrets, service accounts, configmaps, and pod status in the `tailscale` namespace only; it additionally holds a `ClusterRole` over cluster-wide Services and Ingresses, which the ProxyGroup tailnet-VIP model needs. On the Tailscale side, its tag-owner identity may assign `tag:k8s`, `tag:flyio-target`, and `tag:agent`. In practice this means anyone who can write Ingress resources to the cluster can expose a service to the tailnet (or publicly, via `tag:flyio-target`), and Tailscale admins can reconfigure how those services are routed. Both are expected parts of normal operations — but be careful about granting write access to either Kubernetes or the Tailscale admin console, since both can change what's exposed.
+The [[tailscale-operator]] bridges Kubernetes and the Tailscale control plane. Its in-namespace `Role` covers secrets, service accounts, configmaps, and pod status in the `tailscale` namespace only; it additionally holds a `ClusterRole` over cluster-wide Services and Ingresses, which the ProxyGroup tailnet-VIP model needs. On the Tailscale side, its tag-owner identity may assign `tag:k8s`, `tag:flyio-target`, and `tag:talos`. In practice this means anyone who can write Ingress resources to the cluster can expose a service to the tailnet (or publicly, via `tag:flyio-target`), and Tailscale admins can reconfigure how those services are routed. Both are expected parts of normal operations — but be careful about granting write access to either Kubernetes or the Tailscale admin console, since both can change what's exposed.
 
 ## Secrets Management
 

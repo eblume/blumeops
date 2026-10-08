@@ -510,8 +510,8 @@ history plus the follow-ups they leave behind:
   (2) Its motivating hole is properly closed: the agent no longer carries
   `tag:homelab` after the pod cutover (#445–#448), and
   [[agent-containerization]] §"Why we can't just fix the ACL" already
-  retracts the patch. Residual follow-up: assert in `policy.hujson`'s ACL
-  tests that `tag:agent` has no SSH anywhere, if #445's tests don't already.
+  retracts the patch. Residual follow-up (satisfied by #1478): assert in
+  `policy.hujson`'s ACL tests that `tag:talos` has no SSH anywhere.
 
 ## The binding was decorative
 

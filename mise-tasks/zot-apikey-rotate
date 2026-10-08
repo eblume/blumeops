@@ -149,7 +149,7 @@ def op_set_field(vault: str, item: str, field: str, value: str) -> None:
 
     `op item edit ITEM 'field[password]=VALUE'` puts the secret in argv;
     `--template` keeps it in a file only we can read. Mirrors
-    mise-tasks/agent-authkey-sync.
+    the Tailscale authkey-sync upsert pattern.
     """
     doc = json.loads(op("item", "get", item, "--vault", vault, "--format", "json"))
     for f in doc["fields"]:
