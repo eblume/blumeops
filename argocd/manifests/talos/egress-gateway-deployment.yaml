@@ -99,6 +99,26 @@ spec:
               value: ""
             - name: TS_HOSTNAME
               value: "talos-agent"
+            # Health endpoint as the pod's readiness gate: 200 only once
+            # tailscaled is logged in with tailnet IPs, so a rejected
+            # auth key never lets the pod take over the tailnet identity
+            # from a healthy old pod.
+            - name: TS_ENABLE_HEALTH_CHECK
+              value: "true"
+            - name: TS_LOCAL_ADDR_PORT
+              value: "[::]:9002"
+          ports:
+            - containerPort: 9002
+              name: healthz
+          # Pod Ready = all containers Ready, and the gateway container
+          # is trivially Ready — this probe is the pod's readiness gate.
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9002
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 5
           resources:
             requests:
               cpu: 50m
