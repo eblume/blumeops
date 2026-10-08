@@ -68,6 +68,9 @@ if [ "$MOUNTED" = 1 ] && [ -n "$LAST_ARCHIVE" ]; then
     mkdir -p "$WORK"
     trap 'rm -rf "$WORK"' EXIT
     COMPARED=0
+    SKIPPED=0
+    MISMATCHED=0
+    FAILED=0   # 0 ok; 1 hash mismatch; 2 EPERM (TCC) on a live read
 
     # macOS ships no GNU coreutils shuf, so sample with an awk reservoir
     # (paths arrive TAB-separated; dirs end in / and are skipped).
@@ -88,19 +91,59 @@ if [ "$MOUNTED" = 1 ] && [ -n "$LAST_ARCHIVE" ]; then
         archive_path="${path#/}"
         rel="${archive_path#Volumes/photos/}"
         live="/Volumes/photos/$rel"
-        [ -f "$live" ] || continue  # deleted on sifaka since the backup; not an error
-        "$BORG" extract --stdout "$REPO::${LAST_ARCHIVE}" "$archive_path" > "$WORK/probe"
-        COMPARED=1
+        if [ ! -f "$live" ]; then
+            # deleted on sifaka since the backup; transient, not an error
+            SKIPPED=$((SKIPPED + 1))
+            echo "test-restore skip: $path (absent on sifaka)" >&2
+            continue
+        fi
+        # an extract failure (ssh blip, path churn) is transient: skip, don't abort
+        if ! "$BORG" extract --stdout "$REPO::${LAST_ARCHIVE}" "$archive_path" > "$WORK/probe" 2> "$WORK/extract.err"; then
+            SKIPPED=$((SKIPPED + 1))
+            echo "test-restore skip: $path (extract failed: $(cat "$WORK/extract.err"))" >&2
+            continue
+        fi
+        # the probe is a local file we just wrote; hash it (safe)
         probe_hash=$(shasum -a 256 "$WORK/probe" | awk '{print $1}')
-        live_hash=$(shasum -a 256 "$live" | awk '{print $1}')
+        # the live read is the TCC-sensitive one. A non-permission failure is
+        # transient (skip); a permission error (EPERM or EACCES) is the TCC
+        # regression this job exists to catch, so it fails the run and writes
+        # no marker.
+        if ! live_hash=$(shasum -a 256 "$live" 2> "$WORK/live.err" | awk '{print $1}'); then
+            if grep -qi 'permission' "$WORK/live.err"; then
+                echo "test-restore PERMISSION ERROR (TCC): $path, live read denied: $(cat "$WORK/live.err")" >&2
+                FAILED=2
+                break
+            fi
+            SKIPPED=$((SKIPPED + 1))
+            echo "test-restore skip: $path (live read failed: $(cat "$WORK/live.err"))" >&2
+            continue
+        fi
+        COMPARED=$((COMPARED + 1))
         if [ "$probe_hash" != "$live_hash" ]; then
-            echo "TEST-RESTORE MISMATCH: $path (archive vs live under /Volumes/photos; benign if the file changed since the last 04:00 backup, else investigate)" >&2
-            exit 1
+            echo "test-restore MISMATCH: $path (archive vs live under /Volumes/photos; benign if the file changed since the last 04:00 backup, else investigate)" >&2
+            MISMATCHED=$((MISMATCHED + 1))
+            FAILED=1
+            break
         fi
         echo "test-restore ok: $path"
     done <<< "$SAMPLES"
-    # a marker means at least one file was actually compared
-    if [ "$COMPARED" = 1 ]; then
+
+    # always export the counts so a mostly-skipped or failed run is visible
+    echo "$COMPARED" > "$MARKER_DIR/test-restore-compared"
+    echo "$SKIPPED" > "$MARKER_DIR/test-restore-skipped"
+    echo "$MISMATCHED" > "$MARKER_DIR/test-restore-mismatched"
+
+    if [ "$FAILED" = 1 ]; then
+        echo "test-restore FAILED: $MISMATCHED hash mismatch(es) among $COMPARED compared" >&2
+        exit 1
+    fi
+    if [ "$FAILED" = 2 ]; then
+        echo "test-restore FAILED: EPERM on a live read (TCC), no marker written" >&2
+        exit 1
+    fi
+    # a test-restore marker means at least one file was actually compared
+    if [ "$COMPARED" -ge 1 ]; then
         echo "$(date +%s)" > "$MARKER_DIR/test-restore"
     fi
 fi

@@ -52,6 +52,12 @@ cat > "$TEMP_FILE" << 'EOF'
 # TYPE borgmatic_last_verified_data_timestamp gauge
 # HELP borgmatic_last_test_restore_timestamp Unix timestamp of the last successful sampled test restore
 # TYPE borgmatic_last_test_restore_timestamp gauge
+# HELP borgmatic_test_restore_compared_files Number of live files compared in the last sampled test restore
+# TYPE borgmatic_test_restore_compared_files gauge
+# HELP borgmatic_test_restore_skipped_files Number of sampled files skipped in the last test restore
+# TYPE borgmatic_test_restore_skipped_files gauge
+# HELP borgmatic_test_restore_mismatched_files Number of sampled files that failed their hash comparison in the last test restore
+# TYPE borgmatic_test_restore_mismatched_files gauge
 # HELP borgmatic_recycle_size_bytes Size of the sifaka backups share's SMB #recycle bin in bytes (0 = bin absent)
 # TYPE borgmatic_recycle_size_bytes gauge
 EOF
@@ -200,7 +206,10 @@ echo "borgmatic_recycle_size_bytes ${recycle_size:-0}" >> "$TEMP_FILE"
 MARKER_DIR='{{ borgmatic_metrics_verify_marker_dir }}'
 for m in "check borgmatic_last_verified_timestamp" \
         "check-data borgmatic_last_verified_data_timestamp" \
-        "test-restore borgmatic_last_test_restore_timestamp"; do
+        "test-restore borgmatic_last_test_restore_timestamp" \
+        "test-restore-compared borgmatic_test_restore_compared_files" \
+        "test-restore-skipped borgmatic_test_restore_skipped_files" \
+        "test-restore-mismatched borgmatic_test_restore_mismatched_files"; do
     marker="${m%% *}"
     metric="${m#* }"
     v=$(cat "$MARKER_DIR/$marker" 2>/dev/null || true)

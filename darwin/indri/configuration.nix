@@ -604,11 +604,17 @@ MCQUACK_NIX_WAIT_SYSTEM
   };
 
   # borgmatic-verify-photos: weekly (Tuesday) + 2nd-of-month verification, 06:00 —
-  # key-for-key with the role's borgmatic-verify-photos.plist.j2.
+  # key-for-key with the role's borgmatic-verify-photos.plist.j2. The program is
+  # the pipx venv python (the same interpreter the create agents use, the
+  # TCC-granted identity that reads /Volumes/photos), not the bash script itself:
+  # launchd's responsible process must hold the Network Volumes grant, so the
+  # python spawns the role's verification script as a subprocess that inherits it.
   launchd.user.agents."mcquack.eblume.borgmatic-verify-photos".serviceConfig = {
     Label = "mcquack.eblume.borgmatic-verify-photos";
     ProgramArguments = [
-      "/Users/erichblume/.local/bin/borgmatic-verify-photos"
+      "/Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/bin/python3"
+      "-c"
+      "import subprocess,sys; sys.exit(subprocess.run(['/bin/bash','/Users/erichblume/.local/bin/borgmatic-verify-photos']).returncode)"
     ];
     RunAtLoad = false;
     KeepAlive = false;

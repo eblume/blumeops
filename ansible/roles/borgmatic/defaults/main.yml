@@ -265,6 +265,13 @@ borgmatic_photos_keep_yearly: 1000
 # Verification: weekly repo+archives check, monthly full-data check, sampled
 # test-restore, via the mcquack.eblume.borgmatic-verify-photos LaunchAgent.
 borgmatic_verify_bin: /Users/erichblume/.local/bin/borgmatic-verify-photos
+# The interpreter the borgmatic console script (borgmatic_bin) uses, i.e. the
+# TCC-granted responsible identity. The verify LaunchAgent launches its bash
+# script under THIS python (as a subprocess) rather than exec'ing the bash
+# script directly, or TCC attributes the live /Volumes/photos read to /bin/bash
+# (no Network Volumes grant) and the sampled test-restore dies with EPERM. Kept
+# on the same pipx "latest" symlink so it tracks borgmatic upgrades like borgmatic_bin.
+borgmatic_verify_python: /Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/bin/python3
 borgmatic_verify_marker_dir: /opt/homebrew/var/state/borgmatic-verification
 # launchd calendar: Weekday 2 = Tuesday; Day 2 = 2nd of each month
 borgmatic_verify_schedule_days: [2]
