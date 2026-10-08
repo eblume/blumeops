@@ -199,6 +199,11 @@ archive tier (above).
 | `/Volumes/backups/borg-operational/` | [[sifaka]] (local NAS) | `sifaka-operational` | operational tier (`operational-*`) only — the main config no longer targets this repo |
 | `ssh://xcrtl5tg@...repo.borgbase.com/./repo` | BorgBase (offsite) | `borgbase-immich-photos` | immich photos |
 
+The `backups` share's SMB recycle bin must stay **disabled** (verified
+`enable recycle bin=no` in DSM on 2026-10-06): it captures the files a
+`compact` or `prune` deletes, so rotation would reclaim nothing — 8.7 GB of
+superseded borg index/lock files had accumulated before the discovery.
+
 ## Monitoring
 
 Metrics exposed to [[prometheus]]:
@@ -206,6 +211,7 @@ Metrics exposed to [[prometheus]]:
 - `borgmatic_last_archive_timestamp` - Last backup time
 - `borgmatic_talos_data_last_success_timestamp` - Newest never-pruned talos-data archive per repo
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
+- `borgmatic_recycle_size_bytes` - sifaka backups share recycle-bin size (0 = bin absent, the required state)
 
 Three alerts: `BorgmaticStale` when a repo's newest main archive is over 30h old, `BorgmaticStaleTalosData` when the newest reported talos-data archive is over 30h old or no repo reports the gauge at all (before the first archive lands), and `BorgmaticOpsStale` (NoData alerting) when `sifaka-operational` has no archive at all, or no new one in over 30h.
 

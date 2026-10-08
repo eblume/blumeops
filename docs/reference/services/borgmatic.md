@@ -60,6 +60,11 @@ The sifaka copy's immutability is client-side only — `/Volumes/backups` is an
 SMB mount, not a `borg serve` endpoint, so local `append_only` protects
 nothing against indri itself.
 
+The backups share's SMB recycle bin must also stay disabled: a re-enabled
+bin would capture every file the rotation's `compact` deletes, so nothing
+would ever be reclaimed (8.7 GB had accumulated before the 2026-10-06
+discovery; `borgmatic_recycle_size_bytes` goes non-zero if it is re-enabled).
+
 ## What Gets Backed Up
 
 **Archive tier — main config (`config.yaml`, 02:00), never pruned:**
@@ -181,6 +186,7 @@ repository (`sifaka-local`, `borgbase-offsite`, `sifaka-operational`,
 - `borgmatic_last_archive_timestamp` - Last backup time
 - `borgmatic_talos_data_last_success_timestamp` - Newest never-pruned talos-data archive, per repo (per-source signal the talos session reaper checks)
 - `borgmatic_repo_deduplicated_size_bytes` - Disk usage
+- `borgmatic_recycle_size_bytes` - sifaka backups share recycle-bin size in bytes (0 = bin absent; the bin must stay disabled)
 
 The per-source size breakdown (`borgmatic_source_size_bytes`) is collected for
 **local repos only** — it pulls the latest archive's full file manifest, cheap
@@ -193,7 +199,19 @@ The operational repo's metrics are scoped to the `operational-*` prefix. The
 main config no longer targets that repo, so a fresh `operational-*` archive
 there means the operational run itself succeeded.
 
-**Alert:** three Grafana rules (ntfy-infra): `BorgmaticStale` fires when any repo's newest main archive is older than 30h (for 1h) — missing series = OK; `BorgmaticStaleTalosData` fires when the newest reported talos-data archive is older than 30h, or when no repo reports the gauge at all (before the first archive lands). `BorgmaticStale` fires roughly 7h after a missed nightly run, well before BorgBase's own 2-missed-runs email. The main offsite repo was previously unmonitored (only sifaka + photos were scraped), so a failed offsite run produced no metric and no alert; it is now collected explicitly. `BorgmaticOpsStale` fires when `sifaka-operational` has no archive at all, or no new one in over 30h — NoData alerting, so the tier's first deploy (repo not yet created) and any later repo loss can't fail silently.
+**Alert:** three Grafana rules (ntfy-infra): `BorgmaticStale` fires when any
+repo's newest main archive is older than 30h (for 1h) — missing series = OK;
+the operational repo is excluded from this rule (`BorgmaticOpsStale` is its
+sole alert, so a missed 03:00 run fires one rule, not two);
+`BorgmaticStaleTalosData` fires when the newest reported talos-data archive is
+older than 30h, or when no repo reports the gauge at all (before the first
+archive lands). `BorgmaticStale` fires roughly 7h after a missed nightly run,
+well before BorgBase's own 2-missed-runs email. The main offsite repo was
+previously unmonitored (only sifaka + photos were scraped), so a failed
+offsite run produced no metric and no alert; it is now collected explicitly.
+`BorgmaticOpsStale` fires when `sifaka-operational` has no archive at all, or
+no new one in over 30h — NoData alerting, so the tier's first deploy (repo not
+yet created) and any later repo loss can't fail silently.
 
 ## Related
 

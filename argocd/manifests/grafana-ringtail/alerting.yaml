@@ -158,7 +158,9 @@ groups:
         # Backups run daily (main 02:00, photos 04:00); healthy last-archive age
         # peaks near 24h. 30h + for:1h fires ~7h after a missed nightly run —
         # well before BorgBase's own 2-missed-runs email. Per-repo (repo label),
-        # so the offsite repo alone going stale is caught. See [[borgmatic]].
+        # so the offsite repo alone going stale is caught. The operational repo
+        # is excluded — BorgmaticOpsStale is its sole alert, so a missed 03:00
+        # run fires one rule, not two. See [[borgmatic]].
         for: 1h
         noDataState: OK
         execErrState: Alerting
@@ -177,7 +179,7 @@ groups:
               to: 0
             model:
               expr: >-
-                time() - borgmatic_last_archive_timestamp
+                time() - borgmatic_last_archive_timestamp{repo!="sifaka-operational"}
               interval: ""
               refId: A
           - refId: B
@@ -327,8 +329,9 @@ groups:
         # NoData alerting for the operational tier (inverse of BorgmaticStale):
         # a never-created or vanished repo emits no
         # borgmatic_last_archive_timestamp series, and BorgmaticStale
-        # (noDataState: OK) would stay silent forever. Once archives exist
-        # the 30h threshold fires ~6h after a missed 03:00 run.
+        # (noDataState: OK) would stay silent forever. The operational repo is
+        # excluded from BorgmaticStale, so this is its only alert. Once
+        # archives exist the 30h threshold fires ~6h after a missed 03:00 run.
         for: 1h
         noDataState: Alerting
         execErrState: Alerting
