@@ -1,6 +1,6 @@
 ---
 title: Ringtail
-modified: 2026-10-04
+modified: 2026-10-08
 last-reviewed: 2026-10-04
 tags:
   - infrastructure
@@ -94,6 +94,10 @@ Sync order: `1password-connect-ringtail` -> `external-secrets-crds-ringtail` -> 
 | nvidia-device-plugin | `nvidia-device-plugin` | Exposes GPU to pods via CDI + nvidia RuntimeClass |
 
 This is a subset — the full inventory is the 36 ArgoCD Applications in `argocd/apps/`.
+
+### Borgmatic dump endpoint
+
+Indri's nightly borgmatic backs up ringtail's k8s and local-path-PV data through a dedicated `borgmatic` system user: `sudo /etc/borgmatic/borgmatic-dump <name>` runs one dump from the script's fixed table (mealie, horkos, navidrome, audiobookshelf, the two pulumi stack-state ferries, talos-data, paperless-media) and streams it to stdout. The script and table live in the flake (`nixos/ringtail/borgmatic-dump.sh`); the sudo rule grants only that command as root, no password, and the script itself accepts exactly one argument — a dump name from the table — rejecting anything else. This is the receiving half of eblume/blumeops#1484 — until PR 2 authorizes the key with a forced command, nothing can reach the user, so this is inert. The indri-side helpers (`ansible/roles/borgmatic/`) switch over in PR 2.
 
 ## Systemd Services
 

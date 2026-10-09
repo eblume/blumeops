@@ -1,0 +1,1 @@
+Add the inert ringtail half of per-principal borgmatic SSH (eblume/blumeops#1484 PR 1): a dedicated `borgmatic` system user, a root-owned `/etc/borgmatic/borgmatic-dump` script holding the fixed table of the eight k8s/PV dumps, and a sudo rule scoped to that script alone. No key is authorized yet, so nothing can reach it; the indri cutover is PR 2.
