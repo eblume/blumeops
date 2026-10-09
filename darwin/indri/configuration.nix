@@ -612,7 +612,7 @@ MCQUACK_NIX_WAIT_SYSTEM
   launchd.user.agents."mcquack.eblume.borgmatic-verify-photos".serviceConfig = {
     Label = "mcquack.eblume.borgmatic-verify-photos";
     ProgramArguments = [
-      "/Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/bin/python3"
+      "/Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/borgmatic/bin/python"
       "-c"
       "import subprocess,sys; sys.exit(subprocess.run(['/bin/bash','/Users/erichblume/.local/bin/borgmatic-verify-photos']).returncode)"
     ];
