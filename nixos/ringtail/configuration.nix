@@ -824,6 +824,44 @@ in
     home = "/var/lib/horkos-runner";
   };
   users.groups.horkos-runner = { };
+
+  # Per-principal SSH (eblume/blumeops#1484): indri's borgmatic backs up
+  # ringtail's k8s/PV data through this dedicated user. PR 2 of the series
+  # authorizes its key (forced command, restrict); until then the account is
+  # unreachable and the endpoint below is inert. The shell must stay a real
+  # one: OpenSSH executes a forced command as `shell -c <command>`, so a
+  # nologin shell would break it. The restriction is the forced command in
+  # authorized_keys (PR 2), not the shell.
+  users.users.borgmatic = {
+    isSystemUser = true;
+    group = "borgmatic";
+    home = "/var/lib/borgmatic";
+    createHome = true;
+    shell = pkgs.bashInteractive;
+  };
+  users.groups.borgmatic = { };
+
+  # The ringtail half of indri's borgmatic k8s/PV dumps (eblume/blumeops#1484):
+  # a fixed table of the eight ringtail dumps. Inert until PR 2 authorizes the
+  # borgmatic key.
+  environment.etc."borgmatic/borgmatic-dump" = {
+    mode = "0755";
+    source = ./borgmatic-dump.sh;
+  };
+
+  # The only privilege the borgmatic user gets: run the dump endpoint as
+  # root, no password. The script accepts exactly one argument — a name from
+  # its fixed table — and rejects anything else, so the sudo rule need not
+  # (and cannot) pin the argument itself.
+  security.sudo.extraRules = [
+    {
+      users = [ "borgmatic" ];
+      runAs = "root";
+      commands = [
+        { command = "/etc/borgmatic/borgmatic-dump"; options = [ "NOPASSWD" ]; }
+      ];
+    }
+  ];
   systemd.services.gitea-runner-priv = {
     environment.HOME = lib.mkForce "/var/lib/horkos-runner/priv";
     serviceConfig = {
