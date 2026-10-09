@@ -268,6 +268,15 @@
     dest: /Users/erichblume/.local/bin/borgmatic-verify-photos
     mode: '0755'
 
+# launchd cannot exec a missing ProgramArguments[0]; it records EX_CONFIG with
+# no log output, so a bad interpreter path would otherwise surface only as
+# BorgmaticTestRestoreStale two weeks later.
+- name: Assert the verify LaunchAgent interpreter exists
+  ansible.builtin.stat:
+    path: "{{ borgmatic_verify_python }}"
+  register: borgmatic_verify_python_stat
+  failed_when: not borgmatic_verify_python_stat.stat.exists
+
 - name: Deploy borgmatic-verify-photos LaunchAgent plist
   ansible.builtin.template:
     src: borgmatic-verify-photos.plist.j2

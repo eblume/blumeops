@@ -1,0 +1,1 @@
+Point the photos test-restore LaunchAgent at the borgmatic venv's real python (`latest/borgmatic/bin/python`; `latest/bin/python3` never existed) and fail the provision if that interpreter is missing.

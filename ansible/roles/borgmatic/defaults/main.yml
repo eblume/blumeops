@@ -271,7 +271,9 @@ borgmatic_verify_bin: /Users/erichblume/.local/bin/borgmatic-verify-photos
 # script directly, or TCC attributes the live /Volumes/photos read to /bin/bash
 # (no Network Volumes grant) and the sampled test-restore dies with EPERM. Kept
 # on the same pipx "latest" symlink so it tracks borgmatic upgrades like borgmatic_bin.
-borgmatic_verify_python: /Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/bin/python3
+# The venv lives in <version>/borgmatic/, and bin/ holds only the console scripts;
+# this is the path in borgmatic_bin's shebang.
+borgmatic_verify_python: /Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/borgmatic/bin/python
 borgmatic_verify_marker_dir: /opt/homebrew/var/state/borgmatic-verification
 # launchd calendar: Weekday 2 = Tuesday; Day 2 = 2nd of each month
 borgmatic_verify_schedule_days: [2]
