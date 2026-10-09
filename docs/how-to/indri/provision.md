@@ -317,7 +317,7 @@ this PR's base. The backup units exec the mise pipx `latest` symlink
 (borgmatic 2.1.7; nixpkgs 26.05 has 2.1.5 — a store flip would be a
 downgrade, per the plan-cycle eval), so the binary stays role-side and the
 units stay in the #1225 safe class, the same shape as devpi's venv;
-verify-photos execs the role's verification script instead. Config
+verify-photos execs the pipx venv python, which spawns the role's verification script as a subprocess, so the live /Volumes/photos read is attributed to the TCC-granted identity rather than /bin/bash. Config
 yamls, .pgpass, BorgBase key, k8s dump helpers and the mise install stay
 role-rendered — the role's gate (`borgmatic_ansible_managed`) covers only the
 plist + load tasks. Applying the flip is the usual `mise run provision-indri

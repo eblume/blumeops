@@ -1,6 +1,6 @@
 ---
 title: Borgmatic
-modified: 2026-10-07
+modified: 2026-10-08
 last-reviewed: 2026-10-04
 tags:
   - service
@@ -158,16 +158,38 @@ month (also 06:00). Each run performs:
 
 - **Repo + archive-metadata check** — `borgmatic check --repository ... --only repository --only archives --force` — on every run. A stale `check` marker means the last run's check failed or the job itself did not run.
 - **Full-data check** — `borgmatic check --only archives --only data --force` (borg `--verify-data`, valid only alongside the archive check) — only when the previous data-check marker is missing or older than 40 days.
-- **Sampled test-restore** — when `/Volumes/photos` (the [[sifaka]] SMB mount) is mounted: 5 random regular files >1 MB from the newest archive are extracted via `borg extract --stdout` and sha256-compared against the live files under `/Volumes/photos` (a mismatch fails the run; benign when the live file changed after the last 04:00 backup). Files deleted from sifaka since the backup are skipped; the marker is written only when at least one file was compared.
+- **Sampled test-restore** — when `/Volumes/photos` (the [[sifaka]] SMB mount) is mounted: 5 random regular files >1 MB from the newest archive are extracted via `borg extract --stdout` and sha256-compared against the live files under `/Volumes/photos`. A hash **mismatch fails the run** (benign when the live file changed after the last 04:00 backup). Transient per-file problems, a file deleted from sifaka since the backup or an `extract` failure (ssh blip), are **skipped** with a reason in the logs. A **permission error (EPERM/EACCES) on the live read fails the run and writes no marker**: a permission error is the TCC regression this job exists to catch, and skipping it (with some other file still comparing) would let a TCC regression land a marker and go silent. The `compared`/`skipped`/`mismatched` counts are exported as metrics below so a run that mostly skips is visible; the marker is written only when at least one file was actually compared.
 
 Every result lands in the Loki-tailed logs
 (`mcquack.borgmatic-verify-photos.{out,err}.log`). Success markers are written
 to `/opt/homebrew/var/state/borgmatic-verification/` (`check`, `check-data`,
-`test-restore`) and exposed by the hourly collector as
+`test-restore`, plus the per-run `test-restore-compared` / `-skipped` /
+`-mismatched` counts) and exposed by the hourly collector as
 `borgmatic_last_verified_timestamp{repo="borgbase-immich-photos"}`,
-`borgmatic_last_verified_data_timestamp{repo="borgbase-immich-photos"}`, and
-`borgmatic_last_test_restore_timestamp{repo="borgbase-immich-photos"}`. The
-`BorgmaticVerifyStale` Grafana alert fires when no check succeeds for 10 days.
+`borgmatic_last_verified_data_timestamp{repo="borgbase-immich-photos"}`,
+`borgmatic_last_test_restore_timestamp{repo="borgbase-immich-photos"}`, and the
+counts as `borgmatic_test_restore_compared_files`,
+`borgmatic_test_restore_skipped_files`, and
+`borgmatic_test_restore_mismatched_files`.
+
+**The live read runs under a TCC-granted responsible binary.** The
+LaunchAgent's `ProgramArguments[0]` is the pipx venv python, the same
+interpreter the create agents use to read `/Volumes/photos` and the identity
+that holds the macOS Network Volumes grant, which launches the role's bash
+verification script as a subprocess. `bash` and its `shasum` children inherit
+that (granted) responsibility, so the live read is attributed to the granted
+binary. If the agent instead exec'd the `#!/bin/bash` script directly, the
+responsible process would be `/bin/bash` (no grant) and the live `shasum` over
+the SMB mount would fail with EPERM, which is exactly what the
+EPERM-fails-the-run handling above catches. If a TCC grant is ever missing, the
+one-time fallback is granting that venv python *Network Volumes* in System
+Settings (never `/bin/bash`).
+
+The `BorgmaticVerifyStale` Grafana alert fires when no check succeeds for 10
+days. `BorgmaticTestRestoreStale` fires when no successful test restore is
+recorded for 14 days; unlike `BorgmaticVerifyStale` it uses `noDataState:
+Alerting`, because a missing series *is* the failure (a restore that has never
+succeeded).
 
 **Verification proves the archives can be read and restored — it does NOT prove immutability.** The photos repo's BorgBase key is (pending dashboard confirmation) append-only on the server side, which protects the offsite copy from a compromised indri; but the sifaka-local mount `/Volumes/backups/borg` is an SMB share, not a `borg serve` endpoint, so its client-side `append_only` flag protects nothing against indri itself.
 

@@ -14,7 +14,9 @@
 	</dict>
 	<key>ProgramArguments</key>
 	<array>
-		<string>{{ borgmatic_verify_bin }}</string>
+		<string>{{ borgmatic_verify_python }}</string>
+		<string>-c</string>
+		<string>import subprocess,sys; sys.exit(subprocess.run(['/bin/bash','{{ borgmatic_verify_bin }}']).returncode)</string>
 	</array>
 	<key>RunAtLoad</key>
 	<false/>

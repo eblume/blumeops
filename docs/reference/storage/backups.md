@@ -153,7 +153,9 @@ Uses the same encryption passphrase and SSH key as the main borgmatic config.
 The `borgbase-immich-photos` repo is verified on a schedule (weekly
 `borgmatic check`, monthly full-data check, and a weekly sampled
 test-restore against the live sifaka files — see [[borgmatic]]); the age of
-the last successful check is alerted via `BorgmaticVerifyStale` (10 days).
+the last successful check is alerted via `BorgmaticVerifyStale` (10 days) and
+the age of the last successful test restore via `BorgmaticTestRestoreStale`
+(14 days).
 
 ## Sifaka-Native Data
 
