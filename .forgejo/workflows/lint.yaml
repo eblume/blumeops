@@ -15,6 +15,11 @@
 # workflows-validate is the second: it nix-builds the runner from the PR's
 # own darwin/indri/flake.lock (a nixpkgs fetch) and executes it - the PR
 # controls that binary's source, the same trust as its `run:` blocks.
+# Runs-on split (#1358): like every other PR-triggerable job here it runs on
+# the unprivileged indri-build runner - a nix build needs no privileged
+# user (it goes through the multi-user daemon as untrusted indri-build).
+# push/dispatch runs keep the privileged indri runner, which only starts on
+# a main push or a dispatch by a write collaborator.
 #
 # The three jobs are required status contexts on `main` — `Lint / prek`,
 # `Lint / workflows-validate`, `Lint / secret-scan` (pull_request contexts,
@@ -125,7 +130,7 @@ jobs:
   # To validate by hand off-runner, see
   # docs/how-to/forgejo-runner/validate-forgejo-workflows.md.
   workflows-validate:
-    runs-on: indri
+    runs-on: ${{ github.event_name == 'pull_request' && 'indri-build' || 'indri' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

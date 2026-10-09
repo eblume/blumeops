@@ -7,7 +7,10 @@
 #
 # The docs build runs credential-free on the unprivileged `indri-build`
 # runner (colima), and the release job stays on `indri` because it holds
-# the op token and the main-push PAT.
+# the op token and the main-push PAT. The release job is dispatch-only, so
+# it never runs PR-head code: starts on `indri` are a main push, a
+# schedule, or a dispatch by a write collaborator (eblume, or horkos-forge
+# under a warrant) - the #1358 privileged-label invariant.
 #
 # Usage:
 #   1. Go to Actions > Build BlumeOps > Run workflow
