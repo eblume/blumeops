@@ -1,0 +1,1 @@
+Review homepage: healthy at v1.13.2, the last v1 release of gethomepage — no newer version on the current train, so the app stays put and only `last-reviewed` is stamped; the v1→v2 migration (latest v2.4.0) is filed as its own issue. Adds the missing homepage reference card. Part of eblume/blumeops#1482.

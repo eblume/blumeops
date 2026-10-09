@@ -49,7 +49,7 @@ cluster (see [[retire-minikube]]); newer apps use bare names.
 | `ollama` | ollama | `argocd/manifests/ollama/` | [[ollama]] |
 | `nvidia-device-plugin` | nvidia-device-plugin | `argocd/manifests/nvidia-device-plugin/` | [[nvidia-device-plugin]] |
 | `ntfy` | ntfy | `argocd/manifests/ntfy/` | [[ntfy]] |
-| `homepage` | homepage | `argocd/manifests/homepage/` | Homepage dashboard (no card yet) |
+| `homepage` | homepage | `argocd/manifests/homepage/` | [[homepage]] |
 | `prowler` | prowler | `argocd/manifests/prowler/` | [[prowler]] |
 
 No longer on Kubernetes: `cv` moved to indri (see [[cv]] and
