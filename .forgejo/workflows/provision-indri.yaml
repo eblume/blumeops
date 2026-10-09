@@ -37,7 +37,9 @@
 # The privileged-label invariant (#1358) holds by construction: the sole
 # trigger is workflow_dispatch, which no workflow can start on its own -
 # only a write collaborator (eblume, or horkos-forge under a warrant),
-# dispatching main's reviewed definition.
+# dispatching main's reviewed definition. It is the only workflow on the
+# dedicated `indri-priv` label, so the class is also bounded by label: no
+# `pull_request`-triggerable job can ever reach this runner.
 #
 # Docs: docs/explanation/warrant-approval-gated-runs.md,
 # docs/how-to/indri/provision.md (warrant-gated apply).
@@ -53,7 +55,7 @@ on:
 
 jobs:
   rebuild:
-    runs-on: indri
+    runs-on: indri-priv
     steps:
       # The raw dispatch input reaches this job only as an environment
       # variable. This step is the single fail-closed shape gate: a value

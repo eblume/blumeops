@@ -92,7 +92,7 @@ The forge has three namespaces:
 | `docs-checks` | PR/push | `indri-build` | Docs + changelog validation |
 | `flake-update` | dispatch | `nix-container-builder` | Ringtail flake input update (native nix on the ringtail nix runner) |
 | `lint` | PR/push | `indri-build` | Repo lint (prek hooks) |
-| `provision-indri` | dispatch | `indri` | Warrant-gated apply of a bound SHA's nix-darwin generation; fire-and-forget — green means the switch launched ([[provision]]) |
+| `provision-indri` | dispatch | `indri-priv` | Warrant-gated apply of a bound SHA's nix-darwin generation; fire-and-forget — green means the switch launched ([[provision]]) |
 | `run-script` | dispatch | `priv` | Warrant-gated one-off script run |
 
 PR jobs additionally end with the shared `.forgejo/actions/report-failure`

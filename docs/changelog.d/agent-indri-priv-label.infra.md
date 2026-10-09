@@ -1,0 +1,1 @@
+Move `provision-indri` onto the dedicated `indri-priv` runner label, advertised by the same physical indri runner alongside `indri`, and name both privileged labels in the warrant invariants doc — the warrant-only workflow class is now enforced by label as well as trigger (#1358).

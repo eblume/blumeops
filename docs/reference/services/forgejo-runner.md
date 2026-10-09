@@ -23,7 +23,7 @@ a minikube pod with a Docker-in-Docker sidecar — replaced in phase 0 of
 | **LaunchAgent** | `mcquack.eblume.forgejo-runner` (unit nix-managed — [[indri]] §Maintenance Notes) |
 | **Ansible role** | `ansible/roles/forgejo_runner/` (config, identity, cache maintenance agents) |
 | **Runner Name** | `indri-runner` |
-| **Labels** | `indri` |
+| **Labels** | `indri` + `indri-priv` (dedicated to warrant-dispatched provision-indri; same physical runner) |
 | **Capacity** | 2 concurrent jobs |
 | **Timeout** | 3h |
 | **Forgejo Instance** | https://forge.ops.eblu.me |
