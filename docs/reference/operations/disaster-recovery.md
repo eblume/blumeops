@@ -1,7 +1,7 @@
 ---
 title: Disaster Recovery
-modified: 2026-03-23
-last-reviewed: 2026-03-23
+modified: 2026-10-09
+last-reviewed: 2026-10-09
 tags:
   - operations
 ---
@@ -16,7 +16,7 @@ Recovery procedures for BlumeOps infrastructure.
 |----------|-------|
 | Indri reboot/power loss | [[restart-indri]] |
 | Ringtail reboot/power loss/hardware swap | [[restart-ringtail]] |
-| Ringtail/k3s rebuild | [[ringtail]] provisioning (`mise run provision-ringtail`) + ArgoCD bootstrap per [[retire-minikube]] phase 4 |
+| Ringtail/k3s rebuild | [[ringtail]] provisioning (`mise run provision-ringtail`, which also seeds the 1Password Connect secrets) + a manual ArgoCD bootstrap: `kubectl apply -k argocd/manifests/argocd` on ringtail, then `argocd/apps/argocd.yaml` self-manages (see [[argocd]]) |
 | Lost 1Password access | [[restore-1password-backup]] |
 
 ## Components
