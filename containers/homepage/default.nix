@@ -1,5 +1,5 @@
 # Nix-built gethomepage/homepage dashboard
-# Builds v1.13.2 from forge mirror.
+# Builds v2.4.0 from forge mirror.
 #
 # Adapted from nixpkgs pkgs/by-name/ho/homepage-dashboard (commit master),
 # changed to fetch from our forge mirror and wrap with dockerTools for an
@@ -11,7 +11,7 @@
 { pkgs ? import <nixpkgs> { } }:
 
 let
-  version = "1.13.2";
+  version = "2.4.0";
 
   homepage = pkgs.stdenv.mkDerivation (finalAttrs: {
     pname = "homepage-dashboard";
@@ -20,14 +20,14 @@ let
     src = pkgs.fetchgit {
       url = "https://forge.ops.eblu.me/mirrors/homepage.git";
       rev = "v${version}";
-      hash = "sha256-d6NNtaThDfVErGx7fFdqLdjx4UZXMN6CZUBpMZFZYhQ=";
+      hash = "sha256-DQ0rBBbq2qCMMnasA9lQADUExQf3tWVruanok7DkR1k=";
     };
 
     pnpmDeps = pkgs.fetchPnpmDeps {
       inherit (finalAttrs) pname version src;
       pnpm = pkgs.pnpm_10;
       fetcherVersion = 3;
-      hash = "sha256-jAcAbi++Wbyi07YdPuIhDAeNT4fJVAIxp51boD30x3k=";
+      hash = "sha256-4mo4E91JC5cucw2kkRpvhGPP/eE6j5CUEhFbxkJpKqw=";
     };
 
     nativeBuildInputs = [
@@ -38,7 +38,7 @@ let
     ];
 
     buildInputs = [
-      pkgs.nodePackages.node-gyp-build
+      pkgs.node-gyp-build
     ];
 
     env.PYTHON = "${pkgs.python3}/bin/python";
