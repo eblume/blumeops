@@ -906,9 +906,13 @@ in
 
   # Enable nix flakes
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  # The nix-container-builder runner's nix builds run as the runner's (untrusted)
+  # dynamic user: nixos-26.05 defaults trusted-users to [ "root" ] and allowed-users
+  # to "*", so no extra trust is needed and none is granted (blumeops#1358 amendment 1 -
+  # a trusted runner could add unsigned paths to the store and build root's system).
+  # The flake invariant in invariants.nix fails the build if the runner user is
+  # ever trusted again.
 
-  # Allow the runner's dynamic user to access the nix daemon
-  nix.settings.trusted-users = [ "gitea-runner" ];
   # Weekly store GC: `--delete-older-than` prunes profile generations
   # (system + per-user) older than 30d, keeping the current generation
   # and the newest within the window. Complements, not replaces, the

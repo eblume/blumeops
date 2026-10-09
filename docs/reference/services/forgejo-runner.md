@@ -59,7 +59,10 @@ token):
 
 - `ringtail-nix-builder` (`nix-container-builder` label) — the
   `build-container.yaml` nix build job, as the module's DynamicUser
-  `gitea-runner`.
+  `gitea-runner`. That user is **not** a trusted nix user
+  (`nix.settings.trusted-users` is the nixos-26.05 default `[ "root" ]`);
+  `allowed-users = *` gives it plain daemon access, which `nix build`
+  needs (blumeops#1358 amendment 1).
 - `ringtail-priv-runner` (`priv` label) — privileged dispatch-only
   workflows ([[warrant-approval-gated-runs]] Phase 2): argocd-deploy
   today, `provision-*` later. Deliberately NOT host-mode-as-erichblume:
