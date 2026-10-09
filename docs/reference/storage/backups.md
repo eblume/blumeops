@@ -1,6 +1,6 @@
 ---
 title: Backups
-modified: 2026-10-07
+modified: 2026-10-08
 last-reviewed: 2026-10-04
 tags:
   - storage
@@ -111,17 +111,16 @@ export BORG_PASSCOMMAND="cat /Users/erichblume/.borg/config.yaml"
 # Newest talos-data archive in the local repo:
 /opt/homebrew/bin/borg list /Volumes/backups/borg | grep talos-data-
 
-# Stream the tar out (don't leave a 3 GB file on disk) and find the session:
-/opt/homebrew/bin/borg extract --stdout /Volumes/backups/borg::<talos-data-archive> \
-  Users/erichblume/.local/share/borgmatic/k8s-dumps-talos/talos-data.tar > /tmp/talos-data.tar
-tar -tf /tmp/talos-data.tar | grep <session-id>
-
-# Extract just that session file:
+# Stream the tar straight into tar(1) and pull out only the session (one pass,
+# no 3 GB temp file; bsdtar matches the glob against member paths):
 mkdir -p /tmp/restore
-tar -xf /tmp/talos-data.tar -C /tmp/restore <the-member-path-from-above>
+/opt/homebrew/bin/borg extract --stdout /Volumes/backups/borg::<talos-data-archive> \
+  Users/erichblume/.local/share/borgmatic/k8s-dumps-talos/talos-data.tar \
+  | /usr/bin/tar -xvf - -C /tmp/restore "*<session-id>*"
+# -> x data/sessions/<timestamp>_<session-id>.jsonl
 ```
 
-Then copy the `.jsonl` into the live session pod's `~/data/sessions/` from ringtail (`sudo k3s kubectl cp ... talos-<pod>:/home/talos/data/sessions/`). The tar is uncompressed; `session-index.sqlite` is in the same tar if the index needs it. (Offsite equivalent: `ssh -i ~/.ssh/borgbase_ed25519 u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo`.)
+Then `scp` the `.jsonl` to ringtail and copy it into the live session pod's `~/data/sessions/` under its original filename (`kubectl -n talos cp -c talos <file> talos/<talos-pod>:/home/talos/data/sessions/<file>`); compare `shasum -a 256` on indri with `sha256sum` in the pod. The tar is uncompressed; `session-index.sqlite` is in the same tar if the index needs it. (Offsite equivalent: `ssh -i ~/.ssh/borgbase_ed25519 u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo`.)
 
 Restore talos sessions from a `talos-data-*` archive only — older `indri-*` main archives carry a stale `k8s-dumps/talos-data.tar` (removed from the live staging dir by the next provision; it disappears from new main archives at the next run).
 
@@ -129,7 +128,7 @@ Restore talos sessions from a `talos-data-*` archive only — older `indri-*` ma
 
 The session reaper (eblume/talos#295) deletes transcripts idle for `TALOS_SESSION_REAPER_DAYS` (default 30) days to keep the PVC small. Deletion is interlocked on the never-pruned `talos-data-*` archives above — a file is deleted only once both repos' last backup strictly post-dates it — so a reaped transcript is always recoverable. A reaped session keeps a tombstone in `~/data/tombstones.json` (id, name, origin, timestamps, cost) and renders as "archived, restore from borg" in the Issues view and session list.
 
-Restoring one is the single-session restore above, with the catch that the reaper's idle clock is the transcript's *content* last-activity (rescanned into `session-index.sqlite` on every sync, not the file's mtime) — a restored file carries its old last-activity, so it is still idle and passes the backup interlock straight away (both `borg extract` and `kubectl cp` restore the original mtime).
+Restoring one is the single-session restore above, with the catch that the reaper's idle clock is the transcript's *content* last-activity (rescanned into `session-index.sqlite` on every sync, not the file's mtime) — a restored file carries its old last-activity, so it is still idle. `kubectl cp` does **not** keep the original mtime, though: the copied file is stamped with the copy time, so the per-file backup interlock skips it (and counts it in `talos_reaper_blocked_total`) until the next nightly `talos-data-*` archive post-dates it. After that it is an ordinary idle candidate again.
 
 - **Open the session after copying it back.** A live session (in the pod's in-memory session map, `isLive`) is exempt from the sweep — but only until the next talos pod restart. Restarts are frequent (every talos pin merge, often several a day), and the reaper sweeps once at boot, so an opened-but-untouched restored session is reaped again on the first sweep after the next restart, possibly the same day.
 - **To keep it for another `TALOS_SESSION_REAPER_DAYS` days, post a turn in it.** That bumps the content last-activity and starts a fresh idle period.
