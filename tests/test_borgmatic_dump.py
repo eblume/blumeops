@@ -192,12 +192,20 @@ class Stubs:
         return env
 
     def run(self, *args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(
+        # Capture binary: tar dumps stream real ustar bytes on stdout,
+        # which are not valid UTF-8 (e.g. the header checksum field),
+        # so text=True dies with UnicodeDecodeError on the runner.
+        r = subprocess.run(
             [BASH, str(SCRIPT), *args],
             env=self.env(),
             capture_output=True,
-            text=True,
             check=False,
+        )
+        return subprocess.CompletedProcess(
+            r.args,
+            r.returncode,
+            r.stdout.decode("utf-8", "replace"),
+            r.stderr.decode("utf-8", "replace"),
         )
 
     def log_lines(self) -> list[str]:
