@@ -1573,7 +1573,7 @@ data:
         {
           "type": "table",
           "title": "Workflow last success",
-          "description": "Time since each workflow on a default branch last succeeded (from the last 30 runs per repo). Long ages on scheduled workflows are the thing to look at.",
+          "description": "Time since each workflow last succeeded (any branch). Workflows with no run in 90 days drop out unless they are scheduled, so a schedule that stopped firing stays here and ages. Long ages on scheduled workflows are the thing to look at.",
           "id": 123,
           "datasource": {
             "type": "prometheus",

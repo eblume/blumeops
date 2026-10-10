@@ -130,6 +130,31 @@ SELECT line FROM (
   SELECT printf('forgejo_ci_approval_oldest_age_seconds{repo="%s"} %d', repo, (SELECT ts FROM nowts) - min(created))
   FROM gated GROUP BY repo
 
+  -- Repo freshness, read here rather than per repo over the API. Forks are
+  -- skipped, as in the API section.
+  UNION ALL
+  SELECT printf('forgejo_repo_latest_commit_timestamp_seconds{repo="%s"} %d', rp.owner_name || '/' || rp.name, b.commit_time)
+  FROM repository rp
+  JOIN branch b ON b.repo_id = rp.id AND b.name = rp.default_branch AND coalesce(b.is_deleted, 0) = 0
+  WHERE coalesce(rp.is_fork, 0) = 0 AND b.commit_time > 0
+  -- Last successful run per workflow. A workflow with no run in 90 days
+  -- drops out (that is how a deleted workflow file stops being reported),
+  -- unless it is scheduled: a schedule that silently stopped firing is
+  -- exactly what this series should keep showing.
+  UNION ALL
+  SELECT printf('forgejo_actions_last_success_timestamp_seconds{repo="%s",workflow="%s"} %d', repo, workflow, last_ok)
+  FROM (
+    SELECT coalesce(repo.full, 'unknown') AS repo, r.repo_id, r.workflow_id,
+           replace(replace(r.workflow_id, '.yaml', ''), '.yml', '') AS workflow,
+           max(CASE WHEN r.status = 1 THEN r.stopped END) AS last_ok,
+           max(r.created) AS last_run
+    FROM action_run r LEFT JOIN repo ON repo.id = r.repo_id
+    GROUP BY r.repo_id, r.workflow_id
+  ) w
+  WHERE last_ok > 0
+    AND (last_run > (SELECT ts FROM nowts) - 90 * 86400
+         OR EXISTS (SELECT 1 FROM action_schedule s WHERE s.repo_id = w.repo_id AND s.workflow_id = w.workflow_id))
+
   -- Runners seen in the last 30 days (older rows are retired registrations).
   UNION ALL
   SELECT printf('forgejo_ci_runner_last_online_timestamp_seconds{runner="%s"} %d', name, max(last_online))
@@ -166,7 +191,7 @@ cat << 'HEADER'
 # TYPE forgejo_repo_latest_release_timestamp_seconds gauge
 # HELP forgejo_repo_latest_commit_timestamp_seconds Unix timestamp of the latest commit on default branch
 # TYPE forgejo_repo_latest_commit_timestamp_seconds gauge
-# HELP forgejo_actions_last_success_timestamp_seconds Unix timestamp of last successful run per workflow
+# HELP forgejo_actions_last_success_timestamp_seconds Unix timestamp of the last successful run per workflow (workflows run in the last 90 days)
 # TYPE forgejo_actions_last_success_timestamp_seconds gauge
 # HELP forgejo_ci_collector_up 1 if the CI section read the Forgejo DB this cycle
 # TYPE forgejo_ci_collector_up gauge
@@ -201,24 +226,28 @@ HEADER
 echo "forgejo_up ${forgejo_up}"
 
 if [ "$forgejo_up" -eq 1 ] && [ -n "$TOKEN" ]; then
-    # Discover all repos accessible to the token owner
-    repos_json=$(api "/repos/search?limit=50")
-    [ -z "$repos_json" ] && repos_json='{"data":[]}'
+    # Every repo, a page at a time (the search caps a page at 50). Forks are
+    # skipped: they are the agents/* bot forks of eblume repos, and would
+    # double-count languages and releases. One jq pass per page, not per field.
+    repo_rows=""
+    page=1
+    while [ "$page" -le 20 ]; do
+        page_json=$(api "/repos/search?limit=50&page=${page}")
+        n=$(echo "$page_json" | jq '.data | length' 2>/dev/null || echo 0)
+        rows=$(echo "$page_json" | jq -r '.data[]? | select(.fork | not)
+            | [.full_name, (.open_pr_counter // 0), (.open_issues_count // 0)] | @tsv' 2>/dev/null || true)
+        if [ -n "$rows" ]; then repo_rows="${repo_rows}${rows}"$'\n'; fi
+        if [ "${n:-0}" -lt 50 ]; then break; fi
+        page=$((page + 1))
+    done
 
-    repo_count=$(echo "$repos_json" | jq '.data | length' 2>/dev/null || echo "0")
-
-    for i in $(seq 0 $((repo_count - 1))); do
-        repo_data=$(echo "$repos_json" | jq ".data[$i]")
-        full_name=$(echo "$repo_data" | jq -r '.full_name')
-        [ -z "$full_name" ] || [ "$full_name" = "null" ] && continue
-
-        r="$full_name"
-
-        # Basic repo metrics (from search results — no extra API call)
-        echo "forgejo_repo_open_pull_requests{repo=\"${r}\"} $(echo "$repo_data" | jq '.open_pr_counter // 0')"
-        echo "forgejo_repo_open_issues{repo=\"${r}\"} $(echo "$repo_data" | jq '.open_issues_count // 0')"
-
-        default_branch=$(echo "$repo_data" | jq -r '.default_branch // "main"')
+    # Latest commit and last workflow success come from the DB section
+    # below: per repo they cost ~0.25 s (commits) and up to 3 s (the
+    # contents listing that filtered deleted workflows) over the API.
+    while IFS=$'\t' read -r r prs issues; do
+        [ -z "$r" ] && continue
+        echo "forgejo_repo_open_pull_requests{repo=\"${r}\"} ${prs}"
+        echo "forgejo_repo_open_issues{repo=\"${r}\"} ${issues}"
 
         # --- Languages ---
         langs=$(api "/repos/${r}/languages")
@@ -241,50 +270,7 @@ if [ "$forgejo_up" -eq 1 ] && [ -n "$TOKEN" ]; then
         else
             echo "forgejo_repo_releases_total{repo=\"${r}\"} 0"
         fi
-
-        # --- Latest commit on default branch ---
-        commits=$(api "/repos/${r}/commits?limit=1&sha=${default_branch}")
-        if [ -n "$commits" ] && echo "$commits" | jq -e 'type == "array" and length > 0' >/dev/null 2>&1; then
-            echo "$commits" | jq -r --arg r "$r" "${JQ_EPOCH}"'
-                .[0] |
-                "forgejo_repo_latest_commit_timestamp_seconds{repo=\"\($r)\"} \((.created // .commit.committer.date) | epoch)"' \
-                2>/dev/null || true
-        fi
-
-        # --- Action runs: last success per workflow (all other CI metrics
-        # come from the DB section below) ---
-        runs_json=$(api "/repos/${r}/actions/runs?limit=30")
-        if [ -n "$runs_json" ] && echo "$runs_json" | jq -e '.workflow_runs | type == "array"' >/dev/null 2>&1; then
-            # Discover current workflow files on the default branch (.forgejo/ or .github/)
-            current_wfs=""
-            for wf_dir in .forgejo/workflows .github/workflows; do
-                wf_list=$(api "/repos/${r}/contents/${wf_dir}?ref=${default_branch}")
-                if [ -n "$wf_list" ] && echo "$wf_list" | jq -e 'type == "array"' >/dev/null 2>&1; then
-                    current_wfs=$(echo "$wf_list" | jq -r '[.[].name] | join(",")' 2>/dev/null || true)
-                    break
-                fi
-            done
-
-            # Per-workflow last success timestamp, for workflows that
-            # currently exist on the default branch.
-            # Forgejo fields: workflow_id (filename), created/stopped
-            if [ -n "$current_wfs" ]; then
-                echo "$runs_json" | jq -r --arg r "$r" --arg wfs "$current_wfs" "${JQ_EPOCH}"'
-                    ($wfs | split(",")) as $current |
-                    [.workflow_runs[] | select((.status == "success" or .status == "failure") and (.workflow_id | IN($current[])))] |
-                    if length > 0 then
-                        group_by(.workflow_id) | .[] |
-                        (sort_by(.created) | reverse) as $sorted |
-                        ($sorted[0].workflow_id | sub("[.]ya?ml$"; "")) as $wf |
-                        ([$sorted[] | select(.status == "success")] |
-                            if length > 0 then
-                                .[0] as $last_ok |
-                                "forgejo_actions_last_success_timestamp_seconds{repo=\"\($r)\",workflow=\"\($wf)\"} \($last_ok.stopped | epoch)"
-                            else empty end)
-                    else empty end' 2>/dev/null || true
-            fi
-        fi
-    done
+    done <<< "$repo_rows"
 fi
 
 # --- CI metrics from the Forgejo DB (read-only) ---

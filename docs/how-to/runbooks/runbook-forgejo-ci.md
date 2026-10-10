@@ -47,8 +47,11 @@ label queue until it comes back. "Configured" means it has a
 ## ForgejoCICollectorDown
 
 `forgejo_ci_collector_up` is 0: the `sqlite3` read of
-`~/forgejo/data/forgejo.db` failed. The repo and API metrics in the same file
-keep working, so `TextfileStale` stays quiet.
+`~/forgejo/data/forgejo.db` failed. Every `forgejo_ci_*` series is missing,
+along with `forgejo_repo_latest_commit_timestamp_seconds` and
+`forgejo_actions_last_success_timestamp_seconds`, which come from the same
+query. The API-sourced repo metrics keep the file fresh, so `TextfileStale`
+stays quiet.
 
 1. Reproduce the error. The collector hides sqlite's stderr, so copy the
    `ci_sql` heredoc out of `darwin/indri/mcquack-forgejo-metrics.sh` into a

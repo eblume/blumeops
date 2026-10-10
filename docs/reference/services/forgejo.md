@@ -223,6 +223,8 @@ Forgejo's `/metrics` has nothing on Actions, and the API has no queue or timing 
 - **Busy time:** busy-seconds per runner, against a static `forgejo_ci_runner_capacity` that mirrors each runner's configured slots.
 - **Live state:** queued/running jobs, and open PRs blocked on "Approve and run".
 
+The same query also supplies `forgejo_repo_latest_commit_timestamp_seconds` (from the `branch` table) and `forgejo_actions_last_success_timestamp_seconds`. Workflows with no run in 90 days drop out unless they are scheduled. Only languages, releases and the repo list still come from the API, paged and skipping forks. This brings a cycle down from about 50 s to about 4 s.
+
 The Forgejo Grafana dashboard's CI rows are built on these metrics. `ForgejoRunnerOffline` and `ForgejoCICollectorDown` alert on them ([[runbook-forgejo-ci]]).
 
 ### Archive Cleanup
