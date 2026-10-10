@@ -1,7 +1,7 @@
 ---
 title: Immich
-modified: 2026-09-04
-last-reviewed: 2026-03-23
+modified: 2026-10-10
+last-reviewed: 2026-10-10
 tags:
   - service
   - media
@@ -49,3 +49,5 @@ guard blocks startup.
 - [[postgresql]] - Database backend
 - [[sifaka|Sifaka]] - Photo storage
 - [[jellyfin]] - Video streaming (separate service)
+- [[caddy]] - Reverse proxy for `photos.ops.eblu.me` / `photos.eblu.me`
+- [[service-versions]] - Tracked upstream version inventory

@@ -1,8 +1,6 @@
 # Immich on ringtail k3s.
 #
-# Staging deployment; the minikube `immich` app remains in parallel
-# until cutover. See [[immich-cutover-and-decommission]] for the
-# routing flip + minikube cleanup.
+# See [[immich-cutover-and-decommission]] for the routing flip + minikube cleanup.
 #
 # Prerequisites:
 # - cnpg-on-ringtail + databases-ringtail (postgres)
