@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-10-05
+modified: 2026-10-10
 last-reviewed: 2026-08-29
 tags:
   - service
@@ -213,6 +213,17 @@ The UI shows `forge.ops.eblu.me` for both HTTPS and SSH clone URLs.
 Forgejo exposes a Prometheus `/metrics` endpoint (enabled via `[metrics]` in `app.ini`). Alloy on indri scrapes it at `localhost:3001/metrics`. Metrics are mostly Go runtime stats and repo counters (no per-request latency histogram).
 
 Request latency is measured at the Fly.io proxy layer via the `flyio_nginx_upstream_response_time_seconds` histogram, visible on the Forgejo Grafana dashboard under "Mirror: Upstream Response Time".
+
+### CI (Actions) metrics
+
+Forgejo's `/metrics` has nothing on Actions, and the API has no queue or timing history. So the indri collector `darwin/indri/mcquack-forgejo-metrics.sh` reads Forgejo's sqlite DB read-only every minute and writes `forgejo_ci_*` series into `forgejo.prom`:
+
+- **Counts:** finished job attempts by repo, workflow, runner label and result.
+- **Histograms:** queue wait (ready → picked up, split by `gate="none|approval"`) and job duration, per runner label.
+- **Busy time:** busy-seconds per runner, against a static `forgejo_ci_runner_capacity` that mirrors each runner's configured slots.
+- **Live state:** queued/running jobs, and open PRs blocked on "Approve and run".
+
+The Forgejo Grafana dashboard's CI rows are built on these metrics. `ForgejoRunnerOffline` and `ForgejoCICollectorDown` alert on them ([[runbook-forgejo-ci]]).
 
 ### Archive Cleanup
 
