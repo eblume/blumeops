@@ -69,7 +69,7 @@ upstream release, then bump the pin and re-provision.
 | Device | Managed by | Pin | Converged by |
 |--------|-----------|-----|--------------|
 | **indri** (hub) | `ansible/roles/heph` | `heph_version` (`defaults/main.yml`) | `mise run provision-indri -- --tags heph` — installs/upgrades `hephd` to the pinned tag on every run |
-| **ringtail-agent** (spoke) | `nixos/ringtail/agent-workspaces.nix` | `hephTag` (`heph-common.nix`) | the `agent-heph-install` oneshot's timer re-check, in the background after the nixos rebuild (never inside the switch) |
+| **ringtail-agent** (spoke) | `nixos/ringtail/agent-heph-spoke.nix` | `hephTag` (`heph-common.nix`) | the `agent-heph-install` oneshot's timer re-check, in the background after the nixos rebuild (never inside the switch) |
 | **ringtail-eblume** (desktop spoke) | `nixos/ringtail/heph-eblume.nix` | `hephTag` (`heph-common.nix`) | the `eblume-heph-install` oneshot, same mechanism — see [Desktop surfaces](#desktop-surfaces-on-ringtail) |
 | **gilbert** (spoke) | manual (not yet IaC) | — | hand `cargo install --tag`; see [Connecting a spoke](#connecting-a-spoke-eg-gilbert) |
 
@@ -263,7 +263,7 @@ heph daemon stop        # or: launchctl unload ~/Library/LaunchAgents/<label>.pl
 
 # 4. Pin hephd to the network's current tag (matches heph_version in ansible).
 RUSTUP_TOOLCHAIN=stable ~/.cargo/bin/cargo install --locked \
-  --git https://forge.eblu.me/eblume/hephaestus.git --tag v1.10.5 heph hephd
+  --git https://forge.eblu.me/eblume/hephaestus.git --tag v1.10.6 heph hephd
 
 # 5. Reload via launchctl (NOT `heph daemon`, which would re-add self-update).
 launchctl unload ~/Library/LaunchAgents/<label>.plist 2>/dev/null || true
