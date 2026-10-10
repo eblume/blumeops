@@ -1,0 +1,1 @@
+forgejo_runner: the build-runner colima profile compare matches the managed keys only (colima rewrites the rest on start, so a byte compare restarted the VM every apply), and the three build-runner installs report honestly under --check.

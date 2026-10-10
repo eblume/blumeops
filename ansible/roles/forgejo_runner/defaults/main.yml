@@ -170,4 +170,7 @@ forgejo_runner_build_colima_profile_dir: /Users/indri-build/.colima/indri-build
 forgejo_runner_build_colima_yaml: "{{ forgejo_runner_build_colima_profile_dir }}/colima.yaml"
 # The seed colima uses for a brand-new instance (see the build runner tasks).
 forgejo_runner_build_colima_template: /Users/indri-build/.colima/_templates/default.yaml
+# Keys the role manages in the profile; the profile compare matches only
+# these, because colima rewrites the rest (full commented defaults) on start.
+forgejo_runner_profile_managed_keys: [cpu, disk, memory, vmType, mountType, mounts, docker]
 forgejo_runner_build_colima_label: mcquack.eblume.colima-build
