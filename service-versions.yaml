@@ -547,7 +547,7 @@ services:
     type: ansible
     release: self
     last-reviewed: 2026-09-20
-    current-version: "v1.10.5"
+    current-version: "v1.10.6"
     upstream-source: https://forge.ops.eblu.me/eblume/hephaestus/releases
     notes: >-
       hephaestus task/context sync hub on indri (server-mode launchagent,
@@ -563,7 +563,7 @@ services:
     type: nixos
     release: self
     last-reviewed: 2026-07-09
-    current-version: "v1.10.5"
+    current-version: "v1.10.6"
     upstream-source: https://forge.ops.eblu.me/eblume/hephaestus/releases
     notes: >-
       hephd spoke for the ringtail agent workspaces (nixos/ringtail/
@@ -579,7 +579,7 @@ services:
     type: nixos
     release: self
     last-reviewed: 2026-07-30
-    current-version: "v1.10.5"
+    current-version: "v1.10.6"
     upstream-source: https://forge.ops.eblu.me/eblume/hephaestus/releases
     notes: >-
       2026-07-30: Erich's own desktop spoke on ringtail — hephd plus the three
