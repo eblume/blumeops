@@ -1,0 +1,1 @@
+Forgejo CI observability: the indri forgejo collector now reads Actions job, queue-wait, runner-utilization and approval-backlog metrics from Forgejo's DB, and covers every repo while dropping a cycle from ~50 s to ~4 s. The Forgejo dashboard is rebuilt around these metrics, and new `ForgejoRunnerOffline`/`ForgejoCICollectorDown` alerts watch the runners.
