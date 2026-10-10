@@ -37,6 +37,23 @@
     mode: '0600'
   no_log: true
 
+# Ringtail dump endpoint - the private key is provisioned by hand on indri
+# (eblume/blumeops#1484); 1Password (blumeops vault, human-only) is the copy of
+# record. Fail the provision if it is missing rather than wedging the nightly.
+- name: Check ringtail dump endpoint SSH key exists
+  ansible.builtin.stat:
+    path: "{{ borgmatic_ringtail_ssh_key_path }}"
+  register: borgmatic_ringtail_key
+
+- name: Fail if ringtail dump endpoint SSH key is missing
+  ansible.builtin.fail:
+    msg: >-
+      {{ borgmatic_ringtail_ssh_key_path }} is missing on indri. It is
+      provisioned by hand (ssh-keygen -t ed25519 -C borgmatic@indri); the
+      copy of record is 1Password, blumeops vault, "borgmatic ringtail SSH
+      key". Restore it from there before re-running.
+  when: not borgmatic_ringtail_key.stat.exists
+
 # BorgBase offsite backup - SSH key and host verification
 - name: Deploy BorgBase SSH private key
   ansible.builtin.copy:

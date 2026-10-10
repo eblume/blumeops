@@ -4,9 +4,8 @@
 # user (its only privilege) with exactly one argument: a name from the fixed
 # table at the bottom. The dump streams to stdout; diagnostics go to stderr.
 #
-# The table mirrors the remote halves of indri's borgmatic role
-# (ansible/roles/borgmatic/defaults/main.yml + k8s-{sqlite,file,tar}-dump.sh.j2);
-# the indri side switches to call this by name in eblume/blumeops#1484 PR 2.
+# The table is the single source of truth for the dump parameters; indri's
+# borgmatic role (ansible/roles/borgmatic) calls this by name only.
 set -euo pipefail
 
 # Pinned store path under root (the sudo path); the env override exists for

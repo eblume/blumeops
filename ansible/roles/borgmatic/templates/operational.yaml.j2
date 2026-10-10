@@ -54,10 +54,9 @@ match_archives: 'operational-*'
 #
 # Quoting/escaping for the k8s hooks is delegated to the helper scripts
 # deployed by the borgmatic ansible role. Each k8s entry's `target` is either:
-#   - local:<context>  -> local kubectl with --context (mealie etc.)
-#   - ssh:<user@host>  -> ssh + k3s kubectl on the cluster host,
-#                         used for ringtail since indri's kubeconfig
-#                         deliberately doesn't carry that context.
+#   - local:<context>  -> local kubectl with --context (unused today)
+#   - ssh:borgmatic@ringtail -> ringtail dump endpoint (forced command;
+#                               only the dump name is sent)
 commands:
     - before: configuration
       when: [create]
@@ -70,14 +69,14 @@ commands:
           - test -f "{{ db.path }}" && sqlite3 "{{ db.path }}" ".backup '{{ borgmatic_operational_dump_dir }}/{{ db.name }}.db'"
 {% endfor %}
 {% for db in borgmatic_k8s_sqlite_dumps %}
-          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-sqlite-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.db_path }} {{ db.name }} {{ borgmatic_operational_dump_dir }}/{{ db.name }}.db
+          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-sqlite-dump {{ db.target }} {{ db.name }} {{ borgmatic_operational_dump_dir }}/{{ db.name }}.db
 {% endfor %}
 {% for db in borgmatic_k8s_file_dumps %}
-          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-file-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} '{{ db.glob }}' {{ db.name }} {{ borgmatic_operational_dump_dir }}/{{ db.name }}.db{{ ' ' ~ db.pvc_name if db.pvc_name is defined else '' }}
+          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-file-dump {{ db.target }} {{ db.name }} {{ borgmatic_operational_dump_dir }}/{{ db.name }}.db
 {% endfor %}
 {% for db in borgmatic_k8s_tar_dumps | rejectattr('name', 'equalto', 'talos-data') %}
           # talos-data is excluded: its own config (talos-data.yaml) owns its dump and archive.
-          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-tar-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} {{ db.name }} {{ borgmatic_operational_dump_dir }}/{{ db.name }}.tar{{ ' ' ~ db.container if db.container is defined else '' }}
+          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-tar-dump {{ db.target }} {{ db.name }} {{ borgmatic_operational_dump_dir }}/{{ db.name }}.tar
 {% endfor %}
 {% endif %}
 

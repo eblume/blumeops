@@ -98,13 +98,15 @@ the never-pruned `indri-*` archives):
 - [[hephaestus|heph]] hub - `~/.local/share/heph/heph.db` (canonical task/context store)
 - [[forgejo]] - `~/forgejo/data/forgejo.db` (the live WAL-mode DB excluded from the `~/forgejo` source dir above; the git repos come from the directory)
 
+All ringtail k8s dumps below run through ringtail's `borgmatic` dump endpoint (dedicated `borgmatic` user, forced command — [[ringtail]] §Borgmatic dump endpoint, eblume/blumeops#1484); indri sends only the dump name.
+
 **K8s SQLite databases (pre-backup dump via kubectl exec):**
 - [[mealie]] - Recipe manager (`/app/data/mealie.db`)
 - [[horkos]] - approval-queue dispatch (`/data/horkos.db`, on ringtail)
 
 **K8s service-produced backup files (newest ferried off the PVC):**
 - [[navidrome]] - music DB: users, play counts, playlists (navidrome's own `ND_BACKUP_*` snapshot in `/data/backup`)
-- pulumi-stack-backup — Pulumi Cloud stack state, one ferry each for the two stacks `tail8d86e` and `eblu-me` (`pulumi stack export --show-secrets`, read straight off the PV via `pv:` mode; exports contain plaintext secret values — borg repo encryption is the control; restore: [[restore-pulumi-state]])
+- pulumi-stack-backup — Pulumi Cloud stack state, one ferry each for the two stacks `tail8d86e` and `eblu-me` (`pulumi stack export --show-secrets`; the ringtail dump endpoint reads straight off the PV — a missing or empty export keeps the previous staged file; exports contain plaintext secret values — borg repo encryption is the control; restore: [[restore-pulumi-state]])
 
 **K8s pod data directories (in-pod tar, streamed back):**
 - paperless-ngx — document library: originals, archived, thumbnails (NFS media PVC on [[sifaka]]); multi-container pod, tarred in the `web` container
