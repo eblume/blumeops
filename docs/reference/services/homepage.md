@@ -1,7 +1,7 @@
 ---
 title: Homepage
-modified: 2026-10-08
-last-reviewed: 2026-10-08
+modified: 2026-10-10
+last-reviewed: 2026-10-10
 tags:
   - service
   - dashboard
@@ -19,7 +19,7 @@ Self-hosted dashboard of links and service widgets.
 | **Namespace** | `homepage` |
 | **Image** | `registry.ops.eblu.me/blumeops/homepage` (nix-built, see `containers/homepage/default.nix`; current tag in `argocd/manifests/homepage/kustomization.yaml`) |
 | **Upstream** | https://github.com/gethomepage/homepage |
-| **Tracked upstream version** | `v1.13.2` (last v1 release; v2 migration pending) |
+| **Tracked upstream version** | `v2.4.0` (migrated from v1.13.2, the last v1 release) |
 | **Config** | six YAML files in `argocd/manifests/homepage/` (`bookmarks`, `services`, `widgets`, `kubernetes`, `docker`, `settings`) folded into the `homepage-config` ConfigMap by `configMapGenerator` |
 
 ## Deployment
