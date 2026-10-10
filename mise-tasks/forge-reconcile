@@ -143,6 +143,16 @@ fails the weekly schedule and the same-repo PR check without a human in the
 loop; the names are read from the role (it stays the single source) and no
 value is ever touched here.
 
+`--check` also asserts the #1358 privileged-runner-label policy: no repo
+targets a privileged runner label (indri, indri-priv, priv, or
+nix-container-builder) it is not declared to. It reads every repo's
+default-branch `.forgejo/workflows` via the API — the one directory Forgejo
+executes — and fails on any `runs-on` naming a privileged label the repo is
+not listed under in PRIVILEGED_LABEL_POLICY. This is the drift guard for the
+runner re-scoping: a repo that starts pointing a workflow at a privileged
+runner fails the weekly schedule (and the same-repo PR check) until the
+policy map and the registration both say so.
+
 Usage:
     mise run forge-reconcile --dry-run    # preview (do this first)
     mise run forge-reconcile              # apply
@@ -997,6 +1007,176 @@ def check_actions_secret_names(client, owner, report):
             report.ok(what)
 
 
+# --1358 privileged-runner-label policy: which repos may target each privileged
+# (host-mode, credential-bearing or dispatch-only) runner label, by FULL name.
+# A label is denied to every repo not listed under it, so a repo that starts
+# targeting a label — or a label that spreads to a new repo — fails the check
+# until this map (and the runner re-registration it encodes) both say so.
+# This guards the *label usage*, not the live registration: a `runs-on` is
+# what hands a repo's (possibly PR-head) code a slot on the runner, and it is
+# the thing a workflow change can introduce without a human re-auditing.
+PRIVILEGED_LABEL_POLICY: dict[str, set[str]] = {
+    "indri": {"blumeops"},
+    "indri-priv": {"blumeops"},
+    "priv": {"blumeops"},
+    "nix-container-builder": {"blumeops", "horkos", "talos"},
+}
+
+# A `runs-on` value is a scalar, a flow list, or a `${{ expr }}`. The labels it
+# names are its whole tokens: a bare word (splitting on `${{`/`}}` would leave
+# expression glue like `github.event_name`), or the quoted strings the
+# expression resolves to. We compare whole tokens, never substrings, so
+# `indri-build` is not `indri` and `nix-container-builder` is not `priv`.
+_RUNS_ON_KEY_RE = re.compile(r"^(\s*)runs-on:\s*(.*)$")
+_RUNS_ON_ITEM_RE = re.compile(r"^(\s*)-\s+(\S.*)$")
+_RUNS_ON_TOKEN_RE = re.compile(r"['\"](\w[\w-]*)['\"]|(?<![\w-])([\w-]+)(?![\w-])")
+
+
+def runs_on_labels(value):
+    """The runner labels a `runs-on` value names, as a set of whole tokens.
+    findall yields (quoted, unquoted) captures per match; keep whichever is
+    non-empty."""
+    return {q or u for q, u in _RUNS_ON_TOKEN_RE.findall(value) if q or u}
+
+
+def _strip_inline_comment(value):
+    """Cut an unquoted ` #` comment so free text (a label *named* in prose)
+    is not tokenized into the label set."""
+    quote = None
+    for i, ch in enumerate(value):
+        if quote:
+            if ch == quote:
+                quote = None
+        elif ch in "'\"":
+            quote = ch
+        elif ch == "#" and (i == 0 or value[i - 1] in " 	"):
+            return value[:i]
+    return value
+
+
+def _workflow_runs_on_labels(content):
+    """(token, value) pairs for every label token named on a `runs-on`,
+    covering the inline form, the `${{ }}` ternary, and the block form
+    (`runs-on:` followed by a deeper-indented `- item` list). `value` is the
+    raw text that named the token, for the report line."""
+    out = []
+    seen = set()
+    in_block = False
+    block_indent = -1
+    for line in content.splitlines():
+        m = _RUNS_ON_KEY_RE.match(line)
+        if m:
+            value = m.group(2).strip()
+            in_block = not value
+            block_indent = len(m.group(1))
+            if value:
+                for tok in runs_on_labels(_strip_inline_comment(value)):
+                    if tok not in seen:
+                        seen.add(tok)
+                        out.append((tok, value))
+            continue
+        if in_block:
+            item = _RUNS_ON_ITEM_RE.match(line)
+            if item and len(item.group(1)) > block_indent:
+                value = item.group(2).strip()
+                for tok in runs_on_labels(_strip_inline_comment(value)):
+                    if tok not in seen:
+                        seen.add(tok)
+                        out.append((tok, value))
+                continue
+            if line.strip():
+                in_block = False
+    return out
+
+
+def _get(client, path, params=None):
+    """GET with a retry on transient transport errors (proxy or network)."""
+    last = None
+    for _ in range(3):
+        try:
+            return client.get(path, params=params)
+        except httpx.TransportError as exc:
+            last = exc
+    raise last
+
+
+def _list_workflows(client, owner, repo, ref, directory):
+    """Workflow file paths under `directory` at `ref`; an absent dir is [].
+    A single GET, not paged(): the /contents endpoint returns the whole
+    listing at once and ignores the page param, so the shared pager would
+    spin forever on a non-empty directory. 403/404 both read as "no
+    workflows" (Forgejo 404s a missing dir and a repo the caller cannot see
+    alike)."""
+    try:
+        body = _get(client, f"/api/v1/repos/{owner}/{repo}/contents/{directory}", params={"ref": ref})
+        body.raise_for_status()
+        entries = body.json()
+    except (httpx.HTTPStatusError, ValueError) as exc:
+        if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (403, 404):
+            return []
+        raise
+    if not isinstance(entries, list):
+        return []
+    return [f"{directory}/{e['name']}" for e in entries if e.get("name", "").endswith((".yaml", ".yml"))]
+
+
+def check_privileged_labels(client, owner, report):
+    """No repo targets a privileged runner label it is not declared to (#1358).
+
+    Reads each of the owner's repos' default-branch workflow files via the
+    forge API and fails on any `runs-on` whose label is not in that repo's
+    PRIVILEGED_LABEL_POLICY set. Only `.forgejo/workflows` is scanned — the
+    one directory Forgejo executes, so an inert `.github/workflows` file can
+    never reach the runner and is out of scope. A `runs-on` may be a
+    `${{ ... }}` ternary, so a label counts as targeted if it appears in the
+    expression's source — the set of runners the line can ever resolve to.
+    The scan touches every repo the owner has, so the clean case prints one
+    summary line rather than a line per repo.
+    """
+    violations: dict[str, list[str]] = {}
+    scanned = 0
+    unscanned = 0
+    try:
+        repos = owner_repos(client, owner)
+    except (httpx.HTTPStatusError, httpx.TransportError, ValueError) as exc:
+        report.unknown("privileged-runner labels stay within their declared repos",
+                       f"could not list {owner}'s repos: {exc}")
+        unscanned += 1
+        return
+    for repo in sorted(repos):
+        full = f"{owner}/{repo}"
+        try:
+            resp = _get(client, f"/api/v1/repos/{owner}/{repo}")
+            resp.raise_for_status()
+            ref = resp.json().get("default_branch")
+            entries = _list_workflows(client, owner, repo, ref, ".forgejo/workflows") if ref else []
+        except (httpx.HTTPStatusError, httpx.TransportError, ValueError) as exc:
+            report.unknown(f"{full} targets only its declared privileged labels", f"cannot read repo: {exc}")
+            unscanned += 1
+            continue
+        if not entries:
+            continue
+        scanned += 1
+        for path in entries:
+            try:
+                resp = _get(client, f"/{owner}/{repo}/raw/branch/{ref}/{path}")
+                resp.raise_for_status()
+                content = resp.text
+            except (httpx.HTTPStatusError, httpx.TransportError) as exc:
+                report.unknown(f"{full} targets only its declared privileged labels", f"cannot read {path}: {exc}")
+                unscanned += 1
+                continue
+            for label, value in sorted(_workflow_runs_on_labels(content)):
+                allowed = PRIVILEGED_LABEL_POLICY.get(label)
+                if allowed is None or repo in allowed:
+                    continue
+                violations.setdefault(label, []).append(f"{full}:{path} → `{value}`")
+    for label, places in sorted(violations.items()):
+        report.fail(f"`{label}` is targeted only by its declared repos", "; ".join(places))
+    if not violations and not unscanned:
+        report.ok(f"no privileged-runner label outside its declared repos ({scanned} repos scanned)")
+
+
 # --pr-base-ref reads the PR base's declared state from git. The CI checkout
 # is shallow (PR merge ref only), so the base ref is not a local branch — fetch
 # it shallow to origin/<ref> first, then read that. The ref is validated against
@@ -1322,6 +1502,7 @@ def main(
             check_site_admin(client, env_findings)
             check_main_whitelist(client, owner, env_findings)
             check_actions_secret_names(client, owner, env_findings)
+            check_privileged_labels(client, owner, env_findings)
             if env_findings.failures:
                 raise typer.Exit(1)
 
