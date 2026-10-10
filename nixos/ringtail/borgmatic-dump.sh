@@ -8,6 +8,14 @@
 # borgmatic role (ansible/roles/borgmatic) calls this by name only.
 set -euo pipefail
 
+# sudo carries the caller's PATH unless sudoers sets secure_path; pin it for
+# the root (production) path. Tests run unprivileged with their own stub
+# PATH, mirroring the K3S guard below.
+if [[ ${EUID:-0} -eq 0 ]]; then
+  PATH=/run/current-system/sw/bin
+  export PATH
+fi
+
 # Pinned store path under root (the sudo path); the env override exists for
 # tests and dry-runs only and must stay inert when the script runs as root.
 K3S=/run/current-system/sw/bin/k3s

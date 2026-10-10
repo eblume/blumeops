@@ -9,7 +9,6 @@
 #   borgmatic-k8s-sqlite-dump <target> <name> <dump_target>
 #
 # <target> is one of:
-#   local:<context>   - unused today (kept as a documented placeholder)
 #   ssh:borgmatic@ringtail - ringtail dump endpoint (forced command; only
 #                       <name> travels over the wire)
 #
@@ -25,12 +24,6 @@ mode=${target%%:*}
 ref=${target#*:}
 
 case "$mode" in
-    local)
-        # No consumer uses local mode today; the ringtail endpoint is the
-        # only remote. The mode name stays as a documented placeholder.
-        echo "borgmatic-k8s-sqlite-dump: local mode is not wired ($name)" >&2
-        exit 2
-        ;;
     ssh)
         # The ringtail endpoint's key forces `sudo /etc/borgmatic/borgmatic-dump
         # <name>` (nixos/ringtail/configuration.nix), so the only dial over the
@@ -43,7 +36,7 @@ case "$mode" in
         ;;
     *)
         echo "borgmatic-k8s-sqlite-dump: unknown target mode: $mode" >&2
-        echo "  expected local:<context> or ssh:borgmatic@ringtail" >&2
+        echo "  expected ssh:borgmatic@ringtail" >&2
         exit 1
         ;;
 esac

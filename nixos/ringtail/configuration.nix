@@ -354,7 +354,10 @@ in
   # Tailscale
   services.tailscale = {
     enable = true;
-    extraUpFlags = [ "--accept-routes" ];
+    # extraUpFlags is dead here: its only consumer (tailscaled-autoconnect)
+    # is created only when authKeyFile is set, and ringtail sets none.
+    # extraSetFlags is applied by the tailscaled-set unit instead.
+    extraSetFlags = [ "--accept-routes" "--ssh=false" ];
   };
 
   # Trust Tailscale and k3s CNI interfaces
@@ -833,8 +836,11 @@ in
     home = "/var/lib/borgmatic";
     createHome = true;
     shell = pkgs.bashInteractive;
+    # from= pins indri's Tailscale IP (100.98.163.89): the key is only
+    # usable from indri, not from anything else that can reach the sshd.
+    # Update this line if indri's Tailscale IP changes (ringtail.md notes it).
     openssh.authorizedKeys.keys = [
-      "restrict,command=\"sudo /etc/borgmatic/borgmatic-dump \\\"$SSH_ORIGINAL_COMMAND\\\"\" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII6OIk+oJaQ/ZZ8bPdYv4/0XguaRqCNRbSwA4Hr7UThX borgmatic@indri"
+      "from=\"100.98.163.89\",restrict,command=\"sudo /etc/borgmatic/borgmatic-dump \\\"$SSH_ORIGINAL_COMMAND\\\"\" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII6OIk+oJaQ/ZZ8bPdYv4/0XguaRqCNRbSwA4Hr7UThX borgmatic@indri"
     ];
   };
   users.groups.borgmatic = { };

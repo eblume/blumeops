@@ -106,6 +106,7 @@ All ringtail k8s dumps below run through ringtail's `borgmatic` dump endpoint (d
 
 **K8s service-produced backup files (newest ferried off the PVC):**
 - [[navidrome]] - music DB: users, play counts, playlists (navidrome's own `ND_BACKUP_*` snapshot in `/data/backup`)
+- audiobookshelf - built-in scheduled backup of config+metadata (`/metadata/backups`)
 - pulumi-stack-backup — Pulumi Cloud stack state, one ferry each for the two stacks `tail8d86e` and `eblu-me` (`pulumi stack export --show-secrets`; the ringtail dump endpoint reads straight off the PV — a missing or empty export keeps the previous staged file; exports contain plaintext secret values — borg repo encryption is the control; restore: [[restore-pulumi-state]])
 
 **K8s pod data directories (in-pod tar, streamed back):**

@@ -57,50 +57,37 @@ borgmatic_borgbase_ssh_key_path: /Users/erichblume/.ssh/borgbase_ed25519
 # nixos/ringtail). Not the BorgBase key: IdentitiesOnly keeps them separate.
 borgmatic_ringtail_ssh_key_path: /Users/erichblume/.ssh/borgmatic_ringtail_ed25519
 
-# K8s SQLite databases to dump before backup via kubectl exec
-# Each entry runs: kubectl exec <pod-selector> -- sqlite3 <path> ".backup /tmp/backup.db"
-# then copies the dump to borgmatic_operational_dump_dir/<name>.db
+# K8s SQLite databases to dump before backup: an online .backup via
+# kubectl exec, done by the ringtail dump endpoint (nixos/ringtail/
+# borgmatic-dump.sh). Each entry's name selects a row of that table — pod
+# coordinates live there, not here; the dump lands in
+# borgmatic_operational_dump_dir/<name>.db.
 borgmatic_k8s_sqlite_dumps:
   - name: mealie
-    namespace: mealie
-    label_selector: app=mealie
-    db_path: /app/data/mealie.db
     target: ssh:borgmatic@ringtail
   - name: horkos
-    namespace: horkos
-    label_selector: app=horkos
-    db_path: /data/horkos.db
     target: ssh:borgmatic@ringtail
     # horkos (approval-queue dispatch) DB — only copy of queue state;
     # Python image ships python3 so the endpoint's in-pod sqlite3 .backup works as-is.
 
-# K8s services that produce their own consistent SQLite backup files on a
-# PVC (rather than us running an online dump via kubectl exec). Each entry's
-# `dir` is scanned for the newest backup file, which is streamed back and
-# stored at borgmatic_operational_dump_dir/<name>.db. The dump name is the only
-# per-entry dial sent over SSH; the ringtail endpoint (nixos/ringtail/borgmatic-dump.sh) holds the rest. See ~/bin/borgmatic-k8s-file-dump.
+# K8s services that produce their own consistent backup files on a PVC
+# (rather than us running an online dump via kubectl exec): the ringtail dump
+# endpoint (nixos/ringtail/borgmatic-dump.sh) scans its table row's dir for the
+# newest backup file and streams it to
+# borgmatic_operational_dump_dir/<name>.db. The dump name is the only
+# per-entry dial sent over SSH; the endpoint table holds the rest. See ~/bin/borgmatic-k8s-file-dump.
 borgmatic_k8s_file_dumps:
   # navidrome writes its own WAL-safe DB backups (users, play counts,
   # playlists) on a cron via ND_BACKUP_* — the minimal nix image has no
   # python3/sqlite3 to dump online, so we just ferry navidrome's newest
-  # snapshot. Files are named navidrome_backup_<YYYY.MM.DD_HH.MM.SS>.db
-  # (fixed-width timestamp, so lexically sortable). Requires coreutils in the
-  # image for the in-pod ls/cat.
+  # snapshot. Requires coreutils in the image for the in-pod ls/cat.
   - name: navidrome
-    namespace: navidrome
-    label_selector: app=navidrome
-    dir: /data/backup
-    glob: 'navidrome_backup_*.db'
     target: ssh:borgmatic@ringtail
   # audiobookshelf's built-in scheduled backup zips config+metadata to
-  # /metadata/backups (named <YYYY-MM-DD[T]HHmm>.audiobookshelf, fixed-width
-  # timestamp, so lexically sortable), so we ferry the newest one off.
-  # Requires coreutils in the image for the in-pod ls/cat.
+  # /metadata/backups (fixed-width timestamp, so lexically sortable), so we
+  # ferry the newest one off. Requires coreutils in the image for the
+  # in-pod ls/cat.
   - name: audiobookshelf
-    namespace: audiobookshelf
-    label_selector: app=audiobookshelf
-    dir: /metadata/backups
-    glob: '*.audiobookshelf'
     target: ssh:borgmatic@ringtail
   # pulumi-stack-backup CronJob exports both Pulumi Cloud stacks' state daily
   # (--show-secrets) to a PVC, named stack_<YYYYmmddTHHMMSSZ>.json (fixed-width
@@ -118,42 +105,28 @@ borgmatic_k8s_file_dumps:
   # dead export can't abort the nightly), while a genuine infra error (PVC/PV
   # unresolvable, k3s down) still exits non-zero and aborts.
   - name: pulumi-tail8d86e-state
-    namespace: pulumi-stack-backup
-    label_selector: app=pulumi-stack-backup
-    dir: /tail8d86e
-    glob: 'stack_*.json'
     target: ssh:borgmatic@ringtail
   - name: pulumi-eblu-me-state
-    namespace: pulumi-stack-backup
-    label_selector: app=pulumi-stack-backup
-    dir: /eblu-me
-    glob: 'stack_*.json'
     target: ssh:borgmatic@ringtail
 
 # K8s pods whose data dir is tarred in-pod and streamed back — no
-# sqlite3 or python3 needed, just tar. Each entry's `dir` is tarred to
+# sqlite3 or python3 needed, just tar: the ringtail dump endpoint
+# (nixos/ringtail/borgmatic-dump.sh) tars its table row's dir to
 # borgmatic_operational_dump_dir/<name>.tar. The dump name is the only
-# per-entry dial sent over SSH; the ringtail endpoint (nixos/ringtail/borgmatic-dump.sh) holds the rest. See ~/bin/borgmatic-k8s-tar-dump.
+# per-entry dial sent over SSH; the endpoint table holds the rest. See ~/bin/borgmatic-k8s-tar-dump.
 borgmatic_k8s_tar_dumps:
   # talos agent-service state: all session transcripts
   # (data/sessions/<timestamp>_<sessionId>.jsonl) plus meta.json,
   # crons.json, settings.json. session-index.sqlite rides in the tar.
   # Every session is stored forever (heph 01M0GA6JPGQF96AM5JZKA37YSV).
   - name: talos-data
-    namespace: talos
-    label_selector: app=talos
-    dir: /home/talos/data
     target: ssh:borgmatic@ringtail
   # paperless-ngx document library — originals, archived, thumbnails — on
   # the sifaka NFS media PVC (sifaka's only protection is RAID-5, so this
-  # is the offsite copy; see [[backups]]). Multi-container pod, so the
-  # container is named explicitly. The DB side is already covered by
-  # borgmatic_postgresql_databases (name: paperless).
+  # is the offsite copy; see [[backups]]). Multi-container pod — the
+  # endpoint table row names the container. The DB side is already covered
+  # by borgmatic_postgresql_databases (name: paperless).
   - name: paperless-media
-    namespace: paperless
-    label_selector: app=paperless
-    dir: /usr/src/paperless/media
-    container: web
     target: ssh:borgmatic@ringtail
 
 # Local (on-indri) SQLite databases captured in a before-backup hook via the
