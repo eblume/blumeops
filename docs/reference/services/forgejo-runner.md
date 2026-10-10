@@ -52,12 +52,13 @@ load tasks are skipped by default (`forgejo_runner_ansible_managed:
 false`) and remain the rollback re-write — see [[provision]] §Rolling
 back a service flip.
 
-There are also two independent NixOS runners on [[ringtail]]
-(`services.gitea-actions-runner` in `nixos/ringtail/configuration.nix`,
-both sandboxed systemd services sharing the instance-global registration
-token):
+There are also four sandboxed NixOS runner services on [[ringtail]]
+(`services.gitea-actions-runner` in `nixos/ringtail/configuration.nix`),
+each with its own repo-scoped registration token (three of them share the
+`nix-container-builder` label, one each for eblume/blumeops, eblume/horkos
+and eblume/talos):
 
-- `ringtail-nix-builder` (`nix-container-builder` label) — the
+- `ringtail-nix-builder-{blumeops,horkos,talos}` (`nix-container-builder` label) — the
   `build-container.yaml` nix build job, as the module's DynamicUser
   `gitea-runner`. That user is **not** a trusted nix user
   (`nix.settings.trusted-users` is the nixos-26.05 default `[ "root" ]`);

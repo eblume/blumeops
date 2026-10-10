@@ -238,7 +238,7 @@ check_service "tailscale" "ssh ringtail 'tailscale status --self --json' | jq -e
 # stays locked). `grep -qw` so a NotReady node can't false-pass on the substring.
 check_service "k3s" "ssh ringtail 'sudo k3s kubectl get nodes --no-headers | grep -qw Ready'"
 check_service "k3s-apiserver (remote)" "kubectl --context=k3s-ringtail get --raw /healthz"
-check_service "forgejo-runner" "ssh ringtail 'systemctl is-active gitea-runner-nix_container_builder.service'"
+check_service "forgejo-runner" "ssh ringtail 'systemctl is-active gitea-runner-nix_container_builder_blumeops.service gitea-runner-nix_container_builder_horkos.service gitea-runner-nix_container_builder_talos.service'"
 
 echo ""
 echo "Pod health (via alerting):"

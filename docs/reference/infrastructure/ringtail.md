@@ -112,14 +112,16 @@ A Tor [[snowflake-proxy]] that helps censored users reach the Tor network. Runs 
 
 ### Forgejo Actions Runner
 
-A native Forgejo Actions runner (`ringtail-nix-builder`) runs as a systemd service via the NixOS `services.gitea-actions-runner` module. It builds containers using `nix-build` and pushes them to Zot via `skopeo`.
+Three native Forgejo Actions runners (`ringtail-nix-builder-{blumeops,horkos,talos}`) run as systemd services via the NixOS `services.gitea-actions-runner` module. They build containers using `nix-build` and push them to Zot via `skopeo`.
 
 | Property | Value |
 |----------|-------|
 | **Label** | `nix-container-builder` |
 | **Execution** | Host (no containers) |
-| **Token** | `/etc/forgejo-runner/token.env` (provisioned by Ansible) |
-| **Service unit** | `gitea-runner-nix_container_builder.service` |
+| **Token** | `/etc/forgejo-runner/{priv,nix-builder-blumeops,nix-builder-horkos,nix-builder-talos}.env` (provisioned by Ansible) |
+| **Service unit** | `gitea-runner-nix_container_builder_{blumeops,horkos,talos}.service` |
+
+The registration is repo-scoped (blumeops#1358), one daemon per registered repo sharing the `nix-container-builder` label (capacity 1 each), and the module re-registers an instance automatically when its token file changes.
 
 The runner resolves `<nixpkgs>` from the flake registry at build time. Container trust policy (`/etc/containers/policy.json`) and registry search order (`/etc/containers/registries.conf`) are configured minimally in `configuration.nix` for skopeo — no full `virtualisation.containers` module needed.
 

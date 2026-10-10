@@ -112,7 +112,7 @@ data:
         {
           "type": "stat",
           "title": "Runners online",
-          "description": "Configured runners (those with a forgejo_ci_runner_capacity entry) that polled Forgejo in the last 2 minutes. Expect 4.",
+          "description": "Configured runners (those with a forgejo_ci_runner_capacity entry) that polled Forgejo in the last 2 minutes. Expect 6.",
           "id": 103,
           "datasource": {
             "type": "prometheus",
@@ -139,11 +139,11 @@ data:
                   },
                   {
                     "color": "yellow",
-                    "value": 3
+                    "value": 5
                   },
                   {
                     "color": "green",
-                    "value": 4
+                    "value": 6
                   }
                 ]
               }
