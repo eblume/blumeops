@@ -32,8 +32,10 @@ phase 6 then dropped the per-job container entirely.
   engine at all: dagger work runs on indri-build's colima VM
   (eblume/blumeops#1357) and Docker Desktop is retired
   (eblume/blumeops#1382).
-- **Labels:** advertises `indri` (the honest name) only. Originally
-  also advertised `k8s` for compatibility with existing workflows;
+- **Labels:** advertises `indri` plus `indri-priv`, the dedicated
+  warrant-only label used by provision-indri, on the same physical
+  runner. Originally also advertised `k8s` for compatibility with
+  existing workflows;
   once blumeops workflows migrated to `runs-on: indri` the `k8s`
   label was dropped from `forgejo_runner_labels` (see
   [[forgejo-runner]]). Other forge repos still on `runs-on: k8s`

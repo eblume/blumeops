@@ -101,10 +101,13 @@ it is convenient.
    all required, so privilege never blends into ordinary CI:
    - **`workflow_dispatch`-only triggers** — nothing event-driven can start
      one;
-   - **`runs-on: priv`** — a dedicated runner label (and, per Phase 2, a
-     dedicated runner host) that *only* privileged workflows use and PR-check
-     CI never touches. The label split lands with the first privileged
-     workflow, even while it temporarily points at the same physical runner;
+   - **`runs-on: priv` / `runs-on: indri-priv`** — dedicated privileged
+     runner labels that *only* privileged workflows use and PR-check CI
+     never touches: `priv` (ringtail's ringtail-priv-runner — a dedicated
+     runner host, per Phase 2) and `indri-priv` (indri's host-mode runner,
+     which also advertises `indri` for the non-warrant jobs). The label
+     split lands with the first privileged workflow, even while it
+     temporarily points at the same physical runner;
    - **definitions run from `main` only** — the approved SHA is a *payload
      input* (what to check out / build / sync); the executing definition is
      main's, already reviewed. Agents change privileged workflow definitions
@@ -112,7 +115,9 @@ it is convenient.
 
    This keeps "the thing reviewed" and "the thing executed" honest without the
    reviewer re-auditing workflow files per request, and never mixes privileged
-   and unprivileged jobs in one workflow file or on one runner.
+   and unprivileged jobs in one workflow file or behind one label (a physical
+   runner may advertise both, as indri's does, while the dispatch-only
+   trigger and the no-PR-execution split keep the classes apart).
 4. **Approval is multi-factor human auth no agent can satisfy.** Whatever
    grants an approval (Forgejo login, Authentik session) must require a
    credential no agent can reach *plus* a second factor. No token an agent

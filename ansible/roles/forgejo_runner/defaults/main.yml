@@ -43,15 +43,12 @@ forgejo_runner_mise_github_token: ""
 
 # Labels advertised to forge, all host-mode ([[retire-minikube]]
 # phase 6): jobs run directly as erichblume with the mise toolchain.
-# `k8s` was a compat holdover from the retired minikube cluster and
-# has been dropped from workflows repo-wide; `indri` is the honest
-# name and the only label advertised now.
+# The runner advertises `indri` (main push/schedule/dispatch jobs, #1358)
+# plus the dedicated `indri-priv` label, used only by warrant-dispatched
+# workflows (provision-indri), on the same physical runner.
 forgejo_runner_labels:
   - indri
-  # `priv` moved to the dedicated ringtail-priv-runner ([[warrant-approval-gated-runs]]
-  # Phase 2 — sandboxed DynamicUser instead of host-mode erichblume).
-  # Sequencing: provision-ringtail must register that runner BEFORE
-  # provision-indri applies this label drop, or priv dispatches queue.
+  - indri-priv
 
 # Host toolchain for CI jobs lives in indri's declarative global mise
 # config (darwin/indri/configuration.nix, entry `[tools]`), the single
