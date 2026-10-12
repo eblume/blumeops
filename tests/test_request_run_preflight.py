@@ -210,6 +210,59 @@ def test_scope_aware_runner_scoped_to_blumeops_ok(request_run):
     )
 
 
+def test_scope_aware_runner_instance_scope_ok(request_run):
+    # #1530: an unscoped runner is exported as scope="instance" — it serves
+    # every repo, so it must not be vetoed as scoped elsewhere.
+    client = FakeClient(
+        info_rows=[info_row("r1", "linux", scope="instance")],
+        last_rows=[last_row("r1", ONLINE)],
+    )
+    request_run.preflight_runner_served(
+        client, "fake-bearer", body_for("linux"), "w.yaml", now=NOW
+    )
+
+
+def test_scope_aware_runner_owner_scope_ok(request_run):
+    # #1530: scope="eblume" (owner-scoped) covers this repo's owner, so it serves.
+    client = FakeClient(
+        info_rows=[info_row("r1", "linux", scope="eblume")],
+        last_rows=[last_row("r1", ONLINE)],
+    )
+    request_run.preflight_runner_served(
+        client, "fake-bearer", body_for("linux"), "w.yaml", now=NOW
+    )
+
+
+def test_scope_aware_runner_sibling_repo_refused(request_run, recorded_err):
+    # #1530: scope="eblume/other-repo" is a different repo — it does not serve.
+    client = FakeClient(
+        info_rows=[info_row("r1", "linux", scope="eblume/other-repo")],
+        last_rows=[last_row("r1", ONLINE)],
+    )
+    with pytest.raises(typer.Exit):
+        request_run.preflight_runner_served(
+            client, "fake-bearer", body_for("linux"), "w.yaml", now=NOW
+        )
+    out = _stderr(recorded_err)
+    assert "scoped to another repo" in out
+    assert "eblume/other-repo" in out
+
+
+def test_scope_aware_mixed_instance_and_sibling(request_run):
+    # An instance-wide and a sibling-repo runner share the label; the
+    # instance runner makes it served, the sibling must not veto it.
+    client = FakeClient(
+        info_rows=[
+            info_row("r1", "linux", scope="instance"),
+            info_row("r2", "linux", scope="eblume/other-repo"),
+        ],
+        last_rows=[last_row("r1", ONLINE), last_row("r2", ONLINE)],
+    )
+    request_run.preflight_runner_served(
+        client, "fake-bearer", body_for("linux"), "w.yaml", now=NOW
+    )
+
+
 def test_mixed_fleet_eligible_runner_passes(request_run):
     client = FakeClient(
         info_rows=[

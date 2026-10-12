@@ -466,6 +466,17 @@ def _keyed_by_runner(rows: list[dict]) -> dict[str, dict]:
     return out
 
 
+def _serves_this_repo(row: dict) -> bool:
+    """Does a runner registration serve this repo?
+
+    `scope` from eblume/blumeops#1530: absent/blank means registered without
+    a scope (serves every repo); `instance` means instance-wide; an owner
+    name means that owner's repos; `owner/repo` means just that repo.
+    """
+    scope = (row or {}).get("scope")
+    return scope in (None, "", "instance", REPO_OWNER, f"{REPO_OWNER}/{REPO_NAME}")
+
+
 def _grafana_series(c: httpx.Client, bearer: str, query: str) -> list[dict]:
     """Prometheus results through Grafana's datasource proxy, as
     {labels..., "__value__": "<sample>"} dicts."""
@@ -503,7 +514,9 @@ def preflight_runner_served(
     threshold as ForgejoRunnerOffline; an absent last-online sample counts
     as offline. When the fleet is scope-aware, a label only served by a
     runner scoped to another repo does not count — after eblume/blumeops#1520
-    three runners share nix-container-builder across repos.
+    three runners share nix-container-builder across repos. `scope` follows
+    eblume/blumeops#1530: `instance`, an owner, or `owner/repo`; absent
+    means unscoped.
     """
     import yaml
 
@@ -530,18 +543,17 @@ def preflight_runner_served(
             stale = True
         return "offline" if stale else "online"
 
-    # A `scope` label key on ANY runner row means the fleet is scope-aware
-    # (eblume/blumeops#1520): only a scope-less or blumeops-scoped runner serves.
-    scope_aware = any("scope" in row for row in by_runner.values())
     runners = sorted(by_runner, key=lambda r: (status(r) != "online", r))
     unserved: list[tuple[str, list[str], list[str]]] = []
     for label in requested:
         serving = [r for r in runners if label in labels_of(r)]
         online_serving = [r for r in serving if status(r) == "online"]
+        # A scope-aware runner (post-#1520) only counts when it serves this
+        # repo: instance-wide, this owner, or this exact repo.
         scoped_elsewhere = [
             r
             for r in online_serving
-            if scope_aware and (by_runner.get(r) or {}).get("scope") not in (None, "", "eblume/blumeops")
+            if not _serves_this_repo(by_runner.get(r) or {})
         ]
         good = [r for r in online_serving if r not in scoped_elsewhere]
         if good:
