@@ -41,6 +41,7 @@
       ansible.builtin.shell:
         cmd: op item get w3663ffnvkewbftncqxtcpeavy --vault vg6xf6vvfmoh5hqjjhlhbeoaie --format json --fields label=runner_ringtail_priv_token,label=runner_ringtail_nix_builder_blumeops_token,label=runner_ringtail_nix_builder_horkos_token,label=runner_ringtail_nix_builder_talos_token 2>/dev/null || echo '[]'
       delegate_to: localhost
+      become: false
       register: _runner_tokens
       changed_when: false
       failed_when: false
