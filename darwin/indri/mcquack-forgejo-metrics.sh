@@ -160,8 +160,16 @@ SELECT line FROM (
   SELECT printf('forgejo_ci_runner_last_online_timestamp_seconds{runner="%s"} %d', name, max(last_online))
   FROM action_runner WHERE last_online > (SELECT ts FROM nowts) - 30 * 86400 AND coalesce(deleted, 0) = 0 GROUP BY name
   UNION ALL
-  SELECT printf('forgejo_ci_runner_info{runner="%s",labels="%s",version="%s"} 1', a.name,
-                (SELECT group_concat(value, ',') FROM json_each(a.agent_labels)), a.version)
+  -- scope: who the registration serves. A runner registered without --scope
+  -- serves every repo on the instance; a repo- or owner-scoped one takes
+  -- only that repo's or owner's jobs, so a label it advertises is not
+  -- "served" for anyone else (eblume/blumeops#1358 scopes them per repo).
+  SELECT printf('forgejo_ci_runner_info{runner="%s",labels="%s",scope="%s",version="%s"} 1', a.name,
+                (SELECT group_concat(value, ',') FROM json_each(a.agent_labels)),
+                CASE WHEN a.repo_id > 0 THEN coalesce((SELECT full FROM repo WHERE repo.id = a.repo_id), 'repo:' || a.repo_id)
+                     WHEN a.owner_id > 0 THEN coalesce((SELECT u.name FROM user u WHERE u.id = a.owner_id), 'owner:' || a.owner_id)
+                     ELSE 'instance' END,
+                a.version)
   FROM action_runner a
   WHERE a.id = (SELECT max(b.id) FROM action_runner b WHERE b.name = a.name)
     AND a.last_online > (SELECT ts FROM nowts) - 30 * 86400 AND coalesce(a.deleted, 0) = 0
@@ -219,7 +227,7 @@ cat << 'HEADER'
 # TYPE forgejo_ci_approval_oldest_age_seconds gauge
 # HELP forgejo_ci_runner_last_online_timestamp_seconds Last time the runner polled Forgejo
 # TYPE forgejo_ci_runner_last_online_timestamp_seconds gauge
-# HELP forgejo_ci_runner_info Runner registration (labels, version); value is always 1
+# HELP forgejo_ci_runner_info Runner registration (labels, scope: instance | owner | owner/repo, version); value is always 1
 # TYPE forgejo_ci_runner_info gauge
 HEADER
 
