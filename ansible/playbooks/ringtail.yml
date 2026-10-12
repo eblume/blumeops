@@ -118,7 +118,7 @@
 
     - name: Warn about missing ringtail runner tokens
       ansible.builtin.debug:
-        msg: "WARNING: ringtail forgejo runner token fields missing from 1Password; affected units will fail to register until they are added"
+        msg: "WARNING: ringtail forgejo runner token fields missing from 1Password; the affected units keep their existing token file (and fail to register until the field is added only where no file exists yet)"
       when: >-
         runner_ringtail_priv_token == '' or
         runner_ringtail_nix_builder_blumeops_token == '' or
