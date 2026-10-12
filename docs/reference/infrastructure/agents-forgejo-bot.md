@@ -73,6 +73,9 @@ workspace checkout — are declared in **one** file:
 
 **`repos.json`** (`argocd/manifests/talos/`)
 
+One of the repo's [[declared-state-files]]: one owner task, a `--check` that
+runs weekly and on PRs, metadata only.
+
 ```json
 { "name": "myeve", "access": "write", "pool": "canonical" }
 ```
