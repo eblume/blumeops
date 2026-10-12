@@ -88,6 +88,7 @@ isolation.
 | **User** | `indri-build` (uid 503, own primary group, no sudo, home 0700) |
 | **Runner name** | `indri-build` |
 | **Label** | `indri-build` (host-mode) |
+| **Capacity** | 4 concurrent jobs (`forgejo_runner_build_capacity`) |
 | **Daemons** | `mcquack.eblume.colima-build` + `mcquack.eblume.forgejo-runner-build` (system launchd domain, nix-managed) |
 | **Engine** | colima (nixpkgs `colima`, v0.10.1 at the 26.05 pin), profile `~indri-build/.colima/indri-build/` |
 | **Socket** | `~indri-build/.colima/indri-build/docker.sock` (mode 0660, owned by `indri-build` - not world-reachable, not under /Users/Shared) |

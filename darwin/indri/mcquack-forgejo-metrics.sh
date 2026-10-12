@@ -282,12 +282,13 @@ if [ "$forgejo_up" -eq 1 ] && [ -n "$TOKEN" ]; then
 fi
 
 # --- CI metrics from the Forgejo DB (read-only) ---
-# Slots per runner, mirrored from each runner's config: indri-runner and
-# indri-build from ansible/roles/forgejo_runner (forgejo_runner_capacity),
-# the four ringtail runners from nixos/ringtail/configuration.nix. Keep in step.
+# Slots per runner, mirrored from each runner's config: indri-runner from
+# ansible/roles/forgejo_runner (forgejo_runner_capacity), indri-build from
+# its forgejo_runner_build_capacity, and the four ringtail runners from
+# nixos/ringtail/configuration.nix. Keep in step.
 cat << 'CAPACITY'
 forgejo_ci_runner_capacity{runner="indri-runner"} 2
-forgejo_ci_runner_capacity{runner="indri-build"} 2
+forgejo_ci_runner_capacity{runner="indri-build"} 4
 forgejo_ci_runner_capacity{runner="ringtail-nix-builder-blumeops"} 1
 forgejo_ci_runner_capacity{runner="ringtail-nix-builder-horkos"} 1
 forgejo_ci_runner_capacity{runner="ringtail-nix-builder-talos"} 1

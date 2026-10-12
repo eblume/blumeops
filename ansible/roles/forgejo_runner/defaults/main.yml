@@ -140,6 +140,11 @@ forgejo_runner_build_binary: /usr/local/libexec/forgejo-runner-build
 forgejo_runner_build_labels:
   - indri-build
 
+# Slot count, separate from forgejo_runner_capacity: one PR push starts
+# 6-8 check jobs at once on this runner, so 2 slots queued 25% of them
+# >30s (eblume/blumeops#1518).
+forgejo_runner_build_capacity: 4
+
 # Runner identity - empty until the human registers the runner (see
 # docs/how-to/forgejo-runner/configure-launchd-runner.md §indri-build runner)
 # and adds the fields to the "Forgejo Secrets" 1Password item. The config

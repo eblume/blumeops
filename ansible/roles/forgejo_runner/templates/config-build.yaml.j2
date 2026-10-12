@@ -11,7 +11,7 @@ log:
   level: info
 
 runner:
-  capacity: {{ forgejo_runner_capacity }}
+  capacity: {{ forgejo_runner_build_capacity }}
   timeout: {{ forgejo_runner_timeout }}
   shutdown_timeout: {{ forgejo_runner_timeout }}
   # Env vars injected into all jobs
