@@ -92,7 +92,7 @@ wrapper restarts it with the new profile; jobs running at that moment
 lose their engine. colima rewrites the live profile with its own full
 default form on start, so the role compares the new render against a
 copy of the last render it installed, kept in the stage dir - a
-hand edit to the live profile is not detected (nothing relies on it).
+hand edit to the live profile is not detected (nothing relies on it). The copy does not exist until the first install, so the first apply after this change installs the profile and restarts the VM once; every apply after that is a no-op on a converged box.
 
 ## indri-build runner (second, unprivileged)
 
