@@ -31,9 +31,12 @@
       become: false
 
     # Repo-scoped registration tokens, created in each repo's
-    # Settings -> Actions -> Runners (blumeops#1358). The empty default keeps
-    # the play converging before the fields exist — the units then just fail to
-    # register until they do.
+    # Settings -> Actions -> Runners (blumeops#1358). A missing field (op fails
+    # as a whole and the `|| echo '[]'` blanks all four) must never write an
+    # empty TOKEN= over a good file — the module hashes the token, sees it
+    # change, and re-registers with the empty token, dropping the registration.
+    # So each copy below runs only for a non-empty token; the warning task
+    # reports the gap.
     - name: Fetch ringtail forgejo runner registration tokens from 1Password
       ansible.builtin.shell:
         cmd: op item get w3663ffnvkewbftncqxtcpeavy --vault vg6xf6vvfmoh5hqjjhlhbeoaie --format json --fields label=runner_ringtail_priv_token,label=runner_ringtail_nix_builder_blumeops_token,label=runner_ringtail_nix_builder_horkos_token,label=runner_ringtail_nix_builder_talos_token 2>/dev/null || echo '[]'
@@ -76,6 +79,7 @@
         dest: /etc/forgejo-runner/priv.env
         mode: "0600"
       no_log: true
+      when: runner_ringtail_priv_token != ''
 
     - name: Write ringtail nix-builder blumeops runner token file
       ansible.builtin.copy:
@@ -83,6 +87,7 @@
         dest: /etc/forgejo-runner/nix-builder-blumeops.env
         mode: "0600"
       no_log: true
+      when: runner_ringtail_nix_builder_blumeops_token != ''
 
     - name: Write ringtail nix-builder horkos runner token file
       ansible.builtin.copy:
@@ -90,6 +95,7 @@
         dest: /etc/forgejo-runner/nix-builder-horkos.env
         mode: "0600"
       no_log: true
+      when: runner_ringtail_nix_builder_horkos_token != ''
 
     - name: Write ringtail nix-builder talos runner token file
       ansible.builtin.copy:
@@ -97,6 +103,7 @@
         dest: /etc/forgejo-runner/nix-builder-talos.env
         mode: "0600"
       no_log: true
+      when: runner_ringtail_nix_builder_talos_token != ''
 
     # The pre-#1358 shared instance-global token is retired: nothing on
     # ringtail reads it anymore, so drop it off disk (the forge-side
@@ -105,6 +112,9 @@
       ansible.builtin.file:
         path: /etc/forgejo-runner/token.env
         state: absent
+      # Only once a good token is actually on disk — dropping the old token
+      # while the new files are still missing would leave the box with none.
+      when: runner_ringtail_priv_token != ''
 
     - name: Warn about missing ringtail runner tokens
       ansible.builtin.debug:
