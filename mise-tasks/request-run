@@ -57,6 +57,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from typing import Annotated
 
 import httpx
@@ -105,11 +106,11 @@ def forge_token() -> str:
     return result.stdout.strip()
 
 
-def workflow_on_main(client: httpx.Client, workflow: str) -> bool:
-    """Privileged definitions execute from main (invariant 3) — so the
-    request is only coherent if the workflow exists there."""
+def workflow_on_main(client: httpx.Client, workflow: str) -> str | None:
+    """The workflow's definition on main (privileged definitions execute
+    from main, invariant 3) — None when it is not there."""
     resp = client.get(f"{REPO_API}/raw/main/.forgejo/workflows/{workflow}")
-    return resp.status_code == 200
+    return resp.text if resp.status_code == 200 else None
 
 
 def main_file_exists(client: httpx.Client, path: str) -> bool:
@@ -377,6 +378,9 @@ def pr_touches_workflows(client: httpx.Client, number: int, repo_api: str = REPO
 HORKOS_URL = "https://horkos.ops.eblu.me"
 AUTHENTIK_TOKEN_URL = "https://authentik.ops.eblu.me/application/o/token/"
 SOCKS_FALLBACK = "socks5://localhost:1055"  # agent pod's tailscale sidecar
+GRAFANA_BASE = "https://grafana.ops.eblu.me"
+PROMETHEUS_DS = "prometheus"
+RUNNER_ONLINE_AGE = 600  # seconds — same 10-minute threshold as ForgejoRunnerOffline
 
 
 def _ops_client() -> httpx.Client:
@@ -425,6 +429,184 @@ def _warrant_bearer(c: httpx.Client) -> str:
     return str(tok.json()["access_token"])
 
 
+def _parse_runs_on(body: str) -> list[str]:
+    """Job-level runs-on labels of a workflow definition, union in order.
+
+    Single-label jobs (every current workflow) are exact; a multi-label
+    `runs-on: [a, b]` job needs one runner with BOTH labels, so the union
+    check is fail-open for that form — revisit if a warrantable workflow
+    ever uses it."""
+    import yaml
+
+    doc = yaml.safe_load(body) or {}
+    labels: list[str] = []
+    for job in (doc.get("jobs") or {}).values():
+        on = (job or {}).get("runs-on")
+        if on is None:
+            continue
+        items = [on] if isinstance(on, str) else list(on)
+        for item in items:
+            if item not in labels:
+                labels.append(item)
+    return labels
+
+
+class PreflightUnreachable(Exception):
+    """The runner metrics query itself failed — distinct from 'no runner
+    serves the label', so the message can say what actually went wrong."""
+
+
+def _keyed_by_runner(rows: list[dict]) -> dict[str, dict]:
+    """Rows keyed by their `runner` label, dropping rows without one."""
+    out: dict[str, dict] = {}
+    for row in rows:
+        runner = row.get("runner")
+        if isinstance(runner, str):
+            out[runner] = row
+    return out
+
+
+def _grafana_series(c: httpx.Client, bearer: str, query: str) -> list[dict]:
+    """Prometheus results through Grafana's datasource proxy, as
+    {labels..., "__value__": "<sample>"} dicts."""
+    resp = c.get(
+        f"{GRAFANA_BASE}/api/datasources/proxy/uid/{PROMETHEUS_DS}/api/v1/query",
+        params={"query": query},
+        headers={"X-JWT-Assertion": bearer},
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    if payload.get("status") != "success":
+        raise PreflightUnreachable(str(payload.get("error", "prometheus query failed")))
+    rows = payload.get("data", {}).get("result") or []
+    series = []
+    for row in rows:
+        labels = {k: v for k, v in row.get("metric", {}).items() if k != "__name__"}
+        if len(row.get("value") or []) == 2:
+            labels["__value__"] = row["value"][1]
+        series.append(labels)
+    return series
+
+
+def preflight_runner_served(
+    c: httpx.Client,
+    bearer: str,
+    workflow_body: str,
+    workflow_name: str,
+    now: float | None = None,
+) -> None:
+    """Refuse a dispatch whose runs-on labels no online runner serves.
+
+    A run queued for a label with no runner waits forever with no signal
+    (eblume/blumeops#1515: a warranted provision-indri sat ~30 min on
+    indri-priv until found by hand; see also [eblume/talos#252](https://forge.ops.eblu.me/eblume/talos/issues/252)). 'Online' uses the same 10-minute
+    threshold as ForgejoRunnerOffline; an absent last-online sample counts
+    as offline. When the fleet is scope-aware, a label only served by a
+    runner scoped to another repo does not count — after eblume/blumeops#1520
+    three runners share nix-container-builder across repos.
+    """
+    import yaml
+
+    now = time.time() if now is None else now
+    try:
+        requested = _parse_runs_on(workflow_body)
+        info = _grafana_series(c, bearer, "forgejo_ci_runner_info")
+        last = _grafana_series(
+            c, bearer, "forgejo_ci_runner_last_online_timestamp_seconds"
+        )
+    except (httpx.HTTPError, ValueError, AttributeError, yaml.YAMLError) as exc:
+        raise PreflightUnreachable(str(exc)) from exc
+    by_runner = _keyed_by_runner(info)
+    last_by_runner = _keyed_by_runner(last)
+
+    def labels_of(runner: str) -> set[str]:
+        return set((by_runner.get(runner) or {}).get("labels", "").split(","))
+
+    def status(runner: str) -> str:
+        sample = (last_by_runner.get(runner) or {}).get("__value__")
+        try:
+            stale = sample is None or (now - float(sample)) > RUNNER_ONLINE_AGE
+        except ValueError:
+            stale = True
+        return "offline" if stale else "online"
+
+    # A `scope` label key on ANY runner row means the fleet is scope-aware
+    # (eblume/blumeops#1520): only a scope-less or blumeops-scoped runner serves.
+    scope_aware = any("scope" in row for row in by_runner.values())
+    runners = sorted(by_runner, key=lambda r: (status(r) != "online", r))
+    unserved: list[tuple[str, list[str], list[str]]] = []
+    for label in requested:
+        serving = [r for r in runners if label in labels_of(r)]
+        online_serving = [r for r in serving if status(r) == "online"]
+        scoped_elsewhere = [
+            r
+            for r in online_serving
+            if scope_aware and (by_runner.get(r) or {}).get("scope") not in (None, "", "eblume/blumeops")
+        ]
+        good = [r for r in online_serving if r not in scoped_elsewhere]
+        if good:
+            continue
+        unserved.append(
+            (
+                label,
+                [r for r in serving if r not in online_serving],
+                scoped_elsewhere,
+            )
+        )
+    if not unserved:
+        return
+
+    def fmt(r: str) -> str:
+        row = by_runner.get(r) or {}
+        scope = row.get("scope")
+        age = (last_by_runner.get(r) or {}).get("__value__")
+        try:
+            age_txt = f", last seen {int(now - float(age)) // 60} min ago" if age is not None else ", no last-online sample"
+        except ValueError:
+            age_txt = ""
+        return (
+            f"`{r}` (labels: {row.get('labels', '')}"
+            + (f", scope: {scope}" if scope else "")
+            + age_txt
+            + ")"
+        )
+
+    lines = [
+        (
+            "preflight: no online runner serves the label(s) this dispatch needs — "
+            "it would queue forever. Refusing to file the request."
+        )
+    ]
+    for label, offline, scoped in unserved:
+        if not offline and not scoped:
+            lines.append(f"  {label}: no runner advertises this label at all")
+        else:
+            parts = []
+            if offline:
+                parts.append("serving but offline: " + ", ".join(fmt(r) for r in offline))
+            if scoped:
+                parts.append(
+                    "serving but scoped to another repo: "
+                    + ", ".join(fmt(r) for r in scoped)
+                )
+            lines.append(f"  {label}: " + "; ".join(parts))
+    if runners:
+        online = ", ".join(
+            f"{r} ({(by_runner.get(r) or {}).get('labels', '')})"
+            for r in runners
+            if status(r) == "online"
+        )
+        lines.append("  online runners: " + (online or "(none online)"))
+    lines.append(
+        "  Fallback: a human dispatch from the forge UI "
+        f"({REPO_WEB}/actions?workflow={workflow_name}) — or fix the runner "
+        "topology and re-run this request."
+    )
+    for line in lines:
+        err.print(line)
+    raise typer.Exit(1)
+
+
 def warrant_payload(
     workflow: str,
     sha: str,
@@ -454,6 +636,7 @@ def mirror_to_warrant(
     pr: int,
     pr_repo: str,
     origin_issue: str | None,
+    bearer: str | None = None,
 ) -> int | None:
     """Mirror the request into the Warrant queue ([[warrant]]) with the
     talos-m2m identity. Best-effort by design: Warrant v0.1 is an
@@ -461,9 +644,11 @@ def mirror_to_warrant(
     record, so any failure here warns and moves on."""
     try:
         with _ops_client() as c:
+            if bearer is None:
+                bearer = _warrant_bearer(c)
             resp = c.post(
                 f"{HORKOS_URL}/api/requests",
-                headers={"Authorization": f"Bearer {_warrant_bearer(c)}"},
+                headers={"Authorization": f"Bearer {bearer}"},
                 json=warrant_payload(workflow, sha, inputs, why, pr, pr_repo, origin_issue),
             )
             resp.raise_for_status()
@@ -473,7 +658,7 @@ def mirror_to_warrant(
         return None
 
 
-def supersede_in_warrant(old_id: int, new_id: int) -> dict | None:
+def supersede_in_warrant(old_id: int, new_id: int, bearer: str | None = None) -> dict | None:
     """Retire the request `new_id` replaces, returning its coordinates.
 
     Warrant scopes this to our own still-pending requests and only ever
@@ -483,9 +668,11 @@ def supersede_in_warrant(old_id: int, new_id: int) -> dict | None:
     stood."""
     try:
         with _ops_client() as c:
+            if bearer is None:
+                bearer = _warrant_bearer(c)
             resp = c.post(
                 f"{HORKOS_URL}/api/requests/{old_id}/supersede",
-                headers={"Authorization": f"Bearer {_warrant_bearer(c)}"},
+                headers={"Authorization": f"Bearer {bearer}"},
                 json={"by": new_id},
             )
             resp.raise_for_status()
@@ -706,7 +893,8 @@ def main(
     with httpx.Client(
         headers={"Authorization": f"token {token}"}, timeout=30.0
     ) as client:
-        if not workflow_on_main(client, workflow):
+        workflow_body = workflow_on_main(client, workflow)
+        if workflow_body is None:
             err.print(
                 f".forgejo/workflows/{workflow} does not exist on main — privileged "
                 "definitions run from main only; merge the workflow first."
@@ -717,6 +905,27 @@ def main(
             inputs += load_script(script, workflow, inputs)
         input_map = dict(p.split("=", 1) for p in inputs)
         enforce_policy(client, workflow, input_map, sha)
+
+        # Runner-availability preflight (eblume/blumeops#1515): refuse a
+        # dispatch whose runs-on label no online runner serves — it would
+        # queue forever. Fail closed when the metrics or the bearer are
+        # unreachable.
+        with _ops_client() as ops:
+            try:
+                bearer = _warrant_bearer(ops)
+                preflight_runner_served(ops, bearer, workflow_body, workflow)
+            except (PreflightUnreachable, *WARRANT_ERRORS) as exc:
+                err.print(
+                    f"preflight: runner metrics unreachable ({escape(str(exc))}) — "
+                    "cannot confirm a runner serves this dispatch's label, so the "
+                    "request is refused (fail closed)."
+                )
+                err.print(
+                    f"  Fallback: a human dispatch from the forge UI "
+                    f"({REPO_WEB}/actions?workflow={workflow}) once the runner "
+                    "topology is confirmed, or wait for the metrics to recover."
+                )
+                raise typer.Exit(1)
 
         if pr_number is None:
             pr = find_pr_for_sha(client, sha, pr_api)
@@ -770,7 +979,9 @@ def main(
         # Mirror BEFORE commenting so the comment can name the queue entry the
         # approver is meant to act on. Mirroring is best-effort and returns
         # None on failure, so the comment degrades to what it rendered before.
-        warrant_id = mirror_to_warrant(workflow, sha, input_map, why, number, pr_repo, origin_issue)
+        warrant_id = mirror_to_warrant(
+            workflow, sha, input_map, why, number, pr_repo, origin_issue, bearer=bearer
+        )
 
         # Retire the request this one replaces before commenting, so the
         # comment can state the outcome rather than the intent.
@@ -782,7 +993,9 @@ def main(
                     "Warrant, and retiring the old one would leave nothing live."
                 )
             else:
-                superseded = supersede_in_warrant(supersedes, warrant_id)
+                superseded = supersede_in_warrant(
+                    supersedes, warrant_id, bearer=bearer
+                )
         supersedes_row = (
             f"| **Supersedes** | [request #{supersedes}]({HORKOS_URL}/) at "
             f"`{superseded['sha'][:7]}` — retired, no longer approvable |\n"
