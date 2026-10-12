@@ -206,7 +206,7 @@ groups:
                     params:
                       # Runners poll every few seconds; Forgejo stamps
                       # last_online at most once a minute. Only runners with a
-                      # capacity entry (the four configured ones) are watched,
+                      # capacity entry (the six configured ones) are watched,
                       # so retired registrations stay quiet.
                       - 600
                   operator:

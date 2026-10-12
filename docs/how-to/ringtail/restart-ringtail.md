@@ -31,7 +31,7 @@ that change how you operate during the outage:
 | CloudNativePG databases | Immich, Paperless, Mealie, Miniflux, TeslaMate etc. lose their Postgres. CNPG shuts Postgres down cleanly on SIGTERM; no data loss from a normal poweroff. |
 | [[frigate]] | Recording gap and no detections for the duration. |
 | [[ollama]], [[talos]] | LLM inference and the agent runtime are offline; any agent session in flight dies. |
-| Forgejo runner (`ringtail-nix-builder`) | In-flight container builds fail; the job shows as failed on forge and needs a re-run. |
+| Forgejo runners (`ringtail-nix-builder-*`, `ringtail-priv-runner`) | In-flight container builds fail; the job shows as failed on forge and needs a re-run. |
 | Heph spokes | Both spokes stop syncing; the hub on [[indri]] is unaffected. They catch up on boot. |
 | Factorio | Guests are disconnected. |
 

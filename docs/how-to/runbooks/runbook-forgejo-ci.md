@@ -29,7 +29,9 @@ label queue until it comes back. "Configured" means it has a
 |--------|------|---------|
 | `indri-runner` | [[indri]] | LaunchAgent `mcquack.eblume.forgejo-runner` (user `erichblume`) |
 | `indri-build` | [[indri]] | runner daemon as user `indri-build` (waits for colima) |
-| `ringtail-nix-builder` | [[ringtail]] | `gitea-runner-nix_container_builder.service` |
+| `ringtail-nix-builder-blumeops` | [[ringtail]] | `gitea-runner-nix_container_builder_blumeops.service` |
+| `ringtail-nix-builder-horkos` | [[ringtail]] | `gitea-runner-nix_container_builder_horkos.service` |
+| `ringtail-nix-builder-talos` | [[ringtail]] | `gitea-runner-nix_container_builder_talos.service` |
 | `ringtail-priv-runner` | [[ringtail]] | `gitea-runner-priv.service` |
 
 1. **Check the host is up.** For ringtail runners, `ssh ringtail systemctl status

@@ -75,7 +75,7 @@ The forge has three namespaces:
 | Runner | Host | Labels | Purpose |
 |--------|------|--------|---------|
 | `indri-runner` | [[indri]] (native, host-mode) | `indri` | Default jobs (host-mode, no container engine) |
-| `ringtail-nix-builder` | [[ringtail]] (NixOS) | `nix-container-builder` | Nix container builds via `nix-build` + `skopeo` |
+| `ringtail-nix-builder-{blumeops,horkos,talos}` | [[ringtail]] (NixOS) | `nix-container-builder` | Nix container builds via `nix-build` + `skopeo` (one daemon per registered repo) |
 | `ringtail-priv-runner` | [[ringtail]] (NixOS, sandboxed `horkos-runner`) | `priv` | Warrant-gated, dispatch-only privileged jobs ([[warrant-approval-gated-runs]]) |
 
 **Workflows** in `.forgejo/workflows/`:
@@ -109,7 +109,7 @@ Server configuration secrets managed via 1Password → Ansible (fetched in
 the indri playbook `pre_tasks`):
 
 - `lfs-jwt-secret`, `internal-token`, `oauth2-jwt-secret` — Forgejo server tokens (rendered into `app.ini`)
-- `runner_reg` — instance-global runner registration token, written to `/etc/forgejo-runner/token.env` for the two ringtail runners
+- `runner_ringtail_priv_token`, `runner_ringtail_nix_builder_{blumeops,horkos,talos}_token` — four repo-scoped registration tokens on the "Forgejo Secrets" item, written to `/etc/forgejo-runner/{priv,nix-builder-blumeops,nix-builder-horkos,nix-builder-talos}.env` by the ringtail playbook. `runner_reg` (instance-global) is retired — left in 1Password until the old instance-wide registrations are deleted from forge.
 
 Per-runner identity and job-credential secrets live on the runner card ([[forgejo-runner#Credentials]]).
 

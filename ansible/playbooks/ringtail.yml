@@ -30,13 +30,42 @@
       delegate_to: localhost
       become: false
 
-    - name: Fetch Forgejo runner registration token from 1Password
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/Forgejo Secrets/runner_reg"
-      register: _runner_reg
-      changed_when: false
+    # Repo-scoped registration tokens, created in each repo's
+    # Settings -> Actions -> Runners (blumeops#1358). A missing field (op fails
+    # as a whole and the `|| echo '[]'` blanks all four) must never write an
+    # empty TOKEN= over a good file — the module hashes the token, sees it
+    # change, and re-registers with the empty token, dropping the registration.
+    # So each copy below runs only for a non-empty token; the warning task
+    # reports the gap.
+    - name: Fetch ringtail forgejo runner registration tokens from 1Password
+      ansible.builtin.shell:
+        cmd: op item get w3663ffnvkewbftncqxtcpeavy --vault vg6xf6vvfmoh5hqjjhlhbeoaie --format json --fields label=runner_ringtail_priv_token,label=runner_ringtail_nix_builder_blumeops_token,label=runner_ringtail_nix_builder_horkos_token,label=runner_ringtail_nix_builder_talos_token 2>/dev/null || echo '[]'
       delegate_to: localhost
-      become: false
+      register: _runner_tokens
+      changed_when: false
+      failed_when: false
+      no_log: true
+      check_mode: false
+
+    - name: Set ringtail forgejo runner registration token facts
+      ansible.builtin.set_fact:
+        runner_ringtail_priv_token: >-
+          {{ (_runner_tokens.stdout | default('[]') | from_json
+             | selectattr('label', 'equalto', 'runner_ringtail_priv_token')
+             | map(attribute='value') | list | first) | default('') }}
+        runner_ringtail_nix_builder_blumeops_token: >-
+          {{ (_runner_tokens.stdout | default('[]') | from_json
+             | selectattr('label', 'equalto', 'runner_ringtail_nix_builder_blumeops_token')
+             | map(attribute='value') | list | first) | default('') }}
+        runner_ringtail_nix_builder_horkos_token: >-
+          {{ (_runner_tokens.stdout | default('[]') | from_json
+             | selectattr('label', 'equalto', 'runner_ringtail_nix_builder_horkos_token')
+             | map(attribute='value') | list | first) | default('') }}
+        runner_ringtail_nix_builder_talos_token: >-
+          {{ (_runner_tokens.stdout | default('[]') | from_json
+             | selectattr('label', 'equalto', 'runner_ringtail_nix_builder_talos_token')
+             | map(attribute='value') | list | first) | default('') }}
+      no_log: true
 
     - name: Ensure /etc/forgejo-runner directory exists
       ansible.builtin.file:
@@ -44,12 +73,57 @@
         state: directory
         mode: "0700"
 
-    - name: Write Forgejo runner token file
+    - name: Write ringtail priv runner token file
       ansible.builtin.copy:
-        content: "TOKEN={{ _runner_reg.stdout }}"
-        dest: /etc/forgejo-runner/token.env
+        content: "TOKEN={{ runner_ringtail_priv_token }}"
+        dest: /etc/forgejo-runner/priv.env
         mode: "0600"
       no_log: true
+      when: runner_ringtail_priv_token != ''
+
+    - name: Write ringtail nix-builder blumeops runner token file
+      ansible.builtin.copy:
+        content: "TOKEN={{ runner_ringtail_nix_builder_blumeops_token }}"
+        dest: /etc/forgejo-runner/nix-builder-blumeops.env
+        mode: "0600"
+      no_log: true
+      when: runner_ringtail_nix_builder_blumeops_token != ''
+
+    - name: Write ringtail nix-builder horkos runner token file
+      ansible.builtin.copy:
+        content: "TOKEN={{ runner_ringtail_nix_builder_horkos_token }}"
+        dest: /etc/forgejo-runner/nix-builder-horkos.env
+        mode: "0600"
+      no_log: true
+      when: runner_ringtail_nix_builder_horkos_token != ''
+
+    - name: Write ringtail nix-builder talos runner token file
+      ansible.builtin.copy:
+        content: "TOKEN={{ runner_ringtail_nix_builder_talos_token }}"
+        dest: /etc/forgejo-runner/nix-builder-talos.env
+        mode: "0600"
+      no_log: true
+      when: runner_ringtail_nix_builder_talos_token != ''
+
+    # The pre-#1358 shared instance-global token is retired: nothing on
+    # ringtail reads it anymore, so drop it off disk (the forge-side
+    # instance-wide registrations are deleted as a separate human step).
+    - name: Remove retired shared ringtail runner token file
+      ansible.builtin.file:
+        path: /etc/forgejo-runner/token.env
+        state: absent
+      # Only once a good token is actually on disk — dropping the old token
+      # while the new files are still missing would leave the box with none.
+      when: runner_ringtail_priv_token != ''
+
+    - name: Warn about missing ringtail runner tokens
+      ansible.builtin.debug:
+        msg: "WARNING: ringtail forgejo runner token fields missing from 1Password; the affected units keep their existing token file (and fail to register until the field is added only where no file exists yet)"
+      when: >-
+        runner_ringtail_priv_token == '' or
+        runner_ringtail_nix_builder_blumeops_token == '' or
+        runner_ringtail_nix_builder_horkos_token == '' or
+        runner_ringtail_nix_builder_talos_token == ''
 
     - name: Ensure /etc/k3s directory exists
       ansible.builtin.file:
