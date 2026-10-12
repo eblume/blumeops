@@ -51,7 +51,9 @@ class _R:
 
 
 class FakeClient:
-    """Stands in for httpx.Client on the preflight's two paths."""
+    """Stands in for httpx.Client on the preflight's paths."""
+
+    REPO_ID = 42
 
     def __init__(self, info_rows=None, last_rows=None, body=None, query_error=None):
         self.info_rows = info_rows or []
@@ -71,6 +73,8 @@ class FakeClient:
             if self.body is None:
                 return _R(status_code=404)
             return _R(text=self.body)
+        if "/users/" in url or "/repos/" in url:
+            return _R(payload={"id": self.REPO_ID})
         return _R()
 
     def post(self, url, data=None, headers=None, json=None, timeout=None):
@@ -261,6 +265,36 @@ def test_scope_aware_mixed_instance_and_sibling(request_run):
     request_run.preflight_runner_served(
         client, "fake-bearer", body_for("linux"), "w.yaml", now=NOW
     )
+
+
+def test_scope_numeric_fallback_for_this_repo_ok(request_run):
+    # #1530 join fallback: the collector exports repo:<id> when its repo join
+    # misses; this repo's own id must still count as serving.
+    client = FakeClient(
+        info_rows=[
+            info_row("r1", "linux", scope=f"repo:{FakeClient.REPO_ID}"),
+        ],
+        last_rows=[last_row("r1", ONLINE)],
+    )
+    request_run.preflight_runner_served(
+        client, "fake-bearer", body_for("linux"), "w.yaml", now=NOW
+    )
+
+
+def test_scope_numeric_fallback_for_other_repo_refused(request_run, recorded_err):
+    # A join-fallback id that is not this repo's id does not serve.
+    client = FakeClient(
+        info_rows=[
+            info_row("r1", "linux", scope=f"repo:{FakeClient.REPO_ID + 1}"),
+        ],
+        last_rows=[last_row("r1", ONLINE)],
+    )
+    with pytest.raises(typer.Exit):
+        request_run.preflight_runner_served(
+            client, "fake-bearer", body_for("linux"), "w.yaml", now=NOW
+        )
+    out = _stderr(recorded_err)
+    assert "scoped to another repo" in out
 
 
 def test_mixed_fleet_eligible_runner_passes(request_run):

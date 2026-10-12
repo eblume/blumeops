@@ -466,15 +466,23 @@ def _keyed_by_runner(rows: list[dict]) -> dict[str, dict]:
     return out
 
 
-def _serves_this_repo(row: dict) -> bool:
+def _serves_this_repo(row: dict, repo_id: int | None, owner_id: int | None) -> bool:
     """Does a runner registration serve this repo?
 
     `scope` from eblume/blumeops#1530: absent/blank means registered without
-    a scope (serves every repo); `instance` means instance-wide; an owner
-    name means that owner's repos; `owner/repo` means just that repo.
+    a scope, which the collector exports as `instance`; `instance` means
+    instance-wide; an owner name means that owner's repos; `owner/repo`
+    means just that repo. The collector's join fallbacks `repo:<id>` and
+    `owner:<id>` are treated as serving when the id matches this repo or
+    owner (ids resolved once by the caller).
     """
     scope = (row or {}).get("scope")
-    return scope in (None, "", "instance", REPO_OWNER, f"{REPO_OWNER}/{REPO_NAME}")
+    ok = (None, "", "instance", REPO_OWNER, f"{REPO_OWNER}/{REPO_NAME}")
+    if repo_id is not None:
+        ok = ok + (f"repo:{repo_id}",)
+    if owner_id is not None:
+        ok = ok + (f"owner:{owner_id}",)
+    return scope in ok
 
 
 def _grafana_series(c: httpx.Client, bearer: str, query: str) -> list[dict]:
@@ -515,8 +523,9 @@ def preflight_runner_served(
     as offline. When the fleet is scope-aware, a label only served by a
     runner scoped to another repo does not count — after eblume/blumeops#1520
     three runners share nix-container-builder across repos. `scope` follows
-    eblume/blumeops#1530: `instance`, an owner, or `owner/repo`; absent
-    means unscoped.
+    eblume/blumeops#1530: `instance` (also the collector's export for an
+    unscoped registration), an owner name, or `owner/repo`, plus the
+    collector's `repo:<id>` / `owner:<id>` join fallbacks.
     """
     import yaml
 
@@ -529,6 +538,17 @@ def preflight_runner_served(
         )
     except (httpx.HTTPError, ValueError, AttributeError, yaml.YAMLError) as exc:
         raise PreflightUnreachable(str(exc)) from exc
+    # Collector join-fallback scope forms are numeric (eblume/blumeops#1530);
+    # resolve both ids once so a lagged join can't false-refuse. Best-effort:
+    # without them only the numeric fallback forms get refused.
+    def _api_id(url: str) -> int | None:
+        try:
+            return c.get(url).json()["id"]
+        except (httpx.HTTPError, ValueError, AttributeError, KeyError, TypeError):
+            return None
+
+    repo_id = _api_id(REPO_API)
+    owner_id = _api_id(f"{FORGE_API_BASE}/users/{REPO_OWNER}")
     by_runner = _keyed_by_runner(info)
     last_by_runner = _keyed_by_runner(last)
 
@@ -553,7 +573,7 @@ def preflight_runner_served(
         scoped_elsewhere = [
             r
             for r in online_serving
-            if not _serves_this_repo(by_runner.get(r) or {})
+            if not _serves_this_repo(by_runner.get(r) or {}, repo_id, owner_id)
         ]
         good = [r for r in online_serving if r not in scoped_elsewhere]
         if good:
