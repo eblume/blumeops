@@ -101,8 +101,8 @@ spec:
               value: "http://authentik.authentik.svc.cluster.local:9000"
             # Repo-pool policy, delivered as the talos-repos ConfigMap (see
             # kustomization.yaml) — its hashed name rolls this pod on every
-            # policy merge. The entrypoint falls back to curling the forge
-            # raw path only when this env/mount is absent.
+            # policy merge. After eblume/talos#314 the mount is the only
+            # delivery path — no fallback.
             - name: TALOS_REPOS_FILE
               value: /etc/talos/repos.json
             # Lane-shaping policy (eblume/talos#252) — same ConfigMap/mount
@@ -171,6 +171,35 @@ spec:
               value: "30"
             - name: TALOS_SESSION_REAPER_DRY_RUN
               value: "0"
+            # Instance identity for eblume/talos#314 — deployment-agnostic
+            # talos, this instance's values land here. The next talos image
+            # requires every one of these at boot (entrypoint and server)
+            # and exits naming the missing field; the current image ignores
+            # them, so this PR is inert until that code merges.
+            - name: TALOS_FORGE_URL
+              value: "https://forge.ops.eblu.me"
+            - name: TALOS_FORGE_OWNER
+              value: "eblume"
+            - name: TALOS_FORGE_BOT
+              value: "agents"
+            - name: TALOS_CREATOR_ALLOWLIST
+              value: "eblume"
+            - name: TALOS_DEFAULT_ASSIGNEE
+              value: "eblume"
+            - name: TALOS_HORKOS_URL
+              value: "https://horkos.ops.eblu.me"
+            - name: TALOS_ARGOCD_SERVER
+              value: "argocd.ops.eblu.me"
+            - name: TALOS_OIDC_ISSUER
+              value: "https://authentik.ops.eblu.me/application/o/talos/"
+            - name: TALOS_OR_REFERER
+              value: "https://talos.ops.eblu.me"
+            - name: TALOS_PROMETHEUS_URL
+              value: "https://prometheus.ops.eblu.me"
+            - name: TALOS_GIT_AUTHOR_NAME
+              value: "agents"
+            - name: TALOS_GIT_AUTHOR_EMAIL
+              value: "blume.erich+agents@gmail.com"
           envFrom:
             - secretRef:
                 name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN

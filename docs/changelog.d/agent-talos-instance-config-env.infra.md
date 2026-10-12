@@ -1,0 +1,1 @@
+Talos deployment carries the instance-config env block from eblume/talos#314 (forge/owner/bot, allowlist, assignee, horkos, argocd, OIDC issuer, OpenRouter referer, prometheus, git identity): inert on the current image, required by the next. The `repos.json` pool comment is corrected to the ConfigMap-only delivery path.
