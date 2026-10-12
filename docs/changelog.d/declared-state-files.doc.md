@@ -1,0 +1,1 @@
+New reference card [[declared-state-files]]: the inventory of repo files that declare live state elsewhere, the owner-task / `--check` convention, and the rule that only blumeops names this instance (talos and horkos stay generic).
