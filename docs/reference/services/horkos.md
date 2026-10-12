@@ -100,9 +100,10 @@ never change in a single PR.
   ```
 - **Scope**: only actions with `class: warrant` in `warrant-policy.yaml` are
   requestable — today `argocd-deploy.yaml`, `argocd-sync-apps.yaml`,
-  `deploy-fly.yaml`, `ringtail-rebuild.yaml`, and `run-script.yaml`
-  (one-off scripts).
-  `provision-*` is `class: deny` (see [[blumeops-ci-item-migration]]).
+  `deploy-fly.yaml`, `ringtail-rebuild.yaml`, `provision-indri.yaml` (the
+  rebuild-only path, which reads no vault), and `run-script.yaml` (one-off
+  scripts). `provision-ringtail.yaml` is `class: deny` (see
+  [[blumeops-ci-item-migration]]).
 - **Cluster credential for run-scripts**: the `run-script` ServiceAccount in
   this namespace (ClusterRole `run-script-pv-ops`: `persistentvolumes`
   `get`/`list`/`delete`, `persistentvolumeclaims` `get`/`list` — no secrets,
