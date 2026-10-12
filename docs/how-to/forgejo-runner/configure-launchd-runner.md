@@ -86,12 +86,13 @@ both on the "Forgejo Secrets" 1Password item as `runner_indri_uuid` /
 mise run provision-indri -- --tags forgejo_runner
 ```
 
-If the managed colima profile keys (hardware or registry mirror) changed,
-the `Restart colima-build VM` handler stops the VM and its launchd
+If the colima profile (hardware or registry mirror) changed, the
+`Restart colima-build VM` handler stops the VM and its launchd
 wrapper restarts it with the new profile; jobs running at that moment
-lose their engine. The profile compare matches managed keys only, because
-colima rewrites the live file with its own full default form on start -
-a byte compare would restart the VM on every apply.
+lose their engine. colima rewrites the live profile with its own full
+default form on start, so the role compares the new render against a
+copy of the last render it installed, kept in the stage dir - a
+hand edit to the live profile is not detected (nothing relies on it).
 
 ## indri-build runner (second, unprivileged)
 

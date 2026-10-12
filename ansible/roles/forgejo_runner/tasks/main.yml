@@ -348,32 +348,28 @@
     - forgejo_runner_build_colima_template_compare.rc != 0
   tags: [forgejo_build_runner]
 
-- name: Compare staged build runner colima profile with the live one
+- name: Compare staged build runner colima profile with the last installed one
   # colima rewrites the live profile with its own fully-defaulted keys on
-  # start, so a byte compare (and thus the VM-restart handler) would fire
-  # on every apply. Compare only the keys this role renders. python3 is
-  # found on the outer side and passed in by absolute path: sudo resets
-  # PATH and the role does not know the build user's python location.
-  # rc 3 (no python3 or no yaml module) fails the play - reading a broken
-  # environment as drift would restart the VM on every apply.
-  ansible.builtin.shell: |-
-    py=$(command -v python3) || exit 3;
-    sudo -n -u indri-build /bin/sh -c 'cd / && "$1" -c "import sys
-    try:
-        import yaml
-    except ImportError:
-        sys.exit(3)
-    st = yaml.safe_load(open(sys.argv[2])); lv = yaml.safe_load(open(sys.argv[3])); sys.exit(0 if all(st.get(k) == lv.get(k) for k in sys.argv[4].split()) else 1)" _ "$2" "$3" "$4"' _ "$py" {{ (forgejo_runner_build_stage_dir ~ '/colima.yaml') | quote }} {{ forgejo_runner_build_colima_yaml | quote }} "{{ forgejo_runner_profile_managed_keys | join(' ') }}"
+  # start, so the compare cannot look at the live file - it looks at a
+  # copy of the last render the role installed instead (written right
+  # after a successful install). The copy's absence (first boot) counts
+  # as drift, so the profile is installed then. Trade-off: a hand edit
+  # to the live profile is no longer detected; nothing relies on it.
+  ansible.builtin.shell: >-
+    sudo -n -u indri-build /bin/sh -c
+    'cd / && /usr/bin/cmp -s "$1" "$2"'
+    _ {{ (forgejo_runner_build_stage_dir ~ '/colima.yaml') | quote }}
+    {{ (forgejo_runner_build_stage_dir ~ '/colima.yaml.applied') | quote }}
   register: forgejo_runner_build_colima_compare
   changed_when: false
   check_mode: false
-  failed_when: forgejo_runner_build_colima_compare.rc == 3
+  failed_when: false
   when: forgejo_runner_build_uuid | length > 0
   tags: [forgejo_build_runner]
 
 - name: Report build runner colima profile drift (check mode)
   ansible.builtin.debug:
-    msg: "would install {{ forgejo_runner_build_colima_yaml }} and restart the colima-build VM (managed keys differ from the staged render)"
+    msg: "would install {{ forgejo_runner_build_colima_yaml }} and restart the colima-build VM (last installed render differs from the staged one)"
   when:
     - forgejo_runner_build_uuid | length > 0
     - ansible_check_mode
@@ -388,6 +384,24 @@
     {{ forgejo_runner_build_colima_yaml | quote }}
   changed_when: true
   notify: Restart colima-build VM
+  when:
+    - not ansible_check_mode
+    - forgejo_runner_build_uuid | length > 0
+    - forgejo_runner_build_colima_compare.rc != 0
+  tags: [forgejo_build_runner]
+
+- name: Record the build runner colima profile just installed
+  # Baseline for the compare above: a copy of the render the role
+  # actually installed, so colima's rewrite of the live profile is
+  # ignored. Root-owned, like the stage dir.
+  ansible.builtin.copy:
+    src: "{{ forgejo_runner_build_stage_dir }}/colima.yaml"
+    dest: "{{ forgejo_runner_build_stage_dir }}/colima.yaml.applied"
+    owner: root
+    group: indri-build
+    mode: '0640'
+    remote_src: true
+  become: true
   when:
     - not ansible_check_mode
     - forgejo_runner_build_uuid | length > 0
