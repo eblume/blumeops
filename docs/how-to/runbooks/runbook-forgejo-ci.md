@@ -1,7 +1,7 @@
 ---
 title: "Runbook: Forgejo CI"
-modified: 2026-10-10
-last-reviewed: 2026-10-10
+modified: 2026-10-12
+last-reviewed: 2026-10-12
 tags:
   - how-to
   - alerting
@@ -10,9 +10,10 @@ tags:
 
 # Runbook: Forgejo CI
 
-**Alert names:** `ForgejoRunnerOffline`, `ForgejoCICollectorDown`
+**Alert names:** `ForgejoRunnerOffline`, `ForgejoCICollectorDown`,
+`ForgejoCIQueueStuck`
 
-Both come from the `forgejo_ci_*` metrics. The collector
+All three come from the `forgejo_ci_*` metrics. The collector
 `darwin/indri/mcquack-forgejo-metrics.sh` (LaunchAgent
 `mcquack.eblume.forgejo-metrics`, every 60 s) reads them from Forgejo's sqlite
 DB, read-only, and writes them into `forgejo.prom`. The **Forgejo** Grafana
@@ -63,6 +64,40 @@ stays quiet.
    `action_*` column or a changed status enum. Fix the query to match.
 3. **"database is locked"** past the 5 s busy timeout means a long write, such as
    a migration. It should clear on its own.
+
+## ForgejoCIQueueStuck
+
+A job has waited over 30 minutes for a runner on a label where nothing is
+running. A label with a job running is served and merely busy, and that case
+is deliberately excluded: the one-slot `nix-container-builder` queues jobs
+behind a long build for hours, and that is capacity, not a stall. A label with
+a queue and nothing running has no runner picking it up.
+
+The alert is per label; `{{ $labels.label }}` names it. Runs blocked on
+"Approve and run" never count: Forgejo holds them in status *blocked*, not
+*waiting*, and the metric reads only *waiting*.
+
+1. **Is any runner advertising the label?**
+   ```fish
+   mise run agent-metrics 'forgejo_ci_runner_info'
+   ```
+   The `labels` label on each series is what the runner registered. If the
+   stuck label is on no runner, the runner config was changed in the repo but
+   never applied to the live runner. That is what happened on 2026-10-10: the
+   `indri-priv` label was merged into the runner role and into the workflow in
+   one PR, and the role had not been applied, so a warranted provision-indri
+   run (7132) waited 30 minutes with no signal. Apply the runner config, and
+   the job starts on its own.
+2. **Is the runner that serves it online?** `ForgejoRunnerOffline` fires for
+   that case too; follow its steps above.
+3. **Is the label served, but only for another repo?** After the per-repo
+   registration scoping (#1358, #1520), a runner registered to one repo does
+   not take another repo's jobs even when the label matches. Compare the
+   runner's scope in the forge UI (Settings, Actions, Runners) with the repo
+   whose job is waiting.
+4. **Nothing wrong, the label is one nobody serves on purpose** (a workflow
+   copied from upstream targeting `ubuntu-latest`, say): cancel the run, and
+   fix or remove the workflow so it stops queueing.
 
 ## Reading the CI dashboard
 

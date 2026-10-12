@@ -269,6 +269,73 @@ groups:
                     type: and
               refId: C
 
+      - uid: forgejo-ci-queue-stuck
+        title: ForgejoCIQueueStuck
+        condition: C
+        for: 5m
+        # OK, not Alerting: no series means nothing is waiting, and
+        # ForgejoCICollectorDown owns the collector itself.
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            Forgejo CI jobs on label {{ index $labels "label" }} have waited over 30 minutes with nothing running on that label
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-forgejo-ci
+        labels:
+          severity: warning
+          service: forgejo-actions
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              # Age of the oldest job waiting for a runner, per label, but
+              # only on labels with no job running. A label with something
+              # running is served and merely saturated: the one-slot
+              # nix-container-builder has queued jobs behind a long build
+              # for over two hours five times (cumulative wait histogram,
+              # 2026-10-12), and those are capacity, not a stall. A label
+              # with a queue and nothing running has no runner serving it
+              # (never advertised, as on 2026-10-10 — run 7132 waited 30
+              # minutes on indri-priv — or the runner is offline, which
+              # ForgejoRunnerOffline also reports).
+              expr: >-
+                forgejo_ci_queue_oldest_age_seconds unless on(label) (sum by(label) (forgejo_ci_jobs_running) > 0)
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      # Runs blocked on "Approve and run" are status blocked,
+                      # not waiting, so they never appear in this series.
+                      - 1800
+                  operator:
+                    type: and
+              refId: C
+
   - orgId: 1
     name: borgmatic-freshness
     folder: Infrastructure Alerts
