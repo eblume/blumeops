@@ -1,0 +1,1 @@
+The ringtail play's runner-token fetch (eblume/blumeops#1520) ran under the play's `become` on the controller and failed with "sudo: a password is required"; it now sets `become: false` like the other delegated `op` reads.
