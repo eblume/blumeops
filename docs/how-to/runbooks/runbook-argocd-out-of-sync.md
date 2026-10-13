@@ -13,10 +13,11 @@ tags:
 Two alerts share this runbook, split on the `autosync_enabled` label of the
 `argocd_app_info` metric:
 
-- **`ArgoCDAppOutOfSync`** (severity `warning`, `for: 5m`) — auto-sync apps
-  only (`autosync_enabled="true"`). For these, OutOfSync after 5 minutes is a
-  real failure: a failed sync, a comparison error, or a hand edit. Treat it
-  as an incident.
+- **`ArgoCDAppOutOfSync`** (severity `warning`, `for: 5m`) — every app that
+  is not explicitly manual (`autosync_enabled!="false"`), so an app missing
+  the label (or any future value) fails toward alerting. OutOfSync after 5
+  minutes is a real failure: a failed sync, a comparison error, or a hand
+  edit. Treat it as an incident.
 - **`ArgoCDManualAppPendingSync`** (severity `info`, `for: 24h`) — the four
   by-design manual apps (`apps`, `argocd`, `cloudnative-pg-ringtail`,
   `external-secrets-crds-ringtail`). OutOfSync here is not drift; it is a
@@ -86,18 +87,6 @@ Application's `spec.syncPolicy.automated`. Both rules partition on it.
 Verified present on every series 2026-10-13 (`count by (name,
 autosync_enabled) (argocd_app_info)` showed all apps labelled, the four
 manual ones `false`).
-
-**If the label is ever absent** (ArgoCD version change, or the exporter stops
-deriving it), a series without it matches *neither* rule — the app would go
-unalerted while out of sync. Check with:
-
-```promql
-count by (name, autosync_enabled) (argocd_app_info)
-```
-
-Any `name` with no `autosync_enabled` value is the tell. Fallback until
-fixed: the unfiltered expression `argocd_app_info{sync_status!="Synced"}`
-(covers all apps, pre-split behavior).
 
 ## Silencing
 

@@ -1,1 +1,1 @@
-Narrowed `ArgoCDAppOutOfSync` to auto-sync apps only and added `ArgoCDManualAppPendingSync` (24h, info) for the four by-design manual apps, so a pending human sync no longer reads as an incident.
+Narrowed `ArgoCDAppOutOfSync` to apps not labelled manual (`autosync_enabled!="false"`, so an unlabelled app fails toward alerting) and added `ArgoCDManualAppPendingSync` (24h, info) for the four by-design manual apps, so a pending human sync no longer reads as an incident.
