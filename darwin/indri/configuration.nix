@@ -108,6 +108,23 @@ in
     /opt/homebrew/bin/fish
   '';
 
+  # Homebrew is generation-managed: every activation bundles the set below
+  # (never cleaning up, upgrading, or auto-updating). tailscale is the SSH
+  # path, and services.tailscale would load a second tailscaled beside the
+  # brew root daemon, so the daemon stays brew-owned. eblume/blumeops#1538
+  homebrew.enable = true;
+  homebrew.brews = [
+    "tailscale"
+    # Adopted at 2026.4.11 (2026-10-12). bundle cannot pin a formula version
+    # and onActivation.upgrade = false, so this never moves on its own;
+    # a bump is `brew upgrade mise` + update the Toolchain doc.
+    "mise"
+    "fish"
+  ];
+  homebrew.onActivation.cleanup = "none";
+  homebrew.onActivation.autoUpdate = false;
+  homebrew.onActivation.upgrade = false;
+
   # Never sleep: on 2026-09-16 Amphetamine (the only sleep guard) segfaulted and darked
   # *.ops.eblu.me; Amphetamine stays as the second layer. See [[indri]] §Maintenance Notes.
   power.sleep.computer = "never";
