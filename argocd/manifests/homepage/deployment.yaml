@@ -34,8 +34,10 @@ spec:
             - containerPort: 3000
               name: http
           env:
+            # The in-cluster service name is the Host the alloy blackbox probe
+            # sends. Since v2 the host check covers `/` too, not only /api/*.
             - name: HOMEPAGE_ALLOWED_HOSTS
-              value: "go.tail8d86e.ts.net,go.ops.eblu.me"
+              value: "go.tail8d86e.ts.net,go.ops.eblu.me,homepage.homepage.svc.cluster.local:3000"
             # Weather widget
             - name: HOMEPAGE_VAR_OPENWEATHERMAP_API_KEY
               valueFrom:
