@@ -1319,6 +1319,85 @@ def test_live_leg_prometheus_down_is_unknown(policy, run_main, monkeypatch):
     assert "prometheus unreachable" in out
 
 
+# --- runbook runner table (#1526) -------------------------------------------
+
+
+ROWS = [
+    ("indri-runner", "LaunchAgent `mcquack.eblume.forgejo-runner` (user `erichblume`)"),
+    (
+        "indri-build",
+        "LaunchAgent `mcquack.eblume.forgejo-runner-build` (user `indri-build`, waits for colima)",
+    ),
+    (
+        "ringtail-nix-builder-blumeops",
+        "`gitea-runner-nix_container_builder_blumeops.service`",
+    ),
+    (
+        "ringtail-nix-builder-horkos",
+        "`gitea-runner-nix_container_builder_horkos.service`",
+    ),
+    (
+        "ringtail-nix-builder-hephaestus",
+        "`gitea-runner-nix_container_builder_hephaestus.service`",
+    ),
+    (
+        "ringtail-nix-builder-talos",
+        "`gitea-runner-nix_container_builder_talos.service`",
+    ),
+    ("ringtail-priv-runner", "`gitea-runner-priv.service`"),
+]
+
+
+def _runbook_md(rows):
+    body = "\n".join(f"| `{name}` | [[host]] | {service} |" for name, service in rows)
+    return (
+        "## ForgejoRunnerOffline\n\nSome prose.\n\n"
+        "| Runner | Host | Service |\n"
+        "|--------|------|---------|\n"
+        f"{body}\n\nMore prose after the table.\n"
+    )
+
+
+def _runbook_findings(monkeypatch, tmp_path, content):
+    path = tmp_path / "runbook.md"
+    path.write_text(content, encoding="utf-8")
+    monkeypatch.setattr(ara, "RUNBOOK_PATH", path)
+    findings = ara.Findings()
+    ara.check_runbook_runner_table(findings)
+    return findings
+
+
+def test_runbook_table_consistent_is_ok(policy):
+    """The checked-in runbook + runners.json pair passes: every declared
+    runner listed once with its unit in backticks."""
+    findings = ara.Findings()
+    ara.check_runbook_runner_table(findings)
+    assert findings.failures == []
+
+
+def test_runbook_table_wrong_unit_fails(monkeypatch, tmp_path):
+    rows = [(n, s) for n, s in ROWS]
+    rows[0] = ("indri-runner", "LaunchAgent `wrong.unit.service`")
+    findings = _runbook_findings(monkeypatch, tmp_path, _runbook_md(rows))
+    assert any("mcquack.eblume.forgejo-runner" in f for f in findings.failures)
+
+
+def test_runbook_table_missing_row_fails(monkeypatch, tmp_path):
+    rows = [(name, service) for name, service in ROWS if name != "ringtail-priv-runner"]
+    findings = _runbook_findings(monkeypatch, tmp_path, _runbook_md(rows))
+    assert any(
+        "ringtail-priv-runner" in f and "missing" in f for f in findings.failures
+    )
+
+
+def test_runbook_table_extra_row_fails(monkeypatch, tmp_path):
+    rows = list(ROWS) + [("fake-runner", "`fake.service`")]
+    findings = _runbook_findings(monkeypatch, tmp_path, _runbook_md(rows))
+    assert any(
+        "fake-runner" in f and "not a declared runner" in f for f in findings.failures
+    )
+
+
 # --- horkos-forge blast-radius invariants (folded in from horkos-forge-drift) --
 
 

@@ -181,6 +181,7 @@ PROMETHEUS_URL = "https://prometheus.ops.eblu.me"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
 POLICY_PATH = Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
 RUNNERS_PATH = Path(__file__).resolve().parent.parent / "forge" / "runners.json"
+RUNBOOK_PATH = Path(__file__).resolve().parent.parent / "docs" / "how-to" / "runbooks" / "runbook-forgejo-ci.md"
 
 # The forge → talos webhook ([[talos]] §Programmatic API): one hook per pool
 # repo, all sharing one delivery URL and one signing secret (talos verifies a
@@ -1401,6 +1402,72 @@ def check_runner_series(client, owner, report, labels, repo_ids):
                   f"{checked} label(s) verified against {len(series)} live runner(s)")
 
 
+_RUNBOOK_NAME_RE = re.compile(r"^`([^`]+)`$")
+
+
+def check_runbook_runner_table(report):
+    """The runbook's ForgejoRunnerOffline table mirrors forge/runners.json.
+
+    Every declared runner appears exactly once as a backticked first cell, and
+    its last cell carries the runner's unit in backticks — the table is how an
+    operator finds the daemon to restart, so name or unit drift sends them to
+    the wrong host. The prose notes the columns mirror runners.json (#1526).
+    """
+    try:
+        runners = json.loads(RUNNERS_PATH.read_text())["runners"]
+        lines = RUNBOOK_PATH.read_text().splitlines()
+    except (OSError, ValueError, KeyError, UnicodeError) as exc:
+        report.unknown("runbook runner table mirrors forge/runners.json",
+                       f"could not read the declared runner files: {exc}")
+        return
+    declared = {r["name"]: r["unit"] for r in runners}
+    table: dict[str, str] = {}  # backticked name -> last-cell text
+    malformed: list[str] = []
+    after_heading = False
+    in_table = False
+    for line in lines:
+        if line.startswith("## ForgejoRunnerOffline"):
+            after_heading = True
+            continue
+        if not after_heading:
+            continue
+        if not line.startswith("|"):
+            if in_table and line.strip():
+                in_table = False
+            continue
+        in_table = True
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if cells == ["Runner", "Host", "Service"] or all(
+            not c or set(c) <= {"-", ":"} for c in cells
+        ):
+            continue
+        name_m = _RUNBOOK_NAME_RE.match(cells[0])
+        if not name_m:
+            malformed.append(f"unparsed table row: {line.strip()}")
+            continue
+        name = name_m.group(1)
+        if name in table:
+            malformed.append(f"duplicate table row for `{name}`")
+            continue
+        table[name] = cells[-1]
+    problems = []
+    for name, unit in sorted(declared.items()):
+        if name not in table:
+            problems.append(f"runner `{name}` missing from the table")
+            continue
+        if unit not in re.findall(r"`([^`]+)`", table[name]):
+            problems.append(f"runner `{name}`'s Service cell should carry `{unit}`")
+    for name in sorted(set(table) - set(declared)):
+        problems.append(f"table lists `{name}`, not a declared runner")
+    problems.extend(malformed)
+    for problem in problems:
+        report.fail("runbook runner table mirrors forge/runners.json", problem)
+    if not problems:
+        report.ok("runbook runner table mirrors forge/runners.json",
+                  f"{len(declared)} runners, all match")
+
+
+
 # --pr-base-ref reads the PR base's declared state from git. The CI checkout
 # is shallow (PR merge ref only), so the base ref is not a local branch — fetch
 # it shallow to origin/<ref> first, then read that. The ref is validated against
@@ -1843,6 +1910,7 @@ def main(
                 check_privileged_labels(client, owner, env_findings, labels)
                 check_unknown_labels(owner, env_findings, labels)
                 check_runner_series(client, owner, env_findings, labels, repo_ids)
+            check_runbook_runner_table(env_findings)
             if env_findings.failures:
                 raise typer.Exit(1)
 
