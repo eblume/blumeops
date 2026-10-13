@@ -50,21 +50,6 @@ on a live host is almost always a lost file, not a fresh host: for the k3s
 token, restore it from `/var/lib/rancher/k3s/server/token`. A new value would
 not match the token the cluster's bootstrap data is encrypted with.
 
-## The weekly check
-
-The `seed-secrets-check.yaml` workflow runs `seed-secrets ringtail --check` on
-the nix-container-builder runner (ringtail in host mode) Sunday 05:30 UTC and
-on every main push that touches the manifest or the script. The job holds no
-credentials — the check reads no vault — and invokes the script directly
-rather than through `mise run`, which is `[human]`-fenced for agent pods.
-
-The check needs an ssh + passwordless-sudo route from the runner to the host.
-The runner runs as the DynamicUser `gitea-runner`, which has no route today,
-so until one is granted the runs fail loudly with
-`UNKNOWN ssh + sudo route to ringtail` — a check that cannot see is a failure,
-and the loud red is what keeps the gap from going quiet (blumeops#1515). From
-gilbert the check works today on eblume's route.
-
 ## Adding a new entry
 
 Add the entry to `nixos/ringtail/secrets.json` (or
