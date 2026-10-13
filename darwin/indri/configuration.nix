@@ -4,13 +4,23 @@ let
   # The four *-metrics collectors feeding alloy's node_exporter textfile dir (PR 4 moved them here).
   mcquackBorgmaticMetrics = pkgs.writeScript "mcquack-borgmatic-metrics" (builtins.readFile ./mcquack-borgmatic-metrics.sh);
   # Capacity lines are generated from forge/runners.json
-  # (eblume/blumeops#1526). The read is relative to this flake root, which
-  # is only part of a larger git checkout (/etc/blumeops, CI checkouts) —
-  # it holds only while the file is git-tracked at the repo root and the
-  # apply runs from a checkout.
+  # (eblume/blumeops#1526), validated by forge/runners.nix. The read is
+  # relative to this flake root, which is only part of a larger git checkout
+  # (/etc/blumeops, CI checkouts) — it holds only while the file is
+  # git-tracked at the repo root and the apply runs from a checkout. The
+  # lines go to their own store file and only its path is spliced into the
+  # script, so no runners.json value ever becomes shell text; the assert
+  # turns a renamed placeholder into an eval failure instead of a silent
+  # no-op (an unparseable textfile drops every CI metric).
+  forgejoRunnerCapacity = pkgs.writeText "forgejo-runner-capacity.prom"
+    (lib.concatMapStrings (r: "forgejo_ci_runner_capacity{runner=\"${r.name}\"} ${toString r.capacity}\n")
+      (import ../../forge/runners.nix { inherit lib; }));
+  forgejoMetricsSrc = builtins.readFile ./mcquack-forgejo-metrics.sh;
   mcquackForgejoMetrics =
+    assert lib.assertMsg (lib.hasInfix "@runnerCapacityFile@" forgejoMetricsSrc)
+      "darwin/indri/mcquack-forgejo-metrics.sh lost its @runnerCapacityFile@ placeholder";
     pkgs.writeScript "mcquack-forgejo-metrics"
-      (lib.replaceStrings [ "__RUNNER_CAPACITY__" ] [ (lib.concatMapStringsSep "\n" (r: "forgejo_ci_runner_capacity{runner=\"${r.name}\"} ${toString r.capacity}") (builtins.fromJSON (builtins.readFile ../../forge/runners.json)).runners) ] (builtins.readFile ./mcquack-forgejo-metrics.sh));
+      (lib.replaceStrings [ "@runnerCapacityFile@" ] [ "${forgejoRunnerCapacity}" ] forgejoMetricsSrc);
   mcquackJellyfinMetrics = pkgs.writeScript "mcquack-jellyfin-metrics" (builtins.readFile ./mcquack-jellyfin-metrics.sh);
   mcquackZotMetrics = pkgs.writeScript "mcquack-zot-metrics" (builtins.readFile ./mcquack-zot-metrics.sh);
   sifakaMounter = pkgs.writeScript "mount-sifaka" (builtins.readFile ./mount-sifaka.sh);

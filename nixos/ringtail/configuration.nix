@@ -21,8 +21,10 @@ let
   # larger git checkout (/etc/blumeops, CI checkouts) — it holds only while
   # the file is git-tracked at the repo root and the apply runs from a
   # checkout; untrack it or build a bare copy of just nixos/ringtail and the
-  # eval fails loudly.
-  runners = builtins.fromJSON (builtins.readFile ../../forge/runners.json);
+  # eval fails loudly. forge/runners.nix validates every entry; the instance
+  # key is the unit with its gitea-runner-/.service affixes stripped, so a
+  # unit without them is refused rather than yielding a stray instance.
+  runners = import ../../forge/runners.nix { inherit lib; };
   ringtailRunners =
     let
       basePkgs = with pkgs; [ bash coreutils curl gawk gitMinimal gnused jq nodejs wget ];
@@ -34,7 +36,10 @@ let
     in
     lib.listToAttrs (
       map (r: {
-        name = lib.strings.removeSuffix ".service" (lib.strings.removePrefix "gitea-runner-" r.unit);
+        name =
+          if lib.hasPrefix "gitea-runner-" r.unit && lib.hasSuffix ".service" r.unit
+          then lib.strings.removeSuffix ".service" (lib.strings.removePrefix "gitea-runner-" r.unit)
+          else throw "forge/runners.json: ringtail runner ${r.name} unit ${r.unit} must be gitea-runner-<instance>.service";
         value = {
           enable = true;
           name = r.name;
@@ -52,7 +57,7 @@ let
             };
           };
         };
-      }) (lib.filter (r: r.host == "ringtail") runners.runners)
+      }) (lib.filter (r: r.host == "ringtail") runners)
     );
 in
 {

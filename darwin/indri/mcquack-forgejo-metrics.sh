@@ -283,10 +283,9 @@ fi
 
 # --- CI metrics from the Forgejo DB (read-only) ---
 # Runner slots, generated from forge/runners.json by
-# darwin/indri/configuration.nix (eblume/blumeops#1526).
-cat << 'CAPACITY'
-__RUNNER_CAPACITY__
-CAPACITY
+# darwin/indri/configuration.nix (eblume/blumeops#1526) into a store file
+# whose path replaces the placeholder at build time.
+cat "@runnerCapacityFile@"
 
 if ci_lines=$(ci_sql | /usr/bin/sqlite3 -readonly -cmd ".timeout 5000" "$FORGEJO_DB" 2>/dev/null); then
     echo "forgejo_ci_collector_up 1"
