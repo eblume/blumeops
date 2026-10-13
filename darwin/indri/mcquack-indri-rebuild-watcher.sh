@@ -17,6 +17,13 @@ now=$(date +%s)
 # A sidecar in flight past this with no verdict is presumed dead.
 stale=$((90 * 60))
 
+# mtime epoch of $1: GNU stat, falling back to darwin's, so the
+# watcher also runs in CI on a macOS act host (and survives a
+# homebrew coreutils `stat` shadowing /usr/bin/stat).
+mtime() {
+  stat -c %Y "$1" 2>/dev/null || stat -f %m "$1"
+}
+
 # $1=title $2=body; 0 when the post landed.
 post() {
   curl -fsS -m 10 -X POST \
@@ -26,7 +33,7 @@ post() {
     --data "$2" "$topic" >/dev/null 2>&1
 }
 
-# Key every sidecar by name+mtime (darwin stat) so a re-run of the same SHA
+# Key every sidecar by name+mtime so a re-run of the same SHA
 # or of "main" writes a new file and re-alerts on a second failure. A key
 # stays in the new seen file once settled; a failed post is retried next
 # pass. "started <epoch>" sidecars stay out of the seen file while fresh -
@@ -37,7 +44,7 @@ tmp="$seen.tmp.$$"
 for f in "$dir"/*.status; do
   [ -e "$f" ] || continue
   name=${f##*/}
-  key="$name:$(stat -f %m "$f")"
+  key="$name:$(mtime "$f")"
   if [ -e "$seen" ] && grep -qxF "$key" "$seen"; then
     # Settled on a previous pass - carry it over so it stays settled.
     printf '%s\n' "$key" >> "$tmp"
@@ -49,7 +56,7 @@ for f in "$dir"/*.status; do
       printf '%s\n' "$key" >> "$tmp"
       ;;
     "started "*)
-      age=$((now - $(stat -f %m "$f")))
+      age=$((now - $(mtime "$f")))
       if [ "$age" -lt "$stale" ]; then
         continue
       fi

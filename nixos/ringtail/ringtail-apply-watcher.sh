@@ -17,6 +17,12 @@ now=$(date +%s)
 # A sidecar in flight past this with no verdict is presumed dead.
 stale=$((90 * 60))
 
+# mtime epoch of $1: GNU stat, falling back to darwin's, so the
+# watcher also runs in CI on a macOS act host.
+mtime() {
+  stat -c %Y "$1" 2>/dev/null || stat -f %m "$1"
+}
+
 # $1=title $2=body; 0 when the post landed.
 post() {
   curl -fsS -m 10 -X POST \
@@ -38,7 +44,7 @@ tmp="$seen.tmp.$$"
 for f in "$dir"/*.status; do
   [ -e "$f" ] || continue
   name=${f##*/}
-  key="$name:$(stat -c %Y "$f")"
+  key="$name:$(mtime "$f")"
   if [ -e "$seen" ] && grep -qxF "$key" "$seen"; then
     # Settled on a previous pass - carry it over so it stays settled.
     printf '%s\n' "$key" >> "$tmp"
@@ -50,7 +56,7 @@ for f in "$dir"/*.status; do
       printf '%s\n' "$key" >> "$tmp"
       ;;
     "started "*)
-      age=$((now - $(stat -c %Y "$f")))
+      age=$((now - $(mtime "$f")))
       if [ "$age" -lt "$stale" ]; then
         continue
       fi

@@ -2,15 +2,16 @@
 
 I drive both scripts as subprocesses with a tmp dir prepended to PATH: a
 `curl` stub (appends every arg to $CURL_LOG, exits $CURL_RC, default 0,
-so a test can model a failed post) and, for the indri script alone, a
-`stat` stub that translates its darwin `stat -f %m FILE` into the GNU
-`stat -c %Y FILE` the local coreutils understands. The ringtail script is
-invoked via explicit `bash` and the indri one via `sh`: their shebangs
-point at store paths that do not exist here. Each script keys sidecars by
-name:mtime-epoch and rebuilds the seen file every pass, so an unchanged
-sidecar is quiet, a re-run of the same name re-alerts only when the sidecar
-itself changes, a "started" sidecar is silence while fresh and alerts once
-stale, and a failed post is never recorded — the next pass retries it.
+so a test can model a failed post). Each script reads mtime through a
+helper that tries GNU `stat -c %Y` then darwin `stat -f %m`, so the real
+scripts run unmodified on whatever platform the CI host is. The ringtail
+script is invoked via explicit `bash` and the indri one via `sh`: their
+shebangs point at store paths that do not exist here. Each script keys
+sidecars by name:mtime-epoch and rebuilds the seen file every pass, so an
+unchanged sidecar is quiet, a re-run of the same name re-alerts only when
+the sidecar itself changes, a "started" sidecar is silence while fresh and
+alerts once stale, and a failed post is never recorded — the next pass
+retries it.
 """
 
 import os
@@ -38,23 +39,11 @@ done
 exit "${CURL_RC:-0}"
 """
 
-STAT_STUB = """\
-#!/bin/sh
-# stat stub: the indri watcher uses darwin syntax (stat -f %m FILE); the
-# local stat is GNU, so translate that one shape and pass everything else
-# through to the real binary at {real} (resolved at test setup).
-if [ "$1" = "-f" ] && [ "$2" = "%m" ] && [ "$#" -eq 3 ]; then
-  exec {real} -c %Y "$3"
-fi
-exec {real} "$@"
-"""
-
 SCRIPTS = [
     {
         "id": "ringtail",
         "script": ROOT / "nixos" / "ringtail" / "ringtail-apply-watcher.sh",
         "invoke": [BASH],
-        "stub_stat": False,
         "silent": ("success", "superseded"),
         "failed": "rebuild-failed",
         "failed_title": "ringtail apply failed",
@@ -65,7 +54,6 @@ SCRIPTS = [
         "id": "indri",
         "script": ROOT / "darwin" / "indri" / "mcquack-indri-rebuild-watcher.sh",
         "invoke": [SH],
-        "stub_stat": True,
         "silent": ("0", "superseded"),
         "failed": "1",
         "failed_title": "indri switch failed",
@@ -76,7 +64,7 @@ SCRIPTS = [
 
 
 class Watcher:
-    """Stub curl (and stat, for indri) on a tmp PATH; drive one script."""
+    """Stub curl on a tmp PATH; drive one script."""
 
     def __init__(self, spec: dict, tmp_path: pathlib.Path):
         self.spec = spec
@@ -88,12 +76,6 @@ class Watcher:
         curl = bin / "curl"
         curl.write_text(CURL_STUB, encoding="utf-8")
         curl.chmod(0o755)
-        if spec["stub_stat"]:
-            real = shutil.which("stat")
-            assert real, "no real stat on PATH to back the stub"
-            stat = bin / "stat"
-            stat.write_text(STAT_STUB.format(real=real), encoding="utf-8")
-            stat.chmod(0o755)
         self.bin = bin
         self.curl_log = tmp_path / "curl.log"
 
