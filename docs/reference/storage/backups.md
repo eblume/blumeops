@@ -22,73 +22,91 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 
 | Tier | Config | Schedule | Sources | Repos | Retention |
 |------|---------|----------|---------|-------|-----------|
-| Archive (never pruned) | `~/.config/borgmatic/config.yaml` | 02:00 | `~/code/personal/zk`, `~/Documents` | `sifaka-borg-backups` (`/Volumes/backups/borg/`), `borgbase-offsite` | none — never pruned (no `keep_*` keys, no prune action) |
+| Archive (never pruned) | `~/.config/borgmatic/config.yaml` | 02:00 | `~/code/personal/zk`, `~/Documents`, `~/forgejo` (minus pull mirrors + live WAL DB), `k8s-dumps-archive/` (never-lose dumps), paperless pg_dump | `sifaka-borg-backups` (`/Volumes/backups/borg/`), `borgbase-offsite` | none — never pruned (no `keep_*` keys, no prune action) |
 | Archive (never pruned) — talos-data | `~/.config/borgmatic/talos-data.yaml` (own config, same 02:00 agent, main first) | 02:00 | talos pod `/home/talos/data` (in-pod tar) | `sifaka-borg-backups`, `borgbase-offsite` | none — never pruned; tier confirmed 2026-10-05 (eblume/blumeops#1417) |
-| Operational (rotating) | `~/.config/borgmatic/operational.yaml` | 03:00 | `~/forgejo` (minus mirrors + live WAL DB), `~/.config/borgmatic`, `k8s-dumps-op/`, `/Volumes/shower`, + all pre-backup dumps | `sifaka-operational` (`/Volumes/backups/borg-operational/`) — local-only for now | 7 daily / 4 weekly / 12 monthly / yearly -1 (unlimited) — enforced by the ops agent's daily `create prune compact` (eblume/blumeops#1417) |
+| Operational (rotating) | `~/.config/borgmatic/operational.yaml` | 03:00 | `~/.config/borgmatic`, `k8s-dumps-op/` (mealie, navidrome, audiobookshelf, pulumi), `/Volumes/shower`, + authentik/miniflux/teslamate/immich pg dumps | `sifaka-operational` (`/Volumes/backups/borg-operational/`) — local-only | 7 daily / 4 weekly / 12 monthly / yearly -1 (unlimited) — enforced by the ops agent's daily `create prune compact` (eblume/blumeops#1417) |
 
-The operational tier is **local-only** — there is no offsite copy of any of it.
-From the night this provisions, the heph hub store (documented as the only
-copy of all task/context data), forgejo, and every database above have no
-offsite copy newer than the cutover: losing indri and sifaka together (fire,
-theft, or ransomware over the SMB mount) loses them. An offsite tier-B repo is
-a tracked follow-up on eblume/blumeops#1417 (needs a BorgBase
-dashboard-created key). The main config no longer writes DB dumps to the
-BorgBase offsite repo — that was the biggest driver of offsite churn, and
-stopping it is part of the point of the split.
+The operational tier is **local-only** — no offsite copy of the rotating dumps
+or `/Volumes/shower`: losing indri and sifaka together (fire, theft, or
+ransomware over the SMB mount) loses them. An offsite tier-B repo for the
+operational tier is a tracked follow-up on eblume/blumeops#1417 (needs a
+BorgBase dashboard-created key). The never-lose data does not depend on that
+follow-up: heph (documented as the only copy of all task/context data),
+forgejo, horkos, paperless-media, and the paperless pg_dump now run in the
+archive tier (02:00) and land in the never-pruned `indri-*` archives on
+BorgBase offsite again — the archive config writing DB dumps offsite is the
+deliberate exception, since these are never-lose data. The bulk of the old
+offsite churn is still stopped: the operational-tier dumps (mealie, navidrome,
+audiobookshelf, pulumi, and the authentik/miniflux/teslamate/immich pg dumps)
+stay local-only.
 
 ## What Gets Backed Up
 
 ### Directories
 
-**Archive tier (main config, 02:00)** — the only sources are:
+**Archive tier (main config, 02:00)** — never pruned, `compression: auto,zstd` (new chunks only):
 
 | Path | Description | Priority |
 |------|-------------|----------|
 | `~/code/personal/zk` | Zettelkasten notes (migrating into heph docs) | Critical |
 | `~/Documents` | Personal documents (includes [[1password]] encrypted export) | High |
+| `~/forgejo` | Git forge data (repos, LFS, `custom/conf`), minus the pull mirrors and the live WAL DB (both excluded via `exclude_patterns`) | Critical |
+| `~/.local/share/borgmatic/k8s-dumps-archive` | Staging for the never-lose pre-backup dumps (heph, forgejo.db, horkos, paperless-media tar) — see Databases below | Critical |
 
 **Operational tier (operational config, 03:00)** — everything rotating:
 
 | Path | Description |
 |------|-------------|
-| `~/forgejo` | Git forge data, minus the pull mirrors and the live WAL DB (both excluded per [[borgmatic]]) |
 | `~/.config/borgmatic` | The borgmatic configs themselves |
-| `~/.local/share/borgmatic/k8s-dumps-op` | Staging for the pre-backup dumps (see Databases table) |
+| `~/.local/share/borgmatic/k8s-dumps-op` | Staging for the operational pre-backup dumps (mealie, navidrome, audiobookshelf, pulumi) — see Databases below |
 | `/Volumes/shower` | Archived shower service: prize photos + final DB snapshot (sifaka SMB mount) |
 
-All the pre-backup dumps (local sqlite, k8s, postgres) run in the operational
-tier only, staged into `k8s-dumps-op/`. `keep_yearly: -1` means each year's
-final operational archive is kept forever, so the shower archive record (photos
-+ final DB snapshot) still survives in the yearlies.
+The never-lose pre-backup dumps (heph, forgejo.db, horkos, paperless-media,
+paperless pg) run in the archive tier (02:00), staged into `k8s-dumps-archive/`;
+the operational subset (mealie, navidrome, audiobookshelf, pulumi) stages into
+`k8s-dumps-op/`. `keep_yearly: -1` means each year's final operational archive
+is kept forever, so the shower archive record (photos + final DB snapshot)
+still survives in the yearlies.
 
 ### Databases
+
+**Archive tier (main config, 02:00)** — never-lose; lands in `indri-*` archives and BorgBase offsite:
+
+| Database | Cluster | Host | Method |
+|----------|---------|------|--------|
+| paperless | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
+| forgejo | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
+| heph | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
+| horkos | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
+
+**Operational tier (operational config, 03:00)** — rotating, local-only:
 
 | Database | Cluster | Host | Method |
 |----------|---------|------|--------|
 | miniflux | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
 | teslamate | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
 | authentik | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
-| paperless | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
 | immich | immich-pg | [[postgresql|pg.ops.eblu.me:5433]] | pg_dump stream |
-| forgejo | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
-| heph | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
 | mealie | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
-| horkos | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
 | navidrome | — (SQLite) | k8s pod (ringtail) | navidrome `ND_BACKUP_*` snapshot, newest ferried off PVC |
 | audiobookshelf | — (SQLite) | k8s pod (ringtail) | ABS built-in scheduled backup zips config+metadata, newest ferried off PVC |
 
-All dumps below run in the operational config (03:00) only, staged via a
-`commands:` before-hook into `~/.local/share/borgmatic/k8s-dumps-op/` (a source
-of that config). The main archive-tier config carries no dump hooks, so nightly
-data never lands in the never-pruned `indri-*` archives — and no DB dumps are
-written to the BorgBase offsite repo anymore, which stops the offsite churn.
+The archive config (02:00) stages the never-lose dumps (heph, forgejo.db,
+horkos, paperless-media tar) via a `commands:` before-hook into
+`~/.local/share/borgmatic/k8s-dumps-archive/` (a source of that config) and
+dumps paperless via its `postgresql_databases` block — they land in the
+never-pruned `indri-*` archives and the BorgBase offsite repo (deliberate:
+never-lose data). The operational config (03:00) stages mealie, navidrome,
+audiobookshelf, pulumi via the same hook mechanism into `k8s-dumps-op/` and
+runs the authentik/miniflux/teslamate/immich pg dumps — local-only, so the
+bulk of the old offsite churn stays stopped.
 
 ## K8s Pod Data Directories
 
 | Pod | Data | Method |
 |-----|------|--------|
 | talos | All session transcripts + service state (meta.json, crons.json, settings.json) | in-pod tar → own never-pruned config (see below) |
-| paperless | Document library — originals, archived, thumbnails (NFS media PVC on [[sifaka]]) | in-pod tar, streamed back |
+| paperless | Document library — originals, archived, thumbnails (NFS media PVC on [[sifaka]]) | in-pod tar, streamed back (archive tier, never-lose — lands in `indri-*` and offsite) |
 
 ## Talos Session State (Never Pruned)
 
@@ -100,7 +118,7 @@ Talos agent sessions (`/home/talos/data` — session transcripts, service state,
 
 Measured cost (eblume/blumeops#1409, 2026-10-05): 79.6 MB/night deduplicated, ~2.4 GB/month per repo, ~25% of nightly growth — decision: talos-data stays never-pruned. The tier split adds `compression: auto,zstd` to this config (new chunks only), which slows that growth going forward.
 
-Tonight's tar is staged into `~/.local/share/borgmatic/k8s-dumps-talos/talos-data.tar` (deliberately *not* the main config's `k8s-dumps/` source directory) by a hook in the talos-data config; a failed dump aborts the run, so no archive without a fresh tar.
+Tonight's tar is staged into `~/.local/share/borgmatic/k8s-dumps-talos/talos-data.tar` (deliberately *not* the main config's `k8s-dumps-archive/` source directory) by a hook in the talos-data config; a failed dump aborts the run, so no archive without a fresh tar.
 
 ### Restoring a Single Session
 
@@ -173,12 +191,13 @@ Bulk media lives directly on [[sifaka]] (music files served by [[navidrome]], vi
 
 ## Restore notes
 
-Forgejo restores from an `operational-*` archive bring back the DB snapshot —
-including the rows for the 29 pull mirrors — but the mirrors' git dirs are
-excluded from every archive, so re-sync or recreate the mirrors (clone from
-upstream) after restoring. Operational DB dumps and forgejo state live in the
-newest `operational-*` archive under `k8s-dumps-op/`; `indri-*` archives
-predate the split and carry the old `k8s-dumps/` layout.
+Forgejo restores from an `indri-*` archive: the git dirs come from the
+`~/forgejo` source and the DB snapshot from `k8s-dumps-archive/forgejo.db`.
+The forgejo.db snapshot includes the rows for the 29 pull mirrors, but the
+mirrors' git dirs are excluded from every archive, so re-sync or recreate the
+mirrors (clone from upstream) after restoring. Operational DB dumps live in the
+newest `operational-*` archive under `k8s-dumps-op/`; `indri-*` archives that
+predate the tier split carry the old `k8s-dumps/` staging layout.
 
 ## Retention Policy
 

@@ -149,7 +149,16 @@
   changed_when: true
   failed_when: false
 
-# --- Tier B (operational) backups: rotating tier (forgejo, config, dumps) ---
+# k8s-dumps-archive is a source_directories entry in config.yaml with
+# source_directories_must_exist: true, so it must exist before the first
+# archive create (the hook's mkdir runs later, during the 02:00 run).
+- name: Ensure archive dump staging directory
+  ansible.builtin.file:
+    path: "{{ borgmatic_archive_dump_dir }}"
+    state: directory
+    mode: '0700'
+
+# --- Tier B (operational) backups: rotating tier (config, dumps) ---
 
 # k8s-dumps-op is a source_directories entry in operational.yaml with
 # source_directories_must_exist: true, so it must exist before the first

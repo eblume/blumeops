@@ -35,18 +35,22 @@ rotating tier's archives and a prune in either config cannot reach the
 other's archives.
 
 **Archive tier (never pruned) — main config (`config.yaml`, 02:00):**
-`~/code/personal/zk` and `~/Documents` only. No retention keys, no prune
-action. Repos: `sifaka-borg-backups` ([[sifaka]] local) + `borgbase-offsite`
-(BorgBase). No DB dumps run here — nightly data never lands in the
-never-pruned `indri-*` archives, and the main config no longer writes DB dumps
-to BorgBase offsite (that was the biggest driver of offsite churn; the tier
-split stops it).
+`~/code/personal/zk`, `~/Documents`, `~/forgejo` (minus pull mirrors + live
+WAL DB), the never-lose dumps staged into `k8s-dumps-archive/` (heph,
+forgejo.db, horkos, paperless-media tar), and the paperless pg_dump via a
+`postgresql_databases` block. No retention keys, no prune action,
+`compression: auto,zstd` (new chunks only). Repos: `sifaka-borg-backups`
+([[sifaka]] local) + `borgbase-offsite` (BorgBase, append-only). The never-lose
+dumps land in the never-pruned `indri-*` archives and write to the BorgBase
+offsite repo again — deliberate, since these are never-lose data; the bulk of
+the old offsite churn is still stopped because the operational dumps stay out
+of this repo.
 
 **Operational tier (rotating) — operational config (`operational.yaml`, 03:00):**
-forgejo (minus pull mirrors and the live WAL DB), `~/.config/borgmatic`,
-`k8s-dumps-op` (its own snapshot staging), `/Volumes/shower`, plus **all** the
-pre-backup dumps the main config used to run — now staged into
-`k8s-dumps-op/` instead of `k8s-dumps/`. Own local repo
+`~/.config/borgmatic`, `k8s-dumps-op` (its own snapshot staging: mealie,
+navidrome, audiobookshelf, pulumi), `/Volumes/shower`, plus the
+authentik/miniflux/teslamate/immich pg dumps (no `exclude_patterns` left —
+no excluded sources). Own local repo
 `/Volumes/backups/borg-operational/` (label `sifaka-operational`, sibling of
 the archive-tier root — borg 1.x refuses to create a repo inside an existing
 one; the role creates it with `repo-create`, idempotent, and flips it off
@@ -56,10 +60,13 @@ disk), own `operational-*` prefix, `compression: auto,zstd`, retention
 7 daily / 4 weekly / 12 monthly / yearly -1 (unlimited), enforced by the
 ops agent's daily `create prune compact` run matched to `operational-*`
 only; compact reclaims space on the local repo. The operational tier is local-only:
-there is no offsite copy of the heph hub store, forgejo, or any database
-newer than the cutover — losing indri and sifaka together loses them; the
-offsite tier-B repo is a tracked follow-up on eblume/blumeops#1417 (needs a
-BorgBase dashboard-created key).
+there is no offsite copy of the operational dumps (mealie, navidrome,
+audiobookshelf, pulumi, authentik/miniflux/teslamate/immich) or
+`/Volumes/shower` newer than the cutover — losing indri and sifaka together
+loses them; the offsite tier-B repo is a tracked follow-up on
+eblume/blumeops#1417 (needs a BorgBase dashboard-created key). The never-lose
+dumps (heph, forgejo, horkos, paperless-media, paperless pg) do not depend on
+that follow-up — they run in the archive config and land offsite.
 The sifaka copy's immutability is client-side only — `/Volumes/backups` is an
 SMB mount, not a `borg serve` endpoint, so local `append_only` protects
 nothing against indri itself.
@@ -75,50 +82,63 @@ bin has captured deletions — it reads 0 while present but empty).
 **Archive tier — main config (`config.yaml`, 02:00), never pruned:**
 - `~/code/personal/zk` - Zettelkasten (migrating into heph docs; see [hephaestus](https://github.com/eblume/hephaestus))
 - `~/Documents` - Personal documents (includes the [[1password]] encrypted export)
+- `~/forgejo` - Git forge data (repos, LFS, `custom/conf`), minus the pull mirrors under `data/forgejo-repositories/mirrors` (29 pull mirrors, 7.68 GB per Forgejo API 2026-10-04 — re-fetchable from upstream) and the live WAL `forgejo.db` (snapshotted into `k8s-dumps-archive/` instead); both excluded via `exclude_patterns`
+- `~/.local/share/borgmatic/k8s-dumps-archive/` - the archive tier's snapshot staging (never-lose dumps: heph, forgejo.db, horkos, paperless-media tar)
 
-No dump hooks, no `keep_*` keys, no prune action. The main config no longer
-writes DB dumps to the BorgBase offsite repo — nightly data must not live in
-the never-pruned archives.
+The archive tier carries the dump hooks and the `postgresql_databases` block,
+so never-lose nightly data lands in the never-pruned `indri-*` archives — and
+on BorgBase offsite, deliberately: these are never-lose data. No `keep_*`
+keys, no prune action.
 
 **Operational tier — operational config (`operational.yaml`, 03:00), rotating:**
-- `~/forgejo` - Git forge data (repos, LFS, `custom/conf`), minus the live WAL `forgejo.db` (snapshotted via the before-backup hook) and the pull mirrors under `data/forgejo-repositories/mirrors` — 29 pull mirrors, 7.68 GB per Forgejo API 2026-10-04, ~93% of the ~7.9 GiB forgejo source; they re-fetch from upstream, so keeping them out of every archive saves that churn
 - `~/.config/borgmatic` - the borgmatic configs (this operational.yaml is itself a source)
-- `~/.local/share/borgmatic/k8s-dumps-op/` - the operational tier's snapshot staging (all pre-backup dumps land here)
+- `~/.local/share/borgmatic/k8s-dumps-op/` - the operational tier's snapshot staging (mealie, navidrome, audiobookshelf, pulumi land here)
 - `/Volumes/shower` - archived shower service: prize photos + final DB snapshot (sifaka SMB mount)
 
-**Databases and pod dumps** (snapshotted before every operational `create` run
-only — the main config carries no dump hooks, so nightly data never lands in
-the never-pruned `indri-*` archives):
+**Databases and pod dumps** (snapshotted before every `create` run — the
+never-lose set runs in the archive config (02:00) and lands in the
+never-pruned `indri-*` archives, the rest in the operational config (03:00)).
 
-**PostgreSQL databases:**
-- `miniflux`, `teslamate`, `authentik`, `paperless` on [[postgresql]] (blumeops-pg)
-- `immich` on immich-pg
+All ringtail k8s dumps run through ringtail's `borgmatic` dump endpoint (dedicated `borgmatic` user, forced command — [[ringtail]] §Borgmatic dump endpoint, eblume/blumeops#1484); indri sends only the dump name.
+
+**Archive tier (02:00) — never-lose (staged into `k8s-dumps-archive/`):**
+
+**PostgreSQL:**
+- `paperless` on [[postgresql]] (blumeops-pg) — pg_dump via the main config's `postgresql_databases` block
 
 **Local SQLite databases** (before-backup `sqlite3 .backup` online snapshot — WAL-safe, fails loud):
-- [[hephaestus|heph]] hub - `~/.local/share/heph/heph.db` (canonical task/context store)
+- [[hephaestus|heph]] hub - `~/.local/share/heph/heph.db` (canonical task/context store, only copy)
 - [[forgejo]] - `~/forgejo/data/forgejo.db` (the live WAL-mode DB excluded from the `~/forgejo` source dir above; the git repos come from the directory)
 
-All ringtail k8s dumps below run through ringtail's `borgmatic` dump endpoint (dedicated `borgmatic` user, forced command — [[ringtail]] §Borgmatic dump endpoint, eblume/blumeops#1484); indri sends only the dump name.
+**K8s dumps:**
+- [[horkos]] - approval-queue dispatch (`/data/horkos.db`, on ringtail) — SQLite dump, only copy
+- paperless-media — document library: originals, archived, thumbnails (NFS media PVC on [[sifaka]]); multi-container pod, tarred in the `web` container — in-pod tar, streamed back
+
+**Operational tier (03:00) — rotating, local-only (staged into `k8s-dumps-op/`):**
+
+**PostgreSQL databases:**
+- `miniflux`, `teslamate`, `authentik` on [[postgresql]] (blumeops-pg)
+- `immich` on immich-pg
 
 **K8s SQLite databases (pre-backup dump via kubectl exec):**
 - [[mealie]] - Recipe manager (`/app/data/mealie.db`)
-- [[horkos]] - approval-queue dispatch (`/data/horkos.db`, on ringtail)
 
 **K8s service-produced backup files (newest ferried off the PVC):**
 - [[navidrome]] - music DB: users, play counts, playlists (navidrome's own `ND_BACKUP_*` snapshot in `/data/backup`)
 - audiobookshelf - built-in scheduled backup of config+metadata (`/metadata/backups`)
 - pulumi-stack-backup — Pulumi Cloud stack state, one ferry each for the two stacks `tail8d86e` and `eblu-me` (`pulumi stack export --show-secrets`; the ringtail dump endpoint reads straight off the PV — a missing or empty export keeps the previous staged file; exports contain plaintext secret values — borg repo encryption is the control; restore: [[restore-pulumi-state]])
 
-**K8s pod data directories (in-pod tar, streamed back):**
-- paperless-ngx — document library: originals, archived, thumbnails (NFS media PVC on [[sifaka]]); multi-container pod, tarred in the `web` container
-- talos — session transcripts + service state (`/home/talos/data`), owned by its own config (`talos-data.yaml`) and excluded from the operational tier's tar loop
+talos — session transcripts + service state (`/home/talos/data`), owned by its own config (`talos-data.yaml`); see "Talos session state" below.
 
 The SQLite snapshots and ferried backup files above are staged by a
-`commands:` hook with `before: configuration`, so they run **once per backup
-run** rather than once per repository. A non-zero exit from any hook aborts the
-whole run — a failed snapshot is never silently skipped. Everything stages into
-`~/.local/share/borgmatic/k8s-dumps-op/` (a source of the operational config);
-the archive-tier config no longer targets any dump dir.
+`commands:` hook with `before: configuration` in each tier config, so they run
+**once per backup run** rather than once per repository. A non-zero exit from
+any hook aborts the whole run — a failed snapshot is never silently skipped.
+The archive config (02:00) stages its never-lose dumps (heph.db, forgejo.db,
+horkos.db, paperless-media.tar) into `~/.local/share/borgmatic/k8s-dumps-archive/`
+(a source of that config); the operational config (03:00) stages its subset
+(mealie, navidrome, audiobookshelf, pulumi) into `~/.local/share/borgmatic/k8s-dumps-op/`
+(a source of the operational config).
 
 **Immich photo library** (separate config, BorgBase offsite only):
 - `/Volumes/photos/library` and `/Volumes/photos/upload` (sifaka SMB mount, ~128 GB); excludes `encoded-video/`, `thumbs/`, `backups/` — regenerable from originals

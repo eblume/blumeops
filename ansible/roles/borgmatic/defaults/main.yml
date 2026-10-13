@@ -33,10 +33,28 @@ borgmatic_borg_bin: /opt/homebrew/bin/borg
 borgmatic_schedule_hour: 2
 borgmatic_schedule_minute: 0
 
-# Archive tier — kept forever in the never-pruned indri-* archives. Operational sources (forgejo, DB dumps, service state, /Volumes/shower) moved to operational.yaml.
+# Archive tier — kept forever in the never-pruned indri-* archives.
+# /Volumes/shower, the borgmatic config, and the remaining (re-fetchable or
+# service-state) dumps stay in the operational tier.
 borgmatic_source_directories:
   - /Users/erichblume/code/personal/zk
   - /Users/erichblume/Documents
+  # ~/forgejo minus the live WAL DB (snapshotted in the before-hook of
+  # config.yaml.j2) and the pull mirrors (excluded in
+  # borgmatic_exclude_patterns below). The git repos are the primary source
+  # of truth — only blumeops has a GitHub mirror — so they are never-lose,
+  # not operational.
+  - /Users/erichblume/forgejo
+  # Never-lose dump staging dir (same path as borgmatic_archive_dump_dir
+  # below); the hook's mkdir runs later, during the 02:00 run.
+  - /Users/erichblume/.local/share/borgmatic/k8s-dumps-archive
+
+# Mirror the ~/forgejo exclusions from the operational tier's split; without
+# them the full mirrors org and the live WAL DB would ride in every
+# never-pruned archive.
+borgmatic_exclude_patterns:
+  - /Users/erichblume/forgejo/data/forgejo.db*
+  - /Users/erichblume/forgejo/data/forgejo-repositories/mirrors
 
 # Archive-tier repos (never pruned): the historical mixed archives plus the
 # new indri-* and talos-data-* archives live here.
@@ -65,6 +83,11 @@ borgmatic_ringtail_ssh_key_path: /Users/erichblume/.ssh/borgmatic_ringtail_ed255
 borgmatic_k8s_sqlite_dumps:
   - name: mealie
     target: ssh:borgmatic@ringtail
+
+# K8s SQLite databases dumped by the archive (never-lose) config — same
+# endpoint machinery as borgmatic_k8s_sqlite_dumps; the snapshot lands in
+# borgmatic_archive_dump_dir/<name>.db and rides in the indri-* archives.
+borgmatic_archive_k8s_sqlite_dumps:
   - name: horkos
     target: ssh:borgmatic@ringtail
     # horkos (approval-queue dispatch) DB — only copy of queue state;
@@ -121,11 +144,16 @@ borgmatic_k8s_tar_dumps:
   # Every session is stored forever (heph 01M0GA6JPGQF96AM5JZKA37YSV).
   - name: talos-data
     target: ssh:borgmatic@ringtail
+
+# K8s pods tarred for the archive (never-lose) config — same endpoint
+# machinery as borgmatic_k8s_tar_dumps; the tar lands in
+# borgmatic_archive_dump_dir/<name>.tar and rides in the indri-* archives.
+borgmatic_archive_k8s_tar_dumps:
   # paperless-ngx document library — originals, archived, thumbnails — on
   # the sifaka NFS media PVC (sifaka's only protection is RAID-5, so this
   # is the offsite copy; see [[backups]]). Multi-container pod — the
-  # endpoint table row names the container. The DB side is already covered
-  # by borgmatic_postgresql_databases (name: paperless).
+  # endpoint table row names the container. The DB side is covered by
+  # borgmatic_archive_postgresql_databases (name: paperless).
   - name: paperless-media
     target: ssh:borgmatic@ringtail
 
@@ -135,8 +163,9 @@ borgmatic_k8s_tar_dumps:
 # silent-failure mode on WAL databases (exit code stays 0 on a torn read —
 # borgmatic #295 / SQLite forum). The .backup API is WAL-safe and returns a
 # real exit code, so a failed snapshot aborts the whole borgmatic run loudly.
-# Snapshots land in borgmatic_operational_dump_dir (an operational source).
-borgmatic_local_sqlite_dumps:
+# Snapshots land in borgmatic_archive_dump_dir (an archive-tier source) and
+# ride in the indri-* archives.
+borgmatic_archive_sqlite_dumps:
   # heph hub canonical store — the only copy of all task/context data once
   # spokes are pure replicas (see [[hephaestus]]). WAL mode, continuously
   # written by every spoke sync, so a plain file copy could tear.
@@ -152,7 +181,9 @@ borgmatic_local_sqlite_dumps:
 # Encryption passcommand (reads borg passphrase)
 borgmatic_encryption_passcommand: cat /Users/erichblume/.borg/config.yaml
 
-# The main config is the never-pruned archive tier (zk, Documents) — no retention keys and no prune action. Tier B retention lives in operational.yaml.
+# The main config is the never-pruned archive tier (zk, Documents, forgejo,
+# and the never-lose dumps heph/forgejo/horkos/paperless) — no retention
+# keys and no prune action. Tier B retention lives in operational.yaml.
 
 # Retry a failing repository action (e.g. a broken SSH pipe mid-upload to the
 # BorgBase offsite repo) instead of losing the whole night. borg checkpoints an
@@ -197,19 +228,15 @@ borgmatic_operational_repositories:
     # nothing against indri anyway (see [[borgmatic]]).
     append_only: false
 borgmatic_operational_source_directories:
-  # ~/forgejo minus the live WAL DB (snapshotted in the before-hook below)
-  # and the pull mirrors (re-fetchable from upstream, excluded below).
-  - /Users/erichblume/forgejo
   - /Users/erichblume/.config/borgmatic
   - /Users/erichblume/.local/share/borgmatic/k8s-dumps-op
   - /Volumes/shower
-borgmatic_operational_exclude_patterns:
-  - /Users/erichblume/forgejo/data/forgejo.db*
-  # Pull mirrors under the `mirrors` org (29 repos, ~7.7 GB) re-fetch from
-  # upstream; keeping them out of every archive saves ~93% of the forgejo
-  # source's nightly churn.
-  - /Users/erichblume/forgejo/data/forgejo-repositories/mirrors
 borgmatic_operational_dump_dir: /Users/erichblume/.local/share/borgmatic/k8s-dumps-op
+# Never-lose dump staging dir for the archive (main) config: heph, forgejo,
+# horkos and paperless-media snapshots. Sibling of the operational and
+# talos-data staging dirs; 0700 pre-created by tasks/main.yml because
+# source_directories_must_exist: true.
+borgmatic_archive_dump_dir: /Users/erichblume/.local/share/borgmatic/k8s-dumps-archive
 # Retention — enforced by the ops agent's prune action. keep_yearly: -1
 # means unlimited, so each year's final archive is kept forever.
 borgmatic_operational_keep_daily: 7
@@ -220,6 +247,15 @@ borgmatic_operational_keep_yearly: -1
 # PostgreSQL databases to backup (streamed via pg_dump)
 # Password is read from ~/.pgpass (managed by this role)
 # pg_dump_command must be full path since LaunchAgent doesn't have homebrew in PATH
+# Paperless pg dump (document metadata: titles, tags, correspondents) —
+# never-lose: scanned documents without their metadata are much less useful.
+# Streams into the indri-* archives alongside the paperless-media tar.
+borgmatic_archive_postgresql_databases:
+  - name: paperless
+    hostname: pg.ops.eblu.me
+    port: 5434
+    username: borgmatic
+
 # --- Immich photo library backup (BorgBase offsite only) ---
 borgmatic_photos_config: /Users/erichblume/.config/borgmatic/photos.yaml
 borgmatic_photos_source_directories:
@@ -268,10 +304,6 @@ borgmatic_postgresql_databases:
     port: 5434
     username: borgmatic
   - name: teslamate
-    hostname: pg.ops.eblu.me
-    port: 5434
-    username: borgmatic
-  - name: paperless
     hostname: pg.ops.eblu.me
     port: 5434
     username: borgmatic
