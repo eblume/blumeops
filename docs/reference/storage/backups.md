@@ -1,7 +1,7 @@
 ---
 title: Backups
-modified: 2026-10-08
-last-reviewed: 2026-10-04
+modified: 2026-10-13
+last-reviewed: 2026-10-13
 tags:
   - storage
   - backup
@@ -216,6 +216,10 @@ The `backups` share's SMB recycle bin must stay **disabled** (verified
 `enable recycle bin=no` in DSM on 2026-10-06): it captures the files a
 `compact` or `prune` deletes, so rotation would reclaim nothing — 8.7 GB of
 superseded borg index/lock files had accumulated before the discovery.
+
+All repos use `repokey` encryption with one shared passphrase; key escrow
+(passphrase on the physical Emergency Kit, paper-format key exports in
+1Password) is documented in [[borgmatic]] §Key escrow.
 
 ## Monitoring
 

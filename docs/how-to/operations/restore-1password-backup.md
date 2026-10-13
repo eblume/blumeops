@@ -1,7 +1,7 @@
 ---
 title: Restore 1Password Backup
-modified: 2026-10-05
-last-reviewed: 2026-10-05
+modified: 2026-10-13
+last-reviewed: 2026-10-13
 tags:
   - how-to
   - operations
@@ -17,7 +17,7 @@ How to recover a 1Password `.1pux` export from a [[borgmatic]] backup. This proc
 - A copy of the borg backup repository (from [[sifaka]], or the BorgBase offsite repo)
 - `borg`, `age`, and `openssl` installed on any machine
 - Your **1Password Emergency Kit** (fire safety box) — contains the master password and secret key
-- The borg repo passphrase (printed on the Emergency Kit, or from `/Users/erichblume/.borg/config.yaml` if [[indri]] is accessible)
+- The borg repo passphrase (handwritten on the Emergency Kit as "Backup Archive Password", or from `/Users/erichblume/.borg/config.yaml` if [[indri]] is accessible)
 
 ## When to Use This
 
@@ -96,7 +96,14 @@ rm -rf /tmp/op-restore
 
 ## Notes on the Borg Passphrase
 
-The borg repo uses `repokey` encryption — the key is stored in the repo itself, so you only need the passphrase (not a separate keyfile). The passphrase is recorded on your Emergency Kit alongside the 1Password credentials.
+All four borg repos use `repokey` encryption — the key is stored in the repo
+itself, so day-to-day recovery needs only the passphrase. The passphrase is
+handwritten on the physical Emergency Kit ("Backup Archive Password") alongside
+the 1Password credentials; the handwritten copy is deliberate because this
+`.1pux` backup lives inside those same borg repos, so the borg secret must not
+exist only in 1Password. If a repo's stored key is damaged, the paper-format
+key exports for all four repos sit in the 1Password "borg backup" and
+"borgbase" items, matched by repository ID — see [[borgmatic]] §Key escrow.
 
 ## Related
 
