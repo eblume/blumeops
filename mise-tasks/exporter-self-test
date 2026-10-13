@@ -1,0 +1,29 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# dependencies = [
+#   "pytest==9.1.1",
+#   "prometheus-client",
+# ]
+# ///
+#MISE description="Run the exporter unit tests (API-fixture replays, no network)"
+"""Fixture-based unit tests for the homegrown exporters.
+
+Replays the API fixtures under
+containers/authentik-blueprint-exporter/fixtures/ (synthetic responses in
+authentik's real pagination shape, see the README there) through the
+exporter's own snapshot logic and asserts the metric semantics — the
+delete/re-create error-survival case, the empty-list = failed-poll case,
+and pagination URL-building. No network, no secrets, works from an agent
+pod (eblume/blumeops#1444).
+
+Usage: mise run exporter-self-test [-- <pytest args>]
+"""
+
+import pathlib
+import sys
+
+import pytest
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.exit(pytest.main([str(ROOT / "containers" / "authentik-blueprint-exporter" / "test_exporter.py"), "-q", *sys.argv[1:]]))

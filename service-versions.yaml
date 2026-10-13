@@ -265,6 +265,18 @@ services:
       8.6.3 -> 8.8.2 on 2026-09-05 when the builder's nixpkgs moved (PSA
       non-root rebuild, #797). No persistence, so version bumps are free.
 
+  - name: authentik-blueprint-exporter
+    type: argocd
+    parent: authentik
+    last-reviewed: "2026-10-05"
+    current-version: "0.1.0"
+    upstream-source: null
+    notes: >-
+      Homegrown Python exporter, no upstream (the transmission-exporter
+      pattern): polls the read-only ci-authentik-blueprints service account
+      and serves each blueprint instance's state as Prometheus metrics
+      (eblume/blumeops#1444).
+
   - name: ollama
     type: argocd
     last-reviewed: 2026-08-28
