@@ -33,11 +33,36 @@ let
   exitTimeOutWarning = name: cfg:
     lib.optional (cfg.ExitTimeOut != null && cfg.ExitTimeOut > 60 && cfg.AbandonProcessGroup != true)
       "indri: launchd user agent ${name} sets ExitTimeOut ${lib.toString cfg.ExitTimeOut} s without AbandonProcessGroup — launchd clamps ExitTimeOut to 60 s in the per-user gui domain, and without AbandonProcessGroup a stop kills the job's process group, taking a detached darwin-rebuild mid-activation. Incidents https://forge.ops.eblu.me/eblume/blumeops/issues/1266, https://forge.ops.eblu.me/eblume/blumeops/issues/1269. To lift: set AbandonProcessGroup = true in the same PR, or silence the warning in this file if the long timeout is deliberate.";
+  # Secrets lockstep with secrets.json (eblume/blumeops#1524): `referenced`
+  # stays empty until the forgejo_runner role moves to nix
+  # (eblume/blumeops#1213) — it still renders its runner config via ansible;
+  # when it moves, collect the new reference sites here. The manifest
+  # existing (even empty) is what this guard reads, so the
+  # declared-but-unreferenced direction is already exercisable.
+  secrets = builtins.fromJSON (builtins.readFile ./secrets.json);
+  declared = builtins.map (s: s.path) secrets.secrets;
+  referenced = [ ];
 in
 {
   # argv0 across every user agent and system daemon.
   assertions = lib.flatten (lib.mapAttrsToList (guardNamed "user agent") userAgents)
-    ++ lib.flatten (lib.mapAttrsToList (guardNamed "daemon") daemons);
+    ++ lib.flatten (lib.mapAttrsToList (guardNamed "daemon") daemons)
+    # Secrets lockstep with secrets.json, same shape as ringtail's guard (see
+    # the `referenced` binding above).
+    ++ [
+      {
+        assertion = lib.all (p: lib.elem p declared) referenced;
+        message = let
+          missing = lib.filter (p: ! lib.elem p declared) referenced;
+        in "indri: the nix config references secret ${lib.concatMapStringsSep ", " (p: "<${p}>") missing} that is not declared in darwin/indri/secrets.json — the apply path would have no declared owner for it. eblume/blumeops#1524. To lift: add the entry to the manifest in the same PR, or remove this entry in the same PR if the reference is deliberate.";
+      }
+      {
+        assertion = lib.all (p: lib.elem p referenced) declared;
+        message = let
+          dead = lib.filter (p: ! lib.elem p referenced) declared;
+        in "indri: secrets.json declares ${lib.concatMapStringsSep ", " (p: "<${p}>") dead} that no part of the nix config references — a dead declaration is a typo in the manifest, or a copy task the manifest was supposed to retire. eblume/blumeops#1524. To lift: reference the path from the config, or remove the entry from the manifest in the same PR.";
+      }
+    ];
   # gui domain only: launchd clamps ExitTimeOut to 60 s per user agent; the
   # system daemons honor it, so only user agents are warned.
   warnings = lib.flatten (lib.mapAttrsToList (n: a: exitTimeOutWarning n a.serviceConfig) userAgents);
