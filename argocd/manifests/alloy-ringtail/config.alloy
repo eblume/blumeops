@@ -71,6 +71,14 @@ prometheus.scrape "talos" {
   forward_to      = [prometheus.remote_write.prometheus.receiver]
 }
 
+// Blueprint-state exporter: per-instance status for the authentik
+// blueprint alerting (eblume/blumeops#1444).
+prometheus.scrape "authentik_blueprints" {
+  targets         = [{"__address__" = "blueprint-exporter.authentik.svc.cluster.local:9101", "job" = "authentik-blueprint-exporter"}]
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.prometheus.receiver]
+}
+
 // ============== SERVICE HEALTH PROBES ==============
 
 // Blackbox-style HTTP probes for in-cluster services on ringtail.
@@ -91,6 +99,11 @@ prometheus.exporter.blackbox "services" {
   target {
     name    = "authentik"
     address = "http://authentik.authentik.svc.cluster.local:9000/-/health/live/"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "authentik-blueprint-exporter"
+    address = "http://blueprint-exporter.authentik.svc.cluster.local:9101/metrics"
     module  = "http_2xx"
   }
   target {

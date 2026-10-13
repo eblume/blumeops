@@ -11,9 +11,13 @@ resources:
   - service.yaml
   - service-redis.yaml
   - ingress-tailscale.yaml
+  - deployment-blueprint-exporter.yaml
+  - service-blueprint-exporter.yaml
 images:
   - name: registry.ops.eblu.me/blumeops/authentik
     newTag: v2026.2.6-6a6c45d-nix@sha256:62582140feb4db1006dbe3b02c17d4cb93ed29da7b38f50445cc307865621e40
+  - name: registry.ops.eblu.me/blumeops/authentik-blueprint-exporter
+    newTag: v0.1.0-e0539e2-nix
   - name: docker.io/library/redis
     newName: registry.ops.eblu.me/blumeops/authentik-redis
     newTag: v8.8.2-7eeb358-nix

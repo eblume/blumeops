@@ -1404,6 +1404,187 @@ groups:
                     type: and
               refId: C
 
+  - orgId: 1
+    name: authentik-blueprints
+    folder: Infrastructure Alerts
+    interval: 60s
+    rules:
+      - uid: authentik-blueprint-error
+        title: AuthentikBlueprintError
+        condition: C
+        # Recency-based on purpose: authentik's hourly clear_failed_blueprints
+        # task *deletes* failing instances and discovery re-creates them, so
+        # status != "successful" for 30m could reset every hour and never
+        # fire. The exporter carries a path's error state for 2h across the
+        # delete/re-create gap (and keys on path, since pk and name change on
+        # every re-create), so this asks "was this path in error within the
+        # last 2h". noDataState OK: a path that never errors emits no series.
+        # The 7200s query range must cover the 2h max_over_time window.
+        for: 10m
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            authentik blueprint {{ index $labels "path" }} is in error state
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-authentik-blueprint
+        labels:
+          severity: warning
+          service: authentik
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 7200
+              to: 0
+            model:
+              expr: >-
+                max by (path) (max_over_time(authentik_blueprint_status{status="error"}[2h]))
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+              refId: C
+      - uid: authentik-blueprint-collector-down
+        title: AuthentikBlueprintCollectorDown
+        condition: C
+        # A missing series (pod down, scrape failing) is itself a failure, so
+        # noDataState is Alerting; for: 10m bounds the pre-first-poll window
+        # at deploy. A 200 with an *empty* list also reports up = 0, not a
+        # healthy zero — that is what a token whose RBAC role never bound
+        # returns (list endpoints filter by object permission), so this rule
+        # catches a dead permission too.
+        for: 10m
+        noDataState: Alerting
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            authentik blueprint exporter is down or its last poll failed
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-authentik-blueprint
+        labels:
+          severity: warning
+          service: authentik
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              expr: >-
+                authentik_blueprint_collector_up
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+              refId: C
+      - uid: authentik-blueprint-instance-count-low
+        title: AuthentikBlueprintInstanceCountLow
+        condition: C
+        # Floor below the live count (42 on 2026-10-13, all instantiate:true
+        # built-ins plus the custom docs): catches a permission-filtered or
+        # truncated list that collector_up alone would miss, e.g. a role
+        # bound to only part of the instances. noDataState Alerting: no
+        # series means the exporter is not reporting at all.
+        for: 10m
+        noDataState: Alerting
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            authentik blueprint exporter sees fewer than 30 instances
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-authentik-blueprint
+        labels:
+          severity: warning
+          service: authentik
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              expr: >-
+                authentik_blueprint_instances
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 30
+                  operator:
+                    type: and
+              refId: C
+
 templates:
   - orgId: 1
     name: ntfy-infra

@@ -1,0 +1,52 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blueprint-exporter
+  namespace: authentik
+  labels:
+    app: blueprint-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: blueprint-exporter
+  template:
+    metadata:
+      labels:
+        app: blueprint-exporter
+    spec:
+      # The nix-built image runs as User 65534 (nobody); pin it so a
+      # future image without a User field fails admission instead of
+      # defaulting to root.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: exporter
+          image: registry.ops.eblu.me/blumeops/authentik-blueprint-exporter:kustomized
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          env:
+            # AUTHENTIK_BASE_URL is left at the exporter's default
+            # (http://authentik:9000, the in-namespace service).
+            - name: AUTHENTIK_CI_AUTHENTIK_BLUEPRINTS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-config
+                  key: ci-authentik-blueprints-token
+          ports:
+            - name: metrics
+              containerPort: 9101
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "64Mi"
