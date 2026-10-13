@@ -28,8 +28,8 @@ expire in 90 days and are re-minted by the next `pulumi up` anyway.
 
 Exports are ferried to indri at `~/.local/share/borgmatic/k8s-dumps-op/` each
 night before the 03:00 operational backup and ride in the `sifaka-operational` repo (`/Volumes/backups/borg-operational`). A missing or
-empty export on a given night is skipped by its ferry (the `pv:` ferry mode is
-self-contained) rather than aborting the whole nightly, so the staged file then
+empty export on a given night is skipped by the ringtail dump endpoint
+(self-contained) rather than aborting the whole nightly, so the staged file then
 holds the previous night's export:
 
 | File (staged name) | Content |

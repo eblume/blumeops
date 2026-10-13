@@ -6,79 +6,37 @@
 # pulling all the quoting out of YAML.
 #
 # Usage:
-#   borgmatic-k8s-sqlite-dump <target> <namespace> <selector> \
-#                             <db_path> <name> <dump_target>
+#   borgmatic-k8s-sqlite-dump <target> <name> <dump_target>
 #
 # <target> is one of:
-#   local:<context>   - run local kubectl with --context=<context>
-#   ssh:<user@host>   - ssh to host and run k3s kubectl there
-#                       (no indri-side kubeconfig needed)
+#   ssh:borgmatic@ringtail - ringtail dump endpoint (forced command; only
+#                       <name> travels over the wire)
 #
-# <namespace>      - k8s namespace of the pod
-# <selector>       - label selector to find the pod (e.g. app=shower)
-# <db_path>        - absolute path inside the pod to the SQLite DB
-# <name>           - short name used for temp filenames
-# <dump_target>    - file on this host to receive the dump
+# <name>        - the dump's name in the ringtail endpoint's table
+# <dump_target> - file on this host to receive the dump
 set -euo pipefail
 
 target=${1:?missing target}
-namespace=${2:?missing namespace}
-selector=${3:?missing selector}
-db_path=${4:?missing db path}
-name=${5:?missing name}
-dump_target=${6:?missing dump target}
-
-# Stage the backup next to the source DB (a guaranteed-writable volume);
-# minimal nix images (e.g. mealie) have no /tmp.
-pod_tmp="$(dirname "$db_path")/.borgmatic-backup-${name}.db"
-
-# Everything in the pod runs through python3 — it's already required for the
-# sqlite backup, and the most minimal nix images (e.g. horkos) ship no
-# coreutils at all, so cat/rm are not safe to assume.
-python_backup='import sqlite3; sqlite3.connect("'"$db_path"'").backup(sqlite3.connect("'"$pod_tmp"'"))'
-python_read='import sys, shutil; shutil.copyfileobj(open("'"$pod_tmp"'", "rb"), sys.stdout.buffer)'
-python_rm='import os; os.unlink("'"$pod_tmp"'")'
+name=${2:?missing name}
+dump_target=${3:?missing dump target}
 
 mode=${target%%:*}
 ref=${target#*:}
 
 case "$mode" in
-    local)
-        # Pulls dump bytes out via "kubectl exec -- python3" rather than
-        # "kubectl cp", which would otherwise need tar inside the pod
-        # (nix-built images like shower don't bundle tar).
-        context=$ref
-        kubectl="/opt/homebrew/bin/kubectl --context=$context -n $namespace"
-        # Only a Running pod: an Evicted/Failed pod lingers as an object and sorts
-        # first by name, and exec into it aborts the whole backup (2026-09-18/19).
-        pod=$($kubectl get pod -l "$selector" --field-selector=status.phase=Running \
-            -o jsonpath='{.items[0].metadata.name}')
-        $kubectl exec "$pod" -- python3 -c "$python_backup"
-        $kubectl exec "$pod" -- python3 -c "$python_read" > "$dump_target"
-        $kubectl exec "$pod" -- python3 -c "$python_rm"
-        ;;
     ssh)
-        host=$ref
-        # Force bash on the remote (user's login shell on ringtail is
-        # fish). Pipe the script via stdin to dodge nested quoting.
-        # The dump bytes come back over the ssh stdout stream — no
-        # intermediate scp, no tar requirement in the pod.
-        # /etc/rancher/k3s/k3s.yaml is 0600 root:root since ringtail became a
-        # multi-user host (a world-readable kubeconfig is cluster-admin any
-        # local user could grab). eblume can't read it, so reach the cluster
-        # as root via passwordless sudo — root's default k3s kubeconfig is
-        # that file. The file stays locked away from the restricted agent user.
-        ssh "$host" bash <<EOF > "$dump_target"
-set -euo pipefail
-pod=\$(sudo k3s kubectl -n "$namespace" get pod -l "$selector" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
-sudo k3s kubectl -n "$namespace" exec "\$pod" -- python3 -c '$python_backup' 1>&2
-sudo k3s kubectl -n "$namespace" exec "\$pod" -- python3 -c '$python_read'
-sudo k3s kubectl -n "$namespace" exec "\$pod" -- python3 -c '$python_rm' 1>&2
-EOF
+        # The ringtail endpoint's key forces `sudo /etc/borgmatic/borgmatic-dump
+        # <name>` (nixos/ringtail/configuration.nix), so the only dial over the
+        # wire is the dump name — pod coordinates live in the ringtail table.
+        # accept-new pins ringtail's host key on first contact; BatchMode
+        # fails fast instead of prompting in the headless LaunchAgent run.
+        ssh -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+            -i "{{ borgmatic_ringtail_ssh_key_path }}" \
+            "$ref" "$name" > "$dump_target"
         ;;
     *)
         echo "borgmatic-k8s-sqlite-dump: unknown target mode: $mode" >&2
-        echo "  expected local:<context> or ssh:<user@host>" >&2
+        echo "  expected ssh:borgmatic@ringtail" >&2
         exit 1
         ;;
 esac

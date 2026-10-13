@@ -44,7 +44,7 @@ commands:
       run:
           - mkdir -p {{ borgmatic_talos_data_dump_dir }}
 {% for db in borgmatic_k8s_tar_dumps | selectattr('name', 'equalto', 'talos-data') %}
-          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-tar-dump {{ db.target }} {{ db.namespace }} {{ db.label_selector }} {{ db.dir }} {{ db.name }} {{ borgmatic_talos_data_dump_dir }}/{{ db.name }}.tar{{ ' ' ~ db.container if db.container is defined else '' }}
+          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-tar-dump {{ db.target }} {{ db.name }} {{ borgmatic_talos_data_dump_dir }}/{{ db.name }}.tar
 {% endfor %}
 
 ssh_command: ssh -o IdentitiesOnly=yes -i {{ borgmatic_borgbase_ssh_key_path }}
