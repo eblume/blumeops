@@ -29,10 +29,8 @@ spec:
       # TALOS_PORT=tcp://... — colliding with the app's own env contract.
       enableServiceLinks: false
       # The egress gateway resolves every proxied hostname, and the pod's
-      # few direct egresses (op → 1Password) use FQDNs — cluster DNS plus the
-      # standard search paths covers the rest. If verification finds a client
-      # that genuinely needs more, the fallback is ClusterFirst
-      # (eblume/talos#69 stage 2).
+      # few direct egresses (op → 1Password) use FQDNs — cluster DNS plus
+      # the standard search paths covers the rest.
       dnsPolicy: None
       dnsConfig:
         nameservers:
@@ -88,10 +86,10 @@ spec:
               value: "https://talos.ops.eblu.me"
             - name: TALOS_MODEL
               # 27B over max: ~4.4x cheaper input ($0.45/M vs $2/M), ~2x
-              # cheaper output, and Willison's review found it excellent for
-              # coding-agent loops once reasoning effort is kept low. The
-              # server synthesizes the catalog entry from OpenRouter's live
-              # listing (it postdates pi-ai's shipped catalog).
+              # cheaper output, and excellent for coding-agent loops at low
+              # reasoning effort. The server synthesizes the catalog entry
+              # from OpenRouter's live listing (it postdates pi-ai's shipped
+              # catalog).
               value: "qwen/qwen3.8-27b"
             - name: TALOS_STT_MODEL
               value: "google/gemini-3.7-flash"
@@ -101,19 +99,17 @@ spec:
               value: "http://authentik.authentik.svc.cluster.local:9000"
             # Repo-pool policy, delivered as the talos-repos ConfigMap (see
             # kustomization.yaml) — its hashed name rolls this pod on every
-            # policy merge. After eblume/talos#314 the mount is the only
-            # delivery path — no fallback.
+            # policy merge.
             - name: TALOS_REPOS_FILE
               value: /etc/talos/repos.json
             # Lane-shaping policy (eblume/talos#252) — same ConfigMap/mount
-            # as repos.json; the server reads it at boot and hot-swaps via
-            # the admin-gated PUT /api/lanes.
+            # as repos.json.
             - name: TALOS_LANES
               value: /etc/talos/lanes.json
             # Trust the fleet's shared talos-m2m machine identity for bearer auth,
             # so agents drive the API (e.g. cron jobs) with the same credential
             # agent-health uses — no browser session, no new secret.
-            # List-valued (step 4): each entry is a bare issuer URL (audience derived
+            # List-valued: each entry is a bare issuer URL (audience derived
             # from the client id in the last path segment). See talos README (Auth).
             - name: TALOS_OIDC_M2M_ISSUER
               value: "https://authentik.ops.eblu.me/application/o/talos-m2m/"
@@ -136,10 +132,8 @@ spec:
                   name: talos-secrets
                   key: forge-webhook-secret
             # Identities (Authentik sub or email, comma-separated) allowed to
-            # RELEASE the emergency stop (eblume/talos#38) — arm is open to any
-            # signed-in user, release is admin-gated, and with OIDC on and this
-            # empty no one could release (fail closed). See heph
-            # 01M0RB6W2N2GZE2FH16EQC21QG.
+            # RELEASE the emergency stop (eblume/talos#38) — arm is open to
+            # any signed-in user; release is admin-gated and fail-closed.
             - name: TALOS_ADMINS
               value: "blume.erich@gmail.com"
             # The egress-gateway Service's fixed clusterIP (scheme+host[:port]
@@ -147,15 +141,10 @@ spec:
             # literal, so it resolves under dnsPolicy: None without a lookup.
             - name: EGRESS_GATEWAY_URL
               value: "http://10.43.254.1:8080"
-            # Cluster-internal destinations are not egress: without this the
-            # server's ambient proxy env routed the OIDC discovery fetch
-            # (TALOS_OIDC_INTERNAL_URL) into the gateway, which rightly
-            # blocked it (private address, port 9000) and the server
-            # crash-looped at startup. The server appends its own loopback +
-            # gateway entries to this list. Stage 3 note: the deny-by-default
-            # fence must carry a matching egress rule to authentik's
-            # namespace (and cluster DNS) or this fetch dies at the kernel
-            # instead (eblume/talos#69).
+            # Cluster-internal destinations are not egress: the OIDC
+            # discovery fetch (TALOS_OIDC_INTERNAL_URL) must not route
+            # through the gateway (private address). The server appends its
+            # own loopback + gateway entries to this list.
             - name: no_proxy
               value: ".cluster.local,authentik.authentik.svc.cluster.local"
             # Unattended pod: the heph CLI must print the stale-sync warning, not block on its interactive re-login prompt (eblume/hephaestus#66).
@@ -171,11 +160,8 @@ spec:
               value: "30"
             - name: TALOS_SESSION_REAPER_DRY_RUN
               value: "0"
-            # Instance identity for eblume/talos#314 — deployment-agnostic
-            # talos, this instance's values land here. The next talos image
-            # requires every one of these at boot (entrypoint and server)
-            # and exits naming the missing field; the current image ignores
-            # them, so this PR is inert until that code merges.
+            # Instance identity (eblume/talos#314) — required by the talos
+            # image at boot (entrypoint and server) once that code merges.
             - name: TALOS_FORGE_URL
               value: "https://forge.ops.eblu.me"
             - name: TALOS_FORGE_OWNER
@@ -212,18 +198,12 @@ spec:
               drop: ["ALL"]
             seccompProfile:
               type: RuntimeDefault
-          # /healthz on the metrics server (:9464, same Bun process and event
-          # loop as the main server — a wedged process fails both) is the cheap
-          # dedicated probe target; there is no /healthz on :3000, and
-          # /auth/login there redirects (kubelet logged a ProbeWarning on every
-          # check) and renders a page. With the default 1s timeout, 90s of a
-          # busy event loop under multi-session load was enough to
-          # liveness-kill the pod and every session in it (2026-08-31). 5s
-          # was still not enough at 10 concurrent sessions under the old 2-cpu
-          # limit (2026-09-03: 80% of CFS periods throttled, then a kill that
-          # took every session down). One replica means a liveness kill is the
-          # worst outcome short of data loss, so the probe errs on patience: a
-          # truly hung server still dies, in ~4 minutes instead of ~90s.
+          # /healthz on the metrics server (:9464, same process and event
+          # loop as the main server — a wedged process fails both); :3000 has
+          # no /healthz and /auth/login there redirects. Thresholds err on
+          # patience: a busy loop under multi-session load can stall for
+          # minutes, and with one replica a liveness kill takes every session
+          # down; a truly hung server still dies in ~4 minutes.
           livenessProbe:
             httpGet:
               path: /healthz
@@ -239,14 +219,11 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 15
-          # Sized for tens of concurrent sessions, not a handful. Every session's
-          # tool processes (bash, cargo, nix, subagent pi) share this cgroup
-          # with the single Bun event loop, so a CPU limit that binds starves
-          # the server itself: at cpu:2 with 10 sessions, 1136 of 1427 CFS
-          # periods were throttled and the pod was liveness-killed
-          # (2026-09-03). ringtail has 16 cores / 64Gi; talos is the workload
-          # they are for. Memory sat at 2.7Gi of the old 4Gi limit at 10
-          # sessions, so 16Gi leaves room for ~30.
+          # Sized for tens of concurrent sessions: every session's tool
+          # processes (bash, cargo, nix, subagent pi) share this cgroup with
+          # the single Bun event loop, so a CPU limit that binds starves the
+          # server itself. ringtail has 16 cores / 64Gi; 16Gi leaves room
+          # for ~30 sessions.
           resources:
             requests:
               cpu: "2"
@@ -267,8 +244,7 @@ spec:
               mountPath: /home/talos
             # /tmp off the writable layer: the same directory the entrypoint's
             # TMPDIR=$HOME/.tmp names, wiped at boot (contents only — never the
-            # directory itself, or this mount pins a dead inode;
-            # eblume/talos#250 item 4).
+            # directory itself, or this mount pins a dead inode).
             - name: home
               mountPath: /tmp
               subPath: .tmp
