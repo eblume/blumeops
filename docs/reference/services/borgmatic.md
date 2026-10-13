@@ -196,6 +196,23 @@ succeeded).
 
 **Verification proves the archives can be read and restored — it does NOT prove immutability.** Both BorgBase repos' keys (`borgmatic@indri`, on `immich-photos` and `indri-borgmatic`) are server-side append-only, confirmed from the dashboard 2026-10-13, which protects the offsite copies from a compromised indri; but the sifaka-local mount `/Volumes/backups/borg` is an SMB share, not a `borg serve` endpoint, so its client-side `append_only` flag protects nothing against indri itself.
 
+## Key escrow
+
+All four repositories are `repokey`-encrypted with one shared passphrase (each
+config's `encryption_passcommand` reads indri's `~/.borg/config.yaml`). The key
+lives inside the repository, so day-to-day recovery needs only the passphrase,
+which is handwritten on the physical Emergency Kit ("Backup Archive Password").
+The handwritten copy is deliberate: the 1Password encrypted export is archived
+inside these same borg repos, so a borg secret kept only in 1Password would be
+out of reach if 1Password were lost.
+
+As insurance against a damaged stored key, the `borg key export --paper` output
+for all four repositories lives in 1Password (the "borg backup" and "borgbase"
+items, matched by repository ID), not on the physical kit. Confirmed for all
+four repositories on 2026-10-13 (#1417); the shared passphrase was
+hash-compared against indri's `~/.borg/config.yaml` and the 1Password "borg
+backup" password the same day.
+
 ## Resilience
 
 The main and operational configs set `retries: 3` / `retry_wait: 300`, so a transient failure on
