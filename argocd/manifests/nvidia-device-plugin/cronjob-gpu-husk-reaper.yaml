@@ -20,6 +20,8 @@ spec:
           containers:
             - name: reaper
               image: registry.ops.eblu.me/blumeops/kubectl:kustomized
+              # zot-served digest-pinned image: don't force a registry HEAD at startup (#1226)
+              imagePullPolicy: IfNotPresent
               securityContext:
                 allowPrivilegeEscalation: false
                 capabilities:

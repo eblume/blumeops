@@ -1,0 +1,1 @@
+Tailscale proxy pods, the tailscale operator Deployment, and the gpu-husk-reaper CronJob now use `imagePullPolicy: IfNotPresent` for their zot-served, digest-pinned images, so a registry outage no longer wedges workloads whose images are already cached (cold-start deadlock #1226).
