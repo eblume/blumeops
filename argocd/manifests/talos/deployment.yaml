@@ -204,11 +204,23 @@ spec:
           # patience: a busy loop under multi-session load can stall for
           # minutes, and with one replica a liveness kill takes every session
           # down; a truly hung server still dies in ~4 minutes.
+          #
+          # Boot is not covered by that budget: the entrypoint's pool repair,
+          # pre-warm, and cache cleanup run before the server listens (158s on
+          # 2026-10-12, and the liveness probe killed the first container just
+          # as :9464 came up). The startup probe owns boot, up to 10 minutes;
+          # liveness and readiness only begin once it passes.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 9464
+            periodSeconds: 10
+            timeoutSeconds: 15
+            failureThreshold: 60
           livenessProbe:
             httpGet:
               path: /healthz
               port: 9464
-            initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 15
             failureThreshold: 6
@@ -216,7 +228,6 @@ spec:
             httpGet:
               path: /healthz
               port: 9464
-            initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 15
           # Sized for tens of concurrent sessions: every session's tool
