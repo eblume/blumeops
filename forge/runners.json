@@ -18,7 +18,11 @@
     "",
     "The indri instances stay declared in ansible/roles/forgejo_runner/defaults/",
     "main.yml until that role leaves Ansible (eblume/blumeops#1528); its label and",
-    "capacity defaults must stay in step with this file."
+    "capacity defaults must stay in step with this file.",
+    "",
+    "label_exceptions lists (repo, label-base) pairs whose workflows target no",
+    "live runner — exempt from the drift checks until the workflow is fixed.",
+    "Delete the entry once the workflow is retired."
   ],
   "runners": [
     {
@@ -83,6 +87,23 @@
       "capacity": 1,
       "privileged": true,
       "unit": "gitea-runner-priv.service"
+    }
+  ],
+  "label_exceptions": [
+    {
+      "repo": "datasette-satisfactory",
+      "label": "k8s",
+      "reason": "legacy template CI; the k8s runner no longer exists — fix or retire the workflows"
+    },
+    {
+      "repo": "kingfisher",
+      "label": "k8s",
+      "reason": "daily mirror-sync targets the retired k8s runner — pick a live runner or delete the workflow"
+    },
+    {
+      "repo": "gamedev",
+      "label": "docker",
+      "reason": "ci.yml targets a docker label no runner registers — retarget to indri-build"
     }
   ]
 }

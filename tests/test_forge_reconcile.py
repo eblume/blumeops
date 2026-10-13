@@ -59,8 +59,10 @@ def _policy(repos):
 def policy(tmp_path, monkeypatch):
     """Point POLICY_PATH at a scratch repos.json; return a setter(repos).
 
-    PROTECTIONS_PATH goes to a scratch file declaring no rules, so tests
-    that are not about branch protection never see the real policy."""
+    PROTECTIONS_PATH goes to a scratch file declaring no rules, and
+    RUNNERS_PATH/RUNBOOK_PATH to scratch copies of the real declared runner
+    topology + runbook, so tests that are not about branch protection or the
+    runner checks never see the repo's live files (#1526)."""
 
     def set_repos(repos):
         path = tmp_path / "repos.json"
@@ -70,11 +72,22 @@ def policy(tmp_path, monkeypatch):
     monkeypatch.setattr(ara, "POLICY_PATH", tmp_path / "repos.json")
     protections = tmp_path / "branch-protections.json"
     protections.write_text(json.dumps({"rules": []}), encoding="utf-8")
+    runners = tmp_path / "runners.json"
+    runners.write_text((ROOT / "forge" / "runners.json").read_text(), encoding="utf-8")
+    runbook = tmp_path / "runbook-forgejo-ci.md"
+    runbook.write_text(
+        (ROOT / "docs" / "how-to" / "runbooks" / "runbook-forgejo-ci.md").read_text(),
+        encoding="utf-8",
+    )
     # No declared Actions-secret names by default: the name-drift check (on
     # every --check) iterates the declared-state file's repos, and a test that
     # is not about Actions secrets should not also see the real file's list.
     monkeypatch.setattr(ara, "declared_actions_secret_names", dict)
     monkeypatch.setattr(ara, "PROTECTIONS_PATH", protections)
+    monkeypatch.setattr(ara, "RUNNERS_PATH", runners)
+    # RUNBOOK_PATH arrives with the runbook check (#1526); setattr with
+    # raising=False keeps this fixture valid before that commit.
+    monkeypatch.setattr(ara, "RUNBOOK_PATH", runbook, raising=False)
     return set_repos
 
 
@@ -131,6 +144,9 @@ class FakeForge:
         self.patch_drops: set[str] = set()
         self.next_hook_id = 100
         self.actions_off: set[str] = set()  # repos whose Actions unit is disabled
+        # repo -> {workflow path: raw content}; served for the runner-label
+        # scan's /contents listing and raw fetches.
+        self.workflows: dict[str, dict[str, str]] = {}
         # Path suffix -> status served instead of the real answer.
         self.status_overrides: dict[str, int] = {}
         # The blumeops:main rule is seeded as a valid live default (whitelisted
@@ -203,6 +219,10 @@ class FakeForge:
             if self.horkos_user is None:
                 return httpx.Response(404, json={"message": "no such user"})
             return httpx.Response(200, json=self.horkos_user)
+        if path.startswith("/api/v1/users/"):
+            # Owner lookup for the runner-scope id fallback (owner:<id>): any
+            # other login is served with a stable id.
+            return httpx.Response(200, json={"id": 1, "login": path.rsplit("/", 1)[-1]})
         if path == "/api/v1/repos/search":
             return httpx.Response(
                 200,
@@ -217,6 +237,15 @@ class FakeForge:
         parts = path.strip("/").split("/")
         if len(parts) >= 5 and parts[:3] == ["api", "v1", "repos"]:
             _, _, _, _owner, repo, *tail = parts
+            if tail and tail[0] == "contents":
+                # The /contents listing for a directory; a repo with no
+                # workflow files serves an empty list (a missing dir is 404).
+                directory = "/".join(tail[1:])
+                entries = []
+                for path in sorted(self.workflows.get(repo, {})):
+                    if path.startswith(f"{directory}/"):
+                        entries.append({"name": path.rsplit("/", 1)[-1], "path": path})
+                return httpx.Response(200, json=entries)
             # Grant mutations: forge-reconcile only PUTs collaborator grants
             # and DELETEs them — fold the change into the served state so a
             # follow-up read reflects it, and tests can assert on it.
@@ -296,7 +325,13 @@ class FakeForge:
             if not tail:
                 return httpx.Response(
                     200,
-                    json={"name": repo, "has_actions": repo not in self.actions_off},
+                    json={
+                        "name": repo,
+                        "id": 100
+                        + (self.repos.index(repo) if repo in self.repos else 0),
+                        "has_actions": repo not in self.actions_off,
+                        "default_branch": "main",
+                    },
                 )
             if tail == ["branch_protections"]:
                 if request.method == "POST":
@@ -352,6 +387,12 @@ class FakeForge:
                         self.secret_writes.append(("DELETE", repo, name, None))
                     return httpx.Response(201 if request.method == "PUT" else 204)
                 return httpx.Response(404, json={"message": "not found"})
+        if len(parts) >= 6 and parts[2:4] == ["raw", "branch"]:
+            # Raw file fetch: /{owner}/{repo}/raw/branch/{ref}/{path}.
+            content = self.workflows.get(parts[1], {}).get("/".join(parts[5:]))
+            if content is None:
+                return httpx.Response(404, json={"message": "no such file"})
+            return httpx.Response(200, text=content)
         return httpx.Response(404, json={"message": "unexpected path"})
 
     def install(self, monkeypatch):
@@ -1110,6 +1151,172 @@ def test_derived_policy_per_label_scope():
     assert ara.derive_privileged_label_policy(runners) == {
         "gated": frozenset({"blumeops"})
     }
+
+
+# --- runner-label workflow scan (#1358, #1515, #1526) -----------------------
+
+
+def _workflow_yml(runs_on):
+    return f"jobs:\n  ci:\n    runs-on: {runs_on}\n"
+
+
+def test_workflow_undeclared_label_fails(policy, run_main, monkeypatch):
+    """Acceptance: a repo whose workflow runs on a label no runner declares
+    fails --check naming the label."""
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.workflows = {
+        "svc": {".forgejo/workflows/ci.yml": _workflow_yml("some-unknown-label")}
+    }
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "live_runner_series", list)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "some-unknown-label" in out
+    assert "no workflow targets an undeclared runner label" not in out
+
+
+def test_workflow_declared_labels_pass(policy, run_main, monkeypatch):
+    """Allowed repo targeting a gated label, with the label live-registered
+    for it: all three legs green."""
+    policy([{"name": "blumeops", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["blumeops"]
+    forge.workflows = {
+        "blumeops": {".forgejo/workflows/ci.yml": _workflow_yml("priv:host")}
+    }
+    forge.install(monkeypatch)
+    monkeypatch.setattr(
+        ara,
+        "live_runner_series",
+        lambda: [
+            {
+                "runner": "ringtail-priv-runner",
+                "labels": "priv:host",
+                "scope": "eblume/blumeops",
+            }
+        ],
+    )
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "no workflow targets an undeclared runner label" in out
+    assert "every workflow runs-on label is served by a live runner" in out
+
+
+def test_workflow_gated_label_disallowed_repo_fails(policy, run_main, monkeypatch):
+    """A repo targeting a gated label it is not declared to fails the gate
+    even when another runner live-registers the label."""
+    policy([{"name": "horkos", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["horkos"]
+    forge.workflows = {"horkos": {".forgejo/workflows/ci.yml": _workflow_yml("priv")}}
+    forge.install(monkeypatch)
+    monkeypatch.setattr(
+        ara,
+        "live_runner_series",
+        lambda: [
+            {
+                "runner": "ringtail-priv-runner",
+                "labels": "priv:host",
+                "scope": "eblume/blumeops",
+            }
+        ],
+    )
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "`priv` is targeted only by its declared repos" in out
+    assert "eblume/horkos" in out
+
+
+def test_workflow_label_exception_is_exempt(policy, run_main, monkeypatch):
+    """A (repo, label) pair listed in runners.json's label_exceptions does
+    not fail the declaration leg nor the live leg."""
+    policy([{"name": "gamedev", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["gamedev"]
+    forge.workflows = {
+        "gamedev": {".forgejo/workflows/ci.yml": _workflow_yml("docker")}
+    }
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "live_runner_series", list)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+
+
+def test_live_leg_wrong_scope_fails(policy, run_main, monkeypatch):
+    """A declared label registered only by a runner scoped to another repo:
+    the targeting repo lacks a live server, so the check fails naming the
+    runner that holds the label elsewhere."""
+    policy([{"name": "horkos", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["horkos"]
+    forge.workflows = {
+        "horkos": {".forgejo/workflows/ci.yml": _workflow_yml("nix-container-builder")}
+    }
+    forge.install(monkeypatch)
+    monkeypatch.setattr(
+        ara,
+        "live_runner_series",
+        lambda: [
+            {
+                "runner": "ringtail-nix-builder-blumeops",
+                "labels": "nix-container-builder:host",
+                "scope": "eblume/blumeops",
+            }
+        ],
+    )
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "nix-container-builder" in out
+    assert "ringtail-nix-builder-blumeops" in out
+    assert "no live runner scoped to eblume/horkos" in out
+
+
+def test_live_leg_instance_scope_serves(policy, run_main, monkeypatch):
+    """The instance-scoped runner serves every repo, so its label passes the
+    live leg for any targeting repo."""
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.workflows = {
+        "svc": {".forgejo/workflows/ci.yml": _workflow_yml("indri-build")}
+    }
+    forge.install(monkeypatch)
+    monkeypatch.setattr(
+        ara,
+        "live_runner_series",
+        lambda: [
+            {"runner": "indri-build", "labels": "indri-build", "scope": "instance"}
+        ],
+    )
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "every workflow runs-on label is served by a live runner" in out
+
+
+def test_live_leg_prometheus_down_is_unknown(policy, run_main, monkeypatch):
+    """An unreachable Prometheus is an unknown, which fails --check."""
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.workflows = {"svc": {".forgejo/workflows/ci.yml": _workflow_yml("priv")}}
+    forge.install(monkeypatch)
+
+    def boom():
+        raise httpx.TransportError("boom")
+
+    monkeypatch.setattr(ara, "live_runner_series", boom)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "prometheus unreachable" in out
 
 
 # --- horkos-forge blast-radius invariants (folded in from horkos-forge-drift) --
