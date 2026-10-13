@@ -8,7 +8,8 @@
 # (`~agent/.local/share/heph/hephd.sock`) rather than running a per-pod daemon.
 # heph is the intentional in-boundary substrate (see [[project_heph_in_agent_boundary]]).
 #
-# Secret placed by ansible (ansible/playbooks/ringtail.yml), NOT nix:
+# Secret placed by `mise run seed-secrets ringtail` (declared in
+# secrets.json), NOT nix:
 #   /etc/agents/op-token   agents-ringtail-rw service-account token (0400 agent)
 { config, pkgs, lib, ... }:
 
@@ -118,10 +119,8 @@ let
   };
 in
 {
-  # uid/gid pinned so ansible can chown /etc/agents/* numerically before the user
-  # exists in passwd on a first-ever deploy (secrets are written in pre_tasks, the
-  # user is created later by nixos-rebuild). Also matches the containerized
-  # agent's runAsUser (1500), so the pod can read the mounted heph socket.
+  # uid/gid pinned to match the containerized agent's runAsUser (1500), so the
+  # pod can read the mounted heph socket.
   users.groups.agent.gid = 1500;
   users.users.agent = {
     isNormalUser = true;

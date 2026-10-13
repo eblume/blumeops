@@ -13,6 +13,16 @@
     # outcome the whole change exists to avoid.
     _rebuild_timeout: 3600
 
+  # The on-host secret files (the forgejo-runner registration tokens,
+  # /etc/k3s/token, /etc/agents/op-token) are no longer seeded here: they are
+  # declared in nixos/ringtail/secrets.json and seated by the human-run
+  # `mise run seed-secrets ringtail` (biometric op); its vault-free `--check`
+  # is the weekly drift gate. eblume/blumeops#1524. A vault rotation now takes
+  # effect when the task runs, not at the next rebuild.
+  #
+  # The two 1Password Connect fetches below stay: the k3s op-credentials and
+  # onepassword-token secrets are consumed in-cluster (post_tasks), not by a
+  # nix unit, so they do not fit the manifest. Follow-on in the same issue.
   pre_tasks:
     - name: Fetch 1Password Connect credentials from 1Password
       ansible.builtin.command:
@@ -29,161 +39,6 @@
       changed_when: false
       delegate_to: localhost
       become: false
-
-    # Repo-scoped registration tokens, created in each repo's
-    # Settings -> Actions -> Runners (blumeops#1358). A missing field (op fails
-    # as a whole and the `|| echo '[]'` blanks all four) must never write an
-    # empty TOKEN= over a good file — the module hashes the token, sees it
-    # change, and re-registers with the empty token, dropping the registration.
-    # So each copy below runs only for a non-empty token; the warning task
-    # reports the gap.
-    - name: Fetch ringtail forgejo runner registration tokens from 1Password
-      ansible.builtin.shell:
-        cmd: op item get w3663ffnvkewbftncqxtcpeavy --vault vg6xf6vvfmoh5hqjjhlhbeoaie --format json --fields label=runner_ringtail_priv_token,label=runner_ringtail_nix_builder_blumeops_token,label=runner_ringtail_nix_builder_horkos_token,label=runner_ringtail_nix_builder_talos_token,label=runner_ringtail_nix_builder_hephaestus_token 2>/dev/null || echo '[]'
-      delegate_to: localhost
-      become: false
-      register: _runner_tokens
-      changed_when: false
-      failed_when: false
-      no_log: true
-      check_mode: false
-
-    - name: Set ringtail forgejo runner registration token facts
-      ansible.builtin.set_fact:
-        runner_ringtail_priv_token: >-
-          {{ (_runner_tokens.stdout | default('[]') | from_json
-             | selectattr('label', 'equalto', 'runner_ringtail_priv_token')
-             | map(attribute='value') | list | first) | default('') }}
-        runner_ringtail_nix_builder_blumeops_token: >-
-          {{ (_runner_tokens.stdout | default('[]') | from_json
-             | selectattr('label', 'equalto', 'runner_ringtail_nix_builder_blumeops_token')
-             | map(attribute='value') | list | first) | default('') }}
-        runner_ringtail_nix_builder_horkos_token: >-
-          {{ (_runner_tokens.stdout | default('[]') | from_json
-             | selectattr('label', 'equalto', 'runner_ringtail_nix_builder_horkos_token')
-             | map(attribute='value') | list | first) | default('') }}
-        runner_ringtail_nix_builder_talos_token: >-
-          {{ (_runner_tokens.stdout | default('[]') | from_json
-             | selectattr('label', 'equalto', 'runner_ringtail_nix_builder_talos_token')
-             | map(attribute='value') | list | first) | default('') }}
-        runner_ringtail_nix_builder_hephaestus_token: >-
-          {{ (_runner_tokens.stdout | default('[]') | from_json
-             | selectattr('label', 'equalto', 'runner_ringtail_nix_builder_hephaestus_token')
-             | map(attribute='value') | list | first) | default('') }}
-      no_log: true
-
-    - name: Ensure /etc/forgejo-runner directory exists
-      ansible.builtin.file:
-        path: /etc/forgejo-runner
-        state: directory
-        mode: "0700"
-
-    - name: Write ringtail priv runner token file
-      ansible.builtin.copy:
-        content: "TOKEN={{ runner_ringtail_priv_token }}"
-        dest: /etc/forgejo-runner/priv.env
-        mode: "0600"
-      no_log: true
-      when: runner_ringtail_priv_token != ''
-
-    - name: Write ringtail nix-builder blumeops runner token file
-      ansible.builtin.copy:
-        content: "TOKEN={{ runner_ringtail_nix_builder_blumeops_token }}"
-        dest: /etc/forgejo-runner/nix-builder-blumeops.env
-        mode: "0600"
-      no_log: true
-      when: runner_ringtail_nix_builder_blumeops_token != ''
-
-    - name: Write ringtail nix-builder horkos runner token file
-      ansible.builtin.copy:
-        content: "TOKEN={{ runner_ringtail_nix_builder_horkos_token }}"
-        dest: /etc/forgejo-runner/nix-builder-horkos.env
-        mode: "0600"
-      no_log: true
-      when: runner_ringtail_nix_builder_horkos_token != ''
-
-    - name: Write ringtail nix-builder talos runner token file
-      ansible.builtin.copy:
-        content: "TOKEN={{ runner_ringtail_nix_builder_talos_token }}"
-        dest: /etc/forgejo-runner/nix-builder-talos.env
-        mode: "0600"
-      no_log: true
-      when: runner_ringtail_nix_builder_talos_token != ''
-
-    - name: Write ringtail nix-builder hephaestus runner token file
-      ansible.builtin.copy:
-        content: "TOKEN={{ runner_ringtail_nix_builder_hephaestus_token }}"
-        dest: /etc/forgejo-runner/nix-builder-hephaestus.env
-        mode: "0600"
-      no_log: true
-      when: runner_ringtail_nix_builder_hephaestus_token != ''
-
-    # The pre-#1358 shared instance-global token is retired: nothing on
-    # ringtail reads it anymore, so drop it off disk (the forge-side
-    # instance-wide registrations are deleted as a separate human step).
-    - name: Remove retired shared ringtail runner token file
-      ansible.builtin.file:
-        path: /etc/forgejo-runner/token.env
-        state: absent
-      # Only once a good token is actually on disk — dropping the old token
-      # while the new files are still missing would leave the box with none.
-      when: runner_ringtail_priv_token != ''
-
-    - name: Warn about missing ringtail runner tokens
-      ansible.builtin.debug:
-        msg: "WARNING: ringtail forgejo runner token fields missing from 1Password; the affected units keep their existing token file (and fail to register until the field is added only where no file exists yet)"
-      when: >-
-        runner_ringtail_priv_token == '' or
-        runner_ringtail_nix_builder_blumeops_token == '' or
-        runner_ringtail_nix_builder_horkos_token == '' or
-        runner_ringtail_nix_builder_talos_token == ''
-
-    - name: Ensure /etc/k3s directory exists
-      ansible.builtin.file:
-        path: /etc/k3s
-        state: directory
-        mode: "0700"
-
-    - name: Generate k3s token if not present
-      ansible.builtin.copy:
-        content: "{{ lookup('ansible.builtin.password', '/dev/null', chars=['hexdigits'], length=32) }}"
-        dest: /etc/k3s/token
-        mode: "0600"
-        force: false
-
-    # --- Agent user + heph spoke (see docs/explanation/agent-containerization.md) ---
-    # The workspace ran on the host; it now runs as a k3s pod. Only the op-token
-    # the heph spoke needs is placed here — the Forgejo bot SSH key is gone (the
-    # containerized agent authenticates to the forge over HTTPS+token, not ssh).
-    - name: Fetch agents-ringtail-rw service-account token from 1Password
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/agents-ringtail Service Account/credential"
-      register: _agents_op_token
-      changed_when: false
-      delegate_to: localhost
-      become: false
-
-    - name: Ensure /etc/agents directory exists
-      ansible.builtin.file:
-        path: /etc/agents
-        state: directory
-        owner: "1500"
-        group: "1500"
-        mode: "0700"
-
-    - name: Write agents service-account token file
-      ansible.builtin.copy:
-        content: "{{ _agents_op_token.stdout }}"
-        dest: /etc/agents/op-token
-        owner: "1500"
-        group: "1500"
-        mode: "0400"
-      no_log: true
-
-    - name: Remove retired workspace bot SSH key (agent no longer uses ssh)
-      ansible.builtin.file:
-        path: /etc/agents/ssh
-        state: absent
 
   tasks:
     - name: Ensure blumeops repo is present

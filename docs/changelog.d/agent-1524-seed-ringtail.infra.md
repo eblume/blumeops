@@ -1,0 +1,1 @@
+Ringtail's Ansible `pre_tasks` no longer seed the on-host secret files: the human-run `seed-secrets ringtail` task is now the sole seeder, and the weekly vault-free `seed-secrets --check` drift gate runs from the nix-container-builder runner (its missing ssh+sudo route is the follow-on the job reports loudly until granted).

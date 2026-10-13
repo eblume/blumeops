@@ -109,7 +109,7 @@ Server configuration secrets managed via 1Password → Ansible (fetched in
 the indri playbook `pre_tasks`):
 
 - `lfs-jwt-secret`, `internal-token`, `oauth2-jwt-secret` — Forgejo server tokens (rendered into `app.ini`)
-- `runner_ringtail_priv_token`, `runner_ringtail_nix_builder_{blumeops,horkos,talos}_token` — four repo-scoped registration tokens on the "Forgejo Secrets" item, written to `/etc/forgejo-runner/{priv,nix-builder-blumeops,nix-builder-horkos,nix-builder-talos}.env` by the ringtail playbook. `runner_reg` (instance-global) is retired — left in 1Password until the old instance-wide registrations are deleted from forge.
+- `runner_ringtail_priv_token`, `runner_ringtail_nix_builder_{blumeops,horkos,talos,hephaestus}_token` — five repo-scoped registration tokens on the "Forgejo Secrets" item, seated by the human-run `seed-secrets ringtail` task as `/etc/forgejo-runner/{priv,nix-builder-blumeops,nix-builder-horkos,nix-builder-talos,nix-builder-hephaestus}.env` (declared in `nixos/ringtail/secrets.json`; eblume/blumeops#1524). `runner_reg` (instance-global) is retired — left in 1Password until the old instance-wide registrations are deleted from forge.
 
 Per-runner identity and job-credential secrets live on the runner card ([[forgejo-runner#Credentials]]).
 
