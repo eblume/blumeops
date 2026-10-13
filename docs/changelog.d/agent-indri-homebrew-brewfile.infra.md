@@ -1,0 +1,1 @@
+indri: adopt Homebrew into the nix-darwin generation — `homebrew.*` enabled with a Brewfile (tailscale, mise, fish) bundled every activation with cleanup=none, autoUpdate=false, upgrade=false; the playbook's mise install and version-floor check retire with it (eblume/blumeops#1538).
