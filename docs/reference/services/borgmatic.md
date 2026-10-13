@@ -1,7 +1,7 @@
 ---
 title: Borgmatic
-modified: 2026-10-08
-last-reviewed: 2026-10-04
+modified: 2026-10-13
+last-reviewed: 2026-10-13
 tags:
   - service
   - backup
@@ -194,7 +194,7 @@ recorded for 14 days; unlike `BorgmaticVerifyStale` it uses `noDataState:
 Alerting`, because a missing series *is* the failure (a restore that has never
 succeeded).
 
-**Verification proves the archives can be read and restored — it does NOT prove immutability.** The photos repo's BorgBase key is (pending dashboard confirmation) append-only on the server side, which protects the offsite copy from a compromised indri; but the sifaka-local mount `/Volumes/backups/borg` is an SMB share, not a `borg serve` endpoint, so its client-side `append_only` flag protects nothing against indri itself.
+**Verification proves the archives can be read and restored — it does NOT prove immutability.** Both BorgBase repos' keys (`borgmatic@indri`, on `immich-photos` and `indri-borgmatic`) are server-side append-only, confirmed from the dashboard 2026-10-13, which protects the offsite copies from a compromised indri; but the sifaka-local mount `/Volumes/backups/borg` is an SMB share, not a `borg serve` endpoint, so its client-side `append_only` flag protects nothing against indri itself.
 
 ## Resilience
 
