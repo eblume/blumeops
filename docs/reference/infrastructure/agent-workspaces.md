@@ -258,11 +258,12 @@ own `eblume-heph-spoke` via `heph-common.nix` — see [[ringtail]] §Heph
 Spokes):**
 
 - `agent-heph-install.service` — a oneshot that `cargo install`s `heph`+`hephd`
-  at a pinned tag (`hephTag`) using a **mise-resolved** Rust toolchain. nixpkgs'
-  `rustc` lags heph's fast-moving floor (it shipped 1.91 vs the ≥1.92 a heph dep
-  needs), so the toolchain comes from `mise x rust@stable` over the `nix-ld` +
-  build-deps setup the host already provides for mise runtimes. Idempotent: it
-  version-checks and only recompiles on a tag bump.
+  at a pinned tag (`hephTag`) using a **mise-resolved** Rust toolchain. The
+  toolchain comes from `mise x rust@stable` (direct rust release tracking, not
+  nixpkgs: nixos-26.05's rustc 1.95.0 meets heph's 1.95 floor exactly, but a
+  floor bump would otherwise be hostage to a NixOS channel bump) over the
+  `nix-ld` + build-deps setup the host already provides for mise runtimes.
+  Idempotent: it version-checks and only recompiles on a tag bump.
 - `agent-heph-spoke.service` — runs `hephd --mode local --hub-url
   http://indri…:8787` (spoke sync is HTTP-only) authenticating via OIDC.
 - The spoke's token lives in the **agents vault**, item `heph-spoke-token`
@@ -333,8 +334,8 @@ not compile or verify Rust they authored.
 
 The launcher now adds **`buildTools`** (`gcc`, `binutils`, `pkg-config`,
 `gnumake`) to the session PATH and exports `CC=gcc`. Rust itself still comes from
-**mise** (`rust@stable`) — nixpkgs' `rustc` lags, exactly as for the heph install
-— so this change supplies only the linker and pkg-config that mise's toolchain
+**mise** (`rust@stable`) — direct rust release tracking, exactly as for the heph
+install — so this change supplies only the linker and pkg-config that mise's toolchain
 needs to actually build.
 
 For the `gamedev` **Bevy** project specifically, the launcher also exposes Bevy's

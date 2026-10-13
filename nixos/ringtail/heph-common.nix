@@ -5,7 +5,7 @@
 { pkgs, lib }:
 rec {
   hephTag = "v1.10.6";
-  rustChannel = "stable"; # mise-resolved — nixpkgs rustc lags heph's floor
+  rustChannel = "stable"; # mise-resolved — 26.05's rustc 1.95.0 ≥ heph's 1.95; direct tracking
   hubUrl = "http://indri.tail8d86e.ts.net:8787";
   issuer = "https://authentik.ops.eblu.me/application/o/heph/";
   # HTTPS clone over the tailnet (the spoke builds run on ringtail); the repo is public so it needs no SSH key.

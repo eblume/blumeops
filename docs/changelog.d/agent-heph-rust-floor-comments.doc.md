@@ -1,0 +1,1 @@
+Corrected the stale "nixpkgs rustc lags heph's floor" comments in the heph spoke install docs and ansible role defaults: ringtail's nixos-26.05 ships rustc 1.95.0, which meets heph's real 1.95 floor ([eblume/hephaestus#96](https://forge.ops.eblu.me/eblume/hephaestus/pulls/96)); the rationale is direct rust release tracking via mise/rustup.
