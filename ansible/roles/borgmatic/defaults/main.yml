@@ -40,8 +40,9 @@ borgmatic_source_directories:
   - /Users/erichblume/code/personal/zk
   - /Users/erichblume/Documents
   # ~/forgejo minus the live WAL DB (snapshotted in the before-hook of
-  # config.yaml.j2) and the pull mirrors (excluded in
-  # borgmatic_exclude_patterns below). The git repos are the primary source
+  # config.yaml.j2) and the pull mirrors plus the regenerable/ephemeral
+  # churn (excluded in borgmatic_exclude_patterns below). The git repos are
+  # the primary source
   # of truth — only blumeops has a GitHub mirror — so they are never-lose,
   # not operational.
   - /Users/erichblume/forgejo
@@ -49,12 +50,22 @@ borgmatic_source_directories:
   # below); the hook's mkdir runs later, during the 02:00 run.
   - /Users/erichblume/.local/share/borgmatic/k8s-dumps-archive
 
-# Mirror the ~/forgejo exclusions from the operational tier's split; without
-# them the full mirrors org and the live WAL DB would ride in every
-# never-pruned archive.
+# ~/forgejo exclusions for the never-pruned tier: the full mirrors org
+# (re-fetchable from upstream) and the live WAL DB (snapshotted via .backup
+# instead), plus the regenerable or ephemeral churn measured on indri
+# 2026-10-13 — actions_log 84 MB and growing with every CI run, indexers
+# 26 MB, queues 6 MB, actions_artifacts 6 MB (ephemeral by design) — which
+# would otherwise be kept forever on BorgBase.
 borgmatic_exclude_patterns:
   - /Users/erichblume/forgejo/data/forgejo.db*
   - /Users/erichblume/forgejo/data/forgejo-repositories/mirrors
+  - /Users/erichblume/forgejo/data/actions_log
+  - /Users/erichblume/forgejo/data/actions_artifacts
+  - /Users/erichblume/forgejo/data/indexers
+  - /Users/erichblume/forgejo/data/queues
+  - /Users/erichblume/forgejo/data/sessions
+  - /Users/erichblume/forgejo/data/tmp
+  - /Users/erichblume/forgejo/log
 
 # Archive-tier repos (never pruned): the historical mixed archives plus the
 # new indri-* and talos-data-* archives live here.

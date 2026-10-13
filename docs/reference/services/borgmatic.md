@@ -35,8 +35,8 @@ rotating tier's archives and a prune in either config cannot reach the
 other's archives.
 
 **Archive tier (never pruned) — main config (`config.yaml`, 02:00):**
-`~/code/personal/zk`, `~/Documents`, `~/forgejo` (minus pull mirrors + live
-WAL DB), the never-lose dumps staged into `k8s-dumps-archive/` (heph,
+`~/code/personal/zk`, `~/Documents`, `~/forgejo` (minus pull mirrors, the
+live WAL DB, and the regenerable/ephemeral churn), the never-lose dumps staged into `k8s-dumps-archive/` (heph,
 forgejo.db, horkos, paperless-media tar), and the paperless pg_dump via a
 `postgresql_databases` block. No retention keys, no prune action,
 `compression: auto,zstd` (new chunks only). Repos: `sifaka-borg-backups`
@@ -82,7 +82,7 @@ bin has captured deletions — it reads 0 while present but empty).
 **Archive tier — main config (`config.yaml`, 02:00), never pruned:**
 - `~/code/personal/zk` - Zettelkasten (migrating into heph docs; see [hephaestus](https://github.com/eblume/hephaestus))
 - `~/Documents` - Personal documents (includes the [[1password]] encrypted export)
-- `~/forgejo` - Git forge data (repos, LFS, `custom/conf`), minus the pull mirrors under `data/forgejo-repositories/mirrors` (29 pull mirrors, 7.68 GB per Forgejo API 2026-10-04 — re-fetchable from upstream) and the live WAL `forgejo.db` (snapshotted into `k8s-dumps-archive/` instead); both excluded via `exclude_patterns`
+- `~/forgejo` - Git forge data (repos, LFS, `custom/conf`), minus the pull mirrors under `data/forgejo-repositories/mirrors` (29 pull mirrors, 7.68 GB per Forgejo API 2026-10-04 — re-fetchable from upstream), the live WAL `forgejo.db` (snapshotted into `k8s-dumps-archive/` instead), and the regenerable or ephemeral churn (`data/actions_log`, `data/indexers`, `data/queues`, `data/actions_artifacts`, `data/sessions`, `data/tmp`, `log/`) — the tier never prunes, so only the never-lose git repos, the `.backup` DB snapshot, `attachments`, `packages`, `ssh` and `jwt` ride in; all excluded via `exclude_patterns`
 - `~/.local/share/borgmatic/k8s-dumps-archive/` - the archive tier's snapshot staging (never-lose dumps: heph, forgejo.db, horkos, paperless-media tar)
 
 The archive tier carries the dump hooks and the `postgresql_databases` block,
