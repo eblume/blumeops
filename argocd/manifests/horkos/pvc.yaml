@@ -4,6 +4,10 @@ kind: PersistentVolumeClaim
 metadata:
   name: horkos-data
   namespace: horkos
+  # horkos-data holds the approval queue: opt it out of the app's
+  # prune: true so an edit that drops this file can't delete it.
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
 spec:
   accessModes:
     - ReadWriteOnce

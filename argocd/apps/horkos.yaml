@@ -23,10 +23,14 @@ spec:
   # instead of needing the warrant path it just broke. The old warrant app's
   # auto-sync/argocd-deploy race (heph 01KZBPDB2WH9QK) cannot recur — with
   # auto-sync nobody dispatches argocd-deploy for horkos at all.
-  # No configMapGenerator here, so no prune (never spell the defaults —
-  # [[argocd#Sync Policy]]).
+  # prune: the release-targets.json ConfigMap is kustomize-generated with
+  # a hash suffix (that hash change is what rolls the pod on a topology
+  # merge), so each edit orphans the previous horkos-release-targets-<hash>
+  # — prune is the GC (horkos-data is annotated Prune=false — it holds
+  # the approval queue).
   syncPolicy:
-    automated: {}
+    automated:
+      prune: true
     syncOptions:
       - CreateNamespace=true
     managedNamespaceMetadata:

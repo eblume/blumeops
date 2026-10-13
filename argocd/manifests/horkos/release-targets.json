@@ -1,0 +1,38 @@
+{
+  "blumeops_repo": "eblume/blumeops",
+  "release_targets": {
+    "eblume/horkos": {
+      "service": "horkos",
+      "kustomization": "argocd/manifests/horkos/kustomization.yaml",
+      "branch_prefix": "horkos-release-v",
+      "default_branch": "main",
+      "healthz_url": "https://horkos.ops.eblu.me/healthz"
+    },
+    "eblume/talos": {
+      "service": "talos",
+      "kustomization": "argocd/manifests/talos/kustomization.yaml",
+      "branch_prefix": "talos-release-v",
+      "default_branch": "main",
+      "healthz_url": "https://talos.ops.eblu.me/healthz"
+    },
+    "eblume/cv": {
+      "service": "cv",
+      "kustomization": null,
+      "branch_prefix": "cv-release-v",
+      "default_branch": "main",
+      "healthz_url": null,
+      "artifact": {
+        "asset_template": "cv-{version}.tar.gz",
+        "role_defaults": "ansible/roles/cv/defaults/main.yml",
+        "role_var": "cv_version"
+      }
+    }
+  },
+  "container_targets": {
+    "eblume/blumeops": {
+      "containers_dir": "containers",
+      "manifests_dir": "argocd/manifests",
+      "default_branch": "main"
+    }
+  }
+}
