@@ -68,6 +68,7 @@ in
     ./factorio.nix
     ./heph-eblume.nix
     ./myeve-heph-sync.nix
+    ./seed-secrets-check.nix
     ./invariants.nix
   ];
 

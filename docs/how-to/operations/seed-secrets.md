@@ -35,8 +35,11 @@ mise run seed-secrets ringtail --only /etc/forgejo-runner/priv.env
 ```
 
 `--check` needs no vault and no TTY, so it can run unattended — the weekly
-host-side timer on ringtail that makes it the drift gate is the follow-on
-PR in [eblume/blumeops#1524](https://forge.ops.eblu.me/eblume/blumeops/issues/1524).
+host systemd timer on ringtail (`seed-secrets-check.timer`) runs it as root
+in place via `--check --local` (no ssh), every Sunday 05:30, writing an
+ok + timestamp textfile metric that Grafana alerts on
+(`SeedSecretsCheckFailed` / `SeedSecretsCheckStale`, see
+[[runbook-seed-secrets-check]]).
 Anything a check cannot inspect is `UNKNOWN`, and `UNKNOWN` is a failure.
 
 Every remote command runs as root through `sudo -n` over ssh, so the ssh

@@ -109,8 +109,10 @@ groups:
               from: 300
               to: 0
             model:
+              # ringtail's seed-secrets textfile is weekly; the 2h threshold
+              # would trip on it, so this rule is indri-only.
               expr: >-
-                time() - node_textfile_mtime_seconds
+                time() - node_textfile_mtime_seconds{cluster="indri"}
               interval: ""
               refId: A
           - refId: B
@@ -143,6 +145,127 @@ groups:
                       # moment every single hour. The five continuously-written
                       # textfiles sit at 20-50s, so they lose nothing here.
                       - 7200
+                  operator:
+                    type: and
+              refId: C
+
+  # The weekly vault-free seed-secrets --check drift gate on ringtail
+  # (nixos/ringtail/seed-secrets-check.nix) writes ok + timestamp gauges to
+  # /var/lib/seed-secrets/seed-secrets.prom, scraped by ringtail's Alloy
+  # textfile collector. Failed = the last run was red; Stale = no series, or
+  # none fresh within 8d (7d timer + 1d margin).
+  - orgId: 1
+    name: seed-secrets-check
+    folder: Infrastructure Alerts
+    interval: 60s
+    rules:
+      - uid: seed-secrets-check-failed
+        title: SeedSecretsCheckFailed
+        condition: C
+        # The metric is rewritten once a week, so a red run stays red until
+        # the next run; 15m is just debounce.
+        for: 15m
+        # A missing series means no check ran — the stale rule owns that.
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            The weekly seed-secrets --check on ringtail reported a drifted secret file
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-seed-secrets-check
+        labels:
+          severity: warning
+          service: seed-secrets
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              expr: >-
+                seed_secrets_check_ok{cluster="ringtail"}
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+                  operator:
+                    type: and
+              refId: C
+      - uid: seed-secrets-check-stale
+        title: SeedSecretsCheckStale
+        condition: C
+        # 8 days = 7d timer period + 1d margin for the weekly run.
+        for: 1h
+        # No series at all is exactly the failure: the timer never ran.
+        noDataState: Alerting
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            The weekly seed-secrets --check on ringtail has not run in over 8 days
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-seed-secrets-check
+        labels:
+          severity: warning
+          service: seed-secrets
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              expr: >-
+                time() - seed_secrets_check_timestamp_seconds{cluster="ringtail"}
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      # 691200s = 8d.
+                      - 691200
                   operator:
                     type: and
               refId: C
