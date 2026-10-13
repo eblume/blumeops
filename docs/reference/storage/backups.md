@@ -50,7 +50,7 @@ stay local-only.
 |------|-------------|----------|
 | `~/code/personal/zk` | Zettelkasten notes (migrating into heph docs) | Critical |
 | `~/Documents` | Personal documents (includes [[1password]] encrypted export) | High |
-| `~/forgejo` | Git forge data (repos, LFS, `custom/conf`), minus the pull mirrors, the live WAL DB, and the regenerable/ephemeral churn (all excluded via `exclude_patterns` — the tier never prunes, so only the git repos, the DB snapshot, `attachments`, `packages`, `ssh` and `jwt` ride in) | Critical |
+| `~/forgejo` | Git forge data (repos, LFS, `custom/conf`), minus the pull mirrors, the live WAL DB, and the regenerable/ephemeral churn (all excluded via `exclude_patterns` — the tier never prunes, so only never-lose data rides in: git repos incl. LFS and `custom/conf`, the DB snapshot, `attachments`, `packages`, `ssh`, `jwt`) | Critical |
 | `~/.local/share/borgmatic/k8s-dumps-archive` | Staging for the never-lose pre-backup dumps (heph, forgejo.db, horkos, paperless-media tar) — see Databases below | Critical |
 
 **Operational tier (operational config, 03:00)** — everything rotating:
