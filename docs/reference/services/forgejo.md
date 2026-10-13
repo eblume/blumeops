@@ -115,32 +115,35 @@ Per-runner identity and job-credential secrets live on the runner card ([[forgej
 
 ## Forgejo Actions Secrets
 
-Repository-level Actions secrets are synced from 1Password to Forgejo by
-the `forgejo_actions_secrets` Ansible role (human-run from gilbert under
-biometric `op` — the role authenticates with the scoped eblume
+Repository-level Actions secrets are synced from 1Password to Forgejo by the
+*values half* of `mise run forge-reconcile` (human-run from gilbert under
+biometric `op` — the values half authenticates with the scoped eblume
 write:repository PAT and the step never leaves a human). The sync is
 authoritative: declared secrets are PUT (created/updated), undeclared live
 ones are DELETEd, and `--check` reports name-level drift — values are
-write-only, so value drift is invisible to the role):
+write-only, so value drift is invisible to the sync):
 
 ```bash
-mise run provision-indri -- --tags forgejo_actions_secrets
+mise run forge-reconcile
 ```
 
-`forge-reconcile --check` reads the *names* of these declared secrets from the
-role (the role stays the only source; values are never touched) and fails the
-weekly schedule and same-repo PR check on a missing or undeclared live name —
-so name-level drift is caught on a schedule, not only on a human's
-`provision-indri --check`. The role's PUT/DELETE remains the authoritative
-write path; this is the check half of the same drift.
+Names are declared per repo in `forge/actions-secrets.json` (see
+[[declared-state-files]]); each name's 1Password source is the in-code
+`ACTIONS_SECRET_SOURCES` allowlist in `mise-tasks/forge-reconcile`, so a data
+edit cannot point a repo's CI secrets at a vault item of its choosing. The CI
+token (`FORGE_REPO_WRITE_TOKEN`) is report-only: it never `op read`s or
+writes a value, and one dim line plus exit 0 covers it. `forge-reconcile
+--check` (weekly schedule and same-repo PR check) compares the declared
+*names* against the live forge and fails on a missing or undeclared live
+name.
 
 | Repo | Secrets | Purpose |
 |------|---------|---------|
 | `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `forge-reconcile` reconcile + drift check (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
-| `eblume/talos`, `eblume/horkos` | `ZOT_PUSH_API_KEY` | Auto-release CI: per-repo push-only zot identity (`ci-zot-talos` / `ci-zot-horkos`), provisioned from the zot master fields by the role |
+| `eblume/talos`, `eblume/horkos` | `ZOT_PUSH_API_KEY` | Auto-release CI: per-repo push-only zot identity (`ci-zot-talos` / `ci-zot-horkos`), provisioned from the zot master fields by the values half |
 | `eblume/cv` | — (none) | Release CI is stored-secret-free; the empty declaration makes provisioning authoritative here (first run deletes the stale `FORGE_TOKEN`) |
 
-The per-purpose secrets the role used to sync (argocd token, fly deploy
+The per-purpose secrets the retired Ansible role used to sync (argocd token, fly deploy
 token, zot CI key, main-push PAT) are no longer Forgejo secrets: workflows
 `op read` the blumeops-ci items at job time with `BLUMEOPS_CI_OP_TOKEN` —
 see [[blumeops-ci-item-migration]].

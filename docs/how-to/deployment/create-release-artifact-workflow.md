@@ -17,7 +17,7 @@ How to set up a Forgejo Actions workflow that builds an artifact and publishes i
 ## Prerequisites
 
 - A Forgejo repo with a build pipeline (Dagger, script, etc.)
-- The `FORGE_TOKEN` secret provisioned via the `forgejo_actions_secrets` Ansible role
+- The `FORGE_TOKEN` Forgejo Actions secret (this pattern predates the in-code values half; the retired `forgejo_actions_secrets` Ansible role used to provision it — set the secret via the forge UI or API)
 
 ## 1. Add the repo to Ansible secrets
 

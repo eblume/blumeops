@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx==0.28.1", "pyyaml==6.0.3", "rich==15.0.0", "typer==0.27.2"]
+# dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
 #MISE description="[human] Reconcile eblume's forge desired state — the agents + horkos-forge bots' collaborations, webhooks, and labels (repos.json) and branch protections (forge/branch-protections.json); --check is the single forge drift check (weekly + same-repo PRs)"
 #MISE alias=["ara","agent-repo-access"]
@@ -11,6 +11,7 @@
 #USAGE flag "--skip-if-no-token" help="Exit 0 instead of failing when $FORGE_REPO_WRITE_TOKEN is unset (CI bootstrap)"
 #USAGE flag "--pr-base-ref <ref>" help="PR mode: also report drift vs the base ref — intended drift warns, unexpected drift fails (CI on same-repo PRs)"
 #USAGE flag "--report-file <path>" help="Write the PR-check intended-drift report to this file (CI posts it as a PR comment)"
+#USAGE flag "--no-secrets" help="Skip the Actions-secret values half (PUT/DELETE) — grants/hooks/protections only"
 """Reconcile which of eblume's repos the `agents` and `horkos-forge` bots may touch.
 
 `argocd/manifests/talos/repos.json` is the single source of truth: it drives
@@ -135,13 +136,14 @@ The secret is `FORGE_…`, not `FORGEJO_…`: Forgejo reserves the `FORGEJO_`
 prefix for the Actions tokens it injects itself, and rejects creation of a
 secret using it with HTTP 400.
 
-`--check` also drift-checks the *names* of the repo Actions secrets declared
-in the `forgejo_actions_secrets` ansible role, which owns the values (1Password
-and the PUT/DELETE) and would otherwise check name-level drift only when a
-human ran `provision-indri --check`. So a missing or extra live name now
-fails the weekly schedule and the same-repo PR check without a human in the
-loop; the names are read from the role (it stays the single source) and no
-value is ever touched here.
+`--check` drift-checks the *names* of repo Actions secrets declared in
+`forge/actions-secrets.json` (names only — the value sources live in the
+in-code `ACTIONS_SECRET_SOURCES` allowlist, same rule as PINNED_READ_ONLY: a
+one-line data edit must not be able to pick a vault item); a human apply
+(`mise run forge-reconcile`, never under the CI token, which reports and exits
+0) `op read`s each declared secret's 1Password source and PUTs it (201/204),
+DELETEing undeclared live names, and refuses to PUT onto any repo where
+`agents` holds or is declared a `write` grant; no secret value is ever printed.
 
 `--check` also asserts the #1358 privileged-runner-label policy: no repo
 targets a privileged runner label (indri, indri-priv, priv, or
@@ -170,7 +172,6 @@ from urllib.parse import quote
 
 import httpx
 import typer
-import yaml
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
@@ -355,19 +356,23 @@ VALID_ACCESS = frozenset({"write", "read", "none"})
 # (repo, rule_name), each repo under repos.json's owner.
 PROTECTIONS_PATH = Path(__file__).resolve().parent.parent / "forge" / "branch-protections.json"
 
-# The Actions-secret *name* declarations live in the ansible role, which
-# owns the values — we read names from here so the role stays the single
-# source and nothing is duplicated. Shape: {"forgejo_actions_secrets_repos":
-#   [{"repo": "name", "secrets": [{"name": "SECRET", ...}]}]}; value_var is
-# ignored (values stay with the role / 1Password).
-ACTIONS_SECRETS_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "ansible"
-    / "roles"
-    / "forgejo_actions_secrets"
-    / "defaults"
-    / "main.yml"
-)
+# The Actions-secret *names* live in this file (declared state, like
+# branch-protections.json); the 1Password *value sources* live in the in-code
+# ACTIONS_SECRET_SOURCES allowlist below, on purpose — a one-line data edit in
+# a routine-looking PR must not be able to point a repo's CI secrets at an
+# arbitrary vault item.
+ACTIONS_SECRETS_PATH = Path(__file__).resolve().parent.parent / "forge" / "actions-secrets.json"
+
+# (repo, secret name) -> 1Password URI of its value. In code, not in the data
+# file, so the file stays names-only: a declared name with no source here
+# fails loudly. The zot keys keep the item ID (survives renames); the vault
+# ID matches indri.yml's pre_tasks of the retired forgejo_actions_secrets role.
+ACTIONS_SECRET_SOURCES: dict[tuple[str, str], str] = {
+    ("blumeops", "FORGE_REPO_WRITE_TOKEN"): OP_TOKEN_REF,
+    ("blumeops", "BLUMEOPS_CI_OP_TOKEN"): "op://vg6xf6vvfmoh5hqjjhlhbeoaie/blumeops-ci-reader-token/token",
+    ("talos", "ZOT_PUSH_API_KEY"): "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/ci-zot-talos-api",
+    ("horkos", "ZOT_PUSH_API_KEY"): "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/ci-zot-horkos-api",
+}
 # Every editable field of a Forgejo v16 branch protection (the API's
 # BranchProtection minus branch_name — a deprecated alias of rule_name — and
 # the timestamps). A rule must declare all of them: an undeclared field would
@@ -940,25 +945,18 @@ def check_main_whitelist(client, owner, report):
         report.ok(what)
 
 
-def declared_actions_secret_names() -> dict[str, list[str]]:
-    """Per-repo Actions-secret names declared in the ansible role.
-
-    Read straight from ACTIONS_SECRETS_PATH so the role stays the only source
-    of the names — it owns the values (1Password) and the PUT/DELETE; we read
-    names to drift-check them, and value_var is ignored. A malformed read is a
-    loud failure, not an empty dict: an empty read would look like "nothing
-    declared" and pass against a live forge that carries secrets."""
-    try:
-        data = yaml.safe_load(ACTIONS_SECRETS_PATH.read_text())
-    except (OSError, UnicodeError, yaml.YAMLError) as exc:
-        console.print(f"[red]Cannot read declared Actions secrets from {ACTIONS_SECRETS_PATH.name}: {escape(str(exc))}[/red]")
-        raise typer.Exit(1) from exc
+def _parse_actions_secrets(data) -> dict[str, list[str]]:
+    """Validate one parsed Actions-secrets document (from the file or a git
+    ref) into {repo: [names]}, with the shared loud-failure rule: malformed
+    input is Exit(1), never an empty dict — an empty read would look like
+    "nothing declared" and pass against a live forge that carries secrets.
+    A declared name with no value source fails the same way."""
     if not isinstance(data, dict):
         console.print(f"[red]{ACTIONS_SECRETS_PATH.name}: expected a mapping, got {type(data).__name__}[/red]")
         raise typer.Exit(1)
-    repos = data.get("forgejo_actions_secrets_repos")
+    repos = data.get("repos")
     if not isinstance(repos, list):
-        console.print(f"[red]{ACTIONS_SECRETS_PATH.name}: missing or non-list `forgejo_actions_secrets_repos`[/red]")
+        console.print(f"[red]{ACTIONS_SECRETS_PATH.name}: missing or non-list `repos`[/red]")
         raise typer.Exit(1)
     out: dict[str, list[str]] = {}
     for entry in repos:
@@ -966,32 +964,57 @@ def declared_actions_secret_names() -> dict[str, list[str]]:
             console.print(f"[red]{ACTIONS_SECRETS_PATH.name}: a repo entry is not a mapping with a `repo` name: {escape(str(entry))}[/red]")
             raise typer.Exit(1)
         secrets = entry.get("secrets", [])
-        if not isinstance(secrets, list):
-            console.print(f"[red]{ACTIONS_SECRETS_PATH.name}: {entry['repo']} `secrets` is not a list[/red]")
+        if not isinstance(secrets, list) or not all(isinstance(s, str) for s in secrets):
+            console.print(f"[red]{ACTIONS_SECRETS_PATH.name}: {entry['repo']} `secrets` is not a list of strings[/red]")
             raise typer.Exit(1)
-        for sec in secrets:
-            if not isinstance(sec, dict) or not isinstance(sec.get("name"), str):
-                console.print(f"[red]{ACTIONS_SECRETS_PATH.name}: {entry['repo']} has a secret without a string `name`: {escape(str(sec))}[/red]")
+        for name in secrets:
+            if (entry["repo"], name) not in ACTIONS_SECRET_SOURCES:
+                console.print(
+                    f"[red]{ACTIONS_SECRETS_PATH.name}: {entry['repo']} declares a secret with no value "
+                    f"source in ACTIONS_SECRET_SOURCES — add the source or drop the declaration: {escape(name)}[/red]"
+                )
                 raise typer.Exit(1)
-        out[entry["repo"]] = [sec["name"] for sec in secrets]
+        out[entry["repo"]] = list(secrets)
     return out
 
 
-def check_actions_secret_names(client, owner, report):
-    """Live Actions-secret names on the role's declared repos match the
-    role's declarations — the name-level drift the role's --check reports but
-    that only ran when a human ran it. A missing name (declared, not live) or
-    an extra one (live, not declared) is drift; a check that cannot read a
-    repo's secrets is a failure, like every check that cannot see. Repos the
-    role does not declare are out of scope: the role is authoritative for its
-    own list, and we do not assert secret-freedom on repos it never manages.
+def declared_actions_secret_names() -> dict[str, list[str]]:
+    """Per-repo Actions-secret names declared in forge/actions-secrets.json.
+
+    Read straight from ACTIONS_SECRETS_PATH; the file declares names only —
+    the 1Password value sources live in the in-code ACTIONS_SECRET_SOURCES
+    allowlist (a one-line data edit must not be able to pick a vault item). A
+    malformed read or a declared name with no source is a loud failure, not an
+    empty dict: an empty read would look like "nothing declared" and pass
+    against a live forge that carries secrets."""
+    try:
+        data = json.loads(ACTIONS_SECRETS_PATH.read_text())
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        console.print(f"[red]Cannot read declared Actions secrets from {ACTIONS_SECRETS_PATH.name}: {escape(str(exc))}[/red]")
+        raise typer.Exit(1) from exc
+    return _parse_actions_secrets(data)
+
+
+def check_actions_secret_names(client, owner, report, pr_mode: bool = False):
+    """Live Actions-secret names on the file's declared repos match the
+    file's declarations — the name-level drift the apply half fixes and the
+    weekly --check catches. A missing name (declared, not live) or an extra
+    one (live, not declared) is drift; a check that cannot read a repo's
+    secrets is a failure, like every check that cannot see. Repos the file
+    does not declare are out of scope: the file is authoritative for its own
+    list, and we do not assert secret-freedom on repos it never manages. In
+    pr_mode the missing/extra split belongs to report_pr_check (live vs the
+    PR base's declared set), so only readability is asserted here.
     """
     declared = declared_actions_secret_names()
     for repo in sorted(declared):
-        what = f"Actions secret names on {owner}/{repo} match the role"
+        what = f"Actions secret names on {owner}/{repo} match the file"
         live = actions_secrets(client, owner, repo)
         if live is None:
             report.unknown(what, "could not read the repo's Actions secrets")
+            continue
+        if pr_mode:
+            report.ok(what)
             continue
         want = set(declared[repo])
         have = set(live)
@@ -1246,6 +1269,21 @@ def read_protections_at(ref):
         return None
 
 
+def actions_secret_names_at(ref):
+    """Actions-secret names at a git ref: {} when the file does not exist at
+    the ref (the creating PR reads an empty base), Exit(1) when it exists but
+    is malformed."""
+    raw = git_read_file(ref, "forge/actions-secrets.json")
+    if raw is None:
+        return {}
+    try:
+        data = json.loads(raw)
+    except ValueError as exc:
+        console.print(f"[red]forge/actions-secrets.json at {ref} is not valid JSON: {exc}[/red]")
+        raise typer.Exit(1) from exc
+    return _parse_actions_secrets(data)
+
+
 def plan_at(client, owner, who, policies, protections):
     """Plan the drift of a (policy, protections) pair against the live forge —
     the read-only core of main's planning, factored out so --pr-base-ref can
@@ -1317,6 +1355,7 @@ def _changed_facts(base_state, head_state):
     action can be classified intended vs unexpected by (repo, fact):
       - (repo, "access"), (repo, "horkos"), (repo, "talos-hook"),
         (repo, "release-hook")
+      - (repo, "secrets")
       - (repo, "protect", rule_name)
     A base-plan action is INTENDED iff its fact is in this set (the PR is
     landing it), UNEXPECTED otherwise (the PR does not touch it).
@@ -1332,6 +1371,9 @@ def _changed_facts(base_state, head_state):
             changed.add((repo, "talos-hook"))
         if (repo in b["release_hook_repos"]) != (repo in h["release_hook_repos"]):
             changed.add((repo, "release-hook"))
+    for repo in sorted(set(b.get("secrets", {})) | set(h.get("secrets", {}))):
+        if sorted(b["secrets"].get(repo, [])) != sorted(h["secrets"].get(repo, [])):
+            changed.add((repo, "secrets"))
     for repo, rn in sorted({(r["repo"], r["rule_name"]) for r in b["protections"]}
                            | {(r["repo"], r["rule_name"]) for r in h["protections"]}):
         base_rule = next((r for r in b["protections"] if (r["repo"], r["rule_name"]) == (repo, rn)), None)
@@ -1343,9 +1385,10 @@ def _changed_facts(base_state, head_state):
 
 def _intended_lines(owner, base_state, head_state):
     """One line per fact the PR's declared delta changes (base -> head), for the
-    intended report, split into the auto-applies / hook / protection halves."""
+    intended report, split into the auto-applies / hook / protection / secret
+    values halves."""
     b, h = base_state, head_state
-    auto, hook, prot = [], [], []
+    auto, hook, prot, values = [], [], [], []
     for repo in sorted(set(b["desired"]) | set(h["desired"])):
         if b["desired"].get(repo, "none") != h["desired"].get(repo, "none"):
             auto.append(f"`{owner}/{repo}` agents access: {b['desired'].get(repo,'none')} -> {h['desired'].get(repo,'none')}")
@@ -1357,13 +1400,23 @@ def _intended_lines(owner, base_state, head_state):
         if (repo in b["release_hook_repos"]) != (repo in h["release_hook_repos"]):
             (hook if repo not in b["release_hook_repos"] else auto).append(
                 f"`{owner}/{repo}` horkos release hook: {'on' if repo in b['release_hook_repos'] else 'off'} -> {'on' if repo in h['release_hook_repos'] else 'off'}")
+    def _names(ns):
+        return ", ".join(f"`{n}`" for n in ns) or "(none)"
+
+    for repo in sorted(set(b.get("secrets", {})) | set(h.get("secrets", {}))):
+        base_names = sorted(b["secrets"].get(repo, []))
+        head_names = sorted(h["secrets"].get(repo, []))
+        if base_names != head_names:
+            values.append(
+                f"`{owner}/{repo}` Actions secrets: {_names(base_names)} -> {_names(head_names)}"
+            )
     for repo, rn in sorted({(r["repo"], r["rule_name"]) for r in b["protections"]}
                            | {(r["repo"], r["rule_name"]) for r in h["protections"]}):
         base_rule = next((r for r in b["protections"] if (r["repo"], r["rule_name"]) == (repo, rn)), None)
         head_rule = next((r for r in h["protections"] if (r["repo"], r["rule_name"]) == (repo, rn)), None)
         if base_rule != head_rule:
             prot.append(f"`{owner}/{repo}` branch protection `{rn}` changed")
-    return sorted(set(auto)), sorted(set(hook)), sorted(set(prot))
+    return sorted(set(auto)), sorted(set(hook)), sorted(set(prot)), sorted(set(values))
 
 
 def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_plan, pr_base_ref, report_file):
@@ -1383,7 +1436,7 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     comment) and fails iff unexpected drift is present.
     """
     changed = _changed_facts(base_state, head_state)
-    auto, hook, prot = _intended_lines(owner, base_state, head_state)
+    auto, hook, prot, values = _intended_lines(owner, base_state, head_state)
 
     def changed_for(repo, fact, rn=None):
         return ((repo, "protect", rn) if fact == "protect" else (repo, fact)) in changed
@@ -1411,6 +1464,27 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     for repo, names in base_plan["violations"]:
         if not changed_for(repo, "access"):
             unexpected.append(violation_line(owner, repo, names))
+    # Live-drift Actions secrets on a repo whose declared names the PR leaves
+    # unchanged are unexpected like any other live drift: the PR does not
+    # intend them, so the check must fail until a human apply lands or they
+    # are declared. A repo whose names the PR DOES change is skipped, like the
+    # other facts: unrelated live drift on that repo is masked here and caught
+    # by the post-merge weekly --check.
+    for repo in sorted(base_state.get("secrets", {})):
+        if changed_for(repo, "secrets"):
+            continue
+        live = actions_secrets(client, owner, repo)
+        if live is None:
+            unexpected.append(f"unreadable Actions secrets on {owner}/{repo}")
+            continue
+        missing, extra = (
+            sorted(set(base_state["secrets"][repo]) - set(live)),
+            sorted(set(live) - set(base_state["secrets"][repo])),
+        )
+        if missing:
+            unexpected.append(f"Actions secret missing on {owner}/{repo}: {', '.join(missing)}")
+        if extra:
+            unexpected.append(f"undeclared live Actions secret on {owner}/{repo}: {', '.join(extra)}")
     if base_plan["blocked"]:
         unexpected.append(f"unreadable listed repo(s): {', '.join(base_plan['blocked'])}")
 
@@ -1437,11 +1511,14 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     if prot:
         lines.append("### Intended - branch protection (a human MUST run `mise run forge-reconcile` from gilbert after merge; the CI token cannot apply these)")
         lines += [f"- {l}" for l in prot] + [""]
+    if values:
+        lines.append("### Intended - Actions secret names (a human runs `mise run forge-reconcile` after merge; the CI token never writes values)")
+        lines += [f"- {l}" for l in values] + [""]
 
     # Surface intended drift even when it does not fail the check: a warn-only
     # result (notably a revocation) must still be read, so the workflow posts
     # this file as a PR comment whenever it is written.
-    if report_file and (forbidden or unexpected or auto or hook or prot):
+    if report_file and (forbidden or unexpected or auto or hook or prot or values):
         Path(report_file).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     if forbidden:
@@ -1454,10 +1531,58 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
         for l in unexpected:
             console.print(f"  [red]{escape(l)}[/red]")
         raise typer.Exit(1)
-    if auto or hook or prot:
+    if auto or hook or prot or values:
         console.print("\n[yellow]PR check: intended drift only - green; it applies on merge (hook/protection halves need the human run).[/yellow]")
     else:
         console.print("\n[green]PR check: in sync, nothing intended.[/green]")
+
+
+def plan_action_secrets(client, owner, declared):
+    """The values half's plan: (puts, deletes, unreadable_repos). Puts is
+    every declared secret — values are write-only, so "in sync" is
+    unobservable and the always-PUT is the idempotency the role had
+    (201 create / 204 update) — and deletes the live names a repo no longer
+    declares. An unreadable repo aborts the apply; preview just reports it."""
+    puts, deletes, unreadable = [], [], []
+    for repo in sorted(declared):
+        live = actions_secrets(client, owner, repo)
+        if live is None:
+            unreadable.append(repo)
+            continue
+        puts += [(repo, name) for name in declared[repo]]
+        deletes += [(repo, name) for name in sorted(set(live) - set(declared[repo]))]
+    return puts, deletes, unreadable
+
+
+def read_op_secret_value(ref: str) -> str:
+    """The 1Password value behind one ACTIONS_SECRET_SOURCES entry.
+
+    The value never reaches output: op's stdout goes straight into the PUT
+    body, and every failure path prints only a fixed phrase plus the exit
+    status - never op's stderr, where a value could appear (the console is
+    teed into a log the failure-report step posts to the PR).
+    """
+    try:
+        result = subprocess.run(
+            ["op", "read", ref],
+            capture_output=True, text=True, check=True,
+            stdin=subprocess.DEVNULL, timeout=30,
+        )
+    except subprocess.CalledProcessError as exc:
+        _abort_secret_value_read(f"op read exited {exc.returncode}")
+    except subprocess.TimeoutExpired:
+        _abort_secret_value_read("op read timed out")
+    except FileNotFoundError:
+        _abort_secret_value_read("`op` is not installed")
+    return result.stdout.strip()
+
+
+def _abort_secret_value_read(reason: str) -> None:
+    """The red refusal shared by read_op_secret_value's failure paths;
+    `reason` is fixed text plus an exit status, so no secret value can ride
+    out in it."""
+    console.print(f"[red]Could not read the Actions secret value: {reason} - aborting before any PUT or DELETE[/red]")
+    raise typer.Exit(1)
 
 
 def main(
@@ -1467,19 +1592,21 @@ def main(
     skip_if_no_token: Annotated[bool, typer.Option("--skip-if-no-token")] = False,
     pr_base_ref: Annotated[str | None, typer.Option("--pr-base-ref")] = None,
     report_file: Annotated[str | None, typer.Option("--report-file")] = None,
+    no_secrets: Annotated[bool, typer.Option("--no-secrets")] = False,
 ) -> None:
     owner, who, desired, pools, release_hook_repos, horkos_forge_repos = load_policy()
     protections = load_protections((who, HORKOS_FORGE_USER))
     preview = dry_run or check
     # The CI path: resolve_token takes $FORGE_REPO_WRITE_TOKEN only when no
-    # --token is given. Gates the protection half's apply (module docstring).
+    # --token is given. Gates the branch-protection AND the Actions-secret
+    # values halves (module docstring).
     ci_token = token is None and bool(os.environ.get("FORGE_REPO_WRITE_TOKEN"))
 
     resolved = resolve_token(token, skip_if_no_token)
     if resolved is None:
         console.print(
             "[yellow]SKIPPED: $FORGE_REPO_WRITE_TOKEN is not set.[/yellow] Provision it with "
-            "`mise run provision-indri -- --tags forgejo_actions_secrets`."
+            "`mise run forge-reconcile` (a human run — it reads the value from 1Password)."
         )
         return
 
@@ -1503,7 +1630,7 @@ def main(
             env_findings = Findings()
             check_site_admin(client, env_findings)
             check_main_whitelist(client, owner, env_findings)
-            check_actions_secret_names(client, owner, env_findings)
+            check_actions_secret_names(client, owner, env_findings, pr_mode=bool(pr_base_ref))
             check_privileged_labels(client, owner, env_findings)
             if env_findings.failures:
                 raise typer.Exit(1)
@@ -1559,9 +1686,11 @@ def main(
         label_skipped = False  # no issue-capable token: warn once, check nothing
         blocked: list[str] = []
         violations: list[tuple[str, list[str]]] = []  # (repo, secret names)
+        plan_access: dict[str, tuple[str, str]] = {}  # (have, want) per repo — the secrets fence's plan-time view
         for repo in sorted(all_repos):
             want = desired.get(repo, "none")
             have = current_access(client, owner, repo, who)
+            plan_access[repo] = (have, want)
             # horkos-forge half: want follows repos.json's horkos_forge flag and
             # is read against HORKOS_FORGE_USER, not `agents` — the two policies
             # are independent, write on blumeops for horkos-forge is the point
@@ -1804,7 +1933,18 @@ def main(
             or protection_actions
             or violations
         )
-        if in_sync and not (check and pr_base_ref):
+        # The values half is what a human apply is for: a values-only drift
+        # (a newly declared name, a revoked grant's stale value) must keep an
+        # apply-mode run from the "In sync." early return. Preview/--check
+        # stays green on values-only drift (values are write-only), so the
+        # gate is apply-mode only.
+        values_pending = False
+        if not preview and not no_secrets:
+            _v_puts, _v_deletes, _v_unreadable = plan_action_secrets(
+                client, owner, declared_actions_secret_names()
+            )
+            values_pending = bool(_v_puts or _v_deletes or _v_unreadable)
+        if in_sync and not values_pending and not (check and pr_base_ref):
             console.print("[green]In sync.[/green]")
             return
         # A PR whose head plan is empty (e.g. one that only removes a branch
@@ -1835,6 +1975,16 @@ def main(
                 console.print(f"  {verb} branch protection {escape(owner)}/{escape(repo)}:{escape(rule_name)} ({escape(fields)})")
             for repo, secret_names in violations:
                 console.print(f"  {violation_line(escape(owner), escape(repo), [escape(n) for n in secret_names])}")
+            if not no_secrets:
+                s_puts, s_deletes, s_unreadable = plan_action_secrets(
+                    client, owner, declared_actions_secret_names()
+                )
+                for repo, name in s_puts:
+                    console.print(f"  [dim]PUT {escape(owner)}/{escape(repo)}:{escape(name)} (value from 1Password — not shown)[/dim]")
+                for repo, name in s_deletes:
+                    console.print(f"  [dim]DELETE {escape(owner)}/{escape(repo)}:{escape(name)}[/dim]")
+                for repo in s_unreadable:
+                    console.print(f"  [dim]cannot read Actions secrets on {escape(owner)}/{escape(repo)}[/dim]")
             if check:
                 if pr_base_ref:
                     base_state = read_policies_at(pr_base_ref)
@@ -1851,11 +2001,13 @@ def main(
                             "refusing to categorize PR drift against an empty protection set.[/red]"
                         )
                         raise typer.Exit(1)
+                    base_state["secrets"] = actions_secret_names_at(pr_base_ref)
                     base_plan = plan_at(client, owner, who, base_state, base_state["protections"])
                     head_state = {"desired": desired, "pools": pools,
                                   "release_hook_repos": release_hook_repos,
                                   "horkos_forge_repos": horkos_forge_repos,
-                                  "protections": protections}
+                                  "protections": protections,
+                                  "secrets": declared_actions_secret_names()}
                     head_plan = {"violations": violations, "blocked": blocked}
                     report_pr_check(client, owner, who, head_state, base_state, base_plan,
                                     head_plan, pr_base_ref, report_file)
@@ -2042,9 +2194,101 @@ def main(
                 raise typer.Exit(1)
             console.print(f"[green]{verb}[/green] {label}")
 
+        # The Actions-secret values half — last, so the grant half has already
+        # landed (the symmetric fence checks the plan-time grant state below).
+        # Names
+        # come from forge/actions-secrets.json; values from 1Password via the
+        # in-code ACTIONS_SECRET_SOURCES allowlist. No secret value is ever
+        # printed; the CI token (report-only) never reads one from 1Password.
+        if not no_secrets:
+            secret_puts, secret_deletes, secret_unreadable = plan_action_secrets(
+                client, owner, declared_actions_secret_names()
+            )
+            if ci_token:
+                # Report, never apply: values live in 1Password and only a
+                # human (biometric) run may read them. Name drift is what the
+                # weekly --check fails on; here one dim line covers it.
+                console.print(
+                    f"[dim]{len(secret_puts)} Actions-secret PUT(s) + {len(secret_deletes)} DELETE(s) "
+                    "not applied under the CI token — values come from 1Password and a human run only: "
+                    "`mise run forge-reconcile` on a machine with biometric access "
+                    "(see forge/actions-secrets.json)[/dim]"
+                )
+            else:
+                if secret_unreadable:
+                    # A failed read aborts, never deletes.
+                    console.print(
+                        f"[red]Cannot read Actions secrets on {escape(', '.join(secret_unreadable))} — "
+                        "refusing to touch its Actions secrets.[/red]"
+                    )
+                    raise typer.Exit(1)
+                # The symmetric fence on the plan-time grant state (the grant
+                # half runs first, so a live write grant was just revoked in
+                # this run -> "re-run", not a violation; a write declared in
+                # repos.json blocks either way). A repo the token can't read
+                # is already in `blocked`.
+                refusals: dict[str, tuple[str, str]] = {}
+                for repo, _name in secret_puts:
+                    have, want = plan_access.get(repo, ("unreadable", "none"))
+                    if have == "unreadable":
+                        # No plan-time entry: the repo is invisible to the
+                        # token, so the fence cannot verify it.
+                        refusals.setdefault(repo, (have, want))
+                    elif want == "write" or have in ("write", "admin"):
+                        refusals.setdefault(repo, (have, want))
+                if refusals:
+                    console.print("\n[red]Refusing to PUT Actions secrets:[/red]")
+                    for repo, (have, want) in sorted(refusals.items()):
+                        if want == "write":
+                            console.print(
+                                f"[red]  {escape(owner)}/{escape(repo)}: repos.json declares `write` for `agents` "
+                                f"— write on a repo is read of its Actions secrets[/red]"
+                            )
+                        elif have in ("write", "admin"):
+                            console.print(
+                                f"[red]  {escape(owner)}/{escape(repo)}: the `agents` write grant was just "
+                                "revoked in this run; re-run `mise run forge-reconcile`[/red]"
+                            )
+                        else:
+                            console.print(
+                                f"[red]  {escape(owner)}/{escape(repo)}: cannot read the `agents` grant "
+                                f"— refusing[/red]"
+                            )
+                    raise typer.Exit(1)
+                values: dict[tuple[str, str], str] = {}
+                for repo, name in secret_puts:
+                    values[(repo, name)] = read_op_secret_value(ACTIONS_SECRET_SOURCES[(repo, name)])
+                for repo, name in secret_puts:
+                    try:
+                        client.put(
+                            f"/api/v1/repos/{owner}/{repo}/actions/secrets/{quote(name, safe='')}",
+                            json={"data": values[(repo, name)]},
+                        ).raise_for_status()
+                    except httpx.HTTPStatusError as exc:
+                        console.print(
+                            f"[red]PUT {escape(owner)}/{escape(repo)}:{escape(name)} failed: "
+                            f"HTTP {exc.response.status_code}[/red]"
+                        )
+                        raise typer.Exit(1) from exc
+                    console.print(f"[green]PUT[/green] {escape(owner)}/{escape(repo)}:{escape(name)}")
+                for repo, name in secret_deletes:
+                    try:
+                        client.delete(
+                            f"/api/v1/repos/{owner}/{repo}/actions/secrets/{quote(name, safe='')}"
+                        ).raise_for_status()
+                    except httpx.HTTPStatusError as exc:
+                        console.print(
+                            f"[red]DELETE {escape(owner)}/{escape(repo)}:{escape(name)} failed: "
+                            f"HTTP {exc.response.status_code}[/red]"
+                        )
+                        raise typer.Exit(1) from exc
+                    console.print(f"[red]DELETE[/red] {escape(owner)}/{escape(repo)}:{escape(name)}")
+
         applied = (
             len(actions) + len(horkos_actions) + len(hook_actions) + len(label_actions) + len(protection_actions)
         )
+        if not no_secrets and not ci_token:
+            applied += len(secret_puts) + len(secret_deletes)
         console.print(f"\n[green]Applied {applied} change(s).[/green]")
 
 

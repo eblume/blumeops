@@ -115,7 +115,7 @@ The new token was created with `deploy` scope, not `org`. Either accept it (cosm
 
 ### Forgejo Actions deploy fails but local works
 
-The Forgejo secret wasn't synced. Re-run `mise run provision-indri -- --tags forgejo_actions_secrets` and confirm the secret value in Forgejo matches 1Password.
+The Forgejo secret wasn't synced. Re-run `mise run forge-reconcile` from a machine with biometric 1Password access (its values half re-PUTs declared secrets) and confirm the secret value in Forgejo matches 1Password.
 
 ## Related
 

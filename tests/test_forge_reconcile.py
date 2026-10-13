@@ -24,6 +24,7 @@ import importlib.util
 import io
 import json
 import pathlib
+import subprocess
 
 import httpx
 import pytest
@@ -70,8 +71,8 @@ def policy(tmp_path, monkeypatch):
     protections = tmp_path / "branch-protections.json"
     protections.write_text(json.dumps({"rules": []}), encoding="utf-8")
     # No declared Actions-secret names by default: the name-drift check (on
-    # every --check) iterates the role's declared repos, and a test that is
-    # not about Actions secrets should not also see the real role's list.
+    # every --check) iterates the declared-state file's repos, and a test that
+    # is not about Actions secrets should not also see the real file's list.
     monkeypatch.setattr(ara, "declared_actions_secret_names", dict)
     monkeypatch.setattr(ara, "PROTECTIONS_PATH", protections)
     return set_repos
@@ -116,6 +117,13 @@ class FakeForge:
             dict[str, list[str] | None] | None
         ) = {}  # repo -> names; a whole-None value or a per-repo None = 403s
         self.secrets_body: dict | list | None = None  # raw-body override (shape test)
+        # The values half's record: (method, repo, name, value-as-put) for
+        # every PUT/DELETE the script issues against /actions/secrets/<name>;
+        # value is None for a DELETE, the data payload for a PUT.
+        self.secret_writes: list[tuple[str, str, str, str | None]] = []
+        # Non-None: answer every PUT/DELETE of an Actions secret with this
+        # status instead of 201/204 (the PUT-failure test forces a 500).
+        self.secret_status: int | None = None
         self.hooks_status = 200  # non-200: the hooks list is unreadable
         self.hooks: dict[str, list[dict]] = {}  # repo -> served hook objects
         # Events a PATCH silently drops, mimicking Forgejo v16.0.2's editHook
@@ -330,6 +338,20 @@ class FakeForge:
                     )
                 # Forgejo serves a bare JSON array, not GitHub's wrapped shape.
                 return httpx.Response(200, json=[{"name": n} for n in names])
+            if len(tail) == 3 and tail[0] == "actions" and tail[1] == "secrets":
+                name = tail[2]
+                if request.method in ("PUT", "DELETE"):
+                    if self.secret_status is not None:
+                        return httpx.Response(
+                            self.secret_status, json={"message": "forced"}
+                        )
+                    if request.method == "PUT":
+                        body = json.loads(request.content)
+                        self.secret_writes.append(("PUT", repo, name, body.get("data")))
+                    else:
+                        self.secret_writes.append(("DELETE", repo, name, None))
+                    return httpx.Response(201 if request.method == "PUT" else 204)
+                return httpx.Response(404, json={"message": "not found"})
         return httpx.Response(404, json={"message": "unexpected path"})
 
     def install(self, monkeypatch):
@@ -1088,7 +1110,7 @@ def test_invariant_main_whitelist_valid_is_ok(policy, monkeypatch):
     assert findings.failures == []
 
 
-# --- Actions-secret name drift (names read from the ansible role) -------------
+# --- Actions-secret name drift (names read from the declared-state file) ----
 
 
 def _declared(monkeypatch, mapping):
@@ -1160,20 +1182,23 @@ def test_actions_secret_names_unreadable_fails(policy, monkeypatch):
     assert any("could not read" in f for f in findings.failures)
 
 
-def test_declared_actions_secret_names_parses_role(tmp_path, monkeypatch):
-    # The real role shape, read straight from YAML: value_var ignored, empty
-    # repo lists kept (they are the authoritative-delete case).
-    path = tmp_path / "main.yml"
+def test_declared_actions_secret_names_parses_file(tmp_path, monkeypatch):
+    # The real declared-state shape: names only — empty repo lists kept (they
+    # are the authoritative-delete case), names validated against the in-code
+    # ACTIONS_SECRET_SOURCES allowlist before they parse.
+    path = tmp_path / "actions-secrets.json"
     path.write_text(
-        "forgejo_actions_secrets_repos:\n"
-        "  - repo: blumeops\n"
-        "    secrets:\n"
-        "      - name: FORGE_REPO_WRITE_TOKEN\n"
-        "        value_var: forgejo_secret_repo_write_token\n"
-        "      - name: BLUMEOPS_CI_OP_TOKEN\n"
-        "        value_var: forgejo_secret_blumeops_ci_op_token\n"
-        "  - repo: cv\n"
-        "    secrets: []\n",
+        json.dumps(
+            {
+                "repos": [
+                    {
+                        "repo": "blumeops",
+                        "secrets": ["FORGE_REPO_WRITE_TOKEN", "BLUMEOPS_CI_OP_TOKEN"],
+                    },
+                    {"repo": "cv", "secrets": []},
+                ]
+            }
+        ),
         encoding="utf-8",
     )
     monkeypatch.setattr(ara, "ACTIONS_SECRETS_PATH", path)
@@ -1186,9 +1211,21 @@ def test_declared_actions_secret_names_malformed_fails(tmp_path, monkeypatch):
     # A broken read must fail loudly (the real file can only fail the check),
     # never parse to an empty dict that would pass against a secret-carrying
     # live forge.
-    path = tmp_path / "main.yml"
+    path = tmp_path / "actions-secrets.json"
+    path.write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(ara, "ACTIONS_SECRETS_PATH", path)
+    with pytest.raises(typer.Exit):
+        ara.declared_actions_secret_names()
+
+
+def test_declared_actions_secret_names_unknown_source_fails(tmp_path, monkeypatch):
+    # A declared name with no entry in the in-code ACTIONS_SECRET_SOURCES
+    # allowlist fails loudly: the file stays names-only, so a routine-looking
+    # data edit cannot point a repo's CI secrets at a vault item.
+    path = tmp_path / "actions-secrets.json"
     path.write_text(
-        "forgejo_actions_secrets_repos: {not: a: list: here\n", encoding="utf-8"
+        json.dumps({"repos": [{"repo": "blumeops", "secrets": ["NOT_A_REAL_SOURCE"]}]}),
+        encoding="utf-8",
     )
     monkeypatch.setattr(ara, "ACTIONS_SECRETS_PATH", path)
     with pytest.raises(typer.Exit):
@@ -1232,15 +1269,279 @@ def test_check_actions_secret_names_in_sync_is_green(policy, run_main, monkeypat
     assert "In sync." in out
 
 
+# --- Actions-secret values half (human apply vs CI report) -------------------
+
+
+class _FakeOp:
+    """Stand-in for subprocess.run's `op read`: returns a fixed stdout, or
+    raises CalledProcessError when built with fail=True. Records every call so
+    tests can assert op was / wasn't reached."""
+
+    def __init__(self, fail=False):
+        self.fail = fail
+        self.calls: list[list[str]] = []
+
+    def __call__(self, args, **kwargs):
+        self.calls.append(args)
+        if self.fail:
+            raise subprocess.CalledProcessError(1, args)
+        return subprocess.CompletedProcess(
+            args, 0, stdout="secret-value-XYZ\n", stderr=""
+        )
+
+
+def _op_must_not_run(*_args, **_kwargs):
+    raise AssertionError("op must not run")
+
+
+def test_secret_values_applied_on_human_run(policy, run_main, monkeypatch):
+    # Human apply: declared A is PUT (value from op, never echoed), the stale
+    # live STALE is DELETE — the idempotent 201/204 shape the role had.
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": ["A", "STALE"]}
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "declared_actions_secret_names", lambda: {"svc": ["A"]})
+    monkeypatch.setattr(ara, "ACTIONS_SECRET_SOURCES", {("svc", "A"): "op://v/i/f"})
+    op = _FakeOp()
+    monkeypatch.setattr(ara.subprocess, "run", op)
+
+    code, out = run_main(token="t")
+    assert code == 0, out
+    assert forge.secret_writes == [
+        ("PUT", "svc", "A", "secret-value-XYZ"),
+        ("DELETE", "svc", "STALE", None),
+    ]
+    assert "PUT eblume/svc:A" in out
+    assert "DELETE eblume/svc:STALE" in out
+    assert "secret-value-XYZ" not in out
+    assert "Applied 2 change(s)." in out
+
+
+def test_secret_values_reported_not_applied_under_ci_token(
+    policy, run_main, monkeypatch
+):
+    # CI apply: name drift is reported on one dim line, never PUT/DELETE'd,
+    # and op is never reached — exit 0 (the name drift is the weekly --check's
+    # job).
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": []}
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "declared_actions_secret_names", lambda: {"svc": ["A"]})
+    monkeypatch.setattr(ara, "ACTIONS_SECRET_SOURCES", {("svc", "A"): "op://v/i/f"})
+    monkeypatch.setattr(ara.subprocess, "run", _op_must_not_run)
+    monkeypatch.setenv("FORGE_REPO_WRITE_TOKEN", "ci")
+
+    code, out = run_main()
+    assert code == 0, out
+    assert forge.secret_writes == []
+    assert "1 Actions-secret PUT(s) + 0 DELETE(s) not applied under the CI token" in out
+
+
+def test_secret_op_read_failure_aborts_before_any_write(policy, run_main, monkeypatch):
+    # op failure: abort before ANY PUT/DELETE — no name is touched on a
+    # half-failed read, and the error carries no value or op output.
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": ["STALE"]}
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "declared_actions_secret_names", lambda: {"svc": ["A"]})
+    monkeypatch.setattr(ara, "ACTIONS_SECRET_SOURCES", {("svc", "A"): "op://v/i/f"})
+    op = _FakeOp(fail=True)
+    monkeypatch.setattr(ara.subprocess, "run", op)
+
+    code, out = run_main(token="t")
+    assert code == 1, out
+    assert forge.secret_writes == []
+    assert op.calls == [["op", "read", "op://v/i/f"]]
+    assert "Could not read the Actions secret value: op read exited 1" in out
+    assert "aborting before any PUT or DELETE" in out
+    assert "secret-value-XYZ" not in out
+
+
+def test_secret_undeclared_live_deleted_only_on_human_run(
+    policy, run_main, monkeypatch
+):
+    # An undeclared live name is reported under the CI token, never deleted.
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": ["STALE"]}
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "declared_actions_secret_names", lambda: {"svc": []})
+    monkeypatch.setattr(ara.subprocess, "run", _op_must_not_run)
+    monkeypatch.setenv("FORGE_REPO_WRITE_TOKEN", "ci")
+
+    code, out = run_main()
+    assert code == 0, out
+    assert forge.secret_writes == []
+    assert "0 Actions-secret PUT(s) + 1 DELETE(s) not applied under the CI token" in out
+
+
+def test_secret_fence_blocks_put_on_write_repo(policy, run_main, monkeypatch):
+    # Declared write on a secrets-carrying repo: the values half refuses
+    # before any PUT (write on a repo is read of its Actions secrets).
+    policy([{"name": "svc", "access": "write", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {
+        "svc": []
+    }  # write, no secrets: no violation — the fence under test
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "declared_actions_secret_names", lambda: {"svc": ["A"]})
+    monkeypatch.setattr(ara, "ACTIONS_SECRET_SOURCES", {("svc", "A"): "op://v/i/f"})
+    op = _FakeOp()
+    monkeypatch.setattr(ara.subprocess, "run", op)
+
+    code, out = run_main(token="t")
+    assert code == 1, out
+    assert "Refusing to PUT Actions secrets" in out
+    assert "secret-value-XYZ" not in out
+    assert forge.secret_writes == []
+    assert op.calls == []
+
+
+def test_secret_fence_revoked_this_run_is_rerun_not_violation(
+    policy, run_main, monkeypatch
+):
+    # Live write this run revokes (the agents half DELETEs it before the
+    # values half): the fence evaluates the plan-time grant state, so it
+    # refuses the PUT on this run and says re-run, not violation. The grant
+    # revocation still lands; a second run would PUT.
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}  # live write → the grant half revokes it
+    forge.secrets = {"svc": []}
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "declared_actions_secret_names", lambda: {"svc": ["A"]})
+    monkeypatch.setattr(ara, "ACTIONS_SECRET_SOURCES", {("svc", "A"): "op://v/i/f"})
+    op = _FakeOp()
+    monkeypatch.setattr(ara.subprocess, "run", op)
+
+    code, out = run_main(token="t")
+    assert code == 1, out
+    assert forge.secret_writes == []
+    assert op.calls == []
+    assert "Refusing to PUT Actions secrets" in out
+    assert "write grant was just revoked in this run; re-run" in out
+    assert "secret-value-XYZ" not in out
+
+
+def test_no_secrets_skips_values_half(policy, run_main, monkeypatch):
+    # --no-secrets: a human apply that wants grants/hooks/protections only.
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": ["STALE"]}
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "declared_actions_secret_names", lambda: {"svc": ["A"]})
+    monkeypatch.setattr(ara.subprocess, "run", _op_must_not_run)
+
+    code, out = run_main(token="t", no_secrets=True)
+    assert code == 0, out
+    assert forge.secret_writes == []
+
+
+def test_secret_put_failure_reports_status_not_value(policy, run_main, monkeypatch):
+    # Forgejo answers 500: the PUT failure names the status code, never the
+    # value or the response body.
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": []}
+    forge.secret_status = 500
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "declared_actions_secret_names", lambda: {"svc": ["A"]})
+    monkeypatch.setattr(ara, "ACTIONS_SECRET_SOURCES", {("svc", "A"): "op://v/i/f"})
+    op = _FakeOp()
+    monkeypatch.setattr(ara.subprocess, "run", op)
+
+    code, out = run_main(token="t")
+    assert code == 1, out
+    assert "PUT eblume/svc:A failed: HTTP 500" in out
+    assert "secret-value-XYZ" not in out
+
+
+def test_pr_check_secret_names_intended_is_green(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # Head declares a second name the base does not: intended drift only (the
+    # human values half lands it after merge) — green, with the Actions-secrets
+    # line in the posted report.
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": ["A"]}  # live matches base
+    forge.horkos_user = _valid_user(is_admin=False)
+    forge.protections = {"blumeops": [_blumeops_main_rule()]}
+    forge.install(monkeypatch)
+    monkeypatch.setattr(
+        ara, "declared_actions_secret_names", lambda: {"svc": ["A", "B"]}
+    )
+    _base_state(
+        monkeypatch,
+        [{"name": "svc", "access": "none", "pool": "none"}],
+        secrets={"svc": ["A"]},
+    )
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 0, out
+    assert "Unexpected drift" not in out
+    assert "Actions secret" in report.read_text()
+    assert "eblume/svc" in report.read_text()
+
+
+def test_pr_check_secret_names_unexpected_live_fails(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # Base and head declare the same names, but the live forge carries an
+    # undeclared one: unexpected drift the PR does not intend — fails, and
+    # names the ghost secret.
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.secrets = {"svc": ["A", "GHOST"]}
+    forge.horkos_user = _valid_user(is_admin=False)
+    forge.protections = {"blumeops": [_blumeops_main_rule()]}
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "declared_actions_secret_names", lambda: {"svc": ["A"]})
+    _base_state(
+        monkeypatch,
+        [{"name": "svc", "access": "none", "pool": "none"}],
+        secrets={"svc": ["A"]},
+    )
+
+    code, out = run_main(
+        check=True,
+        token="t",
+        pr_base_ref="main",
+        report_file=str(tmp_path / "notice.md"),
+    )
+    assert code == 1, out
+    assert "undeclared live Actions secret on eblume/svc: GHOST" in out
+
+
 # --- PR-check semantics (same-repo PRs only) ---------------------------------
 
 
-def _base_state(monkeypatch, repos, protections=()):
+def _base_state(monkeypatch, repos, protections=(), secrets=None):
     """Point the base-state readers the --pr-base-ref path uses at these."""
     monkeypatch.setattr(
         ara, "read_policies_at", lambda ref: ara._policies_dict({"repos": repos})
     )
     monkeypatch.setattr(ara, "read_protections_at", lambda ref: list(protections))
+    monkeypatch.setattr(
+        ara, "actions_secret_names_at", lambda ref: {} if secrets is None else secrets
+    )
 
 
 def test_pr_check_intended_only_is_green(policy, run_main, monkeypatch, tmp_path):

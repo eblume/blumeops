@@ -43,7 +43,6 @@ mise run provision-sifaka
 | **borgmatic_metrics** | Backup metrics exporter | [[borgmatic]] |
 | **caddy** | Reverse proxy & TLS | [[routing]] |
 | **forgejo** | Git forge | [[forgejo]] |
-| **forgejo_actions_secrets** | CI/CD secrets for Forgejo Actions | [[forgejo]] |
 | **forgejo_metrics** | Forge metrics exporter | [[forgejo]] |
 | **jellyfin** | Media server | [[jellyfin]] |
 | **jellyfin_metrics** | Media metrics exporter | [[jellyfin]] |

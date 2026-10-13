@@ -182,11 +182,11 @@ that arrives as the `FORGE_REPO_WRITE_TOKEN` Actions secret — an `eblume` PAT
 scoped to `write:repository,read:user` (the `read:user` half is for
 `forge-reconcile`'s site-admin check; 1Password item
 `forge-repo-write-token`, replacing the all-scopes admin PAT that previously
-sat in CI) — declared in
-the `forgejo_actions_secrets` ansible role and pushed by a human:
+sat in CI) — declared in `forge/actions-secrets.json` and pushed by the
+values half of `mise run forge-reconcile`, run by a human from gilbert:
 
 ```fish
-mise run provision-indri -- --tags forgejo_actions_secrets
+mise run forge-reconcile
 ```
 
 Locally the task falls back to `op read` on that same 1Password item.

@@ -223,7 +223,7 @@ Three mise tasks manage the proxy lifecycle. See the actual scripts in `mise-tas
 
 A Forgejo Actions workflow (`.forgejo/workflows/deploy-fly.yaml`) runs `fly deploy` and verifies health. It is `workflow_dispatch`-only — a privileged workflow per [[warrant-approval-gated-runs]] — so a human dispatches it from the forge UI (or runs `mise run fly-deploy` from gilbert), and agents request it via `mise run request-run deploy-fly.yaml …`. Merging alone does not deploy.
 
-The `FLY_DEPLOY_TOKEN` Forgejo Actions secret must be set via the [[forgejo]] API or UI, following the pattern in the `forgejo_actions_secrets` Ansible role.
+The `FLY_DEPLOY_TOKEN` Forgejo Actions secret must be set via the [[forgejo]] API or UI (the in-code values half only touches names declared in `forge/actions-secrets.json`, so a new service's secret is a manual set).
 
 ---
 
