@@ -209,6 +209,7 @@
 # copies each file into place with the build user's own permissions.
 
 - name: Create build runner staging dir (root-owned, outside the build home)
+  # check_mode: false so the scratch dir exists when --check stages into it.
   ansible.builtin.file:
     path: "{{ forgejo_runner_build_stage_dir }}"
     state: directory
@@ -216,10 +217,14 @@
     group: indri-build
     mode: '0750'
   become: true
+  changed_when: false
+  check_mode: false
   when: forgejo_runner_build_uuid | length > 0
   tags: [forgejo_build_runner]
 
 - name: Stage build runner config (contains runner token)
+  # check_mode: false so --check compares against this render: the stage
+  # dir is scratch, never the live state.
   ansible.builtin.template:
     src: config-build.yaml.j2
     dest: "{{ forgejo_runner_build_stage_dir }}/config.yaml"
@@ -227,25 +232,58 @@
     group: indri-build
     mode: '0640'
   become: true
+  changed_when: false
+  check_mode: false
   when:
     - forgejo_runner_build_uuid | length > 0
     - forgejo_runner_build_token | length > 0
     - forgejo_runner_build_mise_github_token | length > 0
   tags: [forgejo_build_runner]
 
-- name: Install build runner config as indri-build
+- name: Compare staged build runner config with the live one
+  # Runs outside check mode so --check reports the real drift; the live
+  # file sits in the 0700 build home, so the read goes through the same
+  # sudo as the install.
   ansible.builtin.shell: >-
     sudo -n -u indri-build /bin/sh -c
-    'cd / && cmp -s "$1" "$2" || { /usr/bin/install -m 0600 "$1" "$2" && echo installed; }'
+    'cd / && cmp -s "$1" "$2"'
     _ {{ (forgejo_runner_build_stage_dir ~ '/config.yaml') | quote }}
     {{ forgejo_runner_build_config_path | quote }}
-  register: forgejo_runner_build_config_install
-  changed_when: "'installed' in forgejo_runner_build_config_install.stdout"
-  notify: Restart forgejo-runner-build
+  register: forgejo_runner_build_config_compare
+  changed_when: false
+  check_mode: false
+  failed_when: false
   when:
     - forgejo_runner_build_uuid | length > 0
     - forgejo_runner_build_token | length > 0
     - forgejo_runner_build_mise_github_token | length > 0
+  tags: [forgejo_build_runner]
+
+- name: Report build runner config drift (check mode)
+  ansible.builtin.debug:
+    msg: "would install {{ forgejo_runner_build_config_path }} (live copy differs from the staged render)"
+  when:
+    - forgejo_runner_build_uuid | length > 0
+    - forgejo_runner_build_token | length > 0
+    - forgejo_runner_build_mise_github_token | length > 0
+    - ansible_check_mode
+    - forgejo_runner_build_config_compare.rc != 0
+  tags: [forgejo_build_runner]
+
+- name: Install build runner config as indri-build
+  ansible.builtin.shell: >-
+    sudo -n -u indri-build /bin/sh -c
+    'cd / && /usr/bin/install -m 0600 "$1" "$2"'
+    _ {{ (forgejo_runner_build_stage_dir ~ '/config.yaml') | quote }}
+    {{ forgejo_runner_build_config_path | quote }}
+  changed_when: true
+  notify: Restart forgejo-runner-build
+  when:
+    - not ansible_check_mode
+    - forgejo_runner_build_uuid | length > 0
+    - forgejo_runner_build_token | length > 0
+    - forgejo_runner_build_mise_github_token | length > 0
+    - forgejo_runner_build_config_compare.rc != 0
   tags: [forgejo_build_runner]
 
 # The colima profile is rendered when the runner is registered (uuid
@@ -254,6 +292,8 @@
 # until this file exists, then starts the VM. Gated on the uuid alone (not
 # the token/PAT) - it carries no secret.
 - name: Stage build runner colima profile
+  # check_mode: false so --check compares against this render: the stage
+  # dir is scratch, never the live state.
   ansible.builtin.template:
     src: colima.yaml.j2
     dest: "{{ forgejo_runner_build_stage_dir }}/colima.yaml"
@@ -261,6 +301,8 @@
     group: indri-build
     mode: '0640'
   become: true
+  changed_when: false
+  check_mode: false
   when: forgejo_runner_build_uuid | length > 0
   tags: [forgejo_build_runner]
 
@@ -271,27 +313,99 @@
 # first (fresh instances, incl. a rebuilt VM) and as the profile second
 # (existing instances). The daemon wrapper waits on the profile, so the
 # template is in place before the first `colima start`.
+- name: Compare staged build runner colima template with the live one
+  ansible.builtin.shell: >-
+    sudo -n -u indri-build /bin/sh -c
+    'cd / && cmp -s "$1" "$2"'
+    _ {{ (forgejo_runner_build_stage_dir ~ '/colima.yaml') | quote }}
+    {{ forgejo_runner_build_colima_template | quote }}
+  register: forgejo_runner_build_colima_template_compare
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  when: forgejo_runner_build_uuid | length > 0
+  tags: [forgejo_build_runner]
+
+- name: Report build runner colima template drift (check mode)
+  ansible.builtin.debug:
+    msg: "would install {{ forgejo_runner_build_colima_template }} (live copy differs from the staged render)"
+  when:
+    - forgejo_runner_build_uuid | length > 0
+    - ansible_check_mode
+    - forgejo_runner_build_colima_template_compare.rc != 0
+  tags: [forgejo_build_runner]
+
 - name: Install build runner colima template as indri-build
   ansible.builtin.shell: >-
     sudo -n -u indri-build /bin/sh -c
-    'cd / && mkdir -p "$(dirname "$2")" && { cmp -s "$1" "$2" || { /usr/bin/install -m 0600 "$1" "$2" && echo installed; }; }'
+    'cd / && mkdir -p "$(dirname "$2")" && /usr/bin/install -m 0600 "$1" "$2"'
     _ {{ (forgejo_runner_build_stage_dir ~ '/colima.yaml') | quote }}
     {{ forgejo_runner_build_colima_template | quote }}
-  register: forgejo_runner_build_colima_template_install
-  changed_when: "'installed' in forgejo_runner_build_colima_template_install.stdout"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - forgejo_runner_build_uuid | length > 0
+    - forgejo_runner_build_colima_template_compare.rc != 0
+  tags: [forgejo_build_runner]
+
+- name: Compare staged build runner colima profile with the last installed one
+  # colima rewrites the live profile with its own fully-defaulted keys on
+  # start, so the compare cannot look at the live file - it looks at a
+  # copy of the last render the role installed instead (written right
+  # after a successful install). The copy's absence (first boot) counts
+  # as drift, so the profile is installed then. Trade-off: a hand edit
+  # to the live profile is no longer detected; nothing relies on it.
+  ansible.builtin.shell: >-
+    sudo -n -u indri-build /bin/sh -c
+    'cd / && /usr/bin/cmp -s "$1" "$2"'
+    _ {{ (forgejo_runner_build_stage_dir ~ '/colima.yaml') | quote }}
+    {{ (forgejo_runner_build_stage_dir ~ '/colima.yaml.applied') | quote }}
+  register: forgejo_runner_build_colima_compare
+  changed_when: false
+  check_mode: false
+  failed_when: false
   when: forgejo_runner_build_uuid | length > 0
+  tags: [forgejo_build_runner]
+
+- name: Report build runner colima profile drift (check mode)
+  ansible.builtin.debug:
+    msg: "would install {{ forgejo_runner_build_colima_yaml }} and restart the colima-build VM (last installed render differs from the staged one)"
+  when:
+    - forgejo_runner_build_uuid | length > 0
+    - ansible_check_mode
+    - forgejo_runner_build_colima_compare.rc != 0
   tags: [forgejo_build_runner]
 
 - name: Install build runner colima profile as indri-build
   ansible.builtin.shell: >-
     sudo -n -u indri-build /bin/sh -c
-    'cd / && cmp -s "$1" "$2" || { /usr/bin/install -m 0600 "$1" "$2" && echo installed; }'
+    'cd / && /usr/bin/install -m 0600 "$1" "$2"'
     _ {{ (forgejo_runner_build_stage_dir ~ '/colima.yaml') | quote }}
     {{ forgejo_runner_build_colima_yaml | quote }}
-  register: forgejo_runner_build_colima_install
-  changed_when: "'installed' in forgejo_runner_build_colima_install.stdout"
+  changed_when: true
   notify: Restart colima-build VM
-  when: forgejo_runner_build_uuid | length > 0
+  when:
+    - not ansible_check_mode
+    - forgejo_runner_build_uuid | length > 0
+    - forgejo_runner_build_colima_compare.rc != 0
+  tags: [forgejo_build_runner]
+
+- name: Record the build runner colima profile just installed
+  # Baseline for the compare above: a copy of the render the role
+  # actually installed, so colima's rewrite of the live profile is
+  # ignored. Root-owned, like the stage dir.
+  ansible.builtin.copy:
+    src: "{{ forgejo_runner_build_stage_dir }}/colima.yaml"
+    dest: "{{ forgejo_runner_build_stage_dir }}/colima.yaml.applied"
+    owner: root
+    group: indri-build
+    mode: '0640'
+    remote_src: true
+  become: true
+  when:
+    - not ansible_check_mode
+    - forgejo_runner_build_uuid | length > 0
+    - forgejo_runner_build_colima_compare.rc != 0
   tags: [forgejo_build_runner]
 
 # --- Build runner LaunchDaemon (rollback re-write only) ---
