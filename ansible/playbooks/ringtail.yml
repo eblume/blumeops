@@ -244,11 +244,18 @@
     # Queried with no state, systemd_service just reports — `status` is the full
     # `systemctl show` property set, so this one task carries both the poll
     # (ActiveState) and the verdict (Result) read below.
+    #
+    # A poll can itself fail while the switch restarts dbus-broker: the module
+    # returns a failed result with no `status`, and `until` is still evaluated
+    # against it — unguarded, that crashed the play mid-wait while the unit ran
+    # on to a successful switch. Guarded, a failed poll is just retried.
     - name: Wait for the rebuild to finish
       ansible.builtin.systemd_service:
         name: "{{ _rebuild_unit }}"
       register: _rebuild_state
-      until: _rebuild_state.status.ActiveState not in ["activating", "active", "reloading"]
+      until: >-
+        _rebuild_state.status is defined
+        and _rebuild_state.status.ActiveState not in ["activating", "active", "reloading"]
       retries: "{{ (_rebuild_timeout | int / 10) | int }}"
       delay: 10
       when: _repo.changed
