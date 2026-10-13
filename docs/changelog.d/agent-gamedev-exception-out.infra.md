@@ -1,0 +1,1 @@
+Removed the gamedev entry from `forge/runners.json` `label_exceptions` — its CI now runs host-mode on `indri-build` ([eblume/gamedev#5](https://forge.ops.eblu.me/eblume/gamedev/pulls/5)), so the runner-label drift check covers the repo again.
