@@ -1028,6 +1028,90 @@ def test_real_protection_policy_loads():
     assert {(r["repo"], r["rule_name"]) for r in rules} >= {("blumeops", "main")}
 
 
+# --- runner-label policy (derived from forge/runners.json, #1526) --------
+
+
+def _runner(name, labels, scope, privileged=True):
+    return {
+        "name": name,
+        "host": "h",
+        "labels": labels,
+        "scope": scope,
+        "capacity": 1,
+        "privileged": privileged,
+        "unit": "u",
+    }
+
+
+def test_derived_label_policy_matches_checked_in_runners_json():
+    """The equivalence assertion: the real forge/runners.json derives exactly
+    the gated map the policy used to hardcode — touching the file re-derives
+    the gate instead of editing this test."""
+    data = json.loads((ROOT / "forge" / "runners.json").read_text())
+    assert ara.derive_privileged_label_policy(data["runners"]) == {
+        "indri": frozenset({"blumeops"}),
+        "indri-priv": frozenset({"blumeops"}),
+        "priv": frozenset({"blumeops"}),
+        "nix-container-builder": frozenset(
+            {"blumeops", "horkos", "talos", "hephaestus"}
+        ),
+    }
+
+
+def test_derived_policy_instance_runner_ungates_label():
+    """An instance-scoped runner serves every repo, so its label is not gated:
+    the map has no entry for it at all."""
+    assert (
+        ara.derive_privileged_label_policy([_runner("r", ["priv"], "instance")]) == {}
+    )
+
+
+def test_derived_policy_mixed_instance_and_repo_scope_ungates():
+    """One instance-scoped registrant is enough to ungate: the label can be
+    taken by a runner that serves every repo."""
+    runners = [
+        _runner("a", ["priv"], "eblume/blumeops"),
+        _runner("b", ["priv"], "instance"),
+    ]
+    assert ara.derive_privileged_label_policy(runners) == {}
+
+
+def test_derived_policy_multiple_repo_scopes_union():
+    """Several repo-scoped registrants union their repos into the allowed set."""
+    runners = [
+        _runner("a", ["priv"], "eblume/blumeops"),
+        _runner("b", ["priv"], "eblume/horkos"),
+    ]
+    assert ara.derive_privileged_label_policy(runners) == {
+        "priv": frozenset({"blumeops", "horkos"})
+    }
+
+
+def test_derived_policy_host_suffix_stripped():
+    """`priv:host` contributes the base `priv`, never a `host` label; two
+    runners sharing the base but with different suffixes still gate once."""
+    runners = [
+        _runner("a", ["priv:host"], "eblume/blumeops"),
+        _runner("b", ["priv:other"], "eblume/horkos"),
+    ]
+    assert ara.derive_privileged_label_policy(runners) == {
+        "priv": frozenset({"blumeops", "horkos"})
+    }
+
+
+def test_derived_policy_per_label_scope():
+    """The gate is per label, not per runner: an instance-scoped runner's
+    scope ungates only the labels it advertises, and does not leak into a
+    label only the repo-scoped runner carries."""
+    runners = [
+        _runner("a", ["mix"], "instance"),
+        _runner("b", ["mix", "gated"], "eblume/blumeops"),
+    ]
+    assert ara.derive_privileged_label_policy(runners) == {
+        "gated": frozenset({"blumeops"})
+    }
+
+
 # --- horkos-forge blast-radius invariants (folded in from horkos-forge-drift) --
 
 

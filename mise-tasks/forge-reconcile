@@ -179,6 +179,7 @@ from rich.table import Table
 FORGE_URL = "https://forge.ops.eblu.me"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
 POLICY_PATH = Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
+RUNNERS_PATH = Path(__file__).resolve().parent.parent / "forge" / "runners.json"
 
 # The forge → talos webhook ([[talos]] §Programmatic API): one hook per pool
 # repo, all sharing one delivery URL and one signing secret (talos verifies a
@@ -1029,22 +1030,40 @@ def check_actions_secret_names(client, owner, report, pr_mode: bool = False):
             report.ok(what)
 
 
-# --1358 privileged-runner-label policy: which repos may target each privileged
-# (host-mode, credential-bearing or dispatch-only) runner label, by FULL name.
-# A label is denied to every repo not listed under it, so a repo that starts
-# targeting a label — or a label that spreads to a new repo — fails the check
-# until this map (and the runner re-registration it encodes) both say so.
-# This guards the *label usage*, not the live registration: a `runs-on` is
-# what hands a repo's (possibly PR-head) code a slot on the runner, and it is
-# the thing a workflow change can introduce without a human re-auditing.
-PRIVILEGED_LABEL_POLICY: dict[str, set[str]] = {
-    "indri": {"blumeops"},
-    "indri-priv": {"blumeops"},
-    "priv": {"blumeops"},
-    # hephaestus added for eblume/blumeops#1517; the map will be derived
-    # from runners.json in #1526.
-    "nix-container-builder": {"blumeops", "horkos", "talos", "hephaestus"},
-}
+# The --1358 privileged-runner-label policy is DERIVED from forge/runners.json
+# (#1526): a label whose every advertising runner is repo-scoped is gated to
+# the repos those runners may take jobs for; an instance-scoped runner serves
+# every repo and ungates its labels. The `privileged` boolean is deliberately
+# NOT the gate — the ringtail nix-container-builder runners are privileged:
+# false yet their label must stay gated (host-mode, credential-bearing).
+def derive_privileged_label_policy(runners: list[dict]) -> dict[str, frozenset[str]]:
+    """The gated-label map reproduced from forge/runners.json.
+
+    A label base (part before the first `:`) is gated iff every runner
+    advertising it has scope != "instance"; its allowed repos are the union
+    of the advertising runners' scope values (`owner/` prefix stripped, so
+    the repo name). An instance-scoped runner serves every repo and ungates
+    its labels; a gated label's allowed set is exactly the repos whose
+    registrations can take its jobs.
+    """
+    per_label: dict[str, list[str]] = {}
+    for runner in runners:
+        for label in runner["labels"]:
+            per_label.setdefault(label.partition(":")[0], []).append(runner["scope"])
+    return {
+        base: frozenset(
+            scope if "/" not in scope else scope.partition("/")[2]
+            for scope in scopes
+        )
+        for base, scopes in per_label.items()
+        if all(scope != "instance" for scope in scopes)
+    }
+
+
+def load_privileged_label_policy() -> dict[str, frozenset[str]]:
+    """The privileged-label policy, read from forge/runners.json (the single
+    declared source for the runner topology, #1526)."""
+    return derive_privileged_label_policy(json.loads(RUNNERS_PATH.read_text())["runners"])
 
 # A `runs-on` value is a scalar, a flow list, or a `${{ expr }}`. The labels it
 # names are its whole tokens: a bare word (splitting on `${{`/`}}` would leave
@@ -1147,16 +1166,23 @@ def _list_workflows(client, owner, repo, ref, directory):
 def check_privileged_labels(client, owner, report):
     """No repo targets a privileged runner label it is not declared to (#1358).
 
-    Reads each of the owner's repos' default-branch workflow files via the
-    forge API and fails on any `runs-on` whose label is not in that repo's
-    PRIVILEGED_LABEL_POLICY set. Only `.forgejo/workflows` is scanned — the
-    one directory Forgejo executes, so an inert `.github/workflows` file can
-    never reach the runner and is out of scope. A `runs-on` may be a
-    `${{ ... }}` ternary, so a label counts as targeted if it appears in the
-    expression's source — the set of runners the line can ever resolve to.
-    The scan touches every repo the owner has, so the clean case prints one
-    summary line rather than a line per repo.
+    The gate is the policy derived from forge/runners.json (see
+    derive_privileged_label_policy). Reads each of the owner's repos'
+    default-branch workflow files via the forge API and fails on any `runs-on`
+    whose label is not in that repo's allowed set. Only `.forgejo/workflows`
+    is scanned — the one directory Forgejo executes, so an inert
+    `.github/workflows` file can never reach the runner and is out of scope.
+    A `runs-on` may be a `${{ ... }}` ternary, so a label counts as targeted
+    if it appears in the expression's source — the set of runners the line
+    can ever resolve to. The scan touches every repo the owner has, so the
+    clean case prints one summary line rather than a line per repo.
     """
+    try:
+        policy = load_privileged_label_policy()
+    except (OSError, ValueError, KeyError) as exc:
+        report.unknown("privileged-runner labels stay within their declared repos",
+                       f"could not read {RUNNERS_PATH.name}: {exc}")
+        return
     violations: dict[str, list[str]] = {}
     scanned = 0
     unscanned = 0
@@ -1191,7 +1217,7 @@ def check_privileged_labels(client, owner, report):
                 unscanned += 1
                 continue
             for label, value in sorted(_workflow_runs_on_labels(content)):
-                allowed = PRIVILEGED_LABEL_POLICY.get(label)
+                allowed = policy.get(label)
                 if allowed is None or repo in allowed:
                     continue
                 violations.setdefault(label, []).append(f"{full}:{path} → `{value}`")
