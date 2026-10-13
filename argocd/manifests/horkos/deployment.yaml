@@ -46,6 +46,33 @@ spec:
               value: https://authentik.ops.eblu.me/application/o/talos-m2m/
             - name: HORKOS_CLIENT_ID
               value: talos-m2m
+            # Instance config (eblume/horkos#52): the app's per-instance
+            # identity, delivered here instead of in code. Inert on the
+            # current image (it ignores these names); the instance-document
+            # release requires every one of them at boot.
+            - name: HORKOS_OIDC_URL
+              value: https://authentik.ops.eblu.me
+            - name: HORKOS_HUMAN_ISSUER
+              value: https://authentik.ops.eblu.me/application/o/horkos/
+            - name: HORKOS_HUMAN_CLIENT_ID
+              value: horkos
+            - name: HORKOS_PUBLIC_URL
+              value: https://horkos.ops.eblu.me
+            - name: HORKOS_REGISTRY
+              value: registry.ops.eblu.me
+            - name: HORKOS_REPO_OWNER
+              value: eblume
+            - name: HORKOS_REPO_NAME
+              value: blumeops
+            - name: HORKOS_POLICY_FILE
+              value: warrant-policy.yaml
+            - name: HORKOS_PR_ASSIGNEE
+              value: eblume
+            # Release publisher topology — the horkos-release-targets
+            # ConfigMap generated in kustomization.yaml; its hash-suffixed
+            # name rolls the pod on every topology change.
+            - name: HORKOS_RELEASE_TARGETS_FILE
+              value: /etc/horkos/release-targets.json
           envFrom:
             - secretRef:
                 name: horkos-oidc
@@ -87,9 +114,15 @@ spec:
               mountPath: /data
             - name: tmp
               mountPath: /tmp
+            - name: release-targets
+              mountPath: /etc/horkos
+              readOnly: true
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: horkos-data
         - name: tmp
           emptyDir: {}
+        - name: release-targets
+          configMap:
+            name: horkos-release-targets

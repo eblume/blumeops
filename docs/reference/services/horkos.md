@@ -2,7 +2,7 @@
 title: Horkos
 aliases:
   - warrant
-modified: 2026-09-17
+modified: 2026-10-13
 last-reviewed: 2026-09-16
 tags:
   - service
@@ -37,6 +37,10 @@ names, while the dispatch identity has moved from the grandfathered
 | **Agent auth** | Authentik `talos-m2m` client-credentials JWT (JWKS-verified) |
 | **Human auth** | Authentik OIDC code flow (`horkos` client), `admins` group, MFA per the authentik flow |
 | **Dispatch identity** | `horkos-forge` PAT (`write:repository,write:issue` on blumeops), `op://blumeops/horkos-forge-token` |
+
+## Instance config
+
+The app's per-instance identity is delivered by the deployment, not the image (eblume/horkos#52): scalars as env in `argocd/manifests/horkos/deployment.yaml` (`HORKOS_OIDC_URL`, `HORKOS_HUMAN_ISSUER`, `HORKOS_HUMAN_CLIENT_ID`, `HORKOS_PUBLIC_URL`, `HORKOS_REGISTRY`, `HORKOS_REPO_OWNER`, `HORKOS_REPO_NAME`, `HORKOS_POLICY_FILE`, `HORKOS_PR_ASSIGNEE`), the release-publisher topology as `release-targets.json` in the `horkos-release-targets` ConfigMap, mounted at `/etc/horkos` and selected by `HORKOS_RELEASE_TARGETS_FILE`. Two config surfaces, deliberately — the same shape as talos's env scalars plus `repos.json`/`lanes.json`. From the instance-document release on, every field is required at boot and a missing one names itself in the crash.
 
 ## The flow
 
