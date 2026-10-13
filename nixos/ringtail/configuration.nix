@@ -13,6 +13,47 @@ let
   indriHostIp = "192.168.1.99";
   indriEn0Mac = "14:98:77:30:29:68";
   ringtailLanIp = "192.168.1.21";
+
+  # Forgejo Actions runners, built from forge/runners.json (the declared
+  # topology, eblume/blumeops#1526): instance key, name, labels, capacity come
+  # from the file; token file paths stay literal until per-host secrets.json
+  # (#1524). The read is relative to this flake root, which is only part of a
+  # larger git checkout (/etc/blumeops, CI checkouts) — it holds only while
+  # the file is git-tracked at the repo root and the apply runs from a
+  # checkout; untrack it or build a bare copy of just nixos/ringtail and the
+  # eval fails loudly.
+  runners = builtins.fromJSON (builtins.readFile ../../forge/runners.json);
+  ringtailRunners =
+    let
+      basePkgs = with pkgs; [ bash coreutils curl gawk gitMinimal gnused jq nodejs wget ];
+      # _1password-cli: job-time `op read` of blumeops-ci items with
+      # OP_SERVICE_ACCOUNT_TOKEN ([[blumeops-ci-item-migration]]);
+      # argocd/kubectl: warrant dispatch ([[warrant-approval-gated-runs]]).
+      builderPkgs = basePkgs ++ (with pkgs; [ nix skopeo _1password-cli ]);
+      privPkgs = basePkgs ++ (with pkgs; [ argocd flyctl _1password-cli kubectl gnutar uv ]);
+    in
+    lib.listToAttrs (
+      map (r: {
+        name = lib.strings.removeSuffix ".service" (lib.strings.removePrefix "gitea-runner-" r.unit);
+        value = {
+          enable = true;
+          name = r.name;
+          url = "https://forge.ops.eblu.me";
+          tokenFile =
+            if r.privileged then "/etc/forgejo-runner/priv.env"
+            else "/etc/forgejo-runner/nix-builder-${lib.strings.removePrefix "ringtail-nix-builder-" r.name}.env";
+          labels = r.labels;
+          hostPackages = if r.privileged then privPkgs else builderPkgs;
+          settings = {
+            log.level = "info";
+            runner = {
+              capacity = r.capacity;
+              timeout = if r.privileged then "1h" else "3h";
+            };
+          };
+        };
+      }) (lib.filter (r: r.host == "ringtail") runners.runners)
+    );
 in
 {
   imports = [
@@ -752,109 +793,12 @@ in
     };
   };
 
-  # Forgejo Actions runners. Every registration token is repo-scoped
-  # (created in the repo's Settings -> Actions -> Runners), so a job only
-  # reaches these runners from its registered repo (blumeops#1358). The
-  # NixOS module re-registers an instance automatically when its token
-  # file changes. nix-container-builder gets one instance per registered
-  # repo — a Forgejo registration scope is a single owner/repo — so three
-  # daemons share the label (capacity 1 each: up to three parallel builds).
+  # Forgejo Actions runners, built from forge/runners.json (see the let
+  # bindings above): repo-scoped registration tokens (blumeops#1358) and the
+  # module's re-register-on-token-change behavior are unchanged.
   services.gitea-actions-runner = {
     package = pkgs.forgejo-runner;
-    instances.nix_container_builder_blumeops = {
-      enable = true;
-      name = "ringtail-nix-builder-blumeops";
-      url = "https://forge.ops.eblu.me";
-      tokenFile = "/etc/forgejo-runner/nix-builder-blumeops.env";
-      labels = [ "nix-container-builder:host" ];
-      # _1password-cli: job-time `op read` of blumeops-ci items with
-      # OP_SERVICE_ACCOUNT_TOKEN ([[blumeops-ci-item-migration]]).
-      hostPackages = with pkgs; [
-        bash coreutils curl gawk gitMinimal gnused jq nodejs wget
-        nix skopeo _1password-cli
-      ];
-      settings = {
-        log.level = "info";
-        runner = {
-          capacity = 1;
-          timeout = "3h";
-        };
-      };
-    };
-    instances.nix_container_builder_horkos = {
-      enable = true;
-      name = "ringtail-nix-builder-horkos";
-      url = "https://forge.ops.eblu.me";
-      tokenFile = "/etc/forgejo-runner/nix-builder-horkos.env";
-      labels = [ "nix-container-builder:host" ];
-      # _1password-cli: job-time `op read` of blumeops-ci items with
-      # OP_SERVICE_ACCOUNT_TOKEN ([[blumeops-ci-item-migration]]).
-      hostPackages = with pkgs; [
-        bash coreutils curl gawk gitMinimal gnused jq nodejs wget
-        nix skopeo _1password-cli
-      ];
-      settings = {
-        log.level = "info";
-        runner = {
-          capacity = 1;
-          timeout = "3h";
-        };
-      };
-    };
-    instances.nix_container_builder_talos = {
-      enable = true;
-      name = "ringtail-nix-builder-talos";
-      url = "https://forge.ops.eblu.me";
-      tokenFile = "/etc/forgejo-runner/nix-builder-talos.env";
-      labels = [ "nix-container-builder:host" ];
-      # _1password-cli: job-time `op read` of blumeops-ci items with
-      # OP_SERVICE_ACCOUNT_TOKEN ([[blumeops-ci-item-migration]]).
-      hostPackages = with pkgs; [
-        bash coreutils curl gawk gitMinimal gnused jq nodejs wget
-        nix skopeo _1password-cli
-      ];
-      settings = {
-        log.level = "info";
-        runner = {
-          capacity = 1;
-          timeout = "3h";
-        };
-      };
-    };
-
-    # Privileged-workflow runner ([[warrant-approval-gated-runs]] Phase 2).
-    # Dispatch-only privileged jobs (argocd-deploy, deploy-fly, provision-*
-    # later) run here as the sandboxed static user horkos-runner (see the
-    # gitea-runner-priv override below) instead of host-mode as erichblume on
-    # indri — a hostile job compromises this sandbox, not the forge owner's
-    # account. Repo-scoped registration for eblume/blumeops. argocd comes from nixpkgs (verify CLI/server skew against
-    # service-versions.yaml on upgrade; the workflow falls back to mise x on
-    # runners that lack a system argocd). flyctl (deploy-fly) builds via
-    # Fly.io's remote builders, so it needs no docker in the sandbox.
-    instances.priv = {
-      enable = true;
-      name = "ringtail-priv-runner";
-      url = "https://forge.ops.eblu.me";
-      tokenFile = "/etc/forgejo-runner/priv.env";
-      labels = [ "priv:host" ];
-      # _1password-cli: job-time `op read` of blumeops-ci items with
-      # OP_SERVICE_ACCOUNT_TOKEN ([[blumeops-ci-item-migration]]).
-      # kubectl: run-script's least-priv PV ops via the horkos/run-script
-      # ServiceAccount — the credential lives only in blumeops-ci
-      # ([[warrant-approval-gated-runs]]).
-      hostPackages = with pkgs; [
-        bash coreutils curl gawk gitMinimal gnused jq nodejs wget
-        argocd flyctl _1password-cli kubectl
-        gnutar uv
-      ];
-      settings = {
-        log.level = "info";
-        runner = {
-          capacity = 1;
-          timeout = "1h";
-        };
-      };
-    };
+    instances = ringtailRunners;
   };
 
   # The priv runner gets its own static system user instead of the module's
