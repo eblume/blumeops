@@ -8,8 +8,9 @@
 #
 # Classes:
 #   warrant — requestable; a human approval is required to execute
-#   auto    — reserved: auto-approved with post-hoc audit (nothing uses
-#             this yet; moving an action here is a reviewed policy change)
+#   auto    — not requestable; event-triggered on push to main with a paths:
+#             filter. The merge commit is the approval; no warrant is minted.
+#             Post-hoc audit: weekly digest (see docs/explanation/auto-apply.md).
 #   deny    — not requestable at all, with or without approval
 #
 # Unknown actions are implicitly `deny` — adding a privileged workflow
@@ -66,6 +67,14 @@ actions:
         required: true
         pattern: "^(main|[0-9a-f]{40})$"
 
+  build-container.yaml:
+    class: auto
+    note: >-
+      Merge-triggered since its inception (on: push, paths containers/**):
+      builds the changed containers and pushes them to zot — this entry just
+      registers it in the complete registry. No binds_sha/inputs: not
+      requestable (docs/explanation/auto-apply.md).
+
   deploy-fly.yaml:
     class: warrant
     binds_sha: revision
@@ -75,17 +84,15 @@ actions:
         pattern: "^(main|[0-9a-f]{40})$"
 
   ringtail-rebuild.yaml:
-    class: warrant
+    class: auto
     note: >-
-      Apply a bound blumeops SHA to ringtail: nixos-rebuild switch via the root
-      ringtail-apply@<sha> unit the priv runner may start (polkit). First
-      decomposition step toward provision-ringtail (which stays deny: its
-      ansible pre_tasks read the blumeops vault).
-    binds_sha: revision
-    inputs:
-      revision:
-        required: true
-        pattern: "^[0-9a-f]{40}$"
+      Apply a blumeops SHA to ringtail: nixos-rebuild switch via the root
+      ringtail-apply@<sha> unit the priv runner may start (polkit).
+      Auto-triggered on pushes to main touching nixos/ringtail/** — the merge
+      commit is the approval (docs/explanation/auto-apply.md);
+      workflow_dispatch remains the manual fallback. First decomposition step
+      toward provision-ringtail (which stays deny: its ansible pre_tasks read
+      the blumeops vault).
 
   # One-off script execution (heph eblume/horkos#6): the script body travels
   # in the request inputs as (script, script_sha256), horkos binds the pair
@@ -105,23 +112,20 @@ actions:
         pattern: "^[0-9a-f]{64}$"
 
   provision-indri.yaml:
-    class: warrant
+    class: auto
     note: >-
-      Apply a bound blumeops SHA's nix-darwin generation to indri: darwin-rebuild
+      Apply a blumeops SHA's nix-darwin generation to indri: darwin-rebuild
       switch via the zero-prompt `--tags rebuild` path (task guards, checkout to
       a root-owned /etc/blumeops, detached sudo -n -H darwin-rebuild), from the
-      host-mode indri runner (erichblume + NOPASSWD sudo). Fire-and-forget
-      (#1266): a green run means the switch launched; its outcome is the
-      /var/log/indri-rebuild/<sha>.status sidecar on indri. The
-      rebuild path reads no vault — every `op read` in the play is role-tagged
-      — so the old Phase-2 gate (blumeops-ci vault split + priv runner) never
-      applied to the generation flip; the full ansible provision (roles,
-      secrets) stays a human window.
-    binds_sha: revision
-    inputs:
-      revision:
-        required: true
-        pattern: "^[0-9a-f]{40}$"
+      host-mode indri runner (erichblume + NOPASSWD sudo). Auto-triggered on
+      pushes to main touching darwin/indri/** — the merge commit is the
+      approval (docs/explanation/auto-apply.md); workflow_dispatch remains the
+      manual fallback. Fire-and-forget (#1266): a green run means the switch
+      launched; its outcome is the /var/log/indri-rebuild/<sha>.status sidecar
+      on indri. The rebuild path reads no vault — every `op read` in the play
+      is role-tagged — so the old Phase-2 gate (blumeops-ci vault split + priv
+      runner) never applied to the generation flip; the full ansible provision
+      (roles, secrets) stays a human window.
   # The full provision still reads the blumeops vault in its ansible pre_tasks,
   # and its root paths beyond the rebuild unit are open (the narrow rebuild
   # warrant is ringtail-rebuild.yaml).

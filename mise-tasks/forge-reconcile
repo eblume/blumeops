@@ -372,6 +372,7 @@ ACTIONS_SECRETS_PATH = Path(__file__).resolve().parent.parent / "forge" / "actio
 ACTIONS_SECRET_SOURCES: dict[tuple[str, str], str] = {
     ("blumeops", "FORGE_REPO_WRITE_TOKEN"): OP_TOKEN_REF,
     ("blumeops", "BLUMEOPS_CI_OP_TOKEN"): "op://vg6xf6vvfmoh5hqjjhlhbeoaie/blumeops-ci-reader-token/token",
+    ("blumeops", "FORGE_ACTIONS_RO"): "op://blumeops-ci/forge-actions-readonly/token",
     ("talos", "ZOT_PUSH_API_KEY"): "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/ci-zot-talos-api",
     ("horkos", "ZOT_PUSH_API_KEY"): "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/ci-zot-horkos-api",
 }

@@ -34,7 +34,7 @@ tags:
 > | 1 — request loop, argocd-deploy | done and proven |
 > | 2 — priv runner, audit sweep, vault tier | runner + `verify-runs` + `blumeops-ci` done; **item migration** outstanding ([[blumeops-ci-item-migration]]) |
 > | 3 — agent identity, Warrant broker | done; Warrant at v0.3.2, armed |
-> | 4 — policy-as-code | `warrant-policy.yaml` enforced at request *and* dispatch |
+> | 4 — policy-as-code | `warrant-policy.yaml` enforced at request *and* dispatch; the [[auto-apply]] class is live for host-config apply |
 
 ## The problem
 
@@ -75,7 +75,7 @@ CI run of a specific script at a specific commit), never in the agent harness.
 
 ## Invariants (the load-bearing rules)
 
-Every phase below preserves all five. A change that breaks one is wrong even if
+Every phase below preserves all six. A change that breaks one is wrong even if
 it is convenient.
 
 1. **Harness access stops at the `agents` vault.** "Holds" is broad: a secret
@@ -100,7 +100,9 @@ it is convenient.
 3. **Privileged workflows are a structurally separate class.** Three markers,
    all required, so privilege never blends into ordinary CI:
    - **`workflow_dispatch`-only triggers** — nothing event-driven can start
-     one;
+     one; the one documented exemption is the `class: auto` host-config
+     actions ([[auto-apply]]): a push to main with a `paths:` filter, bound to
+     the merge commit of a merged PR by the gate;
    - **`runs-on: priv` / `runs-on: indri-priv`** — dedicated privileged
      runner labels that *only* privileged workflows use and PR-check CI
      never touches: `priv` (ringtail's ringtail-priv-runner — a dedicated
@@ -136,6 +138,13 @@ it is convenient.
 5. **Every privileged run leaves an audit trail** — who approved, what SHA,
    which secrets were exposed, what happened — somewhere agents can *append* to
    but not rewrite (Forgejo run history + heph log).
+6. **Nothing automated may gain merge rights on canonical main.** `main` is
+   the approval surface for the `class: auto` actions ([[auto-apply]]): a push
+   to main with a `paths:` filter auto-applies host config, so an automated
+   identity that can merge can approve. Branch protection — no push or merge
+   for any bot or CI identity — is what keeps the class safe. The eblume PATs
+   held in the `blumeops-ci` vault are the accepted exception; their trust
+   tier is main's own ([[auto-apply]] §Honest scoping of main-write).
 
 ## What already exists (the underappreciated primitive)
 
@@ -364,6 +373,8 @@ to mirror into heph wholesale.
   SHA, dispatcher, outcome) as a `heph log` entry on a standing
   "Privileged runs" heph task, via the hub on indri:8787. Also a weekly ntfy
   digest of runs + pending requests, so nothing silently rots.
+  Auto-class runs audit differently by design — they mint no warrant rows, so
+  their periodic digest reads forge run history ([[auto-apply]]).
 - **Drift verification for the dispatch identity** (done). `horkos-forge` is
   minted by a human on gilbert precisely so that granting a persistent
   privileged identity stays a ceremony — but a ceremony's *result* can be
@@ -463,12 +474,14 @@ turn out to matter (Tailscale on the phone probably makes this moot).
 ### Phase 4 — Policy-as-code and graduated autonomy
 
 Once warrants exist, the approval *policy* moves into the repo as reviewed
-data: a `policy.yaml` mapping action classes to outcomes — `auto-approve`
-(docs build, ntfy test-post), `warrant` (deploys, container builds),
-`deny-always` (class B). Auto-approved runs still mint warrants (audit trail),
-and a periodic digest keeps post-hoc review honest. The first candidate for
-the `auto` class is a read-only exploration action; see
-[[agent-interactive-access]] for why that beats an approved-session bastion. This is the payoff: the
+data: `warrant-policy.yaml` mapping action classes to outcomes — `auto`,
+`warrant`, `deny`. Auto actions are **event-triggered**, not approved: a push
+to main with a `paths:` filter, and the merge commit *is* the approval — no
+warrant is minted, and the post-hoc audit is a periodic digest of forge run
+history, not warrant rows ([[auto-apply]]). The class's first candidate, a
+read-only exploration action ([[agent-interactive-access]]), did not ship
+first: the class landed for host-config apply instead — `ringtail-rebuild`,
+`provision-indri`, and `build-container` (#1525). This is the payoff: the
 boundary between "agent may do" and "agent may request" becomes a diffable,
 PR-reviewed artifact instead of tribal knowledge — effectively the control
 plane of a "blumeops v2" without rewriting blumeops.

@@ -64,9 +64,10 @@ and eblume/talos):
   (`nix.settings.trusted-users` is the nixos-26.05 default `[ "root" ]`);
   `allowed-users = *` gives it plain daemon access, which `nix build`
   needs (blumeops#1358 amendment 1).
-- `ringtail-priv-runner` (`priv` label) — privileged dispatch-only
-  workflows ([[warrant-approval-gated-runs]] Phase 2): argocd-deploy
-  today, `provision-*` later. Deliberately NOT host-mode-as-erichblume:
+- `ringtail-priv-runner` (`priv` label) — privileged workflows
+  ([[warrant-approval-gated-runs]] Phase 2): the warrant dispatch-only
+  class, plus the `class: auto` push-triggered ringtail-rebuild
+  ([[auto-apply]]). Deliberately NOT host-mode-as-erichblume:
   a hostile privileged job compromises a sandbox, not the forge owner's
   account. Runs as the static system user `horkos-runner`, which the
   ringtail-rebuild polkit rule names ([[warrant-approval-gated-runs]]).
