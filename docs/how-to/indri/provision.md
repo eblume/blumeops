@@ -116,7 +116,10 @@ re-run the gated role) starts with a window-free step.
 
 The generation owns the global mise config (`environment.etc."mise/config.toml"`
 in `darwin/indri/configuration.nix`, symlinked into the user home by the
-postActivation fragment — see [[indri]] §Toolchain). A toolchain-only PR (a
+postActivation fragment — see [[indri]] §Toolchain). The generation also
+owns the mise install itself: mise is in `homebrew.brews`, and the
+activation's `brew bundle` is additive (it never uninstalls and never
+upgrades). A toolchain-only PR (a
 pin bump) therefore applies with the usual `mise run provision-indri -- --tags
 rebuild`: no service-role tag, and no plist flips. Rollback is a plain
 `darwin-rebuild --rollback` — the fragment re-links the previous generation's
