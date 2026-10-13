@@ -15,9 +15,11 @@ tags:
 The weekly vault-free drift gate for the on-host secret files declared in
 `nixos/ringtail/secrets.json` — the seven files ringtail's nix config
 references by path. Each week a root systemd timer on the host itself runs
-`uv run --script /etc/blumeops/mise-tasks/seed-secrets ringtail --check
---local`, which verifies every declared file's presence/owner/group/mode and
-scans the managed directories for stray files (see [[seed-secrets]] and
+the `/etc/blumeops/mise-tasks/seed-secrets` script in a nix-built Python
+env (rich + typer, the script's declared deps — the run is fully offline
+from the store): `--check --local` verifies every declared file's
+presence/owner/group/mode and scans the managed directories for stray files
+(see [[seed-secrets]] and
 eblume/blumeops#1524). The gate is host-local because the CI runner has no
 ssh+sudo route back to ringtail; `--local` also needs no vault and no
 1Password.
@@ -54,11 +56,11 @@ metric and these rules carry the state.
 
 3. **Re-run the check by hand as root** on ringtail:
    ```sh
-   cd /etc/blumeops && uv run --script mise-tasks/seed-secrets ringtail --check --local
+   systemctl start seed-secrets-check
    ```
-   (The timer run's output lands in the unit journal, so `journalctl` and
-   this command show the same lines. To refresh the `ok` gauge after a
-   manual fix, run `systemctl start seed-secrets-check`.)
+   (The unit runs exactly what the timer does; its output lands in the unit
+   journal. To refresh the `ok` gauge after a manual fix, run the same
+   command again.)
 
 4. **Confirm the metric is visible**: query `seed_secrets_check_ok` (and the
    timestamp gauge) in Grafana/Prometheus, `cluster="ringtail"`.
@@ -69,11 +71,10 @@ metric and these rules carry the state.
 - **`/etc/blumeops` checkout missing** — the unit's
   `ConditionPathExists` on `nixos/ringtail/secrets.json` then silently skips,
   so the alerts go stale/red rather than the unit failing at boot.
-- **uv/python dependency fetch failure** — first run after a deploy fetches
-  its deps on a cold cache; the wrapper's 10m `TimeoutStartSec` absorbs a
-  slow fetch, while a persistent failure (network, power) writes `ok 0` and
-  stays red until the next weekly run. `journalctl -u seed-secrets-check`
-  shows the fetch error.
+- **The run is offline by design** — Python and its deps come from the nix
+  store, so a red run is never a network/PyPI failure: the journal shows the
+  check's own output (or a nix store problem, which `nix-store --verify`
+  investigates).
 - **Timer disabled** — `systemctl is-enabled seed-secrets-check.timer`
   (wanted by `timers.target`; `Persistent=true` catches up after downtime).
 

@@ -10,14 +10,20 @@ let
   metricDir = "/var/lib/seed-secrets";
   metricFile = "${metricDir}/seed-secrets.prom";
 
+  # Nix-built Python with the script's PEP-723 deps (rich, typer), so the
+  # weekly run resolves nothing from the network — a uv fetch as root at
+  # check time would make a drift check depend on the network and on PyPI.
+  # Versions follow nixpkgs, not the PEP-723 pins: both deps are stable
+  # CLIs, and a breaking change makes the check red, not wrong.
+  checkPy = pkgs.python3.withPackages (ps: with ps; [ ps.rich ps.typer ]);
+
   # The check itself is the vault-free `--check --local` leg of seed-secrets.
-  # PATH must name bash (the local mode's `sh -c`), hostname (the probe
-  # gates on it) and date (the timestamp); uv's python needs a sane PATH
-  # and its CA bundle — systemd units do not source /etc/profile.
+  # PATH must name sh (the local mode's `sh -c`), hostname (the probe gates
+  # on it) and the coreutils it shells out to (stat, sha256sum, id, uname,
+  # date, mv); systemd units do not source /etc/profile.
   check = pkgs.writeShellScript "seed-secrets-check" ''
     set -euo pipefail
-    export PATH=${pkgs.bash}/bin:${pkgs.uv}/bin:${pkgs.coreutils}/bin:${pkgs.hostname}/bin:$PATH
-    export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+    export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.hostname}/bin:$PATH
     cd /etc/blumeops
 
     # Exit status is the metric, not the unit state: the wrapper always
@@ -26,7 +32,7 @@ let
     # (paths, owner/group/mode — never values) stays in the journal, where
     # the runbook points when the alert fires.
     ok=0
-    if uv run --script mise-tasks/seed-secrets ringtail --check --local; then
+    if ${checkPy}/bin/python3 mise-tasks/seed-secrets ringtail --check --local; then
       ok=1
     fi
 
@@ -52,16 +58,12 @@ in
     description = "Vault-free seed-secrets --check drift gate (weekly)";
     restartIfChanged = false;
     unitConfig.ConditionPathExists = "/etc/blumeops/nixos/ringtail/secrets.json";
-    # A Persistent boot catch-up can fire before the network is up; a cold
-    # uv dep fetch then fails and writes a spurious ok=0.
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${check}";
-      # First run fetches uv's PEP-723 deps on a cold cache; 100s default
-      # would kill that.
-      TimeoutStartSec = "10m";
+      # The run is offline and short (a handful of stat/sha256 commands);
+      # the default 90s oneshot timeout is deliberate — an overlong run
+      # should fail loud, not drag on.
     };
   };
 
