@@ -24,6 +24,7 @@ let
   mcquackJellyfinMetrics = pkgs.writeScript "mcquack-jellyfin-metrics" (builtins.readFile ./mcquack-jellyfin-metrics.sh);
   mcquackZotMetrics = pkgs.writeScript "mcquack-zot-metrics" (builtins.readFile ./mcquack-zot-metrics.sh);
   sifakaMounter = pkgs.writeScript "mount-sifaka" (builtins.readFile ./mount-sifaka.sh);
+  mcquackIndriRebuildWatcher = pkgs.writeScript "mcquack-indri-rebuild-watcher" (builtins.readFile ./mcquack-indri-rebuild-watcher.sh);
   # The build runner's colima engine host daemon (eblume/blumeops#1357):
   # nixpkgs colima, which wraps lima and qemu into its PATH itself.
   mcquackColimaBuild = pkgs.writeScript "mcquack-colima-build" (builtins.readFile ./mcquack-colima-build.sh);
@@ -407,6 +408,20 @@ MCQUACK_NIX_WAIT_SYSTEM
     };
     StandardOutPath = "/opt/homebrew/var/log/mcquack.sifaka-mounter.out.log";
     StandardErrorPath = "/opt/homebrew/var/log/mcquack.sifaka-mounter.err.log";
+  };
+
+  # indri-rebuild-watcher (eblume/blumeops#1525): alerts on any detached-switch
+  # verdict sidecar other than 0/superseded, so a failed apply ntfys on its own.
+  launchd.user.agents."mcquack.eblume.indri-rebuild-watcher".serviceConfig = {
+    Label = "mcquack.eblume.indri-rebuild-watcher";
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${mcquackIndriRebuildWatcher}" ];
+    StartInterval = 60;
+    RunAtLoad = true;
+    EnvironmentVariables = {
+      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+    };
+    StandardOutPath = "/opt/homebrew/var/log/mcquack.indri-rebuild-watcher.out.log";
+    StandardErrorPath = "/opt/homebrew/var/log/mcquack.indri-rebuild-watcher.err.log";
   };
 
   # The four *-metrics collectors (PR 4): same labels, plist paths, .prom files and logs

@@ -36,6 +36,12 @@
 # /etc/nixos profile link mtime, and /var/log/ringtail-apply/<sha>.log for
 # the verdict.
 #
+# The wrapper writes its verdict to /var/log/ringtail-apply/<sha>.status
+# (success | superseded | usage | no-checkout | unknown-sha | not-on-main |
+# timeout | rebuild-<Result> | busy | interrupted); the ringtail-apply-watcher
+# unit ntfys ops-approvals on any value other than success/superseded, so a
+# failed apply alerts on its own.
+#
 # Docs: docs/explanation/warrant-approval-gated-runs.md
 #
 # Pushes to main touching nixos/ringtail/** auto-apply: the merge commit is
