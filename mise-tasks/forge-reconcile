@@ -1019,7 +1019,9 @@ PRIVILEGED_LABEL_POLICY: dict[str, set[str]] = {
     "indri": {"blumeops"},
     "indri-priv": {"blumeops"},
     "priv": {"blumeops"},
-    "nix-container-builder": {"blumeops", "horkos", "talos"},
+    # hephaestus added for eblume/blumeops#1517; the map will be derived
+    # from runners.json in #1526.
+    "nix-container-builder": {"blumeops", "horkos", "talos", "hephaestus"},
 }
 
 # A `runs-on` value is a scalar, a flow list, or a `${{ expr }}`. The labels it

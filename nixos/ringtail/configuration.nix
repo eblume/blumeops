@@ -757,8 +757,8 @@ in
   # reaches these runners from its registered repo (blumeops#1358). The
   # NixOS module re-registers an instance automatically when its token
   # file changes. nix-container-builder gets one instance per registered
-  # repo — a Forgejo registration scope is a single owner/repo — so three
-  # daemons share the label (capacity 1 each: up to three parallel builds).
+  # repo — a Forgejo registration scope is a single owner/repo — so four
+  # daemons share the label (capacity 1 each: up to four parallel builds).
   services.gitea-actions-runner = {
     package = pkgs.forgejo-runner;
     instances.nix_container_builder_blumeops = {
@@ -801,7 +801,28 @@ in
         };
       };
     };
-    instances.nix_container_builder_talos = {
+    instances.nix_container_builder_hephaestus = {
+      enable = true;
+      name = "ringtail-nix-builder-hephaestus";
+      url = "https://forge.ops.eblu.me";
+      tokenFile = "/etc/forgejo-runner/nix-builder-hephaestus.env";
+      labels = [ "nix-container-builder:host" ];
+      # _1password-cli: job-time `op read` of blumeops-ci items with
+      # OP_SERVICE_ACCOUNT_TOKEN ([[blumeops-ci-item-migration]]).
+      hostPackages = with pkgs; [
+        bash coreutils curl gawk gitMinimal gnused jq nodejs wget
+        nix skopeo _1password-cli
+      ];
+      settings = {
+        log.level = "info";
+        runner = {
+          capacity = 1;
+          timeout = "3h";
+        };
+      };
+    };
+
+        instances.nix_container_builder_talos = {
       enable = true;
       name = "ringtail-nix-builder-talos";
       url = "https://forge.ops.eblu.me";
