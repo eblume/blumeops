@@ -1,0 +1,1 @@
+Move Forgejo Actions-secret value management out of the retired `forgejo_actions_secrets` ansible role into `mise run forge-reconcile`'s apply mode: a human run `op read`s each secret's 1Password source and PUTs/DELETEs it (the CI token only reports and exits 0), with names drift-checked against the new `forge/actions-secrets.json` declared-state file.

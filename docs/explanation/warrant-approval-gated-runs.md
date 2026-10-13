@@ -645,7 +645,7 @@ The same PAT was also, until eblume/talos#55 and eblume/horkos#9, a
 `RELEASE_FORGE_TOKEN` Actions secret in both of those repos — a third and
 fourth copy, each rotating independently. Their release workflows now read the
 mirror at job time; the leftover Actions-secret copies are deleted by the
-`forgejo_actions_secrets` role's authoritative provisioning on its next run.
+values half of `mise run forge-reconcile` on its next human run.
 
 ## Deploying horkos
 

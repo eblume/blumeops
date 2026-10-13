@@ -128,14 +128,14 @@ by name, and a duplicate title breaks every consumer of that item (the
 
 Rollout order after the PR merges: run
 `mise run provision-ringtail` (puts `op` on both ringtail runners), then
-`mise run provision-indri -- --tags forgejo_actions_secrets` (syncs
-`BLUMEOPS_CI_OP_TOKEN` to talos/horkos, stops syncing the migrated
+`mise run forge-reconcile` (its values half syncs
+`BLUMEOPS_CI_OP_TOKEN` to talos/horkos and no longer syncs the migrated
 secrets), verify one dispatch per workflow. The stale pre-migration
 secrets (`ARGOCD_AUTH_TOKEN`, `ZOT_CI_API_KEY`, `FLY_DEPLOY_TOKEN`,
-`MAIN_PUSH_TOKEN`) need no manual cleanup: the role is now authoritative —
-it PUTs declared secrets, DELETEs undeclared ones, and `--check` reports
-name-level drift before anything is touched — so the deletion happens on
-the next provisioning run.
+`MAIN_PUSH_TOKEN`) need no manual cleanup: the values half is authoritative —
+it PUTs declared secrets, DELETEs undeclared ones, and `forge-reconcile
+--check` reports name-level drift before anything is touched — so the
+deletion happens on the next human `mise run forge-reconcile`.
 
 ## Related
 

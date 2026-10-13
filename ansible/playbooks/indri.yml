@@ -84,76 +84,6 @@
       no_log: true
       tags: [forgejo]
 
-    # Forgejo Actions secrets (synced to Forgejo via API)
-    # eblume PAT scoped to write:repository,read:user — the
-    # FORGE_REPO_WRITE_TOKEN CI secret for forge-reconcile, so CI no longer
-    # holds the all-scopes admin PAT
-    # (heph 01KZ5ESS2G). Also the token this role authenticates with
-    # (write:repository covers its repo-admin ops — eblume owns the repos).
-    # Minted on indri with `forgejo admin user
-    # generate-access-token … --scopes write:repository,read:user`.
-    - name: Fetch repo-write forge token for Forgejo Actions
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
-      delegate_to: localhost
-      register: _forge_repo_write_token
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo_actions_secrets]
-
-    # The per-secret Actions secrets (argocd token, fly deploy token, zot CI
-    # key, main-push PAT) migrated to job-time `op read` of blumeops-ci items
-    # ([[blumeops-ci-item-migration]]) — workflows fetch them with
-    # BLUMEOPS_CI_OP_TOKEN instead of this role syncing each one.
-
-    # Read-only 1Password service-account token scoped to the blumeops-ci
-    # vault ([[warrant-approval-gated-runs]] Phase 2 vault tier). Privileged
-    # workflows `op read` their runtime secrets with it instead of each secret
-    # being its own Actions secret; the blumeops vault stays human-only.
-    - name: Fetch blumeops-ci reader token for Forgejo Actions
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/blumeops-ci-reader-token/token"
-      delegate_to: localhost
-      register: _blumeops_ci_op_token
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo_actions_secrets]
-
-    # The per-repo zot push identities (ci-zot-talos / ci-zot-horkos): master fields
-    # on the Forgejo Secrets item, kept in sync by `mise run
-    # zot-apikey-rotate`; declared as ZOT_PUSH_API_KEY on eblume/talos and
-    # eblume/horkos.
-    - name: Fetch ci-zot-talos API key for Forgejo Actions
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/ci-zot-talos-api"
-      delegate_to: localhost
-      register: _ci_zot_talos_api
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo_actions_secrets]
-
-    - name: Fetch ci-zot-horkos API key for Forgejo Actions
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/ci-zot-horkos-api"
-      delegate_to: localhost
-      register: _ci_zot_horkos_api
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo_actions_secrets]
-
-    - name: Set Forgejo Actions secrets facts
-      ansible.builtin.set_fact:
-        forgejo_secret_repo_write_token: "{{ _forge_repo_write_token.stdout }}"
-        forgejo_secret_blumeops_ci_op_token: "{{ _blumeops_ci_op_token.stdout }}"
-        forgejo_secret_ci_zot_talos_api: "{{ _ci_zot_talos_api.stdout }}"
-        forgejo_secret_ci_zot_horkos_api: "{{ _ci_zot_horkos_api.stdout }}"
-      no_log: true
-      tags: [forgejo_actions_secrets]
-
     # Forgejo runner identity (launchd runner on indri)
     - name: Fetch forgejo runner UUID
       ansible.builtin.command:
@@ -500,8 +430,6 @@
       tags: borgmatic_metrics
     - role: forgejo
       tags: forgejo
-    - role: forgejo_actions_secrets
-      tags: forgejo_actions_secrets
     - role: forgejo_runner
       tags: forgejo_runner
     - role: zot

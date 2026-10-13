@@ -51,7 +51,7 @@ inventory. Add a row when you add a file.
 | `warrant-policy.yaml` | which workflows are requestable, their class, input schemas, SHA binding | none; it is read at request and dispatch time | `request-run` refuses at request time | `mise run request-run`, [[horkos]] |
 | `service-versions.yaml` | per-service review freshness and current version | `mise run service-review` (human, updates the file) | `container-version-check` for container pins | `forge-name-lint`, one ringtail nix pin |
 | `mise-tasks/forge-name-lint.allowlist.yaml` | exceptions to the forge-name lint | `mise run forge-name-lint` | the lint itself | none |
-| `ansible/roles/forgejo_actions_secrets/` (role defaults) | the Actions secret *names* per repo | `mise run provision-indri -- --tags forgejo_actions_secrets` | `forge-reconcile --check` compares names | none |
+| `forge/actions-secrets.json` | the Actions secret *names* per repo | `mise run forge-reconcile` (values half: human-only PUT/DELETE from the in-code 1Password sources) | `forge-reconcile --check` compares names | none |
 | `darwin/indri/secrets.json`, `nixos/ringtail/secrets.json` | on-host secret files by path, `op://` source, owner, mode, unit to restart | `mise run seed-secrets` | `seed-secrets --check` (weekly, vault-free) | the per-host flake invariant (invariants.nix lockstep) |
 
 Planned, filed as issues on 2026-10-12:

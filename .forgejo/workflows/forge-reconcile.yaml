@@ -4,8 +4,8 @@
 # assert the blast-radius invariants the retired horkos-forge-drift tool used
 # to check (horkos-forge is not a site admin, holds write on exactly the
 # horkos_forge set and nowhere else, blumeops:main stays whitelisted to
-# eblume alone, the Actions-secret names declared by the
-# forgejo_actions_secrets role match the live forge, and no repo targets a
+# eblume alone, the Actions-secret names declared in forge/actions-secrets.json
+# match the live forge, and no repo targets a
 # privileged runner label it is not declared to — the #1358 label scan).
 # `--check` is the single
 # forge drift check: it runs weekly
@@ -23,8 +23,9 @@
 # Hook creation and the label half need secrets CI does not carry, so they
 # skip loudly in CI and a human follows up from gilbert with
 # `mise run forge-reconcile`. FORGE_REPO_WRITE_TOKEN is an eblume PAT
-# (write:repository,read:user) provisioned by the forgejo_actions_secrets
-# ansible role. Details: the script docstring in mise-tasks/forge-reconcile.
+# (write:repository,read:user) whose value the values half of `mise run
+# forge-reconcile` writes from 1Password (see forge/actions-secrets.json).
+# Details: the script docstring in mise-tasks/forge-reconcile.
 #
 # Runs-on split (#1358): pull_request runs execute from the PR's own
 # checkout, so they go to the unprivileged indri-build runner - where this
@@ -51,7 +52,7 @@ on:
       - 'forge/branch-protections.json'
       - 'mise-tasks/forge-reconcile'
       - 'mise-tasks/horkos-forge-provision'
-      - 'ansible/roles/forgejo_actions_secrets/'
+      - 'forge/actions-secrets.json'
       - '.forgejo/workflows/forge-reconcile.yaml'
   pull_request:
     paths:
@@ -59,7 +60,7 @@ on:
       - 'forge/branch-protections.json'
       - 'mise-tasks/forge-reconcile'
       - 'mise-tasks/horkos-forge-provision'
-      - 'ansible/roles/forgejo_actions_secrets/'
+      - 'forge/actions-secrets.json'
       - '.forgejo/workflows/forge-reconcile.yaml'
   workflow_dispatch:
     inputs:
@@ -76,12 +77,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # --skip-if-no-token is the bootstrap allowance: the secret is
-      # provisioned by the ansible role in this same change, so it cannot
-      # exist until after the first merge. Both steps log a loud yellow
-      # SKIPPED when it's unset. Once provisioned they behave normally; do
-      # the first real reconcile with a manual dispatch after
-      # `provision-indri`.
+      # --skip-if-no-token is the bootstrap allowance: FORGE_REPO_WRITE_TOKEN
+      # is written by the values half of a human `mise run forge-reconcile`,
+      # so it cannot exist until after the first merge. Both steps log a loud
+      # yellow SKIPPED when it's unset. Once written they behave normally; do
+      # the first real reconcile with a manual dispatch after that human run.
 
       # Same-repo PRs only: a fork/agent PR has no FORGE_REPO_WRITE_TOKEN, so
       # --skip-if-no-token exits 0 and the check verifies nothing (a green tick
