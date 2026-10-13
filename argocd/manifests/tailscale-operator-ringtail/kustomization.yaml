@@ -36,3 +36,21 @@ patches:
       version: v1alpha1
       kind: DNSConfig
       name: ts-dns
+  - target:
+      kind: Deployment
+      name: operator
+    patch: |
+      # Digest-pinned image: the upstream manifest's Always only makes sense for
+      # its floating :stable tag. Without this the operator Deployment
+      # ImagePullBackOffs during zot outages and every zot-pinned workload
+      # stays down (cold-start deadlock, #1226).
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: operator
+      spec:
+        template:
+          spec:
+            containers:
+              - name: operator
+                imagePullPolicy: IfNotPresent

@@ -7,5 +7,7 @@ spec:
     pod:
       tailscaleContainer:
         image: registry.ops.eblu.me/blumeops/tailscale:v1.102.5-7f39ab6-nix
+        imagePullPolicy: IfNotPresent
       tailscaleInitContainer:
         image: registry.ops.eblu.me/blumeops/tailscale:v1.102.5-7f39ab6-nix
+        imagePullPolicy: IfNotPresent
