@@ -26,7 +26,8 @@ spec:
   # prune: the release-targets.json ConfigMap is kustomize-generated with
   # a hash suffix (that hash change is what rolls the pod on a topology
   # merge), so each edit orphans the previous horkos-release-targets-<hash>
-  # — prune is the GC.
+  # — prune is the GC (horkos-data is annotated Prune=false — it holds
+  # the approval queue).
   syncPolicy:
     automated:
       prune: true
