@@ -34,18 +34,30 @@
 # (exit code, written when the switch ends) and <sha>.log; read them if a
 # change does not show up. See docs/how-to/indri/provision.md.
 #
-# The privileged-label invariant (#1358) holds by construction: the sole
-# trigger is workflow_dispatch, which no workflow can start on its own -
-# only a write collaborator (eblume, or horkos-forge under a warrant),
-# dispatching main's reviewed definition. It is the only workflow on the
-# dedicated `indri-priv` label, so the class is also bounded by label: no
-# `pull_request`-triggerable job can ever reach this runner.
+# The privileged-label invariant (#1358) is bounded by label and by gate:
+# this is the only workflow on the dedicated `indri-priv` label, so no
+# `pull_request`-triggerable job can ever reach this runner. Push events run
+# main's reviewed definition only, and the gate job refuses them unless
+# `github.sha` is the merge commit of a merged PR ([[auto-apply]]);
+# workflow_dispatch remains the manual fallback, and dispatching it still
+# takes a write collaborator (eblume, or horkos-forge under a warrant).
 #
 # Docs: docs/explanation/warrant-approval-gated-runs.md,
 # docs/how-to/indri/provision.md (warrant-gated apply).
+#
+# Pushes to main touching darwin/indri/** auto-apply: the merge commit is
+# the approval (class: auto, see docs/explanation/auto-apply.md). The gate
+# job refuses anything that is not the merge commit of a merged PR
+# (fail-closed, 404 = refuse); the preflight job refuses when no online
+# runner serves `indri-priv`. workflow_dispatch remains the manual fallback
+# and runs the same gate/preflight.
 name: provision-indri
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'darwin/indri/**'
   workflow_dispatch:
     inputs:
       revision:
@@ -54,7 +66,116 @@ on:
         type: string
 
 jobs:
+  gate:
+    runs-on: nix-container-builder
+    steps:
+      - name: Refuse non-merge-commit pushes
+        env:
+          SHA: ${{ github.sha }}
+          FORGE_SERVER_URL: ${{ github.server_url }}
+          FORGE_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # The gate applies to push events only; on workflow_dispatch there
+          # is no push to check.
+          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
+            exit 0
+          fi
+          base="$FORGE_SERVER_URL"
+          repo="$FORGE_REPOSITORY"
+          sha="$SHA"
+          refuse() {
+            echo "::error::$1"
+            # Best-effort notification; a failed post must not change the verdict.
+            curl -s -X POST \
+              -H "Title: auto-apply refused" \
+              -H "Tags: warning" \
+              -d "$2" \
+              https://ntfy.ops.eblu.me/ops-approvals || true
+            exit 1
+          }
+          # curl -f would turn a 404 into a silent failure; capture the
+          # status separately from the body instead.
+          code=$(curl -s -o /tmp/pull.json -w '%{http_code}' \
+            "$base/api/v1/repos/$repo/commits/$sha/pull" || true)
+          [ "$code" = "200" ] || refuse \
+            "merge-commit gate: $sha is not the merge commit of a merged PR (HTTP $code) — refusing auto-apply" \
+            "provision-indri: auto-apply refused for $sha — not the merge commit of a merged PR (HTTP $code)"
+          merged=$(jq -r '.merged // false' /tmp/pull.json)
+          [ "$merged" = "true" ] || refuse \
+            "merge-commit gate: $sha is not a merged PR (merged=$merged) — refusing auto-apply" \
+            "provision-indri: auto-apply refused for $sha (merged=$merged)"
+          msha=$(jq -r '.merge_commit_sha // ""' /tmp/pull.json)
+          [ "$msha" = "$sha" ] || refuse \
+            "merge-commit gate: $sha is not the merge commit of its PR (merge_commit_sha=$msha) — refusing auto-apply" \
+            "provision-indri: auto-apply refused for $sha (merge_commit_sha=$msha)"
+
+  preflight:
+    needs: gate
+    runs-on: nix-container-builder
+    env:
+      FORGE_ACTIONS_RO_TOKEN: ${{ secrets.FORGE_ACTIONS_RO }}
+      FORGE_SERVER_URL: ${{ github.server_url }}
+      FORGE_REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: Refuse when no online runner serves the indri-priv label
+        env:
+          SHA: ${{ github.sha }}
+          LABEL: indri-priv
+        run: |
+          set -euo pipefail
+          base="$FORGE_SERVER_URL"
+          repo="$FORGE_REPOSITORY"
+          sha="$SHA"
+          label="$LABEL"
+          refuse() {
+            echo "::error::$1"
+            curl -s -X POST \
+              -H "Title: auto-apply preflight refused" \
+              -H "Tags: warning" \
+              -d "$2" \
+              https://ntfy.ops.eblu.me/ops-approvals || true
+            exit 1
+          }
+          if [ -z "$FORGE_ACTIONS_RO_TOKEN" ]; then
+            refuse \
+              "preflight: FORGE_ACTIONS_RO is not provisioned as an Actions secret — cannot confirm a runner serves '$label' (fail closed)" \
+              "provision-indri: preflight refused for $sha — FORGE_ACTIONS_RO secret missing"
+          fi
+          code=$(curl -s -o /tmp/runners.json -w '%{http_code}' \
+            -H "Authorization: Bearer $FORGE_ACTIONS_RO_TOKEN" \
+            "$base/api/v1/repos/$repo/actions/runners" || true)
+          [ "$code" = "200" ] || refuse \
+            "preflight: runners API unreachable (HTTP $code) — cannot confirm a runner serves '$label' (fail closed)" \
+            "provision-indri: preflight refused for $sha — runners API unreachable (HTTP $code)"
+          # The endpoint returns a bare array of runners (verified against the
+          # running instance's swagger and Forgejo source, 2026-10-13);
+          # unwrap a hypothetical {"runners": [...]} wrapper defensively. A
+          # runner is online when status is idle or active (the API's own
+          # server-side online status);
+          # labels carry the form <name>:<execution-mode> (e.g. indri-priv:host),
+          # so match the part before the colon. The `?` guards keep a
+          # non-array response (e.g. an API error object) fail-closed: count 0.
+          runners=$(jq -c 'if type == "object" and has("runners") then .runners else . end' /tmp/runners.json)
+          count=$(jq -r --arg want "$label" '
+            [.[] | select(
+              (any((.labels? // [])[]?; (. | split(":")[0]) == $want))
+              and ((.status? // "") == "idle" or (.status? // "") == "active")
+            )] | length
+          ' <<<"$runners")
+          if [ "$count" -eq 0 ]; then
+            echo "::error::preflight: no online runner serves the '$label' label — refusing (fail closed)"
+            echo "::error::runners: $(jq -c '[.[] | {name: (.name? // ""), status: (.status? // ""), labels: (.labels? // [])}]' <<<"$runners")"
+            curl -s -X POST \
+              -H "Title: auto-apply preflight refused" \
+              -H "Tags: warning" \
+              -d "provision-indri: preflight refused for $sha — no online runner serves '$label'" \
+              https://ntfy.ops.eblu.me/ops-approvals || true
+            exit 1
+          fi
+
   rebuild:
+    needs: [gate, preflight]
     runs-on: indri-priv
     steps:
       # The raw dispatch input reaches this job only as an environment
@@ -65,7 +186,7 @@ jobs:
       # reach the run log.
       - name: Validate revision input
         env:
-          REVISION: ${{ inputs.revision }}
+          REVISION: ${{ github.event_name == 'push' && github.sha || inputs.revision }}
         run: |
           set -euo pipefail
           # Length and whole-line content together close the newline hole a
@@ -92,7 +213,7 @@ jobs:
       # the rebuild actually runs.
       - name: Verify bound revision is on main
         env:
-          REVISION: ${{ inputs.revision }}
+          REVISION: ${{ github.event_name == 'push' && github.sha || inputs.revision }}
         run: |
           set -euo pipefail
           if ! git -C "$GITHUB_WORKSPACE" merge-base --is-ancestor "$REVISION^{commit}" origin/main; then
@@ -103,7 +224,7 @@ jobs:
 
       - name: Apply to indri
         env:
-          REVISION: ${{ inputs.revision }}
+          REVISION: ${{ github.event_name == 'push' && github.sha || inputs.revision }}
         run: |
           set -euo pipefail
           # Re-validate at the privileged boundary; the task's guard

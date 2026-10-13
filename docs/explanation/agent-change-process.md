@@ -116,6 +116,14 @@ Worth knowing so the click is not mistaken for more than it is:
 - **Deploys were never at risk.** Privileged workflows are `workflow_dispatch`
   only on `runs-on: priv`; a pull request cannot trigger them at all. Warrant
   still gates every one.
+
+  One marker has a documented exemption: [[auto-apply]] actions may
+  additionally be triggered by `on: push` to main with a `paths:` filter —
+  running main's reviewed definition on their dedicated priv runner label,
+  applying only the push's own SHA, never an arbitrary input. No warrant is
+  minted for them: the merge-commit gate is the gate, and it refuses anything
+  that is not the merge commit of a merged PR, so a pull request still cannot
+  trigger a privileged workflow at all.
 - **Strangers are not the threat.** The instance has registration disabled, so
   nobody can fork this repo without an account Erich created. The threat model
   is prompt injection in an agent session — the case

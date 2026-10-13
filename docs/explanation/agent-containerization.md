@@ -401,11 +401,14 @@ designs remain rejected — this change took neither path:
   sandboxed build. This weakens a live syscall fence to gain a build cache;
   unprivileged userns is also the single biggest expansion of kernel attack
   surface available from a container.
-- **A push-triggered "nix check" CI workflow.** Every blumeops workflow is
-  `workflow_dispatch`-only by design. A job that ran on push would hand the
-  agent arbitrary code execution on `nix-container-builder` — which holds
-  registry credentials — which is precisely the lateral path [[horkos]]
-  exists to close.
+- **A push-triggered "nix check" CI workflow.** PR-check jobs stay
+  `workflow_dispatch`-only by design: a push job that runs agent-supplied
+  code would hand the agent arbitrary code execution on
+  `nix-container-builder` — which holds registry credentials — precisely the
+  lateral path [[horkos]] exists to close. The `class: auto` actions are the
+  documented exception: their push jobs execute only main's reviewed
+  definition, and the gate binds them to the merge commit of a merged PR
+  ([[auto-apply]]).
 
 ## Related
 

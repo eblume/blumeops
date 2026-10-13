@@ -157,6 +157,13 @@ def enforce_policy(
     if entry.get("class") == "deny":
         err.print(f"'{escape(workflow)}' is class DENY: {escape(entry.get('note', 'not requestable'))}")
         raise typer.Exit(1)
+    if entry.get("class") == "auto":
+        err.print(
+            f"'{escape(workflow)}' is class AUTO: not requestable. It is "
+            "event-triggered by pushes to main (the merge commit is the "
+            "approval). Manual fallback: the forge UI workflow dispatch."
+        )
+        raise typer.Exit(1)
 
     spec = entry.get("inputs") or {}
     for name, rules in spec.items():
