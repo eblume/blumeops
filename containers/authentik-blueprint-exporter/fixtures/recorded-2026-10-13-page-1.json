@@ -1,0 +1,31 @@
+{
+  "pagination": {
+    "next": 2,
+    "previous": 0,
+    "count": 42,
+    "current": 1,
+    "total_pages": 3,
+    "start_index": 1,
+    "end_index": 20
+  },
+  "results": [
+    {
+      "pk": "3aec93dd-bd57-4a0b-a2b0-025a997d21d2",
+      "name": "BlumeOps ArgoCD SSO",
+      "path": "custom/argocd.yaml",
+      "context": {},
+      "last_applied": "2026-04-21T17:36:34.563394Z",
+      "last_applied_hash": "b7bcfbdc894c1f4be1d5e2b43ab2aeb039b8041b3b2d3449e3783d75d9a62ab8bbe55ca6f56dc79625e04067d694308f1010b92b830bff59b96a990b71966485",
+      "status": "successful",
+      "enabled": true,
+      "managed_models": [],
+      "metadata": {
+        "name": "BlumeOps ArgoCD SSO",
+        "labels": {
+          "blueprints.goauthentik.io/description": "ArgoCD OIDC provider and application"
+        }
+      },
+      "content": ""
+    }
+  ]
+}

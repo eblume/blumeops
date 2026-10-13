@@ -2,7 +2,8 @@
 
 Replays the API fixtures shipped with the container
 (``containers/authentik-blueprint-exporter/fixtures/`` — synthetic
-responses in authentik's real pagination shape, see the README there)
+responses in authentik's real pagination shape plus one genuine live
+recording, see the README there)
 through the exporter's own snapshot logic and asserts the metric
 semantics the alert rules rely on:
 
@@ -277,3 +278,30 @@ def test_fetch_all_fails_fast_on_stale_next():
 
     with pytest.raises(RuntimeError, match="did not advance"):
         exp.fetch_all("http://rec", "tok", urlopen=fake_urlopen)
+
+
+def test_recorded_live_page_is_the_real_shape():
+    """The one genuine recording pins the live API shape.
+
+    The synthetic fixtures claim to model authentik's real pagination
+    shape; this checks that claim against the 2026-10-13 capture,
+    including the trap that broke the first fetch_all — pagination.next
+    is a page number, not a URL.
+    """
+    exp = _exporter()
+    page = json.loads((FIXTURES / "recorded-2026-10-13-page-1.json").read_text())
+    pagination = page["pagination"]
+    assert pagination == {
+        "next": 2,
+        "previous": 0,
+        "count": 42,
+        "current": 1,
+        "total_pages": 3,
+        "start_index": 1,
+        "end_index": 20,
+    }
+    inst = page["results"][0]
+    assert inst["path"] == "custom/argocd.yaml"
+    assert inst["status"] == "successful"
+    # The exporter's per-instance reads work on the real body.
+    assert exp.parse_iso(inst["last_applied"]) > 0

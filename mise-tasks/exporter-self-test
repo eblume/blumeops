@@ -11,7 +11,8 @@
 
 Replays the API fixtures under
 containers/authentik-blueprint-exporter/fixtures/ (synthetic responses in
-authentik's real pagination shape, see the README there) through the
+authentik's real pagination shape plus one genuine live recording, see the
+README there) through the
 exporter's own snapshot logic and asserts the metric semantics — the
 delete/re-create error-survival case, the empty-list = failed-poll case,
 and pagination URL-building. No network, no secrets, works from an agent
