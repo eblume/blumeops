@@ -118,10 +118,43 @@ to canonical main other than eblume, or identities whose credential tier is
 below blumeops-ci; any credential that can merge a PR can thereby auto-apply
 host config, and the accepted property is that `blumeops-ci`-vault holders
 are the same trust tier as main itself** — `MAIN_PUSH_TOKEN` already writes
-main today. Narrowing `FORGE_REPO_WRITE_TOKEN`'s scope and `MAIN_PUSH_TOKEN`
-is a separate follow-up, filed from this PR. forge-reconcile's assertion
-keeps its real job — no non-eblume identity in the push/merge whitelist —
-and this section names its blind spot.
+main today. The follow-up on narrowing them (#1560) settled on acceptance
+without re-mint; the decision is recorded in **Known main-write
+credentials** below. forge-reconcile's assertion keeps its real job — no non-eblume
+identity in the push/merge whitelist — and this section names its blind
+spot.
+
+### Known main-write credentials
+
+Decided 2026-10-13 (#1560): both credentials stay as they are — accepted
+main-write credentials at the `blumeops-ci` tier, no re-mint.
+
+- **`FORGE_REPO_WRITE_TOKEN`** — eblume PAT held as a repo Actions secret,
+  used by forge-reconcile. Audited: none of its writes — collaborator,
+  webhook, label, Actions-secret, and (human-run only) branch protections —
+  needs merge or push, but on this Forgejo (16.0.2, Gitea 1.22.0) PR merge
+  sits under the `repository` token category, so merge is inseparable from
+  `write:repository`. The scope is already the minimum that
+  allows its real writes; a merge-less re-mint is not achievable.
+- **`MAIN_PUSH_TOKEN`** — eblume PAT read from the `blumeops-ci` vault at
+  job time, doing the raw `git push HEAD:main` in the blumeops release
+  workflow. Its raw-push route is gate-inert: a raw push is not a PR merge,
+  so the merge-commit gate refuses it — no apply. The release push is a
+  deliberate, dispatch-triggered, eblume-authenticated op.
+
+The one lever that would structurally close the merge route — moving
+`FORGE_REPO_WRITE_TOKEN` to a dedicated non-eblume bot account absent from
+main's push/merge whitelist — was considered and rejected: forge-reconcile's
+real writes (collaborator PUT/DELETE, webhooks) need repo admin, and a repo
+admin can edit branch protection, i.e. add itself to the merge whitelist and
+then merge. A non-eblume bot carrying those writes is still a main-write
+credential, one API call removed; it costs a new principal and buys nothing.
+Do not re-propose.
+
+The rationale is the standing policy that all CI in `eblume/*` is one trust
+tier: CI credentials are trusted because workflow code only runs from
+human-merged main or warrant-gated dispatch, not because each token is
+minimal.
 
 ## New invariant: nothing automated may gain merge rights
 
@@ -257,6 +290,7 @@ red-run notifications catch the failure to apply.
 - [[warrant-approval-gated-runs]] Phase 4 — the policy-as-code phase this
   class completes
 - #1525 — the auto-apply program this PR ships
+- #1560 — the scope decision for the known main-write credentials
 - #1515 — the runner-availability preflight and queue-stuck alert
 - #1358 — the privileged-runner label scoping the auto runs depend on
 - `.forgejo/workflows/ringtail-rebuild.yaml`,
