@@ -68,10 +68,10 @@ spec:
               value: warrant-policy.yaml
             - name: HORKOS_PR_ASSIGNEE
               value: eblume
-            # Author email for the release publisher's pin-PR commits (optional;
-            # matches the identity previous pin PRs committed as).
+            # Author email for the release publisher's pin-PR commits —
+            # horkos's own principal identity, not the agents bot's.
             - name: HORKOS_GIT_EMAIL
-              value: blume.erich+agents@gmail.com
+              value: blume.erich+horkos@gmail.com
             # Release publisher topology — the horkos-release-targets
             # ConfigMap generated in kustomization.yaml; its hash-suffixed
             # name rolls the pod on every topology change.
