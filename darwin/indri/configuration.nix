@@ -3,7 +3,14 @@ let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
   # The four *-metrics collectors feeding alloy's node_exporter textfile dir (PR 4 moved them here).
   mcquackBorgmaticMetrics = pkgs.writeScript "mcquack-borgmatic-metrics" (builtins.readFile ./mcquack-borgmatic-metrics.sh);
-  mcquackForgejoMetrics = pkgs.writeScript "mcquack-forgejo-metrics" (builtins.readFile ./mcquack-forgejo-metrics.sh);
+  # Capacity lines are generated from forge/runners.json
+  # (eblume/blumeops#1526). The read is relative to this flake root, which
+  # is only part of a larger git checkout (/etc/blumeops, CI checkouts) —
+  # it holds only while the file is git-tracked at the repo root and the
+  # apply runs from a checkout.
+  mcquackForgejoMetrics =
+    pkgs.writeScript "mcquack-forgejo-metrics"
+      (lib.replaceStrings [ "__RUNNER_CAPACITY__" ] [ (lib.concatMapStringsSep "\n" (r: "forgejo_ci_runner_capacity{runner=\"${r.name}\"} ${toString r.capacity}") (builtins.fromJSON (builtins.readFile ../../forge/runners.json)).runners) ] (builtins.readFile ./mcquack-forgejo-metrics.sh));
   mcquackJellyfinMetrics = pkgs.writeScript "mcquack-jellyfin-metrics" (builtins.readFile ./mcquack-jellyfin-metrics.sh);
   mcquackZotMetrics = pkgs.writeScript "mcquack-zot-metrics" (builtins.readFile ./mcquack-zot-metrics.sh);
   sifakaMounter = pkgs.writeScript "mount-sifaka" (builtins.readFile ./mount-sifaka.sh);
