@@ -94,11 +94,6 @@
       "repo": "datasette-satisfactory",
       "label": "k8s",
       "reason": "legacy template CI; the k8s runner no longer exists — fix or retire the workflows"
-    },
-    {
-      "repo": "gamedev",
-      "label": "docker",
-      "reason": "ci.yml targets a docker label no runner registers — retarget to indri-build"
     }
   ]
 }

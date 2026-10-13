@@ -1309,11 +1309,19 @@ def test_workflow_gated_label_disallowed_repo_fails(policy, run_main, monkeypatc
 def test_workflow_label_exception_is_exempt(policy, run_main, monkeypatch):
     """A (repo, label) pair listed in runners.json's label_exceptions does
     not fail the declaration leg nor the live leg."""
-    policy([{"name": "gamedev", "access": "none", "pool": "none"}])
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    # Declare the exception in the scratch copy so the test stands on its
+    # own, independent of the fleet's live label_exceptions.
+    runners = ara.RUNNERS_PATH
+    data = json.loads(runners.read_text())
+    data["label_exceptions"].append(
+        {"repo": "svc", "label": "some-unknown-label", "reason": "test"}
+    )
+    runners.write_text(json.dumps(data))
     forge = FakeForge()
-    forge.repos = ["gamedev"]
+    forge.repos = ["svc"]
     forge.workflows = {
-        "gamedev": {".forgejo/workflows/ci.yml": _workflow_yml("docker")}
+        "svc": {".forgejo/workflows/ci.yml": _workflow_yml("some-unknown-label")}
     }
     forge.install(monkeypatch)
     monkeypatch.setattr(ara, "live_runner_series", list)
