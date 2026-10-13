@@ -47,12 +47,8 @@ in
   # argv0 across every user agent and system daemon.
   assertions = lib.flatten (lib.mapAttrsToList (guardNamed "user agent") userAgents)
     ++ lib.flatten (lib.mapAttrsToList (guardNamed "daemon") daemons)
-    # Secrets lockstep with secrets.json (eblume/blumeops#1524), same shape as
-    # ringtail's guard. `referenced` stays empty until the forgejo_runner role
-    # moves to nix — it still renders its runner config via ansible
-    # (eblume/blumeops#1213); when it moves, collect the new reference sites
-    # here. The manifest existing (even empty) is what this guard reads, so
-    # the declared-but-unreferenced direction is already exercisable.
+    # Secrets lockstep with secrets.json, same shape as ringtail's guard (see
+    # the `referenced` binding above).
     ++ [
       {
         assertion = lib.all (p: lib.elem p declared) referenced;

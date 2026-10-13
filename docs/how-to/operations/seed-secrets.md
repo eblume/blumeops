@@ -1,6 +1,6 @@
 ---
 title: Seed Host Secrets from the Vault
-modified: 2026-10-12
+modified: 2026-10-13
 last-reviewed: 2026-10-12
 tags:
   - how-to
@@ -35,18 +35,33 @@ mise run seed-secrets ringtail --only /etc/forgejo-runner/priv.env
 ```
 
 `--check` needs no vault and no TTY, so it is the weekly drift gate (and the
-only part of this mechanism that runs unattended). Generated entries (like
-`/etc/k3s/token`) mint once on first seed and are never rotated afterwards.
-Anything a check cannot inspect is `UNKNOWN`, and `UNKNOWN` is a failure.
+only part of this mechanism that runs unattended). Anything a check cannot
+inspect is `UNKNOWN`, and `UNKNOWN` is a failure.
+
+Every remote command runs as root through `sudo -n` over ssh, so the ssh
+user needs passwordless sudo on the host (ringtail's `eblume` has it).
+
+Vault values are written newline-stripped, the same bytes ansible's
+`pre_tasks` wrote.
+
+Generated entries (like `/etc/k3s/token`) mint once and are never rotated.
+Minting asks for confirmation and restarts nothing. An absent generated file
+on a live host is almost always a lost file, not a fresh host: for the k3s
+token, restore it from `/var/lib/rancher/k3s/server/token`. A new value would
+not match the token the cluster's bootstrap data is encrypted with.
 
 ## Adding a new entry
 
 Add the entry to `nixos/ringtail/secrets.json` (or
 `darwin/indri/secrets.json`) — path, kind (`op` or `generated`), `op://` ref,
 owner/group/mode, and the unit(s) to restart — and to the nix config that
-references it. The flake invariant fails the flake-check build if the config
-references a path the manifest does not declare, or the manifest declares a
-path nothing references, so the two stay in lockstep. Then run
+references it. The flake invariant fails the flake-check build if the
+manifest declares a path nothing references, or if one of the reference
+sites it knows about uses an undeclared path. On ringtail those are
+`services.k3s.tokenFile`, the `gitea-actions-runner` instances' `tokenFile`,
+and `/etc/agents/op-token`. It does not scan every option, so a new kind of
+reference site (an `EnvironmentFile`, a `credentialsFile`) must be added to
+`referenced` in `invariants.nix` in the same PR. Then run
 `mise run seed-secrets ringtail --dry-run`, and apply from gilbert.
 
 ## Failure modes
@@ -58,7 +73,12 @@ path nothing references, so the two stay in lockstep. Then run
   Every write is read back (owner, group, mode, sha256 of what was written);
   a read-back that disagrees is a hard failure.
 - **Stray files are reported, never deleted.** A scratch file is more likely
-  than a leaked secret, and deletion stays a human act.
+  than a leaked secret, and deletion stays a human act. A failed write can
+  leave `<path>.seedtmp` holding the value. `--check` reports it as a
+  stray; delete it by hand.
+- **indri is refused while its manifest is non-empty.** The darwin write and
+  restart legs wait for the forgejo_runner role to move to nix
+  ([eblume/blumeops#1213](https://forge.ops.eblu.me/eblume/blumeops/issues/1213)).
 - **Biometric required.** Apply refuses to run without a TTY, so CI can never
   run this — the vault credential is the thing the pattern removes from the
   apply path.
