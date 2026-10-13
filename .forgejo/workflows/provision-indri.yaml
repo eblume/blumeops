@@ -50,7 +50,8 @@
 # job refuses anything that is not the merge commit of a merged PR
 # (fail-closed, 404 = refuse); the preflight job refuses when no online
 # runner serves `indri-priv`. workflow_dispatch remains the manual fallback
-# and runs the same gate/preflight.
+# and runs the same gate/preflight. Runs of the workflow are serialized by
+# its top-level `concurrency` group (`cancel-in-progress: false`).
 name: provision-indri
 
 on:
@@ -64,6 +65,10 @@ on:
         description: 'Full 40-char blumeops commit whose nix-darwin generation to apply to indri'
         required: true
         type: string
+
+concurrency:
+  group: provision-indri
+  cancel-in-progress: false
 
 jobs:
   gate:

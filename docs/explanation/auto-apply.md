@@ -138,10 +138,23 @@ is gone.
 ## Runner preflight
 
 Before consuming anything privileged, a `preflight` job queries
-`GET /repos/{repo}/actions/runners` with a dedicated read-only-scoped
-Actions PAT: a new `blumeops-ci` vault item (e.g. `forge-actions-readonly`),
-with no `write:repository` — the property that matters, so a PR job that
-ever sees it gains nothing. Never the write PAT. The preflight fails closed:
+`GET /repos/{repo}/actions/runners` with a dedicated Actions PAT scoped
+exactly `read:repository`: the runners endpoint sits in the repository
+scope category (GET derives the read level), and `read:actions` does not
+cover runner management — Forgejo keeps the runner/secret/variable routes
+on the repository scope — so the token's user must own the repo. No write
+scope, hence no merge capability; the property that matters is a PR job
+that ever sees it gains nothing. Never the write PAT. The secret is
+declared in `forge/actions-secrets.json`, its value source in
+forge-reconcile's `ACTIONS_SECRET_SOURCES` allowlist
+(`op://blumeops-ci/forge-actions-readonly/token`); the human mints the
+`read:repository` PAT, stores it in that `blumeops-ci` item, and runs
+`mise run forge-reconcile` from gilbert, which PUTs the Actions secret.
+Declaring the name (not hand-setting it in the forge UI) is what makes
+forge-reconcile authoritative for both name and value: `--check` fails on
+any live secret name missing from the file, and a hand-set value would
+never pass through the allowlisted 1Password source. The preflight fails
+closed:
 a missing token, an unreachable API, or no online runner for the required
 label means the run goes red with an ntfy post to `ops-approvals`. The
 online means the runners API's own server-side status (`idle`/`active`),
@@ -185,12 +198,16 @@ The class cannot pretend to know more than the run mechanics allow.
 
 ## Concurrency
 
-`priv` is one scoped instance (capacity 1) and `indri-priv` one host-mode
-runner, so two rapid merges queue rather than cancel: no
-`concurrency: cancel-in-progress` on these workflows. Each run applies its
-own SHA, in merge order — the queue order is the merge order, and the gate
-binds each run to its own commit. Two launcher-side guards (#1566) keep an
-out-of-order outcome from being possible even when the queue can't:
+Each host workflow carries a top-level `concurrency:` group — the
+workflow's own name, `cancel-in-progress: false` — so two runs of the same
+workflow never overlap, including the `gate`/`preflight` jobs that run on
+a different label. `priv` is one scoped instance (capacity 1) and
+`indri-priv` one host-mode runner: the capacity-1 apply labels are a
+second serialization layer, and merge order is preserved — newer runs
+queue, never cancel. Each run applies its own SHA, in merge order — the
+queue order is the merge order, and the gate binds each run to its own
+commit. Two launcher-side guards (#1566) keep an out-of-order outcome from
+being possible even when the queue can't:
 
 - **supersede-skip** — right before its switch/rebuild, each host checks
   whether `origin/main` has moved past its own SHA (`git fetch` +

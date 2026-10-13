@@ -43,7 +43,8 @@
 # job refuses anything that is not the merge commit of a merged PR
 # (fail-closed, 404 = refuse); the preflight job refuses when no online
 # runner serves `priv`. workflow_dispatch remains the manual fallback and
-# runs the same gate/preflight.
+# runs the same gate/preflight. Runs of the workflow are serialized by its
+# top-level `concurrency` group (`cancel-in-progress: false`).
 name: ringtail-rebuild
 
 on:
@@ -57,6 +58,10 @@ on:
         description: 'Full 40-char blumeops commit to apply to ringtail'
         required: true
         type: string
+
+concurrency:
+  group: ringtail-rebuild
+  cancel-in-progress: false
 
 jobs:
   gate:
