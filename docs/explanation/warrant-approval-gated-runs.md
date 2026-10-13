@@ -1,6 +1,6 @@
 ---
 title: "Warrant: Approval-Gated Privileged Runs"
-modified: 2026-09-18
+modified: 2026-10-13
 last-reviewed: 2026-09-16
 tags:
   - explanation
@@ -352,16 +352,22 @@ to mirror into heph wholesale.
 
 ### Phase 2 — Scope and blast radius
 
-- **Vault tiering done properly.** Complete the three-tier taxonomy from
-  Phase 1: audit which items each workflow actually reads and move *only
-  those* into `blumeops-ci`; everything else stays in `blumeops`, human-only.
-  `provision-indri.yaml` landed as the narrow rebuild-only warrant (the
-  rebuild path reads no vault, so it never waited on this tier); only
-  `provision-ringtail.yaml` remains open here — see Phase 1's workflow list
-  for its runner constraints. The
-  ringtail-side decomposition started with `ringtail-rebuild.yaml`: the
-  rebuild-only warrant landed on the priv runner first; the full ansible
-  play stays `deny` until this tier completes.
+- **Vault tiering — superseded for the provision path (2026-10-13).**
+  The plan to move per-role secrets into `blumeops-ci` so
+  `provision-ringtail` could be narrowed is superseded by the seed-file
+  pattern ([[seed-secrets]],
+  [eblume/blumeops#1524](https://forge.ops.eblu.me/eblume/blumeops/issues/1524)):
+  no provision secret moves into `blumeops-ci`. The blumeops vault stays
+  human-only, and the nix apply path reads no vault — secrets are
+  host-resident files the nix config references by path, seated by the
+  human-run `seed-secrets` task (ringtail's on-host seeding `pre_tasks`
+  are retired; the play's only remaining vault reads are the two 1Password
+  Connect fetches, consumed in-cluster — the open follow-on in that
+  issue). The decomposed rebuild paths are the proof a role needs no item
+  copy: vault-free, they are auto-applied on merge (`class: auto`,
+  [[auto-apply]]); the full plays stay non-requestable on their vault
+  reads — `provision-ringtail` still `deny`, indri's full provision still
+  a human window — not on a missing tier.
 - **Dedicated privileged runner.** Move privileged workflows off
   `erichblume@indri` host-mode onto a purpose-built runner (NixOS container or
   VM, own uid, own `tag:ci` tailnet identity, egress-allowlisted like the
