@@ -196,6 +196,11 @@ def test_unchanged_sidecar_posts_nothing_again(watcher):
     assert r2.returncode == 0, r2.stderr
     assert len(watcher.posts()) == 1
 
+    # a settled key stays settled: no re-post on a third pass
+    r3 = watcher.run()
+    assert r3.returncode == 0, r3.stderr
+    assert len(watcher.posts()) == 1
+
 
 def test_second_failure_new_mtime_posts_again(watcher):
     watcher.sidecar("def456", watcher.spec["failed"], mtime=1_700_000_000)
@@ -247,6 +252,11 @@ def test_stale_started_sidecar_alerts_stalled(watcher):
     assert watcher.spec["stalled_title"] in posts[0]["title"]
     # the staleness post settles the key until the sidecar changes
     assert watcher.key("fedcba") in watcher.seen_lines()
+
+    # a settled stalled key stays settled on the next pass
+    r2 = watcher.run()
+    assert r2.returncode == 0, r2.stderr
+    assert len(watcher.posts()) == 1
 
 
 # --- retry a failed post -------------------------------------------------

@@ -1,63 +1,76 @@
 #!/bin/sh
-# Watches indri-rebuild verdict sidecars and ntfys ops-approvals on any
-# outcome other than 0/superseded, so a failed switch alerts on its own.
-# Launchd agent (mcquack.eblume.indri-rebuild-watcher); a verdict is
-# re-posted until the post lands, so a missed alert only ever duplicates,
-# never loses.
+# Watches indri-rebuild sidecars and ntfys ops-approvals on two conditions:
+# any verdict other than 0/superseded, and a "started" sidecar that never
+# reached a verdict (a hung or killed switch, a reboot, a power loss) - a
+# launch with no verdict is otherwise silence. Launchd agent
+# (mcquack.eblume.indri-rebuild-watcher); a verdict is re-posted until the
+# post lands, so a missed alert only ever duplicates, never loses. A failed
+# verdict alerts once per sidecar and again only if the sidecar itself
+# changes. STATUS_DIR / WATCHER_SEEN / NTFY_TOPIC exist for tests.
 
 set -eu
 
-dir=/var/log/indri-rebuild
-seen=/opt/homebrew/var/log/mcquack.indri-rebuild-watcher.seen
-topic=https://ntfy.ops.eblu.me/ops-approvals
+dir="${STATUS_DIR:-/var/log/indri-rebuild}"
+seen="${WATCHER_SEEN:-/opt/homebrew/var/log/mcquack.indri-rebuild-watcher.seen}"
+topic="${NTFY_TOPIC:-https://ntfy.ops.eblu.me/ops-approvals}"
+now=$(date +%s)
+# A sidecar in flight past this with no verdict is presumed dead.
+stale=$((90 * 60))
 
-# First run after install: seed with the existing sidecars so pre-existing
-# verdicts don't raise a retroactive alert.
-if [ ! -e "$seen" ]; then
-  : > "$seen"
-  for f in "$dir"/*.status; do
-    [ -e "$f" ] || continue
-    printf '%s\n' "${f##*/}" >> "$seen"
-  done
-  exit 0
-fi
+# $1=title $2=body; 0 when the post landed.
+post() {
+  curl -fsS -m 10 -X POST \
+    -H "Title: $1" \
+    -H "Tags: heavy_exclamation_mark" \
+    -H "Priority: high" \
+    --data "$2" "$topic" >/dev/null 2>&1
+}
 
-# Rewrite seen each pass, pruning names whose sidecar is gone - a re-applied
-# sha is a new verdict and must alert again if it fails. A name is settled
-# (recorded in the new seen file) once its verdict is silent or its post
-# landed; a failed post is retried next pass.
+# Key every sidecar by name+mtime (darwin stat) so a re-run of the same SHA
+# or of "main" writes a new file and re-alerts on a second failure. A key
+# stays in the new seen file once settled; a failed post is retried next
+# pass. "started <epoch>" sidecars stay out of the seen file while fresh -
+# an in-flight switch must not alert - and once stale the staleness post
+# settles them until the sidecar changes.
 tmp="$seen.tmp.$$"
 : > "$tmp"
 for f in "$dir"/*.status; do
   [ -e "$f" ] || continue
   name=${f##*/}
-  # Carried over by default; a not-yet-seen name must settle (silent verdict
-  # or landed post) this pass or it is retried.
-  settled=1
-  if ! grep -qxF "$name" "$seen"; then
-    settled=0
-    value=$(cat "$f" 2>/dev/null || true)
-    case "$value" in
-      0 | superseded) settled=1 ;;
-      *)
-        if [ -n "$value" ]; then
-          data="sha ${name%.status} status=$value
-$(tail -c 1500 "$dir/${name%.status}.log" 2>/dev/null || true)"
-          if curl -fsS -m 10 -X POST \
-            -H "Title: indri switch failed: $name" \
-            -H "Tags: heavy_exclamation_mark" \
-            -H "Priority: high" \
-            --data "$data" "$topic" >/dev/null 2>&1; then
-            settled=1
-          else
-            echo "indri-rebuild-watcher: ntfy post failed for $name; retrying" >&2
-          fi
+  key="$name:$(stat -f %m "$f")"
+  if [ -e "$seen" ] && grep -qxF "$key" "$seen"; then
+    # Settled on a previous pass - carry it over so it stays settled.
+    printf '%s\n' "$key" >> "$tmp"
+    continue
+  fi
+  value=$(cat "$f" 2>/dev/null || true)
+  case "$value" in
+    0 | superseded)
+      printf '%s\n' "$key" >> "$tmp"
+      ;;
+    "started "*)
+      age=$((now - $(stat -f %m "$f")))
+      if [ "$age" -lt "$stale" ]; then
+        continue
+      fi
+      echo "indri switch has no verdict $((age / 60)) min after launch: $key" >&2
+      if post "indri switch stalled: $name" "sha ${name%.status} - started sidecar has no verdict after $((age / 60)) min (log: $dir/${name%.status}.log)"; then
+        printf '%s\n' "$key" >> "$tmp"
+      fi
+      ;;
+    *)
+      if [ -n "$value" ]; then
+        echo "indri switch verdict $value: $key" >&2
+        if post "indri switch failed: $name" "sha ${name%.status} status=$value
+$(tail -c 1500 "$dir/${name%.status}.log" 2>/dev/null || true)"; then
+          printf '%s\n' "$key" >> "$tmp"
         fi
-        ;;
-    esac
-  fi
-  if [ "$settled" -eq 1 ]; then
-    printf '%s\n' "$name" >> "$tmp"
-  fi
+      else
+        # An empty sidecar is a torn write from a crash; leave it for the
+        # next pass, but do not alert on empty text.
+        :
+      fi
+      ;;
+  esac
 done
 mv -f "$tmp" "$seen"

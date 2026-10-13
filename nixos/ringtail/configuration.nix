@@ -938,14 +938,18 @@ in
   };
 
   # ringtail-apply-watcher: scans /var/log/ringtail-apply/*.status and ntfys
-  # ops-approvals on any verdict other than success/superseded, so a failed
-  # apply alerts on its own. Timer-triggered, like the heph install units.
+  # ops-approvals on any verdict other than success/superseded, and on a
+  # started sidecar that never reached a verdict. Timer-triggered, like the
+  # heph install units.
   systemd.services."ringtail-apply-watcher" = {
     description = "Alert on failed ringtail applies (ringtail-apply-watcher)";
     restartIfChanged = false;
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "/etc/ringtail-apply/watcher";
+      # The default service PATH has no curl or coreutils - the same explicit
+      # environment the ringtail-apply@ unit above carries.
+      Environment = [ "PATH=/run/current-system/sw/bin:/usr/bin:/bin" ];
     };
   };
   systemd.timers."ringtail-apply-watcher" = {

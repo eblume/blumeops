@@ -341,8 +341,8 @@
       when: indri_blumeops_repo.changed
       tags: [rebuild]
 
-    # The detached shell writes <sha>.status (its verdict) last; the wait
-    # below polls for it. A timeout here does not kill the rebuild - it
+    # The detached shell writes <sha>.status (started <epoch> at launch, its
+    # verdict last); the wait below polls for it. A timeout here does not kill the rebuild - it
     # keeps running detached; read /var/log/indri-rebuild/<sha>.log.
     #
     # indri_rebuild_wait=false (the provision-indri workflow) skips the wait:
@@ -394,14 +394,19 @@
         done
         echo $$ > /var/log/indri-rebuild/.switch.lock/pid
         trap "sudo -n rm -rf /var/log/indri-rebuild/.switch.lock" EXIT
-        # origin/main moved past this SHA; record superseded and skip (40-hex only).
-        if printf %s "$sha" | grep -Eq "^[0-9a-f]{40}$"; then
-          git -C /etc/blumeops fetch origin --quiet &&
-          if [ "$(git -C /etc/blumeops rev-parse origin/main)" != "$sha" ] && git -C /etc/blumeops merge-base --is-ancestor "$sha" origin/main; then
-            echo superseded > /var/log/indri-rebuild/"$sha".status.tmp && mv /var/log/indri-rebuild/"$sha".status.tmp /var/log/indri-rebuild/"$sha".status
-            exit 0
-          fi
+        # origin/main moved past this SHA. Skip only when a newer run is
+        # coming: a trigger-paths merge (the push filter in
+        # .forgejo/workflows/provision-indri.yaml - keep it in sync) already
+        # started one; a merge to anything else starts nothing. The != main
+        # guard skips human runs, which apply the live tip by design.
+        if [ "$sha" != "main" ] && git -C /etc/blumeops fetch origin --quiet && [ "$(git -C /etc/blumeops rev-parse origin/main)" != "$sha" ] && git -C /etc/blumeops merge-base --is-ancestor "$sha" origin/main && ! git -C /etc/blumeops diff --quiet "$sha" origin/main -- darwin/indri/; then
+          echo superseded > /var/log/indri-rebuild/"$sha".status.tmp && mv /var/log/indri-rebuild/"$sha".status.tmp /var/log/indri-rebuild/"$sha".status
+          exit 0
         fi
+        # Non-terminal sidecar while the switch is in flight: the watcher
+        # alerts on it if no verdict follows (hang, panic, power loss). The
+        # last line overwrites it with the exit code.
+        echo "started $(date +%s)" > /var/log/indri-rebuild/"$sha".status.tmp && mv /var/log/indri-rebuild/"$sha".status.tmp /var/log/indri-rebuild/"$sha".status
         {{ indri_darwin_rebuild.stdout }} switch --flake /etc/blumeops/darwin/indri#indri > /var/log/indri-rebuild/{{ indri_apply_target }}.log 2>&1; echo $? > /var/log/indri-rebuild/{{ indri_apply_target }}.status.tmp && mv /var/log/indri-rebuild/{{ indri_apply_target }}.status.tmp /var/log/indri-rebuild/{{ indri_apply_target }}.status
         ' </dev/null >/dev/null 2>&1 &
         REBUILD_PID=$!
@@ -428,7 +433,7 @@
       tags: [rebuild]
 
     - name: Wait for the darwin-rebuild to finish
-      ansible.builtin.command: "test -f /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status"
+      ansible.builtin.shell: "st=$(cat /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status 2>/dev/null || echo none); case $st in started*) exit 1 ;; none) exit 1 ;; esac"
       register: indri_rebuild_done
       changed_when: false
       failed_when: false

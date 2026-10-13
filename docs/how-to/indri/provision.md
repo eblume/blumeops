@@ -72,7 +72,7 @@ test initially found BTM disallowing the daemon; see below).
 
 If a run dies mid-rebuild (session drop, pod replacement, the wait
 timing out), the switch keeps running detached and will have left
-`/var/log/indri-rebuild/<sha>.status` (the switch exit code, or a recorded skip verdict) and `.log`. The play
+`/var/log/indri-rebuild/<sha>.status` (`started <epoch>` while in flight, then the switch exit code, or a recorded skip verdict) and `.log`. The play
 only rebuilds when the checkout changes, so re-running the same commit
 reports clean and does not retry: read the status file before re-applying,
 and fix forward with a new commit if the switch failed. A failed switch

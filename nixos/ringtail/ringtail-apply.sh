@@ -23,8 +23,10 @@ sha="${1:-}"
 }
 
 # A leftover sidecar from an earlier apply of this SHA would masquerade as this
-# apply's verdict.
+# apply's verdict; the "started" sidecar below stands in for it and gets the
+# watcher's no-verdict staleness alert if nothing ever overwrites it.
 rm -f /var/log/ringtail-apply/"${sha}.status"
+echo "started $(date +%s)" > /var/log/ringtail-apply/"${sha}.status.tmp"   && mv -f /var/log/ringtail-apply/"${sha}.status.tmp" /var/log/ringtail-apply/"${sha}.status"
 
 status=interrupted
 write_status() {
@@ -74,12 +76,20 @@ git merge-base --is-ancestor "${sha}^{commit}" origin/main || {
   echo "ringtail-apply: ${sha} is not on origin/main; only merged commits can be applied" >&2
   exit 3
 }
-# Main has moved past this SHA; a newer apply supersedes this one (the fetch
-# above already made origin/main current).
-if [ "$(git rev-parse origin/main)" != "$sha" ]; then
-  echo "ringtail-apply: ${sha} superseded by origin/main $(git rev-parse origin/main); skipping"
-  status=superseded
-  exit 0
+main_sha=$(git rev-parse origin/main)
+# Main has moved past this SHA. Skip only when a newer run is coming: a
+# trigger-paths merge already started one. A merge to anything else triggers
+# nothing, so skipping there drops this apply for good; apply the bound,
+# pre-flighted SHA instead. (Trigger paths mirror the push filter in
+# .forgejo/workflows/ringtail-rebuild.yaml - keep them in sync.)
+if [ "$main_sha" != "$sha" ]; then
+  if git diff --quiet "$sha" origin/main -- nixos/ringtail/; then
+    echo "ringtail-apply: origin/main ($main_sha) is ahead but nixos/ringtail/ is unchanged - no newer run is coming; applying the bound sha"
+  else
+    echo "ringtail-apply: ${sha} superseded by origin/main $main_sha; skipping"
+    status=superseded
+    exit 0
+  fi
 fi
 git checkout --detach --quiet "$sha"
 
