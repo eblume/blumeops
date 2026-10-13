@@ -3,6 +3,8 @@
 # Replaces the minikube-hosted runner ([[retire-minikube]] phase 0).
 # Runner identity (uuid/token) is fetched from 1Password in the
 # playbook pre_tasks ("Forgejo Secrets" → runner_indri_uuid/token).
+# Labels and capacities below mirror forge/runners.json (eblume/blumeops#1526)
+# until this role leaves Ansible (#1528) — keep them in step.
 
 # Target of the (skipped-by-default) rollback re-write: the source checkout
 # in ~/code/3rd/forgejo-runner. The live unit runs the nixpkgs package

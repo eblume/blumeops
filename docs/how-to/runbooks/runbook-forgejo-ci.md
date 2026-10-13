@@ -23,7 +23,8 @@ dashboard's CI rows are built on the same metrics.
 
 A configured runner hasn't polled Forgejo for 10 minutes. Jobs for its
 label queue until it comes back. "Configured" means it has a
-`forgejo_ci_runner_capacity` line in the collector script.
+`forgejo_ci_runner_capacity` line, generated from `forge/runners.json` by
+darwin/indri/configuration.nix.
 
 | Runner | Host | Service |
 |--------|------|---------|
@@ -34,6 +35,8 @@ label queue until it comes back. "Configured" means it has a
 | `ringtail-nix-builder-talos` | [[ringtail]] | `gitea-runner-nix_container_builder_talos.service` |
 | `ringtail-priv-runner` | [[ringtail]] | `gitea-runner-priv.service` |
 
+The Runner and Service columns mirror `forge/runners.json` (name and unit).
+
 1. **Check the host is up.** For ringtail runners, `ssh ringtail systemctl status
    gitea-runner-<instance>`. For indri runners, `ssh indri launchctl list | grep
    forgejo-runner`.
@@ -43,9 +46,9 @@ label queue until it comes back. "Configured" means it has a
 3. **`indri-build` specifically:** its daemon waits for the colima socket
    (`~indri-build/.colima/indri-build/docker.sock`). After an indri reboot, colima
    can take minutes to come up.
-4. **A runner was deliberately renamed or retired:** update the
-   `forgejo_ci_runner_capacity` lines in the collector script, so the alert
-   watches the runners that actually exist.
+4. **A runner was deliberately renamed or retired:** update the runner's
+   `capacity` in `forge/runners.json`, so the alert watches the runners
+   that actually exist.
 
 ## ForgejoCICollectorDown
 

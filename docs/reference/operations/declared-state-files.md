@@ -1,7 +1,7 @@
 ---
 title: Declared-State Files
-modified: 2026-10-12
-last-reviewed: 2026-10-12
+modified: 2026-10-13
+last-reviewed: 2026-10-13
 tags:
   - reference
   - operations
@@ -47,6 +47,7 @@ inventory. Add a row when you add a file.
 |------|----------|------------|-------|---------------|
 | `argocd/manifests/talos/repos.json` | which repos the `agents` bot may touch, the pod clone pool, which repos get the forge webhooks | `mise run forge-reconcile` | `forge-reconcile --check` (weekly, PR) | the talos pod entrypoint, via a kustomize ConfigMap |
 | `forge/branch-protections.json` | branch protection rules on `main` | `mise run forge-reconcile` | same | none |
+| `forge/runners.json` | runner topology: name, host, labels, scope, capacity, unit | `mise run forge-reconcile` | `forge-reconcile --check` | `nixos/ringtail/configuration.nix`, `darwin/indri/configuration.nix` |
 | `warrant-policy.yaml` | which workflows are requestable, their class, input schemas, SHA binding | none; it is read at request and dispatch time | `request-run` refuses at request time | `mise run request-run`, [[horkos]] |
 | `service-versions.yaml` | per-service review freshness and current version | `mise run service-review` (human, updates the file) | `container-version-check` for container pins | `forge-name-lint`, one ringtail nix pin |
 | `mise-tasks/forge-name-lint.allowlist.yaml` | exceptions to the forge-name lint | `mise run forge-name-lint` | the lint itself | none |
@@ -57,7 +58,6 @@ Planned, filed as issues on 2026-10-12:
 | File | Declares | Issue |
 |------|----------|-------|
 | `darwin/indri/secrets.json`, `nixos/ringtail/secrets.json` | on-host secret files by path, `op://` source, owner, mode, unit to restart | eblume/blumeops#1524 (`mise run seed-secrets`) |
-| `forge/runners.json` | runner topology: name, host, labels, scope, capacity | eblume/blumeops#1526 |
 | talos instance document | forge URL, bot login, creator allowlist, horkos and argocd endpoints | eblume/talos#314 |
 
 ## What is not a declared-state file
