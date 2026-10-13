@@ -1,0 +1,235 @@
+{
+  "pages": [
+    {
+      "pagination": {
+        "next": 2,
+        "previous": 0,
+        "count": 29,
+        "current": 1,
+        "total_pages": 2,
+        "start_index": 1,
+        "end_index": 20
+      },
+      "results": [
+        {
+          "last_applied": "2026-10-04T02:15:00.000Z",
+          "name": "default",
+          "path": "default/README.md",
+          "pk": 1,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T02:16:00.000Z",
+          "name": "system",
+          "path": "system/README.md",
+          "pk": 2,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T12:40:00.000Z",
+          "name": "ci-authentik-blueprints",
+          "path": "custom/ci-authentik-blueprints.yaml",
+          "pk": 3,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:02:00.000Z",
+          "name": "migrations-0001",
+          "path": "migrations/0001.md",
+          "pk": 98,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-00",
+          "path": "default/builtin-00.md",
+          "pk": 4,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-01",
+          "path": "default/builtin-01.md",
+          "pk": 5,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-02",
+          "path": "default/builtin-02.md",
+          "pk": 6,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-03",
+          "path": "default/builtin-03.md",
+          "pk": 7,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-04",
+          "path": "default/builtin-04.md",
+          "pk": 8,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-05",
+          "path": "default/builtin-05.md",
+          "pk": 9,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-06",
+          "path": "default/builtin-06.md",
+          "pk": 10,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-07",
+          "path": "default/builtin-07.md",
+          "pk": 11,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-08",
+          "path": "default/builtin-08.md",
+          "pk": 12,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-09",
+          "path": "default/builtin-09.md",
+          "pk": 13,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-10",
+          "path": "default/builtin-10.md",
+          "pk": 14,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-11",
+          "path": "default/builtin-11.md",
+          "pk": 15,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-12",
+          "path": "default/builtin-12.md",
+          "pk": 16,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-13",
+          "path": "default/builtin-13.md",
+          "pk": 17,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-14",
+          "path": "default/builtin-14.md",
+          "pk": 18,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-15",
+          "path": "default/builtin-15.md",
+          "pk": 19,
+          "status": "successful"
+        }
+      ],
+      "autocomplete": {}
+    },
+    {
+      "pagination": {
+        "next": 0,
+        "previous": 1,
+        "count": 29,
+        "current": 2,
+        "total_pages": 2,
+        "start_index": 21,
+        "end_index": 29
+      },
+      "results": [
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-16",
+          "path": "default/builtin-16.md",
+          "pk": 20,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-17",
+          "path": "default/builtin-17.md",
+          "pk": 21,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-18",
+          "path": "default/builtin-18.md",
+          "pk": 22,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-19",
+          "path": "default/builtin-19.md",
+          "pk": 23,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-20",
+          "path": "default/builtin-20.md",
+          "pk": 24,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-21",
+          "path": "default/builtin-21.md",
+          "pk": 25,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-22",
+          "path": "default/builtin-22.md",
+          "pk": 26,
+          "status": "successful"
+        },
+        {
+          "last_applied": "2026-10-04T03:00:00.000Z",
+          "name": "builtin-23",
+          "path": "default/builtin-23.md",
+          "pk": 27,
+          "status": "successful"
+        },
+        {
+          "last_applied": null,
+          "name": "stale-builtin",
+          "path": "system/stale.md",
+          "pk": 99,
+          "status": "error"
+        }
+      ],
+      "autocomplete": {}
+    }
+  ]
+}

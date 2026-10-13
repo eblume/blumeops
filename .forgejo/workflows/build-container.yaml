@@ -65,6 +65,32 @@ jobs:
           echo "nix=$NIX" >> "$GITHUB_OUTPUT"
           echo "Nix builds: $NIX"
 
+  # Unit tests for the nix-built containers that have in-repo Python
+  # tests. The nix build above can only prove the image assembles, so the
+  # metric semantics (error-recency across delete/re-create, empty list =
+  # failed poll) are tested here against the API fixtures (eblume/blumeops#1444).
+  container-test:
+    needs: detect
+    if: contains(fromJson(needs.detect.outputs.nix), 'authentik-blueprint-exporter')
+    runs-on: indri-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run exporter unit tests
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
+          uv run --script mise-tasks/exporter-self-test 2>&1 | tee "$RUNNER_TEMP/exporter-self-test.log"
+
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: exporter-self-test.log
+
   build-nix:
     needs: detect
     if: needs.detect.outputs.nix != '[]'

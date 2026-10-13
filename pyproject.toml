@@ -461,4 +461,8 @@ select = [
 python-version = "3.13"
 
 [tool.ty.src]
-exclude = ["pulumi/", "containers/transmission-exporter/"]
+exclude = [
+  "pulumi/",
+  "containers/transmission-exporter/",
+  "containers/authentik-blueprint-exporter/",
+]
