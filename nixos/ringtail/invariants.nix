@@ -16,6 +16,20 @@ let
   # checking any one covers all.
   nixBuilderUser = config.systemd.services.gitea-runner-nix_container_builder_blumeops.serviceConfig.User or null;
   nixTrustedUsers = config.nix.settings.trusted-users or [ ];
+
+  # Secrets lockstep with secrets.json (eblume/blumeops#1524): every path the
+  # nix config references must be declared in the manifest, and every declared
+  # path must be referenced. `referenced` collects the option-driven
+  # tokenFiles (k3s.tokenFile, gitea-actions-runner instances) plus the one
+  # explicit path agent-heph-spoke.nix reads from its `let`, not from an
+  # option — keep this list in sync when adding referrers.
+  secrets = builtins.fromJSON (builtins.readFile ./secrets.json);
+  declared = builtins.map (s: s.path) secrets.secrets;
+  referenced = lib.unique (
+    lib.optional (config.services.k3s.tokenFile or null != null) config.services.k3s.tokenFile
+    ++ lib.filter (t: t != null) (lib.mapAttrsToList (_: i: i.tokenFile or null) (config.services.gitea-actions-runner.instances or { }))
+    ++ [ "/etc/agents/op-token" ]
+  );
 in
 {
   assertions = [
@@ -50,6 +64,23 @@ in
     {
       assertion = ! k3s.enable || lib.elem "--write-kubeconfig-mode=600" k3sFlags;
       message = "ringtail: k3s must keep writing its kubeconfig mode 600 (--write-kubeconfig-mode=600 in services.k3s.extraFlags) — a world-readable admin kubeconfig gives the unprivileged `agent` user cluster-admin. To lift: change the agent authorization model deliberately in the same PR and remove this entry.";
+    }
+    # Secrets lockstep, direction 1: the nix config references only declared
+    # secret paths, so the apply path always has a declared owner for the file.
+    {
+      assertion = lib.all (p: lib.elem p declared) referenced;
+      message = let
+        missing = lib.filter (p: ! lib.elem p declared) referenced;
+      in "ringtail: the nix config references secret ${lib.concatMapStringsSep ", " (p: "<${p}>") missing} that is not declared in nixos/ringtail/secrets.json — the apply path would have no declared owner for it. eblume/blumeops#1524. To lift: add the entry to the manifest in the same PR, or remove this entry in the same PR if the reference is deliberate.";
+    }
+    # Secrets lockstep, direction 2: every declared path is referenced, so a
+    # dead declaration — a typo, or a copy task the manifest was meant to
+    # retire — fails the build instead of lingering.
+    {
+      assertion = lib.all (p: lib.elem p referenced) declared;
+      message = let
+        dead = lib.filter (p: ! lib.elem p referenced) declared;
+      in "ringtail: secrets.json declares ${lib.concatMapStringsSep ", " (p: "<${p}>") dead} that no part of the nix config references — a dead declaration is a typo in the manifest, or a copy task the manifest was supposed to retire. eblume/blumeops#1524. To lift: reference the path from the config, or remove the entry from the manifest in the same PR.";
     }
   ];
 }
