@@ -19,21 +19,9 @@ How to set up a Forgejo Actions workflow that builds an artifact and publishes i
 - A Forgejo repo with a build pipeline (Dagger, script, etc.)
 - The `FORGE_TOKEN` Forgejo Actions secret (this pattern predates the in-code values half; the retired `forgejo_actions_secrets` Ansible role used to provision it — set the secret via the forge UI or API)
 
-## 1. Add the repo to Ansible secrets
+## 1. The repo's `FORGE_TOKEN` secret
 
-In `ansible/roles/forgejo_actions_secrets/defaults/main.yml`, add an entry under `forgejo_actions_secrets_repos`:
-
-```yaml
-forgejo_actions_secrets_repos:
-  - repo: my-repo
-    secrets:
-      - name: FORGE_TOKEN
-        value_var: forgejo_api_token
-```
-
-Then provision: `mise run provision-indri -- --tags forgejo_actions_secrets`
-
-This is required because Forgejo's built-in `GITHUB_TOKEN` does not have permissions for the packages API.
+Actions-secret names are now declared in `forge/actions-secrets.json` and their values applied from 1Password by `mise run forge-reconcile` (see [[forgejo]]'s Actions Secrets section). This pattern's `FORGE_TOKEN` predates that mechanism and is not declared there: set the secret via the forge UI or API (the reference repo `cv` declares no secrets, so the next human apply of `forge-reconcile` deletes it). That is required because Forgejo's built-in `GITHUB_TOKEN` does not have permissions for the packages API.
 
 ## 2. Create the workflow
 
