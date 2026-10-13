@@ -3,7 +3,24 @@ let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
   # The four *-metrics collectors feeding alloy's node_exporter textfile dir (PR 4 moved them here).
   mcquackBorgmaticMetrics = pkgs.writeScript "mcquack-borgmatic-metrics" (builtins.readFile ./mcquack-borgmatic-metrics.sh);
-  mcquackForgejoMetrics = pkgs.writeScript "mcquack-forgejo-metrics" (builtins.readFile ./mcquack-forgejo-metrics.sh);
+  # Capacity lines are generated from forge/runners.json
+  # (eblume/blumeops#1526), validated by forge/runners.nix. The read is
+  # relative to this flake root, which is only part of a larger git checkout
+  # (/etc/blumeops, CI checkouts) — it holds only while the file is
+  # git-tracked at the repo root and the apply runs from a checkout. The
+  # lines go to their own store file and only its path is spliced into the
+  # script, so no runners.json value ever becomes shell text; the assert
+  # turns a renamed placeholder into an eval failure instead of a silent
+  # no-op (an unparseable textfile drops every CI metric).
+  forgejoRunnerCapacity = pkgs.writeText "forgejo-runner-capacity.prom"
+    (lib.concatMapStrings (r: "forgejo_ci_runner_capacity{runner=\"${r.name}\"} ${toString r.capacity}\n")
+      (import ../../forge/runners.nix { inherit lib; }));
+  forgejoMetricsSrc = builtins.readFile ./mcquack-forgejo-metrics.sh;
+  mcquackForgejoMetrics =
+    assert lib.assertMsg (lib.hasInfix "@runnerCapacityFile@" forgejoMetricsSrc)
+      "darwin/indri/mcquack-forgejo-metrics.sh lost its @runnerCapacityFile@ placeholder";
+    pkgs.writeScript "mcquack-forgejo-metrics"
+      (lib.replaceStrings [ "@runnerCapacityFile@" ] [ "${forgejoRunnerCapacity}" ] forgejoMetricsSrc);
   mcquackJellyfinMetrics = pkgs.writeScript "mcquack-jellyfin-metrics" (builtins.readFile ./mcquack-jellyfin-metrics.sh);
   mcquackZotMetrics = pkgs.writeScript "mcquack-zot-metrics" (builtins.readFile ./mcquack-zot-metrics.sh);
   sifakaMounter = pkgs.writeScript "mount-sifaka" (builtins.readFile ./mount-sifaka.sh);
@@ -107,6 +124,23 @@ in
     /bin/zsh
     /opt/homebrew/bin/fish
   '';
+
+  # Homebrew is generation-managed: every activation bundles the set below
+  # (never cleaning up, upgrading, or auto-updating). tailscale is the SSH
+  # path, and services.tailscale would load a second tailscaled beside the
+  # brew root daemon, so the daemon stays brew-owned. eblume/blumeops#1538
+  homebrew.enable = true;
+  homebrew.brews = [
+    "tailscale"
+    # Adopted at 2026.4.11 (2026-10-12). bundle cannot pin a formula version
+    # and onActivation.upgrade = false, so this never moves on its own;
+    # a bump is `brew upgrade mise` + update the Toolchain doc.
+    "mise"
+    "fish"
+  ];
+  homebrew.onActivation.cleanup = "none";
+  homebrew.onActivation.autoUpdate = false;
+  homebrew.onActivation.upgrade = false;
 
   # Never sleep: on 2026-09-16 Amphetamine (the only sleep guard) segfaulted and darked
   # *.ops.eblu.me; Amphetamine stays as the second layer. See [[indri]] §Maintenance Notes.

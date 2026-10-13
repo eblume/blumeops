@@ -148,11 +148,7 @@ apply runbook is [[provision]]:
   rollback order for the service migrations live in [[provision]].
 
 ## Toolchain
-**mise is the toolchain installer, and mise itself comes from Homebrew.**
-The indri play ensures `brew install mise` (`Install mise via Homebrew`,
-top of `pre_tasks`) and every mise call in the play and the roles goes
-through `indri_mise_bin` (`/opt/homebrew/bin/mise`), including the forgejo
-source build (`forgejo_mise_bin`).
+**mise is the toolchain installer, and mise itself comes from Homebrew,** which the indri generation now manages: the flake declares mise in `homebrew.brews` (`darwin/indri/configuration.nix`), and every activation runs `brew bundle` against that set without ever upgrading it (`homebrew.onActivation.upgrade = false`). Every mise call in the play and the roles goes through `indri_mise_bin` (`/opt/homebrew/bin/mise`), including the forgejo source build (`forgejo_mise_bin`). Adopted at mise 2026.4.11 (2026-10-12) — this line is the adopted-version record the bump procedure updates.
 
 **The global mise config is declarative.** Indri's global mise config
 (`~erichblume/.config/mise/config.toml`) is owned by the indri nix-darwin
@@ -193,10 +189,11 @@ entry landed in mise 2025.8.11) — while the prek shim already existing on
 PATH kept CI green. Leave the profile alone; the Homebrew mise supersedes
 it rather than depending on it.
 
-**Staleness guard:** the play fails at the top of `pre_tasks` if
-`indri_mise_bin --version` is below `indri_mise_min_version` (play vars in
-`ansible/playbooks/indri.yml`). `state: present` never upgrades, so this is
-the only thing that catches drift.
+**Staleness guard: retired.** The play's mise install task and the
+version-floor check it anchored retired with the Homebrew adoption. Bundle
+always runs with `--no-upgrade`, so nothing on indri upgrades mise — the
+staleness the floor guarded against has no source: a bump is a deliberate
+human act gated by the verification steps below.
 
 **Bumping mise** (human, on indri):
 
@@ -204,6 +201,8 @@ the only thing that catches drift.
 2. Verify: `mise --version`; `mise ls` and `mise prune --dry-run` exit 0
    with no registry error; `mise settings get go.set_goroot` → `false`;
    `mise run provision-indri -- --tags forgejo --check --diff` clean.
+3. Update the adopted-version record — the `homebrew.brews` comment in
+   `darwin/indri/configuration.nix` and the version named in this section.
 
 **Check the dry run before `mise prune`.** Tools the roles install with
 `mise install` rather than `mise use` (borgmatic, via

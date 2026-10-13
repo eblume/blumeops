@@ -282,18 +282,10 @@ if [ "$forgejo_up" -eq 1 ] && [ -n "$TOKEN" ]; then
 fi
 
 # --- CI metrics from the Forgejo DB (read-only) ---
-# Slots per runner, mirrored from each runner's config: indri-runner from
-# ansible/roles/forgejo_runner (forgejo_runner_capacity), indri-build from
-# its forgejo_runner_build_capacity, and the four ringtail runners from
-# nixos/ringtail/configuration.nix. Keep in step.
-cat << 'CAPACITY'
-forgejo_ci_runner_capacity{runner="indri-runner"} 2
-forgejo_ci_runner_capacity{runner="indri-build"} 4
-forgejo_ci_runner_capacity{runner="ringtail-nix-builder-blumeops"} 1
-forgejo_ci_runner_capacity{runner="ringtail-nix-builder-horkos"} 1
-forgejo_ci_runner_capacity{runner="ringtail-nix-builder-talos"} 1
-forgejo_ci_runner_capacity{runner="ringtail-priv-runner"} 1
-CAPACITY
+# Runner slots, generated from forge/runners.json by
+# darwin/indri/configuration.nix (eblume/blumeops#1526) into a store file
+# whose path replaces the placeholder at build time.
+cat "@runnerCapacityFile@"
 
 if ci_lines=$(ci_sql | /usr/bin/sqlite3 -readonly -cmd ".timeout 5000" "$FORGEJO_DB" 2>/dev/null); then
     echo "forgejo_ci_collector_up 1"
