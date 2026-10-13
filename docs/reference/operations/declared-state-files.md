@@ -51,12 +51,12 @@ inventory. Add a row when you add a file.
 | `service-versions.yaml` | per-service review freshness and current version | `mise run service-review` (human, updates the file) | `container-version-check` for container pins | `forge-name-lint`, one ringtail nix pin |
 | `mise-tasks/forge-name-lint.allowlist.yaml` | exceptions to the forge-name lint | `mise run forge-name-lint` | the lint itself | none |
 | `ansible/roles/forgejo_actions_secrets/` (role defaults) | the Actions secret *names* per repo | `mise run provision-indri -- --tags forgejo_actions_secrets` | `forge-reconcile --check` compares names | none |
+| `darwin/indri/secrets.json`, `nixos/ringtail/secrets.json` | on-host secret files by path, `op://` source, owner, mode, unit to restart | `mise run seed-secrets` | `seed-secrets --check` (weekly, vault-free) | the per-host flake invariant (invariants.nix lockstep) |
 
 Planned, filed as issues on 2026-10-12:
 
 | File | Declares | Issue |
 |------|----------|-------|
-| `darwin/indri/secrets.json`, `nixos/ringtail/secrets.json` | on-host secret files by path, `op://` source, owner, mode, unit to restart | eblume/blumeops#1524 (`mise run seed-secrets`) |
 | `forge/runners.json` | runner topology: name, host, labels, scope, capacity | eblume/blumeops#1526 |
 | talos instance document | forge URL, bot login, creator allowlist, horkos and argocd endpoints | eblume/talos#314 |
 
@@ -75,4 +75,6 @@ Planned, filed as issues on 2026-10-12:
   rather than tribal knowledge.
 - [[agents-forgejo-bot]] and [[add-a-freestanding-repo]] for `repos.json` in
   practice.
+- [[seed-secrets]] for seating the on-host secret files the per-host
+  `secrets.json` manifests declare.
 - [[security-model]] for the vault tiers the `op://` references point into.
