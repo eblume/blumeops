@@ -5,6 +5,10 @@ kind: PersistentVolumeClaim
 metadata:
   name: talos-home
   namespace: talos
+  # talos-home holds the session transcripts: opt it out of the app's
+  # prune: true so an edit that drops this file can't delete it.
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
 spec:
   accessModes:
     - ReadWriteOnce

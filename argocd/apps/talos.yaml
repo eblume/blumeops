@@ -27,7 +27,9 @@ spec:
   syncPolicy:
     # prune: the repos.json ConfigMap is kustomize-generated with a hash
     # suffix (that hash change is what rolls the pod on a policy merge), so
-    # each edit orphans the previous talos-repos-<hash> — prune is the GC.
+    # each edit orphans the previous talos-repos-<hash> — prune is the GC
+    # (talos-home is annotated Prune=false — it holds the session
+    # transcripts).
     automated:
       prune: true
     syncOptions:
