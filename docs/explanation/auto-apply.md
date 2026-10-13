@@ -173,9 +173,9 @@ The class cannot pretend to know more than the run mechanics allow.
 
 - **indri is fire-and-forget** (#1266): a green run means *launched*, not
   *switched*. The outcome is `/var/log/indri-rebuild/<sha>.status` on the
-  host (written when the switch ends), not the run's own exit code. A
-  follow-up PR adds the ringtail `.status` sidecar and per-host watchers
-  that ntfy on non-zero.
+  host (written when the switch ends), not the run's own exit code. #1566
+  adds the ringtail `.status` sidecar and per-host watchers that ntfy on
+  any verdict other than success.
 - **ringtail: green means applied** — except the documented nixpkgs-update
   case: when the applied commit restarts the priv runner unit, the job dies
   mid-rebuild and goes red even though the profile applies. The run log's
@@ -189,7 +189,20 @@ The class cannot pretend to know more than the run mechanics allow.
 runner, so two rapid merges queue rather than cancel: no
 `concurrency: cancel-in-progress` on these workflows. Each run applies its
 own SHA, in merge order — the queue order is the merge order, and the gate
-binds each run to its own commit.
+binds each run to its own commit. Two launcher-side guards (#1566) keep an
+out-of-order outcome from being possible even when the queue can't:
+
+- **supersede-skip** — right before its switch/rebuild, each host checks
+  whether `origin/main` has moved past its own SHA (`git fetch` +
+  `merge-base --is-ancestor`) and, if so, records a `superseded` sidecar
+  and exits clean instead of applying a commit a newer run is already
+  bringing; the run stays green and the watcher treats `superseded` as
+  silence — expected, not a failure.
+- **launcher lock** — indri's detached `darwin-rebuild switch` holds an
+  atomic `mkdir` lock (macOS has no flock; stale reclaim by pid file, a
+  ~30-minute cap, then a `lock-held` sidecar), so two switches can't race
+  with the older SHA finishing last. Ringtail adds a `flock` on top of
+  the capacity-1 queue (a `busy` sidecar on contention).
 
 ## When the apply breaks the host
 
