@@ -1,0 +1,1 @@
+forgejo_runner: the build-runner colima profile compare now matches the last render the role installed (a copy in the stage dir), because colima rewrites the live profile with its full defaults on start - and the three build-runner installs report honestly under --check.

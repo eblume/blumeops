@@ -58,6 +58,15 @@
       "unit": "gitea-runner-nix_container_builder_horkos.service"
     },
     {
+      "name": "ringtail-nix-builder-hephaestus",
+      "host": "ringtail",
+      "labels": ["nix-container-builder:host"],
+      "scope": "eblume/hephaestus",
+      "capacity": 1,
+      "privileged": false,
+      "unit": "gitea-runner-nix_container_builder_hephaestus.service"
+    },
+    {
       "name": "ringtail-nix-builder-talos",
       "host": "ringtail",
       "labels": ["nix-container-builder:host"],

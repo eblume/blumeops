@@ -39,7 +39,7 @@
     # reports the gap.
     - name: Fetch ringtail forgejo runner registration tokens from 1Password
       ansible.builtin.shell:
-        cmd: op item get w3663ffnvkewbftncqxtcpeavy --vault vg6xf6vvfmoh5hqjjhlhbeoaie --format json --fields label=runner_ringtail_priv_token,label=runner_ringtail_nix_builder_blumeops_token,label=runner_ringtail_nix_builder_horkos_token,label=runner_ringtail_nix_builder_talos_token 2>/dev/null || echo '[]'
+        cmd: op item get w3663ffnvkewbftncqxtcpeavy --vault vg6xf6vvfmoh5hqjjhlhbeoaie --format json --fields label=runner_ringtail_priv_token,label=runner_ringtail_nix_builder_blumeops_token,label=runner_ringtail_nix_builder_horkos_token,label=runner_ringtail_nix_builder_talos_token,label=runner_ringtail_nix_builder_hephaestus_token 2>/dev/null || echo '[]'
       delegate_to: localhost
       become: false
       register: _runner_tokens
@@ -65,6 +65,10 @@
         runner_ringtail_nix_builder_talos_token: >-
           {{ (_runner_tokens.stdout | default('[]') | from_json
              | selectattr('label', 'equalto', 'runner_ringtail_nix_builder_talos_token')
+             | map(attribute='value') | list | first) | default('') }}
+        runner_ringtail_nix_builder_hephaestus_token: >-
+          {{ (_runner_tokens.stdout | default('[]') | from_json
+             | selectattr('label', 'equalto', 'runner_ringtail_nix_builder_hephaestus_token')
              | map(attribute='value') | list | first) | default('') }}
       no_log: true
 
@@ -105,6 +109,14 @@
         mode: "0600"
       no_log: true
       when: runner_ringtail_nix_builder_talos_token != ''
+
+    - name: Write ringtail nix-builder hephaestus runner token file
+      ansible.builtin.copy:
+        content: "TOKEN={{ runner_ringtail_nix_builder_hephaestus_token }}"
+        dest: /etc/forgejo-runner/nix-builder-hephaestus.env
+        mode: "0600"
+      no_log: true
+      when: runner_ringtail_nix_builder_hephaestus_token != ''
 
     # The pre-#1358 shared instance-global token is retired: nothing on
     # ringtail reads it anymore, so drop it off disk (the forge-side
@@ -244,11 +256,18 @@
     # Queried with no state, systemd_service just reports — `status` is the full
     # `systemctl show` property set, so this one task carries both the poll
     # (ActiveState) and the verdict (Result) read below.
+    #
+    # A poll can itself fail while the switch restarts dbus-broker: the module
+    # returns a failed result with no `status`, and `until` is still evaluated
+    # against it — unguarded, that crashed the play mid-wait while the unit ran
+    # on to a successful switch. Guarded, a failed poll is just retried.
     - name: Wait for the rebuild to finish
       ansible.builtin.systemd_service:
         name: "{{ _rebuild_unit }}"
       register: _rebuild_state
-      until: _rebuild_state.status.ActiveState not in ["activating", "active", "reloading"]
+      until: >-
+        _rebuild_state.status is defined
+        and _rebuild_state.status.ActiveState not in ["activating", "active", "reloading"]
       retries: "{{ (_rebuild_timeout | int / 10) | int }}"
       delay: 10
       when: _repo.changed

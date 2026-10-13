@@ -21,6 +21,12 @@ let
   # flake: that flake hard-codes buildGo123Module, which cannot build current
   # colima releases (go.mod requires go >= 1.25).
   colimaBuild = pkgs.colima;
+  # The docker CLI (client only, no daemon or VM). nixpkgs colima ships none,
+  # yet `colima start` with runtime docker refuses a cold start without one on
+  # PATH. It came from Docker Desktop's /usr/local/bin symlinks until that app
+  # was removed (2026-10-06); the running VM hid the gap until the 2026-10-12
+  # resize restarted it and every indri-build job queued.
+  dockerClient = pkgs.docker-client;
   # The runner daemon's waiter: the pinned nix-darwin has no WaitForPaths
   # option, so the wait lives here. It idles until the role renders the runner
   # config (a human registers the runner first, so it is absent until then)
@@ -108,6 +114,23 @@ in
     /bin/zsh
     /opt/homebrew/bin/fish
   '';
+
+  # Homebrew is generation-managed: every activation bundles the set below
+  # (never cleaning up, upgrading, or auto-updating). tailscale is the SSH
+  # path, and services.tailscale would load a second tailscaled beside the
+  # brew root daemon, so the daemon stays brew-owned. eblume/blumeops#1538
+  homebrew.enable = true;
+  homebrew.brews = [
+    "tailscale"
+    # Adopted at 2026.4.11 (2026-10-12). bundle cannot pin a formula version
+    # and onActivation.upgrade = false, so this never moves on its own;
+    # a bump is `brew upgrade mise` + update the Toolchain doc.
+    "mise"
+    "fish"
+  ];
+  homebrew.onActivation.cleanup = "none";
+  homebrew.onActivation.autoUpdate = false;
+  homebrew.onActivation.upgrade = false;
 
   # Never sleep: on 2026-09-16 Amphetamine (the only sleep guard) segfaulted and darked
   # *.ops.eblu.me; Amphetamine stays as the second layer. See [[indri]] §Maintenance Notes.
@@ -717,9 +740,10 @@ MCQUACK_NIX_WAIT_SYSTEM
     EnvironmentVariables = {
       HOME = "/Users/indri-build";
       # nixpkgs colima wraps itself with its lima and qemu bin dirs
-      # prefixed into PATH, so only colima's bin dir
-      # (plus the usual macOS/nix dirs) is needed here.
-      PATH = "${colimaBuild}/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin";
+      # prefixed into PATH, so only colima's bin dir, the docker CLI its
+      # dependency check demands (see dockerClient), and the usual macOS/nix
+      # dirs are needed here.
+      PATH = "${colimaBuild}/bin:${dockerClient}/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin";
     };
     StandardOutPath = "/Users/indri-build/Library/Logs/mcquack.colima-build.out.log";
     StandardErrorPath = "/Users/indri-build/Library/Logs/mcquack.colima-build.err.log";
@@ -747,12 +771,12 @@ MCQUACK_NIX_WAIT_SYSTEM
     AbandonProcessGroup = true;
     EnvironmentVariables = {
       # mise shims first (job steps resolve tools via indri-build's own mise
-      # config, config-build-user.toml). nixpkgs colima ships no docker
-      # client: jobs get the docker CLI from Homebrew (/opt/homebrew/bin). The
+      # config, config-build-user.toml), then the nix docker CLI (see
+      # dockerClient) for jobs that talk to the colima socket. The
       # nix default profile last: host-mode jobs reach `nix` for multi-user
       # daemon builds as the untrusted indri-build user (eblume/blumeops#1358),
       # without shadowing anything above it.
-      PATH = "/Users/indri-build/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin";
+      PATH = "/Users/indri-build/.local/share/mise/shims:${dockerClient}/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/nix/var/nix/profiles/default/bin";
       HOME = "/Users/indri-build";
     };
     StandardOutPath = "/Users/indri-build/Library/Logs/mcquack.forgejo-runner-build.out.log";

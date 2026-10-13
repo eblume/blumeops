@@ -79,7 +79,7 @@ services:
 
   - name: frigate-notify
     type: argocd
-    last-reviewed: 2026-06-22
+    last-reviewed: 2026-10-10
     current-version: "v0.5.4"
     upstream-source: https://github.com/0x2142/frigate-notify/releases
 
@@ -440,7 +440,7 @@ services:
     type: argocd
     release: self
     last-reviewed: "2026-08-30"
-    current-version: "v0.4.199"
+    current-version: "v0.4.200"
     upstream-source: https://forge.ops.eblu.me/eblume/talos
     notes: >-
       First-party agent workflow service ([[talos-design]]): pi runtime +

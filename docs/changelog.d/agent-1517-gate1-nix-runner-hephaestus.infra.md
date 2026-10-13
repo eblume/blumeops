@@ -1,0 +1,1 @@
+Add a per-repo `nix-container-builder` Forgejo runner instance for `eblume/hephaestus` on ringtail (own registration token from 1Password, written by `provision-ringtail`) and allow `hephaestus` to target the `nix-container-builder` label in the forge-reconcile label policy, so its `validate-linux` CI job has a runner.
