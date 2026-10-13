@@ -1153,6 +1153,24 @@ def test_derived_policy_per_label_scope():
     }
 
 
+def test_derived_policy_owner_scope_ungates_label():
+    """An owner-only scope serves every repo of that owner (the live leg's
+    _serves_repo treats `scope == owner` as serving all of them), so its
+    label is not gated: a single owner-scoped runner leaves the map empty
+    rather than contributing a repo name nothing matches."""
+    assert ara.derive_privileged_label_policy([_runner("r", ["priv"], "eblume")]) == {}
+
+
+def test_derived_policy_mixed_owner_and_instance_scope_ungates():
+    """One instance-scoped and one owner-scoped registrant both serve every
+    repo, so the label is ungated."""
+    runners = [
+        _runner("a", ["priv"], "instance"),
+        _runner("b", ["priv"], "eblume"),
+    ]
+    assert ara.derive_privileged_label_policy(runners) == {}
+
+
 # --- runner-label workflow scan (#1358, #1515, #1526) -----------------------
 
 
@@ -1176,6 +1194,58 @@ def test_workflow_undeclared_label_fails(policy, run_main, monkeypatch):
     assert code == 1
     assert "some-unknown-label" in out
     assert "no workflow targets an undeclared runner label" not in out
+
+
+def test_plain_glue_word_as_bare_label_fails(policy):
+    """A plain (non-expression) `runs-on: push` names the glue word `push`
+    as a bare label: the glue excuse requires the raw value that named the
+    token to be a `${{ }}` expression, so the declaration leg fails it."""
+    policy([])
+    findings = ara.Findings()
+    ara.check_unknown_labels("eblume", findings, {"svc": {"push": "push"}})
+    assert any(
+        "`push` is not a runner label any runner declares" in f
+        for f in findings.failures
+    )
+
+
+def test_plain_suffix_word_as_bare_label_fails(policy):
+    """A plain `runs-on: host` names the declared `:host` suffix as a bare
+    label: the suffix excuse requires the raw value to contain `:`, so it
+    fails the declaration leg (only `priv:host`'s `host` is excused)."""
+    policy([])
+    findings = ara.Findings()
+    ara.check_unknown_labels("eblume", findings, {"svc": {"host": "host"}})
+    assert any(
+        "`host` is not a runner label any runner declares" in f
+        for f in findings.failures
+    )
+
+
+def test_expression_ternary_still_passes(policy):
+    """The real workflows' `${{ github.event_name == 'pull_request' &&
+    'indri-build' || 'indri' }}` ternary still passes: every token is glue
+    (the raw value contains `${{`) or a declared label base."""
+    policy([])
+    ternary = "${{ github.event_name == 'pull_request' && 'indri-build' || 'indri' }}"
+    findings = ara.Findings()
+    ara.check_unknown_labels(
+        "eblume",
+        findings,
+        {
+            "blumeops": {
+                token: ternary
+                for token in (
+                    "github",
+                    "event_name",
+                    "pull_request",
+                    "indri-build",
+                    "indri",
+                )
+            }
+        },
+    )
+    assert findings.failures == []
 
 
 def test_workflow_declared_labels_pass(policy, run_main, monkeypatch):
@@ -1319,6 +1389,56 @@ def test_live_leg_prometheus_down_is_unknown(policy, run_main, monkeypatch):
     assert "prometheus unreachable" in out
 
 
+def test_live_runner_series_parses_vector_response(monkeypatch):
+    """The live leg parses a Prometheus vector body into per-series
+    (runner, labels, scope) dicts; a series without a scope defaults to
+    instance. live_runner_series opens a fresh httpx.Client, so stub the
+    class with one that serves the canned body."""
+    canned = {
+        "status": "success",
+        "data": {
+            "resultType": "vector",
+            "result": [
+                {
+                    "metric": {
+                        "runner": "ringtail-priv-runner",
+                        "labels": "priv:host",
+                        "scope": "eblume/blumeops",
+                    },
+                    "value": [1700000000.0, "1"],
+                },
+                {
+                    "metric": {"runner": "indri-build", "labels": "indri-build"},
+                    "value": [1700000001.0, "1"],
+                },
+            ],
+        },
+    }
+
+    class StubClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def get(self, url, params=None):
+            return httpx.Response(200, json=canned, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(ara.httpx, "Client", StubClient)
+    assert ara.live_runner_series() == [
+        {
+            "runner": "ringtail-priv-runner",
+            "labels": "priv:host",
+            "scope": "eblume/blumeops",
+        },
+        {"runner": "indri-build", "labels": "indri-build", "scope": "instance"},
+    ]
+
+
 # --- runbook runner table (#1526) -------------------------------------------
 
 
@@ -1396,6 +1516,25 @@ def test_runbook_table_extra_row_fails(monkeypatch, tmp_path):
     assert any(
         "fake-runner" in f and "not a declared runner" in f for f in findings.failures
     )
+
+
+def test_runbook_table_stops_at_next_heading(monkeypatch, tmp_path):
+    """A second table under a later `## ` heading is not misread as runner
+    rows: the parser stops collecting at the next heading, so the scratch
+    runbook parses without false failures."""
+    body = "\n".join(f"| `{name}` | [[host]] | {service} |" for name, service in ROWS)
+    content = (
+        "## ForgejoRunnerOffline\n\nSome prose.\n\n"
+        "| Runner | Host | Service |\n"
+        "|--------|------|---------|\n"
+        f"{body}\n\n"
+        "## Some Other Section\n\n"
+        "| Thing | Other |\n"
+        "|-------|-------|\n"
+        "| `not-a-runner` | whatever |\n"
+    )
+    findings = _runbook_findings(monkeypatch, tmp_path, content)
+    assert findings.failures == []
 
 
 # --- horkos-forge blast-radius invariants (folded in from horkos-forge-drift) --

@@ -1045,23 +1045,20 @@ def derive_privileged_label_policy(runners: list[dict]) -> dict[str, frozenset[s
     """The gated-label map reproduced from forge/runners.json.
 
     A label base (part before the first `:`) is gated iff every runner
-    advertising it has scope != "instance"; its allowed repos are the union
-    of the advertising runners' scope values (`owner/` prefix stripped, so
-    the repo name). An instance-scoped runner serves every repo and ungates
-    its labels; a gated label's allowed set is exactly the repos whose
-    registrations can take its jobs.
+    advertising it is repo-scoped — a scope containing `/` (an owner name
+    or `instance`, carrying no `/`, serves every repo and therefore
+    UNGATES its labels, exactly as the live leg's `_serves_repo` treats
+    them); its allowed repos are the union of the advertising runners'
+    scope repo parts (`owner/` prefix stripped, so the repo name).
     """
     per_label: dict[str, list[str]] = {}
     for runner in runners:
         for label in runner["labels"]:
             per_label.setdefault(label.partition(":")[0], []).append(runner["scope"])
     return {
-        base: frozenset(
-            scope if "/" not in scope else scope.partition("/")[2]
-            for scope in scopes
-        )
+        base: frozenset(scope.partition("/")[2] for scope in scopes)
         for base, scopes in per_label.items()
-        if all(scope != "instance" for scope in scopes)
+        if all("/" in scope for scope in scopes)
     }
 
 
@@ -1280,11 +1277,16 @@ RUNS_ON_GLUE = frozenset({
 def check_unknown_labels(owner, report, labels):
     """No workflow targets a `runs-on` no runner declares (#1526).
 
-    A token is known when it is a declared label base, the `:x` suffix of one
-    (`priv:host`'s bare `host`), or expression glue from the `${{ }}` ternary
-    (RUNS_ON_GLUE, never labels). A (repo, label-base) pair in
-    runners.json's label_exceptions is known to target nothing and is exempt
-    until the workflow is fixed — delete the entry then.
+    A token is known when it is a declared label base, the `:x` suffix of
+    one (`priv:host`'s bare `host`), or expression glue from the `${{ }}`
+    ternary (RUNS_ON_GLUE, never labels). The glue and suffix excuses are
+    context-bound: a token is glue only when the raw runs-on value that
+    named it contains `${{` (a plain `runs-on: push` names the glue word
+    `push` as a bare label and must fail), and a suffix only when that
+    value contains `:` (a plain `runs-on: host` is not `priv:host`). A
+    (repo, label-base) pair in runners.json's label_exceptions is known to
+    target nothing and is exempt until the workflow is fixed — delete the
+    entry then.
     """
     try:
         bases, suffixes, exceptions = _runners_config()
@@ -1295,11 +1297,16 @@ def check_unknown_labels(owner, report, labels):
     unknown: dict[str, list[str]] = {}
     for repo in sorted(labels):
         for token in sorted(labels[repo]):
-            if token in RUNS_ON_GLUE or token in bases or token in suffixes:
+            raw = labels[repo][token]
+            if token in RUNS_ON_GLUE and "${{" in raw:
+                continue
+            if token in suffixes and ":" in raw:
+                continue
+            if token in bases:
                 continue
             if (repo, token) in exceptions:
                 continue
-            unknown.setdefault(token, []).append(f"{owner}/{repo} → `{labels[repo][token]}`")
+            unknown.setdefault(token, []).append(f"{owner}/{repo} → `{raw}`")
     for token, places in sorted(unknown.items()):
         report.fail(f"`{token}` is not a runner label any runner declares", "; ".join(places))
     if not unknown:
@@ -1431,9 +1438,15 @@ def check_runbook_runner_table(report):
             continue
         if not after_heading:
             continue
+        # The section ends at the next heading: no later table belongs to
+        # ForgejoRunnerOffline, so stop collecting there.
+        if line.startswith("## "):
+            break
         if not line.startswith("|"):
+            # ... and at the first non-empty, non-`|` line after the table
+            # has started; blank lines inside the table are tolerated.
             if in_table and line.strip():
-                in_table = False
+                break
             continue
         in_table = True
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
