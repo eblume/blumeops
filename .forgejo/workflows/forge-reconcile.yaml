@@ -6,7 +6,9 @@
 # horkos_forge set and nowhere else, blumeops:main stays whitelisted to
 # eblume alone, the Actions-secret names declared in forge/actions-secrets.json
 # match the live forge, and no repo targets a
-# privileged runner label it is not declared to — the #1358 label scan).
+# privileged runner label it is not declared to — the #1358 label scan; the
+# runner topology declared in forge/runners.json is checked against the live
+# runners and the runbook (#1526)).
 # `--check` is the single
 # forge drift check: it runs weekly
 # (schedule) and on same-repo PRs; fork/agent PRs have no secret and skip.
@@ -50,6 +52,7 @@ on:
     paths:
       - 'argocd/manifests/talos/repos.json'
       - 'forge/branch-protections.json'
+      - 'forge/runners.json'
       - 'mise-tasks/forge-reconcile'
       - 'mise-tasks/horkos-forge-provision'
       - 'forge/actions-secrets.json'
@@ -58,6 +61,7 @@ on:
     paths:
       - 'argocd/manifests/talos/repos.json'
       - 'forge/branch-protections.json'
+      - 'forge/runners.json'
       - 'mise-tasks/forge-reconcile'
       - 'mise-tasks/horkos-forge-provision'
       - 'forge/actions-secrets.json'

@@ -29,7 +29,7 @@ darwin/indri/configuration.nix.
 | Runner | Host | Service |
 |--------|------|---------|
 | `indri-runner` | [[indri]] | LaunchAgent `mcquack.eblume.forgejo-runner` (user `erichblume`) |
-| `indri-build` | [[indri]] | runner daemon as user `indri-build` (waits for colima) |
+| `indri-build` | [[indri]] | LaunchAgent `mcquack.eblume.forgejo-runner-build` (user `indri-build`, waits for colima) |
 | `ringtail-nix-builder-blumeops` | [[ringtail]] | `gitea-runner-nix_container_builder_blumeops.service` |
 | `ringtail-nix-builder-horkos` | [[ringtail]] | `gitea-runner-nix_container_builder_horkos.service` |
 | `ringtail-nix-builder-hephaestus` | [[ringtail]] | `gitea-runner-nix_container_builder_hephaestus.service` |

@@ -177,8 +177,11 @@ from rich.markup import escape
 from rich.table import Table
 
 FORGE_URL = "https://forge.ops.eblu.me"
+PROMETHEUS_URL = "https://prometheus.ops.eblu.me"
 OP_TOKEN_REF = "op://vg6xf6vvfmoh5hqjjhlhbeoaie/forge-repo-write-token/token"
 POLICY_PATH = Path(__file__).resolve().parent.parent / "argocd" / "manifests" / "talos" / "repos.json"
+RUNNERS_PATH = Path(__file__).resolve().parent.parent / "forge" / "runners.json"
+RUNBOOK_PATH = Path(__file__).resolve().parent.parent / "docs" / "how-to" / "runbooks" / "runbook-forgejo-ci.md"
 
 # The forge → talos webhook ([[talos]] §Programmatic API): one hook per pool
 # repo, all sharing one delivery URL and one signing secret (talos verifies a
@@ -880,8 +883,11 @@ class Findings:
     """Accumulates ok/fail/unknown lines; a check that cannot see is a failure."""
     def __init__(self):
         self.failures: list[str] = []
-    def ok(self, what):
-        console.print(f"[green]ok[/green]       {escape(what)}")
+    def ok(self, what, detail=""):
+        if detail:
+            console.print(f"[green]ok[/green]       {escape(what)} — {escape(detail)}")
+        else:
+            console.print(f"[green]ok[/green]       {escape(what)}")
     def fail(self, what, detail):
         console.print(f"[red]invariant[/red]  {escape(what)} — {escape(detail)}")
         self.failures.append(f"{what}: {detail}")
@@ -1029,22 +1035,53 @@ def check_actions_secret_names(client, owner, report, pr_mode: bool = False):
             report.ok(what)
 
 
-# --1358 privileged-runner-label policy: which repos may target each privileged
-# (host-mode, credential-bearing or dispatch-only) runner label, by FULL name.
-# A label is denied to every repo not listed under it, so a repo that starts
-# targeting a label — or a label that spreads to a new repo — fails the check
-# until this map (and the runner re-registration it encodes) both say so.
-# This guards the *label usage*, not the live registration: a `runs-on` is
-# what hands a repo's (possibly PR-head) code a slot on the runner, and it is
-# the thing a workflow change can introduce without a human re-auditing.
-PRIVILEGED_LABEL_POLICY: dict[str, set[str]] = {
-    "indri": {"blumeops"},
-    "indri-priv": {"blumeops"},
-    "priv": {"blumeops"},
-    # hephaestus added for eblume/blumeops#1517; the map will be derived
-    # from runners.json in #1526.
-    "nix-container-builder": {"blumeops", "horkos", "talos", "hephaestus"},
-}
+# The --1358 privileged-runner-label policy is DERIVED from forge/runners.json
+# (#1526): a label whose every advertising runner is repo-scoped is gated to
+# the repos those runners may take jobs for; an instance-scoped runner serves
+# every repo and ungates its labels. The `privileged` boolean is deliberately
+# NOT the gate — the ringtail nix-container-builder runners are privileged:
+# false yet their label must stay gated (host-mode, credential-bearing).
+def derive_privileged_label_policy(runners: list[dict]) -> dict[str, frozenset[str]]:
+    """The gated-label map reproduced from forge/runners.json.
+
+    A label base (part before the first `:`) is gated iff every runner
+    advertising it is repo-scoped — a scope containing `/` (an owner name
+    or `instance`, carrying no `/`, serves every repo and therefore
+    UNGATES its labels, exactly as the live leg's `_serves_repo` treats
+    them); its allowed repos are the union of the advertising runners'
+    scope repo parts (`owner/` prefix stripped, so the repo name).
+    """
+    per_label: dict[str, list[str]] = {}
+    for runner in runners:
+        for label in runner["labels"]:
+            per_label.setdefault(label.partition(":")[0], []).append(runner["scope"])
+    return {
+        base: frozenset(scope.partition("/")[2] for scope in scopes)
+        for base, scopes in per_label.items()
+        if all("/" in scope for scope in scopes)
+    }
+
+
+def load_privileged_label_policy() -> dict[str, frozenset[str]]:
+    """The privileged-label policy, read from forge/runners.json (the single
+    declared source for the runner topology, #1526)."""
+    return derive_privileged_label_policy(json.loads(RUNNERS_PATH.read_text())["runners"])
+
+
+def _runners_config() -> tuple[set[str], set[str], set[tuple[str, str]]]:
+    """Declared label knowledge from forge/runners.json (#1526): the label
+    bases, the `:x` suffixes, and the (repo, label-base) exception pairs whose
+    workflows are known to target nothing (delete the entry once fixed)."""
+    data = json.loads(RUNNERS_PATH.read_text())
+    bases, suffixes = set(), set()
+    for runner in data["runners"]:
+        for label in runner["labels"]:
+            base, _, suffix = label.partition(":")
+            bases.add(base)
+            if suffix:
+                suffixes.add(suffix)
+    exceptions = {(e["repo"], e["label"]) for e in data.get("label_exceptions", [])}
+    return bases, suffixes, exceptions
 
 # A `runs-on` value is a scalar, a flow list, or a `${{ expr }}`. The labels it
 # names are its whole tokens: a bare word (splitting on `${{`/`}}` would leave
@@ -1144,61 +1181,309 @@ def _list_workflows(client, owner, repo, ref, directory):
     return [f"{directory}/{e['name']}" for e in entries if e.get("name", "").endswith((".yaml", ".yml"))]
 
 
-def check_privileged_labels(client, owner, report):
-    """No repo targets a privileged runner label it is not declared to (#1358).
+def scan_repo_workflow_labels(client: httpx.Client, owner: str):
+    """Every repo's default-branch `.forgejo/workflows` runs-on tokens.
 
-    Reads each of the owner's repos' default-branch workflow files via the
-    forge API and fails on any `runs-on` whose label is not in that repo's
-    PRIVILEGED_LABEL_POLICY set. Only `.forgejo/workflows` is scanned — the
-    one directory Forgejo executes, so an inert `.github/workflows` file can
-    never reach the runner and is out of scope. A `runs-on` may be a
-    `${{ ... }}` ternary, so a label counts as targeted if it appears in the
-    expression's source — the set of runners the line can ever resolve to.
-    The scan touches every repo the owner has, so the clean case prints one
-    summary line rather than a line per repo.
+    Returns (labels_by_repo, repo_ids, unreadable, skipped_archived):
+    repo → {label token: raw runs-on value that named it}, repo → API id,
+    (what, detail) pairs to report as unknown — a failure to list the owner's
+    repos (labels is then None) or a repo/file the caller cannot read — and
+    the repos skipped because they're archived (an archived repo cannot run
+    workflows, so its `runs-on` labels target nothing by construction, #1526).
+    Only `.forgejo/workflows` is scanned — the one directory Forgejo executes,
+    so an inert `.github/workflows` file can never reach the runner and is out
+    of scope. A `runs-on` may be a `${{ ... }}` ternary, so a label counts as
+    targeted if it appears in the expression's source — the set of runners the
+    line can ever resolve to.
     """
-    violations: dict[str, list[str]] = {}
-    scanned = 0
-    unscanned = 0
     try:
         repos = owner_repos(client, owner)
     except (httpx.HTTPStatusError, httpx.TransportError, ValueError) as exc:
-        report.unknown("privileged-runner labels stay within their declared repos",
-                       f"could not list {owner}'s repos: {exc}")
-        unscanned += 1
-        return
+        return None, {}, [("every workflow targets a declared, live runner label",
+                           f"could not list {owner}'s repos: {exc}")], set()
+    labels, ids, unreadable, skipped_archived = {}, {}, [], set()
     for repo in sorted(repos):
         full = f"{owner}/{repo}"
         try:
             resp = _get(client, f"/api/v1/repos/{owner}/{repo}")
             resp.raise_for_status()
-            ref = resp.json().get("default_branch")
+            info = resp.json()
+            if info.get("archived"):
+                skipped_archived.add(repo)
+                continue
+            ref = info.get("default_branch")
             entries = _list_workflows(client, owner, repo, ref, ".forgejo/workflows") if ref else []
         except (httpx.HTTPStatusError, httpx.TransportError, ValueError) as exc:
-            report.unknown(f"{full} targets only its declared privileged labels", f"cannot read repo: {exc}")
-            unscanned += 1
+            unreadable.append(("every workflow targets a declared, live runner label",
+                               f"cannot read {full}: {exc}"))
             continue
-        if not entries:
-            continue
-        scanned += 1
+        ids[repo] = info.get("id")
+        repo_labels: dict[str, str] = {}
         for path in entries:
             try:
                 resp = _get(client, f"/{owner}/{repo}/raw/branch/{ref}/{path}")
                 resp.raise_for_status()
                 content = resp.text
             except (httpx.HTTPStatusError, httpx.TransportError) as exc:
-                report.unknown(f"{full} targets only its declared privileged labels", f"cannot read {path}: {exc}")
-                unscanned += 1
+                unreadable.append(("every workflow targets a declared, live runner label",
+                                   f"cannot read {full}:{path}: {exc}"))
                 continue
-            for label, value in sorted(_workflow_runs_on_labels(content)):
-                allowed = PRIVILEGED_LABEL_POLICY.get(label)
-                if allowed is None or repo in allowed:
-                    continue
-                violations.setdefault(label, []).append(f"{full}:{path} → `{value}`")
+            for token, value in _workflow_runs_on_labels(content):
+                repo_labels.setdefault(token, value)
+        if repo_labels:
+            labels[repo] = repo_labels
+    return labels, ids, unreadable, skipped_archived
+
+
+def check_privileged_labels(client, owner, report, labels):
+    """No repo targets a privileged runner label it is not declared to (#1358).
+
+    The gate is the policy derived from forge/runners.json (see
+    derive_privileged_label_policy): a label whose every advertising runner is
+    repo-scoped is gated to the repos those registrations serve, and a
+    `runs-on` handing a repo's (possibly PR-head) code a slot on a gated
+    runner it is not declared to fails the check. Works on the scan from
+    scan_repo_workflow_labels; the clean case prints one summary line.
+    """
+    try:
+        policy = load_privileged_label_policy()
+    except (OSError, ValueError, KeyError) as exc:
+        report.unknown("privileged-runner labels stay within their declared repos",
+                       f"could not read {RUNNERS_PATH.name}: {exc}")
+        return
+    violations: dict[str, list[str]] = {}
+    scanned = 0
+    for repo in sorted(labels):
+        scanned += 1
+        for label, value in sorted(labels[repo].items()):
+            allowed = policy.get(label)
+            if allowed is None or repo in allowed:
+                continue
+            violations.setdefault(label, []).append(f"{owner}/{repo} → `{value}`")
     for label, places in sorted(violations.items()):
         report.fail(f"`{label}` is targeted only by its declared repos", "; ".join(places))
-    if not violations and not unscanned:
+    if not violations:
         report.ok(f"no privileged-runner label outside its declared repos ({scanned} repos scanned)")
+
+
+# Words the tokenizer can emit from a `${{ ... }}` runs-on expression that are
+# never runner labels (context fields, event names, the ternary's boolean
+# glue). The old policy-map lookup skipped them silently; exclude them here so
+# an expression form does not fail the declaration check.
+RUNS_ON_GLUE = frozenset({
+    "github", "event_name", "pull_request", "push", "schedule", "workflow_dispatch",
+    "workflow_run", "issue_comment", "issues", "true", "false", "null",
+    "success", "failure", "cancelled", "always", "matrix", "strategy", "needs",
+    "jobs", "inputs", "env", "vars", "secrets", "contains", "startsWith",
+    "endsWith", "fromJSON", "toJSON",
+})
+
+
+def check_unknown_labels(owner, report, labels):
+    """No workflow targets a `runs-on` no runner declares (#1526).
+
+    A token is known when it is a declared label base, the `:x` suffix of
+    one (`priv:host`'s bare `host`), or expression glue from the `${{ }}`
+    ternary (RUNS_ON_GLUE, never labels). The glue and suffix excuses are
+    context-bound: a token is glue only when the raw runs-on value that
+    named it contains `${{` (a plain `runs-on: push` names the glue word
+    `push` as a bare label and must fail), and a suffix only when that
+    value contains `:` (a plain `runs-on: host` is not `priv:host`). A
+    (repo, label-base) pair in runners.json's label_exceptions is known to
+    target nothing and is exempt until the workflow is fixed — delete the
+    entry then.
+    """
+    try:
+        bases, suffixes, exceptions = _runners_config()
+    except (OSError, ValueError, KeyError) as exc:
+        report.unknown("no workflow targets an undeclared runner label",
+                       f"could not read {RUNNERS_PATH.name}: {exc}")
+        return
+    unknown: dict[str, list[str]] = {}
+    for repo in sorted(labels):
+        for token in sorted(labels[repo]):
+            raw = labels[repo][token]
+            if token in RUNS_ON_GLUE and "${{" in raw:
+                continue
+            if token in suffixes and ":" in raw:
+                continue
+            if token in bases:
+                continue
+            if (repo, token) in exceptions:
+                continue
+            unknown.setdefault(token, []).append(f"{owner}/{repo} → `{raw}`")
+    for token, places in sorted(unknown.items()):
+        report.fail(f"`{token}` is not a runner label any runner declares", "; ".join(places))
+    if not unknown:
+        report.ok(f"no workflow targets an undeclared runner label ({len(labels)} repos scanned)")
+
+
+def live_runner_series() -> list[dict]:
+    """The live registered runners, one dict per forgejo_ci_runner_info series
+    (runner, comma-joined registered labels, scope) — the same metric the CI
+    runbook and charts read (#1515). Raises on a non-2xx or unparseable
+    response; the caller turns that into an UNKNOWN finding."""
+    with httpx.Client(timeout=15.0) as client:
+        resp = client.get(f"{PROMETHEUS_URL}/api/v1/query", params={"query": "forgejo_ci_runner_info"})
+        resp.raise_for_status()
+        return [
+            {
+                "runner": m["metric"]["runner"],
+                "labels": m["metric"].get("labels", ""),
+                "scope": m["metric"].get("scope", "instance"),
+            }
+            for m in resp.json()["data"]["result"]
+        ]
+
+
+def _has_label_base(labels_field: str, base: str) -> bool:
+    """Whether a runner's comma-joined registered labels include `base`
+    (before any `:x` suffix)."""
+    return any(l.split(":")[0] == base for l in labels_field.split(",") if l.strip())
+
+
+def _serves_repo(scope: str, owner: str, repo: str, repo_id, owner_id) -> bool:
+    """Whether a runner whose live registration scopes to `scope` can take
+    `owner/repo` jobs: `instance` serves all, an owner name that owner's
+    repos, `owner/repo` only itself, and the collector's numeric join
+    fallbacks match the repo or owner API id (when the id is known)."""
+    return (
+        scope == "instance"
+        or scope == owner
+        or scope == f"{owner}/{repo}"
+        or (repo_id is not None and scope == f"repo:{repo_id}")
+        or (owner_id is not None and scope == f"owner:{owner_id}")
+    )
+
+
+def check_runner_series(client, owner, report, labels, repo_ids):
+    """Every workflow runs-on label is served by a live runner (#1515).
+
+    A warranted/CI job handed a label no runner registers queues forever, so
+    this is a hard, scope-aware registration check: a label base is served iff
+    some live series registers it and its scope covers the repo (instance, the
+    owner, the repo, or the collector's repo:/owner: id fallbacks). Unknown
+    labels and glue already failed the declaration leg, so only declared label
+    bases are verified here — a `:x` suffix token (`host` from `priv:host`)
+    never names a runnable label alone. Prometheus is reachable
+    unauthenticated from CI runners and this pod.
+    """
+    if not labels:
+        report.ok("every workflow runs-on label is served by a live runner",
+                  "no workflow targets a runner label — live registration not exercised")
+        return
+    try:
+        bases, _suffixes, exceptions = _runners_config()
+    except (OSError, ValueError, KeyError) as exc:
+        report.unknown("every workflow runs-on label is served by a live runner",
+                       f"could not read {RUNNERS_PATH.name}: {exc}")
+        return
+    try:
+        series = live_runner_series()
+    except (httpx.HTTPStatusError, httpx.TransportError, ValueError, KeyError) as exc:
+        report.unknown("every workflow runs-on label is served by a live runner",
+                       f"prometheus unreachable: {exc}")
+        return
+    owner_id = None
+    try:
+        owner_id = _get(client, f"/api/v1/users/{owner}").json().get("id")
+    except (httpx.HTTPStatusError, httpx.TransportError, ValueError):
+        pass
+    unserved: dict[tuple[str, str], list[str]] = {}
+    checked = 0
+    for repo in sorted(labels):
+        repo_id = repo_ids.get(repo)
+        for token in sorted(labels[repo]):
+            if token not in bases or (repo, token) in exceptions:
+                continue
+            checked += 1
+            advertising = [m for m in series if _has_label_base(m["labels"], token)]
+            if any(_serves_repo(m["scope"], owner, repo, repo_id, owner_id) for m in advertising):
+                continue
+            if advertising:
+                elsewhere = ", ".join(sorted({f"{m['runner']} ({m['scope']})" for m in advertising}))
+                unserved[(repo, token)] = [
+                    f"{owner}/{repo} → `{labels[repo][token]}`; registers: {elsewhere}"
+                ]
+            else:
+                unserved[(repo, token)] = [f"{owner}/{repo} → `{labels[repo][token]}`; no live runner registers it"]
+    for (repo, token), places in sorted(unserved.items()):
+        report.fail(f"`{token}` has no live runner scoped to {owner}/{repo}", "; ".join(places))
+    if not unserved:
+        report.ok("every workflow runs-on label is served by a live runner",
+                  f"{checked} label(s) verified against {len(series)} live runner(s)")
+
+
+_RUNBOOK_NAME_RE = re.compile(r"^`([^`]+)`$")
+
+
+def check_runbook_runner_table(report):
+    """The runbook's ForgejoRunnerOffline table mirrors forge/runners.json.
+
+    Every declared runner appears exactly once as a backticked first cell, and
+    its last cell carries the runner's unit in backticks — the table is how an
+    operator finds the daemon to restart, so name or unit drift sends them to
+    the wrong host. The prose notes the columns mirror runners.json (#1526).
+    """
+    try:
+        runners = json.loads(RUNNERS_PATH.read_text())["runners"]
+        lines = RUNBOOK_PATH.read_text().splitlines()
+    except (OSError, ValueError, KeyError, UnicodeError) as exc:
+        report.unknown("runbook runner table mirrors forge/runners.json",
+                       f"could not read the declared runner files: {exc}")
+        return
+    declared = {r["name"]: r["unit"] for r in runners}
+    table: dict[str, str] = {}  # backticked name -> last-cell text
+    malformed: list[str] = []
+    after_heading = False
+    in_table = False
+    for line in lines:
+        if line.startswith("## ForgejoRunnerOffline"):
+            after_heading = True
+            continue
+        if not after_heading:
+            continue
+        # The section ends at the next heading: no later table belongs to
+        # ForgejoRunnerOffline, so stop collecting there.
+        if line.startswith("## "):
+            break
+        if not line.startswith("|"):
+            # ... and at the first non-empty, non-`|` line after the table
+            # has started; blank lines inside the table are tolerated.
+            if in_table and line.strip():
+                break
+            continue
+        in_table = True
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if cells == ["Runner", "Host", "Service"] or all(
+            not c or set(c) <= {"-", ":"} for c in cells
+        ):
+            continue
+        name_m = _RUNBOOK_NAME_RE.match(cells[0])
+        if not name_m:
+            malformed.append(f"unparsed table row: {line.strip()}")
+            continue
+        name = name_m.group(1)
+        if name in table:
+            malformed.append(f"duplicate table row for `{name}`")
+            continue
+        table[name] = cells[-1]
+    problems = []
+    for name, unit in sorted(declared.items()):
+        if name not in table:
+            problems.append(f"runner `{name}` missing from the table")
+            continue
+        if unit not in re.findall(r"`([^`]+)`", table[name]):
+            problems.append(f"runner `{name}`'s Service cell should carry `{unit}`")
+    for name in sorted(set(table) - set(declared)):
+        problems.append(f"table lists `{name}`, not a declared runner")
+    problems.extend(malformed)
+    for problem in problems:
+        report.fail("runbook runner table mirrors forge/runners.json", problem)
+    if not problems:
+        report.ok("runbook runner table mirrors forge/runners.json",
+                  f"{len(declared)} runners, all match")
+
 
 
 # --pr-base-ref reads the PR base's declared state from git. The CI checkout
@@ -1630,7 +1915,24 @@ def main(
             check_site_admin(client, env_findings)
             check_main_whitelist(client, owner, env_findings)
             check_actions_secret_names(client, owner, env_findings, pr_mode=bool(pr_base_ref))
-            check_privileged_labels(client, owner, env_findings)
+            # The runner-label drift checks (#1358, #1515, #1526): scan each
+            # repo's default-branch workflows once, then check the scan
+            # against the declared topology (gated privileged labels,
+            # undeclared labels) and the live runners — the live leg hard-
+            # fails because a warranted/CI job handed an unserved label queues
+            # forever.
+            labels, repo_ids, unreadable, skipped_archived = scan_repo_workflow_labels(client, owner)
+            for what, detail in unreadable:
+                env_findings.unknown(what, detail)
+            if labels is not None:
+                env_findings.ok(
+                    "archived repos cannot target runner labels",
+                    f"{len(skipped_archived)} archived repos skipped",
+                )
+                check_privileged_labels(client, owner, env_findings, labels)
+                check_unknown_labels(owner, env_findings, labels)
+                check_runner_series(client, owner, env_findings, labels, repo_ids)
+            check_runbook_runner_table(env_findings)
             if env_findings.failures:
                 raise typer.Exit(1)
 
