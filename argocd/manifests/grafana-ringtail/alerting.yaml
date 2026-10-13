@@ -1415,11 +1415,12 @@ groups:
         # Recency-based on purpose: authentik's hourly clear_failed_blueprints
         # task *deletes* failing instances and discovery re-creates them, so
         # status != "successful" for 30m could reset every hour and never
-        # fire. The exporter carries a path's error state for 2h across the
-        # delete/re-create gap (and keys on path, since pk and name change on
-        # every re-create), so this asks "was this path in error within the
-        # last 2h". noDataState OK: a path that never errors emits no series.
-        # The 7200s query range must cover the 2h max_over_time window.
+        # fire. The 75m window bridges that hourly delete/re-create cycle
+        # without stacking on the exporter's own 2h error-carry (the exporter
+        # keys on path, since pk and name change on every re-create), so this
+        # asks "was this path in error within the last 75m". noDataState OK:
+        # a path that never errors emits no series.
+        # The 4500s query range must cover the 75m max_over_time window.
         for: 10m
         noDataState: OK
         execErrState: Alerting
@@ -1434,11 +1435,11 @@ groups:
           - refId: A
             datasourceUid: prometheus
             relativeTimeRange:
-              from: 7200
+              from: 4500
               to: 0
             model:
               expr: >-
-                max by (path) (max_over_time(authentik_blueprint_status{status="error"}[2h]))
+                max by (path) (max_over_time(authentik_blueprint_status{status="error"}[75m]))
               interval: ""
               refId: A
           - refId: B

@@ -42,9 +42,8 @@ An authentik blueprint instance failed to apply, or the collector that watches b
 
 ## After fixing
 
-The blueprint re-applies on the next hourly discovery pass (or immediately if its file hash changed). Verify the instance flipped to `successful` in the API, and watch `authentik_blueprint_status{status="error"}` resolve in Prometheus. The error alert is recency-based over a 2h window, so resolution lags the fix by at most that long; `clear_failed_blueprints` (hourly) deletes failing instances and discovery re-creates them, so an in-error `path` may briefly be absent from the API between cycles.
+The blueprint re-applies on the next hourly discovery pass (or immediately if its file hash changed). Verify the instance flipped to `successful` in the API, and watch `authentik_blueprint_status{status="error"}` resolve in Prometheus. How long until the alert clears: the error alert is recency-based over a 75m window, and the exporter stops reporting a path's error as soon as it sees it healthy again — so once the fix lands, the alert resolves within ~75m. Worst case, if the blueprint file was deleted rather than fixed, the exporter carries the path's error state for 2h, so resolution can take up to ~2h15m. `clear_failed_blueprints` (hourly) deletes failing instances and discovery re-creates them, so an in-error `path` may briefly be absent from the API between cycles.
 
 ## Related
 
 - [[deploy-infra-alerting]] — Alerting pipeline overview
-- [[runbook-service-probe-failure]] — if the exporter's health probe also fails

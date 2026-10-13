@@ -30,6 +30,7 @@ spec:
           image: registry.ops.eblu.me/blumeops/authentik-blueprint-exporter:kustomized
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
@@ -44,6 +45,10 @@ spec:
           ports:
             - name: metrics
               containerPort: 9101
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 9101
           resources:
             requests:
               memory: "32Mi"

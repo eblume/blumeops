@@ -102,11 +102,6 @@ prometheus.exporter.blackbox "services" {
     module  = "http_2xx"
   }
   target {
-    name    = "authentik-blueprint-exporter"
-    address = "http://blueprint-exporter.authentik.svc.cluster.local:9101/metrics"
-    module  = "http_2xx"
-  }
-  target {
     name    = "frigate"
     address = "http://frigate.frigate.svc.cluster.local:5000/api/version"
     module  = "http_2xx"
