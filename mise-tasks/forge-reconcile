@@ -365,8 +365,7 @@ ACTIONS_SECRETS_PATH = Path(__file__).resolve().parent.parent / "forge" / "actio
 
 # (repo, secret name) -> 1Password URI of its value. In code, not in the data
 # file, so the file stays names-only: a declared name with no source here
-# fails loudly. The zot keys keep the item ID (survives renames); the vault
-# ID matches indri.yml's pre_tasks of the retired forgejo_actions_secrets role.
+# fails loudly. The zot keys keep the item ID (survives renames).
 ACTIONS_SECRET_SOURCES: dict[tuple[str, str], str] = {
     ("blumeops", "FORGE_REPO_WRITE_TOKEN"): OP_TOKEN_REF,
     ("blumeops", "BLUMEOPS_CI_OP_TOKEN"): "op://vg6xf6vvfmoh5hqjjhlhbeoaie/blumeops-ci-reader-token/token",
