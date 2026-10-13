@@ -822,7 +822,7 @@ in
       };
     };
 
-        instances.nix_container_builder_talos = {
+    instances.nix_container_builder_talos = {
       enable = true;
       name = "ringtail-nix-builder-talos";
       url = "https://forge.ops.eblu.me";
