@@ -1,0 +1,79 @@
+{
+  "_comment": [
+    "The CI runners: one entry per registered Forgejo Actions runner, the single",
+    "declared source for name, host, labels, scope, capacity, and unit. Consumers:",
+    "  nixos/ringtail/configuration.nix reads the ringtail instances (name, labels,",
+    "  capacity); darwin/indri/configuration.nix renders the collector's capacity",
+    "  lines; mise-tasks/forge-reconcile derives the privileged-label policy and",
+    "  checks runs-on drift; docs/how-to/runbooks/runbook-forgejo-ci.md's table is",
+    "  checked against the names and units here.",
+    "  scope is the live forgejo_ci_runner_info{scope=...} label: `instance` or a",
+    "  full owner/repo.",
+    "",
+    "Git constraint: the nix consumers read this file by path from a git checkout",
+    "(ringtail: /etc/blumeops, indri: /etc/blumeops). It stops being read silently",
+    "if it is untracked or the apply runs from a non-checkout — the eval then",
+    "references a path that does not exist and fails loudly, but do not move it",
+    "out of the repo root tree.",
+    "",
+    "The indri instances stay declared in ansible/roles/forgejo_runner/defaults/",
+    "main.yml until that role leaves Ansible (eblume/blumeops#1528); its label and",
+    "capacity defaults must stay in step with this file."
+  ],
+  "runners": [
+    {
+      "name": "indri-runner",
+      "host": "indri",
+      "labels": ["indri", "indri-priv"],
+      "scope": "eblume/blumeops",
+      "capacity": 2,
+      "privileged": true,
+      "unit": "mcquack.eblume.forgejo-runner"
+    },
+    {
+      "name": "indri-build",
+      "host": "indri",
+      "labels": ["indri-build"],
+      "scope": "instance",
+      "capacity": 4,
+      "privileged": false,
+      "unit": "mcquack.eblume.forgejo-runner-build"
+    },
+    {
+      "name": "ringtail-nix-builder-blumeops",
+      "host": "ringtail",
+      "labels": ["nix-container-builder:host"],
+      "scope": "eblume/blumeops",
+      "capacity": 1,
+      "privileged": false,
+      "unit": "gitea-runner-nix_container_builder_blumeops.service"
+    },
+    {
+      "name": "ringtail-nix-builder-horkos",
+      "host": "ringtail",
+      "labels": ["nix-container-builder:host"],
+      "scope": "eblume/horkos",
+      "capacity": 1,
+      "privileged": false,
+      "unit": "gitea-runner-nix_container_builder_horkos.service"
+    },
+    {
+      "name": "ringtail-nix-builder-talos",
+      "host": "ringtail",
+      "labels": ["nix-container-builder:host"],
+      "scope": "eblume/talos",
+      "capacity": 1,
+      "privileged": false,
+      "unit": "gitea-runner-nix_container_builder_talos.service"
+    },
+    {
+      "name": "ringtail-priv-runner",
+      "host": "ringtail",
+      "labels": ["priv:host"],
+      "scope": "eblume/blumeops",
+      "capacity": 1,
+      "privileged": true,
+      "unit": "gitea-runner-priv.service"
+    }
+  ]
+}
