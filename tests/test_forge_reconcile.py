@@ -147,6 +147,9 @@ class FakeForge:
         # repo -> {workflow path: raw content}; served for the runner-label
         # scan's /contents listing and raw fetches.
         self.workflows: dict[str, dict[str, str]] = {}
+        # Repos the /api/v1/repos/{owner}/{repo} info endpoint reports as
+        # archived — the scan skips these (#1526).
+        self.archived: set[str] = set()
         # Path suffix -> status served instead of the real answer.
         self.status_overrides: dict[str, int] = {}
         # The blumeops:main rule is seeded as a valid live default (whitelisted
@@ -331,6 +334,7 @@ class FakeForge:
                         + (self.repos.index(repo) if repo in self.repos else 0),
                         "has_actions": repo not in self.actions_off,
                         "default_branch": "main",
+                        "archived": repo in self.archived,
                     },
                 )
             if tail == ["branch_protections"]:
@@ -1316,6 +1320,44 @@ def test_workflow_label_exception_is_exempt(policy, run_main, monkeypatch):
 
     code, out = run_main(check=True, token="t")
     assert code == 0, out
+
+
+def test_archived_repo_skipped_in_scan(policy, run_main, monkeypatch):
+    """An archived repo can't run workflows, so the scan skips it instead of
+    flagging its labels: an undeclared k8s target would otherwise fail the
+    declaration leg, but is exempt, and the ok line reports the skip count."""
+    policy([{"name": "old", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["old"]
+    forge.archived = {"old"}
+    forge.workflows = {"old": {".forgejo/workflows/ci.yml": _workflow_yml("k8s")}}
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "live_runner_series", list)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    # The archived repo's undeclared k8s target is not flagged.
+    assert "k8s" not in out
+    # Exactly one ok line reports the skip.
+    assert "archived repos cannot target runner labels" in out
+    assert "1 archived repos skipped" in out
+
+
+def test_archived_repo_skipped_by_gate_leg(policy, run_main, monkeypatch):
+    """The skip covers every leg: an archived repo targeting a gated label it
+    is not declared to (priv, blumeops-only) does not fail the gate leg."""
+    policy([{"name": "old", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["old"]
+    forge.archived = {"old"}
+    forge.workflows = {"old": {".forgejo/workflows/ci.yml": _workflow_yml("priv")}}
+    forge.install(monkeypatch)
+    monkeypatch.setattr(ara, "live_runner_series", list)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "`priv` is targeted only by its declared repos" not in out
+    assert "archived repos cannot target runner labels" in out
 
 
 def test_live_leg_wrong_scope_fails(policy, run_main, monkeypatch):

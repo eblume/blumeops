@@ -96,11 +96,6 @@
       "reason": "legacy template CI; the k8s runner no longer exists — fix or retire the workflows"
     },
     {
-      "repo": "kingfisher",
-      "label": "k8s",
-      "reason": "daily mirror-sync targets the retired k8s runner — pick a live runner or delete the workflow"
-    },
-    {
       "repo": "gamedev",
       "label": "docker",
       "reason": "ci.yml targets a docker label no runner registers — retarget to indri-build"

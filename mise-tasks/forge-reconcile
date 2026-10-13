@@ -1184,28 +1184,33 @@ def _list_workflows(client, owner, repo, ref, directory):
 def scan_repo_workflow_labels(client: httpx.Client, owner: str):
     """Every repo's default-branch `.forgejo/workflows` runs-on tokens.
 
-    Returns (labels_by_repo, repo_ids, unreadable): repo → {label token:
-    raw runs-on value that named it}, repo → API id, and (what, detail) pairs
-    to report as unknown — a failure to list the owner's repos (labels is
-    then None) or a repo/file the caller cannot read. Only `.forgejo/workflows`
-    is scanned — the one directory Forgejo executes, so an inert
-    `.github/workflows` file can never reach the runner and is out of scope.
-    A `runs-on` may be a `${{ ... }}` ternary, so a label counts as targeted
-    if it appears in the expression's source — the set of runners the line
-    can ever resolve to.
+    Returns (labels_by_repo, repo_ids, unreadable, skipped_archived):
+    repo → {label token: raw runs-on value that named it}, repo → API id,
+    (what, detail) pairs to report as unknown — a failure to list the owner's
+    repos (labels is then None) or a repo/file the caller cannot read — and
+    the repos skipped because they're archived (an archived repo cannot run
+    workflows, so its `runs-on` labels target nothing by construction, #1526).
+    Only `.forgejo/workflows` is scanned — the one directory Forgejo executes,
+    so an inert `.github/workflows` file can never reach the runner and is out
+    of scope. A `runs-on` may be a `${{ ... }}` ternary, so a label counts as
+    targeted if it appears in the expression's source — the set of runners the
+    line can ever resolve to.
     """
     try:
         repos = owner_repos(client, owner)
     except (httpx.HTTPStatusError, httpx.TransportError, ValueError) as exc:
         return None, {}, [("every workflow targets a declared, live runner label",
-                           f"could not list {owner}'s repos: {exc}")]
-    labels, ids, unreadable = {}, {}, []
+                           f"could not list {owner}'s repos: {exc}")], set()
+    labels, ids, unreadable, skipped_archived = {}, {}, [], set()
     for repo in sorted(repos):
         full = f"{owner}/{repo}"
         try:
             resp = _get(client, f"/api/v1/repos/{owner}/{repo}")
             resp.raise_for_status()
             info = resp.json()
+            if info.get("archived"):
+                skipped_archived.add(repo)
+                continue
             ref = info.get("default_branch")
             entries = _list_workflows(client, owner, repo, ref, ".forgejo/workflows") if ref else []
         except (httpx.HTTPStatusError, httpx.TransportError, ValueError) as exc:
@@ -1227,7 +1232,7 @@ def scan_repo_workflow_labels(client: httpx.Client, owner: str):
                 repo_labels.setdefault(token, value)
         if repo_labels:
             labels[repo] = repo_labels
-    return labels, ids, unreadable
+    return labels, ids, unreadable, skipped_archived
 
 
 def check_privileged_labels(client, owner, report, labels):
@@ -1916,10 +1921,14 @@ def main(
             # undeclared labels) and the live runners — the live leg hard-
             # fails because a warranted/CI job handed an unserved label queues
             # forever.
-            labels, repo_ids, unreadable = scan_repo_workflow_labels(client, owner)
+            labels, repo_ids, unreadable, skipped_archived = scan_repo_workflow_labels(client, owner)
             for what, detail in unreadable:
                 env_findings.unknown(what, detail)
             if labels is not None:
+                env_findings.ok(
+                    "archived repos cannot target runner labels",
+                    f"{len(skipped_archived)} archived repos skipped",
+                )
                 check_privileged_labels(client, owner, env_findings, labels)
                 check_unknown_labels(owner, env_findings, labels)
                 check_runner_series(client, owner, env_findings, labels, repo_ids)
