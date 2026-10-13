@@ -17,8 +17,9 @@
   # /etc/k3s/token, /etc/agents/op-token) are no longer seeded here: they are
   # declared in nixos/ringtail/secrets.json and seated by the human-run
   # `mise run seed-secrets ringtail` (biometric op); its vault-free `--check`
-  # is the weekly drift gate. eblume/blumeops#1524. A vault rotation now takes
-  # effect when the task runs, not at the next rebuild.
+  # becomes the weekly drift gate when the host timer lands (a follow-on of
+  # eblume/blumeops#1524). A vault rotation now takes effect when the task
+  # runs, not at the next rebuild.
   #
   # The two 1Password Connect fetches below stay: the k3s op-credentials and
   # onepassword-token secrets are consumed in-cluster (post_tasks), not by a

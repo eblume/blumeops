@@ -34,9 +34,10 @@ mise run seed-secrets ringtail --dry-run # report what an apply would do; write 
 mise run seed-secrets ringtail --only /etc/forgejo-runner/priv.env
 ```
 
-`--check` needs no vault and no TTY, so it is the weekly drift gate (and the
-only part of this mechanism that runs unattended). Anything a check cannot
-inspect is `UNKNOWN`, and `UNKNOWN` is a failure.
+`--check` needs no vault and no TTY, so it can run unattended — the weekly
+host-side timer on ringtail that makes it the drift gate is the follow-on
+PR in [eblume/blumeops#1524](https://forge.ops.eblu.me/eblume/blumeops/issues/1524).
+Anything a check cannot inspect is `UNKNOWN`, and `UNKNOWN` is a failure.
 
 Every remote command runs as root through `sudo -n` over ssh, so the ssh
 user needs passwordless sudo on the host (ringtail's `eblume` has it).
