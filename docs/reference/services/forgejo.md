@@ -140,7 +140,7 @@ name.
 | Repo | Secrets | Purpose |
 |------|---------|---------|
 | `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN`, `FORGE_ACTIONS_RO` | `forge-reconcile` reconcile + drift check (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items; read-only forge token for the auto-apply preflights |
-| `eblume/hephaestus` | `MAIN_PUSH_TOKEN` | Release workflow pushes its changelog commit to the branch-protected `main` as the whitelisted user (same 1Password item as blumeops's release read) |
+| `eblume/hephaestus` | `MAIN_PUSH_TOKEN` | Release workflow pushes its changelog commit to the branch-protected `main` as the whitelisted user (the `blumeops-ci/forge-main-push/hephaestus-token` field — a hephaestus-scoped PAT; the item's `token` field is repo-restricted to eblume/blumeops and cannot write here) |
 | `eblume/talos`, `eblume/horkos` | `ZOT_PUSH_API_KEY` | Auto-release CI: per-repo push-only zot identity (`ci-zot-talos` / `ci-zot-horkos`), provisioned from the zot master fields by the values half |
 | `eblume/cv` | — (none) | Release CI is stored-secret-free; the empty declaration makes provisioning authoritative here (first run deletes the stale `FORGE_TOKEN`) |
 

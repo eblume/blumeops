@@ -132,6 +132,7 @@ follow-up now that it needs no provisioning):
 | `ci-zot` | `api-key` | `w3663ffn…` CI zot push key field | `build-container.yaml` (talos + horkos `release.yaml` moved to per-repo `ZOT_PUSH_API_KEY` keys, eblume/blumeops#1039 series) |
 | `fly-deploy` | `token` | `on5slfay…/deploy-token` | `deploy-fly.yaml` |
 | `forge-main-push` | `token` | `blumeops-main-push-token/token` | `build-blumeops.yaml` |
+| `forge-main-push` | `hephaestus-token` | — minted hephaestus-scoped (write:repository, repo-restricted to eblume/hephaestus; the `token` field can't write there) | hephaestus `release.yaml` (declared as `MAIN_PUSH_TOKEN`) |
 | `k3s-run-script` | `kubeconfig` | — minted from the live cluster (bound 12-month token for the `horkos`/`run-script` ServiceAccount, loopback-only server; no blumeops source) | `run-script.yaml` cluster chores |
 
 `FORGE_REPO_WRITE_TOKEN`: **not yet migrated to `blumeops-ci`** — but the
