@@ -1,0 +1,198 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["typer==0.27.2"]
+# ///
+#MISE description="Validate ntfy/topics.json and fail on undeclared topic literals"
+"""Check every ntfy topic literal in the tree against ntfy/topics.json.
+
+Two checks:
+
+1. Shape: ntfy/topics.json parses, every topic has a unique name and the
+   required fields (purpose, producers, budget{volume, priority,
+   actionable, rationale}, subscribe), so the file is a declared-state
+   file in the sense of docs/reference/operations/declared-state-files.md.
+2. Lint: no producer in the tree posts to an undeclared topic. A topic
+   literal is the first path segment of a URL on an ntfy host (public
+   ``https://ntfy.ops.eblu.me/<topic>`` or the cluster-internal
+   ``ntfy.ntfy.svc.cluster.local``) or an ntfy-config ``topic:`` value
+   (frigate-notify's YAML key, the Grafana template's JSON dict). Env-var
+   references (``${NTFY_TOPIC}``) are the wiring seam, not a literal —
+   the scripts' *defaults* still are, and stay pinned. The tests/ tree
+   posts to ntfy.invalid by design and is skipped host-side.
+
+The docs card (docs/reference/services/ntfy.md) renders its Topics table
+and Subscribe checklist from this declaration, so a topic that leaves the
+file leaves the card at the same time.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+
+import typer
+
+app = typer.Typer(add_completion=False)
+
+TOPICS_FILE = "ntfy/topics.json"
+
+# A topic name: what ntfy topic segments look like in practice.
+NAME_RE = re.compile(r"[A-Za-z0-9._-]+")
+# A URL on an ntfy server whose first path segment is a topic. No scheme
+# required, so the bare `ntfy.ops.eblu.me/ceramics` in the ceramics-watch
+# story is caught too (it is excluded via EXCLUDED_FILES anyway only for
+# the changelog; the story file's mention is a bare name, no slash form).
+NTFY_URL = re.compile(
+    r"(?P<host>[a-z0-9.-]*ntfy[a-z0-9.-]*\.[a-z0-9.-]+)"
+    r":?[0-9]*"
+    r"/(?P<topic>[A-Za-z0-9._-]+)"
+)
+# An ntfy notification config key: frigate-notify's `topic: frigate-alerts`,
+# the Grafana template's `"topic" "infra-alerts"` dict, and JSON `"topic":`.
+TOPIC_KEY = re.compile(
+    r"""(?ix)
+    (?: "topic" | 'topic' | \btopic: )
+    (?: "topic" | 'topic' )? [ \t]*
+    :? [ \t]*
+    (?: " | ' )?(?P<topic>[A-Za-z0-9._-]+)(?: " | ' )?
+    """
+)
+
+# Never scanned: the changelog is a historical record, the declaration's
+# own comments quote the URL form as documentation, and the binary-ish
+# dirs are unreadable as text anyway.
+EXCLUDED_DIRS = {".git", "node_modules", ".venv", "venv"}
+EXCLUDED_FILES = {
+    "CHANGELOG.md",
+    TOPICS_FILE,
+}
+# Test-only ntfy host: the watcher tests override NTFY_TOPIC by design.
+TEST_HOSTS = {"ntfy.invalid"}
+# First path segments that are ntfy API/health routes, not topics (the alloy
+# probe hits /v1/health).
+API_SEGMENTS = {"v1"}
+
+
+def root_dir() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def load_topics() -> list[dict]:
+    path = root_dir() / TOPICS_FILE
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        typer.secho(f"ERROR: {TOPICS_FILE} does not parse: {exc}", fg=typer.colors.RED)
+        raise typer.Exit(1)
+    if not isinstance(data, dict) or not isinstance(data.get("topics"), list):
+        typer.secho(
+            "ERROR: ntfy/topics.json must be an object with a 'topics' array",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(1)
+    return data["topics"]
+
+
+def shape_errors(topics: list[dict]) -> list[str]:
+    errors: list[str] = []
+    names: set[str] = set()
+    for i, t in enumerate(topics):
+        where = f"topic {i} ({t.get('name', '?')})"
+        name = t.get("name")
+        if not isinstance(name, str) or not NAME_RE.fullmatch(name):
+            errors.append(f"{where}: 'name' missing or does not match {NAME_RE.pattern}")
+            continue
+        if name in names:
+            errors.append(f"{where}: duplicate topic name")
+        names.add(name)
+        if not (isinstance(t.get("purpose"), str) and t["purpose"].strip()):
+            errors.append(f"{where}: 'purpose' must be a non-empty string")
+        producers = t.get("producers")
+        if not isinstance(producers, list) or any(not isinstance(p, str) for p in producers):
+            errors.append(f"{where}: 'producers' must be a list of repo-relative paths")
+        status = t.get("status", "active")
+        if status not in ("active", "retired"):
+            errors.append(f"{where}: 'status' must be 'active' or 'retired'")
+        if status == "active" and not producers:
+            errors.append(f"{where}: active topic has no producers")
+        budget = t.get("budget")
+        if not isinstance(budget, dict):
+            errors.append(f"{where}: 'budget' must be an object")
+        else:
+            for field in ("volume", "rationale"):
+                if not (isinstance(budget.get(field), str) and budget[field].strip()):
+                    errors.append(f"{where}: budget.{field} must be a non-empty string")
+            if not (isinstance(budget.get("priority"), int) and 1 <= budget["priority"] <= 5):
+                errors.append(f"{where}: budget.priority must be an integer 1-5")
+            if not isinstance(budget.get("actionable"), bool):
+                errors.append(f"{where}: budget.actionable must be a boolean")
+        if not isinstance(t.get("subscribe"), bool):
+            errors.append(f"{where}: 'subscribe' must be a boolean")
+    return errors
+
+
+def iter_files():
+    root = root_dir()
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(root).as_posix()
+        if any(part in EXCLUDED_DIRS for part in path.relative_to(root).parts[:-1]):
+            continue
+        if rel in EXCLUDED_FILES:
+            continue
+        yield path, rel
+
+
+def topic_literals(path: Path) -> list[tuple[int, str]]:
+    """Return (line_number, topic) for every topic literal in a text file."""
+    try:
+        text = path.read_text()
+    except (UnicodeDecodeError, OSError):
+        return []
+    found: list[tuple[int, str]] = []
+    for lineno, line in enumerate(text.splitlines(), 1):
+        for m in NTFY_URL.finditer(line):
+            host = m["host"]
+            topic = m["topic"]
+            if any(host == h or host.endswith("." + h) for h in TEST_HOSTS):
+                continue
+            if topic in API_SEGMENTS:
+                continue
+            found.append((lineno, topic))
+        for m in TOPIC_KEY.finditer(line):
+            found.append((lineno, m["topic"]))
+    return found
+
+
+@app.command()
+def main() -> None:
+    """Validate ntfy/topics.json and scan the tree for undeclared topics."""
+    topics = load_topics()
+    errors = shape_errors(topics)
+    if errors:
+        for e in errors:
+            typer.secho(f"ERROR: {TOPICS_FILE}: {e}", fg=typer.colors.RED)
+        raise typer.Exit(1)
+    declared = {t["name"] for t in topics if isinstance(t.get("name"), str)}
+
+    undeclared: list[str] = []
+    for path, rel in iter_files():
+        for lineno, topic in topic_literals(path):
+            if topic not in declared:
+                undeclared.append(f"{rel}:{lineno}: undeclared ntfy topic '{topic}'")
+    for hit in undeclared:
+        typer.secho(f"ERROR: {hit}", fg=typer.colors.RED)
+        typer.secho("  declare it in ntfy/topics.json (or remove the literal)", fg=typer.colors.RED)
+    if undeclared:
+        raise typer.Exit(1)
+    typer.secho(
+        f"ntfy-lint: {len(topics)} declared topics, every topic literal in the tree is declared.",
+        fg=typer.colors.GREEN,
+    )
+
+
+if __name__ == "__main__":
+    app()

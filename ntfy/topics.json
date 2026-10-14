@@ -1,0 +1,82 @@
+{
+  "_comment": [
+    "The ntfy topics: one entry per topic, the single declared source for a",
+    "topic's purpose, its expected producers, and its notification budget.",
+    "A recurring notification on a phone-subscribed topic is a reviewed change",
+    "to this file, not a literal in a script.",
+    "",
+    "  budget: volume is the expected cadence (fight notification creep: a",
+    "  higher-cadence producer on a phone topic needs a visible entry here);",
+    "  priority is the ntfy priority the topic should send (1 min, 3 default,",
+    "  5 max); actionable is true when a notification means \"someone should",
+    "  do something\" and false for FYI.",
+    "  producers: repo-relative paths of the code that posts to the topic.",
+    "  status: retired keeps a decommissioned topic declared so a silent",
+    "  re-addition fails the lint instead of appearing.",
+    "",
+    "  Consumers: the docs/reference/services/ntfy.md Topics table mirrors",
+    "  this file (checked by `mise run ntfy-lint`); the CI workflows and host",
+    "  watcher scripts read it (host + CI wiring lands in the follow-up PRs);",
+    "  ntfy-lint scans the tree for topic literals (a",
+    "  https://ntfy.ops.eblu.me/<topic> path or a ntfy-config `topic:` key)",
+    "  that are not declared here and fails on undeclared ones."
+  ],
+  "topics": [
+    {
+      "name": "ops-approvals",
+      "purpose": "Warrant requests, auto-apply refusal/failure alerts, the weekly auto-apply digest, and host apply verdicts (ringtail / indri rebuild watchers).",
+      "producers": [
+        ".forgejo/workflows/auto-apply-digest.yaml",
+        ".forgejo/workflows/provision-indri.yaml",
+        ".forgejo/workflows/ringtail-rebuild.yaml",
+        "darwin/indri/mcquack-indri-rebuild-watcher.sh",
+        "mise-tasks/request-run",
+        "nixos/ringtail/ringtail-apply-watcher.sh"
+      ],
+      "budget": {
+        "volume": "a handful per day; bursts on rebuild failures",
+        "priority": 3,
+        "actionable": true,
+        "rationale": "An approval waiting or an apply failing needs a human on the phone."
+      },
+      "subscribe": true
+    },
+    {
+      "name": "infra-alerts",
+      "purpose": "Grafana Unified Alerting pipeline: service health, pod readiness, PostgreSQL, textfile freshness, Frigate cameras, ArgoCD sync status.",
+      "producers": ["argocd/manifests/grafana-ringtail/alerting.yaml"],
+      "budget": {
+        "volume": "a few per day; group_wait 1m, group_interval 12h, repeat_interval 24h",
+        "priority": 3,
+        "actionable": true,
+        "rationale": "Alerts with runbook links; most repeat, few are new."
+      },
+      "subscribe": true
+    },
+    {
+      "name": "frigate-alerts",
+      "purpose": "Frigate camera detection events (person, car) in the driveway zones, with action buttons into the review UI.",
+      "producers": ["argocd/manifests/frigate/frigate-notify-config.yml"],
+      "budget": {
+        "volume": "a few per day in driveway zones only",
+        "priority": 3,
+        "actionable": false,
+        "rationale": "FYI with an action button into the review UI; notify_once dedupes a detection."
+      },
+      "subscribe": true
+    },
+    {
+      "name": "ceramics",
+      "purpose": "Skagit CCE ceramics watch. Retired 2026-09-01 (the watch was decommissioned; the topic is client-side only, nothing server-side).",
+      "producers": [],
+      "budget": {
+        "volume": "none — producer retired",
+        "priority": 3,
+        "actionable": true,
+        "rationale": "Retained so a silent re-addition fails the lint instead of appearing."
+      },
+      "status": "retired",
+      "subscribe": false
+    }
+  ]
+}
