@@ -96,12 +96,13 @@ jobs:
       # job's result is the whole of what the hook set checks — nothing is
       # quietly excluded, and the config cannot drift into holding hooks that
       # no longer run anywhere. The scope, not the membership, is the
-      # invariant: on a PR the hook set runs in changed-file mode (each hook
-      # checks the files it covers that the PR touched — its `files` filter
-      # already decides which changes even reach it), so a PR that touches no
-      # `ansible/` file skips ansible-lint entirely; on a main push or a
-      # dispatch it runs `--all-files`, the backstop that a changed-file PR
-      # can't miss a whole file.
+      # invariant: on a PR the hook set runs in changed-file mode (each hook's
+      # `files` filter decides whether the PR's changed files reach it; hooks
+      # that lint a whole project on any such change — ansible-lint, ty-check
+      # — then sweep their whole scope), so a PR that touches no `ansible/`
+      # file skips ansible-lint entirely; on a main push or a dispatch it runs
+      # `--all-files`, the backstop that a changed-file PR can't miss a whole
+      # file.
       # Adding a hook that cannot run in a clean checkout re-opens that gap.
       #
       # GITHUB_TOKEN is blanked to make this job's credential-free claim literal.
@@ -129,7 +130,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP"
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             base="$(jq -r '.pull_request.base.sha' "$GITHUB_EVENT_PATH")"
-            prek run --from-ref "$base" --to-ref HEAD --show-diff-on-failure \
+            head="$(jq -r '.pull_request.head.sha' "$GITHUB_EVENT_PATH")"
+            prek run --from-ref "$base" --to-ref "$head" --show-diff-on-failure \
               2>&1 | tee "$RUNNER_TEMP/lint-prek.log"
           else
             prek run --all-files --show-diff-on-failure 2>&1 \
