@@ -1,0 +1,1 @@
+Add the optional `auto_filers` key to the horkos instance document, wiring the `argocd/apps/` merge-hook warrant filer (eblume/horkos#54) — a main merge touching the app-of-apps root files the `argocd-sync-apps.yaml` request bound to the merged SHA.

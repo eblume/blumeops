@@ -28,6 +28,15 @@
       }
     }
   },
+  "auto_filers": [
+    {
+      "path_prefix": "argocd/apps/",
+      "action": "argocd-sync-apps.yaml",
+      "inputs": {
+        "revision": "{sha}"
+      }
+    }
+  ],
   "container_targets": {
     "eblume/blumeops": {
       "containers_dir": "containers",
