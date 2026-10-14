@@ -1,7 +1,7 @@
 ---
 title: Seed Host Secrets from the Vault
-modified: 2026-10-13
-last-reviewed: 2026-10-12
+modified: 2026-10-14
+last-reviewed: 2026-10-14
 tags:
   - how-to
   - operations
@@ -34,10 +34,10 @@ mise run seed-secrets ringtail --dry-run # report what an apply would do; write 
 mise run seed-secrets ringtail --only /etc/forgejo-runner/priv.env
 ```
 
-`--check` needs no vault and no TTY, so it can run unattended — the weekly
-host systemd timer on ringtail (`seed-secrets-check.timer`) runs it as root
-in place via `--check --local` (no ssh), every Sunday 05:30, writing an
-ok + timestamp textfile metric that Grafana alerts on
+`--check` needs no vault and no TTY, so it can run unattended — the host
+systemd timer on ringtail (`seed-secrets-check.timer`) runs it as root in
+place via `--check --local` (no ssh), once at boot and then every Sunday
+05:30, writing an ok + timestamp textfile metric that Grafana alerts on
 (`SeedSecretsCheckFailed` / `SeedSecretsCheckStale`, see
 [[runbook-seed-secrets-check]]).
 Anything a check cannot inspect is `UNKNOWN`, and `UNKNOWN` is a failure.

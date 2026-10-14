@@ -152,8 +152,11 @@ groups:
   # The weekly vault-free seed-secrets --check drift gate on ringtail
   # (nixos/ringtail/seed-secrets-check.nix) writes ok + timestamp gauges to
   # /var/lib/seed-secrets/seed-secrets.prom, scraped by ringtail's Alloy
-  # textfile collector. Failed = the last run was red; Stale = no series, or
-  # none fresh within 8d (7d timer + 1d margin).
+  # textfile collector. Failed = the last run was red; Stale = no run in
+  # 8d (7d timer + 1d margin), which is also the fresh-deploy case (no
+  # series yet): the timer's boot run (OnBootSec) closes that window within
+  # an hour, and the absent() branch below keeps the alert reachable until
+  # it does.
   - orgId: 1
     name: seed-secrets-check
     folder: Infrastructure Alerts
@@ -219,8 +222,12 @@ groups:
         condition: C
         # 8 days = 7d timer period + 1d margin for the weekly run.
         for: 1h
-        # No series at all is exactly the failure: the timer never ran.
-        noDataState: Alerting
+        # The series exists once the timer has run (weekly, plus at every
+        # boot via OnBootSec); noDataState OK below is therefore a real
+        # "no run in 8d" window, and the absent() branch in query A keeps a
+        # never-fired timer (fresh deploy / reinstall — the #1581 gap)
+        # alerting instead of reading as OK.
+        noDataState: OK
         execErrState: Alerting
         annotations:
           summary: >-
@@ -233,11 +240,12 @@ groups:
           - refId: A
             datasourceUid: prometheus
             relativeTimeRange:
-              from: 300
+              from: 0
               to: 0
             model:
               expr: >-
-                time() - seed_secrets_check_timestamp_seconds{cluster="ringtail"}
+                max_over_time(time() - seed_secrets_check_timestamp_seconds{cluster="ringtail"}[9d])
+                  or (time() - absent(seed_secrets_check_timestamp_seconds{cluster="ringtail"}[9d]) > 0)
               interval: ""
               refId: A
           - refId: B
