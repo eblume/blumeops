@@ -60,15 +60,17 @@ def test_must_pass_bodies_are_accepted():
 
 
 def test_body_file_argument_matches_stdin(tmp_path):
+    body = MUST_MATCH[0] + "\n"
     body_file = tmp_path / "body.txt"
-    body_file.write_text(MUST_MATCH[0] + "\n")
-    result = subprocess.run(
+    body_file.write_text(body)
+    via_file = subprocess.run(
         [str(SCRIPT), str(body_file)],
         capture_output=True,
         text=True,
         check=False,
     )
-    assert result.returncode == 1
+    assert via_file.returncode == 1
+    assert via_file.stdout == run_lint(body).stdout
 
 
 def test_too_many_arguments_fail(tmp_path):
