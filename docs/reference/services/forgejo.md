@@ -147,10 +147,11 @@ name.
 The per-purpose secrets the retired Ansible role used to sync (argocd token, fly deploy
 token, zot CI key) are no longer Forgejo secrets: workflows
 `op read` the blumeops-ci items at job time with `BLUMEOPS_CI_OP_TOKEN` —
-see [[blumeops-ci-item-migration]]. The main-push PAT is the exception in
-both directions: blumeops's release still reads it at job time, while
-hephaestus — whose CI cannot reach the blumeops-ci vault — declares it as
-`MAIN_PUSH_TOKEN`.
+see [[blumeops-ci-item-migration]]. The main-push PATs are the exception in
+both directions: blumeops's release still reads its own
+(`blumeops-ci/forge-main-push/token`) at job time, while hephaestus — whose
+CI cannot reach the blumeops-ci vault — declares its own hephaestus-scoped
+PAT (the `hephaestus-token` field of the same item) as `MAIN_PUSH_TOKEN`.
 
 These secrets are injected as `${{ secrets.SECRET_NAME }}` in workflow files.
 
