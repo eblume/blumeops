@@ -31,11 +31,11 @@ The upstream relay (`ntfy.sh`) is configured so mobile app clients can receive p
 
 ## Topics
 
-Mirrors `ntfy/topics.json` — the declared-state file that is the single source of truth for topics, checked by `mise run ntfy-lint` (a topic literal in the tree that is not declared there fails CI).
+Mirrors `ntfy/topics.json` by convention — the declared-state file that is the single source of truth for topics; the declaration itself is enforced by `mise run ntfy-lint` (an undeclared or retired topic literal in the tree fails CI).
 
 | Topic | Purpose | Volume | Priority | Actionable | Producers |
 |-------|---------|--------|----------|------------|-----------|
-| `ops-approvals` | Warrant requests, auto-apply refusal/failure alerts, the weekly auto-apply digest, host apply verdicts (ringtail / indri rebuild watchers) | a handful per day; bursts on rebuild failures | 3 | yes | `.forgejo/workflows/auto-apply-digest.yaml`, `.forgejo/workflows/provision-indri.yaml`, `.forgejo/workflows/ringtail-rebuild.yaml`, `mise-tasks/request-run`, the two host apply watchers |
+| `ops-approvals` | Warrant requests, auto-apply refusal/failure alerts, the weekly auto-apply digest, host apply verdicts (ringtail / indri rebuild watchers) | a handful per day; bursts on rebuild failures | 3 (host watchers 4) | yes | `.forgejo/workflows/auto-apply-digest.yaml`, `.forgejo/workflows/provision-indri.yaml`, `.forgejo/workflows/ringtail-rebuild.yaml`, `mise-tasks/request-run`, the two host apply watchers |
 | `infra-alerts` | Grafana Unified Alerting pipeline: service health, pod readiness, PostgreSQL, textfile freshness, Frigate cameras, ArgoCD sync status | a few per day; group_wait 1m, group_interval 12h, repeat_interval 24h | 3 | yes | `argocd/manifests/grafana-ringtail/alerting.yaml` |
 | `frigate-alerts` | Frigate camera detection events (person, car) in the driveway zones, with action buttons into the review UI | a few per day in driveway zones only | 3 | no | `argocd/manifests/frigate/frigate-notify-config.yml` |
 | `ceramics` | Skagit CCE ceramics watch — **retired 2026-09-01**, kept declared so a silent re-addition fails the lint | none — producer retired | 3 | (was yes) | none |

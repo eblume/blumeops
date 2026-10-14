@@ -1,17 +1,9 @@
 # Ntfy topic lint — every topic literal in the tree against ntfy/topics.json.
 #
-# The topics were scattered string literals with no registry, so a phone
-# subscription silently fell behind what actually posts (eblume/blumeops#1611:
-# nobody was subscribed to ops-approvals while it carried the warrant requests
-# and the auto-apply alerts). The declaration plus this lint is the
-# notification-creep gate: a new recurring producer on a phone-subscribed
-# topic is a reviewed change to ntfy/topics.json, not a literal in a script.
-#
-# Same shape and the same invariant as Docs Checks: credential-free (the lint
-# reads only local files), so it is safe on every PR including from a fork.
-# Path-filtered like Forge Reconcile: it runs where the declaration, the
-# lint, or this workflow itself moves, plus on every push to main as the
-# standing backstop.
+# Credential-free (the lint reads only local files), so it is safe on every
+# PR including from a fork. Path-filtered like Forge Reconcile: it runs where
+# the declaration, the lint, or this workflow itself moves, plus on every push
+# to main as the standing backstop.
 #
 # On an agent PR this sits `pending` with no run until a human clicks
 # "Approve and run" — the agents bot is read-only on canonical, so its PRs

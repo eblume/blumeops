@@ -14,12 +14,12 @@
     "  status: retired keeps a decommissioned topic declared so a silent",
     "  re-addition fails the lint instead of appearing.",
     "",
-    "  Consumers: the docs/reference/services/ntfy.md Topics table",
-    "  mirrors this file by convention (checked by `mise run ntfy-lint`); the",
-    "  CI workflows and host watcher scripts read it (host + CI wiring",
-    "  ntfy-lint scans the tree for topic literals (a",
-    "  https://ntfy.ops.eblu.me/<topic> path or a ntfy-config `topic:` key)",
-    "  that are not declared here and fails on undeclared ones."
+    "  Consumers: the docs/reference/services/ntfy.md Topics table mirrors",
+    "  this file by convention; `mise run ntfy-lint` scans the tree for",
+    "  topic literals (a https://ntfy.ops.eblu.me/<topic> path or a",
+    "  ntfy-config `topic:` key) and fails on undeclared ones, retired",
+    "  re-additions, and producers not listed here. The CI workflows and",
+    "  host watcher scripts do not read the file yet (follow-up)."
   ],
   "topics": [
     {
@@ -37,7 +37,7 @@
         "volume": "a handful per day; bursts on rebuild failures",
         "priority": 3,
         "actionable": true,
-        "rationale": "An approval waiting or an apply failing needs a human on the phone."
+        "rationale": "An approval waiting or an apply failing needs a human on the phone. Priority spread: the two host apply watchers send 4 (Priority: high) for apply verdicts, the rest 3."
       },
       "subscribe": true
     },

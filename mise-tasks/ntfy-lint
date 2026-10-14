@@ -3,27 +3,30 @@
 # requires-python = ">=3.12"
 # dependencies = ["typer==0.27.2"]
 # ///
-#MISE description="Validate ntfy/topics.json and fail on undeclared topic literals"
-"""Check every ntfy topic literal in the tree against ntfy/topics.json.
+#MISE description="Validate ntfy/topics.json and fail on undeclared/retired topic literals or unlisted producers"
+"""Validate ntfy/topics.json and fail on topic literals that drift from it.
 
-Two checks:
+Three checks:
 
 1. Shape: ntfy/topics.json parses, every topic has a unique name and the
    required fields (purpose, producers, budget{volume, priority,
-   actionable, rationale}, subscribe), so the file is a declared-state
-   file in the sense of docs/reference/operations/declared-state-files.md.
-2. Lint: no producer in the tree posts to an undeclared topic. A topic
-   literal is the first path segment of a URL on an ntfy host (public
-   ``https://ntfy.ops.eblu.me/<topic>`` or the cluster-internal
-   ``ntfy.ntfy.svc.cluster.local``) or an ntfy-config ``topic:`` value
-   (frigate-notify's YAML key, the Grafana template's JSON dict). Env-var
-   references (``${NTFY_TOPIC}``) are the wiring seam, not a literal —
-   the scripts' *defaults* still are, and stay pinned. The tests/ tree
-   posts to ntfy.invalid by design and is skipped host-side.
+   actionable, rationale}, subscribe), and every active topic's
+   producers are existing repo-relative files.
+2. Literals: no literal in the tree names an undeclared or retired
+   topic. A topic literal is the first path segment of a URL on an ntfy
+   host (public ``https://ntfy.ops.eblu.me/<topic>`` or the
+   cluster-internal ``ntfy.ntfy.svc.cluster.local``) or an ntfy-config
+   ``topic:`` value (frigate-notify's YAML key, the Grafana template's
+   JSON dict). Env-var references (``${NTFY_TOPIC}``) are the wiring
+   seam, not a literal — the scripts' *defaults* are caught only in
+   their URL form. URLs on any host outside NTFY_HOSTS — the tests'
+   ntfy.invalid included — do not count.
+3. Producers: every file whose literal names an active topic is listed
+   in that topic's producers.
 
 The docs card (docs/reference/services/ntfy.md) keeps its Topics table
-and Subscribe checklist in mirror of this declaration by convention —
-update both in the same change.
+in mirror of this declaration by convention — update both in the same
+change.
 """
 
 from __future__ import annotations
@@ -40,19 +43,21 @@ TOPICS_FILE = "ntfy/topics.json"
 
 # A topic name: what ntfy topic segments look like in practice.
 NAME_RE = re.compile(r"[A-Za-z0-9._-]+")
-# A URL on an ntfy server whose first path segment is a topic. No scheme
-# required, so the bare `ntfy.ops.eblu.me/ceramics` in the ceramics-watch
-# story is caught too (it is excluded via EXCLUDED_FILES anyway only for
-# the changelog; the story file's mention is a bare name, no slash form).
+# A URL on an ntfy server: no scheme required, so bare host/topic is caught; only NTFY_HOSTS hosts count.
 NTFY_URL = re.compile(
     r"(?P<host>[a-z0-9.-]*ntfy[a-z0-9.-]*\.[a-z0-9.-]+)"
     r":?[0-9]*"
     r"/(?P<topic>[A-Za-z0-9._-]+)"
 )
+# The only ntfy server hosts this repo posts to.
+NTFY_HOSTS = {"ntfy.ops.eblu.me", "ntfy.ntfy.svc.cluster.local", "ntfy.tail8d86e.ts.net"}
 # An ntfy notification config key, in the literal forms the producers use:
 # frigate-notify's `topic: frigate-alerts`, the Grafana template's
 # `"topic" "infra-alerts"` dict / JSON `"topic":`, the shell
-# `topic=frigate-alerts`, and a workflow's `"NTFY_TOPIC":` env value.
+# `topic=frigate-alerts`, a workflow's `"NTFY_TOPIC":` env value, and the
+# `NTFY_TOPIC=` / `ntfy_topic=` shell and `ntfy_topic:` / `"ntfy_topic":`
+# yaml forms. The trailing lookahead stops a URL value (e.g. `https://...`)
+# from reading its scheme as the topic (and blocks partial-token backtracks).
 TOPIC_KEY = re.compile(
     r"""(?ix)
     (?:
@@ -60,10 +65,15 @@ TOPIC_KEY = re.compile(
         | 'topic' [ \t]* :? [ \t]*       # go-template / JSON dict key
         | \btopic[ \t]* :[ \t]+         # yaml config key, value unquoted
         | \btopic[ \t]* =[ \t]*         # shell assignment
-        | "NTFY_TOPIC" [ \t]* :[ \t]*    # yaml env value (quoted or bare)
+        | "NTFY_TOPIC" [ \t]* :[ \t]*    # yaml env value (quoted)
+        | "ntfy_topic" [ \t]* :[ \t]*    # yaml env value (quoted)
+        | NTFY_TOPIC [ \t]* =[ \t]*      # shell env assignment
+        | ntfy_topic [ \t]* :[ \t]+      # yaml env value
+        | ntfy_topic [ \t]* =[ \t]*      # shell env assignment
     )
     (?: " | ' )?
     (?P<topic>[A-Za-z0-9._-]+)
+    (?![A-Za-z0-9._-]|:)               # complete token; not a URL scheme (`https:`)
     """
 )
 # TOPIC_KEY only runs where a notification config can live; unscoped it reads
@@ -75,19 +85,19 @@ TOPIC_KEY_PATHS = (
     "nixos/",
     "darwin/",
     "argocd/",
+    "ansible/",
     "tests/",
 )
 
 # Never scanned: the changelog is a historical record, the declaration's
-# own comments quote the URL form as documentation, and the binary-ish
-# dirs are unreadable as text anyway.
+# own comments quote the URL form as documentation, and this linter quotes
+# the topic-key forms it detects as documentation.
 EXCLUDED_DIRS = {".git", "node_modules", ".venv", "venv"}
 EXCLUDED_FILES = {
     "CHANGELOG.md",
     TOPICS_FILE,
+    "mise-tasks/ntfy-lint",
 }
-# Test-only ntfy host: the watcher tests override NTFY_TOPIC by design.
-TEST_HOSTS = {"ntfy.invalid"}
 # First path segments that are ntfy API/health routes, not topics (the alloy
 # probe hits /v1/health).
 API_SEGMENTS = {"v1"}
@@ -116,6 +126,7 @@ def load_topics() -> list[dict]:
 def shape_errors(topics: list[dict]) -> list[str]:
     errors: list[str] = []
     names: set[str] = set()
+    root = root_dir()
     for i, t in enumerate(topics):
         where = f"topic {i} ({t.get('name', '?')})"
         name = t.get("name")
@@ -135,6 +146,10 @@ def shape_errors(topics: list[dict]) -> list[str]:
             errors.append(f"{where}: 'status' must be 'active' or 'retired'")
         if status == "active" and not producers:
             errors.append(f"{where}: active topic has no producers")
+        if status == "active" and isinstance(producers, list):
+            for p in producers:
+                if not (root / p).is_file():
+                    errors.append(f"{where}: producer '{p}' does not exist")
         budget = t.get("budget")
         if not isinstance(budget, dict):
             errors.append(f"{where}: 'budget' must be an object")
@@ -182,10 +197,9 @@ def topic_literals(path: Path, rel: str) -> list[tuple[int, str]]:
     key_scoped = rel.startswith(TOPIC_KEY_PATHS)
     for lineno, line in enumerate(text.splitlines(), 1):
         for m in NTFY_URL.finditer(line):
-            host = m["host"]
-            seg = m["topic"]
-            if any(host == h or host.endswith("." + h) for h in TEST_HOSTS):
+            if m["host"] not in NTFY_HOSTS:
                 continue
+            seg = m["topic"]
             if seg in API_SEGMENTS:
                 continue
             found.append((lineno, seg))
@@ -204,20 +218,45 @@ def main() -> None:
         for e in errors:
             typer.secho(f"ERROR: {TOPICS_FILE}: {e}", fg=typer.colors.RED)
         raise typer.Exit(1)
-    declared = {t["name"] for t in topics if isinstance(t.get("name"), str)}
+    active = {
+        t["name"]
+        for t in topics
+        if isinstance(t.get("name"), str) and t.get("status") != "retired"
+    }
+    retired = {
+        t["name"]
+        for t in topics
+        if isinstance(t.get("name"), str) and t.get("status") == "retired"
+    }
+    producers_by_topic = {
+        t["name"]: set(t.get("producers") or [])
+        for t in topics
+        if isinstance(t.get("name"), str)
+    }
 
     undeclared: list[str] = []
+    violations: list[str] = []
     for path, rel in iter_files():
         for lineno, topic in topic_literals(path, rel):
-            if topic not in declared:
+            if topic in retired:
+                violations.append(
+                    f"{rel}:{lineno}: retired ntfy topic '{topic}' — literal is a re-addition; remove it or revive the topic in ntfy/topics.json"
+                )
+            elif topic not in active:
                 undeclared.append(f"{rel}:{lineno}: undeclared ntfy topic '{topic}'")
+            elif rel not in producers_by_topic[topic]:
+                violations.append(
+                    f"{rel}:{lineno}: posts to '{topic}' but is not listed in its producers (ntfy/topics.json)"
+                )
     for hit in undeclared:
         typer.secho(f"ERROR: {hit}", fg=typer.colors.RED)
         typer.secho("  declare it in ntfy/topics.json (or remove the literal)", fg=typer.colors.RED)
-    if undeclared:
+    for hit in violations:
+        typer.secho(f"ERROR: {hit}", fg=typer.colors.RED)
+    if undeclared or violations:
         raise typer.Exit(1)
     typer.secho(
-        f"ntfy-lint: {len(topics)} declared topics, every topic literal in the tree is declared.",
+        f"ntfy-lint: {len(topics)} declared topics, every topic literal in the tree is declared and its file a listed producer.",
         fg=typer.colors.GREEN,
     )
 
