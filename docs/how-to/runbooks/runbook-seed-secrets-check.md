@@ -34,10 +34,10 @@ collector and remote-written to the in-cluster Prometheus with
   last run was red (drifted file, stray file, or an `UNKNOWN` — a check
   that cannot see is a failure).
 - **`SeedSecretsCheckStale`** — last timestamp older than 8 days (7d timer +
-  1d margin). The timer also fires once at boot (`OnBootSec=15min`), so the
-  series exists within an hour of any fresh deploy or reinstall; an
-  `absent()` branch in the query covers the window before that first run
-  (and a never-fired timer), so a missing series still alerts.
+    1d margin). The timer also fires once at boot (`OnBootSec=15min`), so the
+    series exists within an hour of any fresh deploy or reinstall; an
+    `absent()` branch in the query covers the window before that first run
+    (and a never-fired timer), so a missing series still alerts.
 
 The unit itself always exits 0 — a red check must not flap the unit; the
 metric and these rules carry the state.

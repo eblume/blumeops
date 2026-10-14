@@ -80,10 +80,12 @@ in
       # SeedSecretsCheckStale is noDataState Alerting, so a fresh NixOS build
       # or reboot would page within an hour otherwise. Persistent=true only
       # covers missed calendar fires, not a never-fired timer, so the first
-      # run needs its own trigger. One run at boot + the weekly OnCalendar is
-      # the existing ringtail pattern (ringtail-apply-watcher). The metric
-      # timestamp then keeps refreshing weekly, so the stale rule still
-      # catches a dead timer between reboots (eblume/blumeops#1524).
+      # run needs its own trigger. A boot run + the weekly OnCalendar is the
+      # existing ringtail pattern (ringtail-apply-watcher); a reboot that
+      # crosses a missed calendar fire can double-run the unit — idempotent
+      # and offline, so harmless. The metric timestamp then keeps refreshing
+      # weekly, so the stale rule still catches a dead timer between reboots
+      # (eblume/blumeops#1524).
       OnBootSec = "15min";
       Persistent = true;
       AccuracySec = "5m";

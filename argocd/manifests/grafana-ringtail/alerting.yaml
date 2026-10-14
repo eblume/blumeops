@@ -244,7 +244,7 @@ groups:
               to: 0
             model:
               expr: >-
-                max_over_time(time() - seed_secrets_check_timestamp_seconds{cluster="ringtail"}[9d])
+                min_over_time(time() - seed_secrets_check_timestamp_seconds{cluster="ringtail"}[9d])
                   or (time() - absent(seed_secrets_check_timestamp_seconds{cluster="ringtail"}[9d]) > 0)
               interval: ""
               refId: A
