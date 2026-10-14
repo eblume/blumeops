@@ -1,10 +1,6 @@
 # provision-indri — apply a bound blumeops SHA's nix-darwin generation to indri.
 #
-# Not requestable: it is `class: auto` in warrant-policy.yaml, so `mise run
-# request-run` refuses it. Its real path is push-to-main auto-apply on its
-# watched paths — the merge commit is the approval (see
-# docs/explanation/auto-apply.md) — with `workflow_dispatch` as the manual
-# fallback; the full story is in the header paragraphs below.
+# class: auto (not requestable): applies on push to its watched paths; see docs/explanation/auto-apply.md
 # The job runs on indri's own runner (host-mode erichblume with NOPASSWD sudo —
 # the documented, accepted runner story for this box, so no polkit or
 # template-unit dance; contrast ringtail-rebuild) and drives the proven
