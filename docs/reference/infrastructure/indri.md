@@ -1,7 +1,7 @@
 ---
 title: Indri
-modified: 2026-10-05
-last-reviewed: 2026-10-03
+modified: 2026-10-14
+last-reviewed: 2026-10-14
 tags:
   - infrastructure
   - host
@@ -106,8 +106,11 @@ apply runbook is [[provision]]:
   until the mount). The flake therefore carries
   `services.openssh.hostKeys = []` plus two
   `environment.etc."ssh/sshd_config.d/…".enable = false`
-  overrides: no sshd drop-in may be a nix-darwin link. See
-  [[provision]] §Reboot test.
+  overrides: no sshd drop-in may be a nix-darwin link. The sshd policy and
+  erichblume's authorized keys the generation does add live in real files
+  (`/etc/ssh/sshd_config.d/050-indri.conf`, `/etc/ssh/nix_authorized_keys.d/erichblume`)
+  that the activation writes before the switch - valid in the window, re-seeded on
+  every generation. See [[provision]] §Reboot test.
 - **`/run/current-system` survives reboots.** The first reboot test
   (2026-09-16) found nix-darwin's `org.nixos.activate-system` daemon
   disallowed in Background Task Management, so the symlink was deleted at
@@ -116,13 +119,18 @@ apply runbook is [[provision]]:
   the daemon now runs at boot. The system profile (`/nix/var/nix/profiles/system`) remains the
   durable pointer; the play uses it as the fallback (still needed before
   the first switch). Full record in [[provision]] §Reboot test.
-- **SSH host key.** Remote Login is off; all ssh is Tailscale SSH, which
-  serves `/etc/ssh/ssh_host_*_key` when those files exist. nix-darwin
-  activation generated them on 2026-09-16, so indri's fingerprint changed
+- **SSH host key.** Remote Login is on, enabled declaratively by the flake
+  (`services.openssh.enable = true`; nix-darwin's launchd activation does the
+  `launchctl enable` + `bootstrap` of `system/com.openssh.sshd`, no Full Disk
+  Access needed). Both OpenSSH and Tailscale SSH (still on until
+  eblume/blumeops#1484 PR 4) serve `/etc/ssh/ssh_host_*_key` when those
+  files exist. nix-darwin activation
+  generated them on 2026-09-16, so indri's fingerprint changed
   to `SHA256:liWWi+4w4SbrZyITCkbVmIn+RsHES0hwxvOuWRS6cRA`; a
   known_hosts warning from that date is this, not an intruder.
-- **Tailscale SSH drops remote exit codes.** Every ssh to indri is
-  Tailscale SSH (Remote Login is off), and its remote command runner
+- **Tailscale SSH drops remote exit codes.** Tailscale SSH (still the path
+  for this host until eblume/blumeops#1484 PR 4) runs its remote command
+  through a shell whose runner
   exits 0 no matter what the remote command did, so a bare
   `ssh indri '…' && …` reads success for any failure, for any user
   (including `ssh erichblume@indri`). Upstream:
