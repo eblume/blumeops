@@ -14,9 +14,9 @@
     "  status: retired keeps a decommissioned topic declared so a silent",
     "  re-addition fails the lint instead of appearing.",
     "",
-    "  Consumers: the docs/reference/services/ntfy.md Topics table mirrors",
-    "  this file (checked by `mise run ntfy-lint`); the CI workflows and host",
-    "  watcher scripts read it (host + CI wiring lands in the follow-up PRs);",
+    "  Consumers: the docs/reference/services/ntfy.md Topics table",
+    "  mirrors this file by convention (checked by `mise run ntfy-lint`); the",
+    "  CI workflows and host watcher scripts read it (host + CI wiring",
     "  ntfy-lint scans the tree for topic literals (a",
     "  https://ntfy.ops.eblu.me/<topic> path or a ntfy-config `topic:` key)",
     "  that are not declared here and fails on undeclared ones."
@@ -70,7 +70,7 @@
       "purpose": "Skagit CCE ceramics watch. Retired 2026-09-01 (the watch was decommissioned; the topic is client-side only, nothing server-side).",
       "producers": [],
       "budget": {
-        "volume": "none — producer retired",
+        "volume": "none \u2014 producer retired",
         "priority": 3,
         "actionable": true,
         "rationale": "Retained so a silent re-addition fails the lint instead of appearing."

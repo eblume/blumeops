@@ -21,9 +21,9 @@ Two checks:
    the scripts' *defaults* still are, and stay pinned. The tests/ tree
    posts to ntfy.invalid by design and is skipped host-side.
 
-The docs card (docs/reference/services/ntfy.md) renders its Topics table
-and Subscribe checklist from this declaration, so a topic that leaves the
-file leaves the card at the same time.
+The docs card (docs/reference/services/ntfy.md) keeps its Topics table
+and Subscribe checklist in mirror of this declaration by convention —
+update both in the same change.
 """
 
 from __future__ import annotations
@@ -49,15 +49,33 @@ NTFY_URL = re.compile(
     r":?[0-9]*"
     r"/(?P<topic>[A-Za-z0-9._-]+)"
 )
-# An ntfy notification config key: frigate-notify's `topic: frigate-alerts`,
-# the Grafana template's `"topic" "infra-alerts"` dict, and JSON `"topic":`.
+# An ntfy notification config key, in the literal forms the producers use:
+# frigate-notify's `topic: frigate-alerts`, the Grafana template's
+# `"topic" "infra-alerts"` dict / JSON `"topic":`, the shell
+# `topic=frigate-alerts`, and a workflow's `"NTFY_TOPIC":` env value.
 TOPIC_KEY = re.compile(
     r"""(?ix)
-    (?: "topic" | 'topic' | \btopic: )
-    (?: "topic" | 'topic' )? [ \t]*
-    :? [ \t]*
-    (?: " | ' )?(?P<topic>[A-Za-z0-9._-]+)(?: " | ' )?
+    (?:
+        "topic" [ \t]* :? [ \t]* "       # go-template / JSON dict key
+        | 'topic' [ \t]* :? [ \t]*       # go-template / JSON dict key
+        | \btopic[ \t]* :[ \t]+         # yaml config key, value unquoted
+        | \btopic[ \t]* =[ \t]*         # shell assignment
+        | "NTFY_TOPIC" [ \t]* :[ \t]*    # yaml env value (quoted or bare)
+    )
+    (?: " | ' )?
+    (?P<topic>[A-Za-z0-9._-]+)
     """
+)
+# TOPIC_KEY only runs where a notification config can live; unscoped it reads
+# the word after `topic:` in prose, which is how a doc sentence would trip
+# the lint. NTFY_URL stays global: a URL is unambiguous wherever it sits.
+TOPIC_KEY_PATHS = (
+    ".forgejo/workflows/",
+    "mise-tasks/",
+    "nixos/",
+    "darwin/",
+    "argocd/",
+    "tests/",
 )
 
 # Never scanned: the changelog is a historical record, the declaration's
@@ -146,25 +164,35 @@ def iter_files():
         yield path, rel
 
 
-def topic_literals(path: Path) -> list[tuple[int, str]]:
+def dedupe(pairs: list[tuple[int, str]]) -> list[tuple[int, str]]:
+    out: list[tuple[int, str]] = []
+    for pair in pairs:
+        if pair not in out:
+            out.append(pair)
+    return out
+
+
+def topic_literals(path: Path, rel: str) -> list[tuple[int, str]]:
     """Return (line_number, topic) for every topic literal in a text file."""
     try:
         text = path.read_text()
     except (UnicodeDecodeError, OSError):
         return []
     found: list[tuple[int, str]] = []
+    key_scoped = rel.startswith(TOPIC_KEY_PATHS)
     for lineno, line in enumerate(text.splitlines(), 1):
         for m in NTFY_URL.finditer(line):
             host = m["host"]
-            topic = m["topic"]
+            seg = m["topic"]
             if any(host == h or host.endswith("." + h) for h in TEST_HOSTS):
                 continue
-            if topic in API_SEGMENTS:
+            if seg in API_SEGMENTS:
                 continue
-            found.append((lineno, topic))
-        for m in TOPIC_KEY.finditer(line):
-            found.append((lineno, m["topic"]))
-    return found
+            found.append((lineno, seg))
+        if key_scoped:
+            for m in TOPIC_KEY.finditer(line):
+                found.append((lineno, m["topic"]))
+    return dedupe(found)
 
 
 @app.command()
@@ -180,7 +208,7 @@ def main() -> None:
 
     undeclared: list[str] = []
     for path, rel in iter_files():
-        for lineno, topic in topic_literals(path):
+        for lineno, topic in topic_literals(path, rel):
             if topic not in declared:
                 undeclared.append(f"{rel}:{lineno}: undeclared ntfy topic '{topic}'")
     for hit in undeclared:

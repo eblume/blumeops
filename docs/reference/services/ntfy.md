@@ -18,7 +18,7 @@ Self-hosted push notification service. Ntfy receives HTTP POST messages and deli
 | **URL** | https://ntfy.ops.eblu.me |
 | **Tailscale URL** | https://ntfy.tail8d86e.ts.net |
 | **Namespace** | `ntfy` |
-| **Image** | `registry.ops.eblu.me/blumeops/ntfy:v2.19.2-fd0bebb-nix` (locally built) |
+| **Image** | `registry.ops.eblu.me/blumeops/ntfy:v2.28.0-2288d19-nix` (locally built) |
 | **Upstream** | https://github.com/binwiederhier/ntfy |
 | **Manifests** | `argocd/manifests/ntfy/` |
 | **Topic declaration** | `ntfy/topics.json` |
