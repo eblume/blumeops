@@ -59,6 +59,11 @@ on:
     branches: [main]
     paths:
       - 'darwin/indri/**'
+      # Shared forge-runner inputs: the host config imports forge/runners.nix
+      # (-> forge/runners.json), so a change there ships on the next apply —
+      # trigger that apply here (docs/explanation/auto-apply.md).
+      - 'forge/runners.nix'
+      - 'forge/runners.json'
   workflow_dispatch:
     inputs:
       revision:

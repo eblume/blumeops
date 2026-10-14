@@ -23,18 +23,37 @@ Two modes:
   that namespace is reserved for talos) plus the lint's list of pending
   host changes. Baseline = newest successful run of the host's workflow
   (Forgejo Actions run history); pending = first-parent merges since that
-  baseline whose diff touched the host's paths. Default: every auto-apply
-  host derived from warrant-policy.yaml + the workflows' `on.push.paths`.
-  A generator, not a gate: always exits 0 (unknown host names excepted).
-- `<pr> [<pr> ...]` — check PR bodies for the declaration: a line matching
-  `^Auto-apply: <host>` per affected host, and every pending item named as
-  #NNNN or sha8. No host paths touched → PASS. Exit 1 if any PR fails.
+  baseline whose diff touched the host's trigger set (host globs plus the
+  shared input files, e.g. forge/runners.nix). A generator, not a gate:
+  exits 0 (unknown host names excepted).
+- `<pr> [<pr> ...]` — check PR bodies for the declaration: a line
+  `Auto-apply: <host>` (exactly one host per line) per affected host, and
+  every pending item named as #NNNN or sha8 inside that host's blockquote
+  block. No host paths touched → PASS. Exit 1 if any PR fails.
 
-Host derivation is never hardcoded: warrant-policy.yaml (class: auto) →
-each workflow's on.push.paths (host-shaped globs, e.g. nixos/ringtail/**).
-A workflow the PR itself modifies is read at the PR's head sha, so removing
-a host trigger in the PR is honored. Fire-and-forget workflows (raw text
-contains `wait=false`) get the "green means launched" verdict note (indri).
+The derivation is fail-closed: a `class: auto` workflow must either be in
+the NON_HOST_AUTO_WORKFLOWS allowlist (build-container — no host involved)
+or list, in `on.push.paths`, a host glob `<nixos|darwin>/<host>/**` plus
+optional plain shared input files. Anything else — broken YAML, a
+string-form `on: push`, a non-list `paths`, an unexpected glob, the only
+host glob cancelled by `paths-ignore`, a missing workflow file — exits 1
+with a message. Since the PR's own version decides (workflows the PR
+modifies, and the policy when the PR modifies it, are read at the PR head
+sha), a PR that breaks its own workflow cannot bypass the check.
+Fire-and-forget workflows (raw text contains `wait=false`) get the
+"green means launched" verdict note (indri).
+
+`main`'s full first-parent history lives in a tool-owned bare cache
+clone of the canonical URL (~/.cache/blumeops-lint-auto-apply, overridable
+via LINT_AUTO_APPLY_CACHE) — never a configured remote (some clones have
+the canonical repo at `origin`, not `upstream`), and never the session
+worktree, which the pod clones shallow and shares across sessions. In
+check mode a failed fetch, or a baseline that is not an ancestor of main,
+is itself a verdict (exit 1): a stale or missing main under-counts the
+pending list → a silent false PASS.
+
+Also runs as the `Lint / auto-apply` CI job (.forgejo/workflows/lint.yaml)
+against every PR, so human PRs and late merges cannot skip it.
 
 Usage:
     mise run lint-auto-apply --pending
@@ -46,11 +65,13 @@ Usage:
 from __future__ import annotations
 
 import base64
+import contextlib
 import json
 import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any
@@ -66,15 +87,34 @@ from rich.markup import escape
 # worktree and its workflows, so the repo is pinned, not a flag.
 FORGE_API_BASE = "https://forge.ops.eblu.me/api/v1"
 REPO = "eblume/blumeops"
+# Canonical git URL. Never fetched into a configured remote (some clones
+# have the canonical repo at `origin`, not `upstream`) — see _main_repo.
+CANONICAL_URL = "https://forge.ops.eblu.me/eblume/blumeops.git"
 WORKTREE = Path(__file__).resolve().parent.parent  # mise-tasks/ → repo root
+
+# `class: auto` workflows that do NOT apply a host: an explicit allowlist,
+# not a detection. build-container builds `containers/**` into zot — no
+# host is involved.
+NON_HOST_AUTO_WORKFLOWS = frozenset({"build-container.yaml"})
 
 # 'nixos/<host>/**' | 'darwin/<host>/**' — the host-apply glob shape.
 HOST_GLOB_RE = re.compile(r"^(nixos|darwin)/([A-Za-z0-9-]+)/\*\*$")
+# A plain shared host input in an auto workflow's paths: no glob
+# characters, not absolute. Anything in paths that is neither a host glob
+# nor one of these must be an error — silently ignoring it is how a
+# trigger slips past the derivation.
+PLAIN_PATH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
-# Forge PR-merge subjects: "Merge pull request '<title>' (#NNN) from <ref> into
-# main"; only those embed the PR number, so a non-merge subject never
+# Forge PR-merge subjects: "Merge pull request '<title>' (#NNN) from <ref>
+# into main"; only those embed the PR number, so a non-merge subject never
 # mislabels an issue number as a PR.
 PR_MERGE_RE = re.compile(r"^Merge pull request '(.*)' \(#([0-9]+)\) from \S+ into main$")
+# The declaration line: exactly one host per line. `[ \t]*`, not `\s*` — a
+# newline after the colon must not count.
+MARKER_RE = re.compile(r"^Auto-apply:[ \t]*([A-Za-z0-9-]+)[ \t]*$")
+# A fenced-code-block delimiter; markers and #NNNN mentions inside fences
+# are data being shown, not declarations.
+FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 
 console = Console()
 err = Console(stderr=True, style="bold red")
@@ -112,45 +152,134 @@ def api_client() -> httpx.Client:
     )
 
 
-def git(*args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args],
-        capture_output=True,
-        text=True,
-        cwd=WORKTREE,
-        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
-        timeout=180,
-        check=False,
+def _main_repo() -> Path:
+    d = Path(
+        os.environ.get(
+            "LINT_AUTO_APPLY_CACHE", str(Path.home() / ".cache" / "blumeops-lint-auto-apply")
+        )
     )
-    if proc.returncode != 0:
-        raise SystemExit(f"git {' '.join(args)} failed in {WORKTREE}: {proc.stderr.strip()}")
-    return proc.stdout
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
-def fetch_upstream() -> str | None:
-    """Refresh upstream/main; None on success, else the failure detail."""
-    proc = subprocess.run(
-        ["git", "fetch", "upstream"],
-        capture_output=True,
-        text=True,
-        cwd=WORKTREE,
-        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
-        timeout=180,
-        check=False,
+def _lock_stale(lock_path: Path) -> bool:
+    try:
+        pid = int(lock_path.read_text().strip())
+    except (ValueError, OSError):
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    except PermissionError:
+        return False
+    return False
+
+
+def _acquire_lock(lock_path: Path, timeout: float = 60.0) -> None:
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            with os.fdopen(fd, "w") as f:
+                f.write(str(os.getpid()))
+            return
+        except FileExistsError:
+            if _lock_stale(lock_path):
+                with contextlib.suppress(FileNotFoundError):
+                    lock_path.unlink()
+                continue
+            if time.monotonic() > deadline:
+                raise SystemExit(
+                    f"{lock_path} is locked by another process "
+                    f"(pid {lock_path.read_text().strip()}) — timed out waiting"
+                )
+            time.sleep(0.5)
+
+
+def fetch_main() -> tuple[Path, str | None]:
+    """Refresh the tool-owned bare cache of canonical main; (dir, error).
+
+    The session worktree is a shallow clone shared across sessions, so the
+    pending list (first-parent history between the baseline and main) is
+    computed in a full bare clone instead — deepening the shared worktree
+    is not an option. The pid lock keeps concurrent sessions on one pod
+    from racing the same fetch. Check mode fails closed on a non-None
+    error; --pending prints it and goes on (a generator, not a gate).
+    """
+    d = _main_repo()
+    try:
+        _acquire_lock(d / "fetch.lock")
+    except SystemExit as exc:
+        return d, str(exc)
+    try:
+        if not (d / "HEAD").exists():
+            proc = subprocess.run(
+                ["git", "init", "--bare", str(d)],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+            if proc.returncode != 0:
+                return d, proc.stderr.strip()
+        proc = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(d),
+                "fetch",
+                "--no-tags",
+                CANONICAL_URL,
+                "+refs/heads/main:refs/heads/main",
+            ],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+            timeout=600,
+            check=False,
+        )
+        return d, (
+            None if proc.returncode == 0 else proc.stderr.strip() or "git fetch of main failed"
+        )
+    finally:
+        with contextlib.suppress(OSError):
+            (d / "fetch.lock").unlink()
+
+
+def main_ref_exists(cache_dir: Path) -> bool:
+    return (
+        subprocess.run(
+            ["git", "-C", str(cache_dir), "rev-parse", "--verify", "--quiet", "refs/heads/main"],
+            capture_output=True,
+            check=False,
+        ).returncode
+        == 0
     )
-    if proc.returncode == 0:
-        return None
-    # Check mode fails closed on this note; --pending prints it and goes on
-    # with the local ref (a generator, not a gate).
-    return proc.stderr.strip() or "git fetch upstream failed — using local upstream/main"
 
 
-def fetch_file(client: httpx.Client, path: str, ref: str) -> str | None:
-    """Raw file text at ref via the contents API; None on 404 (e.g. the
-    file does not exist at a PR head). Single-file fetches are base64."""
+def fetch_file(client: httpx.Client, path: str, ref: str) -> str:
+    """Raw file text at ref via the contents API (single-file fetches are
+    base64). On a 404, falls back to the local object store — the CI
+    checkout sits at the PR head, so its objects are local even when the
+    head lives in a fork the API will not serve. Missing everywhere is an
+    error: a silent skip here fails the derivation open.
+    """
     resp = client.get(f"/repos/{REPO}/contents/{path}", params={"ref": ref})
+    if resp.status_code == 404 and ref != "main":
+        proc = subprocess.run(
+            ["git", "show", f"{ref}:{path}"],
+            capture_output=True,
+            text=True,
+            cwd=WORKTREE,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+            timeout=60,
+            check=False,
+        )
+        if proc.returncode == 0:
+            return proc.stdout
     if resp.status_code == 404:
-        return None
+        raise SystemExit(f"{path} not found at {ref}")
     resp.raise_for_status()
     data = resp.json()
     if data.get("encoding") == "base64":
@@ -161,58 +290,112 @@ def fetch_file(client: httpx.Client, path: str, ref: str) -> str | None:
 @dataclass
 class HostInfo:
     workflow: str  # e.g. "ringtail-rebuild.yaml"
-    globs: list[str] = field(default_factory=list)
+    globs: list[str] = field(default_factory=list)  # the host's own globs
+    inputs: list[str] = field(default_factory=list)  # shared inputs it imports
     fire_and_forget: bool = False
+
+    @property
+    def trigger_paths(self) -> list[str]:
+        # The full trigger set: the host glob plus the shared input files
+        # its config imports (forge/runners.nix → forge/runners.json).
+        return self.globs + self.inputs
 
 
 def derive_hosts(
-    client: httpx.Client, pr_workflow_refs: dict[str, str] | None = None
+    client: httpx.Client,
+    pr_workflow_refs: dict[str, str] | None = None,
+    policy_ref: str = "main",
 ) -> dict[str, HostInfo]:
-    """Auto-apply hosts from main's warrant-policy + workflows' on.push.paths.
+    """Auto-apply hosts from the policy and the workflows' on.push.paths.
 
-    pr_workflow_refs maps a workflow filename to a PR head sha: when the PR
-    under check modifies that workflow, its own version decides (e.g. a
-    removed host trigger is not required). The policy is only read from main.
-    Hosts keep warrant-policy order, so ringtail precedes indri.
+    Fail-closed: a `class: auto` workflow must either be in
+    NON_HOST_AUTO_WORKFLOWS or list a host glob in its push paths; every
+    other shape is an error. pr_workflow_refs maps a workflow filename the
+    PR modifies to the PR head sha, so the PR's own version decides;
+    policy_ref works the same way for the policy. Hosts keep
+    warrant-policy order, so ringtail precedes indri.
     """
-    policy = fetch_file(client, "warrant-policy.yaml", "main")
-    if policy is None:
-        raise SystemExit(
-            "cannot read warrant-policy.yaml from main — required to derive hosts"
-        )
+    policy = fetch_file(client, "warrant-policy.yaml", policy_ref)
     try:
-        actions = (yaml.safe_load(policy) or {}).get("actions") or {}
+        data = yaml.safe_load(policy) or {}
     except yaml.YAMLError as exc:
-        raise SystemExit(f"warrant-policy.yaml from main is not valid YAML: {exc}") from exc
+        raise SystemExit(f"warrant-policy.yaml ({policy_ref}) is not valid YAML: {exc}") from exc
+    actions = data.get("actions") or {}
+    if not isinstance(actions, dict):
+        raise SystemExit("warrant-policy.yaml: `actions` must be a mapping")
     refs = pr_workflow_refs or {}
     hosts: dict[str, HostInfo] = {}
     for workflow, entry in actions.items():
-        if (entry or {}).get("class") != "auto":
+        if not isinstance(entry, dict) or entry.get("class") != "auto":
             continue
-        raw = fetch_file(client, f".forgejo/workflows/{workflow}", refs.get(workflow, "main"))
-        if raw is None:
-            continue  # absent at that ref (PR deleted it) → triggers nothing
+        if workflow in NON_HOST_AUTO_WORKFLOWS:
+            continue
+        ref = refs.get(workflow, "main")
+        try:
+            raw = fetch_file(client, f".forgejo/workflows/{workflow}", ref)
+        except SystemExit as exc:
+            raise SystemExit(
+                f"{workflow} (class: auto): {exc} — if the PR removed it, "
+                "remove the policy entry or change its class in the same PR"
+            ) from exc
         try:
             wdata = yaml.safe_load(raw) or {}
-        except yaml.YAMLError:
-            continue
+        except yaml.YAMLError as exc:
+            raise SystemExit(f"{workflow} (class: auto, at {ref}): not valid YAML: {exc}") from exc
         # PyYAML folds the `on` key into boolean True.
-        on = wdata.get("on") or wdata.get(True) or {}
-        paths = (on.get("push") or {}).get("paths") or []
-        if not isinstance(paths, list):
-            continue
-        host_globs = [p for p in paths if isinstance(p, str) and HOST_GLOB_RE.match(p)]
-        if not host_globs:
-            continue  # auto but not a host apply (e.g. containers/**) — skip
-        for p in host_globs:
+        on = wdata.get("on", wdata.get(True))
+        if not isinstance(on, dict):
+            raise SystemExit(f"{workflow}: `on` must be a mapping (got {type(on).__name__})")
+        push = on.get("push")
+        if push is None or push is True:
+            raise SystemExit(
+                f"{workflow}: no `on.push.paths` (missing or bare `on: push`) — a host-apply "
+                "workflow must list its host globs in paths"
+            )
+        if not isinstance(push, dict):
+            raise SystemExit(f"{workflow}: `on.push` must be a mapping (got {type(push).__name__})")
+        paths = push.get("paths")
+        if not isinstance(paths, list) or not paths:
+            raise SystemExit(f"{workflow}: `on.push.paths` must be a non-empty list (got {paths!r})")
+        paths_ignore = push.get("paths-ignore")
+        if paths_ignore is not None and not isinstance(paths_ignore, list):
+            raise SystemExit(
+                f"{workflow}: `on.push.paths-ignore` must be a list (got {paths_ignore!r})"
+            )
+        host_globs: dict[str, str] = {}
+        inputs: list[str] = []
+        for p in paths:
+            if not isinstance(p, str):
+                raise SystemExit(f"{workflow}: a paths entry must be a string (got {p!r})")
+            if p in (paths_ignore or []):
+                continue
             m = HOST_GLOB_RE.match(p)
-            assert m is not None  # host_globs only holds matched globs
-            host = m.group(2)
+            if m:
+                host_globs.setdefault(m.group(2), p)
+            elif PLAIN_PATH_RE.match(p):
+                if p not in inputs:
+                    inputs.append(p)
+            else:
+                raise SystemExit(
+                    f"{workflow}: paths entry {p!r} is neither a host glob "
+                    "'<nixos|darwin>/<host>/**' nor a plain input path"
+                )
+        if not host_globs:
+            raise SystemExit(
+                f"{workflow} is class: auto but derives no host from on.push.paths — if it no "
+                "longer applies a host on push, add it to NON_HOST_AUTO_WORKFLOWS "
+                "(mise-tasks/lint-auto-apply) or change its policy class"
+            )
+        for host, g in host_globs.items():
             info = hosts.setdefault(
                 host, HostInfo(workflow=workflow, fire_and_forget="wait=false" in raw)
             )
-            info.globs.append(p)
+            info.globs.append(g)
             info.fire_and_forget = info.fire_and_forget or "wait=false" in raw
+        for p in inputs:
+            for host in host_globs:
+                if p not in hosts[host].inputs:
+                    hosts[host].inputs.append(p)
     return hosts
 
 
@@ -271,21 +454,61 @@ def pr_from_api(client: httpx.Client, sha: str) -> int | None:
     return None
 
 
-def pending_changes(
-    client: httpx.Client, last_applied: str, globs: list[str]
-) -> list[dict[str, Any]]:
-    """First-parent merges since last_applied whose diff touched the host.
+def _git_cache(cache_dir: Path, *args: str) -> str:
+    proc = subprocess.run(
+        ["git", "-C", str(cache_dir), *args],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        timeout=180,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise SystemExit(f"git {' '.join(args)} failed in {cache_dir}: {proc.stderr.strip()}")
+    return proc.stdout
 
-    A first-parent commit M is a pending host change when
-    `git diff --name-only M^1 M -- <globs>` is non-empty — exactly the PRs
-    whose merged diffs touched the host."""
-    revs = git("rev-list", "--first-parent", f"{last_applied}..upstream/main").split()
+
+def pending_changes(
+    client: httpx.Client,
+    last_applied: str,
+    globs: list[str],
+    cache_dir: Path,
+    exclude_prs: frozenset[int] = frozenset(),
+) -> list[dict[str, Any]]:
+    """First-parent merges on main since last_applied whose diff touched the
+    host's trigger set (host globs plus shared inputs) — exactly the PRs
+    the merge would also apply. A first-parent commit M is a pending host
+    change when `git diff --name-only M^1 M -- <globs>` is non-empty.
+    Merges of the PRs in exclude_prs are skipped: the PR under check is the
+    merge commit it would name, and a re-check after its own merge must
+    pass. Computed in the tool-owned bare cache (full first-parent history).
+    """
+    if not main_ref_exists(cache_dir):
+        raise SystemExit(
+            "the canonical main ref is missing in the cache — the fetch failed; the "
+            "pending list cannot be computed against an unknown main"
+        )
+    if (
+        subprocess.run(
+            ["git", "-C", str(cache_dir), "merge-base", "--is-ancestor", last_applied, "refs/heads/main"],
+            capture_output=True,
+            check=False,
+        ).returncode
+        != 0
+    ):
+        raise SystemExit(
+            f"baseline {last_applied[:8]} is not an ancestor of main — refusing to compute "
+            "a pending list against unrelated history"
+        )
+    revs = _git_cache(cache_dir, "rev-list", "--first-parent", f"{last_applied}..refs/heads/main").split()
     items: list[dict[str, Any]] = []
     for m in revs:
-        if not git("diff", "--name-only", f"{m}^1", m, "--", *globs).strip():
+        if not _git_cache(cache_dir, "diff", "--name-only", f"{m}^1", m, "--", *globs).strip():
             continue
-        subject = git("log", "-1", "--format=%s", m).strip()
+        subject = _git_cache(cache_dir, "log", "-1", "--format=%s", m).strip()
         pr = pr_subject_number(subject)
+        if pr is not None and pr in exclude_prs:
+            continue
         if pr is None:
             pr = pr_from_api(client, m)
         items.append(
@@ -294,7 +517,7 @@ def pending_changes(
                 "sha": m,
                 "sha8": m[:8],
                 "subject": display_subject(subject),
-                "date": git("log", "-1", "--format=%cs", m).strip(),
+                "date": _git_cache(cache_dir, "log", "-1", "--format=%cs", m).strip(),
             }
         )
     return items
@@ -330,8 +553,13 @@ def pending_block(
 
 
 def report_pending(
-    client: httpx.Client, hosts: dict[str, HostInfo], as_json: bool, fetch_note: str | None
+    client: httpx.Client,
+    hosts: dict[str, HostInfo],
+    cache_dir: Path,
+    as_json: bool,
+    fetch_note: str | None,
 ) -> None:
+    ref_ok = not fetch_note or main_ref_exists(cache_dir)
     out: dict[str, Any] = {}
     for host, info in hosts.items():
         base = baseline(client, info)
@@ -346,8 +574,15 @@ def report_pending(
             )
             if not as_json:
                 err.print(f"[yellow]note:[/yellow] {entry['no_successful_run']}")
+        elif not ref_ok:
+            entry["pending_unavailable"] = (
+                f"cannot compute the pending list: the canonical main fetch failed "
+                f"({fetch_note})"
+            )
+            if not as_json:
+                err.print(f"[yellow]note:[/yellow] {entry['pending_unavailable']}")
         else:
-            pend = pending_changes(client, base[0], info.globs)
+            pend = pending_changes(client, base[0], info.trigger_paths, cache_dir)
             entry.update(
                 {
                     "baseline_sha": base[0],
@@ -369,11 +604,57 @@ def report_pending(
 
 
 def glob_matches(glob: str, filename: str) -> bool:
-    # 'nixos/ringtail/**' → prefix 'nixos/ringtail/': the dir and its contents.
-    return filename.startswith(glob.removesuffix("**"))
+    # '<dir>/**' → prefix '<dir>/': the dir and its contents. A plain path
+    # (a shared input file) matches exactly, not by prefix.
+    if glob.endswith("**"):
+        return filename.startswith(glob.removesuffix("**"))
+    return filename == glob
 
 
-def check_pr(client: httpx.Client, number: int) -> dict[str, Any]:
+def body_markers(body: str) -> dict[str, int]:
+    """host → line index of the first plain `Auto-apply: <host>` line,
+    skipping fenced code blocks: a marker pasted inside a code block is
+    shown, not declared."""
+    markers: dict[str, int] = {}
+    fence: str | None = None
+    for i, line in enumerate(body.splitlines()):
+        if fence:
+            stripped = line.strip()
+            if stripped.startswith(fence) and set(stripped) <= {fence[0], " "}:
+                fence = None
+            continue
+        m = FENCE_RE.match(line)
+        if m:
+            fence = m.group(1)
+            continue
+        m = MARKER_RE.match(line)
+        if m and m.group(1) not in markers:
+            markers[m.group(1)] = i
+    return markers
+
+
+def pending_segment(body: str, host: str) -> list[str] | None:
+    """The blockquote lines of host's Auto-apply block — from its marker
+    line to the next `Auto-apply:` line (any host) or end of body. None if
+    the body has no marker for host.
+
+    Pending items must be named *here*, not anywhere in the body: a #NNNN
+    in some unrelated sentence is not a declaration that the merge would
+    ship that change.
+    """
+    lines = body.splitlines()
+    start = body_markers(body).get(host)
+    if start is None:
+        return None
+    end = len(lines)
+    for i in range(start + 1, len(lines)):
+        if MARKER_RE.match(lines[i]):
+            end = i
+            break
+    return [l for l in lines[start + 1 : end] if l.lstrip().startswith(">")]
+
+
+def check_pr(client: httpx.Client, number: int, cache_dir: Path) -> dict[str, Any]:
     pr_resp = client.get(f"/repos/{REPO}/pulls/{number}")
     if pr_resp.status_code == 404:
         return {"number": number, "error": f"PR #{number} not found", "pass": False}
@@ -385,18 +666,21 @@ def check_pr(client: httpx.Client, number: int) -> dict[str, Any]:
     files_resp.raise_for_status()
     names = [f.get("filename", "") for f in files_resp.json()]
 
-    # The PR's own version decides for workflows it touches (head may live in
-    # the agents fork — the contents endpoint serves fork refs too).
+    head = pr["head"]["sha"]
+    # The PR's own version decides for the policy and workflows it
+    # modifies (the head may live in a fork — fetch_file falls back to the
+    # local object store).
+    policy_ref = head if "warrant-policy.yaml" in names else "main"
     modified_wfs = {
         name.removeprefix(".forgejo/workflows/")
         for name in names
         if name.startswith(".forgejo/workflows/") and name.endswith(".yaml")
     }
-    hosts = derive_hosts(client, {wf: pr["head"]["sha"] for wf in modified_wfs})
+    hosts = derive_hosts(client, {wf: head for wf in modified_wfs}, policy_ref)
     affected = sorted(
         host
         for host, info in hosts.items()
-        if any(glob_matches(g, name) for g in info.globs for name in names)
+        if any(glob_matches(g, name) for g in info.trigger_paths for name in names)
     )
     if not affected:
         return {
@@ -422,18 +706,25 @@ def check_pr(client: httpx.Client, number: int) -> dict[str, Any]:
                 )
             ]
             continue
-        pend = pending_changes(client, base[0], info.globs)
+        pend = pending_changes(client, base[0], info.trigger_paths, cache_dir, exclude_prs=frozenset((number,)))
         blocks[host] = pending_block(host, info, base, pend)
         problems: list[str] = []
-        # The !! pragma namespace is talos's; the declaration is plain text.
-        if not re.search(rf"^Auto-apply:\s*{re.escape(host)}(\s|$)", body, re.MULTILINE):
-            problems.append(f"missing marker line 'Auto-apply: {host}'")
+        # The !! pragma namespace is talos's; the declaration is plain text,
+        # one host per line, outside any code block.
+        if host not in body_markers(body):
+            problems.append(
+                f"missing marker line 'Auto-apply: {host}' (exactly one host per line)"
+            )
+        seg_text = "\n".join(pending_segment(body, host) or [])
         for item in pend:
-            named = item["pr"] is not None and re.search(rf"(?<!\w)#{item['pr']}\b", body) is not None
-            named = named or re.search(rf"\b{item['sha8']}\b", body) is not None
+            named = (
+                item["pr"] is not None
+                and re.search(rf"(?<!\w)#{item['pr']}\b", seg_text) is not None
+            )
+            named = named or re.search(rf"\b{item['sha8']}\b", seg_text) is not None
             if not named:
                 ref = f"#{item['pr']}" if item["pr"] is not None else item["sha8"]
-                problems.append(f"pending {ref} ({item['subject']}) not named in the body")
+                problems.append(f"pending {ref} ({item['subject']}) not named in the Auto-apply block")
         missing[host] = problems
     return {
         "number": number,
@@ -480,55 +771,66 @@ def main(
         bool, typer.Option("--json", help="Machine-readable JSON output")
     ] = False,
 ) -> None:
-    fetch_note = fetch_upstream()
+    cache_dir, fetch_note = fetch_main()
     args = args or []
-    with api_client() as client:
-        if pending:
-            hosts = derive_hosts(client)
-            if args:
-                unknown = [h for h in args if h not in hosts]
-                if unknown:
-                    err.print(
-                        f"[red]error:[/red] no auto-apply host named "
-                        f"{', '.join(unknown)} — known: {', '.join(sorted(hosts))}"
-                    )
-                    raise typer.Exit(1)
-                selected = {h: hosts[h] for h in args}
+    try:
+        with api_client() as client:
+            if pending:
+                hosts = derive_hosts(client)
+                if args:
+                    unknown = [h for h in args if h not in hosts]
+                    if unknown:
+                        err.print(
+                            f"[red]error:[/red] no auto-apply host named "
+                            f"{', '.join(unknown)} — known: {', '.join(sorted(hosts))}"
+                        )
+                        raise typer.Exit(1)
+                    selected = {h: hosts[h] for h in args}
+                else:
+                    selected = hosts
+                if fetch_note and not as_json:
+                    err.print(f"[yellow]note:[/yellow] {fetch_note} — the pending list may be stale")
+                report_pending(client, selected, cache_dir, as_json, fetch_note)
+                raise typer.Exit(0)  # a generator, not a gate
+
+            try:
+                prs = [int(a) for a in args]
+            except ValueError:
+                err.print("PR numbers must be integers.")
+                raise typer.Exit(2) from None
+            if not prs:
+                console.print("[yellow]no PRs given[/yellow] — pass PR numbers, or --pending [host ...]")
+                raise typer.Exit(2)
+            if fetch_note:
+                # A stale or missing main under-counts pending items →
+                # false PASS, so a failed fetch is a verdict of its own.
+                err.print(f"[red]error:[/red] {fetch_note}")
+                err.print("cannot verify the PR against main; fix the fetch and re-run")
+                raise typer.Exit(1)
+
+            results = [check_pr(client, n, cache_dir) for n in prs]
+            failed = any(not r["pass"] for r in results)
+            if as_json:
+                json.dump(
+                    {"mode": "check", "git_fetch": fetch_note or "ok", "prs": results, "exit": 1 if failed else 0},
+                    sys.stdout,
+                    indent=2,
+                )
+                print()
             else:
-                selected = hosts
-            if fetch_note and not as_json:
-                err.print(f"[yellow]note:[/yellow] {fetch_note} — the pending list may be stale")
-            report_pending(client, selected, as_json, fetch_note)
-            raise typer.Exit(0)  # a generator, not a gate
-
-        try:
-            prs = [int(a) for a in args]
-        except ValueError:
-            err.print("PR numbers must be integers.")
-            raise typer.Exit(2) from None
-        if not prs:
-            console.print("[yellow]no PRs given[/yellow] — pass PR numbers, or --pending [host ...]")
-            raise typer.Exit(2)
-        if fetch_note:
-            # A stale upstream/main under-counts pending items → false PASS, so
-            # a failed fetch is a verdict of its own.
-            err.print(f"[red]error:[/red] {fetch_note}")
-            err.print("cannot verify the PR against main; fix the fetch and re-run")
-            raise typer.Exit(1)
-
-        results = [check_pr(client, n) for n in prs]
-        failed = any(not r["pass"] for r in results)
-        if as_json:
-            json.dump(
-                {"mode": "check", "git_fetch": fetch_note or "ok", "prs": results, "exit": 1 if failed else 0},
-                sys.stdout,
-                indent=2,
-            )
-            print()
-        else:
-            for r in results:
-                report_check(r)
-        raise typer.Exit(1 if failed else 0)
+                for r in results:
+                    report_check(r)
+            raise typer.Exit(1 if failed else 0)
+    except httpx.HTTPError as exc:
+        detail = str(exc)
+        if isinstance(exc, httpx.HTTPStatusError):
+            detail = f"{detail} (HTTP {exc.response.status_code})"
+        err.print(f"forge API request failed: {detail}")
+        err.print(
+            "is forge.ops.eblu.me reachable from here, and does the FORGEJO_TOKEN "
+            "have read access to eblume/blumeops (Actions runs, PR files)?"
+        )
+        raise typer.Exit(1) from exc
 
 
 if __name__ == "__main__":
