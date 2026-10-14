@@ -23,9 +23,9 @@
 # push/dispatch runs keep the privileged indri runner, which only starts on
 # a main push or a dispatch by a write collaborator.
 #
-# The three jobs are required status contexts on `main` — `Lint / prek`,
-# `Lint / workflows-validate`, `Lint / secret-scan` (pull_request contexts,
-# #1013). The context string is `workflow name / job name (event)`, so
+# prek, workflows-validate and secret-scan are required status contexts on
+# `main` by name (pull_request contexts, #1013); argocd-apps-validate and
+# auto-apply are blocked by the `* (pull_request)` glob instead. The context string is `workflow name / job name (event)`, so
 # renaming a job silently un-requires it: update the branch protection and
 # the list in
 # docs/explanation/agent-change-process.md ("The residual problem").
@@ -247,6 +247,7 @@ jobs:
   # step). The pending list comes from a full fetch of canonical main into
   # the tool's own bare cache — the checkout itself is never trusted for it.
   auto-apply:
+    if: github.event_name == 'pull_request'
     runs-on: indri-build
     steps:
       - name: Checkout

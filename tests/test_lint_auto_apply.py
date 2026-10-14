@@ -290,6 +290,7 @@ def test_marker_regex_strict(laa):
     assert m.match("Auto-apply: ringtail ")
     # \s* used to straddle a newline; [ \t]* must not.
     assert m.match("Auto-apply:") is None
+    assert m.match("Auto-apply:\nringtail") is None
     assert m.match("Auto-apply: ringtail extra") is None
     assert m.match("  Auto-apply: ringtail") is None
     # Uppercase declares a *different* host — it does not count for ringtail.
@@ -336,3 +337,36 @@ def test_segment_missing_host(laa):
     assert laa.pending_segment(BODY, "nope") is None
     # A marker with no blockquote lines yields an empty segment, not None.
     assert laa.pending_segment("Auto-apply: ringtail\n", "ringtail") == []
+
+
+def test_segment_duplicate_blocks(laa):
+    # A refreshed block below a stale one: both count.
+    body = (
+        "Auto-apply: ringtail"
+        "\n"
+        "> - #1540 — old pending"
+        "\n"
+        "\n"
+        "Auto-apply: ringtail"
+        "\n"
+        "> - #1550 — refreshed pending"
+    )
+    text = "\n".join(laa.pending_segment(body, "ringtail"))
+    assert "#1540" in text and "#1550" in text
+    assert laa.body_markers(body) == {"ringtail": 0}
+
+
+def test_segment_fenced_marker_does_not_end_block(laa):
+    body = (
+        "Auto-apply: ringtail"
+        "\n"
+        "```"
+        "\n"
+        "Auto-apply: indri"
+        "\n"
+        "```"
+        "\n"
+        "> - #1540 — still inside ringtail's segment"
+    )
+    text = "\n".join(laa.pending_segment(body, "ringtail"))
+    assert "#1540" in text

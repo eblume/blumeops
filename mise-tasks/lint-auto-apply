@@ -163,10 +163,16 @@ def _main_repo() -> Path:
 
 
 def _lock_stale(lock_path: Path) -> bool:
+    # An unparseable lock is stale only when old: between the O_EXCL create
+    # and the pid write it is empty while its writer is still alive.
+    try:
+        age = time.monotonic() - lock_path.stat().st_mtime
+    except FileNotFoundError:
+        return True
     try:
         pid = int(lock_path.read_text().strip())
     except (ValueError, OSError):
-        return True
+        return age > 60
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -611,11 +617,11 @@ def glob_matches(glob: str, filename: str) -> bool:
     return filename == glob
 
 
-def body_markers(body: str) -> dict[str, int]:
-    """host → line index of the first plain `Auto-apply: <host>` line,
+def _marker_entries(body: str) -> list[tuple[int, str]]:
+    """(line index, host) of every plain `Auto-apply: <host>` line,
     skipping fenced code blocks: a marker pasted inside a code block is
     shown, not declared."""
-    markers: dict[str, int] = {}
+    entries: list[tuple[int, str]] = []
     fence: str | None = None
     for i, line in enumerate(body.splitlines()):
         if fence:
@@ -628,30 +634,40 @@ def body_markers(body: str) -> dict[str, int]:
             fence = m.group(1)
             continue
         m = MARKER_RE.match(line)
-        if m and m.group(1) not in markers:
-            markers[m.group(1)] = i
+        if m:
+            entries.append((i, m.group(1)))
+    return entries
+
+
+def body_markers(body: str) -> dict[str, int]:
+    """host → line index of the first marker for it (see _marker_entries)."""
+    markers: dict[str, int] = {}
+    for i, host in _marker_entries(body):
+        markers.setdefault(host, i)
     return markers
 
 
 def pending_segment(body: str, host: str) -> list[str] | None:
-    """The blockquote lines of host's Auto-apply block — from its marker
-    line to the next `Auto-apply:` line (any host) or end of body. None if
-    the body has no marker for host.
+    """The blockquote lines of all of host's Auto-apply blocks — each runs
+    from its marker line to the next marker line (any host, outside fences)
+    or end of body. None if the body has no marker for host. A refreshed
+    block below a stale one both count.
 
     Pending items must be named *here*, not anywhere in the body: a #NNNN
     in some unrelated sentence is not a declaration that the merge would
     ship that change.
     """
     lines = body.splitlines()
-    start = body_markers(body).get(host)
-    if start is None:
+    entries = _marker_entries(body)
+    starts = [i for i, h in entries if h == host]
+    if not starts:
         return None
-    end = len(lines)
-    for i in range(start + 1, len(lines)):
-        if MARKER_RE.match(lines[i]):
-            end = i
-            break
-    return [l for l in lines[start + 1 : end] if l.lstrip().startswith(">")]
+    next_marker = {i for i, _ in entries}
+    seg: list[str] = []
+    for start in starts:
+        end = next((i for i in sorted(next_marker) if i > start), len(lines))
+        seg.extend(l for l in lines[start + 1 : end] if l.lstrip().startswith(">"))
+    return seg
 
 
 def check_pr(client: httpx.Client, number: int, cache_dir: Path) -> dict[str, Any]:
@@ -664,7 +680,12 @@ def check_pr(client: httpx.Client, number: int, cache_dir: Path) -> dict[str, An
     if files_resp.status_code == 404:
         return {"number": number, "error": f"PR #{number} files unreadable", "pass": False}
     files_resp.raise_for_status()
-    names = [f.get("filename", "") for f in files_resp.json()]
+    files = files_resp.json()
+    # previous_filename on a rename: a file moving out of a host path is a
+    # host change (the deletion ships on merge).
+    names = [f.get("filename", "") for f in files] + [
+        f["previous_filename"] for f in files if f.get("previous_filename")
+    ]
 
     head = pr["head"]["sha"]
     # The PR's own version decides for the policy and workflows it
