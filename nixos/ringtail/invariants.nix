@@ -65,6 +65,13 @@ in
       assertion = ! k3s.enable || lib.elem "--write-kubeconfig-mode=600" k3sFlags;
       message = "ringtail: k3s must keep writing its kubeconfig mode 600 (--write-kubeconfig-mode=600 in services.k3s.extraFlags) — a world-readable admin kubeconfig gives the unprivileged `agent` user cluster-admin. To lift: change the agent authorization model deliberately in the same PR and remove this entry.";
     }
+    # A switch restarts the already-running unit, so the first deploy looks
+    # fine; the trap is the first reboot, when nothing wants the spoke and
+    # the pod's heph socket goes silently dead.
+    {
+      assertion = lib.elem "multi-user.target" (config.systemd.services."agent-heph-spoke".wantedBy or []);
+      message = "ringtail: agent-heph-spoke must be wanted by multi-user.target — a nixos switch restarts the already-running unit, so the first deploy looks fine, but after the first reboot nothing starts the spoke and the pod's heph socket goes silently dead. eblume/blumeops#1624. To lift: give the spoke a different boot trigger and remove this entry in the same PR.";
+    }
     # Secrets lockstep, direction 1: the nix config references only declared
     # secret paths, so the apply path always has a declared owner for the file.
     {

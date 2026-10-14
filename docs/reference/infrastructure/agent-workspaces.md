@@ -42,7 +42,7 @@ ringtail — user `agent` (isolated, non-wheel)
   systemd: agent-ws-agent.service  (the single home-base workspace)
     └─ claude remote-control --spawn worktree --name ringtail-agent
          cwd = ~/code/personal/agents
-         PATH prepends the transparent `op` shim + ~/.cargo/bin (heph)
+         PATH prepends the transparent `op` shim + the heph store bin dir
                    + the report toolchain (mise/uv/pandoc/typst/weasyprint)
   systemd: agent-repos-init.service  (oneshot, clones/updates repos first)
 ```
@@ -291,7 +291,7 @@ See [[bootstrap-agent-workspaces]] for the one-time seeding steps.
 ## Report toolchain
 
 The workspace PATH is a deliberately minimal curated set (op shim, git, ssh, tea,
-coreutils, `~/.cargo/bin`, `~/.local/bin`) — it does **not** include
+coreutils, the heph store bin dir, `~/.local/bin`) — it does **not** include
 `/run/current-system/sw/bin`, so system-wide tools there are invisible to agent
 sessions. The `research` repo's `compile-report` / `save-session` tasks
 (`mise run …`, each a `uv run --script` program) therefore need their toolchain

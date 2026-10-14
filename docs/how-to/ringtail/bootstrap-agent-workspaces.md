@@ -207,20 +207,19 @@ than they look; read the gotchas.**
 
 2. **Seed the token — approve the device code in that same `talos-heph` session.**
    The agent's hephd and the `heph` CLI are the nix-store package (there is no
-   `~/.cargo` build anymore); resolve both store paths from the spoke unit and
-   run the login as the agent:
+   `~/.cargo` build anymore). The spoke unit's `ExecStart` is the store wrapper
+   *script*; its contents carry the heph package bin dir and the
+   `heph-token-save` shim — resolve both from there and run the login as the
+   agent:
 
    ```sh
-   # the heph package bin and heph-token-save are nix store paths; resolve
-   # them from the spoke unit:
-   BIN=$(ssh ringtail 'systemctl show agent-heph-spoke -p ExecStart --value' \
-     | grep -oE '/nix/store/[a-z0-9]+-heph-[0-9.]+/bin' | head -n1)
-   SAVE=$(ssh ringtail 'systemctl show agent-heph-spoke -p ExecStart --value' \
-     | grep -oE '/nix/store/[a-z0-9]+-heph-token-save/bin/heph-token-save')
-   ssh ringtail "sudo -u agent -H env HOME=/home/agent $BIN/heph auth login \
+   WRAP=$(ssh ringtail 'systemctl show agent-heph-spoke -p ExecStart --value' | head -n1)
+   BIN=$(ssh ringtail "grep -oE '/nix/store/[a-z0-9]+-heph-[0-9.]+/bin' $WRAP | head -n1")
+   SAVE=$(ssh ringtail "grep -oE '/nix/store/[a-z0-9]+-heph-token-save/bin' $WRAP | head -n1)
+   ssh ringtail "sudo -u agent -H env HOME=/home/agent PATH=$SAVE/bin:$PATH $BIN/heph auth login \
      --hub-url http://indri.tail8d86e.ts.net:8787 \
      --issuer https://authentik.ops.eblu.me/application/o/heph/ \
-     --client-id heph --no-browser --token-save-cmd $SAVE"
+     --client-id heph --no-browser --token-save-cmd heph-token-save"
    ```
 
    Approve the printed URL in the **incognito `talos-heph` session**. On success

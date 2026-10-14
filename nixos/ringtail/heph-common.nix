@@ -2,12 +2,12 @@
 # heph-eblume.nix): same hub, different identities and token stores. The
 # agent spoke's hephd comes from the nix store (the flake's hephaestus
 # input); the eblume desktop spoke still `cargo install`s at `hephTag`
-# via `mkInstallUnits` (eblume/blumeops#1541, step 5). Plain import
+# via `mkInstallUnits`. Plain import
 # (`import ./heph-common.nix { inherit pkgs lib; }`), not a module.
 { pkgs, lib }:
 rec {
   hephTag = "v1.10.6";
-  rustChannel = "stable"; # mise-resolved for the eblume desktop spoke; the agent spoke builds via the flake input (eblume/blumeops#1541)
+  rustChannel = "stable"; # mise-resolved for the eblume desktop spoke; the agent spoke builds via the flake input
   hubUrl = "http://indri.tail8d86e.ts.net:8787";
   issuer = "https://authentik.ops.eblu.me/application/o/heph/";
   # HTTPS clone over the tailnet (the spoke builds run on ringtail); the repo is public so it needs no SSH key.
@@ -153,9 +153,7 @@ rec {
       };
     };
 
-  # System-scope spoke service for a nix-store hephd (the agent spoke): the
-  # package is in the toplevel, so there is no install oneshot, timer, or
-  # path unit — the spoke starts at boot like any other service.
+  # System-scope spoke service for a nix-store hephd (the agent spoke).
   #
   # System scope means no XDG_RUNTIME_DIR, so hephd binds the
   # ~/.local/share/heph fallback socket — right for env-less services, wrong
@@ -167,6 +165,7 @@ rec {
         description = "heph spoke for ${who} (hephd synced to the indri hub)";
         after = [ "network-online.target" ];
         wants = [ "network-online.target" ];
+        wantedBy = [ "multi-user.target" ];
         startLimitIntervalSec = 0;
         serviceConfig = {
           User = user;

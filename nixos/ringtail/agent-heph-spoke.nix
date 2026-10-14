@@ -132,7 +132,6 @@ in
     # No extraGroups: deliberately not in wheel, networkmanager, or onepassword-cli.
   };
 
-  # The hephd store package is part of the toplevel, so the spoke has no install
-  # gate: it starts at boot like any other service.
+  # The agent's spoke service.
   systemd.services = hephStack.services;
 }

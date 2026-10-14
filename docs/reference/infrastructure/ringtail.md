@@ -142,10 +142,11 @@ Guests are **shared** onto ringtail, never invited as members, so they inherit n
 
 ### Heph Spokes
 
-Two `hephd` spokes sync this host to the indri heph hub. They share the version
-pin and install machinery (`nixos/ringtail/heph-common.nix`) but hold different
+Two `hephd` spokes sync this host to the indri heph hub. They hold different
 login identities and token stores — hephd sockets/dbs are per-user, and keeping
-Erich's access decoupled from the agent kill switches is the point:
+Erich's access decoupled from the agent kill switches is the point. Shared
+plumbing (hub/OIDC endpoints; the desktop spoke's install machinery) lives in
+`nixos/ringtail/heph-common.nix`:
 
 | Property | `agent-heph-spoke` | `eblume-heph-spoke` |
 |----------|--------------------|---------------------|
@@ -163,17 +164,18 @@ run inside the equally env-less workspace service, so both sides use the
 manager (status/logs: `systemctl --user status eblume-heph-spoke`,
 `journalctl --user -u eblume-heph-spoke`).
 
-Both adopt the same hub owner id, so they operate on the same nodes. Each user
-gets its own `heph`/`hephd` at `~/.cargo/bin` via a `*-heph-install` oneshot
-(timer-fired; the spoke starts via a path unit the moment the binary lands —
-see `heph-common.nix` for the quartet). The install stays off the activation
-path structurally: a tag bump rewrites the oneshot's ExecStart script, so the
+Both adopt the same hub owner id, so they operate on the same nodes. The agent
+spoke's `heph`/`hephd` is the nix-store package built from the `hephaestus`
+flake input (see [[agent-workspaces]]), so it is part of the toplevel and
+starts at boot like any other service; Erich's desktop bins live at
+`~/.cargo/bin`, installed by the `eblume-heph-install` oneshot (timer-fired;
+see `heph-common.nix`). The install stays off the activation path
+structurally: a tag bump rewrites the oneshot's ExecStart script, so the
 service sets `restartIfChanged = false` and the timer's 5-min re-check
 installs the new pin in the background (~11 min cold) instead of the switch
 running a cold cargo compile inside `switch-to-configuration`. When the pin
-moves, the oneshot restarts the matching spoke after the install so the daemon
-never lags the installed binary (the agent's oneshot runs as root for that one
-step, dropping to `agent` via `runuser` for the cargo work).
+moves, the oneshot restarts the desktop spoke after the install so the daemon
+never lags the installed binary.
 
 **One-time seed for the eblume spoke** (interactive, as eblume on ringtail;
 approve in the browser as yourself — no hub-side change needed, you are already
