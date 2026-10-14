@@ -80,9 +80,12 @@ reference site (an `EnvironmentFile`, a `credentialsFile`) must be added to
   than a leaked secret, and deletion stays a human act. A failed write can
   leave `<path>.seedtmp` holding the value. `--check` reports it as a
   stray; delete it by hand.
-- **indri is refused while its manifest is non-empty.** The darwin write and
-  restart legs wait for the forgejo_runner role to move to nix
-  ([eblume/blumeops#1213](https://forge.ops.eblu.me/eblume/blumeops/issues/1213)).
+- **indri's restarts are launchd labels.** A darwin manifest's `restart`
+  entries are LaunchAgent labels, kicked with
+  `launchctl kickstart -k gui/<uid>/<label>` in the entry owner's gui
+  domain (the transport runs as root, so the uid comes from the entry's
+  declared owner) and confirmed by parsing `launchctl print` output —
+  exit codes lie (eblume/blumeops#1379). eblume/blumeops#1528.
 - **Biometric required.** Apply refuses to run without a TTY, so CI can never
   run this — the vault credential is the thing the pattern removes from the
   apply path.
