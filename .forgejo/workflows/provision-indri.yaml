@@ -1,6 +1,6 @@
 # provision-indri — apply a bound blumeops SHA's nix-darwin generation to indri.
 #
-# Request via `mise run request-run provision-indri.yaml <full-sha> -i revision=<sha>`.
+# class: auto (not requestable): applies on push to its watched paths; see docs/explanation/auto-apply.md
 # The job runs on indri's own runner (host-mode erichblume with NOPASSWD sudo —
 # the documented, accepted runner story for this box, so no polkit or
 # template-unit dance; contrast ringtail-rebuild) and drives the proven

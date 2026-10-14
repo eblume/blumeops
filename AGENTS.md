@@ -135,7 +135,7 @@ repo (e.g. `--repo eblume/talos`) — the workflow, the bound SHA, and the
 dispatch stay blumeops; only the attached PR moves.
 
 It validates the request against `warrant-policy.yaml` **on main**
-(unknown or `class: deny` actions are refused at request time), then records
+(unknown, `class: deny`, or `class: auto` actions are refused at request time), then records
 it as a PR comment, a heph task, and an entry in the approval queue. A human
 approves in Horkos (né Warrant), which dispatches the workflow. Requestable today:
 `argocd-deploy.yaml`, `argocd-sync-apps.yaml`, `deploy-fly.yaml`,
