@@ -8,6 +8,11 @@ prometheus.exporter.unix "system" {
   procfs_path = "/host/proc"
   sysfs_path  = "/host/sys"
   rootfs_path = "/host/root"
+
+  textfile {
+    // Host path /var/lib/seed-secrets, via the read-only host-root mount.
+    directory = "/host/root/var/lib/seed-secrets"
+  }
 }
 
 // Scrape system metrics and add instance label
