@@ -17,11 +17,26 @@
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # heph for the agent spoke: the release flake builds one package with all
+    # four bins (eblume/hephaestus#98), pinned to the release tag; the explicit
+    # rev is that tag's commit. Follows this flake's nixpkgs so it compiles
+    # with ringtail's rustc 1.95.0 (heph's floor, exactly); a floor bump that
+    # outruns the 26.05 branch gets a rust-overlay/fenix input pinned here,
+    # not a second toolchain path.
+    hephaestus = {
+      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?ref=v1.10.7&rev=1d8c478e41fd64ee4a3ee109d20849a102cd229f";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { nixpkgs, nixpkgs-services, disko, home-manager, ... }: {
+  outputs = { nixpkgs, nixpkgs-services, disko, home-manager, hephaestus, ... }: {
     nixosConfigurations.ringtail = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
+      # The agent spoke's hephd (agent-heph-spoke.nix consumes it as `hephPkg`).
+      specialArgs = {
+        hephPkg = hephaestus.packages.x86_64-linux.heph;
+      };
       modules = [
         disko.nixosModules.disko
         home-manager.nixosModules.home-manager

@@ -11,7 +11,7 @@
 # Secret placed by `mise run seed-secrets ringtail` (declared in
 # secrets.json), NOT nix:
 #   /etc/agents/op-token   agents-ringtail-rw service-account token (0400 agent)
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, hephPkg, ... }:
 
 let
   agentHome = "/home/agent";
@@ -32,10 +32,9 @@ let
   # The agent runs a hephd *spoke* synced to the indri hub. heph is an
   # in-boundary agentic-workflow substrate, deliberately NOT isolated out (unlike
   # the blumeops vault). The containerized agent pod mounts this spoke's socket.
-  cargoBin = "${agentHome}/.cargo/bin";
-  # Shared spoke plumbing (version pin, hub/OIDC endpoints, install machinery) —
-  # heph-eblume.nix builds Erich's own spoke from the same file, so the two
-  # spokes can't drift apart on the heph version.
+  # Shared spoke plumbing (hub/OIDC endpoints; the eblume desktop spoke's
+  # install machinery) — heph-eblume.nix builds Erich's own spoke from the
+  # same file.
   heph = import ./heph-common.nix { inherit pkgs lib; };
   # The token item is addressed by id: a title lookup becomes ambiguous once
   # a second item carries the same title, and an ambiguous get must never
@@ -91,14 +90,16 @@ let
   # The spoke daemon. Shares the default socket/db with the pod's `heph` CLI (the
   # pod mounts ~agent/.local/share/heph). The spoke ADOPTS the hub's owner id: the
   # `talos-heph` credential is only the login identity (revocable), not a
-  # separate data owner.
+  # separate data owner. hephd itself is the nix-store package from the flake's
+  # hephaestus input.
   hephSpoke = pkgs.writeShellScript "agent-heph-spoke" ''
     export HOME=${agentHome}
     # pkgs.bash provides `sh`: hephd's command token store runs the load/save
     # commands via `Command::new("sh")`, which does a PATH lookup — without a
-    # shell on PATH the token never loads and every hub sync 401s.
-    export PATH="${opShim}/bin:${hephTokenSave}/bin:${lib.makeBinPath [ pkgs.jq pkgs.coreutils pkgs.bash ]}:${cargoBin}:$PATH"
-    exec ${cargoBin}/hephd --mode local \
+    # shell on PATH the token never loads and every hub sync 401s. The store's
+    # bin dir carries hephd and the `heph` CLI together, as ~/.cargo/bin did.
+    export PATH="${opShim}/bin:${hephTokenSave}/bin:${lib.makeBinPath [ pkgs.jq pkgs.coreutils pkgs.bash ]}:${hephPkg}/bin:$PATH"
+    exec ${hephPkg}/bin/hephd --mode local \
       --hub-url ${heph.hubUrl} \
       --owner-id ${heph.ownerId} \
       --oidc-issuer ${heph.issuer} \
@@ -107,13 +108,12 @@ let
       --token-save-cmd "heph-token-save"
   '';
 
-  # The agent's spoke unit quartet (install oneshot + timer + spoke + path unit)
-  # comes from the shared machinery; only the launcher above is agent-specific.
+  # The agent's spoke service comes from the shared machinery; only the launcher
+  # above is agent-specific.
   hephStack = heph.mkSpokeStack {
     prefix = "agent-heph";
     user = "agent";
     group = "agent";
-    home = agentHome;
     spokeExec = hephSpoke;
     who = "the agent";
   };
@@ -132,10 +132,6 @@ in
     # No extraGroups: deliberately not in wheel, networkmanager, or onepassword-cli.
   };
 
-  # Timer + path unit for the agent's heph spoke (see heph-common.nix: the compile
-  # stays off the activation path, and the spoke starts the moment the install
-  # produces hephd — bootstrap never shows a failed unit).
+  # The agent's spoke service.
   systemd.services = hephStack.services;
-  systemd.timers = hephStack.timers;
-  systemd.paths = hephStack.paths;
 }

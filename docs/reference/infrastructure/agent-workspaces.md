@@ -42,7 +42,7 @@ ringtail — user `agent` (isolated, non-wheel)
   systemd: agent-ws-agent.service  (the single home-base workspace)
     └─ claude remote-control --spawn worktree --name ringtail-agent
          cwd = ~/code/personal/agents
-         PATH prepends the transparent `op` shim + ~/.cargo/bin (heph)
+         PATH prepends the transparent `op` shim + the heph store bin dir
                    + the report toolchain (mise/uv/pandoc/typst/weasyprint)
   systemd: agent-repos-init.service  (oneshot, clones/updates repos first)
 ```
@@ -252,19 +252,18 @@ read/write the owner's real tasks — this is the point, not a leak. (The blumeo
 1Password vault stays isolated; heph is a separate, deliberately-included
 substrate.)
 
-**Shape (all source-controlled — see `agent-workspaces.nix`; the version pin,
-hub/OIDC endpoints, and install/timer/path machinery are shared with Erich's
-own `eblume-heph-spoke` via `heph-common.nix` — see [[ringtail]] §Heph
-Spokes):**
+**Shape (all source-controlled — see `agent-heph-spoke.nix`; the hub/OIDC
+endpoints are shared with Erich's own desktop spoke via `heph-common.nix` —
+see [[ringtail]] §Heph Spokes):**
 
-- `agent-heph-install.service` — a oneshot that `cargo install`s `heph`+`hephd`
-  at a pinned tag (`hephTag`) using a **mise-resolved** Rust toolchain. The
-  toolchain comes from `mise x rust@stable` (direct rust release tracking, not
-  nixpkgs: nixos-26.05's rustc 1.95.0 meets heph's 1.95 floor exactly, but a
-  floor bump would otherwise be hostage to a NixOS channel bump) over the
-  `nix-ld` + build-deps setup the host already provides for mise runtimes.
-  Idempotent: it version-checks and only recompiles on a tag bump.
-- `agent-heph-spoke.service` — runs `hephd --mode local --hub-url
+- The agent's hephd is the nix-store package built from the `hephaestus`
+  flake input (the release flake's `packages` output, pinned to the release
+  tag in `nixos/ringtail/flake.nix`; nixpkgs follows ringtail's nixos-26.05
+  channel so it compiles with the host's rustc 1.95.0 — heph's floor,
+  exactly; eblume/blumeops#1541). The package is in the toplevel, so there is
+  no install oneshot or timer: a version bump is a flake-input change, and the
+  spoke starts at boot like any other service.
+- `agent-heph-spoke.service` — runs the store `hephd --mode local --hub-url
   http://indri…:8787` (spoke sync is HTTP-only) authenticating via OIDC.
 - The spoke's token lives in the **agents vault**, item `heph-spoke-token`
   addressed by id (`hephTokenItemId` in `nixos/ringtail/agent-heph-spoke.nix`)
@@ -292,7 +291,7 @@ See [[bootstrap-agent-workspaces]] for the one-time seeding steps.
 ## Report toolchain
 
 The workspace PATH is a deliberately minimal curated set (op shim, git, ssh, tea,
-coreutils, `~/.cargo/bin`, `~/.local/bin`) — it does **not** include
+coreutils, the heph store bin dir, `~/.local/bin`) — it does **not** include
 `/run/current-system/sw/bin`, so system-wide tools there are invisible to agent
 sessions. The `research` repo's `compile-report` / `save-session` tasks
 (`mise run …`, each a `uv run --script` program) therefore need their toolchain

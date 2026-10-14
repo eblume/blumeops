@@ -25,6 +25,9 @@ on:
 jobs:
   check:
     runs-on: nix-container-builder
+    # First run after the heph flake input landed cold-compiles heph (~11 min,
+    # eblume/blumeops#1541) on top of the toplevel build; leave headroom.
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

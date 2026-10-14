@@ -69,11 +69,13 @@ upstream release, then bump the pin and re-provision.
 | Device | Managed by | Pin | Converged by |
 |--------|-----------|-----|--------------|
 | **indri** (hub) | `ansible/roles/heph` | `heph_version` (`defaults/main.yml`) | `mise run provision-indri -- --tags heph` — installs/upgrades `hephd` to the pinned tag on every run |
-| **ringtail-agent** (spoke) | `nixos/ringtail/agent-heph-spoke.nix` | `hephTag` (`heph-common.nix`) | the `agent-heph-install` oneshot's timer re-check, in the background after the nixos rebuild (never inside the switch) |
+| **ringtail-agent** (spoke) | `nixos/ringtail/flake.nix` (`hephaestus` input) | flake input ref (tag + tag-commit rev) | the toplevel build — the spoke starts at boot, no install oneshot |
 | **ringtail-eblume** (desktop spoke) | `nixos/ringtail/heph-eblume.nix` | `hephTag` (`heph-common.nix`) | the `eblume-heph-install` oneshot, same mechanism — see [Desktop surfaces](#desktop-surfaces-on-ringtail) |
 | **gilbert** (spoke) | manual (not yet IaC) | — | hand `cargo install --tag`; see [Connecting a spoke](#connecting-a-spoke-eg-gilbert) |
 
-Both ringtail spokes share one pin: `hephTag` in `nixos/ringtail/heph-common.nix`.
+The two ringtail spokes are pinned separately: the agent spoke by the
+`hephaestus` flake input (`nixos/ringtail/flake.nix`), the eblume desktop
+spoke by `hephTag` in `heph-common.nix` — review both when bumping.
 
 The indri role converges the version on **every** provision (it compares
 `hephd --version` against `heph_version` and re-runs `cargo install --locked
@@ -87,20 +89,22 @@ fall back to rustup's *default* toolchain, which can lag behind heph's
 **Release → deploy flow:**
 
 1. Cut the upstream release (new `vX.Y.Z` tag on the hephaestus repo).
-2. Bump the pins in blumeops: `heph_version` (ansible) and `hephTag`
-   (nixos/ringtail/heph-common.nix). Open a PR as usual.
+2. Bump the pins in blumeops: `heph_version` (ansible, hub), the
+   `hephaestus` flake input (ringtail agent spoke), and `hephTag` (ringtail
+   desktop spoke, nixos/ringtail/heph-common.nix). Open a PR as usual.
 3. After review, converge each device:
    - indri: `mise run provision-indri -- --tags heph`
-   - ringtail: nixos rebuild (the switch itself does not install; the
-     `*-heph-install` oneshots pick up the new `hephTag` from their ~5-min
-     timer re-check in the background, ~11 min cold per spoke)
+   - ringtail: nixos rebuild — the agent spoke's hephd is built into the
+     toplevel by the flake input (the ringtail-flake-check runner builds it on
+     ringtail's own nix store, so the switch reuses it), while
+     `eblume-heph-install` picks up the new `hephTag` from its ~5-min timer
+     re-check in the background (~11 min cold)
    - gilbert: run the `cargo install --tag vX.Y.Z` step below.
-4. Confirm the ringtail spokes installed the new tag (a green rebuild no
-   longer proves the binaries are current): a few minutes after the switch,
-   `systemctl status eblume-heph-install agent-heph-install` on ringtail,
-   then each spoke's version —
-   `/home/eblume/.cargo/bin/hephd --version` and
-   `sudo runuser -u agent -- /home/agent/.cargo/bin/hephd --version`.
+4. Confirm: for the desktop spoke, `systemctl status eblume-heph-install`
+   and `/home/eblume/.cargo/bin/hephd --version` a few minutes after the
+   switch (a green rebuild no longer proves it installed the new tag); the
+   agent spoke is in the toplevel, so `systemctl is-active agent-heph-spoke`
+   after the switch is its check.
 
 ## Backups
 
