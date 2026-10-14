@@ -341,8 +341,8 @@
       when: indri_blumeops_repo.changed
       tags: [rebuild]
 
-    # The detached shell writes <sha>.status (its exit code) last; the wait
-    # below polls for it. A timeout here does not kill the rebuild - it
+    # The detached shell writes <sha>.status (started <epoch> at launch, its
+    # verdict last); the wait below polls for it. A timeout here does not kill the rebuild - it
     # keeps running detached; read /var/log/indri-rebuild/<sha>.log.
     #
     # indri_rebuild_wait=false (the provision-indri workflow) skips the wait:
@@ -357,19 +357,67 @@
     # that root runs leaves root-owned files in ~erichblume/.cache/nix and
     # breaks the user-run indri-flake-check and the CI job on the indri runner.
 
+    # The SHA is resolved up front, and the block below keeps no Jinja string
+    # literals and no backslash continuations: the multiline shell argument
+    # pre-parser chokes on both.
+    - name: Resolve the apply target (a SHA, or main)
+      ansible.builtin.set_fact:
+        indri_apply_target: "{{ indri_commit | default('main') }}"
+      tags: [rebuild]
+
     - name: Start darwin-rebuild switch, detached from the controlling session
       ansible.builtin.shell: |
         set -euo pipefail
         sudo -n mkdir -p /var/log/indri-rebuild
         # A leftover sidecar from an earlier switch of this SHA would read as
         # the verdict of this switch.
-        sudo -n rm -f /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status
-        sudo -n -H nohup sh -c 'cd /; {{ indri_darwin_rebuild.stdout }} switch --flake /etc/blumeops/darwin/indri#indri > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.log 2>&1; echo $? > /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp && mv /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status.tmp /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status' </dev/null >/dev/null 2>&1 &
+        sudo -n rm -f /var/log/indri-rebuild/{{ indri_apply_target }}.status
+        # The detached shell (root via sudo -H) holds an atomic mkdir lock, reclaimed
+        # as stale once its pid dies: two concurrent switches would race with the
+        # older SHA finishing last (macOS has no flock).
+        sudo -n -H nohup sh -c '
+        cd /
+        sha="{{ indri_apply_target }}"
+        n=0
+        while ! sudo -n mkdir /var/log/indri-rebuild/.switch.lock 2>/dev/null; do
+          n=$((n + 1))
+          read -r holder < /var/log/indri-rebuild/.switch.lock/pid 2>/dev/null || holder=
+          if [ -n "$holder" ] && ! ps -p "$holder" >/dev/null 2>&1; then
+            sudo -n rm -rf /var/log/indri-rebuild/.switch.lock
+            continue
+          fi
+          if [ "$n" -ge 180 ]; then
+            echo lock-held > /var/log/indri-rebuild/"$sha".status.tmp && mv /var/log/indri-rebuild/"$sha".status.tmp /var/log/indri-rebuild/"$sha".status
+            exit 75
+          fi
+          sleep 10
+        done
+        echo $$ > /var/log/indri-rebuild/.switch.lock/pid
+        trap "sudo -n rm -rf /var/log/indri-rebuild/.switch.lock" EXIT
+        # origin/main moved past this SHA. Skip only when a newer run is
+        # coming: a trigger-paths merge (the push filter in
+        # .forgejo/workflows/provision-indri.yaml - keep it in sync) already
+        # started one; a merge to anything else starts nothing. The != main
+        # guard skips human runs, which apply the live tip by design.
+        if [ "$sha" != "main" ] && git -C /etc/blumeops fetch origin --quiet && [ "$(git -C /etc/blumeops rev-parse origin/main)" != "$sha" ] && git -C /etc/blumeops merge-base --is-ancestor "$sha" origin/main && ! git -C /etc/blumeops diff --quiet "$sha" origin/main -- darwin/indri/; then
+          echo superseded > /var/log/indri-rebuild/"$sha".status.tmp && mv /var/log/indri-rebuild/"$sha".status.tmp /var/log/indri-rebuild/"$sha".status
+          exit 0
+        fi
+        # Non-terminal sidecar while the switch is in flight: the watcher
+        # alerts on it if no verdict follows (hang, panic, power loss). The
+        # last line overwrites it with the exit code.
+        echo "started $(date +%s)" > /var/log/indri-rebuild/"$sha".status.tmp && mv /var/log/indri-rebuild/"$sha".status.tmp /var/log/indri-rebuild/"$sha".status
+        {{ indri_darwin_rebuild.stdout }} switch --flake /etc/blumeops/darwin/indri#indri > /var/log/indri-rebuild/{{ indri_apply_target }}.log 2>&1; echo $? > /var/log/indri-rebuild/{{ indri_apply_target }}.status.tmp && mv /var/log/indri-rebuild/{{ indri_apply_target }}.status.tmp /var/log/indri-rebuild/{{ indri_apply_target }}.status
+        ' </dev/null >/dev/null 2>&1 &
         REBUILD_PID=$!
         # A backgrounded job that fails to launch dies before the wait below
-        # could notice; ps is ownership-neutral, kill -0 is not.
+        # could notice; ps is ownership-neutral, kill -0 is not. A job that exits
+        # within the check window (superseded) has written its verdict sidecar instead.
         sleep 2
-        ps -p "$REBUILD_PID" >/dev/null || { echo "darwin-rebuild failed to launch" >&2; exit 1; }
+        if ! ps -p "$REBUILD_PID" >/dev/null 2>&1 && [ ! -f /var/log/indri-rebuild/{{ indri_apply_target }}.status ]; then
+          echo "darwin-rebuild failed to launch" >&2
+          exit 1
+        fi
       changed_when: true
       check_mode: false
       when: indri_blumeops_repo.changed and not ansible_check_mode
@@ -380,12 +428,12 @@
         msg: >-
           darwin-rebuild switch launched detached for {{ indri_commit | default('main') }};
           not waiting. Outcome: /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status
-          (exit code, written when the switch ends) and .log on indri.
+          (verdict, written when the switch ends) and .log on indri.
       when: indri_blumeops_repo.changed and not ansible_check_mode and not (indri_rebuild_wait | default(true) | bool)
       tags: [rebuild]
 
     - name: Wait for the darwin-rebuild to finish
-      ansible.builtin.command: "test -f /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status"
+      ansible.builtin.shell: "st=$(cat /var/log/indri-rebuild/{{ indri_commit | default('main') }}.status 2>/dev/null || echo none); case $st in started*) exit 1 ;; none) exit 1 ;; esac"
       register: indri_rebuild_done
       changed_when: false
       failed_when: false
@@ -415,10 +463,10 @@
     - name: Fail if the darwin-rebuild did not succeed
       ansible.builtin.fail:
         msg: |
-          darwin-rebuild switch exited {{ indri_rebuild_status.stdout }}
+          darwin-rebuild switch exited with {{ indri_rebuild_status.stdout }}
           (log: /var/log/indri-rebuild/{{ indri_commit | default('main') }}.log):
           {{ indri_rebuild_log.stdout | default('') }}
-      when: indri_rebuild_status.stdout is defined and indri_rebuild_status.stdout != '0'
+      when: indri_rebuild_status.stdout is defined and indri_rebuild_status.stdout not in ['0', 'superseded']
       tags: [rebuild]
 
   roles:

@@ -758,7 +758,8 @@ in
     "d /mnt/games 0755 eblume users -"
     "d /mnt/storage1 0755 eblume users -"
     "d /mnt/storage2 0755 eblume users -"
-    # ringtail-apply@<sha>.service appends its log here (see below).
+    # ringtail-apply@<sha>.service appends its log and writes its .status
+    # verdict sidecar here (see below).
     "d /var/log/ringtail-apply 0755 root root -"
   ];
 
@@ -910,9 +911,11 @@ in
   # The unit runs the wrapper, which checks out the bound SHA in /etc/blumeops
   # and drives the detached blumeops-nixos-rebuild unit; its output lands in
   # /var/log/ringtail-apply/<sha>.log, readable by the (unprivileged) job so
-  # the run log can carry the verdict. See
+  # the run log can carry the verdict, and the wrapper's verdict sidecar
+  # /var/log/ringtail-apply/<sha>.status feeds the watcher service below. See
   # docs/explanation/warrant-approval-gated-runs.md.
   environment.etc."ringtail-apply/apply".source = ./ringtail-apply.sh;
+  environment.etc."ringtail-apply/watcher".source = ./ringtail-apply-watcher.sh;
   systemd.services."ringtail-apply@" = {
     description = "Apply blumeops %i to ringtail (ringtail-rebuild warrant)";
     # NixOS rewrites this unit's Environment= on every nixpkgs roll; a switch
@@ -932,6 +935,31 @@ in
       StandardError = "inherit";
       # Inner unit gets 3300s; the wrapper's own poll deadline is 3480s.
       TimeoutStartSec = 3600;
+    };
+  };
+
+  # ringtail-apply-watcher: scans /var/log/ringtail-apply/*.status and ntfys
+  # ops-approvals on any verdict other than success/superseded, and on a
+  # started sidecar that never reached a verdict. Timer-triggered, like the
+  # heph install units.
+  systemd.services."ringtail-apply-watcher" = {
+    description = "Alert on failed ringtail applies (ringtail-apply-watcher)";
+    restartIfChanged = false;
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "/etc/ringtail-apply/watcher";
+      # The default service PATH has no curl or coreutils - the same explicit
+      # environment the ringtail-apply@ unit above carries.
+      Environment = [ "PATH=/run/current-system/sw/bin:/usr/bin:/bin" ];
+    };
+  };
+  systemd.timers."ringtail-apply-watcher" = {
+    description = "Trigger ringtail-apply-watcher off the activation path";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "1min";
+      OnUnitActiveSec = "60s";
+      Persistent = true;
     };
   };
   security.polkit.extraConfig = ''
