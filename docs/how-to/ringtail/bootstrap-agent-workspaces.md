@@ -213,13 +213,13 @@ than they look; read the gotchas.**
    agent:
 
    ```sh
-   WRAP=$(ssh ringtail 'systemctl show agent-heph-spoke -p ExecStart --value' | head -n1)
+   WRAP=$(ssh ringtail "systemctl show agent-heph-spoke -p ExecStart --value | grep -oE '/nix/store/[^ ;]+' | head -n1")
    BIN=$(ssh ringtail "grep -oE '/nix/store/[a-z0-9]+-heph-[0-9.]+/bin' $WRAP | head -n1")
-   SAVE=$(ssh ringtail "grep -oE '/nix/store/[a-z0-9]+-heph-token-save/bin' $WRAP | head -n1)
-   ssh ringtail "sudo -u agent -H env HOME=/home/agent PATH=$SAVE/bin:$PATH $BIN/heph auth login \
+   SAVE=$(ssh ringtail "grep -oE '/nix/store/[a-z0-9]+-heph-token-save/bin' $WRAP | head -n1")
+   ssh ringtail "sudo -u agent -H env HOME=/home/agent $BIN/heph auth login \
      --hub-url http://indri.tail8d86e.ts.net:8787 \
      --issuer https://authentik.ops.eblu.me/application/o/heph/ \
-     --client-id heph --no-browser --token-save-cmd heph-token-save"
+     --client-id heph --no-browser --token-save-cmd $SAVE/heph-token-save"
    ```
 
    Approve the printed URL in the **incognito `talos-heph` session**. On success
