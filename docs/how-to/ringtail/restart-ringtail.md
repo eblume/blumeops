@@ -203,14 +203,16 @@ mise run agent-health                                                 # Grafana 
 mise run services-check                                               # fuller check (gilbert)
 ```
 
-If the last rebuild bumped the heph pin, the `*-heph-install` oneshots
-compile it in the background after boot (~11 min cold per spoke — the install
-runs from their timers, never inside the switch). A few minutes in, confirm
-both finished and the versions match:
+If the last rebuild bumped the heph pin: the agent's hephd was compiled into
+the toplevel by the `hephaestus` flake input (the ringtail-flake-check runner
+builds it on ringtail's own nix store, so the switch reuses the store path —
+the agent spoke has no background install), while `eblume-heph-install`
+compiles Erich's desktop bins in the background after boot (~11 min cold).
+A few minutes in, confirm:
 
 ```fish
-ssh ringtail 'systemctl status eblume-heph-install agent-heph-install'
-ssh ringtail '/home/eblume/.cargo/bin/hephd --version; sudo runuser -u agent -- /home/agent/.cargo/bin/hephd --version'
+ssh ringtail 'systemctl status eblume-heph-install; systemctl is-active agent-heph-spoke'
+ssh ringtail '/home/eblume/.cargo/bin/hephd --version'   # should be the new hephTag; the agent spoke's version is the flake input pin by construction
 ```
 
 If you **drained transmission** before the power-off, restore the suspended

@@ -190,8 +190,9 @@ online. Tapping it and starting a session spawns an isolated worktree of the
 ## 7. Seed the heph spoke (one-time)
 
 The agent runs a `hephd` spoke (see [[agent-workspaces#The heph spoke (deliberately in-boundary)]]).
-The mechanical parts — `cargo install` via mise, the services, owner adoption
-(`--owner-id`) — are source-controlled and come up on `provision-ringtail`. These
+The mechanical parts — the nix-store hephd (the `hephaestus` flake input),
+the services, owner adoption (`--owner-id`) — are source-controlled and come
+up on `provision-ringtail`. These
 are the irreducible secret/identity steps a human does once. **They are fiddlier
 than they look; read the gotchas.**
 
@@ -205,13 +206,18 @@ than they look; read the gotchas.**
    this identity reaches your tasks). Save the TOTP secret into `talos-heph-login`.
 
 2. **Seed the token — approve the device code in that same `talos-heph` session.**
-   Confirm the build finished (`systemctl status agent-heph-install`), then:
+   The agent's hephd and the `heph` CLI are the nix-store package (there is no
+   `~/.cargo` build anymore); resolve both store paths from the spoke unit and
+   run the login as the agent:
 
    ```sh
-   # heph-token-save is a nix store path; resolve it from the spoke unit:
+   # the heph package bin and heph-token-save are nix store paths; resolve
+   # them from the spoke unit:
+   BIN=$(ssh ringtail 'systemctl show agent-heph-spoke -p ExecStart --value' \
+     | grep -oE '/nix/store/[a-z0-9]+-heph-[0-9.]+/bin' | head -n1)
    SAVE=$(ssh ringtail 'systemctl show agent-heph-spoke -p ExecStart --value' \
      | grep -oE '/nix/store/[a-z0-9]+-heph-token-save/bin/heph-token-save')
-   ssh ringtail "sudo -u agent -H env HOME=/home/agent ~agent/.cargo/bin/heph auth login \
+   ssh ringtail "sudo -u agent -H env HOME=/home/agent $BIN/heph auth login \
      --hub-url http://indri.tail8d86e.ts.net:8787 \
      --issuer https://authentik.ops.eblu.me/application/o/heph/ \
      --client-id heph --no-browser --token-save-cmd $SAVE"
@@ -260,7 +266,8 @@ than they look; read the gotchas.**
    ssh ringtail 'sudo systemctl stop agent-heph-spoke; \
      sudo rm -f /home/agent/.local/share/heph/heph.db*; \
      sudo systemctl start agent-heph-spoke'
-   ssh ringtail 'sudo -u agent -H env HOME=/home/agent ~agent/.cargo/bin/heph list --project Blumeops'
+   ssh ringtail "sudo -u agent -H env HOME=/home/agent $BIN/heph list --project Blumeops"
+   # $BIN = the heph package bin resolved in step 2
    ```
 
    Expect your real Blumeops tasks. `heph sync --status` should show

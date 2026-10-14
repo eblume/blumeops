@@ -569,24 +569,29 @@ services:
       role converges to the `heph_version` tag on every provision run —
       installing on a fresh host, upgrading an older binary, and DOWNGRADING
       if the pin is lowered. Bump the pin, then `mise run provision-indri
-      -- --tags heph`. The two ringtail spokes run the same release line
-      via `hephTag` (nixos/ringtail/heph-common.nix).
+      -- --tags heph`. The ringtail agent spoke runs its own pin: the
+      `hephaestus` flake input in nixos/ringtail/flake.nix.
 
   - name: heph-agent-spoke
     type: nixos
     release: self
-    last-reviewed: 2026-07-09
-    current-version: "v1.10.6"
+    last-reviewed: 2026-10-14
+    current-version: "v1.10.7"
     upstream-source: https://forge.ops.eblu.me/eblume/hephaestus/releases
     notes: >-
-      hephd spoke for the ringtail agent workspaces (nixos/ringtail/
-      agent-workspaces.nix, `hephTag`). Unlike the indri hub, this is
-      DECLARATIVELY PINNED with NO self-update — a version bump is a
-      source-controlled change to `hephTag`, and the agent-heph-install
-      oneshot recompiles on the next provision-ringtail. Deliberate: an
-      in-boundary agent shouldn't auto-fetch+run new code. current-version
-      is a hard pin. Review cadence exists so the pin doesn't rot into
-      sync-version skew with the hub; bump in step with the hub.
+      hephd spoke for the ringtail agent (nixos/ringtail/agent-heph-spoke.nix),
+      pinned by the `hephaestus` flake input in nixos/ringtail/flake.nix
+      (tag + tag-commit rev; nixpkgs follows ringtail's nixos-26.05). The
+      spoke's binaries are the flake's one-package-all-bins heph package
+      (eblume/hephaestus#98): built into the toplevel, no install oneshot,
+      no timer, no ~/.cargo — the spoke starts at boot like any other
+      service. Unlike the indri hub, this is DECLARATIVELY PINNED with NO
+      self-update — a version bump is a source-controlled change to the
+      flake input. Deliberate: an in-boundary agent shouldn't
+      auto-fetch+run new code. current-version is a hard pin. The v1.10.7 tree
+      adds packaging only (the flake) over v1.10.6's runtime code, so the
+      spoke is in step with the v1.10.6 hub despite the tag skew; bump the
+      flake input as the hub pin moves (eblume/blumeops#1541).
 
   - name: heph-cli-ringtail
     type: nixos
@@ -597,10 +602,11 @@ services:
     notes: >-
       2026-07-30: Erich's own desktop spoke on ringtail — hephd plus the three
       user-facing surfaces (`heph`, `heph-tui`, `heph-quickadd`), installed by
-      the eblume-heph-install oneshot (nixos/ringtail/heph-eblume.nix). Shares
-      the `hephTag` pin in heph-common.nix with heph-agent-spoke, so the two
-      ringtail spokes cannot drift apart; same no-self-update declarative pin,
-      bumped by editing `hephTag` and running nixos-rebuild. KNOWN DRIFT:
+      the eblume-heph-install oneshot (nixos/ringtail/heph-eblume.nix).
+      Pinned by `hephTag` in heph-common.nix (the agent spoke moved to the
+      flake input in 2026-10-14, so the two ringtail spokes no longer share
+      a pin — review both when bumping); same no-self-update declarative
+      pin, bumped by editing `hephTag` and running nixos-rebuild. KNOWN DRIFT:
       `~/.cargo/bin/heph-quickadd` is a hand-built binary from what became
       v1.8.0 — the sway Alt+' popover needed the one-shot `popover` mode before
       that tag existed (its crate is byte-identical to v1.8.0's). The

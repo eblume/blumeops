@@ -1,11 +1,13 @@
 # Shared plumbing for ringtail's two hephd spokes (agent-heph-spoke.nix,
-# heph-eblume.nix): same heph pin and hub, different identities and token
-# stores. Plain import (`import ./heph-common.nix { inherit pkgs lib; }`),
-# not a module.
+# heph-eblume.nix): same hub, different identities and token stores. The
+# agent spoke's hephd comes from the nix store (the flake's hephaestus
+# input); the eblume desktop spoke still `cargo install`s at `hephTag`
+# via `mkInstallUnits` (eblume/blumeops#1541, step 5). Plain import
+# (`import ./heph-common.nix { inherit pkgs lib; }`), not a module.
 { pkgs, lib }:
 rec {
   hephTag = "v1.10.6";
-  rustChannel = "stable"; # mise-resolved — 26.05's rustc 1.95.0 ≥ heph's 1.95; direct tracking
+  rustChannel = "stable"; # mise-resolved for the eblume desktop spoke; the agent spoke builds via the flake input (eblume/blumeops#1541)
   hubUrl = "http://indri.tail8d86e.ts.net:8787";
   issuer = "https://authentik.ops.eblu.me/application/o/heph/";
   # HTTPS clone over the tailnet (the spoke builds run on ringtail); the repo is public so it needs no SSH key.
@@ -34,7 +36,7 @@ rec {
   # GUI LD_LIBRARY_PATH: the dlopened libs plus the /run/opengl-driver GL ICDs.
   guiLibPath = "/run/opengl-driver/lib:${lib.makeLibraryPath guiDeps}";
 
-  # Desktop-spoke binaries; headless spokes use the mkInstallUnits default.
+  # Desktop-spoke binaries; the agent spoke has no use for the GUI bins.
   desktopBins = [ "heph" "hephd" "heph-tui" "heph-quickadd" ];
 
   # GUI-only graphics stack — children inherit LD_LIBRARY_PATH, so the
@@ -151,52 +153,34 @@ rec {
       };
     };
 
-  # System-scope quartet: the install units plus the spoke service and a path
-  # unit that starts it once hephd exists; ConditionPathExists keeps the
-  # pre-install state a clean skip, not a failure.
+  # System-scope spoke service for a nix-store hephd (the agent spoke): the
+  # package is in the toplevel, so there is no install oneshot, timer, or
+  # path unit — the spoke starts at boot like any other service.
   #
   # System scope means no XDG_RUNTIME_DIR, so hephd binds the
   # ~/.local/share/heph fallback socket — right for env-less services, wrong
   # for interactive users (their spoke belongs in the USER manager;
   # heph-eblume.nix).
-  mkSpokeStack = { prefix, user, group, home, spokeExec, who }:
-    let
-      cargoBin = "${home}/.cargo/bin";
-      installUnits = mkInstallUnits {
-        inherit prefix user group home who;
-        # Root so the oneshot can restart the system-scope spoke.
-        asRoot = true;
-        restartSpoke = "systemctl try-restart ${prefix}-spoke.service";
-      };
-    in
+  mkSpokeStack = { prefix, user, group, spokeExec, who }:
     {
-      services = installUnits.services // {
-        "${prefix}-spoke" = {
-          description = "heph spoke for ${who} (hephd synced to the indri hub)";
-          after = [ "network-online.target" ];
-          wants = [ "network-online.target" ];
-          startLimitIntervalSec = 0;
-          unitConfig.ConditionPathExists = "${cargoBin}/hephd";
-          serviceConfig = {
-            User = user;
-            Group = group;
-            ExecStart = spokeExec;
-            Restart = "always";
-            RestartSec = 10;
-            StandardOutput = "journal";
-            StandardError = "journal";
-            NoNewPrivileges = true;
-            ProtectKernelTunables = true;
-            ProtectKernelModules = true;
-            ProtectControlGroups = true;
-          };
+      services."${prefix}-spoke" = {
+        description = "heph spoke for ${who} (hephd synced to the indri hub)";
+        after = [ "network-online.target" ];
+        wants = [ "network-online.target" ];
+        startLimitIntervalSec = 0;
+        serviceConfig = {
+          User = user;
+          Group = group;
+          ExecStart = spokeExec;
+          Restart = "always";
+          RestartSec = 10;
+          StandardOutput = "journal";
+          StandardError = "journal";
+          NoNewPrivileges = true;
+          ProtectKernelTunables = true;
+          ProtectKernelModules = true;
+          ProtectControlGroups = true;
         };
-      };
-      timers = installUnits.timers;
-      paths."${prefix}-spoke" = {
-        description = "Start ${who}'s heph spoke once hephd is installed";
-        wantedBy = [ "multi-user.target" ];
-        pathConfig.PathExists = "${cargoBin}/hephd";
       };
     };
 }

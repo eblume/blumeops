@@ -20,6 +20,28 @@
         "type": "github"
       }
     },
+    "hephaestus": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792000344,
+        "narHash": "sha256-pBdRXouSweZjc3NbIcUmrzajFfI+U2yc9PWsycMNxCQ=",
+        "ref": "v1.10.7",
+        "rev": "1d8c478e41fd64ee4a3ee109d20849a102cd229f",
+        "revCount": 402,
+        "type": "git",
+        "url": "https://forge.ops.eblu.me/eblume/hephaestus.git"
+      },
+      "original": {
+        "ref": "v1.10.7",
+        "rev": "1d8c478e41fd64ee4a3ee109d20849a102cd229f",
+        "type": "git",
+        "url": "https://forge.ops.eblu.me/eblume/hephaestus.git"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -76,6 +98,7 @@
     "root": {
       "inputs": {
         "disko": "disko",
+        "hephaestus": "hephaestus",
         "home-manager": "home-manager",
         "nixpkgs": "nixpkgs",
         "nixpkgs-services": "nixpkgs-services"
