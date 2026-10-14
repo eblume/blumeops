@@ -19,6 +19,7 @@
         "Lint / secret-scan (pull_request)",
         "Lint / argocd-apps-validate (pull_request)",
         "Image Pins / checks (pull_request)",
+        "Tests / horkos-test (pull_request)",
         "* (pull_request)"
       ],
       "required_approvals": 0,

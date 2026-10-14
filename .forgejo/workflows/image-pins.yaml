@@ -50,13 +50,6 @@ jobs:
             ./mise-tasks/container-pin-check --all-files 2>&1 | tee "$RUNNER_TEMP/image-pins-checks.log"
           fi
 
-      - name: Tests
-        if: always()
-        run: |
-          set -o pipefail
-          mkdir -p "$RUNNER_TEMP"
-          mise run horkos-test 2>&1 | tee -a "$RUNNER_TEMP/image-pins-checks.log"
-
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'
         uses: ./.forgejo/actions/report-failure

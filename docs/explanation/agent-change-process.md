@@ -156,8 +156,8 @@ merge instead of looking neutral — not to remove the gate.
 Branch protection on `main` is declared in `forge/branch-protections.json`
 and reconciled by `mise run forge-reconcile` — CI checks it for drift,
 but only a human run applies it (see the script's docstring). It requires
-the gate contexts by name — Docs Checks, Image Pins, and the four `Lint`
-jobs — plus the glob `* (pull_request)`. Forgejo resolves a glob to the
+the gate contexts by name — Docs Checks, Image Pins, Tests, and the four
+`Lint` jobs — plus the glob `* (pull_request)`. Forgejo resolves a glob to the
 *worst* state among every context it matches, so the glob makes any PR
 check that actually ran blocking, path-filtered ones included (the flake
 checks, Forge Reconcile), while a path-filtered workflow that did not
@@ -168,7 +168,7 @@ agent PR nobody has approved, they are what holds the merge.
 A context string is `workflow name / job name (event)`, so **renaming a
 gate job silently un-requires it by name** (the glob still blocks on its
 failure, but no longer on its absence): update the protection file whenever
-a job in `docs-checks.yaml`, `image-pins.yaml` or `lint.yaml` is renamed.
+a job in `docs-checks.yaml`, `image-pins.yaml`, `lint.yaml` or `tests.yaml` is renamed.
 
 A push-side version of the trap: the automatic Actions token can never be
 push-whitelisted (Forgejo [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)),
@@ -222,7 +222,7 @@ still read. See `mise-tasks/forge-reconcile` (--pr-base-ref) and the workflow.
 A PR where a check ran and failed still hides its *reason* behind runner
 logs, which agent sessions cannot read (action logs are private to the forge
 UI). The PR-facing check jobs therefore end with the shared
-`.forgejo/actions/report-failure` step — `Lint`'s four jobs, `Docs Checks / checks`, `Image Pins / checks`, `Build Container`'s build job, and `Forge Reconcile`'s `reconcile` job; the only `pull_request` jobs without it are the path-filtered flake-check builds and `Build Container`'s trivial `detect` job.
+`.forgejo/actions/report-failure` step — `Lint`'s four jobs, `Docs Checks / checks`, `Image Pins / checks`, `Tests / horkos-test`, `Build Container`'s build job, and `Forge Reconcile`'s `reconcile` job; the only `pull_request` jobs without it are the path-filtered flake-check builds and `Build Container`'s trivial `detect` job.
 On failure it posts the tail of the job's own teed log to the PR as
 `forgejo-actions`, with the run number and a
 copy-paste `mise run runner-logs <run> -j <N>` pointer (matrix jobs omit the
