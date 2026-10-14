@@ -1,0 +1,47 @@
+# Ntfy topic lint — every topic literal in the tree against ntfy/topics.json.
+#
+# Credential-free (the lint reads only local files), so it is safe on every
+# PR including from a fork. Path-filtered like Forge Reconcile: it runs where
+# the declaration, the lint, or this workflow itself moves, plus on every push
+# to main as the standing backstop.
+#
+# On an agent PR this sits `pending` with no run until a human clicks
+# "Approve and run" — the agents bot is read-only on canonical, so its PRs
+# are outside contributions. Do not switch to `pull_request_target` to skip
+# it: that trigger gets secrets and a write token.
+name: Ntfy Lint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ntfy/topics.json'
+      - 'mise-tasks/ntfy-lint'
+      - '.forgejo/workflows/ntfy-lint.yaml'
+  pull_request:
+    paths:
+      - 'ntfy/topics.json'
+      - 'mise-tasks/ntfy-lint'
+      - '.forgejo/workflows/ntfy-lint.yaml'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: indri-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: ntfy-lint
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
+          uv run --script mise-tasks/ntfy-lint 2>&1 | tee "$RUNNER_TEMP/ntfy-lint-lint.log"
+
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: ntfy-lint-lint.log

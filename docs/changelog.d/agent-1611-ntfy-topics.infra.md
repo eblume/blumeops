@@ -1,0 +1,1 @@
+Ntfy topics get a single declared-state file, `ntfy/topics.json` (purpose, producers, notification budget): `mise run ntfy-lint` (prek hook + Ntfy Lint PR check) fails on undeclared or retired topic literals in the tree and on producers not listed there; `ceramics` stays declared as retired. Part of eblume/blumeops#1611.
