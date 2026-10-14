@@ -1,0 +1,535 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.2", "pyyaml==6.0.3"]
+# ///
+#MISE description="Lint PR bodies for the auto-apply host-apply declaration (marker line + named pending host changes)"
+#USAGE flag "--pending" help="Generate paste-ready Auto-apply blocks for HOSTS (default: all auto-apply hosts) instead of linting PRs"
+#USAGE arg "[value ...]" help="PR numbers to lint, or host names after --pending"
+#USAGE flag "--json" help="Machine-readable JSON output in both modes"
+"""Lint PR bodies for the auto-apply host-apply declaration.
+
+Since eblume/blumeops#1559, merging any PR whose diff touches an auto-apply
+host path (nixos/ringtail/**, darwin/indri/**) applies ALL of main at that
+merge commit — including host changes merged to main since the last apply.
+An agent PR touching those paths must say so, and name what else the merge
+would bring. This task is the source of truth for which hosts are affected
+and what is pending: it derives both, never a hardcoded path list.
+
+Two modes:
+
+- `--pending [host ...]` — print paste-ready PR-body blocks: the plain
+  `Auto-apply: <host>` declaration line (deliberately not a `!!` pragma —
+  that namespace is reserved for talos) plus the lint's list of pending
+  host changes. Baseline = newest successful run of the host's workflow
+  (Forgejo Actions run history); pending = first-parent merges since that
+  baseline whose diff touched the host's paths. Default: every auto-apply
+  host derived from warrant-policy.yaml + the workflows' `on.push.paths`.
+  A generator, not a gate: always exits 0 (unknown host names excepted).
+- `<pr> [<pr> ...]` — check PR bodies for the declaration: a line matching
+  `^Auto-apply: <host>` per affected host, and every pending item named as
+  #NNNN or sha8. No host paths touched → PASS. Exit 1 if any PR fails.
+
+Host derivation is never hardcoded: warrant-policy.yaml (class: auto) →
+each workflow's on.push.paths (host-shaped globs, e.g. nixos/ringtail/**).
+A workflow the PR itself modifies is read at the PR's head sha, so removing
+a host trigger in the PR is honored. Fire-and-forget workflows (raw text
+contains `wait=false`) get the "green means launched" verdict note (indri).
+
+Usage:
+    mise run lint-auto-apply --pending
+    mise run lint-auto-apply --pending ringtail
+    mise run lint-auto-apply 1571
+    mise run lint-auto-apply 1571 1578 --json
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import os
+import re
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Annotated, Any
+
+import httpx
+import typer
+import yaml
+from rich.console import Console
+from rich.markup import escape
+
+# Tailnet name — the public forge.eblu.me static mirror has no API
+# (docs/reference/services/argocd.md). This lint also needs the local
+# worktree and its workflows, so the repo is pinned, not a flag.
+FORGE_API_BASE = "https://forge.ops.eblu.me/api/v1"
+REPO = "eblume/blumeops"
+WORKTREE = Path(__file__).resolve().parent.parent  # mise-tasks/ → repo root
+
+# 'nixos/<host>/**' | 'darwin/<host>/**' — the host-apply glob shape.
+HOST_GLOB_RE = re.compile(r"^(nixos|darwin)/([A-Za-z0-9-]+)/\*\*$")
+SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+# Forge PR-merge subjects: "Merge pull request '<title>' (#NNN) from <ref> into
+# main"; only those embed the PR number, so a non-merge subject never
+# mislabels an issue number as a PR.
+PR_MERGE_RE = re.compile(r"^Merge pull request '(.*)' \(#([0-9]+)\) from \S+ into main$")
+
+console = Console()
+err = Console(stderr=True, style="bold red")
+
+
+def forge_token() -> str:
+    if token := os.environ.get("FORGEJO_TOKEN"):
+        return token.strip()
+    try:
+        result = subprocess.run(
+            ["op", "read", "op://agents/agents-forgejo-token/api-token"],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=30,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        err.print(f"No FORGEJO_TOKEN and `op read` failed: {exc}")
+        raise typer.Exit(1) from exc
+    if result.returncode != 0:
+        err.print(f"No FORGEJO_TOKEN and `op read` failed: {result.stderr.strip()}")
+        raise typer.Exit(1)
+    return result.stdout.strip()
+
+
+def api_client() -> httpx.Client:
+    return httpx.Client(
+        base_url=FORGE_API_BASE,
+        headers={
+            "User-Agent": "blumeops-lint-auto-apply",
+            "Authorization": f"token {forge_token()}",
+        },
+        timeout=30.0,
+    )
+
+
+def git(*args: str) -> str:
+    proc = subprocess.run(
+        ["git", *args],
+        capture_output=True,
+        text=True,
+        cwd=WORKTREE,
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        timeout=180,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise SystemExit(f"git {' '.join(args)} failed in {WORKTREE}: {proc.stderr.strip()}")
+    return proc.stdout
+
+
+def fetch_upstream() -> str | None:
+    """Refresh upstream/main; None on success, else the failure detail."""
+    proc = subprocess.run(
+        ["git", "fetch", "upstream"],
+        capture_output=True,
+        text=True,
+        cwd=WORKTREE,
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        timeout=180,
+        check=False,
+    )
+    if proc.returncode == 0:
+        return None
+    # Check mode fails closed on this note; --pending prints it and goes on
+    # with the local ref (a generator, not a gate).
+    return proc.stderr.strip() or "git fetch upstream failed — using local upstream/main"
+
+
+def fetch_file(client: httpx.Client, path: str, ref: str) -> str | None:
+    """Raw file text at ref via the contents API; None on 404 (e.g. the
+    file does not exist at a PR head). Single-file fetches are base64."""
+    resp = client.get(f"/repos/{REPO}/contents/{path}", params={"ref": ref})
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("encoding") == "base64":
+        return base64.b64decode(data["content"]).decode()
+    return data.get("content") or ""
+
+
+@dataclass
+class HostInfo:
+    workflow: str  # e.g. "ringtail-rebuild.yaml"
+    globs: list[str] = field(default_factory=list)
+    fire_and_forget: bool = False
+
+
+def derive_hosts(
+    client: httpx.Client, pr_workflow_refs: dict[str, str] | None = None
+) -> dict[str, HostInfo]:
+    """Auto-apply hosts from main's warrant-policy + workflows' on.push.paths.
+
+    pr_workflow_refs maps a workflow filename to a PR head sha: when the PR
+    under check modifies that workflow, its own version decides (e.g. a
+    removed host trigger is not required). The policy is only read from main.
+    Hosts keep warrant-policy order, so ringtail precedes indri.
+    """
+    policy = fetch_file(client, "warrant-policy.yaml", "main")
+    if policy is None:
+        raise SystemExit(
+            "cannot read warrant-policy.yaml from main — required to derive hosts"
+        )
+    try:
+        actions = (yaml.safe_load(policy) or {}).get("actions") or {}
+    except yaml.YAMLError as exc:
+        raise SystemExit(f"warrant-policy.yaml from main is not valid YAML: {exc}") from exc
+    refs = pr_workflow_refs or {}
+    hosts: dict[str, HostInfo] = {}
+    for workflow, entry in actions.items():
+        if (entry or {}).get("class") != "auto":
+            continue
+        raw = fetch_file(client, f".forgejo/workflows/{workflow}", refs.get(workflow, "main"))
+        if raw is None:
+            continue  # absent at that ref (PR deleted it) → triggers nothing
+        try:
+            wdata = yaml.safe_load(raw) or {}
+        except yaml.YAMLError:
+            continue
+        # PyYAML folds the `on` key into boolean True.
+        on = wdata.get("on") or wdata.get(True) or {}
+        paths = (on.get("push") or {}).get("paths") or []
+        if not isinstance(paths, list):
+            continue
+        host_globs = [p for p in paths if isinstance(p, str) and HOST_GLOB_RE.match(p)]
+        if not host_globs:
+            continue  # auto but not a host apply (e.g. containers/**) — skip
+        for p in host_globs:
+            m = HOST_GLOB_RE.match(p)
+            assert m is not None  # host_globs only holds matched globs
+            host = m.group(2)
+            info = hosts.setdefault(
+                host, HostInfo(workflow=workflow, fire_and_forget="wait=false" in raw)
+            )
+            info.globs.append(p)
+            info.fire_and_forget = info.fire_and_forget or "wait=false" in raw
+    return hosts
+
+
+def run_revision(run: dict) -> str | None:
+    """The SHA a run applied. Dispatch runs carry it in the event payload's
+    inputs — event_payload is a JSON-ENCODED STRING, not an object; push
+    runs applied their own commit_sha."""
+    if run.get("trigger_event") == "workflow_dispatch":
+        try:
+            rev = json.loads(run["event_payload"])["inputs"]["revision"]
+        except (KeyError, TypeError, json.JSONDecodeError):
+            return None
+    else:
+        rev = run.get("commit_sha")
+    return rev if isinstance(rev, str) and SHA_RE.match(rev) else None
+
+
+def baseline(client: httpx.Client, info: HostInfo) -> tuple[str, str] | None:
+    """(revision, date) of the newest successful run of the host's workflow.
+
+    The runs endpoint returns the workflow's full history, newest first
+    (limit/per_page are ignored — verified 2026-10-13), so no paging; there
+    is no `conclusion` field — status is the outcome."""
+    resp = client.get(f"/repos/{REPO}/actions/runs", params={"workflow_id": info.workflow})
+    resp.raise_for_status()
+    for run in resp.json().get("workflow_runs") or []:
+        if run.get("status") != "success":
+            continue
+        rev = run_revision(run)
+        if rev is None:
+            continue  # unreadable payload — not a usable baseline
+        return rev, str(run.get("created") or "")[:10]
+    return None
+
+
+def pr_subject_number(subject: str) -> int | None:
+    m = PR_MERGE_RE.match(subject)
+    return int(m.group(2)) if m else None
+
+
+def display_subject(first_line: str) -> str:
+    # Merge subjects wrap the PR title; fall back to the raw first line.
+    m = PR_MERGE_RE.match(first_line)
+    return m.group(1) if m else first_line
+
+
+def pr_from_api(client: httpx.Client, sha: str) -> int | None:
+    """PR number for a non-merge first-parent commit: /commits/{sha}/pull is
+    200 (with `number`) only for a merged PR's merge commit."""
+    try:
+        resp = client.get(f"/repos/{REPO}/commits/{sha}/pull")
+        if resp.status_code == 200:
+            return resp.json().get("number")
+    except httpx.HTTPError:
+        pass
+    return None
+
+
+def pending_changes(
+    client: httpx.Client, last_applied: str, globs: list[str]
+) -> list[dict[str, Any]]:
+    """First-parent merges since last_applied whose diff touched the host.
+
+    A first-parent commit M is a pending host change when
+    `git diff --name-only M^1 M -- <globs>` is non-empty — exactly the PRs
+    whose merged diffs touched the host."""
+    revs = git("rev-list", "--first-parent", f"{last_applied}..upstream/main").split()
+    items: list[dict[str, Any]] = []
+    for m in revs:
+        if not git("diff", "--name-only", f"{m}^1", m, "--", *globs).strip():
+            continue
+        subject = git("log", "-1", "--format=%s", m).strip()
+        pr = pr_subject_number(subject)
+        if pr is None:
+            pr = pr_from_api(client, m)
+        items.append(
+            {
+                "pr": pr,
+                "sha": m,
+                "sha8": m[:8],
+                "subject": display_subject(subject),
+                "date": git("log", "-1", "--format=%cs", m).strip(),
+            }
+        )
+    return items
+
+
+def pending_block(
+    host: str, info: HostInfo, base: tuple[str, str], pend: list[dict[str, Any]]
+) -> str:
+    workflow_disp = info.workflow.removesuffix(".yaml")
+    lines = [
+        f"Auto-apply: {host}",
+        "",
+        f"> **Auto-apply:** merging this applies **all of main** to `{host}` — including",
+        "> host changes merged to main since the last apply.",
+        ">",
+    ]
+    if info.fire_and_forget:
+        lines.append(
+            f"> Baseline: `{base[0][:8]}` (last launched revision, {base[1]} — "
+            "fire-and-forget: a green run means launched, not switched; "
+            "the pending list may over-count)."
+        )
+    else:
+        lines.append(f"> Baseline: `{base[0][:8]}` (last successful `{workflow_disp}` run, {base[1]}).")
+    if pend:
+        lines.append("> Pending host changes on main that this merge would also apply:")
+        for item in pend:
+            num = f"#{item['pr']} — " if item["pr"] is not None else ""
+            lines.append(f"> - {num}{item['sha8']} {item['subject']}")
+    else:
+        lines.append("> No other unapplied host changes on main as of this check.")
+    return "\n".join(lines)
+
+
+def report_pending(
+    client: httpx.Client, hosts: dict[str, HostInfo], as_json: bool, fetch_note: str | None
+) -> None:
+    out: dict[str, Any] = {}
+    for host, info in hosts.items():
+        base = baseline(client, info)
+        entry: dict[str, Any] = {
+            "workflow": info.workflow,
+            "fire_and_forget": info.fire_and_forget,
+        }
+        if base is None:
+            entry["no_successful_run"] = (
+                f"no successful run of {info.workflow} found — cannot compute the "
+                f"pending list; confirm manually that main is applied to {host}"
+            )
+            if not as_json:
+                err.print(f"[yellow]note:[/yellow] {entry['no_successful_run']}")
+        else:
+            pend = pending_changes(client, base[0], info.globs)
+            entry.update(
+                {
+                    "baseline_sha": base[0],
+                    "baseline_short": base[0][:8],
+                    "baseline_date": base[1],
+                    "pending": pend,
+                    "block": pending_block(host, info, base, pend),
+                }
+            )
+        out[host] = entry
+    if as_json:
+        json.dump({"mode": "pending", "git_fetch": fetch_note or "ok", "hosts": out}, sys.stdout, indent=2)
+        print()
+        return
+    for entry in out.values():
+        if block := entry.get("block"):
+            print(block)
+            print()
+
+
+def glob_matches(glob: str, filename: str) -> bool:
+    # 'nixos/ringtail/**' → prefix 'nixos/ringtail/': the dir and its contents.
+    return filename.startswith(glob.removesuffix("**"))
+
+
+def check_pr(client: httpx.Client, number: int) -> dict[str, Any]:
+    pr_resp = client.get(f"/repos/{REPO}/pulls/{number}")
+    if pr_resp.status_code == 404:
+        return {"number": number, "error": f"PR #{number} not found", "pass": False}
+    pr_resp.raise_for_status()
+    pr = pr_resp.json()
+    files_resp = client.get(f"/repos/{REPO}/pulls/{number}/files")
+    if files_resp.status_code == 404:
+        return {"number": number, "error": f"PR #{number} files unreadable", "pass": False}
+    files_resp.raise_for_status()
+    names = [f.get("filename", "") for f in files_resp.json()]
+
+    # The PR's own version decides for workflows it touches (head may live in
+    # the agents fork — the contents endpoint serves fork refs too).
+    modified_wfs = {
+        name.removeprefix(".forgejo/workflows/")
+        for name in names
+        if name.startswith(".forgejo/workflows/") and name.endswith(".yaml")
+    }
+    hosts = derive_hosts(client, {wf: pr["head"]["sha"] for wf in modified_wfs})
+    affected = sorted(
+        host
+        for host, info in hosts.items()
+        if any(glob_matches(g, name) for g in info.globs for name in names)
+    )
+    if not affected:
+        return {
+            "number": number,
+            "title": pr.get("title"),
+            "html_url": pr.get("html_url"),
+            "pass": True,
+            "affected_hosts": [],
+            "note": "no auto-apply host paths touched",
+        }
+
+    body = pr.get("body") or ""  # body may be None
+    missing: dict[str, list[str]] = {}
+    blocks: dict[str, str] = {}
+    for host in affected:
+        info = hosts[host]
+        base = baseline(client, info)
+        if base is None:
+            missing[host] = [
+                (
+                    f"no successful run of {info.workflow} found — cannot compute the "
+                    f"pending list; confirm manually that main is applied to {host}"
+                )
+            ]
+            continue
+        pend = pending_changes(client, base[0], info.globs)
+        blocks[host] = pending_block(host, info, base, pend)
+        problems: list[str] = []
+        # The !! pragma namespace is talos's; the declaration is plain text.
+        if not re.search(rf"^Auto-apply:\s*{re.escape(host)}(\s|$)", body, re.MULTILINE):
+            problems.append(f"missing marker line 'Auto-apply: {host}'")
+        for item in pend:
+            named = item["pr"] is not None and re.search(rf"(?<!\w)#{item['pr']}\b", body) is not None
+            named = named or re.search(rf"\b{item['sha8']}\b", body) is not None
+            if not named:
+                ref = f"#{item['pr']}" if item["pr"] is not None else item["sha8"]
+                problems.append(f"pending {ref} ({item['subject']}) not named in the body")
+        missing[host] = problems
+    return {
+        "number": number,
+        "title": pr.get("title"),
+        "html_url": pr.get("html_url"),
+        "pass": not any(missing.values()),
+        "affected_hosts": affected,
+        "missing": missing,
+        "blocks": blocks,
+    }
+
+
+def report_check(r: dict[str, Any]) -> None:
+    title = escape(r.get("title") or "")
+    if r.get("error"):
+        console.print(f"[red]FAIL[/red] #{r['number']} — {r['error']}")
+        return
+    if r["pass"]:
+        console.print(f"[green]PASS[/green] #{r['number']} — {title}")
+        if note := r.get("note"):
+            console.print(f"      {note}")
+        return
+    console.print(f"[red]FAIL[/red] #{r['number']} — {title}")
+    for host, problems in r["missing"].items():
+        console.print(f"  [yellow]{host}[/yellow]:")
+        for p in problems:
+            console.print(f"    - {escape(p)}")
+        if block := r["blocks"].get(host):
+            console.print("    paste this block into the PR body:")
+            print()
+            for line in block.splitlines():
+                print(f"      {line}")
+            print()
+
+
+def main(
+    args: Annotated[
+        list[str] | None, typer.Argument(help="PR numbers to lint, or host names after --pending")
+    ] = None,
+    pending: Annotated[
+        bool, typer.Option("--pending", help="Generate paste-ready blocks instead of linting PRs")
+    ] = False,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Machine-readable JSON output")
+    ] = False,
+) -> None:
+    fetch_note = fetch_upstream()
+    args = args or []
+    with api_client() as client:
+        if pending:
+            hosts = derive_hosts(client)
+            if args:
+                unknown = [h for h in args if h not in hosts]
+                if unknown:
+                    err.print(
+                        f"[red]error:[/red] no auto-apply host named "
+                        f"{', '.join(unknown)} — known: {', '.join(sorted(hosts))}"
+                    )
+                    raise typer.Exit(1)
+                selected = {h: hosts[h] for h in args}
+            else:
+                selected = hosts
+            if fetch_note and not as_json:
+                err.print(f"[yellow]note:[/yellow] {fetch_note} — the pending list may be stale")
+            report_pending(client, selected, as_json, fetch_note)
+            raise typer.Exit(0)  # a generator, not a gate
+
+        try:
+            prs = [int(a) for a in args]
+        except ValueError:
+            err.print("PR numbers must be integers.")
+            raise typer.Exit(2) from None
+        if not prs:
+            console.print("[yellow]no PRs given[/yellow] — pass PR numbers, or --pending [host ...]")
+            raise typer.Exit(2)
+        if fetch_note:
+            # A stale upstream/main under-counts pending items → false PASS, so
+            # a failed fetch is a verdict of its own.
+            err.print(f"[red]error:[/red] {fetch_note}")
+            err.print("cannot verify the PR against main; fix the fetch and re-run")
+            raise typer.Exit(1)
+
+        results = [check_pr(client, n) for n in prs]
+        failed = any(not r["pass"] for r in results)
+        if as_json:
+            json.dump(
+                {"mode": "check", "git_fetch": fetch_note or "ok", "prs": results, "exit": 1 if failed else 0},
+                sys.stdout,
+                indent=2,
+            )
+            print()
+        else:
+            for r in results:
+                report_check(r)
+        raise typer.Exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    typer.run(main)
