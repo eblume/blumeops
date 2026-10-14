@@ -1,3 +1,4 @@
+# Auto-apply drill (#1525): comment-only, eval-equivalent; the merge is the drill.
 { config, pkgs, lib, ... }:
 
 let
