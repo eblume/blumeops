@@ -285,6 +285,34 @@ standing task. The digest is review, not the alarm: it exists to catch a
 merge that should not have happened, while the gate, the preflight, and the
 red-run notifications catch the failure to apply.
 
+## Agent duties
+
+An agent that opens — or materially edits — a blumeops PR whose diff touches
+an auto-apply host path must say so in the PR body before merge: run
+`mise run lint-auto-apply --pending <host>` (and `mise run
+lint-auto-apply <pr>` after pushing) and paste the printed block — the plain
+`Auto-apply: <host>` declaration line, one per affected host (a declaration
+for humans, deliberately not a `!!` pragma) plus the lint's list of pending
+host changes on main that the merge would also apply. The block must be
+refreshed whenever main moves, and the pending items must be named *inside*
+the block's blockquote — the lint only counts #NNNN/sha8 mentions there, not
+elsewhere in the body. indri is fire-and-forget, so its block carries the
+"green means launched" note and its pending list may over-count.
+
+The lint is the source of truth for which hosts are affected and what is
+pending — it derives both from warrant-policy.yaml and the workflows'
+`on.push.paths`, so do not copy a path list into prose. A host's trigger set
+includes the shared input files its config imports (`forge/runners.nix` →
+`forge/runners.json` for both hosts, listed in each workflow's `paths`): a
+change to a shared input is a pending host change for every host that
+imports it. The derivation fails closed — a `class: auto` workflow that does
+not list a host glob (or is not in the lint's `NON_HOST_AUTO_WORKFLOWS`
+allowlist, build-container) makes the lint exit 1, including when the PR's
+own version of the workflow (or policy) is what is broken: a PR cannot
+bypass the check by breaking its own workflow. The same check runs in CI as
+`Lint / auto-apply` on every PR, so human PRs and late merges cannot skip it
+either.
+
 ## Related
 
 - [[warrant-approval-gated-runs]] Phase 4 — the policy-as-code phase this
