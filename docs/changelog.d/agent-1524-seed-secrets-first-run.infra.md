@@ -1,1 +1,1 @@
-The `seed-secrets-check` timer now runs once at boot (`OnBootSec=15min`) in addition to the weekly calendar, and `SeedSecretsCheckStale` reports a never-written metric via an `absent()` branch instead of NoData — a fresh ringtail deploy or reinstall no longer pages within an hour of the timer going live.
+The `seed-secrets-check` timer now runs once at boot (`OnBootSec=15min`) in addition to the weekly calendar — a fresh ringtail deploy or reinstall no longer pages on `SeedSecretsCheckStale` before the first run.
