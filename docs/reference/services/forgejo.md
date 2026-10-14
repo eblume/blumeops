@@ -139,14 +139,18 @@ name.
 
 | Repo | Secrets | Purpose |
 |------|---------|---------|
-| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN` | `forge-reconcile` reconcile + drift check (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items |
+| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN`, `FORGE_ACTIONS_RO` | `forge-reconcile` reconcile + drift check (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items; read-only forge token for the auto-apply preflights |
+| `eblume/hephaestus` | `MAIN_PUSH_TOKEN` | Release workflow pushes its changelog commit to the branch-protected `main` as the whitelisted user (same 1Password item as blumeops's release read) |
 | `eblume/talos`, `eblume/horkos` | `ZOT_PUSH_API_KEY` | Auto-release CI: per-repo push-only zot identity (`ci-zot-talos` / `ci-zot-horkos`), provisioned from the zot master fields by the values half |
 | `eblume/cv` | — (none) | Release CI is stored-secret-free; the empty declaration makes provisioning authoritative here (first run deletes the stale `FORGE_TOKEN`) |
 
 The per-purpose secrets the retired Ansible role used to sync (argocd token, fly deploy
-token, zot CI key, main-push PAT) are no longer Forgejo secrets: workflows
+token, zot CI key) are no longer Forgejo secrets: workflows
 `op read` the blumeops-ci items at job time with `BLUMEOPS_CI_OP_TOKEN` —
-see [[blumeops-ci-item-migration]].
+see [[blumeops-ci-item-migration]]. The main-push PAT is the exception in
+both directions: blumeops's release still reads it at job time, while
+hephaestus — whose CI cannot reach the blumeops-ci vault — declares it as
+`MAIN_PUSH_TOKEN`.
 
 These secrets are injected as `${{ secrets.SECRET_NAME }}` in workflow files.
 

@@ -1,7 +1,7 @@
 ---
 title: "Runbook: ArgoCD App Out of Sync"
-modified: 2026-08-18
-last-reviewed: 2026-06-21
+modified: 2026-10-13
+last-reviewed: 2026-10-13
 tags:
   - how-to
   - alerting
@@ -10,9 +10,19 @@ tags:
 
 # Runbook: ArgoCD App Out of Sync
 
-**Alert name:** `ArgoCDAppOutOfSync`
+Two alerts share this runbook, split on the `autosync_enabled` label of the
+`argocd_app_info` metric:
 
-An ArgoCD application has been out of sync for 5+ minutes (the alert's `for:` window). This means the live state in Kubernetes differs from what's declared in Git.
+- **`ArgoCDAppOutOfSync`** (severity `warning`, `for: 5m`) — every app that
+  is not explicitly manual (`autosync_enabled!="false"`), so an app missing
+  the label (or any future value) fails toward alerting. OutOfSync after 5
+  minutes is a real failure: a failed sync, a comparison error, or a hand
+  edit. Treat it as an incident.
+- **`ArgoCDManualAppPendingSync`** (severity `info`, `for: 24h`) — the four
+  by-design manual apps (`apps`, `argocd`, `cloudnative-pg-ringtail`,
+  `external-secrets-crds-ringtail`). OutOfSync here is not drift; it is a
+  reviewed change waiting on a human sync. It fires only after a day, so it
+  is a to-do, not an incident.
 
 ## Diagnostic Steps
 
@@ -33,15 +43,22 @@ An ArgoCD application has been out of sync for 5+ minutes (the alert's `for:` wi
 
 4. **Check ArgoCD UI** — https://argocd.ops.eblu.me — look for sync errors or degraded status.
 
-## Common Causes
-
-- **Forgot to sync after push** — ArgoCD uses manual sync; changes require explicit `argocd app sync`
-- **Branch revision not reset after PR merge** — app still points at a deleted branch
-- **Kustomize/manifest error** — invalid YAML or unsatisfiable resource requirements
-- **Pruning needed** — old ConfigMaps from `configMapGenerator` need pruning
-- **`apps` OutOfSync with a `syncPolicy.automated` field diff** — an Application manifest spells the defaults (`prune: false` / `selfHeal: false`); the controller strips explicit-false fields (Go `omitempty`) on every automated sync, so `apps` diffs forever. Fix the manifest to `automated: {}` (see [[argocd#Sync Policy]]); `argocd app diff apps` shows which app. Always record the diff *before* syncing `apps`.
-
 ## Resolution
+
+### `ArgoCDManualAppPendingSync` (manual app, pending human sync)
+
+The diff is a reviewed merge that is simply not synced yet. Approve the
+`argocd-sync-apps`/`argocd-deploy` warrant in Horkos, or sync it yourself
+(`[human]` — the agent argocd CLI is read-only):
+
+```fish
+argocd app sync <app-name>
+```
+
+If the diff is *not* a reviewed change (unexpected, or older than a day
+without an explanation), treat it as drift and diagnose below.
+
+### `ArgoCDAppOutOfSync` (auto-sync app, real failure)
 
 ```fish
 # Simple sync
@@ -55,11 +72,27 @@ argocd app set <app-name> --revision main
 argocd app sync <app-name>
 ```
 
+## Common Causes (auto-sync apps)
+
+- **Kustomize/manifest error** — invalid YAML or unsatisfiable resource requirements
+- **Pruning needed** — old ConfigMaps from `configMapGenerator` need pruning
+- **Branch revision not reset after PR merge** — app still points at a deleted branch
+- **`apps` OutOfSync with a `syncPolicy.automated` field diff** — an Application manifest spells the defaults (`prune: false` / `selfHeal: false`); the controller strips explicit-false fields (Go `omitempty`) on every automated sync, so `apps` diffs forever. Fix the manifest to `automated: {}` (see [[argocd#Sync Policy]]); `argocd app diff apps` shows which app. Always record the diff *before* syncing `apps`.
+
+## The `autosync_enabled` label
+
+`autosync_enabled` is a native label on the `argocd_app_info` metric (ArgoCD
+core metrics, scraped by the `argocd` Prometheus job), derived from each
+Application's `spec.syncPolicy.automated`. Both rules partition on it.
+Verified present on every series 2026-10-13 (`count by (name,
+autosync_enabled) (argocd_app_info)` showed all apps labelled, the four
+manual ones `false`).
+
 ## Silencing
 
 During active branch development, apps may intentionally be out of sync:
 1. Grafana → Alerting → Silences → Create Silence
-2. Match `alertname = ArgoCDAppOutOfSync` and `name = <app-name>`
+2. Match `alertname` (`ArgoCDAppOutOfSync` or `ArgoCDManualAppPendingSync`) and `name = <app-name>`
 
 ## Related
 

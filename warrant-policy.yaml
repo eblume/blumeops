@@ -88,9 +88,11 @@ actions:
     note: >-
       Apply a blumeops SHA to ringtail: nixos-rebuild switch via the root
       ringtail-apply@<sha> unit the priv runner may start (polkit).
-      Auto-triggered on pushes to main touching nixos/ringtail/** — the merge
-      commit is the approval (docs/explanation/auto-apply.md);
-      workflow_dispatch remains the manual fallback. First decomposition step
+      Auto-triggered on pushes to main touching nixos/ringtail/** or the
+      shared forge-runner inputs forge/runners.{nix,json} (the host config
+      imports them, so they are ringtail inputs) — the merge commit is the
+      approval (docs/explanation/auto-apply.md); workflow_dispatch remains
+      the manual fallback. First decomposition step
       toward provision-ringtail (which stays deny: its ansible pre_tasks read
       the blumeops vault).
 
@@ -118,9 +120,11 @@ actions:
       switch via the zero-prompt `--tags rebuild` path (task guards, checkout to
       a root-owned /etc/blumeops, detached sudo -n -H darwin-rebuild), from the
       host-mode indri runner (erichblume + NOPASSWD sudo). Auto-triggered on
-      pushes to main touching darwin/indri/** — the merge commit is the
-      approval (docs/explanation/auto-apply.md); workflow_dispatch remains the
-      manual fallback. Fire-and-forget (#1266): a green run means the switch
+      pushes to main touching darwin/indri/** or the shared forge-runner
+      inputs forge/runners.{nix,json} (the host config imports them, so they
+      are indri inputs) — the merge commit is the approval
+      (docs/explanation/auto-apply.md); workflow_dispatch remains the manual
+      fallback. Fire-and-forget (#1266): a green run means the switch
       launched; its outcome is the /var/log/indri-rebuild/<sha>.status sidecar
       on indri. The rebuild path reads no vault — every `op read` in the play
       is role-tagged — so the old Phase-2 gate (blumeops-ci vault split + priv

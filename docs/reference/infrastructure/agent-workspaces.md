@@ -183,7 +183,7 @@ The boundaries, weakest-first:
    archived).
 4. **Git-mediated writes** — agents push as a dedicated Forgejo bot
    ([[agents-forgejo-bot]]) and open PRs rather than committing to `main`. For
-   the repos the bot has *write* on (`hephaestus`, …) this is convention backed
+   the repos the bot has *write* on (`hephaestus.nvim`, …) this is convention backed
    by human PR review. For **`blumeops` it is enforced**: the bot has only
    **read** on the canonical repo and pushes to its **fork** (`agents/blumeops`),
    opening cross-repo PRs. Read-not-write is deliberate — `workflow_dispatch` is

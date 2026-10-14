@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+#MISE description="Lint a PR body for after-merge section headings (Docs Checks)"
+#
+# Standalone form of the PR-body check that .forgejo/workflows/docs-checks.yaml
+# runs inline. Feed it a PR body (a file argument, or stdin when no argument)
+# and it exits 1 with the Docs Checks error message if the body carries an
+# after-merge section heading.
+#
+# This is the single source of truth for the heading rule: the workflow calls
+# this script instead of inlining its own grep, and the talos `tea` wrapper
+# lints the same way before posting. Keep the pattern, the error message, and
+# the tests/test_pr_body_lint.py example table in sync with all of them — the
+# talos wrapper carries the same table in its own test so drift fails as a
+# test, not a silent difference.
+
+set -euo pipefail
+
+if [ "$#" -gt 1 ]; then
+  echo "usage: pr-body-lint [body-file]" >&2
+  exit 2
+fi
+
+# The same extended regex the Docs Checks grep used: a level 1-6 heading whose
+# text is one of the after-merge section phrases, matched case-insensitively.
+PATTERN='^#{1,6}[[:space:]]+(after merge|post-merge|remaining steps \(human\))'
+
+if [ "$#" -eq 1 ]; then
+  body="$(cat -- "$1")"
+else
+  body="$(cat)"
+fi
+
+if matches="$(printf '%s\n' "$body" | grep -inE "$PATTERN")"; then
+  printf '%s\n' "$matches"
+  echo "::error::PR body carries an after-merge section heading (After merge / Post-merge / Remaining steps (human)). PR bodies end at the merge: after-merge steps belong in the linked issue's '## Human steps' comment (eblume/blumeops#1233). Move the section out of the body; the edit re-runs this check (a manual re-run replays the old body)."
+  exit 1
+fi

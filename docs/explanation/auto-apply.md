@@ -118,10 +118,43 @@ to canonical main other than eblume, or identities whose credential tier is
 below blumeops-ci; any credential that can merge a PR can thereby auto-apply
 host config, and the accepted property is that `blumeops-ci`-vault holders
 are the same trust tier as main itself** — `MAIN_PUSH_TOKEN` already writes
-main today. Narrowing `FORGE_REPO_WRITE_TOKEN`'s scope and `MAIN_PUSH_TOKEN`
-is a separate follow-up, filed from this PR. forge-reconcile's assertion
-keeps its real job — no non-eblume identity in the push/merge whitelist —
-and this section names its blind spot.
+main today. The follow-up on narrowing them (#1560) settled on acceptance
+without re-mint; the decision is recorded in **Known main-write
+credentials** below. forge-reconcile's assertion keeps its real job — no non-eblume
+identity in the push/merge whitelist — and this section names its blind
+spot.
+
+### Known main-write credentials
+
+Decided 2026-10-13 (#1560): both credentials stay as they are — accepted
+main-write credentials at the `blumeops-ci` tier, no re-mint.
+
+- **`FORGE_REPO_WRITE_TOKEN`** — eblume PAT held as a repo Actions secret,
+  used by forge-reconcile. Audited: none of its writes — collaborator,
+  webhook, label, Actions-secret, and (human-run only) branch protections —
+  needs merge or push, but on this Forgejo (16.0.2, Gitea 1.22.0) PR merge
+  sits under the `repository` token category, so merge is inseparable from
+  `write:repository`. The scope is already the minimum that
+  allows its real writes; a merge-less re-mint is not achievable.
+- **`MAIN_PUSH_TOKEN`** — eblume PAT read from the `blumeops-ci` vault at
+  job time, doing the raw `git push HEAD:main` in the blumeops release
+  workflow. Its raw-push route is gate-inert: a raw push is not a PR merge,
+  so the merge-commit gate refuses it — no apply. The release push is a
+  deliberate, dispatch-triggered, eblume-authenticated op.
+
+The one lever that would structurally close the merge route — moving
+`FORGE_REPO_WRITE_TOKEN` to a dedicated non-eblume bot account absent from
+main's push/merge whitelist — was considered and rejected: forge-reconcile's
+real writes (collaborator PUT/DELETE, webhooks) need repo admin, and a repo
+admin can edit branch protection, i.e. add itself to the merge whitelist and
+then merge. A non-eblume bot carrying those writes is still a main-write
+credential, one API call removed; it costs a new principal and buys nothing.
+Do not re-propose.
+
+The rationale is the standing policy that all CI in `eblume/*` is one trust
+tier: CI credentials are trusted because workflow code only runs from
+human-merged main or warrant-gated dispatch, not because each token is
+minimal.
 
 ## New invariant: nothing automated may gain merge rights
 
@@ -252,11 +285,40 @@ standing task. The digest is review, not the alarm: it exists to catch a
 merge that should not have happened, while the gate, the preflight, and the
 red-run notifications catch the failure to apply.
 
+## Agent duties
+
+An agent that opens — or materially edits — a blumeops PR whose diff touches
+an auto-apply host path must say so in the PR body before merge: run
+`mise run lint-auto-apply --pending <host>` (and `mise run
+lint-auto-apply <pr>` after pushing) and paste the printed block — the plain
+`Auto-apply: <host>` declaration line, one per affected host (a declaration
+for humans, deliberately not a `!!` pragma) plus the lint's list of pending
+host changes on main that the merge would also apply. The block must be
+refreshed whenever main moves, and the pending items must be named *inside*
+the block's blockquote — the lint only counts #NNNN/sha8 mentions there, not
+elsewhere in the body. indri is fire-and-forget, so its block carries the
+"green means launched" note and its pending list may over-count.
+
+The lint is the source of truth for which hosts are affected and what is
+pending — it derives both from warrant-policy.yaml and the workflows'
+`on.push.paths`, so do not copy a path list into prose. A host's trigger set
+includes the shared input files its config imports (`forge/runners.nix` →
+`forge/runners.json` for both hosts, listed in each workflow's `paths`): a
+change to a shared input is a pending host change for every host that
+imports it. The derivation fails closed — a `class: auto` workflow that does
+not list a host glob (or is not in the lint's `NON_HOST_AUTO_WORKFLOWS`
+allowlist, build-container) makes the lint exit 1, including when the PR's
+own version of the workflow (or policy) is what is broken: a PR cannot
+bypass the check by breaking its own workflow. The same check runs in CI as
+`Lint / auto-apply` on every PR, so human PRs and late merges cannot skip it
+either.
+
 ## Related
 
 - [[warrant-approval-gated-runs]] Phase 4 — the policy-as-code phase this
   class completes
 - #1525 — the auto-apply program this PR ships
+- #1560 — the scope decision for the known main-write credentials
 - #1515 — the runner-availability preflight and queue-stuck alert
 - #1358 — the privileged-runner label scoping the auto runs depend on
 - `.forgejo/workflows/ringtail-rebuild.yaml`,

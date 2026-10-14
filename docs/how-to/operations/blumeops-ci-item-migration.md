@@ -1,6 +1,6 @@
 ---
 title: Blumeops-CI Item Migration
-modified: 2026-09-17
+modified: 2026-10-13
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -82,20 +82,43 @@ so the host-mode indri runner never trips a biometric prompt.
 
 ## What never migrates: the provision-* verdict
 
-`provision-indri` / `provision-ringtail` pre_tasks read **the breadth of
-the blumeops vault** — borgmatic/borgbase keys, every forgejo internal
-secret, OIDC client secrets for zot/jellyfin/…, the Gandi PAT, 1Password
-Connect credentials, the agents SA credential itself. Migrating that set
-into a CI-readable vault would recreate the keys to the kingdom behind
-`BLUMEOPS_CI_OP_TOKEN` — the exact thing the vault split exists to prevent.
+> **Superseded (2026-10-13) — the decomposition path, not the verdict.**
+> The "each with its own deliberate item copy" plan below — seeding narrow
+> per-role secrets into `blumeops-ci` — is superseded by the seed-file
+> pattern ([[seed-secrets]],
+> [eblume/blumeops#1524](https://forge.ops.eblu.me/eblume/blumeops/issues/1524)):
+> no provision secret moves into `blumeops-ci`. The blumeops vault stays
+> human-only, and the nix apply path (nixos-rebuild / darwin-rebuild) reads
+> no vault at all — secrets are host-resident files the nix config
+> references by path, seated by the human-run `seed-secrets` task. A
+> decomposed role needs no item copy at all because its apply path is
+> vault-free — the rebuild paths are auto-applied on merge (`class: auto`,
+> [[auto-apply]]), while the full ansible plays stay non-requestable:
+> indri's full provision remains a human window and `provision-ringtail`
+> stays `class: deny`, the indri play still reading the breadth of the
+> vault and the ringtail play the two 1Password Connect fetches until
+> those move.
 
-**Verdict: wholesale `provision-*` workflows stay `class: deny`**
-(warrant-policy.yaml) indefinitely. The path to agent-requestable
-provisioning is **decomposition**: narrow, per-role actions
-(`provision-indri --tags forgejo_runner` needs only the runner identity
-items) added one at a time, each with its own policy entry and its own
-deliberate item copy. If a role's secret set is too broad to be comfortable
-in `blumeops-ci`, that role stays human-run — that is the system working.
+`provision-indri` pre_tasks read **the breadth of the
+blumeops vault** — borgmatic/borgbase keys, every forgejo internal
+secret, OIDC client secrets for zot/jellyfin/…, the Gandi PAT;
+`provision-ringtail` pre_tasks read a narrower set — the runner
+registration tokens, the agents SA credential, and the two 1Password
+Connect fetches — until #1524 PR 2 retired the on-host seeding,
+leaving only those two fetches (the open follow-on in that
+issue). Migrating that set into a CI-readable vault would
+recreate the
+keys to the kingdom behind `BLUMEOPS_CI_OP_TOKEN` — the exact thing the
+vault split exists to prevent.
+
+**Verdict: wholesale `provision-*` stays non-requestable**
+(warrant-policy.yaml) indefinitely — the full plays remain human-run
+or `class: deny` while their pre_tasks read the vault. The path to
+agent-requestable provisioning is **decomposition**: narrow, per-role
+actions (`provision-indri --tags forgejo_runner` needs only the runner
+identity items) added one at a time, each with its own policy entry —
+and since the supersession above, a decomposed role earns that entry
+by a vault-free apply path, not by a deliberate item copy.
 
 ## The migration (executed 2026-08-22, one PR + human item-copies)
 

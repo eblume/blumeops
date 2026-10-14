@@ -52,7 +52,7 @@ inventory. Add a row when you add a file.
 | `service-versions.yaml` | per-service review freshness and current version | `mise run service-review` (human, updates the file) | `container-version-check` for container pins | `forge-name-lint`, one ringtail nix pin |
 | `mise-tasks/forge-name-lint.allowlist.yaml` | exceptions to the forge-name lint | `mise run forge-name-lint` | the lint itself | none |
 | `forge/actions-secrets.json` | the Actions secret *names* per repo | `mise run forge-reconcile` (values half: human-only PUT/DELETE from the in-code 1Password sources) | `forge-reconcile --check` compares names | none |
-| `darwin/indri/secrets.json`, `nixos/ringtail/secrets.json` | on-host secret files by path, `op://` source, owner, mode, unit to restart | `mise run seed-secrets` | `seed-secrets --check` (weekly, vault-free) | the per-host flake invariant (invariants.nix lockstep) |
+| `darwin/indri/secrets.json`, `nixos/ringtail/secrets.json` | on-host secret files by path, `op://` source, owner, mode, unit to restart | `mise run seed-secrets` | `seed-secrets --check` (vault-free; the weekly host timer is a follow-on) | the per-host flake invariant (invariants.nix lockstep) |
 
 Planned, filed as issues on 2026-10-12:
 

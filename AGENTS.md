@@ -49,19 +49,19 @@ need to confirm through biometric approval.
 4. **The lint gate runs automatically.** The pod's entrypoint installs
    prek git hooks (pre-commit + pre-push) into every pool clone whose
    canonical `main` carries a `prek.toml`, and session worktrees inherit
-   them — so commits and pushes of blumeops already run the PR prek job's
-   hook set (everything except prettier — a node hook, and the agent pod
-   ships no node) before anything leaves the pod. Bypass deliberately with
-   `git commit/push --no-verify`. `mise run agent-lint` is the same gate on
-   demand. **Tools resolve in layers:** prek itself is baked into the pod
+   them — so commits and pushes of blumeops already run the PR prek job's hook
+   set (everything except prettier — CI keeps prettier; the pod skips it via
+   `SKIP` in pre-push) before anything leaves the pod. Bypass deliberately
+   with `git commit/push --no-verify`. `mise run agent-lint` is the same gate
+   on demand. **Tools resolve in layers:** prek itself is baked into the pod
    image as the default; a repo that needs a particular prek, or any other
    binary its hooks call (`actionlint`, `stylua`), pins it in its own
-   `mise.toml`, which the entrypoint preinstalls at boot. `mise use -g` in
-   a session lasts only until the next pod roll — the global mise config is
-   rewritten from the image every boot, so declare tools in the repo.
-   Agent PR checks sit pending until a human clicks approve-and-run, so a
-   lint failure caught late costs a review round; `container-version-check`
-   mismatches in particular are cheap to catch locally.
+   `mise.toml`, which the entrypoint preinstalls at boot. `mise use -g` in a
+   session lasts only until the next pod roll — the global mise config is
+   rewritten from the image every boot, so declare tools in the repo. Agent PR
+   checks sit pending until a human clicks approve-and-run, so a lint failure
+   caught late costs a review round; `container-version-check` mismatches in
+   particular are cheap to catch locally.
 5. **Add changelog fragments (all change levels)** - `docs/changelog.d/<name>.<type>.md`
     Types: `feature`, `bugfix`, `infra`, `doc`, `ai`, `misc`
     - **Feature branch/PR** Use branch name: `<branch>.<type>.md`
@@ -87,6 +87,17 @@ need to confirm through biometric approval.
    that was a config shape that only failed at runtime, check
    [[add-a-flake-invariant]] for whether it warrants a flake invariant
    (`invariants.nix` guard) so the reintroduction fails CI.
+9. **Code comments are for *weird* code — non-obvious mechanics only.**
+   A comment earns its place when the code can't be understood at a
+   glance or a basic grep: a workaround, a hidden constraint, an ordering
+   requirement. History, motivation, and "why we changed it" belong in
+   commit messages and PR bodies, not in the code.
+10. **Auto-apply lint on host-path PRs.** A PR whose diff touches an
+   auto-apply host path applies all of main to that host at merge: run
+   `mise run lint-auto-apply` (`--pending` before a PR exists, `<pr>`
+   once it does) and paste/refresh its block (`Auto-apply: <host>` line
+   plus the pending list) in the PR body; the `Lint / auto-apply` CI
+   job enforces it ([[auto-apply]]).
 
 ## Project Structure
 
@@ -124,11 +135,14 @@ repo (e.g. `--repo eblume/talos`) — the workflow, the bound SHA, and the
 dispatch stay blumeops; only the attached PR moves.
 
 It validates the request against `warrant-policy.yaml` **on main**
-(unknown or `class: deny` actions are refused at request time), then records
+(unknown, `class: deny`, or `class: auto` actions are refused at request time), then records
 it as a PR comment, a heph task, and an entry in the approval queue. A human
 approves in Horkos (né Warrant), which dispatches the workflow. Requestable today:
 `argocd-deploy.yaml`, `argocd-sync-apps.yaml`, `deploy-fly.yaml`,
-`ringtail-rebuild.yaml`, `provision-indri.yaml`, `run-script.yaml`.
+`run-script.yaml`. `ringtail-rebuild.yaml` and `provision-indri.yaml` are
+`class: auto`, so `request-run` refuses them — a push to main touching their
+watched paths *is* the approval (auto-apply), with `workflow_dispatch` as the
+manual fallback ([[auto-apply]]).
 `argocd-deploy.yaml` also accepts
 `revision=declared` for tag-tracking apps: sync the revision the Application on
 main already declares, without re-pointing it (the bound SHA is the commit

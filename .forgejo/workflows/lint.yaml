@@ -1,5 +1,5 @@
 # The lint gate, on every PR: the prek hook set, workflow schema validation,
-# and a full-history secret scan.
+# a full-history secret scan, and the auto-apply PR-body lint.
 #
 # The hooks existed and ran nowhere. Enforcement was whoever remembered to run
 # `prek run --all-files` on gilbert, which is why drift keeps being found by
@@ -10,7 +10,9 @@
 # Same shape and the same invariant as Docs Checks: no token, no vault, no
 # cluster, no network beyond fetching hook environments. That is what makes it
 # safe on every PR including from a fork. Keep it that way — a check needing a
-# secret belongs in a different workflow.
+# secret belongs in a different workflow. The auto-apply job is the one
+# exception that talks to the forge API: read-only, with the per-run job token
+# (same trust as the report-failure step, no repo secret).
 # The report-failure step is the one exception: failure-only, automatic per-run token (no repo secret).
 # workflows-validate is the second: it nix-builds the runner from the PR's
 # own darwin/indri/flake.lock (a nixpkgs fetch) and executes it - the PR
@@ -21,9 +23,9 @@
 # push/dispatch runs keep the privileged indri runner, which only starts on
 # a main push or a dispatch by a write collaborator.
 #
-# The three jobs are required status contexts on `main` — `Lint / prek`,
-# `Lint / workflows-validate`, `Lint / secret-scan` (pull_request contexts,
-# #1013). The context string is `workflow name / job name (event)`, so
+# prek, workflows-validate and secret-scan are required status contexts on
+# `main` by name (pull_request contexts, #1013); argocd-apps-validate and
+# auto-apply are blocked by the `* (pull_request)` glob instead. The context string is `workflow name / job name (event)`, so
 # renaming a job silently un-requires it: update the branch protection and
 # the list in
 # docs/explanation/agent-change-process.md ("The residual problem").
@@ -231,3 +233,39 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           log-file: lint-argocd-apps.log
+
+  # The auto-apply PR-body lint (mise-tasks/lint-auto-apply): a PR whose diff
+  # touches an auto-apply host path must declare each affected host in its
+  # body (`Auto-apply: <host>`) and name every pending host change the merge
+  # would also ship — hosts and pending derived from warrant-policy.yaml and
+  # the workflows' on.push.paths, never a hardcoded list (docs/explanation/
+  # auto-apply.md). Run in check mode against this PR; a failure is blocking
+  # via the `* (pull_request)` glob in forge/branch-protections.json.
+  # The only Lint job that talks to the forge API: it reads the host
+  # workflows' Actions run history and the PR files, read-only, with the
+  # per-run job token (no repo secret, same trust as the report-failure
+  # step). The pending list comes from a full fetch of canonical main into
+  # the tool's own bare cache — the checkout itself is never trusted for it.
+  auto-apply:
+    if: github.event_name == 'pull_request'
+    runs-on: indri-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Lint the PR body
+        env:
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
+          pr_number="$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")"
+          uv run --script mise-tasks/lint-auto-apply "$pr_number" 2>&1 | tee "$RUNNER_TEMP/lint-auto-apply.log"
+
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: lint-auto-apply.log

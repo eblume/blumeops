@@ -15,10 +15,11 @@
 #   "rich==15.0.0",
 # ]
 # ///
-#MISE description="Run the horkos client-tooling unit tests — request-run and verify-runs (no network, no cluster)"
+#MISE description="Run the repo-tooling unit tests — request-run, verify-runs, and the auto-apply lint (no network, no cluster)"
 """Unit tests for the blumeops side of the approval path: the
-`mise-tasks/request-run` / `mise-tasks/verify-runs` clients that file against
-[[horkos]]. (The service's own suite moved with it to the eblume/horkos repo —
+`mise-tasks/request-run` / `mise-tasks/verify-runs` clients that file
+against [[horkos]], and the pure helpers of `mise-tasks/lint-auto-apply`
+(derivation fail-closedness, marker and segment parsing). (The service's own suite moved with it to the eblume/horkos repo —
 `scripts/test` there.)
 
 Pure-function coverage of the parts where being wrong is an audit-integrity

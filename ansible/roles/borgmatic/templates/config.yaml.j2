@@ -10,6 +10,13 @@ source_directories:
 
 source_directories_must_exist: true
 
+{% if borgmatic_exclude_patterns %}
+exclude_patterns:
+{% for pattern in borgmatic_exclude_patterns %}
+    - {{ pattern }}
+{% endfor %}
+{% endif %}
+
 repositories:
 {% for repo in borgmatic_repositories %}
     - path: {{ repo.path }}
@@ -22,6 +29,10 @@ repositories:
 {% endif %}
 {% endfor %}
 
+# zstd for new chunks (lz4 is borg's default); the repo-wide ratio improves
+# as archives churn in the never-pruned history.
+compression: auto,zstd
+
 encryption_passcommand: {{ borgmatic_encryption_passcommand }}
 
 # Pin the archive-name format explicitly (borg's default) and scope
@@ -30,7 +41,46 @@ encryption_passcommand: {{ borgmatic_encryption_passcommand }}
 archive_name_format: 'indri-{now:%Y-%m-%dT%H:%M:%S.%f}'
 match_archives: 'indri-*'
 
-# DB dumps (local sqlite, k8s, postgres) run in the operational config — nightly data must not live in the never-pruned archives.
+{% if borgmatic_archive_sqlite_dumps or borgmatic_archive_k8s_sqlite_dumps or borgmatic_archive_k8s_tar_dumps %}
+# Pre-backup: stage the never-lose database snapshots into the dump dir
+# (which is in source_directories, so the snapshots land in the archive).
+# A non-zero exit from any hook aborts the whole backup, so a failed
+# snapshot is never silent. Same `commands:` hook mechanics as
+# operational.yaml — including the per-config `before: configuration`
+# scope, so this coexists with talos-data.yaml's own hook in the one
+# `--config config.yaml --config talos-data.yaml create` run.
+commands:
+    - before: configuration
+      when: [create]
+      run:
+          - mkdir -p {{ borgmatic_archive_dump_dir }}
+{% for db in borgmatic_archive_sqlite_dumps %}
+          # test -f guards the sqlite3 footgun: a missing source path is
+          # silently auto-created as an empty DB (exit 0), which would back up
+          # nothing. The guard makes a missing source abort the run instead.
+          - test -f "{{ db.path }}" && sqlite3 "{{ db.path }}" ".backup '{{ borgmatic_archive_dump_dir }}/{{ db.name }}.db'"
+{% endfor %}
+{% for db in borgmatic_archive_k8s_sqlite_dumps %}
+          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-sqlite-dump {{ db.target }} {{ db.name }} {{ borgmatic_archive_dump_dir }}/{{ db.name }}.db
+{% endfor %}
+{% for db in borgmatic_archive_k8s_tar_dumps %}
+          - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-tar-dump {{ db.target }} {{ db.name }} {{ borgmatic_archive_dump_dir }}/{{ db.name }}.tar
+{% endfor %}
+{% endif %}
+
+{% if borgmatic_archive_postgresql_databases %}
+# Never-lose PostgreSQL dumps (streamed via pg_dump, ~/.pgpass as always).
+postgresql_databases:
+{% for db in borgmatic_archive_postgresql_databases %}
+    - name: {{ db.name }}
+      hostname: {{ db.hostname | default('localhost') }}
+      port: {{ db.port | default(5432) }}
+      username: {{ db.username }}
+{% if borgmatic_pg_dump_command is defined %}
+      pg_dump_command: {{ borgmatic_pg_dump_command }}
+{% endif %}
+{% endfor %}
+{% endif %}
 
 ssh_command: ssh -o IdentitiesOnly=yes -i {{ borgmatic_borgbase_ssh_key_path }}
 
@@ -43,5 +93,6 @@ ssh_command: ssh -o IdentitiesOnly=yes -i {{ borgmatic_borgbase_ssh_key_path }}
 retries: {{ borgmatic_retries }}
 retry_wait: {{ borgmatic_retry_wait }}
 
-# The main config is the never-pruned archive tier (zk, Documents) — no
-# retention keys and no prune action. Tier B retention lives in operational.yaml.
+# The main config is the never-pruned archive tier (zk, Documents, forgejo,
+# and the never-lose dumps heph/forgejo/horkos/paperless) — no retention
+# keys and no prune action. Tier B retention lives in operational.yaml.

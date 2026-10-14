@@ -1,0 +1,1 @@
+AGENTS.md: two new rules — code comments are for non-obvious mechanics only; auto-apply lint on PRs touching auto-apply host paths (run `mise run lint-auto-apply`, include/refresh its `Auto-apply: <host>` block in the PR body).
