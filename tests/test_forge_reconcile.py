@@ -159,6 +159,9 @@ class FakeForge:
         self.protections: dict[str, list[dict]] = {"blumeops": [_blumeops_main_rule()]}
         # Fields a protection PATCH silently ignores (a 200 that changes nothing).
         self.protection_patch_drops: set[str] = set()
+        # Rule names a DELETE ignores (a 204 that removes nothing) — the
+        # delete half of protection_patch_drops.
+        self.protection_delete_drops: set[str] = set()
         # The folded-in horkos-forge blast-radius invariants read these. A fresh
         # forge defaults to a valid (active, non-admin) bot user and a valid
         # blumeops:main rule whitelisted to eblume — the passing invariant state,
@@ -343,12 +346,13 @@ class FakeForge:
                     self.protections.setdefault(repo, []).append(rule)
                     return httpx.Response(201, json=rule)
                 return httpx.Response(200, json=self.protections.get(repo, []))
-            if len(tail) == 2 and tail[0] == "branch_protections":
+            if tail and tail[0] == "branch_protections" and len(tail) > 1:
+                rule_name = "/".join(tail[1:])
                 rule = next(
                     (
                         r
                         for r in self.protections.get(repo, [])
-                        if r["rule_name"] == tail[1]
+                        if r["rule_name"] == rule_name
                     ),
                     None,
                 )
@@ -363,6 +367,10 @@ class FakeForge:
                             if k not in self.protection_patch_drops
                         }
                     )
+                if request.method == "DELETE":
+                    if rule_name not in self.protection_delete_drops:
+                        self.protections[repo].remove(rule)
+                    return httpx.Response(204)
                 return httpx.Response(200, json=rule)
             if tail == ["actions", "secrets"]:
                 if repo in self.actions_off:
@@ -500,7 +508,7 @@ def test_write_repo_unreadable_secrets_is_blocked(policy, run_main, monkeypatch)
 
     code, out = run_main(check=True, token="t")
     assert code == 1
-    assert "Cannot read collaborators or Actions secrets" in out
+    assert "Cannot read collaborators, Actions secrets, or branch protections" in out
     assert "svc" in out
 
 
@@ -604,7 +612,8 @@ def test_unreadable_secrets_and_hooks_listed_once(policy, run_main, monkeypatch)
     code, out = run_main(check=True, token="t")
     assert code == 1
     assert (
-        "Cannot read collaborators or Actions secrets on 1 listed repo(s): svc" in out
+        "Cannot read collaborators, Actions secrets, or branch protections on 1 repo(s): svc"
+        in out
     )
     msg = [line for line in out.splitlines() if "Cannot read collaborators" in line]
     assert len(msg) == 1
@@ -1007,7 +1016,9 @@ def test_protection_ci_token_still_reports_drift(protected, run_main, monkeypatc
     assert "update branch protection eblume/svc:main" in out
 
 
-def test_protection_undeclared_live_rule_left_alone(protected, run_main):
+def test_protection_undeclared_live_rule_is_drift(protected, run_main):
+    # A live rule no declared file mentions is drift: --check fails naming the
+    # delete, and no apply-side mutation may happen under --check.
     forge, declare = protected
     declare(_rule())
     forge.protections.update(
@@ -1015,8 +1026,77 @@ def test_protection_undeclared_live_rule_left_alone(protected, run_main):
     )
 
     code, out = run_main(check=True, token="t")
+    assert code == 1, out
+    assert "delete branch protection eblume/svc:release/*" in out
+    assert not _mutations(forge)
+
+
+def test_protection_undeclared_live_rule_deleted_on_apply(protected, run_main):
+    # Apply deletes the undeclared live rule (and only it): the declared main
+    # rule is in sync, so the only mutation is the DELETE and the read-back
+    # shows release/* gone.
+    forge, declare = protected
+    declare(_rule())
+    forge.protections.update(
+        {"svc": [_served(_rule()), _served(_rule(rule_name="release/*"))]}
+    )
+
+    code, out = run_main(token="t")
     assert code == 0, out
-    assert "'release/*' not in" in out
+    assert _mutations(forge) == [
+        (
+            "DELETE",
+            "https://forge.ops.eblu.me/api/v1/repos/eblume/svc/branch_protections/release%2F%2A",
+        )
+    ]
+    assert [r["rule_name"] for r in forge.protections["svc"]] == ["main"]
+    assert "delete branch protection eblume/svc:release/*" in out
+
+
+def test_protection_delete_that_does_not_stick_fails(protected, run_main):
+    # The Forgejo DELETE answers 204 but leaves the rule live (the
+    # protection_delete_drops simulation): the read-back catches it.
+    forge, declare = protected
+    declare(_rule())
+    forge.protections.update(
+        {"svc": [_served(_rule()), _served(_rule(rule_name="release/*"))]}
+    )
+    forge.protection_delete_drops = {"release/*"}
+
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "did not converge" in out
+    assert [r["rule_name"] for r in forge.protections["svc"]] == ["main", "release/*"]
+
+
+def test_protection_delete_refused_under_ci_token(protected, run_main, monkeypatch):
+    # The CI token walks the same refusal as any protection write: the delete
+    # is planned but refused before any mutation.
+    forge, declare = protected
+    declare(_rule())
+    forge.protections.update(
+        {"svc": [_served(_rule()), _served(_rule(rule_name="release/*"))]}
+    )
+    monkeypatch.setenv("FORGE_REPO_WRITE_TOKEN", "ci")
+
+    code, out = run_main()
+    assert code == 1
+    assert "svc:release/*" in out  # the delete is planned (table), before the refusal
+    assert "Refusing 1 branch protection change(s) under the CI token" in out
+    assert not _mutations(forge)
+
+
+def test_protection_unreadable_undeclared_repo_is_blocked(protected, run_main):
+    # A repo with no declared protections at all can still land in `blocked`:
+    # its live protection list is unreadable, so the whole apply is refused.
+    forge, declare = protected
+    declare()
+    forge.protections = {"blumeops": [_blumeops_main_rule()]}
+    forge.status_overrides = {"/eblume/svc/branch_protections": 403}
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "Refusing to apply a partial policy" in out
 
 
 @pytest.mark.parametrize("bot", ["agents", "horkos-forge", "Horkos-Forge"])
@@ -1258,6 +1338,12 @@ def test_workflow_declared_labels_pass(policy, run_main, monkeypatch):
     policy([{"name": "blumeops", "access": "none", "pool": "none"}])
     forge = FakeForge()
     forge.repos = ["blumeops"]
+    # blumeops:main is live and declared, so the protection half is in sync
+    # and this label-focused test sees no protection drift.
+    forge.protections = {"blumeops": [_served(_rule(repo="blumeops"))]}
+    ara.PROTECTIONS_PATH.write_text(
+        json.dumps({"rules": [_rule(repo="blumeops")]}), encoding="utf-8"
+    )
     forge.workflows = {
         "blumeops": {".forgejo/workflows/ci.yml": _workflow_yml("priv:host")}
     }
@@ -2157,6 +2243,12 @@ def test_pr_check_unexpected_drift_fails(policy, run_main, monkeypatch, tmp_path
     assert code == 1, out
     assert "UNEXPECTED drift" in out
     assert "other:main" in out
+    # The fixture's unmanaged blumeops:main live rule is second, independent
+    # drift under the new scan — acknowledged, not incidental.
+    assert (
+        "delete branch protection eblume/blumeops:main (undeclared in branch-protections.json)"
+        in out
+    )
     # The script still writes the report on a failing PR (so a local `--check`
     # reader gets the red reason), carrying the [X] unexpected section. In CI the
     # notice step is success()-gated, so a failing PR's red reason reaches the
@@ -2166,10 +2258,10 @@ def test_pr_check_unexpected_drift_fails(policy, run_main, monkeypatch, tmp_path
 
 
 def test_pr_check_rule_removal_posts_notice(policy, run_main, monkeypatch, tmp_path):
-    # A PR whose only effect is removing a branch protection (head plan is
-    # empty — the live rule is "extra, left alone", not a planned action) must
-    # still run the categorization and post a notice that the protection is
-    # now unmanaged, instead of silently passing as "in sync".
+    # A PR whose only effect is removing a branch protection: the declared
+    # delta changes the protection fact, so the intended report carries it —
+    # the check must run the categorization and post that notice instead of
+    # silently passing as "in sync".
     policy([{"name": "svc", "access": "write", "pool": "none"}])
     # Head declares no protections (PROTECTIONS_PATH empty); base declares svc:main.
     ara.PROTECTIONS_PATH.write_text('{"rules": []}', encoding="utf-8")
@@ -2194,6 +2286,67 @@ def test_pr_check_rule_removal_posts_notice(policy, run_main, monkeypatch, tmp_p
     assert code == 0, out
     assert report.exists()
     assert "branch protection" in report.read_text()
+
+
+def test_pr_check_undeclared_live_protection_unexpected(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # A live branch protection neither base nor head declares: base plans a
+    # delete the PR does not intend -> unexpected drift, failing the check.
+    policy([{"name": "svc", "access": "write", "pool": "none"}])
+    ara.PROTECTIONS_PATH.write_text('{"rules": []}', encoding="utf-8")
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.horkos_user = _valid_user(is_admin=False)
+    forge.protections = {
+        "blumeops": [_blumeops_main_rule()],
+        "svc": [_served(_rule(rule_name="release/*"))],
+    }
+    forge.install(monkeypatch)
+    _base_state(monkeypatch, [{"name": "svc", "access": "write", "pool": "none"}])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 1, out
+    assert "UNEXPECTED drift" in out
+    assert "delete branch protection eblume/svc:release/*" in out
+
+
+def test_pr_check_newly_declared_protection_intended(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # The same live rule, now declared by head (a PR that adds it): base plans
+    # the same delete, but the PR's declared delta registers the (repo,
+    # "protect", rule_name) fact as changed, so the delete is intended drift
+    # only and the check is green.
+    policy([{"name": "svc", "access": "write", "pool": "none"}])
+    ara.PROTECTIONS_PATH.write_text(
+        json.dumps({"rules": [_rule(rule_name="release/*")]}), encoding="utf-8"
+    )
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.horkos_user = _valid_user(is_admin=False)
+    forge.protections = {
+        "blumeops": [_blumeops_main_rule()],
+        "svc": [_served(_rule(rule_name="release/*"))],
+    }
+    forge.install(monkeypatch)
+    _base_state(monkeypatch, [{"name": "svc", "access": "write", "pool": "none"}])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 0, out
+    assert "UNEXPECTED drift" not in out
+    assert "intended drift only" in out
+    assert "`eblume/svc` branch protection `release/*` changed" in report.read_text()
 
 
 def test_pr_check_head_plan_violation_forbidden(

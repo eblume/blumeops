@@ -118,9 +118,10 @@ only as UI state. Each declared rule must name every field in
 PROTECTION_FIELDS, so the file is the whole rule, not a partial overlay;
 list fields compare as sets. A declared rule that is missing is created,
 a drifted one is PATCHed with the differing fields and then read back in
-full (the hook half's lesson: a 200 is not proof). A rule that exists on
-the forge but not in the file is reported and left alone — deleting a
-branch protection is not something a reconcile should do quietly. Like
+full (the hook half's lesson: a 200 is not proof). The file is the single
+source of every eblume branch protection: a rule that exists on the forge
+but not in the file is drift that --check reports and a human apply
+deletes (deleting an undeclared rule is what applying the file means). Like
 PINNED_READ_ONLY, one fence lives in code: no rule may whitelist either
 bot to push, merge or approve (BOT_WHITELIST_FENCE).
 
@@ -1570,6 +1571,50 @@ def actions_secret_names_at(ref):
     return _parse_actions_secrets(data)
 
 
+def plan_protection_actions(client, owner, all_repos, protections, blocked):
+    """Plan the branch-protection actions for the file against the live forge,
+    shared by plan_at and main's table build: declared rules become
+    create/update diffs, and any live rule the file does not declare is a
+    pending delete. A repo whose live rule list is unreadable goes into
+    blocked. Returns (protection_actions, live_by_repo); the live list is
+    fetched at most once per repo.
+    """
+    protection_actions: list[tuple[str, str, str, dict[str, tuple[object, object]]]] = []
+    live_by_repo: dict[str, list[dict] | None] = {}
+
+    def fetch_live(repo):
+        if repo not in live_by_repo:
+            live_by_repo[repo] = list_protections(client, owner, repo)
+        return live_by_repo[repo]
+
+    for rule in protections:
+        repo = rule["repo"]
+        live_rules = fetch_live(repo)
+        if live_rules is None:
+            if repo not in blocked:
+                blocked.append(repo)
+            continue
+        live_by_name = {r["rule_name"]: r for r in live_rules}
+        live = live_by_name.get(rule["rule_name"])
+        if live is None:
+            protection_actions.append((repo, rule["rule_name"], "create",
+                                       {f: (None, rule[f]) for f in sorted(PROTECTION_FIELDS)}))
+        else:
+            diff = protection_diff(live, rule)
+            if diff:
+                protection_actions.append((repo, rule["rule_name"], "update", diff))
+    for repo in sorted(all_repos):
+        live_rules = fetch_live(repo)
+        if live_rules is None:
+            if repo not in blocked:
+                blocked.append(repo)
+            continue
+        declared_names = {r["rule_name"] for r in protections if r["repo"] == repo}
+        for rn in sorted({r["rule_name"] for r in live_rules} - declared_names):
+            protection_actions.append((repo, rn, "delete", {}))
+    return protection_actions, live_by_repo
+
+
 def plan_at(client, owner, who, policies, protections):
     """Plan the drift of a (policy, protections) pair against the live forge —
     the read-only core of main's planning, factored out so --pr-base-ref can
@@ -1616,22 +1661,7 @@ def plan_at(client, owner, who, policies, protections):
         _, _, _ = hook_kind_state(
             [h for h in hooks if h.get("config", {}).get("url") == HORKOS_HOOK_URL],
             HORKOS_HOOK_READ_EVENTS, want_release_hook, repo, "horkos", hook_actions)
-    protection_actions = []
-    for rule in protections:
-        repo = rule["repo"]
-        live_rules = list_protections(client, owner, repo)
-        if live_rules is None:
-            blocked.append(repo)
-            continue
-        live_by_name = {r["rule_name"]: r for r in live_rules}
-        live = live_by_name.get(rule["rule_name"])
-        if live is None:
-            protection_actions.append((repo, rule["rule_name"], "create",
-                                       {f: (None, rule[f]) for f in sorted(PROTECTION_FIELDS)}))
-        else:
-            diff = protection_diff(live, rule)
-            if diff:
-                protection_actions.append((repo, rule["rule_name"], "update", diff))
+    protection_actions, _ = plan_protection_actions(client, owner, all_repos, protections, blocked)
     return {"actions": actions, "horkos_actions": horkos_actions, "hook_actions": hook_actions,
             "protection_actions": protection_actions, "violations": violations, "blocked": blocked}
 
@@ -1746,7 +1776,12 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
             unexpected.append(f"{verb} {'talos hook' if kind == 'talos' else 'horkos release hook'} on {owner}/{repo}")
     for repo, rn, verb, diff in base_plan["protection_actions"]:
         if not changed_for(repo, "protect", rn):
-            unexpected.append(f"{verb} branch protection {owner}/{repo}:{rn} ({'all fields' if verb == 'create' else ', '.join(diff)})")
+            detail = (
+                "undeclared in branch-protections.json"
+                if verb == "delete"
+                else ("all fields" if verb == "create" else ", ".join(diff))
+            )
+            unexpected.append(f"{verb} branch protection {owner}/{repo}:{rn} ({detail})")
     for repo, names in base_plan["violations"]:
         if not changed_for(repo, "access"):
             unexpected.append(violation_line(owner, repo, names))
@@ -1772,7 +1807,7 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
         if extra:
             unexpected.append(f"undeclared live Actions secret on {owner}/{repo}: {', '.join(extra)}")
     if base_plan["blocked"]:
-        unexpected.append(f"unreadable listed repo(s): {', '.join(base_plan['blocked'])}")
+        unexpected.append(f"unreadable repo(s) under {owner}: {', '.join(base_plan['blocked'])}")
 
     lines = ["**`forge-reconcile` PR check** - forge desired state vs the live forge.", ""]
     if unexpected:
@@ -2152,52 +2187,44 @@ def main(
                     label_actions.append((repo, name, color, description))
                     hook_table.add_row("label", escape(repo), "no label", "label", "[green]create label[/green]")
 
-        # Branch-protection half: one rule list per declared repo, matched by
-        # rule_name. (repo, rule_name, verb, {field: (have, want)}) — verb is
-        # create (diff is every field, have None) or update.
+        # Branch-protection half: forge/branch-protections.json is the single
+        # source of every eblume branch protection.
         protection_table = Table(title=f"branch protections on {escape(owner)}/*")
         protection_table.add_column("Rule")
         protection_table.add_column("Field")
         protection_table.add_column("Current")
         protection_table.add_column("Desired")
         protection_table.add_column("Action")
-        protection_actions: list[tuple[str, str, str, dict[str, tuple[object, object]]]] = []
         if missing_repos := sorted({r["repo"] for r in protections} - set(all_repos)):
             console.print(
                 f"[red]{PROTECTIONS_PATH.name} names repos that do not exist under {escape(repr(owner))} "
                 f"(or the token cannot see them): {escape(', '.join(missing_repos))}[/red]"
             )
             raise typer.Exit(1)
-        for repo in sorted({r["repo"] for r in protections}):
-            live_rules = list_protections(client, owner, repo)
-            if live_rules is None:
-                if repo not in blocked:
-                    blocked.append(repo)
-                continue
-            live_by_name = {r["rule_name"]: r for r in live_rules}
-            declared = [r for r in protections if r["repo"] == repo]
-            for rule in declared:
-                name = f"{repo}:{rule['rule_name']}"
-                live = live_by_name.get(rule["rule_name"])
-                if live is None:
-                    diff = {f: (None, rule[f]) for f in sorted(PROTECTION_FIELDS)}
-                    protection_actions.append((repo, rule["rule_name"], "create", diff))
-                    protection_table.add_row(escape(name), "(rule)", "none", "rule", "[green]create[/green]")
-                    continue
-                diff = protection_diff(live, rule)
-                if not diff:
-                    protection_table.add_row(escape(name), "", "", "", "[dim]ok[/dim]")
-                    continue
-                protection_actions.append((repo, rule["rule_name"], "update", diff))
+        protection_actions, live_by_repo = plan_protection_actions(client, owner, all_repos, protections, blocked)
+        for repo, rule_name, verb, diff in protection_actions:
+            name = f"{repo}:{rule_name}"
+            if verb == "delete":
+                protection_table.add_row(escape(name), "(rule)", "rule", "none", "[red]delete[/red]")
+            elif verb == "create":
+                protection_table.add_row(escape(name), "(rule)", "none", "rule", "[green]create[/green]")
+            else:
                 for field, (have, want) in diff.items():
                     protection_table.add_row(
                         escape(name), field, escape(show(have)), escape(show(want)), "[yellow]update[/yellow]"
                     )
-            for extra in sorted(set(live_by_name) - {r["rule_name"] for r in declared}):
-                console.print(
-                    f"[yellow]{escape(owner)}/{escape(repo)} has branch protection {escape(repr(extra))} "
-                    f"not in {PROTECTIONS_PATH.name} — left alone (declare it to manage it)[/yellow]"
-                )
+        # The actions list only names drift, so in-sync declared rules get an
+        # explicit ok row.
+        for repo in sorted({r["repo"] for r in protections}):
+            live_rules = live_by_repo.get(repo)
+            if live_rules is None:
+                continue
+            live_by_name = {r["rule_name"]: r for r in live_rules}
+            for rule in [r for r in protections if r["repo"] == repo]:
+                name = f"{repo}:{rule['rule_name']}"
+                live = live_by_name.get(rule["rule_name"])
+                if live is not None and not protection_diff(live, rule):
+                    protection_table.add_row(escape(name), "", "", "", "[dim]ok[/dim]")
 
         console.print(table)
         console.print(hook_table)
@@ -2206,9 +2233,9 @@ def main(
 
         if blocked:
             console.print(
-                f"\n[red]Cannot read collaborators or Actions secrets on {len(blocked)} listed repo(s): "
+                f"\n[red]Cannot read collaborators, Actions secrets, or branch protections on {len(blocked)} repo(s): "
                 f"{escape(', '.join(blocked))}[/red]\n"
-                f"Both need repo-admin permission — this token's user "
+                f"Each needs repo-admin permission — this token's user "
                 f"is not an admin on them (Forgejo 404s rather than 403s when it cannot see a private "
                 f"repo at all, so 'wrong token' and 'no such repo' look identical). "
                 f"Refusing to apply a partial policy."
@@ -2274,8 +2301,12 @@ def main(
             for repo, name, _color, _description in label_actions:
                 console.print(f"  create `{escape(name)}` label on {escape(owner)}/{escape(repo)}")
             for repo, rule_name, verb, diff in protection_actions:
-                fields = "all fields" if verb == "create" else ", ".join(diff)
-                console.print(f"  {verb} branch protection {escape(owner)}/{escape(repo)}:{escape(rule_name)} ({escape(fields)})")
+                detail = (
+                    "undeclared in branch-protections.json"
+                    if verb == "delete"
+                    else ("all fields" if verb == "create" else ", ".join(diff))
+                )
+                console.print(f"  {verb} branch protection {escape(owner)}/{escape(repo)}:{escape(rule_name)} ({escape(detail)})")
             for repo, secret_names in violations:
                 console.print(f"  {violation_line(escape(owner), escape(repo), [escape(n) for n in secret_names])}")
             if not no_secrets:
@@ -2472,8 +2503,28 @@ def main(
             raise typer.Exit(1)
         for repo, rule_name, verb, diff in protection_actions:
             label = f"branch protection {escape(owner)}/{escape(repo)}:{escape(rule_name)}"
-            rule = next(r for r in protections if r["repo"] == repo and r["rule_name"] == rule_name)
             base = f"/api/v1/repos/{owner}/{repo}/branch_protections"
+            if verb == "delete":
+                # Undeclared live rule: there is no declared `rule` to diff
+                # against — delete it, then re-list to prove it is gone.
+                try:
+                    client.delete(f"{base}/{quote(rule_name, safe='')}").raise_for_status()
+                    after = list_protections(client, owner, repo)
+                except httpx.HTTPStatusError as exc:
+                    console.print(f"[red]{verb} {label} failed: {escape(str(exc))}[/red]")
+                    raise typer.Exit(1) from exc
+                if after is None:
+                    console.print(
+                        f"[red]{verb} {label} did not converge: cannot read back "
+                        f"{escape(owner)}/{escape(repo)}'s protections.[/red]"
+                    )
+                    raise typer.Exit(1)
+                if rule_name in {r["rule_name"] for r in after}:
+                    console.print(f"[red]{verb} {label} did not converge: still present[/red]")
+                    raise typer.Exit(1)
+                console.print(f"[green]{verb}[/green] {label}")
+                continue
+            rule = next(r for r in protections if r["repo"] == repo and r["rule_name"] == rule_name)
             try:
                 if verb == "create":
                     client.post(

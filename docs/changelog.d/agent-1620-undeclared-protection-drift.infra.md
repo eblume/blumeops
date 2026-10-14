@@ -1,0 +1,1 @@
+`forge-reconcile` now reports live branch-protection rules not declared in `forge/branch-protections.json` as drift (weekly `--check`, PR check) and deletes them on a human apply, so branch protections on `eblume/*` are IaC-only.
