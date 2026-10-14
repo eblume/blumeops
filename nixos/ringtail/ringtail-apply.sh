@@ -57,7 +57,7 @@ echo "=== ringtail-apply $(date -Is) sha=$sha"
 
 [ -d /etc/blumeops/.git ] || {
   status=no-checkout
-  echo "ringtail-apply: /etc/blumeops is not a git checkout; run provision-ringtail once from gilbert first" >&2
+  echo "ringtail-apply: /etc/blumeops is not a git checkout; clone blumeops into /etc/blumeops first (one-time bootstrap; see the disaster-recovery doc)" >&2
   exit 3
 }
 

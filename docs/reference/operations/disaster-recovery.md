@@ -16,7 +16,7 @@ Recovery procedures for BlumeOps infrastructure.
 |----------|-------|
 | Indri reboot/power loss | [[restart-indri]] |
 | Ringtail reboot/power loss/hardware swap | [[restart-ringtail]] |
-| Ringtail/k3s rebuild | [[ringtail]] provisioning (`mise run provision-ringtail`, which also seeds the 1Password Connect secrets), then the manual ArgoCD bootstrap runbook in `argocd/manifests/argocd/README.md` (see [[argocd]]) |
+| Ringtail/k3s rebuild | 1) `mise run seed-secrets ringtail` ([[seed-secrets]] — human, biometric `op`); 2) human-local apply — on a truly fresh host, first the one-time `sudo git clone https://forge.ops.eblu.me/eblume/blumeops.git /etc/blumeops`, then `ssh ringtail sudo systemctl start ringtail-apply@<sha>` and watch `/var/log/ringtail-apply/<sha>.log` and the `.status` sidecar; 3) the ArgoCD bootstrap runbook in `argocd/manifests/argocd/README.md` (see [[argocd]]; includes the 1Password Connect bootstrap) |
 | Lost 1Password access | [[restore-1password-backup]] |
 
 ## Components

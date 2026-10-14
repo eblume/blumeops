@@ -1,0 +1,1 @@
+Document the human-local break-glass ringtail apply (`ringtail-apply@<sha>`) in the disaster-recovery rebuild walkthrough, replacing the retired `provision-ringtail` reference; the `ringtail-apply` no-checkout error message now points at the one-time blumeops clone instead.
