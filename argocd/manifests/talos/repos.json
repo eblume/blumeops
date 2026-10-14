@@ -81,8 +81,8 @@
     },
     {
       "name": "hephaestus",
-      "access": "write",
-      "pool": "canonical",
+      "access": "read",
+      "pool": "fork",
       "horkos_forge": true
     },
     {
