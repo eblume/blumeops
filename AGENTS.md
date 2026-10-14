@@ -87,6 +87,11 @@ need to confirm through biometric approval.
    that was a config shape that only failed at runtime, check
    [[add-a-flake-invariant]] for whether it warrants a flake invariant
    (`invariants.nix` guard) so the reintroduction fails CI.
+9. **Code comments are for *weird* code — non-obvious mechanics only.**
+   A comment earns its place when the code can't be understood at a
+   glance or a basic grep: a workaround, a hidden constraint, an ordering
+   requirement. History, motivation, and "why we changed it" belong in
+   commit messages and PR bodies, not in the code.
 
 ## Project Structure
 
