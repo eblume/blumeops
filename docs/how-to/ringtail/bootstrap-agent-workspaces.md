@@ -115,9 +115,9 @@ The `agents` vault must contain (created during the prototype, 2026-07-08):
 mise run provision-ringtail
 ```
 
-This writes `/etc/agents/op-token` and `/etc/agents/ssh/id_ed25519`, and
-creates the `agent` user. (The `agent-repos-init` + `agent-ws-*` host services
-it used to install are retired — see the status note above.)
+This writes `/etc/agents/op-token` and creates the `agent` user. (The
+`agent-repos-init` + `agent-ws-*` host services it used to install, and the
+bot's SSH key, are retired — see the status note above.)
 
 ## 4. Install Claude Code for the agent user
 

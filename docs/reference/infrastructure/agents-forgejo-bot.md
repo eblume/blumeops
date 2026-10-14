@@ -17,14 +17,8 @@ gate before anything deploys.
 ## Identity
 
 - **Forgejo user:** `agents`
-- **SSH key:** stored in the `agents` 1Password vault as item
-  `agents-forgejo-bot` (fields `private key`, `public key`). The private key is
-  deployed to ringtail at `/etc/agents/ssh/id_ed25519` (mode 0400, owner
-  `agent`) by `ansible/playbooks/ringtail.yml`.
-- **Public key:**
-  ```
-  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMxDHumC8G7oWH7ivpQLKvBs8MRjf3nBlQmPBXMdduTF agents-forgejo-bot@ringtail
-  ```
+- **SSH key:** retired (Oct 2026, eblume/blumeops#1635). The bot authenticates
+  to the forge over HTTPS with a token; no SSH key is seated on ringtail.
 
 ## Access policy
 
@@ -51,12 +45,9 @@ gate before anything deploys.
 
 ## Credentials
 
-The bot has two, both in the **agents** vault, both bounded to its own
+The bot has one in use, in the **agents** vault, bounded to its own
 collaborations:
 
-- `agents-forgejo-bot` — SSH keypair. The public half is on the `agents` user;
-  the private half (concealed field) is deployed to `/etc/agents/ssh/id_ed25519`
-  and used for `git push`.
 - `agents-forgejo-token` — a Forgejo PAT, scopes `write:repository` +
   `write:issue` (tea's `pr create` needs the issue scope — PRs are issues in
   Forgejo), **minted as the `agents` user** so it can't exceed the bot's own
@@ -208,10 +199,9 @@ up a token the workflow never passed it.
 
 ## Rotating the key
 
-1. Generate a new `ed25519` keypair; update the `agents-forgejo-bot` item's
-   `private key` / `public key` fields in the `agents` vault.
-2. Replace the public key on the `agents` Forgejo user.
-3. `mise run provision-ringtail` to redeploy `/etc/agents/ssh/id_ed25519`.
+There is no host SSH key to rotate — the keypair was retired in Oct 2026
+(eblume/blumeops#1635) and the vault item is gone. The bot authenticates over
+HTTPS with its Forgejo token.
 
 ## Related
 
