@@ -4,8 +4,8 @@ set -euo pipefail
 
 # The same hook set the lint workflow's prek job runs on every PR — catch
 # failures before pushing, not after a human CI-approval click. prettier is
-# SKIPped: it is a node hook and the agent pod ships no node, so a JSON
-# formatting miss is caught only in CI. prek and actionlint come from
+# SKIPped: CI keeps prettier; the pod skips it via SKIP in pre-push, so a
+# JSON formatting miss is caught only in CI. prek and actionlint come from
 # mise.toml; the hook set lives in prek.toml.
 export SKIP="${SKIP:+$SKIP,}prettier"
 exec prek run --all-files "$@"
