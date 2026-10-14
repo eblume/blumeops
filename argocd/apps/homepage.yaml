@@ -2,7 +2,6 @@
 #
 # Custom container built from gethomepage/homepage, kustomize manifests.
 # Dashboard at go.ops.eblu.me / go.tail8d86e.ts.net
-# Drill touch point for the horkos auto-filer end-to-end test (eblume/horkos#54).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
