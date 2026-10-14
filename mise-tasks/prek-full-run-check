@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Decide whether the Lint job's `prek run` on a PR must use `--all-files`
+# instead of changed-file mode (`prek run --from-ref <base> --to-ref <head>`).
+#
+# Changed-file mode fails open in two ways no hook's `files` filter can close:
+# a diff that only deletes files hands every hook an empty file list (deleted
+# files never enter `--from-ref`'s list), and a diff that only rewrites a
+# hook's config or its entry script never reaches that hook.
+#
+# Exit codes: 0 = full run required (reasons on stdout),
+#             1 = changed-file mode is safe,
+#             2 = undecidable — the caller must fail closed and run `--all-files`.
+#
+# Usage: prek-full-run-check <base-ref> <head-ref>   (from anywhere inside the checkout)
+
+set -euo pipefail
+trap 'echo "error: unexpected failure in prek-full-run-check (line $LINENO)" >&2; exit 2' ERR
+
+if [ "$#" -ne 2 ]; then
+  echo "usage: $0 <base-ref> <head-ref>" >&2
+  exit 2
+fi
+
+base="$1"
+head="$2"
+
+root="$(git rev-parse --show-toplevel 2>&1)" || {
+  echo "error: $PWD is not inside a git checkout" >&2
+  exit 2
+}
+cd "$root"
+
+for ref in "$base" "$head"; do
+  if ! git rev-parse --verify "$ref^{commit}" >/dev/null 2>&1; then
+    echo "error: $ref does not resolve to a commit" >&2
+    exit 2
+  fi
+done
+
+reasons=""
+
+# 1. Deleted files never enter `--from-ref`'s file list, so a delete-only
+#    diff would skip the entire hook set.
+deleted="$(git diff --name-only --diff-filter=D "$base" "$head")"
+if [ -n "$deleted" ]; then
+  n="$(printf '%s\n' "$deleted" | grep -c .)"
+  sample="$(printf '%s\n' "$deleted" | sed -n '1,5p' | tr '\n' ' ')"
+  more=$(( n - 5 ))
+  [ "$more" -le 0 ] || sample+="... (+${more} more)"
+  reasons+="
+deleted files (${n}) are excluded from --from-ref's file list: ${sample}"
+fi
+
+# 2. Hook config: a change to any of these rewrites what the hook set checks,
+#    but no hook's `files` filter covers its own config, so the rewrite would
+#    run no hook at all.
+CONFIG_FILES=(prek.toml pyproject.toml uv.lock .yamllint.yaml .ansible-lint .github/actionlint.yaml)
+config="$(git diff --name-only "$base" "$head" -- "${CONFIG_FILES[@]}")"
+if [ -n "$config" ]; then
+  reasons+="
+hook config touched: $(printf '%s' "$config" | tr '\n' ' ')"
+fi
+
+# 3. Hook entry scripts, derived from prek.toml's local-hook `entry` lines so
+#    the list cannot drift from the hooks it guards. Double-quoted: taplo
+#    normalizes the file's string style, so it is the only form that can exist.
+entries="$(awk -F'"' '
+  /^[[:space:]]*entry[[:space:]]*=/ {
+    if (substr($2, 1, 2) == "./") print $2
+  }
+' prek.toml)"
+
+entry_specs=()
+if [ -n "$entries" ]; then
+  while IFS= read -r entry; do
+    if [ -n "$entry" ]; then
+      entry_specs+=("$entry")
+    fi
+  done <<< "$entries"
+  entry_hits="$(git diff --name-only "$base" "$head" -- "${entry_specs[@]}")"
+else
+  entry_hits=""
+fi
+if [ -n "$entry_hits" ]; then
+  reasons+="
+hook entry script touched: $(printf '%s' "$entry_hits" | tr '\n' ' ')"
+fi
+
+if [ -n "$reasons" ]; then
+  echo "full run required:"
+  printf '%s\n' "$reasons"
+  exit 0
+fi
+
+echo "changed-file mode is safe: no deletions, no hook config or entry-script changes"
+exit 1

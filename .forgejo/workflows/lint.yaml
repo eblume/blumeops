@@ -103,6 +103,12 @@ jobs:
       # file skips ansible-lint entirely; on a main push or a dispatch it runs
       # `--all-files`, the backstop that a changed-file PR can't miss a whole
       # file.
+      # Changed-file mode fails open on two diff shapes — a delete-only diff
+      # (deleted files never enter `--from-ref`'s file list, so every hook
+      # gets nothing to check) and a diff that only rewrites a hook's config
+      # or entry script (the files the rewrite newly flags are not in the
+      # diff) — so `mise-tasks/prek-full-run-check` decides: on either shape,
+      # or on its own error (fail closed), the run falls back to `--all-files`.
       # Adding a hook that cannot run in a clean checkout re-opens that gap.
       #
       # GITHUB_TOKEN is blanked to make this job's credential-free claim literal.
@@ -131,8 +137,17 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             base="$(jq -r '.pull_request.base.sha' "$GITHUB_EVENT_PATH")"
             head="$(jq -r '.pull_request.head.sha' "$GITHUB_EVENT_PATH")"
-            prek run --from-ref "$base" --to-ref "$head" --show-diff-on-failure \
-              2>&1 | tee "$RUNNER_TEMP/lint-prek.log"
+            # 0 = full run required, 1 = changed-file mode is safe,
+            # 2 = undecidable: fail closed to the full run.
+            rc=0
+            bash mise-tasks/prek-full-run-check "$base" "$head" || rc=$?
+            if [ "$rc" -eq 1 ]; then
+              prek run --from-ref "$base" --to-ref "$head" --show-diff-on-failure \
+                2>&1 | tee "$RUNNER_TEMP/lint-prek.log"
+            else
+              prek run --all-files --show-diff-on-failure 2>&1 \
+                | tee "$RUNNER_TEMP/lint-prek.log"
+            fi
           else
             prek run --all-files --show-diff-on-failure 2>&1 \
               | tee "$RUNNER_TEMP/lint-prek.log"
