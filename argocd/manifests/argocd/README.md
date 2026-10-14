@@ -45,12 +45,25 @@ for spelling in ops.eblu.me:forge; do
   kubectl label secret "$name" -n argocd argocd.argoproj.io/secret-type=repo-creds
 done
 
-# 7. Apply ArgoCD Applications (self-management + app-of-apps)
+# 7. Bootstrap the 1Password Connect secrets (namespace + op-credentials +
+#    onepassword-token) — the chicken-and-egg step: External Secrets can't
+#    create its own credentials, so this runs once, manually, before step 8
+#    syncs the apps that need it (1password-connect, external-secrets, and
+#    every ExternalSecret transitively).
+#    Prerequisite: the "1Password Connect" item in the blumeops vault
+#    (argocd/manifests/1password-connect/README.md). The runbook assumes the
+#    ambient kubeconfig context is the target cluster; add
+#    --context=k3s-ringtail if it isn't.
+kubectl create namespace 1password
+op inject -i argocd/manifests/1password-connect/secret-credentials.yaml.tpl | \
+  kubectl apply -f -
+
+# 8. Apply ArgoCD Applications (self-management + app-of-apps)
 kubectl apply -f argocd/apps/argocd.yaml
 kubectl apply -f argocd/apps/apps.yaml
 ```
 
-After step 7, ArgoCD manages itself and all applications defined in `argocd/apps/`.
+After step 8, ArgoCD manages itself and all applications defined in `argocd/apps/`.
 
 ## Access
 

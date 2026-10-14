@@ -1,0 +1,1 @@
+The ArgoCD bootstrap runbook gains the 1Password Connect bootstrap (namespace + `op-credentials`/`onepassword-token` via `op inject`) as step 7, and the `1password-connect-ringtail` app's prerequisite now points at that runbook step instead of the ansible play.

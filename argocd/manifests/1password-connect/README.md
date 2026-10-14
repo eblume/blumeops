@@ -55,6 +55,10 @@ op inject -i argocd/manifests/1password-connect/secret-credentials.yaml.tpl | \
   kubectl --context=k3s-ringtail apply -f -
 ```
 
+This is also step 7 of the ArgoCD bootstrap runbook
+(`argocd/manifests/argocd/README.md`), which runs it during a fresh-cluster
+bootstrap before the apps are synced.
+
 ## Version Management
 
 Image versions are pinned in `kustomization.yaml` via `images[].newTag`. To upgrade:
