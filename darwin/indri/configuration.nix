@@ -389,14 +389,16 @@ MCQUACK_NIX_WAIT_SYSTEM
   # a real file is valid in that window. The AuthorizedKeysCommand (nix-darwin's
   # idiom for authorized keys) reads /etc/ssh/nix_authorized_keys.d/%u IN
   # ADDITION to each user's own authorized_keys, so a human-managed key file
-  # keeps working. mktemp + mv keeps the writes symlink-proof; `sshd -t` fails
-  # the switch on a config sshd itself rejects. The drop-in sorts before
-  # Apple's 100-macos.conf: sshd honors the first value obtained for a keyword.
+  # keeps working. The drop-in is swapped in, and kept only if sshd -t
+  # accepts it (the previous one restored on rejection): macOS runs sshd per connection,
+  # so a bad config left in place would refuse every new login. The drop-in
+  # sorts before Apple's 100-macos.conf: sshd honors the first value obtained
+  # for a keyword.
   system.activationScripts.extraActivation.text = lib.mkAfter ''
-    changed=0
     mkdir -p /etc/ssh/sshd_config.d /etc/ssh/nix_authorized_keys.d
     chmod 0755 /etc/ssh/nix_authorized_keys.d
 
+    sshd_target=/etc/ssh/sshd_config.d/050-indri.conf
     tmp=$(mktemp /etc/ssh/sshd_config.d/.050-indri.conf.XXXXXX) &&
     cat > "$tmp" <<'SSHD_POLICY'
 # indri sshd policy (eblume/blumeops#1484 PR 3). Real file written by
@@ -410,10 +412,33 @@ AuthorizedKeysCommand /bin/cat /etc/ssh/nix_authorized_keys.d/%u
 AuthorizedKeysCommandUser _sshd
 SSHD_POLICY
     chmod 0644 "$tmp"
-    cmp -s "$tmp" /etc/ssh/sshd_config.d/050-indri.conf || {
-      mv -f "$tmp" /etc/ssh/sshd_config.d/050-indri.conf && changed=1
-    }
+    if cmp -s "$tmp" "$sshd_target"; then
+      rm -f "$tmp"
+    else
+      # The drop-in is live config the instant it lands: back up, swap,
+      # validate, and restore the backup if sshd refuses it.
+      if [ -f "$sshd_target" ]; then
+        cp -p "$sshd_target" "$sshd_target.nix-darwin-backup"
+      else
+        rm -f "$sshd_target.nix-darwin-backup"
+      fi
+      mv -f "$tmp" "$sshd_target"
+      if ! /usr/sbin/sshd -t; then
+        printf >&2 'error: sshd rejected the new configuration (sshd -t); restoring previous drop-in\n'
+        if [ -f "$sshd_target.nix-darwin-backup" ]; then
+          mv -f "$sshd_target.nix-darwin-backup" "$sshd_target" || {
+            printf >&2 'error: could not restore previous drop-in\n'
+            exit 1
+          }
+        else
+          rm -f "$sshd_target"
+        fi
+        exit 1
+      fi
+      rm -f "$sshd_target.nix-darwin-backup"
+    fi
 
+    keys_target=/etc/ssh/nix_authorized_keys.d/erichblume
     tmp=$(mktemp /etc/ssh/nix_authorized_keys.d/.erichblume.XXXXXX) &&
     cat > "$tmp" <<'AUTHORIZED_KEYS'
 # erichblume's 1Password "SSH - Personal" public key - the same key ringtail
@@ -421,22 +446,10 @@ SSHD_POLICY
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILmh1SSCdDAyu3vkSQH7kAXEPDi8APyjo9JXDTjtha2j
 AUTHORIZED_KEYS
     chmod 0644 "$tmp"
-    cmp -s "$tmp" /etc/ssh/nix_authorized_keys.d/erichblume || {
-      mv -f "$tmp" /etc/ssh/nix_authorized_keys.d/erichblume && changed=1
-    }
-
-    # A config sshd itself rejects must not reach the host.
-    /usr/sbin/sshd -t || {
-      printf >&2 'error: sshd rejected the new configuration (sshd -t)\n'
-      exit 1
-    }
-
-    # On a content-identical generation the files were not replaced: don't
-    # cycle sshd (it would drop in-flight ssh sessions). When the content did
-    # change and the daemon is up - which is never on the first switch, the
-    # launchd slot bootstraps it afterwards - reload it onto the new config.
-    if [ "$changed" = 1 ] && launchctl print system/com.openssh.sshd >/dev/null 2>&1; then
-      launchctl kickstart -k system/com.openssh.sshd
+    if cmp -s "$tmp" "$keys_target"; then
+      rm -f "$tmp"
+    else
+      mv -f "$tmp" "$keys_target"
     fi
   '';
 
