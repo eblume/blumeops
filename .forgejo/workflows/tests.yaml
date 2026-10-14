@@ -1,0 +1,49 @@
+# The repo-tooling unit tests (mise-tasks/horkos-test), in the home that
+# matches the name: a Tests workflow. Moved out of Image Pins' `checks` job
+# so each gate does what it says — Lint lints, Image Pins pins, Tests tests.
+#
+# Same shape as Image Pins and Docs Checks: the check is pure local
+# (pytest over the repo-tooling tests in tests/ — no network, no cluster,
+# no vault), and GITHUB_TOKEN is blanked so the job stays
+# safe on every PR including from a fork.
+# The report-failure step is the one exception: failure-only, automatic per-run token (no repo secret).
+#
+# Its context is required by name on main (forge/branch-protections.json):
+# the `* (pull_request)` glob only blocks a check that actually ran, so the
+# named entry is what holds the merge on an unapproved agent PR.
+#
+# On an agent PR this sits `pending` with no run until a human clicks
+# "Approve and run" — the agents bot is read-only on canonical, so its PRs
+# are outside contributions. Do not switch to `pull_request_target` to skip
+# it: that trigger gets secrets and a write token.
+# See [[agent-change-process#Why agent PRs need an approval click]].
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  horkos-test:
+    runs-on: indri-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Tests
+        env:
+          GITHUB_TOKEN: ""
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP"
+          mise run horkos-test 2>&1 | tee "$RUNNER_TEMP/tests.log"
+
+      - name: Report failure to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: ./.forgejo/actions/report-failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-file: tests.log
