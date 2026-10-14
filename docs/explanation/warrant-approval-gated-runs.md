@@ -1,7 +1,7 @@
 ---
 title: "Warrant: Approval-Gated Privileged Runs"
-modified: 2026-10-13
-last-reviewed: 2026-09-16
+modified: 2026-10-14
+last-reviewed: 2026-10-14
 tags:
   - explanation
   - ai
@@ -268,8 +268,9 @@ The smallest thing that closes the loop end-to-end:
      gate that sat on it never applied to the generation flip — the
      zero-prompt `--tags rebuild` path reads no vault, and the host-mode
      indri runner (host-mode `op` works; the play runs over a local
-     ansible connection, since SSH-to-self is impossible - Remote Login is
-     off and a connect to the node's own tailnet IP is delivered by the
+     ansible connection, since SSH-to-self is not the runner's path - sshd
+     is on, but only erichblume's key is authorized (eblume/blumeops#1484 PR 3)
+     and a connect to the node's own tailnet IP is delivered by the
      local kernel, never reaching tailscaled's SSH server) is the
      documented, accepted runner story for the box — so the warrant applies
      a bound SHA's nix-darwin generation and the full ansible provision

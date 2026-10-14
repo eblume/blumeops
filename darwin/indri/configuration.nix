@@ -106,10 +106,21 @@ in
   # aborts on the stock /etc/zshrc + /etc/zprofile hashes. See [[provision]].
   programs.zsh.enable = false;
 
-  # nix-darwin /etc entries are store symlinks dangling until /nix mounts, so nothing
-  # pre-boot-critical may be one (mDNSResponder's /etc/resolver, sshd's drop-ins).
-  # See provision.md §First switch.
-  services.openssh.hostKeys = [];   # drops 099-host-keys.conf and its keygen script
+  # Remote Login declaratively (eblume/blumeops#1484 PR 3): nix-darwin's launchd
+  # activation runs `launchctl enable` + `bootstrap` of system/com.openssh.sshd
+  # when it is off - no Full Disk Access, no System Settings checkbox.
+  services.openssh.enable = true;
+
+  # nix-darwin's sshd drop-ins are store symlinks dangling until /nix mounts, and
+  # sshd's Include of that directory exits 1 on a missing file - every connection
+  # refused in the pre-Nix-Store boot window (mDNSResponder's /etc/resolver scan is
+  # the other consumer that cannot tolerate a dangling link). All of them stay
+  # off; the sshd policy and erichblume's authorized keys are written as REAL
+  # files by the activation fragment below. See provision.md §First switch.
+  services.openssh.hostKeys = [];   # keys exist on disk (2026-09-16); the stock
+                                     # config finds them via its built-in HostKey
+                                     # paths, and the 099 drop-in + keygen script
+                                     # would dangle pre-/nix
   environment.etc."ssh/sshd_config.d/100-nix-darwin.conf".enable = false;
   environment.etc."ssh/sshd_config.d/101-authorized-keys.conf".enable = false;
 
@@ -367,6 +378,65 @@ MCQUACK_NIX_WAIT_SYSTEM
         sudo -u indri-build ln -sfn /etc/static/mise/config-build-user.toml /Users/indri-build/.config/mise/config.toml
       } || printf >&2 'warning: indri-build mise config: could not link /Users/indri-build/.config/mise/config.toml\n'
       :
+    fi
+  '';
+
+  # sshd policy + erichblume's authorized keys (eblume/blumeops#1484 PR 3), in
+  # the extraActivation slot: it runs before the launchd slot, so the real
+  # files exist before sshd is bootstrapped on the first switch. Real files,
+  # not store symlinks: sshd's Include of /etc/ssh/sshd_config.d exits 1 on a
+  # dangling link, refusing every connection until the Nix Store mounts, while
+  # a real file is valid in that window. The AuthorizedKeysCommand (nix-darwin's
+  # idiom for authorized keys) reads /etc/ssh/nix_authorized_keys.d/%u IN
+  # ADDITION to each user's own authorized_keys, so a human-managed key file
+  # keeps working. mktemp + mv keeps the writes symlink-proof; `sshd -t` fails
+  # the switch on a config sshd itself rejects. The drop-in sorts before
+  # Apple's 100-macos.conf: sshd honors the first value obtained for a keyword.
+  system.activationScripts.extraActivation.text = lib.mkAfter ''
+    changed=0
+    mkdir -p /etc/ssh/sshd_config.d /etc/ssh/nix_authorized_keys.d
+    chmod 0755 /etc/ssh/nix_authorized_keys.d
+
+    tmp=$(mktemp /etc/ssh/sshd_config.d/.050-indri.conf.XXXXXX) &&
+    cat > "$tmp" <<'SSHD_POLICY'
+# indri sshd policy (eblume/blumeops#1484 PR 3). Real file written by
+# nix-darwin activation - a store symlink here would dangle pre-/nix and
+# sshd's Include of this directory would refuse every connection.
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AllowUsers erichblume
+AuthorizedKeysCommand /bin/cat /etc/ssh/nix_authorized_keys.d/%u
+AuthorizedKeysCommandUser _sshd
+SSHD_POLICY
+    chmod 0644 "$tmp"
+    cmp -s "$tmp" /etc/ssh/sshd_config.d/050-indri.conf || {
+      mv -f "$tmp" /etc/ssh/sshd_config.d/050-indri.conf && changed=1
+    }
+
+    tmp=$(mktemp /etc/ssh/nix_authorized_keys.d/.erichblume.XXXXXX) &&
+    cat > "$tmp" <<'AUTHORIZED_KEYS'
+# erichblume's 1Password "SSH - Personal" public key - the same key ringtail
+# authorizes for eblume (nixos/ringtail/configuration.nix, users.users.eblume).
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILmh1SSCdDAyu3vkSQH7kAXEPDi8APyjo9JXDTjtha2j
+AUTHORIZED_KEYS
+    chmod 0644 "$tmp"
+    cmp -s "$tmp" /etc/ssh/nix_authorized_keys.d/erichblume || {
+      mv -f "$tmp" /etc/ssh/nix_authorized_keys.d/erichblume && changed=1
+    }
+
+    # A config sshd itself rejects must not reach the host.
+    /usr/sbin/sshd -t || {
+      printf >&2 'error: sshd rejected the new configuration (sshd -t)\n'
+      exit 1
+    }
+
+    # On a content-identical generation the files were not replaced: don't
+    # cycle sshd (it would drop in-flight ssh sessions). When the content did
+    # change and the daemon is up - which is never on the first switch, the
+    # launchd slot bootstraps it afterwards - reload it onto the new config.
+    if [ "$changed" = 1 ] && launchctl print system/com.openssh.sshd >/dev/null 2>&1; then
+      launchctl kickstart -k system/com.openssh.sshd
     fi
   '';
 

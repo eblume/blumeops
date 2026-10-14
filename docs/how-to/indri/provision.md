@@ -1,7 +1,7 @@
 ---
 title: Provision Indri
-modified: 2026-10-04
-last-reviewed: 2026-10-04
+modified: 2026-10-14
+last-reviewed: 2026-10-14
 tags:
   - how-to
   - indri
@@ -515,8 +515,9 @@ dialog is answered is the proof for the two consumers that do not tolerate
 a dangling `/etc/static` link:
 
 - `ssh indri` connects (a dangling sshd drop-in makes sshd's `Include`
-  exit 1 and refuse every connection until the mount; the generation now
-  declares no sshd drop-in).
+  exit 1 and refuse every connection until the mount; the generation's only
+  sshd drop-in is the real file its activation wrote, never a store symlink, and it
+  carries key-only auth for erichblume only).
 - `scutil --dns` shows `ts.net` → 100.100.100.100 before login (the
   resolver is a real file the play writes, not a store symlink).
 
