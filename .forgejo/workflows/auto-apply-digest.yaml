@@ -1,0 +1,108 @@
+# Auto-apply Digest
+#
+# The post-hoc audit for the class:auto host-config actions (eblume/blumeops#1525).
+# Auto runs get review after the fact, not before: this posts a weekly digest of
+# push-triggered (auto-applied) runs to ntfy, so a merge that should not have
+# happened surfaces in a review pass. The gate, the preflight, and the red-run
+# ntfy alerts catch the *failure to apply*; the digest catches a bad *decision*.
+#
+# Runs Sunday 12:00 UTC (well clear of the 05:00 ringtail-flake-update, the
+# 06:00 branch-cleanup, and the Monday 07:00 forge-reconcile slots) or on manual
+# dispatch, on nix-container-builder (host mode on ringtail, tailnet-reachable).
+# It holds no privileged credential: the auto-injected GITHUB_TOKEN reads the
+# two target workflows' run history, and the ntfy post is unauthenticated
+# (the same as the auto-apply refusal alerts).
+#
+# The window self-corrects: it covers every push-triggered run of the two
+# auto-apply workflows created at or after the previous *successful* digest run
+# (there were no push-triggered runs before the auto-apply flip, so the first
+# digest is automatically correct, and a failed/missed digest extends the window
+# rather than dropping runs).
+
+name: Auto-Apply Digest
+
+on:
+  schedule:
+    - cron: '0 12 * * 0' # Sunday 12:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: auto-apply-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: nix-container-builder
+    env:
+      FORGE_SERVER_URL: ${{ github.server_url }}
+      FORGE_REPOSITORY: ${{ github.repository }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Build and post the digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="$FORGE_SERVER_URL/api/v1"
+          repo="$FORGE_REPOSITORY"
+          auth="Authorization: token $GITHUB_TOKEN"
+
+          get_runs() {
+            curl -s -f -H "$auth" "$base/repos/$repo/actions/runs?workflow_id=$1"
+          }
+
+          # Window start = the created time of the previous successful digest
+          # run (any run except this one), else epoch 0 for the first digest.
+          window_start=0
+          prev_ts=-1
+          while IFS= read -r line; do
+            id=$(jq -r '.id' <<<"$line")
+            [ "$id" = "$GITHUB_RUN_ID" ] && continue
+            [ "$(jq -r '.status' <<<"$line")" = "success" ] || continue
+            created=$(jq -r '.created' <<<"$line")
+            ts=$(date -d "$created" +%s)
+            if [ "$ts" -gt "$prev_ts" ]; then
+              prev_ts=$ts
+              window_start=$ts
+            fi
+          done < <(get_runs auto-apply-digest.yaml | jq -c '.workflow_runs[]')
+
+          digest=""
+          total=0
+          for wf in ringtail-rebuild.yaml provision-indri.yaml; do
+            while IFS= read -r line; do
+              created=$(jq -r '.created' <<<"$line")
+              ts=$(date -d "$created" +%s)
+              [ "$ts" -ge "$window_start" ] || continue
+              status=$(jq -r '.status // "?"' <<<"$line")
+              sha=$(jq -r '.commit_sha // "?"' <<<"$line")
+              url=$(jq -r '.html_url // "?"' <<<"$line")
+              title=$(jq -r '.title // ""' <<<"$line")
+              row="- ${wf}: ${status} ${sha:0:8} ($created) — ${url}"
+              if [ -n "$title" ]; then
+                row="${row} — ${title}"
+              fi
+              digest="${digest}${row}"$'\n'
+              total=$((total+1))
+            done < <(get_runs "$wf" | jq -c '.workflow_runs[] | select(.trigger_event == "push")')
+          done
+
+          if [ "$total" -gt 0 ]; then
+            title="Auto-apply digest: $total run(s) since $(date -d "@$window_start" +%F)"
+            body="$digest"
+          else
+            title="Auto-apply digest: no push-triggered auto-applies in this window"
+            body="No push-triggered runs of ringtail-rebuild.yaml or provision-indri.yaml since $(date -d "@$window_start" +%F). The digest is alive; nothing auto-applied."
+          fi
+
+          echo "$title"
+          printf '%s' "$body"
+
+          # The digest post is the deliverable: a failed post red-lights the run
+          # (a silent weekly digest that never posts is worse than a red run).
+          curl -s -f -X POST \
+            -H "Title: $title" \
+            -H "Priority: 3" \
+            -H "Tags: memo" \
+            -H "Click: https://forge.ops.eblu.me/eblume/blumeops/issues/1525" \
+            -d "$body" \
+            https://ntfy.ops.eblu.me/ops-approvals
