@@ -45,3 +45,4 @@ Grafana Faro is a Real User Monitoring SDK that captures page loads, web vitals,
 - [[runbook-log-stream-silent]] - indri log stream missing from Loki runbook
 - [[runbook-frigate-camera-down]] - Frigate camera health runbook
 - [[runbook-argocd-out-of-sync]] - ArgoCD sync status runbook
+- [[runbook-authentik-blueprint]] - Authentik blueprint instance error runbook
