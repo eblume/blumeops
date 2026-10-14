@@ -72,6 +72,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Changed-file mode on PRs needs the base ref resolvable here
+          # (`prek run --from-ref ...`). Full history, not just depth N: a
+          # rebased or stale base sits further back than any fixed depth, and
+          # the runner cost of the extra objects is seconds.
+          fetch-depth: 0
 
       # A missing prek must not look like a passing lint job. Same reasoning as
       # mise-tasks/_require: refuse with an explanation rather than degrade.
@@ -86,9 +92,16 @@ jobs:
           fi
           prek --version
 
-      # No SKIP list. Every hook in prek.toml runs here, so this job's result is
-      # the whole of what the hook set checks — nothing is quietly excluded, and the
-      # config cannot drift into holding hooks that no longer run anywhere.
+      # No SKIP list. Every hook in prek.toml is wired to run here, so this
+      # job's result is the whole of what the hook set checks — nothing is
+      # quietly excluded, and the config cannot drift into holding hooks that
+      # no longer run anywhere. The scope, not the membership, is the
+      # invariant: on a PR the hook set runs in changed-file mode (each hook
+      # checks the files it covers that the PR touched — its `files` filter
+      # already decides which changes even reach it), so a PR that touches no
+      # `ansible/` file skips ansible-lint entirely; on a main push or a
+      # dispatch it runs `--all-files`, the backstop that a changed-file PR
+      # can't miss a whole file.
       # Adding a hook that cannot run in a clean checkout re-opens that gap.
       #
       # GITHUB_TOKEN is blanked to make this job's credential-free claim literal.
@@ -108,13 +121,20 @@ jobs:
       # A hook that genuinely needs mise to resolve a tool wants the runner-wide
       # MISE_GITHUB_TOKEN in `envs` (heph 01KZKP8893WM8DQT5N97QF6PBD), not this
       # job's forge token.
-      - name: prek run --all-files
+      - name: prek run
         env:
           GITHUB_TOKEN: ""
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP"
-          prek run --all-files --show-diff-on-failure 2>&1 | tee "$RUNNER_TEMP/lint-prek.log"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="$(jq -r '.pull_request.base.sha' "$GITHUB_EVENT_PATH")"
+            prek run --from-ref "$base" --to-ref HEAD --show-diff-on-failure \
+              2>&1 | tee "$RUNNER_TEMP/lint-prek.log"
+          else
+            prek run --all-files --show-diff-on-failure 2>&1 \
+              | tee "$RUNNER_TEMP/lint-prek.log"
+          fi
 
       - name: Report failure to PR
         if: failure() && github.event_name == 'pull_request'

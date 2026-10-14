@@ -38,9 +38,16 @@ repo = "local"
 [[repos.hooks]]
 id = "ansible-lint"
 name = "ansible-lint"
-entry = "env ANSIBLE_ROLES_PATH=ansible/roles ansible-lint"
+entry = "env ANSIBLE_ROLES_PATH=ansible/roles ansible-lint ansible/"
 language = "python"
-files = "^ansible/"
+# One project-wide run instead of per-file batches: `pass_filenames = false`
+# so CI's file list never reaches the entry, and the entry names the project.
+# `files` only gates WHEN it runs (any `ansible/` file, or its own config,
+# including config-only PRs). `require_serial` keeps it from linting a tree
+# while a hook is rewriting files mid-pass.
+files = '^ansible/|\.ansible-lint$|^prek\.toml$'
+pass_filenames = false
+require_serial = true
 additional_dependencies = ["ansible-lint==26.8.0", "ansible-core==2.21.4"]
 
 # Python - ruff for linting and formatting
