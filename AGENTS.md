@@ -92,6 +92,12 @@ need to confirm through biometric approval.
    glance or a basic grep: a workaround, a hidden constraint, an ordering
    requirement. History, motivation, and "why we changed it" belong in
    commit messages and PR bodies, not in the code.
+10. **Auto-apply lint on host-path PRs.** A PR whose diff touches an
+   auto-apply host path applies all of main to that host at merge: run
+   `mise run lint-auto-apply` (`--pending` before a PR exists, `<pr>`
+   once it does) and paste/refresh its block (`Auto-apply: <host>` line
+   plus the pending list) in the PR body; the `Lint / auto-apply` CI
+   job enforces it ([[auto-apply]]).
 
 ## Project Structure
 
