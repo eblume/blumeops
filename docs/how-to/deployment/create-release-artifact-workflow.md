@@ -68,6 +68,17 @@ Some release flows commit back to `main` (e.g. `build-blumeops.yaml` bumps
 (Forgejo [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)) — so a
 plain `git push origin HEAD:main` is rejected with `pre-receive hook declined`.
 
+> Don't rely on `unprotected_file_patterns` to let the Actions token push to a
+> protected branch: Forgejo's pre-receive handler resolves the pusher by user ID
+> before it evaluates the exemption, and the synthetic Actions user (uid -2)
+> doesn't exist in the users table, so the hook 500s and the push is declined
+> before the exemption is ever consulted. Gitea
+> fixed this upstream in [go-gitea/gitea#39564](https://github.com/go-gitea/gitea/pull/39564),
+> Forgejo had not backported it as of 2026-10-13
+> ([eblume/blumeops#1585](https://forge.ops.eblu.me/eblume/blumeops/issues/1585)). The
+> whitelisted PAT push described below is the only supported way for an Actions
+> workflow to push to protected `main`.
+
 The fix is to authenticate the push as a whitelisted user via a PAT, not the
 automatic token. The PAT is no longer an Actions secret: per-purpose CI
 secrets were retired in favor of job-time `op read` of the `blumeops-ci`
