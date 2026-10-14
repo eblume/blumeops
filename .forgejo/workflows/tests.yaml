@@ -3,8 +3,8 @@
 # so each gate does what it says — Lint lints, Image Pins pins, Tests tests.
 #
 # Same shape as Image Pins and Docs Checks: the check is pure local
-# (pytest over request-run, verify-runs and lint-auto-apply — no network,
-# no cluster, no vault), and GITHUB_TOKEN is blanked so the job stays
+# (pytest over the repo-tooling tests in tests/ — no network, no cluster,
+# no vault), and GITHUB_TOKEN is blanked so the job stays
 # safe on every PR including from a fork.
 # The report-failure step is the one exception: failure-only, automatic per-run token (no repo secret).
 #
