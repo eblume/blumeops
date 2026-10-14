@@ -159,8 +159,8 @@ class FakeForge:
         self.protections: dict[str, list[dict]] = {"blumeops": [_blumeops_main_rule()]}
         # Fields a protection PATCH silently ignores (a 200 that changes nothing).
         self.protection_patch_drops: set[str] = set()
-        # Rule names a protection DELETE silently ignores (a 204 that removes
-        # nothing) — the delete half of protection_patch_drops.
+        # Rule names a DELETE ignores (a 204 that removes nothing) — the
+        # delete half of protection_patch_drops.
         self.protection_delete_drops: set[str] = set()
         # The folded-in horkos-forge blast-radius invariants read these. A fresh
         # forge defaults to a valid (active, non-admin) bot user and a valid
@@ -347,10 +347,6 @@ class FakeForge:
                     return httpx.Response(201, json=rule)
                 return httpx.Response(200, json=self.protections.get(repo, []))
             if tail and tail[0] == "branch_protections" and len(tail) > 1:
-                # The rule name is the remainder of the path joined back: httpx
-                # decodes the encoded slash in a rule like "release/*" (sent as
-                # release%2F*) before we split, exactly as the real Forgejo
-                # decodes the segment server-side.
                 rule_name = "/".join(tail[1:])
                 rule = next(
                     (
@@ -372,9 +368,6 @@ class FakeForge:
                         }
                     )
                 if request.method == "DELETE":
-                    # A rule in protection_delete_drops "does not stick": the
-                    # 204 is served but the rule stays live so the apply's
-                    # read-back fails.
                     if rule_name not in self.protection_delete_drops:
                         self.protections[repo].remove(rule)
                     return httpx.Response(204)

@@ -1571,6 +1571,50 @@ def actions_secret_names_at(ref):
     return _parse_actions_secrets(data)
 
 
+def plan_protection_actions(client, owner, all_repos, protections, blocked):
+    """Plan the branch-protection actions for the file against the live forge,
+    shared by plan_at and main's table build: declared rules become
+    create/update diffs, and any live rule the file does not declare is a
+    pending delete. A repo whose live rule list is unreadable goes into
+    blocked. Returns (protection_actions, live_by_repo); the live list is
+    fetched at most once per repo.
+    """
+    protection_actions: list[tuple[str, str, str, dict[str, tuple[object, object]]]] = []
+    live_by_repo: dict[str, list[dict] | None] = {}
+
+    def fetch_live(repo):
+        if repo not in live_by_repo:
+            live_by_repo[repo] = list_protections(client, owner, repo)
+        return live_by_repo[repo]
+
+    for rule in protections:
+        repo = rule["repo"]
+        live_rules = fetch_live(repo)
+        if live_rules is None:
+            if repo not in blocked:
+                blocked.append(repo)
+            continue
+        live_by_name = {r["rule_name"]: r for r in live_rules}
+        live = live_by_name.get(rule["rule_name"])
+        if live is None:
+            protection_actions.append((repo, rule["rule_name"], "create",
+                                       {f: (None, rule[f]) for f in sorted(PROTECTION_FIELDS)}))
+        else:
+            diff = protection_diff(live, rule)
+            if diff:
+                protection_actions.append((repo, rule["rule_name"], "update", diff))
+    for repo in sorted(all_repos):
+        live_rules = fetch_live(repo)
+        if live_rules is None:
+            if repo not in blocked:
+                blocked.append(repo)
+            continue
+        declared_names = {r["rule_name"] for r in protections if r["repo"] == repo}
+        for rn in sorted({r["rule_name"] for r in live_rules} - declared_names):
+            protection_actions.append((repo, rn, "delete", {}))
+    return protection_actions, live_by_repo
+
+
 def plan_at(client, owner, who, policies, protections):
     """Plan the drift of a (policy, protections) pair against the live forge —
     the read-only core of main's planning, factored out so --pr-base-ref can
@@ -1617,43 +1661,7 @@ def plan_at(client, owner, who, policies, protections):
         _, _, _ = hook_kind_state(
             [h for h in hooks if h.get("config", {}).get("url") == HORKOS_HOOK_URL],
             HORKOS_HOOK_READ_EVENTS, want_release_hook, repo, "horkos", hook_actions)
-    protection_actions = []
-    live_by_repo: dict[str, list[dict] | None] = {}
-
-    def fetch_live(repo):
-        if repo not in live_by_repo:
-            live_by_repo[repo] = list_protections(client, owner, repo)
-        return live_by_repo[repo]
-
-    for rule in protections:
-        repo = rule["repo"]
-        live_rules = fetch_live(repo)
-        if live_rules is None:
-            if repo not in blocked:
-                blocked.append(repo)
-            continue
-        live_by_name = {r["rule_name"]: r for r in live_rules}
-        live = live_by_name.get(rule["rule_name"])
-        if live is None:
-            protection_actions.append((repo, rule["rule_name"], "create",
-                                       {f: (None, rule[f]) for f in sorted(PROTECTION_FIELDS)}))
-        else:
-            diff = protection_diff(live, rule)
-            if diff:
-                protection_actions.append((repo, rule["rule_name"], "update", diff))
-    # The file is the single source of every eblume branch protection, so an
-    # undeclared live rule on any repo is drift the apply would remove — keyed
-    # (repo, "protect", rule_name), so a PR whose head declares such a rule
-    # classifies the base-plan delete as intended.
-    for repo in sorted(all_repos):
-        live_rules = fetch_live(repo)
-        if live_rules is None:
-            if repo not in blocked:
-                blocked.append(repo)
-            continue
-        declared_names = {r["rule_name"] for r in protections if r["repo"] == repo}
-        for rn in sorted({r["rule_name"] for r in live_rules} - declared_names):
-            protection_actions.append((repo, rn, "delete", {}))
+    protection_actions, _ = plan_protection_actions(client, owner, all_repos, protections, blocked)
     return {"actions": actions, "horkos_actions": horkos_actions, "hook_actions": hook_actions,
             "protection_actions": protection_actions, "violations": violations, "blocked": blocked}
 
@@ -2179,71 +2187,44 @@ def main(
                     label_actions.append((repo, name, color, description))
                     hook_table.add_row("label", escape(repo), "no label", "label", "[green]create label[/green]")
 
-        # Branch-protection half: forge/branch-protections.json is now the
-        # single source of ALL eblume branch protections. (repo, rule_name, verb,
-        # {field: (have, want)}) — verb is create (diff is every field, have
-        # None), update, or delete (an undeclared live rule is drift that apply
-        # removes). Live rule lists are fetched once per repo and cached for both
-        # the declared loop and the undeclared scan below.
+        # Branch-protection half: forge/branch-protections.json is the single
+        # source of every eblume branch protection.
         protection_table = Table(title=f"branch protections on {escape(owner)}/*")
         protection_table.add_column("Rule")
         protection_table.add_column("Field")
         protection_table.add_column("Current")
         protection_table.add_column("Desired")
         protection_table.add_column("Action")
-        protection_actions: list[tuple[str, str, str, dict[str, tuple[object, object]]]] = []
-        live_by_repo: dict[str, list[dict] | None] = {}
-
-        def fetch_live(repo):
-            if repo not in live_by_repo:
-                live_by_repo[repo] = list_protections(client, owner, repo)
-            return live_by_repo[repo]
         if missing_repos := sorted({r["repo"] for r in protections} - set(all_repos)):
             console.print(
                 f"[red]{PROTECTIONS_PATH.name} names repos that do not exist under {escape(repr(owner))} "
                 f"(or the token cannot see them): {escape(', '.join(missing_repos))}[/red]"
             )
             raise typer.Exit(1)
-        for repo in sorted({r["repo"] for r in protections}):
-            live_rules = fetch_live(repo)
-            if live_rules is None:
-                if repo not in blocked:
-                    blocked.append(repo)
-                continue
-            live_by_name = {r["rule_name"]: r for r in live_rules}
-            declared = [r for r in protections if r["repo"] == repo]
-            for rule in declared:
-                name = f"{repo}:{rule['rule_name']}"
-                live = live_by_name.get(rule["rule_name"])
-                if live is None:
-                    diff = {f: (None, rule[f]) for f in sorted(PROTECTION_FIELDS)}
-                    protection_actions.append((repo, rule["rule_name"], "create", diff))
-                    protection_table.add_row(escape(name), "(rule)", "none", "rule", "[green]create[/green]")
-                    continue
-                diff = protection_diff(live, rule)
-                if not diff:
-                    protection_table.add_row(escape(name), "", "", "", "[dim]ok[/dim]")
-                    continue
-                protection_actions.append((repo, rule["rule_name"], "update", diff))
+        protection_actions, live_by_repo = plan_protection_actions(client, owner, all_repos, protections, blocked)
+        for repo, rule_name, verb, diff in protection_actions:
+            name = f"{repo}:{rule_name}"
+            if verb == "delete":
+                protection_table.add_row(escape(name), "(rule)", "rule", "none", "[red]delete[/red]")
+            elif verb == "create":
+                protection_table.add_row(escape(name), "(rule)", "none", "rule", "[green]create[/green]")
+            else:
                 for field, (have, want) in diff.items():
                     protection_table.add_row(
                         escape(name), field, escape(show(have)), escape(show(want)), "[yellow]update[/yellow]"
                     )
-        # The declared loop above plans declared rules; this scan makes the file
-        # authoritative for every eblume repo: an undeclared live rule is drift
-        # that apply deletes (and a protections-unreadable repo here is as fatal
-        # as one from the declared loop).
-        for repo in sorted(all_repos):
-            live_rules = fetch_live(repo)
+        # The actions list only names drift, so in-sync declared rules get an
+        # explicit ok row.
+        for repo in sorted({r["repo"] for r in protections}):
+            live_rules = live_by_repo.get(repo)
             if live_rules is None:
-                if repo not in blocked:
-                    blocked.append(repo)
                 continue
-            declared_names = {r["rule_name"] for r in protections if r["repo"] == repo}
-            for extra in sorted({r["rule_name"] for r in live_rules} - declared_names):
-                name = f"{repo}:{extra}"
-                protection_actions.append((repo, extra, "delete", {}))
-                protection_table.add_row(escape(name), "(rule)", "rule", "none", "[red]delete[/red]")
+            live_by_name = {r["rule_name"]: r for r in live_rules}
+            for rule in [r for r in protections if r["repo"] == repo]:
+                name = f"{repo}:{rule['rule_name']}"
+                live = live_by_name.get(rule["rule_name"])
+                if live is not None and not protection_diff(live, rule):
+                    protection_table.add_row(escape(name), "", "", "", "[dim]ok[/dim]")
 
         console.print(table)
         console.print(hook_table)
