@@ -1,1 +1,0 @@
-Point hephaestus's `MAIN_PUSH_TOKEN` source at the new hephaestus-scoped `blumeops-ci/forge-main-push/hephaestus-token` field — the `token` field is repo-restricted to eblume/blumeops, so hephaestus's release push 403'd (#1572, run 341).

@@ -1,1 +1,0 @@
-`forge-reconcile --check` now derives its privileged-runner label gates from `forge/runners.json` and hard-fails any workflow whose `runs-on` targets a label no live runner serves for that repo (declared-label scan, live `forgejo_ci_runner_info` registration check, and a runbook-table consistency check; eblume/blumeops#1526).

@@ -1,1 +1,0 @@
-- Indri's borgmatic now reaches ringtail's dump endpoint as the dedicated `borgmatic` user (forced command, restricted key) instead of `eblume` + sudo k3s kubectl; ringtail's Tailscale SSH (`--ssh`) is off.

@@ -1,1 +1,0 @@
-Update the `loki` service card to match current state: retention is now 365 days, storage request is a 20Gi PVC, the ArgoCD manifest moved to `argocd/manifests/loki-ringtail/`, and the Indri log-source list now matches the alloy ansible role.

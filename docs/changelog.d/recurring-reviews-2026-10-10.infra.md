@@ -1,1 +1,0 @@
-Review frigate-notify: upstream (github.com/0x2142/frigate-notify releases API) re-checked on 2026-10-10 — v0.5.4 (2026-01-13) is still the latest release and is what is deployed (`v0.5.4-e928054-nix`), so no version bump; `last-reviewed` is stamped only. Part of eblume/blumeops#1510.

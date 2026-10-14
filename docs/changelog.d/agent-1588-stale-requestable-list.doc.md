@@ -1,1 +1,0 @@
-Corrected the "Requestable today" list in `AGENTS.md` to match the `class: warrant` set in `warrant-policy.yaml` and documented that the `class: auto` workflows (`ringtail-rebuild.yaml`, `provision-indri.yaml`) are not requestable — they auto-apply on a push to main, per [[auto-apply]] (since #1559). Part of eblume/blumeops#1588.

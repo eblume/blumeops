@@ -1,1 +1,0 @@
-`forgejo_ci_runner_info` gains a `scope` label (`instance`, an owner, or `owner/repo`) so a label advertised by a runner registered to another repo is not mistaken for one that serves blumeops (eblume/blumeops#1515, #1526).

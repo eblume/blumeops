@@ -1,1 +1,0 @@
-The nix-container-builder runner user is no longer a trusted Nix user on ringtail: `nix.settings.trusted-users` reverts to the nixos-26.05 default (`root` only), and its builds run through the daemon as a plain allowed user with the default nixbld build accounts. Part of eblume/blumeops#1358.

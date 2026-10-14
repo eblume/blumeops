@@ -1,1 +1,0 @@
-The `talos-home` PVC gains `argocd.argoproj.io/sync-options: Prune=false`, opting it out of the talos app's `prune: true`: an edit that drops the file from the kustomization can no longer delete the session transcripts and agent workspace.

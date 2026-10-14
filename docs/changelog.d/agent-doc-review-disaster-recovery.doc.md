@@ -1,1 +1,0 @@
-Docs review: refreshed the disaster-recovery index; the ringtail-rebuild row now points at the current ArgoCD bootstrap (`kubectl apply -k argocd/manifests/argocd` + self-management) instead of the completed minikube-retirement plan.

@@ -1,1 +1,0 @@
-Fix the two stale references to the retired `forgejo_actions_secrets` role left by #1551: the release-artifact how-to's step 1 now says `FORGE_TOKEN` is set via the forge UI or API (the pattern predates the in-code values allowlist), and a `forge-reconcile` comment no longer names the deleted role.

@@ -12,6 +12,182 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 <!-- towncrier release notes start -->
 
+## [v1.20.3] - 2026-10-14
+
+### Features
+
+- New nix-built container `authentik-blueprint-exporter` (homegrown Python
+  exporter, the transmission-exporter pattern): a standalone Deployment in
+  the `authentik` namespace that polls each blueprint instance's state
+  through the read-only `ci-authentik-blueprints` service account and
+  serves it as Prometheus metrics for the blueprint alerting in
+  eblume/blumeops#1444, with fixture-based unit tests in CI.
+- request-run now refuses a request whose workflow runs-on label no online runner serves, so a warranted dispatch can no longer queue forever on an unserved label (eblume/blumeops#1515). The check reads the runner fleet through the Grafana datasource proxy with the same talos-m2m identity the warrant mirror uses, and fails closed when the metrics are unreachable.
+
+  Also honors the merged scope label format (#1530): `instance`, owner, and owner/repo runners all count as serving blumeops — previously only a scope-less or exactly-repo-scoped runner did.
+- Add talos dashboard panels for token output share (trailing 1h / 6h / 24h, 6h trend by source) and tokens read per token written.
+
+### Bug Fixes
+
+- `PodNotReady` no longer fires for pods in a terminal phase (`Failed`/`Succeeded`), so the finished pods left behind by ringtail reboots (each with a newer running replacement) stop alerting forever; the rule adds a `kube_pod_status_phase` `unless` clause and the runbook gains a "leftover finished pods after a reboot" signature with the one-line cleanup. Part of eblume/blumeops#1468.
+- Docs Checks re-runs when a PR body is edited, so fixing a flagged after-merge heading re-checks the new body instead of replaying the old one.
+- Point the photos test-restore LaunchAgent at the borgmatic venv's real python (`latest/borgmatic/bin/python`; `latest/bin/python3` never existed) and fail the provision if that interpreter is missing.
+- Homepage allows its in-cluster service host, so the blackbox probe of `/` passes again after the v2.4.0 upgrade widened host validation beyond `/api/*`.
+- indri-build colima gets its docker CLI from nixpkgs docker-client, restoring cold starts broken since Docker Desktop was removed.
+- Ringtail provisioning no longer crashes when a rebuild-status poll fails while the switch restarts dbus; the failed poll is retried.
+- Talos gains a startupProbe (up to 10 minutes) so a slow entrypoint boot is no longer liveness-killed.
+- The ringtail play's runner-token fetch (eblume/blumeops#1520) ran under the play's `become` on the controller and failed with "sudo: a password is required"; it now sets `become: false` like the other delegated `op` reads.
+- forgejo_runner: the build-runner colima profile compare now matches the last render the role installed (a copy in the stage dir), because colima rewrites the live profile with its full defaults on start - and the three build-runner installs report honestly under --check.
+- Narrowed `ArgoCDAppOutOfSync` to apps not labelled manual (`autosync_enabled!="false"`, so an unlabelled app fails toward alerting) and added `ArgoCDManualAppPendingSync` (24h, info) for the four by-design manual apps, so a pending human sync no longer reads as an incident.
+- Tailscale proxy pods, the tailscale operator Deployment, and the gpu-husk-reaper CronJob now use `imagePullPolicy: IfNotPresent` for their zot-served, digest-pinned images, so a registry outage no longer wedges workloads whose images are already cached (cold-start deadlock #1226).
+
+### Infrastructure
+
+- Enable rotation on indri's operational (Tier B) borgmatic backups: the ops agent now runs `create prune compact` with the 7/4/12 retention (yearly unlimited), matched to `operational-*` archives only. Also: the ops repo is flipped off append-only (its #1441 create made it append-only, which would have made `compact` a silent no-op and rotation reclaim nothing), the collector exports `borgmatic_recycle_size_bytes` (sifaka's SMB recycle bin must stay disabled or `compact` reclaims nothing), `BorgmaticStale` no longer double-alerts on the operational repo (solely `BorgmaticOpsStale`), and the ops `repo-create` is scoped with `--repository` behind a sifaka-mount assert. Part of eblume/blumeops#1417.
+- The immich-photos verification test-restore now runs under the TCC-granted responsible binary (the pipx venv python launches the role's bash script as a subprocess) so the live /Volumes/photos read is attributed to the granted identity instead of /bin/bash; a permission error (EPERM/EACCES) on the live read now fails the run (no marker) instead of being silently swallowed, transient per-file problems (a file deleted since the backup, an extract/ssh blip) are skipped with a logged reason, a hash mismatch still fails the run, and the compared/skipped/mismatched counts are exported as new gauges (borgmatic_test_restore_{compared,skipped,mismatched}_files). A new BorgmaticTestRestoreStale Grafana alert fires when no successful test restore is recorded for 14 days (noDataState Alerting, since a missing series is itself the failure). Part of eblume/blumeops#1417.
+- Egress-gateway `ts` sidecar now serves containerboot's /healthz (TS_ENABLE_HEALTH_CHECK, bound [::]:9002) and carries an httpGet readiness probe on it, so the pod is Ready only once tailscaled is logged in with tailnet IPs — a rejected Tailscale auth key can no longer produce a Ready pod and take the tailnet identity off the old gateway pod during a rollout.
+  Part of eblume/blumeops#1487.
+- Move Forgejo Actions-secret value management out of the retired `forgejo_actions_secrets` ansible role into `mise run forge-reconcile`'s apply mode: a human run `op read`s each secret's 1Password source and PUTs/DELETEs it (the CI token only reports and exits 0), with names drift-checked against the new `forge/actions-secrets.json` declared-state file.
+- Removed the gamedev entry from `forge/runners.json` `label_exceptions` — its CI now runs host-mode on `indri-build` ([eblume/gamedev#5](https://forge.ops.eblu.me/eblume/gamedev/pulls/5)), so the runner-label drift check covers the repo again.
+- Add the optional `auto_filers` key to the horkos instance document, wiring the `argocd/apps/` merge-hook warrant filer (eblume/horkos#54) — a main merge touching the app-of-apps root files the `argocd-sync-apps.yaml` request bound to the merged SHA.
+- Set HORKOS_GIT_EMAIL in the horkos deployment so pin-PR commits carry the horkos principal's author email after the instance-doc release.
+- Move indri's alloy LaunchAgent and the macos-power-metrics root LaunchDaemon
+  to nix-darwin at the roles' labels and plist paths, key-for-key identical to
+  the role's renders: the unit execs the source-built CGO alloy binary (the
+  nixpkgs package builds with the netgo tag, which breaks Tailscale MagicDNS,
+  and is older, so the binary stays role-side) and the daemon the role-rendered
+  /usr/local/bin script; the role's gate covers only the plist + load tasks of
+  both units, and the daemon has no post-reboot gap (the plist is a real file
+  launchd re-registers at every boot; the only lost-samples window is the
+  rollback drill). Part of eblume/blumeops#1291.
+- Documented indri-build's Nix access as the unprivileged default-profile bin
+  dir on the runner PATH with a hard constraint that indri-build is never a
+  trusted Nix user (eblume/blumeops#1358).
+- indri: adopt Homebrew into the nix-darwin generation — `homebrew.*` enabled with a Brewfile (tailscale, mise, fish) bundled every activation with cleanup=none, autoUpdate=false, upgrade=false; the playbook's mise install and version-floor check retire with it (eblume/blumeops#1538).
+- Split the `pull_request`-triggered `indri` jobs (`forge-reconcile`,
+  `indri-flake-check`, `lint` → `workflows-validate`) onto the unprivileged
+  `indri-build` runner via a trigger-conditional `runs-on`, so nothing
+  triggerable by a PR executes on the privileged `indri` label (#1358).
+- Move `provision-indri` onto the dedicated `indri-priv` runner label, advertised by the same physical indri runner alongside `indri`, and name both privileged labels in the warrant invariants doc — the warrant-only workflow class is now enforced by label as well as trigger (#1358).
+- forge-reconcile `--check` now fails on any repo targeting a privileged runner
+  label it is not declared to (indri, indri-priv, priv, nix-container-builder) —
+  the label-usage drift guard for the #1358 runner re-scoping.
+- Turn the talos session reaper live (TALOS_SESSION_REAPER_DRY_RUN 1→0): after the dry-run report reviewed clean, the daily sweep deletes transcripts idle 30+ days, gated by the borg backup interlock. Part of eblume/talos#295.
+- Document restoring a reaped (tombstoned) talos session next to the single-session borgmatic runbook, and set the session-reaper env (`TALOS_SESSION_REAPER_DAYS`, `TALOS_SESSION_REAPER_DRY_RUN`, dry-run on) in the talos deployment. Part of eblume/talos#295.
+- The nix-container-builder runner user is no longer a trusted Nix user on ringtail: `nix.settings.trusted-users` reverts to the nixos-26.05 default (`root` only), and its builds run through the daemon as a plain allowed user with the default nixbld build accounts. Part of eblume/blumeops#1358.
+- Scope ringtail's forgejo-actions-runner registrations per repo (eblume/blumeops#1358) — the shared instance-global token is replaced by four repo-scoped tokens; nix-container-builder becomes three daemons (one per registered repo, label shared, capacity 1 each, up to three parallel builds), priv a single eblume/blumeops registration.
+- Talos deployment carries the instance-config env block from eblume/talos#314 (forge/owner/bot, allowlist, assignee, horkos, argocd, OIDC issuer, OpenRouter referer, prometheus, git identity): inert on the current image, required by the next. The `repos.json` pool comment is corrected to the ConfigMap-only delivery path.
+- The `talos-home` PVC gains `argocd.argoproj.io/sync-options: Prune=false`, opting it out of the talos app's `prune: true`: an edit that drops the file from the kustomization can no longer delete the session transcripts and agent workspace.
+- Additive `tag:talos` Tailscale principal (ACL grant, tagOwners, tests), `talos-key` auth key, and `talos-authkey-sync` task, mirroring `tag:agent` ahead of the cutover. Part of eblume/blumeops#1165.
+- Dropped the retired `tag:agent` Tailscale principal: the ACL grant, tagOwners entry, and both tests, the `agent-key` mint and `agent_authkey` export, and the `agent-authkey-sync` task — the `tag:talos` twins carry the fence. Stale doc references to the old name updated. Part of eblume/blumeops#1165.
+- Talos egress-gateway cutover from `tag:agent` to `tag:talos`: new `ts-talos-authkey` ExternalSecret (1Password item `talos Tailscale Auth Key`), old `ts-agent-authkey` ExternalSecret dropped, gateway `secretKeyRef` re-pointed, doc/comment mentions updated, `tag:talos` row added to the tailscale reference. Merging this PR rolls the gateway pod — the sanctioned cutover blip. Part of eblume/blumeops#1165.
+- Forgejo CI observability: the indri forgejo collector now reads Actions job, queue-wait, runner-utilization and approval-backlog metrics from Forgejo's DB, and covers every repo while dropping a cycle from ~50 s to ~4 s. The Forgejo dashboard is rebuilt around these metrics, and new `ForgejoRunnerOffline`/`ForgejoCICollectorDown` alerts watch the runners.
+- Add the `ForgejoCIQueueStuck` alert: a CI job waiting over 30 minutes on a label with nothing running, the shape of the 2026-10-10 stranded provision-indri run (eblume/blumeops#1515). Runbook section added; horkos.md now lists provision-indri as requestable.
+- `forgejo_ci_runner_info` gains a `scope` label (`instance`, an owner, or `owner/repo`) so a label advertised by a runner registered to another repo is not mistaken for one that serves blumeops (eblume/blumeops#1515, #1526).
+- Turn off talos lane shaping (`lanes.json` `enabled: false`): the local-inference purchase it was sizing is decided, and its virtual lane was adding modeled latency to real turns.
+- Move indri's never-lose backup sources from the operational tier into the never-pruned archive tier (the #1417 tier split): `~/forgejo` (minus mirrors, the live WAL DB, and the regenerable/ephemeral churn), and the heph, forgejo, horkos and paperless-media dumps (staged into the archive config's `k8s-dumps-archive/`) plus the paperless pg dump (via its `postgresql_databases` block) — now landing in the `indri-*` archives on sifaka-local and BorgBase offsite. The main config also gains `compression: auto,zstd` for new chunks. Part of eblume/blumeops#1417.
+- warrant policy gains the `auto` class: ringtail-rebuild, provision-indri, and build-container are event-triggered on push to main (nixos/ringtail/**, darwin/indri/**, containers/**) with the merge commit as approval — no warrant, not requestable; request-run now refuses auto-class actions, and the two host workflows gate every push to the merge commit of a merged PR plus a runner-liveness preflight before applying, serializing runs via a top-level `concurrency` group and feeding that preflight from the `FORGE_ACTIONS_RO` secret declared in `forge/actions-secrets.json` plus forge-reconcile (#1525).
+- Both host apply paths now record a per-SHA verdict sidecar that starts as "started <epoch>" at launch, so a hang, panic or power loss is no longer silent: ringtail-apply writes /var/log/ringtail-apply/<sha>.status, the indri launcher takes an atomic mkdir lock so two detached darwin-rebuild switches cannot race, and new per-host watchers (ringtail systemd timer, indri launchd agent) ntfy ops-approvals on any non-success sidecar and on a stale "started" sidecar with no verdict. The supersede skip now requires origin/main to have moved in that host's trigger paths, so a docs-only merge can no longer drop a merged apply for good. Part of eblume/blumeops#1525.
+- Declare the live `main` branch protections for `talos` and `horkos` in
+  `forge/branch-protections.json`, matching live state exactly (horkos
+  declares `block_on_rejected_reviews=false`, its live value).
+- authentik blueprint-state exporter wired into the `authentik` app: standalone
+  Deployment + Service (image pinned by digest), an alloy-ringtail scrape, and
+  the `authentik-blueprints` alert group (`AuthentikBlueprintError`
+  recency-based over 75m and keyed on path,
+  `AuthentikBlueprintCollectorDown`, `AuthentikBlueprintInstanceCountLow`) plus
+  the runbook. Part of eblume/blumeops#1444.
+- Point hephaestus's `MAIN_PUSH_TOKEN` source at the new hephaestus-scoped `blumeops-ci/forge-main-push/hephaestus-token` field — the `token` field is repo-restricted to eblume/blumeops, so hephaestus's release push 403'd (#1572, run 341).
+- `forge-reconcile --check` now derives its privileged-runner label gates from `forge/runners.json` and hard-fails any workflow whose `runs-on` targets a label no live runner serves for that repo (declared-label scan, live `forgejo_ci_runner_info` registration check, and a runbook-table consistency check; eblume/blumeops#1526).
+- Add a per-repo `nix-container-builder` Forgejo runner instance for `eblume/hephaestus` on ringtail (own registration token from 1Password, written by `provision-ringtail`) and allow `hephaestus` to target the `nix-container-builder` label in the forge-reconcile label policy, so its `validate-linux` CI job has a runner.
+- Add a `hephaestus` branch-protection rule to `forge/branch-protections.json` requiring both Build checks (`validate` and `validate-linux`), mirroring the blumeops rule with eblume-only whitelists and changelog-only pushes (`CHANGELOG.md`, `docs/changelog.d/**`) left unprotected for the Actions-token release workflow.
+- Declare `MAIN_PUSH_TOKEN` for eblume/hephaestus, so its release workflow can push the changelog commit to the branch-protected `main` with a whitelisted PAT, and demote the `agents` bot on hephaestus from write/canonical to read/fork — forge-reconcile's Actions-secret fence refuses write on a repo that carries secrets. The source is the `blumeops-ci/forge-main-push/hephaestus-token` field — a hephaestus-scoped PAT, because the item's `token` field (blumeops's own read) is repo-restricted to eblume/blumeops.
+- New `mise run lint-auto-apply` task gates PR bodies on the auto-apply
+  declaration: a plain `Auto-apply: <host>` line per affected host plus every
+  pending host change on main named inside that host's blockquote block
+  (hosts and paths derived from warrant-policy.yaml and the workflows'
+  `on.push.paths`, baseline from the host workflow's Actions run history).
+  The derivation fails closed (a `class: auto` workflow must list a host glob
+  or be allowlisted), and it runs in CI as the `Lint / auto-apply` job on
+  every PR. The ringtail and indri auto-apply workflows now also trigger on
+  the shared forge-runner inputs `forge/runners.nix` / `forge/runners.json`,
+  which their configs import — a change there is a host change, so it gets
+  applied (and declared) instead of piling up on main.
+- Extract the PR-body after-merge check from docs-checks.yaml into the standalone
+  `pr-body-lint` mise task, which the workflow now calls: agents can run the exact
+  Docs Checks check locally before posting a PR body (`./mise-tasks/pr-body-lint`
+  or `mise run pr-body-lint`), and its pytest table of must-match/must-pass
+  headings is mirrored in the talos `tea` wrapper so pattern drift fails as a
+  test instead of a silent difference. Part of eblume/talos#323.
+- Add the inert ringtail half of per-principal borgmatic SSH (eblume/blumeops#1484 PR 1): a dedicated `borgmatic` system user, a root-owned `/etc/borgmatic/borgmatic-dump` script holding the fixed table of the eight k8s/PV dumps, and a sudo rule scoped to that script alone. No key is authorized yet, so nothing can reach it; the indri cutover is PR 2.
+- - Indri's borgmatic now reaches ringtail's dump endpoint as the dedicated `borgmatic` user (forced command, restricted key) instead of `eblume` + sudo k3s kubectl; ringtail's Tailscale SSH (`--ssh`) is off.
+- Forge runners get a single declared topology, `forge/runners.json` (name, host, labels, scope, capacity, unit): the ringtail nix instances and the indri collector's capacity lines are now generated from it, and every entry is validated at evaluation time. The forge-reconcile policy and drift check come in a follow-up PR (eblume/blumeops#1526).
+- Ringtail's Ansible `pre_tasks` no longer seed the on-host secret files: the human-run `seed-secrets ringtail` task is now the sole seeder; the vault-free `--check` drift gate follows separately as a host systemd timer on ringtail (eblume/blumeops#1524).
+- Mechanism PR of eblume/blumeops#1524: new `mise run seed-secrets` task (human-run on gilbert) seats on-host secret files from the vault, with `seed-secrets --check` as the vault-free weekly drift gate; new per-host `secrets.json` manifests declare those files (path, `op://` source, owner, mode, unit to restart); and a per-host flake invariant (invariants.nix lockstep) fails the flake-check build on a referenced-but-undeclared or declared-but-unreferenced secret path. New how-to card [[seed-secrets]]. No operational change — nothing seeds until a human runs the task.
+- The `seed-secrets-check` timer now runs once at boot (`OnBootSec=15min`) in addition to the weekly calendar — a fresh ringtail deploy or reinstall no longer pages on `SeedSecretsCheckStale` before the first run.
+- Weekly host systemd timer (`seed-secrets-check.timer`) on ringtail now drives the vault-free `seed-secrets --check` drift gate for the on-host secret files declared in `nixos/ringtail/secrets.json` (the #1524 follow-on): it runs `--check --local` as root in a nix-built Python env (the script's rich/typer deps, fully offline from the store — no ssh route from CI, no vault, no PyPI fetch at check time), writes an ok + timestamp textfile metric scraped by ringtail's Alloy, and Grafana alerts on `SeedSecretsCheckFailed` / `SeedSecretsCheckStale` via a new runbook. Part of eblume/blumeops#1524.
+- The repo-tooling unit tests moved out of the Image Pins job into their own `Tests` workflow (`Tests / horkos-test`), added as a required context on main.
+- Pin the heph release to v1.10.6 in both places: the hub (`heph_version`, indri ansible role) and the ringtail spokes (`hephTag`). v1.10.6 ships a CLI guard refusing an empty or whitespace-only `--body -` stdin (preventing accidental full-body overwrites) and a real `heph show --json` (node-only JSON, identical to `heph get`) — [eblume/hephaestus#89](https://forge.ops.eblu.me/eblume/hephaestus/issues/89).
+- Homepage: stamped last-reviewed at v2.4.0 following the v1→v2 migration; the reference card now tracks v2.4.0 and drops the pending-migration note.
+- Migrated the gethomepage service to v2.4.0 (v1.13.2 was the last v1 release).
+- The horkos deployment carries the instance-config env block and `release-targets.json` ConfigMap from eblume/horkos#52 (OIDC root, human door, public URL, registry, repo identity, policy file, PR assignee, release topology): inert on the current image, required by the instance-document release. The horkos ArgoCD Application's sync policy gains `prune: true` for the kustomize-generated ConfigMap GC; the `horkos-data` PVC (the approval queue) is annotated `Prune=false` so a future edit that drops it from the manifests can't delete it.
+- Removed the horkos auto-filer drill touch comment from `argocd/apps/homepage.yaml` and its changelog fragment ([eblume/horkos#54](https://forge.ops.eblu.me/eblume/horkos/issues/54)); no rendered resources change.
+- Raise the `indri-build` runner from 2 to 4 slots: a blumeops PR push starts
+  6-8 check jobs at once on it, so a quarter of jobs (25%, 291 of 1,170 over 14
+  days) waited more than 30s for a free slot (eblume/blumeops#1518). The build
+  runner gets its own `forgejo_runner_build_capacity` variable (indri-runner
+  stays on `forgejo_runner_capacity: 2`), its colima VM is sized up to 6 CPU /
+  6 GiB to carry 4 concurrent jobs, and the collector's static
+  `forgejo_ci_runner_capacity{runner="indri-build"}` line moves to 4 in step.
+- homepage v2.4.0: auto-pin from eblume/blumeops `49aa281` — image pin bumped to `v2.4.0-49aa281-nix`.
+- horkos v0.5.36: auto-release from eblume/horkos `1138886` — image pin bumped to `v0.5.36-1138886-nix`.
+- horkos v0.5.37: auto-release from eblume/horkos `63b1c48` — image pin bumped to `v0.5.37-63b1c48-nix`.
+- horkos v0.5.38: auto-release from eblume/horkos `4e02435` — image pin bumped to `v0.5.38-4e02435-nix`.
+- horkos v0.5.39: auto-release from eblume/horkos `1dde2e3` — image pin bumped to `v0.5.39-1dde2e3-nix`.
+- horkos v0.5.40: auto-release from eblume/horkos `c546372` — image pin bumped to `v0.5.40-c546372-nix`.
+- Bump frigate 0.17.1 → 0.18.0-tensorrt and commit the pre-migrated config: the two camera motion masks and the person-filter mask move to the named-dict format and `version: 0.18-0` is pinned so Frigate's startup migrator is a no-op (the config is copied fresh from the ConfigMap into an emptyDir on every start). Validated against 0.18.0's own `--validate-config`; no other breaking changes apply to this deployment (no hwaccel transcode, no genai/DeGirum/JinaV2 usage). Part of eblume/blumeops#1471.
+- Review homepage: healthy at v1.13.2, the last v1 release of gethomepage — no newer version on the current train, so the app stays put and only `last-reviewed` is stamped; the v1→v2 migration (latest v2.4.0) is filed as its own issue. Adds the missing homepage reference card. Part of eblume/blumeops#1482.
+- Review frigate-notify: upstream (github.com/0x2142/frigate-notify releases API) re-checked on 2026-10-10 — v0.5.4 (2026-01-13) is still the latest release and is what is deployed (`v0.5.4-e928054-nix`), so no version bump; `last-reviewed` is stamped only. Part of eblume/blumeops#1510.
+- CloudNativePG operator 1.29.1 → 1.30.1 (1.29 series is EOL upstream); the
+  bump picks up the CVE-2026-55769 and CVE-2026-84304 fixes. The 1.30 CEL-immutable
+  `cluster` reference change has no surface here — no Database, Pooler, Publication,
+  Subscription, or ScheduledBackup CRs exist.
+- talos v0.4.195: auto-release from eblume/talos `e4cad24` — image pin bumped to `v0.4.195-e4cad24-nix`.
+- talos v0.4.196: auto-release from eblume/talos `9fbcdb7` — image pin bumped to `v0.4.196-9fbcdb7-nix`.
+- talos v0.4.199: auto-release from eblume/talos `522b6d0` — image pin bumped to `v0.4.199-522b6d0-nix`.
+- talos v0.4.200: auto-release from eblume/talos `daca4c6` — image pin bumped to `v0.4.200-daca4c6-nix`.
+- talos v0.4.201: auto-release from eblume/talos `f915593` — image pin bumped to `v0.4.201-f915593-nix`.
+- talos v0.4.204: auto-release from eblume/talos `477852a` — image pin bumped to `v0.4.204-477852a-nix`.
+- talos v0.4.212: auto-release from eblume/talos `43a47c7` — image pin bumped to `v0.4.212-43a47c7-nix`.
+
+### Documentation
+
+- Docs review: refreshed the disaster-recovery index; the ringtail-rebuild row now points at the current ArgoCD bootstrap (`kubectl apply -k argocd/manifests/argocd` + self-management) instead of the completed minikube-retirement plan.
+- Corrected the stale "nixpkgs rustc lags heph's floor" comments in the heph spoke install docs and ansible role defaults: ringtail's nixos-26.05 ships rustc 1.95.0, which meets heph's real 1.95 floor ([eblume/hephaestus#96](https://forge.ops.eblu.me/eblume/hephaestus/pulls/96)); the rationale is direct rust release tracking via mise/rustup.
+- Corrected the two stale "the agent pod ships no node" lines in AGENTS.md and the agent-lint task comment: the pod ships node (nix-provided, eblume/talos#320), and the pod now skips prettier via `SKIP` in pre-push while CI keeps running it. Part of eblume/talos#320.
+- New reference card [[declared-state-files]]: the inventory of repo files that declare live state elsewhere, the owner-task / `--check` convention, and the rule that only blumeops names this instance (talos and horkos stay generic).
+- Reaped-session restore runbook: single-pass borg→tar extract, and correct the claim that `kubectl cp` keeps mtime (it doesn't; the interlock skips a restored file until the next backup).
+- Documents the confirmed borg key-escrow posture in [[borgmatic]] (new Key escrow section) and [[backups]]: all four repos are repokey with one shared passphrase handwritten on the physical Emergency Kit; the paper-format key exports for all four repos live in 1Password (matched by repository ID) as insurance against a damaged stored key. Part of eblume/blumeops#1417.
+- The BorgBase SSH key (`borgmatic@indri`) is confirmed append-only on both repos (`immich-photos`, `indri-borgmatic`) from the dashboard as of 2026-10-13, replacing the "pending dashboard confirmation" caveat in the [[borgmatic]] verification note; the offsite thinning dry-run gate is cleared. Part of eblume/blumeops#1417.
+- Update the `loki` service card to match current state: retention is now 365 days, storage request is a 20Gi PVC, the ArgoCD manifest moved to `argocd/manifests/loki-ringtail/`, and the Indri log-source list now matches the alloy ansible role.
+- Replaced the stale `request-run` header lines in `.forgejo/workflows/ringtail-rebuild.yaml` and `.forgejo/workflows/provision-indri.yaml` — both are `class: auto` in `warrant-policy.yaml` since #1559, so `request-run` refuses them — with the push-to-main auto-apply + `workflow_dispatch` fallback story (docs/explanation/auto-apply.md), and corrected the `request-run` refusal-set wording in `AGENTS.md` to unknown, `class: deny`, or `class: auto`. Part of eblume/blumeops#1588.
+- The main-push exception paragraph in `docs/reference/services/forgejo.md` now names both `blumeops-ci/forge-main-push` item fields (blumeops's `token`, read at job time, and hephaestus's `hephaestus-token`, declared as `MAIN_PUSH_TOKEN`) instead of one shared PAT.
+- Documented that Forgejo's `unprotected_file_patterns` branch-protection exemption cannot be relied on for pushes made with the automatic Actions token — the pre-receive handler 500s resolving the synthetic uid -2 user before the exemption is evaluated (Gitea fixed upstream in go-gitea/gitea#39564, not backported as of 2026-10-13) — so a whitelisted PAT push is the only supported route to protected `main` (eblume/blumeops#1585).
+- Recorded the #1560 scope decision in [[auto-apply]] (§Honest scoping of main-write): both CI-held main-write credentials (`FORGE_REPO_WRITE_TOKEN`, `MAIN_PUSH_TOKEN`) are accepted at the `blumeops-ci` trust tier with no re-mint, and the non-eblume-bot option is rejected with its reasoning.
+- Fix the two stale references to the retired `forgejo_actions_secrets` role left by #1551: the release-artifact how-to's step 1 now says `FORGE_TOKEN` is set via the forge UI or API (the pattern predates the in-code values allowlist), and a `forge-reconcile` comment no longer names the deleted role.
+- Corrected the "Requestable today" list in `AGENTS.md` to match the `class: warrant` set in `warrant-policy.yaml` and documented that the `class: auto` workflows (`ringtail-rebuild.yaml`, `provision-indri.yaml`) are not requestable — they auto-apply on a push to main, per [[auto-apply]] (since #1559). Part of eblume/blumeops#1588.
+- Marked the two superseded directions: the provision-* decomposition via item copies into blumeops-ci (blumeops-ci-item-migration) and Phase 2 vault tiering (warrant-approval-gated-runs) now point at the seed-file pattern — no provision secret moves into blumeops-ci, the nix apply path reads no vault. The seed-secrets docs no longer claim the weekly --check gate exists; it comes as the follow-on host timer (eblume/blumeops#1524).
+- AGENTS.md: two new rules — code comments are for non-obvious mechanics only; auto-apply lint on PRs touching auto-apply host paths (run `mise run lint-auto-apply`, include/refresh its `Auto-apply: <host>` block in the PR body).
+- Docs review: corrected `reference/operations/backup.md` target claim — BorgBase is an offsite target for the archive and photos tiers, not Sifaka alone; stamped last-reviewed.
+- Reviewed reference/services/immich.md against deployed state (ArgoCD `immich-ringtail` synced/healthy, image tags and VectorChord 17-0.5.0 pin confirmed in repo), stamped last-reviewed 2026-10-10, added related links (`caddy`, `service-versions`), and corrected the stale "staging deployment" header comment in `argocd/apps/immich-ringtail.yaml` — the minikube `immich` app no longer exists.
+- Review `gilbert` host card: drop the stale claim that its dev tools are managed by blumeops, and stamp last-reviewed.
+
+### Miscellaneous
+
+- No-op drill commit: the merge is the first live auto-apply of a host-config change (eblume/blumeops#1525 B1). Applies an eval-identical ringtail profile.
+- Weekly ntfy digest of push-triggered (auto-applied) host-config runs — the post-hoc audit for the class:auto actions ([[auto-apply]]).
+
+
 ## [v1.20.2] - 2026-10-06
 
 ### Features

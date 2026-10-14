@@ -1,1 +1,0 @@
-Add a `hephaestus` branch-protection rule to `forge/branch-protections.json` requiring both Build checks (`validate` and `validate-linux`), mirroring the blumeops rule with eblume-only whitelists and changelog-only pushes (`CHANGELOG.md`, `docs/changelog.d/**`) left unprotected for the Actions-token release workflow.

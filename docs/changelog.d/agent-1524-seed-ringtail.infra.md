@@ -1,1 +1,0 @@
-Ringtail's Ansible `pre_tasks` no longer seed the on-host secret files: the human-run `seed-secrets ringtail` task is now the sole seeder; the vault-free `--check` drift gate follows separately as a host systemd timer on ringtail (eblume/blumeops#1524).

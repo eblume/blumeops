@@ -1,1 +1,0 @@
-Scope ringtail's forgejo-actions-runner registrations per repo (eblume/blumeops#1358) — the shared instance-global token is replaced by four repo-scoped tokens; nix-container-builder becomes three daemons (one per registered repo, label shared, capacity 1 each, up to three parallel builds), priv a single eblume/blumeops registration.

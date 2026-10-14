@@ -1,1 +1,0 @@
-The main-push exception paragraph in `docs/reference/services/forgejo.md` now names both `blumeops-ci/forge-main-push` item fields (blumeops's `token`, read at job time, and hephaestus's `hephaestus-token`, declared as `MAIN_PUSH_TOKEN`) instead of one shared PAT.

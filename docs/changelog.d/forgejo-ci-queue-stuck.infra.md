@@ -1,1 +1,0 @@
-Add the `ForgejoCIQueueStuck` alert: a CI job waiting over 30 minutes on a label with nothing running, the shape of the 2026-10-10 stranded provision-indri run (eblume/blumeops#1515). Runbook section added; horkos.md now lists provision-indri as requestable.

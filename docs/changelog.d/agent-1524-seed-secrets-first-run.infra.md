@@ -1,1 +1,0 @@
-The `seed-secrets-check` timer now runs once at boot (`OnBootSec=15min`) in addition to the weekly calendar — a fresh ringtail deploy or reinstall no longer pages on `SeedSecretsCheckStale` before the first run.

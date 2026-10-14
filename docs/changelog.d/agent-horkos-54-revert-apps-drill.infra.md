@@ -1,1 +1,0 @@
-Removed the horkos auto-filer drill touch comment from `argocd/apps/homepage.yaml` and its changelog fragment ([eblume/horkos#54](https://forge.ops.eblu.me/eblume/horkos/issues/54)); no rendered resources change.

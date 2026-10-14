@@ -1,1 +1,0 @@
-Recorded the #1560 scope decision in [[auto-apply]] (§Honest scoping of main-write): both CI-held main-write credentials (`FORGE_REPO_WRITE_TOKEN`, `MAIN_PUSH_TOKEN`) are accepted at the `blumeops-ci` trust tier with no re-mint, and the non-eblume-bot option is rejected with its reasoning.

@@ -1,1 +1,0 @@
-Documents the confirmed borg key-escrow posture in [[borgmatic]] (new Key escrow section) and [[backups]]: all four repos are repokey with one shared passphrase handwritten on the physical Emergency Kit; the paper-format key exports for all four repos live in 1Password (matched by repository ID) as insurance against a damaged stored key. Part of eblume/blumeops#1417.

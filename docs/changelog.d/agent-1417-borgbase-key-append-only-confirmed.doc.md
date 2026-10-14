@@ -1,1 +1,0 @@
-The BorgBase SSH key (`borgmatic@indri`) is confirmed append-only on both repos (`immich-photos`, `indri-borgmatic`) from the dashboard as of 2026-10-13, replacing the "pending dashboard confirmation" caveat in the [[borgmatic]] verification note; the offsite thinning dry-run gate is cleared. Part of eblume/blumeops#1417.

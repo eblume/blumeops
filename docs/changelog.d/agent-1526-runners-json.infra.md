@@ -1,1 +1,0 @@
-Forge runners get a single declared topology, `forge/runners.json` (name, host, labels, scope, capacity, unit): the ringtail nix instances and the indri collector's capacity lines are now generated from it, and every entry is validated at evaluation time. The forge-reconcile policy and drift check come in a follow-up PR (eblume/blumeops#1526).

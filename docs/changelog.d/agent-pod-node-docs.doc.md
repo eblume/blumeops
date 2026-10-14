@@ -1,1 +1,0 @@
-Corrected the two stale "the agent pod ships no node" lines in AGENTS.md and the agent-lint task comment: the pod ships node (nix-provided, eblume/talos#320), and the pod now skips prettier via `SKIP` in pre-push while CI keeps running it. Part of eblume/talos#320.
