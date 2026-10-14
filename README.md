@@ -84,7 +84,7 @@ Changes reach main by one of two routes:
 
 - **Direct to main** - small fix-forward-safe changes, from an interactive human session
 - **Feature branch + PR** - everything larger, and all remote-agent work (the
-  `agents` bot is read-only on canonical). Documentation written before code
+  `talos` bot is read-only on canonical). Documentation written before code
 
 See the [agent change process](docs/explanation/agent-change-process.md) for
 details.

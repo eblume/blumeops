@@ -13,7 +13,7 @@
 # builders, so the sandbox needs no docker.
 #
 # Revision reachability caveat (same as argocd-deploy): checkout fetches from
-# canonical, so a SHA that only exists on the agents fork (pre-merge PR head)
+# canonical, so a SHA that only exists on the talos fork (pre-merge PR head)
 # will not resolve. Post-merge SHAs and "main" always work — start there.
 name: Deploy Fly.io Proxy
 

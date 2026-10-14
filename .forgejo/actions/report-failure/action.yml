@@ -3,7 +3,7 @@
 # forge UI; see [[agent-change-process]]).
 #
 # Post mode, picked per PR:
-#   - PR author in `trigger-authors` (default `agents`): a review with event
+#   - PR author in `trigger-authors` (default `talos`): a review with event
 #     COMMENT — the talos forge loop picks it up like any review and starts a
 #     fix cycle. The body is filtered build output, i.e. untrusted text; talos
 #     is prompted to treat it as evidence of a failure to diagnose, not
@@ -49,7 +49,7 @@ inputs:
   trigger-authors:
     description: 'Comma-separated PR author logins whose notice posts as a review (starts a talos cycle); others get a plain comment'
     required: false
-    default: 'agents'
+    default: 'talos'
   max-reviews:
     description: 'ci-report reviews per PR before a single plain "a human should look" comment replaces further reviews'
     required: false

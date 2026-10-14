@@ -22,7 +22,7 @@ There are two routes, and which one applies is mostly decided by *who* you are r
 | **Direct to main** | An interactive human session making a small, fix-forward-safe change | Orphan prefix: `+<slug>.<type>.md` |
 | **Feature branch + PR** | Everything larger, and **all remote-agent work** | Branch name: `<branch>.<type>.md` |
 
-Remote agents have no choice in the matter: the `agents` bot is read-only on canonical, so a direct commit to `main` is not something it can do. Branch off `upstream/main`, push to `origin`, open a cross-repo PR. See `AGENTS.md` for the authoritative statement of both rules.
+Remote agents have no choice in the matter: the `talos` bot is read-only on canonical, so a direct commit to `main` is not something it can do. Branch off `upstream/main`, push to `origin`, open a cross-repo PR. See `AGENTS.md` for the authoritative statement of both rules.
 
 Multi-phase work that spans sessions is still one branch and one PR — sequence it however the work wants, and lean on the PR to carry state between sessions.
 
@@ -80,7 +80,7 @@ them**. Nothing is broken and nothing is queued: the forge is waiting for a
 human to press *Approve and run*. Press it and the run is created, executes,
 and reports normally.
 
-The cause is the fence working. The `agents` bot is deliberately read-only on
+The cause is the fence working. The `talos` bot is deliberately read-only on
 canonical, which makes its PRs *outside contributions*, and Forgejo withholds
 workflow runs on outside contributions until someone with write access
 approves them.
@@ -233,7 +233,7 @@ intended-drift notice (`.forgejo/actions/report-pr-notice`) so a green
 same-repo PR whose changes land on merge is still read — see
 [Forge Reconcile's PR check](#forge-reconciles-pr-check-intended-vs-unexpected-drift).
 
-On a PR authored by `agents`, the notice is a **review** (event `COMMENT`),
+On a PR authored by `talos`, the notice is a **review** (event `COMMENT`),
 which the talos forge loop picks up like any review and starts a fix cycle
 with no human in the loop. The review body is filtered build output — text
 produced by third-party dependencies — and talos is prompted to treat it as

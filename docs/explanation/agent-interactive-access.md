@@ -52,7 +52,7 @@ It is not a forward proxy and not a network layer. It cannot replace the
 talos egress gateway (which tunnels *any* public destination over CONNECT
 and never decrypts) or the Tailscale ingress (which is the L3 network, the
 ACL matrix and MagicDNS). Fronting forge or ArgoCD with it adds nothing:
-the `agents` bot token and the read-only `argocd` account already attribute
+the `talos` bot token and the read-only `argocd` account already attribute
 everything. Its only interesting slot here is the protocols the pod is
 fenced off from entirely: SSH, kubectl, psql.
 

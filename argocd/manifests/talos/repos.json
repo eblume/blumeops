@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "Which of eblume's repos the `agents` bot may touch, and which land in the",
+    "Which of eblume's repos the `talos` bot may touch, and which land in the",
     "agent pods' checkout pool (talos). THE single source of truth",
     "for both halves:",
     "",
@@ -15,7 +15,7 @@
     "access: write | read | none   (none = revoke any existing collaboration)",
     "pool:   canonical | fork | none",
     "        canonical = clone eblume/<repo> directly (bot pushes branches there)",
-    "        fork      = origin is agents/<repo>, upstream is eblume/<repo> read-only;",
+    "        fork      = origin is talos/<repo>, upstream is eblume/<repo> read-only;",
     "                    edits land via cross-repo PR (a human gate)",
     "        none      = access is granted, but no checkout in the pod",
     "",
@@ -29,7 +29,7 @@
     "               repo so horkos can post the settlement comment on origin",
     "               issues there; reconciled by the same task. See eblume/horkos#40.",
     "",
-    "RECONCILE IS AUTHORITATIVE: a repo absent from this list has its `agents`",
+    "RECONCILE IS AUTHORITATIVE: a repo absent from this list has its `talos`",
     "collaboration REMOVED. Adding a repo means adding it here, not clicking in",
     "the forge UI. See docs/reference/infrastructure/agents-forgejo-bot.md.",
     "",
@@ -43,7 +43,7 @@
     "author via fork."
   ],
   "owner": "eblume",
-  "collaborator": "agents",
+  "collaborator": "talos",
   "repos": [
     {
       "name": "agents",

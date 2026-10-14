@@ -3,14 +3,14 @@
 # requires-python = ">=3.12"
 # dependencies = ["pyyaml==6.0.3"]
 # ///
-#MISE description="Validate that every argocd/apps Application points at a source the agents bot cannot move"
+#MISE description="Validate that every argocd/apps Application points at a source the talos bot cannot move"
 """Validate the app-of-apps payload: no mutable agent-writable pointers.
 
 The `apps` root (argocd/apps/apps.yaml) copies every argocd/apps/*.yaml into
 the cluster as an ArgoCD Application. An Application's (repoURL, targetRevision)
 pair is a POINTER: once the root syncs, ArgoCD tracks that pointer with
 automated sync and self-heal, forever, with no further approval. A pointer the
-`agents` bot can move (its own fork, on a branch it pushes) is therefore a way
+`talos` bot can move (its own fork, on a branch it pushes) is therefore a way
 to install arbitrary manifests into any namespace with one approval — the
 pointer problem the `argocd-sync-apps` warrant exists to close.
 
@@ -29,11 +29,11 @@ Enforced in two places, same code:
 
 Allowed sources (a reviewed allowlist — extending it is a reviewed change):
   * eblume/blumeops.git @ main — the canonical GitOps source of truth; main
-    moves only via a human-merged PR, which the agents bot cannot do (read-only
+    moves only via a human-merged PR, which the talos bot cannot do (read-only
     on canonical).
   * mirrors/*.git @ any ref — read-only mirrors the agent cannot push; the ref
     moves only via the human/CI mirror-update process.
-Refused: agents/* forks (agent-writable), and any host/org not in the list
+Refused: talos/* forks (agent-writable), and any host/org not in the list
 above (unknown = refuse; a new legitimate source needs a reviewed edit here).
 Each argocd/apps/*.yaml must be exactly one ArgoCD Application manifest.
 """
@@ -68,7 +68,7 @@ def is_safe(repo_url: str, target_revision: str | None) -> tuple[bool, str]:
             return True, "ok"
     return False, (
         f"{repo_url} is not an allowed source — allowed: the canonical "
-        "eblume/blumeops.git @ main and read-only mirrors/*.git. agents/* "
+        "eblume/blumeops.git @ main and read-only mirrors/*.git. talos/* "
         "forks and any other repo are refused: an Application is a pointer "
         "ArgoCD tracks forever, and a pointer the agent can move installs "
         "arbitrary manifests with no further approval"

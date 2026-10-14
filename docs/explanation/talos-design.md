@@ -92,7 +92,7 @@ payoff; the interactive driver doubles as its debugging console.
 Deliberately mirrors the [[agent-containerization|containerized agent]] model:
 same tailnet identity class (`tag:talos` via userspace sidecar), same egress
 netpol, no cluster API, one bootstrap secret (op service-account token for the
-agents vault), author-only fork/PR git posture with the `agents` bot. Talos
+agents vault), author-only fork/PR git posture with the `talos` bot. Talos
 adds *ingress* the pure-egress agent pod lacked, via the standard ProxyGroup +
 Caddy chain; ingress and the egress lockdown are independent directions.
 

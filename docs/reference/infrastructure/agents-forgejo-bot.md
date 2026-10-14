@@ -1,5 +1,5 @@
 ---
-title: Agents Forgejo Bot
+title: Talos Forgejo Bot
 modified: 2026-09-18
 last-reviewed: 2026-07-21
 tags:
@@ -8,7 +8,7 @@ tags:
   - ai
 ---
 
-# Agents Forgejo Bot
+# Talos Forgejo Bot
 
 The Forgejo identity that [[agent-workspaces]] use to push work. Agents commit
 and push **branches**; branch protection on `main` and human PR review are the
@@ -16,18 +16,18 @@ gate before anything deploys.
 
 ## Identity
 
-- **Forgejo user:** `agents`
+- **Forgejo user:** `talos`
 - **SSH key:** retired (Oct 2026, eblume/blumeops#1635). The bot authenticates
   to the forge over HTTPS with a token; no SSH key is seated on ringtail.
 
 ## Access policy
 
-- **Write** (push branches, open PRs) to the repos agents work in:
+- **Write** (push branches, open PRs) to the repos talos works in:
   `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`,
   `gamedev`. Access is per-repo **collaborator** grants, not an org-wide role —
   the bot sees nothing it was not explicitly added to.
 - **`blumeops`: read-only, author via fork.** The bot has **read** on the
-  canonical `eblume/blumeops` and pushes to its own fork **`agents/blumeops`**,
+  canonical `eblume/blumeops` and pushes to its own fork **`talos/blumeops`**,
   opening cross-repo PRs. Read (not write) is load-bearing: `workflow_dispatch`
   is write-gated, so a read-only bot **cannot trigger blumeops' CI** and thus
   cannot reach its Actions secrets — the deploy-credentialed ones migrated to
@@ -36,11 +36,11 @@ gate before anything deploys.
   repo-wide secret — see [[agent-workspaces]] §Isolation. `main` is
   additionally branch-protected (push + merge whitelisted to `eblume`).
   **The same recipe applies to every `pool: fork` repo** — today `agents`, `horkos`,
-  `talos`, `cv`, and `hephaestus` as well. Each has an `agents/<repo>` fork on the forge, and the pod's
+  `talos`, `cv`, and `hephaestus` as well. Each has a `talos/<repo>` fork on the forge, and the pod's
   pool checkout already has `origin` = the fork and `upstream` = canonical, so
   read-only-on-canonical is never a reason to hand a change back to a human:
   branch off `upstream/main`, push to `origin`, then
-  `tea pr create --repo eblume/<repo> --base main --head agents:<branch>`.
+  `tea pr create --repo eblume/<repo> --base main --head talos:<branch>`.
 - **Not an admin.** No org/settings/runner access. No deploy credentials.
 
 ## Credentials
@@ -48,9 +48,9 @@ gate before anything deploys.
 The bot has one in use, in the **agents** vault, bounded to its own
 collaborations:
 
-- `agents-forgejo-token` — a Forgejo PAT, scopes `write:repository` +
+- `talos-forgejo-token` — a Forgejo PAT, scopes `write:repository` +
   `write:issue` (tea's `pr create` needs the issue scope — PRs are issues in
-  Forgejo), **minted as the `agents` user** so it can't exceed the bot's own
+  Forgejo), **minted as the `talos` user** so it can't exceed the bot's own
   repo access.
   Read by the workspace launcher via the op shim for `tea pr create` /
   `FORGEJO_TOKEN`. A PAT minted this way is self-bounding — the ownership is the
@@ -78,12 +78,12 @@ runs weekly and on PRs, metadata only.
   talos entrypoint (default.nix in the eblume/talos repo) fetches this file
   from blumeops `main` at pod start — a pool change reaches pods on restart,
   no image rebuild needed.
-- Every pool repo also gets the forge → talos **webhook** and the **`agents`
+- Every pool repo also gets the forge → talos **webhook** and the **`talos`
   engagement label**, reconciled by the same task. The label is the *secondary*
   engagement edge: an issue **opened by an allowlisted creator** — Erich
   (talos' `ISSUE_CREATOR_ALLOWLIST`) or the bot itself, for cron-filed briefs —
   starts a cycle on its own, no label or assignment (verified on talos main,
-  2026-09-06). The **`agents` label present + a label update** engages any
+  2026-09-06). The **`talos` label present + a label update** engages any
   other issue and re-engages an engaged one; on the read-only repos
   (`blumeops`, `agents`, `horkos`, `talos`) it is the only UI engagement
   path, because Forgejo's assignee dropdown only offers *write*
@@ -125,7 +125,7 @@ UI — and nothing to forget, which is the point. See [[agent-containerization]]
 §"The repo pool" for what the `pool` values mean.
 
 > **Reconcile is authoritative.** A repo *absent* from `repos.json` has its
-> `agents` collaboration **removed**. The PR job runs `--check`, so any
+> `talos` collaboration **removed**. The PR job runs `--check`, so any
 > revocation shows up in review before the merge that applies it. Grants made
 > by hand in the forge UI will be reverted on the next run.
 
@@ -202,7 +202,7 @@ up a token the workflow never passed it.
 There is no host SSH key to rotate — the keypair was retired in Oct 2026
 (eblume/blumeops#1635). Its former home, the **`agents-forgejo-bot` secure
 note** (fields `private key` / `public key`), was **archived** and can be
-recovered; it is not the same item as the live **`agents-forgejo-bot` login**
+recovered; it is not the same item as the live **`talos-forgejo-bot` login**
 in the same vault. The bot authenticates over HTTPS with its Forgejo token.
 
 ## Related

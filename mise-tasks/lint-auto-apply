@@ -125,7 +125,7 @@ def forge_token() -> str:
         return token.strip()
     try:
         result = subprocess.run(
-            ["op", "read", "op://agents/agents-forgejo-token/api-token"],
+            ["op", "read", "op://agents/talos-forgejo-token/api-token"],
             capture_output=True,
             text=True,
             stdin=subprocess.DEVNULL,

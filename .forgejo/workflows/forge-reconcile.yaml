@@ -1,4 +1,4 @@
-# Reconcile the `agents` + `horkos-forge` bots' forge desired state —
+# Reconcile the `talos` + `horkos-forge` bots' forge desired state —
 # collaborator grants, talos/horkos webhooks, engagement labels, and branch
 # protections — against repos.json + forge/branch-protections.json, and
 # assert the blast-radius invariants the retired horkos-forge-drift tool used

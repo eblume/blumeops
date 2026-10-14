@@ -276,7 +276,7 @@ def test_run_revision(laa):
 def test_pr_subject_number(laa):
     assert (
         laa.pr_subject_number(
-            "Merge pull request 'fix' (#12) from agents:agent/x into main"
+            "Merge pull request 'fix' (#12) from talos:agent/x into main"
         )
         == 12
     )

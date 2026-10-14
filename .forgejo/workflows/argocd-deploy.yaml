@@ -1,7 +1,7 @@
 # ArgoCD Deploy — the first approval-gated privileged workflow
 # ([[warrant-approval-gated-runs]] Phase 1). Manual dispatch only: a human
 # dispatching this IS the approval (workflow_dispatch is write-gated and the
-# agents bot is read-only on canonical). Definitions execute from main
+# talos bot is read-only on canonical). Definitions execute from main
 # (invariant 3); the revision input is the approved, immutable payload.
 #
 # Agents request a run with:
