@@ -13,7 +13,7 @@
 #
 # Usage: prek-full-run-check <base-ref> <head-ref>   (from anywhere inside the checkout)
 
-set -euo pipefail
+set -eu
 trap 'echo "error: unexpected failure in prek-full-run-check (line $LINENO)" >&2; exit 2' ERR
 
 if [ "$#" -ne 2 ]; then
@@ -37,7 +37,15 @@ for ref in "$base" "$head"; do
   fi
 done
 
+changed="$(git diff --name-only "$base" "$head")"
+
+# An empty diff would hand every hook an empty changed-file list — the same
+# outcome the delete-only guard catches, treated here as "safe" if left out.
 reasons=""
+if [ -z "$changed" ]; then
+  reasons+="
+empty diff — the changed-file list would be empty for every hook"
+fi
 
 # 1. Deleted files never enter `--from-ref`'s file list, so a delete-only
 #    diff would skip the entire hook set.
@@ -61,14 +69,28 @@ if [ -n "$config" ]; then
 hook config touched: $(printf '%s' "$config" | tr '\n' ' ')"
 fi
 
-# 3. Hook entry scripts, derived from prek.toml's local-hook `entry` lines so
-#    the list cannot drift from the hooks it guards. Double-quoted: taplo
-#    normalizes the file's string style, so it is the only form that can exist.
-entries="$(awk -F'"' '
-  /^[[:space:]]*entry[[:space:]]*=/ {
-    if (substr($2, 1, 2) == "./") print $2
-  }
-' prek.toml)"
+# 3. Hook entry scripts, derived from prek.toml's `entry` lines so the list
+#    cannot drift from the hooks it guards: take the first `./`-prefixed token
+#    of the entry value, in either TOML string style.
+entries="$(
+  dq='"'
+  sq="'"
+  awk -v dq="$dq" -v sq="$sq" '
+    /^[[:space:]]*entry[[:space:]]*=/ {
+      rest = $0
+      sub(/^[[:space:]]*entry[[:space:]]*=[[:space:]]*/, "", rest)
+      q = substr(rest, 1, 1)
+      if (q != dq && q != sq) next
+      rest = substr(rest, 2)
+      p = index(rest, q)
+      if (p <= 1) next
+      val = substr(rest, 1, p - 1)
+      n = split(val, t, "[[:space:]]+")
+      for (i = 1; i <= n; i++)
+        if (substr(t[i], 1, 2) == "./") { print t[i]; break }
+    }
+  ' prek.toml
+)"
 
 entry_specs=()
 if [ -n "$entries" ]; then

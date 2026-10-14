@@ -178,6 +178,31 @@ def test_deletion_and_config_together_name_both(repo):
     assert "config" in result.stdout
 
 
+def test_single_quoted_entry_is_derived(repo):
+    # The derivation must not depend on TOML's string style.
+    content = (
+        (repo / "prek.toml")
+        .read_text()
+        .replace(
+            'entry = "./mise-tasks/docs-check-links"',
+            "entry = './mise-tasks/docs-check-links'",
+        )
+    )
+    commit(repo, {"prek.toml": content})
+    commit(repo, {"mise-tasks/docs-check-links": "#!/usr/bin/env bash\nexit 2\n"})
+    base, head = shas(repo)
+    result = check(repo, base, head)
+    assert result.returncode == 0, result.stdout
+    assert "entry script" in result.stdout
+
+
+def test_empty_diff_requires_full_run(repo):
+    head = git(repo, "rev-parse", "HEAD").stdout.strip()
+    result = check(repo, head, head)
+    assert result.returncode == 0, result.stdout
+    assert "empty diff" in result.stdout
+
+
 def test_unresolvable_ref_fails_closed(repo):
     _, head = shas(repo)
     result = check(repo, "does-not-exist", head)
