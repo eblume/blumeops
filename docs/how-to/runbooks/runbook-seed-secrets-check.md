@@ -1,7 +1,7 @@
 ---
 title: "Runbook: Seed Secrets Check"
-modified: 2026-10-13
-last-reviewed: 2026-10-13
+modified: 2026-10-14
+last-reviewed: 2026-10-14
 tags:
   - how-to
   - alerting
@@ -34,8 +34,10 @@ collector and remote-written to the in-cluster Prometheus with
   last run was red (drifted file, stray file, or an `UNKNOWN` — a check
   that cannot see is a failure).
 - **`SeedSecretsCheckStale`** — last timestamp older than 8 days (7d timer +
-  1d margin), or no series at all: the timer never ran. A *missing* series
-  is exactly this failure, so the stale rule alerts on NoData.
+  1d margin), or no series at all. The timer also fires once at boot
+  (`OnBootSec=15min`), so a fresh deploy or reinstall writes the series
+  inside the 1h `for` window; a *missing* series is still exactly this
+  failure, so the rule alerts on NoData.
 
 The unit itself always exits 0 — a red check must not flap the unit; the
 metric and these rules carry the state.
@@ -45,7 +47,8 @@ metric and these rules carry the state.
 1. **Which alert fired?**
    - `SeedSecretsCheckFailed`: the check ran and found drift — read the
      journal for what.
-   - `SeedSecretsCheckStale`: the timer never ran or its output is stale.
+   - `SeedSecretsCheckStale`: the timer never ran (including the boot run
+    after a fresh deploy), or its output is stale.
 
 2. **Check the timer and the last run** on ringtail:
    ```sh
@@ -76,7 +79,8 @@ metric and these rules carry the state.
   check's own output (or a nix store problem, which `nix-store --verify`
   investigates).
 - **Timer disabled** — `systemctl is-enabled seed-secrets-check.timer`
-  (wanted by `timers.target`; `Persistent=true` catches up after downtime).
+  (wanted by `timers.target`; `Persistent=true` catches up missed calendar
+  fires, the boot leg `OnBootSec=15min` covers the never-fired case).
 
 ## Recovery
 

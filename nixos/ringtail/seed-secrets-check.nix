@@ -76,6 +76,8 @@ in
       # local and 05:30 local is the spirit).
       OnCalendar = "Sun *-*-* 05:30:00";
       RandomizedDelaySec = "15m";
+      # boot leg: the first run would otherwise wait for Sunday (stale alert has noData=Alerting)
+      OnBootSec = "15min";
       Persistent = true;
       AccuracySec = "5m";
     };
