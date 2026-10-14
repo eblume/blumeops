@@ -136,7 +136,7 @@
       "merge_whitelist_usernames": ["eblume"],
       "merge_whitelist_teams": [],
       "enable_status_check": true,
-      "status_check_contexts": ["Build / validate (pull_request)"],
+      "status_check_contexts": ["CI / test (pull_request)"],
       "required_approvals": 0,
       "enable_approvals_whitelist": true,
       "approvals_whitelist_username": ["eblume"],
@@ -147,8 +147,8 @@
       "dismiss_stale_approvals": true,
       "ignore_stale_approvals": false,
       "require_signed_commits": false,
-      "protected_file_patterns": "",
-      "unprotected_file_patterns": "CHANGELOG.md;docs/changelog.d/**",
+      "protected_file_patterns": "*",
+      "unprotected_file_patterns": "",
       "apply_to_admins": true
     }
   ]
