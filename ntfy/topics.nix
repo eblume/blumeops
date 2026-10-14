@@ -16,7 +16,7 @@ let
     let priority = t.budget.priority or null; in
     if !(matches ident (t.name or null)) then fail t "name" (t.name or null) "must match ${ident}"
     else if !(builtins.isList (t.producers or null) && lib.all (p: builtins.isString p && p != "") t.producers)
-    then fail t "producers" t.producers "must be a list of non-empty strings"
+    then fail t "producers" (t.producers or null) "must be a list of non-empty strings"
     else if !(builtins.isInt priority && priority >= 1 && priority <= 5)
     then fail t "budget.priority" priority "must be an integer 1-5"
     else t;
