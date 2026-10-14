@@ -1,6 +1,10 @@
 # ringtail-rebuild — apply a bound blumeops SHA to ringtail (nixos-rebuild switch).
 #
-# Request via `mise run request-run ringtail-rebuild.yaml <full-sha> -i revision=<sha>`.
+# Not requestable: it is `class: auto` in warrant-policy.yaml, so `mise run
+# request-run` refuses it. Its real path is push-to-main auto-apply on its
+# watched paths — the merge commit is the approval (see
+# docs/explanation/auto-apply.md) — with `workflow_dispatch` as the manual
+# fallback; the full story is in the header paragraphs below.
 # The job runs on the priv runner (ringtail itself); its only root path is
 # starting the root template unit ringtail-apply@<sha>.service, which a polkit
 # rule in nixos/ringtail/configuration.nix permits for exactly that unit shape
