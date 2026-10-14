@@ -170,6 +170,15 @@ gate job silently un-requires it by name** (the glob still blocks on its
 failure, but no longer on its absence): update the protection file whenever
 a job in `docs-checks.yaml`, `image-pins.yaml` or `lint.yaml` is renamed.
 
+A push-side version of the trap: the automatic Actions token can never be
+push-whitelisted (Forgejo [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)),
+so **adding a push whitelist to a repo's branch protection requires
+checking that repo's workflows for pushes to the protected branch**. A
+release workflow that commits back to `main` (changelog, version bump)
+fails on its next run with `pre-receive hook declined`, and the fix is a
+whitelisted-PAT push — the `unprotected_file_patterns` exemption does not
+apply to the Actions token either ([[create-release-artifact-workflow]]).
+
 ### Forge Reconcile's PR check: intended vs unexpected drift
 
 `Forge Reconcile` is the only workflow that both **reads and writes** desired

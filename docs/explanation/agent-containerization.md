@@ -98,7 +98,8 @@ reads it with `builtins.fromJSON` to generate the entrypoint's clone loop:
 |------|-------|-----|
 | `agents` | **fork** (`origin` = `agents/agents`, `upstream` = canonical) | Session cwd + base instructions; edits go via cross-repo PR so the agent can't rewrite its own instructions unreviewed |
 | `blumeops` | **fork** | Author-only; the read-only-on-canonical fence keeps CI (and its deploy secrets) out of reach |
-| `hephaestus`, `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`, `gamedev` | canonical, bot has push | Ordinary author repos — branch + PR |
+| `hephaestus` | **fork** | Carries the `MAIN_PUSH_TOKEN` Actions secret (release push to protected `main`); the bot may not hold write on a secrets-carrying repo, so it authors via fork |
+| `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`, `gamedev` | canonical, bot has push | Ordinary author repos — branch + PR |
 
 > **A pooled repo has to be *buildable*, not just present.** `gamedev` was
 > granted but held at `pool: none` for exactly this reason, and adding it meant
