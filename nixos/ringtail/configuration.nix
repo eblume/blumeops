@@ -27,6 +27,12 @@ let
   # key is the unit with its gitea-runner-/.service affixes stripped, so a
   # unit without them is refused rather than yielding a stray instance.
   runners = import ../../forge/runners.nix { inherit lib; };
+  # ntfy topics (eblume/blumeops#1611): the apply watcher's topic comes from
+  # the declaration, validated by ntfy/topics.nix; the read is relative to
+  # this flake root, the same /etc/blumeops checkout constraint as
+  # forge/runners.nix above.
+  ntfyTopics = import ../../ntfy/topics.nix { inherit lib; };
+  ntfyTopicsByName = lib.listToAttrs (map (t: { name = t.name; value = t; } ) ntfyTopics);
   ringtailRunners =
     let
       basePkgs = with pkgs; [ bash coreutils curl gawk gitMinimal gnused jq nodejs wget ];
@@ -951,8 +957,13 @@ in
       Type = "oneshot";
       ExecStart = "/etc/ringtail-apply/watcher";
       # The default service PATH has no curl or coreutils - the same explicit
-      # environment the ringtail-apply@ unit above carries.
-      Environment = [ "PATH=/run/current-system/sw/bin:/usr/bin:/bin" ];
+      # environment the ringtail-apply@ unit above carries. The topic comes
+      # from ntfy/topics.json (eblume/blumeops#1611); the watcher's own NTFY_TOPIC
+      # default is the fallback for its tests.
+      Environment = [
+        "PATH=/run/current-system/sw/bin:/usr/bin:/bin"
+        "NTFY_TOPIC=https://ntfy.ops.eblu.me/${ntfyTopicsByName."ops-approvals".name}"
+      ];
     };
   };
   systemd.timers."ringtail-apply-watcher" = {

@@ -64,6 +64,11 @@ on:
       # trigger that apply here (docs/explanation/auto-apply.md).
       - 'forge/runners.nix'
       - 'forge/runners.json'
+      # Shared ntfy inputs: the host config imports ntfy/topics.nix
+      # (-> ntfy/topics.json) for the rebuild watcher's topic, so a change
+      # there ships on the next apply too.
+      - 'ntfy/topics.nix'
+      - 'ntfy/topics.json'
   workflow_dispatch:
     inputs:
       revision:

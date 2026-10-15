@@ -12,6 +12,12 @@ let
   # script, so no runners.json value ever becomes shell text; the assert
   # turns a renamed placeholder into an eval failure instead of a silent
   # no-op (an unparseable textfile drops every CI metric).
+  # ntfy topics (eblume/blumeops#1611): the rebuild watcher's topic comes from
+  # the declaration, validated by ntfy/topics.nix; the read is relative to
+  # this flake root, the same /etc/blumeops checkout constraint as
+  # forge/runners.nix above.
+  ntfyTopics = import ../../ntfy/topics.nix { inherit lib; };
+  ntfyTopicsByName = lib.listToAttrs (map (t: { name = t.name; value = t; } ) ntfyTopics);
   forgejoRunnerCapacity = pkgs.writeText "forgejo-runner-capacity.prom"
     (lib.concatMapStrings (r: "forgejo_ci_runner_capacity{runner=\"${r.name}\"} ${toString r.capacity}\n")
       (import ../../forge/runners.nix { inherit lib; }));
@@ -502,6 +508,8 @@ AUTHORIZED_KEYS
     RunAtLoad = true;
     EnvironmentVariables = {
       PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+      # The topic comes from ntfy/topics.json (eblume/blumeops#1611); the watcher's own NTFY_TOPIC default is the fallback for its tests.
+      NTFY_TOPIC = "https://ntfy.ops.eblu.me/${ntfyTopicsByName."ops-approvals".name}";
     };
     StandardOutPath = "/opt/homebrew/var/log/mcquack.indri-rebuild-watcher.out.log";
     StandardErrorPath = "/opt/homebrew/var/log/mcquack.indri-rebuild-watcher.err.log";

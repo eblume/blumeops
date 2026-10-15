@@ -24,11 +24,21 @@ on:
   pull_request:
     paths:
       - 'darwin/indri/**'
+      # Shared flake inputs: the config imports forge/runners.nix and
+      # ntfy/topics.nix (each into its .json), so an edit there can
+      # break the eval without touching the host tree.
+      - 'ntfy/**'
+      - 'forge/runners.*'
       - '.forgejo/workflows/indri-flake-check.yaml'
   push:
     branches: [main]
     paths:
       - 'darwin/indri/**'
+      # Shared flake inputs: the config imports forge/runners.nix and
+      # ntfy/topics.nix (each into its .json), so an edit there can
+      # break the eval without touching the host tree.
+      - 'ntfy/**'
+      - 'forge/runners.*'
       - '.forgejo/workflows/indri-flake-check.yaml'
   workflow_dispatch:
 
