@@ -7,12 +7,76 @@ set -eu
 reposdir="/volume/git-mirror/repos"
 sitedir="/volume/git-mirror/site"
 baseurl="https://forge.eblu.me"
+log="/volume/git-mirror/hooks.log"
+
+d=$(basename "$(pwd)")
+o=$(basename "$(dirname "$(pwd)")")
+n=${d%.git}
+repo="$reposdir/$o/$n.git"
+
+# A timestamped failure record: "owner/name step rc=NN", then the
+# output tail.
+record() {
+    desc="$1"; rc="$2"; out="$3"
+    {
+        printf '%s %s %s rc=%d\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$o/$n" "$desc" "$rc"
+        printf '%s\n' "$out" | tail -n 10
+    } >> "$log" 2>/dev/null || true
+}
+
+# A non-fatal hook step: run it, and on failure log a record and keep
+# going. git 2.54 receive-pack does not refresh dumb-HTTP metadata by
+# default, so a failing cosmetic step must never take down what the
+# hook's final update-server-info fixes (eblume/blumeops#1640).
+step() {
+    desc="$1"; shift
+    rc=0
+    out=$("$@" 2>&1) || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        record "$desc" "$rc" "$out"
+    fi
+    return 0
+}
+
+# Dumb-HTTP backstop (eblume/blumeops#1640): whatever aborts this hook,
+# the public ref list and pack index must not be left stale. The refresh
+# is captured before the log is touched, so an unwritable log can never
+# skip it.
+backstop() {
+    rc=0
+    out=$(git --git-dir="$repo" update-server-info 2>&1) || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        record "update-server-info (backstop)" "$rc" "$out"
+    fi
+    return 0
+}
+trap backstop EXIT
+
+regen_site() {
+    # Regenerate everything from scratch. On a force push the old commit
+    # pages are stale and the cache would append a wrong log, so drop
+    # both and rebuild.
+    rm -f .htmlcache
+    rm -rf commit file
+    # stagit must report its own failure: errexit is suspended while
+    # step() runs it, so a bare call would fail silently.
+    rc=0
+    stagit -c .htmlcache -u "$baseurl" "$repo" >/dev/null || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        return "$rc"
+    fi
+    printf '%s\n' "$baseurl" > .baseurl
+    ln -sf log.html index.html
+    ln -sf ../../style.css style.css
+    ln -sf ../../logo.png logo.png
+    ln -sf ../../favicon.png favicon.png
+}
 
 # The public mirror serves main and tags only (eblume/blumeops#1208):
 # the push mirrors still land any new upstream branch, so drop it here.
 # post-receive runs after the refs are written, and the repack + gc
 # below make the objects unreachable, so it is gone from dumb HTTP.
-while git for-each-ref --format='%(refname)' refs/heads/ | read -r ref; do
+git for-each-ref --format='%(refname)' refs/heads/ | while read -r ref; do
     [ "$ref" = "refs/heads/main" ] || git update-ref -d "$ref"
 done
 
@@ -38,35 +102,24 @@ if [ -n "$branch" ] && ! git rev-parse --verify -q HEAD >/dev/null 2>&1; then
     git symbolic-ref HEAD "refs/heads/$branch"
 fi
 
-d=$(basename "$(pwd)")
-o=$(basename "$(dirname "$(pwd)")")
-n=${d%.git}
 mkdir -p "$sitedir/$o/$n"
 cd "$sitedir/$o/$n"
 
-# Regenerate everything from scratch. On a force push the old commit pages
-# are stale and the cache would append a wrong log, so drop both and
-# rebuild.
-rm -f .htmlcache
-rm -rf commit file
 # Re-pack after each push: loose objects multiply the dumb-HTTP
 # requests a clone makes (one per object) until git's auto-repack
 # threshold; at these repo sizes a full repack is cheap. The
 # gc --prune=now right after is what actually drops the objects of a
 # just-deleted stray branch: a plain repack -a -d keeps them reachable
 # via loose objects.
-git --git-dir="$reposdir/$o/$n.git" repack -a -d
-git --git-dir="$reposdir/$o/$n.git" gc --prune=now --quiet
-stagit -c .htmlcache -u "$baseurl" "$reposdir/$o/$n.git" >/dev/null
-printf '%s\n' "$baseurl" > .baseurl
-ln -sf log.html index.html
-ln -sf ../../style.css style.css
-ln -sf ../../logo.png logo.png
-ln -sf ../../favicon.png favicon.png
+step repack git --git-dir="$repo" repack -a -d
+step gc git --git-dir="$repo" gc --prune=now --quiet
+step site regen_site
 
 # Rebuild the root repo index across all mirrored repos.
-sh /usr/local/share/git-mirror/gen-index.sh "$reposdir" "$sitedir"
+step gen-index sh /usr/local/share/git-mirror/gen-index.sh "$reposdir" "$sitedir"
 
-# Dumb HTTP: refresh info/refs + objects/info/packs (cwd is the site
-# dir now, so name the repo explicitly).
-git --git-dir="$reposdir/$o/$n.git" update-server-info
+# Dumb HTTP: refresh info/refs + objects/info/packs after the repack —
+# the hook is the mirror's only refresh path, so it must run last and
+# after every repack (see create-mirror.sh on why
+# receive.updateServerInfo stays off).
+step update-server-info git --git-dir="$repo" update-server-info
