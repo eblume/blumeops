@@ -347,16 +347,22 @@ def main(
             f"the first run takes over exactly one; resolve the rest by hand "
             f"first")
 
-    # First run takes over the unprefixed incumbent — prove before the mint
-    # that it is the vault's token (token_last_eight from the token list).
-    if unprefixed:
-        t = unprefixed[0]
-        if not t.get("token_last_eight") or t["token_last_eight"] != current[-8:]:
-            die(
-                f"token {t['name']!r} (id={t['id']}) token_last_eight does not "
-                "match the vault's current token — it is not provably the "
-                "incumbent; resolve by hand before running"
-            )
+    # Prove before the mint that the vault's value corresponds to a live
+    # token. Without this, a run that died between the vault write and the
+    # roll would leave the vault pointing at a token nobody holds, and the
+    # next run could not tell whether it was the incumbent or an orphan.
+    if not any(t.get("token_last_eight") == current[-8:] for t in existing):
+        die(
+            "no live token matches the vault's current "
+            f"(token_last_eight vs {TOKEN_REF}) — the vault holds a token "
+            "that no longer exists; resolve by hand before running"
+        )
+
+    # With the vault's value proven live, the single unprefixed token is
+    # revocable as a predecessor: it is either the vault's incumbent itself
+    # (the first run's hand-over) or the pending delayed revoke of an earlier
+    # --skip-roll / failed-roll run (the vault's current value is then a live
+    # forge-bot-pat-* token this run supersedes).
 
     if dry_run:
         say("dry run: nothing minted, written, rolled or revoked")
@@ -381,14 +387,18 @@ def main(
 
         op_set_fields(VAULT, TOKEN_ITEM, {"api-token": new_pat, "expires": expires})
         say(f"new token written to {TOKEN_REF}; next rotation due {expires}")
-    except (typer.Exit, httpx.HTTPError):
-        # A failed `op item edit` may still have landed the write — re-read
-        # the vault, revoke only if the new value did not land.
+    except (typer.Exit, Exception):
+        # Every failure in the guarded block (API error, missed biometric
+        # prompt -> subprocess.TimeoutExpired, JSON decode) gets this
+        # cleanup: a failed `op item edit` may still have landed the write,
+        # so re-read the vault and revoke only if the new value did not land.
+        # typer.Exit (SystemExit, not Exception) must stay in the tuple.
         try:
             if op_read(TOKEN_REF) != new_pat:
                 revoke(password, new_id)
                 say(f"new token never reached the vault — revoked (id={new_id})")
-        except (typer.Exit, httpx.HTTPError):
+        except (typer.Exit, Exception):  # noqa: BLE001 - its failure converts to a
+            # warning below; the outer handler still re-raises the original.
             say(
                 "warning: could not confirm whether the new token "
                 f"(id={new_id}) reached the vault — check manually before the "
@@ -411,8 +421,7 @@ def main(
     say("talos rolled; pods re-read the new token at boot")
 
     # 10. revoke every predecessor: all other forge-bot-pat-* tokens, plus
-    # the single unprefixed incumbent the first run takes over (step 4's
-    # guard made anything else fatal before the mint)
+    # the single unprefixed token the pre-mint proof made revocable
     for t in existing:
         if t["id"] == new_id:
             continue

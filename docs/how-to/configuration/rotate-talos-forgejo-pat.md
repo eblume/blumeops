@@ -42,28 +42,22 @@ live in the **agents** vault at `op://agents/talos-forgejo-bot`, which every
 talos session can read — that copy is exactly what leaked in #1166. Human
 steps, on gilbert or via the 1Password UI:
 
-1. **Generate a new random password:**
+1. **Create the item with a 1Password-generated password** (the new password
+   never touches argv or shell history; `user_name` is not a secret):
 
    ```fish
-   openssl rand -base64 32
+   op item create --vault blumeops-ci talos-forgejo-bot \
+       --user-name talos --generate-password
    ```
 
-2. **Set it on the Forgejo `talos` account:** forge → log in as `talos` with
-   the old password → Settings → Account → Change Password.
+   (The 1Password UI equivalent works too.)
 
-3. **Create the item** (concealed field — via a template file so the new
-   password never touches argv or shell history):
+2. **Set it on the Forgejo `talos` account:** read the new password once
+   (`op read op://blumeops-ci/talos-forgejo-bot/login-password` — terminal
+   output only), then forge → log in as `talos` with the old password →
+   Settings → Account → Change Password.
 
-   ```fish
-   printf '{"title":"talos-forgejo-bot","category":"login","fields":[{"label":"user_name","type":"TEXT","value":"talos"},{"label":"login-password","type":"CONCEALED","value":"<new>"}]}' > /tmp/talos-forgejo-bot.json
-   chmod 600 /tmp/talos-forgejo-bot.json
-   op item create --vault blumeops-ci --template /tmp/talos-forgejo-bot.json
-   rm /tmp/talos-forgejo-bot.json
-   ```
-
-   (Edit the file in a private editor; a 1Password-UI equivalent works too.)
-
-4. **Delete the old item:**
+3. **Delete the old item:**
 
    ```fish
    op item delete --vault agents talos-forgejo-bot
@@ -92,9 +86,12 @@ path, a later PR, passes `--ci`). What it does, numbered:
 3. **List the bot's tokens** via basic auth and print each as
    `  - name (id=N)` — names and ids only, never values. If the bot holds
    more than one non-`forge-bot-pat-*` token, the script dies here (before
-   minting) — resolve those by hand first. If exactly one exists, its
-   `token_last_eight` is matched against the vault's current token before the
-   mint, so the token the run revokes as the incumbent is provably the vault's.
+   minting) — resolve those by hand first. The run also proves that the
+   vault's current value matches some live token by `token_last_eight`
+   before the mint, which makes the single unprefixed token provably
+   revocable as a predecessor: it is either the vault's incumbent (the
+   first run's hand-over) or the pending delayed revoke of an earlier
+   `--skip-roll` / failed-roll run.
 4. **Mint `forge-bot-pat-<ts>`** (scopes unchanged).
 5. **Prove the new PAT BEFORE any write**: repo GET through it (200, push
    permission) **and** it appears in the user's token list via basic auth
@@ -102,7 +99,8 @@ path, a later PR, passes `--ci`). What it does, numbered:
    `verify_new_pat`). If that proof or the vault write fails, the script
    re-reads the vault (a failed `op item edit` may have landed) and revokes
    the fresh token before dying — a live PAT that no consumer knows about is
-   never left behind.
+   never left behind. The cleanup catches every exception (a missed
+   biometric prompt included) and re-raises the original error.
 6. **Write the vault**: `op://agents/talos-forgejo-token/api-token` + set the
    item's `expires` field to the next-due date (`--days`, default 90).
 7. **Roll the talos pods**:
