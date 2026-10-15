@@ -5,7 +5,7 @@
 # ///
 #MISE description="[human] Rotate the talos Forgejo bot PAT: mint, prove, vault-write, roll the talos pods, revoke the old token"
 #USAGE flag "--dry-run" help="Verify the current token and list the bot's tokens; mint nothing, write nothing"
-#USAGE flag "--skip-roll" help="Skip the talos pod roll (manual path: roll the pods yourself with kubectl before the old token is revoked)"
+#USAGE flag "--skip-roll" help="Skip the pod roll and the predecessor revoke: the pods keep the old token until you roll them; the next run revokes the predecessors (delayed revoke)"
 #USAGE flag "--days <days>" help="Days until the next rotation is due; recorded on the vault item (default 90)"
 #USAGE flag "--ci" help="Non-interactive mode for the warrant-gated CI path; never run it outside a warrant run"
 """Rotate the talos Forgejo bot PAT without a browser.
@@ -21,12 +21,13 @@ read-only `BLUMEOPS_CI_OP_TOKEN` in the warrant path and by biometric `op`
 on gilbert.
 
 Ordering is fail-safe: the old token is only revoked after the new one is
-proven **and** the talos pods have been rolled (or `--skip-roll` with a loud
-warning), so a failure anywhere before the revoke step leaves every consumer
-working. Key material never crosses argv and never lands on disk except in a
+proven **and** the talos pods have been rolled; with `--skip-roll` the revoke
+is deferred instead (the live pods still need the old token, the next run
+cleans it up), so a failure anywhere before the revoke step leaves every
+consumer working. Key material never crosses argv and never lands on disk except in a
 0600 temp file that is deleted — mint/verify/revoke ride httpx with the
 values held in memory, vault writes go through a 0700-tempdir template, and
-the kubeconfig is read to a 0600 temp file for the pod roll.
+the CI-path kubeconfig is read to a 0600 temp file for the pod roll.
 
 The warrant-gated CI path (workflow) comes in a later PR; this script is the
 single ceremony used by both the manual (gilbert) and CI paths.
@@ -211,8 +212,11 @@ def revoke(password: str, token_id: int) -> None:
 # --- pod roll ----------------------------------------------------------------
 
 
-def run_rollout(kubectl: str, kubeconfig: str) -> None:
-    cmd = [kubectl, "--kubeconfig", kubeconfig, "-n", "talos"]
+def run_rollout(kubectl: str, kubeconfig: str | None) -> None:
+    cmd = [kubectl]
+    if kubeconfig:
+        cmd += ["--kubeconfig", kubeconfig]
+    cmd += ["-n", "talos"]
     restart = subprocess.run(
         [*cmd, "rollout", "restart", "deployment/talos"],
         capture_output=True,
@@ -235,28 +239,31 @@ def run_rollout(kubectl: str, kubeconfig: str) -> None:
         die(f"rollout status failed: {status.stderr.strip()[:300]}")
 
 
-def roll_talos() -> None:
+def roll_talos(ci: bool) -> None:
     """Restart the talos deployment and wait for the rollout to settle.
 
     The pod entrypoint reads FORGEJO_TOKEN at boot, so the restart is what
-    makes the vault write live. Kubeconfig comes from $KUBECONFIG, or from
-    the CI vault into a 0600 temp file (0700 tempdir) that is deleted.
+    makes the vault write live. Outside --ci, kubectl uses the operator's own
+    config ($KUBECONFIG / ~/.kube/config) as-is; only the CI path falls back
+    to the blumeops-ci bound token read to a 0600 temp file.
     """
     kubectl = shutil.which("kubectl")
     if kubectl is None:
         die("kubectl not on PATH — re-run with --skip-roll and roll the pods yourself")
+    if not ci:
+        run_rollout(kubectl, None)
+        return
     kubeconfig = os.environ.get("KUBECONFIG")
     if kubeconfig:
         run_rollout(kubectl, kubeconfig)
-    else:
-        content = op_read_ci(KUBECONFIG_REF)
-        with tempfile.TemporaryDirectory() as d:
-            Path(d).chmod(0o700)
-            path = Path(d) / "kubeconfig"
-            path.write_text(content, encoding="utf-8")
-            path.chmod(0o600)
-            run_rollout(kubectl, str(path))
-    say("rolled deployment/talos; pods re-read the new token at boot")
+        return
+    content = op_read_ci(KUBECONFIG_REF)
+    with tempfile.TemporaryDirectory() as d:
+        Path(d).chmod(0o700)
+        path = Path(d) / "kubeconfig"
+        path.write_text(content, encoding="utf-8")
+        path.chmod(0o600)
+        run_rollout(kubectl, str(path))
 
 
 # --- main --------------------------------------------------------------------
@@ -281,7 +288,7 @@ def main(
         bool,
         typer.Option(
             "--skip-roll",
-            help="Skip the talos pod roll (manual path: roll the pods yourself with kubectl before the old token is revoked)",
+            help="Skip the pod roll and the predecessor revoke: the pods keep the old token until you roll them; the next run revokes the predecessors (delayed revoke)",
         ),
     ] = False,
     days: Annotated[
@@ -340,6 +347,17 @@ def main(
             f"the first run takes over exactly one; resolve the rest by hand "
             f"first")
 
+    # First run takes over the unprefixed incumbent — prove before the mint
+    # that it is the vault's token (token_last_eight from the token list).
+    if unprefixed:
+        t = unprefixed[0]
+        if not t.get("token_last_eight") or t["token_last_eight"] != current[-8:]:
+            die(
+                f"token {t['name']!r} (id={t['id']}) token_last_eight does not "
+                "match the vault's current token — it is not provably the "
+                "incumbent; resolve by hand before running"
+            )
+
     if dry_run:
         say("dry run: nothing minted, written, rolled or revoked")
         return
@@ -350,29 +368,47 @@ def main(
     new_pat, new_id = mint(password, name)
     say(f"minted {name} (id={new_id})")
 
-    # 7. prove the new PAT BEFORE any vault write or revoke
-    verify_pat(new_pat, "new token")
-    owned = {t["id"] for t in list_tokens(password)}
-    if new_id not in owned:
-        die(f"new token (id={new_id}) not in {BOT_USER}'s token list — not minted as the bot")
-    say(f"new token verified: authenticates ({VERIFY_REPO}) and is owned by {BOT_USER}")
-
-    # 8. vault write: new PAT + next-due date on the existing item
+    # 7. prove the new PAT BEFORE any vault write or revoke; 8. vault write.
+    # A failure in between leaves a live PAT that no consumer knows about —
+    # if it never reached the vault, revoke it before dying.
     expires = (datetime.now(UTC) + timedelta(days=days)).strftime("%Y-%m-%d")
-    op_set_fields(VAULT, TOKEN_ITEM, {"api-token": new_pat, "expires": expires})
-    say(f"new token written to {TOKEN_REF}; next rotation due {expires}")
+    try:
+        verify_pat(new_pat, "new token")
+        owned = {t["id"] for t in list_tokens(password)}
+        if new_id not in owned:
+            die(f"new token (id={new_id}) not in {BOT_USER}'s token list — not minted as the bot")
+        say(f"new token verified: authenticates ({VERIFY_REPO}) and is owned by {BOT_USER}")
 
-    # 9. roll the talos pods so the deployment picks up the new token
+        op_set_fields(VAULT, TOKEN_ITEM, {"api-token": new_pat, "expires": expires})
+        say(f"new token written to {TOKEN_REF}; next rotation due {expires}")
+    except (typer.Exit, httpx.HTTPError):
+        # A failed `op item edit` may still have landed the write — re-read
+        # the vault, revoke only if the new value did not land.
+        try:
+            if op_read(TOKEN_REF) != new_pat:
+                revoke(password, new_id)
+                say(f"new token never reached the vault — revoked (id={new_id})")
+        except (typer.Exit, httpx.HTTPError):
+            say(
+                "warning: could not confirm whether the new token "
+                f"(id={new_id}) reached the vault — check manually before the "
+                "next rotation"
+            )
+        raise
+
+    # 9. roll the talos pods so the deployment picks up the new token;
+    # --skip-roll defers the revoke instead: the live pods still need the
+    # old token until they are rolled, and the next run cleans up.
     if skip_roll:
         say(
-            "--skip-roll: skipping the pod roll. The script revokes the old token "
-            "at the end — the LIVE talos pods then keep a dead token until you "
-            "roll them. Run 'kubectl -n talos rollout restart deployment/talos' "
-            "immediately after this run completes."
+            "--skip-roll: the new token is in the vault, but the pods have not "
+            "been rolled and nothing was revoked. The predecessors stay live "
+            "(delayed revoke — the next run cleans them up). Roll the pods "
+            "yourself: 'kubectl -n talos rollout restart deployment/talos'."
         )
-    else:
-        roll_talos()
-        say("talos rolled; pods re-read the new token at boot")
+        return
+    roll_talos(ci)
+    say("talos rolled; pods re-read the new token at boot")
 
     # 10. revoke every predecessor: all other forge-bot-pat-* tokens, plus
     # the single unprefixed incumbent the first run takes over (step 4's
