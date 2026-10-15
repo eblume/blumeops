@@ -343,6 +343,26 @@ MCQUACK_NIX_WAIT_SYSTEM
     mv -f "$tmp" ${lib.escapeShellArg nixWaitSystem}
   '';
 
+  # The main runner's identity check (eblume/blumeops#1528), in the checks
+  # slot: it runs ahead of nix-darwin's own installs (users, launchd, the
+  # /run/current-system re-point at the tail of the activation script), so a
+  # missing identity fails the switch before the host is touched. It cannot
+  # live in postActivation - darwin-rebuild moves the system profile to the
+  # new generation before the activation script runs, so a late exit would
+  # leave the profile switched and /run/current-system on the old one. The
+  # rebuild watcher posts only non-zero verdicts, so this failure is how the
+  # warning gets seen.
+  system.activationScripts.checks.text = ''
+    missing=
+    for f in uuid token mise-github-token; do
+      [[ -r /Users/erichblume/forgejo-runner/identity/$f && -s /Users/erichblume/forgejo-runner/identity/$f ]] || missing="$missing $f"
+    done
+    if [[ -n "$missing" ]]; then
+      printf 'error: forgejo-runner identity incomplete (missing or empty:%s) - failing the switch before anything changes; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "$missing" >&2
+      exit 1
+    fi
+  '';
+
   system.activationScripts.postActivation.text = lib.mkAfter ''
     if [[ -d ${lib.escapeShellArg config.system.primaryUserHome} ]]; then
       {
@@ -391,12 +411,12 @@ MCQUACK_NIX_WAIT_SYSTEM
     # Main forgejo runner config (eblume/blumeops#1528): labels and capacity
     # from forge/runners.json (via the indriRunner binding above), identity
     # from the files `mise run seed-secrets indri` seats under the identity
-    # dir and declares in darwin/indri/secrets.json. A missing or empty
-    # identity file keeps the existing config, kickstarts nothing, and fails
-    # the activation (the exit below) so the indri rebuild watcher's failure
-    # post carries this warning; seeding + a re-apply follow (only this
-    # kickstart and the seed-secrets restart leg restart the main runner;
-    # nix-darwin does not reload an unchanged agent).
+    # dir and declares in darwin/indri/secrets.json. Presence is enforced in
+    # the activationScripts.checks block above; the else branch below only
+    # fires if a file vanished after the check, and keeps the existing config
+    # without restarting the runner. Only this kickstart and the seed-secrets
+    # restart leg restart the main runner; nix-darwin does not reload an
+    # unchanged agent.
     runner_home=/Users/erichblume/forgejo-runner
     runner_identity="$runner_home/identity"
     runner_config="$runner_home/config.yaml"
@@ -411,7 +431,6 @@ MCQUACK_NIX_WAIT_SYSTEM
     runner_uuid=
     runner_token=
     runner_pat=
-    runner_identity_missing=0
     if [[ -r "$runner_identity/uuid" && -r "$runner_identity/token" && -r "$runner_identity/mise-github-token" ]]; then
       runner_uuid=$(cat "$runner_identity/uuid")
       runner_token=$(cat "$runner_identity/token")
@@ -492,18 +511,11 @@ CFG
       chown erichblume:staff "$runner_config" &&
       chmod 0600 "$runner_config"
     else
-      runner_identity_missing=1
       missing=
       for f in uuid token mise-github-token; do
         [[ -r "$runner_identity/$f" && -s "$runner_identity/$f" ]] || missing="$missing $f"
       done
-      printf 'warning: forgejo-runner identity incomplete (missing or empty:%s) - keeping the existing %s, not restarting the runner, and failing this activation so the rebuild watcher posts it; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "$missing" "$runner_config" >&2
-    fi
-
-    # The rebuild watcher posts only non-zero verdicts, so the missing-
-    # identity warning above must ride on a failed activation to be seen.
-    if [[ "$runner_identity_missing" = 1 ]]; then
-      exit 1
+      printf 'warning: forgejo-runner identity incomplete (missing or empty:%s) - keeping the existing %s and not restarting the runner; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "$missing" "$runner_config" >&2
     fi
   '';
 
