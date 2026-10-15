@@ -1,0 +1,1 @@
+blumeops-pg (the CloudNativePG operand) is bumped from PostgreSQL 18.4 to 18.6 (argocd/manifests/databases-ringtail/blumeops-pg.yaml): an in-place minor upgrade (no dump/restore, no pg_upgrade), where 18.6 (released 2026-08-13) is the cumulative fix set from 18.4 — 18.5 was never shipped — fixing 28 CVEs.
