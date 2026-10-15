@@ -40,13 +40,15 @@ identity holds no CI trust anywhere.
   ceremony as `talos`, [[bootstrap-agent-workspaces]] §1). Creation is
   deliberately *not* in `repos.json`: `forge-reconcile` manages *grants* on a
   user that already exists; the user itself is the human half.
-- **Tier:** a new tier in the #1039 principal-naming scheme (name = who
-  authorized the act; existing tiers: `ci-` — authorized by merging to main,
-  `talos-` — authorized by the talos bot, `horkos-` — authorized by horkos
-  dispatch). Here the act is authorized by Erich's live, biometric-gated
-  consent, so the principal is named for that relationship: `cli-agent`. If
-  #1194 (a machine-readable principals registry) lands, it is declared there
-  too.
+- **Tier:** a new tier in the #1039 principal-naming scheme, where the name
+  is `<tier>-[PROMPT_INJECTION]`, with the tier first — the tier names the
+  authorizer. The existing tiers, in the scheme's own words: `ci-` — a
+  human approved it by merging to main; `talos-` — the agent decided on its
+  own; `horkos-` — a human approved this specific act, via a warrant. The new
+  prefix `cli-` names acts authorized by a live, human-supervised CLI session
+  (Erich's direct, biometric-gated consent on the host he is at) — so this
+  principal is `cli-agent`: tier `cli`, qualifier `agent`. If #1194 (a
+  machine-readable principals registry) lands, it is declared there too.
 
 ## Access policy
 
@@ -146,7 +148,7 @@ item of the #1583 Human steps):
 2. A scratch cross-repo PR's CI sits `pending` — needs Approve and run.
 3. **The acceptance criterion:** the principal rebases/pushes a fork PR and
    its CI *still* requires approve-and-run (`need_approval=true`) — the exact
-   motion of the 2026-10-13 incident, now failing open by design.
+   motion of the 2026-10-13 incident, now failing closed by design.
 
 ## Related
 
