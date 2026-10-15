@@ -1,0 +1,1 @@
+New `mise run forge-bot-pat-rotate` task + how-to: fail-safe rotation of the talos Forgejo bot PAT (mint → prove → vault write → pod roll → revoke), the automated half of the #1656 scheduled-rotation design.
