@@ -337,6 +337,88 @@
     - forgejo_runner_build_colima_compare.rc != 0
   tags: [forgejo_build_runner]
 
+# --- Build runner docker client config ---
+# colima mounts the build user's docker client config into the build VM, and
+# the VM's root docker daemon reads it for registry credentials. A host-only
+# credential helper (Docker Desktop's "credsStore: osxkeychain", left over
+# from before the colima migration, eblume/blumeops#1382) makes every
+# registry lookup exec that helper inside the Linux VM, where it can never
+# exist - every image pull then fails with "docker-credential-osxkeychain:
+# executable file not found in $PATH" (eblume/hephaestus.nvim's release
+# run 47, 2026-10-15). The role strips the helper keys, keeps the rest of
+# the config (runtime auths are legitimate), and restarts the VM so the
+# daemon re-reads the file. The file can carry registry credentials, so it
+# is never printed and never fetched to the control node.
+
+- name: Check build runner docker config for a host-only credential helper
+  ansible.builtin.shell: |
+    sudo -n -u indri-build /bin/sh -c '
+    set -eu
+    f="$1"
+    cd /
+    # File absent: nothing to repair.
+    test -f "$f" || exit 1
+    # rc: 0 = host-only helper configured, 1 = clean or absent,
+    # 2 = unreadable config (the failure).
+    /usr/bin/python3 - "$f" << "PY"
+    import json, sys
+    try:
+        cfg = json.load(open(sys.argv[1]))
+        if not isinstance(cfg, dict):
+            sys.exit(2)
+    except Exception:
+        sys.exit(2)
+    sys.exit(0 if ("credsStore" in cfg or "credHelpers" in cfg) else 1)
+    PY
+    ' _ {{ forgejo_runner_build_docker_config | quote }}
+  register: forgejo_runner_build_docker_config_check
+  changed_when: false
+  failed_when: forgejo_runner_build_docker_config_check.rc == 2
+  check_mode: false
+  when: forgejo_runner_build_uuid | length > 0
+  tags: [forgejo_build_runner]
+
+- name: Report build runner docker config repair (check mode)
+  ansible.builtin.debug:
+    msg: "would strip host-only credential helpers (credsStore/credHelpers) from {{ forgejo_runner_build_docker_config }}"
+  when:
+    - forgejo_runner_build_uuid | length > 0
+    - ansible_check_mode
+    - forgejo_runner_build_docker_config_check.rc == 0
+  tags: [forgejo_build_runner]
+
+- name: Strip host-only credential helpers from the build runner docker config
+  ansible.builtin.shell: |
+    sudo -n -u indri-build /bin/sh -c '
+    set -eu
+    f="$1"
+    cd /
+    test -f "$f"
+    /usr/bin/python3 - "$f" << "PY"
+    import json, os, sys, tempfile
+    p = sys.argv[1]
+    cfg = json.load(open(p))
+    changed = False
+    for k in ("credsStore", "credHelpers"):
+        if k in cfg:
+            del cfg[k]
+            changed = True
+    if changed:
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(p))
+        with os.fdopen(fd, "w") as fh:
+            json.dump(cfg, fh, indent=4)
+            fh.write("\n")
+        os.replace(tmp, p)
+    PY
+    ' _ {{ forgejo_runner_build_docker_config | quote }}
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - forgejo_runner_build_uuid | length > 0
+    - forgejo_runner_build_docker_config_check.rc == 0
+  notify: Restart colima-build VM
+  tags: [forgejo_build_runner]
+
 # --- Build runner LaunchDaemon (rollback re-write only) ---
 # The nix-darwin generation owns this daemon's live plist; these tasks are
 # the rollback re-write, run with

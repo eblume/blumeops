@@ -147,3 +147,10 @@ forgejo_runner_build_colima_yaml: "{{ forgejo_runner_build_colima_profile_dir }}
 # The seed colima uses for a brand-new instance (see the build runner tasks).
 forgejo_runner_build_colima_template: /Users/indri-build/.colima/_templates/default.yaml
 forgejo_runner_build_colima_label: mcquack.eblume.colima-build
+
+# The docker client config colima mounts into the build VM: the VM's root
+# docker daemon reads it for registry credentials. It is not role-rendered
+# (Docker Desktop wrote it before the colima migration, eblume/blumeops#1382)
+# and can carry a host-only credential helper that breaks every image pull
+# (see the build runner tasks).
+forgejo_runner_build_docker_config: /Users/indri-build/.docker/config.json
