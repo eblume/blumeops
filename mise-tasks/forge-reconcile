@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["httpx==0.28.1", "rich==15.0.0", "typer==0.27.2"]
 # ///
-#MISE description="[human] Reconcile eblume's forge desired state — the talos + horkos-forge bots' collaborations, webhooks, and labels (repos.json) and branch protections (forge/branch-protections.json); --check is the single forge drift check (weekly + same-repo PRs)"
+#MISE description="[human] Reconcile eblume's forge desired state — the talos + horkos-forge bots' collaborations, webhooks, and labels (repos.json), branch protections (forge/branch-protections.json), and tag protections (forge/tag-protections.json); --check is the single forge drift check (weekly + same-repo PRs)"
 #MISE alias=["ara","agent-repo-access"]
 #USAGE flag "--dry-run" help="Show what would change without changing it"
 #USAGE flag "--check" help="Like --dry-run, but exit 1 if anything is out of sync (for CI on PRs)"
@@ -132,6 +132,12 @@ protection half loudly after the other halves apply, like a hook create
 without its secret. This is policy, not a capability fence — the CI PAT can
 edit protections — so that a change to what gates `main` is applied by a
 person who saw the diff, not by the merge it gates.
+
+The tag-protection half reconciles forge/tag-protections.json the same way:
+whole-rule declarations set-compared and read back after every write, and
+apply only from a human run under the same refuse-under-CI gate. Its own bot
+whitelist fence (TAG_BOT_WHITELIST_FENCE) keeps either bot from being
+whitelisted to push tags.
 
 The secret is `FORGE_…`, not `FORGEJO_…`: Forgejo reserves the `FORGEJO_`
 prefix for the Actions tokens it injects itself, and rejects creation of a
@@ -360,6 +366,10 @@ VALID_ACCESS = frozenset({"write", "read", "none"})
 # (repo, rule_name), each repo under repos.json's owner.
 PROTECTIONS_PATH = Path(__file__).resolve().parent.parent / "forge" / "branch-protections.json"
 
+# The tag-protection half's policy: one entry per rule, keyed by
+# (repo, name_pattern), each repo under repos.json's owner.
+TAG_PROTECTIONS_PATH = Path(__file__).resolve().parent.parent / "forge" / "tag-protections.json"
+
 # The Actions-secret *names* live in this file (declared state, like
 # branch-protections.json); the 1Password *value sources* live in the in-code
 # ACTIONS_SECRET_SOURCES allowlist below, on purpose — a one-line data edit in
@@ -413,6 +423,19 @@ PROTECTION_FIELDS = frozenset(
 # let it ship its own PRs, and horkos-forge on one would turn its dispatch
 # grant into a path to production (this script checks the same thing on the live rule via its branch-protection --check). In code for the same reason as PINNED_READ_ONLY.
 BOT_WHITELIST_FENCE = ("push_whitelist_usernames", "merge_whitelist_usernames", "approvals_whitelist_username")
+
+# Every editable field of a Forgejo v16 tag protection (the API's
+# TagProtection minus the id and timestamps). A rule must declare all of
+# them: an undeclared field would be unmanaged state hiding inside a managed
+# rule.
+TAG_PROTECTION_FIELDS = frozenset(
+    {"name_pattern", "whitelist_usernames", "whitelist_teams"}
+)
+# The user whitelist that lets a bot push a tag. Neither bot may appear on
+# it, whatever the file says: `talos` pushing a tag it authored past a gate,
+# or horkos-forge turning its dispatch grant into a release path. In code
+# for the same reason as BOT_WHITELIST_FENCE.
+TAG_BOT_WHITELIST_FENCE = ("whitelist_usernames",)
 
 console = Console()
 
@@ -899,6 +922,50 @@ def load_protections(bots: tuple[str, ...]) -> list[dict]:
     return rules
 
 
+def load_tag_protections(bots: tuple[str, ...]) -> list[dict]:
+    """The declared tag protection rules from TAG_PROTECTIONS_PATH.
+
+    Refuses (exit 1) a rule that omits or adds a field (name_pattern included
+    — the API rejects an empty one), repeats a (repo, name_pattern), leaves
+    both whitelists empty (the API rejects that too), or whitelists a bot —
+    see TAG_BOT_WHITELIST_FENCE.
+    """
+    rules = json.loads(TAG_PROTECTIONS_PATH.read_text())["rules"]
+    seen: set[tuple[str, str]] = set()
+    for rule in rules:
+        where = f"{TAG_PROTECTIONS_PATH.name}: {rule.get('repo')}:{rule.get('name_pattern')}"
+        fields = set(rule) - {"repo"}
+        if missing := sorted(TAG_PROTECTION_FIELDS - fields):
+            console.print(f"[red]{escape(where)} does not declare {escape(', '.join(missing))}[/red]")
+            raise typer.Exit(1)
+        if unknown := sorted(fields - TAG_PROTECTION_FIELDS):
+            console.print(f"[red]{escape(where)} has unknown field(s) {escape(', '.join(unknown))}[/red]")
+            raise typer.Exit(1)
+        key = (rule["repo"], rule["name_pattern"])
+        if key in seen:
+            console.print(f"[red]{escape(where)} is declared twice[/red]")
+            raise typer.Exit(1)
+        seen.add(key)
+        if not rule["name_pattern"]:
+            console.print(f"[red]{escape(where)} has an empty name_pattern — the Forgejo API rejects it[/red]")
+            raise typer.Exit(1)
+        if not rule["whitelist_usernames"] and not rule["whitelist_teams"]:
+            console.print(
+                f"[red]{escape(where)} leaves both whitelists empty — the Forgejo API rejects it.[/red] "
+                "A tag protection must name who may push the matching tags."
+            )
+            raise typer.Exit(1)
+        for field in TAG_BOT_WHITELIST_FENCE:
+            if fenced := sorted({u.lower() for u in rule[field]} & {b.lower() for b in bots}):
+                console.print(
+                    f"[red]{escape(where)} puts {escape(', '.join(fenced))} on {field}.[/red] "
+                    f"A bot may never be whitelisted past a tag protection — see "
+                    f"TAG_BOT_WHITELIST_FENCE in {Path(__file__).name}. Refusing."
+                )
+                raise typer.Exit(1)
+    return rules
+
+
 def protection_diff(live: dict, rule: dict) -> dict[str, tuple[object, object]]:
     """{field: (live value, declared value)} for every PROTECTION_FIELDS
     field that differs. Lists compare as sets — the API does not promise to
@@ -920,6 +987,35 @@ def list_protections(client: httpx.Client, owner: str, repo: str) -> list[dict] 
     endpoint is unpaginated in Forgejo v16."""
     try:
         resp = client.get(f"/api/v1/repos/{owner}/{repo}/branch_protections")
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (403, 404):
+            return None
+        raise
+    return resp.json()
+
+
+def tag_protection_diff(live: dict, rule: dict) -> dict[str, tuple[object, object]]:
+    """{field: (live value, declared value)} for every TAG_PROTECTION_FIELDS
+    field that differs. Lists compare as sets — the API does not promise to
+    read back whitelists in the order they were sent."""
+
+    def norm(value: object) -> object:
+        return sorted(value) if isinstance(value, list) else value
+
+    return {
+        field: (live.get(field), rule[field])
+        for field in sorted(TAG_PROTECTION_FIELDS)
+        if norm(live.get(field)) != norm(rule[field])
+    }
+
+
+def list_tag_protections(client: httpx.Client, owner: str, repo: str) -> list[dict] | None:
+    """The repo's tag protection rules, or None if unreadable (repo-admin,
+    like hooks and collaborators — the same 403/404 → None convention). The
+    endpoint is unpaginated in Forgejo v16."""
+    try:
+        resp = client.get(f"/api/v1/repos/{owner}/{repo}/tag_protections")
         resp.raise_for_status()
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code in (403, 404):
@@ -1651,6 +1747,21 @@ def read_protections_at(ref):
         return None
 
 
+def read_tag_protections_at(ref):
+    """The tag-protection rules at a git ref: [] when the file does not exist
+    at the ref — main carries no forge/tag-protections.json until the
+    introducing PR merges, so "absent at the base" means "base declares no tag
+    protections", which must NOT fail loudly the way branch-protections.json
+    absence does — and None when it exists but is malformed."""
+    raw = git_read_file(ref, "forge/tag-protections.json")
+    if raw is None:
+        return []
+    try:
+        return json.loads(raw)["rules"]
+    except (json.JSONDecodeError, KeyError):
+        return None
+
+
 def actions_secret_names_at(ref):
     """Actions-secret names at a git ref: {} when the file does not exist at
     the ref (the creating PR reads an empty base), Exit(1) when it exists but
@@ -1710,11 +1821,57 @@ def plan_protection_actions(client, owner, all_repos, protections, blocked):
     return protection_actions, live_by_repo
 
 
-def plan_at(client, owner, who, policies, protections):
-    """Plan the drift of a (policy, protections) pair against the live forge —
-    the read-only core of main's planning, factored out so --pr-base-ref can
-    plan the PR base's state too. Returns {actions, horkos_actions,
-    extra_actions, hook_actions, protection_actions, violations, blocked}."""
+def plan_tag_protection_actions(client, owner, all_repos, tag_protections, blocked):
+    """Plan the tag-protection actions for the file against the live forge,
+    shared by plan_at and main's table build: declared rules become
+    create/update diffs (matched to live rules by (repo, name_pattern) —
+    unique per repo live and at load), and any live rule the file does not
+    declare is a pending delete. A repo whose live rule list is unreadable
+    goes into blocked. Returns (tag_protection_actions, tag_live_by_repo);
+    the live list is fetched at most once per repo.
+    """
+    tag_protection_actions: list[tuple[str, str, str, dict[str, tuple[object, object]]]] = []
+    tag_live_by_repo: dict[str, list[dict] | None] = {}
+
+    def fetch_live(repo):
+        if repo not in tag_live_by_repo:
+            tag_live_by_repo[repo] = list_tag_protections(client, owner, repo)
+        return tag_live_by_repo[repo]
+
+    for rule in tag_protections:
+        repo = rule["repo"]
+        live_rules = fetch_live(repo)
+        if live_rules is None:
+            if repo not in blocked:
+                blocked.append(repo)
+            continue
+        live_by_pattern = {r["name_pattern"]: r for r in live_rules}
+        live = live_by_pattern.get(rule["name_pattern"])
+        if live is None:
+            tag_protection_actions.append((repo, rule["name_pattern"], "create",
+                                           {f: (None, rule[f]) for f in sorted(TAG_PROTECTION_FIELDS)}))
+        else:
+            diff = tag_protection_diff(live, rule)
+            if diff:
+                tag_protection_actions.append((repo, rule["name_pattern"], "update", diff))
+    for repo in sorted(all_repos):
+        live_rules = fetch_live(repo)
+        if live_rules is None:
+            if repo not in blocked:
+                blocked.append(repo)
+            continue
+        declared_patterns = {r["name_pattern"] for r in tag_protections if r["repo"] == repo}
+        for pattern in sorted({r["name_pattern"] for r in live_rules} - declared_patterns):
+            tag_protection_actions.append((repo, pattern, "delete", {}))
+    return tag_protection_actions, tag_live_by_repo
+
+
+def plan_at(client, owner, who, policies, protections, tag_protections):
+    """Plan the drift of a (policy, protections, tag_protections) pair against
+    the live forge — the read-only core of main's planning, factored out so
+    --pr-base-ref can plan the PR base's state too. Returns {actions,
+    horkos_actions, extra_actions, hook_actions, protection_actions,
+    tag_protection_actions, violations, blocked}."""
     desired = policies["desired"]
     pools = policies["pools"]
     release_hook_repos = policies["release_hook_repos"]
@@ -1766,8 +1923,10 @@ def plan_at(client, owner, who, policies, protections):
             [h for h in hooks if h.get("config", {}).get("url") == HORKOS_HOOK_URL],
             HORKOS_HOOK_READ_EVENTS, want_release_hook, repo, "horkos", hook_actions)
     protection_actions, _ = plan_protection_actions(client, owner, all_repos, protections, blocked)
+    tag_protection_actions, _ = plan_tag_protection_actions(client, owner, all_repos, tag_protections, blocked)
     return {"actions": actions, "horkos_actions": horkos_actions, "extra_actions": extra_actions,
             "hook_actions": hook_actions, "protection_actions": protection_actions,
+            "tag_protection_actions": tag_protection_actions,
             "violations": violations, "blocked": blocked}
 
 
@@ -1779,6 +1938,7 @@ def _changed_facts(base_state, head_state):
       - (repo, "principal", name)
       - (repo, "secrets")
       - (repo, "protect", rule_name)
+      - (repo, "tag_protect", name_pattern)
     A base-plan action is INTENDED iff its fact is in this set (the PR is
     landing it), UNEXPECTED otherwise (the PR does not touch it).
     """
@@ -1810,15 +1970,21 @@ def _changed_facts(base_state, head_state):
         head_rule = next((r for r in h["protections"] if (r["repo"], r["rule_name"]) == (repo, rn)), None)
         if base_rule != head_rule:
             changed.add((repo, "protect", rn))
+    for repo, pattern in sorted({(r["repo"], r["name_pattern"]) for r in b["tag_protections"]}
+                                | {(r["repo"], r["name_pattern"]) for r in h["tag_protections"]}):
+        base_rule = next((r for r in b["tag_protections"] if (r["repo"], r["name_pattern"]) == (repo, pattern)), None)
+        head_rule = next((r for r in h["tag_protections"] if (r["repo"], r["name_pattern"]) == (repo, pattern)), None)
+        if base_rule != head_rule:
+            changed.add((repo, "tag_protect", pattern))
     return changed
 
 
 def _intended_lines(owner, base_state, head_state):
     """One line per fact the PR's declared delta changes (base -> head), for the
-    intended report, split into the auto-applies / hook / protection / secret
-    values halves."""
+    intended report, split into the auto-applies / hook / branch-protection /
+    tag-protection / secret-values halves."""
     b, h = base_state, head_state
-    auto, hook, prot, values = [], [], [], []
+    auto, hook, prot, tag_prot, values = [], [], [], [], []
     for repo in sorted(set(b["desired"]) | set(h["desired"])):
         if b["desired"].get(repo, "none") != h["desired"].get(repo, "none"):
             auto.append(f"`{owner}/{repo}` talos access: {b['desired'].get(repo,'none')} -> {h['desired'].get(repo,'none')}")
@@ -1851,7 +2017,13 @@ def _intended_lines(owner, base_state, head_state):
         head_rule = next((r for r in h["protections"] if (r["repo"], r["rule_name"]) == (repo, rn)), None)
         if base_rule != head_rule:
             prot.append(f"`{owner}/{repo}` branch protection `{rn}` changed")
-    return sorted(set(auto)), sorted(set(hook)), sorted(set(prot)), sorted(set(values))
+    for repo, pattern in sorted({(r["repo"], r["name_pattern"]) for r in b["tag_protections"]}
+                                | {(r["repo"], r["name_pattern"]) for r in h["tag_protections"]}):
+        base_rule = next((r for r in b["tag_protections"] if (r["repo"], r["name_pattern"]) == (repo, pattern)), None)
+        head_rule = next((r for r in h["tag_protections"] if (r["repo"], r["name_pattern"]) == (repo, pattern)), None)
+        if base_rule != head_rule:
+            tag_prot.append(f"`{owner}/{repo}` tag protection `{pattern}` changed")
+    return sorted(set(auto)), sorted(set(hook)), sorted(set(prot)), sorted(set(tag_prot)), sorted(set(values))
 
 
 def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_plan, pr_base_ref, report_file):
@@ -1871,11 +2043,11 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     comment) and fails iff unexpected drift is present.
     """
     changed = _changed_facts(base_state, head_state)
-    auto, hook, prot, values = _intended_lines(owner, base_state, head_state)
+    auto, hook, prot, tag_prot, values = _intended_lines(owner, base_state, head_state)
 
     def changed_for(repo, fact, rn=None):
-        if fact == "protect":
-            key = (repo, "protect", rn)
+        if fact in ("protect", "tag_protect"):
+            key = (repo, fact, rn)
         elif fact == "principal":
             key = (repo, "principal", rn)
         else:
@@ -1932,6 +2104,14 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
                 else ("all fields" if verb == "create" else ", ".join(diff))
             )
             unexpected.append(f"{verb} branch protection {owner}/{repo}:{rn} ({detail})")
+    for repo, pattern, verb, diff in base_plan["tag_protection_actions"]:
+        if not changed_for(repo, "tag_protect", pattern):
+            detail = (
+                "undeclared in tag-protections.json"
+                if verb == "delete"
+                else ("all fields" if verb == "create" else ", ".join(diff))
+            )
+            unexpected.append(f"{verb} tag protection {owner}/{repo}:{pattern} ({detail})")
     for repo, names in base_plan["violations"]:
         if not changed_for(repo, "access"):
             unexpected.append(violation_line(owner, repo, names))
@@ -1982,6 +2162,9 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     if prot:
         lines.append("### Intended - branch protection (a human MUST run `mise run forge-reconcile` from gilbert after merge; the CI token cannot apply these)")
         lines += [f"- {l}" for l in prot] + [""]
+    if tag_prot:
+        lines.append("### Intended - tag protection (a human MUST run `mise run forge-reconcile` from gilbert after merge; the CI token cannot apply these)")
+        lines += [f"- {l}" for l in tag_prot] + [""]
     if values:
         lines.append("### Intended - Actions secret names (a human runs `mise run forge-reconcile` after merge; the CI token never writes values)")
         lines += [f"- {l}" for l in values] + [""]
@@ -1989,7 +2172,7 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     # Surface intended drift even when it does not fail the check: a warn-only
     # result (notably a revocation) must still be read, so the workflow posts
     # this file as a PR comment whenever it is written.
-    if report_file and (forbidden or unexpected or auto or hook or prot or values):
+    if report_file and (forbidden or unexpected or auto or hook or prot or tag_prot or values):
         Path(report_file).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     if forbidden:
@@ -2002,7 +2185,7 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
         for l in unexpected:
             console.print(f"  [red]{escape(l)}[/red]")
         raise typer.Exit(1)
-    if auto or hook or prot or values:
+    if auto or hook or prot or tag_prot or values:
         console.print("\n[yellow]PR check: intended drift only - green; it applies on merge (hook/protection halves need the human run).[/yellow]")
     else:
         console.print("\n[green]PR check: in sync, nothing intended.[/green]")
@@ -2067,6 +2250,7 @@ def main(
 ) -> None:
     owner, who, desired, pools, release_hook_repos, horkos_forge_repos, extra_principals = load_policy()
     protections = load_protections((who, HORKOS_FORGE_USER, *sorted(extra_principals)))
+    tag_protections = load_tag_protections((who, HORKOS_FORGE_USER, *sorted(extra_principals)))
     preview = dry_run or check
     # The CI path: resolve_token takes $FORGE_REPO_WRITE_TOKEN only when no
     # --token is given. Gates the branch-protection AND the Actions-secret
@@ -2410,16 +2594,57 @@ def main(
                 if live is not None and not protection_diff(live, rule):
                     protection_table.add_row(escape(name), "", "", "", "[dim]ok[/dim]")
 
+        # Tag-protection half: forge/tag-protections.json is the single source
+        # of every eblume tag protection.
+        tag_protection_table = Table(title=f"tag protections on {escape(owner)}/*")
+        tag_protection_table.add_column("Pattern")
+        tag_protection_table.add_column("Field")
+        tag_protection_table.add_column("Current")
+        tag_protection_table.add_column("Desired")
+        tag_protection_table.add_column("Action")
+        if missing_tag_repos := sorted({r["repo"] for r in tag_protections} - set(all_repos)):
+            console.print(
+                f"[red]{TAG_PROTECTIONS_PATH.name} names repos that do not exist under {escape(repr(owner))} "
+                f"(or the token cannot see them): {escape(', '.join(missing_tag_repos))}[/red]"
+            )
+            raise typer.Exit(1)
+        tag_protection_actions, tag_live_by_repo = plan_tag_protection_actions(
+            client, owner, all_repos, tag_protections, blocked
+        )
+        for repo, name_pattern, verb, diff in tag_protection_actions:
+            name = f"{repo}:{name_pattern}"
+            if verb == "delete":
+                tag_protection_table.add_row(escape(name), "(rule)", "rule", "none", "[red]delete[/red]")
+            elif verb == "create":
+                tag_protection_table.add_row(escape(name), "(rule)", "none", "rule", "[green]create[/green]")
+            else:
+                for field, (have, want) in diff.items():
+                    tag_protection_table.add_row(
+                        escape(name), field, escape(show(have)), escape(show(want)), "[yellow]update[/yellow]"
+                    )
+        # In-sync declared rules get an explicit ok row, like branch protections.
+        for repo in sorted({r["repo"] for r in tag_protections}):
+            live_rules = tag_live_by_repo.get(repo)
+            if live_rules is None:
+                continue
+            live_by_pattern = {r["name_pattern"]: r for r in live_rules}
+            for rule in [r for r in tag_protections if r["repo"] == repo]:
+                name = f"{repo}:{rule['name_pattern']}"
+                live = live_by_pattern.get(rule["name_pattern"])
+                if live is not None and not tag_protection_diff(live, rule):
+                    tag_protection_table.add_row(escape(name), "", "", "", "[dim]ok[/dim]")
+
         console.print(table)
         console.print(hook_table)
         console.print(horkos_table)
         for principal in sorted(extra_principals):
             console.print(extra_tables[principal])
         console.print(protection_table)
+        console.print(tag_protection_table)
 
         if blocked:
             console.print(
-                f"\n[red]Cannot read collaborators, Actions secrets, or branch protections on {len(blocked)} repo(s): "
+                f"\n[red]Cannot read collaborators, Actions secrets, branch protections, or tag protections on {len(blocked)} repo(s): "
                 f"{escape(', '.join(blocked))}[/red]\n"
                 f"Each needs repo-admin permission — this token's user "
                 f"is not an admin on them (Forgejo 404s rather than 403s when it cannot see a private "
@@ -2448,6 +2673,7 @@ def main(
             or hook_actions
             or label_actions
             or protection_actions
+            or tag_protection_actions
             or violations
         )
         # The values half is what a human apply is for: a values-only drift
@@ -2476,6 +2702,7 @@ def main(
                 + len(hook_actions)
                 + len(label_actions)
                 + len(protection_actions)
+                + len(tag_protection_actions)
                 + len(violations)
             )
             console.print(f"\n[bold]{pending} change(s) pending.[/bold]")
@@ -2497,6 +2724,13 @@ def main(
                     else ("all fields" if verb == "create" else ", ".join(diff))
                 )
                 console.print(f"  {verb} branch protection {escape(owner)}/{escape(repo)}:{escape(rule_name)} ({escape(detail)})")
+            for repo, name_pattern, verb, diff in tag_protection_actions:
+                detail = (
+                    "undeclared in tag-protections.json"
+                    if verb == "delete"
+                    else ("all fields" if verb == "create" else ", ".join(diff))
+                )
+                console.print(f"  {verb} tag protection {escape(owner)}/{escape(repo)}:{escape(name_pattern)} ({escape(detail)})")
             for repo, secret_names in violations:
                 console.print(f"  {violation_line(escape(owner), escape(repo), [escape(n) for n in secret_names])}")
             if not no_secrets:
@@ -2525,13 +2759,21 @@ def main(
                             "refusing to categorize PR drift against an empty protection set.[/red]"
                         )
                         raise typer.Exit(1)
+                    base_state["tag_protections"] = read_tag_protections_at(pr_base_ref)
+                    if base_state["tag_protections"] is None:
+                        console.print(
+                            f"\n[red]Cannot read {TAG_PROTECTIONS_PATH.name} at base {escape(pr_base_ref)} - "
+                            "refusing to categorize PR drift against an empty tag-protection set.[/red]"
+                        )
+                        raise typer.Exit(1)
                     base_state["secrets"] = actions_secret_names_at(pr_base_ref)
-                    base_plan = plan_at(client, owner, who, base_state, base_state["protections"])
+                    base_plan = plan_at(client, owner, who, base_state, base_state["protections"], base_state["tag_protections"])
                     head_state = {"desired": desired, "pools": pools,
                                   "release_hook_repos": release_hook_repos,
                                   "horkos_forge_repos": horkos_forge_repos,
                                   "extra_principals": extra_principals,
                                   "protections": protections,
+                                  "tag_protections": tag_protections,
                                   "secrets": declared_actions_secret_names()}
                     head_plan = {"violations": violations, "blocked": blocked}
                     report_pr_check(client, owner, who, head_state, base_state, base_plan,
@@ -2753,6 +2995,95 @@ def main(
                 raise typer.Exit(1)
             console.print(f"[green]{verb}[/green] {label}")
 
+        # Same gate as branch protections: a CI apply lands the other halves,
+        # then refuses the tag half — a human run applies it.
+        if tag_protection_actions and ci_token:
+            console.print(
+                f"\n[red]Refusing {len(tag_protection_actions)} tag protection change(s) under the CI token.[/red] "
+                "Tag protection is applied only from a human run: `mise run forge-reconcile` "
+                "(1Password, biometric) after reviewing `--dry-run`."
+            )
+            raise typer.Exit(1)
+        for repo, name_pattern, verb, diff in tag_protection_actions:
+            label = f"tag protection {escape(owner)}/{escape(repo)}:{escape(name_pattern)}"
+            base = f"/api/v1/repos/{owner}/{repo}/tag_protections"
+            if verb == "delete":
+                # Undeclared live rule: there is no declared `rule` to diff
+                # against — resolve its numeric id from the live list, delete
+                # it, then re-list to prove it is gone.
+                try:
+                    live = list_tag_protections(client, owner, repo)
+                    if live is None:
+                        console.print(
+                            f"[red]{verb} {label} did not converge: cannot read back "
+                            f"{escape(owner)}/{escape(repo)}'s tag protections.[/red]"
+                        )
+                        raise typer.Exit(1)
+                    the_id = next(
+                        (r["id"] for r in live if r["name_pattern"] == name_pattern), None
+                    )
+                    if the_id is None:
+                        console.print(
+                            f"[red]{verb} {label} did not converge:[/red] "
+                            f"the live rule {escape(name_pattern)} vanished between plan and apply"
+                        )
+                        raise typer.Exit(1)
+                    client.delete(f"{base}/{the_id}").raise_for_status()
+                    after = list_tag_protections(client, owner, repo)
+                except httpx.HTTPStatusError as exc:
+                    console.print(f"[red]{verb} {label} failed: {escape(str(exc))}[/red]")
+                    raise typer.Exit(1) from exc
+                if after is None:
+                    console.print(
+                        f"[red]{verb} {label} did not converge: cannot read back "
+                        f"{escape(owner)}/{escape(repo)}'s tag protections.[/red]"
+                    )
+                    raise typer.Exit(1)
+                if name_pattern in {r["name_pattern"] for r in after}:
+                    console.print(f"[red]{verb} {label} did not converge: still present[/red]")
+                    raise typer.Exit(1)
+                console.print(f"[green]{verb}[/green] {label}")
+                continue
+            rule = next(r for r in tag_protections if r["repo"] == repo and r["name_pattern"] == name_pattern)
+            try:
+                if verb == "create":
+                    resp = client.post(base, json={f: rule[f] for f in TAG_PROTECTION_FIELDS})
+                    resp.raise_for_status()
+                    # The id is server-assigned; read it back, then verify the
+                    # whole object below rather than trusting the POST echo.
+                    the_id = resp.json()["id"]
+                else:
+                    live = list_tag_protections(client, owner, repo)
+                    if live is None:
+                        console.print(
+                            f"[red]{verb} {label} did not converge: cannot read back "
+                            f"{escape(owner)}/{escape(repo)}'s tag protections.[/red]"
+                        )
+                        raise typer.Exit(1)
+                    the_id = next(
+                        (r["id"] for r in live if r["name_pattern"] == name_pattern), None
+                    )
+                    if the_id is None:
+                        console.print(
+                            f"[red]{verb} {label} did not converge:[/red] "
+                            f"the live rule {escape(name_pattern)} vanished between plan and apply"
+                        )
+                        raise typer.Exit(1)
+                    client.patch(f"{base}/{the_id}", json={f: rule[f] for f in diff}).raise_for_status()
+                resp = client.get(f"{base}/{the_id}")
+                resp.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                console.print(f"[red]{verb} {label} failed: {escape(str(exc))}[/red]")
+                raise typer.Exit(1) from exc
+            # Read back the whole rule, not just the fields sent: the hook
+            # half learned that a Forgejo edit can answer 200 and change nothing.
+            if left := tag_protection_diff(resp.json(), rule):
+                console.print(
+                    f"[red]{verb} {label} did not converge:[/red] still differs on {escape(', '.join(left))}"
+                )
+                raise typer.Exit(1)
+            console.print(f"[green]{verb}[/green] {label}")
+
         # The Actions-secret values half — last, so the grant half has already
         # landed (the symmetric fence checks the plan-time grant state below).
         # Names
@@ -2844,7 +3175,7 @@ def main(
                     console.print(f"[red]DELETE[/red] {escape(owner)}/{escape(repo)}:{escape(name)}")
 
         applied = (
-            len(actions) + len(horkos_actions) + len(extra_actions) + len(hook_actions) + len(label_actions) + len(protection_actions)
+            len(actions) + len(horkos_actions) + len(extra_actions) + len(hook_actions) + len(label_actions) + len(protection_actions) + len(tag_protection_actions)
         )
         if not no_secrets and not ci_token:
             applied += len(secret_puts) + len(secret_deletes)
