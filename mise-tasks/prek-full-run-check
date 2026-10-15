@@ -2,10 +2,15 @@
 # Decide whether the Lint job's `prek run` on a PR must use `--all-files`
 # instead of changed-file mode (`prek run --from-ref <base> --to-ref <head>`).
 #
-# Changed-file mode fails open in two ways no hook's `files` filter can close:
+# Changed-file mode fails open in ways no hook's `files` filter can close:
 # a diff that only deletes files hands every hook an empty file list (deleted
-# files never enter `--from-ref`'s list), and a diff that only rewrites a
-# hook's config or its entry script never reaches that hook.
+# files never enter `--from-ref`'s list), a diff that only rewrites a hook's
+# config or its entry script never reaches that hook, and a move's deleted
+# path is invisible unless rename detection is off.
+#
+# The diff is taken from the fork point (`$base...$head`), so a PR behind
+# main is judged on its own changes only — a base tip would count main's
+# post-fork files as the PR's deletions.
 #
 # Exit codes: 0 = full run required (reasons on stdout),
 #             1 = changed-file mode is safe,
@@ -37,7 +42,7 @@ for ref in "$base" "$head"; do
   fi
 done
 
-changed="$(git diff --name-only "$base" "$head")"
+changed="$(git diff --name-only "$base...$head")"
 
 # An empty diff would hand every hook an empty changed-file list — the same
 # outcome the delete-only guard catches, treated here as "safe" if left out.
@@ -48,8 +53,10 @@ empty diff — the changed-file list would be empty for every hook"
 fi
 
 # 1. Deleted files never enter `--from-ref`'s file list, so a delete-only
-#    diff would skip the entire hook set.
-deleted="$(git diff --name-only --diff-filter=D "$base" "$head")"
+#    diff would skip the entire hook set. `--no-renames`: a move is a
+#    delete+add, and with rename detection on the deleted path never appears
+#    in the D filter.
+deleted="$(git diff --no-renames --name-only --diff-filter=D "$base...$head")"
 if [ -n "$deleted" ]; then
   n="$(printf '%s\n' "$deleted" | grep -c .)"
   sample="$(printf '%s\n' "$deleted" | sed -n '1,5p' | tr '\n' ' ')"
@@ -61,9 +68,54 @@ fi
 
 # 2. Hook config: a change to any of these rewrites what the hook set checks,
 #    but no hook's `files` filter covers its own config, so the rewrite would
-#    run no hook at all.
-CONFIG_FILES=(prek.toml pyproject.toml uv.lock .yamllint.yaml .ansible-lint .github/actionlint.yaml)
-config="$(git diff --name-only "$base" "$head" -- "${CONFIG_FILES[@]}")"
+#    run no hook at all. The base list is the configs no hook `args` reference
+#    (this file, the ruff/ty project files, the tool configs read implicitly);
+#    the rest is derived from `prek.toml`'s `args` at run time, so adding a
+#    hook with a `-c <config>` arg cannot silently drop that config from here.
+CONFIG_FILES=(prek.toml pyproject.toml uv.lock .ansible-lint .editorconfig .shellcheckrc taplo.toml)
+config_args="$(
+  dq='"'
+  sq="'"
+  awk -v dq="$dq" -v sq="$sq" '
+    function scan(s,    p1, p2, p, q, rest, e, tok) {
+      while (1) {
+        p1 = index(s, dq)
+        p2 = index(s, sq)
+        if (p1 == 0 && p2 == 0) break
+        if (p1 > 0 && (p2 == 0 || p1 < p2)) { p = p1; q = dq } else { p = p2; q = sq }
+        rest = substr(s, p + 1)
+        e = index(rest, q)
+        if (e <= 1) break
+        if (e == 0) break
+        if (e == 1) { s = substr(rest, 2); continue }
+        tok = substr(rest, 1, e - 1)
+        s = substr(rest, e + 1)
+        # Keep the repo-relative config paths (a dot or slash, not a flag).
+        if (tok !~ /^-/ && tok ~ "[./]") print tok
+      }
+    }
+    {
+      seg = $0
+      if (inargs) {
+        if (index(seg, "]") > 0) { seg = substr(seg, 1, index(seg, "]") - 1); inargs = 0 }
+      } else if (match(seg, /args[[:space:]]*=/)) {
+        seg = substr(seg, RSTART)
+        if (index(seg, "]") > 0) seg = substr(seg, 1, index(seg, "]") - 1)
+        else inargs = 1
+      } else next
+      scan(seg)
+    }
+  ' prek.toml
+)"
+if [ -n "$config_args" ]; then
+  while IFS= read -r p; do
+    case " ${CONFIG_FILES[*]} " in
+      *" $p "*) ;;
+      *) CONFIG_FILES+=("$p") ;;
+    esac
+  done <<< "$config_args"
+fi
+config="$(git diff --no-renames --name-only "$base...$head" -- "${CONFIG_FILES[@]}")"
 if [ -n "$config" ]; then
   reasons+="
 hook config touched: $(printf '%s' "$config" | tr '\n' ' ')"
@@ -99,7 +151,7 @@ if [ -n "$entries" ]; then
       entry_specs+=("$entry")
     fi
   done <<< "$entries"
-  entry_hits="$(git diff --name-only "$base" "$head" -- "${entry_specs[@]}")"
+  entry_hits="$(git diff --no-renames --name-only "$base...$head" -- "${entry_specs[@]}")"
 else
   entry_hits=""
 fi

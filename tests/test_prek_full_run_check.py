@@ -1,9 +1,11 @@
 """Tests for the full-run fallback decision (mise-tasks/prek-full-run-check).
 
-The check exists because changed-file mode fails open in two ways: a
-delete-only diff hands every hook an empty file list, and a config-only diff
-never reaches the hook its config rewrites. Each of those must fall back to
-`--all-files`; everything else stays scoped.
+The check exists because changed-file mode fails open in ways no hook's
+`files` filter can close: a delete-only or rename-only diff never hands
+every hook its changed files, and a config-only diff never reaches the hook
+its config rewrites. Each of those must fall back to `--all-files`;
+everything else stays scoped. The diff is judged from the fork point, so a
+branch behind main is judged on its own changes only.
 """
 
 import subprocess
@@ -34,6 +36,24 @@ files = '(\\.py$|^mise-tasks/)'
 pass_filenames = false
 
 [[repos.hooks]]
+id = "yamllint"
+name = "yamllint"
+entry = "yamllint"
+language = "system"
+args = ["-c", ".yamllint.yaml"]
+files = '^docs/'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "actionlint"
+name = "actionlint"
+entry = "actionlint"
+language = "system"
+args = ["-config-file", ".github/actionlint.yaml"]
+files = '^\\.forgejo/'
+pass_filenames = false
+
+[[repos.hooks]]
 id = "whole-scope"
 name = "whole-scope"
 entry = "env ANSIBLE_ROLES_PATH=ansible/roles ansible-lint ansible/"
@@ -46,9 +66,12 @@ CONFIG_FILES = [
     "prek.toml",
     "pyproject.toml",
     "uv.lock",
-    ".yamllint.yaml",
+    ".yamllint.yaml",  # only via the args derivation in PREK_TOML
     ".ansible-lint",
-    ".github/actionlint.yaml",
+    ".github/actionlint.yaml",  # only via the args derivation in PREK_TOML
+    ".editorconfig",
+    ".shellcheckrc",
+    "taplo.toml",
 ]
 
 
@@ -134,6 +157,19 @@ def test_delete_only_diff_requires_full_run(repo):
     assert "argocd.md" in result.stdout
 
 
+def test_rename_only_diff_requires_full_run(repo):
+    # A move is a delete+add, and with rename detection on the deleted path
+    # never appears in the D filter, so the old path's incoming links would
+    # go unlinted.
+    git(repo, "mv", "docs/reference/argocd.md", "archive-argocd.md")
+    git(repo, "commit", "-q", "-m", "move")
+    base, head = shas(repo)
+    result = check(repo, base, head)
+    assert result.returncode == 0, result.stdout
+    assert "deleted files" in result.stdout
+    assert "argocd.md" in result.stdout
+
+
 def test_entry_script_edit_requires_full_run(repo):
     commit(repo, {"mise-tasks/docs-check-links": "#!/usr/bin/env bash\nexit 1\n"})
     base, head = shas(repo)
@@ -176,6 +212,20 @@ def test_deletion_and_config_together_name_both(repo):
     assert result.returncode == 0, result.stdout
     assert "deleted files" in result.stdout
     assert "config" in result.stdout
+
+
+def test_stale_branch_judged_from_fork_point(repo):
+    # main gains a file after the branch's fork point; judged from the base
+    # tip that file would count as a branch deletion, but from the fork
+    # point the branch's own change is a plain edit and stays scoped.
+    git(repo, "switch", "-q", "-c", "feat")
+    commit(repo, {"docs/reference/argocd.md": "# edited by branch\n"})
+    git(repo, "switch", "-q", "main")
+    commit(repo, {"docs/reference/main-only.md": "# main moved\n"})
+    base = git(repo, "rev-parse", "main").stdout.strip()
+    head = git(repo, "rev-parse", "feat").stdout.strip()
+    result = check(repo, base, head)
+    assert result.returncode == 1, result.stdout
 
 
 def test_single_quoted_entry_is_derived(repo):

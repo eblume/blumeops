@@ -139,6 +139,8 @@ jobs:
             head="$(jq -r '.pull_request.head.sha' "$GITHUB_EVENT_PATH")"
             # 0 = full run required, 1 = changed-file mode is safe,
             # 2 = undecidable: fail closed to the full run.
+            # Diffs from the fork point (base...head) and counts deletions
+            # with rename detection off; rc 0/2 fall back to the full run.
             rc=0
             bash mise-tasks/prek-full-run-check "$base" "$head" || rc=$?
             if [ "$rc" -eq 1 ]; then
