@@ -605,9 +605,8 @@ services:
       the same nix-store package as the agent spoke: the `hephaestus` flake
       input in nixos/ringtail/flake.nix (the oneshot, timer, and hephTag are
       gone; the hand-built pre-v1.8.0 quickadd drift the old ~/.cargo/bin
-      binaries carried is rendered inert, those binaries staying on disk until
-      the step-6 cleanup removes them). One pin for both ringtail spokes —
-      bump the flake input and review both.
+      binaries carried is removed by the heph-cargo-bin-cleanup one-shot). One
+      pin for both ringtail spokes — bump the flake input and review both.
       Tracked as heph node 01KYTBFTJSG3H4GDBVTC14NVJC.
 
   - name: factorio
