@@ -167,7 +167,7 @@ spec:
             - name: TALOS_FORGE_OWNER
               value: "eblume"
             - name: TALOS_FORGE_BOT
-              value: "agents"
+              value: "talos"
             - name: TALOS_CREATOR_ALLOWLIST
               value: "eblume"
             - name: TALOS_DEFAULT_ASSIGNEE
@@ -183,9 +183,9 @@ spec:
             - name: TALOS_PROMETHEUS_URL
               value: "https://prometheus.ops.eblu.me"
             - name: TALOS_GIT_AUTHOR_NAME
-              value: "agents"
+              value: "talos"
             - name: TALOS_GIT_AUTHOR_EMAIL
-              value: "blume.erich+agents@gmail.com"
+              value: "blume.erich+talos@gmail.com"
           envFrom:
             - secretRef:
                 name: talos-op-token # OP_SERVICE_ACCOUNT_TOKEN

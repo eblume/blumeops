@@ -132,7 +132,7 @@ Users authenticate via:
 ### AI/Automation Access
 
 The talos agent service ([[agent-containerization]]) runs pi sessions with deliberately scoped access:
-- Git — commits and pushes as the `agents` Forgejo bot, which is read-only on canonical repos; agent-authored changes go out as cross-repo PRs from its fork
+- Git — commits and pushes as the `talos` Forgejo bot, which is read-only on canonical repos; agent-authored changes go out as cross-repo PRs from its fork
 - Deployments — no ArgoCD tokens in the pod; the `argocd` CLI is a read-only account. Any deploy is a warrant request-run that a human approves ([[warrant-approval-gated-runs]])
 - 1Password — a service-account token scoped to the `agents` vault only, injected into the pod; no interactive approval, and the `blumeops`/`blumeops-ci` vaults are unreachable
 - Network — all egress transits the egress-gateway pod, which is per-connection logged; the pod itself is fenced by deny-by-default policy

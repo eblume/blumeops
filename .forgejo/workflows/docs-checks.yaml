@@ -12,7 +12,7 @@
 # The report-failure step is the one exception: failure-only, automatic per-run token (no repo secret).
 #
 # On an agent PR this sits `pending` with no run until a human clicks
-# "Approve and run" — the agents bot is read-only on canonical, so its PRs are
+# "Approve and run" — the talos bot is read-only on canonical, so its PRs are
 # outside contributions. That click also decides WHICH workflow files run
 # (target branch for untrusted authors, the PR's own for trusted ones), so it
 # is a security control, not just friction. Do not switch this to

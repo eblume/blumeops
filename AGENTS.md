@@ -24,11 +24,11 @@ need to confirm through biometric approval.
 ## Rules
 
 1. **Start every task by finding and reading the relevant docs and context**.
-2. **Fork + PRs (bot is read-only on canonical).** The `agents` bot has **read**
-   on `eblume/blumeops` and authors via its fork `agents/blumeops` — the clone's
+2. **Fork + PRs (bot is read-only on canonical).** The `talos` bot has **read**
+   on `eblume/blumeops` and authors via its fork `talos/blumeops` — the clone's
    `origin` is the fork, `upstream` is canonical. Branch off `upstream/main`,
    push to `origin`, and open a **cross-repo** PR:
-   `tea pr create --repo eblume/blumeops --base main --head agents:<branch>`.
+   `tea pr create --repo eblume/blumeops --base main --head talos:<branch>`.
    `git fetch upstream` before working. The bot **cannot** push to
    `eblume/blumeops` or commit to `main` directly (that's a human, from gilbert).
    Issue and comment posts that trigger talos cycles support pragmas (e.g. `!!plan: skip`, `!!noreply`) — the [talos README Pragmas section](https://forge.eblu.me/eblume/talos/blob/main/README.md#pragmas) is the authoritative list; the bare `plan: skip` form is retired.

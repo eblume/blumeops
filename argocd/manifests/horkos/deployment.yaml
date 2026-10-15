@@ -69,7 +69,7 @@ spec:
             - name: HORKOS_PR_ASSIGNEE
               value: eblume
             # Author email for the release publisher's pin-PR commits —
-            # horkos's own principal identity, not the agents bot's.
+            # horkos's own principal identity, not the talos bot's.
             - name: HORKOS_GIT_EMAIL
               value: blume.erich+horkos@gmail.com
             # Release publisher topology — the horkos-release-targets

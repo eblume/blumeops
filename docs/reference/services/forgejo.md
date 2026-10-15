@@ -63,7 +63,7 @@ The forge has three namespaces:
 
 - `eblume/` — first-party repos (blumeops, talos, hephaestus, myeve,
   gamedev, …). The forge is the primary source of truth for blumeops.
-- `agents/` — the [[agents-forgejo-bot]]'s forks (blumeops, agents,
+- `talos/` — the [[agents-forgejo-bot]]'s forks (blumeops, agents,
   horkos); the push target for repos where the human gate is the point.
 - `mirrors/` — pull mirrors of external repos (alloy, tesla_auth, …)
   for supply chain control; see [[manage-forgejo-mirrors]].
@@ -82,7 +82,7 @@ The forge has three namespaces:
 
 | Workflow | Trigger | Runner | Purpose |
 |----------|---------|--------|---------|
-| `forge-reconcile` | push/PR/schedule/dispatch | `indri` | Reconcile the `agents` + `horkos-forge` bots' collaborations, webhooks, labels, and branch protections against repos.json + `forge/branch-protections.json`; the single forge drift check (weekly schedule + same-repo PRs; protections apply only from a human run) |
+| `forge-reconcile` | push/PR/schedule/dispatch | `indri` | Reconcile the `talos` + `horkos-forge` bots' collaborations, webhooks, labels, and branch protections against repos.json + `forge/branch-protections.json`; the single forge drift check (weekly schedule + same-repo PRs; protections apply only from a human run) |
 | `argocd-deploy` | dispatch | `priv` | Warrant-gated ArgoCD deploy of a single app |
 | `argocd-sync-apps` | dispatch | `priv` | Warrant-gated sync of the app-of-apps root (`apps`) |
 | `branch-cleanup` | cron/dispatch | `indri-build` | Delete stale branches |
@@ -285,7 +285,7 @@ Forgejo hosts pull mirrors of external repositories (GitHub, etc.) for supply ch
 
 - [[upgrade-forgejo]] - Version upgrade procedure (DB backup, breaking changes, rollback)
 - [[forgejo-runner]] - CI/CD runners (indri + ringtail instances, credentials)
-- [[agents-forgejo-bot]] - The bot identity behind the agents/ namespace
+- [[agents-forgejo-bot]] - The bot identity behind the talos/ namespace
 - [[argocd]] - Uses Forgejo as git source
 - [[authentik]] - OIDC identity provider
 - [[zot]] - Container registry for built images

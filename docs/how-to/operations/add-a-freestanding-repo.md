@@ -14,7 +14,7 @@ End-to-end procedure for bringing a freestanding repo into the pool. For
 what the class is, see [[freestanding-repos]]. Each step names its actor.
 
 1. **(Erich)** Create the forge repo from `project-template` — use forge's
-   "use template". The agents bot's PAT cannot create repos.
+   "use template". The talos bot's PAT cannot create repos.
 2. **(talos)** Open a blumeops PR adding one line to
    `argocd/manifests/talos/repos.json`:
 
@@ -22,7 +22,7 @@ what the class is, see [[freestanding-repos]]. Each step names its actor.
    { "name": "<repo>", "access": "write", "pool": "canonical" }
    ```
 
-   No `release_hook`. talos authors via its fork (`agents/blumeops`) and
+   No `release_hook`. talos authors via its fork (`talos/blumeops`) and
    opens a cross-repo PR to `eblume/blumeops`. If warrant requests may
    attach to the new repo, carry `"horkos_forge": true` as well, so
    horkos-forge can post the settlement comment on their issues.
@@ -33,7 +33,7 @@ what the class is, see [[freestanding-repos]]. Each step names its actor.
    merge-push run is the end-to-end proof the new repo lands.
 4. **(Erich, from gilbert)** `mise run forge-reconcile` — creates the
    forge → talos webhook (needs the shared signing secret from the blumeops
-   1Password vault) and seeds the `agents` engagement label (needs a token
+   1Password vault) and seeds the `talos` engagement label (needs a token
    with label write; the CI token 403s even on label reads). Without
    this step the webhook and label halves are missing and issue activity in
    the new repo will not engage talos.

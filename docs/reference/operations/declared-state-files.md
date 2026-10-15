@@ -45,7 +45,7 @@ inventory. Add a row when you add a file.
 
 | File | Declares | Owner task | Check | Other readers |
 |------|----------|------------|-------|---------------|
-| `argocd/manifests/talos/repos.json` | which repos the `agents` bot may touch, the pod clone pool, which repos get the forge webhooks | `mise run forge-reconcile` | `forge-reconcile --check` (weekly, PR) | the talos pod entrypoint, via a kustomize ConfigMap |
+| `argocd/manifests/talos/repos.json` | which repos the `talos` bot may touch, the pod clone pool, which repos get the forge webhooks | `mise run forge-reconcile` | `forge-reconcile --check` (weekly, PR) | the talos pod entrypoint, via a kustomize ConfigMap |
 | `forge/branch-protections.json` | branch protection rules on `main` — the single source, so an undeclared live rule is drift that `forge-reconcile` apply deletes | `mise run forge-reconcile` | same | none |
 | `forge/runners.json` | runner topology: name, host, labels, scope, capacity, unit | `mise run forge-reconcile` | `forge-reconcile --check` | `nixos/ringtail/configuration.nix`, `darwin/indri/configuration.nix` |
 | `warrant-policy.yaml` | which workflows are requestable, their class, input schemas, SHA binding | none; it is read at request and dispatch time | `request-run` refuses at request time | `mise run request-run`, [[horkos]] |

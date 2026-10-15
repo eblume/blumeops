@@ -115,7 +115,7 @@ blumeops is cloned into the pool at `~/code/personal/blumeops` (agent-owned, so
 `git` works) but is **not** a workspace — there is no `ringtail-blumeops` Remote
 Control server. Agents `cd` into it from any session to **author** changes and
 open PRs as the [[agents-forgejo-bot|bot]]. The bot has only **read** on the
-canonical repo and works through its fork **`agents/blumeops`**: the clone's
+canonical repo and works through its fork **`talos/blumeops`**: the clone's
 `origin` is the fork (push), `upstream` is `eblume/blumeops` (fetch) — branch off
 `upstream/main`, and PRs are cross-repo. This is safe because blumeops is a
 **public, secret-free** repo: the gate has never been the code, it is the
@@ -185,7 +185,7 @@ The boundaries, weakest-first:
    ([[agents-forgejo-bot]]) and open PRs rather than committing to `main`. For
    the repos the bot has *write* on (`hephaestus.nvim`, …) this is convention backed
    by human PR review. For **`blumeops` it is enforced**: the bot has only
-   **read** on the canonical repo and pushes to its **fork** (`agents/blumeops`),
+   **read** on the canonical repo and pushes to its **fork** (`talos/blumeops`),
    opening cross-repo PRs. Read-not-write is deliberate — `workflow_dispatch` is
    write-gated, so a read-only bot **cannot run blumeops CI** and therefore
    cannot reach its Actions secrets (the deploy-credentialed ones are job-time
@@ -195,8 +195,8 @@ The boundaries, weakest-first:
    credentials out of agent reach** — layered over the fact that the bot holds
    neither the blumeops vault nor cluster access, so even a hypothetical `main`
    commit deploys nothing until a human provisions. PRs are opened with `tea`,
-   authenticated by an agents-owned `write:repository`+`write:issue` PAT
-   (`agents-forgejo-token` in the agents vault) that the launcher exports as
+   authenticated by a talos-owned `write:repository`+`write:issue` PAT
+   (`talos-forgejo-token` in the agents vault) that the launcher exports as
    `FORGEJO_TOKEN` and seeds into tea's config — no blumeops-vault dependency,
    and the PAT is self-bounded to the bot's own repos ([[agents-forgejo-bot]]).
 5. **Network** *(in migration)* — the bare-metal phase has ambient tailnet

@@ -137,5 +137,5 @@ Credentials live in 1Password. Never retrieve them directly - use existing patte
 | Missing kubectl context | Always add `--context=k3s-ringtail` |
 | Deploying without review | Create PR first, wait for user approval |
 | Re-explaining reference material | Link to reference cards instead |
-| Committing to main from a remote-agent session | Branch and open a PR — the `agents` bot cannot push canonical `main` |
+| Committing to main from a remote-agent session | Branch and open a PR — the `talos` bot cannot push canonical `main` |
 | Guessing at credentials | Ask user or check 1Password patterns |

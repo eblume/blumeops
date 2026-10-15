@@ -19,7 +19,7 @@
 # Payload validation (invariant 2 at the root): before pinning, the workflow
 # checks out main and fetches the bound SHA's argocd/apps/ as data, then runs
 # main's reviewed mise-tasks/validate-argocd-apps over it. Every Application
-# the root would install must point at a source the agents bot cannot move
+# the root would install must point at a source the talos bot cannot move
 # (eblume/blumeops.git @ main, or a read-only mirror). A pointer the bot CAN
 # move — its own fork on a branch — would let one approval install arbitrary
 # manifests into any namespace, which the check refuses.
@@ -60,7 +60,7 @@ jobs:
       # The root sync turns the bound SHA's argocd/apps/*.yaml into live
       # ArgoCD Applications, each tracked forever with automated sync and
       # self-heal. Refuse — before pinning — if any of them points at a source
-      # the agents bot can move (its fork, on a branch it pushes). Forgejo
+      # the talos bot can move (its fork, on a branch it pushes). Forgejo
       # advertises PR heads as refs/pull/N/head on canonical, so a bound SHA
       # that is the PR's current head is git-fetchable (verified — see
       # docs/reference/services/argocd.md "SHA reachability"); a bound SHA that

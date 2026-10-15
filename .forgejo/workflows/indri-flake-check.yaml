@@ -16,7 +16,7 @@
 # only starts on a main push or a dispatch by a write collaborator.
 #
 # As with the other workflows, on an agent PR this sits pending until a human
-# clicks "Approve and run" (the agents bot is read-only on canonical). See
+# clicks "Approve and run" (the talos bot is read-only on canonical). See
 # [[agent-change-process]].
 name: Indri Flake Check
 

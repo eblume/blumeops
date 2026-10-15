@@ -13,7 +13,7 @@
 # named entry is what holds the merge on an unapproved agent PR.
 #
 # On an agent PR this sits `pending` with no run until a human clicks
-# "Approve and run" — the agents bot is read-only on canonical, so its PRs
+# "Approve and run" — the talos bot is read-only on canonical, so its PRs
 # are outside contributions. Do not switch to `pull_request_target` to skip
 # it: that trigger gets secrets and a write token.
 # See [[agent-change-process#Why agent PRs need an approval click]].

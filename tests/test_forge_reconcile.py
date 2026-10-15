@@ -1,6 +1,6 @@
 """forge-reconcile: write on a repo == read of its Actions secrets.
 
-`forge-reconcile` reconciles the `agents` bot's forge collaborations. The
+`forge-reconcile` reconciles the `talos` bot's forge collaborations. The
 Actions-secrets invariant: workflows execute at the pushed ref and every run
 is handed the repo's secrets, so `access: write` on a repo whose
 `/actions/secrets` list is non-empty is a violation — it must fail `--check`
@@ -52,7 +52,7 @@ ara = _load()
 
 
 def _policy(repos):
-    return {"owner": "eblume", "collaborator": "agents", "repos": repos}
+    return {"owner": "eblume", "collaborator": "talos", "repos": repos}
 
 
 @pytest.fixture
@@ -124,7 +124,7 @@ class FakeForge:
     def __init__(self):
         self.requests = []  # (method, url)
         self.repos = []  # visible repo names
-        self.permission = {}  # repo -> agents permission
+        self.permission = {}  # repo -> talos permission
         self.horkos_permission = {}  # repo -> horkos-forge permission
         self.secrets: (
             dict[str, list[str] | None] | None
@@ -275,11 +275,11 @@ class FakeForge:
             if tail == ["collaborators"]:
                 users = []
                 if repo in self.permission:
-                    users.append({"login": "agents"})
+                    users.append({"login": "talos"})
                 if repo in self.horkos_permission:
                     users.append({"login": "horkos-forge"})
                 return httpx.Response(200, json=self._page(request, users))
-            if tail == ["collaborators", "agents", "permission"]:
+            if tail == ["collaborators", "talos", "permission"]:
                 return httpx.Response(
                     200, json={"permission": self.permission.get(repo, "none")}
                 )
@@ -622,7 +622,7 @@ def test_unreadable_secrets_and_hooks_listed_once(policy, run_main, monkeypatch)
 
 def test_horkos_forge_flagged_repo_in_sync(policy, run_main, monkeypatch):
     # Flagged repo where horkos-forge already holds write: no horkos-forge
-    # action at all (agents side is independently in sync too).
+    # action at all (talos side is independently in sync too).
     policy([_write_repo("svc", horkos_forge=True)])
     forge = FakeForge()
     forge.repos = ["svc"]
@@ -641,7 +641,7 @@ def test_horkos_forge_flagged_repo_in_sync(policy, run_main, monkeypatch):
 
 def test_horkos_forge_missing_grant_is_drift(policy, run_main, monkeypatch):
     # Flagged repo with no horkos-forge grant: --check reports the pending
-    # grant and exits 1 (like the agents-bot drift tests); apply mode PUTs the
+    # grant and exits 1 (like the talos-bot drift tests); apply mode PUTs the
     # write grant, folded into the served state.
     policy([_write_repo("svc", horkos_forge=True)])
     forge = FakeForge()
@@ -689,7 +689,7 @@ def test_horkos_forge_unflagged_stale_grant_revoked(policy, run_main, monkeypatc
 def test_horkos_forge_stale_grant_on_unlisted_repo_revoked(
     policy, run_main, monkeypatch
 ):
-    # The agents sweep runs over ALL of the owner's repos (repos/search), and
+    # The talos sweep runs over ALL of the owner's repos (repos/search), and
     # the horkos-forge half mirrors it: a grant on a repo absent from repos.json
     # is stale and must be revoked, not left for the drift check.
     policy([_write_repo("svc")])
@@ -1099,7 +1099,7 @@ def test_protection_unreadable_undeclared_repo_is_blocked(protected, run_main):
     assert "Refusing to apply a partial policy" in out
 
 
-@pytest.mark.parametrize("bot", ["agents", "horkos-forge", "Horkos-Forge"])
+@pytest.mark.parametrize("bot", ["talos", "horkos-forge", "Horkos-Forge"])
 @pytest.mark.parametrize(
     "field",
     [
@@ -1149,7 +1149,7 @@ def test_protection_unreadable_is_blocked(protected, run_main, monkeypatch):
 
 def test_real_protection_policy_loads():
     """The checked-in forge/branch-protections.json passes its own fences."""
-    rules = ara.load_protections(("agents", "horkos-forge"))
+    rules = ara.load_protections(("talos", "horkos-forge"))
     assert {(r["repo"], r["rule_name"]) for r in rules} >= {("blumeops", "main")}
 
 
@@ -2054,7 +2054,7 @@ def test_secret_fence_blocks_put_on_write_repo(policy, run_main, monkeypatch):
 def test_secret_fence_revoked_this_run_is_rerun_not_violation(
     policy, run_main, monkeypatch
 ):
-    # Live write this run revokes (the agents half DELETEs it before the
+    # Live write this run revokes (the talos half DELETEs it before the
     # values half): the fence evaluates the plan-time grant state, so it
     # refuses the PUT on this run and says re-run, not violation. The grant
     # revocation still lands; a second run would PUT.
@@ -2209,7 +2209,7 @@ def test_pr_check_intended_only_is_green(policy, run_main, monkeypatch, tmp_path
     assert code == 0, out
     assert "Unexpected drift" not in out
     assert "intended drift only" in out
-    assert "`eblume/svc` agents access: write -> read" in report.read_text()
+    assert "`eblume/svc` talos access: write -> read" in report.read_text()
 
 
 def test_pr_check_unexpected_drift_fails(policy, run_main, monkeypatch, tmp_path):

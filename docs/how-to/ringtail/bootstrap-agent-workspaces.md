@@ -28,30 +28,30 @@ steps 4–6 require the `agent` user to exist (i.e. after the first
 
 ## 1. Create the Forgejo bot user
 
-> **Status:** already done (2026-07-08) — the `agents` user exists and has the
+> **Status:** already done (2026-07-08) — the `talos` user exists and has the
 > bot public key. This section documents how, for reproduction/rotation.
 
-On indri (Forgejo admin CLI), create a non-admin user named `agents`. Forgejo
+On indri (Forgejo admin CLI), create a non-admin user named `talos`. Forgejo
 runs as `erichblume` with its work path at `/Users/erichblume/forgejo`:
 
 ```fish
 ssh indri
 FJ=/Users/erichblume/code/3rd/forgejo/forgejo
 WP=/Users/erichblume/forgejo; CFG=$WP/custom/conf/app.ini
-"$FJ" admin user create --username agents --email blume.erich+agents@gmail.com \
+"$FJ" admin user create --username talos --email blume.erich+talos@gmail.com \
     --random-password --must-change-password=false --work-path "$WP" --config "$CFG"
 ```
 
-(Email is a `+agents` gmail alias because `eblu.me` has no working MX yet.)
+(Email is a `+talos` gmail alias because `eblu.me` has no working MX yet.)
 
 Then, in the Forgejo web UI as an admin:
 
 - Add the **public key** from the `agents-forgejo-bot` vault item (see
-  [[agents-forgejo-bot]]) to the `agents` user's SSH keys.
+  [[agents-forgejo-bot]]) to the `talos` user's SSH keys.
 > **Do not grant repo access here.** Collaborations come from
 > `repos.json` (`argocd/manifests/talos/`), reconciled by the **Forge Reconcile**
 > workflow, which is authoritative in both directions — a repo absent from that
-> file has its `agents` collaboration *removed*, so a grant clicked in the web UI
+> file has its `talos` collaboration *removed*, so a grant clicked in the web UI
 > is reverted on the next run. The same file drives the pod's clone loop, which
 > is the point: a missing grant and a typo look identical from inside the pod
 > (Forgejo 404s rather than 403s on a private repo the bot cannot see). To share
@@ -60,7 +60,7 @@ Then, in the Forgejo web UI as an admin:
 > **`agents` and `blumeops` are pinned read-only.** The reconciler refuses a
 > `write` request for either, and `repos.json` cannot override it — that fence
 > lives in reviewed code. Both are cloned `fork`: the bot pushes branches to
-> `agents/<repo>` and opens cross-repo PRs, so a human merge sits in front of the
+> `talos/<repo>` and opens cross-repo PRs, so a human merge sits in front of the
 > instructions every future session boots with and in front of blumeops CI (and
 > therefore its deploy secrets). Every other pooled repo is `write` +
 > `canonical`; write ≠ deploy, since the gates are the blumeops 1Password vault
@@ -74,27 +74,27 @@ Then, in the Forgejo web UI as an admin:
 > convention (open PRs) plus the fact that the bot holds no deploy credentials.
 > See [[agent-workspaces]] §Isolation.
 
-## 1b. Create the agents Forgejo PAT (for PR creation)
+## 1b. Create the talos Forgejo PAT (for PR creation)
 
-> **Status:** done (2026-07-08) — item `agents-forgejo-token` in the agents vault.
+> **Status:** done (2026-07-08) — item `talos-forgejo-token` in the agents vault.
 
-Agents open PRs with `tea`, which needs a token. Mint it **as the `agents`
-user** (not admin): a Forgejo PAT can't exceed its owner's permissions, so an
-agents-owned token is structurally bounded to the repos agents collaborates on
+Agents open PRs with `tea`, which needs a token. Mint it **as the `talos`
+user** (not admin): a Forgejo PAT can't exceed its owner's permissions, so a
+talos-owned token is structurally bounded to the repos talos collaborates on
 — the ownership bound is the guardrail, not the scope list.
 
 ```fish
 ssh indri
 FJ=/Users/erichblume/code/3rd/forgejo/forgejo
 WP=/Users/erichblume/forgejo; CFG=$WP/custom/conf/app.ini
-"$FJ" admin user generate-access-token --username agents \
+"$FJ" admin user generate-access-token --username talos \
     --scopes write:repository,write:issue --token-name agent-pr \
     --work-path "$WP" --config "$CFG"
 ```
 
-Store it concealed in the **agents** vault as `agents-forgejo-token` →
+Store it concealed in the **agents** vault as `talos-forgejo-token` →
 `api-token` (`op item create --vault agents --category "API Credential" --title
-agents-forgejo-token "api-token[password]=<tok>"`). The workspace launcher reads
+talos-forgejo-token "api-token[password]=<tok>"`). The workspace launcher reads
 it via the op shim and both exports `FORGEJO_TOKEN` and seeds `tea`'s config, so
 PR creation has **no blumeops-vault dependency**. Scopes are `write:repository`
 + `write:issue` (tea's `pr create` needs the issue scope — PRs are issues in
@@ -105,7 +105,7 @@ Forgejo) — never `write:admin`/`write:organization`/`sudo`.
 The `agents` vault must contain (created during the prototype, 2026-07-08):
 
 - `agents-forgejo-bot` — SSH keypair (`private key`, `public key` fields).
-- `agents-forgejo-token` — Forgejo PAT (`api-token` field, `write:repository`).
+- `talos-forgejo-token` — Forgejo PAT (`api-token` field, `write:repository`).
 - The `agents-ringtail Service Account` item lives in the **blumeops** vault
   and holds the `agents-ringtail-rw` token (read/write on `agents` only).
 
@@ -303,7 +303,7 @@ op item get agent-test-secret --vault agents    # reads
 
 Revert the PR and `mise run provision-ringtail`; then
 `ssh ringtail 'sudo userdel -r agent'` if you want the home gone. Remove the
-`agents` Forgejo user and revoke the service account in 1Password if retiring
+`talos` Forgejo user and revoke the service account in 1Password if retiring
 the capability entirely.
 
 ## Related
