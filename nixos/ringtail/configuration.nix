@@ -1,15 +1,16 @@
 # Auto-apply drill (#1525): comment-only, eval-equivalent; the merge is the drill.
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, hephPkg, ... }:
 
 let
   # Libraries exposed to prebuilt mise runtimes through nix-ld.
   buildDeps = with pkgs; [ zlib readline bzip2 xz libffi ncurses sqlite openssl ];
 
-  # Erich's heph toolchain (installed by heph-eblume.nix). Imported here too so
-  # the sway session can bind the quick-capture popover.
+  # Erich's heph toolchain (the nix-store package, shared with the agent
+  # spoke). Imported here too so the sway session can bind the quick-capture
+  # popover.
   heph = import ./heph-common.nix { inherit pkgs lib; };
-  hephQuickadd = heph.mkQuickaddLauncher { home = "/home/eblume"; };
-  hephShims = heph.mkShims { home = "/home/eblume"; bins = heph.desktopBins; };
+  hephQuickadd = heph.mkQuickaddLauncher { binDir = "${hephPkg}/bin"; };
+  hephShims = heph.mkShims { bins = heph.desktopBins; binDir = "${hephPkg}/bin"; };
   # LAN + netconsole endpoints (context: heph 01M2KSPXQKACVJB5QB1AMX86M7)
   indriHostIp = "192.168.1.99";
   indriEn0Mac = "14:98:77:30:29:68";
@@ -456,10 +457,10 @@ in
   home-manager.users.eblume = {
     home.stateVersion = "26.05";
 
-    # `heph`/`heph-tui`/`heph-quickadd` shims. The real binaries are in
-    # ~/.cargo/bin, which is on no session PATH here — sway comes up under
-    # greetd with only the nix profile directories, so without these a terminal
-    # opened from the desktop can't find heph at all.
+    # `heph`/`heph-tui`/`heph-quickadd` shims to the store package's bin dir,
+    # which is on no session PATH here — sway comes up under greetd with only
+    # the nix profile directories, so without these a terminal opened from the
+    # desktop can't find heph at all.
     home.packages = [ hephShims ];
 
     # External-IP helper as `myip` rather than `ip`, which would shadow

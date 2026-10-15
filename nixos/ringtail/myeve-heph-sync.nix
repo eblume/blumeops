@@ -10,11 +10,10 @@
 #
 # The sync itself lives in the myeve repo (scripts/heph-sync/eve_chores.py) and
 # is documented there. This module is only the schedule.
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, hephPkg, ... }:
 
 let
   home = "/home/eblume";
-  cargoBin = "${home}/.cargo/bin";
   repo = "${home}/code/personal/myeve";
   script = "${repo}/scripts/heph-sync/eve_chores.py";
 
@@ -30,12 +29,12 @@ let
   # blumeops deploy for every collector tweak. Revisit if it stabilises.
   #
   # uv resolves the script's PEP-723 inline deps (httpx) on first run and caches
-  # them under ~/.cache/uv. `heph` comes from ~/.cargo/bin, installed by the
-  # eblume-heph-install oneshot in heph-eblume.nix.
+  # them under ~/.cache/uv. `heph` comes from the nix-store heph package
+  # (`hephPkg`, the flake's hephaestus input — same package the spokes run).
   sync = pkgs.writeShellScript "myeve-heph-sync" ''
     set -euo pipefail
     export HOME=${home}
-    export PATH=${cargoBin}:${pkgs.uv}/bin:$PATH
+    export PATH=${hephPkg}/bin:${pkgs.uv}/bin:$PATH
     # systemd units do not source /etc/profile, so the session-wide cert env
     # never reaches here. httpx ships certifi, but uv's own index fetches want
     # a system bundle on a cold cache.
@@ -55,12 +54,11 @@ in
     description = "Publish EVE Online game state into heph as tasks";
     unitConfig = {
       ConditionUser = "eblume";
-      # Skip cleanly (not failed) when the pieces are not there: no heph CLI
-      # yet, no myeve checkout, no ESI token, or the spoke still starting up
+      # Skip cleanly (not failed) when the pieces are not there: no myeve
+      # checkout, no ESI token, or the spoke still starting up
       # after boot. A skipped tick costs an hour; a failed one costs an hour
       # and a red unit. %t is XDG_RUNTIME_DIR.
       ConditionPathExists = [
-        "${cargoBin}/heph"
         script
         token
         "%t/heph/hephd.sock"

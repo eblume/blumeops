@@ -569,7 +569,7 @@ services:
       role converges to the `heph_version` tag on every provision run —
       installing on a fresh host, upgrading an older binary, and DOWNGRADING
       if the pin is lowered. Bump the pin, then `mise run provision-indri
-      -- --tags heph`. The ringtail agent spoke runs its own pin: the
+      -- --tags heph`. Both ringtail spokes run their own pin: the
       `hephaestus` flake input in nixos/ringtail/flake.nix.
 
   - name: heph-agent-spoke
@@ -596,23 +596,18 @@ services:
   - name: heph-cli-ringtail
     type: nixos
     release: self
-    last-reviewed: 2026-07-30
-    current-version: "v1.10.6"
+    last-reviewed: 2026-10-14
+    current-version: "v1.10.7"
     upstream-source: https://forge.ops.eblu.me/eblume/hephaestus/releases
     notes: >-
-      2026-07-30: Erich's own desktop spoke on ringtail — hephd plus the three
-      user-facing surfaces (`heph`, `heph-tui`, `heph-quickadd`), installed by
-      the eblume-heph-install oneshot (nixos/ringtail/heph-eblume.nix).
-      Pinned by `hephTag` in heph-common.nix (the agent spoke moved to the
-      flake input in 2026-10-14, so the two ringtail spokes no longer share
-      a pin — review both when bumping); same no-self-update declarative
-      pin, bumped by editing `hephTag` and running nixos-rebuild. KNOWN DRIFT:
-      `~/.cargo/bin/heph-quickadd` is a hand-built binary from what became
-      v1.8.0 — the sway Alt+' popover needed the one-shot `popover` mode before
-      that tag existed (its crate is byte-identical to v1.8.0's). The
-      2026-09-20 bump to v1.10.5 re-installs all four binaries from the tag,
-      clearing this drift on the next nixos-rebuild. Tracked as heph node
-      01KYTBFTJSG3H4GDBVTC14NVJC.
+      Erich's own desktop spoke on ringtail — hephd plus the three user-facing
+      surfaces (`heph`, `heph-tui`, `heph-quickadd`). Since 2026-10-14 it is
+      the same nix-store package as the agent spoke: the `hephaestus` flake
+      input in nixos/ringtail/flake.nix (the oneshot, timer, and hephTag are
+      gone, and the hand-built pre-v1.8.0 quickadd drift that the old
+      ~/.cargo/bin binaries carried is cleared by the switch). One pin for
+      both ringtail spokes — bump the flake input and review both.
+      Tracked as heph node 01KYTBFTJSG3H4GDBVTC14NVJC.
 
   - name: factorio
     type: nixos
