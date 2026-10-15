@@ -22,8 +22,8 @@
     "  scripts read it via ntfy/topics.nix (the ringtail and indri apply",
     "  watchers get their NTFY_TOPIC from the declaration), and the two",
     "  auto-apply workflows resolve their refusal topic from it at",
-    "  runtime (raw fetch at main, falling back to the declared literal with",
-    "  a ::warning:: when the topic does not resolve). (eblume/blumeops#1611)"
+    "  runtime (raw fetch at main, falling back to the ops-approvals literal",
+    "  with a ::warning:: when the topic does not resolve). (eblume/blumeops#1611)"
   ],
   "topics": [
     {
