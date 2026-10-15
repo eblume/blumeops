@@ -48,6 +48,14 @@ user needs passwordless sudo on the host (ringtail's `eblume` has it).
 Vault values are written newline-stripped, the same bytes ansible's
 `pre_tasks` wrote.
 
+A write that finds the entry's parent directory missing (the first darwin
+seat: indri's identity dir exists only once the nix-darwin generation that
+creates it has applied) creates the parent as the entry's owner/group,
+mode 0700,
+and reads the parent back (owner, 0700) before the file read-back; a
+pre-existing parent is never touched. `--check` reports a missing parent
+explicitly rather than as a generic `cannot stat`.
+
 Generated entries (like `/etc/k3s/token`) mint once and are never rotated.
 Minting asks for confirmation and restarts nothing. An absent generated file
 on a live host is almost always a lost file, not a fresh host: for the k3s

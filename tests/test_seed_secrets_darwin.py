@@ -103,7 +103,7 @@ class _FakeRun:
     def __call__(self, cmd, input=None):
         self.calls.append(cmd)
         response = self.os_name if cmd.endswith("uname -s") else self.stdout
-        return SimpleNamespace(stdout=response, returncode=0)
+        return SimpleNamespace(stdout=response, stderr="", returncode=0)
 
 
 def test_restart_darwin_kicks_and_confirms(monkeypatch):
@@ -317,7 +317,7 @@ def test_apply_dedupes_shared_restart_labels(tmp_path, monkeypatch):
             return None
 
         def write(self, *a, **k):
-            return True
+            return None
 
         def restart(self, units, owner):
             restarts.append((units, owner))
@@ -409,3 +409,167 @@ printf 'label = {{\\n\\tstate = %s\\n}}\\n' "$s"
     # a root owner: the guard short-circuits, so there is no marker at all
     out = run_cmd(generated_cmd("root"))
     assert "seed-secrets state:" not in out.stdout
+
+
+# --- missing-parent case ---
+
+PARENT = "/Users/erichblume/forgejo-runner/identity"
+PATH = f"{PARENT}/uuid"
+STAT_CMD = f"stat -f '%Su %Sg %Lp' {PARENT}"
+
+
+class _ParentStateRun:
+    """Simulates one host for the write leg: a `stat` command reports the
+    current parent state (absent -> stderr "No such file", the only answer
+    that may trigger a create), the write script transitions to `post_state`."""
+
+    def __init__(self, pre_state, post_state):
+        self.current = pre_state
+        self.post_state = post_state
+        self.calls: list[str] = []
+
+    def __call__(self, cmd, input=None):
+        self.calls.append(cmd)
+        if cmd.endswith("uname -s"):
+            return SimpleNamespace(stdout="Darwin", stderr="", returncode=0)
+        if cmd.startswith("stat -f"):
+            st = self.current
+            if st:
+                return SimpleNamespace(
+                    stdout=f"{st[0]} {st[1]} {st[2]}\n", stderr="", returncode=0
+                )
+            return SimpleNamespace(
+                stdout="",
+                stderr=f"stat: {PARENT}: stat: No such file or directory\n",
+                returncode=0,
+            )
+        if cmd.startswith("umask 077"):
+            self.current = self.post_state
+            return SimpleNamespace(stdout="", stderr="", returncode=0)
+        return SimpleNamespace(stdout="", stderr="", returncode=0)
+
+
+def test_write_creates_missing_parent_and_reads_it_back(monkeypatch):
+    host = seed.Host("indri", "Darwin")
+    fake = _ParentStateRun(None, ("erichblume", "staff", "700"))
+    monkeypatch.setattr(host, "run", fake)
+    assert host.write(PATH, "erichblume", "staff", "0600", "value") is None
+    (write_cmd,) = [c for c in fake.calls if c.startswith("umask 077")]
+    # the parent is created inside the same script, before the write
+    assert f"install -d -m 0700 -o erichblume -g staff {PARENT} && cat >" in write_cmd
+    # one pre-write stat (found nothing) + one post-creation read-back
+    assert [c for c in fake.calls if c.startswith("stat -f")] == [STAT_CMD, STAT_CMD]
+
+
+def test_write_fails_loudly_on_wrong_parent(monkeypatch):
+    host = seed.Host("indri", "Darwin")
+    fake = _ParentStateRun(None, ("root", "staff", "755"))
+    monkeypatch.setattr(host, "run", fake)
+    reason = host.write(PATH, "erichblume", "staff", "0600", "value")
+    assert reason is not None
+    assert "owner root" in reason
+    assert "mode 0755" in reason
+
+
+def test_write_refuses_when_parent_uninspectable(monkeypatch):
+    # stat output that neither parses nor reports "No such file" (a flaky
+    # route): absence cannot be proved, and install -d re-asserts mode on an
+    # existing dir, so the write must be refused rather than attempted.
+    host = seed.Host("indri", "Darwin")
+    fake = _FakeRun("Darwin", "garbled output without any useful field")
+    monkeypatch.setattr(host, "run", fake)
+    reason = host.write(PATH, "erichblume", "staff", "0600", "value")
+    assert reason is not None
+    assert "uninspectable" in reason
+    # the write script never ran
+    assert not any(c.startswith("umask 077") for c in fake.calls)
+
+
+def test_write_never_touches_a_preexisting_parent(monkeypatch):
+    host = seed.Host("indri", "Darwin")
+    fake = _ParentStateRun(("erichblume", "staff", "700"), None)
+    monkeypatch.setattr(host, "run", fake)
+    assert host.write(PATH, "erichblume", "staff", "0600", "value") is None
+    (write_cmd,) = [c for c in fake.calls if c.startswith("umask 077")]
+    # install -d re-asserts mode on an existing dir, so it must not run here
+    assert "install -d" not in write_cmd
+    assert [c for c in fake.calls if c.startswith("stat -f")] == [STAT_CMD]
+
+
+def test_check_reports_missing_parent_clearly(tmp_path, monkeypatch, capsys):
+    manifest = _write_manifest(tmp_path, [_op_entry(PATH)])
+    host = seed.Host("indri", "Darwin")
+    monkeypatch.setattr(host, "run", _FakeRun("Darwin", ""))
+    with pytest.raises(typer.Exit):
+        seed.run_check(host, manifest, [_op_entry(PATH)])
+    out = capsys.readouterr().out.replace("\n", " ")
+    assert f"parent directory {PARENT} is missing" in out
+    assert "cannot stat (absent or uninspectable)" not in out
+
+
+def test_check_missing_file_with_present_parent_keeps_generic_message(
+    tmp_path, monkeypatch, capsys
+):
+    # file gone but the dir survived: the old, accurate wording
+    manifest = _write_manifest(tmp_path, [_op_entry(PATH)])
+
+    class _FakeRunWithParent(_FakeRun):
+        def __call__(self, cmd, input=None):
+            self.calls.append(cmd)
+            if cmd.endswith("uname -s"):
+                return SimpleNamespace(stdout="Darwin", stderr="", returncode=0)
+            if cmd == STAT_CMD:
+                return SimpleNamespace(
+                    stdout="erichblume staff 700\n", stderr="", returncode=0
+                )
+            return SimpleNamespace(stdout="", stderr="", returncode=0)
+
+    host = seed.Host("indri", "Darwin")
+    fake = _FakeRunWithParent("Darwin", "")
+    monkeypatch.setattr(host, "run", fake)
+    with pytest.raises(typer.Exit):
+        seed.run_check(host, manifest, [_op_entry(PATH)])
+    out = capsys.readouterr().out
+    assert "cannot stat (absent or uninspectable)" in out
+
+
+def test_write_missing_parent_executes_cleanly(tmp_path, monkeypatch):
+    # real `sh -c` execution of the composed script (the run fake just drops
+    # the ssh transport): proves the install -d flag order, the quoting, and
+    # the && chain against actual coreutils, end to end.
+    import grp
+    import os as _os
+    import pwd
+    import subprocess as _subprocess
+
+    pw = pwd.getpwuid(_os.getuid())
+    user, group = pw.pw_name, grp.getgrgid(pw.pw_gid).gr_name
+    host = seed.Host("ringtail", "Linux")
+    monkeypatch.setattr(
+        host,
+        "run",
+        lambda cmd, input=None: _subprocess.run(
+            ["sh", "-c", cmd],
+            input=input,
+            stdin=_subprocess.DEVNULL if input is None else None,
+            capture_output=True,
+            text=True,
+            check=False,
+        ),
+    )
+    # some filesystems (the talos pod's /home is setgid) propagate special
+    # bits into new directories: install -d then yields 2700, and the parent
+    # read-back must fail loudly on it. Probe once and drive both branches.
+    probe = tmp_path / "probe"
+    _os.mkdir(probe)
+    extra_bits = probe.stat().st_mode & 0o7000
+    _os.rmdir(probe)
+
+    identity = tmp_path / "identity"
+    if extra_bits:
+        reason = host.write(str(identity / "uuid"), user, group, "0600", "value")
+        assert reason is not None and "mode 2700" in reason
+        _os.chmod(identity, 0o700)
+    assert host.write(str(identity / "uuid"), user, group, "0600", "value") is None
+    assert (identity / "uuid").read_text() == "value"
+    assert identity.stat().st_mode & 0o777 == 0o700
