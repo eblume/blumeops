@@ -36,7 +36,7 @@ let
   # Secrets lockstep with secrets.json (eblume/blumeops#1524): every path the
   # nix config reads on host must be declared in the manifest, and vice
   # versa. The main runner's identity files are the first reference sites
-  # (the darwin/indri activation checks + config render, eblume/blumeops#1528);
+  # (the darwin/indri generation checks slot + config render, eblume/blumeops#1528);
   # the indri-build half adds its own when it moves (eblume/blumeops#1627).
   secrets = builtins.fromJSON (builtins.readFile ./secrets.json);
   declared = builtins.map (s: s.path) secrets.secrets;

@@ -344,14 +344,16 @@ MCQUACK_NIX_WAIT_SYSTEM
   '';
 
   # The main runner's identity check (eblume/blumeops#1528), in the checks
-  # slot: it runs ahead of nix-darwin's own installs (users, launchd, the
-  # /run/current-system re-point at the tail of the activation script), so a
-  # missing identity fails the switch before the host is touched. It cannot
-  # live in postActivation - darwin-rebuild moves the system profile to the
-  # new generation before the activation script runs, so a late exit would
-  # leave the profile switched and /run/current-system on the old one. The
-  # rebuild watcher posts only non-zero verdicts, so this failure is how the
-  # warning gets seen.
+  # slot: within the activation script it runs ahead of every install
+  # (users, launchd, the /run/current-system re-point at the tail), so a
+  # missing identity fails the switch before anything is installed. The
+  # system profile was already moved by darwin-rebuild's nix-env --set
+  # before the activation script runs, so it stays on the un-activated
+  # generation until the next good switch heals it. It cannot live in
+  # postActivation - by then the installs have already been applied, and a
+  # late exit would skip the /run/current-system tail, leaving the host
+  # half-switched. The rebuild watcher posts only non-zero verdicts, so
+  # this failure is how the warning gets seen.
   system.activationScripts.checks.text = ''
     missing=
     for f in uuid token mise-github-token; do
