@@ -31,6 +31,7 @@ let
   mcquackZotMetrics = pkgs.writeScript "mcquack-zot-metrics" (builtins.readFile ./mcquack-zot-metrics.sh);
   sifakaMounter = pkgs.writeScript "mount-sifaka" (builtins.readFile ./mount-sifaka.sh);
   mcquackIndriRebuildWatcher = pkgs.writeScript "mcquack-indri-rebuild-watcher" (builtins.readFile ./mcquack-indri-rebuild-watcher.sh);
+  mcquackForgejoMirrorGuard = pkgs.writeScript "mcquack-forgejo-mirror-guard" (builtins.readFile ./mcquack-forgejo-mirror-guard.sh);
   # The build runner's colima engine host daemon (eblume/blumeops#1357):
   # nixpkgs colima, which wraps lima and qemu into its PATH itself.
   mcquackColimaBuild = pkgs.writeScript "mcquack-colima-build" (builtins.readFile ./mcquack-colima-build.sh);
@@ -537,6 +538,23 @@ AUTHORIZED_KEYS
     RunAtLoad = true;
     StandardOutPath = "/opt/homebrew/var/log/mcquack.forgejo-metrics.out.log";
     StandardErrorPath = "/opt/homebrew/var/log/mcquack.forgejo-metrics.err.log";
+  };
+
+  # forgejo-mirror-guard (eblume/blumeops#1629): a push-mirror remote with a
+  # fetch refspec on the forge's bare repos would let an in-flight sync rewrite
+  # the local ref (that is how blumeops main was rewound); the reflog check
+  # catches any non-FF main move. ntfys ops-approvals, 0/1 textfile metrics.
+  launchd.user.agents."mcquack.eblume.forgejo-mirror-guard".serviceConfig = {
+    Label = "mcquack.eblume.forgejo-mirror-guard";
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${mcquackForgejoMirrorGuard}" ];
+    StartInterval = 600;
+    RunAtLoad = true;
+    EnvironmentVariables = {
+      PATH = "/opt/homebrew/bin:/usr/bin:/bin";
+      NTFY_TOPIC = "https://ntfy.ops.eblu.me/${ntfyTopicsByName."ops-approvals".name}";
+    };
+    StandardOutPath = "/opt/homebrew/var/log/mcquack.forgejo-mirror-guard.out.log";
+    StandardErrorPath = "/opt/homebrew/var/log/mcquack.forgejo-mirror-guard.err.log";
   };
 
   # jellyfin keeps the ansible role's log names (no mcquack. prefix).

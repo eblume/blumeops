@@ -31,6 +31,7 @@
         ".forgejo/workflows/auto-apply-digest.yaml",
         ".forgejo/workflows/provision-indri.yaml",
         ".forgejo/workflows/ringtail-rebuild.yaml",
+        "darwin/indri/mcquack-forgejo-mirror-guard.sh",
         "darwin/indri/mcquack-indri-rebuild-watcher.sh",
         "mise-tasks/request-run",
         "nixos/ringtail/ringtail-apply-watcher.sh"
@@ -39,7 +40,7 @@
         "volume": "a handful per day; bursts on rebuild failures",
         "priority": 3,
         "actionable": true,
-        "rationale": "An approval waiting or an apply failing needs a human on the phone. Priority spread: the two host apply watchers send 4 (Priority: high) for apply verdicts, the rest 3."
+        "rationale": "An approval waiting or an apply failing needs a human on the phone. Priority spread: the host apply watchers and the forgejo mirror guard send 4 (Priority: high) for verdicts, the rest 3."
       },
       "subscribe": true
     },
