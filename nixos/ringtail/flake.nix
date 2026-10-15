@@ -18,7 +18,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # heph for the agent spoke: the release flake builds one package with all
+    # heph for both ringtail spokes (agent + eblume desktop): the release flake builds one package with all
     # four bins (eblume/hephaestus#98), pinned to the release tag; the explicit
     # rev is that tag's commit. Follows this flake's nixpkgs so it compiles
     # with ringtail's rustc 1.95.0 (heph's floor, exactly); a floor bump that
@@ -33,7 +33,7 @@
   outputs = { nixpkgs, nixpkgs-services, disko, home-manager, hephaestus, ... }: {
     nixosConfigurations.ringtail = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
-      # The agent spoke's hephd (agent-heph-spoke.nix consumes it as `hephPkg`).
+      # The heph store package (both spokes' hephd, the session shims, and the myeve sync consume it as `hephPkg`).
       specialArgs = {
         hephPkg = hephaestus.packages.x86_64-linux.heph;
       };

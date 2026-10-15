@@ -145,8 +145,8 @@ Guests are **shared** onto ringtail, never invited as members, so they inherit n
 Two `hephd` spokes sync this host to the indri heph hub. They hold different
 login identities and token stores — hephd sockets/dbs are per-user, and keeping
 Erich's access decoupled from the agent kill switches is the point. Shared
-plumbing (hub/OIDC endpoints; the desktop spoke's install machinery) lives in
-`nixos/ringtail/heph-common.nix`:
+plumbing (hub/OIDC endpoints, the session shims, the popover launcher) lives
+in `nixos/ringtail/heph-common.nix`:
 
 | Property | `agent-heph-spoke` | `eblume-heph-spoke` |
 |----------|--------------------|---------------------|
@@ -164,25 +164,28 @@ run inside the equally env-less workspace service, so both sides use the
 manager (status/logs: `systemctl --user status eblume-heph-spoke`,
 `journalctl --user -u eblume-heph-spoke`).
 
-Both adopt the same hub owner id, so they operate on the same nodes. The agent
-spoke's `heph`/`hephd` is the nix-store package built from the `hephaestus`
-flake input (see [[agent-workspaces]]), so it is part of the toplevel and
-starts at boot like any other service; Erich's desktop bins live at
-`~/.cargo/bin`, installed by the `eblume-heph-install` oneshot (timer-fired;
-see `heph-common.nix`). The install stays off the activation path
-structurally: a tag bump rewrites the oneshot's ExecStart script, so the
-service sets `restartIfChanged = false` and the timer's 5-min re-check
-installs the new pin in the background (~11 min cold) instead of the switch
-running a cold cargo compile inside `switch-to-configuration`. When the pin
-moves, the oneshot restarts the desktop spoke after the install so the daemon
-never lags the installed binary.
+Both adopt the same hub owner id, so they operate on the same nodes. Both
+spokes' `heph`/`hephd` come from the nix-store package built from the `hephaestus`
+flake input (see [[agent-workspaces]]), so both are part of the toplevel: the
+agent spoke starts at boot like any other service, and the eblume spoke is a
+user service started by the user manager (linger enabled), so it starts at
+boot too. The session `heph` bins are home-manager shims to the store bin dir,
+and the sway quick-capture popover execs the store `heph-quickadd` directly.
+The old `~/.cargo/bin` heph binaries stay on disk until the step-6 cleanup of
+[eblume/blumeops#1541](https://forge.ops.eblu.me/eblume/blumeops/issues/1541)
+removes them; until then, shells that put `~/.cargo/bin` on PATH still shadow
+the store bins with them.
+When the pin moves, the nixos switch restarts both spokes on unit-file change:
+the agent's system unit, and eblume's user unit — since nixos-25.11 the switch
+(switch-to-configuration-ng) restarts changed user units for every user whose
+manager is running, and lingering keeps user@1000 up.
 
 **One-time seed for the eblume spoke** (interactive, as eblume on ringtail;
 approve in the browser as yourself — no hub-side change needed, you are already
 the hub owner):
 
 ```sh
-~/.cargo/bin/heph auth login \
+heph auth login \
   --hub-url http://indri.tail8d86e.ts.net:8787 \
   --issuer https://authentik.ops.eblu.me/application/o/heph/ \
   --client-id heph --token-file ~/.config/heph/hub-token.json

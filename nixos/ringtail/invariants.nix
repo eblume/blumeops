@@ -72,6 +72,12 @@ in
       assertion = lib.elem "multi-user.target" (config.systemd.services."agent-heph-spoke".wantedBy or []);
       message = "ringtail: agent-heph-spoke must be wanted by multi-user.target — a nixos switch restarts the already-running unit, so the first deploy looks fine, but after the first reboot nothing starts the spoke and the pod's heph socket goes silently dead. eblume/blumeops#1624. To lift: give the spoke a different boot trigger and remove this entry in the same PR.";
     }
+    # Same lesson at user scope: without the boot trigger, the first reboot
+    # kills Erich's desktop heph CLI silently.
+    {
+      assertion = lib.elem "default.target" (config.systemd.user.services."eblume-heph-spoke".wantedBy or []);
+      message = "ringtail: eblume-heph-spoke (user scope) must be wanted by default.target — without it nothing starts the spoke after a reboot and the desktop heph CLI goes silently dead. eblume/blumeops#1541. To lift: give the spoke a different boot trigger and remove this entry in the same PR.";
+    }
     # Secrets lockstep, direction 1: the nix config references only declared
     # secret paths, so the apply path always has a declared owner for the file.
     {
