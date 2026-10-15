@@ -40,10 +40,14 @@ permissions** (a zero-scope classic token), which grants read-only
 access to public repositories and nothing else. Keep it that way. Anything
 needing a scope needs its own token.
 
-Rotation reaches the two consumers differently: `mise run mirror-update-pats`
-re-bakes the mirrors immediately, but the runner env only picks up the new
-value at the next `provision-indri -- --tags forgejo_runner` (which
-re-renders both runner configs).
+Rotation reaches the three consumers differently: `mise run
+mirror-update-pats` re-bakes the mirrors immediately; the build runner's
+config picks up the new value at the next `provision-indri -- --tags
+forgejo_build_runner`; and the main runner - its config is rendered by the
+nix-darwin generation from the seed-secrets identity files
+(eblume/blumeops#1528), so it picks up the new value when the
+`mise-github-token` file is re-seeded (`mise run seed-secrets indri`) and
+the generation re-applied.
 
 ### Sync Interval
 

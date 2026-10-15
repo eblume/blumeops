@@ -100,13 +100,13 @@
       changed_when: false
       no_log: true
       check_mode: false
-      tags: [forgejo_build_runner]
+      # Dual-tagged: the role's build tasks still inherit forgejo_runner
+      # until eblume/blumeops#1627 removes the build half, so
+      # `--tags forgejo_runner` must set the facts they render.
+      tags: [forgejo_runner, forgejo_build_runner]
 
-    # Build runner identity (eblume/blumeops#1357) + the shared forge-ci
-    # GitHub PAT (the main runner's config is generation-rendered since
-    # eblume/blumeops#1528, so this section carries the last main-runner
-    # vault fetch as well) - the second, unprivileged forgejo runner (label
-    # `indri-build`). Registration is a future human
+    # Build runner identity (label `indri-build`, eblume/blumeops#1357) +
+    # the shared forge-ci GitHub PAT. Registration is a future human
     # step ([[configure-launchd-runner]] §indri-build runner): until then the
     # "Forgejo Secrets" item carries no runner_indri_build_* fields, so the
     # fetch is failure-tolerant and the facts below default to "" - which
@@ -124,7 +124,7 @@
       failed_when: false
       no_log: true
       check_mode: false
-      tags: [forgejo_build_runner]
+      tags: [forgejo_runner, forgejo_build_runner]
 
     - name: Set forgejo build runner identity facts
       ansible.builtin.set_fact:
@@ -140,7 +140,7 @@
         # only read public GitHub, and one token is one rotation.
         forgejo_runner_build_mise_github_token: "{{ _forge_ci_github_pat.stdout }}"
       no_log: true
-      tags: [forgejo_build_runner]
+      tags: [forgejo_runner, forgejo_build_runner]
 
     # Zot OIDC client secret
     - name: Fetch zot OIDC client secret

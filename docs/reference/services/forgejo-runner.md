@@ -10,8 +10,10 @@ tags:
 # Forgejo Runner
 
 Forgejo Actions runner daemon for CI/CD job execution. Runs as a
-native macOS LaunchAgent on [[indri]] — the unit is nix-managed, and
-the `forgejo_runner` ansible role renders the config; jobs run
+native macOS LaunchAgent on [[indri]] — the unit and the main
+runner's `config.yaml` are nix-managed (the [[indri]] flake's
+generation, eblume/blumeops#1528), and the `forgejo_runner` ansible
+role renders the build runner's config and the cache agents; jobs run
 host-mode with no container engine. (Previously
 a minikube pod with a Docker-in-Docker sidecar — replaced in phase 0 of
 [[retire-minikube]].)
@@ -21,13 +23,13 @@ a minikube pod with a Docker-in-Docker sidecar — replaced in phase 0 of
 | Property | Value |
 |----------|-------|
 | **LaunchAgent** | `mcquack.eblume.forgejo-runner` (unit nix-managed — [[indri]] §Maintenance Notes) |
-| **Ansible role** | `ansible/roles/forgejo_runner/` (config, identity, cache maintenance agents) |
+| **Ansible role** | `ansible/roles/forgejo_runner/` (build runner's config, cache maintenance agents) |
 | **Runner Name** | `indri-runner` |
 | **Labels** | `indri` + `indri-priv` (dedicated to warrant-dispatched provision-indri; same physical runner) |
 | **Capacity** | 2 concurrent jobs |
 | **Timeout** | 3h |
 | **Forgejo Instance** | https://forge.ops.eblu.me |
-| **Binary** | nixpkgs package (13.1.0, the [[indri]] flake's nixpkgs pin); the source checkout at `~/code/3rd/forgejo-runner` is the rollback re-write's target |
+| **Binary** | nixpkgs package (13.1.0, the [[indri]] flake's nixpkgs pin); the source checkout at `~/code/3rd/forgejo-runner` is the build runner's rollback re-write's target |
 | **Config** | `~/forgejo-runner/config.yaml` (indri) |
 | **Logs** | `~/Library/Logs/mcquack.forgejo-runner.{out,err}.log` → Loki via [[alloy]] |
 | **Cache maintenance** | Nightly sweep at 5:30 AM; monthly prune day 1 at 3:30 AM |
@@ -41,16 +43,16 @@ registry mirror for docker.io pulls lives in the indri-build colima
 profile's `docker:` block (`host.lima.internal:5050`), where the pulls
 now happen.
 
-The `config.yaml` (including the runner token) and the two
-cache-maintenance agents are managed by the `forgejo_runner` ansible
-role; the LaunchAgent unit is nix-managed
+The main runner's `config.yaml` (including the runner token, labels and
+the forge-ci GitHub PAT) is rendered by the [[indri]] flake's generation
+from `forge/runners.json` plus the seed-secrets identity files, and a
+content change kickstarts the agent (eblume/blumeops#1528) — so label,
+capacity and identity changes apply with `--tags rebuild`. The two
+cache-maintenance agents and the `indri-build` runner's config (until
+eblume/blumeops#1627) stay managed by the `forgejo_runner` ansible role;
+the LaunchAgent unit is nix-managed
 (`launchd.user.agents."mcquack.eblume.forgejo-runner"` in the [[indri]]
-flake, PR 7 of the nix-darwin series) and runs the nixpkgs
-`forgejo-runner` binary — so config changes apply with the role tag
-while the plist flip applies with `--tags rebuild`. The role's plist +
-load tasks are skipped by default (`forgejo_runner_ansible_managed:
-false`) and remain the rollback re-write — see [[provision]] §Rolling
-back a service flip.
+flake) and runs the nixpkgs `forgejo-runner` binary.
 
 There are also four sandboxed NixOS runner services on [[ringtail]]
 (`services.gitea-actions-runner` in `nixos/ringtail/configuration.nix`),
