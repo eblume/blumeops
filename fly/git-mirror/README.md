@@ -32,6 +32,16 @@ That is the form Forgejo stores it in (URL form, user `mirror` — the fly
 sshd's `AllowUsers`; the scp form `git@host:path` would arrive as user
 `git` and be refused by sshd).
 
+- **Fetch refspecs are forbidden on push-mirror remotes** (`remote_mirror_*` on
+  the private forge's bare repos): a sync in flight would map the pushed refs
+  back onto the local repo's own `refs/heads/*`, which is how an in-flight
+  mirror sync rewound blumeops `main` (2026-10-14,
+  [eblume/blumeops#1629](https://forge.eblu.me/eblume/blumeops/issues/1629)).
+  Forgejo's push-mirror API never writes a fetch refspec; the guard on indri
+  alerts if one appears and on any non-fast-forward `main` reflog entry of a
+  local (non-`mirrors/`) bare repo — pull mirrors' upstream force-pushes are
+  expected non-FF moves (`darwin/indri/mcquack-forgejo-mirror-guard.sh`).
+
 - **Refs:** the mirror carries `main` and tags only (eblume/blumeops#1208).
   The push mirrors propagate every source ref, so `create-mirror.sh` prunes
   non-`main` branches at boot and `post-receive` deletes any that land in
