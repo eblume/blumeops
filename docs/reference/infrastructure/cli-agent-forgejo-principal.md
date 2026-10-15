@@ -52,9 +52,9 @@ identity holds no CI trust anywhere.
 
 - **Read-only collaborator** on the canonical `eblume/*` repos the talos pool
   authors in — the set declared in `repos.json` by P3 of the #1583 series.
-- **Own fork namespace** `cli-agent/`: it authors via cross-repo PRs, exactly
-  the `pool: fork` arrangement the `talos` bot uses on `blumeops`, `agents`,
-  `horkos`, `talos`, and `cv`.
+- **Own fork namespace** `cli-agent/`: it authors via cross-repo PRs — the
+  same `pool: fork` arrangement the `talos` bot uses on every fork-model
+  repo declared in `repos.json`.
 - **No write or Actions-write on any canonical repo.** That is the
   load-bearing invariant — it is what makes the no-CI-trust guarantee below
   hold.
