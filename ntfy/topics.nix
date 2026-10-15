@@ -9,7 +9,9 @@
 let
   file = builtins.fromJSON (builtins.readFile ./topics.json);
   matches = re: v: builtins.isString v && builtins.match re v != null;
-  ident = "[A-Za-z0-9.-]+";
+  # Mirrors ntfy-lint NAME_RE ([A-Za-z0-9._-]+) so a topic that passes
+  # the lint cannot fail the host eval on its name.
+  ident = "[A-Za-z0-9._-]+";
   fail = t: field: value: rule:
     throw "ntfy/topics.json: topic ${builtins.toJSON (t.name or null)} field `${field}` = ${builtins.toJSON value} ${rule}";
   check = t:
