@@ -73,6 +73,7 @@ in
     ./agent-heph-spoke.nix
     ./audio.nix
     ./factorio.nix
+    ./heph-cargo-bin-cleanup.nix
     ./heph-eblume.nix
     ./myeve-heph-sync.nix
     ./seed-secrets-check.nix
@@ -948,8 +949,7 @@ in
 
   # ringtail-apply-watcher: scans /var/log/ringtail-apply/*.status and ntfys
   # ops-approvals on any verdict other than success/superseded, and on a
-  # started sidecar that never reached a verdict. Timer-triggered, like the
-  # heph install units.
+  # started sidecar that never reached a verdict. Timer-triggered.
   systemd.services."ringtail-apply-watcher" = {
     description = "Alert on failed ringtail applies (ringtail-apply-watcher)";
     restartIfChanged = false;

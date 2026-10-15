@@ -326,16 +326,13 @@ stalls on an interactive trust prompt.
 ## Build toolchain
 
 The curated PATH also omitted a **C toolchain**, so `cargo build` — and anything
-that links a native binary — failed in a session with ``linker `cc` not found``.
-The heph *install* oneshot sidesteps this with its own `gcc`/`pkg-config` env
-(`hephBuildDeps`), but interactive sessions inherited none of it, so agents could
-not compile or verify Rust they authored.
+that links a native binary — failed in a session with ``linker `cc` not found``,
+and agents could not compile or verify Rust they authored.
 
 The launcher now adds **`buildTools`** (`gcc`, `binutils`, `pkg-config`,
-`gnumake`) to the session PATH and exports `CC=gcc`. Rust itself still comes from
-**mise** (`rust@stable`) — direct rust release tracking, exactly as for the heph
-install — so this change supplies only the linker and pkg-config that mise's toolchain
-needs to actually build.
+`gnumake`) to the session PATH and exports `CC=gcc`. Rust itself comes from
+**mise** (`rust@stable`) — direct rust release tracking — so this change supplies
+only the linker and pkg-config that mise's toolchain needs to actually build.
 
 For the `gamedev` **Bevy** project specifically, the launcher also exposes Bevy's
 Linux native deps the same way the report toolchain exposes WeasyPrint's: `alsa`

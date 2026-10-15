@@ -188,10 +188,9 @@ agent spoke starts at boot like any other service, and the eblume spoke is a
 user service started by the user manager (linger enabled), so it starts at
 boot too. The session `heph` bins are home-manager shims to the store bin dir,
 and the sway quick-capture popover execs the store `heph-quickadd` directly.
-The old `~/.cargo/bin` heph binaries stay on disk until the step-6 cleanup of
-[eblume/blumeops#1541](https://forge.ops.eblu.me/eblume/blumeops/issues/1541)
-removes them; until then, shells that put `~/.cargo/bin` on PATH still shadow
-the store bins with them.
+A one-shot (`heph-cargo-bin-cleanup`) removes the pre-switch cargo-installed
+heph binaries from both users' `~/.cargo/bin` at each boot (a no-op once they
+are gone), so no shell can shadow the store bins with them.
 When the pin moves, the nixos switch restarts both spokes on unit-file change:
 the agent's system unit, and eblume's user unit — since nixos-25.11 the switch
 (switch-to-configuration-ng) restarts changed user units for every user whose
@@ -301,7 +300,8 @@ install off the activation path for good (Heph Spokes above); the first
 switch after it (run 3187, 29 s, no cargo) left both install services
 `active (exited)` from the pre-change instance with the timers showing no
 next elapse — a one-time `systemctl stop` + `start` of the two services, or
-the next boot, clears that.
+the next boot, cleared that (both install services are since retired with
+the store-package switch, eblume/blumeops#1541).
 
 Beyla was disabled the same evening (eblume/blumeops#984, 18:56 PDT) and
 re-enabled on 2026-09-11 at 12:07 PDT under eblume/blumeops#999: beyla

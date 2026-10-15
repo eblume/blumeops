@@ -80,6 +80,14 @@ change: the agent's system unit, and eblume's user unit — since nixos-25.11
 the switch (switch-to-configuration-ng) restarts changed user units for every
 user whose manager is running, and lingering keeps user@1000 up.
 
+Because both spokes' hephd is a toplevel store path, no heph build ever runs
+on the activation path (eblume/blumeops#1003's mid-activation compile is
+closed). The standing trade of pinning the flake input's nixpkgs to the
+channel: the package builds with the pinned nixos-26.05 rustc, so a heph
+floor bump that outruns that rust is resolved by adding a pinned rust
+overlay to the ringtail flake — one flake.lock change, and still no second
+toolchain path on the host.
+
 The indri role converges the version on **every** provision (it compares
 `hephd --version` against `heph_version` and re-runs `cargo install --locked
 --tag …` on a mismatch), so bumping the pin and re-provisioning is all an
