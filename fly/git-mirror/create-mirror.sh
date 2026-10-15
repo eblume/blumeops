@@ -75,13 +75,17 @@ while IFS= read -r entry; do
     printf '%s\n' "$baseurl/$owner/$name.git" > "$repo/url"
     cp /usr/local/share/git-mirror/post-receive "$repo/hooks/post-receive"
     chmod +x "$repo/hooks/post-receive"
-    # Dumb HTTP: have receive-pack itself refresh info/refs + the pack
-    # index the moment a ref changes, independent of the post-receive
-    # hook (receive.updateServerInfo has always defaulted to off, so
-    # the hook was the only refresh path, and its cosmetic steps used
-    # to abort before its refresh line — eblume/blumeops#1640).
-    # Idempotent; covers adopted repos at every boot.
-    git --git-dir="$repo" config receive.updateServerInfo true
+    # Dumb HTTP: the hook is the one and only metadata refresh path
+    # (receive.updateServerInfo has always defaulted to off). Do not
+    # turn it on: receive-pack would re-run update-server-info after
+    # the hook, from its pre-repack in-memory pack list, overwriting
+    # the hook's post-repack objects/info/packs with a stale one and
+    # breaking dumb-HTTP clones. Unset it defensively in case an old
+    # image or a manual edit left it set on an adopted repo (idempotent
+    # at every boot).
+    if git --git-dir="$repo" config --get-all receive.updateServerInfo >/dev/null 2>&1; then
+        git --git-dir="$repo" config --unset-all receive.updateServerInfo
+    fi
     fix_head "$repo"
     # See post-receive: keep clones on packs; skip empty repos — repacking those fails.
     if git --git-dir="$repo" rev-parse -q --verify HEAD >/dev/null 2>&1; then

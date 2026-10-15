@@ -118,7 +118,8 @@ step site regen_site
 # Rebuild the root repo index across all mirrored repos.
 step gen-index sh /usr/local/share/git-mirror/gen-index.sh "$reposdir" "$sitedir"
 
-# Dumb HTTP: refresh info/refs + objects/info/packs after the repack
-# (receive.updateServerInfo, set at boot, already refreshed info/refs
-# the moment the ref changed; this keeps the pack list current).
+# Dumb HTTP: refresh info/refs + objects/info/packs after the repack —
+# the hook is the mirror's only refresh path, so it must run last and
+# after every repack (see create-mirror.sh on why
+# receive.updateServerInfo stays off).
 step update-server-info git --git-dir="$repo" update-server-info
