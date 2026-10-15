@@ -205,18 +205,19 @@ flipped.
 
 ## Forgejo runner
 
-The forgejo runner is the first unit the series moves whose binary comes
-from nixpkgs (PR 7): the generation runs the nixpkgs `forgejo-runner`
-(13.1.0, the rev the flake's nixpkgs input pins for everything else) at the
-same label and plist path the ansible role used
-(`mcquack.eblume.forgejo-runner`). The source checkout at
-`~/code/3rd/forgejo-runner` stays on disk only as the target of the ansible
-rollback re-write — the role no longer builds or version-checks it; the
-`config.yaml` (runner token), the runner home and the cache prune/sweep
-agents stay role-rendered, and the role's gate (`forgejo_runner_ansible_managed`)
-covers only the plist + load tasks. Applying the flip is the usual
-`mise run provision-indri -- --tags rebuild` (no service-role tag):
-activation writes the plist in place and reloads the agent once.
+The forgejo runner's binary comes from nixpkgs: the generation runs the
+nixpkgs `forgejo-runner` (13.1.0, the rev the flake's nixpkgs input pins
+for everything else) at the label
+(`mcquack.eblume.forgejo-runner`). The `config.yaml` (runner token,
+labels, the forge-ci GitHub PAT) and the runner home are generation-owned
+since eblume/blumeops#1528: activation renders the config from
+`forge/runners.json` + the seed-secrets identity files, and a content
+change kickstarts the agent. The source checkout at
+`~/code/3rd/forgejo-runner` stays on disk only as the build runner's
+rollback re-write staging source; the cache prune/sweep agents stay
+role-rendered until their move (eblume/blumeops#1528 PR 3). Applying a
+change is the usual `mise run provision-indri -- --tags rebuild` (no
+service-role tag).
 
 The drill's blast radius is CI dispatch only: with the unit unloaded,
 `indri`-label jobs queue on forge until something reloads the unit, but
@@ -232,8 +233,10 @@ with the agent, so the box still converges. The warrant apply is
 therefore fire-and-forget (eblume/blumeops#1266): its run ends before the
 reload, and the outcome is read from the `.status` sidecar (§Warrant-gated
 apply). A human `--tags rebuild` run from gilbert waits over SSH and is
-unaffected. Rollback per §Rolling
-back a service flip, with the role's gate flipped.
+unaffected. A `config.yaml` content change (a label, capacity, or the
+identity files) kicks the agent the same way, so the ~60 s in-flight-job
+caveat covers those applies too. Rollback per §Rolling back a service
+flip.
 
 ## Forgejo
 
@@ -568,12 +571,12 @@ the agent; the wrapper's exec target follows the rolled-back generation's
 profile, so no `-e` override is needed (the `~/code/3rd/caddy` checkout
 build was retired post-flip, blumeops#1275). — the widest outage: every `*.ops.eblu.me` endpoint and the L4 routes
 (2222/5433/5434 and the sifaka exporter ports) are down during the
-window, and no CI runs land while the forge is unreachable. For the
-forgejo runner flip (PR 7), re-run
-`mise run provision-indri -- --tags forgejo_runner -e forgejo_runner_ansible_managed=true`
-— only CI dispatch pauses: `indri`-label jobs queue while the runner is
-unloaded, but forge and every other endpoint stay up, and the re-write's
-plist points at the source checkout's binary rather than the store's. For
+window, and no CI runs land while the forge is unreachable. For
+the forgejo runner flip, the main runner's rollback is a plain
+`darwin-rebuild --rollback` - its unit and config are generation-owned
+(eblume/blumeops#1528) and there is no ansible re-write to fall back
+to; the source checkout now serves only the build runner's re-write
+(see §indri-build runner). For
 the forgejo flip (PR 8), re-run `mise run provision-indri -- --tags forgejo
 -e forgejo_ansible_managed=true` — the whole forge is down during the
 window: the forge API and git ssh (2222), every forge-bound git op from a

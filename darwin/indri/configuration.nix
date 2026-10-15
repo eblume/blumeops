@@ -3,15 +3,16 @@ let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
   # The four *-metrics collectors feeding alloy's node_exporter textfile dir (PR 4 moved them here).
   mcquackBorgmaticMetrics = pkgs.writeScript "mcquack-borgmatic-metrics" (builtins.readFile ./mcquack-borgmatic-metrics.sh);
-  # Capacity lines are generated from forge/runners.json
-  # (eblume/blumeops#1526), validated by forge/runners.nix. The read is
-  # relative to this flake root, which is only part of a larger git checkout
-  # (/etc/blumeops, CI checkouts) — it holds only while the file is
-  # git-tracked at the repo root and the apply runs from a checkout. The
-  # lines go to their own store file and only its path is spliced into the
-  # script, so no runners.json value ever becomes shell text; the assert
-  # turns a renamed placeholder into an eval failure instead of a silent
-  # no-op (an unparseable textfile drops every CI metric).
+  # forge/runners.json is the declared source for the runner fleet
+  # (eblume/blumeops#1526). The read is relative to this flake root — it
+  # holds only while the file is git-tracked at the repo root and the apply
+  # runs from a checkout (/etc/blumeops, CI checkouts).
+  forgejoRunners = import ../../forge/runners.nix { inherit lib; };
+  # The main runner's entry. The 3h job timeout stays a nix literal,
+  # deliberately not a runners.json field: it must stay below the nightly
+  # sweep's 240-minute age.
+  indriRunner = let entry = lib.findFirst (r: r.name == "indri-runner") null forgejoRunners; in
+    if entry == null then throw "forge/runners.json: no runner named indri-runner - the main runner config render needs its entry" else entry;
   # ntfy topics (eblume/blumeops#1611): the rebuild watcher's topic comes from
   # the declaration, validated by ntfy/topics.nix; the read is relative to
   # this flake root, the same /etc/blumeops checkout constraint as
@@ -20,7 +21,7 @@ let
   ntfyTopicsByName = lib.listToAttrs (map (t: { name = t.name; value = t; } ) ntfyTopics);
   forgejoRunnerCapacity = pkgs.writeText "forgejo-runner-capacity.prom"
     (lib.concatMapStrings (r: "forgejo_ci_runner_capacity{runner=\"${r.name}\"} ${toString r.capacity}\n")
-      (import ../../forge/runners.nix { inherit lib; }));
+      forgejoRunners);
   forgejoMetricsSrc = builtins.readFile ./mcquack-forgejo-metrics.sh;
   mcquackForgejoMetrics =
     assert lib.assertMsg (lib.hasInfix "@runnerCapacityFile@" forgejoMetricsSrc)
@@ -342,6 +343,28 @@ MCQUACK_NIX_WAIT_SYSTEM
     mv -f "$tmp" ${lib.escapeShellArg nixWaitSystem}
   '';
 
+  # The main runner's identity check (eblume/blumeops#1528), in the checks
+  # slot: within the activation script it runs ahead of every install
+  # (users, launchd, the /run/current-system re-point at the tail), so a
+  # missing identity fails the switch before anything is installed. The
+  # system profile was already moved by darwin-rebuild's nix-env --set
+  # before the activation script runs, so it stays on the un-activated
+  # generation until the next good switch heals it. It cannot live in
+  # postActivation - by then the installs have already been applied, and a
+  # late exit would skip the /run/current-system tail, leaving the host
+  # half-switched. The rebuild watcher posts only non-zero verdicts, so
+  # this failure is how the warning gets seen.
+  system.activationScripts.checks.text = ''
+    missing=
+    for f in uuid token mise-github-token; do
+      [[ -r /Users/erichblume/forgejo-runner/identity/$f && -s /Users/erichblume/forgejo-runner/identity/$f ]] || missing="$missing $f"
+    done
+    if [[ -n "$missing" ]]; then
+      printf 'error: forgejo-runner identity incomplete (missing or empty:%s) - failing the switch before anything changes; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "$missing" >&2
+      exit 1
+    fi
+  '';
+
   system.activationScripts.postActivation.text = lib.mkAfter ''
     if [[ -d ${lib.escapeShellArg config.system.primaryUserHome} ]]; then
       {
@@ -385,6 +408,116 @@ MCQUACK_NIX_WAIT_SYSTEM
         sudo -u indri-build ln -sfn /etc/static/mise/config-build-user.toml /Users/indri-build/.config/mise/config.toml
       } || printf >&2 'warning: indri-build mise config: could not link /Users/indri-build/.config/mise/config.toml\n'
       :
+    fi
+
+    # Main forgejo runner config (eblume/blumeops#1528): labels and capacity
+    # from forge/runners.json (via the indriRunner binding above), identity
+    # from the files `mise run seed-secrets indri` seats under the identity
+    # dir and declares in darwin/indri/secrets.json. Presence is enforced in
+    # the activationScripts.checks block above; the else branch below only
+    # fires if a file vanished after the check, and keeps the existing config
+    # without restarting the runner. Only this kickstart and the seed-secrets
+    # restart leg restart the main runner; nix-darwin does not reload an
+    # unchanged agent.
+    runner_home=/Users/erichblume/forgejo-runner
+    runner_identity="$runner_home/identity"
+    runner_config="$runner_home/config.yaml"
+    # The parent home is the daemon's WorkingDirectory (job scratch): a
+    # fresh host would otherwise get a root-owned 0755 dir here.
+    mkdir -p "$runner_home" &&
+    chown erichblume:staff "$runner_home" &&
+    chmod 0700 "$runner_home" &&
+    mkdir -p "$runner_identity" &&
+    chown erichblume:staff "$runner_identity" &&
+    chmod 0700 "$runner_identity"
+    runner_uuid=
+    runner_token=
+    runner_pat=
+    if [[ -r "$runner_identity/uuid" && -r "$runner_identity/token" && -r "$runner_identity/mise-github-token" ]]; then
+      runner_uuid=$(cat "$runner_identity/uuid")
+      runner_token=$(cat "$runner_identity/token")
+      runner_pat=$(cat "$runner_identity/mise-github-token")
+    fi
+    if [[ -n "$runner_uuid" && -n "$runner_token" && -n "$runner_pat" ]]; then
+      tmp=$(mktemp /Users/erichblume/forgejo-runner/.config.yaml.XXXXXX) &&
+      cat > "$tmp" <<CFG
+# Generated by the indri nix-darwin generation (postActivation) - do not
+# edit by hand. Identity: the files under /Users/erichblume/forgejo-runner/
+# identity/ (seated by seed-secrets, declared in darwin/indri/secrets.json);
+# labels and capacity: forge/runners.json. eblume/blumeops#1528.
+#
+# Host-mode jobs: jobs run directly as erichblume with indri's
+# mise-managed toolchain - no job container, no runner-job-image, no
+# container engine on this runner.
+log:
+  level: info
+
+runner:
+  capacity: ${toString indriRunner.capacity}
+  timeout: 3h
+  shutdown_timeout: 3h
+  # Env vars injected into all jobs
+  envs:
+    TZ: America/Los_Angeles
+    # Zero-permission GitHub PAT (public read only). mise prefers
+    # MISE_GITHUB_TOKEN over the forge-injected GITHUB_TOKEN (first
+    # non-empty of MISE_GITHUB_TOKEN, GITHUB_API_TOKEN, GITHUB_TOKEN
+    # wins), so tool resolution authenticates to api.github.com instead
+    # of offering forge's job token. Readable by every job this runner
+    # builds - nothing with a scope may ever land here.
+    MISE_GITHUB_TOKEN: $runner_pat
+
+server:
+  connections:
+    forgejo:
+      url: https://forge.ops.eblu.me/
+      uuid: $runner_uuid
+      token: $runner_token
+      labels:
+${lib.concatMapStringsSep "\n" (l: "        - ${l}:host") indriRunner.labels}
+CFG
+      chown erichblume:staff "$tmp" &&
+      chmod 0600 "$tmp"
+      if cmp -s "$tmp" "$runner_config"; then
+        rm -f "$tmp"
+      else
+        mv -f "$tmp" "$runner_config"
+        uid=$(id -u erichblume)
+        state=
+        if launchctl kickstart -k gui/"$uid"/mcquack.eblume.forgejo-runner 2> /dev/null; then
+          for _ in 1 2 3 4 5; do
+            state=$(launchctl print gui/"$uid"/mcquack.eblume.forgejo-runner 2> /dev/null | sed -n 's/^[[:space:]]*state = //p' | head -n1 || true)
+            case "$state" in
+              "" | waiting | "spawn scheduled") sleep 1 ;;
+              *) break ;;
+            esac
+          done
+          case "$state" in
+            running | "spawn scheduled")
+              :
+            ;;
+            "")
+              printf 'warning: forgejo-runner kickstarted but launchctl print shows no state - the label may not be loaded in the gui domain (user session absent?)\n' >&2
+            ;;
+            *)
+              printf 'warning: forgejo-runner kickstarted but reports state %q - check /Users/erichblume/Library/Logs/mcquack.forgejo-runner.err.log\n' "$state" >&2
+            ;;
+          esac
+        else
+          printf 'warning: forgejo-runner config installed but kickstart failed - the gui-domain label is not loaded (user session absent?); the runner keeps its current values until its next (re)load\n' >&2
+        fi
+      fi
+      # Re-assert owner and mode unconditionally: the install only sees
+      # content, so a hand edit of mode or owner would otherwise persist
+      # across every cmp-equal apply.
+      chown erichblume:staff "$runner_config" &&
+      chmod 0600 "$runner_config"
+    else
+      missing=
+      for f in uuid token mise-github-token; do
+        [[ -r "$runner_identity/$f" && -s "$runner_identity/$f" ]] || missing="$missing $f"
+      done
+      printf 'warning: forgejo-runner identity incomplete (missing or empty:%s) - keeping the existing %s and not restarting the runner; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "$missing" "$runner_config" >&2
     fi
   '';
 
@@ -617,10 +750,11 @@ AUTHORIZED_KEYS
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.caddy.err.log";
   };
 
-  # forgejo-runner (PR 7): executes every `indri`-label CI job; first nixpkgs-sourced
-  # binary (upstream ships no darwin release). Unloaded = indri-label jobs queue on
-  # forge; everything else stays up. config.yaml, home and cache agents stay
-  # role-rendered (the gate covers the plist + load only). See provision.md §Forgejo runner.
+  # forgejo-runner: executes every `indri`-label CI job (nixpkgs binary;
+  # upstream ships no darwin release). Unloaded = indri-label jobs queue on
+  # forge; everything else stays up. config.yaml is rendered by the
+  # postActivation above (eblume/blumeops#1528); the cache agents stay
+  # role-rendered until their move (eblume/blumeops#1528 PR 3).
   launchd.user.agents."mcquack.eblume.forgejo-runner".serviceConfig = {
     Label = "mcquack.eblume.forgejo-runner";
     ProgramArguments = [ "${nixWait}" ] ++ [

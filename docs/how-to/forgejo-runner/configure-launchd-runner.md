@@ -11,8 +11,10 @@ tags:
 # Configure the launchd Forgejo Runner on indri
 
 Run the Forgejo Actions runner as a native macOS LaunchAgent on
-[[indri]] — the unit is nix-managed (the [[indri]] flake) and the
-config is rendered by the `forgejo_runner` ansible role. Jobs run
+[[indri]] — the main runner's LaunchAgent and `config.yaml` are owned
+by the [[indri]] flake's generation (eblume/blumeops#1528); the build
+runner's config and the cache agents stay in the `forgejo_runner`
+ansible role until eblume/blumeops#1627. Jobs run
 directly on the host with indri's mise toolchain (host-mode); Docker
 Desktop stays only as the dagger engine host (the runner keeps dagger for the hephaestus/cv CI it hosts). This replaced the
 minikube-hosted runner as phase 0 of [[retire-minikube]], so source
@@ -37,7 +39,7 @@ phase 6 then dropped the per-job container entirely.
   runner. Originally also advertised `k8s` for compatibility with
   existing workflows;
   once blumeops workflows migrated to `runs-on: indri` the `k8s`
-  label was dropped from `forgejo_runner_labels` (see
+  label was dropped from the runner's label list (see
   [[forgejo-runner]]). Other forge repos still on `runs-on: k8s`
   will need to migrate before the label can be dropped there too.
 - **Registry mirror:** the indri-build colima profile gets
@@ -51,14 +53,14 @@ phase 6 then dropped the per-job container entirely.
 
 ### 1. The binary (nix-managed — no manual step)
 
-Since PR 7 of the indri nix-darwin series (2026-09), the runner binary
-is the nixpkgs `forgejo-runner` package (13.1.0, pinned by the [[indri]]
-flake's nixpkgs input), and the LaunchAgent unit is the flake's
+The runner binary is the nixpkgs `forgejo-runner` package (13.1.0,
+pinned by the [[indri]] flake's nixpkgs input), and the LaunchAgent
+unit is the flake's
 `launchd.user.agents."mcquack.eblume.forgejo-runner"`. Version bumps are
 flake PRs applied through the usual `mise run provision-indri --
 --tags rebuild`; activation swaps the plist in place and restarts the
-agent. The original source checkout at `~/code/3rd/forgejo-runner`
-stays on disk only as the ansible rollback re-write's target (see
+agent. The source checkout at `~/code/3rd/forgejo-runner` stays on disk
+only as the build runner's rollback re-write staging source (see
 [[provision]] §Rolling back a service flip).
 
 ### 2. Register the runner identity
@@ -76,15 +78,19 @@ ssh indri 'cd ~/code/3rd/forgejo && ./forgejo forgejo-cli actions register \
 
 This prints the runner UUID; the generated secret is the token. Store
 both on the "Forgejo Secrets" 1Password item as `runner_indri_uuid` /
-`runner_indri_token`. The playbook `pre_tasks` fetch them with
-`op read` and the role renders them into the runner config
-(mode 0600).
+`runner_indri_token`. `mise run seed-secrets indri` seats them as the
+identity files under the runner's home, and the generation renders them
+into the runner config (mode 0600) — see eblume/blumeops#1528.
 
 ### 3. Provision
 
 ```fish
 mise run provision-indri -- --tags forgejo_runner
 ```
+
+The main runner's `config.yaml` is no longer touched by this tag — the
+generation renders it from the identity files and `forge/runners.json`
+— so this apply covers the cache agents and the build runner.
 
 If the colima profile (hardware or registry mirror) changed, the
 `Restart colima-build VM` handler stops the VM and its launchd

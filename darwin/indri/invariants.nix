@@ -33,15 +33,18 @@ let
   exitTimeOutWarning = name: cfg:
     lib.optional (cfg.ExitTimeOut != null && cfg.ExitTimeOut > 60 && cfg.AbandonProcessGroup != true)
       "indri: launchd user agent ${name} sets ExitTimeOut ${lib.toString cfg.ExitTimeOut} s without AbandonProcessGroup — launchd clamps ExitTimeOut to 60 s in the per-user gui domain, and without AbandonProcessGroup a stop kills the job's process group, taking a detached darwin-rebuild mid-activation. Incidents https://forge.ops.eblu.me/eblume/blumeops/issues/1266, https://forge.ops.eblu.me/eblume/blumeops/issues/1269. To lift: set AbandonProcessGroup = true in the same PR, or silence the warning in this file if the long timeout is deliberate.";
-  # Secrets lockstep with secrets.json (eblume/blumeops#1524): `referenced`
-  # stays empty until the forgejo_runner role moves to nix
-  # (eblume/blumeops#1213) — it still renders its runner config via ansible;
-  # when it moves, collect the new reference sites here. The manifest
-  # existing (even empty) is what this guard reads, so the
-  # declared-but-unreferenced direction is already exercisable.
+  # Secrets lockstep with secrets.json (eblume/blumeops#1524): every path the
+  # nix config reads on host must be declared in the manifest, and vice
+  # versa. The main runner's identity files are the first reference sites
+  # (the darwin/indri generation checks slot + config render, eblume/blumeops#1528);
+  # the indri-build half adds its own when it moves (eblume/blumeops#1627).
   secrets = builtins.fromJSON (builtins.readFile ./secrets.json);
   declared = builtins.map (s: s.path) secrets.secrets;
-  referenced = [ ];
+  referenced = [
+    "/Users/erichblume/forgejo-runner/identity/uuid"
+    "/Users/erichblume/forgejo-runner/identity/token"
+    "/Users/erichblume/forgejo-runner/identity/mise-github-token"
+  ];
 in
 {
   # argv0 across every user agent and system daemon.

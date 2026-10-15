@@ -1,31 +1,22 @@
 ---
-# Forgejo Actions runner — native LaunchAgent on indri.
-# Replaces the minikube-hosted runner ([[retire-minikube]] phase 0).
-# Runner identity (uuid/token) is fetched from 1Password in the
-# playbook pre_tasks ("Forgejo Secrets" → runner_indri_uuid/token).
-# Labels and capacities below mirror forge/runners.json (eblume/blumeops#1526)
-# until this role leaves Ansible (#1528) — keep them in step.
+# Forgejo Actions runners - native launchd on indri.
+# The main runner's LaunchAgent and config.yaml are generation-owned
+# (darwin/indri: labels/capacity from forge/runners.json, identity from the
+# seed-secrets files under /Users/erichblume/forgejo-runner/identity/;
+# eblume/blumeops#1528). This file now carries what the role-rendered
+# pieces still use: the cache maintenance agents (until eblume/blumeops#1528
+# PR 3), the build runner half (eblume/blumeops#1627), and the two values
+# the build config template shares with the main runner (forge URL, job
+# timeout - the latter must stay below forgejo_runner_sweep_age_minutes).
 
-# Target of the (skipped-by-default) rollback re-write: the source checkout
-# in ~/code/3rd/forgejo-runner. The live unit runs the nixpkgs package
-# instead (the indri flake's pkgs, PR 7 of the series), which the role no
-# longer builds or version-checks; the checkout stays on disk only so a
-# re-written (ansible-owned) plist has a binary to point at.
+# Source checkout the build runner's rollback re-write stages its binary
+# from (the staged copy is what the re-written plist execs - the checkout
+# sits in erichblume's 0750 home, unreadable to indri-build).
 forgejo_runner_repo_dir: /Users/erichblume/code/3rd/forgejo-runner
 forgejo_runner_binary: "{{ forgejo_runner_repo_dir }}/forgejo-runner"
 
-# Skipped by default: the nix-darwin generation owns this service's
-# LaunchAgent plist (PR 7 of the indri series), so a normal provision must
-# not re-deploy or reload it. Flip this to true only for the rollback
-# re-write (darwin-rebuild --rollback first, then
-# `mise run provision-indri -- --tags forgejo_runner -e
-# forgejo_runner_ansible_managed=true`), per docs/how-to/indri/provision.md
-# §Rolling back a service flip.
-forgejo_runner_ansible_managed: false
-
 # Daemon home: config + job scratch space.
 forgejo_runner_home: /Users/erichblume/forgejo-runner
-forgejo_runner_config_path: "{{ forgejo_runner_home }}/config.yaml"
 forgejo_runner_log_dir: /Users/erichblume/Library/Logs
 
 # Shared LaunchAgent identity for the runner so maintenance agents
@@ -34,23 +25,7 @@ forgejo_runner_launch_agent_label: mcquack.eblume.forgejo-runner
 forgejo_runner_launch_agent_plist: ~/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist
 
 forgejo_runner_forge_url: https://forge.ops.eblu.me/
-forgejo_runner_capacity: 2
 forgejo_runner_timeout: 3h  # must stay below forgejo_runner_sweep_age_minutes
-
-# Zero-permission GitHub PAT (public read only) injected into every job as
-# MISE_GITHUB_TOKEN so mise tool resolution runs authenticated. Fetched from
-# 1Password in the playbook pre_tasks ("Forgejo Secrets" →
-# forge-ci-github-pat); empty renders no env entry.
-forgejo_runner_mise_github_token: ""
-
-# Labels advertised to forge, all host-mode ([[retire-minikube]]
-# phase 6): jobs run directly as erichblume with the mise toolchain.
-# The runner advertises `indri` (main push/schedule/dispatch jobs, #1358)
-# plus the dedicated `indri-priv` label, used only by warrant-dispatched
-# workflows (provision-indri), on the same physical runner.
-forgejo_runner_labels:
-  - indri
-  - indri-priv
 
 # Host toolchain for CI jobs lives in indri's declarative global mise
 # config (darwin/indri/configuration.nix, entry `[tools]`), the single
@@ -112,8 +87,7 @@ forgejo_runner_sweep_prek_cache_dir: /Users/erichblume/.cache/prek
 # normal provision must not re-deploy or reload it. Flip this to true only
 # for the rollback re-write (darwin-rebuild --rollback first, then
 # `mise run provision-indri -- --tags forgejo_runner,forgejo_build_runner -e
-# forgejo_runner_build_ansible_managed=true`). Same gate semantics as
-# forgejo_runner_ansible_managed above.
+# forgejo_runner_build_ansible_managed=true`).
 forgejo_runner_build_ansible_managed: false
 
 # Daemon home: config + job scratch space for the build runner.
@@ -142,9 +116,9 @@ forgejo_runner_build_binary: /usr/local/libexec/forgejo-runner-build
 forgejo_runner_build_labels:
   - indri-build
 
-# Slot count, separate from forgejo_runner_capacity: one PR push starts
-# 6-8 check jobs at once on this runner, so 2 slots queued 25% of them
-# >30s (eblume/blumeops#1518).
+# Slot count, separate from the main runner's (the nix-darwin generation's
+# entry in forge/runners.json): one PR push starts 6-8 check jobs at once on
+# this runner, so 2 slots queued 25% of them >30s (eblume/blumeops#1518).
 forgejo_runner_build_capacity: 4
 
 # Runner identity - empty until the human registers the runner (see
