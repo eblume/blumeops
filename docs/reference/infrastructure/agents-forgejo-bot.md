@@ -209,4 +209,6 @@ in the same vault. The bot authenticates over HTTPS with its Forgejo token.
 
 - [[agent-workspaces]] — what uses this identity
 - [[bootstrap-agent-workspaces]] — first-time creation steps
+- [[cli-agent-forgejo-principal]] — the second instance of this pattern
+  (interactive CLI agent sessions)
 - [[forgejo]] — the forge
