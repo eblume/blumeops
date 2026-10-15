@@ -246,6 +246,27 @@ def test_single_quoted_entry_is_derived(repo):
     assert "entry script" in result.stdout
 
 
+def test_empty_arg_before_config_path_still_derived(repo):
+    # An empty string in args ("", ...) must not end the scan: the config
+    # path after it must still be derived, so a config-only PR touching it
+    # forces the full run.
+    content = (
+        (repo / "prek.toml")
+        .read_text()
+        .replace(
+            'args = ["-c", ".yamllint.yaml"]',
+            'args = ["", "-c", ".yamllint.yaml"]',
+        )
+    )
+    commit(repo, {"prek.toml": content})
+    commit(repo, {".yamllint.yaml": "rewritten\n"})
+    base, head = shas(repo)
+    result = check(repo, base, head)
+    assert result.returncode == 0, result.stdout
+    assert "config" in result.stdout
+    assert ".yamllint.yaml" in result.stdout
+
+
 def test_empty_diff_requires_full_run(repo):
     head = git(repo, "rev-parse", "HEAD").stdout.strip()
     result = check(repo, head, head)

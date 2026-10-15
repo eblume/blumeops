@@ -103,13 +103,11 @@ jobs:
       # file skips ansible-lint entirely; on a main push or a dispatch it runs
       # `--all-files`, the backstop that a changed-file PR can't miss a whole
       # file.
-      # Changed-file mode fails open on two diff shapes — a delete-only diff
-      # (deleted files never enter `--from-ref`'s file list, so every hook
-      # gets nothing to check) and a diff that only rewrites a hook's config
-      # or entry script (the files the rewrite newly flags are not in the
-      # diff) — so `mise-tasks/prek-full-run-check` decides: on either shape,
-      # or on its own error (fail closed), the run falls back to `--all-files`.
-      # Adding a hook that cannot run in a clean checkout re-opens that gap.
+      # Changed-file mode fails open on shapes no `files` filter can close
+      # (delete-only and rename-only diffs, hook-config and entry-script
+      # rewrites); the mechanics are in `mise-tasks/prek-full-run-check`'s
+      # header. That check decides: on those shapes, or on its own error
+      # (fail closed), the run falls back to `--all-files`.
       #
       # GITHUB_TOKEN is blanked to make this job's credential-free claim literal.
       # Forgejo Actions puts the FORGE job token in the environment under that

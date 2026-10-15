@@ -16,6 +16,10 @@
 #             1 = changed-file mode is safe,
 #             2 = undecidable — the caller must fail closed and run `--all-files`.
 #
+# Hook authors: adding a hook that cannot run in a clean checkout would
+# re-open this gap — the lists derived from `prek.toml` assume the CI
+# checkout works as-is.
+
 # Usage: prek-full-run-check <base-ref> <head-ref>   (from anywhere inside the checkout)
 
 set -eu
@@ -85,9 +89,8 @@ config_args="$(
         if (p1 > 0 && (p2 == 0 || p1 < p2)) { p = p1; q = dq } else { p = p2; q = sq }
         rest = substr(s, p + 1)
         e = index(rest, q)
-        if (e <= 1) break
-        if (e == 0) break
-        if (e == 1) { s = substr(rest, 2); continue }
+        if (e == 0) break                        # unterminated quote, stop
+        if (e == 1) { s = substr(rest, 2); continue }  # empty arg (""): skip it, keep scanning
         tok = substr(rest, 1, e - 1)
         s = substr(rest, e + 1)
         # Keep the repo-relative config paths (a dot or slash, not a flag).
