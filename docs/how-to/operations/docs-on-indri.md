@@ -30,7 +30,7 @@ The docs site is fully static HTML produced by Quartz. Caddy can serve the extra
 
 ## Deploy
 
-1. Run the `Build BlumeOps` Forgejo workflow → builds the tarball and creates the release (the `docs_version` bump now rides the release PR instead of a push to main, [eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628))
+1. Run the `Build BlumeOps` Forgejo workflow → builds the tarball and creates the release (**paused**: the release job hard-fails until the release-PR model lands at migration step 9, [eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628); after it, the `docs_version` bump rides the release PR instead of a push to main)
 2. From gilbert: `mise run provision-indri -- --tags docs`
 3. From gilbert: `fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`
 

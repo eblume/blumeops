@@ -18,8 +18,10 @@ After merging documentation changes to main:
 
 1. Go to **Actions** > **Build BlumeOps** > **Run workflow**
 2. Select version bump type (patch/minor/major) or enter a specific version
-3. The workflow builds the docs and creates the release; deploying the new
-   version is a manual step (see below)
+3. The workflow builds the docs; the `release` job hard-fails (releases are
+   paused until the release-PR model lands at migration step 9,
+   [eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Deploying
+   the last released version is a manual step (see below)
 
 Direct link: https://forge.ops.eblu.me/eblume/blumeops/actions?workflow=build-blumeops.yaml
 
@@ -29,15 +31,21 @@ The `build-blumeops` workflow (`.forgejo/workflows/build-blumeops.yaml`) splits 
 
 1. **`version`** (on the unprivileged `indri-build` runner) — Resolves the version: uses the input or auto-increments from the latest release
 2. **`docs-build`** (on the unprivileged `indri-build` runner) — Runs towncrier to update `CHANGELOG.md`, then builds the docs with `mise run docs-build-tarball` (Quartz build in a node:22-slim container via colima); hands the tarball to the release job as a same-run artifact
-3. **`release`** (on `indri-build`) — Re-runs towncrier for the release body, downloads the tarball, creates the Forgejo release (`docs-<version>.tar.gz`), uploads it as an asset
+3. **`release`** (on `indri-build`) — **Paused** ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)): hard-fails instead of creating the release, until migration step 9 replaces the flow with a release created from the version bump on main
 
-The workflow ends at the release. The `docs_version` bump that used to land
-on main via the release job now rides the release PR ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Deploying is a manual step (docs are served natively by Caddy on
-indri since [[retire-minikube]] — no ArgoCD app): once `docs_version` in
+The workflow ends at the release. BlumeOps releases are **paused** until
+step 9 of the release-PR model ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)):
+the old release job pushed the changelog and the `docs_version` bump to main
+with a PAT, that push is retired, and until step 9 lands there is no
+replacement for it. From step 9 on, the `docs_version` bump rides the
+release PR and the release is created from the version bump on main.
+Deploying is a manual step (docs are served natively by Caddy on indri since
+[[retire-minikube]] — no ArgoCD app): once `docs_version` in
 `ansible/roles/docs/defaults/main.yml` is at the release tag,
 `mise run provision-indri -- --tags docs`, and purge the [[flyio-proxy]] nginx
 cache (`fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`)
-so the new docs are served immediately.
+so the new docs are served immediately. Until the pause lifts, this deploys
+the last released docs version — re-running it changes nothing new.
 
 ## Changelog Fragments (Towncrier)
 

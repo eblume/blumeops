@@ -86,7 +86,7 @@ The forge has three namespaces:
 | `argocd-deploy` | dispatch | `priv` | Warrant-gated ArgoCD deploy of a single app |
 | `argocd-sync-apps` | dispatch | `priv` | Warrant-gated sync of the app-of-apps root (`apps`) |
 | `branch-cleanup` | cron/dispatch | `indri-build` | Delete stale branches |
-| `build-blumeops` | dispatch | `indri-build` → `indri` | Changelog + docs build on the unprivileged runner; release + push on indri |
+| `build-blumeops` | dispatch | `indri-build` | Changelog + docs build; the release job hard-fails (releases paused until #1628 step 9) |
 | `build-container` | push (main)/PR | `indri-build` → `nix-container-builder` | Nix container image builds; classify on the unprivileged runner, build on the nix builder ([[build-container-image]]) |
 | `deploy-fly` | dispatch | `priv` | Warrant-gated deploy of the Fly.io proxy ([[flyio-proxy]]) |
 | `docs-checks` | PR/push | `indri-build` | Docs + changelog validation |
@@ -152,8 +152,9 @@ exception in both directions — blumeops's release reading its own
 `blumeops-ci/forge-main-push/token` at job time, and hephaestus declaring
 the item's hephaestus-scoped `hephaestus-token` field as
 `MAIN_PUSH_TOKEN` — are both retired: the release PR carries changelog and
-docs_version to main itself ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)), so neither PAT has a CI
-consumer anymore and both are pending revocation.
+docs_version to main itself ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628); blumeops's
+release job hard-fails until that flow lands at migration step 9), so
+neither PAT has a CI consumer anymore and both are pending revocation.
 
 These secrets are injected as `${{ secrets.SECRET_NAME }}` in workflow files.
 

@@ -25,7 +25,7 @@ Actions-secret names are now declared in `forge/actions-secrets.json` and their 
 
 ## 2. Create the workflow
 
-Create `.forgejo/workflows/<name>-release.yaml` with `workflow_dispatch` and a version input. Use the semver bump pattern (see `cv-release.yaml` for the full upload flow, or `build-blumeops.yaml` for the version bump logic only — it uploads to Forgejo releases, not generic packages).
+Create `.forgejo/workflows/<name>-release.yaml` with `workflow_dispatch` and a version input. Use the semver bump pattern (see `cv-release.yaml` for the full upload flow, or `build-blumeops.yaml` for the version bump logic only — its release half is retired, so the reference is its `version` job).
 
 The upload step uses `FORGE_TOKEN`:
 
@@ -61,8 +61,7 @@ If the artifact is consumed by a k8s deployment, create a separate deploy workfl
 
 ## Pushing a commit back to a protected `main`
 
-Some release flows commit back to `main` (e.g. `build-blumeops.yaml` bumps
-`docs_version` + builds the changelog; the horkos publisher's PR bumps the `cv_version` pin — see eblume/horkos#17).
+Some release flows commit back to `main` (e.g. the horkos publisher's PR bumps the `cv_version` pin — see eblume/horkos#17; `build-blumeops.yaml` used to bump `docs_version` + build the changelog here, but that push is retired).
 `main` on blumeops is branch-protected with a push whitelist limited to
 `eblume`, and **the automatic Forgejo Actions token cannot be push-whitelisted**
 (Forgejo [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)) — so a
@@ -81,8 +80,10 @@ plain `git push origin HEAD:main` is rejected with `pre-receive hook declined`.
 
 > **Retired (2026-10):** this main-push half is what the release-PR model
 > abolishes — `build-blumeops.yaml` no longer pushes the changelog to
-> `main`, and new release flows tag from a push-to-main workflow instead of
-> pushing `main` from CI ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Kept below for the historical
+> `main` (its release job hard-fails until the replacement lands at
+> migration step 9), and the new release flow will tag from a push-to-main
+> workflow instead of pushing `main` from CI
+> ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Kept below for the historical
 > shape.
 
 The fix is to authenticate the push as a whitelisted user via a PAT, not the
