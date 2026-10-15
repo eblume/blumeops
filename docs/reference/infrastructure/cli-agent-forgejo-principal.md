@@ -133,8 +133,19 @@ All forge-admin + 1Password acts, performed by Erich and tracked in the
 `repos.json` + `mise-tasks/forge-reconcile` today reconcile exactly one
 read/collaborator principal (the `talos` bot) plus the write-only
 `horkos-forge`. P2 of the #1583 series generalizes the single `collaborator`
-field to a declared principals set, restricted for `cli-agent` to
-`access: read` (no `pool`), and applies the same two code-enforced fences —
+field to a declared principals set: a top-level `principals` list in
+`repos.json` declares the set (the forge user must exist before it is
+listed — the check verifies each listed principal is a real, non-admin
+user), per-repo `principals` entries grant `read` on named repos (they
+must name a listed user), and the sweep is authoritative for the whole
+set — a principal whose last per-repo entry is removed is reconciled to
+no grant on every repo, i.e. removing the last entry means revoke.
+Removing the principal from the list itself is a two-step demotion
+(remove the entries, apply, then drop the list entry; a one-step
+demotion of a granted principal fails the PR check), so the set cannot
+quietly shrink either way — restricted for `cli-agent` to
+`access: read` (no `pool`), and applies the same two code-enforced
+fences —
 `PINNED_READ_ONLY` (`blumeops`/`agents`/`horkos`/`talos`) and the refusal of
 write on any repo carrying a non-empty `actions/secrets` list. P3 then
 declares the read grants.

@@ -459,14 +459,47 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
 def load_policy() -> tuple[str, str, dict[str, str], dict[str, str], set[str], set[str], dict[str, dict[str, str]]]:
     """Return (owner, collaborator, {repo: access}, {repo: pool}, release-hook
     repos, horkos-forge repos, {principal: {repo: access}}) from repos.json. The
-    last element names the extra read-only fork-model principals declared
-    per-repo via `principals`."""
+    last element names the extra read-only fork-model principals: the declared
+    set is the top-level `principals` list, and per-repo `principals` entries
+    grant access on named repos — a listed principal with no per-repo entry
+    reconciles to `none` on every repo, so removing its last entry revokes."""
     policy = json.loads(POLICY_PATH.read_text())
+    declared = policy.get("principals", [])
+    if not isinstance(declared, list) or not all(isinstance(p, str) for p in declared):
+        console.print(
+            f"[red]{POLICY_PATH.name}: top-level `principals` must be a list of "
+            f"principal names (got {escape(repr(declared))})[/red]"
+        )
+        raise typer.Exit(1)
+    # Case-insensitive on purpose: Forgejo resolves usernames case-insensitively
+    # (current_access matches via .lower()); an exact match would let a
+    # case-variant slip past this fence.
+    seen: set[str] = set()
+    for principal in declared:
+        if principal.lower() in seen:
+            console.print(
+                f"[red]{POLICY_PATH.name}: top-level `principals` lists "
+                f"{escape(repr(principal))} more than once (case-insensitive). "
+                "Refusing.[/red]"
+            )
+            raise typer.Exit(1)
+        if principal.lower() in (policy["collaborator"].lower(), HORKOS_FORGE_USER.lower()):
+            console.print(
+                f"[red]{POLICY_PATH.name}: `principals` declares "
+                f"{escape(repr(principal))}, which is already managed on another axis "
+                f"(the primary collaborator or horkos-forge) — double-managing one user "
+                f"would let two halves PUT conflicting permissions. Refusing.[/red]"
+            )
+            raise typer.Exit(1)
+        seen.add(principal.lower())
+    # Seed every declared principal with an empty mapping: one whose last
+    # per-repo entry is removed still reconciles to `none` on every repo, so
+    # "remove from repos.json" means "revoke", not "forget this user".
+    extra_principals: dict[str, dict[str, str]] = {p: {} for p in declared}
     desired: dict[str, str] = {}
     pools: dict[str, str] = {}
     release_hook_repos: set[str] = set()
     horkos_forge_repos: set[str] = set()
-    extra_principals: dict[str, dict[str, str]] = {}
     for entry in policy["repos"]:
         name, access = entry["name"], entry["access"]
         if access not in VALID_ACCESS:
@@ -512,6 +545,16 @@ def load_policy() -> tuple[str, str, dict[str, str], dict[str, str], set[str], s
             )
             raise typer.Exit(1)
         for principal, access_level in principals.items():
+            if principal not in extra_principals:
+                console.print(
+                    f"[red]{POLICY_PATH.name}: {escape(name)} declares principal "
+                    f"{escape(repr(principal))}, which is not in the top-level "
+                    f"`principals` list. A per-repo-only principal would drop out "
+                    f"of the reconciler when its last entry is deleted, leaving its "
+                    f"live grants unmanaged. Add it to the top-level `principals` "
+                    "list. Refusing.[/red]"
+                )
+                raise typer.Exit(1)
             if access_level not in ("read", "none"):
                 console.print(
                     f"[red]{POLICY_PATH.name}: {escape(name)} declares principal "
@@ -521,16 +564,7 @@ def load_policy() -> tuple[str, str, dict[str, str], dict[str, str], set[str], s
                     "must never do. Refusing.[/red]"
                 )
                 raise typer.Exit(1)
-            # Case-insensitive on purpose: Forgejo resolves usernames case-insensitively (current_access matches via .lower()); an exact match would let a case-variant slip past this fence.
-            if principal.lower() in (policy["collaborator"].lower(), HORKOS_FORGE_USER.lower()):
-                console.print(
-                    f"[red]{POLICY_PATH.name}: {escape(name)} declares principal "
-                    f"{escape(repr(principal))}, which is already managed on another axis "
-                    f"(the primary collaborator or horkos-forge) — double-managing one user "
-                    f"would let two halves PUT conflicting permissions. Refusing.[/red]"
-                )
-                raise typer.Exit(1)
-            extra_principals.setdefault(principal, {})[name] = access_level
+            extra_principals[principal][name] = access_level
         desired[name] = access
         pools[name] = entry.get("pool", "none")
     return policy["owner"], policy["collaborator"], desired, pools, release_hook_repos, horkos_forge_repos, extra_principals
@@ -1565,9 +1599,17 @@ def git_read_file(ref, relpath):
 
 
 def _policies_dict(policy):
+    """The lenient reader's twin of load_policy's policy parsing (no refusals —
+    it reads a git ref for the PR check, and a base can predate the top-level
+    `principals` list): the declared set is seeded from the top-level list, and
+    per-repo entries are collected even when their principal is not listed, so
+    an old base's per-repo state still compares correctly."""
     desired, pools = {}, {}
     release_hook_repos, horkos_forge_repos = set(), set()
-    extra_principals: dict[str, dict[str, str]] = {}
+    declared = policy.get("principals") or []
+    if not isinstance(declared, list) or not all(isinstance(p, str) for p in declared):
+        declared = []
+    extra_principals: dict[str, dict[str, str]] = {p: {} for p in declared}
     for entry in policy["repos"]:
         desired[entry["name"]] = entry["access"]
         pools[entry["name"]] = entry.get("pool", "none")
@@ -1751,9 +1793,12 @@ def _changed_facts(base_state, head_state):
             changed.add((repo, "talos-hook"))
         if (repo in b["release_hook_repos"]) != (repo in h["release_hook_repos"]):
             changed.add((repo, "release-hook"))
-        for principal in sorted(set(b.get("extra_principals", {})) | set(h.get("extra_principals", {}))):
+        # A principal absent from head's management set (dropped from the
+        # top-level list) is not a changed fact: no intended line for it, and
+        # report_pr_check fails a one-step demotion of a granted principal.
+        for principal in sorted(h.get("extra_principals", {})):
             base_access = b.get("extra_principals", {}).get(principal, {}).get(repo, "none")
-            head_access = h.get("extra_principals", {}).get(principal, {}).get(repo, "none")
+            head_access = h["extra_principals"][principal].get(repo, "none")
             if base_access != head_access:
                 changed.add((repo, "principal", principal))
     for repo in sorted(set(b.get("secrets", {})) | set(h.get("secrets", {}))):
@@ -1785,9 +1830,9 @@ def _intended_lines(owner, base_state, head_state):
         if (repo in b["release_hook_repos"]) != (repo in h["release_hook_repos"]):
             (hook if repo not in b["release_hook_repos"] else auto).append(
                 f"`{owner}/{repo}` horkos release hook: {'on' if repo in b['release_hook_repos'] else 'off'} -> {'on' if repo in h['release_hook_repos'] else 'off'}")
-        for principal in sorted(set(b.get("extra_principals", {})) | set(h.get("extra_principals", {}))):
+        for principal in sorted(h.get("extra_principals", {})):
             base_access = b.get("extra_principals", {}).get(principal, {}).get(repo, "none")
-            head_access = h.get("extra_principals", {}).get(principal, {}).get(repo, "none")
+            head_access = h["extra_principals"][principal].get(repo, "none")
             if base_access != head_access:
                 auto.append(f"`{owner}/{repo}` {principal} access: {base_access} -> {head_access}")
     def _names(ns):
@@ -1854,6 +1899,28 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     for principal, repo, verb, want in base_plan["extra_actions"]:
         if not changed_for(repo, "principal", principal):
             unexpected.append(f"{principal} {verb} on {owner}/{repo} -> {want}" if want != "none" else f"{principal} {verb} on {owner}/{repo}")
+    # A principal the PR removes from the declared set (the top-level
+    # `principals` list) leaves the reconciler's management: the apply on
+    # main revokes nothing for it, so a base that still grants it cannot be
+    # demoted in this PR — the grants would persist under a green check.
+    # Demote in two steps: remove the per-repo entries (merge, apply
+    # revokes), then drop the list entry.
+    demoted = {
+        p.lower(): p for p in base_state.get("extra_principals", {})
+        if p.lower() not in {q.lower() for q in head_state.get("extra_principals", {})}
+    }
+    for principal in sorted(demoted.values(), key=str.lower):
+        granted = sorted(
+            repo for repo, access in base_state["extra_principals"][principal].items()
+            if access != "none"
+        )
+        if granted:
+            unexpected.append(
+                f"{principal} is removed from the declared `principals` set while the "
+                f"base grants it on {', '.join(f'{owner}/{r}' for r in granted)} — the apply "
+                f"on main would revoke nothing; remove its per-repo entries first, then "
+                f"drop it from the list"
+            )
     for repo, verb, _id, kind in base_plan["hook_actions"]:
         if not changed_for(repo, "talos-hook" if kind == "talos" else "release-hook"):
             unexpected.append(f"{verb} {'talos hook' if kind == 'talos' else 'horkos release hook'} on {owner}/{repo}")
