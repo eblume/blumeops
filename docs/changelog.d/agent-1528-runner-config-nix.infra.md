@@ -1,1 +1,1 @@
-The main indri forgejo runner's config.yaml is rendered by the nix-darwin generation at activation from forge/runners.json plus the identity files `mise run seed-secrets indri` seats, kicking the runner only on a content change (the role's main-side render is gone); a missing or empty identity file now fails the switch in the activation checks slot, before anything is installed.
+The main forgejo runner's `config.yaml` on indri is now rendered by the nix-darwin generation from `forge/runners.json`, and the runner is kicked only on a content change.
