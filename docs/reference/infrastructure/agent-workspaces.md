@@ -1,6 +1,6 @@
 ---
 title: Agent Workspaces
-modified: 2026-08-07
+modified: 2026-10-15
 last-reviewed: 2026-07-08
 tags:
   - reference
@@ -397,9 +397,13 @@ token-wasteful always-on pattern is also the fair-use risk.
 
 ## Operations
 
-- **Deploy:** `mise run provision-ringtail` (writes `/etc/agents/*` secrets via
-  ansible, then `nixos-rebuild switch`). First-ever deploy needs the one-time
-  [[bootstrap-agent-workspaces]] steps (OAuth login, trust + consent seeding).
+- **Deploy:** merge the blumeops PR — `ringtail-rebuild` auto-applies it
+  (break-glass: the local apply in
+  docs/reference/operations/disaster-recovery.md). No deploy step writes
+  `/etc/agents/*` secrets anymore; the on-host files are owned by
+  `mise run seed-secrets ringtail`. First-ever deploy needs the one-time
+  [[bootstrap-agent-workspaces]] steps (OAuth login, trust + consent
+  seeding).
 - The `agent-ws` host services and pod are both retired now; live operations for
   the current agent run under talos ([[talos-design]]). The host model above is
   retained for history.

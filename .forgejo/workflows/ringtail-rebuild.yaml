@@ -7,8 +7,11 @@
 # (the runner runs as the static user horkos-runner with NoNewPrivileges, so
 # sudo cannot work from a job). The unit runs /etc/ringtail-apply/apply, which
 # checks out the bound SHA in /etc/blumeops and drives the detached
-# blumeops-nixos-rebuild unit, the same pattern as ansible/playbooks/ringtail.yml.
-# Full provision-ringtail stays class: deny.
+# blumeops-nixos-rebuild unit. The ansible play this decomposed from
+# (provision-ringtail) is retired (#1527): this workflow plus the
+# ringtail-apply@ unit is now the full apply path for ringtail, whose
+# on-host secret files are seeded separately by the human-run
+# `mise run seed-secrets ringtail`.
 #
 # Injection posture: the dispatch input is only ever read through `env:` —
 # never into a checkout ref or shell text. The validate step is the first

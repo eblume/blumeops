@@ -92,9 +92,10 @@ actions:
       shared forge-runner inputs forge/runners.{nix,json} (the host config
       imports them, so they are ringtail inputs) — the merge commit is the
       approval (docs/explanation/auto-apply.md); workflow_dispatch remains
-      the manual fallback. First decomposition step
-      toward provision-ringtail (which stays deny: its ansible pre_tasks read
-      the blumeops vault).
+      the manual fallback. This is now the full apply path for ringtail: the
+      play it decomposed from (provision-ringtail) is retired (#1527), and
+      the on-host secret files are seeded separately by the human-run
+      `mise run seed-secrets ringtail`.
 
   # One-off script execution (heph eblume/horkos#6): the script body travels
   # in the request inputs as (script, script_sha256), horkos binds the pair
@@ -130,9 +131,3 @@ actions:
       is role-tagged — so the old Phase-2 gate (blumeops-ci vault split + priv
       runner) never applied to the generation flip; the full ansible provision
       (roles, secrets) stays a human window.
-  # The full provision still reads the blumeops vault in its ansible pre_tasks,
-  # and its root paths beyond the rebuild unit are open (the narrow rebuild
-  # warrant is ringtail-rebuild.yaml).
-  provision-ringtail.yaml:
-    class: deny
-    note: "Full provision: its ansible pre_tasks read the blumeops vault, and the priv-runner decomposition beyond the rebuild unit is open"

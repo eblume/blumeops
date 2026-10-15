@@ -2,7 +2,7 @@
 title: Horkos
 aliases:
   - warrant
-modified: 2026-10-13
+modified: 2026-10-15
 last-reviewed: 2026-09-16
 tags:
   - service
@@ -106,10 +106,9 @@ never change in a single PR.
   ```
 - **Scope**: only actions with `class: warrant` in `warrant-policy.yaml` are
   requestable — today `argocd-deploy.yaml`, `argocd-sync-apps.yaml`,
-  `deploy-fly.yaml`, `ringtail-rebuild.yaml`, `provision-indri.yaml` (the
-  rebuild-only path, which reads no vault), and `run-script.yaml` (one-off
-  scripts). `provision-ringtail.yaml` is `class: deny` (see
-  [[blumeops-ci-item-migration]]).
+  `deploy-fly.yaml`, and `run-script.yaml` (one-off scripts). Its former deny member, `provision-ringtail.yaml`, was retired
+  in #1527; the class remains defined for any future workflow that must read
+  the human-only `blumeops` vault.
 - **Cluster credential for run-scripts**: the `run-script` ServiceAccount in
   this namespace (ClusterRole `run-script-pv-ops`: `persistentvolumes`
   `get`/`list`/`delete`, `persistentvolumeclaims` `get`/`list` — no secrets,

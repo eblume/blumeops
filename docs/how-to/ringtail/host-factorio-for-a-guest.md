@@ -1,6 +1,6 @@
 ---
 title: Host Factorio for a Guest
-modified: 2026-07-10
+modified: 2026-10-15
 last-reviewed: 2026-07-10
 tags:
   - how-to
@@ -30,7 +30,8 @@ order; the server should be running before a guest connects):
 | ACL grant | `pulumi/tailscale/policy.hujson` | `tag:factorio` tag owner + a grant giving `autogroup:shared` exactly `udp:34197` on `tag:factorio`. |
 | ringtail tag | `pulumi/tailscale/__main__.py` | Adds `tag:factorio` to ringtail's declaratively-managed device tags. **Do this in Pulumi, not the admin console** — `ringtail_tags` is a `DeviceTags` resource that replaces the device's tags, so a console-added tag would be stripped on the next `tailnet-up`. |
 
-Deploy: `provision-ringtail` for the service, `pulumi up` in `pulumi/gandi` and
+Deploy: merge the blumeops PR (ringtail-rebuild auto-applies) for the
+service, `pulumi up` in `pulumi/gandi` and
 `pulumi/tailscale` for DNS and ACL.
 
 ## Why sharing ≠ opening every port

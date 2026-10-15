@@ -1,6 +1,6 @@
 ---
 title: Agent Containerization
-modified: 2026-08-06
+modified: 2026-10-15
 last-reviewed: 2026-07-30
 tags:
   - explanation
@@ -394,8 +394,10 @@ agents-vault-only `op`. A build's reach is the same class as any `bun`/`uv`/
 Worth stating because "let the agent run nix builds" *sounds* like it touches
 it. Nothing this store produces can reach ringtail: the host's `/nix` is not
 mounted into the pod (the only hostPath is the heph socket dir), there is no
-remote builder to push to, and `provision-ringtail.yaml` is `class: deny` in
-[[warrant-approval-gated-runs|warrant-policy]] regardless. Two rejected
+remote builder to push to, and the `class: deny` example that once rounded
+out the fence — `provision-ringtail.yaml` — was retired in #1527 (its apply
+path, `ringtail-rebuild.yaml`, is `class: auto` against main's reviewed
+state). Two rejected
 designs remain rejected — this change took neither path:
 
 - **`seccompProfile: Unconfined`** to unlock user namespaces and get a real

@@ -1,6 +1,6 @@
 ---
 title: Restart Ringtail
-modified: 2026-09-16
+modified: 2026-10-15
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -313,8 +313,11 @@ CL22 1.2 V, dual-rank). Adjust for whatever the next kit is.
 
 1. Make sure the Memtest86+ boot entry is present (`sudo ls /boot/EFI` —
    `/boot` is root-only — or check the boot menu on the next reboot). It is declared in
-   `nixos/ringtail/configuration.nix`; if it is missing, `mise run
-   provision-ringtail` first — you cannot add a boot entry once the box is
+   `nixos/ringtail/configuration.nix`; if it is missing, do the one-time
+   bootstrap first — clone blumeops into `/etc/blumeops`, `mise run
+   seed-secrets ringtail`, then the first apply (see
+   docs/reference/operations/disaster-recovery.md) — you cannot add a boot
+   entry once the box is
    down.
 2. Record the current state for comparison:
    ```fish
