@@ -1,7 +1,7 @@
 ---
 title: Prometheus
-modified: 2026-03-23
-last-reviewed: 2026-03-23
+modified: 2026-10-15
+last-reviewed: 2026-10-15
 tags:
   - service
   - observability
@@ -17,24 +17,35 @@ Metrics storage and querying for BlumeOps infrastructure.
 |----------|-------|
 | **URL** | https://prometheus.ops.eblu.me |
 | **Namespace** | `monitoring` |
-| **Image** | `registry.ops.eblu.me/blumeops/prometheus` (see `argocd/manifests/prometheus/kustomization.yaml` for current tag) |
-| **Storage** | 50Gi PVC |
-| **Manifests** | `argocd/manifests/prometheus/` |
+| **Image** | `registry.ops.eblu.me/blumeops/prometheus` (see `argocd/manifests/prometheus-ringtail/kustomization.yaml` for current tag) |
+| **Storage** | 20Gi PVC |
+| **Manifests** | `argocd/manifests/prometheus-ringtail/` |
+| **ArgoCD app** | `prometheus-ringtail` |
 
 ## Data Sources
 
 ### Remote Write (from Alloy)
 - Indri system metrics via [[alloy|Alloy]] remote_write
-- Textfile metrics: borgmatic, zot, jellyfin
-- [[flyio-proxy]] nginx metrics (`flyio_nginx_*`) via Alloy embedded in Fly.io container
+- Ringtail Kubernetes metrics (kube-state-metrics, node, kubelet) via the alloy-ringtail DaemonSet
+- Textfile metrics: borgmatic, zot, jellyfin, forgejo
+- [[flyio-proxy]] nginx metrics (`flyio_nginx_*`) via Alloy embedded in the Fly.io container
 
 ### Scrape Targets
 
-| Target | Metrics |
-|--------|---------|
-| `sifaka:9100` | [[sifaka|Sifaka]] NAS (node_exporter) |
-| `blumeops-pg-metrics-tailscale.databases.svc.cluster.local:9187` | [[postgresql|CloudNativePG]] metrics |
-| `kube-state-metrics.monitoring.svc:8080` | Kubernetes resource metrics |
+| Job | Target |
+|-----|--------|
+| `node-exporter-sifaka` | `nas.ops.eblu.me:9100` — [[sifaka]] NAS (via Caddy L4 on indri) |
+| `smartctl-sifaka` | `nas.ops.eblu.me:9633` — [[sifaka]] NAS (via Caddy L4 on indri) |
+| `cnpg-postgres` | `blumeops-pg-metrics.databases.svc:9187`, `immich-pg-metrics.databases.svc:9187` — [[postgresql]] |
+| `prometheus` | `localhost:9090` — self-monitoring |
+| `loki` | `loki.monitoring.svc:3100` |
+| `tempo` | `tempo.monitoring.svc:3200` |
+| `argocd` | `argocd-metrics.argocd.svc:8082` |
+| `frigate` | `nvr.ops.eblu.me/api/metrics` |
+| `birdnet-go` | `birdnet-go.birdnet-go.svc:8090` |
+
+kube-state-metrics is deliberately not scraped here: alloy-ringtail scrapes
+and remote-writes it instead.
 
 ## Related
 
