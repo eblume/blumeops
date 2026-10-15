@@ -203,17 +203,19 @@ mise run agent-health                                                 # Grafana 
 mise run services-check                                               # fuller check (gilbert)
 ```
 
-If the last rebuild bumped the heph pin: the agent's hephd was compiled into
+If the last rebuild bumped the heph pin: both spokes' hephd was compiled into
 the toplevel by the `hephaestus` flake input (the ringtail-flake-check runner
 builds it on ringtail's own nix store, so the switch reuses the store path —
-the agent spoke has no background install), while `eblume-heph-install`
-compiles Erich's desktop bins in the background after boot (~11 min cold).
-A few minutes in, confirm:
+no background install), and the switch restarts both spokes on unit-file
+change. Then confirm:
 
 ```fish
-ssh ringtail 'systemctl status eblume-heph-install; systemctl is-active agent-heph-spoke'
-ssh ringtail '/home/eblume/.cargo/bin/hephd --version'   # should be the new hephTag; the agent spoke's version is the flake input pin by construction
+ssh ringtail 'systemctl is-active agent-heph-spoke'
+ssh ringtail 'sudo systemctl --machine=eblume@.host --user is-active eblume-heph-spoke'
 ```
+
+Both should print `active`; each spoke's version is the flake input pin by
+construction.
 
 If you **drained transmission** before the power-off, restore the suspended
 sync policy once k3s is up; ArgoCD then brings the pod back on its own. The

@@ -24,7 +24,7 @@ let
   #
   # One-time seed (interactively, as eblume on ringtail; approve in the browser
   # as yourself — no hub-side change needed, Erich is already the hub owner):
-  #   ${hephPkg}/bin/heph auth login --hub-url ${heph.hubUrl} \
+  #   heph auth login --hub-url ${heph.hubUrl} \
   #     --issuer ${heph.issuer} --client-id heph \
   #     --token-file ~/.config/heph/hub-token.json
   tokenFile = "${home}/.config/heph/hub-token.json";
@@ -47,6 +47,12 @@ in
   # in /run/user/1000 — they'd never meet. In the user manager both sides
   # resolve /run/user/1000/heph/hephd.sock. Lingering keeps the user manager
   # (and so the spoke) running from boot, no login needed.
+  #
+  # No separate restart trigger: a pin bump rewrites this unit's ExecStart,
+  # and the nixos switch restarts the unit — since nixos-25.11 the only switch
+  # implementation is switch-to-configuration-ng, which restarts changed user
+  # units for every user whose manager is running (logged-in or lingering),
+  # and lingering keeps user@1000 running from boot.
   users.users.eblume.linger = true;
 
   systemd.user.services.eblume-heph-spoke = {

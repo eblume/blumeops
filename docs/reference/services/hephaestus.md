@@ -21,7 +21,7 @@ against one canonical **hub**. Indri runs that hub.
 | **PWA URL** | https://heph.ops.eblu.me (browser PWA, Caddy TLS) |
 | **Spoke sync URL** | http://indri.tail8d86e.ts.net:8787 (direct, tailnet) |
 | **Local Port** | 8787 (`hephd --mode server`, bound `0.0.0.0`) |
-| **Binary** | `~/.cargo/bin/hephd` (version pinned in IaC; see [Version management](#version-management)) |
+| **Binary** | indri hub: `~/.cargo/bin/hephd` (the ringtail spokes run the nix-store package — see [Version management](#version-management)) |
 | **Data** | `~/.local/share/heph/heph.db` |
 | **PWA shell** | `~/.local/share/heph/web` |
 | **Logs** | `~/Library/Logs/mcquack.heph.{out,err}.log` |
@@ -70,12 +70,15 @@ upstream release, then bump the pin and re-provision.
 |--------|-----------|-----|--------------|
 | **indri** (hub) | `ansible/roles/heph` | `heph_version` (`defaults/main.yml`) | `mise run provision-indri -- --tags heph` — installs/upgrades `hephd` to the pinned tag on every run |
 | **ringtail-agent** (spoke) | `nixos/ringtail/flake.nix` (`hephaestus` input) | flake input ref (tag + tag-commit rev) | the toplevel build — the spoke starts at boot, no install oneshot |
-| **ringtail-eblume** (desktop spoke) | `nixos/ringtail/heph-eblume.nix` | `hephTag` (`heph-common.nix`) | the `eblume-heph-install` oneshot, same mechanism — see [Desktop surfaces](#desktop-surfaces-on-ringtail) |
+| **ringtail-eblume** (desktop spoke) | `nixos/ringtail/flake.nix` (`hephaestus` input) | flake input ref (tag + tag-commit rev) | the toplevel build — the user service starts at boot via linger, no install oneshot |
 | **gilbert** (spoke) | manual (not yet IaC) | — | hand `cargo install --tag`; see [Connecting a spoke](#connecting-a-spoke-eg-gilbert) |
 
-The two ringtail spokes are pinned separately: the agent spoke by the
-`hephaestus` flake input (`nixos/ringtail/flake.nix`), the eblume desktop
-spoke by `hephTag` in `heph-common.nix` — review both when bumping.
+Both ringtail spokes share one pin: the `hephaestus` flake input in
+`nixos/ringtail/flake.nix` — bump it and review both spokes. A pin bump
+rewrites both spokes' unit files and the nixos switch restarts them on file
+change: the agent's system unit, and eblume's user unit — since nixos-25.11
+the switch (switch-to-configuration-ng) restarts changed user units for every
+user whose manager is running, and lingering keeps user@1000 up.
 
 The indri role converges the version on **every** provision (it compares
 `hephd --version` against `heph_version` and re-runs `cargo install --locked
@@ -89,22 +92,21 @@ fall back to rustup's *default* toolchain, which can lag behind heph's
 **Release → deploy flow:**
 
 1. Cut the upstream release (new `vX.Y.Z` tag on the hephaestus repo).
-2. Bump the pins in blumeops: `heph_version` (ansible, hub), the
-   `hephaestus` flake input (ringtail agent spoke), and `hephTag` (ringtail
-   desktop spoke, nixos/ringtail/heph-common.nix). Open a PR as usual.
+2. Bump the pins in blumeops: `heph_version` (ansible, hub) and the
+   `hephaestus` flake input (both ringtail spokes, nixos/ringtail/flake.nix).
+   Open a PR as usual.
 3. After review, converge each device:
    - indri: `mise run provision-indri -- --tags heph`
-   - ringtail: nixos rebuild — the agent spoke's hephd is built into the
-     toplevel by the flake input (the ringtail-flake-check runner builds it on
-     ringtail's own nix store, so the switch reuses it), while
-     `eblume-heph-install` picks up the new `hephTag` from its ~5-min timer
-     re-check in the background (~11 min cold)
+   - ringtail: nixos rebuild — both spokes' hephd is built into the toplevel
+     by the flake input (the ringtail-flake-check runner builds it on
+     ringtail's own nix store, so the switch reuses it); the switch restarts
+     both spokes on unit-file change
    - gilbert: run the `cargo install --tag vX.Y.Z` step below.
-4. Confirm: for the desktop spoke, `systemctl status eblume-heph-install`
-   and `/home/eblume/.cargo/bin/hephd --version` a few minutes after the
-   switch (a green rebuild no longer proves it installed the new tag); the
-   agent spoke is in the toplevel, so `systemctl is-active agent-heph-spoke`
-   after the switch is its check.
+4. Confirm: both spokes are in the toplevel, so after the switch
+   `systemctl is-active agent-heph-spoke` and
+   `sudo systemctl --machine=eblume@.host --user is-active eblume-heph-spoke`
+   (on ringtail) are their check — each version is the flake input's pin by
+   construction.
 
 ## Backups
 
@@ -166,19 +168,20 @@ hephaestus follow-up — until then this manual reset is the documented path.
 
 ## Desktop surfaces on ringtail
 
-Erich's ringtail spoke (`nixos/ringtail/heph-eblume.nix`) is a **desktop** spoke:
-its `bins` list adds `heph-tui` and `heph-quickadd` to the `heph`/`hephd` the
-agent's headless spoke installs.
+Erich's ringtail spoke (`nixos/ringtail/heph-eblume.nix`) is a **desktop**
+spoke: its `desktopBins` list adds `heph-tui` and `heph-quickadd` to the
+`heph`/`hephd` the agent's headless spoke runs — all from the same nix-store
+package.
 
-> **`~/.cargo/bin` is on no session `PATH` here.** sway comes up under greetd
-> with only the nix profile directories, and neither fish's config nor
-> `fish_user_paths` adds cargo's — so a terminal opened from the desktop cannot
-> see `heph` or `heph-tui` at all, however they were installed. `mkShims` puts
-> exec shims in eblume's home-manager profile
-> (`/etc/profiles/per-user/eblume/bin`, which *is* on that PATH) for exactly the
-> `bins` the spoke installs. Check with a genuinely clean environment, not an
-> agent/harness shell — those often carry `~/.cargo/bin` and will hide the
-> problem:
+> **The store package's bin dir is on no session `PATH` here.** sway comes up
+> under greetd with only the nix profile directories, and neither fish's
+> config nor `fish_user_paths` adds it — so a terminal opened from the desktop
+> cannot see `heph` or `heph-tui` at all, however they are installed.
+> `mkShims` puts exec shims in eblume's home-manager profile
+> (`/etc/profiles/per-user/eblume/bin`, which *is* on that PATH) for exactly
+> the `desktopBins` the spoke runs. Check with a genuinely clean environment,
+> not an agent/harness shell — those often carry extra `PATH` entries and will
+> hide the problem:
 >
 > ```fish
 > env -i HOME=$HOME USER=eblume PATH=(tr '\0' '\n' < /proc/(pgrep -x sway)/environ | grep '^PATH=' | cut -d= -f2) fish -l -c 'type -P heph-tui'
@@ -195,16 +198,11 @@ away. The binding and the float/centre window rule live in `configuration.nix`
 next to the rest of the sway config; the launcher itself
 (`heph.mkQuickaddLauncher`) is in `heph-common.nix`.
 
-> **Why a launcher wrapper.** `heph-quickadd` is built by `cargo install`, so
-> nothing sets up its graphics stack: nix-ld resolves its `DT_NEEDED` entries,
-> but eframe (glutin/winit) `dlopen`s `libwayland-client` / `libEGL` /
-> `libxkbcommon` by soname at runtime, and the GL ICDs live in
-> `/run/opengl-driver/lib`. Without the wrapper's `LD_LIBRARY_PATH` it dies at
-> startup with `WaylandError(Connection(NoWaylandLib))`.
-
-Adding a binary to `bins` re-runs the install even when `hephd` already matches
-the pinned tag: the unit's skip check requires every requested binary to exist,
-not just a version match.
+> **Why a launcher wrapper at all.** The store's `heph-quickadd` is already
+> wrapped with its graphics stack (the hephaestus flake prefixes
+> `LD_LIBRARY_PATH` with the eframe dlopen libs and `/run/opengl-driver/lib`
+> for the GL ICDs), so the launcher is just the one-shot `popover` mode
+> invocation sway's binding needs: one process per capture.
 
 ## Connecting a spoke (e.g. gilbert)
 

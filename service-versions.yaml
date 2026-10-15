@@ -604,9 +604,10 @@ services:
       surfaces (`heph`, `heph-tui`, `heph-quickadd`). Since 2026-10-14 it is
       the same nix-store package as the agent spoke: the `hephaestus` flake
       input in nixos/ringtail/flake.nix (the oneshot, timer, and hephTag are
-      gone, and the hand-built pre-v1.8.0 quickadd drift that the old
-      ~/.cargo/bin binaries carried is cleared by the switch). One pin for
-      both ringtail spokes — bump the flake input and review both.
+      gone; the hand-built pre-v1.8.0 quickadd drift the old ~/.cargo/bin
+      binaries carried is rendered inert, those binaries staying on disk until
+      the step-6 cleanup removes them). One pin for both ringtail spokes —
+      bump the flake input and review both.
       Tracked as heph node 01KYTBFTJSG3H4GDBVTC14NVJC.
 
   - name: factorio
