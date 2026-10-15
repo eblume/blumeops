@@ -484,9 +484,9 @@ CFG
         mv -f "$tmp" "$runner_config"
         uid=$(id -u erichblume)
         state=
-        if launchctl kickstart -k gui/$uid/mcquack.eblume.forgejo-runner 2> /dev/null; then
+        if launchctl kickstart -k gui/"$uid"/mcquack.eblume.forgejo-runner 2> /dev/null; then
           for _ in 1 2 3 4 5; do
-            state=$(launchctl print gui/$uid/mcquack.eblume.forgejo-runner 2> /dev/null | sed -n 's/^[[:space:]]*state = //p' | head -n1 || true)
+            state=$(launchctl print gui/"$uid"/mcquack.eblume.forgejo-runner 2> /dev/null | sed -n 's/^[[:space:]]*state = //p' | head -n1 || true)
             case "$state" in
               "" | waiting | "spawn scheduled") sleep 1 ;;
               *) break ;;
