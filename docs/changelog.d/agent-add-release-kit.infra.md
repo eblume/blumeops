@@ -1,0 +1,1 @@
+Onboard eblume/release-kit (the shared release-PR implementation from eblume/blumeops#1628) to the fleet as read/fork: every repo's release runs code from that repo, so its tag is a supply-chain choke point and the agents bot gets read-only access instead of the freestanding write default, with main protected (push and merge whitelisted to eblume, CI / test required).

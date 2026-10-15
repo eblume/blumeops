@@ -86,6 +86,11 @@
       "horkos_forge": true
     },
     {
+      "name": "release-kit",
+      "access": "read",
+      "pool": "fork"
+    },
+    {
       "name": "hephaestus.nvim",
       "access": "write",
       "pool": "canonical",
