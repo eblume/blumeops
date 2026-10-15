@@ -1,0 +1,1 @@
+The ringtail-rebuild and provision-indri auto-apply workflows resolve their `ops-approvals` refusal topic from `ntfy/topics.json` at runtime (raw fetch at the bound commit) instead of a hardcoded topic literal.

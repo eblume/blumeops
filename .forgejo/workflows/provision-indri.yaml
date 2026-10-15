@@ -99,14 +99,19 @@ jobs:
           base="$FORGE_SERVER_URL"
           repo="$FORGE_REPOSITORY"
           sha="$SHA"
+          # The refusal topic resolves from the ntfy/topics.json declaration
+          # at the bound commit (eblume/blumeops#1611); a failed fetch drops
+          # the notification, never the verdict.
+          ntfy_topic=$(curl -sL "$base/$repo/raw/$sha/ntfy/topics.json" \
+            | jq -r '.topics[] | select(.name=="ops-approvals") | .name' 2>/dev/null || true)
           refuse() {
             echo "::error::$1"
             # Best-effort notification; a failed post must not change the verdict.
-            curl -s -X POST \
+            [ -n "$ntfy_topic" ] && curl -s -X POST \
               -H "Title: auto-apply refused" \
               -H "Tags: warning" \
               -d "$2" \
-              https://ntfy.ops.eblu.me/ops-approvals || true
+              "https://ntfy.ops.eblu.me/$ntfy_topic" || true
             exit 1
           }
           # curl -f would turn a 404 into a silent failure; capture the
@@ -143,13 +148,18 @@ jobs:
           repo="$FORGE_REPOSITORY"
           sha="$SHA"
           label="$LABEL"
+          # The refusal topic resolves from the ntfy/topics.json declaration
+          # at the bound commit (eblume/blumeops#1611); a failed fetch drops
+          # the notification, never the verdict.
+          ntfy_topic=$(curl -sL "$base/$repo/raw/$sha/ntfy/topics.json" \
+            | jq -r '.topics[] | select(.name=="ops-approvals") | .name' 2>/dev/null || true)
           refuse() {
             echo "::error::$1"
-            curl -s -X POST \
+            [ -n "$ntfy_topic" ] && curl -s -X POST \
               -H "Title: auto-apply preflight refused" \
               -H "Tags: warning" \
               -d "$2" \
-              https://ntfy.ops.eblu.me/ops-approvals || true
+              "https://ntfy.ops.eblu.me/$ntfy_topic" || true
             exit 1
           }
           if [ -z "$FORGE_ACTIONS_RO_TOKEN" ]; then
@@ -181,11 +191,11 @@ jobs:
           if [ "$count" -eq 0 ]; then
             echo "::error::preflight: no online runner serves the '$label' label — refusing (fail closed)"
             echo "::error::runners: $(jq -c '[.[] | {name: (.name? // ""), status: (.status? // ""), labels: (.labels? // [])}]' <<<"$runners")"
-            curl -s -X POST \
+            [ -n "$ntfy_topic" ] && curl -s -X POST \
               -H "Title: auto-apply preflight refused" \
               -H "Tags: warning" \
               -d "provision-indri: preflight refused for $sha — no online runner serves '$label'" \
-              https://ntfy.ops.eblu.me/ops-approvals || true
+              "https://ntfy.ops.eblu.me/$ntfy_topic" || true
             exit 1
           fi
 

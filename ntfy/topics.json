@@ -18,10 +18,11 @@
     "  this file by convention; `mise run ntfy-lint` scans the tree for",
     "  topic literals (a https://ntfy.ops.eblu.me/<topic> path or a",
     "  ntfy-config `topic:` key) and fails on undeclared ones, retired",
-    "  re-additions, and producers not listed here. The CI workflows do",
-    "  not read the file yet (follow-up). Host watcher scripts do: the",
-    "  ringtail and indri apply watchers get their NTFY_TOPIC from the",
-    "  declaration via ntfy/topics.nix (eblume/blumeops#1611)."
+    "  re-additions, and producers not listed here. The host watcher",
+    "  scripts read it via ntfy/topics.nix (the ringtail and indri apply",
+    "  watchers get their NTFY_TOPIC from the declaration), and the two",
+    "  auto-apply workflows resolve their refusal topic from it at",
+    "  runtime (raw fetch at the bound commit). (eblume/blumeops#1611)"
   ],
   "topics": [
     {
