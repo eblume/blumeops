@@ -376,7 +376,6 @@ ACTIONS_SECRET_SOURCES: dict[tuple[str, str], str] = {
     ("blumeops", "FORGE_ACTIONS_RO"): "op://blumeops-ci/forge-actions-readonly/token",
     ("talos", "ZOT_PUSH_API_KEY"): "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/ci-zot-talos-api",
     ("horkos", "ZOT_PUSH_API_KEY"): "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/ci-zot-horkos-api",
-    ("hephaestus", "MAIN_PUSH_TOKEN"): "op://blumeops-ci/forge-main-push/hephaestus-token",
 }
 # Every editable field of a Forgejo v16 branch protection (the API's
 # BranchProtection minus branch_name — a deprecated alias of rule_name — and

@@ -34,7 +34,7 @@ release CI now consume `ZOT_PUSH_API_KEY` and `RELEASE_FORGE_TOKEN` too.
 | `argocd-deploy` | `ARGOCD_AUTH_TOKEN` | `w3663ffn…/argocd_token` (workflow-bot, get/sync/update) | **migrated** (pilot) → `blumeops-ci/argocd-workflow-bot`, since re-minted as `blumeops-ci/ci-argocd` for the `ci-argocd` account ([eblume/blumeops#1163](https://forge.eblu.me/eblume/blumeops/issues/1163) series) |
 | `build-container` | the CI zot push key (originally an Actions secret; now a job-time `op read` of `blumeops-ci/ci-zot`) | `w3663ffn…` CI zot push key field | **migrated** → the `blumeops-ci` CI push key item, since renamed `ci-zot` ([eblume/blumeops#1039](https://forge.eblu.me/eblume/blumeops/issues/1039) series) |
 | `deploy-fly` | `FLY_DEPLOY_TOKEN` | `on5slfay…/deploy-token` | **migrated** → `blumeops-ci/fly-deploy` |
-| `build-blumeops` | `MAIN_PUSH_TOKEN` | `blumeops-main-push-token/token` (eblume PAT, write:repository) | **migrated, eyes open** — it pushes protected `main` → `blumeops-ci/forge-main-push` |
+| `build-blumeops` | `MAIN_PUSH_TOKEN` | `blumeops-main-push-token/token` (eblume PAT, write:repository) | **migrated, eyes open** — it pushed protected `main` → `blumeops-ci/forge-main-push`; now retired ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)) |
 | talos + horkos `release.yaml` | `RELEASE_FORGE_TOKEN` | `horkos-forge-token/token` (horkos-forge PAT, write on blumeops only — push non-protected branches, open PRs, and dispatch workflows (the permission `workflow_dispatch` requires); cannot merge — `main` is push+merge whitelisted to `eblume`) | **migrated 2026-08-26** → `blumeops-ci/horkos-dispatch` (eblume/talos#55, eblume/horkos#9). The rotation friction showed up: the run-script executor needed the same PAT CI-readable, which would have made three independently-rotating copies. Now two, reconciled by `horkos-forge-provision`. |
 | `agent-repo-access`, `horkos-forge-drift` | `FORGE_REPO_WRITE_TOKEN` (was `FORGE_ADMIN_TOKEN`) | `forge-repo-write-token/token` (eblume PAT, `write:repository,read:user`; was `w3663ffn…/api-token`, the admin PAT) | **narrowed 2026-08-22** — no longer the admin PAT; migration into `blumeops-ci` can now proceed as a follow-up |
 | all | `GITHUB_TOKEN` | forge-injected | n/a |
@@ -50,8 +50,9 @@ a repo == read of its Actions secrets; cross-repo release writes happen via
 horkos on a merge boundary (webhook), and cross-system writes go through a
 warrant. Consciously
 accepted: the tier transitively includes push-to-blumeops-`main`
-(auto-sync deploys + policy/workflow edits); `forge-main-push` being an
-account-wide eblume PAT is a pre-existing narrowing task, not a blocker.
+(auto-sync deploys + policy/workflow edits); the `forge-main-push` item's
+consumers are now retired ([eblume/blumeops#1628](https://forge.eblu.me/eblume/blumeops/issues/1628))
+and revoking its PATs is a human step there, not a blocker.
 Red-teaming this model is its own task (heph `01M0MX04Y8…`).
 
 ## What migration actually means
@@ -131,8 +132,8 @@ follow-up now that it needs no provisioning):
 | `ci-argocd` | `token` | re-minted 2026-09-21 for the `ci-argocd` ArgoCD account (the original `argocd-workflow-bot` row copied `w3663ffn…/argocd_token`; retired by the [eblume/blumeops#1163](https://forge.eblu.me/eblume/blumeops/issues/1163) rename) | `argocd-deploy.yaml`, `argocd-sync-apps.yaml` |
 | `ci-zot` | `api-key` | `w3663ffn…` CI zot push key field | `build-container.yaml` (talos + horkos `release.yaml` moved to per-repo `ZOT_PUSH_API_KEY` keys, eblume/blumeops#1039 series) |
 | `fly-deploy` | `token` | `on5slfay…/deploy-token` | `deploy-fly.yaml` |
-| `forge-main-push` | `token` | `blumeops-main-push-token/token` | `build-blumeops.yaml` |
-| `forge-main-push` | `hephaestus-token` | — minted hephaestus-scoped (write:repository, repo-restricted to eblume/hephaestus; the `token` field can't write there) | hephaestus `release.yaml` (declared as `MAIN_PUSH_TOKEN`) |
+| `forge-main-push` | `token` | `blumeops-main-push-token/token` | `build-blumeops.yaml` (consumer retired) |
+| `forge-main-push` | `hephaestus-token` | — minted hephaestus-scoped (write:repository, repo-restricted to eblume/hephaestus; the `token` field can't write there) | hephaestus `release.yaml` (declared as `MAIN_PUSH_TOKEN`) — consumer retired |
 | `k3s-run-script` | `kubeconfig` | — minted from the live cluster (bound 12-month token for the `horkos`/`run-script` ServiceAccount, loopback-only server; no blumeops source) | `run-script.yaml` cluster chores |
 
 `FORGE_REPO_WRITE_TOKEN`: **not yet migrated to `blumeops-ci`** — but the

@@ -5,17 +5,21 @@
 #   - Documentation site (Quartz static build)
 #   - Changelog (built from towncrier fragments)
 #
-# The docs build runs credential-free on the unprivileged `indri-build`
-# runner (colima), and the release job stays on `indri` because it holds
-# the op token and the main-push PAT. The release job is dispatch-only, so
-# it never runs PR-head code: starts on `indri` are a main push, a
-# schedule, or a dispatch by a write collaborator (eblume, or horkos-forge
-# under a warrant) - the #1358 privileged-label invariant.
+# RELEASES ARE PAUSED (eblume/blumeops#1628): the `release` job below
+# hard-fails. The old release job pushed the changelog and the docs_version
+# bump to main with a PAT; that push is retired, and its replacement — a
+# release created from the version bump on main — lands at migration step 9.
+# The `version` and `docs-build` jobs still run, so a paused run keeps its
+# docs tarball as a run artifact.
 #
-# Usage:
+# Every job runs credential-free on the unprivileged `indri-build` runner
+# (colima): CI no longer pushes `main`, so no job holds a main-push PAT or
+# a vault token.
+#
+# Usage (until the pause lifts at step 9):
 #   1. Go to Actions > Build BlumeOps > Run workflow
 #   2. Select version bump type (patch/minor/major) or choose specific version
-#   3. The workflow creates a release with attached artifacts
+#   3. The release job fails with the pause reason
 #
 # Documentation asset URL:
 #   https://forge.ops.eblu.me/eblume/blumeops/releases/download/<tag>/docs-<version>.tar.gz
@@ -123,10 +127,9 @@ jobs:
           fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          # Resolve the changelog header date here, once: the docs-build and
-          # release jobs both build towncrier with it, so a run straddling
-          # midnight cannot leave the docs page and the committed CHANGELOG.md
-          # with different dates.
+          # Resolve the changelog header date here, once, for docs-build's
+          # towncrier run, so a run straddling midnight cannot leave the docs
+          # page and the committed CHANGELOG.md with different dates.
           echo "release_date=$(date +%F)" >> "$GITHUB_OUTPUT"
           echo "Building BlumeOps release: $VERSION"
 
@@ -144,9 +147,8 @@ jobs:
         run: |
           VERSION="${{ needs.version.outputs.version }}"
 
-          # Changelog is built here so the Quartz docs contain this release's
-          # notes; the release job re-runs it for the commit (both runs are on
-          # the same tree and version, so byte-identical).
+          # Changelog is built here so the Quartz docs contain this
+          # release's notes.
           # Check if there are any changelog fragments
           FRAGMENTS=$(find docs/changelog.d -name "*.md" -not -name ".gitkeep" 2>/dev/null | wc -l)
 
@@ -176,198 +178,12 @@ jobs:
           path: docs-${{ needs.version.outputs.version }}.tar.gz
 
   release:
-    needs: [version, docs-build]
-    runs-on: indri
+    runs-on: indri-build
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          # No credential persists in the checkout: the "Commit release
-          # changes" step reads the main-push PAT from the blumeops-ci vault
-          # at push time ([[blumeops-ci-item-migration]]).
-          persist-credentials: false
-
-      - name: Build changelog
-        id: changelog
+      - name: Releases paused
+        # No `needs`: a paused dispatch must fail fast with the pause reason,
+        # not after a full version + docs build. Step 9 (eblume/blumeops#1628)
+        # replaces this job with the release-PR model's release creation.
         run: |
-          mkdir -p "$RUNNER_TEMP"
-          VERSION="${{ needs.version.outputs.version }}"
-
-          # Run towncrier on the runner so that CHANGELOG.md updates and
-          # fragment deletions appear in the working tree for the git commit
-          # step (the Quartz build ran this same step in the docs-build job,
-          # so the docs already contain these notes).
-          # Check if there are any changelog fragments
-          FRAGMENTS=$(find docs/changelog.d -name "*.md" -not -name ".gitkeep" 2>/dev/null | wc -l)
-
-          if [ "$FRAGMENTS" -gt 0 ]; then
-            echo "Found $FRAGMENTS changelog fragments, building changelog..."
-            uvx --from towncrier==26.9.0 towncrier build --version "$VERSION" --date "${{ needs.version.outputs.release_date }}" --yes
-            echo "changelog_updated=true" >> "$GITHUB_OUTPUT"
-
-            # Extract the changelog section for this release to include in release body
-            RELEASE_NOTES=$(awk -v ver="$VERSION" '
-              /^## \[/ {
-                if (found) exit
-                if (index($0, "[" ver "]")) found=1
-              }
-              found {print}
-            ' CHANGELOG.md | tail -n +2)
-
-            echo "$RELEASE_NOTES" > "$RUNNER_TEMP/release_notes.md"
-            echo "Release notes extracted for $VERSION"
-          else
-            echo "No changelog fragments found, skipping towncrier"
-            echo "changelog_updated=false" >> "$GITHUB_OUTPUT"
-            echo "" > "$RUNNER_TEMP/release_notes.md"
-          fi
-
-      - name: Download docs artifact
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3
-        with:
-          name: docs-tarball
-
-      - name: Create release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir -p "$RUNNER_TEMP"
-          VERSION="${{ needs.version.outputs.version }}"
-          TARBALL="docs-${VERSION}.tar.gz"
-          CHANGELOG_UPDATED="${{ steps.changelog.outputs.changelog_updated }}"
-
-          echo "Creating release $VERSION..."
-
-          # Build release body with changelog if available
-          {
-            echo "BlumeOps release $VERSION"
-            echo ""
-
-            if [ "$CHANGELOG_UPDATED" = "true" ] && [ -s "$RUNNER_TEMP/release_notes.md" ]; then
-              echo "## What's Changed"
-              echo ""
-              cat "$RUNNER_TEMP/release_notes.md"
-              echo ""
-            fi
-
-            echo "## Documentation"
-            echo ""
-            echo "Download \`$TARBALL\` directly, or bump \`docs_version\`"
-            echo "in \`ansible/roles/docs/defaults/main.yml\` and run:"
-            echo ""
-            echo "\`\`\`"
-            echo "mise run provision-indri -- --tags docs"
-            echo "\`\`\`"
-          } > "$RUNNER_TEMP/release_body.txt"
-
-          # Use jq to properly escape the body for JSON
-          RELEASE_DATA=$(jq -n \
-            --arg tag "$VERSION" \
-            --arg name "BlumeOps $VERSION" \
-            --rawfile body "$RUNNER_TEMP/release_body.txt" \
-            '{tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false}')
-
-          RELEASE_RESPONSE=$(curl -s \
-            -X POST \
-            -H "Content-Type: application/json" \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -d "$RELEASE_DATA" \
-            "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases")
-
-          echo "API Response: $RELEASE_RESPONSE"
-
-          RELEASE_ID=$(echo "$RELEASE_RESPONSE" | jq -r '.id')
-
-          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
-            echo "Error: Failed to create release"
-            exit 1
-          fi
-
-          echo "Created release ID: $RELEASE_ID"
-
-          # Upload the asset
-          echo "Uploading $TARBALL..."
-          UPLOAD_RESPONSE=$(curl -s \
-            -X POST \
-            -H "Content-Type: application/gzip" \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            --data-binary "@$TARBALL" \
-            "https://forge.ops.eblu.me/api/v1/repos/eblume/blumeops/releases/$RELEASE_ID/assets?name=$TARBALL")
-
-          echo "Upload Response: $UPLOAD_RESPONSE"
-          echo ""
-          echo "Release created successfully!"
-
-      - name: Bump docs_version in ansible role
-        run: |
-          VERSION="${{ needs.version.outputs.version }}"
-          DEFAULTS_FILE="ansible/roles/docs/defaults/main.yml"
-
-          echo "Bumping docs_version in $DEFAULTS_FILE to ${VERSION}..."
-          yq -i ".docs_version = \"${VERSION}\"" "$DEFAULTS_FILE"
-
-          echo "Updated defaults:"
-          grep -E "^docs_version:" "$DEFAULTS_FILE"
-
-      - name: Commit release changes
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
-        run: |
-          VERSION="${{ needs.version.outputs.version }}"
-          CHANGELOG_UPDATED="${{ steps.changelog.outputs.changelog_updated }}"
-
-          # Configure git
-          git config user.name "Forgejo Actions"
-          git config user.email "actions@forge.ops.eblu.me"
-
-          # Stage deployment changes
-          git add ansible/roles/docs/defaults/main.yml
-
-          # Stage changelog changes if updated
-          if [ "$CHANGELOG_UPDATED" = "true" ]; then
-            git add CHANGELOG.md docs/changelog.d/
-          fi
-
-          # Check if there are changes to commit
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update docs release to $VERSION
-
-          $([ "$CHANGELOG_UPDATED" = "true" ] && echo "- Built changelog from towncrier fragments")
-
-          [skip ci]"
-
-            # Push to protected main with the whitelisted eblume PAT, read
-            # from the blumeops-ci vault at push time. The automatic Actions
-            # token can't be push-whitelisted (Forgejo #11159). See docs:
-            # agents-forgejo-bot and [[blumeops-ci-item-migration]].
-            MAIN_PUSH_TOKEN=$(op read 'op://blumeops-ci/forge-main-push/token')
-            echo "::add-mask::$MAIN_PUSH_TOKEN"
-            git -c credential.helper= push \
-              "https://eblume:${MAIN_PUSH_TOKEN}@forge.ops.eblu.me/eblume/blumeops.git" \
-              HEAD:main
-            echo "Changes committed and pushed"
-          fi
-
-      - name: Summary
-        run: |
-          VERSION="${{ needs.version.outputs.version }}"
-          TARBALL="docs-${VERSION}.tar.gz"
-          echo "================================================"
-          echo "BlumeOps Release: $VERSION"
-          echo "================================================"
-          echo ""
-          echo "Release URL:"
-          echo "  https://forge.ops.eblu.me/eblume/blumeops/releases/tag/$VERSION"
-          echo ""
-          echo "Asset URL:"
-          echo "  https://forge.ops.eblu.me/eblume/blumeops/releases/download/$VERSION/$TARBALL"
-          echo ""
-          echo "To deploy on indri, run from gilbert:"
-          echo "  mise run provision-indri -- --tags docs"
-          echo ""
-          echo "Then purge the Fly.io proxy cache:"
-          echo "  fly ssh console -a blumeops-proxy -C \\"
-          echo "    \"sh -c 'rm -rf /tmp/cache && nginx -s reload'\""
+          echo "::error::BlumeOps releases are paused until the release-PR model lands (eblume/blumeops#1628, migration step 9): the old release job pushed the changelog and the docs_version bump to main, and that push is retired with no replacement until step 9."
+          exit 1

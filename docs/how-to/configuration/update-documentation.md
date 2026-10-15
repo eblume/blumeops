@@ -18,8 +18,10 @@ After merging documentation changes to main:
 
 1. Go to **Actions** > **Build BlumeOps** > **Run workflow**
 2. Select version bump type (patch/minor/major) or enter a specific version
-3. The workflow builds the docs and creates the release; deploying the new
-   version is a manual step (see below)
+3. The workflow builds the docs; the `release` job hard-fails (releases are
+   paused until the release-PR model lands at migration step 9,
+   [eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Deploying
+   the last released version is a manual step (see below)
 
 Direct link: https://forge.ops.eblu.me/eblume/blumeops/actions?workflow=build-blumeops.yaml
 
@@ -29,14 +31,21 @@ The `build-blumeops` workflow (`.forgejo/workflows/build-blumeops.yaml`) splits 
 
 1. **`version`** (on the unprivileged `indri-build` runner) — Resolves the version: uses the input or auto-increments from the latest release
 2. **`docs-build`** (on the unprivileged `indri-build` runner) — Runs towncrier to update `CHANGELOG.md`, then builds the docs with `mise run docs-build-tarball` (Quartz build in a node:22-slim container via colima); hands the tarball to the release job as a same-run artifact
-3. **`release`** (on `indri`) — Re-runs towncrier for the commit, downloads the tarball, creates the Forgejo release (`docs-<version>.tar.gz`), bumps `docs_version`, commits
+3. **`release`** (on `indri-build`) — **Paused** ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)): hard-fails instead of creating the release, until migration step 9 replaces the flow with a release created from the version bump on main
 
-The workflow ends at the release. Deploying is a manual step (docs are served
-natively by Caddy on indri since [[retire-minikube]] — no ArgoCD app): bump
-`docs_version` in `ansible/roles/docs/defaults/main.yml`, then
+The workflow ends at the release. BlumeOps releases are **paused** until
+step 9 of the release-PR model ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)):
+the old release job pushed the changelog and the `docs_version` bump to main
+with a PAT, that push is retired, and until step 9 lands there is no
+replacement for it. From step 9 on, the `docs_version` bump rides the
+release PR and the release is created from the version bump on main.
+Deploying is a manual step (docs are served natively by Caddy on indri since
+[[retire-minikube]] — no ArgoCD app): once `docs_version` in
+`ansible/roles/docs/defaults/main.yml` is at the release tag,
 `mise run provision-indri -- --tags docs`, and purge the [[flyio-proxy]] nginx
 cache (`fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`)
-so the new docs are served immediately.
+so the new docs are served immediately. Until the pause lifts, this deploys
+the last released docs version — re-running it changes nothing new.
 
 ## Changelog Fragments (Towncrier)
 
@@ -67,14 +76,12 @@ Fragments are automatically collected into `CHANGELOG.md` (at repo root) during 
 
 ## Runner Environment
 
-The workflow's jobs split across the two launchd [[forgejo]]-runners on [[indri]]
-([[configure-launchd-runner]]) — the `version` and `docs-build` jobs on the
-unprivileged `indri-build` runner (colima container engine), the `release` job
-on the privileged `indri` host-mode runner because it holds the op token and
-the main-push PAT:
+All of the workflow's jobs run on the unprivileged launchd [[forgejo]]
+`indri-build` runner on [[indri]] (colima container engine)
+([[configure-launchd-runner]]):
 
 - **Runner**: launchd services on indri (the `indri` user LaunchAgent; the `indri-build` LaunchDaemon plus its colima VM), managed by the `forgejo_runner` ansible role (no Kubernetes, no job container)
-- **Toolchain**: the docs job uses indri-build's mise toolchain (Node.js, uv/Python, …); the release job runs with indri's
+- **Toolchain**: all jobs use indri-build's mise toolchain (Node.js, uv/Python, …)
 - **Build engine**: the docs build runs a node:22-slim container via the `docs-build-tarball` task in indri-build's colima — not Docker Desktop (no Dagger)
 
 ## Quartz Static Site Generator

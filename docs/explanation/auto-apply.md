@@ -93,9 +93,9 @@ post to `ops-approvals`.
 Verified 2026-10-13: the endpoint returns 200 exactly when the SHA is the
 merge commit of a merged PR; all 219 merged blumeops PRs in the last 250
 carry a `merge_commit_sha`; zero squash or rebase merges. The consequence is
-the property: a raw push to main — for example `MAIN_PUSH_TOKEN`'s release
-push — lands on main but triggers no auto-apply, because a raw-push commit
-is not a PR merge. The gate runs unauthenticated (the repo is public-safe)
+the property: a raw push to main — for example the now-retired
+`MAIN_PUSH_TOKEN` release push — lands on main but triggers no auto-apply,
+because a raw-push commit is not a PR merge. The gate runs unauthenticated (the repo is public-safe)
 and before any secret-bearing step.
 
 The honest caveat: a future switch to squash or rebase merges would silently
@@ -107,28 +107,30 @@ makes that failure loud rather than silent.
 
 The whitelist for push/merge to main is `eblume` alone: forge-reconcile's
 `check_main_whitelist` asserts exactly that — no non-eblume identity sits in
-the whitelist. But the eblume-scoped PATs held in the `blumeops-ci` vault
-*are* eblume: `FORGE_REPO_WRITE_TOKEN` (an eblume PAT, `write:repository`,
-which can merge a PR through the API) and `MAIN_PUSH_TOKEN` (raw
-`git push HEAD:main`). So a CI job holding an eblume PAT can merge a PR, and
-therefore can trigger an auto-apply. Branch protection alone cannot enforce
+the whitelist. But the eblume-scoped PAT held in the `blumeops-ci` vault
+*is* eblume: `FORGE_REPO_WRITE_TOKEN` (an eblume PAT, `write:repository`,
+which can merge a PR through the API). So a CI job holding it can merge a
+PR, and therefore can trigger an auto-apply. The former second main-write
+credential, `MAIN_PUSH_TOKEN` (raw `git push HEAD:main` in the release
+workflow), was retired with the release-PR model ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Branch protection alone cannot enforce
 the invariant here, because the whitelist really is just eblume.
 
 The accepted trust statement is therefore stated plainly: **nothing may merge
 to canonical main other than eblume, or identities whose credential tier is
 below blumeops-ci; any credential that can merge a PR can thereby auto-apply
 host config, and the accepted property is that `blumeops-ci`-vault holders
-are the same trust tier as main itself** — `MAIN_PUSH_TOKEN` already writes
-main today. The follow-up on narrowing them (#1560) settled on acceptance
-without re-mint; the decision is recorded in **Known main-write
-credentials** below. forge-reconcile's assertion keeps its real job — no non-eblume
+are the same trust tier as main itself**. The follow-up on narrowing it
+(#1560) settled on acceptance without re-mint; the decision is recorded in
+**Known main-write credentials** below. forge-reconcile's assertion keeps its real job — no non-eblume
 identity in the push/merge whitelist — and this section names its blind
 spot.
 
 ### Known main-write credentials
 
 Decided 2026-10-13 (#1560): both credentials stay as they are — accepted
-main-write credentials at the `blumeops-ci` tier, no re-mint.
+main-write credentials at the `blumeops-ci` tier, no re-mint. The main-push
+token was since retired by the release-PR model ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628); its CI use is
+gone and the PAT is pending revocation).
 
 - **`FORGE_REPO_WRITE_TOKEN`** — eblume PAT held as a repo Actions secret,
   used by forge-reconcile. Audited: none of its writes — collaborator,
@@ -137,11 +139,13 @@ main-write credentials at the `blumeops-ci` tier, no re-mint.
   sits under the `repository` token category, so merge is inseparable from
   `write:repository`. The scope is already the minimum that
   allows its real writes; a merge-less re-mint is not achievable.
-- **`MAIN_PUSH_TOKEN`** — eblume PAT read from the `blumeops-ci` vault at
-  job time, doing the raw `git push HEAD:main` in the blumeops release
-  workflow. Its raw-push route is gate-inert: a raw push is not a PR merge,
-  so the merge-commit gate refuses it — no apply. The release push is a
-  deliberate, dispatch-triggered, eblume-authenticated op.
+- **`MAIN_PUSH_TOKEN`** — retired ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). It was the eblume PAT read
+  from the `blumeops-ci` vault at job time for the raw `git push HEAD:main`
+  in the blumeops release workflow (and, as the item's sibling
+  `hephaestus-token` field, hephaestus's `MAIN_PUSH_TOKEN` Actions secret).
+  Both consumers are gone — the release PR is the release, and main is never
+  pushed from CI — so the PATs have no remaining CI use and are pending
+  revocation.
 
 The one lever that would structurally close the merge route — moving
 `FORGE_REPO_WRITE_TOKEN` to a dedicated non-eblume bot account absent from

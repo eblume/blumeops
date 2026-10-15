@@ -27,7 +27,7 @@ Migrated from minikube to indri-native on 2026-04-29 (see [[docs-on-indri]]).
 ## Architecture
 
 1. **Source**: Markdown files in `docs/` with Obsidian-compatible wiki-links
-2. **Build**: `Build BlumeOps` Forgejo workflow runs towncrier + Quartz, uploads tarball as a release asset, and bumps `docs_version` in the ansible role
+2. **Build**: `Build BlumeOps` Forgejo workflow runs towncrier + Quartz and uploads the tarball as a release asset (**paused** until the release-PR model lands, [eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628); after it, the `docs_version` bump rides the release PR)
 3. **Deploy**: ansible role downloads the tarball into `~/blumeops/docs/content/` on indri; Caddy serves the directory directly with Quartz-style `try_files` (path → path/ → path.html → 404.html)
 
 ## Configuration
@@ -38,7 +38,7 @@ Migrated from minikube to indri-native on 2026-04-29 (see [[docs-on-indri]]).
 
 ## Release flow
 
-1. Run the `Build BlumeOps` workflow → builds tarball, creates release, bumps `docs_version` in the ansible role and pushes
+1. **Paused** until the release-PR model lands ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)): the workflow's release job hard-fails. After it, the release is created from the version bump on main and the `docs_version` bump rides the release PR
 2. Run `mise run provision-indri -- --tags docs` from gilbert
 3. Purge the Fly.io proxy cache so the new content is fetched
 
