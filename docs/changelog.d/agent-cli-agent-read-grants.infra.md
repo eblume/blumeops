@@ -1,0 +1,1 @@
+Declared the `cli-agent` principal in repos.json (P3 of eblume/blumeops#1583): listed in the top-level `principals` set with `read` on every repo of the talos pool — the Forge Reconcile apply on main grants them now that the forge user exists (HC1 done 2026-10-15). Read-only on this axis; `write` is refused at load time.

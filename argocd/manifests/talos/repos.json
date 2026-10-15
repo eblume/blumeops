@@ -59,17 +59,20 @@
   ],
   "owner": "eblume",
   "collaborator": "talos",
+  "principals": ["cli-agent"],
   "repos": [
     {
       "name": "agents",
       "access": "read",
       "pool": "fork",
+      "principals": { "cli-agent": "read" },
       "horkos_forge": true
     },
     {
       "name": "blumeops",
       "access": "read",
       "pool": "fork",
+      "principals": { "cli-agent": "read" },
       "release_hook": true,
       "horkos_forge": true
     },
@@ -77,6 +80,7 @@
       "name": "horkos",
       "access": "read",
       "pool": "fork",
+      "principals": { "cli-agent": "read" },
       "release_hook": true,
       "horkos_forge": true
     },
@@ -84,6 +88,7 @@
       "name": "talos",
       "access": "read",
       "pool": "fork",
+      "principals": { "cli-agent": "read" },
       "release_hook": true,
       "horkos_forge": true
     },
@@ -91,6 +96,7 @@
       "name": "cv",
       "access": "read",
       "pool": "fork",
+      "principals": { "cli-agent": "read" },
       "release_hook": true,
       "horkos_forge": true
     },
@@ -98,53 +104,62 @@
       "name": "hephaestus",
       "access": "read",
       "pool": "fork",
+      "principals": { "cli-agent": "read" },
       "horkos_forge": true
     },
     {
       "name": "release-kit",
       "access": "read",
-      "pool": "fork"
+      "pool": "fork",
+      "principals": { "cli-agent": "read" }
     },
     {
       "name": "hephaestus.nvim",
       "access": "write",
       "pool": "canonical",
+      "principals": { "cli-agent": "read" },
       "horkos_forge": true
     },
     {
       "name": "research",
       "access": "write",
       "pool": "canonical",
+      "principals": { "cli-agent": "read" },
       "horkos_forge": true
     },
     {
       "name": "myeve",
       "access": "write",
       "pool": "canonical",
+      "principals": { "cli-agent": "read" },
       "horkos_forge": true
     },
     {
       "name": "timberborn-parsimony",
       "access": "write",
       "pool": "canonical",
+      "principals": { "cli-agent": "read" },
       "horkos_forge": true
     },
     {
       "name": "gamedev",
       "access": "write",
       "pool": "canonical",
+      "principals": { "cli-agent": "read" },
       "horkos_forge": true
     },
     {
       "name": "project-template",
       "access": "write",
       "pool": "canonical",
+      "principals": { "cli-agent": "read" },
       "horkos_forge": true
     },
     {
       "name": "RexWorks",
       "access": "write",
       "pool": "canonical",
+      "principals": { "cli-agent": "read" },
       "horkos_forge": true
     }
   ]
