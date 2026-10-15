@@ -1,6 +1,6 @@
 ---
 title: "Auto: Merge-Approved Host-Config Apply"
-modified: 2026-10-13
+modified: 2026-10-15
 last-reviewed: 2026-10-13
 tags:
   - explanation
@@ -26,8 +26,9 @@ Each class answers one question — and the answer is about *who looks*, never
 about which credentials a run reads:
 
 - **`deny`** — CI cannot run this at all, because it needs the `blumeops`
-  vault, which is human-only; nobody files it. Today that is
-  `provision-ringtail.yaml`.
+  vault, which is human-only; nobody files it. Its only member,
+  `provision-ringtail.yaml`, was retired in #1527; the class remains defined
+  for workflows that would read the human-only `blumeops` vault.
 - **`warrant`** — CI can run it, and a human must look at each individual
   run. The look is a bound MFA approval in [[horkos]].
 - **`auto`** — CI can run it, and the PR review that produced the merge
@@ -273,8 +274,10 @@ whole of what executes:
 - **stays `warrant`:** the four manual ArgoCD applications
   ([[argocd#Sync Policy]]), `deploy-fly`, and `run-script` — the last
   because its script body arrives at request time;
-- **stays `deny`:** `provision-ringtail` — its ansible pre_tasks read the
-  `blumeops` vault.
+- **stays `deny`:** *(no current members)* — its only member,
+  `provision-ringtail.yaml`, was retired with the play in #1527; the class stays
+  defined for any future workflow whose merged diff cannot be the whole of
+  what executes, e.g. one that must read the human-only `blumeops` vault.
 
 ## The digest: post-hoc audit
 

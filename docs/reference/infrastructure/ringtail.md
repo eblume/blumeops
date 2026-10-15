@@ -1,6 +1,6 @@
 ---
 title: Ringtail
-modified: 2026-10-08
+modified: 2026-10-15
 last-reviewed: 2026-10-04
 tags:
   - infrastructure
@@ -55,15 +55,32 @@ Managed declaratively via `nixos/ringtail/configuration.nix`. Home-manager handl
 
 ## Deployment
 
-```fish
-mise run provision-ringtail
-```
+Changes ship as a blumeops PR: merging to main with a diff touching
+`nixos/ringtail/**` makes `ringtail-rebuild.yaml` auto-apply the merge commit
+via the detached `ringtail-apply@<sha>` unit ([[auto-apply]]) — there is no
+manual deploy step. To add a new nix input, run `nix flake lock` yourself
+first (see [[manage-lockfile]]); the lockfile travels in the same PR.
 
-This runs `nix flake lock` (native, or the `nixos/nix` container on gilbert) to resolve any newly added inputs, verifies the current commit is pushed to forge, then deploys the exact commit via ansible. If the lockfile changed, it stages the file and exits so you can commit and re-run. To update all inputs to latest versions, see [[manage-lockfile]].
+The human break-glass path — a box too broken to reach the merge machinery —
+is the local apply documented in [[disaster-recovery]]: the one-time blumeops
+clone into `/etc/blumeops`, then a direct `nixos-rebuild switch` on a fresh host (no blumeops generation yet, so no unit) or the `ringtail-apply@<sha>` unit on a host that already runs one. On-host
+secret files (the forgejo-runner registration tokens, `/etc/k3s/token`,
+`/etc/agents/op-token`) are not part of any deploy: they are declared in
+`nixos/ringtail/secrets.json` and owned by the human-run
+`mise run seed-secrets ringtail` ([[seed-secrets]]).
 
-Activation runs **detached from the SSH session**, as a transient systemd unit named `blumeops-nixos-rebuild`. A switch restarts `sshd`, `tailscaled` and the network stack, so as a child of the session it could be killed partway through by the teardown it caused. The play starts the unit, reconnects, polls it to completion, and reports systemd's `Result` alongside the unit's journal on failure.
+Activation runs **detached from the launching session**, as a transient
+systemd unit named `blumeops-nixos-rebuild`. A switch restarts `sshd`,
+`tailscaled` and the network stack, so the rebuild must live outside the
+apply's session lifetime: the `ringtail-apply@` wrapper starts the unit with
+`systemd-run --no-block` and streams its journal into
+`/var/log/ringtail-apply/<sha>.log`.
 
-The practical consequence: **losing your connection no longer aborts the switch.** If `provision-ringtail` dies on your end mid-activation, the rebuild is still running on the box — watch it with `ssh ringtail 'journalctl -fu blumeops-nixos-rebuild'` rather than re-running, and let it finish before provisioning again.
+The practical consequence: **losing the apply's connection no longer aborts
+the switch.** If the applying process dies mid-activation, the rebuild is
+still running on the box — watch `/var/log/ringtail-apply/<sha>.log` (or
+`ssh ringtail 'journalctl -fu blumeops-nixos-rebuild'`) rather than
+re-applying, and let it finish before applying again.
 
 ## K3s Cluster
 
@@ -78,7 +95,7 @@ Ringtail runs a single-node k3s cluster for native amd64 workloads. [[argocd|Arg
 
 ### Secrets Management
 
-1Password Connect + External Secrets Operator syncs secrets from 1Password to k8s, matching the [[1password|indri pattern]]. Bootstrap credentials (`op-credentials`, `onepassword-token`) are provisioned by Ansible; ArgoCD manages the operator stack.
+1Password Connect + External Secrets Operator syncs secrets from 1Password to k8s, matching the [[1password|indri pattern]]. The bootstrap credentials (`op-credentials`, `onepassword-token`) are seated once by step 7 of the ArgoCD bootstrap runbook (`argocd/manifests/argocd/README.md`, see [[argocd]]); ArgoCD manages the operator stack.
 
 Sync order: `1password-connect-ringtail` -> `external-secrets-crds-ringtail` -> `external-secrets-ringtail`. The `ClusterSecretStore` is a resource of the `external-secrets-ringtail` app (`argocd/manifests/external-secrets/cluster-secret-store.yaml`).
 
@@ -118,7 +135,7 @@ Three native Forgejo Actions runners (`ringtail-nix-builder-{blumeops,horkos,tal
 |----------|-------|
 | **Label** | `nix-container-builder` |
 | **Execution** | Host (no containers) |
-| **Token** | `/etc/forgejo-runner/{priv,nix-builder-blumeops,nix-builder-horkos,nix-builder-talos}.env` (provisioned by Ansible) |
+| **Token** | `/etc/forgejo-runner/{priv,nix-builder-blumeops,nix-builder-horkos,nix-builder-talos}.env` (seeded by `mise run seed-secrets ringtail`) |
 | **Service unit** | `gitea-runner-nix_container_builder_{blumeops,horkos,talos}.service` |
 
 The registration is repo-scoped (blumeops#1358), one daemon per registered repo sharing the `nix-container-builder` label (capacity 1 each), and the module re-registers an instance automatically when its token file changes.

@@ -57,7 +57,6 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `pending-deploys` | Report first-party image releases not yet pinned/deployed on main, plus open pin-bump PRs |
 | `pr-comments` | Read all comments, reviews and review threads on a PR |
 | `provision-indri` | [human] Run ansible playbook to provision indri |
-| `provision-ringtail` | [human] Run ansible playbook to provision ringtail (NixOS) |
 | `provision-sifaka` | [human] Run ansible playbook to provision sifaka |
 | `pulumi-restore-check` | [human] Verify the pulumi stack backup is restorable (extract from the newest borg archive, import into scratch file:// backends, shred) |
 | `prune-ringtail-generations` | [human] Prune old NixOS generations on ringtail, preserving rollback safety |
@@ -68,6 +67,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `rip-video-finish` | [human] File a rip-video staging dir into the Jellyfin library per its metadata.json (indri) |
 | `review-compliance-reports` | Summarize the latest Prowler security-scan reports from sifaka |
 | `runner-logs` | List recent Forgejo Actions runs or fetch logs for a specific job |
+| `seed-secrets` | [human] Seed on-host secret files from the vault (ringtail, indri) |
 | `service-review` | Review the most stale service for version freshness |
 | `services-check` | [human] Check that all services are online and responding |
 | `spork-create` | [human] Create a spork (floating-branch soft-fork) of a mirrored upstream project |

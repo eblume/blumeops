@@ -5,7 +5,8 @@
 # runs with NoNewPrivileges, so sudo is not an option there.
 # The instance name is the blumeops commit a human approved in Horkos. Checks
 # out the bound SHA in /etc/blumeops and drives the detached
-# blumeops-nixos-rebuild unit, the same pattern as ansible/playbooks/ringtail.yml.
+# blumeops-nixos-rebuild unit — detached from the apply session, so a switch
+# that restarts sshd/tailscaled/network can't abort the rebuild partway.
 # stdout/stderr are appended to /var/log/ringtail-apply/<sha>.log by the unit;
 # the rebuild unit's journal is streamed into the same log while the job runs,
 # so the log carries the rebuild's full output on every outcome, including one
@@ -99,7 +100,7 @@ since=$(date +%s)
 systemctl reset-failed "$unit" 2>/dev/null || true
 # --no-block: without it systemd-run waits on the D-Bus job, and a mid-activation
 # restart of dbus-broker kills the wait and aborts the wrapper while the rebuild
-# runs on (the same incident ansible/playbooks/ringtail.yml documents).
+# runs on (the dbus-broker-during-activation incident of the 26.05 upgrade).
 systemd-run --no-block --unit="$unit" --service-type=oneshot --property=TimeoutStartSec=3300 \
   --setenv=PATH=/run/current-system/sw/bin:/usr/bin:/bin \
   --setenv=HOME=/root \

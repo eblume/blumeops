@@ -1,7 +1,7 @@
 ---
 title: Ansible
-modified: 2026-03-30
-last-reviewed: 2026-03-30
+modified: 2026-10-15
+last-reviewed: 2026-10-15
 tags:
   - ansible
   - reference
@@ -9,7 +9,7 @@ tags:
 
 # Ansible
 
-Host-level configuration management — the layer between cloud infrastructure ([[pulumi]]) and containerized workloads ([[argocd]]). The primary playbook is `ansible/playbooks/indri.yml` (targets [[indri]]); separate playbooks exist for [[ringtail]] and [[sifaka]].
+Host-level configuration management — the layer between cloud infrastructure ([[pulumi]]) and containerized workloads ([[argocd]]). The primary playbook is `ansible/playbooks/indri.yml` (targets [[indri]]); a separate playbook exists for [[sifaka]].
 
 ## CLI Patterns
 
@@ -27,9 +27,6 @@ mise run provision-indri -- --check --diff
 Other hosts have their own playbooks:
 
 ```bash
-# Ringtail (NixOS, k3s)
-mise run provision-ringtail
-
 # Sifaka (Synology NAS exporters)
 mise run provision-sifaka
 ```
@@ -68,6 +65,6 @@ Roles that need secrets use 1Password via the playbook's `pre_tasks`. Secrets ar
 ## Related
 
 - [[indri]] — Primary managed host
-- [[ringtail]] — NixOS host managed by its own playbook
+- [[ringtail]] — NixOS host managed via its flake (ringtail-rebuild auto-applies merges)
 - [[sifaka]] — Synology NAS managed by its own playbook
 - [[observability]] — Metrics collection

@@ -1,6 +1,6 @@
 ---
 title: Bootstrap Agent Workspaces
-modified: 2026-08-07
+modified: 2026-10-15
 last-reviewed: 2026-07-08
 tags:
   - how-to
@@ -11,7 +11,10 @@ tags:
 # Bootstrap Agent Workspaces
 
 One-time steps to bring up [[agent-workspaces]] on [[ringtail]]. Ordinary
-redeploys are just `mise run provision-ringtail`; these steps cover the state
+redeploys are just a blumeops merge — `ringtail-rebuild` auto-applies it —
+or, when the box can't reach the merge machinery, the break-glass local
+apply (docs/reference/operations/disaster-recovery.md); these steps cover
+the state
 that lives *outside* git (the Forgejo bot user, the agent's OAuth login, and
 Claude's first-run consent) — see the status note below — and must be done by
 a human.
@@ -111,13 +114,20 @@ The `agents` vault must contain (created during the prototype, 2026-07-08):
 
 ## 3. Deploy the config
 
-```fish
-mise run provision-ringtail
-```
+The config ships as a blumeops PR: merging to main with a diff touching
+`nixos/ringtail/**` makes `ringtail-rebuild` auto-apply it. A fresh host that
+cannot reach the merge machinery yet uses the human break-glass local apply
+instead — see docs/reference/operations/disaster-recovery.md (one-time clone
+of blumeops into `/etc/blumeops`, then a direct `nixos-rebuild switch` on a
+fresh host — the `ringtail-apply@` unit doesn't exist before a first
+generation — or the `ringtail-apply@<sha>` unit on a host that already runs
+one).
 
-This writes `/etc/agents/op-token` and creates the `agent` user. (The
-`agent-repos-init` + `agent-ws-*` host services it used to install, and the
-bot's SSH key, are retired — see the status note above.)
+This creates the `agent` user. On-host secret files are not part of any
+deploy: `/etc/agents/op-token` is owned by `mise run seed-secrets ringtail`.
+The bot's SSH key (former `/etc/agents/ssh/id_ed25519`) was retired in Oct
+2026 (eblume/blumeops#1635). (The `agent-repos-init` + `agent-ws-*` host
+services it used to install are retired — see the status note above.)
 
 ## 4. Install Claude Code for the agent user
 
@@ -190,9 +200,10 @@ online. Tapping it and starting a session spawns an isolated worktree of the
 ## 7. Seed the heph spoke (one-time)
 
 The agent runs a `hephd` spoke (see [[agent-workspaces#The heph spoke (deliberately in-boundary)]]).
-The mechanical parts — the nix-store hephd (the `hephaestus` flake input),
-the services, owner adoption (`--owner-id`) — are source-controlled and come
-up on `provision-ringtail`. These
+The mechanical parts — the nix-store hephd (the `hephaestus` flake
+input), the services, owner adoption (`--owner-id`) — are source-controlled
+and ride along with the config apply (a merge auto-applies via
+`ringtail-rebuild`). These
 are the irreducible secret/identity steps a human does once. **They are fiddlier
 than they look; read the gotchas.**
 
@@ -301,7 +312,9 @@ op item get agent-test-secret --vault agents    # reads
 
 ## Teardown / rollback
 
-Revert the PR and `mise run provision-ringtail`; then
+Revert the PR (the revert merge auto-applies via `ringtail-rebuild`, or
+apply the revert commit with the local break-glass apply — see
+docs/reference/operations/disaster-recovery.md); then
 `ssh ringtail 'sudo userdel -r agent'` if you want the home gone. Remove the
 `talos` Forgejo user and revoke the service account in 1Password if retiring
 the capability entirely.

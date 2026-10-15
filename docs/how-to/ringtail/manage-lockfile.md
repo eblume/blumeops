@@ -1,6 +1,6 @@
 ---
 title: Manage Ringtail Lockfile
-modified: 2026-10-04
+modified: 2026-10-15
 last-reviewed: 2026-10-04
 tags:
   - how-to
@@ -67,15 +67,10 @@ protection allows only my account to merge, and the Actions token is not
 granted merge rights (a bot entry would be path-unlimited, and a broader
 credential would sit in Actions secrets readable by every workflow).
 
-After the merge lands on `main`:
-
-1. **horkos** detects the push that touched `nixos/ringtail/flake.lock` and
-   files a `ringtail-rebuild.yaml` **warrant request** bound to the merged SHA
-   — request only; nothing dispatches automatically
-   ([eblume/horkos#48](https://forge.eblu.me/eblume/horkos/issues/48)).
-2. I approve the request in Warrant; `warrant-bot` dispatches
-   `ringtail-rebuild` at the merged SHA.
-3. I continue with [Post-deploy maintenance](#post-deploy-maintenance).
+After the merge lands on `main`, the push triggers `ringtail-rebuild.yaml`
+(class: auto — docs/explanation/auto-apply.md), which applies the merged SHA
+via the `ringtail-apply@<sha>` unit. I then continue with
+[Post-deploy maintenance](#post-deploy-maintenance).
 
 ## Exceptions
 
@@ -114,20 +109,20 @@ merge. Two constraints shape the design:
 
 ## Lock New Inputs Only
 
-`mise run provision-ringtail` automatically runs `nix flake lock` (native nix,
-or the `nixos/nix` container on a controller without nix, such as gilbert)
-before deploying, which resolves any newly added inputs without upgrading
-existing ones. If the lockfile changes, the task stages the file and exits —
-commit, push, and re-run.
+To add a new input, edit the flake's `inputs` in `flake.nix` (or a module
+that imports them), then run `nix flake lock` yourself (native nix, or the
+`nixos/nix` container on a controller without nix, such as gilbert) — this
+resolves the newly added inputs without upgrading existing ones. Commit the
+flake edit and the lockfile together in one PR; merging to main makes
+`ringtail-rebuild` auto-apply it. An input that is referenced but not yet
+locked fails evaluation, so the lock step cannot be skipped.
 
-This is the right behavior for provisioning: configuration changes that add a
-new input get locked, but existing inputs stay pinned until explicitly
-updated.
+This is the right behavior for a config change: new inputs get locked, but
+existing inputs stay pinned until explicitly updated.
 
 ## Post-deploy Maintenance
 
-After `ringtail-rebuild` applies the merged SHA (or `provision-ringtail`
-completes for a config change), perform these steps.
+After `ringtail-rebuild` applies the merged SHA, perform these steps.
 
 ### Check for Kernel Update
 
@@ -168,4 +163,4 @@ rollback target that won't require a reboot. After pruning, it runs
 
 - [[ringtail]] — Host reference
 - [[review-services]] — the deliberately pinned `nixpkgs-services` rev
-- [eblume/horkos#48](https://forge.eblu.me/eblume/horkos/issues/48) — horkos files the rebuild request on the merge webhook
+- [eblume/horkos#48](https://forge.eblu.me/eblume/horkos/issues/48) — superseded: horkos no longer files a rebuild request; `ringtail-rebuild` is `class: auto` and fires on the merge push

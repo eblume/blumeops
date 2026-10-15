@@ -12,8 +12,8 @@
 # rebuild path reads
 # no vault: every `op read` in the play is role-tagged, so `--tags rebuild`
 # runs none. The full ansible provision (roles, secrets) stays a human
-# window — the ringtail-rebuild-vs-provision-ringtail decomposition, applied
-# to indri.
+# window — the rebuild-unit decomposition from the retired provision-ringtail
+# play, applied to indri.
 #
 # Injection posture: the dispatch input reaches this job only as an
 # environment variable — never into a checkout ref or shell text. The

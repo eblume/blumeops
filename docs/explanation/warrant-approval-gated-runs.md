@@ -1,6 +1,6 @@
 ---
 title: "Warrant: Approval-Gated Privileged Runs"
-modified: 2026-10-14
+modified: 2026-10-15
 last-reviewed: 2026-10-14
 tags:
   - explanation
@@ -263,8 +263,9 @@ The smallest thing that closes the loop end-to-end:
      agent-health / `auth.jwt` read path, heph `01KXREAB…`); the CI wrapper
      is the stopgap that makes it requestable today.
    - **`provision-indri.yaml` / `provision-ringtail.yaml`** — the high-value
-     targets, promoted from "later, maybe" to **first Phase-2 deliverables**.
-     provision-indri has landed (eblume/blumeops#1220): the vault/priv-runner
+     targets, promoted from "later, maybe" to **first Phase-2 deliverables**
+     (provision-ringtail never became a workflow — #1527 retired the play
+     instead; see the supersession note in Phase 2). provision-indri has landed (eblume/blumeops#1220): the vault/priv-runner
      gate that sat on it never applied to the generation flip — the
      zero-prompt `--tags rebuild` path reads no vault, and the host-mode
      indri runner (host-mode `op` works; the play runs over a local
@@ -274,24 +275,28 @@ The smallest thing that closes the loop end-to-end:
      local kernel, never reaching tailscaled's SSH server) is the
      documented, accepted runner story for the box — so the warrant applies
      a bound SHA's nix-darwin generation and the full ansible provision
-     (roles, `op read`) stays a human window. provision-ringtail stays open:
-     it needs a runner that can drive `nixos-rebuild` on
-     ringtail — likely the ringtail-side priv runner itself, and it must
-     survive the network-restart hang (heph `01KTKW8VD3…`). The ringtail
-     side decomposes: `ringtail-rebuild.yaml` lands first, a narrow
+     (roles, `op read`) stays a human window. provision-ringtail stayed open:
+     it needed a runner that could drive `nixos-rebuild` on
+     ringtail — likely the ringtail-side priv runner itself, and it had to
+     survive the network-restart hang (heph `01KTKW8VD3…`) — until #1527
+     retired the play outright. The ringtail
+     side decomposed instead: `ringtail-rebuild.yaml` landed first, a narrow
      rebuild-only warrant on the priv runner with exactly one root path: a
      polkit rule letting `horkos-runner` *start* the root template unit
      `ringtail-apply@<sha>.service` (which runs `/etc/ringtail-apply/apply`).
      Not sudo — the runner runs with `NoNewPrivileges=yes`, so no setuid path
-     works from a job. The full ansible play stays `deny`. The runner is a
+     works from a job. The full ansible play stayed `deny` until #1527
+     retired it. The runner is a
      static system user, not a systemd `DynamicUser`: polkitd sees a
      DynamicUser only as its bare uid, so a rule keyed on the name never
      matches (blumeops#1254), and the nix builder shares the module's
      `gitea-runner` name.
-   - `ringtail-rebuild.yaml` — the ringtail-facing half of provision-ringtail
-     decomposed out to land first: apply a bound blumeops SHA to ringtail
-     by starting the root `ringtail-apply@<sha>` unit from the priv runner
-     (polkit-gated). provision-ringtail itself stays `deny`. A nixpkgs-update
+   - `ringtail-rebuild.yaml` — the ringtail-facing half of provision-ringtail,
+     decomposed out to land first and since grown into the full config-apply
+     path for ringtail (its parent play is retired, #1527; on-host secrets
+     are seeded separately by `seed-secrets`): apply a bound blumeops
+     SHA to ringtail by starting the root `ringtail-apply@<sha>` unit from
+     the priv runner (polkit-gated). A nixpkgs-update
      apply still goes red: the switch restarts the priv runner unit, which
      kills the job — but the `ringtail-apply@` wrapper survives the switch
      (`restartIfChanged = false`), so a red run on a nixpkgs update is
@@ -362,13 +367,14 @@ to mirror into heph wholesale.
   human-only, and the nix apply path reads no vault — secrets are
   host-resident files the nix config references by path, seated by the
   human-run `seed-secrets` task (ringtail's on-host seeding `pre_tasks`
-  are retired; the play's only remaining vault reads are the two 1Password
-  Connect fetches, consumed in-cluster — the open follow-on in that
-  issue). The decomposed rebuild paths are the proof a role needs no item
+  are retired; the play's only remaining vault reads were the two 1Password
+  Connect fetches, consumed in-cluster — the open follow-on that the #1527
+  series completed when it retired the play outright, the Connect bootstrap
+  moving to the ArgoCD runbook). The decomposed rebuild paths are the proof
+  a role needs no item
   copy: vault-free, they are auto-applied on merge (`class: auto`,
-  [[auto-apply]]); the full plays stay non-requestable on their vault
-  reads — `provision-ringtail` still `deny`, indri's full provision still
-  a human window — not on a missing tier.
+  [[auto-apply]]); indri's full play stays non-requestable on its vault
+  reads — a human window — not on a missing tier.
 - **Dedicated privileged runner.** Move privileged workflows off
   `erichblume@indri` host-mode onto a purpose-built runner (NixOS container or
   VM, own uid, own `tag:ci` tailnet identity, egress-allowlisted like the

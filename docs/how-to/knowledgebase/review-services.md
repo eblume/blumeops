@@ -1,6 +1,6 @@
 ---
 title: Review Services
-modified: 2026-09-17
+modified: 2026-10-15
 last-reviewed: 2026-04-12
 tags:
   - how-to
@@ -64,7 +64,9 @@ Versioned NixOS services (forgejo-runner, snowflake, k3s) are pinned via a `nixp
 1. Check the upstream project for new releases
 2. Check what version nixpkgs has: `ssh ringtail 'nix eval nixpkgs#<pkg>.version'`
 3. To upgrade, update the `nixpkgs-services` rev in `flake.nix` to a nixpkgs commit that includes the desired version, then run `nix flake update nixpkgs-services` from `nixos/ringtail/`
-4. Deploy via `mise run provision-ringtail`
+4. Deploy: merge the blumeops PR — `ringtail-rebuild` auto-applies it to
+   ringtail (break-glass alternative: the local apply in
+   docs/reference/operations/disaster-recovery.md)
 5. Update `service-versions.yaml` with the new version
 
 ### Mise Tools (`type: mise`)
