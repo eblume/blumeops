@@ -14,6 +14,11 @@ The same task also reconciles the `horkos-forge` bot's grants (repos.json's
 per-repo `horkos_forge` flag, exempt from PINNED_READ_ONLY), and the forge →
 horkos hook now carries Forgejo's terminal action-run events.
 
+And a declared set of additional READ-ONLY fork-model principals (repos.json's
+per-repo `principals` map): `write` for them is refused at load time, names
+already managed on another axis (the primary collaborator or horkos-forge) are
+refused, and each stays a non-site-admin (checked in --check).
+
 And branch protections against forge/branch-protections.json: whole-rule
 declarations, set-compared lists, read-back after every write, a bot
 whitelist fence at load time, and no protection writes under the CI token.
@@ -172,6 +177,13 @@ class FakeForge:
             "active": True,
             "deactivated": False,
         }
+        # Extra users served for /api/v1/users/<name> lookups (the site-admin
+        # boundary check for declared read-only principals); a missing entry is
+        # a stable-id non-admin user.
+        self.users: dict[str, dict] = {}
+        # Extra principals' served grants: principal -> {repo: permission},
+        # the shape the `principals` axis reconciles.
+        self.extra_permission: dict[str, dict[str, str]] = {}
 
     # Forgejo stores per-event flags and reads them back as names: the
     # `pull_request` umbrella sets the whole pull_request_* family (API
@@ -228,7 +240,10 @@ class FakeForge:
         if path.startswith("/api/v1/users/"):
             # Owner lookup for the runner-scope id fallback (owner:<id>): any
             # other login is served with a stable id.
-            return httpx.Response(200, json={"id": 1, "login": path.rsplit("/", 1)[-1]})
+            login = path.rsplit("/", 1)[-1]
+            return httpx.Response(
+                200, json=self.users.get(login, {"id": 1, "login": login})
+            )
         if path == "/api/v1/repos/search":
             return httpx.Response(
                 200,
@@ -264,13 +279,17 @@ class FakeForge:
                     granted = json.loads(request.content)["permission"]
                     if tail[1] == "horkos-forge":
                         self.horkos_permission[repo] = granted
-                    else:
+                    elif tail[1] == "talos":
                         self.permission[repo] = granted
+                    else:
+                        self.extra_permission.setdefault(tail[1], {})[repo] = granted
                 else:
                     if tail[1] == "horkos-forge":
                         self.horkos_permission.pop(repo, None)
-                    else:
+                    elif tail[1] == "talos":
                         self.permission.pop(repo, None)
+                    else:
+                        self.extra_permission.get(tail[1], {}).pop(repo, None)
                 return httpx.Response(204)
             if tail == ["collaborators"]:
                 users = []
@@ -278,14 +297,32 @@ class FakeForge:
                     users.append({"login": "talos"})
                 if repo in self.horkos_permission:
                     users.append({"login": "horkos-forge"})
+                for principal in sorted(self.extra_permission):
+                    if repo in self.extra_permission[principal]:
+                        users.append({"login": principal})
                 return httpx.Response(200, json=self._page(request, users))
-            if tail == ["collaborators", "talos", "permission"]:
+            if (
+                len(tail) == 3
+                and tail[0] == "collaborators"
+                and tail[2] == "permission"
+            ):
+                whom = tail[1]
+                if whom == "talos":
+                    return httpx.Response(
+                        200, json={"permission": self.permission.get(repo, "none")}
+                    )
+                if whom == "horkos-forge":
+                    return httpx.Response(
+                        200,
+                        json={"permission": self.horkos_permission.get(repo, "none")},
+                    )
                 return httpx.Response(
-                    200, json={"permission": self.permission.get(repo, "none")}
-                )
-            if tail == ["collaborators", "horkos-forge", "permission"]:
-                return httpx.Response(
-                    200, json={"permission": self.horkos_permission.get(repo, "none")}
+                    200,
+                    json={
+                        "permission": self.extra_permission.get(whom, {}).get(
+                            repo, "none"
+                        )
+                    },
                 )
             if tail == ["hooks"]:
                 if self.hooks_status != 200:
@@ -708,6 +745,124 @@ def test_horkos_forge_stale_grant_on_unlisted_repo_revoked(
     code, out = run_main(token="t")  # apply mode
     assert code == 0
     assert any(m == "DELETE" and "horkos-forge" in u for m, u in forge.requests)
+
+
+# --- extra read-only principals (repos.json `principals`) ---------------------
+
+
+def test_extra_principal_write_refused_at_load(policy, run_main, monkeypatch):
+    # The `principals` axis is read-only by design: a write (or any non-read/
+    # none) value must fail at load, before any API call — write on a
+    # user-owned repo is Actions-write, the exact thing the fence exists to
+    # prevent.
+    policy([_write_repo("svc", principals={"cli-agent": "write"})])
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "additional principals are read-only" in out
+    assert "Refusing" in out
+
+
+@pytest.mark.parametrize("name", ["talos", "Talos", "horkos-forge", "Horkos-forge"])
+def test_extra_principal_reserved_name_refused_at_load(
+    policy, run_main, monkeypatch, name
+):
+    # A principal already managed on another axis (the primary collaborator or
+    # horkos-forge) is refused: two halves PUTting the same user's permissions
+    # would conflict.
+    policy([_write_repo("svc", principals={name: "read"})])
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "already managed on another axis" in out
+    assert "Refusing" in out
+
+
+def test_extra_principal_missing_grant_is_drift(policy, run_main, monkeypatch):
+    # A declared read-only principal with no live grant: --check reports the
+    # pending grant and exits 1; apply mode PUTs exactly the read grant.
+    policy([_write_repo("svc", principals={"cli-agent": "read"})])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "Out of sync (--check)." in out
+    assert "grant cli-agent on eblume/svc → read" in out
+
+    forge.requests.clear()
+    code, out = run_main(token="t")  # apply mode
+    assert code == 0
+    assert any(m == "PUT" and "collaborators/cli-agent" in u for m, u in forge.requests)
+    assert "grant cli-agent on eblume/svc → read" in out
+    assert forge.extra_permission == {"cli-agent": {"svc": "read"}}
+
+
+def test_extra_principal_stale_grant_on_unlisted_repo_revoked(
+    policy, run_main, monkeypatch
+):
+    # The sweep runs over ALL of the owner's repos, and the extra-principal
+    # half mirrors it: a grant on a repo absent from repos.json (or not
+    # declared in `principals` for that repo) is stale and must be revoked.
+    policy([_write_repo("svc", principals={"cli-agent": "read"})])
+    forge = FakeForge()
+    forge.repos = ["svc", "orphan"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.extra_permission = {"cli-agent": {"svc": "read", "orphan": "read"}}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "revoke cli-agent on eblume/orphan" in out
+
+    forge.requests.clear()
+    code, out = run_main(token="t")  # apply mode
+    assert code == 0
+    assert any(
+        m == "DELETE" and "collaborators/cli-agent" in u for m, u in forge.requests
+    )
+    assert forge.extra_permission == {"cli-agent": {"svc": "read"}}
+
+
+def test_no_principals_is_unchanged(policy, run_main, monkeypatch):
+    # Regression: a policy with no `principals` fields anywhere produces an
+    # empty extra_principals dict, no extra actions and no extra API traffic —
+    # behavior identical to before the axis existed.
+    policy([_write_repo("svc", horkos_forge=True)])
+
+    _owner, _who, _desired, _pools, _release, _horkos, extra_principals = (
+        ara.load_policy()
+    )
+    assert extra_principals == {}
+
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.horkos_permission = {"svc": "write"}
+    forge.install(monkeypatch)
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0
+    assert "In sync." in out
+    assert not any("cli-agent" in u for _, u in forge.requests)
+
+
+def test_extra_principal_site_admin_fails(policy, monkeypatch):
+    # A declared read-only principal that is somehow a site admin fails the
+    # boundary check — a site-admin fork principal would void the arrangement.
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.users = {"cli-agent": {"login": "cli-agent", "is_admin": True}}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_site_admin(c, findings, extra=("cli-agent",))
+    assert any("cli-agent" in f and "site admin" in f for f in findings.failures)
 
 
 def test_horkos_hook_events_include_terminal_action_runs():

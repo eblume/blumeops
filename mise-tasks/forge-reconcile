@@ -456,14 +456,17 @@ def resolve_token(explicit: str | None, skip_if_missing: bool) -> str | None:
     return result.stdout.strip()
 
 
-def load_policy() -> tuple[str, str, dict[str, str], dict[str, str], set[str], set[str]]:
+def load_policy() -> tuple[str, str, dict[str, str], dict[str, str], set[str], set[str], dict[str, dict[str, str]]]:
     """Return (owner, collaborator, {repo: access}, {repo: pool}, release-hook
-    repos, horkos-forge repos) from repos.json."""
+    repos, horkos-forge repos, {principal: {repo: access}}) from repos.json. The
+    last element names the extra read-only fork-model principals declared
+    per-repo via `principals`."""
     policy = json.loads(POLICY_PATH.read_text())
     desired: dict[str, str] = {}
     pools: dict[str, str] = {}
     release_hook_repos: set[str] = set()
     horkos_forge_repos: set[str] = set()
+    extra_principals: dict[str, dict[str, str]] = {}
     for entry in policy["repos"]:
         name, access = entry["name"], entry["access"]
         if access not in VALID_ACCESS:
@@ -499,9 +502,38 @@ def load_policy() -> tuple[str, str, dict[str, str], dict[str, str], set[str], s
             raise typer.Exit(1)
         if horkos_forge:
             horkos_forge_repos.add(name)
+        # Values can only be read/none, so the (write-only) PINNED_READ_ONLY
+        # and actions-secrets fences hold trivially here.
+        principals = entry.get("principals", {})
+        if not isinstance(principals, dict):
+            console.print(
+                f"[red]{POLICY_PATH.name}: {escape(name)} has invalid principals "
+                f"{escape(repr(principals))} (expected a JSON object)[/red]"
+            )
+            raise typer.Exit(1)
+        for principal, access_level in principals.items():
+            if access_level not in ("read", "none"):
+                console.print(
+                    f"[red]{POLICY_PATH.name}: {escape(name)} declares principal "
+                    f"{escape(repr(principal))} with {escape(repr(access_level))}; additional "
+                    f"principals are read-only, enforced in code — `write` would grant "
+                    f"Actions-write on a user-owned repo, the exact thing this arrangement "
+                    "must never do. Refusing.[/red]"
+                )
+                raise typer.Exit(1)
+            # Case-insensitive on purpose: Forgejo resolves usernames case-insensitively (current_access matches via .lower()); an exact match would let a case-variant slip past this fence.
+            if principal.lower() in (policy["collaborator"].lower(), HORKOS_FORGE_USER.lower()):
+                console.print(
+                    f"[red]{POLICY_PATH.name}: {escape(name)} declares principal "
+                    f"{escape(repr(principal))}, which is already managed on another axis "
+                    f"(the primary collaborator or horkos-forge) — double-managing one user "
+                    f"would let two halves PUT conflicting permissions. Refusing.[/red]"
+                )
+                raise typer.Exit(1)
+            extra_principals.setdefault(principal, {})[name] = access_level
         desired[name] = access
         pools[name] = entry.get("pool", "none")
-    return policy["owner"], policy["collaborator"], desired, pools, release_hook_repos, horkos_forge_repos
+    return policy["owner"], policy["collaborator"], desired, pools, release_hook_repos, horkos_forge_repos, extra_principals
 
 
 def resolve_webhook_secret() -> str:
@@ -898,9 +930,10 @@ class Findings:
         self.failures.append(f"{what}: could not verify ({detail})")
 
 
-def check_site_admin(client, report):
-    """`horkos-forge` is not a site admin and is active. A check that cannot see
-    is a failure, not a pass — a partial picture of a permissions boundary
+def check_site_admin(client, report, extra=()):
+    """`horkos-forge` is not a site admin and is active; each additional
+    declared read-only principal is not a site admin either. A check that cannot
+    see is a failure, not a pass — a partial picture of a permissions boundary
     invites a second surprise."""
     try:
         resp = client.get(f"/api/v1/users/{HORKOS_FORGE_USER}")
@@ -915,6 +948,21 @@ def check_site_admin(client, report):
         report.fail("horkos-forge is not a site admin", "account is deactivated — dispatch cannot work")
     else:
         report.ok("horkos-forge is not a site admin")
+    for name in extra:
+        what = f"{name} is not a site admin"
+        try:
+            resp = client.get(f"/api/v1/users/{name}")
+            resp.raise_for_status()
+            user = resp.json()
+        except httpx.HTTPStatusError as exc:
+            report.unknown(what, f"user lookup failed: {exc}")
+            continue
+        if user.get("is_admin"):
+            # is_admin only: a deactivated read-only principal is an
+            # operational problem a human fixes, not a boundary failure.
+            report.fail(what, "IS a site admin — a site-admin fork principal would void the whole arrangement")
+        else:
+            report.ok(what)
 
 
 def check_main_whitelist(client, owner, report):
@@ -1519,6 +1567,7 @@ def git_read_file(ref, relpath):
 def _policies_dict(policy):
     desired, pools = {}, {}
     release_hook_repos, horkos_forge_repos = set(), set()
+    extra_principals: dict[str, dict[str, str]] = {}
     for entry in policy["repos"]:
         desired[entry["name"]] = entry["access"]
         pools[entry["name"]] = entry.get("pool", "none")
@@ -1526,9 +1575,14 @@ def _policies_dict(policy):
             release_hook_repos.add(entry["name"])
         if entry.get("horkos_forge", False):
             horkos_forge_repos.add(entry["name"])
+        principals = entry.get("principals") or {}
+        if isinstance(principals, dict):
+            for principal, access in principals.items():
+                extra_principals.setdefault(principal, {})[entry["name"]] = access
     return {"desired": desired, "pools": pools,
             "release_hook_repos": release_hook_repos,
-            "horkos_forge_repos": horkos_forge_repos}
+            "horkos_forge_repos": horkos_forge_repos,
+            "extra_principals": extra_principals}
 
 
 def read_policies_at(ref):
@@ -1618,14 +1672,15 @@ def plan_at(client, owner, who, policies, protections):
     """Plan the drift of a (policy, protections) pair against the live forge —
     the read-only core of main's planning, factored out so --pr-base-ref can
     plan the PR base's state too. Returns {actions, horkos_actions,
-    hook_actions, protection_actions, violations, blocked}."""
+    extra_actions, hook_actions, protection_actions, violations, blocked}."""
     desired = policies["desired"]
     pools = policies["pools"]
     release_hook_repos = policies["release_hook_repos"]
     horkos_forge_repos = policies["horkos_forge_repos"]
+    extra_principals = policies.get("extra_principals", {})
     all_repos = owner_repos(client, owner)
     blocked, violations = [], []
-    actions, horkos_actions, hook_actions = [], [], []
+    actions, horkos_actions, extra_actions, hook_actions = [], [], [], []
     for repo in sorted(all_repos):
         want = desired.get(repo, "none")
         have = current_access(client, owner, repo, who)
@@ -1641,6 +1696,14 @@ def plan_at(client, owner, who, policies, protections):
         if horkos_have != horkos_want:
             horkos_actions.append(
                 (repo, "revoke" if horkos_want == "none" else ("grant" if horkos_have == "none" else "update"), horkos_want))
+        for principal in sorted(extra_principals):
+            p_want = extra_principals[principal].get(repo, "none")
+            p_have = current_access(client, owner, repo, principal)
+            if p_have != p_want:
+                extra_actions.append((
+                    principal, repo,
+                    "revoke" if p_want == "none" else ("grant" if p_have == "none" else "update"),
+                    p_want))
         if want == "write":
             secrets = actions_secrets(client, owner, repo)
             if secrets is None and repo not in blocked:
@@ -1661,8 +1724,9 @@ def plan_at(client, owner, who, policies, protections):
             [h for h in hooks if h.get("config", {}).get("url") == HORKOS_HOOK_URL],
             HORKOS_HOOK_READ_EVENTS, want_release_hook, repo, "horkos", hook_actions)
     protection_actions, _ = plan_protection_actions(client, owner, all_repos, protections, blocked)
-    return {"actions": actions, "horkos_actions": horkos_actions, "hook_actions": hook_actions,
-            "protection_actions": protection_actions, "violations": violations, "blocked": blocked}
+    return {"actions": actions, "horkos_actions": horkos_actions, "extra_actions": extra_actions,
+            "hook_actions": hook_actions, "protection_actions": protection_actions,
+            "violations": violations, "blocked": blocked}
 
 
 def _changed_facts(base_state, head_state):
@@ -1670,6 +1734,7 @@ def _changed_facts(base_state, head_state):
     action can be classified intended vs unexpected by (repo, fact):
       - (repo, "access"), (repo, "horkos"), (repo, "talos-hook"),
         (repo, "release-hook")
+      - (repo, "principal", name)
       - (repo, "secrets")
       - (repo, "protect", rule_name)
     A base-plan action is INTENDED iff its fact is in this set (the PR is
@@ -1686,6 +1751,11 @@ def _changed_facts(base_state, head_state):
             changed.add((repo, "talos-hook"))
         if (repo in b["release_hook_repos"]) != (repo in h["release_hook_repos"]):
             changed.add((repo, "release-hook"))
+        for principal in sorted(set(b.get("extra_principals", {})) | set(h.get("extra_principals", {}))):
+            base_access = b.get("extra_principals", {}).get(principal, {}).get(repo, "none")
+            head_access = h.get("extra_principals", {}).get(principal, {}).get(repo, "none")
+            if base_access != head_access:
+                changed.add((repo, "principal", principal))
     for repo in sorted(set(b.get("secrets", {})) | set(h.get("secrets", {}))):
         if sorted(b["secrets"].get(repo, [])) != sorted(h["secrets"].get(repo, [])):
             changed.add((repo, "secrets"))
@@ -1715,6 +1785,11 @@ def _intended_lines(owner, base_state, head_state):
         if (repo in b["release_hook_repos"]) != (repo in h["release_hook_repos"]):
             (hook if repo not in b["release_hook_repos"] else auto).append(
                 f"`{owner}/{repo}` horkos release hook: {'on' if repo in b['release_hook_repos'] else 'off'} -> {'on' if repo in h['release_hook_repos'] else 'off'}")
+        for principal in sorted(set(b.get("extra_principals", {})) | set(h.get("extra_principals", {}))):
+            base_access = b.get("extra_principals", {}).get(principal, {}).get(repo, "none")
+            head_access = h.get("extra_principals", {}).get(principal, {}).get(repo, "none")
+            if base_access != head_access:
+                auto.append(f"`{owner}/{repo}` {principal} access: {base_access} -> {head_access}")
     def _names(ns):
         return ", ".join(f"`{n}`" for n in ns) or "(none)"
 
@@ -1754,7 +1829,13 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     auto, hook, prot, values = _intended_lines(owner, base_state, head_state)
 
     def changed_for(repo, fact, rn=None):
-        return ((repo, "protect", rn) if fact == "protect" else (repo, fact)) in changed
+        if fact == "protect":
+            key = (repo, "protect", rn)
+        elif fact == "principal":
+            key = (repo, "principal", rn)
+        else:
+            key = (repo, fact)
+        return key in changed
 
     # A PR whose *target* state violates the Actions-secrets fence (it grants
     # write on a repo carrying CI keys) must fail — the merge push refuses the
@@ -1770,6 +1851,9 @@ def report_pr_check(client, owner, who, head_state, base_state, base_plan, head_
     for repo, verb, want in base_plan["horkos_actions"]:
         if not changed_for(repo, "horkos"):
             unexpected.append(f"horkos-forge {verb} on {owner}/{repo} -> {want}" if want != "none" else f"horkos-forge {verb} on {owner}/{repo}")
+    for principal, repo, verb, want in base_plan["extra_actions"]:
+        if not changed_for(repo, "principal", principal):
+            unexpected.append(f"{principal} {verb} on {owner}/{repo} -> {want}" if want != "none" else f"{principal} {verb} on {owner}/{repo}")
     for repo, verb, _id, kind in base_plan["hook_actions"]:
         if not changed_for(repo, "talos-hook" if kind == "talos" else "release-hook"):
             unexpected.append(f"{verb} {'talos hook' if kind == 'talos' else 'horkos release hook'} on {owner}/{repo}")
@@ -1914,8 +1998,8 @@ def main(
     report_file: Annotated[str | None, typer.Option("--report-file")] = None,
     no_secrets: Annotated[bool, typer.Option("--no-secrets")] = False,
 ) -> None:
-    owner, who, desired, pools, release_hook_repos, horkos_forge_repos = load_policy()
-    protections = load_protections((who, HORKOS_FORGE_USER))
+    owner, who, desired, pools, release_hook_repos, horkos_forge_repos, extra_principals = load_policy()
+    protections = load_protections((who, HORKOS_FORGE_USER, *sorted(extra_principals)))
     preview = dry_run or check
     # The CI path: resolve_token takes $FORGE_REPO_WRITE_TOKEN only when no
     # --token is given. Gates the branch-protection AND the Actions-secret
@@ -1948,7 +2032,7 @@ def main(
         # more urgent than the grant-set delta it would otherwise precede.
         if check:
             env_findings = Findings()
-            check_site_admin(client, env_findings)
+            check_site_admin(client, env_findings, extra=sorted(extra_principals))
             check_main_whitelist(client, owner, env_findings)
             check_actions_secret_names(client, owner, env_findings, pr_mode=bool(pr_base_ref))
             # The runner-label drift checks (#1358, #1515, #1526): scan each
@@ -2008,12 +2092,25 @@ def main(
         horkos_table.add_column("Desired")
         horkos_table.add_column("Action")
 
+        extra_tables: dict[str, Table] = {}
+        for principal in sorted(extra_principals):
+            t = Table(title=f"`{escape(principal)}` collaborations on {escape(owner)}/*")
+            t.add_column("Repo")
+            t.add_column("Current")
+            t.add_column("Desired")
+            t.add_column("Action")
+            extra_tables[principal] = t
+
         actions: list[tuple[str, str, str]] = []  # (repo, verb, permission)
         # Same shape as `actions`, but for HORKOS_FORGE_USER and driven by
         # repos.json's horkos_forge flag alone — a different collaborator and
         # a different policy axis (exempt from PINNED_READ_ONLY), so its own
         # list keeps the two reconciles disjoint.
         horkos_actions: list[tuple[str, str, str]] = []  # (repo, verb, permission)
+        # (principal, repo, verb, permission) — the extra read-only fork-model
+        # principals declared via repos.json's `principals`, each granted at
+        # most `read` (fenced at load_policy).
+        extra_actions: list[tuple[str, str, str, str]] = []
         # (repo, verb, hook_id, kind) — verb in create|update|remove (kind is
         # "talos" or "horkos"); remove also covers extra duplicates on a repo
         # that keeps its first hook.
@@ -2081,6 +2178,27 @@ def main(
                 horkos_table.add_row(
                     escape(repo), escape(horkos_have), escape(horkos_want), f"[{horkos_style}]{horkos_verb}[/{horkos_style}]"
                 )
+
+            # Extra principals half: same reconcile shape as the other two, but
+            # read-only (fenced at load_policy) and driven by `principals`.
+            for principal in sorted(extra_principals):
+                p_want = extra_principals[principal].get(repo, "none")
+                p_have = current_access(client, owner, repo, principal)
+                if p_have == p_want:
+                    p_verb, p_style = "ok", "dim"
+                elif p_want == "none":
+                    p_verb, p_style = "revoke", "red"
+                    extra_actions.append((principal, repo, "revoke", p_want))
+                elif p_have == "none":
+                    p_verb, p_style = "grant", "green"
+                    extra_actions.append((principal, repo, "grant", p_want))
+                else:
+                    p_verb, p_style = "update", "yellow"
+                    extra_actions.append((principal, repo, "update", p_want))
+                if p_verb != "ok" or p_want != "none":
+                    extra_tables[principal].add_row(
+                        escape(repo), escape(p_have), escape(p_want), f"[{p_style}]{p_verb}[/{p_style}]"
+                    )
 
             # Actions-secrets invariant: write on a repo is read of its secrets
             # (every run executes at the pushed ref), so a write grant on a
@@ -2228,6 +2346,8 @@ def main(
         console.print(table)
         console.print(hook_table)
         console.print(horkos_table)
+        for principal in sorted(extra_principals):
+            console.print(extra_tables[principal])
         console.print(protection_table)
 
         if blocked:
@@ -2257,6 +2377,7 @@ def main(
         in_sync = not (
             actions
             or horkos_actions
+            or extra_actions
             or hook_actions
             or label_actions
             or protection_actions
@@ -2284,6 +2405,7 @@ def main(
             pending = (
                 len(actions)
                 + len(horkos_actions)
+                + len(extra_actions)
                 + len(hook_actions)
                 + len(label_actions)
                 + len(protection_actions)
@@ -2294,6 +2416,8 @@ def main(
                 console.print(f"  {verb} {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
             for repo, verb, perm in horkos_actions:
                 console.print(f"  {verb} {escape(HORKOS_FORGE_USER)} on {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
+            for principal, repo, verb, perm in extra_actions:
+                console.print(f"  {verb} {escape(principal)} on {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
             for repo, verb, _hook_id, kind in hook_actions:
                 name = "talos hook" if kind == "talos" else "horkos release hook"
                 console.print(f"  {verb} {name} on {escape(owner)}/{escape(repo)}")
@@ -2339,6 +2463,7 @@ def main(
                     head_state = {"desired": desired, "pools": pools,
                                   "release_hook_repos": release_hook_repos,
                                   "horkos_forge_repos": horkos_forge_repos,
+                                  "extra_principals": extra_principals,
                                   "protections": protections,
                                   "secrets": declared_actions_secret_names()}
                     head_plan = {"violations": violations, "blocked": blocked}
@@ -2375,6 +2500,20 @@ def main(
                 console.print(f"[red]{verb} {escape(HORKOS_FORGE_USER)} on {escape(owner)}/{escape(repo)} failed: {escape(str(exc))}[/red]")
                 raise typer.Exit(1) from exc
             console.print(f"[green]{verb}[/green] {escape(HORKOS_FORGE_USER)} on {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
+
+        # The extra principals half applies exactly like the other two: PUT a
+        # read grant / DELETE it, through the same mutation loop shape.
+        for principal, repo, verb, perm in extra_actions:
+            path = f"/api/v1/repos/{owner}/{repo}/collaborators/{principal}"
+            try:
+                if verb == "revoke":
+                    client.delete(path).raise_for_status()
+                else:
+                    client.put(path, json={"permission": perm}).raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                console.print(f"[red]{verb} {escape(principal)} on {escape(owner)}/{escape(repo)} failed: {escape(str(exc))}[/red]")
+                raise typer.Exit(1) from exc
+            console.print(f"[green]{verb}[/green] {escape(principal)} on {escape(owner)}/{escape(repo)}" + (f" → {escape(perm)}" if perm != "none" else ""))
 
         # Each kind's signing secret is fetched independently, and up front
         # only if a create of that kind is pending — so a missing secret fails
@@ -2638,7 +2777,7 @@ def main(
                     console.print(f"[red]DELETE[/red] {escape(owner)}/{escape(repo)}:{escape(name)}")
 
         applied = (
-            len(actions) + len(horkos_actions) + len(hook_actions) + len(label_actions) + len(protection_actions)
+            len(actions) + len(horkos_actions) + len(extra_actions) + len(hook_actions) + len(label_actions) + len(protection_actions)
         )
         if not no_secrets and not ci_token:
             applied += len(secret_puts) + len(secret_deletes)
