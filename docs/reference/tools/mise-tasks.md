@@ -46,7 +46,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `forge-api` | Authenticated Forgejo API call against forge.ops.eblu.me (api-token from the blumeops vault) |
 | `frigate-export-model` | [human] Export YOLOv9 model weights to ONNX for Frigate NVR via docker run |
 | `indri-flake-check` | [human] Build indri's darwin configuration on indri (pre-apply check) |
-| `horkos-test` | Run the horkos client-tooling unit tests — request-run and verify-runs (no network, no cluster) |
+| `horkos-test` | Run the repo-tooling unit tests — request-run, verify-runs, the auto-apply lint, and the lint scope check (no network, no cluster) |
 | `mirror-create` | [human] Create a new upstream mirror in the mirrors/ Forgejo org |
 | `mirror-push-wire` | [human] Create the forge push mirrors for the fly static mirror (prints the public keys to commit) |
 | `mirror-update-pats` | [human] Push the current GitHub PAT onto every forge pull mirror on indri |

@@ -15,7 +15,7 @@
 #   "rich==15.0.0",
 # ]
 # ///
-#MISE description="Run the repo-tooling unit tests — request-run, verify-runs, and the auto-apply lint (no network, no cluster)"
+#MISE description="Run the repo-tooling unit tests — request-run, verify-runs, the auto-apply lint, and the lint scope check (no network, no cluster)"
 """Unit tests for the blumeops side of the approval path: the
 `mise-tasks/request-run` / `mise-tasks/verify-runs` clients that file
 against [[horkos]], and the pure helpers of `mise-tasks/lint-auto-apply`

@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+# Decide whether the Lint job's `prek run` on a PR must use `--all-files`
+# instead of changed-file mode (`prek run --from-ref <base> --to-ref <head>`).
+#
+# Changed-file mode fails open in ways no hook's `files` filter can close:
+# a diff that only deletes files hands every hook an empty file list (deleted
+# files never enter `--from-ref`'s list), a diff that only rewrites a hook's
+# config or its entry script never reaches that hook, and a move's deleted
+# path is invisible unless rename detection is off.
+#
+# The diff is taken from the fork point (`$base...$head`), so a PR behind
+# main is judged on its own changes only — a base tip would count main's
+# post-fork files as the PR's deletions.
+#
+# Exit codes: 0 = full run required (reasons on stdout),
+#             1 = changed-file mode is safe,
+#             2 = undecidable — the caller must fail closed and run `--all-files`.
+#
+# Hook authors: adding a hook that cannot run in a clean checkout would
+# re-open this gap — the lists derived from `prek.toml` assume the CI
+# checkout works as-is.
+
+# Usage: prek-full-run-check <base-ref> <head-ref>   (from anywhere inside the checkout)
+
+set -eu
+trap 'echo "error: unexpected failure in prek-full-run-check (line $LINENO)" >&2; exit 2' ERR
+
+if [ "$#" -ne 2 ]; then
+  echo "usage: $0 <base-ref> <head-ref>" >&2
+  exit 2
+fi
+
+base="$1"
+head="$2"
+
+root="$(git rev-parse --show-toplevel 2>&1)" || {
+  echo "error: $PWD is not inside a git checkout" >&2
+  exit 2
+}
+cd "$root"
+
+for ref in "$base" "$head"; do
+  if ! git rev-parse --verify "$ref^{commit}" >/dev/null 2>&1; then
+    echo "error: $ref does not resolve to a commit" >&2
+    exit 2
+  fi
+done
+
+changed="$(git diff --name-only "$base...$head")"
+
+# An empty diff would hand every hook an empty changed-file list — the same
+# outcome the delete-only guard catches, treated here as "safe" if left out.
+reasons=""
+if [ -z "$changed" ]; then
+  reasons+="
+empty diff — the changed-file list would be empty for every hook"
+fi
+
+# 1. Deleted files never enter `--from-ref`'s file list, so a delete-only
+#    diff would skip the entire hook set. `--no-renames`: a move is a
+#    delete+add, and with rename detection on the deleted path never appears
+#    in the D filter.
+deleted="$(git diff --no-renames --name-only --diff-filter=D "$base...$head")"
+if [ -n "$deleted" ]; then
+  n="$(printf '%s\n' "$deleted" | grep -c .)"
+  sample="$(printf '%s\n' "$deleted" | sed -n '1,5p' | tr '\n' ' ')"
+  more=$(( n - 5 ))
+  [ "$more" -le 0 ] || sample+="... (+${more} more)"
+  reasons+="
+deleted files (${n}) are excluded from --from-ref's file list: ${sample}"
+fi
+
+# 2. Hook config: a change to any of these rewrites what the hook set checks,
+#    but no hook's `files` filter covers its own config, so the rewrite would
+#    run no hook at all. The base list is the configs no hook `args` reference
+#    (this file, the ruff/ty project files, the tool configs read implicitly);
+#    the rest is derived from `prek.toml`'s `args` at run time, so adding a
+#    hook with a `-c <config>` arg cannot silently drop that config from here.
+CONFIG_FILES=(prek.toml pyproject.toml uv.lock .ansible-lint .editorconfig .shellcheckrc taplo.toml)
+config_args="$(
+  dq='"'
+  sq="'"
+  awk -v dq="$dq" -v sq="$sq" '
+    function scan(s,    p1, p2, p, q, rest, e, tok) {
+      while (1) {
+        p1 = index(s, dq)
+        p2 = index(s, sq)
+        if (p1 == 0 && p2 == 0) break
+        if (p1 > 0 && (p2 == 0 || p1 < p2)) { p = p1; q = dq } else { p = p2; q = sq }
+        rest = substr(s, p + 1)
+        e = index(rest, q)
+        if (e == 0) break                        # unterminated quote, stop
+        if (e == 1) { s = substr(rest, 2); continue }  # empty arg (""): skip it, keep scanning
+        tok = substr(rest, 1, e - 1)
+        s = substr(rest, e + 1)
+        # Keep the repo-relative config paths (a dot or slash, not a flag).
+        if (tok !~ /^-/ && tok ~ "[./]") print tok
+      }
+    }
+    {
+      seg = $0
+      if (inargs) {
+        if (index(seg, "]") > 0) { seg = substr(seg, 1, index(seg, "]") - 1); inargs = 0 }
+      } else if (match(seg, /args[[:space:]]*=/)) {
+        seg = substr(seg, RSTART)
+        if (index(seg, "]") > 0) seg = substr(seg, 1, index(seg, "]") - 1)
+        else inargs = 1
+      } else next
+      scan(seg)
+    }
+  ' prek.toml
+)"
+if [ -n "$config_args" ]; then
+  while IFS= read -r p; do
+    case " ${CONFIG_FILES[*]} " in
+      *" $p "*) ;;
+      *) CONFIG_FILES+=("$p") ;;
+    esac
+  done <<< "$config_args"
+fi
+config="$(git diff --no-renames --name-only "$base...$head" -- "${CONFIG_FILES[@]}")"
+if [ -n "$config" ]; then
+  reasons+="
+hook config touched: $(printf '%s' "$config" | tr '\n' ' ')"
+fi
+
+# 3. Hook entry scripts, derived from prek.toml's `entry` lines so the list
+#    cannot drift from the hooks it guards: take the first `./`-prefixed token
+#    of the entry value, in either TOML string style.
+entries="$(
+  dq='"'
+  sq="'"
+  awk -v dq="$dq" -v sq="$sq" '
+    /^[[:space:]]*entry[[:space:]]*=/ {
+      rest = $0
+      sub(/^[[:space:]]*entry[[:space:]]*=[[:space:]]*/, "", rest)
+      q = substr(rest, 1, 1)
+      if (q != dq && q != sq) next
+      rest = substr(rest, 2)
+      p = index(rest, q)
+      if (p <= 1) next
+      val = substr(rest, 1, p - 1)
+      n = split(val, t, "[[:space:]]+")
+      for (i = 1; i <= n; i++)
+        if (substr(t[i], 1, 2) == "./") { print t[i]; break }
+    }
+  ' prek.toml
+)"
+
+entry_specs=()
+if [ -n "$entries" ]; then
+  while IFS= read -r entry; do
+    if [ -n "$entry" ]; then
+      entry_specs+=("$entry")
+    fi
+  done <<< "$entries"
+  entry_hits="$(git diff --no-renames --name-only "$base...$head" -- "${entry_specs[@]}")"
+else
+  entry_hits=""
+fi
+if [ -n "$entry_hits" ]; then
+  reasons+="
+hook entry script touched: $(printf '%s' "$entry_hits" | tr '\n' ' ')"
+fi
+
+if [ -n "$reasons" ]; then
+  echo "full run required:"
+  printf '%s\n' "$reasons"
+  exit 0
+fi
+
+echo "changed-file mode is safe: no deletions, no hook config or entry-script changes"
+exit 1
