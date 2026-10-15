@@ -79,6 +79,12 @@ plain `git push origin HEAD:main` is rejected with `pre-receive hook declined`.
 > whitelisted PAT push described below is the only supported way for an Actions
 > workflow to push to protected `main`.
 
+> **Retired (2026-10):** this main-push half is what the release-PR model
+> abolishes — `build-blumeops.yaml` no longer pushes the changelog to
+> `main`, and new release flows tag from a push-to-main workflow instead of
+> pushing `main` from CI ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Kept below for the historical
+> shape.
+
 The fix is to authenticate the push as a whitelisted user via a PAT, not the
 automatic token. The PAT is no longer an Actions secret: per-purpose CI
 secrets were retired in favor of job-time `op read` of the `blumeops-ci`

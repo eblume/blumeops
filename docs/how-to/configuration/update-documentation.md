@@ -29,11 +29,12 @@ The `build-blumeops` workflow (`.forgejo/workflows/build-blumeops.yaml`) splits 
 
 1. **`version`** (on the unprivileged `indri-build` runner) — Resolves the version: uses the input or auto-increments from the latest release
 2. **`docs-build`** (on the unprivileged `indri-build` runner) — Runs towncrier to update `CHANGELOG.md`, then builds the docs with `mise run docs-build-tarball` (Quartz build in a node:22-slim container via colima); hands the tarball to the release job as a same-run artifact
-3. **`release`** (on `indri`) — Re-runs towncrier for the commit, downloads the tarball, creates the Forgejo release (`docs-<version>.tar.gz`), bumps `docs_version`, commits
+3. **`release`** (on `indri-build`) — Re-runs towncrier for the release body, downloads the tarball, creates the Forgejo release (`docs-<version>.tar.gz`), uploads it as an asset
 
-The workflow ends at the release. Deploying is a manual step (docs are served
-natively by Caddy on indri since [[retire-minikube]] — no ArgoCD app): bump
-`docs_version` in `ansible/roles/docs/defaults/main.yml`, then
+The workflow ends at the release. The `docs_version` bump that used to land
+on main via the release job now rides the release PR ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Deploying is a manual step (docs are served natively by Caddy on
+indri since [[retire-minikube]] — no ArgoCD app): once `docs_version` in
+`ansible/roles/docs/defaults/main.yml` is at the release tag,
 `mise run provision-indri -- --tags docs`, and purge the [[flyio-proxy]] nginx
 cache (`fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`)
 so the new docs are served immediately.
@@ -67,14 +68,12 @@ Fragments are automatically collected into `CHANGELOG.md` (at repo root) during 
 
 ## Runner Environment
 
-The workflow's jobs split across the two launchd [[forgejo]]-runners on [[indri]]
-([[configure-launchd-runner]]) — the `version` and `docs-build` jobs on the
-unprivileged `indri-build` runner (colima container engine), the `release` job
-on the privileged `indri` host-mode runner because it holds the op token and
-the main-push PAT:
+All of the workflow's jobs run on the unprivileged launchd [[forgejo]]
+`indri-build` runner on [[indri]] (colima container engine)
+([[configure-launchd-runner]]):
 
 - **Runner**: launchd services on indri (the `indri` user LaunchAgent; the `indri-build` LaunchDaemon plus its colima VM), managed by the `forgejo_runner` ansible role (no Kubernetes, no job container)
-- **Toolchain**: the docs job uses indri-build's mise toolchain (Node.js, uv/Python, …); the release job runs with indri's
+- **Toolchain**: all jobs use indri-build's mise toolchain (Node.js, uv/Python, …)
 - **Build engine**: the docs build runs a node:22-slim container via the `docs-build-tarball` task in indri-build's colima — not Docker Desktop (no Dagger)
 
 ## Quartz Static Site Generator

@@ -310,7 +310,7 @@ The smallest thing that closes the loop end-to-end:
    | Vault | Meaning | Who reads it |
    |-------|---------|--------------|
    | `agents` | what a session needs to be a useful agent — including some deliberately-curated operational API tokens (invariant 1's nuance) | the harness, always |
-   | **`blumeops-ci`** *(new)* | what privileged **execution contexts** read at runtime: argocd token, fly token, zot key, main-push PAT, k3s SA kubeconfig (`k3s-run-script`) | approved CI runs only, via a **read-only** SA token stored as one new Actions secret (`BLUMEOPS_CI_OP_TOKEN`) |
+   | **`blumeops-ci`** *(new)* | what privileged **execution contexts** read at runtime: argocd token, fly token, zot key, k3s SA kubeconfig (`k3s-run-script`) | approved CI runs only, via a **read-only** SA token stored as one new Actions secret (`BLUMEOPS_CI_OP_TOKEN`) |
    | `blumeops` | the whole keys to the kingdom: break-glass admin, every ansible pre_task secret, backup/NAS keys | humans with biometric `op`, **forever** (class B) |
 
    Why a middle layer at all: CI-runtime items are too hot for `agents`
@@ -615,7 +615,8 @@ in the UI, and put it in the PR comment. It still bound nothing.
 - Forgejo dispatch-page URL: can inputs be prefilled via query params? (Turns
   the Phase-1 approval link into one-click-then-confirm.)
 - Forgejo repo settings: disable squash-merge without disrupting the existing
-  release workflows' push-to-main behavior (`MAIN_PUSH_TOKEN` path).
+  release workflows' push-to-main behavior (the `MAIN_PUSH_TOKEN` main push,
+  now retired by the release-PR model).
 - Authentik: client-credentials for the agent SA (heph `01KXREAB…`), and the
   WebAuthn stage's user-verification + attestation-restriction options for
   the hardware-key flow.
@@ -642,7 +643,8 @@ warrant by the forge run number Horkos stamps on dispatch.
 The blumeops-ci vault carries `horkos-dispatch` (field `token`), a mirror of
 `op://blumeops/horkos-forge-token/token` (the horkos-forge PAT). That is
 per the one-CI-trust-tier decision above: the tier already includes push to
-blumeops main via `forge-main-push`, so the token adds no new tier — and it
+blumeops main via eblume-scoped PATs (`FORGE_REPO_WRITE_TOKEN` passes
+main's push whitelist), so the token adds no new tier — and it
 lets CI do the one thing its jobs must do, prove the run to Horkos.
 
 The vault also carries `k3s-run-script` (field `kubeconfig`): a bound,

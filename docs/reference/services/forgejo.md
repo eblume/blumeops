@@ -140,18 +140,20 @@ name.
 | Repo | Secrets | Purpose |
 |------|---------|---------|
 | `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN`, `FORGE_ACTIONS_RO` | `forge-reconcile` reconcile + drift check (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items; read-only forge token for the auto-apply preflights |
-| `eblume/hephaestus` | `MAIN_PUSH_TOKEN` | Release workflow pushes its changelog commit to the branch-protected `main` as the whitelisted user (the `blumeops-ci/forge-main-push/hephaestus-token` field — a hephaestus-scoped PAT; the item's `token` field is repo-restricted to eblume/blumeops and cannot write here) |
+| `eblume/hephaestus` | — (none) | No secrets declared: the `MAIN_PUSH_TOKEN` changelog main push was retired by the release-PR model ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)) — the next human apply deletes the live secret, after which the `hephaestus-token` PAT is pending revocation |
 | `eblume/talos`, `eblume/horkos` | `ZOT_PUSH_API_KEY` | Auto-release CI: per-repo push-only zot identity (`ci-zot-talos` / `ci-zot-horkos`), provisioned from the zot master fields by the values half |
 | `eblume/cv` | — (none) | Release CI is stored-secret-free; the empty declaration makes provisioning authoritative here (first run deletes the stale `FORGE_TOKEN`) |
 
 The per-purpose secrets the retired Ansible role used to sync (argocd token, fly deploy
 token, zot CI key) are no longer Forgejo secrets: workflows
 `op read` the blumeops-ci items at job time with `BLUMEOPS_CI_OP_TOKEN` —
-see [[blumeops-ci-item-migration]]. The main-push PATs are the exception in
-both directions: blumeops's release still reads its own
-(`blumeops-ci/forge-main-push/token`) at job time, while hephaestus — whose
-CI cannot reach the blumeops-ci vault — declares its own hephaestus-scoped
-PAT (the `hephaestus-token` field of the same item) as `MAIN_PUSH_TOKEN`.
+see [[blumeops-ci-item-migration]]. The main-push PATs that used to be the
+exception in both directions — blumeops's release reading its own
+`blumeops-ci/forge-main-push/token` at job time, and hephaestus declaring
+the item's hephaestus-scoped `hephaestus-token` field as
+`MAIN_PUSH_TOKEN` — are both retired: the release PR carries changelog and
+docs_version to main itself ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)), so neither PAT has a CI
+consumer anymore and both are pending revocation.
 
 These secrets are injected as `${{ secrets.SECRET_NAME }}` in workflow files.
 
