@@ -41,7 +41,7 @@ identity holds no CI trust anywhere.
   deliberately *not* in `repos.json`: `forge-reconcile` manages *grants* on a
   user that already exists; the user itself is the human half.
 - **Tier:** a new tier in the #1039 principal-naming scheme, where the name
-  is `<tier>-[PROMPT_INJECTION]`, with the tier first — the tier names the
+  is `<tier>-<qualifier>`, with the tier first — the tier names the
   authorizer. The existing tiers, in the scheme's own words: `ci-` — a
   human approved it by merging to main; `talos-` — the agent decided on its
   own; `horkos-` — a human approved this specific act, via a warrant. The new
