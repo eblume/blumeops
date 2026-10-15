@@ -77,10 +77,10 @@ while IFS= read -r entry; do
     chmod +x "$repo/hooks/post-receive"
     # Dumb HTTP: have receive-pack itself refresh info/refs + the pack
     # index the moment a ref changes, independent of the post-receive
-    # hook (git >= 2.35 no longer does it by default; the hook's
-    # cosmetic steps used to abort before its refresh line —
-    # eblume/blumeops#1640). Idempotent; covers adopted repos at
-    # every boot.
+    # hook (receive.updateServerInfo has always defaulted to off, so
+    # the hook was the only refresh path, and its cosmetic steps used
+    # to abort before its refresh line — eblume/blumeops#1640).
+    # Idempotent; covers adopted repos at every boot.
     git --git-dir="$repo" config receive.updateServerInfo true
     fix_head "$repo"
     # See post-receive: keep clones on packs; skip empty repos — repacking those fails.

@@ -76,7 +76,7 @@ regen_site() {
 # the push mirrors still land any new upstream branch, so drop it here.
 # post-receive runs after the refs are written, and the repack + gc
 # below make the objects unreachable, so it is gone from dumb HTTP.
-while git for-each-ref --format='%(refname)' refs/heads/ | read -r ref; do
+git for-each-ref --format='%(refname)' refs/heads/ | while read -r ref; do
     [ "$ref" = "refs/heads/main" ] || git update-ref -d "$ref"
 done
 
