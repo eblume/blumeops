@@ -148,9 +148,12 @@ forgejo_runner_build_colima_yaml: "{{ forgejo_runner_build_colima_profile_dir }}
 forgejo_runner_build_colima_template: /Users/indri-build/.colima/_templates/default.yaml
 forgejo_runner_build_colima_label: mcquack.eblume.colima-build
 
-# The docker client config colima mounts into the build VM: the VM's root
-# docker daemon reads it for registry credentials. It is not role-rendered
-# (Docker Desktop wrote it before the colima migration, eblume/blumeops#1382)
-# and can carry a host-only credential helper that breaks every image pull
-# (see the build runner tasks).
+# The indri-build user's docker client config on the macOS host. The build
+# runner's image pulls go through the host's dagger CLI, whose buildkit
+# server (in the colima VM) asks it back for registry credentials, so the
+# CLI re-reads this file and execs the configured credential helper on the
+# host for every lookup. It is not role-rendered (Docker Desktop wrote it
+# before the colima migration, eblume/blumeops#1382) and can still point
+# at a helper that no longer exists on the host - which breaks every image
+# pull (see the build runner tasks).
 forgejo_runner_build_docker_config: /Users/indri-build/.docker/config.json

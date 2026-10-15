@@ -338,17 +338,22 @@
   tags: [forgejo_build_runner]
 
 # --- Build runner docker client config ---
-# colima mounts the build user's docker client config into the build VM, and
-# the VM's root docker daemon reads it for registry credentials. A host-only
-# credential helper (Docker Desktop's "credsStore: osxkeychain", left over
-# from before the colima migration, eblume/blumeops#1382) makes every
-# registry lookup exec that helper inside the Linux VM, where it can never
-# exist - every image pull then fails with "docker-credential-osxkeychain:
-# executable file not found in $PATH" (eblume/hephaestus.nvim's release
-# run 47, 2026-10-15). The role strips the helper keys, keeps the rest of
-# the config (runtime auths are legitimate), and restarts the VM so the
-# daemon re-reads the file. The file can carry registry credentials, so it
-# is never printed and never fetched to the control node.
+# The build runner's image pulls go through the dagger CLI running as
+# indri-build on the macOS host: the buildkit server inside the colima VM
+# asks the CLI back for registry credentials (buildkit session-auth
+# callback), the CLI re-reads the user's docker client config for each
+# lookup, and execs the configured credential helper on the host. The
+# colima VM's dockerd never reads that file. A Docker-Desktop-era helper
+# reference (credsStore: osxkeychain, left over from before the colima
+# migration, eblume/blumeops#1382) therefore breaks every uncached image
+# pull - the helper is not installed on the host any more (eblume/
+# hephaestus.nvim release run 47, 2026-10-15: "get credentials: rpc error
+# ... exec: docker-credential-osxkeychain: executable file not found in
+# $PATH"). The role strips the helper keys and keeps the rest of the
+# config (runtime auths are legitimate); the next dagger run picks the
+# change up on its own, so no VM restart is needed. The file can carry
+# registry credentials, so it is never printed and never fetched to the
+# control node.
 
 - name: Check build runner docker config for a host-only credential helper
   ansible.builtin.shell: |
@@ -416,7 +421,6 @@
     - not ansible_check_mode
     - forgejo_runner_build_uuid | length > 0
     - forgejo_runner_build_docker_config_check.rc == 0
-  notify: Restart colima-build VM
   tags: [forgejo_build_runner]
 
 # --- Build runner LaunchDaemon (rollback re-write only) ---
