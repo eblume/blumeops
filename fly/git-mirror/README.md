@@ -50,6 +50,18 @@ sshd's `AllowUsers`; the scp form `git@host:path` would arrive as user
   a push — both followed by a repack + `gc --prune=now`, and the
   `update-server-info` refresh rebuilds `info/refs`, so stray branches
   are never served over dumb HTTP.
+  - **Dumb-HTTP metadata:** dumb-HTTP clients read `info/refs` and
+    `objects/info/packs` as plain files; git 2.54's receive-pack does not
+    regenerate them by default, so the mirror keeps them fresh on two
+    paths: `receive.updateServerInfo=true` per repo (set by
+    `create-mirror.sh` at every boot) refreshes `info/refs` the moment a
+    ref changes, and `post-receive`'s final `update-server-info` keeps
+    the pack list current after the repack — with an EXIT-trap
+    backstop. The hook's cosmetic steps (repack, gc, stagit, gen-index)
+    are non-fatal; each failure is logged to
+    `/volume/git-mirror/hooks.log` (timestamp, repo, step, rc, output
+    tail) so a broken step can no longer take down dumb HTTP
+    (eblume/blumeops#1640).
 
 - **Reconnecting address:** the fly node's tailscale node key is
   persisted on the volume (`/volume/tailscale`, bind-mounted over
@@ -94,6 +106,7 @@ sshd's `AllowUsers`; the scp form `git@host:path` would arrive as user
   ssh/                  # ssh host keys (copied into /etc/ssh, start.sh)
   git-mirror/
     repos/eblume/<name>.git   # bare repos (push targets)
+    hooks.log               # post-receive failure log (eblume/blumeops#1640)
     site/                   # stagit output (served)
       index.html style.css logo.png favicon.png
       eblume/<name>/…       # one directory per repo

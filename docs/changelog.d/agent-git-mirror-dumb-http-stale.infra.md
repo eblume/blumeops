@@ -1,0 +1,1 @@
+The fly git-mirror's dumb-HTTP metadata (`info/refs`, pack index) is kept fresh by `receive.updateServerInfo` set per repo at boot plus a non-fatal, logged `post-receive` (failures to `/volume/git-mirror/hooks.log`) with an EXIT-trap `update-server-info` backstop, so a failing cosmetic hook step can no longer serve stale refs (eblume/blumeops#1640).
