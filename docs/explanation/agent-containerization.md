@@ -98,7 +98,7 @@ reads it with `builtins.fromJSON` to generate the entrypoint's clone loop:
 |------|-------|-----|
 | `talos` | **fork** (`origin` = `talos/agents`, `upstream` = canonical) | Session cwd + base instructions; edits go via cross-repo PR so the agent can't rewrite its own instructions unreviewed |
 | `blumeops` | **fork** | Author-only; the read-only-on-canonical fence keeps CI (and its deploy secrets) out of reach |
-| `hephaestus` | **fork** | Read-only on canonical: main's push/merge whitelist is `eblume` alone under the release-PR model — the bot opens release PRs but never merges them ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)); the former `MAIN_PUSH_TOKEN` main push is retired |
+| `hephaestus` | canonical, bot has push | The [eblume/blumeops#1572](https://forge.ops.eblu.me/eblume/blumeops/issues/1572) demotion is lifted: the repo's CI secrets are gone (its `MAIN_PUSH_TOKEN` deleted and its PAT revoked 2026-10-15) and main's push/merge whitelist is `eblume` alone under the release-PR model — the bot opens release PRs but never merges them ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)) |
 | `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`, `gamedev` | canonical, bot has push | Ordinary author repos — branch + PR |
 
 > **A pooled repo has to be *buildable*, not just present.** `gamedev` was

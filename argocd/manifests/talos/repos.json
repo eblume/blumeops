@@ -102,8 +102,8 @@
     },
     {
       "name": "hephaestus",
-      "access": "read",
-      "pool": "fork",
+      "access": "write",
+      "pool": "canonical",
       "principals": { "cli-agent": "read" },
       "horkos_forge": true
     },
