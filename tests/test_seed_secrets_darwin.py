@@ -12,6 +12,7 @@ import importlib.machinery
 import importlib.util
 import json
 import pathlib
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -533,6 +534,11 @@ def test_check_missing_file_with_present_parent_keeps_generic_message(
     assert "cannot stat (absent or uninspectable)" in out
 
 
+@pytest.mark.skipif(
+    sys.platform != "linux",
+    reason="real sh -c execution of the Linux command flavor (stat -c, sha256sum); "
+    "the route gate probes the local uname, which a darwin runner cannot answer",
+)
 def test_write_missing_parent_executes_cleanly(tmp_path, monkeypatch):
     # real `sh -c` execution of the composed script (the run fake just drops
     # the ssh transport): proves the install -d flag order, the quoting, and
