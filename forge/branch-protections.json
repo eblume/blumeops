@@ -32,7 +32,7 @@
       "dismiss_stale_approvals": true,
       "ignore_stale_approvals": false,
       "require_signed_commits": false,
-      "protected_file_patterns": "*",
+      "protected_file_patterns": "",
       "unprotected_file_patterns": "",
       "apply_to_admins": true
     },
@@ -147,7 +147,7 @@
       "dismiss_stale_approvals": true,
       "ignore_stale_approvals": false,
       "require_signed_commits": false,
-      "protected_file_patterns": "*",
+      "protected_file_patterns": "",
       "unprotected_file_patterns": "",
       "apply_to_admins": true
     },
