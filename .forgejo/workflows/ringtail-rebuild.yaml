@@ -102,6 +102,17 @@ jobs:
           base="$FORGE_SERVER_URL"
           repo="$FORGE_REPOSITORY"
           sha="$SHA"
+          # The refusal topic resolves from the ntfy/topics.json declaration at
+          # main (eblume/blumeops#1611), not at the bound commit: a commit that
+          # predates the declaration, or cannot be fetched at all, is exactly
+          # what these steps refuse, and fetching there would drop the alert
+          # the refusal is for. A topic rename must update this select and the
+          # fallback below together — the declaration has no stable key to
+          # select on, so this lookup is name-based like any other producer.
+          ntfy_topic=$(curl -sL "$base/$repo/raw/main/ntfy/topics.json" \
+            | jq -r '.topics[] | select(.name=="ops-approvals") | .name' 2>/dev/null || true)
+          [ -n "$ntfy_topic" ] || echo "::warning::refusal topic did not resolve from ntfy/topics.json (main) — the refusal alert falls back to the ops-approvals literal"
+          ntfy_topic=${ntfy_topic:-ops-approvals}
           refuse() {
             echo "::error::$1"
             # Best-effort notification; a failed post must not change the verdict.
@@ -109,7 +120,7 @@ jobs:
               -H "Title: auto-apply refused" \
               -H "Tags: warning" \
               -d "$2" \
-              https://ntfy.ops.eblu.me/ops-approvals || true
+              "https://ntfy.ops.eblu.me/$ntfy_topic" || true
             exit 1
           }
           # curl -f would turn a 404 into a silent failure; capture the
@@ -146,13 +157,24 @@ jobs:
           repo="$FORGE_REPOSITORY"
           sha="$SHA"
           label="$LABEL"
+          # The refusal topic resolves from the ntfy/topics.json declaration at
+          # main (eblume/blumeops#1611), not at the bound commit: a commit that
+          # predates the declaration, or cannot be fetched at all, is exactly
+          # what these steps refuse, and fetching there would drop the alert
+          # the refusal is for. A topic rename must update this select and the
+          # fallback below together — the declaration has no stable key to
+          # select on, so this lookup is name-based like any other producer.
+          ntfy_topic=$(curl -sL "$base/$repo/raw/main/ntfy/topics.json" \
+            | jq -r '.topics[] | select(.name=="ops-approvals") | .name' 2>/dev/null || true)
+          [ -n "$ntfy_topic" ] || echo "::warning::refusal topic did not resolve from ntfy/topics.json (main) — the refusal alert falls back to the ops-approvals literal"
+          ntfy_topic=${ntfy_topic:-ops-approvals}
           refuse() {
             echo "::error::$1"
             curl -s -X POST \
               -H "Title: auto-apply preflight refused" \
               -H "Tags: warning" \
               -d "$2" \
-              https://ntfy.ops.eblu.me/ops-approvals || true
+              "https://ntfy.ops.eblu.me/$ntfy_topic" || true
             exit 1
           }
           if [ -z "$FORGE_ACTIONS_RO_TOKEN" ]; then
@@ -188,7 +210,7 @@ jobs:
               -H "Title: auto-apply preflight refused" \
               -H "Tags: warning" \
               -d "ringtail-rebuild: preflight refused for $sha — no online runner serves '$label'" \
-              https://ntfy.ops.eblu.me/ops-approvals || true
+              "https://ntfy.ops.eblu.me/$ntfy_topic" || true
             exit 1
           fi
 
