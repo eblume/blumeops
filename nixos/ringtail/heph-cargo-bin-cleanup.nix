@@ -13,7 +13,9 @@ let
     for dir in ${lib.concatStringsSep " " binDirs}; do
       [ -d "$dir" ] || continue
       for b in ${lib.concatStringsSep " " bins}; do
-        ${pkgs.coreutils}/bin/rm -f "$dir/$b"
+        # -rf: these are files, but a stale non-regular entry or a transient I/O
+        # error must not fail the oneshot (it would re-run every boot).
+        ${pkgs.coreutils}/bin/rm -rf -- "$dir/$b"
       done
     done
   '';
