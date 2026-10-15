@@ -200,8 +200,10 @@ up a token the workflow never passed it.
 ## Rotating the key
 
 There is no host SSH key to rotate — the keypair was retired in Oct 2026
-(eblume/blumeops#1635) and the vault item is gone. The bot authenticates over
-HTTPS with its Forgejo token.
+(eblume/blumeops#1635). Its former home, the **`agents-forgejo-bot` secure
+note** (fields `private key` / `public key`), was **archived** and can be
+recovered; it is not the same item as the live **`agents-forgejo-bot` login**
+in the same vault. The bot authenticates over HTTPS with its Forgejo token.
 
 ## Related
 
