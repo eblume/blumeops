@@ -15,7 +15,7 @@ tags:
 > `agent-ws-agent.service` and `agent-repos-init.service` are gone from
 > `nixos/ringtail/` (the file is now `agent-heph-spoke.nix`, which keeps only the
 > `agent` user + heph spoke). The agent ran containerized with its own
-> `tag:agent` Tailscale identity; see [[agent-containerization]] for that design.
+> `tag:talos` Tailscale identity; see [[agent-containerization]] for that design.
 > **The `agent-ws` pod is now retired too, superseded by [[talos-design|talos]]**
 > — its image, k8s manifests, and ArgoCD app are gone. This page is retained for
 > the isolation-model rationale and history — the **§Isolation & security** and
@@ -114,7 +114,7 @@ inference until a session is active).
 blumeops is cloned into the pool at `~/code/personal/blumeops` (agent-owned, so
 `git` works) but is **not** a workspace — there is no `ringtail-blumeops` Remote
 Control server. Agents `cd` into it from any session to **author** changes and
-open PRs as the [[agents-forgejo-bot|bot]]. The bot has only **read** on the
+open PRs as the [[principals|talos bot]]. The bot has only **read** on the
 canonical repo and works through its fork **`talos/blumeops`**: the clone's
 `origin` is the fork (push), `upstream` is `eblume/blumeops` (fetch) — branch off
 `upstream/main`, and PRs are cross-repo. This is safe because blumeops is a
@@ -182,7 +182,7 @@ The boundaries, weakest-first:
    environment (agents dump `env` while debugging, and transcripts get
    archived).
 4. **Git-mediated writes** — agents push as a dedicated Forgejo bot
-   ([[agents-forgejo-bot]]) and open PRs rather than committing to `main`. For
+   ([[principals]]) and open PRs rather than committing to `main`. For
    the repos the bot has *write* on (`hephaestus.nvim`, …) this is convention backed
    by human PR review. For **`blumeops` it is enforced**: the bot has only
    **read** on the canonical repo and pushes to its **fork** (`talos/blumeops`),
@@ -198,7 +198,7 @@ The boundaries, weakest-first:
    authenticated by a talos-owned `write:repository`+`write:issue` PAT
    (`talos-forgejo-token` in the agents vault) that the launcher exports as
    `FORGEJO_TOKEN` and seeds into tea's config — no blumeops-vault dependency,
-   and the PAT is self-bounded to the bot's own repos ([[agents-forgejo-bot]]).
+   and the PAT is self-bounded to the bot's own repos ([[principals]]).
 5. **Network** *(in migration)* — the bare-metal phase has ambient tailnet
    reach: because Tailscale ACL identity is per-**device**, the `agent` user
    inherits ringtail's `tag:homelab` trust and can reach indri directly
@@ -430,6 +430,6 @@ token-wasteful always-on pattern is also the fair-use risk.
 - [[agent-containerization]] — the migration off this shared-host model
 - [[talos-design]] — the agent service that supersedes the retired `agent-ws` pod
 - [[bootstrap-agent-workspaces]] — one-time setup runbook
-- [[agents-forgejo-bot]] — the bot account and its key
+- [[principals]] — the bot account (and the inventory of every other principal)
 - [[security-model]] — service accounts and the `agents` vault
 - [[ringtail]] — the host

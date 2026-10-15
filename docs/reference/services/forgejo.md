@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-10-10
+modified: 2026-10-15
 last-reviewed: 2026-08-29
 tags:
   - service
@@ -63,7 +63,7 @@ The forge has three namespaces:
 
 - `eblume/` — first-party repos (blumeops, talos, hephaestus, myeve,
   gamedev, …). The forge is the primary source of truth for blumeops.
-- `talos/` — the [[agents-forgejo-bot]]'s forks (blumeops, agents,
+- `talos/` — the [[principals|talos bot]]'s forks (blumeops, agents,
   horkos); the push target for repos where the human gate is the point.
 - `mirrors/` — pull mirrors of external repos (alloy, tesla_auth, …)
   for supply chain control; see [[manage-forgejo-mirrors]].
@@ -288,7 +288,7 @@ Forgejo hosts pull mirrors of external repositories (GitHub, etc.) for supply ch
 
 - [[upgrade-forgejo]] - Version upgrade procedure (DB backup, breaking changes, rollback)
 - [[forgejo-runner]] - CI/CD runners (indri + ringtail instances, credentials)
-- [[agents-forgejo-bot]] - The bot identity behind the talos/ namespace
+- [[principals]] - The principal inventory; the talos bot identity behind the talos/ namespace
 - [[argocd]] - Uses Forgejo as git source
 - [[authentik]] - OIDC identity provider
 - [[zot]] - Container registry for built images

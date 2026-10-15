@@ -1,6 +1,6 @@
 ---
 title: Zot
-modified: 2026-09-18
+modified: 2026-10-15
 last-reviewed: 2026-09-16
 tags:
   - service
@@ -82,13 +82,13 @@ identity `horkos-zot`, added by this PR: the blueprint user, the
 horkos ESO re-point to the `horkos-zot-api` master field (re-created by the
 first rotation — until the ceremony mints it the ESO cannot refresh and the
 pod keeps the previously synced key, so the pod must not be recycled in
-that window). The `zot-cv` identity is retired by this change: its
+that window). The cv-tier zot identity is retired by this change: its
 blueprint user, the `cv-artifacts` group entry and its order-4 zot-app
 policy binding, the `blumeops/cv` `cv-artifacts` accessControl grant, and
 the `zot-apikey-rotate` entry are gone from the repo here; the live
-user, group, and `zot-cv-api` master field are deleted by the ceremony
-after sync, with `zot-cv`'s zot API keys revoked first (see the new
-"Retiring an identity" section).
+user, group, and the identity's zot API-key master field were deleted by
+the ceremony after sync, with the identity's zot API keys revoked first
+(see the new "Retiring an identity" section).
 
 **ci-zot cutover (done, 2026-09-17).** `ci-zot` is now the base CI push
 identity: the flip PR (eblume/blumeops#1156, commit c2aba52f) moved
@@ -152,7 +152,7 @@ the retire PR merges — that PR is what removes the identity from the rotate
 table — or at any time against the raw endpoint with the stored key (`curl
 -su '<identity>:<key>' https://registry.ops.eblu.me/zot/auth/apikey`, then
 `DELETE .../zot/auth/apikey?id=<uuid>` per key; this is what the 2026-09-16
-`zot-cv` retirement used). Any future reuse of a username must start with a
+cv-tier identity retirement used). Any future reuse of a username must start with a
 key listing.
 
 ## Related

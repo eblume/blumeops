@@ -1,26 +1,105 @@
 ---
-title: Talos Forgejo Bot
+title: Principals
 modified: 2026-10-15
-last-reviewed: 2026-07-21
+last-reviewed: 2026-10-15
 tags:
   - reference
   - infrastructure
   - ai
 ---
 
-# Talos Forgejo Bot
+# Principals
+
+Every non-human identity that **acts** in this infrastructure is named by
+**who authorized the action**, not by which system it touches. This card is
+the reference: the scheme, the live inventory, and the one documented
+exception. Decided 2026-09-12 from the security review of eblume/talos#172;
+the grandfathered names were retired one at a time in the eblume/blumeops#1039
+series, which closed with this reference.
+
+## The scheme
+
+| prefix | meaning | examples |
+|---|---|---|
+| `talos-` | the agent decided on its own | session-readable credentials, the read-only-on-canonical forge bot |
+| `horkos-` | a human approved this specific act, via a warrant | the dispatch identity, the pin-PR author |
+| `ci-` | a human approved it by merging to main | release pipelines, ArgoCD's deploy account, the registry push keys |
+| `cli-` | a human authorized it through a live, supervised CLI session | `cli-agent` ([[cli-agent-forgejo-principal]]) |
+
+The `cli-` tier was added after the series (2026-10-13 incident, see the
+cli-agent card): it names acts authorized by Erich's direct, biometric-gated
+consent on the host he is at — a live human, not a merge and not a warrant.
+
+Format: `<tier>-[qualifier]` — tier first, because the tier is what a reader
+needs before touching a credential. The prefix says which gate created the
+identity: a `talos-` credential any agent session can read, a `horkos-` one
+because a human approved the specific act it performs, a `ci-` one because a
+human merged the pipeline that uses it.
+
+CI stays its own tier rather than folding into horkos: horkos is per-act
+approval with a policy check; a merge is a coarser gate, and CI's credentials
+sit on the far side of a fence horkos itself must not cross. Calling both
+"horkos" would make one word mean two gates.
+
+**What is not a principal:**
+
+- **Warrant the artifact.** `warrant-policy.yaml`, the `Warrant request: #N`
+  PR stamp, and the word for the minted approval (a *warrant*) keep their
+  names — they are the record a human signs, not an identity that acts. The
+  service's old name is likewise not a principal: it was renamed to Horkos in
+  2026-08 ([[horkos]]).
+- **Vault names** (`agents`, `blumeops`, `blumeops-ci`) name storage, not
+  actors, and are out of scope — but `agents` is to be read as "the talos
+  vault". Same for repo names (the `agents` repo carries the base agent
+  instructions).
+- **Blueprint object ids and field names** are internal keys, not identities:
+  what matters is the `identifiers:` they pin (username, client_id, app slug).
+
+## Live inventory
+
+| principal | where it lives | tier | credential |
+|---|---|---|---|
+| `talos` | forge user; owns the `talos/*` fork namespace and the `talos` engagement label | talos | `op://agents/talos-forgejo-token` |
+| `cli-agent` | forge user for interactive CLI sessions; own `cli-agent/` fork namespace ([[cli-agent-forgejo-principal]]) | cli | biometric-gated; see that card |
+| `horkos-forge` | forge user, write on `eblume/blumeops` only — the Horkos dispatch identity ([[horkos]]) | horkos | `op://blumeops/horkos-forge-token`, mirrored to `op://blumeops-ci/horkos-dispatch` |
+| `ci-argocd` | ArgoCD account; CI/CD automation ([[argocd]]) | ci | `op://blumeops-ci/ci-argocd` |
+| `talos-argocd-readonly` | ArgoCD account; lets the agent pod inspect deployment state ([[argocd]]) | talos | `op://agents/talos-argocd-readonly` |
+| `ci-zot` | Authentik user; base CI zot push identity ([[zot]]) | ci | `Forgejo Secrets` field `ci-zot-api` (blumeops vault); `op://blumeops-ci/ci-zot` |
+| `ci-zot-talos`, `ci-zot-horkos` | Authentik users; per-repo release-CI push keys ([[zot]]) | ci | `ci-zot-talos-api` / `ci-zot-horkos-api` fields → `ZOT_PUSH_API_KEY` on eblume/talos, eblume/horkos |
+| `horkos-zot` | Authentik user; the horkos publisher's zot push identity ([[zot]]) | horkos | `Forgejo Secrets` field `horkos-zot-api` |
+| `ci-authentik-blueprints` | Authentik user; applies the Authentik blueprints | ci | `ci-authentik-blueprints-token` (blumeops vault) |
+| `talos-m2m` | Authentik `client_credentials` client + `talos-sa` group; consumed by talos and horkos OIDC | talos | `Authentik (blumeops)` fields `talos-m2m-client-secret` / `talos-m2m-app-password` (blumeops vault, ESO-mounted) |
+| `talos-ringtail` | Authentik user in `talos-sa`; the ringtail agent workspace | talos | `op://agents/talos-ringtail` |
+| `talos-heph` | Authentik user + group; the agent heph spoke | talos | `op://agents/heph-spoke-token` |
+| `tag:talos` | Tailscale tag; the egress-gateway pod's identity ([[tailscale]]) | talos | — |
+| `tag:ci-gateway` | Tailscale tag; ephemeral CI containers pushing to the registry ([[tailscale]]) | ci | — |
+
+Every principal above follows the scheme, including the post-series `cli-`
+tier. If a future account is needed for the issue-writer discussion in
+eblume/talos#172, it is `talos-forge-issues`.
+
+## Exception: `FORGE_REPO_WRITE_TOKEN`
+
+CI acting as eblume. Collaborator management needs repo admin, which only the
+owner holds on user-owned repos, so it cannot become a `ci-forge` account
+without an org move. Documented deliberately as a known exception rather than
+left implicit: an `eblume` PAT scoped `write:repository,read:user`, declared
+in `forge/actions-secrets.json` and consumed by `mise run forge-reconcile`
+(see §"Sharing a repo with the bot" below).
+
+## The talos forge bot
 
 The Forgejo identity that [[agent-workspaces]] use to push work. Agents commit
 and push **branches**; branch protection on `main` and human PR review are the
 gate before anything deploys.
 
-## Identity
+### Identity
 
 - **Forgejo user:** `talos`
 - **SSH key:** retired (Oct 2026, eblume/blumeops#1635). The bot authenticates
   to the forge over HTTPS with a token; no SSH key is seated on ringtail.
 
-## Access policy
+### Access policy
 
 - **Write** (push branches, open PRs) to the repos talos works in:
   `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`,
@@ -43,7 +122,7 @@ gate before anything deploys.
   `tea pr create --repo eblume/<repo> --base main --head talos:<branch>`.
 - **Not an admin.** No org/settings/runner access. No deploy credentials.
 
-## Credentials
+### Credentials
 
 The bot has one in use, in the **agents** vault, bounded to its own
 collaborations:
@@ -60,7 +139,7 @@ collaborations:
   post-#1166). A PAT minted this way is self-bounding — the ownership is the
   guardrail, not the scope list.
 
-## Sharing a repo with the bot
+### Sharing a repo with the bot
 
 Most of Erich's repos are **private**, and the bot is a plain Forgejo user — it
 gets no access by owning nothing. Both halves — the forge grant and the
@@ -145,7 +224,7 @@ UI — and nothing to forget, which is the point. See [[agent-containerization]]
 > non-zero in both `--check` and apply mode) — write on a repo means read of
 > its Actions secrets, so the grant would hand the bot that repo's CI keys.
 
-### Why a missing grant is hard to diagnose
+#### Why a missing grant is hard to diagnose
 
 Forgejo returns **404, not 403**, for a private repo the caller cannot see. So a
 missing collaboration is indistinguishable from a misspelled repo name: the
@@ -201,7 +280,7 @@ up a token the workflow never passed it.
 > a runner a blumeops-vault service account would erase exactly that gate, since
 > 1Password service accounts scope per *vault*, not per item.
 
-## Rotating the key
+### Rotating the key
 
 The live credential is the Forgejo PAT at
 `op://agents/talos-forgejo-token/api-token`, rotated by
@@ -218,8 +297,10 @@ in the same vault. The bot authenticates over HTTPS with its Forgejo token.
 
 ## Related
 
-- [[agent-workspaces]] — what uses this identity
+- [[cli-agent-forgejo-principal]] — the second instance of the fork-model
+  pattern (interactive CLI agent sessions)
+- [[horkos]] — the service `horkos-forge` dispatches for
+- [[agent-workspaces]] — what uses the talos bot identity
 - [[bootstrap-agent-workspaces]] — first-time creation steps
-- [[cli-agent-forgejo-principal]] — the second instance of this pattern
-  (interactive CLI agent sessions)
+- [[warrant-approval-gated-runs]] — the program whose gate this scheme names
 - [[forgejo]] — the forge

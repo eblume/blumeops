@@ -64,7 +64,7 @@ The obvious patch — delete the `tag:homelab → tag:homelab` SSH `accept` rule
   the tailnet sees as the *same device* as the host.
 
 **A network namespace is the fix.** Give the agent its own Tailscale node — a
-sidecar in the pod, carrying a distinct `tag:agent` — and the ACL can finally
+sidecar in the pod, carrying a distinct `tag:talos` (renamed in step 5 of blumeops#1039) — and the ACL can finally
 express "the agent reaches X but not Y." That is why containerization *is* the
 fix here, not a layer on top of one.
 
@@ -82,7 +82,7 @@ k3s-ringtail cluster
       │                          + ~/code/personal (repo pool, per-session worktrees)
       │    - ServiceAccount: agent-ws (NO cluster access; see below)
       └─ container: tailscale (sidecar)
-           - authenticates with an auth key tagged tag:agent
+           - authenticates with an auth key tagged tag:talos
            - the pod's ONLY tailnet identity; all agent egress routes through it
     NetworkPolicy: egress allowlist (Anthropic relay, 1Password, indri:{443,2222,8787})
 ```
@@ -114,7 +114,7 @@ steps — clone-loop entry *and* forge collaborator grant — and a missing gran
 indistinguishable from a typo (Forgejo 404s rather than 403s on a private repo
 you cannot see), while the clone loop is deliberately non-fatal, so the only
 symptom was an absent directory. `timberborn-parsimony` was absent that way for
-three weeks. See [[agents-forgejo-bot]] §"Sharing a repo with the bot".
+three weeks. See [[principals]] §"Sharing a repo with the bot".
 
 `blumeops` and `agents` are pinned read-only by an invariant in the reconciler
 that `repos.json` cannot override — that fence lives in reviewed code, not in a
@@ -177,19 +177,19 @@ security boundaries are the ones below. Genuine per-session isolation means a po
 per session, which the RWO PVC and the single rooted Remote Control server rule
 out; that would be a re-architecture, not a change.
 
-### The Tailscale fence (`tag:agent`)
+### The Tailscale fence (`tag:talos`)
 
 The sidecar makes the pod a first-class tailnet device with its own identity, so
 the ACL grants it **exactly** what an authoring agent needs and nothing else:
 
 | Needs | Endpoint | ACL |
 |-------|----------|-----|
-| Forge push (git SSH via Caddy L4) | `forge.ops.eblu.me:2222` → indri | `tag:agent → tag:homelab tcp:2222` |
-| Forge / `tea` PRs (HTTPS via Caddy) | `forge.ops.eblu.me:443` → indri | `tag:agent → tag:homelab tcp:443` |
-| heph spoke sync | `indri:8787` (HTTP) | `tag:agent → tag:homelab tcp:8787` |
+| Forge push (git SSH via Caddy L4) | `forge.ops.eblu.me:2222` → indri | `tag:talos → tag:homelab tcp:2222` |
+| Forge / `tea` PRs (HTTPS via Caddy) | `forge.ops.eblu.me:443` → indri | `tag:talos → tag:homelab tcp:443` |
+| heph spoke sync | `indri:8787` (HTTP) | `tag:talos → tag:homelab tcp:8787` |
 | Claude relay, 1Password | public internet | NetworkPolicy egress, not tailnet |
 
-Everything else is default-deny: **no `tag:agent` SSH rule at all** (Tailscale
+Everything else is default-deny: **no `tag:talos` SSH rule at all** (Tailscale
 SSH to any host is refused), no `:22`, no k8s API, no NAS, no registry, no other
 homelab port. The `tag:homelab → tag:homelab` grant and SSH `accept` rule stay
 **unchanged** — borgmatic keeps working, because the agent is no longer a
@@ -203,12 +203,12 @@ of the pod rollout.
 > **The node-NAT trap (must prove on-box).** A k3s pod egresses through the
 > node by default, so a pod reaching indri's tailnet IP would appear as
 > *ringtail's* `tag:homelab` identity — silently re-opening the exact hole this
-> closes. The `tag:agent` identity is only real if the agent's forge/heph
+> closes. The `tag:talos` identity is only real if the agent's forge/heph
 > traffic routes through the **sidecar's** tailscale interface, and a
 > NetworkPolicy blocks the pod's direct node path to the tailnet CGNAT range
 > (`100.64.0.0/10`). Internet traffic (Claude relay, 1Password) still egresses
 > via the node — that's fine, it carries no tailnet identity. Proving that the
-> pod reaches indri *only* as `tag:agent` (and not as the node) is the first
+> pod reaches indri *only* as `tag:talos` (and not as the node) is the first
 > deploy milestone, ahead of any cutover.
 
 ### Secrets, unchanged in spirit
@@ -217,7 +217,7 @@ of the pod rollout.
   injected as `OP_SERVICE_ACCOUNT_TOKEN`. The [[agent-workspaces|op shim]]
   already prefers that env var over the host file, so it works unmodified in a
   pod. The blumeops vault stays unreachable — that fence is untouched.
-- **Forge:** the [[agents-forgejo-bot]] SSH key + the scoped `FORGEJO_TOKEN`
+- **Forge:** the [[principals|talos bot]] SSH key + the scoped `FORGEJO_TOKEN`
   become mounted Secrets. The "read-only on canonical, author via fork, can't
   push main, can't dispatch CI" fences are *easier* to hold in a pod — it has no
   kubeconfig and a restricted ServiceAccount.
@@ -234,7 +234,7 @@ of the pod rollout.
 
 ## Migration plan
 
-1. **Identity foundation (this PR).** `tag:agent` tagOwner + fence grant + ACL
+1. **Identity foundation (this PR).** `tag:talos` tagOwner + fence grant + ACL
    tests in `policy.hujson`; this design doc. No behavior change until a device
    carries the tag. Deploy: `mise run tailnet-up`.
 2. **Image.** A Nix `dockerTools` image (per repo convention) with the curated
@@ -245,12 +245,12 @@ of the pod rollout.
    ELF binaries run in the non-FHS nix image (the container analogue of the
    host's `nix-ld`).
 3. **Manifests.** `argocd/manifests/agent-ws/`: Deployment (agent + userspace
-   `tag:agent` tailscale sidecar), restricted ServiceAccount (no cluster API,
+   `tag:talos` tailscale sidecar), restricted ServiceAccount (no cluster API,
    token not mounted), PVC for `$HOME`, two ExternalSecrets (the op token from
-   the blumeops vault; the tag:agent auth key synced there by
+   the blumeops vault; the tag:talos auth key synced there by
    `mise run agent-authkey-sync`), and the egress NetworkPolicy. **The whole
    egress mechanism was proven on-box first** (throwaway proof-pod): the pod
-   registers as its own `tag:agent` device, reaches forge/heph via the sidecar
+   registers as its own `tag:talos` device, reaches forge/heph via the sidecar
    SOCKS proxy (ACL grant confirmed), the node-NAT trap is real, and the
    NetworkPolicy closes it while leaving the SOCKS path intact. The agent talks
    to the forge over **HTTPS+token through the SOCKS proxy** (not ssh — the bot
@@ -417,6 +417,6 @@ designs remain rejected — this change took neither path:
 
 - [[agent-workspaces]] — the model being migrated
 - [[talos-design]] — planned pi-based agent service mirroring this access model
-- [[agents-forgejo-bot]] — the identity whose fences this hardens
+- [[principals]] — the talos bot identity whose fences this hardens
 - [[security-model]] — service accounts and vault scoping
 - [[ringtail]] — the host / cluster

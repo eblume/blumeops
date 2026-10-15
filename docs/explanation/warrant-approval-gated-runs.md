@@ -16,8 +16,8 @@ tags:
 > `eblume/horkos`, with auto-release on merge. The *program* documented here,
 > the minted **warrant** artifact, and `warrant-policy.yaml` keep their names
 > — a warrant is still what Horkos mints — while the dispatch identity has
-> moved from the grandfathered `warrant-bot` to `horkos-forge`
-> (blumeops#1039). Historical
+> renamed to `horkos-forge`
+> (step 1 of blumeops#1039). Historical
 > prose below says "Warrant" where it meant the service; read it as Horkos.
 
 > **Status: BUILT AND RUNNING** (2026-08-04). Proposed 2026-08-01, accepted
@@ -39,7 +39,7 @@ tags:
 ## The problem
 
 The agent-isolation program ([[agent-workspaces]], [[agent-containerization]],
-[[agents-forgejo-bot]]) has landed a working fence: agents author blumeops
+[[principals]]) has landed a working fence: agents author blumeops
 changes from a pod with its own `tag:talos` identity, push to a fork, and open
 PRs; the bot is read-only on canonical, so it cannot dispatch CI or reach the
 deploy-credentialed Actions secrets; the blumeops 1Password vault is
@@ -721,7 +721,7 @@ on its own — but nothing depends on it any more.
 ## Related
 
 - [[agent-containerization]] — the isolation substrate this builds on
-- [[agents-forgejo-bot]] — the identity whose read-only fence is the gate
+- [[principals]] — the principal inventory; the talos bot's read-only fence is the gate
 - [[agent-workspaces]] — isolation model and history
 - [[security-model]] — vault and tailnet posture
 - [[agent-interactive-access]] — approved sessions vs read-only exploration,

@@ -1,6 +1,6 @@
 ---
 title: Declared-State Files
-modified: 2026-10-14
+modified: 2026-10-15
 last-reviewed: 2026-10-14
 tags:
   - reference
@@ -74,7 +74,7 @@ Planned, filed as issues on 2026-10-12:
 
 - [[warrant-approval-gated-runs]] for why the policy file is reviewed data
   rather than tribal knowledge.
-- [[agents-forgejo-bot]] and [[add-a-freestanding-repo]] for `repos.json` in
+- [[principals]] and [[add-a-freestanding-repo]] for `repos.json` in
   practice.
 - [[seed-secrets]] for seating the on-host secret files the per-host
   `secrets.json` manifests declare.

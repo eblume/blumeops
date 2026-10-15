@@ -637,7 +637,7 @@ data:
       # (Putting the agent identity in `admins` would grant it every admin-gated
       # app — Grafana/ArgoCD/Forgejo/Zot — so it gets its own group + binding.)
       - model: authentik_core.group
-        id: heph-agents-group
+        id: talos-heph-group
         identifiers:
           name: talos-heph
         attrs:
@@ -647,7 +647,7 @@ data:
       # from the human login (disable this user, or drop its sub from the hub's
       # --authorized-sub). Password set once at bootstrap for the device-code login.
       - model: authentik_core.user
-        id: heph-agents-user
+        id: talos-heph-user
         identifiers:
           username: talos-heph
         attrs:
@@ -655,7 +655,7 @@ data:
           name: Heph Agent Spoke
           is_active: true
           groups:
-            - !KeyOf heph-agents-group
+            - !KeyOf talos-heph-group
 
       # Policy binding — also allow talos-heph to reach heph. The hub still gates
       # ownership via --authorized-sub, so this only lets the identity authenticate.

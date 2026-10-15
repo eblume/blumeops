@@ -12,7 +12,7 @@ tags:
 
 The Forgejo identity for **interactive CLI agent sessions** — Claude Code,
 Codex, or any CLI agent operated under Erich's direct, live supervision. It is
-the second instance of the [[agents-forgejo-bot]] fork-model pattern: where the
+the second instance of the [[principals|talos bot]] fork-model pattern: where the
 `talos` bot authenticates the talos pod, `cli-agent` authenticates an
 interactive CLI session running on a host Erich is sitting at.
 
@@ -98,7 +98,7 @@ ignores its own bot, which is why `talos` cannot be reused for this.
 ## Credentials
 
 Both credentials are minted **as the `cli-agent` user** — self-bounding the
-same way as [[agents-forgejo-bot]]'s `talos-forgejo-token` (the ownership is
+same way as the [[principals|talos bot]]'s `talos-forgejo-token` (the ownership is
 the guardrail, not the scope list) — and stored **concealed** in a
 **biometric-gated vault**: the `blumeops` vault or a dedicated one. Deliberately
 **not the `agents` vault**: talos sessions read it and could impersonate the
@@ -163,7 +163,7 @@ item of the #1583 Human steps):
 
 ## Related
 
-- [[agents-forgejo-bot]] — the first instance of this pattern (the talos pod)
+- [[principals]] — the naming scheme and the talos bot (the first instance of this pattern)
 - [[bootstrap-agent-workspaces]] — the user-creation ceremony (HC1)
 - [[agent-change-process]] — why agent PRs need the approve-and-run click
 - [[agent-workspaces]] — the pod workspaces the `talos` bot serves

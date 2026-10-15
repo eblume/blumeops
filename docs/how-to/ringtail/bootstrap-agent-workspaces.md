@@ -50,7 +50,7 @@ WP=/Users/erichblume/forgejo; CFG=$WP/custom/conf/app.ini
 Then, in the Forgejo web UI as an admin:
 
 - Add the **public key** from the `agents-forgejo-bot` vault item (see
-  [[agents-forgejo-bot]]) to the `talos` user's SSH keys.
+  [[principals]]) to the `talos` user's SSH keys.
 > **Do not grant repo access here.** Collaborations come from
 > `repos.json` (`argocd/manifests/talos/`), reconciled by the **Forge Reconcile**
 > workflow, which is authoritative in both directions — a repo absent from that
@@ -58,7 +58,7 @@ Then, in the Forgejo web UI as an admin:
 > is reverted on the next run. The same file drives the pod's clone loop, which
 > is the point: a missing grant and a typo look identical from inside the pod
 > (Forgejo 404s rather than 403s on a private repo the bot cannot see). To share
-> a repo, edit `repos.json` and open a PR. See [[agents-forgejo-bot]].
+> a repo, edit `repos.json` and open a PR. See [[principals]].
 
 > **`agents` and `blumeops` are pinned read-only.** The reconciler refuses a
 > `write` request for either, and `repos.json` cannot override it — that fence
@@ -322,4 +322,4 @@ the capability entirely.
 ## Related
 
 - [[agent-workspaces]] — design & operations
-- [[agents-forgejo-bot]] — the bot identity
+- [[principals]] — the talos bot identity
