@@ -2643,6 +2643,33 @@ def test_invariant_release_kit_write_key_on_page_two_fails(policy, monkeypatch):
     assert any("rogue write key" in f for f in findings.failures)
 
 
+def test_invariant_release_kit_unknown_permission_fails(policy, monkeypatch):
+    # A permission level the check does not know (future Forgejo level, or a
+    # shape drift) cannot be proven read-only, so it fails, not passes.
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    forge.extra_permission = {"mallory": {"release-kit": "weird-level"}}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert any("unexpected permission" in f for f in findings.failures)
+
+
+def test_paged_wrapped_shape_fails_loud():
+    # A list endpoint answering with a dict that has no "data" would read as
+    # an empty page and hide entries (a write key, a write collaborator) —
+    # paged() must fail loud, the module's malformed-shape rule.
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"unexpected": []})
+    )
+    with (
+        httpx.Client(transport=transport, base_url="http://forge") as c,
+        pytest.raises(ValueError),
+    ):
+        ara.paged(c, "/api/v1/repos/eblume/release-kit/keys")
+
+
 def test_invariant_release_kit_unreadable_fails(policy, monkeypatch):
     # release-kit not in the fake's repos: the keys endpoint 404s (a real
     # forge answers 404 for an unknown repo), so the check is UNKNOWN, never
