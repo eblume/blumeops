@@ -1,0 +1,1 @@
+The hephaestus version-management pin table now records the talos pod image as a pin site — the `hephaestus` flake input in `eblume/talos:flake.nix`, bumped as a PR on the talos repo through its auto-release.
