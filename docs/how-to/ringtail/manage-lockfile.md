@@ -25,8 +25,8 @@ runner. Each run:
 1. creates a fresh `auto-update/ringtail-flake-<date>` branch from `main` — the
    workflow never writes to any other branch;
 2. updates all root inputs — `nixpkgs`, `home-manager`, `disko` — via native
-   `nix flake update`, skipping `nixpkgs-services`, which is deliberately
-   pinned by rev (see [[review-services]]);
+   `nix flake update`, skipping `nixpkgs-services` and `nixpkgs-runner`,
+   which are deliberately pinned by rev (see [[review-services]]);
 3. records each tracked branch's head via `git ls-remote` at update time, so a
    branch that moves mid-run cannot cause a false exception;
 4. builds the system and extracts the kernel version.
@@ -44,7 +44,7 @@ The battery runs in the zero-credential job: its narHash check fetches upstream 
 | # | Check | Catches |
 |---|-------|---------|
 | 1 | **Scope** — only the expected root inputs (`nixpkgs`, `home-manager`, `disko`) moved; every other node, lock, and `original` field is byte-identical to the parent lock (lock v7, parsed). | Unrelated nodes touched, extra inputs, structural tampering. |
-| 2 | **Root-input immutability** — `nixpkgs-services`'s `original.rev` is unchanged, and every root input's `original` (type, owner, repo, ref) is unchanged. | Redirecting an input to a different source, or silently moving the pinned `nixpkgs-services` rev. |
+| 2 | **Root-input immutability** — the `original.rev` of `nixpkgs-services` and `nixpkgs-runner` is unchanged, and every root input's `original` (type, owner, repo, ref) is unchanged. | Redirecting an input to a different source, or silently moving a pinned rev. |
 | 3 | **Fast-forward only** — for each moved input, the new rev equals the *recorded* head of its tracked branch, and the old rev is an **ancestor** of the new rev (`merge-base --is-ancestor`). | Force-reset branches, side-branch revs, and revs that are not actually the upstream head — the check no human can do from a diff. |
 | 4 | **narHash** — the lock's `narHash` matches a fresh fetch of the new rev. | Fetch divergence and corruption. **Not a provenance claim**: it is self-referential (same nix, same runner as the update) and documents that limit honestly. |
 | 5 | **System build** — `.#nixosConfigurations.ringtail.config.system.build.toplevel` builds on the same nix `ringtail-apply` rebuilds with (the same build as the `Ringtail Flake Check` job on PRs). | Locks that do not evaluate or build. |
@@ -162,5 +162,5 @@ rollback target that won't require a reboot. After pruning, it runs
 ## Related
 
 - [[ringtail]] — Host reference
-- [[review-services]] — the deliberately pinned `nixpkgs-services` rev
+- [[review-services]] — the deliberately pinned `nixpkgs-services` and `nixpkgs-runner` revs
 - [eblume/horkos#48](https://forge.eblu.me/eblume/horkos/issues/48) — superseded: horkos no longer files a rebuild request; `ringtail-rebuild` is `class: auto` and fires on the merge push

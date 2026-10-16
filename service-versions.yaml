@@ -415,12 +415,13 @@ services:
       those sources and realign; not an independent upgrade decision.
   - name: nix-container-builder
     type: nixos
-    last-reviewed: 2026-06-30
-    current-version: "12.11.1"
+    last-reviewed: 2026-10-16
+    current-version: "13.2.0"
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
     notes: >-
-      Forgejo runner on ringtail; pinned via nixpkgs-services overlay in flake.nix.
-      Update nixpkgs-services rev during service reviews, not via nix flake update.
+      Forgejo runner on ringtail; pinned via the dedicated nixpkgs-runner overlay
+      input in flake.nix (snowflake, k3s, kubectl stay on nixpkgs-services).
+      Both inputs are frozen — bump them during service reviews, not via nix flake update.
 
   - name: snowflake-proxy
     type: nixos
@@ -431,7 +432,7 @@ services:
       Tor Snowflake proxy on ringtail; pinned via nixpkgs-services overlay in flake.nix.
       Anti-censorship bridge, not an exit node.
       2026-07-01: upstream at 2.14.1 (2.12/2.13/2.14 released since), but nixos-25.11
-      is frozen at 2.11.0 and the nixpkgs-services pin is shared with k3s + forgejo-runner.
+      is frozen at 2.11.0 and the nixpkgs-services pin is shared with k3s + kubectl.
       Minor service — staying on the in-channel 2.11.0 build rather than channel-mixing.
 
   - name: k3s
