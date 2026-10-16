@@ -47,10 +47,8 @@ forgejo_runner_build_config_path: "{{ forgejo_runner_build_home }}/config.yaml"
 # (see the build runner tasks): root renders here, indri-build copies in.
 forgejo_runner_build_stage_dir: /usr/local/etc/forgejo-runner-build
 
-# Shared daemon identity so maintenance agents reference the label and plist
-# path instead of hardcoding them. The flake owns the live plist; this plist
-# path is the role-rendered rollback re-write target, same pattern as
-# forgejo_runner_launch_agent_plist for the original runner.
+# Daemon identity: the flake owns the live plist; these are the rollback
+# re-write's target values.
 forgejo_runner_build_label: mcquack.eblume.forgejo-runner-build
 forgejo_runner_build_plist: /Library/LaunchDaemons/mcquack.eblume.forgejo-runner-build.plist
 

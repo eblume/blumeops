@@ -10,10 +10,11 @@ tags:
 # Forgejo Runner
 
 Forgejo Actions runner daemon for CI/CD job execution. Runs as a
-native macOS LaunchAgent on [[indri]] — the unit and the main
-runner's `config.yaml` are nix-managed (the [[indri]] flake's
-generation, eblume/blumeops#1528), and the `forgejo_runner` ansible
-role renders the build runner's config and the cache agents; jobs run
+native macOS LaunchAgent on [[indri]] — the unit, the main
+runner's `config.yaml` and the cache maintenance agents are
+nix-managed (the [[indri]] flake's generation, eblume/blumeops#1528),
+and the `forgejo_runner` ansible role renders only the build
+runner's config (eblume/blumeops#1627); jobs run
 host-mode with no container engine. (Previously
 a minikube pod with a Docker-in-Docker sidecar — replaced in phase 0 of
 [[retire-minikube]].)
