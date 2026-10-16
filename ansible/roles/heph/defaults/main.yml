@@ -5,11 +5,14 @@
 
 # Pinned release tag. This is the SINGLE source of truth for the hub's hephd
 # version and the bundled PWA shell — hephd self-update is OFF (see the plist),
-# so nothing changes it out from under us. The role converges to this tag on
-# every run: it installs on a fresh host, upgrades when the running binary is
-# older, and DOWNGRADES if this pin is lowered. Bump on each release, then
-# `mise run provision-indri -- --tags heph`. See docs/reference/services/hephaestus.md.
-heph_version: v1.10.6
+# so nothing changes it out from under us. Since the store flip
+# (eblume/blumeops#1655) the daemon runs from the darwin/indri flake input's
+# pin; this pin stays authoritative for the PWA checkout tag, the
+# pwa-version.js stamp, and the gated daemon rollback re-write. The role
+# converges the PWA to this tag on every run, and the gated legs re-install
+# the daemon only when heph_ansible_managed is flipped. Bump on each release,
+# then `mise run provision-indri -- --tags heph`. See docs/reference/services/hephaestus.md.
+heph_version: v1.10.9
 
 # Anonymous public HTTPS clone — used for the ansible-driven `cargo install`
 # and the PWA source checkout, so provisioning needs no ssh-agent.
@@ -61,3 +64,12 @@ heph_authorized_subs: []
 # false in inventory/group_vars/all.yml to intentionally run the hub without
 # the spoke; a failing `op read` while this is true aborts the play.
 heph_agents_sub_enabled: true
+
+# The hub daemon is generation-owned (darwin/indri, eblume/blumeops#1655):
+# the nix-darwin switch writes mcquack.eblume.heph.plist and the store hephd
+# replaces the cargo install. Skipped by default: a normal provision must
+# not touch the daemon. Flip this to true only for the rollback re-write
+# (darwin-rebuild --rollback first, then
+# `mise run provision-indri -- --tags heph -e heph_ansible_managed=true`),
+# per docs/how-to/indri/provision.md §Rolling back a service flip.
+heph_ansible_managed: false

@@ -1,6 +1,32 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, hephPkg, ... }:
 let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
+  # The heph hub (eblume/blumeops#1655): the store hephd the generation's
+  # mcquack.eblume.heph agent runs. Paths are the role's current values
+  # (ansible/roles/heph/defaults/main.yml) - the db, socket, PWA checkout
+  # and log paths all stay put.
+  hephDataDir = "/Users/erichblume/.local/share/heph";
+  hephPwaRoot = "/Users/erichblume/.cache/heph-pwa-src/heph-pwa";
+  # The ringtail agent spoke's dedicated OIDC sub (talos-heph identity). It
+  # arrives in argv: hephd accepts --authorized-sub argv-only, so the wrapper
+  # below cats the seeded file at startup instead of the store carrying it.
+  hephHubSubFile = "/Users/erichblume/.config/heph-hub/authorized-sub";
+  hephHubRunner = pkgs.writeShellScriptBin "mcquack-heph-hub" ''
+    sub_file=${hephHubSubFile}
+    if [ ! -r "$sub_file" ] || [ ! -s "$sub_file" ]; then
+      printf 'error: heph authorized-sub file missing or empty at %s; seed it with `mise run seed-secrets indri`\n' "$sub_file" >&2
+      exit 1
+    fi
+    exec ${hephPkg}/bin/hephd \
+      --mode server \
+      --http-addr 0.0.0.0:8787 \
+      --db ${hephDataDir}/heph.db \
+      --socket ${hephDataDir}/hephd.sock \
+      --web-root ${hephPwaRoot} \
+      --oidc-issuer https://authentik.ops.eblu.me/application/o/heph/ \
+      --oidc-audience heph \
+      --authorized-sub "$(cat "$sub_file")"
+  '';
   # The four *-metrics collectors feeding alloy's node_exporter textfile dir (PR 4 moved them here).
   mcquackBorgmaticMetrics = pkgs.writeScript "mcquack-borgmatic-metrics" (builtins.readFile ./mcquack-borgmatic-metrics.sh);
   # forge/runners.json is the declared source for the runner fleet
@@ -363,6 +389,10 @@ MCQUACK_NIX_WAIT_SYSTEM
     done
     if [[ -n "$missing" ]]; then
       printf 'error: forgejo-runner identity incomplete (missing or empty:%s) - failing the switch before anything changes; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "$missing" >&2
+      exit 1
+    fi
+    if [[ ! -r ${hephHubSubFile} || ! -s ${hephHubSubFile} ]]; then
+      printf 'error: heph authorized-sub file missing or empty at %s - failing the switch before anything changes; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "${hephHubSubFile}" >&2
       exit 1
     fi
   '';
@@ -731,6 +761,28 @@ AUTHORIZED_KEYS
     };
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.zot.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.zot.err.log";
+  };
+
+  # The heph hub (eblume/blumeops#1655): same label, plist path and log paths
+  # the ansible role rendered, so the switch swaps the plist in place (one
+  # reload, never dual-loaded). argv0 is the pre-/nix wrapper per invariants.nix
+  # (eblume/blumeops#1225); the store wrapper carries the --authorized-sub argv
+  # the role's op-read leg used to inject, from the seeded on-host file (the
+  # flake reads no vault). The PWA checkout stays role-managed - the store is
+  # read-only, and the web root must stay a mutable git checkout with its
+  # pwa-version.js stamp. Rollback per [[provision]] §Rolling back a service
+  # flip, with heph_ansible_managed flipped.
+  launchd.user.agents."mcquack.eblume.heph".serviceConfig = {
+    Label = "mcquack.eblume.heph";
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${hephHubRunner}/bin/mcquack-heph-hub" ];
+    RunAtLoad = true;
+    KeepAlive = true;
+    EnvironmentVariables = {
+      PATH = "/Users/erichblume/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+      HOME = "/Users/erichblume";
+    };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.heph.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.heph.err.log";
   };
 
   # caddy (PR 6): fronts every *.ops.eblu.me endpoint + L4 route; with the unit unloaded

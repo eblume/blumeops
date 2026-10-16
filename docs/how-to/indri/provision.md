@@ -543,7 +543,36 @@ the old declarations): `ls -l /etc/resolver/ts.net` is a regular file,
 `ls /etc/ssh/sshd_config.d` shows only Apple's `100-macos.conf`, and
 `sudo sshd -t` passes.
 
-## Rolling back a service flip (PRs 2–12)
+## heph hub
+
+The heph hub is the series' highest-blast-radius flip (eblume/blumeops#1655):
+losing it wedges every spoke's sync and the PWA's data path until the unit is
+reloaded. The unit is a nix-managed user agent (`mcquack.eblume.heph`) at the
+same label, plist path and log names the ansible role used; the store `hephd`
+(the `cli` output of the `hephaestus` flake input) runs behind a static
+wrapper that cats the seeded authorized-sub file into argv (hephd accepts
+`--authorized-sub` argv-only — the flake reads no vault). The PWA checkout and
+its `pwa-version.js` stamp stay role-managed and ungated: the store is
+read-only, and the web root must stay a mutable git checkout. The role's
+daemon legs (cargo install, version gate, plist render + load, the op-read
+leg) sit behind `heph_ansible_managed` (default false). Applying the flip is
+the auto-apply on merge (`provision-indri`, class auto) or `mise run
+provision-indri -- --tags rebuild`. Seed before the merge: `mise run
+seed-secrets indri` from the PR branch's checkout seats
+`~/.config/heph-hub/authorized-sub` — the switch's checks slot refuses any
+switch until the file exists. After the flip lands, `mise run
+provision-indri -- --tags heph` re-stamps the PWA checkout and its
+`pwa-version.js` to the new `heph_version` tag. What changes the drill: with the unit
+unloaded, the hub is down — every spoke's sync and the PWA's data path —
+until the switch reloads it; the PWA shell files themselves keep serving from
+the role's checkout. Pre-flip: confirm the latest borgmatic archive-tier
+backup of `~/.local/share/heph/heph.db` is fresh (the never-lose dump rides
+the daily 02:00 archive run) — the hub DB is the only copy of the
+task/context data. Rollback per §Rolling back a service flip, with the
+role's gate flipped: `mise run provision-indri -- --tags heph -e
+heph_ansible_managed=true`.
+
+## Rolling back a service flip
 
 Each service migration writes its plist at the same path ansible used,
 under the same label (logrotate's globs and alloy's log tails key on it
@@ -597,6 +626,7 @@ every front-facing endpoint stays up. For the jellyfin flip (PR 9), re-run
 — the media endpoints (`jellyfin.ops.eblu.me`) are down during the
 window; forge, the registry and every other endpoint stay up, and the
 dedicated blackbox probe witnesses both the flip and any regression.
+For the heph hub flip (eblume/blumeops#1655), re-run `mise run provision-indri -- --tags heph -e heph_ansible_managed=true` — the hub (every spoke's sync and the PWA's data path) is down during the window; the PWA shell files keep serving from the role's checkout.
 Never ansible first — that would leave the old plist loaded under the
 new generation.
 
