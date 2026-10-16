@@ -1,0 +1,1 @@
+The ArgoCD card documents why a "Synced" app can still carry keys its manifests no longer declare — the bootstrap `kubectl` field manager's ownership of `argocd-cm`/`argocd-secret` keys (the stale `workflow-bot` account and orphaned token records left by the #1039 principals sweep) — and the principals reference points at it for account sweeps.

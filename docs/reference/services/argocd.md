@@ -1,6 +1,6 @@
 ---
 title: ArgoCD
-modified: 2026-10-03
+modified: 2026-10-16
 last-reviewed: 2026-06-09
 tags:
   - service
@@ -64,6 +64,12 @@ The cost is the general one: a resource dropped from git under one of these apps
 Tracking is label-based (`app.kubernetes.io/instance`; no `resourceTrackingMethod` is configured, so ArgoCD's default applies). Five of the thirteen share the `monitoring` namespace and two share `alloy`, but each Application has a distinct name and therefore a distinct label, so they do not prune each other's resources.
 
 The [[request-a-privileged-run|ArgoCD Deploy]] `prune` input remains the route for the apps that keep `prune: false`.
+
+### Bootstrap-owned fields survive sync (`argocd-cm`, `argocd-secret`)
+
+The `argocd` app self-manages: it syncs its own manifests — the `argocd-cm` accounts patch and `argocd-rbac-cm` among them — by server-side apply. SSA prunes only the fields *it* owns (per-field `managedFields` ownership); a key written by another field manager is never removed, and a field the app's declared manifests don't touch is invisible to its diff. The original bootstrap applied `argocd-cm`/`argocd-secret` with manual `kubectl` (see `argocd/manifests/argocd/README.md`), and that field manager still owns whatever it wrote — so a key bootstrap created but the repo no longer declares survives every sync while the app reads **Synced**: for every field the app tracks, the live object matches the declared state.
+
+The #1039 principals sweep (eblume/blumeops#1167, verified live 2026-10-16) left exactly this: the `accounts.workflow-bot` key in `argocd-cm` and the `tokens.workflow-bot` / `tokens.agents-readonly` API-token records in `argocd-secret`. All three are inert (no RBAC grant, no `policy.default`) but removable only by manual `kubectl` — the removal is a Human step on eblume/blumeops#1167. Consequence for any account or credential sweep: **Synced does not mean the live object equals the manifest.** Compare the live keys against the repo manifests (`kubectl -n argocd get cm argocd-cm -o jsonpath='{.data}'`, `kubectl -n argocd get secret argocd-secret -o jsonpath='{.data}' | jq keys`) and treat any extra as bootstrap residue to delete by hand.
 
 Four applications remain **manual**, each for a stated reason in its manifest:
 
