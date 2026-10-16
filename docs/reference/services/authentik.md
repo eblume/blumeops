@@ -1,6 +1,6 @@
 ---
 title: Authentik
-modified: 2026-09-20
+modified: 2026-10-16
 last-reviewed: 2026-09-20
 tags:
   - service
@@ -48,6 +48,8 @@ Authentik configuration is managed via Blueprints (YAML) stored as a ConfigMap m
 Group membership is included in the `profile` scope claim (Authentik built-in). Services use `--group-claim-name groups` to read it.
 
 Blueprint file: `argocd/manifests/authentik/configmap-blueprint.yaml`
+
+The `authentik_core.user`, `authentik_core.group`, and `authentik_policies.policybinding` entries are rendered from `argocd/manifests/authentik/principals.yaml` plus `retiring.yaml` by `mise run render-authentik-principals`; the Lint gate fails on drift ([[manage-authentik-principals]]). A `retiring.yaml` entry renders as an inactive record the blueprint keeps owning until the principal is deleted from live Authentik.
 
 YAML tag gotcha: `!Env` takes a bare scalar (`!Env AUTHENTIK_GRAFANA_CLIENT_SECRET`), not a sequence — `!Find` is the one that uses sequences.
 

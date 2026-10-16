@@ -1,6 +1,6 @@
 ---
 title: Zot
-modified: 2026-10-15
+modified: 2026-10-16
 last-reviewed: 2026-09-16
 tags:
   - service
@@ -145,8 +145,11 @@ string, not by the IdP user: deleting the Authentik user leaves its minted
 keys in zot, and a new user with the same username re-attaches them (this
 surfaced 2026-09-15 when the new `horkos-zot` publisher inherited the
 deleted step-2 user's 2026-09-13 key, a live credential whose 1Password
-field was already gone). A retirement must therefore revoke the identity's
-zot API keys *before* deleting the Authentik user. Two ways to take the key
+field was already gone). A retirement now runs through the principals
+deletion queue (`argocd/manifests/authentik/retiring.yaml`): the entry's
+`keys_revoked: true` is the ordering rule — revoke the identity's zot API
+keys *before* deleting the Authentik user — enforced at delete time
+([[manage-authentik-principals]]). Two ways to take the key
 listing: `mise run zot-apikey-rotate <identity> --dry-run`, but only *before*
 the retire PR merges — that PR is what removes the identity from the rotate
 table — or at any time against the raw endpoint with the stored key (`curl

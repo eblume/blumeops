@@ -1,0 +1,40 @@
+# Deletion queue for retired Authentik principals. Normally empty.
+#
+# Each entry renders an `is_active: false` user record (plus its group, if
+# declared) into the blueprint's `retiring.yaml` key, so the blueprint keeps
+# owning the record until the reconcile task deletes it from live Authentik.
+# After the delete, remove the entry and re-render. Queue seeded from the
+# eblume/blumeops#1167 roster check (2026-10-16): three identities
+# deactivated but never deleted.
+#
+# Retiring a principal: docs/how-to/authentik/manage-authentik-principals.md.
+#
+# Schema: username (required), name (required — rendered as attrs.name),
+# type? (rendered when present; omit when unknown to leave the live value),
+# retired (date), issue (where the retirement was decided),
+# keys_revoked? (required `true` for zot identities — the reconcile refuses
+# to delete one without it), group? (a paired group rendered alongside the
+# user; its bindings are not rendered).
+
+- username: agent-ringtail
+  name: "Agent (ringtail workspace)"
+  type: service_account
+  retired: 2026-10-05
+  issue: eblume/blumeops#1164
+
+- username: zot-ci
+  name: "Zot CI Service Account"
+  type: service_account
+  retired: 2026-09-18
+  issue: eblume/blumeops#1162
+  # Key eddb804e-... revoked 2026-09-18 (#1162 ceremony); step 2's inventory
+  # re-verifies it live before the delete.
+  keys_revoked: true
+
+- username: talos-heph-stray
+  name: "Talos Heph Stray (retired)"
+  retired: 2026-10-16  # retirement ruling date; deactivation date unrecorded
+  issue: eblume/blumeops#1167
+  # The #1419 blueprint-apply stray (pk 42) carries its group pair; the live
+  # order-1 heph binding for it is deleted with the group.
+  group: talos-heph-stray

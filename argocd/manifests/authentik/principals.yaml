@@ -1,0 +1,177 @@
+# The Authentik principal roster — the single source of truth for every
+# authentik_core.user, authentik_core.group, and authentik_policies.policybinding
+# entry in argocd/manifests/authentik/configmap-blueprint.yaml.
+#
+# `mise run render-authentik-principals --write` emits those entries into the
+# committed ConfigMap; the Lint gate (prek hook `render-authentik-principals`)
+# fails on drift between this file + retiring.yaml and the ConfigMap.
+#
+# Add, retire, or reorder a principal: docs/how-to/authentik/manage-authentik-principals.md.
+#
+# Identifier semantics (eblume/blumeops#1039 cycle 4): a changed username or
+# group name creates a NEW Authentik object and orphans the old one. Never
+# rename a principal in place — retire it through retiring.yaml.
+#
+# Schema:
+#   groups[]:  name, blueprint (data key that owns the group entry), purpose
+#              (reader-only, not rendered), access[] {app, order?, ref?},
+#              roles[] (blueprint ids declared in the same data key)
+#   principals[]: username, name, tier (naming-scheme tier; the renderer
+#              validates the prefix), type? (omit for internal users),
+#              state (always `active` here), since?/origin?, groups[],
+#              blueprint? (home data key; default: the first group's),
+#              credential? (kind: zot-apikey; master: op path; sink: the
+#              rotation target)
+#
+#   access[].order pins the policybinding's historical slot (0-based, unique
+#   per app; retired bindings leave gaps, they are never reused). Omitted
+#   order is derived as (max pinned in the app) + 1, so new bindings are
+#   never hand-numbered. access[].ref is `keyof` or `find`; default is
+#   `keyof` when the binding and its group share a data key, else `find`.
+
+groups:
+  # Baseline human group — gates access to admin-only applications.
+  - name: admins
+    blueprint: common
+    purpose: "Admin humans; every admin-gated application binds this"
+    access:
+      - app: grafana
+        order: 0
+      - app: forgejo
+        order: 0
+      - app: zot
+        order: 0
+      - app: argocd
+        order: 0
+      - app: heph
+        order: 0
+      - app: horkos
+        order: 0
+      - app: talos
+        order: 0
+
+  - name: horkos-artifacts
+    blueprint: zot
+    purpose: "zot push-only; the horkos publisher (warrant-dispatch) tier"
+    access:
+      - app: zot
+        order: 3
+
+  - name: ci-talos-artifacts
+    blueprint: zot
+    purpose: "zot push-only; eblume/talos release CI"
+    access:
+      - app: zot
+        order: 5
+
+  - name: ci-horkos-artifacts
+    blueprint: zot
+    purpose: "zot push-only; eblume/horkos release CI"
+    access:
+      - app: zot
+        order: 6
+
+  - name: ci-artifacts
+    blueprint: zot
+    purpose: "zot base push identity (build-container CI)"
+    access:
+      - app: zot
+        order: 7
+
+  - name: talos-heph
+    blueprint: heph
+    purpose: "Scopes the agent spoke to heph only (deliberately not admins)"
+    access:
+      # Same data key as the group, but the existing binding is a !Find — pin it.
+      - app: heph
+        order: 1
+        ref: find
+
+  - name: talos-sa
+    blueprint: talos-m2m
+    purpose: "Talos service-account tier (deliberately not admins)"
+    access:
+      - app: talos-m2m
+        order: 0
+
+  - name: ci-authentik-blueprints
+    blueprint: ci-authentik-blueprints
+    purpose: "Read-only blueprint-instance viewer for the exporter"
+    roles:
+      - ci-authentik-blueprints-role
+
+principals:
+  - username: ci-zot
+    name: "CI Zot Service Account"
+    tier: ci
+    type: service_account
+    state: active
+    origin: eblume/blumeops#1039
+    groups: [ci-artifacts]
+    credential:
+      kind: zot-apikey
+      master: "op://blumeops/Forgejo Secrets/ci-zot-api"
+      sink:
+        op: { vault: blumeops-ci, item: ci-zot, field: api-key }
+
+  - username: ci-zot-talos
+    name: "CI Zot Talos Service Account"
+    tier: ci
+    type: service_account
+    state: active
+    origin: eblume/blumeops#1039
+    groups: [ci-talos-artifacts]
+    credential:
+      kind: zot-apikey
+      master: "op://blumeops/Forgejo Secrets/ci-zot-talos-api"
+      sink:
+        forge-secret: eblume/talos:ZOT_PUSH_API_KEY
+
+  - username: ci-zot-horkos
+    name: "CI Zot Horkos Service Account"
+    tier: ci
+    type: service_account
+    state: active
+    origin: eblume/blumeops#1039
+    groups: [ci-horkos-artifacts]
+    credential:
+      kind: zot-apikey
+      master: "op://blumeops/Forgejo Secrets/ci-zot-horkos-api"
+      sink:
+        forge-secret: eblume/horkos:ZOT_PUSH_API_KEY
+
+  - username: horkos-zot
+    name: "Horkos Zot Service Account"
+    tier: horkos
+    type: service_account
+    state: active
+    origin: eblume/blumeops#1039
+    groups: [horkos-artifacts]
+    credential:
+      kind: zot-apikey
+      master: "op://blumeops/Forgejo Secrets/horkos-zot-api"
+      sink:
+        op: { vault: blumeops, item: Forgejo Secrets, field: horkos-zot-api }
+
+  - username: talos-heph
+    name: "Heph Agent Spoke"
+    tier: talos
+    state: active
+    origin: eblume/blumeops#1164
+    groups: [talos-heph]
+
+  - username: talos-ringtail
+    name: "Talos (ringtail workspace)"
+    tier: talos
+    type: service_account
+    state: active
+    origin: eblume/blumeops#1164
+    groups: [talos-sa]
+
+  - username: ci-authentik-blueprints
+    name: "Authentik Blueprint Exporter"
+    tier: ci
+    type: service_account
+    state: active
+    origin: eblume/blumeops#1444
+    groups: [ci-authentik-blueprints]
