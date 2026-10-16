@@ -1,7 +1,7 @@
 ---
 title: Forgejo Runner
-modified: 2026-10-05
-last-reviewed: 2026-06-10
+modified: 2026-10-16
+last-reviewed: 2026-10-16
 tags:
   - service
   - ci-cd
@@ -14,7 +14,8 @@ native macOS LaunchAgent on [[indri]] — the unit, the main
 runner's `config.yaml` and the cache maintenance agents are
 nix-managed (the [[indri]] flake's generation, eblume/blumeops#1528),
 and the `forgejo_runner` ansible role renders only the build
-runner's config (eblume/blumeops#1627); jobs run
+runner's config and colima profile (eblume/blumeops#1627); jobs
+run
 host-mode with no container engine. (Previously
 a minikube pod with a Docker-in-Docker sidecar — replaced in phase 0 of
 [[retire-minikube]].)
@@ -24,7 +25,7 @@ a minikube pod with a Docker-in-Docker sidecar — replaced in phase 0 of
 | Property | Value |
 |----------|-------|
 | **LaunchAgent** | `mcquack.eblume.forgejo-runner` (unit nix-managed — [[indri]] §Maintenance Notes) |
-| **Ansible role** | `ansible/roles/forgejo_runner/` (build runner's config, cache maintenance agents) |
+| **Ansible role** | `ansible/roles/forgejo_runner/` (build runner's config and colima profile; eblume/blumeops#1627) |
 | **Runner Name** | `indri-runner` |
 | **Labels** | `indri` + `indri-priv` (dedicated to warrant-dispatched provision-indri; same physical runner) |
 | **Capacity** | 2 concurrent jobs |
@@ -48,8 +49,8 @@ The main runner's `config.yaml` (including the runner token, labels and
 the forge-ci GitHub PAT) is rendered by the [[indri]] flake's generation
 from `forge/runners.json` plus the seed-secrets identity files, and a
 content change kickstarts the agent (eblume/blumeops#1528) — so label,
-capacity and identity changes apply with `--tags rebuild`. The two
-cache-maintenance agents and the `indri-build` runner's config (until
+capacity and identity changes apply with `--tags rebuild`. Only the
+`indri-build` runner's config and colima profile (until
 eblume/blumeops#1627) stay managed by the `forgejo_runner` ansible role;
 the LaunchAgent unit is nix-managed
 (`launchd.user.agents."mcquack.eblume.forgejo-runner"` in the [[indri]]
@@ -184,8 +185,9 @@ it — an idle-runner operation, so it runs in its own monthly window
 with the runner stopped. Two LaunchAgents (in the nix-darwin generation) handle the
 recurrence:
 
-- **Nightly sweep** — `mcquack.eblume.runner-cache-sweep` (default
-  5:30, clear of borgmatic's 2:00 and 4:00 runs):
+- **Nightly sweep** — `mcquack.eblume.runner-cache-sweep` (daily 05:30,
+  the flake's `StartCalendarInterval`, clear of borgmatic's 2:00 and 4:00
+  runs):
   - Deletes `~/.cache/uv/environments-v2` entries not modified in
     240 minutes. The threshold deliberately exceeds the runner's
     3-hour job timeout, so a live job's environment (created when its
@@ -213,9 +215,21 @@ recurrence:
 | runner token | 1Password ("Forgejo Secrets" → `runner_indri_token`) | Static runner credential for `server.connections` |
 | GitHub PAT | 1Password ("Forgejo Secrets" → `forge-ci-github-pat`) | `MISE_GITHUB_TOKEN` in `runner.envs`, injected into every job |
 
-Fetched by playbook `pre_tasks` via `op read`, rendered into the
-config file (mode 0600) at provision time. Rotation = re-register
-(see [[configure-launchd-runner]]) and re-provision.
+For the main runner the three values are declared in
+`darwin/indri/secrets.json` and seated by `mise run seed-secrets
+indri` (a human, on gilbert) as the identity files under the runner's
+home (`~/forgejo-runner/identity/`, 0600 erichblume:staff); the
+generation renders them into `config.yaml` (0600), and a content
+change kickstarts the agent. Rotation = re-register (see
+[[configure-launchd-runner]]) → update the "Forgejo Secrets"
+1Password item → `mise run seed-secrets indri` (re-seat + kick the
+agent) → the next `--tags rebuild` apply re-renders the config. The
+`indri-build` runner still works the old way — playbook `pre_tasks`
+fetches its values via `op` (`op item get` for the identity fields,
+`op read` for the PAT) and the role renders its config at provision
+time — until eblume/blumeops#1627. The table lists the main runner's
+fields; the build runner's identity is `runner_indri_build_uuid` /
+`runner_indri_build_token` in the same item, and it shares the PAT.
 
 The GitHub PAT exists because Forgejo injects `GITHUB_TOKEN` (a *forge*
 job token) into every job, and mise honours that name for
@@ -226,9 +240,11 @@ token is the same zero-permission public-read PAT the mirror sync uses
 — rotation and constraints in [[manage-forgejo-mirrors]]. Because
 `runner.envs` is readable by every job on this runner, the no-scopes
 rule is load-bearing: a credential that needs *any* scope needs its own
-token and a narrower home. Note a runner-env change takes effect at
-provision time, so a PAT rotation is not live for CI until the next
-`provision-indri`.
+token and a narrower home. On the main runner a runner-env change
+takes effect when the `mise-github-token` file is re-seeded (`mise
+run seed-secrets indri`) and the generation re-applied — the
+`--tags rebuild` switch — so a PAT rotation is not live for CI until
+then.
 
 ## Related
 

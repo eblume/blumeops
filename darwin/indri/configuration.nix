@@ -784,8 +784,8 @@ AUTHORIZED_KEYS
   };
 
   # Cache maintenance for the main runner (eblume/blumeops#1528 PR 3): nightly
-  # sweep, monthly prune. The log paths are alloy's tail keys and Loki's ship
-  # names — never rename.
+  # sweep, monthly prune. The sweep's log paths are alloy's tail keys and
+  # Loki's ship name — never rename.
   launchd.user.agents."mcquack.eblume.runner-cache-sweep".serviceConfig = {
     Label = "mcquack.eblume.runner-cache-sweep";
     ProgramArguments = [ "${nixWait}" ] ++ [ "${mcquackRunnerCacheSweep}" ];

@@ -1,7 +1,7 @@
 ---
 title: Configure the launchd Forgejo Runner on indri
-modified: 2026-10-05
-last-reviewed: 2026-09-04
+modified: 2026-10-16
+last-reviewed: 2026-10-16
 tags:
   - how-to
   - forgejo-runner
@@ -11,10 +11,11 @@ tags:
 # Configure the launchd Forgejo Runner on indri
 
 Run the Forgejo Actions runner as a native macOS LaunchAgent on
-[[indri]] — the main runner's LaunchAgent and `config.yaml` are owned
-by the [[indri]] flake's generation (eblume/blumeops#1528); the build
-runner's config and the cache agents stay in the `forgejo_runner`
-ansible role until eblume/blumeops#1627. Jobs run
+[[indri]] — the main runner's LaunchAgent, `config.yaml` and the cache
+maintenance agents are owned by the [[indri]] flake's generation
+(eblume/blumeops#1528); the `forgejo_runner` ansible role holds only
+the build runner's config and colima profile until eblume/blumeops#1627.
+Jobs run
 directly on the host with indri's mise toolchain (host-mode); Docker
 Desktop stays only as the dagger engine host (the runner keeps dagger for the hephaestus/cv CI it hosts). This replaced the
 minikube-hosted runner as phase 0 of [[retire-minikube]], so source
@@ -26,8 +27,8 @@ phase 6 then dropped the per-job container entirely.
 - **Daemon:** the nixpkgs `forgejo-runner` binary (13.1.0, the [[indri]]
   flake's nixpkgs pin) runs as the nix-managed LaunchAgent
   `mcquack.eblume.forgejo-runner` (same pattern as [[forgejo]]); the
-  source checkout at `~/code/3rd/forgejo-runner` is the rollback
-  re-write's target only.
+  source checkout at `~/code/3rd/forgejo-runner` is the build
+  runner's rollback re-write staging source only.
 - **Jobs:** run directly on the host as `erichblume` with indri's
   mise toolchain (labels are registered `:host`) — no per-job
   container and no `runner-job-image` (phase 6), and no container
@@ -88,17 +89,32 @@ into the runner config (mode 0600) — see eblume/blumeops#1528.
 mise run provision-indri -- --tags forgejo_runner
 ```
 
-The main runner's `config.yaml` is no longer touched by this tag — the
-generation renders it from the identity files and `forge/runners.json`
-— so this apply covers the cache agents and the build runner.
+This tag drives only the indri-build half: it renders the build
+runner's config and installs the colima profile. The main runner's
+`config.yaml` and the cache agents are generation-owned — they apply
+with `mise run provision-indri -- --tags rebuild`, which is the step
+that renders the config from the identity files and
+`forge/runners.json` after `mise run seed-secrets indri` seats them.
 
-If the colima profile (hardware or registry mirror) changed, the
-`Restart colima-build VM` handler stops the VM and its launchd
-wrapper restarts it with the new profile; jobs running at that moment
-lose their engine. colima rewrites the live profile with its own full
-default form on start, so the role compares the new render against a
-copy of the last render it installed, kept in the stage dir - a
-hand edit to the live profile is not detected (nothing relies on it). The copy does not exist until the first install, so the first apply after this change installs the profile and restarts the VM once; every apply after that is a no-op on a converged box.
+When this tag runs and the colima profile (hardware or registry
+mirror) changed, the `Restart colima-build VM` handler stops the VM
+and its launchd wrapper restarts it with the new profile; jobs
+running at that moment lose their engine. colima rewrites the live
+profile with its own full default form on start, so the role compares
+the new render against a copy of the last render it installed, kept
+in the stage dir - a hand edit to the live profile is not detected
+(nothing relies on it). The copy does not exist until the first
+install, so the first apply after this change installs the profile
+and restarts the VM once; every apply after that is a no-op on a
+converged box.
+
+The main side has no ansible drift check left — its pre-apply check
+is the Indri Flake Check: the CI workflow
+(`.forgejo/workflows/indri-flake-check.yaml`) builds the generation
+on any PR (or push to main) touching `darwin/indri/`, `ntfy/` or
+`forge/runners.*`, or `mise run indri-flake-check` for a human
+window, replacing the role's old `--check --diff` — see
+[[provision]] §Pre-apply check: indri-flake-check.
 
 ## indri-build runner (second, unprivileged)
 
