@@ -1,7 +1,7 @@
 ---
 title: TeslaMate
-modified: 2026-04-07
-last-reviewed: 2026-03-23
+modified: 2026-10-16
+last-reviewed: 2026-10-16
 tags:
   - service
   - vehicle
@@ -16,9 +16,10 @@ Self-hosted Tesla data logger collecting vehicle telemetry from the Tesla API.
 | Property | Value |
 |----------|-------|
 | **URL** | https://tesla.ops.eblu.me |
+| **ArgoCD app** | `teslamate-ringtail` (ringtail k3s) |
 | **Namespace** | `teslamate` |
-| **Image** | `registry.ops.eblu.me/blumeops/teslamate` (see `argocd/manifests/teslamate/kustomization.yaml` for current tag) |
-| **Database** | [[postgresql]] |
+| **Image** | `registry.ops.eblu.me/blumeops/teslamate` (see `argocd/manifests/teslamate-ringtail/kustomization.yaml` for current tag) |
+| **Database** | [[postgresql]] — CNPG `blumeops-pg` on ringtail, in-cluster at `blumeops-pg-rw.databases.svc.cluster.local` |
 
 ## Data Collected
 
@@ -39,7 +40,9 @@ Self-hosted Tesla data logger collecting vehicle telemetry from the Tesla API.
 - Drive Stats, Charging Stats, Projected Range
 - Timeline, Updates, Visited
 
-Dashboards use PostgreSQL datasource (not Prometheus). The Grafana datasource connects as the `teslamate` database user.
+Dashboards use PostgreSQL datasource (not Prometheus). The Grafana datasource connects as the `teslamate` database user via the Caddy L4 route `pg.ops.eblu.me:5434` → `blumeops-pg-ringtail`.
+
+The dashboard files are not in this repo: a Grafana init container fetches them at startup from the `mirrors/teslamate` forge mirror at a pinned tag (version in `argocd/manifests/grafana-ringtail/deployment.yaml` — bump `TESLAMATE_VERSION` there to update the set).
 
 ## Database Permissions
 
@@ -69,3 +72,4 @@ Uses Tesla Owner API via OAuth:
 - [[postgresql]] - Data storage
 - [[grafana]] - Dashboards
 - [[borgmatic]] - Database backup
+- [[migrate-wave1-ringtail]] - Migration off minikube
