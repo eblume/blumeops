@@ -1953,7 +1953,6 @@ def test_derived_label_policy_matches_checked_in_runners_json():
     assert ara.derive_privileged_label_policy(data["runners"]) == {
         "indri": frozenset({"blumeops"}),
         "indri-priv": frozenset({"blumeops"}),
-        "e2e-proof": frozenset({"blumeops"}),
         "priv": frozenset({"blumeops"}),
         "nix-container-builder": frozenset(
             {"blumeops", "horkos", "talos", "hephaestus"}
