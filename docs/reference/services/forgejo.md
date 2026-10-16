@@ -139,7 +139,7 @@ name.
 
 | Repo | Secrets | Purpose |
 |------|---------|---------|
-| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN`, `FORGE_ACTIONS_RO` | `forge-reconcile` reconcile + drift check (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items; read-only forge token for the auto-apply preflights |
+| `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN`, `FORGE_ACTIONS_RO`, `FORGE_PAT_ROTATE_OP_TOKEN` | `forge-reconcile` reconcile + drift check (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items; read-only forge token for the auto-apply preflights; read+write-`agents`-vault service account for the `forge-bot-pat-rotate` warrant run |
 | `eblume/hephaestus` | — (none) | No secrets declared: the `MAIN_PUSH_TOKEN` changelog main push was retired by the release-PR model ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)) — the next human apply deletes the live secret, after which the `hephaestus-token` PAT is pending revocation |
 | `eblume/talos`, `eblume/horkos` | `ZOT_PUSH_API_KEY` | Auto-release CI: per-repo push-only zot identity (`ci-zot-talos` / `ci-zot-horkos`), provisioned from the zot master fields by the values half |
 | `eblume/cv` | — (none) | Release CI is stored-secret-free; the empty declaration makes provisioning authoritative here (first run deletes the stale `FORGE_TOKEN`) |

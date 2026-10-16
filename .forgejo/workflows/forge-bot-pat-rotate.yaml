@@ -41,6 +41,13 @@ on:
         required: true
         type: string
 
+# Rotations are not idempotent under overlap: two concurrent runs can
+# interleave mint/vault-write/revoke and leave a revoked token in the
+# vault. Serialize; a queued dispatch waits for the in-flight rotation.
+concurrency:
+  group: forge-bot-pat-rotate
+  cancel-in-progress: false
+
 jobs:
   rotate:
     runs-on: priv

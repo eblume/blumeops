@@ -29,7 +29,8 @@ consumer working. Key material never crosses argv and never lands on disk except
 values held in memory, vault writes go through a 0700-tempdir template, and
 the CI-path kubeconfig is read to a 0600 temp file for the pod roll.
 
-The warrant-gated CI path (workflow) comes in a later PR; this script is the
+The warrant-gated CI path is `.forgejo/workflows/forge-bot-pat-rotate.yaml`
+(dispatch-only, priv runner, bound SHA) and passes --ci; this script is the
 single ceremony used by both the manual (gilbert) and CI paths.
 """
 
