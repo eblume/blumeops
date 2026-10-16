@@ -1,7 +1,7 @@
 ---
 title: Hephaestus
-modified: 2026-09-12
-last-reviewed: 2026-09-12
+modified: 2026-10-16
+last-reviewed: 2026-10-16
 tags:
   - service
   - hephaestus
@@ -21,38 +21,47 @@ against one canonical **hub**. Indri runs that hub.
 | **PWA URL** | https://heph.ops.eblu.me (browser PWA, Caddy TLS) |
 | **Spoke sync URL** | http://indri.tail8d86e.ts.net:8787 (direct, tailnet) |
 | **Local Port** | 8787 (`hephd --mode server`, bound `0.0.0.0`) |
-| **Binary** | indri hub: `~/.cargo/bin/hephd` (the ringtail spokes run the nix-store package — see [Version management](#version-management)) |
+| **Binary** | indri hub: nix-store `hephd` (the `cli` output of the `hephaestus` input in darwin/indri/flake.nix); the ringtail spokes run the store package via nixos/ringtail's input — see [Version management](#version-management) |
 | **Data** | `~/.local/share/heph/heph.db` |
-| **PWA shell** | `~/.local/share/heph/web` |
+| **PWA shell** | `~/.cache/heph-pwa-src/heph-pwa` (role-managed checkout) |
 | **Logs** | `~/Library/Logs/mcquack.heph.{out,err}.log` |
 | **LaunchAgent** | `mcquack.eblume.heph` |
-| **Ansible role** | `ansible/roles/heph` (tag `heph`) |
+| **Ansible role** | `ansible/roles/heph` (tag `heph`) — PWA checkout + pwa-version.js stamp only since the store flip; daemon legs gated off by default |
 
 ## What runs on indri
 
 The launchagent runs the hub in server mode:
 
 ```
-hephd --mode server --http-addr 0.0.0.0:8787 --db ~/.local/share/heph/heph.db
-      --web-root ~/.local/share/heph/web
-      --oidc-issuer https://authentik.ops.eblu.me/application/o/heph/
-      --oidc-audience heph
+mcquack.nix-wait -> store wrapper (mcquack-heph-hub) -> store hephd
+    --mode server --http-addr 0.0.0.0:8787 --db ~/.local/share/heph/heph.db
+    --socket ~/.local/share/heph/hephd.sock --web-root ~/.cache/heph-pwa-src/heph-pwa
+    --oidc-issuer https://authentik.ops.eblu.me/application/o/heph/
+    --oidc-audience heph --authorized-sub <cat'ed from the seeded on-host file>
 ```
 
 - **Server mode** exposes the HTTP sync endpoint (`/rpc`, `/sync/*`) that spokes
   reconcile their op-log against.
 - **PWA** (`--web-root`) serves the [heph-pwa] mobile shell; Caddy terminates TLS
   at `heph.ops.eblu.me` so the PWA runs in a secure context (service worker,
-  install-to-home-screen, voice capture). On every provision the role also
-  stamps the `heph_version` tag as `pwa-version.js` in the web root, which the
-  PWA settings menu displays as its active version.
+  install-to-home-screen, voice capture). The role still does the git checkout
+  at the `heph_version` tag and stamps it as `pwa-version.js` in the web root
+  (the store is read-only, and the web root must stay a mutable checkout),
+  which the PWA settings menu displays as its active version. The stamp
+  converges on `mise run provision-indri -- --tags heph`.
+- **Authorized sub** arrives via argv only: hephd has no env/file/config source
+  for `--authorized-sub`, so the generation's static wrapper cats the seeded
+  on-host file at startup (the flake reads no vault); the file is declared in
+  darwin/indri/secrets.json and seated by `mise run seed-secrets indri`.
 
 > **No `--self-update`.** hephd's opt-in self-updater is deliberately **off**
-> everywhere (hub and spokes). Versions are pinned in IaC and converged by the
-> provisioner — see [Version management](#version-management). Leaving it off
-> means a fresh upstream release never lands on a device until a human bumps the
-> pin and re-provisions, so a release can't silently roll out (or roll out a
-> regression) between reviews.
+> everywhere (hub and spokes). Versions are pinned in IaC — the hub's `hephd`
+> by the `hephaestus` flake input, the spokes' by their own inputs, and the
+> hub's PWA shell by `heph_version` — and applied by the switch or converged by
+> the role's PWA leg; see [Version management](#version-management). Leaving it
+> off means a fresh upstream release never lands on a device until a human
+> bumps the pin and re-applies, so a release can't silently roll out (or roll
+> out a regression) between reviews.
 
 [heph-pwa]: https://github.com/eblume/hephaestus
 
@@ -68,7 +77,7 @@ upstream release, then bump the pin and re-provision.
 
 | Device | Managed by | Pin | Converged by |
 |--------|-----------|-----|--------------|
-| **indri** (hub) | `ansible/roles/heph` | `heph_version` (`defaults/main.yml`) | `mise run provision-indri -- --tags heph` — installs/upgrades `hephd` to the pinned tag on every run |
+| **indri** (hub) | `darwin/indri/flake.nix` (`hephaestus` input) | flake input ref (tag + tag-commit rev) | the generation's switch — auto-applied on merge (provision-indri, class auto) or `mise run provision-indri -- --tags rebuild`; the PWA stamp converges via `--tags heph` |
 | **ringtail-agent** (spoke) | `nixos/ringtail/flake.nix` (`hephaestus` input) | flake input ref (tag + tag-commit rev) | the toplevel build — the spoke starts at boot, no install oneshot |
 | **ringtail-eblume** (desktop spoke) | `nixos/ringtail/flake.nix` (`hephaestus` input) | flake input ref (tag + tag-commit rev) | the toplevel build — the user service starts at boot via linger, no install oneshot |
 | **gilbert** (spoke) | manual (not yet IaC) | — | hand `cargo install --tag`; see [Connecting a spoke](#connecting-a-spoke-eg-gilbert) |
@@ -80,6 +89,10 @@ change: the agent's system unit, and eblume's user unit — since nixos-25.11
 the switch (switch-to-configuration-ng) restarts changed user units for every
 user whose manager is running, and lingering keeps user@1000 up.
 
+The indri hub has its own pin: the `hephaestus` input in
+`darwin/indri/flake.nix` — bump it in the same PR as the spokes' when all
+three move together.
+
 Because both spokes' hephd is a toplevel store path, no heph build runs
 inside the switch (eblume/blumeops#1003's mid-activation compile is closed). The standing trade of pinning the flake input's nixpkgs to the
 channel: the package builds with the pinned nixos-26.05 rustc, so a heph
@@ -87,23 +100,27 @@ floor bump that outruns that rust is resolved by adding a pinned rust
 overlay to the ringtail flake — one flake.lock change, and still no second
 toolchain path on the host.
 
-The indri role converges the version on **every** provision (it compares
-`hephd --version` against `heph_version` and re-runs `cargo install --locked
---tag …` on a mismatch), so bumping the pin and re-provisioning is all an
-upgrade takes — and it will also **downgrade** if the pin is lowered. That
-`cargo install` build runs with `RUSTUP_TOOLCHAIN` (`heph_rust_toolchain`,
-`stable`): ansible runs without mise, so a bare `cargo` shim would otherwise
-fall back to rustup's *default* toolchain, which can lag behind heph's
-`rust-version` floor and silently fail the build.
+The indri hub's daemon no longer converges by provision: the pin is the
+`hephaestus` flake input, and the generation's switch applies it (a bump is a
+flake.lock change plus the usual `mise run provision-indri -- --tags
+rebuild`). The role's daemon legs (cargo install, the version gate, plist
+render + load, the op-read leg) sit behind `heph_ansible_managed` (default
+false) and run only for the rollback re-write (see [[provision]] §Rolling
+back a service flip); its PWA leg stays ungated and converges the checkout +
+`pwa-version.js` stamp to `heph_version` on `mise run provision-indri --
+--tags heph`.
 
 **Release → deploy flow:**
 
 1. Cut the upstream release (new `vX.Y.Z` tag on the hephaestus repo).
-2. Bump the pins in blumeops: `heph_version` (ansible, hub) and the
-   `hephaestus` flake input (both ringtail spokes, nixos/ringtail/flake.nix).
-   Open a PR as usual.
+2. Bump the pins in blumeops: the `hephaestus` flake input in
+   darwin/indri/flake.nix (hub) and nixos/ringtail/flake.nix (both spokes),
+   plus `heph_version` in ansible/roles/heph/defaults/main.yml (PWA stamp +
+   rollback re-write). Open a PR as usual.
 3. After review, converge each device:
-   - indri: `mise run provision-indri -- --tags heph`
+   - indri: the auto-apply (provision-indri, class auto) fires on the merge
+     and switches the hub; `mise run provision-indri -- --tags heph`
+     re-stamps the PWA at the new tag.
    - ringtail: nixos rebuild — both spokes' hephd is built into the toplevel
      by the flake input (the ringtail-flake-check runner builds it on
      ringtail's own nix store, so the switch reuses it); the switch restarts
@@ -113,7 +130,10 @@ fall back to rustup's *default* toolchain, which can lag behind heph's
    `systemctl is-active agent-heph-spoke` and
    `sudo systemctl --machine=eblume@.host --user is-active eblume-heph-spoke`
    (on ringtail) are their check — each version is the flake input's pin by
-   construction.
+   construction. On indri, `launchctl print "gui/$(id -u)/mcquack.eblume.heph"`
+   shows the store wrapper as `program =` with `last exit code = 0`, and a
+   spoke-side `heph sync --status` (e.g. from the talos pod) confirms
+   spoke→hub sync.
 
 ## Backups
 
@@ -166,8 +186,9 @@ identity** rather than rewriting the device:
    ```fish
    ssh indri "sqlite3 ~/.local/share/heph/heph.db \"DELETE FROM meta WHERE key='origin';\""
    ```
-4. `mise run provision-indri -- --tags heph` (installs hephd, stages the PWA,
-   loads the launchagent → hub starts on the seeded store).
+4. `mise run provision-indri` — the rebuild applies the generation-owned
+   launchagent + store hephd and the roles stage the PWA; the hub starts on
+   the seeded store.
 
 Only `meta.origin` changes; `owner_id`, nodes, op-log, and links are copied
 untouched. A clean `hephd --owner-id` / seed command is tracked upstream as
@@ -272,7 +293,7 @@ heph daemon stop        # or: launchctl unload ~/Library/LaunchAgents/<label>.pl
 
 # 4. Pin hephd to the network's current tag (matches heph_version in ansible).
 RUSTUP_TOOLCHAIN=stable ~/.cargo/bin/cargo install --locked \
-  --git https://forge.eblu.me/eblume/hephaestus.git --tag v1.10.6 heph hephd
+  --git https://forge.eblu.me/eblume/hephaestus.git --tag v1.10.9 heph hephd
 
 # 5. Reload via launchctl (NOT `heph daemon`, which would re-add self-update).
 launchctl unload ~/Library/LaunchAgents/<label>.plist 2>/dev/null || true
@@ -284,8 +305,9 @@ plutil -p ~/Library/LaunchAgents/<label>.plist | grep -c self-update   # → 0
 ```
 
 On each future release, redo step 4 with the new tag (there is no poller to do
-it automatically — that is the point). Folding gilbert into IaC (an ansible
-spoke role, mirroring the indri hub role) is tracked as follow-up.
+it automatically — that is the point). Folding gilbert into IaC (a
+spoke role or flake input, mirroring the indri hub's darwin/indri flake
+pin) is tracked as follow-up.
 
 ## Related
 

@@ -5,11 +5,25 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     nix-darwin.url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
+    # heph hub (eblume/blumeops#1655): the `cli` output (heph + hephd, no
+    # heph-quickadd GUI stack) pinned to the release tag; the explicit rev is
+    # that tag's commit. Follows this flake's nixpkgs so it compiles with
+    # aarch64-darwin's rustc. Same pin shape as nixos/ringtail's spokes'
+    # input; the hub and the spokes bump independently.
+    hephaestus = {
+      url = "git+https://forge.ops.eblu.me/eblume/hephaestus.git?ref=v1.10.9&rev=7227cbe22b25fa36190d9ca9b6940e2828c1dc17";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = inputs@{ self, nix-darwin, nixpkgs, ... }:
+  outputs = inputs@{ self, nix-darwin, nixpkgs, hephaestus, ... }:
     {
       darwinConfigurations.indri = nix-darwin.lib.darwinSystem {
+        # The heph store package the mcquack.eblume.heph agent's wrapper execs
+        # (eblume/blumeops#1655).
+        specialArgs = {
+          hephPkg = hephaestus.packages."aarch64-darwin".cli;
+        };
         modules = [ ./configuration.nix ];
       };
 

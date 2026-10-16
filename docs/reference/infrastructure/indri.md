@@ -33,7 +33,7 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 - [[alloy|Alloy]] - Metrics/logs collector
 - [[caddy]] - Reverse proxy for `*.ops.eblu.me`
 - [[devpi]] - PyPI mirror (LaunchAgent)
-- [[hephaestus]] - heph task/context sync hub (LaunchAgent, ansible-pinned)
+- [[hephaestus]] - heph task/context sync hub (LaunchAgent, nix-store pin via the darwin/indri flake input; PWA checkout still role-managed)
 - [[cv]] - Static CV site, served by Caddy
 - [[docs]] - Quartz-built docs site, served by Caddy
 

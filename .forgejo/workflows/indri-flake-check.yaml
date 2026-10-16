@@ -45,6 +45,9 @@ on:
 jobs:
   check:
     runs-on: ${{ github.event_name == 'pull_request' && 'indri-build' || 'indri' }}
+    # First run after the heph flake input landed cold-compiles heph on top
+    # of the toplevel build; leave headroom (eblume/blumeops#1655).
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

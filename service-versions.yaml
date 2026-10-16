@@ -558,20 +558,26 @@ services:
     notes: Receiver half of the ringtail crash-capture path (in-repo Python UDP listener + Alloy tail); no upstream to review
 
   - name: heph
-    type: ansible
+    type: nixos
     release: self
-    last-reviewed: 2026-09-20
-    current-version: "v1.10.6"
+    last-reviewed: 2026-10-16
+    current-version: "v1.10.9"
     upstream-source: https://forge.ops.eblu.me/eblume/hephaestus/releases
     notes: >-
-      hephaestus task/context sync hub on indri (server-mode launchagent,
-      ansible/roles/heph; cargo-built from the forge). Pinned, no
-      self-update: hephd self-update is deliberately OFF (plist), and the
-      role converges to the `heph_version` tag on every provision run —
-      installing on a fresh host, upgrading an older binary, and DOWNGRADING
-      if the pin is lowered. Bump the pin, then `mise run provision-indri
-      -- --tags heph`. Both ringtail spokes run their own pin: the
-      `hephaestus` flake input in nixos/ringtail/flake.nix.
+      indri hub: the hephd now runs from the `hephaestus` flake input in
+      darwin/indri/flake.nix (tag + tag-commit rev, `cli` output, nixpkgs
+      follows indri's nixos-26.05), generation-owned LaunchAgent
+      mcquack.eblume.heph (eblume/blumeops#1655). The authorized-sub is a
+      seeded on-host secret file (darwin/indri/secrets.json) the agent's
+      static wrapper cats into argv at startup - hephd accepts the flag
+      argv-only. No --self-update flag: nothing auto-updates. The ansible
+      role keeps the PWA checkout + pwa-version.js stamp (ungated, tag
+      `heph_version`) and the daemon legs behind `heph_ansible_managed`
+      (default false) for the rollback re-write. Bump the flake input; the
+      auto-apply (provision-indri, class auto) switches the hub on merge,
+      and `mise run provision-indri -- --tags heph` re-stamps the PWA.
+      The ringtail spokes keep their own pin: the `hephaestus` input in
+      nixos/ringtail/flake.nix.
 
   - name: heph-agent-spoke
     type: nixos
@@ -590,9 +596,10 @@ services:
       self-update — a version bump is a source-controlled change to the
       flake input. Deliberate: an in-boundary agent shouldn't
       auto-fetch+run new code. current-version is a hard pin. The v1.10.7 tree
-      adds packaging only (the flake) over v1.10.6's runtime code, so the
-      spoke is in step with the v1.10.6 hub despite the tag skew; bump the
-      flake input as the hub pin moves (eblume/blumeops#1541).
+      adds packaging only (the flake) over v1.10.6's runtime code
+      (eblume/blumeops#1541); the indri hub now pins its own release via
+      darwin/indri's flake input, so the two bump on their own cadence
+      (eblume/blumeops#1655).
 
   - name: heph-cli-ringtail
     type: nixos

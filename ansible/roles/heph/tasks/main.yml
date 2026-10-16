@@ -34,12 +34,12 @@
   register: heph_agents_sub
   changed_when: false
   no_log: true
-  when: heph_agents_sub_enabled
+  when: heph_ansible_managed | bool and heph_agents_sub_enabled
 
 - name: Add the talos-heph sub to the authorized-subs allowlist
   ansible.builtin.set_fact:
     heph_authorized_subs: "{{ heph_authorized_subs + [heph_agents_sub.stdout | trim] }}"
-  when: heph_agents_sub_enabled and (heph_agents_sub.stdout | trim | length) > 0
+  when: heph_ansible_managed | bool and heph_agents_sub_enabled and (heph_agents_sub.stdout | trim | length) > 0
   no_log: true
 
 # Read the currently-installed hephd version so we can converge to the pin.
@@ -53,11 +53,13 @@
   register: heph_installed
   changed_when: false
   failed_when: false
+  when: heph_ansible_managed | bool
 
 - name: Compute the target hephd version (pin without the leading 'v')
   ansible.builtin.set_fact:
     heph_target_version: "{{ heph_version | regex_replace('^v', '') }}"
     heph_current_version: "{{ heph_installed.stdout | trim }}"
+  when: heph_ansible_managed | bool
 
 # hephd self-update is OFF, so ansible fully owns the version. Converge to the
 # pinned tag: install when absent, upgrade when older, downgrade when the pin is
@@ -73,7 +75,7 @@
   environment:
     PATH: "{{ heph_bin_dir }}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
     RUSTUP_TOOLCHAIN: "{{ heph_rust_toolchain }}"
-  when: heph_current_version != heph_target_version
+  when: heph_ansible_managed | bool and heph_current_version != heph_target_version
   changed_when: true
   notify: Restart heph
 
@@ -107,6 +109,7 @@
     src: heph.plist.j2
     dest: ~/Library/LaunchAgents/mcquack.eblume.heph.plist
     mode: '0644'
+  when: heph_ansible_managed | bool
   notify: Restart heph
 
 - name: Check if heph LaunchAgent is loaded
@@ -114,9 +117,10 @@
   register: heph_launchctl_check
   changed_when: false
   failed_when: false
+  when: heph_ansible_managed | bool
 
 - name: Load heph LaunchAgent if not loaded
   ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.heph.plist
-  when: heph_launchctl_check.rc != 0
+  when: heph_ansible_managed | bool and heph_launchctl_check.rc != 0
   changed_when: true
   failed_when: false
