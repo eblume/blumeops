@@ -92,7 +92,7 @@ def build_checklist(svc: dict, today: date) -> list[str]:
         checklist_parts += [
             "\n[bold]NixOS Deployment:[/bold]\n",
             "• Version tracks nixpkgs via flake.lock\n",
-            "• Update: dispatch the Ringtail Flake Update workflow (`nix flake update`, skipping nixpkgs-services)\n",
+            "• Update: dispatch the Ringtail Flake Update workflow (`nix flake update`, skipping nixpkgs-services and nixpkgs-runner)\n",
             "• Deploy: merge to main (ringtail-rebuild auto-applies); break-glass: local ringtail-apply@<sha>\n",
         ]
     elif svc_type == "mise":

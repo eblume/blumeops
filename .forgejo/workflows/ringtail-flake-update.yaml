@@ -69,8 +69,8 @@ jobs:
         run: |
           set -eo pipefail
           cd nixos/ringtail
-          echo "Updating nixos/ringtail/flake.lock (all inputs except nixpkgs-services)..."
-          SKIP=nixpkgs-services
+          echo "Updating nixos/ringtail/flake.lock (all inputs except nixpkgs-services and nixpkgs-runner)..."
+          SKIP=nixpkgs-services,nixpkgs-runner
           # Land the metadata in a real file: nix-instantiate cannot
           # readFile a pipe, which would make discovery silently empty.
           nix flake metadata --json > "$GITHUB_WORKSPACE/flake-update/meta.json"
