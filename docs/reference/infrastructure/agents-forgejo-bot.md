@@ -1,6 +1,6 @@
 ---
 title: Talos Forgejo Bot
-modified: 2026-09-18
+modified: 2026-10-15
 last-reviewed: 2026-07-21
 tags:
   - reference
@@ -53,7 +53,11 @@ collaborations:
   Forgejo), **minted as the `talos` user** so it can't exceed the bot's own
   repo access.
   Read by the workspace launcher via the op shim for `tea pr create` /
-  `FORGEJO_TOKEN`. A PAT minted this way is self-bounding — the ownership is the
+  `FORGEJO_TOKEN`. Rotated by `mise run forge-bot-pat-rotate`
+  ([[rotate-talos-forgejo-pat]]). The bot's login password (what the mint
+  rides) belongs at `op://blumeops-ci/talos-forgejo-bot/login-password`, out
+  of the session-readable agents vault (one-time migration in the how-to,
+  post-#1166). A PAT minted this way is self-bounding — the ownership is the
   guardrail, not the scope list.
 
 ## Sharing a repo with the bot
@@ -198,6 +202,13 @@ up a token the workflow never passed it.
 > 1Password service accounts scope per *vault*, not per item.
 
 ## Rotating the key
+
+The live credential is the Forgejo PAT at
+`op://agents/talos-forgejo-token/api-token`, rotated by
+`mise run forge-bot-pat-rotate` ([[rotate-talos-forgejo-pat]]): mint → prove →
+vault write → roll the talos pods → revoke, fail-safe so the old token stays
+live until the new one is proven and the pods rolled. The warrant-gated CI
+workflow is a later PR; the script is the ceremony both paths use.
 
 There is no host SSH key to rotate — the keypair was retired in Oct 2026
 (eblume/blumeops#1635). Its former home, the **`agents-forgejo-bot` secure

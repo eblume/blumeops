@@ -1,0 +1,449 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx==0.28.1", "typer==0.27.2"]
+# ///
+#MISE description="[human] Rotate the talos Forgejo bot PAT: mint, prove, vault-write, roll the talos pods, revoke the old token"
+#USAGE flag "--dry-run" help="Verify the current token and list the bot's tokens; mint nothing, write nothing"
+#USAGE flag "--skip-roll" help="Skip the pod roll and the predecessor revoke: the pods keep the old token until you roll them; the next run revokes the predecessors (delayed revoke)"
+#USAGE flag "--days <days>" help="Days until the next rotation is due; recorded on the vault item (default 90)"
+#USAGE flag "--ci" help="Non-interactive mode for the warrant-gated CI path; never run it outside a warrant run"
+"""Rotate the talos Forgejo bot PAT without a browser.
+
+This rotates the PAT of the Forgejo user `talos` — the talos pod's bot, the
+identity that pushes agent work (origin eblume/blumeops#1656; the #1166
+transcript incident is why the credential story is what it is below). Forgejo
+mints PATs over basic auth **as the user**, and a PAT cannot mint its own
+successor — so the mint needs the bot's *login* password, not the stored PAT.
+That password is the bootstrap credential and lives at
+`op://blumeops-ci/talos-forgejo-bot/login-password`, readable by the
+read-only `BLUMEOPS_CI_OP_TOKEN` in the warrant path and by biometric `op`
+on gilbert.
+
+Ordering is fail-safe: the old token is only revoked after the new one is
+proven **and** the talos pods have been rolled; with `--skip-roll` the revoke
+is deferred instead (the live pods still need the old token, the next run
+cleans it up), so a failure anywhere before the revoke step leaves every
+consumer working. Key material never crosses argv and never lands on disk except in a
+0600 temp file that is deleted — mint/verify/revoke ride httpx with the
+values held in memory, vault writes go through a 0700-tempdir template, and
+the CI-path kubeconfig is read to a 0600 temp file for the pod roll.
+
+The warrant-gated CI path (workflow) comes in a later PR; this script is the
+single ceremony used by both the manual (gilbert) and CI paths.
+"""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Annotated, NoReturn
+
+import httpx
+import typer
+
+FORGE_API = "https://forge.ops.eblu.me/api/v1"
+BOT_USER = "talos"
+TOKEN_PREFIX = "forge-bot-pat-"
+TOKEN_SCOPES = ["write:repository", "write:issue"]
+
+VAULT = "agents"
+TOKEN_ITEM = "talos-forgejo-token"
+TOKEN_REF = f"op://{VAULT}/{TOKEN_ITEM}/api-token"
+PASSWORD_REF = "op://blumeops-ci/talos-forgejo-bot/login-password"
+KUBECONFIG_REF = "op://blumeops-ci/k3s-run-script/kubeconfig"
+
+# Repo the bot pushes branches to; a read through the PAT reports its push permission.
+VERIFY_REPO = "eblume/research"
+OP_TIMEOUT = 120  # biometric prompt
+
+
+def say(msg: str) -> None:
+    print(msg, file=sys.stderr)
+
+
+def die(msg: str, code: int = 1) -> NoReturn:
+    say(f"error: {msg}")
+    raise typer.Exit(code)
+
+
+def op(*args: str, env: dict | None = None) -> str:
+    # op misparses non-TTY stdin as an item template — always /dev/null it.
+    result = subprocess.run(
+        ["op", *args],
+        capture_output=True,
+        text=True,
+        timeout=OP_TIMEOUT,
+        stdin=subprocess.DEVNULL,
+        env=env,
+        check=False,
+    )
+    if result.returncode != 0:
+        die(f"op {' '.join(args[:3])} … failed: {result.stderr.strip()}")
+    return result.stdout
+
+
+def op_read(ref: str) -> str:
+    value = op("read", ref).strip()
+    if not value:
+        die(f"{ref} is empty")
+    return value
+
+
+def op_read_ci(ref: str) -> str:
+    """Like op_read, but honors the CI reader token when it is present.
+
+    The warrant path's OP_SERVICE_ACCOUNT_TOKEN only reaches the agents
+    vault; reads of blumeops-ci items must go through the read-only CI reader
+    token when BLUMEOPS_CI_OP_TOKEN is set. Without it, plain op (manual
+    biometric path).
+    """
+    token = os.environ.get("BLUMEOPS_CI_OP_TOKEN")
+    env = {**os.environ, "OP_SERVICE_ACCOUNT_TOKEN": token} if token else None
+    value = op("read", ref, env=env).strip()
+    if not value:
+        die(f"{ref} is empty")
+    return value
+
+
+def op_set_fields(vault: str, item: str, fields: dict[str, str]) -> None:
+    """Set (or add) fields on an item via a template file.
+
+    `op item edit ITEM 'field[password]=VALUE'` puts the secret in argv;
+    `--template` keeps it in a file only we can read. Fields with a label
+    already on the item are matched and keep their own type (the `expires`
+    field exists as an empty STRING field); missing ones are appended as
+    CONCEALED.
+    """
+    doc = json.loads(op("item", "get", item, "--vault", vault, "--format", "json"))
+    present = {f["label"]: f for f in doc["fields"] if f.get("label") in fields}
+    for label, value in fields.items():
+        if label in present:
+            present[label]["value"] = value
+        else:
+            doc["fields"].append({"label": label, "type": "CONCEALED", "value": value})
+    with tempfile.TemporaryDirectory() as d:
+        Path(d).chmod(0o700)
+        tmpl = Path(d) / "item.json"
+        tmpl.write_text(json.dumps(doc))
+        tmpl.chmod(0o600)
+        op("item", "edit", item, "--vault", vault, "--template", str(tmpl))
+
+
+# --- Forgejo -----------------------------------------------------------------
+
+
+def basic_auth(password: str) -> tuple[str, str]:
+    return (BOT_USER, password)
+
+
+def verify_pat(pat: str, label: str) -> None:
+    """Prove a PAT by reading VERIFY_REPO; die with the label, never the value.
+
+    A repo read is the cheapest thing that works — the PAT has no read:user
+    scope, so `/user` would 403 even for a healthy token.
+    """
+    r = httpx.get(
+        f"{FORGE_API}/repos/{VERIFY_REPO}",
+        headers={"Authorization": f"token {pat}"},
+        timeout=30.0,
+    )
+    if r.status_code != 200:
+        die(f"{label} does not authenticate ({VERIFY_REPO}): HTTP {r.status_code}")
+    if not r.json().get("permissions", {}).get("push"):
+        die(f"{label} reads {VERIFY_REPO} without push — the collaborator grant is not usable through it")
+
+
+def list_tokens(password: str) -> list[dict]:
+    """Every token held by BOT_USER, paginated at limit=50.
+
+    Forgejo's default page is 30, so a naive one-page read could hide a
+    predecessor behind a page boundary — the one-live-key assertion at the
+    end depends on seeing all of them. Basic auth: a bot PAT lacks the
+    read:user-scoped listing route, so the inventory rides the login password.
+    """
+    tokens: list[dict] = []
+    page = 1
+    while True:
+        r = httpx.get(
+            f"{FORGE_API}/users/{BOT_USER}/tokens",
+            params={"page": page, "limit": 50},
+            auth=basic_auth(password),
+            timeout=30.0,
+        )
+        if r.status_code != 200:
+            die(f"token list failed: HTTP {r.status_code} {r.text[:200]}")
+        batch = r.json()
+        tokens.extend(batch)
+        if len(batch) < 50:
+            return tokens
+        page += 1
+
+
+def mint(password: str, name: str) -> tuple[str, int]:
+    """Mint a PAT as BOT_USER (basic auth); return (pat, id)."""
+    r = httpx.post(
+        f"{FORGE_API}/users/{BOT_USER}/tokens",
+        auth=basic_auth(password),
+        json={"name": name, "scopes": TOKEN_SCOPES},
+        timeout=30.0,
+    )
+    if r.status_code != 201:
+        die(f"mint failed: HTTP {r.status_code} {r.text[:200]}")
+    body = r.json()
+    return body["sha1"], body["id"]
+
+
+def revoke(password: str, token_id: int) -> None:
+    r = httpx.delete(
+        f"{FORGE_API}/users/{BOT_USER}/tokens/{token_id}",
+        auth=basic_auth(password),
+        timeout=30.0,
+    )
+    if r.status_code not in (200, 204):
+        die(f"revoke of id={token_id} failed: HTTP {r.status_code} {r.text[:200]}")
+
+
+# --- pod roll ----------------------------------------------------------------
+
+
+def run_rollout(kubectl: str, kubeconfig: str | None) -> None:
+    cmd = [kubectl]
+    if kubeconfig:
+        cmd += ["--kubeconfig", kubeconfig]
+    cmd += ["-n", "talos"]
+    restart = subprocess.run(
+        [*cmd, "rollout", "restart", "deployment/talos"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        stdin=subprocess.DEVNULL,
+        check=False,
+    )
+    if restart.returncode != 0:
+        die(f"rollout restart failed: {restart.stderr.strip()[:300]}")
+    status = subprocess.run(
+        [*cmd, "rollout", "status", "deployment/talos", "--timeout=300s"],
+        capture_output=True,
+        text=True,
+        timeout=360,
+        stdin=subprocess.DEVNULL,
+        check=False,
+    )
+    if status.returncode != 0:
+        die(f"rollout status failed: {status.stderr.strip()[:300]}")
+
+
+def roll_talos(ci: bool) -> None:
+    """Restart the talos deployment and wait for the rollout to settle.
+
+    The pod entrypoint reads FORGEJO_TOKEN at boot, so the restart is what
+    makes the vault write live. Outside --ci, kubectl uses the operator's own
+    config ($KUBECONFIG / ~/.kube/config) as-is; only the CI path falls back
+    to the blumeops-ci bound token read to a 0600 temp file.
+    """
+    kubectl = shutil.which("kubectl")
+    if kubectl is None:
+        die("kubectl not on PATH — re-run with --skip-roll and roll the pods yourself")
+    if not ci:
+        run_rollout(kubectl, None)
+        return
+    kubeconfig = os.environ.get("KUBECONFIG")
+    if kubeconfig:
+        run_rollout(kubectl, kubeconfig)
+        return
+    content = op_read_ci(KUBECONFIG_REF)
+    with tempfile.TemporaryDirectory() as d:
+        Path(d).chmod(0o700)
+        path = Path(d) / "kubeconfig"
+        path.write_text(content, encoding="utf-8")
+        path.chmod(0o600)
+        run_rollout(kubectl, str(path))
+
+
+# --- main --------------------------------------------------------------------
+
+
+def main(
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Verify the current token and list the bot's tokens; mint nothing, write nothing",
+        ),
+    ] = False,
+    ci: Annotated[
+        bool,
+        typer.Option(
+            "--ci",
+            help="Non-interactive mode for the warrant-gated CI path; never run it outside a warrant run",
+        ),
+    ] = False,
+    skip_roll: Annotated[
+        bool,
+        typer.Option(
+            "--skip-roll",
+            help="Skip the pod roll and the predecessor revoke: the pods keep the old token until you roll them; the next run revokes the predecessors (delayed revoke)",
+        ),
+    ] = False,
+    days: Annotated[
+        int,
+        typer.Option(
+            "--days",
+            help="Days until the next rotation is due; recorded on the vault item (default 90)",
+        ),
+    ] = 90,
+) -> None:
+    if not (sys.stdin.isatty() or ci) and not dry_run:
+        die("this is a human ceremony; --ci is for the warrant-gated CI path, --dry-run for inspection")
+
+    # 2. read the current PAT from the agents vault
+    current = op_read(TOKEN_REF)
+    say(f"read current PAT from {TOKEN_REF}")
+
+    # 3. the whole ceremony is moot if the current token is already dead
+    verify_pat(current, "current token")
+    say(f"current token authenticates ({VERIFY_REPO})")
+
+    # 4. login password — basic auth for the mint/list/revoke rides; the
+    # stored PAT can't mint its own successor.
+    password: str | None
+    try:
+        password = op_read_ci(PASSWORD_REF)
+    except typer.Exit:
+        password = None
+
+    if password is None:
+        if dry_run:
+            say("login password not readable from this identity — skipping the "
+                "token list; dry run: nothing minted, written, rolled or revoked")
+            return
+        # Post-migration location: this stopped living in the agents vault
+        # after #1166. One-time migration in
+        # docs/how-to/configuration/rotate-talos-forgejo-pat.md.
+        die(
+            f"login password not readable from this identity — it must live at "
+            f"{PASSWORD_REF} (post-#1166 location; see the rotation how-to)"
+        )
+
+    existing = list_tokens(password)
+    say(f"{BOT_USER} holds {len(existing)} token(s):")
+    for t in existing:
+        say(f"  - {t['name']} (id={t['id']})")
+
+    # The first live run must also hand over the vault's incumbent, which
+    # predates the forge-bot-pat-* prefix. Exactly ONE unprefixed token is
+    # the incumbent; several means something unknown is holding tokens —
+    # resolve that by hand before automating.
+    unprefixed = [t for t in existing
+                  if not str(t.get("name", "")).startswith(TOKEN_PREFIX)]
+    if len(unprefixed) > 1:
+        die(f"{BOT_USER} holds {len(unprefixed)} non-{TOKEN_PREFIX} tokens — "
+            f"the first run takes over exactly one; resolve the rest by hand "
+            f"first")
+
+    # Prove before the mint that the vault's value corresponds to a live
+    # token. Without this, a run that died between the vault write and the
+    # roll would leave the vault pointing at a token nobody holds, and the
+    # next run could not tell whether it was the incumbent or an orphan.
+    if not any(t.get("token_last_eight") == current[-8:] for t in existing):
+        die(
+            "no live token matches the vault's current "
+            f"(token_last_eight vs {TOKEN_REF}) — the vault holds a token "
+            "that no longer exists; resolve by hand before running"
+        )
+
+    # With the vault's value proven live, the single unprefixed token is
+    # revocable as a predecessor: it is either the vault's incumbent itself
+    # (the first run's hand-over) or the pending delayed revoke of an earlier
+    # --skip-roll / failed-roll run (the vault's current value is then a live
+    # forge-bot-pat-* token this run supersedes).
+
+    if dry_run:
+        say("dry run: nothing minted, written, rolled or revoked")
+        return
+
+    # 6. mint a fresh PAT under the forge-bot-pat-* prefix
+    now = time.time()
+    name = f"{TOKEN_PREFIX}{int(now)}"
+    new_pat, new_id = mint(password, name)
+    say(f"minted {name} (id={new_id})")
+
+    # 7. prove the new PAT BEFORE any vault write or revoke; 8. vault write.
+    # A failure in between leaves a live PAT that no consumer knows about —
+    # if it never reached the vault, revoke it before dying.
+    expires = (datetime.now(UTC) + timedelta(days=days)).strftime("%Y-%m-%d")
+    try:
+        verify_pat(new_pat, "new token")
+        owned = {t["id"] for t in list_tokens(password)}
+        if new_id not in owned:
+            die(f"new token (id={new_id}) not in {BOT_USER}'s token list — not minted as the bot")
+        say(f"new token verified: authenticates ({VERIFY_REPO}) and is owned by {BOT_USER}")
+
+        op_set_fields(VAULT, TOKEN_ITEM, {"api-token": new_pat, "expires": expires})
+        say(f"new token written to {TOKEN_REF}; next rotation due {expires}")
+    except (typer.Exit, Exception):
+        # Every failure in the guarded block (API error, missed biometric
+        # prompt -> subprocess.TimeoutExpired, JSON decode) gets this
+        # cleanup: a failed `op item edit` may still have landed the write,
+        # so re-read the vault and revoke only if the new value did not land.
+        # typer.Exit (SystemExit, not Exception) must stay in the tuple.
+        try:
+            if op_read(TOKEN_REF) != new_pat:
+                revoke(password, new_id)
+                say(f"new token never reached the vault — revoked (id={new_id})")
+        except (typer.Exit, Exception):  # noqa: BLE001 - its failure converts to a
+            # warning below; the outer handler still re-raises the original.
+            say(
+                "warning: could not confirm whether the new token "
+                f"(id={new_id}) reached the vault — check manually before the "
+                "next rotation"
+            )
+        raise
+
+    # 9. roll the talos pods so the deployment picks up the new token;
+    # --skip-roll defers the revoke instead: the live pods still need the
+    # old token until they are rolled, and the next run cleans up.
+    if skip_roll:
+        say(
+            "--skip-roll: the new token is in the vault, but the pods have not "
+            "been rolled and nothing was revoked. The predecessors stay live "
+            "(delayed revoke — the next run cleans them up). Roll the pods "
+            "yourself: 'kubectl -n talos rollout restart deployment/talos'."
+        )
+        return
+    roll_talos(ci)
+    say("talos rolled; pods re-read the new token at boot")
+
+    # 10. revoke every predecessor: all other forge-bot-pat-* tokens, plus
+    # the single unprefixed token the pre-mint proof made revocable
+    for t in existing:
+        if t["id"] == new_id:
+            continue
+        revoke(password, t["id"])
+        say(f"revoked {t['name']!r} (id={t['id']})")
+
+    # 11. post-check: exactly one live token for the bot (the new one), and
+    # the old PAT 401s
+    final = list_tokens(password)
+    if [t["id"] for t in final] != [new_id]:
+        found = [(t["name"], t["id"]) for t in final]
+        die(f"post-check: expected exactly one live token (id={new_id}), found {found}")
+    old_check = httpx.get(
+        f"{FORGE_API}/repos/{VERIFY_REPO}",
+        headers={"Authorization": f"token {current}"},
+        timeout=30.0,
+    )
+    if old_check.status_code != 401:
+        die(f"old token still authenticates after rotation (HTTP {old_check.status_code})")
+    say("old token now 401s")
+    say(f"rotation complete: exactly one live forge-bot-pat-* token (id={new_id}), next due {expires}")
+
+
+if __name__ == "__main__":
+    typer.run(main)
