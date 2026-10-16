@@ -55,6 +55,12 @@ sit on the far side of a fence horkos itself must not cross. Calling both
 - **Blueprint object ids and field names** are internal keys, not identities:
   what matters is the `identifiers:` they pin (username, client_id, app slug).
 
+- **Item names that name the artifact, not the principal.**
+  `blumeops-ci/horkos-dispatch` (the CI mirror of the `horkos-forge`
+  PAT) deliberately keeps its artifact name — the 2026-10-15 ruling is
+  leave-as-is, with the pointer to `horkos-forge` in the item's notes
+  ([[blumeops-ci-item-migration]]).
+
 ## Live inventory
 
 | principal | where it lives | tier | credential |
