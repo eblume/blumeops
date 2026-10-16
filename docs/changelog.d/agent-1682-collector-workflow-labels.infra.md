@@ -1,0 +1,1 @@
+The indri Forgejo collector now labels `forgejo_ci_queue_wait_seconds` and `forgejo_ci_job_duration_seconds` by repo, workflow, job and runner label, so per-workflow queue waits and job runtimes are a single PromQL query.
