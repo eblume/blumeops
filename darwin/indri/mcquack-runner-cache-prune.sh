@@ -1,15 +1,13 @@
 #!/bin/bash
-# {{ ansible_managed }}
 # Monthly prune of orphaned wheel archives in ~/.cache/uv. The runner is
 # booted out first: `uv cache prune` also removes per-script
 # environments, which an in-flight job may be using (eblume/blumeops#1065).
 set -euo pipefail
 
-RUNNER_LABEL="{{ forgejo_runner_launch_agent_label }}"
-RUNNER_PLIST="{{ forgejo_runner_launch_agent_plist }}"
-RUNNER_PLIST="${RUNNER_PLIST/#\~/$HOME}"
+RUNNER_LABEL="mcquack.eblume.forgejo-runner"
+RUNNER_PLIST="${HOME}/Library/LaunchAgents/mcquack.eblume.forgejo-runner.plist"
 UV_CACHE="${UV_CACHE_DIR:-${HOME}/.cache/uv}"
-DRAIN_MAX_S="{{ forgejo_runner_cache_prune_drain_max_s }}"
+DRAIN_MAX_S=10800
 POLL_S=30
 
 log() { printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"; }

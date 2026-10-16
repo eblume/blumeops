@@ -180,7 +180,7 @@ orphaned wheel archives pile up too (`archive-v0` reached 16G over
 tested, it removes *every* script environment, including ones whose
 script still exists and ones with a Python process currently running in
 it — an idle-runner operation, so it runs in its own monthly window
-with the runner stopped. Two LaunchAgents (this role) handle the
+with the runner stopped. Two LaunchAgents (in the nix-darwin generation) handle the
 recurrence:
 
 - **Nightly sweep** — `mcquack.eblume.runner-cache-sweep` (default
