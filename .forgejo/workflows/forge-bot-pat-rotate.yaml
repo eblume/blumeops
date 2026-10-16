@@ -1,0 +1,84 @@
+# Forgejo bot PAT rotation — a warrant-gated privileged workflow per
+# [[warrant-approval-gated-runs]] invariant 3: workflow_dispatch only,
+# runs-on: priv, definition executes from main. The revision input pins the
+# checkout, which freezes the reviewed script body the run executes — the
+# approved, immutable payload. A human dispatching from the forge UI IS the
+# approval; agents request a dispatch with:
+#
+#   mise run request-run forge-bot-pat-rotate.yaml <full-sha> --pr N \
+#       -i revision=<full-sha> [--why ...]
+#
+# runs-on: priv — the ringtail-priv-runner, a sandboxed NixOS runner whose
+# toolbox is the hostPackages list in nixos/ringtail/configuration.nix
+# (uv, kubectl, _1password-cli — no mise, so the task script runs via its
+# shebang, resolved through PATH).
+#
+# The ceremony is mise-tasks/forge-bot-pat-rotate ([[rotate-talos-forgejo-pat]]):
+# verify current → mint → prove new → vault write → roll the talos pod →
+# revoke old. Fail-safe: the old token only dies after the new one is proven
+# and the pod has rolled. The script prints names/ids only — its output
+# lands in the warrant run log, so key material never crosses a log.
+#
+# Credentials: FORGE_PAT_ROTATE_OP_TOKEN (a 1Password service account
+# scoped to read+write on the agents vault — the vault read/write) is
+# injected as OP_SERVICE_ACCOUNT_TOKEN for the script's plain `op` calls;
+# BLUMEOPS_CI_OP_TOKEN (the existing read-only blumeops-ci reader) feeds
+# the script's override for the blumeops-ci reads (the login password and
+# the k3s-run-script kubeconfig). The pod roll runs as the run-script
+# ServiceAccount via the namespaced run-script-talos-rollout Role
+# (argocd/manifests/talos/rbac.yaml).
+#
+# Revision reachability caveat (same as argocd-deploy): checkout fetches
+# from canonical, so a SHA that only exists on the talos fork (pre-merge PR
+# head) will not resolve. Post-merge SHAs and "main" always work.
+name: Forgejo Bot PAT Rotate
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'FULL 40-char commit SHA to run the rotation script from, or "main" for the current tip'
+        required: true
+        type: string
+
+# Rotations are not idempotent under overlap: two concurrent runs can
+# interleave mint/vault-write/revoke and leave a revoked token in the
+# vault. Serialize; a queued dispatch waits for the in-flight rotation.
+concurrency:
+  group: forge-bot-pat-rotate
+  cancel-in-progress: false
+
+jobs:
+  rotate:
+    runs-on: priv
+    steps:
+      # Inputs pass through env vars — never interpolated into shell text —
+      # so a crafted input cannot inject commands into a privileged job.
+      - name: Validate revision input
+        env:
+          REV: ${{ inputs.revision }}
+        run: |
+          if [ "$REV" != "main" ] && ! echo "$REV" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "::error::revision must be 'main' or a FULL 40-char SHA (got: $REV) — approvals bind to immutable SHAs"
+            exit 1
+          fi
+
+      - name: Checkout approved revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.revision }}
+
+      - name: Rotate the talos Forgejo bot PAT
+        env:
+          BLUMEOPS_CI_OP_TOKEN: ${{ secrets.BLUMEOPS_CI_OP_TOKEN }}
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.FORGE_PAT_ROTATE_OP_TOKEN }}
+        run: |
+          if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+            echo "::error::FORGE_PAT_ROTATE_OP_TOKEN is not provisioned as an Actions secret — run the forge-reconcile values half (human, gilbert) once the declaration on main is live"
+            exit 1
+          fi
+          if [ -z "$BLUMEOPS_CI_OP_TOKEN" ]; then
+            echo "::error::BLUMEOPS_CI_OP_TOKEN is not provisioned as an Actions secret — see [[blumeops-ci-item-migration]]"
+            exit 1
+          fi
+          ./mise-tasks/forge-bot-pat-rotate --ci

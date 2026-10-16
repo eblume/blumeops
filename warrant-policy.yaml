@@ -83,6 +83,20 @@ actions:
         required: true
         pattern: "^(main|[0-9a-f]{40})$"
 
+  forge-bot-pat-rotate.yaml:
+    class: warrant
+    note: >-
+      Rotate the talos Forgejo bot PAT ([[rotate-talos-forgejo-pat]]): runs
+      mise-tasks/forge-bot-pat-rotate --ci from the bound SHA on the priv
+      runner — verify → mint → prove → vault write → pod roll → revoke.
+      The pod roll runs as the run-script ServiceAccount via the
+      run-script-talos-rollout Role in argocd/manifests/talos/rbac.yaml.
+    binds_sha: revision
+    inputs:
+      revision:
+        required: true
+        pattern: "^(main|[0-9a-f]{40})$"
+
   ringtail-rebuild.yaml:
     class: auto
     note: >-

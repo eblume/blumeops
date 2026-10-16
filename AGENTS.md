@@ -139,7 +139,8 @@ It validates the request against `warrant-policy.yaml` **on main**
 it as a PR comment, a heph task, and an entry in the approval queue. A human
 approves in Horkos (né Warrant), which dispatches the workflow. Requestable today:
 `argocd-deploy.yaml`, `argocd-sync-apps.yaml`, `deploy-fly.yaml`,
-`run-script.yaml`. `ringtail-rebuild.yaml` and `provision-indri.yaml` are
+`run-script.yaml`, and `forge-bot-pat-rotate.yaml`. `ringtail-rebuild.yaml`
+and `provision-indri.yaml` are
 `class: auto`, so `request-run` refuses them — a push to main touching their
 watched paths *is* the approval (auto-apply), with `workflow_dispatch` as the
 manual fallback ([[auto-apply]]).
