@@ -1025,17 +1025,16 @@ def list_tag_protections(client: httpx.Client, owner: str, repo: str) -> list[di
 
 
 def list_deploy_keys(client: httpx.Client, owner: str, repo: str) -> list[dict] | None:
-    """The repo's deploy keys, or None if unreadable (repo-admin, like hooks
-    and collaborators — the same 403/404 → None convention). The endpoint is
-    unpaginated in Forgejo v16 (the list is small)."""
+    """The repo's deploy keys across all pages, or None if unreadable
+    (repo-admin, like hooks and collaborators — the same 403/404 → None
+    convention). A write key past the first page must not read as "no write
+    keys", so the list is walked page by page."""
     try:
-        resp = client.get(f"/api/v1/repos/{owner}/{repo}/keys")
-        resp.raise_for_status()
+        return paged(client, f"/api/v1/repos/{owner}/{repo}/keys")
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code in (403, 404):
             return None
         raise
-    return resp.json()
 
 
 def show(value: object) -> str:
@@ -1147,16 +1146,12 @@ def check_main_whitelist(client, owner, report):
 
 
 def check_release_kit_writers(client, owner, report):
-    """release-kit tags stay pushable by eblume alone — every fleet release
-    runs code pinned from a release-kit tag. The invariant is enforced over
-    live writers instead of a tag-protection rule because the kit's own
-    release workflow creates tags as the synthetic `forgejo-actions` user
-    (id -2), which Forgejo v16 tag protections cannot whitelist (DB
-    users/teams only — routers/api/v1/repo/tag.go,
-    models/git/protected_tag.go), so a `v*` rule would 422 the kit's own
-    release. The live complement is: no write-or-above collaborator other
-    than eblume, no write deploy key; the `main` branch-protection half is
-    declared in branch-protections.json and drift-checked separately."""
+    """release-kit tags stay pushable by eblume alone: no write-or-above
+    collaborator other than eblume, no write deploy key. Live writers, not a
+    tag-protection rule — why, see the release-kit note in
+    docs/reference/operations/declared-state-files.md. The `main`
+    branch-protection half is declared in branch-protections.json and
+    drift-checked separately."""
     what = f"{RELEASE_KIT_REPO}: tags stay pushable by eblume alone"
     try:
         collaborators = paged(
@@ -1191,7 +1186,7 @@ def check_release_kit_writers(client, owner, report):
         report.unknown(what, "deploy keys unreadable")
         return
     for key in keys:
-        if key.get("read_only") is False:
+        if key.get("read_only") is not True:
             problems.append(f"deploy key {key.get('title', '<untitled>')!r} can write")
     if problems:
         report.fail(what, "; ".join(problems))

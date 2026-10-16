@@ -4,7 +4,8 @@
 # assert the blast-radius invariants the retired horkos-forge-drift tool used
 # to check (horkos-forge is not a site admin, holds write on exactly the
 # horkos_forge set and nowhere else, blumeops:main stays whitelisted to
-# eblume alone, the Actions-secret names declared in forge/actions-secrets.json
+# eblume alone, release-kit stays writable by eblume alone, and the
+# Actions-secret names declared in forge/actions-secrets.json
 # match the live forge, and no repo targets a
 # privileged runner label it is not declared to — the #1358 label scan; the
 # runner topology declared in forge/runners.json is checked against the live

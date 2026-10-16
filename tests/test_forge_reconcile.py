@@ -246,8 +246,12 @@ class FakeForge:
         return sorted(flags)
 
     def _page(self, request, data):
+        # Serves like the real API: page/limit with the API's default page
+        # size, so a client that does not walk pages sees only the first 30.
         page = int(request.url.params.get("page", 1))
-        return data if page == 1 else []
+        limit = int(request.url.params.get("limit", 30))
+        start = (page - 1) * limit
+        return data[start : start + limit]
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append((request.method, str(request.url)))
@@ -451,7 +455,9 @@ class FakeForge:
             if tail == ["keys"]:
                 if repo not in self.repos:
                     return httpx.Response(404, json={"message": "not found"})
-                return httpx.Response(200, json=self.keys.get(repo, []))
+                return httpx.Response(
+                    200, json=self._page(request, self.keys.get(repo, []))
+                )
             if tail and tail[0] == "tag_protections" and len(tail) > 1:
                 the_id = int(tail[1])
                 rule = next(
@@ -2606,6 +2612,35 @@ def test_invariant_release_kit_read_only_key_ok(policy, monkeypatch):
         findings = ara.Findings()
         ara.check_release_kit_writers(c, "eblume", findings)
     assert findings.failures == []
+
+
+def test_invariant_release_kit_key_missing_read_only_fails(policy, monkeypatch):
+    # Fail closed: a key object without read_only is not a read-only key.
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    forge.keys = {"release-kit": [{"id": 1, "title": "shapeless"}]}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert any("shapeless" in f for f in findings.failures)
+
+
+def test_invariant_release_kit_write_key_on_page_two_fails(policy, monkeypatch):
+    # list_deploy_keys must walk every /keys page: a write key past the
+    # first 50 is drift, not "no write keys".
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    keys = [
+        {"id": i, "title": f"read key {i}", "read_only": True} for i in range(1, 51)
+    ]
+    keys.append({"id": 51, "title": "rogue write key", "read_only": False})
+    forge.keys = {"release-kit": keys}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert any("rogue write key" in f for f in findings.failures)
 
 
 def test_invariant_release_kit_unreadable_fails(policy, monkeypatch):
