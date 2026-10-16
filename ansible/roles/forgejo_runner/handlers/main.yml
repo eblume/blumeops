@@ -1,16 +1,4 @@
 ---
-- name: Restart runner cache prune
-  ansible.builtin.shell: |
-    launchctl unload {{ forgejo_runner_cache_prune_plist }} 2>/dev/null || true
-    launchctl load {{ forgejo_runner_cache_prune_plist }}
-  changed_when: true
-
-- name: Reload runner-cache-sweep
-  ansible.builtin.shell: |
-    launchctl unload {{ forgejo_runner_sweep_plist }} 2>/dev/null || true
-    launchctl load {{ forgejo_runner_sweep_plist }}
-  changed_when: true
-
 - name: Restart forgejo-runner-build
   # System-domain daemon: needs sudo (the runner daemon runs as the
   # unprivileged indri-build user), and kickstart restarts the loaded job in

@@ -28,6 +28,8 @@ let
       "darwin/indri/mcquack-forgejo-metrics.sh lost its @runnerCapacityFile@ placeholder";
     pkgs.writeScript "mcquack-forgejo-metrics"
       (lib.replaceStrings [ "@runnerCapacityFile@" ] [ "${forgejoRunnerCapacity}" ] forgejoMetricsSrc);
+  mcquackRunnerCacheSweep = pkgs.writeScript "mcquack-runner-cache-sweep" (builtins.readFile ./mcquack-runner-cache-sweep.sh);
+  mcquackRunnerCachePrune = pkgs.writeScript "mcquack-runner-cache-prune" (builtins.readFile ./mcquack-runner-cache-prune.sh);
   mcquackJellyfinMetrics = pkgs.writeScript "mcquack-jellyfin-metrics" (builtins.readFile ./mcquack-jellyfin-metrics.sh);
   mcquackZotMetrics = pkgs.writeScript "mcquack-zot-metrics" (builtins.readFile ./mcquack-zot-metrics.sh);
   sifakaMounter = pkgs.writeScript "mount-sifaka" (builtins.readFile ./mount-sifaka.sh);
@@ -753,8 +755,7 @@ AUTHORIZED_KEYS
   # forgejo-runner: executes every `indri`-label CI job (nixpkgs binary;
   # upstream ships no darwin release). Unloaded = indri-label jobs queue on
   # forge; everything else stays up. config.yaml is rendered by the
-  # postActivation above (eblume/blumeops#1528); the cache agents stay
-  # role-rendered until their move (eblume/blumeops#1528 PR 3).
+  # postActivation above (eblume/blumeops#1528).
   launchd.user.agents."mcquack.eblume.forgejo-runner".serviceConfig = {
     Label = "mcquack.eblume.forgejo-runner";
     ProgramArguments = [ "${nixWait}" ] ++ [
@@ -780,6 +781,44 @@ AUTHORIZED_KEYS
     };
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.forgejo-runner.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.forgejo-runner.err.log";
+  };
+
+  # Cache maintenance for the main runner (eblume/blumeops#1528 PR 3): nightly
+  # sweep, monthly prune. The log paths are alloy's tail keys and Loki's ship
+  # names — never rename.
+  launchd.user.agents."mcquack.eblume.runner-cache-sweep".serviceConfig = {
+    Label = "mcquack.eblume.runner-cache-sweep";
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${mcquackRunnerCacheSweep}" ];
+    RunAtLoad = false;
+    KeepAlive = false;
+    EnvironmentVariables = {
+      # mise shims first: the script's `prek` resolves through them, like the runner agent.
+      PATH = "/Users/erichblume/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+      HOME = "/Users/erichblume";
+    };
+    StartCalendarInterval = { Hour = 5; Minute = 30; };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.runner-cache-sweep.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.runner-cache-sweep.err.log";
+  };
+
+  # Prune boots the main runner out first and restores it via trap, because
+  # `uv cache prune` also removes the per-script environments a live job uses
+  # (eblume/blumeops#1065).
+  launchd.user.agents."mcquack.eblume.runner-cache-prune".serviceConfig = {
+    Label = "mcquack.eblume.runner-cache-prune";
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${mcquackRunnerCachePrune}" ];
+    RunAtLoad = false;
+    KeepAlive = false;
+    EnvironmentVariables = {
+      PATH = "/Users/erichblume/.local/share/mise/shims:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+      HOME = "/Users/erichblume";
+      # uv's macOS default cache lives under ~/Library/Caches; pin the same
+      # dir the runner jobs and the sweep use.
+      UV_CACHE_DIR = "/Users/erichblume/.cache/uv";
+    };
+    StartCalendarInterval = { Day = 1; Hour = 3; Minute = 30; };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.runner-cache-prune.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.runner-cache-prune.err.log";
   };
 
   # forgejo (PR 8): most critical unit - with it unloaded the whole forge (API, git ssh

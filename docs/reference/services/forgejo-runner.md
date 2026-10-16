@@ -10,10 +10,11 @@ tags:
 # Forgejo Runner
 
 Forgejo Actions runner daemon for CI/CD job execution. Runs as a
-native macOS LaunchAgent on [[indri]] — the unit and the main
-runner's `config.yaml` are nix-managed (the [[indri]] flake's
-generation, eblume/blumeops#1528), and the `forgejo_runner` ansible
-role renders the build runner's config and the cache agents; jobs run
+native macOS LaunchAgent on [[indri]] — the unit, the main
+runner's `config.yaml` and the cache maintenance agents are
+nix-managed (the [[indri]] flake's generation, eblume/blumeops#1528),
+and the `forgejo_runner` ansible role renders only the build
+runner's config (eblume/blumeops#1627); jobs run
 host-mode with no container engine. (Previously
 a minikube pod with a Docker-in-Docker sidecar — replaced in phase 0 of
 [[retire-minikube]].)
@@ -180,7 +181,7 @@ orphaned wheel archives pile up too (`archive-v0` reached 16G over
 tested, it removes *every* script environment, including ones whose
 script still exists and ones with a Python process currently running in
 it — an idle-runner operation, so it runs in its own monthly window
-with the runner stopped. Two LaunchAgents (this role) handle the
+with the runner stopped. Two LaunchAgents (in the nix-darwin generation) handle the
 recurrence:
 
 - **Nightly sweep** — `mcquack.eblume.runner-cache-sweep` (default

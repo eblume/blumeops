@@ -5,17 +5,17 @@
 # runner gives every job a fresh ~/.cache/act/<random8>/ scratch path, so
 # each job's mise-tasks/* scripts get a fresh environment that never gets
 # reused and the venvs accumulate in ~/.cache/uv/environments-v2. Delete
-# only envs not modified in {{ forgejo_runner_sweep_age_minutes }} minutes —
-# longer than the runner's 3h job timeout, so a live job's env (created
-# when its job starts) can never be swept.
+# only envs not modified in 240 minutes — longer than the runner's 3h job
+# timeout, so a live job's env (created when its job starts) can never be
+# swept.
 # Never call `uv cache prune` here: tested, it removes every script env,
 # including ones whose script still exists and ones with a Python process
 # currently running in it.
 
 set -euo pipefail
 
-uv_cache_dir="{{ forgejo_runner_uv_cache_dir }}"
-prek_cache_dir="{{ forgejo_runner_sweep_prek_cache_dir }}"
+uv_cache_dir="/Users/erichblume/.cache/uv"
+prek_cache_dir="/Users/erichblume/.cache/prek"
 
 size_mb() {
   du -sm "$1" 2>/dev/null | awk '{print $1}' || echo 0
@@ -30,7 +30,7 @@ before_envs=$(count_dirs "$envs_dir")
 before_envs_mb=$(size_mb "$envs_dir")
 before_prek_mb=$(size_mb "$prek_cache_dir")
 
-{ find "$envs_dir" -mindepth 1 -maxdepth 1 -mmin +{{ forgejo_runner_sweep_age_minutes }} -exec rm -rf {} + 2>/dev/null || true; }
+{ find "$envs_dir" -mindepth 1 -maxdepth 1 -mmin +240 -exec rm -rf {} + 2>/dev/null || true; }
 
 prek cache gc --no-progress
 
