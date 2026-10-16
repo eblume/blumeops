@@ -81,6 +81,7 @@ upstream release, then bump the pin and re-provision.
 | **ringtail-agent** (spoke) | `nixos/ringtail/flake.nix` (`hephaestus` input) | flake input ref (tag + tag-commit rev) | the toplevel build — the spoke starts at boot, no install oneshot |
 | **ringtail-eblume** (desktop spoke) | `nixos/ringtail/flake.nix` (`hephaestus` input) | flake input ref (tag + tag-commit rev) | the toplevel build — the user service starts at boot via linger, no install oneshot |
 | **gilbert** (spoke) | manual (not yet IaC) | — | hand `cargo install --tag`; see [Connecting a spoke](#connecting-a-spoke-eg-gilbert) |
+| **talos** (agent pod image) | `eblume/talos:flake.nix` (talos repo, `hephaestus` input, consumed as the `cli` package) | flake input ref (tag + tag-commit rev) | the image's auto-release — a talos main merge builds + pushes the image; the horkos publisher's blumeops pin PR is the deploy |
 
 Both ringtail spokes share one pin: the `hephaestus` flake input in
 `nixos/ringtail/flake.nix` — bump it and review both spokes. A pin bump
@@ -92,6 +93,19 @@ user whose manager is running, and lingering keeps user@1000 up.
 The indri hub has its own pin: the `hephaestus` input in
 `darwin/indri/flake.nix` — bump it in the same PR as the spokes' when all
 three move together.
+
+The talos pod image has its own pin, and this one lives **outside blumeops**:
+the `hephaestus` input in `eblume/talos:flake.nix`
+([eblume/talos#317](https://forge.ops.eblu.me/eblume/talos/issues/317)). A bump
+is a PR on the talos repo — edit the input's `ref`/`rev`, then `nix flake lock
+--update-input hephaestus`; the repo's auto-release builds + pushes the image
+and the horkos publisher opens the blumeops pin PR. The image consumes the
+`cli` package (heph + hephd only — the pod shares the ringtail host spoke's
+socket, so the image's hephd is inert), and may run ahead of the spokes only
+while the delta between the two tags is release/packaging-only (today: spokes
+v1.10.7, image v1.10.9; v1.10.8 = release-flow rewrite, v1.10.9 = `cli`
+packaging). A delta that touches the sync protocol or hephd moves all pins
+together.
 
 Because both spokes' hephd is a toplevel store path, no heph build runs
 inside the switch (eblume/blumeops#1003's mid-activation compile is closed). The standing trade of pinning the flake input's nixpkgs to the
@@ -116,7 +130,9 @@ back a service flip); its PWA leg stays ungated and converges the checkout +
 2. Bump the pins in blumeops: the `hephaestus` flake input in
    darwin/indri/flake.nix (hub) and nixos/ringtail/flake.nix (both spokes),
    plus `heph_version` in ansible/roles/heph/defaults/main.yml (PWA stamp +
-   rollback re-write). Open a PR as usual.
+   rollback re-write). Open a PR as usual. The talos pod image's pin is not
+   here — it lives in `eblume/talos:flake.nix`; bump it as a PR on the talos
+   repo (its auto-release + horkos pin PR is the deploy).
 3. After review, converge each device:
    - indri: the auto-apply (provision-indri, class auto) fires on the merge
      and switches the hub; `mise run provision-indri -- --tags heph`
@@ -133,7 +149,8 @@ back a service flip); its PWA leg stays ungated and converges the checkout +
    construction. On indri, `launchctl print "gui/$(id -u)/mcquack.eblume.heph"`
    shows the store wrapper as `program =` with `last exit code = 0`, and a
    spoke-side `heph sync --status` (e.g. from the talos pod) confirms
-   spoke→hub sync.
+   spoke→hub sync. The talos pod: `heph --version` on the first pod after
+   the rollout reports the pin's tag.
 
 ## Backups
 
