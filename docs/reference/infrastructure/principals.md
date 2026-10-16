@@ -110,7 +110,7 @@ gate before anything deploys.
 ### Access policy
 
 - **Write** (push branches, open PRs) to the repos talos works in:
-  `hephaestus.nvim`, `hephaestus`, `research`, `myeve`, `timberborn-parsimony`,
+  `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`,
   `gamedev`. Access is per-repo **collaborator** grants, not an org-wide role —
   the bot sees nothing it was not explicitly added to.
 - **`blumeops`: read-only, author via fork.** The bot has **read** on the
@@ -123,7 +123,7 @@ gate before anything deploys.
   repo-wide secret — see [[agent-workspaces]] §Isolation. `main` is
   additionally branch-protected (push + merge whitelisted to `eblume`).
   **The same recipe applies to every `pool: fork` repo** — today `agents`, `horkos`,
-  `talos`, and `cv` as well. Each has a `talos/<repo>` fork on the forge, and the pod's
+  `talos`, `cv`, and `hephaestus` as well. Each has a `talos/<repo>` fork on the forge, and the pod's
   pool checkout already has `origin` = the fork and `upstream` = canonical, so
   read-only-on-canonical is never a reason to hand a change back to a human:
   branch off `upstream/main`, push to `origin`, then

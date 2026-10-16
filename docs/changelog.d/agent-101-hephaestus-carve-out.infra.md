@@ -1,0 +1,1 @@
+Clear the dead `unprotected_file_patterns` changelog carve-out on `eblume/hephaestus`'s `main` branch protection — the retired `MAIN_PUSH_TOKEN` flow was its only consumer — and record in the forgejo secrets docs that the live secret was deleted by the 2026-10-15 reconcile apply and the `hephaestus-main-push-token` PAT revoked the same day.
