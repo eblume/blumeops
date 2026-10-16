@@ -18,9 +18,8 @@ successor — so the mint needs the bot's *login* password, not the stored PAT.
 That password is the bootstrap credential and lives at
 `op://blumeops-ci/talos-forgejo-bot/password` (the login item's built-in
 `password` field — where `op item create --generate-password` puts it),
-readable by the
-read-only `BLUMEOPS_CI_OP_TOKEN` in the warrant path and by biometric `op`
-on gilbert.
+readable by the read-only `BLUMEOPS_CI_OP_TOKEN` in the warrant path and by
+biometric `op` on gilbert.
 
 Ordering is fail-safe: the old token is only revoked after the new one is
 proven **and** the talos pods have been rolled; with `--skip-roll` the revoke
