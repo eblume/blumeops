@@ -1,0 +1,36 @@
+# Least-priv grant so the warrant-gated `forge-bot-pat-rotate` CI path can
+# roll the talos Deployment: `rollout restart` needs `get`+`patch`, and
+# `rollout status` observes the Deployment through an informer
+# (`get`/`list`/`watch` — kubectl hard-fails without `watch`); kubectl's
+# rollout commands additionally require `watch` on events.
+# The credential is the `run-script` ServiceAccount in namespace `horkos`
+# (bound token in blumeops-ci as `k3s-run-script/kubeconfig`, ringtail
+# priv runner). The only write surface is `patch` on the single named
+# `talos` deployment; nothing cluster-wide, nothing in other namespaces.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: run-script-talos-rollout
+  namespace: talos
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["talos"]
+    verbs: ["get", "list", "patch", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: run-script-talos-rollout
+  namespace: talos
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: run-script-talos-rollout
+subjects:
+  - kind: ServiceAccount
+    name: run-script
+    namespace: horkos

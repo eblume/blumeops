@@ -5,6 +5,7 @@ namespace: talos
 
 resources:
   - serviceaccount.yaml
+  - rbac.yaml
   - external-secret.yaml
   - external-secret-op-token.yaml
   - external-secret-ts-talos-authkey.yaml

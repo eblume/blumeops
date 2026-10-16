@@ -112,7 +112,10 @@ never change in a single PR.
 - **Cluster credential for run-scripts**: the `run-script` ServiceAccount in
   this namespace (ClusterRole `run-script-pv-ops`: `persistentvolumes`
   `get`/`list`/`delete`, `persistentvolumeclaims` `get`/`list` — no secrets,
-  nothing else) backs `blumeops-ci/k3s-run-script`, the only non-root k3s
+  and no other cluster-scope grants; the namespaced `run-script-talos-rollout`
+  Role in `talos` covers the CI pod roll with `get`/`list`/`patch`/`watch`
+  on the named `talos` Deployment plus `watch` on events) backs
+  `blumeops-ci/k3s-run-script`, the only non-root k3s
   credential. Rotation is a human act on ringtail: re-mint
   `kubectl create token run-script -n horkos --duration=8760h` as root,
   `op item edit` the vault item, and file the rotation reminder a month

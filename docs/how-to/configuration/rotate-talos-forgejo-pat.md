@@ -109,6 +109,10 @@ path, a later PR, passes `--ci`). What it does, numbered:
    as-is outside `--ci` (`$KUBECONFIG` or `~/.kube/config`); only the CI
    path falls back to the `blumeops-ci/k3s-run-script` bound token
    (loopback-only, a 0600 temp file). This roll is what picks up the new token.
+   On the `--ci` path the roll runs as the `run-script` ServiceAccount, whose
+   deployment access is the namespaced `run-script-talos-rollout` Role in
+   `argocd/manifests/talos/rbac.yaml` — `get`/`list`/`patch`/`watch` on the
+   `talos` deployment plus `watch` on events (kubectl's rollout requirement).
 8. **Revoke every predecessor**: all other `forge-bot-pat-*` tokens, plus the
    single unprefixed incumbent the first run takes over (the vault's current
    token predates the prefix).
