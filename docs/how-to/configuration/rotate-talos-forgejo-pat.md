@@ -27,7 +27,7 @@ Consumers:
 Minting the successor needs the bot's **login password** — a Forgejo PAT
 cannot mint its own successor (Forgejo mints over basic auth **as the user**),
 so the mint rides the stored password copy. That bootstrap credential lives at
-`op://blumeops-ci/talos-forgejo-bot/login-password`.
+`op://blumeops-ci/talos-forgejo-bot/password`.
 
 ## When to rotate
 
@@ -70,15 +70,21 @@ steps, on gilbert or via the 1Password UI:
 
    ```fish
    op item create --vault blumeops-ci talos-forgejo-bot \
-       --user-name talos --generate-password
+       --category login --user-name talos --generate-password
    ```
 
-   (The 1Password UI equivalent works too.)
+   (The 1Password UI equivalent works too.) The generated value lands in the
+   item's built-in `password` field — 1Password CLI forces that label for
+   `--generate-password` on a login item — which is the field the rotation
+   script reads (`PASSWORD_REF`). Do not stash it under a differently-named
+   custom field; the script would not find it.
 
 2. **Set it on the Forgejo `talos` account:** read the new password once
-   (`op read op://blumeops-ci/talos-forgejo-bot/login-password` — terminal
-   output only), then forge → log in as `talos` with the old password →
-   Settings → Account → Change Password.
+   (`op read op://blumeops-ci/talos-forgejo-bot/password` — terminal output
+   only), then set it on the account. Preferred: the admin edit page
+   `/admin/users/<id>/edit` (needs no password — logged in as an admin,
+   type the new password into “Password” and save). Alternative: log in as
+   `talos` with the old password → Settings → Account → Change Password.
 
 3. **Delete the old item:**
 
@@ -104,7 +110,7 @@ path, below, passes `--ci`). What it does, numbered:
 1. **Verify the current PAT** — repo GET of `eblume/research` (a repo the bot
    pushes to) through it, 200 and reporting the bot's push permission; a
    failure dies before anything is touched.
-2. **Read the login password** from `op://blumeops-ci/talos-forgejo-bot/login-password` —
+2. **Read the login password** from `op://blumeops-ci/talos-forgejo-bot/password` —
    the credential over which the mint rides.
 3. **List the bot's tokens** via basic auth and print each as
    `  - name (id=N)` — names and ids only, never values. If the bot holds

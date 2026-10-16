@@ -140,7 +140,7 @@ collaborations:
   Read by the workspace launcher via the op shim for `tea pr create` /
   `FORGEJO_TOKEN`. Rotated by `mise run forge-bot-pat-rotate`
   ([[rotate-talos-forgejo-pat]]). The bot's login password (what the mint
-  rides) belongs at `op://blumeops-ci/talos-forgejo-bot/login-password`, out
+  rides) belongs at `op://blumeops-ci/talos-forgejo-bot/password`, out
   of the session-readable agents vault (one-time migration in the how-to,
   post-#1166). A PAT minted this way is self-bounding — the ownership is the
   guardrail, not the scope list.
