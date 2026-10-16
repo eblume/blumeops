@@ -574,9 +574,14 @@ services:
       seeded on-host secret file (darwin/indri/secrets.json) the agent's
       static wrapper cats into argv at startup - hephd accepts the flag
       argv-only. No --self-update flag: nothing auto-updates. The ansible
-      role keeps the PWA checkout + pwa-version.js stamp (ungated, tag
-      `heph_version`) and the daemon legs behind `heph_ansible_managed`
-      (default false) for the rollback re-write. Bump the flake input; the
+      role keeps only the PWA checkout + pwa-version.js stamp (tag
+      `heph_version`) - its daemon legs (cargo install, version gate, plist,
+      the op-read leg) retired with the rollback window over
+      (eblume/blumeops#1655), so a hub rollback is a plain
+      `sudo darwin-rebuild --rollback` to the previous generation. A boot-once
+      LaunchAgent (mcquack.eblume.heph-cargo-bin-cleanup, the indri twin of
+      ringtail's heph-cargo-bin-cleanup) removes the retired ~/.cargo/bin
+      heph/hephd so no shell can shadow the store bins. Bump the flake input; the
       auto-apply (provision-indri, class auto) switches the hub on merge,
       and `mise run provision-indri -- --tags heph` re-stamps the PWA.
       The ringtail spokes keep their own pin: the `hephaestus` input in

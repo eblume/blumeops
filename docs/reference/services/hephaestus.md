@@ -26,7 +26,7 @@ against one canonical **hub**. Indri runs that hub.
 | **PWA shell** | `~/.cache/heph-pwa-src/heph-pwa` (role-managed checkout) |
 | **Logs** | `~/Library/Logs/mcquack.heph.{out,err}.log` |
 | **LaunchAgent** | `mcquack.eblume.heph` |
-| **Ansible role** | `ansible/roles/heph` (tag `heph`) — PWA checkout + pwa-version.js stamp only since the store flip; daemon legs gated off by default |
+| **Ansible role** | `ansible/roles/heph` (tag `heph`) — PWA checkout + pwa-version.js stamp + data dir only since the store flip; the daemon legs retired with the rollback window over, eblume/blumeops#1655 |
 
 ## What runs on indri
 
@@ -118,19 +118,22 @@ The indri hub's daemon no longer converges by provision: the pin is the
 `hephaestus` flake input, and the generation's switch applies it (a bump is a
 flake.lock change plus the usual `mise run provision-indri -- --tags
 rebuild`). The role's daemon legs (cargo install, the version gate, plist
-render + load, the op-read leg) sit behind `heph_ansible_managed` (default
-false) and run only for the rollback re-write (see [[provision]] §Rolling
-back a service flip); its PWA leg stays ungated and converges the checkout +
-`pwa-version.js` stamp to `heph_version` on `mise run provision-indri --
---tags heph`.
+render + load, the op-read leg) retired with the rollback window over
+(eblume/blumeops#1655); the PWA leg is all that is left, and it converges the
+checkout + `pwa-version.js` stamp to `heph_version` on `mise run
+provision-indri -- --tags heph`. A hub rollback is now a plain `sudo
+darwin-rebuild --rollback` to the previous generation (see [[provision]]
+§Rolling back a service flip); the retired `~/.cargo/bin` `heph`/`hephd` are
+swept by a boot-once LaunchAgent (`mcquack.eblume.heph-cargo-bin-cleanup`, the
+indri twin of ringtail's `heph-cargo-bin-cleanup` one-shot).
 
 **Release → deploy flow:**
 
 1. Cut the upstream release (new `vX.Y.Z` tag on the hephaestus repo).
 2. Bump the pins in blumeops: the `hephaestus` flake input in
    darwin/indri/flake.nix (hub) and nixos/ringtail/flake.nix (both spokes),
-   plus `heph_version` in ansible/roles/heph/defaults/main.yml (PWA stamp +
-   rollback re-write). Open a PR as usual. The talos pod image's pin is not
+   plus `heph_version` in ansible/roles/heph/defaults/main.yml (PWA stamp).
+   Open a PR as usual. The talos pod image's pin is not
    here — it lives in `eblume/talos:flake.nix`; bump it as a PR on the talos
    repo (its auto-release + horkos pin PR is the deploy).
 3. After review, converge each device:

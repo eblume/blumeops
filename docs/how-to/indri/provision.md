@@ -555,7 +555,8 @@ wrapper that cats the seeded authorized-sub file into argv (hephd accepts
 its `pwa-version.js` stamp stay role-managed and ungated: the store is
 read-only, and the web root must stay a mutable git checkout. The role's
 daemon legs (cargo install, version gate, plist render + load, the op-read
-leg) sit behind `heph_ansible_managed` (default false). Applying the flip is
+leg) retired with the rollback window over: the generation owns the unit, and
+the role keeps only the PWA checkout + stamp and the data dir. Applying the flip is
 the auto-apply on merge (`provision-indri`, class auto) or `mise run
 provision-indri -- --tags rebuild`. Seed before the merge: `mise run
 seed-secrets indri` from the PR branch's checkout seats
@@ -568,9 +569,9 @@ until the switch reloads it; the PWA shell files themselves keep serving from
 the role's checkout. Pre-flip: confirm the latest borgmatic archive-tier
 backup of `~/.local/share/heph/heph.db` is fresh (the never-lose dump rides
 the daily 02:00 archive run) — the hub DB is the only copy of the
-task/context data. Rollback per §Rolling back a service flip, with the
-role's gate flipped: `mise run provision-indri -- --tags heph -e
-heph_ansible_managed=true`.
+task/context data. Rollback per §Rolling back a service flip: a plain `sudo darwin-rebuild
+--rollback` to the previous generation — like the forgejo runner flip, the
+unit is generation-owned and there is no ansible re-write to fall back to.
 
 ## Rolling back a service flip
 
@@ -626,7 +627,11 @@ every front-facing endpoint stays up. For the jellyfin flip (PR 9), re-run
 — the media endpoints (`jellyfin.ops.eblu.me`) are down during the
 window; forge, the registry and every other endpoint stay up, and the
 dedicated blackbox probe witnesses both the flip and any regression.
-For the heph hub flip (eblume/blumeops#1655), re-run `mise run provision-indri -- --tags heph -e heph_ansible_managed=true` — the hub (every spoke's sync and the PWA's data path) is down during the window; the PWA shell files keep serving from the role's checkout.
+For the heph hub flip (eblume/blumeops#1655), a plain `sudo darwin-rebuild
+--rollback` — like the forgejo runner flip, the unit is generation-owned and
+there is no ansible re-write to fall back to; the hub (every spoke's sync and
+the PWA's data path) is down during the window; the PWA shell files keep
+serving from the role's checkout.
 Never ansible first — that would leave the old plist loaded under the
 new generation.
 

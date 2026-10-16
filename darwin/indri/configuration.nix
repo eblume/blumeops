@@ -27,6 +27,19 @@ let
       --oidc-audience heph \
       --authorized-sub "$(cat "$sub_file")"
   '';
+  # The heph role used to `cargo install` heph/hephd into ~/.cargo/bin; the
+  # daemon legs retired with the store flip (eblume/blumeops#1655). This
+  # boot-once removes the two bin names so no shell with ~/.cargo/bin on PATH
+  # can shadow the store bins — a no-op once they are gone. The indri twin of
+  # ringtail's heph-cargo-bin-cleanup one-shot.
+  hephCargoBinCleanup = pkgs.writeShellScriptBin "mcquack-heph-cargo-bin-cleanup" ''
+    set -euo pipefail
+    dir=/Users/erichblume/.cargo/bin
+    [ -d "$dir" ] && [ ! -L "$dir" ] || exit 0
+    for b in heph hephd; do
+      ${pkgs.coreutils}/bin/rm -rf -- "$dir/$b"
+    done
+  '';
   # The four *-metrics collectors feeding alloy's node_exporter textfile dir (PR 4 moved them here).
   mcquackBorgmaticMetrics = pkgs.writeScript "mcquack-borgmatic-metrics" (builtins.readFile ./mcquack-borgmatic-metrics.sh);
   # forge/runners.json is the declared source for the runner fleet
@@ -981,7 +994,8 @@ AUTHORIZED_KEYS
   # flake reads no vault). The PWA checkout stays role-managed - the store is
   # read-only, and the web root must stay a mutable git checkout with its
   # pwa-version.js stamp. Rollback per [[provision]] §Rolling back a service
-  # flip, with heph_ansible_managed flipped.
+  # flip: a plain darwin-rebuild --rollback — the gate and the role's daemon
+  # legs retired with the rollback window (eblume/blumeops#1655).
   launchd.user.agents."mcquack.eblume.heph".serviceConfig = {
     Label = "mcquack.eblume.heph";
     ProgramArguments = [ "${nixWait}" ] ++ [ "${hephHubRunner}/bin/mcquack-heph-hub" ];
@@ -993,6 +1007,17 @@ AUTHORIZED_KEYS
     };
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.heph.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.heph.err.log";
+  };
+
+  # The heph role's cargo-installed bins used to live in ~/.cargo/bin; this
+  # boot-once agent removes them so no shell can shadow the store bins (a
+  # no-op once gone).
+  launchd.user.agents."mcquack.eblume.heph-cargo-bin-cleanup".serviceConfig = {
+    Label = "mcquack.eblume.heph-cargo-bin-cleanup";
+    ProgramArguments = [ "${nixWait}" ] ++ [ "${hephCargoBinCleanup}/bin/mcquack-heph-cargo-bin-cleanup" ];
+    RunAtLoad = true;
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.heph-cargo-bin-cleanup.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.heph-cargo-bin-cleanup.err.log";
   };
 
   # caddy (PR 6): fronts every *.ops.eblu.me endpoint + L4 route; with the unit unloaded
