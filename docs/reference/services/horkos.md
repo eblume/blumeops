@@ -114,7 +114,7 @@ never change in a single PR.
   `get`/`list`/`delete`, `persistentvolumeclaims` `get`/`list` — no secrets,
   and no other cluster-scope grants; the namespaced `run-script-talos-rollout`
   Role in `talos` covers the CI pod roll with `get`/`list`/`patch`/`watch`
-  on the named `talos` Deployment plus `watch` on events) backs
+  on the named `talos` Deployment) backs
   `blumeops-ci/k3s-run-script`, the only non-root k3s
   credential. Rotation is a human act on ringtail: re-mint
   `kubectl create token run-script -n horkos --duration=8760h` as root,

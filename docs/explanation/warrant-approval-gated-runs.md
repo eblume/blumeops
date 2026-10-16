@@ -659,9 +659,8 @@ secrets at any scope — and the `https://127.0.0.1:6443` server makes a
 kubeconfig that leaks into a run log useless as-is from any other
 device. The same identity also holds a second, namespaced grant — the
 `run-script-talos-rollout` Role in `argocd/manifests/talos/rbac.yaml`
-(`get`/`list`/`patch`/`watch` on the single `talos` Deployment plus
-`watch` on events) — covering the `forge-bot-pat-rotate` rollout of the
-talos pod.
+(`get`/`list`/`patch`/`watch` on the single `talos` Deployment) — covering the
+`forge-bot-pat-rotate` rollout of the talos pod.
 
 One credential has to exist in two vaults because its two readers sit on
 opposite sides of a fence: 1Password Connect (external-secrets, feeding the
