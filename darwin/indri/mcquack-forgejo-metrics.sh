@@ -40,10 +40,15 @@ repo AS (SELECT id, owner_name || '/' || name AS full FROM repository),
 -- One name per runner: re-registrations leave old rows under the same name.
 runner AS (SELECT id, name FROM action_runner),
 job AS (
-  SELECT j.id, j.name, j.status, j.created, j.updated,
+  -- name/workflow are free text from workflow YAML: escape for the prom text
+  -- format, backslash first so the backslashes the quote/newline steps add
+  -- are not re-escaped
+  SELECT j.id,
+         replace(replace(replace(j.name, char(92), char(92) || char(92)), '"', char(92) || '"'), char(10), char(92) || 'n') AS name,
+         j.status, j.created, j.updated,
          coalesce(json_extract(j.runs_on, '$[0]'), '') AS label,
          r.repo_id, r.approved_by, r.need_approval, r.created AS run_created,
-         replace(replace(r.workflow_id, '.yaml', ''), '.yml', '') AS workflow,
+         replace(replace(replace(replace(replace(r.workflow_id, '.yaml', ''), '.yml', ''), char(92), char(92) || char(92)), '"', char(92) || '"'), char(10), char(92) || 'n') AS workflow,
          -- A job with `needs` is ready once its last dependency stops.
          (SELECT max(s.stopped) FROM json_each(j.needs) n
             JOIN action_run_job s ON s.run_id = j.run_id AND s.job_id = n.value) AS needs_done
@@ -64,8 +69,8 @@ done AS (SELECT * FROM task WHERE status IN (1, 2, 3, 4) AND stopped >= started 
 -- Queue wait: ready -> picked up by a runner. First attempts only (a re-run
 -- reuses the job row, so its `created` is the original run's). gate=approval
 -- marks fork-PR runs that sat behind a human "Approve and run" click.
-qw AS (SELECT label, gate, repo, workflow, job, max(0, created - ready) AS v FROM task WHERE attempt = 1 AND ready > 0),
-dur AS (SELECT label, repo, workflow, job, stopped - started AS v FROM done),
+qw AS (SELECT label, gate, repo, workflow, job, created, max(0, created - ready) AS v FROM task WHERE attempt = 1 AND ready > 0),
+dur AS (SELECT label, repo, workflow, job, created, stopped - started AS v FROM done),
 qb(le) AS (VALUES (1), (2), (5), (10), (30), (60), (120), (300), (600), (1800), (3600), (7200), (21600), (86400)),
 gated AS (
   SELECT coalesce(repo.full, 'unknown') AS repo, r.created, r.pull_request_id AS pr
@@ -84,24 +89,40 @@ SELECT line FROM (
   FROM done GROUP BY repo, workflow, label, status
 
   UNION ALL
+  -- 30-day window: each combo's counts stay cumulative, but a combo with no
+  -- task in 30 days stops being emitted (retired legs would export forever)
   SELECT printf('forgejo_ci_queue_wait_seconds_bucket{repo="%s",workflow="%s",job="%s",label="%s",gate="%s",le="%d"} %d', repo, workflow, job, label, gate, le, sum(v <= le))
   FROM qw CROSS JOIN qb GROUP BY repo, workflow, job, label, gate, le
+  HAVING max(created) > (SELECT ts FROM nowts) - 30 * 86400
   UNION ALL
-  SELECT printf('forgejo_ci_queue_wait_seconds_bucket{repo="%s",workflow="%s",job="%s",label="%s",gate="%s",le="+Inf"} %d', repo, workflow, job, label, gate, count(*)) FROM qw GROUP BY repo, workflow, job, label, gate
+  SELECT printf('forgejo_ci_queue_wait_seconds_bucket{repo="%s",workflow="%s",job="%s",label="%s",gate="%s",le="+Inf"} %d', repo, workflow, job, label, gate, count(*))
+  FROM qw GROUP BY repo, workflow, job, label, gate
+  HAVING max(created) > (SELECT ts FROM nowts) - 30 * 86400
   UNION ALL
-  SELECT printf('forgejo_ci_queue_wait_seconds_sum{repo="%s",workflow="%s",job="%s",label="%s",gate="%s"} %d', repo, workflow, job, label, gate, sum(v)) FROM qw GROUP BY repo, workflow, job, label, gate
+  SELECT printf('forgejo_ci_queue_wait_seconds_sum{repo="%s",workflow="%s",job="%s",label="%s",gate="%s"} %d', repo, workflow, job, label, gate, sum(v))
+  FROM qw GROUP BY repo, workflow, job, label, gate
+  HAVING max(created) > (SELECT ts FROM nowts) - 30 * 86400
   UNION ALL
-  SELECT printf('forgejo_ci_queue_wait_seconds_count{repo="%s",workflow="%s",job="%s",label="%s",gate="%s"} %d', repo, workflow, job, label, gate, count(*)) FROM qw GROUP BY repo, workflow, job, label, gate
+  SELECT printf('forgejo_ci_queue_wait_seconds_count{repo="%s",workflow="%s",job="%s",label="%s",gate="%s"} %d', repo, workflow, job, label, gate, count(*))
+  FROM qw GROUP BY repo, workflow, job, label, gate
+  HAVING max(created) > (SELECT ts FROM nowts) - 30 * 86400
 
   UNION ALL
   SELECT printf('forgejo_ci_job_duration_seconds_bucket{repo="%s",workflow="%s",job="%s",label="%s",le="%d"} %d', repo, workflow, job, label, le, sum(v <= le))
   FROM dur CROSS JOIN db GROUP BY repo, workflow, job, label, le
+  HAVING max(created) > (SELECT ts FROM nowts) - 30 * 86400
   UNION ALL
-  SELECT printf('forgejo_ci_job_duration_seconds_bucket{repo="%s",workflow="%s",job="%s",label="%s",le="+Inf"} %d', repo, workflow, job, label, count(*)) FROM dur GROUP BY repo, workflow, job, label
+  SELECT printf('forgejo_ci_job_duration_seconds_bucket{repo="%s",workflow="%s",job="%s",label="%s",le="+Inf"} %d', repo, workflow, job, label, count(*))
+  FROM dur GROUP BY repo, workflow, job, label
+  HAVING max(created) > (SELECT ts FROM nowts) - 30 * 86400
   UNION ALL
-  SELECT printf('forgejo_ci_job_duration_seconds_sum{repo="%s",workflow="%s",job="%s",label="%s"} %d', repo, workflow, job, label, sum(v)) FROM dur GROUP BY repo, workflow, job, label
+  SELECT printf('forgejo_ci_job_duration_seconds_sum{repo="%s",workflow="%s",job="%s",label="%s"} %d', repo, workflow, job, label, sum(v))
+  FROM dur GROUP BY repo, workflow, job, label
+  HAVING max(created) > (SELECT ts FROM nowts) - 30 * 86400
   UNION ALL
-  SELECT printf('forgejo_ci_job_duration_seconds_count{repo="%s",workflow="%s",job="%s",label="%s"} %d', repo, workflow, job, label, count(*)) FROM dur GROUP BY repo, workflow, job, label
+  SELECT printf('forgejo_ci_job_duration_seconds_count{repo="%s",workflow="%s",job="%s",label="%s"} %d', repo, workflow, job, label, count(*))
+  FROM dur GROUP BY repo, workflow, job, label
+  HAVING max(created) > (SELECT ts FROM nowts) - 30 * 86400
 
   -- Busy time per runner, counting in-flight tasks up to now, so
   -- rate() is the runner's average number of occupied slots.
@@ -205,9 +226,9 @@ cat << 'HEADER'
 # TYPE forgejo_ci_collector_up gauge
 # HELP forgejo_ci_jobs_total Finished Actions job attempts (tasks) by repo, workflow, runner label and result
 # TYPE forgejo_ci_jobs_total counter
-# HELP forgejo_ci_queue_wait_seconds Time from a job becoming ready (created, or its needs finished) to a runner picking it up; first attempts only. gate="approval" runs include the wait for a human "Approve and run"; by repo, workflow, job and runner label
+# HELP forgejo_ci_queue_wait_seconds Time from a job becoming ready (created, or its needs finished) to a runner picking it up; first attempts only. gate="approval" runs include the wait for a human "Approve and run"; by repo, workflow, job and runner label; combos with no task in the last 30 days are not exported
 # TYPE forgejo_ci_queue_wait_seconds histogram
-# HELP forgejo_ci_job_duration_seconds Runtime of finished Actions job attempts by repo, workflow, job and runner label
+# HELP forgejo_ci_job_duration_seconds Runtime of finished Actions job attempts by repo, workflow, job and runner label; combos with no task in the last 30 days are not exported
 # TYPE forgejo_ci_job_duration_seconds histogram
 # HELP forgejo_ci_runner_busy_seconds_total Task-seconds a runner has spent running jobs (rate = mean occupied slots)
 # TYPE forgejo_ci_runner_busy_seconds_total counter

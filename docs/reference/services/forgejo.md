@@ -232,7 +232,7 @@ Request latency is measured at the Fly.io proxy layer via the `flyio_nginx_upstr
 Forgejo's `/metrics` has nothing on Actions, and the API has no queue or timing history. So the indri collector `darwin/indri/mcquack-forgejo-metrics.sh` reads Forgejo's sqlite DB read-only every minute and writes `forgejo_ci_*` series into `forgejo.prom`:
 
 - **Counts:** finished job attempts by repo, workflow, runner label and result.
-- **Histograms:** queue wait (ready → picked up, split by `gate="none|approval"`) and job duration, per repo, workflow, job and runner label.
+- **Histograms:** queue wait (ready → picked up, split by `gate="none|approval"`) and job duration, per repo, workflow, job and runner label. Per-combo counts are cumulative, but a combo stops being exported once it has had no task in the last 30 days — so a brand-new combo's first observation is invisible to `increase()`, which is fine for attribution.
 - **Busy time:** busy-seconds per runner, against a static `forgejo_ci_runner_capacity` that mirrors each runner's configured slots.
 - **Live state:** queued/running jobs, and open PRs blocked on "Approve and run".
 
