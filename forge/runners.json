@@ -30,7 +30,7 @@
     {
       "name": "indri-runner",
       "host": "indri",
-      "labels": ["indri", "indri-priv"],
+      "labels": ["indri", "indri-priv", "e2e-proof"],
       "scope": "eblume/blumeops",
       "capacity": 2,
       "privileged": true,
