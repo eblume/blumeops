@@ -215,9 +215,9 @@ since eblume/blumeops#1528: activation renders the config from
 change kickstarts the agent. The source checkout at
 `~/code/3rd/forgejo-runner` stays on disk only as the build runner's
 rollback re-write staging source; the cache prune/sweep agents are
-generation-owned (the flake's `launchd.user.agents."mcquack.eblume.runner-cache-
-sweep"` and `launchd.user.agents."mcquack.eblume.runner-cache-prune"`).
-Applying a change is the usual `mise run provision-indri -- --tags rebuild` (no
+generation-owned (the flake's `launchd.user.agents."mcquack.eblume.runner-cache-sweep"`
+and `launchd.user.agents."mcquack.eblume.runner-cache-prune"`). Applying a
+change is the usual `mise run provision-indri -- --tags rebuild` (no
 service-role tag).
 
 The drill's blast radius is CI dispatch only: with the unit unloaded,
