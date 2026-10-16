@@ -448,9 +448,11 @@ services:
       Single-node k3s cluster on ringtail; pinned via nixpkgs-services overlay in flake.nix.
       The same overlay pins kubectl (1.36.3 on this pin) for the host and the `priv`
       runner — N+1 against the 1.35 server, at the edge of the supported client skew.
+      The unit sets no --cluster-init or --datastore-endpoint, so the control plane runs
+      on kine/sqlite (db/state.db), not embedded etcd.
       2026-10-16: 1.34.5+k3s1 -> 1.35.8+k3s1 with the nixpkgs-services move to
-      nixos-26.05 (25.11 is EOL; the k8s 1.34 line EOLs 2026-10-27). etcd 3.6.x ->
-      3.6.x, so no datastore migration.
+      nixos-26.05 (25.11 is EOL; the k8s 1.34 line EOLs 2026-10-27). The datastore is
+      kine/sqlite on both sides, so no datastore migration.
 
   - name: talos
     type: argocd
