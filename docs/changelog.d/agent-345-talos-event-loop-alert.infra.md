@@ -1,0 +1,1 @@
+Grafana: new talos event-loop alert (any ≥5 s stall in the last 10m) and a blocked-wall-time panel on the Talos dashboard, closing the guard half of [eblume/talos#345](https://forge.ops.eblu.me/eblume/talos/issues/345).

@@ -1527,6 +1527,69 @@ groups:
                     type: and
               refId: C
 
+      - uid: talos-event-loop-lag
+        title: TalosEventLoopLag
+        condition: C
+        # Any >5 s event-loop stall in the trailing 10m window — the same
+        # condition as the "[talos] event loop stalled N s" warn log. The
+        # [10m] range is the detection horizon, so there is no long `for`:
+        # this is an event, not a level. noDataState: OK — a missing series
+        # means the talos pod is not exporting (covered by the pod-health
+        # group); only a positive value is the signal.
+        for: 0m
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            talos pod event loop stalled for more than 5s within the last 10m
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-talos-event-loop-lag
+        labels:
+          severity: warning
+          service: talos
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              # le="5.0" not le="5": Prometheus normalizes histogram
+              # bucket-bound label values at ingest; the stored form is what
+              # the matcher must use, or the subtraction is empty.
+              expr: >-
+                sum(increase(talos_event_loop_lag_seconds_bucket{le="+Inf"}[10m]))
+                - sum(increase(talos_event_loop_lag_seconds_bucket{le="5.0"}[10m]))
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0
+                  operator:
+                    type: and
+              refId: C
+
   - orgId: 1
     name: authentik-blueprints
     folder: Infrastructure Alerts
