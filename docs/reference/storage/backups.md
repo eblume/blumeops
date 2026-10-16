@@ -1,7 +1,7 @@
 ---
 title: Backups
-modified: 2026-10-13
-last-reviewed: 2026-10-13
+modified: 2026-10-16
+last-reviewed: 2026-10-16
 tags:
   - storage
   - backup
@@ -174,6 +174,21 @@ test-restore against the live sifaka files — see [[borgmatic]]); the age of
 the last successful check is alerted via `BorgmaticVerifyStale` (10 days) and
 the age of the last successful test restore via `BorgmaticTestRestoreStale`
 (14 days).
+
+**Second photos copy — accepted risk (2026-10-16, eblume/blumeops#1417).**
+A second, independent offsite copy of the photos (the B2 + Object Lock via
+`rclone copy` option) was evaluated and dropped as excessive for a home lab:
+single-provider offsite is an **accepted risk**, on the grounds that the
+`borgbase-immich-photos` repo uses a **server-side append-only key** (a
+compromised indri can append but not delete the offsite copy — the main
+threat Object Lock was for), that the primary sits on sifaka RAID with
+Immich device sync as a partial extra copy, and that the scheduled
+borgmatic verification (weekly check, monthly full-data check, weekly
+sampled test-restore, above) keeps the offsite copy **proven, not assumed**.
+That verification cadence is load-bearing for this acceptance and must keep
+running: the `BorgmaticVerifyStale` / `BorgmaticTestRestoreStale` alerts
+exist so a stalled cadence can't silently downgrade the offsite copy back to
+assumed.
 
 ## Sifaka-Native Data
 

@@ -1,0 +1,1 @@
+Document the accepted risk of a single-provider offsite photos copy (B2 + Object Lock second copy dropped) in [[backups]], noting the restore-test cadence is load-bearing for the acceptance (eblume/blumeops#1417 wrap-up).
