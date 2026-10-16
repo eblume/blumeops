@@ -185,6 +185,10 @@ class FakeForge:
         self.tag_protection_patch_drops: set[str] = set()
         self.tag_protection_delete_drops: set[int] = set()
         self.next_tag_id = 1
+        # repo -> served deploy-key objects (the release-kit writers
+        # invariant's write-key leg); a repo absent from `self.repos` is
+        # served as 404, the same unknown-repo answer a real forge gives.
+        self.keys: dict[str, list[dict]] = {}
         # The folded-in horkos-forge blast-radius invariants read these. A fresh
         # forge defaults to a valid (active, non-admin) bot user and a valid
         # blumeops:main rule whitelisted to eblume — the passing invariant state,
@@ -242,8 +246,12 @@ class FakeForge:
         return sorted(flags)
 
     def _page(self, request, data):
+        # Serves like the real API: page/limit with the API's default page
+        # size, so a client that does not walk pages sees only the first 30.
         page = int(request.url.params.get("page", 1))
-        return data if page == 1 else []
+        limit = int(request.url.params.get("limit", 30))
+        start = (page - 1) * limit
+        return data[start : start + limit]
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append((request.method, str(request.url)))
@@ -444,6 +452,12 @@ class FakeForge:
                     self.tag_protections.setdefault(repo, []).append(rule)
                     return httpx.Response(201, json=rule)
                 return httpx.Response(200, json=self.tag_protections.get(repo, []))
+            if tail == ["keys"]:
+                if repo not in self.repos:
+                    return httpx.Response(404, json={"message": "not found"})
+                return httpx.Response(
+                    200, json=self._page(request, self.keys.get(repo, []))
+                )
             if tail and tail[0] == "tag_protections" and len(tail) > 1:
                 the_id = int(tail[1])
                 rule = next(
@@ -543,7 +557,7 @@ def run_main(monkeypatch):
 def test_write_repo_empty_secrets_in_sync(policy, run_main, monkeypatch):
     policy([_write_repo("svc")])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.install(monkeypatch)
@@ -556,7 +570,7 @@ def test_write_repo_empty_secrets_in_sync(policy, run_main, monkeypatch):
 def test_write_repo_with_secrets_fails_check(policy, run_main, monkeypatch):
     policy([_write_repo("svc")])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": ["DEPLOY_KEY", "OTHER"]}
     forge.install(monkeypatch)
@@ -599,7 +613,7 @@ def test_apply_refuses_before_any_mutation(policy, run_main, monkeypatch):
 def test_write_repo_unreadable_secrets_is_blocked(policy, run_main, monkeypatch):
     policy([_write_repo("svc")])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = None  # endpoint 403s for everything
     forge.install(monkeypatch)
@@ -619,7 +633,7 @@ def test_wrapped_secrets_shape_fails_loud(policy, run_main, monkeypatch):
     # invariant — it must raise instead.
     policy([_write_repo("svc")])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets_body = {"secrets": [{"name": "DEPLOY_KEY"}], "total": 1}
     forge.install(monkeypatch)
@@ -631,7 +645,7 @@ def test_wrapped_secrets_shape_fails_loud(policy, run_main, monkeypatch):
 def test_read_repo_never_calls_secrets_endpoint(policy, run_main, monkeypatch):
     policy([{"name": "svc", "access": "read", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "read"}
     forge.install(monkeypatch)
 
@@ -704,7 +718,7 @@ def test_unreadable_secrets_and_hooks_listed_once(policy, run_main, monkeypatch)
     # reported once, not once per unreadable half.
     policy([_write_repo("svc")])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = None
     forge.hooks_status = 404
@@ -726,7 +740,7 @@ def test_horkos_forge_flagged_repo_in_sync(policy, run_main, monkeypatch):
     # action at all (talos side is independently in sync too).
     policy([_write_repo("svc", horkos_forge=True)])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.horkos_permission = {"svc": "write"}
@@ -746,7 +760,7 @@ def test_horkos_forge_missing_grant_is_drift(policy, run_main, monkeypatch):
     # write grant, folded into the served state.
     policy([_write_repo("svc", horkos_forge=True)])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.install(monkeypatch)
@@ -769,7 +783,7 @@ def test_horkos_forge_unflagged_stale_grant_revoked(policy, run_main, monkeypatc
     # drift in --check, DELETE in apply mode.
     policy([_write_repo("svc")])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.horkos_permission = {"svc": "write"}
@@ -795,7 +809,7 @@ def test_horkos_forge_stale_grant_on_unlisted_repo_revoked(
     # is stale and must be revoked, not left for the drift check.
     policy([_write_repo("svc")])
     forge = FakeForge()
-    forge.repos = ["svc", "orphan"]
+    forge.repos = ["svc", "orphan", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.horkos_permission = {"orphan": "write"}
@@ -852,7 +866,7 @@ def test_extra_principal_missing_grant_is_drift(policy, run_main, monkeypatch):
         [_write_repo("svc", principals={"cli-agent": "read"})], principals=["cli-agent"]
     )
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.install(monkeypatch)
@@ -880,7 +894,7 @@ def test_extra_principal_stale_grant_on_unlisted_repo_revoked(
         [_write_repo("svc", principals={"cli-agent": "read"})], principals=["cli-agent"]
     )
     forge = FakeForge()
-    forge.repos = ["svc", "orphan"]
+    forge.repos = ["svc", "orphan", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.extra_permission = {"cli-agent": {"svc": "read", "orphan": "read"}}
@@ -922,7 +936,7 @@ def test_last_per_repo_entry_removed_revokes_live_grant(policy, run_main, monkey
     # the reconciler's sweep, so its live grant is revoked, not forgotten.
     policy([_write_repo("svc")], principals=["cli-agent"])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.extra_permission = {"cli-agent": {"svc": "read"}}
@@ -950,7 +964,7 @@ def test_pr_check_principal_last_entry_removal_is_intended(
     # agree on the effect.
     policy([_write_repo("svc")], principals=["cli-agent"])  # head: list only
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.horkos_user = _valid_user(is_admin=False)
@@ -989,7 +1003,7 @@ def test_pr_check_one_step_demotion_of_granted_principal_fails(
     # two-step demotion.
     policy([_write_repo("svc")])  # head: no list, no entries
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.horkos_user = _valid_user(is_admin=False)
@@ -1026,7 +1040,7 @@ def test_pr_check_two_step_demotion_is_green(policy, run_main, monkeypatch, tmp_
     # dropping the principal from the list is a no-op the check passes.
     policy([_write_repo("svc")])  # head: no list, no entries
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.horkos_user = _valid_user(is_admin=False)
@@ -1065,7 +1079,7 @@ def test_no_principals_is_unchanged(policy, run_main, monkeypatch):
     assert extra_principals == {}
 
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.horkos_permission = {"svc": "write"}
@@ -1166,8 +1180,10 @@ def test_hook_update_dropped_by_forge_is_recreated(policy, run_main, monkeypatch
     assert new["secret_sent"] == "shh"
     assert new["config"]["url"] == ara.HORKOS_HOOK_URL
 
-    # Idempotent: a second run finds the recreated hook in sync.
+    # Idempotent: a second run finds the recreated hook in sync. The --check
+    # invariant needs release-kit readable (its deploy-key 404 would exit 1).
     forge.requests.clear()
+    forge.repos.append("release-kit")
     code, out = run_main(check=True, token="t")
     assert code == 0
     assert "In sync." in out
@@ -1216,7 +1232,7 @@ def test_hook_create_reads_back_in_sync(policy, run_main, monkeypatch):
 def test_write_repo_with_actions_disabled_has_no_secrets(policy, run_main, monkeypatch):
     policy([_write_repo("svc")])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.actions_off = {"svc"}
     forge.install(monkeypatch)
@@ -1229,7 +1245,7 @@ def test_write_repo_with_actions_disabled_has_no_secrets(policy, run_main, monke
 def test_secrets_404_with_actions_enabled_is_blocked(policy, run_main, monkeypatch):
     policy([_write_repo("svc")])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.status_overrides = {"/actions/secrets": 404}
     forge.install(monkeypatch)
@@ -1288,7 +1304,7 @@ def protected(policy, monkeypatch):
     are declared by the returned setter(rules) and served by the forge."""
     policy([{"name": "svc", "access": "read", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "read"}
     forge.install(monkeypatch)
 
@@ -1325,7 +1341,7 @@ def tag_protected(policy, monkeypatch, tmp_path):
     setter(rules) and served by the forge."""
     policy([{"name": "svc", "access": "read", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "read"}
     forge.install(monkeypatch)
     tag_path = tmp_path / "tag-protections.json"
@@ -1859,7 +1875,7 @@ def test_pr_check_undeclared_live_tag_protection_unexpected(
     tag_path.write_text('{"rules": []}', encoding="utf-8")
     monkeypatch.setattr(ara, "TAG_PROTECTIONS_PATH", tag_path)
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.horkos_user = _valid_user(is_admin=False)
@@ -1893,7 +1909,7 @@ def test_pr_check_newly_declared_tag_protection_intended(
     )
     monkeypatch.setattr(ara, "TAG_PROTECTIONS_PATH", tag_path)
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.horkos_user = _valid_user(is_admin=False)
@@ -2028,7 +2044,7 @@ def test_workflow_undeclared_label_fails(policy, run_main, monkeypatch):
     fails --check naming the label."""
     policy([{"name": "svc", "access": "none", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.workflows = {
         "svc": {".forgejo/workflows/ci.yml": _workflow_yml("some-unknown-label")}
     }
@@ -2098,7 +2114,7 @@ def test_workflow_declared_labels_pass(policy, run_main, monkeypatch):
     for it: all three legs green."""
     policy([{"name": "blumeops", "access": "none", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["blumeops"]
+    forge.repos = ["blumeops", "release-kit"]
     # blumeops:main is live and declared, so the protection half is in sync
     # and this label-focused test sees no protection drift.
     forge.protections = {"blumeops": [_served(_rule(repo="blumeops"))]}
@@ -2132,7 +2148,7 @@ def test_workflow_gated_label_disallowed_repo_fails(policy, run_main, monkeypatc
     even when another runner live-registers the label."""
     policy([{"name": "horkos", "access": "none", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["horkos"]
+    forge.repos = ["horkos", "release-kit"]
     forge.workflows = {"horkos": {".forgejo/workflows/ci.yml": _workflow_yml("priv")}}
     forge.install(monkeypatch)
     monkeypatch.setattr(
@@ -2166,7 +2182,7 @@ def test_workflow_label_exception_is_exempt(policy, run_main, monkeypatch):
     )
     runners.write_text(json.dumps(data))
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.workflows = {
         "svc": {".forgejo/workflows/ci.yml": _workflow_yml("some-unknown-label")}
     }
@@ -2183,7 +2199,7 @@ def test_archived_repo_skipped_in_scan(policy, run_main, monkeypatch):
     declaration leg, but is exempt, and the ok line reports the skip count."""
     policy([{"name": "old", "access": "none", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["old"]
+    forge.repos = ["old", "release-kit"]
     forge.archived = {"old"}
     forge.workflows = {"old": {".forgejo/workflows/ci.yml": _workflow_yml("k8s")}}
     forge.install(monkeypatch)
@@ -2203,7 +2219,7 @@ def test_archived_repo_skipped_by_gate_leg(policy, run_main, monkeypatch):
     is not declared to (priv, blumeops-only) does not fail the gate leg."""
     policy([{"name": "old", "access": "none", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["old"]
+    forge.repos = ["old", "release-kit"]
     forge.archived = {"old"}
     forge.workflows = {"old": {".forgejo/workflows/ci.yml": _workflow_yml("priv")}}
     forge.install(monkeypatch)
@@ -2221,7 +2237,7 @@ def test_live_leg_wrong_scope_fails(policy, run_main, monkeypatch):
     runner that holds the label elsewhere."""
     policy([{"name": "horkos", "access": "none", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["horkos"]
+    forge.repos = ["horkos", "release-kit"]
     forge.workflows = {
         "horkos": {".forgejo/workflows/ci.yml": _workflow_yml("nix-container-builder")}
     }
@@ -2250,7 +2266,7 @@ def test_live_leg_instance_scope_serves(policy, run_main, monkeypatch):
     live leg for any targeting repo."""
     policy([{"name": "svc", "access": "none", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.workflows = {
         "svc": {".forgejo/workflows/ci.yml": _workflow_yml("indri-build")}
     }
@@ -2272,7 +2288,7 @@ def test_live_leg_prometheus_down_is_unknown(policy, run_main, monkeypatch):
     """An unreachable Prometheus is an unknown, which fails --check."""
     policy([{"name": "svc", "access": "none", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.workflows = {"svc": {".forgejo/workflows/ci.yml": _workflow_yml("priv")}}
     forge.install(monkeypatch)
 
@@ -2516,6 +2532,168 @@ def test_invariant_main_whitelist_valid_is_ok(policy, monkeypatch):
     assert findings.failures == []
 
 
+def test_invariant_release_kit_default_is_ok(policy, monkeypatch):
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert findings.failures == []
+
+
+def test_invariant_release_kit_write_collaborator_fails(policy, monkeypatch):
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    forge.extra_permission = {"mallory": {"release-kit": "write"}}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert any("mallory" in f for f in findings.failures)
+    assert any("write access" in f for f in findings.failures)
+
+
+def test_invariant_release_kit_admin_collaborator_fails(policy, monkeypatch):
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    forge.extra_permission = {"mallory": {"release-kit": "admin"}}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert any("mallory" in f for f in findings.failures)
+    assert any("admin access" in f for f in findings.failures)
+
+
+def test_invariant_release_kit_read_collaborator_ok(policy, monkeypatch):
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    forge.extra_permission = {"mallory": {"release-kit": "read"}}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert findings.failures == []
+
+
+def test_invariant_release_kit_owner_in_list_ok(policy, monkeypatch):
+    # The allowed-set member is whitelisted before any permission fetch, so
+    # eblume present in the list (even as admin/owner) is not drift.
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    forge.extra_permission = {"eblume": {"release-kit": "owner"}}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert findings.failures == []
+
+
+def test_invariant_release_kit_write_deploy_key_fails(policy, monkeypatch):
+    # A write deploy key is a tag-push path that the collaborator axis would
+    # never see, so the finding must name the key's title.
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    forge.keys = {"release-kit": [{"id": 1, "title": "ci deploy", "read_only": False}]}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert any("ci deploy" in f for f in findings.failures)
+
+
+def test_invariant_release_kit_read_only_key_ok(policy, monkeypatch):
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    forge.keys = {"release-kit": [{"id": 1, "title": "ci deploy", "read_only": True}]}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert findings.failures == []
+
+
+def test_invariant_release_kit_key_missing_read_only_fails(policy, monkeypatch):
+    # Fail closed: a key object without read_only is not a read-only key.
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    forge.keys = {"release-kit": [{"id": 1, "title": "shapeless"}]}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert any("shapeless" in f for f in findings.failures)
+
+
+def test_invariant_release_kit_write_key_on_page_two_fails(policy, monkeypatch):
+    # list_deploy_keys must walk every /keys page: a write key past the
+    # first 50 is drift, not "no write keys".
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    keys = [
+        {"id": i, "title": f"read key {i}", "read_only": True} for i in range(1, 51)
+    ]
+    keys.append({"id": 51, "title": "rogue write key", "read_only": False})
+    forge.keys = {"release-kit": keys}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert any("rogue write key" in f for f in findings.failures)
+
+
+def test_invariant_release_kit_unknown_permission_fails(policy, monkeypatch):
+    # A permission level the check does not know (future Forgejo level, or a
+    # shape drift) cannot be proven read-only, so it fails, not passes.
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    forge.extra_permission = {"mallory": {"release-kit": "weird-level"}}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert any("unexpected permission" in f for f in findings.failures)
+
+
+def test_paged_wrapped_shape_fails_loud():
+    # A list endpoint answering with a dict that has no "data" would read as
+    # an empty page and hide entries (a write key, a write collaborator) —
+    # paged() must fail loud, the module's malformed-shape rule.
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"unexpected": []})
+    )
+    with (
+        httpx.Client(transport=transport, base_url="http://forge") as c,
+        pytest.raises(ValueError),
+    ):
+        ara.paged(c, "/api/v1/repos/eblume/release-kit/keys")
+
+
+def test_invariant_release_kit_unreadable_fails(policy, monkeypatch):
+    # release-kit not in the fake's repos: the keys endpoint 404s (a real
+    # forge answers 404 for an unknown repo), so the check is UNKNOWN, never
+    # a pass — an invisible repo must not read as "no writers".
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert any("could not verify" in f for f in findings.failures)
+
+
+def test_invariant_release_kit_collaborators_unreadable_fails(policy, monkeypatch):
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["release-kit"]
+    forge.status_overrides = {"/eblume/release-kit/collaborators": 403}
+    with _forge_client(forge, monkeypatch) as c:
+        findings = ara.Findings()
+        ara.check_release_kit_writers(c, "eblume", findings)
+    assert any("could not verify" in f for f in findings.failures)
+
+
 # --- Actions-secret name drift (names read from the declared-state file) ----
 
 
@@ -2644,7 +2822,7 @@ def test_check_flags_actions_secret_name_drift(policy, run_main, monkeypatch):
     # provision-indri --check would have caught.
     policy([{"name": "svc", "access": "none", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.secrets = {"svc": ["STALE"]}
     forge.horkos_user = _valid_user(is_admin=False)
     forge.protections = {"blumeops": [_blumeops_main_rule()]}
@@ -2663,7 +2841,7 @@ def test_check_actions_secret_names_in_sync_is_green(policy, run_main, monkeypat
     # weekly run should report).
     policy([{"name": "svc", "access": "none", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.secrets = {"svc": ["A", "B"]}
     forge.horkos_user = _valid_user(is_admin=False)
     forge.protections = {"blumeops": [_blumeops_main_rule()]}
@@ -2673,6 +2851,26 @@ def test_check_actions_secret_names_in_sync_is_green(policy, run_main, monkeypat
     code, out = run_main(check=True, token="t")
     assert code == 0, out
     assert "In sync." in out
+
+
+def test_check_release_kit_write_collaborator_fails(policy, run_main, monkeypatch):
+    # End-to-end: everything else in sync, but a write-or-above collaborator
+    # on release-kit breaks the tag-push boundary — --check exits 1 before
+    # the drift plan, naming the user.
+    policy([{"name": "svc", "access": "none", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.secrets = {"svc": []}
+    forge.horkos_user = _valid_user(is_admin=False)
+    forge.protections = {"blumeops": [_blumeops_main_rule()]}
+    forge.extra_permission = {"mallory": {"release-kit": "write"}}
+    forge.install(monkeypatch)
+    _declared(monkeypatch, {"svc": []})
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1, out
+    assert "mallory" in out
+    assert "release-kit" in out
 
 
 # --- Actions-secret values half (human apply vs CI report) -------------------
@@ -2882,7 +3080,7 @@ def test_pr_check_secret_names_intended_is_green(
     # line in the posted report.
     policy([{"name": "svc", "access": "none", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.secrets = {"svc": ["A"]}  # live matches base
     forge.horkos_user = _valid_user(is_admin=False)
     forge.protections = {"blumeops": [_blumeops_main_rule()]}
@@ -2914,7 +3112,7 @@ def test_pr_check_secret_names_unexpected_live_fails(
     # names the ghost secret.
     policy([{"name": "svc", "access": "none", "pool": "none"}])
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.secrets = {"svc": ["A", "GHOST"]}
     forge.horkos_user = _valid_user(is_admin=False)
     forge.protections = {"blumeops": [_blumeops_main_rule()]}
@@ -2958,7 +3156,7 @@ def test_pr_check_intended_only_is_green(policy, run_main, monkeypatch, tmp_path
     # intended line in the report file, no unexpected drift.
     policy([{"name": "svc", "access": "read", "pool": "none"}])  # head declares read
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}  # live still write — the PR's read is pending
     forge.secrets = {"svc": []}  # write repo, no secrets
     forge.horkos_user = _valid_user(is_admin=False)
@@ -2987,7 +3185,7 @@ def test_pr_check_unexpected_drift_fails(policy, run_main, monkeypatch, tmp_path
         __import__("json").dumps({"rules": [_rule(repo="other")]}), encoding="utf-8"
     )
     forge = FakeForge()
-    forge.repos = ["svc", "other", "blumeops"]
+    forge.repos = ["svc", "other", "blumeops", "release-kit"]
     forge.secrets = {"svc": []}
     forge.permission = {"svc": "write"}  # svc in sync
     forge.horkos_user = _valid_user(is_admin=False)
@@ -3030,7 +3228,7 @@ def test_pr_check_rule_removal_posts_notice(policy, run_main, monkeypatch, tmp_p
     # Head declares no protections (PROTECTIONS_PATH empty); base declares svc:main.
     ara.PROTECTIONS_PATH.write_text('{"rules": []}', encoding="utf-8")
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.protections.update(
@@ -3060,7 +3258,7 @@ def test_pr_check_undeclared_live_protection_unexpected(
     policy([{"name": "svc", "access": "write", "pool": "none"}])
     ara.PROTECTIONS_PATH.write_text('{"rules": []}', encoding="utf-8")
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.horkos_user = _valid_user(is_admin=False)
@@ -3092,7 +3290,7 @@ def test_pr_check_newly_declared_protection_intended(
         json.dumps({"rules": [_rule(rule_name="release/*")]}), encoding="utf-8"
     )
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}
     forge.secrets = {"svc": []}
     forge.horkos_user = _valid_user(is_admin=False)
@@ -3123,7 +3321,7 @@ def test_pr_check_head_plan_violation_forbidden(
     policy([{"name": "svc", "access": "write", "pool": "none"}])
     ara.PROTECTIONS_PATH.write_text('{"rules": []}', encoding="utf-8")
     forge = FakeForge()
-    forge.repos = ["svc"]
+    forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "write"}  # head grants write (pending on the live forge)
     forge.secrets = {"svc": ["DEPLOY_KEY"]}  # write + secrets = violation
     forge.install(monkeypatch)

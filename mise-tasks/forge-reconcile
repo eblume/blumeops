@@ -773,9 +773,15 @@ def paged(client: httpx.Client, path: str, **params) -> list[dict]:
         resp = client.get(path, params={"page": page, "limit": 50, **params})
         resp.raise_for_status()
         payload = resp.json()
-        # /repos/search wraps its results in {"ok":…, "data":[…]}; the plain list
-        # endpoints return a bare array.
-        batch = payload.get("data", []) if isinstance(payload, dict) else payload
+        if isinstance(payload, dict):
+            # /repos/search wraps its results in {"ok":…, "data":[…]}; the
+            # plain list endpoints return a bare array. Any other dict shape
+            # would read as an empty page and hide entries, so it fails loud.
+            if "data" not in payload:
+                raise ValueError(f"{path}: wrapped response without 'data'")
+            batch = payload["data"]
+        else:
+            batch = payload
         if not batch:
             return out
         out.extend(batch)
@@ -1024,6 +1030,19 @@ def list_tag_protections(client: httpx.Client, owner: str, repo: str) -> list[di
     return resp.json()
 
 
+def list_deploy_keys(client: httpx.Client, owner: str, repo: str) -> list[dict] | None:
+    """The repo's deploy keys across all pages, or None if unreadable
+    (repo-admin, like hooks and collaborators — the same 403/404 → None
+    convention). A write key past the first page must not read as "no write
+    keys", so the list is walked page by page."""
+    try:
+        return paged(client, f"/api/v1/repos/{owner}/{repo}/keys")
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (403, 404):
+            return None
+        raise
+
+
 def show(value: object) -> str:
     """A protection field value for a table cell or a pending line."""
     return ", ".join(value) if isinstance(value, list) else json.dumps(value)
@@ -1041,6 +1060,8 @@ def show(value: object) -> str:
 EXPECTED_MAIN_WHITELIST = frozenset({"eblume"})
 HORKOS_BLAST_REPO = "blumeops"
 HORKOS_BLAST_BRANCH = "main"
+RELEASE_KIT_REPO = "release-kit"
+EXPECTED_RELEASE_KIT_WRITERS = frozenset({"eblume"})
 
 
 class Findings:
@@ -1124,6 +1145,61 @@ def check_main_whitelist(client, owner, report):
             problems.append(f"{field} also allows {', '.join(extra)}")
     if rule.get("push_whitelist_deploy_keys"):
         problems.append("deploy keys may push")
+    if problems:
+        report.fail(what, "; ".join(problems))
+    else:
+        report.ok(what)
+
+
+def check_release_kit_writers(client, owner, report):
+    """release-kit tags stay pushable by eblume alone: no write-or-above
+    collaborator other than eblume, no write deploy key. Live writers, not a
+    tag-protection rule — why, see the release-kit note in
+    docs/reference/operations/declared-state-files.md. The `main`
+    branch-protection half is declared in branch-protections.json and
+    drift-checked separately."""
+    what = f"{RELEASE_KIT_REPO}: tags stay pushable by eblume alone"
+    try:
+        collaborators = paged(
+            client, f"/api/v1/repos/{owner}/{RELEASE_KIT_REPO}/collaborators"
+        )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (403, 404):
+            report.unknown(what, "collaborator list unreadable")
+            return
+        raise
+    allowed = {u.lower() for u in EXPECTED_RELEASE_KIT_WRITERS}
+    problems: list[str] = []
+    for user in collaborators:
+        who = user.get("login", "")
+        if who.lower() in allowed:
+            continue
+        try:
+            resp = client.get(
+                f"/api/v1/repos/{owner}/{RELEASE_KIT_REPO}/collaborators/{who}/permission"
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in (403, 404):
+                report.unknown(what, f"permission for {who} unreadable")
+                return
+            raise
+        permission = resp.json().get("permission")
+        if permission in {"write", "admin", "owner"}:
+            problems.append(f"collaborator {who} has {permission} access")
+        elif permission not in {"read", "none"}:
+            # An unknown level (a future Forgejo permission, or a missing
+            # field) cannot be proven read-only, so it fails like a write.
+            problems.append(
+                f"collaborator {who} has unexpected permission {permission!r}"
+            )
+    keys = list_deploy_keys(client, owner, RELEASE_KIT_REPO)
+    if keys is None:
+        report.unknown(what, "deploy keys unreadable")
+        return
+    for key in keys:
+        if key.get("read_only") is not True:
+            problems.append(f"deploy key {key.get('title', '<untitled>')!r} can write")
     if problems:
         report.fail(what, "; ".join(problems))
     else:
@@ -2273,18 +2349,21 @@ def main(
 
     with client:
         # The blast-radius invariants folded in from horkos-forge-drift: the
-        # horkos-forge bot is not a site admin, and blumeops:main stays
-        # whitelisted to eblume alone. They are facts a forge-UI change leaves
-        # no diff for, so they run on every --check — the weekly schedule and
-        # the PR check alike — not just when a PR is in flight. Both need only
-        # the check client (the repo-write token can look up the bot user and
-        # read blumeops' protections), so no extra secret is required. They are
-        # a hard stop before the drift plan: a security-boundary failure is
-        # more urgent than the grant-set delta it would otherwise precede.
+        # horkos-forge bot is not a site admin, blumeops:main stays
+        # whitelisted to eblume alone, and release-kit stays writable by
+        # eblume alone. They are facts a forge-UI change leaves no diff for,
+        # so they run on every --check — the weekly schedule and the PR
+        # check alike — not just when a PR is in flight. They need only the
+        # check client (the repo-write token can look up the bot user and
+        # read blumeops' and release-kit's state), so no extra secret is
+        # required. They are a hard stop before the drift plan: a
+        # security-boundary failure is more urgent than the grant-set delta
+        # it would otherwise precede.
         if check:
             env_findings = Findings()
             check_site_admin(client, env_findings, extra=sorted(extra_principals))
             check_main_whitelist(client, owner, env_findings)
+            check_release_kit_writers(client, owner, env_findings)
             check_actions_secret_names(client, owner, env_findings, pr_mode=bool(pr_base_ref))
             # The runner-label drift checks (#1358, #1515, #1526): scan each
             # repo's default-branch workflows once, then check the scan
