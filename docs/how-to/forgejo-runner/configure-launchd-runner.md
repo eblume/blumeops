@@ -27,8 +27,8 @@ phase 6 then dropped the per-job container entirely.
 - **Daemon:** the nixpkgs `forgejo-runner` binary (13.1.0, the [[indri]]
   flake's nixpkgs pin) runs as the nix-managed LaunchAgent
   `mcquack.eblume.forgejo-runner` (same pattern as [[forgejo]]); the
-  source checkout at `~/code/3rd/forgejo-runner` is the rollback
-  re-write's target only.
+  source checkout at `~/code/3rd/forgejo-runner` is the build
+  runner's rollback re-write staging source only.
 - **Jobs:** run directly on the host as `erichblume` with indri's
   mise toolchain (labels are registered `:host`) — no per-job
   container and no `runner-job-image` (phase 6), and no container

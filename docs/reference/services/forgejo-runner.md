@@ -185,8 +185,9 @@ it — an idle-runner operation, so it runs in its own monthly window
 with the runner stopped. Two LaunchAgents (in the nix-darwin generation) handle the
 recurrence:
 
-- **Nightly sweep** — `mcquack.eblume.runner-cache-sweep` (default
-  5:30, clear of borgmatic's 2:00 and 4:00 runs):
+- **Nightly sweep** — `mcquack.eblume.runner-cache-sweep` (daily 05:30,
+  the flake's `StartCalendarInterval`, clear of borgmatic's 2:00 and 4:00
+  runs):
   - Deletes `~/.cache/uv/environments-v2` entries not modified in
     240 minutes. The threshold deliberately exceeds the runner's
     3-hour job timeout, so a live job's environment (created when its
@@ -226,8 +227,9 @@ agent) → the next `--tags rebuild` apply re-renders the config. The
 `indri-build` runner still works the old way — playbook `pre_tasks`
 fetches its values via `op` (`op item get` for the identity fields,
 `op read` for the PAT) and the role renders its config at provision
-time — until eblume/blumeops#1627, so the table above reads
-correctly for both runners.
+time — until eblume/blumeops#1627. The table lists the main runner's
+fields; the build runner's identity is `runner_indri_build_uuid` /
+`runner_indri_build_token` in the same item, and it shares the PAT.
 
 The GitHub PAT exists because Forgejo injects `GITHUB_TOKEN` (a *forge*
 job token) into every job, and mise honours that name for

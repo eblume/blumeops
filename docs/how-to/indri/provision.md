@@ -1,7 +1,7 @@
 ---
 title: Provision Indri
-modified: 2026-10-14
-last-reviewed: 2026-10-14
+modified: 2026-10-16
+last-reviewed: 2026-10-16
 tags:
   - how-to
   - indri
@@ -611,6 +611,14 @@ generation is a GC root; the ansible step is what actually replaces it.
 Rolling back to a generation that keeps other agents (every flip after
 PR 2) unloads and deletes the dropped ones, and the service is down until
 ansible runs. Both cases were drilled on 2026-09-17 (blumeops#1125).
+
+> The runner cache agents (eblume/blumeops#1528 PR 3) are the exception:
+> rolling back to a generation that predates them (anything before the
+> #1667 apply, system-66) unloads and deletes
+> `mcquack.eblume.runner-cache-sweep` and `-prune`, and nothing re-writes
+> them now, because the role's cache tasks are gone. Sweep and prune stay
+> off until the next roll-forward (`--tags rebuild`), and `~/.cache/uv`
+> regrows at roughly 2G/day in the meantime.
 
 The gate variable must arrive as a boolean: the role's conditionals apply
 `| bool`, so the `-e key=true` form above is fine; without the filter,
