@@ -58,6 +58,8 @@ inventory. Add a row when you add a file.
 
 One glob-semantics difference from `protected_file_patterns`: tag name patterns are compiled by Gitea's glob **without** separators, so `*` matches dots (`v*` matches `v0.1.0`), while `protected_file_patterns` compiles `.` and `/` as separators; a tag pattern of the form `/regex/` (leading and trailing slash) is a raw regex.
 
+`forge/tag-protections.json` stays empty for `eblume/release-kit` **by design**: the kit's own release workflow creates tags as the synthetic `forgejo-actions` user (id -2), which Forgejo v16 tag-protection whitelists cannot resolve (`routers/api/v1/repo/tag.go`, `models/git/protected_tag.go` — DB users and teams only), so a `v*` rule would 422 the kit's own release ([#1661](https://forge.ops.eblu.me/eblume/blumeops/issues/1661)). Instead the tag invariant is enforced over live writers: `forge-reconcile --check` fails on any write-or-above collaborator on release-kit other than eblume and on any write deploy key; the `main` branch-protection half is already declared in `forge/branch-protections.json` (eblume-only whitelists) and drift-checked by the same `--check`.
+
 Planned, filed as issues on 2026-10-12:
 
 | File | Declares | Issue |
