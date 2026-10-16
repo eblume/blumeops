@@ -60,6 +60,7 @@ One glob-semantics difference from `protected_file_patterns`: tag name patterns 
 
 `forge/tag-protections.json` stays empty for `eblume/release-kit` **by design**: the kit's own release workflow creates tags as the synthetic `forgejo-actions` user (id -2), which Forgejo v16 tag-protection whitelists cannot resolve (`routers/api/v1/repo/tag.go`, `models/git/protected_tag.go` — DB users and teams only), so a `v*` rule would 422 the kit's own release ([#1661](https://forge.ops.eblu.me/eblume/blumeops/issues/1661)). Instead the tag invariant is enforced over live writers: `forge-reconcile --check` fails on any write-or-above collaborator on release-kit other than eblume and on any write deploy key; the `main` branch-protection half is already declared in `forge/branch-protections.json` (eblume-only whitelists) and drift-checked by the same `--check`.
 
+The same mechanism rules out a tag rule on `eblume/hephaestus`: its release workflow `git push`es its tags with the Actions task token, which authenticates as the same synthetic user, so a `v*` rule would block the repo's own release. Its tag surface is fenced only by the release-PR flow (tags cut by the workflow on eblume-merged main pushes); the bot's restored write ([#1662](https://forge.ops.eblu.me/eblume/blumeops/pulls/1662)) can push tags directly, a residual accepted with the demotion lift.
 Planned, filed as issues on 2026-10-12:
 
 | File | Declares | Issue |
