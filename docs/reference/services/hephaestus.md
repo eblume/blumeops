@@ -101,9 +101,11 @@ is a PR on the talos repo — edit the input's `ref`/`rev`, then `nix flake lock
 --update-input hephaestus`; the repo's auto-release builds + pushes the image
 and the horkos publisher opens the blumeops pin PR. The image consumes the
 `cli` package (heph + hephd only — the pod shares the ringtail host spoke's
-socket, so the image's hephd is inert), and may run a tag ahead of the spokes:
-a packaging-only delta (v1.10.8→v1.10.9 was one) cannot change the spoke
-protocol.
+socket, so the image's hephd is inert), and may run ahead of the spokes only
+while the delta between the two tags is release/packaging-only (today: spokes
+v1.10.7, image v1.10.9; v1.10.8 = release-flow rewrite, v1.10.9 = `cli`
+packaging). A delta that touches the sync protocol or hephd moves all pins
+together.
 
 Because both spokes' hephd is a toplevel store path, no heph build runs
 inside the switch (eblume/blumeops#1003's mid-activation compile is closed). The standing trade of pinning the flake input's nixpkgs to the
