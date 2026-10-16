@@ -16,9 +16,10 @@ transcript incident is why the credential story is what it is below). Forgejo
 mints PATs over basic auth **as the user**, and a PAT cannot mint its own
 successor — so the mint needs the bot's *login* password, not the stored PAT.
 That password is the bootstrap credential and lives at
-`op://blumeops-ci/talos-forgejo-bot/login-password`, readable by the
-read-only `BLUMEOPS_CI_OP_TOKEN` in the warrant path and by biometric `op`
-on gilbert.
+`op://blumeops-ci/talos-forgejo-bot/password` (the login item's built-in
+`password` field — where `op item create --generate-password` puts it),
+readable by the read-only `BLUMEOPS_CI_OP_TOKEN` in the warrant path and by
+biometric `op` on gilbert.
 
 Ordering is fail-safe: the old token is only revoked after the new one is
 proven **and** the talos pods have been rolled; with `--skip-roll` the revoke
@@ -56,7 +57,7 @@ TOKEN_SCOPES = ["write:repository", "write:issue"]
 VAULT = "agents"
 TOKEN_ITEM = "talos-forgejo-token"
 TOKEN_REF = f"op://{VAULT}/{TOKEN_ITEM}/api-token"
-PASSWORD_REF = "op://blumeops-ci/talos-forgejo-bot/login-password"
+PASSWORD_REF = "op://blumeops-ci/talos-forgejo-bot/password"
 KUBECONFIG_REF = "op://blumeops-ci/k3s-run-script/kubeconfig"
 
 # Repo the bot pushes branches to; a read through the PAT reports its push permission.

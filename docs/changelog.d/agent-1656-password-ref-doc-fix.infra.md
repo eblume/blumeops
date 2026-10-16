@@ -1,0 +1,1 @@
+`forge-bot-pat-rotate` now reads the talos login item's built-in `password` field (where `op item create --generate-password` puts the value) instead of the `login-password` field name, and the migration how-to documents exactly that ref; the redundant `login-password` field on the live item is harmless and can be dropped later.
