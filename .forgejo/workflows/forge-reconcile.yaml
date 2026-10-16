@@ -52,6 +52,7 @@ on:
     paths:
       - 'argocd/manifests/talos/repos.json'
       - 'forge/branch-protections.json'
+      - 'forge/tag-protections.json'
       - 'forge/runners.json'
       - 'mise-tasks/forge-reconcile'
       - 'mise-tasks/horkos-forge-provision'
@@ -61,6 +62,7 @@ on:
     paths:
       - 'argocd/manifests/talos/repos.json'
       - 'forge/branch-protections.json'
+      - 'forge/tag-protections.json'
       - 'forge/runners.json'
       - 'mise-tasks/forge-reconcile'
       - 'mise-tasks/horkos-forge-provision'

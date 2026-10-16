@@ -47,6 +47,7 @@ inventory. Add a row when you add a file.
 |------|----------|------------|-------|---------------|
 | `argocd/manifests/talos/repos.json` | which repos the `talos` bot may touch, the pod clone pool, which repos get the forge webhooks | `mise run forge-reconcile` | `forge-reconcile --check` (weekly, PR) | the talos pod entrypoint, via a kustomize ConfigMap |
 | `forge/branch-protections.json` | branch protection rules on `main` — the single source, so an undeclared live rule is drift that `forge-reconcile` apply deletes | `mise run forge-reconcile` | same | none |
+| `forge/tag-protections.json` | tag protection rules (Forgejo 16: `name_pattern` + push whitelist) — the single source, so an undeclared live rule is drift that `forge-reconcile` apply deletes | `mise run forge-reconcile` | same | none |
 | `forge/runners.json` | runner topology: name, host, labels, scope, capacity, unit | `mise run forge-reconcile` | `forge-reconcile --check` | `nixos/ringtail/configuration.nix`, `darwin/indri/configuration.nix` |
 | `warrant-policy.yaml` | which workflows are requestable, their class, input schemas, SHA binding | none; it is read at request and dispatch time | `request-run` refuses at request time | `mise run request-run`, [[horkos]] |
 | `service-versions.yaml` | per-service review freshness and current version | `mise run service-review` (human, updates the file) | `container-version-check` for container pins | `forge-name-lint`, one ringtail nix pin |
@@ -54,6 +55,8 @@ inventory. Add a row when you add a file.
 | `ntfy/topics.json` | ntfy topics: purpose, producers, notification budget (volume, priority, actionable) | `mise run ntfy-lint` | the lint itself (Ntfy Lint PR check + prek hook) | the Topics table in `docs/reference/services/ntfy.md` (hand-mirrored); the ringtail and indri apply-watcher NTFY_TOPIC via ntfy/topics.nix; the two auto-apply workflows' refusal topic at runtime (raw fetch at main, falling back to the ops-approvals literal) |
 | `forge/actions-secrets.json` | the Actions secret *names* per repo | `mise run forge-reconcile` (values half: human-only PUT/DELETE from the in-code 1Password sources) | `forge-reconcile --check` compares names | none |
 | `darwin/indri/secrets.json`, `nixos/ringtail/secrets.json` | on-host secret files by path, `op://` source, owner, mode, unit to restart | `mise run seed-secrets` | `seed-secrets --check` (vault-free; weekly host systemd timer on ringtail) | the per-host flake invariant (invariants.nix lockstep) |
+
+One glob-semantics difference from `protected_file_patterns`: tag name patterns are compiled by Gitea's glob **without** separators, so `*` matches dots (`v*` matches `v0.1.0`), while `protected_file_patterns` compiles `.` and `/` as separators; a tag pattern of the form `/regex/` (leading and trailing slash) is a raw regex.
 
 Planned, filed as issues on 2026-10-12:
 

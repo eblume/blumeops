@@ -67,10 +67,11 @@ def _policy(repos, principals=None):
 def policy(tmp_path, monkeypatch):
     """Point POLICY_PATH at a scratch repos.json; return a setter(repos).
 
-    PROTECTIONS_PATH goes to a scratch file declaring no rules, and
-    RUNNERS_PATH/RUNBOOK_PATH to scratch copies of the real declared runner
-    topology + runbook, so tests that are not about branch protection or the
-    runner checks never see the repo's live files (#1526)."""
+    PROTECTIONS_PATH and TAG_PROTECTIONS_PATH go to scratch files declaring
+    no rules, and RUNNERS_PATH/RUNBOOK_PATH to scratch copies of the real
+    declared runner topology + runbook, so tests that are not about branch or
+    tag protection or the runner checks never see the repo's live files
+    (#1526)."""
 
     def set_repos(repos, principals=None):
         path = tmp_path / "repos.json"
@@ -80,6 +81,8 @@ def policy(tmp_path, monkeypatch):
     monkeypatch.setattr(ara, "POLICY_PATH", tmp_path / "repos.json")
     protections = tmp_path / "branch-protections.json"
     protections.write_text(json.dumps({"rules": []}), encoding="utf-8")
+    tag_protections = tmp_path / "tag-protections.json"
+    tag_protections.write_text(json.dumps({"rules": []}), encoding="utf-8")
     runners = tmp_path / "runners.json"
     runners.write_text((ROOT / "forge" / "runners.json").read_text(), encoding="utf-8")
     runbook = tmp_path / "runbook-forgejo-ci.md"
@@ -92,6 +95,7 @@ def policy(tmp_path, monkeypatch):
     # is not about Actions secrets should not also see the real file's list.
     monkeypatch.setattr(ara, "declared_actions_secret_names", dict)
     monkeypatch.setattr(ara, "PROTECTIONS_PATH", protections)
+    monkeypatch.setattr(ara, "TAG_PROTECTIONS_PATH", tag_protections)
     monkeypatch.setattr(ara, "RUNNERS_PATH", runners)
     # RUNBOOK_PATH arrives with the runbook check (#1526); setattr with
     # raising=False keeps this fixture valid before that commit.
@@ -131,6 +135,9 @@ class FakeForge:
 
     def __init__(self):
         self.requests = []  # (method, url)
+        # PATCH request bodies this forge served, in order — lets a test
+        # assert an update PATCHes only the drifted fields, not the whole rule.
+        self.patch_bodies: list[dict] = []
         self.repos = []  # visible repo names
         self.permission = {}  # repo -> talos permission
         self.horkos_permission = {}  # repo -> horkos-forge permission
@@ -170,6 +177,14 @@ class FakeForge:
         # Rule names a DELETE ignores (a 204 that removes nothing) — the
         # delete half of protection_patch_drops.
         self.protection_delete_drops: set[str] = set()
+        # The tag-protection half: repo -> live rules, served like
+        # protections. POST assigns the next id and stores the full live
+        # object; the drop sets simulate a PATCH that changes nothing and a
+        # DELETE that 204s without removing (keyed by numeric id).
+        self.tag_protections: dict[str, list[dict]] = {}
+        self.tag_protection_patch_drops: set[str] = set()
+        self.tag_protection_delete_drops: set[int] = set()
+        self.next_tag_id = 1
         # The folded-in horkos-forge blast-radius invariants read these. A fresh
         # forge defaults to a valid (active, non-admin) bot user and a valid
         # blumeops:main rule whitelisted to eblume — the passing invariant state,
@@ -232,6 +247,8 @@ class FakeForge:
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append((request.method, str(request.url)))
+        if request.method == "PATCH":
+            self.patch_bodies.append(json.loads(request.content))
         path = request.url.path
         for suffix, status in self.status_overrides.items():
             if path.endswith(suffix):
@@ -412,6 +429,47 @@ class FakeForge:
                         self.protections[repo].remove(rule)
                     return httpx.Response(204)
                 return httpx.Response(200, json=rule)
+            if tail == ["tag_protections"]:
+                if request.method == "POST":
+                    body = json.loads(request.content)
+                    rule = {
+                        "id": self.next_tag_id,
+                        "name_pattern": body["name_pattern"],
+                        "whitelist_usernames": body["whitelist_usernames"],
+                        "whitelist_teams": body["whitelist_teams"],
+                        "created_at": "t",
+                        "updated_at": "t",
+                    }
+                    self.next_tag_id += 1
+                    self.tag_protections.setdefault(repo, []).append(rule)
+                    return httpx.Response(201, json=rule)
+                return httpx.Response(200, json=self.tag_protections.get(repo, []))
+            if tail and tail[0] == "tag_protections" and len(tail) > 1:
+                the_id = int(tail[1])
+                rule = next(
+                    (
+                        r
+                        for r in self.tag_protections.get(repo, [])
+                        if r["id"] == the_id
+                    ),
+                    None,
+                )
+                if rule is None:
+                    return httpx.Response(404, json={"message": "no such rule"})
+                if request.method == "PATCH":
+                    body = json.loads(request.content)
+                    rule.update(
+                        {
+                            k: v
+                            for k, v in body.items()
+                            if k not in self.tag_protection_patch_drops
+                        }
+                    )
+                if request.method == "DELETE":
+                    if the_id not in self.tag_protection_delete_drops:
+                        self.tag_protections[repo].remove(rule)
+                    return httpx.Response(204)
+                return httpx.Response(200, json=rule)
             if tail == ["actions", "secrets"]:
                 if repo in self.actions_off:
                     # Forgejo 404s the endpoint when the Actions unit is off.
@@ -548,7 +606,10 @@ def test_write_repo_unreadable_secrets_is_blocked(policy, run_main, monkeypatch)
 
     code, out = run_main(check=True, token="t")
     assert code == 1
-    assert "Cannot read collaborators, Actions secrets, or branch protections" in out
+    assert (
+        "Cannot read collaborators, Actions secrets, branch protections, or tag protections"
+        in out
+    )
     assert "svc" in out
 
 
@@ -652,7 +713,7 @@ def test_unreadable_secrets_and_hooks_listed_once(policy, run_main, monkeypatch)
     code, out = run_main(check=True, token="t")
     assert code == 1
     assert (
-        "Cannot read collaborators, Actions secrets, or branch protections on 1 repo(s): svc"
+        "Cannot read collaborators, Actions secrets, branch protections, or tag protections on 1 repo(s): svc"
         in out
     )
     msg = [line for line in out.splitlines() if "Cannot read collaborators" in line]
@@ -1239,6 +1300,44 @@ def protected(policy, monkeypatch):
     return forge, declare
 
 
+def _tag_rule(**overrides):
+    """A complete tag protection declaration for eblume/svc."""
+    rule = {
+        "repo": "svc",
+        "name_pattern": "v*",
+        "whitelist_usernames": ["eblume"],
+        "whitelist_teams": [],
+    }
+    rule.update(overrides)
+    return rule
+
+
+def _tag_served(rule, id):
+    """The rule as the API serves it: no `repo`, plus id and timestamps."""
+    served = {k: v for k, v in rule.items() if k != "repo"}
+    served.update(id=id, created_at="t", updated_at="t")
+    return served
+
+
+@pytest.fixture
+def tag_protected(policy, monkeypatch, tmp_path):
+    """A read repo `svc` whose tag protections are declared by the returned
+    setter(rules) and served by the forge."""
+    policy([{"name": "svc", "access": "read", "pool": "none"}])
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "read"}
+    forge.install(monkeypatch)
+    tag_path = tmp_path / "tag-protections.json"
+    tag_path.write_text(json.dumps({"rules": []}), encoding="utf-8")
+    monkeypatch.setattr(ara, "TAG_PROTECTIONS_PATH", tag_path)
+
+    def declare(*rules):
+        tag_path.write_text(json.dumps({"rules": list(rules)}), encoding="utf-8")
+
+    return forge, declare
+
+
 def _mutations(forge):
     return [
         (m, u) for m, u in forge.requests if m in ("POST", "PATCH", "PUT", "DELETE")
@@ -1470,6 +1569,349 @@ def test_real_protection_policy_loads():
     """The checked-in forge/branch-protections.json passes its own fences."""
     rules = ara.load_protections(("talos", "horkos-forge"))
     assert {(r["repo"], r["rule_name"]) for r in rules} >= {("blumeops", "main")}
+
+
+# --- tag protections (forge/tag-protections.json, Forgejo 16) ------------
+
+
+def test_tag_protection_in_sync_ignores_list_order(tag_protected, run_main):
+    forge, declare = tag_protected
+    declare(_tag_rule(whitelist_usernames=["eblume", "mallory"]))
+    served = _tag_served(_tag_rule(whitelist_usernames=["eblume", "mallory"]), 1)
+    served["whitelist_usernames"] = list(reversed(served["whitelist_usernames"]))
+    forge.tag_protections.update({"svc": [served]})
+
+    code, out = run_main(check=True, token="t")
+    assert code == 0, out
+    assert "In sync." in out
+
+
+def test_tag_protection_drift_fails_check_naming_field(tag_protected, run_main):
+    forge, declare = tag_protected
+    declare(_tag_rule())
+    forge.tag_protections.update(
+        {"svc": [_tag_served(_tag_rule(whitelist_usernames=["eblume", "mallory"]), 1)]}
+    )
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "update tag protection eblume/svc:v* (whitelist_usernames)" in out
+    assert not _mutations(forge)
+
+
+def test_tag_protection_update_patches_only_diff_and_reads_back(
+    tag_protected, run_main
+):
+    forge, declare = tag_protected
+    declare(_tag_rule())
+    forge.tag_protections = {
+        "svc": [_tag_served(_tag_rule(whitelist_usernames=["eblume", "mallory"]), 1)]
+    }
+
+    code, out = run_main(token="t")
+    assert code == 0, out
+    patches = [u for m, u in _mutations(forge) if m == "PATCH"]
+    assert patches == [
+        "https://forge.ops.eblu.me/api/v1/repos/eblume/svc/tag_protections/1"
+    ]
+    # The PATCH body carries only the drifted field — a whole-rule body would
+    # rewrite managed fields the plan deemed in sync (the branch twin asserts
+    # only the URL; the recorded bodies close that gap for tags).
+    assert [sorted(b) for b in forge.patch_bodies] == [["whitelist_usernames"]]
+    assert forge.tag_protections["svc"][0]["whitelist_usernames"] == ["eblume"]
+    assert "update tag protection eblume/svc:v*" in out
+
+
+def test_tag_protection_missing_rule_is_created(tag_protected, run_main):
+    forge, declare = tag_protected
+    declare(_tag_rule())
+
+    code, out = run_main(token="t")
+    assert code == 0, out
+    assert [m for m, _ in _mutations(forge)] == ["POST"]
+    assert forge.tag_protections["svc"][0]["name_pattern"] == "v*"
+
+
+def test_tag_protection_patch_that_does_not_stick_fails(tag_protected, run_main):
+    forge, declare = tag_protected
+    declare(_tag_rule())
+    forge.tag_protections = {
+        "svc": [_tag_served(_tag_rule(whitelist_usernames=["eblume", "mallory"]), 1)]
+    }
+    forge.tag_protection_patch_drops = {"whitelist_usernames"}
+
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "did not converge" in out
+    assert "whitelist_usernames" in out
+
+
+def test_tag_protection_refused_under_ci_token(tag_protected, run_main, monkeypatch):
+    forge, declare = tag_protected
+    declare(_tag_rule())
+    forge.tag_protections = {
+        "svc": [_tag_served(_tag_rule(whitelist_usernames=["eblume", "mallory"]), 1)]
+    }
+    monkeypatch.setenv("FORGE_REPO_WRITE_TOKEN", "ci")
+
+    code, out = run_main()
+    assert code == 1
+    assert "Refusing 1 tag protection change(s) under the CI token" in out
+    assert not _mutations(forge)
+
+
+def test_tag_protection_ci_token_still_reports_drift(
+    tag_protected, run_main, monkeypatch
+):
+    forge, declare = tag_protected
+    declare(_tag_rule())
+    forge.tag_protections.update(
+        {"svc": [_tag_served(_tag_rule(whitelist_usernames=["eblume", "mallory"]), 1)]}
+    )
+    monkeypatch.setenv("FORGE_REPO_WRITE_TOKEN", "ci")
+
+    code, out = run_main(check=True)
+    assert code == 1
+    assert "update tag protection eblume/svc:v*" in out
+
+
+def test_tag_protection_undeclared_live_rule_is_drift(tag_protected, run_main):
+    # A live rule no declared file mentions is drift: --check fails naming the
+    # delete, and no apply-side mutation may happen under --check.
+    forge, declare = tag_protected
+    declare(_tag_rule())
+    forge.tag_protections.update(
+        {
+            "svc": [
+                _tag_served(_tag_rule(), 1),
+                _tag_served(_tag_rule(name_pattern="release/*"), 2),
+            ]
+        }
+    )
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1, out
+    assert "delete tag protection eblume/svc:release/*" in out
+    assert not _mutations(forge)
+
+
+def test_tag_protection_undeclared_live_rule_deleted_on_apply(tag_protected, run_main):
+    # Apply deletes the undeclared live rule (and only it): the declared v*
+    # rule is in sync, so the only mutation is the DELETE and the read-back
+    # shows release/* gone.
+    forge, declare = tag_protected
+    declare(_tag_rule())
+    forge.tag_protections.update(
+        {
+            "svc": [
+                _tag_served(_tag_rule(), 1),
+                _tag_served(_tag_rule(name_pattern="release/*"), 2),
+            ]
+        }
+    )
+
+    code, out = run_main(token="t")
+    assert code == 0, out
+    assert _mutations(forge) == [
+        (
+            "DELETE",
+            "https://forge.ops.eblu.me/api/v1/repos/eblume/svc/tag_protections/2",
+        )
+    ]
+    assert [r["name_pattern"] for r in forge.tag_protections["svc"]] == ["v*"]
+    assert "delete tag protection eblume/svc:release/*" in out
+
+
+def test_tag_protection_delete_that_does_not_stick_fails(tag_protected, run_main):
+    # The Forgejo DELETE answers 204 but leaves the rule live (the
+    # tag_protection_delete_drops simulation): the read-back catches it.
+    forge, declare = tag_protected
+    declare(_tag_rule())
+    forge.tag_protections.update(
+        {
+            "svc": [
+                _tag_served(_tag_rule(), 1),
+                _tag_served(_tag_rule(name_pattern="release/*"), 2),
+            ]
+        }
+    )
+    forge.tag_protection_delete_drops = {2}
+
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "did not converge" in out
+    assert [r["name_pattern"] for r in forge.tag_protections["svc"]] == [
+        "v*",
+        "release/*",
+    ]
+
+
+def test_tag_protection_delete_refused_under_ci_token(
+    tag_protected, run_main, monkeypatch
+):
+    # The CI token walks the same refusal as any protection write: the delete
+    # is planned but refused before any mutation.
+    forge, declare = tag_protected
+    declare(_tag_rule())
+    forge.tag_protections.update(
+        {
+            "svc": [
+                _tag_served(_tag_rule(), 1),
+                _tag_served(_tag_rule(name_pattern="release/*"), 2),
+            ]
+        }
+    )
+    monkeypatch.setenv("FORGE_REPO_WRITE_TOKEN", "ci")
+
+    code, out = run_main()
+    assert code == 1
+    assert "svc:release/*" in out  # the delete is planned (table), before the refusal
+    assert "Refusing 1 tag protection change(s) under the CI token" in out
+    assert not _mutations(forge)
+
+
+def test_tag_protection_unreadable_undeclared_repo_is_blocked(tag_protected, run_main):
+    # A repo with no declared tag protections at all can still land in
+    # `blocked`: its live tag-protection list is unreadable, so the whole
+    # apply is refused.
+    forge, declare = tag_protected
+    declare()
+    forge.protections = {"blumeops": [_blumeops_main_rule()]}
+    forge.status_overrides = {"/eblume/svc/tag_protections": 403}
+
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "Refusing to apply a partial policy" in out
+
+
+@pytest.mark.parametrize("bot", ["talos", "horkos-forge", "Horkos-Forge"])
+def test_tag_protection_bot_whitelist_refused_at_load(tag_protected, run_main, bot):
+    forge, declare = tag_protected
+    declare(_tag_rule(whitelist_usernames=["eblume", bot]))
+
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "TAG_BOT_WHITELIST_FENCE" in out
+    assert not forge.requests
+
+
+def test_tag_protection_partial_rule_refused(tag_protected, run_main):
+    _forge, declare = tag_protected
+    rule = _tag_rule()
+    del rule["whitelist_teams"]
+    declare(rule)
+
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "does not declare whitelist_teams" in out
+
+
+def test_tag_protection_unknown_field_refused(tag_protected, run_main):
+    _forge, declare = tag_protected
+    declare(_tag_rule(whitelist_deploy_keys=True))
+
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "unknown field(s) whitelist_deploy_keys" in out
+
+
+def test_tag_protection_both_whitelists_empty_refused(tag_protected, run_main):
+    _forge, declare = tag_protected
+    declare(_tag_rule(whitelist_usernames=[], whitelist_teams=[]))
+
+    code, out = run_main(token="t")
+    assert code == 1
+    assert "both whitelists empty" in out
+
+
+def test_tag_protection_unreadable_is_blocked(tag_protected, run_main, monkeypatch):
+    forge, declare = tag_protected
+    declare(_tag_rule())
+    forge.status_overrides = {"/eblume/svc/tag_protections": 403}
+    code, out = run_main(check=True, token="t")
+    assert code == 1
+    assert "Refusing to apply a partial policy" in out
+
+
+def test_real_tag_protection_policy_loads():
+    """The checked-in forge/tag-protections.json passes its own fences."""
+    # Shape assertion only, like the branch file: loading with the bot
+    # principals must not raise; the exact rules are intentionally unpinned
+    # (seeding a real rule is a data change, not a test change).
+    ara.load_tag_protections(("talos", "horkos-forge"))
+
+
+def test_tag_protection_absent_at_base_ref_is_empty(monkeypatch):
+    """A base ref that predates forge/tag-protections.json reads as no tag
+    protections, not an error — main carries no such file until the
+    introducing PR merges."""
+    monkeypatch.setattr(ara, "git_read_file", lambda ref, relpath: None)
+    assert ara.read_tag_protections_at("main") == []
+
+
+def test_pr_check_undeclared_live_tag_protection_unexpected(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # A live tag protection neither base nor head declares: base plans a
+    # delete the PR does not intend -> unexpected drift, failing the check.
+    policy([{"name": "svc", "access": "write", "pool": "none"}])
+    tag_path = tmp_path / "tag-protections.json"
+    tag_path.write_text('{"rules": []}', encoding="utf-8")
+    monkeypatch.setattr(ara, "TAG_PROTECTIONS_PATH", tag_path)
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.horkos_user = _valid_user(is_admin=False)
+    forge.protections = {"blumeops": [_blumeops_main_rule()]}
+    forge.tag_protections = {
+        "svc": [_tag_served(_tag_rule(name_pattern="release/*"), 1)]
+    }
+    forge.install(monkeypatch)
+    _base_state(monkeypatch, [{"name": "svc", "access": "write", "pool": "none"}])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 1, out
+    assert "UNEXPECTED drift" in out
+    assert "delete tag protection eblume/svc:release/*" in out
+
+
+def test_pr_check_newly_declared_tag_protection_intended(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # The same live rule, now declared by head (a PR that adds it): base plans
+    # the same delete, but the PR's declared delta registers the (repo,
+    # "tag_protect", pattern) fact as changed, so the delete is intended drift
+    # only and the check is green.
+    policy([{"name": "svc", "access": "write", "pool": "none"}])
+    tag_path = tmp_path / "tag-protections.json"
+    tag_path.write_text(
+        json.dumps({"rules": [_tag_rule(name_pattern="release/*")]}), encoding="utf-8"
+    )
+    monkeypatch.setattr(ara, "TAG_PROTECTIONS_PATH", tag_path)
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.permission = {"svc": "write"}
+    forge.secrets = {"svc": []}
+    forge.horkos_user = _valid_user(is_admin=False)
+    forge.protections = {"blumeops": [_blumeops_main_rule()]}
+    forge.tag_protections = {
+        "svc": [_tag_served(_tag_rule(name_pattern="release/*"), 1)]
+    }
+    forge.install(monkeypatch)
+    _base_state(monkeypatch, [{"name": "svc", "access": "write", "pool": "none"}])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 0, out
+    assert "UNEXPECTED drift" not in out
+    assert "intended drift only" in out
+    assert "`eblume/svc` tag protection `release/*` changed" in report.read_text()
 
 
 # --- runner-label policy (derived from forge/runners.json, #1526) --------
@@ -2497,12 +2939,15 @@ def test_pr_check_secret_names_unexpected_live_fails(
 # --- PR-check semantics (same-repo PRs only) ---------------------------------
 
 
-def _base_state(monkeypatch, repos, protections=(), secrets=None):
+def _base_state(monkeypatch, repos, protections=(), secrets=None, tag_protections=()):
     """Point the base-state readers the --pr-base-ref path uses at these."""
     monkeypatch.setattr(
         ara, "read_policies_at", lambda ref: ara._policies_dict({"repos": repos})
     )
     monkeypatch.setattr(ara, "read_protections_at", lambda ref: list(protections))
+    monkeypatch.setattr(
+        ara, "read_tag_protections_at", lambda ref: list(tag_protections)
+    )
     monkeypatch.setattr(
         ara, "actions_secret_names_at", lambda ref: {} if secrets is None else secrets
     )
