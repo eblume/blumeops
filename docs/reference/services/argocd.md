@@ -1,6 +1,6 @@
 ---
 title: ArgoCD
-modified: 2026-10-03
+modified: 2026-10-16
 last-reviewed: 2026-06-09
 tags:
   - service
@@ -64,6 +64,14 @@ The cost is the general one: a resource dropped from git under one of these apps
 Tracking is label-based (`app.kubernetes.io/instance`; no `resourceTrackingMethod` is configured, so ArgoCD's default applies). Five of the thirteen share the `monitoring` namespace and two share `alloy`, but each Application has a distinct name and therefore a distinct label, so they do not prune each other's resources.
 
 The [[request-a-privileged-run|ArgoCD Deploy]] `prune` input remains the route for the apps that keep `prune: false`.
+
+### Bootstrap-owned fields survive sync (`argocd-cm`, `argocd-secret`)
+
+The `argocd` app self-manages: it syncs its own manifests — the `argocd-cm` accounts patch among them — by server-side apply. SSA prunes only the fields *its* field managers own (per-field `managedFields` ownership), so a key written by another manager survives, and a field the app's declared manifests don't touch is invisible to its diff. The original bootstrap applied `argocd-cm` with manual `kubectl` (see `argocd/manifests/argocd/README.md`), and that field manager still owns whatever it wrote. In `argocd-cm`, the app's own `argocd-cm-patch.yaml` owns the `accounts.ci-argocd` and `accounts.talos-argocd-readonly` keys plus the shared config; the bootstrap `kubectl` manager still owns `accounts.workflow-bot`, so it survives every sync while the app reads **Synced** — for every field the app tracks, the live object matches the declared state.
+
+The `argocd-secret` half works differently, and the app's manifests declare no `argocd-secret` data at all (only `metadata`/`type` are tracked; the one `data` key the repo contributes, `webhook.gogs.secret`, is merged in by the `ExternalSecret` `argocd-webhook-secret`). The API-token records `accounts.<name>.tokens` are written by the **`argocd-server`** manager itself (operation `Update`) when a token is generated — bootstrap owns none of them. Removing an account from `argocd-cm` never garbage-collects its token records, and since the app never tracked them either, they survive no matter what.
+
+The #1039 principals sweep (eblume/blumeops#1167, verified live 2026-10-16) left exactly this: the stale `accounts.workflow-bot` key in `argocd-cm` and the orphaned `accounts.workflow-bot.tokens` / `accounts.agents-readonly.tokens` records in `argocd-secret`. All three are inert (no RBAC grant, no `policy.default`), removable only by manual `kubectl`; they were removed by hand on 2026-10-16 (eblume/blumeops#1167). Consequence for any account or credential sweep: **Synced does not mean the live object equals the manifest.** Compare the live keys against the repo manifests (`kubectl -n argocd get cm argocd-cm -o json | jq '.data | keys'`, `kubectl -n argocd get secret argocd-secret -o json | jq '.data | keys'`) and treat any extra as residue to delete by hand.
 
 Four applications remain **manual**, each for a stated reason in its manifest:
 
