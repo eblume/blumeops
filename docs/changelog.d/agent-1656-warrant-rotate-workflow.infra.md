@@ -1,0 +1,1 @@
+Warrant-gated CI half of the talos Forgejo bot PAT rotation: dispatch-only priv workflow `forge-bot-pat-rotate.yaml` (bound SHA, runs `mise-tasks/forge-bot-pat-rotate --ci`), its `warrant-policy.yaml` entry, and the new `FORGE_PAT_ROTATE_OP_TOKEN` Actions secret (agents-vault service account) declared in `forge/actions-secrets.json` + `forge-reconcile`.

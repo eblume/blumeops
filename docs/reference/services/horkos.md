@@ -106,7 +106,8 @@ never change in a single PR.
   ```
 - **Scope**: only actions with `class: warrant` in `warrant-policy.yaml` are
   requestable — today `argocd-deploy.yaml`, `argocd-sync-apps.yaml`,
-  `deploy-fly.yaml`, and `run-script.yaml` (one-off scripts). Its former deny member, `provision-ringtail.yaml`, was retired
+  `deploy-fly.yaml`, `forge-bot-pat-rotate.yaml` (the talos Forgejo bot PAT
+  rotation), and `run-script.yaml` (one-off scripts). Its former deny member, `provision-ringtail.yaml`, was retired
   in #1527; the class remains defined for any future workflow that must read
   the human-only `blumeops` vault.
 - **Cluster credential for run-scripts**: the `run-script` ServiceAccount in

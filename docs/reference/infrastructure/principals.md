@@ -293,7 +293,8 @@ The live credential is the Forgejo PAT at
 `mise run forge-bot-pat-rotate` ([[rotate-talos-forgejo-pat]]): mint → prove →
 vault write → roll the talos pods → revoke, fail-safe so the old token stays
 live until the new one is proven and the pods rolled. The warrant-gated CI
-workflow is a later PR; the script is the ceremony both paths use.
+path is the dispatch-only priv workflow `.forgejo/workflows/forge-bot-pat-rotate.yaml`;
+the script is the single ceremony both paths use.
 
 There is no host SSH key to rotate — the keypair was retired in Oct 2026
 (eblume/blumeops#1635). Its former home, the **`agents-forgejo-bot` secure

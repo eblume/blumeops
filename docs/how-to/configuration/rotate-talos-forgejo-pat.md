@@ -1,6 +1,6 @@
 ---
 title: Rotate the talos Forgejo bot PAT
-modified: 2026-10-15
+modified: 2026-10-16
 last-reviewed: 2026-10-15
 tags:
   - how-to
@@ -34,6 +34,29 @@ so the mint rides the stored password copy. That bootstrap credential lives at
 - Every ~90 days (a talos cron files a `chore:` issue ~75 days out —
   established chore surface, see eblume/blumeops#1656)
 - Immediately on any suspected exposure — e.g. the #1166 transcript incident
+
+## Warrant path (automated)
+
+Once the 1Password service account is created (the "Create the new 1Password
+service account" human step on eblume/blumeops#1656) and the
+`forge-reconcile` values half has pushed its token as the
+`FORGE_PAT_ROTATE_OP_TOKEN` Actions secret, the rotation is a
+warrant-gated run of `.forgejo/workflows/forge-bot-pat-rotate.yaml`:
+
+- a talos session files the request:
+  `mise run request-run forge-bot-pat-rotate.yaml <full-sha> --pr N -i revision=<full-sha> --why "…"`,
+  Erich approves it in Horkos, and `horkos-forge` dispatches it on the priv
+  runner. The workflow checks out the bound SHA (freezing the reviewed
+  script body) and runs `./mise-tasks/forge-bot-pat-rotate --ci`.
+- Credentials: `FORGE_PAT_ROTATE_OP_TOKEN` (the new service account,
+  read+write on the `agents` vault only) drives the vault read/write as
+  `OP_SERVICE_ACCOUNT_TOKEN`; the existing read-only `BLUMEOPS_CI_OP_TOKEN`
+  feeds the script's `blumeops-ci` reads (the login password, the
+  `k3s-run-script` kubeconfig). The pod roll runs as the `run-script`
+  ServiceAccount via the `run-script-talos-rollout` Role
+  (`argocd/manifests/talos/rbac.yaml`).
+- The script never prints key material — its run output is reported to the
+  warrant, so it reports token names and ids only.
 
 ## One-time password migration
 
@@ -76,7 +99,7 @@ mise run forge-bot-pat-rotate
 ```
 
 The script refuses non-TTY runs without `--dry-run` (the warrant-gated CI
-path, a later PR, passes `--ci`). What it does, numbered:
+path, below, passes `--ci`). What it does, numbered:
 
 1. **Verify the current PAT** — repo GET of `eblume/research` (a repo the bot
    pushes to) through it, 200 and reporting the bot's push permission; a
