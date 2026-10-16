@@ -84,7 +84,7 @@ Every principal above follows the scheme, including the post-series `cli-`
 tier. If a future account is needed for the issue-writer discussion in
 eblume/talos#172, it is `talos-forge-issues`.
 
-**Live `argocd-cm` / `argocd-secret` can carry more than the table.** The bootstrap's old `kubectl` field manager still owns keys the repo manifests no longer declare, and ArgoCD's sync never prunes them — a "Synced" app can hold orphaned account and token records. Check the live objects, not just the manifests; the mechanism is in [[argocd]] §"Bootstrap-owned fields survive sync".
+**Live `argocd-cm` / `argocd-secret` can carry more than the table.** The bootstrap-era `kubectl` field manager still owns keys the repo manifests no longer declare, and the API-token records `argocd-server` writes to `argocd-secret` are never garbage-collected when their account goes — a "Synced" app can hold orphaned account and token records. Check the live objects, not just the manifests; the mechanism is in [[argocd]] §"Bootstrap-owned fields survive sync".
 
 ## Exception: `FORGE_REPO_WRITE_TOKEN`
 
