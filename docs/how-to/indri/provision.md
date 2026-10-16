@@ -569,9 +569,17 @@ until the switch reloads it; the PWA shell files themselves keep serving from
 the role's checkout. Pre-flip: confirm the latest borgmatic archive-tier
 backup of `~/.local/share/heph/heph.db` is fresh (the never-lose dump rides
 the daily 02:00 archive run) — the hub DB is the only copy of the
-task/context data. Rollback per §Rolling back a service flip: a plain `sudo darwin-rebuild
---rollback` to the previous generation — like the forgejo runner flip, the
-unit is generation-owned and there is no ansible re-write to fall back to.
+task/context data. Rollback per §Rolling back a service flip: a plain
+`sudo darwin-rebuild --rollback` to the previous generation — like the
+forgejo runner flip, the unit is generation-owned and there is no ansible
+re-write to fall back to. The floor is `system-68` (the #1677 flip generation, applied 2026-10-16 —
+`/nix/var/nix/profiles/system-68-link`; `sudo darwin-rebuild
+--list-generations` maps generation numbers to those links): never roll back
+below it. Pre-flip generations (system-67 and earlier) predate the store hub,
+so rolling back to one unloads the unit and leaves no hub at all — the
+ansible re-write and the cargo bins are gone, so nothing remains to fall back
+to. A pre-flip hub is recovered by a forward fix (roll forward to or past
+system-68), not by rolling back further.
 
 ## Rolling back a service flip
 
@@ -631,9 +639,15 @@ For the heph hub flip (eblume/blumeops#1655), a plain `sudo darwin-rebuild
 --rollback` — like the forgejo runner flip, the unit is generation-owned and
 there is no ansible re-write to fall back to; the hub (every spoke's sync and
 the PWA's data path) is down during the window; the PWA shell files keep
-serving from the role's checkout.
-Never ansible first — that would leave the old plist loaded under the
-new generation.
+serving from the role's checkout. Floor: never roll back below `system-68`
+(the #1677 flip generation, applied 2026-10-16 —
+`/nix/var/nix/profiles/system-68-link`; `sudo darwin-rebuild
+--list-generations` shows what is on the box) — pre-flip generations have no
+store hub, and with the role's daemon legs and the cargo bins gone nothing
+remains to fall back to; a pre-flip hub is recovered by a forward fix, not a
+further rollback.
+For the gated flips, never ansible first — that would leave the old plist
+loaded under the new generation.
 
 What the rollback itself does depends on the target generation
 (nix-darwin `modules/system/launchd.nix`, unchanged on master as of

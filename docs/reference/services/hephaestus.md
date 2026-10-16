@@ -123,8 +123,9 @@ render + load, the op-read leg) retired with the rollback window over
 checkout + `pwa-version.js` stamp to `heph_version` on `mise run
 provision-indri -- --tags heph`. A hub rollback is now a plain `sudo
 darwin-rebuild --rollback` to the previous generation (see [[provision]]
-§Rolling back a service flip); the retired `~/.cargo/bin` `heph`/`hephd` are
-swept by a boot-once LaunchAgent (`mcquack.eblume.heph-cargo-bin-cleanup`, the
+§Rolling back a service flip); the retired `~/.cargo/bin` bins (`heph`,
+`hephd`, and the v1.8.0-era `heph-tui`/`heph-quickadd` leftovers) are swept by
+a boot-once LaunchAgent (`mcquack.eblume.heph-cargo-bin-cleanup`, the
 indri twin of ringtail's `heph-cargo-bin-cleanup` one-shot).
 
 **Release → deploy flow:**

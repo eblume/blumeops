@@ -27,16 +27,17 @@ let
       --oidc-audience heph \
       --authorized-sub "$(cat "$sub_file")"
   '';
-  # The heph role used to `cargo install` heph/hephd into ~/.cargo/bin; the
-  # daemon legs retired with the store flip (eblume/blumeops#1655). This
-  # boot-once removes the two bin names so no shell with ~/.cargo/bin on PATH
-  # can shadow the store bins — a no-op once they are gone. The indri twin of
-  # ringtail's heph-cargo-bin-cleanup one-shot.
+  # The heph role used to `cargo install` into ~/.cargo/bin — heph/hephd in its
+  # final form, plus heph-tui/heph-quickadd in the v1.8.0 era; the daemon legs
+  # retired with the store flip (eblume/blumeops#1655). This boot-once removes
+  # all four bin names so no shell with ~/.cargo/bin on PATH can shadow the
+  # store bins — a no-op once they are gone. The indri twin of ringtail's
+  # heph-cargo-bin-cleanup one-shot.
   hephCargoBinCleanup = pkgs.writeShellScriptBin "mcquack-heph-cargo-bin-cleanup" ''
     set -euo pipefail
     dir=/Users/erichblume/.cargo/bin
     [ -d "$dir" ] && [ ! -L "$dir" ] || exit 0
-    for b in heph hephd; do
+    for b in heph hephd heph-tui heph-quickadd; do
       ${pkgs.coreutils}/bin/rm -rf -- "$dir/$b"
     done
   '';

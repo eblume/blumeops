@@ -580,8 +580,9 @@ services:
       (eblume/blumeops#1655), so a hub rollback is a plain
       `sudo darwin-rebuild --rollback` to the previous generation. A boot-once
       LaunchAgent (mcquack.eblume.heph-cargo-bin-cleanup, the indri twin of
-      ringtail's heph-cargo-bin-cleanup) removes the retired ~/.cargo/bin
-      heph/hephd so no shell can shadow the store bins. Bump the flake input; the
+      ringtail's heph-cargo-bin-cleanup) removes the retired ~/.cargo/bin bins
+      (heph, hephd, and the v1.8.0-era heph-tui/heph-quickadd) so no shell can
+      shadow the store bins. Bump the flake input; the
       auto-apply (provision-indri, class auto) switches the hub on merge,
       and `mise run provision-indri -- --tags heph` re-stamps the PWA.
       The ringtail spokes keep their own pin: the `hephaestus` input in
