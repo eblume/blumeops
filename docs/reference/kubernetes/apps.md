@@ -54,7 +54,7 @@ cluster (see [[retire-minikube]]); newer apps use bare names.
 
 No longer on Kubernetes: `cv` moved to indri (see [[cv]] and
 [[cv-on-indri]]), and `forgejo-runner` is now a NixOS service on ringtail
-pinned via the `nixpkgs-runner` overlay (see [[forgejo-runner]]).
+pinned via the `nixpkgs-services` overlay (see [[forgejo-runner]]).
 
 ## Sync Policies
 

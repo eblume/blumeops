@@ -1,0 +1,1 @@
+ringtail's frozen nixpkgs-services pin moves to the nixos-26.05 rev: k3s 1.34.5+k3s1 to 1.35.8+k3s1, kubectl 1.34.3 to 1.36.3, snowflake 2.11.0 to 2.13.1; forgejo-runner (13.2.0, unchanged) folds back onto the same pin and the nixpkgs-runner input is removed (reversing the 2026-10-16 split).
