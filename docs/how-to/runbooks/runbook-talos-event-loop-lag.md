@@ -12,11 +12,16 @@ tags:
 
 **Alert name:** `TalosEventLoopLag`
 
-The talos pod's Bun main thread stalled for 5+ seconds at least once within the
-last 10 minutes. This is the same condition as the `[talos] event loop stalled
-N s` warn log: every 2 s sampler tick that finds the loop blocked for ≥5 s is
-one observation of the `talos_event_loop_lag_seconds` histogram, and the alert
-asks whether any such observation landed in the trailing 10m window.
+The talos pod's Bun main thread has been blocked for more than 20% of wall
+time over the trailing 15 minutes, sustained for 5 minutes, and the pod has
+been up for more than 15 minutes. The condition is
+`rate(talos_event_loop_lag_seconds_sum[15m]) > 0.2`: the `_sum` rate is the
+fraction of wall time the event loop spends blocked, so the alert fires only
+on sustained blocking, never on a single 5 s stall. The boot grace suppresses
+it for the first 15 minutes after a pod start, when the session-index rebuild
+and boot replay storm can legitimately block the loop. A recurring 5–10 s
+stall about once an hour stays far below the threshold and below the 15 s
+probe timeout, so it does not page.
 
 Sustained stalls starve `/healthz` — served by the same event loop on the
 metrics port (:9464) — past its 15 s probe timeout, so the readiness probe

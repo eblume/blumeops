@@ -1530,18 +1530,22 @@ groups:
       - uid: talos-event-loop-lag
         title: TalosEventLoopLag
         condition: C
-        # Any >5 s event-loop stall in the trailing 10m window — the same
-        # condition as the "[talos] event loop stalled N s" warn log. The
-        # [10m] range is the detection horizon, so there is no long `for`:
-        # this is an event, not a level. noDataState: OK — a missing series
-        # means the talos pod is not exporting (covered by the pod-health
-        # group); only a positive value is the signal.
-        for: 0m
+        # Sustained main-thread blocking, not one stall: the _sum rate is
+        # the blocked fraction of wall time, and the alert asks whether it
+        # exceeded 20% of the trailing 15m, sustained 5m, outside the first
+        # 15m after a pod start (the `and on()` boot grace). The known
+        # recurring 5-10 s stall stays far below the threshold and below
+        # the 15 s probe timeout, so only the regime that starves /healthz
+        # pages. noDataState: OK — a missing series means the pod is not
+        # exporting (covered by the pod-health group); the boot grace also
+        # empties the series during the first 15m after a start.
+        for: 5m
         noDataState: OK
         execErrState: Alerting
         annotations:
           summary: >-
-            talos pod event loop stalled for more than 5s within the last 10m
+            talos main thread blocked more than 20% of the trailing 15m,
+            sustained 5m (outside the first 15m after a pod start)
           runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-talos-event-loop-lag
         labels:
           severity: warning
@@ -1550,15 +1554,12 @@ groups:
           - refId: A
             datasourceUid: prometheus
             relativeTimeRange:
-              from: 300
+              from: 900
               to: 0
             model:
-              # le="5.0" not le="5": Prometheus normalizes histogram
-              # bucket-bound label values at ingest; the stored form is what
-              # the matcher must use, or the subtraction is empty.
               expr: >-
-                sum(increase(talos_event_loop_lag_seconds_bucket{le="+Inf"}[10m]))
-                - sum(increase(talos_event_loop_lag_seconds_bucket{le="5.0"}[10m]))
+                sum(rate(talos_event_loop_lag_seconds_sum[15m]))
+                and on() (time() - max(kube_pod_start_time{namespace="talos",pod=~"talos-.*"}) > 900)
               interval: ""
               refId: A
           - refId: B
@@ -1585,7 +1586,7 @@ groups:
                 - evaluator:
                     type: gt
                     params:
-                      - 0
+                      - 0.2
                   operator:
                     type: and
               refId: C
