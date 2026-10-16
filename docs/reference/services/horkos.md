@@ -21,8 +21,8 @@ UI; Horkos consumes the resulting warrant and dispatches the workflow as
 Greek daimon of oaths). The minted approval artifact is still called a
 **warrant** — Horkos is the service that mints and consumes them — which is
 why `warrant-policy.yaml` and the `Warrant request: #N` PR stamp keep their
-names, while the dispatch identity has moved from the grandfathered
-`warrant-bot` to `horkos-forge` (blumeops#1039).
+names, while the dispatch identity was renamed to `horkos-forge`
+(step 1 of blumeops#1039).
 
 ## Quick Reference
 

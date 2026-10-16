@@ -46,7 +46,7 @@
     "",
     "RECONCILE IS AUTHORITATIVE: a repo absent from this list has its `talos`",
     "collaboration REMOVED. Adding a repo means adding it here, not clicking in",
-    "the forge UI. See docs/reference/infrastructure/agents-forgejo-bot.md.",
+    "the forge UI. See docs/reference/infrastructure/principals.md.",
     "",
     "`agents`, `blumeops`, `horkos`, and `talos` are pinned to read by an invariant in",
     "the reconciler that this file cannot override -- their read-only-on-canonical",

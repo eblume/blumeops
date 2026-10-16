@@ -1,6 +1,6 @@
 ---
 title: Add a Freestanding Repo to the Pool
-modified: 2026-09-14
+modified: 2026-10-15
 last-reviewed: 2026-09-13
 tags:
   - how-to
@@ -78,5 +78,5 @@ what the class is, see [[freestanding-repos]]. Each step names its actor.
 ## See also
 
 - [[freestanding-repos]] — what the class is
-- [[agents-forgejo-bot]] §"Sharing a repo with the bot" — the reconciler and
+- [[principals]] §"Sharing a repo with the bot" — the reconciler and
   the engagement model

@@ -1,6 +1,6 @@
 ---
 title: Create Release Artifact Workflow
-modified: 2026-09-14
+modified: 2026-10-15
 last-reviewed: 2026-09-14
 tags:
   - how-to
@@ -119,5 +119,5 @@ the PAT.
 
 - [[deploy-k8s-service]] - Deploying the service that consumes the artifact
 - [[add-ansible-role]] - Adding Ansible roles
-- [[agents-forgejo-bot]] - the bot identity and the `main` branch-protection model
+- [[principals]] - the principal inventory and the `main` branch-protection model
 - [[blumeops-ci-item-migration]] - the per-purpose CI secrets that moved to job-time `op read`

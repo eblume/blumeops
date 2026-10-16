@@ -1,6 +1,6 @@
 ---
 title: Freestanding Repos
-modified: 2026-09-10
+modified: 2026-10-15
 last-reviewed: 2026-09-10
 tags:
   - explanation
@@ -55,7 +55,7 @@ comment on them.
    halves need secrets and tokens CI does not carry: the webhook signing
    secret comes from the blumeops 1Password vault, and the CI token 403s
    even on label reads. A webhook without the label is a trap — delivery works but
-   nothing engages. Details: [[agents-forgejo-bot]] §"Sharing a repo with the bot".
+   nothing engages. Details: [[principals]] §"Sharing a repo with the bot".
 
 ## Buildability
 
@@ -74,4 +74,4 @@ in [eblume/blumeops#978](https://forge.eblu.me/eblume/blumeops/issues/978).
 ## See also
 
 - [[add-a-freestanding-repo]] — the end-to-end procedure
-- [[agents-forgejo-bot]] — the identity and access model
+- [[principals]] — the principal inventory and the talos bot's access model

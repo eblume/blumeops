@@ -1,6 +1,6 @@
 ---
 title: Blumeops-CI Item Migration
-modified: 2026-10-13
+modified: 2026-10-15
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -31,7 +31,7 @@ release CI now consume `ZOT_PUSH_API_KEY` and `RELEASE_FORGE_TOKEN` too.
 
 | Workflow | Actions secret | Backing vault item (blumeops) | Verdict |
 |----------|----------------|-------------------------------|---------|
-| `argocd-deploy` | `ARGOCD_AUTH_TOKEN` | `w3663ffn…/argocd_token` (workflow-bot, get/sync/update) | **migrated** (pilot) → `blumeops-ci/argocd-workflow-bot`, since re-minted as `blumeops-ci/ci-argocd` for the `ci-argocd` account ([eblume/blumeops#1163](https://forge.eblu.me/eblume/blumeops/issues/1163) series) |
+| `argocd-deploy` | `ARGOCD_AUTH_TOKEN` | `w3663ffn…/argocd_token` (the pre-rename ArgoCD account, get/sync/update) | **migrated** (pilot) → a `blumeops-ci` item, since re-minted as `blumeops-ci/ci-argocd` for the `ci-argocd` account ([eblume/blumeops#1163](https://forge.eblu.me/eblume/blumeops/issues/1163) series) |
 | `build-container` | the CI zot push key (originally an Actions secret; now a job-time `op read` of `blumeops-ci/ci-zot`) | `w3663ffn…` CI zot push key field | **migrated** → the `blumeops-ci` CI push key item, since renamed `ci-zot` ([eblume/blumeops#1039](https://forge.eblu.me/eblume/blumeops/issues/1039) series) |
 | `deploy-fly` | `FLY_DEPLOY_TOKEN` | `on5slfay…/deploy-token` | **migrated** → `blumeops-ci/fly-deploy` |
 | `build-blumeops` | `MAIN_PUSH_TOKEN` | `blumeops-main-push-token/token` (eblume PAT, write:repository) | **migrated, eyes open** — it pushed protected `main` → `blumeops-ci/forge-main-push`; now retired ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)) |
@@ -129,7 +129,7 @@ follow-up now that it needs no provisioning):
 
 | blumeops-ci item | field | copied from (blumeops) | consumed by |
 |------------------|-------|------------------------|-------------|
-| `ci-argocd` | `token` | re-minted 2026-09-21 for the `ci-argocd` ArgoCD account (the original `argocd-workflow-bot` row copied `w3663ffn…/argocd_token`; retired by the [eblume/blumeops#1163](https://forge.eblu.me/eblume/blumeops/issues/1163) rename) | `argocd-deploy.yaml`, `argocd-sync-apps.yaml` |
+| `ci-argocd` | `token` | re-minted 2026-09-21 for the `ci-argocd` ArgoCD account (the pre-rename row copied `w3663ffn…/argocd_token`; retired by the [eblume/blumeops#1163](https://forge.eblu.me/eblume/blumeops/issues/1163) rename) | `argocd-deploy.yaml`, `argocd-sync-apps.yaml` |
 | `ci-zot` | `api-key` | `w3663ffn…` CI zot push key field | `build-container.yaml` (talos + horkos `release.yaml` moved to per-repo `ZOT_PUSH_API_KEY` keys, eblume/blumeops#1039 series) |
 | `fly-deploy` | `token` | `on5slfay…/deploy-token` | `deploy-fly.yaml` |
 | `forge-main-push` | `token` | `blumeops-main-push-token/token` | `build-blumeops.yaml` (consumer retired) |
@@ -148,8 +148,7 @@ the rest are provenance). Rotating a credential now means updating **both**
 copies — the service/master side as before, plus `op item edit` on the
 `blumeops-ci` item, which takes effect on the next CI run with no
 provisioning. Keep item titles unique in `blumeops-ci`: `op read` resolves
-by name, and a duplicate title breaks every consumer of that item (the
-`warrant-bot-login` duplicate demonstrated this live).
+by name, and a duplicate title breaks every consumer of that item (a duplicate-title incident on the pre-rename dispatch-identity item demonstrated this live).
 
 Rollout order after the PR merges: run
 `mise run provision-ringtail` (puts `op` on both ringtail runners), then

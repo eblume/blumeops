@@ -1,6 +1,6 @@
 ---
 title: Request a Privileged Run
-modified: 2026-09-30
+modified: 2026-10-15
 last-reviewed: 2026-09-16
 tags:
   - how-to
@@ -179,7 +179,7 @@ What it does:
   [[warrant-approval-gated-runs]]).
 
 The tool holds no privileged credentials and cannot trigger anything: it
-authenticates as the [[agents-forgejo-bot]] (`write:issue`), which is
+authenticates as the [[principals|talos bot]] (`write:issue`), which is
 read-only on canonical and cannot dispatch. The request *grants* nothing.
 
 ## When the PR moves
@@ -260,5 +260,5 @@ entry in the same PR that adds the workflow.
 ## Related
 
 - [[warrant-approval-gated-runs]] — the design this implements
-- [[agents-forgejo-bot]] — the requesting identity and its fences
+- [[principals]] — the requesting identity and its fences
 - [[argocd]] — the app sync a deploy request drives

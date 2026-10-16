@@ -173,5 +173,5 @@ needs to read `blumeops-ci` items. See [One-time password migration](#one-time-p
 
 - [[rotate-gandi-pat]] — sibling rotation ceremony (Gandi PAT)
 - [[rotate-fly-deploy-token]] — sibling rotation ceremony (Fly.io token)
-- [[agents-forgejo-bot]] — the bot's reference card
+- [[principals]] — the bot's reference card
 - eblume/blumeops#1656 — the chore that files the rotation

@@ -31,8 +31,8 @@ steps 4–6 require the `agent` user to exist (i.e. after the first
 
 ## 1. Create the Forgejo bot user
 
-> **Status:** already done (2026-07-08) — the `talos` user exists and has the
-> bot public key. This section documents how, for reproduction/rotation.
+> **Status:** already done (2026-07-08) — the `talos` user exists. This section
+> documents how, for reproduction/rotation.
 
 On indri (Forgejo admin CLI), create a non-admin user named `talos`. Forgejo
 runs as `erichblume` with its work path at `/Users/erichblume/forgejo`:
@@ -47,10 +47,6 @@ WP=/Users/erichblume/forgejo; CFG=$WP/custom/conf/app.ini
 
 (Email is a `+talos` gmail alias because `eblu.me` has no working MX yet.)
 
-Then, in the Forgejo web UI as an admin:
-
-- Add the **public key** from the `agents-forgejo-bot` vault item (see
-  [[agents-forgejo-bot]]) to the `talos` user's SSH keys.
 > **Do not grant repo access here.** Collaborations come from
 > `repos.json` (`argocd/manifests/talos/`), reconciled by the **Forge Reconcile**
 > workflow, which is authoritative in both directions — a repo absent from that
@@ -58,7 +54,7 @@ Then, in the Forgejo web UI as an admin:
 > is reverted on the next run. The same file drives the pod's clone loop, which
 > is the point: a missing grant and a typo look identical from inside the pod
 > (Forgejo 404s rather than 403s on a private repo the bot cannot see). To share
-> a repo, edit `repos.json` and open a PR. See [[agents-forgejo-bot]].
+> a repo, edit `repos.json` and open a PR. See [[principals]].
 
 > **`agents` and `blumeops` are pinned read-only.** The reconciler refuses a
 > `write` request for either, and `repos.json` cannot override it — that fence
@@ -107,7 +103,6 @@ Forgejo) — never `write:admin`/`write:organization`/`sudo`.
 
 The `agents` vault must contain (created during the prototype, 2026-07-08):
 
-- `agents-forgejo-bot` — SSH keypair (`private key`, `public key` fields).
 - `talos-forgejo-token` — Forgejo PAT (`api-token` field, `write:repository`).
 - The `agents-ringtail Service Account` item lives in the **blumeops** vault
   and holds the `agents-ringtail-rw` token (read/write on `agents` only).
@@ -322,4 +317,4 @@ the capability entirely.
 ## Related
 
 - [[agent-workspaces]] — design & operations
-- [[agents-forgejo-bot]] — the bot identity
+- [[principals]] — the talos bot identity
