@@ -6,14 +6,16 @@
       "kustomization": "argocd/manifests/horkos/kustomization.yaml",
       "branch_prefix": "horkos-release-v",
       "default_branch": "main",
-      "healthz_url": "https://horkos.ops.eblu.me/healthz"
+      "healthz_url": "https://horkos.ops.eblu.me/healthz",
+      "release_workflow": "release.yaml"
     },
     "eblume/talos": {
       "service": "talos",
       "kustomization": "argocd/manifests/talos/kustomization.yaml",
       "branch_prefix": "talos-release-v",
       "default_branch": "main",
-      "healthz_url": "https://talos.ops.eblu.me/healthz"
+      "healthz_url": "https://talos.ops.eblu.me/healthz",
+      "release_workflow": "release.yaml"
     },
     "eblume/cv": {
       "service": "cv",

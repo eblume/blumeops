@@ -2,7 +2,7 @@
 title: Horkos
 aliases:
   - warrant
-modified: 2026-10-15
+modified: 2026-10-17
 last-reviewed: 2026-09-16
 tags:
   - service
@@ -74,6 +74,33 @@ never change in a single PR.
 - `POST /requests/{id}/decide` — the UI form (CSRF-signed); `GET /requests/{id}/confirm`
 - `GET  /healthz` — includes `dispatch: armed | armed-no-token | disarmed`
   and the running version (stamped by the release build via `HORKOS_VERSION`)
+
+## Release publishing
+
+For image targets, a tag push in the source repo delivers a Forgejo hook to
+horkos, which waits up to 10 minutes for the built image to appear in the
+registry and then opens the pin PR bumping the target's blumeops
+kustomization — merging that pin is the deploy for the image-target services
+(talos, horkos itself).
+
+When the image lands after the wait budget — a cold nix build, for
+instance — the `release_events` row ends `failed` with the stable `image_never_appeared:`
+error code rather than opening the pin. Recovery is per-target: with the
+target's `release_workflow` field set — `release.yaml` for both the
+eblume/horkos and eblume/talos image targets (the cv artifact target stays
+unset; its equivalent is [eblume/cv#7](https://forge.ops.eblu.me/eblume/cv/issues/7)) — the source repo's
+`action_run_success` for that workflow re-runs the newest failed row that is
+newer than the newest published release for the repo; every other failed row
+is marked `superseded`, because publishing a version below the newest
+candidate would open a downgrade pin PR that superseding never closes. The
+failed→pending claim is atomic, so a recovery sweep and a manual Forgejo
+Redeliver of the tag webhook can't both publish. A failed row is also
+logged at WARNING naming repo, version, and reason, and the home page's
+Recent releases table shows the last ten rows with their state — no
+separate alerting (the visibility half lands with #61, still in review).
+A target without
+`release_workflow` set never auto-recovers — its failed row stays `failed`
+for a manual Redeliver from the Forgejo webhook's Recent deliveries.
 
 ## Operating it
 
