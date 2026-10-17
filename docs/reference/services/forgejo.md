@@ -140,7 +140,7 @@ name.
 | Repo | Secrets | Purpose |
 |------|---------|---------|
 | `eblume/blumeops` | `FORGE_REPO_WRITE_TOKEN`, `BLUMEOPS_CI_OP_TOKEN`, `FORGE_ACTIONS_RO`, `FORGE_PAT_ROTATE_OP_TOKEN` | `forge-reconcile` reconcile + drift check (write:repository,read:user eblume PAT); job-time `op read` of blumeops-ci items; read-only forge token for the auto-apply preflights; read+write-`agents`-vault service account for the `forge-bot-pat-rotate` warrant run |
-| `eblume/hephaestus` | — (none) | No secrets declared: the `MAIN_PUSH_TOKEN` changelog main push was retired by the release-PR model ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)) — the next human apply deletes the live secret, after which the `hephaestus-token` PAT is pending revocation |
+| `eblume/hephaestus` | — (none) | No secrets declared: the `MAIN_PUSH_TOKEN` changelog main push was retired by the release-PR model ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)) — the live secret was deleted by the 2026-10-15 reconcile apply, and the `hephaestus-main-push-token` PAT was revoked the same day |
 | `eblume/talos`, `eblume/horkos` | `ZOT_PUSH_API_KEY` | Auto-release CI: per-repo push-only zot identity (`ci-zot-talos` / `ci-zot-horkos`), provisioned from the zot master fields by the values half |
 | `eblume/cv` | — (none) | Release CI is stored-secret-free; the empty declaration makes provisioning authoritative here (first run deletes the stale `FORGE_TOKEN`) |
 
@@ -153,8 +153,10 @@ exception in both directions — blumeops's release reading its own
 the item's hephaestus-scoped `hephaestus-token` field as
 `MAIN_PUSH_TOKEN` — are both retired: the release PR carries changelog and
 docs_version to main itself ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628); blumeops's
-release job hard-fails until that flow lands at migration step 9), so
-neither PAT has a CI consumer anymore and both are pending revocation.
+release job hard-fails until that flow lands at migration step 9).
+Hephaestus's side is fully done: its live secret was deleted and its
+`hephaestus-main-push-token` PAT revoked on 2026-10-15; blumeops's PAT
+stays pending until that migration lands.
 
 These secrets are injected as `${{ secrets.SECRET_NAME }}` in workflow files.
 

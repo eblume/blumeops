@@ -63,7 +63,7 @@
       "ignore_stale_approvals": false,
       "require_signed_commits": false,
       "protected_file_patterns": "",
-      "unprotected_file_patterns": "CHANGELOG.md;docs/changelog.d/**",
+      "unprotected_file_patterns": "",
       "apply_to_admins": true
     },
     {
