@@ -396,11 +396,10 @@ def main(
     # The rotation owns only the forge-bot-pat-* tokens and the vault's
     # current one. Tokens minted on the same bot user for other purposes
     # (their own owners, storage, lifecycle) are retained, never revoked —
-    # see RETAINED_EXTERNAL_TOKENS. Anything else unprefixed is unknown,
-    # so the first run takes over exactly one unprefixed predecessor (the
-    # vault's incumbent, or a pending delayed revoke of an earlier
-    # --skip-roll / failed-roll run); several means something unexpected
-    # is holding tokens — resolve that by hand before automating.
+    # see RETAINED_EXTERNAL_TOKENS. Anything else unprefixed is unknown:
+    # one is the take-over (the vault's incumbent on the first rotation,
+    # or a pending delayed revoke from an earlier --skip-roll / failed-roll
+    # run); several means something unexpected holds tokens.
     retained = external_tokens(existing)
     if retained:
         say("retained external tokens (not revoked): "
@@ -408,8 +407,8 @@ def main(
     unprefixed = unprefixed_predecessors(existing)
     if len(unprefixed) > 1:
         die(f"{BOT_USER} holds {len(unprefixed)} non-{TOKEN_PREFIX} tokens "
-            f"apart from the retained external ones — the first run takes "
-            f"over exactly one; resolve the rest by hand first")
+            f"apart from the retained external ones — this run takes over "
+            f"exactly one; resolve the rest by hand first")
 
     # Prove before the mint that the vault's value corresponds to a live
     # token. Without this, a run that died between the vault write and the

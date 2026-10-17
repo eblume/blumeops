@@ -188,6 +188,17 @@ two or more live tokens (one per skipped run; harmless: both scopes are
 the bot's own, and the run's post-check after a full rotation still asserts
 the one-live-token invariant).
 
+## Known limitation
+
+The pre-mint guard can't tell a hand-minted token it doesn't know from the
+pending delayed revoke an earlier run left: once the bot has been through a
+full rotation, a token minted by hand on the `talos` user that is not in
+`RETAINED_EXTERNAL_TOKENS` passes the guard as the one unprefixed
+predecessor and is revoked — it takes a *second* such token to stop the run.
+When adding the next external token to the `talos` user, add its name to
+`RETAINED_EXTERNAL_TOKENS` in `mise-tasks/forge-bot-pat-rotate` in the same
+PR.
+
 ## Debugging
 
 ### The current token does not authenticate
