@@ -80,7 +80,7 @@ All of the workflow's jobs run on the unprivileged launchd [[forgejo]]
 `indri-build` runner on [[indri]] (colima container engine)
 ([[configure-launchd-runner]]):
 
-- **Runner**: launchd services on indri (the `indri` user LaunchAgent; the `indri-build` LaunchDaemon plus its colima VM); the main runner's LaunchAgent, `config.yaml` and the cache maintenance agents are generation-owned (the [[indri]] flake, eblume/blumeops#1528), the `indri-build` runner's config/colima profile stay in the `forgejo_runner` ansible role (no Kubernetes, no job container)
+- **Runner**: launchd services on indri (the `indri` user LaunchAgent; the `indri-build` LaunchDaemon plus its colima VM); the main runner's LaunchAgent, `config.yaml` and the cache maintenance agents are generation-owned (the [[indri]] flake, eblume/blumeops#1528), and the `indri-build` runner's config/colima profile are generation-owned too (eblume/blumeops#1627); no Kubernetes, no job container
 - **Toolchain**: all jobs use indri-build's mise toolchain (Node.js, uv/Python, …)
 - **Build engine**: the docs build runs a node:22-slim container via the `docs-build-tarball` task in indri-build's colima — not Docker Desktop (no Dagger)
 

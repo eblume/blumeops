@@ -116,9 +116,10 @@ vault split exists to prevent.
 (warrant-policy.yaml) indefinitely — the full plays remain human-run
 or `class: deny` while their pre_tasks read the vault. The path to
 agent-requestable provisioning is **decomposition**: narrow, per-role
-actions (`provision-indri --tags forgejo_runner` needs only the runner
-identity items) added one at a time, each with its own policy entry —
-and since the supersession above, a decomposed role earns that entry
+actions added one at a time, each with its own policy entry — the
+runner identity items are exactly what `mise run seed-secrets indri`
+seats into the indri flake's `darwin/indri/secrets.json`-declared files
+— and since the supersession above, a decomposed role earns that entry
 by a vault-free apply path, not by a deliberate item copy.
 
 ## The migration (executed 2026-08-22, one PR + human item-copies)

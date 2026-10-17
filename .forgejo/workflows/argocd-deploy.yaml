@@ -24,10 +24,9 @@
 # this input existed. Default false, and the run log records a dry-run preview
 # of exactly what a prune removed.
 #
-# runs-on: priv — the privileged runner label (invariant 3). Until the
-# dedicated Phase-2 runner exists, the indri runner advertises `priv`
-# alongside `indri` (see forgejo_runner role defaults); the label split is
-# what matters now, the host split comes later.
+# runs-on: priv (invariant 3) — ringtail's `ringtail-priv-runner`, a
+# sandboxed NixOS runner; its label is the `ringtail-priv-runner` entry in
+# forge/runners.json, read by nixos/ringtail/configuration.nix.
 #
 # Revision reachability: a pre-merge PR head is exposed on canonical as
 # refs/pull/N/head and is git-fetchable by full SHA when it is the PR's

@@ -84,64 +84,6 @@
       no_log: true
       tags: [forgejo]
 
-    # Zero-permission GitHub PAT (public read only) shared with the mirror
-    # sync - see docs/how-to/configuration/manage-forgejo-mirrors.md for what
-    # the token is and its rotation. The main runner's config no longer reads
-    # it (the generation renders config.yaml from the seed-secrets identity
-    # files, eblume/blumeops#1528); the build runner's config injects it into
-    # every job's env as MISE_GITHUB_TOKEN so mise resolves GitHub-backed
-    # tools authenticated instead of offering the forge-injected GITHUB_TOKEN
-    # to api.github.com.
-    - name: Fetch forge-ci GitHub PAT for runner job env
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/forge-ci-github-pat"
-      delegate_to: localhost
-      register: _forge_ci_github_pat
-      changed_when: false
-      no_log: true
-      check_mode: false
-      # Dual-tagged: the role's build tasks still inherit forgejo_runner
-      # until eblume/blumeops#1627 removes the build half, so
-      # `--tags forgejo_runner` must set the facts they render.
-      tags: [forgejo_runner, forgejo_build_runner]
-
-    # Build runner identity (label `indri-build`, eblume/blumeops#1357) +
-    # the shared forge-ci GitHub PAT. Registration is a future human
-    # step ([[configure-launchd-runner]] §indri-build runner): until then the
-    # "Forgejo Secrets" item carries no runner_indri_build_* fields, so the
-    # fetch is failure-tolerant and the facts below default to "" - which
-    # gates every render in the role. One `op item get` for both fields;
-    # the `|| echo '[]'` keeps stdout valid JSON (ansible's from_json filter
-    # would raise on the empty stdout of a failed op call). The item is named
-    # by id + --vault: `op item get` rejects an op:// reference, and the
-    # tolerance above would hide that as "not registered yet".
-    - name: Fetch forgejo build runner identity
-      ansible.builtin.shell:
-        cmd: op item get w3663ffnvkewbftncqxtcpeavy --vault vg6xf6vvfmoh5hqjjhlhbeoaie --format json --fields label=runner_indri_build_uuid,label=runner_indri_build_token 2>/dev/null || echo '[]'
-      delegate_to: localhost
-      register: _forgejo_build_runner_identity
-      changed_when: false
-      failed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo_runner, forgejo_build_runner]
-
-    - name: Set forgejo build runner identity facts
-      ansible.builtin.set_fact:
-        forgejo_runner_build_uuid: >-
-          {{ (_forgejo_build_runner_identity.stdout | default('[]') | from_json
-             | selectattr('label', 'equalto', 'runner_indri_build_uuid')
-             | map(attribute='value') | list | first) | default('') }}
-        forgejo_runner_build_token: >-
-          {{ (_forgejo_build_runner_identity.stdout | default('[]') | from_json
-             | selectattr('label', 'equalto', 'runner_indri_build_token')
-             | map(attribute='value') | list | first) | default('') }}
-        # The same zero-scope forge-ci-github-pat as the main runner: it can
-        # only read public GitHub, and one token is one rotation.
-        forgejo_runner_build_mise_github_token: "{{ _forge_ci_github_pat.stdout }}"
-      no_log: true
-      tags: [forgejo_runner, forgejo_build_runner]
-
     # Zot OIDC client secret
     - name: Fetch zot OIDC client secret
       ansible.builtin.command:
@@ -455,8 +397,6 @@
       tags: borgmatic_metrics
     - role: forgejo
       tags: forgejo
-    - role: forgejo_runner
-      tags: forgejo_runner
     - role: zot
       tags: zot
     - role: zot_metrics
