@@ -946,3 +946,51 @@ data:
           key: !Env AUTHENTIK_CI_AUTHENTIK_BLUEPRINTS_TOKEN
           expiring: false
           description: "api token for the authentik-blueprint-exporter (vault-fed)"
+
+  retiring.yaml: |
+    version: 1
+    metadata:
+      name: BlumeOps Retiring Principals
+      labels:
+        blueprints.goauthentik.io/description: "Deactivated principals awaiting deletion (retiring.yaml queue); rendered by render-authentik-principals"
+    entries:
+
+      # agent-ringtail — retired 2026-10-05 (eblume/blumeops#1164)
+      - model: authentik_core.user
+        id: agent-ringtail-user
+        identifiers:
+          username: agent-ringtail
+        attrs:
+          username: agent-ringtail
+          name: Agent (ringtail workspace)
+          type: service_account
+          is_active: false
+
+      # zot-ci — retired 2026-09-18 (eblume/blumeops#1162)
+      - model: authentik_core.user
+        id: zot-ci-user
+        identifiers:
+          username: zot-ci
+        attrs:
+          username: zot-ci
+          name: Zot CI Service Account
+          type: service_account
+          is_active: false
+
+      # talos-heph-stray — retired 2026-10-16 (eblume/blumeops#1167)
+      - model: authentik_core.user
+        id: talos-heph-stray-user
+        identifiers:
+          username: talos-heph-stray
+        attrs:
+          username: talos-heph-stray
+          name: Talos Heph Stray (retired)
+          is_active: false
+
+      # talos-heph-stray — retired group for talos-heph-stray
+      - model: authentik_core.group
+        id: talos-heph-stray-group
+        identifiers:
+          name: talos-heph-stray
+        attrs:
+          name: talos-heph-stray

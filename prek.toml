@@ -193,6 +193,20 @@ language = "system"
 files = '.*'
 pass_filenames = false
 
+# The Authentik principal roster (principals.yaml + retiring.yaml) must match
+# the rendered blueprint ConfigMap — the renderer-owned entries drift-proof
+# the migration (eblume/blumeops#1194).
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "render-authentik-principals"
+name = "render-authentik-principals"
+entry = "./mise-tasks/render-authentik-principals --check"
+language = "system"
+files = '^argocd/manifests/authentik/(principals\.yaml|retiring\.yaml|configmap-blueprint\.yaml)$'
+pass_filenames = false
+
 # Documentation validation
 [[repos]]
 repo = "local"

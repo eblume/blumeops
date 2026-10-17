@@ -1,0 +1,909 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml==6.0.3", "rich==15.0.0"]
+# ///
+#MISE description="Render the Authentik blueprint principal entries (users, groups, policybindings) from principals.yaml + retiring.yaml; --check fails on ConfigMap drift (the Lint gate)"
+#USAGE flag "--check" help="Fail with a drift report if the committed configmap-blueprint.yaml differs from the rendered output"
+#USAGE flag "--write" help="Re-render configmap-blueprint.yaml in place"
+"""Render the Authentik principal entries of the blueprint ConfigMap from the rosters.
+
+`argocd/manifests/authentik/principals.yaml` is the single source of truth for
+every `authentik_core.user`, `authentik_core.group`, and
+`authentik_policies.policybinding` entry in the ConfigMap's data keys;
+`argocd/manifests/authentik/retiring.yaml` is the deletion queue rendered into
+the renderer-owned `retiring.yaml` data key.
+
+Text surgery, not YAML round-tripping: the ConfigMap carries custom tags
+(`!KeyOf`, `!Find`, `!Env`) and hand-written comments, so the renderer works
+line-wise. It owns the BODY of each principal entry (the comment group above
+the entry is kept verbatim) and the whole `retiring.yaml` data key; everything
+else in the file is passed through untouched. It never invents entry
+placement: an existing entry with no roster counterpart, or a roster entry
+with no body in the ConfigMap, is an error — to add a principal, add its entry
+block to the ConfigMap (the renderer then fills in the exact body).
+
+`--check` is the Lint gate hook (prek). It renders the file in memory and
+fails on any drift, naming each drifted entry; `--write` replaces drifted
+bodies in place, appends the `retiring.yaml` data key when retiring.yaml is
+non-empty (or removes it when empty), and writes only if the file changed.
+"""
+
+from __future__ import annotations
+
+import datetime
+import difflib
+import re
+import sys
+from collections import Counter, defaultdict
+from dataclasses import dataclass
+from pathlib import Path
+
+import yaml
+from rich.console import Console
+
+console = Console()
+
+AUTHENTIK_DIR = "argocd/manifests/authentik"
+CONFIGMAP_FILE = "configmap-blueprint.yaml"
+PRINCIPALS_FILE = "principals.yaml"
+RETIRING_FILE = "retiring.yaml"
+RETIRING_KEY = "retiring"
+
+KEY_HEADER_RE = re.compile(r"^  ([a-z0-9-]+)\.yaml: \|$")
+ENTRY_RE = re.compile(
+    r"^      - model: (authentik_core\.user|authentik_core\.group|authentik_policies\.policybinding)$"
+)
+USERNAME_RE = re.compile(r"^          username: (.+)$")
+GROUP_NAME_RE = re.compile(r"^          name: (.+)$")
+TARGET_RE = re.compile(r"^          target: !KeyOf (.+)-app$")
+ORDER_RE = re.compile(r"^          order: (\d+)$")
+GROUP_KEYOF_RE = re.compile(r"^          group: !KeyOf (.+)-group$")
+GROUP_FIND_RE = re.compile(r"^          group: !Find \[authentik_core\.group, \[name, (.+)\]\]$")
+
+
+@dataclass(frozen=True)
+class Access:
+    app: str
+    order: int | None
+    ref: str | None
+
+
+@dataclass(frozen=True)
+class RosterGroup:
+    name: str
+    blueprint: str
+    access: list[Access]
+    roles: list[str]
+
+
+@dataclass(frozen=True)
+class Principal:
+    username: str
+    name: str
+    tier: str
+    user_type: str | None
+    state: str
+    groups: list[str]
+    blueprint: str | None
+
+
+@dataclass(frozen=True)
+class Retiring:
+    username: str
+    name: str
+    user_type: str | None
+    retired: str
+    issue: str
+    group: str | None
+    keys_revoked: bool | None
+
+
+@dataclass(frozen=True)
+class DataKey:
+    name: str
+    header: int
+    start: int
+    end: int
+
+
+@dataclass(frozen=True)
+class ExistingEntry:
+    key: str
+    identity: tuple[str, ...]
+    start: int
+    end: int
+    comments: tuple[int, ...]
+    body: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class RenderedEntry:
+    key: str
+    identity: tuple[str, ...]
+    lines: tuple[str, ...]
+
+
+def repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+# --- text surgery over the ConfigMap ----------------------------------------
+
+
+def find_data_keys(lines: list[str]) -> list[DataKey]:
+    """Locate the `  <key>.yaml: |` headers inside the `data:` block."""
+    keys: list[DataKey] = []
+    in_data = False
+    for idx, line in enumerate(lines):
+        if line == "data:":
+            in_data = True
+            continue
+        if not in_data:
+            continue
+        m = KEY_HEADER_RE.match(line)
+        if m:
+            keys.append(DataKey(m.group(1), idx, idx + 1, len(lines)))
+    for i in range(len(keys) - 1):
+        keys[i] = DataKey(keys[i].name, keys[i].header, keys[i].start, keys[i + 1].header)
+    return keys
+
+
+def entry_spans(lines: list[str], key: DataKey) -> list[tuple[int, int]]:
+    """Return (start, end) line spans of every principal entry in one data key."""
+    spans: list[tuple[int, int]] = []
+    i = key.start
+    while i < key.end:
+        if not ENTRY_RE.match(lines[i]):
+            i += 1
+            continue
+        end = i
+        j = i + 1
+        while j < key.end:
+            line = lines[j]
+            if line == "":
+                j += 1
+                continue
+            if line.startswith("        "):
+                end = j
+                j += 1
+                continue
+            break
+        spans.append((i, end))
+        i = end + 1
+    return spans
+
+
+def comment_lines(lines: list[str], start: int) -> list[int]:
+    """Indices of the contiguous `      #` comment run directly above `start`."""
+    out: list[int] = []
+    idx = start - 1
+    while idx >= 0 and lines[idx].startswith("      #"):
+        out.append(idx)
+        idx -= 1
+    return out[::-1]
+
+
+def first_match(body: list[str], pattern: re.Pattern[str]) -> str | None:
+    for line in body:
+        m = pattern.match(line)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
+def parse_existing(lines: list[str], keys: list[DataKey]) -> tuple[list[ExistingEntry], list[str]]:
+    existing: list[ExistingEntry] = []
+    errors: list[str] = []
+    for key in keys:
+        if key.name == RETIRING_KEY:
+            continue
+        for start, end in entry_spans(lines, key):
+            model_m = ENTRY_RE.match(lines[start])
+            if model_m is None:  # defensive: entry_spans only starts at matches
+                continue
+            body = lines[start : end + 1]
+            comments = tuple(comment_lines(lines, start))
+            if model_m.group(1) == "authentik_core.user":
+                username = first_match(body, USERNAME_RE)
+                if username is None:
+                    errors.append(
+                        f"{key.name}.yaml: line {start + 1}: could not parse user entry (no username)"
+                    )
+                else:
+                    existing.append(
+                        ExistingEntry(key.name, ("user", username), start, end, comments, tuple(body))
+                    )
+            elif model_m.group(1) == "authentik_core.group":
+                name = first_match(body, GROUP_NAME_RE)
+                if name is None:
+                    errors.append(f"{key.name}.yaml: line {start + 1}: could not parse group entry (no name)")
+                else:
+                    existing.append(
+                        ExistingEntry(key.name, ("group", name), start, end, comments, tuple(body))
+                    )
+            else:
+                # Bindings match the roster by (app, group) only — never by order:
+                # a skeleton's order line is a placeholder the renderer corrects,
+                # and a parsed order that differs from the rendered one is drift.
+                app = first_match(body, TARGET_RE)
+                groupref = first_match(body, GROUP_KEYOF_RE) or first_match(body, GROUP_FIND_RE)
+                order_raw = first_match(body, ORDER_RE)
+                if app is None or groupref is None or order_raw is None:
+                    errors.append(
+                        f"{key.name}.yaml: line {start + 1}: could not parse policybinding "
+                        "(need target/group/order lines)"
+                    )
+                else:
+                    existing.append(
+                        ExistingEntry(
+                            key.name, ("binding", app, groupref), start, end, comments, tuple(body)
+                        )
+                    )
+    return existing, errors
+
+
+def apply_replacements(lines: list[str], replacements: list[tuple[int, int, list[str]]]) -> list[str]:
+    out: list[str] = []
+    cursor = 0
+    for start, end, new_lines in sorted(replacements):
+        out.extend(lines[cursor:start])
+        out.extend(new_lines)
+        cursor = end + 1
+    out.extend(lines[cursor:])
+    return out
+
+
+def apply_retiring(lines: list[str], keys: list[DataKey], retiring: list[Retiring]) -> list[str]:
+    """Append, rewrite, or remove the renderer-owned `retiring.yaml` data key."""
+    retiring_key = next((k for k in keys if k.name == RETIRING_KEY), None)
+    header = f"  {RETIRING_KEY}.yaml: |"
+    if retiring:
+        value = render_retiring_value(retiring)
+        if retiring_key is None:
+            while lines and lines[-1] == "":
+                lines.pop()
+            return lines + [""] + [header] + value
+        return lines[: retiring_key.header] + [header] + value + lines[retiring_key.end :]
+    if retiring_key is None:
+        return lines
+    start = retiring_key.header
+    end = retiring_key.end
+    if start > 0 and lines[start - 1] == "":
+        start -= 1
+    if end < len(lines) and lines[end - 1] == "":
+        end -= 1
+    return lines[:start] + lines[end:]
+
+
+# --- emission formats (byte contract) ----------------------------------------
+
+
+def render_group(name: str, roles: list[str]) -> list[str]:
+    lines = [
+        "      - model: authentik_core.group",
+        f"        id: {name}-group",
+        "        identifiers:",
+        f"          name: {name}",
+        "        attrs:",
+        f"          name: {name}",
+    ]
+    if roles:
+        lines.append("          roles:")
+        for role in roles:
+            lines.append(f"            - !KeyOf {role}")
+    return lines
+
+
+def render_user(
+    username: str, name: str, user_type: str | None, groups: list[str], active: bool
+) -> list[str]:
+    lines = [
+        "      - model: authentik_core.user",
+        f"        id: {username}-user",
+        "        identifiers:",
+        f"          username: {username}",
+        "        attrs:",
+        f"          username: {username}",
+        f"          name: {name}",
+    ]
+    if user_type is not None:
+        lines.append(f"          type: {user_type}")
+    lines.append(f"          is_active: {'true' if active else 'false'}")
+    if groups:
+        lines.append("          groups:")
+        for group in groups:
+            lines.append(f"            - !KeyOf {group}-group")
+    return lines
+
+
+def render_binding(app: str, order: int, groupref: str) -> list[str]:
+    return [
+        "      - model: authentik_policies.policybinding",
+        "        identifiers:",
+        f"          order: {order}",
+        f"          target: !KeyOf {app}-app",
+        f"          group: {groupref}",
+        "        attrs:",
+        f"          target: !KeyOf {app}-app",
+        f"          group: {groupref}",
+        f"          order: {order}",
+        "          enabled: true",
+        "          negate: false",
+        "          timeout: 30",
+    ]
+
+
+def render_retiring_value(entries: list[Retiring]) -> list[str]:
+    lines = [
+        "    version: 1",
+        "    metadata:",
+        "      name: BlumeOps Retiring Principals",
+        "      labels:",
+        '        blueprints.goauthentik.io/description: "Deactivated principals awaiting deletion (retiring.yaml queue); rendered by render-authentik-principals"',
+        "    entries:",
+    ]
+    for entry in entries:
+        lines.append("")
+        lines.append(f"      # {entry.username} — retired {entry.retired} ({entry.issue})")
+        lines.extend(render_user(entry.username, entry.name, entry.user_type, [], False))
+        if entry.group is not None:
+            lines.append("")
+            lines.append(f"      # {entry.group} — retired group for {entry.username}")
+            lines.extend(render_group(entry.group, []))
+    return lines
+
+
+# --- roster loading & validation --------------------------------------------
+
+
+def get_str(
+    obj: object, key: str, where: str, errors: list[str], *, required: bool = True
+) -> str | None:
+    if not isinstance(obj, dict):
+        errors.append(f"{where}: expected a mapping")
+        return None
+    value = obj.get(key)
+    if value is None and not required:
+        return None
+    # PyYAML parses bare YYYY-MM-DD scalars as datetime.date; `retired` uses
+    # that form, rendered back as its ISO string.
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    if not isinstance(value, str) or not value.strip():
+        errors.append(f"{where}: '{key}' must be a non-empty string")
+        return None
+    return value
+
+
+def load_access(obj: object, where: str, errors: list[str]) -> Access | None:
+    if not isinstance(obj, dict):
+        errors.append(f"{where}: access entry is not a mapping")
+        return None
+    app = get_str(obj, "app", where, errors)
+    if app is None:
+        return None
+    order: int | None = None
+    order_raw = obj.get("order")
+    if order_raw is not None:
+        if isinstance(order_raw, int) and not isinstance(order_raw, bool):
+            order = order_raw
+        else:
+            errors.append(f"{where}: 'order' must be an integer")
+    ref: str | None = None
+    ref_raw = obj.get("ref")
+    if ref_raw is not None:
+        if isinstance(ref_raw, str) and ref_raw in ("keyof", "find"):
+            ref = ref_raw
+        else:
+            errors.append(f"{where}: 'ref' must be 'keyof' or 'find'")
+    return Access(app=app, order=order, ref=ref)
+
+
+def load_group(obj: object, where: str, errors: list[str]) -> RosterGroup | None:
+    if not isinstance(obj, dict):
+        errors.append(f"{where}: group entry is not a mapping")
+        return None
+    name = get_str(obj, "name", where, errors)
+    blueprint = get_str(obj, "blueprint", where, errors)
+    if name is None or blueprint is None:
+        return None
+    access: list[Access] = []
+    access_raw = obj.get("access", [])
+    if isinstance(access_raw, list):
+        for i, item in enumerate(access_raw):
+            access_item = load_access(item, f"{where}.access[{i}]", errors)
+            if access_item is not None:
+                access.append(access_item)
+    else:
+        errors.append(f"{where}: 'access' must be a list")
+    roles: list[str] = []
+    roles_raw = obj.get("roles", [])
+    if isinstance(roles_raw, list):
+        for i, item in enumerate(roles_raw):
+            if isinstance(item, str):
+                roles.append(item)
+            else:
+                errors.append(f"{where}.roles[{i}]: role id must be a string")
+    else:
+        errors.append(f"{where}: 'roles' must be a list")
+    return RosterGroup(name=name, blueprint=blueprint, access=access, roles=roles)
+
+
+def load_principal(obj: object, where: str, errors: list[str]) -> Principal | None:
+    if not isinstance(obj, dict):
+        errors.append(f"{where}: principal entry is not a mapping")
+        return None
+    username = get_str(obj, "username", where, errors)
+    name = get_str(obj, "name", where, errors)
+    tier = get_str(obj, "tier", where, errors)
+    state = get_str(obj, "state", where, errors)
+    if username is None or name is None or tier is None or state is None:
+        return None
+    user_type: str | None = None
+    type_raw = obj.get("type")
+    if type_raw is not None:
+        if isinstance(type_raw, str):
+            user_type = type_raw
+        else:
+            errors.append(f"{where}: 'type' must be a string")
+    groups: list[str] = []
+    groups_raw = obj.get("groups", [])
+    if isinstance(groups_raw, list):
+        for i, item in enumerate(groups_raw):
+            if isinstance(item, str):
+                groups.append(item)
+            else:
+                errors.append(f"{where}.groups[{i}]: group reference must be a string")
+    else:
+        errors.append(f"{where}: 'groups' must be a list")
+    blueprint: str | None = None
+    blueprint_raw = obj.get("blueprint")
+    if blueprint_raw is not None:
+        if isinstance(blueprint_raw, str):
+            blueprint = blueprint_raw
+        else:
+            errors.append(f"{where}: 'blueprint' must be a string")
+    return Principal(
+        username=username,
+        name=name,
+        tier=tier,
+        user_type=user_type,
+        state=state,
+        groups=groups,
+        blueprint=blueprint,
+    )
+
+
+def load_retiring(obj: object, where: str, errors: list[str]) -> Retiring | None:
+    if not isinstance(obj, dict):
+        errors.append(f"{where}: retiring entry is not a mapping")
+        return None
+    username = get_str(obj, "username", where, errors)
+    name = get_str(obj, "name", where, errors)
+    retired = get_str(obj, "retired", where, errors)
+    issue = get_str(obj, "issue", where, errors)
+    if username is None or name is None or retired is None or issue is None:
+        return None
+    user_type: str | None = None
+    type_raw = obj.get("type")
+    if type_raw is not None:
+        if isinstance(type_raw, str):
+            user_type = type_raw
+        else:
+            errors.append(f"{where}: 'type' must be a string")
+    group: str | None = None
+    group_raw = obj.get("group")
+    if group_raw is not None:
+        if isinstance(group_raw, str):
+            group = group_raw
+        else:
+            errors.append(f"{where}: 'group' must be a string")
+    keys_revoked: bool | None = None
+    keys_raw = obj.get("keys_revoked")
+    if keys_raw is not None:
+        if isinstance(keys_raw, bool):
+            keys_revoked = keys_raw
+        else:
+            errors.append(f"{where}: 'keys_revoked' must be a boolean")
+    return Retiring(
+        username=username,
+        name=name,
+        user_type=user_type,
+        retired=retired,
+        issue=issue,
+        group=group,
+        keys_revoked=keys_revoked,
+    )
+
+
+def load_rosters(
+    root: Path,
+) -> tuple[list[RosterGroup], list[Principal], list[Retiring], list[str]]:
+    errors: list[str] = []
+
+    def load_yaml(filename: str) -> object | None:
+        path = root / AUTHENTIK_DIR / filename
+        try:
+            return yaml.safe_load(path.read_text())
+        except (OSError, yaml.YAMLError) as exc:
+            errors.append(f"{filename}: cannot parse: {exc}")
+            return None
+
+    groups: list[RosterGroup] = []
+    principals: list[Principal] = []
+    retiring: list[Retiring] = []
+
+    raw = load_yaml(PRINCIPALS_FILE)
+    if isinstance(raw, dict):
+        groups_raw = raw.get("groups")
+        if isinstance(groups_raw, list):
+            for i, item in enumerate(groups_raw):
+                group = load_group(item, f"{PRINCIPALS_FILE} groups[{i}]", errors)
+                if group is not None:
+                    groups.append(group)
+        else:
+            errors.append(f"{PRINCIPALS_FILE}: 'groups' must be a list")
+        principals_raw = raw.get("principals")
+        if isinstance(principals_raw, list):
+            for i, item in enumerate(principals_raw):
+                principal = load_principal(item, f"{PRINCIPALS_FILE} principals[{i}]", errors)
+                if principal is not None:
+                    principals.append(principal)
+        else:
+            errors.append(f"{PRINCIPALS_FILE}: 'principals' must be a list")
+    else:
+        errors.append(f"{PRINCIPALS_FILE}: must be a mapping with 'groups' and 'principals' lists")
+
+    raw_retiring = load_yaml(RETIRING_FILE)
+    if raw_retiring is None:
+        pass  # a blank or comments-only queue is an empty queue
+    elif isinstance(raw_retiring, list):
+        for i, item in enumerate(raw_retiring):
+            entry = load_retiring(item, f"{RETIRING_FILE}[{i}]", errors)
+            if entry is not None:
+                retiring.append(entry)
+    else:
+        errors.append(f"{RETIRING_FILE}: must be a top-level list")
+
+    return groups, principals, retiring, errors
+
+
+def describe_identity(identity: tuple[str, ...]) -> str:
+    if identity[0] == "user":
+        return f"user '{identity[1]}'"
+    if identity[0] == "group":
+        return f"group '{identity[1]}'"
+    return f"binding for group '{identity[2]}' on app '{identity[1]}'"
+
+
+def validate_roster(
+    groups: list[RosterGroup],
+    principals: list[Principal],
+    retiring: list[Retiring],
+    keys: list[DataKey],
+    lines: list[str],
+) -> tuple[list[str], dict[tuple[str, str], int]]:
+    """Validate the rosters and their consistency with the ConfigMap data keys."""
+    errors: list[str] = []
+    key_names = {k.name for k in keys}
+    key_views = {k.name: "\n".join(lines[k.start : k.end]) for k in keys}
+
+    group_names = [g.name for g in groups]
+    for name in group_names:
+        if group_names.count(name) > 1:
+            errors.append(f"{PRINCIPALS_FILE}: duplicate group name '{name}'")
+
+    group_by_name = {g.name: g for g in groups}
+    for principal in principals:
+        where = f"{PRINCIPALS_FILE} principal '{principal.username}'"
+        if not principal.username.startswith(f"{principal.tier}-"):
+            errors.append(
+                f"{where}: username must start with '<tier>-', got a prefix other than "
+                f"'{principal.tier}-'"
+            )
+        if principal.state != "active":
+            errors.append(f"{where}: state must be 'active' (got '{principal.state}')")
+        for group in principal.groups:
+            if group not in group_names:
+                errors.append(f"{where}: group '{group}' is not declared in 'groups'")
+        if not principal.groups and principal.blueprint is None:
+            errors.append(
+                f"{where}: has no groups, so 'blueprint' (its home data key) is required"
+            )
+        if principal.groups:
+            first_group = group_by_name.get(principal.groups[0])
+            home = first_group.blueprint if first_group is not None else principal.blueprint
+        else:
+            home = principal.blueprint
+        if home is not None and home not in key_names:
+            errors.append(f"{where}: home data key '{home}' is not a key in {CONFIGMAP_FILE}")
+
+    for group in groups:
+        where = f"{PRINCIPALS_FILE} group '{group.name}'"
+        if group.blueprint not in key_names:
+            errors.append(
+                f"{where}: blueprint '{group.blueprint}' is not a data key in {CONFIGMAP_FILE}"
+            )
+        for role in group.roles:
+            view = key_views.get(group.blueprint, "")
+            if f"        id: {role}" not in view:
+                errors.append(
+                    f"{where}: role '{role}' has no 'id: {role}' entry in data key "
+                    f"{group.blueprint}.yaml"
+                )
+        group_apps = [a.app for a in group.access]
+        for app in group_apps:
+            if group_apps.count(app) > 1:
+                errors.append(f"{where}: access app '{app}' declared more than once")
+        for access in group.access:
+            app_key = f"{access.app}.yaml"
+            view = key_views.get(access.app, "")
+            if access.app not in key_names:
+                errors.append(f"{where}: access app '{access.app}' has no data key {app_key}")
+            elif f"        id: {access.app}-app" not in view:
+                errors.append(
+                    f"{where}: access app '{access.app}' has no 'id: {access.app}-app' "
+                    f"entry in {app_key}"
+                )
+
+    orders: dict[tuple[str, str], int] = {}
+    by_app: dict[str, list[tuple[str, Access]]] = defaultdict(list)
+    for group in groups:
+        for access in group.access:
+            by_app[access.app].append((group.name, access))
+    for app, entries in by_app.items():
+        pinned = [a.order for _, a in entries if a.order is not None]
+        for order in sorted(set(pinned)):
+            if pinned.count(order) > 1:
+                errors.append(
+                    f"{PRINCIPALS_FILE}: app '{app}': pinned order {order} is used by "
+                    "more than one binding"
+                )
+        unpinned = [(g, a) for g, a in entries if a.order is None]
+        if len(unpinned) > 1:
+            names = ", ".join(g for g, _ in unpinned)
+            errors.append(
+                f"{PRINCIPALS_FILE}: app '{app}': bindings without a pinned order "
+                f"({names}) would collide; pin one"
+            )
+        base = max(pinned) if pinned else -1
+        seen: set[tuple[str, str]] = set()
+        for group_name, access in entries:
+            pair = (app, group_name)
+            if pair in seen:
+                errors.append(
+                    f"{PRINCIPALS_FILE}: duplicate binding for app '{app}' and group '{group_name}'"
+                )
+            seen.add(pair)
+            orders[pair] = access.order if access.order is not None else base + 1
+
+    active_usernames = {p.username for p in principals}
+    retiring_usernames = [r.username for r in retiring]
+    for username in retiring_usernames:
+        if retiring_usernames.count(username) > 1:
+            errors.append(f"{RETIRING_FILE}: duplicate username '{username}'")
+    for username in sorted(active_usernames & set(retiring_usernames)):
+        errors.append(f"username '{username}' appears in both {PRINCIPALS_FILE} and {RETIRING_FILE}")
+    retiring_groups = [r.group for r in retiring if r.group is not None]
+    for group_name in retiring_groups:
+        if retiring_groups.count(group_name) > 1:
+            errors.append(f"{RETIRING_FILE}: duplicate group '{group_name}'")
+        if group_name in group_names:
+            errors.append(f"{RETIRING_FILE}: group '{group_name}' collides with a roster group name")
+
+    return errors, orders
+
+
+def build_rendered(
+    groups: list[RosterGroup],
+    principals: list[Principal],
+    group_by_name: dict[str, RosterGroup],
+    orders: dict[tuple[str, str], int],
+) -> list[RenderedEntry]:
+    rendered: list[RenderedEntry] = []
+    for group in groups:
+        rendered.append(
+            RenderedEntry(
+                key=group.blueprint,
+                identity=("group", group.name),
+                lines=tuple(render_group(group.name, group.roles)),
+            )
+        )
+    for principal in principals:
+        if principal.groups:
+            first = group_by_name.get(principal.groups[0])
+            home = first.blueprint if first is not None else principal.blueprint
+        else:
+            home = principal.blueprint
+        if home is None:
+            continue  # validation already reported
+        rendered.append(
+            RenderedEntry(
+                key=home,
+                identity=("user", principal.username),
+                lines=tuple(render_user(principal.username, principal.name, principal.user_type, principal.groups, True)),
+            )
+        )
+    for group in groups:
+        for access in group.access:
+            order = orders[(access.app, group.name)]
+            ref = access.ref
+            if ref is None:
+                ref = "keyof" if group.blueprint == access.app else "find"
+            if ref == "keyof":
+                groupref = f"!KeyOf {group.name}-group"
+            else:
+                groupref = f"!Find [authentik_core.group, [name, {group.name}]]"
+            rendered.append(
+                RenderedEntry(
+                    key=access.app,
+                    identity=("binding", access.app, group.name),
+                    lines=tuple(render_binding(access.app, order, groupref)),
+                )
+            )
+    return rendered
+
+
+def match_entries(
+    existing: list[ExistingEntry], rendered: list[RenderedEntry]
+) -> tuple[dict[tuple[str, ...], tuple[ExistingEntry, RenderedEntry]], list[str]]:
+    existing_by_key: dict[str, list[ExistingEntry]] = defaultdict(list)
+    rendered_by_key: dict[str, list[RenderedEntry]] = defaultdict(list)
+    for entry in existing:
+        existing_by_key[entry.key].append(entry)
+    for entry in rendered:
+        rendered_by_key[entry.key].append(entry)
+
+    errors: list[str] = []
+    for key in sorted(set(existing_by_key) | set(rendered_by_key)):
+        existing_counts = Counter(e.identity for e in existing_by_key[key])
+        rendered_counts = Counter(r.identity for r in rendered_by_key[key])
+        for identity, count in (existing_counts - rendered_counts).items():
+            errors.append(
+                f"{key}.yaml: existing {describe_identity(identity)} ({count}×) has no roster "
+                "entry — remove it or add it to the roster"
+            )
+        for identity, count in (rendered_counts - existing_counts).items():
+            errors.append(
+                f"{key}.yaml: roster {describe_identity(identity)} ({count}×) is missing from "
+                "the ConfigMap — add its skeleton entry block under the data key's entries: "
+                '(see docs/how-to/authentik/manage-authentik-principals.md, "Add a principal")'
+            )
+
+    matched: dict[tuple[str, ...], tuple[ExistingEntry, RenderedEntry]] = {}
+    for key, rendered_entries in rendered_by_key.items():
+        for rendered_entry in rendered_entries:
+            for existing_entry in existing_by_key.get(key, []):
+                if existing_entry.identity == rendered_entry.identity:
+                    matched[rendered_entry.identity] = (existing_entry, rendered_entry)
+                    break
+    return matched, errors
+
+
+def finalize(lines: list[str]) -> str:
+    text = "\n".join(lines)
+    if not text.endswith("\n"):
+        text += "\n"
+    return text
+
+
+USAGE_TEXT = """render-authentik-principals: render the Authentik blueprint principal entries.
+
+Flags:
+  --check   Fail with a drift report if the committed configmap-blueprint.yaml differs
+            from the rendered output (default).
+  --write   Re-render configmap-blueprint.yaml in place.
+"""
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = list(argv if argv is not None else sys.argv[1:])
+    if "--help" in args or "-h" in args:
+        print(USAGE_TEXT)
+        return 0
+    unknown = [arg for arg in args if arg not in ("--check", "--write")]
+    if unknown:
+        console.print(f"ERROR: unknown argument(s): {' '.join(unknown)}", style="red")
+        return 1
+    if "--check" in args and "--write" in args:
+        console.print("ERROR: --check and --write are mutually exclusive", style="red")
+        return 1
+    write = "--write" in args
+
+    root = repo_root()
+    config_path = root / AUTHENTIK_DIR / CONFIGMAP_FILE
+    try:
+        text = config_path.read_text()
+    except OSError as exc:
+        console.print(f"ERROR: cannot read {config_path}: {exc}", style="red")
+        return 1
+    lines = text.splitlines()
+
+    groups, principals, retiring, load_errors = load_rosters(root)
+    keys = find_data_keys(lines)
+    existing, parse_errors = parse_existing(lines, keys)
+    validation_errors, orders = validate_roster(groups, principals, retiring, keys, lines)
+    errors = load_errors + parse_errors + validation_errors
+
+    group_by_name = {g.name: g for g in groups}
+    rendered = build_rendered(groups, principals, group_by_name, orders)
+    matched, match_errors = match_entries(existing, rendered)
+    errors.extend(match_errors)
+
+    if errors:
+        for error in errors:
+            console.print(f"ERROR: {error}", style="red")
+        console.print(f"render-authentik-principals: {len(errors)} error(s) — refusing", style="red")
+        return 1
+
+    replacements: list[tuple[int, int, list[str]]] = []
+    drift_entries: list[str] = []
+    for existing_entry, rendered_entry in matched.values():
+        if list(existing_entry.body) != list(rendered_entry.lines):
+            drift_entries.append(describe_identity(rendered_entry.identity))
+            replacements.append((existing_entry.start, existing_entry.end, list(rendered_entry.lines)))
+
+    retiring_present = any(k.name == RETIRING_KEY for k in keys)
+    retiring_drift: list[str] = []
+    if retiring and not retiring_present:
+        retiring_drift.append(f"data key '{RETIRING_KEY}.yaml' is missing but {RETIRING_FILE} declares records")
+    elif not retiring and retiring_present:
+        retiring_drift.append(
+            f"data key '{RETIRING_KEY}.yaml' must be removed ({RETIRING_FILE} is empty)"
+        )
+
+    lines2 = apply_replacements(lines, replacements)
+    # The replacements can change the line count, so re-derive the data-key
+    # spans on the new line list before splicing the retiring key.
+    keys2 = find_data_keys(lines2)
+    lines3 = apply_retiring(lines2, keys2, retiring)
+    final_text = finalize(lines3)
+
+    counts = (
+        f"{len(groups)} groups, {len(principals)} users, "
+        f"{sum(len(g.access) for g in groups)} bindings, {len(retiring)} retiring records"
+    )
+    rel = config_path.relative_to(root)
+
+    if write:
+        if final_text == text:
+            console.print(
+                f"render-authentik-principals: {counts} — {CONFIGMAP_FILE} already matches the roster.",
+                style="green",
+            )
+            return 0
+        config_path.write_text(final_text)
+        if retiring and not retiring_present:
+            change = f"added the {RETIRING_KEY}.yaml data key"
+        elif not retiring and retiring_present:
+            change = f"removed the {RETIRING_KEY}.yaml data key"
+        else:
+            change = f"re-rendered {len(drift_entries)} drifted principal entr{'y' if len(drift_entries) == 1 else 'ies'}"
+        console.print(f"render-authentik-principals: {counts} — wrote {CONFIGMAP_FILE} ({change}).", style="green")
+        return 0
+
+    if final_text == text:
+        console.print(
+            f"render-authentik-principals: {counts} — {CONFIGMAP_FILE} matches the roster.",
+            style="green",
+        )
+        return 0
+
+    console.print(f"render-authentik-principals: drift in {rel}:", style="red")
+    for entry in drift_entries:
+        console.print(f"  - {entry}: body differs from rendered output", style="red")
+    for line in retiring_drift:
+        console.print(f"  - {line}", style="red")
+    diff = difflib.unified_diff(
+        text.splitlines(keepends=True),
+        final_text.splitlines(keepends=True),
+        fromfile=str(rel) + " (committed)",
+        tofile=str(rel) + " (rendered)",
+    )
+    console.print("".join(diff))
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

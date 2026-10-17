@@ -1,7 +1,7 @@
 ---
 title: Principals
 modified: 2026-10-16
-last-reviewed: 2026-10-15
+last-reviewed: 2026-10-16
 tags:
   - reference
   - infrastructure
@@ -79,6 +79,8 @@ sit on the far side of a fence horkos itself must not cross. Calling both
 | `talos-heph` | Authentik user + group; the agent heph spoke | talos | `op://agents/heph-spoke-token` |
 | `tag:talos` | Tailscale tag; the egress-gateway pod's identity ([[tailscale]]) | talos | — |
 | `tag:ci-gateway` | Tailscale tag; ephemeral CI containers pushing to the registry ([[tailscale]]) | ci | — |
+
+The Authentik side's roster of record is now `argocd/manifests/authentik/principals.yaml` (rendered into the blueprint ConfigMap, [[manage-authentik-principals]]) with `retiring.yaml` as the deletion queue — the wiki "Principal naming scheme" article points at this same card.
 
 Every principal above follows the scheme, including the post-series `cli-`
 tier. If a future account is needed for the issue-writer discussion in
