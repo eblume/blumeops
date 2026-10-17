@@ -221,7 +221,8 @@ def load_rosters(
 def op_item_field(item: str, field: str) -> str:
     """Read one field from a blumeops-vault item.
 
-    `op item get` by title — `op read` chokes on titles with spaces/parens.
+    `op item get` by title — `op read` can't parse a title with
+    spaces/parens (same precedent as openrouter-probe).
     """
     result = subprocess.run(
         ["op", "item", "get", item, "--vault", BLUMEOPS_VAULT, "--format", "json"],
@@ -306,9 +307,20 @@ def live_groups(client: httpx.Client) -> list[LiveGroup]:
         LiveGroup(pk=g["pk"], uuid=g["uuid"], name=g["name"], bindings=())
         for g in paginate(client, "/api/v3/core/groups/")
     ]
+    # A binding's `target` is a subclass pk (UUID string), not an object:
+    # PolicyBindingModelForeignKey.to_representation returns the concrete
+    # model's pk, so resolve it against the applications' pks. Flows and
+    # sources carry their own UUIDs (not in this map) and a user-level
+    # binding has no `group_obj` — both are skipped below.
+    apps: dict[str, str] = {}
+    for a in paginate(client, "/api/v3/core/applications/"):
+        slug = a.get("slug") or a.get("name")
+        if a.get("pk") is not None and slug:
+            apps[a["pk"]] = slug
     for b in paginate(client, "/api/v3/policies/bindings/"):
-        target = (b.get("target") or {}).get("name")
-        group = (b.get("group") or {}).get("name")
+        target = apps.get(b.get("target"))
+        # `group` is a UUID string; the group name lives on `group_obj`.
+        group = (b.get("group_obj") or {}).get("name")
         order = b.get("order")
         if not target or not group:
             continue
@@ -338,13 +350,18 @@ def grafana_client(url: str, password: str) -> httpx.Client:
 
 
 def grafana_find(client: httpx.Client, login: str) -> list[GrafanaUser]:
-    r = client.get("/api/admin/users", params={"perpage": 1000})
+    # There is no GET /api/admin/users (that group only exposes create and
+    # per-user routes): /api/users/lookup returns a single UserProfileDTO on
+    # a hit and 404 when there is no user — and it matches login OR email,
+    # so an email hit is not our principal.
+    r = client.get("/api/users/lookup", params={"loginOrEmail": login})
+    if r.status_code == 404:
+        return []  # no user with this login
     r.raise_for_status()
-    return [
-        GrafanaUser(u["id"], u.get("login", ""), u.get("email", ""))
-        for u in r.json().get("users", [])
-        if u.get("login") == login
-    ]
+    body = r.json()
+    if body.get("login") != login:
+        return []  # matched on the email, not the login
+    return [GrafanaUser(body["id"], body.get("login", ""), body.get("email", ""))]
 
 
 # --- helpers -------------------------------------------------------------------------
@@ -487,12 +504,12 @@ def run_list(check: bool) -> int:
 def zot_group_names(group_list: list[LiveGroup]) -> set[str]:
     """Groups that carry a live binding onto the zot app — read from the live
     bindings, not the roster: the retire PR has already deleted the zot
-    groups from principals.yaml by the time this runs. The live target is the
-    application name `zot-app`, not the roster slug `zot`."""
+    groups from principals.yaml by the time this runs. The binding's target
+    is the application's slug (`zot`), resolved in live_groups."""
     return {
         g.name
         for g in group_list
-        if any(app in ("zot", "zot-app") for app, _ in g.bindings)
+        if any(app == "zot" for app, _ in g.bindings)
     }
 
 
@@ -512,8 +529,13 @@ def grafana_sweep(login: str, url: str, password: str | None, apply: bool) -> No
         try:
             found = grafana_find(client, login)
         except httpx.HTTPError as exc:
+            if apply:
+                raise SystemExit(
+                    f"error: Grafana lookup of '{login}' failed ({exc}) — "
+                    f"aborting before the sweep is partial"
+                )
             warn(
-                f"Grafana: could not list users ({exc}) — skipped the sweep for '{login}'"
+                f"Grafana: could not look up users ({exc}) — skipped the sweep for '{login}'"
             )
             return
     if not found:
