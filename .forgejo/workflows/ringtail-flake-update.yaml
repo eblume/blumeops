@@ -186,7 +186,7 @@ jobs:
 
       - name: Upload result artifact
         if: steps.changed.outputs.changed == 'true'
-        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3
+        uses: actions/upload-artifact@c6a366c94c3e0affe28c06c8df20a878f24da3cf # v3.2.2
         with:
           name: flake-update-result
           path: |
@@ -205,7 +205,7 @@ jobs:
           ref: main
 
       - name: Download result artifact
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3
+        uses: actions/download-artifact@a9bc5e6ef2cb54c177f32aa5726adaa15e7e2d59 # v3.1.0
         with:
           name: flake-update-result
           path: flake-update

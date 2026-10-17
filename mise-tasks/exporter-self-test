@@ -3,7 +3,7 @@
 # requires-python = ">=3.13"
 # dependencies = [
 #   "pytest==9.1.1",
-#   "prometheus-client",
+#   "prometheus-client==0.26.0",
 # ]
 # ///
 #MISE description="Run the exporter unit tests (API-fixture replays, no network)"

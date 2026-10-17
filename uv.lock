@@ -51,8 +51,8 @@ dev = [
     { name = "pytest", specifier = "==9.1.1" },
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "rich", specifier = "==15.0.0" },
-    { name = "ty", specifier = "==0.0.81" },
-    { name = "typer", specifier = "==0.27.2" },
+    { name = "ty", specifier = "==0.0.89" },
+    { name = "typer", specifier = "==0.27.3" },
 ]
 
 [[package]]
@@ -385,32 +385,32 @@ wheels = [
 
 [[package]]
 name = "ty"
-version = "0.0.81"
+version = "0.0.89"
 source = { registry = "https://pypi.ops.eblu.me/root/pypi/+simple/" }
-sdist = { url = "https://pypi.ops.eblu.me/root/pypi/+f/ef7/21aa649bf41d6/ty-0.0.81.tar.gz", hash = "sha256:ef721aa649bf41d665ba86e1ea726fd3feab6800e2c4887a062a704baf304ca8" }
+sdist = { url = "https://pypi.ops.eblu.me/root/pypi/+f/bc1/027b1ea95cca2/ty-0.0.89.tar.gz", hash = "sha256:bc1027b1ea95cca25c2a3a0b41433c809cf4b86a384d2b2434eba4bcd34548d4" }
 wheels = [
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/8e9/e3dd6edb14626/ty-0.0.81-py3-none-linux_armv6l.whl", hash = "sha256:8e9e3dd6edb1462633ddba2bf337d1c05023a5a13c2f315e445565c7ad43d247" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/649/c350873e4b3e9/ty-0.0.81-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:649c350873e4b3e937d856512ee57b8a345d80079cbead73a5308c2cdafe594c" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/480/c78706ba78239/ty-0.0.81-py3-none-macosx_11_0_arm64.whl", hash = "sha256:480c78706ba78239f901d68cf1ba53e98b84aa51e19b9241daa0fb62fdecd2e2" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/7cd/bfa4b634b1d21/ty-0.0.81-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7cdbfa4b634b1d21542eedc11e424dedcc4871c2128d0d46b55b0089d3220492" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/5f7/a34743a21669d/ty-0.0.81-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:5f7a34743a21669d4f3d5fda98c36189cb4d9dceee1415a8a42d7426d55995db" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/742/eab849947bc10/ty-0.0.81-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:742eab849947bc10b4c09810d37bd743afe9502e114b7bcfd6389f0ae3f425aa" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/2b4/cef395eee7007/ty-0.0.81-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:2b4cef395eee7007449aa3fc3fc8dc6bc58fe7a8956d56db078569061741bf52" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/80c/f8c34973a1da2/ty-0.0.81-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:80cf8c34973a1da2ec2a043efcba8f4c0a984d45210957a8ddd2c16f2b8f8e85" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/f37/a8f66c444eea2/ty-0.0.81-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f37a8f66c444eea29f17adfe0664f42062520773f18031fd4913f28eb56d2966" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/e81/34cc03e84a27f/ty-0.0.81-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:e8134cc03e84a27f409877b9b62053fd4aaac9c3ce0ce0fdace8b5ed58d78e04" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/fb6/f269c5f14a070/ty-0.0.81-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:fb6f269c5f14a07047e05cbf3d06dd9a64a048050f736afcf744a180a272f034" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/383/55a5e6294ebd3/ty-0.0.81-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:38355a5e6294ebd3cee616ed581d051963d61b293a1b3351c248747f73a45b74" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/59a/35e128a983142/ty-0.0.81-py3-none-musllinux_1_2_i686.whl", hash = "sha256:59a35e128a9831423aee19db804aa8a1358ee3ce615b3fc0dec20d40bfd0d733" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/f0f/4219fbc068ea3/ty-0.0.81-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:f0f4219fbc068ea3414fa804c6bd57ef4229a11884ab9ca71cd8308072520aad" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/82f/f952e64ba4c4d/ty-0.0.81-py3-none-win32.whl", hash = "sha256:82ff952e64ba4c4da1c0c89723e326c768ae4f9ff20624dee04a51c3f4e4b96c" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/ef8/2788744da0b7f/ty-0.0.81-py3-none-win_amd64.whl", hash = "sha256:ef82788744da0b7f2a598e4e9776f9c5998df4eef7e2750ae3a5537e7c734b69" },
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/bdb/1563990c5d3ab/ty-0.0.81-py3-none-win_arm64.whl", hash = "sha256:bdb1563990c5d3abfe5a09e7512733f302773ede6a5d3e4e5c6ad46393d8df4d" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/739/b087e8873e177/ty-0.0.89-py3-none-linux_armv6l.whl", hash = "sha256:739b087e8873e177ffda99ff8a3600a4a7704d06523a8e88c4493021eee40b8a" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/47e/bc98480c8a301/ty-0.0.89-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:47ebc98480c8a301955e18a8bdd67ef07090071ad47349b3254f325d3d5ab4e7" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/b06/31291af5c850a/ty-0.0.89-py3-none-macosx_11_0_arm64.whl", hash = "sha256:b0631291af5c850a15007c0ffb906d813966466e4ec12173c44977c0c5a2d51d" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/3d7/68300ae16274c/ty-0.0.89-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3d768300ae16274ce656006e9199869ad68684b74400d963e1c82deddf3a22ad" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/3dd/4c57ba58bab8f/ty-0.0.89-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:3dd4c57ba58bab8f6c816b2c254db52b58834b5dbf8268287382f7a2f9735c8f" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/1af/774c24117d366/ty-0.0.89-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:1af774c24117d366b69142d4f35edee518617f8b926d13560d0334cbe5aa3f85" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/a81/47811b9b3bc2d/ty-0.0.89-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:a8147811b9b3bc2dc9338cd01c7893ac931fc3fae7aace169047ecbd627e6628" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/6d5/f178c91d50fb6/ty-0.0.89-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:6d5f178c91d50fb62461b5e579028b7d2e92872e1d8f02e96ace26464c2277a6" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/95a/410f10b26cc38/ty-0.0.89-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:95a410f10b26cc3861757b626727db9d979deba7d2a3ab59f964fac8f0514fdc" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/a70/ab1a402746d78/ty-0.0.89-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:a70ab1a402746d7837407dc169e461fdf90945bc1eef0d3c0f1be543490060bf" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/b55/c28a49bd2676e/ty-0.0.89-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:b55c28a49bd2676eac9b3540a1dcc4cc053e4671c65dcec9fdad3dfe55fb148c" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/4c9/f22edeb8176f8/ty-0.0.89-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:4c9f22edeb8176f8ab189337e8cbd8f92b66744534a2886df9e252b52ade991c" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/0c1/86185cad57a14/ty-0.0.89-py3-none-musllinux_1_2_i686.whl", hash = "sha256:0c186185cad57a1469b851096b51345de7b625e353c1f4acd338402daed22fa7" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/5e3/8302ac218d240/ty-0.0.89-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:5e38302ac218d2404758241093b5542ed0345d4f569096589f1810034244e998" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/014/6637ed2321717/ty-0.0.89-py3-none-win32.whl", hash = "sha256:0146637ed2321717280bfe4e4b20a18813b741da280e8039d7df2bf22b0251f1" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/9fc/56322a1aff29a/ty-0.0.89-py3-none-win_amd64.whl", hash = "sha256:9fc56322a1aff29a19088d2025f3c42a6d25a7035668048bb908c9f8b66f480d" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/1d4/967c8f7bfd67c/ty-0.0.89-py3-none-win_arm64.whl", hash = "sha256:1d4967c8f7bfd67c9708115b41d7049197c5d20c76fb2e136fe78b0437ada05b" },
 ]
 
 [[package]]
 name = "typer"
-version = "0.27.2"
+version = "0.27.3"
 source = { registry = "https://pypi.ops.eblu.me/root/pypi/+simple/" }
 dependencies = [
     { name = "annotated-doc" },
@@ -418,9 +418,9 @@ dependencies = [
     { name = "rich" },
     { name = "shellingham" },
 ]
-sdist = { url = "https://pypi.ops.eblu.me/root/pypi/+f/269/b7eb9d3c202ca/typer-0.27.2.tar.gz", hash = "sha256:269b7eb9d3c202ca84b4bc9618cb04ebb43d3d4d1e567e4c768607232c05f945" }
+sdist = { url = "https://pypi.ops.eblu.me/root/pypi/+f/d03/96f770a560ab1/typer-0.27.3.tar.gz", hash = "sha256:d0396f770a560ab1b0a8504e13b5f254b728cedb05c61cf0359e944e50ce8901" }
 wheels = [
-    { url = "https://pypi.ops.eblu.me/root/pypi/+f/b3a/5fc4342d5fc8f/typer-0.27.2-py3-none-any.whl", hash = "sha256:b3a5fc4342d5fc8fda8fc3010b1cf117e9249aab7fae800c2eff62fd3842d97d" },
+    { url = "https://pypi.ops.eblu.me/root/pypi/+f/e50/022f28b82a863/typer-0.27.3-py3-none-any.whl", hash = "sha256:e50022f28b82a86313e54501317a1db64bf8f8d036ff8cfe5ca7e47675454aff" },
 ]
 
 [[package]]

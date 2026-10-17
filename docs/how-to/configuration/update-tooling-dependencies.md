@@ -47,7 +47,7 @@ Review `fly/Dockerfile` for pinned image digests. Each `FROM` and `COPY --from=`
 
 - **nginx** — check [Docker Hub](https://hub.docker.com/_/nginx) for latest stable alpine tag
 - **grafana/alloy** — check [GitHub releases](https://github.com/grafana/alloy/releases)
-- **tailscale/tailscale** — pinned to a known-good version. Do not bump to v1.96.5 or later (MagicDNS regression breaks the proxy boot)
+- **tailscale/tailscale** — pinned to a known-good version. The v1.96.5 MagicDNS regression was the reason the old "do not bump" warning existed; the v1.102 train tested clean and deployed 2026-08-18 (PR #601), so bump the pinned digest after reading the release notes.
 
 To resolve a tag to a digest:
 
