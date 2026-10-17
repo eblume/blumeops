@@ -97,7 +97,7 @@ failed→pending claim is atomic, so a recovery sweep and a manual Forgejo
 Redeliver of the tag webhook can't both publish. A failed row is also
 logged at WARNING naming repo, version, and reason, and the home page's
 Recent releases table shows the last ten rows with their state — no
-separate alerting (the visibility half lands with #61, still in review).
+separate alerting (eblume/horkos#61, deployed in v0.5.42).
 A target without
 `release_workflow` set never auto-recovers — its failed row stays `failed`
 for a manual Redeliver from the Forgejo webhook's Recent deliveries.
