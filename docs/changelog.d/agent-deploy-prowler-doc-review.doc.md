@@ -1,0 +1,1 @@
+Doc review of the `deploy-prowler` card (#1696): corrected the check counts to the v5.39.1 reality (82 CIS-mapped of 93 shipped; Apiserver 28), recorded the 5.39.1 self-pinned nixos-unstable rev, and reduced the card to current facts (history lives in the commit history).
