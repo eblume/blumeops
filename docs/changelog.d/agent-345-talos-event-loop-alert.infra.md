@@ -1,0 +1,1 @@
+Grafana: new talos event-loop alert (main thread blocked >20% of the trailing 15m, sustained 5m, outside the first 15m after a pod start) and a blocked-wall-time panel on the Talos dashboard, closing the guard half of [eblume/talos#345](https://forge.ops.eblu.me/eblume/talos/issues/345).

@@ -1527,6 +1527,70 @@ groups:
                     type: and
               refId: C
 
+      - uid: talos-event-loop-lag
+        title: TalosEventLoopLag
+        condition: C
+        # Sustained main-thread blocking, not one stall: the _sum rate is
+        # the blocked fraction of wall time, and the alert asks whether it
+        # exceeded 20% of the trailing 15m, sustained 5m, outside the first
+        # 15m after a pod start (the `and on()` boot grace). The known
+        # recurring 5-10 s stall stays far below the threshold and below
+        # the 15 s probe timeout, so only the regime that starves /healthz
+        # pages. noDataState: OK — a missing series means the pod is not
+        # exporting (covered by the pod-health group); the boot grace also
+        # empties the series during the first 15m after a start.
+        for: 5m
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: >-
+            talos main thread blocked more than 20% of the trailing 15m,
+            sustained 5m (outside the first 15m after a pod start)
+          runbook_url: https://docs.eblu.me/how-to/runbooks/runbook-talos-event-loop-lag
+        labels:
+          severity: warning
+          service: talos
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 900
+              to: 0
+            model:
+              expr: >-
+                sum(rate(talos_event_loop_lag_seconds_sum[15m]))
+                and on() (time() - max(kube_pod_start_time{namespace="talos",pod=~"talos-.*"}) > 900)
+              interval: ""
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            relativeTimeRange:
+              from: 0
+              to: 0
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.2
+                  operator:
+                    type: and
+              refId: C
+
   - orgId: 1
     name: authentik-blueprints
     folder: Infrastructure Alerts
