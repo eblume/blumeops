@@ -170,6 +170,10 @@ spec:
               value: "talos"
             - name: TALOS_CREATOR_ALLOWLIST
               value: "eblume"
+            # Forge actors talos accepts as human input equivalent to
+            # the owner's (the cli-agent principal series, eblume/blumeops#1583).
+            - name: TALOS_HUMAN_PROXY_PRINCIPALS
+              value: "cli-agent"
             - name: TALOS_DEFAULT_ASSIGNEE
               value: "eblume"
             - name: TALOS_HORKOS_URL
