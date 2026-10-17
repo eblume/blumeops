@@ -1,10 +1,10 @@
-# nginx 1.30.5-alpine
-FROM nginx@sha256:25820c39dba41369486df729ad6697de2fab631ca809e0503e1d1e0c73d9a232
+# nginx 1.30.6-alpine
+FROM nginx@sha256:970364228b1e4f932abc22d321932816782cca8a20b85a77552a7cfe9acfb3b5
 
-# Copy tailscale binaries from official image (v1.102.3)
-COPY --from=docker.io/tailscale/tailscale@sha256:8c42c4574ab066384fcb72f69e086a2ff1dd3652eb6f56856cee34bcf0d2f680 \
+# Copy tailscale binaries from official image (v1.104.1)
+COPY --from=docker.io/tailscale/tailscale@sha256:87c55d6be56ad85b3d8bceca5f87f73de288c609131460dd1be1874c250cc41d \
     /usr/local/bin/tailscaled /usr/local/bin/tailscaled
-COPY --from=docker.io/tailscale/tailscale@sha256:8c42c4574ab066384fcb72f69e086a2ff1dd3652eb6f56856cee34bcf0d2f680 \
+COPY --from=docker.io/tailscale/tailscale@sha256:87c55d6be56ad85b3d8bceca5f87f73de288c609131460dd1be1874c250cc41d \
     /usr/local/bin/tailscale /usr/local/bin/tailscale
 
 RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
@@ -25,15 +25,15 @@ RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
     # jq (tailscale status --json parse) are used by start.sh.
     && apk add --no-cache git=2.54.0-r0 openssh-server=10.3_p1-r1 stagit=1.2-r8 util-linux jq shadow=4.18.0-r1
 
-# Copy Alloy binary from official image (v1.19.2, Ubuntu-based, needs libc6-compat)
-COPY --from=docker.io/grafana/alloy@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839 \
+# Copy Alloy binary from official image (v1.20.1, Ubuntu-based, needs libc6-compat)
+COPY --from=docker.io/grafana/alloy@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f \
     /bin/alloy /usr/local/bin/alloy
 
-# Copy Anubis binary from official image (v1.27.0, ko-built static binary
+# Copy Anubis binary from official image (v1.28.1, ko-built static binary
 # with embedded assets) — proof-of-work gateway for forge.eblu.me.
 # Cookie names are derived from the cookie settings, so COOKIE_PREFIX is not a
 # stable string; nothing here reads the cookie by name.
-COPY --from=ghcr.io/techarohq/anubis@sha256:8828275668b7bc675679f100970f9714f731388fbbf66ae94de8aca952e3fc4a \
+COPY --from=ghcr.io/techarohq/anubis@sha256:1744c03a918160a28b0d2e8c1656de6585f4071b30b4c3b0d51d02282c9b7c25 \
     /ko-app/anubis /usr/local/bin/anubis
 
 RUN mkdir -p /var/log/nginx /etc/alloy /tmp/alloy-data

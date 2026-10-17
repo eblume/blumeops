@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["typer==0.27.2"]
+# dependencies = ["typer==0.27.3"]
 # ///
 #MISE description="Validate ntfy/topics.json and fail on undeclared/retired topic literals or unlisted producers"
 """Validate ntfy/topics.json and fail on topic literals that drift from it.

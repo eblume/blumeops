@@ -625,8 +625,8 @@ services:
 
   - name: borgmatic
     type: ansible
-    last-reviewed: 2026-08-27
-    current-version: "2.1.7"
+    last-reviewed: 2026-10-17
+    current-version: "2.1.10"
     upstream-source: https://github.com/borgmatic-collective/borgmatic/releases
     notes: >-
       Installed via mise (pipx); version pinned in
@@ -636,6 +636,8 @@ services:
       latest). Changelog 2.1.5-2.1.7 reviewed: only breaking change is Cronhub
       hook removal, which indri's config does not use. Deploy is the [human]
       provision-indri playbook.
+      2026-10-17: bumped 2.1.7 -> 2.1.10 in both pins; the rest:// repo URL
+      removal in 2.1.8 does not apply (all repos are ssh://).
 
   - name: jellyfin
     type: ansible
@@ -651,8 +653,8 @@ services:
 
   - name: flyio-tailscale
     type: fly
-    last-reviewed: "2026-08-23"
-    current-version: "v1.102.3"
+    last-reviewed: "2026-10-17"
+    current-version: "v1.104.1"
     upstream-source: https://github.com/tailscale/tailscale/releases
     notes: >-
       Was pinned at v1.94.2 after v1.96.5 broke MagicDNS in the Fly container
@@ -660,11 +662,14 @@ services:
       deployed 2026-08-18 (PR #601). 2026-08-23: bumped v1.102.2 -> v1.102.3
       (patch, digest-pinned COPY --from in fly/Dockerfile, digest verified
       against the v1.102.3 tag).
+      2026-10-17: bumped v1.102.3 -> v1.104.1 (digest-pinned COPY --from;
+      v1.104 train: Go 1.27 and lower WireGuard memory, container image adds
+      no behavior changes).
 
   - name: flyio-nginx
     type: fly
-    last-reviewed: "2026-09-17"
-    current-version: "1.30.5-alpine"
+    last-reviewed: "2026-10-17"
+    current-version: "1.30.6-alpine"
     upstream-source: https://hub.docker.com/_/nginx
     notes: >-
       Base image for Fly proxy (fly/Dockerfile), digest-pinned. 2026-07-19:
@@ -676,24 +681,31 @@ services:
       now 1.31.4) — no bump.
       2026-09-17: bumped 1.30.4 -> 1.30.5 (newest on the 1.30 stable train,
       still tracking stable over mainline); digest updated in fly/Dockerfile.
+      2026-10-17: bumped 1.30.5 -> 1.30.6 (security release on the 1.30
+      stable train: CVE-2026-15176, CVE-2026-93479, CVE-2026-95101,
+      CVE-2026-97629, CVE-2026-97205); digest updated.
 
   - name: flyio-alloy
     type: fly
     parent: flyio-nginx
-    last-reviewed: "2026-09-17"
-    current-version: "v1.19.2"
+    last-reviewed: "2026-10-17"
+    current-version: "v1.20.1"
     upstream-source: https://github.com/grafana/alloy/releases
     notes: >-
       COPY --from in fly/Dockerfile for log shipping and metrics. 2026-09-17:
       bumped v1.18.1 -> v1.19.2, matching the cluster's alloy-ringtail /
       alloy-tracing-ringtail / indri alloy entries already at v1.19.2; digest
       updated in fly/Dockerfile.
+      2026-10-17: bumped v1.19.2 -> v1.20.1; the 1.20 breaking changes
+      (k8sattributes label renames, Base64Decode removal, loki.write wal
+      flag) only touch components fly/alloy.river does not use; digest
+      updated.
 
   - name: flyio-anubis
     type: fly
     parent: flyio-nginx
-    last-reviewed: "2026-08-14"
-    current-version: "v1.27.0"
+    last-reviewed: "2026-10-17"
+    current-version: "v1.28.1"
     upstream-source: https://github.com/TecharoHQ/anubis/releases
     notes: >-
       Attached service: proof-of-work anti-scraper gateway for forge.eblu.me.
@@ -704,6 +716,11 @@ services:
       (`techaro.lol-anubis-auth-<hash>`), so a settings change no longer needs a
       manual COOKIE_PREFIX bump. Clients holding a v1.25 cookie re-challenge
       once after deploy; nothing in fly/ reads the cookie by name.
+      2026-10-17: bumped v1.27.0 -> v1.28.1; v1.28 removed Thoth for a geoip
+      block and changed gzip-rejection status codes, but fly/ uses env-only
+      config with no Thoth or ASN-dependent fail2ban filters; v1.28.0
+      carried a systemd isolation regression (irrelevant to the ko binary
+      COPY) — use 1.28.1 directly; digest updated.
 
   - name: flyio-git
     type: fly
@@ -743,17 +760,19 @@ services:
 
   - name: ansible-core
     type: mise
-    last-reviewed: 2026-09-17
-    current-version: "2.21.4"
+    last-reviewed: 2026-10-17
+    current-version: "2.21.5"
     upstream-source: https://github.com/ansible/ansible/releases
     notes: >-
       Installed via pipx/uvx with botocore and boto3. 2026-09-17: bumped
       2.21.3 -> 2.21.4 (patch).
+      2026-10-17: bumped 2.21.4 -> 2.21.5 (patch); ansible-lint hook pin
+      26.8.0 -> 26.10.1 in lockstep (prek.toml additional_dependencies).
 
   - name: prek
     type: mise
-    last-reviewed: "2026-09-17"
-    current-version: "0.5.3"
+    last-reviewed: "2026-10-17"
+    current-version: "0.5.5"
     upstream-source: https://github.com/j178/prek/releases
     notes: >-
       Pre-commit hook runner (Rust reimplementation). 2026-08-22 review:
@@ -767,6 +786,8 @@ services:
       (@-prefixed group names, PREK_MAX_CONCURRENCY, `prek auto-update`,
       `prek init-template-dir`) were verified unused in this repo; the full
       agent-lint gate passes under 0.5.3.
+      2026-10-17: bumped 0.5.3 -> 0.5.5 (0.5.4/0.5.5 are enhancement/bugfix
+      releases; agent-lint passes under 0.5.5).
 
   - name: actionlint
     type: mise
@@ -777,12 +798,14 @@ services:
 
   - name: pulumi-cli
     type: mise
-    last-reviewed: 2026-09-17
-    current-version: "3.263.0"
+    last-reviewed: 2026-10-17
+    current-version: "3.270.0"
     upstream-source: https://github.com/pulumi/pulumi/releases
     notes: >-
       IaC CLI for tailscale and gandi stacks. 2026-08-23 review: upstream v3.259.0 (2026-08-19) is one minor ahead; release notes are CLI features (PULUMI_DEFAULT_ORGANIZATION, pulumi new prompt consolidation) plus bug fixes, no breaking changes. Bumped pin in mise.toml.
       2026-09-17: bumped 3.259.0 -> 3.263.0 (monthly refresh).
+      2026-10-17: bumped 3.263.0 -> 3.270.0 (monthly refresh; the env-edit
+      conflict check and log-secrets redaction are behavior changes only).
 
   - name: pulumi-stack-backup
     type: container
@@ -797,8 +820,8 @@ services:
 
   - name: ty
     type: mise
-    last-reviewed: 2026-09-17
-    current-version: "0.0.81"
+    last-reviewed: 2026-10-17
+    current-version: "0.0.89"
     upstream-source: https://github.com/astral-sh/ty/releases
     notes: >-
       Astral Python typechecker (beta); prek hook. 2026-08-23: bumped
@@ -806,11 +829,13 @@ services:
       bug fixes, no CLI or diagnostic-default changes.
       2026-09-17: bumped 0.0.74 -> 0.0.81 — still beta; 0.0.81 added stricter
       diagnostics (agent-lint gate passes under it).
+      2026-10-17: bumped 0.0.81 -> 0.0.89 (still beta; type-inference
+      improvements and bug fixes, agent-lint gate passes).
 
   - name: flyctl
     type: mise
-    last-reviewed: "2026-09-17"
-    current-version: "0.4.104"
+    last-reviewed: "2026-10-17"
+    current-version: "0.4.118"
     upstream-source: https://github.com/superfly/flyctl/releases
     notes: >-
       Fly.io CLI for fly-deploy. Pinned in mise.toml 2026-07-19 so deploys
@@ -818,3 +843,5 @@ services:
       bumped 0.4.84 -> 0.4.87 (deploy-retry and nil-panic fixes, dependency
       updates; no CLI changes).
       2026-09-17: bumped 0.4.87 -> 0.4.104 (monthly refresh; no CLI changes).
+      2026-10-17: bumped 0.4.104 -> 0.4.118 (monthly refresh; no deploy-path
+      changes).
