@@ -1,0 +1,772 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml==6.0.3", "rich==15.0.0", "httpx==0.28.1"]
+# ///
+#MISE description="[human] Reconcile live Authentik against the principals.yaml/retiring.yaml rosters: list (default) diffs live vs roster and lists unknown live accounts; --delete previews or (with --apply) deletes retiring.yaml entries — refusing a zot identity without keys_revoked: true — and sweeps each principal's Grafana JIT user"
+#USAGE flag "--check" help="List mode, but exit 1 if anything is out of sync (unknown live accounts, active queued users)"
+#USAGE flag "--delete" help="Preview the retiring.yaml deletions (live state, the zot key gate, attached credentials, Grafana JIT users); applies nothing"
+#USAGE flag "--apply" help="With --delete: perform the deletions"
+#USAGE flag "--skip-grafana" help="Do not check or sweep the Grafana JIT users"
+#USAGE flag "--grafana-url=<url>" help="Grafana base URL (default https://grafana.ops.eblu.me)"
+"""Reconcile live Authentik against the principal rosters.
+
+The renderer (render-authentik-principals) keeps the blueprint ConfigMap in
+lockstep with principals.yaml + retiring.yaml; this task is the live side of
+the same loop (eblume/blumeops#1194 step 4). It talks to live Authentik with
+the admin `api-token` field on the "Authentik (blumeops)" 1Password item and
+does the three things a blueprint cannot:
+
+- **list** (default) — diff live users, groups and their policybindings
+  against the two files, and list every live account neither file knows
+  about. The unknowns are the classification surface for deactivated
+  stragglers; `--check` exits 1 when any are found.
+- **--delete** — preview, per retiring.yaml entry, the live state, the zot
+  key gate, the credentials the delete would cascade, and the principal's
+  Grafana JIT user. **--apply** performs it.
+- **Grafana sweep** — in --delete mode each principal's JIT user (the
+  Grafana row keyed on the preferred_username login) is deleted through the
+  Grafana admin API, so a retirement leaves no orphan row behind.
+
+The zot gate is the ordering rule from [[zot]] §Retiring an identity: zot
+keys its API-key table by the identity string, so a re-created username
+re-attaches the deleted user's keys. The queue entry's `keys_revoked: true`
+is the proof the keys were revoked first, and the script enforces it for any
+retiring user that carried zot access — directly or through one of its
+groups. Nothing is ever deleted here except what retiring.yaml names;
+unlisted live accounts are only listed, never touched.
+"""
+
+from __future__ import annotations
+
+import datetime
+import json
+import subprocess
+import sys
+from dataclasses import dataclass, replace
+from pathlib import Path
+
+import httpx
+import yaml
+from rich.console import Console
+
+console = Console()
+
+AUTHENTIK_DIR = "argocd/manifests/authentik"
+PRINCIPALS_FILE = "principals.yaml"
+RETIRING_FILE = "retiring.yaml"
+AUTHENTIK_URL = "https://authentik.ops.eblu.me"
+GRAFANA_URL = "https://grafana.ops.eblu.me"
+BLUMEOPS_VAULT = "blumeops"
+AUTHENTIK_ITEM = "Authentik (blumeops)"
+GRAFANA_ITEM = "Grafana (blumeops)"
+GRAFANA_ADMIN_USER = "admin"
+OP_TIMEOUT = 120  # biometric prompt
+
+
+@dataclass(frozen=True)
+class Access:
+    app: str
+    order: int | None
+
+
+@dataclass(frozen=True)
+class RosterGroup:
+    name: str
+    access: list[Access]
+
+
+@dataclass(frozen=True)
+class RosterPrincipal:
+    username: str
+    name: str
+    user_type: str | None
+    groups: list[str]
+
+
+@dataclass(frozen=True)
+class Retiring:
+    username: str
+    name: str
+    user_type: str | None
+    retired: str
+    issue: str
+    group: str | None
+    keys_revoked: bool | None
+
+
+def repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+# --- rosters -------------------------------------------------------------------
+
+
+def load_rosters(
+    root: Path,
+) -> tuple[list[RosterGroup], list[RosterPrincipal], list[Retiring], list[str]]:
+    errors: list[str] = []
+
+    def load_yaml(filename: str) -> object | None:
+        try:
+            return yaml.safe_load((root / AUTHENTIK_DIR / filename).read_text())
+        except (OSError, yaml.YAMLError) as exc:
+            errors.append(f"{filename}: cannot parse: {exc}")
+            return None
+
+    groups: list[RosterGroup] = []
+    principals: list[RosterPrincipal] = []
+    raw = load_yaml(PRINCIPALS_FILE)
+    if raw is None:
+        pass  # reported above
+    elif not isinstance(raw, dict):
+        errors.append(
+            f"{PRINCIPALS_FILE}: must be a mapping with 'groups' and 'principals' lists"
+        )
+    else:
+        for i, item in enumerate(raw.get("groups") or []):
+            if not isinstance(item, dict):
+                errors.append(f"{PRINCIPALS_FILE} groups[{i}]: not a mapping")
+                continue
+            name = item.get("name")
+            access: list[Access] = []
+            for j, a in enumerate(item.get("access") or []):
+                if not isinstance(a, dict) or not isinstance(a.get("app"), str):
+                    errors.append(
+                        f"{PRINCIPALS_FILE} groups[{i}].access[{j}]: 'app' must be a string"
+                    )
+                    continue
+                order = a.get("order")
+                access.append(
+                    Access(
+                        app=a["app"], order=order if isinstance(order, int) else None
+                    )
+                )
+            if not isinstance(name, str):
+                errors.append(f"{PRINCIPALS_FILE} groups[{i}]: 'name' must be a string")
+                continue
+            groups.append(RosterGroup(name=name, access=access))
+        for i, item in enumerate(raw.get("principals") or []):
+            if not isinstance(item, dict):
+                errors.append(f"{PRINCIPALS_FILE} principals[{i}]: not a mapping")
+                continue
+            username, name = item.get("username"), item.get("name")
+            if not isinstance(username, str) or not isinstance(name, str):
+                errors.append(
+                    f"{PRINCIPALS_FILE} principals[{i}]: 'username' and 'name' must be strings"
+                )
+                continue
+            user_type = item.get("type")
+            group_list = [g for g in (item.get("groups") or []) if isinstance(g, str)]
+            principals.append(
+                RosterPrincipal(
+                    username=username,
+                    name=name,
+                    user_type=user_type if isinstance(user_type, str) else None,
+                    groups=group_list,
+                )
+            )
+
+    retiring: list[Retiring] = []
+    raw_retiring = load_yaml(RETIRING_FILE)
+    if raw_retiring is None:
+        pass  # a blank or comments-only queue is an empty queue
+    elif isinstance(raw_retiring, list):
+        for i, item in enumerate(raw_retiring):
+            if not isinstance(item, dict):
+                errors.append(f"{RETIRING_FILE}[{i}]: not a mapping")
+                continue
+            retired = item.get("retired")
+            missing = [
+                k
+                for k in ("username", "name", "issue")
+                if not isinstance(item.get(k), str)
+            ]
+            if isinstance(
+                retired, datetime.date
+            ):  # PyYAML parses bare YYYY-MM-DD as a date
+                retired = retired.isoformat()
+            if not isinstance(retired, str):
+                missing.append("retired")
+            if missing:
+                errors.append(
+                    f"{RETIRING_FILE}[{i}]: missing or non-string: {', '.join(missing)}"
+                )
+                continue
+            user_type = item.get("type")
+            group = item.get("group")
+            keys_revoked = item.get("keys_revoked")
+            retiring.append(
+                Retiring(
+                    username=item["username"],
+                    name=item["name"],
+                    user_type=user_type if isinstance(user_type, str) else None,
+                    retired=retired,
+                    issue=item["issue"],
+                    group=group if isinstance(group, str) else None,
+                    keys_revoked=keys_revoked
+                    if isinstance(keys_revoked, bool)
+                    else None,
+                )
+            )
+    else:
+        errors.append(f"{RETIRING_FILE}: must be a top-level list")
+
+    return groups, principals, retiring, errors
+
+
+# --- 1Password -------------------------------------------------------------------
+
+
+def op_item_field(item: str, field: str) -> str:
+    """Read one field from a blumeops-vault item.
+
+    `op item get` by title — `op read` can't parse a title with
+    spaces/parens (same precedent as openrouter-probe).
+    """
+    result = subprocess.run(
+        ["op", "item", "get", item, "--vault", BLUMEOPS_VAULT, "--format", "json"],
+        capture_output=True,
+        text=True,
+        timeout=OP_TIMEOUT,
+        stdin=subprocess.DEVNULL,  # op misparses non-TTY stdin
+        check=False,
+    )
+    if result.returncode != 0:
+        raise SystemExit(
+            f"error: op item get {item} in vault {BLUMEOPS_VAULT} failed: {result.stderr.strip()}"
+        )
+    doc = json.loads(result.stdout)
+    for f in doc.get("fields", []):
+        if f.get("label") == field:
+            value = f.get("value", "")
+            if not value:
+                raise SystemExit(f"error: {item}/{field} is empty")
+            return value
+    raise SystemExit(f"error: field {field!r} not found on item {item}")
+
+
+# --- live state --------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LiveUser:
+    pk: int
+    username: str
+    name: str
+    user_type: str | None
+    is_active: bool
+    is_superuser: bool
+    groups: list[str]
+
+
+@dataclass(frozen=True)
+class LiveGroup:
+    pk: int
+    uuid: str
+    name: str
+    bindings: tuple[tuple[str, int], ...]
+
+
+def paginate(client: httpx.Client, path: str, **params: str) -> list[dict]:
+    out: list[dict] = []
+    page = 1
+    while True:
+        r = client.get(path, params={**params, "page": str(page), "page_size": "200"})
+        r.raise_for_status()
+        body = r.json()
+        out.extend(body.get("results") or [])
+        # authentik's pagination is not DRF's: `next` is a page number inside a
+        # `pagination` object, 0 on the last page (authentik/api/pagination.py).
+        nxt = (body.get("pagination") or {}).get("next") or 0
+        if not isinstance(nxt, int) or nxt <= page:
+            return out
+        page = nxt
+
+
+def live_users(client: httpx.Client) -> list[LiveUser]:
+    return [
+        LiveUser(
+            pk=u["pk"],
+            username=u["username"],
+            name=u.get("name") or "",
+            user_type=u.get("type"),
+            is_active=bool(u.get("is_active")),
+            is_superuser=bool(u.get("is_superuser")),
+            # `groups` is a pk/uuid list; `groups_obj` carries the names.
+            groups=sorted(g["name"] for g in u.get("groups_obj") or []),
+        )
+        # include_groups defaults to true; say it so a default change can't
+        # silently make every user look groupless.
+        for u in paginate(client, "/api/v3/core/users/", include_groups="true")
+    ]
+
+
+def live_groups(client: httpx.Client) -> list[LiveGroup]:
+    groups = [
+        LiveGroup(pk=g["pk"], uuid=g["uuid"], name=g["name"], bindings=())
+        for g in paginate(client, "/api/v3/core/groups/")
+    ]
+    # A binding's `target` is a subclass pk (UUID string), not an object:
+    # PolicyBindingModelForeignKey.to_representation returns the concrete
+    # model's pk, so resolve it against the applications' pks. Flows and
+    # sources carry their own UUIDs (not in this map) and a user-level
+    # binding has no `group_obj` — both are skipped below.
+    apps: dict[str, str] = {}
+    for a in paginate(client, "/api/v3/core/applications/"):
+        slug = a.get("slug") or a.get("name")
+        if a.get("pk") is not None and slug:
+            apps[a["pk"]] = slug
+    for b in paginate(client, "/api/v3/policies/bindings/"):
+        target = apps.get(b.get("target"))
+        # `group` is a UUID string; the group name lives on `group_obj`.
+        group = (b.get("group_obj") or {}).get("name")
+        order = b.get("order")
+        if not target or not group:
+            continue
+        order = order if isinstance(order, int) else -1
+        groups = [
+            replace(g, bindings=g.bindings + ((target, order),))
+            if g.name == group
+            else g
+            for g in groups
+        ]
+    return groups
+
+
+@dataclass(frozen=True)
+class GrafanaUser:
+    id: int
+    login: str
+    email: str
+
+
+def authentik_client(token: str) -> httpx.Client:
+    return httpx.Client(base_url=AUTHENTIK_URL, headers={"Authorization": f"Bearer {token}"}, timeout=30)
+
+
+def grafana_client(url: str, password: str) -> httpx.Client:
+    return httpx.Client(base_url=url, auth=(GRAFANA_ADMIN_USER, password), timeout=30)
+
+
+def grafana_find(client: httpx.Client, login: str) -> list[GrafanaUser]:
+    # There is no GET /api/admin/users (that group only exposes create and
+    # per-user routes): /api/users/lookup returns a single UserProfileDTO on
+    # a hit and 404 when there is no user — and it matches login OR email,
+    # so an email hit is not our principal.
+    r = client.get("/api/users/lookup", params={"loginOrEmail": login})
+    if r.status_code == 404:
+        return []  # no user with this login
+    r.raise_for_status()
+    body = r.json()
+    if body.get("login") != login:
+        return []  # matched on the email, not the login
+    return [GrafanaUser(body["id"], body.get("login", ""), body.get("email", ""))]
+
+
+# --- helpers -------------------------------------------------------------------------
+
+
+def section(title: str) -> None:
+    console.rule(f"[bold]{title}")
+
+
+def note(msg: str) -> None:
+    console.print(f"  {msg}")
+
+
+def warn(msg: str) -> None:
+    console.print(f"  [yellow]{msg}[/yellow]")
+
+
+def fail(msg: str) -> None:
+    console.print(f"  [red]{msg}[/red]")
+
+
+def refuse(msg: str) -> None:
+    console.print(f"  [red]REFUSE: {msg}[/red]")
+
+
+# --- list mode -----------------------------------------------------------------------
+
+
+def run_list(check: bool) -> int:
+    token = op_item_field(AUTHENTIK_ITEM, "api-token")
+    with authentik_client(token) as client:
+        try:
+            users = live_users(client)
+            groups = live_groups(client)
+        except httpx.HTTPError as exc:
+            raise SystemExit(f"error: live Authentik unreachable: {exc}")
+
+    roster_groups, roster_principals, queue, errors = load_rosters(repo_root())
+    if errors:
+        for e in errors:
+            fail(f"roster: {e}")
+        return 1
+
+    roster_users = {p.username: p for p in roster_principals}
+    queue_by_user = {r.username: r for r in queue}
+    roster_group_names = {g.name for g in roster_groups}
+    queue_group_names = {r.group for r in queue if r.group is not None}
+
+    section("Live users vs roster")
+    unknown_users = 0
+    active_queued = 0
+    mismatched = 0
+    for u in users:
+        if u.username in roster_users:
+            rp = roster_users[u.username]
+            problems = []
+            if rp.user_type != u.user_type:
+                problems.append(f"type {u.user_type!r} != roster {rp.user_type!r}")
+            if not u.is_active:
+                problems.append("inactive (roster is active)")
+            if u.groups != sorted(rp.groups):
+                problems.append(f"groups {u.groups} != roster {sorted(rp.groups)}")
+            if problems:
+                mismatched += 1
+                warn(f"{u.username}: " + "; ".join(problems))
+            else:
+                note(f"[cyan]{u.username}[/cyan] — ok")
+        elif u.username in queue_by_user:
+            r = queue_by_user[u.username]
+            problems = []
+            if u.is_active:
+                problems.append(
+                    "STILL ACTIVE in live — the rendered blueprint should have deactivated it"
+                )
+                active_queued += 1
+            if r.user_type is not None and r.user_type != u.user_type:
+                problems.append(f"type {u.user_type!r} != queue {r.user_type!r}")
+            if problems:
+                fail(f"{u.username} (queued, {r.issue}): " + "; ".join(problems))
+            else:
+                note(
+                    f"[magenta]{u.username}[/magenta] — queued ({r.issue}); awaiting delete"
+                )
+        elif u.is_superuser:
+            # The default admin (akadmin) is a break-glass account authentik
+            # creates itself; the blueprint deliberately never manages it, so
+            # it is expected here, not an unclassified straggler.
+            note(
+                f"[cyan]{u.username}[/cyan] — superuser (break-glass admin, not blueprint-managed)"
+            )
+        else:
+            unknown_users += 1
+            fail(
+                f"{u.username}: UNLISTED — live in neither roster nor queue (pk {u.pk}, active={u.is_active}, groups={u.groups})"
+            )
+
+    section("Roster / queue principals absent from live")
+    missing_roster = 0
+    for name in sorted(set(roster_users) | set(queue_by_user)):
+        if all(u.username != name for u in users):
+            if name in roster_users:
+                # Queue-side absence is expected: the delete flow has an
+                # "already gone" branch for it.
+                missing_roster += 1
+                fail(f"{name}: declared in the roster but absent from live Authentik (blueprint not applied?)")
+            else:
+                note(f"{name}: declared in the queue and already absent from live — nothing to delete")
+
+    section("Live groups vs roster")
+    unknown_groups = 0
+    for g in groups:
+        if g.name in roster_group_names or g.name in queue_group_names:
+            note(f"[cyan]{g.name}[/cyan] — bindings: {sorted(g.bindings)}")
+        else:
+            unknown_groups += 1
+            fail(f"{g.name}: UNLISTED group (pk {g.pk}, bindings={sorted(g.bindings)})")
+
+    console.print()
+    total = unknown_users + unknown_groups + mismatched + missing_roster
+    if unknown_users or unknown_groups:
+        console.print(
+            f"[red]{unknown_users} unlisted user(s), {unknown_groups} unlisted group(s).[/red]"
+        )
+        console.print(
+            "  Classify each: add to the roster, add a retiring.yaml entry, or delete by hand."
+        )
+    else:
+        console.print("[green]Every live account is known to the rosters.[/green]")
+    if check and (total or active_queued):
+        console.print("[red]--check: out of sync.[/red]", style="red")
+        return 1
+    if check:
+        console.print("[green]--check: in sync.[/green]", style="green")
+    return 0
+
+
+# --- delete mode -----------------------------------------------------------------------
+
+
+def zot_group_names(group_list: list[LiveGroup]) -> set[str]:
+    """Groups that carry a live binding onto the zot app — read from the live
+    bindings, not the roster: the retire PR has already deleted the zot
+    groups from principals.yaml by the time this runs. The binding's target
+    is the application's slug (`zot`), resolved in live_groups."""
+    return {
+        g.name
+        for g in group_list
+        if any(app == "zot" for app, _ in g.bindings)
+    }
+
+
+def is_zot_identity(user: LiveUser, entry: Retiring, zot_groups: set[str]) -> bool:
+    """A zot identity carried zot access — directly or through one of its groups."""
+    group_names = set(user.groups)
+    if entry.group is not None:
+        group_names.add(entry.group)
+    return bool(group_names & zot_groups)
+
+
+def grafana_sweep(login: str, url: str, password: str | None, apply: bool) -> None:
+    if password is None:
+        warn(f"Grafana: admin password unavailable — skipped the sweep for '{login}'")
+        return
+    with grafana_client(url, password) as client:
+        try:
+            found = grafana_find(client, login)
+        except httpx.HTTPError as exc:
+            if apply:
+                raise SystemExit(
+                    f"error: Grafana lookup of '{login}' failed ({exc}) — "
+                    f"aborting before the sweep is partial"
+                )
+            warn(
+                f"Grafana: could not look up users ({exc}) — skipped the sweep for '{login}'"
+            )
+            return
+    if not found:
+        note(f"Grafana: no JIT user for login '{login}'")
+        return
+    for u in found:
+        if apply:
+            with grafana_client(url, password) as client:
+                r = client.delete(f"/api/admin/users/{u.id}")
+                if r.status_code not in (200, 202):
+                    raise SystemExit(
+                        f"error: Grafana delete of '{login}' (id {u.id}) failed: HTTP {r.status_code}"
+                    )
+            note(f"Grafana: [green]deleted JIT user '{login}' (id {u.id})[/green]")
+        else:
+            warn(
+                f"Grafana: JIT user '{login}' (id {u.id}, {u.email}) — would be deleted"
+            )
+
+
+def run_delete(apply: bool, skip_grafana: bool, grafana_url: str) -> int:
+    """Two passes: validate every queue entry against live state first, then
+    apply. A destructive run never half-applies — if one entry is refused
+    (the zot key gate, or live state that does not match the queue), nothing
+    is deleted and the run exits 1."""
+    _groups, _principals, queue, errors = load_rosters(repo_root())
+    if errors:
+        for e in errors:
+            fail(f"roster: {e}")
+        return 1
+    if not queue:
+        console.print(
+            f"[green]{RETIRING_FILE} is empty — nothing to delete.[/green]", style="green"
+        )
+        return 0
+
+    token = op_item_field(AUTHENTIK_ITEM, "api-token")
+    with authentik_client(token) as client:
+        try:
+            users = {u.username: u for u in live_users(client)}
+            group_list = live_groups(client)
+        except httpx.HTTPError as exc:
+            raise SystemExit(f"error: live Authentik unreachable: {exc}")
+        live_group_uuids = {g.name: g.uuid for g in group_list}
+        zot_groups = zot_group_names(group_list)
+
+        # --- pass 1: validate ---
+        # Each entry resolves to what the apply pass would delete, plus the
+        # refusal reasons (any refusal refuses the whole run).
+        plan: list[tuple[Retiring, LiveUser | None, list[str]]] = []
+        for entry in queue:
+            section(f"{entry.username} — retired {entry.retired} ({entry.issue})")
+            user = users.get(entry.username)
+            refusions: list[str] = []
+            if user is None:
+                note("user already absent from live Authentik")
+                if entry.group is not None and entry.group in live_group_uuids:
+                    note(f"group [cyan]{entry.group}[/cyan] — still live, would be deleted")
+            else:
+                problems = []
+                if user.is_active:
+                    problems.append(
+                        "user is ACTIVE in live — the blueprint has not deactivated it yet"
+                    )
+                if entry.user_type is not None and entry.user_type != user.user_type:
+                    problems.append(f"type {user.user_type!r} != queue {entry.user_type!r}")
+                for pr in problems:
+                    warn(pr)
+                if user.groups:
+                    note(f"live groups: {', '.join(user.groups)}")
+
+                if is_zot_identity(user, entry, zot_groups):
+                    if entry.keys_revoked is not True:
+                        refusions.append(
+                            f"zot identity without 'keys_revoked: true' in {RETIRING_FILE} — "
+                            f"revoke its zot API keys first (docs/reference/services/zot.md, "
+                            f"Retiring an identity), then update the queue entry"
+                        )
+                    else:
+                        note("zot identity: keys_revoked: true — gate passed")
+
+                if problems:
+                    refusions.append("live state does not match the queue entry")
+
+                try:
+                    tokens = paginate(
+                        client, "/api/v3/core/tokens/", user__username=user.username
+                    )
+                except httpx.HTTPError as exc:
+                    warn(f"could not list the user's tokens ({exc})")
+                else:
+                    # App passwords are core/tokens with intent=app_password —
+                    # everything is deleted with the user.
+                    app_passwords = [t for t in tokens if t.get("intent") == "app_password"]
+                    for pw in app_passwords:
+                        warn(
+                            f"attached app password {pw.get('identifier')!r} — deleted with the user"
+                        )
+                    others = len(tokens) - len(app_passwords)
+                    if others:
+                        warn(f"{others} other token(s) — deleted with the user")
+
+                group = entry.group
+                if group is not None and group in live_group_uuids:
+                    note(f"group [cyan]{group}[/cyan] — deleted after the user (its bindings cascade)")
+
+            for reason in refusions:
+                refuse(reason)
+            plan.append((entry, user, refusions))
+
+        refused = any(refusals for _e, _u, refusals in plan)
+        if refused:
+            console.print(
+                "\n[red]refused — nothing deleted. Fix the items above, then re-run.[/red]",
+                style="red",
+            )
+            return 1
+
+        # --- pass 2: apply (preview mode stops after the validation above) ---
+        deleted = 0
+        if apply:
+            for entry, user, _refusals in plan:
+                if user is None:
+                    if entry.group is not None and entry.group in live_group_uuids:
+                        r = client.delete(
+                            f"/api/v3/core/groups/{live_group_uuids[entry.group]}/"
+                        )
+                        if r.status_code not in (200, 204):
+                            raise SystemExit(
+                                f"error: delete of group {entry.group} failed: "
+                                f"HTTP {r.status_code} {r.text[:200]}"
+                            )
+                        note(
+                            f"[green]deleted group {entry.group} (its user was already gone)[/green]"
+                        )
+                        deleted += 1
+                else:
+                    r = client.delete(f"/api/v3/core/users/{user.pk}/")
+                    if r.status_code not in (200, 204):
+                        raise SystemExit(
+                            f"error: delete of user {entry.username} failed: "
+                            f"HTTP {r.status_code} {r.text[:200]}"
+                        )
+                    note(f"[green]deleted user {entry.username} (pk {user.pk})[/green]")
+                    deleted += 1
+                    group = entry.group
+                    if group is not None and group in live_group_uuids:
+                        r = client.delete(
+                            f"/api/v3/core/groups/{live_group_uuids[group]}/"
+                        )
+                        if r.status_code not in (200, 204):
+                            raise SystemExit(
+                                f"error: delete of group {group} failed: "
+                                f"HTTP {r.status_code} {r.text[:200]}"
+                            )
+                        note(
+                            f"[green]deleted group {group} (uuid {live_group_uuids[group]})[/green]"
+                        )
+
+    grafana_pass: str | None = None
+    if not skip_grafana:
+        try:
+            grafana_pass = op_item_field(GRAFANA_ITEM, "password")
+        except SystemExit as exc:
+            grafana_pass = None
+            warn(
+                str(exc)
+                + " — the Grafana sweep will be skipped (use --skip-grafana to silence)"
+            )
+        for entry, _user, _r in plan:
+            grafana_sweep(entry.username, grafana_url, grafana_pass, apply)
+
+    if apply:
+        console.print(
+            f"\n[green]deleted {deleted} record(s) for {len(queue)} queue entr{'y' if len(queue) == 1 else 'ies'}. "
+            f"Next PR: remove them from {RETIRING_FILE} and re-render.[/green]",
+            style="green",
+        )
+    else:
+        console.print(
+            f"\npreviewed deletion for {len(queue)} queue entr{'y' if len(queue) == 1 else 'ies'} — re-run with --apply.",
+            style="green",
+        )
+    return 0
+
+
+USAGE_TEXT = """reconcile-authentik-principals: reconcile live Authentik against the principal rosters.
+
+Modes:
+  (none)     List live users/groups/bindings against principals.yaml + retiring.yaml,
+             naming every account the files do not know about.
+  --check    List mode, but exit 1 if anything is out of sync.
+  --delete   Preview the retiring.yaml deletions (nothing is applied).
+  --delete --apply   Perform the deletions, including the Grafana JIT-user sweep.
+
+Flags:
+  --skip-grafana       Do not check or sweep the Grafana JIT users.
+  --grafana-url=<url>  Grafana base URL (default https://grafana.ops.eblu.me).
+"""
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    known = {"--check", "--delete", "--apply", "--skip-grafana"}
+    url_args = [a for a in args if a.startswith("--grafana-url=")]
+    if "--help" in args or "-h" in args:
+        print(USAGE_TEXT)
+        return 0
+    unknown = [a for a in args if a not in known and not a.startswith("--grafana-url=")]
+    if unknown:
+        print(f"error: unknown argument(s): {' '.join(unknown)}", file=sys.stderr)
+        return 1
+    if "--apply" in args and "--delete" not in args:
+        print("error: --apply only makes sense with --delete", file=sys.stderr)
+        return 1
+    if "--check" in args and "--delete" in args:
+        print(
+            "error: --check (list mode) and --delete are mutually exclusive",
+            file=sys.stderr,
+        )
+        return 1
+    grafana_url = url_args[0].split("=", 1)[1] if url_args else GRAFANA_URL
+
+    if "--delete" in args:
+        return run_delete(
+            apply="--apply" in args,
+            skip_grafana="--skip-grafana" in args,
+            grafana_url=grafana_url,
+        )
+    return run_list(check="--check" in args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

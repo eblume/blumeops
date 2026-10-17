@@ -1,6 +1,6 @@
 ---
 title: Authentik
-modified: 2026-10-16
+modified: 2026-10-17
 last-reviewed: 2026-09-20
 tags:
   - service
@@ -79,7 +79,7 @@ Injected via [[external-secrets]] from the "Authentik (blumeops)" 1Password item
 | `postgresql-host` / `-port` / `-name` / `-user` / `-password` | PostgreSQL connection |
 | `<client>-client-secret` | OIDC client secret, one per confidential client (grafana, forgejo, zot, jellyfin, mealie, paperless, warrant, talos) |
 
-The item also holds an `api-token` field (Authentik API access for admin scripting); it is not synced into the cluster.
+The item also holds an `api-token` field (an admin `api-token` for admin scripting); it is not synced into the cluster. `mise run reconcile-authentik-principals` reads it to diff live Authentik against the principal rosters and to empty the retiring queue ([[manage-authentik-principals]]). The token must be a current admin `api-token`; if it 403s, re-mint it in the Authentik UI (admin → account → API tokens) and update the field.
 
 ## Container Image
 

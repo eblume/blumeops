@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx==0.28.1", "typer==0.27.3"]
+# dependencies = ["httpx==0.28.1", "typer==0.27.3", "pyyaml==6.0.3"]
 # ///
 #MISE description="[human] Rotate a zot CI API key (ci-zot|ci-zot-talos|ci-zot-horkos|horkos-zot) from its current key: mint, store in 1Password, sync to its consumer, revoke the rest"
 #USAGE arg "<identity>" help="ci-zot, ci-zot-talos, ci-zot-horkos or horkos-zot"
@@ -52,10 +52,11 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 import httpx
 import typer
+import yaml
 
 ZOT_URL = "https://registry.ops.eblu.me"
 FORGE_API = "https://forge.ops.eblu.me/api/v1"
@@ -90,31 +91,72 @@ class Identity:
     sink: OpFieldSink | ForgeSecretSink
 
 
-IDENTITIES: dict[str, Identity] = {
-    "ci-zot": Identity(
-        master_field="ci-zot-api",
-        sink=OpFieldSink(vault="blumeops-ci", item="ci-zot", field="api-key"),
-    ),
-    "ci-zot-talos": Identity(
-        master_field="ci-zot-talos-api",
-        sink=ForgeSecretSink(repo="eblume/talos", name="ZOT_PUSH_API_KEY"),
-    ),
-    "ci-zot-horkos": Identity(
-        master_field="ci-zot-horkos-api",
-        sink=ForgeSecretSink(repo="eblume/horkos", name="ZOT_PUSH_API_KEY"),
-    ),
-    "horkos-zot": Identity(
-        master_field="horkos-zot-api",
-        sink=OpFieldSink(vault="blumeops", item="Forgejo Secrets", field="horkos-zot-api"),
-    ),
-}
+PRINCIPALS_FILE = Path(__file__).resolve().parent.parent / "argocd/manifests/authentik/principals.yaml"
+
+
+def load_identities() -> dict[str, Identity]:
+    """The identity table is the roster: every principals.yaml entry with a
+    zot-apikey credential block (eblume/blumeops#1194). The master is the
+    op:// path's field (the item is the Forgejo Secrets item); the sink is
+    the op:// sink's vault/item/field or the forge-secret repo:NAME.
+    """
+    roster = yaml.safe_load(PRINCIPALS_FILE.read_text()) or {}
+    identities: dict[str, Identity] = {}
+    for i, entry in enumerate(roster.get("principals") or []):
+        where = f"principals.yaml principals[{i}]"
+        if not isinstance(entry, dict) or not isinstance(entry.get("username"), str):
+            die(f"{where}: 'username' must be a string")
+        cred = entry.get("credential") or {}
+        if cred.get("kind") != "zot-apikey":
+            continue
+        username = entry["username"]
+        master = cred.get("master")
+        if not isinstance(master, str) or not master.startswith("op://"):
+            die(f"{where}: credential.master must be an op:// path")
+        parts = master.removeprefix("op://").split("/")
+        if len(parts) != 3 or parts[0] != MASTER_VAULT or parts[1] != MASTER_ITEM:
+            die(f"{where}: credential.master must be op://{MASTER_VAULT}/{MASTER_ITEM}/<field>")
+        master_field = parts[2]
+        sink_raw = cred.get("sink")
+        sink = None
+        if isinstance(sink_raw, dict):
+            if "forge-secret" in sink_raw:
+                fs = sink_raw["forge-secret"]
+                if not isinstance(fs, str) or fs.count(":") != 1:
+                    die(f"{where}: sink.forge-secret must be 'repo:SECRET_NAME'")
+                repo, name = fs.split(":", 1)
+                sink = ForgeSecretSink(repo=repo, name=name)
+            elif "op" in sink_raw and isinstance(sink_raw["op"], dict):
+                op_sink = sink_raw["op"]
+                missing = [k for k in ("vault", "item", "field") if not isinstance(op_sink.get(k), str)]
+                if missing:
+                    die(f"{where}: sink.op needs vault/item/field")
+                sink = OpFieldSink(vault=op_sink["vault"], item=op_sink["item"], field=op_sink["field"])
+        if sink is None:
+            die(f"{where}: credential.sink must be an op:// sink or a forge-secret")
+        if username in identities:
+            die(f"{where}: duplicate credential block for {username}")
+        identities[username] = Identity(master_field=master_field, sink=sink)
+    return identities
+
+
+_IDENTITIES: dict[str, Identity] | None = None
+
+
+def identities() -> dict[str, Identity]:
+    global _IDENTITIES
+    if _IDENTITIES is None:
+        _IDENTITIES = load_identities()
+        if not _IDENTITIES:
+            die("no zot-apikey credential blocks in principals.yaml — the roster is empty")
+    return _IDENTITIES
 
 
 def say(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
-def die(msg: str, code: int = 1) -> None:
+def die(msg: str, code: int = 1) -> NoReturn:
     say(f"error: {msg}")
     raise typer.Exit(code)
 
@@ -233,9 +275,10 @@ def main(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Verify and list; mint nothing")] = False,
     keep_others: Annotated[bool, typer.Option("--keep-others", help="Leave the identity's other keys alone")] = False,
 ) -> None:
-    if identity not in IDENTITIES:
-        die(f"unknown identity {identity!r}; one of {', '.join(IDENTITIES)}")
-    ident = IDENTITIES[identity]
+    table = identities()
+    if identity not in table:
+        die(f"unknown identity {identity!r}; one of {', '.join(sorted(table))}")
+    ident = table[identity]
     master_ref = f"op://{MASTER_VAULT}/{MASTER_ITEM}/{ident.master_field}"
 
     if key_stdin:

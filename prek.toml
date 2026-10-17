@@ -207,6 +207,20 @@ language = "system"
 files = '^argocd/manifests/authentik/(principals\.yaml|retiring\.yaml|configmap-blueprint\.yaml)$'
 pass_filenames = false
 
+# The zot accessControl template keeps its own copy of the group names it
+# grants to; the lint closes that coupling without joining the files —
+# every grant must name a group the roster declares (eblume/blumeops#1194).
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "zot-accesscontrol-lint"
+name = "zot-accesscontrol-lint"
+entry = "./mise-tasks/zot-accesscontrol-lint"
+language = "system"
+files = '^(ansible/roles/zot/templates/config\.json\.j2|argocd/manifests/authentik/principals\.yaml)$'
+pass_filenames = false
+
 # Documentation validation
 [[repos]]
 repo = "local"

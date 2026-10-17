@@ -1,6 +1,6 @@
 ---
 title: Zot
-modified: 2026-10-16
+modified: 2026-10-17
 last-reviewed: 2026-09-16
 tags:
   - service
@@ -63,7 +63,11 @@ mise run zot-apikey-rotate ci-zot --dry-run   # just prove the current key still
 ```
 
 zot's key-management endpoints accept an API key as basic-auth credentials,
-so a live key mints its own successor.
+so a live key mints its own successor. The identity table is the roster:
+every `principals.yaml` entry carrying a `credential: {kind: zot-apikey}`
+block (its `master` op path + `sink`) is an identity the task knows —
+adding or retiring a zot identity is a roster edit, not an edit to the
+script.
 
 **CI-tier cutover (complete, 2026-09-14).** The per-repo release-CI push
 identities moved through the tier-first scheme of eblume/blumeops#1039 to
@@ -148,8 +152,9 @@ deleted step-2 user's 2026-09-13 key, a live credential whose 1Password
 field was already gone). A retirement now runs through the principals
 deletion queue (`argocd/manifests/authentik/retiring.yaml`): the entry's
 `keys_revoked: true` is the ordering rule — revoke the identity's zot API
-keys *before* deleting the Authentik user — enforced at delete time
-([[manage-authentik-principals]]). Two ways to take the key
+keys *before* deleting the Authentik user — enforced at delete time by
+`mise run reconcile-authentik-principals --delete --apply`, which refuses a
+zot identity without it ([[manage-authentik-principals]]). Two ways to take the key
 listing: `mise run zot-apikey-rotate <identity> --dry-run`, but only *before*
 the retire PR merges — that PR is what removes the identity from the rotate
 table — or at any time against the raw endpoint with the stored key (`curl
