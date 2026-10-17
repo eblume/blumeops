@@ -27,12 +27,8 @@ let
       --oidc-audience heph \
       --authorized-sub "$(cat "$sub_file")"
   '';
-  # The heph role used to `cargo install` into ~/.cargo/bin — heph/hephd in its
-  # final form, plus heph-tui/heph-quickadd in the v1.8.0 era; the daemon legs
-  # retired with the store flip (eblume/blumeops#1655). This boot-once removes
-  # all four bin names so no shell with ~/.cargo/bin on PATH can shadow the
-  # store bins — a no-op once they are gone. The indri twin of ringtail's
-  # heph-cargo-bin-cleanup one-shot.
+  # Removes the old cargo-installed heph bins from ~/.cargo/bin so a shell with
+  # it on PATH can't shadow the store bins; a no-op once they are gone.
   hephCargoBinCleanup = pkgs.writeShellScriptBin "mcquack-heph-cargo-bin-cleanup" ''
     set -euo pipefail
     dir=/Users/erichblume/.cargo/bin
@@ -995,8 +991,7 @@ AUTHORIZED_KEYS
   # flake reads no vault). The PWA checkout stays role-managed - the store is
   # read-only, and the web root must stay a mutable git checkout with its
   # pwa-version.js stamp. Rollback per [[provision]] §Rolling back a service
-  # flip: a plain darwin-rebuild --rollback — the gate and the role's daemon
-  # legs retired with the rollback window (eblume/blumeops#1655).
+  # flip.
   launchd.user.agents."mcquack.eblume.heph".serviceConfig = {
     Label = "mcquack.eblume.heph";
     ProgramArguments = [ "${nixWait}" ] ++ [ "${hephHubRunner}/bin/mcquack-heph-hub" ];
@@ -1010,9 +1005,6 @@ AUTHORIZED_KEYS
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.heph.err.log";
   };
 
-  # The heph role's cargo-installed bins used to live in ~/.cargo/bin; this
-  # boot-once agent removes them so no shell can shadow the store bins (a
-  # no-op once gone).
   launchd.user.agents."mcquack.eblume.heph-cargo-bin-cleanup".serviceConfig = {
     Label = "mcquack.eblume.heph-cargo-bin-cleanup";
     ProgramArguments = [ "${nixWait}" ] ++ [ "${hephCargoBinCleanup}/bin/mcquack-heph-cargo-bin-cleanup" ];

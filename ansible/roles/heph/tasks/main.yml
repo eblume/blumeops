@@ -15,11 +15,6 @@
 #
 # hephd auto-creates an empty store on first start if none exists, so seeding is
 # optional — skip it only if you intend a fresh, empty hub.
-#
-# The daemon legs (cargo install, version gate, plist render + load, the op-read
-# leg) retired with the rollback window over (eblume/blumeops#1655): the
-# generation owns the LaunchAgent and the store hephd. This role keeps only the
-# PWA shell checkout + its pwa-version.js stamp, and the data dir.
 
 - name: Ensure heph data directory exists
   ansible.builtin.file:

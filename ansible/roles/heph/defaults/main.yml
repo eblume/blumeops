@@ -5,10 +5,8 @@
 #
 # The hub daemon itself is generation-owned: darwin/indri pins the hephaestus
 # flake (v1.10.9, cli output) and owns the mcquack.eblume.heph LaunchAgent that
-# execs the store hephd (eblume/blumeops#1655). The role's daemon legs
-# (cargo install, version gate, plist, the op-read leg) retired with the
-# rollback window over; this role keeps only the PWA shell checkout + its
-# pwa-version.js stamp and the data dir.
+# execs the store hephd (eblume/blumeops#1655). This role keeps only the PWA
+# shell checkout + its pwa-version.js stamp and the data dir.
 
 # Pinned release tag: the PWA shell checkout and its pwa-version.js stamp.
 # hephd self-update is OFF, so nothing changes the daemon's version out from
