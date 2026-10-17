@@ -411,8 +411,11 @@ services:
       only. Host-mode jobs run on the same declarative mise-pinned
       toolchain (`darwin/indri/configuration.nix`, `[tools]`) — REVIEW it:
       every pin mirrors one held elsewhere (mise.toml, prek.toml,
-      service-versions.yaml), so diff it against
-      those sources and realign; not an independent upgrade decision.
+      service-versions.yaml) except prek — the fleet environment default,
+      bumped in lockstep across the talos image `prekVersion`, chezmoi, and
+      indri, while this repo's mise.toml pin is a deliberate repo-level
+      override — so diff it against those sources and realign; not an
+      independent upgrade decision.
   - name: nix-container-builder
     type: nixos
     last-reviewed: 2026-10-16
