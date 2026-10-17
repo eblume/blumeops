@@ -27,7 +27,8 @@
         "asset_template": "cv-{version}.tar.gz",
         "role_defaults": "ansible/roles/cv/defaults/main.yml",
         "role_var": "cv_version"
-      }
+      },
+      "release_workflow": "cv-release.yaml"
     }
   },
   "auto_filers": [
