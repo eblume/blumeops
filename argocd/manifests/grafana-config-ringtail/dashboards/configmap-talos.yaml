@@ -2463,12 +2463,105 @@ data:
           "type": "timeseries"
         },
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 110
+          },
+          "id": 38,
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "100 * rate(talos_event_loop_lag_seconds_sum[5m])",
+              "legendFormat": "blocked % of wall time",
+              "refId": "A"
+            }
+          ],
+          "title": "Event loop: blocked wall time",
+          "type": "timeseries"
+        },
+        {
           "collapsed": false,
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 110
+            "y": 118
           },
           "id": 19,
           "title": "Workspaces",
@@ -2535,7 +2628,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 111
+            "y": 119
           },
           "id": 20,
           "options": {
@@ -2649,7 +2742,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 111
+            "y": 119
           },
           "id": 21,
           "options": {
@@ -2752,7 +2845,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 119
+            "y": 127
           },
           "id": 22,
           "options": {
@@ -2795,7 +2888,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 119
+            "y": 127
           },
           "id": 23,
           "options": {

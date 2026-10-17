@@ -51,7 +51,7 @@ language = "python"
 files = '^ansible/|\.ansible-lint$|^prek\.toml$'
 pass_filenames = false
 require_serial = true
-additional_dependencies = ["ansible-lint==26.8.0", "ansible-core==2.21.4"]
+additional_dependencies = ["ansible-lint==26.10.1", "ansible-core==2.21.5"]
 
 # Python - ruff for linting and formatting
 #
@@ -75,7 +75,7 @@ additional_dependencies = ["ansible-lint==26.8.0", "ansible-core==2.21.4"]
 # `[human]` prefixes AGENTS.md keys the agent fence off, and breaks aliases.
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "2eeb5678de71a00c0902cbda7105d328432f72cb" # v0.16.8
+rev = "38bfb07c0c64c304f47eb52090f8288150c77730" # v0.17.1
 hooks = [
   { id = "ruff", args = [
     "--fix",
@@ -125,7 +125,7 @@ hooks = [{ id = "taplo-format" }, { id = "taplo-lint", args = ["--no-schema"] }]
 # JSON formatting (prettier for consistent style)
 [[repos]]
 repo = "https://github.com/rbubley/mirrors-prettier"
-rev = "b40b4e02d5a0c977e64da51e8742e3240ef6372a"                                # v3.9.7
+rev = "331f33fa4dfbcbca7c3da3620c137fde0faab273"                                # v3.9.10
 hooks = [{ id = "prettier", types_or = ["json"], args = ["--tab-width", "2"] }]
 
 # GitHub/Forgejo Actions workflow linting

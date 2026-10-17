@@ -1,0 +1,1 @@
+release-targets.json gains the per-target release_workflow field enabling late-image recovery (eblume/horkos#59): set to the source repo's release workflow file name for the eblume/horkos and eblume/talos image targets.

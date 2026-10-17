@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.2", "pyyaml==6.0.3"]
+# dependencies = ["httpx[socks]==0.28.1", "rich==15.0.0", "typer==0.27.3", "pyyaml==6.0.3"]
 # ///
 #MISE description="Lint PR bodies for the auto-apply host-apply declaration (marker line + named pending host changes)"
 #USAGE flag "--pending" help="Generate paste-ready Auto-apply blocks for HOSTS (default: all auto-apply hosts) instead of linting PRs"

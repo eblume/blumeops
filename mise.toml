@@ -4,11 +4,11 @@
 #   1. pin a specific version (or even better, a SHA)
 #   2. create a new entry in service-versions.yaml
 # This will help ensure reviewed upgrades at a steady cadence
-"pipx:ansible-core" = { version = "2.21.4", uvx = "true", uvx_args = "--with botocore --with boto3" }
-"pipx:borgmatic" = "2.1.7"
-prek = "0.5.3"
+"pipx:ansible-core" = { version = "2.21.5", uvx = "true", uvx_args = "--with botocore --with boto3" }
+"pipx:borgmatic" = "2.1.10"
+prek = "0.5.5"
 # actionlint-system prek hook needs the binary on PATH (CI runner has it).
 actionlint = "1.7.12"
-pulumi = "3.263.0"
-"pipx:ty" = "0.0.81"
-flyctl = "0.4.104"
+pulumi = "3.270.0"
+"pipx:ty" = "0.0.89"
+flyctl = "0.4.118"
