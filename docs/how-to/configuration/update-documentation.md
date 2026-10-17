@@ -1,7 +1,7 @@
 ---
 title: Update Documentation
-modified: 2026-10-16
-last-reviewed: 2026-09-05
+modified: 2026-10-17
+last-reviewed: 2026-10-17
 tags:
   - how-to
   - documentation
@@ -12,40 +12,45 @@ tags:
 
 How to publish documentation changes to https://docs.eblu.me.
 
-## Quick Release
+## Releasing docs
 
-After merging documentation changes to main:
+Documentation ships with BlumeOps releases (the release-PR model,
+[eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). To
+ship docs changes:
 
-1. Go to **Actions** > **Build BlumeOps** > **Run workflow**
-2. Select version bump type (patch/minor/major) or enter a specific version
-3. The workflow builds the docs; the `release` job hard-fails (releases are
-   paused until the release-PR model lands at migration step 9,
-   [eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Deploying
-   the last released version is a manual step (see below)
+1. Prepare the cut with the shared release kit's `cut-release` (eblume/release-kit
+   `docs/how-to/cut-a-release.md`): it builds the towncrier section from
+   `docs/changelog.d/` fragments (fragments consumed), places a blurb under the
+   section heading for minor/major releases, rotates older minor series verbatim
+   into `docs/changelog/archive/`, and bumps the root `version` file and the indri
+   `docs_version` pin (the repo hook) — review, commit, and open it as a
+   `release vX.Y.Z` PR.
+2. A human merges. On push to main, `release.yaml` detects the version change,
+   builds the docs tarball, and tags + publishes the Forgejo release with the
+   CHANGELOG section as its body.
+3. Deploy: `mise run provision-indri -- --tags docs` from gilbert, then purge the
+   [[flyio-proxy]] nginx cache (`fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`)
+   so the new docs are served immediately.
 
-Direct link: https://forge.ops.eblu.me/eblume/blumeops/actions?workflow=build-blumeops.yaml
+Direct workflow link: https://forge.ops.eblu.me/eblume/blumeops/actions?workflow=release.yaml
 
 ## What the Workflow Does
 
-The `build-blumeops` workflow (`.forgejo/workflows/build-blumeops.yaml`) splits across three jobs:
+The `release` workflow (`.forgejo/workflows/release.yaml`) fires on every push to
+main:
 
-1. **`version`** (on the unprivileged `indri-build` runner) — Resolves the version: uses the input or auto-increments from the latest release
-2. **`docs-build`** (on the unprivileged `indri-build` runner) — Runs towncrier to update `CHANGELOG.md`, then builds the docs with `mise run docs-build-tarball` (Quartz build in a node:22-slim container via colima); hands the tarball to the release job as a same-run artifact
-3. **`release`** (on `indri-build`) — **Paused** ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)): hard-fails instead of creating the release, until migration step 9 replaces the flow with a release created from the version bump on main
+1. **`detect`** (on the unprivileged `indri-build` runner) — verifies the forge
+   server URL, compares the root `version` file against the push's before-commit,
+   and requires a matching `## [vX.Y.Z]` section in `CHANGELOG.md`; a push that is
+   not a release exits clean
+2. **`publish`** (on `indri-build`) — builds the docs tarball with
+   `mise run docs-build-tarball` (Quartz build in a node:22-slim container via
+   colima) into `release-assets/`, then tags and creates the Forgejo release via
+   the shared kit's `publish-release` action (`eblume/release-kit@v0.1.1`),
+   attaching the tarball
 
-The workflow ends at the release. BlumeOps releases are **paused** until
-step 9 of the release-PR model ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)):
-the old release job pushed the changelog and the `docs_version` bump to main
-with a PAT, that push is retired, and until step 9 lands there is no
-replacement for it. From step 9 on, the `docs_version` bump rides the
-release PR and the release is created from the version bump on main.
-Deploying is a manual step (docs are served natively by Caddy on indri since
-[[retire-minikube]] — no ArgoCD app): once `docs_version` in
-`ansible/roles/docs/defaults/main.yml` is at the release tag,
-`mise run provision-indri -- --tags docs`, and purge the [[flyio-proxy]] nginx
-cache (`fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`)
-so the new docs are served immediately. Until the pause lifts, this deploys
-the last released docs version — re-running it changes nothing new.
+The changelog is cut in the release PR itself (towncrier runs there, not in CI),
+so CI never writes to `CHANGELOG.md` and never pushes `main`.
 
 ## Changelog Fragments (Towncrier)
 
@@ -62,7 +67,7 @@ echo "Add new feature X" > docs/changelog.d/my-feature.feature.md
 echo "Fix bug Y" > docs/changelog.d/+fix-bug.bugfix.md
 ```
 
-Fragments are automatically collected into `CHANGELOG.md` (at repo root) during release.
+Fragments are collected into `CHANGELOG.md` (at repo root) by `cut-release` when the release PR is cut.
 
 **Fragment types:**
 | Type | Description |
@@ -126,9 +131,9 @@ docker run --rm -it -v "$PWD":/workspace:ro node:22-slim sh -c '
 
 ## Troubleshooting
 
-**Workflow fails on "Resolve version":**
-- Check if the version already exists as a release
-- Ensure version format is `vX.Y.Z`
+**Release push fails in `detect`:**
+- The `version` file must have changed vs the push's parent commit
+- `CHANGELOG.md` must carry a matching `## [vX.Y.Z]` section (cut-release produces both)
 
 **Docs not updating after deploy:**
 - Confirm `docs_version` was bumped in `ansible/roles/docs/defaults/main.yml` and the provision ran

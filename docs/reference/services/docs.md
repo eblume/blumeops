@@ -1,7 +1,7 @@
 ---
 title: Docs
-modified: 2026-04-29
-last-reviewed: 2026-04-29
+modified: 2026-10-17
+last-reviewed: 2026-10-17
 tags:
   - service
   - documentation
@@ -20,14 +20,14 @@ Documentation site built with [Quartz](https://quartz.jzhao.xyz/).
 | **Deployment** | Ansible role `docs` on indri (no daemon — Caddy serves files directly) |
 | **Content dir** | `~/blumeops/docs/content/` on indri |
 | **Source** | `docs/` directory in blumeops repo |
-| **Build** | Forgejo workflow `build-blumeops.yaml` |
+| **Build** | Forgejo workflow `release.yaml` (on the release PR's merge) |
 
 Migrated from minikube to indri-native on 2026-04-29 (see [[docs-on-indri]]).
 
 ## Architecture
 
 1. **Source**: Markdown files in `docs/` with Obsidian-compatible wiki-links
-2. **Build**: `Build BlumeOps` Forgejo workflow runs towncrier + Quartz and uploads the tarball as a release asset (**paused** until the release-PR model lands, [eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628); after it, the `docs_version` bump rides the release PR)
+2. **Build**: the `release.yaml` workflow builds Quartz on the release PR's merge and publishes the tarball as a release asset; the `docs_version` bump rides the release PR itself ([[update-documentation]])
 3. **Deploy**: ansible role downloads the tarball into `~/blumeops/docs/content/` on indri; Caddy serves the directory directly with Quartz-style `try_files` (path → path/ → path.html → 404.html)
 
 ## Configuration
@@ -38,7 +38,7 @@ Migrated from minikube to indri-native on 2026-04-29 (see [[docs-on-indri]]).
 
 ## Release flow
 
-1. **Paused** until the release-PR model lands ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)): the workflow's release job hard-fails. After it, the release is created from the version bump on main and the `docs_version` bump rides the release PR
+1. Cut a release PR ([[update-documentation]]) — merging it builds the docs tarball and creates the Forgejo release; the release PR itself bumps `docs_version`
 2. Run `mise run provision-indri -- --tags docs` from gilbert
 3. Purge the Fly.io proxy cache so the new content is fetched
 

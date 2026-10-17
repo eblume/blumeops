@@ -1,0 +1,122 @@
+# Release Workflow
+#
+# The release PR is the release: a human (or talos on request) opens a
+# `release vX.Y.Z` PR prepared with the shared release kit's `cut-release`
+# (see eblume/release-kit docs/how-to/cut-a-release.md). That PR carries the
+# towncrier-built CHANGELOG section (fragments consumed), the `version` file
+# bump, a blurb for minor/major, and the indri `docs_version` bump (the kit's
+# repo hook). Merging it is the release decision.
+#
+# On the push to main, this workflow detects that the `version` file changed
+# vs the push's before-commit and calls the shared `publish-release` action
+# from eblume/release-kit, which tags and creates the Forgejo release. CI
+# never pushes to main, never commits changelogs, and never uses [skip ci].
+#
+# Projects can optionally attach additional release artifacts by providing an
+# executable hook at `.forgejo/scripts/release`. That hook should place any
+# extra files under `release-assets/` for upload to the release; it runs
+# before the docs build, so a hook that clears the directory first is
+# harmless.
+
+name: Release
+
+# Serialize release runs: two near-simultaneous pushes to main would otherwise
+# race on the same tag. Queued runs proceed in order.
+concurrency:
+  group: release-${{ github.ref }}
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  detect:
+    runs-on: indri-build
+    outputs:
+      tag: ${{ steps.detect.outputs.tag }}
+    steps:
+      - name: Verify forge server URL
+        run: |
+          # The kit's publish-release action creates the release on
+          # github.server_url, while this repo's docs URLs and the indri docs
+          # role hard-code forge.ops.eblu.me — a ROOT_URL drift would publish
+          # to the wrong host. Fail before tagging (eblume/blumeops#1208).
+          echo "GITHUB_SERVER_URL=${GITHUB_SERVER_URL:-unset}"
+          if [ "${GITHUB_SERVER_URL%/}" != "https://forge.ops.eblu.me" ]; then
+            echo "::error::GITHUB_SERVER_URL is not https://forge.ops.eblu.me — the forge's ROOT_URL has drifted from the tailnet name (eblume/blumeops#1208)."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Detect a release push
+        id: detect
+        run: |
+          set -euo pipefail
+          AFTER="${{ github.sha }}"
+          BEFORE="${{ github.event.before }}"
+          if [[ ! "$BEFORE" =~ ^[0-9a-f]{40}$ ]]; then
+            BEFORE=$(git rev-parse -q --verify "$AFTER^" || true)
+          fi
+          VERSION=$(tr -d '[:space:]' < version)
+          if [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE:version" 2>/dev/null; then
+            echo "version file is new in this commit; not a release push"
+            exit 0
+          fi
+          PREV=$(git show "$BEFORE:version" | tr -d '[:space:]')
+          if [ "$PREV" = "$VERSION" ]; then
+            echo "version unchanged ($VERSION); not a release push"
+            exit 0
+          fi
+          if ! awk -v ver="v$VERSION" '
+            /towncrier release notes end/ { exit }
+            /^## \[/ {
+              if (found) exit
+              if (index($0, "[" ver "]")) found=1
+            }
+            found {print}
+          ' CHANGELOG.md | tail -n +2 | tr -d '[:space:]' | grep -q .; then
+            echo "version bumped to $VERSION but CHANGELOG.md has no [v$VERSION] section" >&2
+            exit 1
+          fi
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Release push: $PREV -> v$VERSION"
+
+  publish:
+    needs: detect
+    if: needs.detect.outputs.tag != ''
+    runs-on: indri-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build project-specific release artifacts
+        run: |
+          rm -rf release-assets
+          mkdir -p release-assets
+          if [ -x .forgejo/scripts/release ]; then
+            echo "Running project-specific release hook..."
+            ./.forgejo/scripts/release "${{ needs.detect.outputs.tag }}"
+          else
+            echo "No .forgejo/scripts/release hook; no extra artifacts."
+          fi
+          find release-assets -maxdepth 1 -type f -print | sort || true
+      - name: Build docs
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.detect.outputs.tag }}"
+          TARBALL="release-assets/docs-${VERSION}.tar.gz"
+          mkdir -p release-assets
+          echo "Building docs via the Quartz tarball task..."
+          mise run docs-build-tarball "./$TARBALL"
+          ls -lh "./$TARBALL"
+      - name: Publish release
+        uses: https://forge.ops.eblu.me/eblume/release-kit/.github/actions/publish-release@v0.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag: ${{ needs.detect.outputs.tag }}

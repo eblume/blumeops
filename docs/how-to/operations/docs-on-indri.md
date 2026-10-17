@@ -1,7 +1,7 @@
 ---
 title: Docs on Indri
-modified: 2026-04-29
-last-reviewed: 2026-04-29
+modified: 2026-10-17
+last-reviewed: 2026-10-17
 tags:
   - how-to
   - operations
@@ -30,7 +30,7 @@ The docs site is fully static HTML produced by Quartz. Caddy can serve the extra
 
 ## Deploy
 
-1. Run the `Build BlumeOps` Forgejo workflow → builds the tarball and creates the release (**paused**: the release job hard-fails until the release-PR model lands at migration step 9, [eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628); after it, the `docs_version` bump rides the release PR instead of a push to main)
+1. Cut a release PR ([[update-documentation]]) → merging it builds the tarball and creates the release; the `docs_version` bump rides the release PR itself
 2. From gilbert: `mise run provision-indri -- --tags docs`
 3. From gilbert: `fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`
 
@@ -49,7 +49,7 @@ curl -fsSI https://docs.eblu.me/no-such-path-exists/                # → /404.h
 
 ## Bumping the docs version
 
-Normally driven by the workflow. If you need to pin manually, edit `docs_version` in `ansible/roles/docs/defaults/main.yml` and re-run `mise run provision-indri -- --tags docs`.
+Normally bumped by the release PR itself (the release kit's repo hook). If you need to pin manually, edit `docs_version` in `ansible/roles/docs/defaults/main.yml` and re-run `mise run provision-indri -- --tags docs`.
 
 ## Backup
 

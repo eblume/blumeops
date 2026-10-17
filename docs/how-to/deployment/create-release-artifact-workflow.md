@@ -1,6 +1,6 @@
 ---
 title: Create Release Artifact Workflow
-modified: 2026-10-15
+modified: 2026-10-17
 last-reviewed: 2026-09-14
 tags:
   - how-to
@@ -25,7 +25,7 @@ Actions-secret names are now declared in `forge/actions-secrets.json` and their 
 
 ## 2. Create the workflow
 
-Create `.forgejo/workflows/<name>-release.yaml` with `workflow_dispatch` and a version input. Use the semver bump pattern (see `cv-release.yaml` for the full upload flow, or `build-blumeops.yaml` for the version bump logic only — its release half is retired, so the reference is its `version` job).
+Create `.forgejo/workflows/<name>-release.yaml` with `workflow_dispatch` and a version input. Use the semver bump pattern (see `cv-release.yaml` for the full upload flow).
 
 The upload step uses `FORGE_TOKEN`:
 
@@ -61,7 +61,7 @@ If the artifact is consumed by a k8s deployment, create a separate deploy workfl
 
 ## Pushing a commit back to a protected `main`
 
-Some release flows commit back to `main` (e.g. the horkos publisher's PR bumps the `cv_version` pin — see eblume/horkos#17; `build-blumeops.yaml` used to bump `docs_version` + build the changelog here, but that push is retired).
+Some release flows commit back to `main` (e.g. the horkos publisher's PR bumps the `cv_version` pin — see eblume/horkos#17; the now-deleted `build-blumeops.yaml` used to bump `docs_version` + build the changelog here, but that push is retired).
 `main` on blumeops is branch-protected with a push whitelist limited to
 `eblume`, and **the automatic Forgejo Actions token cannot be push-whitelisted**
 (Forgejo [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)) — so a
@@ -79,20 +79,20 @@ plain `git push origin HEAD:main` is rejected with `pre-receive hook declined`.
 > workflow to push to protected `main`.
 
 > **Retired (2026-10):** this main-push half is what the release-PR model
-> abolishes — `build-blumeops.yaml` no longer pushes the changelog to
-> `main` (its release job hard-fails until the replacement lands at
-> migration step 9), and the new release flow will tag from a push-to-main
-> workflow instead of pushing `main` from CI
+> abolishes — the release PR carries the changelog and the `docs_version` bump
+> to `main` itself, and the release workflow tags from the push to main instead
+> of pushing `main` from CI
 > ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Kept below for the historical
 > shape.
 
 The fix is to authenticate the push as a whitelisted user via a PAT, not the
 automatic token. The PAT is no longer an Actions secret: per-purpose CI
 secrets were retired in favor of job-time `op read` of the `blumeops-ci`
-vault ([[blumeops-ci-item-migration]]), so `build-blumeops.yaml` reads the
-`eblume`-owned main-push PAT (item `blumeops-ci/forge-main-push/token`,
-scope `write:repository`) at push time with the `BLUMEOPS_CI_OP_TOKEN`
-service account, and pushes with it directly — checkout runs with
+vault ([[blumeops-ci-item-migration]]), so the
+now-deleted `build-blumeops.yaml` used to read the `eblume`-owned main-push
+PAT (item `blumeops-ci/forge-main-push/token`, scope `write:repository`) at
+push time with the `BLUMEOPS_CI_OP_TOKEN` service account, and push with it
+directly — checkout runs with
 `persist-credentials: false`, so no credential sits in the worktree:
 
 ```yaml
