@@ -1,7 +1,7 @@
 ---
 title: Deploy Prowler CIS Scanner
-modified: 2026-09-05
-last-reviewed: 2026-03-24
+modified: 2026-10-17
+last-reviewed: 2026-10-17
 tags:
   - how-to
   - kubernetes
@@ -11,7 +11,7 @@ tags:
 
 # Deploy Prowler CIS Scanner
 
-Prowler runs a weekly CIS Kubernetes Benchmark scan against the ringtail k3s cluster (the `prowler-ringtail` app — prowler scans the cluster it runs in) and writes HTML/CSV/JSON reports to the NFS share on sifaka.
+Prowler runs a weekly CIS Kubernetes Benchmark scan against the ringtail k3s cluster (the `prowler-ringtail` app — prowler scans the cluster it runs in) and writes HTML/CSV/JSON-OCSF reports to the NFS share on sifaka.
 
 ## Why only the K8s CIS scan
 
@@ -30,13 +30,13 @@ The scan originally targeted minikube-indri; with [[retire-minikube]] (2026-06) 
 
 ### Kubernetes CIS benchmarks (Sunday 3am)
 
-Prowler's Kubernetes provider runs ~70 checks from the CIS Kubernetes Benchmark v1.11, grouped into:
+Prowler's Kubernetes provider ships 93 checks in v5.39.1; the scan runs with `--compliance cis_1.11_kubernetes`, which limits it to the 82 checks mapped into the CIS Kubernetes Benchmark v1.11, grouped into:
 
 | Category | Checks | How it works |
 |----------|--------|-------------|
 | **Core (pod security)** | 13 | Queries K8s API for privileged containers, hostPID/hostNetwork, capabilities, secrets in env vars, seccomp |
 | **RBAC** | 9 | Queries RBAC API for overprivileged roles, wildcard access, cluster-admin bindings |
-| **Apiserver** | 29 | Inspects `kube-apiserver` pod args in kube-system (TLS, auth, audit, admission plugins) |
+| **Apiserver** | 28 | Inspects `kube-apiserver` pod args in kube-system (TLS, auth, audit, admission plugins) |
 | **Etcd** | 7 | Inspects `etcd` pod args (TLS, cert auth) |
 | **Controller Manager** | 7 | Inspects `kube-controller-manager` pod args |
 | **Kubelet** | 16 | Reads kubelet-config ConfigMap + node file permissions (file checks need hostPID) |
@@ -65,10 +65,14 @@ kubectl logs -f job/prowler-manual -n prowler --context=k3s-ringtail
 ## Container
 
 Nix build at `containers/prowler/default.nix` — wraps nixpkgs' `prowler`
-(pinned to 5.12.3; nixpkgs lags upstream, re-bump via service-review when it
-catches up) plus `python3`/`pyyaml` for the mutelist-merge initContainer. The
-earlier Dockerfile build's bundled Trivy and non-Kubernetes providers were
-dropped. See [[build-container-image]] for the build/release process.
+(currently 5.39.1, re-bumped from 5.12.3 by service-review 2026-08-25) plus
+`python3`/`pyyaml` for the mutelist-merge initContainer. The build host's
+nixos-26.05 `nixpkgs` is frozen at prowler 5.12.3, so the file self-pins a
+`nixos-unstable` rev that carries 5.39.1, and a version assertion makes any
+nixpkgs move that changes the bundled prowler fail the build — service-review
+then re-bumps the pin. The earlier Dockerfile build's bundled Trivy and
+non-Kubernetes providers were dropped. See [[build-container-image]] for the
+build/release process.
 
 Source is mirrored at `forge.ops.eblu.me/mirrors/prowler`.
 
