@@ -1,6 +1,6 @@
 ---
 title: Forgejo
-modified: 2026-10-15
+modified: 2026-10-17
 last-reviewed: 2026-08-29
 tags:
   - service
@@ -86,7 +86,7 @@ The forge has three namespaces:
 | `argocd-deploy` | dispatch | `priv` | Warrant-gated ArgoCD deploy of a single app |
 | `argocd-sync-apps` | dispatch | `priv` | Warrant-gated sync of the app-of-apps root (`apps`) |
 | `branch-cleanup` | cron/dispatch | `indri-build` | Delete stale branches |
-| `build-blumeops` | dispatch | `indri-build` | Changelog + docs build; the release job hard-fails (releases paused until #1628 step 9) |
+| `release` | push (main) | `indri-build` | Detect a version bump, build the docs tarball, and tag + publish via `eblume/release-kit` ([[update-documentation]]) |
 | `build-container` | push (main)/PR | `indri-build` → `nix-container-builder` | Nix container image builds; classify on the unprivileged runner, build on the nix builder ([[build-container-image]]) |
 | `deploy-fly` | dispatch | `priv` | Warrant-gated deploy of the Fly.io proxy ([[flyio-proxy]]) |
 | `docs-checks` | PR/push | `indri-build` | Docs + changelog validation |
@@ -147,16 +147,7 @@ name.
 The per-purpose secrets the retired Ansible role used to sync (argocd token, fly deploy
 token, zot CI key) are no longer Forgejo secrets: workflows
 `op read` the blumeops-ci items at job time with `BLUMEOPS_CI_OP_TOKEN` —
-see [[blumeops-ci-item-migration]]. The main-push PATs that used to be the
-exception in both directions — blumeops's release reading its own
-`blumeops-ci/forge-main-push/token` at job time, and hephaestus declaring
-the item's hephaestus-scoped `hephaestus-token` field as
-`MAIN_PUSH_TOKEN` — are both retired: the release PR carries changelog and
-docs_version to main itself ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628); blumeops's
-release job hard-fails until that flow lands at migration step 9).
-Hephaestus's side is fully done: its live secret was deleted and its
-`hephaestus-main-push-token` PAT revoked on 2026-10-15; blumeops's PAT
-stays pending until that migration lands.
+see [[blumeops-ci-item-migration]]. The main-push PATs that used to be the exception in both directions — blumeops's release reading its own `blumeops-ci/forge-main-push/token` at job time, and hephaestus declaring the item's hephaestus-scoped `hephaestus-token` field as `MAIN_PUSH_TOKEN` — are both retired: the release PR carries changelog and docs_version to main itself ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Both sides are fully done: hephaestus's live secret was deleted and its `hephaestus-main-push-token` PAT revoked on 2026-10-15, and blumeops's `blumeops-main-push-token` PAT was revoked on 2026-10-16 with the item's token fields removed.
 
 These secrets are injected as `${{ secrets.SECRET_NAME }}` in workflow files.
 

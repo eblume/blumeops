@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Repo hook for the shared release kit's cut-release (eblume/release-kit):
+# pin the indri docs role to the release being cut, so the next
+# `provision-indri --tags docs` serves that release's docs. Runs with
+# RELEASE_VERSION (vX.Y.Z) set by the cutter; edits the working tree only,
+# never commits.
+set -euo pipefail
+
+: "${RELEASE_VERSION:?cut-release hook requires RELEASE_VERSION}"
+file=ansible/roles/docs/defaults/main.yml
+tmp=$(mktemp)
+awk -v ver="${RELEASE_VERSION}" '/^docs_version:/ { print "docs_version: \"" ver "\""; next } { print }' "$file" > "$tmp"
+chmod --reference "$file" "$tmp"
+mv "$tmp" "$file"

@@ -9,3 +9,11 @@ self-hosted-runner:
     - indri-priv
     - indri-build
     - priv
+
+# Forgejo Actions accepts full-URL action refs (`uses: https://<instance>/<owner>/<repo>/<path>@<ref>`),
+# but actionlint only knows the `{owner}/{repo}@{ref}` forms, so it flags release.yaml's
+# cross-repo call into eblume/release-kit. Ignore exactly that message for that file.
+paths:
+  .forgejo/workflows/release.yaml:
+    ignore:
+      - '^specifying action "https://forge\.ops\.eblu\.me/eblume/release-kit/\.github/actions/publish-release@v0\.1\.1" in invalid format'
