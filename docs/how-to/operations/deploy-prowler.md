@@ -11,20 +11,7 @@ tags:
 
 # Deploy Prowler CIS Scanner
 
-Prowler runs a weekly CIS Kubernetes Benchmark scan against the ringtail k3s cluster (the `prowler-ringtail` app — prowler scans the cluster it runs in) and writes HTML/CSV/JSON-OCSF reports to the NFS share on sifaka.
-
-## Why only the K8s CIS scan
-
-Prowler originally ran three CronJobs: K8s CIS, container-image CVE scanning, and IaC scanning. The image and IaC scans were **retired in 2026-06**.
-
-Both were pure toil with no realized value:
-
-- **Image scan** produced ~20,000 unmuted findings per run and growing, none ever triaged or muted. They were overwhelmingly CVEs in *upstream* base images we don't control and can't patch, and the job re-scanned every historical tag still in the registry, multiplying the count.
-- **IaC scan** produced ~650 Trivy KSV findings (`runAsNonRoot`, `readOnlyRootFilesystem`, drop-capabilities, …) against our own manifests — real but systemic, homelab-acceptable, and likewise never muted, so the weekly review re-surfaced all of them indefinitely.
-
-The K8s CIS scan, by contrast, is mutelisted and runs effectively clean (20 long-standing unmuted FAILs accepted as a tripwire for new deltas, see *Kubernetes CIS benchmarks* below), so it stays. The guiding principle matches [[ai-scraper-mitigation]]: don't keep generating a firehose of output that has no audience. If image-CVE signal is wanted later, the right shape is critical-severity-only, currently-deployed-tags-only, alert-on-new — a rebuild, not a revival (tracked as the "Trivy for image/IaC scanning" task).
-
-The scan originally targeted minikube-indri; with [[retire-minikube]] (2026-06) prowler moved to ringtail and now scans k3s, where only the core, RBAC and kubelet categories produce results (no static control-plane pods). The mutelist was reworked for the k3s profile (2026-06), keeping only entries that match live k3s resources.
+Prowler runs a weekly CIS Kubernetes Benchmark scan against the ringtail k3s cluster (the `prowler-ringtail` app — prowler scans the cluster it runs in) and writes HTML/CSV/JSON-OCSF reports to the NFS share on sifaka. Only the K8s CIS scan runs — image-CVE and IaC scanning are out of scope; if image-CVE signal is wanted, the shape is critical-severity-only, currently-deployed-tags-only, alert-on-new (tracked as the "Trivy for image/IaC scanning" task).
 
 ## What it checks
 
@@ -44,7 +31,7 @@ Prowler's Kubernetes provider ships 93 checks in v5.39.1; the scan runs with `--
 
 **k3s reality:** k3s embeds the control plane in a single binary — no static control-plane pods exist — so only the core, RBAC and kubelet categories produce results. The node-level conditions the in-cluster scanner cannot fully evaluate (file permissions, kubelet config, etcd CA separation, cluster-admin bindings) are verified separately by `review-compliance-reports` over `ssh ringtail`.
 
-Its six MANUAL rows — the kubelet node-file ownership/permissions checks (kubelet.conf, config.yaml, service drop-in) — are files the scanner cannot read from a pod; they are muted because the node verifier covers them. Since the Prowler bump to v5.39.1 (2026-08-25) the steady-state report also carries 20 unmuted FAILs week over week — 19 RBAC rows (newer checks such as `rbac_minimize_secret_access`, plus built-in resources like `Group:system:masters` that the mutelist predates) and one seccomp row for the egress-gateway pod. Accepted as-is: the scan runs as a tripwire for new deltas, no action is taken on those rows. Consider `kube-bench` for a deeper k3s control-plane check.
+The mutelist carries only entries that match live k3s resources. Its six MANUAL rows — the kubelet node-file ownership/permissions checks (kubelet.conf, config.yaml, service drop-in) — are files the scanner cannot read from a pod; the node verifier covers them, so they are muted. The steady-state report also carries 20 unmuted FAILs week over week — 19 RBAC rows (newer checks such as `rbac_minimize_secret_access`, plus built-in resources like `Group:system:masters` that the mutelist predates) and one seccomp row for the egress-gateway pod. Accepted as-is: the scan runs as a tripwire for new deltas, no action is taken on those rows. Consider `kube-bench` for a deeper k3s control-plane check.
 
 ## Reports
 
@@ -65,13 +52,11 @@ kubectl logs -f job/prowler-manual -n prowler --context=k3s-ringtail
 ## Container
 
 Nix build at `containers/prowler/default.nix` — wraps nixpkgs' `prowler`
-(currently 5.39.1, re-bumped from 5.12.3 by service-review 2026-08-25) plus
-`python3`/`pyyaml` for the mutelist-merge initContainer. The build host's
-nixos-26.05 `nixpkgs` is frozen at prowler 5.12.3, so the file self-pins a
-`nixos-unstable` rev that carries 5.39.1, and a version assertion makes any
-nixpkgs move that changes the bundled prowler fail the build — service-review
-then re-bumps the pin. The earlier Dockerfile build's bundled Trivy and
-non-Kubernetes providers were dropped. See [[build-container-image]] for the
+(5.39.1) plus `python3`/`pyyaml` for the mutelist-merge initContainer. The
+build host's nixos-26.05 `nixpkgs` pins prowler 5.12.3, so the file
+self-pins a `nixos-unstable` rev carrying 5.39.1 instead; a version
+assertion fails the build if a nixpkgs move changes the bundled prowler,
+and service-review re-bumps the pin. See [[build-container-image]] for the
 build/release process.
 
 Source is mirrored at `forge.ops.eblu.me/mirrors/prowler`.
