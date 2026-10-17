@@ -1,7 +1,7 @@
 ---
 title: Configure the launchd Forgejo Runner on indri
-modified: 2026-10-16
-last-reviewed: 2026-10-16
+modified: 2026-10-17
+last-reviewed: 2026-10-17
 tags:
   - how-to
   - forgejo-runner
@@ -11,12 +11,12 @@ tags:
 # Configure the launchd Forgejo Runner on indri
 
 Run the Forgejo Actions runner as a native macOS LaunchAgent on
-[[indri]] — the main runner's LaunchAgent, `config.yaml` and the cache
-maintenance agents are owned by the [[indri]] flake's generation
-(eblume/blumeops#1528); the `forgejo_runner` ansible role holds only
-the build runner's config and colima profile until eblume/blumeops#1627.
-Jobs run
-directly on the host with indri's mise toolchain (host-mode); Docker
+[[indri]] — both runners' units, both `config.yaml`s, the cache
+maintenance agents and the build runner's colima profile are owned by
+the [[indri]] flake's generation (eblume/blumeops#1528 for the main
+runner, eblume/blumeops#1627 for the build runner's config and colima
+profile). Jobs run directly on the host with indri's mise toolchain
+(host-mode); Docker
 Desktop stays only as the dagger engine host (the runner keeps dagger for the hephaestus/cv CI it hosts). This replaced the
 minikube-hosted runner as phase 0 of [[retire-minikube]], so source
 builds no longer compete with the LGTM stack inside the minikube VM;
@@ -26,9 +26,7 @@ phase 6 then dropped the per-job container entirely.
 
 - **Daemon:** the nixpkgs `forgejo-runner` binary (13.1.0, the [[indri]]
   flake's nixpkgs pin) runs as the nix-managed LaunchAgent
-  `mcquack.eblume.forgejo-runner` (same pattern as [[forgejo]]); the
-  source checkout at `~/code/3rd/forgejo-runner` is the build
-  runner's rollback re-write staging source only.
+  `mcquack.eblume.forgejo-runner` (same pattern as [[forgejo]]).
 - **Jobs:** run directly on the host as `erichblume` with indri's
   mise toolchain (labels are registered `:host`) — no per-job
   container and no `runner-job-image` (phase 6), and no container
@@ -60,9 +58,7 @@ unit is the flake's
 `launchd.user.agents."mcquack.eblume.forgejo-runner"`. Version bumps are
 flake PRs applied through the usual `mise run provision-indri --
 --tags rebuild`; activation swaps the plist in place and restarts the
-agent. The source checkout at `~/code/3rd/forgejo-runner` stays on disk
-only as the build runner's rollback re-write staging source (see
-[[provision]] §Rolling back a service flip).
+agent.
 
 ### 2. Register the runner identity
 
@@ -86,27 +82,22 @@ into the runner config (mode 0600) — see eblume/blumeops#1528.
 ### 3. Provision
 
 ```fish
-mise run provision-indri -- --tags forgejo_runner
+mise run provision-indri -- --tags rebuild
 ```
 
-This tag drives only the indri-build half: it renders the build
-runner's config and installs the colima profile. The main runner's
-`config.yaml` and the cache agents are generation-owned — they apply
-with `mise run provision-indri -- --tags rebuild`, which is the step
-that renders the config from the identity files and
-`forge/runners.json` after `mise run seed-secrets indri` seats them.
-
-When this tag runs and the colima profile (hardware or registry
-mirror) changed, the `Restart colima-build VM` handler stops the VM
-and its launchd wrapper restarts it with the new profile; jobs
-running at that moment lose their engine. colima rewrites the live
-profile with its own full default form on start, so the role compares
-the new render against a copy of the last render it installed, kept
-in the stage dir - a hand edit to the live profile is not detected
-(nothing relies on it). The copy does not exist until the first
-install, so the first apply after this change installs the profile
-and restarts the VM once; every apply after that is a no-op on a
-converged box.
+The nix switch renders `config.yaml` from the identity files and
+`forge/runners.json` (and deploys the build runner's user and
+daemons). The same apply installs the build runner's colima profile
+when it changed: postActivation `colima stop`s the VM and its launchd
+wrapper restarts it with the new profile, so jobs running at that
+moment lose their engine. colima rewrites the live profile with its
+own full default form on start, so the generation compares the new
+render against a copy of the last render it installed, kept at
+`/usr/local/etc/forgejo-runner-build/colima.yaml.applied` - a hand
+edit to the live profile is not detected (nothing relies on it). The
+copy does not exist until the first install, so the first apply after
+this change installs the profile and stops the VM once; every apply
+after that is a no-op on a converged box.
 
 The main side has no ansible drift check left — its pre-apply check
 is the Indri Flake Check: the CI workflow
@@ -122,9 +113,9 @@ The second runner (label `indri-build`, eblume/blumeops#1357) is a
 dedicated macOS user (no sudo, home 0700) whose jobs reach containers
 through a colima VM. The user, the system launchd daemons
 (`mcquack.eblume.colima-build` + `mcquack.eblume.forgejo-runner-build`),
-the build user's mise config and the home dir layout are nix-managed; the
-runner config (gated on registration) and the colima profile are
-role-rendered.
+the build user's mise config, the home dir layout, the runner config
+(gated on registration) and the colima profile are all nix-managed
+(eblume/blumeops#1627).
 
 0. **One-time host prerequisites**:
    - `brew install docker` on indri. The colima package ships no docker
@@ -158,12 +149,13 @@ role-rendered.
 
    Job tool resolution uses the shared zero-scope `forge-ci-github-pat`
    (see [[manage-forgejo-mirrors]]); there is no separate build-runner PAT.
-3. Render the config with `mise run provision-indri -- --tags
-   forgejo_runner`. The playbook `pre_tasks` fetch the fields and the role
-   renders the configs and kickstarts the runner daemon. The warrant
-   `provision-indri` dispatch is `--tags rebuild` only (the nix switch), so
-   it deploys the user and daemons but not the role-rendered config; this
-   step is what activates the runner.
+3. Seat the identity files with `mise run seed-secrets indri`, then
+   apply the generation with `mise run provision-indri -- --tags
+   rebuild`. Its postActivation renders the config from the identity
+   files and `forge/runners.json`, installs the colima profile, and
+   kickstarts the runner daemon on change. Until the seed, nothing is
+   rendered (the registration gate) and the daemons idle in their wait
+   loops.
 
 ## Verification
 

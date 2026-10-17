@@ -39,6 +39,11 @@ let
   # sweep's 240-minute age.
   indriRunner = let entry = lib.findFirst (r: r.name == "indri-runner") null forgejoRunners; in
     if entry == null then throw "forge/runners.json: no runner named indri-runner - the main runner config render needs its entry" else entry;
+  # The build runner's entry: the postActivation config render below reads
+  # its labels and capacity from the declaration, like the main runner. The
+  # 3h job timeout again stays a nix literal (the sweep's age threshold).
+  indriBuildRunner = let entry = lib.findFirst (r: r.name == "indri-build") null forgejoRunners; in
+    if entry == null then throw "forge/runners.json: no runner named indri-build - the build runner config render needs its entry" else entry;
   # ntfy topics (eblume/blumeops#1611): the rebuild watcher's topic comes from
   # the declaration, validated by ntfy/topics.nix; the read is relative to
   # this flake root, the same /etc/blumeops checkout constraint as
@@ -68,6 +73,12 @@ let
   # flake: that flake hard-codes buildGo123Module, which cannot build current
   # colima releases (go.mod requires go >= 1.25).
   colimaBuild = pkgs.colima;
+  # The build runner's colima profile (eblume/blumeops#1627): static - no
+  # identity in it - so a checked-in file. postActivation installs it as
+  # indri-build, drift-checked against a .applied baseline (see there), and
+  # its colima stop leg uses the colimaBuild path above instead of the live
+  # plist the ansible role had to parse.
+  colimaBuildProfile = pkgs.writeText "colima-indri-build.yaml" (builtins.readFile ./colima-indri-build.yaml);
   # The docker CLI (client only, no daemon or VM). nixpkgs colima ships none,
   # yet `colima start` with runtime docker refuses a cold start without one on
   # PATH. It came from Docker Desktop's /usr/local/bin symlinks until that app
@@ -75,8 +86,9 @@ let
   # resize restarted it and every indri-build job queued.
   dockerClient = pkgs.docker-client;
   # The runner daemon's waiter: the pinned nix-darwin has no WaitForPaths
-  # option, so the wait lives here. It idles until the role renders the runner
-  # config (a human registers the runner first, so it is absent until then)
+  # option, so the wait lives here. It idles until the generation renders the
+  # runner config in postActivation (a human registers the runner first, so it
+  # is absent until then)
   # AND colima exposes the docker socket - so pre-registration the daemon is
   # loaded but does nothing, and a fresh-boot empty VM disk (first start takes
   # minutes) merely delays the first job. Both correct, not faults.
@@ -427,6 +439,7 @@ MCQUACK_NIX_WAIT_SYSTEM
       # a planted symlink.
       sudo -u indri-build mkdir -p /Users/indri-build/Library/Logs \
                                    /Users/indri-build/forgejo-runner \
+                                   /Users/indri-build/forgejo-runner/identity \
                                    /Users/indri-build/.colima/indri-build &&
       sudo -u indri-build chown -R indri-build:indri-build \
                              /Users/indri-build/Library/Logs \
@@ -550,6 +563,194 @@ CFG
         [[ -r "$runner_identity/$f" && -s "$runner_identity/$f" ]] || missing="$missing $f"
       done
       printf 'warning: forgejo-runner identity incomplete (missing or empty:%s) - keeping the existing %s and not restarting the runner; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "$missing" "$runner_config" >&2
+    fi
+
+    # Build forgejo runner config (eblume/blumeops#1627): labels and
+    # capacity from forge/runners.json (via the indriBuildRunner binding),
+    # identity from the files `mise run seed-secrets indri` seats under the
+    # identity dir and declares in darwin/indri/secrets.json. Unlike the
+    # main runner there is no checks-slot hard fail: the build runner is
+    # optional, and pre-registration renders nothing and restarts nothing -
+    # the daemons' wait loops idle until the files exist.
+    build_home=/Users/indri-build/forgejo-runner
+    build_identity="$build_home/identity"
+    build_config="$build_home/config.yaml"
+    build_uuid=
+    build_token=
+    build_pat=
+    if [[ -r "$build_identity/uuid" && -r "$build_identity/token" && -r "$build_identity/mise-github-token" ]]; then
+      build_uuid=$(cat "$build_identity/uuid")
+      build_token=$(cat "$build_identity/token")
+      build_pat=$(cat "$build_identity/mise-github-token")
+    fi
+    # Root-owned staging dir outside the home, shared by the config render
+    # below and the colima .applied baseline; it exists only once the
+    # runner has at least a uuid (the gate the colima tasks had). The
+    # config write into the attacker-controlled home still happens as
+    # indri-build (install unlinks and recreates, so a planted symlink
+    # cannot redirect it) - the same split the ansible role had.
+    if [[ -r "$build_identity/uuid" && -s "$build_identity/uuid" ]]; then
+      mkdir -p /usr/local/etc/forgejo-runner-build &&
+      chown root:indri-build /usr/local/etc/forgejo-runner-build &&
+      chmod 0750 /usr/local/etc/forgejo-runner-build
+    fi
+    if [[ -n "$build_uuid" && -n "$build_token" && -n "$build_pat" ]]; then
+      tmp=$(mktemp /usr/local/etc/forgejo-runner-build/.config.yaml.XXXXXX) &&
+      cat > "$tmp" <<CFG
+# Generated by the indri nix-darwin generation (postActivation) - do not
+# edit by hand. Identity: the files under /Users/indri-build/forgejo-runner/
+# identity/ (seated by seed-secrets, declared in darwin/indri/secrets.json);
+# labels and capacity: forge/runners.json. eblume/blumeops#1627.
+#
+# Second, unprivileged runner: jobs run as the dedicated indri-build macOS
+# user (no sudo) and reach containers through the colima VM at
+# ~indri-build/.colima/indri-build/docker.sock. Tool resolution uses
+# indri-build's own mise config with the shared zero-permission
+# forge-ci-github-pat.
+log:
+  level: info
+
+runner:
+  capacity: ${toString indriBuildRunner.capacity}
+  timeout: 3h
+  shutdown_timeout: 3h
+  # Env vars injected into all jobs
+  envs:
+    TZ: America/Los_Angeles
+    # Zero-permission GitHub PAT (public read only) for the build runner's
+    # own mise resolution - same value and rule as the main runner's.
+    MISE_GITHUB_TOKEN: $build_pat
+
+server:
+  connections:
+    forgejo:
+      url: https://forge.ops.eblu.me/
+      uuid: $build_uuid
+      token: $build_token
+      labels:
+${lib.concatMapStringsSep "\n" (l: "        - ${l}:host") indriBuildRunner.labels}
+CFG
+      chown root:indri-build "$tmp" &&
+      chmod 0640 "$tmp"
+      if cmp -s "$tmp" "$build_config"; then
+        rm -f "$tmp"
+      else
+        sudo -u indri-build /bin/sh -c 'cd / && /usr/bin/install -m 0600 "$1" "$2"' _ "$tmp" "$build_config" &&
+        rm -f "$tmp"
+        state=
+        if launchctl kickstart -k system/mcquack.eblume.forgejo-runner-build 2> /dev/null; then
+          for _ in 1 2 3 4 5; do
+            state=$(launchctl print system/mcquack.eblume.forgejo-runner-build 2> /dev/null | sed -n 's/^[[:space:]]*state = //p' | head -n1 || true)
+            case "$state" in
+              "" | waiting | "spawn scheduled") sleep 1 ;;
+              *) break ;;
+            esac
+          done
+          case "$state" in
+            running | "spawn scheduled")
+              :
+            ;;
+            "")
+              printf 'warning: forgejo-runner-build kickstarted but launchctl print shows no state - the label may not be loaded in the system domain\n' >&2
+            ;;
+            *)
+              printf 'warning: forgejo-runner-build kickstarted but reports state %q - check /Users/indri-build/Library/Logs/mcquack.forgejo-runner-build.err.log\n' "$state" >&2
+            ;;
+          esac
+        else
+          printf 'warning: forgejo-runner-build config installed but kickstart failed - the system-domain label is not loaded; the runner keeps its current values until its next (re)load\n' >&2
+        fi
+      fi
+      # Re-assert owner and mode unconditionally: the install only sees
+      # content, so a hand edit of mode or owner would otherwise persist
+      # across every cmp-equal apply.
+      sudo -u indri-build chown indri-build:indri-build "$build_config" &&
+      sudo -u indri-build chmod 0600 "$build_config"
+    else
+      missing=
+      for f in uuid token mise-github-token; do
+        [[ -r "$build_identity/$f" && -s "$build_identity/$f" ]] || missing="$missing $f"
+      done
+      printf 'warning: forgejo-runner-build identity incomplete (missing or empty:%s) - keeping the existing %s and not restarting the runner; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "$missing" "$build_config" >&2
+    fi
+
+    # Build runner colima profile (eblume/blumeops#1627): the static file
+    # above is installed twice as indri-build - the colima template (fresh
+    # instances, including a rebuilt VM) and the profile dir (existing
+    # instances), because colima seeds a new instance from the template but
+    # reads the profile dir for an existing one. colima rewrites the live
+    # profile with its own defaulted keys on every start
+    # (eblume/blumeops#1522), so drift is measured against the last render
+    # this generation installed (the .applied baseline, kept where the
+    # ansible role kept it), not the live file; baseline absence counts as
+    # drift. Gated on the uuid identity file like the role's tasks were:
+    # pre-registration the profile is absent and the colima-build daemon
+    # idles in its wait loop.
+    if [[ -r "$build_identity/uuid" && -s "$build_identity/uuid" ]]; then
+      colima_applied=/usr/local/etc/forgejo-runner-build/colima.yaml.applied
+      if ! cmp -s "${colimaBuildProfile}" "$colima_applied" 2> /dev/null; then
+        sudo -u indri-build /bin/sh -c 'cd / && for _p in "$1" "$2"; do mkdir -p "$(dirname "$_p")"; done && /usr/bin/install -m 0600 "$0" "$1" && /usr/bin/install -m 0600 "$0" "$2"' \
+          "${colimaBuildProfile}" \
+          /Users/indri-build/.colima/_templates/default.yaml \
+          /Users/indri-build/.colima/indri-build/colima.yaml
+        # cpu/memory/mounts apply only when the VM boots, so stop it: the
+        # colima-build daemon's wrapper exits when the VM stops and
+        # KeepAlive re-runs colima start, which reads the new profile. The
+        # colima binary is the nixpkgs one the daemon runs - the generation
+        # knows its own store path, which the ansible role had to read back
+        # from the live plist. A not-yet-running VM makes stop a no-op.
+        if sudo -n -H -u indri-build /usr/bin/env -u SSH_AUTH_SOCK PATH="${colimaBuild}/bin:/usr/bin:/bin:/usr/sbin:/sbin" colima stop --profile indri-build; then
+          install -m 0640 "${colimaBuildProfile}" "$colima_applied" &&
+          chown root:indri-build "$colima_applied" &&
+          chmod 0640 "$colima_applied"
+        else
+          # Without a recorded baseline the next switch retries the stop:
+          # the profile is installed but the VM keeps the old settings
+          # until it next boots.
+          printf 'warning: colima stop --profile indri-build failed - the VM keeps the previous profile; the .applied baseline is not recorded, so the next switch retries\n' >&2
+        fi
+      fi
+    fi
+
+    # Build runner docker client config repair (eblume/blumeops#1382): the
+    # dagger CLI runs as indri-build on the host and re-reads this file for
+    # every registry-credential lookup, execing the configured credential
+    # helper on the host - a Docker-Desktop-era helper reference (the
+    # helper no longer exists) breaks every uncached image pull. The
+    # repair strips the helper keys and keeps the rest (runtime auths are
+    # legitimate); the next dagger run picks it up without a VM restart.
+    # The file can carry registry credentials, so it is never printed.
+    if [[ -r "$build_identity/uuid" && -s "$build_identity/uuid" ]]; then
+      if sudo -n -H -u indri-build /bin/sh -c '
+        f="$1"
+        cd /
+        test -f "$f" || exit 1
+        ${pkgs.python3}/bin/python3 - "$f" << "PY"
+import json, os, sys, tempfile
+
+p = sys.argv[1]
+try:
+    with open(p) as fh:
+        cfg = json.load(fh)
+    assert isinstance(cfg, dict)
+except Exception:
+    sys.exit(2)
+if "credsStore" not in cfg and "credHelpers" not in cfg:
+    sys.exit(0)
+for k in ("credsStore", "credHelpers"):
+    if k in cfg:
+        del cfg[k]
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(p))
+with os.fdopen(fd, "w") as fh:
+    json.dump(cfg, fh, indent=4)
+    fh.write("\n")
+os.replace(tmp, p)
+PY
+        ' _ /Users/indri-build/.docker/config.json; then
+        :
+      else
+        printf 'warning: could not inspect or repair the build runner docker config (absent, unreadable, or malformed) - the role used to fail the provision here\n' >&2
+      fi
     fi
   '';
 

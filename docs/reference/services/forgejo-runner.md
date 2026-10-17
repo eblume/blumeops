@@ -1,7 +1,7 @@
 ---
 title: Forgejo Runner
-modified: 2026-10-16
-last-reviewed: 2026-10-16
+modified: 2026-10-17
+last-reviewed: 2026-10-17
 tags:
   - service
   - ci-cd
@@ -10,14 +10,12 @@ tags:
 # Forgejo Runner
 
 Forgejo Actions runner daemon for CI/CD job execution. Runs as a
-native macOS LaunchAgent on [[indri]] — the unit, the main
-runner's `config.yaml` and the cache maintenance agents are
-nix-managed (the [[indri]] flake's generation, eblume/blumeops#1528),
-and the `forgejo_runner` ansible role renders only the build
-runner's config and colima profile (eblume/blumeops#1627); jobs
-run
-host-mode with no container engine. (Previously
-a minikube pod with a Docker-in-Docker sidecar — replaced in phase 0 of
+native macOS LaunchAgent on [[indri]] — the units, both runners'
+`config.yaml` and the cache maintenance agents are nix-managed (the
+[[indri]] flake's generation, eblume/blumeops#1528 for the main
+runner, eblume/blumeops#1627 for the build runner's config and colima
+profile); jobs run host-mode with no container engine. (Previously a
+minikube pod with a Docker-in-Docker sidecar — replaced in phase 0 of
 [[retire-minikube]].)
 
 ## Quick Reference
@@ -25,13 +23,12 @@ a minikube pod with a Docker-in-Docker sidecar — replaced in phase 0 of
 | Property | Value |
 |----------|-------|
 | **LaunchAgent** | `mcquack.eblume.forgejo-runner` (unit nix-managed — [[indri]] §Maintenance Notes) |
-| **Ansible role** | `ansible/roles/forgejo_runner/` (build runner's config and colima profile; eblume/blumeops#1627) |
 | **Runner Name** | `indri-runner` |
 | **Labels** | `indri` + `indri-priv` (dedicated to warrant-dispatched provision-indri; same physical runner) |
 | **Capacity** | 2 concurrent jobs |
 | **Timeout** | 3h |
 | **Forgejo Instance** | https://forge.ops.eblu.me |
-| **Binary** | nixpkgs package (13.1.0, the [[indri]] flake's nixpkgs pin); the source checkout at `~/code/3rd/forgejo-runner` is the build runner's rollback re-write's target |
+| **Binary** | nixpkgs package (13.1.0, the [[indri]] flake's nixpkgs pin) |
 | **Config** | `~/forgejo-runner/config.yaml` (indri) |
 | **Logs** | `~/Library/Logs/mcquack.forgejo-runner.{out,err}.log` → Loki via [[alloy]] |
 | **Cache maintenance** | Nightly sweep at 5:30 AM; monthly prune day 1 at 3:30 AM |
@@ -45,16 +42,19 @@ registry mirror for docker.io pulls lives in the indri-build colima
 profile's `docker:` block (`host.lima.internal:5050`), where the pulls
 now happen.
 
-The main runner's `config.yaml` (including the runner token, labels and
-the forge-ci GitHub PAT) is rendered by the [[indri]] flake's generation
+Both runners' `config.yaml` (including the runner token, labels and the
+forge-ci GitHub PAT) are rendered by the [[indri]] flake's generation
 from `forge/runners.json` plus the seed-secrets identity files, and a
-content change kickstarts the agent (eblume/blumeops#1528) — so label,
-capacity and identity changes apply with `--tags rebuild`. Only the
-`indri-build` runner's config and colima profile (until
-eblume/blumeops#1627) stay managed by the `forgejo_runner` ansible role;
-the LaunchAgent unit is nix-managed
-(`launchd.user.agents."mcquack.eblume.forgejo-runner"` in the [[indri]]
-flake) and runs the nixpkgs `forgejo-runner` binary.
+content change kickstarts the unit (eblume/blumeops#1528 for the main
+runner, eblume/blumeops#1627 for the build runner) — so label, capacity
+and identity changes apply with `--tags rebuild`. The build runner's
+colima profile is installed by the same generation from
+`darwin/indri/colima-indri-build.yaml` (drift-checked against a
+`.applied` baseline, `colima stop` on change). The units are nix-managed
+(`launchd.user.agents."mcquack.eblume.forgejo-runner"` for the main
+runner, `launchd.daemons."mcquack.eblume.forgejo-runner-build"` for the
+build runner, in the [[indri]] flake) and run the nixpkgs
+`forgejo-runner` binary.
 
 There are also four sandboxed NixOS runner services on [[ringtail]]
 (`services.gitea-actions-runner` in `nixos/ringtail/configuration.nix`),
@@ -93,11 +93,11 @@ isolation.
 | **User** | `indri-build` (uid 503, own primary group, no sudo, home 0700) |
 | **Runner name** | `indri-build` |
 | **Label** | `indri-build` (host-mode) |
-| **Capacity** | 4 concurrent jobs (`forgejo_runner_build_capacity`) |
+| **Capacity** | 4 concurrent jobs (the `indri-build` entry in `forge/runners.json`) |
 | **Daemons** | `mcquack.eblume.colima-build` + `mcquack.eblume.forgejo-runner-build` (system launchd domain, nix-managed) |
 | **Engine** | colima (nixpkgs `colima`, v0.10.1 at the 26.05 pin), profile `~indri-build/.colima/indri-build/` |
 | **Socket** | `~indri-build/.colima/indri-build/docker.sock` (mode 0660, owned by `indri-build` - not world-reachable, not under /Users/Shared) |
-| **Config** | `/Users/indri-build/forgejo-runner/config.yaml` (role-rendered, gated on registration) |
+| **Config** | `/Users/indri-build/forgejo-runner/config.yaml` (generation-rendered from the seed-secrets identity files, gated on registration) |
 | **Logs** | `~indri-build/Library/Logs/mcquack.colima-build.{out,err}.log`, `mcquack.forgejo-runner-build.{out,err}.log` |
 
 ### Isolation
@@ -111,8 +111,9 @@ isolation.
   (`/Users/indri-build` only) is the container boundary - a job step cannot
   `-v` another user's home into a container - and the socket is mode 0660
   rather than world-reachable. The `colima.yaml` itself lives in the build
-  user's home, so it is not an isolation control: jobs can rewrite it; what
-  is controlled is the VM's mounts and the socket's reach.
+  user's home (installed there by the generation), so it is not an
+  isolation control: jobs can rewrite it; what is controlled is the VM's
+  mounts and the socket's reach.
 
 ### Toolchain
 
@@ -224,12 +225,16 @@ change kickstarts the agent. Rotation = re-register (see
 [[configure-launchd-runner]]) → update the "Forgejo Secrets"
 1Password item → `mise run seed-secrets indri` (re-seat + kick the
 agent) → the next `--tags rebuild` apply re-renders the config. The
-`indri-build` runner still works the old way — playbook `pre_tasks`
-fetches its values via `op` (`op item get` for the identity fields,
-`op read` for the PAT) and the role renders its config at provision
-time — until eblume/blumeops#1627. The table lists the main runner's
-fields; the build runner's identity is `runner_indri_build_uuid` /
-`runner_indri_build_token` in the same item, and it shares the PAT.
+`indri-build` runner's three values are declared in
+`darwin/indri/secrets.json` the same way (its identity is
+`runner_indri_build_uuid` / `runner_indri_build_token` in the same item,
+and it shares the PAT) and seated as identity files under
+`/Users/indri-build/forgejo-runner/identity/` by `mise run seed-secrets
+indri` (eblume/blumeops#1627). Those entries declare no restart unit —
+the build runner's daemon is in the system launchd domain, which
+seed-secrets' Darwin restart leg cannot kick — so the generation's
+postActivation render and its kickstart cover re-seeds at the next
+`--tags rebuild` apply.
 
 The GitHub PAT exists because Forgejo injects `GITHUB_TOKEN` (a *forge*
 job token) into every job, and mise honours that name for

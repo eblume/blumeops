@@ -10,8 +10,10 @@
 #
 # WaitForPaths (a real boot guard in the daemon domain) is not expressible in
 # the pinned nix-darwin's serviceConfig options, so the wait for the colima
-# profile (rendered by the forgejo_runner role after the human registers the
-# runner) is emulated here: idle until it exists. /nix itself needs no wait:
+# profile (rendered by the flake's postActivation from darwin/indri/
+# colima-indri-build.yaml after the human registers the runner,
+# eblume/blumeops#1627) is emulated here: idle until it exists. /nix itself
+# needs no wait:
 # the unit's argv0 is the non-/nix mcquack.nix-wait wrapper (eblume/blumeops#1225),
 # which blocks until the store mounts and execs this script.
 
