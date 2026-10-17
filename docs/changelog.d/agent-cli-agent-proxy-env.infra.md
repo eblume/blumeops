@@ -1,0 +1,1 @@
+The talos deployment sets TALOS_HUMAN_PROXY_PRINCIPALS="cli-agent", so the cli-agent principal's issue/PR input is accepted by talos as human input equivalent to eblume's (eblume/blumeops#1583; the trusted-actor gate code is eblume/talos#350, deployed via the v0.4.223 pin PR #1710).
