@@ -255,27 +255,32 @@ class LiveUser:
     name: str
     user_type: str | None
     is_active: bool
+    is_superuser: bool
     groups: list[str]
 
 
 @dataclass(frozen=True)
 class LiveGroup:
     pk: int
+    uuid: str
     name: str
     bindings: tuple[tuple[str, int], ...]
 
 
-def paginate(client: httpx.Client, path: str) -> list[dict]:
+def paginate(client: httpx.Client, path: str, **params: str) -> list[dict]:
     out: list[dict] = []
-    url = path
-    params = {"page_size": 200}
-    while url:
-        r = client.get(url, params=params)
+    page = 1
+    while True:
+        r = client.get(path, params={**params, "page": str(page), "page_size": "200"})
         r.raise_for_status()
         body = r.json()
         out.extend(body.get("results") or [])
-        url, params = body.get("next"), {}
-    return out
+        # authentik's pagination is not DRF's: `next` is a page number inside a
+        # `pagination` object, 0 on the last page (authentik/api/pagination.py).
+        nxt = (body.get("pagination") or {}).get("next") or 0
+        if not isinstance(nxt, int) or nxt <= page:
+            return out
+        page = nxt
 
 
 def live_users(client: httpx.Client) -> list[LiveUser]:
@@ -286,18 +291,22 @@ def live_users(client: httpx.Client) -> list[LiveUser]:
             name=u.get("name") or "",
             user_type=u.get("type"),
             is_active=bool(u.get("is_active")),
-            groups=sorted(u.get("groups") or []),
+            is_superuser=bool(u.get("is_superuser")),
+            # `groups` is a pk/uuid list; `groups_obj` carries the names.
+            groups=sorted(g["name"] for g in u.get("groups_obj") or []),
         )
-        for u in paginate(client, "/api/v3/core/user/")
+        # include_groups defaults to true; say it so a default change can't
+        # silently make every user look groupless.
+        for u in paginate(client, "/api/v3/core/users/", include_groups="true")
     ]
 
 
 def live_groups(client: httpx.Client) -> list[LiveGroup]:
     groups = [
-        LiveGroup(pk=g["pk"], name=g["name"], bindings=())
-        for g in paginate(client, "/api/v3/core/group/")
+        LiveGroup(pk=g["pk"], uuid=g["uuid"], name=g["name"], bindings=())
+        for g in paginate(client, "/api/v3/core/groups/")
     ]
-    for b in paginate(client, "/api/v3/policies/binding/"):
+    for b in paginate(client, "/api/v3/policies/bindings/"):
         target = (b.get("target") or {}).get("name")
         group = (b.get("group") or {}).get("name")
         order = b.get("order")
@@ -321,7 +330,7 @@ class GrafanaUser:
 
 
 def authentik_client(token: str) -> httpx.Client:
-    return httpx.Client(base_url=AUTHENTIK_URL, headers={"Authorization": f"Token {token}"}, timeout=30)
+    return httpx.Client(base_url=AUTHENTIK_URL, headers={"Authorization": f"Bearer {token}"}, timeout=30)
 
 
 def grafana_client(url: str, password: str) -> httpx.Client:
@@ -387,17 +396,19 @@ def run_list(check: bool) -> int:
     section("Live users vs roster")
     unknown_users = 0
     active_queued = 0
+    mismatched = 0
     for u in users:
         if u.username in roster_users:
-            p = roster_users[u.username]
+            rp = roster_users[u.username]
             problems = []
-            if p.user_type != u.user_type:
-                problems.append(f"type {u.user_type!r} != roster {p.user_type!r}")
+            if rp.user_type != u.user_type:
+                problems.append(f"type {u.user_type!r} != roster {rp.user_type!r}")
             if not u.is_active:
                 problems.append("inactive (roster is active)")
-            if u.groups != sorted(p.groups):
-                problems.append(f"groups {u.groups} != roster {sorted(p.groups)}")
+            if u.groups != sorted(rp.groups):
+                problems.append(f"groups {u.groups} != roster {sorted(rp.groups)}")
             if problems:
+                mismatched += 1
                 warn(f"{u.username}: " + "; ".join(problems))
             else:
                 note(f"[cyan]{u.username}[/cyan] — ok")
@@ -417,6 +428,13 @@ def run_list(check: bool) -> int:
                 note(
                     f"[magenta]{u.username}[/magenta] — queued ({r.issue}); awaiting delete"
                 )
+        elif u.is_superuser:
+            # The default admin (akadmin) is a break-glass account authentik
+            # creates itself; the blueprint deliberately never manages it, so
+            # it is expected here, not an unclassified straggler.
+            note(
+                f"[cyan]{u.username}[/cyan] — superuser (break-glass admin, not blueprint-managed)"
+            )
         else:
             unknown_users += 1
             fail(
@@ -424,10 +442,16 @@ def run_list(check: bool) -> int:
             )
 
     section("Roster / queue principals absent from live")
+    missing_roster = 0
     for name in sorted(set(roster_users) | set(queue_by_user)):
         if all(u.username != name for u in users):
-            where = "roster" if name in roster_users else "queue"
-            fail(f"{name}: declared in the {where} but absent from live Authentik")
+            if name in roster_users:
+                # Queue-side absence is expected: the delete flow has an
+                # "already gone" branch for it.
+                missing_roster += 1
+                fail(f"{name}: declared in the roster but absent from live Authentik (blueprint not applied?)")
+            else:
+                note(f"{name}: declared in the queue and already absent from live — nothing to delete")
 
     section("Live groups vs roster")
     unknown_groups = 0
@@ -439,8 +463,8 @@ def run_list(check: bool) -> int:
             fail(f"{g.name}: UNLISTED group (pk {g.pk}, bindings={sorted(g.bindings)})")
 
     console.print()
-    total = unknown_users + unknown_groups
-    if total:
+    total = unknown_users + unknown_groups + mismatched + missing_roster
+    if unknown_users or unknown_groups:
         console.print(
             f"[red]{unknown_users} unlisted user(s), {unknown_groups} unlisted group(s).[/red]"
         )
@@ -460,17 +484,24 @@ def run_list(check: bool) -> int:
 # --- delete mode -----------------------------------------------------------------------
 
 
-def is_zot_identity(user: LiveUser, entry: Retiring, groups: list[RosterGroup]) -> bool:
+def zot_group_names(group_list: list[LiveGroup]) -> set[str]:
+    """Groups that carry a live binding onto the zot app — read from the live
+    bindings, not the roster: the retire PR has already deleted the zot
+    groups from principals.yaml by the time this runs. The live target is the
+    application name `zot-app`, not the roster slug `zot`."""
+    return {
+        g.name
+        for g in group_list
+        if any(app in ("zot", "zot-app") for app, _ in g.bindings)
+    }
+
+
+def is_zot_identity(user: LiveUser, entry: Retiring, zot_groups: set[str]) -> bool:
     """A zot identity carried zot access — directly or through one of its groups."""
     group_names = set(user.groups)
     if entry.group is not None:
         group_names.add(entry.group)
-    by_name = {g.name: g for g in groups}
-    return any(
-        any(a.app == "zot" for a in by_name[name].access)
-        for name in group_names
-        if name in by_name
-    )
+    return bool(group_names & zot_groups)
 
 
 def grafana_sweep(login: str, url: str, password: str | None, apply: bool) -> None:
@@ -504,18 +535,144 @@ def grafana_sweep(login: str, url: str, password: str | None, apply: bool) -> No
 
 
 def run_delete(apply: bool, skip_grafana: bool, grafana_url: str) -> int:
-    groups, _principals, queue, errors = load_rosters(repo_root())
+    """Two passes: validate every queue entry against live state first, then
+    apply. A destructive run never half-applies — if one entry is refused
+    (the zot key gate, or live state that does not match the queue), nothing
+    is deleted and the run exits 1."""
+    _groups, _principals, queue, errors = load_rosters(repo_root())
     if errors:
         for e in errors:
             fail(f"roster: {e}")
         return 1
     if not queue:
         console.print(
-            "[green]retiring.yaml is empty — nothing to delete.[/green]", style="green"
+            f"[green]{RETIRING_FILE} is empty — nothing to delete.[/green]", style="green"
         )
         return 0
 
     token = op_item_field(AUTHENTIK_ITEM, "api-token")
+    with authentik_client(token) as client:
+        try:
+            users = {u.username: u for u in live_users(client)}
+            group_list = live_groups(client)
+        except httpx.HTTPError as exc:
+            raise SystemExit(f"error: live Authentik unreachable: {exc}")
+        live_group_uuids = {g.name: g.uuid for g in group_list}
+        zot_groups = zot_group_names(group_list)
+
+        # --- pass 1: validate ---
+        # Each entry resolves to what the apply pass would delete, plus the
+        # refusal reasons (any refusal refuses the whole run).
+        plan: list[tuple[Retiring, LiveUser | None, list[str]]] = []
+        for entry in queue:
+            section(f"{entry.username} — retired {entry.retired} ({entry.issue})")
+            user = users.get(entry.username)
+            refusions: list[str] = []
+            if user is None:
+                note("user already absent from live Authentik")
+                if entry.group is not None and entry.group in live_group_uuids:
+                    note(f"group [cyan]{entry.group}[/cyan] — still live, would be deleted")
+            else:
+                problems = []
+                if user.is_active:
+                    problems.append(
+                        "user is ACTIVE in live — the blueprint has not deactivated it yet"
+                    )
+                if entry.user_type is not None and entry.user_type != user.user_type:
+                    problems.append(f"type {user.user_type!r} != queue {entry.user_type!r}")
+                for pr in problems:
+                    warn(pr)
+                if user.groups:
+                    note(f"live groups: {', '.join(user.groups)}")
+
+                if is_zot_identity(user, entry, zot_groups):
+                    if entry.keys_revoked is not True:
+                        refusions.append(
+                            f"zot identity without 'keys_revoked: true' in {RETIRING_FILE} — "
+                            f"revoke its zot API keys first (docs/reference/services/zot.md, "
+                            f"Retiring an identity), then update the queue entry"
+                        )
+                    else:
+                        note("zot identity: keys_revoked: true — gate passed")
+
+                if problems:
+                    refusions.append("live state does not match the queue entry")
+
+                try:
+                    tokens = paginate(
+                        client, "/api/v3/core/tokens/", user__username=user.username
+                    )
+                except httpx.HTTPError as exc:
+                    warn(f"could not list the user's tokens ({exc})")
+                else:
+                    # App passwords are core/tokens with intent=app_password —
+                    # everything is deleted with the user.
+                    app_passwords = [t for t in tokens if t.get("intent") == "app_password"]
+                    for pw in app_passwords:
+                        warn(
+                            f"attached app password {pw.get('identifier')!r} — deleted with the user"
+                        )
+                    others = len(tokens) - len(app_passwords)
+                    if others:
+                        warn(f"{others} other token(s) — deleted with the user")
+
+                group = entry.group
+                if group is not None and group in live_group_uuids:
+                    note(f"group [cyan]{group}[/cyan] — deleted after the user (its bindings cascade)")
+
+            for reason in refusions:
+                refuse(reason)
+            plan.append((entry, user, refusions))
+
+        refused = any(refusals for _e, _u, refusals in plan)
+        if refused:
+            console.print(
+                "\n[red]refused — nothing deleted. Fix the items above, then re-run.[/red]",
+                style="red",
+            )
+            return 1
+
+        # --- pass 2: apply (preview mode stops after the validation above) ---
+        deleted = 0
+        if apply:
+            for entry, user, _refusals in plan:
+                if user is None:
+                    if entry.group is not None and entry.group in live_group_uuids:
+                        r = client.delete(
+                            f"/api/v3/core/groups/{live_group_uuids[entry.group]}/"
+                        )
+                        if r.status_code not in (200, 204):
+                            raise SystemExit(
+                                f"error: delete of group {entry.group} failed: "
+                                f"HTTP {r.status_code} {r.text[:200]}"
+                            )
+                        note(
+                            f"[green]deleted group {entry.group} (its user was already gone)[/green]"
+                        )
+                        deleted += 1
+                else:
+                    r = client.delete(f"/api/v3/core/users/{user.pk}/")
+                    if r.status_code not in (200, 204):
+                        raise SystemExit(
+                            f"error: delete of user {entry.username} failed: "
+                            f"HTTP {r.status_code} {r.text[:200]}"
+                        )
+                    note(f"[green]deleted user {entry.username} (pk {user.pk})[/green]")
+                    deleted += 1
+                    group = entry.group
+                    if group is not None and group in live_group_uuids:
+                        r = client.delete(
+                            f"/api/v3/core/groups/{live_group_uuids[group]}/"
+                        )
+                        if r.status_code not in (200, 204):
+                            raise SystemExit(
+                                f"error: delete of group {group} failed: "
+                                f"HTTP {r.status_code} {r.text[:200]}"
+                            )
+                        note(
+                            f"[green]deleted group {group} (uuid {live_group_uuids[group]})[/green]"
+                        )
+
     grafana_pass: str | None = None
     if not skip_grafana:
         try:
@@ -526,127 +683,18 @@ def run_delete(apply: bool, skip_grafana: bool, grafana_url: str) -> int:
                 str(exc)
                 + " — the Grafana sweep will be skipped (use --skip-grafana to silence)"
             )
+        for entry, _user, _r in plan:
+            grafana_sweep(entry.username, grafana_url, grafana_pass, apply)
 
-    refused = False
-    with authentik_client(token) as client:
-        try:
-            users = {u.username: u for u in live_users(client)}
-            group_list = live_groups(client)
-        except httpx.HTTPError as exc:
-            raise SystemExit(f"error: live Authentik unreachable: {exc}")
-        live_group_pks = {g.name: g.pk for g in group_list}
-
-        for entry in queue:
-            section(f"{entry.username} — retired {entry.retired} ({entry.issue})")
-            user = users.get(entry.username)
-            if user is None:
-                note("user already absent from live Authentik")
-                if entry.group is not None and entry.group in live_group_pks:
-                    fail(
-                        f"but group '{entry.group}' is still live — delete it by hand or keep the queue entry"
-                    )
-                if not skip_grafana:
-                    grafana_sweep(entry.username, grafana_url, grafana_pass, apply)
-                continue
-
-            problems = []
-            if user.is_active:
-                problems.append(
-                    "user is ACTIVE in live — the blueprint has not deactivated it yet"
-                )
-            if entry.user_type is not None and entry.user_type != user.user_type:
-                problems.append(f"type {user.user_type!r} != queue {entry.user_type!r}")
-            for p in problems:
-                warn(p)
-            if user.groups:
-                note(f"live groups: {', '.join(user.groups)}")
-
-            if is_zot_identity(user, entry, groups):
-                if entry.keys_revoked is not True:
-                    refuse(
-                        f"{entry.username} is a zot identity and {RETIRING_FILE} has no "
-                        f"'keys_revoked: true' — revoke its zot API keys first "
-                        f"(docs/reference/services/zot.md, Retiring an identity), then update the queue entry"
-                    )
-                    refused = True
-                    continue
-                note("zot identity: keys_revoked: true — gate passed")
-
-            if problems:
-                refuse("live state does not match the queue entry")
-                refused = True
-                continue
-
-            passwords = []
-            try:
-                r = client.get(
-                    f"/api/v3/core/user/{user.pk}/application_passwords/",
-                    params={"page_size": 100},
-                )
-                r.raise_for_status()
-                if r.content:
-                    passwords = r.json().get("results") or []
-            except (httpx.HTTPError, ValueError):
-                passwords = []
-            for pw in passwords:
-                warn(
-                    f"attached app password {pw.get('name')!r} — deleted with the user"
-                )
-            tokens = []
-            try:
-                r = client.get(
-                    "/api/v3/core/token/", params={"user": user.pk, "page_size": 100}
-                )
-                r.raise_for_status()
-                if r.content:
-                    tokens = r.json().get("results") or []
-            except (httpx.HTTPError, ValueError):
-                tokens = []
-            if tokens:
-                warn(f"{len(tokens)} token(s) — deleted with the user")
-
-            group = entry.group
-            if group is not None and group in live_group_pks:
-                note(
-                    f"group [cyan]{group}[/cyan] — deleted after the user (its bindings cascade)"
-                )
-
-            if apply:
-                r = client.delete(f"/api/v3/core/user/{user.pk}/")
-                if r.status_code not in (200, 204):
-                    raise SystemExit(
-                        f"error: delete of user {entry.username} failed: HTTP {r.status_code} {r.text[:200]}"
-                    )
-                note(f"[green]deleted user {entry.username} (pk {user.pk})[/green]")
-                if group is not None and group in live_group_pks:
-                    r = client.delete(f"/api/v3/core/group/{live_group_pks[group]}/")
-                    if r.status_code not in (200, 204):
-                        raise SystemExit(
-                            f"error: delete of group {group} failed: HTTP {r.status_code} {r.text[:200]}"
-                        )
-                    note(
-                        f"[green]deleted group {group} (pk {live_group_pks[group]})[/green]"
-                    )
-            else:
-                warn("preview only — re-run with --apply to delete")
-
-            if not skip_grafana:
-                grafana_sweep(entry.username, grafana_url, grafana_pass, apply)
-
-    if refused:
-        console.print(
-            "\n[red]refused — fix the items above, then re-run.[/red]", style="red"
-        )
-        return 1
     if apply:
         console.print(
-            f"\n[green]deleted {len(queue)} queue entr{'y' if len(queue) == 1 else 'ies'}. "
+            f"\n[green]deleted {deleted} record(s) for {len(queue)} queue entr{'y' if len(queue) == 1 else 'ies'}. "
             f"Next PR: remove them from {RETIRING_FILE} and re-render.[/green]",
             style="green",
         )
     else:
         console.print(
-            f"\npreviewed deletion for {len(queue)} queue entr{'y' if len(queue) == 1 else 'ies'}.",
+            f"\npreviewed deletion for {len(queue)} queue entr{'y' if len(queue) == 1 else 'ies'} — re-run with --apply.",
             style="green",
         )
     return 0

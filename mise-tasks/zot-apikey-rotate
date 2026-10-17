@@ -114,7 +114,7 @@ def load_identities() -> dict[str, Identity]:
         if not isinstance(master, str) or not master.startswith("op://"):
             die(f"{where}: credential.master must be an op:// path")
         parts = master.removeprefix("op://").split("/")
-        if len(parts) != 3 or parts[1] != MASTER_ITEM:
+        if len(parts) != 3 or parts[0] != MASTER_VAULT or parts[1] != MASTER_ITEM:
             die(f"{where}: credential.master must be op://{MASTER_VAULT}/{MASTER_ITEM}/<field>")
         master_field = parts[2]
         sink_raw = cred.get("sink")
