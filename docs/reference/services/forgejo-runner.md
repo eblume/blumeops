@@ -228,9 +228,10 @@ agent) → the next `--tags rebuild` apply re-renders the config. The
 `indri-build` runner's three values are declared in
 `darwin/indri/secrets.json` the same way (its identity is
 `runner_indri_build_uuid` / `runner_indri_build_token` in the same item,
-and it shares the PAT) and seated as identity files under
-`/Users/indri-build/forgejo-runner/identity/` by `mise run seed-secrets
-indri` (eblume/blumeops#1627). Those entries declare no restart unit —
+and it shares the PAT) and seated as identity files under the root-owned
+`/usr/local/etc/forgejo-runner-build/identity/` (outside the build home, so
+seeding never root-writes into the attacker-controlled home) by `mise run
+seed-secrets indri` (eblume/blumeops#1627). Those entries declare no restart unit —
 the build runner's daemon is in the system launchd domain, which
 seed-secrets' Darwin restart leg cannot kick — so the generation's
 postActivation render and its kickstart cover re-seeds at the next

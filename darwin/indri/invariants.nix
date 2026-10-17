@@ -47,9 +47,9 @@ let
     "/Users/erichblume/forgejo-runner/identity/uuid"
     "/Users/erichblume/forgejo-runner/identity/token"
     "/Users/erichblume/forgejo-runner/identity/mise-github-token"
-    "/Users/indri-build/forgejo-runner/identity/uuid"
-    "/Users/indri-build/forgejo-runner/identity/token"
-    "/Users/indri-build/forgejo-runner/identity/mise-github-token"
+    "/usr/local/etc/forgejo-runner-build/identity/uuid"
+    "/usr/local/etc/forgejo-runner-build/identity/token"
+    "/usr/local/etc/forgejo-runner-build/identity/mise-github-token"
     "/Users/erichblume/.config/heph-hub/authorized-sub"
   ];
 in
