@@ -10,5 +10,5 @@ set -euo pipefail
 file=ansible/roles/docs/defaults/main.yml
 tmp=$(mktemp)
 awk -v ver="${RELEASE_VERSION}" '/^docs_version:/ { print "docs_version: \"" ver "\""; next } { print }' "$file" > "$tmp"
-chmod --reference "$file" "$tmp"
-mv "$tmp" "$file"
+# write back in place (not mv) to keep the file's mode — chmod --reference is GNU-only
+cat "$tmp" > "$file" && rm -f "$tmp"
