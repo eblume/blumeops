@@ -1,1 +1,0 @@
-Document that the cli-agent PR-authoring PAT also carries `read:user` (needed by `GET /user` and `tea login`) alongside `write:repository` + `write:issue`, matching the HC2-minted token, id 31 (eblume/blumeops#1583).

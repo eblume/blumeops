@@ -1,1 +1,0 @@
-Authentik blueprint user/group/policybinding entries are now rendered from `argocd/manifests/authentik/principals.yaml` plus a `retiring.yaml` deletion queue (`mise run render-authentik-principals`; Lint fails on drift). First queue entries: `agent-ringtail`, `zot-ci`, `talos-heph-stray` (eblume/blumeops#1194).

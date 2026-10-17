@@ -1,1 +1,0 @@
-The ringtail-rebuild and provision-indri auto-apply workflows resolve their refusal topic from `ntfy/topics.json` at runtime (raw fetch at `main` — the bound commit may predate the declaration, which is exactly the case being refused) instead of a hardcoded topic literal; an unresolvable topic falls back to the `ops-approvals` literal with a `::warning::` in the run log.

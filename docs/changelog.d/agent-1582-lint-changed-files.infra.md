@@ -1,1 +1,0 @@
-Lint runs the hook set in changed-file mode on PRs (`prek run --from-ref`), falling back to `--all-files` for delete-only and hook-config diffs, keeping `--all-files` on main, and ansible-lint now runs once over the whole `ansible/` tree instead of in per-file batches.
