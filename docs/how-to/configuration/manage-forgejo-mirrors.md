@@ -1,7 +1,7 @@
 ---
 title: Manage Forgejo Mirrors
-modified: 2026-09-03
-last-reviewed: 2026-09-03
+modified: 2026-10-17
+last-reviewed: 2026-10-17
 tags:
   - how-to
   - forgejo
@@ -41,13 +41,12 @@ access to public repositories and nothing else. Keep it that way. Anything
 needing a scope needs its own token.
 
 Rotation reaches the three consumers differently: `mise run
-mirror-update-pats` re-bakes the mirrors immediately; the build runner's
-config picks up the new value at the next `provision-indri -- --tags
-forgejo_build_runner`; and the main runner - its config is rendered by the
-nix-darwin generation from the seed-secrets identity files
-(eblume/blumeops#1528), so it picks up the new value when the
-`mise-github-token` file is re-seeded (`mise run seed-secrets indri`) and
-the generation re-applied.
+mirror-update-pats` re-bakes the mirrors immediately; and both
+runners' configs are rendered by the nix-darwin generation from the
+seed-secrets identity files (eblume/blumeops#1528, eblume/blumeops#1627),
+so they pick up the new value when the `mise-github-token` identity file
+is re-seeded (`mise run seed-secrets indri`) and the generation
+re-applied (`provision-indri -- --tags rebuild`).
 
 ### Sync Interval
 

@@ -37,15 +37,19 @@ let
   # nix config reads on host must be declared in the manifest, and vice
   # versa. The main runner's identity files are the first reference sites
   # (the darwin/indri generation checks slot + config render, eblume/blumeops#1528);
-  # the indri-build half adds its own when it moves (eblume/blumeops#1627).
-  # The heph hub's authorized-sub file joins as a second reference site for
-  # the store flip (eblume/blumeops#1655).
+  # the indri-build runner's identity files join when the generation takes
+  # over its config render (eblume/blumeops#1627). The heph hub's
+  # authorized-sub file is a third reference site for the store flip
+  # (eblume/blumeops#1655).
   secrets = builtins.fromJSON (builtins.readFile ./secrets.json);
   declared = builtins.map (s: s.path) secrets.secrets;
   referenced = [
     "/Users/erichblume/forgejo-runner/identity/uuid"
     "/Users/erichblume/forgejo-runner/identity/token"
     "/Users/erichblume/forgejo-runner/identity/mise-github-token"
+    "/usr/local/etc/forgejo-runner-build/identity/uuid"
+    "/usr/local/etc/forgejo-runner-build/identity/token"
+    "/usr/local/etc/forgejo-runner-build/identity/mise-github-token"
     "/Users/erichblume/.config/heph-hub/authorized-sub"
   ];
 in
