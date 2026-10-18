@@ -123,7 +123,12 @@ gate before anything deploys.
   job-time `op read`s of `blumeops-ci` items behind `BLUMEOPS_CI_OP_TOKEN`
   ([[blumeops-ci-item-migration]]), with `FORGE_REPO_WRITE_TOKEN` the other
   repo-wide secret — see [[agent-workspaces]] §Isolation. `main` is
-  additionally branch-protected (push + merge whitelisted to `eblume`).
+  additionally branch-protected (push + merge whitelisted to `eblume`), and
+  every protected repo requires one approval from `eblume` at the current head
+  (`required_approvals: 1`, stale approvals dismissed on push). Without it a
+  scheduled "merge when checks succeed" would also land any commits pushed
+  after the schedule, since a schedule survives new pushes. eblume's own PRs,
+  which he cannot approve, merge with the admin "merge anyway".
   **The same recipe applies to every `pool: fork` repo** — today `agents`, `horkos`,
   `talos`, `cv`, and `hephaestus` as well. Each has a `talos/<repo>` fork on the forge, and the pod's
   pool checkout already has `origin` = the fork and `upstream` = canonical, so
