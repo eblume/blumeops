@@ -128,7 +128,9 @@ gate before anything deploys.
   (`required_approvals: 1`, stale approvals dismissed on push). Without it a
   scheduled "merge when checks succeed" would also land any commits pushed
   after the schedule, since a schedule survives new pushes. eblume's own PRs,
-  which he cannot approve, merge with the admin "merge anyway".
+  which he cannot approve, merge with the admin "merge anyway", which Forgejo
+  only offers when the rule has `apply_to_admins: false`. Scheduled merges never
+  take the admin skip, so they stay fully enforced.
   **The same recipe applies to every `pool: fork` repo** — today `agents`, `horkos`,
   `talos`, `cv`, and `hephaestus` as well. Each has a `talos/<repo>` fork on the forge, and the pod's
   pool checkout already has `origin` = the fork and `upstream` = canonical, so

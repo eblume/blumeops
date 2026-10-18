@@ -34,7 +34,7 @@
       "require_signed_commits": false,
       "protected_file_patterns": "",
       "unprotected_file_patterns": "",
-      "apply_to_admins": true
+      "apply_to_admins": false
     },
     {
       "repo": "hephaestus",
@@ -64,7 +64,7 @@
       "require_signed_commits": false,
       "protected_file_patterns": "",
       "unprotected_file_patterns": "",
-      "apply_to_admins": true
+      "apply_to_admins": false
     },
     {
       "repo": "talos",
@@ -95,7 +95,7 @@
       "require_signed_commits": false,
       "protected_file_patterns": "*",
       "unprotected_file_patterns": "",
-      "apply_to_admins": true
+      "apply_to_admins": false
     },
     {
       "repo": "horkos",
@@ -122,7 +122,7 @@
       "require_signed_commits": false,
       "protected_file_patterns": "*",
       "unprotected_file_patterns": "",
-      "apply_to_admins": true
+      "apply_to_admins": false
     },
     {
       "repo": "release-kit",
@@ -149,7 +149,7 @@
       "require_signed_commits": false,
       "protected_file_patterns": "",
       "unprotected_file_patterns": "",
-      "apply_to_admins": true
+      "apply_to_admins": false
     },
     {
       "repo": "hephaestus.nvim",
@@ -176,7 +176,7 @@
       "require_signed_commits": false,
       "protected_file_patterns": "",
       "unprotected_file_patterns": "",
-      "apply_to_admins": true
+      "apply_to_admins": false
     },
     {
       "repo": "project-template",
@@ -203,7 +203,7 @@
       "require_signed_commits": false,
       "protected_file_patterns": "",
       "unprotected_file_patterns": "",
-      "apply_to_admins": true
+      "apply_to_admins": false
     },
     {
       "repo": "RexWorks",
@@ -230,7 +230,7 @@
       "require_signed_commits": false,
       "protected_file_patterns": "",
       "unprotected_file_patterns": "",
-      "apply_to_admins": true
+      "apply_to_admins": false
     },
     {
       "repo": "gamedev",
@@ -257,7 +257,7 @@
       "require_signed_commits": false,
       "protected_file_patterns": "",
       "unprotected_file_patterns": "",
-      "apply_to_admins": true
+      "apply_to_admins": false
     },
     {
       "repo": "myeve",
@@ -284,7 +284,7 @@
       "require_signed_commits": false,
       "protected_file_patterns": "",
       "unprotected_file_patterns": "",
-      "apply_to_admins": true
+      "apply_to_admins": false
     },
     {
       "repo": "research",
@@ -311,7 +311,7 @@
       "require_signed_commits": false,
       "protected_file_patterns": "",
       "unprotected_file_patterns": "",
-      "apply_to_admins": true
+      "apply_to_admins": false
     },
     {
       "repo": "timberborn-parsimony",
@@ -338,7 +338,7 @@
       "require_signed_commits": false,
       "protected_file_patterns": "",
       "unprotected_file_patterns": "",
-      "apply_to_admins": true
+      "apply_to_admins": false
     }
   ]
 }
