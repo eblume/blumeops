@@ -1,0 +1,1 @@
+Fix a broken heading anchor in the Prowler service card: the 'Why only the K8s CIS scan' section in deploy-prowler was folded into the card's intro by the 2026-10-17 v5.39.1 review, leaving [[deploy-prowler#...]] pointing at nothing. Link the card body and stamp the daily doc review.
