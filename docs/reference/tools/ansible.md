@@ -37,14 +37,10 @@ mise run provision-sifaka
 |------|---------|---------|
 | **alloy** | Observability collector | [[alloy]] |
 | **borgmatic** | Backup automation | [[borgmatic]] |
-| **borgmatic_metrics** | Backup metrics exporter | [[borgmatic]] |
 | **caddy** | Reverse proxy & TLS | [[routing]] |
 | **forgejo** | Git forge | [[forgejo]] |
-| **forgejo_metrics** | Forge metrics exporter | [[forgejo]] |
 | **jellyfin** | Media server | [[jellyfin]] |
-| **jellyfin_metrics** | Media metrics exporter | [[jellyfin]] |
 | **zot** | Container registry | [[zot]] |
-| **zot_metrics** | Registry metrics | [[zot]] |
 
 ## Role Structure
 

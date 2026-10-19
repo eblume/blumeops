@@ -10,7 +10,7 @@ set -euo pipefail
 
 FORGEJO_URL="http://localhost:3001"
 FORGEJO_DB="/Users/erichblume/forgejo/data/forgejo.db"
-API_KEY_FILE="/Users/erichblume/.forgejo-api-key"
+API_KEY_FILE="/Users/erichblume/.config/metrics-keys/forgejo-api-key"
 OUTPUT_FILE="/opt/homebrew/var/node_exporter/textfile/forgejo.prom"
 TEMP_FILE="${OUTPUT_FILE}.tmp"
 

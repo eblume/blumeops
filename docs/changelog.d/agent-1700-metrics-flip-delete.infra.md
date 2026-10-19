@@ -1,0 +1,1 @@
+Retired the four indri `*-metrics` ansible roles: the collectors now read their API keys from the seed-secrets manifest under `~/.config/metrics-keys/` and the roles, their playbook entries, and the two ungated API-key pre_tasks are gone; rollback is a plain `darwin-rebuild --rollback` (eblume/blumeops#1700).

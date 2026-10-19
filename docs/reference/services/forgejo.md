@@ -167,7 +167,7 @@ used by this role anymore. Its remaining consumers:
 
 - `mise run runner-logs` (reads from 1Password at run time)
 - The `tea` CLI (**copies the token** into `~/.config/tea/config.yml`; re-paste it there after rotation). tea switched to this PAT 2026-07-04 after its OAuth token expired and tea 0.14.2 broke httpsign auth ([tea#1046](https://gitea.com/gitea/tea/issues/1046) — fixed in go-sdk but unreleased; httpsign can be re-enabled in tea's config once 0.14.3 ships).
-- the `forgejo_metrics` role (fetched as `forgejo_metrics_api_key` in the playbook pre_tasks)
+- The Forgejo metrics collector (the `mcquack.eblume.forgejo-metrics` user agent; reads the token from `~/.config/metrics-keys/forgejo-api-key`, which is seeded by `seed-secrets`)
 
 ## Identity Provider
 
