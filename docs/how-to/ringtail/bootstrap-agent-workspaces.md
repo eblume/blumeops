@@ -265,7 +265,10 @@ than they look; read the gotchas.**
 4. **Authorize on the hub, then (re)start the spoke on a clean store.**
 
    ```fish
-   mise run provision-indri -- --tags heph        # hub picks up --authorized-sub
+   # The hub reads its authorized-sub from the seeded on-host file
+   # (~/.config/heph-hub/authorized-sub, declared in darwin/indri/secrets.json);
+   # the seeder seats it and kickstarts the hub, which picks up --authorized-sub.
+   mise run seed-secrets indri --only /Users/erichblume/.config/heph-hub/authorized-sub
    # the spoke's fresh store minted its own owner_id before adoption; reset it so
    # it re-pulls under the adopted --owner-id:
    ssh ringtail 'sudo systemctl stop agent-heph-spoke; \
@@ -278,12 +281,13 @@ than they look; read the gotchas.**
    Expect your real Blumeops tasks. `heph sync --status` should show
    `auth_failure=false, last_error=null`.
 
-> **Revoke** by disabling the `talos-heph` Authentik user, or by setting
-> `heph_agents_sub_enabled: false` in `ansible/inventory/group_vars/all.yml` and
-> re-provisioning indri (drops the sub from `--authorized-sub`) — either cuts
-> the spoke without touching your own logins. Deleting the `talos-heph-sub`
-> vault item alone is no longer the way: the role's vault read is fail-closed,
-> so provisioning aborts instead of silently de-authorizing the spoke.
+> **Revoke** by disabling the `talos-heph` Authentik user — that cuts the
+> spoke without touching your own logins. The pre-flip second lever (the role's
+> `heph_agents_sub_enabled` gate) retired with the role's daemon legs
+> (eblume/blumeops#1655): the sub is generation-owned, so de-authorizing it is
+> a flake change — drop the `--authorized-sub` line from the hub's wrapper in
+> `darwin/indri/configuration.nix`. Deleting the `talos-heph-sub` vault item
+> alone does nothing: the seeded on-host file outlives it.
 
 **Other gotchas banked while bootstrapping this:**
 

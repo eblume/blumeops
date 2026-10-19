@@ -1,75 +1,27 @@
 ---
-# hephaestus hub — the canonical heph replica (server mode) on indri.
+# hephaestus hub (server mode) on indri.
 # Other devices (e.g. gilbert) are spokes that sync against this hub.
 # See [[set-up-sync-hub]] and [[host-heph-pwa]] in the hephaestus repo.
+#
+# The hub daemon itself is generation-owned: darwin/indri pins the hephaestus
+# flake (v1.10.9, cli output) and owns the mcquack.eblume.heph LaunchAgent that
+# execs the store hephd (eblume/blumeops#1655). This role keeps only the PWA
+# shell checkout + its pwa-version.js stamp and the data dir.
 
-# Pinned release tag. This is the SINGLE source of truth for the hub's hephd
-# version and the bundled PWA shell — hephd self-update is OFF (see the plist),
-# so nothing changes it out from under us. Since the store flip
-# (eblume/blumeops#1655) the daemon runs from the darwin/indri flake input's
-# pin; this pin stays authoritative for the PWA checkout tag, the
-# pwa-version.js stamp, and the gated daemon rollback re-write. The role
-# converges the PWA to this tag on every run, and the gated legs re-install
-# the daemon only when heph_ansible_managed is flipped. Bump on each release,
-# then `mise run provision-indri -- --tags heph`. See docs/reference/services/hephaestus.md.
+# Pinned release tag: the PWA shell checkout and its pwa-version.js stamp.
+# hephd self-update is OFF, so nothing changes the daemon's version out from
+# under us (the daemon's own version is the darwin/indri flake input's pin).
+# Bump on each release, then `mise run provision-indri -- --tags heph`.
+# See docs/reference/services/hephaestus.md.
 heph_version: v1.10.9
 
-# Anonymous public HTTPS clone — used for the ansible-driven `cargo install`
-# and the PWA source checkout, so provisioning needs no ssh-agent.
+# Anonymous public HTTPS clone — used for the PWA source checkout, so
+# provisioning needs no ssh-agent.
 heph_repo_url: https://forge.ops.eblu.me/eblume/hephaestus.git
 
-heph_bin_dir: /Users/erichblume/.cargo/bin
-heph_binary: "{{ heph_bin_dir }}/hephd"
-
-# rustc/cargo here are rustup shims. The bare (non-mise) environment that the
-# launchagent and ansible run in falls back to rustup's *default* toolchain,
-# which can lag behind heph's rust-version floor (currently 1.95). Pin the
-# channel explicitly so the ansible-driven install/upgrade builds always use a
-# current toolchain regardless of the host's rustup default.
-heph_rust_toolchain: stable
-
 heph_data_dir: /Users/erichblume/.local/share/heph
-heph_db: "{{ heph_data_dir }}/heph.db"
-heph_socket: "{{ heph_data_dir }}/hephd.sock"
-heph_log_dir: /Users/erichblume/Library/Logs
 
 # Version-pinned source checkout; the PWA static shell is served directly from
 # its heph-pwa/ subdir (no copy), keeping shell and hub in lockstep at heph_version.
 heph_pwa_src_dir: /Users/erichblume/.cache/heph-pwa-src
 heph_web_root: "{{ heph_pwa_src_dir }}/heph-pwa"
-
-# Hub listens on all interfaces so tailnet spokes can reach it directly
-# (http://indri.tail8d86e.ts.net:8787) and Caddy can proxy heph.ops.eblu.me.
-# Access is gated by Authentik OIDC regardless — tailnet reachability is not
-# enough (this is the owner's most sensitive data).
-heph_http_addr: 0.0.0.0:8787
-heph_port: 8787
-heph_external_url: https://heph.ops.eblu.me
-
-# Authentik OIDC — issuer + audience together turn hub auth on. The audience is
-# the device-code client id (see argocd/manifests/authentik heph blueprint).
-heph_oidc_issuer: https://authentik.ops.eblu.me/application/o/heph/
-heph_oidc_audience: heph
-# NOTE: hephd's opt-in --self-update is intentionally OFF (not passed in the
-# plist). Version is governed solely by heph_version above; there is no poller.
-
-# Additional OIDC `sub`s the hub authorizes as co-owners (declarative allowlist,
-# hephd --authorized-sub). Used for the ringtail agent spoke's dedicated
-# `talos-heph` identity, kept distinct from the human login. The sub is a
-# hashed_user_id (discovered once at bootstrap) and lives in the blumeops vault
-# rather than this public repo; tasks/main.yml appends it when enabled. See
-# docs/reference/infrastructure/agent-workspaces.md.
-heph_authorized_subs: []
-# Whether tasks/main.yml reads the talos-heph sub from the vault above. Set
-# false in inventory/group_vars/all.yml to intentionally run the hub without
-# the spoke; a failing `op read` while this is true aborts the play.
-heph_agents_sub_enabled: true
-
-# The hub daemon is generation-owned (darwin/indri, eblume/blumeops#1655):
-# the nix-darwin switch writes mcquack.eblume.heph.plist and the store hephd
-# replaces the cargo install. Skipped by default: a normal provision must
-# not touch the daemon. Flip this to true only for the rollback re-write
-# (darwin-rebuild --rollback first, then
-# `mise run provision-indri -- --tags heph -e heph_ansible_managed=true`),
-# per docs/how-to/indri/provision.md §Rolling back a service flip.
-heph_ansible_managed: false
