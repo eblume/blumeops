@@ -1,6 +1,6 @@
 ---
 title: CLI Agent Forgejo Principal
-modified: 2026-10-15
+modified: 2026-10-17
 last-reviewed: 2026-10-15
 tags:
   - reference
@@ -104,8 +104,11 @@ the guardrail, not the scope list) — and stored **concealed** in a
 **not the `agents` vault**: talos sessions read it and could impersonate the
 CLI principal.
 
-- **PR-authoring PAT** — scopes `write:repository` + `write:issue`; pushes to
-  the `cli-agent/` forks and opens cross-repo PRs.
+- **PR-authoring PAT** — scopes `write:repository` + `write:issue` +
+  `read:user`; pushes to the `cli-agent/` forks and opens cross-repo PRs.
+  `read:user` is what `GET /user` (the end-to-end check that the token
+  resolves to `cli-agent`, and `tea login`) needs — the minted token
+  carries all three (HC2, 2026-10-17).
 - **Long-lived read-only talos API token** — for reading the talos issue/PR
   queue, replacing the ~5-minute `talos-m2m` Authentik access token that
   needs blumeops-vault credentials to mint (OQ4(b) of #1583).
