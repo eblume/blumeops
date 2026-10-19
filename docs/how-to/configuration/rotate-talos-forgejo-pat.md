@@ -1,6 +1,6 @@
 ---
 title: Rotate the talos Forgejo bot PAT
-modified: 2026-10-16
+modified: 2026-10-17
 last-reviewed: 2026-10-15
 tags:
   - how-to
@@ -23,6 +23,14 @@ Consumers:
   `FORGEJO_TOKEN`, seeds tea — pod sessions resume off the PVC);
 - the blumeops mise tasks `request-run`, `verify-runs`, `lint-auto-apply`,
   `pending-deploys` (`FORGEJO_TOKEN` env with `op` read fallback).
+
+The same `talos` Forgejo user also holds a **separate** token the rotation
+leaves alone: `horkos-forge-read`, a read-only PAT the horkos cv
+release-asset fetch uses (eblume/horkos#17), stored in the blumeops vault
+and ESO-mounted into the horkos publisher (not a consumer of this token).
+The rotation neither hands it over nor revokes it — a rotation run
+that did would break the publisher. The script names it and the pre-mint
+check excludes it from the "exactly one incumbent" rule.
 
 Minting the successor needs the bot's **login password** — a Forgejo PAT
 cannot mint its own successor (Forgejo mints over basic auth **as the user**),
@@ -115,8 +123,10 @@ path, below, passes `--ci`). What it does, numbered:
    the credential over which the mint rides.
 3. **List the bot's tokens** via basic auth and print each as
    `  - name (id=N)` — names and ids only, never values. If the bot holds
-   more than one non-`forge-bot-pat-*` token, the script dies here (before
-   minting) — resolve those by hand first. The run also proves that the
+   more than one **unknown** non-`forge-bot-pat-*` token (the known
+   external ones — `horkos-forge-read` — are named and excluded), the
+   script dies here (before minting) — resolve the rest by hand first.
+   The run also proves that the
    vault's current value matches some live token by `token_last_eight`
    before the mint, which makes the single unprefixed token provably
    revocable as a predecessor: it is either the vault's incumbent (the
@@ -145,9 +155,10 @@ path, below, passes `--ci`). What it does, numbered:
    `talos` deployment.
 8. **Revoke every predecessor**: all other `forge-bot-pat-*` tokens, plus the
    single unprefixed incumbent the first run takes over (the vault's current
-   token predates the prefix).
-9. **Post-check**: exactly one live token for the bot (the new one), and the
-   old PAT now 401s.
+   token predates the prefix). The retained external tokens
+   (`horkos-forge-read`) are never revoked.
+9. **Post-check**: the new token plus the retained external ones are the
+   only live tokens for the bot, and the old PAT now 401s.
 
 Fail-safe ordering: a failure anywhere before the revoke step leaves every
 consumer working — the old token is only revoked after the new one is verified
@@ -176,6 +187,17 @@ sessions run the old one — both work. Until the next run, the bot holds
 two or more live tokens (one per skipped run; harmless: both scopes are
 the bot's own, and the run's post-check after a full rotation still asserts
 the one-live-token invariant).
+
+## Known limitation
+
+The pre-mint guard can't tell a hand-minted token it doesn't know from the
+pending delayed revoke an earlier run left: once the bot has been through a
+full rotation, a token minted by hand on the `talos` user that is not in
+`RETAINED_EXTERNAL_TOKENS` passes the guard as the one unprefixed
+predecessor and is revoked — it takes a *second* such token to stop the run.
+When adding the next external token to the `talos` user, add its name to
+`RETAINED_EXTERNAL_TOKENS` in `mise-tasks/forge-bot-pat-rotate` in the same
+PR.
 
 ## Debugging
 
