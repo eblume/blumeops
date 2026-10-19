@@ -1,7 +1,7 @@
 ---
 title: Prowler
-modified: 2026-06-08
-last-reviewed: 2026-03-24
+modified: 2026-10-18
+last-reviewed: 2026-10-18
 tags:
   - service
   - security
@@ -29,7 +29,7 @@ Runs Prowler 5 as a single CronJob:
 
 Reports are written in HTML, CSV, and JSON-OCSF to the NFS share on sifaka.
 
-The **image** and **IaC** scans (formerly Saturday CronJobs) were retired in 2026-06 — they generated tens of thousands of un-actioned findings weekly. See [[deploy-prowler#Why only the K8s CIS scan]].
+The **image** and **IaC** scans (formerly Saturday CronJobs) were retired in 2026-06 — they generated tens of thousands of un-actioned findings weekly. See [[deploy-prowler]].
 
 ## See also
 

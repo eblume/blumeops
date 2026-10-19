@@ -32,7 +32,7 @@ Reports are stored on sifaka at `/volume1/reports/`. Each scanner writes to its 
 > (`prowler-iac/`) scans were retired. They produced tens of thousands of
 > un-actioned, un-muted findings every week — mostly unpatchable upstream-image
 > CVEs and systemic pod-security KSV warnings — and nobody triaged them. See
-> [[deploy-prowler#Why only the K8s CIS scan]] for the rationale. Their stale
+> [[deploy-prowler]] for the rationale. Their stale
 > report directories may linger on sifaka until manually removed.
 
 Copy reports to your local machine (remember `scp -O` for sifaka):
