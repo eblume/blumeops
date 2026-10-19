@@ -1,1 +1,0 @@
-Rename the Forgejo bot `agents` → `talos` in declared state: the `repos.json` `collaborator`, the talos deployment env (`TALOS_FORGE_BOT` + git-author identity), and the `talos-forgejo-token` 1Password item the mise tasks read.

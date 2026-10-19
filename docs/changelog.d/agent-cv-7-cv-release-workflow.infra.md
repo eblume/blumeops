@@ -1,1 +1,0 @@
-release-targets.json: the eblume/cv artifact target gains release_workflow (cv-release.yaml), enabling late-asset recovery (eblume/horkos#62); horkos.md's Release publishing section documents the asset flow and corrects the deployed-version references.

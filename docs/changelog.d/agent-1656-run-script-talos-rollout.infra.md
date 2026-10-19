@@ -1,1 +1,0 @@
-The `k3s-run-script` warrant identity can now roll the talos Deployment — a namespaced Role in `talos` (`argocd/manifests/talos/rbac.yaml`) grants the `run-script` SA `get`/`list`/`patch`/`watch` on the single `talos` deployment, covering `kubectl rollout restart`/`status` for the `forge-bot-pat-rotate` ceremony with no cluster-wide or other-namespace grant.

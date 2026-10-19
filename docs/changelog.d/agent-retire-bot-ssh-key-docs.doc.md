@@ -1,1 +1,0 @@
-Docs no longer claim the Forgejo bot's SSH key is deployed to ringtail or rotatable: the key was retired in Oct 2026, the bot authenticates over HTTPS with its Forgejo token, and no SSH key is seated on the host. Part of eblume/blumeops#1635.

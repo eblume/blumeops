@@ -1,1 +1,0 @@
-`seed-secrets` can now seed the darwin host: a non-empty `darwin/indri/secrets.json` runs through the same write + mandatory read-back as ringtail, and `restart` entries are launchd labels kicked with `launchctl kickstart -k gui/<uid>/<label>` (uid resolved from the entry owner, which must be non-root) and confirmed from `launchctl print` output. Part of eblume/blumeops#1528.

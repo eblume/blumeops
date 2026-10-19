@@ -89,10 +89,11 @@ TOPIC_KEY_PATHS = (
     "tests/",
 )
 
-# Never scanned: the changelog is a historical record, the declaration's
-# own comments quote the URL form as documentation, and this linter quotes
-# the topic-key forms it detects as documentation.
-EXCLUDED_DIRS = {".git", "node_modules", ".venv", "venv"}
+# Never scanned: the changelog and its archive pages are historical
+# records, the declaration's own comments quote the URL form as
+# documentation, and this linter quotes the topic-key forms it detects as
+# documentation.
+EXCLUDED_DIRS = {".git", "node_modules", ".venv", "venv", "archive"}
 EXCLUDED_FILES = {
     "CHANGELOG.md",
     TOPICS_FILE,
