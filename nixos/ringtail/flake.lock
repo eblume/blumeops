@@ -95,13 +95,30 @@
         "type": "github"
       }
     },
+    "nixpkgs-snowflake": {
+      "locked": {
+        "lastModified": 1792512520,
+        "narHash": "sha256-N7HP8wnqCKPrxnaPbW3qP+VJaoGvzMIIxQmoTCq4TZ8=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "2e42b2892d964b175c84c125e3ace59644ea88a1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "2e42b2892d964b175c84c125e3ace59644ea88a1",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "disko": "disko",
         "hephaestus": "hephaestus",
         "home-manager": "home-manager",
         "nixpkgs": "nixpkgs",
-        "nixpkgs-services": "nixpkgs-services"
+        "nixpkgs-services": "nixpkgs-services",
+        "nixpkgs-snowflake": "nixpkgs-snowflake"
       }
     }
   },

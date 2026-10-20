@@ -291,6 +291,19 @@ def test_originals_catches_redirect(stubs, tmp_path):
     assert "home-manager: original.owner changed" in r.stdout
 
 
+def test_originals_catches_snowflake_rev_move(stubs, tmp_path):
+    curl, sris = green_mapping(stubs)
+    stubs.write_curl(curl)
+    stubs.sris.write_text(json.dumps(sris), encoding="utf-8")
+    new = tampered(tmp_path, NEW, **{"nodes.nixpkgs-snowflake.original.rev": "9" * 40})
+
+    r = stubs.run("check", str(OLD), str(new), "--heads", str(HEADS))
+    assert r.returncode == 1
+    assert "FAIL scope" in r.stdout
+    assert "FAIL originals" in r.stdout
+    assert "nixpkgs-snowflake: original.rev changed" in r.stdout
+
+
 def test_ff_ancestor_catches_diverged(stubs, tmp_path):
     curl, sris = green_mapping(stubs)
     for key in curl:
