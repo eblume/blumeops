@@ -304,7 +304,9 @@ def live_users(client: httpx.Client) -> list[LiveUser]:
 
 def live_groups(client: httpx.Client) -> list[LiveGroup]:
     groups = [
-        LiveGroup(pk=g["pk"], uuid=g["uuid"], name=g["name"], bindings=())
+        # Authentik's group serializer has no `uuid`: `pk` is the UUID and
+        # `num_pk` the integer id.
+        LiveGroup(pk=g["num_pk"], uuid=g["pk"], name=g["name"], bindings=())
         for g in paginate(client, "/api/v3/core/groups/")
     ]
     # A binding's `target` is a subclass pk (UUID string), not an object:
