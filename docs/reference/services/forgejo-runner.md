@@ -1,6 +1,6 @@
 ---
 title: Forgejo Runner
-modified: 2026-10-17
+modified: 2026-10-20
 last-reviewed: 2026-10-17
 tags:
   - service
@@ -142,9 +142,11 @@ Widening its trust is a deliberate change to Determinate's host-side
   cargo/dagger/uv caches - is shared across ALL repos' jobs on this
   instance-wide runner. A job from one repo can poison another repo's
   toolchain or cache until #1358 scopes the runner per repo.
-- **Localhost/tailnet reach**: the build user can reach indri's localhost
-  services (for example the registry mirror, the forge itself) and carries
-  a tailnet identity. Accepted, and on the #1358 scope-down list.
+- **Localhost reach**: the build user can reach indri's localhost
+  services (for example the registry mirror, the forge itself). Accepted,
+  and on the #1358 scope-down list. Its tailnet identity no longer grants
+  SSH to the other homelab host ([[per-principal-ssh]]); the L4 reach is
+  the same #1358 scope-down item.
 
 ## Job Execution
 

@@ -1,6 +1,6 @@
 ---
 title: Indri
-modified: 2026-10-14
+modified: 2026-10-20
 last-reviewed: 2026-10-14
 tags:
   - infrastructure
@@ -57,7 +57,7 @@ sleep (vs. a crash or a NIC fault): boot time unchanged, `pmset -g log`
 shows `Entering Sleep state`, tailscaled logs `LinkChange: major … network
 is down`, and `pmset -g assertions` holds no Amphetamine assertion.
 
-**Passwordless sudo:** Configured for `erichblume` user (`/etc/sudoers.d/erichblume`) to allow ansible `become: true` without prompts. Acceptable given Tailscale is the trust boundary.
+**Passwordless sudo:** Configured for `erichblume` user (`/etc/sudoers.d/erichblume`) to allow ansible `become: true` without prompts. Acceptable given per-principal OpenSSH keys and the L4 ACL fence ([[per-principal-ssh]]).
 
 **Log rotation:** mcquack LaunchAgent logs (~/Library/Logs/mcquack.*.log) are rotated hourly by the mcquack.eblume.logrotate LaunchAgent — any log over 256 MiB is copied to .1 (3 generations kept) and truncated in place; in place because launchd holds O_APPEND fds, so mv-based rotation would leave services writing into the renamed file. The unit and the script are nix-managed (the flake's `launchd.user.agents."mcquack.eblume.logrotate"`, script from the store) under the same label and plist path the ansible role used; the role stays in the play only as the [[provision]] rollback re-writer, skipped by default.
 
@@ -122,27 +122,29 @@ apply runbook is [[provision]]:
 - **SSH host key.** Remote Login is on, enabled declaratively by the flake
   (`services.openssh.enable = true`; nix-darwin's launchd activation does the
   `launchctl enable` + `bootstrap` of `system/com.openssh.sshd`, no Full Disk
-  Access needed). Both OpenSSH and Tailscale SSH (still on until
-  eblume/blumeops#1484 PR 4) serve `/etc/ssh/ssh_host_*_key` when those
+  Access needed). OpenSSH is the only SSH path to this host: Tailscale SSH
+  has been off since 2026-10-15, and the tailnet ACL grants no Tailscale SSH
+  to homelab ([[per-principal-ssh]], eblume/blumeops#1484). sshd serves
+  `/etc/ssh/ssh_host_*_key` when those
   files exist. nix-darwin activation
   generated them on 2026-09-16, so indri's fingerprint changed
   to `SHA256:liWWi+4w4SbrZyITCkbVmIn+RsHES0hwxvOuWRS6cRA`; a
   known_hosts warning from that date is this, not an intruder.
-- **Tailscale SSH drops remote exit codes.** Tailscale SSH (still the path
-  for this host until eblume/blumeops#1484 PR 4) runs its remote command
-  through a shell whose runner
+- **Why indri's legs verify in-band.** Tailscale SSH on indri ran its
+  remote command through a shell whose runner
   exits 0 no matter what the remote command did, so a bare
-  `ssh indri '…' && …` reads success for any failure, for any user
+  `ssh indri '…' && …` read success for any failure, for any user
   (including `ssh erichblume@indri`). Upstream:
   tailscale/tailscale#18256, still reproducible as of 2026-10; the fix,
   tailscale/tailscale#20626 (skip `/usr/bin/login` for non-interactive
-  commands), is still open. Until it ships, every rc-dependent check that
-  reaches indri verifies in-band instead: the remote command prints a
+  commands), is still open. That is why every rc-dependent check that
+  reaches indri verifies in-band: the remote command prints a
   sentinel line as its last action, after the real check succeeds, and
   the local side requires that line verbatim (`grep -qxF` in the bash
   legs; a substring match in `mirror-update-pats`); ssh's own rc is
-  transport triage only. The convention is documented in the task
-  scripts: `indri-flake-check` (`FLAKE-CHECK-OK <commit>`),
+  transport triage only. The convention lives in the task scripts and
+  stays after the cutover to the OpenSSH transport ([[per-principal-ssh]]):
+  `indri-flake-check` (`FLAKE-CHECK-OK <commit>`),
   `services-check` (`INDRI-OK <label>`), `mirror-update-pats`
   (`MIRROR-PAT-OK <repo>`, plus integer validation of the mirror
   count), while `pulumi-restore-check` stays audit-only on its

@@ -131,6 +131,8 @@
 	],
 
 	// ============== SSH Access ==============
+	// No homelab rules: inter-host SSH between indri and ringtail is OpenSSH with
+	// per-principal keys, not Tailscale SSH ([[per-principal-ssh]], eblume/blumeops#1484).
 	"ssh": [
 		// Members can SSH to their own devices
 		{
@@ -139,14 +141,6 @@
 			"dst":    ["autogroup:self"],
 			"users":  ["autogroup:nonroot"],
 		},
-		// Admins can SSH to homelab (for ansible)
-		{
-			"action": "check",
-			"src":    ["autogroup:admin"],
-			"dst":    ["tag:homelab"],
-			"users":  ["autogroup:nonroot"],
-			"checkPeriod": "12h0m0s",
-		},
 		// Admins can SSH to NAS
 		{
 			"action": "check",
@@ -154,14 +148,6 @@
 			"dst":    ["tag:nas"],
 			"users":  ["autogroup:nonroot"],
 			"checkPeriod": "12h0m0s",
-		},
-		// Homelab can SSH to homelab (for ansible, cross-host management)
-		// Tagged devices can't do interactive "check" auth, so use "accept".
-		{
-			"action": "accept",
-			"src":    ["tag:homelab"],
-			"dst":    ["tag:homelab"],
-			"users":  ["autogroup:nonroot"],
 		},
 	],
 
@@ -262,13 +248,15 @@
 			"dst":  ["tag:homelab", "tag:nas"],
 			"deny": ["erichblume", "eblume", "root"],
 		},
-		// homelab→homelab SSH is LOAD-BEARING: borgmatic's k8s SQLite dumps
-		// run ssh:eblume@ringtail from indri. PR #441 nearly removed the rule
-		// without spotting this consumer — this test makes removal fail loudly.
+		// homelab→homelab Tailscale SSH must stay off: inter-host SSH is OpenSSH
+		// with per-principal keys ([[per-principal-ssh]], eblume/blumeops#1484). The
+		// accept rule that lived here once let any local user on one host shell
+		// into the other as any non-root user; this test makes re-adding it fail
+		// the apply.
 		{
-			"src":    "tag:homelab",
-			"dst":    ["tag:homelab"],
-			"accept": ["eblume"],
+			"src":  "tag:homelab",
+			"dst":  ["tag:homelab"],
+			"deny": ["erichblume", "eblume"],
 		},
 	],
 }
