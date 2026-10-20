@@ -1,7 +1,7 @@
 ---
 title: Snowflake Proxy
-modified: 2026-03-24
-last-reviewed: 2026-06-23
+modified: 2026-10-20
+last-reviewed: 2026-10-20
 tags:
   - service
   - privacy
@@ -18,7 +18,7 @@ Tor Snowflake proxy that helps censored users reach the Tor network. Runs as a n
 |----------|-------|
 | **Host** | ringtail |
 | **Type** | NixOS systemd service |
-| **Package** | `pkgs.snowflake` (nixpkgs) |
+| **Package** | `pkgs.snowflake` (nixpkgs, dedicated `nixpkgs-snowflake` unstable pin) |
 | **Binary** | `proxy` |
 | **Upstream** | https://snowflake.torproject.org/ |
 | **Source** | https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake |
