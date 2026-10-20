@@ -59,7 +59,7 @@ To upgrade:
 
 ## Observability
 
-- Metrics: `jellyfin_metrics` ansible role
+- Metrics: the `mcquack.eblume.jellyfin-metrics` user agent (nix-managed; reads the API key from `~/.config/metrics-keys/jellyfin-api-key`, seeded by `seed-secrets`)
 - Logs: Forwarded via [[alloy|Alloy]]
 - Dashboard: "Jellyfin Media Server" in [[grafana]]
 

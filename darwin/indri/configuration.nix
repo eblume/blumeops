@@ -902,8 +902,8 @@ AUTHORIZED_KEYS
   };
 
   # The four *-metrics collectors (PR 4): same labels, plist paths, .prom files and logs
-  # as the roles - in-place swap, so alloy and TextfileStale are unaffected. API key files
-  # stay controller-side op placement (the roles' key-file tasks are ungated).
+  # as the retired roles - in-place swap, so alloy and TextfileStale are unaffected.
+  # API key files are seed-secrets manifest entries under ~/.config/metrics-keys/.
   launchd.user.agents."mcquack.eblume.borgmatic-metrics".serviceConfig = {
     Label = "mcquack.eblume.borgmatic-metrics";
     ProgramArguments = [ "${nixWait}" ] ++ [ "${mcquackBorgmaticMetrics}" ];

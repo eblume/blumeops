@@ -193,40 +193,6 @@
       no_log: true
       tags: [jellyfin]
 
-    # Jellyfin API key for metrics collection
-    - name: Fetch Jellyfin API key
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/ceywxkcd3z7najsy2nmmbs2vke/credential"
-      delegate_to: localhost
-      register: _jellyfin_metrics_api_key
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [jellyfin_metrics]
-
-    - name: Set Jellyfin API key fact
-      ansible.builtin.set_fact:
-        jellyfin_metrics_api_key: "{{ _jellyfin_metrics_api_key.stdout }}"
-      no_log: true
-      tags: [jellyfin_metrics]
-
-    # Forgejo API token for metrics collection
-    - name: Fetch Forgejo API token for metrics
-      ansible.builtin.command:
-        cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/w3663ffnvkewbftncqxtcpeavy/api-token"
-      delegate_to: localhost
-      register: _forgejo_metrics_api_token
-      changed_when: false
-      no_log: true
-      check_mode: false
-      tags: [forgejo_metrics]
-
-    - name: Set Forgejo metrics API token fact
-      ansible.builtin.set_fact:
-        forgejo_metrics_api_key: "{{ _forgejo_metrics_api_token.stdout }}"
-      no_log: true
-      tags: [forgejo_metrics]
-
     # Devpi root password (PyPI mirror admin)
     - name: Fetch devpi root password
       ansible.builtin.command:
@@ -451,24 +417,16 @@
       tags: alloy
     - role: borgmatic
       tags: borgmatic
-    - role: borgmatic_metrics
-      tags: borgmatic_metrics
     - role: forgejo
       tags: forgejo
     - role: forgejo_runner
       tags: forgejo_runner
     - role: zot
       tags: zot
-    - role: zot_metrics
-      tags: zot_metrics
     - role: devpi
       tags: devpi
     - role: jellyfin
       tags: jellyfin
-    - role: jellyfin_metrics
-      tags: jellyfin_metrics
-    - role: forgejo_metrics
-      tags: forgejo_metrics
     - role: logrotate
       tags: logrotate
     - role: cv
