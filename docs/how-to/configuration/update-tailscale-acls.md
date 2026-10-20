@@ -1,6 +1,6 @@
 ---
 title: Update Tailscale ACLs
-modified: 2026-09-28
+modified: 2026-10-20
 last-reviewed: 2026-09-27
 tags:
   - how-to
@@ -78,7 +78,8 @@ A new tag must be claimable by someone, so add it to `tagOwners` too
 
 The `tests` and `sshTests` sections encode the invariants that make this
 policy safe to apply blindly — e.g. the agent pod reaching nothing except
-forge and the heph hub, and homelab→homelab SSH for ansible. When you change a grant
+forge and the heph hub, and homelab hosts getting no Tailscale SSH
+([[per-principal-ssh]]). When you change a grant
 or SSH rule, **add or update the matching test entry** so a future
 regression fails the preview instead of the tailnet.
 

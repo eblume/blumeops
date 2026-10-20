@@ -1,6 +1,6 @@
 ---
 title: Seed Host Secrets from the Vault
-modified: 2026-10-14
+modified: 2026-10-20
 last-reviewed: 2026-10-14
 tags:
   - how-to
@@ -80,10 +80,12 @@ reference site (an `EnvironmentFile`, a `credentialsFile`) must be added to
 
 - **`UNKNOWN` is a failure.** A check that cannot see a file is red, not
   green — a partial picture of a secrets boundary invites a second surprise.
-- **Tailscale SSH on indri returns exit 0 for everything**
-  ([eblume/blumeops#1379](https://forge.ops.eblu.me/eblume/blumeops/issues/1379)).
-  Every write is read back (owner, group, mode, sha256 of what was written);
-  a read-back that disagrees is a hard failure.
+- **Indri's ssh leg never trusts the exit code.** Tailscale SSH on indri
+  returned exit 0 for everything
+  ([eblume/blumeops#1379](https://forge.ops.eblu.me/eblume/blumeops/issues/1379)),
+  and the read-back convention survived the OpenSSH cutover: every write is
+  read back (owner, group, mode, sha256 of what was written); a read-back
+  that disagrees is a hard failure.
 - **Stray files are reported, never deleted.** A scratch file is more likely
   than a leaked secret, and deletion stays a human act. A failed write can
   leave `<path>.seedtmp` holding the value. `--check` reports it as a

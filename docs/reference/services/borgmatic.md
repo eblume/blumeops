@@ -1,6 +1,6 @@
 ---
 title: Borgmatic
-modified: 2026-10-13
+modified: 2026-10-20
 last-reviewed: 2026-10-13
 tags:
   - service
@@ -99,7 +99,7 @@ keys, no prune action.
 never-lose set runs in the archive config (02:00) and lands in the
 never-pruned `indri-*` archives, the rest in the operational config (03:00)).
 
-All ringtail k8s dumps run through ringtail's `borgmatic` dump endpoint (dedicated `borgmatic` user, forced command — [[ringtail]] §Borgmatic dump endpoint, eblume/blumeops#1484); indri sends only the dump name.
+All ringtail k8s dumps run through ringtail's `borgmatic` dump endpoint (dedicated `borgmatic` user, forced command — [[ringtail]] §Borgmatic dump endpoint, eblume/blumeops#1484; per-principal SSH per [[per-principal-ssh]]); indri sends only the dump name.
 
 **Archive tier (02:00) — never-lose (staged into `k8s-dumps-archive/`):**
 

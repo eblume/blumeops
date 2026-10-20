@@ -1,6 +1,6 @@
 ---
 title: Mise Tasks
-modified: 2026-10-17
+modified: 2026-10-20
 last-reviewed: 2026-10-17
 tags:
   - reference
@@ -80,7 +80,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 
 ## Indri ssh legs: verify in-band
 
-Tailscale SSH on indri exits 0 for any remote failure (upstream
+Tailscale SSH on indri exited 0 for any remote failure (upstream
 tailscale/tailscale#18256; the fix #20626 is still open), so the indri
 legs of `indri-flake-check`, `services-check`, `mirror-update-pats` and
 `pulumi-restore-check` never trust ssh's rc: each remote command prints a

@@ -1,0 +1,1 @@
+Dropped the datasette-satisfactory entry from `forge/runners.json` `label_exceptions` — the repo is now archived and forge-reconcile skips archived repos, so the runner-label drift-check exception is dead config (#1628, step 8 resolved).

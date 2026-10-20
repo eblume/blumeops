@@ -1,6 +1,6 @@
 ---
 title: Tailscale
-modified: 2026-09-28
+modified: 2026-10-20
 last-reviewed: 2026-09-28
 tags:
   - infrastructure
@@ -66,12 +66,14 @@ See `pulumi/tailscale/policy.hujson` for the full grant definitions.
 
 ## SSH Access
 
+Tailscale SSH is off on the homelab hosts (indri, ringtail); inter-host SSH
+runs OpenSSH on port 22 with per-principal keys ([[per-principal-ssh]]),
+carried on the L4 grants above. The only remaining Tailscale SSH rules:
+
 | Source | Destinations | Auth |
 |--------|--------------|------|
 | `autogroup:member` | `autogroup:self` | check |
-| `autogroup:admin` | `tag:homelab` | check (12h) |
 | `autogroup:admin` | `tag:nas` | check (12h) |
-| `tag:homelab` | `tag:homelab` | accept (tagged devices cannot perform interactive auth) |
 
 ## Auto Approvers
 
