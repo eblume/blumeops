@@ -59,9 +59,9 @@ def _live_groups_client():
                 200,
                 json=_page(
                     [
-                        {"pk": UUID_ZOT, "uuid": UUID_ZOT, "name": "g-zot"},
-                        {"pk": UUID_FORGE, "uuid": UUID_FORGE, "name": "g-forge"},
-                        {"pk": UUID_ORPHAN, "uuid": UUID_ORPHAN, "name": "g-orphan"},
+                        {"pk": UUID_ZOT, "num_pk": 1, "name": "g-zot"},
+                        {"pk": UUID_FORGE, "num_pk": 2, "name": "g-forge"},
+                        {"pk": UUID_ORPHAN, "num_pk": 3, "name": "g-orphan"},
                     ]
                 ),
             )

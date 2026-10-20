@@ -1,0 +1,1 @@
+Drained the Authentik retiring queue (`agent-ringtail`, `zot-ci`, `talos-heph-stray`) and emptied `retiring.yaml`; `reconcile-authentik-principals` now reads group UUIDs from `pk` (Authentik has no `uuid` field), which crashed its first live run (#1194).
