@@ -1,0 +1,1 @@
+Tailnet: deleted the homelab Tailscale SSH rules (the `autogroup:admin → tag:homelab` check and the `tag:homelab → tag:homelab` accept) and flipped the matching `sshTests` entry to deny, so inter-host SSH between indri and ringtail is OpenSSH with per-principal keys only ([[per-principal-ssh]], eblume/blumeops#1484); `mise run tailnet-up` applies it.

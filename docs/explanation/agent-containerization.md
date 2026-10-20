@@ -1,6 +1,6 @@
 ---
 title: Agent Containerization
-modified: 2026-10-15
+modified: 2026-10-20
 last-reviewed: 2026-07-30
 tags:
   - explanation
@@ -16,6 +16,13 @@ tags:
 > removed; [[talos-design|talos]] supersedes the pod. The fences and rationale in
 > this doc — the Tailscale identity fence (now `tag:talos`), the egress
 > allowlist, and the vault/bot boundaries — still apply to talos unchanged.
+>
+> **Homelab SSH rule removed (2026-10-20, #1484):** the `tag:homelab →
+> tag:homelab` Tailscale SSH `accept` rule this doc argues around no longer
+> exists — borgmatic's dumps moved to per-principal OpenSSH keys
+> ([[per-principal-ssh]]), so the "load-bearing SSH rule" half of
+> §Why we can't just fix the ACL is historical. The L3/L4 device-identity
+> argument remains the reason the `tag:talos` fence exists.
 
 Why the `ringtail-agent` workspace is moving from a **shared-host OS user** to a
 **pod with its own Tailscale identity** — and why that migration is the *only*

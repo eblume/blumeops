@@ -1,6 +1,6 @@
 ---
 title: Provision Indri
-modified: 2026-10-16
+modified: 2026-10-20
 last-reviewed: 2026-10-16
 tags:
   - how-to
@@ -198,7 +198,7 @@ The drill's blast radius is everything caddy fronts: with the unit
 unloaded, the forge API and ssh, the registry, and every image pull
 from the cluster are down, and indri's own runner cannot reach
 `forge.ops.eblu.me` — so no CI runs land during the drill either.
-Ansible itself is unaffected (it reaches indri over tailscale ssh, not
+Ansible itself is unaffected (it reaches indri over OpenSSH on port 22, not
 through caddy) and `op` is unaffected; the `provision-indri` guards are
 skipped for the role-only re-write (see §What the task does), which is
 what lets it run while the forge is unreachable. After the forward
@@ -389,8 +389,7 @@ Run it from any blumeops checkout before a window.
 It does not trust ssh's rc: the remote script prints
 `FLAKE-CHECK-OK <commit>` only after the build and cleanup succeed, and
 the local side fails the check if that exact line is absent from the
-captured output, because Tailscale SSH on indri exits 0 for any remote
-failure ([[indri]] §Nix).
+captured output (indri's ssh legs verify in-band — [[indri]] §Nix).
 
 ## CI coupling
 
@@ -434,8 +433,9 @@ with a `tar -h` of `/etc/static` as insurance, then re-verify
 `launchctl list | grep mcquack` unchanged.
 
 Why the console: macOS Tahoe TCC-protects `/etc/fstab`, and the
-responsible process for a Tailscale SSH session is Homebrew `tailscaled`,
-which has no Full Disk Access — so over ssh the installer's
+responsible process for a remote session (sshd, or Homebrew `tailscaled` on
+the retired Tailscale SSH path) has no Full Disk Access — so over ssh
+the installer's
 `create_fstab_entry` step dies with `Operation not permitted` (root is
 irrelevant to TCC), after its uninstall phase 1 has already removed the
 `systems.determinate.nix-store` boot-mount plist. If that happens: do not
@@ -511,9 +511,11 @@ logs in ([[restart-indri]]):
    one boot; without it the mini waits at the unlock screen for a
    password typed at the console.
 2. ~2 min later the login window appears. Log in via Screen Sharing;
-   dismiss the tailscaled dialog the first Tailscale SSH connection pops;
    start Amphetamine (the sifaka shares are mounted by the nix-managed
-   `mcquack.eblume.sifaka-mounter` agent, no manual step).
+   `mcquack.eblume.sifaka-mounter` agent, no manual step). The tailscaled
+   permission dialog that first post-boot Tailscale SSH connections used to
+   pop is gone — that path retired with Tailscale SSH (2026-10-15,
+   [[per-principal-ssh]]).
 3. `ssh indri 'readlink /run/current-system; sudo launchctl print
    system/org.nixos.activate-system | head -1'`, then the verification
    list above and `mise run services-check`.

@@ -1,6 +1,6 @@
 ---
 title: Restart Indri
-modified: 2026-10-05
+modified: 2026-10-20
 last-reviewed: 2026-06-11
 tags:
   - how-to
@@ -63,7 +63,12 @@ After indri boots, most services recover automatically.
 
 ### 0. Dismiss macOS Permission Dialogs
 
-After a cold boot, the **first inbound Tailscale SSH connection** to indri triggers a macOS GUI permission dialog from tailscaled. This blocks the SSH session (and anything downstream like ansible) until dismissed at the console. You must be logged in to indri (via Screen Sharing or physically) to approve it before running any remote commands.
+Retired: after a cold boot, the **first inbound Tailscale SSH connection**
+used to trigger a macOS GUI permission dialog from tailscaled that blocked
+the SSH session (and anything downstream like ansible) until dismissed at
+the console. Tailscale SSH is off on indri (since 2026-10-15,
+[[per-principal-ssh]]), so there is no longer a cold-boot dialog to
+dismiss.
 
 ### 1. Log In and Start GUI Apps
 
