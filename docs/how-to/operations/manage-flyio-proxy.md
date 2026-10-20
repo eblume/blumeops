@@ -72,11 +72,16 @@ fly certs list -a blumeops-proxy
 
 ## Rotate Tailscale Auth Key
 
-The auth key expires every 90 days. To rotate:
+The auth key expires every 90 days. To rotate before it expires:
 
-1. Re-apply Pulumi to generate a new key: `mise run tailnet-up`
+1. Replace the key with Pulumi:
+   `mise run tailnet-up -- --replace 'urn:pulumi:tail8d86e::blumeops-tailnet::tailscale:index/tailnetKey:TailnetKey::flyio-proxy-key'`
+   (`tailnet-preview` with the same flag first should show exactly one replace).
+   A plain `tailnet-up`, or `-- --refresh`, does nothing while the key is still valid;
+   `--refresh` only recreates a key that has already expired.
 2. Re-run setup to stage the new secret: `mise run fly-setup`
 3. Deploy to pick up the new secret: `mise run fly-deploy`
+4. Check that the proxy logs "Tailscale connected" and that `https://forge.eblu.me/` returns 200.
 
 ## Rotate Fly.io API Token
 
