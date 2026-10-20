@@ -7,7 +7,7 @@
 #USAGE flag "--limit <limit>" default="15" help="Number of docs to show in the table"
 """Review the most stale documentation card by last-reviewed date.
 
-Scans all markdown files in docs/ (excluding changelog.d/) and sorts them
+Scans all markdown files in docs/ (excluding changelog.d/ and changelog/archive/, which are historical records, not curated docs) and sorts them
 by the ``last-reviewed`` frontmatter field, with git last-modified date as
 a tiebreaker (least recently updated first). Docs without the field are
 treated as never-reviewed and float to the top. Displays a staleness
@@ -91,7 +91,7 @@ def main(
     entries: list[tuple[str, date | None, datetime | None, Path]] = []
 
     for md_file in sorted(DOCS_DIR.rglob("*.md")):
-        if "changelog.d" in md_file.parts:
+        if "changelog.d" in md_file.parts or "archive" in md_file.parts:
             continue
 
         frontmatter = extract_frontmatter(md_file)
