@@ -217,9 +217,9 @@ labels, the forge-ci GitHub PAT) and the runner home are generation-owned
 since eblume/blumeops#1528: activation renders the config from
 `forge/runners.json` + the seed-secrets identity files, and a content
 change kickstarts the agent. The source checkout at
-`~/code/3rd/forgejo-runner` stays on disk only as the build runner's
-rollback re-write staging source; the cache prune/sweep agents are
-generation-owned (the flake's `launchd.user.agents."mcquack.eblume.runner-cache-sweep"`
+`~/code/3rd/forgejo-runner` stays on disk only as a dev clone — both
+runners run the nixpkgs binary the flake's nixpkgs input pins; the cache
+prune/sweep agents are generation-owned (the flake's `launchd.user.agents."mcquack.eblume.runner-cache-sweep"`
 and `launchd.user.agents."mcquack.eblume.runner-cache-prune"`). Applying a
 change is the usual `mise run provision-indri -- --tags rebuild` (no
 service-role tag).
@@ -399,9 +399,8 @@ touches `darwin/indri/` (or the workflow file itself), against indri's own
 store — the check lives where the target platform is, because ringtail
 cannot evaluate aarch64-darwin. The runner's PATH carries
 `/nix/var/nix/profiles/default/bin` for this (the flake's
-`mcquack.eblume.forgejo-runner` unit; the role's template carries the same
-PATH for the rollback re-write); erichblume is not a trusted nix user, which
-is fine for a flake build.
+`mcquack.eblume.forgejo-runner` unit); erichblume is not a trusted nix
+user, which is fine for a flake build.
 
 ## There is no dry run of a switch
 
@@ -616,11 +615,10 @@ profile, so no `-e` override is needed (the `~/code/3rd/caddy` checkout
 build was retired post-flip, blumeops#1275). — the widest outage: every `*.ops.eblu.me` endpoint and the L4 routes
 (2222/5433/5434 and the sifaka exporter ports) are down during the
 window, and no CI runs land while the forge is unreachable. For
-the forgejo runner flip, the main runner's rollback is a plain
-`darwin-rebuild --rollback` - its unit and config are generation-owned
-(eblume/blumeops#1528) and there is no ansible re-write to fall back
-to; the source checkout now serves only the build runner's re-write
-(see §indri-build runner). For
+the forgejo runner flip, the rollback is a plain
+`darwin-rebuild --rollback` for both runners - their units and configs
+are generation-owned (eblume/blumeops#1528, eblume/blumeops#1627) and
+there is no ansible re-write to fall back to. For
 the forgejo flip (PR 8), re-run `mise run provision-indri -- --tags forgejo
 -e forgejo_ansible_managed=true` — the whole forge is down during the
 window: the forge API and git ssh (2222), every forge-bound git op from a
@@ -707,16 +705,18 @@ where a pre-activation check refuses the switch if uid/gid 503 is already
 taken on the box (501 erichblume, 502 the forgejo account); re-check
 `dscl . -list /Users UniqueID` there before reapplying after any rebase. The user, the two system launchd
 daemons (`mcquack.eblume.colima-build`, `mcquack.eblume.forgejo-runner-build`),
-the build user's mise config and the home dir layout are nix-managed; the
-runner config and the colima profile are role-rendered by the
-`forgejo_runner` role, gated on the runner being registered
-(uuid/token in 1Password).
+the build user's mise config, the home dir layout, the runner config and
+the colima profile are nix-managed; the config and the colima profile are
+rendered by the indri flake's generation, gated on the seed-secrets
+identity files (seated by `mise run seed-secrets indri`, declared in
+darwin/indri/secrets.json).
 Registration comes first ([[configure-launchd-runner]] §indri-build
 runner). The warrant `provision-indri` dispatch runs `--tags rebuild` only
-(the nix switch), so it deploys the user and daemons but **not** the
-role-rendered config: after registration, a full local
-`mise run provision-indri` (no tag restriction) renders the config. Before
-registration the role renders nothing and the daemons idle.
+(the nix switch), and that now deploys the config too: the generation's
+postActivation renders it from the identity files and `forge/runners.json`,
+installs the colima profile, and kickstarts the runner daemon on change.
+Before the identity files exist the generation renders nothing and the
+daemons idle.
 
 Acceptance checks (run on indri as the named users after the deploy window):
 
