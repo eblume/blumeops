@@ -1,6 +1,6 @@
 ---
 title: Review Services
-modified: 2026-10-15
+modified: 2026-10-20
 last-reviewed: 2026-04-12
 tags:
   - how-to
@@ -59,11 +59,11 @@ For all service types, start by reading the service's reference card (`docs/refe
 
 ### NixOS Services (`type: nixos`)
 
-Versioned NixOS services (forgejo-runner, snowflake, k3s, kubectl) are pinned via one frozen input in `nixos/ringtail/flake.nix`: `nixpkgs-services`. It is a bare-SHA pin, listed in the `ringtail-flake-update` SKIP list and rev-checked by `flake-lock-check`, so `nix flake update` never moves it — it only changes when the pin is deliberately updated.
+Versioned NixOS services (forgejo-runner, snowflake, k3s, kubectl) are pinned via frozen inputs in `nixos/ringtail/flake.nix`: snowflake-proxy via its own `nixpkgs-snowflake` input (nixpkgs-unstable bare SHA, eblume/blumeops#1702; folds back onto `nixpkgs-services` at nixos-26.11), the other three via `nixpkgs-services`. Both are bare-SHA pins, listed in the `ringtail-flake-update` SKIP list and rev-checked by `flake-lock-check`, so `nix flake update` never moves them — they only change when the pin is deliberately updated.
 
 1. Check the upstream project for new releases
 2. Check what version nixpkgs has: `nix eval github:NixOS/nixpkgs/<rev>#<pkg>.version` with the pin's rev from `flake.nix` (from the talos pod you can `nix eval` the pinned nixpkgs refs directly — it has nix and no ringtail SSH)
-3. To upgrade, update the `nixpkgs-services` rev in `flake.nix` to a nixpkgs commit that includes the desired version, then run `nix flake update nixpkgs-services` from `nixos/ringtail/` to update the lock entry
+3. To upgrade, update the pin's rev in `flake.nix` to a nixpkgs commit that includes the desired version — `nixpkgs-services` for forgejo-runner/k3s/kubectl, `nixpkgs-snowflake` for snowflake — then run `nix flake update <input>` from `nixos/ringtail/` to update the lock entry
 4. Deploy: merge the blumeops PR — `ringtail-rebuild` auto-applies it to
    ringtail (break-glass alternative: the local apply in
    docs/reference/operations/disaster-recovery.md)

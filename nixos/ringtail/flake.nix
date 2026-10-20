@@ -4,12 +4,17 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
-    # Pinned nixpkgs for versioned services (forgejo-runner, snowflake, k3s,
-    # kubectl). Update this deliberately during service reviews, not via
+    # Pinned nixpkgs for versioned services (forgejo-runner, k3s, kubectl).
+    # Update this deliberately during service reviews, not via
     # `nix flake update`.
-    # Current versions: forgejo-runner 13.2.0, snowflake 2.13.1, k3s 1.35.8+k3s1,
-    # kubectl 1.36.3.
+    # Current versions: forgejo-runner 13.2.0, k3s 1.35.8+k3s1, kubectl 1.36.3.
     nixpkgs-services.url = "github:NixOS/nixpkgs/7c8764b7c7b09b34f632464276218ef9090eaa11";
+
+    # snowflake-proxy pinned on nixpkgs-unstable separately from
+    # nixpkgs-services (eblume/blumeops#1702) so advancing it does not
+    # co-move k3s and kubectl. Fold back onto nixpkgs-services at
+    # nixos-26.11.
+    nixpkgs-snowflake.url = "github:NixOS/nixpkgs/e513db7b0a65def6f6e17bb55195dfe510871944";
 
     disko = {
       url = "github:nix-community/disko";
@@ -32,7 +37,7 @@
     };
   };
 
-  outputs = { nixpkgs, nixpkgs-services, disko, home-manager, hephaestus, ... }: {
+  outputs = { nixpkgs, nixpkgs-services, nixpkgs-snowflake, disko, home-manager, hephaestus, ... }: {
     nixosConfigurations.ringtail = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       # The heph store package (both spokes' hephd, the session shims, and the myeve sync consume it as `hephPkg`).
@@ -46,17 +51,19 @@
         ./hardware-configuration.nix
         ./configuration.nix
         ./gaming.nix
-        # Pin versioned services instead of the rolling nixpkgs: forgejo-runner,
-        # snowflake, k3s, kubectl all via nixpkgs-services. This prevents
-        # `nix flake update nixpkgs` from silently upgrading them. The input is
-        # frozen — bump explicitly during service reviews.
+        # Pin versioned services instead of the rolling nixpkgs: snowflake via
+        # the dedicated nixpkgs-snowflake input, forgejo-runner/k3s/kubectl via
+        # nixpkgs-services. This prevents `nix flake update nixpkgs` from
+        # silently upgrading them. The inputs are frozen — bump explicitly
+        # during service reviews.
         ({ ... }: {
           nixpkgs.overlays = [
             (final: prev: let
               svcPkgs = nixpkgs-services.legacyPackages.x86_64-linux;
+              snowPkgs = nixpkgs-snowflake.legacyPackages.x86_64-linux;
             in {
               forgejo-runner = svcPkgs.forgejo-runner;
-              snowflake = svcPkgs.snowflake;
+              snowflake = snowPkgs.snowflake;
               k3s = svcPkgs.k3s;
               kubectl = svcPkgs.kubectl;
             })

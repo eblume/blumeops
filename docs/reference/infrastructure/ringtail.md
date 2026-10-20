@@ -1,6 +1,6 @@
 ---
 title: Ringtail
-modified: 2026-10-15
+modified: 2026-10-20
 last-reviewed: 2026-10-04
 tags:
   - infrastructure
@@ -249,7 +249,7 @@ first class. See [[skagit-cce-ceramics-watch]] for the record and the AAR.
 
 ## Pinned Service Versions
 
-Versioned services (forgejo-runner, snowflake, k3s, kubectl) are pinned via a frozen overlay in `flake.nix` — the `nixpkgs-services` input — separate from the rolling `nixpkgs` input. This prevents `nix flake update` from silently upgrading them. The Ringtail Flake Update workflow (native nix on the `nix-container-builder` runner) excludes the pinned input automatically. The Ringtail Flake Check workflow builds the flake's `system` on that same runner whenever `nixos/ringtail/` (or the workflow file) changes - a CI check on the same nix the `ringtail-apply` unit rebuilds with. See [[review-services]] for the upgrade procedure.
+Versioned services (forgejo-runner, snowflake, k3s, kubectl) are pinned via frozen inputs in `flake.nix` — `nixpkgs-services` for forgejo-runner, k3s, and kubectl, and a dedicated `nixpkgs-snowflake` for snowflake (eblume/blumeops#1702) — separate from the rolling `nixpkgs` input. This prevents `nix flake update` from silently upgrading them. The Ringtail Flake Update workflow (native nix on the `nix-container-builder` runner) excludes the pinned inputs automatically. The Ringtail Flake Check workflow builds the flake's `system` on that same runner whenever `nixos/ringtail/` (or the workflow file) changes - a CI check on the same nix the `ringtail-apply` unit rebuilds with. See [[review-services]] for the upgrade procedure.
 
 ## Maintenance Notes
 

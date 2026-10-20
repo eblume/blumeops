@@ -1,0 +1,1 @@
+ringtail's snowflake-proxy pin moves to 2.15.1 via a new dedicated `nixpkgs-snowflake` input (nixpkgs-unstable bare SHA e513db7b), so k3s 1.35.8 and kubectl 1.36.3 stay on the nixos-26.05 pin; folds back onto nixpkgs-services at nixos-26.11 (eblume/blumeops#1702).

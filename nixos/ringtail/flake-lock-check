@@ -8,8 +8,8 @@
 
 set -euo pipefail
 
-# Inputs that may move between two lock revisions. `nixpkgs-services` is
-# pinned by rev and is deliberately absent.
+# Inputs that may move between two lock revisions. `nixpkgs-services` and
+# `nixpkgs-snowflake` are pinned by rev and are deliberately absent.
 ALLOWED_INPUTS=(nixpkgs home-manager disko)
 : "${FLAKELOCK_CURL:=curl}"
 : "${FLAKELOCK_NIX:=nix}"
@@ -95,7 +95,8 @@ check_scope() {
     fi
   done
 
-  # Non-allowed nodes (root, nixpkgs-services): the entire object is frozen.
+  # Non-allowed nodes (root, nixpkgs-services, nixpkgs-snowflake): the entire
+  # object is frozen.
   for node in $new_keys; do
     case " $node " in
       " nixpkgs " | " home-manager " | " disko " | " root ") ;;
@@ -153,7 +154,7 @@ check_originals() {
         lines+=("$input: original.$field changed ($old_v -> $new_v)")
       fi
     done
-    if [[ "$input" == "nixpkgs-services" ]]; then
+    if [[ "$input" == "nixpkgs-services" || "$input" == "nixpkgs-snowflake" ]]; then
       old_v="$(jq -r --arg i "$input" '.nodes[$i].original.rev // ""' "$old")"
       new_v="$(jq -r --arg i "$input" '.nodes[$i].original.rev // ""' "$new")"
       if [[ "$old_v" != "$new_v" ]]; then
