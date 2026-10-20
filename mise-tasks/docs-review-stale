@@ -7,7 +7,7 @@
 #USAGE flag "--threshold <threshold>" default="180" help="Days before a doc is considered stale"
 """Report documentation files sorted by git-last-modified date.
 
-Scans all markdown files in docs/ (excluding changelog.d/) and shows
+Scans all markdown files in docs/ (excluding changelog.d/ and changelog/archive/, which are historical records, not curated docs) and shows
 their last modification date according to git. Docs older than the
 threshold (default 180 days) are highlighted as stale.
 
@@ -59,7 +59,7 @@ def main(
     entries: list[tuple[str, datetime, int, bool]] = []
 
     for md_file in sorted(DOCS_DIR.rglob("*.md")):
-        if "changelog.d" in md_file.parts:
+        if "changelog.d" in md_file.parts or "archive" in md_file.parts:
             continue
 
         last_modified = git_last_modified(md_file)
