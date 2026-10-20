@@ -422,36 +422,37 @@ services:
     current-version: "13.2.0"
     upstream-source: https://code.forgejo.org/forgejo/runner/releases
     notes: >-
-      Forgejo runner on ringtail; pinned via the dedicated nixpkgs-runner overlay
-      input in flake.nix (snowflake, k3s, kubectl stay on nixpkgs-services).
-      Both inputs are frozen — bump them during service reviews, not via nix flake update.
+      Forgejo runner on ringtail; pinned via the nixpkgs-services overlay input in
+      flake.nix (folded back onto the services pin 2026-10-16). The input is frozen
+      — bump it during service reviews, not via nix flake update.
 
   - name: snowflake-proxy
     type: nixos
-    last-reviewed: 2026-07-01
-    current-version: "2.11.0"
+    last-reviewed: 2026-10-16
+    current-version: "2.13.1"
     upstream-source: https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/-/releases
     notes: >-
       Tor Snowflake proxy on ringtail; pinned via nixpkgs-services overlay in flake.nix.
       Anti-censorship bridge, not an exit node.
-      2026-07-01: upstream at 2.14.1 (2.12/2.13/2.14 released since), but nixos-25.11
-      is frozen at 2.11.0 and the nixpkgs-services pin is shared with k3s + kubectl.
-      Minor service — staying on the in-channel 2.11.0 build rather than channel-mixing.
+      2026-10-16: 2.11.0 -> 2.13.1 with the nixpkgs-services move to the nixos-26.05
+      rev (the 25.11 channel is past EOL). 2.13's covertdtls randomizemimic default
+      matches the 2026-04-16 tor-relays advisory; our unit passes no covertdtls flag,
+      so no unit change.
 
   - name: k3s
     type: nixos
-    last-reviewed: 2026-07-04
-    current-version: "1.34.5+k3s1"
+    last-reviewed: 2026-10-16
+    current-version: "1.35.8+k3s1"
     upstream-source: https://github.com/k3s-io/k3s/releases
     notes: >-
       Single-node k3s cluster on ringtail; pinned via nixpkgs-services overlay in flake.nix.
-      The same overlay pins kubectl (1.34.3 on this pin) for the host and the `priv`
-      runner, keeping the client inside the +/-1 skew window.
-      Update nixpkgs-services rev during service reviews.
-      2026-07-04: nixos-25.11 is frozen at 1.34.5+k3s1 (no k3s_1_35/1_36 attrs; unstable has
-      1.35.6). Upstream 1.34 patch line is at 1.34.9 (klipper-helm CVE bump, containerd fixes
-      — nothing critical). Staying on the in-channel build rather than channel-mixing; revisit
-      when a newer version lands in 25.11 or a serious k8s CVE hits the 1.34 line.
+      The same overlay pins kubectl (1.36.3 on this pin) for the host and the `priv`
+      runner — N+1 against the 1.35 server, at the edge of the supported client skew.
+      The unit sets no --cluster-init or --datastore-endpoint, so the control plane runs
+      on kine/sqlite (db/state.db), not embedded etcd.
+      2026-10-16: 1.34.5+k3s1 -> 1.35.8+k3s1 with the nixpkgs-services move to
+      nixos-26.05 (25.11 is EOL; the k8s 1.34 line EOLs 2026-10-27). The datastore is
+      kine/sqlite on both sides, so no datastore migration.
 
   - name: talos
     type: argocd

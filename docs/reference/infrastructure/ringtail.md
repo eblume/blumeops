@@ -249,7 +249,7 @@ first class. See [[skagit-cce-ceramics-watch]] for the record and the AAR.
 
 ## Pinned Service Versions
 
-Versioned services are pinned via frozen overlays in `flake.nix` — forgejo-runner from the `nixpkgs-runner` input, snowflake, k3s, and kubectl from `nixpkgs-services` — separate from the rolling `nixpkgs` input. This prevents `nix flake update` from silently upgrading them. The Ringtail Flake Update workflow (native nix on the `nix-container-builder` runner) excludes both pinned inputs automatically. The Ringtail Flake Check workflow builds the flake's `system` on that same runner whenever `nixos/ringtail/` (or the workflow file) changes - a CI check on the same nix the `ringtail-apply` unit rebuilds with. See [[review-services]] for the upgrade procedure.
+Versioned services (forgejo-runner, snowflake, k3s, kubectl) are pinned via a frozen overlay in `flake.nix` — the `nixpkgs-services` input — separate from the rolling `nixpkgs` input. This prevents `nix flake update` from silently upgrading them. The Ringtail Flake Update workflow (native nix on the `nix-container-builder` runner) excludes the pinned input automatically. The Ringtail Flake Check workflow builds the flake's `system` on that same runner whenever `nixos/ringtail/` (or the workflow file) changes - a CI check on the same nix the `ringtail-apply` unit rebuilds with. See [[review-services]] for the upgrade procedure.
 
 ## Maintenance Notes
 
@@ -315,7 +315,8 @@ re-registered `nvidia.com/gpu`, so each GPU workload (Frigate, Immich ML,
 ollama) fails allocation and leaves a permanent `UnexpectedAdmissionError`
 husk — the Deployment creates a `Running` replacement in ~100 s, but kubelet
 never reaps the Failed pod (upstream kubelet behaviour; the real fix —
-deferred admission — is not in k3s 1.34, no earlier than Kubernetes 1.37). A
+deferred pod admission (kubernetes/kubernetes PR #139959) — was still
+unmerged as of the 1.37 cycle). A
 reaper CronJob in the `nvidia-device-plugin` app
 (`argocd/manifests/nvidia-device-plugin/cronjob-gpu-husk-reaper.yaml`) deletes
 Failed pods that request `nvidia.com/gpu` every 10 minutes, so the husks are
