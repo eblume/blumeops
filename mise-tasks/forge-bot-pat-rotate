@@ -54,6 +54,17 @@ BOT_USER = "talos"
 TOKEN_PREFIX = "forge-bot-pat-"
 TOKEN_SCOPES = ["write:repository", "write:issue"]
 
+# Tokens that live on the bot user but are NOT this rotation's PAT:
+# external credentials with their own owners, storage and lifecycle that
+# happen to be minted under the same Forgejo account. The rotation must
+# neither hand them over (they are not the vault's incumbent) nor
+# revoke them (that would break their consumers) — so they are excluded
+# from the predecessor set on every run.
+#   - horkos-forge-read: the horkos cv release-asset fetch (eblume/horkos#17),
+#     read-only, stored in the blumeops vault, ESO-mounted into the
+#     horkos publisher (argocd/manifests/horkos/external-secret-forge-read.yaml)
+RETAINED_EXTERNAL_TOKENS = frozenset({"horkos-forge-read"})
+
 VAULT = "agents"
 TOKEN_ITEM = "talos-forgejo-token"
 TOKEN_REF = f"op://{VAULT}/{TOKEN_ITEM}/api-token"
@@ -211,6 +222,50 @@ def revoke(password: str, token_id: int) -> None:
         die(f"revoke of id={token_id} failed: HTTP {r.status_code} {r.text[:200]}")
 
 
+# --- token bookkeeping (pure; the tests pin these) -----------------------
+
+
+def token_name(t: dict) -> str:
+    return str(t.get("name", ""))
+
+
+def is_external_token(name: str) -> bool:
+    """A token minted on the bot user for other purposes — not this
+    rotation's PAT. It is neither handed over nor revoked (see
+    RETAINED_EXTERNAL_TOKENS)."""
+    return name in RETAINED_EXTERNAL_TOKENS
+
+
+def external_tokens(existing: list[dict]) -> list[dict]:
+    return [t for t in existing if is_external_token(token_name(t))]
+
+
+def unprefixed_predecessors(existing: list[dict]) -> list[dict]:
+    """Non-rotation tokens the rotation may take over: unprefixed and not
+    an external credential. The first run takes over exactly one — the vault's
+    incumbent or a pending delayed revoke; several is a human decision."""
+    return [t for t in existing
+            if not token_name(t).startswith(TOKEN_PREFIX)
+            and not is_external_token(token_name(t))]
+
+
+def revocation_targets(existing: list[dict], new_id: int) -> list[dict]:
+    """Every token this run supersedes: all live tokens except the new one and
+    the retained external credentials. This covers the prefixed predecessors
+    from earlier rotations and the single non-retained unprefixed predecessor
+    the pre-mint guard admitted (the vault's incumbent on the first run,
+    or the pending delayed-revoke incumbent on a follow-up run — that one is
+    NOT matchable by current[-8:], because the vault has already moved to a
+    prefixed token, so "provable-only" would leak the bootstrap PAT this
+    ceremony exists to retire).
+    Known limitation: a token minted on the bot user by neither this rotation
+    nor a known external (e.g. by hand) is also revoked here. The pre-mint
+    guard already refuses the multi-token case, and every revocation is logged
+    by name, so a surprise is loud, not silent."""
+    return [t for t in existing
+            if t["id"] != new_id and not is_external_token(token_name(t))]
+
+
 # --- pod roll ----------------------------------------------------------------
 
 
@@ -338,16 +393,22 @@ def main(
     for t in existing:
         say(f"  - {t['name']} (id={t['id']})")
 
-    # The first live run must also hand over the vault's incumbent, which
-    # predates the forge-bot-pat-* prefix. Exactly ONE unprefixed token is
-    # the incumbent; several means something unknown is holding tokens —
-    # resolve that by hand before automating.
-    unprefixed = [t for t in existing
-                  if not str(t.get("name", "")).startswith(TOKEN_PREFIX)]
+    # The rotation owns only the forge-bot-pat-* tokens and the vault's
+    # current one. Tokens minted on the same bot user for other purposes
+    # (their own owners, storage, lifecycle) are retained, never revoked —
+    # see RETAINED_EXTERNAL_TOKENS. Anything else unprefixed is unknown:
+    # one is the take-over (the vault's incumbent on the first rotation,
+    # or a pending delayed revoke from an earlier --skip-roll / failed-roll
+    # run); several means something unexpected holds tokens.
+    retained = external_tokens(existing)
+    if retained:
+        say("retained external tokens (not revoked): "
+            + ", ".join(f"{t['name']} (id={t['id']})" for t in retained))
+    unprefixed = unprefixed_predecessors(existing)
     if len(unprefixed) > 1:
-        die(f"{BOT_USER} holds {len(unprefixed)} non-{TOKEN_PREFIX} tokens — "
-            f"the first run takes over exactly one; resolve the rest by hand "
-            f"first")
+        die(f"{BOT_USER} holds {len(unprefixed)} non-{TOKEN_PREFIX} tokens "
+            f"apart from the retained external ones — this run takes over "
+            f"exactly one; resolve the rest by hand first")
 
     # Prove before the mint that the vault's value corresponds to a live
     # token. Without this, a run that died between the vault write and the
@@ -360,9 +421,9 @@ def main(
             "that no longer exists; resolve by hand before running"
         )
 
-    # With the vault's value proven live, the single unprefixed token is
-    # revocable as a predecessor: it is either the vault's incumbent itself
-    # (the first run's hand-over) or the pending delayed revoke of an earlier
+    # With the vault's value proven live, at most one non-retained
+    # unprefixed token exists: either the vault's incumbent itself (the
+    # first run's hand-over) or the pending delayed revoke of an earlier
     # --skip-roll / failed-roll run (the vault's current value is then a live
     # forge-bot-pat-* token this run supersedes).
 
@@ -423,19 +484,20 @@ def main(
     say("talos rolled; pods re-read the new token at boot")
 
     # 10. revoke every predecessor: all other forge-bot-pat-* tokens, plus
-    # the single unprefixed token the pre-mint proof made revocable
-    for t in existing:
-        if t["id"] == new_id:
-            continue
+    # the single non-retained unprefixed token the pre-mint guard admitted.
+    # The retained external tokens are not the rotation's — leave them.
+    for t in revocation_targets(existing, new_id):
         revoke(password, t["id"])
         say(f"revoked {t['name']!r} (id={t['id']})")
 
-    # 11. post-check: exactly one live token for the bot (the new one), and
+    # 11. post-check: the new token plus the retained external ones, and
     # the old PAT 401s
     final = list_tokens(password)
-    if [t["id"] for t in final] != [new_id]:
+    expected = {new_id} | {t["id"] for t in retained}
+    actual = {t["id"] for t in final}
+    if actual != expected:
         found = [(t["name"], t["id"]) for t in final]
-        die(f"post-check: expected exactly one live token (id={new_id}), found {found}")
+        die(f"post-check: expected live tokens {sorted(expected)}, found {found}")
     old_check = httpx.get(
         f"{FORGE_API}/repos/{VERIFY_REPO}",
         headers={"Authorization": f"token {current}"},

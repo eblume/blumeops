@@ -135,12 +135,16 @@ The four `*-metrics` collectors (borgmatic, forgejo, jellyfin, zot) are
 nix-managed user agents (PR 4 of the series) at the same labels and plist
 paths the ansible roles used, writing the same `.prom` files into alloy's
 node_exporter textfile dir and the same `/opt/homebrew/var/log` logs.
-Applying the flip is the usual `mise run provision-indri -- --tags rebuild`
-(no service-role tag): activation swaps each plist in place — one reload,
-never dual-loaded. The API key files (`~/.forgejo-api-key`,
-`~/.jellyfin-api-key`) stay controller-side `op` placement: the roles'
-key-file tasks are not gated. Rollback per §Rolling back a service flip,
-with all four roles' gates flipped.
+Applying the flip is the auto-apply on merge (`provision-indri`, class
+auto) or `mise run provision-indri -- --tags rebuild`: activation swaps
+each plist in place — one reload, never dual-loaded. The API key files
+(`~/.config/metrics-keys/forgejo-api-key`,
+`~/.config/metrics-keys/jellyfin-api-key`) are seed-secrets manifest
+entries (kind `op`, no restart entry): the collectors re-read the files
+on every run, so a re-seed needs no kickstart. Rollback per §Rolling
+back a service flip: a plain `sudo darwin-rebuild --rollback` — the
+collectors are generation-owned, and there is no ansible re-write to
+fall back to.
 
 An unload leaves the `.prom` files in place and node_exporter keeps
 serving them, so Prometheus never sees a gap: for these textfile
@@ -554,7 +558,8 @@ wrapper that cats the seeded authorized-sub file into argv (hephd accepts
 its `pwa-version.js` stamp stay role-managed and ungated: the store is
 read-only, and the web root must stay a mutable git checkout. The role's
 daemon legs (cargo install, version gate, plist render + load, the op-read
-leg) sit behind `heph_ansible_managed` (default false). Applying the flip is
+leg) retired with the rollback window over: the generation owns the unit, and
+the role keeps only the PWA checkout + stamp and the data dir. Applying the flip is
 the auto-apply on merge (`provision-indri`, class auto) or `mise run
 provision-indri -- --tags rebuild`. Seed before the merge: `mise run
 seed-secrets indri` from the PR branch's checkout seats
@@ -567,9 +572,17 @@ until the switch reloads it; the PWA shell files themselves keep serving from
 the role's checkout. Pre-flip: confirm the latest borgmatic archive-tier
 backup of `~/.local/share/heph/heph.db` is fresh (the never-lose dump rides
 the daily 02:00 archive run) — the hub DB is the only copy of the
-task/context data. Rollback per §Rolling back a service flip, with the
-role's gate flipped: `mise run provision-indri -- --tags heph -e
-heph_ansible_managed=true`.
+task/context data. Rollback per §Rolling back a service flip: a plain
+`sudo darwin-rebuild --rollback` to the previous generation — like the
+forgejo runner flip, the unit is generation-owned and there is no ansible
+re-write to fall back to. The floor is `system-68` (the #1677 flip generation, applied 2026-10-16 —
+`/nix/var/nix/profiles/system-68-link`; `sudo darwin-rebuild
+--list-generations` maps generation numbers to those links): never roll back
+below it. Pre-flip generations (system-67 and earlier) predate the store hub,
+so rolling back to one unloads the unit and leaves no hub at all — the
+ansible re-write and the cargo bins are gone, so nothing remains to fall back
+to. A pre-flip hub is recovered by a forward fix (roll forward to or past
+system-68), not by rolling back further.
 
 ## Rolling back a service flip
 
@@ -585,11 +598,10 @@ When a generation changes a service's plist, the rollback order is fixed:
 `sudo darwin-rebuild --rollback` **first**, then re-run the role with its
 gate flipped — for logrotate, `mise run provision-indri -- --tags logrotate
 -e logrotate_ansible_managed=true` — so ansible writes the plist back and
-its restart handler reloads the agent. For the metrics flip (PR 4), re-run
-all four roles the same way: `mise run provision-indri -- --tags
-borgmatic_metrics,forgejo_metrics,jellyfin_metrics,zot_metrics -e
-borgmatic_metrics_ansible_managed=true -e forgejo_metrics_ansible_managed=true
--e jellyfin_metrics_ansible_managed=true -e zot_metrics_ansible_managed=true`.
+its restart handler reloads the agent. For the metrics flip (PR 4),
+a plain `sudo darwin-rebuild --rollback` — the four collectors are
+generation-owned (the ansible roles are retired), so there is no
+ansible re-write to fall back to.
 For the zot registry flip (PR 5), re-run `mise run provision-indri --
 --tags zot -e zot_ansible_managed=true`. Unlike the textfile
 collectors, zot is a real daemon: the registry is down between the
@@ -624,9 +636,19 @@ every front-facing endpoint stays up. For the jellyfin flip (PR 9), re-run
 — the media endpoints (`jellyfin.ops.eblu.me`) are down during the
 window; forge, the registry and every other endpoint stay up, and the
 dedicated blackbox probe witnesses both the flip and any regression.
-For the heph hub flip (eblume/blumeops#1655), re-run `mise run provision-indri -- --tags heph -e heph_ansible_managed=true` — the hub (every spoke's sync and the PWA's data path) is down during the window; the PWA shell files keep serving from the role's checkout.
-Never ansible first — that would leave the old plist loaded under the
-new generation.
+For the heph hub flip (eblume/blumeops#1655), a plain `sudo darwin-rebuild
+--rollback` — like the forgejo runner flip, the unit is generation-owned and
+there is no ansible re-write to fall back to; the hub (every spoke's sync and
+the PWA's data path) is down during the window; the PWA shell files keep
+serving from the role's checkout. Floor: never roll back below `system-68`
+(the #1677 flip generation, applied 2026-10-16 —
+`/nix/var/nix/profiles/system-68-link`; `sudo darwin-rebuild
+--list-generations` shows what is on the box) — pre-flip generations have no
+store hub, and with the role's daemon legs and the cargo bins gone nothing
+remains to fall back to; a pre-flip hub is recovered by a forward fix, not a
+further rollback.
+For the gated flips, never ansible first — that would leave the old plist
+loaded under the new generation.
 
 What the rollback itself does depends on the target generation
 (nix-darwin `modules/system/launchd.nix`, unchanged on master as of

@@ -1,1 +1,0 @@
-Indri's OpenSSH (Remote Login) is now enabled declaratively by the darwin/indri flake (`services.openssh.enable` + activation-written real files for the sshd policy and erichblume's authorized keys): key-only auth, `AllowUsers erichblume`, Tailscale SSH stays on until the series' PR 4 removes it (eblume/blumeops#1484).

@@ -13,7 +13,8 @@ config, dashboards keyed on its metrics, docs that need the public URL, and
 comments that must contrast it with the tailnet forge.
 
 Excluded by policy (never checked): .git, *.lock, CHANGELOG.md,
-docs/changelog.d/, docs/quartz.config.yaml, docs/index.md, fly/, and the
+docs/changelog.d/, docs/changelog/archive/, docs/quartz.config.yaml,
+docs/index.md, fly/, and the
 public-clone-URL docs docs/reference/services/{cv,horkos,talos,hephaestus}.md.
 
 Usage: mise run forge-name-lint
@@ -38,7 +39,7 @@ SELF_PATHS = {
 
 # Whole trees / exact files that may legally carry the public name; checked
 # by exclusion, not by the allowlist.
-EXCLUDED_PREFIXES = ("docs/changelog.d/", "fly/")
+EXCLUDED_PREFIXES = ("docs/changelog.d/", "docs/changelog/archive/", "fly/")
 EXCLUDED_FILES = {
     "CHANGELOG.md",
     "docs/index.md",

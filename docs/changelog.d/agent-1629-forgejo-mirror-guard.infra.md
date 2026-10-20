@@ -1,1 +1,0 @@
-A launchd guard on indri (`mcquack-forgejo-mirror-guard`) alerts on `ops-approvals` and exports 0/1 textfile metrics when a forge push-mirror remote carries a fetch refspec targeting `refs/heads/*`, or when the newest `main` reflog entry on any bare repo is not a fast-forward.

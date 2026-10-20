@@ -1,7 +1,7 @@
 ---
 title: Manage Authentik Principals
-modified: 2026-10-16
-last-reviewed: 2026-10-16
+modified: 2026-10-17
+last-reviewed: 2026-10-17
 tags:
   - how-to
   - authentik
@@ -17,6 +17,8 @@ How to add and retire the identities Authentik serves. The Authentik side of the
 `argocd/manifests/authentik/principals.yaml` is the roster of record for every `authentik_core.user`, `authentik_core.group`, and `authentik_policies.policybinding` entry in the blueprint ConfigMap (`argocd/manifests/authentik/configmap-blueprint.yaml`): groups with their per-app `access` bindings, and the users that belong to them.
 
 `argocd/manifests/authentik/retiring.yaml` is the deletion queue — normally empty. An entry renders an `is_active: false` user record (plus its group, when declared) into the blueprint, so the blueprint keeps owning the record until the principal is deleted from live Authentik.
+
+`mise run reconcile-authentik-principals` is the live side of that loop: it diffs live Authentik (and Grafana JIT users) against the two files, and `--delete --apply` empties the queue by deleting what it names — the only thing that deletes a principal from live Authentik.
 
 `mise run render-authentik-principals --write` regenerates the principal entries in the ConfigMap from these two files; the prek hook of the same name (`--check` mode) fails Lint on drift between them and the ConfigMap. The blueprint ConfigMap is rendered output — never edit its principal entries by hand. New entries start as a minimal skeleton block in the ConfigMap — model line plus identifiers — and the renderer fills in the exact body.
 
@@ -65,7 +67,7 @@ For a zot identity, the zot accessControl grant (the `ansible/roles/zot` templat
 2. Delete the user (and its groups/access) from `principals.yaml`.
 3. Append a `retiring.yaml` entry — `username`, `name`, `retired`, `issue`, `type`/`group` when the record has one, `keys_revoked: true` for zot.
 4. Render and commit in a PR. The blueprint keeps owning the record as `is_active: false` from that point, so a skipped delete cannot silently revive it.
-5. After merge, a human deletes the user/group from live Authentik — today a manual ceremony; the eblume/blumeops#1194 step-4 reconcile will automate it, deleting the principal's Grafana JIT user (the Grafana user keyed on the login name) in the same pass.
+5. After merge, a human runs the reconcile: `mise run reconcile-authentik-principals --delete` to preview, then `--delete --apply` to delete the user (and its paired group) from live Authentik and sweep the principal's Grafana JIT user (the Grafana row keyed on the login name) in the same pass. The task refuses a zot identity without `keys_revoked: true`, so step 1 is enforced, not a ritual.
 6. Follow-up PR: remove the queue entry and re-render.
 
 ## Never rename in place

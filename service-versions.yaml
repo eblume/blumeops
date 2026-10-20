@@ -411,8 +411,11 @@ services:
       only. Host-mode jobs run on the same declarative mise-pinned
       toolchain (`darwin/indri/configuration.nix`, `[tools]`) — REVIEW it:
       every pin mirrors one held elsewhere (mise.toml, prek.toml,
-      service-versions.yaml), so diff it against
-      those sources and realign; not an independent upgrade decision.
+      service-versions.yaml) except prek — the fleet environment default,
+      bumped in lockstep across the talos image `prekVersion`, chezmoi, and
+      indri, while this repo's mise.toml pin is a deliberate repo-level
+      override — so diff it against those sources and realign; not an
+      independent upgrade decision.
   - name: nix-container-builder
     type: nixos
     last-reviewed: 2026-10-16
@@ -454,7 +457,7 @@ services:
     type: argocd
     release: self
     last-reviewed: "2026-08-30"
-    current-version: "v0.4.220"
+    current-version: "v0.4.226"
     upstream-source: https://forge.ops.eblu.me/eblume/talos
     notes: >-
       First-party agent workflow service ([[talos-design]]): pi runtime +
@@ -571,9 +574,15 @@ services:
       seeded on-host secret file (darwin/indri/secrets.json) the agent's
       static wrapper cats into argv at startup - hephd accepts the flag
       argv-only. No --self-update flag: nothing auto-updates. The ansible
-      role keeps the PWA checkout + pwa-version.js stamp (ungated, tag
-      `heph_version`) and the daemon legs behind `heph_ansible_managed`
-      (default false) for the rollback re-write. Bump the flake input; the
+      role keeps only the PWA checkout + pwa-version.js stamp (tag
+      `heph_version`) - its daemon legs (cargo install, version gate, plist,
+      the op-read leg) retired with the rollback window over
+      (eblume/blumeops#1655), so a hub rollback is a plain
+      `sudo darwin-rebuild --rollback` to the previous generation. A boot-once
+      LaunchAgent (mcquack.eblume.heph-cargo-bin-cleanup, the indri twin of
+      ringtail's heph-cargo-bin-cleanup) removes the retired ~/.cargo/bin bins
+      (heph, hephd, and the v1.8.0-era heph-tui/heph-quickadd) so no shell can
+      shadow the store bins. Bump the flake input; the
       auto-apply (provision-indri, class auto) switches the hub on merge,
       and `mise run provision-indri -- --tags heph` re-stamps the PWA.
       The ringtail spokes keep their own pin: the `hephaestus` input in

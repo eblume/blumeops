@@ -4,7 +4,7 @@
 set -euo pipefail
 
 JELLYFIN_URL="http://localhost:8096"
-API_KEY_FILE="/Users/erichblume/.jellyfin-api-key"
+API_KEY_FILE="/Users/erichblume/.config/metrics-keys/jellyfin-api-key"
 OUTPUT_FILE="/opt/homebrew/var/node_exporter/textfile/jellyfin.prom"
 TEMP_FILE="${OUTPUT_FILE}.tmp"
 

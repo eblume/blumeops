@@ -1,0 +1,74 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyyaml==6.0.3"]
+# ///
+#MISE description="Check that every group the zot accessControl template grants to exists in principals.yaml (the roster of record)"
+"""The zot accessControl template (ansible/roles/zot/templates/config.json.j2)
+carries its own copy of the group names (eblume/blumeops#1194: the zot
+accessControl stays separate from the roster, but the group names it names
+must exist in argocd/manifests/authentik/principals.yaml — the lint that
+closes that coupling without joining the files).
+
+A group that is renamed or retired in the roster but still granted here would
+silently keep its registry access: the group record dies, and zot's policy
+engine matches the orphaned name. Fail on any grant whose group the roster
+does not declare.
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parent.parent
+TEMPLATE = ROOT / "ansible/roles/zot/templates/config.json.j2"
+PRINCIPALS = ROOT / "argocd/manifests/authentik/principals.yaml"
+
+# The template is Jinja, so the accessControl block is extracted by regex
+# rather than parsed as JSON: every policy's "groups" list, in order.
+GROUPS_RE = re.compile(r'"groups":\s*\[([^\]]*)\]')
+NAME_RE = re.compile(r'"([a-z0-9-]+)"')
+
+
+def groups_in_template(text: str) -> list[str]:
+    out = []
+    for block in GROUPS_RE.findall(text):
+        out.extend(NAME_RE.findall(block))
+    return out
+
+
+def main() -> int:
+    text = TEMPLATE.read_text()
+    roster = yaml.safe_load(PRINCIPALS.read_text()) or {}
+    roster_groups = {
+        g["name"] for g in roster.get("groups") or [] if isinstance(g, dict) and isinstance(g.get("name"), str)
+    }
+
+    granted = groups_in_template(text)
+    if not granted:
+        print(
+            f"zot-accesscontrol-lint: no group grants found in {TEMPLATE.name} — did the template change shape?",
+            file=sys.stderr,
+        )
+        return 1
+
+    errors = [name for name in granted if name not in roster_groups]
+    if errors:
+        for name in errors:
+            print(
+                f"zot-accesscontrol-lint: {TEMPLATE.name} grants '{name}', which is not a group in principals.yaml",
+                file=sys.stderr,
+            )
+        print(f"zot-accesscontrol-lint: {len(errors)} unknown group grant(s)", file=sys.stderr)
+        return 1
+    distinct = sorted(set(granted))
+    print(f"zot-accesscontrol-lint: {len(granted)} grants, {len(distinct)} groups — all in the roster.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

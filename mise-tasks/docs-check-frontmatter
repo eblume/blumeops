@@ -8,7 +8,7 @@
 
 Required fields: title, tags, modified
 
-Scans all markdown files in docs/ (excluding changelog.d/) and checks
+Scans all markdown files in docs/ (excluding changelog.d/ and changelog/archive/, which are historical records, not curated docs) and checks
 that each file has YAML frontmatter containing the required fields.
 
 Usage: mise run docs-check-frontmatter
@@ -55,7 +55,7 @@ def main() -> int:
     misplaced_issues: list[tuple[str, set[str]]] = []
 
     for md_file in sorted(DOCS_DIR.rglob("*.md")):
-        if "changelog.d" in md_file.parts:
+        if "changelog.d" in md_file.parts or "archive" in md_file.parts:
             continue
 
         rel_path = str(md_file.relative_to(DOCS_DIR))

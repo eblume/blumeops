@@ -130,9 +130,12 @@ ssh indri 'launchctl list | grep <service>'
 
 ## Add Observability (optional)
 
-For metrics collection, create a companion `<role>_metrics` role that:
-1. Writes metrics to `/opt/homebrew/var/node_exporter/textfile`
-2. Runs via a LaunchAgent (cronjob-style)
+For metrics collection, add a nix-managed user LaunchAgent to
+`darwin/indri/configuration.nix` that writes a `.prom` file to
+`/opt/homebrew/var/node_exporter/textfile` — the indri
+`<role>_metrics` companion-role pattern is retired
+(eblume/blumeops#1700); a collector needing an API key declares it in
+the seed-secrets manifest instead.
 
 See [[alloy]] for how metrics are collected from textfiles.
 

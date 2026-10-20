@@ -10,7 +10,8 @@
 #   3. On indri, give the hub its OWN device origin (keeps gilbert's owner_id +
 #      data; hephd regenerates a fresh origin on next start when it is missing):
 #        sqlite3 ~/.local/share/heph/heph.db "DELETE FROM meta WHERE key='origin';"
-#   4. Run this role (installs hephd, stages the PWA, loads the launchagent).
+#   4. Run this role (stages the PWA; the hub daemon itself is the darwin/indri
+#      generation's mcquack.eblume.heph LaunchAgent — eblume/blumeops#1655).
 #
 # hephd auto-creates an empty store on first start if none exists, so seeding is
 # optional — skip it only if you intend a fresh, empty hub.
@@ -20,64 +21,6 @@
     path: "{{ heph_data_dir }}"
     state: directory
     mode: '0700'
-
-# Co-owner allowlist for the ringtail agent spoke's `talos-heph` identity. The
-# sub (a hashed_user_id) is discovered once at bootstrap and stored in the
-# blumeops vault, so it stays out of this public repo. The read is fail-closed:
-# a failed `op read` (dismissed prompt, vault outage, wrong session) aborts the
-# play instead of silently rendering the plist without the sub. To intentionally
-# run the hub without the spoke, set heph_agents_sub_enabled=false.
-- name: Read the talos-heph authorized sub from the vault
-  ansible.builtin.command:
-    cmd: op read "op://vg6xf6vvfmoh5hqjjhlhbeoaie/talos-heph-sub/sub"
-  delegate_to: localhost
-  register: heph_agents_sub
-  changed_when: false
-  no_log: true
-  when: heph_ansible_managed | bool and heph_agents_sub_enabled
-
-- name: Add the talos-heph sub to the authorized-subs allowlist
-  ansible.builtin.set_fact:
-    heph_authorized_subs: "{{ heph_authorized_subs + [heph_agents_sub.stdout | trim] }}"
-  when: heph_ansible_managed | bool and heph_agents_sub_enabled and (heph_agents_sub.stdout | trim | length) > 0
-  no_log: true
-
-# Read the currently-installed hephd version so we can converge to the pin.
-# `hephd --version` prints "hephd X.Y.Z (sha)"; awk pulls the bare semver. When
-# the binary is absent the command fails (rc 127) but awk still yields "", so
-# the mismatch below triggers a fresh install.
-- name: Check installed hephd version
-  ansible.builtin.shell:
-    cmd: "set -o pipefail; {{ heph_binary }} --version | awk '{print $2}'"
-    executable: /bin/bash
-  register: heph_installed
-  changed_when: false
-  failed_when: false
-  when: heph_ansible_managed | bool
-
-- name: Compute the target hephd version (pin without the leading 'v')
-  ansible.builtin.set_fact:
-    heph_target_version: "{{ heph_version | regex_replace('^v', '') }}"
-    heph_current_version: "{{ heph_installed.stdout | trim }}"
-  when: heph_ansible_managed | bool
-
-# hephd self-update is OFF, so ansible fully owns the version. Converge to the
-# pinned tag: install when absent, upgrade when older, downgrade when the pin is
-# lowered (`--force` lets cargo replace whatever is there). Builds from source;
-# can take several minutes on a cold cargo cache. No-op once versions match.
-- name: Install/upgrade heph + hephd from the forge to {{ heph_version }}
-  ansible.builtin.command:
-    cmd: >-
-      {{ heph_bin_dir }}/cargo install --locked --force
-      --git {{ heph_repo_url }}
-      --tag {{ heph_version }}
-      heph hephd
-  environment:
-    PATH: "{{ heph_bin_dir }}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
-    RUSTUP_TOOLCHAIN: "{{ heph_rust_toolchain }}"
-  when: heph_ansible_managed | bool and heph_current_version != heph_target_version
-  changed_when: true
-  notify: Restart heph
 
 # Checkout provides the PWA shell at {{ heph_web_root }} (heph-pwa/ subdir),
 # served directly by hephd. Static files are read from disk per request, so a
@@ -103,24 +46,3 @@
     content: "export const PWA_VERSION = \"{{ heph_version }}\";\n"
     dest: "{{ heph_web_root }}/pwa-version.js"
     mode: '0644'
-
-- name: Deploy heph LaunchAgent plist
-  ansible.builtin.template:
-    src: heph.plist.j2
-    dest: ~/Library/LaunchAgents/mcquack.eblume.heph.plist
-    mode: '0644'
-  when: heph_ansible_managed | bool
-  notify: Restart heph
-
-- name: Check if heph LaunchAgent is loaded
-  ansible.builtin.command: launchctl list mcquack.eblume.heph
-  register: heph_launchctl_check
-  changed_when: false
-  failed_when: false
-  when: heph_ansible_managed | bool
-
-- name: Load heph LaunchAgent if not loaded
-  ansible.builtin.command: launchctl load ~/Library/LaunchAgents/mcquack.eblume.heph.plist
-  when: heph_ansible_managed | bool and heph_launchctl_check.rc != 0
-  changed_when: true
-  failed_when: false
