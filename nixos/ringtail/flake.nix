@@ -14,7 +14,7 @@
     # nixpkgs-services (eblume/blumeops#1702) so advancing it does not
     # co-move k3s and kubectl. Fold back onto nixpkgs-services at
     # nixos-26.11.
-    nixpkgs-snowflake.url = "github:NixOS/nixpkgs/2e42b2892d964b175c84c125e3ace59644ea88a1";
+    nixpkgs-snowflake.url = "github:NixOS/nixpkgs/e513db7b0a65def6f6e17bb55195dfe510871944";
 
     disko = {
       url = "github:nix-community/disko";

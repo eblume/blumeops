@@ -439,7 +439,7 @@ services:
       matches the 2026-04-16 tor-relays advisory; our unit passes no covertdtls flag,
       so no unit change.
       2026-10-20: 2.13.1 -> 2.15.1 via the new nixpkgs-snowflake input (unstable rev
-      2e42b2892d964b175c84c125e3ace59644ea88a1) so k3s/kubectl stay on the nixos-26.05
+      e513db7b0a65def6f6e17bb55195dfe510871944) so k3s/kubectl stay on the nixos-26.05
       pin; fold back at nixos-26.11. Deployment relationship change only — no unit flags moved.
 
   - name: k3s
