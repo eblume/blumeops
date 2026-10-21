@@ -118,10 +118,13 @@ The proxy's nginx routes everything through Caddy's fly-only listener on indri (
 
 ### Crawler Mitigation
 
-The `forge.eblu.me` static mirror serves a `robots.txt` disallowing the whole
-path (crawlers are not the audience; the clone endpoint is dumb-HTTP git, not
-a crawl target), and the edge rejects declared AI crawlers with a bare 403
-before the Anubis proof-of-work hop (see [[ai-scraper-mitigation]]). The old
+The `forge.eblu.me` static mirror serves a `robots.txt` disallowing crawlers
+(the clone endpoint is dumb-HTTP git, not a crawl target) but allowing the
+user-triggered agent fetchers (Claude-User, ChatGPT-User, Perplexity-User,
+MistralAI-User). The edge rejects declared AI crawlers with a bare 403 before
+the Anubis proof-of-work hop, and Anubis (`fly/anubis-policy.yaml`) ALLOWs the
+user-triggered fetchers only from their vendors' published IP ranges (see
+[[ai-scraper-mitigation]]). The old
 relay's per-endpoint defenses — the `/mirrors/` blackhole, the
 `/*/archive/` → tailnet 302, and the 7-day release-download cache — were
 retired with the relay, because the static mirror serves source only: there is

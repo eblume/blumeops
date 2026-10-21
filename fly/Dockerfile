@@ -43,6 +43,7 @@ COPY fail2ban/jail.d/photos.conf /etc/fail2ban/jail.d/photos.conf
 COPY fail2ban/action.d/nginx-deny.conf /etc/fail2ban/action.d/nginx-deny.conf
 
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY anubis-policy.yaml /etc/anubis/policy.yaml
 COPY error.html /usr/share/nginx/html/error.html
 COPY tombstone.html /usr/share/nginx/html/tombstone.html
 COPY landing/ /usr/share/nginx/html/landing/

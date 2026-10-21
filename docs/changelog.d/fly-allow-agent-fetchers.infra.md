@@ -1,0 +1,1 @@
+The forge.eblu.me static mirror now lets user-triggered AI agent fetchers (Claude-User, ChatGPT-User, Perplexity-User, MistralAI-User) read it, verified by their vendors' IP ranges in Anubis, while training crawlers stay blocked.
