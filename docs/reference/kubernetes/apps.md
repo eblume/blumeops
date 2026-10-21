@@ -1,7 +1,7 @@
 ---
 title: Apps
-modified: 2026-07-17
-last-reviewed: 2026-07-17
+modified: 2026-10-21
+last-reviewed: 2026-10-21
 tags:
   - kubernetes
   - argocd
@@ -58,9 +58,11 @@ pinned via the `nixpkgs-services` overlay (see [[forgejo-runner]]).
 
 ## Sync Policies
 
-All applications, including the `apps` app-of-apps root, are **manual
-sync** — deployments are explicit (`argocd app sync <app>`). To pick up a
-newly added Application manifest: `argocd app sync apps`.
+Workload applications **auto-sync** on merge to `main` (a Forgejo push
+webhook accelerates the sync); the only manual apps are `apps`, `argocd`,
+`cloudnative-pg-ringtail`, and `external-secrets-crds-ringtail`
+([[argocd#Sync Policy]] for the reasons). To pick up a newly added
+Application manifest: `argocd app sync apps`.
 
 ## Related
 
