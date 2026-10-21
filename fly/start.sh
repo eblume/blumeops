@@ -64,6 +64,8 @@ touch /etc/nginx/forge-deny.conf /etc/nginx/photos-deny.conf
 # (challenge cookies reset each deploy). COOKIE_DYNAMIC_DOMAIN scopes the
 # challenge cookie to the request's hostname (forge.eblu.me / the staging
 # host), so git/API clients are unaffected. Alloy scrapes its metrics on 9092.
+# POLICY_FNAME is the stock policy plus IP-pinned ALLOWs for user-triggered
+# agent fetchers (fly/anubis-policy.yaml).
 if [ -n "${ANUBIS_ED25519_PRIVATE_KEY_HEX:-}" ]; then
     export ED25519_PRIVATE_KEY_HEX="$ANUBIS_ED25519_PRIVATE_KEY_HEX"
 fi
@@ -71,6 +73,7 @@ BIND=127.0.0.1:8924 \
 TARGET=http://127.0.0.1:8925 \
 METRICS_BIND=127.0.0.1:9092 \
 COOKIE_DYNAMIC_DOMAIN=1 \
+POLICY_FNAME=/etc/anubis/policy.yaml \
 anubis &
 
 # Start sshd — the mirror's git-shell push endpoint. The tailnet

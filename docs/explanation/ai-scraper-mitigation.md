@@ -296,6 +296,28 @@ Consequences accepted:
   nginx, the per-request cost under a storm drops enough that a size bump
   is not warranted; revisit if saturation recurs.
 
+### Letting user-triggered agents through (2026-10-21)
+
+The defenses above treat every AI user agent alike, but there are two kinds:
+**training crawlers** (ClaudeBot, GPTBot, meta-externalagent, Bytespider, ...)
+walk the whole site on their own, while **user-triggered fetchers**
+(Claude-User, ChatGPT-User, Perplexity-User, MistralAI-User, Google's
+user-triggered fetchers) read one page because a person asked their assistant
+about it. Blocking the second kind only turns away people asking about
+these repos, and the static mirror is cheap to serve, unlike the dynamic
+Forgejo the crawl hit in June.
+
+So the mirror's Anubis runs a custom policy (`fly/anubis-policy.yaml`): the
+stock v1.28.1 policy plus IP-pinned ALLOW rules for the user-triggered
+fetchers, ahead of the stock AI blocks. Each rule matches the UA *and* the
+vendor's published egress range (Anthropic's `160.79.104.0/21`; Anubis's own
+pinned lists for the rest), so a scraper that spoofs `Claude-User` from
+anywhere else still hits the stock DENY. `ChatGPT-User` left the nginx
+`$deny_bot` map so Anubis can make that call. `robots.txt` allows those four
+UAs and still Disallows everyone else; Claude-User honours robots.txt, so
+the old blanket Disallow turned it away even before Anubis did. Training
+crawlers stay denied at both layers.
+
 ### Tier 3 — Move egress off Fly entirely (rejected)
 
 A [[#The incident|Cloudflare]] Tunnel (`cloudflared` on indri → Cloudflare
