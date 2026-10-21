@@ -1,7 +1,7 @@
 ---
 title: ArgoCD Config
-modified: 2026-03-24
-last-reviewed: 2026-03-24
+modified: 2026-10-21
+last-reviewed: 2026-10-21
 tags:
   - tutorials
   - replication
@@ -180,7 +180,7 @@ spec:
       - CreateNamespace=true
 ```
 
-Now adding a new application is just creating a YAML file. BlumeOps syncs the `apps` Application manually — run `argocd app sync apps` after adding new Application YAMLs.
+Now adding a new application is just creating a YAML file. BlumeOps syncs the `apps` root manually — run `argocd app sync apps` after adding new Application YAMLs (see [[argocd|ArgoCD Reference]] for the per-app sync policy).
 
 ## Step 7: Configure Sync Policies
 
@@ -191,7 +191,7 @@ Now adding a new application is just creating a YAML file. BlumeOps syncs the `a
 | Auto prune | Remove resources deleted from git |
 | Self heal | Revert manual kubectl changes |
 
-BlumeOps uses manual sync for all applications, including the root `apps` Application.
+BlumeOps auto-syncs its workload Applications on merge to `main` (a Forgejo push webhook accelerates the sync); only the `apps` app-of-apps root and a few tag-tracking or self-managed apps stay manual.
 
 ## What You Now Have
 
@@ -210,7 +210,7 @@ BlumeOps uses manual sync for all applications, including the root `apps` Applic
 
 BlumeOps' ArgoCD configuration includes:
 - SSH connection to [[forgejo]] git server
-- Manual sync policy for all workloads
+- Auto-sync on merge to `main` for workload applications (webhook-accelerated); manual sync for the `apps` root and a few exceptions
 - Separate manifests and apps directories
 
 See [[argocd|ArgoCD Reference]] and [[apps|Apps Reference]] for full details.
