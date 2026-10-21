@@ -367,8 +367,6 @@
       tags: devpi
     - role: jellyfin
       tags: jellyfin
-    - role: logrotate
-      tags: logrotate
     - role: cv
       tags: cv
     - role: docs
