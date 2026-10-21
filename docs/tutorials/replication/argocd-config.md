@@ -191,7 +191,7 @@ Now adding a new application is just creating a YAML file. BlumeOps syncs the `a
 | Auto prune | Remove resources deleted from git |
 | Self heal | Revert manual kubectl changes |
 
-BlumeOps auto-syncs its workload Applications on merge to `main` (a Forgejo push webhook accelerates the sync); only the `apps` app-of-apps root and a few tag-tracking or self-managed apps stay manual.
+BlumeOps auto-syncs its workload Applications on merge to `main` (a Forgejo push webhook accelerates the sync); the only manual apps are `apps`, `argocd`, `cloudnative-pg-ringtail`, and `external-secrets-crds-ringtail` — [[argocd#Sync Policy]] for the reasons.
 
 ## What You Now Have
 
@@ -210,7 +210,7 @@ BlumeOps auto-syncs its workload Applications on merge to `main` (a Forgejo push
 
 BlumeOps' ArgoCD configuration includes:
 - SSH connection to [[forgejo]] git server
-- Auto-sync on merge to `main` for workload applications (webhook-accelerated); manual sync for the `apps` root and a few exceptions
+- Auto-sync on merge to `main` for workload applications (webhook-accelerated); manual sync only for `apps`, `argocd`, `cloudnative-pg-ringtail`, `external-secrets-crds-ringtail` ([[argocd#Sync Policy]] for the reasons)
 - Separate manifests and apps directories
 
 See [[argocd|ArgoCD Reference]] and [[apps|Apps Reference]] for full details.

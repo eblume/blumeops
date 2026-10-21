@@ -1,0 +1,1 @@
+Corrected the stale "all applications are manual sync" claims in the replication [[argocd-config]] sync-policy step and the [[apps]] Sync Policies section: workload Applications auto-sync on merge to main, with only four apps manual.
