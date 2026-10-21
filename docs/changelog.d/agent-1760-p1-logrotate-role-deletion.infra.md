@@ -1,0 +1,1 @@
+The `logrotate` indri ansible role and its `indri.yml` play entry are deleted; the nix-darwin generation is the sole owner of the `mcquack.eblume.logrotate` unit — its rollback story is plain `sudo darwin-rebuild --rollback`.
