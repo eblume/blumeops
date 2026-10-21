@@ -1,7 +1,7 @@
 ---
 title: "Runbook: Forgejo CI"
-modified: 2026-10-12
-last-reviewed: 2026-10-12
+modified: 2026-10-21
+last-reviewed: 2026-10-21
 tags:
   - how-to
   - alerting
@@ -116,3 +116,31 @@ The alert is per label; `{{ $labels.label }}` names it. Runs blocked on
   it needs more slots.
 - **"PRs awaiting approval"** counts only open PRs. Runs on closed PRs stay
   blocked in the DB forever and are ignored.
+
+## Approve and run / trust for the talos bot
+
+PRs opened by the `talos` bot are outside contributions on most repos: their
+runs sit behind Forgejo's "Approve and run" banner, and the click is the guard
+between PR code and the repo's runners. The `indri-build` runner is reachable
+from every PR anyway (unprivileged, lightly sandboxed, shared by all repos),
+so on repos with no repo-scoped runner the click protects nothing it does not
+already expose — hence the one-time "approve and *always trust*" click per
+eligible repo, after which the bot's PRs run CI with no click.
+
+**Do not click** on `blumeops`, `horkos`, `hephaestus` or `talos`: each has a
+repo-scoped host-mode runner reachable from a PR's own workflow (blumeops also
+both privileged runners). Until those runners move out of PR reach, the per-PR
+click stays on those repos.
+
+Mechanics:
+
+- The "always trust" option is offered on a PR's pending-run banner, so the
+  click needs a gated PR to exist on the repo. A repo with no
+  `pull_request` workflows (today: `agents`, `cv`) shows no banner; the click
+  happens on its first gated PR.
+- The setting is web-UI only (`action_user` table); there is no API, so
+  forge-reconcile can't declare or check it. The eligible list and the
+  re-derivation (`forge/runners.json` × `argocd/manifests/talos/repos.json`)
+  live in `docs/explanation/talos-v0.5/runners-and-trust.md`.
+- Trust expires after 90 days unused: a quiet repo lapses back to one click
+  per PR, which fails safe.
