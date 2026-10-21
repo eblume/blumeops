@@ -632,7 +632,7 @@ services:
 
   - name: factorio
     type: nixos
-    last-reviewed: 2026-07-10
+    last-reviewed: 2026-10-21
     current-version: "2.0.77"
     upstream-source: https://forums.factorio.com/viewforum.php?f=3
 
