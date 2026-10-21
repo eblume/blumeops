@@ -598,12 +598,13 @@ store path and therefore a new generation, and applying it reloads the
 agent.
 When a generation changes a service's plist, the rollback order is fixed:
 `sudo darwin-rebuild --rollback` **first**, then re-run the role with its
-gate flipped — for logrotate, `mise run provision-indri -- --tags logrotate
--e logrotate_ansible_managed=true` — so ansible writes the plist back and
-its restart handler reloads the agent. For the metrics flip (PR 4),
-a plain `sudo darwin-rebuild --rollback` — the four collectors are
-generation-owned (the ansible roles are retired), so there is no
-ansible re-write to fall back to.
+gate flipped, so ansible writes the plist back and its restart handler
+reloads the agent. For the metrics flip (PR 4), a plain `sudo
+darwin-rebuild --rollback` — the four collectors are generation-owned
+(the ansible roles are retired), so there is no ansible re-write to fall
+back to. Logrotate's rollback is the same plain `sudo darwin-rebuild
+--rollback` now that its role is deleted: the generation owned the plist
+before and after the flip.
 For the zot registry flip (PR 5), re-run `mise run provision-indri --
 --tags zot -e zot_ansible_managed=true`. Unlike the textfile
 collectors, zot is a real daemon: the registry is down between the
