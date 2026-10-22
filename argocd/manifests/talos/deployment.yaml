@@ -318,7 +318,7 @@ spec:
         # subPath mounts — data/ and every token-holding path are never
         # mounted. Serves the seven file/shell tools over the Unix socket in
         # the shared talos-socket emptyDir; k8s restarts this container alone
-        # when the socket stops answering (its own probe, Q4 of the plan).
+        # when the socket stops answering (its own probe).
         # Contract: eblume/talos docs/executor-protocol.md (container contract).
         - name: executor
           image: registry.ops.eblu.me/blumeops/talos:kustomized
@@ -353,8 +353,8 @@ spec:
           # Liveness = the socket answers. The ping/pong frames exist for
           # this: the exec probe speaks the protocol's ping frame and exits
           # 0 on pong (no in-image probe helper — bun -e, the image's own
-          # runtime). The startup probe owns boot (nix store registration,
-          # pool repair on first run) the way the server's does.
+          # runtime). The startup probe owns boot (nix store registration)
+          # the way the server's does.
           startupProbe:
             exec:
               command:
