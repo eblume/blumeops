@@ -58,8 +58,6 @@ prometheus.scrape "alloy_self" {
 }
 
 
-
-
 // ============== ZOT REGISTRY METRICS ==============
 
 // Scrape Zot's native metrics endpoint
@@ -69,8 +67,6 @@ prometheus.scrape "zot" {
   forward_to      = [prometheus.relabel.instance.receiver]
   scrape_interval = "15s"
 }
-
-
 
 // ============== FORGEJO METRICS ==============
 
@@ -82,79 +78,46 @@ prometheus.scrape "forgejo" {
   scrape_interval = "15s"
 }
 
-
-
 // ============== LOG COLLECTION ==============
 
 // Discover log files - brew services
 local.file_match "brew_logs" {
   path_targets = [
-
     {__path__ = "/opt/homebrew/var/log/tailscaled.log", service = "tailscale", stream = "stdout"},
-
   ]
 }
 
 // Discover log files - mcquack LaunchAgents
 local.file_match "mcquack_logs" {
   path_targets = [
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.forgejo.out.log", service = "forgejo", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.forgejo.err.log", service = "forgejo", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.alloy.out.log", service = "alloy", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.alloy.err.log", service = "alloy", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic.out.log", service = "borgmatic", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic.err.log", service = "borgmatic", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-ops.out.log", service = "borgmatic-ops", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-ops.err.log", service = "borgmatic-ops", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.zot.out.log", service = "zot", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.zot.err.log", service = "zot", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.jellyfin.out.log", service = "jellyfin", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.jellyfin.err.log", service = "jellyfin", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.forgejo-runner.out.log", service = "forgejo-runner", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.forgejo-runner.err.log", service = "forgejo-runner", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.runner-cache-sweep.out.log", service = "runner-cache-sweep", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.runner-cache-sweep.err.log", service = "runner-cache-sweep", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.caddy.out.log", service = "caddy", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.caddy.err.log", service = "caddy", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.heph.out.log", service = "heph", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.heph.err.log", service = "heph", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.devpi.out.log", service = "devpi", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.devpi.err.log", service = "devpi", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-photos.out.log", service = "borgmatic-photos", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-photos.err.log", service = "borgmatic-photos", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-verify-photos.out.log", service = "borgmatic-verify-photos", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-verify-photos.err.log", service = "borgmatic-verify-photos", stream = "stderr"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.netconsole.out.log", service = "netconsole", stream = "stdout"},
-
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.netconsole.err.log", service = "netconsole", stream = "stderr"},
-
   ]
 }
 
