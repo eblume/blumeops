@@ -57,23 +57,33 @@ spec:
               chown 1500:1500 /home/talos /home/talos/workspace /home/talos/data
               # Executor sidecar (V5-21, eblume/talos#365): uid 1600 in group
               # 1500 writes the pool object stores, the sessions' linked
-              # worktrees, and the shared cargo target dir — group-write
-              # plus core.sharedRepository=group is what makes that hold
-              # (its safe.directory * only defeats git's ownership check).
-              # The subPath dirs the executor mounts are created here with
-              # deterministic group bits. One-shot (marker file): from the
-              # new image on, both entrypoints run umask 002, so anything
+              # worktrees, and the shared cargo target dir. The subPath dirs
+              # are created and chown'd here: kubelet makes missing subPath
+              # targets root-owned at 0755, so without this the group bits
+              # would depend on the PVC root's setgid bit.
+              mkdir -p /home/talos/sessions /home/talos/.cache/cargo-target \
+                /home/talos/.local/share/mise /home/talos/.config/mise
+              chown 1500:1500 /home/talos/sessions /home/talos/.cache/cargo-target \
+                /home/talos/.local/share/mise /home/talos/.config/mise
+              # One-shot (marker): the recursive group-write repair. From the
+              # new image on, both entrypoints run umask 002, so everything
               # created afterwards is group-rw at birth.
               if [ ! -f /home/talos/.executor-shared-repair.done ]; then
-                mkdir -p /home/talos/.cache/cargo-target \
-                  /home/talos/.local/share/mise /home/talos/.config/mise
                 chmod -R g+rwX /home/talos/workspace /home/talos/sessions \
                   /home/talos/.cache/cargo-target \
                   /home/talos/.local/share/mise /home/talos/.config/mise
-                (cd /home/talos/workspace && \
-                  for r in */; do git -C "$r" config core.sharedRepository group; done)
                 touch /home/talos/.executor-shared-repair.done
               fi
+              # Idempotent and cheap (a handful of repos): runs every pod
+              # start, so repos cloned after first repair still get it.
+              # core.sharedRepository=group makes that hold — the executor's
+              # safe.directory * only defeats git's ownership check.
+              (cd /home/talos/workspace && \
+                for r in */; do \
+                  [ -d "$r" ] || continue; \
+                  git -C "$r" config core.sharedRepository group \
+                    || echo "warn: git config failed in $r" >&2; \
+                done)
           securityContext:
             runAsUser: 0
           volumeMounts:
