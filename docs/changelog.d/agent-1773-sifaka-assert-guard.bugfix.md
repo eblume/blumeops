@@ -1,0 +1,1 @@
+The indri borgmatic role's sifaka mount guard now stats the share README metadata-only (`get_checksum`/`get_mime`/`get_attributes` off), so macOS TCC — which charges file-content reads on the SMB share to sshd — no longer trips it; a stat that still errors reports the module's errno via `failed_when` instead of crashing with `'dict' object has no attribute 'stat'`.
