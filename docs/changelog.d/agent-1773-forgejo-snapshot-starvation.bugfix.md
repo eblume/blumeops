@@ -1,0 +1,1 @@
+The indri borgmatic archive-tier sqlite snapshots (heph, forgejo) now use `VACUUM INTO` under a hard per-snapshot timeout instead of the incremental `.backup` API, whose copy restarts on every concurrent write — the 2026-10-22 nightly's ~6h starvation on forgejo.db — so a snapshot that cannot finish now aborts the run bounded instead of blocking every later nightly.

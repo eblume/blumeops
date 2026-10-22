@@ -75,8 +75,8 @@ still survives in the yearlies.
 | Database | Cluster | Host | Method |
 |----------|---------|------|--------|
 | paperless | blumeops-pg | [[postgresql|pg.ops.eblu.me:5434]] | pg_dump stream |
-| forgejo | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
-| heph | — (SQLite) | indri local | before-backup `sqlite3 .backup` (WAL-safe online snapshot) |
+| forgejo | — (SQLite) | indri local | before-backup hook: `VACUUM INTO` (one-read-transaction snapshot), 20-min bound |
+| heph | — (SQLite) | indri local | before-backup hook: `VACUUM INTO` (one-read-transaction snapshot), 20-min bound |
 | horkos | — (SQLite) | k8s pod (ringtail) | in-pod python3 sqlite3 .backup |
 
 **Operational tier (operational config, 03:00)** — rotating, local-only:

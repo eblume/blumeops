@@ -169,14 +169,16 @@ borgmatic_archive_k8s_tar_dumps:
   - name: paperless-media
     target: ssh:borgmatic@ringtail
 
-# Local (on-indri) SQLite databases captured in a before-backup hook via the
-# sqlite3 online .backup API. We deliberately avoid borgmatic's native
-# sqlite_databases hook: it dumps via `sqlite3 .dump`, which has a documented
-# silent-failure mode on WAL databases (exit code stays 0 on a torn read —
-# borgmatic #295 / SQLite forum). The .backup API is WAL-safe and returns a
-# real exit code, so a failed snapshot aborts the whole borgmatic run loudly.
-# Snapshots land in borgmatic_archive_dump_dir (an archive-tier source) and
-# ride in the indri-* archives.
+# Local (on-indri) SQLite databases captured in a before-backup hook that
+# runs ~/bin/borgmatic-sqlite-dump (see templates/sqlite-dump.sh.j2) —
+# VACUUM INTO, one read transaction: consistent on a WAL source, and unlike
+# the incremental .backup API its copy cannot be restarted by concurrent
+# writers (the 2026-10-22 forgejo.db starvation, eblume/blumeops#1773). Hard-bounded by
+# borgmatic_sqlite_snapshot_timeout_s so a stuck snapshot aborts the run
+# instead of starving later nightlies; a non-zero exit from any hook still
+# aborts the whole backup, so a failed snapshot is never silent. Snapshots
+# land in borgmatic_archive_dump_dir (an archive-tier source) and ride in
+# the indri-* archives.
 borgmatic_archive_sqlite_dumps:
   # heph hub canonical store — the only copy of all task/context data once
   # spokes are pure replicas (see [[hephaestus]]). WAL mode, continuously
@@ -189,6 +191,15 @@ borgmatic_archive_sqlite_dumps:
   # /Users/erichblume/forgejo source dir above.
   - name: forgejo
     path: /Users/erichblume/forgejo/data/forgejo.db
+
+# Hard bound on one snapshot (see templates/sqlite-dump.sh.j2). 20 min is
+# generous for an 870 MB VACUUM INTO under normal load; it exists to turn
+# a starved copy into a bounded failure, not to be tight.
+borgmatic_sqlite_snapshot_timeout_s: 1200
+# SQLite busy handler for acquiring the read snapshot, seconds. The
+# snapshot is a single read transaction, so busy work is bounded by one
+# checkpoint / lock handoff on a busy source.
+borgmatic_sqlite_busy_timeout_s: 10
 
 # Encryption passcommand (reads borg passphrase)
 borgmatic_encryption_passcommand: cat /Users/erichblume/.borg/config.yaml
