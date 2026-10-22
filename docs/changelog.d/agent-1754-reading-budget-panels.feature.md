@@ -1,0 +1,1 @@
+Add a "Reading budget" section to the Talos Grafana dashboard reading all six V5-59 metrics: the backfill baseline of chars read per answered ask (plus by-kind split), cumulative chars read by kind, live chars-per-ask and ask-age distributions since last restart, and open-ask gauges; rows below the Tokens row move down one panel row.
