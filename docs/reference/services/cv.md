@@ -28,7 +28,7 @@ Migrated from minikube to indri-native on 2026-04-29 (see [[cv-on-indri]]).
 
 1. **Source**: `resume.yaml` (content) + `template.html` (Jinja2) + `style.css` in the cv repo
 2. **Build**: `render.py` (uv script runner) generates `index.html`; WeasyPrint generates `resume.pdf`
-3. **Release**: Dagger `build` function packages `index.html`, `style.css`, `resume.pdf` into a tarball, uploaded to Forgejo generic packages
+3. **Release**: Dagger `build` function packages `index.html`, `style.css`, `resume.pdf` into a tarball — the release asset that the horkos release publisher pushes to zot
 4. **Deploy**: manual install (see [[cv-on-indri]]) pulls the pinned zot OCI layer into `~/blumeops/cv/content/` on indri; Caddy serves the directory directly
 
 ## Endpoints
