@@ -1,6 +1,12 @@
 { config, lib, pkgs, hephPkg, hephPwaSrc, ... }:
 let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
+  # ringtail's kernel crash-capture receiver (V5-83 link 1 PR 3, eblume/blumeops#1760).
+  # The repo script verbatim, but re-shebangged to the flake's nixpkgs python3: the
+  # retired role ran it under whatever `env python3` resolved to (the CLT stub);
+  # the explicit interpreter makes the generation's copy stand alone.
+  netconsoleReceiver = pkgs.writeScript "netconsole-receiver"
+    ("#! ${pkgs.python3}/bin/python3\n" + (builtins.readFile ./netconsole-receiver.py));
   # The heph hub (eblume/blumeops#1655): the store hephd the generation's
   # mcquack.eblume.heph agent runs. The db, socket and log paths stay where
   # they are (borgmatic backs up the db, alloy tails the logs).
@@ -1018,6 +1024,27 @@ AUTHORIZED_KEYS
     };
     StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.heph.out.log";
     StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.heph.err.log";
+  };
+
+  # netconsole receiver (V5-83 link 1 PR 3, eblume/blumeops#1760): same label, plist
+  # path and log paths the retired ansible role rendered, so the switch swaps the
+  # plist in place and Alloy's tails keep reading. Rollback is a plain
+  # `sudo darwin-rebuild --rollback` (receiver briefly down: a ringtail kernel oops
+  # in that window is not captured); the role's gated re-run is gone with the role.
+  launchd.user.agents."mcquack.eblume.netconsole".serviceConfig = {
+    Label = "mcquack.eblume.netconsole";
+    ProgramArguments = [ "${nixWait}" "${netconsoleReceiver}" ]
+      ++ [ "--port" "6666"
+           "--file" "/Users/erichblume/Library/Logs/mcquack.netconsole-ringtail.log"
+           "--max-bytes" "10485760"
+           "--keep" "5" ];
+    RunAtLoad = true;
+    KeepAlive = true;
+    EnvironmentVariables = {
+      PATH = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+    };
+    StandardOutPath = "/Users/erichblume/Library/Logs/mcquack.netconsole.out.log";
+    StandardErrorPath = "/Users/erichblume/Library/Logs/mcquack.netconsole.err.log";
   };
 
   launchd.user.agents."mcquack.eblume.heph-cargo-bin-cleanup".serviceConfig = {

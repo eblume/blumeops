@@ -1,0 +1,1 @@
+The `netconsole` indri ansible role and its `indri.yml` play entry are deleted; the receiver becomes the generation-owned LaunchAgent `mcquack.eblume.netconsole` at the same label, plist and log paths, running the in-repo script from `darwin/indri/` under the flake's nixpkgs python3.

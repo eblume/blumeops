@@ -178,7 +178,7 @@ alloy_mcquack_logs:
     service: netconsole
     stream: stderr
 
-# Must stay in sync with netconsole_log_file in the netconsole role (heph 01M2KSPXQKACVJB5QB1AMX86M7)
+# Must stay in sync with the --file argv of mcquack.eblume.netconsole (darwin/indri/configuration.nix; heph 01M2KSPXQKACVJB5QB1AMX86M7)
 alloy_netconsole_log_path: /Users/erichblume/Library/Logs/mcquack.netconsole-ringtail.log
 
 # Enable log collection (requires Loki to be running)
