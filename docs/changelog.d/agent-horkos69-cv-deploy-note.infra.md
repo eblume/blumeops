@@ -1,0 +1,1 @@
+The `eblume/cv` artifact release target gains a `deploy_note` in horkos's release-targets.json, so cv artifact pin PRs render their deploy line from the instance document (the manual-install how-to at docs/how-to/operations/cv-on-indri.md) instead of the deleted indri ansible role's command. Horkos versions predating deploy_note support (eblume/horkos#70) ignore the key.
