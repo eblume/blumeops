@@ -1,0 +1,1 @@
+fix(talos): pre-create and chown the executor-home emptyDir's subPath parents (.cache, .local, .config) for the executor's uid 1600, fixing the startup nix-builds permission-denied from the #1803 cutover (eblume/blumeops#1753).

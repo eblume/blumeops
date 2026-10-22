@@ -65,6 +65,19 @@ spec:
                 /home/talos/.local/share/mise /home/talos/.config/mise
               chown 1500:1500 /home/talos/sessions /home/talos/.cache/cargo-target \
                 /home/talos/.local/share/mise /home/talos/.config/mise
+              # The executor's HOME is the executor-home emptyDir, mounted at
+              # /executor-home here. The kubelet creates the subPath targets —
+              # and their parents, .cache/.local/.config — root:root 0755 when
+              # the executor container starts, so uid 1600 cannot create
+              # anything beside the mounted leaves (eblume/blumeops#1753).
+              # Pre-create and chown here: the targets exist when the executor
+              # starts, and the kubelet uses them as-is.
+              mkdir -p /executor-home/.cache/nix-builds \
+                /executor-home/.cache/cargo-target \
+                /executor-home/.local/share/mise /executor-home/.local/state \
+                /executor-home/.config/mise
+              chown -R 1600:1500 /executor-home/.cache /executor-home/.local \
+                /executor-home/.config
               # One-shot (marker): the recursive group-write repair. From the
               # new image on, both entrypoints run umask 002, so everything
               # created afterwards is group-rw at birth.
@@ -95,6 +108,8 @@ spec:
           volumeMounts:
             - name: home
               mountPath: /home/talos
+            - name: executor-home
+              mountPath: /executor-home
       containers:
         - name: talos
           image: registry.ops.eblu.me/blumeops/talos:kustomized
