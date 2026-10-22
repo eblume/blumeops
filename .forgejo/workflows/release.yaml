@@ -4,8 +4,9 @@
 # `release vX.Y.Z` PR prepared with the shared release kit's `cut-release`
 # (see eblume/release-kit docs/how-to/cut-a-release.md). That PR carries the
 # towncrier-built CHANGELOG section (fragments consumed), the `version` file
-# bump, a blurb for minor/major, and the indri `caddy_docs_version` pin bump (the kit's
-# repo hook). Merging it is the release decision.
+# bump, a blurb for minor/major, the indri `caddy_docs_version` pin bump, and the docs
+# `current-version` in `service-versions.yaml` (the kit's repo hook). Merging it is the
+# release decision.
 #
 # On the push to main, this workflow detects that the `version` file changed
 # vs the push's before-commit and calls the shared `publish-release` action

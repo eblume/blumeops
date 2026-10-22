@@ -39,10 +39,15 @@ version=${1:-$(curl -fsSL "https://forge.ops.eblu.me/eblume/blumeops/raw/branch/
 [ -n "$version" ] || { echo "docs version not determined: no argument and caddy_docs_version pin not found on blumeops main" >&2; exit 1; }
 home=/Users/erichblume/blumeops/docs
 [ "$(cat $home/.installed-version 2>/dev/null || true)" = "$version" ] && echo current || {
-  rm -rf $home/content && mkdir -p $home/content
-  curl -fsSL "https://forge.ops.eblu.me/eblume/blumeops/releases/download/$version/docs-$version.tar.gz" -o $home/docs.tar.gz
-  tar -xzf $home/docs.tar.gz -C $home/content
-  rm -f $home/docs.tar.gz
+  # stage + swap: a failed download/extract never wipes the live content, and
+  # the sentinel is written last, so a bad run cannot strand it pointing at a wiped tree
+  tmp=$(mktemp -d "$home/.staging.XXXXXX")
+  trap 'rm -rf "$tmp"' EXIT
+  curl -fsSL "https://forge.ops.eblu.me/eblume/blumeops/releases/download/$version/docs-$version.tar.gz" -o "$tmp/a.tar.gz"
+  mkdir "$tmp/content" && tar -xzf "$tmp/a.tar.gz" -C "$tmp/content"
+  rm -rf "$home/content.old"
+  if [ -d "$home/content" ]; then mv "$home/content" "$home/content.old"; fi
+  mv "$tmp/content" "$home/content" && rm -rf "$home/content.old"
   printf '%s\n' "$version" > $home/.installed-version
 }
 EOF
@@ -52,9 +57,9 @@ The version comes from the argument when one is given (rollback) and otherwise f
 
 ## Release flow
 
-1. Cut a release PR ([[update-documentation]]) — the kit's `cut-release` repo hook bumps `caddy_docs_version` in the caddy role defaults, so the pin rides the release PR.
+1. Cut a release PR ([[update-documentation]]) — the kit's `cut-release` repo hook bumps `caddy_docs_version` in the caddy role defaults and the docs `current-version` in `service-versions.yaml`, so both ride the release PR.
 2. Merging it is the release: `release.yaml` builds the docs tarball and publishes the Forgejo release (`docs-<version>.tar.gz` as the asset).
-3. Run the install block above from a tailnet host.
+3. Once the `release.yaml` run has finished (the Forgejo release and its `docs-<version>.tar.gz` asset exist — a failed or still-running build has no asset, and the install block's download fails closed), run the install block above from a tailnet host.
 4. Purge the fly edge cache from gilbert: `fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`.
 
 ## Verify

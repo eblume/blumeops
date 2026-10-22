@@ -22,9 +22,10 @@ ship docs changes:
    `docs/how-to/cut-a-release.md`): it builds the towncrier section from
    `docs/changelog.d/` fragments (fragments consumed), places a blurb under the
    section heading for minor/major releases, rotates older minor series verbatim
-   into `docs/changelog/archive/`, and bumps the root `version` file and the
-   indri `caddy_docs_version` pin in `ansible/roles/caddy/defaults/main.yml`
-   (the repo hook) — review, commit, and open it as a
+   into `docs/changelog/archive/`, and bumps the root `version` file, the indri
+   `caddy_docs_version` pin in `ansible/roles/caddy/defaults/main.yml`, and the docs
+   `current-version` in `service-versions.yaml` (the repo hook) — review, commit, and
+   open it as a
    `release vX.Y.Z` PR.
 2. A human merges. On push to main, `release.yaml` detects the version change,
    builds the docs tarball, and tags + publishes the Forgejo release with the
