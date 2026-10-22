@@ -1,0 +1,1 @@
+Daily service review: grafana container 12.4.5 → 12.4.13 (latest patch on the 12.4.x train — 12.4.9–12.4.13 are security-fix releases, no config changes for stock setups). The 13.x major is a separate follow-up (#1787): it breaks operator workflows (legacy `grafana-cli`/`grafana-server` command names removed, `enable_gzip` on by default, `/api` moved to `/apis`).

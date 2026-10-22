@@ -146,8 +146,8 @@ services:
 
   - name: grafana
     type: argocd
-    last-reviewed: 2026-07-13
-    current-version: "12.4.5"
+    last-reviewed: 2026-10-22
+    current-version: "12.4.13"
     upstream-source: https://github.com/grafana/grafana/releases
     notes: >-
       Home-built container (fetchurl of the upstream dl.grafana.com tarball,
