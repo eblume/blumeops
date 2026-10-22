@@ -183,8 +183,8 @@
     mode: '0600'
 
 # Mount guard: if /Volumes/backups were a leftover local directory instead
-# of the sifaka SMB mount, repo-create would quietly create the ops repo on
-# indri's own disk, and `creates:` would then skip it forever. The
+# of the sifaka SMB mount, the ops repo would quietly be created on indri's
+# own disk, and the README check below would then skip it forever. The
 # archive-tier repo's README (present on the NAS since 2026-01) proves the
 # mount is up.
 - name: Assert the backups share is the sifaka mount
@@ -199,45 +199,36 @@
     or borgmatic_sifaka_backups_mount.stat is not defined
     or not borgmatic_sifaka_backups_mount.stat.exists
 
-# repo-create skips an existing repo, so reruns are no-ops and the deploy
-# can't half-land between config and first 03:00 create. The path must
-# stay a sibling of the archive-tier root (see
-# borgmatic_operational_repositories).
-- name: Ensure the operational borg repository exists
-  ansible.builtin.command:
-    cmd: >-
-      {{ borgmatic_bin }} --config {{ borgmatic_operational_config }}
-      repo-create --repository {{ item.path }}
-    creates: "{{ item.path }}/README"
-  loop: "{{ borgmatic_operational_repositories }}"
-  loop_control:
-    label: "{{ item.label }}"
+# The ops repos' borg commands take the repo's exclusive lock, i.e. they
+# write on the share: macOS TCC charges SMB-share content access to sshd,
+# so they EPERM in an ssh session (eblume/blumeops#1773) but work under
+# launchd, where the job has the Network Volumes access the nightly backup
+# agents already use. They therefore run in a oneshot LaunchAgent — an
+# idempotent no-op on a healthy repo — that the role kicks off once per
+# provision. The script re-guards the mount, since the assert above only
+# covers the ssh side.
+- name: Deploy the ops repo admin oneshot script
+  ansible.builtin.template:
+    src: ops-repo-admin.sh.j2
+    dest: "{{ ansible_facts.env.HOME }}/bin/borgmatic-ops-repo-admin"
+    mode: '0755'
 
-# #1441's repo-create made this repo append-only (borgmatic passes
-# --append-only from the config's append_only key). On borg 1.4 that makes
-# `compact` a silent no-op, so the rotation's pruned segments would never
-# be reclaimed. Client-side append_only on the SMB mount protects nothing
-# against indri, so flip it off once.
-- name: Record append_only of each operational repo
-  ansible.builtin.command:
-    cmd: "{{ borgmatic_borg_bin }} config {{ item.path }} append_only"
-  register: borgmatic_ops_append_only
-  changed_when: false
-  loop: "{{ borgmatic_operational_repositories }}"
-  loop_control:
-    label: "{{ item.label }}"
+- name: Deploy the ops repo admin oneshot plist
+  ansible.builtin.template:
+    src: ops-repo-admin.plist.j2
+    dest: ~/Library/LaunchAgents/mcquack.eblume.borgmatic-ops-admin.plist
+    mode: '0644'
 
-- name: Disable append_only on operational repos so compact reclaims
-  ansible.builtin.command:
-    cmd: "{{ borgmatic_borg_bin }} config {{ item.item.path }} append_only 0"
+- name: Reload the ops repo admin oneshot LaunchAgent
+  ansible.builtin.shell: |
+    launchctl unload ~/Library/LaunchAgents/mcquack.eblume.borgmatic-ops-admin.plist 2>/dev/null || true
+    launchctl load ~/Library/LaunchAgents/mcquack.eblume.borgmatic-ops-admin.plist
   changed_when: true
-  loop: "{{ borgmatic_ops_append_only.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item.label }}"
-  when:
-    - item.rc is defined
-    - item.rc == 0
-    - item.stdout | trim | int == 1
+
+- name: Kick off the ops repo admin oneshot
+  ansible.builtin.command:
+    cmd: launchctl kickstart -k gui/{{ ansible_facts.uid }}/mcquack.eblume.borgmatic-ops-admin
+  changed_when: true
 
 - name: Deploy borgmatic-ops LaunchAgent plist
   ansible.builtin.template:
