@@ -25,7 +25,7 @@
         # eblume/blumeops#1760 PR 2) — one pin, one switch.
         specialArgs = {
           hephPkg = hephaestus.packages."aarch64-darwin".cli;
-          hephPwaSrc = hephaestus.sourcePath + "/heph-pwa";
+          hephPwaSrc = hephaestus.outPath + "/heph-pwa";
         };
         modules = [ ./configuration.nix ];
       };

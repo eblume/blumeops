@@ -14,6 +14,9 @@ let
   hephPwaVersion = "v${hephPkg.version}";
   hephPwa = pkgs.runCommand "heph-pwa-${hephPwaVersion}" { src = hephPwaSrc; } ''
     cp -r $src/. $out
+    # store copies inherit the read-only mode, so the stamp write below needs
+    # a writable $out
+    chmod -R u+w $out
     echo 'export const PWA_VERSION = "${hephPwaVersion}";' > $out/pwa-version.js
     chmod 644 $out/pwa-version.js
   '';
