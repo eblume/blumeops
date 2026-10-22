@@ -1,21 +1,21 @@
 {
   "distSpecVersion": "1.1.0",
   "storage": {
-    "rootDirectory": "{{ zot_data_dir }}",
+    "rootDirectory": "/Users/erichblume/zot",
     "gc": true,
     "gcDelay": "1h",
     "gcInterval": "24h"
   },
   "http": {
     "address": "0.0.0.0",
-    "port": "{{ zot_port }}",
-    "externalUrl": "{{ zot_external_url }}",
+    "port": "5050",
+    "externalUrl": "https://registry.ops.eblu.me",
     "auth": {
       "openid": {
         "providers": {
           "oidc": {
-            "credentialsFile": "{{ zot_config_dir }}/oidc-credentials.json",
-            "issuer": "{{ zot_oidc_issuer }}",
+            "credentialsFile": "/Users/erichblume/.config/zot/oidc-credentials.json",
+            "issuer": "https://authentik.ops.eblu.me/application/o/zot/",
             "scopes": ["openid", "email", "profile"],
             "claimMapping": {
               "username": "preferred_username"
@@ -44,8 +44,7 @@
           "anonymousPolicy": ["read"],
           "defaultPolicy": ["read"]
         },
-        {# zot accessControl is longest-match: a specific key replaces, not augments, "**" policies #}
-        "blumeops/talos": {
+                "blumeops/talos": {
           "policies": [
             {
               "groups": ["ci-talos-artifacts"],
@@ -115,23 +114,31 @@
     "sync": {
       "enable": true,
       "registries": [
-{% for registry in zot_sync_registries %}
         {
-          "urls": ["{{ registry.url }}"],
-          "content": [{"prefix": "**", "destination": "/{{ registry.name }}"}],
+          "urls": ["https://registry-1.docker.io"],
+          "content": [{"prefix": "**", "destination": "/docker.io"}],
           "onDemand": true,
           "tlsVerify": true
-        }{% if not loop.last %},{% endif %}
-
-{% endfor %}
+        },
+        {
+          "urls": ["https://ghcr.io"],
+          "content": [{"prefix": "**", "destination": "/ghcr.io"}],
+          "onDemand": true,
+          "tlsVerify": true
+        },
+        {
+          "urls": ["https://quay.io"],
+          "content": [{"prefix": "**", "destination": "/quay.io"}],
+          "onDemand": true,
+          "tlsVerify": true
+        }
       ]
     },
     "search": {
-      "enable": true{% if zot_cve_enabled | default(true) | bool %},
+      "enable": true,
       "cve": {
         "updateInterval": "24h"
-      }{% endif %}
-    },
+      }    },
     "ui": {
       "enable": true
     }

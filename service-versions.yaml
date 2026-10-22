@@ -567,11 +567,21 @@ services:
       upgrades are still a human-reviewed source build.
 
   - name: zot
-    type: ansible
-    last-reviewed: 2026-09-05
+    type: nixos
+    last-reviewed: 2026-10-22
     current-version: "v2.1.20"
     upstream-source: https://github.com/project-zot/zot/releases
-    notes: Built from source on indri
+    notes: >-
+      Built from source on indri (go from the declarative mise pin,
+      GOTOOLCHAIN=auto per go.mod). Generation-owned (V5-83 link 2,
+      eblume/blumeops#1782): the LaunchAgent mcquack.eblume.zot plus the
+      postActivation-rendered config.json (byte-identical to the retired
+      role's render) installed at the role's path, and the OIDC credentials
+      file seeded via the secrets.json manifest entry (restart
+      mcquack.eblume.zot); the switch's checks gate fails on a missing
+      credentials file or binary. The binary stays host-resident at
+      ~/code/3rd/zot/bin/zot-darwin-arm64 (a checks gate on the switch), so
+      its upgrades are still a human-reviewed source build.
 
   - name: caddy
     type: ansible

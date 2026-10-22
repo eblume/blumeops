@@ -1,6 +1,6 @@
 ---
 title: Harden Zot Registry
-modified: 2026-08-21
+modified: 2026-10-22
 last-reviewed: 2026-08-21
 tags:
   - how-to
@@ -13,7 +13,10 @@ tags:
 
 [[zot]] runs with OIDC + API-key authentication and anonymous pull preserved,
 with tag immutability enforced server-side via `accessControl`. Configured in
-`ansible/roles/zot/templates/config.json.j2`:
+the generation-rendered `darwin/indri/zot-config.json` (the in-repo copy of
+the retired role's `config.json.j2` render, byte-identical to on-disk —
+changed in the flake, applied by the auto-apply switch, V5-83 link 2,
+eblume/blumeops#1782):
 
 1. **`http.auth.openid`** — OIDC provider pointing to Authentik
    (`authentik.ops.eblu.me`); see [[register-zot-oidc-client]]
@@ -30,9 +33,12 @@ with tag immutability enforced server-side via `accessControl`. Configured in
    old `users: [""]` trick no longer grants anonymous access and `/metrics`
    answers 401.
 
-OIDC issuer and external-URL variables live in `ansible/roles/zot/defaults/main.yml`;
-client credentials render via `ansible/roles/zot/templates/oidc-credentials.json.j2`.
-CI authenticates with the `ci-zot` API key (see [[wire-ci-registry-auth]]).
+The OIDC issuer and external-URL settings are the same variables the retired
+role's `defaults/main.yml` held (rendered into `darwin/indri/zot-config.json`);
+the client credentials render via the seed-secrets manifest entry for
+`~/.config/zot/oidc-credentials.json` (kind `op`, the role's template shape
+wrapped in the entry's `format`). CI authenticates with the `ci-zot` API key
+(see [[wire-ci-registry-auth]]).
 
 ## Related
 

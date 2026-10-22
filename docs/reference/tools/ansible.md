@@ -39,7 +39,6 @@ mise run provision-sifaka
 | **caddy** | Reverse proxy & TLS | [[routing]] |
 | **forgejo** | Git forge | [[forgejo]] |
 | **jellyfin** | Media server | [[jellyfin]] |
-| **zot** | Container registry | [[zot]] |
 
 ## Role Structure
 

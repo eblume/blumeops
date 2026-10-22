@@ -3,9 +3,10 @@
 # requires-python = ">=3.12"
 # dependencies = ["pyyaml==6.0.3"]
 # ///
-#MISE description="Check that every group the zot accessControl template grants to exists in principals.yaml (the roster of record)"
-"""The zot accessControl template (ansible/roles/zot/templates/config.json.j2)
-carries its own copy of the group names (eblume/blumeops#1194: the zot
+#MISE description="Check that every group the zot accessControl config grants to exists in principals.yaml (the roster of record)"
+"""The zot accessControl config (darwin/indri/zot-config.json, the in-repo
+copy of the retired ansible role's config.json.j2 render, V5-83 link 2,
+eblume/blumeops#1782) carries its own copy of the group names (eblume/blumeops#1194: the zot
 accessControl stays separate from the roster, but the group names it names
 must exist in argocd/manifests/authentik/principals.yaml — the lint that
 closes that coupling without joining the files).
@@ -25,16 +26,17 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
-TEMPLATE = ROOT / "ansible/roles/zot/templates/config.json.j2"
+ZOT_CONFIG = ROOT / "darwin/indri/zot-config.json"
 PRINCIPALS = ROOT / "argocd/manifests/authentik/principals.yaml"
 
-# The template is Jinja, so the accessControl block is extracted by regex
-# rather than parsed as JSON: every policy's "groups" list, in order.
+# The config is plain JSON, so the accessControl block could be parsed
+# directly; the same regex extraction is kept so the lint's semantics are
+# unchanged from the template era: every policy's "groups" list, in order.
 GROUPS_RE = re.compile(r'"groups":\s*\[([^\]]*)\]')
 NAME_RE = re.compile(r'"([a-z0-9-]+)"')
 
 
-def groups_in_template(text: str) -> list[str]:
+def groups_in_config(text: str) -> list[str]:
     out = []
     for block in GROUPS_RE.findall(text):
         out.extend(NAME_RE.findall(block))
@@ -42,16 +44,16 @@ def groups_in_template(text: str) -> list[str]:
 
 
 def main() -> int:
-    text = TEMPLATE.read_text()
+    text = ZOT_CONFIG.read_text()
     roster = yaml.safe_load(PRINCIPALS.read_text()) or {}
     roster_groups = {
         g["name"] for g in roster.get("groups") or [] if isinstance(g, dict) and isinstance(g.get("name"), str)
     }
 
-    granted = groups_in_template(text)
+    granted = groups_in_config(text)
     if not granted:
         print(
-            f"zot-accesscontrol-lint: no group grants found in {TEMPLATE.name} — did the template change shape?",
+            f"zot-accesscontrol-lint: no group grants found in {ZOT_CONFIG.name} — did the config change shape?",
             file=sys.stderr,
         )
         return 1
@@ -60,7 +62,7 @@ def main() -> int:
     if errors:
         for name in errors:
             print(
-                f"zot-accesscontrol-lint: {TEMPLATE.name} grants '{name}', which is not a group in principals.yaml",
+                f"zot-accesscontrol-lint: {ZOT_CONFIG.name} grants '{name}', which is not a group in principals.yaml",
                 file=sys.stderr,
             )
         print(f"zot-accesscontrol-lint: {len(errors)} unknown group grant(s)", file=sys.stderr)

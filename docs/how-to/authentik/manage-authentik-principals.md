@@ -59,7 +59,7 @@ How to add and retire the identities Authentik serves. The Authentik side of the
 4. `mise run render-authentik-principals --write`.
 5. Commit both the yaml edit and the rendered ConfigMap in one PR — Lint fails if they drift. ArgoCD auto-sync applies the blueprint.
 
-For a zot identity, the zot accessControl grant (the `ansible/roles/zot` template) and the first key rotation ([[zot]] / [[register-zot-oidc-client]]) are separate companion changes.
+For a zot identity, the zot accessControl grant (the generation-rendered `darwin/indri/zot-config.json`, see [[harden-zot-registry]]) and the first key rotation ([[zot]] / [[register-zot-oidc-client]]) are separate companion changes.
 
 ## Retire a principal
 
