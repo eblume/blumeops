@@ -47,6 +47,10 @@ pkgs.dockerTools.buildLayeredImage {
 
   fakeRootCommands = ''
     mkdir -p ./etc/grafana ./var/lib/grafana ./var/log/grafana
+    # 13.x datasources are gpx plugin processes that spawn per-plugin sockets
+    # in /tmp; the pod's uid 472 cannot create /tmp itself, so the image must
+    # carry one.
+    mkdir -p ./tmp && chmod 1777 ./tmp
     cp ${grafanaDist}/usr/share/grafana/conf/defaults.ini ./etc/grafana/grafana.ini
     cp ${grafanaDist}/usr/share/grafana/conf/defaults.ini ./etc/grafana/defaults.ini
     chown -R 472:472 ./etc/grafana ./var/lib/grafana ./var/log/grafana

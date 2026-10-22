@@ -156,7 +156,12 @@ services:
       CVE-2026-33382, CVE-2026-42127); rebuilt via build-container CI and
       deployed. 2026-10-22: bumped 12.4.13 → 13.2.4 (13.x major); 13.0
       breaking changes reviewed against the deployed shape, no config
-      changes needed.
+      changes needed. 2026-10-22 (same day, regression): the image now
+      ships a world-writable /tmp — 13.x moved the bundled datasources
+      (prometheus/loki/tempo/...) to external gpx plugin processes that
+      need a writable /tmp to spawn, and the pod (uid 472 on a read-only
+      image layer) cannot create one; without it every datasource sat
+      unregistered and all alert rules errored on plugin.notRegistered.
 
   - name: grafana-sidecar
     type: argocd
