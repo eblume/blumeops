@@ -276,11 +276,11 @@ spec:
               port: 9464
             periodSeconds: 10
             timeoutSeconds: 15
-          # Sized for tens of concurrent sessions: every session's tool
-          # processes (bash, cargo, nix, subagent pi) share this cgroup with
-          # the single Bun event loop, so a CPU limit that binds starves the
-          # server itself. ringtail has 16 cores / 64Gi; 16Gi leaves room
-          # for ~30 sessions.
+          # Sized for tens of concurrent sessions: the single Bun event loop
+          # and each session's subagent pi processes share this cgroup; the
+          # heavy tool processes (bash, cargo, nix) now run in the executor
+          # container, so a CPU limit that binds starves the server itself.
+          # ringtail has 16 cores / 64Gi; 12Gi leaves room for ~30 sessions.
           resources:
             requests:
               cpu: "2"
@@ -288,7 +288,7 @@ spec:
               ephemeral-storage: 2Gi
             limits:
               cpu: "8"
-              memory: 16Gi
+              memory: 12Gi
               # nix builds write to the container's writable layer (the
               # canonical /nix/store is uid-1500-writable in the image); /tmp
               # is off the layer (home subPath mount below). The actual bound
@@ -378,16 +378,23 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 10
             failureThreshold: 3
-          # The executor runs real session work (rg, fd, bash, and Rust/nix
-          # builds into the shared cargo target); the server keeps its own
-          # envelope — this is a second cgroup, not a slice of the server's.
+          # The executor runs real session work (rg, fd, bash, Rust/nix
+          # builds into the shared cargo target, nix store in its writable
+          # layer); the server keeps its own envelope — this is a second
+          # cgroup, not a slice of the server's.
           resources:
             requests:
               cpu: "1"
               memory: 1Gi
+              ephemeral-storage: 2Gi
             limits:
               cpu: "4"
-              memory: 8Gi
+              memory: 12Gi
+              # Session nix builds write to this container's writable layer,
+              # which the server's store-watermark gc (eblume/talos#250) does
+              # not measure; this backstop mirrors the server's until the
+              # talos-side gc sees the executor's store.
+              ephemeral-storage: 40Gi
           volumeMounts:
             # HOME is an emptyDir, never the server's PVC; the subPath mounts
             # are the executor's only window into the PVC.
