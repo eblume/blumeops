@@ -110,7 +110,7 @@ bulk of the old offsite churn stays stopped.
 
 ## Talos Session State (Never Pruned)
 
-Talos agent sessions (`/home/talos/data` — session transcripts, service state, `session-index.sqlite`) are backed up by a **separate borgmatic config** (`~/.config/borgmatic/talos-data.yaml`, run in the same 2:00 AM agent, main first) with its own `talos-data-*` archive prefix in the same two repos. Design intent: **every session is stored forever** (heph 01M0GA6JPGQF96AM5JZKA37YSV) — and this holds structurally, not by accident:
+Talos agent sessions (`/home/talos/data` — session transcripts, service state) are backed up by a **separate borgmatic config** (`~/.config/borgmatic/talos-data.yaml`, run in the same 2:00 AM agent, main first) with its own `talos-data-*` archive prefix in the same two repos. Design intent: **every session is stored forever** (heph 01M0GA6JPGQF96AM5JZKA37YSV) — and this holds structurally, not by accident:
 
 - The talos-data config has **no `keep_*` keys**, so it never prunes.
 - The main config pins `archive_name_format: 'indri-{now…}'` + `match_archives: 'indri-*'`, so a prune enabled there (or anywhere else) can only ever reach `indri-*` archives.
@@ -138,7 +138,7 @@ mkdir -p /tmp/restore
 # -> x data/sessions/<timestamp>_<session-id>.jsonl
 ```
 
-Then `scp` the `.jsonl` to ringtail and copy it into the live session pod's `~/data/sessions/` under its original filename (`kubectl -n talos cp -c talos <file> talos/<talos-pod>:/home/talos/data/sessions/<file>`); compare `shasum -a 256` on indri with `sha256sum` in the pod. The tar is uncompressed; `session-index.sqlite` is in the same tar if the index needs it. (Offsite equivalent: `ssh -i ~/.ssh/borgbase_ed25519 u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo`.)
+Then `scp` the `.jsonl` to ringtail and copy it into the live session pod's `~/data/sessions/` under its original filename (`kubectl -n talos cp -c talos <file> talos/<talos-pod>:/home/talos/data/sessions/<file>`); compare `shasum -a 256` on indri with `sha256sum` in the pod. The tar is uncompressed; `session-index.sqlite` is excluded from the tar (derived cache over the session jsonl, rebuilt on cold start). (Offsite equivalent: `ssh -i ~/.ssh/borgbase_ed25519 u3ugi1x1@u3ugi1x1.repo.borgbase.com/./repo`.)
 
 Restore talos sessions from a `talos-data-*` archive only — older `indri-*` main archives carry a stale `k8s-dumps/talos-data.tar` (removed from the live staging dir by the next provision; it disappears from new main archives at the next run).
 

@@ -40,14 +40,16 @@ K3S_STUB = """\
 # invocation to $K3S_LOG, answers `kubectl get pod/pvc/pv` from
 # $K3S_STUB_MAPPING (JSON keyed by a PREFIX of the joined args; the longest
 # matching key wins), and emulates `kubectl exec POD -- CMD` against the
-# fake pod root $POD_FS_DIR. A missing mapping key or an unrecognized
-# in-pod command aborts loudly: a forgotten map must fail the test, not
-# silently green the check.
+# fake pod root $POD_FS_DIR. $K3S_EXEC_FAULT (ok|tar-changed|transport|
+# tar-exit2) injects failures into the in-pod tar emulation. A missing
+# mapping key or an unrecognized in-pod command aborts loudly: a forgotten
+# map must fail the test, not silently green the check.
 set -u
 
 log="${K3S_LOG:?k3s stub: K3S_LOG is required}"
 mapping="${K3S_STUB_MAPPING:?k3s stub: K3S_STUB_MAPPING is required}"
 pod_fs="${POD_FS_DIR:?k3s stub: POD_FS_DIR is required}"
+fault="${K3S_EXEC_FAULT:-ok}"
 
 printf '%s\\n' "$*" >>"$log"
 
@@ -118,12 +120,50 @@ if ((dash >= 0)); then
       cat "$pod_fs/${cmd[1]}"
       ;;
     tar)
-      # tar cf - -C A B
-      [[ "${cmd[1]}" == cf && "${cmd[2]}" == "-" && "${cmd[3]}" == -C ]] || {
+      # tar cf - [--warning=..] [--exclude=..] -C A B: locate -C past the
+      # leading options.
+      ci=-1
+      for ((i = 1; i < ${#cmd[@]}; i++)); do
+        [[ "${cmd[$i]}" == "-C" ]] && ci="$i"
+      done
+      ((ci >= 3 && ci + 3 == ${#cmd[@]})) || {
         echo "k3s stub: unexpected tar args: ${cmd[*]}" >&2
         exit 1
       }
-      tar cf - -C "$pod_fs/${cmd[4]}" "${cmd[5]}"
+      [[ "${cmd[1]}" == cf && "${cmd[2]}" == - ]] || {
+        echo "k3s stub: unexpected tar args: ${cmd[*]}" >&2
+        exit 1
+      }
+      # forward the --warning/--exclude options to the real tar
+      opts=("${cmd[@]:3:ci-3}")
+      case "$fault" in
+        tar-changed)
+          # complete archive to stdout, then tar's file-changed stderr pair
+          tmp="$(mktemp)"
+          tar cf - "${opts[@]}" -C "$pod_fs/${cmd[ci+1]}" "${cmd[ci+2]}" >"$tmp"
+          cat "$tmp"
+          rm -f "$tmp"
+          echo "tar: data: file changed as we read it" >&2
+          echo "command terminated with exit code 1" >&2
+          exit 1
+          ;;
+        transport)
+          echo 'Error from server (NotFound): pods "pod" not found' >&2
+          exit 1
+          ;;
+        tar-exit2)
+          tmp="$(mktemp)"
+          tar cf - "${opts[@]}" -C "$pod_fs/${cmd[ci+1]}" "${cmd[ci+2]}" >"$tmp"
+          cat "$tmp"
+          rm -f "$tmp"
+          echo 'tar: fatal error: write error: No space left on device' >&2
+          echo 'command terminated with exit code 2' >&2
+          exit 2
+          ;;
+        *)
+          tar cf - "${opts[@]}" -C "$pod_fs/${cmd[ci+1]}" "${cmd[ci+2]}"
+          ;;
+      esac
       ;;
     *)
       echo "k3s stub: unrecognized in-pod command: ${cmd[*]}" >&2
@@ -191,16 +231,18 @@ class Stubs:
         env.update(extra)
         return env
 
-    def run(self, *args: str) -> subprocess.CompletedProcess:
+    def run(self, *args: str, raw: bool = False, **env) -> subprocess.CompletedProcess:
         # Capture binary: tar dumps stream real ustar bytes on stdout,
         # which are not valid UTF-8 (e.g. the header checksum field),
         # so text=True dies with UnicodeDecodeError on the runner.
         r = subprocess.run(
             [BASH, str(SCRIPT), *args],
-            env=self.env(),
+            env=self.env(**env),
             capture_output=True,
             check=False,
         )
+        if raw:
+            return r
         return subprocess.CompletedProcess(
             r.args,
             r.returncode,
@@ -560,22 +602,90 @@ def test_pv_missing_host_dir_aborts(stubs):
 # --- tar dumps (talos-data, paperless-media) ------------------------------
 
 
-def test_talos_data_tar(stubs):
+def tar_members(raw_tar: bytes, tmp_path: pathlib.Path) -> list[str]:
+    """Member names of a streamed ustar dump (raw stdout bytes)."""
+    p = tmp_path / "dump.tar"
+    p.write_bytes(raw_tar)
+    out = subprocess.run(["tar", "-tf", str(p)], capture_output=True, check=True)
+    return out.stdout.decode().splitlines()
+
+
+def test_talos_data_tar(stubs, tmp_path):
     pod = "talos-pod"
     stubs.write_mapping({"kubectl -n talos get pod -l app=talos": pod})
     data_dir = stubs.pod_fs / "home/talos/data"
     data_dir.mkdir(parents=True)
     (data_dir / "meta.json").write_text("{}")
+    (data_dir / "session-index.sqlite").write_bytes(b"SQLITE-CACHE\n")
+    (data_dir / "session-index.sqlite-journal").write_bytes(b"JOURNAL\n")
 
-    r = stubs.run("talos-data")
-    assert r.returncode == 0, r.stderr
+    r = stubs.run("talos-data", raw=True)
+    assert r.returncode == 0, r.stderr.decode("utf-8", "replace")
     assert stubs.log_lines() == [
         get_pod_line("talos", "app=talos"),
-        f"kubectl -n talos exec {pod} -- tar cf - -C /home/talos data",
+        (
+            f"kubectl -n talos exec {pod} -- "
+            "tar cf - --warning=no-file-changed --exclude=session-index.sqlite* "
+            "-C /home/talos data"
+        ),
     ]
     # tar streams real ustar bytes on stdout (first header magic at 257)
     assert len(r.stdout) > 0
-    assert r.stdout[257:262] == "ustar"
+    assert r.stdout[257:262] == b"ustar"
+    # the derived sqlite cache (+ transient -journal) is excluded from the
+    # archive; the live jsonl state is present
+    members = tar_members(r.stdout, tmp_path)
+    assert "data/meta.json" in members
+    assert not any(m.startswith("data/session-index.sqlite") for m in members)
+
+
+def test_talos_data_tar_file_changed_exit1_tolerated(stubs, tmp_path):
+    pod = "talos-pod"
+    stubs.write_mapping({"kubectl -n talos get pod -l app=talos": pod})
+    data_dir = stubs.pod_fs / "home/talos/data"
+    data_dir.mkdir(parents=True)
+    (data_dir / "meta.json").write_text("{}")
+    (data_dir / "session-index.sqlite").write_bytes(b"SQLITE-CACHE\n")
+
+    # tar's file-changed exit 1 (kubectl's own "command terminated with
+    # exit code 1" on stderr) is tolerated: rc 0, one diagnostic on stderr,
+    # and the streamed archive is still complete.
+    r = stubs.run("talos-data", raw=True, K3S_EXEC_FAULT="tar-changed")
+    err = r.stderr.decode("utf-8", "replace")
+    assert r.returncode == 0, err
+    assert "tar exited 1 (file changed as we read it)" in err
+
+    members = tar_members(r.stdout, tmp_path)
+    assert "data/meta.json" in members
+    assert not any(m.startswith("data/session-index.sqlite") for m in members)
+
+
+def test_tar_exit2_fails(stubs):
+    stubs.write_mapping({"kubectl -n talos get pod -l app=talos": "talos-pod"})
+    data_dir = stubs.pod_fs / "home/talos/data"
+    data_dir.mkdir(parents=True)
+    (data_dir / "meta.json").write_text("{}")
+
+    # tar failing with a status other than file-changed exit 1 aborts,
+    # with the pod's stderr passed through
+    r = stubs.run("talos-data", K3S_EXEC_FAULT="tar-exit2")
+    assert r.returncode == 2
+    assert "No space left on device" in r.stderr
+    assert "command terminated with exit code 2" in r.stderr
+
+
+def test_kubectl_transport_exit1_fails(stubs):
+    stubs.write_mapping({"kubectl -n talos get pod -l app=talos": "talos-pod"})
+    data_dir = stubs.pod_fs / "home/talos/data"
+    data_dir.mkdir(parents=True)
+    (data_dir / "meta.json").write_text("{}")
+
+    # a kubectl transport error also exits 1 but without the magic line:
+    # stays fatal, with the captured stderr passed through
+    r = stubs.run("talos-data", K3S_EXEC_FAULT="transport")
+    assert r.returncode == 1
+    assert "Error from server (NotFound)" in r.stderr
+    assert "file changed as we read it" not in r.stderr
 
 
 def test_paperless_media_tar_container(stubs):
@@ -589,7 +699,10 @@ def test_paperless_media_tar_container(stubs):
     assert r.returncode == 0, r.stderr
     assert stubs.log_lines() == [
         get_pod_line("paperless", "app=paperless"),
-        f"kubectl -n paperless exec -c web {pod} -- tar cf - -C /usr/src/paperless media",
+        (
+            f"kubectl -n paperless exec -c web {pod} -- "
+            "tar cf - --warning=no-file-changed -C /usr/src/paperless media"
+        ),
     ]
     assert len(r.stdout) > 0
 
