@@ -29,7 +29,10 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 - [[forgejo]] - Git forge
 - [[zot]] - Container registry
 - [[jellyfin]] - Media server
-- [[borgmatic]] - Backup system
+- [[borgmatic]] - Backup system (the four scheduled backup agents are
+  nix-managed per [[provision]] §Borgmatic; the operational repo's lifecycle
+  runs in the role-owned oneshot `mcquack.eblume.borgmatic-ops-admin`,
+  deployed and kicked once per provision)
 - [[caddy]] - Reverse proxy for `*.ops.eblu.me`
 - [[devpi]] - PyPI mirror (LaunchAgent)
 - [[hephaestus]] - heph task/context sync hub (LaunchAgent, nix-store pin via the darwin/indri flake input; PWA shell a store copy from the same input)

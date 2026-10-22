@@ -370,7 +370,13 @@ yamls, .pgpass, BorgBase key, k8s dump helpers and the mise install stay
 role-rendered — the role's gate (`borgmatic_ansible_managed`) covers only the
 plist + load tasks. Applying the flip is the usual `mise run provision-indri
 -- --tags rebuild` (no service-role tag): activation writes each plist in
-place and reloads once.
+place and reloads once. The one borgmatic agent the role itself deploys and
+kicks off on every normal provision is the ops repo admin oneshot
+`mcquack.eblume.borgmatic-ops-admin` (eblume/blumeops#1773): the operational
+repo's lifecycle — `repo-create` plus the `append_only` read/flip — cannot
+run over ssh, because macOS TCC charges the share's content access to sshd.
+It fires per provision, not on a calendar, so it stayed with the role, and
+its deploy + reload + kickstart tasks run ungated.
 
 The drill's blast radius is the box's BACKUP windows (sifaka-local + BorgBase
 offsite, plus the Immich photo library offsite): a broken flip means missed

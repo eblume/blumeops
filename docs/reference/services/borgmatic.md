@@ -53,8 +53,9 @@ authentik/miniflux/teslamate/immich pg dumps (no `exclude_patterns` left —
 no excluded sources). Own local repo
 `/Volumes/backups/borg-operational/` (label `sifaka-operational`, sibling of
 the archive-tier root — borg 1.x refuses to create a repo inside an existing
-one; the role creates it with `repo-create`, idempotent, and flips it off
-append-only once — on borg 1.4 that flag makes `compact` a silent no-op, so
+one; the ops-admin oneshot creates it with `repo-create` (idempotent) and flips
+it off append-only once — on borg 1.4 that flag makes `compact` a silent
+no-op, so
 the rotation would cap archive counts while the repo grows unbounded on
 disk), own `operational-*` prefix, `compression: auto,zstd`, retention
 7 daily / 4 weekly / 12 monthly / yearly -1 (unlimited), enforced by the
@@ -70,6 +71,18 @@ that follow-up — they run in the archive config and land offsite.
 The sifaka copy's immutability is client-side only — `/Volumes/backups` is an
 SMB mount, not a `borg serve` endpoint, so local `append_only` protects
 nothing against indri itself.
+
+The operational repo's lifecycle is managed by the oneshot LaunchAgent
+`mcquack.eblume.borgmatic-ops-admin` running the role-deployed
+`~/bin/borgmatic-ops-repo-admin`, which the provision kicks off once per run —
+an idempotent no-op on a healthy repo (`repo-create` only when the repo's
+README is absent, `append_only` flipped to 0 only when it reads 1). It runs
+under launchd rather than over ssh because macOS TCC charges the share's
+content access — the borg repo lock — to sshd, so the same borg commands
+EPERM in an ssh session (eblume/blumeops#1773); launchd jobs already hold the
+Network Volumes access the nightly backup agents use. The provision's
+ssh-side mount assert (that `/Volumes/backups` is the sifaka mount) still
+gates the run, and the script re-guards the mount itself.
 
 The backups share's SMB recycle bin must also stay disabled: a re-enabled
 bin would capture every file the rotation's `compact` deletes, so nothing
