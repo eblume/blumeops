@@ -147,14 +147,16 @@ services:
   - name: grafana
     type: argocd
     last-reviewed: 2026-10-22
-    current-version: "12.4.13"
+    current-version: "13.2.4"
     upstream-source: https://github.com/grafana/grafana/releases
     notes: >-
       Home-built container (fetchurl of the upstream dl.grafana.com tarball,
       autoPatchelf); upgraded from Helm to Kustomize. 2026-07-13: bumped
       12.4.2 → 12.4.5 (in-minor) for security CVEs (CVE-2026-9029,
       CVE-2026-33382, CVE-2026-42127); rebuilt via build-container CI and
-      deployed. The 13.x major is a separate, later upgrade.
+      deployed. 2026-10-22: bumped 12.4.13 → 13.2.4 (13.x major); 13.0
+      breaking changes reviewed against the deployed shape, no config
+      changes needed.
 
   - name: grafana-sidecar
     type: argocd
