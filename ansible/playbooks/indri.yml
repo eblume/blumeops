@@ -373,5 +373,3 @@
       tags: docs
     - role: caddy
       tags: caddy
-    - role: netconsole
-      tags: netconsole

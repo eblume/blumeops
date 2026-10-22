@@ -558,11 +558,16 @@ services:
     notes: Built from source with Gandi DNS and Layer 4 plugins
 
   - name: netconsole
-    type: ansible
-    last-reviewed: 2026-09-15
+    type: nixos
+    last-reviewed: 2026-10-21
     current-version: null
     upstream-source: null
-    notes: Receiver half of the ringtail crash-capture path (in-repo Python UDP listener + Alloy tail); no upstream to review
+    notes: >-
+      Receiver half of the ringtail crash-capture path: the in-repo Python UDP
+      listener darwin/indri/netconsole-receiver.py, now the generation-owned
+      LaunchAgent mcquack.eblume.netconsole (V5-83 link 1, eblume/blumeops#1760)
+      at the same label, plist and log paths the retired ansible role rendered,
+      plus the Alloy tail. No version, no upstream to review.
 
   - name: heph
     type: nixos
