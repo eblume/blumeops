@@ -30,11 +30,10 @@ let
   # arrives in argv: hephd accepts --authorized-sub argv-only, so the wrapper
   # below cats the seeded file at startup instead of the store carrying it.
   hephHubSubFile = "/Users/erichblume/.config/heph-hub/authorized-sub";
-  # The zot registry's OIDC client credentials (V5-83 link 2,
-  # eblume/blumeops#1782): a seed-secrets manifest entry (secrets.json,
-  # kind op), seeded by the human on gilbert; the switch's checks slot
-  # refuses a missing file, exactly like the heph authorized-sub. The
-  # config.json the generation installs points at this on-host path.
+  # The zot registry's OIDC client credentials: a seed-secrets manifest
+  # entry (secrets.json, kind op), seeded by the human on gilbert; the
+  # switch's checks slot refuses a missing file. The zot config.json the
+  # generation installs points at this on-host path.
   zotOidcCredentialsFile = "/Users/erichblume/.config/zot/oidc-credentials.json";
   hephHubRunner = pkgs.writeShellScriptBin "mcquack-heph-hub" ''
     sub_file=${hephHubSubFile}
@@ -130,17 +129,11 @@ let
     (builtins.readFile ./config.alloy);
   alloyPowerScriptFile = pkgs.writeText "macos-power-metrics"
     (builtins.readFile ./macos-power-metrics.sh);
-  # zot (V5-83 link 2, eblume/blumeops#1782): the retired ansible role's
-  # rendered config.json, verbatim. The in-repo copy is the in-pod jinja2
-  # render of the role's config.json.j2 with Ansible's template settings
-  # (trim_blocks=True, keep_trailing_newline=True) and all variables from
-  # the role's defaults/main.yml, and it is byte-identical to the role's
-  # last on-disk render (sha256 56f28eb3…43f, 3714 B — verified against
-  # eblume's ssh read during review). The store copy feeds the postActivation
-  # cmp-swap install; on-host bytes stay the role's render until the first
-  # post-merge apply moves them to the generation's byte-identical copy.
-  # The OIDC credentials file is seed-side (a secrets.json manifest entry the
-  # checks slot gates on) and stays off the flake.
+  # The zot registry's config.json: a verbatim copy of the retired ansible
+  # role's last render — byte-identical, so the postActivation cmp-swap
+  # install is a no-op on the first apply. The OIDC credentials file is
+  # seed-side (a secrets.json manifest entry the checks slot gates on) and
+  # stays off the flake.
   zotConfigFile = pkgs.writeText "zot-config.json"
     (builtins.readFile ./zot-config.json);
   # The runner daemon's waiter: the pinned nix-darwin has no WaitForPaths
@@ -881,28 +874,21 @@ PY
     chown root:wheel /usr/local/bin/macos-power-metrics &&
     chmod 0755 /usr/local/bin/macos-power-metrics
 
-    # zot (V5-83 link 2, eblume/blumeops#1782): the retired ansible role's
-    # ungated work moves here — the config.json render (store copy
-    # byte-identical to the role's last render), the data/config dirs, and
-    # the two tombstones (the retired launch wrapper and the untracked
-    # mise pin). Install by cmp-swap and kickstart only on change; the
-    # OIDC credentials file is seed-side (the checks slot above refuses a
-    # missing one) and is never touched here.
+    # zot: the data/config dirs, the config.json (installed by cmp-swap,
+    # kickstart only on change), and the two tombstones (retired launch
+    # wrapper, untracked mise pin). The OIDC credentials file is seed-side
+    # (the checks slot above refuses a missing one) and is never touched
+    # here.
     zot_data_dir=/Users/erichblume/zot
     zot_config_dir=/Users/erichblume/.config/zot
     mkdir -p "$zot_data_dir" "$zot_config_dir" &&
     chown erichblume:staff "$zot_data_dir" "$zot_config_dir" &&
     chmod 0755 "$zot_data_dir" "$zot_config_dir"
-    # Retired launch wrapper (the role's "Remove retired zot launch wrapper"):
-    # under launchd the stderr-filter wrapper blocked zot's HTTP bind
-    # entirely (2026-08-14 outage — mechanism unclear, reproduced manually:
-    # direct exec binds, wrapper does not), and the plist has exec'd the
-    # binary directly since the PR-5 flip. Idempotent.
+    # Retired launch wrapper: the plist exec's the binary directly, so the
+    # wrapper is unused; remove it (idempotent).
     rm -f "$zot_config_dir/zot-serve.sh"
-    # Untracked local mise pin (the role's "Remove untracked local mise
-    # pin"): a per-checkout mise.toml shadows indri's global mise config,
-    # which is declared in the indri nix-darwin flake (the flake is the
-    # single source of truth for the toolchain). Idempotent.
+    # Untracked local mise pin: a per-checkout mise.toml shadows the global
+    # mise config the indri flake declares; remove it (idempotent).
     rm -f /Users/erichblume/code/3rd/zot/mise.toml
     zot_cfg_tmp=$(mktemp "$zot_config_dir/.config.json.XXXXXX") &&
     cp ${lib.escapeShellArg zotConfigFile} "$zot_cfg_tmp" &&
@@ -1121,14 +1107,13 @@ AUTHORIZED_KEYS
     StandardErrorPath = "/opt/homebrew/var/log/mcquack.zot-metrics.err.log";
   };
 
-  # zot (PR 5): first real daemon - with the unit unloaded the registry and
-  # every pull/push behind it are down. Binary stays the source build at
+  # zot: first real daemon - with the unit unloaded the registry and every
+  # pull/push behind it are down. Binary stays the source build at
   # ~/code/3rd/zot/bin/zot-darwin-arm64 (out of nix's scope, the checks
-  # slot's gate); config.json is generation-rendered by postActivation from
-  # the in-repo copy (byte-identical to the retired role's render, V5-83
-  # link 2, eblume/blumeops#1782) and the OIDC credentials file is a
-  # seed-secrets manifest entry (checks slot refuses a missing one). See
-  # provision.md §Zot registry.
+  # slot's gate); config.json is installed by postActivation from the
+  # in-repo copy, and the OIDC credentials file is a seed-secrets manifest
+  # entry (checks slot refuses a missing one). See provision.md §Zot
+  # registry.
   launchd.user.agents."mcquack.eblume.zot".serviceConfig = {
     Label = "mcquack.eblume.zot";
     ProgramArguments = [
