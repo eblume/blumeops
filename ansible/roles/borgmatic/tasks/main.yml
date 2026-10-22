@@ -190,6 +190,9 @@
 - name: Assert the backups share is the sifaka mount
   ansible.builtin.stat:
     path: /Volumes/backups/borg/README
+    get_checksum: false
+    get_mime: false
+    get_attributes: false
   register: borgmatic_sifaka_backups_mount
   failed_when: >-
     borgmatic_sifaka_backups_mount.failed
