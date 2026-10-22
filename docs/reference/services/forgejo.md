@@ -147,7 +147,7 @@ name.
 The per-purpose secrets the retired Ansible role used to sync (argocd token, fly deploy
 token, zot CI key) are no longer Forgejo secrets: workflows
 `op read` the blumeops-ci items at job time with `BLUMEOPS_CI_OP_TOKEN` —
-see [[blumeops-ci-item-migration]]. The main-push PATs that used to be the exception in both directions — blumeops's release reading its own `blumeops-ci/forge-main-push/token` at job time, and hephaestus declaring the item's hephaestus-scoped `hephaestus-token` field as `MAIN_PUSH_TOKEN` — are both retired: the release PR carries changelog and docs_version to main itself ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Both sides are fully done: hephaestus's live secret was deleted and its `hephaestus-main-push-token` PAT revoked on 2026-10-15, and blumeops's `blumeops-main-push-token` PAT was revoked on 2026-10-16 with the item's token fields removed.
+see [[blumeops-ci-item-migration]]. The main-push PATs that used to be the exception in both directions — blumeops's release reading its own `blumeops-ci/forge-main-push/token` at job time, and hephaestus declaring the item's hephaestus-scoped `hephaestus-token` field as `MAIN_PUSH_TOKEN` — are both retired: the release PR carries changelog and the caddy_docs_version pin to main itself ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Both sides are fully done: hephaestus's live secret was deleted and its `hephaestus-main-push-token` PAT revoked on 2026-10-15, and blumeops's `blumeops-main-push-token` PAT was revoked on 2026-10-16 with the item's token fields removed.
 
 These secrets are injected as `${{ secrets.SECRET_NAME }}` in workflow files.
 

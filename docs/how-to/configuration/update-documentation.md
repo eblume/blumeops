@@ -22,13 +22,14 @@ ship docs changes:
    `docs/how-to/cut-a-release.md`): it builds the towncrier section from
    `docs/changelog.d/` fragments (fragments consumed), places a blurb under the
    section heading for minor/major releases, rotates older minor series verbatim
-   into `docs/changelog/archive/`, and bumps the root `version` file and the indri
-   `docs_version` pin (the repo hook) — review, commit, and open it as a
+   into `docs/changelog/archive/`, and bumps the root `version` file and the
+   indri `caddy_docs_version` pin in `ansible/roles/caddy/defaults/main.yml`
+   (the repo hook) — review, commit, and open it as a
    `release vX.Y.Z` PR.
 2. A human merges. On push to main, `release.yaml` detects the version change,
    builds the docs tarball, and tags + publishes the Forgejo release with the
    CHANGELOG section as its body.
-3. Deploy: `mise run provision-indri -- --tags docs` from gilbert, then purge the
+3. Deploy: run the install block in [[docs-on-indri]] from a tailnet host (e.g. gilbert), then purge the
    [[flyio-proxy]] nginx cache (`fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`)
    so the new docs are served immediately.
 
@@ -136,7 +137,7 @@ docker run --rm -it -v "$PWD":/workspace:ro node:22-slim sh -c '
 - `CHANGELOG.md` must carry a matching `## [vX.Y.Z]` section (cut-release produces both)
 
 **Docs not updating after deploy:**
-- Confirm `docs_version` was bumped in `ansible/roles/docs/defaults/main.yml` and the provision ran
+- Confirm `caddy_docs_version` was bumped in `ansible/roles/caddy/defaults/main.yml` and the install block ran
 - Check the installed version sentinel: `ssh indri 'cat ~/blumeops/docs/.installed-version'`
 - If stale content is served publicly, purge the [[flyio-proxy]] cache (see above)
 
