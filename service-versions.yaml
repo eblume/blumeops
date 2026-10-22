@@ -567,7 +567,7 @@ services:
   - name: heph
     type: nixos
     release: self
-    last-reviewed: 2026-10-16
+    last-reviewed: 2026-10-21
     current-version: "v1.10.9"
     upstream-source: https://forge.ops.eblu.me/eblume/hephaestus/releases
     notes: >-
@@ -577,20 +577,21 @@ services:
       mcquack.eblume.heph (eblume/blumeops#1655). The authorized-sub is a
       seeded on-host secret file (darwin/indri/secrets.json) the agent's
       static wrapper cats into argv at startup - hephd accepts the flag
-      argv-only. No --self-update flag: nothing auto-updates. The ansible
-      role keeps only the PWA checkout + pwa-version.js stamp (tag
-      `heph_version`) - its daemon legs (cargo install, version gate, plist,
-      the op-read leg) retired with the rollback window over
-      (eblume/blumeops#1655), so a hub rollback is a plain
-      `sudo darwin-rebuild --rollback` to the previous generation. A boot-once
+      argv-only. No --self-update flag: nothing auto-updates. The PWA shell
+      is a store copy of the same pinned input's `heph-pwa/` directory with
+      the `pwa-version.js` stamp baked in at build time (V5-83 link 1,
+      eblume/blumeops#1760) - a version bump is a flake input bump and the
+      auto-apply (provision-indri, class auto) switches hephd and the PWA
+      shell together on merge. The retired ansible role's mutable checkout
+      (`~/.cache/heph-pwa-src`) is now an orphan; earlier generations still
+      serve the PWA from it, so keep it until the rollback floor passes this
+      generation (then optional `rm -rf`). A hub
+      rollback is a plain `sudo darwin-rebuild --rollback`. A boot-once
       LaunchAgent (mcquack.eblume.heph-cargo-bin-cleanup, the indri twin of
-      ringtail's heph-cargo-bin-cleanup) removes the retired ~/.cargo/bin bins
-      (heph, hephd, and the v1.8.0-era heph-tui/heph-quickadd) so no shell can
-      shadow the store bins. Bump the flake input; the
-      auto-apply (provision-indri, class auto) switches the hub on merge,
-      and `mise run provision-indri -- --tags heph` re-stamps the PWA.
-      The ringtail spokes keep their own pin: the `hephaestus` input in
-      nixos/ringtail/flake.nix.
+      ringtail's heph-cargo-bin-cleanup) removes the retired ~/.cargo/bin
+      bins (heph, hephd, and the v1.8.0-era heph-tui/heph-quickadd) so no
+      shell can shadow the store bins. The ringtail spokes keep their own
+      pin: the `hephaestus` input in nixos/ringtail/flake.nix.
 
   - name: heph-agent-spoke
     type: nixos
