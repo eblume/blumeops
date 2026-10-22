@@ -41,6 +41,7 @@ home=/Users/erichblume/blumeops/docs
 [ "$(cat $home/.installed-version 2>/dev/null || true)" = "$version" ] && echo current || {
   # stage + swap: a failed download/extract never wipes the live content, and
   # the sentinel is written last, so a bad run cannot strand it pointing at a wiped tree
+  mkdir -p "$home"
   tmp=$(mktemp -d "$home/.staging.XXXXXX")
   trap 'rm -rf "$tmp"' EXIT
   curl -fsSL "https://forge.ops.eblu.me/eblume/blumeops/releases/download/$version/docs-$version.tar.gz" -o "$tmp/a.tar.gz"
