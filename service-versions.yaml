@@ -545,11 +545,19 @@ services:
       costs private-repo log access (the pre-16 web route is anonymous-only).
 
   - name: alloy
-    type: ansible
-    last-reviewed: 2026-09-06
+    type: nixos
+    last-reviewed: 2026-10-21
     current-version: "v1.19.2"
     upstream-source: https://github.com/grafana/alloy/releases
-    notes: Built from source on indri; embeds the Beyla v3.33.0 eBPF binary (alloy itself stays v1.19.2)
+    notes: >-
+      Built from source on indri (CGO_ENABLED=1 for Tailscale MagicDNS; embeds the
+      Beyla v3.33.0 eBPF binary). Generation-owned (V5-83 link 2,
+      eblume/blumeops#1782): the LaunchAgent mcquack.eblume.alloy and the
+      macos-power-metrics daemon, plus the postActivation-rendered
+      config.alloy, the macos-power-metrics script and the config/data/textfile
+      dirs at the retired ansible role's paths; the alloy binary stays
+      host-resident at ~/.local/bin/alloy (a checks gate on the switch), so its
+      upgrades are still a human-reviewed source build.
 
   - name: zot
     type: ansible

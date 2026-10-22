@@ -1,11 +1,11 @@
 #!/bin/bash
-# {{ ansible_managed }}
+# Managed by ansible - do not edit. Source: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
 # Collects macOS power and thermal metrics for node_exporter textfile collector
 # Requires root to run powermetrics
 
 set -euo pipefail
 
-OUTPUT_FILE="{{ alloy_textfile_dir }}/macos_power.prom"
+OUTPUT_FILE="/opt/homebrew/var/node_exporter/textfile/macos_power.prom"
 TEMP_FILE="${OUTPUT_FILE}.tmp"
 
 # Run powermetrics for one sample

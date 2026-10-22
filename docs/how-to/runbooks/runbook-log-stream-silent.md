@@ -29,9 +29,9 @@ ssh indri 'launchctl list mcquack.eblume.alloy; tail -20 ~/Library/Logs/mcquack.
 
 A config error on restart looks exactly like this: alloy exits on a bad
 `config.alloy`, launchd relaunches it, and the loop ships nothing. The
-generated config lives at the path in `ansible/roles/alloy/defaults/main.yml`
-(`alloy_config_dir`); re-render with `mise run provision-indri -- --tags alloy
---check --diff` before touching it by hand.
+config lives in the generation at `darwin/indri/config.alloy` (installed to
+`alloy_config_dir` by postActivation); re-render with `mise run
+provision-indri -- --tags rebuild --check --diff` before touching it by hand.
 
 ## Watched streams
 

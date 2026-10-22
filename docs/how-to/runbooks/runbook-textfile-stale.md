@@ -43,8 +43,9 @@ registry; the `-metrics` agents are what write the `.prom` files.
 is probably gone and its `.prom` was left behind — Alloy's
 `prometheus.exporter.unix` component exports `node_textfile_mtime_seconds` for
 every file it finds, so a collector's series outlives the thing it measured.
-Don't `rm` it: add the stem to `alloy_retired_collectors` in
-`ansible/roles/alloy/defaults/main.yml` and re-provision, which removes the
+Don't `rm` it: add the stem to the retired-collector tombstone in
+`darwin/indri/configuration.nix`'s postActivation (the `minikube` block's
+plist glob + `.prom` removal, V5-83 link 2) and rebuild, which removes the
 file *and* any LaunchAgent still writing it. A hand deletion comes back the
 next time either one runs.
 
