@@ -26,7 +26,8 @@
       "artifact": {
         "asset_template": "cv-{version}.tar.gz",
         "role_defaults": "ansible/roles/caddy/defaults/main.yml",
-        "role_var": "caddy_cv_version"
+        "role_var": "caddy_cv_version",
+        "deploy_note": "deployed by the documented manual procedure: [cv-on-indri.md](https://forge.ops.eblu.me/eblume/blumeops/src/branch/main/docs/how-to/operations/cv-on-indri.md)"
       },
       "release_workflow": "cv-release.yaml"
     }
