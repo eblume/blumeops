@@ -166,8 +166,7 @@ the build user's mise config, the home dir layout, the runner config
 - Trigger a real workflow (the prometheus container build is the
   stress case that motivated this) and watch with
   `mise run runner-logs`.
-- Logs: `~/Library/Logs/mcquack.forgejo-runner.{out,err}.log`,
-  shipped to Loki by the [[alloy]] role.
+- Logs: `~/Library/Logs/mcquack.forgejo-runner.{out,err}.log`, shipped to Loki by the [[alloy]] agent on indri.
 
 ## Cutover from the k8s runner (historical — completed with [[retire-minikube]])
 

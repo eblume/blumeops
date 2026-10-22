@@ -1,0 +1,176 @@
+// Managed by ansible - do not edit. Source: ssh://forgejo@forge.ops.eblu.me:2222/eblume/blumeops.git
+// Grafana Alloy configuration for indri
+// Collects system metrics (replacing node_exporter) and logs
+
+// ============== METRICS COLLECTION ==============
+
+// System metrics exporter (replaces node_exporter)
+prometheus.exporter.unix "system" {
+  // Disable collectors that don't work on macOS
+  disable_collectors = ["thermal"]
+
+  textfile {
+    directory = "/opt/homebrew/var/node_exporter/textfile"
+  }
+}
+
+// Scrape system metrics
+prometheus.scrape "system" {
+  targets         = prometheus.exporter.unix.system.targets
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "15s"
+}
+
+// Add instance label to match existing setup
+prometheus.relabel "instance" {
+  forward_to = [prometheus.remote_write.prometheus.receiver]
+
+  rule {
+    target_label = "instance"
+    replacement  = "indri"
+  }
+
+  rule {
+    target_label = "cluster"
+    replacement  = "indri"
+  }
+}
+
+// Push metrics to Prometheus via remote_write
+prometheus.remote_write "prometheus" {
+  endpoint {
+    url = "https://prometheus.ops.eblu.me/api/v1/write"
+  }
+}
+
+// ============== ALLOY SELF-MONITORING ==============
+
+// Alloy's own component metrics: which log files are being tailed and how far
+// (loki_source_file_*), and whether pushes to Loki are failing (loki_write_*).
+// Without these, a broken tail is invisible from Prometheus and diagnosing a
+// missing log stream means ssh'ing to the host. The plist starts alloy without
+// --server.http.listen-addr, so its HTTP server is at the default address.
+prometheus.scrape "alloy_self" {
+  targets         = [{"__address__" = "127.0.0.1:12345"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "15s"
+}
+
+
+// ============== ZOT REGISTRY METRICS ==============
+
+// Scrape Zot's native metrics endpoint
+prometheus.scrape "zot" {
+  targets         = [{"__address__" = "localhost:5050"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "15s"
+}
+
+// ============== FORGEJO METRICS ==============
+
+// Scrape Forgejo's native metrics endpoint
+prometheus.scrape "forgejo" {
+  targets         = [{"__address__" = "localhost:3001"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.instance.receiver]
+  scrape_interval = "15s"
+}
+
+// ============== LOG COLLECTION ==============
+
+// Discover log files - brew services
+local.file_match "brew_logs" {
+  path_targets = [
+    {__path__ = "/opt/homebrew/var/log/tailscaled.log", service = "tailscale", stream = "stdout"},
+  ]
+}
+
+// Discover log files - mcquack LaunchAgents
+local.file_match "mcquack_logs" {
+  path_targets = [
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.forgejo.out.log", service = "forgejo", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.forgejo.err.log", service = "forgejo", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.alloy.out.log", service = "alloy", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.alloy.err.log", service = "alloy", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic.out.log", service = "borgmatic", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic.err.log", service = "borgmatic", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-ops.out.log", service = "borgmatic-ops", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-ops.err.log", service = "borgmatic-ops", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.zot.out.log", service = "zot", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.zot.err.log", service = "zot", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.jellyfin.out.log", service = "jellyfin", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.jellyfin.err.log", service = "jellyfin", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.forgejo-runner.out.log", service = "forgejo-runner", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.forgejo-runner.err.log", service = "forgejo-runner", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.runner-cache-sweep.out.log", service = "runner-cache-sweep", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.runner-cache-sweep.err.log", service = "runner-cache-sweep", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.caddy.out.log", service = "caddy", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.caddy.err.log", service = "caddy", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.heph.out.log", service = "heph", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.heph.err.log", service = "heph", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.devpi.out.log", service = "devpi", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.devpi.err.log", service = "devpi", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-photos.out.log", service = "borgmatic-photos", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-photos.err.log", service = "borgmatic-photos", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-verify-photos.out.log", service = "borgmatic-verify-photos", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-verify-photos.err.log", service = "borgmatic-verify-photos", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.netconsole.out.log", service = "netconsole", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.netconsole.err.log", service = "netconsole", stream = "stderr"},
+  ]
+}
+
+// Read and forward brew service logs
+loki.source.file "brew_logs" {
+  targets    = local.file_match.brew_logs.targets
+  forward_to = [loki.relabel.add_host.receiver]
+}
+
+// Read and forward mcquack service logs
+loki.source.file "mcquack_logs" {
+  targets    = local.file_match.mcquack_logs.targets
+  forward_to = [loki.relabel.add_host.receiver]
+}
+
+// Ringtail kernel crash capture (netconsole receiver, generation agent `mcquack.eblume.netconsole`)
+loki.source.file "netconsole_ringtail" {
+  targets    = [{__path__ = "/Users/erichblume/Library/Logs/mcquack.netconsole-ringtail.log", service = "netconsole", stream = "netconsole-ringtail"}]
+  forward_to = [loki.relabel.add_host.receiver]
+}
+
+// Add host label to all logs
+loki.relabel "add_host" {
+  forward_to = [loki.process.oversize_guard.receiver]
+
+  rule {
+    target_label = "host"
+    replacement  = "indri"
+  }
+
+  rule {
+    target_label = "cluster"
+    replacement  = "indri"
+  }
+}
+
+// Loki rejects any single entry over its 256KB max entry size with a 400
+// that fails the whole batch — one oversized line (e.g. a CR-animated
+// progress bar flattened into a log file) takes out every entry batched
+// with it. Drop such lines before they reach the write path; drops are
+// visible as loki_process_dropped_lines_total{reason="line_too_long"}.
+loki.process "oversize_guard" {
+  forward_to = [loki.write.loki.receiver]
+
+  stage.drop {
+    longer_than         = "255KB"
+    drop_counter_reason = "line_too_long"
+  }
+}
+
+// Write logs to Loki
+loki.write "loki" {
+  endpoint {
+    url = "https://loki.ops.eblu.me/loki/api/v1/push"
+  }
+}

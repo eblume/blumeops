@@ -1,6 +1,6 @@
 ---
 title: Provision Indri
-modified: 2026-10-20
+modified: 2026-10-21
 last-reviewed: 2026-10-16
 tags:
   - how-to
@@ -359,25 +359,61 @@ renders. The agent execs the source-built CGO binary at `~/.local/bin/alloy`
 (nixpkgs' grafana-alloy builds with the netgo tag — pure-Go DNS, which
 breaks Tailscale MagicDNS — and is older, v1.16 vs the box's v1.19.2; a
 store flip is both a downgrade and a resolver regression, so the binary
-stays role-side, devpi-venv precedent, #1225-safe). config.alloy, the storage dir, the textfile dir, the log tails,
-the retired-collector tombstone and the `macos-power-metrics.sh` script stay
-role-rendered — the gate (`alloy_ansible_managed`) covers only the plist +
-load tasks, for both units. Applying the flip is the usual
+stays host-resident, devpi-venv precedent, #1225-safe). Now (V5-83 link 2,
+eblume/blumeops#1782) the retired role's remaining work has also moved to
+the generation: config.alloy, the `macos-power-metrics.sh` script, the
+config/data/textfile dirs and the minikube tombstone are rendered by
+postActivation from the in-repo copies `darwin/indri/config.alloy` and
+`darwin/indri/macos-power-metrics.sh` (byte-identical to the role's last
+render), installed by cmp-swap with kickstart only on change; the alloy
+binary's presence is a hard checks gate — the switch fails before anything
+changes if the CGO build is missing. Applying the flip is the usual
 `mise run provision-indri -- --tags rebuild` (no service-role tag):
 activation writes each plist in place and reloads once.
 
-Blast radius is the box's metrics flow itself: a broken flip silently blinds
-indri (the blackbox probes witness the fronts, not the telemetry), so the
-post-apply witness is metrics continuing to flow to prometheus (scrape +
-Loki push + log tails). The daemon has no post-reboot gap: nix-darwin
-activation writes the plist as a real file into /Library/LaunchDaemons and
-launchd re-registers it at every boot (a #1225 EX_CONFIG-never-retried
-failure needs a store argv0, and the script is role-rendered outside /nix),
-so the plan cycle's boot-gap concern resolves to nothing. The one
-lost-samples window is the rollback drill: the rolled-back generation stops
-declaring the daemon, and the system launchd phase unloads + deletes it
-until the gated role re-run rewrites and loads the ansible plist.
-Rollback per §Rolling back a service flip, with the role's gate flipped.
+### Building alloy from source
+
+The generation does not install the binary; it stays a human-reviewed
+source build on the box, verified by the checks gate. Recipe (from the
+retired role's defaults header):
+
+1. Clone from the forge mirror:
+   `git clone ssh://forgejo@forge.ops.eblu.me:2222/mirrors/alloy.git ~/code/3rd/alloy`
+2. Check out the release tag; its `mise.toml` pins the toolchain the tag
+   needs (v1.19.2: go 1.26.7, node 24.16.0 — go.mod's floor and the UI's
+   engines field). Install just those two:
+   `cd ~/code/3rd/alloy && git fetch --tags origin && git checkout v1.19.2`
+   `mise install go node`
+3. Build with CGO enabled (default in Makefile). SKIP_CODE_GENERATION=1:
+   the release tag ships its generated sources, and the generators need
+   tools the build does not otherwise pull in. Needs ~10 GB free for the
+   Go build cache (2026-09-06: the build died on a full disk once).
+   `cd ~/code/3rd/alloy && mise x go node -- make alloy SKIP_CODE_GENERATION=1`
+4. Copy the binary to indri beside the running one, then swap it in —
+   writing over a running Mach-O in place can kill the process mid-write:
+   `scp -O ~/code/3rd/alloy/build/alloy indri:.local/bin/alloy.new`
+   `ssh indri 'cd ~/.local/bin && mv alloy alloy.<oldver> && mv alloy.new alloy'`
+5. Ad-hoc codesign on indri (SCP'd binaries get quarantined by macOS):
+   `ssh indri 'codesign --sign - --force ~/.local/bin/alloy'`
+6. Re-apply the generation (`mise run provision-indri -- --tags rebuild`;
+   the checks gate fails the switch if the binary is missing or not
+   executable), or just kickstart the agent:
+   `ssh indri 'launchctl kickstart -k gui/$(id -u)/mcquack.eblume.alloy'`,
+   then check `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:12345/-/ready`.
+
+The alloy postgres collector is off: it was in the retired role, and its
+op-read DSN was not moved into the generation — that would be a new seed;
+a postgres flip is a deliberate act.
+
+Blast radius is the box's metrics flow itself: a broken change silently
+blinds indri (the blackbox probes witness the fronts, not the telemetry),
+so the post-apply witness is metrics continuing to flow to prometheus
+(scrape + Loki push + log tails, incl. the netconsole-ringtail stream).
+The daemon has no post-reboot gap: nix-darwin activation writes the plist
+as a real file into /Library/LaunchDaemons and launchd re-registers it at
+every boot (a #1225 EX_CONFIG-never-retried failure needs a store argv0,
+and the script is rendered outside /nix); rollback is the plain
+`sudo darwin-rebuild --rollback` per §Rolling back a service flip.
 
 ## Pre-apply check: indri-flake-check
 
@@ -635,11 +671,12 @@ registry stays up. For the devpi flip (PR 10), re-run
 the registry and every other endpoint stay up. For the borgmatic flip (PR 11), re-run
 `mise run provision-indri -- --tags borgmatic -e borgmatic_ansible_managed=true`
 — the backup windows (sifaka-local + BorgBase offsite + photo library)
-are lost during the window; no front-facing service is affected. For the alloy flip (PR 12), re-run
-`mise run provision-indri -- --tags alloy -e alloy_ansible_managed=true`
-— the box's metrics flow (prometheus scrape + Loki push + log tails) is
-blind during the window, and the macos-power-metrics daemon goes with it;
-every front-facing endpoint stays up. For the jellyfin flip (PR 9), re-run
+are lost during the window; no front-facing service is affected. For the alloy flip (PR 12), a plain `sudo darwin-rebuild --rollback` now
+that its role is deleted (V5-83 link 2, eblume/blumeops#1782) — the
+generation owned the units before and after, and the on-disk config is
+byte-identical either way (the postActivation render is a no-op swap), so
+the rollback is unobservable to the metrics flow; every front-facing
+endpoint stays up. For the jellyfin flip (PR 9), re-run
 `mise run provision-indri -- --tags jellyfin -e jellyfin_ansible_managed=true`
 — the media endpoints (`jellyfin.ops.eblu.me`) are down during the
 window; forge, the registry and every other endpoint stay up, and the
@@ -744,7 +781,7 @@ Acceptance checks (run on indri as the named users after the deploy window):
 ## Window hygiene
 
 A window contains exactly one PR: apply pending role merges by tag
-(`--tags alloy,caddy,borgmatic,zot`) first, then the PR's
+(`--tags caddy,borgmatic,zot`) first, then the PR's
 `provision-indri`. Halting between any two PRs leaves indri serving.
 
 ## Related

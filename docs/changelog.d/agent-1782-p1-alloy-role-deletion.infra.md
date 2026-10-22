@@ -1,0 +1,1 @@
+Delete the indri `alloy` ansible role: the generation now renders `config.alloy`, the `macos-power-metrics` script and the alloy dirs (postActivation cmp-swap + kickstart, byte-identical to the role's last render), gates the switch on the alloy binary's presence, and the auto-apply switches indri at merge (V5-83 link 2, eblume/blumeops#1782).

@@ -117,6 +117,13 @@ let
   # was removed (2026-10-06); the running VM hid the gap until the 2026-10-12
   # resize restarted it and every indri-build job queued.
   dockerClient = pkgs.docker-client;
+  # alloy (V5-83 link 2, eblume/blumeops#1782): the retired ansible role's
+  # rendered files, verbatim. The store copies feed the postActivation
+  # cmp-swap installs; on-host bytes are the role's last render.
+  alloyConfigFile = pkgs.writeText "config.alloy"
+    (builtins.readFile ./config.alloy);
+  alloyPowerScriptFile = pkgs.writeText "macos-power-metrics"
+    (builtins.readFile ./macos-power-metrics.sh);
   # The runner daemon's waiter: the pinned nix-darwin has no WaitForPaths
   # option, so the wait lives here. It idles until the generation renders the
   # runner config in postActivation (a human registers the runner first, so it
@@ -437,6 +444,10 @@ MCQUACK_NIX_WAIT_SYSTEM
     fi
     if [[ ! -r ${hephHubSubFile} || ! -s ${hephHubSubFile} ]]; then
       printf 'error: heph authorized-sub file missing or empty at %s - failing the switch before anything changes; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "${hephHubSubFile}" >&2
+      exit 1
+    fi
+    if [[ ! -x /Users/erichblume/.local/bin/alloy ]]; then
+      printf 'error: alloy binary missing or not executable at /Users/erichblume/.local/bin/alloy - failing the switch before anything changes; build it from source (docs/how-to/indri/provision.md section Alloy), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
       exit 1
     fi
   '';
@@ -793,6 +804,55 @@ PY
         printf 'warning: could not inspect or repair the build runner docker config (absent, unreadable, or malformed) - the role used to fail the provision here\n' >&2
       fi
     fi
+
+    # alloy (V5-83 link 2, eblume/blumeops#1782): the retired ansible role's
+    # ungated work moves here - config.alloy, the macos-power-metrics script,
+    # the three dirs and the minikube tombstone. Store copies are byte-
+    # identical to the role's last render; install by cmp-swap and kickstart
+    # only on change.
+    alloy_config_dir=/Users/erichblume/.config/grafana-alloy
+    alloy_data_dir=/Users/erichblume/.local/share/grafana-alloy
+    alloy_textfile_dir=/opt/homebrew/var/node_exporter/textfile
+    mkdir -p "$alloy_config_dir" "$alloy_data_dir" "$alloy_textfile_dir" &&
+    chown erichblume:staff "$alloy_config_dir" "$alloy_data_dir" "$alloy_textfile_dir" &&
+    chmod 0755 "$alloy_config_dir" "$alloy_data_dir" "$alloy_textfile_dir"
+    # Retired-collector tombstone (the role's find/unload/remove): the
+    # minikube LaunchAgent and its textfile. Idempotent.
+    for plist in /Users/erichblume/Library/LaunchAgents/mcquack.eblume.*minikube*.plist; do
+      [[ -e "$plist" ]] || continue
+      launchctl unload "$plist" 2> /dev/null || true
+      rm -f "$plist"
+    done
+    rm -f "$alloy_textfile_dir/minikube.prom"
+    alloy_cfg_tmp=$(mktemp "$alloy_config_dir/.config.alloy.XXXXXX") &&
+    cp ${lib.escapeShellArg alloyConfigFile} "$alloy_cfg_tmp" &&
+    chown erichblume:staff "$alloy_cfg_tmp" &&
+    chmod 0600 "$alloy_cfg_tmp"
+    if cmp -s "$alloy_cfg_tmp" "$alloy_config_dir/config.alloy"; then
+      rm -f "$alloy_cfg_tmp"
+    else
+      mv -f "$alloy_cfg_tmp" "$alloy_config_dir/config.alloy"
+      alloy_uid=$(id -u erichblume)
+      if ! launchctl kickstart -k gui/"$alloy_uid"/mcquack.eblume.alloy 2> /dev/null; then
+        printf 'warning: alloy config installed but kickstart failed - the gui-domain label is not loaded (user session absent?); the agent keeps its current config until its next (re)load\n' >&2
+      fi
+    fi
+    chown erichblume:staff "$alloy_config_dir/config.alloy" &&
+    chmod 0600 "$alloy_config_dir/config.alloy"
+    pmp_tmp=$(mktemp /usr/local/bin/.macos-power-metrics.XXXXXX) &&
+    cp ${lib.escapeShellArg alloyPowerScriptFile} "$pmp_tmp" &&
+    chown root:wheel "$pmp_tmp" &&
+    chmod 0755 "$pmp_tmp"
+    if cmp -s "$pmp_tmp" /usr/local/bin/macos-power-metrics; then
+      rm -f "$pmp_tmp"
+    else
+      mv -f "$pmp_tmp" /usr/local/bin/macos-power-metrics
+      if ! launchctl kickstart -k system/mcquack.eblume.macos-power-metrics 2> /dev/null; then
+        printf 'warning: macos-power-metrics script installed but kickstart failed - check the system domain\n' >&2
+      fi
+    fi
+    chown root:wheel /usr/local/bin/macos-power-metrics &&
+    chmod 0755 /usr/local/bin/macos-power-metrics
   '';
 
   # sshd policy + erichblume's authorized keys (eblume/blumeops#1484 PR 3), in
@@ -1322,9 +1382,12 @@ AUTHORIZED_KEYS
   # outside /nix, the
   # devpi-venv precedent, so #1225-safe. The unit execs with no --server.http
   # flag, so the config's self-scrape (127.0.0.1:12345) and the /-/ready check
-  # keep their default address. config.alloy, the storage dir, the textfile dir
-  # and the tails stay role-rendered; the role's gate covers only plist + load.
-  # Rollback per §Rolling back a service flip.
+  # keep their default address. Config.alloy, the storage dir, the textfile
+  # dir and the macos-power-metrics script are now generation-rendered by
+  # postActivation from the in-repo copies (byte-identical to the retired
+  # role's render), with the alloy binary's presence as the checks gate
+  # (V5-83 link 2, eblume/blumeops#1782). Rollback per §Rolling back a
+  # service flip.
   launchd.user.agents."mcquack.eblume.alloy".serviceConfig = {
     Label = "mcquack.eblume.alloy";
     ProgramArguments = [
@@ -1415,13 +1478,14 @@ AUTHORIZED_KEYS
   # macos-power-metrics: the first nix-owned daemon outside the indri-build
   # pair. Runs as root (no UserName) — powermetrics needs it — writing
   # macos_power.prom into alloy's node_exporter textfile dir every 30 s. The
-  # script stays role-rendered at /usr/local/bin (outside /nix), so there is no
-  # post-reboot gap: nix-darwin activation writes the plist as a real file into
-  # /Library/LaunchDaemons and launchd re-registers it at every boot (a #1225
-  # EX_CONFIG-never-retried failure needs a store argv0, this is not one). The
-  # one lost-samples window is the rollback drill: a rolled-back generation stops
-  # declaring the daemon, and the system phase unloads + deletes it until the
-  # gated role re-run rewrites and loads the ansible plist.
+  # script is rendered at /usr/local/bin (outside /nix) by postActivation from
+  # the in-repo copy, so there is no post-reboot gap: nix-darwin activation
+  # writes the plist as a real file into /Library/LaunchDaemons and launchd
+  # re-registers it at every boot (a #1225 EX_CONFIG-never-retried failure
+  # needs a store argv0, this is not one). Rollback per §Rolling back a
+  # service flip: every generation above the floor declares the daemon, so a
+  # plain `sudo darwin-rebuild --rollback` keeps it running (V5-83 link 2,
+  # eblume/blumeops#1782).
   launchd.daemons."mcquack.eblume.macos-power-metrics".serviceConfig = {
     Label = "mcquack.eblume.macos-power-metrics";
     ProgramArguments = [ "/usr/local/bin/macos-power-metrics" ];

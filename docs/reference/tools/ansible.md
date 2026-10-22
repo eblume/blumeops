@@ -35,7 +35,6 @@ mise run provision-sifaka
 
 | Role | Purpose | Service |
 |------|---------|---------|
-| **alloy** | Observability collector | [[alloy]] |
 | **borgmatic** | Backup automation | [[borgmatic]] |
 | **caddy** | Reverse proxy & TLS | [[routing]] |
 | **forgejo** | Git forge | [[forgejo]] |

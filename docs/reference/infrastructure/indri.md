@@ -30,7 +30,6 @@ Primary BlumeOps server. Mac Mini M1 (2020).
 - [[zot]] - Container registry
 - [[jellyfin]] - Media server
 - [[borgmatic]] - Backup system
-- [[alloy|Alloy]] - Metrics/logs collector
 - [[caddy]] - Reverse proxy for `*.ops.eblu.me`
 - [[devpi]] - PyPI mirror (LaunchAgent)
 - [[hephaestus]] - heph task/context sync hub (LaunchAgent, nix-store pin via the darwin/indri flake input; PWA shell a store copy from the same input)
@@ -62,6 +61,8 @@ is down`, and `pmset -g assertions` holds no Amphetamine assertion.
 **Log rotation:** mcquack LaunchAgent logs (~/Library/Logs/mcquack.*.log) are rotated hourly by the mcquack.eblume.logrotate LaunchAgent — any log over 256 MiB is copied to .1 (3 generations kept) and truncated in place; in place because launchd holds O_APPEND fds, so mv-based rotation would leave services writing into the renamed file. The unit and the script are nix-managed (the flake's `launchd.user.agents."mcquack.eblume.logrotate"`, script from the store) under the same label and plist path the ansible role used; the role is deleted and the nix-darwin generation is the sole owner of the unit — its rollback story is a plain `sudo darwin-rebuild --rollback` ([[provision]]).
 
 **Metrics collectors:** the four `*-metrics` LaunchAgents (borgmatic, forgejo, jellyfin, zot) that write alloy's node_exporter textfile `.prom` files are nix-managed user agents (the flake's `launchd.user.agents."mcquack.eblume.<name>-metrics"`, scripts from the store) under the same labels and plist paths the retired ansible roles used; the API key files (`~/.config/metrics-keys/forgejo-api-key`, `~/.config/metrics-keys/jellyfin-api-key`) are seed-secrets manifest entries (`secrets.json`, kind `op`), re-read by the collectors on every run.
+
+**Alloy:** the alloy agent and the macos-power-metrics daemon are nix-managed (the flake's `launchd.user.agents."mcquack.eblume.alloy"` and `launchd.daemons."mcquack.eblume.macos-power-metrics"`) under the same labels and plist paths the retired ansible role used; config.alloy, the macos-power-metrics script, the config/data/textfile dirs and the minikube tombstone are generation-rendered by postActivation from the in-repo copies (`darwin/indri/config.alloy`, `darwin/indri/macos-power-metrics.sh`) — byte-identical to the role's last render, V5-83 link 2 (eblume/blumeops#1782) — installed by cmp-swap with kickstart on change. The binary stays host-resident at `~/.local/bin/alloy` (source-built CGO, Tailscale MagicDNS); its presence is a checks gate on the switch.
 
 **Sifaka mounter:** the sifaka SMB shares are mounted by the nix-managed `mcquack.eblume.sifaka-mounter` LaunchAgent (the flake's `launchd.user.agents."mcquack.eblume.sifaka-mounter"`, script `mount-sifaka` from the store) — the AutoMounter app's replacement. The password stays in the login Keychain; a missing entry shows up as `sifaka_share_mounted == 0` in Prometheus, never a GUI prompt. See [[sifaka-mounter]].
 
