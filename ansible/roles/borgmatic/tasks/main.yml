@@ -84,7 +84,6 @@
     path: "{{ ansible_facts.env.HOME }}/bin"
     state: directory
     mode: '0755'
-  when: (borgmatic_k8s_sqlite_dumps | length > 0) or (borgmatic_k8s_file_dumps | length > 0) or (borgmatic_k8s_tar_dumps | length > 0) or (borgmatic_archive_sqlite_dumps | length > 0) or (borgmatic_archive_k8s_sqlite_dumps | length > 0) or (borgmatic_archive_k8s_tar_dumps | length > 0)
 
 - name: Deploy k8s SQLite dump helper script
   ansible.builtin.template:
@@ -227,7 +226,7 @@
 
 - name: Kick off the ops repo admin oneshot
   ansible.builtin.command:
-    cmd: launchctl kickstart -k gui/{{ ansible_facts.uid }}/mcquack.eblume.borgmatic-ops-admin
+    cmd: launchctl kickstart -k gui/{{ ansible_facts.user_uid }}/mcquack.eblume.borgmatic-ops-admin
   changed_when: true
 
 - name: Deploy borgmatic-ops LaunchAgent plist

@@ -29,7 +29,7 @@ borgmatic_version: "2.1.10"
 # Uses mise's "latest" symlink so version bumps don't break the LaunchAgent path.
 borgmatic_bin: /Users/erichblume/.local/share/mise/installs/pipx-borgmatic/latest/bin/borgmatic
 
-# borg (not borgmatic) — the one-off repo-config flip in tasks/main.yml
+# borg (not borgmatic) — the one-off repo-config flip in templates/ops-repo-admin.sh.j2
 borgmatic_borg_bin: /opt/homebrew/bin/borg
 
 # Schedule: runs daily at 2:00 AM

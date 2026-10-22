@@ -82,7 +82,7 @@ content access — the borg repo lock — to sshd, so the same borg commands
 EPERM in an ssh session (eblume/blumeops#1773); launchd jobs already hold the
 Network Volumes access the nightly backup agents use. The provision's
 ssh-side mount assert (that `/Volumes/backups` is the sifaka mount) still
-gates the run, and the script re-guards the mount itself.
+gates the run, and the script re-guards the mount itself. A failed oneshot lands in `~/Library/Logs/mcquack.borgmatic-ops-admin.err.log` like the nightly agents, not in the provision output.
 
 The backups share's SMB recycle bin must also stay disabled: a re-enabled
 bin would capture every file the rotation's `compact` deletes, so nothing
