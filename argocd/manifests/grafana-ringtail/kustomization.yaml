@@ -18,7 +18,7 @@ images:
   - name: registry.ops.eblu.me/blumeops/grafana-sidecar
     newTag: v2.10.1-17c7b0e-nix
   - name: registry.ops.eblu.me/blumeops/grafana
-    newTag: v12.4.13-d56fb10-nix@sha256:e1f66a0b9f854bf5885fa0fdb81efa07d70f7bb43b8aaaa8cede5dc1a356b624
+    newTag: v13.2.4-912d449-nix@sha256:65d2d7b7a6cb10b8fc7691013ca05ef03144cdf03dde2504b3324e75e36e67ae
 
 configMapGenerator:
   - name: grafana
