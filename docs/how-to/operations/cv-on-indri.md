@@ -26,11 +26,17 @@ The version is pinned by `caddy_cv_version` in `ansible/roles/caddy/defaults/mai
 
 ## Install / bump (manual, on indri)
 
-Run on indri (`ssh indri`); the block is idempotent and sentinel-gated — it skips when the installed version already matches the pin:
+Run from a tailnet host (e.g. gilbert). Indri's login shell is fish, so the block is a non-interactive bash run — paste the whole thing:
 
 ```bash
+ssh indri bash -s <<'EOF'
 set -euo pipefail
-version="v1.0.6"                      # caddy_cv_version in ansible/roles/caddy/defaults/main.yml
+# version to install: $1 when provided (rollback), else the caddy_cv_version pin
+# on blumeops main, fetched from forge (a local blumeops checkout on indri lags
+# main after a pin merge), so this doc's block needs no per-release edit.
+version=${1:-$(curl -fsSL "https://forge.ops.eblu.me/eblume/blumeops/raw/branch/main/ansible/roles/caddy/defaults/main.yml" \
+  | sed -n 's/^caddy_cv_version: "\(.*\)"$/\1/p')}
+[ -n "$version" ] || { echo "cv version not determined: no argument and caddy_cv_version pin not found on blumeops main" >&2; exit 1; }
 home=/Users/erichblume/blumeops/cv
 [ "$(cat $home/.installed-version 2>/dev/null || true)" = "$version" ] && echo current || {
   rm -rf $home/content && mkdir -p $home/content
@@ -41,15 +47,16 @@ home=/Users/erichblume/blumeops/cv
   rm -f $home/cv.tar.gz
   printf '%s\n' "$version" > $home/.installed-version
 }
+EOF
 ```
 
-This is the role's former download recipe; the sentinel was previously written by ansible, now by this script. `registry.ops.eblu.me` is tailnet-only (run from indri or a tailnet host), which is why the install is manual.
+The version comes from the argument when one is given (rollback) and otherwise from the pin on main, so the block stays current across releases — no per-release edit of this doc. The rest is the role's former download recipe; the sentinel was previously written by ansible, now by this script. `registry.ops.eblu.me` is tailnet-only, which is why the install is manual.
 
 ## Release flow
 
 1. The cv repo release publishes the asset.
 2. The horkos publisher pushes the zot OCI artifact and opens the pin PR — it bumps `caddy_cv_version` in `ansible/roles/caddy/defaults/main.yml` per `argocd/manifests/horkos/release-targets.json`.
-3. After the pin PR merges, run the install block above on indri (the pin PR's thread carries that as a Human steps item).
+3. After the pin PR merges, run the install block above from a tailnet host, then step 4. The pin PR's body is horkos-generated and still names the retired ansible role (`mise run provision-indri -- --tags cv` — a no-op since eblume/blumeops#1774); ignore that line, this doc is the install path. Making the deploy line instance-driven is tracked at [eblume/horkos#69](https://forge.ops.eblu.me/eblume/horkos/issues/69).
 4. Purge the fly edge cache from gilbert: `fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`.
 
 ## Verify
@@ -66,7 +73,7 @@ The PDF response should include `content-disposition: attachment; filename="eric
 
 ## Rollback
 
-Install the previous version with the block above, pinning the old version, then run the same edge purge.
+Run the install block with the previous pin passed to `bash -s` — `ssh indri bash -s v1.0.5 <<'EOF'` instead of `ssh indri bash -s <<'EOF'`, the same block — then run the same edge purge.
 
 ## Backup
 
