@@ -5,7 +5,7 @@
 # ///
 #MISE description="Review the most stale service for version freshness"
 #USAGE flag "--limit <limit>" default="15" help="Number of services to show in the table"
-#USAGE flag "--type <type>" help="Filter by service type (argocd, ansible, nixos, fly, mise, container)"
+#USAGE flag "--type <type>" help="Filter by service type (argocd, ansible, nixos, fly, mise, container, manual)"
 """Review the most stale service for version freshness.
 
 Reads ``service-versions.yaml`` (repo root) and sorts services
@@ -117,6 +117,13 @@ def build_checklist(svc: dict, today: date) -> list[str]:
             "• To bump: update the tag and digest there, push\n",
             "• Deploy: \\[human] mise run fly-deploy (needs the fly.io token); from an agent, request-run deploy-fly.yaml with the full SHA\n",
         ]
+    elif svc_type == "manual":
+        checklist_parts += [
+            "\n[bold]Manual Install (on-host):[/bold]\n",
+            "• Check the version pin named in the entry's notes (the notes carry the pin home)\n",
+            "• Follow the service's how-to doc for the manual install on the host\n",
+            "• Update last-reviewed once the installed version is verified on the host\n",
+        ]
 
     checklist_parts += [
         "\n[bold]Health Check:[/bold]\n",
@@ -133,7 +140,7 @@ def build_checklist(svc: dict, today: date) -> list[str]:
 
 def main(
     limit: Annotated[int, typer.Option(help="Number of services to show in the table")] = 15,
-    type: Annotated[str | None, typer.Option(help="Filter by service type (argocd, ansible, nixos, fly, mise, container)")] = None,
+    type: Annotated[str | None, typer.Option(help="Filter by service type (argocd, ansible, nixos, fly, mise, container, manual)")] = None,
 ) -> None:
     console = Console()
     today = date.today()  # ruff: ignore[DTZ011]  # staleness is measured in local calendar days

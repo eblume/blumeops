@@ -7,7 +7,7 @@
 """Render the Caddyfile template and assert the fly-listener split.
 
 Renders ansible/roles/caddy/templates/Caddyfile.j2 from the role defaults
-plus inventory facts (group_vars sifaka exporter ports, docs/cv role homes)
+plus inventory facts (group_vars sifaka exporter ports, docs role home)
 and checks that the rendered file keeps the :443 wildcard site intact while
 the fly-only :8443 listener serves exactly the services flagged
 fly_proxied in caddy_fly_proxied_services.
@@ -76,17 +76,15 @@ def resolve_expr(value: Any, space: dict[str, Any]) -> Any:
 
 
 def main() -> int:
-    # Source of truth for {docs,cv}_home / sifaka exporter ports: the role
+    # Source of truth for docs_home / cv pins / sifaka exporter ports: the role
     # defaults and inventory group_vars (plain YAML, no jinja).
     group_vars = load_yaml("ansible/inventory/group_vars/all.yml")
     docs_defaults = load_yaml("ansible/roles/docs/defaults/main.yml")
-    cv_defaults = load_yaml("ansible/roles/cv/defaults/main.yml")
     caddy_defaults = load_yaml("ansible/roles/caddy/defaults/main.yml")
 
     space: dict[str, Any] = {}
     space.update(group_vars)
     space.update(docs_defaults)
-    space.update(cv_defaults)
     space.update(caddy_defaults)
 
     context = resolve_expr(caddy_defaults, space)

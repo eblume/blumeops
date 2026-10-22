@@ -25,8 +25,8 @@
       "healthz_url": null,
       "artifact": {
         "asset_template": "cv-{version}.tar.gz",
-        "role_defaults": "ansible/roles/cv/defaults/main.yml",
-        "role_var": "cv_version"
+        "role_defaults": "ansible/roles/caddy/defaults/main.yml",
+        "role_var": "caddy_cv_version"
       },
       "release_workflow": "cv-release.yaml"
     }

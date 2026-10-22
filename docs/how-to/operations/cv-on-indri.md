@@ -1,7 +1,7 @@
 ---
 title: CV on Indri
-modified: 2026-04-29
-last-reviewed: 2026-04-29
+modified: 2026-10-21
+last-reviewed: 2026-10-21
 tags:
   - how-to
   - operations
@@ -9,11 +9,7 @@ tags:
 
 # CV on Indri
 
-How the CV/resume static site (`cv.eblu.me`) is deployed on indri natively. Replaces the prior minikube Deployment; mirrors the rationale of [[devpi-on-indri]].
-
-## Why native, not Kubernetes
-
-CV is a tiny static site (HTML + CSS + PDF). It needs no daemon, no database, no auth. Caddy on indri can serve the extracted tarball directly via `file_server`. Removing the minikube Deployment shrinks the cluster's footprint and removes a network hop (Fly → indri Caddy → ProxyGroup ingress → minikube pod becomes Fly → indri Caddy → local files).
+How the CV/resume static site (`cv.eblu.me` via the [[flyio-proxy]] edge, `cv.ops.eblu.me` direct) is hosted on indri. Content is host-resident: Caddy serves the content dir directly, and there is no role and no daemon. Same shape as [[devpi-on-indri]] on the ops side, with the install itself manual rather than ansible-driven.
 
 ## Layout
 
@@ -24,21 +20,37 @@ CV is a tiny static site (HTML + CSS + PDF). It needs no daemon, no database, no
 | Caddy entry | `cv` service in `ansible/roles/caddy/defaults/main.yml` (`kind: static`) |
 | Public URL | `https://cv.eblu.me` (via [[flyio-proxy]]) |
 | Private URL | `https://cv.ops.eblu.me` (Caddy on indri) |
-| Tarball source | Forgejo generic package `cv` (`forge.eblu.me/eblume/-/packages`) |
+| OCI artifact | `registry.ops.eblu.me/blumeops/cv:<caddy_cv_version>`, pushed by the horkos release publisher |
 
-The role is driven by `cv_version` in `ansible/roles/cv/defaults/main.yml`. The download and extract steps only fire when the on-disk sentinel doesn't match `cv_version` — i.e. after a version bump.
+The version is pinned by `caddy_cv_version` in `ansible/roles/caddy/defaults/main.yml` — there is no role, so the pin lives with the Caddy service that serves the content.
 
-## Deploy
+## Install / bump (manual, on indri)
 
-Two paths:
+Run on indri (`ssh indri`); the block is idempotent and sentinel-gated — it skips when the installed version already matches the pin:
 
-**From a release workflow** (most common):
+```bash
+set -euo pipefail
+version="v1.0.6"                      # caddy_cv_version in ansible/roles/caddy/defaults/main.yml
+home=/Users/erichblume/blumeops/cv
+[ "$(cat $home/.installed-version 2>/dev/null || true)" = "$version" ] && echo current || {
+  rm -rf $home/content && mkdir -p $home/content
+  digest=$(curl -fsSL -H "Accept: application/vnd.oci.image.manifest.v1+json" \
+    "https://registry.ops.eblu.me/v2/blumeops/cv/manifests/$version" | jq -r '.layers[0].digest')
+  curl -fsSL "https://registry.ops.eblu.me/v2/blumeops/cv/blobs/$digest" -o $home/cv.tar.gz
+  tar -xzf $home/cv.tar.gz -C $home/content
+  rm -f $home/cv.tar.gz
+  printf '%s\n' "$version" > $home/.installed-version
+}
+```
 
-1. Run the `Release CV` workflow in the cv repo → produces a new release asset
-2. The pin is the horkos publisher's PR — merging it bumps `cv_version` in `ansible/roles/cv/defaults/main.yml`, and `mise run provision-indri -- --tags cv` deploys (see the horkos#17 release flow)
-3. From gilbert: `fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"` to purge the public-edge cache
+This is the role's former download recipe; the sentinel was previously written by ansible, now by this script. `registry.ops.eblu.me` is tailnet-only (run from indri or a tailnet host), which is why the install is manual.
 
-**Manual** (e.g., reverting): edit `cv_version` in the role defaults yourself, then steps 2–3.
+## Release flow
+
+1. The cv repo release publishes the asset.
+2. The horkos publisher pushes the zot OCI artifact and opens the pin PR — it bumps `caddy_cv_version` in `ansible/roles/caddy/defaults/main.yml` per `argocd/manifests/horkos/release-targets.json`.
+3. After the pin PR merges, run the install block above on indri (the pin PR's thread carries that as a Human steps item).
+4. Purge the fly edge cache from gilbert: `fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`.
 
 ## Verify
 
@@ -52,20 +64,17 @@ curl -fsSI https://cv.eblu.me/resume.pdf | grep -i disposition
 
 The PDF response should include `content-disposition: attachment; filename="erich-blume-resume.pdf"`.
 
-## Bumping the cv version
+## Rollback
 
-Edit `cv_version` in `ansible/roles/cv/defaults/main.yml` and re-run `mise run provision-indri -- --tags cv`. The role recreates the content dir from the new tarball; the sentinel update triggers the next idempotent skip.
+Install the previous version with the block above, pinning the old version, then run the same edge purge.
 
 ## Backup
 
-The content dir is **not** in `borgmatic_source_directories`. The tarball is re-downloadable from the Forgejo generic package store on every deploy, and the source is in the cv repo — recovery is just re-running the role.
-
-## Rollback
-
-If a bad version is published, set `cv_version` back to the previous tag in `ansible/roles/cv/defaults/main.yml` and re-run the role. The full minikube manifest set is preserved in git history (commits prior to the migration cleanup) for the worst case.
+The content dir is **not** in `borgmatic_source_directories`. Recovery is re-running the install block — the artifact stays in zot, so nothing else is needed.
 
 ## Related
 
 - [[devpi-on-indri]] — same shape, different upstream
 - [[restart-indri]] — graceful indri restart procedure
 - [[cv]] — service reference
+- The cv ansible role is retired (V5-83, eblume/blumeops#1760).

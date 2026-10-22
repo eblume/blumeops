@@ -27,6 +27,18 @@ caddy_log_dir: /Users/erichblume/Library/Logs
 # Caddy reads this file for ACME DNS-01 challenges
 caddy_gandi_token_file: /Users/erichblume/.config/caddy/gandi-token
 
+# cv (CV/resume static site) — host-resident content. The cv pin PRs from
+# the horkos release publisher (argocd/manifests/horkos/release-targets.json)
+# bump caddy_cv_version here; the install is manual per
+# docs/how-to/operations/cv-on-indri.md (curl the pinned zot OCI artifact
+# layer into caddy_cv_content_dir, then write the sentinel). Caddy serves
+# caddy_cv_content_dir directly via the static-kind service block below.
+caddy_cv_version: "v1.0.6"
+caddy_cv_registry: "registry.ops.eblu.me"
+caddy_cv_image: "blumeops/cv"
+caddy_cv_home: /Users/erichblume/blumeops/cv
+caddy_cv_content_dir: "{{ caddy_cv_home }}/content"
+
 # Domain configuration
 caddy_domain: ops.eblu.me
 
@@ -107,7 +119,7 @@ caddy_services:
   - name: cv
     host: "cv.{{ caddy_domain }}"
     kind: static
-    root: "{{ cv_content_dir }}"
+    root: "{{ caddy_cv_content_dir }}"
     download_paths:
       - path: /resume.pdf
         filename: erich-blume-resume.pdf

@@ -1,7 +1,7 @@
 ---
 title: CV
-modified: 2026-04-29
-last-reviewed: 2026-04-29
+modified: 2026-10-21
+last-reviewed: 2026-10-21
 tags:
   - service
   - resume
@@ -17,10 +17,10 @@ Personal resume/CV served as a static HTML page with PDF download, built from YA
 |----------|-------|
 | **Public URL** | `cv.eblu.me` (via [[flyio-proxy]]) |
 | **Private URL** | `cv.ops.eblu.me` (Caddy on indri) |
-| **Deployment** | Ansible role `cv` on indri (no daemon — Caddy serves files directly) |
+| **Deployment** | Manual on-host install into `~/blumeops/cv/content/` on indri (no daemon — Caddy serves files directly) |
 | **Content dir** | `~/blumeops/cv/content/` on indri |
 | **Source repo** | `forge.eblu.me/eblume/cv` (private, not mirrored to GitHub) |
-| **Content packages** | `forge.eblu.me/eblume/-/packages` (generic package `cv`) |
+| **Content packages** | zot OCI artifact `registry.ops.eblu.me/blumeops/cv:<caddy_cv_version>` (pushed by the horkos release publisher) |
 
 Migrated from minikube to indri-native on 2026-04-29 (see [[cv-on-indri]]).
 
@@ -29,7 +29,7 @@ Migrated from minikube to indri-native on 2026-04-29 (see [[cv-on-indri]]).
 1. **Source**: `resume.yaml` (content) + `template.html` (Jinja2) + `style.css` in the cv repo
 2. **Build**: `render.py` (uv script runner) generates `index.html`; WeasyPrint generates `resume.pdf`
 3. **Release**: Dagger `build` function packages `index.html`, `style.css`, `resume.pdf` into a tarball, uploaded to Forgejo generic packages
-4. **Deploy**: ansible role downloads the tarball into `~/blumeops/cv/content/` on indri; Caddy serves the directory directly
+4. **Deploy**: manual install (see [[cv-on-indri]]) pulls the pinned zot OCI layer into `~/blumeops/cv/content/` on indri; Caddy serves the directory directly
 
 ## Endpoints
 
@@ -42,9 +42,8 @@ Migrated from minikube to indri-native on 2026-04-29 (see [[cv-on-indri]]).
 
 **Key files (blumeops):**
 
-- `ansible/roles/cv/defaults/main.yml` — pinned `cv_version` and tarball URL
-- `ansible/roles/cv/tasks/main.yml` — sentinel-gated download + extract
-- `ansible/roles/caddy/defaults/main.yml` — `cv` service entry (`kind: static`, `download_paths` for the PDF)
+- `ansible/roles/caddy/defaults/main.yml` — pinned `caddy_cv_version` and `caddy_cv_content_dir`, plus the `cv` service entry (`kind: static`, `download_paths` for the PDF)
+- `docs/how-to/operations/cv-on-indri.md` — sentinel-gated manual install (curl the pinned zot OCI layer into the content dir, write the sentinel)
 
 **Key files (cv repo):**
 
@@ -58,7 +57,7 @@ Migrated from minikube to indri-native on 2026-04-29 (see [[cv-on-indri]]).
 ## Release flow
 
 1. Run the `Release CV` workflow in the cv repo → produces a new release asset
-2. The pin is the horkos publisher's PR — merging it bumps the pin, and `mise run provision-indri -- --tags cv` deploys (see the horkos#17 release flow)
+2. The pin is the horkos publisher's PR — merging it bumps `caddy_cv_version` in `ansible/roles/caddy/defaults/main.yml` (see the horkos#17 release flow); then run the manual install block in [[cv-on-indri]] on indri
 3. Purge the Fly.io proxy cache so the new content is fetched
 
 ## Related
