@@ -345,7 +345,6 @@ spec:
             runAsUser: 1600
             runAsGroup: 1500
             allowPrivilegeEscalation: false
-            noNewPrivileges: true
             capabilities:
               drop: ["ALL"]
             seccompProfile:
