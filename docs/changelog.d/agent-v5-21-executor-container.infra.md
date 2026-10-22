@@ -1,0 +1,1 @@
+Talos pod: the V5-21 executor sidecar container (eblume/talos#365) — session file/shell tools now run as uid 1600 behind a Unix socket; the PVC is exposed to it as subPath mounts only (never `data/`).

@@ -55,6 +55,41 @@ spec:
             - |
               mkdir -p /home/talos/workspace /home/talos/data
               chown 1500:1500 /home/talos /home/talos/workspace /home/talos/data
+              # Executor sidecar (V5-21, eblume/talos#365): uid 1600 in group
+              # 1500 writes the pool object stores, the sessions' linked
+              # worktrees, and the shared cargo target dir. The subPath dirs
+              # are created and chown'd here: kubelet makes missing subPath
+              # targets root-owned at 0755, so without this the group bits
+              # would depend on the PVC root's setgid bit.
+              mkdir -p /home/talos/sessions /home/talos/.cache/cargo-target \
+                /home/talos/.local/share/mise /home/talos/.config/mise
+              chown 1500:1500 /home/talos/sessions /home/talos/.cache/cargo-target \
+                /home/talos/.local/share/mise /home/talos/.config/mise
+              # One-shot (marker): the recursive group-write repair. From the
+              # new image on, both entrypoints run umask 002, so everything
+              # created afterwards is group-rw at birth.
+              if [ ! -f /home/talos/.executor-shared-repair.done ]; then
+                chmod -R g+rwX /home/talos/workspace /home/talos/sessions \
+                  /home/talos/.cache/cargo-target \
+                  /home/talos/.local/share/mise /home/talos/.config/mise
+                touch /home/talos/.executor-shared-repair.done
+              fi
+              # Idempotent and cheap (a handful of repos): runs every pod
+              # start, so repos cloned after first repair still get it.
+              # core.sharedRepository=group makes that hold — the executor's
+              # safe.directory * only defeats git's ownership check. The init
+              # itself runs as uid 0 in repos owned by uid 1500, so git
+              # refuses the write without its own -c override (root's SUDO_UID
+              # exemption does not exist in the pod); the chown is because git
+              # rewrites .git/config through a lockfile rename, which would
+              # leave a root-owned file.
+              (cd /home/talos/workspace && \
+                for r in */; do \
+                  [ -d "$r" ] || continue; \
+                  git -c safe.directory='*' -C "$r" config core.sharedRepository group \
+                    && chown 1500:1500 "$r/.git/config" \
+                    || echo "warn: git config failed in $r" >&2; \
+                done)
           securityContext:
             runAsUser: 0
           volumeMounts:
@@ -82,6 +117,13 @@ spec:
             # serializes concurrent builds.
             - name: CARGO_TARGET_DIR
               value: /home/talos/.cache/cargo-target
+            # Executor sidecar (V5-21, eblume/talos#365): set → every session
+            # tool call is forwarded to the executor container over this
+            # socket (shared emptyDir); unset → today's in-process behaviour.
+            # Fail-fast, no silent fallback — a dead executor is a tool
+            # error, not a security hole.
+            - name: TALOS_EXECUTOR_SOCKET
+              value: /run/talos/executor.sock
             - name: TALOS_PUBLIC_URL
               value: "https://talos.ops.eblu.me"
             - name: TALOS_MODEL
@@ -234,11 +276,11 @@ spec:
               port: 9464
             periodSeconds: 10
             timeoutSeconds: 15
-          # Sized for tens of concurrent sessions: every session's tool
-          # processes (bash, cargo, nix, subagent pi) share this cgroup with
-          # the single Bun event loop, so a CPU limit that binds starves the
-          # server itself. ringtail has 16 cores / 64Gi; 16Gi leaves room
-          # for ~30 sessions.
+          # Sized for tens of concurrent sessions: the single Bun event loop
+          # and each session's subagent pi processes share this cgroup; the
+          # heavy tool processes (bash, cargo, nix) now run in the executor
+          # container, so a CPU limit that binds starves the server itself.
+          # ringtail has 16 cores / 64Gi; 12Gi leaves room for ~30 sessions.
           resources:
             requests:
               cpu: "2"
@@ -246,7 +288,7 @@ spec:
               ephemeral-storage: 2Gi
             limits:
               cpu: "8"
-              memory: 16Gi
+              memory: 12Gi
               # nix builds write to the container's writable layer (the
               # canonical /nix/store is uid-1500-writable in the image); /tmp
               # is off the layer (home subPath mount below). The actual bound
@@ -266,9 +308,118 @@ spec:
             # Shared hephd spoke socket (uid 1500 == host agent user).
             - name: heph-socket
               mountPath: /home/talos/.local/share/heph
+            # Executor socket (V5-21, eblume/talos#365): the executor
+            # container binds /run/talos/executor.sock here (0660, gid 1500);
+            # this container dials it.
+            - name: talos-socket
+              mountPath: /run/talos
             - name: repos-policy
               mountPath: /etc/talos
               readOnly: true
+        # Executor (V5-21, eblume/talos#365): the session tool layer. Same
+        # image, command overridden to the executor entry (the egress-gateway
+        # same-image precedent). uid 1600 in the server's group 1500,
+        # separate PID namespace from the server, no secrets, no envFrom, no
+        # SA token (pod-wide automount off), and the only PVC window is the
+        # subPath mounts — data/ and every token-holding path are never
+        # mounted. Serves the seven file/shell tools over the Unix socket in
+        # the shared talos-socket emptyDir; k8s restarts this container alone
+        # when the socket stops answering (its own probe).
+        # Contract: eblume/talos docs/executor-protocol.md (container contract).
+        - name: executor
+          image: registry.ops.eblu.me/blumeops/talos:kustomized
+          command: ["/bin/dumb-init", "--", "/bin/talos-executor-entry"]
+          env:
+            # Plain scalars only — the entry hard-fails without the forge
+            # config pair (it writes the executor's own git setup from them;
+            # the askpass prints FORGEJO_TOKEN from the per-request env, so
+            # no secret is baked in here).
+            - name: TALOS_EXECUTOR_SOCKET
+              value: /run/talos/executor.sock
+            - name: CARGO_TARGET_DIR
+              value: /home/talos/.cache/cargo-target
+            - name: TALOS_FORGE_URL
+              value: "https://forge.ops.eblu.me"
+            - name: TALOS_FORGE_BOT
+              value: "talos"
+            # Same gateway base as the server: the executor's git forge
+            # proxy rides the gateway's system port (eblume/talos#365).
+            - name: EGRESS_GATEWAY_URL
+              value: "http://10.43.254.1:8080"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1600
+            runAsGroup: 1500
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          # Liveness = the socket answers. The ping/pong frames exist for
+          # this: the exec probe speaks the protocol's ping frame and exits
+          # 0 on pong (no in-image probe helper — bun -e, the image's own
+          # runtime). The startup probe owns boot (nix store registration)
+          # the way the server's does.
+          startupProbe:
+            exec:
+              command:
+                - /bin/bun
+                - -e
+                - (async()=>{try{const t=setTimeout(()=>process.exit(2),5000);let b="";const s=await Bun.connect({unix:"/run/talos/executor.sock",socket:{data(_s,c){b+=Buffer.from(c).toString();const n=b.indexOf("\n");if(n<0)return;clearTimeout(t);try{if(JSON.parse(b.slice(0,n)).type==="pong"){s.end();process.exit(0)}process.exit(1)}catch{process.exit(1)}}}});s.write(JSON.stringify({v:1,type:"ping"})+"\n")}catch{process.exit(2)}})()
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 60
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bun
+                - -e
+                - (async()=>{try{const t=setTimeout(()=>process.exit(2),5000);let b="";const s=await Bun.connect({unix:"/run/talos/executor.sock",socket:{data(_s,c){b+=Buffer.from(c).toString();const n=b.indexOf("\n");if(n<0)return;clearTimeout(t);try{if(JSON.parse(b.slice(0,n)).type==="pong"){s.end();process.exit(0)}process.exit(1)}catch{process.exit(1)}}}});s.write(JSON.stringify({v:1,type:"ping"})+"\n")}catch{process.exit(2)}})()
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # The executor runs real session work (rg, fd, bash, Rust/nix
+          # builds into the shared cargo target, nix store in its writable
+          # layer); the server keeps its own envelope — this is a second
+          # cgroup, not a slice of the server's.
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1Gi
+              ephemeral-storage: 2Gi
+            limits:
+              cpu: "4"
+              memory: 12Gi
+              # Session nix builds write to this container's writable layer,
+              # which the server's store-watermark gc (eblume/talos#250) does
+              # not measure; this backstop mirrors the server's until the
+              # talos-side gc sees the executor's store.
+              ephemeral-storage: 40Gi
+          volumeMounts:
+            # HOME is an emptyDir, never the server's PVC; the subPath mounts
+            # are the executor's only window into the PVC.
+            - name: executor-home
+              mountPath: /home/talos
+            - name: home
+              mountPath: /home/talos/sessions
+              subPath: sessions
+            - name: home
+              mountPath: /home/talos/workspace
+              subPath: workspace
+            - name: home
+              mountPath: /home/talos/.cache/cargo-target
+              subPath: .cache/cargo-target
+            - name: home
+              mountPath: /home/talos/.local/share/mise
+              subPath: .local/share/mise
+            - name: home
+              mountPath: /home/talos/.config/mise
+              subPath: .config/mise
+            # /tmp off the writable layer (same reason as the server's).
+            - name: executor-tmp
+              mountPath: /tmp
+            - name: talos-socket
+              mountPath: /run/talos
       volumes:
         - name: home
           persistentVolumeClaim:
@@ -280,3 +431,14 @@ spec:
         - name: repos-policy
           configMap:
             name: talos-repos
+        # V5-21 executor sidecar (eblume/talos#365): the socket the server
+        # dials, private to the pod.
+        - name: talos-socket
+          emptyDir: {}
+        # The executor's HOME (gitconfig, askpass, nix store scratch) —
+        # rebuilt at every container start; the subPath mounts above are its
+        # only durable state.
+        - name: executor-home
+          emptyDir: {}
+        - name: executor-tmp
+          emptyDir: {}
