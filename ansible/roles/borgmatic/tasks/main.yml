@@ -191,7 +191,10 @@
   ansible.builtin.stat:
     path: /Volumes/backups/borg/README
   register: borgmatic_sifaka_backups_mount
-  failed_when: not borgmatic_sifaka_backups_mount.stat.exists
+  failed_when: >-
+    borgmatic_sifaka_backups_mount.failed
+    or borgmatic_sifaka_backups_mount.stat is not defined
+    or not borgmatic_sifaka_backups_mount.stat.exists
 
 # repo-create skips an existing repo, so reruns are no-ops and the deploy
 # can't half-land between config and first 03:00 create. The path must

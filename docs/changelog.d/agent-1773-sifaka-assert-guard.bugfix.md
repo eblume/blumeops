@@ -1,0 +1,1 @@
+The indri borgmatic role's sifaka mount guard now reports the stat module's error (e.g. the macOS TCC EPERM on the SMB share) instead of crashing in failed_when with `'dict' object has no attribute 'stat'`, so a stat that can't read the share fails the run with the real errno.
