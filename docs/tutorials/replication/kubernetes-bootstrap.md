@@ -1,7 +1,7 @@
 ---
 title: Kubernetes Bootstrap
-modified: 2026-03-25
-last-reviewed: 2026-03-25
+modified: 2026-10-22
+last-reviewed: 2026-10-22
 tags:
   - tutorials
   - replication
@@ -20,108 +20,79 @@ For homelab use, lightweight distributions work well:
 
 | Distribution | Best For | BlumeOps Uses |
 |--------------|----------|---------------|
-| **Minikube** | Single-node, macOS | Yes |
 | **k3s** | Single-node, Linux | Yes (ringtail) |
+| **Minikube** | Single-node, macOS | - |
 | **kind** | Local development | - |
 | **kubeadm** | Multi-node clusters | - |
 
-This tutorial uses minikube, but principles apply broadly.
+This tutorial uses k3s, the distribution BlumeOps runs (single node, on [[ringtail]]). The principles apply broadly — minikube, kind, and other distributions differ only in installation and API-server details.
 
 For BlumeOps specifics, see [[cluster|Cluster Reference]].
 
-## Step 1: Install Minikube
+## Step 1: Install k3s
 
-### macOS
+On your Linux server:
 
 ```bash
-brew install minikube
+curl -sfL https://get.k3s.io | sh -
 ```
 
-### Linux
+The installer starts a single-node server: the API server listens on
+`0.0.0.0:6443`, and a local kubeconfig lands at `/etc/rancher/k3s/k3s.yaml`.
+
+## Step 2: Verify the Cluster
 
 ```bash
-curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube
-```
-
-## Step 2: Create the Cluster
-
-```bash
-minikube start \
-  --driver=docker \
-  --cpus=4 \
-  --memory=8g \
-  --disk-size=100g \
-  --apiserver-names=k8s.your-tailnet.ts.net,$(hostname) \
-  --listen-address=0.0.0.0
-```
-
-Key flags:
-- `--apiserver-names` - Include your Tailscale hostname for remote access
-- `--listen-address=0.0.0.0` - Allow connections from other machines
-
-## Step 3: Verify the Cluster
-
-```bash
-kubectl get nodes
+sudo k3s kubectl get nodes
 # Should show your node as Ready
 
-kubectl get pods -A
+sudo k3s kubectl get pods -A
 # Should show system pods running
 ```
 
-## Step 4: Expose via Tailscale
+## Step 3: Expose via Tailscale
 
-To access the cluster from other Tailscale devices, expose the API server:
+k3s's API server already binds all interfaces, so on the tailnet the cluster
+is reachable at `https://<your-host>.<your-tailnet>.ts.net:6443` with no extra
+exposure step.
 
-### Option A: Tailscale Serve (Simple)
+For ingress to workloads, install the Tailscale Kubernetes operator, which
+manages ingress automatically. BlumeOps uses it ([[tailscale-operator]]); see
+[[routing|Routing Reference]] for how clients reach the API server over the
+tailnet (there is no dedicated hostname for it).
+
+## Step 4: Configure Remote Access
+
+On your workstation, fetch the kubeconfig from the server:
 
 ```bash
-tailscale serve --bg --tcp 6443 tcp://$(minikube ip):8443
+# Copy the kubeconfig
+scp server:/etc/rancher/k3s/k3s.yaml ~/.kube/cluster.yaml
+
+# Point it at the tailnet address
+# server: https://127.0.0.1:6443  ->  https://<your-host>.<your-tailnet>.ts.net:6443
 ```
 
-### Option B: Tailscale Kubernetes Operator (Advanced)
-
-For production-like setup, install the Tailscale operator which manages ingress automatically.
-
-BlumeOps uses TCP passthrough via Caddy - see [[routing|Routing Reference]].
-
-## Step 5: Configure Remote Access
-
-On your workstation, add a context for the remote cluster:
+The CA cert, client certificate, and key are embedded in the kubeconfig, so no
+separate credential copying is needed.
 
 ```bash
-# Copy the CA cert from the server
-scp server:~/.minikube/ca.crt ~/.kube/minikube-ca.crt
-
-# Add the cluster
-kubectl config set-cluster minikube-remote \
-  --server=https://k8s.your-tailnet.ts.net:6443 \
-  --certificate-authority=$HOME/.kube/minikube-ca.crt
-
-# Add credentials (copy from server's ~/.kube/config)
-kubectl config set-credentials minikube-remote \
-  --client-certificate=... \
-  --client-key=...
-
-# Add context
-kubectl config set-context minikube-remote \
-  --cluster=minikube-remote \
-  --user=minikube-remote
-
 # Test
-kubectl --context=minikube-remote get nodes
+KUBECONFIG=~/.kube/cluster.yaml kubectl get nodes
 ```
 
-## Step 6: Storage Configuration
+## Step 5: Storage Configuration
 
 For persistent workloads, configure storage:
 
-### Local Path Provisioner (Simple)
+### Local Path (k3s Default)
+
+k3s ships the local-path provisioner with `local-path` as the default storage
+class — node-local storage for stateful workloads:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
-kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+sudo k3s kubectl get storageclass
+# local-path ... default
 ```
 
 ### NFS for Shared Storage
@@ -173,7 +144,7 @@ Key details:
 ## Next Steps
 
 - [[argocd-config|Configure ArgoCD]] - GitOps deployments
-- Install essential addons (ingress controller, cert-manager)
+- Install ingress - the Tailscale operator for tailnet-only services (BlumeOps), or an ingress controller plus cert-manager for public HTTPS
 
 ## BlumeOps Specifics
 
@@ -188,7 +159,6 @@ See [[cluster|Cluster Reference]] and [[apps|Apps Reference]] for full details.
 
 | Problem | Solution |
 |---------|----------|
-| Can't connect remotely | Check `--apiserver-names` includes Tailscale hostname |
+| Can't connect remotely | Check the API server binds all interfaces and 6443 isn't firewalled on the Tailscale IP |
 | Pods stuck pending | Check storage class is available |
-| Connection refused | Verify `--listen-address=0.0.0.0` was set |
-| Certificate errors | Ensure CA cert matches server's |
+| Certificate errors | Re-fetch the kubeconfig; the embedded CA and client cert must match the server's |

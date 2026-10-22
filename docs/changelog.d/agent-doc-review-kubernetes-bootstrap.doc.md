@@ -1,0 +1,1 @@
+Rewrote the kubernetes-bootstrap replication tutorial around k3s (BlumeOps' distribution) after the minikube retirement: corrected the "BlumeOps Uses" table, dropped the retired Caddy TCP-passthrough API-server claim, and replaced the minikube install/exposure/remote-access steps with the k3s equivalents.
