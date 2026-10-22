@@ -34,11 +34,21 @@ For BlumeOps specifics, see [[cluster|Cluster Reference]].
 On your Linux server:
 
 ```bash
-curl -sfL https://get.k3s.io | sh -
+curl -sfL https://get.k3s.io | sh -s - --tls-san <your-host>.<your-tailnet>.ts.net
 ```
 
 The installer starts a single-node server: the API server listens on
 `0.0.0.0:6443`, and a local kubeconfig lands at `/etc/rancher/k3s/k3s.yaml`.
+
+`--tls-san` adds the tailnet hostname to the serving certificate's subject
+alternative names. k3s's default certificate covers the hostname, the node
+IPs, and `localhost` — but not the Tailscale MagicDNS FQDN, so without it the
+tailnet address from Step 4 fails with a certificate error.
+
+> **BlumeOps:** Instead of the installer flag, the SAN is set declaratively
+> through NixOS `services.k3s.extraFlags` in `nixos/ringtail/configuration.nix`,
+> alongside `--disable=traefik`, `--disable=servicelb`, and
+> `--disable=metrics-server` (the Tailscale operator provides ingress).
 
 ## Step 2: Verify the Cluster
 
@@ -52,9 +62,10 @@ sudo k3s kubectl get pods -A
 
 ## Step 3: Expose via Tailscale
 
-k3s's API server already binds all interfaces, so on the tailnet the cluster
-is reachable at `https://<your-host>.<your-tailnet>.ts.net:6443` with no extra
-exposure step.
+The k3s API server binds all interfaces by default, and Step 1 adds the
+tailnet hostname to the serving certificate's SANs — so on the tailnet the
+cluster is reachable at `https://<your-host>.<your-tailnet>.ts.net:6443` with
+no extra exposure step.
 
 For ingress to workloads, install the Tailscale Kubernetes operator, which
 manages ingress automatically. BlumeOps uses it ([[tailscale-operator]]); see
@@ -161,4 +172,4 @@ See [[cluster|Cluster Reference]] and [[apps|Apps Reference]] for full details.
 |---------|----------|
 | Can't connect remotely | Check the API server binds all interfaces and 6443 isn't firewalled on the Tailscale IP |
 | Pods stuck pending | Check storage class is available |
-| Certificate errors | Re-fetch the kubeconfig; the embedded CA and client cert must match the server's |
+| Certificate errors | The `server:` name in your kubeconfig must be one of the serving cert's SANs — re-check the `--tls-san` hostname (Step 1), and re-fetch the kubeconfig; the embedded CA and client cert must match the server's |
