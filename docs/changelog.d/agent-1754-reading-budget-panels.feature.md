@@ -1,0 +1,1 @@
+Add a "Reading budget" row to the Talos Grafana dashboard (chars read per answered ask, cumulative chars read by kind over 90d, ask age by kind) reading the six V5-59 reading-budget metrics; rows below the Tokens row move down by one panel.
