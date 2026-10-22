@@ -374,18 +374,21 @@ services:
       version pins live in ansible/roles/devpi/defaults/main.yml.
 
   - name: cv
-    type: ansible
+    type: manual
     release: self
     last-reviewed: 2026-09-08
     current-version: "v1.0.6"
     upstream-source: https://forge.ops.eblu.me/eblume/cv
     notes: >-
-      Tarball published as the OCI artifact registry.ops.eblu.me/blumeops/cv:<version>
-      by the horkos release publisher (eblume/horkos#17); the pin PR that
-      bumps cv_version comes from the same publisher. Deploy via
-      `mise run provision-indri -- --tags cv`; served directly by Caddy
-      (kind=static). Migrated from minikube 2026-04-29.
-      Review build deps (WeasyPrint, Jinja2) in source repo on upstream review.
+      Content host-resident at /Users/erichblume/blumeops/cv/content on
+      indri (not in borgmatic_source_directories); caddy_cv_version and
+      caddy_cv_content_dir are pinned in ansible/roles/caddy/defaults/main.yml
+      (pin PRs come from the horkos release publisher via
+      argocd/manifests/horkos/release-targets.json). Install is manual per
+      docs/how-to/operations/cv-on-indri.md (pull the pinned zot OCI layer
+      into the content dir, write the sentinel). Served directly by Caddy
+      (kind=static). Migrated from minikube 2026-04-29. Review build deps
+      (WeasyPrint, Jinja2) in source repo on upstream review.
 
   - name: docs
     type: ansible

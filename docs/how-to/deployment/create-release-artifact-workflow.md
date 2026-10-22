@@ -61,7 +61,7 @@ If the artifact is consumed by a k8s deployment, create a separate deploy workfl
 
 ## Pushing a commit back to a protected `main`
 
-Some release flows commit back to `main` (e.g. the horkos publisher's PR bumps the `cv_version` pin — see eblume/horkos#17; the now-deleted `build-blumeops.yaml` used to bump `docs_version` + build the changelog here, but that push is retired).
+Some release flows commit back to `main` (e.g. the horkos publisher's PR bumps the `caddy_cv_version` pin in `ansible/roles/caddy/defaults/main.yml` — see eblume/horkos#17; the now-deleted `build-blumeops.yaml` used to bump `docs_version` + build the changelog here, but that push is retired).
 `main` on blumeops is branch-protected with a push whitelist limited to
 `eblume`, and **the automatic Forgejo Actions token cannot be push-whitelisted**
 (Forgejo [#11159](https://codeberg.org/forgejo/forgejo/issues/11159)) — so a

@@ -367,8 +367,6 @@
       tags: devpi
     - role: jellyfin
       tags: jellyfin
-    - role: cv
-      tags: cv
     - role: docs
       tags: docs
     - role: caddy

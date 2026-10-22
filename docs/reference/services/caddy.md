@@ -64,7 +64,7 @@ Some sites are served directly by Caddy from disk (`kind: static`, `file_server`
 | Subdomain | Root | Site |
 |-----------|------|------|
 | `docs.ops.eblu.me` | `{{ docs_content_dir }}` | [[docs]] (Quartz; also public at `docs.eblu.me` via [[flyio-proxy]]) |
-| `cv.ops.eblu.me` | `{{ cv_content_dir }}` | [[cv]] (serves `resume.pdf` as an attachment download) |
+| `cv.ops.eblu.me` | `{{ caddy_cv_content_dir }}` | [[cv]] (serves `resume.pdf` as an attachment download) |
 
 ### Fly Proxy Listener (:8443)
 

@@ -104,7 +104,8 @@ cv tag push outlives the same wait budget for its Forgejo release asset
 (`cv-vX.Y.Z.tar.gz`), the row ends `failed` with `asset_never_appeared:`
 instead, and the `action_run_success` sweep from `cv-release.yaml`
 re-publishes it on the same rules — the re-dispatch re-waits on the now-present
-asset and proceeds to the ansible-role pin PR
+asset and proceeds to the pin PR that bumps `caddy_cv_version` in
+`ansible/roles/caddy/defaults/main.yml`
 ([eblume/horkos#62](https://forge.ops.eblu.me/eblume/horkos/pulls/62), deployed in v0.5.44).
 A target without
 `release_workflow` set never auto-recovers — its failed row stays `failed`

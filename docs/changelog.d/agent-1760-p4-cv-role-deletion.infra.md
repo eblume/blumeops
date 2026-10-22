@@ -1,0 +1,1 @@
+The `cv` indri ansible role and its `indri.yml` play entry are deleted; the cv version/home/content pins move to the caddy role defaults as `caddy_cv_*` (horkos's release-targets.json `role_defaults` re-points there), and the install becomes a documented manual procedure in docs/how-to/operations/cv-on-indri.md with content host-resident at ~/blumeops/cv/content.
