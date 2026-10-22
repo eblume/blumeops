@@ -77,11 +77,17 @@ spec:
               # Idempotent and cheap (a handful of repos): runs every pod
               # start, so repos cloned after first repair still get it.
               # core.sharedRepository=group makes that hold — the executor's
-              # safe.directory * only defeats git's ownership check.
+              # safe.directory * only defeats git's ownership check. The init
+              # itself runs as uid 0 in repos owned by uid 1500, so git
+              # refuses the write without its own -c override (root's SUDO_UID
+              # exemption does not exist in the pod); the chown is because git
+              # rewrites .git/config through a lockfile rename, which would
+              # leave a root-owned file.
               (cd /home/talos/workspace && \
                 for r in */; do \
                   [ -d "$r" ] || continue; \
-                  git -C "$r" config core.sharedRepository group \
+                  git -c safe.directory='*' -C "$r" config core.sharedRepository group \
+                    && chown 1500:1500 "$r/.git/config" \
                     || echo "warn: git config failed in $r" >&2; \
                 done)
           securityContext:
