@@ -39,12 +39,18 @@ version=${1:-$(curl -fsSL "https://forge.ops.eblu.me/eblume/blumeops/raw/branch/
 [ -n "$version" ] || { echo "cv version not determined: no argument and caddy_cv_version pin not found on blumeops main" >&2; exit 1; }
 home=/Users/erichblume/blumeops/cv
 [ "$(cat $home/.installed-version 2>/dev/null || true)" = "$version" ] && echo current || {
-  rm -rf $home/content && mkdir -p $home/content
+  # stage + swap: a failed download/extract never wipes the live content, and
+  # the sentinel is written last, so a bad run cannot strand it pointing at a wiped tree
+  mkdir -p "$home"
+  tmp=$(mktemp -d "$home/.staging.XXXXXX")
+  trap 'rm -rf "$tmp"' EXIT
   digest=$(curl -fsSL -H "Accept: application/vnd.oci.image.manifest.v1+json" \
     "https://registry.ops.eblu.me/v2/blumeops/cv/manifests/$version" | jq -r '.layers[0].digest')
-  curl -fsSL "https://registry.ops.eblu.me/v2/blumeops/cv/blobs/$digest" -o $home/cv.tar.gz
-  tar -xzf $home/cv.tar.gz -C $home/content
-  rm -f $home/cv.tar.gz
+  curl -fsSL "https://registry.ops.eblu.me/v2/blumeops/cv/blobs/$digest" -o "$tmp/a.tar.gz"
+  mkdir "$tmp/content" && tar -xzf "$tmp/a.tar.gz" -C "$tmp/content"
+  rm -rf "$home/content.old"
+  if [ -d "$home/content" ]; then mv "$home/content" "$home/content.old"; fi
+  mv "$tmp/content" "$home/content" && rm -rf "$home/content.old"
   printf '%s\n' "$version" > $home/.installed-version
 }
 EOF
@@ -56,7 +62,7 @@ The version comes from the argument when one is given (rollback) and otherwise f
 
 1. The cv repo release publishes the asset.
 2. The horkos publisher pushes the zot OCI artifact and opens the pin PR — it bumps `caddy_cv_version` in `ansible/roles/caddy/defaults/main.yml` per `argocd/manifests/horkos/release-targets.json`.
-3. After the pin PR merges, run the install block above from a tailnet host, then step 4. The pin PR's body is horkos-generated and still names the retired ansible role (`mise run provision-indri -- --tags cv` — a no-op since eblume/blumeops#1774); ignore that line, this doc is the install path. Making the deploy line instance-driven is tracked at [eblume/horkos#69](https://forge.ops.eblu.me/eblume/horkos/issues/69).
+3. After the pin PR merges (and the zot artifact for the pinned version exists — the install block's download fails closed if it does not), run the install block above from a tailnet host, then step 4. The pin PR's deploy line is horkos-generated from the release target's `deploy_note` and points at this doc's manual install procedure.
 4. Purge the fly edge cache from gilbert: `fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`.
 
 ## Verify

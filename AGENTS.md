@@ -260,8 +260,9 @@ The release PR is the release. A `release vX.Y.Z` PR — prepared with the share
 release kit's `cut-release` (eblume/release-kit `docs/how-to/cut-a-release.md`) —
 carries the towncrier-built CHANGELOG section (fragments consumed, older minor
 series rotated into `docs/changelog/archive/`), the root `version` file bump, a
-blurb under the section heading for minor/major releases, and the indri
-`docs_version` bump (the kit's repo hook). Merging it is the release decision:
+blurb under the section heading for minor/major releases, the indri
+`caddy_docs_version` pin bump, and the docs `current-version` in
+`service-versions.yaml` (the kit's repo hook). Merging it is the release decision:
 `release.yaml` detects the version change on push to main, builds the docs
 tarball, and tags + publishes the Forgejo release via `eblume/release-kit@v0.1.1`.
 No dispatch, no main push, no PAT ([[update-documentation]]).

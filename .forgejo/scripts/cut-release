@@ -1,14 +1,24 @@
 #!/usr/bin/env bash
 # Repo hook for the shared release kit's cut-release (eblume/release-kit):
-# pin the indri docs role to the release being cut, so the next
-# `provision-indri --tags docs` serves that release's docs. Runs with
+# pin the indri docs pin to the release being cut, so the next manual install
+# (docs/how-to/operations/docs-on-indri.md) serves that release's docs, and keep
+# service-versions.yaml's docs current-version in lockstep with it. Runs with
 # RELEASE_VERSION (vX.Y.Z) set by the cutter; edits the working tree only,
 # never commits.
 set -euo pipefail
 
 : "${RELEASE_VERSION:?cut-release hook requires RELEASE_VERSION}"
-file=ansible/roles/docs/defaults/main.yml
-tmp=$(mktemp)
-awk -v ver="${RELEASE_VERSION}" '/^docs_version:/ { print "docs_version: \"" ver "\""; next } { print }' "$file" > "$tmp"
 # write back in place (not mv) to keep the file's mode — chmod --reference is GNU-only
-cat "$tmp" > "$file" && rm -f "$tmp"
+rewrite() {
+  local file="$1" program="$2" tmp
+  tmp=$(mktemp)
+  awk -v ver="${RELEASE_VERSION}" "$program" "$file" > "$tmp"
+  cat "$tmp" > "$file" && rm -f "$tmp"
+}
+rewrite ansible/roles/caddy/defaults/main.yml   '/^caddy_docs_version:/ { print "caddy_docs_version: \"" ver "\""; next } { print }'
+# the docs service block in service-versions.yaml ends at the next "- name:" entry
+rewrite service-versions.yaml '
+  /^  - name: docs$/ { print; indocs = 1; next }
+  indocs && /^  - name: / { indocs = 0 }
+  indocs && /^    current-version:/ { print "    current-version: \"" ver "\""; next }
+  { print }'

@@ -39,6 +39,18 @@ caddy_cv_image: "blumeops/cv"
 caddy_cv_home: /Users/erichblume/blumeops/cv
 caddy_cv_content_dir: "{{ caddy_cv_home }}/content"
 
+# docs (Quartz-built static site) — host-resident content. The blumeops
+# release PR's cut-release repo hook (.forgejo/scripts/cut-release) bumps
+# caddy_docs_version here; the install is manual per
+# docs/how-to/operations/docs-on-indri.md (download the pinned Forgejo
+# release tarball into caddy_docs_content_dir, then write the sentinel).
+# Caddy serves caddy_docs_content_dir directly via the static-kind service
+# block below (try_html for Quartz clean URLs).
+caddy_docs_version: "v1.21.0"
+caddy_docs_release_url: "https://forge.ops.eblu.me/eblume/blumeops/releases/download/{{ caddy_docs_version }}/docs-{{ caddy_docs_version }}.tar.gz"
+caddy_docs_home: /Users/erichblume/blumeops/docs
+caddy_docs_content_dir: "{{ caddy_docs_home }}/content"
+
 # Domain configuration
 caddy_domain: ops.eblu.me
 
@@ -113,7 +125,7 @@ caddy_services:
   - name: docs
     host: "docs.{{ caddy_domain }}"
     kind: static
-    root: "{{ docs_content_dir }}"
+    root: "{{ caddy_docs_content_dir }}"
     try_html: true  # Quartz: path → path/ → path.html → 404.html
     fly_proxied: true
   - name: cv

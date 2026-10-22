@@ -1,0 +1,1 @@
+The `docs` indri ansible role and its `indri.yml` play entry are deleted; the docs version/home/content pins move to the caddy role defaults as `caddy_docs_*` (the cut-release repo hook re-points to them atomically), content stays host-resident at ~/blumeops/docs/content, and the install becomes a documented manual procedure in docs/how-to/operations/docs-on-indri.md.

@@ -79,7 +79,7 @@ plain `git push origin HEAD:main` is rejected with `pre-receive hook declined`.
 > workflow to push to protected `main`.
 
 > **Retired (2026-10):** this main-push half is what the release-PR model
-> abolishes — the release PR carries the changelog and the `docs_version` bump
+> abolishes — the release PR carries the changelog and the `caddy_docs_version` bump
 > to `main` itself, and the release workflow tags from the push to main instead
 > of pushing `main` from CI
 > ([eblume/blumeops#1628](https://forge.ops.eblu.me/eblume/blumeops/issues/1628)). Kept below for the historical

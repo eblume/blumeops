@@ -1,7 +1,7 @@
 ---
 title: Docs on Indri
-modified: 2026-10-17
-last-reviewed: 2026-10-17
+modified: 2026-10-21
+last-reviewed: 2026-10-21
 tags:
   - how-to
   - operations
@@ -9,11 +9,7 @@ tags:
 
 # Docs on Indri
 
-How the Quartz documentation site (`docs.eblu.me`) is deployed on indri natively. Replaces the prior minikube Deployment; same shape as [[cv-on-indri]] with one extra wrinkle for Quartz's clean URLs.
-
-## Why native, not Kubernetes
-
-The docs site is fully static HTML produced by Quartz. Caddy can serve the extracted tarball directly. The Quartz-specific behavior the previous nginx container provided (`try_files $uri $uri/ $uri.html =404` and a custom `/404.html`) maps cleanly to Caddy's `try_files` and `handle_errors`.
+How the Quartz documentation site (`docs.eblu.me`) is hosted on indri natively. Content is host-resident: Caddy serves the content dir directly, and there is no role and no daemon — the install is a documented manual procedure (same shape as [[cv-on-indri]]). The Quartz-specific behavior the previous nginx container provided (`try_files $uri $uri/ $uri.html =404` and a custom `/404.html`) is preserved by the Caddy block's `try_files {path} {path}/ {path}.html` plus a `handle_errors 404 → /404.html` rewrite, so clean URLs keep working.
 
 ## Layout
 
@@ -26,15 +22,46 @@ The docs site is fully static HTML produced by Quartz. Caddy can serve the extra
 | Private URL | `https://docs.ops.eblu.me` (Caddy on indri) |
 | Tarball source | Forgejo release asset on the blumeops repo (`docs-<version>.tar.gz`) |
 
-`docs_version` in `ansible/roles/docs/defaults/main.yml` is the blumeops release tag (e.g. `v1.16.0`). The role's download/extract is gated by an on-disk sentinel.
+The version is pinned by `caddy_docs_version` in `ansible/roles/caddy/defaults/main.yml` — there is no role, so the pin lives with the Caddy service that serves the content. The `cut-release` repo hook (`.forgejo/scripts/cut-release`) bumps this pin on every blumeops release PR, so the pin on main is always the last released docs version — the pin and the tarball land in the same release PR.
 
-## Deploy
+## Install / bump (manual, on indri)
 
-1. Cut a release PR ([[update-documentation]]) → merging it builds the tarball and creates the release; the `docs_version` bump rides the release PR itself
-2. From gilbert: `mise run provision-indri -- --tags docs`
-3. From gilbert: `fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`
+Run from a tailnet host (e.g. gilbert). Indri's login shell is fish, so the block is a non-interactive bash run — paste the whole thing:
 
-The Caddy block uses `try_files {path} {path}/ {path}.html` and a `handle_errors 404 → /404.html` rewrite, matching the original nginx behavior so Quartz's clean URLs continue to work.
+```bash
+ssh indri bash -s <<'EOF'
+set -euo pipefail
+# version to install: $1 when provided (rollback), else the caddy_docs_version pin
+# on blumeops main, fetched from forge (a local blumeops checkout on indri lags
+# main after a pin merge), so this doc's block needs no per-release edit.
+version=${1:-$(curl -fsSL "https://forge.ops.eblu.me/eblume/blumeops/raw/branch/main/ansible/roles/caddy/defaults/main.yml" \
+  | sed -n 's/^caddy_docs_version: "\(.*\)"$/\1/p')}
+[ -n "$version" ] || { echo "docs version not determined: no argument and caddy_docs_version pin not found on blumeops main" >&2; exit 1; }
+home=/Users/erichblume/blumeops/docs
+[ "$(cat $home/.installed-version 2>/dev/null || true)" = "$version" ] && echo current || {
+  # stage + swap: a failed download/extract never wipes the live content, and
+  # the sentinel is written last, so a bad run cannot strand it pointing at a wiped tree
+  mkdir -p "$home"
+  tmp=$(mktemp -d "$home/.staging.XXXXXX")
+  trap 'rm -rf "$tmp"' EXIT
+  curl -fsSL "https://forge.ops.eblu.me/eblume/blumeops/releases/download/$version/docs-$version.tar.gz" -o "$tmp/a.tar.gz"
+  mkdir "$tmp/content" && tar -xzf "$tmp/a.tar.gz" -C "$tmp/content"
+  rm -rf "$home/content.old"
+  if [ -d "$home/content" ]; then mv "$home/content" "$home/content.old"; fi
+  mv "$tmp/content" "$home/content" && rm -rf "$home/content.old"
+  printf '%s\n' "$version" > $home/.installed-version
+}
+EOF
+```
+
+The version comes from the argument when one is given (rollback) and otherwise from the pin on main, so the block stays current across releases — no per-release edit of this doc. The rest is the role's former download recipe (the deleted `ansible/roles/docs` tasks did exactly this: curl the release tarball, extract into the content dir, write the sentinel); the sentinel was previously written by ansible, now by this script.
+
+## Release flow
+
+1. Cut a release PR ([[update-documentation]]) — the kit's `cut-release` repo hook bumps `caddy_docs_version` in the caddy role defaults and the docs `current-version` in `service-versions.yaml`, so both ride the release PR.
+2. Merging it is the release: `release.yaml` builds the docs tarball and publishes the Forgejo release (`docs-<version>.tar.gz` as the asset).
+3. Once the `release.yaml` run has finished (the Forgejo release and its `docs-<version>.tar.gz` asset exist — a failed or still-running build has no asset, and the install block's download fails closed), run the install block above from a tailnet host.
+4. Purge the fly edge cache from gilbert: `fly ssh console -a blumeops-proxy -C "sh -c 'rm -rf /tmp/cache && nginx -s reload'"`.
 
 ## Verify
 
@@ -47,20 +74,17 @@ curl -fsSI https://docs.eblu.me/explanation/agent-change-process    # clean URL 
 curl -fsSI https://docs.eblu.me/no-such-path-exists/                # → /404.html
 ```
 
-## Bumping the docs version
+## Rollback
 
-Normally bumped by the release PR itself (the release kit's repo hook). If you need to pin manually, edit `docs_version` in `ansible/roles/docs/defaults/main.yml` and re-run `mise run provision-indri -- --tags docs`.
+Run the install block with the previous version passed to `bash -s` — `ssh indri bash -s v1.20.1 <<'EOF'` instead of `ssh indri bash -s <<'EOF'`, the same block — then run the same edge purge.
 
 ## Backup
 
-Content dir is not borgmatic-backed. Source is in this repo; release tarballs are on the forge.
-
-## Rollback
-
-Set `docs_version` back to the previous release tag in the role defaults and re-run. Older release tarballs remain available as Forgejo release assets.
+The content dir is not in `borgmatic_source_directories`. Recovery is re-running the install block — the tarball stays on the forge as a release asset, so nothing else is needed.
 
 ## Related
 
-- [[cv-on-indri]] — sibling service, simpler (no `try_html`)
+- [[cv-on-indri]] — sibling service, same shape (its artifact is a zot OCI layer; docs' is a Forgejo release asset)
 - [[devpi-on-indri]] — pattern reference for indri-native services
 - [[docs]] — service reference
+- The docs ansible role is retired (V5-83, eblume/blumeops#1760).

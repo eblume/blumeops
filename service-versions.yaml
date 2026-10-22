@@ -391,15 +391,20 @@ services:
       (WeasyPrint, Jinja2) in source repo on upstream review.
 
   - name: docs
-    type: ansible
+    type: manual
     release: self
     last-reviewed: 2026-09-01
-    current-version: "v1.20.1"
+    current-version: "v1.21.0"
     upstream-source: https://forge.ops.eblu.me/eblume/blumeops/releases
     notes: >-
-      Quartz-built tarball downloaded by ansible/roles/docs into ~/blumeops/docs/content
-      on indri; served directly by Caddy (kind=static, try_html). current-version
-      tracks the blumeops docs release tag.
+      Quartz-built tarball; content host-resident at /Users/erichblume/blumeops/docs/content
+      on indri (not in borgmatic_source_directories); caddy_docs_version and
+      caddy_docs_content_dir are pinned in ansible/roles/caddy/defaults/main.yml
+      (the blumeops release PR's cut-release repo hook bumps caddy_docs_version).
+      Install is manual per docs/how-to/operations/docs-on-indri.md (curl the
+      pinned Forgejo release tarball into the content dir, write the sentinel).
+      Served directly by Caddy (kind=static, try_html for Quartz clean URLs).
+      Migrated from minikube 2026-04-29.
 
   - name: forgejo-runner
     type: ansible
