@@ -1,12 +1,22 @@
-{ config, lib, pkgs, hephPkg, ... }:
+{ config, lib, pkgs, hephPkg, hephPwaSrc, ... }:
 let
   mcquackLogrotate = pkgs.writeScript "mcquack-logrotate" (builtins.readFile ./mcquack-logrotate.sh);
   # The heph hub (eblume/blumeops#1655): the store hephd the generation's
-  # mcquack.eblume.heph agent runs. Paths are the role's current values
-  # (ansible/roles/heph/defaults/main.yml) - the db, socket, PWA checkout
-  # and log paths all stay put.
+  # mcquack.eblume.heph agent runs. The db, socket and log paths stay where
+  # they are (borgmatic backs up the db, alloy tails the logs).
   hephDataDir = "/Users/erichblume/.local/share/heph";
-  hephPwaRoot = "/Users/erichblume/.cache/heph-pwa-src/heph-pwa";
+  # The PWA shell hephd serves (V5-83 link 1 PR 2, eblume/blumeops#1760): a
+  # store copy of heph-pwa/ from the pinned hephaestus input, with the
+  # pwa-version.js stamp baked in at build time (the PWA's src/version.js
+  # imports it and degrades to null if absent). The version comes from the
+  # same pin as the daemon (hephPkg.version), so one flake input bump moves
+  # both.
+  hephPwaVersion = "v${hephPkg.version}";
+  hephPwa = pkgs.runCommand "heph-pwa-${hephPwaVersion}" { src = hephPwaSrc; } ''
+    cp -r $src/. $out
+    echo 'export const PWA_VERSION = "${hephPwaVersion}";' > $out/pwa-version.js
+    chmod 644 $out/pwa-version.js
+  '';
   # The ringtail agent spoke's dedicated OIDC sub (talos-heph identity). It
   # arrives in argv: hephd accepts --authorized-sub argv-only, so the wrapper
   # below cats the seeded file at startup instead of the store carrying it.
@@ -17,12 +27,15 @@ let
       printf 'error: heph authorized-sub file missing or empty at %s; seed it with `mise run seed-secrets indri`\n' "$sub_file" >&2
       exit 1
     fi
+    # hephd wants a 0700 data dir; nothing between launchd and hephd creates it.
+    mkdir -p ${hephDataDir}
+    chmod 700 ${hephDataDir}
     exec ${hephPkg}/bin/hephd \
       --mode server \
       --http-addr 0.0.0.0:8787 \
       --db ${hephDataDir}/heph.db \
       --socket ${hephDataDir}/hephd.sock \
-      --web-root ${hephPwaRoot} \
+      --web-root ${hephPwa} \
       --oidc-issuer https://authentik.ops.eblu.me/application/o/heph/ \
       --oidc-audience heph \
       --authorized-sub "$(cat "$sub_file")"
@@ -988,10 +1001,9 @@ AUTHORIZED_KEYS
   # reload, never dual-loaded). argv0 is the pre-/nix wrapper per invariants.nix
   # (eblume/blumeops#1225); the store wrapper carries the --authorized-sub argv
   # the role's op-read leg used to inject, from the seeded on-host file (the
-  # flake reads no vault). The PWA checkout stays role-managed - the store is
-  # read-only, and the web root must stay a mutable git checkout with its
-  # pwa-version.js stamp. Rollback per [[provision]] §Rolling back a service
-  # flip.
+  # flake reads no vault). The PWA shell is the store copy hephPwa - a version
+  # bump is a flake input bump, auto-apply switches it. Rollback per
+  # [[provision]] §Rolling back a service flip.
   launchd.user.agents."mcquack.eblume.heph".serviceConfig = {
     Label = "mcquack.eblume.heph";
     ProgramArguments = [ "${nixWait}" ] ++ [ "${hephHubRunner}/bin/mcquack-heph-hub" ];

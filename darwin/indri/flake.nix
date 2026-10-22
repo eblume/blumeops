@@ -20,9 +20,12 @@
     {
       darwinConfigurations.indri = nix-darwin.lib.darwinSystem {
         # The heph store package the mcquack.eblume.heph agent's wrapper execs
-        # (eblume/blumeops#1655).
+        # (eblume/blumeops#1655), and the PWA shell the wrapper serves: a
+        # store copy of heph-pwa/ from the same pinned input (V5-83 link 1,
+        # eblume/blumeops#1760 PR 2) — one pin, one switch.
         specialArgs = {
           hephPkg = hephaestus.packages."aarch64-darwin".cli;
+          hephPwaSrc = hephaestus.sourcePath + "/heph-pwa";
         };
         modules = [ ./configuration.nix ];
       };
