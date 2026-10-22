@@ -14,7 +14,9 @@
 	</dict>
 	<key>ProgramArguments</key>
 	<array>
-		<string>{{ ansible_facts.env.HOME }}/bin/borgmatic-ops-repo-admin</string>
+		<string>{{ borgmatic_venv_python }}</string>
+		<string>-c</string>
+		<string>import subprocess,sys; sys.exit(subprocess.run(['/bin/sh','{{ ansible_facts.env.HOME }}/bin/borgmatic-ops-repo-admin']).returncode)</string>
 	</array>
 	<key>RunAtLoad</key>
 	<false/>

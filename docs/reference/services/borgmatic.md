@@ -74,15 +74,20 @@ nothing against indri itself.
 
 The operational repo's lifecycle is managed by the oneshot LaunchAgent
 `mcquack.eblume.borgmatic-ops-admin` running the role-deployed
-`~/bin/borgmatic-ops-repo-admin`, which the provision kicks off once per run —
-an idempotent no-op on a healthy repo (`repo-create` only when the repo's
-README is absent, `append_only` flipped to 0 only when it reads 1). It runs
-under launchd rather than over ssh because macOS TCC charges the share's
-content access — the borg repo lock — to sshd, so the same borg commands
-EPERM in an ssh session (eblume/blumeops#1773); launchd jobs already hold the
-Network Volumes access the nightly backup agents use. The provision's
+`~/bin/borgmatic-ops-repo-admin`, which the provision kicks off once per
+run and waits on — a non-zero exit fails the provision. The agent execs
+the TCC-granted borgmatic pipx venv python (`borgmatic_venv_python`, the
+same wrapper as the borgmatic-verify-photos agent), which spawns the
+script: launchd's responsible process must hold the Network Volumes grant
+to read the share's content — the borg repo lock — and neither sshd nor
+/bin/sh holds it, so the same borg commands EPERM over ssh or under a
+plain-script agent (eblume/blumeops#1773). It is an idempotent no-op on
+a healthy repo (`repo-create` only when the repo's README is absent,
+`append_only` flipped to 0 only when it reads 1). The provision's
 ssh-side mount assert (that `/Volumes/backups` is the sifaka mount) still
-gates the run, and the script re-guards the mount itself. A failed oneshot lands in `~/Library/Logs/mcquack.borgmatic-ops-admin.err.log` like the nightly agents, not in the provision output.
+gates the run, and the script re-guards the mount itself. Output lands in
+`~/Library/Logs/mcquack.borgmatic-ops-admin.{out,err}.log`, tailed into
+Grafana like the other agents' logs.
 
 The backups share's SMB recycle bin must also stay disabled: a re-enabled
 bin would capture every file the rotation's `compact` deletes, so nothing

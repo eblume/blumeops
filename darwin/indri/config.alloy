@@ -98,6 +98,8 @@ local.file_match "mcquack_logs" {
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic.err.log", service = "borgmatic", stream = "stderr"},
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-ops.out.log", service = "borgmatic-ops", stream = "stdout"},
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-ops.err.log", service = "borgmatic-ops", stream = "stderr"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-ops-admin.out.log", service = "borgmatic-ops-admin", stream = "stdout"},
+    {__path__ = "/Users/erichblume/Library/Logs/mcquack.borgmatic-ops-admin.err.log", service = "borgmatic-ops-admin", stream = "stderr"},
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.zot.out.log", service = "zot", stream = "stdout"},
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.zot.err.log", service = "zot", stream = "stderr"},
     {__path__ = "/Users/erichblume/Library/Logs/mcquack.jellyfin.out.log", service = "jellyfin", stream = "stdout"},

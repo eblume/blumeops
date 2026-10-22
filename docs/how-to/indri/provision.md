@@ -375,8 +375,12 @@ kicks off on every normal provision is the ops repo admin oneshot
 `mcquack.eblume.borgmatic-ops-admin` (eblume/blumeops#1773): the operational
 repo's lifecycle — `repo-create` plus the `append_only` read/flip — cannot
 run over ssh, because macOS TCC charges the share's content access to sshd.
-It fires per provision, not on a calendar, so it stayed with the role, and
-its deploy + reload + kickstart tasks run ungated.
+It fires per provision, not on a calendar, so it stayed with the role: its
+deploy + reload + kickstart + wait-and-assert tasks run ungated, its agent
+execs the TCC-granted borgmatic pipx venv python (`borgmatic_venv_python`,
+the verify-photos wrapper — launchd's responsible process must hold the
+/Volumes grant /bin/sh lacks), and a non-zero oneshot exit fails the
+provision.
 
 The drill's blast radius is the box's BACKUP windows (sifaka-local + BorgBase
 offsite, plus the Immich photo library offsite): a broken flip means missed
