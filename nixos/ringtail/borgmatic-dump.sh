@@ -67,6 +67,9 @@ dump_tar() { # <namespace> <selector> <dir> <name> [<container>] [<exclude_glob>
   err=$(mktemp)
   rc=0
   "${exec_cmd[@]}" 2>"$err" || rc=$?
+  # stderr is always passed through before branching, so non-fatal warnings
+  # reach the borgmatic log on every path.
+  cat "$err" >&2
   if [[ $rc -eq 0 ]]; then
     rm -f "$err"
     return 0
@@ -75,11 +78,10 @@ dump_tar() { # <namespace> <selector> <dir> <name> [<container>] [<exclude_glob>
   # terminated with exit code 1` line); a kubectl transport error also exits
   # 1 but without that line and stays fatal.
   if [[ $rc -eq 1 ]] && grep -Fq 'command terminated with exit code 1' "$err"; then
-    echo "borgmatic-dump: $name: tar exited 1 (file changed as we read it); trailing files may be missing from this archive" >&2
+    echo "borgmatic-dump: $name: tar exited 1 (file changed as we read it); the changed file may have inconsistent contents in this archive" >&2
     rm -f "$err"
     return 0
   fi
-  cat "$err" >&2
   rm -f "$err"
   return "$rc"
 }

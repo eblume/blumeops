@@ -134,13 +134,19 @@ if ((dash >= 0)); then
         echo "k3s stub: unexpected tar args: ${cmd[*]}" >&2
         exit 1
       }
-      # forward the --warning/--exclude options to the real tar
-      opts=("${cmd[@]:3:ci-3}")
+      # forward the options to the real tar but drop --warning=*: it is
+      # GNU-only, and the CI runner's /usr/bin/tar is bsdtar. The test's
+      # exact-argv log assertions still cover the flag.
+      tar_cmd=(tar cf -)
+      for o in "${cmd[@]:3:ci-3}"; do
+        [[ "$o" == --warning=* ]] || tar_cmd+=("$o")
+      done
+      tar_cmd+=(-C "$pod_fs/${cmd[ci+1]}" "${cmd[ci+2]}")
       case "$fault" in
         tar-changed)
           # complete archive to stdout, then tar's file-changed stderr pair
           tmp="$(mktemp)"
-          tar cf - "${opts[@]}" -C "$pod_fs/${cmd[ci+1]}" "${cmd[ci+2]}" >"$tmp"
+          "${tar_cmd[@]}" >"$tmp"
           cat "$tmp"
           rm -f "$tmp"
           echo "tar: data: file changed as we read it" >&2
@@ -153,7 +159,7 @@ if ((dash >= 0)); then
           ;;
         tar-exit2)
           tmp="$(mktemp)"
-          tar cf - "${opts[@]}" -C "$pod_fs/${cmd[ci+1]}" "${cmd[ci+2]}" >"$tmp"
+          "${tar_cmd[@]}" >"$tmp"
           cat "$tmp"
           rm -f "$tmp"
           echo 'tar: fatal error: write error: No space left on device' >&2
@@ -161,7 +167,7 @@ if ((dash >= 0)); then
           exit 2
           ;;
         *)
-          tar cf - "${opts[@]}" -C "$pod_fs/${cmd[ci+1]}" "${cmd[ci+2]}"
+          "${tar_cmd[@]}"
           ;;
       esac
       ;;
