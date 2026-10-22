@@ -1,6 +1,6 @@
 ---
 title: Provision Indri
-modified: 2026-10-21
+modified: 2026-10-22
 last-reviewed: 2026-10-16
 tags:
   - how-to
@@ -159,16 +159,51 @@ The zot registry is the first real daemon the series moves (PR 5): a
 long-running process, not a collector. The unit is a nix-managed user
 agent (`mcquack.eblume.zot`) at the same label and plist path the
 ansible role used; the source-built binary stays at `~/code/3rd/zot`
-(out of nix's scope) and the `config.json` / `oidc-credentials.json`
-files stay role-rendered — the role's gate (`zot_ansible_managed`)
-covers only the plist + load tasks. Applying the flip is the usual
-`mise run provision-indri -- --tags rebuild` (no service-role tag):
-activation writes the plist in place and reloads the agent once. What
-changes the drill: with the unit unloaded, zot is down — the registry
-and every image pull/push behind it — until something reloads the
-unit, so the rollback drill below is planned around a real outage.
-Rollback per §Rolling back a service flip, with the role's gate
-flipped.
+(out of nix's scope — no mirror lineage on nixpkgs aarch64-darwin).
+Now (V5-83 link 2, eblume/blumeops#1782) the retired role's remaining
+work has also moved to the generation: `config.json` is rendered by
+postActivation from the in-repo copy `darwin/indri/zot-config.json`
+(byte-identical to the role's last render — sha256 `56f28eb3…43f`,
+3714 B — installed by cmp-swap with kickstart only on change), and the
+OIDC credentials file `~/.config/zot/oidc-credentials.json` is a
+seed-secrets manifest entry (kind `op`, format wrapping the vault
+value in the exact JSON shape the role's template rendered, mode 0600,
+restart `mcquack.eblume.zot`). The switch's checks slot hard-fails
+before anything changes if the credentials file is missing or empty,
+or if the binary is missing or not executable (the role's
+binary-exists task, behavior preserved). Applying the flip is the
+usual `mise run provision-indri -- --tags rebuild` (no service-role
+tag): activation writes the plist in place and reloads the agent once.
+Seed before the merge: `mise run seed-secrets indri` from the PR
+branch's checkout seats the credentials file — the switch's checks
+slot refuses any switch until it exists. What changes the drill: with
+the unit unloaded, zot is down — the registry and every image
+pull/push behind it — until something reloads the unit, so the
+rollback drill below is planned around a real outage. Rollback per
+§Rolling back a service flip.
+
+### Building zot from source
+
+The generation does not install the binary; it stays a human-reviewed
+source build on the box, verified by the checks gate. Recipe (from
+the retired role's tasks header, which dies with the role):
+
+1. Clone from the forge mirror (use `localhost:3001` — hairpinning
+doesn't work):
+   `ssh indri 'git clone http://localhost:3001/eblume/zot.git ~/code/3rd/zot'`
+2. Build (creates `bin/zot-darwin-arm64`) — go comes from the indri
+declarative go pin (the nix-darwin flake's mise config);
+GOTOOLCHAIN=auto switches per go.mod:
+   `ssh indri 'cd ~/code/3rd/zot && mise x -- make binary'`
+3. Re-apply the generation (`mise run provision-indri -- --tags
+rebuild`; the checks gate fails the switch if the binary is missing
+or not executable) or skip straight to a kickstart:
+   `ssh indri 'launchctl kickstart -k gui/$(id -u)/mcquack.eblume.zot'`.
+
+Upgrade: `git fetch --tags && git checkout vX.Y.Z` in the clone,
+`mise x -- make binary`, then `launchctl kickstart -k
+gui/$(id -u)/mcquack.eblume.zot` — the postActivation render only
+restarts the agent when the rendered config changes.
 
 ## Caddy
 
@@ -646,10 +681,21 @@ darwin-rebuild --rollback` — the four collectors are generation-owned
 back to. Logrotate's rollback is the same plain `sudo darwin-rebuild
 --rollback` now that its role is deleted: the generation owned the plist
 before and after the flip.
-For the zot registry flip (PR 5), re-run `mise run provision-indri --
---tags zot -e zot_ansible_managed=true`. Unlike the textfile
-collectors, zot is a real daemon: the registry is down between the
-rollback and the ansible re-write. For the caddy flip, re-run
+For the zot registry flip (PR 5), a plain `sudo darwin-rebuild
+--rollback` now that its role is deleted (V5-83 link 2,
+eblume/blumeops#1782) — the generation owned the unit before and
+after, and the seeded OIDC credentials file persists on the host
+across the rollback (the seed is a host file, not generation content),
+so zot keeps serving on the rolled-back generation with the same
+credentials and a byte-identical config (the postActivation render is
+a no-op swap against the same bytes the role rendered). If the on-disk
+render itself is wrong, revert the merge and re-run the restored role
+with `mise run provision-indri -- --tags zot` to re-render config.json
+from its templates, or forward-fix the Nix render. Unlike the textfile
+collectors, zot is a real daemon: the registry is down between
+something that stops and something that reloads the unit, but a plain
+rollback does not stop it — the unit is generation-owned before and
+after. For the caddy flip, re-run
 `mise run provision-indri -- --tags caddy -e caddy_ansible_managed=true`
 — the gate re-deploys the rollback plist and the restart handler reloads
 the agent; the wrapper's exec target follows the rolled-back generation's
@@ -781,7 +827,7 @@ Acceptance checks (run on indri as the named users after the deploy window):
 ## Window hygiene
 
 A window contains exactly one PR: apply pending role merges by tag
-(`--tags caddy,borgmatic,zot`) first, then the PR's
+(`--tags caddy,borgmatic`) first, then the PR's
 `provision-indri`. Halting between any two PRs leaves indri serving.
 
 ## Related

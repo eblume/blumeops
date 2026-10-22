@@ -123,10 +123,21 @@ rev = "ade0f95ddcf661c697d4670d2cfcbe95d0048a0a"                                
 hooks = [{ id = "taplo-format" }, { id = "taplo-lint", args = ["--no-schema"] }]
 
 # JSON formatting (prettier for consistent style)
+# darwin/indri/zot-config.json is excluded: it is the byte-identical copy of
+# indri's rendered config.json (V5-83 link 2, eblume/blumeops#1782), and its
+# whitespace is the jinja2 render's — reformatting it would change the on-disk
+# bytes and restart zot on the first apply. check-json still validates it.
 [[repos]]
 repo = "https://github.com/rbubley/mirrors-prettier"
-rev = "331f33fa4dfbcbca7c3da3620c137fde0faab273"                                # v3.9.10
-hooks = [{ id = "prettier", types_or = ["json"], args = ["--tab-width", "2"] }]
+rev = "331f33fa4dfbcbca7c3da3620c137fde0faab273" # v3.9.10
+hooks = [
+  { id = "prettier", types_or = [
+    "json",
+  ], args = [
+    "--tab-width",
+    "2",
+  ], exclude = '^darwin/indri/zot-config\.json$' },
+]
 
 # GitHub/Forgejo Actions workflow linting
 [[repos]]
@@ -218,7 +229,7 @@ id = "zot-accesscontrol-lint"
 name = "zot-accesscontrol-lint"
 entry = "./mise-tasks/zot-accesscontrol-lint"
 language = "system"
-files = '^(ansible/roles/zot/templates/config\.json\.j2|argocd/manifests/authentik/principals\.yaml)$'
+files = '^(darwin/indri/zot-config\.json|argocd/manifests/authentik/principals\.yaml)$'
 pass_filenames = false
 
 # Documentation validation

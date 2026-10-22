@@ -30,6 +30,11 @@ let
   # arrives in argv: hephd accepts --authorized-sub argv-only, so the wrapper
   # below cats the seeded file at startup instead of the store carrying it.
   hephHubSubFile = "/Users/erichblume/.config/heph-hub/authorized-sub";
+  # The zot registry's OIDC client credentials: a seed-secrets manifest
+  # entry (secrets.json, kind op), seeded by the human on gilbert; the
+  # switch's checks slot refuses a missing file. The zot config.json the
+  # generation installs points at this on-host path.
+  zotOidcCredentialsFile = "/Users/erichblume/.config/zot/oidc-credentials.json";
   hephHubRunner = pkgs.writeShellScriptBin "mcquack-heph-hub" ''
     sub_file=${hephHubSubFile}
     if [ ! -r "$sub_file" ] || [ ! -s "$sub_file" ]; then
@@ -124,6 +129,13 @@ let
     (builtins.readFile ./config.alloy);
   alloyPowerScriptFile = pkgs.writeText "macos-power-metrics"
     (builtins.readFile ./macos-power-metrics.sh);
+  # The zot registry's config.json: a verbatim copy of the retired ansible
+  # role's last render — byte-identical, so the postActivation cmp-swap
+  # install is a no-op on the first apply. The OIDC credentials file is
+  # seed-side (a secrets.json manifest entry the checks slot gates on) and
+  # stays off the flake.
+  zotConfigFile = pkgs.writeText "zot-config.json"
+    (builtins.readFile ./zot-config.json);
   # The runner daemon's waiter: the pinned nix-darwin has no WaitForPaths
   # option, so the wait lives here. It idles until the generation renders the
   # runner config in postActivation (a human registers the runner first, so it
@@ -448,6 +460,14 @@ MCQUACK_NIX_WAIT_SYSTEM
     fi
     if [[ ! -x /Users/erichblume/.local/bin/alloy ]]; then
       printf 'error: alloy binary missing or not executable at /Users/erichblume/.local/bin/alloy - failing the switch before anything changes; build it from source (docs/how-to/indri/provision.md section Alloy), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
+      exit 1
+    fi
+    if [[ ! -r ${zotOidcCredentialsFile} || ! -s ${zotOidcCredentialsFile} ]]; then
+      printf 'error: zot OIDC credentials file missing or empty at %s - failing the switch before anything changes; seed it with `mise run seed-secrets indri`, then re-apply (`mise run provision-indri -- --tags rebuild`)\n' "${zotOidcCredentialsFile}" >&2
+      exit 1
+    fi
+    if [[ ! -x /Users/erichblume/code/3rd/zot/bin/zot-darwin-arm64 ]]; then
+      printf 'error: zot binary missing or not executable at /Users/erichblume/code/3rd/zot/bin/zot-darwin-arm64 - failing the switch before anything changes; build it from source (docs/how-to/indri/provision.md section Zot registry), then re-apply (`mise run provision-indri -- --tags rebuild`)\n' >&2
       exit 1
     fi
   '';
@@ -853,6 +873,47 @@ PY
     fi
     chown root:wheel /usr/local/bin/macos-power-metrics &&
     chmod 0755 /usr/local/bin/macos-power-metrics
+
+    # zot: the data/config dirs, the config.json (installed by cmp-swap,
+    # kickstart only on change), and the two tombstones (retired launch
+    # wrapper, untracked mise pin). The OIDC credentials file is seed-side
+    # (the checks slot above refuses a missing one) and is never touched
+    # here.
+    zot_data_dir=/Users/erichblume/zot
+    zot_config_dir=/Users/erichblume/.config/zot
+    mkdir -p "$zot_data_dir" "$zot_config_dir" &&
+    chown erichblume:staff "$zot_data_dir" "$zot_config_dir" &&
+    chmod 0755 "$zot_data_dir" "$zot_config_dir"
+    # Retired launch wrapper: the plist exec's the binary directly, so the
+    # wrapper is unused; remove it (idempotent).
+    rm -f "$zot_config_dir/zot-serve.sh"
+    # Untracked local mise pin: a per-checkout mise.toml shadows the global
+    # mise config the indri flake declares; remove it (idempotent).
+    rm -f /Users/erichblume/code/3rd/zot/mise.toml
+    zot_cfg_tmp=$(mktemp "$zot_config_dir/.config.json.XXXXXX") &&
+    cp ${lib.escapeShellArg zotConfigFile} "$zot_cfg_tmp" &&
+    chown erichblume:staff "$zot_cfg_tmp" &&
+    chmod 0644 "$zot_cfg_tmp"
+    if cmp -s "$zot_cfg_tmp" "$zot_config_dir/config.json"; then
+      rm -f "$zot_cfg_tmp"
+    else
+      mv -f "$zot_cfg_tmp" "$zot_config_dir/config.json"
+      zot_uid=$(id -u erichblume)
+      if ! launchctl kickstart -k gui/"$zot_uid"/mcquack.eblume.zot 2> /dev/null; then
+        printf 'warning: zot config installed but kickstart failed - the gui-domain label is not loaded (user session absent?); the registry keeps its current config until its next (re)load\n' >&2
+      fi
+    fi
+    chown erichblume:staff "$zot_config_dir/config.json" &&
+    chmod 0644 "$zot_config_dir/config.json"
+    # The wrapper keeps new progress-bar frames out of this log; this clears
+    # the frames already accumulated (they are the bulk of the file by
+    # bytes, and Loki rejects them anyway — the normal lines are already
+    # shipped). Truncating also snaps alloy's saved tail position back to a
+    # real offset: it treats size < position as truncation and re-tails
+    # from zero. No-op once clean.
+    if LC_ALL=C grep -q 'iB / ' /Users/erichblume/Library/Logs/mcquack.zot.err.log 2> /dev/null; then
+      : > /Users/erichblume/Library/Logs/mcquack.zot.err.log
+    fi
   '';
 
   # sshd policy + erichblume's authorized keys (eblume/blumeops#1484 PR 3), in
@@ -1046,9 +1107,13 @@ AUTHORIZED_KEYS
     StandardErrorPath = "/opt/homebrew/var/log/mcquack.zot-metrics.err.log";
   };
 
-  # zot (PR 5): first real daemon - with the unit unloaded the registry and every
-  # pull/push behind it are down. Binary stays the source build; config stays
-  # role-rendered (the gate covers the plist + load only). See provision.md §Zot registry.
+  # zot: first real daemon - with the unit unloaded the registry and every
+  # pull/push behind it are down. Binary stays the source build at
+  # ~/code/3rd/zot/bin/zot-darwin-arm64 (out of nix's scope, the checks
+  # slot's gate); config.json is installed by postActivation from the
+  # in-repo copy, and the OIDC credentials file is a seed-secrets manifest
+  # entry (checks slot refuses a missing one). See provision.md §Zot
+  # registry.
   launchd.user.agents."mcquack.eblume.zot".serviceConfig = {
     Label = "mcquack.eblume.zot";
     ProgramArguments = [
