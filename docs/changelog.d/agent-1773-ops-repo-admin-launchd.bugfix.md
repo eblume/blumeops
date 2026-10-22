@@ -1,0 +1,1 @@
+The indri borgmatic role's operational-repo lifecycle (repo-create, the append_only read/flip) now runs in the mcquack.eblume.borgmatic-ops-admin launchd oneshot, which the provision kicks off and waits on for an exit-0, instead of over ssh, where TCC's sshd attribution EPERMs the repo lock (eblume/blumeops#1773).

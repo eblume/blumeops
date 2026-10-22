@@ -1,0 +1,50 @@
+#!/bin/sh
+# {{ ansible_managed }}
+#
+# One-shot admin for the operational borg repos. The oneshot's plist execs
+# the TCC-granted borgmatic venv python, which spawns this script: the
+# launchd responsible process must hold the Network Volumes grant to read
+# the SMB share's content (the repo's exclusive lock), and neither sshd
+# nor /bin/sh holds it — so running the script directly, under launchd or
+# over ssh, dies with EPERM on the first lock.
+#
+# Idempotent no-op on a healthy repo: repo-create only when the repo's
+# README is absent, and append_only flipped to 0 only when it reads 1.
+# append_only must stay 0: on borg 1.4 an append-only repo makes `compact`
+# a silent no-op, so the rotating repo's pruned segments would never be
+# reclaimed.
+#
+# The mount guard mirrors the role's ssh-side assert: the archive-tier
+# repo's README (present on the NAS since 2026-01) proves /Volumes/backups
+# is the sifaka mount; `test -e` is metadata-only, so it holds for a by-hand
+# ssh run too.
+set -eu
+
+BORG="{{ borgmatic_borg_bin }}"
+BORG_CONFIG="{{ borgmatic_operational_config }}"
+MOUNT_MARK=/Volumes/backups/borg/README
+
+test -e "$MOUNT_MARK" || {
+  echo "ops-repo-admin: sifaka mount not up (no $MOUNT_MARK); aborting" >&2
+  exit 1
+}
+
+{% for repo in borgmatic_operational_repositories %}
+REPO="{{ repo.path }}"
+
+if ! test -e "$REPO/README"; then
+  echo "ops-repo-admin: creating operational repo at $REPO"
+  "{{ borgmatic_bin }}" --config "$BORG_CONFIG" repo-create --repository "$REPO"
+fi
+
+# The direct borg config calls don't inherit the borgmatic config's
+# lock_wait (300); pass it so an overlapping run waits instead of LockTimeout'ing at the 1 s default.
+if ! append_only="$("$BORG" --lock-wait 300 config "$REPO" append_only)"; then
+  echo "ops-repo-admin: reading append_only of $REPO failed" >&2
+  exit 1
+fi
+if [ "$append_only" = "1" ]; then
+  "$BORG" --lock-wait 300 config "$REPO" append_only 0
+  echo "ops-repo-admin: set append_only=0 on $REPO"
+fi
+{% endfor %}
