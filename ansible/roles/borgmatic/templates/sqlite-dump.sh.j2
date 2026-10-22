@@ -1,0 +1,96 @@
+#!/bin/sh
+# {{ ansible_managed }}
+#
+# Snapshot a WAL-mode SQLite database into the borgmatic dump dir.
+# VACUUM INTO is one read transaction: consistent on a busy source, and
+# unlike the incremental .backup API its copy cannot be restarted by
+# concurrent writers (the 2026-10-22 forgejo.db .backup starvation —
+# heph/forgejo hooks sat there ~6h, eblume/blumeops#1773).
+#
+# The hard bound below is the second half of that fix: a snapshot that
+# cannot finish (lock contention beyond busy_timeout, a full dump dir,
+# anything else) fails this run loudly and bounded, instead of starving
+# the nightly and every later one. launchd never overlaps a one-shot job
+# with itself, so the bound also caps how late a healthy run can start.
+# macOS ships no coreutils `timeout` (see darwin/indri/mount-sifaka.sh),
+# so the bound is the same /usr/bin/perl fork/alarm pattern: TERM the
+# child on alarm, exit 124.
+#
+# test -f first: sqlite3 silently auto-creates a missing source as an
+# empty DB and exits 0, which would back up nothing. A missing source
+# must abort the run instead.
+set -eu
+
+[ "$#" -eq 3 ] || { echo "usage: $0 <src.db> <dest.db> <timeout_secs>" >&2; exit 2; }
+SRC="$1"
+DEST="$2"
+TIMEOUT_SECS="$3"
+
+test -f "$SRC" || { echo "sqlite-dump: source missing: $SRC" >&2; exit 1; }
+
+# rm -f the stale dest and any WAL sidecars first: VACUUM INTO refuses
+# to overwrite an existing file, and the old .backup dest was WAL-mode,
+# so a hung run leaves -wal/-shm in the dump dir (today: an 806 MB
+# forgejo.db-wal) that would ride into the never-pruned archives.
+rm -f "$DEST" "$DEST-wal" "$DEST-shm"
+
+# .timeout (ms) sets the busy handler without echoing, unlike
+# PRAGMA busy_timeout: acquiring the read snapshot can hit a running
+# checkpoint or the start-of-VACUUM exclusive phase on a busy source,
+# and SQLite's default is 0, so the first contended lock would abort
+# otherwise.
+#
+# VACUUM INTO goes in as the positional SQL argument with -bail: an
+# error inside a -cmd statement does not necessarily set the CLI's exit
+# code, and without -bail the CLI reads stdin after the error and exits
+# 0 (stdin is /dev/null under launchd), so a real failure would report
+# as success and borg would archive a missing or torn snapshot.
+# </dev/null keeps the same guarantee for a manual tty run.
+#
+# run_with_timeout is the darwin/indri/mount-sifaka.sh helper, verbatim:
+# the child argv goes straight through $@, TERM'd on alarm, exit 124.
+run_with_timeout() {
+  secs="$1"
+  shift
+  TT_SECS="$secs" /usr/bin/perl -e '
+  use POSIX ":sys_wait_h";
+  my ($rc, $prev);
+  $prev{CHLD} = $SIG{CHLD};
+  $SIG{CHLD} = "DEFAULT";
+  $pid = fork();
+  exit 127 unless defined $pid;
+  exec @ARGV if $pid == 0;
+  exit 127 if $pid == 0;
+  $SIG{CHLD} = $prev{CHLD};
+  $SIG{ALRM} = sub { kill "TERM" => $pid; exit 124 };
+  alarm $ENV{TT_SECS};
+  waitpid($pid, 0);
+  $rc = $? >> 8;
+  exit 124 if $? & 0x7f;
+  exit $rc;
+' "$@"
+}
+
+rc=0
+run_with_timeout "$TIMEOUT_SECS" /usr/bin/sqlite3 -bail "$SRC" \
+    -cmd ".timeout {{ (borgmatic_sqlite_busy_timeout_s | default(10)) * 1000 }}" \
+    "VACUUM INTO '$DEST';" </dev/null || rc=$?
+
+if [ "$rc" -eq 0 ]; then
+  exit 0
+fi
+
+# A failed snapshot leaves no torn dest behind: borg archives whatever is
+# in the dump dir, so a partial file or sidecars would ride into the next
+# archive.
+rm -f "$DEST" "$DEST-wal" "$DEST-shm"
+
+case "$rc" in
+  124)
+    echo "sqlite-dump: snapshot of $SRC timed out after ${TIMEOUT_SECS}s; aborting the run" >&2
+    ;;
+  *)
+    echo "sqlite-dump: snapshot of $SRC failed (exit $rc)" >&2
+    ;;
+esac
+exit "$rc"

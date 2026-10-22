@@ -55,10 +55,9 @@ commands:
       run:
           - mkdir -p {{ borgmatic_archive_dump_dir }}
 {% for db in borgmatic_archive_sqlite_dumps %}
-          # test -f guards the sqlite3 footgun: a missing source path is
-          # silently auto-created as an empty DB (exit 0), which would back up
-          # nothing. The guard makes a missing source abort the run instead.
-          - test -f "{{ db.path }}" && sqlite3 "{{ db.path }}" ".backup '{{ borgmatic_archive_dump_dir }}/{{ db.name }}.db'"
+          # VACUUM INTO (one read snapshot; writers cannot restart the copy,
+          # unlike .backup) under a hard timeout, see sqlite-dump.sh.j2.
+          - {{ ansible_facts.env.HOME }}/bin/borgmatic-sqlite-dump "{{ db.path }}" "{{ borgmatic_archive_dump_dir }}/{{ db.name }}.db" {{ borgmatic_sqlite_snapshot_timeout_s }}
 {% endfor %}
 {% for db in borgmatic_archive_k8s_sqlite_dumps %}
           - {{ ansible_facts.env.HOME }}/bin/borgmatic-k8s-sqlite-dump {{ db.target }} {{ db.name }} {{ borgmatic_archive_dump_dir }}/{{ db.name }}.db

@@ -82,7 +82,7 @@ bin has captured deletions — it reads 0 while present but empty).
 **Archive tier — main config (`config.yaml`, 02:00), never pruned:**
 - `~/code/personal/zk` - Zettelkasten (migrating into heph docs; see [hephaestus](https://github.com/eblume/hephaestus))
 - `~/Documents` - Personal documents (includes the [[1password]] encrypted export)
-- `~/forgejo` - Git forge data (repos, LFS, `custom/conf`), minus the pull mirrors under `data/forgejo-repositories/mirrors` (29 pull mirrors, 7.68 GB per Forgejo API 2026-10-04 — re-fetchable from upstream), the live WAL `forgejo.db` (snapshotted into `k8s-dumps-archive/` instead), and the regenerable or ephemeral churn (`data/actions_log`, `data/indexers`, `data/queues`, `data/actions_artifacts`, `data/sessions`, `data/tmp`, `log/`) — the tier never prunes, so only never-lose data rides in (the git repos incl. LFS and `custom/conf`, the `.backup` DB snapshot, `attachments`, `packages`, `ssh`, `jwt`); all excluded via `exclude_patterns`
+- `~/forgejo` - Git forge data (repos, LFS, `custom/conf`), minus the pull mirrors under `data/forgejo-repositories/mirrors` (29 pull mirrors, 7.68 GB per Forgejo API 2026-10-04 — re-fetchable from upstream), the live WAL `forgejo.db` (snapshotted into `k8s-dumps-archive/` instead), and the regenerable or ephemeral churn (`data/actions_log`, `data/indexers`, `data/queues`, `data/actions_artifacts`, `data/sessions`, `data/tmp`, `log/`) — the tier never prunes, so only never-lose data rides in (the git repos incl. LFS and `custom/conf`, the DB snapshot, `attachments`, `packages`, `ssh`, `jwt`); all excluded via `exclude_patterns`
 - `~/.local/share/borgmatic/k8s-dumps-archive/` - the archive tier's snapshot staging (never-lose dumps: heph, forgejo.db, horkos, paperless-media tar)
 
 The archive tier carries the dump hooks and the `postgresql_databases` block,
@@ -106,7 +106,7 @@ All ringtail k8s dumps run through ringtail's `borgmatic` dump endpoint (dedicat
 **PostgreSQL:**
 - `paperless` on [[postgresql]] (blumeops-pg) — pg_dump via the main config's `postgresql_databases` block
 
-**Local SQLite databases** (before-backup `sqlite3 .backup` online snapshot — WAL-safe, fails loud):
+**Local SQLite databases** (before-backup hook runs `~/bin/borgmatic-sqlite-dump`: a `VACUUM INTO` one-read-transaction snapshot — consistent on a busy WAL source and hard-bounded by a 20-min timeout, so a stuck snapshot fails the run instead of starving it; a non-zero exit aborts the whole backup):
 - [[hephaestus|heph]] hub - `~/.local/share/heph/heph.db` (canonical task/context store, only copy)
 - [[forgejo]] - `~/forgejo/data/forgejo.db` (the live WAL-mode DB excluded from the `~/forgejo` source dir above; the git repos come from the directory)
 
