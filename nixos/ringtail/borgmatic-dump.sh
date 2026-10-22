@@ -43,18 +43,47 @@ dump_sqlite() { # <namespace> <selector> <db_path> <name>
 
 # Stream the pod's data dir as tar. Container named for multi-container pods
 # (kubectl exec without -c refuses them); pod image must ship tar.
-dump_tar() { # <namespace> <selector> <dir> <name> [<container>]
+dump_tar() { # <namespace> <selector> <dir> <name> [<container>] [<exclude_glob>]
   local ns=$1 sel=$2 dir=$3 name=$4 pod
-  local container=${5:-}
+  local container=${5:-} exclude=${6:-} err rc
+  local -a exec_cmd tar_args
   pod=$($K3S kubectl -n "$ns" get pod -l "$sel" --field-selector=status.phase=Running \
     -o jsonpath='{.items[0].metadata.name}')
-  if [[ -n "$container" ]]; then
-    $K3S kubectl -n "$ns" exec -c "$container" "$pod" -- tar cf - \
-      -C "$(dirname "$dir")" "$(basename "$dir")"
-  else
-    $K3S kubectl -n "$ns" exec "$pod" -- tar cf - \
-      -C "$(dirname "$dir")" "$(basename "$dir")"
+  # cf - comes first: after a long option, GNU tar 1.35 no longer treats the
+  # bare `cf` cluster as the operation.
+  tar_args=(cf - --warning=no-file-changed)
+  if [[ -n "$exclude" ]]; then
+    tar_args+=(--exclude="$exclude")
   fi
+  tar_args+=(-C "$(dirname "$dir")" "$(basename "$dir")")
+  exec_cmd=("$K3S" kubectl -n "$ns" exec)
+  if [[ -n "$container" ]]; then
+    exec_cmd+=(-c "$container" "$pod")
+  else
+    exec_cmd+=("$pod")
+  fi
+  exec_cmd+=(-- tar "${tar_args[@]}")
+  # stdout is the streamed archive and must pass straight through.
+  err=$(mktemp)
+  rc=0
+  "${exec_cmd[@]}" 2>"$err" || rc=$?
+  # stderr is always passed through before branching, so non-fatal warnings
+  # reach the borgmatic log on every path.
+  cat "$err" >&2
+  if [[ $rc -eq 0 ]]; then
+    rm -f "$err"
+    return 0
+  fi
+  # tar's file-changed exit 1 is tolerated (kubectl prints its `command
+  # terminated with exit code 1` line); a kubectl transport error also exits
+  # 1 but without that line and stays fatal.
+  if [[ $rc -eq 1 ]] && grep -Fq 'command terminated with exit code 1' "$err"; then
+    echo "borgmatic-dump: $name: tar exited 1 (file changed as we read it); the changed file may have inconsistent contents in this archive" >&2
+    rm -f "$err"
+    return 0
+  fi
+  rm -f "$err"
+  return "$rc"
 }
 
 # Ferry the pod's own newest backup file matching <glob>. Pod image must ship
@@ -160,7 +189,10 @@ case $1 in
     ;;
   # k8s-tar: pod data dir tarred in-pod.
   talos-data)
-    dump_tar talos app=talos /home/talos/data talos-data
+    # session-index.sqlite (+ transient -journal) is a derived cache over
+    # sessions/*.jsonl — excluded so a mid-write copy can't be torn; it
+    # rebuilds from the jsonl on cold start.
+    dump_tar talos app=talos /home/talos/data talos-data '' 'session-index.sqlite*'
     ;;
   paperless-media)
     dump_tar paperless app=paperless /usr/src/paperless/media paperless-media web

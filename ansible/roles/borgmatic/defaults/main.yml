@@ -151,7 +151,8 @@ borgmatic_k8s_file_dumps:
 borgmatic_k8s_tar_dumps:
   # talos agent-service state: all session transcripts
   # (data/sessions/<timestamp>_<sessionId>.jsonl) plus meta.json,
-  # crons.json, settings.json. session-index.sqlite rides in the tar.
+  # crons.json, settings.json. session-index.sqlite is excluded from the
+  # tar (derived cache over the jsonl, rebuilt on cold start).
   # Every session is stored forever (heph 01M0GA6JPGQF96AM5JZKA37YSV).
   - name: talos-data
     target: ssh:borgmatic@ringtail
