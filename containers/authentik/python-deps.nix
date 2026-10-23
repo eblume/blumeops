@@ -18,19 +18,19 @@ let
   # Pinning the trio that turns uv.lock into Nix (kept in sync by hand; no
   # flake inputs here, same as the rest of containers/).
   pyproject-nix = import (pkgs.fetchgit {
-    url = "https://github.com/pyproject-nix/pyproject.nix.git";
+    url = "https://forge.ops.eblu.me/mirrors/pyproject.nix.git";
     rev = "ddc400a6883b042646d0940e65971bb7f7e96107";
     hash = "sha256-vcCAvhtA7hG+/gOge29hYHy7I/dLkIsr5nLx4sFEQic=";
   }) { inherit lib; };
 
   uv2nix = import (pkgs.fetchgit {
-    url = "https://github.com/pyproject-nix/uv2nix.git";
+    url = "https://forge.ops.eblu.me/mirrors/uv2nix.git";
     rev = "7aba73a3d85454f1118f8cf9de97979b4d26bcac";
     hash = "sha256-PMtgvHuGijoIAtPtrBm7kJOI6fxzX4LYPAIK+QVGY+Y=";
   }) { inherit lib pyproject-nix; };
 
   pyproject-build-systems = import (pkgs.fetchgit {
-    url = "https://github.com/pyproject-nix/build-system-pkgs.git";
+    url = "https://forge.ops.eblu.me/mirrors/build-system-pkgs.git";
     rev = "a17819c85163988e063806ffc4f6d2716bc8ead8";
     hash = "sha256-mGOkvueuMGSRiD75ccxFzfEvSlIU9ztjFluHMKOtogY=";
   }) { inherit lib pyproject-nix uv2nix; };
