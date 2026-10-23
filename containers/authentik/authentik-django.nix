@@ -1,20 +1,21 @@
 # Authentik Python/Django backend
 #
 # Assembles the final package from:
-#   1. python-deps FOD (venv with stripped store references)
-#   2. opencontainers git dependency (fetched via Nix)
-#   3. Workspace packages (ak-guardian, django-channels-postgres, etc.)
-#   4. Authentik application source
-#   5. Lifecycle scripts, blueprints, manage.py
+#   1. python-deps (venv of the locked third-party dependencies)
+#   2. Workspace packages (ak-guardian, django-channels-postgres, etc.)
+#   3. Authentik application source
+#   4. Lifecycle scripts, blueprints, manage.py
 #
-# autoPatchelfHook restores RPATHs that were stripped in the FOD.
+# The venv's bin/ and pyvenv.cfg already reference the nix python314, so no
+# restoration is needed. autoPatchelfHook fixes the RPATHs of the compiled
+# extensions built from sdist in python-deps.
 #
 # Optional input: webui derivation. When provided, resolves @webui@ store
 # path placeholders in Python source. When null (default), leaves placeholders
 # for isolated testing.
 #
 # Output:
-#   $out/bin/python3.14                    venv python (symlink to nix python314)
+#   $out/bin/python3.14                    venv python
 #   $out/lib/python3.14/site-packages/     all Python packages
 #   $out/lifecycle/                         lifecycle scripts (symlink)
 #   $out/blueprints/                        YAML blueprints
@@ -26,14 +27,6 @@
 
 let
   python-deps = import ./python-deps.nix { inherit pkgs sources; };
-
-  # opencontainers is a git dependency not on PyPI — fetch separately
-  opencontainers-src = pkgs.fetchFromGitHub {
-    owner = "vsoch";
-    repo = "oci-python";
-    rev = "ceb4fcc090851717a3069d78e85ceb1e86c2740c";
-    hash = "sha256-Q6SJed0K6eIrqQ9mNAD4RGx+YCJvnI5E+0KGp5fBtTU=";
-  };
 
   # When webui is provided, resolve paths directly; otherwise use placeholder
   webuiPath = if webui != null then "${webui}" else "@webui@";
@@ -49,7 +42,7 @@ pkgs.stdenv.mkDerivation {
   src = sources.src;
 
   nativeBuildInputs = with pkgs; [
-    autoPatchelfHook  # restores RPATHs stripped in the FOD
+    autoPatchelfHook
   ];
 
   # Libraries that autoPatchelfHook resolves NEEDED entries against
@@ -72,37 +65,9 @@ pkgs.stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    # --- Copy venv from FOD ---
+    # --- Copy venv (bin/, pyvenv.cfg and site-packages are already correct) ---
     cp -r ${python-deps} $out
     chmod -R +w $out
-
-    # Restore python path in pyvenv.cfg (was replaced with @python@ in FOD)
-    sed -i "s|@python@|${pkgs.python314}|g" $out/pyvenv.cfg
-
-    # Recreate bin/ (was removed in FOD to strip python store refs)
-    mkdir -p $out/bin
-    ln -s ${pkgs.python314}/bin/python3.14 $out/bin/python3.14
-    ln -s python3.14 $out/bin/python3
-    ln -s python3.14 $out/bin/python
-
-    # Recreate entry point scripts that were in the venv's bin/
-    # (gunicorn, etc. — use python from this venv)
-    for ep in gunicorn uvicorn dramatiq dumb-init; do
-      if [ -e ${sp}/$ep ] || $out/bin/python3.14 -c "import $ep" 2>/dev/null; then
-        cat > $out/bin/$ep << SCRIPT
-    #!$out/bin/python3.14
-    import sys
-    from importlib.metadata import entry_points
-    eps = entry_points(group='console_scripts', name='$ep')
-    if eps:
-        sys.exit(next(iter(eps)).load()())
-    SCRIPT
-        chmod +x $out/bin/$ep
-      fi
-    done 2>/dev/null || true
-
-    # --- opencontainers (git dependency, pure Python) ---
-    cp -r ${opencontainers-src}/opencontainers ${sp}/opencontainers
 
     # --- Workspace packages (pure Python — direct copy) ---
     # ak-guardian: hatch config maps to "guardian" package
@@ -157,6 +122,5 @@ pkgs.stdenv.mkDerivation {
     runHook postInstall
   '';
 
-  # autoPatchelfHook runs in fixupPhase — don't disable it
   dontPatchShebangs = true;
 }

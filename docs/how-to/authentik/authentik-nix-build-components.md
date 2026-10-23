@@ -1,6 +1,6 @@
 ---
 title: Authentik Nix Build Components
-modified: 2026-10-01
+modified: 2026-10-23
 last-reviewed: 2026-10-01
 tags:
   - how-to
@@ -35,30 +35,31 @@ Authentik maintains a separate repo ([`goauthentik/client-go`](https://github.co
 
 `authentik-django` — the Python/Django application that forms the core backend.
 
-Authentik 2026.2.0 requires Python 3.14 (`requires-python = "==3.14.*"`). Instead of carrying individual overrides for each broken nixpkgs python314 package, we use **`uv`** to install Python dependencies from PyPI, where upstream maintainers have already published Python 3.14-compatible wheels.
+Authentik 2026.2.0 requires Python 3.14 (`requires-python = "==3.14.*"`). Instead of carrying individual overrides for each broken nixpkgs python314 package, dependencies are installed from PyPI, where upstream maintainers have already published Python 3.14-compatible wheels.
 
-### Approach: uv sync FOD + autoPatchelfHook
+### Approach: uv2nix venv + autoPatchelfHook
 
-Nix builds are sandboxed with no network access. The pattern is:
+`python-deps.nix` builds the dependency venv **without a FOD** (see [[aspects]] — `fod-only-downloads`; nothing fetched may execute while it has network on the build host): **uv2nix** (pyproject.nix ecosystem) parses `uv.lock` and the workspace `pyproject.tomls` in pure Nix at eval time, and every artifact becomes a hashed `fetchurl` (wheel) or a hashed sdist fetched and built as an ordinary sandboxed PEP 517 derivation (`uv build --no-build-isolation`). There are no generated Nix files to check in and no hash to recompute when `uv.lock` changes — the lock's hashes are the pins.
 
-1. **Fixed-output derivation (FOD)** — `uv sync --frozen` fetches and installs all dependencies into a venv. FODs are allowed network access because the output hash is declared upfront. Compiled `.so` files reference Nix store paths (RPATHs to libxml2, krb5, etc.), which FODs must not contain, so we strip references with `remove-references-to` and delete `bin/` and `.pyc` files.
-2. **Main derivation** — copies the FOD's `lib/python3.14/site-packages/`, recreates `bin/` with proper python symlinks, restores `pyvenv.cfg`, and runs `autoPatchelfHook` to re-link `.so` files against the correct Nix store libraries.
+1. **`python-deps.nix`** — loads the uv2nix workspace from the authentik source pin, resolves the root project's dependency closure, and `mkVirtualEnv`s it. The venv excludes the local workspace projects, so it contains exactly the third-party closure `uv sync --no-install-project --no-install-workspace` used to install.
+2. **`authentik-django.nix`** — copies the venv (its `bin/` and `pyvenv.cfg` already reference the nix `python314`, so no restoration), copies in-tree workspace packages, and runs `autoPatchelfHook` to fix the RPATHs of the compiled sdist extensions.
 
-**Why not `uv pip download` + `uv pip install --no-index`?** `uv pip download` does not exist in uv 0.9.29 (nixpkgs). And the download-only approach has further complications with sdist-only packages (psycopg-c, gssapi) that must be compiled anyway.
+**Why not `uv sync` in a FOD?** The FOD pattern (retired here) ran `uv sync --frozen` with network, then needed `remove-references-to`, `bin/`/`.pyc` deletion, DWARF stripping, and RECORD rewrites to keep the output deterministic and self-contained. uv2nix removes the whole class of problem: plain sandboxed derivations, lock-hashed fetches.
 
 **What to do:**
 
-1. Create the FOD (`python-deps.nix`) that runs `uv sync --frozen --no-install-project --no-install-workspace --no-dev`, then strips all Nix store references from the output
-2. Create the main derivation (`authentik-django.nix`) that copies the FOD's site-packages, recreates venv, runs `autoPatchelfHook`, copies in-tree workspace packages, and applies path patches
+1. `python-deps.nix`: pin `pyproject.nix` / `uv2nix` / `build-system-pkgs` via `pkgs.fetchgit`, `loadWorkspace` from the source pin, resolve the root project's closure, exclude the local workspace projects, `overrideScope` with the build-systems overlay + per-sdist C-library fixups, `mkVirtualEnv`
+2. `authentik-django.nix`: copy the venv, copy in-tree workspace packages, apply path patches, `autoPatchelfHook`
 3. Verify: `$out/bin/python3.14 -c "import authentik"` succeeds
 
 **Key details:**
 
 - Nix provides: `python314`, `uv`, system libraries (`libxml2`, `libxslt`, `openssl`, `libffi`, `zlib`, etc.)
 - PyPI provides: all Python packages (via pre-built `cp314` wheels where available, sdist builds otherwise)
-- The FOD hash must be recomputed when `uv.lock` changes
-- The 4 in-tree packages are installed from monorepo source, not PyPI
-- The one exception to PyPI-sourced deps is `opencontainers` — an upstream `uv` git dependency fetched from GitHub (see [[mirror-authentik-build-deps]])
+- The nixpkgs `python314` interpreter ships no setuptools, so every setuptools-backend sdist gets the `setuptools` (and, for gssapi, `Cython`) build-system package from the build-systems overlay — under `uv build --no-build-isolation` there is no implicit isolation env
+- The `[tool.uv] no-binary-package` entries (`lxml`, `xmlsec`) are honored — they build from sdist against the system `libxml2`/`xmlsec`
+- The 4 in-tree packages (`ak-guardian`, `django-channels-postgres`, `django-dramatiq-postgres`, `django-postgres-cache`) and the root `authentik` package are installed from monorepo source by `authentik-django.nix`, not via the venv
+- The one exception to PyPI-sourced deps is `opencontainers` — an upstream `uv` git dependency; uv2nix fetches it with `fetchGit` at the locked rev and builds its wheel sandboxed (see [[mirror-authentik-build-deps]])
 - Standard `djangorestframework` 3.16.1 from PyPI (no longer forked as of 2026.2.0)
 
 ### Lessons Learned
@@ -67,13 +68,13 @@ Nix builds are sandboxed with no network access. The pattern is:
 |-------|-----|
 | `pg_config` not found for psycopg-c | Use `pkgs.postgresql.pg_config` (separate derivation), not `pkgs.postgresql` |
 | gssapi `gss_acquire_cred_impersonate_name` undeclared | `NIX_CFLAGS_COMPILE="-include gssapi/gssapi_ext.h"` |
+| gssapi `No module named 'Cython'` under `--no-build-isolation` | Add the `Cython` build-system package to nativeBuildInputs (uv's isolated builds used to pull it in implicitly) |
 | xmlsec linker error `-lltdl` | Add `pkgs.libtool` to buildInputs (provides libltdl) |
 | psycopg-c needs `libpq` | Add `pkgs.libpq` to buildInputs |
-| Static `refTargets` list missed 6 store refs | Dynamic discovery: `grep -aohE '/nix/store/...'` finds all refs |
 | autoPatchelfHook can't find libraries | `buildInputs` in main derivation must include all libraries that `.so` files link against |
 | `FieldError: Cannot resolve keyword 'group_id'` | Django migration ordering bug — add explicit dependency via `substituteInPlace`. Upstream [#19616](https://github.com/goauthentik/authentik/issues/19616) |
 
-The `uv sync` completes in ~3.5 minutes. Dynamic reference discovery finds 19 unique store paths. `autoPatchelfHook` in the main derivation resolves all NEEDED entries with 0 unsatisfied dependencies.
+(Pre-uv2nix history: the FOD pattern needed dynamic store-reference discovery, DWARF stripping, and RECORD rewrites for determinism; `autoPatchelfHook` in the main derivation has always resolved all NEEDED entries.)
 
 ## Web UI
 
@@ -122,7 +123,7 @@ The Go HTTP server binary (`cmd/server`) that serves the web UI, REST API, and s
 
 1. Update `version` in `sources.nix` and `default.nix`
 2. Update the `src` and `client-go-src` hashes in `sources.nix` (`nix-prefetch-git` on ringtail)
-3. Recompute the `python-deps.nix` FOD hash — changes when `uv.lock` changes
+3. `python-deps` needs no hash update — uv2nix reads the artifact hashes from the new `uv.lock`
 4. Recompute the `webui-deps.nix` FOD hash — changes when `package-lock.json` or platform-specific npm binaries change
 5. Recompute `vendorHash` in `authentik-server.nix` if Go dependencies changed
 6. Test on ringtail (below)

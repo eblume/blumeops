@@ -1,0 +1,1 @@
+authentik's Python dependency venv now builds with uv2nix (hashed fetchurls and sandboxed PEP 517 sdist builds) instead of the networked `uv sync` FOD, retiring its hash re-discovery dance and all output rewriting (blumeops#1809).
