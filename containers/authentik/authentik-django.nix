@@ -6,16 +6,20 @@
 #   3. Authentik application source
 #   4. Lifecycle scripts, blueprints, manage.py
 #
-# The venv's bin/ and pyvenv.cfg already reference the nix python314, so no
-# restoration is needed. autoPatchelfHook fixes the RPATHs of the compiled
-# extensions built from sdist in python-deps.
+# The venv's bin/python* is a compiled C shim that execs the nix python314
+# with argv[0] pinned to the python-deps store path (the console scripts'
+# shebangs point there too), so a plain copy would resolve sys.prefix to
+# python-deps at runtime and leave the workspace packages off sys.path.
+# installPhase restores plain symlinks and repoints the shebangs.
+# autoPatchelfHook fixes the RPATHs of the compiled extensions built from
+# sdist in python-deps.
 #
 # Optional input: webui derivation. When provided, resolves @webui@ store
 # path placeholders in Python source. When null (default), leaves placeholders
 # for isolated testing.
 #
 # Output:
-#   $out/bin/python3.14                    venv python
+#   $out/bin/python3.14                    venv python (symlink to nix python314)
 #   $out/lib/python3.14/site-packages/     all Python packages
 #   $out/lifecycle/                         lifecycle scripts (symlink)
 #   $out/blueprints/                        YAML blueprints
@@ -65,9 +69,25 @@ pkgs.stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    # --- Copy venv (bin/, pyvenv.cfg and site-packages are already correct) ---
+    # --- Copy venv ---
     cp -r ${python-deps} $out
     chmod -R +w $out
+
+    # The venv's bin/python* and console-script shebangs reference the
+    # python-deps store path (see header) — repoint them, or sys.prefix
+    # hides the workspace packages copied below.
+    rm -f $out/bin/python $out/bin/python3 $out/bin/python3.14
+    ln -s ${pkgs.python314}/bin/python3.14 $out/bin/python3.14
+    ln -s python3.14 $out/bin/python3
+    ln -s python3.14 $out/bin/python
+    for f in $out/bin/*; do
+      [ -L "$f" ] || sed -i "1s|^#!${python-deps}/bin/|#!$out/bin/|" "$f"
+    done
+
+    # pyvenv.cfg and the activate scripts embed that path too; left as-is the
+    # venv would stay a runtime reference of this output (double-shipped in
+    # the image closure).
+    sed -i "s|${python-deps}|$out|g" $out/pyvenv.cfg $out/bin/activate*
 
     # --- Workspace packages (pure Python — direct copy) ---
     # ak-guardian: hatch config maps to "guardian" package
@@ -120,6 +140,15 @@ pkgs.stdenv.mkDerivation {
     cp manage.py $out/manage.py
 
     runHook postInstall
+  '';
+
+  # CI is build-only, so fail the build if the venv layout regresses: run
+  # the copied interpreter from / (no cwd masking) and require it to resolve
+  # to this package with the workspace packages importable. -B: the check
+  # must not write mtime-stamped .pyc into $out (nondeterministic output).
+  doInstallCheck = true;
+  installCheckPhase = ''
+    cd / && $out/bin/python3.14 -B -c "import sys, guardian, django_channels_postgres, django_dramatiq_postgres, django_postgres_cache; assert sys.prefix == '$out', sys.prefix"
   '';
 
   dontPatchShebangs = true;

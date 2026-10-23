@@ -42,15 +42,15 @@ Authentik 2026.2.0 requires Python 3.14 (`requires-python = "==3.14.*"`). Instea
 `python-deps.nix` builds the dependency venv **without a FOD** (see [[aspects]] — `fod-only-downloads`; nothing fetched may execute while it has network on the build host): **uv2nix** (pyproject.nix ecosystem) parses `uv.lock` and the workspace `pyproject.tomls` in pure Nix at eval time, and every artifact becomes a hashed `fetchurl` (wheel) or a hashed sdist fetched and built as an ordinary sandboxed PEP 517 derivation (`uv build --no-build-isolation`). There are no generated Nix files to check in and no hash to recompute when `uv.lock` changes — the lock's hashes are the pins.
 
 1. **`python-deps.nix`** — loads the uv2nix workspace from the authentik source pin, resolves the root project's dependency closure, and `mkVirtualEnv`s it. The venv excludes the local workspace projects, so it contains exactly the third-party closure `uv sync --no-install-project --no-install-workspace` used to install.
-2. **`authentik-django.nix`** — copies the venv (its `bin/` and `pyvenv.cfg` already reference the nix `python314`, so no restoration), copies in-tree workspace packages, and runs `autoPatchelfHook` to fix the RPATHs of the compiled sdist extensions.
+2. **`authentik-django.nix`** — copies the venv and repoints its interpreter and the console-script shebangs: the make-venv hook ships `bin/python*` as a compiled shim (and the scripts' shebangs) that identify the venv's *own* store path, so a plain copy would resolve `sys.prefix` to `python-deps` at runtime and drop the workspace packages off `sys.path` (crashloop, not build failure). It then copies in-tree workspace packages, runs `autoPatchelfHook` to fix the RPATHs of the compiled sdist extensions, and carries a `doInstallCheck` that asserts the interpreter resolves to the final package with the workspace packages importable, so a layout regression fails the build.
 
 **Why not `uv sync` in a FOD?** The FOD pattern (retired here) ran `uv sync --frozen` with network, then needed `remove-references-to`, `bin/`/`.pyc` deletion, DWARF stripping, and RECORD rewrites to keep the output deterministic and self-contained. uv2nix removes the whole class of problem: plain sandboxed derivations, lock-hashed fetches.
 
 **What to do:**
 
 1. `python-deps.nix`: pin `pyproject.nix` / `uv2nix` / `build-system-pkgs` via `pkgs.fetchgit`, `loadWorkspace` from the source pin, resolve the root project's closure, exclude the local workspace projects, `overrideScope` with the build-systems overlay + per-sdist C-library fixups, `mkVirtualEnv`
-2. `authentik-django.nix`: copy the venv, copy in-tree workspace packages, apply path patches, `autoPatchelfHook`
-3. Verify: `$out/bin/python3.14 -c "import authentik"` succeeds
+2. `authentik-django.nix`: copy the venv, repoint the venv's interpreter and console-script shebangs to the final package, copy in-tree workspace packages, apply path patches, `autoPatchelfHook`, `doInstallCheck`
+3. Verify: the `doInstallCheck` runs from `/` and requires `sys.prefix == $out` with all four workspace packages importable; a manual `$out/bin/python3.14 -c "import authentik"` succeeds too
 
 **Key details:**
 
