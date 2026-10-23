@@ -1,0 +1,1 @@
+ArgoCD: bump the kustomize install pin from v3.3.12 to v3.5.6 (remote base at argo-cd `c2b1e301`), picking up the v3.3.13–v3.3.18 security fixes (incl. the repo-server RCE and AppProject hook bypass advisories) plus the 3.4/3.5 trains.
