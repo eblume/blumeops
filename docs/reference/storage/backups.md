@@ -22,7 +22,7 @@ Daily automated backups from [[indri]] to [[sifaka|Sifaka]] NAS.
 
 | Tier | Config | Schedule | Sources | Repos | Retention |
 |------|---------|----------|---------|-------|-----------|
-| Archive (never pruned) | `~/.config/borgmatic/config.yaml` | 02:00 | `~/code/personal/zk`, `~/Documents`, `~/forgejo` (minus pull mirrors, live WAL DB, and regenerable/ephemeral churn), `k8s-dumps-archive/` (never-lose dumps), paperless pg_dump | `sifaka-borg-backups` (`/Volumes/backups/borg/`), `borgbase-offsite` | none — never pruned (no `keep_*` keys, no prune action) |
+| Archive (never pruned) | `~/.config/borgmatic/config.yaml` | 02:00 | `~/code/personal/zk`, `~/Documents`, `~/forgejo` (minus pull mirrors, the talos/ bot fork namespace, live WAL DB, and regenerable/ephemeral churn), `k8s-dumps-archive/` (never-lose dumps), paperless pg_dump | `sifaka-borg-backups` (`/Volumes/backups/borg/`), `borgbase-offsite` | none — never pruned (no `keep_*` keys, no prune action) |
 | Archive (never pruned) — talos-data | `~/.config/borgmatic/talos-data.yaml` (own config, same 02:00 agent, main first) | 02:00 | talos pod `/home/talos/data` (in-pod tar) | `sifaka-borg-backups`, `borgbase-offsite` | none — never pruned; tier confirmed 2026-10-05 (eblume/blumeops#1417) |
 | Operational (rotating) | `~/.config/borgmatic/operational.yaml` | 03:00 | `~/.config/borgmatic`, `k8s-dumps-op/` (mealie, navidrome, audiobookshelf, pulumi), `/Volumes/shower`, + authentik/miniflux/teslamate/immich pg dumps | `sifaka-operational` (`/Volumes/backups/borg-operational/`) — local-only | 7 daily / 4 weekly / 12 monthly / yearly -1 (unlimited) — enforced by the ops agent's daily `create prune compact` (eblume/blumeops#1417) |
 
@@ -50,7 +50,7 @@ stay local-only.
 |------|-------------|----------|
 | `~/code/personal/zk` | Zettelkasten notes (migrating into heph docs) | Critical |
 | `~/Documents` | Personal documents (includes [[1password]] encrypted export) | High |
-| `~/forgejo` | Git forge data (repos, LFS, `custom/conf`), minus the pull mirrors, the live WAL DB, and the regenerable/ephemeral churn (all excluded via `exclude_patterns` — the tier never prunes, so only never-lose data rides in: git repos incl. LFS and `custom/conf`, the DB snapshot, `attachments`, `packages`, `ssh`, `jwt`) | Critical |
+| `~/forgejo` | Git forge data (repos, LFS, `custom/conf`), minus the pull mirrors, the talos/ bot fork namespace, the live WAL DB, and the regenerable/ephemeral churn (all excluded via `exclude_patterns` — the tier never prunes, so only never-lose data rides in: git repos incl. LFS and `custom/conf`, the DB snapshot, `attachments`, `packages`, `ssh`, `jwt`) | Critical |
 | `~/.local/share/borgmatic/k8s-dumps-archive` | Staging for the never-lose pre-backup dumps (heph, forgejo.db, horkos, paperless-media tar) — see Databases below | Critical |
 
 **Operational tier (operational config, 03:00)** — everything rotating:
@@ -203,6 +203,7 @@ Bulk media lives directly on [[sifaka]] (music files served by [[navidrome]], vi
 | Loki logs | Ephemeral, in k8s PVC |
 | devpi cache (`~/devpi/server-dir/` on indri) | Re-fetchable from PyPI on first request |
 | Forgejo pull mirrors (`~/forgejo/data/forgejo-repositories/mirrors`, 29 repos, ~7.7 GB) | Re-fetchable from upstream |
+| Talos bot fork namespace (`~/forgejo/data/forgejo-repositories/talos`, 109 MB on 2026-10-23) | Recreated by `mise run forge-reconcile --fork-token …`; PR heads survive in the base repos as `refs/pull/N/head` |
 
 ## Restore notes
 
@@ -210,7 +211,11 @@ Forgejo restores from an `indri-*` archive: the git dirs come from the
 `~/forgejo` source and the DB snapshot from `k8s-dumps-archive/forgejo.db`.
 The forgejo.db snapshot includes the rows for the 29 pull mirrors, but the
 mirrors' git dirs are excluded from every archive, so re-sync or recreate the
-mirrors (clone from upstream) after restoring. Operational DB dumps live in the
+mirrors (clone from upstream) after restoring. The `talos/` bot fork
+namespace's git dirs are excluded the same way; recreate them with
+`mise run forge-reconcile --fork-token …` — open- and merged-PR heads live in
+the base repos as `refs/pull/N/head`, so only never-PR'd work branches are
+lost. Operational DB dumps live in the
 newest `operational-*` archive under `k8s-dumps-op/`; `indri-*` archives that
 predate the tier split carry the old `k8s-dumps/` staging layout.
 
