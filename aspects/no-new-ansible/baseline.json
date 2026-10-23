@@ -1,0 +1,15 @@
+[
+  "ansible/roles/borgmatic",
+  "ansible/roles/caddy",
+  "ansible/roles/devpi",
+  "ansible/roles/forgejo",
+  "ansible/roles/jellyfin",
+  "ansible/roles/sifaka_exporters",
+  "ansible/roles/borgmatic/tasks/main.yml",
+  "ansible/roles/caddy/tasks/main.yml",
+  "ansible/roles/devpi/tasks/main.yml",
+  "ansible/roles/forgejo/tasks/main.yml",
+  "ansible/roles/jellyfin/tasks/main.yml",
+  "ansible/roles/sifaka_exporters/tasks/main.yml",
+  "ansible/roles/jellyfin/files/detach-dmg.py"
+]

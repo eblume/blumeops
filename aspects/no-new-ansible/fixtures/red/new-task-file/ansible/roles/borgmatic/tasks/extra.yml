@@ -1,0 +1,4 @@
+---
+- name: red fixture — a new task file in an existing role
+  debug:
+    msg: red-fixture task file
