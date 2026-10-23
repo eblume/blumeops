@@ -2186,6 +2186,49 @@ def test_derived_policy_mixed_owner_and_instance_scope_ungates():
     assert ara.derive_privileged_label_policy(runners) == {}
 
 
+# --- action trust (derived, V5-65, eblume/blumeops#1846) ------------------
+
+
+def test_derived_action_trust_policy_matches_shared_fixture():
+    """The python rule and the nix rule (forge/action-trust.nix) both derive
+    expected.json from the same fixture — touching either implementation
+    re-derives the set instead of editing this test."""
+    fix = ROOT / "tests" / "fixtures" / "action-trust"
+    repos = json.loads((fix / "repos.json").read_text())
+    runners = json.loads((fix / "runners.json").read_text())["runners"]
+    expected = json.loads((fix / "expected.json").read_text())
+    assert ara.derive_action_trust_policy(repos, runners) == (
+        expected["collaborator"],
+        frozenset(expected["repos"]),
+    )
+
+
+def test_derived_action_trust_policy_matches_live_files():
+    """The equivalence assertion: the real repos.json crossed with the real
+    forge/runners.json derives exactly the 10 repos V5-65 worked out by hand."""
+    repos = json.loads(
+        (ROOT / "argocd" / "manifests" / "talos" / "repos.json").read_text()
+    )
+    runners = json.loads((ROOT / "forge" / "runners.json").read_text())["runners"]
+    assert ara.derive_action_trust_policy(repos, runners) == (
+        "talos",
+        frozenset(
+            {
+                "agents",
+                "cv",
+                "release-kit",
+                "hephaestus.nvim",
+                "research",
+                "myeve",
+                "timberborn-parsimony",
+                "gamedev",
+                "project-template",
+                "RexWorks",
+            }
+        ),
+    )
+
+
 # --- runner-label workflow scan (#1358, #1515, #1526) -----------------------
 
 

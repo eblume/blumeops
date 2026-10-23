@@ -1,0 +1,40 @@
+{
+  "_comment": "See repos.json in this directory (eblume/blumeops#1846).",
+  "runners": [
+    {
+      "name": "repo-scoped",
+      "host": "h",
+      "labels": ["priv"],
+      "scope": "eblume/beta",
+      "capacity": 1,
+      "privileged": true,
+      "unit": "unit-a"
+    },
+    {
+      "name": "instance",
+      "host": "h",
+      "labels": ["indri-build"],
+      "scope": "instance",
+      "capacity": 4,
+      "privileged": false,
+      "unit": "unit-b"
+    },
+    {
+      "name": "other-owner",
+      "host": "h",
+      "labels": ["priv"],
+      "scope": "other/gamma",
+      "capacity": 1,
+      "privileged": true,
+      "unit": "unit-c"
+    },
+    {
+      "name": "no-scope",
+      "host": "h",
+      "labels": ["priv"],
+      "capacity": 1,
+      "privileged": false,
+      "unit": "unit-d"
+    }
+  ]
+}
