@@ -1,6 +1,6 @@
 ---
 title: Talos v0.5 — runners and trust (instance)
-modified: 2026-10-21
+modified: 2026-10-23
 last-reviewed: 2026-10-21
 tags:
   - explanation
@@ -61,12 +61,18 @@ Runner scopes, from `forge/runners.json`:
 
 ## "Always trust": who gets it (V5-65)
 
-**Decision:** Forgejo's "approve and always trust" button, clicked once per
-eligible repo for the `talos` bot, so talos PRs there run CI with no click.
+**Decision:** no per-repo "approve and always trust" click. The trust set
+is a derived declaration (the rule below), reconciled onto the `action_user`
+table by a daily job on indri (eblume/blumeops#1846), so talos PRs on eligible
+repos run CI with no click. The job does a full reconcile — an accidental
+manual click on an undeclared repo is deleted within a day.
 
 **Eligible:** a repo whose PRs can reach no repo-scoped runner, only the
-instance-scoped `indri-build`. Derived from `forge/runners.json` (no entry
-scoped to the repo) crossed with `repos.json`:
+instance-scoped `indri-build` — `managed: true` in `repos.json` and no runner
+in `forge/runners.json` scoped to the repo. The rule is implemented twice and
+pinned by the shared fixture `tests/fixtures/action-trust/`: python
+(`derive_action_trust_policy` in `mise-tasks/forge-reconcile`) and nix
+(`forge/action-trust.nix`, the indri consumer). Today that is:
 
 - `agents`, `cv`, `release-kit` (fork pool today)
 - `hephaestus.nvim`, `research`, `myeve`, `timberborn-parsimony`,
@@ -76,17 +82,21 @@ scoped to the repo) crossed with `repos.json`:
   waits on it for that reason.)
 
 **Do not click** on `blumeops`, `horkos`, `hephaestus` or `talos`. Each has a
-repo-scoped host-mode runner (blumeops also both privileged runners). They
-keep the click until those runners move into a scope a talos PR can't reach
-(triggered only from blumeops main). That move is not a v0.5 row.
+repo-scoped host-mode runner (blumeops also both privileged runners). The
+derived rule excludes them by construction — a repo-scoped runner revokes
+eligibility at the next derivation — and the reconcile deletes any trust row
+that appears there. Moving those runners out of a talos PR's reach is not a
+v0.5 row.
 
 **Accepted properties:**
 
-- The setting is web-UI only (`action_user` table). There is no API to set
-  or read it, so forge-reconcile can't declare or check it. It is
-  documented here instead.
-- It expires after 90 days unused. A quiet repo lapses back to one click,
-  which fails safe.
+- There is no API to set or read the setting (the web-UI button writes the
+  `action_user` table directly), so the trust set is a derived declaration —
+  the eligibility rule above — applied by the indri job rather than declared
+  per repo; the full reconcile is what catches an accidental manual click.
+- It expires after 90 days unused; the daily job refreshes `last_access` on
+  every run, so a quiet repo no longer lapses. If it ever did, that fails
+  safe — back to one click.
 - **Risk surface:** unconsented code from a talos PR runs on `indri-build`,
   an unprivileged, lightly sandboxed runner shared by every repo. The
   proper sandbox for that runner is later work.
