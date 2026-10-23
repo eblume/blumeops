@@ -1,0 +1,1 @@
+docs(tutorials): the Tailscale setup card now teaches the modern `grants` ACL schema via the admin console / policy API, replacing the deprecated `acls` key and the nonexistent `tailscale policy` CLI (eblume/blumeops#1811)
