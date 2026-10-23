@@ -1523,6 +1523,28 @@ def load_privileged_label_policy() -> dict[str, frozenset[str]]:
     return derive_privileged_label_policy(json.loads(RUNNERS_PATH.read_text())["runners"])
 
 
+# Same rule in forge/action-trust.nix; both pinned by the shared fixture
+# tests/fixtures/action-trust/.
+def derive_action_trust_policy(
+    repos_policy: dict, runners: list[dict]
+) -> tuple[str, frozenset[str]]:
+    """The (collaborator, eligible-repos) pair derived from repos.json and the
+    runner topology.
+
+    Eligibility is `managed is True` (legacy `access`/`pool` entries never
+    qualify) and no runner with `scope` equal to `<owner>/<repo>` — scopes of
+    other owners and the `instance` scope are irrelevant.
+    """
+    prefix = repos_policy["owner"] + "/"
+    scopes = {((runner or {}).get("scope") or "") for runner in runners}
+    eligible = frozenset(
+        entry["name"]
+        for entry in repos_policy["repos"]
+        if entry.get("managed") is True and prefix + entry["name"] not in scopes
+    )
+    return repos_policy["collaborator"], eligible
+
+
 def _runners_config() -> tuple[set[str], set[str], set[tuple[str, str]]]:
     """Declared label knowledge from forge/runners.json (#1526): the label
     bases, the `:x` suffixes, and the (repo, label-base) exception pairs whose

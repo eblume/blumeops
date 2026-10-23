@@ -1,0 +1,12 @@
+{
+  "_comment": "Shared fixture for the action-trust rule — python (mise-tasks/forge-reconcile) and nix (forge/action-trust.nix) must both derive expected.json from these two files.",
+  "owner": "eblume",
+  "collaborator": "talos",
+  "repos": [
+    { "name": "alpha", "managed": true },
+    { "name": "beta", "managed": true },
+    { "name": "gamma", "managed": true },
+    { "name": "legacy", "access": "write", "pool": "none" },
+    { "name": "delta", "managed": false }
+  ]
+}
