@@ -56,6 +56,11 @@ let
       mkdir -p server/docs && touch server/docs/placeholder
     '';
 
+    # The go-modules download FOD inherits preBuild/postPatch and runs them
+    # with network - keep the UI copy and Makefile sed out of it.
+    overrideModAttrs.preBuild = "";
+    overrideModAttrs.postPatch = "";
+
     meta = with pkgs.lib; {
       description = "Send push notifications to your phone or desktop via PUT/POST";
       homepage = "https://ntfy.sh";

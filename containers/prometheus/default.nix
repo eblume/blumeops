@@ -93,6 +93,11 @@ let
       substituteInPlace web/ui/embed.go --replace-fail "web/ui/" ""
     '';
 
+    # The go-modules download FOD inherits preBuild/postPatch and runs them
+    # with network - keep the asset copy and embed.go regen out of it.
+    overrideModAttrs.preBuild = "";
+    overrideModAttrs.postPatch = "";
+
     ldflags = [
       "-s"
       "-w"
