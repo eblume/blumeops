@@ -1,30 +1,17 @@
 # instance-config-out-of-components
 
-Invariant: no instance values — `eblu.me` hostnames, the owner name
-`eblume`, and 1Password `op://` references — in the component source of the
-target repos, including prompt strings. Component source is the `src/`,
-`prompts/`, and `app/` trees as they exist: talos ships `src/`+`prompts/`,
-horkos ships `app/`. Every hit is a hard-coded instance assumption that
-would otherwise ship to production.
+Invariant: no instance values — `eblu.me` hostnames, the tailnet hostname, the owner name `eblume`, and 1Password `op://` references — in the component source of the target repos, including prompt strings. Component source is the `src/`, `prompts/`, and `app/` trees as they exist: talos ships `src/`+`prompts/`, horkos ships `app/`. Every hit is a hard-coded instance assumption that would otherwise ship to production.
 
-**Scope.** `APPLIES_TO = ["eblume/talos", "eblume/horkos"]`: the check
-scans those repos' component dirs, so the fixture trees under
-`aspects/` are never scanned. Exemptions (code files only — non-code
-files under `prompts/` and similar are scanned verbatim): full-line
-comments, docstrings and JSDoc blocks, and test files. The scanner is
-line-oriented, not a parser: a multi-line string *value* that opens at
-the start of a line can be misread as a docstring and exempted; the
-per-repo linters remain the backstop until they are retired. Both repos
-already ship per-repo linters (talos `scripts/instance-refs.ts`, horkos
-`scripts/instance-refs.py`) with the same prose-exempt policy, and this
-aspect consolidates that policy durably; deleting those per-repo scripts
-(talos#318) is a separate change.
+**Scope.** `APPLIES_TO = ["eblume/talos", "eblume/horkos"]`: the check scans those repos' component dirs, so the fixture trees under `aspects/` are never scanned. Exemptions (code files only — non-code files under `prompts/` and similar are scanned verbatim): whole-line and trailing comments, docstrings and JSDoc blocks, and test files — the same prose-exempt policy both repos' linters apply, so issue refs in comments stay legal. Prompt strings in TS template literals are scanned — that is the "including prompt strings" half of the definition, and the half a line-oriented scanner is tempted to get wrong.
 
-Alternatives rejected: (a) per-language AST linters — duplicated,
-per-language logic for a policy that is really "these literals never
-ship"; (b) whole-repo scan — nix files and workflows are legitimately
-instance configuration; (c) banning bare node names (ringtail/indri/
-gilbert) — ordinary English words, false-positive noise in fixtures; (d)
-banning the repo name `blumeops` — horkos's publisher legitimately
-constructs the instance image-repo path from it; a known gap for a
-future tightening.
+**Narrower complement, not a replacement.** Both repos ship per-repo linters (talos `scripts/instance-refs.ts`, horkos `scripts/instance-refs.py`) with the same core ban and prose-exempt policy. This aspect does not replace them; they stay until parity is closed, and talos#318's follow-up (deleting those scripts) is a separate change that requires parity first. What the linters cover and this aspect does not:
+
+- talos: `public/` (the shipped UI), `scripts/*.ts`, `default.nix`, `flake.nix`
+- horkos: `default.nix`, `.forgejo/workflows/*.yaml`, email literals (e.g. `erich@…`)
+- the `nolint:instance-refs` override is not honoured here: an aspect is a durable invariant, and weakening one goes through consent (aspects.md), not a local marker — the linters keep the marker for their own scope.
+
+Where this aspect is wider: it bans `op://` vault references and the tailnet hostname, which neither linter bans, and it scans `app/` recursively where horkos's linter takes top-level `app/*.py` only.
+
+**Scanner shape.** Python is parsed with stdlib `ast` + `tokenize`: docstring means exactly "first statement of a module, class or function is a string", comments come from the tokenizer, so trailing comments are exempt precisely and a paren-wrapped prompt value is a value. A file that fails to parse falls back to whole-`#`-comment exemption only. TypeScript is line-oriented, not a parser: comment rules are suspended while backtick state says the line is inside a template literal (a genuine `//` comment carrying an issue ref *inside* a `${…}` interpolation is therefore flagged — strict-by-design); inline and whole-line block comments are dropped from the scannable portion; unescaped-backtick parity carries the template state across lines, which nested template literals inside `${…}` can confuse.
+
+Alternatives rejected: (a) a full TS parser dependency for a policy that is really "these literals never ship"; (b) whole-repo scan — nix files and workflows are legitimately instance configuration; (c) banning bare node names (ringtail/indri/gilbert) — ordinary English words, false-positive noise in fixtures; (d) banning the repo name `blumeops` — horkos's publisher legitimately constructs the instance image-repo path from it; a known gap for a future tightening.

@@ -105,7 +105,7 @@ structural rules (say, over 50 lines of custom code) says why in its plan.
 | Aspect | Kind | Shape |
 |---|---|---|
 | `no-new-ansible` | ratchet | Counts *new* files under `ansible/` — playbook, role, template, handler, default, var or files/ content. Edits to existing files pass, so work like V5-05's borgmatic change isn't blocked. |
-| `instance-config-out-of-components` | invariant | Line scan of the component dirs (talos `src/`+`prompts/`, horkos `app/`), including prompt strings, for instance values: `eblu.me` hostnames, the owner name, 1Password `op://` refs; comments, docstrings and test files exempt. Replaces talos#318's hand-written lexer. |
+| `instance-config-out-of-components` | invariant | Line scan of the component dirs (talos `src/`+`prompts/`, horkos `app/`), including prompt strings (TS template literals; py docstrings exempt), for instance values: `eblu.me` hostnames, the tailnet hostname, the owner name, 1Password `op://` refs; comments (whole-line and trailing), docstrings and test files exempt. A narrower complement to the per-repo `scripts/instance-refs` linters (ASPECT.md lists the coverage delta); those linters stay until parity. |
 | `fod-only-downloads` | invariant | A Nix fixed-output derivation only downloads; compiling happens in a normal derivation (blumeops#1455). |
 
 ## Next aspects (V5-58, Wave 3)
