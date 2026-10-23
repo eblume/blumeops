@@ -35,8 +35,8 @@ unrelated to v0.5 itself.
 
 - Group 8 (borgmatic) stays clear of V5-05, which edits the borgmatic role to
   back up the talos store.
-- The chain only removes Ansible; it adds no new roles, task files or files
-  under `ansible/`, so it never trips V5-32's `no-new-ansible` ratchet. Edits
+- The chain only removes Ansible; it adds no new files under `ansible/`, so
+  it never trips V5-32's `no-new-ansible` ratchet. Edits
   to existing files during a retirement are allowed by the ratchet's
   definition.
 

@@ -1,0 +1,7 @@
+---
+- name: red fixture — a new playbook
+  hosts: all
+  tasks:
+    - name: do nothing
+      debug:
+        msg: red-fixture playbook

@@ -1,1 +1,1 @@
-no-new-ansible aspect: ratchet over new roles, task files and files/ content under `ansible/`, baseline at today's tree, so V5-83's removals can only shrink it (eblume/blumeops#1809)
+no-new-ansible aspect: ratchet over any new file under `ansible/` (50-file baseline at today's tree, stale entries fail), so V5-83's removals can only shrink it (eblume/blumeops#1809)

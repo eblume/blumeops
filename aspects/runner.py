@@ -4,14 +4,18 @@ Each ``aspects/<slug>/`` directory is one aspect: a Python package whose
 ``test_*.py`` module exposes
 
 - ``KIND``: ``"invariant"`` (zero violations in scope) or ``"ratchet"``
-  (violations may only be a subset of ``baseline.json``),
+  (violations must equal ``baseline.json`` — new violations and stale
+  entries both fail),
 - ``check(root: pathlib.Path) -> list[str]``: the violations, as strings,
 - optionally ``APPLIES_TO``: ``list[str]`` of ``"owner/name"`` repos;
   absent means every repo.
 
 Fixtures: each immediate subdirectory of ``fixtures/red/`` is a case whose
-directory is passed to ``check()`` and must be rejected (non-empty result);
-each under ``fixtures/green/`` must be accepted (empty result).
+directory is passed to ``check()`` and must be rejected; each under
+``fixtures/green/`` must be accepted. For invariant kind that is a
+non-empty / empty result; for ratchet kind the verdict is against the
+aspect's own ``baseline.json`` — red means some violation is not
+baselined, green means every violation is.
 
 Budgets: 10 s per test (pytest-timeout) and 120 s wall clock per repo run
 (mise-tasks/aspects).
@@ -204,6 +208,11 @@ def assert_kind_holds(aspect: Aspect, root: pathlib.Path) -> None:
     new = [v for v in violations if v not in set(aspect.baseline)]
     assert not new, (
         f"{aspect.slug}: new violations not in baseline.json:\n" + "\n".join(new)
+    )
+    stale = [v for v in aspect.baseline if v not in set(violations)]
+    assert not stale, (
+        f"{aspect.slug}: stale baseline entries no longer present — lower the "
+        "baseline: remove these lines from baseline.json:\n" + "\n".join(stale)
     )
 
 

@@ -49,7 +49,8 @@ aspects/<slug>/
   can't be added (v0.5 case 16b).
 - **Two kinds.** An *invariant* allows zero violations in scope. A
   *ratchet* lists existing violations in `baseline.json`; the list may only
-  shrink, and any new violation fails.
+  shrink — a new violation fails, and a removed one leaves a stale entry
+  that fails until the baseline is lowered in the same diff.
 - **Scope.** Every aspect applies to all managed repos by default. An aspect
   narrows itself in `ASPECT.md` with path globs and/or repo include/exclude
   filters (the repo filter lands as `APPLIES_TO` on the check module — see the
@@ -103,7 +104,7 @@ structural rules (say, over 50 lines of custom code) says why in its plan.
 
 | Aspect | Kind | Shape |
 |---|---|---|
-| `no-new-ansible` | ratchet | Counts *new* roles, task files and files under `ansible/`. Edits to existing files pass, so work like V5-05's borgmatic change isn't blocked. |
+| `no-new-ansible` | ratchet | Counts *new* files under `ansible/` — playbook, role, template, handler, default, var or files/ content. Edits to existing files pass, so work like V5-05's borgmatic change isn't blocked. |
 | `instance-config-out-of-components` | invariant | Structural rule over talos's and horkos's `src/`, including prompt strings: no instance values (hostnames, `eblume`, vault names, runner labels). Replaces talos#318's hand-written lexer. |
 | `fod-only-downloads` | invariant | A Nix fixed-output derivation only downloads; compiling happens in a normal derivation (blumeops#1455). |
 
