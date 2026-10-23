@@ -96,10 +96,10 @@ let
       "darwin/indri/mcquack-forgejo-metrics.sh lost its @runnerCapacityFile@ placeholder";
     pkgs.writeScript "mcquack-forgejo-metrics"
       (lib.replaceStrings [ "@runnerCapacityFile@" ] [ "${forgejoRunnerCapacity}" ] forgejoMetricsSrc);
-  # V5-65 "always trust" declaration, derived (forge/action-trust.nix,
-  # eblume/blumeops#1846): which repos' fork-PR workflows may run
-  # unattended by the bot. The owner (absent from the function's output)
-  # is spliced in from the same repos.json the derivation reads.
+  # "always trust" declaration, derived (forge/action-trust.nix): which
+  # repos' fork-PR workflows may run unattended by the bot. The owner
+  # (absent from the function's output) is spliced in from the same
+  # repos.json the derivation reads.
   trustDecl = (import ../../forge/action-trust.nix) {
     reposFile = ../../argocd/manifests/talos/repos.json;
     runnersFile = ../../forge/runners.json;
@@ -108,8 +108,8 @@ let
     builtins.toJSON (trustDecl // { owner = (builtins.fromJSON (builtins.readFile ../../argocd/manifests/talos/repos.json)).owner; })
   );
   forgejoActionTrustSrc = builtins.readFile ./mcquack-forgejo-action-trust.sh;
-  # Dry-run first: the planned upserts/removals get reviewed on
-  # eblume/blumeops#1846, then a follow-up PR flips this to false.
+  # Dry-run first: the planned upserts/removals get reviewed, then a
+  # follow-up PR flips this to false.
   forgejoActionTrustDryRun = true;
   mcquackForgejoActionTrust =
     assert lib.assertMsg (lib.hasInfix "@dryRun@" forgejoActionTrustSrc)
@@ -1108,14 +1108,13 @@ AUTHORIZED_KEYS
     StandardErrorPath = "/opt/homebrew/var/log/mcquack.forgejo-mirror-guard.err.log";
   };
 
-  # forgejo-action-trust (eblume/blumeops#1846): reconciles the action_user
-  # "always trust" rows in forgejo.db to the V5-65 derived declaration.
-  # Runs at every generation apply (RunAtLoad) and daily at 05:45 - the daily
-  # leg beats the 90-day last_access expiry (Forgejo's weekly
-  # RevokeInactiveActionUser cron). 05:45 sits between runner-cache-sweep
-  # (05:30) and borgmatic-verify (Tue 06:00); clear of borgmatic's 02:00
-  # VACUUM INTO. stdout and stderr share one log file on purpose - one
-  # timeline (launchd appends both).
+  # forgejo-action-trust: reconciles the action_user "always trust" rows in
+  # forgejo.db to the derived declaration. Runs at every generation apply
+  # (RunAtLoad) and daily at 05:45 - the daily leg beats the 90-day
+  # last_access expiry (Forgejo's weekly RevokeInactiveActionUser cron).
+  # 05:45 sits between runner-cache-sweep (05:30) and borgmatic-verify (Tue
+  # 06:00); clear of borgmatic's 02:00 VACUUM INTO. stdout and stderr share
+  # one log file on purpose - one timeline (launchd appends both).
   launchd.user.agents."mcquack.eblume.forgejo-action-trust".serviceConfig = {
     Label = "mcquack.eblume.forgejo-action-trust";
     EnvironmentVariables = {

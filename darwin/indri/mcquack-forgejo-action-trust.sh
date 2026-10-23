@@ -1,11 +1,11 @@
 #!/bin/bash
-# Reconciles the Forgejo "always trust" set (action_user rows) to the V5-65
-# derived declaration (forge/action-trust.nix, eblume/blumeops#1846): creates
-# missing rows, refreshes last_access daily, deletes every undeclared row.
+# Reconciles the Forgejo "always trust" set (action_user rows) to the
+# derived declaration (forge/action-trust.nix): creates missing rows,
+# refreshes last_access daily, deletes every undeclared row.
 #
 # One short write transaction per run; the DELETE reaches ids only, never
-# names. sqlite3 runs without -readonly here (unlike the metrics collector):
-# this job's whole point is the write.
+# names. Live mode opens the DB writable (unlike the metrics collector):
+# this job's whole point is the write; dry-run opens it -readonly.
 
 set -euo pipefail
 
@@ -20,29 +20,6 @@ FORGEJO_ACTION_TRUST_DRY_RUN="${FORGEJO_ACTION_TRUST_DRY_RUN_OVERRIDE:-$DEFAULT_
 
 TEMP_FILE="${OUTPUT_FILE}.tmp"
 NOW=$(date +%s)
-
-# Registered before any failure path: every abort, including usage errors,
-# ships run_success 0 instead of leaving a stale last-good file behind.
-trap abort_prom EXIT
-
-TRUST_DECLARATION_FILE="${1:-}"
-if [ -z "$TRUST_DECLARATION_FILE" ]; then
-  echo "usage: $0 <trust-declaration.json>" >&2
-  exit 2
-fi
-
-dry_run=1
-case "$FORGEJO_ACTION_TRUST_DRY_RUN" in
-  true | 1) dry_run=1 ;;
-  false | 0) dry_run=0 ;;
-  *)
-    echo "error: FORGEJO_ACTION_TRUST_DRY_RUN=${FORGEJO_ACTION_TRUST_DRY_RUN} (override=${FORGEJO_ACTION_TRUST_DRY_RUN_OVERRIDE:-unset}) must be true/false or 1/0" >&2
-    exit 2
-    ;;
-esac
-
-mode=live
-[ "$dry_run" -eq 1 ] && mode=dry-run
 
 log() {
   echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') [action-trust] mode=$mode $*"
@@ -77,6 +54,40 @@ abort_prom() {
   write_prom 0 >/dev/null 2>&1 || true
 }
 
+# Every sqlite read goes through here: dry-run opens the DB -readonly, so
+# "writes nothing" is a property of the sqlite open, not of control flow.
+# Tab separation is a no-op for the single-column lookups.
+q() {
+  if [ "$dry_run" -eq 1 ]; then
+    "$SQLITE3" -readonly -cmd ".timeout 5000" -separator $'\t' "$FORGEJO_DB" "$1"
+  else
+    "$SQLITE3" -cmd ".timeout 5000" -separator $'\t' "$FORGEJO_DB" "$1"
+  fi
+}
+
+# Registered before any failure path: every abort, including usage errors,
+# ships run_success 0 instead of leaving a stale last-good file behind.
+trap abort_prom EXIT
+
+TRUST_DECLARATION_FILE="${1:-}"
+if [ -z "$TRUST_DECLARATION_FILE" ]; then
+  echo "usage: $0 <trust-declaration.json>" >&2
+  exit 2
+fi
+
+dry_run=1
+case "$FORGEJO_ACTION_TRUST_DRY_RUN" in
+  true | 1) dry_run=1 ;;
+  false | 0) dry_run=0 ;;
+  *)
+    echo "error: FORGEJO_ACTION_TRUST_DRY_RUN=${FORGEJO_ACTION_TRUST_DRY_RUN} (override=${FORGEJO_ACTION_TRUST_DRY_RUN_OVERRIDE:-unset}) must be true/false or 1/0" >&2
+    exit 2
+    ;;
+esac
+
+mode=live
+[ "$dry_run" -eq 1 ] && mode=dry-run
+
 COLLABORATOR=$(jq -r '.collaborator' "$TRUST_DECLARATION_FILE")
 OWNER=$(jq -r '.owner' "$TRUST_DECLARATION_FILE")
 repos_json=$(jq -r '.repos[]' "$TRUST_DECLARATION_FILE")
@@ -104,12 +115,12 @@ sql_lit() {
 collab_lit=$(sql_lit "$COLLABORATOR")
 owner_lit=$(sql_lit "$OWNER")
 
-user_count=$("$SQLITE3" -cmd ".timeout 5000" "$FORGEJO_DB" "SELECT count(*) FROM user WHERE lower(name) = lower($collab_lit)")
+user_count=$(q "SELECT count(*) FROM user WHERE lower(name) = lower($collab_lit)")
 if [ "$user_count" -ne 1 ]; then
   echo "error: expected exactly 1 user row for '$COLLABORATOR', found $user_count" >&2
   exit 1
 fi
-USER_ID=$("$SQLITE3" -cmd ".timeout 5000" "$FORGEJO_DB" "SELECT id FROM user WHERE lower(name) = lower($collab_lit)")
+USER_ID=$(q "SELECT id FROM user WHERE lower(name) = lower($collab_lit)")
 if [[ ! "$USER_ID" =~ ^[0-9]+$ ]]; then
   echo "error: collaborator '$COLLABORATOR' resolved to non-integer id '$USER_ID'" >&2
   exit 1
@@ -118,12 +129,12 @@ fi
 REPO_IDS=()
 for repo in "${REPOS[@]}"; do
   repo_lit=$(sql_lit "$repo")
-  count=$("$SQLITE3" -cmd ".timeout 5000" "$FORGEJO_DB" "SELECT count(*) FROM repository WHERE lower(owner_name) = lower($owner_lit) AND lower(name) = lower($repo_lit)")
+  count=$(q "SELECT count(*) FROM repository WHERE lower(owner_name) = lower($owner_lit) AND lower(name) = lower($repo_lit)")
   if [ "$count" -ne 1 ]; then
     echo "error: expected exactly 1 repository row for '$OWNER/$repo', found $count" >&2
     exit 1
   fi
-  rid=$("$SQLITE3" -cmd ".timeout 5000" "$FORGEJO_DB" "SELECT id FROM repository WHERE lower(owner_name) = lower($owner_lit) AND lower(name) = lower($repo_lit)")
+  rid=$(q "SELECT id FROM repository WHERE lower(owner_name) = lower($owner_lit) AND lower(name) = lower($repo_lit)")
   if [[ ! "$rid" =~ ^[0-9]+$ ]]; then
     echo "error: '$OWNER/$repo' resolved to non-integer id '$rid'" >&2
     exit 1
@@ -147,7 +158,7 @@ for i in "${!REPO_IDS[@]}"; do
   rid=${REPO_IDS[$i]}
   repo=${REPOS[$i]}
   full="$OWNER/$repo"
-  row=$("$SQLITE3" -cmd ".timeout 5000" "$FORGEJO_DB" "SELECT trusted_with_pull_requests || '|' || last_access FROM action_user WHERE user_id = $USER_ID AND repo_id = $rid")
+  row=$(q "SELECT trusted_with_pull_requests || '|' || last_access FROM action_user WHERE user_id = $USER_ID AND repo_id = $rid")
   if [ -z "$row" ]; then
     trusted=0
     last_access=""
@@ -172,11 +183,10 @@ done
 # is captured in a variable (not a substitution in the loop's heredoc string):
 # the loop's exit status comes from the loop, so a failure there would be
 # invisible under set -e and ship run_success 1 with a silently empty plan.
-# Names go into a prom label, so they are escaped like the metrics collector's
-# SQL does (backslash first, then quote, then newline).
+# Names are escaped like the metrics collector's SQL does (backslash first,
+# then quote, then newline): they end up in log lines and prom labels.
 plan_out=$(
-  "$SQLITE3" -separator $'\t' -cmd ".timeout 5000" "$FORGEJO_DB" \
-    "SELECT coalesce(u.name, ''),
+  q "SELECT coalesce(u.name, ''),
          replace(replace(replace(coalesce(r.owner_name, ''), char(92), char(92) || char(92)), char(34), char(92) || char(34)), char(10), char(92) || 'n'),
          replace(replace(replace(coalesce(r.name, ''), char(92), char(92) || char(92)), char(34), char(92) || char(34)), char(10), char(92) || 'n')
     FROM action_user au LEFT JOIN user u ON u.id = au.user_id LEFT JOIN repository r ON r.id = au.repo_id
@@ -191,8 +201,26 @@ while IFS=$'\t' read -r uname oname rname; do
     full="unknown"
   fi
   plan_lines+=("remove user=${uname:-unknown} repo=$full")
-  action_lines+=("forgejo_action_trust_rows{repo=\"$full\",action=\"removed\"} 1")
 done <<<"$plan_out"
+
+# Removed rows become one prom line per repo (the count covers however many
+# users held undeclared rows there): two users on the same repo must not
+# emit the same {repo,action} series twice - node_exporter rejects a whole
+# textfile on a duplicate series.
+removed_out=$(
+  q "SELECT replace(replace(replace(
+             CASE WHEN r.name IS NULL OR r.owner_name IS NULL THEN 'unknown'
+                 ELSE r.owner_name || '/' || r.name END,
+             char(92), char(92) || char(92)), char(34), char(92) || char(34)), char(10), char(92) || 'n'),
+         count(*)
+    FROM action_user au LEFT JOIN repository r ON r.id = au.repo_id
+    WHERE (au.user_id, au.repo_id) NOT IN ($pairs)
+    GROUP BY 1"
+)
+while IFS=$'\t' read -r full count; do
+  [ -z "$full" ] && continue
+  action_lines+=("forgejo_action_trust_rows{repo=\"$full\",action=\"removed\"} $count")
+done <<<"$removed_out"
 
 if [ "$dry_run" -eq 1 ]; then
   for line in "${plan_lines[@]}"; do
