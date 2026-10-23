@@ -1,0 +1,1 @@
+infra: land the aspect-suite runner — `aspects/` pytest suite (invariant/ratchet kinds, red/green fixture meta-test, 10 s/test and 120 s/repo budgets), `mise run aspects [--repo PATH]`, and the credential-free Aspects PR job required by name on main (eblume/blumeops#1809)
