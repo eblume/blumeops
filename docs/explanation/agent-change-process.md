@@ -240,7 +240,8 @@ job, matrix leg, head SHA) — a re-run of the same head does not double-post.
 `Forge Reconcile` additionally posts, on the *warn-only* PR-check path, a plain
 intended-drift notice (`.forgejo/actions/report-pr-notice`) so a green
 same-repo PR whose changes land on merge is still read — see
-[Forge Reconcile's PR check](#forge-reconciles-pr-check-intended-vs-unexpected-drift).
+[Forge Reconcile's PR check](#forge-reconciles-pr-check-intended-vs-unexpected-drift). The post is
+informational: a failed post is a loud job-log warning, never a failed check.
 
 On a PR authored by `talos`, the notice is a **review** (event `COMMENT`),
 which the talos forge loop picks up like any review and starts a fix cycle

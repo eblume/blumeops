@@ -6,7 +6,9 @@
 # Unlike report-failure this is a plain, non-triggering issue comment on every
 # author (never a review — intended drift is not a failure to fix), and it
 # runs on success(), not failure(). If the notice file is absent (an in-sync
-# PR, or a fork PR that skipped) it no-ops.
+# PR, or a fork PR that skipped) it no-ops. A failed post is a loud job-log
+# warning, never a failed check: the check already passed, and a red job
+# would block the PR and post a misleading failure report.
 #
 # Dedupe: one notice per (workflow, head SHA) — a re-run of the same head does
 # not double-post. Uses only the automatic per-run token; the caller must set
@@ -83,18 +85,27 @@ runs:
           echo ""
           echo "## Forge Reconcile — intended changes in this PR"
           echo ""
-          echo "_`forge-reconcile` PR check, PR #$PR, run $RUN, head $SHA7. This result did not fail the check._"
+          # Backticks escaped: raw ones inside the double-quoted word would run
+          # `forge-reconcile` as a command (and drop the code span from the body).
+          echo "_\`forge-reconcile\` PR check, PR #$PR, run $RUN, head $SHA7. This result did not fail the check._"
           echo ""
           cat "$notice"
         } > "$body"
 
         jq -n --rawfile body "$body" '{body: $body}' > "$RUNNER_TEMP/notice-body.json"
         RESP="$RUNNER_TEMP/notice-post-resp"
-        if ! curl -fsS --fail-with-body -X POST -H "$AUTH" -H "Content-Type: application/json" \
+        # The runner's curl rejects one fail-flag pair as a usage error (curl/curl#9221);
+        # that is what failed every post and red-lit the job (eblume/blumeops#1840 run
+        # 11134). Check the HTTP status portably instead.
+        HTTP_CODE="$(curl -sS -o "$RESP" -w '%{http_code}' -X POST -H "$AUTH" \
+            -H "Content-Type: application/json" \
             -d @"$RUNNER_TEMP/notice-body.json" \
-            "$API/repos/$REPO/issues/$PR/comments" > "$RESP"; then
-          cat "$RESP" >&2
-          echo "Failed to post forge-reconcile notice to PR #$PR" >&2
-          exit 1
+            "$API/repos/$REPO/issues/$PR/comments" || true)"
+        if [[ ! "$HTTP_CODE" =~ ^2 ]]; then
+          [ -f "$RESP" ] && cat "$RESP" >&2
+          echo "WARNING: could not post forge-reconcile notice to PR #$PR (HTTP ${HTTP_CODE:-000})" >&2
+          echo "The check passed; the notice is dropped." >&2
+          exit 0
         fi
-        jq -r '"Notice posted: " + (.html_url // .message // "unknown")'
+        jq -r '"Notice posted: " + (.html_url // .message // "unknown")' "$RESP" \
+            || echo "Notice posted: HTTP $HTTP_CODE (no url in response)"

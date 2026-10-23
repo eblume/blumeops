@@ -28,6 +28,7 @@ import importlib.machinery
 import importlib.util
 import io
 import json
+import os
 import pathlib
 import subprocess
 
@@ -3961,3 +3962,123 @@ def test_fork_created_under_ci_token_with_explicit_fork_token(
     assert "fork half skipped" not in out
     assert "create fork talos/svc (parent eblume/svc)" in out
     assert "Applied 1 change(s)." in out
+
+
+# ---------------------------------------------------------------------------
+# The report-pr-notice composite action (the PR-check notice post step).
+#
+# Its run script lives in a YAML block scalar, so no shellcheck pass ever
+# sees it. Run 11134 on eblume/blumeops#1840 failed the notice post on two
+# script bugs — a -f/--fail-with-body pair the indri-build runner's curl
+# rejects as a usage error, and unescaped backticks that ran
+# `forge-reconcile` as a command — and red-lit the job, turning every
+# same-repo PR with a fork-lag note red.
+# ---------------------------------------------------------------------------
+
+
+def _notice_action_script() -> str:
+    import yaml
+
+    raw = (
+        ROOT / ".forgejo" / "actions" / "report-pr-notice" / "action.yml"
+    ).read_text()
+    script = yaml.safe_load(raw)["runs"]["steps"][0]["run"]
+    # The workflow passes the report's bare filename via `with: file:`.
+    return script.replace("${{ inputs.file }}", "forge-reconcile-pr.md")
+
+
+_STUB_CURL = r"""#!/usr/bin/env bash
+args=("$@")
+if [[ "$*" == *"-X POST"* ]]; then
+__POST_BODY__
+fi
+echo '[]'
+"""
+
+_STUB_USAGE_ERROR = """  echo "curl: option --fail-with-body: is badly used here" >&2
+  exit 2
+"""
+
+_STUB_201 = """  out=""
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    if [[ "${args[i]}" == "-o" ]]; then out="${args[i+1]}"; fi
+  done
+  printf '{"html_url": "https://forge.ops.eblu.me/eblume/blumeops/pulls/1840#issuecomment-30654"}' > "$out"
+  printf '201'
+  exit 0
+"""
+
+
+def _run_notice_script(tmp_path: pathlib.Path, post_behavior: str):
+    """Run the action's run script under a stubbed curl. post_behavior is
+    "usage-error" (exit 2, as the indri-build runner's curl does on the
+    -f/--fail-with-body pair) or "201" (the stub writes the response JSON to
+    its -o target and prints the status)."""
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    post_body = _STUB_USAGE_ERROR if post_behavior == "usage-error" else _STUB_201
+    (stub / "curl").write_text(_STUB_CURL.replace("__POST_BODY__", post_body))
+    (stub / "curl").chmod(0o755)
+    runner = tmp_path / "runner"
+    runner.mkdir()
+    (runner / "forge-reconcile-pr.md").write_text("### Note - fork sync\n")
+    event = tmp_path / "event.json"
+    event.write_text(
+        '{"pull_request": {"number": 1840, "user": {"login": "eblume"}}}\n'
+    )
+    env = {
+        **os.environ,
+        "PATH": f"{stub}:{os.environ['PATH']}",
+        "RUNNER_TEMP": str(runner),
+        "GITHUB_API_URL": "http://127.0.0.1:1/api/v1",
+        "GITHUB_REPOSITORY": "eblume/blumeops",
+        "GITHUB_TOKEN": "t",
+        "GITHUB_EVENT_PATH": str(event),
+        "GITHUB_SHA": "a1b2c3d4e5f6",
+        "GITHUB_RUN_NUMBER": "11134",
+        "GITHUB_WORKFLOW": "Forge Reconcile",
+        "GITHUB_BASE_REF": "main",
+    }
+    proc = subprocess.run(
+        ["bash", "-c", _notice_action_script()],
+        check=False,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    return proc, runner
+
+
+def test_notice_action_script_parses_and_posts_portably():
+    script = _notice_action_script()
+    assert (
+        subprocess.run(["bash", "-n"], check=False, input=script, text=True).returncode
+        == 0
+    )
+    # The runner's curl rejects one fail-flag pair as a usage error (curl/curl#9221);
+    # that is what failed every notice post. The post must check the HTTP status
+    # portably instead, so the flag must not appear anywhere in the script.
+    assert "--fail-with-body" not in script
+    assert "-w '%{http_code}'" in script
+
+
+def test_notice_action_failed_post_does_not_fail_the_check(tmp_path):
+    # The check already passed by the time the notice posts; a failed post
+    # must warn loudly and exit 0 — a red job would block the PR and post a
+    # misleading failure report for a check that never failed.
+    proc, _ = _run_notice_script(tmp_path, "usage-error")
+    assert proc.returncode == 0, proc.stderr
+    assert "could not post forge-reconcile notice to PR #1840" in proc.stderr
+
+
+def test_notice_action_posts_and_reports_url(tmp_path):
+    proc, runner = _run_notice_script(tmp_path, "201")
+    assert proc.returncode == 0, proc.stderr
+    assert (
+        "Notice posted: https://forge.ops.eblu.me/eblume/blumeops/pulls/1840"
+        in proc.stdout
+    )
+    # Unescaped backticks would have run `forge-reconcile` as a command and
+    # dropped the code span from the body.
+    body = (runner / "notice-body.md").read_text()
+    assert "_`forge-reconcile` PR check, PR #1840, run 11134" in body
