@@ -8,24 +8,27 @@ invariant (eblume/blumeops#1809) is that a FOD may only *download*:
 - the allowlisted no-execute fetch modes: ``go mod download`` and
   ``npm ci --ignore-scripts``, plus inert plumbing (cd, export, mkdir,
   cp/mv/rm/ln, chmod, tar -x, find with inert -exec subcommands,
-  echo/printf redirects). ``curl``/``wget`` may write to a file but never
-  pipe. stdenv's ``runHook`` is not allowed: it would execute hook scripts
-  from the input packages.
+  echo/printf redirects).
 
-Anything else is a violation. There is no exception list: a new allowlist
-entry is a consent-gated change to this aspect.
+Everything else is a violation, fail-closed: shell control flow (if/case/
+for/while), other builtins (set, umask), command substitution (``$(...)``,
+backticks - it would execute the substituted command), and any program
+outside the allowlist. Pipes are checked segment by segment against the
+same allowlist, so ``curl ... | sh`` is red. There is no exception list:
+a new allowlist entry is a consent-gated change to this aspect.
 
 Structural lint (no nix eval in CI): each ``*.nix`` is scanned with a small
-Nix tokenizer. A FOD is an attrset that sets ``outputHash*`` or
-``fixedOutput = true``, or a ``runCommand``/``callCommand`` whose attrset
-does. Every string value under a build-phase attribute of a FOD is checked
-statement by statement; ``builder`` must be ``null`` or a fetcher
-primitive. Fetcher *calls* (``pkgs.fetchurl { ... }``) are not FODs in
-source - they are allowed by definition.
+Nix tokenizer. A FOD is an attrset that assigns ``outputHash*`` or
+``fixedOutput = true`` (directly or via ``inherit``), or a
+``runCommand``/``callCommand``/``execBuilder`` whose attrset does. Every
+string value under a build-phase attribute of a FOD is checked statement
+by statement; ``builder`` must be ``null`` or a fetcher primitive.
+Fetcher *calls* (``pkgs.fetchurl { ... }``) are not FODs in source - they
+are allowed by definition.
 
 Coverage caveat (documented in ASPECT.md): only inline string values are
-checked. A phase string assembled in a ``let`` binding (``buildPhase = cmd``)
-or spliced in from one is not seen; ``find -exec`` subcommands are.
+checked. A phase string assembled in a ``let`` binding (``buildPhase =
+cmd``) or spliced in from one is not seen.
 """
 
 from __future__ import annotations
@@ -108,11 +111,25 @@ _FOD_TRIGGERS = frozenset({"outputHash", "outputHashMode", "outputHashAlgo"})
 
 # Commands whose attrset argument may be a FOD and whose trailing string
 # argument is the builder command.
-_CMD_BUILDERS = ("runCommand", "callCommand", "execBuilder")
+_CMD_BUILDERS = frozenset(
+    {
+        "runCommand",
+        "runCommandLocal",
+        "runCommandCC",
+        "runCommandNoCC",
+        "callCommand",
+        "execBuilder",
+    }
+)
+
+# tar extract forms: single-dash clusters with an x, GNU letter forms,
+# and the long flag. tar's --checkpoint-action can execute, so it is
+# rejected outright below.
+_TAR_EXTRACT = frozenset({"x", "xf", "xz", "xzf", "xj", "xjf", "jx", "jxf"})
 
 _ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+_BARE_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _WORD = re.compile(r'"[^"]*"|\'[^\']*\'|\S+')
-_STMT_SPLIT = re.compile(r"\|\||&&|(?<!\\);|\|")
 
 
 class _Tok:
@@ -195,11 +212,30 @@ def _brace_map(toks: list[_Tok]) -> dict[int, int]:
 
 
 def _is_assign_at(toks: list[_Tok], idx: int) -> bool:
-    nxt = idx + 1
-    if nxt < len(toks) and toks[nxt].text == "=":
-        return True
-    # ?=
-    return toks[nxt].text == "?" and nxt + 1 < len(toks) and toks[nxt + 1].text == "="
+    # An optional attrset entry (`? name = ...`) is tokenized with `?`
+    # before the id, so the id itself is always followed by `=`.
+    return idx + 1 < len(toks) and toks[idx + 1].text == "="
+
+
+def _inherit_names(toks: list[_Tok], idx: int) -> list[str]:
+    """Ids collected by the `inherit` at idx (skipping an optional (group))."""
+    j = idx + 1
+    if j < len(toks) and toks[j].text == "(":
+        depth = 0
+        while j < len(toks):
+            if toks[j].text == "(":
+                depth += 1
+            elif toks[j].text == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        j += 1
+    names: list[str] = []
+    while j < len(toks) and toks[j].kind == "id":
+        names.append(toks[j].text)
+        j += 1
+    return names
 
 
 def _fod_starts(toks: list[_Tok]) -> list[int]:
@@ -220,14 +256,15 @@ def _fod_starts(toks: list[_Tok]) -> list[int]:
         elif t.text == "fixedOutput":
             nxt = idx + 1
             triggered = (
-                toks[nxt].text == "="
+                nxt < len(toks)
+                and toks[nxt].text == "="
                 and nxt + 1 < len(toks)
                 and toks[nxt + 1].text == "true"
-            ) or (
-                toks[nxt].text == "?"
-                and nxt + 2 < len(toks)
-                and toks[nxt + 1].text == "="
-                and toks[nxt + 2].text == "true"
+            )
+        elif t.text == "inherit":
+            # inherit (x) outputHash; / inherit fixedOutput outputHash;
+            triggered = any(
+                n in _FOD_TRIGGERS | {"fixedOutput"} for n in _inherit_names(toks, idx)
             )
         else:
             continue
@@ -253,7 +290,7 @@ def _top_assignments(
             i += 1
             continue
         if depth == 0 and t.kind == "id" and _is_assign_at(toks, i):
-            eq = i + 1 + (1 if toks[i + 1].text == "?" else 0)
+            eq = i + 1
             depth2 = 0
             j = eq + 1
             while j < end:
@@ -279,6 +316,9 @@ def _check_builder(
     toks: list[_Tok], v0: int, v1: int, text: str, rel: str
 ) -> list[str]:
     val = toks[v0:v1]
+    if not val:
+        # `builder = ;` does not parse in Nix; nothing to grade here.
+        return []
     if [t.text for t in val] == ["null"]:
         return []
     if all(t.kind == "id" or (t.kind == "punct" and t.text == ".") for t in val):
@@ -292,6 +332,61 @@ def _check_builder(
             f"primitive - the FOD would execute code"
         )
     ]
+
+
+def _split_statements(line: str) -> list[str]:
+    """Split a shell line on ;, &&, ||, | outside quotes; a backslash
+    escapes the next character."""
+    out: list[str] = []
+    cur: list[str] = []
+    quote: str | None = None
+    i, n = 0, len(line)
+    while i < n:
+        c = line[i]
+        if quote:
+            cur.append(c)
+            if c == "\\" and quote == '"' and i + 1 < n:
+                cur.append(line[i + 1])
+                i += 2
+                continue
+            if c == quote:
+                quote = None
+            i += 1
+            continue
+        if c in "\"'":
+            quote = c
+            cur.append(c)
+            i += 1
+            continue
+        if c == "\\" and i + 1 < n:
+            cur.append(c)
+            cur.append(line[i + 1])
+            i += 2
+            continue
+        if c == ";":
+            out.append("".join(cur))
+            cur = []
+            i += 1
+            continue
+        if c == "&" and line[i : i + 2] == "&&":
+            out.append("".join(cur))
+            cur = []
+            i += 2
+            continue
+        if c == "|" and line[i : i + 2] == "||":
+            out.append("".join(cur))
+            cur = []
+            i += 2
+            continue
+        if c == "|":
+            out.append("".join(cur))
+            cur = []
+            i += 1
+            continue
+        cur.append(c)
+        i += 1
+    out.append("".join(cur))
+    return [s.strip() for s in out]
 
 
 def _statement_violation(stmt: str) -> str | None:
@@ -308,8 +403,8 @@ def _statement_violation(stmt: str) -> str | None:
         for a in toks[1:]:
             if a.startswith("-") and len(a) == 2:
                 continue
-            if not _ASSIGN.match(a):
-                return "'export' may only set variables"
+            if not _ASSIGN.match(a) and not _BARE_IDENT.match(a):
+                return "'export' may only set or re-export variables"
         return None
     if head == "go":
         if toks[1:3] == ["mod", "download"]:
@@ -332,12 +427,19 @@ def _statement_violation(stmt: str) -> str | None:
                 and any(ch in "oO" for ch in a[1:])
             ):
                 return None
-        return f"'{head}' in a FOD may only write to a file, never pipe"
+        return (
+            f"'{head}' in a FOD may only download to a file - each pipe "
+            "segment is checked against the allowlist"
+        )
     if head in _PLUMBING:
         if head == "tar":
+            if any(a.startswith("--checkpoint") for a in toks[1:]):
+                return "'tar --checkpoint-action' can execute commands"
             if not any(
                 a.startswith("-x")
                 or (a.startswith("-") and not a.startswith("--") and "x" in a[1:])
+                or a == "--extract"
+                or a in _TAR_EXTRACT
                 for a in toks[1:]
             ):
                 return "'tar' in a FOD may only extract (-x)"
@@ -355,7 +457,7 @@ def _statement_violation(stmt: str) -> str | None:
     return (
         f"'{head}' - unallowlisted program executes inside a FOD (allowed: "
         "fetcher primitives, 'go mod download', 'npm ci --ignore-scripts', "
-        "inert plumbing)"
+        "inert plumbing; no shell control flow)"
     )
 
 
@@ -363,23 +465,30 @@ def _check_shell(content: str, start: int, text: str, rel: str) -> list[str]:
     """Check the shell statements of a string whose file position is `start`."""
     out: list[str] = []
     line0 = text.count("\n", 0, start) + 1
+    if "$(" in content or "`" in content:
+        out.append(
+            f"{rel}:{line0}: command substitution ($(...) or backticks) "
+            "would execute code inside a FOD"
+        )
+        return out
     # Join backslash-continuation lines, keeping each logical line's number.
-    # Once a line ends in a backslash, following lines keep appending until
-    # one no longer does.
+    # Only an odd number of trailing backslashes continues the line.
     logical: list[tuple[int, str]] = []
     pending = False
     for off, raw in enumerate(content.split("\n")):
         stripped = raw.rstrip()
-        cont = stripped.endswith("\\")
-        chunk = stripped[:-1].rstrip() if cont else stripped
+        trail = len(stripped) - len(stripped.rstrip("\\"))
+        if trail % 2 == 1:
+            chunk = stripped[:-1].rstrip()
+        else:
+            chunk = stripped
         if pending and logical:
             logical[-1] = (logical[-1][0], logical[-1][1] + " " + chunk)
         elif chunk.strip():
             logical.append((line0 + off, chunk))
-        pending = cont
+        pending = trail % 2 == 1
     for line_no, stmt_line in logical:
-        for part in _STMT_SPLIT.split(stmt_line):
-            s = part.strip()
+        for s in _split_statements(stmt_line):
             if not s or s.startswith("#"):
                 continue
             v = _statement_violation(s)
@@ -403,7 +512,7 @@ def _check_fod(
 
 
 def _command_arg_positions(toks: list[_Tok], close: dict[int, int]) -> list[int]:
-    """String-arg positions of runCommand/callCommand calls whose attrset is a FOD."""
+    """String-arg positions of runCommand-family calls whose attrset is a FOD."""
     out: list[int] = []
     for idx, t in enumerate(toks):
         if t.kind != "id" or t.text not in _CMD_BUILDERS:
@@ -416,11 +525,8 @@ def _command_arg_positions(toks: list[_Tok], close: dict[int, int]) -> list[int]
         if open_idx is None or open_idx not in close:
             continue
         closed = close[open_idx]
-        body = toks[open_idx + 1 : closed]
-        has_trigger = any(
-            b.kind == "id" and b.text in _FOD_TRIGGERS | {"fixedOutput"} for b in body
-        )
-        if not has_trigger:
+        names = {name for name, _, _ in _top_assignments(toks, open_idx, closed)}
+        if not (names & (_FOD_TRIGGERS | {"fixedOutput"})):
             continue
         m = closed + 1
         if m < len(toks) and toks[m].kind == "str":
@@ -506,11 +612,50 @@ pkgs.stdenv.mkDerivation {
 }
 """
 
+_FOD_CMD_SUB = """
+pkgs.stdenv.mkDerivation {
+  pname = "x";
+  buildPhase = ''
+    echo "build: $(go version)"
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_FOD_INHERIT_HASH = """
+pkgs.stdenv.mkDerivation rec {
+  pname = "x";
+  buildPhase = ''
+    make all
+  '';
+  inherit (attrs) outputHash;
+}
+"""
+
+_FOD_EVEN_BACKSLASH = """
+pkgs.stdenv.mkDerivation {
+  pname = "x";
+  buildPhase = ''
+    echo foo \\\\
+    make all
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
 _RUNCMD_PIPE = """
 pkgs.runCommand "x" {
   outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 } ''
   curl -s https://example.com/install.sh | sh
+''
+"""
+
+_RUNCMD_CC_MAKE = """
+pkgs.runCommandCC "x" {
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+} ''
+  gcc -o x x.c
 ''
 """
 
@@ -521,6 +666,25 @@ pkgs.runCommand "x" {
   curl -sSLo vendor.tar.gz https://example.com/vendor.tar.gz
   tar -xzf vendor.tar.gz -C /
 ''
+"""
+
+_RUNCMD_NON_FOD = """
+pkgs.runCommand "x" {
+  args = { outputHash = "a"; };
+} ''
+  make all
+''
+"""
+
+_QUOTED_SEMICOLON = """
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  installPhase = ''
+    echo "done: a;b"
+    mkdir $out
+  '';
+}
 """
 
 _FOD_BUILDER_NULL = """
@@ -598,13 +762,41 @@ def test_go_mod_download_allowed_go_build_not():
     assert v and "go build" in " ".join(v)
 
 
+def test_command_substitution_is_a_violation():
+    v = _check_text(_FOD_CMD_SUB)
+    assert v and "command substitution" in " ".join(v)
+
+
+def test_inherited_output_hash_marks_a_fod():
+    assert _check_text(_FOD_INHERIT_HASH)
+
+
+def test_even_backslash_is_not_a_continuation():
+    # `echo foo \\` is a complete line; the next line's make is a new
+    # statement and must still be flagged.
+    v = _check_text(_FOD_EVEN_BACKSLASH)
+    assert v and "make" in " ".join(v)
+
+
 def test_piped_curl_sh_is_a_violation():
-    v = _check_text(_RUNCMD_PIPE)
-    assert v
+    assert _check_text(_RUNCMD_PIPE)
+
+
+def test_runcommand_cc_is_checked():
+    v = _check_text(_RUNCMD_CC_MAKE)
+    assert v and "gcc" in " ".join(v)
 
 
 def test_curl_to_file_then_extract_is_allowed():
     assert not _check_text(_RUNCMD_DOWNLOAD)
+
+
+def test_runcommand_nested_outputhash_is_not_a_fod():
+    assert not _check_text(_RUNCMD_NON_FOD)
+
+
+def test_separators_inside_quotes_are_not_statements():
+    assert not _check_text(_QUOTED_SEMICOLON)
 
 
 def test_builder_null_and_fetcher_allowed():
@@ -612,7 +804,7 @@ def test_builder_null_and_fetcher_allowed():
     assert not _check_text(_FOD_BUILDER_FETCHER)
 
 
-def test_writer_text_builder_is_a_violation():
+def test_write_text_builder_is_a_violation():
     assert _check_text(_FOD_BUILDER_WRITETEXT)
 
 
