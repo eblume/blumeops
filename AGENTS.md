@@ -12,14 +12,19 @@ blumeops is Erich Blume's GitOps repository for personal infrastructure, orchest
 shell, but the user's preferred shell is fish. Configuration is managed by
 chezmoi.
 
-** Environment:** Agent's harness could be running either interactively from
-various hosts (gilbert (macos/arm64) or ringtail (nixos/amd64)), or it could be
-running in a remote-agent session on ringtail with restricted access to
-infrastructure. When running as a remote-agent, agents work product should be
-gitops (PRs typically preferred, some branches protected), with user-executed
-deployment actions. When operating outside of remote-agent, it's OK to use "op"
-to query for secrets to assist in deployment directly, because the user will
-need to confirm through biometric approval.
+** Environment:** The session runs either interactively on a host or as a
+talos pod session — two labeled cases below; a talos pod session needs no
+detection, its environment is stated by the injected base context.
+
+- **Interactive host** (Claude Code from gilbert (macos/arm64) or ringtail
+  (nixos/amd64)): it's OK to use "op" to query for secrets to assist in
+  deployment directly, because the user will need to confirm through
+  biometric approval.
+
+- **Talos pod session:** the injected base context (the `eblume/agents`
+  `AGENTS.md`) states this is a talos pod and is the talos-pod document —
+  follow it; work product is gitops PRs, and deployments go through the
+  warrant system (§Privileged actions), not direct deploys.
 
 ## Rules
 
