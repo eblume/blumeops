@@ -1,6 +1,6 @@
 ---
 title: Talos v0.5 — aspect suite (instance)
-modified: 2026-10-21
+modified: 2026-10-23
 last-reviewed: 2026-10-21
 tags:
   - explanation
@@ -52,11 +52,24 @@ aspects/<slug>/
   shrink, and any new violation fails.
 - **Scope.** Every aspect applies to all managed repos by default. An aspect
   narrows itself in `ASPECT.md` with path globs and/or repo include/exclude
-  filters. A repo added to `repos.json` is covered the night it lands.
+  filters (the repo filter lands as `APPLIES_TO` on the check module — see the
+  runner contract below; path scoping lives in the check). A repo added to
+  `repos.json` is covered the night it lands.
 - **Quick and side-effect-free.** Reads are fine, even over the network. A
   test never mutates distributed state (no forge posts, pushes, ntfy,
   cluster or registry writes) and is never integration-sized. Budgets: about
   10 s per test and 2 min per repo for the whole suite; over budget fails.
+
+**Runner contract (V5-32, as landed).** Each `aspects/<slug>/` is a Python
+package (`__init__.py`); exactly one `test_*.py` module in it exposes `KIND`
+(`invariant` | `ratchet`), `check(root) -> list[str]`, and optional
+`APPLIES_TO` (an `owner/name` list; absent = every repo). Ratchets carry
+`baseline.json`, a JSON string list. Fixtures: each immediate subdirectory of
+`fixtures/red|green/` is one case whose directory is passed to `check()`.
+`mise run aspects [--repo PATH] [--repo-name OWNER/NAME]` runs the suite;
+the Aspects PR job (`.forgejo/workflows/aspects.yaml`, `indri-build`) is
+required by name on main, and budgets are enforced — 10 s/test via
+pytest-timeout, 120 s wall clock per repo run.
 
 ## How it reaches every repo
 

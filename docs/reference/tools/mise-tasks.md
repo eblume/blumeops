@@ -21,6 +21,7 @@ Run `mise tasks --sort name` for the live list with descriptions.
 | `agent-health` | Fleet health via Grafana alert rules, using the talos-m2m JWT (agent-usable) |
 | `agent-lint` | Run the CI lint gate (prek hookset) locally before pushing |
 | `agent-metrics` | Run a PromQL query against Prometheus via Grafana, as the talos-m2m identity |
+| `aspects` | Run the aspect suite (aspects/) — durable instance rules with red/green fixture meta-tests; --repo PATH targets another managed repo; budgets 10 s/test, 120 s/repo |
 | `forge-reconcile` | [human] Reconcile eblume's forge desired state — the talos + horkos-forge bots' collaborations, webhooks, and labels (repos.json) and branch protections (protections apply only from a human run); `--check` is the single forge drift check (weekly + same-repo PRs); the convention is in [[declared-state-files]] |
 | `ai-sources` | Concatenate all BlumeOps source files for AI context |
 | `branch-cleanup` | [human] Delete branches that have been merged into main (local and remote) |

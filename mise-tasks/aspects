@@ -1,0 +1,101 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "pytest==9.1.1",
+#   "pytest-timeout==2.4.0",
+# ]
+# ///
+#MISE description="Run the aspect suite (aspects/) — durable instance rules with red/green fixture meta-tests; --repo PATH targets another managed repo; budgets 10 s/test, 120 s/repo"
+"""The instance aspect suite runner (docs/explanation/talos-v0.5/aspects.md).
+
+Discovers aspects/<slug>/, runs each aspect's check() against the target
+repo (default: this blumeops checkout; --repo PATH overrides, e.g. a local
+checkout of eblume/talos) plus the red/green fixture meta-tests.
+
+Budgets: 10 s per test via pytest-timeout (signal method), 120 s wall clock
+per repo run — over budget fails. The wall-clock guard runs the pytest
+invocation in a child process under a hard deadline, because pytest-timeout
+resets SIGALRM around every test and would swallow an in-process backstop.
+
+Usage: mise run aspects [--repo PATH] [--repo-name OWNER/NAME] [-- <pytest args>]
+"""
+
+import os
+import pathlib
+import signal
+import subprocess
+import sys
+
+WALL_CLOCK_BUDGET_SECONDS = 120
+_TIMEOUT_EXIT = 124  # like GNU timeout
+
+
+def _split_args(argv: list[str]) -> tuple[str | None, str | None, list[str]]:
+    repo: str | None = None
+    repo_name: str | None = None
+    rest: list[str] = []
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--":
+            rest.extend(argv[i + 1 :])
+            break
+        if arg == "--repo":
+            if i + 1 >= len(argv):
+                sys.exit("--repo needs a PATH")
+            repo = argv[i + 1]
+            i += 2
+            continue
+        if arg.startswith("--repo="):
+            repo = arg.split("=", 1)[1]
+        elif arg == "--repo-name":
+            if i + 1 >= len(argv):
+                sys.exit("--repo-name needs OWNER/NAME")
+            repo_name = argv[i + 1]
+            i += 2
+            continue
+        elif arg.startswith("--repo-name="):
+            repo_name = arg.split("=", 1)[1]
+        else:
+            rest.append(arg)
+        i += 1
+    return repo, repo_name, rest
+
+
+def _run_pytest() -> int:
+    import pytest
+
+    repo, repo_name, passthrough = _split_args(sys.argv[1:])
+    root = pathlib.Path(__file__).resolve().parent.parent
+    args = [str(root / "aspects"), "-q", "--timeout=10"]
+    if repo is not None:
+        args += ["--repo", repo]
+    if repo_name is not None:
+        args += ["--repo-name", repo_name]
+    args += passthrough
+    return pytest.main(args)
+
+
+def main() -> int:
+    if os.environ.get("_ASPECTS_CHILD"):
+        return _run_pytest()
+    # Outer pass: the suite runs in a child under a hard wall-clock deadline.
+    child = subprocess.Popen(
+        ["uv", "run", "--script", str(pathlib.Path(__file__).resolve()), *sys.argv[1:]],
+        env={**os.environ, "_ASPECTS_CHILD": "1"},
+        start_new_session=True,
+    )
+    try:
+        return child.wait(timeout=WALL_CLOCK_BUDGET_SECONDS)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(child.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        print(f"aspects: exceeded the {WALL_CLOCK_BUDGET_SECONDS} s per-repo budget", file=sys.stderr)
+        return _TIMEOUT_EXIT
+
+
+if __name__ == "__main__":
+    sys.exit(main())
