@@ -1,0 +1,1 @@
+New indri LaunchAgent `mcquack.eblume.forgejo-action-trust` reconciles the Forgejo `action_user` "always trust" rows to the V5-65 derived declaration (forge/action-trust.nix) — daily at 05:45 and at every generation apply, dry-run until its first applied output is reviewed (eblume/blumeops#1846).

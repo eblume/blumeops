@@ -63,10 +63,11 @@ Runner scopes, from `forge/runners.json`:
 
 **Decision:** no per-repo "approve and always trust" click. The trust set
 is a derived declaration (the rule below), reconciled onto the `action_user`
-table by a daily job on indri (PR B, pending; eblume/blumeops#1846), so
-talos PRs on eligible repos run CI with no click. The job does a full
-reconcile — an accidental manual click on an undeclared repo is deleted
-within a day.
+table by the indri launchd agent `mcquack.eblume.forgejo-action-trust` (PR B,
+eblume/blumeops#1846), so talos PRs on eligible repos run CI with no click.
+The agent does a full reconcile — an accidental manual click on an undeclared
+repo is deleted within a day — and ships dry-run until its first applied
+output is reviewed. Operate it per [[forgejo-action-trust]].
 
 **Eligible:** a repo whose PRs can reach no repo-scoped runner, only the
 instance-scoped `indri-build` — `managed: true` in `repos.json` and no runner
@@ -95,9 +96,10 @@ v0.5 row.
   `action_user` table directly), so the trust set is a derived declaration —
   the eligibility rule above — applied by the indri job rather than declared
   per repo; the full reconcile is what catches an accidental manual click.
-- It expires after 90 days unused; the daily job (PR B, pending) refreshes
-  `last_access` on every run, so a quiet repo no longer lapses. If it ever
-  did, that fails safe — back to one click.
+- It expires after 90 days unused; the daily agent
+  (`mcquack.eblume.forgejo-action-trust`, 05:45) refreshes
+  `last_access` on every run, so a quiet repo no longer lapses. If it
+  ever did, that fails safe — back to one click.
 - **Risk surface:** unconsented code from a talos PR runs on `indri-build`,
   an unprivileged, lightly sandboxed runner shared by every repo. The
   proper sandbox for that runner is later work.
