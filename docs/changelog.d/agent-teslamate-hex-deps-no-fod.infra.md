@@ -1,0 +1,1 @@
+TeslaMate's Mix dependencies now fetch per-dependency with `fetchHex` (hashed fetchurls from the v4.2.0 mix.lock, unpacked with the `.hex` lock metadata) and assemble into `deps/` in a plain derivation, retiring the `fetchMixDeps` FOD that ran `mix deps.get` (downloaded code executing with network on the build host) per the V5-32 fod-only-downloads invariant (blumeops#1809).
