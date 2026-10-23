@@ -11,25 +11,26 @@ tags:
 # Freestanding Repos
 
 A **freestanding repo** carries no trust boundary. Unlike the fenced core
-(blumeops, agents, horkos, talos — the pinned read-only set) it
+(blumeops, agents, horkos, talos) it
 auto-deploys nothing and manages no real secrets: it
 builds, releases to forge release artifacts, and optionally installs locally
 via a hand-run script or mise task.
 
 "Freestanding" describes the shape: self-supporting, with nothing depending
 on them and no downstream dependency on their part. Whether talos acts on a
-freestanding repo is a separate attribute, not part of the class. A
-`repos.json` opt-out attribute — "the repo exists and is visible, but the
-bot does not operate on its issues or commit code without asking" — is
-anticipated as an attribute on the `repos.json` entry, not a new class. It
-is not implemented yet.
+freestanding repo is a separate attribute, not part of the class. The
+opt-out — "the repo exists and is visible, but the bot does not operate on
+its issues or commit code without asking" — is the top-level `excluded`
+list in `repos.json`: eblume-owned non-fork repos talos never touches are
+named there. Every such repo must appear managed or excluded, or
+`forge-reconcile --check` fails (a coverage hole).
 
 ## Shape
 
 One line in `argocd/manifests/talos/repos.json`:
 
 ```json
-{ "name": "<repo>", "access": "write", "pool": "canonical" }
+{ "name": "<repo>", "managed": true }
 ```
 
 No `release_hook`. `release_hook: true` adds the forge → horkos release

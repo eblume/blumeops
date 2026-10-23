@@ -1,0 +1,1 @@
+The live `repos.json` now uses the one-fork-model shape: all 14 eblume repos are declared `managed: true` — the `talos` bot gets read plus an owned `talos/<repo>` fork on each and write on none — and a new top-level `excluded` list names the four eblume non-fork repos the bot never touches (eblume/blumeops#1808, V5-62).

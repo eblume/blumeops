@@ -55,8 +55,8 @@ identity holds no CI trust anywhere.
 - **Read-only collaborator** on the canonical `eblume/*` repos the talos pool
   authors in — the set declared in `repos.json` by P3 of the #1583 series.
 - **Own fork namespace** `cli-agent/`: it authors via cross-repo PRs — the
-  same `pool: fork` arrangement the `talos` bot uses on every fork-model
-  repo declared in `repos.json`.
+  same arrangement the `talos` bot uses on every repo declared in
+  `repos.json`.
 - **No write or Actions-write on any canonical repo.** That is the
   load-bearing invariant — it is what makes the no-CI-trust guarantee below
   hold.
@@ -147,9 +147,11 @@ Removing the principal from the list itself is a two-step demotion
 (remove the entries, apply, then drop the list entry; a one-step
 demotion of a granted principal fails the PR check), so the set cannot
 quietly shrink either way — restricted for `cli-agent` to
-`access: read` (no `pool`), and applies the same two code-enforced
+per-repo `principals` entries granting `read` (the managed shape has no
+`pool` concept), and applies the same two code-enforced
 fences —
-`PINNED_READ_ONLY` (`blumeops`/`agents`/`horkos`/`talos`) and the refusal of
+`PINNED_READ_ONLY` (`blumeops`/`agents`/`horkos`/`talos`, now defense in
+depth under the managed shape) and the refusal of
 write on any repo carrying a non-empty `actions/secrets` list. P3 then
 declares the read grants.
 
