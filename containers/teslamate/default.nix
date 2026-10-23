@@ -111,12 +111,9 @@ let
   # Per-dependency fetchHex: each hex tarball is a hashed fetchurl fetched
   # by the store and unpacked with the .hex lock metadata that hex would
   # write - nothing downloaded executes. mixRelease copies mixDepsTree into
-  # deps/ in postUnpack and symlinks it into the build root, exactly as it
-  # did for the old fetchMixDeps FOD, which ran `mix deps.get` (downloaded
-  # code executing with network on the build host) and is retired by the
-  # fod-only-downloads invariant (blumeops#1809). A lock that ever gains a
-  # git/path/umbrella dep will not be served by this scheme - extend it
-  # deliberately, not silently.
+  # deps/ in postUnpack and symlinks it into the build root. A lock that
+  # ever gains a git/path/umbrella dep will not be served by this scheme -
+  # extend it deliberately, not silently.
   mixDeps = lib.mapAttrs (name: v: beamPackages.fetchHex {
     pkg = name;
     inherit (v) version sha256;
