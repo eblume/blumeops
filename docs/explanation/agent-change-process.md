@@ -209,6 +209,15 @@ in four categories:
    the bot-whitelist fence, a malformed policy, a repo the token cannot read)
    → **always fail.**
 
+A managed fork that merely *lags* its parent's `main` is the one carve-out: it
+is a **non-failing note**, not drift — `main` moves constantly, so the fork is
+behind on nearly every PR and the state clears on the next `--fork-token`
+reconcile run. A *missing* fork on the base
+is drift and fails the PR check as usual; a wrong-parent fork does not — the
+PR check never reads fork violations, so it only fails the weekly
+`--check`/apply. The weekly `--check` (no `--pr-base-ref`) still fails on a
+stale fork — that is the maintenance nudge.
+
 **Fork / agent PRs skip.** They carry no `FORGE_REPO_WRITE_TOKEN`, so the check
 falls through to `--skip-if-no-token` and exits 0 (a green tick that verified
 nothing is worse than no check — the same reason `horkos-forge-drift` had no

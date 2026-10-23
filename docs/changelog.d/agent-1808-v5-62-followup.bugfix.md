@@ -1,0 +1,1 @@
+forge-reconcile sends the JSON body Forgejo requires when creating forks (a bodiless POST is a 422), and FakeForge now enforces it; in the PR-mode check a fork lagging its parent's main is reported as a note instead of failing as UNEXPECTED drift — missing-fork drift still fails, and the weekly --check still fails on a stale fork.
