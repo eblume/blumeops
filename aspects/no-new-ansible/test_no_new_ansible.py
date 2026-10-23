@@ -16,6 +16,7 @@ from __future__ import annotations
 import pathlib
 
 KIND = "ratchet"
+APPLIES_TO = ["eblume/blumeops"]
 
 
 def check(root: pathlib.Path) -> list[str]:

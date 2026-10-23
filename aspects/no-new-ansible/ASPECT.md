@@ -12,13 +12,11 @@ deleted from the baseline; the runner fails on stale entries, so the list may
 only shrink. The green fixture is the end-state of the retirement: a
 baseline-shaped `ansible/` tree — playbooks and inventory glue, no roles.
 
-**Scope.** No `APPLIES_TO`: the check scans `<root>/ansible/`, so it applies
-to every repo — a repo without one reports no violations. The stale-entry
-guard compares against this blumeops baseline, so a repo that never had
-`ansible/` fails the scan on the full baseline; the V5-33 sweep must scope
-ratchet baselines per repo before running it on other repos. The fixture
-trees live under `aspects/`, outside the scanned `ansible/`, so the repo
-scan never sees this aspect's own fixtures.
+**Scope.** `APPLIES_TO = ["eblume/blumeops"]`: the baseline describes
+blumeops' `ansible/` tree, so the check applies only there — V5-33 can
+widen it with per-repo baselines. The fixture trees live under `aspects/`,
+outside the scanned `ansible/`, so the repo scan never sees this aspect's
+own fixtures.
 
 The pilot's original plan inventoried three shapes (role dirs, task files,
 `files/` content); the agreed definition is the stricter whole-tree ratchet
