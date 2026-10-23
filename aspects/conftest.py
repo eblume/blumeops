@@ -12,6 +12,10 @@ import pytest
 
 from aspects.runner import Aspect, Target, discover_aspects, resolve_target
 
+# pytest recurses into aspects/<slug>/fixtures/** looking for conftest.py and
+# test_*.py; fixture trees are opaque case data, not the suite.
+collect_ignore_glob = ["*/fixtures/*"]
+
 
 class _State:
     aspects: list[Aspect] | None = None

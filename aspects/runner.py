@@ -72,7 +72,10 @@ def discover_aspects() -> list[Aspect]:
         if not directory.is_dir() or directory.name.startswith((".", "_")):
             continue
         if not (directory / "ASPECT.md").is_file():
-            continue
+            raise ValueError(
+                f"aspect {directory.name}: missing ASPECT.md — an aspect dir that loses its "
+                "ASPECT.md stops being checked (silent skip)"
+            )
         if not (directory / "__init__.py").is_file():
             raise ValueError(
                 f"aspect {directory.name}: missing __init__.py — aspect dirs are Python packages, so test module "
@@ -130,6 +133,24 @@ def discover_aspects() -> list[Aspect]:
     return aspects
 
 
+def parse_repo_identity(url: str) -> str:
+    u = re.sub(r"\.git/?$", "", url)
+    if "://" in u:
+        segments = [seg for seg in re.split(r"[/:]", u) if seg]
+    else:
+        # scp form; the owner/name must sit in the path after host:
+        m = re.match(r"[^/@]+@[^/:]+:(?P<path>.+)$", u)
+        if not m:
+            segments = []
+        else:
+            segments = [seg for seg in m.group("path").split("/") if seg]
+    if len(segments) < 2:
+        raise ValueError(
+            f"cannot parse owner/name from git URL {url!r}; pass --repo-name"
+        )
+    return "/".join(segments[-2:])
+
+
 def repo_identity(root: pathlib.Path, override: str | None = None) -> str:
     if override:
         return override
@@ -142,12 +163,13 @@ def repo_identity(root: pathlib.Path, override: str | None = None) -> str:
             check=True,
         ).stdout.strip()
     except (subprocess.CalledProcessError, OSError):
-        return root.name
-    tail = re.sub(r"^.*[/:]", "", url.removesuffix(".git").removesuffix("/"))
-    parts = tail.split("/")
-    if len(parts) == 2 and all(parts):
-        return "/".join(parts)
-    return root.name
+        raise ValueError(
+            f"cannot read git remote.origin.url in {root}; pass --repo-name"
+        ) from None
+    try:
+        return parse_repo_identity(url)
+    except ValueError as exc:
+        raise ValueError(f"{exc} (repo {root})") from exc
 
 
 def resolve_target(repo: str | None, repo_name: str | None) -> Target:
