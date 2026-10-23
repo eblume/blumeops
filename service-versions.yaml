@@ -231,8 +231,8 @@ services:
 
   - name: argocd
     type: argocd
-    last-reviewed: 2026-07-13
-    current-version: "v3.3.12"
+    last-reviewed: 2026-10-23
+    current-version: "v3.5.6"
     upstream-source: https://github.com/argoproj/argo-cd/releases
     notes: >-
       Kustomize-based install with ServerSideApply, pinned to the upstream
