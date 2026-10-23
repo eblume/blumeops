@@ -153,14 +153,55 @@ def _first_unescaped_backtick(line: str) -> int:
     return -1
 
 
+_REGEX_START_KEYWORD = re.compile(r"(?:^|[^A-Za-z0-9_$])(?:return|typeof)$")
+
+
+def _regex_close(line: str, start: int) -> int:
+    """The closing / of the regex literal opened at start (outside a [...]
+    class, backslash-escaped chars skipped), or -1."""
+    n = len(line)
+    j = start + 1
+    in_class = False
+    while j < n:
+        c = line[j]
+        if c == "\\":
+            j += 2
+            continue
+        if in_class:
+            in_class = c != "]"
+        elif c == "[":
+            in_class = True
+        elif c == "/":
+            return j
+        j += 1
+    return -1
+
+
+def _regex_starts_at(ctx: str) -> bool:
+    """ctx is the code emitted so far; its last non-space character decides
+    (as in any JS tokenizer): after a value or a closer like ) the /
+    divides, after an operator, brace, ; or statement start it opens a
+    pattern."""
+    s = ctx.rstrip()
+    if not s:
+        return True
+    if s[-1] in "(,=:[!&|?{};>":
+        return True
+    return _REGEX_START_KEYWORD.search(s) is not None
+
+
 def _ts_code_portion(line: str) -> tuple[str, bool, bool]:
     """(scannable portion, next block-comment state, end-of-line template
     state) for a TS line that does not start with a comment. Stops at the
     first // or opens a carried block comment at the first /* outside a
     string or template literal; comment text is dropped from the scannable
-    portion. The third element is the walker's in_tpl value at the return
-    point: backticks inside quoted strings or dropped comments never
-    toggle it."""
+    portion. A regex literal at a start position is skipped for state
+    tracking and its body dropped from the scannable portion: a backtick
+    in the pattern (talos src/error-death.ts runs .replace(/`/g, ""))
+    would otherwise desync template tracking for the rest of the file.
+    The third element is the walker's in_tpl value at the return point:
+    backticks inside quoted strings, dropped comments or dropped regex
+    bodies never toggle it."""
     out: list[str] = []
     last = i = 0
     n = len(line)
@@ -198,6 +239,16 @@ def _ts_code_portion(line: str) -> tuple[str, bool, bool]:
                 return "".join(out), True, in_tpl
             out.append(line[last:i])
             last = i = j + 2
+            continue
+        elif c == "/" and _regex_starts_at("".join(out) + line[last:i]):
+            out.append(line[last:i])
+            j = _regex_close(line, i)
+            if j == -1:
+                # No closer on the line: an unterminated regex is invalid,
+                # and a division can't end a line either, so the rest is
+                # pattern text, not code.
+                return "".join(out), False, in_tpl
+            last = i = j + 1
             continue
         i += 1
     out.append(line[last:])
@@ -369,6 +420,30 @@ def test_backtick_inside_quoted_string_does_not_flip_template_state(
         'const cmd = "a`b";\n// eblume/talos#252 owns this\nexport { cmd };\n'
     )
     assert check(tmp_path) == []
+
+
+def test_regex_quote_then_trailing_comment_is_exempt(
+    tmp_path: pathlib.Path,
+) -> None:
+    # A quote inside a regex pattern is pattern text, not a string opener:
+    # the trailing comment on the regex's own line stays exempt.
+    p = tmp_path / "src"
+    p.mkdir()
+    (p / "q.ts").write_text(
+        "const r = /'/g; // eblume/talos#252 owns this\nexport { r };\n"
+    )
+    assert check(tmp_path) == []
+
+
+def test_regex_keeps_prefix_code_scannable(tmp_path: pathlib.Path) -> None:
+    # Dropping the regex body must not drop the code before it on the
+    # line: the banned string value is still flagged.
+    p = tmp_path / "src"
+    p.mkdir()
+    (p / "v.ts").write_text(
+        'const owner = "eblume", re = /x/;\nexport { owner, re };\n'
+    )
+    assert len(check(tmp_path)) == 1
 
 
 def test_trailing_comment_is_exempt(tmp_path: pathlib.Path) -> None:
