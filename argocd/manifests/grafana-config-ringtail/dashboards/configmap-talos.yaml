@@ -893,12 +893,198 @@ data:
           "type": "stat"
         },
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 43
+          },
+          "id": 47,
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(increase(talos_tokens_total{source=\"session\"}[7d])) / sum(increase(talos_sessions_started_total[7d]))",
+              "legendFormat": "tokens/session",
+              "refId": "A"
+            }
+          ],
+          "title": "Tokens per session started (trailing 7d)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 43
+          },
+          "id": 48,
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum(increase(talos_read_thread_calls_total[7d])) / sum(increase(talos_sessions_started_total[7d]))",
+              "legendFormat": "calls/session",
+              "refId": "A"
+            }
+          ],
+          "title": "read_thread calls per session (trailing 7d)",
+          "type": "timeseries"
+        },
+        {
           "collapsed": false,
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 43
+            "y": 51
           },
           "id": 42,
           "title": "Reading budget",
@@ -935,7 +1121,7 @@ data:
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 44
+            "y": 52
           },
           "id": 43,
           "options": {
@@ -1040,7 +1226,7 @@ data:
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 44
+            "y": 52
           },
           "id": 46,
           "options": {
@@ -1135,7 +1321,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 60
+            "y": 68
           },
           "id": 40,
           "options": {
@@ -1230,7 +1416,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 60
+            "y": 68
           },
           "id": 41,
           "options": {
@@ -1336,7 +1522,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 52
+            "y": 60
           },
           "id": 39,
           "options": {
@@ -1441,7 +1627,7 @@ data:
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 44
+            "y": 52
           },
           "id": 44,
           "options": {
@@ -1537,7 +1723,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 52
+            "y": 60
           },
           "id": 45,
           "options": {
@@ -1576,7 +1762,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 68
+            "y": 76
           },
           "id": 11,
           "title": "Model requests",
@@ -1642,7 +1828,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 69
+            "y": 77
           },
           "id": 12,
           "options": {
@@ -1681,7 +1867,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 77
+            "y": 85
           },
           "id": 24,
           "title": "Lanes (shaping)",
@@ -1748,7 +1934,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 78
+            "y": 86
           },
           "id": 25,
           "options": {
@@ -1842,7 +2028,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 78
+            "y": 86
           },
           "id": 26,
           "options": {
@@ -1945,7 +2131,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 86
+            "y": 94
           },
           "id": 27,
           "options": {
@@ -2048,7 +2234,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 86
+            "y": 94
           },
           "id": 28,
           "options": {
@@ -2142,7 +2328,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 94
+            "y": 102
           },
           "id": 29,
           "options": {
@@ -2245,7 +2431,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 94
+            "y": 102
           },
           "id": 30,
           "options": {
@@ -2348,7 +2534,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 102
+            "y": 110
           },
           "id": 31,
           "options": {
@@ -2464,7 +2650,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 102
+            "y": 110
           },
           "id": 32,
           "options": {
@@ -2567,7 +2753,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 110
+            "y": 118
           },
           "id": 33,
           "options": {
@@ -2661,7 +2847,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 110
+            "y": 118
           },
           "id": 34,
           "options": {
@@ -2709,7 +2895,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 118
+            "y": 126
           },
           "id": 13,
           "title": "Server",
@@ -2775,7 +2961,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 119
+            "y": 127
           },
           "id": 14,
           "options": {
@@ -2836,7 +3022,7 @@ data:
             "h": 8,
             "w": 6,
             "x": 12,
-            "y": 119
+            "y": 127
           },
           "id": 15,
           "options": {
@@ -2895,7 +3081,7 @@ data:
             "h": 8,
             "w": 6,
             "x": 18,
-            "y": 119
+            "y": 127
           },
           "id": 16,
           "options": {
@@ -2986,7 +3172,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 127
+            "y": 135
           },
           "id": 17,
           "options": {
@@ -3098,7 +3284,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 127
+            "y": 135
           },
           "id": 18,
           "options": {
@@ -3200,7 +3386,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 135
+            "y": 143
           },
           "id": 38,
           "options": {
@@ -3239,7 +3425,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 143
+            "y": 151
           },
           "id": 19,
           "title": "Workspaces",
@@ -3306,7 +3492,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 144
+            "y": 152
           },
           "id": 20,
           "options": {
@@ -3420,7 +3606,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 144
+            "y": 152
           },
           "id": 21,
           "options": {
@@ -3523,7 +3709,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 152
+            "y": 160
           },
           "id": 22,
           "options": {
@@ -3566,7 +3752,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 152
+            "y": 160
           },
           "id": 23,
           "options": {
