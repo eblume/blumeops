@@ -1,0 +1,1 @@
+Excluded the `talos/` bot fork namespace from the never-lose Forgejo backup (`forgejo-repositories/talos`): the forks are recreated by `mise run forge-reconcile --fork-token …` and open- and merged-PR heads live in the base repos as `refs/pull/N/head` ([#1837](https://forge.ops.eblu.me/eblume/blumeops/issues/1837)).
