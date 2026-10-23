@@ -1,0 +1,1 @@
+Fixed ntfy-infra notifications being rejected (400) when an alert group contained more than 3 runbook-annotated alerts: the payload template now dedupes runbook URLs across the group and caps the action list at ntfy's hard 3-action limit.

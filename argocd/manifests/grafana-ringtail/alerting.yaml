@@ -1784,9 +1784,16 @@ templates:
       {{- end -}}
       {{- $title := (printf "[%s] %s" (.Status | toUpper) .CommonLabels.alertname) -}}
       {{- $actions := coll.Slice -}}
-      {{- range .Alerts -}}
-        {{- if .Annotations.runbook_url -}}
-          {{- $actions = coll.Append (coll.Dict "action" "view" "label" "Open Runbook" "url" .Annotations.runbook_url) $actions -}}
+      {{- $seen := coll.Slice -}}
+      {{- range $a := .Alerts -}}
+        {{- $url := $a.Annotations.runbook_url -}}
+        {{- if $url -}}
+          {{- $dup := false -}}
+          {{- range $u := $seen -}}{{- if eq $u $url -}}{{- $dup = true -}}{{- end -}}{{- end -}}
+          {{- if and (not $dup) (lt (len $actions) 3) -}}
+            {{- $actions = coll.Append (coll.Dict "action" "view" "label" "Open Runbook" "url" $url) $actions -}}
+            {{- $seen = coll.Append $url $seen -}}
+          {{- end -}}
         {{- end -}}
       {{- end -}}
       {{- coll.Dict "topic" "infra-alerts" "title" $title "message" $msg "priority" 3 "actions" $actions | data.ToJSON -}}
