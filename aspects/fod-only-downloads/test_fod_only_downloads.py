@@ -46,10 +46,22 @@ Two shapes of FOD are graded:
      FOD, and they are checked.
    - ``fetchMixDeps``: any call is red - it has no no-execute mode.
 
-Coverage caveat (documented in ASPECT.md): only inline string values are
-checked. A phase string assembled in a ``let`` binding (``buildPhase =
-cmd``) or spliced in from one is not seen; list-valued attrs (``patches``,
-``ldflags``, ...) and ``nativeBuildInputs`` setup-hook bodies are not seen.
+Fail-closed over values: a checked attr whose value is a lone string
+literal is graded statement by statement; a value that assembles a
+script from anything else (a let-bound identifier, a ``+``, a function
+call, an ``inherit``) is red with "inline the phase so it can be
+graded". Pure Nix data (numbers, booleans, lists, attrsets, dotted
+package references) is not shell and is green. ``nativeBuildInputs``
+setup hooks are graded too: plain nixpkgs references are inert, and
+anything else is red unless it resolves to a local ``makeSetupHook``
+whose script registers its hooks only under ``if [ -z ${outputHash-} ]``.
+
+Coverage caveat (documented in ASPECT.md): list-valued attrs (``patches``,
+``ldflags``, ``pnpmInstallFlags``, ...) are not seen; a builder reached
+through a ``let`` alias is recognized only when the binding is a direct
+reference, not a wrapper function; a nixpkgs builder not modelled here
+(``buildRustPackage``, ``fetchYarnDeps``, ...) needs the aspect extended
+before it is used.
 """
 
 from __future__ import annotations
@@ -73,6 +85,7 @@ _INERT_ATTRS = frozenset(
         "name",
         "version",
         "src",
+        "meta",
         "sourceRoot",
         "setSourceRoot",
         "modRoot",
@@ -353,8 +366,10 @@ def _fod_starts(toks: list[_Tok]) -> list[int]:
         if triggered:
             open_idx, depth = stack[-1]
             prev = toks[open_idx - 1] if open_idx > 0 else None
+            # A `:` before the brace is a lambda head (`(o: {`), as in
+            # `mkDerivation (finalAttrs: { ... })` or `drv.overrideAttrs (o: { ... })`.
             call_arg = prev is not None and (
-                prev.kind in ("id", "str") or prev.text in (")", "(", "//", "&&")
+                prev.kind in ("id", "str") or prev.text in (":", ")", "(", "//", "&&")
             )
             let_binding = prev is not None and prev.text == "=" and depth == 0
             if call_arg or let_binding:
@@ -401,6 +416,21 @@ def _top_assignments(
                 eq = j + 1
                 depth2 = 0
                 k = eq + 1
+                if k < end and toks[k].kind == "id" and toks[k].text == "with":
+                    # `attr = with x; e;` - the first depth-0 `;` is the
+                    # with-separator, not the attr terminator.
+                    while k < end:
+                        tk = toks[k]
+                        if tk.kind == "punct":
+                            if tk.text in "{[(":
+                                depth2 += 1
+                            elif tk.text in "}])":
+                                depth2 -= 1
+                            elif tk.text == ";" and depth2 == 0:
+                                break
+                        k += 1
+                    k += 1  # past the with-separator
+                    depth2 = 0
                 while k < end:
                     tk = toks[k]
                     if tk.kind == "punct":
@@ -428,6 +458,390 @@ def _top_assignments(
 def _is_direct_str(toks: list[_Tok], v0: int, v1: int) -> bool:
     """True when the value at [v0, v1) is one string literal (a script)."""
     return v1 - v0 == 1 and toks[v0].kind == "str"
+
+
+def _checked_attr_violation(
+    toks: list[_Tok], v0: int, v1: int, name: str, text: str, rel: str, ctx: str = ""
+) -> list[str]:
+    """Grade the value of a checked attr (non-inert, non-`builder`, non-`phases`
+    list, non-`nativeBuildInputs`).
+
+    A lone string literal is checked statement by statement. A value that
+    assembles a shell string from anything else - a let-bound identifier, a
+    `+`, a function call, an `inherit` - is red: only an inlined string can be
+    graded. Pure Nix data - a number, `true`/`false`/`null`, a list, an
+    attrset, or a dotted attr path (`pkgs.pnpm_10`) - is not shell and is
+    green; a list-valued phase attr is graded by its caller.
+    """
+    val = toks[v0:v1]
+    if not val:
+        return []
+    if _is_direct_str(toks, v0, v1):
+        return _check_shell(toks[v0].text, toks[v0].start, text, rel, ctx)
+    line = text.count("\n", 0, val[0].start) + 1
+    if val[0].kind == "id" and val[0].text == "inherit":
+        bad = [n for n in _inherit_names(toks, v0) if n not in _INERT_ATTRS]
+        if bad:
+            return [
+                (
+                    f"{rel}:{line}: {ctx}`inherit ... {' '.join(bad)}` - "
+                    "inherited value is not gradable; inline the phase so it can be graded"
+                )
+            ]
+        return []
+    if val[0].kind == "punct" and val[0].text in ("[", "{"):
+        return []
+    ids = [t for t in val if t.kind == "id"]
+    if _is_dotted_path(val):
+        return []  # a dotted attr path - evaluates to Nix data
+    if all(t.kind in ("id", "num", "punct") for t in val):
+        if not ids:
+            return []  # pure data: numbers, booleans, punctuation
+        if len(ids) == 1 and ids[0].text == "null":
+            return []
+    return [
+        (
+            f"{rel}:{line}: {ctx}`{name}` is not a lone string literal - "
+            "inline the phase so it can be graded"
+        )
+    ]
+
+
+def _is_dotted_path(val: list[_Tok]) -> bool:
+    """`val` is exactly a dotted attr path: `id (. id)+` - evaluates to Nix data."""
+    ids = [t for t in val if t.kind == "id"]
+    return (
+        len(ids) >= 2
+        and all(t.kind in ("id", "punct") for t in val)
+        and all(t.text == "." for t in val if t.kind == "punct")
+    )
+
+
+# A setup-hook registration: `*Hooks = ...` or `*Hooks += ...`.
+_HOOK_REG = re.compile(r"\w*Hooks\s*(\+=|=)")
+# The FOD guard a hook registration must sit under.
+_HOOK_GUARD = re.compile(r"\[\s*-z\s+\$\{outputHash-\}\s*\]")
+# A shell `if ... then` line (one per line in a setup-hook script).
+_HOOK_IF = re.compile(r"if\b\s+(.*?)\bthen\b")
+
+
+def _hook_script_bad_lines(script: str) -> list[str]:
+    """Registration lines not sitting inside an `if [ -z ${outputHash-} ]` guard."""
+    stack: list[str] = []
+    bad: list[str] = []
+    for raw in script.split("\n"):
+        s = raw.strip()
+        if s.startswith("#"):
+            continue
+        m = _HOOK_IF.match(s)
+        if m:
+            stack.append(m.group(1))
+        if _HOOK_REG.search(s) and not any(_HOOK_GUARD.search(c) for c in stack):
+            bad.append(s)
+        for _ in re.findall(r"\bfi\b", s):
+            if stack:
+                stack.pop()
+    return bad
+
+
+def _extract_squote_strings(raw: str) -> list[str]:
+    """Contents of `'' ... ''` strings, `''${` unescaped."""
+    out: list[str] = []
+    i = 0
+    while True:
+        i = raw.find("''", i)
+        if i < 0:
+            break
+        j = raw.find("''", i + 2)
+        if j < 0:
+            break
+        out.append(raw[i + 2 : j].replace("''${", "${"))
+        i = j + 2
+    return out
+
+
+def _hook_file_violation(hpath: pathlib.Path, htext: str) -> str | None:
+    """A local setup-hook file: it must be a makeSetupHook whose script
+    registers only under the `if [ -z ${outputHash-} ]` FOD guard."""
+    hrel = str(hpath)
+    if "makeSetupHook" not in htext:
+        return f"{hrel}: not a makeSetupHook file"
+    for script in _extract_squote_strings(htext):
+        bad = _hook_script_bad_lines(script)
+        if bad:
+            return f"{hrel}: setup hook registers outside the FOD guard: {bad[0]!r}"
+    return None
+
+
+def _find_hook_script(toks: list[_Tok], a: int, b: int) -> str | None:
+    """The `writeShellScript` script string of a makeSetupHook call."""
+    for i in range(a, b - 1):
+        if toks[i].kind == "id" and toks[i].text == "writeShellScript":
+            for j in range(b - 1, i, -1):
+                if toks[j].kind == "str":
+                    return toks[j].text
+    return None
+
+
+def _hook_value_violation(
+    toks: list[_Tok],
+    v0: int,
+    v1: int,
+    text: str,
+    path: pathlib.Path | None,
+    bindings: dict[str, tuple[int, int]],
+) -> str | None:
+    """The value a setup-hook binding or list element resolves to.
+
+    Inert: a dotted nixpkgs reference or `null`. Inert on the merits: a
+    makeSetupHook whose script registers only under the FOD guard, or a
+    local import of one. Everything else - including what cannot be read -
+    is red.
+    """
+    val = toks[v0:v1]
+    if val and val[0].kind == "id" and val[0].text == "import":
+        return _import_hook_violation(val, text, path)
+    if _is_dotted_path(val):
+        return None
+    ids = [t for t in val if t.kind == "id"]
+    if len(ids) == 1 and ids[0].text == "null":
+        return None
+    if any(t.kind == "id" and t.text == "makeSetupHook" for t in val):
+        script = _find_hook_script(toks, v0, v1)
+        if script is None:
+            return "makeSetupHook with no readable script"
+        bad = _hook_script_bad_lines(script)
+        if bad:
+            return f"setup hook registers outside the FOD guard: {bad[0]!r}"
+        return None
+    if len(ids) == 1:
+        # A bare name bound elsewhere: follow the chain, re-classifying each
+        # hop (an import or makeSetupHook hop short-circuits).
+        seen: set[str] = set()
+        while ids and ids[0].text not in seen:
+            seen.add(ids[0].text)
+            rng = bindings.get(ids[0].text)
+            if rng is None:
+                return f"`{ids[0].text}` - cannot verify what this setup hook is"
+            val = toks[rng[0] : rng[1]]
+            if val and val[0].kind == "id" and val[0].text == "import":
+                return _import_hook_violation(val, text, path)
+            if _is_dotted_path(val):
+                return None
+            ids = [t for t in val if t.kind == "id"]
+            if len(ids) == 1 and ids[0].text == "null":
+                return None
+            if any(t.kind == "id" and t.text == "makeSetupHook" for t in val):
+                script = _find_hook_script(toks, rng[0], rng[1])
+                if script is None:
+                    return "makeSetupHook with no readable script"
+                bad = _hook_script_bad_lines(script)
+                if bad:
+                    return f"setup hook registers outside the FOD guard: {bad[0]!r}"
+                return None
+            if len(ids) != 1:
+                break
+        if len(ids) == 1:
+            return f"`{ids[0].text}` - cannot verify what this setup hook is"
+    return "cannot verify what this setup hook is"
+
+
+def _import_hook_violation(
+    val: list[_Tok], text: str, path: pathlib.Path | None
+) -> str | None:
+    raw = text[val[0].start : val[-1].start + len(val[-1].text)]
+    m = re.match(r"import\s+([^\s{}]+)", raw)
+    if m is not None and m.group(1).startswith(("./", "/")):
+        hpath = (path.parent / m.group(1)).resolve() if path is not None else None
+        if hpath is not None and hpath.is_file():
+            return _hook_file_violation(hpath, hpath.read_text(encoding="utf-8"))
+        return f"cannot read the setup hook file {m.group(1)!r}"
+    return "setup hook comes from a non-local import"
+
+
+def _setup_hook_violation(
+    toks: list[_Tok],
+    e0: int,
+    e1: int,
+    text: str,
+    path: pathlib.Path | None,
+    bindings: dict[str, tuple[int, int]],
+    in_with_pkgs: bool,
+) -> str | None:
+    """One element of a FOD `nativeBuildInputs` list."""
+    val = toks[e0:e1]
+    while len(val) > 2 and val[0].text == "(" and val[-1].text == ")":
+        val = val[1:-1]
+    if not val:
+        return None
+    if all(t.kind in ("id", "punct") for t in val):
+        ids = [t for t in val if t.kind == "id"]
+        if _is_dotted_path(val):
+            return None  # a dotted nixpkgs reference, e.g. pkgs.go_1_26
+        if len(ids) == 1:
+            # Let-bound names shadow with-scopes in Nix, so a binding always
+            # wins over the `with pkgs;` exemption.
+            name = ids[0].text
+            rng = bindings.get(name)
+            if rng is None and in_with_pkgs:
+                return None  # bare name in `with pkgs; [ ... ]`
+            if rng is None:
+                return f"`{name}` - cannot verify what this setup hook is"
+            return _hook_value_violation(toks, rng[0], rng[1], text, path, bindings)
+        return "cannot verify what this setup hook is"
+    if any(t.kind == "id" and t.text == "makeSetupHook" for t in val):
+        return _hook_value_violation(toks, e0, e1, text, path, bindings)
+    return "setup hook is not a plain nixpkgs reference"
+
+
+def _check_setup_hooks(
+    toks: list[_Tok],
+    v0: int,
+    v1: int,
+    text: str,
+    rel: str,
+    path: pathlib.Path | None,
+    bindings: dict[str, tuple[int, int]],
+) -> list[str]:
+    """Grade the elements of a FOD `nativeBuildInputs` list.
+
+    Plain nixpkgs references are inert (nix-built, not downloaded); anything
+    else is red unless it resolves to a local makeSetupHook whose script
+    registers its hooks only under `if [ -z ${outputHash-} ]`.
+    """
+    out: list[str] = []
+    in_with_pkgs = False
+    if toks[v0].kind == "id" and toks[v0].text == "with":
+        for t in toks[v0 + 1 : v1]:
+            if t.kind == "id":
+                in_with_pkgs = t.text == "pkgs"
+                break
+    line = text.count("\n", 0, toks[v0].start) + 1
+    li = next(
+        (i for i in range(v0, v1) if toks[i].kind == "punct" and toks[i].text == "["),
+        None,
+    )
+    if li is None:
+        return [
+            (
+                f"{rel}:{line}: `nativeBuildInputs` is not a list - "
+                "inline it so its hooks can be graded"
+            )
+        ]
+    # The list's own close bracket.
+    d = 0
+    li_close = v1
+    for i in range(li, v1):
+        t = toks[i]
+        if t.kind == "punct":
+            if t.text in ("[", "(", "{"):
+                d += 1
+            elif t.text in ("]", ")", "}"):
+                d -= 1
+                if d == 0:
+                    li_close = i
+                    break
+    # Element ranges at bracket depth 0 inside the list. List items are
+    # single values (no juxtaposition application), so a run of dotted-path
+    # tokens or a bracketed group is one element.
+    els: list[tuple[int, int]] = []
+    depth = 0
+    cur: int | None = None  # start index of the element being collected
+    for i in range(li + 1, li_close):
+        t = toks[i]
+        if t.kind == "punct" and t.text in ("[", "(", "{"):
+            if depth == 0:
+                if cur is not None:
+                    els.append((cur, i))
+                cur = i
+            depth += 1
+            continue
+        if t.kind == "punct" and t.text in ("]", ")", "}"):
+            depth -= 1
+            if depth == 0 and cur is not None:
+                els.append((cur, i + 1))
+                cur = None
+            continue
+        if t.kind == "punct" or depth != 0:
+            continue  # a `.` inside a dotted path, or a token inside a group
+        if cur is not None and toks[i - 1].kind == "punct" and toks[i - 1].text == ".":
+            continue  # dotted continuation of the current element
+        if cur is not None:
+            els.append((cur, i))
+        cur = i
+    if cur is not None:
+        els.append((cur, li_close))
+    for e0, e1 in els:
+        v = _setup_hook_violation(toks, e0, e1, text, path, bindings, in_with_pkgs)
+        if v:
+            line = text.count("\n", 0, toks[e0].start) + 1
+            out.append(f"{rel}:{line}: FOD setup hook: {v}")
+    return out
+
+
+def _file_bindings(toks: list[_Tok]) -> dict[str, tuple[int, int]]:
+    """`name` -> value range for every top-level `name = value;` binding."""
+    out: dict[str, tuple[int, int]] = {}
+    depth = 0
+    i = 0
+    n = len(toks)
+    while i < n:
+        t = toks[i]
+        if t.kind == "punct":
+            if t.text in "{[(":
+                depth += 1
+            elif t.text in "}])":
+                depth -= 1
+            i += 1
+            continue
+        if depth == 0 and t.kind in ("id", "str"):
+            j = i
+            while (
+                j + 2 < n
+                and toks[j + 1].kind == "punct"
+                and toks[j + 1].text == "."
+                and toks[j + 2].kind in ("id", "str")
+            ):
+                j += 2
+            if j + 1 < n and toks[j + 1].text == "=":
+                k = j + 2
+                d = 0
+                while k < n:
+                    tk = toks[k]
+                    if tk.kind == "punct":
+                        if tk.text in "{[(":
+                            d += 1
+                        elif tk.text in "}])":
+                            d -= 1
+                        elif tk.text == ";" and d == 0:
+                            break
+                    k += 1
+                out.setdefault(
+                    ".".join(toks[x].text for x in range(i, j + 1)), (j + 2, k)
+                )
+                i = k
+                continue
+        i += 1
+    return out
+
+
+def _top_inherits(
+    toks: list[_Tok], start: int, end: int
+) -> list[tuple[int, list[str]]]:
+    """`(position, names)` of each top-level `inherit` of the attrset."""
+    out: list[tuple[int, list[str]]] = []
+    depth = 0
+    for i in range(start + 1, end):
+        t = toks[i]
+        if t.kind == "punct":
+            if t.text in "{[(":
+                depth += 1
+            elif t.text in "}])":
+                depth -= 1
+            continue
+        if depth == 0 and t.kind == "id" and t.text == "inherit":
+            out.append((i, _inherit_names(toks, i)))
+    return out
 
 
 def _check_builder(
@@ -700,11 +1114,19 @@ def _check_phases_list(
 
 
 def _check_fod(
-    toks: list[_Tok], close: dict[int, int], start: int, text: str, rel: str
+    toks: list[_Tok],
+    close: dict[int, int],
+    start: int,
+    text: str,
+    rel: str,
+    path: pathlib.Path | None = None,
 ) -> list[str]:
-    """Fail-closed over names: every attr of the FOD attrset whose value is a
-    direct string literal is checked, except the inert allowlist."""
+    """Fail-closed over names: every attr of the FOD attrset is graded. A
+    direct string literal is checked statement by statement; a value that
+    assembles a script from anything else is red; `nativeBuildInputs` is
+    graded by the setup-hook rule - except the inert allowlist."""
     end = close[start]
+    bindings = _file_bindings(toks)
     out: list[str] = []
     for name, v0, v1 in _top_assignments(toks, start, end):
         if "." in name:
@@ -717,8 +1139,19 @@ def _check_fod(
             continue
         elif name == "phases" or name.endswith("Phases"):
             out.extend(_check_phases_list(toks, v0, v1, text, rel))
-        elif _is_direct_str(toks, v0, v1):
-            out.extend(_check_shell(toks[v0].text, toks[v0].start, text, rel))
+        elif name == "nativeBuildInputs":
+            out.extend(_check_setup_hooks(toks, v0, v1, text, rel, path, bindings))
+        else:
+            out.extend(_checked_attr_violation(toks, v0, v1, name, text, rel))
+    for pos, names in _top_inherits(toks, start, end):
+        for n in names:
+            if n in _INERT_ATTRS:
+                continue
+            line = text.count("\n", 0, toks[pos].start) + 1
+            out.append(
+                f"{rel}:{line}: FOD `inherit ... {n}` - inherited value is not "
+                "gradable; inline the phase so it can be graded"
+            )
     return out
 
 
@@ -807,10 +1240,56 @@ def _call_attrset(toks: list[_Tok], close: dict[int, int], idx: int) -> int | No
                     j = m + 1
                     continue
                 return j
+            if t.text == "(":
+                # The call argument in the parens is an attrset (possibly a
+                # `//` merge) or a lambda param list followed by one - the
+                # current nixpkgs idiom:
+                # `buildGoModule (finalAttrs: { ... })`, `(a: b: { ... })`.
+                p = j + 1
+                if p < len(toks) and toks[p].text == "{":
+                    return p
+                pairs = 0
+                while p < len(toks):
+                    if toks[p].kind == "id":
+                        q = p + 1
+                        if q < len(toks) and toks[q].text == "?":
+                            # An optional param with a default: skip to the
+                            # param's `:` at group depth 0.
+                            d = 0
+                            q += 1
+                            while q < len(toks) and not (
+                                toks[q].kind == "punct"
+                                and toks[q].text == ":"
+                                and d == 0
+                            ):
+                                if toks[q].kind == "punct":
+                                    if toks[q].text in "[{(":
+                                        d += 1
+                                    elif toks[q].text in "]})":
+                                        d -= 1
+                                q += 1
+                        if (
+                            q < len(toks)
+                            and toks[q].kind == "punct"
+                            and toks[q].text == ":"
+                        ):
+                            pairs += 1
+                            p = q + 1
+                            if pairs > 2:
+                                break
+                            continue
+                    break
+                if 1 <= pairs <= 2 and p < len(toks):
+                    if toks[p].text == "{":
+                        return p
+                    if toks[p].text == ")":
+                        j = p + 1
+                        continue
+                return None
             if t.text == ")":
                 j += 1
                 continue
-            if t.text in (";", ",", "]", "("):
+            if t.text in (";", ",", "]"):
                 return None
         elif t.kind == "id":
             if t.text != "override":
@@ -819,6 +1298,32 @@ def _call_attrset(toks: list[_Tok], close: dict[int, int], idx: int) -> int | No
             return None
         j += 1
     return None
+
+
+def _call_merge_attrsets(toks: list[_Tok], open_idx: int) -> list[int]:
+    """Sister attrsets of a parenthesized `//` merge call argument:
+    `buildGoModule ({ ... } // { ... })` - each part is checked."""
+    out: list[int] = []
+    d = 1  # the first attrset's own brace
+    i = open_idx + 1
+    n = len(toks)
+    while i < n:
+        t = toks[i]
+        if t.kind == "punct":
+            if t.text in "[{(":
+                d += 1
+            elif t.text in "]})":
+                d -= 1
+                if d < 0:
+                    break  # the enclosing paren closed
+            elif t.text == "/" and d == 0 and i + 1 < n and toks[i + 1].text == "/":
+                j = i + 2
+                if j < n and toks[j].text == "{":
+                    out.append(j)
+                    i = j
+                    d = 1
+        i += 1
+    return out
 
 
 def _is_builder_ref(val: list[_Tok], builder_id: str) -> bool:
@@ -962,23 +1467,30 @@ def _check_named_attrs(
     rel: str,
     ctx: str,
 ) -> list[str]:
-    """Check the direct-string values of named attrs of the call attrset."""
+    """Grade the named attrs of the call attrset: a lone string literal is
+    checked statement by statement, any other non-data value is red."""
     closed = close[open_idx]
     out: list[str] = []
     for name, v0, v1 in _top_assignments(toks, open_idx, closed):
-        if name in attr_names and _is_direct_str(toks, v0, v1):
-            out.extend(_check_shell(toks[v0].text, toks[v0].start, text, rel, ctx))
+        if name in attr_names:
+            out.extend(_checked_attr_violation(toks, v0, v1, name, text, rel, ctx))
     return out
 
 
 def _check_go_module(
-    toks: list[_Tok], close: dict[int, int], open_idx: int, text: str, rel: str
+    toks: list[_Tok],
+    close: dict[int, int],
+    open_idx: int,
+    text: str,
+    rel: str,
+    path: pathlib.Path | None = None,
 ) -> list[str]:
     """Grade the vendor FOD of a buildGoModule call with vendorHash != null.
 
     The FOD's executed shell is the inherited attrs plus the mod*Phase,
     with overrideModAttrs applied on top: an override wins for a shared
-    attr, and any other override becomes a FOD attr.
+    attr, and any other override becomes a FOD attr. `nativeBuildInputs`
+    is graded by the setup-hook rule.
     """
     closed = close[open_idx]
     out: list[str] = []
@@ -990,9 +1502,17 @@ def _check_go_module(
     if vendor is not None and [t.text for t in toks[vendor[0] : vendor[1]]] == ["null"]:
         return out
     overrides = _mod_overrides(toks, close, open_idx, closed)
+    bindings = _file_bindings(toks)
     ctx = "buildGoModule vendor FOD: "
     for name in list(names) + list(overrides):
         if name in _INERT_ATTRS:
+            continue
+        if name == "nativeBuildInputs" and name in names:
+            out.extend(
+                _check_setup_hooks(
+                    toks, names[name][0], names[name][1], text, rel, path, bindings
+                )
+            )
             continue
         in_fod_set = name in _GO_MOD_FOD_ATTRS or _MOD_PHASE.match(name)
         if in_fod_set:
@@ -1003,14 +1523,27 @@ def _check_go_module(
             continue
         if rng is None:
             continue
-        v0, v1 = rng
-        if _is_direct_str(toks, v0, v1):
-            out.extend(_check_shell(toks[v0].text, toks[v0].start, text, rel, ctx))
+        out.extend(_checked_attr_violation(toks, rng[0], rng[1], name, text, rel, ctx))
+    for pos, inh_names in _top_inherits(toks, open_idx, closed):
+        for n in inh_names:
+            if n in _INERT_ATTRS or n in overrides:
+                continue
+            if not (n in _GO_MOD_FOD_ATTRS or _MOD_PHASE.match(n)):
+                continue
+            line = text.count("\n", 0, toks[pos].start) + 1
+            out.append(
+                f"{rel}:{line}: {ctx}`inherit ... {n}` - inherited value is not "
+                "gradable; inline the phase so it can be graded"
+            )
     return out
 
 
 def _check_builder_calls(
-    toks: list[_Tok], close: dict[int, int], text: str, rel: str
+    toks: list[_Tok],
+    close: dict[int, int],
+    text: str,
+    rel: str,
+    path: pathlib.Path | None = None,
 ) -> list[str]:
     out: list[str] = []
     aliases = _builder_aliases(toks)
@@ -1023,19 +1556,21 @@ def _check_builder_calls(
         open_idx = _call_attrset(toks, close, idx)
         if open_idx is None or open_idx not in close:
             continue
+        opens = [open_idx] + _call_merge_attrsets(toks, open_idx)
         line = text.count("\n", 0, t.start) + 1
         if kind is None:
-            out.extend(
-                _check_named_attrs(
-                    toks,
-                    close,
-                    open_idx,
-                    _FETCHER_SHELL_ATTRS,
-                    text,
-                    rel,
-                    "fetcher FOD: ",
+            for o in opens:
+                out.extend(
+                    _check_named_attrs(
+                        toks,
+                        close,
+                        o,
+                        _FETCHER_SHELL_ATTRS,
+                        text,
+                        rel,
+                        "fetcher FOD: ",
+                    )
                 )
-            )
         elif kind == "mix-deps":
             out.append(
                 f"{rel}:{line}: fetchMixDeps is a builder FOD - its build "
@@ -1043,33 +1578,38 @@ def _check_builder_calls(
                 "fetch each dependency with a no-execute fetcher instead"
             )
         elif kind == "go-module":
-            out.extend(_check_go_module(toks, close, open_idx, text, rel))
+            for o in opens:
+                out.extend(_check_go_module(toks, close, o, text, rel, path))
         elif kind == "npm-package":
-            out.extend(
-                _check_named_attrs(
-                    toks,
-                    close,
-                    open_idx,
-                    _NPM_FOD_ATTRS,
-                    text,
-                    rel,
-                    "buildNpmPackage deps FOD: ",
+            for o in opens:
+                out.extend(
+                    _check_named_attrs(
+                        toks,
+                        close,
+                        o,
+                        _NPM_FOD_ATTRS,
+                        text,
+                        rel,
+                        "buildNpmPackage deps FOD: ",
+                    )
                 )
-            )
         elif kind == "all-strings":
-            out.extend(_check_fod(toks, close, open_idx, text, rel))
+            for o in opens:
+                out.extend(_check_fod(toks, close, o, text, rel, path))
     return out
 
 
-def _check_text(text: str, rel: str = "x.nix") -> list[str]:
+def _check_text(
+    text: str, rel: str = "x.nix", path: pathlib.Path | None = None
+) -> list[str]:
     toks = _tokenize(text)
     close = _brace_map(toks)
     out: list[str] = []
     for start in _fod_starts(toks):
-        out.extend(_check_fod(toks, close, start, text, rel))
+        out.extend(_check_fod(toks, close, start, text, rel, path))
     for m in _command_arg_positions(toks, close):
         out.extend(_check_shell(toks[m].text, toks[m].start, text, rel))
-    out.extend(_check_builder_calls(toks, close, text, rel))
+    out.extend(_check_builder_calls(toks, close, text, rel, path))
     return out
 
 
@@ -1082,7 +1622,7 @@ def check(root: pathlib.Path) -> list[str]:
         if parts[:2] == _ASPECT_DIR or ".git" in parts:
             continue
         text = p.read_text(encoding="utf-8", errors="replace")
-        out.extend(_check_text(text, str(p.relative_to(root))))
+        out.extend(_check_text(text, str(p.relative_to(root)), p))
     return out
 
 
@@ -1821,3 +2361,280 @@ def test_let_bound_fod_is_checked():
 
 def test_builder_alias_wrapper_is_not_a_fod():
     assert not _check_text(_BUILDER_ALIAS_WRAPPER)
+
+
+_GOMOD_FINALATTRS = """
+pkgs.buildGoModule (finalAttrs: {
+  pname = "x";
+  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  preBuild = ''
+    make gen
+  '';
+})
+"""
+
+_NPM_FINALATTRS = """
+pkgs.buildNpmPackage (finalAttrs: {
+  pname = "x";
+  npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  prePatch = ''
+    make assets
+  '';
+})
+"""
+
+_FETCHPNPM_FINALATTRS = """
+pkgs.fetchPnpmDeps (finalAttrs: {
+  pname = "x";
+  hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  prePnpmInstall = ''
+    make prep
+  '';
+})
+"""
+
+_FOD_LET_BOUND_PHASE = """
+let
+  buildCmd = ''
+    make all
+  '';
+in
+pkgs.stdenv.mkDerivation {
+  pname = "x";
+  buildPhase = buildCmd;
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_FOD_CONCAT = """
+pkgs.stdenv.mkDerivation {
+  pname = "x";
+  buildPhase = ''
+    echo start
+  '' + ''
+    make all
+  '';
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_FOD_OPTIONAL_STRING = """
+pkgs.stdenv.mkDerivation {
+  pname = "x";
+  buildPhase = lib.optionalString cond "make all";
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+}
+"""
+
+_GOMOD_LET_BOUND = """
+let
+  gen = ''
+    go generate ./...
+  '';
+in
+pkgs.buildGoModule {
+  pname = "x";
+  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  preBuild = gen;
+}
+"""
+
+_GOMOD_LET_BOUND_CLEARED = """
+let
+  gen = ''
+    go generate ./...
+  '';
+in
+pkgs.buildGoModule {
+  pname = "x";
+  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  preBuild = gen;
+  overrideModAttrs.preBuild = "";
+}
+"""
+
+_FOD_INHERIT_CHECKED = """
+pkgs.stdenv.mkDerivation {
+  pname = "x";
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  inherit (attrs) buildPhase;
+}
+"""
+
+_RUNCMD_OVERRIDEATTRS = """
+let
+  drv = pkgs.stdenv.mkDerivation {
+    pname = "x";
+    buildPhase = ''
+      echo start
+    '';
+  };
+in
+drv.overrideAttrs (o: {
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  buildPhase = ''
+    make all
+  '';
+})
+"""
+
+_HOOK_INLINE_GUARDED = """
+pkgs.buildGoModule {
+  pname = "x";
+  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  nativeBuildInputs = [
+    (pkgs.makeSetupHook { name = "ok"; } (pkgs.writeShellScript "ok" ''
+      okHook() {
+        cp -r ${client} vendor/api
+      }
+      if [ -z ''${outputHash-} ]; then
+        postConfigureHooks+=(okHook)
+      fi
+    ''))
+  ];
+}
+"""
+
+_HOOK_INLINE_UNGUARDED = """
+pkgs.buildGoModule {
+  pname = "x";
+  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  nativeBuildInputs = [
+    (pkgs.makeSetupHook { name = "evil"; } (pkgs.writeShellScript "evil" ''
+      postConfigureHooks+=(evilHook)
+    ''))
+  ];
+}
+"""
+
+_HOOK_UNRESOLVED = """
+pkgs.buildGoModule {
+  pname = "x";
+  vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  nativeBuildInputs = [ undefinedHook ];
+}
+"""
+
+_HOOK_WITH_PKGS = """
+pkgs.stdenvNoCC.mkDerivation {
+  pname = "x";
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  nativeBuildInputs = with pkgs; [
+    nodejs
+    cacert
+  ];
+  buildPhase = ''
+    npm ci --ignore-scripts
+  '';
+}
+"""
+
+_FETCHER_POSTFETCH_NONLITERAL = """
+pkgs.fetchurl {
+  url = "https://example.com/a";
+  hash = "sha256-A";
+  postFetch = cmd;
+}
+"""
+
+_FETCHPNPM_PNPM_REF = """
+pkgs.fetchPnpmDeps {
+  pname = "x";
+  hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  pnpm = pkgs.pnpm_10;
+  fetcherVersion = 3;
+}
+"""
+
+_FOD_ATTRSET_VALUE = """
+pkgs.stdenv.mkDerivation {
+  pname = "x";
+  outputHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  env = {
+    CGO_ENABLED = 0;
+  };
+  buildPhase = ''
+    echo ok
+  '';
+}
+"""
+
+
+def test_gomod_finalattrs_form_is_checked():
+    v = _check_text(_GOMOD_FINALATTRS)
+    assert v and "make" in " ".join(v)
+
+
+def test_npm_finalattrs_form_is_checked():
+    v = _check_text(_NPM_FINALATTRS)
+    assert v and "make" in " ".join(v)
+
+
+def test_fetchpnpm_finalattrs_form_is_checked():
+    v = _check_text(_FETCHPNPM_FINALATTRS)
+    assert v and "make" in " ".join(v)
+
+
+def test_let_bound_phase_is_not_gradable():
+    v = _check_text(_FOD_LET_BOUND_PHASE)
+    assert v and "inline the phase" in " ".join(v)
+
+
+def test_concatenated_phase_is_not_gradable():
+    v = _check_text(_FOD_CONCAT)
+    assert v and "inline the phase" in " ".join(v)
+
+
+def test_optional_string_phase_is_not_gradable():
+    v = _check_text(_FOD_OPTIONAL_STRING)
+    assert v and "inline the phase" in " ".join(v)
+
+
+def test_gomod_inherited_let_bound_is_not_gradable():
+    v = _check_text(_GOMOD_LET_BOUND)
+    assert v and "inline the phase" in " ".join(v)
+
+
+def test_gomod_inherited_let_bound_cleared_stays_green():
+    assert not _check_text(_GOMOD_LET_BOUND_CLEARED)
+
+
+def test_inherit_of_checked_attr_is_not_gradable():
+    v = _check_text(_FOD_INHERIT_CHECKED)
+    assert v and "inline the phase" in " ".join(v)
+
+
+def test_override_attrs_fod_is_checked():
+    v = _check_text(_RUNCMD_OVERRIDEATTRS)
+    assert v and "make" in " ".join(v)
+
+
+def test_inline_make_setup_hook_guarded_is_allowed():
+    assert not _check_text(_HOOK_INLINE_GUARDED)
+
+
+def test_inline_make_setup_hook_unguarded_is_a_violation():
+    v = _check_text(_HOOK_INLINE_UNGUARDED)
+    assert v and "FOD guard" in " ".join(v)
+
+
+def test_unresolvable_setup_hook_is_a_violation():
+    v = _check_text(_HOOK_UNRESOLVED)
+    assert v and "cannot verify" in " ".join(v)
+
+
+def test_with_pkgs_native_build_inputs_are_inert():
+    assert not _check_text(_HOOK_WITH_PKGS)
+
+
+def test_fetcher_postfetch_nonliteral_is_not_gradable():
+    v = _check_text(_FETCHER_POSTFETCH_NONLITERAL)
+    assert v and "inline the phase" in " ".join(v)
+
+
+def test_pnpm_package_ref_in_dep_call_is_inert():
+    assert not _check_text(_FETCHPNPM_PNPM_REF)
+
+
+def test_attrset_value_in_checked_attr_is_data():
+    assert not _check_text(_FOD_ATTRSET_VALUE)

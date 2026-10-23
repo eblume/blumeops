@@ -41,20 +41,33 @@ graded:
    assigns `outputHash*` or `fixedOutput = true` (directly or via
    `inherit`), or a
    `runCommand`/`callCommand`/`execBuilder` (and the `runCommandCC`,
-   `runCommandLocal`, `runCommandNoCC` variants) whose attrset does. An
-   attrset nested as an attr value (`args = { outputHash = ...; }`) is
-   data, not a FOD. The
-   check is fail-closed over names: every attr whose value is a direct
-   string literal is checked statement by statement, except a short
-   allowlist of attrs that hold inert strings (`pname`, `version`,
-   `outputHash*`, `sourceRoot`, `vendorHash`, ...). `builder` must be
-   `null` or a fetcher primitive. A string element of a `phases` /
-   `*Phases` list is an inline phase body and is checked too (bare phase
-   names are not).
+   `runCommandLocal`, `runCommandNoCC` variants) whose attrset does —
+   including the lambda forms (`mkDerivation (finalAttrs: { ... })`,
+   `drv.overrideAttrs (o: { ... })`). An attrset nested as an attr value
+   (`args = { outputHash = ...; }`) is data, not a FOD. The check is
+   fail-closed over names and values:
+   - every attr except a short allowlist of attrs that hold inert strings
+     (`pname`, `version`, `outputHash*`, `sourceRoot`, `vendorHash`, ...)
+     is graded;
+   - a value that is a lone string literal is checked statement by
+     statement;
+   - a value that assembles a script from anything else — a let-bound
+     identifier (`buildPhase = cmd`), a concatenation, a function call
+     (`lib.optionalString ...`), an `inherit` of the attr — is red with
+     "inline the phase so it can be graded";
+   - a value that is pure Nix data — a number, `true`/`false`/`null`, a
+     list, an attrset, a dotted reference (`pkgs.pnpm_10`) — is not shell
+     and is green;
+   - `builder` must be `null` or a fetcher primitive;
+   - a string element of a `phases` / `*Phases` list is an inline phase
+     body and is checked too (bare phase names are not);
+   - `nativeBuildInputs` is graded by the setup-hook rule below.
 
 2. **FODs nixpkgs builders create** — the call is not a FOD in source
-   (no `outputHash`), but the builder derives one internally. Verified
-   against `pkgs/build-support/go/module.nix` and
+   (no `outputHash`), but the builder derives one internally. The call in
+   plain attrset form and the `(finalAttrs: { ... })` lambda form (the
+   current nixpkgs idiom, including after a `.override { ... }`) are both
+   seen. Verified against `pkgs/build-support/go/module.nix` and
    `pkgs/build-support/node/{build-npm-package,prefetch-npm-deps,fetch-pnpm-deps}`
    at the ringtail nixpkgs rev (see `nixos/ringtail/flake.lock`); re-verify
    when the pin moves:
@@ -63,26 +76,42 @@ graded:
      `preConfigure`/`postConfigure`, `preBuild`, `modPostBuild`,
      `preInstall`/`postInstall`; its phases are `mod*Phase`; and
      `overrideModAttrs` is applied on top — an override wins for a shared
-     attr, and any other override becomes a FOD attr. `vendorHash = null`
-     means no FOD.
+     attr (so `overrideModAttrs.preBuild = "";` clears the inherited hook
+     out of the FOD), and any other override becomes a FOD attr. The
+     inherited attrs and overrides are graded by the same value rule as a
+     plain FOD. The call's `nativeBuildInputs` are graded by the
+     setup-hook rule. `vendorHash = null` means no FOD.
    - `buildNpmPackage { ... }`: the deps FOD inherits `prePatch`/
-     `postPatch` (and `prePnpmInstall` where pnpm deps are used).
+     `postPatch` (and `prePnpmInstall` where pnpm deps are used) — graded
+     by the same value rule.
    - `fetchPnpmDeps { ... }` / `fetchNpmDeps { ... }`: the call's attrs
      are spliced into the FOD wholesale — checked like a plain FOD.
    - Any fetcher call: only `preFetch`/`postFetch` run shell in the FOD,
-     and they are checked.
+     and they are checked (value rule included).
    - `fetchMixDeps`: any call is red — it has no no-execute mode.
 
-**Coverage caveat.** Only inline string values are checked: a phase string
-assembled in a `let` binding (`buildPhase = cmd`) or spliced in from one is
-not seen; list-valued attrs (`patches`, `ldflags`, `pnpmInstallFlags`, ...)
-are not seen; `nativeBuildInputs` setup-hook bodies are not seen (a FOD's
-setup hooks do fire — keep a FOD's `nativeBuildInputs` to no-execute
-packages, and guard hooks like `api-go-vendor-hook.nix` on
-`${outputHash-}` so they register only in the non-FOD build); a builder
-reached through a `let` alias is recognized only when the binding is a
-direct reference — `name = pkgs.buildGoModule.override { ... };` — not a
-wrapper function.
+**Setup-hook rule.** A FOD's setup hooks do fire, so a FOD's
+`nativeBuildInputs` (and a `buildGoModule` vendor FOD's) are graded, with
+no exception list:
+
+- plain nixpkgs package references are inert — `pkgs.foo`,
+  `pkgs.go_1_26`, and bare names in `with pkgs; [ ... ]` are nix-built,
+  not downloaded;
+- anything else is red (a `makeSetupHook` call, a let-bound hook, a local
+  import, an unresolvable name), *unless* it resolves to a local
+  `makeSetupHook` file whose script registers its hooks only under
+  `if [ -z ${outputHash-} ]` — exactly the
+  `containers/authentik/api-go-vendor-hook.nix` shape, which passes on its
+  merits, not its name. A hook script that also registers outside the
+  guard is red.
+
+**Coverage caveat.** List-valued attrs (`patches`, `ldflags`,
+`pnpmInstallFlags`, ...) are not seen; a builder reached through a `let`
+alias is recognized only when the binding is a direct reference —
+`name = pkgs.buildGoModule.override { ... };` — not a wrapper function; a
+nixpkgs builder not modelled above (`buildRustPackage`/`fetchCargoVendor`,
+`fetchYarnDeps`, gradle/maven deps fetches) is not seen — a new builder
+needs this aspect extended before it is used.
 
 **State of main.** The in-tree FODs are exactly the allowlisted shapes:
 the plain-FOD ones are `containers/authentik/webui-deps.nix`
