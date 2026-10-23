@@ -196,12 +196,13 @@ def _ts_code_portion(line: str) -> tuple[str, bool, bool]:
     first // or opens a carried block comment at the first /* outside a
     string or template literal; comment text is dropped from the scannable
     portion. A regex literal at a start position is skipped for state
-    tracking and its body dropped from the scannable portion: a backtick
-    in the pattern (talos src/error-death.ts runs .replace(/`/g, ""))
-    would otherwise desync template tracking for the rest of the file.
-    The third element is the walker's in_tpl value at the return point:
-    backticks inside quoted strings, dropped comments or dropped regex
-    bodies never toggle it."""
+    tracking — a backtick in the pattern (talos src/error-death.ts runs
+    .replace(/`/g, "")) would otherwise desync template tracking for the
+    rest of the file — but its body stays in the scannable portion, since
+    a pattern that embeds an instance value still ships one, as in the
+    per-repo linters that scan regex literals. The third element is the
+    walker's in_tpl value at the return point: backticks inside quoted
+    strings, comments or regex bodies never toggle it."""
     out: list[str] = []
     last = i = 0
     n = len(line)
@@ -246,8 +247,9 @@ def _ts_code_portion(line: str) -> tuple[str, bool, bool]:
             if j == -1:
                 # No closer on the line: an unterminated regex is invalid,
                 # and a division can't end a line either, so the rest is
-                # pattern text, not code.
-                return "".join(out), False, in_tpl
+                # pattern text, not code — but pattern text stays scannable.
+                return "".join(out) + line[i:], False, in_tpl
+            out.append(line[i : j + 1])
             last = i = j + 1
             continue
         i += 1
@@ -436,12 +438,38 @@ def test_regex_quote_then_trailing_comment_is_exempt(
 
 
 def test_regex_keeps_prefix_code_scannable(tmp_path: pathlib.Path) -> None:
-    # Dropping the regex body must not drop the code before it on the
-    # line: the banned string value is still flagged.
+    # Skipping the regex for state tracking must not drop the code before
+    # it on the line: the banned string value is still flagged.
     p = tmp_path / "src"
     p.mkdir()
     (p / "v.ts").write_text(
         'const owner = "eblume", re = /x/;\nexport { owner, re };\n'
+    )
+    assert len(check(tmp_path)) == 1
+
+
+def test_regex_body_stays_scannable(tmp_path: pathlib.Path) -> None:
+    # A pattern that embeds an instance value still ships one: the body
+    # is skipped for state tracking but scanned, matching the per-repo
+    # linters that flag regex literals.
+    p = tmp_path / "src"
+    p.mkdir()
+    (p / "r.ts").write_text(
+        r"const ISSUE = /eblume\/talos#\d+/;"
+        "export { ISSUE };\n"
+    )
+    assert len(check(tmp_path)) == 1
+
+
+def test_regex_unterminated_rest_stays_scannable(tmp_path: pathlib.Path) -> None:
+    # A division whose right operand has no slash left on the line is read
+    # as an unterminated pattern; the rest stays scannable, so a banned
+    # value on it is flagged instead of dropped with the pattern text.
+    p = tmp_path / "src"
+    p.mkdir()
+    (p / "m.ts").write_text(
+        'const q = (b) / c; const note = "ask eblume about this";\n'
+        "export { q, note };\n"
     )
     assert len(check(tmp_path)) == 1
 
