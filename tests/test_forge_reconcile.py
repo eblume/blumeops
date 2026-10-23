@@ -481,6 +481,12 @@ class FakeForge:
                     return httpx.Response(204)
                 return httpx.Response(200, json=hook)
             if tail == ["forks"] and request.method == "POST":
+                # The real API needs a JSON body — a bodiless POST is a 422
+                # (Forgejo); httpx json={} sends b"{}", a bodiless request b"".
+                try:
+                    json.loads(request.content or b"")
+                except ValueError:
+                    return httpx.Response(422, json={"message": "invalid request body"})
                 # Forgejo creates the fork in the RUNNING token's user's
                 # namespace; a fork that already exists there is a 409.
                 user = self._token_user(request)
@@ -3284,10 +3290,14 @@ def test_pr_check_secret_names_unexpected_live_fails(
 # --- PR-check semantics (same-repo PRs only) ---------------------------------
 
 
-def _base_state(monkeypatch, repos, protections=(), secrets=None, tag_protections=()):
+def _base_state(
+    monkeypatch, repos, protections=(), secrets=None, tag_protections=(), excluded=()
+):
     """Point the base-state readers the --pr-base-ref path uses at these."""
     monkeypatch.setattr(
-        ara, "read_policies_at", lambda ref: ara._policies_dict({"repos": repos})
+        ara,
+        "read_policies_at",
+        lambda ref: ara._policies_dict({"repos": repos, "excluded": excluded}),
     )
     monkeypatch.setattr(ara, "read_protections_at", lambda ref: list(protections))
     monkeypatch.setattr(
@@ -3631,6 +3641,34 @@ def test_fork_create_without_fork_token_fails(policy, run_main, monkeypatch):
     assert "talos/svc" not in forge.forks
 
 
+def test_fake_forge_fork_create_requires_body():
+    # FakeForge models the real Forgejo API: the fork-create POST needs a JSON
+    # body — a bodiless POST is a 422, a POST with b"{}" is a 202 that lands
+    # the fork in the token user's namespace. The apply tests above therefore
+    # transitively prove the script sends json={}.
+    forge = FakeForge()
+    forge.repos = ["svc"]
+    forge.token_users = {"t": "eblume", "t-talos": "talos"}
+    url = "https://forge.ops.eblu.me/api/v1/repos/eblume/svc/forks"
+
+    no_body = forge.handler(
+        httpx.Request("POST", url, headers={"Authorization": "token t"})
+    )
+    assert no_body.status_code == 422
+    assert no_body.json() == {"message": "invalid request body"}
+
+    with_body = forge.handler(
+        httpx.Request(
+            "POST",
+            url,
+            headers={"Authorization": "token t-talos"},
+            content=b"{}",
+        )
+    )
+    assert with_body.status_code == 202
+    assert forge.forks["talos/svc"]["parent"] == {"full_name": "eblume/svc"}
+
+
 def test_fork_stale_check_then_sync(policy, run_main, monkeypatch):
     # A fork whose default-branch HEAD is behind the parent's: --check
     # reports the sync; apply with the collaborator fork token POSTs /sync_fork,
@@ -3768,18 +3806,46 @@ def test_fork_unlisted_apply_warns_continues(policy, run_main, monkeypatch):
     assert "Applied 0 change(s)." in out
 
 
-def test_pr_check_stale_fork_on_managed_base_unexpected(
-    policy, run_main, monkeypatch, tmp_path
-):
+def test_pr_check_stale_fork_is_note_not_drift(policy, run_main, monkeypatch, tmp_path):
     # Base already managed, fork stale on the live forge, PR leaves the repo's
-    # managed status unchanged: the base plan's sync is unexpected drift — a
-    # merged change awaiting a human apply, or genuine drift — and fails.
+    # managed status unchanged: the base plan's sync is NOT drift — a fork
+    # lagging its parent's main (which moves constantly) is a non-failing note,
+    # fixed by the --fork-token reconcile run. The report still carries the
+    # note so the PR comment surfaces the maintenance nudge even on green.
     policy([_managed_repo("svc")], excluded=["release-kit"])  # head managed too
     forge = FakeForge()
     forge.repos = ["svc", "release-kit"]
     forge.permission = {"svc": "read"}
     forge.hooks = {"svc": [_talos_hook(1)]}
     _seed_fork(forge, "svc", "old", parent_sha="new")
+    forge.install(monkeypatch)
+    _base_state(monkeypatch, [_managed_repo("svc")], excluded=["release-kit"])
+
+    report = tmp_path / "notice.md"
+    code, out = run_main(
+        check=True, token="t", pr_base_ref="main", report_file=str(report)
+    )
+    assert code == 0, out
+    assert "UNEXPECTED drift" not in out
+    assert "1 fork(s) lag their parent's main (talos/svc)" in out
+    assert "PR check: in sync - the fork-lag note above is not drift" in out
+    body = report.read_text()
+    assert "### Note - fork sync" in body
+    assert "talos/svc lags its parent's main" in body
+
+
+def test_pr_check_missing_fork_on_managed_base_unexpected(
+    policy, run_main, monkeypatch, tmp_path
+):
+    # Fork EXISTENCE is still drift in PR mode: base managed with no
+    # talos/<repo> fork on the live forge, PR leaves the repo's managed status
+    # unchanged — the base plan's create fails the check. Only a stale fork is
+    # a note; a missing fork stays unexpected like the weekly --check.
+    policy([_managed_repo("svc")], excluded=["release-kit"])  # head managed too
+    forge = FakeForge()
+    forge.repos = ["svc", "release-kit"]
+    forge.permission = {"svc": "read"}
+    forge.hooks = {"svc": [_talos_hook(1)]}
     forge.install(monkeypatch)
     _base_state(monkeypatch, [_managed_repo("svc")])
 
@@ -3789,7 +3855,8 @@ def test_pr_check_stale_fork_on_managed_base_unexpected(
     )
     assert code == 1, out
     assert "UNEXPECTED drift" in out
-    assert "sync fork talos/svc" in out
+    assert "create fork talos/svc" in out
+    assert "fork(s) lag" not in out
 
 
 def test_pr_check_unlisted_head_fails(policy, run_main, monkeypatch, tmp_path):
