@@ -67,8 +67,9 @@ FODs only download) live in review today and fail silently.
   parametrizes aspects × target repo, and the red-fixture meta-test.
 - Pilots, each with red and green fixtures: `no-new-ansible` (ratchet over
   any new file under `ansible/`; baseline = today),
-  `instance-config-out-of-components` (invariant over talos/horkos `src/`
-  and prompt strings), `fod-only-downloads` (invariant).
+  `instance-config-out-of-components` (invariant over talos/horkos component
+  dirs — `src/`, `prompts/`, `app/` — and prompt strings), `fod-only-downloads`
+  (invariant).
 - `mise run aspects [--repo PATH]` runs the suite locally; a blumeops PR job
   runs it against blumeops itself on `indri-build`.
 - Budgets enforced (10 s/test, 2 min/repo).
